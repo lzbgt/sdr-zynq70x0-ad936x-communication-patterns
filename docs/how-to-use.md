@@ -5,13 +5,14 @@ target. The stable path from WSL is IP-based IIO over USB RNDIS.
 
 ## Basic Boot
 
-1. Set the boot switch to QSPI/SD mode.
-2. If an SD card is inserted, the board can auto-boot from SD. Without an SD
+1. The current verified board is booting from QSPI flash.
+2. For normal use, set the boot switch to QSPI/SD mode.
+3. If an SD card is inserted, the board can auto-boot from SD. Without an SD
    card, it boots QSPI.
-3. Connect the board USB port to the host.
-4. Wait for power, done, and user activity LEDs.
-5. Verify Windows shows a `PlutoSDR USB Ethernet/RNDIS Gadget`.
-6. Verify WSL can ping `192.168.2.1`.
+4. Connect the board USB port to the host.
+5. Wait for power, done, and user activity LEDs.
+6. Verify Windows shows a `PlutoSDR USB Ethernet/RNDIS Gadget`.
+7. Verify WSL can ping `192.168.2.1`.
 
 ## WSL Verification
 

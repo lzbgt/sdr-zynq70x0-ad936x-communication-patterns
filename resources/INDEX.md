@@ -9,12 +9,13 @@ research, verification, and repeatable board work.
 - `board/SDR-Z203原理图.pdf` - board schematic.
 - `board/EXT_IO定义.xlsx` - external IO pin definitions.
 - `board/AD9361.pdf` - AD9361 datasheet, included because live firmware reports
-  AD9361 mode.
+  AD9361-mode driver/core identity.
 - `board/AD9361_Reference_Manual_UG-570.pdf` - AD9361 reference manual.
 - `board/AD9361_Register_Map_Reference_Manual_UG-671.pdf` - AD9361 register map.
 - `board/AD9361BISTFAQ.pdf` - AD9361 BIST notes.
 - `board/AD9363-Reference-Manual-UG-1040.pdf` - AD9363 reference manual,
-  included because board config reports AD9363.
+  included because the physical RFIC is user-confirmed AD9363 and board config
+  reports AD9363.
 - `board/AD9363-Register-Map-Reference-Manual-UG-1057.pdf` - AD9363 register
   map.
 - `board/zynq-7000-product-selection-guide.pdf` - Zynq family reference.
@@ -44,6 +45,12 @@ multi-gigabyte Pluto source archives are not copied.
 
 - `vendor-notes/SDR-Z203快速测试指南.pdf` - main quick test.
 - `vendor-notes/SDR-Z203 FLASH固件烧录指南.pdf` - QSPI/JTAG/DFU flashing flow.
+- `vendor-notes/pluto移植指南.pdf` - Pluto-compatible full firmware build flow.
+- `vendor-notes/虚拟机Ubuntu安装Vivado指南.pdf` - Vivado setup notes.
+- `vendor-notes/SDR-Z203 no-OS快速测试指南.pdf` - ADI HDL/no-OS JTAG test flow.
+- `vendor-notes/openwifi移植指南.pdf` - openwifi source porting flow.
+- `vendor-notes/SDR-Z203 BIST快速测试指南.pdf` - AD936x BIST example flow.
+- `vendor-notes/SDR-Z203 awgn快速测试指南.pdf` - AWGN FPGA example flow.
 - `vendor-notes/SDR-Z203 GNURadio快速测试指南.pdf` - GNU Radio quick test.
 - `vendor-notes/SDR-Z203 matlab快速测试指南.pdf` - MATLAB quick test.
 - `vendor-notes/openwifi_z203启动镜像快速测试指南.pdf` - openwifi SD image

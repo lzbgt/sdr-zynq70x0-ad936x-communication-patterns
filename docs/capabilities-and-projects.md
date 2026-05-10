@@ -91,11 +91,25 @@ Available from vendor resources but not yet bench-verified here:
   the board or attached RF frontend may actually support.
 - Observe local RF regulations for any over-the-air transmission.
 
-## Open Questions
+## Resolved Board Facts
 
-- Is the physical RFIC AD9363, AD9361, or an AD9363 board running AD9361-mode
-  firmware?
-- Which boot mode is active right now: QSPI 1R1T, QSPI 2R2T, SD 1R1T, or SD 2R2T?
-- Are both RX and both TX RF connectors fully populated and routed?
-- Which external reference clock options are actually assembled?
+- Physical RFIC is AD9363, confirmed by the user.
+- Current SDR-Z203 board is 2R2T, confirmed by the user and consistent with
+  active IIO `adi,2rx-2tx-mode-enable = 1`.
+- Current boot mode is QSPI flash, confirmed by the user.
+- SDR-Z203 schematic text shows four RF SMA ports: J1/RX1, J2/RX2, J3/TX1, and
+  J4/TX2.
+- SDR-Z203 schematic text shows GPS MAX-M10S with `GPS_PPS`, an external PPS
+  MMCX input buffered to `EXT_PPS`, and a DAC-controlled 40 MHz VCTCXO feeding
+  `AD9361_REF`.
+
+## Remaining Questions
+
+- Which exact copied QSPI 2R2T firmware files match the image currently in
+  flash?
+- What do the serial boot logs report for board ID, RFIC mode, devicetree, and
+  boot source?
+- What exact attenuation and cabling should be standardized for loopback tests?
+- Does SDR-Z201 have a separate schematic/resource bundle, or should it be
+  captured from hardware first?
 - What exact attenuation and cabling should be standardized for loopback tests?

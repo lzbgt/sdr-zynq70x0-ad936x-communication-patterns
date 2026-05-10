@@ -14,6 +14,10 @@ The board is a Zynq-7000 plus AD936x software-defined radio platform. In the
 current verified boot state it presents itself as a PlutoSDR-compatible device
 over USB Ethernet and IIO.
 
+The SDR-Z203 board in this repo is the Zynq-7020, AD9363, 2R2T variant. A
+related SDR-Z201 board exists with Zynq-7010, AD9363, and 1R1T topology; it is
+similar but must use separate resources and build artifacts.
+
 ## Current Verified State
 
 Verification date: 2026-05-11, under WSL Arch Linux on the host PC.
@@ -48,20 +52,28 @@ Board-side facts from live captures:
 - DMA sample-rate choices exposed by the active HDL path: `30.72 MSPS` and
   `3.84 MSPS`.
 - Debug attribute `adi,2rx-2tx-mode-enable` is `1` in the active IIO context.
+- User-confirmed physical RFIC/topology: AD9363, 2R2T.
+- User-confirmed current boot mode: QSPI flash.
 
-The AD9363 vs AD9361 identity mismatch is real in the captured evidence. Treat
-the live IIO context as the truth for the running firmware, and treat the
-removable-drive config line as board/vendor configuration metadata until
-firmware mode and RF part population are confirmed by schematic and boot logs.
+The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
+a current physical RFIC uncertainty. Treat the live IIO context as the truth for
+the running firmware API, and treat AD9363 as the physical RFIC confirmed by the
+user and vendor configuration.
 
 ## Repository Map
 
 - `docs/verification.md` - commands used to verify the board and current
   evidence.
 - `docs/how-to-use.md` - practical host setup and usage flows.
+- `docs/source-build-from-scratch.md` - how to build/customize FPGA firmware,
+  ARM Linux/rootfs, and applications from source-oriented trees.
+- `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, GPS/PPS,
+  VCTCXO, Zynq, and boot-mode wiring.
 - `docs/capabilities-and-projects.md` - capability summary and project ideas.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
+- `docs/board-variants.md` - rules for keeping the Z7020 2R2T board separate
+  from the related SDR-Z201 Z7010+AD9363 1R1T board.
 - `docs/example-projects.md` - concrete example projects and staged next work.
 - `resources/` - curated copied artifacts from the vendor package and live
   host captures.
@@ -117,9 +129,11 @@ Expected result in the current Pluto-compatible firmware state:
 ## Near-Term Work
 
 1. Capture serial boot logs from `COM3` and FTDI/JTAG details from `COM5`.
-2. Confirm whether the board is physically populated with AD9363, AD9361, or an
-   AD9363-compatible board configured as AD9361 by firmware.
-3. Perform a controlled loopback RF test with TX1 to RX1 through attenuation.
-4. Validate 1R1T vs 2R2T firmware behavior by boot mode, not only by file names.
+2. Capture or copy SDR-Z201-specific schematic/resources before documenting it
+   beyond the confirmed Z7010+AD9363 1R1T summary.
+3. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+   then repeat on the second RF chain.
+4. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
+   by boot log, file version, or binary hash where possible.
 5. Decide which large vendor artifacts belong in external storage instead of
    this git repo.

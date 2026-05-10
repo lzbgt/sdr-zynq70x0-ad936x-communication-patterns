@@ -20,6 +20,12 @@ Original source package:
 - `live-captures/` - outputs captured from the currently connected board/host.
 - `MANIFEST.sha256` - checksums for copied resources and captures.
 
+The `vendor-notes/` folder includes both quick-test documents and source
+porting documents for Pluto firmware, no-OS, and openwifi.
+
+Schematic findings extracted from `board/SDR-Z203原理图.pdf` are summarized in
+`../docs/schematic-notes.md`.
+
 ## Not Copied
 
 These files are useful but too large or too broad for this repo by default:

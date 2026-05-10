@@ -3,6 +3,10 @@
 This board can be repurposed at several layers. Use the least invasive layer
 that solves the project goal.
 
+For source-level build instructions, see `docs/source-build-from-scratch.md`.
+This page focuses on choosing a reprogramming path and avoiding destructive
+flashing mistakes.
+
 ## Repurposing Layers
 
 1. Host-only SDR applications
@@ -23,7 +27,9 @@ that solves the project goal.
 4. QSPI factory firmware replacement
 
    Flash 1R1T or 2R2T Pluto-compatible factory firmware into QSPI. This changes
-   the board's default boot behavior.
+   the board's default boot behavior. The current SDR-Z203 board is confirmed
+   as QSPI-booted 2R2T, so `qspi-2r2t` is the matching factory family unless a
+   later serial log proves otherwise.
 
 5. JTAG/Vivado/Vitis development
 

@@ -125,9 +125,21 @@ ipaddr_eth = 192.168.1.10
 usb_ethernet_mode = rndis
 ```
 
-The config line says AD9363, while IIO runtime says AD9361. This mismatch should
-remain visible in future notes until resolved by serial boot logs, schematic
-review, and physical/RF tests.
+The config line says AD9363, while IIO runtime says AD9361. The user has
+confirmed the physical RFIC is AD9363 on this board; keep the AD9361 runtime
+identity visible as a firmware/driver compatibility detail until serial boot
+logs and firmware-source comparison explain it.
+
+## User-Confirmed Hardware State
+
+- Board: SDR-Z203.
+- Physical RFIC/topology: AD9363, 2R2T.
+- Current boot source: QSPI flash.
+
+Schematic review of `resources/board/SDR-Z203原理图.pdf` confirms the Zynq part
+label `XC7Z020-2CLG484I`, four RF SMA ports labeled RX1/RX2/TX1/TX2, GPS
+MAX-M10S, external PPS MMCX, and a 40 MHz VCTCXO path to the AD936x reference
+clock net. See `docs/schematic-notes.md`.
 
 ## Vendor Document Checks
 
