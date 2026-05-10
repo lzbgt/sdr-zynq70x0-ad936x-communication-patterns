@@ -74,8 +74,10 @@ Board-side facts from live captures:
   Linux/U-Boot source through `externalsrc`.
 - Verified Yocto ARM artifacts include `zImage`, `zynq-pluto-sdr.dtb`, a
   `cpio.gz` initramfs/rootfs, a `tar.gz` rootfs, kernel modules, and
-  `u-boot.bin`. Full QSPI `BOOT.bin` regeneration is deferred until
-  Vivado/Vitis/bootgen are ready.
+  `u-boot.bin`.
+- A Pluto-style `pluto.frm` payload can now be packaged locally from the Yocto
+  ARM outputs plus the known-good vendor `system_top.bit`. Full QSPI `BOOT.bin`
+  regeneration is deferred until Vivado/Vitis/bootgen are ready.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -122,6 +124,8 @@ user and vendor configuration.
   Yocto builder user.
 - `tools/prepare_vendor_source_for_yocto.sh` - clean extracted vendor
   Linux/U-Boot source residue and repair archive symlinks before Yocto builds.
+- `tools/package_yocto_pluto_frm.sh` - package Yocto ARM outputs and an
+  existing bitstream into `pluto.itb` and `pluto.frm`.
 
 ## Important Source Material
 
@@ -176,9 +180,8 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Package a Pluto-style `pluto.frm` from the verified Yocto ARM outputs plus a
-   known-good existing `system_top.bit`, then test it through the board's normal
-   update path while watching COM5.
+1. Test the generated Yocto-based `pluto.frm` through the board's normal update
+   path while watching COM5.
 2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
 3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set

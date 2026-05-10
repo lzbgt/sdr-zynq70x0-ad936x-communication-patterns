@@ -44,7 +44,7 @@ env -u https_proxy -u HTTPS_PROXY -u http_proxy -u HTTP_PROXY \
   pacman -S --needed --noconfirm \
   base-devel bc bzip2 chrpath cpio diffstat file gawk git gzip inetutils \
   lz4 patch perl python python-pexpect python-pip rpcsvc-proto rsync socat \
-  tar texinfo unzip wget which xz zstd uboot-tools
+  tar texinfo unzip wget which xz zstd uboot-tools dtc
 ```
 
 Pacman is run without proxy variables because this host uses the configured
@@ -345,6 +345,42 @@ This step is possible before Vivado is ready if an existing known-good
 `system_top.bit` is available. Use the vendor `scripts/pluto.its` layout as the
 reference: it packages `zImage`, `rootfs.cpio.gz`, `zynq-pluto-sdr.dtb`, and
 `system_top.bit` into `pluto.itb`.
+
+The local vendor source currently contains a known-good bitstream here:
+
+```text
+src/extracted/plutosdr-fw-2r2t/plutosdr-fw/build/system_top.bit
+```
+
+The helper script packages the verified Yocto ARM outputs with that bitstream:
+
+```sh
+./tools/package_yocto_pluto_frm.sh
+```
+
+Output path:
+
+```text
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.itb
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm.md5
+```
+
+Current verified package output:
+
+```text
+pluto.itb       27757915 bytes
+pluto.frm       27757948 bytes
+pluto.frm.md5   c9ebe971fc8bf8b24a1857af1c0448b2
+```
+
+The script accepts overrides:
+
+```sh
+BITSTREAM=/path/to/system_top.bit OUT_DIR=/path/to/fit-work ./tools/package_yocto_pluto_frm.sh
+```
+
+Manual equivalent:
 
 Create a packaging work directory:
 

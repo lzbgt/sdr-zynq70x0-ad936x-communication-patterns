@@ -31,6 +31,8 @@ Installed tools used here:
 - `pdftotext` and `pdfinfo` from `poppler`
 - `7z`
 - `lsusb`
+- `mkimage` from `uboot-tools`
+- `dtc` from `dtc`
 
 ## Live Connectivity
 
@@ -250,6 +252,28 @@ modules--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.tgz           37742 bytes
 u-boot-sdr-z203-zynq7-2026.01+vendor-r0.bin                       414348 bytes
 ```
 
+Verified Pluto-style FIT/MSD firmware package:
+
+```sh
+./tools/package_yocto_pluto_frm.sh
+```
+
+Output:
+
+```text
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.itb   27757915 bytes
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm   27757948 bytes
+pluto.frm.md5: c9ebe971fc8bf8b24a1857af1c0448b2
+```
+
+`mkimage -l` confirms the FIT contains:
+
+- three `zynq-pluto-sdr` FDT entries using the Yocto-built
+  `zynq-pluto-sdr.dtb`,
+- FPGA image from the vendor `system_top.bit`,
+- Linux kernel from the Yocto-built `zImage`,
+- ramdisk from the Yocto-built `sdr-z203-arm-image` `cpio.gz`.
+
 Build warnings to preserve:
 
 - Yocto warns that Arch is not a validated host distribution.
@@ -324,8 +348,9 @@ connect to the `openwifi` AP and browse to `192.168.13.1`.
   (`device_format_jffs2`) but intentionally not run because it is destructive
   and the board otherwise works.
 - RF loopback has not been performed yet.
-- Yocto ARM image and U-Boot builds now complete locally on WSL Arch, but the
-  generated ARM payload has not yet been packaged as `pluto.frm` or flashed.
+- Yocto ARM image and U-Boot builds now complete locally on WSL Arch, and the
+  generated ARM payload can be packaged as `pluto.frm`; that payload has not yet
+  been flashed to the board.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - No Vivado/JTAG programming session has been run from this WSL host yet.
