@@ -1,7 +1,9 @@
 # Board Variants
 
-There are at least two related boards in scope. They should not share bitstreams
-or generated boot artifacts unless a build explicitly targets both.
+There are at least two related boards in the wider hardware family. The active
+documentation target is SDR-Z203. SDR-Z201 is kept here only as boundary context:
+similar enough to reuse lessons, different enough that generated artifacts must
+not be shared.
 
 ## Variant Matrix
 

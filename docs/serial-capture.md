@@ -1,8 +1,8 @@
 # Serial And JTAG Capture
 
-The remaining QSPI/firmware identity questions need serial boot logs. WSL does
-not currently expose the board as `/dev/ttyUSB*`, but Windows sees the Pluto
-serial console as `COM3`.
+The QSPI/firmware identity questions are best answered through the USB debug
+serial console. WSL does not currently expose the board as `/dev/ttyUSB*`, but
+Windows exposes serial ports usable from PowerShell.
 
 ## Current Windows Serial Evidence
 
@@ -22,11 +22,10 @@ Name        : PlutoSDR Serial Console (COM3)
 PNPDeviceID : USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003
 ```
 
-The earlier Windows PnP capture also showed FTDI/JTAG functions, but the current
-`Win32_SerialPort` query only reports COM3. Re-check Device Manager or USB cable
-state before assuming COM5 is present.
+The current .NET serial-port list also reports `COM5`, and COM5 has been
+verified as a logged-in debug console. Use COM5 for command/reboot captures.
 
-## Capture A Boot Log
+## Passive Capture
 
 From WSL, create a Windows path for the output file:
 
@@ -37,6 +36,19 @@ powershell.exe -ExecutionPolicy Bypass -File "$(wslpath -w "$PWD/tools/capture_w
 ```
 
 Then power-cycle the board during the capture window.
+
+## Commanded Reboot Capture
+
+COM5 can be used to run commands and reboot the board:
+
+```sh
+out="$(wslpath -w "$PWD/resources/live-captures/serial_COM5_reboot_$(date +%Y%m%d-%H%M%S).txt")"
+powershell.exe -ExecutionPolicy Bypass -File "$(wslpath -w "$PWD/tools/reboot_capture_windows_serial.ps1")" \
+  -Port COM5 -Baud 115200 -SecondsAfterReboot 150 -OutFile "$out"
+```
+
+The helper captures pre-reboot kernel/devicetree/MTD/U-Boot environment facts,
+issues `reboot`, then records the boot log.
 
 Expected useful boot-log fields:
 
@@ -49,8 +61,9 @@ Expected useful boot-log fields:
 - network address setup,
 - any QSPI partition or MTD layout lines.
 
-After capture, add a short dated summary to `docs/verification.md` and keep the
-raw log under `resources/live-captures/`.
+After capture, add a short dated summary to `docs/verification.md`, regenerate
+`resources/MANIFEST.sha256`, and keep the raw log under
+`resources/live-captures/`.
 
 ## JTAG/FTDI Notes
 

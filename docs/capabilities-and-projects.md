@@ -95,8 +95,10 @@ Available from vendor resources but not yet bench-verified here:
 
 - Physical RFIC is AD9363, confirmed by the user.
 - Current SDR-Z203 board is 2R2T, confirmed by the user and consistent with
-  active IIO `adi,2rx-2tx-mode-enable = 1`.
-- Current boot mode is QSPI flash, confirmed by the user.
+  active IIO `adi,2rx-2tx-mode-enable = 1` and COM5 `fw_printenv mode=2r2t`.
+- Current boot mode is QSPI flash, confirmed by the user and COM5 QSPI MTD
+  layout.
+- COM5 devicetree model reports `Analog Devices PlutoSDR Rev.C (Z7020/AD9363)`.
 - SDR-Z203 schematic text shows four RF SMA ports: J1/RX1, J2/RX2, J3/TX1, and
   J4/TX2.
 - SDR-Z203 schematic text shows GPS MAX-M10S with `GPS_PPS`, an external PPS
@@ -107,8 +109,6 @@ Available from vendor resources but not yet bench-verified here:
 
 - Which exact copied QSPI 2R2T firmware files match the image currently in
   flash?
-- What do the serial boot logs report for board ID, RFIC mode, devicetree, and
-  boot source?
+- Is the boot-time `qspi-nvmfs` mount `Input/output error` expected for an
+  uninitialized NVMFS partition, or does it indicate QSPI flash/NVMFS damage?
 - What exact attenuation and cabling should be standardized for loopback tests?
-- Does SDR-Z201 have a separate schematic/resource bundle, or should it be
-  captured from hardware first?

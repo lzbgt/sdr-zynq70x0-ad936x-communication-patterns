@@ -47,8 +47,9 @@ Windows currently enumerates:
 - `PlutoSDR Serial Console (COM3)`
 - FTDI serial/JTAG path as `COM5`
 
-Use `COM3` first for Linux boot logs and shell access. Common serial settings
-for Zynq/Pluto-style firmware are:
+Use `COM5` for the debug login console. COM3 is also present as a Pluto serial
+function, but COM5 was verified for command/reboot capture. Common serial
+settings for Zynq/Pluto-style firmware are:
 
 ```text
 115200 baud, 8 data bits, no parity, 1 stop bit, no flow control
@@ -57,6 +58,13 @@ for Zynq/Pluto-style firmware are:
 WSL does not currently expose `/dev/ttyUSB*` for this board. Use a Windows
 terminal, USB/IP forwarding, or a WSL serial bridge if serial logging needs to
 be captured directly into this repo.
+
+The repo includes PowerShell helpers:
+
+```sh
+tools/capture_windows_serial.ps1
+tools/reboot_capture_windows_serial.ps1
+```
 
 ## GNU Radio
 

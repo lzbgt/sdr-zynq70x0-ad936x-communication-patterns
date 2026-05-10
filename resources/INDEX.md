@@ -69,6 +69,9 @@ multi-gigabyte Pluto source archives are not copied.
 - `live-captures/ping_192.168.2.1.txt` - connectivity proof.
 - `live-captures/plutosdr_config.txt` - removable-drive config.
 - `live-captures/windows_pnp_devices.txt` - Windows-side USB/serial device list.
+- `live-captures/windows_serial_ports_20260511.txt` - Windows serial-port query.
+- `live-captures/serial_COM5_reboot_20260511-005407.txt` - COM5 command and
+  reboot capture confirming Z7020/AD9363, QSPI MTD layout, and `mode=2r2t`.
 
 ## Integrity
 

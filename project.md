@@ -30,6 +30,8 @@ Host-side facts:
 - WSL can reach the board at `192.168.2.1`.
 - Windows sees the Pluto composite device, mass storage, serial console
   `COM3`, IIO USB device, and FTDI serial/JTAG path `COM5`.
+- Windows/.NET serial enumeration exposes both `COM3` and `COM5`; `COM5` works
+  as a logged-in debug console.
 - Native WSL `lsusb` does not currently enumerate the board, so USB evidence is
   captured through Windows PnP plus WSL network reachability.
 
@@ -54,6 +56,15 @@ Board-side facts from live captures:
 - Debug attribute `adi,2rx-2tx-mode-enable` is `1` in the active IIO context.
 - User-confirmed physical RFIC/topology: AD9363, 2R2T.
 - User-confirmed current boot mode: QSPI flash.
+- COM5 reboot capture confirms devicetree model
+  `Analog Devices PlutoSDR Rev.C (Z7020/AD9363)`.
+- COM5 `fw_printenv mode` reports `mode=2r2t`.
+- COM5 `cat /proc/mtd` reports QSPI partitions:
+  `qspi-fsbl-uboot`, `qspi-uboot-env`, `qspi-nvmfs`, and `qspi-linux`.
+- U-Boot banner: `U-Boot PlutoSDR (Jan 26 2026 - 15:25:18 +0800)`.
+- Boot log warning to track: mounting `mtd2` on `/mnt/jffs2` failed with
+  `Input/output error`, while the board still completed boot and network/IIO
+  verification passed after reboot.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -87,6 +98,8 @@ user and vendor configuration.
   Pluto firmware source zips without extracting them.
 - `tools/capture_windows_serial.ps1` - capture COM-port boot logs from Windows
   PowerShell into this repo.
+- `tools/reboot_capture_windows_serial.ps1` - issue a reboot over a Windows COM
+  port and capture pre/post reboot serial evidence.
 
 ## Important Source Material
 
@@ -133,12 +146,12 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Capture serial boot logs from `COM3` and FTDI/JTAG details from `COM5`.
-2. Capture or copy SDR-Z201-specific schematic/resources before documenting it
-   beyond the confirmed Z7010+AD9363 1R1T summary.
-3. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+1. Investigate the boot-log `mtd2`/`/mnt/jffs2` mount `Input/output error` and
+   decide whether it is harmless missing NVMFS formatting or a flash health
+   issue.
+2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
-4. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
+3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
    by boot log, file version, or binary hash where possible.
-5. Decide which large vendor artifacts belong in external storage instead of
+4. Decide which large vendor artifacts belong in external storage instead of
    this git repo.

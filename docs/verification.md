@@ -114,7 +114,54 @@ PowerShell `Win32_SerialPort` query on 2026-05-11 currently reports:
 - `COM3`, `PlutoSDR Serial Console (COM3)`,
   `USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003`.
 
+PowerShell/.NET serial enumeration also reports `COM5`. A COM5 reboot capture
+confirmed that COM5 is a logged-in debug console.
+
 Capture path and commands are documented in `docs/serial-capture.md`.
+
+## COM5 Reboot Capture
+
+Raw capture:
+
+`resources/live-captures/serial_COM5_reboot_20260511-005407.txt`
+
+Command path:
+
+```sh
+powershell.exe -ExecutionPolicy Bypass \
+  -File "$(wslpath -w "$PWD/tools/reboot_capture_windows_serial.ps1")" \
+  -Port COM5 -Baud 115200 -SecondsAfterReboot 150 \
+  -OutFile "$(wslpath -w "$PWD/resources/live-captures/serial_COM5_reboot_20260511-005407.txt")"
+```
+
+Pre-reboot facts captured over COM5:
+
+- Shell prompt was already logged in; sending `root` and `analog` produced
+  harmless `not found` responses.
+- Kernel: `Linux pluto 6.1.0 #18 SMP PREEMPT Mon Jan 26 15:08:12 CST 2026`.
+- Kernel command line:
+  `console=ttyPS0,115200 maxcpus=2 rootfstype=ramfs root=/dev/ram0 rw quiet loglevel=4 clk_ignore_unused uboot=U-Boot PlutoSDR  (Jan 26 2026 - 15:25:18 +0800)`.
+- Devicetree model: `Analog Devices PlutoSDR Rev.C (Z7020/AD9363)`.
+- QSPI MTD layout:
+  - `mtd0`: `qspi-fsbl-uboot`, size `0x00100000`.
+  - `mtd1`: `qspi-uboot-env`, size `0x00020000`.
+  - `mtd2`: `qspi-nvmfs`, size `0x000e0000`.
+  - `mtd3`: `qspi-linux`, size `0x01e00000`.
+- `fw_printenv bootcmd`: `run $modeboot`.
+- `fw_printenv ipaddr`: `192.168.2.1`.
+- `fw_printenv mode`: `2r2t`.
+
+Reboot facts:
+
+- U-Boot banner: `U-Boot PlutoSDR (Jan 26 2026 - 15:25:18 +0800)`.
+- DRAM: `1 GiB`.
+- QSPI flash: `W25Q256`, total `32 MiB`.
+- U-Boot model: `Zynq Pluto SDR Board`.
+- Boot completed to `Welcome to Pluto` and `pluto login:`.
+- Warning observed during boot:
+  `mount: mounting mtd2 on /mnt/jffs2 failed: Input/output error`.
+
+Post-reboot `./tools/verify_board.sh` passed. Ping, IIO, and HTTP still worked.
 
 ## Removable Drive Config
 
@@ -171,7 +218,7 @@ connect to the `openwifi` AP and browse to `192.168.13.1`.
 
 ## Verification Gaps
 
-- Serial console boot log has not been captured yet.
+- The `qspi-nvmfs` / `mtd2` mount failure needs follow-up.
 - RF loopback has not been performed yet.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
