@@ -1,0 +1,2 @@
+ERROR: Unable to create Avahi DNS-SD client :Daemon not running
+Scanning for IIO contexts failed: Text file busy (26)

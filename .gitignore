@@ -1,0 +1,17 @@
+.config/
+
+# Keep generated capture dumps intentional. Timestamped captures are useful, but
+# avoid accidentally adding huge binary acquisitions.
+*.iq
+*.cf32
+*.sc16
+*.sigmf-data
+*.wav
+
+# Large vendor images/archives should stay external unless explicitly curated.
+*.img
+*.iso
+*.zip
+*.tar
+*.tar.gz
+*.7z
