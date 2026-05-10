@@ -52,18 +52,29 @@ Tencent mirror for Arch packages. Git/curl fetches for Yocto layers may need the
 normal `https_proxy` environment.
 
 BitBake must not run as root. This WSL workspace currently uses a dedicated
-local build user:
+local build user. For a clean new setup, give the user its own primary group and
+grant it access to the workspace with normal ownership or ACLs. This current
+repo was first brought up under `/root`, so the working local setup uses group
+`root` for path traversal:
 
 ```sh
 useradd -m -g root -s /bin/bash yoctobuilder
 chown -R yoctobuilder:root /root/work/ZYNQ7020/yocto
+chown -R yoctobuilder:root /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
 chmod g+rx /root
 ```
 
-The extracted source tree must be readable by that user:
+Because the current builder's primary group is `root`, BitBake may emit
+`host-user-contaminated` QA warnings for files installed as `root:root`. The
+build outputs are still usable, but a future cleanup should move the workspace
+out of `/root` or switch `yoctobuilder` to its own group.
+
+The extracted source tree must be writable by that user because the Yocto
+`externalsrc` class creates bookkeeping links such as `oe-workdir` in the Linux
+and U-Boot source trees:
 
 ```sh
-chmod -R a+rX /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
+chown -R yoctobuilder:root /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
 ```
 
 ## Extract Vendor Source
@@ -90,6 +101,19 @@ devicetree builds:
 ```sh
 ./tools/repair_vendor_source_links.sh
 ```
+
+The vendor archive also contains generated Linux and U-Boot build residue from
+the vendor's own firmware build. Yocto's kernel class uses an out-of-tree `O=`
+build and refuses to configure against a dirty source tree. Prepare the ignored
+local source tree before the first kernel/U-Boot build:
+
+```sh
+./tools/prepare_vendor_source_for_yocto.sh
+```
+
+That script changes the extracted vendor source to `yoctobuilder:root`, runs
+`make ARCH=arm mrproper` in `linux`, runs `make ARCH=arm distclean` in
+`u-boot-xlnx`, and then reapplies the repaired symlinks.
 
 Key ARM-side files found in that source:
 
@@ -188,10 +212,58 @@ virtual/bootloader EXTERNALSRC = /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2
 virtual/bootloader UBOOT_MACHINE = zynq_pluto_defconfig
 ```
 
+First full-image build checkpoints on 2026-05-11:
+
+```text
+bitbake sdr-z203-arm-image reached linux-sdr-z203:do_configure, then failed
+because the extracted vendor source tree was root-owned and externalsrc could
+not create linux/oe-workdir.
+
+After fixing ownership, it reached linux-sdr-z203:do_configure again and
+correctly rejected the dirty vendor Linux source tree. The extracted archive
+contained generated files such as vmlinux, include/config, and
+include/generated.
+```
+
+Fix applied locally:
+
+```sh
+chown -R yoctobuilder:root src/extracted/plutosdr-fw-2r2t yocto
+./tools/prepare_vendor_source_for_yocto.sh
+```
+
+The wrapper now checks ownership before invoking BitBake as `yoctobuilder`;
+source-tree cleanup remains an explicit step because it deletes generated
+vendor build outputs from the ignored local source copy.
+
+Verified full ARM image build on 2026-05-11:
+
+```text
+./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
+Tasks Summary: Attempted 4837 tasks and all succeeded.
+```
+
+Verified vendor U-Boot build on 2026-05-11:
+
+```text
+./tools/yocto_arm_as_builder.sh bitbake virtual/bootloader
+Tasks Summary: Attempted 1041 tasks and all succeeded.
+```
+
+Two recipe-level fixes were needed for this old vendor U-Boot tree:
+
+- `DEPENDS += "dtc-native"` because the build directly calls `dtc` while
+  generating `arch/arm/dts/zynq-zc702.dtb`.
+- `UBOOT_INITIAL_ENV = ""` because this 2016-era vendor tree does not provide
+  Yocto's newer optional `u-boot-initial-env` target.
+
 Expected warnings:
 
 - Arch is not a validated Yocto host distribution.
 - WSL2 works, but Yocto warns to manage/optimize the VHDX storage.
+- The current `yoctobuilder` primary group is `root`, so package QA can warn
+  that installed `root:root` files have the same group as the user running
+  BitBake. This is a host setup warning, not an observed firmware build failure.
 
 Treat `bitbake -p` as the quick sanity check. A full `bitbake
 sdr-z203-arm-image` is a real build and may run for hours on a fresh cache.
@@ -204,6 +276,11 @@ environment loaded:
 ./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
 ```
 
+The wrapper also repairs the common local ownership problem: if the ignored
+`src/extracted/plutosdr-fw-2r2t` or `yocto` trees are not writable by
+`yoctobuilder`, it changes them to `yoctobuilder:root` before loading the Yocto
+environment.
+
 ## Build ARM-Side Pieces
 
 Rootfs/initramfs image:
@@ -212,11 +289,19 @@ Rootfs/initramfs image:
 bitbake sdr-z203-arm-image
 ```
 
-Expected rootfs outputs:
+Expected rootfs output symlinks:
 
 ```text
-tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.cpio.gz
-tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.tar.gz
+tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
+tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
+```
+
+Current verified rootfs outputs:
+
+```text
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.cpio.gz  20677186 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.tar.gz   20783079 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.manifest     5084 bytes
 ```
 
 Vendor-kernel recipe:
@@ -231,10 +316,24 @@ Vendor-U-Boot recipe:
 bitbake virtual/bootloader
 ```
 
+Current verified kernel and bootloader outputs:
+
+```text
+zImage--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.bin        4705632 bytes
+zynq-pluto-sdr.dtb                                               18845 bytes
+modules--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.tgz         37742 bytes
+u-boot-sdr-z203-zynq7-2026.01+vendor-r0.bin                     414348 bytes
+```
+
 The kernel and U-Boot recipes use `externalsrc` and build from the extracted
 vendor trees. If a build fails, inspect the generated command and compare it
 against the original vendor Makefile because the first porting priority is to
 preserve the vendor defconfigs and DTS behavior.
+
+The Yocto U-Boot recipe currently deploys `u-boot.bin`. Rebuilding the complete
+QSPI boot block, including FSBL and `BOOT.bin`, remains out of scope until
+Vivado/Vitis/bootgen are ready. ARM-only work should target the Pluto-style FIT
+payload in `mtd3`, not `mtd0`.
 
 When doing an intentional long build, keep the proxy exported for the
 `yoctobuilder` shell. Without it, Yocto's connectivity check and source fetches
@@ -259,7 +358,7 @@ Copy or symlink ARM outputs:
 ```sh
 ln -sf ../tmp/deploy/images/sdr-z203-zynq7/zImage zImage
 ln -sf ../tmp/deploy/images/sdr-z203-zynq7/zynq-pluto-sdr.dtb zynq-pluto-sdr.dtb
-ln -sf ../tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.cpio.gz rootfs.cpio.gz
+ln -sf ../tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz rootfs.cpio.gz
 ```
 
 Add the existing FPGA bitstream:

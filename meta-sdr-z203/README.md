@@ -14,3 +14,8 @@ Vivado/FPGA toolchain is still being prepared. It provides:
 The layer does not store the vendor source tree. Set `SDR_Z203_VENDOR_FW` in
 `conf/local.conf` if the source lives somewhere else.
 
+Verified on WSL Arch:
+
+- `bitbake -p`
+- `bitbake sdr-z203-arm-image`
+- `bitbake virtual/bootloader`

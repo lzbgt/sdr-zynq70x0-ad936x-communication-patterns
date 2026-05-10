@@ -7,6 +7,10 @@ require recipes-bsp/u-boot/u-boot.inc
 
 inherit externalsrc
 
+# The vendor 2016-era tree invokes dtc directly and does not implement Yocto's
+# newer optional u-boot-initial-env target.
+DEPENDS += "dtc-native"
+
 EXTERNALSRC ?= "${SDR_Z203_VENDOR_FW}/u-boot-xlnx"
 EXTERNALSRC_BUILD ?= "${WORKDIR}/u-boot-build"
 
@@ -15,5 +19,5 @@ COMPATIBLE_MACHINE = "sdr-z203-zynq7"
 PROVIDES += "virtual/bootloader"
 
 UBOOT_MACHINE = "zynq_pluto_defconfig"
+UBOOT_INITIAL_ENV = ""
 PV = "2026.01+vendor"
-

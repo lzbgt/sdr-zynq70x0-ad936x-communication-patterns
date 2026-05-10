@@ -193,6 +193,78 @@ Vendor-source follow-up:
 - `S21misc` and `S98autostart` treat `/mnt/jffs2` as optional persistent
   storage for passwords, Dropbear keys, SSH authorized keys, and `autorun.sh`.
 
+## Yocto ARM Firmware Build
+
+Local build root:
+
+`yocto/builds/sdr-z203-arm`
+
+Source root:
+
+`src/extracted/plutosdr-fw-2r2t/plutosdr-fw`
+
+Verified parser/config check:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake -p
+```
+
+Result:
+
+```text
+Parsing of 1876 .bb files complete. 3224 targets, 128 skipped, 0 masked, 0 errors.
+```
+
+Verified full ARM image build:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
+```
+
+Result:
+
+```text
+Tasks Summary: Attempted 4837 tasks and all succeeded.
+```
+
+Verified vendor U-Boot build:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake virtual/bootloader
+```
+
+Result:
+
+```text
+Tasks Summary: Attempted 1041 tasks and all succeeded.
+```
+
+Key deployed artifacts:
+
+```text
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.cpio.gz  20677186 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.tar.gz   20783079 bytes
+zImage--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.bin          4705632 bytes
+zynq-pluto-sdr.dtb                                                 18845 bytes
+modules--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.tgz           37742 bytes
+u-boot-sdr-z203-zynq7-2026.01+vendor-r0.bin                       414348 bytes
+```
+
+Build warnings to preserve:
+
+- Yocto warns that Arch is not a validated host distribution.
+- Package QA can warn about `host-user-contaminated` because the current
+  `yoctobuilder` user has primary group `root` in this `/root` workspace setup.
+  This should be cleaned up for a product build, but it did not block local
+  ARM-side firmware rebuilds.
+
+Recipe fixes verified during this build:
+
+- `u-boot-sdr-z203` needs `dtc-native`; otherwise the vendor U-Boot build fails
+  when generating a DTB with `dtc: command not found`.
+- `u-boot-sdr-z203` disables `UBOOT_INITIAL_ENV`; otherwise Yocto asks the old
+  vendor U-Boot tree for a missing `u-boot-initial-env` target.
+
 ## Removable Drive Config
 
 Windows exposes a removable drive labeled `PlutoSDR`. Captured `config.txt`:
@@ -252,9 +324,8 @@ connect to the `openwifi` AP and browse to `192.168.13.1`.
   (`device_format_jffs2`) but intentionally not run because it is destructive
   and the board otherwise works.
 - RF loopback has not been performed yet.
-- Yocto ARM firmware verification has reached `bitbake -p` and provider wiring
-  checks. A full `sdr-z203-arm-image` build has not been intentionally run to
-  completion yet.
+- Yocto ARM image and U-Boot builds now complete locally on WSL Arch, but the
+  generated ARM payload has not yet been packaged as `pluto.frm` or flashed.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - No Vivado/JTAG programming session has been run from this WSL host yet.

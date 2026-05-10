@@ -68,9 +68,14 @@ Board-side facts from live captures:
 - Vendor Pluto source includes `device_format_jffs2` as the destructive recovery
   path for `mtd2`; leave it untouched unless persistent storage is needed.
 - Local ARM-side Yocto baseline is configured under WSL Arch with the committed
-  `meta-sdr-z203` layer. `bitbake -p` passes as the non-root `yoctobuilder`
-  user against `sdr-z203-zynq7`; the kernel and U-Boot recipes point at the
-  extracted vendor Linux/U-Boot source through `externalsrc`.
+  `meta-sdr-z203` layer. `bitbake -p`, `bitbake sdr-z203-arm-image`, and
+  `bitbake virtual/bootloader` pass as the non-root `yoctobuilder` user against
+  `sdr-z203-zynq7`; the kernel and U-Boot recipes point at the extracted vendor
+  Linux/U-Boot source through `externalsrc`.
+- Verified Yocto ARM artifacts include `zImage`, `zynq-pluto-sdr.dtb`, a
+  `cpio.gz` initramfs/rootfs, a `tar.gz` rootfs, kernel modules, and
+  `u-boot.bin`. Full QSPI `BOOT.bin` regeneration is deferred until
+  Vivado/Vitis/bootgen are ready.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -113,6 +118,10 @@ user and vendor configuration.
   port and capture pre/post reboot serial evidence.
 - `tools/run_windows_serial_commands.ps1` - run a command file over a Windows
   COM port for repeatable read-only diagnostics.
+- `tools/yocto_arm_as_builder.sh` - run BitBake commands under the non-root
+  Yocto builder user.
+- `tools/prepare_vendor_source_for_yocto.sh` - clean extracted vendor
+  Linux/U-Boot source residue and repair archive symlinks before Yocto builds.
 
 ## Important Source Material
 
@@ -167,11 +176,11 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+1. Package a Pluto-style `pluto.frm` from the verified Yocto ARM outputs plus a
+   known-good existing `system_top.bit`, then test it through the board's normal
+   update path while watching COM5.
+2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
-2. Run an intentional full `bitbake sdr-z203-arm-image` build after deciding
-   whether to keep the partly populated Yocto cache from the first target-check
-   attempt.
 3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
    by boot log, file version, or binary hash where possible.
 4. Decide which large vendor artifacts belong in external storage instead of
