@@ -78,6 +78,9 @@ Board-side facts from live captures:
 - A Pluto-style `pluto.frm` payload can now be packaged locally from the Yocto
   ARM outputs plus the known-good vendor `system_top.bit`. Full QSPI `BOOT.bin`
   regeneration is deferred until Vivado/Vitis/bootgen are ready.
+- The Yocto-generated ARM firmware has been flashed to QSPI `mtd3` and booted
+  successfully. Post-flash checks passed for USB RNDIS networking, DHCP host IP
+  `192.168.2.10`, `iiod`, HTTP `/www`, and `iio_info -u ip:192.168.2.1`.
 - The Yocto rootfs now includes an imported Pluto runtime layer from the
   extracted vendor source: USB gadget/RNDIS + FunctionFS IIO startup,
   mass-storage update scripts, `/opt/vfat.img`, `/www`, `device_reboot`,
@@ -120,6 +123,8 @@ user and vendor configuration.
   Pluto firmware source zips without extracting them.
 - `tools/capture_windows_serial.ps1` - capture COM-port boot logs from Windows
   PowerShell into this repo.
+- `tools/configure_windows_pluto_rndis.ps1` - set the Windows Pluto RNDIS
+  adapter to the expected host address if DHCP or WSL routing needs recovery.
 - `tools/reboot_capture_windows_serial.ps1` - issue a reboot over a Windows COM
   port and capture pre/post reboot serial evidence.
 - `tools/run_windows_serial_commands.ps1` - run a command file over a Windows
@@ -186,12 +191,9 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Test the generated Yocto-based `pluto.frm` through the board's normal update
-   path while watching COM5. This should be treated as a first boot test, not a
-   proven production image.
-2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+1. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
-3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
+2. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
    by boot log, file version, or binary hash where possible.
-4. Decide which large vendor artifacts belong in external storage instead of
+3. Decide which large vendor artifacts belong in external storage instead of
    this git repo.

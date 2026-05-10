@@ -1,0 +1,52 @@
+﻿# Serial passive capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T03:20:53.4323555+08:00
+# Seconds: 240
+
+Broadcast message from root@sdr-z203-?ing down for reboot NOW!
+INIT: Switching to runlevel: 6
+INIT: Sending processes configured via /etc/inittab the TERM signal
+Stopping Dropbear SSH server: stopped /usr/sbin/dropbear (pid 758)
+dropbear.
+ * Stopping Avahi mDNS/DNS-SD Daemon: avahi-daemon
+   ...done.
+Stopping bluetooth: bluetoothd.
+Stopping system message bus: dbus.
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Stopping syslogd/klogd: stopped syslogd (pid 773)
+stopped klogd (pid 777)
+done
+Stopping Telephony daemon
+Unmounting remote filesystems...
+Stopping rpcbind daemon...
+done.
+Stopping Linux NFC daemon
+Stopping Lighttpd Web Server: stopped /usr/sbin/lighttpd (pid 969)
+lighttpd.
+Deconfiguring network interfaces... ifdown: interface usb1 not configured
+done.
+Sending all processes the TERM signal...
+Sending all processes the KILL signal...
+Deactivating swap...
+Unmounting local filesystems...
+mount: mounting rootfs on / failed: Device or resource busy
+Rebooting... reboot: Restarting system
+
+
+U-Boot PlutoSDR  (Jan 26 2026 - 15:25:18 +0800)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+Hit any key to stop autoboot:  0 
+Booting silently
+INIT: version 3.04 booting
+Starting udev
+
+# Stopped: 2026-05-11T03:24:53.5007232+08:00

@@ -1,0 +1,216 @@
+﻿# Serial command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T03:09:54.8292795+08:00
+
+# >>> 
+
+root@sdr-z203-zynq7:~# 
+# >>> root
+root
+-sh: root: not found
+root@sdr-z203-zynq7:~# 
+# >>> root
+root
+-sh: root: not found
+root@sdr-z203-zynq7:~# 
+# >>> echo __SERIAL_LOGIN_READY__
+echo __SERIAL_LOGIN_READY__
+__SERIAL_LOGIN_READY__
+root@sdr-z203-zynq7:~# 
+# >>> echo __USB_DESCRIPTOR_DIAG__; find /sys/kernel/config/usb_gadget/composite_gadget -maxdepth 4 -type f -print -exec sh -c 'printf "="; cat "" 2>/dev/null; echo' _ {} \; | sed -n '1,220p'; dmesg | grep -i -E 'usb|gadget|rndis|ncm|ecm|ffs|ci_hdrc' | tail -120
+echo __USB_DESCRIPTOR_DIAG__; find /sys/kernel/config/usb
+_gadget/composite_gadget -maxdepth 4 -type f -print -exec sh -c 'printf "="; cat
+ "" 2>/dev/null; echo' _ {} \; | sed -n '1,220p'; dmesg | grep -i -E 'usb|gadget
+|rndis|ncm|ecm|ffs|ci_hdrc' | tail -120
+__USB_DESCRIPTOR_DIAG__
+/sys/kernel/config/usb_gadget/composite_gadget/os_desc/qw_sign
+=
+/sys/kernel/config/usb_gadget/composite_gadget/os_desc/b_vendor_code
+=
+/sys/kernel/config/usb_gadget/composite_gadget/os_desc/use
+=
+/sys/kernel/config/usb_gadget/composite_gadget/strings/0x409/serialnumber
+=
+/sys/kernel/config/usb_gadget/composite_gadget/strings/0x409/product
+=
+/sys/kernel/config/usb_gadget/composite_gadget/strings/0x409/manufacturer
+=
+/sys/kernel/config/usb_gadget/composite_gadget/configs/c.1/bmAttributes
+=
+/sys/kernel/config/usb_gadget/composite_gadget/configs/c.1/MaxPower
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/forced_eject
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/inquiry_string
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/nofua
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/cdrom
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/removable
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/ro
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/file
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/stall
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/protocol
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/subclass
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/class
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/ifname
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/qmult
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/host_addr
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/rndis.0/dev_addr
+=
+/sys/kernel/config/usb_gadget/composite_gadget/functions/acm.usb0/port_num
+=
+/sys/kernel/config/usb_gadget/composite_gadget/max_speed
+=
+/sys/kernel/config/usb_gadget/composite_gadget/UDC
+=
+/sys/kernel/config/usb_gadget/composite_gadget/bcdUSB
+=
+/sys/kernel/config/usb_gadget/composite_gadget/bcdDevice
+=
+/sys/kernel/config/usb_gadget/composite_gadget/idProduct
+=
+/sys/kernel/config/usb_gadget/composite_gadget/idVendor
+=
+/sys/kernel/config/usb_gadget/composite_gadget/bMaxPacketSize0
+=
+/sys/kernel/config/usb_gadget/composite_gadget/bDeviceProtocol
+=
+/sys/kernel/config/usb_gadget/composite_gadget/bDeviceSubClass
+=
+/sys/kernel/config/usb_gadget/composite_gadget/bDeviceClass
+=
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070050: 0x3000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070064: 0x0020 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070070: 0x7000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0007007c: 0x1000 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000728cc ends at 0x000728d0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000889cc: 0x0020 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000889d4: 0x0020 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000889dc: 0x0004 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000889fc: 0x58b9 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00088a08: 0x0280 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00088a10: 0x0280 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00088a68: 0x0200 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00088a70: 0x0200 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00088b60: 0x0020 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00088b68: 0x0020 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x0008e51c ends at 0x0008e520
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090000: 0x0800 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090004: 0xa809 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090008: 0x0080 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009000c: 0x2004 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090010: 0x00a0 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090014: 0x0440 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090018: 0x05a0 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009001c: 0x0080 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090020: 0x2040 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090024: 0x4800 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00095534 ends at 0x00095538
+jffs2: Empty flash at 0x000956c8 ends at 0x000956cc
+jffs2: Empty flash at 0x00098e80 ends at 0x00098e84
+jffs2: Empty flash at 0x00099014 ends at 0x00099018
+jffs2: Empty flash at 0x0009902c ends at 0x00099030
+jffs2: Empty flash at 0x000991a8 ends at 0x000991ac
+jffs2: Empty flash at 0x0009c5cc ends at 0x0009c5d0
+jffs2: Empty flash at 0x0009c748 ends at 0x0009c74c
+jffs2: Empty flash at 0x0009c750 ends at 0x0009c754
+jffs2: Empty flash at 0x0009c8dc ends at 0x0009c8e0
+jffs2: Empty flash at 0x0009c8e4 ends at 0x0009c8e8
+jffs2: Empty flash at 0x0009c8ec ends at 0x0009c8f0
+jffs2: Empty flash at 0x0009ca70 ends at 0x0009ca74
+jffs2: Empty flash at 0x0009ca84 ends at 0x0009ca8c
+jffs2: Empty flash at 0x0009cf1c ends at 0x0009cf20
+jffs2: Empty flash at 0x0009d3d8 ends at 0x0009d3dc
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0000: 0x12c3 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0004: 0xffc6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0008: 0xe6e7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a000c: 0xc7ce instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0010: 0xfede instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0014: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a001c: 0xe6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0020: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0024: 0xcfce instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0028: 0xffff instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000a6e80 ends at 0x000a6e84
+jffs2: Empty flash at 0x000a703c ends at 0x000a7040
+jffs2: Empty flash at 0x000a71a8 ends at 0x000a71ac
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0000: 0x3e3b instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0004: 0x8000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0008: 0x8683 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b000c: 0x0080 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0010: 0x8686 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0014: 0x8482 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0018: 0x0481 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0020: 0x8687 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0024: 0x0191 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0028: 0xd783 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0000: 0x9042 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0004: 0x0040 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0008: 0x0001 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c000c: 0x900a instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0010: 0x2040 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0018: 0x0400 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0024: 0x0800 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0028: 0x4091 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0030: 0x0001 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c003c: 0x0200 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000c120c ends at 0x000c1210
+jffs2: Empty flash at 0x000c13a0 ends at 0x000c13a4
+jffs2: Empty flash at 0x000c1494 ends at 0x000c1498
+jffs2: Empty flash at 0x000c1534 ends at 0x000c1538
+jffs2: Empty flash at 0x000c1544 ends at 0x000c1548
+jffs2: Empty flash at 0x000c78a0 ends at 0x000c78a4
+jffs2: Empty flash at 0x000c78c0 ends at 0x000c78c4
+jffs2: Empty flash at 0x000c7a34 ends at 0x000c7a38
+jffs2: Empty flash at 0x000c7f74 ends at 0x000c7f78
+jffs2: Empty flash at 0x000c8214 ends at 0x000c8218
+jffs2: Empty flash at 0x000cae9c ends at 0x000caea0
+jffs2: Empty flash at 0x000cb030 ends at 0x000cb034
+jffs2: Empty flash at 0x000cb998 ends at 0x000cb99c
+jffs2: Empty flash at 0x000cb9e0 ends at 0x000cb9e4
+jffs2: Empty flash at 0x000cbcc0 ends at 0x000cbcc4
+jffs2: Empty flash at 0x000cbd08 ends at 0x000cbd0c
+jffs2: Empty flash at 0x000cea58 ends at 0x000cea5c
+jffs2: Empty flash at 0x000cea78 ends at 0x000cea7c
+jffs2: Empty flash at 0x000cf0a0 ends at 0x000cf0a4
+jffs2: Empty flash at 0x000cf40c ends at 0x000cf410
+jffs2: Empty flash at 0x000cf414 ends at 0x000cf418
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0000: 0x0102 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d000c: 0x0008 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0020: 0x0102 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d002c: 0x8002 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d004c: 0x8000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0058: 0x0002 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0060: 0x1000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0070: 0x1000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0078: 0x2000 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d007c: 0x0080 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000d2b00 ends at 0x000d2b04
+jffs2: Empty flash at 0x000d2e28 ends at 0x000d2e2c
+jffs2: Cowardly refusing to erase blocks on filesystem with no valid JFFS2 nodes
+jffs2: empty_blocks 0, bad_blocks 0, c->nr_blocks 14
+usb0: HOST MAC 00:e0:22:ad:c8:3b
+usb0: MAC 00:05:f7:19:e7:93
+IPv6: ADDRCONF(NETDEV_CHANGE): usb0: link becomes ready
+root@sdr-z203-zynq7:~# 
+# Stopped: 2026-05-11T03:10:08.5874659+08:00

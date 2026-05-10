@@ -1,7 +1,7 @@
 param(
-    [string]$Port = "COM3",
+    [string]$Port = "COM5",
     [int]$Baud = 115200,
-    [int]$Seconds = 120,
+    [int]$Seconds = 180,
     [string]$OutFile = "serial-capture.txt"
 )
 
@@ -14,31 +14,33 @@ if ($directory -and -not (Test-Path $directory)) {
 
 $serial = [System.IO.Ports.SerialPort]::new($Port, $Baud, "None", 8, "One")
 $serial.ReadTimeout = 200
-$serial.NewLine = "`n"
-
 $writer = [System.IO.StreamWriter]::new($OutFile, $false, [System.Text.Encoding]::UTF8)
-$deadline = (Get-Date).AddSeconds($Seconds)
+
+function Write-Capture {
+    param([string]$Text)
+    if ($Text.Length -gt 0) {
+        $writer.Write($Text)
+        $writer.Flush()
+        Write-Host -NoNewline $Text
+    }
+}
 
 try {
     $serial.Open()
-    $writer.WriteLine("# Serial capture")
+    $writer.WriteLine("# Serial passive capture")
     $writer.WriteLine("# Port: $Port")
     $writer.WriteLine("# Baud: $Baud")
     $writer.WriteLine("# Started: {0:o}" -f (Get-Date))
-    $writer.WriteLine("# Duration seconds: $Seconds")
+    $writer.WriteLine("# Seconds: $Seconds")
     $writer.Flush()
 
+    $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline) {
-        try {
-            $data = $serial.ReadExisting()
-            if ($data.Length -gt 0) {
-                $writer.Write($data)
-                $writer.Flush()
-                Write-Host -NoNewline $data
-            } else {
-                Start-Sleep -Milliseconds 100
-            }
-        } catch [System.TimeoutException] {
+        $data = $serial.ReadExisting()
+        if ($data.Length -gt 0) {
+            Write-Capture $data
+        } else {
+            Start-Sleep -Milliseconds 100
         }
     }
 } finally {

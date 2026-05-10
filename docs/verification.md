@@ -277,6 +277,15 @@ yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm   28805556 bytes
 pluto.frm.md5: 90406b268435d04e4f29991a0afc5fe8
 ```
 
+Current post-flash package output:
+
+```text
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.itb   28805695 bytes
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm   28805728 bytes
+pluto.itb md5 / embedded pluto.frm.md5: e17a6c1eb9efeb3c5b4ecf9a6b8f9045
+pluto.frm full-file md5: 7ec7ab4f5e62394e703c8138c85a446d
+```
+
 `mkimage -l` confirms the FIT contains:
 
 - three `zynq-pluto-sdr` FDT entries using the Yocto-built
@@ -307,8 +316,49 @@ Recipe fixes verified during this build:
   extracted vendor tree instead of copying them into git: `S23udc`, `S40network`,
   `S45msd`, update helpers, `/opt/vfat.img`, `/www`, mtd2 utilities, and
   recovery scripts.
+- `sdr-z203-pluto-runtime` patches vendor update scripts to avoid GNU
+  `head -c -N`; Yocto's BusyBox `head` does not support that form.
+- `S40network` starts `udhcpd`, and `S21misc` tolerates the missing
+  `industrialio_buffer_dma/max_block_size` sysfs parameter.
 - `lighttpd_%.bbappend` changes the default document root to `/www` so the
-  post-flash HTTP check can still probe onboard documentation.
+  post-flash HTTP check can still probe onboard documentation, and removes the
+  invalid `server.username = "root"` / `server.groupname = "root"` directives.
+
+## Yocto QSPI Flash Test
+
+The Yocto-generated `pluto.frm` has been flashed to QSPI `mtd3` while preserving
+`mtd0`/`mtd1` and the existing FPGA bitstream.
+
+Evidence:
+
+- pre-flash capture:
+  `resources/live-captures/serial_COM5_pre_yocto_flash_20260511-030209.txt`
+- first Yocto boot diagnostics:
+  `resources/live-captures/serial_COM5_yocto_postboot_diag_20260511-030741.txt`
+- fixed Yocto flash and boot capture:
+  `resources/live-captures/serial_COM5_yocto_flash_portable_20260511-032052.txt`
+  and
+  `resources/live-captures/serial_COM5_yocto_portable_postboot_20260511-032503.txt`
+
+The first boot exposed fixable runtime issues:
+
+- `S40network` generated `/etc/udhcpd.conf` but did not start `udhcpd`.
+- `lighttpd` refused `server.username = "root"`.
+- vendor update scripts used `head -c -33`, unsupported by Yocto BusyBox.
+- adding full `coreutils` fixed `head` but made the FIT exceed the
+  `qspi-linux` partition, so the final fix patches the updater scripts instead.
+
+Final post-flash state:
+
+```text
+fit_size=1B78A3F
+model: Analog Devices PlutoSDR Rev.C (Z7020/AD9363)
+running services: iiod, udhcpd, update.sh, lighttpd
+Windows RNDIS host IP: 192.168.2.10/24, PrefixOrigin=Dhcp
+```
+
+Post-flash `./tools/verify_board.sh` passed: ping, network IIO, and HTTP all
+respond from WSL through the Windows RNDIS adapter.
 
 ## Removable Drive Config
 
@@ -369,9 +419,8 @@ connect to the `openwifi` AP and browse to `192.168.13.1`.
   (`device_format_jffs2`) but intentionally not run because it is destructive
   and the board otherwise works.
 - RF loopback has not been performed yet.
-- Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, and `pluto.frm` packaging
-  now complete locally on WSL Arch; that payload has not yet been flashed to the
-  board.
+- Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, `pluto.frm` packaging,
+  and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - No Vivado/JTAG programming session has been run from this WSL host yet.

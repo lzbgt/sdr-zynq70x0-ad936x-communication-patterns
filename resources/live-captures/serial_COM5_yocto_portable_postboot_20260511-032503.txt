@@ -1,0 +1,47 @@
+﻿# Serial command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T03:25:04.4971182+08:00
+
+# >>> 
+
+
+# >>> root
+root
+OK
+Starting MSD Daemon: cp: can't create symlink '/mnt/msd/logs' to '/var/log': Operation not permitted
+cp: can't create symlink '/mnt/msd/var' to '/var/tmp': Operation not permitted
+OK
+INIT: Entering runlevel: 5
+Configuring network interfaces... ifup: interface lo already configured
+ifup: interface usb0 already configured
+Cannot find device "usb1"
+ifup: interface eth0 already configured
+Starting system message bus: dbus.
+Starting Dropbear SSH server: Generating 2048 bit rsa key, this may take a while...
+
+# >>> root
+root
+Public key portion is:
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDiHKT/tnCEwyWnJBmH/XwJDAzSigscMeyjZxu8I/GzwekRX3mcxsNnZd8HjFUi37G55jXJlJLNwXAyPQ75hW6+QZyrpvlxmt+eH9w50VV3rmKAR4XM86Pnx92lIEvo9l+2tF/Zy0jNfmJM+V4dHnGC9P/8MEQeAR67LpuVWBWYhsTp4U4NQ4jKuXzQbyqUE0hlcBQFNNPP92WnI1C7XCvthzMJG6pOcZDFxliXKedqEMa0vTEnTuyRvFQ22kIPWr0w6x/qHyc1VvWWls+82Ayihkrv0abCtQ/KKqP/ouxkstlni2it+MjNlppwdTQfssRtjTtgGU0UBr9TB5gnrfMx root@sdr-z203-zynq7
+Fingerprint: SHA256:NR6b7gWHrxGHdnwJOqc9AlC26otrKvCc+64JdM1H6J0
+dropbear.
+Starting rpcbind daemon...done.
+Starting bluetooth: bluetoothd.
+Starting syslogd/klogd: done
+ * Starting Avahi mDNS/DNS-SD Daemon: avahi-daemon
+
+# >>> echo __SERIAL_LOGIN_READY__
+   ...done.
+Starting Telephony daemon
+Starting Linux NFC daemon
+Starting Lighttpd Web Server: lighttpd.
+echo __SERIAL_LOGIN_READY__
+
+Poky (Yocto Project Reference Distro) 5.0.17 sdr-z203-zynq7 /dev/ttyPS0
+
+sdr-z203-zynq7 login: 
+# >>> echo __YOCTO_PORTABLE_POSTBOOT__; uname -a; cat /proc/device-tree/model; echo; fw_printenv fit_size mode ipaddr ipaddr_host 2>/dev/null || true; ps w | grep -E 'udhcpd|lighttpd|iiod|update.sh' | grep -v grep; ip addr show usb0; dmesg | grep -i -E 'Starting miscellaneous|Starting Lighttpd|udhcpd|usb0|jffs2|head|Invalid argument' | tail -80
+echo __YOCTO_PORTABLE_POSTBOOT__; uname -a; cat /proc/device-tree/model; echo; fw_printenv fit_size mode ipaddr ipaddr_host 2>/
+Password: 
+# Stopped: 2026-05-11T03:25:18.2875174+08:00

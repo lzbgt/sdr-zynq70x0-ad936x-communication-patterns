@@ -389,9 +389,10 @@ yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm.md5
 Current verified package output:
 
 ```text
-pluto.itb       28805523 bytes
-pluto.frm       28805556 bytes
-pluto.frm.md5   90406b268435d04e4f29991a0afc5fe8
+pluto.itb       28805695 bytes
+pluto.frm       28805728 bytes
+pluto.frm.md5   e17a6c1eb9efeb3c5b4ecf9a6b8f9045
+pluto.frm full-file md5  7ec7ab4f5e62394e703c8138c85a446d
 ```
 
 The script accepts overrides:
@@ -435,18 +436,15 @@ cat pluto.itb pluto.frm.md5 > pluto.frm
 This updates the ARM firmware payload while preserving the FPGA image. Do not
 regenerate `BOOT.bin` until Vivado/Vitis and `bootgen` are available.
 
-## Flashing Boundary
+## Flashing And Boot Test
 
-The generated Yocto `pluto.frm` is now runtime-audited but not yet
-board-validated. Before flashing it, confirm the audit passes:
+The generated Yocto `pluto.frm` is now runtime-audited and board-validated on
+the attached SDR-Z203 for the ARM-side payload. Before flashing a new rebuild,
+confirm the audit passes:
 
 ```sh
 ./tools/audit_yocto_rootfs.sh
 ```
-
-The first flash should still be treated as a controlled bring-up test because
-the imported Pluto scripts have not yet booted from the Yocto rootfs on the
-board.
 
 Lowest-risk path:
 
@@ -455,6 +453,30 @@ Lowest-risk path:
 3. Use the board's existing Pluto mass-storage/DFU update path.
 4. Watch COM5 during reboot.
 5. Run `./tools/verify_board.sh` after boot.
+
+The first Yocto flash found two runtime issues and one updater compatibility
+issue. The committed layer now fixes them:
+
+- `S40network` starts `udhcpd` so Windows receives `192.168.2.10` by DHCP.
+- `lighttpd.conf` serves `/www` without asking lighttpd to switch to UID 0.
+- `update.sh` and `update_frm.sh` use a BusyBox-compatible helper instead of
+  GNU `head -c -N`.
+
+If Windows falls back to a `169.254.x.x` address during bring-up, recover the
+host adapter explicitly:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\tools\configure_windows_pluto_rndis.ps1
+```
+
+Final verified post-flash state:
+
+```text
+fit_size=1B78A3F
+Windows Pluto RNDIS IPv4: 192.168.2.10/24 from DHCP
+board services: iiod, udhcpd, update.sh, lighttpd
+./tools/verify_board.sh: pass
+```
 
 Current QSPI partition map from live COM5 capture:
 

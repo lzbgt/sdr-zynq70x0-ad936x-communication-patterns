@@ -5,6 +5,7 @@ LICENSE = "CLOSED"
 SRC_URI = " \
     file://sdr-z203-pluto-preboot.sh \
     file://sdr-z203-usb-getty.sh \
+    file://portable-frm-helpers.sh \
 "
 
 S = "${WORKDIR}"
@@ -41,6 +42,14 @@ do_install() {
         install -m 0755 "$board_dir/$script" ${D}${sysconfdir}/init.d/
     done
 
+    sed -i \
+        -e 's#echo ${MAX_BS} > /sys/module/industrialio_buffer_dma/parameters/max_block_size#[ -w /sys/module/industrialio_buffer_dma/parameters/max_block_size ] \&\& echo ${MAX_BS} > /sys/module/industrialio_buffer_dma/parameters/max_block_size || true#' \
+        ${D}${sysconfdir}/init.d/S21misc
+    sed -i \
+        -e '/\/sbin\/ifup -a 2>&1 | logger/a\\t/usr/sbin/udhcpd /etc/udhcpd.conf 2> /dev/null || true' \
+        -e '/\/sbin\/ifdown -a/i\\tkillall udhcpd 2> /dev/null || true' \
+        ${D}${sysconfdir}/init.d/S40network
+
     ln -sf ../init.d/S20pluto-preboot ${D}${sysconfdir}/rcS.d/S20pluto-preboot
     ln -sf ../init.d/S21misc ${D}${sysconfdir}/rcS.d/S21misc
     ln -sf ../init.d/S23udc ${D}${sysconfdir}/rcS.d/S23udc
@@ -53,6 +62,19 @@ do_install() {
     for script in update.sh update_frm.sh update_from_github.sh udc_handle_suspend.sh; do
         install -m 0755 "$board_dir/$script" ${D}${base_sbindir}/
     done
+    sed -i '2a PATH=/usr/bin:/usr/sbin:/bin:/sbin' \
+        ${D}${base_sbindir}/update.sh \
+        ${D}${base_sbindir}/update_frm.sh
+    sed -i "3r ${WORKDIR}/portable-frm-helpers.sh" \
+        ${D}${base_sbindir}/update.sh \
+        ${D}${base_sbindir}/update_frm.sh
+    sed -i \
+        -e 's#head -c -33 .* > /opt/boot_and_env_and_mtdinfo.bin#copy_without_trailing_bytes "$FILE" /opt/boot_and_env_and_mtdinfo.bin 33#' \
+        -e 's#head -c -1024 /opt/boot_and_env_and_mtdinfo.bin > /opt/boot_and_env.bin#copy_without_trailing_bytes /opt/boot_and_env_and_mtdinfo.bin /opt/boot_and_env.bin 1024#' \
+        -e 's#head -c -131072 /opt/boot_and_env.bin > /opt/boot.bin#copy_without_trailing_bytes /opt/boot_and_env.bin /opt/boot.bin 131072#' \
+        -e 's#head -c -33 .* > /opt/firmware.frm#copy_without_trailing_bytes "$FILE" /opt/firmware.frm 33#' \
+        ${D}${base_sbindir}/update.sh \
+        ${D}${base_sbindir}/update_frm.sh
 
     install -d ${D}${sbindir}
     for tool in device_reboot device_passwd device_persistent_keys device_format_jffs2 test_ensm_pinctrl.sh; do

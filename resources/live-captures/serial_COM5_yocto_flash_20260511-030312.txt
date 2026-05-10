@@ -1,0 +1,76 @@
+﻿# Serial passive capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T03:03:13.5058587+08:00
+# Seconds: 240
+Stopping input-event-daemon: done
+Stopping dropbear sshd: OK
+Stopping MSD Daemon: OK
+Stopping dhcpd Daemon & httpd Server: OK
+Stopping network: ifdown: interface usb1 not configured
+OK
+Stopping system message bus: done
+Stopping UDC Gadgets
+Seeding 256 bits without crediting
+Saving 256 bits of creditable seed for next boot
+Stopping klogd: OK
+Stopping syslogd: OK
+umount: devtmpfs busy - remounted read-only
+umount: can't unmount /: Invalid argument
+The system is going down NOW!
+Sent SIGTERM to all processes
+Sent SIGKILL to all processes
+Requesting system reboot
+reboot: Restarting system
+
+
+U-Boot PlutoSDR  (Jan 26 2026 - 15:25:18 +0800)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+Hit any key to stop autoboot:  0 
+Booting silently
+INIT: version 3.04 booting
+Starting udev
+Starting miscellaneous setup: sh: write error: Invalid argument
+sh: write error: Invalid argument
+FAIL
+Starting UDC Gadgets: OK
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Fri Mar  9 12:34:56 UTC 2018
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Starting network: OK
+Starting MSD Daemon: cp: can't create symlink '/mnt/msd/logs' to '/var/log': Operation not permitted
+cp: can't create symlink '/mnt/msd/var' to '/var/tmp': Operation not permitted
+OK
+INIT: Entering runlevel: 5
+Configuring network interfaces... ifup: interface lo already configured
+ifup: interface usb0 already configured
+Cannot find device "usb1"
+ifup: interface eth0 already configured
+Starting system message bus: dbus.
+Starting Dropbear SSH server: Generating 2048 bit rsa key, this may take a while...
+Public key portion is:
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCbm2n+Zy6fZ2rYMroflq0MWETWittsdR15nGnFiQI2ICmNNjPZAG5xQnxrcoECCNI1qGKxHdfl8HAn5byhojg5WwfDTPzTYi3rRK6X8Gnht6Tr+p0WxWhD+Lsu6wPHS1+DsckY/LGJNwRqehYZVD2bL+5Q6VHHa0Eay1OvOJQdrMijHyrJcGWpb0XQWebT3NL8aWT9ktMqvtayvDp7S7BUxKTFMK1ThleBV0q7bgxySaOqBeIp+AxGtzT4y1TB0tgEOeIGcb0se89H0s0hUI65OrtAkrmIr5aKB5sTooOUi9N/kCnHteRzitzCewzLYuPeTotBPho2QM/0nYydiCyl root@sdr-z203-zynq7
+Fingerprint: SHA256:f+yGuahOpsSH/CWLnvnq2XZryGWEcjDgOictqp9Iy+4
+dropbear.
+Starting rpcbind daemon...done.
+Starting bluetooth: bluetoothd.
+Starting syslogd/klogd: done
+ * Starting Avahi mDNS/DNS-SD Daemon: avahi-daemon
+   ...done.
+Starting Telephony daemon
+Starting Linux NFC daemon
+Starting Lighttpd Web Server: 2018-03-09 12:35:10: (/usr/src/debug/lighttpd/1.4.74/src/server.c.1801) I will not set uid to 0.  Perhaps you should comment out server.username in lighttpd.conf\n
+
+Poky (Yocto Project Reference Distro) 5.0.17 sdr-z203-zynq7 /dev/ttyPS0
+
+sdr-z203-zynq7 login: 
+# Stopped: 2026-05-11T03:07:13.5392384+08:00

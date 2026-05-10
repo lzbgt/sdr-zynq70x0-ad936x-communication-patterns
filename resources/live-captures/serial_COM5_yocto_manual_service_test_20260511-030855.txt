@@ -1,0 +1,32 @@
+﻿# Serial command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T03:08:56.8743499+08:00
+
+# >>> 
+
+root@sdr-z203-zynq7:~# 
+# >>> root
+root
+-sh: root: not found
+root@sdr-z203-zynq7:~# 
+# >>> root
+root
+-sh: root: not found
+root@sdr-z203-zynq7:~# 
+# >>> echo __SERIAL_LOGIN_READY__
+echo __SERIAL_LOGIN_READY__
+__SERIAL_LOGIN_READY__
+root@sdr-z203-zynq7:~# 
+# >>> echo __MANUAL_SERVICE_TEST__; sed -i '/server.username/d;/server.groupname/d' /etc/lighttpd/lighttpd.conf; /etc/init.d/lighttpd start || true; /usr/sbin/udhcpd /etc/udhcpd.conf || true; sleep 2; ps w | grep -E 'udhcpd|lighttpd|iiod' | grep -v grep; netstat -lntup 2>/dev/null || true
+echo __MANUAL_SERVICE_TEST__; sed -i '/server.username/d;
+/server.groupname/d' /etc/lighttpd/lighttpd.conf; /etc/init.d/lighttpd start || 
+true; /usr/sbin/udhcpd /etc/udhcpd.conf || true; sleep 2; ps w | grep -E 'udhcpd
+|lighttpd|iiod' | grep -v grep; netstat -lntup 2>/dev/null || true
+__MANUAL_SERVICE_TEST__
+Starting Lighttpd Web Server: lighttpd.
+  505 root     30088 S    /usr/sbin/iiod -D -n 3 -F /dev/iio_ffs
+  969 root      4912 S    /usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf
+  971 root      2212 S    /usr/sbin/udhcpd /etc/udhcpd.conf
+root@sdr-z203-zynq7:~# 
+# Stopped: 2026-05-11T03:09:10.6520900+08:00
