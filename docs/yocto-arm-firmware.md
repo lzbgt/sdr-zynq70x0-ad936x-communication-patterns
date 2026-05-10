@@ -417,6 +417,16 @@ regenerate `BOOT.bin` until Vivado/Vitis and `bootgen` are available.
 
 ## Flashing Boundary
 
+The generated Yocto `pluto.frm` is a packaging proof, not yet a board-validated
+replacement firmware. Before flashing it, compare the Yocto rootfs against the
+vendor Pluto runtime for these minimum services:
+
+- USB gadget/RNDIS setup and `192.168.2.1` network configuration.
+- `iiod` startup and libiio network backend exposure.
+- AD936x/init scripts and board config file handling.
+- mass-storage update handling and reboot flow.
+- serial login behavior for recovery.
+
 Lowest-risk path:
 
 1. Keep the QSPI bootloader and environment unchanged.

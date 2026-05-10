@@ -180,11 +180,14 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Test the generated Yocto-based `pluto.frm` through the board's normal update
-   path while watching COM5.
-2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+1. Audit the Yocto rootfs against vendor Pluto runtime services before flashing:
+   USB gadget/RNDIS setup, `iiod`, AD936x init, mass-storage update flow, and
+   serial recovery.
+2. Test the generated Yocto-based `pluto.frm` through the board's normal update
+   path while watching COM5 after that runtime audit passes.
+3. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
-3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
+4. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
    by boot log, file version, or binary hash where possible.
-4. Decide which large vendor artifacts belong in external storage instead of
+5. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
