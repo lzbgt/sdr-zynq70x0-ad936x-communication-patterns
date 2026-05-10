@@ -1,0 +1,6 @@
+SDR-Z203 ARM firmware image
+
+Board: Zynq-7020 + AD9363 + 2R2T
+Console: ttyPS0 115200
+Default USB Ethernet target IP: 192.168.2.1
+

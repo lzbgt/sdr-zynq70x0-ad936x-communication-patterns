@@ -65,6 +65,12 @@ Board-side facts from live captures:
 - Boot log warning to track: mounting `mtd2` on `/mnt/jffs2` failed with
   `Input/output error`, while the board still completed boot and network/IIO
   verification passed after reboot.
+- Vendor Pluto source includes `device_format_jffs2` as the destructive recovery
+  path for `mtd2`; leave it untouched unless persistent storage is needed.
+- Local ARM-side Yocto baseline is configured under WSL Arch with the committed
+  `meta-sdr-z203` layer. `bitbake -p` passes as the non-root `yoctobuilder`
+  user against `sdr-z203-zynq7`; the kernel and U-Boot recipes point at the
+  extracted vendor Linux/U-Boot source through `externalsrc`.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -78,8 +84,13 @@ user and vendor configuration.
 - `docs/how-to-use.md` - practical host setup and usage flows.
 - `docs/source-build-from-scratch.md` - how to build/customize FPGA firmware,
   ARM Linux/rootfs, and applications from source-oriented trees.
+- `docs/yocto-arm-firmware.md` - WSL Arch Yocto workflow for ARM-side firmware,
+  using extracted vendor source and deferring new FPGA bitstreams until Vivado
+  is ready.
 - `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, GPS/PPS,
   VCTCXO, Zynq, and boot-mode wiring.
+- `docs/nvmfs-mtd2.md` - read-only diagnosis of the `qspi-nvmfs` / `mtd2`
+  mount failure and safe recovery boundary.
 - `docs/capabilities-and-projects.md` - capability summary and project ideas.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
@@ -100,6 +111,8 @@ user and vendor configuration.
   PowerShell into this repo.
 - `tools/reboot_capture_windows_serial.ps1` - issue a reboot over a Windows COM
   port and capture pre/post reboot serial evidence.
+- `tools/run_windows_serial_commands.ps1` - run a command file over a Windows
+  COM port for repeatable read-only diagnostics.
 
 ## Important Source Material
 
@@ -115,6 +128,14 @@ Large source artifacts intentionally not copied into this repo:
 - `04源码与文档/openwifi/openwifi-1.5.0-shahecheng.img.baiduyun.p.downloading`
   - about 15 GiB and still marked as downloading.
 - full Vivado/MATLAB/VMware installers and OS images.
+
+Local build/source workspaces intentionally ignored by git:
+
+- `src/extracted/plutosdr-fw-2r2t/plutosdr-fw` - extracted vendor firmware
+  source used by the Yocto `externalsrc` recipes.
+- `yocto/layers` - local Poky/OpenEmbedded/Xilinx/ADI layer checkouts.
+- `yocto/builds`, `yocto/downloads`, `yocto/sstate-cache` - local BitBake build
+  output, downloads, and shared state cache.
 
 ## Quick Verification
 
@@ -146,11 +167,11 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Investigate the boot-log `mtd2`/`/mnt/jffs2` mount `Input/output error` and
-   decide whether it is harmless missing NVMFS formatting or a flash health
-   issue.
-2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+1. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
+2. Run an intentional full `bitbake sdr-z203-arm-image` build after deciding
+   whether to keep the partly populated Yocto cache from the first target-check
+   attempt.
 3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
    by boot log, file version, or binary hash where possible.
 4. Decide which large vendor artifacts belong in external storage instead of

@@ -1,0 +1,11 @@
+echo __SDR_Z203_MTD2_DIAG__
+id
+cat /proc/mounts
+cat /proc/mtd
+ls -la /mnt /mnt/jffs2 2>&1
+dmesg | grep -i -E 'jffs|mtd|spi|qspi|ubi|flash|error'
+dmesg | tail -n 120
+dd if=/dev/mtd2 bs=64 count=4 2>/dev/null | hexdump -C
+which flash_erase 2>/dev/null || true
+which mkfs.jffs2 2>/dev/null || true
+fw_printenv mode bootcmd ipaddr 2>/dev/null || true

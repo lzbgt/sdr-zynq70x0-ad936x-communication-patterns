@@ -15,3 +15,8 @@
 *.tar
 *.tar.gz
 *.7z
+
+# Local source and Yocto workspaces; these are reproducible and too large to commit.
+/src/
+/yocto/
+/.venv/

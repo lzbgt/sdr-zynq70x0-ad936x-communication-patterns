@@ -109,6 +109,6 @@ Available from vendor resources but not yet bench-verified here:
 
 - Which exact copied QSPI 2R2T firmware files match the image currently in
   flash?
-- Is the boot-time `qspi-nvmfs` mount `Input/output error` expected for an
-  uninitialized NVMFS partition, or does it indicate QSPI flash/NVMFS damage?
+- Should `qspi-nvmfs` / `mtd2` be left untouched, or should persistent storage
+  be intentionally initialized with vendor `device_format_jffs2`?
 - What exact attenuation and cabling should be standardized for loopback tests?

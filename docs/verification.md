@@ -163,6 +163,36 @@ Reboot facts:
 
 Post-reboot `./tools/verify_board.sh` passed. Ping, IIO, and HTTP still worked.
 
+## COM5 mtd2 / qspi-nvmfs Diagnostic
+
+Raw capture:
+
+`resources/live-captures/serial_COM5_mtd2_diag_20260511-010316.txt`
+
+Summary:
+
+- COM5 login works as `root` with password `root`.
+- `/mnt/jffs2` exists but is not mounted.
+- `/proc/mounts` has no `/mnt/jffs2` entry.
+- `mtd2` is `qspi-nvmfs`, size `0x000e0000`, erase size `0x00010000`.
+- JFFS2 reports no valid JFFS2 nodes and refuses to erase blocks.
+- JFFS2 reports `bad_blocks 0` across 14 erase blocks.
+- First 256 bytes read from `/dev/mtd2` are all `0x00`.
+- `flash_erase` exists; `mkfs.jffs2` was not found.
+
+Interpretation: this is an invalid, corrupted, or uninitialized NVMFS/JFFS2
+partition, not yet evidence of raw QSPI hardware failure. Do not run
+`flash_erase` without an explicit recovery plan. See `docs/nvmfs-mtd2.md`.
+
+Vendor-source follow-up:
+
+- `plutosdr-fw/buildroot/board/pluto/device_format_jffs2` is the vendor
+  formatter for `mtd2`; it runs `flash_erase -j /dev/mtd2 0 0` and `mount -a`.
+- `device_persistent_keys` tells users to run `device_format_jffs2` if `mtd2`
+  is not mounted.
+- `S21misc` and `S98autostart` treat `/mnt/jffs2` as optional persistent
+  storage for passwords, Dropbear keys, SSH authorized keys, and `autorun.sh`.
+
 ## Removable Drive Config
 
 Windows exposes a removable drive labeled `PlutoSDR`. Captured `config.txt`:
@@ -218,8 +248,13 @@ connect to the `openwifi` AP and browse to `192.168.13.1`.
 
 ## Verification Gaps
 
-- The `qspi-nvmfs` / `mtd2` mount failure needs follow-up.
+- `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
+  (`device_format_jffs2`) but intentionally not run because it is destructive
+  and the board otherwise works.
 - RF loopback has not been performed yet.
+- Yocto ARM firmware verification has reached `bitbake -p` and provider wiring
+  checks. A full `sdr-z203-arm-image` build has not been intentionally run to
+  completion yet.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - No Vivado/JTAG programming session has been run from this WSL host yet.

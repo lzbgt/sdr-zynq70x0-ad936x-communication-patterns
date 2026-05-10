@@ -24,6 +24,7 @@ PNPDeviceID : USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003
 
 The current .NET serial-port list also reports `COM5`, and COM5 has been
 verified as a logged-in debug console. Use COM5 for command/reboot captures.
+After reboot, COM5 login was verified as user `root` with password `root`.
 
 ## Passive Capture
 
@@ -49,6 +50,24 @@ powershell.exe -ExecutionPolicy Bypass -File "$(wslpath -w "$PWD/tools/reboot_ca
 
 The helper captures pre-reboot kernel/devicetree/MTD/U-Boot environment facts,
 issues `reboot`, then records the boot log.
+
+## Read-Only Command Capture
+
+Use this helper for repeatable diagnostics without rebooting:
+
+```sh
+out="$(wslpath -w "$PWD/resources/live-captures/serial_COM5_diag_$(date +%Y%m%d-%H%M%S).txt")"
+powershell.exe -ExecutionPolicy Bypass -File "$(wslpath -w "$PWD/tools/run_windows_serial_commands.ps1")" \
+  -Port COM5 -Baud 115200 -OutFile "$out" \
+  -CommandsFile "$(wslpath -w "$PWD/tools/mtd2_diag_commands.txt")"
+```
+
+For other diagnostics, create a separate command file. Keep destructive commands
+out of routine captures.
+
+The `tools/mtd2_diag_commands.txt` file is read-only. It deliberately does not
+run `device_format_jffs2`, `flash_erase`, or any other command that changes
+QSPI contents.
 
 Expected useful boot-log fields:
 

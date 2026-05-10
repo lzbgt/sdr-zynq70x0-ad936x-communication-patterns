@@ -12,11 +12,15 @@ Start here:
   openwifi repurposing paths.
 - `docs/source-build-from-scratch.md` - how to build FPGA, boot chain, Linux,
   rootfs, and ARM applications from source-oriented trees.
+- `docs/yocto-arm-firmware.md` - local WSL Arch Yocto workflow for ARM-side
+  firmware while Vivado/FPGA work is still pending.
 - `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, clock/PPS,
   GPS, Zynq, and boot-mode wiring.
 - `docs/board-variants.md` - SDR-Z203 Z7020 2R2T vs SDR-Z201 Z7010 AD9363
   1R1T board handling.
 - `docs/serial-capture.md` - Windows/WSL serial boot-log capture flow.
+- `docs/nvmfs-mtd2.md` - `qspi-nvmfs` / `mtd2` JFFS2 diagnostic and recovery
+  boundary.
 - `docs/capabilities-and-projects.md` - what the board can do and which project
   types benefit.
 - `docs/example-projects.md` - concrete project seeds.

@@ -42,9 +42,10 @@ Use WSL Arch Linux as the working repo and host-control environment:
 - source inspection and diffing between 1R1T/2R2T firmware trees.
 
 Do not make Arch WSL the first Vivado-heavy firmware build environment. It can
-work for some command-line tasks, but the vendor material and AMD support matrix
-are Ubuntu-oriented, and JTAG/USB cable handling is simpler on Windows or a
-native/VM Linux environment.
+work for ARM-side Yocto, source inspection, rootfs packaging, and FIT assembly,
+but the vendor Vivado/FPGA material and AMD support matrix are Ubuntu-oriented,
+and JTAG/USB cable handling is simpler on Windows or a native/VM Linux
+environment.
 
 Recommended first full-build environment:
 
@@ -54,22 +55,23 @@ Recommended first full-build environment:
 - Build inside the WSL/ext4 or VM filesystem, not under `/mnt/c`, to avoid slow
   metadata operations and case/permission surprises.
 
-Yocto is not the fastest first path for this board because the Pluto-compatible
-firmware is already Buildroot based. Use Yocto later if the goal becomes a
-maintained product-style Linux distribution with layers, package policy, SDKs,
-image reproducibility, and multiple applications. A Yocto path would require a
-new SDR-Z203 BSP layer or a careful port from a Zynq/ADI reference layer, plus
-matching HDL/XSA, bootloader, kernel, devicetree, RFIC support, and rootfs
-recipes.
+Yocto is now being used locally for the ARM-side firmware track. The committed
+`meta-sdr-z203` layer points at the extracted vendor Linux/U-Boot trees and
+builds a developer rootfs image. This does not replace Vivado for new FPGA
+bitstreams, XSA exports, FSBL generation, or BOOT.bin regeneration.
 
 Practical decision:
 
-1. Rebuild the vendor `plutosdr-fw-2r2t.zip` unchanged first.
-2. Make minimal devicetree/rootfs/HDL edits in that Buildroot firmware flow.
-3. Use no-OS/JTAG for RFIC and PL bring-up.
-4. Use openwifi's documented flow for 802.11 experiments.
-5. Start Yocto only after the board-specific boot chain, devicetree, and RF/HDL
-   wiring are understood and stable.
+1. Use WSL Arch plus Yocto for rootfs, ARM packages, U-Boot environment tooling,
+   and kernel/devicetree porting.
+2. Reuse the known-good `system_top.bit` for ARM-only FIT packaging until Vivado
+   is ready.
+3. Keep QSPI bootloader/environment changes out of scope for initial Yocto
+   bring-up.
+4. Add Vivado-generated XSA/bitstream/FSBL/BOOT.bin work later.
+5. Use openwifi's documented flow separately for 802.11 experiments.
+
+Developer-facing Yocto commands are in `docs/yocto-arm-firmware.md`.
 
 Official context checked:
 

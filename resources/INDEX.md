@@ -72,6 +72,13 @@ multi-gigabyte Pluto source archives are not copied.
 - `live-captures/windows_serial_ports_20260511.txt` - Windows serial-port query.
 - `live-captures/serial_COM5_reboot_20260511-005407.txt` - COM5 command and
   reboot capture confirming Z7020/AD9363, QSPI MTD layout, and `mode=2r2t`.
+- `live-captures/serial_COM5_mtd2_diag_20260511-010316.txt` - read-only COM5
+  diagnostic for the `qspi-nvmfs` / `mtd2` JFFS2 mount failure.
+
+## Command Inputs
+
+- `../tools/mtd2_diag_commands.txt` - read-only serial diagnostic command list
+  used for the COM5 `mtd2` capture.
 
 ## Integrity
 
