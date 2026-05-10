@@ -204,7 +204,7 @@ bitbake -p
 Current verification result on this host:
 
 ```text
-Parsing of 1876 .bb files complete. 3224 targets, 128 skipped, 0 masked, 0 errors.
+Parsing of 1877 .bb files complete. 3225 targets, 128 skipped, 0 masked, 0 errors.
 virtual/kernel EXTERNALSRC = /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux
 virtual/kernel KBUILD_DEFCONFIG = zynq_pluto_defconfig
 virtual/kernel KERNEL_DEVICETREE = zynq-pluto-sdr.dtb
@@ -240,7 +240,7 @@ Verified full ARM image build on 2026-05-11:
 
 ```text
 ./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
-Tasks Summary: Attempted 4837 tasks and all succeeded.
+Tasks Summary: Attempted 4910 tasks and all succeeded.
 ```
 
 Verified vendor U-Boot build on 2026-05-11:
@@ -299,10 +299,30 @@ tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
 Current verified rootfs outputs:
 
 ```text
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.cpio.gz  20677186 bytes
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.tar.gz   20783079 bytes
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.manifest     5084 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz  21724794 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz   21856763 bytes
 ```
+
+The image includes `sdr-z203-pluto-runtime`, which imports essential runtime
+assets from the extracted vendor tree:
+
+- `S23udc` for USB gadget, ACM serial, mass-storage, RNDIS/NCM/ECM, and
+  FunctionFS IIO startup.
+- `S40network` for U-Boot-env-driven `192.168.2.1`/`192.168.2.10` network
+  configuration and `config.txt` generation.
+- `S45msd`, `update.sh`, and `update_frm.sh` for the mass-storage update flow.
+- `/opt/vfat.img`, `/www`, `/opt/VERSIONS`, `device_reboot`, mtd2/JFFS2 helper
+  scripts, and persistent-key/password helper scripts.
+- `lighttpd` configured to serve `/www` so `curl http://192.168.2.1/` remains a
+  useful post-boot check.
+
+Audit the rootfs before packaging or flashing:
+
+```sh
+./tools/audit_yocto_rootfs.sh
+```
+
+Current audit result: passed.
 
 Vendor-kernel recipe:
 
@@ -369,9 +389,9 @@ yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm.md5
 Current verified package output:
 
 ```text
-pluto.itb       27757915 bytes
-pluto.frm       27757948 bytes
-pluto.frm.md5   c9ebe971fc8bf8b24a1857af1c0448b2
+pluto.itb       28805523 bytes
+pluto.frm       28805556 bytes
+pluto.frm.md5   90406b268435d04e4f29991a0afc5fe8
 ```
 
 The script accepts overrides:
@@ -417,15 +437,16 @@ regenerate `BOOT.bin` until Vivado/Vitis and `bootgen` are available.
 
 ## Flashing Boundary
 
-The generated Yocto `pluto.frm` is a packaging proof, not yet a board-validated
-replacement firmware. Before flashing it, compare the Yocto rootfs against the
-vendor Pluto runtime for these minimum services:
+The generated Yocto `pluto.frm` is now runtime-audited but not yet
+board-validated. Before flashing it, confirm the audit passes:
 
-- USB gadget/RNDIS setup and `192.168.2.1` network configuration.
-- `iiod` startup and libiio network backend exposure.
-- AD936x/init scripts and board config file handling.
-- mass-storage update handling and reboot flow.
-- serial login behavior for recovery.
+```sh
+./tools/audit_yocto_rootfs.sh
+```
+
+The first flash should still be treated as a controlled bring-up test because
+the imported Pluto scripts have not yet booted from the Yocto rootfs on the
+board.
 
 Lowest-risk path:
 

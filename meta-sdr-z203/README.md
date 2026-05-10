@@ -8,6 +8,9 @@ Vivado/FPGA toolchain is still being prepared. It provides:
 - `sdr-z203-zynq7`, a Cortex-A9 hard-float Zynq-7000 machine definition.
 - `sdr-z203-arm-image`, a small developer image with SSH, IIO, U-Boot env tools,
   networking tools, and board identity/config files.
+- `sdr-z203-pluto-runtime`, which imports the essential Pluto USB gadget,
+  FunctionFS/IIO, mass-storage update, web, and recovery scripts from the
+  extracted vendor firmware tree.
 - external-source recipes for the vendor Linux and U-Boot trees extracted under
   `src/extracted/plutosdr-fw-2r2t/plutosdr-fw`.
 
@@ -19,3 +22,4 @@ Verified on WSL Arch:
 - `bitbake -p`
 - `bitbake sdr-z203-arm-image`
 - `bitbake virtual/bootloader`
+- `./tools/audit_yocto_rootfs.sh`

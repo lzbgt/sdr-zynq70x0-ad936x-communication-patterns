@@ -11,9 +11,12 @@ IMAGE_INSTALL:append = " \
     iproute2 \
     libiio \
     libiio-iiod \
+    libiio-tests \
     libubootenv-bin \
+    lighttpd \
+    mtd-utils \
     sdr-z203-board-files \
+    sdr-z203-pluto-runtime \
 "
 
 IMAGE_FSTYPES = "cpio.gz tar.gz"
-

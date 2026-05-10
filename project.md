@@ -78,6 +78,10 @@ Board-side facts from live captures:
 - A Pluto-style `pluto.frm` payload can now be packaged locally from the Yocto
   ARM outputs plus the known-good vendor `system_top.bit`. Full QSPI `BOOT.bin`
   regeneration is deferred until Vivado/Vitis/bootgen are ready.
+- The Yocto rootfs now includes an imported Pluto runtime layer from the
+  extracted vendor source: USB gadget/RNDIS + FunctionFS IIO startup,
+  mass-storage update scripts, `/opt/vfat.img`, `/www`, `device_reboot`,
+  mtd2 helpers, `iio_info`, `lighttpd`, and a repeatable rootfs audit script.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -126,6 +130,8 @@ user and vendor configuration.
   Linux/U-Boot source residue and repair archive symlinks before Yocto builds.
 - `tools/package_yocto_pluto_frm.sh` - package Yocto ARM outputs and an
   existing bitstream into `pluto.itb` and `pluto.frm`.
+- `tools/audit_yocto_rootfs.sh` - verify the Yocto rootfs contains the minimum
+  Pluto runtime files before packaging or flashing.
 
 ## Important Source Material
 
@@ -180,14 +186,12 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Audit the Yocto rootfs against vendor Pluto runtime services before flashing:
-   USB gadget/RNDIS setup, `iiod`, AD936x init, mass-storage update flow, and
-   serial recovery.
-2. Test the generated Yocto-based `pluto.frm` through the board's normal update
-   path while watching COM5 after that runtime audit passes.
-3. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
+1. Test the generated Yocto-based `pluto.frm` through the board's normal update
+   path while watching COM5. This should be treated as a first boot test, not a
+   proven production image.
+2. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
-4. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
+3. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
    by boot log, file version, or binary hash where possible.
-5. Decide which large vendor artifacts belong in external storage instead of
+4. Decide which large vendor artifacts belong in external storage instead of
    this git repo.

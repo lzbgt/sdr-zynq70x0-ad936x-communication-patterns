@@ -214,7 +214,7 @@ Verified parser/config check:
 Result:
 
 ```text
-Parsing of 1876 .bb files complete. 3224 targets, 128 skipped, 0 masked, 0 errors.
+Parsing of 1877 .bb files complete. 3225 targets, 128 skipped, 0 masked, 0 errors.
 ```
 
 Verified full ARM image build:
@@ -226,7 +226,7 @@ Verified full ARM image build:
 Result:
 
 ```text
-Tasks Summary: Attempted 4837 tasks and all succeeded.
+Tasks Summary: Attempted 4910 tasks and all succeeded.
 ```
 
 Verified vendor U-Boot build:
@@ -244,13 +244,24 @@ Tasks Summary: Attempted 1041 tasks and all succeeded.
 Key deployed artifacts:
 
 ```text
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.cpio.gz  20677186 bytes
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs-20260510183719.tar.gz   20783079 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz                21724794 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz                 21856763 bytes
 zImage--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.bin          4705632 bytes
 zynq-pluto-sdr.dtb                                                 18845 bytes
 modules--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.tgz           37742 bytes
 u-boot-sdr-z203-zynq7-2026.01+vendor-r0.bin                       414348 bytes
 ```
+
+Verified Pluto-runtime rootfs audit:
+
+```sh
+./tools/audit_yocto_rootfs.sh
+```
+
+Result: passed. The audit checks for the Pluto USB gadget startup scripts,
+FunctionFS/IIO daemon path, mass-storage update scripts, U-Boot environment
+tools, mtd2/JFFS2 helpers, `iio_info`, `lighttpd`, `/opt/vfat.img`, `/www`, and
+the expected mount points.
 
 Verified Pluto-style FIT/MSD firmware package:
 
@@ -261,9 +272,9 @@ Verified Pluto-style FIT/MSD firmware package:
 Output:
 
 ```text
-yocto/builds/sdr-z203-arm/fit-work/build/pluto.itb   27757915 bytes
-yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm   27757948 bytes
-pluto.frm.md5: c9ebe971fc8bf8b24a1857af1c0448b2
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.itb   28805523 bytes
+yocto/builds/sdr-z203-arm/fit-work/build/pluto.frm   28805556 bytes
+pluto.frm.md5: 90406b268435d04e4f29991a0afc5fe8
 ```
 
 `mkimage -l` confirms the FIT contains:
@@ -281,6 +292,10 @@ Build warnings to preserve:
   `yoctobuilder` user has primary group `root` in this `/root` workspace setup.
   This should be cleaned up for a product build, but it did not block local
   ARM-side firmware rebuilds.
+- `mkimage` warns that the vendor `pluto.its` uses unit addresses without
+  `reg`/`ranges`; this is inherited from the vendor FIT description and matters
+  only for FIT signing. The current package is unsigned, matching the vendor
+  update style.
 
 Recipe fixes verified during this build:
 
@@ -288,6 +303,12 @@ Recipe fixes verified during this build:
   when generating a DTB with `dtc: command not found`.
 - `u-boot-sdr-z203` disables `UBOOT_INITIAL_ENV`; otherwise Yocto asks the old
   vendor U-Boot tree for a missing `u-boot-initial-env` target.
+- `sdr-z203-pluto-runtime` imports the essential runtime assets from the
+  extracted vendor tree instead of copying them into git: `S23udc`, `S40network`,
+  `S45msd`, update helpers, `/opt/vfat.img`, `/www`, mtd2 utilities, and
+  recovery scripts.
+- `lighttpd_%.bbappend` changes the default document root to `/www` so the
+  post-flash HTTP check can still probe onboard documentation.
 
 ## Removable Drive Config
 
@@ -348,9 +369,9 @@ connect to the `openwifi` AP and browse to `192.168.13.1`.
   (`device_format_jffs2`) but intentionally not run because it is destructive
   and the board otherwise works.
 - RF loopback has not been performed yet.
-- Yocto ARM image and U-Boot builds now complete locally on WSL Arch, and the
-  generated ARM payload can be packaged as `pluto.frm`; that payload has not yet
-  been flashed to the board.
+- Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, and `pluto.frm` packaging
+  now complete locally on WSL Arch; that payload has not yet been flashed to the
+  board.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - No Vivado/JTAG programming session has been run from this WSL host yet.
