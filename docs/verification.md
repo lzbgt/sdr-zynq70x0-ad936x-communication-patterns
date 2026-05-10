@@ -109,6 +109,13 @@ Full capture:
 
 `resources/live-captures/windows_pnp_devices.txt`
 
+PowerShell `Win32_SerialPort` query on 2026-05-11 currently reports:
+
+- `COM3`, `PlutoSDR Serial Console (COM3)`,
+  `USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003`.
+
+Capture path and commands are documented in `docs/serial-capture.md`.
+
 ## Removable Drive Config
 
 Windows exposes a removable drive labeled `PlutoSDR`. Captured `config.txt`:

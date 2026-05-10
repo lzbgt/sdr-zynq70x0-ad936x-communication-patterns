@@ -1,0 +1,8 @@
+
+
+DeviceID    : COM3
+Name        : PlutoSDR Serial Console (COM3)
+PNPDeviceID : USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003
+
+
+

@@ -74,6 +74,7 @@ user and vendor configuration.
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T board separate
   from the related SDR-Z201 Z7010+AD9363 1R1T board.
+- `docs/serial-capture.md` - Windows/WSL serial and JTAG capture notes.
 - `docs/example-projects.md` - concrete example projects and staged next work.
 - `resources/` - curated copied artifacts from the vendor package and live
   host captures.
@@ -84,6 +85,8 @@ user and vendor configuration.
   resource changes.
 - `tools/index_pluto_archives.sh` - generate a small inventory of the external
   Pluto firmware source zips without extracting them.
+- `tools/capture_windows_serial.ps1` - capture COM-port boot logs from Windows
+  PowerShell into this repo.
 
 ## Important Source Material
 

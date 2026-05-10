@@ -16,6 +16,7 @@ Start here:
   GPS, Zynq, and boot-mode wiring.
 - `docs/board-variants.md` - SDR-Z203 Z7020 2R2T vs SDR-Z201 Z7010 AD9363
   1R1T board handling.
+- `docs/serial-capture.md` - Windows/WSL serial boot-log capture flow.
 - `docs/capabilities-and-projects.md` - what the board can do and which project
   types benefit.
 - `docs/example-projects.md` - concrete project seeds.
