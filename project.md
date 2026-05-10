@@ -82,6 +82,8 @@ user and vendor configuration.
 - `tools/verify_board.sh` - repeatable WSL-side verification script.
 - `tools/update_manifest.sh` - regenerate resource checksums after curated
   resource changes.
+- `tools/index_pluto_archives.sh` - generate a small inventory of the external
+  Pluto firmware source zips without extracting them.
 
 ## Important Source Material
 

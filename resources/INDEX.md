@@ -41,6 +41,12 @@ multi-gigabyte Pluto source archives are not copied.
 - `examples/matlab/fm_modem.slx` - MATLAB/Simulink FM example.
 - `examples/openwifi-devicetree.dts` - openwifi Z203 devicetree source.
 
+## Source Indexes
+
+- `source-index/pluto-archive-inventory.md` - generated inventory of the
+  external `plutosdr-fw-1r1t.zip` and `plutosdr-fw-2r2t.zip` archives, kept here
+  so build planning does not require extracting the multi-gigabyte trees.
+
 ## Vendor Notes
 
 - `vendor-notes/SDR-Z203快速测试指南.pdf` - main quick test.

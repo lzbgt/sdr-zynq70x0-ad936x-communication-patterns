@@ -110,6 +110,16 @@ The archives are about 3.1 GiB each compressed, so they stay external. They are
 full source/build trees with `hdl`, `linux`, `u-boot-xlnx`, `buildroot`, SDK
 exports, and generated artifacts.
 
+A lightweight index of those archives is generated locally at:
+
+`resources/source-index/pluto-archive-inventory.md`
+
+Regenerate it after replacing either external source archive:
+
+```sh
+./tools/index_pluto_archives.sh
+```
+
 Fresh upstream-style build flow from the vendor guide:
 
 ```sh

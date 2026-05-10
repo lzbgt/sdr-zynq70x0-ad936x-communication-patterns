@@ -16,6 +16,7 @@ Original source package:
 - `examples/gnuradio/` - vendor GNU Radio flowgraphs.
 - `examples/matlab/` - vendor MATLAB/Simulink examples.
 - `examples/openwifi-devicetree.dts` - openwifi Z203 devicetree source.
+- `source-index/` - generated indexes for large external source archives.
 - `vendor-notes/` - selected vendor quick-start PDFs.
 - `live-captures/` - outputs captured from the currently connected board/host.
 - `MANIFEST.sha256` - checksums for copied resources and captures.

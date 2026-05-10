@@ -112,4 +112,3 @@ Available from vendor resources but not yet bench-verified here:
 - What exact attenuation and cabling should be standardized for loopback tests?
 - Does SDR-Z201 have a separate schematic/resource bundle, or should it be
   captured from hardware first?
-- What exact attenuation and cabling should be standardized for loopback tests?
