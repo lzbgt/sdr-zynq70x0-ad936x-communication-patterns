@@ -118,11 +118,12 @@ Board-side facts from live captures:
   in place over SSH from the factory SD-booted ramdisk, then COM5 reboot capture
   showed the locally built U-Boot loading the Yocto `uImage`, device tree, and
   `Yocto initramfs` from SD. Post-boot ping, IIO, and HTTP checks passed.
-- JTAG host preparation is partially verified. Xilinx Linux cable drivers were
-  installed successfully in WSL, and Windows sees the FT2232HL debug/JTAG device
-  as `VID_0403&PID_6010`. `hw_server` starts, but no targets enumerate because
-  WSL currently has no `/dev/bus/usb`; `usbipd-win` must be installed and used
-  to attach the FTDI device to WSL before Linux JTAG probing can complete.
+- JTAG is verified at the physical chain level through WSL using `usbipd-win`
+  and OpenOCD. Windows sees the FT2232HL debug/JTAG device as
+  `VID_0403&PID_6010`, WSL sees it under `/dev/bus/usb`, and OpenOCD finds the
+  Zynq PL and CPU JTAG TAPs. Vivado `hw_server` starts but still lists no
+  targets, so Vivado Hardware Manager is not yet verified with the onboard
+  generic FT2232 identity.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -219,8 +220,12 @@ user and vendor configuration.
   SD.
 - `tools/probe_xilinx_jtag.sh` - run a simple `xsdb` JTAG target probe after
   the DEBUG/JTAG adapter is attached to WSL.
+- `tools/probe_openocd_jtag.sh` - run a generic FT2232 OpenOCD scan of the
+  Zynq-7000 JTAG chain.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
+- `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
+  and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
   PlutoSDR removable drive while capturing COM5; currently documented as less
   reliable than SSH update on this board.

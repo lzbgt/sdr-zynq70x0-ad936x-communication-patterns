@@ -295,27 +295,49 @@ Kernel/runtime confirmation:
 Raw captures:
 
 - `resources/live-captures/jtag_probe_no_targets_20260511.txt`
+- `resources/live-captures/jtag_host_verified_20260511.txt`
+- `resources/live-captures/openocd_jtag_probe_20260511.txt`
 - `resources/live-captures/windows_jtag_pnp_20260511.txt`
+- `resources/live-captures/windows_usbipd_attached_20260511.txt`
 - `resources/live-captures/windows_usbipd_status_20260511.txt`
 
 Result on 2026-05-11:
 
 - Board was placed in JTAG mode and powered.
-- Vivado `hw_server` starts successfully from WSL.
 - Xilinx Linux cable drivers were installed successfully from the local Vivado
   tree. The installer placed Xilinx FTDI, Platform Cable USB, and Digilent udev
   rule files under `/etc/udev/rules.d/`.
-- `xsdb targets` was empty.
 - Windows PnP sees the FTDI device as `USB\VID_0403&PID_6010`, including USB
   Serial Converter A/B and `COM5`.
-- WSL does not currently expose `/dev/bus/usb`; `lsusb` returns no devices.
-- `usbipd-win` is not installed, so the FTDI/JTAG interface cannot yet be
-  attached to WSL for Linux `hw_server`.
+- `usbipd-win` 5.3.0 was installed from the upstream MSI.
+- `usbipd` attached the FTDI device at bus ID `1-1` to WSL.
+- WSL sees the FTDI device with `lsusb`:
+  `0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC`.
+- Vivado `hw_server` starts successfully from WSL, but `xsdb targets` remains
+  empty even after unbinding both FTDI interfaces from `ftdi_sio`.
+- OpenOCD with a generic FT2232/Digilent-HS1-style layout successfully scans
+  the Zynq JTAG chain.
 
-Interpretation: this is not evidence of a board JTAG failure. It is a host USB
-pass-through gap after cable-driver installation. Install `usbipd-win` on
-Windows with Administrator elevation, attach `VID_0403&PID_6010` to WSL, then
-rerun `./tools/probe_xilinx_jtag.sh` or `./tools/verify_jtag_host.sh`.
+OpenOCD confirmation:
+
+```text
+JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+```
+
+Interpretation: the physical JTAG chain works under WSL through `usbipd` when
+driven as a generic FT2232 MPSSE adapter. Vivado `hw_server` does not recognize
+this onboard FT2232 as a Xilinx/Digilent cable, so Vivado Hardware Manager may
+need a recognized external adapter, a Windows-native workflow, or a carefully
+researched FTDI EEPROM identity change.
+
+Host reattach helper:
+
+```powershell
+tools\attach_ft2232_jtag_to_wsl.ps1
+```
 
 ## Yocto ARM Firmware Build
 

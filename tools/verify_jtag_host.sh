@@ -7,6 +7,14 @@ echo "== Vivado hw_server / xsdb probe =="
 "$repo_root/tools/probe_xilinx_jtag.sh" || true
 
 echo
+echo "== OpenOCD generic FT2232 probe =="
+if [[ -x "$repo_root/tools/probe_openocd_jtag.sh" ]]; then
+  "$repo_root/tools/probe_openocd_jtag.sh" || true
+else
+  echo "tools/probe_openocd_jtag.sh not found"
+fi
+
+echo
 echo "== WSL USB visibility =="
 if command -v lsusb >/dev/null 2>&1; then
   lsusb || true

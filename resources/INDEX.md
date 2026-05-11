@@ -89,8 +89,14 @@ multi-gigabyte Pluto source archives are not copied.
   card and reaches the Poky login banner.
 - `live-captures/jtag_probe_no_targets_20260511.txt` - WSL Vivado `hw_server`
   probe showing no JTAG targets while `/dev/bus/usb` is absent.
+- `live-captures/jtag_host_verified_20260511.txt` - final JTAG host check after
+  `usbipd-win` attach, including Vivado no-target status and OpenOCD success.
+- `live-captures/openocd_jtag_probe_20260511.txt` - OpenOCD probe proving the
+  Zynq PL and CPU JTAG TAPs are reachable through the onboard FT2232.
 - `live-captures/windows_jtag_pnp_20260511.txt` - Windows PnP evidence that
   the FT2232HL `VID_0403&PID_6010` debug/JTAG device is present.
+- `live-captures/windows_usbipd_attached_20260511.txt` - Windows `usbipd` list
+  showing FT2232HL bus ID `1-1` attached to WSL.
 - `live-captures/windows_usbipd_status_20260511.txt` - Windows-side evidence
   that `usbipd-win` is not installed yet.
 

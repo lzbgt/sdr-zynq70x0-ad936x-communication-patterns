@@ -183,7 +183,7 @@ requested JTAG/debug mode. A successful probe should list Zynq/JTAG targets from
 If WSL cannot see the FTDI/JTAG adapter, attach it to WSL from Windows with
 `usbipd` before probing.
 
-Current status on 2026-05-11:
+Vivado/Xilinx `hw_server` status on 2026-05-11:
 
 - The board was switched to JTAG mode and powered.
 - Xilinx Linux cable drivers were installed from the Vivado tree:
@@ -193,11 +193,36 @@ Current status on 2026-05-11:
 - `./tools/probe_xilinx_jtag.sh` starts `hw_server`, but `targets` is empty.
 - Windows sees the FT2232HL as `VID_0403&PID_6010`, with USB Serial Converter
   A/B and `COM5`.
-- WSL has no `/dev/bus/usb`, so Linux `hw_server` cannot access the FTDI/JTAG
-  interface yet.
-- `usbipd-win` is not installed. A `winget install dorssel.usbipd-win` attempt
-  downloaded the installer but did not complete unattended, likely because
-  Windows elevation is required.
+- `usbipd-win` was installed from the upstream MSI and the FT2232HL was attached
+  to WSL with bus ID `1-1`.
+- WSL sees `0403:6010` under `/dev/bus/usb`.
+- Even after unbinding `ftdi_sio` from both FTDI interfaces, Vivado
+  `hw_server` still lists no targets. This means this onboard FT2232 is visible
+  as a generic FTDI adapter but is not recognized by Vivado as a Xilinx/Digilent
+  cable.
+
+OpenOCD status on 2026-05-11: verified.
+
+The generic FT2232 layout used by Digilent HS1 / SMT1 works for this board:
+
+```sh
+./tools/probe_openocd_jtag.sh
+```
+
+Verified OpenOCD chain:
+
+```text
+JTAG tap: zynq_pl.bs tap/device found: 0x23727093
+JTAG tap: zynq.cpu tap/device found: 0x4ba00477
+zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+```
+
+Raw capture:
+
+- `resources/live-captures/openocd_jtag_probe_20260511.txt`
+- `resources/live-captures/jtag_host_verified_20260511.txt`
+- `resources/live-captures/windows_usbipd_attached_20260511.txt`
 
 Repeat the full host-side check with:
 
@@ -205,14 +230,17 @@ Repeat the full host-side check with:
 ./tools/verify_jtag_host.sh
 ```
 
-Remaining host action:
+If the FT2232HL is unplugged, Windows reboots, or WSL loses the USB device,
+reattach it from an Administrator PowerShell:
 
-1. Install `usbipd-win` on Windows as Administrator.
-2. In an elevated Windows PowerShell, bind and attach the FT2232 device to WSL.
-   The current device is `VID_0403&PID_6010`.
-3. Inside WSL, confirm `lsusb` lists the FT2232 device and `/dev/bus/usb`
-   exists.
-4. Re-run `./tools/probe_xilinx_jtag.sh`.
+```powershell
+tools\attach_ft2232_jtag_to_wsl.ps1
+```
+
+For Vivado Hardware Manager specifically, use a recognized Xilinx/Digilent USB
+JTAG adapter, run Vivado on Windows against the Windows-visible FTDI device, or
+investigate FTDI EEPROM identity programming only with a backup of the current
+EEPROM contents. Do not rewrite FTDI EEPROM as a routine step.
 
 ## Stop Conditions
 

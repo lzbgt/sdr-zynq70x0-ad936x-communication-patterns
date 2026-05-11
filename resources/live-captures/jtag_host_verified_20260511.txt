@@ -1,0 +1,49 @@
+== Vivado hw_server / xsdb probe ==
+attempting to launch hw_server
+
+****** Xilinx hw_server v2025.1
+  **** Build date : May  6 2025 at 15:14:51
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+INFO: hw_server application started
+INFO: Use Ctrl-C to exit hw_server application
+
+INFO: To connect to this hw_server instance use url: TCP:127.0.0.1:3121
+
+== JTAG targets ==
+
+== OpenOCD generic FT2232 probe ==
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+shutdown command invoked
+
+== WSL USB visibility ==
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+      580      0 crw-rw-r--   1 root     root     189, 128 May 11 22:03 /dev/bus/usb/002/001
+      585      0 crw-rw----   1 root     root     189,   1 May 11 22:05 /dev/bus/usb/001/002
+      578      0 crw-rw-r--   1 root     root     189,   0 May 11 22:03 /dev/bus/usb/001/001
+
+== Xilinx Linux cable driver files ==
+/etc/udev/rules.d/52-xilinx-digilent-usb.rules
+/etc/udev/rules.d/52-xilinx-ftdi-usb.rules
+/etc/udev/rules.d/52-xilinx-pcusb.rules
+
+== Windows FTDI / usbipd status ==
+
+Name    Status StartType
+----    ------ ---------
+usbipd Running Automatic
+
+
