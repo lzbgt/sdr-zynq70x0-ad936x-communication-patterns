@@ -1,0 +1,255 @@
+# OpenOCD JTAG Linux RAM boot
+# PS7 init: /root/work/ZYNQ7020/.config/boot-artifacts/sdt/ps7_init.tcl
+# U-Boot ELF: /root/work/ZYNQ7020/.config/boot-artifacts/boot/u-boot.elf
+# PL bitstream: /root/work/ZYNQ7020/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+# Kernel: .config/sdcard-staging/factory-2r2t/uImage -> 0x02080000
+# Ramdisk: .config/sdcard-staging/factory-2r2t/uramdisk.image.gz -> 0x10000000
+# Devicetree: .config/sdcard-staging/factory-2r2t/devicetree.dtb -> 0x02a00000
+# U-Boot env: .config/sdcard-staging/factory-2r2t/uEnv.txt -> 0x03000000 (0x1da1 bytes)
+# Bootargs: console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+# Serial device: /dev/ttyUSB1
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+JTAG_PS_SOFT_RESET
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Polling target zynq.cpu0 failed, trying to reexamine
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+shutdown command invoked
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+shutdown command invoked
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+Info : zynq.cpu0: MPIDR level2 0, cluster 0, core 0, multi core, no SMT
+Info : zynq.cpu1: MPIDR level2 0, cluster 0, core 1, multi core, no SMT
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x000001d3 pc: 0xffffff34
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+target halted in ARM state due to debug-request, current mode: System
+cpsr: 0x200001df pc: 0xffffff28
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+RUN_PS7_INIT_3_0
+LOAD_KERNEL_IMAGE
+LOAD_INITRAMFS_IMAGE
+LOAD_DEVICETREE_IMAGE
+LOAD_UENV_TXT
+LOAD_UBOOT_ELF
+RUN_UBOOT_FOR_RAM_BOOT
+shutdown command invoked
+
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+*** Warning - bad CRC, using default environment
+
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+Hit any key to stop autoboot:  0  0
+Pluto>                                                        
+# U-Boot RAM boot commands
+
+Pluto> env import -t 0x03000000 0x1da1
+Pluto> setenv bootargs console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+Pluto> bootm 0x02080000 0x10000000 0x02a00000
+## Booting kernel from Legacy Image at 02080000 ...
+   Image Name:   Linux-6.1.0
+   Image Type:   ARM Linux Kernel Image (uncompressed)
+   Data Size:    4757904 Bytes = 4.5 MiB
+   Load Address: 00008000
+   Entry Point:  00008000
+   Verifying Checksum ... OK
+## Loading init Ramdisk from Legacy Image at 10000000 ...
+   Image Name:   
+   Image Type:   ARM Linux RAMDisk Image (gzip compressed)
+   Data Size:    6645573 Bytes = 6.3 MiB
+   Load Address: 00000000
+   Entry Point:  00000000
+   Verifying Checksum ... OK
+## Flattened Device Tree blob at 02a00000
+   Booting using the fdt blob at 0x2a00000
+   Loading Kernel Image ... OK
+   Loading Ramdisk to 1f9a9000, end 1ffff745 ... OK
+   Loading Device Tree to 1f9a0000, end 1f9a8839 ... OK
+Unable to update property /axi/ethernet@e000b000:mac-address, err=FDT_ERR_NOTFOUND
+Unable to update property /axi/ethernet@e000b000:local-mac-address, err=FDT_ERR_NOTFOUND
+
+Starting kernel ...
+
+Booting Linux on physical CPU 0x0
+Linux version 6.1.0 (swd@swd) (arm-linux-gnueabihf-gcc (Linaro GCC 7.3-2018.05) 7.3.1 20180425 [linaro-7.3-2018.05 revision d29120a424ecfbc167ef90065c0eeb7f91977701], GNU ld (Linaro_Binutils-2018.05) 2.28.2.20170706) #18 SMP PREEMPT Mon Jan 26 15:08:12 CST 2026
+CPU: ARMv7 Processor [413fc090] revision 0 (ARMv7), cr=18c5387d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+OF: fdt: Machine model: Analog Devices PlutoSDR Rev.C (Z7020/AD9363)
+printk: bootconsole [earlycon0] enabled
+Memory policy: Data cache writealloc
+cma: Reserved 256 MiB at 0x30000000
+Zone ranges:
+  Normal   [mem 0x0000000000000000-0x000000002fffffff]
+  HighMem  [mem 0x0000000030000000-0x000000003fffffff]
+Movable zone start for each node
+Early memory node ranges
+  node   0: [mem 0x0000000000000000-0x000000003fffffff]
+Initmem setup node 0 [mem 0x0000000000000000-0x000000003fffffff]
+percpu: Embedded 11 pages/cpu s14100 r8192 d22764 u45056
+Built 1 zonelists, mobility grouping on.  Total pages: 260608
+Kernel command line: console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+Dentry cache hash table entries: 131072 (order: 7, 524288 bytes, linear)
+Inode-cache hash table entries: 65536 (order: 6, 262144 bytes, linear)
+mem auto-init: stack:off, heap alloc:off, heap free:off
+Memory: 758180K/1048576K available (7168K kernel code, 679K rwdata, 2128K rodata, 1024K init, 136K bss, 28252K reserved, 262144K cma-reserved, 0K highmem)
+rcu: Preemptible hierarchical RCU implementation.
+rcu: 	RCU event tracing is enabled.
+rcu: 	RCU restricting CPUs from NR_CPUS=4 to nr_cpu_ids=2.
+rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=2
+NR_IRQS: 16, nr_irqs: 16, preallocated irqs: 16
+efuse mapped to (ptrval)
+slcr mapped to (ptrval)
+L2C: platform modifies aux control register: 0x02060000 -> 0x02460000
+L2C: DT/platform modifies aux control register: 0x02060000 -> 0x02460000
+L2C-310 erratum 769419 enabled
+L2C-310 enabling early BRESP for Cortex-A9
+L2C-310 full line of zeros enabled for Cortex-A9
+L2C-310 dynamic clock gating enabled, standby mode enabled
+L2C-310 cache controller enabled, 8 ways, 512 kB
+L2C-310: CACHE_ID 0x410000c8, AUX_CTRL 0x46460001
+rcu: srcu_init: Setting srcu_struct sizes based on contention.
+zynq_clock_init: clkc starts at (ptrval)
+Zynq clock init
+sched_clock: 64 bits at 167MHz, resolution 6ns, wraps every 4398046511103ns
+clocksource: arm_global_timer: mask: 0xffffffffffffffff max_cycles: 0x26703d7dd8, max_idle_ns: 440795208065 ns
+Switching to timer-based delay loop, resolution 6ns
+clocksource: ttc_clocksource: mask: 0xffff max_cycles: 0xffff, max_idle_ns: 537538477 ns
+timer #0 at (ptrval), irq=25
+Console: colour dummy device 80x30
+Calibrating delay loop (skipped), value calculated using timer frequency.. 333.33 BogoMIPS (lpj=1666666)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 2048 (order: 1, 8192 bytes, linear)
+Mountpoint-cache hash table entries: 2048 (order: 1, 8192 bytes, linear)
+CPU: Testing write buffer coherency: ok
+CPU0: Spectre v2: using BPIALL workaround
+CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+Setting up static identity map for 0x100000 - 0x100060
+rcu: Hierarchical SRCU implementation.
+rcu: 	Max phase no-delay instances is 1000.
+smp: Bringing up secondary CPUs ...
+CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+CPU1: Spectre v2: using BPIALL workaround
+smp: Brought up 1 node, 2 CPUs
+SMP: Total of 2 processors activated (666.66 BogoMIPS).
+CPU: All CPU(s) started in SVC mode.
+devtmpfs: initialized
+VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 4
+clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+futex hash table entries: 512 (order: 3, 32768 bytes, linear)
+pinctrl core: initialized pinctrl subsystem
+NET: Registered PF_NETLINK/PF_ROUTE protocol family
+DMA: preallocated 256 KiB pool for atomic coherent allocations
+thermal_sys: Registered thermal governor 'step_wise'
+cpuidle: using governor ladder
+amba f8801000.etb: Fixing up cyclic dependency with replicator
+amba f8803000.tpiu: Fixing up cyclic dependency with replicator
+amba f8804000.funnel: Fixing up cyclic dependency with replicator
+amba f889c000.ptm: Fixing up cyclic dependency with f8804000.funnel
+amba f889d000.ptm: Fixing up cyclic dependency with f8804000.funnel
+hw-breakpoint: found 5 (+1 reserved) breakpoint and 1 watchpoint registers.
+hw-breakpoint: maximum watchpoint size is 4 bytes.
+e0001000.serial: ttyPS0 at MMIO 0xe0001000 (irq = 27, base_baud = 6249999) is a xuartps
+printk: console [ttyPS0] enabled
+printk: console [ttyPS0] enabled
+printk: bootconsole [earlycon0] disabled
+printk: bootconsole [earlycon0] disabled
+SCSI subsystem initialized
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+pps_core: LinuxPPS API ver. 1 registered
+pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+PTP clock support registered
+FPGA manager framework
+clocksource: Switched to clocksource arm_global_timer
+NET: Registered PF_INET protocol family
+IP idents hash table entries: 16384 (order: 5, 131072 bytes, linear)
+tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+TCP established hash table entries: 8192 (order: 3, 32768 bytes, linear)
+TCP bind hash table entries: 8192 (order: 5, 131072 bytes, linear)
+TCP: Hash tables configured (established 8192 bind 8192)
+UDP hash table entries: 512 (order: 2, 16384 bytes, linear)
+UDP-Lite hash table entries: 512 (order: 2, 16384 bytes, linear)
+NET: Registered PF_UNIX/PF_LOCAL protocol family
+Trying to unpack rootfs image as initramfs...
+armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+hw perfevents: enabled with armv7_cortex_a9 PMU driver, 7 counters available
+Initialise system trusted keyrings
+workingset: timestamp_bits=30 max_order=18 bucket_order=0
+jffs2: version 2.2. (NAND) © 2001-2006 Red Hat, Inc.
+Key type asymmetric registered
+Asymmetric key parser 'x509' registered
+bounce: pool size: 64 pages
+Block layer SCSI generic (bsg) driver version 0.4 loaded (major 248)
+io scheduler mq-deadline registered
+io scheduler kyber registered
+zynq-pinctrl 700.pinctrl: zynq pinctrl initialized

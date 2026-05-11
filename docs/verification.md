@@ -489,34 +489,59 @@ Prepared helper:
 ```
 
 The helper initializes PS/DDR through OpenOCD, preloads a U-Boot ELF plus
-`uImage`, `uramdisk.image.gz`, and `devicetree.dtb` into DDR, starts U-Boot,
-then sends a `bootm <kernel> <ramdisk> <fdt>` command over the debug UART.
+`uImage`, `uramdisk.image.gz`, `devicetree.dtb`, and `uEnv.txt` into DDR,
+starts U-Boot, interrupts the zero-second autoboot window, imports `uEnv.txt`,
+then sends a paced `bootm <kernel> <ramdisk> <fdt>` command over the debug
+UART. It also loads the local PL bitstream and runs the volatile
+`tools/reset_openocd_zynq_ps.sh` reset helper before the PS-side load.
 
-First run:
+Final factory run in this batch:
 
 ```sh
-CAPTURE=resources/live-captures/openocd_jtag_linux_ram_factory_20260512.txt \
+CAPTURE=resources/live-captures/openocd_jtag_linux_ram_factory_sd_bootargs_20260512.txt \
   BOOT_DIR=.config/sdcard-staging/factory-2r2t \
-  BOOT_WAIT_SECONDS=90 \
+  BOOT_WAIT_SECONDS=240 \
+  UBOOT_COMMAND_INTERVAL_SECONDS=0.8 \
   ./tools/run_openocd_jtag_linux_ram.sh
 ```
 
-OpenOCD completed the image preload phase:
+OpenOCD completed the volatile reset, PL load, and image preload phase:
 
 ```text
+JTAG_PS_SOFT_RESET
 RUN_PS7_INIT_3_0
 LOAD_KERNEL_IMAGE
 LOAD_INITRAMFS_IMAGE
 LOAD_DEVICETREE_IMAGE
+LOAD_UENV_TXT
 LOAD_UBOOT_ELF
 RUN_UBOOT_FOR_RAM_BOOT
 ```
 
-The run did not reach a verified Linux boot. The log still showed DTR/DSCR
-errors carried from the previous non-returning standalone hello run, and U-Boot
-did not emit the expected UART banner after OpenOCD started it. Treat this as a
-prepared workflow needing a clean JTAG-mode power-cycle retry, not as a
-verified Linux-from-RAM result.
+The helper successfully interrupted U-Boot and issued:
+
+```text
+env import -t 0x03000000 0x1da1
+setenv bootargs console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+bootm 0x02080000 0x10000000 0x02a00000
+```
+
+Kernel-entry proof:
+
+```text
+Starting kernel ...
+Linux version 6.1.0 ...
+OF: fdt: Machine model: Analog Devices PlutoSDR Rev.C (Z7020/AD9363)
+Kernel command line: console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+zynq-pinctrl 700.pinctrl: zynq pinctrl initialized
+```
+
+Result: still not a verified Linux runtime boot. The capture does not reach the
+next known-good SD-boot milestones (`brd: module loaded`, `Freeing initrd
+memory`, `Run /init as init process`, `Welcome to Pluto`, USB networking, IIO,
+or HTTP). Treat the helper as a kernel-entry diagnostic path; the remaining
+work is to identify the missing initialization difference between FSBL/SD boot
+and the OpenOCD PS7-init flow.
 
 ## Normal SD Boot Restore After JTAG
 

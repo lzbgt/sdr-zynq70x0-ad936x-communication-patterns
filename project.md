@@ -129,12 +129,21 @@ Board-side facts from live captures:
 - PS-side JTAG U-Boot launch is verified through OpenOCD. The helper translates
   the generated Xilinx `ps7_init.tcl` register sequence to OpenOCD memory
   writes, initializes the Zynq PS/DDR, loads the rebuilt `u-boot.elf` into DDR,
-  and starts it without writing QSPI. USB console capture showed U-Boot running
-  from this JTAG-loaded path.
+  and starts it without writing QSPI. The PS-side JTAG runners now issue a
+  volatile SLCR PS reset over the DAP before halting, so stale ARM debug state
+  can be recovered without a manual power cycle. USB console capture showed
+  U-Boot running from this JTAG-loaded path.
 - A custom standalone ARM ELF smoke test is verified over the same OpenOCD JTAG
   path. `examples/jtag-hello/` builds a 609-byte bare-metal UART program with
   `arm-none-eabi-gcc`, loads it into DDR at `0x04000000`, and prints over
   UART1 without Linux or QSPI writes.
+- Linux-from-RAM over OpenOCD JTAG is prepared but not verified as a complete
+  runtime boot. The helper can reset PS, load PL, preload `uImage`,
+  `uramdisk.image.gz`, `devicetree.dtb`, and `uEnv.txt`, interrupt U-Boot, and
+  start the kernel with the same bootargs observed in the verified factory SD
+  boot. The best capture reaches the Linux kernel and stalls after
+  `zynq-pinctrl 700.pinctrl: zynq pinctrl initialized`; it does not reach
+  userspace, USB networking, IIO, or HTTP.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.

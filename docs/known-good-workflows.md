@@ -239,6 +239,10 @@ It translates the generated Xilinx PS7 init register sequence to OpenOCD memory
 writes, initializes PS/DDR, loads `u-boot.elf` into DDR, sets `pc=0x04000000`,
 and resumes the Cortex-A9. This is volatile and does not write QSPI.
 
+The helper runs `tools/reset_openocd_zynq_ps.sh` first by default. That reset
+uses DAP memory writes to unlock SLCR and assert `PSS_RST_CTRL`, which clears
+stale ARM debug state without writing flash. Set `JTAG_PS_RESET=0` to skip it.
+
 Verified serial output included:
 
 ```text
@@ -280,6 +284,33 @@ no Linux, no QSPI write
 
 Because the example intentionally never exits, power-cycle the board or use a
 fresh JTAG reset before the next PS-side JTAG run.
+
+## Linux From RAM Over JTAG Boundary
+
+Prepared command:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_linux_ram_manual.txt \
+  BOOT_DIR=.config/sdcard-staging/factory-2r2t \
+  BOOT_WAIT_SECONDS=240 \
+  ./tools/run_openocd_jtag_linux_ram.sh
+```
+
+The helper performs the volatile PS reset, loads the local PL bitstream, preloads
+U-Boot plus factory or Yocto `uImage`, `uramdisk.image.gz`, `devicetree.dtb`,
+and `uEnv.txt`, interrupts the zero-second Pluto autoboot window, imports
+`uEnv.txt`, and runs:
+
+```text
+setenv bootargs console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+bootm 0x02080000 0x10000000 0x02a00000
+```
+
+Current result: this is not a known-good Linux runtime path yet. The best
+factory capture reaches `Starting kernel ...`, shows the expected
+`Analog Devices PlutoSDR Rev.C (Z7020/AD9363)` model and SD-matching bootargs,
+then stalls after `zynq-pinctrl 700.pinctrl: zynq pinctrl initialized`.
+Userspace, USB networking, IIO, and HTTP are not reached.
 
 ## Preserve QSPI Before Risky Work
 

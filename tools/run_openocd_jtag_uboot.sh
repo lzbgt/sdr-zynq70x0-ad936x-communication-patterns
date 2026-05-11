@@ -7,6 +7,7 @@ uboot_elf="${UBOOT_ELF:-$repo_root/.config/boot-artifacts/boot/u-boot.elf}"
 serial_dev="${SERIAL_DEV:-/dev/ttyUSB1}"
 capture="${CAPTURE:-}"
 run_seconds="${RUN_SECONDS:-25}"
+jtag_ps_reset="${JTAG_PS_RESET:-1}"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -39,6 +40,14 @@ if [[ -n "$capture" ]]; then
     serial_pid=$!
   else
     echo "Serial device not found, skipping UART capture: $serial_dev" >&2
+  fi
+fi
+
+if [[ "$jtag_ps_reset" != "0" ]]; then
+  if [[ -n "$capture" ]]; then
+    "$repo_root/tools/reset_openocd_zynq_ps.sh" 2>&1 | tee -a "$capture"
+  else
+    "$repo_root/tools/reset_openocd_zynq_ps.sh"
   fi
 fi
 

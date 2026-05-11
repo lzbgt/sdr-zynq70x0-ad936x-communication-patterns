@@ -56,6 +56,10 @@ Verified so far:
 - `tools/run_openocd_jtag_uboot.sh` initializes PS/DDR by translating the
   generated Xilinx `ps7_init.tcl` flow to OpenOCD memory writes, then loads and
   runs the rebuilt `u-boot.elf` from DDR.
+- The PS-side JTAG helpers run `tools/reset_openocd_zynq_ps.sh` by default.
+  This issues a volatile SLCR PS reset through DAP memory writes and clears the
+  sticky ARM debug state that previously required a manual JTAG-mode power
+  cycle.
 - USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
   detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot
   flow.
@@ -84,20 +88,22 @@ Remaining candidate implementation:
 1. Prefer a Xilinx PS-debug flow if `xsdb` target enumeration can be repaired.
    The vendor script shape is `connect`, `target`, `source ps7_init.tcl`,
    `ps7_init`, `ps7_post_config`, `dow u-boot.elf`, `con`.
-2. Extend the OpenOCD helper into a Linux-from-RAM flow by loading kernel,
-   devicetree, and initramfs to DDR and passing the matching U-Boot commands or
-   boot arguments.
+2. Compare the OpenOCD PS7-init path against the complete FSBL side effects.
+   The current OpenOCD Linux path reaches kernel boot but stalls during early
+   platform bring-up, which suggests a missing initialization side effect rather
+   than a U-Boot command problem.
 
-Prepared but not yet verified:
+Prepared and partially verified:
 
-- `tools/run_openocd_jtag_linux_ram.sh` preloads U-Boot, `uImage`,
-  `uramdisk.image.gz`, and `devicetree.dtb` into DDR, then sends U-Boot a
-  `bootm` command for those RAM addresses.
-- First run used `.config/sdcard-staging/factory-2r2t` for faster JTAG loading.
-  The OpenOCD loads completed, but U-Boot did not produce the expected UART boot
-  output afterward. The log still showed DTR/DSCR errors from the previous
-  non-returning standalone hello run, so retry from a clean JTAG-mode power
-  cycle before changing the flow.
+- `tools/run_openocd_jtag_linux_ram.sh` now resets PS, loads PL, preloads
+  U-Boot, `uImage`, `uramdisk.image.gz`, `devicetree.dtb`, and `uEnv.txt`, then
+  interrupts U-Boot and sends a paced `bootm` command.
+- The final factory run used SD-matching bootargs:
+  `console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk`.
+- The run reached `Starting kernel ...` and the expected devicetree model, then
+  stalled after `zynq-pinctrl 700.pinctrl: zynq pinctrl initialized`.
+- It did not reach `brd: module loaded`, `Run /init as init process`, USB
+  networking, IIO, or HTTP.
 
 ## 1. Decide Whether To Format qspi-nvmfs / mtd2
 

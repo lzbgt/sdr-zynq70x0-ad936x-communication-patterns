@@ -1,0 +1,103 @@
+# OpenOCD JTAG U-Boot run
+# PS7 init: /root/work/ZYNQ7020/.config/boot-artifacts/sdt/ps7_init.tcl
+# U-Boot ELF: /root/work/ZYNQ7020/.config/boot-artifacts/boot/u-boot.elf
+# Serial device: /dev/ttyUSB1
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+JTAG_PS_SOFT_RESET
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: Debug regions are unpowered, an unexpected reset might have happened
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Polling target zynq.cpu0 failed, trying to reexamine
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Polling target zynq.cpu1 failed, trying to reexamine
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+shutdown command invoked
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+Info : zynq.cpu0: MPIDR level2 0, cluster 0, core 0, multi core, no SMT
+Info : zynq.cpu1: MPIDR level2 0, cluster 0, core 1, multi core, no SMT
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x000001d3 pc: 0xffffff34
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+target halted in ARM state due to debug-request, current mode: System
+cpsr: 0x200001df pc: 0xffffff28
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+RUN_PS7_INIT_3_0
+LOAD_UBOOT_ELF
+RUN_UBOOT
+
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+*** Warning - bad CRC, using default environment
+
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+Hit any key to stop autoboot:  0 
+Booting silently
+BOOT failed entering DFU mode ...
+*** Warning: flash lock/unlock ops not supported  for 'W25Q256'
+gpio: pin 15 (gpio 15) value is 1
+Entering DFU SF mode ...
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x60000193 pc: 0xffffff34
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x60000193 pc: 0x3ff5bb38
+MMU: enabled, D-Cache: enabled, I-Cache: enabled
+shutdown command invoked

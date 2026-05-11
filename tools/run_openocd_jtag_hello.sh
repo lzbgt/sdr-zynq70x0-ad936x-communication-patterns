@@ -7,6 +7,7 @@ hello_elf="${HELLO_ELF:-$repo_root/.config/jtag-hello/jtag-hello.elf}"
 serial_dev="${SERIAL_DEV:-/dev/ttyUSB1}"
 capture="${CAPTURE:-}"
 run_seconds="${RUN_SECONDS:-8}"
+jtag_ps_reset="${JTAG_PS_RESET:-1}"
 
 if [[ ! -f "$hello_elf" ]]; then
   "$repo_root/tools/build_jtag_hello_elf.sh"
@@ -38,6 +39,14 @@ if [[ -n "$capture" ]]; then
     serial_pid=$!
   else
     echo "Serial device not found, skipping UART capture: $serial_dev" >&2
+  fi
+fi
+
+if [[ "$jtag_ps_reset" != "0" ]]; then
+  if [[ -n "$capture" ]]; then
+    "$repo_root/tools/reset_openocd_zynq_ps.sh" 2>&1 | tee -a "$capture"
+  else
+    "$repo_root/tools/reset_openocd_zynq_ps.sh"
   fi
 fi
 
