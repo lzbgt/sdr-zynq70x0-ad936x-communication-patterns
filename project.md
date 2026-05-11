@@ -127,6 +127,9 @@ user and vendor configuration.
 - `docs/full-firmware-pipeline.md` - developer flow for rebuilding FPGA HDL,
   rebuilding Yocto ARM firmware, packaging a combined `pluto.frm`, flashing
   `mtd3`, and verifying the board.
+- `docs/qspi-backup-and-recovery.md` - read-only QSPI backup tooling, verified
+  partition map, boot-artifact boundary, and recovery gate before `mtd0`/`mtd1`
+  experiments.
 - `docs/vivado-linux-wsl.md` - local Vivado 2025.1 installer inventory,
   WSL/Arch support boundary, disk-space check, license placement, and install
   workflow.
@@ -182,6 +185,10 @@ user and vendor configuration.
 - `tools/build_sdr_z203_boot_artifacts.sh` - generate FSBL, QSPI boot image,
   SD-card `BOOT.BIN`, and vendor-shaped boot update package from the rebuilt
   XSA without flashing bootloader partitions.
+- `tools/backup_qspi_live.sh` - capture live QSPI `mtd0` through `mtd3` over
+  SSH with board metadata and SHA-256 checksums.
+- `tools/verify_qspi_backup.sh` - verify a captured QSPI backup's checksums and
+  partition sizes.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
   PlutoSDR removable drive while capturing COM5; currently documented as less
   reliable than SSH update on this board.
@@ -257,5 +264,5 @@ Expected result in the current Pluto-compatible firmware state:
 3. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
 4. Perform a controlled RF loopback test with the newly built FPGA image.
-5. Prepare an SD/JTAG recovery procedure before any bootloader-region flash
-   test.
+5. Exercise SD/JTAG boot with generated `BOOT.BIN` before any
+   bootloader-region flash test.

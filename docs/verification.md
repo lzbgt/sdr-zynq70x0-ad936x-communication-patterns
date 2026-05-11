@@ -624,6 +624,31 @@ Board info in the backup records `mode=2r2t`, `fit_size=1B73367`,
 `bootcmd=run $modeboot`, kernel `6.1.0`, and devicetree model
 `Analog Devices PlutoSDR Rev.C (Z7020/AD9363)`.
 
+Verification command:
+
+```sh
+./tools/verify_qspi_backup.sh resources/firmware/qspi-live-backup-20260511-211046
+```
+
+Result:
+
+```text
+mtd0.bin: OK
+mtd1.bin: OK
+mtd2.bin: OK
+mtd3.bin: OK
+QSPI backup verified: resources/firmware/qspi-live-backup-20260511-211046
+```
+
+The repeatable capture helper was also tested with:
+
+```sh
+OUT_DIR=.config/qspi-backup-tool-test ./tools/backup_qspi_live.sh
+```
+
+The resulting `mtd0` through `mtd3` hashes matched the committed
+`qspi-live-backup-20260511-211046` backup.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

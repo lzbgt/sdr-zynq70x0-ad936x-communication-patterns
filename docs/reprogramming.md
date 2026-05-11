@@ -7,6 +7,9 @@ For source-level build instructions, see `docs/source-build-from-scratch.md`.
 This page focuses on choosing a reprogramming path and avoiding destructive
 flashing mistakes.
 
+For the bootloader-region safety gate, see
+`docs/qspi-backup-and-recovery.md`.
+
 ## Repurposing Layers
 
 1. Host-only SDR applications
@@ -178,6 +181,8 @@ resources/firmware/qspi-live-backup-20260511-211046/
 
 It was captured from the board after the verified Yocto+Vivado `mtd3` firmware
 flash and contains `mtd0` through `mtd3`, `board-info.txt`, and `SHA256SUMS`.
+Repeat the backup with `./tools/backup_qspi_live.sh`; verify any backup with
+`./tools/verify_qspi_backup.sh <backup-dir>`.
 
 ## Pluto-Compatible Firmware Development
 
