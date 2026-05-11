@@ -126,6 +126,11 @@ Board-side facts from live captures:
   writing QSPI. Vivado support required a raw FT2232 EEPROM backup, Vivado
   `program_ftdi` FT2232H configuration, physical USB replug, `usbipd` reattach,
   and an Arch WSL `LD_LIBRARY_PATH` fix for Vivado's bundled cable libraries.
+- PS-side JTAG U-Boot launch is verified through OpenOCD. The helper translates
+  the generated Xilinx `ps7_init.tcl` register sequence to OpenOCD memory
+  writes, initializes the Zynq PS/DDR, loads the rebuilt `u-boot.elf` into DDR,
+  and starts it without writing QSPI. USB console capture showed U-Boot running
+  from this JTAG-loaded path.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.
@@ -240,6 +245,9 @@ user and vendor configuration.
   Zynq-7000 JTAG chain.
 - `tools/load_openocd_bitstream.sh` - load a Vivado bitstream into PL over the
   verified OpenOCD/FT2232 JTAG path without writing flash.
+- `tools/run_openocd_jtag_uboot.sh` - initialize the Zynq PS/DDR over OpenOCD
+  from the generated PS7 init Tcl, then load and run the rebuilt U-Boot ELF from
+  DDR without writing QSPI.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind

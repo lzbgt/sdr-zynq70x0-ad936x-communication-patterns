@@ -211,11 +211,23 @@ To load another bitstream:
 ./tools/load_openocd_bitstream.sh path/to/system_top.bit
 ```
 
-## PS-Side JTAG Boot Status
+## Run U-Boot Over PS-Side JTAG With OpenOCD
 
-This is not yet a known-good workflow.
+The board must be powered in JTAG mode and the FT2232 must be attached to WSL.
+After a power cycle, attach the device again if needed:
 
-The artifacts needed for PS-side JTAG work are built locally:
+```sh
+powershell.exe -NoProfile -Command "& 'C:\Program Files\usbipd-win\usbipd.exe' attach --wsl archlinux --busid 1-1"
+```
+
+Then run:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_uboot_manual.txt \
+  ./tools/run_openocd_jtag_uboot.sh
+```
+
+The helper uses these locally rebuilt artifacts:
 
 ```text
 .config/boot-artifacts/boot/fsbl.elf
@@ -223,11 +235,22 @@ The artifacts needed for PS-side JTAG work are built locally:
 .config/boot-artifacts/sdt/ps7_init.tcl
 ```
 
-The direct OpenOCD approach of loading `fsbl.elf`, setting `pc=0x0`, and
-resuming the Cortex-A9 is not sufficient yet. It leaves OpenOCD reporting ARM
-DAP sticky/APB errors until a JTAG-mode power cycle. The next working candidate
-is either repaired Xilinx `xsdb` PS target enumeration or an OpenOCD translation
-of the generated PS7 init register sequence before loading U-Boot into DDR.
+It translates the generated Xilinx PS7 init register sequence to OpenOCD memory
+writes, initializes PS/DDR, loads `u-boot.elf` into DDR, sets `pc=0x04000000`,
+and resumes the Cortex-A9. This is volatile and does not write QSPI.
+
+Verified serial output included:
+
+```text
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+DRAM:  ECC disabled 1 GiB
+Model: Zynq Pluto SDR Board
+```
+
+Current boundary: plain Vivado `xsdb targets` still lists no PS targets against
+the same `hw_server` session, even though Vivado Hardware Manager sees
+`arm_dap_0` and `xc7z020_1`. Use the OpenOCD helper for the verified PS-side
+JTAG U-Boot path.
 
 ## Preserve QSPI Before Risky Work
 

@@ -381,6 +381,57 @@ Host reattach helper:
 tools\attach_ft2232_jtag_to_wsl.ps1
 ```
 
+## PS-Side JTAG U-Boot Verification
+
+The board was power-cycled in JTAG mode after a failed direct-FSBL OpenOCD
+attempt. The FT2232 was reattached to WSL with `usbipd`. OpenOCD and Vivado
+Hardware Manager both scanned the chain cleanly again:
+
+```text
+JTAG tap: zynq_pl.bs tap/device found: 0x23727093
+JTAG tap: zynq.cpu tap/device found: 0x4ba00477
+arm_dap_0 xc7z020_1
+```
+
+Plain `xsdb` still did not list PS targets against the same `hw_server`
+session, so the verified PS-side boot path uses OpenOCD.
+
+Command:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_uboot_helper_20260512.txt \
+  RUN_SECONDS=12 \
+  ./tools/run_openocd_jtag_uboot.sh
+```
+
+The helper loads the generated `.config/boot-artifacts/sdt/ps7_init.tcl`,
+translates Xilinx `mwr`/`mask_write` operations to OpenOCD memory writes,
+initializes the Zynq PS and DDR, loads `.config/boot-artifacts/boot/u-boot.elf`,
+sets `pc=0x04000000`, and resumes the Cortex-A9.
+
+OpenOCD result:
+
+```text
+RUN_PS7_INIT_3_0
+LOAD_UBOOT_ELF
+RUN_UBOOT
+pc: 0x3ff5badc
+shutdown command invoked
+```
+
+Serial result from the first successful run:
+
+```text
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+DRAM:  ECC disabled 1 GiB
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+Model: Zynq Pluto SDR Board
+```
+
+Interpretation: the repo can now rebuild PS boot artifacts and use JTAG to
+initialize PS/DDR and launch U-Boot from DDR without writing QSPI. Linux
+from-RAM over JTAG remains unverified.
+
 ## Normal SD Boot Restore After JTAG
 
 Raw capture:
@@ -921,8 +972,5 @@ verified.
   have been verified with the onboard FT2232HL through `usbipd-win`.
 - FSBL/BOOT.bin regeneration from the new XSA is now validated locally, but
   generated bootloader artifacts have not been flashed to QSPI `mtd0`/`mtd1`.
-- PS-side JTAG boot is still open. A direct OpenOCD `fsbl.elf` load/resume
-  attempt was captured, but it left the ARM DAP in a sticky/APB error state.
-  Vivado Hardware Manager continued to scan `arm_dap_0` and `xc7z020_1`, so the
-  failure is recorded as a PS initialization/reset sequencing issue rather than
-  a cable-recognition issue.
+- PS-side JTAG U-Boot launch is verified through OpenOCD. Linux-from-RAM over
+  JTAG and standalone/no-OS ELF smoke tests are still open.

@@ -39,7 +39,9 @@ Verified helpers:
 ./tools/load_vivado_bitstream.sh
 ```
 
-## 1. Build A PS-Side JTAG Boot Flow
+## Closed Gate: PS-Side JTAG U-Boot Flow
+
+Status: verified for U-Boot loaded from DDR over OpenOCD JTAG.
 
 Verified so far:
 
@@ -51,6 +53,12 @@ Verified so far:
   `.config/boot-artifacts/boot/fsbl.elf`,
   `.config/boot-artifacts/boot/u-boot.elf`, and
   `.config/boot-artifacts/sdt/ps7_init.tcl`.
+- `tools/run_openocd_jtag_uboot.sh` initializes PS/DDR by translating the
+  generated Xilinx `ps7_init.tcl` flow to OpenOCD memory writes, then loads and
+  runs the rebuilt `u-boot.elf` from DDR.
+- USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
+  detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot
+  flow.
 
 Attempted and not accepted as a working path:
 
@@ -66,24 +74,21 @@ Attempted and not accepted as a working path:
 
 Not yet verified:
 
-- Loading and running `fsbl.elf` over JTAG.
-- Loading U-Boot or a standalone ELF over JTAG.
 - Booting Linux from RAM through JTAG.
+- Loading a custom standalone/no-OS ELF over JTAG.
 
-Next candidate implementation:
+Remaining candidate implementation:
 
-1. Power-cycle the board while it remains in JTAG mode to clear the ARM DAP
-   sticky state.
-2. Prefer a Xilinx PS-debug flow if `xsdb` target enumeration can be repaired.
+1. Prefer a Xilinx PS-debug flow if `xsdb` target enumeration can be repaired.
    The vendor script shape is `connect`, `target`, `source ps7_init.tcl`,
    `ps7_init`, `ps7_post_config`, `dow u-boot.elf`, `con`.
-3. If staying with OpenOCD, first translate the generated Xilinx
-   `ps7_init.tcl` register writes into OpenOCD-compatible `mww`/`mdw` helpers,
-   run PS7 init explicitly, then load `u-boot.elf` into DDR.
-4. Capture UART on `/dev/ttyUSB1` during the run. COM5 maps to this device when
-   the FT2232 is attached to WSL with `usbipd`.
+2. Extend the OpenOCD helper into a Linux-from-RAM flow by loading kernel,
+   devicetree, and initramfs to DDR and passing the matching U-Boot commands or
+   boot arguments.
+3. Add a small standalone/no-OS ELF smoke test that proves custom ARM
+   application loading without needing Linux.
 
-## 2. Decide Whether To Format qspi-nvmfs / mtd2
+## 1. Decide Whether To Format qspi-nvmfs / mtd2
 
 `mtd2` is currently invalid or unformatted as JFFS2. This does not block boot,
 IIO, HTTP, SD boot, QSPI `mtd3` firmware update, or JTAG.
@@ -102,7 +107,7 @@ Before doing this:
 - Confirm no needed data exists in `mtd2`.
 - Capture a before/after serial log.
 
-## 3. Keep mtd0 / mtd1 Flashing Gated
+## 2. Keep mtd0 / mtd1 Flashing Gated
 
 Local boot artifacts are generated:
 
@@ -129,7 +134,7 @@ Gate this until all of these are true:
 - Live QSPI backup checksums are verified.
 - A recovery route is written down and rehearsed.
 
-## 4. Optional Productization Work
+## 3. Optional Productization Work
 
 Useful but lower urgency:
 
