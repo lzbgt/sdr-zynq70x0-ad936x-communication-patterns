@@ -1,0 +1,42 @@
+# OpenOCD JTAG hello run
+# PS7 init: /root/work/ZYNQ7020/.config/boot-artifacts/sdt/ps7_init.tcl
+# Hello ELF: /root/work/ZYNQ7020/.config/jtag-hello/jtag-hello.elf
+# Serial device: /dev/ttyUSB1
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+Info : zynq.cpu0: MPIDR level2 0, cluster 0, core 0, multi core, no SMT
+Error: timeout waiting for DSCR bit change
+Error: Error waiting for read dcc
+target halted in ARM state due to debug-request, current mode: System
+cpsr: 0x200001df pc: 0xffffff28
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+CPU0_SCTLR_AFTER_CLEAR 147128440
+RUN_PS7_INIT_3_0
+LOAD_JTAG_HELLO_ELF
+RUN_JTAG_HELLO
+Error: DSCR_DTR_RX_FULL, dscr 0x6f286003
+
+SDR-Z203 JTAG hello
+custom ARM ELF iError: invalid mode value encountered 0
+s running from DDR at 0x04000000
+UART1 base 0xe0001000
+no Linux, no QSPI write
+Error: DSCR_DTR_RX_FULL, dscr 0x6f286017
+Error: MPIDR not in multiprocessor format
+Error: DSCR_DTR_RX_FULL, dscr 0x6f286017
+target halted in ARM state due to debug-request, current mode: System
+cpsr: 0x6000019f pc: 0x040001d8
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+target halted in ARM state due to undefined, current mode: Thread
+cpsr: 0x00000000 pc: 0xfffffff8
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+shutdown command invoked

@@ -131,6 +131,10 @@ Board-side facts from live captures:
   writes, initializes the Zynq PS/DDR, loads the rebuilt `u-boot.elf` into DDR,
   and starts it without writing QSPI. USB console capture showed U-Boot running
   from this JTAG-loaded path.
+- A custom standalone ARM ELF smoke test is verified over the same OpenOCD JTAG
+  path. `examples/jtag-hello/` builds a 609-byte bare-metal UART program with
+  `arm-none-eabi-gcc`, loads it into DDR at `0x04000000`, and prints over
+  UART1 without Linux or QSPI writes.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.
@@ -248,6 +252,8 @@ user and vendor configuration.
 - `tools/run_openocd_jtag_uboot.sh` - initialize the Zynq PS/DDR over OpenOCD
   from the generated PS7 init Tcl, then load and run the rebuilt U-Boot ELF from
   DDR without writing QSPI.
+- `tools/build_jtag_hello_elf.sh` and `tools/run_openocd_jtag_hello.sh` - build
+  and launch a tiny bare-metal UART program from DDR over OpenOCD JTAG.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind

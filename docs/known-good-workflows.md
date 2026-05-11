@@ -252,6 +252,35 @@ the same `hw_server` session, even though Vivado Hardware Manager sees
 `arm_dap_0` and `xc7z020_1`. Use the OpenOCD helper for the verified PS-side
 JTAG U-Boot path.
 
+## Run A Custom Bare-Metal ELF Over JTAG
+
+Build the local smoke-test ELF:
+
+```sh
+./tools/build_jtag_hello_elf.sh
+```
+
+Run it while the board is powered in JTAG mode and FT2232 is attached to WSL:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_hello_manual.txt \
+  ./tools/run_openocd_jtag_hello.sh
+```
+
+The example lives in `examples/jtag-hello/`. It links at `0x04000000`, uses
+UART1 at `0xe0001000`, and proves that a custom ARM program can run from DDR
+after OpenOCD performs PS7 init. Verified UART output:
+
+```text
+SDR-Z203 JTAG hello
+custom ARM ELF is running from DDR at 0x04000000
+UART1 base 0xe0001000
+no Linux, no QSPI write
+```
+
+Because the example intentionally never exits, power-cycle the board or use a
+fresh JTAG reset before the next PS-side JTAG run.
+
 ## Preserve QSPI Before Risky Work
 
 Capture a backup:

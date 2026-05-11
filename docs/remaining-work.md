@@ -59,6 +59,9 @@ Verified so far:
 - USB console capture from the JTAG-loaded U-Boot path showed U-Boot starting,
   detecting 1 GiB DDR, detecting QSPI flash, and entering the Pluto U-Boot boot
   flow.
+- `examples/jtag-hello/` builds and runs a custom standalone ARM ELF over the
+  same OpenOCD PS7-init path. UART capture shows the program running from DDR at
+  `0x04000000` without Linux or QSPI writes.
 
 Attempted and not accepted as a working path:
 
@@ -75,7 +78,6 @@ Attempted and not accepted as a working path:
 Not yet verified:
 
 - Booting Linux from RAM through JTAG.
-- Loading a custom standalone/no-OS ELF over JTAG.
 
 Remaining candidate implementation:
 
@@ -85,8 +87,6 @@ Remaining candidate implementation:
 2. Extend the OpenOCD helper into a Linux-from-RAM flow by loading kernel,
    devicetree, and initramfs to DDR and passing the matching U-Boot commands or
    boot arguments.
-3. Add a small standalone/no-OS ELF smoke test that proves custom ARM
-   application loading without needing Linux.
 
 ## 1. Decide Whether To Format qspi-nvmfs / mtd2
 

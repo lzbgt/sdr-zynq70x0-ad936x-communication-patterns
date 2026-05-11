@@ -432,6 +432,54 @@ Interpretation: the repo can now rebuild PS boot artifacts and use JTAG to
 initialize PS/DDR and launch U-Boot from DDR without writing QSPI. Linux
 from-RAM over JTAG remains unverified.
 
+## Standalone ARM ELF Over JTAG Verification
+
+A minimal bare-metal UART program was added under `examples/jtag-hello/`.
+
+Build command:
+
+```sh
+./tools/build_jtag_hello_elf.sh
+```
+
+Result:
+
+```text
+text data bss dec hex
+609 0 0 609 261
+Built /root/work/ZYNQ7020/.config/jtag-hello/jtag-hello.elf
+```
+
+Run command:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_hello_20260512.txt \
+  RUN_SECONDS=8 \
+  ./tools/run_openocd_jtag_hello.sh
+```
+
+The helper initializes PS/DDR from the generated PS7 init Tcl, clears the
+Cortex-A9 MMU/cache enable bits before loading the standalone image, loads the
+ELF at `0x04000000`, sets `pc=0x04000000`, and resumes the core.
+
+Verified UART output:
+
+```text
+SDR-Z203 JTAG hello
+custom ARM ELF is running from DDR at 0x04000000
+UART1 base 0xe0001000
+no Linux, no QSPI write
+```
+
+The capture also records an earlier helper revision that attempted to halt the
+non-returning smoke-test app after the UART proof and timed out. The committed
+helper treats UART output as the proof point and does not require a final halt.
+
+Interpretation: custom ARM application loading over JTAG is verified without
+Linux and without writing QSPI. The example is an intentionally non-returning
+smoke test; use a fresh JTAG-mode power cycle or JTAG reset before another
+PS-side load.
+
 ## Normal SD Boot Restore After JTAG
 
 Raw capture:
@@ -972,5 +1020,5 @@ verified.
   have been verified with the onboard FT2232HL through `usbipd-win`.
 - FSBL/BOOT.bin regeneration from the new XSA is now validated locally, but
   generated bootloader artifacts have not been flashed to QSPI `mtd0`/`mtd1`.
-- PS-side JTAG U-Boot launch is verified through OpenOCD. Linux-from-RAM over
-  JTAG and standalone/no-OS ELF smoke tests are still open.
+- PS-side JTAG U-Boot launch and a standalone/no-OS ELF smoke test are verified
+  through OpenOCD. Linux-from-RAM over JTAG is still open.
