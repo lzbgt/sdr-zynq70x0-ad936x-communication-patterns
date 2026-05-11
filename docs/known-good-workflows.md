@@ -307,10 +307,26 @@ bootm 0x02080000 0x10000000 0x02a00000
 ```
 
 Current result: this is not a known-good Linux runtime path yet. The best
-factory capture reaches `Starting kernel ...`, shows the expected
+diagnostic factory capture reaches Linux initcalls, shows the expected
 `Analog Devices PlutoSDR Rev.C (Z7020/AD9363)` model and SD-matching bootargs,
-then stalls after `zynq-pinctrl 700.pinctrl: zynq pinctrl initialized`.
-Userspace, USB networking, IIO, and HTTP are not reached.
+then stops in `axi_dmac_driver_init`. Userspace, USB networking, IIO, and HTTP
+are not reached.
+
+To probe the lower-level PL AXI boundary directly:
+
+```sh
+./tools/probe_openocd_pl_axi.sh
+```
+
+To test FSBL-like ordering, where PS7 init runs before the JTAG PL load:
+
+```sh
+PL_LOAD_AFTER_PS7_INIT=1 ./tools/probe_openocd_pl_axi.sh
+```
+
+The current failing signature is a DAP read failure at `0x7c400000`, the RX
+AXI-DMAC version register, after PS7 init and PL programming. This points to
+PS-to-PL AXI/fabric accessibility rather than bootargs or rootfs contents.
 
 ## Preserve QSPI Before Risky Work
 

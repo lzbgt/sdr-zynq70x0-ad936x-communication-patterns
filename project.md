@@ -141,9 +141,11 @@ Board-side facts from live captures:
   runtime boot. The helper can reset PS, load PL, preload `uImage`,
   `uramdisk.image.gz`, `devicetree.dtb`, and `uEnv.txt`, interrupt U-Boot, and
   start the kernel with the same bootargs observed in the verified factory SD
-  boot. The best capture reaches the Linux kernel and stalls after
-  `zynq-pinctrl 700.pinctrl: zynq pinctrl initialized`; it does not reach
-  userspace, USB networking, IIO, or HTTP.
+  boot. The best diagnostic capture reaches Linux initcalls and stops in
+  `axi_dmac_driver_init`; a direct OpenOCD DAP read of the RX AXI-DMAC register
+  at `0x7c400000` also fails after PS7 init and PL programming. This narrows
+  the remaining issue to PS-to-PL AXI/fabric accessibility in the JTAG RAM boot
+  path. It does not reach userspace, USB networking, IIO, or HTTP.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.

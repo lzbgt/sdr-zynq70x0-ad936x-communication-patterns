@@ -536,12 +536,61 @@ Kernel command line: console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
 zynq-pinctrl 700.pinctrl: zynq pinctrl initialized
 ```
 
-Result: still not a verified Linux runtime boot. The capture does not reach the
-next known-good SD-boot milestones (`brd: module loaded`, `Freeing initrd
-memory`, `Run /init as init process`, `Welcome to Pluto`, USB networking, IIO,
-or HTTP). Treat the helper as a kernel-entry diagnostic path; the remaining
-work is to identify the missing initialization difference between FSBL/SD boot
-and the OpenOCD PS7-init flow.
+Follow-up diagnostic capture:
+
+- `resources/live-captures/openocd_jtag_linux_ram_factory_initcall_debug_20260512.txt`
+
+Command:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_linux_ram_factory_initcall_debug_20260512.txt \
+  BOOT_DIR=.config/sdcard-staging/factory-2r2t \
+  BOOT_WAIT_SECONDS=300 \
+  UBOOT_COMMAND_INTERVAL_SECONDS=0.8 \
+  BOOTARGS='console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk ignore_loglevel loglevel=8 initcall_debug' \
+  ./tools/run_openocd_jtag_linux_ram.sh
+```
+
+This refined the boundary. The kernel completed SMP bring-up, started unpacking
+the initramfs, and returned from `zynq_pinctrl_driver_init`,
+`zynq_gpio_driver_init`, fixed-clock init, and `axi_clkgen_driver_init`. The last
+serial line is:
+
+```text
+calling  axi_dmac_driver_init+0x0/0x10 @ 1
+```
+
+Direct PL AXI probe:
+
+- `resources/live-captures/openocd_pl_axi_probe_after_vivado_load_20260512.txt`
+- `resources/live-captures/openocd_pl_axi_probe_after_ps7_init_load_20260512.txt`
+
+After programming the PL with Vivado Hardware Manager, this command reset/init'd
+the PS without reloading PL and tried to read the ADI PL core version registers:
+
+```sh
+LOAD_PL_BITSTREAM=0 PROBE_TIMEOUT_SECONDS=180 ./tools/probe_openocd_pl_axi.sh
+```
+
+The first read, RX AXI-DMAC at `0x7c400000`, failed:
+
+```text
+READ_PL_AXI_VERSION_REGISTERS
+Error: read_memory: read at 0x7c400000 with width=32 and count=1 failed
+```
+
+The same failure also occurs with FSBL-like ordering, where the helper runs PS7
+init first and then loads PL inside the same OpenOCD session:
+
+```sh
+PL_LOAD_AFTER_PS7_INIT=1 PROBE_TIMEOUT_SECONDS=180 ./tools/probe_openocd_pl_axi.sh
+```
+
+Result: still not a verified Linux runtime boot. The issue is now narrower than
+generic kernel entry: the PS-side JTAG RAM boot path does not have working
+PS-to-PL AXI access to the ADI DMA fabric, so the built-in `axi_dmac` driver
+hangs during probe. The capture does not reach `brd: module loaded`, `Run /init
+as init process`, `Welcome to Pluto`, USB networking, IIO, or HTTP.
 
 ## Normal SD Boot Restore After JTAG
 

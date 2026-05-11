@@ -89,9 +89,12 @@ Remaining candidate implementation:
    The vendor script shape is `connect`, `target`, `source ps7_init.tcl`,
    `ps7_init`, `ps7_post_config`, `dow u-boot.elf`, `con`.
 2. Compare the OpenOCD PS7-init path against the complete FSBL side effects.
-   The current OpenOCD Linux path reaches kernel boot but stalls during early
-   platform bring-up, which suggests a missing initialization side effect rather
-   than a U-Boot command problem.
+   The current OpenOCD Linux path reaches kernel boot and, with
+   `initcall_debug`, stops after `calling axi_dmac_driver_init`. A direct
+   OpenOCD DAP read of `0x7c400000`, the RX AXI-DMAC version register, also
+   fails after PS7 init and PL programming. The next useful work is therefore
+   PS-to-PL AXI/fabric accessibility, not U-Boot command timing or rootfs
+   bootargs.
 
 Prepared and partially verified:
 
@@ -100,8 +103,14 @@ Prepared and partially verified:
   interrupts U-Boot and sends a paced `bootm` command.
 - The final factory run used SD-matching bootargs:
   `console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk`.
-- The run reached `Starting kernel ...` and the expected devicetree model, then
-  stalled after `zynq-pinctrl 700.pinctrl: zynq pinctrl initialized`.
+- The diagnostic run with `ignore_loglevel loglevel=8 initcall_debug` reached
+  `Starting kernel ...`, the expected devicetree model, SMP bring-up, rootfs
+  unpack start, and many initcalls. It stopped at:
+  `calling axi_dmac_driver_init+0x0/0x10 @ 1`.
+- `tools/probe_openocd_pl_axi.sh` confirms the lower-level failure: after PS7
+  init and PL programming, OpenOCD cannot read `0x7c400000` through the DAP.
+  The failure is unchanged when using `PL_LOAD_AFTER_PS7_INIT=1` to load PL
+  after PS7 init in the same OpenOCD session.
 - It did not reach `brd: module loaded`, `Run /init as init process`, USB
   networking, IIO, or HTTP.
 
