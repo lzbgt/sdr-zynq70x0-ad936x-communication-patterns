@@ -1,0 +1,112 @@
+﻿# Serial command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T20:41:54.6447970+08:00
+
+# >>> 
+
+Poky (Yocto Project Reference Distro) 5.0.17 sdr-z203-zynq7 /dev/ttyPS0
+
+sdr-z203-zynq7 login: 
+# >>> root
+root
+
+WARNING: Poky is a reference Yocto Project distribution that should be used for
+testing and development purposes only. It is recommended that you create your
+own distribution for production use.
+
+7[r[999;999H[6n
+# >>> analog
+8root@sdr-z203-zynq7:~# 
+# >>> echo __SERIAL_LOGIN_READY__
+echo __SERIAL_LOGIN_READY__
+__SERIAL_LOGIN_READY__
+root@sdr-z203-zynq7:~# 
+# >>> echo __FULL_PIPELINE_UPDATE_BEGIN__
+echo __FULL_PIPELINE_UPDATE_BEGIN__
+__FULL_PIPELINE_UPDATE_BEGIN__
+root@sdr-z203-zynq7:~# 
+# >>> cat /proc/mtd
+cat /proc/mtd
+dev:    size   erasesize  name
+mtd0: 00100000 00010000 "qspi-fsbl-uboot"
+mtd1: 00020000 00010000 "qspi-uboot-env"
+mtd2: 000e0000 00010000 "qspi-nvmfs"
+mtd3: 01e00000 00010000 "qspi-linux"
+root@sdr-z203-zynq7:~# 
+# >>> cat /sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/file
+cat /sys/kernel/config/usb_gadget/composite_gadget/functi
+ons/mass_storage.0/lun.0/file
+/opt/vfat.img
+root@sdr-z203-zynq7:~# 
+# >>> echo "" > /sys/kernel/config/usb_gadget/composite_gadget/functions/mass_storage.0/lun.0/file
+echo "" > /sys/kernel/config/usb_gadget/composite_gadget/
+functions/mass_storage.0/lun.0/file
+root@sdr-z203-zynq7:~# 
+# >>> mkdir -p /mnt/msd
+mkdir -p /mnt/msd
+root@sdr-z203-zynq7:~# 
+# >>> losetup -d /dev/loop7 2>/dev/null || true
+losetup -d /dev/loop7 2>/dev/null || true
+root@sdr-z203-zynq7:~# 
+# >>> losetup /dev/loop7 /opt/vfat.img -o 512
+losetup /dev/loop7 /opt/vfat.img -o 512
+root@sdr-z203-zynq7:~# 
+# >>> mount /dev/loop7 /mnt/msd
+mount /dev/loop7 /mnt/msd
+root@sdr-z203-zynq7:~# 
+# >>> ls -l /mnt/msd/pluto.frm
+ls -l /mnt/msd/pluto.frm
+ls: /mnt/msd/pluto.frm: No such file or directory
+root@sdr-z203-zynq7:~# 
+# >>> md5sum /mnt/msd/pluto.frm
+md5sum /mnt/msd/pluto.frm
+md5sum: can't open '/mnt/msd/pluto.frm': No such file or directory
+root@sdr-z203-zynq7:~# 
+# >>> /sbin/update_frm.sh /mnt/msd/pluto.frm
+/sbin/update_frm.sh /mnt/msd/pluto.frm
+Failed
+root@sdr-z203-zynq7:~# 
+# >>> echo update_rc=$?
+echo update_rc=$?
+update_rc=1
+root@sdr-z203-zynq7:~# 
+# >>> fw_printenv fit_size 2>/dev/null || true
+fw_printenv fit_size 2>/dev/null || true
+fit_size=1B73367
+root@sdr-z203-zynq7:~# 
+# >>> sync
+sync
+root@sdr-z203-zynq7:~# 
+# >>> echo __FULL_PIPELINE_REBOOT_NOW__
+echo __FULL_PIPELINE_REBOOT_NOW__
+__FULL_PIPELINE_REBOOT_NOW__
+root@sdr-z203-zynq7:~# 
+# >>> reboot
+reboot
+
+Broadcast message from root@sdr-z203-zy?going down for reboot NOW!
+INIT: Switching to runlevel: 6
+rINIT: Sending processes configured via /etc/inittab the TERM signal
+Stopping Dropbear SSH server: stopped /usr/sbin/dropbear (pid 760)
+dropbear.
+ * Stopping Avahi mDNS/DNS-SD Daemon: avahi-daemon
+   ...done.
+Stopping bluetooth: bluetoothd.
+Stopping system message bus: dbus.
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Stopping syslogd/klogd: stopped syslogd (pid 775)
+stopped klogd (pid 779)
+done
+Stopping Telephony daemon
+Unmounting remote filesystems...
+Stopping rpcbind daemon...
+done.
+Stopping Linux NFC daemon
+Stopping Lighttpd Web Server: stopped /usr/sbin/lighttpd (pid 798)
+lighttpd.
+Deconfiguring network interfaces... ifdown: interface usb1 not configured
+done.
+Sending all processes the TERM signal...
+
+# Stopped: 2026-05-11T20:42:48.1652637+08:00

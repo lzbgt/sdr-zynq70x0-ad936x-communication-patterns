@@ -435,13 +435,14 @@ repo workspace:      49G
 The tarball contains Linux `xsetup`; the license archive contains
 `vivado_lic2037.lic`, `vivado2018+IPs.lic`, and `xilinx_ise_vivado.lic`.
 
-## Vivado 2025.1 WSL Arch Install Verification
+## Vivado/Vitis 2025.1 WSL Arch Install Verification
 
 Installed locations:
 
 ```text
 /opt/xilinx-installers/FPGAs_AdaptiveSoCs_Unified_SDI_2025.1_0530_0145
 /opt/Xilinx/2025.1/Vivado
+/opt/Xilinx/2025.1/Vitis
 /opt/Xilinx/licenses
 ```
 
@@ -472,7 +473,8 @@ Verified result:
 ```text
 vivado=/opt/Xilinx/2025.1/Vivado/bin/vivado
 bootgen=/opt/Xilinx/2025.1/Vivado/bin/bootgen
-xsct=not installed
+xsdb=/opt/Xilinx/2025.1/Vivado/bin/xsdb
+vitis=/opt/Xilinx/2025.1/Vitis/bin/vitis
 vivado v2025.1 (64-bit)
 Tool Version Limit: 2025.05
 SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
@@ -480,10 +482,89 @@ Bootgen v2025.1
 Vivado batch mode exits cleanly from an empty Tcl script.
 ```
 
-Boundary: this is a Vivado-only minimal install for FPGA project validation and
-bitstream generation. Vitis/XSCT is not installed yet, so FSBL/XSA/application
-work still needs either a Vitis add-on install or a different boot-image flow.
+The installed Tcl debug/programming command is `xsdb`; this repo provides
+`tools/xsct` as a compatibility wrapper for older scripts that call `xsct`.
 See `docs/vivado-linux-wsl.md`.
+
+## FPGA HDL Build Verification
+
+Command:
+
+```sh
+./tools/build_pluto_hdl_vivado.sh
+./tools/verify_pluto_hdl_build.sh
+```
+
+The ADI HDL tree expects Vivado `2023.2`; this local build used Vivado `2025.1`
+with `ADI_IGNORE_VERSION_CHECK=1`.
+
+Verified output:
+
+```text
+HDL project: .config/vivado-hdl/hdl/projects/pluto
+system_top.bit 2293096 bytes
+system_top.xsa 827998 bytes
+system_top.bit sha256 4bcb55349006bf8f753e2bdb72e6ed58faf9710fde1d57c6ecf47f747f5ff566
+system_top.xsa sha256 d3949631cab13b16bfd1bab4b2ae5a59f7eec76dd40271608bf12c4e124668e0
+Timing: All user specified timing constraints are met.
+```
+
+The generated Vivado project targets `xc7z020clg484-2`.
+
+## Full ARM + FPGA Firmware Verification
+
+Command:
+
+```sh
+RUN_ARM=0 RUN_FPGA=0 ./tools/build_sdr_z203_firmware.sh
+```
+
+Current package:
+
+```text
+pluto.itb 28783463 bytes
+pluto.frm 28783496 bytes
+```
+
+The FIT contains the Yocto ARM kernel/rootfs/devicetree and the fresh
+Vivado-built FPGA image. Exact package hashes change between packaging runs
+because `mkimage` embeds the FIT creation timestamp; verify the bitstream hash
+with `./tools/verify_pluto_hdl_build.sh` and the board `fit_size` after flash.
+
+Flash/update notes:
+
+- Copy/eject through Windows `D:\pluto.frm` was attempted but did not trigger
+  the board update handler; the copied file was removed from the host-visible
+  PlutoSDR drive afterward.
+- Manual COM5 mount of `/opt/vfat.img` confirmed the copied `pluto.frm` was not
+  visible inside the board-mounted image, so that path was abandoned.
+- Direct SSH transfer to `/tmp/pluto.frm` and `/sbin/update_frm.sh` succeeded.
+
+Verified flash result:
+
+```text
+/tmp/pluto.frm md5 a8348fdb38f9402beccc2c2a0cf57314
+update_frm.sh: 439+1 records written, Done
+fit_size=1B73367
+mode=2r2t
+```
+
+Post-flash verification:
+
+```text
+Linux sdr-z203-zynq7 6.1.0 #1 SMP PREEMPT Sun May 10 17:32:38 UTC 2026 armv7l
+Analog Devices PlutoSDR Rev.C (Z7020/AD9363)
+fit_size=1B73367
+mode=2r2t
+services: iiod, udhcpd, lighttpd
+./tools/verify_board.sh: pass
+```
+
+Relevant captures:
+
+- `resources/live-captures/serial_COM5_full_pipeline_flash_20260511-203214.txt`
+- `resources/live-captures/serial_COM5_full_pipeline_eject_20260511-203554.txt`
+- `resources/live-captures/serial_COM5_full_pipeline_manual_update_20260511-204153.txt`
 
 ## Verification Gaps
 
@@ -495,5 +576,6 @@ See `docs/vivado-linux-wsl.md`.
   and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
-- Vivado 2025.1 and Bootgen run locally under WSL Arch, but no vendor FPGA
-  project build and no JTAG programming session has been run yet.
+- Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
+  project builds locally. No JTAG programming session has been run yet.
+- FSBL/BOOT.bin regeneration from the new XSA has not been validated yet.

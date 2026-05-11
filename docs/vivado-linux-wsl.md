@@ -167,9 +167,10 @@ cd /root/work/ZYNQ7020/.config/vivado-install
   > vivado-install.log 2>&1
 ```
 
-Vitis/XSCT was not installed in this minimal pass. That is acceptable for
-initial FPGA project validation and bitstream generation. FSBL/XSA/application
-flows may require adding Vitis later.
+Vitis 2025.1 is present under `/opt/Xilinx/2025.1/Vitis`. The 2025.1 install
+does not expose a top-level `xsct` executable; use `xsdb` directly, or prepend
+this repo's `tools/` directory to use the `tools/xsct` compatibility wrapper for
+legacy scripts.
 
 ## Arch Runtime Fixes
 
@@ -232,7 +233,8 @@ vivado v2025.1 (64-bit)
 Tool Version Limit: 2025.05
 SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
 bootgen: Bootgen v2025.1
-xsct=not installed
+xsdb=/opt/Xilinx/2025.1/Vivado/bin/xsdb
+vitis=/opt/Xilinx/2025.1/Vitis/bin/vitis
 Vivado batch mode exits cleanly from an empty Tcl script.
 ```
 

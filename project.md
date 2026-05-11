@@ -89,9 +89,16 @@ Board-side facts from live captures:
   `/opt/Xilinx/2025.1/Vivado` with Zynq-7000 support. `vivado -version`,
   `bootgen -help`, and headless `vivado -mode batch` startup pass via
   `./tools/verify_vivado_install.sh`.
-- This is currently a Vivado-only install; Vitis/XSCT is not installed yet.
-  That is enough for initial FPGA project validation and bitstream generation,
-  but FSBL/XSA/application workflows may require adding Vitis later.
+- Vitis 2025.1 is present under `/opt/Xilinx/2025.1/Vitis`; the installed Tcl
+  debug/programming command is `xsdb`, and this repo provides `tools/xsct` as a
+  compatibility wrapper for legacy scripts that call `xsct`.
+- The Pluto-compatible FPGA HDL project now builds locally under Vivado 2025.1
+  with `ADI_IGNORE_VERSION_CHECK=1`, producing `system_top.bit` and
+  `system_top.xsa` in ignored `.config/vivado-hdl`.
+- A combined ARM+FPGA `pluto.frm` has been packaged from the Yocto ARM outputs
+  plus the freshly built FPGA bitstream, flashed to QSPI `mtd3` through
+  `/sbin/update_frm.sh`, rebooted, and verified by ping, IIO, HTTP, SSH, and
+  service checks.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -106,8 +113,11 @@ user and vendor configuration.
 - `docs/source-build-from-scratch.md` - how to build/customize FPGA firmware,
   ARM Linux/rootfs, and applications from source-oriented trees.
 - `docs/yocto-arm-firmware.md` - WSL Arch Yocto workflow for ARM-side firmware,
-  using extracted vendor source and deferring new FPGA bitstreams until Vivado
-  is ready.
+  using extracted vendor source and optionally packaging with a selected
+  bitstream.
+- `docs/full-firmware-pipeline.md` - developer flow for rebuilding FPGA HDL,
+  rebuilding Yocto ARM firmware, packaging a combined `pluto.frm`, flashing
+  `mtd3`, and verifying the board.
 - `docs/vivado-linux-wsl.md` - local Vivado 2025.1 installer inventory,
   WSL/Arch support boundary, disk-space check, license placement, and install
   workflow.
@@ -153,6 +163,17 @@ user and vendor configuration.
   installer onto the WSL/Linux ext4 filesystem.
 - `tools/verify_vivado_install.sh` - check the installed Vivado/Bootgen tools,
   license environment, Arch compatibility link, and headless batch startup.
+- `tools/build_pluto_hdl_vivado.sh` - build the Pluto FPGA HDL project in an
+  ignored local Vivado workspace.
+- `tools/verify_pluto_hdl_build.sh` - verify FPGA bitstream, XSA, route report,
+  DRC report, timing report, hashes, and timing status.
+- `tools/build_sdr_z203_firmware.sh` - orchestrate Yocto ARM build, Vivado FPGA
+  build, audits, and combined `pluto.frm` packaging.
+- `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
+  PlutoSDR removable drive while capturing COM5; currently documented as less
+  reliable than SSH update on this board.
+- `tools/xsct` - compatibility wrapper that forwards legacy `xsct` calls to
+  the installed 2025.1 `xsdb`.
 
 ## Important Source Material
 
@@ -181,6 +202,8 @@ Local build/source workspaces intentionally ignored by git:
 - `yocto/layers` - local Poky/OpenEmbedded/Xilinx/ADI layer checkouts.
 - `yocto/builds`, `yocto/downloads`, `yocto/sstate-cache` - local BitBake build
   output, downloads, and shared state cache.
+- `.config/vivado-hdl` - local scratch copy of the vendor ADI HDL tree and
+  generated Vivado FPGA build outputs.
 
 ## Quick Verification
 
@@ -218,6 +241,6 @@ Expected result in the current Pluto-compatible firmware state:
    by boot log, file version, or binary hash where possible.
 3. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
-4. Open or build the vendor FPGA project/Tcl flow in Vivado batch mode and
-   compare the generated part, constraints, bitstream, and XSA assumptions
-   against `docs/schematic-notes.md`.
+4. Validate FSBL/BOOT.bin generation from the new XSA before considering any
+   `mtd0` bootloader updates.
+5. Perform a controlled RF loopback test with the newly built FPGA image.

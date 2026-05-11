@@ -1,0 +1,7 @@
+﻿# Serial passive capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T20:35:55.3877113+08:00
+# Seconds: 180
+
+# Stopped: 2026-05-11T20:38:55.4565408+08:00

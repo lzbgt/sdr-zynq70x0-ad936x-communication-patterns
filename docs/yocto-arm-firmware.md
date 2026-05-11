@@ -9,10 +9,10 @@ It intentionally focuses on the ARM side:
 - board init/config files and developer packages.
 - FIT firmware packaging using an existing `system_top.bit`.
 
-Vivado 2025.1 is now installed locally under `/opt/Xilinx/2025.1/Vivado`, but
-this Yocto flow still reuses the known-good vendor bitstream until a newly built
-FPGA image is reviewed. Vitis/XSCT is not installed in the minimal Vivado pass,
-so FSBL/XSA application flows still need additional tooling.
+Vivado 2025.1 is now installed locally under `/opt/Xilinx/2025.1/Vivado`, and
+the Pluto HDL project has been built locally. This Yocto guide remains focused
+on ARM/rootfs work; use `docs/full-firmware-pipeline.md` when packaging Yocto
+ARM outputs with a fresh FPGA bitstream.
 
 ## Local Layout
 
@@ -372,7 +372,8 @@ The local vendor source currently contains a known-good bitstream here:
 src/extracted/plutosdr-fw-2r2t/plutosdr-fw/build/system_top.bit
 ```
 
-The helper script packages the verified Yocto ARM outputs with that bitstream:
+The helper script packages the verified Yocto ARM outputs with a selected
+bitstream:
 
 ```sh
 ./tools/package_yocto_pluto_frm.sh
@@ -399,6 +400,14 @@ The script accepts overrides:
 
 ```sh
 BITSTREAM=/path/to/system_top.bit OUT_DIR=/path/to/fit-work ./tools/package_yocto_pluto_frm.sh
+```
+
+For the current full local pipeline, use the Vivado-built bitstream:
+
+```sh
+BITSTREAM=.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit \
+  OUT_DIR=yocto/builds/sdr-z203-arm/fit-work-vivado \
+  ./tools/package_yocto_pluto_frm.sh
 ```
 
 Manual equivalent:
@@ -440,8 +449,8 @@ validated.
 ## Flashing And Boot Test
 
 The generated Yocto `pluto.frm` is now runtime-audited and board-validated on
-the attached SDR-Z203 for the ARM-side payload. Before flashing a new rebuild,
-confirm the audit passes:
+the attached SDR-Z203 for ARM-only and combined ARM+FPGA payloads. Before
+flashing a new rebuild, confirm the audit passes:
 
 ```sh
 ./tools/audit_yocto_rootfs.sh
@@ -454,6 +463,17 @@ Lowest-risk path:
 3. Use the board's existing Pluto mass-storage/DFU update path.
 4. Watch COM5 during reboot.
 5. Run `./tools/verify_board.sh` after boot.
+
+On this board, Windows mass-storage copy/eject did not reliably trigger the
+update handler. The verified update path is SSH over RNDIS:
+
+```sh
+sshpass -p '' scp -O yocto/builds/sdr-z203-arm/fit-work-vivado/build/pluto.frm \
+  root@192.168.2.1:/tmp/pluto.frm
+
+sshpass -p '' ssh root@192.168.2.1 \
+  '/sbin/update_frm.sh /tmp/pluto.frm && fw_printenv fit_size mode && sync && reboot'
+```
 
 The first Yocto flash found two runtime issues and one updater compatibility
 issue. The committed layer now fixes them:

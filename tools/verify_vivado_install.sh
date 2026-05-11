@@ -30,14 +30,14 @@ source "$settings"
 echo "XILINXD_LICENSE_FILE=$XILINXD_LICENSE_FILE"
 echo "vivado=$(command -v vivado)"
 echo "bootgen=$(command -v bootgen)"
-if command -v xsct >/dev/null 2>&1; then
-  echo "xsct=$(command -v xsct)"
-else
-  echo "xsct=not installed"
+echo "xsdb=$(command -v xsdb)"
+if [[ -x /opt/Xilinx/2025.1/Vitis/bin/vitis ]]; then
+  echo "vitis=/opt/Xilinx/2025.1/Vitis/bin/vitis"
 fi
 
 vivado -version
 bootgen -help >/dev/null
+xsdb -help >/dev/null
 
 tmp_tcl="$(mktemp /tmp/vivado-empty-XXXXXX.tcl)"
 trap 'rm -f "$tmp_tcl"' EXIT

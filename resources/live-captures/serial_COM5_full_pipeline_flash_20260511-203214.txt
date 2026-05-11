@@ -1,0 +1,8 @@
+﻿# Pluto firmware flash capture
+# Started: 2026-05-11T20:32:15.2477541+08:00
+# FrmPath: \\wsl.localhost\archlinux\root\work\ZYNQ7020\yocto\builds\sdr-z203-arm\fit-work-vivado\build\pluto.frm
+# Target: D:\pluto.frm
+# Size: 28783496
+# Copied: 2026-05-11T20:32:17.7580011+08:00
+
+# Stopped: 2026-05-11T20:35:17.8490703+08:00

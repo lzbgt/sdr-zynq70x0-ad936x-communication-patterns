@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v xsdb >/dev/null 2>&1; then
+  exec xsdb "$@"
+fi
+
+vivado_root="${VIVADO_ROOT:-/opt/Xilinx/2025.1/Vivado}"
+if [[ -x "$vivado_root/bin/xsdb" ]]; then
+  exec "$vivado_root/bin/xsdb" "$@"
+fi
+
+echo "xsdb not found; source Vivado/Vitis settings64.sh or set VIVADO_ROOT" >&2
+exit 1
