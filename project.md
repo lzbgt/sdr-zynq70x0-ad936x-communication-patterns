@@ -135,6 +135,9 @@ user and vendor configuration.
 
 - `docs/verification.md` - commands used to verify the board and current
   evidence.
+- `docs/known-good-workflows.md` - condensed command guide for verified build,
+  flash, SD boot, JTAG, and recovery workflows.
+- `docs/remaining-work.md` - concrete remaining gates and follow-up work.
 - `docs/how-to-use.md` - practical host setup and usage flows.
 - `docs/source-build-from-scratch.md` - how to build/customize FPGA firmware,
   ARM Linux/rootfs, and applications from source-oriented trees.
