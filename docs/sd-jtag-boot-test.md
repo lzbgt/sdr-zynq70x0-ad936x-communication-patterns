@@ -224,6 +224,32 @@ Raw capture:
 - `resources/live-captures/jtag_host_verified_20260511.txt`
 - `resources/live-captures/windows_usbipd_attached_20260511.txt`
 
+## Verified OpenOCD PL Bitstream Load
+
+Status on 2026-05-11: verified.
+
+The locally built Vivado bitstream was loaded over JTAG with OpenOCD:
+
+```sh
+./tools/load_openocd_bitstream.sh
+```
+
+This uses the same generic FT2232 layout as `tools/probe_openocd_jtag.sh` and
+loads:
+
+```text
+.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+```
+
+The command completed with exit code `0` and did not write QSPI. This verifies
+volatile FPGA fabric programming through the onboard FT2232 path. It does not
+by itself boot the ARM/Linux side; use SD boot, QSPI boot, or an OpenOCD/XSDB
+PS boot flow for that.
+
+Raw capture:
+
+- `resources/live-captures/openocd_jtag_pl_load_20260511.txt`
+
 Repeat the full host-side check with:
 
 ```sh

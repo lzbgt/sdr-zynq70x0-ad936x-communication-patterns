@@ -93,6 +93,8 @@ multi-gigabyte Pluto source archives are not copied.
   `usbipd-win` attach, including Vivado no-target status and OpenOCD success.
 - `live-captures/openocd_jtag_probe_20260511.txt` - OpenOCD probe proving the
   Zynq PL and CPU JTAG TAPs are reachable through the onboard FT2232.
+- `live-captures/openocd_jtag_pl_load_20260511.txt` - OpenOCD volatile PL load
+  of the locally built Vivado `system_top.bit`.
 - `live-captures/windows_jtag_pnp_20260511.txt` - Windows PnP evidence that
   the FT2232HL `VID_0403&PID_6010` debug/JTAG device is present.
 - `live-captures/windows_usbipd_attached_20260511.txt` - Windows `usbipd` list

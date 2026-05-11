@@ -297,6 +297,7 @@ Raw captures:
 - `resources/live-captures/jtag_probe_no_targets_20260511.txt`
 - `resources/live-captures/jtag_host_verified_20260511.txt`
 - `resources/live-captures/openocd_jtag_probe_20260511.txt`
+- `resources/live-captures/openocd_jtag_pl_load_20260511.txt`
 - `resources/live-captures/windows_jtag_pnp_20260511.txt`
 - `resources/live-captures/windows_usbipd_attached_20260511.txt`
 - `resources/live-captures/windows_usbipd_status_20260511.txt`
@@ -332,6 +333,15 @@ driven as a generic FT2232 MPSSE adapter. Vivado `hw_server` does not recognize
 this onboard FT2232 as a Xilinx/Digilent cable, so Vivado Hardware Manager may
 need a recognized external adapter, a Windows-native workflow, or a carefully
 researched FTDI EEPROM identity change.
+
+Volatile PL programming was also tested through OpenOCD:
+
+```sh
+./tools/load_openocd_bitstream.sh
+```
+
+The command loaded the locally built Vivado `system_top.bit` and exited with
+status `0`. This verifies the JTAG bitstream-load path without writing QSPI.
 
 Host reattach helper:
 

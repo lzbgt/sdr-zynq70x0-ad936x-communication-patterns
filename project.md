@@ -121,9 +121,10 @@ Board-side facts from live captures:
 - JTAG is verified at the physical chain level through WSL using `usbipd-win`
   and OpenOCD. Windows sees the FT2232HL debug/JTAG device as
   `VID_0403&PID_6010`, WSL sees it under `/dev/bus/usb`, and OpenOCD finds the
-  Zynq PL and CPU JTAG TAPs. Vivado `hw_server` starts but still lists no
-  targets, so Vivado Hardware Manager is not yet verified with the onboard
-  generic FT2232 identity.
+  Zynq PL and CPU JTAG TAPs. OpenOCD also loads the locally built Vivado
+  `system_top.bit` into PL over JTAG without writing QSPI. Vivado `hw_server`
+  starts but still lists no targets, so Vivado Hardware Manager is not yet
+  verified with the onboard generic FT2232 identity.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -222,6 +223,8 @@ user and vendor configuration.
   the DEBUG/JTAG adapter is attached to WSL.
 - `tools/probe_openocd_jtag.sh` - run a generic FT2232 OpenOCD scan of the
   Zynq-7000 JTAG chain.
+- `tools/load_openocd_bitstream.sh` - load a Vivado bitstream into PL over the
+  verified OpenOCD/FT2232 JTAG path without writing flash.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
