@@ -9,6 +9,7 @@ flashing mistakes.
 
 For the bootloader-region safety gate, see
 `docs/qspi-backup-and-recovery.md`.
+For the prepared SD/JTAG boot-test workflow, see `docs/sd-jtag-boot-test.md`.
 
 ## Repurposing Layers
 
@@ -83,10 +84,17 @@ These files are not flashed automatically.
 
 Use SD-card boot for experiments when possible.
 
+Prepared staging commands:
+
+```sh
+./tools/stage_sd_boot_files.sh factory-2r2t
+./tools/stage_sd_boot_files.sh yocto
+```
+
 Basic flow:
 
-1. Format an SD card as required by the vendor image or firmware files.
-2. Copy one of the `resources/firmware/sdcard-*` sets to the card root.
+1. Format an SD card as FAT32 if it is not already usable as a boot FAT card.
+2. Copy one staged set to the card root with `tools/install_sd_boot_files.sh`.
 3. Insert the SD card.
 4. Set boot mode to QSPI/SD.
 5. Power cycle the board.

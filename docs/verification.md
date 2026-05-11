@@ -671,6 +671,29 @@ running the locally generated Yocto+Vivado FIT payload.
 
 Full notes are in `docs/qspi-image-correlation.md`.
 
+## SD Boot Staging Verification
+
+Commands:
+
+```sh
+./tools/stage_sd_boot_files.sh factory-2r2t
+./tools/stage_sd_boot_files.sh yocto
+```
+
+Generated staging directories:
+
+```text
+.config/sdcard-staging/factory-2r2t/
+.config/sdcard-staging/yocto/
+```
+
+Both contain `BOOT.bin`, `devicetree.dtb`, `uEnv.txt`, `uImage`,
+`uramdisk.image.gz`, and `SHA256SUMS`.
+
+The Yocto staging command converts the Yocto `zImage` and gzip cpio rootfs into
+U-Boot legacy `uImage` and `uramdisk.image.gz` files. Physical SD boot has not
+been run yet.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
@@ -681,6 +704,8 @@ Full notes are in `docs/qspi-image-correlation.md`.
   and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
+- SD-card boot staging is prepared, but no physical SD boot capture has been
+  performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
   project builds locally. No JTAG programming session has been run yet.
 - FSBL/BOOT.bin regeneration from the new XSA is now validated locally, but

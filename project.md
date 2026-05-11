@@ -132,6 +132,8 @@ user and vendor configuration.
   experiments.
 - `docs/qspi-image-correlation.md` - comparison between the live QSPI backup
   and curated factory `qspi-1r1t`/`qspi-2r2t` firmware sets.
+- `docs/sd-jtag-boot-test.md` - prepared SD-card and JTAG boot-test workflow
+  for proving recovery paths without writing QSPI.
 - `docs/vivado-linux-wsl.md` - local Vivado 2025.1 installer inventory,
   WSL/Arch support boundary, disk-space check, license placement, and install
   workflow.
@@ -193,6 +195,12 @@ user and vendor configuration.
   partition sizes.
 - `tools/compare_qspi_backup.sh` - compare a live QSPI backup against curated
   factory firmware sets without touching the board.
+- `tools/stage_sd_boot_files.sh` - create SD-card boot staging directories for
+  factory 2R2T or local Yocto+Vivado boot tests.
+- `tools/install_sd_boot_files.sh` - copy a staged SD boot set to a mounted SD
+  card and verify checksums.
+- `tools/probe_xilinx_jtag.sh` - run a simple `xsdb` JTAG target probe after
+  the DEBUG/JTAG adapter is attached to WSL.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
   PlutoSDR removable drive while capturing COM5; currently documented as less
   reliable than SSH update on this board.
@@ -266,5 +274,5 @@ Expected result in the current Pluto-compatible firmware state:
 2. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
 3. Perform a controlled RF loopback test with the newly built FPGA image.
-4. Exercise SD/JTAG boot with generated `BOOT.BIN` before any
+4. Exercise SD/JTAG boot with the staged factory and Yocto boot sets before any
    bootloader-region flash test.
