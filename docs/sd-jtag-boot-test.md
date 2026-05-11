@@ -48,6 +48,26 @@ factory SD boot works, test `yocto`.
 
 ## Copy To SD Card
 
+This is a file-copy boot layout, not a raw disk-image write. Zynq BootROM can
+boot from an SD card when the first partition is FAT/FAT32 and the boot files
+are in the root directory. The vendor `uEnv.txt` then runs `sdboot`, which loads:
+
+```text
+uImage
+devicetree.dtb
+uramdisk.image.gz
+```
+
+So a bare copy is valid when these conditions are true:
+
+- The card has a normal partition table.
+- Partition 1 is FAT/FAT32.
+- The staged files are copied to the root of that partition.
+- The board boot switch is in the SD/QSPI boot position, not JTAG.
+
+The card inserted as Windows drive `E:` on 2026-05-11 was checked as a 31.35 GB
+FAT32 removable volume before copying the factory 2R2T files.
+
 If Windows mounts the SD card as drive `E:`, WSL normally exposes it as
 `/mnt/e`. Copy staged files with:
 

@@ -54,6 +54,7 @@ cp "$stage_dir/SHA256SUMS" "$mount_dir/SHA256SUMS"
 sync
 
 echo "Installed SD boot files to: $mount_dir"
+echo "The target must be the first FAT/FAT32 partition of the SD card; this script copies boot files, it does not repartition or format media."
 find "$mount_dir" -maxdepth 1 -type f \
   \( -name 'BOOT.bin' -o -name 'devicetree.dtb' -o -name 'uEnv.txt' -o -name 'uImage' -o -name 'uramdisk.image.gz' -o -name 'SHA256SUMS' \) \
   -printf '%p %s bytes\n' | sort
