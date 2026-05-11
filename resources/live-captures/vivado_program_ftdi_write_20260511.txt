@@ -1,0 +1,13 @@
+
+****** program_ftdi v2025.1
+  **** Build date : Apr  8 2025-16:48:38
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+
+
+INFO: ftdi part = FT2232H
+INFO: Serial = AUQSDHWMXART
+INFO: Detected 1 devices
+INFO: Device location = 4129
+INFO: fwid=0x584a0003
+INFO: FTDI Programming Passed

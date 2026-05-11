@@ -3,8 +3,9 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "== Vivado hw_server / xsdb probe =="
+echo "== Vivado Hardware Manager probe =="
 "$repo_root/tools/probe_xilinx_jtag.sh" || true
+sleep 3
 
 echo
 echo "== OpenOCD generic FT2232 probe =="

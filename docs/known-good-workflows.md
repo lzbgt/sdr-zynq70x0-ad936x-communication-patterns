@@ -154,6 +154,23 @@ Expected WSL USB device:
 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
 ```
 
+## Probe JTAG With Vivado
+
+```sh
+./tools/probe_vivado_hw_manager.sh
+```
+
+Expected hardware devices:
+
+```text
+arm_dap_0
+xc7z020_1
+```
+
+The onboard FT2232H was reprogrammed once with Vivado's supported FT2232H EEPROM
+configuration and must be attached to WSL with `usbipd`. On Arch WSL, the helper
+sets `LD_LIBRARY_PATH` so Vivado can load its bundled Digilent FTDI libraries.
+
 ## Probe JTAG With OpenOCD
 
 ```sh
@@ -167,11 +184,19 @@ zynq_pl.bs
 zynq.cpu
 ```
 
-Vivado `hw_server` currently starts but does not recognize the onboard generic
-FT2232HL as a Xilinx/Digilent cable. Use OpenOCD for the onboard path unless a
-recognized external Xilinx/Digilent adapter is connected.
+OpenOCD remains useful for generic low-level JTAG checks and as an independent
+cross-check of the FT2232 path.
 
-## Load FPGA Bitstream Over JTAG
+## Load FPGA Bitstream Over JTAG With Vivado
+
+```sh
+./tools/load_vivado_bitstream.sh
+```
+
+This loads the default local `system_top.bit` into PL through Vivado Hardware
+Manager. It is volatile and does not write QSPI.
+
+## Load FPGA Bitstream Over JTAG With OpenOCD
 
 ```sh
 ./tools/load_openocd_bitstream.sh

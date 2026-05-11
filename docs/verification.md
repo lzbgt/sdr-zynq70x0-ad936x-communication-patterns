@@ -298,6 +298,16 @@ Raw captures:
 - `resources/live-captures/jtag_host_verified_20260511.txt`
 - `resources/live-captures/openocd_jtag_probe_20260511.txt`
 - `resources/live-captures/openocd_jtag_pl_load_20260511.txt`
+- `resources/live-captures/ft2232_eeprom_raw_read_20260511.txt`
+- `resources/live-captures/vivado_program_ftdi_read_20260511.txt`
+- `resources/live-captures/vivado_program_ftdi_write_20260511.txt`
+- `resources/live-captures/vivado_program_ftdi_read_after_write_20260511.txt`
+- `resources/live-captures/lsusb_ft2232_after_physical_replug_20260511.txt`
+- `resources/live-captures/vivado_hw_manager_probe_script_20260511.txt`
+- `resources/live-captures/vivado_hw_manager_probe_compat_20260511.txt`
+- `resources/live-captures/vivado_hw_manager_bitstream_load_20260511.txt`
+- `resources/live-captures/openocd_jtag_after_physical_replug_20260511.txt`
+- `resources/live-captures/jtag_host_verified_after_vivado_ftdi_fixed_20260511.txt`
 - `resources/live-captures/windows_jtag_pnp_20260511.txt`
 - `resources/live-captures/windows_usbipd_attached_20260511.txt`
 - `resources/live-captures/windows_usbipd_status_20260511.txt`
@@ -314,10 +324,20 @@ Result on 2026-05-11:
 - `usbipd` attached the FTDI device at bus ID `1-1` to WSL.
 - WSL sees the FTDI device with `lsusb`:
   `0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC`.
-- Vivado `hw_server` starts successfully from WSL, but `xsdb targets` remains
-  empty even after unbinding both FTDI interfaces from `ftdi_sio`.
+- Initial Vivado `hw_server` probing did not list the onboard FT2232 as a cable.
+  Two fixes were required:
+  - `LD_LIBRARY_PATH` must include `/opt/Xilinx/2025.1/Vivado/lib/lnx64.o` on
+    this Arch WSL install so Vivado's Digilent FTDI plugin can load
+    `libdabs.so.2`, `libdpcomm.so.2`, and related libraries.
+  - The FT2232H EEPROM was backed up, then reprogrammed with Vivado's
+    `program_ftdi` supported FT2232H configuration. After a physical USB replug,
+    `lsusb` reported manufacturer `Xilinx`, product `Digilent USB Device`, serial
+    `AUQSDHWMXART`.
+- Vivado Hardware Manager now opens target
+  `127.0.0.1:3121/xilinx_tcf/Xilinx/AUQSDHWMXARTA` and detects `arm_dap_0`
+  (`IDCODE_HEX 4BA00477`) plus `xc7z020_1` (`IDCODE_HEX 23727093`).
 - OpenOCD with a generic FT2232/Digilent-HS1-style layout successfully scans
-  the Zynq JTAG chain.
+  the Zynq JTAG chain both before and after the Vivado FTDI EEPROM update.
 
 OpenOCD confirmation:
 
@@ -328,11 +348,10 @@ zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
 zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
 ```
 
-Interpretation: the physical JTAG chain works under WSL through `usbipd` when
-driven as a generic FT2232 MPSSE adapter. Vivado `hw_server` does not recognize
-this onboard FT2232 as a Xilinx/Digilent cable, so Vivado Hardware Manager may
-need a recognized external adapter, a Windows-native workflow, or a carefully
-researched FTDI EEPROM identity change.
+Interpretation: the physical JTAG chain works under WSL through `usbipd`. The
+onboard FT2232H can be used by OpenOCD as a generic FT2232 MPSSE adapter and by
+Vivado Hardware Manager after the Vivado-supported FT2232H EEPROM configuration
+and the Arch WSL library-path fix.
 
 Volatile PL programming was also tested through OpenOCD:
 
@@ -342,6 +361,19 @@ Volatile PL programming was also tested through OpenOCD:
 
 The command loaded the locally built Vivado `system_top.bit` and exited with
 status `0`. This verifies the JTAG bitstream-load path without writing QSPI.
+
+Volatile PL programming was then verified through Vivado Hardware Manager:
+
+```sh
+./tools/load_vivado_bitstream.sh
+```
+
+Result:
+
+```text
+PROGRAMMED_DEVICE xc7z020_1
+PROGRAM_FILE /root/work/ZYNQ7020/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+```
 
 Host reattach helper:
 

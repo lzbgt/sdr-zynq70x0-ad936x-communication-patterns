@@ -1,0 +1,43 @@
+
+****** Vivado v2025.1 (64-bit)
+  **** SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
+  **** IP Build 6138677 on Thu May 22 03:10:11 MDT 2025
+  **** SharedData Build 6139179 on Tue May 20 17:58:58 MDT 2025
+  **** Start of session at: Mon May 11 23:14:03 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /tmp/tmp.xmtOUQv35u
+# open_hw_manager
+# connect_hw_server -url TCP:127.0.0.1:3121
+INFO: [Labtools 27-2285] Connecting to hw_server url TCP:127.0.0.1:3121
+INFO: [Labtools 27-3415] Connecting to cs_server url TCP:localhost:0
+INFO: [Labtools 27-3417] Launching cs_server...
+INFO: [Labtools 27-2221] Launch Output:
+
+
+******** Xilinx cs_server v2025.1.0
+  ****** Build date   : May 14 2025-03:15:27
+    **** Build number : 2025.1.1747163727
+      ** Copyright 2017-2022 Xilinx, Inc. All Rights Reserved.
+      ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+
+
+# open_hw_target
+INFO: [Labtoolstcl 44-466] Opening hw_target 127.0.0.1:3121/xilinx_tcf/Xilinx/AUQSDHWMXARTA
+# set device [lindex [get_hw_devices xc7z020*] 0]
+# if {$device eq ""} {
+#   error "xc7z020 hardware device not found"
+# }
+# set_property PROGRAM.FILE {/root/work/ZYNQ7020/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit} $device
+# program_hw_devices $device
+INFO: [Labtools 27-3164] End of startup status: HIGH
+# refresh_hw_device $device
+INFO: [Labtools 27-1434] Device xc7z020 (JTAG device index = 1) is programmed with a design that has no supported debug core(s) in it.
+# puts "PROGRAMMED_DEVICE $device"
+PROGRAMMED_DEVICE xc7z020_1
+# puts "PROGRAM_FILE [get_property PROGRAM.FILE $device]"
+PROGRAM_FILE /root/work/ZYNQ7020/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+# close_hw_manager
+INFO: [Common 17-206] Exiting Vivado at Mon May 11 23:14:11 2026...

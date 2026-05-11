@@ -1,0 +1,109 @@
+== Vivado Hardware Manager probe ==
+
+****** Vivado v2025.1 (64-bit)
+  **** SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
+  **** IP Build 6138677 on Thu May 22 03:10:11 MDT 2025
+  **** SharedData Build 6139179 on Tue May 20 17:58:58 MDT 2025
+  **** Start of session at: Mon May 11 23:26:55 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /tmp/tmp.IqWMonqjJu
+# open_hw_manager
+# connect_hw_server -url TCP:127.0.0.1:3121
+INFO: [Labtools 27-2285] Connecting to hw_server url TCP:127.0.0.1:3121
+INFO: [Labtools 27-3415] Connecting to cs_server url TCP:localhost:0
+INFO: [Labtools 27-3417] Launching cs_server...
+INFO: [Labtools 27-2221] Launch Output:
+
+
+******** Xilinx cs_server v2025.1.0
+  ****** Build date   : May 14 2025-03:15:27
+    **** Build number : 2025.1.1747163727
+      ** Copyright 2017-2022 Xilinx, Inc. All Rights Reserved.
+      ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+
+
+# puts "== HW servers =="
+== HW servers ==
+# puts [get_hw_servers]
+127.0.0.1:3121
+# puts "== HW targets =="
+== HW targets ==
+# puts [get_hw_targets]
+127.0.0.1:3121/xilinx_tcf/Xilinx/AUQSDHWMXARTA
+# foreach target [get_hw_targets] {
+#   puts "TARGET $target"
+#   puts [report_property -return_string $target]
+# }
+TARGET 127.0.0.1:3121/xilinx_tcf/Xilinx/AUQSDHWMXARTA
+Property          Type     Read-only  Value
+CLASS             string   true       hw_target
+DEVICE_COUNT      int      true       0
+HW_JTAG           hw_jtag  true
+IS_OPENED         bool     true       0
+IS_STAPL          bool     true       0
+IS_SVF            bool     true       0
+MAX_DEVICE_COUNT  int      false      32
+NAME              string   true       127.0.0.1:3121/xilinx_tcf/Xilinx/AUQSDHWMXARTA
+PARAM.DEVICE      string   true       jsn-SDR-Z203 FT2232H-AUQSDHWMXARTA
+PARAM.FREQUENCY   enum     false      15000000
+PARAM.TYPE        string   true       xilinx_tcf
+TID               string   true       jsn-SDR-Z203 FT2232H-AUQSDHWMXARTA
+UID               string   true       Xilinx/AUQSDHWMXARTA
+# open_hw_target
+INFO: [Labtoolstcl 44-466] Opening hw_target 127.0.0.1:3121/xilinx_tcf/Xilinx/AUQSDHWMXARTA
+# puts "== HW devices =="
+== HW devices ==
+# puts [get_hw_devices]
+arm_dap_0 xc7z020_1
+# foreach device [get_hw_devices] {
+#   puts "DEVICE $device"
+#   puts "PART [get_property PART $device]"
+#   puts "IDCODE_HEX [get_property IDCODE_HEX $device]"
+#   puts "PROGRAM.IS_SUPPORTED [get_property PROGRAM.IS_SUPPORTED $device]"
+# }
+DEVICE arm_dap_0
+PART arm_dap
+IDCODE_HEX 4BA00477
+PROGRAM.IS_SUPPORTED 0
+DEVICE xc7z020_1
+PART xc7z020
+IDCODE_HEX 23727093
+PROGRAM.IS_SUPPORTED 1
+# close_hw_manager
+INFO: [Common 17-206] Exiting Vivado at Mon May 11 23:27:02 2026...
+
+== OpenOCD generic FT2232 probe ==
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+shutdown command invoked
+
+== WSL USB visibility ==
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 003: ID 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+      580      0 crw-rw-r--   1 root     root     189, 128 May 11 22:03 /dev/bus/usb/002/001
+      778      0 crw-rw-rw-   1 root     root     189,   2 May 11 23:27 /dev/bus/usb/001/003
+      578      0 crw-rw-r--   1 root     root     189,   0 May 11 22:03 /dev/bus/usb/001/001
+
+== Xilinx Linux cable driver files ==
+/etc/udev/rules.d/52-xilinx-digilent-usb.rules
+/etc/udev/rules.d/52-xilinx-ftdi-usb.rules
+/etc/udev/rules.d/52-xilinx-pcusb.rules
+
+== Windows FTDI / usbipd status ==
+
+Name    Status StartType
+----    ------ ---------
+usbipd Running Automatic

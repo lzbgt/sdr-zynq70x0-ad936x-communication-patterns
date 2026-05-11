@@ -119,12 +119,13 @@ Board-side facts from live captures:
   showed the locally built U-Boot loading the Yocto `uImage`, device tree, and
   `Yocto initramfs` from SD. Post-boot ping, IIO, and HTTP checks passed.
 - JTAG is verified at the physical chain level through WSL using `usbipd-win`
-  and OpenOCD. Windows sees the FT2232HL debug/JTAG device as
-  `VID_0403&PID_6010`, WSL sees it under `/dev/bus/usb`, and OpenOCD finds the
-  Zynq PL and CPU JTAG TAPs. OpenOCD also loads the locally built Vivado
-  `system_top.bit` into PL over JTAG without writing QSPI. Vivado `hw_server`
-  starts but still lists no targets, so Vivado Hardware Manager is not yet
-  verified with the onboard generic FT2232 identity.
+  and both OpenOCD and Vivado Hardware Manager. Windows sees the FT2232HL
+  debug/JTAG device as `VID_0403&PID_6010`, WSL sees it under `/dev/bus/usb`,
+  and both tools find the Zynq JTAG chain. OpenOCD and Vivado Hardware Manager
+  both load the locally built Vivado `system_top.bit` into PL over JTAG without
+  writing QSPI. Vivado support required a raw FT2232 EEPROM backup, Vivado
+  `program_ftdi` FT2232H configuration, physical USB replug, `usbipd` reattach,
+  and an Arch WSL `LD_LIBRARY_PATH` fix for Vivado's bundled cable libraries.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.
@@ -225,8 +226,16 @@ user and vendor configuration.
 - `tools/install_sd_boot_files_over_ssh.sh` - copy a staged SD boot set to
   `/dev/mmcblk0p1` through the running board when it has booted into RAM from
   SD.
-- `tools/probe_xilinx_jtag.sh` - run a simple `xsdb` JTAG target probe after
-  the DEBUG/JTAG adapter is attached to WSL.
+- `tools/probe_xilinx_jtag.sh` - compatibility wrapper for the verified Vivado
+  Hardware Manager JTAG probe.
+- `tools/probe_vivado_hw_manager.sh` - verify Vivado Hardware Manager can see
+  `arm_dap_0` and `xc7z020_1` through the onboard FT2232H.
+- `tools/load_vivado_bitstream.sh` - load the locally built `system_top.bit`
+  through Vivado Hardware Manager without writing QSPI.
+- `tools/read_ft2232_eeprom_raw.c` and `tools/write_ft2232_eeprom_raw.c` - raw
+  FT2232 EEPROM backup/restore helpers used before the Vivado FTDI update.
+- `resources/firmware/ft2232-eeprom-original-20260511.bin` - raw original
+  FT2232H EEPROM backup captured before the Vivado-supported FTDI update.
 - `tools/probe_openocd_jtag.sh` - run a generic FT2232 OpenOCD scan of the
   Zynq-7000 JTAG chain.
 - `tools/load_openocd_bitstream.sh` - load a Vivado bitstream into PL over the

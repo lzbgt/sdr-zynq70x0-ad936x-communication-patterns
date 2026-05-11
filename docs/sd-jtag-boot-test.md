@@ -183,23 +183,34 @@ requested JTAG/debug mode. A successful probe should list Zynq/JTAG targets from
 If WSL cannot see the FTDI/JTAG adapter, attach it to WSL from Windows with
 `usbipd` before probing.
 
-Vivado/Xilinx `hw_server` status on 2026-05-11:
+Vivado/Xilinx `hw_server` status on 2026-05-11: verified after FT2232 EEPROM
+and Arch WSL runtime fixes.
 
 - The board was switched to JTAG mode and powered.
 - Xilinx Linux cable drivers were installed from the Vivado tree:
   `/opt/Xilinx/2025.1/data/xicom/cable_drivers/lin64/install_script/install_drivers/install_drivers`.
 - Installed WSL rule files include `52-xilinx-ftdi-usb.rules`,
   `52-xilinx-pcusb.rules`, and `52-xilinx-digilent-usb.rules`.
-- `./tools/probe_xilinx_jtag.sh` starts `hw_server`, but `targets` is empty.
+- The initial `./tools/probe_xilinx_jtag.sh` attempt started `hw_server`, but
+  no targets appeared.
 - Windows sees the FT2232HL as `VID_0403&PID_6010`, with USB Serial Converter
   A/B and `COM5`.
 - `usbipd-win` was installed from the upstream MSI and the FT2232HL was attached
   to WSL with bus ID `1-1`.
 - WSL sees `0403:6010` under `/dev/bus/usb`.
-- Even after unbinding `ftdi_sio` from both FTDI interfaces, Vivado
-  `hw_server` still lists no targets. This means this onboard FT2232 is visible
-  as a generic FTDI adapter but is not recognized by Vivado as a Xilinx/Digilent
-  cable.
+- Vivado's `program_ftdi -read` could read the FT2232H, so the adapter was
+  visible to Vivado's FTDI layer.
+- A raw 256-byte EEPROM backup was captured before any rewrite:
+  `resources/firmware/ft2232-eeprom-original-20260511.bin`, SHA-256
+  `7079716ceaf8dae58987356c4e53d861aa0fad9c7ad094c6c2c07f09a0f0a7fa`.
+- Vivado's supported FT2232H EEPROM configuration was written with
+  `program_ftdi -write -ftdi FT2232H ...`, then the DEBUG/JTAG USB cable was
+  physically replugged and reattached to WSL with `usbipd`.
+- On Arch WSL, Vivado's cable stack also needs
+  `/opt/Xilinx/2025.1/Vivado/lib/lnx64.o` in `LD_LIBRARY_PATH`; otherwise the
+  Digilent FTDI plugin cannot resolve Vivado-bundled libraries.
+- `./tools/probe_vivado_hw_manager.sh` now verifies Vivado Hardware Manager
+  target `Xilinx/AUQSDHWMXARTA` with `arm_dap_0` and `xc7z020_1`.
 
 OpenOCD status on 2026-05-11: verified.
 
@@ -221,8 +232,39 @@ zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
 Raw capture:
 
 - `resources/live-captures/openocd_jtag_probe_20260511.txt`
+- `resources/live-captures/openocd_jtag_after_physical_replug_20260511.txt`
 - `resources/live-captures/jtag_host_verified_20260511.txt`
 - `resources/live-captures/windows_usbipd_attached_20260511.txt`
+
+## Verified Vivado Hardware Manager PL Bitstream Load
+
+Status on 2026-05-11: verified.
+
+The locally built Vivado bitstream was loaded over JTAG with Vivado Hardware
+Manager:
+
+```sh
+./tools/load_vivado_bitstream.sh
+```
+
+This starts `hw_server` with the Arch WSL library-path fix, opens the onboard
+FT2232H target, selects `xc7z020_1`, and runs `program_hw_devices` with:
+
+```text
+.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+```
+
+Result:
+
+```text
+PROGRAMMED_DEVICE xc7z020_1
+PROGRAM_FILE /root/work/ZYNQ7020/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+```
+
+Raw capture:
+
+- `resources/live-captures/vivado_hw_manager_probe_script_20260511.txt`
+- `resources/live-captures/vivado_hw_manager_bitstream_load_20260511.txt`
 
 ## Verified OpenOCD PL Bitstream Load
 
@@ -263,10 +305,13 @@ reattach it from an Administrator PowerShell:
 tools\attach_ft2232_jtag_to_wsl.ps1
 ```
 
-For Vivado Hardware Manager specifically, use a recognized Xilinx/Digilent USB
-JTAG adapter, run Vivado on Windows against the Windows-visible FTDI device, or
-investigate FTDI EEPROM identity programming only with a backup of the current
-EEPROM contents. Do not rewrite FTDI EEPROM as a routine step.
+For recovery from the FT2232H EEPROM change, keep the raw backup and the guarded
+restore helper:
+
+```sh
+cc -Wall -Wextra -O2 tools/write_ft2232_eeprom_raw.c -o .config/jtag/write_ft2232_eeprom_raw $(pkg-config --cflags --libs libftdi)
+.config/jtag/write_ft2232_eeprom_raw --yes resources/firmware/ft2232-eeprom-original-20260511.bin
+```
 
 ## Stop Conditions
 

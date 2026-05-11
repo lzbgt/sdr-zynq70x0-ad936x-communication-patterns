@@ -1,0 +1,2 @@
+usage: .config/jtag/write_ft2232_eeprom_raw --yes <input.bin>
+refusing to write FT2232H EEPROM without --yes

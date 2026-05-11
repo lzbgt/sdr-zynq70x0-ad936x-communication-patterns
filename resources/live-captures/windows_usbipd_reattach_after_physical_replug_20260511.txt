@@ -1,0 +1,14 @@
+Using FT2232/JTAG bus ID: 1-1
+usbipd: info: Device with busid '1-1' was already shared.
+usbipd: info: Selecting a specific distribution is no longer required. Please file an issue if you believe that the default selection mechanism is not working for you.
+usbipd: info: Using WSL distribution 'archlinux' to attach; the device will be available in all WSL 2 distributions.
+usbipd: info: Detected networking mode 'nat'.
+usbipd: info: Using IP address 172.28.192.1 to reach the host.
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-1    0403:6010  USB Serial Converter A, USB Serial Converter B                Attached
+1-6    0408:548d  HP True Vision FHD Camera, Camera DFU Device                  Not shared
+1-14   8087:0033  Intel(R) Wireless Bluetooth(R)                                Not shared
+
+Persisted:
+GUID                                  DEVICE

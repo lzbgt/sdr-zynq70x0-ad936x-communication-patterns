@@ -21,28 +21,32 @@ Result: ping, IIO, and HTTP checks passed at `192.168.2.1`.
 Optional follow-up: remove the SD card and repeat the same check if a fresh
 post-JTAG QSPI-only restore proof is needed.
 
-## 1. Decide How To Handle Vivado Hardware Manager
+## Closed Gate: Vivado Hardware Manager On Onboard FT2232H
 
-OpenOCD works with the onboard FT2232HL. Vivado `hw_server` does not currently
-list targets through that onboard generic FT2232 identity.
+Status: verified.
 
-Practical options:
+The onboard FT2232H now works with Vivado Hardware Manager under WSL Arch after:
 
-- Use OpenOCD for onboard JTAG probing and volatile PL bitstream loads.
-- Use a recognized external Xilinx/Digilent JTAG adapter for Vivado Hardware
-  Manager.
-- Try Vivado on Windows against the Windows-visible FT2232 device.
-- Research FTDI EEPROM identity programming only after backing up the current
-  EEPROM contents.
+- raw FT2232 EEPROM backup,
+- Vivado `program_ftdi -write -ftdi FT2232H ...`,
+- physical DEBUG/JTAG USB replug and `usbipd` reattach,
+- setting `LD_LIBRARY_PATH=/opt/Xilinx/2025.1/Vivado/lib/lnx64.o`.
 
-Do not rewrite the FTDI EEPROM as a routine setup step.
+Verified helpers:
 
-## 2. Build A PS-Side JTAG Boot Flow
+```sh
+./tools/probe_vivado_hw_manager.sh
+./tools/load_vivado_bitstream.sh
+```
+
+## 1. Build A PS-Side JTAG Boot Flow
 
 Verified so far:
 
 - OpenOCD scans the Zynq PL and CPU TAPs.
 - OpenOCD loads `system_top.bit` into PL.
+- Vivado Hardware Manager detects `arm_dap_0` and `xc7z020_1`.
+- Vivado Hardware Manager loads `system_top.bit` into PL.
 
 Not yet verified:
 
@@ -58,7 +62,7 @@ Candidate implementation:
    captures UART output.
 4. Only after FSBL-over-JTAG works, add U-Boot or no-OS application loading.
 
-## 3. Decide Whether To Format qspi-nvmfs / mtd2
+## 2. Decide Whether To Format qspi-nvmfs / mtd2
 
 `mtd2` is currently invalid or unformatted as JFFS2. This does not block boot,
 IIO, HTTP, SD boot, QSPI `mtd3` firmware update, or JTAG.
@@ -77,7 +81,7 @@ Before doing this:
 - Confirm no needed data exists in `mtd2`.
 - Capture a before/after serial log.
 
-## 4. Keep mtd0 / mtd1 Flashing Gated
+## 3. Keep mtd0 / mtd1 Flashing Gated
 
 Local boot artifacts are generated:
 
@@ -100,10 +104,11 @@ Gate this until all of these are true:
   operation will depend on QSPI-only recovery.
 - SD boot still works.
 - OpenOCD JTAG still works.
+- Vivado Hardware Manager JTAG still works.
 - Live QSPI backup checksums are verified.
 - A recovery route is written down and rehearsed.
 
-## 5. Optional Productization Work
+## 4. Optional Productization Work
 
 Useful but lower urgency:
 

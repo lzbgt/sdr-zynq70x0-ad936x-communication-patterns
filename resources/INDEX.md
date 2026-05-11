@@ -24,6 +24,9 @@ research, verification, and repeatable board work.
 
 ## Firmware
 
+- `firmware/ft2232-eeprom-original-20260511.bin` - raw 256-byte original FT2232H
+  EEPROM backup captured before applying Vivado's supported FT2232H
+  configuration for Hardware Manager JTAG support.
 - `firmware/qspi-1r1t/` - factory QSPI 1R1T set.
 - `firmware/qspi-2r2t/` - factory QSPI 2R2T set.
 - `firmware/sdcard-1r1t/` - SD-card 1R1T boot files.
