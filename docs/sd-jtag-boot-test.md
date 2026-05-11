@@ -71,6 +71,38 @@ Raw captures:
 - `resources/live-captures/sd-boot-mmc-probe-20260511.txt`
 - `resources/live-captures/serial_COM5_sd_reboot_20260511.txt`
 
+## Verified Local Yocto+Vivado SD Boot
+
+Status on 2026-05-11: verified.
+
+The factory-booted SD ramdisk accepted SSH as `root` with password `analog`.
+Because the root filesystem is RAM-backed, the inserted SD card could be
+rewritten in place:
+
+```sh
+SSH_PASS=analog ./tools/install_sd_boot_files_over_ssh.sh .config/sdcard-staging/yocto
+```
+
+The helper verified `SHA256SUMS` on the mounted SD card before unmounting it.
+
+Hard COM5 reboot evidence:
+
+- U-Boot banner: `U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)`.
+- U-Boot reads and imports `uEnv.txt` from SD.
+- U-Boot loads local Yocto SD files: `uImage` (`4705696` bytes),
+  `devicetree.dtb` (`18845` bytes), and `uramdisk.image.gz`
+  (`21725032` bytes).
+- The initramfs image name is `Yocto initramfs`.
+- Kernel compiler string is Yocto/Poky:
+  `arm-poky-linux-gnueabi-gcc (GCC) 13.4.0`.
+- Console reaches `Poky (Yocto Project Reference Distro) 5.0.17
+  sdr-z203-zynq7 /dev/ttyPS0`.
+- Post-boot `./tools/verify_board.sh` passed.
+
+Raw capture:
+
+- `resources/live-captures/serial_COM5_yocto_sd_reboot_20260511.txt`
+
 ## Copy To SD Card
 
 This is a file-copy boot layout, not a raw disk-image write. Zynq BootROM can
@@ -108,6 +140,18 @@ CLEAN=1 ./tools/install_sd_boot_files.sh .config/sdcard-staging/yocto /mnt/e
 
 `CLEAN=1` deletes only the expected boot filenames before copying. It does not
 format the card or remove unrelated files.
+
+If the board is already booted from an SD initramfs and reachable at
+`192.168.2.1`, the same files can be installed without moving the card back to
+the host:
+
+```sh
+./tools/install_sd_boot_files_over_ssh.sh .config/sdcard-staging/yocto
+```
+
+That helper mounts `/dev/mmcblk0p1` on the board, replaces only the expected SD
+boot files, verifies `SHA256SUMS` on the mounted card, syncs, and unmounts.
+Use `SSH_PASS=analog` for the current factory SD runtime.
 
 ## Boot And Capture
 

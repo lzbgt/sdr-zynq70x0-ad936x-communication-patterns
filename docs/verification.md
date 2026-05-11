@@ -243,6 +243,53 @@ Runtime confirmation:
   `mmc0: new high speed SDHC card` and `mmcblk0: p1`.
 - Post-boot `./tools/verify_board.sh` passed: ping, IIO, and HTTP were alive.
 
+## Local Yocto+Vivado SD Boot Verification
+
+Raw capture:
+
+- `resources/live-captures/serial_COM5_yocto_sd_reboot_20260511.txt`
+
+Preparation:
+
+- Starting point was the verified factory 2R2T SD boot.
+- The board accepted SSH as `root` with password `analog`.
+- The local Yocto+Vivado SD staging directory was copied directly to the
+  inserted SD card through the running board:
+
+```sh
+SSH_PASS=analog ./tools/install_sd_boot_files_over_ssh.sh .config/sdcard-staging/yocto
+```
+
+- The helper mounted `/dev/mmcblk0p1`, replaced the expected boot files,
+  verified `SHA256SUMS`, synced, and unmounted.
+
+Hard bootloader confirmation from COM5 after issuing `reboot`:
+
+```text
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+reading uEnv.txt
+Importing environment from SD ...
+Loaded environment from uEnv.txt
+Copying Linux from SD to RAM...
+reading uImage
+reading devicetree.dtb
+reading uramdisk.image.gz
+Image Name:   Yocto initramfs
+Starting kernel ...
+```
+
+Kernel/runtime confirmation:
+
+- Kernel compiler identity:
+  `arm-poky-linux-gnueabi-gcc (GCC) 13.4.0`.
+- Kernel build timestamp:
+  `Sun May 10 17:32:38 UTC 2026`.
+- Login banner:
+  `Poky (Yocto Project Reference Distro) 5.0.17 sdr-z203-zynq7 /dev/ttyPS0`.
+- Post-boot `./tools/verify_board.sh` passed. IIO reported backend version
+  `0.25`, kernel `6.1.0 #1 SMP PREEMPT Sun May 10 17:32:38 UTC 2026`, and the
+  expected AD9361-compatible runtime context.
+
 ## Yocto ARM Firmware Build
 
 Local build root:

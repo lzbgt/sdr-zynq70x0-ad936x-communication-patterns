@@ -114,6 +114,10 @@ Board-side facts from live captures:
   U-Boot reading `uEnv.txt` from SD, importing the SD environment, loading those
   three Linux artifacts from `mmc 0`, and starting the kernel. Post-boot ping,
   IIO, and HTTP checks passed.
+- Local Yocto+Vivado SD-card boot is also verified. The SD card was rewritten
+  in place over SSH from the factory SD-booted ramdisk, then COM5 reboot capture
+  showed the locally built U-Boot loading the Yocto `uImage`, device tree, and
+  `Yocto initramfs` from SD. Post-boot ping, IIO, and HTTP checks passed.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -205,6 +209,9 @@ user and vendor configuration.
   factory 2R2T or local Yocto+Vivado boot tests.
 - `tools/install_sd_boot_files.sh` - copy a staged SD boot set to a mounted SD
   card and verify checksums.
+- `tools/install_sd_boot_files_over_ssh.sh` - copy a staged SD boot set to
+  `/dev/mmcblk0p1` through the running board when it has booted into RAM from
+  SD.
 - `tools/probe_xilinx_jtag.sh` - run a simple `xsdb` JTAG target probe after
   the DEBUG/JTAG adapter is attached to WSL.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

@@ -84,6 +84,9 @@ multi-gigabyte Pluto source archives are not copied.
 - `live-captures/serial_COM5_sd_reboot_20260511.txt` - COM5 reboot capture
   proving U-Boot loaded `uEnv.txt`, `uImage`, `devicetree.dtb`, and
   `uramdisk.image.gz` from the SD card.
+- `live-captures/serial_COM5_yocto_sd_reboot_20260511.txt` - COM5 reboot
+  capture proving the locally built Yocto+Vivado SD set boots from the same SD
+  card and reaches the Poky login banner.
 
 ## Command Inputs
 
