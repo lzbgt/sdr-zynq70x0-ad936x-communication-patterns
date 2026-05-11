@@ -566,6 +566,43 @@ Relevant captures:
 - `resources/live-captures/serial_COM5_full_pipeline_eject_20260511-203554.txt`
 - `resources/live-captures/serial_COM5_full_pipeline_manual_update_20260511-204153.txt`
 
+## FSBL And Boot Artifact Verification
+
+Command:
+
+```sh
+./tools/build_sdr_z203_boot_artifacts.sh
+```
+
+Verified local route:
+
+```text
+system_top.xsa -> sdtgen system-top.dts/ps7_init -> pyesw zynq_fsbl -> bootgen
+```
+
+Current generated artifacts:
+
+```text
+.config/boot-artifacts/boot/fsbl.elf 609084 bytes
+.config/boot-artifacts/boot/boot-qspi.bin 549132 bytes
+.config/boot-artifacts/boot/BOOT.BIN 2842124 bytes
+.config/boot-artifacts/boot/boot.frm 681244 bytes
+```
+
+Current hashes:
+
+```text
+fsbl.elf sha256 b32b8d0112a9c1dd2701eefacf24222dce8ff9ff5207c52df756514c77328b4b
+boot-qspi.bin sha256 f6703eec04977c09e780cbe8dbbecf5b89438a3d5e8471cf90c36c128eeb614c
+BOOT.BIN sha256 35f860c676ac3163c516b2f9bbc483665205f5b8093278da1d2d7318b3730366
+boot.frm sha256 54ed9be0d23414db0d0b88445d74fc205ab941a4fa6de292236f797bc086b33f
+```
+
+`file` identifies `boot-qspi.bin`, `BOOT.BIN`, and `boot.frm` as Xilinx Zynq
+7000 boot images with FSBL size `0x1f74c`.
+
+These artifacts have not been flashed to `mtd0`/`mtd1`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
@@ -578,4 +615,5 @@ Relevant captures:
 - No openwifi SD boot test has been performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
   project builds locally. No JTAG programming session has been run yet.
-- FSBL/BOOT.bin regeneration from the new XSA has not been validated yet.
+- FSBL/BOOT.bin regeneration from the new XSA is now validated locally, but
+  generated bootloader artifacts have not been flashed to QSPI `mtd0`/`mtd1`.

@@ -66,8 +66,10 @@ Recommended first full-build environment:
 
 Yocto is now being used locally for the ARM-side firmware track. The committed
 `meta-sdr-z203` layer points at the extracted vendor Linux/U-Boot trees and
-builds a developer rootfs image. This does not replace Vivado for new FPGA
-bitstreams, XSA exports, FSBL generation, or BOOT.bin regeneration.
+builds a developer rootfs image. Vivado remains responsible for new FPGA
+bitstreams and XSA exports. The FSBL/BOOT image path is now validated locally
+from that XSA through SDTGen, AMD embeddedsw `pyesw`, Arch `arm-none-eabi-gcc`,
+and Bootgen.
 
 Practical decision:
 
@@ -75,12 +77,13 @@ Practical decision:
    and kernel/devicetree porting.
 2. Use `./tools/build_pluto_hdl_vivado.sh` for the Pluto FPGA bitstream/XSA and
    `./tools/verify_pluto_hdl_build.sh` for timing/report checks.
-3. Keep QSPI bootloader/environment changes out of scope for initial Yocto
-   bring-up.
+3. Use `./tools/build_sdr_z203_boot_artifacts.sh` to generate FSBL,
+   QSPI-style `boot-qspi.bin`, SD-card `BOOT.BIN`, and a vendor-shaped
+   `boot.frm` from the rebuilt XSA.
 4. Use `./tools/build_sdr_z203_firmware.sh` to package Yocto ARM outputs plus
    the fresh FPGA bitstream into `pluto.frm`.
-5. Defer FSBL/BOOT.bin regeneration until that boot-image flow is separately
-   validated.
+5. Keep QSPI bootloader/environment flashing out of scope until SD/JTAG
+   recovery and known-good `mtd0`/`mtd1` backups are ready.
 6. Use openwifi's documented flow separately for 802.11 experiments.
 
 Developer-facing Yocto commands are in `docs/yocto-arm-firmware.md`.
@@ -160,7 +163,11 @@ The bundled `plutosdr-fw` Makefile uses Buildroot's external Linaro GCC
 7.3-2018.05 toolchain and has these key stages:
 
 - `make -C hdl/projects/$(TARGET)` builds `system_top.xsa`.
-- `xsct scripts/create_fsbl_project.tcl` builds `fsbl.elf`.
+- Legacy `xsct scripts/create_fsbl_project.tcl` builds `fsbl.elf` on older
+  toolchains. Under the local 2025.1 install, use this repo's
+  `tools/build_sdr_z203_boot_artifacts.sh` wrapper instead; it uses SDTGen and
+  AMD embeddedsw `pyesw`, because the old top-level `app create` command is not
+  exposed by the installed `xsdb` shell.
 - `make -C u-boot-xlnx ... zynq_$(TARGET)_defconfig` builds U-Boot.
 - `make -C linux ... zynq_$(TARGET)_defconfig` builds `zImage` and `uImage`.
 - `make -C buildroot ... zynq_$(TARGET)_defconfig` builds rootfs.

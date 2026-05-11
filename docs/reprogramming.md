@@ -61,6 +61,21 @@ Each SD-card set contains:
 - `uImage`
 - `uramdisk.image.gz`
 
+Locally generated developer boot artifacts are produced by:
+
+```sh
+./tools/build_sdr_z203_boot_artifacts.sh
+```
+
+Outputs are under `.config/boot-artifacts/boot`:
+
+- `fsbl.elf` - built from the current Vivado XSA.
+- `boot-qspi.bin` - FSBL + U-Boot for the QSPI `mtd0` bootloader partition.
+- `BOOT.BIN` - FSBL + bitstream + U-Boot for SD-card/JTAG-style boot tests.
+- `boot.frm` - vendor-shaped boot update package.
+
+These files are not flashed automatically.
+
 ## SD-Card Boot
 
 Use SD-card boot for experiments when possible.
@@ -123,6 +138,37 @@ UPDATE.BAT uboot-env.dfu
 
 8. Power cycle the board.
 9. Verify with `iio_info -u ip:192.168.2.1`.
+
+## Verified Running-Firmware Update
+
+For the current Pluto-compatible runtime, the verified safe update path is the
+running Linux updater over SSH. It writes the FIT image in QSPI `mtd3` and then
+reboots:
+
+```sh
+sshpass -p '' scp -O \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  yocto/builds/sdr-z203-arm/fit-work-vivado/build/pluto.frm \
+  root@192.168.2.1:/tmp/pluto.frm
+
+sshpass -p '' ssh \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  root@192.168.2.1 '/sbin/update_frm.sh /tmp/pluto.frm && sync && reboot'
+```
+
+This is the answer to the "injection" question for the verified path: the file
+is copied into the live rootfs over SSH, and `/sbin/update_frm.sh` injects it
+into QSPI `mtd3`. The host mass-storage eject path is conceptually different:
+copying `pluto.frm` to the exported drive only places a file into the USB
+mass-storage image, and eject is expected to notify board-side scripts to read
+that file and call the updater. On this board that copied file was not visible
+from the board-mounted image after eject, so mass-storage update remains
+unverified here.
+
+Do not use the generated `boot.frm` or `boot-qspi.bin` on `mtd0` until QSPI
+bootloader backups and SD/JTAG recovery are ready.
 
 ## Pluto-Compatible Firmware Development
 

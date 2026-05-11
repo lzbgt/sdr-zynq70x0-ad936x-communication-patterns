@@ -76,8 +76,8 @@ Board-side facts from live captures:
   `cpio.gz` initramfs/rootfs, a `tar.gz` rootfs, kernel modules, and
   `u-boot.bin`.
 - A Pluto-style `pluto.frm` payload can now be packaged locally from the Yocto
-  ARM outputs plus the known-good vendor `system_top.bit`. Full QSPI `BOOT.bin`
-  regeneration is deferred until the Vitis/XSCT and FSBL flow is validated.
+  ARM outputs plus either a selected bitstream or the freshly built Vivado
+  `system_top.bit`.
 - The Yocto-generated ARM firmware has been flashed to QSPI `mtd3` and booted
   successfully. Post-flash checks passed for USB RNDIS networking, DHCP host IP
   `192.168.2.10`, `iiod`, HTTP `/www`, and `iio_info -u ip:192.168.2.1`.
@@ -99,6 +99,12 @@ Board-side facts from live captures:
   plus the freshly built FPGA bitstream, flashed to QSPI `mtd3` through
   `/sbin/update_frm.sh`, rebooted, and verified by ping, IIO, HTTP, SSH, and
   service checks.
+- FSBL and boot artifacts now build locally from the Vivado XSA through
+  `sdtgen`, AMD embeddedsw `pyesw`, Arch `arm-none-eabi-gcc`, and Bootgen.
+  Verified generated artifacts include `fsbl.elf`, QSPI-style
+  `boot-qspi.bin`, SD-card-style `BOOT.BIN`, and vendor-shaped `boot.frm`.
+  These are generated for recovery/developer use only; the repo pipeline still
+  does not flash QSPI `mtd0` or `mtd1`.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -168,7 +174,11 @@ user and vendor configuration.
 - `tools/verify_pluto_hdl_build.sh` - verify FPGA bitstream, XSA, route report,
   DRC report, timing report, hashes, and timing status.
 - `tools/build_sdr_z203_firmware.sh` - orchestrate Yocto ARM build, Vivado FPGA
-  build, audits, and combined `pluto.frm` packaging.
+  build, FSBL/boot artifact generation, audits, and combined `pluto.frm`
+  packaging.
+- `tools/build_sdr_z203_boot_artifacts.sh` - generate FSBL, QSPI boot image,
+  SD-card `BOOT.BIN`, and vendor-shaped boot update package from the rebuilt
+  XSA without flashing bootloader partitions.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
   PlutoSDR removable drive while capturing COM5; currently documented as less
   reliable than SSH update on this board.
@@ -204,6 +214,8 @@ Local build/source workspaces intentionally ignored by git:
   output, downloads, and shared state cache.
 - `.config/vivado-hdl` - local scratch copy of the vendor ADI HDL tree and
   generated Vivado FPGA build outputs.
+- `.config/boot-artifacts` - local generated FSBL, SDT, Bootgen, and boot image
+  outputs.
 
 ## Quick Verification
 
@@ -241,6 +253,6 @@ Expected result in the current Pluto-compatible firmware state:
    by boot log, file version, or binary hash where possible.
 3. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
-4. Validate FSBL/BOOT.bin generation from the new XSA before considering any
-   `mtd0` bootloader updates.
-5. Perform a controlled RF loopback test with the newly built FPGA image.
+4. Perform a controlled RF loopback test with the newly built FPGA image.
+5. Capture known-good QSPI `mtd0`/`mtd1` backups and prepare an SD/JTAG recovery
+   procedure before any bootloader-region flash test.

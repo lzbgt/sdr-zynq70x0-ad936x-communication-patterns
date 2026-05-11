@@ -172,6 +172,21 @@ does not expose a top-level `xsct` executable; use `xsdb` directly, or prepend
 this repo's `tools/` directory to use the `tools/xsct` compatibility wrapper for
 legacy scripts.
 
+For local Zynq-7000 FSBL generation, the verified repo path is not the legacy
+`app create` XSCT flow. Use:
+
+```sh
+sudo pacman -S --needed python-yaml python-setuptools \
+  arm-none-eabi-binutils arm-none-eabi-gcc arm-none-eabi-newlib \
+  cmake ninja
+
+./tools/build_sdr_z203_boot_artifacts.sh
+```
+
+That wrapper uses `sdtgen` plus AMD embeddedsw `pyesw` to build `fsbl.elf`, then
+Bootgen to create `boot-qspi.bin`, SD-card `BOOT.BIN`, and `boot.frm` under
+`.config/boot-artifacts/boot`.
+
 ## Arch Runtime Fixes
 
 The first installer run failed because the embedded Java runtime needed
