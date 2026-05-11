@@ -111,6 +111,9 @@ Prepared and partially verified:
   init and PL programming, OpenOCD cannot read `0x7c400000` through the DAP.
   The failure is unchanged when using `PL_LOAD_AFTER_PS7_INIT=1` to load PL
   after PS7 init in the same OpenOCD session.
+- A failed PL AXI probe can leave the DAP sticky enough that the soft-reset
+  helper cannot recover; in that state use a physical JTAG-mode power cycle
+  before the next PS-side run.
 - It did not reach `brd: module loaded`, `Run /init as init process`, USB
   networking, IIO, or HTTP.
 

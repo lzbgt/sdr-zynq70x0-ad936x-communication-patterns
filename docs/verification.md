@@ -592,6 +592,12 @@ PS-to-PL AXI access to the ADI DMA fabric, so the built-in `axi_dmac` driver
 hangs during probe. The capture does not reach `brd: module loaded`, `Run /init
 as init process`, `Welcome to Pluto`, USB networking, IIO, or HTTP.
 
+Operational note: the direct PL AXI fault can leave OpenOCD reporting DAP
+sticky or DSCR errors. Writing the ADIv5 ABORT register cleared one OpenOCD
+session enough to exit, but did not make `tools/reset_openocd_zynq_ps.sh`
+reliable afterward. Treat that state as requiring a physical JTAG-mode power
+cycle before further PS-side JTAG verification.
+
 ## Normal SD Boot Restore After JTAG
 
 Raw capture:

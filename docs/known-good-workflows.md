@@ -328,6 +328,11 @@ The current failing signature is a DAP read failure at `0x7c400000`, the RX
 AXI-DMAC version register, after PS7 init and PL programming. This points to
 PS-to-PL AXI/fabric accessibility rather than bootargs or rootfs contents.
 
+This probe intentionally touches a currently non-responsive PL AXI address. If
+OpenOCD reports DAP sticky or DSCR errors afterward and
+`tools/reset_openocd_zynq_ps.sh` cannot recover, power-cycle the board in JTAG
+mode before the next PS-side run.
+
 ## Preserve QSPI Before Risky Work
 
 Capture a backup:
