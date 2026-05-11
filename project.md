@@ -125,6 +125,9 @@ Board-side facts from live captures:
   `system_top.bit` into PL over JTAG without writing QSPI. Vivado `hw_server`
   starts but still lists no targets, so Vivado Hardware Manager is not yet
   verified with the onboard generic FT2232 identity.
+- After JTAG testing, normal SD boot was restored and verified. With SD inserted
+  and the boot control not set to JTAG, this board boots from SD; without SD it
+  falls back to QSPI.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for

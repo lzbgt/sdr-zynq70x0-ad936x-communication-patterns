@@ -18,7 +18,9 @@ Expected result:
 - `iio_info -u ip:192.168.2.1` creates a network IIO context.
 - HTTP probe returns the Pluto on-board documentation page.
 
-The board must be in a normal boot mode, not held in JTAG-only mode.
+The board must be in a normal boot mode, not held in JTAG-only mode. With the SD
+card inserted, this SDR-Z203 boots from SD; without the SD card, it falls back
+to QSPI.
 
 ## Rebuild FPGA HDL
 

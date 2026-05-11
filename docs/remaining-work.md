@@ -1,22 +1,27 @@
 # Remaining Work
 
-This page tracks concrete work that is still open after the verified WSL Arch
-Yocto, Vivado, SD boot, QSPI `mtd3`, and OpenOCD JTAG bring-up.
+This page tracks concrete work still open after the verified WSL Arch Yocto,
+Vivado, SD boot, QSPI `mtd3`, and OpenOCD JTAG bring-up. Recently closed gates
+are kept briefly when they affect the remaining recovery decisions.
 
-## 1. Restore Normal Boot After JTAG
+## Closed Gate: Normal Boot Restore After JTAG
 
-Current gate: physical board state.
+Status: verified for normal SD boot.
 
-The last verified hardware action was JTAG/OpenOCD PL programming. For normal
-runtime use, return the board to QSPI or SD boot mode, reboot, then run:
+After JTAG/OpenOCD PL programming, the board was returned to normal boot mode
+with the SD card still inserted. On this hardware, inserted SD media takes
+precedence over QSPI unless the boot control is set to JTAG. Verification passed:
 
 ```sh
 ./tools/verify_board.sh
 ```
 
-Expected result: ping, IIO, and HTTP checks pass at `192.168.2.1`.
+Result: ping, IIO, and HTTP checks passed at `192.168.2.1`.
 
-## 2. Decide How To Handle Vivado Hardware Manager
+Optional follow-up: remove the SD card and repeat the same check if a fresh
+post-JTAG QSPI-only restore proof is needed.
+
+## 1. Decide How To Handle Vivado Hardware Manager
 
 OpenOCD works with the onboard FT2232HL. Vivado `hw_server` does not currently
 list targets through that onboard generic FT2232 identity.
@@ -32,7 +37,7 @@ Practical options:
 
 Do not rewrite the FTDI EEPROM as a routine setup step.
 
-## 3. Build A PS-Side JTAG Boot Flow
+## 2. Build A PS-Side JTAG Boot Flow
 
 Verified so far:
 
@@ -53,7 +58,7 @@ Candidate implementation:
    captures UART output.
 4. Only after FSBL-over-JTAG works, add U-Boot or no-OS application loading.
 
-## 4. Decide Whether To Format qspi-nvmfs / mtd2
+## 3. Decide Whether To Format qspi-nvmfs / mtd2
 
 `mtd2` is currently invalid or unformatted as JFFS2. This does not block boot,
 IIO, HTTP, SD boot, QSPI `mtd3` firmware update, or JTAG.
@@ -72,7 +77,7 @@ Before doing this:
 - Confirm no needed data exists in `mtd2`.
 - Capture a before/after serial log.
 
-## 5. Keep mtd0 / mtd1 Flashing Gated
+## 4. Keep mtd0 / mtd1 Flashing Gated
 
 Local boot artifacts are generated:
 
@@ -90,13 +95,15 @@ Still not done:
 
 Gate this until all of these are true:
 
-- Normal QSPI boot restore is verified after JTAG work.
+- Normal SD boot restore is verified after JTAG work.
+- Normal QSPI boot restore is verified after JTAG work, if the bootloader flash
+  operation will depend on QSPI-only recovery.
 - SD boot still works.
 - OpenOCD JTAG still works.
 - Live QSPI backup checksums are verified.
 - A recovery route is written down and rehearsed.
 
-## 6. Optional Productization Work
+## 5. Optional Productization Work
 
 Useful but lower urgency:
 

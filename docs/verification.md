@@ -349,6 +349,32 @@ Host reattach helper:
 tools\attach_ft2232_jtag_to_wsl.ps1
 ```
 
+## Normal SD Boot Restore After JTAG
+
+Raw capture:
+
+- `resources/live-captures/normal_sd_restore_after_jtag_20260511.txt`
+
+After the OpenOCD JTAG probe and volatile PL bitstream-load tests, the board
+was returned to normal boot mode and rebooted with the SD card still inserted.
+This board selects SD boot when the card is inserted and the boot control is not
+set to JTAG; without the SD card it falls back to QSPI.
+
+Verification command:
+
+```sh
+./tools/verify_board.sh
+```
+
+Result: passed. The restored SD runtime answered at `192.168.2.1`; ping, IIO,
+and HTTP all worked. IIO reported:
+
+```text
+Backend description string: 192.168.2.1 Linux (none) 6.1.0 #1 SMP PREEMPT Sun May 10 17:32:38 UTC 2026 armv7l
+hw_model: Analog Devices PlutoSDR Rev.C (Z7020-AD9361)
+local,kernel: 6.1.0
+```
+
 ## Yocto ARM Firmware Build
 
 Local build root:
@@ -844,8 +870,9 @@ Both contain `BOOT.bin`, `devicetree.dtb`, `uEnv.txt`, `uImage`,
 `uramdisk.image.gz`, and `SHA256SUMS`.
 
 The Yocto staging command converts the Yocto `zImage` and gzip cpio rootfs into
-U-Boot legacy `uImage` and `uramdisk.image.gz` files. Physical SD boot has not
-been run yet.
+U-Boot legacy `uImage` and `uramdisk.image.gz` files. Both the factory 2R2T SD
+set and the local Yocto+Vivado SD set have now been physically booted and
+verified.
 
 ## Verification Gaps
 
@@ -857,9 +884,8 @@ been run yet.
   and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
-- SD-card boot staging is prepared, but no physical SD boot capture has been
-  performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
-  project builds locally. No JTAG programming session has been run yet.
+  project builds locally. OpenOCD JTAG probing and volatile PL bitstream loading
+  have been verified with the onboard FT2232HL through `usbipd-win`.
 - FSBL/BOOT.bin regeneration from the new XSA is now validated locally, but
   generated bootloader artifacts have not been flashed to QSPI `mtd0`/`mtd1`.
