@@ -88,6 +88,17 @@ Remaining candidate implementation:
    devicetree, and initramfs to DDR and passing the matching U-Boot commands or
    boot arguments.
 
+Prepared but not yet verified:
+
+- `tools/run_openocd_jtag_linux_ram.sh` preloads U-Boot, `uImage`,
+  `uramdisk.image.gz`, and `devicetree.dtb` into DDR, then sends U-Boot a
+  `bootm` command for those RAM addresses.
+- First run used `.config/sdcard-staging/factory-2r2t` for faster JTAG loading.
+  The OpenOCD loads completed, but U-Boot did not produce the expected UART boot
+  output afterward. The log still showed DTR/DSCR errors from the previous
+  non-returning standalone hello run, so retry from a clean JTAG-mode power
+  cycle before changing the flow.
+
 ## 1. Decide Whether To Format qspi-nvmfs / mtd2
 
 `mtd2` is currently invalid or unformatted as JFFS2. This does not block boot,

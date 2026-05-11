@@ -480,6 +480,44 @@ Linux and without writing QSPI. The example is an intentionally non-returning
 smoke test; use a fresh JTAG-mode power cycle or JTAG reset before another
 PS-side load.
 
+## Linux From RAM Over JTAG Attempt
+
+Prepared helper:
+
+```sh
+./tools/run_openocd_jtag_linux_ram.sh
+```
+
+The helper initializes PS/DDR through OpenOCD, preloads a U-Boot ELF plus
+`uImage`, `uramdisk.image.gz`, and `devicetree.dtb` into DDR, starts U-Boot,
+then sends a `bootm <kernel> <ramdisk> <fdt>` command over the debug UART.
+
+First run:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_linux_ram_factory_20260512.txt \
+  BOOT_DIR=.config/sdcard-staging/factory-2r2t \
+  BOOT_WAIT_SECONDS=90 \
+  ./tools/run_openocd_jtag_linux_ram.sh
+```
+
+OpenOCD completed the image preload phase:
+
+```text
+RUN_PS7_INIT_3_0
+LOAD_KERNEL_IMAGE
+LOAD_INITRAMFS_IMAGE
+LOAD_DEVICETREE_IMAGE
+LOAD_UBOOT_ELF
+RUN_UBOOT_FOR_RAM_BOOT
+```
+
+The run did not reach a verified Linux boot. The log still showed DTR/DSCR
+errors carried from the previous non-returning standalone hello run, and U-Boot
+did not emit the expected UART banner after OpenOCD started it. Treat this as a
+prepared workflow needing a clean JTAG-mode power-cycle retry, not as a
+verified Linux-from-RAM result.
+
 ## Normal SD Boot Restore After JTAG
 
 Raw capture:

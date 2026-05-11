@@ -254,6 +254,9 @@ user and vendor configuration.
   DDR without writing QSPI.
 - `tools/build_jtag_hello_elf.sh` and `tools/run_openocd_jtag_hello.sh` - build
   and launch a tiny bare-metal UART program from DDR over OpenOCD JTAG.
+- `tools/run_openocd_jtag_linux_ram.sh` - prepared OpenOCD flow to preload
+  U-Boot, kernel, initramfs, and devicetree into DDR and ask U-Boot to boot the
+  RAM copies; first attempt is captured but not yet verified as a Linux boot.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
