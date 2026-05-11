@@ -649,6 +649,28 @@ OUT_DIR=.config/qspi-backup-tool-test ./tools/backup_qspi_live.sh
 The resulting `mtd0` through `mtd3` hashes matched the committed
 `qspi-live-backup-20260511-211046` backup.
 
+## QSPI Factory Correlation
+
+Command:
+
+```sh
+./tools/compare_qspi_backup.sh resources/firmware/qspi-live-backup-20260511-211046
+```
+
+Result:
+
+```text
+qspi-1r1t: boot.bin, U-Boot env payload, and Pluto firmware payload differ.
+qspi-2r2t: boot.bin matches the live mtd0 prefix; U-Boot env and mtd3 differ.
+```
+
+The `mtd1` difference is expected because the live U-Boot environment now has
+`fit_size=1B73367`; the curated factory 2R2T environment has
+`fit_size=0x900000`. The `mtd3` difference is expected because the board is now
+running the locally generated Yocto+Vivado FIT payload.
+
+Full notes are in `docs/qspi-image-correlation.md`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

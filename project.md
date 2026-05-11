@@ -130,6 +130,8 @@ user and vendor configuration.
 - `docs/qspi-backup-and-recovery.md` - read-only QSPI backup tooling, verified
   partition map, boot-artifact boundary, and recovery gate before `mtd0`/`mtd1`
   experiments.
+- `docs/qspi-image-correlation.md` - comparison between the live QSPI backup
+  and curated factory `qspi-1r1t`/`qspi-2r2t` firmware sets.
 - `docs/vivado-linux-wsl.md` - local Vivado 2025.1 installer inventory,
   WSL/Arch support boundary, disk-space check, license placement, and install
   workflow.
@@ -189,6 +191,8 @@ user and vendor configuration.
   SSH with board metadata and SHA-256 checksums.
 - `tools/verify_qspi_backup.sh` - verify a captured QSPI backup's checksums and
   partition sizes.
+- `tools/compare_qspi_backup.sh` - compare a live QSPI backup against curated
+  factory firmware sets without touching the board.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
   PlutoSDR removable drive while capturing COM5; currently documented as less
   reliable than SSH update on this board.
@@ -259,10 +263,8 @@ Expected result in the current Pluto-compatible firmware state:
 
 1. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
    then repeat on the second RF chain.
-2. Correlate the current QSPI image against the copied `qspi-2r2t` firmware set
-   by boot log, file version, or binary hash where possible.
-3. Decide which large vendor artifacts belong in external storage instead of
+2. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
-4. Perform a controlled RF loopback test with the newly built FPGA image.
-5. Exercise SD/JTAG boot with generated `BOOT.BIN` before any
+3. Perform a controlled RF loopback test with the newly built FPGA image.
+4. Exercise SD/JTAG boot with generated `BOOT.BIN` before any
    bootloader-region flash test.
