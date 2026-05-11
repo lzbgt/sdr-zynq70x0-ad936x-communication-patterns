@@ -41,16 +41,21 @@ Use WSL Arch Linux as the working repo and host-control environment:
 - small host tools and scripts,
 - source inspection and diffing between 1R1T/2R2T firmware trees.
 
-Do not make Arch WSL the first Vivado-heavy firmware build environment. It can
-work for ARM-side Yocto, source inspection, rootfs packaging, and FIT assembly,
-but the vendor Vivado/FPGA material and AMD support matrix are Ubuntu-oriented,
-and JTAG/USB cable handling is simpler on Windows or a native/VM Linux
-environment.
+Use the Linux Vivado installer inside WSL's Linux filesystem for the first local
+FPGA bring-up. Arch WSL is not an AMD-supported Vivado host profile, but this
+machine has enough WSL ext4 disk space and already builds the ARM-side Yocto
+image locally. If Vivado GUI, synthesis, Vitis, cable drivers, or license
+handling fail in Arch WSL, move the same repo and installer archive to Ubuntu
+22.04/24.04 WSL or native Linux.
 
 Recommended first full-build environment:
 
-- Ubuntu VM or Ubuntu container/native install for source builds.
-- Vivado `2023.2` for the vendor Pluto-compatible SDR-Z203 firmware tree.
+- WSL Arch with Linux Vivado installed under `/opt/Xilinx`, not `/mnt/c`.
+- Vivado/Vitis `2025.1` is available locally under
+  `/mnt/c/baidunetdiskdownload/vivado`; see `docs/vivado-linux-wsl.md`.
+- Vivado `2023.2` is the version named by the vendor Pluto-compatible SDR-Z203
+  firmware notes. Expect possible migration work if building that tree with
+  Vivado 2025.1.
 - Vivado/Vitis `2022.2` for the vendor openwifi porting flow.
 - Build inside the WSL/ext4 or VM filesystem, not under `/mnt/c`, to avoid slow
   metadata operations and case/permission surprises.

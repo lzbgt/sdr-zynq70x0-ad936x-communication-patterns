@@ -101,6 +101,9 @@ user and vendor configuration.
 - `docs/yocto-arm-firmware.md` - WSL Arch Yocto workflow for ARM-side firmware,
   using extracted vendor source and deferring new FPGA bitstreams until Vivado
   is ready.
+- `docs/vivado-linux-wsl.md` - local Vivado 2025.1 installer inventory,
+  WSL/Arch support boundary, disk-space check, license placement, and install
+  workflow.
 - `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, GPS/PPS,
   VCTCXO, Zynq, and boot-mode wiring.
 - `docs/nvmfs-mtd2.md` - read-only diagnosis of the `qspi-nvmfs` / `mtd2`
@@ -137,6 +140,10 @@ user and vendor configuration.
   existing bitstream into `pluto.itb` and `pluto.frm`.
 - `tools/audit_yocto_rootfs.sh` - verify the Yocto rootfs contains the minimum
   Pluto runtime files before packaging or flashing.
+- `tools/inspect_vivado_bundle.sh` - verify local Vivado installer, license
+  archive, and disk-space state without extracting the installer.
+- `tools/extract_vivado_linux_installer.sh` - extract the offline Vivado
+  installer onto the WSL/Linux ext4 filesystem.
 
 ## Important Source Material
 
@@ -152,6 +159,10 @@ Large source artifacts intentionally not copied into this repo:
 - `04源码与文档/openwifi/openwifi-1.5.0-shahecheng.img.baiduyun.p.downloading`
   - about 15 GiB and still marked as downloading.
 - full Vivado/MATLAB/VMware installers and OS images.
+
+Vivado 2025.1 local installer material is currently external at
+`/mnt/c/baidunetdiskdownload/vivado`. The WSL root filesystem has enough space
+for a Linux-side install under `/opt/Xilinx`; see `docs/vivado-linux-wsl.md`.
 
 Local build/source workspaces intentionally ignored by git:
 

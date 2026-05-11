@@ -413,6 +413,29 @@ The openwifi quick-start says to burn the `openwifi_z203` image to SD, boot from
 SD, connect two USB cables and Ethernet, set the PC to `192.168.10.1`, then
 connect to the `openwifi` AP and browse to `192.168.13.1`.
 
+## Vivado Installer Inventory
+
+The local Vivado installer is external to this repo:
+
+```text
+/mnt/c/baidunetdiskdownload/vivado/FPGAs_AdaptiveSoCs_Unified_SDI_2025.1_0530_0145.tar
+/mnt/c/baidunetdiskdownload/vivado/vivado_lic2037.zip
+```
+
+Verified host capacity:
+
+```text
+WSL root filesystem: 1007G total, 893G free
+Windows C:           953G total, 592G free
+Vivado folder:       110G
+repo workspace:      49G
+```
+
+The tarball contains Linux `xsetup`; the license archive contains
+`vivado_lic2037.lic`, `vivado2018+IPs.lic`, and `xilinx_ise_vivado.lic`.
+Install the Linux build under WSL ext4, preferably `/opt/Xilinx`; do not run it
+directly from `/mnt/c`. See `docs/vivado-linux-wsl.md`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
