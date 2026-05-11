@@ -921,3 +921,8 @@ verified.
   have been verified with the onboard FT2232HL through `usbipd-win`.
 - FSBL/BOOT.bin regeneration from the new XSA is now validated locally, but
   generated bootloader artifacts have not been flashed to QSPI `mtd0`/`mtd1`.
+- PS-side JTAG boot is still open. A direct OpenOCD `fsbl.elf` load/resume
+  attempt was captured, but it left the ARM DAP in a sticky/APB error state.
+  Vivado Hardware Manager continued to scan `arm_dap_0` and `xc7z020_1`, so the
+  failure is recorded as a PS initialization/reset sequencing issue rather than
+  a cable-recognition issue.

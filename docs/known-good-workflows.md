@@ -211,6 +211,24 @@ To load another bitstream:
 ./tools/load_openocd_bitstream.sh path/to/system_top.bit
 ```
 
+## PS-Side JTAG Boot Status
+
+This is not yet a known-good workflow.
+
+The artifacts needed for PS-side JTAG work are built locally:
+
+```text
+.config/boot-artifacts/boot/fsbl.elf
+.config/boot-artifacts/boot/u-boot.elf
+.config/boot-artifacts/sdt/ps7_init.tcl
+```
+
+The direct OpenOCD approach of loading `fsbl.elf`, setting `pc=0x0`, and
+resuming the Cortex-A9 is not sufficient yet. It leaves OpenOCD reporting ARM
+DAP sticky/APB errors until a JTAG-mode power cycle. The next working candidate
+is either repaired Xilinx `xsdb` PS target enumeration or an OpenOCD translation
+of the generated PS7 init register sequence before loading U-Boot into DDR.
+
 ## Preserve QSPI Before Risky Work
 
 Capture a backup:

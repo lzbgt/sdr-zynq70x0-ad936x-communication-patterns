@@ -47,6 +47,22 @@ Verified so far:
 - OpenOCD loads `system_top.bit` into PL.
 - Vivado Hardware Manager detects `arm_dap_0` and `xc7z020_1`.
 - Vivado Hardware Manager loads `system_top.bit` into PL.
+- The rebuilt artifacts needed for PS-side work exist locally:
+  `.config/boot-artifacts/boot/fsbl.elf`,
+  `.config/boot-artifacts/boot/u-boot.elf`, and
+  `.config/boot-artifacts/sdt/ps7_init.tcl`.
+
+Attempted and not accepted as a working path:
+
+- Directly loading `fsbl.elf` with OpenOCD, setting `pc=0x0`, and resuming the
+  Cortex-A9 does not produce a usable PS boot flow yet. The run leaves OpenOCD
+  reporting ARM DAP sticky/APB access errors until the board is power-cycled in
+  JTAG mode.
+- Vivado Hardware Manager still scans the JTAG chain after this failure, so the
+  cable path remains good. The problem is PS initialization / reset sequencing,
+  not USB pass-through or FT2232 recognition.
+- Plain `xsdb targets` is currently empty against the same `hw_server` session,
+  even though Vivado Hardware Manager sees `arm_dap_0` and `xc7z020_1`.
 
 Not yet verified:
 
@@ -54,13 +70,18 @@ Not yet verified:
 - Loading U-Boot or a standalone ELF over JTAG.
 - Booting Linux from RAM through JTAG.
 
-Candidate implementation:
+Next candidate implementation:
 
-1. Use `tools/probe_openocd_jtag.sh` as the connection base.
-2. Use `.config/boot-artifacts/boot/fsbl.elf`.
-3. Add an OpenOCD script that halts `zynq.cpu0`, loads `fsbl.elf`, resumes, and
-   captures UART output.
-4. Only after FSBL-over-JTAG works, add U-Boot or no-OS application loading.
+1. Power-cycle the board while it remains in JTAG mode to clear the ARM DAP
+   sticky state.
+2. Prefer a Xilinx PS-debug flow if `xsdb` target enumeration can be repaired.
+   The vendor script shape is `connect`, `target`, `source ps7_init.tcl`,
+   `ps7_init`, `ps7_post_config`, `dow u-boot.elf`, `con`.
+3. If staying with OpenOCD, first translate the generated Xilinx
+   `ps7_init.tcl` register writes into OpenOCD-compatible `mww`/`mdw` helpers,
+   run PS7 init explicitly, then load `u-boot.elf` into DDR.
+4. Capture UART on `/dev/ttyUSB1` during the run. COM5 maps to this device when
+   the FT2232 is attached to WSL with `usbipd`.
 
 ## 2. Decide Whether To Format qspi-nvmfs / mtd2
 

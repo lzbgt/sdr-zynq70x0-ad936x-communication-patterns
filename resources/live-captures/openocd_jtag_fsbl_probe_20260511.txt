@@ -1,0 +1,44 @@
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x23727093 (mfg: 0x049 (Xilinx), part: 0x3727, ver: 0x2)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu0: MPIDR level2 0, cluster 0, core 0, multi core, no SMT
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: MPIDR level2 0, cluster 0, core 1, multi core, no SMT
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Polling target zynq.cpu0 failed, trying to reexamine
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x000001d3 pc: 0xffffff34
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+target halted in ARM state due to debug-request, current mode: System
+cpsr: 0x200001df pc: 0xffffff28
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+shutdown command invoked
+
+# openocd rc=0
