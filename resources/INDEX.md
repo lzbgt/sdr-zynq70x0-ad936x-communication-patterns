@@ -28,6 +28,9 @@ research, verification, and repeatable board work.
 - `firmware/qspi-2r2t/` - factory QSPI 2R2T set.
 - `firmware/sdcard-1r1t/` - SD-card 1R1T boot files.
 - `firmware/sdcard-2r2t/` - SD-card 2R2T boot files.
+- `firmware/qspi-live-backup-20260511-211046/` - live QSPI backup captured
+  from the connected SDR-Z203 after the verified Yocto+Vivado `mtd3` firmware
+  flash. Contains `mtd0` through `mtd3`, board info, and SHA-256 checksums.
 
 These are copied because they are direct recovery and experiment inputs. The
 multi-gigabyte Pluto source archives are not copied.

@@ -12,7 +12,8 @@ Original source package:
 ## Layout
 
 - `board/` - schematic, EXT_IO spreadsheet, selected chip references.
-- `firmware/` - copied QSPI and SD-card factory firmware sets.
+- `firmware/` - copied QSPI and SD-card factory firmware sets, plus a live
+  QSPI backup from the currently verified board state.
 - `examples/gnuradio/` - vendor GNU Radio flowgraphs.
 - `examples/matlab/` - vendor MATLAB/Simulink examples.
 - `examples/openwifi-devicetree.dts` - openwifi Z203 devicetree source.

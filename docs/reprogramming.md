@@ -170,6 +170,15 @@ unverified here.
 Do not use the generated `boot.frm` or `boot-qspi.bin` on `mtd0` until QSPI
 bootloader backups and SD/JTAG recovery are ready.
 
+Current known-good QSPI backup:
+
+```text
+resources/firmware/qspi-live-backup-20260511-211046/
+```
+
+It was captured from the board after the verified Yocto+Vivado `mtd3` firmware
+flash and contains `mtd0` through `mtd3`, `board-info.txt`, and `SHA256SUMS`.
+
 ## Pluto-Compatible Firmware Development
 
 Large source archives are intentionally kept outside this repo:

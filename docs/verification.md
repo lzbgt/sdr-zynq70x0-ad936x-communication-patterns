@@ -603,6 +603,27 @@ boot.frm sha256 54ed9be0d23414db0d0b88445d74fc205ab941a4fa6de292236f797bc086b33f
 
 These artifacts have not been flashed to `mtd0`/`mtd1`.
 
+## Live QSPI Backup
+
+Captured from the verified booted board:
+
+```text
+resources/firmware/qspi-live-backup-20260511-211046/
+```
+
+Contents:
+
+```text
+mtd0.bin 1.0 MiB qspi-fsbl-uboot
+mtd1.bin 128 KiB qspi-uboot-env
+mtd2.bin 896 KiB qspi-nvmfs
+mtd3.bin 30 MiB qspi-linux
+```
+
+Board info in the backup records `mode=2r2t`, `fit_size=1B73367`,
+`bootcmd=run $modeboot`, kernel `6.1.0`, and devicetree model
+`Analog Devices PlutoSDR Rev.C (Z7020/AD9363)`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

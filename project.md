@@ -99,6 +99,9 @@ Board-side facts from live captures:
   plus the freshly built FPGA bitstream, flashed to QSPI `mtd3` through
   `/sbin/update_frm.sh`, rebooted, and verified by ping, IIO, HTTP, SSH, and
   service checks.
+- A known-good live QSPI backup was captured from the verified board state:
+  `resources/firmware/qspi-live-backup-20260511-211046/` contains `mtd0`
+  through `mtd3`, board info, and SHA-256 checksums.
 - FSBL and boot artifacts now build locally from the Vivado XSA through
   `sdtgen`, AMD embeddedsw `pyesw`, Arch `arm-none-eabi-gcc`, and Bootgen.
   Verified generated artifacts include `fsbl.elf`, QSPI-style
@@ -254,5 +257,5 @@ Expected result in the current Pluto-compatible firmware state:
 3. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
 4. Perform a controlled RF loopback test with the newly built FPGA image.
-5. Capture known-good QSPI `mtd0`/`mtd1` backups and prepare an SD/JTAG recovery
-   procedure before any bootloader-region flash test.
+5. Prepare an SD/JTAG recovery procedure before any bootloader-region flash
+   test.
