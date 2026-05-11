@@ -90,6 +90,13 @@ The 2026-05-12 PS-only preflight capture
 confirmed this gate: the JTAG chain still scanned, but the helper failed during
 `JTAG_PS_SOFT_RESET` with `JTAG-DP STICKY ERROR` before any SLCR reads.
 
+Schematic review also supports this operational boundary. The onboard FT2232H
+is wired for JTAG through `ADBUS0..3` and UART through `BDBUS0..1`; the extracted
+schematic does not show an FTDI-controlled `PS_SRST_B`, `PS_POR_B`, `SRST`, or
+`TRST` connection. OpenOCD can reset the TAP and can request a PS reset through
+DAP/SLCR while the DAP is responsive, but it is not a substitute for a
+board-level power/POR reset once DAP access is sticky.
+
 Recommended order:
 
 1. Run `./tools/probe_openocd_jtag.sh` to confirm the chain is clean.

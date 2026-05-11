@@ -77,6 +77,28 @@ Schematic page 9 text extraction shows boot-mode switch wiring near Zynq bank 0:
 The current board state is user-confirmed QSPI flash boot. Use SD/JTAG boot
 paths for experiments before overwriting QSPI.
 
+## JTAG And Reset Wiring
+
+Schematic page 2 text extraction shows the onboard FT2232H JTAG/UART interface:
+
+- `ADBUS0` -> `JTAG_TCK`
+- `ADBUS1` -> `JTAG_TDI`
+- `ADBUS2` -> `JTAG_TDO`
+- `ADBUS3` -> `JTAG_TMS`
+- `BDBUS0` / `BDBUS1` -> `UART1_RX` / `UART1_TX`
+
+The extracted FT2232H page does not show an FTDI-controlled connection to
+`PS_SRST_B_501`, `PS_POR_B_500`, `PS_POR`, `SRST`, or `TRST`. Page 9 shows
+`PS_POR_B_500` and `PS_SRST_B_501` at the Zynq PS pins, and a local `PS_POR`
+button/reset circuit, but not a reset net driven by the FT2232H.
+
+Project implication: OpenOCD can reset the JTAG TAP and can issue a volatile PS
+reset through DAP/SLCR when the ARM DAP is healthy. That is different from a
+board-level power/POR reset. If a PL AXI fault leaves OpenOCD reporting
+`JTAG-DP STICKY ERROR` before SLCR access, the schematic does not currently
+support an FTDI GPIO hardware-reset workaround; use a real JTAG-mode power
+cycle.
+
 ## Variant Boundary
 
 These notes apply to SDR-Z203 only. SDR-Z201 is similar but is user-confirmed as

@@ -643,6 +643,19 @@ DAP fault. The next useful live work is a real JTAG-mode power cycle, then
 rerun the chain probe and PS-only post-config preflight before the FSBL handoff
 experiment.
 
+Schematic reset-boundary review:
+
+- Page 2 extraction shows FT2232H `ADBUS0..3` wired to `JTAG_TCK`,
+  `JTAG_TDI`, `JTAG_TDO`, and `JTAG_TMS`, and `BDBUS0..1` wired to UART1.
+- Page 9 extraction shows Zynq `PS_POR_B_500`, `PS_SRST_B_501`, and the local
+  `PS_POR` button/reset circuit.
+- The extracted schematic does not show an FTDI-controlled `PS_SRST_B`,
+  `PS_POR_B`, `SRST`, or `TRST` signal.
+
+Interpretation: OpenOCD can reset the JTAG TAP and can perform the
+DAP/SLCR-based volatile PS reset while the DAP is responsive. It cannot be
+treated as a board-level POR reset after a sticky DAP fault on this wiring.
+
 ## Normal SD Boot Restore After JTAG
 
 Raw capture:

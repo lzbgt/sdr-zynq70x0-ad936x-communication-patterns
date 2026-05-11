@@ -129,6 +129,10 @@ Prepared and partially verified:
 - The first PS-only preflight after the sticky DSCR state still failed in
   `JTAG_PS_SOFT_RESET` with `JTAG-DP STICKY ERROR`, before any SLCR reads. This
   confirms the next live step must start with a real JTAG-mode power cycle.
+- Schematic review does not show an FTDI-controlled `PS_SRST_B`, `PS_POR_B`,
+  `SRST`, or `TRST` line. The available OpenOCD reset is TAP reset plus
+  DAP/SLCR-based PS reset when the DAP is healthy, not a board-level power/POR
+  reset after a sticky DAP fault.
 - It did not reach `brd: module loaded`, `Run /init as init process`, USB
   networking, IIO, or HTTP.
 

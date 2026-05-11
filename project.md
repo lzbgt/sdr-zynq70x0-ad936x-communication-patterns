@@ -152,6 +152,10 @@ Board-side facts from live captures:
   preflight for the next clean-DAP session, followed by
   `tools/run_openocd_jtag_fsbl_handoff.sh`. It does not reach userspace, USB
   networking, IIO, or HTTP.
+- Schematic review shows FT2232H JTAG on `ADBUS0..3` and UART on `BDBUS0..1`,
+  but no extracted FTDI-controlled `PS_SRST_B`, `PS_POR_B`, `SRST`, or `TRST`
+  reset line. OpenOCD TAP reset and DAP/SLCR PS reset are not board-level POR
+  substitutes after the DAP has entered a sticky fault state.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.

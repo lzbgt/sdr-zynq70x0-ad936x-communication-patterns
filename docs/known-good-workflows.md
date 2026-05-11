@@ -358,6 +358,11 @@ OpenOCD reports DAP sticky or DSCR errors afterward and
 `tools/reset_openocd_zynq_ps.sh` cannot recover, power-cycle the board in JTAG
 mode before the next PS-side run.
 
+Do not treat OpenOCD TAP reset as a board-level reset. The SDR-Z203 schematic
+shows FT2232H JTAG on `ADBUS0..3`, but does not show an FTDI-controlled
+`PS_SRST_B`, `PS_POR_B`, `SRST`, or `TRST` line. Once DAP/SLCR access is stuck,
+the known recovery path is a real JTAG-mode power cycle.
+
 ## Preserve QSPI Before Risky Work
 
 Capture a backup:
