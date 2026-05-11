@@ -328,6 +328,13 @@ The current failing signature is a DAP read failure at `0x7c400000`, the RX
 AXI-DMAC version register, after PS7 init and PL programming. This points to
 PS-to-PL AXI/fabric accessibility rather than bootargs or rootfs contents.
 
+Before touching PL AXI in a clean power session, use the PS-only post-config
+probe:
+
+```sh
+./tools/probe_openocd_ps7_post_config.sh
+```
+
 The focused analysis and next experiment order are in
 `docs/jtag-ps-pl-axi-boundary.md`. Use that note before rerunning direct PL AXI
 probes, because a failed probe can poison the DAP for the rest of the power

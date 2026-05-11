@@ -103,6 +103,9 @@ PCAP/JTAG-exit sequencing. The next clean-DAP test should let FSBL observe
 `PCFG_DONE`, run its own `ps7_post_config()` / `FsblHandoffJtagExit()` path, and
 only then probe the ADI PL AXI-DMAC window.
 
+Use `tools/probe_openocd_ps7_post_config.sh` as the PS-only preflight in that
+sequence. It does not touch the ADI PL AXI windows.
+
 Prepared and partially verified:
 
 - `tools/run_openocd_jtag_linux_ram.sh` now resets PS, loads PL, preloads

@@ -606,7 +606,9 @@ Static FSBL comparison:
   the ADI PL AXI windows visible before U-Boot or Linux access them.
 
 See `docs/jtag-ps-pl-axi-boundary.md` for the focused boundary note and next
-clean-DAP experiment order.
+clean-DAP experiment order. `tools/probe_openocd_ps7_post_config.sh` was added
+as the PS-only preflight for that order; it reads SLCR post-config state and
+does not touch the ADI PL AXI windows.
 
 Operational note: the direct PL AXI fault can leave OpenOCD reporting DAP
 sticky or DSCR errors. Writing the ADIv5 ABORT register cleared one OpenOCD

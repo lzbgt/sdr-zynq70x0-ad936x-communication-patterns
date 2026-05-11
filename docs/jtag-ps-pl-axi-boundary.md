@@ -88,8 +88,9 @@ DSCR errors. A PL AXI read fault can leave the DAP in a state that
 Recommended order:
 
 1. Run `./tools/probe_openocd_jtag.sh` to confirm the chain is clean.
-2. Run a non-PL SLCR sanity read only, such as `0xF8000900` and `0xF8000240`,
-   before touching `0x7c400000`.
+2. Run `./tools/probe_openocd_ps7_post_config.sh` to confirm the generated
+   PS7 init and post-config writes complete and report sane SLCR values before
+   touching `0x7c400000`.
 3. Load PL, then run a minimal FSBL-in-JTAG-mode experiment that lets FSBL see
    `PCFG_DONE` and execute its own `ps7_post_config()` / JTAG exit path.
 4. Probe `0x7c400000` only after the FSBL-style handoff.
