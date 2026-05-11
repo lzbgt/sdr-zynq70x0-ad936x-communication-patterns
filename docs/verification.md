@@ -290,6 +290,33 @@ Kernel/runtime confirmation:
   `0.25`, kernel `6.1.0 #1 SMP PREEMPT Sun May 10 17:32:38 UTC 2026`, and the
   expected AD9361-compatible runtime context.
 
+## JTAG Probe Status
+
+Raw captures:
+
+- `resources/live-captures/jtag_probe_no_targets_20260511.txt`
+- `resources/live-captures/windows_jtag_pnp_20260511.txt`
+- `resources/live-captures/windows_usbipd_status_20260511.txt`
+
+Result on 2026-05-11:
+
+- Board was placed in JTAG mode and powered.
+- Vivado `hw_server` starts successfully from WSL.
+- Xilinx Linux cable drivers were installed successfully from the local Vivado
+  tree. The installer placed Xilinx FTDI, Platform Cable USB, and Digilent udev
+  rule files under `/etc/udev/rules.d/`.
+- `xsdb targets` was empty.
+- Windows PnP sees the FTDI device as `USB\VID_0403&PID_6010`, including USB
+  Serial Converter A/B and `COM5`.
+- WSL does not currently expose `/dev/bus/usb`; `lsusb` returns no devices.
+- `usbipd-win` is not installed, so the FTDI/JTAG interface cannot yet be
+  attached to WSL for Linux `hw_server`.
+
+Interpretation: this is not evidence of a board JTAG failure. It is a host USB
+pass-through gap after cable-driver installation. Install `usbipd-win` on
+Windows with Administrator elevation, attach `VID_0403&PID_6010` to WSL, then
+rerun `./tools/probe_xilinx_jtag.sh` or `./tools/verify_jtag_host.sh`.
+
 ## Yocto ARM Firmware Build
 
 Local build root:

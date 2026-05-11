@@ -1,0 +1,9 @@
+
+Class FriendlyName           InstanceId                                    Status
+----- ------------           ----------                                    ------
+USB   USB Serial Converter B USB\VID_0403&PID_6010&MI_01\6&22933E0A&0&0001 OK    
+USB   USB Composite Device   USB\VID_0403&PID_6010\AUQSDHWMXART            OK    
+USB   USB Serial Converter A USB\VID_0403&PID_6010&MI_00\6&22933E0A&0&0000 OK    
+Ports USB Serial Port (COM5) FTDIBUS\VID_0403+PID_6010+AUQSDHWMXARTB\0000  OK    
+
+

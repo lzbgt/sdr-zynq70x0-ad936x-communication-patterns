@@ -1,0 +1,21 @@
+== probe_xilinx_jtag.sh ==
+attempting to launch hw_server
+
+****** Xilinx hw_server v2025.1
+  **** Build date : May  6 2025 at 15:14:51
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+INFO: hw_server application started
+INFO: Use Ctrl-C to exit hw_server application
+
+INFO: To connect to this hw_server instance use url: TCP:127.0.0.1:3121
+
+== JTAG targets ==
+== lsusb ==
+== /dev/bus/usb ==
+ls: cannot access '/dev/bus/usb': No such file or directory
+== xilinx udev rules ==
+-rw-r--r-- 1 root root 3800 May 11 21:55 /etc/udev/rules.d/52-xilinx-digilent-usb.rules
+-r--r--r-- 1 root root 3286 Mar 18  2025 /etc/udev/rules.d/52-xilinx-ftdi-usb.rules
+-r--r--r-- 1 root root  435 Mar  6  2025 /etc/udev/rules.d/52-xilinx-pcusb.rules

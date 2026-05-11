@@ -118,6 +118,11 @@ Board-side facts from live captures:
   in place over SSH from the factory SD-booted ramdisk, then COM5 reboot capture
   showed the locally built U-Boot loading the Yocto `uImage`, device tree, and
   `Yocto initramfs` from SD. Post-boot ping, IIO, and HTTP checks passed.
+- JTAG host preparation is partially verified. Xilinx Linux cable drivers were
+  installed successfully in WSL, and Windows sees the FT2232HL debug/JTAG device
+  as `VID_0403&PID_6010`. `hw_server` starts, but no targets enumerate because
+  WSL currently has no `/dev/bus/usb`; `usbipd-win` must be installed and used
+  to attach the FTDI device to WSL before Linux JTAG probing can complete.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -214,6 +219,8 @@ user and vendor configuration.
   SD.
 - `tools/probe_xilinx_jtag.sh` - run a simple `xsdb` JTAG target probe after
   the DEBUG/JTAG adapter is attached to WSL.
+- `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
+  cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
   PlutoSDR removable drive while capturing COM5; currently documented as less
   reliable than SSH update on this board.

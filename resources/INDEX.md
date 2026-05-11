@@ -87,6 +87,12 @@ multi-gigabyte Pluto source archives are not copied.
 - `live-captures/serial_COM5_yocto_sd_reboot_20260511.txt` - COM5 reboot
   capture proving the locally built Yocto+Vivado SD set boots from the same SD
   card and reaches the Poky login banner.
+- `live-captures/jtag_probe_no_targets_20260511.txt` - WSL Vivado `hw_server`
+  probe showing no JTAG targets while `/dev/bus/usb` is absent.
+- `live-captures/windows_jtag_pnp_20260511.txt` - Windows PnP evidence that
+  the FT2232HL `VID_0403&PID_6010` debug/JTAG device is present.
+- `live-captures/windows_usbipd_status_20260511.txt` - Windows-side evidence
+  that `usbipd-win` is not installed yet.
 
 ## Command Inputs
 

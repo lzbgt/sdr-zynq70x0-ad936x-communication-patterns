@@ -183,6 +183,37 @@ requested JTAG/debug mode. A successful probe should list Zynq/JTAG targets from
 If WSL cannot see the FTDI/JTAG adapter, attach it to WSL from Windows with
 `usbipd` before probing.
 
+Current status on 2026-05-11:
+
+- The board was switched to JTAG mode and powered.
+- Xilinx Linux cable drivers were installed from the Vivado tree:
+  `/opt/Xilinx/2025.1/data/xicom/cable_drivers/lin64/install_script/install_drivers/install_drivers`.
+- Installed WSL rule files include `52-xilinx-ftdi-usb.rules`,
+  `52-xilinx-pcusb.rules`, and `52-xilinx-digilent-usb.rules`.
+- `./tools/probe_xilinx_jtag.sh` starts `hw_server`, but `targets` is empty.
+- Windows sees the FT2232HL as `VID_0403&PID_6010`, with USB Serial Converter
+  A/B and `COM5`.
+- WSL has no `/dev/bus/usb`, so Linux `hw_server` cannot access the FTDI/JTAG
+  interface yet.
+- `usbipd-win` is not installed. A `winget install dorssel.usbipd-win` attempt
+  downloaded the installer but did not complete unattended, likely because
+  Windows elevation is required.
+
+Repeat the full host-side check with:
+
+```sh
+./tools/verify_jtag_host.sh
+```
+
+Remaining host action:
+
+1. Install `usbipd-win` on Windows as Administrator.
+2. In an elevated Windows PowerShell, bind and attach the FT2232 device to WSL.
+   The current device is `VID_0403&PID_6010`.
+3. Inside WSL, confirm `lsusb` lists the FT2232 device and `/dev/bus/usb`
+   exists.
+4. Re-run `./tools/probe_xilinx_jtag.sh`.
+
 ## Stop Conditions
 
 Stop and return to QSPI boot if:
