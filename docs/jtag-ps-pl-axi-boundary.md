@@ -91,10 +91,16 @@ Recommended order:
 2. Run `./tools/probe_openocd_ps7_post_config.sh` to confirm the generated
    PS7 init and post-config writes complete and report sane SLCR values before
    touching `0x7c400000`.
-3. Load PL, then run a minimal FSBL-in-JTAG-mode experiment that lets FSBL see
-   `PCFG_DONE` and execute its own `ps7_post_config()` / JTAG exit path.
+3. Run `tools/run_openocd_jtag_fsbl_handoff.sh`, which loads PL before FSBL,
+   runs PS7 init without pre-running `ps7_post_config` by default, starts
+   `fsbl.elf` at OCM address `0x0`, and captures devcfg/SLCR state after FSBL
+   has had a chance to execute its JTAG branch.
 4. Probe `0x7c400000` only after the FSBL-style handoff.
 5. If the AXI-DMAC read succeeds, rerun `tools/run_openocd_jtag_linux_ram.sh`.
+
+The FSBL handoff helper intentionally leaves `PROBE_PL_AXI_AFTER_FSBL=0` by
+default. Set it to `1` only when the pre/post state and serial capture show the
+FSBL path reached the expected JTAG handoff.
 
 Avoid repeated direct reads of non-responsive PL AXI addresses in the same power
 session; once the DAP is sticky, subsequent evidence is mostly about the debug

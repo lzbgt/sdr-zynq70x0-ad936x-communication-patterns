@@ -608,7 +608,10 @@ Static FSBL comparison:
 See `docs/jtag-ps-pl-axi-boundary.md` for the focused boundary note and next
 clean-DAP experiment order. `tools/probe_openocd_ps7_post_config.sh` was added
 as the PS-only preflight for that order; it reads SLCR post-config state and
-does not touch the ADI PL AXI windows.
+does not touch the ADI PL AXI windows. `tools/run_openocd_jtag_fsbl_handoff.sh`
+was added as the next experiment helper; by default it loads PL, runs PS7 init
+without pre-running `ps7_post_config`, starts `fsbl.elf` from OCM, and captures
+devcfg/SLCR state without probing PL AXI.
 
 Operational note: the direct PL AXI fault can leave OpenOCD reporting DAP
 sticky or DSCR errors. Writing the ADIv5 ABORT register cleared one OpenOCD

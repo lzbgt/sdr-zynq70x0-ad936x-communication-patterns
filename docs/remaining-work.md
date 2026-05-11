@@ -105,6 +105,8 @@ only then probe the ADI PL AXI-DMAC window.
 
 Use `tools/probe_openocd_ps7_post_config.sh` as the PS-only preflight in that
 sequence. It does not touch the ADI PL AXI windows.
+Then use `tools/run_openocd_jtag_fsbl_handoff.sh` for the FSBL-owned
+post-config/JTAG-exit experiment; its direct PL AXI read is disabled by default.
 
 Prepared and partially verified:
 

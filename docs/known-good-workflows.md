@@ -335,6 +335,19 @@ probe:
 ./tools/probe_openocd_ps7_post_config.sh
 ```
 
+Then run the FSBL JTAG handoff experiment without probing PL AXI yet:
+
+```sh
+CAPTURE=resources/live-captures/openocd_jtag_fsbl_handoff_manual.txt \
+  ./tools/run_openocd_jtag_fsbl_handoff.sh
+```
+
+Only after that evidence looks sane, enable the post-FSBL AXI-DMAC read:
+
+```sh
+PROBE_PL_AXI_AFTER_FSBL=1 ./tools/run_openocd_jtag_fsbl_handoff.sh
+```
+
 The focused analysis and next experiment order are in
 `docs/jtag-ps-pl-axi-boundary.md`. Use that note before rerunning direct PL AXI
 probes, because a failed probe can poison the DAP for the rest of the power

@@ -149,7 +149,8 @@ Board-side facts from live captures:
   `ps7_post_config` level-shifter and FPGA-reset writes; the remaining
   experiment is whether FSBL-owned PCAP/JTAG-exit sequencing makes the ADI PL
   AXI windows visible. `tools/probe_openocd_ps7_post_config.sh` is the PS-only
-  preflight for the next clean-DAP session. It does not reach userspace, USB
+  preflight for the next clean-DAP session, followed by
+  `tools/run_openocd_jtag_fsbl_handoff.sh`. It does not reach userspace, USB
   networking, IIO, or HTTP.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
@@ -277,6 +278,9 @@ user and vendor configuration.
   RAM copies; first attempt is captured but not yet verified as a Linux boot.
 - `tools/probe_openocd_ps7_post_config.sh` - run generated PS7 init and
   post-config over OpenOCD, then read SLCR state before any PL AXI probe.
+- `tools/run_openocd_jtag_fsbl_handoff.sh` - load PL, run PS7 init, start
+  `fsbl.elf` from OCM in JTAG mode, and capture devcfg/SLCR state before an
+  optional post-FSBL PL AXI probe.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
