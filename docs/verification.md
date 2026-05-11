@@ -619,6 +619,30 @@ session enough to exit, but did not make `tools/reset_openocd_zynq_ps.sh`
 reliable afterward. Treat that state as requiring a physical JTAG-mode power
 cycle before further PS-side JTAG verification.
 
+Follow-up PS-only preflight attempt:
+
+- `resources/live-captures/openocd_ps7_post_config_after_dscr_20260512.txt`
+
+Command:
+
+```sh
+./tools/probe_openocd_ps7_post_config.sh
+```
+
+Result: the JTAG scan still found the PL and CPU TAPs, but CPU debug
+examination reported DSCR errors and the reset preflight failed before any SLCR
+read:
+
+```text
+JTAG_PS_SOFT_RESET
+Error: JTAG-DP STICKY ERROR
+```
+
+Interpretation: the current power session is still contaminated by the prior
+DAP fault. The next useful live work is a real JTAG-mode power cycle, then
+rerun the chain probe and PS-only post-config preflight before the FSBL handoff
+experiment.
+
 ## Normal SD Boot Restore After JTAG
 
 Raw capture:

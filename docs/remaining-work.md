@@ -126,6 +126,9 @@ Prepared and partially verified:
 - A failed PL AXI probe can leave the DAP sticky enough that the soft-reset
   helper cannot recover; in that state use a physical JTAG-mode power cycle
   before the next PS-side run.
+- The first PS-only preflight after the sticky DSCR state still failed in
+  `JTAG_PS_SOFT_RESET` with `JTAG-DP STICKY ERROR`, before any SLCR reads. This
+  confirms the next live step must start with a real JTAG-mode power cycle.
 - It did not reach `brd: module loaded`, `Run /init as init process`, USB
   networking, IIO, or HTTP.
 

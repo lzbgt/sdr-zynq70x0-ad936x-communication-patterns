@@ -85,6 +85,11 @@ Start from a physical JTAG-mode power cycle if OpenOCD reports DAP sticky or
 DSCR errors. A PL AXI read fault can leave the DAP in a state that
 `tools/reset_openocd_zynq_ps.sh` cannot reliably clear.
 
+The 2026-05-12 PS-only preflight capture
+`resources/live-captures/openocd_ps7_post_config_after_dscr_20260512.txt`
+confirmed this gate: the JTAG chain still scanned, but the helper failed during
+`JTAG_PS_SOFT_RESET` with `JTAG-DP STICKY ERROR` before any SLCR reads.
+
 Recommended order:
 
 1. Run `./tools/probe_openocd_jtag.sh` to confirm the chain is clean.
