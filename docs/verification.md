@@ -33,6 +33,7 @@ Installed tools used here:
 - `lsusb`
 - `mkimage` from `uboot-tools`
 - `dtc` from `dtc`
+- Vivado 2025.1 installed under `/opt/Xilinx/2025.1/Vivado`
 
 ## Live Connectivity
 
@@ -433,8 +434,56 @@ repo workspace:      49G
 
 The tarball contains Linux `xsetup`; the license archive contains
 `vivado_lic2037.lic`, `vivado2018+IPs.lic`, and `xilinx_ise_vivado.lic`.
-Install the Linux build under WSL ext4, preferably `/opt/Xilinx`; do not run it
-directly from `/mnt/c`. See `docs/vivado-linux-wsl.md`.
+
+## Vivado 2025.1 WSL Arch Install Verification
+
+Installed locations:
+
+```text
+/opt/xilinx-installers/FPGAs_AdaptiveSoCs_Unified_SDI_2025.1_0530_0145
+/opt/Xilinx/2025.1/Vivado
+/opt/Xilinx/licenses
+```
+
+Installed size:
+
+```text
+/opt/xilinx-installers: 110G
+/opt/Xilinx:            58G
+WSL root filesystem:    1007G total, 720G free
+```
+
+Arch runtime adjustments:
+
+- Installed X11/GTK/ncurses/libxcrypt compatibility packages with pacman.
+- Added `/usr/lib/libtinfo.so.5 -> /usr/lib/libtinfo.so.6` because Vivado
+  2025.1 expects the older SONAME.
+- Did not run AMD `installLibs.sh` because it has Ubuntu/RHEL/CentOS/Alma/Rocky
+  branches but no Arch branch.
+
+Verified command:
+
+```sh
+./tools/verify_vivado_install.sh
+```
+
+Verified result:
+
+```text
+vivado=/opt/Xilinx/2025.1/Vivado/bin/vivado
+bootgen=/opt/Xilinx/2025.1/Vivado/bin/bootgen
+xsct=not installed
+vivado v2025.1 (64-bit)
+Tool Version Limit: 2025.05
+SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
+Bootgen v2025.1
+Vivado batch mode exits cleanly from an empty Tcl script.
+```
+
+Boundary: this is a Vivado-only minimal install for FPGA project validation and
+bitstream generation. Vitis/XSCT is not installed yet, so FSBL/XSA/application
+work still needs either a Vitis add-on install or a different boot-image flow.
+See `docs/vivado-linux-wsl.md`.
 
 ## Verification Gaps
 
@@ -446,4 +495,5 @@ directly from `/mnt/c`. See `docs/vivado-linux-wsl.md`.
   and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
-- No Vivado/JTAG programming session has been run from this WSL host yet.
+- Vivado 2025.1 and Bootgen run locally under WSL Arch, but no vendor FPGA
+  project build and no JTAG programming session has been run yet.

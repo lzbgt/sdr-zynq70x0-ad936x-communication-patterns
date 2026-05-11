@@ -5,13 +5,21 @@ The installer and license archive are intentionally kept outside this git repo.
 
 ## Local Inventory
 
-Observed on this WSL Arch host:
+Observed on this WSL Arch host before installation:
 
 ```text
 WSL root filesystem: /dev/sdd, 1007G total, 893G free
 Windows C: mounted at /mnt/c, 953G total, 592G free
 repo + extracted Yocto/source workspace: about 49G
 Vivado download folder: /mnt/c/baidunetdiskdownload/vivado, about 110G
+```
+
+Observed after extracting and installing the minimal Vivado/Zynq-7000 toolchain:
+
+```text
+/opt/xilinx-installers: 110G
+/opt/Xilinx:            58G
+WSL root filesystem:    1007G total, 720G free
 ```
 
 Installer files:
@@ -56,7 +64,7 @@ Do not install Vivado under this git repo.
 Recommended locations:
 
 ```text
-/opt/xilinx-installers/2025.1/     extracted offline installer
+/opt/xilinx-installers/            extracted offline installer
 /opt/Xilinx/                       installed toolchain
 /opt/Xilinx/licenses/              copied license files
 ```
@@ -115,6 +123,12 @@ If Vivado needs multiple license files, use a colon-separated list:
 export XILINXD_LICENSE_FILE=/opt/Xilinx/licenses/vivado_lic2037.lic:/opt/Xilinx/licenses/xilinx_ise_vivado.lic
 ```
 
+The current local verification uses all three installed files:
+
+```sh
+export XILINXD_LICENSE_FILE=/opt/Xilinx/licenses/vivado_lic2037.lic:/opt/Xilinx/licenses/xilinx_ise_vivado.lic:/opt/Xilinx/licenses/vivado2018+IPs.lic
+```
+
 ## Install Strategy
 
 For SDR-Z203 FPGA work, the minimum useful install is Vivado with 7-series Zynq
@@ -122,19 +136,62 @@ support. Vitis is useful later for FSBL, XSA, boot image, and embedded
 application work. The full unified installer is large, but the current WSL disk
 has enough free space for an install under `/opt/Xilinx`.
 
-Recommended first pass:
+Verified first pass:
 
 1. Extract the installer under `/opt/xilinx-installers`.
 2. Generate an install configuration with `xsetup`.
-3. Select Vivado, Vitis if needed, and 7-series/Zynq-7000 device support.
+3. Select Vivado ML Enterprise and 7-series/Zynq-7000 device support.
 4. Install into `/opt/Xilinx`.
 5. Source settings from the installed version:
 
 ```sh
-source /opt/Xilinx/Vivado/2025.1/settings64.sh
+source /opt/Xilinx/2025.1/Vivado/settings64.sh
 vivado -version
 bootgen -help | head
 ```
+
+The generated local install configuration is intentionally ignored by git:
+
+```text
+.config/vivado-install/vivado-zynq7000-install_config.txt
+```
+
+The install command used here:
+
+```sh
+cd /root/work/ZYNQ7020/.config/vivado-install
+/opt/xilinx-installers/FPGAs_AdaptiveSoCs_Unified_SDI_2025.1_0530_0145/xsetup \
+  -a XilinxEULA,3rdPartyEULA \
+  -b Install \
+  -c vivado-zynq7000-install_config.txt \
+  > vivado-install.log 2>&1
+```
+
+Vitis/XSCT was not installed in this minimal pass. That is acceptable for
+initial FPGA project validation and bitstream generation. FSBL/XSA/application
+flows may require adding Vitis later.
+
+## Arch Runtime Fixes
+
+The first installer run failed because the embedded Java runtime needed
+`libXtst.so.6`. Install the common X11/GTK compatibility packages from Arch:
+
+```sh
+pacman -S --needed libxtst libxi libxrender libxrandr libxft libxext libx11 \
+  fontconfig freetype2 glib2 gtk3 ncurses libxcrypt-compat
+```
+
+After install, `vivado -mode batch` failed because the AMD binary expected
+`libtinfo.so.5`. Arch ships `libtinfo.so.6`; the verified local compatibility
+link is:
+
+```sh
+ln -s /usr/lib/libtinfo.so.6 /usr/lib/libtinfo.so.5
+```
+
+The AMD-provided `installLibs.sh` only has Ubuntu/RHEL/CentOS/Alma/Rocky logic.
+Do not run it blindly on Arch; install the needed Arch packages explicitly and
+record any additional compatibility links here.
 
 ## Board-Relevant Target
 
@@ -157,10 +214,26 @@ Use that part/package/speed grade when creating or validating Vivado projects.
 Run these outside the repo:
 
 ```sh
-source /opt/Xilinx/Vivado/2025.1/settings64.sh
-vivado -mode batch -source /dev/null -nojournal -nolog
+source /opt/Xilinx/2025.1/Vivado/settings64.sh
 vivado -version
 which vivado bootgen
+```
+
+Or run the repo helper:
+
+```sh
+./tools/verify_vivado_install.sh
+```
+
+Verified output on 2026-05-11:
+
+```text
+vivado v2025.1 (64-bit)
+Tool Version Limit: 2025.05
+SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
+bootgen: Bootgen v2025.1
+xsct=not installed
+Vivado batch mode exits cleanly from an empty Tcl script.
 ```
 
 Then from this repo, check whether vendor Tcl projects can be opened or built in

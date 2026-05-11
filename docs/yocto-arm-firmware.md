@@ -1,7 +1,7 @@
 # Yocto ARM Firmware Build On WSL Arch
 
 This guide is the local Yocto path for the SDR-Z203 processing-system firmware.
-It intentionally focuses on the ARM side while Vivado is still being installed:
+It intentionally focuses on the ARM side:
 
 - U-Boot environment tooling and boot scripts.
 - Linux kernel and devicetree integration.
@@ -9,10 +9,10 @@ It intentionally focuses on the ARM side while Vivado is still being installed:
 - board init/config files and developer packages.
 - FIT firmware packaging using an existing `system_top.bit`.
 
-Vivado is still required later for new FPGA bitstreams, XSA exports, FSBL
-generation, and BOOT.bin regeneration. Until then, ARM-only firmware work can
-reuse the known-good vendor bitstream already present in the vendor firmware
-source or recovery image set.
+Vivado 2025.1 is now installed locally under `/opt/Xilinx/2025.1/Vivado`, but
+this Yocto flow still reuses the known-good vendor bitstream until a newly built
+FPGA image is reviewed. Vitis/XSCT is not installed in the minimal Vivado pass,
+so FSBL/XSA application flows still need additional tooling.
 
 ## Local Layout
 
@@ -351,9 +351,9 @@ against the original vendor Makefile because the first porting priority is to
 preserve the vendor defconfigs and DTS behavior.
 
 The Yocto U-Boot recipe currently deploys `u-boot.bin`. Rebuilding the complete
-QSPI boot block, including FSBL and `BOOT.bin`, remains out of scope until
-Vivado/Vitis/bootgen are ready. ARM-only work should target the Pluto-style FIT
-payload in `mtd3`, not `mtd0`.
+QSPI boot block, including FSBL and `BOOT.bin`, remains out of scope until the
+Vitis/XSCT requirement and boot-image flow are resolved. ARM-only work should
+target the Pluto-style FIT payload in `mtd3`, not `mtd0`.
 
 When doing an intentional long build, keep the proxy exported for the
 `yoctobuilder` shell. Without it, Yocto's connectivity check and source fetches
@@ -361,7 +361,7 @@ can fail even though root's shell has proxy variables.
 
 ## Package A Pluto-Style FIT Without Vivado
 
-This step is possible before Vivado is ready if an existing known-good
+This step is possible without rebuilding FPGA logic if an existing known-good
 `system_top.bit` is available. Use the vendor `scripts/pluto.its` layout as the
 reference: it packages `zImage`, `rootfs.cpio.gz`, `zynq-pluto-sdr.dtb`, and
 `system_top.bit` into `pluto.itb`.
@@ -434,7 +434,8 @@ cat pluto.itb pluto.frm.md5 > pluto.frm
 ```
 
 This updates the ARM firmware payload while preserving the FPGA image. Do not
-regenerate `BOOT.bin` until Vivado/Vitis and `bootgen` are available.
+regenerate `BOOT.bin` until the Vitis/XSCT and FSBL flow is explicitly
+validated.
 
 ## Flashing And Boot Test
 

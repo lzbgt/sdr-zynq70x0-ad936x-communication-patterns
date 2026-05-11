@@ -43,16 +43,19 @@ Use WSL Arch Linux as the working repo and host-control environment:
 
 Use the Linux Vivado installer inside WSL's Linux filesystem for the first local
 FPGA bring-up. Arch WSL is not an AMD-supported Vivado host profile, but this
-machine has enough WSL ext4 disk space and already builds the ARM-side Yocto
-image locally. If Vivado GUI, synthesis, Vitis, cable drivers, or license
-handling fail in Arch WSL, move the same repo and installer archive to Ubuntu
-22.04/24.04 WSL or native Linux.
+machine has enough WSL ext4 disk space, already builds the ARM-side Yocto image
+locally, and now runs Vivado 2025.1 headless batch mode. If Vivado GUI,
+synthesis, Vitis, cable drivers, or license handling fail in Arch WSL, move the
+same repo and installer archive to Ubuntu 22.04/24.04 WSL or native Linux.
 
 Recommended first full-build environment:
 
 - WSL Arch with Linux Vivado installed under `/opt/Xilinx`, not `/mnt/c`.
-- Vivado/Vitis `2025.1` is available locally under
-  `/mnt/c/baidunetdiskdownload/vivado`; see `docs/vivado-linux-wsl.md`.
+- Vivado `2025.1` is installed locally under `/opt/Xilinx/2025.1/Vivado`;
+  `./tools/verify_vivado_install.sh` verifies `vivado`, `bootgen`, and
+  headless batch startup.
+- Vitis/XSCT is not installed in the minimal pass. Add it later if FSBL/XSA or
+  application workflows need the AMD embedded tooling.
 - Vivado `2023.2` is the version named by the vendor Pluto-compatible SDR-Z203
   firmware notes. Expect possible migration work if building that tree with
   Vivado 2025.1.
@@ -69,11 +72,12 @@ Practical decision:
 
 1. Use WSL Arch plus Yocto for rootfs, ARM packages, U-Boot environment tooling,
    and kernel/devicetree porting.
-2. Reuse the known-good `system_top.bit` for ARM-only FIT packaging until Vivado
-   is ready.
+2. Reuse the known-good `system_top.bit` for ARM-only FIT packaging until a new
+   Vivado-built bitstream is reviewed.
 3. Keep QSPI bootloader/environment changes out of scope for initial Yocto
    bring-up.
-4. Add Vivado-generated XSA/bitstream/FSBL/BOOT.bin work later.
+4. Use the installed Vivado to open/build the vendor FPGA project next; defer
+   FSBL/BOOT.bin regeneration until the Vitis/XSCT requirement is resolved.
 5. Use openwifi's documented flow separately for 802.11 experiments.
 
 Developer-facing Yocto commands are in `docs/yocto-arm-firmware.md`.
@@ -143,7 +147,7 @@ cd plutosdr-fw
 
 export CROSS_COMPILE=arm-linux-gnueabihf-
 export PATH=$PATH:/Toolchain-PATH/gcc-linaro-7.3.1-2018.05-i686_arm-linux-gnueabihf/bin
-export VIVADO_SETTINGS=/opt/Xilinx/Vivado/2023.2/settings64.sh
+export VIVADO_SETTINGS=/opt/Xilinx/2023.2/Vivado/settings64.sh
 export PERL_MM_OPT=
 export TARGET=pluto
 make

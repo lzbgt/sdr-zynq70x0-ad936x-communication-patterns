@@ -77,7 +77,7 @@ Board-side facts from live captures:
   `u-boot.bin`.
 - A Pluto-style `pluto.frm` payload can now be packaged locally from the Yocto
   ARM outputs plus the known-good vendor `system_top.bit`. Full QSPI `BOOT.bin`
-  regeneration is deferred until Vivado/Vitis/bootgen are ready.
+  regeneration is deferred until the Vitis/XSCT and FSBL flow is validated.
 - The Yocto-generated ARM firmware has been flashed to QSPI `mtd3` and booted
   successfully. Post-flash checks passed for USB RNDIS networking, DHCP host IP
   `192.168.2.10`, `iiod`, HTTP `/www`, and `iio_info -u ip:192.168.2.1`.
@@ -85,6 +85,13 @@ Board-side facts from live captures:
   extracted vendor source: USB gadget/RNDIS + FunctionFS IIO startup,
   mass-storage update scripts, `/opt/vfat.img`, `/www`, `device_reboot`,
   mtd2 helpers, `iio_info`, `lighttpd`, and a repeatable rootfs audit script.
+- Vivado 2025.1 ML Enterprise is installed locally under WSL Arch at
+  `/opt/Xilinx/2025.1/Vivado` with Zynq-7000 support. `vivado -version`,
+  `bootgen -help`, and headless `vivado -mode batch` startup pass via
+  `./tools/verify_vivado_install.sh`.
+- This is currently a Vivado-only install; Vitis/XSCT is not installed yet.
+  That is enough for initial FPGA project validation and bitstream generation,
+  but FSBL/XSA/application workflows may require adding Vitis later.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -144,6 +151,8 @@ user and vendor configuration.
   archive, and disk-space state without extracting the installer.
 - `tools/extract_vivado_linux_installer.sh` - extract the offline Vivado
   installer onto the WSL/Linux ext4 filesystem.
+- `tools/verify_vivado_install.sh` - check the installed Vivado/Bootgen tools,
+  license environment, Arch compatibility link, and headless batch startup.
 
 ## Important Source Material
 
@@ -160,9 +169,10 @@ Large source artifacts intentionally not copied into this repo:
   - about 15 GiB and still marked as downloading.
 - full Vivado/MATLAB/VMware installers and OS images.
 
-Vivado 2025.1 local installer material is currently external at
-`/mnt/c/baidunetdiskdownload/vivado`. The WSL root filesystem has enough space
-for a Linux-side install under `/opt/Xilinx`; see `docs/vivado-linux-wsl.md`.
+Vivado 2025.1 local installer material is external at
+`/mnt/c/baidunetdiskdownload/vivado`. The offline installer is extracted under
+`/opt/xilinx-installers`, and the working Linux-side Vivado install is under
+`/opt/Xilinx`; see `docs/vivado-linux-wsl.md`.
 
 Local build/source workspaces intentionally ignored by git:
 
@@ -208,3 +218,6 @@ Expected result in the current Pluto-compatible firmware state:
    by boot log, file version, or binary hash where possible.
 3. Decide which large vendor artifacts belong in external storage instead of
    this git repo.
+4. Open or build the vendor FPGA project/Tcl flow in Vivado batch mode and
+   compare the generated part, constraints, bitstream, and XSA assumptions
+   against `docs/schematic-notes.md`.
