@@ -77,6 +77,13 @@ multi-gigabyte Pluto source archives are not copied.
   reboot capture confirming Z7020/AD9363, QSPI MTD layout, and `mode=2r2t`.
 - `live-captures/serial_COM5_mtd2_diag_20260511-010316.txt` - read-only COM5
   diagnostic for the `qspi-nvmfs` / `mtd2` JFFS2 mount failure.
+- `live-captures/sd-boot-probe-20260511.txt` - COM5 runtime probe after
+  factory 2R2T SD boot.
+- `live-captures/sd-boot-mmc-probe-20260511.txt` - COM5 runtime SD/MMC probe
+  after factory 2R2T SD boot.
+- `live-captures/serial_COM5_sd_reboot_20260511.txt` - COM5 reboot capture
+  proving U-Boot loaded `uEnv.txt`, `uImage`, `devicetree.dtb`, and
+  `uramdisk.image.gz` from the SD card.
 
 ## Command Inputs
 

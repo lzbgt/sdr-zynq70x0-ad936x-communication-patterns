@@ -1,0 +1,111 @@
+﻿# Serial command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-11T21:36:28.5376528+08:00
+
+# >>> 
+
+# 
+# >>> root
+root
+-sh: root: not found
+# 
+# >>> analog
+analog
+-sh: analog: not found
+# 
+# >>> echo __SERIAL_LOGIN_READY__
+echo __SERIAL_LOGIN_READY__
+__SERIAL_LOGIN_READY__
+# 
+# >>> echo __SD_BOOT_MMC_START__
+echo __SD_BOOT_MMC_START__
+__SD_BOOT_MMC_START__
+# 
+# >>> ls -la /sys/block
+ls -la /sys/block
+total 0
+drwxr-xr-x    2 root     root             0 Jan  1 00:02 [1;34m.[m
+dr-xr-xr-x   12 root     root             0 Jan  1 00:00 [1;34m..[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop0[m -> [1;34m../devices/virtual/block/loop0[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop1[m -> [1;34m../devices/virtual/block/loop1[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop2[m -> [1;34m../devices/virtual/block/loop2[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop3[m -> [1;34m../devices/virtual/block/loop3[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop4[m -> [1;34m../devices/virtual/block/loop4[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop5[m -> [1;34m../devices/virtual/block/loop5[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop6[m -> [1;34m../devices/virtual/block/loop6[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mloop7[m -> [1;34m../devices/virtual/block/loop7[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mmmcblk0[m -> [1;34m../devices/soc0/amba/e0100000.mmc/mmc_host/mmc0/mmc0:b36b/block/mmcblk0[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mmtdblock0[m -> [1;34m../devices/soc0/amba/e000d000.spi/spi_master/spi1/spi1.0/mtd/mtd0/mtdblock0[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mmtdblock1[m -> [1;34m../devices/soc0/amba/e000d000.spi/spi_master/spi1/spi1.0/mtd/mtd1/mtdblock1[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mmtdblock2[m -> [1;34m../devices/soc0/amba/e000d000.spi/spi_master/spi1/spi1.0/mtd/mtd2/mtdblock2[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mmtdblock3[m -> [1;34m../devices/soc0/amba/e000d000.spi/spi_master/spi1/spi1.0/mtd/mtd3/mtdblock3[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram0[m -> [1;34m../devices/virtual/block/ram0[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram1[m -> [1;34m../devices/virtual/block/ram1[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram10[m -> [1;34m../devices/virtual/block/ram10[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram11[m -> [1;34m../devices/virtual/block/ram11[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram12[m -> [1;34m../devices/virtual/block/ram12[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram13[m -> [1;34m../devices/virtual/block/ram13[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram14[m -> [1;34m../devices/virtual/block/ram14[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram15[m -> [1;34m../devices/virtual/block/ram15[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram2[m -> [1;34m../devices/virtual/block/ram2[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram3[m -> [1;34m../devices/virtual/block/ram3[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram4[m -> [1;34m../devices/virtual/block/ram4[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram5[m -> [1;34m../devices/virtual/block/ram5[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram6[m -> [1;34m../devices/virtual/block/ram6[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram7[m -> [1;34m../devices/virtual/block/ram7[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram8[m -> [1;34m../devices/virtual/block/ram8[m
+lrwxrwxrwx    1 root     root             0 Jan  1 00:02 [1;36mram9[m -> [1;34m../devices/virtual/block/ram9[m
+# 
+# >>> find /sys/block -maxdepth 2 -type l -o -type d | grep -E 'mmc|mtd' | sort
+find /sys/block -maxdepth 2 -type l -o -type d | grep -E 'mmc|mtd' | sort
+/sys/block/mmcblk0
+/sys/block/mtdblock0
+/sys/block/mtdblock1
+/sys/block/mtdblock2
+/sys/block/mtdblock3
+# 
+# >>> cat /proc/partitions
+cat /proc/partitions
+major minor  #blocks  name
+
+   1        0      16384 ram0
+   1        1      16384 ram1
+   1        2      16384 ram2
+   1        3      16384 ram3
+   1        4      16384 ram4
+   1        5      16384 ram5
+   1        6      16384 ram6
+   1        7      16384 ram7
+   1        8      16384 ram8
+   1        9      16384 ram9
+   1       10      16384 ram10
+   1       11      16384 ram11
+   1       12      16384 ram12
+   1       13      16384 ram13
+   1       14      16384 ram14
+   1       15      16384 ram15
+   7        7      30720 loop7
+  31        0       1024 mtdblock0
+  31        1        128 mtdblock1
+  31        2        896 mtdblock2
+  31        3      30720 mtdblock3
+ 179        0   30635008 mmcblk0
+ 179        1   30633983 mmcblk0p1
+# 
+# >>> dmesg | grep -Ei 'mmc|sdhci|zynq.*sd|FAT|U-Boot|Copying Linux|Loaded environment|root=/dev/ram' || true
+dmesg | grep -Ei 'mmc|sdhci|zynq.*sd|FAT|U-Boot|Copying Linux|Loaded environme
+nt|root=/dev/ram' || true
+sdhci: Secure Digital Host Controller Interface driver
+sdhci: Copyright(c) Pierre Ossman
+sdhci-pltfm: SDHCI platform and OF driver helper
+mmc0: SDHCI controller on e0100000.mmc [e0100000.mmc] using ADMA
+mmc0: new high speed SDHC card at address b36b
+mmcblk0: mmc0:b36b SDABC 29.2 GiB 
+ mmcblk0: p1
+# 
+# >>> echo __SD_BOOT_MMC_END__
+echo __SD_BOOT_MMC_END__
+__SD_BOOT_MMC_END__
+# 
+# Stopped: 2026-05-11T21:36:53.9475239+08:00

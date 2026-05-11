@@ -196,6 +196,53 @@ Vendor-source follow-up:
 - `S21misc` and `S98autostart` treat `/mnt/jffs2` as optional persistent
   storage for passwords, Dropbear keys, SSH authorized keys, and `autorun.sh`.
 
+## Factory 2R2T SD Boot Verification
+
+Raw captures:
+
+- `resources/live-captures/sd-boot-probe-20260511.txt`
+- `resources/live-captures/sd-boot-mmc-probe-20260511.txt`
+- `resources/live-captures/serial_COM5_sd_reboot_20260511.txt`
+
+Preparation:
+
+- Windows mounted the SD card as drive `E:`.
+- WSL mounted it as `/mnt/e` with `drvfs`.
+- The volume was a 31.35 GiB FAT32 removable card.
+- `.config/sdcard-staging/factory-2r2t` was copied with:
+
+```sh
+CLEAN=1 ./tools/install_sd_boot_files.sh .config/sdcard-staging/factory-2r2t /mnt/e
+```
+
+- `SHA256SUMS` verification passed for `BOOT.bin`, `uEnv.txt`, `uImage`,
+  `devicetree.dtb`, and `uramdisk.image.gz`.
+
+Hard bootloader confirmation from COM5 after issuing `reboot`:
+
+```text
+reading uEnv.txt
+Importing environment from SD ...
+Device: sdhci@e0100000
+Capacity: 29.2 GiB
+Loaded environment from uEnv.txt
+Copying Linux from SD to RAM...
+reading uImage
+reading devicetree.dtb
+reading uramdisk.image.gz
+## Booting kernel from Legacy Image at 02080000 ...
+Starting kernel ...
+```
+
+Runtime confirmation:
+
+- `/proc/cmdline`:
+  `console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk`.
+- `/proc/partitions` includes `mmcblk0` and `mmcblk0p1`.
+- `dmesg` includes SDHCI initialization and SD card detection:
+  `mmc0: new high speed SDHC card` and `mmcblk0: p1`.
+- Post-boot `./tools/verify_board.sh` passed: ping, IIO, and HTTP were alive.
+
 ## Yocto ARM Firmware Build
 
 Local build root:

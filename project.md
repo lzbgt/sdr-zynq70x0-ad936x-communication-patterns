@@ -108,6 +108,12 @@ Board-side facts from live captures:
   `boot-qspi.bin`, SD-card-style `BOOT.BIN`, and vendor-shaped `boot.frm`.
   These are generated for recovery/developer use only; the repo pipeline still
   does not flash QSPI `mtd0` or `mtd1`.
+- Factory 2R2T SD-card boot is verified. The card was prepared by copying
+  `BOOT.bin`, `uEnv.txt`, `uImage`, `devicetree.dtb`, and
+  `uramdisk.image.gz` to the first FAT32 partition. COM5 reboot capture shows
+  U-Boot reading `uEnv.txt` from SD, importing the SD environment, loading those
+  three Linux artifacts from `mmc 0`, and starting the kernel. Post-boot ping,
+  IIO, and HTTP checks passed.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for

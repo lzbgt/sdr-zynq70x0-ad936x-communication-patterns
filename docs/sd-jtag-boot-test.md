@@ -46,6 +46,31 @@ The recommended first physical test is `factory-2r2t`, because those files are
 known vendor SD boot inputs and provide a clean recovery-path baseline. After
 factory SD boot works, test `yocto`.
 
+## Verified Factory 2R2T SD Boot
+
+Status on 2026-05-11: verified.
+
+Evidence:
+
+- The SD card was prepared from `.config/sdcard-staging/factory-2r2t` and
+  checksum-verified after copying.
+- COM5 reboot capture shows U-Boot reading `uEnv.txt` from SD.
+- U-Boot reports the inserted SD card as a 29.2 GiB SDHC card on
+  `sdhci@e0100000`.
+- U-Boot logs `Loaded environment from uEnv.txt`,
+  `Copying Linux from SD to RAM...`, then reads `uImage`, `devicetree.dtb`, and
+  `uramdisk.image.gz`.
+- Kernel command line after SD boot:
+  `console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk`.
+- Linux sees `mmcblk0` and `mmcblk0p1`.
+- Post-boot `./tools/verify_board.sh` passed.
+
+Raw captures:
+
+- `resources/live-captures/sd-boot-probe-20260511.txt`
+- `resources/live-captures/sd-boot-mmc-probe-20260511.txt`
+- `resources/live-captures/serial_COM5_sd_reboot_20260511.txt`
+
 ## Copy To SD Card
 
 This is a file-copy boot layout, not a raw disk-image write. Zynq BootROM can
