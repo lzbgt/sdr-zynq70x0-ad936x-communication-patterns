@@ -592,6 +592,22 @@ PS-to-PL AXI access to the ADI DMA fabric, so the built-in `axi_dmac` driver
 hangs during probe. The capture does not reach `brd: module loaded`, `Run /init
 as init process`, `Welcome to Pluto`, USB networking, IIO, or HTTP.
 
+Static FSBL comparison:
+
+- The OpenOCD path already runs the generated PS7 init and post-config writes.
+  In `.config/boot-artifacts/sdt/ps7_init.tcl`, `ps7_post_config_3_0` enables
+  PS/PL level shifters at `0xF8000900` and releases FPGA resets at
+  `0xF8000240`.
+- The generated FSBL also calls `ps7_post_config()` after PL configuration. In
+  JTAG boot mode it checks devcfg `PCFG_DONE`, runs `ps7_post_config()`, clears
+  the FSBL mark, locks SLCR, and exits through `FsblHandoffJtagExit()`.
+- The unverified gap is therefore not just the two post-config register writes.
+  It is the complete FSBL PCAP/JTAG-exit sequencing and whether that path makes
+  the ADI PL AXI windows visible before U-Boot or Linux access them.
+
+See `docs/jtag-ps-pl-axi-boundary.md` for the focused boundary note and next
+clean-DAP experiment order.
+
 Operational note: the direct PL AXI fault can leave OpenOCD reporting DAP
 sticky or DSCR errors. Writing the ADIv5 ABORT register cleared one OpenOCD
 session enough to exit, but did not make `tools/reset_openocd_zynq_ps.sh`

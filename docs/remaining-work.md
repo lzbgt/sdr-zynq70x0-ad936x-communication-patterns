@@ -96,6 +96,13 @@ Remaining candidate implementation:
    PS-to-PL AXI/fabric accessibility, not U-Boot command timing or rootfs
    bootargs.
 
+The detailed comparison is in `docs/jtag-ps-pl-axi-boundary.md`. Current
+reading: OpenOCD already reproduces the generated `ps7_post_config` level
+shifter and FPGA reset writes, but it has not yet reproduced the complete FSBL
+PCAP/JTAG-exit sequencing. The next clean-DAP test should let FSBL observe
+`PCFG_DONE`, run its own `ps7_post_config()` / `FsblHandoffJtagExit()` path, and
+only then probe the ADI PL AXI-DMAC window.
+
 Prepared and partially verified:
 
 - `tools/run_openocd_jtag_linux_ram.sh` now resets PS, loads PL, preloads

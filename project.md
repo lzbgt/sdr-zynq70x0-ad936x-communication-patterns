@@ -145,7 +145,11 @@ Board-side facts from live captures:
   `axi_dmac_driver_init`; a direct OpenOCD DAP read of the RX AXI-DMAC register
   at `0x7c400000` also fails after PS7 init and PL programming. This narrows
   the remaining issue to PS-to-PL AXI/fabric accessibility in the JTAG RAM boot
-  path. It does not reach userspace, USB networking, IIO, or HTTP.
+  path. Static comparison shows OpenOCD already runs the generated
+  `ps7_post_config` level-shifter and FPGA-reset writes; the remaining
+  experiment is whether FSBL-owned PCAP/JTAG-exit sequencing makes the ADI PL
+  AXI windows visible. It does not reach userspace, USB networking, IIO, or
+  HTTP.
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.
@@ -162,6 +166,8 @@ user and vendor configuration.
 - `docs/known-good-workflows.md` - condensed command guide for verified build,
   flash, SD boot, JTAG, and recovery workflows.
 - `docs/remaining-work.md` - concrete remaining gates and follow-up work.
+- `docs/jtag-ps-pl-axi-boundary.md` - focused Linux-from-RAM JTAG PS-to-PL AXI
+  boundary analysis and next clean-DAP experiments.
 - `docs/how-to-use.md` - practical host setup and usage flows.
 - `docs/source-build-from-scratch.md` - how to build/customize FPGA firmware,
   ARM Linux/rootfs, and applications from source-oriented trees.
