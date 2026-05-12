@@ -428,8 +428,10 @@ AXI-lite shell. It now drives submitted descriptors through
 loopback. `rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first
 stream-shaped packet boundary: it consumes completed RX descriptors, reads
 packet bytes from memory, and emits AXI-stream-style bytes with metadata and
-`tlast`. The next PL target is wiring that stream source to a sink/DMA-facing
-boundary and then scaling descriptor storage, not the final RF waveform.
+`tlast`. `rtl/fieldmesh/fieldmesh_packet_axis_sink.v` is the matching ingress
+boundary: it accepts AXI-stream-style bytes, writes packet memory, and emits a
+completed descriptor on `tlast`. The next PL target is a DMA/IIO-facing shell
+around that stream pair, not the final RF waveform.
 
 ## Implementation Notes
 

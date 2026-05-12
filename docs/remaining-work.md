@@ -117,9 +117,11 @@ Next concrete work:
   verifies C0/C2/C4 drain order through copied packet bytes while RX completion
   backpressure is active. The packet AXI-stream source now verifies completed
   RX descriptor consumption, byte streaming, `tlast`, metadata sidebands,
-  backpressure, and invalid-descriptor drops. The remaining PL work is adding a
-  stream sink or DMA-facing wrapper, scaling descriptor storage, and then
-  binding the path to IIO/PL.
+  backpressure, and invalid-descriptor drops. The packet AXI-stream sink now
+  verifies byte ingress into packet memory, completion descriptor generation,
+  pending-descriptor backpressure, and out-of-range drops. The remaining PL
+  work is wrapping the source/sink pair in a DMA- or IIO-facing shell, scaling
+  descriptor storage, and then binding the path to IIO/PL.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

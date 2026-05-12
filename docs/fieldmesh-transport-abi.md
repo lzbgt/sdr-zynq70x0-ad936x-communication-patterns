@@ -194,6 +194,13 @@ stream ID, and slot sideband fields. The test verifies backpressure holds data
 stable, `tlast` marks the final byte, metadata remains attached to the packet,
 and invalid descriptors are dropped with `fault` set.
 
+`rtl/fieldmesh/fieldmesh_packet_axis_sink.v` is the matching stream ingress
+boundary. It accepts 8-bit AXI-stream-style packet bytes, writes them into
+local packet memory from a configured base address, and emits a completed RX
+descriptor on `tlast`. The test verifies byte writes, descriptor metadata,
+deasserted `tready` while a completion descriptor is pending, and out-of-range
+packet drops.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -213,7 +220,7 @@ Move these responsibilities into PL only when measured pressure justifies it:
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
-AXI-stream source simulations green before adding DMA wiring or IIO/RF
+AXI-stream source/sink simulations green before adding DMA wiring or IIO/RF
 transport binding.
 
 ### Shared Descriptor
@@ -319,9 +326,11 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 4. Validate with `tools/fieldmesh_trace_assert.py`.
 5. Add a PL loopback register block and descriptor ring with no RF path.
 6. Validate packet loopback and class priority under stress.
-7. Add a packet stream boundary and validate backpressure/TLAST behavior.
-8. Scale descriptor memory and add timestamp/slot gates.
-9. Only then connect the RF/baseband path.
+7. Add packet stream source/sink boundaries and validate backpressure/TLAST
+   behavior.
+8. Wrap the stream pair in a DMA-facing or IIO-facing integration shell.
+9. Scale descriptor memory and add timestamp/slot gates.
+10. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

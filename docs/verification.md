@@ -1684,13 +1684,14 @@ Result: `fieldmesh_desc_loopback_core_tb`,
 `fieldmesh_desc_loopback_regs_tb`, `fieldmesh_desc_loopback_axi_lite_tb`,
 `fieldmesh_packet_mem_loopback_core_tb`, `fieldmesh_packet_mem_axi_lite_tb`,
 `fieldmesh_class_priority_queue_tb`, and
-`fieldmesh_class_descriptor_rings_tb`, and `fieldmesh_packet_axis_source_tb`
-passed. The core testbench accepts valid C0 and C4 descriptors, checks OWN
-clearing and DONE/timestamp-valid completion, then rejects an invalid C5
-descriptor with `drop_count=1` and `fault=1`. The register-wrapper testbench
-verifies `FM_ID`, control/status bits, register-mapped TX descriptor submit, RX
-descriptor readback, RX ack, and the same invalid-class drop path. The AXI-lite
-testbench verifies full-word register access, split AW/W write handling,
+`fieldmesh_class_descriptor_rings_tb`, `fieldmesh_packet_axis_source_tb`, and
+`fieldmesh_packet_axis_sink_tb` passed. The core testbench accepts valid C0 and
+C4 descriptors, checks OWN clearing and DONE/timestamp-valid completion, then
+rejects an invalid C5 descriptor with `drop_count=1` and `fault=1`. The
+register-wrapper testbench verifies `FM_ID`, control/status bits,
+register-mapped TX descriptor submit, RX descriptor readback, RX ack, and the
+same invalid-class drop path. The AXI-lite testbench verifies full-word
+register access, split AW/W write handling,
 descriptor submit, RX readback, and RX ack through the AXI-lite shell. The
 packet-memory testbench writes a five-byte payload into local TX memory,
 verifies the copied RX bytes, and rejects an out-of-range descriptor. The
@@ -1705,8 +1706,11 @@ test enqueues C4/C4, C2/C2, then C0 and verifies dequeue order C0, C2, C2, C4,
 C4, then checks full-ring and invalid-class drops. The packet AXI-stream source
 test consumes a completed RX descriptor, emits four bytes with backpressure and
 `tlast`, preserves class/mode/stream/slot sidebands, and drops an invalid
-descriptor with `fault` set. This does not instantiate DMA, IIO, scaled
-descriptor memory, or RF logic yet.
+descriptor with `fault` set. The packet AXI-stream sink test accepts four bytes
+into packet memory, emits the expected completed descriptor, deasserts `tready`
+while that descriptor is pending, and drops an out-of-range packet with `fault`
+set. This does not instantiate DMA, IIO, scaled descriptor memory, or RF logic
+yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 

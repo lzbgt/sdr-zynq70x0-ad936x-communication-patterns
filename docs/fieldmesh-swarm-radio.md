@@ -414,6 +414,9 @@ Milestone 1: Common packet pipe
   `rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first stream-shaped
   packet boundary after packet memory, with AXI-stream-style byte output,
   `tlast`, backpressure, and packet metadata sidebands.
+  `rtl/fieldmesh/fieldmesh_packet_axis_sink.v` is the matching stream ingress
+  boundary, writing bytes into packet memory and emitting a completed
+  descriptor on `tlast`.
 
 Milestone 2: P2P profile
 
