@@ -77,7 +77,9 @@ memory endpoint"; it is specifically "bind the same shim frames to IIO or PL."
 The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan` and
 `fieldmesh-udp-probe iio-plan`, and `tools/run_fieldmesh_board_iio_scan.sh`
 captures board-local IIO readiness plus read-only RX/TX packet-pipe candidate
-selection once runtime SSH access is restored. `resources/fieldmesh/vectors/`
+selection once runtime SSH access is restored. The helper now writes a
+`preflight_assert.json` summary through `tools/fieldmesh_iio_preflight_assert.py`,
+which can also revalidate saved captures offline. `resources/fieldmesh/vectors/`
 now pins the packet and shim-frame bytes that IIO and PL loopback
 implementations must carry unchanged.
 
@@ -91,6 +93,9 @@ Next concrete work:
 - Run `tools/run_fieldmesh_board_iio_scan.sh` on the same reachable board image
   before attempting IIO packet transport, and capture both the IIO device
   inventory and `iio-plan` RX/TX candidate selection.
+  Current live check on 2026-05-13 found no response at `192.168.2.1` and only
+  the FT2232 JTAG/UART USB device in WSL, so this is gated on restoring or
+  reattaching the Pluto/RNDIS data USB function.
 - Keep `tools/fieldmesh_vector_tool.py verify` and `verify-c` checks green as
   packet bytes move into IIO or PL. `verify-c` runs C `verify-frame`,
   `mmap-replay`, `desc-replay`, and `pl-replay`, including descriptor field

@@ -59,7 +59,9 @@ The Yocto-built C probe also has `fieldmesh-udp-probe iio-scan --iio-uri
 local:` and `fieldmesh-udp-probe iio-plan --iio-uri local:`. These modes only
 enumerate the selected IIO context and rank RX/TX buffer candidates from
 device/channel metadata; they are runtime preflights for this stage, not
-FieldMesh packet transports.
+FieldMesh packet transports. `tools/fieldmesh_iio_preflight_assert.py` validates
+their NDJSON captures offline so live board evidence can be rechecked without
+rerunning the board.
 
 Candidate shape:
 

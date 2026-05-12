@@ -399,6 +399,9 @@ user and vendor configuration.
   that runs `fieldmesh-udp-probe iio-scan` and `iio-plan` on a reachable
   rebuilt board image, verifies that at least one IIO device is visible
   locally, and records read-only RX/TX packet-pipe candidate selection.
+- `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
+  `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
+  emit a reusable `preflight_assert.json` summary.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.

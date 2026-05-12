@@ -33,32 +33,9 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_scan" "$out_dir/iio_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_plan" "$out_dir/iio_plan.ndjson"
 
-python3 - "$out_dir/iio_scan.ndjson" "$out_dir/iio_plan.ndjson" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-rows = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines() if line.strip()]
-end = next((row for row in rows if row.get("event") == "iio_scan_end"), None)
-devices = [row for row in rows if row.get("event") == "iio_device"]
-plan_rows = [json.loads(line) for line in Path(sys.argv[2]).read_text().splitlines() if line.strip()]
-plan_end = next((row for row in plan_rows if row.get("event") == "iio_plan_end"), None)
-
-if end is None:
-    raise SystemExit("missing iio_scan_end")
-if end.get("ok") is not True:
-    raise SystemExit(f"iio scan failed: {end}")
-if not devices:
-    raise SystemExit("iio scan reported no devices")
-if plan_end is None:
-    raise SystemExit("missing iio_plan_end")
-if plan_end.get("ok") is not True:
-    raise SystemExit(f"iio plan failed: {plan_end}")
-
-print(
-    "FieldMesh board IIO scan passed: "
-    f"{len(devices)} devices, rx={plan_end.get('rx_device')}, tx={plan_end.get('tx_device')}"
-)
-PY
+"$repo_root/tools/fieldmesh_iio_preflight_assert.py" \
+    "$out_dir/iio_scan.ndjson" \
+    "$out_dir/iio_plan.ndjson" \
+    | tee "$out_dir/preflight_assert.json"
 
 echo "Capture directory: $out_dir"

@@ -339,7 +339,13 @@ BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_iio_scan.sh
 The helper runs `fieldmesh-udp-probe iio-scan --iio-uri local:` and
 `fieldmesh-udp-probe iio-plan --iio-uri local:` on the board, fetches both
 NDJSON captures, requires at least one IIO device, and requires read-only RX/TX
-packet-pipe candidates.
+packet-pipe candidates. The captured files can be rechecked offline with:
+
+```sh
+./tools/fieldmesh_iio_preflight_assert.py \
+  .config/fieldmesh/board-iio-scan-*/iio_scan.ndjson \
+  .config/fieldmesh/board-iio-scan-*/iio_plan.ndjson
+```
 
 ## Trace Assertions
 

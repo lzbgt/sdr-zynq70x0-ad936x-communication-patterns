@@ -1690,6 +1690,7 @@ IIO packet-pipe planning was added as the next read-only board preflight:
 ```sh
 fieldmesh-udp-probe iio-plan --iio-uri local:
 bash -n tools/run_fieldmesh_board_iio_scan.sh
+python3 -m py_compile tools/fieldmesh_iio_preflight_assert.py
 ./tools/yocto_arm_as_builder.sh bitbake fieldmesh-udp-probe
 ./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
 ```
@@ -1698,6 +1699,24 @@ Result: host compilation still passes without libiio support, and both Yocto
 probe recipes rebuild with the libiio-linked `iio-plan` role. The role only
 enumerates device/channel metadata and ranks RX/TX candidates; it does not open
 or enable IIO buffers.
+
+The board helper now delegates saved-capture validation to
+`tools/fieldmesh_iio_preflight_assert.py`, which was checked with a synthetic
+scan/plan NDJSON pair. The assertion requires scan success, at least one IIO
+device, plan success, at least one candidate, positive RX/TX scores, selected
+RX/TX devices, and `opens_buffers=false`.
+
+Live board reachability check on 2026-05-13:
+
+```sh
+ping -c 1 -W 2 192.168.2.1
+lsusb
+```
+
+Result: `192.168.2.1` did not answer, and WSL only showed the FT2232
+`0403:6010` JTAG/UART USB device, not the Pluto/RNDIS data USB function. Live
+`run_fieldmesh_board_iio_scan.sh` remains gated until the board is booted into
+a runtime image with the data USB function attached to WSL.
 
 ## FieldMesh Board Runtime Probe
 
