@@ -127,6 +127,18 @@ The archives are about 3.1 GiB each compressed, so they stay external. They are
 full source/build trees with `hdl`, `linux`, `u-boot-xlnx`, `buildroot`, SDK
 exports, and generated artifacts.
 
+The related SDR-Z103 Z7010+AD9363 1R1T board has its schematic, firmware files,
+and user-facing board information under:
+
+```text
+/mnt/c/baidunetdiskdownload/SDR-Z103
+```
+
+User guidance is that most source code is identical to the SDR-Z203 source
+pattern except for the 1R1T vs 2R2T and Zynq-7010 vs Zynq-7020 boundaries. Do
+not reuse SDR-Z203 generated PS configuration, bitstreams, or boot images for
+SDR-Z103.
+
 A lightweight index of those archives is generated locally at:
 
 `resources/source-index/pluto-archive-inventory.md`
@@ -277,9 +289,9 @@ Customization points:
 - RFIC behavior: no-OS AD936x initialization tables and runtime commands.
 - Board support: PS7 init, DDR, MIO, SPI, GPIO, clock/reset, XDC pin constraints.
 
-For the SDR-Z201 Z7010+AD9363 1R1T board, do not reuse a Z7020 bitstream. Make
+For the SDR-Z103 Z7010+AD9363 1R1T board, do not reuse a Z7020 bitstream. Make
 a separate Vivado/no-OS platform with the correct `xc7z010...` part, DDR
-configuration, MIO map, and RF channel wiring.
+configuration, MIO map, PS7 init, constraints, and RF channel wiring.
 
 ## openwifi Source Build Path
 
@@ -371,10 +383,11 @@ For this SDR-Z203 2R2T board:
 5. Make one minimal HDL-only observable change and boot from SD/JTAG.
 6. Only after SD/JTAG recovery is repeatable, consider QSPI flashing.
 
-For the SDR-Z201 Z7010+AD9363 1R1T board:
+For the SDR-Z103 Z7010+AD9363 1R1T board:
 
 1. Create a separate board-variant directory and notes file.
-2. Capture its schematic, boot logs, and `iio_info`.
+2. Capture or index its external schematic, firmware files, boot logs, and
+   `iio_info`.
 3. Start from the closest ADI HDL/Pluto/no-OS platform, but change the Xilinx
    part and PS configuration first.
 4. Treat channel count as a board-specific porting task, not a runtime setting.

@@ -15,8 +15,10 @@ current verified boot state it presents itself as a PlutoSDR-compatible device
 over USB Ethernet and IIO.
 
 The SDR-Z203 board in this repo is the Zynq-7020, AD9363, 2R2T variant. A
-related SDR-Z201 board exists with Zynq-7010, AD9363, and 1R1T topology; it is
-similar but must use separate resources and build artifacts.
+related SDR-Z103 board exists with Zynq-7010, AD9363, and 1R1T topology. Most
+source code is expected to be shared with SDR-Z203, but the Zynq-7010 vs
+Zynq-7020 and 1R1T vs 2R2T boundaries require separate resources, constraints,
+PS configuration, and build artifacts.
 
 ## Current Verified State
 
@@ -207,8 +209,8 @@ user and vendor configuration.
   communication modes.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
-- `docs/board-variants.md` - rules for keeping the Z7020 2R2T board separate
-  from the related SDR-Z201 Z7010+AD9363 1R1T board.
+- `docs/board-variants.md` - rules for keeping the Z7020 2R2T SDR-Z203 board
+  separate from the related SDR-Z103 Z7010+AD9363 1R1T board.
 - `docs/serial-capture.md` - Windows/WSL serial and JTAG capture notes.
 - `docs/example-projects.md` - concrete example projects and staged next work.
 - `resources/` - curated copied artifacts from the vendor package and live
@@ -310,7 +312,8 @@ Original vendor package path:
 
 Large source artifacts intentionally not copied into this repo:
 
-- `04源码与文档/pluto/plutosdr-fw-1r1t.zip` - about 3.1 GiB.
+- `04源码与文档/pluto/plutosdr-fw-1r1t.zip` - about 3.1 GiB; common
+  Pluto-style source input for the SDR-Z103-style 1R1T boundary.
 - `04源码与文档/pluto/plutosdr-fw-2r2t.zip` - about 3.1 GiB.
 - `04源码与文档/openwifi/openwifi_z203.img` - about 15 GiB.
 - `04源码与文档/openwifi/openwifi-1.5.0-shahecheng.img.baiduyun.p.downloading`
@@ -321,6 +324,11 @@ Vivado 2025.1 local installer material is external at
 `/mnt/c/baidunetdiskdownload/vivado`. The offline installer is extracted under
 `/opt/xilinx-installers`, and the working Linux-side Vivado install is under
 `/opt/Xilinx`; see `docs/vivado-linux-wsl.md`.
+
+Related SDR-Z103 Z7010+AD9363 1R1T board resources are external at
+`/mnt/c/baidunetdiskdownload/SDR-Z103`, including schematic, firmware files,
+and user-facing board notes. Keep them separate from SDR-Z203 resources until a
+dedicated SDR-Z103 variant folder is created.
 
 Local build/source workspaces intentionally ignored by git:
 

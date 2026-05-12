@@ -1,16 +1,16 @@
 # Board Variants
 
 There are at least two related boards in the wider hardware family. The active
-documentation target is SDR-Z203. SDR-Z201 is kept here only as boundary context:
-similar enough to reuse lessons, different enough that generated artifacts must
-not be shared.
+documentation target is SDR-Z203. SDR-Z103 is kept here only as boundary
+context: similar enough to reuse lessons and much of the source tree, different
+enough that generated artifacts must not be shared.
 
 ## Variant Matrix
 
 | Variant | Zynq | RFIC | User/bench channel note | Status |
 | --- | --- | --- | --- | --- |
 | SDR-Z203 in this repo | Zynq-7020, vendor examples target `xc7z020clg484-2` | AD9363 confirmed; live IIO reports AD9361-mode firmware/driver identity | User confirmed physical board is 2R2T; live IIO has `adi,2rx-2tx-mode-enable = 1` | Verified over `ip:192.168.2.1`; current boot is QSPI flash |
-| SDR-Z201 related board | Zynq-7010 | AD9363 confirmed | User reports 1R1T | Not yet documented or verified in this repo |
+| SDR-Z103 related board | Zynq-7010 | AD9363 confirmed | User reports 1R1T | Not yet documented or verified in this repo; vendor firmware/schematic resources are external under `/mnt/c/baidunetdiskdownload/SDR-Z103` |
 
 ## Why The Split Matters
 
@@ -49,14 +49,26 @@ Current safe build path:
 - boot experiments from SD or JTAG first,
 - flash QSPI only after recovery is proven.
 
-## SDR-Z201 Z7010 + AD9363 1R1T Working Assumptions
+## SDR-Z103 Z7010 + AD9363 1R1T Working Assumptions
 
-Known from user input only:
+Known from user input and external folder listing:
 
-- board is SDR-Z201,
+- board is SDR-Z103,
 - Zynq-7010,
 - AD9363,
-- 1R1T channel topology.
+- 1R1T channel topology,
+- most source code is identical to SDR-Z203 except the 1R1T vs 2R2T
+  board/channel configuration boundary,
+- schematic, firmware, and user-facing board information are external at
+  `/mnt/c/baidunetdiskdownload/SDR-Z103`.
+
+Observed external SDR-Z103 files:
+
+- `SDR-Z103原理图.pdf`
+- `SDR-Z103快速测试指南.pdf`
+- `SDR-Z103 固件烧录指南.pdf`
+- `SDR-Z103-3D模型.step`
+- `boot.bin`, `fsbl.elf`, `pluto.dfu`, `uboot-env.dfu`, `UPDATE.BAT`
 
 Unknown until verified:
 
@@ -66,7 +78,8 @@ Unknown until verified:
 - RF connector wiring,
 - reference clock source,
 - whether its firmware should be Pluto-compatible, no-OS, or custom Linux,
-- whether it already has vendor package resources.
+- exact source archive layout, if separate from the common Pluto-style source
+  trees already indexed for SDR-Z203.
 
 Do not reuse SDR-Z203 Z7020 artifacts on this board:
 
@@ -77,17 +90,17 @@ Do not reuse SDR-Z203 Z7020 artifacts on this board:
 - no QSPI DFU files,
 - no SD-card firmware set.
 
-## Recommended Repo Layout For SDR-Z201
+## Recommended Repo Layout For SDR-Z103
 
-When its resources are available, add:
+When importing its resources, add:
 
 ```text
-resources/variants/sdr-z201-z7010-1r1t/
+resources/variants/sdr-z103-z7010-1r1t/
   board/
   firmware/
   live-captures/
   vendor-notes/
-docs/variants/sdr-z201-z7010-1r1t.md
+docs/variants/sdr-z103-z7010-1r1t.md
 ```
 
 Initial verification checklist:
@@ -108,7 +121,7 @@ for each variant. A useful naming scheme:
 
 ```text
 build-sdr-z203-z7020-2r2t/
-build-sdr-z201-z7010-1r1t/
+build-sdr-z103-z7010-1r1t/
 ```
 
 Every generated artifact should be tagged by variant before it is copied into

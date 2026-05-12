@@ -16,7 +16,7 @@ Start here:
   firmware while Vivado/FPGA work is still pending.
 - `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, clock/PPS,
   GPS, Zynq, and boot-mode wiring.
-- `docs/board-variants.md` - SDR-Z203 Z7020 2R2T vs SDR-Z201 Z7010 AD9363
+- `docs/board-variants.md` - SDR-Z203 Z7020 2R2T vs SDR-Z103 Z7010 AD9363
   1R1T board handling.
 - `docs/serial-capture.md` - Windows/WSL serial boot-log capture flow.
 - `docs/nvmfs-mtd2.md` - `qspi-nvmfs` / `mtd2` JFFS2 diagnostic and recovery
@@ -45,9 +45,10 @@ IIO URI:               ip:192.168.2.1
 ```
 
 Important variant note: the SDR-Z203 in this repo is the Z7020 AD9363 2R2T
-board currently booting from QSPI flash. A related SDR-Z201 Z7010+AD9363 1R1T
-board should get separate docs/resources and must not reuse Z7020 bitstreams or
-boot images.
+board currently booting from QSPI flash. A related SDR-Z103 Z7010+AD9363 1R1T
+board has external schematic/firmware resources under
+`/mnt/c/baidunetdiskdownload/SDR-Z103`; it shares much of the source pattern but
+must not reuse Z7020 bitstreams, PS configuration, or boot images.
 
 Large vendor images and source archives remain outside this repo. The curated
 `resources/` tree contains the recovery firmware, selected references, examples,

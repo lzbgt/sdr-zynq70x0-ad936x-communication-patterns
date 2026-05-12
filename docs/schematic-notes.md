@@ -101,6 +101,9 @@ cycle.
 
 ## Variant Boundary
 
-These notes apply to SDR-Z203 only. SDR-Z201 is similar but is user-confirmed as
-Zynq-7010 + AD9363 + 1R1T, so it needs its own schematic notes, constraints,
-devicetree, boot artifacts, and verification captures.
+These notes apply to SDR-Z203 only. SDR-Z103 is similar but is user-confirmed as
+Zynq-7010 + AD9363 + 1R1T, with schematic and board information external at
+`/mnt/c/baidunetdiskdownload/SDR-Z103`. Most source code may be shared, but the
+Zynq-7010 vs Zynq-7020 and 1R1T vs 2R2T differences still require separate
+schematic notes, constraints, PS configuration, devicetree, boot artifacts, and
+verification captures.

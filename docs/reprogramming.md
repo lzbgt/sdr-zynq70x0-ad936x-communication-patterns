@@ -206,6 +206,18 @@ U-Boot, HDL, SDK export, generated firmware artifacts, and legal-info archives.
 They are about 3.1 GiB each compressed and over 6 GiB expanded, so they should
 be treated as external build inputs unless a smaller extracted subset is needed.
 
+The related 1R1T board is SDR-Z103. Its schematic, direct firmware files, and
+user-facing notes are external at:
+
+```text
+/mnt/c/baidunetdiskdownload/SDR-Z103
+```
+
+Most SDR-Z103 source code is expected to match the SDR-Z203 source pattern, but
+both the Zynq-7010 vs Zynq-7020 and 1R1T vs 2R2T differences are artifact
+boundaries. Do not reuse SDR-Z203 bitstreams, PS7 init, BOOT images, or QSPI
+payloads on SDR-Z103.
+
 Use this path when the project needs:
 
 - kernel or devicetree changes,
