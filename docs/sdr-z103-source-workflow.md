@@ -265,6 +265,9 @@ First live result:
   `timeout waiting for DSCR bit change`.
 - This is the same PS debug-state boundary seen in earlier Z103 Linux follow-up
   attempts, not a Yocto image-format failure.
+- A follow-up `tools/verify_z103_board.sh` run captured 100 percent ping loss to
+  `192.168.2.1`, so the next live step is restoring normal USB/RNDIS or another
+  read path before `tools/backup_z103_qspi_live.sh`.
 
 ## Linux Boot Follow-Up Attempts
 

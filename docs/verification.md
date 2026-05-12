@@ -1456,6 +1456,22 @@ Result:
 - Capture SHA-256:
   `9bec643785949304f2908655f6f8e57737bafa090ccae1f24fa09415a3b0f447`.
 
+Post-boundary reachability check:
+
+```sh
+./tools/verify_z103_board.sh
+```
+
+Result:
+
+- Capture:
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_verify_board_20260513-011409.txt`.
+- WSL network state had only `lo` and `eth0`; no `192.168.2.x` interface was
+  present.
+- Ping to `192.168.2.1` sent 4 packets and received 0 replies.
+- Capture SHA-256:
+  `949d602e08ad77616649c9c0385dfddb61dead9102311055bee3f5acf1350a54`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

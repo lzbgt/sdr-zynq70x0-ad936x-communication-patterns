@@ -183,6 +183,9 @@ Board-side facts from live captures:
   `devicetree.dtb` files from the Yocto outputs. The first live attempt failed
   before image loading at the PS-side DAP/DSCR reset-halt boundary, while the
   JTAG chain still scanned afterward.
+- After that JTAG failure boundary, a Z103 USB/RNDIS verification attempt saved
+  100 percent ping loss to `192.168.2.1`; restore normal USB/RNDIS or serial/SSH
+  access before attempting the Z103 QSPI backup.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -287,6 +290,8 @@ user and vendor configuration.
   partition sizes.
 - `tools/compare_qspi_backup.sh` - compare a live QSPI backup against curated
   factory firmware sets without touching the board.
+- `tools/backup_z103_qspi_live.sh` - Z103-specific wrapper around the live QSPI
+  backup helper, defaulting to the Z103 resource tree and `root`/`analog`.
 - `tools/stage_sd_boot_files.sh` - create SD-card boot staging directories for
   factory 2R2T or local Yocto+Vivado boot tests.
 - `tools/install_sd_boot_files.sh` - copy a staged SD boot set to a mounted SD
@@ -443,7 +448,8 @@ Expected result in the current Pluto-compatible firmware state:
 
 1. Boot the rebuilt Z103 Yocto Linux package through a non-flashing path, then
    verify USB RNDIS, IIO, and the RF datapath.
-2. Capture a Z103 QSPI backup before considering any Z103 flash write.
+2. Restore Z103 normal USB/RNDIS or SSH reachability, then capture a Z103 QSPI
+   backup before considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 4. Use the verified Z103/Z203 build baselines to start the FieldMesh

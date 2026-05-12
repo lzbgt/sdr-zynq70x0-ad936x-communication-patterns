@@ -42,6 +42,10 @@ Next concrete work:
   image loading at the PS debug reset/halt boundary: invalid DAP ACKs,
   `JTAG-DP STICKY ERROR`, and `timeout waiting for DSCR bit change`.
 - Capture a full Z103 QSPI backup before any Z103 flash write.
+  Status: pending. After the latest JTAG RAM-boot boundary,
+  `tools/verify_z103_board.sh` captured 100 percent ping loss to
+  `192.168.2.1`, so the backup must wait for normal USB/RNDIS or another live
+  read path to be restored. Use `tools/backup_z103_qspi_live.sh` once reachable.
 
 Details are in `docs/sdr-z103-source-workflow.md`.
 

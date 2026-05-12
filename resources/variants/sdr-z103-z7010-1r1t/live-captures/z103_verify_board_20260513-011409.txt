@@ -1,0 +1,10 @@
+== Network ==
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128 
+eth0             UP             172.28.195.20/20 fe80::215:5dff:feaa:73c6/64 
+
+== Ping 192.168.2.1 ==
+PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
+
+--- 192.168.2.1 ping statistics ---
+4 packets transmitted, 0 received, 100% packet loss, time 3053ms
+
