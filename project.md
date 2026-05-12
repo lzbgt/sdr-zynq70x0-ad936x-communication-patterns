@@ -384,7 +384,8 @@ user and vendor configuration.
 - `fieldmesh-udp-probe` - small C FieldMesh UDP sender/receiver now packaged
   into both Z203 and Z103 Yocto developer images for board-runtime split UDP
   tests without requiring Python on the board; sender traces include lightweight
-  capability and mode-negotiation events.
+  capability and mode-negotiation events, and the `mem-loopback` role validates
+  the transport ABI shim frame locally.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.

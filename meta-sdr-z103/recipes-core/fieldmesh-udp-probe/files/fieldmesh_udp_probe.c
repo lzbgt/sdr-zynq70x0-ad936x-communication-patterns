@@ -14,7 +14,11 @@
 #define FIELD_MESH_MAGIC 0x464dU
 #define FIELD_MESH_VERSION 1U
 #define FIELD_MESH_HEADER_LEN 32U
+#define FIELD_MESH_FRAME_SYNC 0x4d46U
+#define FIELD_MESH_FRAME_LEN 8U
+#define FIELD_MESH_FRAME_CRC_LEN 4U
 #define MAX_PACKET 1600U
+#define MAX_FRAME (MAX_PACKET + FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN)
 
 struct config {
     const char *role;
@@ -58,7 +62,8 @@ static void usage(FILE *out)
     fprintf(out,
         "Usage:\n"
         "  fieldmesh-udp-probe send --host HOST --port PORT [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
-        "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n");
+        "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n"
+        "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n");
 }
 
 static bool arg_value(int argc, char **argv, int *index, const char **value)
@@ -123,12 +128,12 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         }
     }
 
-    if (cfg->port == 0) {
-        fprintf(stderr, "--port must be set and non-zero\n");
+    if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") && strcmp(cfg->role, "mem-loopback")) {
+        fprintf(stderr, "role must be send, receive, or mem-loopback\n");
         return 2;
     }
-    if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive")) {
-        fprintf(stderr, "role must be send or receive\n");
+    if (strcmp(cfg->role, "mem-loopback") && cfg->port == 0) {
+        fprintf(stderr, "--port must be set and non-zero\n");
         return 2;
     }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
@@ -179,6 +184,15 @@ static uint16_t header_crc(const uint8_t *buf, size_t len)
         crc = crc32_update(crc, buf[i]);
     }
     return (uint16_t)((crc ^ 0xffffffffU) & 0xffffU);
+}
+
+static uint32_t fieldmesh_crc32(const uint8_t *buf, size_t len)
+{
+    uint32_t crc = 0xffffffffU;
+    for (size_t i = 0; i < len; i++) {
+        crc = crc32_update(crc, buf[i]);
+    }
+    return crc ^ 0xffffffffU;
 }
 
 static uint8_t mode_id(const char *mode)
@@ -362,6 +376,55 @@ static bool decode_packet(const uint8_t *buf, ssize_t len, char *err, size_t err
     return true;
 }
 
+static size_t pack_frame(const struct trace *tr, uint32_t transport_seq, uint8_t *frame, size_t cap)
+{
+    uint8_t packet[MAX_PACKET];
+    size_t packet_len = pack_packet(tr, packet, sizeof(packet));
+    uint32_t frame_crc;
+
+    if (packet_len == 0 || cap < FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+        return 0;
+    }
+
+    put_le16(frame + 0, FIELD_MESH_FRAME_SYNC);
+    put_le16(frame + 2, (uint16_t)packet_len);
+    put_le32(frame + 4, transport_seq);
+    memcpy(frame + FIELD_MESH_FRAME_LEN, packet, packet_len);
+    frame_crc = fieldmesh_crc32(packet, packet_len);
+    put_le32(frame + FIELD_MESH_FRAME_LEN + packet_len, frame_crc);
+    return FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN;
+}
+
+static bool decode_frame(const uint8_t *frame, size_t frame_len, char *err, size_t err_len)
+{
+    uint16_t packet_len;
+    uint32_t frame_crc;
+    uint32_t expected_crc;
+    const uint8_t *packet;
+
+    if (frame_len < FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
+        snprintf(err, err_len, "short transport frame");
+        return false;
+    }
+    if (get_le16(frame + 0) != FIELD_MESH_FRAME_SYNC) {
+        snprintf(err, err_len, "bad transport sync");
+        return false;
+    }
+    packet_len = get_le16(frame + 2);
+    if (frame_len != FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+        snprintf(err, err_len, "bad transport frame length");
+        return false;
+    }
+    packet = frame + FIELD_MESH_FRAME_LEN;
+    frame_crc = get_le32(frame + FIELD_MESH_FRAME_LEN + packet_len);
+    expected_crc = fieldmesh_crc32(packet, packet_len);
+    if (frame_crc != expected_crc) {
+        snprintf(err, err_len, "bad frame_crc 0x%08x expected 0x%08x", frame_crc, expected_crc);
+        return false;
+    }
+    return decode_packet(packet, packet_len, err, err_len);
+}
+
 static void emit_send_trace(const struct trace *tr)
 {
     printf("{\"event\":\"packet_trace\",\"transport\":\"udp-send\",\"tick\":%d,"
@@ -376,6 +439,27 @@ static void emit_send_trace(const struct trace *tr)
            tr->payload_len, tr->queue_age_ms, tr->target_kbps,
            tr->delivered_kbps, tr->dropped, tr->late ? "true" : "false",
            tr->fec_recovered, tr->link_quality_db, tr->degradation_action);
+}
+
+static void emit_mem_trace(const struct trace *tr, bool rx_ok, const char *rx_error, uint32_t transport_seq, uint32_t frame_crc)
+{
+    printf("{\"event\":\"packet_trace\",\"transport\":\"mem-loopback\",\"tick\":%d,"
+           "\"epoch\":%u,\"slot\":%u,\"mode\":\"%s\",\"src_node\":\"%s\","
+           "\"dst_node\":\"%s\",\"stream_id\":%u,\"traffic_class\":\"%s\","
+           "\"sequence\":%u,\"payload_len\":%u,\"queue_age_ms\":%d,"
+           "\"target_kbps\":%d,\"delivered_kbps\":%d,\"dropped\":%d,"
+           "\"late\":%s,\"fec_recovered\":%d,\"link_quality_db\":%.2f,"
+           "\"degradation_action\":\"%s\",\"rx_ok\":%s,\"rx_error\":%s,"
+           "\"rx_transport_seq\":%u,\"rx_frame_crc\":%u}\n",
+           tr->tick, tr->epoch, tr->slot, tr->mode_name, tr->src_name,
+           tr->dst_name, tr->stream_id, tr->traffic_name, tr->sequence,
+           tr->payload_len, tr->queue_age_ms, tr->target_kbps,
+           tr->delivered_kbps, tr->dropped + (rx_ok ? 0 : 1),
+           tr->late ? "true" : "false", tr->fec_recovered, tr->link_quality_db,
+           tr->degradation_action, rx_ok ? "true" : "false",
+           rx_ok ? "null" : "\"transport frame decode failed\"",
+           transport_seq, frame_crc);
+    (void)rx_error;
 }
 
 static void emit_send_negotiation(const struct config *cfg, const char *selected)
@@ -552,6 +636,50 @@ static int run_receive(const struct config *cfg)
     return ok ? 0 : 1;
 }
 
+static int run_mem_loopback(const struct config *cfg)
+{
+    uint8_t frame[MAX_FRAME];
+    int classes = class_count(cfg->traffic_profile);
+    const char *selected = effective_mode(cfg);
+    bool ok = true;
+    uint32_t transport_seq = 0;
+
+    printf("{\"event\":\"scenario_start\",\"transport\":\"mem-loopback\",\"scenario\":\"%s\","
+           "\"requested_mode\":\"%s\",\"selected_mode\":\"%s\","
+           "\"traffic_profile\":\"%s\",\"ticks\":%d}\n",
+           cfg->scenario, cfg->mode, selected, cfg->traffic_profile, cfg->ticks);
+    emit_send_negotiation(cfg, selected);
+    printf("{\"event\":\"transport_bound\",\"transport\":\"mem-loopback\","
+           "\"frame_sync\":\"0x%04x\",\"frame_header_len\":%u,\"frame_crc_len\":%u}\n",
+           FIELD_MESH_FRAME_SYNC, FIELD_MESH_FRAME_LEN, FIELD_MESH_FRAME_CRC_LEN);
+
+    for (int tick = 0; tick < cfg->ticks; tick++) {
+        for (int class_index = 0; class_index < classes; class_index++) {
+            struct trace tr;
+            size_t frame_len;
+            char err[128] = {0};
+            bool rx_ok;
+            uint32_t frame_crc = 0;
+
+            make_trace(cfg, tick, class_index, &tr);
+            frame_len = pack_frame(&tr, transport_seq, frame, sizeof(frame));
+            if (frame_len == 0) {
+                snprintf(err, sizeof(err), "frame too large");
+                rx_ok = false;
+            } else {
+                frame_crc = get_le32(frame + frame_len - FIELD_MESH_FRAME_CRC_LEN);
+                rx_ok = decode_frame(frame, frame_len, err, sizeof(err));
+            }
+            emit_mem_trace(&tr, rx_ok, err, transport_seq, frame_crc);
+            ok = ok && rx_ok;
+            transport_seq++;
+        }
+    }
+    printf("{\"event\":\"scenario_end\",\"transport\":\"mem-loopback\","
+           "\"selected_mode\":\"%s\",\"ticks\":%d}\n", selected, cfg->ticks);
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -561,6 +689,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "send")) {
         return run_send(&cfg);
+    }
+    if (!strcmp(cfg.role, "mem-loopback")) {
+        return run_mem_loopback(&cfg);
     }
     return run_receive(&cfg);
 }

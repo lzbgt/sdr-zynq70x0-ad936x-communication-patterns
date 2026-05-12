@@ -69,7 +69,9 @@ degradation, and receive failures. `docs/fieldmesh-transport-abi.md` now
 defines the staged UDP -> IIO buffer -> PL descriptor queue boundary for moving
 the same packet stream toward the fast path. The harness now implements
 `--transport mem-loopback`, a memory-only proof of the ABI shim frame before an
-IIO or PL endpoint exists.
+IIO or PL endpoint exists; the packaged C probe also supports
+`fieldmesh-udp-probe mem-loopback` for board-local validation once runtime
+access is available.
 
 Next concrete work:
 
