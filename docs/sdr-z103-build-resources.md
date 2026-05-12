@@ -131,6 +131,16 @@ For Z103, use a separate local tree such as:
 
 and map the same mandatory subpaths under that root.
 
+Use:
+
+```sh
+./tools/extract_z103_pluto_source.sh
+./tools/preflight_z103_source_tree.sh
+```
+
+for repeatable local extraction. The source-level workflow and current
+reconciliation gates are tracked in `docs/sdr-z103-source-workflow.md`.
+
 ### Mandatory Yocto Layers
 
 The proven Z203 Yocto build used:

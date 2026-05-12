@@ -214,6 +214,8 @@ user and vendor configuration.
 - `docs/sdr-z103-build-resources.md` - resource checklist and safe build order
   for reproducing the customized Yocto/Vivado workflow on SDR-Z103 without
   mixing Z103 and Z203 artifacts.
+- `docs/sdr-z103-source-workflow.md` - source archive extraction workflow and
+  first-pass reconciliation gates for Z103 no-SD hardware and 1R1T topology.
 - `docs/serial-capture.md` - Windows/WSL serial and JTAG capture notes.
 - `docs/example-projects.md` - concrete example projects and staged next work.
 - `resources/` - curated copied artifacts from the vendor package and live
@@ -299,6 +301,10 @@ user and vendor configuration.
   optional post-FSBL PL AXI probe.
 - `tools/verify_jtag_host.sh` - collect Vivado `hw_server`, WSL USB, Xilinx
   cable-driver, Windows PnP, and `usbipd` status for JTAG debugging.
+- `tools/extract_z103_pluto_source.sh` - extract the external Z103
+  `plutosdr-fw.zip` into the ignored local Z103 source workspace.
+- `tools/preflight_z103_source_tree.sh` - verify the extracted Z103 source tree,
+  source-level hardware facts, and factory artifact byte matches before builds.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

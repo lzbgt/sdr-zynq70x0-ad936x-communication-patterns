@@ -1207,6 +1207,31 @@ Read-only live captures:
   QSPI MTD layout, and kernel model `Analog Devices PlutoSDR Rev.C
   (Z7010/AD9363)`.
 
+## SDR-Z103 Source Preflight
+
+Command:
+
+```sh
+./tools/extract_z103_pluto_source.sh
+./tools/preflight_z103_source_tree.sh
+```
+
+Result:
+
+- Z103 source extracted to
+  `src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw`, about 7.0 GiB.
+- Required source files are present: top-level `Makefile`, Pluto HDL Tcl/XDC,
+  and Pluto devicetree files.
+- Source facts include `xc7z010clg400-2`, UART1 MIO 12..13, QSPI enabled, USB0
+  reset on MIO 46, DDR `MT41K256M16 RE-125`, and 512 MiB devicetree memory.
+- Prebuilt `boot.bin`, `pluto.dfu`, `uboot-env.dfu`, and release `fsbl.elf`
+  byte-match the imported Z103 factory firmware files.
+- Remaining source gates are explicit: vendor HDL Tcl enables PS SD0 despite no
+  Z103 SD-card evidence, vendor HDL Tcl sets `axi_ad9361 CONFIG.MODE_1R1T 0`
+  despite live `mode=1r1t`, `dfu-suffix` is missing from PATH, and the extracted
+  tree inherits this repo's git metadata unless `GIT_CEILING_DIRECTORIES` is
+  set.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

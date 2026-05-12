@@ -20,6 +20,8 @@ Start here:
   1R1T board handling.
 - `docs/sdr-z103-build-resources.md` - checklist for doing a separate
   SDR-Z103 Yocto/Vivado build without reusing SDR-Z203 artifacts.
+- `docs/sdr-z103-source-workflow.md` - Z103 source extraction and source-level
+  reconciliation gates before custom builds.
 - `docs/serial-capture.md` - Windows/WSL serial boot-log capture flow.
 - `docs/nvmfs-mtd2.md` - `qspi-nvmfs` / `mtd2` JFFS2 diagnostic and recovery
   boundary.

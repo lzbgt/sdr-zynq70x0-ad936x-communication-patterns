@@ -4,6 +4,27 @@ This page tracks concrete work still open after the verified WSL Arch Yocto,
 Vivado, SD boot, QSPI `mtd3`, and OpenOCD JTAG bring-up. Recently closed gates
 are kept briefly when they affect the remaining recovery decisions.
 
+## Open Gate: SDR-Z103 Custom Build Baseline
+
+Status: resource import and read-only serial baseline captured; source archive
+not yet built.
+
+Next concrete work:
+
+- Extract `/mnt/c/baidunetdiskdownload/SDR-Z103/plutosdr-fw.zip` with
+  `tools/extract_z103_pluto_source.sh` into the ignored Z103 source workspace.
+- Keep `tools/preflight_z103_source_tree.sh` passing; it verifies key source
+  facts and byte-matches prebuilt factory artifacts against imported firmware.
+- Reconcile source-level mismatches before relying on generated artifacts:
+  schematic/user evidence says no SD-card wiring, while `system_bd.tcl` enables
+  PS SD0; live board is 1R1T, while `system_bd.tcl` sets
+  `axi_ad9361 CONFIG.MODE_1R1T 0`.
+- Build an unmodified Z103 Vivado XSA/bitstream for `xc7z010clg400-2`.
+- Build Z103 FSBL/U-Boot/devicetree/rootfs artifacts and boot them by JTAG or
+  another proven non-QSPI path before any flash write.
+
+Details are in `docs/sdr-z103-source-workflow.md`.
+
 ## Closed Gate: Normal Boot Restore After JTAG
 
 Status: verified for normal SD boot.
