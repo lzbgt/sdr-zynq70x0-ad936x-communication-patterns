@@ -48,10 +48,12 @@ a new modem. This is still a conducted/baseband experiment, not an over-the-air
 claim.
 
 Status: the host harness implements `--transport mem-loopback`, and the C
-runtime probe implements `fieldmesh-udp-probe mem-loopback`. Both use the shim
-frame below around complete FieldMesh packets and validate the frame sync, frame
-length, frame CRC, and contained FieldMesh packet header. This is a memory-only
-proof of the IIO/PL framing contract.
+runtime probe implements both `fieldmesh-udp-probe mem-loopback` and
+`fieldmesh-udp-probe mmap-loopback`. All three use the shim frame below around
+complete FieldMesh packets and validate the frame sync, frame length, frame CRC,
+and contained FieldMesh packet header. `mmap-loopback` adds a small mapped slot
+ring so the C probe exercises a board-local memory endpoint before an IIO or PL
+endpoint exists.
 
 Candidate shape:
 
@@ -79,6 +81,8 @@ Acceptance:
 - Trace assertion passes on emitted TX/RX traces.
 - C0/C1 queue age remains inside budget while C2/C3 is stressed.
 - Z103 can run the endpoint side without requiring 2R2T assumptions.
+- The C mapped-memory loopback passes the same trace assertions as the plain
+  memory loopback.
 
 ## Stage 2: PL Packet Queue ABI
 

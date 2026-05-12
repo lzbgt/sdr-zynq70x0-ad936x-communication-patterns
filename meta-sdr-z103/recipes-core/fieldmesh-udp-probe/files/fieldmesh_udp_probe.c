@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -19,6 +20,7 @@
 #define FIELD_MESH_FRAME_CRC_LEN 4U
 #define MAX_PACKET 1600U
 #define MAX_FRAME (MAX_PACKET + FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN)
+#define MMAP_RING_SLOTS 16U
 
 struct config {
     const char *role;
@@ -57,13 +59,27 @@ struct trace {
     const char *degradation_action;
 };
 
+struct mmap_slot {
+    uint32_t state;
+    uint32_t frame_len;
+    uint32_t transport_seq;
+    uint32_t frame_crc;
+    uint8_t frame[MAX_FRAME];
+};
+
 static void usage(FILE *out)
 {
     fprintf(out,
         "Usage:\n"
         "  fieldmesh-udp-probe send --host HOST --port PORT [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n"
-        "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n");
+        "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
+        "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n");
+}
+
+static bool is_local_loopback_role(const char *role)
+{
+    return !strcmp(role, "mem-loopback") || !strcmp(role, "mmap-loopback");
 }
 
 static bool arg_value(int argc, char **argv, int *index, const char **value)
@@ -128,11 +144,11 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         }
     }
 
-    if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") && strcmp(cfg->role, "mem-loopback")) {
-        fprintf(stderr, "role must be send, receive, or mem-loopback\n");
+    if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") && !is_local_loopback_role(cfg->role)) {
+        fprintf(stderr, "role must be send, receive, mem-loopback, or mmap-loopback\n");
         return 2;
     }
-    if (strcmp(cfg->role, "mem-loopback") && cfg->port == 0) {
+    if (!is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
         return 2;
     }
@@ -441,9 +457,10 @@ static void emit_send_trace(const struct trace *tr)
            tr->fec_recovered, tr->link_quality_db, tr->degradation_action);
 }
 
-static void emit_mem_trace(const struct trace *tr, bool rx_ok, const char *rx_error, uint32_t transport_seq, uint32_t frame_crc)
+static void emit_local_loopback_trace(const char *transport, const struct trace *tr, bool rx_ok,
+                                      uint32_t transport_seq, uint32_t frame_crc)
 {
-    printf("{\"event\":\"packet_trace\",\"transport\":\"mem-loopback\",\"tick\":%d,"
+    printf("{\"event\":\"packet_trace\",\"transport\":\"%s\",\"tick\":%d,"
            "\"epoch\":%u,\"slot\":%u,\"mode\":\"%s\",\"src_node\":\"%s\","
            "\"dst_node\":\"%s\",\"stream_id\":%u,\"traffic_class\":\"%s\","
            "\"sequence\":%u,\"payload_len\":%u,\"queue_age_ms\":%d,"
@@ -451,7 +468,7 @@ static void emit_mem_trace(const struct trace *tr, bool rx_ok, const char *rx_er
            "\"late\":%s,\"fec_recovered\":%d,\"link_quality_db\":%.2f,"
            "\"degradation_action\":\"%s\",\"rx_ok\":%s,\"rx_error\":%s,"
            "\"rx_transport_seq\":%u,\"rx_frame_crc\":%u}\n",
-           tr->tick, tr->epoch, tr->slot, tr->mode_name, tr->src_name,
+           transport, tr->tick, tr->epoch, tr->slot, tr->mode_name, tr->src_name,
            tr->dst_name, tr->stream_id, tr->traffic_name, tr->sequence,
            tr->payload_len, tr->queue_age_ms, tr->target_kbps,
            tr->delivered_kbps, tr->dropped + (rx_ok ? 0 : 1),
@@ -459,7 +476,6 @@ static void emit_mem_trace(const struct trace *tr, bool rx_ok, const char *rx_er
            tr->degradation_action, rx_ok ? "true" : "false",
            rx_ok ? "null" : "\"transport frame decode failed\"",
            transport_seq, frame_crc);
-    (void)rx_error;
 }
 
 static void emit_send_negotiation(const struct config *cfg, const char *selected)
@@ -670,13 +686,85 @@ static int run_mem_loopback(const struct config *cfg)
                 frame_crc = get_le32(frame + frame_len - FIELD_MESH_FRAME_CRC_LEN);
                 rx_ok = decode_frame(frame, frame_len, err, sizeof(err));
             }
-            emit_mem_trace(&tr, rx_ok, err, transport_seq, frame_crc);
+            emit_local_loopback_trace("mem-loopback", &tr, rx_ok, transport_seq, frame_crc);
+            (void)err;
             ok = ok && rx_ok;
             transport_seq++;
         }
     }
     printf("{\"event\":\"scenario_end\",\"transport\":\"mem-loopback\","
            "\"selected_mode\":\"%s\",\"ticks\":%d}\n", selected, cfg->ticks);
+    return ok ? 0 : 1;
+}
+
+static int run_mmap_loopback(const struct config *cfg)
+{
+    size_t ring_len = sizeof(struct mmap_slot) * MMAP_RING_SLOTS;
+    struct mmap_slot *ring = mmap(NULL, ring_len, PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    int classes = class_count(cfg->traffic_profile);
+    const char *selected = effective_mode(cfg);
+    bool ok = true;
+    uint32_t transport_seq = 0;
+
+    if (ring == MAP_FAILED) {
+        perror("mmap");
+        return 1;
+    }
+
+    printf("{\"event\":\"scenario_start\",\"transport\":\"mmap-loopback\",\"scenario\":\"%s\","
+           "\"requested_mode\":\"%s\",\"selected_mode\":\"%s\","
+           "\"traffic_profile\":\"%s\",\"ticks\":%d}\n",
+           cfg->scenario, cfg->mode, selected, cfg->traffic_profile, cfg->ticks);
+    emit_send_negotiation(cfg, selected);
+    printf("{\"event\":\"transport_bound\",\"transport\":\"mmap-loopback\","
+           "\"frame_sync\":\"0x%04x\",\"frame_header_len\":%u,\"frame_crc_len\":%u,"
+           "\"ring_slots\":%u,\"slot_bytes\":%zu}\n",
+           FIELD_MESH_FRAME_SYNC, FIELD_MESH_FRAME_LEN, FIELD_MESH_FRAME_CRC_LEN,
+           MMAP_RING_SLOTS, sizeof(struct mmap_slot));
+
+    for (int tick = 0; tick < cfg->ticks; tick++) {
+        for (int class_index = 0; class_index < classes; class_index++) {
+            struct trace tr;
+            struct mmap_slot *slot = &ring[transport_seq % MMAP_RING_SLOTS];
+            size_t frame_len;
+            char err[128] = {0};
+            bool rx_ok;
+
+            make_trace(cfg, tick, class_index, &tr);
+            if (slot->state != 0) {
+                snprintf(err, sizeof(err), "mmap ring slot busy");
+                rx_ok = false;
+                slot->frame_crc = 0;
+            } else {
+                frame_len = pack_frame(&tr, transport_seq, slot->frame, sizeof(slot->frame));
+                if (frame_len == 0) {
+                    snprintf(err, sizeof(err), "frame too large");
+                    rx_ok = false;
+                    slot->frame_crc = 0;
+                } else {
+                    slot->frame_len = (uint32_t)frame_len;
+                    slot->transport_seq = transport_seq;
+                    slot->frame_crc = get_le32(slot->frame + frame_len - FIELD_MESH_FRAME_CRC_LEN);
+                    slot->state = 1;
+                    rx_ok = decode_frame(slot->frame, slot->frame_len, err, sizeof(err));
+                }
+            }
+
+            emit_local_loopback_trace("mmap-loopback", &tr, rx_ok, transport_seq, slot->frame_crc);
+            (void)err;
+            ok = ok && rx_ok;
+            slot->state = 0;
+            transport_seq++;
+        }
+    }
+
+    printf("{\"event\":\"scenario_end\",\"transport\":\"mmap-loopback\","
+           "\"selected_mode\":\"%s\",\"ticks\":%d}\n", selected, cfg->ticks);
+    if (munmap(ring, ring_len) != 0) {
+        perror("munmap");
+        return 1;
+    }
     return ok ? 0 : 1;
 }
 
@@ -692,6 +780,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "mem-loopback")) {
         return run_mem_loopback(&cfg);
+    }
+    if (!strcmp(cfg.role, "mmap-loopback")) {
+        return run_mmap_loopback(&cfg);
     }
     return run_receive(&cfg);
 }

@@ -299,14 +299,18 @@ fieldmesh-udp-probe send --host <peer-ip> --port 55321 \
   --scenario scheduled --mode auto --traffic-profile stress --ticks 2
 fieldmesh-udp-probe mem-loopback \
   --scenario scheduled --mode auto --traffic-profile stress --ticks 2
+fieldmesh-udp-probe mmap-loopback \
+  --scenario scheduled --mode auto --traffic-profile stress --ticks 2
 ```
 
 The C probe emits the same NDJSON event style for transmit and receive smoke
 tests, including lightweight sender-side capability and mode-negotiation events.
-It also supports a local `mem-loopback` role for ABI shim-frame validation
-without a network peer. It intentionally stays smaller than the Python harness.
-Use it for board-runtime validation; keep the Python harness as the richer
-host-side reference.
+It also supports local `mem-loopback` and `mmap-loopback` roles for ABI
+shim-frame validation without a network peer. `mmap-loopback` uses a small
+mapped slot ring, which is closer to the eventual board-local IIO/PL packet
+queue than the plain stack-memory loopback. It intentionally stays smaller than
+the Python harness. Use it for board-runtime validation; keep the Python
+harness as the richer host-side reference.
 
 When the board is reachable over SSH and is running an image that contains
 `fieldmesh-udp-probe`, the end-to-end board smoke test is:

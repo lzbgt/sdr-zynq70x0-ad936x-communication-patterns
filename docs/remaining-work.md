@@ -70,8 +70,10 @@ defines the staged UDP -> IIO buffer -> PL descriptor queue boundary for moving
 the same packet stream toward the fast path. The harness now implements
 `--transport mem-loopback`, a memory-only proof of the ABI shim frame before an
 IIO or PL endpoint exists; the packaged C probe also supports
-`fieldmesh-udp-probe mem-loopback` for board-local validation once runtime
-access is available.
+`fieldmesh-udp-probe mem-loopback` and `fieldmesh-udp-probe mmap-loopback` for
+board-local validation once runtime access is available. The mapped-memory role
+uses a small slot ring, so the next transport step is no longer "prove a local
+memory endpoint"; it is specifically "bind the same shim frames to IIO or PL."
 
 Next concrete work:
 
@@ -80,8 +82,8 @@ Next concrete work:
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;
   it is blocked until a board running the rebuilt image is reachable at the
   Pluto USB/RNDIS IP.
-- Move the `mem-loopback` shim frame into a real IIO buffer or board-local
-  memory endpoint that preserves the FieldMesh packet bytes and passes
+- Bind the same shim frame to a real IIO buffer or first PL loopback endpoint
+  while preserving the FieldMesh packet bytes and passing
   `tools/fieldmesh_trace_assert.py`.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.

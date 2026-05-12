@@ -1590,6 +1590,27 @@ fieldmesh-udp-probe mem-loopback \
 ```
 
 Result: the host-built C probe passed the same memory-loopback trace assertion.
+It also passed the mapped-memory slot-ring variant:
+
+```sh
+fieldmesh-udp-probe mmap-loopback \
+  --scenario scheduled --mode auto --traffic-profile stress --ticks 2
+./tools/fieldmesh_trace_assert.py .config/fieldmesh/c_mmap_loopback_scheduled.ndjson
+```
+
+Result: `packet_trace_rx_ok_count=10`, `validated_rx_ok_count=10`, and
+`validated_rx_fail_count=0`.
+
+Packaged probe rebuild:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake fieldmesh-udp-probe
+./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
+```
+
+Result: both Z203 and Z103 recipes rebuilt successfully. The only warnings were
+the already-known Arch host validation warning and `host-user-contaminated` QA
+warnings for the locally built debug/source files.
 
 ## FieldMesh Board Runtime Probe
 
