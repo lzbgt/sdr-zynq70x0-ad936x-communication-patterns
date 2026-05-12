@@ -471,7 +471,9 @@ user and vendor configuration.
   constants, RTL file list, and overlay insertion notes.
 - `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
-  idempotent `system_project.tcl`/`Makefile` references; dry-run is the default.
+  idempotent `system_project.tcl`/`Makefile` references; dry-run is the
+  default. Its opt-in `--control-overlay` mode appends the first
+  `fieldmesh_ctrl` BD module/address/IRQ wiring to copied `system_bd.tcl`.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -588,7 +590,8 @@ Expected result in the current Pluto-compatible firmware state:
    images.
 4. Bind the FieldMesh byte-pipe model to a sidecar DMA/IIO transport with its
    own register namespace, leaving the ADI sample-DMA windows at `0x7C400000`
-   and `0x7C420000` untouched. The provisional FieldMesh namespace is
+   and `0x7C420000` untouched. The control-only `fieldmesh_ctrl` overlay is
+   now scripted for copied HDL trees; the provisional FieldMesh namespace is
    `0x43C00000` control, `0x43C10000` TX DMA, and `0x43C20000` RX DMA. Then
    scale descriptor storage beyond the shallow class rings and bind the path
    to IIO/PL before open-air RF tests.

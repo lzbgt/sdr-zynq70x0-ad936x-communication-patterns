@@ -264,8 +264,11 @@ Tcl constants, RTL file list, and non-mutating overlay stub as the final
 preflight artifact before editing a copied vendor HDL tree.
 `tools/fieldmesh_vivado_overlay_patch.py` is the next controlled step: it
 patches only a copied HDL tree, copies the FieldMesh RTL into
-`projects/pluto/fieldmesh/`, and adds idempotent project/Makefile references
-without instantiating block-design cells.
+`projects/pluto/fieldmesh/`, and adds idempotent project/Makefile references.
+Its opt-in `--control-overlay` mode also appends the first control-only
+block-design cell: `fieldmesh_sidecar_ctrl_axi_lite` as `fieldmesh_ctrl`, clock
+and reset from `sys_cpu_clk`/`sys_cpu_resetn`, AXI-lite at `0x43C00000`, and
+IRQ `ps-11 mb-11`. This is still not the sidecar packet DMA path.
 
 Keep these responsibilities in Linux first:
 
@@ -400,10 +403,12 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 10. Add the RX-side parser and byte-pipe loopback model.
 11. Inventory the vendor ADI sample-DMA boundary and choose a sidecar
     FieldMesh register/DMA namespace.
-12. Bind the guarded/parser transport ports to that sidecar DMA or IIO
+12. Instantiate the control-only `fieldmesh_ctrl` sidecar endpoint in a copied
+    Vivado tree and validate its address/IRQ namespace.
+13. Bind the guarded/parser transport ports to that sidecar DMA or IIO
     implementation.
-13. Scale descriptor memory and add timestamp/slot gates.
-14. Only then connect the RF/baseband path.
+14. Scale descriptor memory and add timestamp/slot gates.
+15. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

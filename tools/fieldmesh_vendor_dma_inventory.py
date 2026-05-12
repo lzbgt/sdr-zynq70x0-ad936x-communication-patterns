@@ -62,10 +62,16 @@ def sidecar_check(addresses: dict[str, str]) -> dict[str, Any]:
     windows: list[dict[str, Any]] = []
     ok = True
     for name, base, size in SIDECAR_WINDOWS:
+        existing_self = [
+            row
+            for row in occupied
+            if row["name"] == name and int(row["base"]) == base and int(row["size"]) == size
+        ]
         conflicts = [
             row
             for row in occupied
             if ranges_overlap(base, size, int(row["base"]), int(row["size"]))
+            and not (row["name"] == name and int(row["base"]) == base and int(row["size"]) == size)
         ]
         if conflicts:
             ok = False
@@ -75,6 +81,7 @@ def sidecar_check(addresses: dict[str, str]) -> dict[str, Any]:
                 "address": format_address(base),
                 "size": size,
                 "irq": SIDECAR_IRQS.get(name),
+                "existing_self": bool(existing_self),
                 "conflicts": [
                     {
                         "name": row["name"],
@@ -251,7 +258,12 @@ def emit_sidecar_markdown(inventories: list[dict[str, Any]]) -> None:
     for inv in inventories:
         for window in inv["sidecar"]["proposed_windows"]:
             conflicts = window["conflicts"]
-            status = "free" if not conflicts else "conflicts: " + ", ".join(row["name"] for row in conflicts)
+            if conflicts:
+                status = "conflicts: " + ", ".join(row["name"] for row in conflicts)
+            elif window.get("existing_self"):
+                status = "present"
+            else:
+                status = "free"
             print(
                 "| {variant} | {name} | {address} | 0x{size:04X} | {irq} | {status} |".format(
                     variant=inv["variant"],

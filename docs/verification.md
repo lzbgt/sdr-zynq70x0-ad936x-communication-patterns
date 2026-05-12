@@ -1933,6 +1933,45 @@ assert obj['system_project_changed'] is False
 assert obj['makefile_changed'] is False
 PY
 rm -rf "$tmp_overlay"
+tmp_overlay=$(mktemp -d)
+mkdir -p "$tmp_overlay/hdl/projects/pluto"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
+  "$tmp_overlay/hdl/projects/pluto/"
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
+  --control-overlay --apply >/tmp/fieldmesh_overlay_ctrl_patch.json
+python3 -m json.tool /tmp/fieldmesh_overlay_ctrl_patch.json >/dev/null
+rg 'fieldmesh_ctrl|0x43C00000|ps-11 mb-11' \
+  "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
+./tools/fieldmesh_vendor_dma_inventory.py --check-sidecar \
+  --variant z203ctrl="$tmp_overlay/hdl/projects/pluto/system_bd.tcl" \
+  >/tmp/fieldmesh_overlay_ctrl_inventory.json
+python3 - <<'PY'
+import json
+obj = json.load(open('/tmp/fieldmesh_overlay_ctrl_patch.json'))
+assert obj['system_bd_changed'] is True
+assert obj['post_patch_sidecar_ok'] is True
+inv = json.load(open('/tmp/fieldmesh_overlay_ctrl_inventory.json'))['inventories'][0]
+ctrl = [w for w in inv['sidecar']['proposed_windows'] if w['name'] == 'fieldmesh_ctrl'][0]
+assert ctrl['existing_self'] is True
+assert ctrl['conflicts'] == []
+PY
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
+  --control-overlay --apply >/tmp/fieldmesh_overlay_ctrl_patch_second.json
+python3 - <<'PY'
+import json
+obj = json.load(open('/tmp/fieldmesh_overlay_ctrl_patch_second.json'))
+assert obj['system_bd_changed'] is False
+assert obj['system_project_changed'] is False
+assert obj['makefile_changed'] is False
+assert obj['post_patch_sidecar_ok'] is True
+PY
+rm -rf "$tmp_overlay"
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -1958,7 +1997,11 @@ The overlay scaffold generator produced valid JSON, a 10-file RTL list, Tcl
 constants, and a non-mutating Vivado overlay stub.
 The overlay patcher successfully patched a temporary copied HDL tree, copied
 all 10 FieldMesh RTL files, added project and Makefile references, and was
-idempotent on a second apply.
+idempotent on a second apply. Its opt-in control overlay also appended the
+`fieldmesh_ctrl` BD module, `0x43C00000` CPU interconnect, and `ps-11 mb-11`
+IRQ wiring to a temporary copied tree; the post-patch sidecar check reported
+that exact self-owned window as present without treating it as a collision, and
+the second control-overlay apply was idempotent.
 
 ## Verification Gaps
 

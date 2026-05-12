@@ -177,6 +177,23 @@ BD-facing control endpoint for the provisional `fieldmesh_ctrl` window at
 widens the address port for an interconnect-visible sidecar window, and exports
 live IRQ/status pins for later PS interrupt wiring.
 
+The first control-only block-design overlay is opt-in:
+
+```sh
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" \
+  --hdl-tree .config/fieldmesh/some-copied-hdl \
+  --variant-name z203 \
+  --control-overlay \
+  --apply
+```
+
+With `--control-overlay`, the patcher also appends an idempotent
+`fieldmesh_ctrl` BD module instance to `system_bd.tcl`, connects
+`sys_cpu_clk`, `sys_cpu_resetn`, maps `fieldmesh_ctrl` at `0x43C00000`, and
+wires `fieldmesh_ctrl/irq` to `ps-11 mb-11`. The inventory treats that exact
+self-owned sidecar address as `present`; other overlaps still fail.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

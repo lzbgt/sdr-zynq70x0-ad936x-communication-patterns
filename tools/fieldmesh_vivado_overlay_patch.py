@@ -13,6 +13,8 @@ import fieldmesh_sidecar_plan as sidecar_plan
 
 MAKE_BEGIN = "# FieldMesh sidecar overlay files: begin"
 MAKE_END = "# FieldMesh sidecar overlay files: end"
+BD_CTRL_BEGIN = "# FieldMesh sidecar control overlay: begin"
+BD_CTRL_END = "# FieldMesh sidecar control overlay: end"
 
 
 def rel_rtl_name(rtl_path: str) -> str:
@@ -57,6 +59,30 @@ def patch_makefile(text: str, rel_files: list[str]) -> tuple[str, bool]:
     return patched, True
 
 
+def render_control_overlay() -> str:
+    return f"""
+{BD_CTRL_BEGIN}
+create_bd_cell -type module -reference fieldmesh_sidecar_ctrl_axi_lite fieldmesh_ctrl
+ad_connect sys_cpu_clk fieldmesh_ctrl/s_axi_aclk
+ad_connect sys_cpu_resetn fieldmesh_ctrl/s_axi_aresetn
+ad_cpu_interconnect 0x43C00000 fieldmesh_ctrl
+ad_cpu_interrupt ps-11 mb-11 fieldmesh_ctrl/irq
+{BD_CTRL_END}
+"""
+
+
+def patch_system_bd(text: str, control_overlay: bool) -> tuple[str, bool]:
+    if not control_overlay or BD_CTRL_BEGIN in text:
+        return text, False
+    if "ad_cpu_interconnect 0x43C00000" in text or "fieldmesh_ctrl/irq" in text:
+        raise SystemExit("system_bd.tcl: FieldMesh control overlay appears partially present")
+    if "ad_cpu_interconnect 0x7C420000 axi_ad9361_dac_dma" not in text:
+        raise SystemExit("system_bd.tcl: expected ADI DMA interconnect anchor not found")
+    if "ad_cpu_interrupt ps-12 mb-12 axi_ad9361_dac_dma/irq" not in text:
+        raise SystemExit("system_bd.tcl: expected ADI DMA interrupt anchor not found")
+    return text.rstrip() + render_control_overlay() + "\n", True
+
+
 def load_plan(repo_root: Path, variant_name: str, system_bd: Path) -> dict:
     return sidecar_plan.build_plan(
         [(variant_name, system_bd)],
@@ -67,7 +93,7 @@ def load_plan(repo_root: Path, variant_name: str, system_bd: Path) -> dict:
     )
 
 
-def apply_patch(repo_root: Path, hdl_tree: Path, variant_name: str, apply: bool) -> dict:
+def apply_patch(repo_root: Path, hdl_tree: Path, variant_name: str, apply: bool, control_overlay: bool) -> dict:
     project_dir = hdl_tree / "projects" / "pluto"
     system_bd = project_dir / "system_bd.tcl"
     system_project = project_dir / "system_project.tcl"
@@ -92,24 +118,36 @@ def apply_patch(repo_root: Path, hdl_tree: Path, variant_name: str, apply: bool)
     patched_project, project_changed = patch_system_project(project_text, rel_files)
     make_text = makefile.read_text()
     patched_make, make_changed = patch_makefile(make_text, rel_files)
+    system_bd_text = system_bd.read_text()
+    patched_system_bd, system_bd_changed = patch_system_bd(system_bd_text, control_overlay)
 
     if apply:
         if project_changed:
             system_project.write_text(patched_project)
         if make_changed:
             makefile.write_text(patched_make)
+        if system_bd_changed:
+            system_bd.write_text(patched_system_bd)
+
+    post_plan_ok = True
+    if apply and control_overlay:
+        post_plan = load_plan(repo_root, variant_name, system_bd)
+        post_plan_ok = bool(post_plan["ok"])
 
     return {
         "event": "fieldmesh_vivado_overlay_patch",
         "ok": True,
         "applied": apply,
+        "control_overlay": control_overlay,
         "variant": variant_name,
         "hdl_tree": str(hdl_tree),
         "system_bd": str(system_bd),
+        "system_bd_changed": system_bd_changed,
         "system_project_changed": project_changed,
         "makefile_changed": make_changed,
         "copied_rtl_files": copied_files,
         "sidecar_ok": plan["ok"],
+        "post_patch_sidecar_ok": post_plan_ok,
     }
 
 
@@ -119,12 +157,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hdl-tree", type=Path, required=True, help="copied Pluto HDL tree to patch")
     parser.add_argument("--variant-name", default="fieldmesh", help="variant label for checks")
     parser.add_argument("--apply", action="store_true", help="write changes; default is dry-run JSON only")
+    parser.add_argument(
+        "--control-overlay",
+        action="store_true",
+        help="also add an idempotent fieldmesh_ctrl BD module/address/IRQ overlay to system_bd.tcl",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    result = apply_patch(args.repo_root.resolve(), args.hdl_tree.resolve(), args.variant_name, args.apply)
+    result = apply_patch(args.repo_root.resolve(), args.hdl_tree.resolve(), args.variant_name, args.apply, args.control_overlay)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

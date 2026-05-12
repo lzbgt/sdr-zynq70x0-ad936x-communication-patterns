@@ -89,7 +89,8 @@ set FIELDMESH_REPO_ROOT {{{repo_root}}}
 #    ad_ip_parameter sys_ps7 CONFIG.PCW_USE_S_AXI_HP0 1
 #    ad_ip_parameter sys_ps7 CONFIG.PCW_USE_S_AXI_HP3 1
 # 2. Add the FieldMesh RTL files above to the project.
-# 3. Instantiate an AXI-lite FieldMesh control endpoint at $FIELDMESH_CTRL_BASE.
+# 3. Instantiate fieldmesh_sidecar_ctrl_axi_lite as fieldmesh_ctrl at
+#    $FIELDMESH_CTRL_BASE and connect its irq to $FIELDMESH_CTRL_IRQ.
 # 4. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
 #    $FIELDMESH_RX_DMA_BASE, or keep the first overlay AXI-lite/FIFO-only.
 # 5. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at

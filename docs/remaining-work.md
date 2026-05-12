@@ -152,8 +152,9 @@ Next concrete work:
   non-mutating overlay stub under `.config/fieldmesh/` before a real vendor HDL
   overlay patch is attempted. `tools/fieldmesh_vivado_overlay_patch.py` now
   applies the first controlled edit to a copied HDL tree only: copy FieldMesh
-  RTL into `projects/pluto/fieldmesh/` and add idempotent project/Makefile
-  references. It still does not instantiate FieldMesh cells in the block design.
+  RTL into `projects/pluto/fieldmesh/`, add idempotent project/Makefile
+  references, and, with opt-in `--control-overlay`, append the first
+  `fieldmesh_ctrl` BD module/address/IRQ wiring to `system_bd.tcl`.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 
