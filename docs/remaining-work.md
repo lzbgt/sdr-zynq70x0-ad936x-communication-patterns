@@ -38,7 +38,9 @@ Next concrete work:
   a clean USB/JTAG state and avoid full FIT transfer over OpenOCD. The prepared
   next helper is `tools/run_openocd_z103_jtag_yocto_ram.sh`, which stages
   Yocto `zImage` and `rootfs.cpio.gz` as legacy U-Boot images and loads
-  kernel/ramdisk/devicetree separately.
+  kernel/ramdisk/devicetree separately. Its first live run still failed before
+  image loading at the PS debug reset/halt boundary: invalid DAP ACKs,
+  `JTAG-DP STICKY ERROR`, and `timeout waiting for DSCR bit change`.
 - Capture a full Z103 QSPI backup before any Z103 flash write.
 
 Details are in `docs/sdr-z103-source-workflow.md`.

@@ -178,6 +178,11 @@ Board-side facts from live captures:
   `pluto.frm` from the rebuilt Z103 kernel, devicetree, initramfs, and Vivado
   bitstream. The rebuilt Z103 Linux package has not yet been booted on hardware
   and no Z103 QSPI partition has been written.
+- A rebuilt Z103 Yocto split-RAM JTAG boot helper is prepared and stages
+  deterministic legacy U-Boot `uImage`, `uramdisk.image.gz`, and
+  `devicetree.dtb` files from the Yocto outputs. The first live attempt failed
+  before image loading at the PS-side DAP/DSCR reset-halt boundary, while the
+  JTAG chain still scanned afterward.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for

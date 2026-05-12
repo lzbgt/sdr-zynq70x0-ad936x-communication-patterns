@@ -255,6 +255,17 @@ b4208988215677c0f6bf8932669d8f9877a46158a04d723c26a6f75a2858d66d  uImage
 10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0  devicetree.dtb
 ```
 
+First live result:
+
+- Capture:
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_yocto_ram_20260513.txt`.
+- The JTAG chain scanned before and after the attempt.
+- The run failed before image loading. `JTAG_PS_SOFT_RESET` hit invalid DAP ACKs
+  and `JTAG-DP STICKY ERROR`; the later CPU halt failed with
+  `timeout waiting for DSCR bit change`.
+- This is the same PS debug-state boundary seen in earlier Z103 Linux follow-up
+  attempts, not a Yocto image-format failure.
+
 ## Linux Boot Follow-Up Attempts
 
 Two Linux follow-up helpers were added after the JTAG U-Boot smoke test:

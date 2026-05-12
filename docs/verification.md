@@ -1434,7 +1434,27 @@ Result:
   SHA-256 `10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0`.
 
 This only proves staging and image wrapping. The live OpenOCD RAM boot attempt
-is still pending.
+was attempted next.
+
+Live command:
+
+```sh
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_yocto_ram_20260513.txt \
+  BOOT_WAIT_SECONDS=180 \
+  SERIAL_CAPTURE_SECONDS=420 \
+  ./tools/run_openocd_z103_jtag_yocto_ram.sh
+```
+
+Result:
+
+- Pre-run `tools/probe_openocd_jtag.sh` passed.
+- The RAM boot did not reach image loading. It failed during PS-side reset/halt:
+  invalid DAP ACKs, `JTAG-DP STICKY ERROR`, then
+  `timeout waiting for DSCR bit change`.
+- Post-run `tools/probe_openocd_jtag.sh` still passed, so the FT2232/JTAG chain
+  remained visible.
+- Capture SHA-256:
+  `9bec643785949304f2908655f6f8e57737bafa090ccae1f24fa09415a3b0f447`.
 
 ## Verification Gaps
 
