@@ -208,30 +208,41 @@ Pass criteria:
 
 ## Software Trace Harness
 
-The first committed harness is transport-free:
+The first committed harness has two transports:
+
+- `simulate`: no packet socket, only deterministic trace events.
+- `udp-loopback`: one-process UDP loopback that packs the draft FieldMesh
+  header, sends packets to localhost, receives them, validates header fields and
+  CRC, then emits the same `packet_trace` NDJSON fields with `rx_ok`.
 
 ```sh
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --ticks 8
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto \
+  --transport udp-loopback --ticks 8
 ```
 
-It emits newline-delimited JSON using the event fields above. This is not an RF
-test. It verifies that capability reports, mode decisions, policy updates, and
-traffic-class traces have a stable shape before Z103/Z203 transports are wired
-in.
+This is not an RF test. It verifies that capability reports, mode decisions,
+policy updates, traffic-class traces, and the draft packet header have a stable
+shape before Z103/Z203 RF transports are wired in.
 
 Useful smoke checks:
 
 ```sh
-./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p --ticks 2
-./tools/fieldmesh_trace_harness.py --scenario star --mode star --ticks 2
-./tools/fieldmesh_trace_harness.py --scenario graph --mode graph --ticks 2
-./tools/fieldmesh_trace_harness.py --scenario scheduled --mode scheduled --ticks 2
-./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
+  --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario star --mode star \
+  --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario graph --mode graph \
+  --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario scheduled --mode scheduled \
+  --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto \
+  --transport udp-loopback --ticks 2
 ```
 
-Next harness step: replace the simulated packet events with a loopback transport
-that can run over the board runtime path while preserving the same NDJSON trace
-contract.
+Next harness step: split sender and receiver into separate processes so one side
+can run on a board and the other on a host or peer board while preserving the
+same NDJSON trace contract.
 
 ## Implementation Notes
 

@@ -365,9 +365,9 @@ user and vendor configuration.
   the required Pluto runtime, USB gadget, update, web, and IIO files.
 - `tools/package_z103_yocto_pluto_frm.sh` - package rebuilt Z103 Yocto outputs
   and the rebuilt Z103 bitstream into Pluto-style `pluto.itb` and `pluto.frm`.
-- `tools/fieldmesh_trace_harness.py` - transport-free FieldMesh NDJSON trace
-  harness for early capability, mode-selection, policy, and traffic-class
-  smoke tests before RF packet transport exists.
+- `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
+  simulated and UDP-loopback transports for early capability, mode-selection,
+  policy, and traffic-class smoke tests before RF packet transport exists.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate deterministic FieldMesh prototype traces.
 
-This is a transport-free harness. It exercises node capability advertisement,
-mode selection, traffic classes, and trace shape before the RF packet pipe
-exists. Later hardware tests should keep the same NDJSON event fields.
+The default simulated transport exercises node capability advertisement, mode
+selection, traffic classes, and trace shape before the RF packet pipe exists.
+The UDP loopback transport also packs and validates the draft FieldMesh header
+so the same NDJSON contract can run on a board-local runtime path.
 """
 
 from __future__ import annotations
@@ -11,12 +12,28 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import socket
+import struct
 import sys
+import time
+import zlib
 from dataclasses import dataclass
+from queue import Empty, Queue
+from threading import Event, Thread
 from typing import Iterable
 
 
 TRAFFIC_CLASSES = ("C0", "C1", "C2", "C3", "C4")
+MODE_IDS = {"p2p": 1, "star": 2, "graph": 3, "scheduled": 4}
+MODE_NAMES = {value: key for key, value in MODE_IDS.items()}
+CLASS_IDS = {name: index for index, name in enumerate(TRAFFIC_CLASSES)}
+CLASS_NAMES = {value: key for key, value in CLASS_IDS.items()}
+NODE_IDS = {"z103-a": 0x0101, "z103-b": 0x0102, "z203-hub": 0x0201, "z203-relay": 0x0202}
+NODE_NAMES = {value: key for key, value in NODE_IDS.items()}
+FIELD_MESH_MAGIC = 0x464D
+FIELD_MESH_VERSION = 1
+FIELD_MESH_HEADER = struct.Struct("<HBBIHHHBBHIHIHH")
+FIELD_MESH_HEADER_LEN = FIELD_MESH_HEADER.size
 
 
 @dataclass(frozen=True)
@@ -27,6 +44,26 @@ class Node:
     radio: str
     clock: str
     max_kbps: int
+
+
+@dataclass(frozen=True)
+class PacketTrace:
+    tick: int
+    epoch: int
+    slot: int
+    mode: str
+    src_node: str
+    dst_node: str
+    stream_id: int
+    traffic_class: str
+    sequence: int
+    payload_len: int
+    queue_age_ms: int
+    delivered_kbps: int
+    dropped: int
+    late: bool
+    fec_recovered: int
+    link_quality_db: float
 
 
 PROFILES = {
@@ -63,6 +100,105 @@ PROFILES = {
         max_kbps=7000,
     ),
 }
+
+
+def header_crc(header_without_crc: bytes) -> int:
+    return zlib.crc32(header_without_crc) & 0xFFFF
+
+
+def pack_packet(trace: PacketTrace) -> bytes:
+    src_node = NODE_IDS[trace.src_node]
+    dst_node = NODE_IDS[trace.dst_node]
+    traffic_class = CLASS_IDS[trace.traffic_class]
+    mode = MODE_IDS[trace.mode]
+    payload = bytes(((trace.sequence + index) & 0xFF) for index in range(trace.payload_len))
+    header_without_crc = FIELD_MESH_HEADER.pack(
+        FIELD_MESH_MAGIC,
+        FIELD_MESH_VERSION,
+        FIELD_MESH_HEADER_LEN,
+        1,
+        src_node,
+        dst_node,
+        trace.stream_id,
+        traffic_class,
+        mode,
+        0,
+        trace.epoch,
+        trace.slot,
+        trace.sequence,
+        trace.payload_len,
+        0,
+    )[:-2]
+    crc = header_crc(header_without_crc)
+    header = FIELD_MESH_HEADER.pack(
+        FIELD_MESH_MAGIC,
+        FIELD_MESH_VERSION,
+        FIELD_MESH_HEADER_LEN,
+        1,
+        src_node,
+        dst_node,
+        trace.stream_id,
+        traffic_class,
+        mode,
+        0,
+        trace.epoch,
+        trace.slot,
+        trace.sequence,
+        trace.payload_len,
+        crc,
+    )
+    return header + payload
+
+
+def unpack_packet(packet: bytes) -> dict[str, object]:
+    if len(packet) < FIELD_MESH_HEADER_LEN:
+        raise ValueError("short packet")
+
+    fields = FIELD_MESH_HEADER.unpack(packet[:FIELD_MESH_HEADER_LEN])
+    (
+        magic,
+        version,
+        header_len,
+        network_id,
+        src_node,
+        dst_node,
+        stream_id,
+        traffic_class,
+        mode,
+        flags,
+        epoch,
+        slot,
+        sequence,
+        payload_len,
+        crc,
+    ) = fields
+
+    if magic != FIELD_MESH_MAGIC:
+        raise ValueError(f"bad magic 0x{magic:04x}")
+    if version != FIELD_MESH_VERSION:
+        raise ValueError(f"bad version {version}")
+    if header_len != FIELD_MESH_HEADER_LEN:
+        raise ValueError(f"bad header_len {header_len}")
+    expected_crc = header_crc(packet[: FIELD_MESH_HEADER_LEN - 2])
+    if crc != expected_crc:
+        raise ValueError(f"bad header_crc 0x{crc:04x} expected 0x{expected_crc:04x}")
+    if len(packet) != header_len + payload_len:
+        raise ValueError(f"bad payload length {payload_len} for packet length {len(packet)}")
+
+    return {
+        "network_id": network_id,
+        "src_node": NODE_NAMES.get(src_node, f"0x{src_node:04x}"),
+        "dst_node": NODE_NAMES.get(dst_node, f"0x{dst_node:04x}"),
+        "stream_id": stream_id,
+        "traffic_class": CLASS_NAMES.get(traffic_class, str(traffic_class)),
+        "mode": MODE_NAMES.get(mode, str(mode)),
+        "flags": flags,
+        "epoch": epoch,
+        "slot": slot,
+        "sequence": sequence,
+        "payload_len": payload_len,
+        "header_crc": crc,
+    }
 
 
 SCENARIOS = {
@@ -113,49 +249,178 @@ def capability_report(node: Node) -> dict[str, object]:
     }
 
 
-def simulate_ticks(nodes: tuple[Node, ...], mode: str, ticks: int, rng: random.Random) -> None:
+class UdpLoopback:
+    def __init__(self, host: str, port: int, timeout: float) -> None:
+        self.host = host
+        self.timeout = timeout
+        self.stop_event = Event()
+        self.received: Queue[dict[str, object]] = Queue()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind((host, port))
+        self.sock.settimeout(0.1)
+        self.address = self.sock.getsockname()
+        self.thread = Thread(target=self._receive_loop, name="fieldmesh-udp-loopback", daemon=True)
+
+    def __enter__(self) -> "UdpLoopback":
+        self.thread.start()
+        return self
+
+    def __exit__(self, *_exc_info: object) -> None:
+        self.stop_event.set()
+        self.thread.join(timeout=1.0)
+        self.sock.close()
+
+    def _receive_loop(self) -> None:
+        while not self.stop_event.is_set():
+            try:
+                packet, _addr = self.sock.recvfrom(65535)
+            except socket.timeout:
+                continue
+            try:
+                self.received.put({"ok": True, **unpack_packet(packet)})
+            except ValueError as exc:
+                self.received.put({"ok": False, "error": str(exc)})
+
+    def send_and_receive(self, trace: PacketTrace) -> dict[str, object]:
+        self.sock.sendto(pack_packet(trace), self.address)
+        deadline = time.monotonic() + self.timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return {"ok": False, "error": "rx timeout"}
+            try:
+                return self.received.get(timeout=remaining)
+            except Empty:
+                return {"ok": False, "error": "rx timeout"}
+
+
+def make_trace(
+    tick: int,
+    traffic_class: str,
+    nodes: tuple[Node, ...],
+    mode: str,
+    rng: random.Random,
+) -> PacketTrace:
     source = next((node for node in nodes if "endpoint" in node.roles), nodes[0])
     coordinator = next((node for node in nodes if "coordinator" in node.roles), nodes[-1])
-    stream_id = 100
     c2_target_kbps = min(node.max_kbps for node in nodes) // 2
 
-    for tick in range(ticks):
-        epoch = 1000 + tick
-        slot_count = max(1, len(nodes) - 1)
-        for traffic_class in ("C0", "C1", "C2"):
-            if traffic_class == "C0":
-                payload_len = 32
-                queue_age_ms = rng.randint(1, 8)
-                delivered_kbps = 8
-            elif traffic_class == "C1":
-                payload_len = 96
-                queue_age_ms = rng.randint(4, 18)
-                delivered_kbps = 48
-            else:
-                payload_len = 1024
-                queue_age_ms = rng.randint(12, 45)
-                delivered_kbps = c2_target_kbps - rng.randint(0, 200)
+    if traffic_class == "C0":
+        payload_len = 32
+        queue_age_ms = rng.randint(1, 8)
+        delivered_kbps = 8
+    elif traffic_class == "C1":
+        payload_len = 96
+        queue_age_ms = rng.randint(4, 18)
+        delivered_kbps = 48
+    else:
+        payload_len = 1024
+        queue_age_ms = rng.randint(12, 45)
+        delivered_kbps = c2_target_kbps - rng.randint(0, 200)
 
-            late = queue_age_ms > (20 if traffic_class in ("C0", "C1") else 80)
-            emit(
-                "packet_trace",
-                tick=tick,
-                epoch=epoch,
-                slot=tick % slot_count,
-                mode=mode,
-                src_node=source.node_id,
-                dst_node=coordinator.node_id,
-                stream_id=stream_id,
-                traffic_class=traffic_class,
-                sequence=tick * 10 + TRAFFIC_CLASSES.index(traffic_class),
-                payload_len=payload_len,
-                queue_age_ms=queue_age_ms,
-                delivered_kbps=delivered_kbps,
-                dropped=0,
-                late=late,
-                fec_recovered=rng.randint(0, 3),
-                link_quality_db=round(18.0 + rng.random() * 8.0, 2),
-            )
+    late = queue_age_ms > (20 if traffic_class in ("C0", "C1") else 80)
+    return PacketTrace(
+        tick=tick,
+        epoch=1000 + tick,
+        slot=tick % max(1, len(nodes) - 1),
+        mode=mode,
+        src_node=source.node_id,
+        dst_node=coordinator.node_id,
+        stream_id=100,
+        traffic_class=traffic_class,
+        sequence=tick * 10 + TRAFFIC_CLASSES.index(traffic_class),
+        payload_len=payload_len,
+        queue_age_ms=queue_age_ms,
+        delivered_kbps=delivered_kbps,
+        dropped=0,
+        late=late,
+        fec_recovered=rng.randint(0, 3),
+        link_quality_db=round(18.0 + rng.random() * 8.0, 2),
+    )
+
+
+def emit_trace(trace: PacketTrace, transport: str, rx: dict[str, object] | None = None) -> None:
+    rx_error = None
+    transport_ok = True
+    if rx is not None:
+        transport_ok = bool(rx.get("ok"))
+        rx_error = rx.get("error")
+        if transport_ok:
+            expected = {
+                "src_node": trace.src_node,
+                "dst_node": trace.dst_node,
+                "stream_id": trace.stream_id,
+                "traffic_class": trace.traffic_class,
+                "mode": trace.mode,
+                "epoch": trace.epoch,
+                "slot": trace.slot,
+                "sequence": trace.sequence,
+                "payload_len": trace.payload_len,
+            }
+            for key, value in expected.items():
+                if rx.get(key) != value:
+                    transport_ok = False
+                    rx_error = f"rx {key} mismatch: {rx.get(key)!r} != {value!r}"
+                    break
+
+    emit(
+        "packet_trace",
+        tick=trace.tick,
+        epoch=trace.epoch,
+        slot=trace.slot,
+        mode=trace.mode,
+        src_node=trace.src_node,
+        dst_node=trace.dst_node,
+        stream_id=trace.stream_id,
+        traffic_class=trace.traffic_class,
+        sequence=trace.sequence,
+        payload_len=trace.payload_len,
+        queue_age_ms=trace.queue_age_ms,
+        delivered_kbps=trace.delivered_kbps,
+        dropped=trace.dropped if transport_ok else trace.dropped + 1,
+        late=trace.late,
+        fec_recovered=trace.fec_recovered,
+        link_quality_db=trace.link_quality_db,
+        transport=transport,
+        rx_ok=transport_ok,
+        rx_error=None if transport_ok else rx_error,
+        rx_header_crc=None if rx is None else rx.get("header_crc"),
+    )
+
+
+def run_ticks(
+    nodes: tuple[Node, ...],
+    mode: str,
+    ticks: int,
+    rng: random.Random,
+    transport: str,
+    udp_host: str,
+    udp_port: int,
+    udp_timeout: float,
+) -> None:
+    source = next((node for node in nodes if "endpoint" in node.roles), nodes[0])
+    coordinator = next((node for node in nodes if "coordinator" in node.roles), nodes[-1])
+
+    emit(
+        "transport_start",
+        transport=transport,
+        source=source.node_id,
+        sink=coordinator.node_id,
+        udp_host=udp_host if transport == "udp-loopback" else None,
+        udp_port=udp_port if transport == "udp-loopback" else None,
+    )
+    if transport == "simulate":
+        for tick in range(ticks):
+            for traffic_class in ("C0", "C1", "C2"):
+                emit_trace(make_trace(tick, traffic_class, nodes, mode, rng), transport)
+        return
+
+    with UdpLoopback(udp_host, udp_port, udp_timeout) as loopback:
+        emit("transport_bound", transport=transport, udp_host=loopback.address[0], udp_port=loopback.address[1])
+        for tick in range(ticks):
+            for traffic_class in ("C0", "C1", "C2"):
+                trace = make_trace(tick, traffic_class, nodes, mode, rng)
+                emit_trace(trace, transport, loopback.send_and_receive(trace))
 
 
 def parse_args() -> argparse.Namespace:
@@ -174,6 +439,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--ticks", type=int, default=8, help="number of trace ticks")
     parser.add_argument("--seed", type=int, default=1, help="deterministic RNG seed")
+    parser.add_argument(
+        "--transport",
+        choices=("simulate", "udp-loopback"),
+        default="simulate",
+        help="packet transport used by packet_trace events",
+    )
+    parser.add_argument("--udp-host", default="127.0.0.1", help="UDP loopback bind host")
+    parser.add_argument("--udp-port", type=int, default=0, help="UDP loopback port, 0 selects an ephemeral port")
+    parser.add_argument("--udp-timeout", type=float, default=1.0, help="seconds to wait for each UDP loopback packet")
     return parser.parse_args()
 
 
@@ -187,7 +461,13 @@ def main() -> int:
     mode, reason = choose_mode(args.mode, nodes)
     rng = random.Random(args.seed)
 
-    emit("scenario_start", scenario=args.scenario, requested_mode=args.mode, ticks=args.ticks)
+    emit(
+        "scenario_start",
+        scenario=args.scenario,
+        requested_mode=args.mode,
+        ticks=args.ticks,
+        transport=args.transport,
+    )
     for node in nodes:
         emit("capability_report", **capability_report(node))
     emit(
@@ -204,7 +484,16 @@ def main() -> int:
         c1_latency_budget_ms=50,
         stale_video_drop_ms=120,
     )
-    simulate_ticks(nodes, mode, args.ticks, rng)
+    run_ticks(
+        nodes,
+        mode,
+        args.ticks,
+        rng,
+        args.transport,
+        args.udp_host,
+        args.udp_port,
+        args.udp_timeout,
+    )
     emit("scenario_end", selected_mode=mode, ticks=args.ticks)
     return 0
 

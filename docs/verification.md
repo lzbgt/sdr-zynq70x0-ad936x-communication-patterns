@@ -1472,6 +1472,26 @@ Result:
 - Capture SHA-256:
   `949d602e08ad77616649c9c0385dfddb61dead9102311055bee3f5acf1350a54`.
 
+## FieldMesh Trace Harness
+
+Commands:
+
+```sh
+python3 -m py_compile tools/fieldmesh_trace_harness.py
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode auto --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario star --mode auto --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario graph --mode auto --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario scheduled --mode auto --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --transport udp-loopback --ticks 2
+```
+
+Result:
+
+- Python bytecode compilation passed.
+- All five UDP-loopback scenarios emitted valid NDJSON.
+- Each `packet_trace` event reported `rx_ok=true`; the harness packed and
+  validated the draft FieldMesh header and CRC over local UDP loopback.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
