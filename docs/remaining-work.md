@@ -89,8 +89,9 @@ Next concrete work:
   Pluto USB/RNDIS IP.
 - Run `tools/run_fieldmesh_board_iio_scan.sh` on the same reachable board image
   before attempting IIO packet transport, and capture the IIO device inventory.
-- Keep `tools/fieldmesh_vector_tool.py verify`, C `verify-frame`, and C
-  `mmap-replay` checks green as packet bytes move into IIO or PL.
+- Keep `tools/fieldmesh_vector_tool.py verify`, C `verify-frame`, C
+  `mmap-replay`, and C `desc-replay` checks green as packet bytes move into IIO
+  or PL.
 - Bind the same shim frame to a real IIO buffer or first PL loopback endpoint
   while preserving the FieldMesh packet bytes and passing
   `tools/fieldmesh_trace_assert.py`.

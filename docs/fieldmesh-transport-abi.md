@@ -114,16 +114,23 @@ The C probe can verify the same frame files:
 ```sh
 fieldmesh-udp-probe verify-frame --file resources/fieldmesh/vectors/frame_000.bin
 fieldmesh-udp-probe mmap-replay --file resources/fieldmesh/vectors/frame_000.bin
+fieldmesh-udp-probe desc-replay --file resources/fieldmesh/vectors/frame_000.bin
 ```
 
 These files are the contract for IIO and PL loopback work: new transports must
 carry the same frame bytes, preserve the manifest parse fields, and pass both
-decode-only and mapped-memory replay before adding RF/baseband behavior.
+decode-only, mapped-memory replay, and descriptor replay before adding
+RF/baseband behavior.
 
 ## Stage 2: PL Packet Queue ABI
 
 When userspace/IIO loopback is stable, move the hot path into PL as a packet
 queue rather than pushing mode logic into FPGA too early.
+
+Status: the C probe has a `desc-replay` role that reads the committed shim-frame
+vectors, validates the embedded FieldMesh packet, and maps the packet fields
+into the descriptor layout below. This is still a software model, but it pins
+the bytes and descriptor semantics before HDL work.
 
 Keep these responsibilities in Linux first:
 

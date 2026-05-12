@@ -1633,13 +1633,15 @@ Binary vector corpus:
 for f in resources/fieldmesh/vectors/frame_*.bin; do
   ./.config/fieldmesh/fieldmesh-udp-probe-host verify-frame --file "$f"
   ./.config/fieldmesh/fieldmesh-udp-probe-host mmap-replay --file "$f"
+  ./.config/fieldmesh/fieldmesh-udp-probe-host desc-replay --file "$f"
 done
 ```
 
 Result: ten scheduled/auto stress vectors were generated and verified. Python
 validated the packet and shim-frame manifests; the host-built C probe validated
 all committed `frame_*.bin` files through its `verify-frame` role and replayed
-them through the mapped-memory ring ABI with `mmap-replay`.
+them through the mapped-memory ring ABI with `mmap-replay` and the PL-facing
+descriptor model with `desc-replay`.
 
 ## FieldMesh Board Runtime Probe
 
@@ -1694,14 +1696,14 @@ Result:
 Current package hashes:
 
 ```text
-4e198e1426b8ccfcc98672cdc2d7eb88dad4672716fbf35adf5e0ba9f59e441f  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
-d2db6e1a8b1510209df2e9610f38ef41e663cd9fac952ab4e6a6505da2aeeb1f  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
-b28b6cb593ce74584f23ee92179ada7d14faf631974563015965935f20df65f5  z203 pluto.itb
-aebfd89ae13568147fc719a53d41e878891639e4e4b18a293dbc1f4ff29ac477  z203 pluto.frm
-a9322b0027b2389825f8582dd3c80cdb4193f2710a31e59bfe2633916c0acea9  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
-429336a1ae3eee49c22236b5666157e38066eec27f8b19f5e58e7de0e26a5788  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
-5c5976df86f59b6e69e3b5a9666dc8ab3da15f36253bdce9987cd65c18878980  z103 pluto.itb
-2a7f4f1f9780fd8255b79c8ee99eedad2e2db0aa7773152627f0dac0b5eecb72  z103 pluto.frm
+0fc2bc2ce060181ca7638f08adf830f4ab8348ee390862d1f006b828897c0fe6  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
+1d5ea940ebe988dace879d1c9bc677cb39c205347565715414e2af9550d929cf  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
+110ca651ffb2a4e741a104464e9f2f2c2e89775ffa97f0c71b44385feed0b924  z203 pluto.itb
+4560824eeb614cf24dd72a84236cdcfc100c273f754d779d98f4c63163712f28  z203 pluto.frm
+b45acb71cfd91a1301ff7225abb59b414cc914bcb3b78aad528754b16ada0978  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+26ef1fc1085f09d5c9461c92cd2ca4a46def36f4867bdcd5df106ee2b8979b84  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
+510ad4b1d7ccb071f08ad52c9a54b04616b9119cfb4a05d503e9cb81ea8a8567  z103 pluto.itb
+a0e8130396c254dfde08f91d2d0af31de66b8e79b7c6457f8afe599fef29ecd5  z103 pluto.frm
 ```
 
 ## Verification Gaps
