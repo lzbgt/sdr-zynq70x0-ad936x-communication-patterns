@@ -392,6 +392,9 @@ Milestone 1: Common packet pipe
 - IIO or PL loopback transport first, then RF transport after link framing is
   observable.
 - CSV/JSON trace of packet loss, latency, bitrate, and queue age.
+- The staged packet-pipe ABI is defined in `docs/fieldmesh-transport-abi.md`:
+  UDP reference first, IIO buffer shim second, PL descriptor queue third, and RF
+  attachment only after trace assertions pass.
 
 Milestone 2: P2P profile
 

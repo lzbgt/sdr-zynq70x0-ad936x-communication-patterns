@@ -326,6 +326,14 @@ its contract event, C0/C1 queue age stays inside policy, stale C2/C3 traffic has
 a degradation action or drop, and transport receive events do not report
 failures. Use `--no-negotiation` for receiver-only traces.
 
+## Next Transport Boundary
+
+The next implementation boundary is defined in
+`docs/fieldmesh-transport-abi.md`: keep the FieldMesh packet header and trace
+contract stable while moving the byte stream from UDP into an IIO buffer shim
+and then a PL descriptor queue. The first PL target is a packet loopback and
+class-priority queue, not the final RF waveform.
+
 ## Implementation Notes
 
 - Keep PHY and MAC separated: packet/control-plane tests should run before the

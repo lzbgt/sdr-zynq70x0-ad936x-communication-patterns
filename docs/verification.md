@@ -1557,6 +1557,17 @@ Trace assertion commands:
 Result: both sender and receiver traces passed. Receiver-only traces use
 `--no-negotiation` because negotiation is emitted by the sender side.
 
+## FieldMesh Transport ABI
+
+`docs/fieldmesh-transport-abi.md` records the next implementation boundary after
+UDP traces:
+
+- keep the common FieldMesh packet bytes stable,
+- use UDP as the reference transport,
+- move next to an IIO buffer or memory-loopback shim,
+- then add a PL descriptor queue and register block,
+- attach RF only after packet-loopback traces pass the assertion tool.
+
 ## FieldMesh Board Runtime Probe
 
 Host-side C probe check:

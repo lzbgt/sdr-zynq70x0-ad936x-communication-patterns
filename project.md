@@ -237,6 +237,9 @@ user and vendor configuration.
   selection/negotiation.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
   packet, control-plane, mode-selection, and conducted-test spec.
+- `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
+  UDP FieldMesh packet stream toward IIO and PL packet queues without changing
+  the common packet header or trace contract.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T SDR-Z203 board
