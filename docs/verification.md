@@ -1687,7 +1687,8 @@ Result: `fieldmesh_desc_loopback_core_tb`,
 `fieldmesh_class_descriptor_rings_tb`, `fieldmesh_packet_axis_source_tb`, and
 `fieldmesh_packet_axis_sink_tb`, `fieldmesh_packet_axis_loopback_tb`, and
 `fieldmesh_packet_axis_dma_adapter_tb`, and
-`fieldmesh_axis_header_guard_tb` passed.
+`fieldmesh_axis_header_guard_tb`, `fieldmesh_axis_header_parser_tb`, and
+`fieldmesh_packet_axis_byte_pipe_loopback_tb` passed.
 The core testbench accepts valid C0 and C4 descriptors, checks OWN clearing and
 DONE/timestamp-valid completion, then rejects an invalid C5 descriptor with
 `drop_count=1` and `fault=1`. The
@@ -1722,8 +1723,13 @@ metadata, and checks that pending RX completion backpressures a second packet.
 The header-guard test verifies that a byte-only transport boundary preserves
 packet bytes, applies normal AXI-stream backpressure, accepts matching
 sideband/header metadata, and reports a sideband/header mismatch through
-`mismatch_count` and `fault`. This does not instantiate ADI DMA, IIO, scaled
-descriptor memory, or RF logic yet.
+`mismatch_count` and `fault`. The header-parser test accepts a byte-only
+packet, validates the fixed FieldMesh header, reconstructs stream/class/mode/slot
+sidebands, re-emits unchanged bytes, and drops a bad-magic packet. The byte-pipe
+loopback test writes a complete FieldMesh packet into TX memory, submits a TX
+descriptor, passes bytes through adapter -> guard -> parser -> sink, verifies RX
+descriptor metadata, and checks selected RX packet bytes. This does not
+instantiate ADI DMA, IIO, scaled descriptor memory, or RF logic yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 

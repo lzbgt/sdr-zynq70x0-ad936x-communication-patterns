@@ -428,6 +428,11 @@ Milestone 1: Common packet pipe
   guard: it passes bytes and `tlast` through unchanged while checking that
   sideband class/mode/stream/slot metadata matches the in-band FieldMesh packet
   header before those bytes enter a DMA/IIO path that may drop sidebands.
+  `rtl/fieldmesh/fieldmesh_axis_header_parser.v` reconstructs those sidebands
+  from the in-band header on RX, and
+  `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies the first
+  complete byte-only transport model from TX packet memory back into RX packet
+  memory.
 
 Milestone 2: P2P profile
 

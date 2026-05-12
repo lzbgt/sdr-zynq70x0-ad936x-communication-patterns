@@ -436,8 +436,11 @@ and `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` exposes the same stream
 pair as external TX/RX AXI-stream ports.
 `rtl/fieldmesh/fieldmesh_axis_header_guard.v` verifies those sidebands against
 the in-band packet header before the path is treated as a byte-only DMA/IIO
-pipe. The next PL target is binding those guarded adapter ports to a real
-DMA/IIO transport, not the final RF waveform.
+pipe. `rtl/fieldmesh/fieldmesh_axis_header_parser.v` reconstructs those
+sidebands on RX, and
+`rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies a complete
+guarded byte-pipe loopback model. The next PL target is binding that model to a
+vendor DMA/IIO transport, not the final RF waveform.
 
 ## Implementation Notes
 

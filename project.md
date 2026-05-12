@@ -442,6 +442,12 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_axis_header_guard.v` - byte-only transport guard
   that checks AXI-stream sideband metadata against the in-band FieldMesh packet
   header before DMA/IIO binding.
+- `rtl/fieldmesh/fieldmesh_axis_header_parser.v` - RX-side byte-only stream
+  parser that validates the FieldMesh packet header and reconstructs sideband
+  metadata after a DMA/IIO-shaped pipe.
+- `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` - complete
+  simulation byte-pipe model wiring adapter, guard, parser, and sink so packet
+  bytes cross the transport boundary with only bytes plus `tlast`.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -453,7 +459,9 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_packet_axis_sink_tb.v`,
   `tb/fieldmesh/fieldmesh_packet_axis_loopback_tb.v`, and
   `tb/fieldmesh/fieldmesh_packet_axis_dma_adapter_tb.v`, and
-  `tb/fieldmesh/fieldmesh_axis_header_guard_tb.v` with
+  `tb/fieldmesh/fieldmesh_axis_header_guard_tb.v`,
+  `tb/fieldmesh/fieldmesh_axis_header_parser_tb.v`, and
+  `tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor and packet-memory RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
@@ -553,6 +561,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Bind the guarded FieldMesh packet stream adapter ports to a real DMA/IIO
-   transport, scale descriptor storage beyond the shallow class rings, and bind
-   the path to IIO/PL before open-air RF tests.
+4. Bind the FieldMesh byte-pipe model to a real DMA/IIO transport, scale
+   descriptor storage beyond the shallow class rings, and bind the path to
+   IIO/PL before open-air RF tests.

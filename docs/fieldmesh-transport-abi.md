@@ -225,6 +225,16 @@ into a transport that may not preserve sidebands. The test proves output
 backpressure stalls the input, valid packet bytes pass unchanged, and a
 sideband/header mismatch increments `mismatch_count` and sets `fault`.
 
+`rtl/fieldmesh/fieldmesh_axis_header_parser.v` is the RX-side pair for the
+guard. It accepts byte-only AXI-stream packets, validates the fixed FieldMesh
+header, reconstructs class/mode/stream/slot sidebands, and re-emits the packet
+in the internal stream shape consumed by `fieldmesh_packet_axis_sink.v`.
+`rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` wires the adapter,
+guard, parser, and sink into the first complete byte-pipe transport model.
+This verifies that the FieldMesh packet bytes can cross a DMA/IIO-shaped pipe
+with only bytes and `tlast`, then recover the metadata needed by the PL packet
+sink.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -244,8 +254,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
-AXI-stream source/sink/loopback/adapter/header-guard simulations green before
-adding vendor DMA wiring or IIO/RF transport binding.
+AXI-stream source/sink/loopback/adapter/header-guard/parser/byte-pipe
+simulations green before adding vendor DMA wiring or IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -355,9 +365,11 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 8. Wrap the stream pair in a DMA-facing or IIO-facing integration shell.
 9. Add a byte-only transport guard that checks sideband metadata against the
    FieldMesh in-band packet header.
-10. Bind the guarded adapter ports to a real transport implementation.
-11. Scale descriptor memory and add timestamp/slot gates.
-12. Only then connect the RF/baseband path.
+10. Add the RX-side parser and byte-pipe loopback model.
+11. Bind the guarded/parser transport ports to a vendor DMA or IIO
+    implementation.
+12. Scale descriptor memory and add timestamp/slot gates.
+13. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 
