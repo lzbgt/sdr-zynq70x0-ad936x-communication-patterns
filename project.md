@@ -240,6 +240,9 @@ user and vendor configuration.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward IIO and PL packet queues without changing
   the common packet header or trace contract.
+- `docs/fieldmesh-vendor-dma-boundary.md` - source-derived ADI Pluto
+  DMA/IIO boundary inventory for binding FieldMesh beside, not over, the
+  existing AD936x IQ sample DMA path.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T SDR-Z203 board
@@ -448,6 +451,10 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` - complete
   simulation byte-pipe model wiring adapter, guard, parser, and sink so packet
   bytes cross the transport boundary with only bytes plus `tlast`.
+- `tools/fieldmesh_vendor_dma_inventory.py` - parses the Z203/Z103 vendor
+  `system_bd.tcl` files and emits the ADI RX/TX DMA address, stream, HP-port,
+  and IRQ boundary that FieldMesh must avoid overwriting during hardware
+  integration.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -561,6 +568,7 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Bind the FieldMesh byte-pipe model to a real DMA/IIO transport, scale
-   descriptor storage beyond the shallow class rings, and bind the path to
-   IIO/PL before open-air RF tests.
+4. Bind the FieldMesh byte-pipe model to a sidecar DMA/IIO transport with its
+   own register namespace, leaving the ADI sample-DMA windows at `0x7C400000`
+   and `0x7C420000` untouched. Then scale descriptor storage beyond the
+   shallow class rings and bind the path to IIO/PL before open-air RF tests.

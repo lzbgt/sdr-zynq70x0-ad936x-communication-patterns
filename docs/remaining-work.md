@@ -129,9 +129,13 @@ Next concrete work:
   cross a DMA/IIO boundary that may not preserve sidebands. The RX-side parser
   reconstructs those sidebands from the in-band header, and the byte-pipe
   loopback model verifies adapter -> guard -> parser -> sink transfer through
-  bytes plus `tlast`. The remaining PL work is binding that model to a real
-  DMA/IIO transport, scaling descriptor storage, and then binding the path to
-  IIO/PL.
+  bytes plus `tlast`. `tools/fieldmesh_vendor_dma_inventory.py` now parses the
+  Z203/Z103 Pluto `system_bd.tcl` files and documents that the existing ADI
+  sample-DMA windows are `axi_ad9361_adc_dma` at `0x7C400000` and
+  `axi_ad9361_dac_dma` at `0x7C420000`, with RX/TX sample streams tied to
+  `cpack` and `tx_upack`. The remaining PL work is binding the byte-pipe model
+  to a sidecar DMA/IIO transport with its own register namespace, scaling
+  descriptor storage, and then binding the path to IIO/PL.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

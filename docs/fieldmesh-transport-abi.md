@@ -43,9 +43,10 @@ Acceptance:
 
 ## Stage 1: IIO Buffer Packet Pipe
 
-Use an IIO device or existing ADI DMA path as a packet byte pipe before creating
-a new modem. This is still a conducted/baseband experiment, not an over-the-air
-claim.
+Use a sidecar IIO device or sidecar DMA path as a packet byte pipe before
+creating a new modem. This is still a conducted/baseband experiment, not an
+over-the-air claim. Do not route first FieldMesh packet tests through the
+existing ADI AD936x sample-DMA register windows.
 
 Status: the host harness implements `--transport mem-loopback`, and the C
 runtime probe implements both `fieldmesh-udp-probe mem-loopback` and
@@ -235,6 +236,20 @@ This verifies that the FieldMesh packet bytes can cross a DMA/IIO-shaped pipe
 with only bytes and `tlast`, then recover the metadata needed by the PL packet
 sink.
 
+The imported Pluto HDL already has ADI sample-DMA blocks:
+
+- RX sample DMA: `axi_ad9361_adc_dma` at `0x7C400000`, fed by
+  `cpack/packed_fifo_wr`, connected to PS `S_AXI_HP1`.
+- TX sample DMA: `axi_ad9361_dac_dma` at `0x7C420000`, feeding
+  `tx_upack/s_axis`, connected to PS `S_AXI_HP2`.
+
+`tools/fieldmesh_vendor_dma_inventory.py` extracts this boundary from both
+Z203 and Z103 `system_bd.tcl` files. See
+`docs/fieldmesh-vendor-dma-boundary.md` for the current inventory. The next
+hardware integration should add a FieldMesh sidecar packet transport with its
+own AXI-lite/DMA register namespace. Do not reuse or replace the ADI sample-DMA
+windows for the first packet-pipe binding.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -366,10 +381,12 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 9. Add a byte-only transport guard that checks sideband metadata against the
    FieldMesh in-band packet header.
 10. Add the RX-side parser and byte-pipe loopback model.
-11. Bind the guarded/parser transport ports to a vendor DMA or IIO
+11. Inventory the vendor ADI sample-DMA boundary and choose a sidecar
+    FieldMesh register/DMA namespace.
+12. Bind the guarded/parser transport ports to that sidecar DMA or IIO
     implementation.
-12. Scale descriptor memory and add timestamp/slot gates.
-13. Only then connect the RF/baseband path.
+13. Scale descriptor memory and add timestamp/slot gates.
+14. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

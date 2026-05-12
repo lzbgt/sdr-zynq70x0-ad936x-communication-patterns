@@ -1856,6 +1856,30 @@ b61fd5d447dc6274ade1352bf78b5a62090c0620ab38f6163997e135ed231e42  sdr-z103-arm-i
 4d444323ae3a87252f296e0cccf75b32d9ac9b2c4d11fc847ab624a012436a55  z103 pluto.frm
 ```
 
+## FieldMesh Vendor DMA Inventory
+
+The ADI Pluto DMA boundary was verified from both imported Vivado
+`system_bd.tcl` files:
+
+```sh
+python3 -m py_compile tools/fieldmesh_vendor_dma_inventory.py
+./tools/fieldmesh_vendor_dma_inventory.py --format markdown \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
+./tools/fieldmesh_vendor_dma_inventory.py \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_vendor_dma_inventory.json
+python3 -m json.tool /tmp/fieldmesh_vendor_dma_inventory.json >/dev/null
+```
+
+Result: both variants report ADI RX sample DMA `axi_ad9361_adc_dma` at
+`0x7C400000`, ADI TX sample DMA `axi_ad9361_dac_dma` at `0x7C420000`, 64-bit
+sample stream width, RX over PS `S_AXI_HP1`, TX over PS `S_AXI_HP2`, and the
+same ADI `cpack`/`tx_upack` stream boundary. This confirms the first FieldMesh
+hardware binding should use a sidecar packet transport and must not reuse the
+existing ADI sample-DMA register windows.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

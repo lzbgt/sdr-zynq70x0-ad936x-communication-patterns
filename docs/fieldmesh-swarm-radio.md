@@ -422,8 +422,8 @@ Milestone 1: Common packet pipe
   packet bytes and metadata end-to-end before DMA/IIO integration.
   `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` then exposes that same
   source/sink pair as external AXI-stream TX/RX ports, with simulation covering
-  external ready backpressure and RX completion backpressure before a vendor DMA
-  or IIO pipe is attached.
+  external ready backpressure and RX completion backpressure before a sidecar
+  DMA or IIO pipe is attached.
   `rtl/fieldmesh/fieldmesh_axis_header_guard.v` is the byte-only transport
   guard: it passes bytes and `tlast` through unchanged while checking that
   sideband class/mode/stream/slot metadata matches the in-band FieldMesh packet
@@ -432,7 +432,9 @@ Milestone 1: Common packet pipe
   from the in-band header on RX, and
   `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies the first
   complete byte-only transport model from TX packet memory back into RX packet
-  memory.
+  memory. `docs/fieldmesh-vendor-dma-boundary.md` records the existing ADI
+  Pluto sample-DMA windows so this packet path can be integrated beside the
+  AD936x IQ path instead of over it.
 
 Milestone 2: P2P profile
 
