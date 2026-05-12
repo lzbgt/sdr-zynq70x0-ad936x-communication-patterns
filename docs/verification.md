@@ -2084,6 +2084,29 @@ copied Z203 and Z103 HDL trees, proving the BD can instantiate the sidecar
 ADI `axi_dmac` packet path through the 16-bit-to-byte adapter without replacing
 the ADI IQ sample-DMA path.
 
+The FieldMesh sidecar devicetree contract was checked with:
+
+```sh
+./tools/fieldmesh_devicetree_plan.py \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux \
+  >/tmp/fieldmesh_devicetree_plan.json
+python3 -m json.tool /tmp/fieldmesh_devicetree_plan.json >/dev/null
+cc -Wall -Wextra -std=c11 -o /tmp/fieldmesh-udp-probe-host \
+  meta-sdr-z203/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c
+tmp_dt=$(mktemp -d)
+# Synthetic /proc/device-tree layout with fieldmesh-ctrl@43c00000,
+# dma@43c10000, dma@43c20000, and fieldmesh-packet nodes.
+/tmp/fieldmesh-udp-probe-host dt-scan --dt-root "$tmp_dt" \
+  >/tmp/fieldmesh_dt_scan.ndjson
+rm -rf "$tmp_dt"
+```
+
+Result: generated Z203 and Z103 FieldMesh DTS files compiled to DTB, decompiled
+checks found the expected sidecar control, packet DMA, and packet client nodes,
+and host `fieldmesh-udp-probe dt-scan` validated a synthetic live devicetree
+layout.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

@@ -448,8 +448,10 @@ byte-only packets into FieldMesh sidebands, and the PL-to-PS direction checks
 sidebands before emitting byte-only packets. The next PL target is binding that
 bridge to a runtime-visible sidecar DMA/IIO packet transport. A copied-HDL
 Vivado overlay now proves the BD can host sidecar ADI `axi_dmac` packet DMAs
-through a 16-bit-to-byte adapter; the next target is devicetree/userspace
-binding, not the existing ADI IQ sample-DMA path and not the final RF waveform.
+through a 16-bit-to-byte adapter. The matching devicetree/userspace preflight
+is now drafted; the next target is integrating it only with a matching
+FieldMesh bitstream, not the existing ADI IQ sample-DMA path and not the final
+RF waveform.
 
 ## Implementation Notes
 

@@ -281,6 +281,20 @@ split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream connections,
 and address segments are BD-visible on both variants; it does not yet provide
 devicetree nodes, a Linux driver binding, or live board traffic.
 
+The matching devicetree contract is generated and checked separately:
+
+```sh
+./tools/fieldmesh_devicetree_plan.py \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux
+```
+
+That helper writes a `fieldmesh-sidecar.dtsi`, merges it with each variant's
+Pluto DTS in `.config/fieldmesh/devicetree-plan/`, compiles DTBs with `dtc`,
+and checks the expected control, TX DMA, RX DMA, and packet client nodes. On a
+future runtime image, `fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree`
+is the userspace preflight before touching any sidecar DMA register.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

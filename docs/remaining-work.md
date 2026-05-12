@@ -74,15 +74,18 @@ IIO or PL endpoint exists; the packaged C probe also supports
 board-local validation once runtime access is available. The mapped-memory role
 uses a small slot ring, so the next transport step is no longer "prove a local
 memory endpoint"; it is specifically "bind the same shim frames to IIO or PL."
-The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan` and
-`fieldmesh-udp-probe iio-plan`, and `tools/run_fieldmesh_board_iio_scan.sh`
-captures board-local IIO readiness plus read-only RX/TX packet-pipe candidate
-selection once runtime SSH access is restored. The helper now writes a
-`preflight_assert.json` summary through `tools/fieldmesh_iio_preflight_assert.py`,
-which can also revalidate saved captures offline, and an `iio_pipe_dry_run.ndjson`
-mapping through `tools/fieldmesh_iio_pipe_dry_run.py`. `resources/fieldmesh/vectors/`
-now pins the packet and shim-frame bytes that IIO and PL loopback implementations
-must carry unchanged.
+The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan`,
+`fieldmesh-udp-probe iio-plan`, and `fieldmesh-udp-probe dt-scan`.
+`tools/run_fieldmesh_board_iio_scan.sh` captures board-local IIO readiness plus
+read-only RX/TX packet-pipe candidate selection once runtime SSH access is
+restored. The helper now writes a `preflight_assert.json` summary through
+`tools/fieldmesh_iio_preflight_assert.py`, which can also revalidate saved
+captures offline, and an `iio_pipe_dry_run.ndjson` mapping through
+`tools/fieldmesh_iio_pipe_dry_run.py`. `tools/fieldmesh_devicetree_plan.py`
+generates and compiles the FieldMesh sidecar DTS fragment for Z203/Z103 without
+mutating vendor Linux trees. `resources/fieldmesh/vectors/` now pins the packet
+and shim-frame bytes that IIO and PL loopback implementations must carry
+unchanged.
 
 Next concrete work:
 
@@ -167,8 +170,9 @@ Next concrete work:
   `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v`, maps them at
   `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for RX/S2MM, and is
   Vivado BD-generation checked for copied Z203 and Z103 HDL trees.
-- Add devicetree, userspace, and board-runtime validation for the sidecar
-  packet DMA/IIO path, still without reusing the ADI IQ DMA path.
+- Integrate the FieldMesh sidecar devicetree only with a matching FieldMesh
+  bitstream, then run `fieldmesh-udp-probe dt-scan` before touching sidecar
+  packet DMA/IIO registers. Keep the ADI IQ DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

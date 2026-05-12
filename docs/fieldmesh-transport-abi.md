@@ -420,10 +420,12 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
     guarded byte output as the packet transport boundary.
 14. Bind the guarded/parser transport ports to the first copied-HDL sidecar
     DMA overlay, using a 16-bit adapter where ADI `axi_dmac` is the transport.
-15. Add devicetree/userspace binding and board-runtime validation for that
-    sidecar DMA/IIO path.
-16. Scale descriptor memory and add timestamp/slot gates.
-17. Only then connect the RF/baseband path.
+15. Generate and compile the matching sidecar devicetree fragment, and keep the
+    userspace `dt-scan` preflight green before touching sidecar registers.
+16. Integrate the fragment only with a matching FieldMesh bitstream, then run
+    board-runtime DMA/IIO validation.
+17. Scale descriptor memory and add timestamp/slot gates.
+18. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -45,6 +47,7 @@ struct config {
     const char *traffic_profile;
     const char *iio_uri;
     const char *file;
+    const char *dt_root;
 };
 
 struct trace {
@@ -110,6 +113,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe pl-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
+        "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -145,6 +149,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .traffic_profile = "basic",
         .iio_uri = "local:",
         .file = NULL,
+        .dt_root = "/proc/device-tree",
     };
 
     if (argc < 2) {
@@ -178,6 +183,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             if (!arg_value(argc, argv, &i, &cfg->iio_uri)) return 2;
         } else if (!strcmp(argv[i], "--file")) {
             if (!arg_value(argc, argv, &i, &cfg->file)) return 2;
+        } else if (!strcmp(argv[i], "--dt-root")) {
+            if (!arg_value(argc, argv, &i, &cfg->dt_root)) return 2;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -190,12 +197,14 @@ static int parse_args(int argc, char **argv, struct config *cfg)
 
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
+        strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
+        strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
@@ -1333,6 +1342,126 @@ static int run_iio_plan(const struct config *cfg)
 #endif
 }
 
+static bool read_file_bytes(const char *path, uint8_t *buf, size_t cap, size_t *len)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return false;
+    }
+    *len = fread(buf, 1, cap, f);
+    fclose(f);
+    return true;
+}
+
+static bool compatible_contains(const char *node_path, const char *needle)
+{
+    char path[512];
+    uint8_t buf[512];
+    size_t len = 0;
+    snprintf(path, sizeof(path), "%s/compatible", node_path);
+    if (!read_file_bytes(path, buf, sizeof(buf) - 1, &len)) {
+        return false;
+    }
+    buf[len] = 0;
+    for (size_t i = 0; i < len;) {
+        const char *entry = (const char *)&buf[i];
+        if (!strcmp(entry, needle)) {
+            return true;
+        }
+        i += strlen(entry) + 1;
+    }
+    return false;
+}
+
+static bool read_be32_property(const char *node_path, const char *name, uint32_t *values, size_t count)
+{
+    char path[512];
+    uint8_t buf[32];
+    size_t len = 0;
+    snprintf(path, sizeof(path), "%s/%s", node_path, name);
+    if (count > 8 || !read_file_bytes(path, buf, sizeof(buf), &len) || len < count * 4) {
+        return false;
+    }
+    for (size_t i = 0; i < count; i++) {
+        values[i] = ((uint32_t)buf[i * 4] << 24) |
+            ((uint32_t)buf[i * 4 + 1] << 16) |
+            ((uint32_t)buf[i * 4 + 2] << 8) |
+            (uint32_t)buf[i * 4 + 3];
+    }
+    return true;
+}
+
+static bool find_dt_node(const char *root, const char *node_name, char *out, size_t out_len)
+{
+    DIR *dir = opendir(root);
+    if (!dir) {
+        return false;
+    }
+    struct dirent *ent;
+    bool found = false;
+    while (!found && (ent = readdir(dir)) != NULL) {
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+            continue;
+        }
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s", root, ent->d_name);
+        struct stat st;
+        if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
+            continue;
+        }
+        if (!strcmp(ent->d_name, node_name)) {
+            snprintf(out, out_len, "%s", path);
+            found = true;
+            break;
+        }
+        found = find_dt_node(path, node_name, out, out_len);
+    }
+    closedir(dir);
+    return found;
+}
+
+struct dt_expectation {
+    const char *label;
+    const char *node_name;
+    const char *compatible;
+    uint32_t reg_base;
+    uint32_t reg_size;
+    bool has_reg;
+};
+
+static int run_dt_scan(const struct config *cfg)
+{
+    static const struct dt_expectation expectations[] = {
+        {"fieldmesh_ctrl", "fieldmesh-ctrl@43c00000", "fieldmesh,sidecar-ctrl-1.0", 0x43c00000U, 0x10000U, true},
+        {"fieldmesh_tx_dma", "dma@43c10000", "adi,axi-dmac-1.00.a", 0x43c10000U, 0x10000U, true},
+        {"fieldmesh_rx_dma", "dma@43c20000", "adi,axi-dmac-1.00.a", 0x43c20000U, 0x10000U, true},
+        {"fieldmesh_packet", "fieldmesh-packet", "fieldmesh,packet-sidecar-1.0", 0U, 0U, false},
+    };
+    bool ok = true;
+    printf("{\"event\":\"dt_scan_start\",\"transport\":\"dt-scan\",\"dt_root\":\"%s\"}\n", cfg->dt_root);
+    for (size_t i = 0; i < sizeof(expectations) / sizeof(expectations[0]); i++) {
+        char node_path[512] = {0};
+        uint32_t reg[2] = {0, 0};
+        bool present = find_dt_node(cfg->dt_root, expectations[i].node_name, node_path, sizeof(node_path));
+        bool compat_ok = present && compatible_contains(node_path, expectations[i].compatible);
+        bool reg_ok = !expectations[i].has_reg;
+        if (present && expectations[i].has_reg && read_be32_property(node_path, "reg", reg, 2)) {
+            reg_ok = reg[0] == expectations[i].reg_base && reg[1] == expectations[i].reg_size;
+        }
+        bool node_ok = present && compat_ok && reg_ok;
+        ok = ok && node_ok;
+        printf("{\"event\":\"dt_node\",\"transport\":\"dt-scan\",\"node\":\"%s\","
+               "\"path\":\"%s\",\"present\":%s,\"compatible_ok\":%s,"
+               "\"reg_ok\":%s,\"reg_base\":\"0x%08x\",\"reg_size\":\"0x%08x\"}\n",
+               expectations[i].label, present ? node_path : "",
+               present ? "true" : "false", compat_ok ? "true" : "false",
+               reg_ok ? "true" : "false", reg[0], reg[1]);
+    }
+    printf("{\"event\":\"dt_scan_end\",\"transport\":\"dt-scan\",\"dt_root\":\"%s\",\"ok\":%s}\n",
+           cfg->dt_root, ok ? "true" : "false");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -1363,6 +1492,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "iio-plan")) {
         return run_iio_plan(&cfg);
+    }
+    if (!strcmp(cfg.role, "dt-scan")) {
+        return run_dt_scan(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);

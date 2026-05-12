@@ -243,6 +243,9 @@ user and vendor configuration.
 - `docs/fieldmesh-vendor-dma-boundary.md` - source-derived ADI Pluto
   DMA/IIO boundary inventory for binding FieldMesh beside, not over, the
   existing AD936x IQ sample DMA path.
+- `docs/fieldmesh-devicetree-binding.md` - FieldMesh sidecar devicetree
+  contract for the control node, packet DMAs, packet client node, and runtime
+  `dt-scan` preflight.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T SDR-Z203 board
@@ -397,7 +400,8 @@ user and vendor configuration.
   `desc-replay` maps them into the PL-facing descriptor model, and `pl-replay`
   models a first TX/RX descriptor-ring loopback while emitting assertion-ready
   `packet_trace` rows; Yocto board builds also link libiio for the `iio-scan`
-  and `iio-plan` runtime preflight roles.
+  and `iio-plan` runtime preflight roles and include `dt-scan` for the
+  FieldMesh sidecar devicetree contract.
 - `tools/run_fieldmesh_board_iio_scan.sh` - SSH-driven FieldMesh/IIO preflight
   that runs `fieldmesh-udp-probe iio-scan` and `iio-plan` on a reachable
   rebuilt board image, verifies that at least one IIO device is visible
@@ -476,6 +480,9 @@ user and vendor configuration.
 - `tools/fieldmesh_vivado_overlay_scaffold.py` - generates a non-mutating
   Vivado sidecar overlay scaffold directory with the checked plan, Tcl
   constants, RTL file list, and overlay insertion notes.
+- `tools/fieldmesh_devicetree_plan.py` - generates a FieldMesh sidecar
+  devicetree fragment, merges it into copied Z203/Z103 Pluto DTS files, and
+  compiles/checks DTBs without mutating the vendor Linux trees.
 - `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
   idempotent `system_project.tcl`/`Makefile` references; dry-run is the
@@ -618,6 +625,8 @@ Expected result in the current Pluto-compatible firmware state:
    overlay leaves the ADI sample-DMA windows at `0x7C400000` and `0x7C420000`
    untouched, maps `fieldmesh_ctrl` at `0x43C00000`, maps sidecar packet TX/RX
    DMA controls at `0x43C10000`/`0x43C20000`, and uses a 16-bit ADI `axi_dmac`
-   stream adapter to preserve FieldMesh's byte-pipe ABI. Next add devicetree
-   and userspace binding, then scale descriptor storage beyond the shallow
-   class rings and bind the path to IIO/PL before open-air RF tests.
+   stream adapter to preserve FieldMesh's byte-pipe ABI. The sidecar
+   devicetree binding and `dt-scan` preflight are now drafted and offline
+   validated; next integrate them only with a matching FieldMesh bitstream,
+   then scale descriptor storage beyond the shallow class rings and bind the
+   path to IIO/PL before open-air RF tests.
