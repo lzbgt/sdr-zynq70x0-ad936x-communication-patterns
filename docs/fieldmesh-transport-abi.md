@@ -186,6 +186,14 @@ the rings in the integrated path by holding the RX completion slot busy,
 queuing C4/C2/C0 descriptors, then acknowledging RX descriptors and observing
 C0, C2, C2, C4 drain order through copied packet bytes.
 
+`rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first stream-shaped
+packet boundary after local packet memory. It consumes a completed RX
+descriptor, reads packet bytes from local memory, and emits an 8-bit
+AXI-stream-style packet with `tvalid`, `tready`, `tlast`, traffic class, mode,
+stream ID, and slot sideband fields. The test verifies backpressure holds data
+stable, `tlast` marks the final byte, metadata remains attached to the packet,
+and invalid descriptors are dropped with `fault` set.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -204,8 +212,9 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - high-rate packet DMA.
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
-integrated AXI packet-memory, class-priority queue, and descriptor-ring
-simulations green before adding DMA wiring or IIO/RF transport binding.
+integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
+AXI-stream source simulations green before adding DMA wiring or IIO/RF
+transport binding.
 
 ### Shared Descriptor
 
@@ -310,8 +319,9 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 4. Validate with `tools/fieldmesh_trace_assert.py`.
 5. Add a PL loopback register block and descriptor ring with no RF path.
 6. Validate packet loopback and class priority under stress.
-7. Scale descriptor memory and add timestamp/slot gates.
-8. Only then connect the RF/baseband path.
+7. Add a packet stream boundary and validate backpressure/TLAST behavior.
+8. Scale descriptor memory and add timestamp/slot gates.
+9. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

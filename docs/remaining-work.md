@@ -115,8 +115,11 @@ Next concrete work:
   lowest-class-first dequeue across classes, full-ring drops, and invalid-class
   drops. The packet-memory AXI-lite wrapper now submits through those rings and
   verifies C0/C2/C4 drain order through copied packet bytes while RX completion
-  backpressure is active. The remaining PL work is scaling descriptor storage,
-  adding a real packet/DMA boundary, and then binding the path to IIO/PL.
+  backpressure is active. The packet AXI-stream source now verifies completed
+  RX descriptor consumption, byte streaming, `tlast`, metadata sidebands,
+  backpressure, and invalid-descriptor drops. The remaining PL work is adding a
+  stream sink or DMA-facing wrapper, scaling descriptor storage, and then
+  binding the path to IIO/PL.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

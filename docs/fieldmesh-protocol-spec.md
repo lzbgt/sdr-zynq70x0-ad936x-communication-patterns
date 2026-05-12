@@ -425,8 +425,11 @@ first standalone packet-memory copy path, and
 RX readback, byte memory access, and queue-pending counters through one
 AXI-lite shell. It now drives submitted descriptors through
 `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` before local packet-memory
-loopback. The next PL target is scaling descriptor storage and adding a real
-packet/DMA boundary, not the final RF waveform.
+loopback. `rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first
+stream-shaped packet boundary: it consumes completed RX descriptors, reads
+packet bytes from memory, and emits AXI-stream-style bytes with metadata and
+`tlast`. The next PL target is wiring that stream source to a sink/DMA-facing
+boundary and then scaling descriptor storage, not the final RF waveform.
 
 ## Implementation Notes
 

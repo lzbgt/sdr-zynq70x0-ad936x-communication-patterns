@@ -411,6 +411,9 @@ Milestone 1: Common packet pipe
   traffic classes dequeue before already-pending lower-priority descriptors.
   `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` extends that policy into
   two descriptor slots per C0..C4 class while preserving FIFO inside each class.
+  `rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first stream-shaped
+  packet boundary after packet memory, with AXI-stream-style byte output,
+  `tlast`, backpressure, and packet metadata sidebands.
 
 Milestone 2: P2P profile
 
