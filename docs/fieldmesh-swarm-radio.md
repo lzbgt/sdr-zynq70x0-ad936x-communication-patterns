@@ -396,7 +396,9 @@ Milestone 1: Common packet pipe
   UDP reference first, IIO buffer shim second, PL descriptor queue third, and RF
   attachment only after trace assertions pass. The current C `pl-replay` role
   models the first TX/RX descriptor-ring loopback against committed binary
-  vectors before HDL is added.
+  vectors, and `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` is the first
+  simulation-verified RTL descriptor-loopback slice before AXI-lite/DMA
+  integration.
 
 Milestone 2: P2P profile
 

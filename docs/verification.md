@@ -1674,6 +1674,17 @@ Result: `pl_descriptor_replay=10`, `packet_trace_rx_ok_count=10`,
 does not touch ADI RF/IQ DMA; it validates the modeled FieldMesh TX/RX
 descriptor loopback before HDL or IIO packet transport work.
 
+The first RTL descriptor-loopback slice was verified with Vivado simulator:
+
+```sh
+./tools/verify_fieldmesh_hdl.sh
+```
+
+Result: `fieldmesh_desc_loopback_core_tb` passed. The testbench accepts valid
+C0 and C4 descriptors, checks OWN clearing and DONE/timestamp-valid completion,
+then rejects an invalid C5 descriptor with `drop_count=1` and `fault=1`. This
+does not instantiate AXI-lite, DMA, IIO, or RF logic yet.
+
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 
 ```sh

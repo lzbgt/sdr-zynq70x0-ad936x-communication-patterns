@@ -405,6 +405,13 @@ user and vendor configuration.
 - `tools/fieldmesh_iio_pipe_dry_run.py` - offline planner that consumes the
   selected IIO RX/TX candidates and committed FieldMesh vectors, then emits the
   per-frame packet-pipe mapping a later non-RF IIO buffer test must preserve.
+- `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` - first PL-facing FieldMesh
+  descriptor-loopback RTL slice, verifying ownership, completion, timestamp
+  flag preservation, traffic-class bounds, and drop/fault behavior before
+  AXI-lite/DMA/IIO/RF integration.
+- `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v` and
+  `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbench and wrapper for
+  the descriptor-loopback RTL gate.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.
@@ -502,5 +509,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Use the verified Z103/Z203 build baselines to start the FieldMesh
-   high-bandwidth swarm-radio modem/MAC experiments.
+4. Integrate the FieldMesh descriptor-loopback RTL slice with AXI-lite/register
+   and packet-memory plumbing, then bind it to the IIO/PL transport path before
+   open-air RF tests.

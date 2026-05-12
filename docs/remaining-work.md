@@ -102,11 +102,13 @@ Next concrete work:
   packet bytes move into IIO or PL. `verify-c` runs C `verify-frame`,
   `mmap-replay`, `desc-replay`, and `pl-replay`, including descriptor field
   comparison and packet-copy CRC checks.
-- Bind the same shim frame to a real IIO buffer or HDL-backed PL loopback
+- Bind the same shim frame to a real IIO buffer or integrated PL loopback
   endpoint while preserving the FieldMesh packet bytes and passing
   `tools/fieldmesh_trace_assert.py`. `desc-replay` and `pl-replay` now emit
-  assertion-ready `packet_trace` rows, so future PL/IIO captures should follow
-  that shape.
+  assertion-ready `packet_trace` rows, and
+  `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` verifies the first descriptor
+  handshake in simulation. The remaining PL work is AXI-lite/register,
+  descriptor-ring, and packet-memory integration.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

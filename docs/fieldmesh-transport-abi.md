@@ -133,9 +133,9 @@ Or verify every committed vector against the host-built C probe:
 ```
 
 These files are the contract for IIO and PL loopback work: new transports must
-carry the same frame bytes, preserve the manifest parse fields, and pass both
-decode-only, mapped-memory replay, descriptor replay, and PL descriptor
-loopback replay before adding RF/baseband behavior.
+carry the same frame bytes, preserve the manifest parse fields, and pass
+decode-only, mapped-memory replay, descriptor replay, PL descriptor replay, and
+the descriptor-loopback RTL simulation before adding RF/baseband behavior.
 
 ## Stage 2: PL Packet Queue ABI
 
@@ -148,7 +148,13 @@ committed shim-frame vectors and validate the embedded FieldMesh packet.
 models a first TX/RX descriptor-ring loopback, copies the packet into modeled
 PL packet memory, completes TX/RX descriptors, and emits assertion-ready
 `packet_trace` rows so the PL boundary can be checked with
-`tools/fieldmesh_trace_assert.py --no-negotiation` before HDL work.
+`tools/fieldmesh_trace_assert.py --no-negotiation`.
+
+The first HDL slice is `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`, with
+`tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v` and
+`tools/verify_fieldmesh_hdl.sh`. It verifies descriptor ownership/completion
+for valid C0/C4 descriptors and drop/fault behavior for an invalid traffic
+class. It is not AXI-lite, DMA, IIO, or RF connected yet.
 
 Keep these responsibilities in Linux first:
 
@@ -166,6 +172,9 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - FEC/interleaving,
 - deterministic slot gate,
 - high-rate packet DMA.
+
+Keep the RTL descriptor-loopback simulation green before adding AXI-lite
+registers, DMA wiring, or IIO/RF transport binding.
 
 ### Shared Descriptor
 
