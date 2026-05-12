@@ -10,6 +10,7 @@ kernel_image="${KERNEL_IMAGE:-$boot_dir/uImage}"
 ramdisk_image="${RAMDISK_IMAGE:-$boot_dir/uramdisk.image.gz}"
 devicetree_image="${DEVICETREE_IMAGE:-$boot_dir/devicetree.dtb}"
 uenv_image="${UENV_IMAGE:-$boot_dir/uEnv.txt}"
+pre_boot_commands_file="${PRE_BOOT_COMMANDS_FILE:-}"
 serial_dev="${SERIAL_DEV:-/dev/ttyUSB1}"
 capture="${CAPTURE:-}"
 adapter_speed="${ADAPTER_SPEED:-8000}"
@@ -49,6 +50,11 @@ if [[ "$load_uenv" != "0" ]]; then
   uenv_size_hex="$(printf '0x%x' "$(stat -c '%s' "$uenv_image")")"
 fi
 
+if [[ -n "$pre_boot_commands_file" && ! -f "$pre_boot_commands_file" ]]; then
+  echo "Pre-boot command file not found: $pre_boot_commands_file" >&2
+  exit 1
+fi
+
 if ! command -v openocd >/dev/null 2>&1; then
   echo "Missing required command: openocd" >&2
   exit 1
@@ -72,6 +78,9 @@ if [[ -n "$capture" ]]; then
     echo "# Devicetree: $devicetree_image -> $devicetree_addr"
     if [[ "$load_uenv" != "0" ]]; then
       echo "# U-Boot env: $uenv_image -> $uenv_addr ($uenv_size_hex bytes)"
+    fi
+    if [[ -n "$pre_boot_commands_file" ]]; then
+      echo "# Pre-boot commands: $pre_boot_commands_file"
     fi
     echo "# Bootargs: $bootargs"
     echo "# Serial device: $serial_dev"
@@ -243,6 +252,13 @@ if [[ "$load_uenv" != "0" ]]; then
   send_uboot_command "env import -t $uenv_addr $uenv_size_hex"
 fi
 send_uboot_command "setenv bootargs $bootargs"
+if [[ -n "$pre_boot_commands_file" ]]; then
+  while IFS= read -r command_line; do
+    if [[ -n "$command_line" && ! "$command_line" =~ ^[[:space:]]*# ]]; then
+      send_uboot_command "$command_line"
+    fi
+  done <"$pre_boot_commands_file"
+fi
 send_uboot_command "bootm $kernel_addr $ramdisk_addr $devicetree_addr"
 
 sleep "$boot_wait_seconds"

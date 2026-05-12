@@ -1418,6 +1418,24 @@ Notes:
 - This is a local build/package verification only. The rebuilt Z103 Linux
   package has not yet booted on hardware and no Z103 QSPI partition was written.
 
+Additional non-flashing RAM-boot staging check:
+
+```sh
+PREPARE_ONLY=1 ./tools/run_openocd_z103_jtag_yocto_ram.sh
+```
+
+Result:
+
+- `uImage`: 4.4 MiB,
+  SHA-256 `b4208988215677c0f6bf8932669d8f9877a46158a04d723c26a6f75a2858d66d`.
+- `uramdisk.image.gz`: 21 MiB,
+  SHA-256 `1210941d63daa1bb1cf4e2c92ec316c8a7f248a3879aab3837479f5d85eb6f37`.
+- `devicetree.dtb`: 18 KiB,
+  SHA-256 `10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0`.
+
+This only proves staging and image wrapping. The live OpenOCD RAM boot attempt
+is still pending.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

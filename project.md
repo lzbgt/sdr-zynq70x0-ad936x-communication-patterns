@@ -337,6 +337,10 @@ user and vendor configuration.
 - `tools/run_openocd_z103_jtag_qspi_linux.sh` - prepared Z103 rebuilt-PS7 /
   rebuilt-U-Boot handoff that asks U-Boot to read the existing QSPI FIT and
   boot Linux without writing QSPI.
+- `tools/run_openocd_z103_jtag_yocto_ram.sh` - stage rebuilt Z103 Yocto
+  `zImage`/initramfs/devicetree as legacy U-Boot RAM images, then invoke the
+  OpenOCD RAM loader with Z103 PS7, U-Boot, bitstream, and 1R1T devicetree
+  fixup commands; no QSPI writes.
 - `tools/setup_z103_yocto_build.sh` - create the ignored Z103 Yocto build
   directory with `sdr-z103-zynq7`, `meta-sdr-z103`, shared downloads/sstate,
   and the Z103 vendor source root.

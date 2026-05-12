@@ -35,7 +35,10 @@ Next concrete work:
   verify USB RNDIS, IIO, and RF datapath. The first FIT-from-RAM attempt
   stopped during the large OpenOCD memory transfer; the first QSPI-FIT handoff
   attempts hit DSCR/DCC timeout before U-Boot load. Start the next attempt from
-  a clean USB/JTAG state and avoid full FIT transfer over OpenOCD.
+  a clean USB/JTAG state and avoid full FIT transfer over OpenOCD. The prepared
+  next helper is `tools/run_openocd_z103_jtag_yocto_ram.sh`, which stages
+  Yocto `zImage` and `rootfs.cpio.gz` as legacy U-Boot images and loads
+  kernel/ramdisk/devicetree separately.
 - Capture a full Z103 QSPI backup before any Z103 flash write.
 
 Details are in `docs/sdr-z103-source-workflow.md`.

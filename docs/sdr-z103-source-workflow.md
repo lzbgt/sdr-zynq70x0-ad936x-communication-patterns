@@ -213,6 +213,8 @@ Result:
   helpers are present.
 - `package_z103_yocto_pluto_frm.sh` produced a Pluto-style FIT/update pair
   under `yocto/builds/sdr-z103-arm/fit-work/build/`.
+- `run_openocd_z103_jtag_yocto_ram.sh` can stage the same Yocto outputs as
+  legacy U-Boot RAM images for the next non-flashing hardware boot attempt.
 
 Key hashes from the successful build:
 
@@ -235,6 +237,23 @@ Build boundary:
   visible instead of masking it until the builder-user ownership model is
   tightened.
 - No Z103 QSPI partition has been written.
+
+Prepared non-flashing boot command:
+
+```sh
+PREPARE_ONLY=1 ./tools/run_openocd_z103_jtag_yocto_ram.sh
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_yocto_ram_<date>.txt \
+  BOOT_WAIT_SECONDS=180 \
+  ./tools/run_openocd_z103_jtag_yocto_ram.sh
+```
+
+The `PREPARE_ONLY=1` dry run created:
+
+```text
+b4208988215677c0f6bf8932669d8f9877a46158a04d723c26a6f75a2858d66d  uImage
+1210941d63daa1bb1cf4e2c92ec316c8a7f248a3879aab3837479f5d85eb6f37  uramdisk.image.gz
+10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0  devicetree.dtb
+```
 
 ## Linux Boot Follow-Up Attempts
 
