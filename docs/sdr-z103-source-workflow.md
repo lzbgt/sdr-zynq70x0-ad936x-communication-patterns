@@ -183,3 +183,33 @@ Result:
 
 This verifies a non-flashing Z103 PS7/U-Boot path. It does not yet verify a
 rebuilt Linux/rootfs boot, USB RNDIS, IIO, or RF datapath.
+
+## Linux Boot Follow-Up Attempts
+
+Two Linux follow-up helpers were added after the JTAG U-Boot smoke test:
+
+```sh
+./tools/run_openocd_z103_jtag_fit_ram.sh
+./tools/run_openocd_z103_jtag_qspi_linux.sh
+```
+
+Current live boundary:
+
+- `run_openocd_z103_jtag_fit_ram.sh` loads the source-tree `build/pluto.itb`
+  to DDR, then plans to boot it with `bootm`. The first attempt stopped during
+  the large OpenOCD `LOAD_FIT_IMAGE` transfer and ended with
+  `d-cache invalidate failed`.
+- `run_openocd_z103_jtag_qspi_linux.sh` loads rebuilt Z103 U-Boot over JTAG,
+  then plans to have U-Boot read the existing QSPI FIT and boot it. The first
+  scripted attempt failed at the post-reset DSCR/DCC stage before the U-Boot
+  load. A no-reset retry failed at the same DSCR/DCC boundary.
+- After the reset sequence, the board did boot the factory QSPI Linux image on
+  serial and reached `Welcome to Pluto`, so the board itself is not bricked.
+- USB gadget verification was not healthy after that boot: Windows reported the
+  Pluto USB side as `Unknown USB Device (Device Descriptor Request Failed)`,
+  WSL ping to `192.168.2.1` failed in the saved retry, and `iio_info` timed out.
+- A final PS soft reset restored a clean OpenOCD JTAG chain scan.
+
+Interpretation: Z103 volatile JTAG U-Boot is proven, but Z103 Linux boot through
+the JTAG-assisted path is still open. The next attempt should avoid large
+OpenOCD memory transfers and start from a clean USB/JTAG state.

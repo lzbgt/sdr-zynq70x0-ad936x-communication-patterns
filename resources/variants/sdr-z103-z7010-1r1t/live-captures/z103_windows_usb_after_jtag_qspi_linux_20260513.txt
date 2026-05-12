@@ -1,0 +1,10 @@
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-1    0403:6010  USB Serial Converter A, USB Serial Converter B                Attached
+1-3    0000:0002  Unknown USB Device (Device Descriptor Request Failed)         Not shared
+1-6    0408:548d  HP True Vision FHD Camera, Camera DFU Device                  Not shared
+1-14   8087:0033  Intel(R) Wireless Bluetooth(R)                                Not shared
+
+Persisted:
+GUID                                  DEVICE
+0e7bffac-a23e-4799-a3d7-60a7e94aaafc  USB Serial Converter A, USB Serial Converter B

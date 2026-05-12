@@ -277,6 +277,10 @@ until all of these pass:
 - Z103 JTAG or other proven non-QSPI boot path reaches U-Boot.
   Status: done with `tools/run_openocd_z103_jtag_uboot.sh`; not flashed.
 - Z103 Linux boot reaches USB RNDIS gadget networking and IIO.
+  Status: open. JTAG-assisted Linux helpers are prepared, but the first live
+  attempts stopped at OpenOCD FIT load and DSCR/DCC boundaries. Factory QSPI
+  Linux reached serial login after reset, while USB gadget enumeration was not
+  healthy.
 - `iio_info` confirms the expected AD9363 1R1T runtime topology.
 - Factory QSPI backup exists and verifies.
 - Generated artifacts are named with `sdr-z103-z7010-1r1t`.

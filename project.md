@@ -314,6 +314,12 @@ user and vendor configuration.
   XSA without flashing QSPI.
 - `tools/run_openocd_z103_jtag_uboot.sh` - run the rebuilt Z103 PS7 init and
   Z103 U-Boot ELF over OpenOCD JTAG without writing QSPI.
+- `tools/run_openocd_z103_jtag_fit_ram.sh` - prepared Z103 FIT-from-RAM JTAG
+  Linux attempt; current live result stops during the large OpenOCD FIT memory
+  load before U-Boot commands run.
+- `tools/run_openocd_z103_jtag_qspi_linux.sh` - prepared Z103 rebuilt-PS7 /
+  rebuilt-U-Boot handoff that asks U-Boot to read the existing QSPI FIT and
+  boot Linux without writing QSPI.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

@@ -1,0 +1,93 @@
+# OpenOCD Z103 JTAG FIT RAM boot
+# PS7 init: /root/work/ZYNQ7020/.config/z103-boot-artifacts/sdt/ps7_init.tcl
+# U-Boot ELF: /root/work/ZYNQ7020/.config/z103-boot-artifacts/boot/u-boot.elf
+# FIT image: /root/work/ZYNQ7020/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/build/pluto.itb -> 0x02080000
+# FIT config: config@0
+# Bootargs: console=ttyPS0,115200 maxcpus=1 rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=jtag-fit-ram
+# Serial device: /dev/ttyUSB1
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x13722093 (mfg: 0x049 (Xilinx), part: 0x3722, ver: 0x1)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu0: MPIDR level2 0, cluster 0, core 0, multi core, no SMT
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: MPIDR level2 0, cluster 0, core 1, multi core, no SMT
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+JTAG_PS_SOFT_RESET
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Polling target zynq.cpu1 failed, trying to reexamine
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+shutdown command invoked
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x13722093 (mfg: 0x049 (Xilinx), part: 0x3722, ver: 0x1)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+Info : zynq.cpu0: MPIDR level2 0, cluster 0, core 0, multi core, no SMT
+Info : zynq.cpu1: MPIDR level2 0, cluster 0, core 1, multi core, no SMT
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x000001d3 pc: 0xffffff34
+MMU: disabled, D-Cache: disabled, I-Cache: disabled
+target halted in ARM state due to debug-request, current mode: Supervisor
+cpsr: 0x600000d3 pc: 0x1ff88128
+MMU: enabled, D-Cache: enabled, I-Cache: enabled
+RUN_PS7_INIT_3_0
+LOAD_FIT_IMAGE
+Error: libusb_handle_events() failed with LIBUSB_ERROR_INTERRUPTED
+Error: error while flushing MPSSE queue: -4
+Error: Could not read DSCR register
+Error: Error waiting for cortex_a_exec_opcode
+Error: d-cache invalidate failed

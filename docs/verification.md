@@ -1320,6 +1320,50 @@ Boundary: this proves a volatile Z103 JTAG U-Boot path. It does not prove Linux
 boot, USB RNDIS, IIO, RF datapath, or QSPI flashing safety for rebuilt
 artifacts.
 
+## SDR-Z103 Linux Follow-Up Attempts
+
+Commands:
+
+```sh
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_fit_ram_20260513.txt \
+  BOOT_WAIT_SECONDS=180 \
+  ./tools/run_openocd_z103_jtag_fit_ram.sh
+
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_qspi_linux_20260513.txt \
+  BOOT_WAIT_SECONDS=180 \
+  ./tools/run_openocd_z103_jtag_qspi_linux.sh
+
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_qspi_linux_no_reset_20260513.txt \
+  JTAG_PS_RESET=0 \
+  BOOT_WAIT_SECONDS=180 \
+  ./tools/run_openocd_z103_jtag_qspi_linux.sh
+```
+
+Result:
+
+- FIT-from-RAM attempt reached `LOAD_FIT_IMAGE`, then the OpenOCD transfer was
+  stopped after it exceeded the expected window. The capture ends with
+  `d-cache invalidate failed`.
+- QSPI-Linux handoff attempt with reset failed before loading U-Boot:
+  `timeout waiting for DSCR bit change` and `Error waiting for read dcc`.
+- The same QSPI-Linux helper with `JTAG_PS_RESET=0` failed at the same DSCR/DCC
+  boundary.
+- During the reset-side effects of the QSPI-Linux attempt, serial output showed
+  the board booting the factory QSPI image to Linux and reaching
+  `Welcome to Pluto`. That is normal/factory QSPI boot evidence, not proof that
+  the scripted rebuilt-U-Boot handoff reached Linux.
+- Follow-up network/IIO checks were not healthy:
+  `z103_ping_after_jtag_qspi_linux_20260513.txt` saved a 0/5 ping retry,
+  `z103_iio_after_jtag_qspi_linux_20260513.txt` saved an `iio_info` timeout,
+  and `z103_windows_usb_after_jtag_qspi_linux_20260513.txt` showed the Pluto USB
+  side as `Unknown USB Device (Device Descriptor Request Failed)`.
+- A final `tools/reset_openocd_zynq_ps.sh` followed by
+  `tools/probe_openocd_jtag.sh` restored a clean JTAG chain scan.
+
+Boundary: Z103 Linux over the JTAG-assisted path remains open. The next attempt
+should use a clean USB/JTAG state and avoid loading the full 12 MB FIT through
+OpenOCD.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

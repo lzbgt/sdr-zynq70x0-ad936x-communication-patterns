@@ -8,7 +8,8 @@ are kept briefly when they affect the remaining recovery decisions.
 
 Status: resource import, read-only serial baseline, source preflight, Vivado
 XSA/bitstream rebuild, boot artifact generation, and volatile JTAG U-Boot smoke
-test are complete. Generated artifacts have not been flashed.
+test are complete. Generated artifacts have not been flashed. Linux follow-up
+attempts are prepared but not yet verified through the JTAG-assisted path.
 
 Next concrete work:
 
@@ -23,8 +24,11 @@ Next concrete work:
 - Build Z103 FSBL and boot package artifacts from the rebuilt XSA.
   Status: done under `.config/z103-boot-artifacts`; structurally verified, not
   hardware-loaded yet.
-- Extend the generated Z103 path from JTAG U-Boot to rebuilt Linux/rootfs boot,
-  then verify USB RNDIS, IIO, and RF datapath.
+- Extend the generated Z103 path from JTAG U-Boot to Linux/rootfs boot, then
+  verify USB RNDIS, IIO, and RF datapath. The first FIT-from-RAM attempt
+  stopped during the large OpenOCD memory transfer; the first QSPI-FIT handoff
+  attempts hit DSCR/DCC timeout before U-Boot load. Start the next attempt from
+  a clean USB/JTAG state and avoid full FIT transfer over OpenOCD.
 
 Details are in `docs/sdr-z103-source-workflow.md`.
 
