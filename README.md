@@ -23,6 +23,9 @@ Start here:
   boundary.
 - `docs/capabilities-and-projects.md` - what the board can do and which project
   types benefit.
+- `docs/fieldmesh-swarm-radio.md` - high-bandwidth swarm radio design concept:
+  a "high-bandwidth LoRa" style private network for star/fanout, graph/relay,
+  GPS-scheduled, and P2P video/data communication.
 - `docs/example-projects.md` - concrete project seeds.
 - `docs/verification.md` - captured verification evidence and known gaps.
 - `resources/INDEX.md` - curated local resource inventory.

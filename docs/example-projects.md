@@ -291,6 +291,53 @@ Verification:
 - IIO devices still enumerate,
 - output samples show the intended transformation.
 
+## 12. FieldMesh Swarm Radio Conducted Prototype
+
+Objective:
+
+Prototype the "high-bandwidth LoRa" product idea as a private broadband radio
+network for machines, cameras, robots, and field instruments.
+
+Uses:
+
+- 2RX/2TX AD936x RF path.
+- Zynq PL for timestamping, packet framing, FEC/interleaving experiments, and
+  traffic prioritization.
+- Linux for video-like payload generation, telemetry side channel, dashboard,
+  route graph, and customer-facing API.
+- GPS/PPS resources after they are separately verified.
+
+First implementation:
+
+1. Start conducted or shielded; do not begin with open-air transmission.
+2. Build a synthetic video-like UDP payload plus a small control/telemetry
+   stream.
+3. Define traffic classes for control, telemetry, video base layer, video
+   enhancement, and background data.
+4. Implement P2P mode first as the baseline.
+5. Add star/fanout mode where two receivers consume the same stream ID without
+   duplicating RF payload.
+6. Add graph/relay mode where one node forwards selected traffic under a route
+   policy.
+7. Add GPS/PPS or wired-PPS scheduled slots once the timing path is verified.
+
+Verification:
+
+- P2P goodput and latency remain inside the chosen link contract under
+  controlled attenuation.
+- Fanout mode delivers one stream to multiple receivers without duplicate
+  downlink payload.
+- Graph/relay mode preserves control/telemetry latency while forwarding a lower
+  priority stream.
+- Scheduled mode lets at least two edge nodes share one channel under explicit
+  slot boundaries.
+- Dashboard reports bitrate, packet loss, FEC recovery, frame age, control
+  latency, route graph, and degradation state.
+
+Design doc:
+
+- `docs/fieldmesh-swarm-radio.md`
+
 ## Recommended First Three Projects
 
 1. Pluto-compatible smoke test, already verified.
@@ -299,3 +346,9 @@ Verification:
 
 These three establish a reproducible measurement baseline before more invasive
 firmware, HDL, or openwifi work.
+
+Commercial follow-up:
+
+After the baseline projects, the highest-upside product track is the FieldMesh
+swarm-radio conducted prototype. It uses SDR-Z203 as the radio protocol lab,
+not necessarily as the final shipped BOM.

@@ -101,22 +101,27 @@ The mechanism worth reusing is a full-stack RF development loop:
 - **Software ecosystem:** IIO/libiio, GNU Radio, Python, MATLAB examples, and
   local Yocto/Vivado rebuild control.
 
-That combination is valuable because it can create ground-truth RF data and
-repeatable failure scenarios. The shipped product can then be a cheaper scanner,
-fixture, gateway firmware, support tool, dataset, or software service.
+That combination is valuable because it can create and validate RF mechanisms
+that are hard to prototype on cheap fixed-function radios: custom packetization,
+stream scheduling, diversity, timestamping, FEC, impairment handling, and
+customer-specific data channels. The shipped product can then be a cheaper
+air/ground module, gateway, fixture, dataset, or software service.
 
-For higher-upside products, the same platform can also prototype a custom
-wireless link before a purpose-built radio is designed. This is more promising
-than generic diagnostics when the customer is buying a capability: long range,
-low latency, predictable degradation, private integration, and custom side-data
-transport.
+For higher-upside products, the same platform can also prototype a deterministic
+broadband field radio before purpose-built hardware is designed. This is more
+promising than generic diagnostics when the customer is buying a capability:
+long range, high bandwidth, predictable latency, private integration, and
+custom side-data transport. Market shorthand: high-bandwidth LoRa for
+performance use cases, meaning LoRa-like product role rather than LoRa-like
+modulation. See `docs/fieldmesh-swarm-radio.md` for the dedicated star/fanout,
+graph/relay, GPS-scheduled, and P2P design concept.
 
 ## Commercial Filter
 
 Do not start from "what can we sell with Zynq-7020 + AD9363?" Start from:
 
-> What expensive customer failure can this board help us understand, simulate,
-> and automate so the final product can use cheaper hardware?
+> What high-value customer capability can this board help us prototype,
+> validate, and de-risk so the final product can use cheaper hardware?
 
 Use the SDR-Z203 directly only when one of these is true:
 
@@ -130,23 +135,28 @@ Use the SDR-Z203 directly only when one of these is true:
 Avoid using this board as the default deployed node for broad markets. If a use
 case needs hundreds or thousands of units in the field, first prove the
 mechanism on SDR-Z203, then port the minimum required RF function to a cheaper
-Wi-Fi/BLE/sub-GHz chipset, MCU + RF detector, simple swept receiver, lower-end
-SDR, or custom RF front end.
+radio chipset, lower-end SDR, custom RF front end, MCU/FPGA split, or dedicated
+air/ground module.
 
-## High-Upside Direction: Custom Long-Range Data/Video Link
+## High-Upside Direction: FieldMesh Swarm Radio
 
 Customer pain: FPV, inspection robots, agricultural machines, remote vehicles,
 field instruments, and industrial teleoperation often need more than a commodity
-camera link. Existing FPV systems can be excellent, but they are usually closed,
-optimized for a fixed ecosystem, limited in custom side-channel data, and hard
-to adapt to unusual frequencies, payloads, telemetry, or private workflows.
-Wi-Fi and cellular links can be convenient, but they often have variable
-latency, coverage dependency, or weak control over degradation behavior.
+camera link. They need a private high-bandwidth radio network that can run as
+P2P, star/fanout, graph/relay, or GPS/PPS-scheduled cooperative sharing.
+Existing FPV systems can be excellent, but they are usually closed,
+pilot-centric, limited in custom
+side-channel data, and hard to adapt to unusual payloads, telemetry, or private
+workflows. Wi-Fi and cellular links can be convenient, but they often have
+variable latency, coverage dependency, or weak control over degradation
+behavior.
 
 Product shape:
 
-- Paired air/vehicle unit and ground unit.
+- Air/vehicle nodes, ground nodes, and optional relay/observer nodes.
 - Low-latency video stream plus telemetry and arbitrary customer data.
+- Four first-class communication modes: P2P, star/fanout, graph/relay, and
+  GPS/PPS-scheduled multi-node sharing.
 - Degradation mode designed for control: predictable quality loss, bounded
   latency, and graceful fallback instead of opaque failure.
 - APIs for robotics/autopilot/payload integration.
@@ -156,10 +166,11 @@ Product shape:
 
 Role of this board:
 
-- Prototype PHY/MAC choices and link behavior before committing to custom RF
-  hardware.
+- Prototype PHY/MAC choices, fanout behavior, and slot scheduling before
+  committing to custom RF hardware.
 - Test video transport, packetization, FEC/interleaving, adaptive bitrate,
-  diversity/MIMO ideas, side-channel scheduling, and telemetry coexistence.
+  diversity/MIMO ideas, side-channel scheduling, GPS/PPS slot timing, and
+  telemetry coexistence.
 - Generate controlled range/degradation datasets in conducted and shielded
   setups.
 - Validate which parts need FPGA acceleration and which can live in software.
@@ -209,6 +220,8 @@ Defensible product surface:
 
 - Link scheduler that treats video, control, telemetry, and arbitrary payload
   data as first-class traffic classes.
+- Network modes for P2P, one-to-many fanout, graph/relay, and GPS/PPS-scheduled
+  cooperative sharing.
 - Predictable degradation policy: bounded control latency and understandable
   video quality loss instead of opaque buffering or sudden dropouts.
 - Ground/air APIs and SDKs for robotics and payload teams.
@@ -398,7 +411,7 @@ Product path:
 1. Prototype on SDR-Z203.
 2. Identify the minimum RF features actually needed.
 3. Replace the expensive SDR architecture with:
-   - a Wi-Fi/BLE/sub-GHz chipset diagnostic path,
+   - a domain-specific radio chipset,
    - a simple RF detector,
    - MCU plus swept receiver,
    - lower-end SDR,
@@ -410,7 +423,7 @@ This is the default path for any project expected to deploy in volume.
 
 ## Recommended First Commercial MVP
 
-Build the **Custom Long-Range Data/Video Link developer kit** first.
+Build the **FieldMesh Swarm Radio developer kit** first.
 
 Minimum useful version:
 
@@ -419,7 +432,8 @@ Minimum useful version:
 2. Define the link contract: video resolution/fps, maximum end-to-end latency,
    control-data latency, telemetry rate, range target, and failure behavior.
 3. Build a conducted/shielded SDR-Z203 prototype with video packetization,
-   telemetry side channel, configurable FEC/interleaving, and quality telemetry.
+   telemetry side channel, configurable FEC/interleaving, fanout mode,
+   graph/relay mode, scheduled slot mode, and quality telemetry.
 4. Measure degradation curves under attenuation, burst loss, Doppler-like
    frequency offset, adjacent-channel energy, and antenna impairment.
 5. Build a demo where the customer can see graceful degradation and stable
@@ -435,13 +449,13 @@ Why this should come first:
   for the final module.
 - A developer kit can sell before the fully optimized hardware exists.
 - The same video/data-link work can later support robotics, remote sensing,
-  industrial controls, and specialty FPV.
+  industrial controls, specialty FPV, and private field networks.
 
 First sellable package:
 
-- Two-node conducted demo: "camera/source" node to "ground" node over coax
-  attenuation.
+- Two- or three-node conducted demo over coax attenuation.
 - Video or synthetic video-like stream with telemetry side channel.
+- P2P, fanout, graph/relay, and scheduled sharing modes.
 - Link-quality dashboard: latency, packet loss, FEC recovery, bitrate, control
   delay, and degradation state.
 - Customer SDK: send prioritized data channels and inspect link health.
