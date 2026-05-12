@@ -62,6 +62,10 @@ def validate(rows: list[dict[str, Any]], require_negotiation: bool) -> tuple[lis
     events = Counter(str(row.get("event")) for row in rows)
     packets = [row for row in rows if row.get("event") == "packet_trace"]
     rx_packets = [row for row in rows if row.get("event") == "packet_rx"]
+    packet_trace_rx_ok = [row for row in packets if row.get("rx_ok") is True]
+    packet_trace_rx_fail = [row for row in packets if row.get("rx_ok") is False]
+    packet_rx_ok = [row for row in rx_packets if row.get("rx_ok") is True]
+    packet_rx_fail = [row for row in rx_packets if row.get("rx_ok") is not True]
     packet_classes = Counter(str(row.get("traffic_class")) for row in packets)
     packet_modes = Counter(str(row.get("mode")) for row in packets)
     mode = selected_mode(rows)
@@ -112,6 +116,12 @@ def validate(rows: list[dict[str, Any]], require_negotiation: bool) -> tuple[lis
         "events": dict(sorted(events.items())),
         "packet_trace_count": len(packets),
         "packet_rx_count": len(rx_packets),
+        "packet_trace_rx_ok_count": len(packet_trace_rx_ok),
+        "packet_trace_rx_fail_count": len(packet_trace_rx_fail),
+        "packet_rx_ok_count": len(packet_rx_ok),
+        "packet_rx_fail_count": len(packet_rx_fail),
+        "validated_rx_ok_count": len(packet_trace_rx_ok) + len(packet_rx_ok),
+        "validated_rx_fail_count": len(packet_trace_rx_fail) + len(packet_rx_fail),
         "traffic_classes": dict(sorted(packet_classes.items())),
         "packet_modes": dict(sorted(packet_modes.items())),
         "ok": not errors,
