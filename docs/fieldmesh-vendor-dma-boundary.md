@@ -175,7 +175,11 @@ The current required RTL set includes `fieldmesh_sidecar_ctrl_axi_lite.v`, a
 BD-facing control endpoint for the provisional `fieldmesh_ctrl` window at
 `0x43C00000`. That wrapper preserves the packet-memory AXI-lite register map,
 widens the address port for an interconnect-visible sidecar window, and exports
-live IRQ/status pins for later PS interrupt wiring.
+live IRQ/status pins for later PS interrupt wiring. It also includes
+`fieldmesh_sidecar_axis_bridge.v`, the first sidecar packet transport bridge:
+the PS-to-PL side parses byte-only DMA/IIO packets into FieldMesh metadata
+sidebands, and the PL-to-PS side validates sidebands against the packet header
+before emitting byte-only packets.
 
 The first control-only block-design overlay is opt-in:
 

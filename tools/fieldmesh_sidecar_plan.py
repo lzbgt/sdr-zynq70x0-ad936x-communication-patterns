@@ -24,6 +24,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_axis_header_guard.v",
     "rtl/fieldmesh/fieldmesh_axis_header_parser.v",
     "rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v",
+    "rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v",
 ]
 
 

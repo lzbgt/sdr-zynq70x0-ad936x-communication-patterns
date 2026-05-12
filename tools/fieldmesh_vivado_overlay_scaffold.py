@@ -91,9 +91,12 @@ set FIELDMESH_REPO_ROOT {{{repo_root}}}
 # 2. Add the FieldMesh RTL files above to the project.
 # 3. Instantiate fieldmesh_sidecar_ctrl_axi_lite as fieldmesh_ctrl at
 #    $FIELDMESH_CTRL_BASE and connect its irq to $FIELDMESH_CTRL_IRQ.
-# 4. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
+# 4. Instantiate fieldmesh_sidecar_axis_bridge as the byte-only packet transport
+#    boundary between the later sidecar DMA/IIO blocks and FieldMesh packet
+#    streams.
+# 5. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
 #    $FIELDMESH_RX_DMA_BASE, or keep the first overlay AXI-lite/FIFO-only.
-# 5. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at
+# 6. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at
 #    0x7C420000 in the first FieldMesh overlay.
 """
 

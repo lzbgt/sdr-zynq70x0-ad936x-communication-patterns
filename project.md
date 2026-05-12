@@ -456,6 +456,10 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` - complete
   simulation byte-pipe model wiring adapter, guard, parser, and sink so packet
   bytes cross the transport boundary with only bytes plus `tlast`.
+- `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` - sidecar packet transport
+  bridge for the future DMA/IIO boundary; PS-to-PL byte streams are parsed into
+  FieldMesh packet sidebands, and PL-to-PS packet streams are guarded before
+  becoming byte-only output streams.
 - `tools/fieldmesh_vendor_dma_inventory.py` - parses the Z203/Z103 vendor
   `system_bd.tcl` files and emits the ADI RX/TX DMA address, stream, HP-port,
   and IRQ boundary that FieldMesh must avoid overwriting during hardware
@@ -492,9 +496,10 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_packet_axis_dma_adapter_tb.v`, and
   `tb/fieldmesh/fieldmesh_axis_header_guard_tb.v`,
   `tb/fieldmesh/fieldmesh_axis_header_parser_tb.v`, and
-  `tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v` with
+  `tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v`, and
+  `tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
-  for the descriptor and packet-memory RTL gates.
+  for the descriptor, packet-memory, and sidecar transport RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.

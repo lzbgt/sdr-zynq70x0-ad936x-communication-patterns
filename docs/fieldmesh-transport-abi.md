@@ -238,6 +238,11 @@ This verifies that the FieldMesh packet bytes can cross a DMA/IIO-shaped pipe
 with only bytes and `tlast`, then recover the metadata needed by the PL packet
 sink.
 
+`rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` splits that loopback model into
+the two sidecar transport directions needed by a real packet DMA/IIO boundary.
+The PS-to-PL side parses byte-only packets into FieldMesh stream sidebands; the
+PL-to-PS side checks sideband metadata before emitting byte-only packets.
+
 The imported Pluto HDL already has ADI sample-DMA blocks:
 
 - RX sample DMA: `axi_ad9361_adc_dma` at `0x7C400000`, fed by
@@ -291,7 +296,7 @@ Move these responsibilities into PL only when measured pressure justifies it:
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
-AXI-stream source/sink/loopback/adapter/header-guard/parser/byte-pipe
+AXI-stream source/sink/loopback/adapter/header-guard/parser/byte-pipe/sidecar-bridge
 simulations green before adding vendor DMA wiring or IIO/RF transport binding.
 
 ### Shared Descriptor
@@ -407,10 +412,12 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
     FieldMesh register/DMA namespace.
 12. Instantiate the control-only `fieldmesh_ctrl` sidecar endpoint in a copied
     Vivado tree and validate its address/IRQ namespace.
-13. Bind the guarded/parser transport ports to that sidecar DMA or IIO
+13. Add the sidecar axis bridge that exposes PS-to-PL byte parsing and PL-to-PS
+    guarded byte output as the packet transport boundary.
+14. Bind the guarded/parser transport ports to that sidecar DMA or IIO
     implementation.
-14. Scale descriptor memory and add timestamp/slot gates.
-15. Only then connect the RF/baseband path.
+15. Scale descriptor memory and add timestamp/slot gates.
+16. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

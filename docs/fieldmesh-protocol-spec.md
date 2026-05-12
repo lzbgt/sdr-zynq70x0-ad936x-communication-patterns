@@ -442,9 +442,12 @@ the in-band packet header before the path is treated as a byte-only DMA/IIO
 pipe. `rtl/fieldmesh/fieldmesh_axis_header_parser.v` reconstructs those
 sidebands on RX, and
 `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies a complete
-guarded byte-pipe loopback model. The next PL target is binding that model to a
-sidecar DMA/IIO packet transport, not the existing ADI IQ sample-DMA path and
-not the final RF waveform.
+guarded byte-pipe loopback model. `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v`
+is the first sidecar packet transport bridge: the PS-to-PL direction parses
+byte-only packets into FieldMesh sidebands, and the PL-to-PS direction checks
+sidebands before emitting byte-only packets. The next PL target is binding that
+bridge to a BD-visible sidecar DMA/IIO packet transport, not the existing ADI IQ
+sample-DMA path and not the final RF waveform.
 
 ## Implementation Notes
 

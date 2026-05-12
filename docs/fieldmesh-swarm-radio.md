@@ -435,9 +435,13 @@ Milestone 1: Common packet pipe
   from the in-band header on RX, and
   `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies the first
   complete byte-only transport model from TX packet memory back into RX packet
-  memory. `docs/fieldmesh-vendor-dma-boundary.md` records the existing ADI
-  Pluto sample-DMA windows so this packet path can be integrated beside the
-  AD936x IQ path instead of over it.
+  memory. `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` splits that model into
+  the two sidecar transport directions needed by a later DMA/IIO overlay:
+  PS-to-PL byte streams are parsed into FieldMesh packet sidebands, and PL-to-PS
+  packet streams are guarded before becoming byte-only output streams.
+  `docs/fieldmesh-vendor-dma-boundary.md` records the existing ADI Pluto
+  sample-DMA windows so this packet path can be integrated beside the AD936x IQ
+  path instead of over it.
 
 Milestone 2: P2P profile
 
