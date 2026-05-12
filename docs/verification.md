@@ -1907,6 +1907,32 @@ python3 -m json.tool \
 test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "9"
 rg 'Do not modify axi_ad9361_adc_dma' \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_bd_overlay_stub.tcl
+tmp_overlay=$(mktemp -d)
+mkdir -p "$tmp_overlay/hdl/projects/pluto"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
+  "$tmp_overlay/hdl/projects/pluto/"
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
+  >/tmp/fieldmesh_overlay_patch.json
+python3 -m json.tool /tmp/fieldmesh_overlay_patch.json >/dev/null
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "9"
+rg 'fieldmesh_packet_axis_byte_pipe_loopback.v' \
+  "$tmp_overlay/hdl/projects/pluto/system_project.tcl" \
+  "$tmp_overlay/hdl/projects/pluto/Makefile"
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
+  >/tmp/fieldmesh_overlay_patch_second.json
+python3 - <<'PY'
+import json
+obj = json.load(open('/tmp/fieldmesh_overlay_patch_second.json'))
+assert obj['system_project_changed'] is False
+assert obj['makefile_changed'] is False
+PY
+rm -rf "$tmp_overlay"
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -1930,6 +1956,9 @@ temporary repo root.
 when a synthetic Tcl change moved ADI RX from HP1 onto HP0.
 The overlay scaffold generator produced valid JSON, a 9-file RTL list, Tcl
 constants, and a non-mutating Vivado overlay stub.
+The overlay patcher successfully patched a temporary copied HDL tree, copied
+all 9 FieldMesh RTL files, added project and Makefile references, and was
+idempotent on a second apply.
 
 ## Verification Gaps
 

@@ -155,6 +155,22 @@ That directory contains `fieldmesh_sidecar_plan.json`,
 intentionally non-mutating; it records the checked insertion points before a
 real vendor HDL overlay is written.
 
+To patch a copied HDL tree with only RTL file references, use:
+
+```sh
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" \
+  --hdl-tree .config/fieldmesh/some-copied-hdl \
+  --variant-name z203 \
+  --apply
+```
+
+The patcher copies the required RTL files into
+`projects/pluto/fieldmesh/`, adds them to `system_project.tcl`, and adds
+matching `M_DEPS` entries to the Pluto `Makefile`. It is idempotent and does
+not instantiate any FieldMesh block-design cells. Without `--apply`, it emits
+the planned changes as JSON and does not write the HDL tree.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

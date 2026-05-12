@@ -147,7 +147,10 @@ Next concrete work:
   packet-DMA ports remain free. `tools/fieldmesh_vivado_overlay_scaffold.py`
   now generates the checked JSON plan, Tcl constants, RTL file list, and
   non-mutating overlay stub under `.config/fieldmesh/` before a real vendor HDL
-  overlay patch is attempted.
+  overlay patch is attempted. `tools/fieldmesh_vivado_overlay_patch.py` now
+  applies the first controlled edit to a copied HDL tree only: copy FieldMesh
+  RTL into `projects/pluto/fieldmesh/` and add idempotent project/Makefile
+  references. It still does not instantiate FieldMesh cells in the block design.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

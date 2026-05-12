@@ -260,6 +260,10 @@ preferred FieldMesh packet-DMA ports HP0/HP3 remain available.
 `tools/fieldmesh_vivado_overlay_scaffold.py` generates the checked JSON plan,
 Tcl constants, RTL file list, and non-mutating overlay stub as the final
 preflight artifact before editing a copied vendor HDL tree.
+`tools/fieldmesh_vivado_overlay_patch.py` is the next controlled step: it
+patches only a copied HDL tree, copies the FieldMesh RTL into
+`projects/pluto/fieldmesh/`, and adds idempotent project/Makefile references
+without instantiating block-design cells.
 
 Keep these responsibilities in Linux first:
 

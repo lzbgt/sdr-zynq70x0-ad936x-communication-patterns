@@ -464,6 +464,9 @@ user and vendor configuration.
 - `tools/fieldmesh_vivado_overlay_scaffold.py` - generates a non-mutating
   Vivado sidecar overlay scaffold directory with the checked plan, Tcl
   constants, RTL file list, and overlay insertion notes.
+- `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
+  by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
+  idempotent `system_project.tcl`/`Makefile` references; dry-run is the default.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
