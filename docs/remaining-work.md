@@ -54,18 +54,19 @@ Z103 details are in `docs/sdr-z103-source-workflow.md`.
 
 Status: product/design concept drafted in `docs/fieldmesh-swarm-radio.md`; the
 first implementation-facing packet/control-plane spec is drafted in
-`docs/fieldmesh-protocol-spec.md`.
+`docs/fieldmesh-protocol-spec.md`; the transport-free NDJSON trace harness is
+available as `tools/fieldmesh_trace_harness.py`.
 
 Next concrete work:
 
-- Define the first conducted test harness that runs on both variants: Z103 as a
-  constrained 1R1T endpoint and Z203 as a 2R2T hub/coordinator/relay lab node.
-- Keep mode selection user-controllable, but allow peers to negotiate mode from
-  capability advertisements, clock quality, link measurements, traffic intent,
-  and regulatory profile.
-- Start with generated video-like payloads, control/telemetry side channels,
-  packet traces, and bounded-latency degradation before attempting open-air
-  range tests.
+- Extend the trace harness from simulated events to a board-local loopback
+  transport while preserving the NDJSON trace contract.
+- Run the same user-selected and auto-negotiated P2P/star/graph/scheduled
+  smoke tests on Z203 first, then on Z103 once normal runtime reachability is
+  restored.
+- Add generated video-like payloads, control/telemetry side channels, packet
+  traces, and bounded-latency degradation before attempting any open-air range
+  test.
 
 FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
 `docs/fieldmesh-protocol-spec.md`.

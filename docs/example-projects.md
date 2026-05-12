@@ -337,6 +337,8 @@ Verification:
 Design doc:
 
 - `docs/fieldmesh-swarm-radio.md`
+- `docs/fieldmesh-protocol-spec.md`
+- `tools/fieldmesh_trace_harness.py`
 
 ## Recommended First Three Projects
 

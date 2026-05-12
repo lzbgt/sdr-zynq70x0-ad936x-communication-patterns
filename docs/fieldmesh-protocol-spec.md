@@ -206,6 +206,33 @@ Pass criteria:
 - Z103 endpoint participates without requiring 2R2T-only features.
 - Packet traces are sufficient to reproduce failures.
 
+## Software Trace Harness
+
+The first committed harness is transport-free:
+
+```sh
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --ticks 8
+```
+
+It emits newline-delimited JSON using the event fields above. This is not an RF
+test. It verifies that capability reports, mode decisions, policy updates, and
+traffic-class traces have a stable shape before Z103/Z203 transports are wired
+in.
+
+Useful smoke checks:
+
+```sh
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario star --mode star --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario graph --mode graph --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario scheduled --mode scheduled --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --ticks 2
+```
+
+Next harness step: replace the simulated packet events with a loopback transport
+that can run over the board runtime path while preserving the same NDJSON trace
+contract.
+
 ## Implementation Notes
 
 - Keep PHY and MAC separated: packet/control-plane tests should run before the

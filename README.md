@@ -33,6 +33,8 @@ Start here:
   roles and mode negotiation.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing packet,
   control-plane, mode-selection, and conducted-test spec for FieldMesh.
+- `tools/fieldmesh_trace_harness.py` - transport-free FieldMesh NDJSON trace
+  harness for early mode-selection and traffic-class smoke tests.
 - `docs/example-projects.md` - concrete project seeds.
 - `docs/verification.md` - captured verification evidence and known gaps.
 - `resources/INDEX.md` - curated local resource inventory.
