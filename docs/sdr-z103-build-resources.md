@@ -59,15 +59,107 @@ before any derived constraints are committed.
 
 ## Required Source Inputs
 
-Start from the common Pluto-style source inputs already used for SDR-Z203:
+For the proven SDR-Z203 custom Yocto/Vivado workflow, the mandatory vendor
+source archive was:
 
 ```text
-/mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档/pluto/plutosdr-fw-1r1t.zip
 /mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档/pluto/plutosdr-fw-2r2t.zip
 ```
 
-For Z103, the first source baseline should be the `1r1t` tree. The `2r2t` tree
-is useful only for comparing what changed for SDR-Z203.
+For SDR-Z103, map that to the 1R1T Pluto-style source archive that is already
+present in the SDR-Z203 vendor package folder:
+
+```text
+/mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档/pluto/plutosdr-fw-1r1t.zip
+```
+
+So the mandatory Z103 source baseline is not expected under
+`/mnt/c/baidunetdiskdownload/SDR-Z103` right now. It is the `1r1t` firmware
+source archive from the SDR-Z203 package. The separate SDR-Z103 folder provides
+board-specific schematic, factory firmware, and user-facing notes for mapping
+that common source to the Zynq-7010 + 1R1T board.
+
+The `2r2t` tree is useful only for comparison against the already-proven Z203
+flow. It is not the Z103 build baseline.
+
+### Mandatory Subtrees Inside `plutosdr-fw`
+
+If only a subset can be downloaded or copied, these are the paths that were
+mandatory to the Z203 flow and should be present in the Z103 1R1T source tree:
+
+```text
+plutosdr-fw/hdl/
+plutosdr-fw/linux/
+plutosdr-fw/u-boot-xlnx/
+plutosdr-fw/buildroot/board/pluto/
+plutosdr-fw/buildroot/output/target/opt/vfat.img
+plutosdr-fw/buildroot/output/target/www/
+plutosdr-fw/scripts/pluto.its
+plutosdr-fw/scripts/target_mtd_info.key
+plutosdr-fw/build/uboot-env.bin
+```
+
+The proven Z203 local paths were:
+
+```text
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/buildroot/board/pluto
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/buildroot/output/target/opt/vfat.img
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/buildroot/output/target/www
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/scripts/pluto.its
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/scripts/target_mtd_info.key
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/build/uboot-env.bin
+```
+
+For Z103, use a separate local tree such as:
+
+```text
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-1r1t/plutosdr-fw/
+```
+
+and map the same mandatory subpaths under that root.
+
+### Mandatory Yocto Layers
+
+The proven Z203 Yocto build used:
+
+```text
+/root/work/ZYNQ7020/yocto/layers/poky/meta
+/root/work/ZYNQ7020/yocto/layers/poky/meta-poky
+/root/work/ZYNQ7020/yocto/layers/poky/meta-yocto-bsp
+/root/work/ZYNQ7020/yocto/layers/meta-openembedded/meta-oe
+/root/work/ZYNQ7020/meta-sdr-z203
+```
+
+For Z103, duplicate and adapt the committed board layer instead of reusing the
+Z203 machine directly:
+
+```text
+/root/work/ZYNQ7020/meta-sdr-z103
+```
+
+with a distinct machine name, for example:
+
+```text
+sdr-z103-zynq7
+```
+
+### Mandatory Toolchain Inputs
+
+The proven Z203 full firmware path depended on:
+
+```text
+/mnt/c/baidunetdiskdownload/vivado/FPGAs_AdaptiveSoCs_Unified_SDI_2025.1_0530_0145.tar
+/mnt/c/baidunetdiskdownload/vivado/vivado_lic2037.zip
+/opt/Xilinx/2025.1/Vivado/settings64.sh
+/opt/Xilinx/2025.1/Vitis/settings64.sh
+/opt/Xilinx/2025.1/data/embeddedsw
+```
+
+These are not Z203-specific, so they should be reused for Z103 after the
+Z103-specific XSA/platform boundary is created.
 
 Expected Z103-specific changes:
 
