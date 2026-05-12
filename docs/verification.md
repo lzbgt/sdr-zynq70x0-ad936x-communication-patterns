@@ -1537,6 +1537,7 @@ Yocto packaging checks:
 ./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
 ./tools/audit_z103_yocto_rootfs.sh
 ./tools/audit_yocto_rootfs.sh
+bash -n tools/run_fieldmesh_board_udp_probe.sh
 ```
 
 Result:
@@ -1545,6 +1546,8 @@ Result:
 - Z103 and Z203 developer images rebuilt successfully and contain
   `/usr/bin/fieldmesh-udp-probe`.
 - Rootfs audits passed after adding the probe to the required runtime file set.
+- `tools/run_fieldmesh_board_udp_probe.sh` syntax check passed; it is the next
+  live helper once a board running the rebuilt image is reachable over SSH.
 - The WSL Arch Yocto build still emits the known host-distribution warning; the
   Z103 build also emitted the previously seen root-capable WSL
   `host-user-contaminated` QA warning for root-owned files.

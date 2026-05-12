@@ -64,7 +64,8 @@ on the board.
 Next concrete work:
 
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
-  normal runtime reachability is restored.
+  normal runtime reachability is restored. Use
+  `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test.
 - Extend the generated video-like load from UDP packet traces toward a board
   runtime transport or IIO/PL packet pipe.
 - Preserve bounded-latency degradation evidence before attempting any open-air

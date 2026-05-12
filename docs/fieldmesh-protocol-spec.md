@@ -286,6 +286,17 @@ tests, but intentionally stays smaller than the Python harness. Use it for
 board-runtime validation; keep the Python harness as the richer host-side
 reference.
 
+When the board is reachable over SSH and is running an image that contains
+`fieldmesh-udp-probe`, the end-to-end board smoke test is:
+
+```sh
+BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_udp_probe.sh
+```
+
+The helper starts the receiver on the board, sends stress-profile packets from
+the host, fetches the board NDJSON capture, and verifies packet counts plus
+`rx_ok=true`.
+
 ## Implementation Notes
 
 - Keep PHY and MAC separated: packet/control-plane tests should run before the

@@ -372,6 +372,9 @@ user and vendor configuration.
 - `fieldmesh-udp-probe` - small C FieldMesh UDP sender/receiver now packaged
   into both Z203 and Z103 Yocto developer images for board-runtime split UDP
   tests without requiring Python on the board.
+- `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
+  test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
+  the host, and collects NDJSON captures.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
