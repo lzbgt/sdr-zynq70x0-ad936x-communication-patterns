@@ -217,6 +217,14 @@ external `tready` low to prove egress backpressure, then holds the RX
 completion descriptor pending to prove ingress backpressure reaches the external
 stream boundary. It does not instantiate ADI DMA or IIO yet.
 
+`rtl/fieldmesh/fieldmesh_axis_header_guard.v` is the byte-only transport guard
+for DMA/IIO binding. It passes AXI-stream bytes and `tlast` through unchanged,
+but verifies that the PL sideband fields (`traffic_class`, `mode`, `stream_id`,
+and `slot`) match the in-band FieldMesh packet header before the stream crosses
+into a transport that may not preserve sidebands. The test proves output
+backpressure stalls the input, valid packet bytes pass unchanged, and a
+sideband/header mismatch increments `mismatch_count` and sets `fault`.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -236,8 +244,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
-AXI-stream source/sink/loopback/adapter simulations green before adding vendor
-DMA wiring or IIO/RF transport binding.
+AXI-stream source/sink/loopback/adapter/header-guard simulations green before
+adding vendor DMA wiring or IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -345,9 +353,11 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 7. Add packet stream source/sink boundaries and validate backpressure/TLAST
    behavior.
 8. Wrap the stream pair in a DMA-facing or IIO-facing integration shell.
-9. Bind the adapter ports to a real transport implementation.
-10. Scale descriptor memory and add timestamp/slot gates.
-11. Only then connect the RF/baseband path.
+9. Add a byte-only transport guard that checks sideband metadata against the
+   FieldMesh in-band packet header.
+10. Bind the guarded adapter ports to a real transport implementation.
+11. Scale descriptor memory and add timestamp/slot gates.
+12. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

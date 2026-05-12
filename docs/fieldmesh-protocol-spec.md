@@ -433,8 +433,11 @@ boundary: it accepts AXI-stream-style bytes, writes packet memory, and emits a
 completed descriptor on `tlast`. `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v`
 wires those two stream boundaries together with separate TX/RX packet memories,
 and `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` exposes the same stream
-pair as external TX/RX AXI-stream ports. The next PL target is binding those
-adapter ports to a real DMA/IIO transport, not the final RF waveform.
+pair as external TX/RX AXI-stream ports.
+`rtl/fieldmesh/fieldmesh_axis_header_guard.v` verifies those sidebands against
+the in-band packet header before the path is treated as a byte-only DMA/IIO
+pipe. The next PL target is binding those guarded adapter ports to a real
+DMA/IIO transport, not the final RF waveform.
 
 ## Implementation Notes
 

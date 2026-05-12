@@ -124,9 +124,11 @@ Next concrete work:
   TX/RX packet memories, metadata preservation, and backpressure propagation
   when an RX descriptor is pending. The DMA-facing adapter now exposes the same
   source/sink pair as external AXI-stream TX/RX ports and verifies external
-  ready/backpressure behavior. The remaining PL work is binding those adapter
-  ports to a real DMA/IIO transport, scaling descriptor storage, and then
-  binding the path to IIO/PL.
+  ready/backpressure behavior. The byte-only header guard now verifies that
+  sideband metadata matches the in-band FieldMesh packet header before bytes
+  cross a DMA/IIO boundary that may not preserve sidebands. The remaining PL
+  work is binding those guarded adapter ports to a real DMA/IIO transport,
+  scaling descriptor storage, and then binding the path to IIO/PL.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

@@ -424,6 +424,10 @@ Milestone 1: Common packet pipe
   source/sink pair as external AXI-stream TX/RX ports, with simulation covering
   external ready backpressure and RX completion backpressure before a vendor DMA
   or IIO pipe is attached.
+  `rtl/fieldmesh/fieldmesh_axis_header_guard.v` is the byte-only transport
+  guard: it passes bytes and `tlast` through unchanged while checking that
+  sideband class/mode/stream/slot metadata matches the in-band FieldMesh packet
+  header before those bytes enter a DMA/IIO path that may drop sidebands.
 
 Milestone 2: P2P profile
 

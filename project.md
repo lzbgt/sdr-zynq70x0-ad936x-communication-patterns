@@ -439,6 +439,9 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` - simulation shell that
   exposes the packet stream source/sink pair as external AXI-stream TX/RX ports
   before attaching ADI DMA, custom DMA, or an IIO packet pipe.
+- `rtl/fieldmesh/fieldmesh_axis_header_guard.v` - byte-only transport guard
+  that checks AXI-stream sideband metadata against the in-band FieldMesh packet
+  header before DMA/IIO binding.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -449,7 +452,8 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_packet_axis_source_tb.v`,
   `tb/fieldmesh/fieldmesh_packet_axis_sink_tb.v`,
   `tb/fieldmesh/fieldmesh_packet_axis_loopback_tb.v`, and
-  `tb/fieldmesh/fieldmesh_packet_axis_dma_adapter_tb.v` with
+  `tb/fieldmesh/fieldmesh_packet_axis_dma_adapter_tb.v`, and
+  `tb/fieldmesh/fieldmesh_axis_header_guard_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor and packet-memory RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
@@ -549,6 +553,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Bind the FieldMesh packet stream adapter ports to a real DMA/IIO transport,
-   scale descriptor storage beyond the shallow class rings, and bind the path
-   to IIO/PL before open-air RF tests.
+4. Bind the guarded FieldMesh packet stream adapter ports to a real DMA/IIO
+   transport, scale descriptor storage beyond the shallow class rings, and bind
+   the path to IIO/PL before open-air RF tests.
