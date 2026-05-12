@@ -631,9 +631,8 @@ Expected result in the current Pluto-compatible firmware state:
    DMA controls at `0x43C10000`/`0x43C20000`, and uses a 16-bit ADI `axi_dmac`
    stream adapter to preserve FieldMesh's byte-pipe ABI. The copied-tree
    FieldMesh DMA overlay now has a build wrapper for producing a matching
-   `system_top.bit`/XSA; the Z103 copied overlay is timing-clean. The sidecar
-   devicetree binding plus `dt-scan` preflight are drafted and offline
-   validated. Next integrate the sidecar devicetree only with a matching
-   FieldMesh bitstream, run the same full overlay build for Z203 before Z203
-   packaging, then scale descriptor storage beyond the shallow class rings and
-   bind the path to IIO/PL before open-air RF tests.
+   `system_top.bit`/XSA; the Z203 and Z103 copied overlays are timing-clean.
+   The sidecar devicetree binding plus `dt-scan` preflight are drafted and
+   offline validated. Next integrate the sidecar devicetree only with a
+   matching FieldMesh bitstream, then scale descriptor storage beyond the
+   shallow class rings and bind the path to IIO/PL before open-air RF tests.

@@ -2111,6 +2111,23 @@ system_top.bit  3e8e741db27b073ce5c5da3e1ea4caab6ed7dbc4dcd9daf4b344cadfff31a818
 system_top.xsa  f77a2302d55db855fda16ba7aece387426cbf029fd1d5f6f598f18c66ff96392
 ```
 
+The same full copied-HDL DMA overlay build was then run for Z203:
+
+```sh
+./tools/build_fieldmesh_dma_overlay_vivado.sh z203
+```
+
+Result: the Z203 FieldMesh DMA overlay produced
+`.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit`
+and `.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa`.
+`verify_pluto_hdl_build.sh` reported all user timing constraints met. The
+captured hashes were:
+
+```text
+system_top.bit  6aac02cae87fda05feccea612da46d72f013f70ac672bc38684012036d113874
+system_top.xsa  abe6f0b036a2b45fd6f1a52c00acc2a9b9479d7e0055d947c95479c0b676ccb9
+```
+
 The FieldMesh sidecar devicetree contract was checked with:
 
 ```sh

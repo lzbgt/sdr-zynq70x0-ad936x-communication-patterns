@@ -290,8 +290,9 @@ workspace. Outputs live under `.config/fieldmesh/dma-overlay-build-z203/` or
 
 This is still a copied-HDL integration gate. It proves the namespace, HP-port
 split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream connections,
-and address segments are BD-visible on both variants. The Z103 path has also
-produced a timing-clean `system_top.bit`/XSA from that copied overlay. This
+and address segments are BD-visible on both variants. The Z203 and Z103 paths
+have both produced timing-clean `system_top.bit`/XSA artifacts from that copied
+overlay. This
 does not yet provide a flashed runtime image or live board traffic.
 
 The matching devicetree contract is generated and checked separately:

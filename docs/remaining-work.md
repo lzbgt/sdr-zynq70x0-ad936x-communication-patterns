@@ -173,8 +173,7 @@ Next concrete work:
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
-  sources. The Z103 overlay build is timing-clean; run the same full build for
-  Z203 before packaging a Z203 FieldMesh runtime image.
+  sources. The Z203 and Z103 copied overlay builds are both timing-clean.
 - Integrate the FieldMesh sidecar devicetree only with a matching FieldMesh
   bitstream, then run `fieldmesh-udp-probe dt-scan` before touching sidecar
   packet DMA/IIO registers. Keep the ADI IQ DMA path untouched.
