@@ -253,7 +253,8 @@ windows for the first packet-pipe binding. The provisional sidecar namespace is
 `fieldmesh_rx_dma` at `0x43C20000`; `--check-sidecar` verifies those windows
 remain unused in the imported source Tcl. `tools/fieldmesh_sidecar_plan.py`
 turns the same checked contract into JSON, Markdown, or Tcl constants for the
-later Vivado overlay patch.
+later Vivado overlay patch, and `--check-rtl` verifies the FieldMesh packet
+pipe RTL files and module declarations before that overlay is attempted.
 
 Keep these responsibilities in Linux first:
 

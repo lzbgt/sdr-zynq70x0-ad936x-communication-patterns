@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,9 +26,52 @@ REQUIRED_RTL = [
 ]
 
 
-def build_plan(variants: list[tuple[str, Path]], check_sidecar: bool) -> dict[str, Any]:
+def expected_module_name(rtl_path: str) -> str:
+    return Path(rtl_path).stem
+
+
+def scan_required_rtl(repo_root: Path) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    ok = True
+    for rtl in REQUIRED_RTL:
+        path = repo_root / rtl
+        expected = expected_module_name(rtl)
+        exists = path.is_file()
+        module_found = False
+        if exists:
+            module_pattern = re.compile(rf"^\s*module\s+{re.escape(expected)}(\s|#|\()")
+            module_found = any(module_pattern.search(line) for line in path.read_text().splitlines())
+        if not exists or not module_found:
+            ok = False
+        rows.append(
+            {
+                "path": rtl,
+                "module": expected,
+                "exists": exists,
+                "module_found": module_found,
+            }
+        )
+    return {
+        "ok": ok,
+        "repo_root": str(repo_root),
+        "files": rows,
+    }
+
+
+def build_plan(
+    variants: list[tuple[str, Path]],
+    check_sidecar: bool,
+    repo_root: Path,
+    check_rtl: bool,
+) -> dict[str, Any]:
     variant_plans = []
     ok = True
+    rtl = scan_required_rtl(repo_root)
+    if not rtl["ok"]:
+        ok = False
+        if check_rtl:
+            missing = [row["path"] for row in rtl["files"] if not row["exists"] or not row["module_found"]]
+            raise SystemExit(f"FieldMesh required RTL check failed: {', '.join(missing)}")
     for name, path in variants:
         if not path.is_file():
             raise SystemExit(f"{path}: not found")
@@ -50,6 +94,7 @@ def build_plan(variants: list[tuple[str, Path]], check_sidecar: bool) -> dict[st
         "format": "fieldmesh-sidecar-plan-v1",
         "ok": ok,
         "required_rtl": REQUIRED_RTL,
+        "required_rtl_status": rtl,
         "sidecar_blocks": [
             {
                 "name": name,
@@ -99,8 +144,9 @@ def emit_markdown(plan: dict[str, Any]) -> None:
         print(f"| `{key}` | `{value}` |")
     print()
     print("Required RTL:")
-    for rtl in plan["required_rtl"]:
-        print(f"- `{rtl}`")
+    for row in plan["required_rtl_status"]["files"]:
+        status = "ok" if row["exists"] and row["module_found"] else "missing"
+        print(f'- `{row["path"]}` (`{row["module"]}`): {status}')
     print()
     print("| Variant | Status | Source |")
     print("| --- | --- | --- |")
@@ -141,13 +187,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--format", choices=("json", "markdown", "tcl"), default="json")
     parser.add_argument("--check-sidecar", action="store_true", help="fail if sidecar windows collide")
+    parser.add_argument("--check-rtl", action="store_true", help="fail if required RTL files or modules are missing")
+    parser.add_argument("--repo-root", type=Path, default=Path.cwd(), help="repository root for RTL checks")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
-        plan = build_plan(args.variant, args.check_sidecar)
+        plan = build_plan(args.variant, args.check_sidecar, args.repo_root, args.check_rtl)
     except SystemExit:
         raise
     except Exception as exc:  # pragma: no cover - defensive CLI boundary

@@ -141,7 +141,8 @@ Next concrete work:
   inventory helper's `--check-sidecar` mode now fails if those windows collide
   with imported Vivado Tcl. `tools/fieldmesh_sidecar_plan.py` now emits the
   checked sidecar plan in JSON, Markdown, or Tcl constants form for the later
-  Vivado overlay step.
+  Vivado overlay step, and its `--check-rtl` mode verifies the required RTL
+  files and module declarations before integration.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

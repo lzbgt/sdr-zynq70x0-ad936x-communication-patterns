@@ -458,7 +458,8 @@ user and vendor configuration.
   FieldMesh sidecar windows at `0x43C00000`, `0x43C10000`, and `0x43C20000`.
 - `tools/fieldmesh_sidecar_plan.py` - emits the checked FieldMesh sidecar
   integration plan as JSON, Markdown, or Tcl constants for the later Vivado
-  overlay step.
+  overlay step; `--check-rtl` verifies the required RTL files and module names
+  before an overlay is attempted.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
