@@ -94,7 +94,8 @@ Next concrete work:
   `mmap-replay`, and `desc-replay`, including descriptor field comparison.
 - Bind the same shim frame to a real IIO buffer or first PL loopback endpoint
   while preserving the FieldMesh packet bytes and passing
-  `tools/fieldmesh_trace_assert.py`.
+  `tools/fieldmesh_trace_assert.py`. `desc-replay` now emits assertion-ready
+  `packet_trace` rows, so future PL/IIO captures should follow that shape.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

@@ -158,7 +158,7 @@ def verify_vectors(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
 
-def run_probe(probe: Path, role: str, frame_path: Path) -> dict[str, Any]:
+def run_probe_events(probe: Path, role: str, frame_path: Path) -> list[dict[str, Any]]:
     result = subprocess.run(
         [str(probe), role, "--file", str(frame_path)],
         check=False,
@@ -171,7 +171,7 @@ def run_probe(probe: Path, role: str, frame_path: Path) -> dict[str, Any]:
     lines = [line for line in result.stdout.splitlines() if line.strip()]
     if not lines:
         raise RuntimeError(f"{probe} {role} {frame_path} produced no JSON")
-    return json.loads(lines[-1])
+    return [json.loads(line) for line in lines]
 
 
 def verify_c_probe(args: argparse.Namespace) -> None:
@@ -184,13 +184,19 @@ def verify_c_probe(args: argparse.Namespace) -> None:
         frame_path = base_dir / row["frame_file"]
         for role in ("verify-frame", "mmap-replay", "desc-replay"):
             try:
-                event = run_probe(args.probe, role, frame_path)
+                events = run_probe_events(args.probe, role, frame_path)
             except (RuntimeError, json.JSONDecodeError) as exc:
                 errors.append(f"{frame_path}: {role}: {exc}")
                 continue
+            event = events[-1]
             if not event.get("ok"):
                 errors.append(f"{frame_path}: {role}: ok=false")
             if role == "desc-replay":
+                packet_traces = [event for event in events if event.get("event") == "packet_trace"]
+                if len(packet_traces) != 1:
+                    errors.append(f"{frame_path}: desc-replay expected one packet_trace, got {len(packet_traces)}")
+                elif packet_traces[0].get("rx_ok") is not True:
+                    errors.append(f"{frame_path}: desc-replay packet_trace rx_ok is not true")
                 expected = row["descriptor"]
                 actual = {key: event.get(key) for key in expected}
                 if actual != expected:

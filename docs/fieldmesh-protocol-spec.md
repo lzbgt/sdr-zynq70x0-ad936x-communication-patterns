@@ -370,8 +370,20 @@ ticks. It covers all traffic classes C0..C4, the largest current payload size,
 header CRC, shim-frame CRC, transport sequence handling, and PL descriptor field
 mapping. The C verification path runs `verify-frame`, `mmap-replay`, and
 `desc-replay` for every frame file and compares descriptor output against the
-manifest. IIO and PL loopback implementations must pass these byte-level vectors
-before their traces are treated as meaningful.
+manifest. `desc-replay` also emits assertion-ready `packet_trace` rows, so an
+aggregate replay capture can be checked with:
+
+```sh
+tmp=$(mktemp)
+for f in resources/fieldmesh/vectors/frame_*.bin; do
+  ./.config/fieldmesh/fieldmesh-udp-probe-host desc-replay --file "$f" >> "$tmp"
+done
+./tools/fieldmesh_trace_assert.py --no-negotiation "$tmp"
+rm -f "$tmp"
+```
+
+IIO and PL loopback implementations must pass these byte-level vectors before
+their traces are treated as meaningful.
 
 ## Next Transport Boundary
 

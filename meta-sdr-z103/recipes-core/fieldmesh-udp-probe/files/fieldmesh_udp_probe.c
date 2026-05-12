@@ -92,6 +92,9 @@ struct fieldmesh_desc {
     uint32_t timestamp_hi;
 };
 
+static void emit_local_loopback_trace(const char *transport, const struct trace *tr, bool rx_ok,
+                                      uint32_t transport_seq, uint32_t frame_crc);
+
 static void usage(FILE *out)
 {
     fprintf(out,
@@ -306,6 +309,15 @@ static const char *class_name(uint8_t traffic_class)
     return traffic_class < 5 ? names[traffic_class] : "unknown";
 }
 
+static const char *node_name(uint16_t node)
+{
+    switch (node) {
+    case 0x0101: return "z103-a";
+    case 0x0201: return "z203-hub";
+    default: return "unknown";
+    }
+}
+
 static int class_count(const char *profile)
 {
     if (!strcmp(profile, "stress")) return 5;
@@ -379,6 +391,70 @@ static void make_trace(const struct config *cfg, int tick, int class_index, stru
         break;
     }
     tr->late = tr->queue_age_ms > (class_index < 2 ? 20 : 80);
+}
+
+static void trace_from_packet(const uint8_t *packet, struct trace *tr)
+{
+    uint8_t traffic_class;
+    uint32_t sequence;
+    int tick;
+
+    memset(tr, 0, sizeof(*tr));
+    traffic_class = packet[14];
+    sequence = get_le32(packet + 24);
+    tick = (int)(sequence / 10U);
+
+    tr->tick = tick;
+    tr->epoch = get_le32(packet + 18);
+    tr->slot = get_le16(packet + 22);
+    tr->mode = packet[15];
+    tr->mode_name = mode_name(tr->mode);
+    tr->src_node = get_le16(packet + 8);
+    tr->src_name = node_name(tr->src_node);
+    tr->dst_node = get_le16(packet + 10);
+    tr->dst_name = node_name(tr->dst_node);
+    tr->stream_id = get_le16(packet + 12);
+    tr->traffic_class = traffic_class;
+    tr->traffic_name = class_name(traffic_class);
+    tr->sequence = sequence;
+    tr->payload_len = get_le16(packet + 28);
+    tr->degradation_action = "none";
+    tr->fec_recovered = (tick + traffic_class) % 4;
+    tr->link_quality_db = 18.0 + (double)((tick * 7 + traffic_class * 3) % 80) / 10.0;
+
+    switch (traffic_class) {
+    case 0:
+        tr->queue_age_ms = 2 + tick % 7;
+        tr->target_kbps = 8;
+        tr->delivered_kbps = 8;
+        break;
+    case 1:
+        tr->queue_age_ms = 6 + tick % 13;
+        tr->target_kbps = 48;
+        tr->delivered_kbps = 48;
+        break;
+    case 2:
+        tr->target_kbps = 1250;
+        tr->queue_age_ms = 90 + tick * 20;
+        tr->delivered_kbps = 750;
+        tr->degradation_action = tr->queue_age_ms > 120 ? "reduce_video_bitrate" : "none";
+        break;
+    case 3:
+        tr->target_kbps = 833;
+        tr->queue_age_ms = 170;
+        tr->delivered_kbps = 100;
+        tr->dropped = 1;
+        tr->degradation_action = "drop_enhancement";
+        break;
+    default:
+        tr->target_kbps = 64;
+        tr->queue_age_ms = 220;
+        tr->delivered_kbps = 0;
+        tr->dropped = 1;
+        tr->degradation_action = "defer_background";
+        break;
+    }
+    tr->late = tr->queue_age_ms > (traffic_class < 2 ? 20 : 80);
 }
 
 static size_t pack_packet(const struct trace *tr, uint8_t *buf, size_t cap)
@@ -630,6 +706,12 @@ static int run_desc_replay(const struct config *cfg)
     char err[128] = {0};
     bool ok = false;
 
+    printf("{\"event\":\"transport_bound\",\"transport\":\"desc-replay\","
+           "\"descriptor_bytes\":%zu,\"packet_base\":\"0x%08x\","
+           "\"packet_stride\":%u}\n",
+           sizeof(struct fieldmesh_desc), DESC_MODEL_PACKET_BASE,
+           DESC_MODEL_PACKET_STRIDE);
+
     if (!read_frame_file(cfg->file, frame, sizeof(frame), &frame_len, err, sizeof(err))) {
         goto out;
     }
@@ -646,6 +728,8 @@ static int run_desc_replay(const struct config *cfg)
     }
     ok = decode_frame(frame, frame_len, err, sizeof(err));
     if (ok) {
+        struct trace tr;
+
         desc.packet_addr = DESC_MODEL_PACKET_BASE + (transport_seq * DESC_MODEL_PACKET_STRIDE);
         desc.packet_len = packet_len;
         desc.stream_id = get_le16(packet + 12);
@@ -657,6 +741,8 @@ static int run_desc_replay(const struct config *cfg)
         desc.queue_age_ms = 0;
         desc.timestamp_lo = transport_seq;
         desc.timestamp_hi = 0;
+        trace_from_packet(packet, &tr);
+        emit_local_loopback_trace("desc-replay", &tr, true, transport_seq, frame_crc);
     }
 
 out:

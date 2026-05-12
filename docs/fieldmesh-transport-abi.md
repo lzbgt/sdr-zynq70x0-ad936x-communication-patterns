@@ -137,7 +137,9 @@ queue rather than pushing mode logic into FPGA too early.
 Status: the C probe has a `desc-replay` role that reads the committed shim-frame
 vectors, validates the embedded FieldMesh packet, and maps the packet fields
 into the descriptor layout below. This is still a software model, but it pins
-the bytes and descriptor semantics before HDL work.
+the bytes and descriptor semantics before HDL work. It also emits
+assertion-ready `packet_trace` rows so descriptor replay can be checked with
+`tools/fieldmesh_trace_assert.py --no-negotiation`.
 
 Keep these responsibilities in Linux first:
 
