@@ -394,7 +394,9 @@ Milestone 1: Common packet pipe
 - CSV/JSON trace of packet loss, latency, bitrate, and queue age.
 - The staged packet-pipe ABI is defined in `docs/fieldmesh-transport-abi.md`:
   UDP reference first, IIO buffer shim second, PL descriptor queue third, and RF
-  attachment only after trace assertions pass.
+  attachment only after trace assertions pass. The current C `pl-replay` role
+  models the first TX/RX descriptor-ring loopback against committed binary
+  vectors before HDL is added.
 
 Milestone 2: P2P profile
 

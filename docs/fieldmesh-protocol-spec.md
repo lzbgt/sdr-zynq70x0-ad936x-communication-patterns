@@ -368,15 +368,23 @@ Packet and shim-frame byte compatibility is pinned by
 The vector corpus is deliberately small: scheduled/auto stress traffic for two
 ticks. It covers all traffic classes C0..C4, the largest current payload size,
 header CRC, shim-frame CRC, transport sequence handling, and PL descriptor field
-mapping. The C verification path runs `verify-frame`, `mmap-replay`, and
-`desc-replay` for every frame file and compares descriptor output against the
-manifest. `desc-replay` also emits assertion-ready `packet_trace` rows, so an
-aggregate replay capture can be checked with:
+mapping. The C verification path runs `verify-frame`, `mmap-replay`,
+`desc-replay`, and `pl-replay` for every frame file, compares descriptor output
+against the manifest, and checks the modeled PL packet-copy CRC. `desc-replay`
+and `pl-replay` also emit assertion-ready `packet_trace` rows, so aggregate
+replay captures can be checked with:
 
 ```sh
 tmp=$(mktemp)
 for f in resources/fieldmesh/vectors/frame_*.bin; do
   ./.config/fieldmesh/fieldmesh-udp-probe-host desc-replay --file "$f" >> "$tmp"
+done
+./tools/fieldmesh_trace_assert.py --no-negotiation "$tmp"
+rm -f "$tmp"
+
+tmp=$(mktemp)
+for f in resources/fieldmesh/vectors/frame_*.bin; do
+  ./.config/fieldmesh/fieldmesh-udp-probe-host pl-replay --file "$f" >> "$tmp"
 done
 ./tools/fieldmesh_trace_assert.py --no-negotiation "$tmp"
 rm -f "$tmp"
@@ -390,7 +398,8 @@ their traces are treated as meaningful.
 The next implementation boundary is defined in
 `docs/fieldmesh-transport-abi.md`: keep the FieldMesh packet header and trace
 contract stable while moving the byte stream from UDP into an IIO buffer shim
-and then a PL descriptor queue. The first PL target is a packet loopback and
+and then a PL descriptor queue. The C `pl-replay` role is the current software
+model of that queue; the next PL target is an HDL-backed packet loopback and
 class-priority queue, not the final RF waveform.
 
 ## Implementation Notes

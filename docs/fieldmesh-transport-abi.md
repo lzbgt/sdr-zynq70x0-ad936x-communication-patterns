@@ -115,6 +115,7 @@ The C probe can verify the same frame files:
 fieldmesh-udp-probe verify-frame --file resources/fieldmesh/vectors/frame_000.bin
 fieldmesh-udp-probe mmap-replay --file resources/fieldmesh/vectors/frame_000.bin
 fieldmesh-udp-probe desc-replay --file resources/fieldmesh/vectors/frame_000.bin
+fieldmesh-udp-probe pl-replay --file resources/fieldmesh/vectors/frame_000.bin
 ```
 
 Or verify every committed vector against the host-built C probe:
@@ -126,20 +127,21 @@ Or verify every committed vector against the host-built C probe:
 
 These files are the contract for IIO and PL loopback work: new transports must
 carry the same frame bytes, preserve the manifest parse fields, and pass both
-decode-only, mapped-memory replay, and descriptor replay before adding
-RF/baseband behavior.
+decode-only, mapped-memory replay, descriptor replay, and PL descriptor
+loopback replay before adding RF/baseband behavior.
 
 ## Stage 2: PL Packet Queue ABI
 
 When userspace/IIO loopback is stable, move the hot path into PL as a packet
 queue rather than pushing mode logic into FPGA too early.
 
-Status: the C probe has a `desc-replay` role that reads the committed shim-frame
-vectors, validates the embedded FieldMesh packet, and maps the packet fields
-into the descriptor layout below. This is still a software model, but it pins
-the bytes and descriptor semantics before HDL work. It also emits
-assertion-ready `packet_trace` rows so descriptor replay can be checked with
-`tools/fieldmesh_trace_assert.py --no-negotiation`.
+Status: the C probe has `desc-replay` and `pl-replay` roles that read the
+committed shim-frame vectors and validate the embedded FieldMesh packet.
+`desc-replay` maps one frame into the descriptor layout below. `pl-replay`
+models a first TX/RX descriptor-ring loopback, copies the packet into modeled
+PL packet memory, completes TX/RX descriptors, and emits assertion-ready
+`packet_trace` rows so the PL boundary can be checked with
+`tools/fieldmesh_trace_assert.py --no-negotiation` before HDL work.
 
 Keep these responsibilities in Linux first:
 

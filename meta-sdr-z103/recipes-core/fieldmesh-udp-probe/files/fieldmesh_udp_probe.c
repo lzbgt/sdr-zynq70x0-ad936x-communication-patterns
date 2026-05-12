@@ -26,7 +26,9 @@
 #define MAX_FRAME (MAX_PACKET + FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN)
 #define MMAP_RING_SLOTS 16U
 #define DESC_MODEL_PACKET_BASE 0x10000000U
+#define DESC_MODEL_RX_PACKET_BASE 0x10080000U
 #define DESC_MODEL_PACKET_STRIDE 2048U
+#define DESC_RING_SLOTS 16U
 #define FM_DESC_OWN 0x0001U
 #define FM_DESC_DONE 0x0002U
 #define FM_DESC_TIMESTAMP_VALID 0x0020U
@@ -105,6 +107,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe desc-replay --file FRAME.bin\n"
+        "  fieldmesh-udp-probe pl-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
@@ -112,7 +115,8 @@ static void usage(FILE *out)
 static bool is_local_loopback_role(const char *role)
 {
     return !strcmp(role, "mem-loopback") || !strcmp(role, "mmap-loopback") ||
-        !strcmp(role, "mmap-replay") || !strcmp(role, "desc-replay");
+        !strcmp(role, "mmap-replay") || !strcmp(role, "desc-replay") ||
+        !strcmp(role, "pl-replay");
 }
 
 static bool arg_value(int argc, char **argv, int *index, const char **value)
@@ -186,7 +190,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, iio-scan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
@@ -195,7 +199,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         return 2;
     }
     if ((!strcmp(cfg->role, "verify-frame") || !strcmp(cfg->role, "mmap-replay") ||
-         !strcmp(cfg->role, "desc-replay")) &&
+         !strcmp(cfg->role, "desc-replay") || !strcmp(cfg->role, "pl-replay")) &&
         cfg->file == NULL) {
         fprintf(stderr, "--file must be set for %s\n", cfg->role);
         return 2;
@@ -694,6 +698,24 @@ out:
     return ok ? 0 : 1;
 }
 
+static void fill_desc_from_packet(struct fieldmesh_desc *desc, const uint8_t *packet,
+                                  uint16_t packet_len, uint32_t packet_addr,
+                                  uint16_t flags, uint32_t timestamp_lo,
+                                  uint16_t queue_age_ms)
+{
+    desc->packet_addr = packet_addr;
+    desc->packet_len = packet_len;
+    desc->stream_id = get_le16(packet + 12);
+    desc->traffic_class = packet[14];
+    desc->mode = packet[15];
+    desc->flags = flags;
+    desc->epoch = get_le32(packet + 18);
+    desc->slot = get_le16(packet + 22);
+    desc->queue_age_ms = queue_age_ms;
+    desc->timestamp_lo = timestamp_lo;
+    desc->timestamp_hi = 0;
+}
+
 static int run_desc_replay(const struct config *cfg)
 {
     uint8_t frame[MAX_FRAME + 1U];
@@ -730,17 +752,9 @@ static int run_desc_replay(const struct config *cfg)
     if (ok) {
         struct trace tr;
 
-        desc.packet_addr = DESC_MODEL_PACKET_BASE + (transport_seq * DESC_MODEL_PACKET_STRIDE);
-        desc.packet_len = packet_len;
-        desc.stream_id = get_le16(packet + 12);
-        desc.traffic_class = packet[14];
-        desc.mode = packet[15];
-        desc.flags = FM_DESC_DONE | FM_DESC_TIMESTAMP_VALID;
-        desc.epoch = get_le32(packet + 18);
-        desc.slot = get_le16(packet + 22);
-        desc.queue_age_ms = 0;
-        desc.timestamp_lo = transport_seq;
-        desc.timestamp_hi = 0;
+        fill_desc_from_packet(&desc, packet, packet_len,
+                              DESC_MODEL_PACKET_BASE + (transport_seq * DESC_MODEL_PACKET_STRIDE),
+                              FM_DESC_DONE | FM_DESC_TIMESTAMP_VALID, transport_seq, 0);
         trace_from_packet(packet, &tr);
         emit_local_loopback_trace("desc-replay", &tr, true, transport_seq, frame_crc);
     }
@@ -758,6 +772,81 @@ out:
            class_name(desc.traffic_class), mode_name(desc.mode), desc.flags,
            desc.epoch, desc.slot, desc.queue_age_ms, desc.timestamp_lo,
            desc.timestamp_hi, ok ? "null" : "\"descriptor replay decode failed\"");
+    return ok ? 0 : 1;
+}
+
+static int run_pl_replay(const struct config *cfg)
+{
+    uint8_t frame[MAX_FRAME + 1U];
+    uint8_t packet_copy[MAX_PACKET];
+    struct fieldmesh_desc tx_desc = {0};
+    struct fieldmesh_desc rx_desc = {0};
+    size_t frame_len = 0;
+    uint16_t packet_len = 0;
+    uint32_t transport_seq = 0;
+    uint32_t frame_crc = 0;
+    uint32_t packet_copy_crc = 0;
+    const uint8_t *packet = frame + FIELD_MESH_FRAME_LEN;
+    char err[128] = {0};
+    bool ok = false;
+
+    printf("{\"event\":\"transport_bound\",\"transport\":\"pl-replay\","
+           "\"descriptor_bytes\":%zu,\"tx_packet_base\":\"0x%08x\","
+           "\"rx_packet_base\":\"0x%08x\",\"packet_stride\":%u,"
+           "\"ring_slots\":%u}\n",
+           sizeof(struct fieldmesh_desc), DESC_MODEL_PACKET_BASE,
+           DESC_MODEL_RX_PACKET_BASE, DESC_MODEL_PACKET_STRIDE, DESC_RING_SLOTS);
+
+    if (!read_frame_file(cfg->file, frame, sizeof(frame), &frame_len, err, sizeof(err))) {
+        goto out;
+    }
+    if (frame_len > MAX_FRAME) {
+        snprintf(err, sizeof(err), "transport frame too large");
+        goto out;
+    }
+    if (frame_len >= FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
+        packet_len = get_le16(frame + 2);
+        transport_seq = get_le32(frame + 4);
+        if (frame_len >= FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+            frame_crc = get_le32(frame + FIELD_MESH_FRAME_LEN + packet_len);
+        }
+    }
+    ok = decode_frame(frame, frame_len, err, sizeof(err));
+    if (ok) {
+        struct trace tr;
+        uint32_t slot = transport_seq % DESC_RING_SLOTS;
+        uint32_t tx_addr = DESC_MODEL_PACKET_BASE + (slot * DESC_MODEL_PACKET_STRIDE);
+        uint32_t rx_addr = DESC_MODEL_RX_PACKET_BASE + (slot * DESC_MODEL_PACKET_STRIDE);
+
+        memcpy(packet_copy, packet, packet_len);
+        packet_copy_crc = fieldmesh_crc32(packet_copy, packet_len);
+        trace_from_packet(packet, &tr);
+        fill_desc_from_packet(&tx_desc, packet_copy, packet_len, tx_addr,
+                              FM_DESC_OWN | FM_DESC_TIMESTAMP_VALID, transport_seq,
+                              (uint16_t)tr.queue_age_ms);
+        fill_desc_from_packet(&rx_desc, packet_copy, packet_len, rx_addr,
+                              FM_DESC_DONE | FM_DESC_TIMESTAMP_VALID, transport_seq,
+                              (uint16_t)tr.queue_age_ms);
+        tx_desc.flags = FM_DESC_DONE | FM_DESC_TIMESTAMP_VALID;
+        emit_local_loopback_trace("pl-replay", &tr, true, transport_seq, frame_crc);
+    }
+
+out:
+    printf("{\"event\":\"pl_descriptor_replay\",\"transport\":\"pl-replay\","
+           "\"file\":\"%s\",\"ok\":%s,\"frame_bytes\":%zu,"
+           "\"packet_len\":%u,\"transport_seq\":%u,\"frame_crc\":%u,"
+           "\"packet_copy_crc\":%u,\"tx_packet_addr\":\"0x%08x\","
+           "\"rx_packet_addr\":\"0x%08x\",\"stream_id\":%u,"
+           "\"traffic_class\":\"%s\",\"mode\":\"%s\",\"tx_flags\":\"0x%04x\","
+           "\"rx_flags\":\"0x%04x\",\"epoch\":%u,\"slot\":%u,"
+           "\"queue_age_ms\":%u,\"timestamp_lo\":%u,\"timestamp_hi\":%u,"
+           "\"rx_error\":%s}\n",
+           cfg->file, ok ? "true" : "false", frame_len, packet_len,
+           transport_seq, frame_crc, packet_copy_crc, tx_desc.packet_addr,
+           rx_desc.packet_addr, rx_desc.stream_id, class_name(rx_desc.traffic_class),
+           mode_name(rx_desc.mode), tx_desc.flags, rx_desc.flags, rx_desc.epoch,
+           rx_desc.slot, rx_desc.queue_age_ms, rx_desc.timestamp_lo,
+           rx_desc.timestamp_hi, ok ? "null" : "\"pl replay decode failed\"");
     return ok ? 0 : 1;
 }
 
@@ -1164,6 +1253,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "desc-replay")) {
         return run_desc_replay(&cfg);
+    }
+    if (!strcmp(cfg.role, "pl-replay")) {
+        return run_pl_replay(&cfg);
     }
     if (!strcmp(cfg.role, "iio-scan")) {
         return run_iio_scan(&cfg);

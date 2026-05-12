@@ -390,10 +390,11 @@ user and vendor configuration.
   capability and mode-negotiation events, while `mem-loopback` and
   `mmap-loopback` validate the transport ABI shim frame locally before an IIO
   or PL endpoint exists; `verify-frame` validates binary vector files,
-  `mmap-replay` carries those same files through the mapped-memory ring, and
-  `desc-replay` maps them into the PL-facing descriptor model while emitting
-  assertion-ready `packet_trace` rows; Yocto board builds also link libiio for
-  the `iio-scan` runtime preflight role.
+  `mmap-replay` carries those same files through the mapped-memory ring,
+  `desc-replay` maps them into the PL-facing descriptor model, and `pl-replay`
+  models a first TX/RX descriptor-ring loopback while emitting assertion-ready
+  `packet_trace` rows; Yocto board builds also link libiio for the `iio-scan`
+  runtime preflight role.
 - `tools/run_fieldmesh_board_iio_scan.sh` - SSH-driven FieldMesh/IIO preflight
   that runs `fieldmesh-udp-probe iio-scan` on a reachable rebuilt board image
   and verifies that at least one IIO device is visible locally.

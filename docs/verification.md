@@ -1655,6 +1655,33 @@ rm -f "$tmp"
 Result: `packet_trace_rx_ok_count=10`, `validated_rx_ok_count=10`, and traffic
 classes C0..C4 were all present.
 
+PL descriptor-ring replay was added as the next software gate:
+
+```sh
+tmp=$(mktemp)
+for f in resources/fieldmesh/vectors/frame_*.bin; do
+  ./.config/fieldmesh/fieldmesh-udp-probe-host pl-replay --file "$f" >> "$tmp"
+done
+./tools/fieldmesh_trace_assert.py --no-negotiation "$tmp"
+rm -f "$tmp"
+```
+
+Result: `pl_descriptor_replay=10`, `packet_trace_rx_ok_count=10`,
+`validated_rx_ok_count=10`, and traffic classes C0..C4 were all present. This
+does not touch ADI RF/IQ DMA; it validates the modeled FieldMesh TX/RX
+descriptor loopback before HDL or IIO packet transport work.
+
+After adding `pl-replay`, both packaged probe recipes rebuilt:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake fieldmesh-udp-probe
+./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
+```
+
+Result: both builds passed. The warnings were the already-known Arch host
+validation warning and `host-user-contaminated` QA warnings for the locally
+built probe files.
+
 ## FieldMesh Board Runtime Probe
 
 Host-side C probe check:

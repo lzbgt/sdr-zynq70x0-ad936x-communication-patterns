@@ -182,7 +182,7 @@ def verify_c_probe(args: argparse.Namespace) -> None:
 
     for row in manifest.get("vectors", []):
         frame_path = base_dir / row["frame_file"]
-        for role in ("verify-frame", "mmap-replay", "desc-replay"):
+        for role in ("verify-frame", "mmap-replay", "desc-replay", "pl-replay"):
             try:
                 events = run_probe_events(args.probe, role, frame_path)
             except (RuntimeError, json.JSONDecodeError) as exc:
@@ -201,6 +201,14 @@ def verify_c_probe(args: argparse.Namespace) -> None:
                 actual = {key: event.get(key) for key in expected}
                 if actual != expected:
                     errors.append(f"{frame_path}: desc-replay descriptor mismatch: {actual} != {expected}")
+            if role == "pl-replay":
+                packet_traces = [event for event in events if event.get("event") == "packet_trace"]
+                if len(packet_traces) != 1:
+                    errors.append(f"{frame_path}: pl-replay expected one packet_trace, got {len(packet_traces)}")
+                elif packet_traces[0].get("rx_ok") is not True:
+                    errors.append(f"{frame_path}: pl-replay packet_trace rx_ok is not true")
+                if event.get("packet_copy_crc") != event.get("frame_crc"):
+                    errors.append(f"{frame_path}: pl-replay packet copy crc mismatch")
 
     summary = {
         "event": "fieldmesh_c_vectors_verified",
