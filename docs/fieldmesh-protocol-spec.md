@@ -430,8 +430,10 @@ stream-shaped packet boundary: it consumes completed RX descriptors, reads
 packet bytes from memory, and emits AXI-stream-style bytes with metadata and
 `tlast`. `rtl/fieldmesh/fieldmesh_packet_axis_sink.v` is the matching ingress
 boundary: it accepts AXI-stream-style bytes, writes packet memory, and emits a
-completed descriptor on `tlast`. The next PL target is a DMA/IIO-facing shell
-around that stream pair, not the final RF waveform.
+completed descriptor on `tlast`. `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v`
+wires those two stream boundaries together with separate TX/RX packet memories,
+so the next PL target is replacing the internal stream wire with a DMA/IIO
+adapter, not the final RF waveform.
 
 ## Implementation Notes
 

@@ -201,6 +201,14 @@ descriptor on `tlast`. The test verifies byte writes, descriptor metadata,
 deasserted `tready` while a completion descriptor is pending, and out-of-range
 packet drops.
 
+`rtl/fieldmesh/fieldmesh_packet_axis_loopback.v` wires the stream source and
+sink together with separate local TX/RX packet memories. It is the current
+DMA-shaped shell: the internal stream wire can later be replaced with an ADI
+DMA, custom DMA, or IIO-facing adapter. The test writes TX bytes, submits a
+completed descriptor, verifies RX bytes and descriptor metadata, then submits a
+second packet while the first RX descriptor is pending to prove backpressure
+propagates through the stream pair.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -220,8 +228,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
-AXI-stream source/sink simulations green before adding DMA wiring or IIO/RF
-transport binding.
+AXI-stream source/sink/loopback simulations green before adding DMA wiring or
+IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -329,8 +337,9 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 7. Add packet stream source/sink boundaries and validate backpressure/TLAST
    behavior.
 8. Wrap the stream pair in a DMA-facing or IIO-facing integration shell.
-9. Scale descriptor memory and add timestamp/slot gates.
-10. Only then connect the RF/baseband path.
+9. Replace the internal loopback wire with the real transport adapter.
+10. Scale descriptor memory and add timestamp/slot gates.
+11. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

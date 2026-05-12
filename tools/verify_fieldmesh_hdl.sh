@@ -20,6 +20,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_class_descriptor_rings.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_axis_source.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_axis_sink.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_packet_axis_loopback.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v" \
@@ -28,7 +29,8 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_class_priority_queue_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_class_descriptor_rings_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_axis_source_tb.v" \
-  "$repo_root/tb/fieldmesh/fieldmesh_packet_axis_sink_tb.v"
+  "$repo_root/tb/fieldmesh/fieldmesh_packet_axis_sink_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_packet_axis_loopback_tb.v"
 xelab fieldmesh_desc_loopback_core_tb -s fieldmesh_desc_loopback_core_tb
 xsim fieldmesh_desc_loopback_core_tb -runall
 xelab fieldmesh_desc_loopback_regs_tb -s fieldmesh_desc_loopback_regs_tb
@@ -47,3 +49,5 @@ xelab fieldmesh_packet_axis_source_tb -s fieldmesh_packet_axis_source_tb
 xsim fieldmesh_packet_axis_source_tb -runall
 xelab fieldmesh_packet_axis_sink_tb -s fieldmesh_packet_axis_sink_tb
 xsim fieldmesh_packet_axis_sink_tb -runall
+xelab fieldmesh_packet_axis_loopback_tb -s fieldmesh_packet_axis_loopback_tb
+xsim fieldmesh_packet_axis_loopback_tb -runall

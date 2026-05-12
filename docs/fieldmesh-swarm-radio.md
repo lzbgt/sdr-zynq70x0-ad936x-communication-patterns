@@ -417,6 +417,9 @@ Milestone 1: Common packet pipe
   `rtl/fieldmesh/fieldmesh_packet_axis_sink.v` is the matching stream ingress
   boundary, writing bytes into packet memory and emitting a completed
   descriptor on `tlast`.
+  `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v` wires the source/sink pair
+  with separate TX/RX packet memories, proving the stream boundary can carry
+  packet bytes and metadata end-to-end before DMA/IIO integration.
 
 Milestone 2: P2P profile
 
