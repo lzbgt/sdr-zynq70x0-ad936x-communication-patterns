@@ -399,7 +399,9 @@ Milestone 1: Common packet pipe
   vectors, and `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` is the first
   simulation-verified RTL descriptor-loopback slice.
   `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` adds the first register-mapped
-  submit/readback simulation boundary before full AXI-lite/DMA integration.
+  submit/readback boundary, and
+  `rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v` exposes it through a
+  simulation-verified AXI-lite shell before descriptor-ring/DMA integration.
 
 Milestone 2: P2P profile
 

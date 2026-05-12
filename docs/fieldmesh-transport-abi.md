@@ -154,10 +154,10 @@ The first HDL slice is `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`, with
 `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v` and
 `tools/verify_fieldmesh_hdl.sh`. It verifies descriptor ownership/completion
 for valid C0/C4 descriptors and drop/fault behavior for an invalid traffic
-class. `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` adds the first
-register-facing wrapper with direct TX/RX descriptor registers. It uses a small
-single-cycle simulation bus with AXI-lite-friendly offsets; it is not a full
-AXI-lite slave, DMA, IIO, or RF connection yet.
+class. `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` adds the direct TX/RX
+descriptor register boundary. `rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v`
+wraps that boundary with a single-outstanding AXI-lite slave shell. It is not
+DMA, IIO, packet-memory, or RF connected yet.
 
 Keep these responsibilities in Linux first:
 
@@ -176,8 +176,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - deterministic slot gate,
 - high-rate packet DMA.
 
-Keep the RTL descriptor-loopback and register-wrapper simulations green before
-adding a full AXI-lite slave, DMA wiring, or IIO/RF transport binding.
+Keep the RTL descriptor-loopback, direct-register, and AXI-lite simulations
+green before adding DMA wiring, packet memory, or IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -213,10 +213,11 @@ Queue layout:
 
 ## Register Block
 
-The simulation wrapper uses the following direct-descriptor register block.
+The simulation wrappers use the following direct-descriptor register block.
 Control bit 0 enables the core, bit 1 enables loopback, bit 2 is a one-cycle
 soft reset, bit 8 submits the loaded TX descriptor, and bit 9 acknowledges the
-current RX descriptor.
+current RX descriptor. The AXI-lite shell accepts full 32-bit writes to these
+offsets and supports one outstanding read or write transaction.
 
 | Offset | Name | Notes |
 | --- | --- | --- |

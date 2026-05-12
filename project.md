@@ -412,8 +412,12 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` - direct register-facing
   wrapper around the descriptor loopback core with AXI-lite-friendly offsets for
   TX submit, RX readback, RX ack, and counters.
+- `rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v` - single-outstanding
+  AXI-lite slave shell around the FieldMesh direct register boundary for
+  simulation and future Vivado integration.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
-  `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`, and
+  `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
+  `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor-loopback RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
@@ -513,6 +517,5 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Wrap the FieldMesh direct register simulation bus with a full AXI-lite slave,
-   add descriptor-ring and packet-memory plumbing, then bind it to the IIO/PL
-   transport path before open-air RF tests.
+4. Add descriptor-ring and packet-memory plumbing behind the FieldMesh AXI-lite
+   shell, then bind it to the IIO/PL transport path before open-air RF tests.
