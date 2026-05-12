@@ -1492,6 +1492,21 @@ Result:
 - Each `packet_trace` event reported `rx_ok=true`; the harness packed and
   validated the draft FieldMesh header and CRC over local UDP loopback.
 
+Split UDP command:
+
+```sh
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
+  --transport udp-receive --udp-host 127.0.0.1 --udp-port 55321 \
+  --rx-count 6 --udp-timeout 3 > /tmp/fieldmesh_rx.ndjson &
+sleep 0.2
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
+  --transport udp-send --udp-host 127.0.0.1 --udp-port 55321 \
+  --ticks 2 > /tmp/fieldmesh_tx.ndjson
+```
+
+Result: receiver captured six `packet_rx` events with `rx_ok=true`; sender
+emitted six transmit-side `packet_trace` events with `rx_ok=null`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

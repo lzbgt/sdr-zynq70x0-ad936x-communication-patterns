@@ -3,8 +3,8 @@
 
 The default simulated transport exercises node capability advertisement, mode
 selection, traffic classes, and trace shape before the RF packet pipe exists.
-The UDP loopback transport also packs and validates the draft FieldMesh header
-so the same NDJSON contract can run on a board-local runtime path.
+The UDP transports also pack and validate the draft FieldMesh header so the
+same NDJSON contract can run on a board-local or host-to-board runtime path.
 """
 
 from __future__ import annotations
@@ -294,6 +294,43 @@ class UdpLoopback:
                 return {"ok": False, "error": "rx timeout"}
 
 
+def run_udp_receiver(host: str, port: int, count: int, timeout: float) -> bool:
+    if count < 1:
+        raise ValueError("receiver count must be >= 1")
+
+    success = True
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.bind((host, port))
+        sock.settimeout(timeout)
+        bound_host, bound_port = sock.getsockname()
+        emit("transport_bound", transport="udp-receive", udp_host=bound_host, udp_port=bound_port, rx_count=count)
+        for index in range(count):
+            try:
+                packet, addr = sock.recvfrom(65535)
+                decoded = unpack_packet(packet)
+                emit(
+                    "packet_rx",
+                    transport="udp-receive",
+                    rx_index=index,
+                    rx_ok=True,
+                    from_host=addr[0],
+                    from_port=addr[1],
+                    **decoded,
+                )
+            except socket.timeout:
+                success = False
+                emit("packet_rx", transport="udp-receive", rx_index=index, rx_ok=False, rx_error="rx timeout")
+                break
+            except ValueError as exc:
+                success = False
+                emit("packet_rx", transport="udp-receive", rx_index=index, rx_ok=False, rx_error=str(exc))
+        emit("receiver_end", transport="udp-receive", rx_ok=success, expected=count)
+        return success
+    finally:
+        sock.close()
+
+
 def make_trace(
     tick: int,
     traffic_class: str,
@@ -341,7 +378,7 @@ def make_trace(
 
 def emit_trace(trace: PacketTrace, transport: str, rx: dict[str, object] | None = None) -> None:
     rx_error = None
-    transport_ok = True
+    transport_ok: bool | None = None if transport == "udp-send" and rx is None else True
     if rx is not None:
         transport_ok = bool(rx.get("ok"))
         rx_error = rx.get("error")
@@ -377,7 +414,7 @@ def emit_trace(trace: PacketTrace, transport: str, rx: dict[str, object] | None 
         payload_len=trace.payload_len,
         queue_age_ms=trace.queue_age_ms,
         delivered_kbps=trace.delivered_kbps,
-        dropped=trace.dropped if transport_ok else trace.dropped + 1,
+        dropped=trace.dropped + (1 if transport_ok is False else 0),
         late=trace.late,
         fec_recovered=trace.fec_recovered,
         link_quality_db=trace.link_quality_db,
@@ -401,18 +438,32 @@ def run_ticks(
     source = next((node for node in nodes if "endpoint" in node.roles), nodes[0])
     coordinator = next((node for node in nodes if "coordinator" in node.roles), nodes[-1])
 
-    emit(
-        "transport_start",
-        transport=transport,
-        source=source.node_id,
-        sink=coordinator.node_id,
-        udp_host=udp_host if transport == "udp-loopback" else None,
-        udp_port=udp_port if transport == "udp-loopback" else None,
-    )
+    transport_event: dict[str, object] = {
+        "transport": transport,
+        "source": source.node_id,
+        "sink": coordinator.node_id,
+    }
+    if transport == "udp-loopback":
+        transport_event.update({"udp_host": udp_host, "udp_port": udp_port})
+    elif transport == "udp-send":
+        transport_event.update({"udp_peer_host": udp_host, "udp_peer_port": udp_port})
+    emit("transport_start", **transport_event)
+
     if transport == "simulate":
         for tick in range(ticks):
             for traffic_class in ("C0", "C1", "C2"):
                 emit_trace(make_trace(tick, traffic_class, nodes, mode, rng), transport)
+        return
+
+    if transport == "udp-send":
+        if udp_port <= 0:
+            raise ValueError("--udp-port must be > 0 for udp-send")
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            for tick in range(ticks):
+                for traffic_class in ("C0", "C1", "C2"):
+                    trace = make_trace(tick, traffic_class, nodes, mode, rng)
+                    sock.sendto(pack_packet(trace), (udp_host, udp_port))
+                    emit_trace(trace, transport)
         return
 
     with UdpLoopback(udp_host, udp_port, udp_timeout) as loopback:
@@ -441,13 +492,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=1, help="deterministic RNG seed")
     parser.add_argument(
         "--transport",
-        choices=("simulate", "udp-loopback"),
+        choices=("simulate", "udp-loopback", "udp-send", "udp-receive"),
         default="simulate",
         help="packet transport used by packet_trace events",
     )
-    parser.add_argument("--udp-host", default="127.0.0.1", help="UDP loopback bind host")
-    parser.add_argument("--udp-port", type=int, default=0, help="UDP loopback port, 0 selects an ephemeral port")
-    parser.add_argument("--udp-timeout", type=float, default=1.0, help="seconds to wait for each UDP loopback packet")
+    parser.add_argument("--udp-host", default="127.0.0.1", help="UDP bind host or peer host")
+    parser.add_argument("--udp-port", type=int, default=0, help="UDP bind or peer port; 0 selects an ephemeral loopback port")
+    parser.add_argument("--udp-timeout", type=float, default=1.0, help="seconds to wait for each UDP receive")
+    parser.add_argument("--rx-count", type=int, default=0, help="udp-receive packet count, defaults to ticks * 3")
     return parser.parse_args()
 
 
@@ -455,6 +507,9 @@ def main() -> int:
     args = parse_args()
     if args.ticks < 1:
         print("--ticks must be >= 1", file=sys.stderr)
+        return 2
+    if args.transport == "udp-receive" and args.udp_port <= 0:
+        print("--udp-port must be > 0 for udp-receive", file=sys.stderr)
         return 2
 
     nodes = tuple(PROFILES[name] for name in SCENARIOS[args.scenario])
@@ -484,6 +539,14 @@ def main() -> int:
         c1_latency_budget_ms=50,
         stale_video_drop_ms=120,
     )
+    if args.transport == "udp-receive":
+        rx_count = args.rx_count or args.ticks * 3
+        try:
+            return 0 if run_udp_receiver(args.udp_host, args.udp_port, rx_count, args.udp_timeout) else 1
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+
     run_ticks(
         nodes,
         mode,

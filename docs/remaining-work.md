@@ -55,17 +55,13 @@ Z103 details are in `docs/sdr-z103-source-workflow.md`.
 Status: product/design concept drafted in `docs/fieldmesh-swarm-radio.md`; the
 first implementation-facing packet/control-plane spec is drafted in
 `docs/fieldmesh-protocol-spec.md`; the NDJSON trace harness now supports both
-simulated traces and UDP loopback packet/header validation through
-`tools/fieldmesh_trace_harness.py`.
+simulated traces, one-process UDP loopback packet/header validation, and split
+UDP sender/receiver mode through `tools/fieldmesh_trace_harness.py`.
 
 Next concrete work:
 
-- Run the same user-selected and auto-negotiated P2P/star/graph/scheduled
-  smoke tests on Z203 first, then on Z103 once normal runtime reachability is
-  restored.
-- Extend the loopback harness from one-process UDP loopback to a split
-  sender/receiver mode suitable for board-to-board or host-to-board conducted
-  tests.
+- Run split UDP sender/receiver mode on Z203 first, then on Z103 once normal
+  runtime reachability is restored.
 - Add generated video-like payloads, control/telemetry side channels, packet
   traces, and bounded-latency degradation before attempting any open-air range
   test.

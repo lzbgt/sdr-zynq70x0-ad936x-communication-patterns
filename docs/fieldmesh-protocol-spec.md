@@ -208,12 +208,17 @@ Pass criteria:
 
 ## Software Trace Harness
 
-The first committed harness has two transports:
+The first committed harness has four transport modes:
 
 - `simulate`: no packet socket, only deterministic trace events.
 - `udp-loopback`: one-process UDP loopback that packs the draft FieldMesh
   header, sends packets to localhost, receives them, validates header fields and
   CRC, then emits the same `packet_trace` NDJSON fields with `rx_ok`.
+- `udp-send`: sender side of a split UDP test. It emits transmit-side
+  `packet_trace` events with `rx_ok=null` because receive validation happens in
+  the peer process.
+- `udp-receive`: receiver side of a split UDP test. It validates incoming
+  packets and emits `packet_rx` events.
 
 ```sh
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --ticks 8
@@ -240,9 +245,21 @@ Useful smoke checks:
   --transport udp-loopback --ticks 2
 ```
 
-Next harness step: split sender and receiver into separate processes so one side
-can run on a board and the other on a host or peer board while preserving the
-same NDJSON trace contract.
+Split-process local smoke check:
+
+```sh
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
+  --transport udp-receive --udp-host 127.0.0.1 --udp-port 55321 \
+  --rx-count 6 --udp-timeout 3 > /tmp/fieldmesh_rx.ndjson &
+sleep 0.2
+./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
+  --transport udp-send --udp-host 127.0.0.1 --udp-port 55321 \
+  --ticks 2 > /tmp/fieldmesh_tx.ndjson
+```
+
+Next harness step: run `udp-receive` on a board and `udp-send` on the host or a
+peer board over the board runtime network, then preserve both NDJSON traces as
+test evidence.
 
 ## Implementation Notes
 

@@ -34,8 +34,8 @@ Start here:
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing packet,
   control-plane, mode-selection, and conducted-test spec for FieldMesh.
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
-  simulated and UDP-loopback transports for early mode-selection and
-  traffic-class smoke tests.
+  simulated, UDP-loopback, and split UDP sender/receiver transports for early
+  mode-selection and traffic-class smoke tests.
 - `docs/example-projects.md` - concrete project seeds.
 - `docs/verification.md` - captured verification evidence and known gaps.
 - `resources/INDEX.md` - curated local resource inventory.
