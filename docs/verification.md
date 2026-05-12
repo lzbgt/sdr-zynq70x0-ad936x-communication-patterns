@@ -1232,6 +1232,59 @@ Result:
   tree inherits this repo's git metadata unless `GIT_CEILING_DIRECTORIES` is
   set.
 
+## SDR-Z103 Vivado Rebuild
+
+Command:
+
+```sh
+./tools/build_z103_vivado_xsa.sh
+./tools/verify_z103_vivado_build.sh
+```
+
+Result:
+
+- Vivado 2025.1 completed the unmodified Z103 Pluto HDL build in
+  `.config/z103-vivado-hdl/hdl/projects/pluto`.
+- `system_top.bit`: 967024 bytes,
+  SHA-256 `2d02b3b22070f269189e536766984a097c856dca71b1636aab74397971d26a74`.
+- `system_top.xsa`: 730112 bytes,
+  SHA-256 `c8f930ee770f451c80fcbf0e962625209e3053789525e218f53cc41773d10da9`.
+- `tools/verify_pluto_hdl_build.sh`, pointed at the Z103 workspace, passed and
+  found the routed timing marker `All user specified timing constraints are
+  met.`
+- The rebuilt bitstream and XSA differ from the vendor prebuilt artifacts in
+  `src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/build/`; do not treat them as
+  hardware-verified until JTAG or another non-QSPI boot path loads them.
+
+## SDR-Z103 Boot Artifact Generation
+
+Command:
+
+```sh
+./tools/build_z103_boot_artifacts.sh
+./tools/verify_z103_boot_artifacts.sh
+```
+
+Result:
+
+- Generated artifacts under `.config/z103-boot-artifacts/boot`.
+- `fsbl.elf`: 608760 bytes,
+  SHA-256 `a424820b81dbc775d06a23d05e5cc916ba8b3ea13d1e6fc2ae41599c650b3207`.
+- `boot-qspi.bin`: 517812 bytes,
+  SHA-256 `2956d09c443dc2f755a7a1af39c9b93cf9a3f468e9216285287d6b50fd0a3029`.
+- `BOOT.BIN`: 1484724 bytes,
+  SHA-256 `227de83067a6394cffa515f485ae3dc8d1c50d688a88641e4b1ba6b0cc972219`.
+- `boot.frm`: 649924 bytes,
+  SHA-256 `229ce96bc501c5704d00ad88f0b62f6042d61d915dc9834311a564cee2087355`.
+- `file` identifies `boot-qspi.bin`, `BOOT.BIN`, and `boot.frm` as Xilinx
+  Boot Image files for Zynq-7000 with FSBL size `0x1f74c`.
+- The generated FSBL and QSPI boot image differ from imported factory binaries.
+  Treat this as expected for the rebuilt 2025.1 toolchain path, not as
+  hardware validation.
+
+Safety boundary: no Z103 QSPI partition was written. The next Z103 gate is a
+JTAG or other proven non-QSPI boot attempt with the generated artifacts.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

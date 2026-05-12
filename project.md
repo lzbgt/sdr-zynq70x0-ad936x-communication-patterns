@@ -305,6 +305,13 @@ user and vendor configuration.
   `plutosdr-fw.zip` into the ignored local Z103 source workspace.
 - `tools/preflight_z103_source_tree.sh` - verify the extracted Z103 source tree,
   source-level hardware facts, and factory artifact byte matches before builds.
+- `tools/build_z103_vivado_xsa.sh` and `tools/verify_z103_vivado_build.sh` -
+  rebuild and verify the unmodified Z103 Pluto HDL project in a separate
+  `.config/z103-vivado-hdl` workspace.
+- `tools/build_z103_boot_artifacts.sh` and
+  `tools/verify_z103_boot_artifacts.sh` - generate and verify Z103-local FSBL,
+  QSPI boot image, `BOOT.BIN`, and `boot.frm` artifacts from the rebuilt Z103
+  XSA without flashing QSPI.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

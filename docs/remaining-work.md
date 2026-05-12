@@ -6,13 +6,12 @@ are kept briefly when they affect the remaining recovery decisions.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
-Status: resource import and read-only serial baseline captured; source archive
-not yet built.
+Status: resource import, read-only serial baseline, source preflight, Vivado
+XSA/bitstream rebuild, and boot artifact generation are complete. Generated
+artifacts have not been hardware-loaded or flashed.
 
 Next concrete work:
 
-- Extract `/mnt/c/baidunetdiskdownload/SDR-Z103/plutosdr-fw.zip` with
-  `tools/extract_z103_pluto_source.sh` into the ignored Z103 source workspace.
 - Keep `tools/preflight_z103_source_tree.sh` passing; it verifies key source
   facts and byte-matches prebuilt factory artifacts against imported firmware.
 - Reconcile source-level mismatches before relying on generated artifacts:
@@ -20,8 +19,12 @@ Next concrete work:
   PS SD0; live board is 1R1T, while `system_bd.tcl` sets
   `axi_ad9361 CONFIG.MODE_1R1T 0`.
 - Build an unmodified Z103 Vivado XSA/bitstream for `xc7z010clg400-2`.
-- Build Z103 FSBL/U-Boot/devicetree/rootfs artifacts and boot them by JTAG or
-  another proven non-QSPI path before any flash write.
+  Status: done with Vivado 2025.1; timing met, not hardware-loaded yet.
+- Build Z103 FSBL and boot package artifacts from the rebuilt XSA.
+  Status: done under `.config/z103-boot-artifacts`; structurally verified, not
+  hardware-loaded yet.
+- Boot the generated Z103 FSBL/U-Boot path by JTAG or another proven non-QSPI
+  method before any flash write.
 
 Details are in `docs/sdr-z103-source-workflow.md`.
 

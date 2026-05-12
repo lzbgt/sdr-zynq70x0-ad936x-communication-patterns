@@ -269,7 +269,11 @@ A Z103 custom build should not be considered equivalent to the Z203 workflow
 until all of these pass:
 
 - Z103-specific Vivado bitstream and XSA build.
+  Status: Vivado 2025.1 rebuild completed in `.config/z103-vivado-hdl`; timing
+  met, not hardware-loaded yet.
 - Z103 FSBL builds from the Z103 XSA.
+  Status: built with `tools/build_z103_boot_artifacts.sh` into
+  `.config/z103-boot-artifacts`; structurally verified, not hardware-loaded.
 - Z103 JTAG or other proven non-QSPI boot path reaches U-Boot.
 - Z103 Linux boot reaches USB RNDIS gadget networking and IIO.
 - `iio_info` confirms the expected AD9363 1R1T runtime topology.

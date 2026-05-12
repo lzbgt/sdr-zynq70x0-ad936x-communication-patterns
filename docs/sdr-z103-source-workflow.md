@@ -91,3 +91,70 @@ The first custom Z103 build should stay non-destructive:
 The FieldMesh high-bandwidth swarm radio work should start after this baseline
 because the modem/MAC needs known-good FPGA timing, DMA, and userspace control
 on both Z103 and Z203.
+
+## Vivado 2025.1 Rebuild Result
+
+Command:
+
+```sh
+./tools/build_z103_vivado_xsa.sh
+./tools/verify_z103_vivado_build.sh
+```
+
+Result:
+
+- Vivado 2025.1 rebuilt the unmodified Z103 Pluto HDL project in
+  `.config/z103-vivado-hdl/hdl/projects/pluto`.
+- Output bitstream:
+  `.config/z103-vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit`
+  at 967024 bytes.
+- Output XSA:
+  `.config/z103-vivado-hdl/hdl/projects/pluto/pluto.sdk/system_top.xsa` at
+  730112 bytes.
+- Routed timing report says all user specified timing constraints are met.
+- Rebuilt bitstream/XSA do not byte-match the vendor prebuilt
+  `build/system_top.bit` and `build/system_top.xsa`, which is expected across
+  Vivado version/build-environment differences. They have not been loaded onto
+  hardware yet.
+
+Hashes from the successful rebuild:
+
+```text
+2d02b3b22070f269189e536766984a097c856dca71b1636aab74397971d26a74  system_top.bit
+c8f930ee770f451c80fcbf0e962625209e3053789525e218f53cc41773d10da9  system_top.xsa
+```
+
+## Boot Artifact Build Result
+
+Command:
+
+```sh
+./tools/build_z103_boot_artifacts.sh
+./tools/verify_z103_boot_artifacts.sh
+```
+
+Result:
+
+- Generated Z103 boot artifacts under `.config/z103-boot-artifacts/boot`.
+- `fsbl.elf`: 608760 bytes.
+- `boot-qspi.bin`: 517812 bytes.
+- `BOOT.BIN`: 1484724 bytes.
+- `boot.frm`: 649924 bytes.
+- `boot-qspi.bin`, `BOOT.BIN`, and `boot.frm` identify as Xilinx Zynq-7000
+  boot images with FSBL size `0x1f74c`.
+- The generated FSBL and QSPI boot image differ from the imported factory
+  `fsbl.elf` and `boot.bin`, which is expected for a Vivado/pyesw 2025.1
+  rebuild and is not a failure.
+
+Hashes:
+
+```text
+a424820b81dbc775d06a23d05e5cc916ba8b3ea13d1e6fc2ae41599c650b3207  fsbl.elf
+2956d09c443dc2f755a7a1af39c9b93cf9a3f468e9216285287d6b50fd0a3029  boot-qspi.bin
+227de83067a6394cffa515f485ae3dc8d1c50d688a88641e4b1ba6b0cc972219  BOOT.BIN
+229ce96bc501c5704d00ad88f0b62f6042d61d915dc9834311a564cee2087355  boot.frm
+```
+
+Safety boundary: these artifacts have only been built and structurally verified.
+Do not flash Z103 QSPI until the rebuilt FSBL/U-Boot path has booted by JTAG or
+another proven non-QSPI method.
