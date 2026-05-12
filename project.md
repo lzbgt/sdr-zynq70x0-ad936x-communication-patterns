@@ -460,6 +460,9 @@ user and vendor configuration.
   bridge for the future DMA/IIO boundary; PS-to-PL byte streams are parsed into
   FieldMesh packet sidebands, and PL-to-PS packet streams are guarded before
   becoming byte-only output streams.
+- `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v` - width adapter between ADI
+  `axi_dmac` 16-bit minimum AXI-stream ports and FieldMesh's byte-only packet
+  stream contract.
 - `tools/fieldmesh_vendor_dma_inventory.py` - parses the Z203/Z103 vendor
   `system_bd.tcl` files and emits the ADI RX/TX DMA address, stream, HP-port,
   and IRQ boundary that FieldMesh must avoid overwriting during hardware
@@ -479,7 +482,8 @@ user and vendor configuration.
   default. Its opt-in `--control-overlay` mode appends the first
   `fieldmesh_ctrl` BD module/address/IRQ wiring to copied `system_bd.tcl`;
   `--bridge-overlay` also instantiates the parked `fieldmesh_axis_bridge`
-  byte-pipe endpoint for the future packet DMA/IIO path.
+  byte-pipe endpoint; `--dma-overlay` adds provisional sidecar ADI `axi_dmac`
+  TX/RX packet DMAs through the 16-bit-to-byte adapter.
 - `tools/check_fieldmesh_control_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the FieldMesh control overlay, and runs Vivado project/BD
   generation checks without synthesis to prove the `fieldmesh_ctrl` cell,
@@ -488,6 +492,11 @@ user and vendor configuration.
   tree, applies the FieldMesh control and bridge overlays, and runs Vivado
   project/BD generation checks without synthesis to prove the parked
   `fieldmesh_axis_bridge` byte-pipe cell is BD-visible.
+- `tools/check_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
+  tree, applies the FieldMesh control, bridge, and sidecar DMA overlays, and
+  runs Vivado project/BD generation checks without synthesis to prove
+  `fieldmesh_tx_dma`, `fieldmesh_rx_dma`, and `fieldmesh_axis16_adapter` are
+  BD-visible on the reserved sidecar namespace.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -503,7 +512,8 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_axis_header_guard_tb.v`,
   `tb/fieldmesh/fieldmesh_axis_header_parser_tb.v`, and
   `tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v`, and
-  `tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v` with
+  `tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v`, and
+  `tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor, packet-memory, and sidecar transport RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
@@ -603,11 +613,11 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Bind the FieldMesh byte-pipe model to a sidecar DMA/IIO transport with its
-   own register namespace, leaving the ADI sample-DMA windows at `0x7C400000`
-   and `0x7C420000` untouched. The `fieldmesh_ctrl` control overlay and parked
-   `fieldmesh_axis_bridge` byte-pipe overlay are now scripted and Vivado
-   BD-generation checked for copied Z203/Z103 HDL trees; the provisional
-   FieldMesh namespace is `0x43C00000` control, `0x43C10000` TX DMA, and
-   `0x43C20000` RX DMA. Then scale descriptor storage beyond the shallow class
-   rings and bind the path to IIO/PL before open-air RF tests.
+4. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
+   BD-generation proof to a synthesizable integration. The current copied-tree
+   overlay leaves the ADI sample-DMA windows at `0x7C400000` and `0x7C420000`
+   untouched, maps `fieldmesh_ctrl` at `0x43C00000`, maps sidecar packet TX/RX
+   DMA controls at `0x43C10000`/`0x43C20000`, and uses a 16-bit ADI `axi_dmac`
+   stream adapter to preserve FieldMesh's byte-pipe ABI. Next add devicetree
+   and userspace binding, then scale descriptor storage beyond the shallow
+   class rings and bind the path to IIO/PL before open-air RF tests.

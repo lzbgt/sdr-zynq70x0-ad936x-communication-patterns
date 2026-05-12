@@ -92,11 +92,13 @@ set FIELDMESH_REPO_ROOT {{{repo_root}}}
 # 3. Instantiate fieldmesh_sidecar_ctrl_axi_lite as fieldmesh_ctrl at
 #    $FIELDMESH_CTRL_BASE and connect its irq to $FIELDMESH_CTRL_IRQ.
 # 4. Instantiate fieldmesh_sidecar_axis_bridge as the byte-only packet transport
-#    boundary between the later sidecar DMA/IIO blocks and FieldMesh packet
-#    streams. Park its stream inputs with constants until those blocks exist.
-# 5. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
+#    boundary between sidecar DMA/IIO blocks and FieldMesh packet streams.
+# 5. Instantiate fieldmesh_axis16_byte_adapter when using ADI axi_dmac, because
+#    that DMA IP requires 16-bit-or-wider stream ports while FieldMesh stays
+#    byte-oriented.
+# 6. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
 #    $FIELDMESH_RX_DMA_BASE, or keep the first overlay AXI-lite/FIFO-only.
-# 6. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at
+# 7. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at
 #    0x7C420000 in the first FieldMesh overlay.
 """
 

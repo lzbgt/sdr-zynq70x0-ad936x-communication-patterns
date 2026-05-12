@@ -101,7 +101,9 @@ Provisional memory ports:
 The current vendor Tcl enables HP1 and HP2 only. A sidecar DMA overlay must
 enable the additional HP ports explicitly, or use a lower-rate non-DMA
 AXI-lite/FIFO preflight before enabling packet DMA. Do not steal the ADI HP1
-or HP2 assignments for the first FieldMesh integration.
+or HP2 assignments for the first FieldMesh integration. The HP policy check
+accepts HP0/HP3 as free in imported vendor trees, or self-owned by
+`fieldmesh_rx_dma`/`fieldmesh_tx_dma` after the FieldMesh overlay is applied.
 
 Sidecar stream direction:
 
@@ -137,7 +139,8 @@ form only emits constants and required RTL file names; it does not edit the
 vendor design by itself. `--check-rtl` verifies that each required RTL file
 exists under the repo root and contains the expected module declaration.
 `--check-hp-policy` verifies that ADI RX remains on HP1, ADI TX remains on
-HP2, and the preferred FieldMesh HP0/HP3 packet-DMA ports are still free.
+HP2, and the preferred FieldMesh HP0/HP3 packet-DMA ports are either free or
+self-owned by the FieldMesh sidecar overlay.
 
 Generate all pre-overlay artifacts together with:
 
@@ -179,7 +182,10 @@ live IRQ/status pins for later PS interrupt wiring. It also includes
 `fieldmesh_sidecar_axis_bridge.v`, the first sidecar packet transport bridge:
 the PS-to-PL side parses byte-only DMA/IIO packets into FieldMesh metadata
 sidebands, and the PL-to-PS side validates sidebands against the packet header
-before emitting byte-only packets.
+before emitting byte-only packets. `fieldmesh_axis16_byte_adapter.v` sits
+between that byte-pipe bridge and ADI `axi_dmac`, because the ADI DMA IP
+accepts 16-bit and wider AXI-stream ports while the FieldMesh packet ABI
+remains byte-oriented.
 
 The first control-only block-design overlay is opt-in:
 
@@ -243,6 +249,37 @@ applies `--control-overlay --bridge-overlay`, sources Vivado 2025.1, creates
 the project/BD, and asserts that both `fieldmesh_ctrl` and
 `fieldmesh_axis_bridge` are present while `fieldmesh_ctrl` remains mapped at
 `0x43C00000`.
+
+The first sidecar packet-DMA overlay is also opt-in:
+
+```sh
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" \
+  --hdl-tree .config/fieldmesh/some-copied-hdl \
+  --variant-name z203 \
+  --dma-overlay \
+  --apply
+```
+
+With `--dma-overlay`, the patcher implies the control and bridge overlays,
+enables PS HP0/HP3, instantiates `fieldmesh_tx_dma`, `fieldmesh_rx_dma`, and
+`fieldmesh_axis16_adapter`, maps the packet DMA control windows at
+`0x43C10000` and `0x43C20000`, wires packet TX over HP3/MM2S and packet RX
+over HP0/S2MM, and connects IRQs to `ps-9 mb-9` and `ps-10 mb-10`. The bridge
+byte streams are connected through the 16-bit adapter instead of being parked.
+
+Validate the full control-plus-bridge-plus-DMA overlay through Vivado
+project/block-design generation without running synthesis:
+
+```sh
+./tools/check_fieldmesh_dma_overlay_vivado.sh z203
+./tools/check_fieldmesh_dma_overlay_vivado.sh z103
+```
+
+This is still a copied-HDL integration gate. It proves the namespace, HP-port
+split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream connections,
+and address segments are BD-visible on both variants; it does not yet provide
+devicetree nodes, a Linux driver binding, or live board traffic.
 
 ## Later RF Binding
 

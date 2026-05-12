@@ -25,6 +25,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_axis_header_parser.v",
     "rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v",
     "rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v",
+    "rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v",
 ]
 
 
@@ -82,13 +83,24 @@ def build_hp_policy(inv: dict[str, Any]) -> dict[str, Any]:
             "slave_connections": slave_connections,
         }
 
+    def hp_users(port: str) -> set[str]:
+        users: set[str] = set()
+        for row in hp_rows[port]["slave_connections"]:
+            if row["src"].startswith("sys_ps7/"):
+                users.add(inventory.endpoint_instance(row["dst"]))
+            else:
+                users.add(inventory.endpoint_instance(row["src"]))
+        return users
+
     adi_rx_ports = set(dmas.get("axi_ad9361_adc_dma", {}).get("hp_ports", []))
     adi_tx_ports = set(dmas.get("axi_ad9361_dac_dma", {}).get("hp_ports", []))
+    hp0_users = hp_users("S_AXI_HP0")
+    hp3_users = hp_users("S_AXI_HP3")
     checks = {
         "adi_rx_on_hp1": "S_AXI_HP1" in adi_rx_ports,
         "adi_tx_on_hp2": "S_AXI_HP2" in adi_tx_ports,
-        "fieldmesh_rx_hp0_free": not hp_rows["S_AXI_HP0"]["slave_connections"],
-        "fieldmesh_tx_hp3_free": not hp_rows["S_AXI_HP3"]["slave_connections"],
+        "fieldmesh_rx_hp0_free": hp0_users <= {"fieldmesh_rx_dma"},
+        "fieldmesh_tx_hp3_free": hp3_users <= {"fieldmesh_tx_dma"},
     }
     ok = all(checks.values())
     return {
@@ -202,7 +214,7 @@ def emit_markdown(plan: dict[str, Any]) -> None:
         status = "free" if variant["sidecar"]["ok"] and variant["hp_policy"]["ok"] else "conflict"
         print(f'| `{variant["variant"]}` | {status} | `{variant["source"]}` |')
     print()
-    print("| Variant | ADI RX HP1 | ADI TX HP2 | FieldMesh RX HP0 Free | FieldMesh TX HP3 Free |")
+    print("| Variant | ADI RX HP1 | ADI TX HP2 | FieldMesh RX HP0 Available | FieldMesh TX HP3 Available |")
     print("| --- | --- | --- | --- | --- |")
     for variant in plan["variants"]:
         checks = variant["hp_policy"]["checks"]

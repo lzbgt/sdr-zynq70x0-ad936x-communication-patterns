@@ -133,8 +133,8 @@ Next concrete work:
   Z203/Z103 Pluto `system_bd.tcl` files and documents that the existing ADI
   sample-DMA windows are `axi_ad9361_adc_dma` at `0x7C400000` and
   `axi_ad9361_dac_dma` at `0x7C420000`, with RX/TX sample streams tied to
-  `cpack` and `tx_upack`. The remaining PL work is binding the byte-pipe model
-  to a sidecar DMA/IIO transport with its own register namespace, scaling
+  `cpack` and `tx_upack`. The remaining PL work is moving the copied-HDL
+  sidecar DMA overlay toward devicetree/userspace/runtime validation, scaling
   descriptor storage, and then binding the path to IIO/PL. The provisional
   sidecar namespace is `0x43C00000` for FieldMesh control, `0x43C10000` for
   packet TX DMA control, and `0x43C20000` for packet RX DMA control; the
@@ -144,7 +144,8 @@ Next concrete work:
   Vivado overlay step, and its `--check-rtl` mode verifies the required RTL
   files and module declarations before integration. Its `--check-hp-policy`
   mode verifies ADI RX/TX remain on HP1/HP2 and FieldMesh's preferred HP0/HP3
-  packet-DMA ports remain free. `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v`
+  packet-DMA ports remain free or self-owned by the FieldMesh overlay.
+  `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v`
   is now the first BD-facing control endpoint for the provisional
   `0x43C00000` window, wrapping the packet-memory register map and exporting
   interrupt status. `tools/fieldmesh_vivado_overlay_scaffold.py`
@@ -161,10 +162,13 @@ Next concrete work:
   now instantiates a parked `fieldmesh_axis_bridge` byte-pipe endpoint, and
   `tools/check_fieldmesh_bridge_overlay_vivado.sh` verifies that copied Z203
   and Z103 HDL trees can generate the BD with both the control and bridge cells
-  present.
-- Bind the parked `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` endpoint to
-  the first sidecar DMA/IIO packet transport, still without reusing the ADI IQ
-  DMA path.
+  present. The opt-in `--dma-overlay` mode now adds copied-tree sidecar
+  `fieldmesh_tx_dma`/`fieldmesh_rx_dma` ADI `axi_dmac` instances through
+  `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v`, maps them at
+  `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for RX/S2MM, and is
+  Vivado BD-generation checked for copied Z203 and Z103 HDL trees.
+- Add devicetree, userspace, and board-runtime validation for the sidecar
+  packet DMA/IIO path, still without reusing the ADI IQ DMA path.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

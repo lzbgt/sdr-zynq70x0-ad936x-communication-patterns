@@ -418,10 +418,12 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
     Vivado tree and validate its address/IRQ namespace.
 13. Add the sidecar axis bridge that exposes PS-to-PL byte parsing and PL-to-PS
     guarded byte output as the packet transport boundary.
-14. Bind the guarded/parser transport ports to that sidecar DMA or IIO
-    implementation.
-15. Scale descriptor memory and add timestamp/slot gates.
-16. Only then connect the RF/baseband path.
+14. Bind the guarded/parser transport ports to the first copied-HDL sidecar
+    DMA overlay, using a 16-bit adapter where ADI `axi_dmac` is the transport.
+15. Add devicetree/userspace binding and board-runtime validation for that
+    sidecar DMA/IIO path.
+16. Scale descriptor memory and add timestamp/slot gates.
+17. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

@@ -2006,6 +2006,38 @@ PY
 rm -rf "$tmp_overlay"
 ./tools/check_fieldmesh_bridge_overlay_vivado.sh z203
 ./tools/check_fieldmesh_bridge_overlay_vivado.sh z103
+tmp_overlay=$(mktemp -d)
+mkdir -p "$tmp_overlay/hdl/projects/pluto"
+cp -a src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/library "$tmp_overlay/hdl/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
+  "$tmp_overlay/hdl/projects/pluto/"
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
+  --dma-overlay --apply >/tmp/fieldmesh_overlay_dma_patch.json
+python3 -m json.tool /tmp/fieldmesh_overlay_dma_patch.json >/dev/null
+rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|0x43C10000|0x43C20000' \
+  "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "12"
+./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \
+  --variant z203dma="$tmp_overlay/hdl/projects/pluto/system_bd.tcl" >/tmp/fieldmesh_dma_sidecar_plan.json
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
+  --dma-overlay --apply >/tmp/fieldmesh_overlay_dma_patch_second.json
+python3 - <<'PY'
+import json
+obj = json.load(open('/tmp/fieldmesh_overlay_dma_patch_second.json'))
+assert obj['system_bd_changed'] is False
+assert obj['system_project_changed'] is False
+assert obj['makefile_changed'] is False
+assert obj['post_patch_sidecar_ok'] is True
+PY
+rm -rf "$tmp_overlay"
+./tools/check_fieldmesh_dma_overlay_vivado.sh z203
+./tools/check_fieldmesh_dma_overlay_vivado.sh z103
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -2027,10 +2059,10 @@ JSON, review Markdown, and Tcl constants from the same checked contract.
 temporary repo root.
 `--check-hp-policy` passed for both imported variants and failed as expected
 when a synthetic Tcl change moved ADI RX from HP1 onto HP0.
-The overlay scaffold generator produced valid JSON, an 11-file RTL list, Tcl
+The overlay scaffold generator produced valid JSON, a 12-file RTL list, Tcl
 constants, and a non-mutating Vivado overlay stub.
 The overlay patcher successfully patched a temporary copied HDL tree, copied
-all 11 FieldMesh RTL files, added project and Makefile references, and was
+all 12 FieldMesh RTL files, added project and Makefile references, and was
 idempotent on a second apply. Its opt-in control overlay also appended the
 `fieldmesh_ctrl` BD module, `0x43C00000` CPU interconnect, and `ps-11 mb-11`
 IRQ wiring to a temporary copied tree; the post-patch sidecar check reported
@@ -2043,7 +2075,14 @@ target without running synthesis. The opt-in bridge overlay also patched a
 temporary copied HDL tree idempotently with `fieldmesh_axis_bridge`, then the
 Vivado bridge-overlay check passed for copied Z203 and Z103 HDL trees, proving
 the BD can instantiate the parked byte-pipe bridge beside `fieldmesh_ctrl`
-without creating packet DMA windows or replacing the ADI sample-DMA path.
+without creating packet DMA windows or replacing the ADI sample-DMA path. The
+opt-in DMA overlay also patched a temporary copied HDL tree idempotently with
+`fieldmesh_tx_dma`, `fieldmesh_rx_dma`, and `fieldmesh_axis16_adapter`; the
+post-patch sidecar plan accepted the self-owned HP0/HP3 packet-DMA users and
+the `0x43C10000`/`0x43C20000` windows. The Vivado DMA-overlay check passed for
+copied Z203 and Z103 HDL trees, proving the BD can instantiate the sidecar
+ADI `axi_dmac` packet path through the 16-bit-to-byte adapter without replacing
+the ADI IQ sample-DMA path.
 
 ## Verification Gaps
 

@@ -19,6 +19,8 @@ BD_CTRL_BEGIN = "# FieldMesh sidecar control overlay: begin"
 BD_CTRL_END = "# FieldMesh sidecar control overlay: end"
 BD_BRIDGE_BEGIN = "# FieldMesh sidecar bridge overlay: begin"
 BD_BRIDGE_END = "# FieldMesh sidecar bridge overlay: end"
+BD_DMA_BEGIN = "# FieldMesh sidecar DMA overlay: begin"
+BD_DMA_END = "# FieldMesh sidecar DMA overlay: end"
 
 
 def rel_rtl_name(rtl_path: str) -> str:
@@ -88,16 +90,21 @@ ad_cpu_interrupt ps-11 mb-11 fieldmesh_ctrl/irq
 """
 
 
-def render_bridge_overlay() -> str:
+def render_bridge_overlay(park_byte_ports: bool) -> str:
+    byte_parking = ""
+    if park_byte_ports:
+        byte_parking = """ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tvalid
+ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tdata
+ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tlast
+ad_connect VCC fieldmesh_axis_bridge/m_rx_axis_tready
+"""
     return f"""
 {BD_BRIDGE_BEGIN}
 create_bd_cell -type module -reference fieldmesh_sidecar_axis_bridge fieldmesh_axis_bridge
 ad_connect sys_cpu_clk fieldmesh_axis_bridge/clk
 ad_connect sys_cpu_reset fieldmesh_axis_bridge/rst
 ad_connect VCC fieldmesh_axis_bridge/enable
-ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tvalid
-ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tdata
-ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tlast
+{byte_parking.rstrip()}
 ad_connect VCC fieldmesh_axis_bridge/m_tx_packet_tready
 ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tvalid
 ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tdata
@@ -106,14 +113,81 @@ ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_class
 ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_mode
 ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_stream_id
 ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_slot
-ad_connect VCC fieldmesh_axis_bridge/m_rx_axis_tready
 {BD_BRIDGE_END}
 """
 
 
-def patch_system_bd(text: str, control_overlay: bool, bridge_overlay: bool) -> tuple[str, bool]:
-    if not control_overlay and not bridge_overlay:
+def render_dma_overlay() -> str:
+    return f"""
+{BD_DMA_BEGIN}
+ad_ip_parameter sys_ps7 CONFIG.PCW_USE_S_AXI_HP0 {{1}}
+ad_ip_parameter sys_ps7 CONFIG.PCW_USE_S_AXI_HP3 {{1}}
+
+ad_ip_instance axi_dmac fieldmesh_tx_dma
+ad_ip_parameter fieldmesh_tx_dma CONFIG.DMA_TYPE_SRC 0
+ad_ip_parameter fieldmesh_tx_dma CONFIG.DMA_TYPE_DEST 1
+ad_ip_parameter fieldmesh_tx_dma CONFIG.CYCLIC 0
+ad_ip_parameter fieldmesh_tx_dma CONFIG.AXI_SLICE_SRC 0
+ad_ip_parameter fieldmesh_tx_dma CONFIG.AXI_SLICE_DEST 0
+ad_ip_parameter fieldmesh_tx_dma CONFIG.DMA_2D_TRANSFER 0
+ad_ip_parameter fieldmesh_tx_dma CONFIG.DMA_DATA_WIDTH_DEST 16
+
+ad_ip_instance axi_dmac fieldmesh_rx_dma
+ad_ip_parameter fieldmesh_rx_dma CONFIG.DMA_TYPE_SRC 1
+ad_ip_parameter fieldmesh_rx_dma CONFIG.DMA_TYPE_DEST 0
+ad_ip_parameter fieldmesh_rx_dma CONFIG.CYCLIC 0
+ad_ip_parameter fieldmesh_rx_dma CONFIG.SYNC_TRANSFER_START 0
+ad_ip_parameter fieldmesh_rx_dma CONFIG.AXI_SLICE_SRC 0
+ad_ip_parameter fieldmesh_rx_dma CONFIG.AXI_SLICE_DEST 0
+ad_ip_parameter fieldmesh_rx_dma CONFIG.DMA_2D_TRANSFER 0
+ad_ip_parameter fieldmesh_rx_dma CONFIG.DMA_DATA_WIDTH_SRC 16
+
+create_bd_cell -type module -reference fieldmesh_axis16_byte_adapter fieldmesh_axis16_adapter
+ad_connect sys_cpu_clk fieldmesh_axis16_adapter/clk
+ad_connect sys_cpu_reset fieldmesh_axis16_adapter/rst
+ad_connect VCC fieldmesh_axis16_adapter/enable
+
+ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
+ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_axis_bridge/s_tx_axis
+ad_connect fieldmesh_axis_bridge/m_rx_axis fieldmesh_axis16_adapter/s_axis8
+ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
+
+ad_cpu_interconnect 0x43C10000 fieldmesh_tx_dma
+ad_cpu_interconnect 0x43C20000 fieldmesh_rx_dma
+
+ad_connect sys_cpu_clk sys_ps7/S_AXI_HP0_ACLK
+ad_connect fieldmesh_rx_dma/m_dest_axi sys_ps7/S_AXI_HP0
+create_bd_addr_seg -range 0x40000000 -offset 0x00000000 \\
+                    [get_bd_addr_spaces fieldmesh_rx_dma/m_dest_axi] \\
+                    [get_bd_addr_segs sys_ps7/S_AXI_HP0/HP0_DDR_LOWOCM] \\
+                    SEG_sys_ps7_HP0_DDR_LOWOCM_fieldmesh_rx
+
+ad_connect sys_cpu_clk sys_ps7/S_AXI_HP3_ACLK
+ad_connect fieldmesh_tx_dma/m_src_axi sys_ps7/S_AXI_HP3
+create_bd_addr_seg -range 0x40000000 -offset 0x00000000 \\
+                    [get_bd_addr_spaces fieldmesh_tx_dma/m_src_axi] \\
+                    [get_bd_addr_segs sys_ps7/S_AXI_HP3/HP3_DDR_LOWOCM] \\
+                    SEG_sys_ps7_HP3_DDR_LOWOCM_fieldmesh_tx
+
+ad_connect sys_cpu_clk fieldmesh_tx_dma/m_src_axi_aclk
+ad_connect sys_cpu_clk fieldmesh_tx_dma/m_axis_aclk
+ad_connect sys_cpu_resetn fieldmesh_tx_dma/m_src_axi_aresetn
+ad_connect sys_cpu_clk fieldmesh_rx_dma/m_dest_axi_aclk
+ad_connect sys_cpu_clk fieldmesh_rx_dma/s_axis_aclk
+ad_connect sys_cpu_resetn fieldmesh_rx_dma/m_dest_axi_aresetn
+
+ad_cpu_interrupt ps-9 mb-9 fieldmesh_tx_dma/irq
+ad_cpu_interrupt ps-10 mb-10 fieldmesh_rx_dma/irq
+{BD_DMA_END}
+"""
+
+
+def patch_system_bd(text: str, control_overlay: bool, bridge_overlay: bool, dma_overlay: bool) -> tuple[str, bool]:
+    if not control_overlay and not bridge_overlay and not dma_overlay:
         return text, False
+    if dma_overlay:
+        control_overlay = True
+        bridge_overlay = True
     blocks = []
     if BD_FILES_BEGIN not in text:
         blocks.append(render_bd_files_overlay())
@@ -123,6 +197,10 @@ def patch_system_bd(text: str, control_overlay: bool, bridge_overlay: bool) -> t
     if "fieldmesh_axis_bridge" in text:
         if BD_BRIDGE_BEGIN not in text:
             raise SystemExit("system_bd.tcl: FieldMesh bridge overlay appears partially present")
+        if dma_overlay and BD_DMA_BEGIN not in text:
+            raise SystemExit("system_bd.tcl: FieldMesh bridge overlay is already parked; start from a clean copied HDL tree for --dma-overlay")
+    if ("fieldmesh_tx_dma" in text or "fieldmesh_rx_dma" in text) and BD_DMA_BEGIN not in text:
+        raise SystemExit("system_bd.tcl: FieldMesh DMA overlay appears partially present")
     if control_overlay and BD_CTRL_BEGIN not in text:
         if "ad_cpu_interconnect 0x7C420000 axi_ad9361_dac_dma" not in text:
             raise SystemExit("system_bd.tcl: expected ADI DMA interconnect anchor not found")
@@ -130,7 +208,9 @@ def patch_system_bd(text: str, control_overlay: bool, bridge_overlay: bool) -> t
             raise SystemExit("system_bd.tcl: expected ADI DMA interrupt anchor not found")
         blocks.append(render_control_overlay())
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
-        blocks.append(render_bridge_overlay())
+        blocks.append(render_bridge_overlay(park_byte_ports=not dma_overlay))
+    if dma_overlay and BD_DMA_BEGIN not in text:
+        blocks.append(render_dma_overlay())
     if not blocks:
         return text, False
     return text.rstrip() + "".join(blocks) + "\n", True
@@ -153,7 +233,12 @@ def apply_patch(
     apply: bool,
     control_overlay: bool,
     bridge_overlay: bool,
+    dma_overlay: bool,
 ) -> dict:
+    if dma_overlay:
+        control_overlay = True
+        bridge_overlay = True
+
     project_dir = hdl_tree / "projects" / "pluto"
     system_bd = project_dir / "system_bd.tcl"
     system_project = project_dir / "system_project.tcl"
@@ -179,7 +264,7 @@ def apply_patch(
     make_text = makefile.read_text()
     patched_make, make_changed = patch_makefile(make_text, rel_files)
     system_bd_text = system_bd.read_text()
-    patched_system_bd, system_bd_changed = patch_system_bd(system_bd_text, control_overlay, bridge_overlay)
+    patched_system_bd, system_bd_changed = patch_system_bd(system_bd_text, control_overlay, bridge_overlay, dma_overlay)
 
     if apply:
         if project_changed:
@@ -190,7 +275,7 @@ def apply_patch(
             system_bd.write_text(patched_system_bd)
 
     post_plan_ok = True
-    if apply and (control_overlay or bridge_overlay):
+    if apply and (control_overlay or bridge_overlay or dma_overlay):
         post_plan = load_plan(repo_root, variant_name, system_bd)
         post_plan_ok = bool(post_plan["ok"])
 
@@ -200,6 +285,7 @@ def apply_patch(
         "applied": apply,
         "bridge_overlay": bridge_overlay,
         "control_overlay": control_overlay,
+        "dma_overlay": dma_overlay,
         "variant": variant_name,
         "hdl_tree": str(hdl_tree),
         "system_bd": str(system_bd),
@@ -228,6 +314,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="also add an idempotent fieldmesh_axis_bridge BD module for the sidecar byte-stream boundary",
     )
+    parser.add_argument(
+        "--dma-overlay",
+        action="store_true",
+        help="also add provisional fieldmesh_tx_dma/fieldmesh_rx_dma axi_dmac cells and connect them to the bridge byte ports",
+    )
     return parser.parse_args()
 
 
@@ -240,6 +331,7 @@ def main() -> int:
         args.apply,
         args.control_overlay,
         args.bridge_overlay,
+        args.dma_overlay,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
