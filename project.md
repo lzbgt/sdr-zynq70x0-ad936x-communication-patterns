@@ -197,7 +197,9 @@ user and vendor configuration.
   VCTCXO, Zynq, and boot-mode wiring.
 - `docs/nvmfs-mtd2.md` - read-only diagnosis of the `qspi-nvmfs` / `mtd2`
   mount failure and safe recovery boundary.
-- `docs/capabilities-and-projects.md` - capability summary and project ideas.
+- `docs/capabilities-and-projects.md` - capability summary, practical project
+  ideas, and product directions that reuse the RF+FPGA+Linux appliance
+  architecture.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T board separate
