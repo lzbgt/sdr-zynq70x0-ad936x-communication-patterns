@@ -353,6 +353,25 @@ its contract event, C0/C1 queue age stays inside policy, stale C2/C3 traffic has
 a degradation action or drop, and transport receive events do not report
 failures. Use `--no-negotiation` for receiver-only traces.
 
+## Binary Vectors
+
+Packet and shim-frame byte compatibility is pinned by
+`resources/fieldmesh/vectors/manifest.json`.
+
+```sh
+./tools/fieldmesh_vector_tool.py verify resources/fieldmesh/vectors/manifest.json
+./tools/build_fieldmesh_udp_probe_host.sh
+for f in resources/fieldmesh/vectors/frame_*.bin; do
+  ./.config/fieldmesh/fieldmesh-udp-probe-host verify-frame --file "$f"
+done
+```
+
+The vector corpus is deliberately small: scheduled/auto stress traffic for two
+ticks. It covers all traffic classes C0..C4, the largest current payload size,
+header CRC, shim-frame CRC, and transport sequence handling. IIO and PL
+loopback implementations must pass these byte-level vectors before their traces
+are treated as meaningful.
+
 ## Next Transport Boundary
 
 The next implementation boundary is defined in

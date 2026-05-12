@@ -90,6 +90,35 @@ Acceptance:
 - Board-local `iio-scan` can enumerate the runtime IIO context before packet
   bytes are routed through an IIO buffer.
 
+## Binary Vectors
+
+`resources/fieldmesh/vectors/` contains the first committed binary
+compatibility corpus:
+
+- `packet_*.bin`: complete FieldMesh packet header plus payload.
+- `frame_*.bin`: shim frame header, embedded packet, and frame CRC.
+- `manifest.json`: expected parse fields, lengths, hashes, selected mode, and
+  traffic profile.
+
+Generate or refresh the corpus with:
+
+```sh
+./tools/fieldmesh_vector_tool.py generate \
+  --out-dir resources/fieldmesh/vectors \
+  --scenario scheduled --mode auto --traffic-profile stress --ticks 2 --seed 1
+./tools/fieldmesh_vector_tool.py verify resources/fieldmesh/vectors/manifest.json
+```
+
+The C probe can verify the same frame files:
+
+```sh
+fieldmesh-udp-probe verify-frame --file resources/fieldmesh/vectors/frame_000.bin
+```
+
+These files are the contract for IIO and PL loopback work: new transports must
+carry the same frame bytes and preserve the manifest parse fields before adding
+RF/baseband behavior.
+
 ## Stage 2: PL Packet Queue ABI
 
 When userspace/IIO loopback is stable, move the hot path into PL as a packet
@@ -183,13 +212,14 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 ## Test Order
 
 1. Keep UDP reference green.
-2. Add IIO or memory-loopback packet shim that reuses complete FieldMesh
+2. Keep the binary vector corpus green in Python and C.
+3. Add IIO or memory-loopback packet shim that reuses complete FieldMesh
    packets.
-3. Validate with `tools/fieldmesh_trace_assert.py`.
-4. Add a PL loopback register block and descriptor ring with no RF path.
-5. Validate packet loopback and class priority under stress.
-6. Add timestamp/slot gates.
-7. Only then connect the RF/baseband path.
+4. Validate with `tools/fieldmesh_trace_assert.py`.
+5. Add a PL loopback register block and descriptor ring with no RF path.
+6. Validate packet loopback and class priority under stress.
+7. Add timestamp/slot gates.
+8. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI
 

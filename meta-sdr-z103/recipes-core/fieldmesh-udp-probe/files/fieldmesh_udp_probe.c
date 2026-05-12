@@ -37,6 +37,7 @@ struct config {
     const char *mode;
     const char *traffic_profile;
     const char *iio_uri;
+    const char *file;
 };
 
 struct trace {
@@ -80,7 +81,8 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n"
         "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
-        "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n");
+        "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
+        "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
 static bool is_local_loopback_role(const char *role)
@@ -112,6 +114,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .mode = "p2p",
         .traffic_profile = "basic",
         .iio_uri = "local:",
+        .file = NULL,
     };
 
     if (argc < 2) {
@@ -143,6 +146,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             if (!arg_value(argc, argv, &i, &cfg->traffic_profile)) return 2;
         } else if (!strcmp(argv[i], "--iio-uri")) {
             if (!arg_value(argc, argv, &i, &cfg->iio_uri)) return 2;
+        } else if (!strcmp(argv[i], "--file")) {
+            if (!arg_value(argc, argv, &i, &cfg->file)) return 2;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -154,12 +159,18 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
 
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
-        strcmp(cfg->role, "iio-scan") && !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, or iio-scan\n");
+        strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
+        !is_local_loopback_role(cfg->role)) {
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, iio-scan, or verify-frame\n");
         return 2;
     }
-    if (strcmp(cfg->role, "iio-scan") && !is_local_loopback_role(cfg->role) && cfg->port == 0) {
+    if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
+        !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
+        return 2;
+    }
+    if (!strcmp(cfg->role, "verify-frame") && cfg->file == NULL) {
+        fprintf(stderr, "--file must be set for verify-frame\n");
         return 2;
     }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
@@ -449,6 +460,64 @@ static bool decode_frame(const uint8_t *frame, size_t frame_len, char *err, size
         return false;
     }
     return decode_packet(packet, packet_len, err, err_len);
+}
+
+static int run_verify_frame(const struct config *cfg)
+{
+    FILE *fp = fopen(cfg->file, "rb");
+    uint8_t frame[MAX_FRAME + 1U];
+    size_t len;
+    uint16_t packet_len = 0;
+    uint32_t transport_seq = 0;
+    uint32_t frame_crc = 0;
+    char err[128] = {0};
+    bool ok;
+
+    if (!fp) {
+        fprintf(stderr, "open %s: %s\n", cfg->file, strerror(errno));
+        return 1;
+    }
+    len = fread(frame, 1, sizeof(frame), fp);
+    if (ferror(fp)) {
+        fprintf(stderr, "read %s: %s\n", cfg->file, strerror(errno));
+        fclose(fp);
+        return 1;
+    }
+    fclose(fp);
+
+    if (len >= FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
+        packet_len = get_le16(frame + 2);
+        transport_seq = get_le32(frame + 4);
+        if (len >= FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+            frame_crc = get_le32(frame + FIELD_MESH_FRAME_LEN + packet_len);
+        }
+    }
+
+    if (len > MAX_FRAME) {
+        snprintf(err, sizeof(err), "transport frame too large");
+        ok = false;
+    } else {
+        ok = decode_frame(frame, len, err, sizeof(err));
+    }
+
+    printf("{\"event\":\"frame_verify\",\"transport\":\"verify-frame\","
+           "\"file\":\"%s\",\"ok\":%s,\"frame_bytes\":%zu,"
+           "\"packet_len\":%u,\"transport_seq\":%u,\"frame_crc\":%u",
+           cfg->file, ok ? "true" : "false", len, packet_len, transport_seq, frame_crc);
+    if (ok) {
+        const uint8_t *packet = frame + FIELD_MESH_FRAME_LEN;
+        printf(",\"src_node\":\"0x%04x\",\"dst_node\":\"0x%04x\","
+               "\"stream_id\":%u,\"traffic_class\":\"%s\",\"mode\":\"%s\","
+               "\"epoch\":%u,\"slot\":%u,\"sequence\":%u,\"payload_len\":%u,"
+               "\"header_crc\":%u}\n",
+               get_le16(packet + 8), get_le16(packet + 10), get_le16(packet + 12),
+               class_name(packet[14]), mode_name(packet[15]), get_le32(packet + 18),
+               get_le16(packet + 22), get_le32(packet + 24), get_le16(packet + 28),
+               get_le16(packet + 30));
+    } else {
+        printf(",\"error\":\"%s\"}\n", err);
+    }
+    return ok ? 0 : 1;
 }
 
 static void emit_send_trace(const struct trace *tr)
@@ -851,6 +920,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "iio-scan")) {
         return run_iio_scan(&cfg);
+    }
+    if (!strcmp(cfg.role, "verify-frame")) {
+        return run_verify_frame(&cfg);
     }
     return run_receive(&cfg);
 }

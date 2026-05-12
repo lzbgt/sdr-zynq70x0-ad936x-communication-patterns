@@ -1622,6 +1622,23 @@ BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_iio_scan.sh
 Status: syntax and packaging are prepared, but live execution is blocked until
 a board running the rebuilt image is reachable over USB/RNDIS SSH.
 
+Binary vector corpus:
+
+```sh
+./tools/fieldmesh_vector_tool.py generate \
+  --out-dir resources/fieldmesh/vectors \
+  --scenario scheduled --mode auto --traffic-profile stress --ticks 2 --seed 1
+./tools/fieldmesh_vector_tool.py verify resources/fieldmesh/vectors/manifest.json
+./tools/build_fieldmesh_udp_probe_host.sh
+for f in resources/fieldmesh/vectors/frame_*.bin; do
+  ./.config/fieldmesh/fieldmesh-udp-probe-host verify-frame --file "$f"
+done
+```
+
+Result: ten scheduled/auto stress vectors were generated and verified. Python
+validated the packet and shim-frame manifests; the host-built C probe validated
+all committed `frame_*.bin` files through its `verify-frame` role.
+
 ## FieldMesh Board Runtime Probe
 
 Host-side C probe check:
@@ -1675,14 +1692,14 @@ Result:
 Current package hashes:
 
 ```text
-6d480bac915919f66b45895c8ef3424c82c938fafef0166ade867db4f9c4f93f  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
-81b5c609fdee58569b14e1f82eeb1b1f92dcd4195bb612b11559557407185fbb  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
-9fb251c9a59a13d70f2f62867a50edd6ffb1d22f7fa3615ec9a36e22f0473290  z203 pluto.itb
-493b3a90c7028731527ff9120c838b6a14a95cc25b8bd9b7015585e57eb2a66c  z203 pluto.frm
-e660be185c370000d55735f21466a6e83868c3d30a0fc04b489cce8812950952  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
-a0b6ce87872aa3cf596d047c85f78f26addda00320f217da40c01c0dc3af1d81  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
-0d5ffddb0e89eb33baeee84bb8212243f90336e4004bd927d174d17b1b502d36  z103 pluto.itb
-20480b3280308ad24cb3940b536e47fa5885aa029c7af752ae86c62bbfa1700d  z103 pluto.frm
+e9381b1ff75cf070effcd441dcf9dcd6a0da701c204bcc7f49e8e694df529ca8  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
+422c7f3234e6caff96559b4841cb77dd3418b0837fd3d842eb4e6ad11d047aeb  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
+897bc1a6be9eceba32938eefbf51ebb37c5e7109517f37349616e3b89ee4496c  z203 pluto.itb
+b0979865bbb7d4e6697adc10956762a69b9bbda4b094acc310000e197d7cd378  z203 pluto.frm
+4f4a09bc5fa68fedc5b7424362ab8e59b2ef045866224d6b7601e9773be203f8  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+4b49e43a4411674f8b974009f3ebc00739a09a5e5b34f8f0ac01e3bbb9051048  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
+f408943e70757f832cef064abad4c09436b6f6383a0c9e16a34e701a65cec6a9  z103 pluto.itb
+a2df306853c99f98cc5eb45b23540b1a2191a3835f71ea516e9d1a40a98d77a7  z103 pluto.frm
 ```
 
 ## Verification Gaps

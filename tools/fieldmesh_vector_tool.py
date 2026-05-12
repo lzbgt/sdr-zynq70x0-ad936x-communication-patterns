@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Generate and verify FieldMesh binary packet/frame vectors."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import random
+import sys
+from pathlib import Path
+from typing import Any
+
+import fieldmesh_trace_harness as harness
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def vector_rows(scenario: str, mode: str, traffic_profile: str, ticks: int, seed: int) -> list[dict[str, Any]]:
+    nodes = tuple(harness.PROFILES[name] for name in harness.SCENARIOS[scenario])
+    selected_mode, reason = harness.choose_mode(mode, nodes, scenario)
+    rng = random.Random(seed)
+    rows: list[dict[str, Any]] = []
+    index = 0
+
+    for tick in range(ticks):
+        for traffic_class in harness.traffic_classes_for_profile(traffic_profile):
+            trace = harness.make_trace(tick, traffic_class, nodes, selected_mode, rng, traffic_profile)
+            packet = harness.pack_packet(trace)
+            frame = harness.pack_memory_frame(trace, index)
+            parsed_packet = harness.unpack_packet(packet)
+            parsed_frame = harness.unpack_memory_frame(frame)
+            rows.append(
+                {
+                    "index": index,
+                    "scenario": scenario,
+                    "requested_mode": mode,
+                    "selected_mode": selected_mode,
+                    "mode_reason": reason,
+                    "traffic_profile": traffic_profile,
+                    "tick": tick,
+                    "traffic_class": traffic_class,
+                    "packet_file": f"packet_{index:03d}.bin",
+                    "frame_file": f"frame_{index:03d}.bin",
+                    "packet_bytes": len(packet),
+                    "frame_bytes": len(frame),
+                    "packet_sha256": sha256_bytes(packet),
+                    "frame_sha256": sha256_bytes(frame),
+                    "packet": parsed_packet,
+                    "frame": parsed_frame,
+                    "_packet_bytes": packet,
+                    "_frame_bytes": frame,
+                }
+            )
+            index += 1
+    return rows
+
+
+def public_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in row.items() if not key.startswith("_")}
+
+
+def write_vectors(args: argparse.Namespace) -> None:
+    out_dir = args.out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows = vector_rows(args.scenario, args.mode, args.traffic_profile, args.ticks, args.seed)
+
+    for row in rows:
+        (out_dir / row["packet_file"]).write_bytes(row["_packet_bytes"])
+        (out_dir / row["frame_file"]).write_bytes(row["_frame_bytes"])
+
+    manifest = {
+        "format": "fieldmesh-vector-manifest-v1",
+        "scenario": args.scenario,
+        "requested_mode": args.mode,
+        "selected_mode": rows[0]["selected_mode"] if rows else None,
+        "traffic_profile": args.traffic_profile,
+        "ticks": args.ticks,
+        "seed": args.seed,
+        "packet_header_len": harness.FIELD_MESH_HEADER_LEN,
+        "frame_header_len": harness.FIELD_MESH_FRAME_LEN,
+        "frame_crc_len": harness.FIELD_MESH_FRAME_CRC_LEN,
+        "vectors": [public_row(row) for row in rows],
+    }
+    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    print(json.dumps({"event": "fieldmesh_vectors_generated", "out_dir": str(out_dir), "vectors": len(rows)}))
+
+
+def verify_vectors(args: argparse.Namespace) -> None:
+    manifest_path = args.manifest
+    manifest = json.loads(manifest_path.read_text())
+    base_dir = manifest_path.parent
+    errors: list[str] = []
+
+    for row in manifest.get("vectors", []):
+        packet_path = base_dir / row["packet_file"]
+        frame_path = base_dir / row["frame_file"]
+        packet = packet_path.read_bytes()
+        frame = frame_path.read_bytes()
+
+        if sha256_bytes(packet) != row["packet_sha256"]:
+            errors.append(f"{packet_path}: sha256 mismatch")
+        if sha256_bytes(frame) != row["frame_sha256"]:
+            errors.append(f"{frame_path}: sha256 mismatch")
+        try:
+            parsed_packet = harness.unpack_packet(packet)
+            parsed_frame = harness.unpack_memory_frame(frame)
+        except ValueError as exc:
+            errors.append(f"{row['index']}: parse failed: {exc}")
+            continue
+        if parsed_packet != row["packet"]:
+            errors.append(f"{packet_path}: parsed packet mismatch")
+        if parsed_frame != row["frame"]:
+            errors.append(f"{frame_path}: parsed frame mismatch")
+        frame_packet = frame[harness.FIELD_MESH_FRAME_LEN : -harness.FIELD_MESH_FRAME_CRC_LEN]
+        if frame_packet != packet:
+            errors.append(f"{frame_path}: embedded packet differs from {packet_path}")
+
+    summary = {
+        "event": "fieldmesh_vectors_verified",
+        "manifest": str(manifest_path),
+        "vectors": len(manifest.get("vectors", [])),
+        "ok": not errors,
+    }
+    print(json.dumps(summary, sort_keys=True))
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    generate = subparsers.add_parser("generate", help="generate a vector corpus")
+    generate.add_argument("--out-dir", type=Path, default=Path("resources/fieldmesh/vectors"))
+    generate.add_argument("--scenario", choices=tuple(harness.SCENARIOS), default="scheduled")
+    generate.add_argument("--mode", choices=("auto", "p2p", "star", "graph", "scheduled"), default="auto")
+    generate.add_argument("--traffic-profile", choices=("basic", "video", "stress"), default="stress")
+    generate.add_argument("--ticks", type=int, default=2)
+    generate.add_argument("--seed", type=int, default=1)
+    generate.set_defaults(func=write_vectors)
+
+    verify = subparsers.add_parser("verify", help="verify a generated vector corpus")
+    verify.add_argument("manifest", type=Path)
+    verify.set_defaults(func=verify_vectors)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    if getattr(args, "ticks", 1) < 1:
+        print("--ticks must be >= 1", file=sys.stderr)
+        return 2
+    args.func(args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
