@@ -11,6 +11,8 @@ SDR-Z103 outputs separate from the SDR-Z203 build. It provides:
 - `sdr-z103-pluto-runtime`, which imports the essential Pluto USB gadget,
   FunctionFS/IIO, mass-storage update, web, and recovery scripts from the
   extracted vendor firmware tree.
+- `fieldmesh-udp-probe`, a small C split UDP sender/receiver for board-runtime
+  FieldMesh packet smoke tests without Python.
 - external-source recipes for the vendor Linux and U-Boot trees extracted under
   `src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw`.
 
@@ -24,6 +26,7 @@ Current WSL Arch verification:
 
 - `bitbake -p`
 - `bitbake sdr-z103-arm-image`
+- `bitbake fieldmesh-udp-probe`
 - `bitbake virtual/bootloader`
 - `tools/audit_z103_yocto_rootfs.sh`
 - `tools/package_z103_yocto_pluto_frm.sh`

@@ -11,6 +11,8 @@ Vivado/FPGA toolchain is still being prepared. It provides:
 - `sdr-z203-pluto-runtime`, which imports the essential Pluto USB gadget,
   FunctionFS/IIO, mass-storage update, web, and recovery scripts from the
   extracted vendor firmware tree.
+- `fieldmesh-udp-probe`, a small C split UDP sender/receiver for board-runtime
+  FieldMesh packet smoke tests without Python.
 - external-source recipes for the vendor Linux and U-Boot trees extracted under
   `src/extracted/plutosdr-fw-2r2t/plutosdr-fw`.
 
@@ -21,5 +23,6 @@ Verified on WSL Arch:
 
 - `bitbake -p`
 - `bitbake sdr-z203-arm-image`
+- `bitbake fieldmesh-udp-probe`
 - `bitbake virtual/bootloader`
 - `./tools/audit_yocto_rootfs.sh`

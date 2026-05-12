@@ -299,8 +299,8 @@ tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
 Current verified rootfs outputs:
 
 ```text
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz  21724794 bytes
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz   21856763 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz  21730569 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz   21862443 bytes
 ```
 
 The image includes `sdr-z203-pluto-runtime`, which imports essential runtime
@@ -313,6 +313,7 @@ assets from the extracted vendor tree:
 - `S45msd`, `update.sh`, and `update_frm.sh` for the mass-storage update flow.
 - `/opt/vfat.img`, `/www`, `/opt/VERSIONS`, `device_reboot`, mtd2/JFFS2 helper
   scripts, and persistent-key/password helper scripts.
+- `fieldmesh-udp-probe` for board-runtime FieldMesh split UDP smoke tests.
 - `lighttpd` configured to serve `/www` so `curl http://192.168.2.1/` remains a
   useful post-boot check.
 

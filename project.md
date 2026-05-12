@@ -369,6 +369,9 @@ user and vendor configuration.
   simulated, UDP-loopback, and split UDP sender/receiver transports for early
   capability, mode-selection, policy, traffic-class, and stress/degradation
   smoke tests before RF packet transport exists.
+- `fieldmesh-udp-probe` - small C FieldMesh UDP sender/receiver now packaged
+  into both Z203 and Z103 Yocto developer images for board-runtime split UDP
+  tests without requiring Python on the board.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

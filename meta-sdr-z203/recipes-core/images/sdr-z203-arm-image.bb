@@ -15,6 +15,7 @@ IMAGE_INSTALL:append = " \
     libubootenv-bin \
     lighttpd \
     mtd-utils \
+    fieldmesh-udp-probe \
     sdr-z203-board-files \
     sdr-z203-pluto-runtime \
 "

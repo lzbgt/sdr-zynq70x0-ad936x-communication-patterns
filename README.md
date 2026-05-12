@@ -36,6 +36,8 @@ Start here:
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
   simulated, UDP-loopback, and split UDP sender/receiver transports for early
   mode-selection, traffic-class, and stress/degradation smoke tests.
+- `fieldmesh-udp-probe` is now included in the Z203 and Z103 Yocto developer
+  images as the lightweight board-runtime UDP sender/receiver counterpart.
 - `docs/example-projects.md` - concrete project seeds.
 - `docs/verification.md` - captured verification evidence and known gaps.
 - `resources/INDEX.md` - curated local resource inventory.

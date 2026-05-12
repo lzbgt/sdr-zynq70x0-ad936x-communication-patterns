@@ -56,12 +56,15 @@ Status: product/design concept drafted in `docs/fieldmesh-swarm-radio.md`; the
 first implementation-facing packet/control-plane spec is drafted in
 `docs/fieldmesh-protocol-spec.md`; the NDJSON trace harness now supports both
 simulated traces, one-process UDP loopback packet/header validation, and split
-UDP sender/receiver mode through `tools/fieldmesh_trace_harness.py`.
+UDP sender/receiver mode through `tools/fieldmesh_trace_harness.py`. The Z203
+and Z103 Yocto developer images now include `fieldmesh-udp-probe`, a small C
+board-runtime sender/receiver for the same split UDP smoke tests without Python
+on the board.
 
 Next concrete work:
 
-- Run split UDP sender/receiver mode on Z203 first, then on Z103 once normal
-  runtime reachability is restored.
+- Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
+  normal runtime reachability is restored.
 - Extend the generated video-like load from UDP packet traces toward a board
   runtime transport or IIO/PL packet pipe.
 - Preserve bounded-latency degradation evidence before attempting any open-air

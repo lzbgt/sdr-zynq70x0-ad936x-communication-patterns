@@ -222,9 +222,9 @@ Key hashes from the successful build:
 2b0bfcd6f6291dda8da8e5a354c704b6bab48aadf2571b18ae8d69bc9270ee17  u-boot-sdr-z103-zynq7-2026.01+vendor-r0.bin
 bbd2fec8d77046b63df809dc50ce75945f3064e8ff46787f76bc7b2c3b38361a  zImage
 10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0  zynq-pluto-sdr.dtb
-c19b25d45c666be9465b1dff65afdb53054b5a30b6cb696576c48b30e9ccf6db  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
-25e12b59d1a44882e9c62145377c91d1f0b0afb957a8b7d536701570e20d0ca8  pluto.itb
-4a3616a9aa4386800449f7bbb5f39a32feabd1482fdad597e22ce057fd7b017a  pluto.frm
+9e2b11efb1cfb8a764d27c07b03957354e03f4f98a09c04dbd21571864e4a8a1  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+8baeb97d73e6d7a1eaf6b22c1d99e43109c9eb91fca508216acaefee79036011  pluto.itb
+e49527385ea64442d433656ce6b5faf946e08c1608b310cbd223afd3e8cb99af  pluto.frm
 ```
 
 Build boundary:

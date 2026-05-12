@@ -731,8 +731,8 @@ Tasks Summary: Attempted 1041 tasks and all succeeded.
 Key deployed artifacts:
 
 ```text
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz                21724794 bytes
-sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz                 21856763 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz                21730569 bytes
+sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz                 21862443 bytes
 zImage--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.bin          4705632 bytes
 zynq-pluto-sdr.dtb                                                 18845 bytes
 modules--6.1+vendor-r0-sdr-z203-zynq7-20260510183354.tgz           37742 bytes
@@ -747,8 +747,8 @@ Verified Pluto-runtime rootfs audit:
 
 Result: passed. The audit checks for the Pluto USB gadget startup scripts,
 FunctionFS/IIO daemon path, mass-storage update scripts, U-Boot environment
-tools, mtd2/JFFS2 helpers, `iio_info`, `lighttpd`, `/opt/vfat.img`, `/www`, and
-the expected mount points.
+tools, mtd2/JFFS2 helpers, `iio_info`, `fieldmesh-udp-probe`, `lighttpd`,
+`/opt/vfat.img`, `/www`, and the expected mount points.
 
 Verified Pluto-style FIT/MSD firmware package:
 
@@ -1402,9 +1402,9 @@ Generated artifact hashes:
 2b0bfcd6f6291dda8da8e5a354c704b6bab48aadf2571b18ae8d69bc9270ee17  u-boot-sdr-z103-zynq7-2026.01+vendor-r0.bin
 bbd2fec8d77046b63df809dc50ce75945f3064e8ff46787f76bc7b2c3b38361a  zImage
 10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0  zynq-pluto-sdr.dtb
-c19b25d45c666be9465b1dff65afdb53054b5a30b6cb696576c48b30e9ccf6db  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
-25e12b59d1a44882e9c62145377c91d1f0b0afb957a8b7d536701570e20d0ca8  pluto.itb
-4a3616a9aa4386800449f7bbb5f39a32feabd1482fdad597e22ce057fd7b017a  pluto.frm
+9e2b11efb1cfb8a764d27c07b03957354e03f4f98a09c04dbd21571864e4a8a1  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+8baeb97d73e6d7a1eaf6b22c1d99e43109c9eb91fca508216acaefee79036011  pluto.itb
+e49527385ea64442d433656ce6b5faf946e08c1608b310cbd223afd3e8cb99af  pluto.frm
 ```
 
 Notes:
@@ -1512,6 +1512,55 @@ sleep 0.2
 Result: receiver captured ten `packet_rx` events with `rx_ok=true`; sender
 emitted ten transmit-side `packet_trace` events with `rx_ok=null` and included
 stress-profile degradation actions.
+
+## FieldMesh Board Runtime Probe
+
+Host-side C probe check:
+
+```sh
+./tools/build_fieldmesh_udp_probe_host.sh
+fieldmesh-udp-probe receive --host 127.0.0.1 --port 55325 \
+  --traffic-profile stress --ticks 2 --timeout-ms 3000
+fieldmesh-udp-probe send --host 127.0.0.1 --port 55325 \
+  --traffic-profile stress --ticks 2
+```
+
+Result: the host-built C probe passed split UDP stress mode with ten received
+packets and deterministic degradation actions in the sender trace.
+
+Yocto packaging checks:
+
+```sh
+./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
+./tools/yocto_arm_as_builder.sh bitbake fieldmesh-udp-probe
+./tools/yocto_z103_as_builder.sh bitbake sdr-z103-arm-image
+./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
+./tools/audit_z103_yocto_rootfs.sh
+./tools/audit_yocto_rootfs.sh
+```
+
+Result:
+
+- Z103 and Z203 `fieldmesh-udp-probe` recipes built successfully.
+- Z103 and Z203 developer images rebuilt successfully and contain
+  `/usr/bin/fieldmesh-udp-probe`.
+- Rootfs audits passed after adding the probe to the required runtime file set.
+- The WSL Arch Yocto build still emits the known host-distribution warning; the
+  Z103 build also emitted the previously seen root-capable WSL
+  `host-user-contaminated` QA warning for root-owned files.
+
+Current package hashes:
+
+```text
+10c4b32a75242fffa3c4e12a19e425265330a70a078b6fd8fd18beb16bca37f7  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
+fc3d567f4fb596aac570a875e84762392a3adf272dd29a3a7809c1240cb444a6  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
+acc43a7eda44148b650991ab3c6fd75b3da644500e694947aae506ca87948060  z203 pluto.itb
+13c4fc598f4f4747b8325961709d1f7fb932e9a844ab171c1951a85f109d3d33  z203 pluto.frm
+9e2b11efb1cfb8a764d27c07b03957354e03f4f98a09c04dbd21571864e4a8a1  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+dd0d0954248417fde5cd9e0f0ad25bbdd65a7baaf46ac8678efeb31d20f68b72  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
+8baeb97d73e6d7a1eaf6b22c1d99e43109c9eb91fca508216acaefee79036011  z103 pluto.itb
+e49527385ea64442d433656ce6b5faf946e08c1608b310cbd223afd3e8cb99af  z103 pluto.frm
+```
 
 ## Verification Gaps
 

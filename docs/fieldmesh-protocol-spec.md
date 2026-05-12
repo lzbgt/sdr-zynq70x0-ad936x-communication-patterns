@@ -272,6 +272,20 @@ Next harness step: run `udp-receive` on a board and `udp-send` on the host or a
 peer board over the board runtime network, then preserve both NDJSON traces as
 test evidence.
 
+For board images that do not carry Python, use the packaged C probe:
+
+```sh
+fieldmesh-udp-probe receive --host 0.0.0.0 --port 55321 \
+  --traffic-profile stress --ticks 2 --timeout-ms 3000
+fieldmesh-udp-probe send --host <peer-ip> --port 55321 \
+  --traffic-profile stress --ticks 2
+```
+
+The C probe emits the same NDJSON event style for transmit and receive smoke
+tests, but intentionally stays smaller than the Python harness. Use it for
+board-runtime validation; keep the Python harness as the richer host-side
+reference.
+
 ## Implementation Notes
 
 - Keep PHY and MAC separated: packet/control-plane tests should run before the
