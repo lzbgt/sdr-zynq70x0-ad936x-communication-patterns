@@ -1866,11 +1866,20 @@ python3 -m py_compile tools/fieldmesh_vendor_dma_inventory.py
 ./tools/fieldmesh_vendor_dma_inventory.py --format markdown \
   --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
+./tools/fieldmesh_vendor_dma_inventory.py --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_vendor_dma_sidecar_check.json
 ./tools/fieldmesh_vendor_dma_inventory.py \
   --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   >/tmp/fieldmesh_vendor_dma_inventory.json
 python3 -m json.tool /tmp/fieldmesh_vendor_dma_inventory.json >/dev/null
+tmp=$(mktemp)
+sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
+  src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
+! ./tools/fieldmesh_vendor_dma_inventory.py --check-sidecar --variant collision="$tmp"
+rm -f "$tmp"
 ```
 
 Result: both variants report ADI RX sample DMA `axi_ad9361_adc_dma` at
@@ -1878,7 +1887,10 @@ Result: both variants report ADI RX sample DMA `axi_ad9361_adc_dma` at
 sample stream width, RX over PS `S_AXI_HP1`, TX over PS `S_AXI_HP2`, and the
 same ADI `cpack`/`tx_upack` stream boundary. This confirms the first FieldMesh
 hardware binding should use a sidecar packet transport and must not reuse the
-existing ADI sample-DMA register windows.
+existing ADI sample-DMA register windows. `--check-sidecar` also passed for the
+provisional FieldMesh windows at `0x43C00000`, `0x43C10000`, and `0x43C20000`.
+The synthetic collision check failed as expected when an imported address was
+temporarily moved onto `0x43C00000`.
 
 ## Verification Gaps
 

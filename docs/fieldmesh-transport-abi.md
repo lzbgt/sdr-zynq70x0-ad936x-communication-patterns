@@ -248,7 +248,10 @@ Z203 and Z103 `system_bd.tcl` files. See
 `docs/fieldmesh-vendor-dma-boundary.md` for the current inventory. The next
 hardware integration should add a FieldMesh sidecar packet transport with its
 own AXI-lite/DMA register namespace. Do not reuse or replace the ADI sample-DMA
-windows for the first packet-pipe binding.
+windows for the first packet-pipe binding. The provisional sidecar namespace is
+`fieldmesh_ctrl` at `0x43C00000`, `fieldmesh_tx_dma` at `0x43C10000`, and
+`fieldmesh_rx_dma` at `0x43C20000`; `--check-sidecar` verifies those windows
+remain unused in the imported source Tcl.
 
 Keep these responsibilities in Linux first:
 

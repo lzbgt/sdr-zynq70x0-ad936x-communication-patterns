@@ -24,6 +24,25 @@ Current source-derived result:
 | z103 | `axi_ad9361_adc_dma` | `0x7C400000` | RX samples to DDR | 64 | 0 | `S_AXI_HP1` | `axi_ad9361_adc_dma/fifo_wr -> cpack/packed_fifo_wr` | `ps-13 mb-13` |
 | z103 | `axi_ad9361_dac_dma` | `0x7C420000` | DDR to TX samples | 64 | 1 | `S_AXI_HP2` | `tx_upack/s_axis -> axi_ad9361_dac_dma/m_axis` | `ps-12 mb-12` |
 
+The same command can also enforce the provisional FieldMesh sidecar namespace:
+
+```sh
+./tools/fieldmesh_vendor_dma_inventory.py --format markdown --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
+```
+
+Current sidecar result:
+
+| Variant | Sidecar Block | Address | Size | IRQ | Status |
+| --- | --- | --- | --- | --- | --- |
+| z203 | `fieldmesh_ctrl` | `0x43C00000` | `0x10000` | `ps-11 mb-11` | free |
+| z203 | `fieldmesh_tx_dma` | `0x43C10000` | `0x10000` | `ps-9 mb-9` | free |
+| z203 | `fieldmesh_rx_dma` | `0x43C20000` | `0x10000` | `ps-10 mb-10` | free |
+| z103 | `fieldmesh_ctrl` | `0x43C00000` | `0x10000` | `ps-11 mb-11` | free |
+| z103 | `fieldmesh_tx_dma` | `0x43C10000` | `0x10000` | `ps-9 mb-9` | free |
+| z103 | `fieldmesh_rx_dma` | `0x43C20000` | `0x10000` | `ps-10 mb-10` | free |
+
 Both paths are clocked from `axi_ad9361/l_clk` at the stream boundary. The
 RX DMA writes samples to DDR through PS HP1. The TX DMA reads samples from DDR
 through PS HP2 and drives the ADI transmit unpacker.
@@ -52,6 +71,48 @@ The first hardware binding should be a sidecar transport:
 This sidecar path keeps Pluto/IIO RF functionality available for bring-up and
 prevents FieldMesh packet experiments from changing the known AD936x sample
 graph.
+
+## Provisional Sidecar Contract
+
+Use this namespace for the first Vivado overlay attempt unless a later source
+inventory proves a conflict:
+
+| Block | Address | Purpose |
+| --- | --- | --- |
+| `fieldmesh_ctrl` | `0x43C00000` | FieldMesh packet-memory, descriptor, queue, status, and debug registers |
+| `fieldmesh_tx_dma` | `0x43C10000` | Optional PS DDR to PL FieldMesh packet ingress DMA control |
+| `fieldmesh_rx_dma` | `0x43C20000` | Optional PL FieldMesh packet egress to PS DDR DMA control |
+
+Provisional interrupt allocation:
+
+| Block | Interrupt | Reason |
+| --- | --- | --- |
+| `fieldmesh_ctrl` | `ps-11 mb-11` | descriptor completion, drop/fault, and scheduler debug event |
+| `fieldmesh_rx_dma` | `ps-10 mb-10` | packet egress DMA completion or error |
+| `fieldmesh_tx_dma` | `ps-9 mb-9` | packet ingress DMA completion or error |
+
+Provisional memory ports:
+
+- Keep ADI sample RX on `S_AXI_HP1`.
+- Keep ADI sample TX on `S_AXI_HP2`.
+- Prefer FieldMesh packet RX/S2MM on `S_AXI_HP0`.
+- Prefer FieldMesh packet TX/MM2S on `S_AXI_HP3`.
+
+The current vendor Tcl enables HP1 and HP2 only. A sidecar DMA overlay must
+enable the additional HP ports explicitly, or use a lower-rate non-DMA
+AXI-lite/FIFO preflight before enabling packet DMA. Do not steal the ADI HP1
+or HP2 assignments for the first FieldMesh integration.
+
+Sidecar stream direction:
+
+- TX ingress: userspace buffer -> `fieldmesh_tx_dma` -> byte-only stream ->
+  `fieldmesh_axis_header_parser` -> packet sink/class rings.
+- RX egress: packet source -> `fieldmesh_axis_header_guard` -> byte-only stream
+  -> `fieldmesh_rx_dma` -> userspace buffer.
+
+That ordering keeps in-band packet headers as the metadata source after a
+byte-only DMA/IIO boundary, while still checking outgoing PL sidebands before
+bytes leave the packet engine.
 
 ## Later RF Binding
 

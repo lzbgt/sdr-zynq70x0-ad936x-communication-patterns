@@ -13,6 +13,17 @@ from typing import Any
 
 DMA_NAMES = ("axi_ad9361_adc_dma", "axi_ad9361_dac_dma")
 INTERESTING_NAMES = DMA_NAMES + ("axi_ad9361", "cpack", "tx_upack")
+DEFAULT_WINDOW_SIZE = 0x10000
+SIDECAR_WINDOWS = (
+    ("fieldmesh_ctrl", 0x43C00000, DEFAULT_WINDOW_SIZE),
+    ("fieldmesh_tx_dma", 0x43C10000, DEFAULT_WINDOW_SIZE),
+    ("fieldmesh_rx_dma", 0x43C20000, DEFAULT_WINDOW_SIZE),
+)
+SIDECAR_IRQS = {
+    "fieldmesh_ctrl": "ps-11 mb-11",
+    "fieldmesh_rx_dma": "ps-10 mb-10",
+    "fieldmesh_tx_dma": "ps-9 mb-9",
+}
 
 
 def clean_value(value: str) -> str:
@@ -24,6 +35,69 @@ def clean_value(value: str) -> str:
 
 def endpoint_instance(endpoint: str) -> str:
     return endpoint.split("/", 1)[0]
+
+
+def parse_address(address: str) -> int:
+    return int(address, 16)
+
+
+def format_address(address: int) -> str:
+    return f"0x{address:08X}"
+
+
+def ranges_overlap(left_base: int, left_size: int, right_base: int, right_size: int) -> bool:
+    return left_base < right_base + right_size and right_base < left_base + left_size
+
+
+def sidecar_check(addresses: dict[str, str]) -> dict[str, Any]:
+    occupied = [
+        {
+            "name": name,
+            "base": parse_address(address),
+            "size": DEFAULT_WINDOW_SIZE,
+            "address": address,
+        }
+        for name, address in sorted(addresses.items())
+    ]
+    windows: list[dict[str, Any]] = []
+    ok = True
+    for name, base, size in SIDECAR_WINDOWS:
+        conflicts = [
+            row
+            for row in occupied
+            if ranges_overlap(base, size, int(row["base"]), int(row["size"]))
+        ]
+        if conflicts:
+            ok = False
+        windows.append(
+            {
+                "name": name,
+                "address": format_address(base),
+                "size": size,
+                "irq": SIDECAR_IRQS.get(name),
+                "conflicts": [
+                    {
+                        "name": row["name"],
+                        "address": row["address"],
+                        "size": row["size"],
+                    }
+                    for row in conflicts
+                ],
+            }
+        )
+    return {
+        "ok": ok,
+        "window_size": DEFAULT_WINDOW_SIZE,
+        "occupied": [
+            {
+                "name": row["name"],
+                "address": row["address"],
+                "size": row["size"],
+            }
+            for row in occupied
+        ],
+        "proposed_windows": windows,
+    }
 
 
 def parse_system_bd(path: Path, variant: str) -> dict[str, Any]:
@@ -124,9 +198,11 @@ def parse_system_bd(path: Path, variant: str) -> dict[str, Any]:
         "format": "fieldmesh-vendor-dma-inventory-v1",
         "variant": variant,
         "source": str(path),
+        "address_map": addresses,
         "rf_core_address": addresses.get("axi_ad9361"),
         "dmas": dmas,
         "related_connections": connections,
+        "sidecar": sidecar_check(addresses),
     }
 
 
@@ -162,6 +238,25 @@ def emit_markdown(inventories: list[dict[str, Any]]) -> None:
             )
 
 
+def emit_sidecar_markdown(inventories: list[dict[str, Any]]) -> None:
+    print("| Variant | Sidecar Block | Address | Size | IRQ | Status |")
+    print("| --- | --- | --- | --- | --- | --- |")
+    for inv in inventories:
+        for window in inv["sidecar"]["proposed_windows"]:
+            conflicts = window["conflicts"]
+            status = "free" if not conflicts else "conflicts: " + ", ".join(row["name"] for row in conflicts)
+            print(
+                "| {variant} | {name} | {address} | 0x{size:04X} | {irq} | {status} |".format(
+                    variant=inv["variant"],
+                    name=window["name"],
+                    address=window["address"],
+                    size=int(window["size"]),
+                    irq=window.get("irq") or "",
+                    status=status,
+                )
+            )
+
+
 def parse_variant(value: str) -> tuple[str, Path]:
     if "=" not in value:
         raise argparse.ArgumentTypeError("variant input must be NAME=PATH")
@@ -182,6 +277,11 @@ def parse_args() -> argparse.Namespace:
         help="variant name and Vivado system_bd.tcl path; repeat for comparisons",
     )
     parser.add_argument("--format", choices=("json", "markdown"), default="json")
+    parser.add_argument(
+        "--check-sidecar",
+        action="store_true",
+        help="fail if the proposed FieldMesh sidecar windows overlap the parsed address map",
+    )
     return parser.parse_args()
 
 
@@ -198,10 +298,15 @@ def main() -> int:
             if not dma.get("address") or not dma["stream_connections"]:
                 print(f"{path}: incomplete inventory for {dma_name}", file=sys.stderr)
                 return 1
+        if args.check_sidecar and not inv["sidecar"]["ok"]:
+            print(f"{path}: proposed FieldMesh sidecar window conflicts with existing address map", file=sys.stderr)
+            return 1
         inventories.append(inv)
 
     if args.format == "markdown":
         emit_markdown(inventories)
+        print()
+        emit_sidecar_markdown(inventories)
     else:
         print(json.dumps({"inventories": inventories}, indent=2, sort_keys=True))
     return 0

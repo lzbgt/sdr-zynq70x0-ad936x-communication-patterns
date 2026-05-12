@@ -135,7 +135,11 @@ Next concrete work:
   `axi_ad9361_dac_dma` at `0x7C420000`, with RX/TX sample streams tied to
   `cpack` and `tx_upack`. The remaining PL work is binding the byte-pipe model
   to a sidecar DMA/IIO transport with its own register namespace, scaling
-  descriptor storage, and then binding the path to IIO/PL.
+  descriptor storage, and then binding the path to IIO/PL. The provisional
+  sidecar namespace is `0x43C00000` for FieldMesh control, `0x43C10000` for
+  packet TX DMA control, and `0x43C20000` for packet RX DMA control; the
+  inventory helper's `--check-sidecar` mode now fails if those windows collide
+  with imported Vivado Tcl.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

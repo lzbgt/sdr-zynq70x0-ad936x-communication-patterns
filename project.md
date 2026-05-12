@@ -454,7 +454,8 @@ user and vendor configuration.
 - `tools/fieldmesh_vendor_dma_inventory.py` - parses the Z203/Z103 vendor
   `system_bd.tcl` files and emits the ADI RX/TX DMA address, stream, HP-port,
   and IRQ boundary that FieldMesh must avoid overwriting during hardware
-  integration.
+  integration. Its `--check-sidecar` mode also verifies the provisional
+  FieldMesh sidecar windows at `0x43C00000`, `0x43C10000`, and `0x43C20000`.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -570,5 +571,7 @@ Expected result in the current Pluto-compatible firmware state:
    images.
 4. Bind the FieldMesh byte-pipe model to a sidecar DMA/IIO transport with its
    own register namespace, leaving the ADI sample-DMA windows at `0x7C400000`
-   and `0x7C420000` untouched. Then scale descriptor storage beyond the
-   shallow class rings and bind the path to IIO/PL before open-air RF tests.
+   and `0x7C420000` untouched. The provisional FieldMesh namespace is
+   `0x43C00000` control, `0x43C10000` TX DMA, and `0x43C20000` RX DMA. Then
+   scale descriptor storage beyond the shallow class rings and bind the path
+   to IIO/PL before open-air RF tests.
