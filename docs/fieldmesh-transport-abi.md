@@ -209,6 +209,14 @@ completed descriptor, verifies RX bytes and descriptor metadata, then submits a
 second packet while the first RX descriptor is pending to prove backpressure
 propagates through the stream pair.
 
+`rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` is the first transport
+adapter shell after the internal loopback. It keeps the same local TX/RX packet
+memories and descriptor controls, but exposes separate external AXI-stream TX
+and RX ports. The simulation test loops those ports outside the module, holds
+external `tready` low to prove egress backpressure, then holds the RX
+completion descriptor pending to prove ingress backpressure reaches the external
+stream boundary. It does not instantiate ADI DMA or IIO yet.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -228,8 +236,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
-AXI-stream source/sink/loopback simulations green before adding DMA wiring or
-IIO/RF transport binding.
+AXI-stream source/sink/loopback/adapter simulations green before adding vendor
+DMA wiring or IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -337,7 +345,7 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 7. Add packet stream source/sink boundaries and validate backpressure/TLAST
    behavior.
 8. Wrap the stream pair in a DMA-facing or IIO-facing integration shell.
-9. Replace the internal loopback wire with the real transport adapter.
+9. Bind the adapter ports to a real transport implementation.
 10. Scale descriptor memory and add timestamp/slot gates.
 11. Only then connect the RF/baseband path.
 

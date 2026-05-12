@@ -420,6 +420,10 @@ Milestone 1: Common packet pipe
   `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v` wires the source/sink pair
   with separate TX/RX packet memories, proving the stream boundary can carry
   packet bytes and metadata end-to-end before DMA/IIO integration.
+  `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` then exposes that same
+  source/sink pair as external AXI-stream TX/RX ports, with simulation covering
+  external ready backpressure and RX completion backpressure before a vendor DMA
+  or IIO pipe is attached.
 
 Milestone 2: P2P profile
 

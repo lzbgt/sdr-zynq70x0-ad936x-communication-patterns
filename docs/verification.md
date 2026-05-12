@@ -1685,7 +1685,8 @@ Result: `fieldmesh_desc_loopback_core_tb`,
 `fieldmesh_packet_mem_loopback_core_tb`, `fieldmesh_packet_mem_axi_lite_tb`,
 `fieldmesh_class_priority_queue_tb`, and
 `fieldmesh_class_descriptor_rings_tb`, `fieldmesh_packet_axis_source_tb`, and
-`fieldmesh_packet_axis_sink_tb`, and `fieldmesh_packet_axis_loopback_tb` passed.
+`fieldmesh_packet_axis_sink_tb`, `fieldmesh_packet_axis_loopback_tb`, and
+`fieldmesh_packet_axis_dma_adapter_tb` passed.
 The core testbench accepts valid C0 and C4 descriptors, checks OWN clearing and
 DONE/timestamp-valid completion, then rejects an invalid C5 descriptor with
 `drop_count=1` and `fault=1`. The
@@ -1713,8 +1714,12 @@ while that descriptor is pending, and drops an out-of-range packet with `fault`
 set. The packet AXI-stream loopback test writes TX memory, moves two packets
 through source-to-sink stream wiring into RX memory, verifies descriptor
 metadata, and checks that a pending RX descriptor backpressures the second
-packet. This does not instantiate DMA, IIO, scaled descriptor memory, or RF
-logic yet.
+packet. The DMA-adapter test exposes the stream source/sink pair as external
+TX/RX AXI-stream ports, holds external `tready` low to prove the source stalls,
+loops bytes through the external boundary, verifies RX memory and descriptor
+metadata, and checks that pending RX completion backpressures a second packet.
+This does not instantiate ADI DMA, IIO, scaled descriptor memory, or RF logic
+yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 

@@ -432,8 +432,9 @@ packet bytes from memory, and emits AXI-stream-style bytes with metadata and
 boundary: it accepts AXI-stream-style bytes, writes packet memory, and emits a
 completed descriptor on `tlast`. `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v`
 wires those two stream boundaries together with separate TX/RX packet memories,
-so the next PL target is replacing the internal stream wire with a DMA/IIO
-adapter, not the final RF waveform.
+and `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` exposes the same stream
+pair as external TX/RX AXI-stream ports. The next PL target is binding those
+adapter ports to a real DMA/IIO transport, not the final RF waveform.
 
 ## Implementation Notes
 
