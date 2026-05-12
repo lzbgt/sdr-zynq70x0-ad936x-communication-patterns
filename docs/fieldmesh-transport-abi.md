@@ -162,8 +162,12 @@ DMA, IIO, packet-memory, or RF connected yet.
 `rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` is the first standalone
 packet-memory loopback slice. It copies bytes from a TX packet area into a fixed
 RX packet area when the descriptor is valid, emits the completed RX descriptor,
-and rejects out-of-range descriptors. It is not yet wired behind the AXI-lite
-register shell.
+and rejects out-of-range descriptors.
+
+`rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` wires descriptor submission,
+descriptor readback, and byte-wide packet-memory access behind one AXI-lite
+slave. It remains local-memory only; external DMA, IIO buffers, descriptor
+rings, and RF/baseband logic are later integration points.
 
 Keep these responsibilities in Linux first:
 
@@ -182,8 +186,9 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - deterministic slot gate,
 - high-rate packet DMA.
 
-Keep the RTL descriptor-loopback, direct-register, AXI-lite, and packet-memory
-simulations green before adding DMA wiring, descriptor rings, or IIO/RF
+Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory, and
+integrated AXI packet-memory simulations green before adding DMA wiring,
+descriptor rings, or IIO/RF
 transport binding.
 
 ### Shared Descriptor
@@ -252,6 +257,9 @@ offsets and supports one outstanding read or write transaction.
 | `0x54` | `FM_RX_TS_LO` | RX timestamp low word |
 | `0x58` | `FM_RX_TS_HI` | RX timestamp high word |
 | `0x5c` | `FM_RX_FLAGS` | low 16 bits are RX descriptor flags |
+| `0x60` | `FM_MEM_ADDR` | local packet memory byte address |
+| `0x64` | `FM_MEM_WDATA` | write low 8 bits to selected packet memory byte |
+| `0x68` | `FM_MEM_RDATA` | read selected packet memory byte in low 8 bits |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

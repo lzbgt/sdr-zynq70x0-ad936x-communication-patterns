@@ -106,10 +106,11 @@ Next concrete work:
   endpoint while preserving the FieldMesh packet bytes and passing
   `tools/fieldmesh_trace_assert.py`. `desc-replay` and `pl-replay` now emit
   assertion-ready `packet_trace` rows. The RTL core, direct register wrapper,
-  AXI-lite shell, and standalone packet-memory loopback now verify descriptor
-  handshakes, register-mapped submit/ack, and byte-copy behavior in simulation.
-  The remaining PL work is wiring packet memory behind AXI-lite, then adding
-  descriptor-ring and class-priority queue integration.
+  AXI-lite shell, standalone packet-memory loopback, and integrated
+  packet-memory AXI-lite wrapper now verify descriptor handshakes,
+  register-mapped submit/ack, byte-copy behavior, and CPU-visible byte memory
+  access in simulation. The remaining PL work is descriptor-ring and
+  class-priority queue integration.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

@@ -418,10 +418,14 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` - standalone packet
   memory loopback core that copies local TX packet bytes into an RX packet area
   while preserving the descriptor completion contract.
+- `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` - integrated AXI-lite packet
+  memory wrapper exposing descriptor submit/readback and byte-wide packet-memory
+  access through one local-memory simulation block.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
-  `tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v` with
+  `tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v`,
+  `tb/fieldmesh/fieldmesh_packet_mem_axi_lite_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor and packet-memory RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
@@ -521,6 +525,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Wire the packet-memory loopback core behind the FieldMesh AXI-lite shell,
-   add descriptor-ring plumbing, then bind it to the IIO/PL transport path
-   before open-air RF tests.
+4. Add descriptor-ring plumbing and class-priority queueing behind the
+   FieldMesh packet-memory AXI-lite shell, then bind it to the IIO/PL transport
+   path before open-air RF tests.

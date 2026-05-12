@@ -1682,8 +1682,9 @@ The first RTL descriptor-loopback slice was verified with Vivado simulator:
 
 Result: `fieldmesh_desc_loopback_core_tb`,
 `fieldmesh_desc_loopback_regs_tb`, `fieldmesh_desc_loopback_axi_lite_tb`, and
-`fieldmesh_packet_mem_loopback_core_tb` passed. The core testbench accepts valid
-C0 and C4 descriptors, checks OWN clearing and DONE/timestamp-valid completion,
+`fieldmesh_packet_mem_loopback_core_tb`, and
+`fieldmesh_packet_mem_axi_lite_tb` passed. The core testbench accepts valid C0
+and C4 descriptors, checks OWN clearing and DONE/timestamp-valid completion,
 then rejects an invalid C5 descriptor with `drop_count=1` and `fault=1`. The
 register-wrapper testbench verifies `FM_ID`, control/status bits,
 register-mapped TX descriptor submit, RX descriptor readback, RX ack, and the
@@ -1691,8 +1692,10 @@ same invalid-class drop path. The AXI-lite testbench verifies full-word register
 access, split AW/W write handling, descriptor submit, RX readback, and RX ack
 through the AXI-lite shell. The packet-memory testbench writes a five-byte
 payload into local TX memory, verifies the copied RX bytes, and rejects an
-out-of-range descriptor. This does not instantiate DMA, IIO, descriptor rings,
-or RF logic yet.
+out-of-range descriptor. The packet-memory AXI-lite test writes payload bytes
+through `FM_MEM_ADDR`/`FM_MEM_WDATA`, submits a descriptor, reads RX descriptor
+fields, and verifies copied RX bytes through `FM_MEM_RDATA`. This does not
+instantiate DMA, IIO, descriptor rings, or RF logic yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 
