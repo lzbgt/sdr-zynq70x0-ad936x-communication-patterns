@@ -84,8 +84,12 @@ Available from vendor resources but not yet bench-verified here:
 
 ## Product Mechanism To Reuse
 
-The reusable design pattern is not the SDR-Z203 board by itself. It is a small
-RF edge appliance architecture:
+The reusable design pattern is not the SDR-Z203 board as the shipped product.
+The board is too expensive and too specialized for most high-volume deployments.
+Use it as a lab reference, impairment generator, data collector, and validation
+oracle for cheaper products.
+
+The mechanism worth reusing is a full-stack RF development loop:
 
 - **RF front end:** AD936x-class 2RX/2TX tunable transceiver.
 - **Deterministic edge logic:** Zynq PL for streaming transforms, triggers,
@@ -97,182 +101,368 @@ RF edge appliance architecture:
 - **Software ecosystem:** IIO/libiio, GNU Radio, Python, MATLAB examples, and
   local Yocto/Vivado rebuild control.
 
-That combination can create products that make RF behavior observable,
-repeatable, and automatable for customers who do not want to operate a lab SDR
-stack.
+That combination is valuable because it can create ground-truth RF data and
+repeatable failure scenarios. The shipped product can then be a cheaper scanner,
+fixture, gateway firmware, support tool, dataset, or software service.
 
-## Profitable Product Directions
+For higher-upside products, the same platform can also prototype a custom
+wireless link before a purpose-built radio is designed. This is more promising
+than generic diagnostics when the customer is buying a capability: long range,
+low latency, predictable degradation, private integration, and custom side-data
+transport.
 
-### 1. RF Incident Recorder
+## Commercial Filter
 
-Customer pain: wireless failures in factories, warehouses, hospitals, campuses,
-and labs are intermittent. Packet logs show failures, but not the RF cause.
+Do not start from "what can we sell with Zynq-7020 + AD9363?" Start from:
 
-Product shape:
+> What expensive customer failure can this board help us understand, simulate,
+> and automate so the final product can use cheaper hardware?
 
-- Receive-only appliance that continuously watches selected bands.
-- FPGA computes rolling power/FFT summaries and event triggers.
-- Linux stores pre/post-event IQ or compressed spectra.
-- Web UI shows timeline, waterfall, occupancy, and exportable incident reports.
-- Optional fleet mode uploads events to a central dashboard.
+Use the SDR-Z203 directly only when one of these is true:
 
-Why this design fits:
+- It sits in a lab, factory, repair center, or shielded fixture.
+- The customer buys a high-value engineering or QA outcome, not a low-cost
+  consumer device.
+- Flexible RF generation/capture is essential.
+- The result is a reference dataset, algorithm, test service, or validation
+  platform that later moves to cheaper hardware.
 
-- AD9363-class RF can monitor useful licensed and unlicensed bands within the
-  board/front-end limits.
-- FPGA trigger/data-reduction avoids storing continuous raw IQ.
-- Linux makes the product deployable as a network appliance.
-- The verified SD/QSPI/JTAG recovery path matters for field service.
+Avoid using this board as the default deployed node for broad markets. If a use
+case needs hundreds or thousands of units in the field, first prove the
+mechanism on SDR-Z203, then port the minimum required RF function to a cheaper
+Wi-Fi/BLE/sub-GHz chipset, MCU + RF detector, simple swept receiver, lower-end
+SDR, or custom RF front end.
 
-This is the strongest first product because it can begin receive-only, has a
-clear downtime/debugging pain, and does not require the customer to understand
-SDR internals.
+## High-Upside Direction: Custom Long-Range Data/Video Link
 
-### 2. Low-Cost RF Production Test Fixture
-
-Customer pain: small wireless-device manufacturers need repeatable pass/fail RF
-tests, but full lab instruments are expensive at every station.
-
-Product shape:
-
-- Shielded fixture with controlled attenuation/couplers.
-- Scripted TX-present, RX-sensitivity, frequency-offset, power, and loopback
-  checks.
-- Serial-numbered CSV/PDF reports.
-- Linux integration with barcode scanner, DUT UART, relay board, MES, or test
-  database.
-
-Why this design fits:
-
-- RF front end can generate and receive known signals.
-- FPGA can do fast correlation, power estimates, or packet-like triggers.
-- Linux handles workflow automation and reporting.
-
-Boundary: sell this first as a relative/go-no-go tester. Calibrated metrology
-needs external calibration, attenuators, shielding, and reference instruments.
-
-### 3. Private 2x2 MIMO And Channel-Sounding Appliance
-
-Customer pain: universities and RF startups need repeatable MIMO/channel
-experiments without buying a large instrument stack or maintaining fragile
-scripts.
+Customer pain: FPV, inspection robots, agricultural machines, remote vehicles,
+field instruments, and industrial teleoperation often need more than a commodity
+camera link. Existing FPV systems can be excellent, but they are usually closed,
+optimized for a fixed ecosystem, limited in custom side-channel data, and hard
+to adapt to unusual frequencies, payloads, telemetry, or private workflows.
+Wi-Fi and cellular links can be convenient, but they often have variable
+latency, coverage dependency, or weak control over degradation behavior.
 
 Product shape:
 
-- 2x2 channel sounder with PN, chirp, or Zadoff-Chu sequence generation.
-- FPGA-side correlation and timestamped capture.
-- Python/MATLAB dataset export.
-- Repeatable lab recipes for antenna, robotics, and indoor-channel studies.
+- Paired air/vehicle unit and ground unit.
+- Low-latency video stream plus telemetry and arbitrary customer data.
+- Degradation mode designed for control: predictable quality loss, bounded
+  latency, and graceful fallback instead of opaque failure.
+- APIs for robotics/autopilot/payload integration.
+- Optional Ethernet/IP bridge mode for sensors and remote instruments.
+- Regulatory profiles for supported countries/bands and clear conducted-test
+  tooling for customers building integrations.
 
-Why this design fits:
+Role of this board:
 
-- The board is a user-confirmed 2R2T AD9363/Zynq-7020 platform.
-- PL can keep timing-sensitive operations near the sample stream.
-- PS/Linux can manage experiment definitions, metadata, and files.
+- Prototype PHY/MAC choices and link behavior before committing to custom RF
+  hardware.
+- Test video transport, packetization, FEC/interleaving, adaptive bitrate,
+  diversity/MIMO ideas, side-channel scheduling, and telemetry coexistence.
+- Generate controlled range/degradation datasets in conducted and shielded
+  setups.
+- Validate which parts need FPGA acceleration and which can live in software.
 
-### 4. EMC Pre-Compliance And Prototype Regression Scanner
+Likely shipped product:
 
-Customer pain: hardware teams discover emissions problems late, when formal EMC
-lab time is expensive.
+- A purpose-built lower-cost RF module, not SDR-Z203.
+- Separate SKUs for ground unit, air/vehicle unit, and developer kit.
+- Firmware/license revenue for custom protocols, API features, and fleet
+  management.
+- Paid integration for robotics, inspection, and industrial customers.
+
+Why this can produce larger upside:
+
+- The buyer pays for mission capability, not lab diagnosis.
+- Customers may tolerate higher margins when the link enables a vehicle,
+  payload, or service business.
+- There is room for differentiation outside commodity FPV: custom data,
+  deterministic latency, private workflows, fleet control, and nonstandard
+  integration.
+
+Market proof:
+
+- DJI O4-class FPV products show that buyers already pay for long-range HD
+  digital video links with low latency and integrated goggles/air units.
+- HDZero shows a separate segment values fixed low latency and graceful visual
+  degradation over maximum compression efficiency.
+- The opportunity is not to clone those ecosystems. The opportunity is to serve
+  customers whose vehicle, payload, geography, frequency plan, data channel, or
+  integration workflow does not fit a closed consumer FPV stack.
+
+Customer wedges worth exploring:
+
+- **Industrial inspection robots:** video plus robot telemetry/control, often in
+  metal-rich or infrastructure-heavy environments.
+- **Agricultural and land vehicles:** private long-range link for video,
+  machine state, and operator commands where cellular coverage is poor.
+- **Remote instruments:** video or sensor streams from temporary field sites,
+  mines, construction zones, research sites, and emergency deployments.
+- **Specialty FPV / developer market:** teams that need open APIs, custom data,
+  or nonstandard payload integration more than a polished consumer ecosystem.
+- **OEM module customers:** companies that want to embed a private link in a
+  robot, tool, or vehicle and do not want to build PHY/MAC/RF expertise from
+  scratch.
+
+Defensible product surface:
+
+- Link scheduler that treats video, control, telemetry, and arbitrary payload
+  data as first-class traffic classes.
+- Predictable degradation policy: bounded control latency and understandable
+  video quality loss instead of opaque buffering or sudden dropouts.
+- Ground/air APIs and SDKs for robotics and payload teams.
+- Field tools: link budget calculator, channel plan, conducted-test harness,
+  packet/error telemetry, flight/mission replay, and firmware recovery.
+- Purpose-built final hardware once the SDR-Z203 prototype identifies the
+  minimum RF/FPGA/CPU requirements.
+
+What not to do:
+
+- Do not build a generic "better FPV system" for hobby consumers first. DJI,
+  Walksnail, analog, and HDZero already own strong parts of that market.
+- Do not ship Zynq-7020 + AD9363 as the final air unit unless the selling price
+  and use case justify it.
+- Do not start with open-air high-power experiments. Start conducted/shielded
+  and design around regulatory constraints from day one.
+
+Important hardware boundary:
+
+- AD9363 is a good sub-4 GHz prototyping RFIC, but common FPV systems often use
+  5.8 GHz. This board is therefore best for validating architecture and
+  algorithms, not for cloning a 5.8 GHz commercial FPV air unit directly.
+- If the winning product requires 5.1/5.8 GHz, the final hardware should use a
+  suitable RFIC/front end or a transverter during lab prototyping.
+- Keep all over-the-air work legal. Start with conducted tests, attenuators,
+  shielded boxes, and regulatory-band planning.
+
+## Other Product Directions
+
+### 1. Wireless Reliability Diagnostics For IoT Vendors
+
+Customer pain: smart-home devices, EV chargers, solar inverters, cameras,
+meters, gateways, and industrial IoT products generate support tickets and RMAs
+when wireless connectivity fails at customer sites. The vendor often cannot
+tell whether the cause is firmware, antenna, installation, interference,
+channel choice, or the customer's environment.
 
 Product shape:
 
-- Near-field probe workflow for engineering debug.
-- Automated frequency sweeps and burst captures.
-- Regression comparison between hardware revisions.
-- Heatmap/report output for design reviews.
+- Support workflow that classifies likely wireless failure causes.
+- Site or bench score: green/yellow/red, likely interference source, best
+  channel, expected reconnect reliability, and recommended installer action.
+- Optional cheap field tool or firmware feature in the vendor's gateway.
+- Dashboard for support teams to reduce unnecessary RMAs.
 
-Why this design fits:
+Role of this board:
 
-- SDR receive path and retuning support broad exploratory scans.
-- FPGA can trigger on bursts and summarize power.
-- Linux can make the workflow usable by non-RF specialists.
+- Collect labeled RF/IQ data in controlled and messy environments.
+- Reproduce weak-signal, adjacent-channel, bursty-interference, and drift cases.
+- Validate which features are actually predictive before building cheap
+  hardware.
 
-Boundary: market it as pre-compliance/debug, not certified compliance
-equipment.
+Likely shipped product:
 
-### 5. GNSS And Timing Integrity Monitor
+- Software model plus support dashboard.
+- Cheap scanner dongle, mobile accessory, gateway firmware, or integration with
+  existing Wi-Fi/BLE/sub-GHz radios.
 
-Customer pain: telecom, timing labs, drones, logistics yards, and industrial
-sites depend on GNSS/PPS timing and need early warning when the RF/timing
-environment is abnormal.
+Why this is better:
 
-Product shape:
+- The market is broader than SDR buyers.
+- ROI is measurable as reduced support time, truck rolls, and returns.
+- The SDR board is used internally as the ground-truth instrument, not as the
+  field BOM.
 
-- Receive-only monitor around GNSS-adjacent RF bands supported by the hardware.
-- PPS/timing health logging if the board PPS path is verified.
-- Alerts on missing PPS, timing drift, broadband interference, or abnormal RF
-  energy.
-
-Why this design fits:
-
-- The schematic shows GPS/PPS-related resources worth productizing after
-  verification.
-- FPGA can run continuous detectors.
-- Linux can integrate NTP/PTP/PPS logs and remote alerts.
-
-### 6. Protocol-Agnostic RF-To-IP Gateway
-
-Customer pain: factories and utilities have legacy RF sensors or controllers
-that still work but do not integrate cleanly with IP/cloud systems.
+### 2. Wireless Product QA Automation
 
 Product shape:
 
-- Decode customer-owned/licensed RF telemetry.
-- Publish MQTT/HTTP/Modbus TCP.
-- Optional controlled transmit only for owned/licensed systems.
+- Regression tests for wireless firmware releases.
+- Pairing, reconnect, weak-signal, interference, roaming, packet-loss, and
+  watchdog-recovery scenarios.
+- Shielded or conducted setup with pass/fail reports.
+- Scenario library sold as software/support, not just hardware.
 
-Why this design fits:
+Role of this board:
 
-- SDR avoids a new RF board for every legacy protocol.
-- FPGA handles timing-sensitive demodulation.
-- Linux handles customer integration.
+- Flexible RF impairment generator and capture reference.
+- Golden instrument in a lab rack, where the higher board cost is acceptable.
 
-Boundary: do not build or sell unauthorized interception or unlicensed
-transmission use cases.
+Likely buyers:
 
-### 7. RF Dataset Collection Node
+- IoT device vendors.
+- Gateway/router vendors.
+- Contract manufacturers with firmware validation responsibility.
 
-Customer pain: RFML and signal-intelligence research teams need labeled,
-repeatable field captures. Raw SDR laptops are brittle to deploy and hard to
-manage as fleets.
+Why this is better:
+
+- Customers pay to prevent bad firmware releases.
+- One expensive SDR/Zynq board per test rack is plausible.
+- The delivered value is repeatable QA, not a general-purpose spectrum box.
+
+### 3. Installability Score For Wireless Deployments
+
+Customer pain: installers waste time placing cameras, meters, solar gateways,
+warehouse sensors, EV chargers, and industrial gateways in locations that later
+prove unreliable.
 
 Product shape:
 
-- Scheduled and triggered captures.
-- Metadata discipline: location, antenna, LO, gain, bandwidth, temperature,
-  sample rate, firmware hash.
-- Local feature extraction and cloud upload.
-- Fleet reimage/recovery story.
+- Site survey score for a target device class.
+- Output: install/pass/fail, best channel or placement, margin estimate,
+  likely failure mode, and remediation steps.
+- Could be sold as an installer app, support tool, or module inside a gateway.
 
-Why this design fits:
+Role of this board:
 
-- FPGA reduces data volume at the edge.
-- Linux handles metadata and upload.
-- Verified image/recovery tooling makes fleet operations practical.
+- Build the first scoring algorithm with rich RF captures.
+- Compare candidate cheap sensors against SDR ground truth.
+
+Likely shipped product:
+
+- Cheap scanner.
+- Phone accessory.
+- Firmware feature in a gateway/router.
+- Service workflow for installers.
+
+### 4. RMA Triage Box For Wireless Devices
+
+Customer pain: returned devices marked "wireless broken" are often not actually
+RF-hardware failures. Vendors need to separate bad hardware from bad firmware,
+bad antenna assembly, bad provisioning, and hostile customer environments.
+
+Product shape:
+
+- Bench fixture for support or repair centers.
+- Automated DUT bring-up, TX/RX sanity checks, antenna-path check, reconnect
+  stress, and serial-numbered report.
+- Classification: hardware fault, likely firmware issue, likely customer-site
+  environment, or no fault found.
+
+Role of this board:
+
+- Golden RF reference and controllable signal source.
+- Expensive board cost is acceptable because units live in repair centers, not
+  every customer site.
+
+Why this is better:
+
+- Direct cost saving in support/RMA operations.
+- Easier buyer than a broad "RF observability" product.
+- Can start with one customer's device family.
+
+### 5. Synthetic RF Scenario Generator And Dataset Service
+
+Customer pain: teams building wireless reliability logic, RF classifiers, or QA
+systems need labeled RF conditions. Real-world data is hard to label and hard to
+reproduce.
+
+Product shape:
+
+- Scenario generator for weak signal, adjacent-channel interference, impulsive
+  noise, drift, burst collisions, and multipath-like fading.
+- Labeled datasets and replayable test profiles.
+- SDK for running the same scenario suite in a customer's lab.
+
+Role of this board:
+
+- Programmable RF scenario source and capture instrument.
+- Data-generation platform; shipped value can be dataset, software, or service.
+
+### 6. Wireless Chaos Test Box
+
+Customer pain: wireless products pass happy-path tests but fail in ugly real
+environments.
+
+Product shape:
+
+- Shielded/conducted test appliance that creates controlled bad-but-legal
+  conditions.
+- Tests reconnect behavior, retry policy, buffering, watchdog recovery, and
+  user-visible failure handling.
+- Scenario library can be priced as a subscription or service contract.
+
+Role of this board:
+
+- Lab instrument and reference generator.
+- Not a field-deployed product.
+
+### 7. Reference Platform For Cheaper Custom Hardware
+
+Customer pain: building a custom RF product too early is risky, but shipping
+Zynq-7020 + AD9363 is too expensive.
+
+Product path:
+
+1. Prototype on SDR-Z203.
+2. Identify the minimum RF features actually needed.
+3. Replace the expensive SDR architecture with:
+   - a Wi-Fi/BLE/sub-GHz chipset diagnostic path,
+   - a simple RF detector,
+   - MCU plus swept receiver,
+   - lower-end SDR,
+   - small FPGA/CPLD only if streaming timing is essential,
+   - or a custom narrowband front end.
+4. Keep SDR-Z203 as the lab oracle and production-test reference.
+
+This is the default path for any project expected to deploy in volume.
 
 ## Recommended First Commercial MVP
 
-Build the **RF Incident Recorder** first.
+Build the **Custom Long-Range Data/Video Link developer kit** first.
 
 Minimum useful version:
 
-1. Receive-only operation.
-2. User-selectable center frequency, bandwidth, gain, and dwell schedule.
-3. Rolling FFT/power summaries.
-4. Trigger on power anomaly, occupancy spike, or unexpected tone.
-5. Store 5 to 30 seconds of pre/post-event IQ or compressed spectra.
-6. Web UI with waterfall, event timeline, and report export.
-7. Watchdog, SD recovery image, QSPI backup, and clear field-update path.
+1. Pick one non-consumer customer segment, such as inspection robot, agricultural
+   vehicle, remote instrument, or industrial FPV payload.
+2. Define the link contract: video resolution/fps, maximum end-to-end latency,
+   control-data latency, telemetry rate, range target, and failure behavior.
+3. Build a conducted/shielded SDR-Z203 prototype with video packetization,
+   telemetry side channel, configurable FEC/interleaving, and quality telemetry.
+4. Measure degradation curves under attenuation, burst loss, Doppler-like
+   frequency offset, adjacent-channel energy, and antenna impairment.
+5. Build a demo where the customer can see graceful degradation and stable
+   control-data behavior, not just raw throughput.
+6. Use the SDR-Z203 data to specify the minimum final RF hardware and FPGA/MCU
+   requirements for a cheaper air/ground module.
 
 Why this should come first:
 
-- It solves a concrete customer sentence: "wireless failed and we do not know
-  what happened in RF."
-- Receive-only operation reduces regulatory and product-risk surface.
-- FPGA acceleration can be phased in after a CPU-only prototype proves demand.
-- The same platform can later expand into production test, EMC debug, RFML
-  collection, and MIMO/channel experiments.
+- It targets a product category with direct willingness to pay for range,
+  latency, and integration.
+- SDR-Z203 is justified as a development platform even if it is too expensive
+  for the final module.
+- A developer kit can sell before the fully optimized hardware exists.
+- The same video/data-link work can later support robotics, remote sensing,
+  industrial controls, and specialty FPV.
+
+First sellable package:
+
+- Two-node conducted demo: "camera/source" node to "ground" node over coax
+  attenuation.
+- Video or synthetic video-like stream with telemetry side channel.
+- Link-quality dashboard: latency, packet loss, FEC recovery, bitrate, control
+  delay, and degradation state.
+- Customer SDK: send prioritized data channels and inspect link health.
+- Integration report for one target customer segment.
+
+This is the right use of SDR-Z203: it proves the link contract and product
+experience before investing in custom air/ground RF hardware.
+
+## Projects To Deprioritize
+
+- Generic spectrum monitor appliance: useful technically, but too easy to be
+  compared against cheaper scanners or existing lab tools.
+- Broad MIMO research box: technically aligned with 2R2T, but customer base is
+  narrow unless attached to a paid course or research contract.
+- Fleet of deployed AD9363/Zynq RF sensors: high BOM and support burden unless
+  the application has high average selling price.
+- Generic EMC pre-compliance scanner: valuable only if narrowed to a specific
+  workflow, fixture, or customer segment.
+- Wireless support diagnostics as a standalone product: potentially useful, but
+  many customers will replace the problematic device instead of buying a
+  diagnostic platform unless it is embedded into a vendor support workflow.
 
 ## Safety And Regulatory Notes
 

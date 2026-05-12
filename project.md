@@ -198,8 +198,9 @@ user and vendor configuration.
 - `docs/nvmfs-mtd2.md` - read-only diagnosis of the `qspi-nvmfs` / `mtd2`
   mount failure and safe recovery boundary.
 - `docs/capabilities-and-projects.md` - capability summary, practical project
-  ideas, and product directions that reuse the RF+FPGA+Linux appliance
-  architecture.
+  ideas, and commercial product directions, now centered on using SDR-Z203 as a
+  reference platform for custom long-range video/data links and other cheaper
+  derivative wireless products.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T board separate
