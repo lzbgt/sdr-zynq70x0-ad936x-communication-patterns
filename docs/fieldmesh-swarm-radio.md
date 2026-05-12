@@ -408,6 +408,8 @@ Milestone 1: Common packet pipe
   shell before descriptor-ring/DMA integration.
   `rtl/fieldmesh/fieldmesh_class_priority_queue.v` verifies that lower numbered
   traffic classes dequeue before already-pending lower-priority descriptors.
+  `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` extends that policy into
+  two descriptor slots per C0..C4 class while preserving FIFO inside each class.
 
 Milestone 2: P2P profile
 

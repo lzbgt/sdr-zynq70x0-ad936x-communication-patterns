@@ -424,12 +424,16 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_class_priority_queue.v` - one-entry-per-class
   descriptor queue that proves C0..C4 lowest-class-first dequeue before deeper
   descriptor rings are added.
+- `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` - shallow two-entry
+  descriptor rings per C0..C4 class, preserving FIFO within each class and
+  lowest-class-first dequeue across classes.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
   `tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_packet_mem_axi_lite_tb.v`,
-  `tb/fieldmesh/fieldmesh_class_priority_queue_tb.v` with
+  `tb/fieldmesh/fieldmesh_class_priority_queue_tb.v`,
+  `tb/fieldmesh/fieldmesh_class_descriptor_rings_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor and packet-memory RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
@@ -529,6 +533,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Expand the FieldMesh one-entry-per-class priority queue into deeper
-   descriptor rings and connect it to the packet-memory AXI-lite shell, then
+4. Connect the FieldMesh shallow class descriptor rings to the packet-memory
+   AXI-lite shell, scale descriptor depth only after that path is verified, and
    bind it to the IIO/PL transport path before open-air RF tests.

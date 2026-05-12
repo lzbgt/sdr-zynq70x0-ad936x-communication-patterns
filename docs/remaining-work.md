@@ -110,9 +110,11 @@ Next concrete work:
   packet-memory AXI-lite wrapper now verify descriptor handshakes,
   register-mapped submit/ack, byte-copy behavior, and CPU-visible byte memory
   access in simulation. The class-priority queue now verifies one-entry-per
-  C0..C4 pending descriptors and lowest-class-first dequeue. The remaining PL
-  work is deeper descriptor-ring integration and connecting that queue to the
-  packet-memory AXI-lite block.
+  C0..C4 pending descriptors and lowest-class-first dequeue. The shallow
+  descriptor rings now verify two slots per C0..C4 class, FIFO within a class,
+  lowest-class-first dequeue across classes, full-ring drops, and invalid-class
+  drops. The remaining PL work is connecting those rings to the packet-memory
+  AXI-lite block and then scaling ring depth.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

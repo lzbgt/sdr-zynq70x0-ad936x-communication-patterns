@@ -1683,7 +1683,8 @@ The first RTL descriptor-loopback slice was verified with Vivado simulator:
 Result: `fieldmesh_desc_loopback_core_tb`,
 `fieldmesh_desc_loopback_regs_tb`, `fieldmesh_desc_loopback_axi_lite_tb`,
 `fieldmesh_packet_mem_loopback_core_tb`, `fieldmesh_packet_mem_axi_lite_tb`,
-and `fieldmesh_class_priority_queue_tb` passed. The core testbench accepts valid
+`fieldmesh_class_priority_queue_tb`, and
+`fieldmesh_class_descriptor_rings_tb` passed. The core testbench accepts valid
 C0 and C4 descriptors, checks OWN clearing and DONE/timestamp-valid completion,
 then rejects an invalid C5 descriptor with `drop_count=1` and `fault=1`. The
 register-wrapper testbench verifies `FM_ID`, control/status bits,
@@ -1697,8 +1698,10 @@ packet-memory AXI-lite test writes payload bytes through
 `FM_MEM_ADDR`/`FM_MEM_WDATA`, submits a descriptor, reads RX descriptor fields,
 and verifies copied RX bytes through `FM_MEM_RDATA`. The class-priority queue
 test enqueues C4, C2, then C0 and verifies dequeue order C0, C2, C4, plus
-duplicate/invalid class drops. This does not instantiate DMA, IIO, deep
-descriptor rings, or RF logic yet.
+duplicate/invalid class drops. The descriptor-ring test enqueues C4/C4, C2/C2,
+then C0 and verifies dequeue order C0, C2, C2, C4, C4, then checks full-ring and
+invalid-class drops. This does not instantiate DMA, IIO, scaled descriptor
+rings, or RF logic yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 
