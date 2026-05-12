@@ -1,0 +1,102 @@
+# OpenOCD JTAG Linux RAM boot
+# PS7 init: /root/work/ZYNQ7020/.config/z103-boot-artifacts/sdt/ps7_init.tcl
+# U-Boot ELF: /root/work/ZYNQ7020/.config/z103-boot-artifacts/boot/u-boot.elf
+# PL bitstream: /root/work/ZYNQ7020/.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+# Kernel: /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/boot/uImage -> 0x02080000
+# Ramdisk: /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/boot/uramdisk.image.gz -> 0x10000000
+# Devicetree: /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/boot/devicetree.dtb -> 0x02a00000
+# Pre-boot commands: /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/pre-boot-commands.txt
+# Bootargs: console=ttyPS0,115200 maxcpus=1 rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=fieldmesh-z103-jtag-ram
+# Serial device: /dev/ttyUSB1
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x13722093 (mfg: 0x049 (Xilinx), part: 0x3722, ver: 0x1)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+JTAG_PS_SOFT_RESET
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 100ms
+Error: Invalid ACK (0) in DAP response
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (0) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (0) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 300ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 700ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 1500ms
+Error: Invalid ACK (7) in DAP response
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu1 failed, trying to reexamine
+Error: Invalid ACK (7) in DAP response
+Error: Could not initialize the APB-AP
+Examination failed, GDB will be halted. Polling again in 1500ms
+Error: JTAG-DP STICKY ERROR
+Polling target zynq.cpu0 failed, trying to reexamine
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Polling target zynq.cpu1 failed, trying to reexamine
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+shutdown command invoked
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x13722093 (mfg: 0x049 (Xilinx), part: 0x3722, ver: 0x1)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+shutdown command invoked
+Open On-Chip Debugger 0.12.0-01004-g9ea7f3d64-dirty (2025-11-12-08:18)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : clock speed 1000 kHz
+Info : JTAG tap: zynq_pl.bs tap/device found: 0x13722093 (mfg: 0x049 (Xilinx), part: 0x3722, ver: 0x1)
+Info : JTAG tap: zynq.cpu tap/device found: 0x4ba00477 (mfg: 0x23b (ARM Ltd), part: 0xba00, ver: 0x4)
+Info : zynq.cpu0: hardware has 6 breakpoints, 4 watchpoints
+Info : zynq.cpu1: hardware has 6 breakpoints, 4 watchpoints
+Info : starting gdb server for zynq.cpu0 on 3333
+Info : Listening on port 3333 for gdb connections
+Error: timeout waiting for DSCR bit change
+Error: Error waiting for read dcc

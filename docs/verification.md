@@ -2175,6 +2175,27 @@ z103 pluto.itb    8d9af93a26da09804e08a394b3e6b6ba65c7cbe9bbc959122182f8f2f29b9d
 z103 fieldmesh dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
 ```
 
+The non-flashing FieldMesh RAM-boot staging helper was checked with:
+
+```sh
+PREPARE_ONLY=1 ./tools/run_fieldmesh_jtag_yocto_ram.sh z203
+PREPARE_ONLY=1 ./tools/run_fieldmesh_jtag_yocto_ram.sh z103
+```
+
+Result: both variants generated legacy U-Boot `uImage`,
+`uramdisk.image.gz`, a FieldMesh sidecar `devicetree.dtb`, pre-boot commands,
+and a local `SHA256SUMS` file under `.config/fieldmesh/jtag-ram-boot-z203/`
+and `.config/fieldmesh/jtag-ram-boot-z103/`.
+
+The first live Z103 FieldMesh RAM-boot attempt was then captured at
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_jtag_ram_20260513.txt`.
+OpenOCD still saw both the PL and CPU TAPs, but `JTAG_PS_SOFT_RESET` reported
+invalid DAP ACKs, `JTAG-DP STICKY ERROR`, and then `timeout waiting for DSCR
+bit change` / `Error waiting for read dcc`. No FieldMesh bitstream, kernel,
+ramdisk, or DTB payload was loaded. The current live retry gate is therefore a
+real JTAG-mode power cycle before rerunning the FieldMesh RAM boot and
+`fieldmesh-udp-probe dt-scan`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

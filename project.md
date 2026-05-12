@@ -487,6 +487,10 @@ user and vendor configuration.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the timing-clean FieldMesh DMA overlay bitstream.
+- `tools/run_fieldmesh_jtag_yocto_ram.sh` - prepares a non-flashing FieldMesh
+  RAM-boot payload for Z203 or Z103 from the Yocto kernel/rootfs, matching
+  sidecar DTB, and timing-clean FieldMesh bitstream, then delegates to the
+  OpenOCD/U-Boot RAM loader.
 - `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
   idempotent `system_project.tcl`/`Makefile` references; dry-run is the
@@ -641,4 +645,6 @@ Expected result in the current Pluto-compatible firmware state:
    assembled for both variants with matching bitstream/DTB pairs. Next boot a
    FieldMesh package through a non-flashing path, run `fieldmesh-udp-probe
    dt-scan`, then scale descriptor storage beyond the shallow class rings and
-   bind the path to IIO/PL before open-air RF tests.
+   bind the path to IIO/PL before open-air RF tests. The first live Z103
+   FieldMesh RAM-boot attempt is currently blocked at the PS-side DAP/DSCR
+   reset-halt boundary before payload loading.
