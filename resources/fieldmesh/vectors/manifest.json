@@ -11,6 +11,19 @@
   "traffic_profile": "stress",
   "vectors": [
     {
+      "descriptor": {
+        "epoch": 1000,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10000000",
+        "packet_len": 64,
+        "queue_age_ms": 0,
+        "slot": 0,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 0,
+        "traffic_class": "C0"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1000,
@@ -58,6 +71,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1000,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10000800",
+        "packet_len": 128,
+        "queue_age_ms": 0,
+        "slot": 0,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 1,
+        "traffic_class": "C1"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1000,
@@ -105,6 +131,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1000,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10001000",
+        "packet_len": 1056,
+        "queue_age_ms": 0,
+        "slot": 0,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 2,
+        "traffic_class": "C2"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1000,
@@ -152,6 +191,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1000,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10001800",
+        "packet_len": 1432,
+        "queue_age_ms": 0,
+        "slot": 0,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 3,
+        "traffic_class": "C3"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1000,
@@ -199,6 +251,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1000,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10002000",
+        "packet_len": 288,
+        "queue_age_ms": 0,
+        "slot": 0,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 4,
+        "traffic_class": "C4"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1000,
@@ -246,6 +311,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1001,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10002800",
+        "packet_len": 64,
+        "queue_age_ms": 0,
+        "slot": 1,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 5,
+        "traffic_class": "C0"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1001,
@@ -293,6 +371,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1001,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10003000",
+        "packet_len": 128,
+        "queue_age_ms": 0,
+        "slot": 1,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 6,
+        "traffic_class": "C1"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1001,
@@ -340,6 +431,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1001,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10003800",
+        "packet_len": 1056,
+        "queue_age_ms": 0,
+        "slot": 1,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 7,
+        "traffic_class": "C2"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1001,
@@ -387,6 +491,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1001,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10004000",
+        "packet_len": 1432,
+        "queue_age_ms": 0,
+        "slot": 1,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 8,
+        "traffic_class": "C3"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1001,
@@ -434,6 +551,19 @@
       "traffic_profile": "stress"
     },
     {
+      "descriptor": {
+        "epoch": 1001,
+        "flags": "0x0022",
+        "mode": "scheduled",
+        "packet_addr": "0x10004800",
+        "packet_len": 288,
+        "queue_age_ms": 0,
+        "slot": 1,
+        "stream_id": 100,
+        "timestamp_hi": 0,
+        "timestamp_lo": 9,
+        "traffic_class": "C4"
+      },
       "frame": {
         "dst_node": "z203-hub",
         "epoch": 1001,

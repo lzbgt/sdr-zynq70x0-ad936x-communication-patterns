@@ -361,19 +361,17 @@ Packet and shim-frame byte compatibility is pinned by
 ```sh
 ./tools/fieldmesh_vector_tool.py verify resources/fieldmesh/vectors/manifest.json
 ./tools/build_fieldmesh_udp_probe_host.sh
-for f in resources/fieldmesh/vectors/frame_*.bin; do
-  ./.config/fieldmesh/fieldmesh-udp-probe-host verify-frame --file "$f"
-  ./.config/fieldmesh/fieldmesh-udp-probe-host mmap-replay --file "$f"
-  ./.config/fieldmesh/fieldmesh-udp-probe-host desc-replay --file "$f"
-done
+./tools/fieldmesh_vector_tool.py verify-c resources/fieldmesh/vectors/manifest.json \
+  --probe .config/fieldmesh/fieldmesh-udp-probe-host
 ```
 
 The vector corpus is deliberately small: scheduled/auto stress traffic for two
 ticks. It covers all traffic classes C0..C4, the largest current payload size,
 header CRC, shim-frame CRC, transport sequence handling, and PL descriptor field
-mapping. IIO and PL loopback implementations must pass these byte-level vectors,
-mapped-memory replay, and descriptor replay before their traces are treated as
-meaningful.
+mapping. The C verification path runs `verify-frame`, `mmap-replay`, and
+`desc-replay` for every frame file and compares descriptor output against the
+manifest. IIO and PL loopback implementations must pass these byte-level vectors
+before their traces are treated as meaningful.
 
 ## Next Transport Boundary
 

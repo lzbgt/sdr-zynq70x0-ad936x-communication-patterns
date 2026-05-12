@@ -97,8 +97,8 @@ compatibility corpus:
 
 - `packet_*.bin`: complete FieldMesh packet header plus payload.
 - `frame_*.bin`: shim frame header, embedded packet, and frame CRC.
-- `manifest.json`: expected parse fields, lengths, hashes, selected mode, and
-  traffic profile.
+- `manifest.json`: expected parse fields, descriptor fields, lengths, hashes,
+  selected mode, and traffic profile.
 
 Generate or refresh the corpus with:
 
@@ -115,6 +115,13 @@ The C probe can verify the same frame files:
 fieldmesh-udp-probe verify-frame --file resources/fieldmesh/vectors/frame_000.bin
 fieldmesh-udp-probe mmap-replay --file resources/fieldmesh/vectors/frame_000.bin
 fieldmesh-udp-probe desc-replay --file resources/fieldmesh/vectors/frame_000.bin
+```
+
+Or verify every committed vector against the host-built C probe:
+
+```sh
+./tools/fieldmesh_vector_tool.py verify-c resources/fieldmesh/vectors/manifest.json \
+  --probe .config/fieldmesh/fieldmesh-udp-probe-host
 ```
 
 These files are the contract for IIO and PL loopback work: new transports must

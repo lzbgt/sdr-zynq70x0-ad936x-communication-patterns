@@ -382,7 +382,8 @@ user and vendor configuration.
   negotiation, selected-mode contract events, C0/C1 latency budgets, stale
   video-like degradation, and receive failures.
 - `tools/fieldmesh_vector_tool.py` - generate and verify committed FieldMesh
-  packet/shim-frame binary vectors under `resources/fieldmesh/vectors/`.
+  packet/shim-frame binary vectors under `resources/fieldmesh/vectors/`,
+  including C-probe comparison for descriptor replay output.
 - `fieldmesh-udp-probe` - small C FieldMesh UDP sender/receiver now packaged
   into both Z203 and Z103 Yocto developer images for board-runtime split UDP
   tests without requiring Python on the board; sender traces include lightweight

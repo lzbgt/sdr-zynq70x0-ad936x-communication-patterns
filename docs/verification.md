@@ -1630,18 +1630,16 @@ Binary vector corpus:
   --scenario scheduled --mode auto --traffic-profile stress --ticks 2 --seed 1
 ./tools/fieldmesh_vector_tool.py verify resources/fieldmesh/vectors/manifest.json
 ./tools/build_fieldmesh_udp_probe_host.sh
-for f in resources/fieldmesh/vectors/frame_*.bin; do
-  ./.config/fieldmesh/fieldmesh-udp-probe-host verify-frame --file "$f"
-  ./.config/fieldmesh/fieldmesh-udp-probe-host mmap-replay --file "$f"
-  ./.config/fieldmesh/fieldmesh-udp-probe-host desc-replay --file "$f"
-done
+./tools/fieldmesh_vector_tool.py verify-c resources/fieldmesh/vectors/manifest.json \
+  --probe .config/fieldmesh/fieldmesh-udp-probe-host
 ```
 
 Result: ten scheduled/auto stress vectors were generated and verified. Python
 validated the packet and shim-frame manifests; the host-built C probe validated
 all committed `frame_*.bin` files through its `verify-frame` role and replayed
 them through the mapped-memory ring ABI with `mmap-replay` and the PL-facing
-descriptor model with `desc-replay`.
+descriptor model with `desc-replay`. The `verify-c` path also compared emitted
+descriptor fields against the manifest.
 
 ## FieldMesh Board Runtime Probe
 

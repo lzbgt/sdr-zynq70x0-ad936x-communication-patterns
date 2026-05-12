@@ -7,15 +7,38 @@ import argparse
 import hashlib
 import json
 import random
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import fieldmesh_trace_harness as harness
 
+DESC_MODEL_PACKET_BASE = 0x10000000
+DESC_MODEL_PACKET_STRIDE = 2048
+FM_DESC_DONE = 0x0002
+FM_DESC_TIMESTAMP_VALID = 0x0020
+
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def descriptor_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    frame = row["frame"]
+    return {
+        "packet_addr": f"0x{DESC_MODEL_PACKET_BASE + (frame['transport_seq'] * DESC_MODEL_PACKET_STRIDE):08x}",
+        "packet_len": frame["frame_len"],
+        "stream_id": frame["stream_id"],
+        "traffic_class": frame["traffic_class"],
+        "mode": frame["mode"],
+        "flags": f"0x{FM_DESC_DONE | FM_DESC_TIMESTAMP_VALID:04x}",
+        "epoch": frame["epoch"],
+        "slot": frame["slot"],
+        "queue_age_ms": 0,
+        "timestamp_lo": frame["transport_seq"],
+        "timestamp_hi": 0,
+    }
 
 
 def vector_rows(scenario: str, mode: str, traffic_profile: str, ticks: int, seed: int) -> list[dict[str, Any]]:
@@ -50,6 +73,7 @@ def vector_rows(scenario: str, mode: str, traffic_profile: str, ticks: int, seed
                     "frame_sha256": sha256_bytes(frame),
                     "packet": parsed_packet,
                     "frame": parsed_frame,
+                    "descriptor": descriptor_for_row({"frame": parsed_frame}),
                     "_packet_bytes": packet,
                     "_frame_bytes": frame,
                 }
@@ -114,6 +138,9 @@ def verify_vectors(args: argparse.Namespace) -> None:
             errors.append(f"{packet_path}: parsed packet mismatch")
         if parsed_frame != row["frame"]:
             errors.append(f"{frame_path}: parsed frame mismatch")
+        expected_descriptor = descriptor_for_row({"frame": parsed_frame})
+        if row.get("descriptor") != expected_descriptor:
+            errors.append(f"{frame_path}: descriptor mismatch")
         frame_packet = frame[harness.FIELD_MESH_FRAME_LEN : -harness.FIELD_MESH_FRAME_CRC_LEN]
         if frame_packet != packet:
             errors.append(f"{frame_path}: embedded packet differs from {packet_path}")
@@ -121,6 +148,58 @@ def verify_vectors(args: argparse.Namespace) -> None:
     summary = {
         "event": "fieldmesh_vectors_verified",
         "manifest": str(manifest_path),
+        "vectors": len(manifest.get("vectors", [])),
+        "ok": not errors,
+    }
+    print(json.dumps(summary, sort_keys=True))
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def run_probe(probe: Path, role: str, frame_path: Path) -> dict[str, Any]:
+    result = subprocess.run(
+        [str(probe), role, "--file", str(frame_path)],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"{probe} {role} {frame_path} failed: {result.stderr.strip()}")
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"{probe} {role} {frame_path} produced no JSON")
+    return json.loads(lines[-1])
+
+
+def verify_c_probe(args: argparse.Namespace) -> None:
+    manifest_path = args.manifest
+    manifest = json.loads(manifest_path.read_text())
+    base_dir = manifest_path.parent
+    errors: list[str] = []
+
+    for row in manifest.get("vectors", []):
+        frame_path = base_dir / row["frame_file"]
+        for role in ("verify-frame", "mmap-replay", "desc-replay"):
+            try:
+                event = run_probe(args.probe, role, frame_path)
+            except (RuntimeError, json.JSONDecodeError) as exc:
+                errors.append(f"{frame_path}: {role}: {exc}")
+                continue
+            if not event.get("ok"):
+                errors.append(f"{frame_path}: {role}: ok=false")
+            if role == "desc-replay":
+                expected = row["descriptor"]
+                actual = {key: event.get(key) for key in expected}
+                if actual != expected:
+                    errors.append(f"{frame_path}: desc-replay descriptor mismatch: {actual} != {expected}")
+
+    summary = {
+        "event": "fieldmesh_c_vectors_verified",
+        "manifest": str(manifest_path),
+        "probe": str(args.probe),
         "vectors": len(manifest.get("vectors", [])),
         "ok": not errors,
     }
@@ -147,6 +226,11 @@ def parse_args() -> argparse.Namespace:
     verify = subparsers.add_parser("verify", help="verify a generated vector corpus")
     verify.add_argument("manifest", type=Path)
     verify.set_defaults(func=verify_vectors)
+
+    verify_c = subparsers.add_parser("verify-c", help="verify a C probe against a vector corpus")
+    verify_c.add_argument("manifest", type=Path)
+    verify_c.add_argument("--probe", type=Path, default=Path(".config/fieldmesh/fieldmesh-udp-probe-host"))
+    verify_c.set_defaults(func=verify_c_probe)
     return parser.parse_args()
 
 
