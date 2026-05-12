@@ -231,7 +231,10 @@ user and vendor configuration.
 - `docs/fieldmesh-swarm-radio.md` - high-bandwidth swarm radio product/design
   concept, framed as "high-bandwidth LoRa" for performance use cases, covering
   star/fanout, graph/relay, GPS-scheduled cooperative sharing, and P2P
-  communication modes.
+  communication modes, plus Z203/Z103 prototype roles and mode
+  selection/negotiation.
+- `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
+  packet, control-plane, mode-selection, and conducted-test spec.
 - `docs/reprogramming.md` - firmware, SD-card, DFU, JTAG/Vivado, and HDL
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T SDR-Z203 board

@@ -157,6 +157,8 @@ Product shape:
 - Low-latency video stream plus telemetry and arbitrary customer data.
 - Four first-class communication modes: P2P, star/fanout, graph/relay, and
   GPS/PPS-scheduled multi-node sharing.
+- User-selectable or peer-negotiated mode selection based on hardware
+  capability, clock quality, link state, traffic intent, and regulatory profile.
 - Degradation mode designed for control: predictable quality loss, bounded
   latency, and graceful fallback instead of opaque failure.
 - APIs for robotics/autopilot/payload integration.
@@ -171,6 +173,9 @@ Role of this board:
 - Test video transport, packetization, FEC/interleaving, adaptive bitrate,
   diversity/MIMO ideas, side-channel scheduling, GPS/PPS slot timing, and
   telemetry coexistence.
+- Use Z203 as the 2R2T hub/coordinator/relay lab node and Z103 as a constrained
+  1R1T endpoint prototype so the shipped design is not accidentally sized
+  around the more expensive board.
 - Generate controlled range/degradation datasets in conducted and shielded
   setups.
 - Validate which parts need FPGA acceleration and which can live in software.
@@ -224,6 +229,9 @@ Defensible product surface:
   cooperative sharing.
 - Predictable degradation policy: bounded control latency and understandable
   video quality loss instead of opaque buffering or sudden dropouts.
+- Capability discovery and mode negotiation so users can force a communication
+  pattern or let peers choose one from hardware, clock, link, traffic, and
+  regulatory constraints.
 - Ground/air APIs and SDKs for robotics and payload teams.
 - Field tools: link budget calculator, channel plan, conducted-test harness,
   packet/error telemetry, flight/mission replay, and firmware recovery.

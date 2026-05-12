@@ -168,6 +168,56 @@ Boundary:
   air-unit clone. If the product needs 5.1/5.8 GHz, use this board to validate
   architecture and move final RF to suitable hardware.
 
+## Prototype Board Roles
+
+Use SDR-Z203 and SDR-Z103 as different members of the same product family, not
+as interchangeable boards.
+
+**SDR-Z203 / Z7020 / 2R2T**
+
+Best prototype role:
+
+- ground hub,
+- gateway,
+- relay,
+- cooperative receiver,
+- protocol lab node.
+
+Why:
+
+- two receive and two transmit paths make diversity, fanout monitoring,
+  scheduled relay experiments, and dual-link measurements practical;
+- larger Zynq-7020 fabric gives more room for FEC, interleaving, timestamping,
+  packet queues, or modem experiments;
+- verified SD, QSPI, JTAG, Yocto, Vivado, and recovery paths make it safer for
+  aggressive iteration.
+
+**SDR-Z103 / Z7010 / 1R1T**
+
+Best prototype role:
+
+- lower-cost air node,
+- vehicle node,
+- sensor/video source,
+- single-link endpoint.
+
+Why:
+
+- 1R1T matches a realistic cost-reduced field endpoint better than a 2R2T lab
+  board;
+- Zynq-7010 forces the design to keep endpoint logic small enough for a cheaper
+  shipped product;
+- its lack of Ethernet and SD-card paths is useful pressure: production nodes
+  should not rely on lab-only maintenance interfaces.
+
+Immediate split:
+
+- Prototype hub/coordinator features first on Z203.
+- Prototype endpoint behavior first on Z103.
+- Keep common packet format, scheduler policy, and user API shared.
+- Allow optional 2R2T-only features on Z203, but do not make them mandatory for
+  basic network membership.
+
 ## Protocol Shape
 
 Roles:
@@ -214,6 +264,60 @@ Security:
 - Encrypted customer payload streams.
 - Replay protection tied to frame counters or time epochs.
 - Signed firmware and signed network policy profiles.
+
+## Mode Selection And Negotiation
+
+The network mode must be explicit because the same hardware may be used as a
+private video link, a fanout broadcaster, a relay graph, or a scheduled swarm.
+Mode choice should come from both user policy and peer discovery.
+
+Inputs:
+
+- user-selected policy: P2P, star/fanout, graph/relay, scheduled sharing, or
+  auto;
+- node capability advertisement: 1R1T or 2R2T, supported bandwidth profiles,
+  clock quality, GPS/PPS lock, relay permission, encryption support, and power
+  class;
+- link measurements: RSSI-like level, EVM/SNR-like quality, packet loss, FEC
+  margin, latency, and queue age;
+- traffic intent: control only, video, telemetry, bulk data, gateway bridge, or
+  relay service;
+- regulatory profile: allowed frequencies, channel widths, duty cycle, and
+  transmit-power limits.
+
+Negotiation flow:
+
+1. Discovery beacon advertises node ID, role, hardware profile, clock state,
+   supported PHY/MAC profiles, and security requirements.
+2. Peers authenticate and exchange a compact capability table.
+3. The coordinator, or the two peers in P2P mode, selects a network mode and
+   profile according to user policy and measured link quality.
+4. Nodes receive a signed network policy: stream IDs, traffic classes, schedule,
+   route graph, encryption keys, fallback profiles, and emergency behavior.
+5. Nodes periodically report link state, queue state, time-lock state, and
+   delivered bitrate so the policy can be updated without stopping traffic.
+
+Mode preference:
+
+| Situation | Preferred Mode | Reason |
+| --- | --- | --- |
+| Two nodes, one primary stream | P2P | lowest coordination overhead |
+| One source, many viewers | Star/fanout | one RF payload feeds many receivers |
+| Several endpoints share one hub | Scheduled star | predictable slot ownership |
+| Obstructed or extended area | Graph/relay | selected nodes forward traffic |
+| GPS/PPS lock is strong across nodes | Scheduled cooperative | deterministic sharing and lower collision risk |
+| Clock lock is absent or weak | P2P or coordinator-timed star | simpler timing and larger guards |
+| Z103 endpoint joins Z203 hub | Star or scheduled star | Z203 can absorb hub complexity |
+
+Fallback rules:
+
+- control and emergency traffic always keep the strongest protection;
+- telemetry stays ahead of video enhancement layers;
+- video base layer stays ahead of bulk data;
+- graph relay is disabled for a node if queue age violates the stream budget;
+- scheduled mode falls back to larger guards or coordinator timing when GPS/PPS
+  lock is lost;
+- auto mode must expose the selected mode and reason through the API.
 
 ## First Sellable Developer Kit
 
@@ -274,6 +378,56 @@ Phase 4: Purpose-built hardware
 - Decide whether FPGA is required in final node or only in hub/ground unit.
 - Reduce BOM for air/vehicle units.
 - Keep SDR-Z203 as golden reference and protocol lab.
+
+## First Implementation Plan On Z103 And Z203
+
+Start conducted or shielded. The first goal is protocol behavior and customer
+value, not maximum range.
+
+Milestone 1: Common packet pipe
+
+- Shared packet header: network ID, node ID, stream ID, traffic class, sequence
+  number, epoch/slot, payload length, and authentication tag.
+- User-space packet generator and receiver on both Z103 and Z203.
+- IIO or PL loopback transport first, then RF transport after link framing is
+  observable.
+- CSV/JSON trace of packet loss, latency, bitrate, and queue age.
+
+Milestone 2: P2P profile
+
+- One Z103 endpoint sends video-like C2 data and C1 telemetry to one Z203 hub.
+- C0 control packets remain bounded while C2 load is increased.
+- Profile changes reduce video-like load before C0/C1 traffic fails.
+
+Milestone 3: Star/fanout profile
+
+- One source stream is received by two observers without duplicating the RF
+  payload.
+- Receivers subscribe by stream ID and report link state separately.
+- Dashboard shows per-receiver quality and common transmitted bitrate.
+
+Milestone 4: Scheduled sharing
+
+- Z203 acts as coordinator.
+- Two endpoints share fixed slots first, then dynamic slots.
+- Schedule updates are visible in the trace and do not interrupt C0/C1 traffic.
+
+Milestone 5: Graph/relay profile
+
+- One node forwards selected C1/C2 traffic for another node under an explicit
+  route graph.
+- Relay traffic is scheduled; no uncontrolled flood/repeat behavior.
+- Queue-age limits drop stale video-like packets rather than breaking control
+  latency.
+
+Done criteria for the prototype:
+
+- A user can choose P2P, star, graph, or scheduled mode explicitly.
+- Auto mode can negotiate a mode from advertised capabilities and measured link
+  quality.
+- Z103 can participate as a constrained 1R1T endpoint.
+- Z203 can act as hub/coordinator/relay with optional 2R2T-specific features.
+- The same customer payload API works across both boards.
 
 ## Risks And Constraints
 

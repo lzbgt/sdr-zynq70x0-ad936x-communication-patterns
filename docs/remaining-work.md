@@ -13,41 +13,62 @@ and Pluto-style `pluto.frm` packaging are also complete. Generated artifacts
 have not been flashed. Linux follow-up attempts are prepared but not yet
 verified through the JTAG-assisted path.
 
-Next concrete work:
+Completed baseline:
 
-- Keep `tools/preflight_z103_source_tree.sh` passing; it verifies key source
-  facts and byte-matches prebuilt factory artifacts against imported firmware.
-- Reconcile source-level mismatches before relying on generated artifacts:
-  schematic/user evidence says no SD-card wiring, while `system_bd.tcl` enables
-  PS SD0; live board is 1R1T, while `system_bd.tcl` sets
-  `axi_ad9361 CONFIG.MODE_1R1T 0`.
-- Build an unmodified Z103 Vivado XSA/bitstream for `xc7z010clg400-2`.
-  Status: done with Vivado 2025.1; timing met, not hardware-loaded yet.
-- Build Z103 FSBL and boot package artifacts from the rebuilt XSA.
-  Status: done under `.config/z103-boot-artifacts`; structurally verified, not
-  hardware-loaded yet.
-- Keep the Z103 Yocto build/audit/package flow passing:
+- `tools/preflight_z103_source_tree.sh` passes and byte-matches prebuilt
+  factory artifacts against imported firmware.
+- Unmodified Z103 Vivado XSA/bitstream builds for `xc7z010clg400-2` with
+  timing met.
+- Z103 FSBL and boot package artifacts build under `.config/z103-boot-artifacts`
+  and are structurally verified.
+- Z103 Yocto build/audit/package flow passes:
   `bitbake sdr-z103-arm-image`, `bitbake virtual/bootloader`,
   `tools/audit_z103_yocto_rootfs.sh`, and
   `tools/package_z103_yocto_pluto_frm.sh`.
-- Extend the generated Z103 path from JTAG U-Boot to rebuilt Linux/rootfs boot,
-  then
-  verify USB RNDIS, IIO, and RF datapath. The first FIT-from-RAM attempt
-  stopped during the large OpenOCD memory transfer; the first QSPI-FIT handoff
-  attempts hit DSCR/DCC timeout before U-Boot load. Start the next attempt from
-  a clean USB/JTAG state and avoid full FIT transfer over OpenOCD. The prepared
-  next helper is `tools/run_openocd_z103_jtag_yocto_ram.sh`, which stages
-  Yocto `zImage` and `rootfs.cpio.gz` as legacy U-Boot images and loads
-  kernel/ramdisk/devicetree separately. Its first live run still failed before
-  image loading at the PS debug reset/halt boundary: invalid DAP ACKs,
-  `JTAG-DP STICKY ERROR`, and `timeout waiting for DSCR bit change`.
-- Capture a full Z103 QSPI backup before any Z103 flash write.
-  Status: pending. After the latest JTAG RAM-boot boundary,
-  `tools/verify_z103_board.sh` captured 100 percent ping loss to
-  `192.168.2.1`, so the backup must wait for normal USB/RNDIS or another live
-  read path to be restored. Use `tools/backup_z103_qspi_live.sh` once reachable.
+- Rebuilt Z103 PS7 init and U-Boot run from DDR over OpenOCD JTAG without
+  writing QSPI.
 
-Details are in `docs/sdr-z103-source-workflow.md`.
+Open live gates:
+
+- Restore normal Z103 USB/RNDIS or another live read path, then capture a full
+  Z103 QSPI backup before any Z103 flash write. After the latest JTAG RAM-boot
+  boundary, `tools/verify_z103_board.sh` captured 100 percent ping loss to
+  `192.168.2.1`; use `tools/backup_z103_qspi_live.sh` once reachable.
+- Extend the generated Z103 path from JTAG U-Boot to rebuilt Linux/rootfs boot,
+  then verify USB RNDIS, IIO, and RF datapath. The first FIT-from-RAM attempt
+  stopped during the large OpenOCD memory transfer; the first QSPI-FIT handoff
+  attempts hit DSCR/DCC timeout before U-Boot load. The prepared Yocto split-RAM
+  helper, `tools/run_openocd_z103_jtag_yocto_ram.sh`, stages Yocto `zImage` and
+  `rootfs.cpio.gz` as legacy U-Boot images and loads kernel/ramdisk/devicetree
+  separately. Its first live run still failed before image loading at the PS
+  debug reset/halt boundary: invalid DAP ACKs, `JTAG-DP STICKY ERROR`, and
+  `timeout waiting for DSCR bit change`.
+- Reconcile source-level mismatches before relying on generated artifacts for
+  flash: schematic/user evidence says no SD-card wiring, while `system_bd.tcl`
+  enables PS SD0; live board is 1R1T, while `system_bd.tcl` sets
+  `axi_ad9361 CONFIG.MODE_1R1T 0`.
+
+Z103 details are in `docs/sdr-z103-source-workflow.md`.
+
+## Open Gate: FieldMesh Swarm Radio Prototype Spec
+
+Status: product/design concept drafted in `docs/fieldmesh-swarm-radio.md`; the
+first implementation-facing packet/control-plane spec is drafted in
+`docs/fieldmesh-protocol-spec.md`.
+
+Next concrete work:
+
+- Define the first conducted test harness that runs on both variants: Z103 as a
+  constrained 1R1T endpoint and Z203 as a 2R2T hub/coordinator/relay lab node.
+- Keep mode selection user-controllable, but allow peers to negotiate mode from
+  capability advertisements, clock quality, link measurements, traffic intent,
+  and regulatory profile.
+- Start with generated video-like payloads, control/telemetry side channels,
+  packet traces, and bounded-latency degradation before attempting open-air
+  range tests.
+
+FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
+`docs/fieldmesh-protocol-spec.md`.
 
 ## Closed Gate: Normal Boot Restore After JTAG
 
