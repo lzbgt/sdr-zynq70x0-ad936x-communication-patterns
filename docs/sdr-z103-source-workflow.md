@@ -158,3 +158,28 @@ a424820b81dbc775d06a23d05e5cc916ba8b3ea13d1e6fc2ae41599c650b3207  fsbl.elf
 Safety boundary: these artifacts have only been built and structurally verified.
 Do not flash Z103 QSPI until the rebuilt FSBL/U-Boot path has booted by JTAG or
 another proven non-QSPI method.
+
+## JTAG U-Boot Smoke Test
+
+Command:
+
+```sh
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_uboot_rebuilt_20260512.txt \
+  ./tools/run_openocd_z103_jtag_uboot.sh
+```
+
+Result:
+
+- The onboard FT2232 was attached to WSL with
+  `tools/attach_ft2232_jtag_to_wsl.ps1`.
+- `tools/probe_openocd_jtag.sh` detected the Zynq PL and CPU TAPs.
+- OpenOCD ran the rebuilt Z103 PS7 init Tcl and loaded the Z103 U-Boot ELF from
+  `.config/z103-boot-artifacts/boot/u-boot.elf` into DDR.
+- UART capture reached `U-Boot PlutoSDR`, reported `DRAM: ECC disabled 512 MiB`,
+  detected `W25Q256` QSPI, and printed `Model: Zynq Pluto SDR Board`.
+- The soft-reset phase emitted transient DAP sticky/ACK errors, then recovered
+  enough to halt the CPU, run PS7 init, load U-Boot, and leave a clean JTAG
+  chain scan afterward.
+
+This verifies a non-flashing Z103 PS7/U-Boot path. It does not yet verify a
+rebuilt Linux/rootfs boot, USB RNDIS, IIO, or RF datapath.

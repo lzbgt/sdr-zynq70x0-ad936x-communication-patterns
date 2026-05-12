@@ -7,8 +7,8 @@ are kept briefly when they affect the remaining recovery decisions.
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
 Status: resource import, read-only serial baseline, source preflight, Vivado
-XSA/bitstream rebuild, and boot artifact generation are complete. Generated
-artifacts have not been hardware-loaded or flashed.
+XSA/bitstream rebuild, boot artifact generation, and volatile JTAG U-Boot smoke
+test are complete. Generated artifacts have not been flashed.
 
 Next concrete work:
 
@@ -23,8 +23,8 @@ Next concrete work:
 - Build Z103 FSBL and boot package artifacts from the rebuilt XSA.
   Status: done under `.config/z103-boot-artifacts`; structurally verified, not
   hardware-loaded yet.
-- Boot the generated Z103 FSBL/U-Boot path by JTAG or another proven non-QSPI
-  method before any flash write.
+- Extend the generated Z103 path from JTAG U-Boot to rebuilt Linux/rootfs boot,
+  then verify USB RNDIS, IIO, and RF datapath.
 
 Details are in `docs/sdr-z103-source-workflow.md`.
 

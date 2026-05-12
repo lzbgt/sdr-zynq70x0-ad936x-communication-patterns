@@ -275,6 +275,7 @@ until all of these pass:
   Status: built with `tools/build_z103_boot_artifacts.sh` into
   `.config/z103-boot-artifacts`; structurally verified, not hardware-loaded.
 - Z103 JTAG or other proven non-QSPI boot path reaches U-Boot.
+  Status: done with `tools/run_openocd_z103_jtag_uboot.sh`; not flashed.
 - Z103 Linux boot reaches USB RNDIS gadget networking and IIO.
 - `iio_info` confirms the expected AD9363 1R1T runtime topology.
 - Factory QSPI backup exists and verifies.

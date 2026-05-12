@@ -312,6 +312,8 @@ user and vendor configuration.
   `tools/verify_z103_boot_artifacts.sh` - generate and verify Z103-local FSBL,
   QSPI boot image, `BOOT.BIN`, and `boot.frm` artifacts from the rebuilt Z103
   XSA without flashing QSPI.
+- `tools/run_openocd_z103_jtag_uboot.sh` - run the rebuilt Z103 PS7 init and
+  Z103 U-Boot ELF over OpenOCD JTAG without writing QSPI.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows

@@ -1285,6 +1285,41 @@ Result:
 Safety boundary: no Z103 QSPI partition was written. The next Z103 gate is a
 JTAG or other proven non-QSPI boot attempt with the generated artifacts.
 
+## SDR-Z103 JTAG U-Boot Smoke Test
+
+Command:
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass \
+  -File tools/attach_ft2232_jtag_to_wsl.ps1
+./tools/probe_openocd_jtag.sh
+CAPTURE=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_uboot_rebuilt_20260512.txt \
+  ./tools/run_openocd_z103_jtag_uboot.sh
+./tools/probe_openocd_jtag.sh
+```
+
+Result:
+
+- `usbipd` attached the FT2232 `0403:6010` device to WSL.
+- OpenOCD scan detected TAP IDs `0x13722093` for PL and `0x4ba00477` for CPU.
+- Rebuilt Z103 PS7 init and Z103 U-Boot ELF ran from DDR without writing QSPI.
+- UART capture showed:
+
+```text
+U-Boot PlutoSDR  (Dec 17 2025 - 20:50:07 -0800)
+DRAM:  ECC disabled 512 MiB
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+Model: Zynq Pluto SDR Board
+```
+
+- The run logged transient DAP sticky/ACK errors during the soft-reset phase,
+  but recovered and completed the U-Boot handoff. A post-run OpenOCD scan still
+  passed.
+
+Boundary: this proves a volatile Z103 JTAG U-Boot path. It does not prove Linux
+boot, USB RNDIS, IIO, RF datapath, or QSPI flashing safety for rebuilt
+artifacts.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
