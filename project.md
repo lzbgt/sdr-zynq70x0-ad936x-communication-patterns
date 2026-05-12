@@ -461,6 +461,9 @@ user and vendor configuration.
   overlay step; `--check-rtl` verifies the required RTL files and module names
   before an overlay is attempted, and `--check-hp-policy` verifies the preferred
   packet-DMA HP-port split remains available.
+- `tools/fieldmesh_vivado_overlay_scaffold.py` - generates a non-mutating
+  Vivado sidecar overlay scaffold directory with the checked plan, Tcl
+  constants, RTL file list, and overlay insertion notes.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and

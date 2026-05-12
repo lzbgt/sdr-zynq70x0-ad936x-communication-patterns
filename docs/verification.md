@@ -1897,6 +1897,16 @@ sed 's/axi_ad9361_adc_dma\/m_dest_axi sys_ps7\/S_AXI_HP1/axi_ad9361_adc_dma\/m_d
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp_hp"
 ! ./tools/fieldmesh_sidecar_plan.py --check-hp-policy --variant hpconflict="$tmp_hp"
 rm -f "$tmp_hp"
+./tools/fieldmesh_vivado_overlay_scaffold.py \
+  --repo-root "$PWD" \
+  --out-dir .config/fieldmesh/vivado-overlay-scaffold-test \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
+python3 -m json.tool \
+  .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_sidecar_plan.json >/dev/null
+test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "9"
+rg 'Do not modify axi_ad9361_adc_dma' \
+  .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_bd_overlay_stub.tcl
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -1918,6 +1928,8 @@ JSON, review Markdown, and Tcl constants from the same checked contract.
 temporary repo root.
 `--check-hp-policy` passed for both imported variants and failed as expected
 when a synthetic Tcl change moved ADI RX from HP1 onto HP0.
+The overlay scaffold generator produced valid JSON, a 9-file RTL list, Tcl
+constants, and a non-mutating Vivado overlay stub.
 
 ## Verification Gaps
 

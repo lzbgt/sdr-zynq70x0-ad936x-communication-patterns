@@ -139,6 +139,22 @@ exists under the repo root and contains the expected module declaration.
 `--check-hp-policy` verifies that ADI RX remains on HP1, ADI TX remains on
 HP2, and the preferred FieldMesh HP0/HP3 packet-DMA ports are still free.
 
+Generate all pre-overlay artifacts together with:
+
+```sh
+./tools/fieldmesh_vivado_overlay_scaffold.py \
+  --repo-root "$PWD" \
+  --out-dir .config/fieldmesh/vivado-overlay-scaffold \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
+```
+
+That directory contains `fieldmesh_sidecar_plan.json`,
+`fieldmesh_sidecar_constants.tcl`, `fieldmesh_required_rtl.f`,
+`fieldmesh_bd_overlay_stub.tcl`, and a generated `README.md`. The Tcl stub is
+intentionally non-mutating; it records the checked insertion points before a
+real vendor HDL overlay is written.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF
