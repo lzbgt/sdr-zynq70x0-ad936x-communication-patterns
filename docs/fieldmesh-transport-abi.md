@@ -169,6 +169,12 @@ descriptor readback, and byte-wide packet-memory access behind one AXI-lite
 slave. It remains local-memory only; external DMA, IIO buffers, descriptor
 rings, and RF/baseband logic are later integration points.
 
+`rtl/fieldmesh/fieldmesh_class_priority_queue.v` is the first class-priority
+queue slice. It stores one pending descriptor per C0..C4 class and always
+dequeues the lowest numbered pending class first. The current test proves C0 is
+served ahead of already-pending C2/C4 descriptors and rejects duplicate or
+invalid class enqueues.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -186,10 +192,9 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - deterministic slot gate,
 - high-rate packet DMA.
 
-Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory, and
-integrated AXI packet-memory simulations green before adding DMA wiring,
-descriptor rings, or IIO/RF
-transport binding.
+Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
+integrated AXI packet-memory, and class-priority queue simulations green before
+adding DMA wiring, descriptor rings, or IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -222,6 +227,8 @@ Queue layout:
 - One RX completion queue is acceptable at first if descriptors carry class and
   stream ID.
 - C0/C1 queues must not be blocked behind C2/C3/C4 descriptors.
+- The first RTL policy block is intentionally one-entry-per-class; expanding to
+  deeper rings must preserve the same lowest-class-first dequeue rule.
 
 ## Register Block
 

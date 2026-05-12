@@ -406,6 +406,8 @@ Milestone 1: Common packet pipe
   packet-byte copy path, and `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v`
   wires packet-memory access and descriptor submit/readback behind one AXI-lite
   shell before descriptor-ring/DMA integration.
+  `rtl/fieldmesh/fieldmesh_class_priority_queue.v` verifies that lower numbered
+  traffic classes dequeue before already-pending lower-priority descriptors.
 
 Milestone 2: P2P profile
 
