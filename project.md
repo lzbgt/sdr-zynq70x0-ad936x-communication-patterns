@@ -394,10 +394,11 @@ user and vendor configuration.
   `desc-replay` maps them into the PL-facing descriptor model, and `pl-replay`
   models a first TX/RX descriptor-ring loopback while emitting assertion-ready
   `packet_trace` rows; Yocto board builds also link libiio for the `iio-scan`
-  runtime preflight role.
+  and `iio-plan` runtime preflight roles.
 - `tools/run_fieldmesh_board_iio_scan.sh` - SSH-driven FieldMesh/IIO preflight
-  that runs `fieldmesh-udp-probe iio-scan` on a reachable rebuilt board image
-  and verifies that at least one IIO device is visible locally.
+  that runs `fieldmesh-udp-probe iio-scan` and `iio-plan` on a reachable
+  rebuilt board image, verifies that at least one IIO device is visible
+  locally, and records read-only RX/TX packet-pipe candidate selection.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.

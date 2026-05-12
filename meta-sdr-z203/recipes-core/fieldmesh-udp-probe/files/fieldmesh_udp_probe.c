@@ -109,6 +109,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe desc-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe pl-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
+        "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -188,12 +189,14 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
 
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
-        strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
+        strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
+        strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, or verify-frame\n");
         return 2;
     }
-    if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
+    if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
+        strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
         return 2;
@@ -1232,6 +1235,104 @@ static int run_iio_scan(const struct config *cfg)
 #endif
 }
 
+static int run_iio_plan(const struct config *cfg)
+{
+#ifdef FIELD_MESH_WITH_IIO
+    struct iio_context *ctx = iio_create_context_from_uri(cfg->iio_uri);
+    int err = errno;
+    unsigned int devices;
+    int best_rx_score = -1;
+    int best_tx_score = -1;
+    const char *best_rx_id = "";
+    const char *best_tx_id = "";
+
+    printf("{\"event\":\"iio_plan_start\",\"transport\":\"iio-plan\",\"iio_uri\":\"%s\"}\n", cfg->iio_uri);
+    if (!ctx) {
+        printf("{\"event\":\"iio_plan_end\",\"transport\":\"iio-plan\",\"iio_uri\":\"%s\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               cfg->iio_uri, err, strerror(err));
+        return 1;
+    }
+
+    devices = iio_context_get_devices_count(ctx);
+    for (unsigned int i = 0; i < devices; i++) {
+        const struct iio_device *dev = iio_context_get_device(ctx, i);
+        const char *id = iio_device_get_id(dev);
+        const char *name = iio_device_get_name(dev);
+        unsigned int channels = iio_device_get_channels_count(dev);
+        unsigned int input_channels = 0;
+        unsigned int output_channels = 0;
+        unsigned int scan_elements = 0;
+        int rx_score = 0;
+        int tx_score = 0;
+
+        for (unsigned int c = 0; c < channels; c++) {
+            const struct iio_channel *chn = iio_device_get_channel(dev, c);
+
+            if (iio_channel_is_output(chn)) {
+                output_channels++;
+            } else {
+                input_channels++;
+            }
+            if (iio_channel_is_scan_element(chn)) {
+                scan_elements++;
+            }
+        }
+
+        if (id && strstr(id, "cf-ad9361")) {
+            rx_score += 20;
+            tx_score += 20;
+        }
+        if (id && strstr(id, "lpc")) {
+            rx_score += 10;
+            tx_score += 10;
+        }
+        if (id && strstr(id, "dds")) {
+            tx_score += 40;
+            rx_score -= 10;
+        } else if (id && strstr(id, "cf-ad9361")) {
+            rx_score += 30;
+        }
+        rx_score += (int)(input_channels + scan_elements);
+        tx_score += (int)(output_channels + scan_elements);
+
+        if (channels == 0) {
+            rx_score -= 20;
+            tx_score -= 20;
+        }
+
+        printf("{\"event\":\"iio_packet_candidate\",\"transport\":\"iio-plan\","
+               "\"index\":%u,\"id\":\"%s\",\"name\":\"%s\",\"channels\":%u,"
+               "\"input_channels\":%u,\"output_channels\":%u,"
+               "\"scan_elements\":%u,\"rx_score\":%d,\"tx_score\":%d}\n",
+               i, id ? id : "", name ? name : "", channels, input_channels,
+               output_channels, scan_elements, rx_score, tx_score);
+
+        if (rx_score > best_rx_score) {
+            best_rx_score = rx_score;
+            best_rx_id = id ? id : "";
+        }
+        if (tx_score > best_tx_score) {
+            best_tx_score = tx_score;
+            best_tx_id = id ? id : "";
+        }
+    }
+
+    printf("{\"event\":\"iio_plan_end\",\"transport\":\"iio-plan\",\"iio_uri\":\"%s\","
+           "\"ok\":%s,\"devices\":%u,\"rx_device\":\"%s\",\"rx_score\":%d,"
+           "\"tx_device\":\"%s\",\"tx_score\":%d,\"opens_buffers\":false}\n",
+           cfg->iio_uri, (best_rx_score > 0 && best_tx_score > 0) ? "true" : "false",
+           devices, best_rx_id, best_rx_score, best_tx_id, best_tx_score);
+    iio_context_destroy(ctx);
+    return (best_rx_score > 0 && best_tx_score > 0) ? 0 : 1;
+#else
+    fprintf(stderr, "fieldmesh-udp-probe was built without libiio support\n");
+    printf("{\"event\":\"iio_plan_end\",\"transport\":\"iio-plan\",\"iio_uri\":\"%s\","
+           "\"ok\":false,\"error\":\"libiio support not compiled\"}\n", cfg->iio_uri);
+    return 2;
+#endif
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -1259,6 +1360,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "iio-scan")) {
         return run_iio_scan(&cfg);
+    }
+    if (!strcmp(cfg.role, "iio-plan")) {
+        return run_iio_plan(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);

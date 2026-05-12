@@ -74,11 +74,12 @@ IIO or PL endpoint exists; the packaged C probe also supports
 board-local validation once runtime access is available. The mapped-memory role
 uses a small slot ring, so the next transport step is no longer "prove a local
 memory endpoint"; it is specifically "bind the same shim frames to IIO or PL."
-The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan`, and
-`tools/run_fieldmesh_board_iio_scan.sh` captures board-local IIO readiness once
-runtime SSH access is restored. `resources/fieldmesh/vectors/` now pins the
-packet and shim-frame bytes that IIO and PL loopback implementations must carry
-unchanged.
+The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan` and
+`fieldmesh-udp-probe iio-plan`, and `tools/run_fieldmesh_board_iio_scan.sh`
+captures board-local IIO readiness plus read-only RX/TX packet-pipe candidate
+selection once runtime SSH access is restored. `resources/fieldmesh/vectors/`
+now pins the packet and shim-frame bytes that IIO and PL loopback
+implementations must carry unchanged.
 
 Next concrete work:
 
@@ -88,7 +89,8 @@ Next concrete work:
   it is blocked until a board running the rebuilt image is reachable at the
   Pluto USB/RNDIS IP.
 - Run `tools/run_fieldmesh_board_iio_scan.sh` on the same reachable board image
-  before attempting IIO packet transport, and capture the IIO device inventory.
+  before attempting IIO packet transport, and capture both the IIO device
+  inventory and `iio-plan` RX/TX candidate selection.
 - Keep `tools/fieldmesh_vector_tool.py verify` and `verify-c` checks green as
   packet bytes move into IIO or PL. `verify-c` runs C `verify-frame`,
   `mmap-replay`, `desc-replay`, and `pl-replay`, including descriptor field

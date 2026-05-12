@@ -56,8 +56,10 @@ ring so the C probe exercises a board-local memory endpoint before an IIO or PL
 endpoint exists.
 
 The Yocto-built C probe also has `fieldmesh-udp-probe iio-scan --iio-uri
-local:`. That mode only enumerates the selected IIO context; it is a runtime
-preflight for this stage, not a FieldMesh packet transport.
+local:` and `fieldmesh-udp-probe iio-plan --iio-uri local:`. These modes only
+enumerate the selected IIO context and rank RX/TX buffer candidates from
+device/channel metadata; they are runtime preflights for this stage, not
+FieldMesh packet transports.
 
 Candidate shape:
 
@@ -87,8 +89,9 @@ Acceptance:
 - Z103 can run the endpoint side without requiring 2R2T assumptions.
 - The C mapped-memory loopback passes the same trace assertions as the plain
   memory loopback.
-- Board-local `iio-scan` can enumerate the runtime IIO context before packet
-  bytes are routed through an IIO buffer.
+- Board-local `iio-scan` can enumerate the runtime IIO context, and `iio-plan`
+  can identify read-only RX/TX packet-pipe candidates before packet bytes are
+  routed through an IIO buffer.
 
 ## Binary Vectors
 

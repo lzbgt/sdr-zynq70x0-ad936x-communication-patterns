@@ -1619,8 +1619,11 @@ Board IIO preflight helper:
 BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_iio_scan.sh
 ```
 
-Status: syntax and packaging are prepared, but live execution is blocked until
-a board running the rebuilt image is reachable over USB/RNDIS SSH.
+Status: syntax and packaging are prepared. The helper now captures both
+`iio-scan` and `iio-plan`: scan must see at least one IIO device, and plan must
+select read-only RX/TX packet-pipe candidates before any IIO buffer transport
+is attempted. Live execution is blocked until a board running the rebuilt image
+is reachable over USB/RNDIS SSH.
 
 Binary vector corpus:
 
@@ -1681,6 +1684,20 @@ After adding `pl-replay`, both packaged probe recipes rebuilt:
 Result: both builds passed. The warnings were the already-known Arch host
 validation warning and `host-user-contaminated` QA warnings for the locally
 built probe files.
+
+IIO packet-pipe planning was added as the next read-only board preflight:
+
+```sh
+fieldmesh-udp-probe iio-plan --iio-uri local:
+bash -n tools/run_fieldmesh_board_iio_scan.sh
+./tools/yocto_arm_as_builder.sh bitbake fieldmesh-udp-probe
+./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
+```
+
+Result: host compilation still passes without libiio support, and both Yocto
+probe recipes rebuild with the libiio-linked `iio-plan` role. The role only
+enumerates device/channel metadata and ranks RX/TX candidates; it does not open
+or enable IIO buffers.
 
 ## FieldMesh Board Runtime Probe
 
