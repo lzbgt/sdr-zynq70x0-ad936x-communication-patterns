@@ -37,7 +37,10 @@ module fieldmesh_packet_mem_axi_lite #(
     output reg  [31:0] s_axi_rdata,
     output reg  [1:0]  s_axi_rresp,
     output reg         s_axi_rvalid,
-    input  wire        s_axi_rready
+    input  wire        s_axi_rready,
+
+    output wire        irq,
+    output wire [2:0]  irq_status
 );
 
 localparam [31:0] FM_ID_VALUE = 32'h464d0002;
@@ -142,6 +145,9 @@ wire [31:0] queue_drop_count;
 wire queue_fault;
 wire [31:0] drop_count = core_drop_count + queue_drop_count;
 wire fault = core_fault | queue_fault;
+
+assign irq_status = {fault, rx_valid, completed_count != 32'd0};
+assign irq = fault | rx_valid;
 
 assign s_axi_awready = !aw_seen && !s_axi_bvalid;
 assign s_axi_wready = !w_seen && !s_axi_bvalid;
@@ -340,7 +346,7 @@ always @(posedge s_axi_aclk) begin
                 REG_ID: s_axi_rdata <= FM_ID_VALUE;
                 REG_CONTROL: s_axi_rdata <= {20'd0, rx_ready, tx_submit, 5'd0, soft_reset, loopback_enable, enable};
                 REG_STATUS: s_axi_rdata <= {22'd0, queue_class_pending, fault, rx_valid, queue_enqueue_ready, loopback_enable, enable};
-                REG_IRQ_STATUS: s_axi_rdata <= {29'd0, fault, rx_valid, completed_count != 32'd0};
+                REG_IRQ_STATUS: s_axi_rdata <= {29'd0, irq_status};
                 REG_TX_PACKET_ADDR: s_axi_rdata <= tx_packet_addr;
                 REG_TX_LEN_STREAM: s_axi_rdata <= {tx_stream_id, tx_packet_len};
                 REG_TX_CLASS_MODE: s_axi_rdata <= {16'd0, tx_mode, tx_traffic_class};

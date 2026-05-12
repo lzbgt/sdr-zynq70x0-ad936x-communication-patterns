@@ -424,7 +424,12 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` - integrated AXI-lite packet
   memory wrapper exposing descriptor submit/readback, queue-pending counters,
   and byte-wide packet-memory access through one local-memory simulation block;
-  submitted descriptors now pass through the class descriptor rings.
+  submitted descriptors now pass through the class descriptor rings and export
+  live IRQ status for the sidecar control wrapper.
+- `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v` - BD-facing FieldMesh
+  control endpoint for the provisional `0x43C00000` sidecar window; it widens
+  the AXI-lite address port and exposes the packet-memory IRQ line/status while
+  preserving the existing register contract.
 - `rtl/fieldmesh/fieldmesh_class_priority_queue.v` - one-entry-per-class
   descriptor queue that proves C0..C4 lowest-class-first dequeue before deeper
   descriptor rings are added.
@@ -472,6 +477,7 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
   `tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_packet_mem_axi_lite_tb.v`,
+  `tb/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite_tb.v`,
   `tb/fieldmesh/fieldmesh_class_priority_queue_tb.v`,
   `tb/fieldmesh/fieldmesh_class_descriptor_rings_tb.v`,
   `tb/fieldmesh/fieldmesh_packet_axis_source_tb.v`,

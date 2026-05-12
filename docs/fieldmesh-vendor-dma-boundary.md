@@ -171,6 +171,12 @@ matching `M_DEPS` entries to the Pluto `Makefile`. It is idempotent and does
 not instantiate any FieldMesh block-design cells. Without `--apply`, it emits
 the planned changes as JSON and does not write the HDL tree.
 
+The current required RTL set includes `fieldmesh_sidecar_ctrl_axi_lite.v`, a
+BD-facing control endpoint for the provisional `fieldmesh_ctrl` window at
+`0x43C00000`. That wrapper preserves the packet-memory AXI-lite register map,
+widens the address port for an interconnect-visible sidecar window, and exports
+live IRQ/status pins for later PS interrupt wiring.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

@@ -52,6 +52,8 @@ wire [31:0] rdata;
 wire [1:0] rresp;
 wire rvalid;
 reg rready = 1'b1;
+wire irq;
+wire [2:0] irq_status;
 
 fieldmesh_packet_mem_axi_lite dut (
     .s_axi_aclk(clk),
@@ -74,7 +76,9 @@ fieldmesh_packet_mem_axi_lite dut (
     .s_axi_rdata(rdata),
     .s_axi_rresp(rresp),
     .s_axi_rvalid(rvalid),
-    .s_axi_rready(rready)
+    .s_axi_rready(rready),
+    .irq(irq),
+    .irq_status(irq_status)
 );
 
 always #5 clk = ~clk;

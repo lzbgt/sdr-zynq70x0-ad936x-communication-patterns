@@ -170,7 +170,9 @@ descriptor readback, and byte-wide packet-memory access behind one AXI-lite
 slave. It now submits descriptors through the shallow class descriptor rings
 before the local packet-memory loopback core. It remains local-memory only;
 external DMA, IIO buffers, scaled descriptor memory, and RF/baseband logic are
-later integration points.
+later integration points. `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v`
+wraps this register map for the provisional `0x43C00000` sidecar control
+window and exports live RX/fault interrupt state for later PS wiring.
 
 `rtl/fieldmesh/fieldmesh_class_priority_queue.v` is the first class-priority
 queue slice. It stores one pending descriptor per C0..C4 class and always
@@ -335,7 +337,7 @@ offsets and supports one outstanding read or write transaction.
 | `0x00` | `FM_ID` | constant `0x464d0001` |
 | `0x04` | `FM_CONTROL` | enable, loopback, soft reset, TX submit, RX ack |
 | `0x08` | `FM_STATUS` | enable, loopback, TX ready, RX valid, fault |
-| `0x0c` | `FM_IRQ_STATUS` | TX done, RX ready, error summary |
+| `0x0c` | `FM_IRQ_STATUS` | done counter nonzero, RX ready, error summary; exported IRQ asserts only for live RX ready or error |
 | `0x10` | `FM_TX_PACKET_ADDR` | direct TX descriptor packet address |
 | `0x14` | `FM_TX_LEN_STREAM` | stream ID in high 16 bits, length in low 16 bits |
 | `0x18` | `FM_TX_CLASS_MODE` | mode in bits 15:8, traffic class in bits 7:0 |

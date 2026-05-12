@@ -17,6 +17,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_class_descriptor_rings.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v",
+    "rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v",
     "rtl/fieldmesh/fieldmesh_packet_axis_source.v",
     "rtl/fieldmesh/fieldmesh_packet_axis_sink.v",
     "rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v",

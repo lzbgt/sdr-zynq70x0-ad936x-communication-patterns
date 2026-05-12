@@ -406,7 +406,10 @@ Milestone 1: Common packet pipe
   packet-byte copy path, and `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v`
   wires packet-memory access and descriptor submit/readback behind one AXI-lite
   shell. It now submits through the shallow class descriptor rings before the
-  local packet-memory copy path.
+  local packet-memory copy path and exports live IRQ status.
+  `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v` wraps that register map as
+  the BD-facing control endpoint for the provisional `0x43C00000`
+  `fieldmesh_ctrl` window.
   `rtl/fieldmesh/fieldmesh_class_priority_queue.v` verifies that lower numbered
   traffic classes dequeue before already-pending lower-priority descriptors.
   `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` extends that policy into

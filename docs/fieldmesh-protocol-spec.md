@@ -425,7 +425,10 @@ first standalone packet-memory copy path, and
 RX readback, byte memory access, and queue-pending counters through one
 AXI-lite shell. It now drives submitted descriptors through
 `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` before local packet-memory
-loopback. `rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first
+loopback and exports live IRQ status for the sidecar control wrapper.
+`rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v` is the BD-facing control
+endpoint for the provisional `0x43C00000` sidecar window.
+`rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first
 stream-shaped packet boundary: it consumes completed RX descriptors, reads
 packet bytes from memory, and emits AXI-stream-style bytes with metadata and
 `tlast`. `rtl/fieldmesh/fieldmesh_packet_axis_sink.v` is the matching ingress

@@ -1904,7 +1904,7 @@ rm -f "$tmp_hp"
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
 python3 -m json.tool \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_sidecar_plan.json >/dev/null
-test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "9"
+test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "10"
 rg 'Do not modify axi_ad9361_adc_dma' \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_bd_overlay_stub.tcl
 tmp_overlay=$(mktemp -d)
@@ -1919,7 +1919,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
   >/tmp/fieldmesh_overlay_patch.json
 python3 -m json.tool /tmp/fieldmesh_overlay_patch.json >/dev/null
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "9"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "10"
 rg 'fieldmesh_packet_axis_byte_pipe_loopback.v' \
   "$tmp_overlay/hdl/projects/pluto/system_project.tcl" \
   "$tmp_overlay/hdl/projects/pluto/Makefile"
@@ -1954,10 +1954,10 @@ JSON, review Markdown, and Tcl constants from the same checked contract.
 temporary repo root.
 `--check-hp-policy` passed for both imported variants and failed as expected
 when a synthetic Tcl change moved ADI RX from HP1 onto HP0.
-The overlay scaffold generator produced valid JSON, a 9-file RTL list, Tcl
+The overlay scaffold generator produced valid JSON, a 10-file RTL list, Tcl
 constants, and a non-mutating Vivado overlay stub.
 The overlay patcher successfully patched a temporary copied HDL tree, copied
-all 9 FieldMesh RTL files, added project and Makefile references, and was
+all 10 FieldMesh RTL files, added project and Makefile references, and was
 idempotent on a second apply.
 
 ## Verification Gaps

@@ -144,7 +144,10 @@ Next concrete work:
   Vivado overlay step, and its `--check-rtl` mode verifies the required RTL
   files and module declarations before integration. Its `--check-hp-policy`
   mode verifies ADI RX/TX remain on HP1/HP2 and FieldMesh's preferred HP0/HP3
-  packet-DMA ports remain free. `tools/fieldmesh_vivado_overlay_scaffold.py`
+  packet-DMA ports remain free. `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v`
+  is now the first BD-facing control endpoint for the provisional
+  `0x43C00000` window, wrapping the packet-memory register map and exporting
+  interrupt status. `tools/fieldmesh_vivado_overlay_scaffold.py`
   now generates the checked JSON plan, Tcl constants, RTL file list, and
   non-mutating overlay stub under `.config/fieldmesh/` before a real vendor HDL
   overlay patch is attempted. `tools/fieldmesh_vivado_overlay_patch.py` now
