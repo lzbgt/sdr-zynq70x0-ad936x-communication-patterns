@@ -79,9 +79,10 @@ The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan` and
 captures board-local IIO readiness plus read-only RX/TX packet-pipe candidate
 selection once runtime SSH access is restored. The helper now writes a
 `preflight_assert.json` summary through `tools/fieldmesh_iio_preflight_assert.py`,
-which can also revalidate saved captures offline. `resources/fieldmesh/vectors/`
-now pins the packet and shim-frame bytes that IIO and PL loopback
-implementations must carry unchanged.
+which can also revalidate saved captures offline, and an `iio_pipe_dry_run.ndjson`
+mapping through `tools/fieldmesh_iio_pipe_dry_run.py`. `resources/fieldmesh/vectors/`
+now pins the packet and shim-frame bytes that IIO and PL loopback implementations
+must carry unchanged.
 
 Next concrete work:
 
@@ -92,7 +93,7 @@ Next concrete work:
   Pluto USB/RNDIS IP.
 - Run `tools/run_fieldmesh_board_iio_scan.sh` on the same reachable board image
   before attempting IIO packet transport, and capture both the IIO device
-  inventory and `iio-plan` RX/TX candidate selection.
+  inventory, `iio-plan` RX/TX candidate selection, and host-side vector dry-run.
   Current live check on 2026-05-13 found no response at `192.168.2.1` and only
   the FT2232 JTAG/UART USB device in WSL, so this is gated on restoring or
   reattaching the Pluto/RNDIS data USB function.

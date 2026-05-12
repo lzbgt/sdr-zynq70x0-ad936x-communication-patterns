@@ -1706,6 +1706,11 @@ scan/plan NDJSON pair. The assertion requires scan success, at least one IIO
 device, plan success, at least one candidate, positive RX/TX scores, selected
 RX/TX devices, and `opens_buffers=false`.
 
+The same synthetic pair was used with `tools/fieldmesh_iio_pipe_dry_run.py` and
+the committed vector manifest. Result: the dry-run emitted `iio_pipe_frame_plan`
+rows mapping FieldMesh frames to the selected TX/RX IIO candidates, with
+`opens_buffers=false`.
+
 Live board reachability check on 2026-05-13:
 
 ```sh

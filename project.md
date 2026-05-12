@@ -402,6 +402,9 @@ user and vendor configuration.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
+- `tools/fieldmesh_iio_pipe_dry_run.py` - offline planner that consumes the
+  selected IIO RX/TX candidates and committed FieldMesh vectors, then emits the
+  per-frame packet-pipe mapping a later non-RF IIO buffer test must preserve.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.

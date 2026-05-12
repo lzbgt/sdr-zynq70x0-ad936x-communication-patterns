@@ -37,5 +37,9 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_plan" "$out_dir/iio
     "$out_dir/iio_scan.ndjson" \
     "$out_dir/iio_plan.ndjson" \
     | tee "$out_dir/preflight_assert.json"
+"$repo_root/tools/fieldmesh_iio_pipe_dry_run.py" \
+    "$out_dir/iio_scan.ndjson" \
+    "$out_dir/iio_plan.ndjson" \
+    > "$out_dir/iio_pipe_dry_run.ndjson"
 
 echo "Capture directory: $out_dir"

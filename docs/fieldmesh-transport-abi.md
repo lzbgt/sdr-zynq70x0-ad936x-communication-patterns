@@ -61,7 +61,9 @@ enumerate the selected IIO context and rank RX/TX buffer candidates from
 device/channel metadata; they are runtime preflights for this stage, not
 FieldMesh packet transports. `tools/fieldmesh_iio_preflight_assert.py` validates
 their NDJSON captures offline so live board evidence can be rechecked without
-rerunning the board.
+rerunning the board. `tools/fieldmesh_iio_pipe_dry_run.py` consumes the same
+captures plus the committed vector manifest and emits the per-frame TX/RX IIO
+candidate mapping that a later non-RF buffer test must preserve.
 
 Candidate shape:
 
