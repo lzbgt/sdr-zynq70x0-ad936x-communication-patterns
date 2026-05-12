@@ -219,6 +219,10 @@ The first committed harness has four transport modes:
   the peer process.
 - `udp-receive`: receiver side of a split UDP test. It validates incoming
   packets and emits `packet_rx` events.
+- `mem-loopback`: wraps complete FieldMesh packets in the transport shim frame
+  from `docs/fieldmesh-transport-abi.md`, validates frame sync/length/CRC, then
+  validates the contained packet header. This is the first step beyond UDP
+  toward an IIO or PL packet pipe.
 
 Traffic profiles:
 
@@ -264,6 +268,8 @@ Useful smoke checks:
   --transport udp-loopback --ticks 2
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto \
   --transport udp-loopback --traffic-profile stress --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario scheduled --mode auto \
+  --transport mem-loopback --traffic-profile stress --ticks 2
 ```
 
 Split-process local smoke check:

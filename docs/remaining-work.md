@@ -67,7 +67,9 @@ on the board. `tools/fieldmesh_trace_assert.py` validates trace invariants for
 negotiation, mode contracts, C0/C1 latency budgets, stale video-like
 degradation, and receive failures. `docs/fieldmesh-transport-abi.md` now
 defines the staged UDP -> IIO buffer -> PL descriptor queue boundary for moving
-the same packet stream toward the fast path.
+the same packet stream toward the fast path. The harness now implements
+`--transport mem-loopback`, a memory-only proof of the ABI shim frame before an
+IIO or PL endpoint exists.
 
 Next concrete work:
 
@@ -76,9 +78,9 @@ Next concrete work:
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;
   it is blocked until a board running the rebuilt image is reachable at the
   Pluto USB/RNDIS IP.
-- Implement the first `docs/fieldmesh-transport-abi.md` step beyond UDP: an IIO
-  or memory-loopback packet shim that preserves the FieldMesh packet bytes and
-  passes `tools/fieldmesh_trace_assert.py`.
+- Move the `mem-loopback` shim frame into a real IIO buffer or board-local
+  memory endpoint that preserves the FieldMesh packet bytes and passes
+  `tools/fieldmesh_trace_assert.py`.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

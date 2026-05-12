@@ -47,6 +47,11 @@ Use an IIO device or existing ADI DMA path as a packet byte pipe before creating
 a new modem. This is still a conducted/baseband experiment, not an over-the-air
 claim.
 
+Status: the host harness now implements `--transport mem-loopback`, which uses
+the shim frame below around complete FieldMesh packets and validates the frame
+sync, frame length, frame CRC, and contained FieldMesh packet header. This is a
+memory-only proof of the IIO/PL framing contract.
+
 Candidate shape:
 
 - TX userspace writes complete FieldMesh packets into an IIO buffer.

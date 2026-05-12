@@ -374,9 +374,10 @@ user and vendor configuration.
 - `tools/package_z103_yocto_pluto_frm.sh` - package rebuilt Z103 Yocto outputs
   and the rebuilt Z103 bitstream into Pluto-style `pluto.itb` and `pluto.frm`.
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
-  simulated, UDP-loopback, and split UDP sender/receiver transports for early
-  capability, mode-selection, policy, traffic-class, and stress/degradation
-  smoke tests before RF packet transport exists.
+  simulated, memory-loopback, UDP-loopback, and split UDP sender/receiver
+  transports for early capability, mode-selection, policy, traffic-class,
+  transport-shim, and stress/degradation smoke tests before RF packet transport
+  exists.
 - `tools/fieldmesh_trace_assert.py` - validate FieldMesh NDJSON traces for
   negotiation, selected-mode contract events, C0/C1 latency budgets, stale
   video-like degradation, and receive failures.

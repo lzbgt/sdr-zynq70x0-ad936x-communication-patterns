@@ -1568,6 +1568,19 @@ UDP traces:
 - then add a PL descriptor queue and register block,
 - attach RF only after packet-loopback traces pass the assertion tool.
 
+Memory-loopback command:
+
+```sh
+./tools/fieldmesh_trace_harness.py --scenario scheduled --mode auto \
+  --transport mem-loopback --traffic-profile stress --ticks 2 \
+  > /tmp/fieldmesh_mem.ndjson
+./tools/fieldmesh_trace_assert.py /tmp/fieldmesh_mem.ndjson
+```
+
+Result: the memory transport passed the trace assertion. It wrapped complete
+FieldMesh packets in the ABI shim frame, validated frame sync/length/CRC, and
+validated the contained packet header before emitting `packet_trace`.
+
 ## FieldMesh Board Runtime Probe
 
 Host-side C probe check:

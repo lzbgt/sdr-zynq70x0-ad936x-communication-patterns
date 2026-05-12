@@ -3,7 +3,7 @@
 
 The default simulated transport exercises node capability advertisement, mode
 selection, traffic classes, and trace shape before the RF packet pipe exists.
-The UDP transports also pack and validate the draft FieldMesh header so the
+The packet transports also pack and validate the draft FieldMesh header so the
 same NDJSON contract can run on a board-local or host-to-board runtime path.
 """
 
@@ -34,6 +34,10 @@ FIELD_MESH_MAGIC = 0x464D
 FIELD_MESH_VERSION = 1
 FIELD_MESH_HEADER = struct.Struct("<HBBIHHHBBHIHIHH")
 FIELD_MESH_HEADER_LEN = FIELD_MESH_HEADER.size
+FIELD_MESH_FRAME_SYNC = 0x4D46
+FIELD_MESH_FRAME = struct.Struct("<HHI")
+FIELD_MESH_FRAME_LEN = FIELD_MESH_FRAME.size
+FIELD_MESH_FRAME_CRC_LEN = 4
 
 
 @dataclass(frozen=True)
@@ -200,6 +204,35 @@ def unpack_packet(packet: bytes) -> dict[str, object]:
         "sequence": sequence,
         "payload_len": payload_len,
         "header_crc": crc,
+    }
+
+
+def pack_memory_frame(trace: PacketTrace, transport_seq: int) -> bytes:
+    packet = pack_packet(trace)
+    frame_header = FIELD_MESH_FRAME.pack(FIELD_MESH_FRAME_SYNC, len(packet), transport_seq)
+    frame_crc = zlib.crc32(packet) & 0xFFFFFFFF
+    return frame_header + packet + struct.pack("<I", frame_crc)
+
+
+def unpack_memory_frame(frame: bytes) -> dict[str, object]:
+    if len(frame) < FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN:
+        raise ValueError("short transport frame")
+    sync, frame_len, transport_seq = FIELD_MESH_FRAME.unpack(frame[:FIELD_MESH_FRAME_LEN])
+    if sync != FIELD_MESH_FRAME_SYNC:
+        raise ValueError(f"bad transport sync 0x{sync:04x}")
+    expected_len = FIELD_MESH_FRAME_LEN + frame_len + FIELD_MESH_FRAME_CRC_LEN
+    if len(frame) != expected_len:
+        raise ValueError(f"bad transport frame length {len(frame)} expected {expected_len}")
+    packet = frame[FIELD_MESH_FRAME_LEN : FIELD_MESH_FRAME_LEN + frame_len]
+    frame_crc = struct.unpack("<I", frame[-FIELD_MESH_FRAME_CRC_LEN:])[0]
+    expected_crc = zlib.crc32(packet) & 0xFFFFFFFF
+    if frame_crc != expected_crc:
+        raise ValueError(f"bad transport frame_crc 0x{frame_crc:08x} expected 0x{expected_crc:08x}")
+    return {
+        "transport_seq": transport_seq,
+        "frame_len": frame_len,
+        "frame_crc": frame_crc,
+        **unpack_packet(packet),
     }
 
 
@@ -560,6 +593,8 @@ def emit_trace(trace: PacketTrace, transport: str, rx: dict[str, object] | None 
         rx_ok=transport_ok,
         rx_error=None if transport_ok else rx_error,
         rx_header_crc=None if rx is None else rx.get("header_crc"),
+        rx_transport_seq=None if rx is None else rx.get("transport_seq"),
+        rx_frame_crc=None if rx is None else rx.get("frame_crc"),
     )
 
 
@@ -586,6 +621,8 @@ def run_ticks(
         transport_event.update({"udp_host": udp_host, "udp_port": udp_port})
     elif transport == "udp-send":
         transport_event.update({"udp_peer_host": udp_host, "udp_peer_port": udp_port})
+    elif transport == "mem-loopback":
+        transport_event.update({"frame_sync": f"0x{FIELD_MESH_FRAME_SYNC:04x}"})
     emit("transport_start", **transport_event)
 
     if transport == "simulate":
@@ -603,6 +640,27 @@ def run_ticks(
                     trace = make_trace(tick, traffic_class, nodes, mode, rng, traffic_profile)
                     sock.sendto(pack_packet(trace), (udp_host, udp_port))
                     emit_trace(trace, transport)
+        return
+
+    if transport == "mem-loopback":
+        emit(
+            "transport_bound",
+            transport=transport,
+            frame_sync=f"0x{FIELD_MESH_FRAME_SYNC:04x}",
+            frame_header_len=FIELD_MESH_FRAME_LEN,
+            frame_crc_len=FIELD_MESH_FRAME_CRC_LEN,
+        )
+        transport_seq = 0
+        for tick in range(ticks):
+            for traffic_class in traffic_classes_for_profile(traffic_profile):
+                trace = make_trace(tick, traffic_class, nodes, mode, rng, traffic_profile)
+                frame = pack_memory_frame(trace, transport_seq)
+                try:
+                    rx = {"ok": True, **unpack_memory_frame(frame)}
+                except ValueError as exc:
+                    rx = {"ok": False, "error": str(exc)}
+                emit_trace(trace, transport, rx)
+                transport_seq += 1
         return
 
     with UdpLoopback(udp_host, udp_port, udp_timeout) as loopback:
@@ -637,7 +695,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--transport",
-        choices=("simulate", "udp-loopback", "udp-send", "udp-receive"),
+        choices=("simulate", "udp-loopback", "udp-send", "udp-receive", "mem-loopback"),
         default="simulate",
         help="packet transport used by packet_trace events",
     )
