@@ -255,6 +255,8 @@ remain unused in the imported source Tcl. `tools/fieldmesh_sidecar_plan.py`
 turns the same checked contract into JSON, Markdown, or Tcl constants for the
 later Vivado overlay patch, and `--check-rtl` verifies the FieldMesh packet
 pipe RTL files and module declarations before that overlay is attempted.
+`--check-hp-policy` verifies that ADI sample DMA remains on HP1/HP2 and the
+preferred FieldMesh packet-DMA ports HP0/HP3 remain available.
 
 Keep these responsibilities in Linux first:
 

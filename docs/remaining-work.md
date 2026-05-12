@@ -142,7 +142,9 @@ Next concrete work:
   with imported Vivado Tcl. `tools/fieldmesh_sidecar_plan.py` now emits the
   checked sidecar plan in JSON, Markdown, or Tcl constants form for the later
   Vivado overlay step, and its `--check-rtl` mode verifies the required RTL
-  files and module declarations before integration.
+  files and module declarations before integration. Its `--check-hp-policy`
+  mode verifies ADI RX/TX remain on HP1/HP2 and FieldMesh's preferred HP0/HP3
+  packet-DMA ports remain free.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

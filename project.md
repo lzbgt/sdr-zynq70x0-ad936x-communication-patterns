@@ -459,7 +459,8 @@ user and vendor configuration.
 - `tools/fieldmesh_sidecar_plan.py` - emits the checked FieldMesh sidecar
   integration plan as JSON, Markdown, or Tcl constants for the later Vivado
   overlay step; `--check-rtl` verifies the required RTL files and module names
-  before an overlay is attempted.
+  before an overlay is attempted, and `--check-hp-policy` verifies the preferred
+  packet-DMA HP-port split remains available.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and

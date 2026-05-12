@@ -58,11 +58,50 @@ def scan_required_rtl(repo_root: Path) -> dict[str, Any]:
     }
 
 
+def build_hp_policy(inv: dict[str, Any]) -> dict[str, Any]:
+    ps7_params = inv.get("ps7_parameters", {})
+    ps7_connections = inv.get("ps7_connections", [])
+    dmas = inv.get("dmas", {})
+    hp_rows = {}
+    ok = True
+    for index in range(4):
+        port = f"S_AXI_HP{index}"
+        param_key = f"CONFIG.PCW_USE_S_AXI_HP{index}"
+        enabled = str(ps7_params.get(param_key, "0")).strip("{}") == "1"
+        clock_connected = any(row["dst"] == f"sys_ps7/{port}_ACLK" or row["src"] == f"sys_ps7/{port}_ACLK" for row in ps7_connections)
+        slave_connections = [
+            row
+            for row in ps7_connections
+            if row["dst"] == f"sys_ps7/{port}" or row["src"] == f"sys_ps7/{port}"
+        ]
+        hp_rows[port] = {
+            "enabled": enabled,
+            "clock_connected": clock_connected,
+            "slave_connections": slave_connections,
+        }
+
+    adi_rx_ports = set(dmas.get("axi_ad9361_adc_dma", {}).get("hp_ports", []))
+    adi_tx_ports = set(dmas.get("axi_ad9361_dac_dma", {}).get("hp_ports", []))
+    checks = {
+        "adi_rx_on_hp1": "S_AXI_HP1" in adi_rx_ports,
+        "adi_tx_on_hp2": "S_AXI_HP2" in adi_tx_ports,
+        "fieldmesh_rx_hp0_free": not hp_rows["S_AXI_HP0"]["slave_connections"],
+        "fieldmesh_tx_hp3_free": not hp_rows["S_AXI_HP3"]["slave_connections"],
+    }
+    ok = all(checks.values())
+    return {
+        "ok": ok,
+        "checks": checks,
+        "ports": hp_rows,
+    }
+
+
 def build_plan(
     variants: list[tuple[str, Path]],
     check_sidecar: bool,
     repo_root: Path,
     check_rtl: bool,
+    check_hp_policy: bool,
 ) -> dict[str, Any]:
     variant_plans = []
     ok = True
@@ -80,6 +119,12 @@ def build_plan(
             ok = False
             if check_sidecar:
                 raise SystemExit(f"{path}: proposed FieldMesh sidecar window conflicts with existing address map")
+        hp_policy = build_hp_policy(inv)
+        if not hp_policy["ok"]:
+            ok = False
+            if check_hp_policy:
+                failed = [key for key, value in hp_policy["checks"].items() if not value]
+                raise SystemExit(f"{path}: FieldMesh HP-port policy failed: {', '.join(failed)}")
         variant_plans.append(
             {
                 "variant": name,
@@ -87,6 +132,7 @@ def build_plan(
                 "existing_address_map": inv["address_map"],
                 "existing_adi_dmas": inv["dmas"],
                 "sidecar": inv["sidecar"],
+                "hp_policy": hp_policy,
             }
         )
 
@@ -151,8 +197,22 @@ def emit_markdown(plan: dict[str, Any]) -> None:
     print("| Variant | Status | Source |")
     print("| --- | --- | --- |")
     for variant in plan["variants"]:
-        status = "free" if variant["sidecar"]["ok"] else "conflict"
+        status = "free" if variant["sidecar"]["ok"] and variant["hp_policy"]["ok"] else "conflict"
         print(f'| `{variant["variant"]}` | {status} | `{variant["source"]}` |')
+    print()
+    print("| Variant | ADI RX HP1 | ADI TX HP2 | FieldMesh RX HP0 Free | FieldMesh TX HP3 Free |")
+    print("| --- | --- | --- | --- | --- |")
+    for variant in plan["variants"]:
+        checks = variant["hp_policy"]["checks"]
+        print(
+            "| `{variant}` | {rx} | {tx} | {hp0} | {hp3} |".format(
+                variant=variant["variant"],
+                rx="yes" if checks["adi_rx_on_hp1"] else "no",
+                tx="yes" if checks["adi_tx_on_hp2"] else "no",
+                hp0="yes" if checks["fieldmesh_rx_hp0_free"] else "no",
+                hp3="yes" if checks["fieldmesh_tx_hp3_free"] else "no",
+            )
+        )
 
 
 def emit_tcl(plan: dict[str, Any]) -> None:
@@ -188,6 +248,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--format", choices=("json", "markdown", "tcl"), default="json")
     parser.add_argument("--check-sidecar", action="store_true", help="fail if sidecar windows collide")
     parser.add_argument("--check-rtl", action="store_true", help="fail if required RTL files or modules are missing")
+    parser.add_argument("--check-hp-policy", action="store_true", help="fail if ADI/FieldMesh HP-port policy is violated")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd(), help="repository root for RTL checks")
     return parser.parse_args()
 
@@ -195,7 +256,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        plan = build_plan(args.variant, args.check_sidecar, args.repo_root, args.check_rtl)
+        plan = build_plan(args.variant, args.check_sidecar, args.repo_root, args.check_rtl, args.check_hp_policy)
     except SystemExit:
         raise
     except Exception as exc:  # pragma: no cover - defensive CLI boundary

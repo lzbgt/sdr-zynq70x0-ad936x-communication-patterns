@@ -106,6 +106,7 @@ def parse_system_bd(path: Path, variant: str) -> dict[str, Any]:
     addresses: dict[str, str] = {}
     interrupts: dict[str, list[str]] = {}
     connections: list[dict[str, str]] = []
+    all_connections: list[dict[str, str]] = []
 
     for lineno, raw_line in enumerate(path.read_text().splitlines(), start=1):
         line = raw_line.strip()
@@ -140,16 +141,16 @@ def parse_system_bd(path: Path, variant: str) -> dict[str, Any]:
         match = re.match(r"ad_connect\s+(\S+)\s+(\S+)", line)
         if match:
             src, dst = match.groups()
+            row = {
+                "line": str(lineno),
+                "src": src,
+                "dst": dst,
+            }
+            all_connections.append(row)
             src_name = endpoint_instance(src)
             dst_name = endpoint_instance(dst)
             if src_name in INTERESTING_NAMES or dst_name in INTERESTING_NAMES:
-                connections.append(
-                    {
-                        "line": str(lineno),
-                        "src": src,
-                        "dst": dst,
-                    }
-                )
+                connections.append(row)
 
     dmas: dict[str, Any] = {}
     for name in DMA_NAMES:
@@ -199,6 +200,12 @@ def parse_system_bd(path: Path, variant: str) -> dict[str, Any]:
         "variant": variant,
         "source": str(path),
         "address_map": addresses,
+        "ps7_parameters": params.get("sys_ps7", {}),
+        "ps7_connections": [
+            row
+            for row in all_connections
+            if row["src"].startswith("sys_ps7/") or row["dst"].startswith("sys_ps7/")
+        ],
         "rf_core_address": addresses.get("axi_ad9361"),
         "dmas": dmas,
         "related_connections": connections,

@@ -119,14 +119,14 @@ bytes leave the packet engine.
 Use the sidecar plan helper when preparing the later Vivado overlay patch:
 
 ```sh
-./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl \
+./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \
   --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   >/tmp/fieldmesh_sidecar_plan.json
-./tools/fieldmesh_sidecar_plan.py --format markdown --check-sidecar --check-rtl \
+./tools/fieldmesh_sidecar_plan.py --format markdown --check-sidecar --check-rtl --check-hp-policy \
   --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
-./tools/fieldmesh_sidecar_plan.py --format tcl --check-sidecar --check-rtl \
+./tools/fieldmesh_sidecar_plan.py --format tcl --check-sidecar --check-rtl --check-hp-policy \
   --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   >/tmp/fieldmesh_sidecar_constants.tcl
@@ -136,6 +136,8 @@ The JSON form is for machine checks. The Markdown form is for review. The Tcl
 form only emits constants and required RTL file names; it does not edit the
 vendor design by itself. `--check-rtl` verifies that each required RTL file
 exists under the repo root and contains the expected module declaration.
+`--check-hp-policy` verifies that ADI RX remains on HP1, ADI TX remains on
+HP2, and the preferred FieldMesh HP0/HP3 packet-DMA ports are still free.
 
 ## Later RF Binding
 
