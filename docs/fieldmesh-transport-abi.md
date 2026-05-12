@@ -113,11 +113,12 @@ The C probe can verify the same frame files:
 
 ```sh
 fieldmesh-udp-probe verify-frame --file resources/fieldmesh/vectors/frame_000.bin
+fieldmesh-udp-probe mmap-replay --file resources/fieldmesh/vectors/frame_000.bin
 ```
 
 These files are the contract for IIO and PL loopback work: new transports must
-carry the same frame bytes and preserve the manifest parse fields before adding
-RF/baseband behavior.
+carry the same frame bytes, preserve the manifest parse fields, and pass both
+decode-only and mapped-memory replay before adding RF/baseband behavior.
 
 ## Stage 2: PL Packet Queue ABI
 

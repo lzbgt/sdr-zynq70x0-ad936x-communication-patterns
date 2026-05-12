@@ -81,13 +81,15 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n"
         "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
+        "  fieldmesh-udp-probe mmap-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
 static bool is_local_loopback_role(const char *role)
 {
-    return !strcmp(role, "mem-loopback") || !strcmp(role, "mmap-loopback");
+    return !strcmp(role, "mem-loopback") || !strcmp(role, "mmap-loopback") ||
+        !strcmp(role, "mmap-replay");
 }
 
 static bool arg_value(int argc, char **argv, int *index, const char **value)
@@ -161,7 +163,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, iio-scan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, iio-scan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "verify-frame") &&
@@ -169,8 +171,9 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         fprintf(stderr, "--port must be set and non-zero\n");
         return 2;
     }
-    if (!strcmp(cfg->role, "verify-frame") && cfg->file == NULL) {
-        fprintf(stderr, "--file must be set for verify-frame\n");
+    if ((!strcmp(cfg->role, "verify-frame") || !strcmp(cfg->role, "mmap-replay")) &&
+        cfg->file == NULL) {
+        fprintf(stderr, "--file must be set for %s\n", cfg->role);
         return 2;
     }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
@@ -462,28 +465,39 @@ static bool decode_frame(const uint8_t *frame, size_t frame_len, char *err, size
     return decode_packet(packet, packet_len, err, err_len);
 }
 
+static bool read_frame_file(const char *path, uint8_t *frame, size_t capacity, size_t *len,
+                            char *err, size_t err_len)
+{
+    FILE *fp = fopen(path, "rb");
+
+    if (!fp) {
+        snprintf(err, err_len, "open %s: %s", path, strerror(errno));
+        return false;
+    }
+    *len = fread(frame, 1, capacity, fp);
+    if (ferror(fp)) {
+        snprintf(err, err_len, "read %s: %s", path, strerror(errno));
+        fclose(fp);
+        return false;
+    }
+    fclose(fp);
+    return true;
+}
+
 static int run_verify_frame(const struct config *cfg)
 {
-    FILE *fp = fopen(cfg->file, "rb");
     uint8_t frame[MAX_FRAME + 1U];
-    size_t len;
+    size_t len = 0;
     uint16_t packet_len = 0;
     uint32_t transport_seq = 0;
     uint32_t frame_crc = 0;
     char err[128] = {0};
     bool ok;
 
-    if (!fp) {
-        fprintf(stderr, "open %s: %s\n", cfg->file, strerror(errno));
+    if (!read_frame_file(cfg->file, frame, sizeof(frame), &len, err, sizeof(err))) {
+        fprintf(stderr, "%s\n", err);
         return 1;
     }
-    len = fread(frame, 1, sizeof(frame), fp);
-    if (ferror(fp)) {
-        fprintf(stderr, "read %s: %s\n", cfg->file, strerror(errno));
-        fclose(fp);
-        return 1;
-    }
-    fclose(fp);
 
     if (len >= FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
         packet_len = get_le16(frame + 2);
@@ -516,6 +530,69 @@ static int run_verify_frame(const struct config *cfg)
                get_le16(packet + 30));
     } else {
         printf(",\"error\":\"%s\"}\n", err);
+    }
+    return ok ? 0 : 1;
+}
+
+static int run_mmap_replay(const struct config *cfg)
+{
+    size_t ring_len = sizeof(struct mmap_slot) * MMAP_RING_SLOTS;
+    struct mmap_slot *ring = mmap(NULL, ring_len, PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    struct mmap_slot *slot;
+    uint8_t frame[MAX_FRAME + 1U];
+    size_t frame_len = 0;
+    uint16_t packet_len = 0;
+    uint32_t frame_crc = 0;
+    uint32_t transport_seq = 0;
+    char err[128] = {0};
+    bool ok = false;
+
+    if (ring == MAP_FAILED) {
+        perror("mmap");
+        return 1;
+    }
+
+    printf("{\"event\":\"transport_bound\",\"transport\":\"mmap-replay\","
+           "\"frame_sync\":\"0x%04x\",\"frame_header_len\":%u,\"frame_crc_len\":%u,"
+           "\"ring_slots\":%u,\"slot_bytes\":%zu}\n",
+           FIELD_MESH_FRAME_SYNC, FIELD_MESH_FRAME_LEN, FIELD_MESH_FRAME_CRC_LEN,
+           MMAP_RING_SLOTS, sizeof(struct mmap_slot));
+
+    if (!read_frame_file(cfg->file, frame, sizeof(frame), &frame_len, err, sizeof(err))) {
+        goto out;
+    }
+    if (frame_len > MAX_FRAME) {
+        snprintf(err, sizeof(err), "transport frame too large");
+        goto out;
+    }
+    if (frame_len >= FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
+        packet_len = get_le16(frame + 2);
+        if (frame_len >= FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+            frame_crc = get_le32(frame + FIELD_MESH_FRAME_LEN + packet_len);
+        }
+    }
+
+    slot = &ring[0];
+    memcpy(slot->frame, frame, frame_len);
+    slot->frame_len = (uint32_t)frame_len;
+    slot->transport_seq = transport_seq;
+    slot->frame_crc = frame_crc;
+    slot->state = 1;
+    ok = decode_frame(slot->frame, slot->frame_len, err, sizeof(err));
+    slot->state = 0;
+
+out:
+    printf("{\"event\":\"frame_replay\",\"transport\":\"mmap-replay\","
+           "\"file\":\"%s\",\"ok\":%s,\"frame_bytes\":%zu,"
+           "\"packet_len\":%u,\"transport_seq\":%u,\"frame_crc\":%u,"
+           "\"rx_error\":%s}\n",
+           cfg->file, ok ? "true" : "false", frame_len, packet_len,
+           transport_seq, frame_crc, ok ? "null" : "\"mmap replay decode failed\"");
+
+    if (munmap(ring, ring_len) != 0) {
+        perror("munmap");
+        return 1;
     }
     return ok ? 0 : 1;
 }
@@ -917,6 +994,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "mmap-loopback")) {
         return run_mmap_loopback(&cfg);
+    }
+    if (!strcmp(cfg.role, "mmap-replay")) {
+        return run_mmap_replay(&cfg);
     }
     if (!strcmp(cfg.role, "iio-scan")) {
         return run_iio_scan(&cfg);
