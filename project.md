@@ -477,11 +477,17 @@ user and vendor configuration.
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
   idempotent `system_project.tcl`/`Makefile` references; dry-run is the
   default. Its opt-in `--control-overlay` mode appends the first
-  `fieldmesh_ctrl` BD module/address/IRQ wiring to copied `system_bd.tcl`.
+  `fieldmesh_ctrl` BD module/address/IRQ wiring to copied `system_bd.tcl`;
+  `--bridge-overlay` also instantiates the parked `fieldmesh_axis_bridge`
+  byte-pipe endpoint for the future packet DMA/IIO path.
 - `tools/check_fieldmesh_control_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the FieldMesh control overlay, and runs Vivado project/BD
   generation checks without synthesis to prove the `fieldmesh_ctrl` cell,
   AXI-lite interface, IRQ, and address segment are present.
+- `tools/check_fieldmesh_bridge_overlay_vivado.sh` - copies a Z203 or Z103 HDL
+  tree, applies the FieldMesh control and bridge overlays, and runs Vivado
+  project/BD generation checks without synthesis to prove the parked
+  `fieldmesh_axis_bridge` byte-pipe cell is BD-visible.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -599,9 +605,9 @@ Expected result in the current Pluto-compatible firmware state:
    images.
 4. Bind the FieldMesh byte-pipe model to a sidecar DMA/IIO transport with its
    own register namespace, leaving the ADI sample-DMA windows at `0x7C400000`
-   and `0x7C420000` untouched. The control-only `fieldmesh_ctrl` overlay is
-   now scripted and Vivado BD-generation checked for copied Z203/Z103 HDL
-   trees; the provisional FieldMesh namespace is `0x43C00000` control,
-   `0x43C10000` TX DMA, and `0x43C20000` RX DMA. Then scale descriptor storage
-   beyond the shallow class rings and bind the path to IIO/PL before open-air
-   RF tests.
+   and `0x7C420000` untouched. The `fieldmesh_ctrl` control overlay and parked
+   `fieldmesh_axis_bridge` byte-pipe overlay are now scripted and Vivado
+   BD-generation checked for copied Z203/Z103 HDL trees; the provisional
+   FieldMesh namespace is `0x43C00000` control, `0x43C10000` TX DMA, and
+   `0x43C20000` RX DMA. Then scale descriptor storage beyond the shallow class
+   rings and bind the path to IIO/PL before open-air RF tests.

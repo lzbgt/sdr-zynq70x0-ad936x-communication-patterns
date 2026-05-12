@@ -93,7 +93,7 @@ set FIELDMESH_REPO_ROOT {{{repo_root}}}
 #    $FIELDMESH_CTRL_BASE and connect its irq to $FIELDMESH_CTRL_IRQ.
 # 4. Instantiate fieldmesh_sidecar_axis_bridge as the byte-only packet transport
 #    boundary between the later sidecar DMA/IIO blocks and FieldMesh packet
-#    streams.
+#    streams. Park its stream inputs with constants until those blocks exist.
 # 5. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
 #    $FIELDMESH_RX_DMA_BASE, or keep the first overlay AXI-lite/FIFO-only.
 # 6. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at

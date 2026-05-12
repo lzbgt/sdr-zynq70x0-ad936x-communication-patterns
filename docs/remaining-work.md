@@ -157,11 +157,14 @@ Next concrete work:
   `fieldmesh_ctrl` BD module/address/IRQ wiring to `system_bd.tcl`.
   `tools/check_fieldmesh_control_overlay_vivado.sh` now verifies that this
   control-only overlay survives Vivado project/BD generation on copied Z203 and
-  Z103 HDL trees without running synthesis.
-- Add the first BD/DMA-facing packet overlay around
-  `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v`, which now splits the
-  sidecar packet transport into PS-to-PL byte-stream parsing and PL-to-PS
-  sideband-guarded byte output without reusing the ADI IQ DMA path.
+  Z103 HDL trees without running synthesis. Its opt-in `--bridge-overlay` mode
+  now instantiates a parked `fieldmesh_axis_bridge` byte-pipe endpoint, and
+  `tools/check_fieldmesh_bridge_overlay_vivado.sh` verifies that copied Z203
+  and Z103 HDL trees can generate the BD with both the control and bridge cells
+  present.
+- Bind the parked `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` endpoint to
+  the first sidecar DMA/IIO packet transport, still without reusing the ADI IQ
+  DMA path.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

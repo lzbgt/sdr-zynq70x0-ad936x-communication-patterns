@@ -211,6 +211,39 @@ applies `--control-overlay`, sources Vivado 2025.1, creates the project/BD, and
 asserts that `fieldmesh_ctrl`, `fieldmesh_ctrl/s_axi`, `fieldmesh_ctrl/irq`,
 and `SEG_data_fieldmesh_ctrl` are present.
 
+The first parked packet-bridge overlay is also opt-in:
+
+```sh
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" \
+  --hdl-tree .config/fieldmesh/some-copied-hdl \
+  --variant-name z203 \
+  --control-overlay \
+  --bridge-overlay \
+  --apply
+```
+
+With `--bridge-overlay`, the patcher appends an idempotent
+`fieldmesh_axis_bridge` BD module instance to `system_bd.tcl`, connects it to
+`sys_cpu_clk`/`sys_cpu_reset`, enables it, and parks the byte-stream/packet
+inputs with constants until a real packet DMA/IIO endpoint is added. This does
+not create `fieldmesh_tx_dma` or `fieldmesh_rx_dma`, and it does not touch the
+existing ADI sample-DMA path.
+
+Validate the control-plus-bridge overlay through Vivado project/block-design
+generation without running synthesis:
+
+```sh
+./tools/check_fieldmesh_bridge_overlay_vivado.sh z203
+./tools/check_fieldmesh_bridge_overlay_vivado.sh z103
+```
+
+The helper copies the selected vendor HDL tree into `.config/fieldmesh/`,
+applies `--control-overlay --bridge-overlay`, sources Vivado 2025.1, creates
+the project/BD, and asserts that both `fieldmesh_ctrl` and
+`fieldmesh_axis_bridge` are present while `fieldmesh_ctrl` remains mapped at
+`0x43C00000`.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

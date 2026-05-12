@@ -1978,6 +1978,34 @@ PY
 rm -rf "$tmp_overlay"
 ./tools/check_fieldmesh_control_overlay_vivado.sh z203
 ./tools/check_fieldmesh_control_overlay_vivado.sh z103
+tmp_overlay=$(mktemp -d)
+mkdir -p "$tmp_overlay/hdl/projects/pluto"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.tcl \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
+  "$tmp_overlay/hdl/projects/pluto/"
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
+  --control-overlay --bridge-overlay --apply >/tmp/fieldmesh_overlay_bridge_patch.json
+python3 -m json.tool /tmp/fieldmesh_overlay_bridge_patch.json >/dev/null
+rg 'fieldmesh_ctrl|fieldmesh_axis_bridge|FieldMesh sidecar bridge overlay' \
+  "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
+  --control-overlay --bridge-overlay --apply >/tmp/fieldmesh_overlay_bridge_patch_second.json
+python3 - <<'PY'
+import json
+obj = json.load(open('/tmp/fieldmesh_overlay_bridge_patch_second.json'))
+assert obj['system_bd_changed'] is False
+assert obj['system_project_changed'] is False
+assert obj['makefile_changed'] is False
+assert obj['post_patch_sidecar_ok'] is True
+PY
+rm -rf "$tmp_overlay"
+./tools/check_fieldmesh_bridge_overlay_vivado.sh z203
+./tools/check_fieldmesh_bridge_overlay_vivado.sh z103
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -2011,7 +2039,11 @@ the second control-overlay apply was idempotent. The Vivado control-overlay
 check then passed for copied Z203 and Z103 HDL trees, proving the patched
 block design can instantiate `fieldmesh_ctrl`, map `SEG_data_fieldmesh_ctrl`
 at `0x43C00000`, connect IRQ `In11`, validate the BD, and generate the BD
-target without running synthesis.
+target without running synthesis. The opt-in bridge overlay also patched a
+temporary copied HDL tree idempotently with `fieldmesh_axis_bridge`, then the
+Vivado bridge-overlay check passed for copied Z203 and Z103 HDL trees, proving
+the BD can instantiate the parked byte-pipe bridge beside `fieldmesh_ctrl`
+without creating packet DMA windows or replacing the ADI sample-DMA path.
 
 ## Verification Gaps
 
