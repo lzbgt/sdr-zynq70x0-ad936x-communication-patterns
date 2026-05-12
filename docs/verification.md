@@ -1875,6 +1875,19 @@ python3 -m py_compile tools/fieldmesh_vendor_dma_inventory.py
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
   >/tmp/fieldmesh_vendor_dma_inventory.json
 python3 -m json.tool /tmp/fieldmesh_vendor_dma_inventory.json >/dev/null
+./tools/fieldmesh_sidecar_plan.py --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_sidecar_plan.json
+python3 -m json.tool /tmp/fieldmesh_sidecar_plan.json >/dev/null
+./tools/fieldmesh_sidecar_plan.py --format markdown --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_sidecar_plan.md
+./tools/fieldmesh_sidecar_plan.py --format tcl --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_sidecar_constants.tcl
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -1890,7 +1903,8 @@ hardware binding should use a sidecar packet transport and must not reuse the
 existing ADI sample-DMA register windows. `--check-sidecar` also passed for the
 provisional FieldMesh windows at `0x43C00000`, `0x43C10000`, and `0x43C20000`.
 The synthetic collision check failed as expected when an imported address was
-temporarily moved onto `0x43C00000`.
+temporarily moved onto `0x43C00000`. The sidecar plan helper emitted valid
+JSON, review Markdown, and Tcl constants from the same checked contract.
 
 ## Verification Gaps
 

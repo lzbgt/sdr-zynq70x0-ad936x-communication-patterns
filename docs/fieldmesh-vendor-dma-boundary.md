@@ -114,6 +114,28 @@ That ordering keeps in-band packet headers as the metadata source after a
 byte-only DMA/IIO boundary, while still checking outgoing PL sidebands before
 bytes leave the packet engine.
 
+## Sidecar Plan Generator
+
+Use the sidecar plan helper when preparing the later Vivado overlay patch:
+
+```sh
+./tools/fieldmesh_sidecar_plan.py --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_sidecar_plan.json
+./tools/fieldmesh_sidecar_plan.py --format markdown --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
+./tools/fieldmesh_sidecar_plan.py --format tcl --check-sidecar \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
+  >/tmp/fieldmesh_sidecar_constants.tcl
+```
+
+The JSON form is for machine checks. The Markdown form is for review. The Tcl
+form only emits constants and required RTL file names; it does not edit the
+vendor design by itself.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF
