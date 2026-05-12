@@ -1359,6 +1359,9 @@ Result:
   side as `Unknown USB Device (Device Descriptor Request Failed)`.
 - A final `tools/reset_openocd_zynq_ps.sh` followed by
   `tools/probe_openocd_jtag.sh` restored a clean JTAG chain scan.
+- After the normal reboot following that reset, `tools/verify_z103_board.sh`
+  passed again and captured `z103_verify_board_20260513-003316.txt`: 4/4 ping
+  replies, IIO context over `ip:192.168.2.1`, and HTTP response.
 
 Boundary: Z103 Linux over the JTAG-assisted path remains open. The next attempt
 should use a clean USB/JTAG state and avoid loading the full 12 MB FIT through

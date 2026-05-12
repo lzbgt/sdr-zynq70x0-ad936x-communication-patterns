@@ -208,7 +208,9 @@ Current live boundary:
 - USB gadget verification was not healthy after that boot: Windows reported the
   Pluto USB side as `Unknown USB Device (Device Descriptor Request Failed)`,
   WSL ping to `192.168.2.1` failed in the saved retry, and `iio_info` timed out.
-- A final PS soft reset restored a clean OpenOCD JTAG chain scan.
+- A final PS soft reset restored a clean OpenOCD JTAG chain scan. After normal
+  reboot, `tools/verify_z103_board.sh` passed again: USB RNDIS ping, IIO over
+  `ip:192.168.2.1`, and HTTP all responded.
 
 Interpretation: Z103 volatile JTAG U-Boot is proven, but Z103 Linux boot through
 the JTAG-assisted path is still open. The next attempt should avoid large
