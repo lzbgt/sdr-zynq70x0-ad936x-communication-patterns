@@ -2084,6 +2084,33 @@ copied Z203 and Z103 HDL trees, proving the BD can instantiate the sidecar
 ADI `axi_dmac` packet path through the 16-bit-to-byte adapter without replacing
 the ADI IQ sample-DMA path.
 
+The first full copied-HDL DMA overlay build exposed a synthesis boundary in the
+original full `fieldmesh_ctrl` endpoint: the Z103 OOC run reached the end of
+module synthesis, then stopped making log progress while Vivado grew to about
+10.8 GiB RSS. That run was interrupted before exhausting the host. The endpoint
+now defaults to a lightweight synthesis mode for the BD-visible control window,
+while the full packet-memory/register mode remains covered by the explicit
+`SYNTH_LIGHT=0` testbench. The Z103 copied overlay then completed the normal
+ADI Pluto Vivado make flow:
+
+```sh
+./tools/verify_fieldmesh_hdl.sh
+./tools/check_fieldmesh_dma_overlay_vivado.sh z103
+./tools/check_fieldmesh_dma_overlay_vivado.sh z203
+./tools/build_fieldmesh_dma_overlay_vivado.sh z103
+```
+
+Result: the Z103 FieldMesh DMA overlay produced
+`.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit`
+and `.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa`.
+`verify_pluto_hdl_build.sh` reported all user timing constraints met. The
+captured hashes were:
+
+```text
+system_top.bit  3e8e741db27b073ce5c5da3e1ea4caab6ed7dbc4dcd9daf4b344cadfff31a818
+system_top.xsa  f77a2302d55db855fda16ba7aece387426cbf029fd1d5f6f598f18c66ff96392
+```
+
 The FieldMesh sidecar devicetree contract was checked with:
 
 ```sh

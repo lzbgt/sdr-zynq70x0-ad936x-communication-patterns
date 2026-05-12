@@ -49,7 +49,9 @@ reg rready = 1'b1;
 wire irq;
 wire [2:0] irq_status;
 
-fieldmesh_sidecar_ctrl_axi_lite dut (
+fieldmesh_sidecar_ctrl_axi_lite #(
+    .SYNTH_LIGHT(0)
+) dut (
     .s_axi_aclk(clk),
     .s_axi_aresetn(resetn),
     .s_axi_awaddr(awaddr),

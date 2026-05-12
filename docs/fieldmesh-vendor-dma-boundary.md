@@ -276,10 +276,23 @@ project/block-design generation without running synthesis:
 ./tools/check_fieldmesh_dma_overlay_vivado.sh z103
 ```
 
+Build the same copied-HDL overlay into a bitstream/XSA with:
+
+```sh
+./tools/build_fieldmesh_dma_overlay_vivado.sh z203
+./tools/build_fieldmesh_dma_overlay_vivado.sh z103
+```
+
+The build helper applies the same patch, runs the normal ADI Pluto Vivado make
+flow, and then calls `tools/verify_pluto_hdl_build.sh` against the copied
+workspace. Outputs live under `.config/fieldmesh/dma-overlay-build-z203/` or
+`.config/fieldmesh/dma-overlay-build-z103/`.
+
 This is still a copied-HDL integration gate. It proves the namespace, HP-port
 split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream connections,
-and address segments are BD-visible on both variants; it does not yet provide
-devicetree nodes, a Linux driver binding, or live board traffic.
+and address segments are BD-visible on both variants. The Z103 path has also
+produced a timing-clean `system_top.bit`/XSA from that copied overlay. This
+does not yet provide a flashed runtime image or live board traffic.
 
 The matching devicetree contract is generated and checked separately:
 

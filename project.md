@@ -504,6 +504,10 @@ user and vendor configuration.
   runs Vivado project/BD generation checks without synthesis to prove
   `fieldmesh_tx_dma`, `fieldmesh_rx_dma`, and `fieldmesh_axis16_adapter` are
   BD-visible on the reserved sidecar namespace.
+- `tools/build_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
+  tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
+  Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in
+  the copied `.config/fieldmesh/` workspace.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -625,8 +629,11 @@ Expected result in the current Pluto-compatible firmware state:
    overlay leaves the ADI sample-DMA windows at `0x7C400000` and `0x7C420000`
    untouched, maps `fieldmesh_ctrl` at `0x43C00000`, maps sidecar packet TX/RX
    DMA controls at `0x43C10000`/`0x43C20000`, and uses a 16-bit ADI `axi_dmac`
-   stream adapter to preserve FieldMesh's byte-pipe ABI. The sidecar
-   devicetree binding and `dt-scan` preflight are now drafted and offline
-   validated; next integrate them only with a matching FieldMesh bitstream,
-   then scale descriptor storage beyond the shallow class rings and bind the
-   path to IIO/PL before open-air RF tests.
+   stream adapter to preserve FieldMesh's byte-pipe ABI. The copied-tree
+   FieldMesh DMA overlay now has a build wrapper for producing a matching
+   `system_top.bit`/XSA; the Z103 copied overlay is timing-clean. The sidecar
+   devicetree binding plus `dt-scan` preflight are drafted and offline
+   validated. Next integrate the sidecar devicetree only with a matching
+   FieldMesh bitstream, run the same full overlay build for Z203 before Z203
+   packaging, then scale descriptor storage beyond the shallow class rings and
+   bind the path to IIO/PL before open-air RF tests.
