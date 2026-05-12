@@ -113,8 +113,10 @@ Next concrete work:
   C0..C4 pending descriptors and lowest-class-first dequeue. The shallow
   descriptor rings now verify two slots per C0..C4 class, FIFO within a class,
   lowest-class-first dequeue across classes, full-ring drops, and invalid-class
-  drops. The remaining PL work is connecting those rings to the packet-memory
-  AXI-lite block and then scaling ring depth.
+  drops. The packet-memory AXI-lite wrapper now submits through those rings and
+  verifies C0/C2/C4 drain order through copied packet bytes while RX completion
+  backpressure is active. The remaining PL work is scaling descriptor storage,
+  adding a real packet/DMA boundary, and then binding the path to IIO/PL.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

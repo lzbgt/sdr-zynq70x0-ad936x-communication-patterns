@@ -419,8 +419,9 @@ user and vendor configuration.
   memory loopback core that copies local TX packet bytes into an RX packet area
   while preserving the descriptor completion contract.
 - `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` - integrated AXI-lite packet
-  memory wrapper exposing descriptor submit/readback and byte-wide packet-memory
-  access through one local-memory simulation block.
+  memory wrapper exposing descriptor submit/readback, queue-pending counters,
+  and byte-wide packet-memory access through one local-memory simulation block;
+  submitted descriptors now pass through the class descriptor rings.
 - `rtl/fieldmesh/fieldmesh_class_priority_queue.v` - one-entry-per-class
   descriptor queue that proves C0..C4 lowest-class-first dequeue before deeper
   descriptor rings are added.
@@ -533,6 +534,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Connect the FieldMesh shallow class descriptor rings to the packet-memory
-   AXI-lite shell, scale descriptor depth only after that path is verified, and
-   bind it to the IIO/PL transport path before open-air RF tests.
+4. Scale the FieldMesh descriptor storage beyond the shallow class rings, add a
+   real packet/DMA boundary, and bind it to the IIO/PL transport path before
+   open-air RF tests.

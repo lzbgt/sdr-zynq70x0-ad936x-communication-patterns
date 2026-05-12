@@ -166,8 +166,10 @@ and rejects out-of-range descriptors.
 
 `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` wires descriptor submission,
 descriptor readback, and byte-wide packet-memory access behind one AXI-lite
-slave. It remains local-memory only; external DMA, IIO buffers, descriptor
-rings, and RF/baseband logic are later integration points.
+slave. It now submits descriptors through the shallow class descriptor rings
+before the local packet-memory loopback core. It remains local-memory only;
+external DMA, IIO buffers, scaled descriptor memory, and RF/baseband logic are
+later integration points.
 
 `rtl/fieldmesh/fieldmesh_class_priority_queue.v` is the first class-priority
 queue slice. It stores one pending descriptor per C0..C4 class and always
@@ -179,7 +181,10 @@ invalid class enqueues.
 two descriptor slots per C0..C4 class. It preserves FIFO order inside each
 class and still selects the lowest numbered non-empty class first. The current
 test covers C0/C2/C4 priority ordering, FIFO behavior within C2/C4, full-ring
-drops, and invalid-class drops.
+drops, and invalid-class drops. The packet-memory AXI-lite test also verifies
+the rings in the integrated path by holding the RX completion slot busy,
+queuing C4/C2/C0 descriptors, then acknowledging RX descriptors and observing
+C0, C2, C2, C4 drain order through copied packet bytes.
 
 Keep these responsibilities in Linux first:
 
@@ -274,6 +279,9 @@ offsets and supports one outstanding read or write transaction.
 | `0x60` | `FM_MEM_ADDR` | local packet memory byte address |
 | `0x64` | `FM_MEM_WDATA` | write low 8 bits to selected packet memory byte |
 | `0x68` | `FM_MEM_RDATA` | read selected packet memory byte in low 8 bits |
+| `0x6c` | `FM_QUEUE_PENDING` | low five bits show pending C0..C4 class rings |
+| `0x70` | `FM_QUEUE_ENQ_COUNT` | descriptors accepted into class rings |
+| `0x74` | `FM_QUEUE_DEQ_COUNT` | descriptors dequeued from class rings into packet memory |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
@@ -302,7 +310,7 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 4. Validate with `tools/fieldmesh_trace_assert.py`.
 5. Add a PL loopback register block and descriptor ring with no RF path.
 6. Validate packet loopback and class priority under stress.
-7. Add timestamp/slot gates.
+7. Scale descriptor memory and add timestamp/slot gates.
 8. Only then connect the RF/baseband path.
 
 ## Done Criteria For This ABI

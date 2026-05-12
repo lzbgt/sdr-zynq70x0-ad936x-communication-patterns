@@ -405,7 +405,8 @@ Milestone 1: Common packet pipe
   `rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` verifies the first
   packet-byte copy path, and `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v`
   wires packet-memory access and descriptor submit/readback behind one AXI-lite
-  shell before descriptor-ring/DMA integration.
+  shell. It now submits through the shallow class descriptor rings before the
+  local packet-memory copy path.
   `rtl/fieldmesh/fieldmesh_class_priority_queue.v` verifies that lower numbered
   traffic classes dequeue before already-pending lower-priority descriptors.
   `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` extends that policy into

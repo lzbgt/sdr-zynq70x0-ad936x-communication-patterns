@@ -422,10 +422,11 @@ simulation-verified PL descriptor-loopback, register-submit, and AXI-lite
 access slices. `rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` adds the
 first standalone packet-memory copy path, and
 `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` exposes descriptor submit,
-RX readback, and byte memory access through one AXI-lite shell. The next PL
-target is connecting the shallow
-`rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` policy/ring slice to the
-packet-memory AXI-lite block, not the final RF waveform.
+RX readback, byte memory access, and queue-pending counters through one
+AXI-lite shell. It now drives submitted descriptors through
+`rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` before local packet-memory
+loopback. The next PL target is scaling descriptor storage and adding a real
+packet/DMA boundary, not the final RF waveform.
 
 ## Implementation Notes
 

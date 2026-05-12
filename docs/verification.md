@@ -1696,12 +1696,14 @@ packet-memory testbench writes a five-byte payload into local TX memory,
 verifies the copied RX bytes, and rejects an out-of-range descriptor. The
 packet-memory AXI-lite test writes payload bytes through
 `FM_MEM_ADDR`/`FM_MEM_WDATA`, submits a descriptor, reads RX descriptor fields,
-and verifies copied RX bytes through `FM_MEM_RDATA`. The class-priority queue
-test enqueues C4, C2, then C0 and verifies dequeue order C0, C2, C4, plus
-duplicate/invalid class drops. The descriptor-ring test enqueues C4/C4, C2/C2,
-then C0 and verifies dequeue order C0, C2, C2, C4, C4, then checks full-ring and
-invalid-class drops. This does not instantiate DMA, IIO, scaled descriptor
-rings, or RF logic yet.
+and verifies copied RX bytes through `FM_MEM_RDATA`. It also holds RX valid,
+queues C4, C2, C2, and C0 descriptors behind the integrated class rings, then
+acknowledges completions and verifies copied packet bytes drain in C0, C2, C2,
+C4 order. The class-priority queue test enqueues C4, C2, then C0 and verifies
+dequeue order C0, C2, C4, plus duplicate/invalid class drops. The descriptor-ring
+test enqueues C4/C4, C2/C2, then C0 and verifies dequeue order C0, C2, C2, C4,
+C4, then checks full-ring and invalid-class drops. This does not instantiate
+DMA, IIO, scaled descriptor memory, or RF logic yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 

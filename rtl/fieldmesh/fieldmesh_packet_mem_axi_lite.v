@@ -69,6 +69,9 @@ localparam [7:0] REG_RX_FLAGS        = 8'h5c;
 localparam [7:0] REG_MEM_ADDR        = 8'h60;
 localparam [7:0] REG_MEM_WDATA       = 8'h64;
 localparam [7:0] REG_MEM_RDATA       = 8'h68;
+localparam [7:0] REG_QUEUE_PENDING   = 8'h6c;
+localparam [7:0] REG_QUEUE_ENQ_COUNT = 8'h70;
+localparam [7:0] REG_QUEUE_DEQ_COUNT = 8'h74;
 
 wire rst = !s_axi_aresetn;
 
@@ -82,7 +85,7 @@ reg [7:0]  read_addr_hold;
 
 reg enable;
 reg loopback_enable;
-reg tx_valid;
+reg tx_submit;
 reg rx_ready;
 reg soft_reset;
 
@@ -101,8 +104,21 @@ reg [ADDR_WIDTH-1:0] mem_addr;
 reg mem_wr_en;
 reg [7:0] mem_wr_data;
 
-wire tx_ready;
+wire queue_enqueue_ready;
+wire queue_dequeue_valid;
+wire core_tx_ready;
 wire rx_valid;
+wire [31:0] queue_tx_packet_addr;
+wire [15:0] queue_tx_packet_len;
+wire [15:0] queue_tx_stream_id;
+wire [7:0]  queue_tx_traffic_class;
+wire [7:0]  queue_tx_mode;
+wire [15:0] queue_tx_flags;
+wire [31:0] queue_tx_epoch;
+wire [15:0] queue_tx_slot;
+wire [15:0] queue_tx_queue_age_ms;
+wire [31:0] queue_tx_timestamp_lo;
+wire [31:0] queue_tx_timestamp_hi;
 wire [31:0] rx_packet_addr;
 wire [15:0] rx_packet_len;
 wire [15:0] rx_stream_id;
@@ -116,13 +132,57 @@ wire [31:0] rx_timestamp_lo;
 wire [31:0] rx_timestamp_hi;
 wire [31:0] accepted_count;
 wire [31:0] completed_count;
-wire [31:0] drop_count;
-wire fault;
+wire [31:0] core_drop_count;
+wire core_fault;
 wire [7:0] mem_rd_data;
+wire [4:0] queue_class_pending;
+wire [31:0] queue_enqueue_count;
+wire [31:0] queue_dequeue_count;
+wire [31:0] queue_drop_count;
+wire queue_fault;
+wire [31:0] drop_count = core_drop_count + queue_drop_count;
+wire fault = core_fault | queue_fault;
 
 assign s_axi_awready = !aw_seen && !s_axi_bvalid;
 assign s_axi_wready = !w_seen && !s_axi_bvalid;
 assign s_axi_arready = !read_pending && !s_axi_rvalid;
+
+fieldmesh_class_descriptor_rings queue (
+    .clk(s_axi_aclk),
+    .rst(rst | soft_reset),
+    .enable(enable),
+    .enqueue_valid(tx_submit),
+    .enqueue_ready(queue_enqueue_ready),
+    .enqueue_packet_addr(tx_packet_addr),
+    .enqueue_packet_len(tx_packet_len),
+    .enqueue_stream_id(tx_stream_id),
+    .enqueue_traffic_class(tx_traffic_class),
+    .enqueue_mode(tx_mode),
+    .enqueue_flags(tx_flags),
+    .enqueue_epoch(tx_epoch),
+    .enqueue_slot(tx_slot),
+    .enqueue_queue_age_ms(tx_queue_age_ms),
+    .enqueue_timestamp_lo(tx_timestamp_lo),
+    .enqueue_timestamp_hi(tx_timestamp_hi),
+    .dequeue_valid(queue_dequeue_valid),
+    .dequeue_ready(core_tx_ready),
+    .dequeue_packet_addr(queue_tx_packet_addr),
+    .dequeue_packet_len(queue_tx_packet_len),
+    .dequeue_stream_id(queue_tx_stream_id),
+    .dequeue_traffic_class(queue_tx_traffic_class),
+    .dequeue_mode(queue_tx_mode),
+    .dequeue_flags(queue_tx_flags),
+    .dequeue_epoch(queue_tx_epoch),
+    .dequeue_slot(queue_tx_slot),
+    .dequeue_queue_age_ms(queue_tx_queue_age_ms),
+    .dequeue_timestamp_lo(queue_tx_timestamp_lo),
+    .dequeue_timestamp_hi(queue_tx_timestamp_hi),
+    .class_pending(queue_class_pending),
+    .enqueue_count(queue_enqueue_count),
+    .dequeue_count(queue_dequeue_count),
+    .drop_count(queue_drop_count),
+    .fault(queue_fault)
+);
 
 fieldmesh_packet_mem_loopback_core #(
     .MEM_BYTES(MEM_BYTES),
@@ -139,19 +199,19 @@ fieldmesh_packet_mem_loopback_core #(
     .mem_wr_data(mem_wr_data),
     .mem_rd_addr(mem_addr),
     .mem_rd_data(mem_rd_data),
-    .tx_valid(tx_valid),
-    .tx_ready(tx_ready),
-    .tx_packet_addr(tx_packet_addr),
-    .tx_packet_len(tx_packet_len),
-    .tx_stream_id(tx_stream_id),
-    .tx_traffic_class(tx_traffic_class),
-    .tx_mode(tx_mode),
-    .tx_flags(tx_flags),
-    .tx_epoch(tx_epoch),
-    .tx_slot(tx_slot),
-    .tx_queue_age_ms(tx_queue_age_ms),
-    .tx_timestamp_lo(tx_timestamp_lo),
-    .tx_timestamp_hi(tx_timestamp_hi),
+    .tx_valid(queue_dequeue_valid),
+    .tx_ready(core_tx_ready),
+    .tx_packet_addr(queue_tx_packet_addr),
+    .tx_packet_len(queue_tx_packet_len),
+    .tx_stream_id(queue_tx_stream_id),
+    .tx_traffic_class(queue_tx_traffic_class),
+    .tx_mode(queue_tx_mode),
+    .tx_flags(queue_tx_flags),
+    .tx_epoch(queue_tx_epoch),
+    .tx_slot(queue_tx_slot),
+    .tx_queue_age_ms(queue_tx_queue_age_ms),
+    .tx_timestamp_lo(queue_tx_timestamp_lo),
+    .tx_timestamp_hi(queue_tx_timestamp_hi),
     .rx_valid(rx_valid),
     .rx_ready(rx_ready),
     .rx_packet_addr(rx_packet_addr),
@@ -167,8 +227,8 @@ fieldmesh_packet_mem_loopback_core #(
     .rx_timestamp_hi(rx_timestamp_hi),
     .accepted_count(accepted_count),
     .completed_count(completed_count),
-    .drop_count(drop_count),
-    .fault(fault)
+    .drop_count(core_drop_count),
+    .fault(core_fault)
 );
 
 always @(posedge s_axi_aclk) begin
@@ -182,7 +242,7 @@ always @(posedge s_axi_aclk) begin
         s_axi_bvalid <= 1'b0;
         enable <= 1'b0;
         loopback_enable <= 1'b0;
-        tx_valid <= 1'b0;
+        tx_submit <= 1'b0;
         rx_ready <= 1'b0;
         soft_reset <= 1'b0;
         tx_packet_addr <= 32'd0;
@@ -200,7 +260,7 @@ always @(posedge s_axi_aclk) begin
         mem_wr_en <= 1'b0;
         mem_wr_data <= 8'd0;
     end else begin
-        tx_valid <= 1'b0;
+        tx_submit <= 1'b0;
         rx_ready <= 1'b0;
         soft_reset <= 1'b0;
         mem_wr_en <= 1'b0;
@@ -223,7 +283,7 @@ always @(posedge s_axi_aclk) begin
                         enable <= wdata_hold[0];
                         loopback_enable <= wdata_hold[1];
                         soft_reset <= wdata_hold[2];
-                        tx_valid <= wdata_hold[8];
+                        tx_submit <= wdata_hold[8];
                         rx_ready <= wdata_hold[9];
                     end
                     REG_TX_PACKET_ADDR: tx_packet_addr <= wdata_hold;
@@ -278,8 +338,8 @@ always @(posedge s_axi_aclk) begin
         if (read_pending) begin
             case (read_addr_hold)
                 REG_ID: s_axi_rdata <= FM_ID_VALUE;
-                REG_CONTROL: s_axi_rdata <= {20'd0, rx_ready, tx_valid, 5'd0, soft_reset, loopback_enable, enable};
-                REG_STATUS: s_axi_rdata <= {27'd0, fault, rx_valid, tx_ready, loopback_enable, enable};
+                REG_CONTROL: s_axi_rdata <= {20'd0, rx_ready, tx_submit, 5'd0, soft_reset, loopback_enable, enable};
+                REG_STATUS: s_axi_rdata <= {22'd0, queue_class_pending, fault, rx_valid, queue_enqueue_ready, loopback_enable, enable};
                 REG_IRQ_STATUS: s_axi_rdata <= {29'd0, fault, rx_valid, completed_count != 32'd0};
                 REG_TX_PACKET_ADDR: s_axi_rdata <= tx_packet_addr;
                 REG_TX_LEN_STREAM: s_axi_rdata <= {tx_stream_id, tx_packet_len};
@@ -303,6 +363,9 @@ always @(posedge s_axi_aclk) begin
                 REG_RX_FLAGS: s_axi_rdata <= {16'd0, rx_flags};
                 REG_MEM_ADDR: s_axi_rdata <= {{(32-ADDR_WIDTH){1'b0}}, mem_addr};
                 REG_MEM_RDATA: s_axi_rdata <= {24'd0, mem_rd_data};
+                REG_QUEUE_PENDING: s_axi_rdata <= {27'd0, queue_class_pending};
+                REG_QUEUE_ENQ_COUNT: s_axi_rdata <= queue_enqueue_count;
+                REG_QUEUE_DEQ_COUNT: s_axi_rdata <= queue_dequeue_count;
                 default: s_axi_rdata <= 32'd0;
             endcase
             s_axi_rresp <= 2'b00;
