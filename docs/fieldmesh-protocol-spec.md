@@ -309,6 +309,23 @@ The helper starts the receiver on the board, sends stress-profile packets from
 the host, fetches the board NDJSON capture, and verifies packet counts plus
 `rx_ok=true`.
 
+## Trace Assertions
+
+Use `tools/fieldmesh_trace_assert.py` to turn NDJSON traces into pass/fail
+evidence:
+
+```sh
+./tools/fieldmesh_trace_harness.py --scenario scheduled --mode auto \
+  --transport udp-loopback --traffic-profile stress --ticks 2 \
+  > /tmp/fieldmesh_scheduled.ndjson
+./tools/fieldmesh_trace_assert.py /tmp/fieldmesh_scheduled.ndjson
+```
+
+The assertion tool checks that negotiation events exist, the selected mode has
+its contract event, C0/C1 queue age stays inside policy, stale C2/C3 traffic has
+a degradation action or drop, and transport receive events do not report
+failures. Use `--no-negotiation` for receiver-only traces.
+
 ## Implementation Notes
 
 - Keep PHY and MAC separated: packet/control-plane tests should run before the

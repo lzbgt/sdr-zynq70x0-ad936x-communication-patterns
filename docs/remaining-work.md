@@ -63,7 +63,9 @@ simulated traces, one-process UDP loopback packet/header validation, and split
 UDP sender/receiver mode through `tools/fieldmesh_trace_harness.py`. The Z203
 and Z103 Yocto developer images now include `fieldmesh-udp-probe`, a small C
 board-runtime sender/receiver for the same split UDP smoke tests without Python
-on the board.
+on the board. `tools/fieldmesh_trace_assert.py` validates trace invariants for
+negotiation, mode contracts, C0/C1 latency budgets, stale video-like
+degradation, and receive failures.
 
 Next concrete work:
 
@@ -74,8 +76,8 @@ Next concrete work:
   Pluto USB/RNDIS IP.
 - Extend the generated video-like load from UDP packet traces toward a board
   runtime transport or IIO/PL packet pipe.
-- Preserve bounded-latency degradation evidence before attempting any open-air
-  range test.
+- Preserve bounded-latency degradation evidence from real board or IIO/PL
+  traces before attempting any open-air range test.
 
 FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
 `docs/fieldmesh-protocol-spec.md`.

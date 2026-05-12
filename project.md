@@ -374,6 +374,9 @@ user and vendor configuration.
   simulated, UDP-loopback, and split UDP sender/receiver transports for early
   capability, mode-selection, policy, traffic-class, and stress/degradation
   smoke tests before RF packet transport exists.
+- `tools/fieldmesh_trace_assert.py` - validate FieldMesh NDJSON traces for
+  negotiation, selected-mode contract events, C0/C1 latency budgets, stale
+  video-like degradation, and receive failures.
 - `fieldmesh-udp-probe` - small C FieldMesh UDP sender/receiver now packaged
   into both Z203 and Z103 Yocto developer images for board-runtime split UDP
   tests without requiring Python on the board; sender traces include lightweight

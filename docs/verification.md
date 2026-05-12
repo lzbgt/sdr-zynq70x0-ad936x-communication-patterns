@@ -1525,6 +1525,9 @@ Result:
   `graph`, and `scheduled` scenarios selected their matching mode contract; the
   generic `auto` scenario selected scheduled sharing from the advertised
   Z203/Z103 capabilities.
+- `tools/fieldmesh_trace_assert.py` was added to enforce trace-level policy:
+  negotiation events, selected-mode contract events, C0/C1 latency budgets,
+  stale C2/C3 degradation/drop behavior, and receive failures.
 
 Split UDP command:
 
@@ -1543,6 +1546,16 @@ sleep 0.2
 Result: receiver captured ten `packet_rx` events with `rx_ok=true`; sender
 emitted ten transmit-side `packet_trace` events with `rx_ok=null` and included
 stress-profile degradation actions.
+
+Trace assertion commands:
+
+```sh
+./tools/fieldmesh_trace_assert.py /tmp/fieldmesh_tx.ndjson
+./tools/fieldmesh_trace_assert.py --no-negotiation /tmp/fieldmesh_rx.ndjson
+```
+
+Result: both sender and receiver traces passed. Receiver-only traces use
+`--no-negotiation` because negotiation is emitted by the sender side.
 
 ## FieldMesh Board Runtime Probe
 
