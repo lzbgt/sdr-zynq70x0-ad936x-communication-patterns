@@ -10,7 +10,7 @@ enough that generated artifacts must not be shared.
 | Variant | Zynq | RFIC | User/bench channel note | Status |
 | --- | --- | --- | --- | --- |
 | SDR-Z203 in this repo | Zynq-7020, vendor examples target `xc7z020clg484-2` | AD9363 confirmed; live IIO reports AD9361-mode firmware/driver identity | User confirmed physical board is 2R2T; live IIO has `adi,2rx-2tx-mode-enable = 1` | Verified over `ip:192.168.2.1`; current boot is QSPI flash |
-| SDR-Z103 related board | Zynq-7010; schematic text shows `XC7Z010-2CLG400I` | AD9363 confirmed by user; live firmware reports AD9361-mode identity | 1R1T; live `hw_model_variant: 1` | Resource import and read-only USB/RNDIS/IIO baseline started under `resources/variants/sdr-z103-z7010-1r1t/` |
+| SDR-Z103 related board | Zynq-7010; schematic text shows `XC7Z010-2CLG400I` | AD9363 confirmed by user; live firmware reports AD9361-mode identity | 1R1T; live `hw_model_variant: 1` | Separate Z103 source/Vivado/Bootgen/Yocto baseline exists; rebuilt U-Boot reaches DDR over JTAG; rebuilt Linux package not hardware-booted yet |
 
 ## Why The Split Matters
 
@@ -58,10 +58,10 @@ first read-only live checks:
 - Zynq-7010; schematic text shows `XC7Z010-2CLG400I`,
 - AD9363,
 - 1R1T channel topology,
-- live firmware has been verified once at `192.168.2.1` through USB RNDIS and
+- live firmware has been verified at `192.168.2.1` through USB RNDIS and
   reports `Analog Devices PlutoSDR Rev.C (Z7010-AD9361)` with
-  `hw_model_variant: 1`; a later WSL ping failed while Windows still listed the
-  RNDIS adapter up, so serial remains the stable control path,
+  `hw_model_variant: 1`; USB/RNDIS has been transient after some JTAG reset
+  experiments, so serial remains the stable control path,
 - schematic text shows USB3320 ULPI for the Pluto USB gadget and FT2232HL for
   JTAG/UART,
 - targeted schematic text search found no RJ45, MDIO/MDC, RGMII/GMII/RMII, or
@@ -87,11 +87,11 @@ Observed external SDR-Z103 files:
 
 Unknown until verified:
 
-- DDR part and PS7 configuration,
 - RF connector wiring,
 - reference clock source,
-- whether its firmware should be Pluto-compatible, no-OS, or custom Linux,
-- exact build deltas inside the Z103 `plutosdr-fw.zip` tree.
+- exact implications of the source mismatch where live firmware is 1R1T but
+  `system_bd.tcl` sets `axi_ad9361 CONFIG.MODE_1R1T 0`,
+- hardware boot of the rebuilt Z103 Yocto Linux package.
 
 Do not reuse SDR-Z203 Z7020 artifacts on this board:
 

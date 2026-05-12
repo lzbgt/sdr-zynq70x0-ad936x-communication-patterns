@@ -1,0 +1,5 @@
+SDR-Z103 ARM firmware image
+
+Board: Zynq-7010 + AD9363 + 1R1T
+Console: ttyPS0 115200
+Default USB Ethernet target IP: 192.168.2.1

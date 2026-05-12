@@ -40,8 +40,9 @@ UPDATE.BAT
 ```
 
 These are enough to start a Z103 resource import, schematic extraction, and
-source-tree indexing. They are not enough by themselves to claim a reproducible
-custom build until the Z103 XSA/FSBL/Linux artifacts are rebuilt and booted.
+source-tree indexing. They are now enough to reproduce local Z103
+Vivado/Bootgen/Yocto artifacts in this repo, but not enough by themselves to
+claim a deployable firmware until the rebuilt Linux package boots on hardware.
 
 ## Required Hardware Inputs
 
@@ -236,7 +237,7 @@ docs/variants/sdr-z103-z7010-1r1t.md
 
 .config/z103-vivado-hdl/
 .config/z103-boot-artifacts/
-yocto/builds/sdr-z103-zynq7/
+yocto/builds/sdr-z103-arm/
 ```
 
 Do not mix generated Z103 and Z203 outputs in the same build or artifact
@@ -258,9 +259,14 @@ directory.
    settings.
 8. Build a Z103 XSA and FSBL.
 9. Build a Z103 devicetree and U-Boot configuration.
+   Status: done through the vendor source and `meta-sdr-z103`.
 10. Build a Z103 Yocto machine image with a distinct machine name.
-11. Boot by JTAG or another proven non-QSPI recovery path before any QSPI write.
-12. Only consider QSPI flashing after backup, JTAG recovery, and artifact
+    Status: done with `sdr-z103-zynq7` and `sdr-z103-arm-image`.
+11. Package the rebuilt Yocto ARM outputs and rebuilt Z103 bitstream into a
+    Pluto-style `pluto.frm`.
+    Status: done under `yocto/builds/sdr-z103-arm/fit-work/build/`.
+12. Boot by JTAG or another proven non-QSPI recovery path before any QSPI write.
+13. Only consider QSPI flashing after backup, JTAG recovery, and artifact
     correlation are proven.
 
 ## Minimum Definition Of Done
@@ -276,6 +282,13 @@ until all of these pass:
   `.config/z103-boot-artifacts`; structurally verified, not hardware-loaded.
 - Z103 JTAG or other proven non-QSPI boot path reaches U-Boot.
   Status: done with `tools/run_openocd_z103_jtag_uboot.sh`; not flashed.
+- Z103 Yocto ARM image and U-Boot build.
+  Status: done with `tools/yocto_z103_as_builder.sh bitbake
+  sdr-z103-arm-image` and `tools/yocto_z103_as_builder.sh bitbake
+  virtual/bootloader`.
+- Z103 Pluto runtime rootfs audit and `pluto.frm` package.
+  Status: done with `tools/audit_z103_yocto_rootfs.sh` and
+  `tools/package_z103_yocto_pluto_frm.sh`.
 - Z103 Linux boot reaches USB RNDIS gadget networking and IIO.
   Status: open. JTAG-assisted Linux helpers are prepared, but the first live
   attempts stopped at OpenOCD FIT load and DSCR/DCC boundaries. Factory QSPI

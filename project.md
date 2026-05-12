@@ -20,6 +20,11 @@ source code is expected to be shared with SDR-Z203, but the Zynq-7010 vs
 Zynq-7020 and 1R1T vs 2R2T boundaries require separate resources, constraints,
 PS configuration, and build artifacts.
 
+The SDR-Z103 variant now has its own local source, Vivado, boot-artifact, and
+Yocto workflow. The Z103 board has no verified physical Ethernet or SD-card
+path; its runtime network path is the Pluto USB RNDIS gadget, and pre-flash
+testing uses JTAG/serial rather than SD.
+
 ## Current Verified State
 
 Verification date: 2026-05-11, under WSL Arch Linux on the host PC.
@@ -161,6 +166,18 @@ Board-side facts from live captures:
 - After JTAG testing, normal SD boot was restored and verified. With SD inserted
   and the boot control not set to JTAG, this board boots from SD; without SD it
   falls back to QSPI.
+- SDR-Z103 custom-build baseline is partly verified. The board-specific
+  `plutosdr-fw.zip` source extracts cleanly, source preflight passes, Vivado
+  2025.1 rebuilds the Z103 `system_top.bit`/XSA for `xc7z010clg400-2`, Bootgen
+  builds Z103 FSBL/boot images, and OpenOCD JTAG can run rebuilt Z103 U-Boot
+  from DDR without writing QSPI.
+- SDR-Z103 Yocto ARM-side firmware now builds with the committed
+  `meta-sdr-z103` layer and `sdr-z103-zynq7` machine. Verified tasks include
+  `bitbake -p`, `bitbake sdr-z103-arm-image`, `bitbake virtual/bootloader`,
+  Pluto runtime rootfs audit, and packaging a Pluto-style `pluto.itb` /
+  `pluto.frm` from the rebuilt Z103 kernel, devicetree, initramfs, and Vivado
+  bitstream. The rebuilt Z103 Linux package has not yet been booted on hardware
+  and no Z103 QSPI partition has been written.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -320,6 +337,17 @@ user and vendor configuration.
 - `tools/run_openocd_z103_jtag_qspi_linux.sh` - prepared Z103 rebuilt-PS7 /
   rebuilt-U-Boot handoff that asks U-Boot to read the existing QSPI FIT and
   boot Linux without writing QSPI.
+- `tools/setup_z103_yocto_build.sh` - create the ignored Z103 Yocto build
+  directory with `sdr-z103-zynq7`, `meta-sdr-z103`, shared downloads/sstate,
+  and the Z103 vendor source root.
+- `tools/prepare_z103_vendor_source_for_yocto.sh` - clean and permission the
+  extracted Z103 Linux/U-Boot source before Yocto externalsrc builds.
+- `tools/yocto_z103_as_builder.sh` - run Z103 BitBake commands as the
+  non-root Yocto builder user with the Z103 build directory prepared first.
+- `tools/audit_z103_yocto_rootfs.sh` - verify the Z103 Yocto rootfs contains
+  the required Pluto runtime, USB gadget, update, web, and IIO files.
+- `tools/package_z103_yocto_pluto_frm.sh` - package rebuilt Z103 Yocto outputs
+  and the rebuilt Z103 bitstream into Pluto-style `pluto.itb` and `pluto.frm`.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
@@ -404,10 +432,10 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Perform a controlled loopback RF test with TX1 to RX1 through attenuation,
-   then repeat on the second RF chain.
-2. Decide which large vendor artifacts belong in external storage instead of
-   this git repo.
-3. Perform a controlled RF loopback test with the newly built FPGA image.
-4. Exercise SD/JTAG boot with the staged factory and Yocto boot sets before any
-   bootloader-region flash test.
+1. Boot the rebuilt Z103 Yocto Linux package through a non-flashing path, then
+   verify USB RNDIS, IIO, and the RF datapath.
+2. Capture a Z103 QSPI backup before considering any Z103 flash write.
+3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
+   images.
+4. Use the verified Z103/Z203 build baselines to start the FieldMesh
+   high-bandwidth swarm-radio modem/MAC experiments.

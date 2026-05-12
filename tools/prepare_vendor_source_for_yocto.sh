@@ -16,6 +16,7 @@ if ! id "$builder_user" >/dev/null 2>&1; then
     exit 1
 fi
 
+chmod -R u+rwX,go+rX "$(dirname "$vendor_root")"
 chown -R "$builder_user:root" "$(dirname "$vendor_root")"
 
 su -s /usr/bin/bash "$builder_user" -c "
@@ -25,4 +26,5 @@ make -C '$vendor_root/u-boot-xlnx' ARCH=arm distclean
 "
 
 "$repo_root/tools/repair_vendor_source_links.sh" "$vendor_root"
+chmod -R u+rwX,go+rX "$(dirname "$vendor_root")"
 chown -R "$builder_user:root" "$(dirname "$vendor_root")"

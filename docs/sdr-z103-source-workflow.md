@@ -184,6 +184,58 @@ Result:
 This verifies a non-flashing Z103 PS7/U-Boot path. It does not yet verify a
 rebuilt Linux/rootfs boot, USB RNDIS, IIO, or RF datapath.
 
+## Yocto ARM Firmware Build Result
+
+Commands:
+
+```sh
+./tools/prepare_z103_vendor_source_for_yocto.sh
+./tools/setup_z103_yocto_build.sh
+./tools/yocto_z103_as_builder.sh bitbake -p
+./tools/yocto_z103_as_builder.sh bitbake sdr-z103-arm-image
+./tools/yocto_z103_as_builder.sh bitbake virtual/bootloader
+./tools/audit_z103_yocto_rootfs.sh
+./tools/package_z103_yocto_pluto_frm.sh
+```
+
+Result:
+
+- The committed `meta-sdr-z103` layer builds the `sdr-z103-zynq7` machine from
+  the extracted Z103 vendor Linux/U-Boot source through Yocto `externalsrc`.
+- `sdr-z103-arm-image` produced a Z103 `zImage`, `zynq-pluto-sdr.dtb`,
+  `cpio.gz` initramfs/rootfs, `tar.gz` rootfs, and modules package.
+- `virtual/bootloader` produced a Z103 `u-boot.bin`. The recipe uses a
+  build-local `host-fdt-include` shim so the vendor 2016-era U-Boot host tools
+  see matching vendor `libfdt.h` / `libfdt_env.h` instead of newer host or
+  Yocto-native libfdt headers.
+- The Pluto runtime rootfs audit passed: USB gadget/RNDIS, FunctionFS IIO,
+  mass-storage update scripts, web files, U-Boot environment tools, and JFFS2
+  helpers are present.
+- `package_z103_yocto_pluto_frm.sh` produced a Pluto-style FIT/update pair
+  under `yocto/builds/sdr-z103-arm/fit-work/build/`.
+
+Key hashes from the successful build:
+
+```text
+2b0bfcd6f6291dda8da8e5a354c704b6bab48aadf2571b18ae8d69bc9270ee17  u-boot-sdr-z103-zynq7-2026.01+vendor-r0.bin
+bbd2fec8d77046b63df809dc50ce75945f3064e8ff46787f76bc7b2c3b38361a  zImage
+10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0  zynq-pluto-sdr.dtb
+c19b25d45c666be9465b1dff65afdb53054b5a30b6cb696576c48b30e9ccf6db  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+25e12b59d1a44882e9c62145377c91d1f0b0afb957a8b7d536701570e20d0ca8  pluto.itb
+4a3616a9aa4386800449f7bbb5f39a32feabd1482fdad597e22ce057fd7b017a  pluto.frm
+```
+
+Build boundary:
+
+- The rebuilt Z103 Yocto package is structurally verified but has not yet booted
+  on hardware.
+- The U-Boot package task emitted a `host-user-contaminated` warning because
+  this root-capable WSL environment caused deployed `/boot/u-boot*.bin`
+  ownership to match the build user group. The task completed; keep the warning
+  visible instead of masking it until the builder-user ownership model is
+  tightened.
+- No Z103 QSPI partition has been written.
+
 ## Linux Boot Follow-Up Attempts
 
 Two Linux follow-up helpers were added after the JTAG U-Boot smoke test:

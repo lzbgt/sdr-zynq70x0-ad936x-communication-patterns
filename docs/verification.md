@@ -1282,8 +1282,9 @@ Result:
   Treat this as expected for the rebuilt 2025.1 toolchain path, not as
   hardware validation.
 
-Safety boundary: no Z103 QSPI partition was written. The next Z103 gate is a
-JTAG or other proven non-QSPI boot attempt with the generated artifacts.
+Safety boundary: no Z103 QSPI partition was written. A non-flashing JTAG U-Boot
+path is now proven; the next Z103 gate is booting the rebuilt Linux/rootfs
+package through a non-flashing path.
 
 ## SDR-Z103 JTAG U-Boot Smoke Test
 
@@ -1367,6 +1368,56 @@ Boundary: Z103 Linux over the JTAG-assisted path remains open. The next attempt
 should use a clean USB/JTAG state and avoid loading the full 12 MB FIT through
 OpenOCD.
 
+## SDR-Z103 Yocto ARM Build And Packaging
+
+Commands:
+
+```sh
+./tools/prepare_z103_vendor_source_for_yocto.sh
+./tools/setup_z103_yocto_build.sh
+./tools/yocto_z103_as_builder.sh bitbake -p
+./tools/yocto_z103_as_builder.sh bitbake sdr-z103-arm-image
+./tools/yocto_z103_as_builder.sh bitbake virtual/bootloader
+./tools/audit_z103_yocto_rootfs.sh
+./tools/package_z103_yocto_pluto_frm.sh
+```
+
+Result:
+
+- Z103 BitBake parse passed: 1877 recipes parsed, 3225 targets, 128 skipped,
+  0 errors.
+- `sdr-z103-arm-image` built successfully for `MACHINE=sdr-z103-zynq7`.
+- `virtual/bootloader` built and deployed Z103 vendor U-Boot successfully after
+  the recipe isolated vendor U-Boot host tools from newer host/native libfdt
+  headers with a build-local `host-fdt-include` shim.
+- The Pluto runtime rootfs audit passed, including USB gadget/RNDIS startup,
+  FunctionFS IIO, mass-storage update scripts, HTTP files, U-Boot environment
+  tools, and JFFS2 helpers.
+- `package_z103_yocto_pluto_frm.sh` produced a Pluto-style FIT/update pair
+  under `yocto/builds/sdr-z103-arm/fit-work/build/`.
+
+Generated artifact hashes:
+
+```text
+2b0bfcd6f6291dda8da8e5a354c704b6bab48aadf2571b18ae8d69bc9270ee17  u-boot-sdr-z103-zynq7-2026.01+vendor-r0.bin
+bbd2fec8d77046b63df809dc50ce75945f3064e8ff46787f76bc7b2c3b38361a  zImage
+10f2bae1c95f428fe6acffa22d9265c544d512154255f68fe3e9f0a749f481e0  zynq-pluto-sdr.dtb
+c19b25d45c666be9465b1dff65afdb53054b5a30b6cb696576c48b30e9ccf6db  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+25e12b59d1a44882e9c62145377c91d1f0b0afb957a8b7d536701570e20d0ca8  pluto.itb
+4a3616a9aa4386800449f7bbb5f39a32feabd1482fdad597e22ce057fd7b017a  pluto.frm
+```
+
+Notes:
+
+- `mkimage` emitted the inherited Pluto ITS `unit_address_vs_reg` warnings and
+  `Image contains unit addresses @, this will break signing`; this is the
+  vendor-style unsigned FIT/update flow used by these Pluto firmware packages.
+- The U-Boot package task emitted a `host-user-contaminated` ownership warning
+  for deployed `/boot/u-boot*.bin` files in this root-capable WSL environment,
+  but all tasks completed.
+- This is a local build/package verification only. The rebuilt Z103 Linux
+  package has not yet booted on hardware and no Z103 QSPI partition was written.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
@@ -1375,6 +1426,9 @@ OpenOCD.
 - RF loopback has not been performed yet.
 - Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, `pluto.frm` packaging,
   and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
+- SDR-Z103 Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, and
+  `pluto.frm` packaging now complete locally on WSL Arch, but the rebuilt Z103
+  Linux package has not booted on hardware yet.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
