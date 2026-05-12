@@ -290,13 +290,13 @@ For board images that do not carry Python, use the packaged C probe:
 fieldmesh-udp-probe receive --host 0.0.0.0 --port 55321 \
   --traffic-profile stress --ticks 2 --timeout-ms 3000
 fieldmesh-udp-probe send --host <peer-ip> --port 55321 \
-  --traffic-profile stress --ticks 2
+  --scenario scheduled --mode auto --traffic-profile stress --ticks 2
 ```
 
 The C probe emits the same NDJSON event style for transmit and receive smoke
-tests, but intentionally stays smaller than the Python harness. Use it for
-board-runtime validation; keep the Python harness as the richer host-side
-reference.
+tests, including lightweight sender-side capability and mode-negotiation events.
+It intentionally stays smaller than the Python harness. Use it for board-runtime
+validation; keep the Python harness as the richer host-side reference.
 
 When the board is reachable over SSH and is running an image that contains
 `fieldmesh-udp-probe`, the end-to-end board smoke test is:

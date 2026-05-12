@@ -57,7 +57,7 @@ static void usage(FILE *out)
 {
     fprintf(out,
         "Usage:\n"
-        "  fieldmesh-udp-probe send --host HOST --port PORT [--ticks N] [--mode MODE] [--traffic-profile basic|video|stress]\n"
+        "  fieldmesh-udp-probe send --host HOST --port PORT [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n");
 }
 
@@ -189,6 +189,32 @@ static uint8_t mode_id(const char *mode)
     return 1;
 }
 
+static const char *effective_mode(const struct config *cfg)
+{
+    if (strcmp(cfg->mode, "auto")) {
+        return cfg->mode;
+    }
+    if (!strcmp(cfg->scenario, "p2p") || !strcmp(cfg->scenario, "star") ||
+        !strcmp(cfg->scenario, "graph") || !strcmp(cfg->scenario, "scheduled")) {
+        return cfg->scenario;
+    }
+    return "scheduled";
+}
+
+static const char *mode_reason(const struct config *cfg, const char *selected)
+{
+    if (strcmp(cfg->mode, "auto")) {
+        return "user_forced";
+    }
+    if (!strcmp(cfg->scenario, selected)) {
+        if (!strcmp(selected, "p2p")) return "scenario_topology_p2p";
+        if (!strcmp(selected, "star")) return "scenario_topology_star";
+        if (!strcmp(selected, "graph")) return "scenario_topology_graph";
+        if (!strcmp(selected, "scheduled")) return "scenario_topology_scheduled";
+    }
+    return "multi_endpoint_with_coordinator_and_timing";
+}
+
 static const char *mode_name(uint8_t mode)
 {
     switch (mode) {
@@ -221,7 +247,7 @@ static void make_trace(const struct config *cfg, int tick, int class_index, stru
     tr->tick = tick;
     tr->epoch = (uint32_t)(1000 + tick);
     tr->slot = (uint16_t)(tick % 2);
-    tr->mode = mode_id(cfg->mode);
+    tr->mode = mode_id(effective_mode(cfg));
     tr->mode_name = mode_name(tr->mode);
     tr->src_node = 0x0101;
     tr->src_name = "z103-a";
@@ -352,12 +378,60 @@ static void emit_send_trace(const struct trace *tr)
            tr->fec_recovered, tr->link_quality_db, tr->degradation_action);
 }
 
+static void emit_send_negotiation(const struct config *cfg, const char *selected)
+{
+    const char *reason = mode_reason(cfg, selected);
+
+    printf("{\"event\":\"capability_report\",\"node_id\":\"z103-a\","
+           "\"hardware\":\"sdr-z103-z7010-1r1t\",\"roles\":[\"endpoint\",\"observer\"],"
+           "\"radio\":\"1r1t\",\"clock\":\"local\",\"max_kbps\":2500}\n");
+    printf("{\"event\":\"capability_report\",\"node_id\":\"z203-hub\","
+           "\"hardware\":\"sdr-z203-z7020-2r2t\",\"roles\":[\"hub\",\"coordinator\",\"relay\",\"gateway\",\"observer\"],"
+           "\"radio\":\"2r2t\",\"clock\":\"gps_pps_candidate\",\"max_kbps\":7000}\n");
+    printf("{\"event\":\"discovery_beacon\",\"node_id\":\"z103-a\","
+           "\"supported_modes\":[\"p2p\",\"star\"],\"clock\":\"local\",\"max_kbps\":2500}\n");
+    printf("{\"event\":\"discovery_beacon\",\"node_id\":\"z203-hub\","
+           "\"supported_modes\":[\"p2p\",\"star\",\"graph\",\"scheduled\"],"
+           "\"clock\":\"gps_pps_candidate\",\"max_kbps\":7000}\n");
+    printf("{\"event\":\"join_request\",\"node_id\":\"z103-a\",\"coordinator\":\"z203-hub\","
+           "\"requested_roles\":[\"endpoint\",\"observer\"]}\n");
+    printf("{\"event\":\"join_accept\",\"node_id\":\"z103-a\",\"coordinator\":\"z203-hub\","
+           "\"admitted_roles\":[\"endpoint\",\"observer\"]}\n");
+    printf("{\"event\":\"mode_request\",\"requested_mode\":\"%s\",\"requester\":\"z103-a\","
+           "\"coordinator\":\"z203-hub\",\"traffic_profile\":\"%s\"}\n",
+           cfg->mode, cfg->traffic_profile);
+    printf("{\"event\":\"mode_proposal\",\"coordinator\":\"z203-hub\","
+           "\"selected_mode\":\"%s\",\"reason\":\"%s\"}\n", selected, reason);
+    printf("{\"event\":\"mode_accept\",\"node_id\":\"z103-a\",\"selected_mode\":\"%s\"}\n", selected);
+    printf("{\"event\":\"mode_accept\",\"node_id\":\"z203-hub\",\"selected_mode\":\"%s\"}\n", selected);
+
+    if (!strcmp(selected, "star")) {
+        printf("{\"event\":\"stream_subscribe\",\"stream_id\":100,\"source\":\"z103-a\","
+               "\"subscribers\":[\"z203-hub\"]}\n");
+    } else if (!strcmp(selected, "graph")) {
+        printf("{\"event\":\"route_update\",\"coordinator\":\"z203-hub\","
+               "\"route_edges\":[[\"z103-a\",\"z203-relay\"],[\"z203-relay\",\"z203-hub\"]],"
+               "\"allowed_classes\":[\"C0\",\"C1\",\"C2\"]}\n");
+    } else if (!strcmp(selected, "scheduled")) {
+        printf("{\"event\":\"schedule_update\",\"coordinator\":\"z203-hub\","
+               "\"epoch\":1000,\"guard_us\":500,\"emergency_minislot\":true,"
+               "\"slots\":[{\"slot\":1,\"owner\":\"z103-a\",\"classes\":[\"C0\",\"C1\",\"C2\"]}]}\n");
+    } else {
+        printf("{\"event\":\"link_profile\",\"mode\":\"p2p\","
+               "\"peers\":[\"z103-a\",\"z203-hub\"],\"reserved_classes\":[\"C0\",\"C1\"]}\n");
+    }
+
+    printf("{\"event\":\"mode_decision\",\"selected_mode\":\"%s\",\"reason\":\"%s\","
+           "\"coordinator\":\"z203-hub\"}\n", selected, reason);
+}
+
 static int run_send(const struct config *cfg)
 {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in addr;
     uint8_t packet[MAX_PACKET];
     int classes = class_count(cfg->traffic_profile);
+    const char *selected = effective_mode(cfg);
 
     if (sock < 0) {
         perror("socket");
@@ -373,8 +447,10 @@ static int run_send(const struct config *cfg)
     }
 
     printf("{\"event\":\"scenario_start\",\"transport\":\"udp-send\",\"scenario\":\"%s\","
-           "\"requested_mode\":\"%s\",\"traffic_profile\":\"%s\",\"ticks\":%d}\n",
-           cfg->scenario, cfg->mode, cfg->traffic_profile, cfg->ticks);
+           "\"requested_mode\":\"%s\",\"selected_mode\":\"%s\","
+           "\"traffic_profile\":\"%s\",\"ticks\":%d}\n",
+           cfg->scenario, cfg->mode, selected, cfg->traffic_profile, cfg->ticks);
+    emit_send_negotiation(cfg, selected);
 
     for (int tick = 0; tick < cfg->ticks; tick++) {
         for (int class_index = 0; class_index < classes; class_index++) {
@@ -395,7 +471,8 @@ static int run_send(const struct config *cfg)
             emit_send_trace(&tr);
         }
     }
-    printf("{\"event\":\"scenario_end\",\"transport\":\"udp-send\",\"ticks\":%d}\n", cfg->ticks);
+    printf("{\"event\":\"scenario_end\",\"transport\":\"udp-send\","
+           "\"selected_mode\":\"%s\",\"ticks\":%d}\n", selected, cfg->ticks);
     close(sock);
     return 0;
 }

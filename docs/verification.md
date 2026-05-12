@@ -1553,11 +1553,13 @@ Host-side C probe check:
 fieldmesh-udp-probe receive --host 127.0.0.1 --port 55325 \
   --traffic-profile stress --ticks 2 --timeout-ms 3000
 fieldmesh-udp-probe send --host 127.0.0.1 --port 55325 \
-  --traffic-profile stress --ticks 2
+  --scenario scheduled --mode auto --traffic-profile stress --ticks 2
 ```
 
 Result: the host-built C probe passed split UDP stress mode with ten received
-packets and deterministic degradation actions in the sender trace.
+packets and deterministic degradation actions in the sender trace. The sender
+also emitted lightweight negotiation events and selected scheduled sharing from
+`--mode auto`.
 
 Yocto packaging checks:
 
@@ -1575,7 +1577,8 @@ Result:
 
 - Z103 and Z203 `fieldmesh-udp-probe` recipes built successfully.
 - Z103 and Z203 developer images rebuilt successfully and contain
-  `/usr/bin/fieldmesh-udp-probe`.
+  `/usr/bin/fieldmesh-udp-probe` with the lightweight C negotiation trace
+  support.
 - Rootfs audits passed after adding the probe to the required runtime file set.
 - `tools/run_fieldmesh_board_udp_probe.sh` syntax check passed; it is the next
   live helper once a board running the rebuilt image is reachable over SSH.
@@ -1586,14 +1589,14 @@ Result:
 Current package hashes:
 
 ```text
-10c4b32a75242fffa3c4e12a19e425265330a70a078b6fd8fd18beb16bca37f7  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
-fc3d567f4fb596aac570a875e84762392a3adf272dd29a3a7809c1240cb444a6  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
-acc43a7eda44148b650991ab3c6fd75b3da644500e694947aae506ca87948060  z203 pluto.itb
-13c4fc598f4f4747b8325961709d1f7fb932e9a844ab171c1951a85f109d3d33  z203 pluto.frm
-9e2b11efb1cfb8a764d27c07b03957354e03f4f98a09c04dbd21571864e4a8a1  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
-dd0d0954248417fde5cd9e0f0ad25bbdd65a7baaf46ac8678efeb31d20f68b72  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
-8baeb97d73e6d7a1eaf6b22c1d99e43109c9eb91fca508216acaefee79036011  z103 pluto.itb
-e49527385ea64442d433656ce6b5faf946e08c1608b310cbd223afd3e8cb99af  z103 pluto.frm
+c0c84460f828560661cb217d933c1ebab28e41ce0be1179b47d717f7aebfd1b3  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
+f189d1ffd6eea26d9c4304ac952fad43a7584e6fdf16c15f53704c83e80c3659  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
+83d6338ca26385d909e80993495f33a158e42f3d512a025cab578c3d3e4f2adb  z203 pluto.itb
+fb4302fbb6e344d3c5b4faec5e08eb5057d1e6234fd0f6063cb133482bc8003f  z203 pluto.frm
+36850a2e98598d3e01c4a3b60569d3f6f4e734da5451085023e5e2ed02ccda24  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+65a49c34aa08a2919f34ac7546937df5bb16de1c3c5e0cfc8d16f28acb187431  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
+a835b5941ea20bfe8ab9394c7ecdc21453572279d5c2791965e36377ef822d1b  z103 pluto.itb
+04878f00c205a5b0148f630bde080215e40fff1e0388aade4384caf6c8447237  z103 pluto.frm
 ```
 
 ## Verification Gaps
