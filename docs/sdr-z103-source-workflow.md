@@ -268,6 +268,11 @@ First live result:
 - A follow-up `tools/verify_z103_board.sh` run captured 100 percent ping loss to
   `192.168.2.1`, so the next live step is restoring normal USB/RNDIS or another
   read path before `tools/backup_z103_qspi_live.sh`.
+- The later `tools/diagnose_pluto_usb_reachability.sh` run narrowed that gate:
+  the FT2232 JTAG/UART device is attached to WSL and OpenOCD scans the Zynq
+  TAPs, but Windows reports no present Pluto/RNDIS data USB device and WSL has
+  no `192.168.2.x` interface. Recover the Pluto data USB path before board
+  runtime tests or Z103 QSPI backup.
 
 ## Linux Boot Follow-Up Attempts
 

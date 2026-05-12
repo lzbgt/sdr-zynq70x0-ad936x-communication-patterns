@@ -1,0 +1,42 @@
+== WSL network ==
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128
+eth0             UP             172.28.195.20/20 fe80::215:5dff:feaa:73c6/64
+default via 172.28.192.1 dev eth0 proto kernel
+172.28.192.0/20 dev eth0 proto kernel scope link src 172.28.195.20
+
+== WSL ping 192.168.2.1 ==
+PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
+
+--- 192.168.2.1 ping statistics ---
+4 packets transmitted, 0 received, 100% packet loss, time 3049ms
+
+
+== WSL USB visibility ==
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+      407      0 crw-rw-r--   1 root     root     189, 128 May 12 23:58 /dev/bus/usb/002/001
+      412      0 crw-rw-rw-   1 root     root     189,   1 May 13 01:11 /dev/bus/usb/001/002
+      405      0 crw-rw-r--   1 root     root     189,   0 May 12 23:58 /dev/bus/usb/001/001
+
+== Windows Pluto/RNDIS/FTDI PnP devices ==
+
+== Windows network adapters ==
+
+== Windows 192.168.2.x IPv4 addresses ==
+
+== usbipd status ==
+
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-1    0403:6010  USB Serial Converter A, USB Serial Converter B                Attached
+1-6    0408:548d  HP True Vision FHD Camera, Camera DFU Device                  Not shared
+1-14   8087:0033  Intel(R) Wireless Bluetooth(R)                                Not shared
+
+Persisted:
+GUID                                  DEVICE
+0e7bffac-a23e-4799-a3d7-60a7e94aaafc  USB Serial Converter A, USB Serial Converter B
+
+Source                                 Version
+------                                 -------
+C:\Program Files\usbipd-win\usbipd.exe 0.0.0.0

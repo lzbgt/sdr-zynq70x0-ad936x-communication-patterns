@@ -33,7 +33,11 @@ Open live gates:
 - Restore normal Z103 USB/RNDIS or another live read path, then capture a full
   Z103 QSPI backup before any Z103 flash write. After the latest JTAG RAM-boot
   boundary, `tools/verify_z103_board.sh` captured 100 percent ping loss to
-  `192.168.2.1`; use `tools/backup_z103_qspi_live.sh` once reachable.
+  `192.168.2.1`. The latest USB reachability diagnostic shows the FT2232
+  JTAG/UART device attached to WSL, no present Pluto/RNDIS data USB device in
+  Windows, and no WSL `192.168.2.x` interface. Use
+  `tools/diagnose_pluto_usb_reachability.sh` after reconnecting/recovering the
+  data USB path, then `tools/backup_z103_qspi_live.sh` once reachable.
 - Extend the generated Z103 path from JTAG U-Boot to rebuilt Linux/rootfs boot,
   then verify USB RNDIS, IIO, and RF datapath. The first FIT-from-RAM attempt
   stopped during the large OpenOCD memory transfer; the first QSPI-FIT handoff
@@ -65,7 +69,9 @@ Next concrete work:
 
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
   normal runtime reachability is restored. Use
-  `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test.
+  `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;
+  it is blocked until a board running the rebuilt image is reachable at the
+  Pluto USB/RNDIS IP.
 - Extend the generated video-like load from UDP packet traces toward a board
   runtime transport or IIO/PL packet pipe.
 - Preserve bounded-latency degradation evidence before attempting any open-air

@@ -183,9 +183,11 @@ Board-side facts from live captures:
   `devicetree.dtb` files from the Yocto outputs. The first live attempt failed
   before image loading at the PS-side DAP/DSCR reset-halt boundary, while the
   JTAG chain still scanned afterward.
-- After that JTAG failure boundary, a Z103 USB/RNDIS verification attempt saved
-  100 percent ping loss to `192.168.2.1`; restore normal USB/RNDIS or serial/SSH
-  access before attempting the Z103 QSPI backup.
+- After that JTAG failure boundary, Z103 runtime USB/RNDIS remains unavailable:
+  WSL has no `192.168.2.x` interface, Windows reports no present Pluto/RNDIS
+  data USB device, but the FT2232 JTAG/UART device is attached to WSL and
+  OpenOCD still scans the Zynq TAPs. Restore the Pluto data USB path before
+  attempting the Z103 QSPI backup or board-runtime FieldMesh smoke test.
 
 The AD9363 vs AD9361 identity mismatch is a firmware/runtime identity issue, not
 a current physical RFIC uncertainty. Treat the live IIO context as the truth for
@@ -259,6 +261,9 @@ user and vendor configuration.
   PowerShell into this repo.
 - `tools/configure_windows_pluto_rndis.ps1` - set the Windows Pluto RNDIS
   adapter to the expected host address if DHCP or WSL routing needs recovery.
+- `tools/diagnose_pluto_usb_reachability.sh` - collect WSL network/USB state,
+  Windows Pluto/RNDIS/FTDI PnP state, Windows `192.168.2.x` adapter state, and
+  `usbipd` status when the board runtime path is not reachable.
 - `tools/reboot_capture_windows_serial.ps1` - issue a reboot over a Windows COM
   port and capture pre/post reboot serial evidence.
 - `tools/run_windows_serial_commands.ps1` - run a command file over a Windows
@@ -461,8 +466,10 @@ Expected result in the current Pluto-compatible firmware state:
 
 1. Boot the rebuilt Z103 Yocto Linux package through a non-flashing path, then
    verify USB RNDIS, IIO, and the RF datapath.
-2. Restore Z103 normal USB/RNDIS or SSH reachability, then capture a Z103 QSPI
-   backup before considering any Z103 flash write.
+2. Restore Z103 normal USB/RNDIS or SSH reachability. Current diagnostics show
+   FT2232 JTAG attached but no Pluto/RNDIS data USB device; rerun
+   `tools/diagnose_pluto_usb_reachability.sh`, then capture a Z103 QSPI backup
+   before considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 4. Use the verified Z103/Z203 build baselines to start the FieldMesh

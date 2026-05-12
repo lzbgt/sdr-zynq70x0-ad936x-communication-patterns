@@ -1472,6 +1472,29 @@ Result:
 - Capture SHA-256:
   `949d602e08ad77616649c9c0385dfddb61dead9102311055bee3f5acf1350a54`.
 
+Follow-up runtime USB diagnosis:
+
+```sh
+./tools/verify_z103_board.sh
+./tools/diagnose_pluto_usb_reachability.sh
+./tools/probe_openocd_jtag.sh
+```
+
+Result:
+
+- Captures:
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_verify_board_20260513-020927.txt`,
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_reachability_diag_20260513-021058.txt`,
+  and
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_openocd_jtag_after_usb_diag_20260513-021406.txt`.
+- WSL still has only `lo` and `eth0`, and ping to `192.168.2.1` still reports
+  100 percent loss.
+- WSL sees the attached FT2232 `0403:6010` device through `usbipd`.
+- Windows reports no present Pluto/RNDIS data USB device and no
+  `192.168.2.x` Pluto/RNDIS adapter.
+- OpenOCD still scans the Zynq PL and CPU TAPs through FT2232 JTAG. The current
+  gate is therefore the Pluto data USB/runtime path, not the JTAG cable path.
+
 ## FieldMesh Trace Harness
 
 Commands:
