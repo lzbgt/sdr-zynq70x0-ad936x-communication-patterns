@@ -155,6 +155,9 @@ Next concrete work:
   RTL into `projects/pluto/fieldmesh/`, add idempotent project/Makefile
   references, and, with opt-in `--control-overlay`, append the first
   `fieldmesh_ctrl` BD module/address/IRQ wiring to `system_bd.tcl`.
+  `tools/check_fieldmesh_control_overlay_vivado.sh` now verifies that this
+  control-only overlay survives Vivado project/BD generation on copied Z203 and
+  Z103 HDL trees without running synthesis.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

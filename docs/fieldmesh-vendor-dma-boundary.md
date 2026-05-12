@@ -194,6 +194,19 @@ With `--control-overlay`, the patcher also appends an idempotent
 wires `fieldmesh_ctrl/irq` to `ps-11 mb-11`. The inventory treats that exact
 self-owned sidecar address as `present`; other overlaps still fail.
 
+Validate the control-only overlay through Vivado project/block-design
+generation without running synthesis:
+
+```sh
+./tools/check_fieldmesh_control_overlay_vivado.sh z203
+./tools/check_fieldmesh_control_overlay_vivado.sh z103
+```
+
+The helper copies the selected vendor HDL tree into `.config/fieldmesh/`,
+applies `--control-overlay`, sources Vivado 2025.1, creates the project/BD, and
+asserts that `fieldmesh_ctrl`, `fieldmesh_ctrl/s_axi`, `fieldmesh_ctrl/irq`,
+and `SEG_data_fieldmesh_ctrl` are present.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

@@ -268,7 +268,9 @@ patches only a copied HDL tree, copies the FieldMesh RTL into
 Its opt-in `--control-overlay` mode also appends the first control-only
 block-design cell: `fieldmesh_sidecar_ctrl_axi_lite` as `fieldmesh_ctrl`, clock
 and reset from `sys_cpu_clk`/`sys_cpu_resetn`, AXI-lite at `0x43C00000`, and
-IRQ `ps-11 mb-11`. This is still not the sidecar packet DMA path.
+IRQ `ps-11 mb-11`. `tools/check_fieldmesh_control_overlay_vivado.sh` verifies
+that copied Z203/Z103 HDL trees can generate the Vivado block design with this
+cell and address segment present. This is still not the sidecar packet DMA path.
 
 Keep these responsibilities in Linux first:
 

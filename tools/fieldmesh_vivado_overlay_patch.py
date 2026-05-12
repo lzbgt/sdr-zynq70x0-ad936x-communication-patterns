@@ -62,6 +62,12 @@ def patch_makefile(text: str, rel_files: list[str]) -> tuple[str, bool]:
 def render_control_overlay() -> str:
     return f"""
 {BD_CTRL_BEGIN}
+set fieldmesh_ctrl_files [glob -nocomplain [file join [pwd] fieldmesh *.v]]
+if {{[llength $fieldmesh_ctrl_files] == 0}} {{
+  error "FieldMesh control overlay requires copied fieldmesh/*.v files"
+}}
+add_files -norecurse $fieldmesh_ctrl_files
+update_compile_order -fileset sources_1
 create_bd_cell -type module -reference fieldmesh_sidecar_ctrl_axi_lite fieldmesh_ctrl
 ad_connect sys_cpu_clk fieldmesh_ctrl/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ctrl/s_axi_aresetn

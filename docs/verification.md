@@ -1972,6 +1972,8 @@ assert obj['makefile_changed'] is False
 assert obj['post_patch_sidecar_ok'] is True
 PY
 rm -rf "$tmp_overlay"
+./tools/check_fieldmesh_control_overlay_vivado.sh z203
+./tools/check_fieldmesh_control_overlay_vivado.sh z103
 tmp=$(mktemp)
 sed 's/ad_cpu_interconnect 0x79020000 axi_ad9361/ad_cpu_interconnect 0x43C00000 axi_ad9361/' \
   src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl > "$tmp"
@@ -2001,7 +2003,11 @@ idempotent on a second apply. Its opt-in control overlay also appended the
 `fieldmesh_ctrl` BD module, `0x43C00000` CPU interconnect, and `ps-11 mb-11`
 IRQ wiring to a temporary copied tree; the post-patch sidecar check reported
 that exact self-owned window as present without treating it as a collision, and
-the second control-overlay apply was idempotent.
+the second control-overlay apply was idempotent. The Vivado control-overlay
+check then passed for copied Z203 and Z103 HDL trees, proving the patched
+block design can instantiate `fieldmesh_ctrl`, map `SEG_data_fieldmesh_ctrl`
+at `0x43C00000`, connect IRQ `In11`, validate the BD, and generate the BD
+target without running synthesis.
 
 ## Verification Gaps
 
