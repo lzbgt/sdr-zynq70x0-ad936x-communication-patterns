@@ -1,0 +1,278 @@
+== Network ==
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128
+eth0             UP             172.28.195.20/20 fe80::215:5dff:feaa:73c6/64
+
+== Ping 192.168.2.1 ==
+PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
+64 bytes from 192.168.2.1: icmp_seq=1 ttl=63 time=0.807 ms
+64 bytes from 192.168.2.1: icmp_seq=2 ttl=63 time=0.588 ms
+64 bytes from 192.168.2.1: icmp_seq=3 ttl=63 time=0.679 ms
+64 bytes from 192.168.2.1: icmp_seq=4 ttl=63 time=0.778 ms
+
+--- 192.168.2.1 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3072ms
+rtt min/avg/max/mdev = 0.588/0.713/0.807/0.086 ms
+
+== IIO explicit IP context ==
+iio_info version: 0.26 (git tag:v0.26)
+Libiio version: 0.26 (git tag: v0.26) backends: local xml ip usb serial
+IIO context created with network backend.
+Backend version: 0.26 (git tag: v0.26)
+Backend description string: 192.168.2.1 Linux (none) 6.1.0 #17 SMP PREEMPT Mon Jan 26 12:16:27 CST 2026 armv7l
+IIO context has 9 attributes:
+	hw_model: Analog Devices PlutoSDR Rev.C (Z7010-AD9361)
+	hw_model_variant: 1
+	hw_serial:
+	fw_version: device-fw
+	ad9361-phy,xo_correction: 40000000
+	ad9361-phy,model: ad9361
+	local,kernel: 6.1.0
+	uri: ip:192.168.2.1
+	ip,ip-addr: 192.168.2.1
+IIO context has 4 devices:
+	iio:device0: ad9361-phy
+		9 channels found:
+			altvoltage1: TX_LO (output)
+			9 channel-specific attributes found:
+				attr  0: external value: 0
+				attr  1: fastlock_load value: 0
+				attr  2: fastlock_recall ERROR: Invalid argument (22)
+				attr  3: fastlock_save value: 0 91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91
+				attr  4: fastlock_store value: 0
+				attr  5: frequency value: 2450000000
+				attr  6: frequency_available value: [46875001 1 6000000000]
+				attr  7: label value: TX_LO
+				attr  8: powerdown value: 0
+			voltage0:  (input)
+			15 channel-specific attributes found:
+				attr  0: bb_dc_offset_tracking_en value: 1
+				attr  1: filter_fir_en value: 0
+				attr  2: gain_control_mode value: slow_attack
+				attr  3: gain_control_mode_available value: manual fast_attack slow_attack hybrid
+				attr  4: hardwaregain value: 71.000000 dB
+				attr  5: hardwaregain_available value: [-3 1 71]
+				attr  6: quadrature_tracking_en value: 1
+				attr  7: rf_bandwidth value: 18000000
+				attr  8: rf_bandwidth_available value: [200000 1 56000000]
+				attr  9: rf_dc_offset_tracking_en value: 1
+				attr 10: rf_port_select value: A_BALANCED
+				attr 11: rf_port_select_available value: A_BALANCED B_BALANCED C_BALANCED A_N A_P B_N B_P C_N C_P TX_MONITOR1 TX_MONITOR2 TX_MONITOR1_2
+				attr 12: rssi value: 102.25 dB
+				attr 13: sampling_frequency value: 30720000
+				attr 14: sampling_frequency_available value: [2083333 1 61440000]
+			voltage3:  (output)
+			8 channel-specific attributes found:
+				attr  0: filter_fir_en value: 0
+				attr  1: raw value: 306
+				attr  2: rf_bandwidth value: 18000000
+				attr  3: rf_bandwidth_available value: [200000 1 40000000]
+				attr  4: rf_port_select_available value: A B
+				attr  5: sampling_frequency value: 30720000
+				attr  6: sampling_frequency_available value: [2083333 1 61440000]
+				attr  7: scale value: 1.000000
+			altvoltage0: RX_LO (output)
+			9 channel-specific attributes found:
+				attr  0: external value: 0
+				attr  1: fastlock_load value: 0
+				attr  2: fastlock_recall ERROR: Invalid argument (22)
+				attr  3: fastlock_save value: 0 194,194,194,194,194,194,194,194,194,194,194,194,194,194,194,194
+				attr  4: fastlock_store value: 0
+				attr  5: frequency value: 2400000000
+				attr  6: frequency_available value: [70000000 1 6000000000]
+				attr  7: label value: RX_LO
+				attr  8: powerdown value: 0
+			voltage2:  (output)
+			8 channel-specific attributes found:
+				attr  0: filter_fir_en value: 0
+				attr  1: raw value: 306
+				attr  2: rf_bandwidth value: 18000000
+				attr  3: rf_bandwidth_available value: [200000 1 40000000]
+				attr  4: rf_port_select_available value: A B
+				attr  5: sampling_frequency value: 30720000
+				attr  6: sampling_frequency_available value: [2083333 1 61440000]
+				attr  7: scale value: 1.000000
+			temp0:  (input)
+			1 channel-specific attributes found:
+				attr  0: input value: 46491
+			voltage0:  (output)
+			10 channel-specific attributes found:
+				attr  0: filter_fir_en value: 0
+				attr  1: hardwaregain value: -10.000000 dB
+				attr  2: hardwaregain_available value: [-89.750000 0.250000 0.000000]
+				attr  3: rf_bandwidth value: 18000000
+				attr  4: rf_bandwidth_available value: [200000 1 40000000]
+				attr  5: rf_port_select value: A
+				attr  6: rf_port_select_available value: A B
+				attr  7: rssi value: 0.00 dB
+				attr  8: sampling_frequency value: 30720000
+				attr  9: sampling_frequency_available value: [2083333 1 61440000]
+			voltage2:  (input)
+			13 channel-specific attributes found:
+				attr  0: bb_dc_offset_tracking_en value: 1
+				attr  1: filter_fir_en value: 0
+				attr  2: gain_control_mode_available value: manual fast_attack slow_attack hybrid
+				attr  3: offset value: 57
+				attr  4: quadrature_tracking_en value: 1
+				attr  5: raw value: 0
+				attr  6: rf_bandwidth value: 18000000
+				attr  7: rf_bandwidth_available value: [200000 1 56000000]
+				attr  8: rf_dc_offset_tracking_en value: 1
+				attr  9: rf_port_select_available value: A_BALANCED B_BALANCED C_BALANCED A_N A_P B_N B_P C_N C_P TX_MONITOR1 TX_MONITOR2 TX_MONITOR1_2
+				attr 10: sampling_frequency value: 30720000
+				attr 11: sampling_frequency_available value: [2083333 1 61440000]
+				attr 12: scale value: 0.305250
+			out:  (input, WARN:iio_channel_get_type()=UNKNOWN)
+			1 channel-specific attributes found:
+				attr  0: voltage_filter_fir_en value: 0
+		19 device-specific attributes found:
+				attr  0: calib_mode value: auto
+				attr  1: calib_mode_available value: auto manual manual_tx_quad tx_quad rf_dc_offs rssi_gain_step
+				attr  2: dcxo_tune_coarse ERROR: No such device (19)
+				attr  3: dcxo_tune_coarse_available value: [0 0 0]
+				attr  4: dcxo_tune_fine ERROR: No such device (19)
+				attr  5: dcxo_tune_fine_available value: [0 0 0]
+				attr  6: ensm_mode value: fdd
+				attr  7: ensm_mode_available value: sleep wait alert fdd pinctrl pinctrl_fdd_indep
+				attr  8: filter_fir_config value: FIR Rx: 0,0 Tx: 0,0
+				attr  9: gain_table_config value: <gaintable AD9361 type=FULL dest=3 start=1300000000 end=4000000000>
+-3, 0x00, 0x00, 0x20
+-3, 0x00, 0x00, 0x00
+-3, 0x00, 0x00, 0x00
+-2, 0x00, 0x01, 0x00
+-1, 0x00, 0x02, 0x00
+0, 0x00, 0x03, 0x00
+1, 0x00, 0x04, 0x00
+2, 0x00, 0x05, 0x00
+3, 0x01, 0x03, 0x20
+4, 0x01, 0x04, 0x00
+5, 0x01, 0x05, 0x00
+6, 0x01, 0x06, 0x00
+7, 0x01, 0x07, 0x00
+8, 0x01, 0x08, 0x00
+9, 0x01, 0x09, 0x00
+10, 0x01, 0x0A, 0x00
+11, 0x01, 0x0B, 0x00
+12, 0x01, 0x0C, 0x00
+13, 0x01, 0x0D, 0x00
+14, 0x01, 0x0E, 0x00
+15, 0x02, 0x09, 0x20
+16, 0x02, 0x0A, 0x00
+17, 0x02, 0x0B, 0x00
+18, 0x02, 0x0C, 0x00
+19, 0x02, 0x0D, 0x00
+20, 0x02, 0x0E, 0x00
+21, 0x02, 0x0F, 0x00
+22, 0x02, 0x10, 0x00
+23, 0x02, 0x2B, 0x20
+24, 0x02, 0x2C, 0x00
+25, 0x04, 0x27, 0x20
+26, 0x04, 0x28, 0x00
+27, 0x04, 0x29, 0x00
+28, 0x04, 0x2A, 0x00
+29, 0x04, 0x2B, 0x00
+30, 0x24, 0x21, 0x20
+31, 0x24, 0x22, 0x00
+32, 0x44, 0x20, 0x20
+33, 0x44, 0x21, 0x00
+34, 0x44, 0x22, 0x00
+35, 0x44, 0x23, 0x00
+36, 0x44, 0x24, 0x00
+37, 0x44, 0x25, 0x00
+38, 0x44, 0x26, 0x00
+39, 0x44, 0x27, 0x00
+40, 0x44, 0x28, 0x00
+41, 0x44, 0x29, 0x00
+42, 0x44, 0x2A, 0x00
+43, 0x44, 0x2B, 0x00
+44, 0x44, 0x2C, 0x00
+45, 0x44, 0x2D, 0x00
+46, 0x44, 0x2E, 0x00
+47, 0x44, 0x2F, 0x00
+48, 0x44, 0x30, 0x00
+49, 0x44, 0x31, 0x00
+50, 0x64, 0x2E, 0x20
+51, 0x64, 0x2F, 0x00
+52, 0x64, 0x30, 0x00
+53, 0x64, 0x31, 0x00
+54, 0x64, 0x32, 0x00
+55, 0x64, 0x33, 0x00
+56, 0x64, 0x34, 0x00
+57, 0x64, 0x35, 0x00
+58, 0x64, 0x36, 0x00
+59, 0x64, 0x37, 0x00
+60, 0x64, 0x38, 0x00
+61, 0x65, 0x38, 0x20
+62, 0x66, 0x38, 0x20
+63, 0x67, 0x38, 0x20
+64, 0x68, 0x38, 0x20
+65, 0x69, 0x38, 0x20
+66, 0x6A, 0x38, 0x20
+67, 0x6B, 0x38, 0x20
+68, 0x6C, 0x38, 0x20
+69, 0x6D, 0x38, 0x20
+70, 0x6E, 0x38, 0x20
+71, 0x6F, 0x38, 0x20
+</gaintable>
+				attr 10: multichip_sync ERROR: Permission denied (13)
+				attr 11: rssi_gain_step_error value: lna_error: 0 0 0 0
+mixer_error: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+gain_step_calib_reg_val: 0 0 0 0 0
+				attr 12: rx_path_rates value: BBPLL:983040000 ADC:245760000 R2:122880000 R1:61440000 RF:30720000 RXSAMP:30720000
+				attr 13: trx_rate_governor value: nominal
+				attr 14: trx_rate_governor_available value: nominal highest_osr
+				attr 15: tx_path_rates value: BBPLL:983040000 DAC:122880000 T2:122880000 T1:61440000 TF:30720000 TXSAMP:30720000
+				attr 16: waiting_for_supplier value: 0
+				attr 17: xo_correction value: 40000000
+				attr 18: xo_correction_available value: [39992000 1 40008000]
+		183 debug attributes found:
+				debug attr  0: digital_tune value: 0
+				debug attr  1: calibration_switch_control value: 0
+				debug attr  2: multichip_sync value: 0
+				debug attr  3: gaininfo_rx2 ERROR: Resource temporarily unavailable (11)
+				debug attr  4: gaininfo_rx1 value: 69 74 0 0 0 0 0 0
+				debug attr  5: bist_timing_analysis value: 0
+				debug attr  6: gpo_set value: 0
+				debug attr  7: bist_tone value: 0
+				debug attr  8: bist_prbs value: 0
+
+== HTTP probe ==
+<!doctype html>
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+<title>ADALM-PLUTO On-board documentation</title>
+<meta name="description" content="ADALM-PLUTO On board docs">
+
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
+<!-- Place favicon.ico in the root directory -->
+<link type="text/css" href="./img/style.css" rel="stylesheet">
+</head>
+<body>
+<!--[if lte IE 11]>
+<p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience and security.</p>
+<![endif]-->
+
+<!-- Add your site or application content here -->
+<header id="top">
+<a href="http://www.analog.com">
+<img src="img/ADI_Logo_AWP.png" alt="Analog Devices logo" />
+</a>
+<div class="anchor">
+<a href="http://192.168.2.1/index.html" title="network version">Network Version</a> |
+<a href="https://my.analog.com/en/app/registration/hardware/ADALM-PLUTO?sn=&v=Analog Devices PlutoSDR Rev.C (Z7010-AD9361)">Register your PlutoSDR</a> |
+<a href="https://twitter.com/intent/tweet?text=Excited%20to%20try%20out%20my%20new%20@ADI_News%20%23plutosdr%20(ADALM-PLUTO%20http%3A%2F%2Fwww.analog.com%2Fplutosdr)%20Hands%20on%20Learning%20Module%20for%20Software%20Defined%20Radio%20pic.twitter.com%2F7JxgynEa8w&hashtags=matlab%2Cgnuradio%2Csdrangel%2Csdrsharp&related=twitter%3AADI_News" title="Click to Tweet">Share PlutoSDR: <img style="width: 32px;" src="./img/tw.png" alt="Twitter Logo"></a>
+</div>
+</header>
+
+<nav style="text-align: center;">
+<a class="button" href="#started">Get Started</a>
+<a class="button" href="#framework">Frameworks</a>
+<div class="dropdown">
+<span><a class="button" href="#firmware">Firmware &dArr;</a></span>
+<div class="dropdown-content">
+<p><a class="button" href="#firmware">Upgrade Firmware</a></p>
+<p><a class="button" href="#version">Version Info</a></p>
+<p><a class="button" href="#target">Custom Apps</a></p>

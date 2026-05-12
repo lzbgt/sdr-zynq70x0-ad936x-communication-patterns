@@ -41,8 +41,8 @@ Quick live check:
 Current verified access path:
 
 ```text
-Board USB Ethernet/IP: 192.168.2.1
-Host USB Ethernet/IP:  192.168.2.10
+Board USB Ethernet/RNDIS IP: 192.168.2.1
+Host USB Ethernet/RNDIS IP:  192.168.2.10
 IIO URI:               ip:192.168.2.1
 ```
 
@@ -51,6 +51,8 @@ board currently booting from QSPI flash. A related SDR-Z103 Z7010+AD9363 1R1T
 board has external schematic/firmware resources under
 `/mnt/c/baidunetdiskdownload/SDR-Z103`; it shares much of the source pattern but
 must not reuse Z7020 bitstreams, PS configuration, or boot images.
+Imported SDR-Z103 schematic text shows no physical Ethernet or SD-card evidence;
+its `192.168.2.1` access path is the Pluto USB RNDIS gadget.
 
 Large vendor images and source archives remain outside this repo. The curated
 `resources/` tree contains the recovery firmware, selected references, examples,

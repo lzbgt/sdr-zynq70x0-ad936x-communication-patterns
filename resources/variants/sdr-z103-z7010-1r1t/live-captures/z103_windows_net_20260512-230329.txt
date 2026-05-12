@@ -1,0 +1,13 @@
+
+
+Name                 : vEthernet (WSL (Hyper-V firewall))
+InterfaceDescription : Hyper-V Virtual Ethernet Adapter
+Status               : Up
+MacAddress           : 00-15-5D-28-51-F6
+LinkSpeed            : 10 Gbps
+
+Name                 : ÒÔÌ«Íø 2
+InterfaceDescription : PlutoSDR USB Ethernet/RNDIS Gadget
+Status               : Up
+MacAddress           : 00-E0-22-AD-C8-3B
+LinkSpeed            : 0 bps

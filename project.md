@@ -330,8 +330,16 @@ Vivado 2025.1 local installer material is external at
 
 Related SDR-Z103 Z7010+AD9363 1R1T board resources are external at
 `/mnt/c/baidunetdiskdownload/SDR-Z103`, including schematic, firmware files,
-and user-facing board notes. Keep them separate from SDR-Z203 resources until a
-dedicated SDR-Z103 variant folder is created.
+user-facing board notes, and the mandatory Z103 `plutosdr-fw.zip` source
+baseline. Imported resources now live under
+`resources/variants/sdr-z103-z7010-1r1t/`, with variant notes at
+`docs/variants/sdr-z103-z7010-1r1t.md`.
+
+Z103 schematic extraction shows USB3320 ULPI for the Pluto USB gadget and
+FT2232HL for JTAG/UART. No physical Ethernet/RJ45/MDIO/RGMII-style PHY evidence
+and no SD-card connector or SD command/clock/data net evidence were found, so
+Z103 `192.168.2.1` access is USB RNDIS and pre-flash boot testing should use
+JTAG or another proven non-QSPI path, not SD.
 
 Local build/source workspaces intentionally ignored by git:
 

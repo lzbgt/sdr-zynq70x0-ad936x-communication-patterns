@@ -1,0 +1,267 @@
+
+
+Class        : USB
+FriendlyName : USB Composite Device
+InstanceId   : USB\VID_0456&PID_B673\5&68EE1F5&0&3
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : DTS APO4x Service Component
+InstanceId   : SWD\DRIVERENUM\{B410CF85-2754-43A3-8963-A5D32D640E22}#DTSSERVICE&6&34B855B6&0
+Status       : OK
+
+Class        : USB
+FriendlyName : USB Mass Storage Device
+InstanceId   : USB\VID_0456&PID_B673&MI_02\6&1DC2E353&0&0002
+Status       : OK
+
+Class        : WPD
+FriendlyName : PlutoSDR
+InstanceId   : SWD\WPDBUSENUM\_??_USBSTOR#DISK&VEN_LINUX&PROD_FILE-STOR_GADGET&REV_0601#7&2D2B3E1C&0#{53F56307-B6BF-11D
+               0-94F2-00A0C91EFB8B}
+Status       : OK
+
+Class        : System
+FriendlyName : Microsoft ACPI-Compliant Embedded Controller
+InstanceId   : ACPI\PNP0C09\1
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&AD3516A&0
+Status       : Degraded
+
+Class        : Battery
+FriendlyName : Microsoft ACPI-Compliant Control Method Battery
+InstanceId   : ACPI\PNP0C0A\1
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&100E61E4&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&9E6B8DE&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&2F5A1A28&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&22C81289&0
+Status       : Degraded
+
+Class        : USB
+FriendlyName : USB Serial Converter B
+InstanceId   : USB\VID_0403&PID_6010&MI_01\6&262E04C5&0&0001
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&8D2F7C7&0
+Status       : Degraded
+
+Class        : Ports
+FriendlyName : PlutoSDR Serial Console (COM3)
+InstanceId   : USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&3581C32E&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Realtek OVWrap2 Component
+InstanceId   : SWD\DRIVERENUM\{C3A63EDD-2D27-4B66-B155-5E94B43D926A}#REALTEKOVWRAP2&6&34B855B6&0
+Status       : OK
+
+Class        : AudioProcessingObject
+FriendlyName : Realtek Audio Effects Component (INT)
+InstanceId   : SWD\DRIVERENUM\{C3A63EDD-2D27-4B66-B155-5E94B43D926A}#REALTEKINTAPO&6&34B855B6&0
+Status       : OK
+
+Class        : System
+FriendlyName : Composite Bus Enumerator
+InstanceId   : ROOT\COMPOSITEBUS\0000
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&3046B2B4&0
+Status       : Degraded
+
+Class        : AudioProcessingObject
+FriendlyName : Realtek Audio Effects Component (INT)
+InstanceId   : SWD\DRIVERENUM\{12D32D00-C5BF-4A3B-A030-EBA5AB6FD0DD}#REALTEKINTAPO&6&18F6F318&0
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) Dynamic Tuning Technology Device Extension Component
+InstanceId   : SWD\DRIVERENUM\{BC7814A1-A80E-44B3-87C6-652EAC676387}#DTTEXTCOMPONENT&4&141A301A&0
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&5653FAF&0
+Status       : Degraded
+
+Class        : HIDClass
+FriendlyName : HID-compliant vendor-defined device
+InstanceId   : HID\GVINPUT&COL04\1&2D595CA7&0&0003
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&67900C6&0
+Status       : Degraded
+
+Class        : Bluetooth
+FriendlyName : Bluetooth Device (RFCOMM Protocol TDI)
+InstanceId   : BTH\MS_RFCOMM\6&D9C1463&0&0
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1AA00FE0&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1B8CA86C&0
+Status       : Degraded
+
+Class        : System
+FriendlyName : PCI Express Root Complex
+InstanceId   : ACPI\PNP0A08\0
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&2E465911&0
+Status       : Degraded
+
+Class        : HIDClass
+FriendlyName : HID-compliant vendor-defined device
+InstanceId   : HID\GVINPUT&COL05\1&2D595CA7&0&0004
+Status       : OK
+
+Class        : System
+FriendlyName : Microsoft ACPI-Compliant System
+InstanceId   : ACPI_HAL\PNP0C08\0
+Status       : OK
+
+Class        : USB
+FriendlyName : USB Composite Device
+InstanceId   : USB\VID_0408&PID_548D\200901010001
+Status       : OK
+
+Class        : System
+FriendlyName : Microsoft UEFI-Compliant System
+InstanceId   : ACPI_HAL\UEFI\0
+Status       : OK
+
+Class        : Net
+FriendlyName : PlutoSDR USB Ethernet/RNDIS Gadget
+InstanceId   : USB\VID_0456&PID_B673&MI_00\6&1DC2E353&0&0000
+Status       : OK
+
+Class        : Ports
+FriendlyName : USB Serial Port (COM4)
+InstanceId   : FTDIBUS\VID_0403+PID_6010+CKQCQFHQPUJBB\0000
+Status       : OK
+
+Class        : USBDevice
+FriendlyName : IIO
+InstanceId   : USB\VID_0456&PID_B673&MI_05\6&1DC2E353&0&0005
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1F5A5A71&0
+Status       : Degraded
+
+Class        : Mouse
+FriendlyName : HID-compliant mouse
+InstanceId   : HID\GVINPUT&COL01\1&2D595CA7&0&0000
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1A1F49F7&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&CA0A9CC&0
+Status       : Degraded
+
+Class        : AudioProcessingObject
+FriendlyName : Realtek Audio Effects Component
+InstanceId   : SWD\DRIVERENUM\{C3A63EDD-2D27-4B66-B155-5E94B43D926A}#REALTEKAPO&6&34B855B6&0
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&7659952&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1CA06983&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1D8D020F&0
+Status       : Degraded
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&2AB4EC1&0
+Status       : Degraded
+
+Class        : AudioProcessingObject
+FriendlyName : DTS Audio Effects Component
+InstanceId   : SWD\DRIVERENUM\{B410CF85-2754-43A3-8963-A5D32D640E22}#DTSAPO&6&34B855B6&0
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&1932B16B&0
+Status       : Degraded
+
+Class        : Mouse
+FriendlyName : HID-compliant mouse
+InstanceId   : HID\GVINPUT&COL02\1&2D595CA7&0&0001
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&2D59C085&0
+Status       : Degraded
+
+Class        : USB
+FriendlyName : USB Composite Device
+InstanceId   : USB\VID_0403&PID_6010\CKQCQFHQPUJB
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&7E65F3B&0
+Status       : Degraded
+
+Class        : USB
+FriendlyName : USB Serial Converter A
+InstanceId   : USB\VID_0403&PID_6010&MI_00\6&262E04C5&0&0000
+Status       : OK
+
+Class        : SoftwareComponent
+FriendlyName : Intel(R) XTU Component Device
+InstanceId   : SWD\DRIVERENUM\{D6711452-0DD6-4AEB-A58E-803DBA73BF69}#XTUCOMPONENT&3&2BEC6210&0
+Status       : Degraded

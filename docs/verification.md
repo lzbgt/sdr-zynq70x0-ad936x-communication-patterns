@@ -1181,6 +1181,32 @@ U-Boot legacy `uImage` and `uramdisk.image.gz` files. Both the factory 2R2T SD
 set and the local Yocto+Vivado SD set have now been physically booted and
 verified.
 
+## SDR-Z103 Read-Only Baseline
+
+The Z103 resources and attached hardware are tracked separately from Z203 under
+`resources/variants/sdr-z103-z7010-1r1t/`.
+
+Schematic extraction from the imported Z103 PDF identifies:
+
+- Zynq `XC7Z010-2CLG400I`,
+- USB3320 ULPI for the Pluto USB gadget,
+- FT2232HL JTAG/UART,
+- QSPI/JTAG boot-mode wiring,
+- no physical Ethernet PHY/RJ45/MDIO/RGMII evidence,
+- no SD-card connector or SD command/clock/data net evidence.
+
+Read-only live captures:
+
+- `z103_verify_board_20260512-230154.txt` - WSL USB RNDIS/IIO baseline passed.
+- `z103_verify_board_20260512-231636.txt` - later WSL ping to `192.168.2.1`
+  failed.
+- `z103_windows_usb_rndis_20260512-231816.txt` - Windows still listed the Pluto
+  RNDIS adapter up at `192.168.2.10` and the Pluto/FT2232 USB functions present.
+- `z103_serial_readonly_20260512-231726.txt` - serial login on `COM3` as
+  `root`/`analog`; confirmed Linux `6.1.0`, `mode=1r1t`, `ipaddr=192.168.2.1`,
+  QSPI MTD layout, and kernel model `Analog Devices PlutoSDR Rev.C
+  (Z7010/AD9363)`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

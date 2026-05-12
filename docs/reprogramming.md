@@ -206,8 +206,8 @@ U-Boot, HDL, SDK export, generated firmware artifacts, and legal-info archives.
 They are about 3.1 GiB each compressed and over 6 GiB expanded, so they should
 be treated as external build inputs unless a smaller extracted subset is needed.
 
-The related 1R1T board is SDR-Z103. Its schematic, direct firmware files, and
-user-facing notes are external at:
+The related 1R1T board is SDR-Z103. Its schematic, direct firmware files,
+board-specific source archive, and user-facing notes are external at:
 
 ```text
 /mnt/c/baidunetdiskdownload/SDR-Z103
@@ -217,6 +217,11 @@ Most SDR-Z103 source code is expected to match the SDR-Z203 source pattern, but
 both the Zynq-7010 vs Zynq-7020 and 1R1T vs 2R2T differences are artifact
 boundaries. Do not reuse SDR-Z203 bitstreams, PS7 init, BOOT images, or QSPI
 payloads on SDR-Z103.
+
+Imported Z103 schematic text shows no physical Ethernet PHY/RJ45 path and no
+SD-card connector or SD command/clock/data net evidence. For Z103, use USB
+RNDIS for runtime access and JTAG or another proven non-QSPI path for pre-flash
+boot testing.
 
 Use this path when the project needs:
 
@@ -258,7 +263,9 @@ Recommended workflow:
    interface constraints working.
 2. Make one small PL change.
 3. Build bitstream.
-4. Boot through SD or JTAG first.
+4. Boot through SD or JTAG first on SDR-Z203; for SDR-Z103, use JTAG or another
+   proven non-QSPI path because the imported schematic does not show SD-card
+   wiring.
 5. Capture `iio_info` and serial logs after every firmware/HDL change.
 
 ## openwifi Repurposing

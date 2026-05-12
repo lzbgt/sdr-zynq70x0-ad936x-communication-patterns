@@ -1,0 +1,6 @@
+uname -a
+cat /etc/device_config 2>/dev/null || true
+cat /proc/cmdline
+cat /proc/mtd
+fw_printenv mode attr_name attr_val model ipaddr serverip 2>/dev/null || true
+dmesg | grep -Ei 'pluto|ad936|cf-ad936|iio|usb|rndis|mtd|qspi|zynq|dma' | tail -120

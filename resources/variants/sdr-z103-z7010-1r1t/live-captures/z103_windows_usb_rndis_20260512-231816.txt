@@ -1,0 +1,34 @@
+﻿# Windows USB/RNDIS status
+
+
+Name                 : 以太网 2
+InterfaceDescription : PlutoSDR USB Ethernet/RNDIS Gadget
+Status               : Up
+MacAddress           : 00-E0-22-AD-C8-3B
+LinkSpeed            : 0 bps
+
+
+
+
+
+InterfaceAlias : 以太网 2
+IPAddress      : 192.168.2.10
+PrefixLength   : 24
+AddressFamily  : IPv4
+PrefixOrigin   : Dhcp
+
+
+
+
+Class     FriendlyName                       InstanceId
+-----     ------------                       ----------
+USB       USB Composite Device               USB\VID_0456&PID_B673\5&68EE1F5&0&3
+USB       USB Mass Storage Device            USB\VID_0456&PID_B673&MI_02\6&1DC2E353&0&0002
+WPD       PlutoSDR                           SWD\WPDBUSENUM\_??_USBSTOR#DISK&VEN_LINUX&PROD_FILE-STOR_GADGET&REV_060...
+USB       USB Serial Converter B             USB\VID_0403&PID_6010&MI_01\6&262E04C5&0&0001
+Ports     PlutoSDR Serial Console (COM3)     USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003
+Net       PlutoSDR USB Ethernet/RNDIS Gadget USB\VID_0456&PID_B673&MI_00\6&1DC2E353&0&0000
+Ports     USB Serial Port (COM4)             FTDIBUS\VID_0403+PID_6010+CKQCQFHQPUJBB\0000
+USBDevice IIO                                USB\VID_0456&PID_B673&MI_05\6&1DC2E353&0&0005
+USB       USB Composite Device               USB\VID_0403&PID_6010\CKQCQFHQPUJB
+USB       USB Serial Converter A             USB\VID_0403&PID_6010&MI_00\6&262E04C5&0&0000

@@ -10,7 +10,7 @@ enough that generated artifacts must not be shared.
 | Variant | Zynq | RFIC | User/bench channel note | Status |
 | --- | --- | --- | --- | --- |
 | SDR-Z203 in this repo | Zynq-7020, vendor examples target `xc7z020clg484-2` | AD9363 confirmed; live IIO reports AD9361-mode firmware/driver identity | User confirmed physical board is 2R2T; live IIO has `adi,2rx-2tx-mode-enable = 1` | Verified over `ip:192.168.2.1`; current boot is QSPI flash |
-| SDR-Z103 related board | Zynq-7010 | AD9363 confirmed | User reports 1R1T | Not yet documented or verified in this repo; vendor firmware/schematic resources are external under `/mnt/c/baidunetdiskdownload/SDR-Z103` |
+| SDR-Z103 related board | Zynq-7010; schematic text shows `XC7Z010-2CLG400I` | AD9363 confirmed by user; live firmware reports AD9361-mode identity | 1R1T; live `hw_model_variant: 1` | Resource import and read-only USB/RNDIS/IIO baseline started under `resources/variants/sdr-z103-z7010-1r1t/` |
 
 ## Why The Split Matters
 
@@ -19,7 +19,7 @@ Zynq-7020 and Zynq-7010 are not interchangeable build targets:
 - different FPGA part selection,
 - different PL resource budget,
 - possibly different DDR and PS7 initialization,
-- possibly different MIO, GPIO, USB, Ethernet, SPI, and clock wiring,
+- possibly different MIO, GPIO, USB gadget, SPI, and clock wiring,
 - different XDC constraints,
 - different channel routing between AD936x and PL,
 - different devicetree channel/mode description,
@@ -51,12 +51,23 @@ Current safe build path:
 
 ## SDR-Z103 Z7010 + AD9363 1R1T Working Assumptions
 
-Known from user input and external folder listing:
+Known from user input, external folder listing, schematic extraction, and the
+first read-only live checks:
 
 - board is SDR-Z103,
-- Zynq-7010,
+- Zynq-7010; schematic text shows `XC7Z010-2CLG400I`,
 - AD9363,
 - 1R1T channel topology,
+- live firmware has been verified once at `192.168.2.1` through USB RNDIS and
+  reports `Analog Devices PlutoSDR Rev.C (Z7010-AD9361)` with
+  `hw_model_variant: 1`; a later WSL ping failed while Windows still listed the
+  RNDIS adapter up, so serial remains the stable control path,
+- schematic text shows USB3320 ULPI for the Pluto USB gadget and FT2232HL for
+  JTAG/UART,
+- targeted schematic text search found no RJ45, MDIO/MDC, RGMII/GMII/RMII, or
+  discrete Ethernet PHY evidence, so do not plan for physical Ethernet on Z103,
+- targeted schematic text search found no SD-card connector or SD
+  command/clock/data nets, so do not plan SD-card boot for Z103,
 - most source code is identical to SDR-Z203 except the 1R1T vs 2R2T
   board/channel configuration boundary,
 - schematic, firmware, and user-facing board information are external at
@@ -68,18 +79,19 @@ Observed external SDR-Z103 files:
 - `SDR-Z103快速测试指南.pdf`
 - `SDR-Z103 固件烧录指南.pdf`
 - `SDR-Z103-3D模型.step`
+- `plutosdr-fw.zip`
+- `pluto移植指南.pdf`
+- `虚拟机Ubuntu安装Vivado指南.pdf`
+- `v0.39适配版本.txt`
 - `boot.bin`, `fsbl.elf`, `pluto.dfu`, `uboot-env.dfu`, `UPDATE.BAT`
 
 Unknown until verified:
 
-- exact Xilinx part/package/speed grade,
 - DDR part and PS7 configuration,
-- USB/Ethernet/serial/JTAG topology,
 - RF connector wiring,
 - reference clock source,
 - whether its firmware should be Pluto-compatible, no-OS, or custom Linux,
-- exact source archive layout, if separate from the common Pluto-style source
-  trees already indexed for SDR-Z203.
+- exact build deltas inside the Z103 `plutosdr-fw.zip` tree.
 
 Do not reuse SDR-Z203 Z7020 artifacts on this board:
 
@@ -109,7 +121,7 @@ Initial verification checklist:
 2. Capture schematic and EXT_IO/pinout files.
 3. Record Windows PnP/USB devices.
 4. Record serial boot log.
-5. Run `iio_info -u ip:<board-ip>` if it boots Linux/IIO.
+5. Run `iio_info -u ip:<board-ip>` if it boots Linux/IIO over USB RNDIS.
 6. Identify boot medium and boot mode.
 7. Identify FPGA part/package/speed grade from Vivado or schematic.
 8. Identify active RF channel map from IIO/no-OS and hardware connectors.
@@ -136,4 +148,5 @@ Never overwrite QSPI on either board with an artifact that does not name the
 variant it was built for.
 
 For the Z103-specific resource checklist and safe build order, see
-`docs/sdr-z103-build-resources.md`.
+`docs/sdr-z103-build-resources.md` and
+`docs/variants/sdr-z103-z7010-1r1t.md`.

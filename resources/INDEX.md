@@ -52,6 +52,9 @@ multi-gigabyte Pluto source archives are not copied.
 - `source-index/pluto-archive-inventory.md` - generated inventory of the
   external `plutosdr-fw-1r1t.zip` and `plutosdr-fw-2r2t.zip` archives, kept here
   so build planning does not require extracting the multi-gigabyte trees.
+- `variants/sdr-z103-z7010-1r1t/source-index/plutosdr-fw-zip-key-paths.txt` -
+  key path index for the external Z103 source archive
+  `/mnt/c/baidunetdiskdownload/SDR-Z103/plutosdr-fw.zip`.
 
 ## Vendor Notes
 
@@ -104,6 +107,22 @@ multi-gigabyte Pluto source archives are not copied.
   showing FT2232HL bus ID `1-1` attached to WSL.
 - `live-captures/windows_usbipd_status_20260511.txt` - Windows-side evidence
   that `usbipd-win` is not installed yet.
+
+## Variant Resources
+
+- `variants/sdr-z103-z7010-1r1t/board/SDR-Z103原理图.pdf` - imported SDR-Z103
+  schematic. Text extraction identifies `XC7Z010-2CLG400I`, USB3320 ULPI,
+  FT2232HL JTAG/UART, QSPI/JTAG boot-mode wiring, no physical Ethernet PHY or
+  RJ45 evidence, and no SD-card connector or SD command/clock/data net evidence.
+- `variants/sdr-z103-z7010-1r1t/firmware/` - factory Z103 `boot.bin`,
+  `fsbl.elf`, `pluto.dfu`, `uboot-env.dfu`, and `UPDATE.BAT` inputs for
+  comparison and recovery planning.
+- `variants/sdr-z103-z7010-1r1t/vendor-notes/` - Z103 quick-test, firmware
+  flashing, Pluto porting, Vivado setup, and version-note documents.
+- `variants/sdr-z103-z7010-1r1t/live-captures/` - read-only attached-Z103
+  evidence. Current captures include Windows PnP inventory, Windows RNDIS
+  adapter state, successful and failed WSL RNDIS checks, and serial `COM3`
+  read-only login evidence.
 
 ## Command Inputs
 

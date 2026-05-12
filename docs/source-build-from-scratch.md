@@ -128,7 +128,8 @@ full source/build trees with `hdl`, `linux`, `u-boot-xlnx`, `buildroot`, SDK
 exports, and generated artifacts.
 
 The related SDR-Z103 Z7010+AD9363 1R1T board has its schematic, firmware files,
-and user-facing board information under:
+user-facing board information, and board-specific `plutosdr-fw.zip` source
+archive under:
 
 ```text
 /mnt/c/baidunetdiskdownload/SDR-Z103
@@ -138,6 +139,10 @@ User guidance is that most source code is identical to the SDR-Z203 source
 pattern except for the 1R1T vs 2R2T and Zynq-7010 vs Zynq-7020 boundaries. Do
 not reuse SDR-Z203 generated PS configuration, bitstreams, or boot images for
 SDR-Z103.
+
+Imported Z103 schematic notes identify USB RNDIS as the live network path and
+do not show physical Ethernet or SD-card wiring. Do not assume Ethernet or SD
+boot workflows for Z103.
 
 The dedicated Z103 resource and build-order checklist is
 `docs/sdr-z103-build-resources.md`.
@@ -394,5 +399,7 @@ For the SDR-Z103 Z7010+AD9363 1R1T board:
 3. Start from the closest ADI HDL/Pluto/no-OS platform, but change the Xilinx
    part and PS configuration first.
 4. Treat channel count as a board-specific porting task, not a runtime setting.
-5. Keep its bitstreams and firmware artifacts separate from SDR-Z203 Z7020
+5. Treat pre-flash boot as JTAG or another proven non-QSPI path; imported Z103
+   schematic text does not show SD-card wiring.
+6. Keep its bitstreams and firmware artifacts separate from SDR-Z203 Z7020
    2R2T artifacts.
