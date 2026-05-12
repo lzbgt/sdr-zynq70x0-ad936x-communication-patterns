@@ -218,10 +218,13 @@ def emit(event: str, **fields: object) -> None:
     print(json.dumps(record, sort_keys=True, separators=(",", ":")))
 
 
-def choose_mode(requested: str, nodes: Iterable[Node]) -> tuple[str, str]:
+def choose_mode(requested: str, nodes: Iterable[Node], scenario: str) -> tuple[str, str]:
     nodes = tuple(nodes)
     if requested != "auto":
         return requested, "user_forced"
+
+    if scenario in {"p2p", "star", "graph", "scheduled"}:
+        return scenario, f"scenario_topology_{scenario}"
 
     has_coordinator = any("coordinator" in node.roles for node in nodes)
     endpoint_count = sum("endpoint" in node.roles for node in nodes)
@@ -249,6 +252,95 @@ def capability_report(node: Node) -> dict[str, object]:
         "traffic_classes": list(TRAFFIC_CLASSES),
         "security": ["none_for_lab", "authenticated_policy_placeholder"],
     }
+
+
+def supported_modes(node: Node) -> list[str]:
+    modes = {"p2p"}
+    if "hub" in node.roles or "observer" in node.roles:
+        modes.add("star")
+    if "relay" in node.roles:
+        modes.add("graph")
+    if "coordinator" in node.roles or "pps" in node.clock:
+        modes.add("scheduled")
+    return sorted(modes, key=lambda mode: MODE_IDS[mode])
+
+
+def stream_subscribers(nodes: tuple[Node, ...], source: Node) -> list[str]:
+    return [
+        node.node_id
+        for node in nodes
+        if node.node_id != source.node_id and ("observer" in node.roles or "gateway" in node.roles)
+    ]
+
+
+def emit_negotiation(
+    nodes: tuple[Node, ...],
+    requested_mode: str,
+    selected_mode: str,
+    reason: str,
+    traffic_profile: str,
+) -> None:
+    source = next((node for node in nodes if "endpoint" in node.roles), nodes[0])
+    coordinator = next((node for node in nodes if "coordinator" in node.roles), nodes[-1])
+    non_coordinators = [node for node in nodes if node.node_id != coordinator.node_id]
+    subscribers = stream_subscribers(nodes, source)
+
+    for node in nodes:
+        emit(
+            "discovery_beacon",
+            node_id=node.node_id,
+            supported_modes=supported_modes(node),
+            roles=list(node.roles),
+            clock=node.clock,
+            max_kbps=node.max_kbps,
+        )
+
+    for node in non_coordinators:
+        emit("join_request", node_id=node.node_id, coordinator=coordinator.node_id, requested_roles=list(node.roles))
+        emit("join_accept", node_id=node.node_id, coordinator=coordinator.node_id, admitted_roles=list(node.roles))
+
+    emit(
+        "mode_request",
+        requested_mode=requested_mode,
+        requester=source.node_id,
+        coordinator=coordinator.node_id,
+        traffic_profile=traffic_profile,
+        stream_intent=["control", "telemetry", "video"],
+    )
+    emit(
+        "mode_proposal",
+        coordinator=coordinator.node_id,
+        selected_mode=selected_mode,
+        reason=reason,
+        fallback_modes=[mode for mode in ("p2p", "star", "graph", "scheduled") if mode != selected_mode],
+    )
+    for node in nodes:
+        emit("mode_accept", node_id=node.node_id, selected_mode=selected_mode)
+
+    if selected_mode == "star":
+        emit("stream_subscribe", stream_id=100, source=source.node_id, subscribers=subscribers)
+    elif selected_mode == "graph":
+        relay = next((node for node in nodes if "relay" in node.roles), coordinator)
+        emit(
+            "route_update",
+            coordinator=coordinator.node_id,
+            route_edges=[[source.node_id, relay.node_id], [relay.node_id, coordinator.node_id]],
+            allowed_classes=["C0", "C1", "C2"],
+        )
+    elif selected_mode == "scheduled":
+        emit(
+            "schedule_update",
+            coordinator=coordinator.node_id,
+            epoch=1000,
+            guard_us=500 if "pps" in coordinator.clock else 2000,
+            slots=[
+                {"slot": index, "owner": node.node_id, "classes": ["C0", "C1", "C2"]}
+                for index, node in enumerate(non_coordinators, start=1)
+            ],
+            emergency_minislot=True,
+        )
+    else:
+        emit("link_profile", mode="p2p", peers=[source.node_id, coordinator.node_id], reserved_classes=["C0", "C1"])
 
 
 class UdpLoopback:
@@ -566,7 +658,7 @@ def main() -> int:
         return 2
 
     nodes = tuple(PROFILES[name] for name in SCENARIOS[args.scenario])
-    mode, reason = choose_mode(args.mode, nodes)
+    mode, reason = choose_mode(args.mode, nodes, args.scenario)
     rng = random.Random(args.seed)
 
     emit(
@@ -579,6 +671,7 @@ def main() -> int:
     )
     for node in nodes:
         emit("capability_report", **capability_report(node))
+    emit_negotiation(nodes, args.mode, mode, reason, args.traffic_profile)
     emit(
         "mode_decision",
         selected_mode=mode,

@@ -237,6 +237,18 @@ This is not an RF test. It verifies that capability reports, mode decisions,
 policy updates, traffic-class traces, and the draft packet header have a stable
 shape before Z103/Z203 RF transports are wired in.
 
+The host trace now makes negotiation explicit before data traffic starts:
+
+- `discovery_beacon` advertises each node's supported modes and clock state.
+- `join_request` / `join_accept` admits endpoints to the selected coordinator.
+- `mode_request`, `mode_proposal`, and `mode_accept` show user-forced or
+  auto-selected mode negotiation.
+- `stream_subscribe`, `route_update`, `schedule_update`, or `link_profile`
+  records the selected mode contract before packet traces begin.
+- In named harness scenarios, `--mode auto` respects the scenario topology
+  (`p2p`, `star`, `graph`, or `scheduled`) so each mode contract can be tested
+  directly; the `auto` scenario still exercises capability-based selection.
+
 Useful smoke checks:
 
 ```sh

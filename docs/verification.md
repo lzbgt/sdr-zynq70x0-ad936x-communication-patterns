@@ -1517,6 +1517,14 @@ Result:
   validated the draft FieldMesh header and CRC over local UDP loopback.
 - Stress-profile UDP loopback emitted C0..C4 traffic and deterministic
   degradation actions while keeping header validation passing.
+- The updated harness emits explicit control-plane negotiation before packet
+  traffic: `discovery_beacon`, `join_request`, `join_accept`, `mode_request`,
+  `mode_proposal`, `mode_accept`, and the selected mode contract event
+  (`link_profile`, `stream_subscribe`, `route_update`, or `schedule_update`).
+- Negotiation smoke checks passed with `--mode auto`: named `p2p`, `star`,
+  `graph`, and `scheduled` scenarios selected their matching mode contract; the
+  generic `auto` scenario selected scheduled sharing from the advertised
+  Z203/Z103 capabilities.
 
 Split UDP command:
 
