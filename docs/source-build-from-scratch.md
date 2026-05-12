@@ -139,6 +139,9 @@ pattern except for the 1R1T vs 2R2T and Zynq-7010 vs Zynq-7020 boundaries. Do
 not reuse SDR-Z203 generated PS configuration, bitstreams, or boot images for
 SDR-Z103.
 
+The dedicated Z103 resource and build-order checklist is
+`docs/sdr-z103-build-resources.md`.
+
 A lightweight index of those archives is generated locally at:
 
 `resources/source-index/pluto-archive-inventory.md`

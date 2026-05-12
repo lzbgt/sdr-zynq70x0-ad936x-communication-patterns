@@ -18,6 +18,8 @@ Start here:
   GPS, Zynq, and boot-mode wiring.
 - `docs/board-variants.md` - SDR-Z203 Z7020 2R2T vs SDR-Z103 Z7010 AD9363
   1R1T board handling.
+- `docs/sdr-z103-build-resources.md` - checklist for doing a separate
+  SDR-Z103 Yocto/Vivado build without reusing SDR-Z203 artifacts.
 - `docs/serial-capture.md` - Windows/WSL serial boot-log capture flow.
 - `docs/nvmfs-mtd2.md` - `qspi-nvmfs` / `mtd2` JFFS2 diagnostic and recovery
   boundary.

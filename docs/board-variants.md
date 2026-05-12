@@ -134,3 +134,6 @@ BOOT-z7010-1r1t-YYYYMMDD.bin
 
 Never overwrite QSPI on either board with an artifact that does not name the
 variant it was built for.
+
+For the Z103-specific resource checklist and safe build order, see
+`docs/sdr-z103-build-resources.md`.

@@ -211,6 +211,9 @@ user and vendor configuration.
   repurposing paths.
 - `docs/board-variants.md` - rules for keeping the Z7020 2R2T SDR-Z203 board
   separate from the related SDR-Z103 Z7010+AD9363 1R1T board.
+- `docs/sdr-z103-build-resources.md` - resource checklist and safe build order
+  for reproducing the customized Yocto/Vivado workflow on SDR-Z103 without
+  mixing Z103 and Z203 artifacts.
 - `docs/serial-capture.md` - Windows/WSL serial and JTAG capture notes.
 - `docs/example-projects.md` - concrete example projects and staged next work.
 - `resources/` - curated copied artifacts from the vendor package and live
