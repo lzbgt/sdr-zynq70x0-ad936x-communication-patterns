@@ -1723,6 +1723,19 @@ Result: `192.168.2.1` did not answer, and WSL only showed the FT2232
 `run_fieldmesh_board_iio_scan.sh` remains gated until the board is booted into
 a runtime image with the data USB function attached to WSL.
 
+The full diagnostic capture is:
+
+```text
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_reachability_fieldmesh_gate_20260513-040656.txt
+```
+
+Key lines:
+
+- WSL network only had `lo` and `eth0`; no `192.168.2.x` interface.
+- WSL `lsusb` showed only FT2232 `0403:6010` plus root hubs.
+- Windows PnP/network sections did not list a present Pluto/RNDIS data device.
+- `usbipd list` showed FT2232 attached and no `0456:b673` Pluto data USB device.
+
 ## FieldMesh Board Runtime Probe
 
 Host-side C probe check:

@@ -95,8 +95,9 @@ Next concrete work:
   before attempting IIO packet transport, and capture both the IIO device
   inventory, `iio-plan` RX/TX candidate selection, and host-side vector dry-run.
   Current live check on 2026-05-13 found no response at `192.168.2.1` and only
-  the FT2232 JTAG/UART USB device in WSL, so this is gated on restoring or
-  reattaching the Pluto/RNDIS data USB function.
+  the FT2232 JTAG/UART USB device in WSL; the saved capture is
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_reachability_fieldmesh_gate_20260513-040656.txt`.
+  This is gated on restoring or reattaching the Pluto/RNDIS data USB function.
 - Keep `tools/fieldmesh_vector_tool.py verify` and `verify-c` checks green as
   packet bytes move into IIO or PL. `verify-c` runs C `verify-frame`,
   `mmap-replay`, `desc-replay`, and `pl-replay`, including descriptor field

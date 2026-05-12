@@ -495,9 +495,11 @@ Expected result in the current Pluto-compatible firmware state:
 1. Boot the rebuilt Z103 Yocto Linux package through a non-flashing path, then
    verify USB RNDIS, IIO, and the RF datapath.
 2. Restore Z103 normal USB/RNDIS or SSH reachability. Current diagnostics show
-   FT2232 JTAG attached but no Pluto/RNDIS data USB device; rerun
-   `tools/diagnose_pluto_usb_reachability.sh`, then capture a Z103 QSPI backup
-   before considering any Z103 flash write.
+   FT2232 JTAG attached but no Pluto/RNDIS data USB device; the latest capture
+   is
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_reachability_fieldmesh_gate_20260513-040656.txt`.
+   Restore the Pluto data USB path, then capture a Z103 QSPI backup before
+   considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 4. Use the verified Z103/Z203 build baselines to start the FieldMesh
