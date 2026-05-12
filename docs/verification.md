@@ -2151,6 +2151,30 @@ checks found the expected sidecar control, packet DMA, and packet client nodes,
 and host `fieldmesh-udp-probe dt-scan` validated a synthetic live devicetree
 layout.
 
+Matched FieldMesh runtime packages were then assembled with the timing-clean
+FieldMesh bitstreams and generated sidecar DTBs:
+
+```sh
+./tools/package_fieldmesh_pluto_frm.sh z203
+./tools/package_fieldmesh_pluto_frm.sh z103
+```
+
+Result: both wrappers generated a FieldMesh DTB, passed the normal Pluto-style
+`mkimage` FIT packaging flow, and wrote package artifacts under
+`.config/fieldmesh/runtime-package-z203/fit-work/` and
+`.config/fieldmesh/runtime-package-z103/fit-work/`. The existing vendor
+`pluto.its` unit-address signing warnings were unchanged from the normal
+unsigned package flow. Captured hashes:
+
+```text
+z203 pluto.frm    870c682821c2f286eb2af8d80a4ee7ee11b13400c4ff888c9c3ba44c66eeda13
+z203 pluto.itb    094e9588a65fce14dfa352607d48ec53d96ff34d5cd20258e2bcee0bcc208a78
+z203 fieldmesh dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
+z103 pluto.frm    bfb366998907bd29cc3fd6e7467194354fdfde2378eae08b359597dfa1e2f12c
+z103 pluto.itb    8d9af93a26da09804e08a394b3e6b6ba65c7cbe9bbc959122182f8f2f29b9d38
+z103 fieldmesh dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
+```
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

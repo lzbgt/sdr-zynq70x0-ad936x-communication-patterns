@@ -309,6 +309,17 @@ and checks the expected control, TX DMA, RX DMA, and packet client nodes. On a
 future runtime image, `fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree`
 is the userspace preflight before touching any sidecar DMA register.
 
+To assemble matched FieldMesh runtime payloads without changing the default
+packages:
+
+```sh
+./tools/package_fieldmesh_pluto_frm.sh z203
+./tools/package_fieldmesh_pluto_frm.sh z103
+```
+
+Those wrappers generate the sidecar DTB and call the normal Pluto package
+helpers with both `BITSTREAM` and `DTB` overrides.
+
 ## Later RF Binding
 
 After the sidecar packet pipe is stable, FieldMesh can choose one of three RF

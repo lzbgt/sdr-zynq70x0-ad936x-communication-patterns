@@ -54,9 +54,24 @@ It emits NDJSON rows for the control node, TX DMA, RX DMA, and packet node. A
 future board-side DMA smoke test should run this before touching any FieldMesh
 register or DMA window.
 
+## Matched Package
+
+Use the FieldMesh package wrapper to keep the sidecar DTB paired with the
+matching FieldMesh overlay bitstream:
+
+```sh
+./tools/package_fieldmesh_pluto_frm.sh z203
+./tools/package_fieldmesh_pluto_frm.sh z103
+```
+
+The wrapper generates the FieldMesh DTB under
+`.config/fieldmesh/runtime-package-*/devicetree/`, then calls the normal
+Pluto-style package helper with both `BITSTREAM` and `DTB` overrides. This
+keeps default Z203/Z103 runtime packages unchanged while creating explicit
+FieldMesh packages under `.config/fieldmesh/runtime-package-*/fit-work/`.
+
 ## Current Boundary
 
-This is a binding contract and offline validation gate. It does not yet install
-the fragment into the default Z203/Z103 Yocto kernels, because the committed
-runtime images still boot with the vendor Pluto bitstream unless an explicit
-FieldMesh sidecar bitstream is selected.
+This is a binding contract, offline validation gate, and package assembly path.
+The generated FieldMesh packages have not yet booted on hardware, and the
+fragment is still not installed into the default Z203/Z103 Yocto kernels.

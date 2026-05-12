@@ -174,9 +174,12 @@ Next concrete work:
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
   sources. The Z203 and Z103 copied overlay builds are both timing-clean.
-- Integrate the FieldMesh sidecar devicetree only with a matching FieldMesh
-  bitstream, then run `fieldmesh-udp-probe dt-scan` before touching sidecar
-  packet DMA/IIO registers. Keep the ADI IQ DMA path untouched.
+- `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
+  devicetree only with a matching FieldMesh overlay bitstream and packages
+  Z203/Z103 Pluto-style update payloads without mutating the default images.
+- Boot a FieldMesh package through a non-flashing path, then run
+  `fieldmesh-udp-probe dt-scan` before touching sidecar packet DMA/IIO
+  registers. Keep the ADI IQ DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

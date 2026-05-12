@@ -282,7 +282,7 @@ user and vendor configuration.
 - `tools/prepare_vendor_source_for_yocto.sh` - clean extracted vendor
   Linux/U-Boot source residue and repair archive symlinks before Yocto builds.
 - `tools/package_yocto_pluto_frm.sh` - package Yocto ARM outputs and an
-  existing bitstream into `pluto.itb` and `pluto.frm`.
+  existing bitstream/DTB into `pluto.itb` and `pluto.frm`.
 - `tools/audit_yocto_rootfs.sh` - verify the Yocto rootfs contains the minimum
   Pluto runtime files before packaging or flashing.
 - `tools/inspect_vivado_bundle.sh` - verify local Vivado installer, license
@@ -378,7 +378,8 @@ user and vendor configuration.
 - `tools/audit_z103_yocto_rootfs.sh` - verify the Z103 Yocto rootfs contains
   the required Pluto runtime, USB gadget, update, web, and IIO files.
 - `tools/package_z103_yocto_pluto_frm.sh` - package rebuilt Z103 Yocto outputs
-  and the rebuilt Z103 bitstream into Pluto-style `pluto.itb` and `pluto.frm`.
+  and the rebuilt Z103 bitstream/DTB into Pluto-style `pluto.itb` and
+  `pluto.frm`.
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
   simulated, memory-loopback, UDP-loopback, and split UDP sender/receiver
   transports for early capability, mode-selection, policy, traffic-class,
@@ -483,6 +484,9 @@ user and vendor configuration.
 - `tools/fieldmesh_devicetree_plan.py` - generates a FieldMesh sidecar
   devicetree fragment, merges it into copied Z203/Z103 Pluto DTS files, and
   compiles/checks DTBs without mutating the vendor Linux trees.
+- `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
+  runtime payload by generating the matching sidecar DTB and pairing it with
+  the timing-clean FieldMesh DMA overlay bitstream.
 - `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
   idempotent `system_project.tcl`/`Makefile` references; dry-run is the
@@ -633,6 +637,8 @@ Expected result in the current Pluto-compatible firmware state:
    FieldMesh DMA overlay now has a build wrapper for producing a matching
    `system_top.bit`/XSA; the Z203 and Z103 copied overlays are timing-clean.
    The sidecar devicetree binding plus `dt-scan` preflight are drafted and
-   offline validated. Next integrate the sidecar devicetree only with a
-   matching FieldMesh bitstream, then scale descriptor storage beyond the
-   shallow class rings and bind the path to IIO/PL before open-air RF tests.
+   offline validated, and FieldMesh-specific `pluto.frm` packages can now be
+   assembled for both variants with matching bitstream/DTB pairs. Next boot a
+   FieldMesh package through a non-flashing path, run `fieldmesh-udp-probe
+   dt-scan`, then scale descriptor storage beyond the shallow class rings and
+   bind the path to IIO/PL before open-air RF tests.
