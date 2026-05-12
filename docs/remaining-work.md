@@ -62,9 +62,10 @@ Next concrete work:
 
 - Run split UDP sender/receiver mode on Z203 first, then on Z103 once normal
   runtime reachability is restored.
-- Add generated video-like payloads, control/telemetry side channels, packet
-  traces, and bounded-latency degradation before attempting any open-air range
-  test.
+- Extend the generated video-like load from UDP packet traces toward a board
+  runtime transport or IIO/PL packet pipe.
+- Preserve bounded-latency degradation evidence before attempting any open-air
+  range test.
 
 FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
 `docs/fieldmesh-protocol-spec.md`.

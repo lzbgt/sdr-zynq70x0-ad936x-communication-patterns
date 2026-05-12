@@ -64,6 +64,8 @@ class PacketTrace:
     late: bool
     fec_recovered: int
     link_quality_db: float
+    target_kbps: int
+    degradation_action: str
 
 
 PROFILES = {
@@ -337,23 +339,53 @@ def make_trace(
     nodes: tuple[Node, ...],
     mode: str,
     rng: random.Random,
+    traffic_profile: str,
 ) -> PacketTrace:
     source = next((node for node in nodes if "endpoint" in node.roles), nodes[0])
     coordinator = next((node for node in nodes if "coordinator" in node.roles), nodes[-1])
-    c2_target_kbps = min(node.max_kbps for node in nodes) // 2
+    node_budget_kbps = min(node.max_kbps for node in nodes)
+    c2_target_kbps = node_budget_kbps // 2
+    degradation_action = "none"
+    dropped = 0
 
     if traffic_class == "C0":
         payload_len = 32
         queue_age_ms = rng.randint(1, 8)
         delivered_kbps = 8
+        target_kbps = 8
     elif traffic_class == "C1":
         payload_len = 96
         queue_age_ms = rng.randint(4, 18)
         delivered_kbps = 48
-    else:
+        target_kbps = 48
+    elif traffic_class == "C2":
         payload_len = 1024
-        queue_age_ms = rng.randint(12, 45)
-        delivered_kbps = c2_target_kbps - rng.randint(0, 200)
+        if traffic_profile == "stress":
+            queue_age_ms = rng.randint(65, 145)
+            delivered_kbps = max(128, c2_target_kbps - rng.randint(400, 900))
+            degradation_action = "reduce_video_bitrate" if queue_age_ms > 120 else "none"
+        else:
+            queue_age_ms = rng.randint(12, 45)
+            delivered_kbps = c2_target_kbps - rng.randint(0, 200)
+        target_kbps = c2_target_kbps
+    elif traffic_class == "C3":
+        payload_len = 1400
+        target_kbps = node_budget_kbps // 3
+        if traffic_profile == "stress":
+            queue_age_ms = rng.randint(120, 220)
+            delivered_kbps = max(0, target_kbps - rng.randint(300, 900))
+            dropped = 1 if queue_age_ms > 160 else 0
+            degradation_action = "drop_enhancement" if dropped else "thin_enhancement"
+        else:
+            queue_age_ms = rng.randint(25, 85)
+            delivered_kbps = target_kbps - rng.randint(0, 250)
+    else:
+        payload_len = 256
+        target_kbps = 64
+        queue_age_ms = rng.randint(100, 260) if traffic_profile == "stress" else rng.randint(40, 120)
+        delivered_kbps = 0 if traffic_profile == "stress" else 32
+        dropped = 1 if traffic_profile == "stress" else 0
+        degradation_action = "defer_background" if dropped else "none"
 
     late = queue_age_ms > (20 if traffic_class in ("C0", "C1") else 80)
     return PacketTrace(
@@ -369,11 +401,23 @@ def make_trace(
         payload_len=payload_len,
         queue_age_ms=queue_age_ms,
         delivered_kbps=delivered_kbps,
-        dropped=0,
+        dropped=dropped,
         late=late,
         fec_recovered=rng.randint(0, 3),
         link_quality_db=round(18.0 + rng.random() * 8.0, 2),
+        target_kbps=target_kbps,
+        degradation_action=degradation_action,
     )
+
+
+def traffic_classes_for_profile(profile: str) -> tuple[str, ...]:
+    if profile == "basic":
+        return ("C0", "C1", "C2")
+    if profile == "video":
+        return ("C0", "C1", "C2", "C3")
+    if profile == "stress":
+        return ("C0", "C1", "C2", "C3", "C4")
+    raise ValueError(f"unknown traffic profile {profile}")
 
 
 def emit_trace(trace: PacketTrace, transport: str, rx: dict[str, object] | None = None) -> None:
@@ -413,10 +457,12 @@ def emit_trace(trace: PacketTrace, transport: str, rx: dict[str, object] | None 
         sequence=trace.sequence,
         payload_len=trace.payload_len,
         queue_age_ms=trace.queue_age_ms,
+        target_kbps=trace.target_kbps,
         delivered_kbps=trace.delivered_kbps,
         dropped=trace.dropped + (1 if transport_ok is False else 0),
         late=trace.late,
         fec_recovered=trace.fec_recovered,
+        degradation_action=trace.degradation_action,
         link_quality_db=trace.link_quality_db,
         transport=transport,
         rx_ok=transport_ok,
@@ -434,6 +480,7 @@ def run_ticks(
     udp_host: str,
     udp_port: int,
     udp_timeout: float,
+    traffic_profile: str,
 ) -> None:
     source = next((node for node in nodes if "endpoint" in node.roles), nodes[0])
     coordinator = next((node for node in nodes if "coordinator" in node.roles), nodes[-1])
@@ -451,8 +498,8 @@ def run_ticks(
 
     if transport == "simulate":
         for tick in range(ticks):
-            for traffic_class in ("C0", "C1", "C2"):
-                emit_trace(make_trace(tick, traffic_class, nodes, mode, rng), transport)
+            for traffic_class in traffic_classes_for_profile(traffic_profile):
+                emit_trace(make_trace(tick, traffic_class, nodes, mode, rng, traffic_profile), transport)
         return
 
     if transport == "udp-send":
@@ -460,8 +507,8 @@ def run_ticks(
             raise ValueError("--udp-port must be > 0 for udp-send")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             for tick in range(ticks):
-                for traffic_class in ("C0", "C1", "C2"):
-                    trace = make_trace(tick, traffic_class, nodes, mode, rng)
+                for traffic_class in traffic_classes_for_profile(traffic_profile):
+                    trace = make_trace(tick, traffic_class, nodes, mode, rng, traffic_profile)
                     sock.sendto(pack_packet(trace), (udp_host, udp_port))
                     emit_trace(trace, transport)
         return
@@ -469,8 +516,8 @@ def run_ticks(
     with UdpLoopback(udp_host, udp_port, udp_timeout) as loopback:
         emit("transport_bound", transport=transport, udp_host=loopback.address[0], udp_port=loopback.address[1])
         for tick in range(ticks):
-            for traffic_class in ("C0", "C1", "C2"):
-                trace = make_trace(tick, traffic_class, nodes, mode, rng)
+            for traffic_class in traffic_classes_for_profile(traffic_profile):
+                trace = make_trace(tick, traffic_class, nodes, mode, rng, traffic_profile)
                 emit_trace(trace, transport, loopback.send_and_receive(trace))
 
 
@@ -490,6 +537,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--ticks", type=int, default=8, help="number of trace ticks")
     parser.add_argument("--seed", type=int, default=1, help="deterministic RNG seed")
+    parser.add_argument(
+        "--traffic-profile",
+        choices=("basic", "video", "stress"),
+        default="basic",
+        help="traffic mix to generate",
+    )
     parser.add_argument(
         "--transport",
         choices=("simulate", "udp-loopback", "udp-send", "udp-receive"),
@@ -522,6 +575,7 @@ def main() -> int:
         requested_mode=args.mode,
         ticks=args.ticks,
         transport=args.transport,
+        traffic_profile=args.traffic_profile,
     )
     for node in nodes:
         emit("capability_report", **capability_report(node))
@@ -535,12 +589,13 @@ def main() -> int:
         "policy_update",
         mode=mode,
         traffic_priority=list(TRAFFIC_CLASSES),
+        active_traffic_classes=list(traffic_classes_for_profile(args.traffic_profile)),
         c0_latency_budget_ms=20,
         c1_latency_budget_ms=50,
         stale_video_drop_ms=120,
     )
     if args.transport == "udp-receive":
-        rx_count = args.rx_count or args.ticks * 3
+        rx_count = args.rx_count or args.ticks * len(traffic_classes_for_profile(args.traffic_profile))
         try:
             return 0 if run_udp_receiver(args.udp_host, args.udp_port, rx_count, args.udp_timeout) else 1
         except ValueError as exc:
@@ -556,6 +611,7 @@ def main() -> int:
         args.udp_host,
         args.udp_port,
         args.udp_timeout,
+        args.traffic_profile,
     )
     emit("scenario_end", selected_mode=mode, ticks=args.ticks)
     return 0

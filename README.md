@@ -35,7 +35,7 @@ Start here:
   control-plane, mode-selection, and conducted-test spec for FieldMesh.
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
   simulated, UDP-loopback, and split UDP sender/receiver transports for early
-  mode-selection and traffic-class smoke tests.
+  mode-selection, traffic-class, and stress/degradation smoke tests.
 - `docs/example-projects.md` - concrete project seeds.
 - `docs/verification.md` - captured verification evidence and known gaps.
 - `resources/INDEX.md` - curated local resource inventory.

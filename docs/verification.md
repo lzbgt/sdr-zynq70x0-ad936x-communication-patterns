@@ -1483,6 +1483,7 @@ python3 -m py_compile tools/fieldmesh_trace_harness.py
 ./tools/fieldmesh_trace_harness.py --scenario graph --mode auto --transport udp-loopback --ticks 2
 ./tools/fieldmesh_trace_harness.py --scenario scheduled --mode auto --transport udp-loopback --ticks 2
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --transport udp-loopback --traffic-profile stress --ticks 2
 ```
 
 Result:
@@ -1491,21 +1492,26 @@ Result:
 - All five UDP-loopback scenarios emitted valid NDJSON.
 - Each `packet_trace` event reported `rx_ok=true`; the harness packed and
   validated the draft FieldMesh header and CRC over local UDP loopback.
+- Stress-profile UDP loopback emitted C0..C4 traffic and deterministic
+  degradation actions while keeping header validation passing.
 
 Split UDP command:
 
 ```sh
 ./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
-  --transport udp-receive --udp-host 127.0.0.1 --udp-port 55321 \
-  --rx-count 6 --udp-timeout 3 > /tmp/fieldmesh_rx.ndjson &
+  --traffic-profile stress --transport udp-receive \
+  --udp-host 127.0.0.1 --udp-port 55321 --ticks 2 --udp-timeout 3 \
+  > /tmp/fieldmesh_rx.ndjson &
 sleep 0.2
 ./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
-  --transport udp-send --udp-host 127.0.0.1 --udp-port 55321 \
-  --ticks 2 > /tmp/fieldmesh_tx.ndjson
+  --traffic-profile stress --transport udp-send \
+  --udp-host 127.0.0.1 --udp-port 55321 --ticks 2 \
+  > /tmp/fieldmesh_tx.ndjson
 ```
 
-Result: receiver captured six `packet_rx` events with `rx_ok=true`; sender
-emitted six transmit-side `packet_trace` events with `rx_ok=null`.
+Result: receiver captured ten `packet_rx` events with `rx_ok=true`; sender
+emitted ten transmit-side `packet_trace` events with `rx_ok=null` and included
+stress-profile degradation actions.
 
 ## Verification Gaps
 

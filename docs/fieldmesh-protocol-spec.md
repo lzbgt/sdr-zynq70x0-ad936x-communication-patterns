@@ -220,6 +220,13 @@ The first committed harness has four transport modes:
 - `udp-receive`: receiver side of a split UDP test. It validates incoming
   packets and emits `packet_rx` events.
 
+Traffic profiles:
+
+- `basic`: C0 control, C1 telemetry, and C2 video-base traffic.
+- `video`: adds C3 video-enhancement/bulk traffic.
+- `stress`: emits all C0..C4 classes and deterministic degradation actions such
+  as `reduce_video_bitrate`, `drop_enhancement`, and `defer_background`.
+
 ```sh
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto --ticks 8
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto \
@@ -243,18 +250,22 @@ Useful smoke checks:
   --transport udp-loopback --ticks 2
 ./tools/fieldmesh_trace_harness.py --scenario auto --mode auto \
   --transport udp-loopback --ticks 2
+./tools/fieldmesh_trace_harness.py --scenario auto --mode auto \
+  --transport udp-loopback --traffic-profile stress --ticks 2
 ```
 
 Split-process local smoke check:
 
 ```sh
 ./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
-  --transport udp-receive --udp-host 127.0.0.1 --udp-port 55321 \
-  --rx-count 6 --udp-timeout 3 > /tmp/fieldmesh_rx.ndjson &
+  --traffic-profile stress --transport udp-receive \
+  --udp-host 127.0.0.1 --udp-port 55321 --ticks 2 --udp-timeout 3 \
+  > /tmp/fieldmesh_rx.ndjson &
 sleep 0.2
 ./tools/fieldmesh_trace_harness.py --scenario p2p --mode p2p \
-  --transport udp-send --udp-host 127.0.0.1 --udp-port 55321 \
-  --ticks 2 > /tmp/fieldmesh_tx.ndjson
+  --traffic-profile stress --transport udp-send \
+  --udp-host 127.0.0.1 --udp-port 55321 --ticks 2 \
+  > /tmp/fieldmesh_tx.ndjson
 ```
 
 Next harness step: run `udp-receive` on a board and `udp-send` on the host or a

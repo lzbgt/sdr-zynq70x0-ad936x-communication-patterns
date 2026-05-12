@@ -367,8 +367,8 @@ user and vendor configuration.
   and the rebuilt Z103 bitstream into Pluto-style `pluto.itb` and `pluto.frm`.
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with
   simulated, UDP-loopback, and split UDP sender/receiver transports for early
-  capability, mode-selection, policy, and traffic-class smoke tests before RF
-  packet transport exists.
+  capability, mode-selection, policy, traffic-class, and stress/degradation
+  smoke tests before RF packet transport exists.
 - `tools/attach_ft2232_jtag_to_wsl.ps1` - Windows Administrator helper to bind
   and attach the onboard FT2232HL `0403:6010` device to WSL with `usbipd-win`.
 - `tools/flash_pluto_frm_windows.ps1` - copy a `pluto.frm` to the Windows
