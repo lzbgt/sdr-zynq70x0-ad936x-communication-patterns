@@ -159,6 +159,12 @@ descriptor register boundary. `rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v`
 wraps that boundary with a single-outstanding AXI-lite slave shell. It is not
 DMA, IIO, packet-memory, or RF connected yet.
 
+`rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` is the first standalone
+packet-memory loopback slice. It copies bytes from a TX packet area into a fixed
+RX packet area when the descriptor is valid, emits the completed RX descriptor,
+and rejects out-of-range descriptors. It is not yet wired behind the AXI-lite
+register shell.
+
 Keep these responsibilities in Linux first:
 
 - capability discovery,
@@ -176,8 +182,9 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - deterministic slot gate,
 - high-rate packet DMA.
 
-Keep the RTL descriptor-loopback, direct-register, and AXI-lite simulations
-green before adding DMA wiring, packet memory, or IIO/RF transport binding.
+Keep the RTL descriptor-loopback, direct-register, AXI-lite, and packet-memory
+simulations green before adding DMA wiring, descriptor rings, or IIO/RF
+transport binding.
 
 ### Shared Descriptor
 

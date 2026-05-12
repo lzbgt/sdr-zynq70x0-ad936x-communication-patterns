@@ -419,7 +419,9 @@ that queue. `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`,
 `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v`, and
 `rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v` are the first
 simulation-verified PL descriptor-loopback, register-submit, and AXI-lite
-access slices. The next PL target is descriptor-ring/packet-memory integration
+access slices. `rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` adds the
+first standalone packet-memory copy path. The next PL target is wiring packet
+memory behind the AXI-lite/register boundary, then descriptor-ring integration
 and class-priority queueing, not the final RF waveform.
 
 ## Implementation Notes
