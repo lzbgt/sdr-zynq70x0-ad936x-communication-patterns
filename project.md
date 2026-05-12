@@ -409,9 +409,13 @@ user and vendor configuration.
   descriptor-loopback RTL slice, verifying ownership, completion, timestamp
   flag preservation, traffic-class bounds, and drop/fault behavior before
   AXI-lite/DMA/IIO/RF integration.
-- `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v` and
-  `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbench and wrapper for
-  the descriptor-loopback RTL gate.
+- `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` - direct register-facing
+  wrapper around the descriptor loopback core with AXI-lite-friendly offsets for
+  TX submit, RX readback, RX ack, and counters.
+- `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
+  `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`, and
+  `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
+  for the descriptor-loopback RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.
@@ -509,6 +513,6 @@ Expected result in the current Pluto-compatible firmware state:
    considering any Z103 flash write.
 3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Integrate the FieldMesh descriptor-loopback RTL slice with AXI-lite/register
-   and packet-memory plumbing, then bind it to the IIO/PL transport path before
-   open-air RF tests.
+4. Wrap the FieldMesh direct register simulation bus with a full AXI-lite slave,
+   add descriptor-ring and packet-memory plumbing, then bind it to the IIO/PL
+   transport path before open-air RF tests.

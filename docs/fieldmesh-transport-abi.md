@@ -154,7 +154,10 @@ The first HDL slice is `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`, with
 `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v` and
 `tools/verify_fieldmesh_hdl.sh`. It verifies descriptor ownership/completion
 for valid C0/C4 descriptors and drop/fault behavior for an invalid traffic
-class. It is not AXI-lite, DMA, IIO, or RF connected yet.
+class. `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` adds the first
+register-facing wrapper with direct TX/RX descriptor registers. It uses a small
+single-cycle simulation bus with AXI-lite-friendly offsets; it is not a full
+AXI-lite slave, DMA, IIO, or RF connection yet.
 
 Keep these responsibilities in Linux first:
 
@@ -173,8 +176,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 - deterministic slot gate,
 - high-rate packet DMA.
 
-Keep the RTL descriptor-loopback simulation green before adding AXI-lite
-registers, DMA wiring, or IIO/RF transport binding.
+Keep the RTL descriptor-loopback and register-wrapper simulations green before
+adding a full AXI-lite slave, DMA wiring, or IIO/RF transport binding.
 
 ### Shared Descriptor
 
@@ -210,21 +213,37 @@ Queue layout:
 
 ## Register Block
 
-Initial AXI-lite register block:
+The simulation wrapper uses the following direct-descriptor register block.
+Control bit 0 enables the core, bit 1 enables loopback, bit 2 is a one-cycle
+soft reset, bit 8 submits the loaded TX descriptor, and bit 9 acknowledges the
+current RX descriptor.
 
 | Offset | Name | Notes |
 | --- | --- | --- |
 | `0x00` | `FM_ID` | constant `0x464d0001` |
-| `0x04` | `FM_CONTROL` | enable, reset queues, loopback enable |
-| `0x08` | `FM_STATUS` | link up, queue fault, timestamp lock |
-| `0x0c` | `FM_IRQ_STATUS` | TX done, RX ready, error |
-| `0x10` | `FM_TX_DESC_BASE` | physical base of TX descriptor ring |
-| `0x14` | `FM_RX_DESC_BASE` | physical base of RX descriptor ring |
-| `0x18` | `FM_DESC_COUNT` | descriptors per ring |
-| `0x1c` | `FM_EPOCH` | current scheduler epoch |
-| `0x20` | `FM_SLOT` | current scheduler slot |
-| `0x24` | `FM_DROP_COUNTER` | late or policy-dropped packets |
-| `0x28` | `FM_CRC_ERROR_COUNTER` | malformed transport frames |
+| `0x04` | `FM_CONTROL` | enable, loopback, soft reset, TX submit, RX ack |
+| `0x08` | `FM_STATUS` | enable, loopback, TX ready, RX valid, fault |
+| `0x0c` | `FM_IRQ_STATUS` | TX done, RX ready, error summary |
+| `0x10` | `FM_TX_PACKET_ADDR` | direct TX descriptor packet address |
+| `0x14` | `FM_TX_LEN_STREAM` | stream ID in high 16 bits, length in low 16 bits |
+| `0x18` | `FM_TX_CLASS_MODE` | mode in bits 15:8, traffic class in bits 7:0 |
+| `0x1c` | `FM_TX_EPOCH` | TX schedule epoch |
+| `0x20` | `FM_TX_SLOT_AGE` | queue age in high 16 bits, slot in low 16 bits |
+| `0x24` | `FM_TX_TS_LO` | TX timestamp low word |
+| `0x28` | `FM_TX_TS_HI` | TX timestamp high word |
+| `0x2c` | `FM_DROP_COUNTER` | descriptor drop counter |
+| `0x30` | `FM_CRC_ERROR_COUNTER` | reserved, reads zero in the RTL wrapper |
+| `0x34` | `FM_TX_FLAGS` | low 16 bits are TX descriptor flags |
+| `0x38` | `FM_ACCEPT_COUNTER` | accepted descriptor counter |
+| `0x3c` | `FM_DONE_COUNTER` | completed descriptor counter |
+| `0x40` | `FM_RX_PACKET_ADDR` | direct RX descriptor packet address |
+| `0x44` | `FM_RX_LEN_STREAM` | stream ID in high 16 bits, length in low 16 bits |
+| `0x48` | `FM_RX_CLASS_MODE` | mode in bits 15:8, traffic class in bits 7:0 |
+| `0x4c` | `FM_RX_EPOCH` | RX schedule epoch |
+| `0x50` | `FM_RX_SLOT_AGE` | queue age in high 16 bits, slot in low 16 bits |
+| `0x54` | `FM_RX_TS_LO` | RX timestamp low word |
+| `0x58` | `FM_RX_TS_HI` | RX timestamp high word |
+| `0x5c` | `FM_RX_FLAGS` | low 16 bits are RX descriptor flags |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

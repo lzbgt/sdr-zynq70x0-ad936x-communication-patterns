@@ -415,10 +415,11 @@ The next implementation boundary is defined in
 `docs/fieldmesh-transport-abi.md`: keep the FieldMesh packet header and trace
 contract stable while moving the byte stream from UDP into an IIO buffer shim
 and then a PL descriptor queue. The C `pl-replay` role is the software model of
-that queue, and `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` is the first
-simulation-verified PL descriptor-loopback slice. The next PL target is
-AXI-lite/descriptor integration and class-priority queueing, not the final RF
-waveform.
+that queue. `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` and
+`rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` are the first
+simulation-verified PL descriptor-loopback and register-submit slices. The next
+PL target is a full AXI-lite slave, descriptor-ring integration, and
+class-priority queueing, not the final RF waveform.
 
 ## Implementation Notes
 

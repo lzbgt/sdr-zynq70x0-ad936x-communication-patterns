@@ -397,8 +397,9 @@ Milestone 1: Common packet pipe
   attachment only after trace assertions pass. The current C `pl-replay` role
   models the first TX/RX descriptor-ring loopback against committed binary
   vectors, and `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` is the first
-  simulation-verified RTL descriptor-loopback slice before AXI-lite/DMA
-  integration.
+  simulation-verified RTL descriptor-loopback slice.
+  `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` adds the first register-mapped
+  submit/readback simulation boundary before full AXI-lite/DMA integration.
 
 Milestone 2: P2P profile
 
