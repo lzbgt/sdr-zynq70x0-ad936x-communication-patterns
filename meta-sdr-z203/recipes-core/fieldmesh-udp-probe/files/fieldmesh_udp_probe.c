@@ -12,6 +12,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef FIELD_MESH_WITH_IIO
+#include <iio.h>
+#endif
+
 #define FIELD_MESH_MAGIC 0x464dU
 #define FIELD_MESH_VERSION 1U
 #define FIELD_MESH_HEADER_LEN 32U
@@ -32,6 +36,7 @@ struct config {
     const char *scenario;
     const char *mode;
     const char *traffic_profile;
+    const char *iio_uri;
 };
 
 struct trace {
@@ -74,7 +79,8 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe send --host HOST --port PORT [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n"
         "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
-        "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n");
+        "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
+        "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n");
 }
 
 static bool is_local_loopback_role(const char *role)
@@ -105,6 +111,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .scenario = "p2p",
         .mode = "p2p",
         .traffic_profile = "basic",
+        .iio_uri = "local:",
     };
 
     if (argc < 2) {
@@ -134,6 +141,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             if (!arg_value(argc, argv, &i, &cfg->mode)) return 2;
         } else if (!strcmp(argv[i], "--traffic-profile")) {
             if (!arg_value(argc, argv, &i, &cfg->traffic_profile)) return 2;
+        } else if (!strcmp(argv[i], "--iio-uri")) {
+            if (!arg_value(argc, argv, &i, &cfg->iio_uri)) return 2;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -144,11 +153,12 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         }
     }
 
-    if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") && !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, or mmap-loopback\n");
+    if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
+        strcmp(cfg->role, "iio-scan") && !is_local_loopback_role(cfg->role)) {
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, or iio-scan\n");
         return 2;
     }
-    if (!is_local_loopback_role(cfg->role) && cfg->port == 0) {
+    if (strcmp(cfg->role, "iio-scan") && !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
         return 2;
     }
@@ -768,6 +778,61 @@ static int run_mmap_loopback(const struct config *cfg)
     return ok ? 0 : 1;
 }
 
+static int run_iio_scan(const struct config *cfg)
+{
+#ifdef FIELD_MESH_WITH_IIO
+    struct iio_context *ctx = iio_create_context_from_uri(cfg->iio_uri);
+    int err = errno;
+    unsigned int devices;
+    unsigned int major = 0;
+    unsigned int minor = 0;
+    char git_tag[8] = {0};
+
+    printf("{\"event\":\"iio_scan_start\",\"transport\":\"iio-scan\",\"iio_uri\":\"%s\"}\n", cfg->iio_uri);
+    if (!ctx) {
+        printf("{\"event\":\"iio_scan_end\",\"transport\":\"iio-scan\",\"iio_uri\":\"%s\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               cfg->iio_uri, err, strerror(err));
+        return 1;
+    }
+
+    devices = iio_context_get_devices_count(ctx);
+    if (iio_context_get_version(ctx, &major, &minor, git_tag) < 0) {
+        major = 0;
+        minor = 0;
+        git_tag[0] = '\0';
+    }
+    printf("{\"event\":\"iio_context\",\"transport\":\"iio-scan\",\"iio_uri\":\"%s\","
+           "\"name\":\"%s\",\"description\":\"%s\",\"version\":\"%u.%u-%s\","
+           "\"devices\":%u}\n",
+           cfg->iio_uri,
+           iio_context_get_name(ctx) ? iio_context_get_name(ctx) : "",
+           iio_context_get_description(ctx) ? iio_context_get_description(ctx) : "",
+           major, minor, git_tag, devices);
+
+    for (unsigned int i = 0; i < devices; i++) {
+        const struct iio_device *dev = iio_context_get_device(ctx, i);
+        const char *id = iio_device_get_id(dev);
+        const char *name = iio_device_get_name(dev);
+        unsigned int channels = iio_device_get_channels_count(dev);
+
+        printf("{\"event\":\"iio_device\",\"transport\":\"iio-scan\",\"index\":%u,"
+               "\"id\":\"%s\",\"name\":\"%s\",\"channels\":%u}\n",
+               i, id ? id : "", name ? name : "", channels);
+    }
+
+    printf("{\"event\":\"iio_scan_end\",\"transport\":\"iio-scan\",\"iio_uri\":\"%s\","
+           "\"ok\":true,\"devices\":%u}\n", cfg->iio_uri, devices);
+    iio_context_destroy(ctx);
+    return devices > 0 ? 0 : 1;
+#else
+    fprintf(stderr, "fieldmesh-udp-probe was built without libiio support\n");
+    printf("{\"event\":\"iio_scan_end\",\"transport\":\"iio-scan\",\"iio_uri\":\"%s\","
+           "\"ok\":false,\"error\":\"libiio support not compiled\"}\n", cfg->iio_uri);
+    return 2;
+#endif
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -783,6 +848,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "mmap-loopback")) {
         return run_mmap_loopback(&cfg);
+    }
+    if (!strcmp(cfg.role, "iio-scan")) {
+        return run_iio_scan(&cfg);
     }
     return run_receive(&cfg);
 }

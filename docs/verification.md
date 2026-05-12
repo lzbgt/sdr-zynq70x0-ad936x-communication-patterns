@@ -1608,9 +1608,19 @@ Packaged probe rebuild:
 ./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
 ```
 
-Result: both Z203 and Z103 recipes rebuilt successfully. The only warnings were
-the already-known Arch host validation warning and `host-user-contaminated` QA
+Result: both Z203 and Z103 recipes rebuilt successfully after adding libiio
+linking for the board-only `iio-scan` role. The only warnings were the
+already-known Arch host validation warning and `host-user-contaminated` QA
 warnings for the locally built debug/source files.
+
+Board IIO preflight helper:
+
+```sh
+BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_iio_scan.sh
+```
+
+Status: syntax and packaging are prepared, but live execution is blocked until
+a board running the rebuilt image is reachable over USB/RNDIS SSH.
 
 ## FieldMesh Board Runtime Probe
 
@@ -1638,16 +1648,24 @@ Yocto packaging checks:
 ./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
 ./tools/audit_z103_yocto_rootfs.sh
 ./tools/audit_yocto_rootfs.sh
+./tools/package_z103_yocto_pluto_frm.sh
+./tools/package_yocto_pluto_frm.sh
+bash -n tools/run_fieldmesh_board_iio_scan.sh
 bash -n tools/run_fieldmesh_board_udp_probe.sh
 ```
 
 Result:
 
-- Z103 and Z203 `fieldmesh-udp-probe` recipes built successfully.
+- Z103 and Z203 `fieldmesh-udp-probe` recipes built successfully, including
+  the libiio-linked board `iio-scan` role.
 - Z103 and Z203 developer images rebuilt successfully and contain
   `/usr/bin/fieldmesh-udp-probe` with the lightweight C negotiation trace
-  support.
+  support, memory/mapped-memory loopback roles, and board IIO preflight.
 - Rootfs audits passed after adding the probe to the required runtime file set.
+- Pluto-style `pluto.frm` packaging passed for both Z203 and Z103 after the
+  libiio-linked probe rebuild.
+- `tools/run_fieldmesh_board_iio_scan.sh` syntax check passed; live execution is
+  blocked until a board running the rebuilt image is reachable over SSH.
 - `tools/run_fieldmesh_board_udp_probe.sh` syntax check passed; it is the next
   live helper once a board running the rebuilt image is reachable over SSH.
 - The WSL Arch Yocto build still emits the known host-distribution warning; the
@@ -1657,14 +1675,14 @@ Result:
 Current package hashes:
 
 ```text
-e6201d4e1870d492bfcab5564562867595f1cf69fe1b2e322332863a90ea4c78  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
-a4607d0fa4b129b7c56b3afa8d35ffbef5e25ae466c6d67c52cdcf9485e02bed  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
-f2d412c00af4b223d5bfe4b7cbb52f17c50e6ae03934f53eee788c1699eb8766  z203 pluto.itb
-4ff8cecb5afe196cacbcabf38df9df7781fa5b679e191b4543db5f85044334fb  z203 pluto.frm
-b14f97f14f902289beee54303fda1f0f66f395573039bb647358ea2a7af7311c  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
-56cd791fbbc5328b809701c4538405ed3c1d26d8babed26a1257d09ee94a1b95  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
-1edd07011cc4fda0683fd06719ee5a95c1fc222eb8e769a238e0213b67c1ad8a  z103 pluto.itb
-f779f6f3cd2b92206ab94af0f30e30bd190b142069ef321de16fef3b4f82caa6  z103 pluto.frm
+6d480bac915919f66b45895c8ef3424c82c938fafef0166ade867db4f9c4f93f  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz
+81b5c609fdee58569b14e1f82eeb1b1f92dcd4195bb612b11559557407185fbb  sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz
+9fb251c9a59a13d70f2f62867a50edd6ffb1d22f7fa3615ec9a36e22f0473290  z203 pluto.itb
+493b3a90c7028731527ff9120c838b6a14a95cc25b8bd9b7015585e57eb2a66c  z203 pluto.frm
+e660be185c370000d55735f21466a6e83868c3d30a0fc04b489cce8812950952  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+a0b6ce87872aa3cf596d047c85f78f26addda00320f217da40c01c0dc3af1d81  sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
+0d5ffddb0e89eb33baeee84bb8212243f90336e4004bd927d174d17b1b502d36  z103 pluto.itb
+20480b3280308ad24cb3940b536e47fa5885aa029c7af752ae86c62bbfa1700d  z103 pluto.frm
 ```
 
 ## Verification Gaps

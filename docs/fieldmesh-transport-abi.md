@@ -55,6 +55,10 @@ and contained FieldMesh packet header. `mmap-loopback` adds a small mapped slot
 ring so the C probe exercises a board-local memory endpoint before an IIO or PL
 endpoint exists.
 
+The Yocto-built C probe also has `fieldmesh-udp-probe iio-scan --iio-uri
+local:`. That mode only enumerates the selected IIO context; it is a runtime
+preflight for this stage, not a FieldMesh packet transport.
+
 Candidate shape:
 
 - TX userspace writes complete FieldMesh packets into an IIO buffer.
@@ -83,6 +87,8 @@ Acceptance:
 - Z103 can run the endpoint side without requiring 2R2T assumptions.
 - The C mapped-memory loopback passes the same trace assertions as the plain
   memory loopback.
+- Board-local `iio-scan` can enumerate the runtime IIO context before packet
+  bytes are routed through an IIO buffer.
 
 ## Stage 2: PL Packet Queue ABI
 

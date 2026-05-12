@@ -386,7 +386,11 @@ user and vendor configuration.
   tests without requiring Python on the board; sender traces include lightweight
   capability and mode-negotiation events, while `mem-loopback` and
   `mmap-loopback` validate the transport ABI shim frame locally before an IIO
-  or PL endpoint exists.
+  or PL endpoint exists; Yocto board builds also link libiio for the `iio-scan`
+  runtime preflight role.
+- `tools/run_fieldmesh_board_iio_scan.sh` - SSH-driven FieldMesh/IIO preflight
+  that runs `fieldmesh-udp-probe iio-scan` on a reachable rebuilt board image
+  and verifies that at least one IIO device is visible locally.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
   test that runs `fieldmesh-udp-probe receive` on a reachable board, sends from
   the host, and collects NDJSON captures.

@@ -74,6 +74,9 @@ IIO or PL endpoint exists; the packaged C probe also supports
 board-local validation once runtime access is available. The mapped-memory role
 uses a small slot ring, so the next transport step is no longer "prove a local
 memory endpoint"; it is specifically "bind the same shim frames to IIO or PL."
+The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan`, and
+`tools/run_fieldmesh_board_iio_scan.sh` captures board-local IIO readiness once
+runtime SSH access is restored.
 
 Next concrete work:
 
@@ -82,6 +85,8 @@ Next concrete work:
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;
   it is blocked until a board running the rebuilt image is reachable at the
   Pluto USB/RNDIS IP.
+- Run `tools/run_fieldmesh_board_iio_scan.sh` on the same reachable board image
+  before attempting IIO packet transport, and capture the IIO device inventory.
 - Bind the same shim frame to a real IIO buffer or first PL loopback endpoint
   while preserving the FieldMesh packet bytes and passing
   `tools/fieldmesh_trace_assert.py`.

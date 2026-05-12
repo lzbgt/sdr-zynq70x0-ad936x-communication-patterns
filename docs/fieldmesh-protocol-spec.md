@@ -301,6 +301,7 @@ fieldmesh-udp-probe mem-loopback \
   --scenario scheduled --mode auto --traffic-profile stress --ticks 2
 fieldmesh-udp-probe mmap-loopback \
   --scenario scheduled --mode auto --traffic-profile stress --ticks 2
+fieldmesh-udp-probe iio-scan --iio-uri local:
 ```
 
 The C probe emits the same NDJSON event style for transmit and receive smoke
@@ -308,9 +309,12 @@ tests, including lightweight sender-side capability and mode-negotiation events.
 It also supports local `mem-loopback` and `mmap-loopback` roles for ABI
 shim-frame validation without a network peer. `mmap-loopback` uses a small
 mapped slot ring, which is closer to the eventual board-local IIO/PL packet
-queue than the plain stack-memory loopback. It intentionally stays smaller than
-the Python harness. Use it for board-runtime validation; keep the Python
-harness as the richer host-side reference.
+queue than the plain stack-memory loopback. Yocto board builds also compile an
+`iio-scan` role with libiio; it does not transport FieldMesh packets yet, but it
+captures whether the board runtime can see a local or URI-selected IIO context
+before an IIO packet pipe is attempted. It intentionally stays smaller than the
+Python harness. Use it for board-runtime validation; keep the Python harness as
+the richer host-side reference.
 
 When the board is reachable over SSH and is running an image that contains
 `fieldmesh-udp-probe`, the end-to-end board smoke test is:
@@ -322,6 +326,15 @@ BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_udp_probe.sh
 The helper starts the receiver on the board, sends stress-profile packets from
 the host, fetches the board NDJSON capture, and verifies packet counts plus
 `rx_ok=true`.
+
+Before the UDP or IIO packet transport tests on a rebuilt board image, run:
+
+```sh
+BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_iio_scan.sh
+```
+
+The helper runs `fieldmesh-udp-probe iio-scan --iio-uri local:` on the board,
+fetches the NDJSON capture, and requires at least one IIO device.
 
 ## Trace Assertions
 
