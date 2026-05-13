@@ -11,6 +11,8 @@ port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
 requests="${REQUESTS:-6}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
+force_upload="${FORCE_UPLOAD:-0}"
+keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-sdk-daemon-$(date +%Y%m%d-%H%M%S)}"
 
 mkdir -p "$out_dir"
@@ -53,10 +55,14 @@ remote_bin="fieldmesh-state-daemon-demo"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "uname -a; command -v fieldmesh-state-daemon-demo || true" \
     > "$out_dir/board_probe.txt"
 
-if ! grep -q "/fieldmesh-state-daemon-demo" "$out_dir/board_probe.txt"; then
+if [ "$force_upload" = "1" ] || ! grep -q "/fieldmesh-state-daemon-demo" "$out_dir/board_probe.txt"; then
     if [ "$upload_if_missing" != "1" ]; then
-        echo "Board does not have fieldmesh-state-daemon-demo installed" >&2
-        echo "Set UPLOAD_IF_MISSING=1 to run a transient /tmp binary from $rootfs_tar" >&2
+        if [ "$force_upload" = "1" ]; then
+            echo "FORCE_UPLOAD=1 requires UPLOAD_IF_MISSING=1 to stage a transient daemon" >&2
+        else
+            echo "Board does not have fieldmesh-state-daemon-demo installed" >&2
+            echo "Set UPLOAD_IF_MISSING=1 to run a transient /tmp binary from $rootfs_tar" >&2
+        fi
         exit 1
     fi
     if [ ! -f "$rootfs_tar" ]; then
@@ -164,5 +170,13 @@ print(json.dumps({
     "iio_bridge_events": len(iio_bridge),
 }, sort_keys=True))
 PY
+
+if [ "$keep_transient_binaries" != "1" ]; then
+    rm -f "$host_demo" "$out_dir/fieldmesh-state-daemon-demo.board"
+fi
+if [ ! -s "$out_dir/host_query.stderr" ]; then
+    rm -f "$out_dir/host_query.stderr"
+fi
+rm -f "$out_dir/board_daemon.pid"
 
 echo "Capture directory: $out_dir"

@@ -810,7 +810,12 @@ Expected result in the current Pluto-compatible firmware state:
    Ethernet SDK clients should talk to a pre-installed board bridge daemon on
    Zynq ARM Linux. That daemon listens on the configured SDK port, owns local
    IIO/device control, and may be implemented in C++ as long as the SDK ABI
-   remains pure C.
+   remains pure C. A Z103 live smoke on 2026-05-14 proved the refreshed daemon
+   can answer AP browse/election/join, peer state, RTLS state, and local
+   IIO-bridge planning over the host-facing UDP socket when transiently staged
+   with `FORCE_UPLOAD=1`; the installed daemon on that board is one revision
+   behind and should be refreshed before treating the IIO-bridge request as
+   persistent firmware behavior.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

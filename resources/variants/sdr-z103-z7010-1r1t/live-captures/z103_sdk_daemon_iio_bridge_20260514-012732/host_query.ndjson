@@ -1,0 +1,7 @@
+{"event":"sdk_daemon_ap_browse","network_id":"fieldmesh-lab","aps":2,"audit_required":2,"total_kbps":9200,"preferred_ap":"z203-hub"}
+{"event":"sdk_daemon_ap_election","network_id":"fieldmesh-lab","elected_node_id":"z203-hub","temporary_ap":0,"handover_allowed":1,"candidate_score":5468}
+{"event":"sdk_daemon_join_state","network_id":"fieldmesh-lab","ap_id":"z203-hub","joined":true,"dst_node_id":"z103-endpoint","route_kind":3,"selected_mode":4,"stream_id":7,"relay_node_id":"z203-hub"}
+{"event":"sdk_daemon_peer_state","network_id":"fieldmesh-lab","peers":2,"relay_capable":1,"total_kbps":9200}
+{"event":"sdk_daemon_rtls_state","network_id":"fieldmesh-lab","positions":2,"gps_pps_fused":1,"packet_timing_tdoa":1,"ap_usable":2}
+{"event":"sdk_daemon_iio_bridge_plan","sdk_layer":"local_iio_device","served_over":"host_eth_ip","tx_device":"cf-ad9361-dds-core-lpc","rx_device":"cf-ad9361-lpc","rx_first":1,"commands":8,"iq_samples":6656,"uses_inter_board_ip_routing":0,"opens_iio_buffers":0,"starts_rf_tx":0,"writes_hardware":0}
+{"event":"sdk_daemon_query_complete","host":"192.168.3.1","port":55421}

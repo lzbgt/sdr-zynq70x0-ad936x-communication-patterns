@@ -127,13 +127,17 @@ Next concrete work:
   developer images install `/usr/bin/fieldmesh-state-daemon-demo`, and the
   daemon now answers AP browse, AP election, AP join state, peer state, RTLS
   state, and local IIO bridge planning over the same UDP socket boundary. The
-  next implementation should run the daemon path from two PCs attached to the
-  boards, then replace the deterministic demo AP/join responses with real
-  credential/audit admission, board peer discovery, route query, and
-  prioritized stream send/receive services. The pure-C
-  `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
-  two-PC path; production daemon and apps may be C++ while the SDK ABI remains
-  pure C.
+  2026-05-14 Z103 live check proved the new IIO bridge response over
+  host-facing Ethernet/IP by transiently uploading the refreshed daemon with
+  `FORCE_UPLOAD=1`; the installed Z103 daemon was one revision behind and
+  correctly returned `unsupported_request` before the transient check. The
+  next implementation should refresh the persistent board images or daemon
+  service, run the daemon path from two PCs attached to the boards, then
+  replace the deterministic demo AP/join responses with real credential/audit
+  admission, board peer discovery, route query, and prioritized stream
+  send/receive services. The pure-C `fieldmesh-two-pc-flow-demo` is now the
+  packaged smoke target for that two-PC path; production daemon and apps may
+  be C++ while the SDK ABI remains pure C.
 - Keep the guarded network-profile writer from
   `docs/fieldmesh-network-configuration.md` live-safe. The packaged
   `fieldmeshctl profile show|validate|apply|rollback` path verifies split USB

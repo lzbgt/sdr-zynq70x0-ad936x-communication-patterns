@@ -2795,6 +2795,35 @@ Results:
 - installed Z103 SDK daemon answers AP browse, AP election, join state, peer
   state, and RTLS state without transient upload.
 
+## Z103 SDK Daemon IIO-Bridge Socket Smoke
+
+After adding `FIELDMESH_DEVICE_IIO_PLAN`, the reachable Z103 still had the
+previous installed daemon. A first no-write live check correctly reached the
+board but returned `unsupported_request` for the new local IIO bridge request.
+The runner now supports `FORCE_UPLOAD=1` so a refreshed rootfs daemon can be
+tested transiently from `/tmp` without reflashing:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_iio_bridge_20260514-012732 \
+  VARIANT=z103 FORCE_UPLOAD=1 SSH_PASS=analog \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+The board handled all six host-facing UDP SDK requests:
+
+```json
+{"ap_browse_events":1,"ap_election_events":1,"event":"fieldmesh_board_sdk_daemon_assert","iio_bridge_events":1,"join_events":1,"ok":true,"peer_events":1,"rtls_events":1}
+```
+
+The IIO-bridge response stayed management-plane only:
+
+```json
+{"event":"sdk_daemon_iio_bridge_plan","sdk_layer":"local_iio_device","served_over":"host_eth_ip","tx_board":"z203","rx_board":"z103","tx_device":"cf-ad9361-dds-core-lpc","rx_device":"cf-ad9361-lpc","rx_first":1,"commands":8,"iq_samples":6656,"uses_inter_board_ip_routing":0,"opens_iio_buffers":0,"starts_rf_tx":0,"writes_hardware":0}
+```
+
+Capture:
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_iio_bridge_20260514-012732/`
+
 ## Two-Board Radio Data-Plane Gate
 
 The split USB subnets are management/control paths between the host and each
