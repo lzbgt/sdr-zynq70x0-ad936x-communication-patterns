@@ -403,7 +403,11 @@ report rollback state while keeping `commands_executed=0` and
 `writes_network=0`. Unguarded `FIELDMESH_TUN_APPLY_COMMIT` is rejected. Live
 creation belongs behind an audited daemon operation with explicit
 network-write authorization, privilege checks, captured pre-state, and
-rollback.
+rollback. `tools/fieldmesh_tun_apply_run.py` is the first checked executor
+boundary: it converts the SDK apply-validation report into a board-local
+`swarm0` shell script with pre-state probes, apply commands, and rollback, but
+defaults to dry-run and refuses live network writes unless the Zynq target,
+CAP_NET_ADMIN, and write-authorization guards are all explicit.
 
 ## C SDK Surface
 
@@ -555,7 +559,10 @@ Stage 2: Board-local service
   the compact destination device EUI, preserve the selected FieldMesh RF route,
   and return no-IIO/no-inter-board-IP safety flags before any live TUN create.
   The same demo and daemon now validate TUN apply/rollback state without
-  executing network writes, and reject unguarded commits.
+  executing network writes, and reject unguarded commits. The host-side
+  `fieldmesh_tun_apply_run.py` verifier now also checks the generated
+  board-local `swarm0` script, captured pre-state commands, rollback command,
+  and negative live-write guards.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

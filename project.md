@@ -524,7 +524,10 @@ user and vendor configuration.
   FieldMesh traffic classes, plus a plan-only routed TUN gateway API for
   creating board-local `swarm0` later under explicit daemon privilege checks.
   The TUN path now also validates apply/rollback state while keeping network
-  writes disabled and rejecting unguarded commits.
+  writes disabled and rejecting unguarded commits. `tools/fieldmesh_tun_apply_run.py`
+  turns that checked report into a board-local `swarm0` pre-state/apply/rollback
+  script and keeps live execution behind explicit Zynq, CAP_NET_ADMIN, and
+  network-write guards.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
@@ -850,7 +853,10 @@ Expected result in the current Pluto-compatible firmware state:
    Z203/Z103 images, FieldMesh packages, and JTAG RAM-boot staging include
    the adapter and routed TUN gateway planning/apply-validation demos. An
    unguarded daemon TUN commit is rejected with zero commands executed and zero
-   network writes.
+   network writes. The new TUN apply runner consumes the validated report and
+   emits a board-local `swarm0` script with pre-state capture and rollback,
+   but remains dry-run unless live network writes are explicitly authorized on
+   a Zynq target with CAP_NET_ADMIN.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

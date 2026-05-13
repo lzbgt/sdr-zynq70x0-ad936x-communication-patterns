@@ -270,9 +270,12 @@ writes by default. `fieldmesh_apply_tun_adapter()` validates the planned TUN
 operation, exposes rollback state (`ip link delete swarm0` for the current
 single-interface MVP), and reports `commands_executed=0` and
 `writes_network=0` in dry-run mode. The daemon rejects an unguarded
-`FIELDMESH_TUN_APPLY_COMMIT`; a future live path must require explicit
-network-write authorization, CAP_NET_ADMIN or equivalent privilege, captured
-pre-state, and rollback before it executes any command.
+`FIELDMESH_TUN_APPLY_COMMIT`. `tools/fieldmesh_tun_apply_run.py` turns the
+checked SDK report into a board-local shell script with pre-state capture,
+apply commands, rollback command, and live-execution guards. It still defaults
+to dry-run; live execution requires explicit network-write authorization,
+target-is-Zynq confirmation, CAP_NET_ADMIN confirmation, captured pre-state,
+and rollback before it executes any command.
 
 Camera demo target:
 

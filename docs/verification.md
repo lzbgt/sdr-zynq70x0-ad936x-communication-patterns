@@ -2296,6 +2296,13 @@ join/stream-flow response tags. Refreshed rootfs and package hashes after
 wiring the daemon `FIELDMESH_TUN_APPLY_VALIDATE` query, guarded commit
 rejection, and packaging the routed TUN gateway apply-validation demo:
 
+`./tools/verify_fieldmesh_tun_apply_run.sh` now extends that gate by consuming
+the SDK TUN gateway report, generating a board-local `swarm0` apply script,
+checking pre-state probes and rollback, and proving live execution is refused
+unless network writes, Zynq-board targeting, and CAP_NET_ADMIN are all
+explicitly acknowledged. The verifier keeps `writes_network=0` and does not
+create a TUN device on the host.
+
 ```text
 z203 rootfs.cpio.gz 5e4adffcee3c62725bc4eb15c5bb9bf364b0137d9c3d2903e5314442532c3dcd
 z203 rootfs.tar.gz  cbd55fcfaf0ec31fe91c4e41fe7748c19652d83327a70cf9e5de376d1b58b3be
