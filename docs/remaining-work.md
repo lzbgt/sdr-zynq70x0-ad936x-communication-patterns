@@ -196,8 +196,11 @@ Next concrete work:
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the
   payload; use a real JTAG-mode power cycle before retrying. When runtime is
   reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures the
-  three preflights over SSH and writes `preflight_assert.json`. Keep the ADI IQ
-  DMA path untouched.
+  three preflights over SSH and writes `preflight_assert.json`.
+  `tools/run_fieldmesh_live_gate.sh` now wraps artifact verification, JTAG
+  scan, non-flashing RAM boot, and read-only sidecar preflight into one
+  timestamped capture directory for the next post-power-cycle attempt. Keep
+  the ADI IQ DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

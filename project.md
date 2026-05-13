@@ -500,6 +500,10 @@ user and vendor configuration.
   RAM-boot payload for Z203 or Z103 from the Yocto kernel/rootfs, matching
   sidecar DTB, and timing-clean FieldMesh bitstream, then delegates to the
   OpenOCD/U-Boot RAM loader.
+- `tools/run_fieldmesh_live_gate.sh` - one-shot non-flashing live gate runner
+  that verifies FieldMesh artifacts, refreshes RAM-boot staging, captures USB
+  reachability and JTAG scan logs, attempts the FieldMesh JTAG RAM boot, and
+  runs the read-only sidecar preflight only after a successful boot.
 - `tools/verify_fieldmesh_runtime_artifacts.sh` - checks that refreshed Z203
   and Z103 FieldMesh runtime artifacts are internally consistent: rootfs probe
   roles, Pluto-style package files, RAM-boot staging hashes, and sidecar DTB

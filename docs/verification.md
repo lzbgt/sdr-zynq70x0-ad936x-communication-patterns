@@ -2296,6 +2296,20 @@ registers, ten DMA registers, and control ID `0x464d1001`. A negative
 control-ID capture failed as expected. The SSH wrapper now writes this result
 to `preflight_assert.json` next to the raw board captures.
 
+The one-shot live gate wrapper was syntax-checked and run in no-boot mode:
+
+```sh
+bash -n tools/run_fieldmesh_live_gate.sh
+OUT_DIR=.config/fieldmesh/live-gate-selftest \
+  RUN_BOOT=0 ./tools/run_fieldmesh_live_gate.sh z103
+```
+
+It is intentionally non-flashing. It verifies runtime artifacts, refreshes
+RAM-boot staging, captures USB reachability and JTAG scan logs, attempts the
+FieldMesh JTAG RAM boot, and only runs the read-only sidecar preflight if the
+boot command exits successfully. The no-boot selftest verified the timestamped
+logging/status path while skipping the RAM boot and sidecar preflight steps.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
