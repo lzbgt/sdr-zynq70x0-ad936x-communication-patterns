@@ -2106,11 +2106,12 @@ Result: the Z103 FieldMesh DMA overlay produced
 `.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit`
 and `.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa`.
 `verify_pluto_hdl_build.sh` reported all user timing constraints met. The
-latest captured hashes after the four-slot descriptor-ring refresh are:
+latest captured hashes after wiring the scheduled-slot gate into the full
+packet-memory simulation wrapper are:
 
 ```text
-system_top.bit  30f51e9e95f8fbccf1ca0add3c3293faf10b8d9a3b8c45505544d6a30a8a6c6b
-system_top.xsa  007daab6dbafc16431c2617709e0571cf5295869420cee436f5430a56a0e3456
+system_top.bit  e8845468921143ae3f781c0ddbb08d8e81b9e38357986d8edd10b07f0fdd67fb
+system_top.xsa  24ced3b83f513e9e7d1c0b6d8c3a25509034a6ea64bab989d219af02dfb26db3
 ```
 
 The same full copied-HDL DMA overlay build was then run for Z203:
@@ -2123,11 +2124,12 @@ Result: the Z203 FieldMesh DMA overlay produced
 `.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit`
 and `.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa`.
 `verify_pluto_hdl_build.sh` reported all user timing constraints met. The
-latest captured hashes after the four-slot descriptor-ring refresh are:
+latest captured hashes after wiring the scheduled-slot gate into the full
+packet-memory simulation wrapper are:
 
 ```text
-system_top.bit  396f458c2ed13661dd180403447ad3353778daf0b6e61e03ec458e37d73e0cc1
-system_top.xsa  c404a4bfaa37fda4371cd9a3db5295bab6f27df1effc7d951490670b07e37923
+system_top.bit  dda3b74f491214df586f54b24d257917bb52ebdbc70c283c207dde6084d7dd6f
+system_top.xsa  ef9916cab83528fc64de3a5b3f771105385260f86b988c916fdf079ede304e9b
 ```
 
 The FieldMesh sidecar devicetree contract was checked with:
@@ -2169,11 +2171,11 @@ Result: both wrappers generated a FieldMesh DTB, passed the normal Pluto-style
 unsigned package flow. Captured hashes:
 
 ```text
-z203 pluto.frm    5f0d36a57dc86bc045f38e203a5bbcb88531193c57e32e04bf0718bfc7fbe600
-z203 pluto.itb    561baf97d5c513fa61e68ad789abc370ceed88932fb4dfc78c1f8d59ca76e294
+z203 pluto.frm    ac3fd38bd65d4438f27f157a17075fa0e2285d183543f23ad3ed3e597f5dcc60
+z203 pluto.itb    35d5abd8a65c47dab12730d11df58576e6a770b9971c31237d1e11b24aa98148
 z203 fieldmesh dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z103 pluto.frm    cd7a4703af292b9b0602e4c8104ba8328abcb716da766da33daa412a54ee1993
-z103 pluto.itb    2770e21870005ba5bee41567bc30668ea9a9bdab67fa4cbab765ede6164ba1ba
+z103 pluto.frm    b2b990fb2fd622e4c586ca4c4f1912787e662a5d05cbd7cc4a1e2c89ff75a93c
+z103 pluto.itb    a602ecb331303a39272917fbbe1012cc33845bda31c2a84db0ae52af781cd6e3
 z103 fieldmesh dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
 ```
 
@@ -2189,15 +2191,14 @@ Result: both variants generated legacy U-Boot `uImage`,
 and a local `SHA256SUMS` file under `.config/fieldmesh/jtag-ram-boot-z203/`
 and `.config/fieldmesh/jtag-ram-boot-z103/`.
 
-Current staged RAM-boot hashes after refreshing the four-slot descriptor-ring
-overlay:
+Current staged RAM-boot hashes after refreshing the slot-gated overlay:
 
 ```text
-z203 bitstream 396f458c2ed13661dd180403447ad3353778daf0b6e61e03ec458e37d73e0cc1
+z203 bitstream dda3b74f491214df586f54b24d257917bb52ebdbc70c283c207dde6084d7dd6f
 z203 uImage    a148ebbcad02c736c8aef6d42f77ad2004c25aa7a2726a1b3473ee1a5ae597ae
 z203 ramdisk   526f114f0b62105317259f62b6f57f341e1107c7d8b36c9b6199fe7759426cbf
 z203 dtb       38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z103 bitstream 30f51e9e95f8fbccf1ca0add3c3293faf10b8d9a3b8c45505544d6a30a8a6c6b
+z103 bitstream e8845468921143ae3f781c0ddbb08d8e81b9e38357986d8edd10b07f0fdd67fb
 z103 uImage    38ca37464e00e469d9cbb2e76426900e1e061dc6dacfc5ad7c496ca4f846add9
 z103 ramdisk   24e816807cfc3677301e5c7dc381680b53f01898f7d832f0af1f6bd4e42da200
 z103 dtb       eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8

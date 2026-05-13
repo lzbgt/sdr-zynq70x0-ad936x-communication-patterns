@@ -175,7 +175,7 @@ Next concrete work:
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
   sources. The Z203 and Z103 copied overlay builds are both timing-clean after
-  the four-slot descriptor-ring refresh.
+  the slot-gated packet-memory refresh.
 - `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.
