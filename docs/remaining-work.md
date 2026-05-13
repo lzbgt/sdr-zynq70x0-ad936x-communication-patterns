@@ -205,8 +205,12 @@ Next concrete work:
   non-IIO/non-IP-routed. Z103 now passes the live guarded read with an actual
   packet queued through `swarm0`: `/dev/net/tun` is opened by the daemon, the
   packet is read, classified as C0 control, forwarded to the FieldMesh adapter,
-  and `swarm0` is rolled back. The next step is binding the adapter output to
-  the FieldMesh RF packet engine.
+  and `swarm0` is rolled back. The adapter output now has a checked RF
+  packet-engine handoff API and daemon request: it queues packets toward
+  sidecar DMA and `fieldmesh_rf_packet_engine` while preserving direct RF route
+  metadata and keeping IIO, inter-board IP routing, RF TX start, and hardware
+  writes disabled. The next step is replacing that guarded handoff contract
+  with the real RF packet engine transport.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

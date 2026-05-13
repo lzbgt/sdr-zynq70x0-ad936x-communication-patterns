@@ -144,6 +144,7 @@ verify_variant() {
         FIELDMESH_STATE_PEERS \
         FIELDMESH_STATE_RTLS \
         FIELDMESH_SWARM_ADAPTER \
+        FIELDMESH_RF_PACKET_ENGINE \
         FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_DEV_PUMP \
         FIELDMESH_TUN_PLAN \
@@ -156,12 +157,16 @@ verify_variant() {
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
         sdk_daemon_swarm_adapter \
+        sdk_daemon_rf_packet_engine \
         sdk_daemon_tun_fd_pump \
         sdk_daemon_tun_device_pump_guard \
         posix_pipe_fd \
         /dev/net/tun \
         requires_allow_live_tun_read \
         requires_existing_swarm0 \
+        fieldmesh_rf_packet_engine \
+        queued_to_rf_engine \
+        uses_sidecar_dma \
         sdk_daemon_tun_plan \
         sdk_daemon_tun_apply \
         sdk_daemon_tun_apply_rejected \
@@ -207,6 +212,9 @@ verify_variant() {
         sdk_tun_packetizer_summary \
         tun_ip_packet_stream \
         fieldmesh_rf_packet_engine \
+        queued_to_sidecar \
+        queued_to_rf_engine \
+        uses_sidecar_dma \
         control_daemon \
         telemetry_mavlink \
         video_base_rtp \

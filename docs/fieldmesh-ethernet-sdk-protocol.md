@@ -116,6 +116,7 @@ Minimum daemon messages:
 | `RTLS_REPORT` | client/daemon -> daemon | Feed GNSS/PPS, packet-timing TDOA, RSSI/SNR, or timing calibration. |
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
+| `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |
@@ -265,6 +266,15 @@ network state. The daemon verifier now uses that real fd read path rather than
 a memory-copy callback. The pump emits `tun_fd_attached=1`, `read_from_tun=1`,
 `sent_to_fieldmesh_adapter=1`, and the same no-IIO/no-inter-board-IP safety
 flags before the next boundary becomes the RF packet engine.
+
+The RF packet-engine handoff is now explicit too:
+`fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter
+packet metadata and payload length, preserve the selected direct-or-relayed RF
+route, and return the sidecar-DMA/RF-engine queue contract. This is still a
+guarded handoff, not live transmission: it reports `uses_sidecar_dma=1` and
+`uses_rf_packet_engine=1`, while `uses_iio=0`,
+`uses_inter_board_ip_routing=0`, `opens_iio_buffers=0`, `starts_rf_tx=0`, and
+`writes_hardware=0`.
 
 The daemon also exposes a guarded production request,
 `FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the

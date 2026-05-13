@@ -538,6 +538,97 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned long)rx_len);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_PACKET_ENGINE")) {
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 200,
+            .mtu_bytes = 1200,
+            .expose_virtual_netdev = 1,
+        };
+        unsigned char tx_packet[256];
+        unsigned char rx_packet[256];
+        fieldmesh_tun_packet_report_t tun_report;
+        fieldmesh_adapter_packet_t rx_meta;
+        fieldmesh_rf_packet_submit_report_t rf_report;
+        size_t tx_len;
+        size_t rx_len = 0u;
+        int failed = 0;
+
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", "020000000103");
+        tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
+        if (tx_len == 0u ||
+            fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
+            fieldmesh_tun_packetizer_send(adapter, tx_packet, tx_len,
+                                          &tun_report) != FIELDMESH_OK ||
+            fieldmesh_adapter_recv_packet(adapter, rx_packet, sizeof(rx_packet),
+                                          &rx_len, &rx_meta, 1000) !=
+                FIELDMESH_OK ||
+            fieldmesh_submit_rf_packet(adapter, &rx_meta, tx_len, 0u,
+                                       &rf_report) != FIELDMESH_OK ||
+            rx_len != tx_len ||
+            memcmp(rx_packet, tx_packet, rx_len) != 0) {
+            failed = 1;
+        }
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        if (failed) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_packet_engine\","
+                 "\"adapter_name\":\"%s\","
+                 "\"rf_engine\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"payload_kind\":%u,"
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"route_kind\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"sequence\":%u,"
+                 "\"packet_len\":%u,"
+                 "\"frame_bytes\":%u,"
+                 "\"queued_to_sidecar\":%u,"
+                 "\"queued_to_rf_engine\":%u,"
+                 "\"requires_sidecar_preflight\":%u,"
+                 "\"requires_rf_tx_guard\":%u,"
+                 "\"uses_sidecar_dma\":%u,"
+                 "\"uses_rf_packet_engine\":%u,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"opens_iio_buffers\":%u,"
+                 "\"starts_rf_tx\":%u,"
+                 "\"writes_hardware\":%u,"
+                 "\"commands_executed\":%u}\n",
+                 rf_report.plan.adapter_name, rf_report.plan.engine_name,
+                 rf_report.plan.dst_node_id,
+                 (unsigned)tun_report.payload_kind,
+                 (unsigned)rf_report.plan.traffic_class,
+                 (unsigned)rf_report.plan.mode,
+                 (unsigned)rf_report.plan.route_kind,
+                 rf_report.plan.stream_id,
+                 rf_report.plan.sequence,
+                 rf_report.plan.packet_len,
+                 rf_report.plan.frame_bytes,
+                 rf_report.queued_to_sidecar,
+                 rf_report.queued_to_rf_engine,
+                 rf_report.plan.requires_sidecar_preflight,
+                 rf_report.plan.requires_rf_tx_guard,
+                 rf_report.plan.uses_sidecar_dma,
+                 rf_report.plan.uses_rf_packet_engine,
+                 rf_report.plan.uses_iio,
+                 rf_report.plan.uses_inter_board_ip_routing,
+                 rf_report.plan.opens_iio_buffers,
+                 rf_report.starts_rf_tx,
+                 rf_report.writes_hardware,
+                 rf_report.commands_executed);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_DEV_PUMP")) {
         int allow_live = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
         int tun_read_fd = -1;
@@ -1047,6 +1138,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&

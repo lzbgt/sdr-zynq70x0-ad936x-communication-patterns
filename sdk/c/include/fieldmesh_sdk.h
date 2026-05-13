@@ -22,6 +22,7 @@ extern "C" {
 #define FIELDMESH_ADAPTER_DEFAULT_MTU 1500u
 #define FIELDMESH_TUN_APPLY_VALIDATE_ONLY 0x00000001u
 #define FIELDMESH_TUN_APPLY_ALLOW_NETWORK_WRITES 0x00000002u
+#define FIELDMESH_RF_PACKET_ALLOW_LIVE_TX 0x00000001u
 #define FIELDMESH_PROFILE_APPLY_PERSIST 0x00000001u
 
 typedef struct fieldmesh_context fieldmesh_context_t;
@@ -351,6 +352,46 @@ typedef struct fieldmesh_adapter_packet {
     uint32_t queue_age_ms;
 } fieldmesh_adapter_packet_t;
 
+typedef struct fieldmesh_rf_packet_plan {
+    char engine_name[FIELDMESH_NAME_TEXT_MAX];
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_payload_kind_t payload_kind;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mode_t mode;
+    fieldmesh_route_kind_t route_kind;
+    uint16_t stream_id;
+    uint32_t sequence;
+    uint32_t deadline_ms;
+    uint32_t bitrate_hint_kbps;
+    uint32_t packet_len;
+    uint32_t frame_bytes;
+    uint32_t max_frame_bytes;
+    uint8_t uses_sidecar_dma;
+    uint8_t uses_rf_packet_engine;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t opens_iio_buffers;
+    uint8_t starts_rf_tx;
+    uint8_t writes_hardware;
+    uint8_t requires_sidecar_preflight;
+    uint8_t requires_rf_tx_guard;
+    uint8_t schedules_exact_tx;
+} fieldmesh_rf_packet_plan_t;
+
+typedef struct fieldmesh_rf_packet_submit_report {
+    fieldmesh_rf_packet_plan_t plan;
+    uint32_t flags;
+    uint8_t accepted;
+    uint8_t queued_to_sidecar;
+    uint8_t queued_to_rf_engine;
+    uint8_t live_rf_requested;
+    uint8_t live_rf_authorized;
+    uint8_t commands_executed;
+    uint8_t writes_hardware;
+    uint8_t starts_rf_tx;
+} fieldmesh_rf_packet_submit_report_t;
+
 typedef struct fieldmesh_tun_config {
     char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
     char local_mesh_ip[FIELDMESH_ADDR_TEXT_MAX];
@@ -558,6 +599,15 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
                                                  size_t *out_payload_len,
                                                  fieldmesh_adapter_packet_t *out_packet,
                                                  uint32_t timeout_ms);
+fieldmesh_status_t fieldmesh_plan_rf_packet(fieldmesh_adapter_t *adapter,
+                                            const fieldmesh_adapter_packet_t *packet,
+                                            size_t payload_len,
+                                            fieldmesh_rf_packet_plan_t *out_plan);
+fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
+                                              const fieldmesh_adapter_packet_t *packet,
+                                              size_t payload_len,
+                                              uint32_t flags,
+                                              fieldmesh_rf_packet_submit_report_t *out_report);
 fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
                                               const fieldmesh_tun_config_t *config,
                                               fieldmesh_tun_plan_t *out_plan);

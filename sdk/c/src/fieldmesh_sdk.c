@@ -1502,6 +1502,90 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
     return FIELDMESH_ERR_TIMEOUT;
 }
 
+fieldmesh_status_t fieldmesh_plan_rf_packet(fieldmesh_adapter_t *adapter,
+                                            const fieldmesh_adapter_packet_t *packet,
+                                            size_t payload_len,
+                                            fieldmesh_rf_packet_plan_t *out_plan)
+{
+    fieldmesh_route_info_t route;
+    uint32_t mtu_bytes;
+
+    if (!adapter || !adapter->session || !packet || payload_len == 0u || !out_plan) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    mtu_bytes = adapter->config.mtu_bytes ?
+        adapter->config.mtu_bytes : FIELDMESH_ADAPTER_DEFAULT_MTU;
+    if (payload_len > mtu_bytes) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    if (fieldmesh_query_route(adapter->session, adapter->config.dst_node_id,
+                              packet->stream_id, &route) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+
+    memset(out_plan, 0, sizeof(*out_plan));
+    sdk_copy_text(out_plan->engine_name, sizeof(out_plan->engine_name),
+                  "fieldmesh_rf_packet_engine");
+    sdk_copy_text(out_plan->adapter_name, sizeof(out_plan->adapter_name),
+                  adapter->config.adapter_name);
+    sdk_copy_text(out_plan->dst_node_id, sizeof(out_plan->dst_node_id),
+                  route.dst_node_id);
+    out_plan->payload_kind = packet->payload_kind;
+    out_plan->traffic_class = packet->traffic_class;
+    out_plan->mode = packet->mode;
+    out_plan->route_kind = route.route_kind;
+    out_plan->stream_id = packet->stream_id;
+    out_plan->sequence = packet->sequence;
+    out_plan->deadline_ms = packet->deadline_ms;
+    out_plan->bitrate_hint_kbps = packet->bitrate_hint_kbps;
+    out_plan->packet_len = (uint32_t)payload_len;
+    out_plan->frame_bytes = (uint32_t)payload_len + 16u;
+    out_plan->max_frame_bytes = mtu_bytes + 16u;
+    out_plan->uses_sidecar_dma = 1u;
+    out_plan->uses_rf_packet_engine = 1u;
+    out_plan->uses_iio = 0u;
+    out_plan->uses_inter_board_ip_routing = 0u;
+    out_plan->opens_iio_buffers = 0u;
+    out_plan->starts_rf_tx = 0u;
+    out_plan->writes_hardware = 0u;
+    out_plan->requires_sidecar_preflight = 1u;
+    out_plan->requires_rf_tx_guard = 1u;
+    out_plan->schedules_exact_tx =
+        packet->mode == FIELDMESH_MODE_SCHEDULED ? 1u : 0u;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
+                                              const fieldmesh_adapter_packet_t *packet,
+                                              size_t payload_len,
+                                              uint32_t flags,
+                                              fieldmesh_rf_packet_submit_report_t *out_report)
+{
+    fieldmesh_rf_packet_plan_t plan;
+    fieldmesh_status_t status;
+
+    if (!out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    status = fieldmesh_plan_rf_packet(adapter, packet, payload_len, &plan);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    out_report->plan = plan;
+    out_report->flags = flags;
+    out_report->accepted = 1u;
+    out_report->queued_to_sidecar = 1u;
+    out_report->queued_to_rf_engine = 1u;
+    out_report->live_rf_requested =
+        (flags & FIELDMESH_RF_PACKET_ALLOW_LIVE_TX) ? 1u : 0u;
+    out_report->live_rf_authorized = 0u;
+    out_report->commands_executed = 0u;
+    out_report->writes_hardware = 0u;
+    out_report->starts_rf_tx = 0u;
+    return FIELDMESH_OK;
+}
+
 fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
                                               const fieldmesh_tun_config_t *config,
                                               fieldmesh_tun_plan_t *out_plan)

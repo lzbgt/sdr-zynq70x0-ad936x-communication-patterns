@@ -140,6 +140,7 @@ int main(void)
     for (i = 0; i < sizeof(flows) / sizeof(flows[0]); ++i) {
         fieldmesh_tun_packet_report_t report;
         fieldmesh_adapter_packet_t rx_meta;
+        fieldmesh_rf_packet_submit_report_t rf_report;
         size_t packet_len = make_ipv4_packet(packet, sizeof(packet), &flows[i]);
         size_t rx_len = 0u;
 
@@ -151,6 +152,14 @@ int main(void)
                                                      sizeof(rx_packet), &rx_len,
                                                      &rx_meta, 1000),
                        "adapter_recv")) {
+            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        if (require_ok(fieldmesh_submit_rf_packet(adapter, &rx_meta, packet_len,
+                                                  0u, &rf_report),
+                       "submit_rf_packet")) {
             (void)fieldmesh_close_adapter(adapter);
             (void)fieldmesh_leave(session);
             fieldmesh_context_destroy(ctx);
@@ -186,7 +195,17 @@ int main(void)
                "\"packet_len\":%u,"
                "\"uses_iio\":%u,"
                "\"uses_inter_board_ip_routing\":%u,"
-               "\"sent_to_fieldmesh_adapter\":%u}\n",
+               "\"sent_to_fieldmesh_adapter\":%u,"
+               "\"rf_engine\":\"%s\","
+               "\"rf_route_kind\":%u,"
+               "\"rf_frame_bytes\":%u,"
+               "\"queued_to_sidecar\":%u,"
+               "\"queued_to_rf_engine\":%u,"
+               "\"uses_sidecar_dma\":%u,"
+               "\"uses_rf_packet_engine\":%u,"
+               "\"opens_iio_buffers\":%u,"
+               "\"starts_rf_tx\":%u,"
+               "\"writes_hardware\":%u}\n",
                flows[i].name,
                report.adapter_name,
                report.dst_node_id,
@@ -205,14 +224,26 @@ int main(void)
                report.packet_len,
                report.uses_iio,
                report.uses_inter_board_ip_routing,
-               report.sent_to_fieldmesh_adapter);
+               report.sent_to_fieldmesh_adapter,
+               rf_report.plan.engine_name,
+               (unsigned)rf_report.plan.route_kind,
+               rf_report.plan.frame_bytes,
+               rf_report.queued_to_sidecar,
+               rf_report.queued_to_rf_engine,
+               rf_report.plan.uses_sidecar_dma,
+               rf_report.plan.uses_rf_packet_engine,
+               rf_report.plan.opens_iio_buffers,
+               rf_report.starts_rf_tx,
+               rf_report.writes_hardware);
     }
 
     printf("{\"event\":\"sdk_tun_packetizer_summary\",\"adapter_name\":\"swarm0\","
            "\"packets\":%u,\"classes\":5,\"tun_fd_required\":1,"
            "\"product_data_plane\":\"tun_ip_packet_stream\","
-           "\"next_boundary\":\"fieldmesh_rf_packet_engine\"}\n",
-           sent);
+           "\"next_boundary\":\"fieldmesh_rf_packet_engine\","
+           "\"rf_packets\":%u,"
+           "\"rf_engine_bound\":1}\n",
+           sent, sent);
 
     (void)fieldmesh_close_adapter(adapter);
     (void)fieldmesh_leave(session);

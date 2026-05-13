@@ -536,11 +536,15 @@ user and vendor configuration.
   classifying IPv4 packets from `swarm0` into C0-C4 and sending them through
   the FieldMesh adapter path, plus a callback-backed pump API so daemon code
   can connect a board-local TUN fd without adding POSIX fd types to the public
-  SDK ABI.
+  SDK ABI. The adapter output now has an explicit RF packet-engine handoff API:
+  `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` produce the
+  sidecar-DMA/RF-engine queue contract and keep `uses_iio=0`,
+  `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and `writes_hardware=0`
+  until a guarded live RF engine implements the final transport.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
-  a UDP state-daemon AP/peer/RTLS/`swarm0`/TUN fd pump/TUN apply/IIO-admin
+  a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
   query demo, a `swarm0` adapter packet-classification demo, a routed TUN
   gateway planning demo, a TUN IP-packetizer demo, a two-PC AP browse/election/audit-join/
   stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
@@ -881,7 +885,13 @@ Expected result in the current Pluto-compatible firmware state:
    path free of IIO and inter-board IP routing. Z103 now passes the live version:
    the daemon opens `/dev/net/tun`, reads one queued `swarm0` packet, classifies
    it as C0 control, forwards it to the FieldMesh adapter, and the runner rolls
-   `swarm0` back.
+   `swarm0` back. The SDK and state daemon now also bind that adapter output
+   to a checked RF packet-engine handoff contract: packets are queued toward
+   sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is
+   preserved, and the handoff still opens no IIO buffers, starts no RF TX, and
+   writes no hardware. A transient live Z103 state-daemon smoke at
+   `192.168.3.1` passed the new `FIELDMESH_RF_PACKET_ENGINE` request with the
+   refreshed daemon binary.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

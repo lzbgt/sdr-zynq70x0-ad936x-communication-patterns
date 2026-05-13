@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-12}"
+requests="${REQUESTS:-13}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -134,6 +134,7 @@ ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
+rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_packet_engine"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
@@ -141,7 +142,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 12:
+if not end or end[-1].get("handled") != 13:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
@@ -153,6 +154,18 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("relay_capable") < 1:
     raise SystemExit("board SDK daemon peer-state response failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("board SDK daemon RTLS-state response failed")
+if not rf_packet_engine or rf_packet_engine[0].get("adapter_name") != "swarm0":
+    raise SystemExit("board SDK daemon RF packet-engine response failed")
+if rf_packet_engine[0].get("rf_engine") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("board SDK daemon RF packet-engine name failed")
+if rf_packet_engine[0].get("queued_to_sidecar") != 1 or rf_packet_engine[0].get("queued_to_rf_engine") != 1:
+    raise SystemExit("board SDK daemon RF packet-engine queue flags failed")
+if rf_packet_engine[0].get("uses_sidecar_dma") != 1 or rf_packet_engine[0].get("uses_rf_packet_engine") != 1:
+    raise SystemExit("board SDK daemon RF packet-engine path flags failed")
+for key in ("uses_iio", "uses_inter_board_ip_routing", "opens_iio_buffers",
+            "starts_rf_tx", "writes_hardware", "commands_executed"):
+    if rf_packet_engine[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon RF packet-engine key {key} must be 0")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("board SDK daemon TUN plan response failed")
 if not tun_device_guard or tun_device_guard[0].get("adapter_name") != "swarm0":
@@ -204,6 +217,7 @@ print(json.dumps({
     "join_events": len(join_state),
     "peer_events": len(peer),
     "rtls_events": len(rtls),
+    "rf_packet_engine_events": len(rf_packet_engine),
     "tun_plan_events": len(tun_plan),
     "tun_device_guard_events": len(tun_device_guard),
     "tun_apply_events": len(tun_apply),

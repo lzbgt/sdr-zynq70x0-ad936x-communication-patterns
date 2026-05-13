@@ -557,6 +557,12 @@ Stage 2: Board-local service
   telemetry, video base, video enhancement, and bulk flows into C0-C4, and
   forwards them through the FieldMesh adapter while keeping
   `uses_iio=0` and `uses_inter_board_ip_routing=0`.
+- Use `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` and daemon
+  `FIELDMESH_RF_PACKET_ENGINE` as the first adapter-to-RF handoff contract:
+  the packet is queued toward sidecar DMA and `fieldmesh_rf_packet_engine`,
+  direct-or-relayed route metadata is preserved, and the checked handoff still
+  starts no RF TX, opens no IIO buffers, writes no hardware, and uses no
+  inter-board IP routing.
 - Use daemon `FIELDMESH_TUN_FD_PUMP` and
   `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
   boundary: the SDK accepts a pure-C read callback, so production code can
