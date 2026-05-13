@@ -222,11 +222,27 @@ The first practical security model should support three join paths:
 
 Production direction:
 
-- AP owns a local CA or policy signing key.
-- Nodes have device identity keys or provisioned certificates.
-- Join produces a short-lived session key and a signed mode/policy contract.
-- AP can revoke or quarantine nodes.
-- Stream encryption is independent from transport discovery.
+- Use a root/intermediate CA model: an offline manufacturer root signs
+  fleet/site intermediates, and those intermediates sign device identity,
+  AP/network policy, and role certificates.
+- Nodes have provisioned device identity keys/certificates. A secure element is
+  preferred for production; protected persistent flash is acceptable for early
+  prototypes with clear risk labeling.
+- AP owns or is delegated a network policy signing certificate, not a
+  universal root key.
+- Join uses mutual authentication: node verifies AP/network policy, AP verifies
+  node identity, role permissions, revocation state, and requested traffic
+  classes.
+- Join derives short-lived session keys and returns a signed mode/policy
+  contract covering selected mode, route, streams, traffic classes, RTLS
+  privacy, AP lease, and handover policy.
+- AP can revoke, quarantine, or restrict nodes by role and stream class.
+- Stream encryption is independent from transport discovery and should use AEAD
+  with network ID, stream ID, epoch/slot, sequence, node IDs, and traffic class
+  as associated data.
+- Autonomous AP election reports and results must be signed by provisioned
+  identities. If trusted identity is missing, a swarm may form only in
+  restricted/quarantine mode.
 
 Prototype direction:
 
@@ -237,7 +253,9 @@ Prototype direction:
 
 ## SDK Layering
 
-The SDK should have two explicit layers.
+The SDK should have two explicit layers. The SDK ABI itself must remain pure C;
+board daemons, demo clients, GUI apps, and camera apps may be C++ or Rust
+wrappers around that C ABI.
 
 The first layer is the host-facing Ethernet/IP layer. It keeps a pure C ABI and
 treats both USB Ethernet and physical Ethernet as IP transports. That is the
@@ -270,6 +288,15 @@ as the FieldMesh radio network. In product terms:
 - Board-to-board peer payloads still cross the FieldMesh RF data plane, not
   host Ethernet routing.
 
+For Ethernet SDK clients, the production shape is a pre-implemented FieldMesh
+board daemon running on Zynq ARM Linux. The daemon listens on the configured
+SDK control port over USB Ethernet, physical Ethernet, or explicit IP; owns the
+local IIO/device backend; and serves the FieldMesh control/data protocol to
+host applications. Desktop apps should not need direct libiio access for normal
+operation. They ask the daemon to browse APs, join, query topology/RTLS,
+open streams, and request guarded RF/device actions. The daemon then translates
+allowed local device actions into libiio/sidecar/driver calls under policy.
+
 This split lets a Windows camera app, a Linux gateway, and an embedded host use
 the same control/data-plane API while keeping RF setup and safety gates
 auditable.
@@ -294,7 +321,7 @@ The first SDK contract should be small and C ABI stable:
 Required properties:
 
 - C99-compatible public header;
-- no C++ ABI dependency;
+- no C++ ABI dependency at the SDK layer;
 - C++ app wrapper and Rust binding may layer above the C ABI;
 - callback and polling styles both possible;
 - opaque handles for ABI stability;
@@ -389,13 +416,13 @@ Stage 1: API and trace contract
 
 Stage 2: Board-local service
 
-- Add a small board daemon that exposes AP/peer/session state over the SDK
-  control port.
+- Add a small board daemon that exposes AP/peer/session/local-IIO state over
+  the SDK control port.
 - Keep the state service queryable over the same socket boundary used by the
   SDK demos: USB Ethernet, physical Ethernet, or explicit IP.
 - The first checked daemon boundary is `fieldmesh_state_daemon_demo`, which
-  serves AP browse, AP election, AP join state, peer registry, and RTLS
-  position state over UDP.
+  serves AP browse, AP election, AP join state, peer registry, RTLS position
+  state, and a local IIO bridge plan over UDP.
 - Package that daemon into both Z203 and Z103 developer images as
   `/usr/bin/fieldmesh-state-daemon-demo`, so the same SDK socket contract can
   be exercised on two PCs attached to boards over USB Ethernet or physical

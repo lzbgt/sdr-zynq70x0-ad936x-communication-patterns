@@ -119,21 +119,21 @@ Next concrete work:
   1R1T node can be elected as an emergency AP when policy allows and no better
   candidate exists.
 - Extend the SDK from the current in-process reference library and
-  board-packaged state-daemon demo into a real host library plus board daemon
-  interface. Both Z203 and Z103 developer images now install
-  `/usr/bin/fieldmesh-state-daemon-demo`, and the runtime artifact verifier
-  checks its AP browse/election/join plus peer/RTLS query strings in both
-  rootfs tarballs. Z203 has passed the live SDK daemon socket smoke over USB
-  Ethernet in two forms: first by transiently uploading the matched daemon from
-  the refreshed rootfs to `/tmp`, then from the installed SD/QSPI image with
-  `UPLOAD_IF_MISSING=0`. The installed daemon now answers AP browse, AP
-  election, AP join state, peer state, and RTLS state over the same UDP socket
-  boundary. The next implementation should run the daemon path from two PCs
-  attached to the boards, then replace the deterministic demo AP/join responses
-  with real credential/audit admission, board peer discovery, route query, and
+  board-packaged daemon demo into a real host library plus board daemon
+  interface. `docs/fieldmesh-ethernet-sdk-protocol.md` now defines the default
+  daemon protocol for Ethernet SDK clients: control plane, data plane,
+  discovery/join, capability advertisement, RTLS/co-location, streaming, local
+  IIO bridge, predefined AP, and autonomous swarm mesh. Both Z203 and Z103
+  developer images install `/usr/bin/fieldmesh-state-daemon-demo`, and the
+  daemon now answers AP browse, AP election, AP join state, peer state, RTLS
+  state, and local IIO bridge planning over the same UDP socket boundary. The
+  next implementation should run the daemon path from two PCs attached to the
+  boards, then replace the deterministic demo AP/join responses with real
+  credential/audit admission, board peer discovery, route query, and
   prioritized stream send/receive services. The pure-C
   `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
-  two-PC path.
+  two-PC path; production daemon and apps may be C++ while the SDK ABI remains
+  pure C.
 - Keep the guarded network-profile writer from
   `docs/fieldmesh-network-configuration.md` live-safe. The packaged
   `fieldmeshctl profile show|validate|apply|rollback` path verifies split USB

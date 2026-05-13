@@ -287,6 +287,42 @@ static int build_response(fieldmesh_context_t *context,
                  route.relay_node_id);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_DEVICE_IIO_PLAN")) {
+        fieldmesh_device_profile_t tx_profile;
+        fieldmesh_device_profile_t rx_profile;
+        fieldmesh_iio_burst_plan_t plan;
+
+        if (fieldmesh_get_device_profile(context, &tx_profile) != FIELDMESH_OK ||
+            fieldmesh_get_device_profile(context, &rx_profile) != FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(tx_profile.board_id, sizeof(tx_profile.board_id), "%s", "z203");
+        snprintf(tx_profile.iio_uri, sizeof(tx_profile.iio_uri), "%s", "local:");
+        snprintf(rx_profile.board_id, sizeof(rx_profile.board_id), "%s", "z103");
+        snprintf(rx_profile.iio_uri, sizeof(rx_profile.iio_uri), "%s", "local:");
+        if (fieldmesh_plan_iio_burst(context, &tx_profile, &rx_profile, 6656u,
+                                     &plan) != FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_iio_bridge_plan\","
+                 "\"sdk_layer\":\"local_iio_device\","
+                 "\"served_over\":\"host_eth_ip\","
+                 "\"tx_device\":\"%s\","
+                 "\"rx_device\":\"%s\","
+                 "\"rx_first\":%u,"
+                 "\"commands\":%u,"
+                 "\"iq_samples\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"opens_iio_buffers\":%u,"
+                 "\"starts_rf_tx\":%u,"
+                 "\"writes_hardware\":%u}\n",
+                 plan.tx_device, plan.rx_device, plan.rx_first,
+                 plan.command_count, plan.iq_samples,
+                 plan.uses_inter_board_ip_routing, plan.opens_iio_buffers,
+                 plan.starts_rf_tx, plan.writes_hardware);
+        return 0;
+    }
     snprintf(response, response_len,
              "{\"event\":\"sdk_daemon_error\",\"error\":\"unsupported_request\"}\n");
     return 0;
@@ -409,7 +445,8 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_AP_ELECT v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0) {
+        query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_DEVICE_IIO_PLAN v1") == 0) {
         printf("{\"event\":\"sdk_daemon_query_complete\",\"host\":\"%s\","
                "\"port\":%u}\n",
                host, port);

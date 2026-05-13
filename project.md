@@ -253,6 +253,11 @@ user and vendor configuration.
   credentials, radio profile, and safe rollback. The first `fieldmeshctl`
   implementation validates and plans split USB subnets without persistent
   network writes.
+- `docs/fieldmesh-ethernet-sdk-protocol.md` - host-facing board-daemon protocol
+  spec for Ethernet SDK clients. It defines the default Zynq Linux daemon,
+  control plane, data plane, discovery/join, capability advertisements,
+  RTLS/co-location, streaming, local IIO bridge, predefined AP, and autonomous
+  swarm mesh behavior.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward IIO and PL packet queues without changing
   the common packet header or trace contract.
@@ -497,23 +502,25 @@ user and vendor configuration.
   link-budget range, and the final reliable range after fade margin.
 - `sdk/c/include/fieldmesh_sdk.h` - first pure C SDK ABI contract for AP
   browse, credential/cert/audit join, peer discovery, route query, mode request,
-  RTLS position estimates, network profile validation/apply/rollback, and
-  prioritized payload streams over USB Ethernet, physical Ethernet, or IP
-  transports.
+  RTLS position estimates, network profile validation/apply/rollback, local
+  device/IIO planning, and prioritized payload streams over USB Ethernet,
+  physical Ethernet, or IP transports.
 - `sdk/c/src/fieldmesh_sdk.c` - portable in-process SDK reference
   implementation for AP browse, metric-based AP election, audit join, peer
   discovery, RTLS estimation, route query, network profile validation/planning,
-  mode request, and stream send/receive.
+  local device/IIO planning, mode request, and stream send/receive. The SDK ABI
+  stays pure C even when board daemons or apps are C++.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
-  application, endpoint application, header ABI smoke, RTLS estimation,
-  end-to-end reference AP election/join/route/stream flow, a UDP state-daemon
-  AP/peer/RTLS query demo, a two-PC AP browse/election/audit-join/stream-flow
-  demo, a `fieldmeshctl` profile CLI demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
+  application, endpoint application, header ABI smoke, RTLS estimation, local
+  device/IIO planning, end-to-end reference AP election/join/route/stream flow,
+  a UDP state-daemon AP/peer/RTLS/IIO-bridge query demo, a two-PC AP
+  browse/election/audit-join/stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
   physical-Ethernet experiments.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
-  the SDK profile CLI, state-daemon, and two-PC flow demos into both board
-  images as `/usr/bin/fieldmeshctl`,
+  the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
+  demos into both board images as `/usr/bin/fieldmeshctl`,
+  `/usr/bin/fieldmesh-device-iio-demo`,
   `/usr/bin/fieldmesh-state-daemon-demo`, and
   `/usr/bin/fieldmesh-two-pc-flow-demo` for board-attached two-PC tests.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
@@ -800,6 +807,10 @@ Expected result in the current Pluto-compatible firmware state:
    preview. Host A and Host B can be the same physical PC for lab testing, but
    they remain two logical hosts with a distinct SDK control plane and RF data
    plane.
+   Ethernet SDK clients should talk to a pre-installed board bridge daemon on
+   Zynq ARM Linux. That daemon listens on the configured SDK port, owns local
+   IIO/device control, and may be implemented in C++ as long as the SDK ABI
+   remains pure C.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

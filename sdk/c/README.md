@@ -9,6 +9,12 @@ The intended production boundary is socket-based:
 - Physical Ethernet boards expose the same SDK transport.
 - Applications browse APs, join with credential/cert/audit policy, discover
   peers, query routes, and send prioritized payload streams.
+- Ethernet SDK clients talk to a board-resident FieldMesh daemon on the Zynq
+  ARM Linux side. That daemon owns local IIO/device control and serves the
+  FieldMesh Ethernet protocol on the configured SDK control port.
+- Direct libiio access is a local device-control layer for the daemon,
+  provisioning tools, and guarded diagnostics, not the normal desktop app
+  dependency.
 - Applications and provisioning tools can inspect, validate, apply, and roll
   back a common FieldMesh network profile for USB Ethernet, physical Ethernet,
   AP policy, and radio metadata.
@@ -29,10 +35,13 @@ in `src/fieldmesh_sdk.c`:
   GNSS/PPS fused positions when available, including BDS+GPS receiver state in
   production integrations, and packet-timing TDOA plus RSSI/SNR when GNSS is
   absent.
+- `examples/fieldmesh_device_iio_demo.c` exercises the local device/IIO SDK
+  layer: AD936x device profile validation, guarded dry-run IQ burst planning,
+  low-attenuation rejection, and explicit live-RF approval flags.
 - `examples/fieldmesh_state_daemon_demo.c` is the first socket daemon boundary:
-  one process serves AP browse, AP election, AP join state, peer state, and
-  RTLS state over UDP, and another process queries it over the same IP path
-  intended for USB Ethernet and physical Ethernet.
+  one process serves AP browse, AP election, AP join state, peer state, RTLS
+  state, and local IIO bridge planning over UDP, and another process queries it
+  over the same IP path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
@@ -45,8 +54,8 @@ in `src/fieldmesh_sdk.c`:
   transport demo over UDP sockets. It uses the SDK AP model and works over USB
   Ethernet, physical Ethernet, or normal IP routing.
 
-The reference SDK is intentionally in-process and transport-neutral. Keep this
-pure-C ABI stable even if production apps are C++ or Rust. C++ should be the
+The SDK level must remain pure C. Keep this ABI stable even if production
+daemons, demo clients, and applications are C++ or Rust. C++ should be the
 primary desktop/embedded app layer for camera capture, preview, topology, and
 control UI work; Rust can be a peer SDK/binding over the same ABI and protocol
 state rather than a separate network model.
@@ -54,9 +63,10 @@ state rather than a separate network model.
 The board runtime implementation is still `fieldmesh-udp-probe`, and both Z203
 and Z103 developer images now also install
 `/usr/bin/fieldmesh-state-daemon-demo`. That daemon is the first board-packaged
-service shape for mapping AP, peer, route, and RTLS C ABI calls to board
-services over USB Ethernet, physical Ethernet, or explicit IP. The images also
-install `/usr/bin/fieldmesh-two-pc-flow-demo` for the first board-attached AP
-browse/election/audit-join/scheduled-stream smoke, and `/usr/bin/fieldmeshctl`
-for split-subnet profile validation before persistent network writes are
-enabled.
+service shape for mapping AP, peer, route, RTLS, and local IIO/device C ABI
+calls to board services over USB Ethernet, physical Ethernet, or explicit IP.
+The images also install `/usr/bin/fieldmesh-device-iio-demo` for the local
+device/IIO layer, `/usr/bin/fieldmesh-two-pc-flow-demo` for the first
+board-attached AP browse/election/audit-join/scheduled-stream smoke, and
+`/usr/bin/fieldmeshctl` for split-subnet profile validation before persistent
+network writes are enabled.

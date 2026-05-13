@@ -13,6 +13,7 @@ struct fieldmesh_context {
     fieldmesh_config_t config;
     fieldmesh_network_profile_t profile;
     fieldmesh_network_profile_t previous_profile;
+    fieldmesh_device_profile_t device_profile;
     uint8_t has_previous_profile;
     fieldmesh_ap_info_t aps[FIELDMESH_MAX_APS];
     size_t ap_count;
@@ -130,6 +131,30 @@ static void init_default_profile(fieldmesh_context_t *context)
     context->profile.allow_emergency_1r1t_ap = 1u;
     context->profile.radio_freq_mhz = 2400u;
     context->profile.radio_bandwidth_hz = 1000000u;
+}
+
+static void init_default_device_profile(fieldmesh_context_t *context)
+{
+    memset(&context->device_profile, 0, sizeof(context->device_profile));
+    sdk_copy_text(context->device_profile.board_id, sizeof(context->device_profile.board_id),
+                  "local-fieldmesh-board");
+    sdk_copy_text(context->device_profile.iio_uri, sizeof(context->device_profile.iio_uri),
+                  "local:");
+    sdk_copy_text(context->device_profile.phy_device, sizeof(context->device_profile.phy_device),
+                  "ad9361-phy");
+    sdk_copy_text(context->device_profile.rx_device, sizeof(context->device_profile.rx_device),
+                  "cf-ad9361-lpc");
+    sdk_copy_text(context->device_profile.tx_device, sizeof(context->device_profile.tx_device),
+                  "cf-ad9361-dds-core-lpc");
+    context->device_profile.center_frequency_hz = 2400000000ull;
+    context->device_profile.sample_rate_hz = 1000000u;
+    context->device_profile.rf_bandwidth_hz = 1000000u;
+    context->device_profile.fixture_attenuation_db = 60u;
+    context->device_profile.conducted_or_shielded = 1u;
+    context->device_profile.legal_frequency_profile = 1u;
+    context->device_profile.tx_enable_guard = 1u;
+    context->device_profile.rx_first_required = 1u;
+    context->device_profile.allow_hardware_writes = 0u;
 }
 
 static int parse_ipv4_octets(const char *text, uint8_t octets[4])
@@ -392,6 +417,7 @@ fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
     context->next_sequence = 1u;
     context->election_epoch = 1u;
     init_default_profile(context);
+    init_default_device_profile(context);
     init_default_aps(context);
     *out_context = context;
     return FIELDMESH_OK;
@@ -525,6 +551,151 @@ fieldmesh_status_t fieldmesh_rollback_network_profile(fieldmesh_context_t *conte
     }
     context->profile = context->previous_profile;
     context->has_previous_profile = 0u;
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t fill_device_report(
+    fieldmesh_device_validation_report_t *report,
+    uint8_t valid,
+    uint8_t live_allowed,
+    const char *message)
+{
+    if (report) {
+        memset(report, 0, sizeof(*report));
+        report->valid = valid;
+        report->opens_iio_buffers = live_allowed ? 1u : 0u;
+        report->starts_rf_tx = live_allowed ? 1u : 0u;
+        report->writes_hardware = live_allowed ? 1u : 0u;
+        report->uses_inter_board_ip_routing = 0u;
+        report->live_rf_allowed = live_allowed;
+        sdk_copy_text(report->message, sizeof(report->message), message);
+    }
+    return valid ? FIELDMESH_OK : FIELDMESH_ERR_POLICY;
+}
+
+fieldmesh_status_t fieldmesh_get_device_profile(
+    fieldmesh_context_t *context,
+    fieldmesh_device_profile_t *out_profile)
+{
+    if (!context || !out_profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    *out_profile = context->device_profile;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_validate_device_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_device_profile_t *profile,
+    fieldmesh_device_validation_report_t *out_report)
+{
+    (void)context;
+    if (!profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (profile->board_id[0] == '\0') {
+        return fill_device_report(out_report, 0u, 0u, "board_id is required");
+    }
+    if (profile->iio_uri[0] == '\0') {
+        return fill_device_report(out_report, 0u, 0u, "iio_uri is required");
+    }
+    if (strcmp(profile->phy_device, "ad9361-phy") != 0) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "phy_device must be ad9361-phy");
+    }
+    if (strcmp(profile->rx_device, "cf-ad9361-lpc") != 0) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "rx_device must be cf-ad9361-lpc");
+    }
+    if (strcmp(profile->tx_device, "cf-ad9361-dds-core-lpc") != 0) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "tx_device must be cf-ad9361-dds-core-lpc");
+    }
+    if (profile->center_frequency_hz == 0u ||
+        profile->sample_rate_hz == 0u ||
+        profile->rf_bandwidth_hz == 0u) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "frequency, sample rate, and bandwidth are required");
+    }
+    if (!profile->conducted_or_shielded) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "conducted_or_shielded is required");
+    }
+    if (!profile->legal_frequency_profile) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "legal_frequency_profile is required");
+    }
+    if (!profile->tx_enable_guard) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "tx_enable_guard is required");
+    }
+    if (!profile->rx_first_required) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "rx_first_required is required");
+    }
+    if (profile->fixture_attenuation_db < 30u) {
+        return fill_device_report(out_report, 0u, 0u,
+                                  "fixture_attenuation_db must be >= 30");
+    }
+    return fill_device_report(out_report, 1u, profile->allow_hardware_writes,
+                              profile->allow_hardware_writes ?
+                                  "device profile valid for guarded live IIO execution" :
+                                  "device profile valid for dry-run planning");
+}
+
+fieldmesh_status_t fieldmesh_set_device_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_device_profile_t *profile)
+{
+    fieldmesh_status_t status;
+
+    if (!context || !profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = fieldmesh_validate_device_profile(context, profile, NULL);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    context->device_profile = *profile;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_plan_iio_burst(
+    fieldmesh_context_t *context,
+    const fieldmesh_device_profile_t *tx_profile,
+    const fieldmesh_device_profile_t *rx_profile,
+    uint32_t iq_samples,
+    fieldmesh_iio_burst_plan_t *out_plan)
+{
+    fieldmesh_device_validation_report_t tx_report;
+    fieldmesh_device_validation_report_t rx_report;
+    uint8_t live_allowed;
+
+    if (!context || !tx_profile || !rx_profile || !out_plan || iq_samples == 0u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (fieldmesh_validate_device_profile(context, tx_profile, &tx_report) != FIELDMESH_OK ||
+        fieldmesh_validate_device_profile(context, rx_profile, &rx_report) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    if (strcmp(tx_profile->board_id, rx_profile->board_id) == 0) {
+        return FIELDMESH_ERR_POLICY;
+    }
+
+    memset(out_plan, 0, sizeof(*out_plan));
+    sdk_copy_text(out_plan->tx_iio_uri, sizeof(out_plan->tx_iio_uri), tx_profile->iio_uri);
+    sdk_copy_text(out_plan->rx_iio_uri, sizeof(out_plan->rx_iio_uri), rx_profile->iio_uri);
+    sdk_copy_text(out_plan->tx_device, sizeof(out_plan->tx_device), tx_profile->tx_device);
+    sdk_copy_text(out_plan->rx_device, sizeof(out_plan->rx_device), rx_profile->rx_device);
+    out_plan->rx_first = 1u;
+    out_plan->uses_inter_board_ip_routing = 0u;
+    out_plan->command_count = 8u;
+    out_plan->iq_samples = iq_samples;
+    live_allowed = (tx_profile->allow_hardware_writes && rx_profile->allow_hardware_writes) ? 1u : 0u;
+    out_plan->opens_iio_buffers = live_allowed;
+    out_plan->starts_rf_tx = live_allowed;
+    out_plan->writes_hardware = live_allowed;
+    out_plan->live_rf_allowed = live_allowed;
     return FIELDMESH_OK;
 }
 

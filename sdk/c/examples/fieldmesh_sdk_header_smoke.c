@@ -60,6 +60,25 @@ int main(void)
         .traffic_class = FIELDMESH_CLASS_C1_TELEMETRY,
         .mode = FIELDMESH_MODE_AUTO,
     };
+    fieldmesh_device_profile_t device = {
+        .center_frequency_hz = 2400000000ull,
+        .sample_rate_hz = 1000000,
+        .rf_bandwidth_hz = 1000000,
+        .fixture_attenuation_db = 60,
+        .conducted_or_shielded = 1,
+        .legal_frequency_profile = 1,
+        .tx_enable_guard = 1,
+        .rx_first_required = 1,
+    };
+    fieldmesh_device_validation_report_t device_report = {
+        .valid = 1,
+        .uses_inter_board_ip_routing = 0,
+    };
+    fieldmesh_iio_burst_plan_t iio_plan = {
+        .rx_first = 1,
+        .command_count = 8,
+        .iq_samples = 6656,
+    };
 
     (void)config;
     (void)join;
@@ -67,6 +86,9 @@ int main(void)
     (void)candidate;
     (void)election;
     (void)meta;
+    (void)device;
+    (void)device_report;
+    (void)iio_plan;
     (void)ap_seen;
     (void)peer_seen;
     return FIELDMESH_OK;

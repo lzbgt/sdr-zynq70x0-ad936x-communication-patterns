@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 5 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 6 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -130,6 +130,34 @@ if not summary or summary[0].get("gps_denied_usable_for_ap_election") != 1:
     raise SystemExit("SDK RTLS GPS-denied estimate is not AP-election usable")
 PY
 
+python3 - "$out_dir/fieldmesh_device_iio_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+by_event = {event.get("event"): event for event in events}
+profile = by_event.get("sdk_device_iio_profile")
+plan = by_event.get("sdk_device_iio_plan")
+reject = by_event.get("sdk_device_iio_reject_low_attenuation")
+live = by_event.get("sdk_device_iio_live_plan")
+if not profile or profile.get("valid") != 1 or profile.get("live_rf_allowed") != 0:
+    raise SystemExit("SDK device/IIO dry-run profile failed")
+if not plan or plan.get("sdk_layer") != "local_iio_device":
+    raise SystemExit("SDK device/IIO plan missing local device layer")
+if plan.get("served_over") != "host_eth_ip":
+    raise SystemExit("SDK device/IIO plan must be served over host Ethernet/IP")
+for key in ("uses_inter_board_ip_routing", "opens_iio_buffers", "starts_rf_tx", "writes_hardware"):
+    if plan.get(key) != 0:
+        raise SystemExit(f"SDK device/IIO dry-run key {key} must be 0")
+if not reject or reject.get("valid") != 0:
+    raise SystemExit("SDK device/IIO low attenuation rejection failed")
+if not live or live.get("live_rf_allowed") != 1:
+    raise SystemExit("SDK device/IIO live approval gate failed")
+for key in ("opens_iio_buffers", "starts_rf_tx", "writes_hardware"):
+    if live.get(key) != 1:
+        raise SystemExit(f"SDK device/IIO live key {key} must be 1")
+PY
+
 python3 - "$daemon_log" "$daemon_query_log" <<'PY'
 import json
 import sys
@@ -141,8 +169,9 @@ rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
+iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 5 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 6 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "z203-hub":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -154,6 +183,13 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
     raise SystemExit("SDK daemon peer-state query failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("SDK daemon RTLS-state query failed")
+if not iio_bridge or iio_bridge[0].get("sdk_layer") != "local_iio_device":
+    raise SystemExit("SDK daemon IIO bridge plan query failed")
+if iio_bridge[0].get("served_over") != "host_eth_ip":
+    raise SystemExit("SDK daemon IIO bridge plan is not served over host Ethernet/IP")
+for key in ("uses_inter_board_ip_routing", "opens_iio_buffers", "starts_rf_tx", "writes_hardware"):
+    if iio_bridge[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon IIO bridge dry-run safety key {key} must be 0")
 if not done:
     raise SystemExit("SDK daemon client did not finish")
 PY
@@ -214,6 +250,7 @@ PY
 echo "fieldmesh_sdk_reference_check=pass"
 echo "fieldmesh_sdk_udp_discovery_check=pass"
 echo "fieldmesh_sdk_rtls_check=pass"
+echo "fieldmesh_sdk_device_iio_check=pass"
 echo "fieldmesh_sdk_state_daemon_check=pass"
 echo "fieldmesh_sdk_two_pc_flow_check=pass"
 echo "fieldmesh_sdk_profile_check=pass"

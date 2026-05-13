@@ -70,11 +70,13 @@ verify_variant() {
     require_file "$jtag_dir/boot/devicetree.dtb"
 
     strings_out="$(mktemp)"
+    device_iio_strings_out="$(mktemp)"
     ctl_strings_out="$(mktemp)"
     daemon_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$ctl_strings_out" "$daemon_strings_out" "$two_pc_strings_out"' RETURN
+    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$two_pc_strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
@@ -88,6 +90,17 @@ verify_variant() {
     for token in udp-command user_command; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe command path in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        sdk_device_iio_profile \
+        sdk_device_iio_plan \
+        sdk_device_iio_live_plan \
+        local_iio_device \
+        host_eth_ip; do
+        if ! grep -qF "$token" "$device_iio_strings_out"; then
+            echo "Missing fieldmesh-device-iio-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done
@@ -109,11 +122,13 @@ verify_variant() {
         FIELDMESH_AP_JOIN \
         FIELDMESH_STATE_PEERS \
         FIELDMESH_STATE_RTLS \
+        FIELDMESH_DEVICE_IIO_PLAN \
         sdk_daemon_ap_browse \
         sdk_daemon_ap_election \
         sdk_daemon_join_state \
         sdk_daemon_peer_state \
-        sdk_daemon_rtls_state; do
+        sdk_daemon_rtls_state \
+        sdk_daemon_iio_bridge_plan; do
         if ! grep -qF "$token" "$daemon_strings_out"; then
             echo "Missing fieldmesh-state-daemon-demo token in $name rootfs: $token" >&2
             exit 1

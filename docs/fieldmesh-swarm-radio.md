@@ -254,6 +254,11 @@ SDK behavior:
 - separates host-facing Ethernet/IP control/data ingress from the local
   IIO/device-control layer used for AD936x PHY, IQ buffer, and sidecar
   diagnostics;
+- serves Ethernet SDK clients through a board-resident Zynq Linux bridge daemon
+  that owns the local IIO backend and listens on the configured FieldMesh SDK
+  control port;
+- allows the bridge daemon and demo apps to be C++ while keeping the SDK ABI
+  pure C;
 - lets applications browse APs, join networks, discover peers, open streams,
   send prioritized payloads, and query route state;
 - lets applications command a capable 2R2T board into AP/broker mode instead

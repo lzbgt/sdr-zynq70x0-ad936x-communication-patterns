@@ -2667,12 +2667,15 @@ This verifies:
 
 The SDK check now builds `sdk/c/src/fieldmesh_sdk.c`, links every C demo, runs
 the commanded AP demo, endpoint demo, header smoke, reference demo, RTLS demo,
-and state-daemon demo, then asserts the reference demo elects `z203-hub`,
-discovers AP/peer state, selects scheduled mode, and loops a packet through the
-SDK stream API. The RTLS demo verifies that applications can report GPS/PPS
-measurements and GPS-denied packet-timing TDOA measurements, then query fused
-peer position estimates. The state-daemon demo serves AP browse, AP election,
-AP join state, peer state, and RTLS state over UDP and proves a separate client
+local device/IIO demo, and state-daemon demo, then asserts the reference demo
+elects `z203-hub`, discovers AP/peer state, selects scheduled mode, and loops a
+packet through the SDK stream API. The RTLS demo verifies that applications can
+report GPS/PPS measurements and GPS-denied packet-timing TDOA measurements,
+then query fused peer position estimates. The device/IIO demo verifies the
+second SDK layer: AD936x local-device profile validation, guarded dry-run IQ
+burst planning, low-attenuation rejection, and explicit live-RF approval flags.
+The state-daemon demo serves AP browse, AP election, AP join state, peer state,
+RTLS state, and local IIO bridge planning over UDP and proves a separate client
 can query it over the same socket boundary intended for USB Ethernet, physical
 Ethernet, and IP. The check also runs
 `fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
@@ -2935,12 +2938,12 @@ therefore explicit and auditable.
 Refreshed runtime artifact hashes after the CLI fix:
 
 ```text
-Z203 rootfs.tar.gz: 7f014f1ccb87c95732da815dbb455eabd1d1f5227c6b67c3676c3b0dd6270828
-Z203 pluto.frm:     017f635acc22bead3687b11c1183fc0762759bb07fb929a669a52fa60f54ca00
-Z203 pluto.itb:     cce40dcd4077caf45e4a0a5ad37018320b9abb84defb58c3ee74a44ede85e043
-Z103 rootfs.tar.gz: bb37298035d9531f1d894ba8dbae1a0b8cfb74b6361ce78bbc4033aeba316404
-Z103 pluto.frm:     cf7defff643b74dfe9a8c84922ece10588662aabaf11f6e9846a48bce156a7b8
-Z103 pluto.itb:     875b033cb802596bc13b3c0de3777cc78636a7a20f2d4ec18db61a6d5a688a99
+Z203 rootfs.tar.gz: 352bca9612effdeadf6024a72430b965f61026c5befe6dcbfb246bb03ab18c74
+Z203 pluto.frm:     df7dac37d4247734c964c657c4d009c580eb0d7e725f575b2f7845f5175afca7
+Z203 pluto.itb:     37b309b8c9d17a329bc7051a749ba7baec43962ca305c5fbcd3512bb7f7701d3
+Z103 rootfs.tar.gz: 8dcd0bc3c56e72812da1d123fd0be0b72d4f225b6d375191761f89259c5d3038
+Z103 pluto.frm:     ce60cddf58cf3bc59f1ac16e2c57ba175d112496cd22f5520f26b5fb443cb665
+Z103 pluto.itb:     22891eb5eda718427246e400d2c1218a0d9794b4c258be105df32a4a9a054c5b
 ```
 
 ## FieldMesh RTLS Positioning Gate

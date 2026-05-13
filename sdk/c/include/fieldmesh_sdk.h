@@ -16,6 +16,8 @@ extern "C" {
 #define FIELDMESH_NAME_TEXT_MAX 96
 #define FIELDMESH_ADDR_TEXT_MAX 96
 #define FIELDMESH_SECRET_TEXT_MAX 256
+#define FIELDMESH_IIO_URI_TEXT_MAX 128
+#define FIELDMESH_DEVICE_TEXT_MAX 96
 #define FIELDMESH_PROFILE_APPLY_PERSIST 0x00000001u
 
 typedef struct fieldmesh_context fieldmesh_context_t;
@@ -41,6 +43,11 @@ typedef enum fieldmesh_transport {
     FIELDMESH_TRANSPORT_PHY_ETH = 2,
     FIELDMESH_TRANSPORT_IP = 3
 } fieldmesh_transport_t;
+
+typedef enum fieldmesh_sdk_layer {
+    FIELDMESH_SDK_LAYER_HOST_ETH_IP = 1,
+    FIELDMESH_SDK_LAYER_LOCAL_IIO_DEVICE = 2
+} fieldmesh_sdk_layer_t;
 
 typedef enum fieldmesh_node_class {
     FIELDMESH_NODE_ENDPOINT = 1,
@@ -119,6 +126,48 @@ typedef struct fieldmesh_profile_validation_report {
     uint8_t persist_requested;
     char message[FIELDMESH_SECRET_TEXT_MAX];
 } fieldmesh_profile_validation_report_t;
+
+typedef struct fieldmesh_device_profile {
+    char board_id[FIELDMESH_ID_TEXT_MAX];
+    char iio_uri[FIELDMESH_IIO_URI_TEXT_MAX];
+    char phy_device[FIELDMESH_DEVICE_TEXT_MAX];
+    char rx_device[FIELDMESH_DEVICE_TEXT_MAX];
+    char tx_device[FIELDMESH_DEVICE_TEXT_MAX];
+    uint64_t center_frequency_hz;
+    uint32_t sample_rate_hz;
+    uint32_t rf_bandwidth_hz;
+    uint16_t fixture_attenuation_db;
+    uint8_t conducted_or_shielded;
+    uint8_t legal_frequency_profile;
+    uint8_t tx_enable_guard;
+    uint8_t rx_first_required;
+    uint8_t allow_hardware_writes;
+} fieldmesh_device_profile_t;
+
+typedef struct fieldmesh_device_validation_report {
+    uint8_t valid;
+    uint8_t opens_iio_buffers;
+    uint8_t starts_rf_tx;
+    uint8_t writes_hardware;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t live_rf_allowed;
+    char message[FIELDMESH_SECRET_TEXT_MAX];
+} fieldmesh_device_validation_report_t;
+
+typedef struct fieldmesh_iio_burst_plan {
+    char tx_iio_uri[FIELDMESH_IIO_URI_TEXT_MAX];
+    char rx_iio_uri[FIELDMESH_IIO_URI_TEXT_MAX];
+    char tx_device[FIELDMESH_DEVICE_TEXT_MAX];
+    char rx_device[FIELDMESH_DEVICE_TEXT_MAX];
+    uint8_t rx_first;
+    uint8_t opens_iio_buffers;
+    uint8_t starts_rf_tx;
+    uint8_t writes_hardware;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t live_rf_allowed;
+    uint16_t command_count;
+    uint32_t iq_samples;
+} fieldmesh_iio_burst_plan_t;
 
 typedef struct fieldmesh_ap_info {
     char ap_id[FIELDMESH_ID_TEXT_MAX];
@@ -284,6 +333,23 @@ fieldmesh_status_t fieldmesh_apply_network_profile(
     uint32_t flags,
     fieldmesh_profile_validation_report_t *out_report);
 fieldmesh_status_t fieldmesh_rollback_network_profile(fieldmesh_context_t *context);
+
+fieldmesh_status_t fieldmesh_get_device_profile(
+    fieldmesh_context_t *context,
+    fieldmesh_device_profile_t *out_profile);
+fieldmesh_status_t fieldmesh_set_device_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_device_profile_t *profile);
+fieldmesh_status_t fieldmesh_validate_device_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_device_profile_t *profile,
+    fieldmesh_device_validation_report_t *out_report);
+fieldmesh_status_t fieldmesh_plan_iio_burst(
+    fieldmesh_context_t *context,
+    const fieldmesh_device_profile_t *tx_profile,
+    const fieldmesh_device_profile_t *rx_profile,
+    uint32_t iq_samples,
+    fieldmesh_iio_burst_plan_t *out_plan);
 
 fieldmesh_status_t fieldmesh_browse_aps(fieldmesh_context_t *context,
                                         uint32_t timeout_ms,
