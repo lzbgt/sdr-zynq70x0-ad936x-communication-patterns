@@ -442,9 +442,10 @@ user and vendor configuration.
   discovery, route query, mode request, and stream send/receive.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, and end-to-end reference
-  AP election/join/route/stream flow.
+  AP election/join/route/stream flow, plus a UDP AP-beacon/browse demo for
+  two-PC USB-Ethernet or physical-Ethernet experiments.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
-  SDK implementation and demos.
+  SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

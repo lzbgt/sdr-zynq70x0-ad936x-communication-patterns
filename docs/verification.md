@@ -2551,7 +2551,10 @@ This verifies:
 The SDK check now builds `sdk/c/src/fieldmesh_sdk.c`, links every C demo, runs
 the commanded AP demo, endpoint demo, header smoke, and reference demo, then
 asserts the reference demo elects `z203-hub`, discovers AP/peer state, selects
-scheduled mode, and loops a packet through the SDK stream API:
+scheduled mode, and loops a packet through the SDK stream API. It also runs
+`fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
+sent and browsed over the same socket boundary intended for USB Ethernet,
+physical Ethernet, and IP:
 
 ```sh
 ./tools/verify_fieldmesh_sdk.sh

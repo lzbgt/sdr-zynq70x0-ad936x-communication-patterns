@@ -382,6 +382,7 @@ Current SDK examples are compile-checked skeletons:
 - `sdk/c/examples/fieldmesh_ap_demo.c`
 - `sdk/c/examples/fieldmesh_endpoint_demo.c`
 - `sdk/c/examples/fieldmesh_reference_demo.c`
+- `sdk/c/examples/fieldmesh_udp_discovery_demo.c`
 
 Current executable gates:
 

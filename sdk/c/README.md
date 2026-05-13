@@ -22,6 +22,9 @@ in `src/fieldmesh_sdk.c`:
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.
+- `examples/fieldmesh_udp_discovery_demo.c` is a two-PC AP-beacon/browse
+  transport demo over UDP sockets. It uses the SDK AP model and works over USB
+  Ethernet, physical Ethernet, or normal IP routing.
 
 The reference SDK is intentionally in-process and transport-neutral. The board
 runtime implementation is still `fieldmesh-udp-probe`, and the next production
