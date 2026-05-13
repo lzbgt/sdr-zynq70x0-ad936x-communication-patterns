@@ -37,6 +37,7 @@ PY
 ssh_args=(
   -o StrictHostKeyChecking=no
   -o UserKnownHostsFile=/dev/null
+  -o LogLevel=ERROR
 )
 remote="${ssh_user}@${host}"
 remote_frame="/tmp/fieldmesh_dma_smoke_frame.bin"

@@ -2792,6 +2792,35 @@ Results:
 - installed Z103 SDK daemon answers AP browse, AP election, join state, peer
   state, and RTLS state without transient upload.
 
+## Two-Board Radio Data-Plane Gate
+
+The split USB subnets are management/control paths between the host and each
+board. They are not a board-to-board subnet. The board-to-board payload path is
+the FieldMesh radio/sidecar data plane.
+
+The current live two-board gate is therefore host-orchestrated:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_two_board_radio_gate_20260514-0055 \
+  ./tools/run_fieldmesh_two_board_radio_gate.sh
+```
+
+This gate:
+
+- captures Z203 at host-facing `192.168.2.1` and Z103 at host-facing
+  `192.168.3.1`;
+- verifies both boards expose `fieldmesh-udp-probe`;
+- runs the guarded sidecar DMA packet smoke on Z203 and Z103;
+- asserts `uses_inter_board_ip_routing=false`;
+- marks the next data-plane gate as binding the FieldMesh packet stream to the
+  AD936x RF TX/RX path.
+
+The live assertion was:
+
+```json
+{"event":"fieldmesh_two_board_radio_gate","management_plane":{"host_facing_only":true,"z103_host_ip":"192.168.3.1","z203_host_ip":"192.168.2.1"},"ok":true,"radio_data_plane":{"current_gate":"per-board sidecar DMA packet readiness","expected_between_boards":true,"next_gate":"bind FieldMesh packet stream to AD936x RF TX/RX path","uses_inter_board_ip_routing":false},"z103_sidecar_dma_smoke":true,"z203_sidecar_dma_smoke":true}
+```
+
 Refreshed runtime artifact hashes after the CLI fix:
 
 ```text

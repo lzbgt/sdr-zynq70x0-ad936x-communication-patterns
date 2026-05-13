@@ -144,10 +144,14 @@ Next concrete work:
   Z103 run installed the FieldMesh `pluto.frm`, applied
   `z103-endpoint@192.168.3.1`, fixed the writer to avoid a BusyBox
   `fw_setenv -s` empty-value quirk, and verified that `192.168.2.1` now
-  resolves to Z203 while `192.168.3.1` resolves to Z103. The next live-safe
-  step is using those split board addresses for the two-PC/two-board AP
-  browse/election/join flow and then replacing deterministic demo responses
-  with real admission, peer discovery, route query, and stream services.
+  resolves to Z203 while `192.168.3.1` resolves to Z103. These addresses are
+  host-facing management/control paths only, not a board-to-board subnet. The
+  new `tools/run_fieldmesh_two_board_radio_gate.sh` verifies both boards over
+  those management paths and proves per-board sidecar DMA packet readiness
+  while explicitly asserting that inter-board payloads must use the FieldMesh
+  radio data plane. The next live-safe step is binding FieldMesh packets to the
+  AD936x RF TX/RX path, then running AP browse/election/join as host commands
+  whose peer payload traffic crosses RF.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

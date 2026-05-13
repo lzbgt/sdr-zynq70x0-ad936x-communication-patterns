@@ -150,20 +150,41 @@ For the current Z203/Z103 lab setup:
    `192.168.3.1/24`, with host-side `192.168.3.10/24`, using the
    `fieldmeshctl profile validate/apply` shape first and the guarded
    persistent SSH writer once the target is known.
-3. Run the Z203 AP service on one PC/interface:
+The USB Ethernet addresses are host-facing management/control interfaces only.
+They are not the board-to-board data network. Applications, SDK demos, and test
+runners may use those host links to command each board, inspect state, and
+collect captures, but Z203 and Z103 peer traffic must move over the FieldMesh
+radio/sidecar data plane.
+
+3. Run host-orchestrated board readiness from one PC or two PCs:
+
+   ```sh
+   Z203_IP=192.168.2.1 Z103_IP=192.168.3.1 \
+     tools/run_fieldmesh_two_board_radio_gate.sh
+   ```
+
+   This verifies both host-facing management paths and sidecar packet DMA
+   readiness on both boards, while explicitly asserting that inter-board IP
+   routing is not part of the design.
+
+4. Run the Z203 AP service on the PC/interface attached to Z203:
 
    ```sh
    fieldmesh-two-pc-flow-demo ap-service 0.0.0.0 49125 5 3000
    ```
 
-4. Run the endpoint flow from the other PC/interface:
+5. Run the endpoint control flow from the PC/interface attached to Z103. The
+   endpoint application commands the Z103 board locally, but the peer payload
+   path must be FieldMesh RF, not `192.168.2.1` from the Z103 Linux network
+   namespace:
 
    ```sh
    fieldmesh-two-pc-flow-demo endpoint-flow 192.168.2.1 49125 3000
    ```
 
-5. Once both control planes are distinct, replace deterministic demo responses
-   with real AP admission, peer registry, route query, and stream transport.
+6. Once both control planes are distinct, replace deterministic demo responses
+   with real AP admission, peer registry, route query, and RF-backed stream
+   transport.
 
 ## Safety
 
@@ -204,3 +225,5 @@ The 2026-05-14 Z103 bring-up proved this path on hardware:
   Z103;
 - refreshed Z103 firmware now makes `fieldmeshctl profile show` report the
   persistent profile from U-Boot env.
+- the split subnets are host management paths only; the radio data-plane gate
+  is now tracked separately by `tools/run_fieldmesh_two_board_radio_gate.sh`.

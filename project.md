@@ -753,7 +753,11 @@ Expected result in the current Pluto-compatible firmware state:
    guarded persistent path for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and
    FieldMesh profile env keys, gated by target identity and rollback backup;
    the live Z103 write proved the split subnet, and `192.168.2.1` now resolves
-   to the Z203 while `192.168.3.1` resolves to the Z103 endpoint.
+   to the Z203 while `192.168.3.1` resolves to the Z103 endpoint. These IPs are
+   host-facing management paths only. The new two-board radio gate commands
+   both boards over those host links, verifies sidecar packet DMA readiness on
+   each board, and leaves actual peer payloads assigned to the FieldMesh
+   RF/sidecar data plane.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
