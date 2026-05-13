@@ -1,0 +1,4 @@
+{"event":"advertise_start","transport":"udp-advertise","node_id":"z103-a","node_profile":"z103","host":"192.168.2.1","port":55401,"datagrams":2,"proactive":false,"initiates_mode":false}
+{"event":"capability_report","node_id":"z103-a","hardware":"sdr-z103-z7010-1r1t","roles":["endpoint","observer"],"radio":"1r1t","clock":"local","max_kbps":2500,"traffic_classes":["C0","C1","C2","C3","C4"]}
+{"event":"discovery_beacon","node_id":"z103-a","supported_modes":["p2p","star"],"roles":["endpoint","observer"],"clock":"local","max_kbps":2500}
+{"event":"advertise_end","transport":"udp-advertise","ok":true,"node_id":"z103-a"}

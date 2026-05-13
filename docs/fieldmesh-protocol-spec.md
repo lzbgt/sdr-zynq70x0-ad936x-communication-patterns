@@ -106,17 +106,86 @@ Control-plane messages use traffic class C0 or C1 and a reserved stream ID.
 Initial message types:
 
 - `DISCOVERY_BEACON`: node ID, hardware profile, clock state, supported modes.
+- `AP_BEACON`: AP/broker ID, network ID, join methods, policy version,
+  supported modes, and advertised subnet/service hints.
+- `AP_CANDIDATE`: passive node can act as temporary AP if no AP exists; carries
+  hardware class, role permission, clock, power, reachability, relay
+  capability, security state, and election score inputs.
+- `AP_ELECTION_RESULT`: elected AP ID, network ID, policy version, election
+  epoch, candidate score, tie-break fields, and handover rules.
+- `AP_HANDOVER`: controlled transfer from temporary AP to preferred AP or from
+  degraded AP to a better candidate.
 - `CAPABILITY_REPORT`: RF/PHY profiles, 1R1T/2R2T, buffer limits, relay
   permission, GPS/PPS state, security suite.
 - `JOIN_REQUEST` / `JOIN_ACCEPT`: authenticated network admission.
+- `JOIN_AUDIT_REQUEST` / `JOIN_AUDIT_DECISION`: AP-side application approval,
+  rejection, quarantine, or restricted policy assignment.
 - `POLICY_UPDATE`: selected mode, traffic class rules, schedule, stream map,
   route graph, fallback profiles.
 - `LINK_REPORT`: RSSI-like level, SNR/EVM-like quality, loss, FEC recovery,
   latency, queue age, delivered bitrate.
 - `SCHEDULE_UPDATE`: slot ownership, guard interval, profile, emergency slots.
 - `ROUTE_UPDATE`: graph edges, relay permission, per-hop traffic classes.
+- `PEER_DIRECTORY`: peers, stream IDs, direct/relayed reachability, and service
+  metadata visible after join.
 - `STREAM_SUBSCRIBE` / `STREAM_LEAVE`: fanout and observer membership.
 - `MODE_REQUEST` / `MODE_DECISION`: user-forced or auto-negotiated mode.
+
+## AP/Broker Model
+
+Z203-class 2R2T hardware should be the first AP/broker/coordinator target.
+That does not mean the board boots as a fixed AP role. It still boots as a
+passive learner. An application, saved policy, or provisioning command promotes
+it into AP/broker mode.
+
+The AP/broker forms the FieldMesh radio subnet:
+
+- advertises an AP ID and network ID;
+- accepts credential, derived-certificate, or audit-based join requests;
+- assigns node IDs, stream IDs, and traffic policy;
+- maintains the peer directory and stream registry;
+- chooses direct, fanout, graph, scheduled, or AP-relayed routes;
+- relays traffic when two peers cannot communicate directly;
+- publishes route, schedule, and mode-contract updates.
+
+The AP/broker is the policy authority. The RF data plane may still use direct
+peer communication when link reports prove that direct is better than relay.
+
+FieldMesh supports two network-formation modes:
+
+- **Predefined AP:** application, saved policy, or provisioning profile commands
+  one node to become AP/broker.
+- **Autonomous swarm:** if no AP is visible, passive nodes exchange
+  `AP_CANDIDATE` reports and deterministically elect a temporary AP.
+
+Autonomous election must work with 1R1T-only, 2R2T-only, or mixed swarms. The
+default score should prefer commanded/provisioned APs, then 2R2T nodes with
+good power and clock, then 1R1T wall-powered nodes, then 1R1T emergency APs.
+The elected AP can hand over later, but only through explicit `AP_HANDOVER`
+policy so active streams are not surprised.
+
+## SDK Model
+
+The production API should be a pure C SDK with an ABI-stable public header.
+The SDK should treat USB Ethernet and physical Ethernet as normal IP
+transports, so the same application can run on embedded Linux, desktop Linux,
+Windows, and macOS.
+
+Minimum SDK operations:
+
+- browse live APs;
+- join with credential, derived certificate, or AP audit request;
+- list peers and streams after join;
+- request P2P, star, graph, scheduled, or auto mode;
+- open prioritized payload streams;
+- send and receive customer payloads with traffic class and deadline metadata;
+- query whether a route is direct, AP-relayed, scheduled relay, or fanout;
+- start/stop AP mode on a 2R2T-capable board by explicit application command.
+
+The initial C contract is tracked in `sdk/c/include/fieldmesh_sdk.h`. The SDK
+does not require libusb for normal USB Ethernet operation; the OS exposes the
+board as a network interface and the SDK speaks the FieldMesh control/data
+protocol over sockets.
 
 ## Capability Advertisement
 

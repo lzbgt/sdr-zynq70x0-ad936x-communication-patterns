@@ -97,13 +97,26 @@ Next concrete work:
   2. The SDR-Z203 / Z7020 / 2R2T board has been rebuilt and reloaded through
      SD/QSPI mode with the matched FieldMesh runtime. It now passes ping, IIO,
      HTTP, `dt-scan`, read-only `ctrl-scan`, read-only `dma-scan`, and the
-     sidecar preflight assertion.
+     sidecar preflight assertion. It also passes guarded sidecar `dma-smoke`
+     and a board-local adaptive passive-learner control test.
   3. Power both boards, keep the 2R2T board connected to this host, and run
      communication-pattern experiments. Both boards should default to passive
      learner mode; an application or user command can promote any board into a
      proactive initiator. The 1R1T firmware must use capability reports and
      commands from the 2R2T peer to select or accept the correct mode instead of
      assuming a fixed pattern.
+- Adopt the hybrid AP/broker architecture documented in
+  `docs/fieldmesh-ap-sdk-architecture.md`: predefined AP when a deployment has
+  a known owner/gateway, autonomous AP election when no AP is visible, direct
+  peer routes when healthy, and AP/scheduled relay when direct communication is
+  weak or blocked. Z203-class 2R2T is the preferred AP/broker target, but a
+  1R1T node can be elected as an emergency AP when policy allows and no better
+  candidate exists.
+- Turn the SDK contract in `sdk/c/include/fieldmesh_sdk.h` into a real host
+  library and board daemon interface. The first implementation should keep USB
+  Ethernet and physical Ethernet as socket transports, then add AP browse,
+  AP election, credential/audit join, peer discovery, route query, and
+  prioritized stream send/receive.
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
   normal runtime reachability is restored. Use
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;

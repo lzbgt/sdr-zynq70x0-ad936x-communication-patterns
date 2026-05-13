@@ -2502,6 +2502,34 @@ The capture reports:
 Committed capture:
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_dma_smoke_20260513-215806/`
 
+## Z203 Passive Learner Control Smoke
+
+The Z203 board was also checked as a real board-side passive learner. The host
+emulated a Z103 peer advertisement and then sent an application/user command
+requesting scheduled mode:
+
+```sh
+SSH_PASS=analog MODE=scheduled BOARD_PROFILE=z203 PEER_PROFILE=z103 \
+  ./tools/run_fieldmesh_board_adaptive_control.sh 192.168.2.1
+```
+
+The board-side listener started with `default_policy=passive_learner` and
+`proactive=false`, observed the command, attributed mode selection to
+`user_or_application_command`, and emitted a scheduled `mode_contract`.
+
+Capture:
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_adaptive_control_20260513-220604/`
+
+The SDK header contract was added and compile-checked with:
+
+```sh
+./tools/verify_fieldmesh_sdk.sh
+```
+
+The architecture decision is now hybrid: predefined AP/broker for production
+deployments that have a known owner, plus autonomous AP election for ad-hoc
+heterogeneous swarms when no AP is visible.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

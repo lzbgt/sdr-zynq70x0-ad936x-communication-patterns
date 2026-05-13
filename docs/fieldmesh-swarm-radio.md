@@ -177,6 +177,7 @@ as interchangeable boards.
 
 Best prototype role:
 
+- commanded AP/broker,
 - ground hub,
 - gateway,
 - relay,
@@ -191,6 +192,16 @@ Why:
   packet queues, or modem experiments;
 - verified SD, QSPI, JTAG, Yocto, Vivado, and recovery paths make it safer for
   aggressive iteration.
+
+Product interpretation:
+
+- Z203-class hardware should form the network when commanded into AP/broker
+  mode.
+- It should advertise the network, admit nodes, keep peer and stream
+  directories, assign routes/schedules, and relay traffic when two peers cannot
+  communicate directly.
+- It should still boot as a passive learner; AP/broker mode is an application,
+  saved-policy, or provisioning decision.
 
 **SDR-Z103 / Z7010 / 1R1T**
 
@@ -217,6 +228,50 @@ Immediate split:
 - Keep common packet format, scheduler policy, and user API shared.
 - Allow optional 2R2T-only features on Z203, but do not make them mandatory for
   basic network membership.
+
+## AP/Broker And SDK Product Shape
+
+The production product should expose FieldMesh as a private radio subnet.
+Applications should not need to know whether the board is attached through USB
+Ethernet, physical Ethernet, or a routed IP link.
+
+AP/broker behavior:
+
+- browseable network-forming APs;
+- autonomous AP election when no AP is visible;
+- credential, derived-certificate, or AP-audit join;
+- peer and stream discovery after join;
+- direct peer route when healthy;
+- AP-relayed route when direct communication is weak or blocked;
+- graph/scheduled relay when route policy requires deterministic sharing;
+- visible mode contract, route reason, link state, and degradation state.
+
+SDK behavior:
+
+- pure C ABI first;
+- works from embedded Linux, desktop Linux, Windows, and macOS;
+- treats USB Ethernet and physical Ethernet as socket transports;
+- lets applications browse APs, join networks, discover peers, open streams,
+  send prioritized payloads, and query route state;
+- lets applications command a capable 2R2T board into AP/broker mode instead
+  of booting separate AP firmware.
+
+Best architecture:
+
+- Use a predefined AP when the deployment has a known owner, gateway, vehicle,
+  or command post.
+- Use autonomous swarm election when no AP exists. Mixed 1R1T/2R2T swarms
+  should elect the best available AP from capability, power, clock, security,
+  and reachability reports.
+- Prefer a 2R2T AP/broker, but allow a 1R1T emergency AP when policy allows and
+  no better node is live.
+- Use direct peer routes when healthy; use AP relay or scheduled graph relay
+  when direct communication is weak or blocked.
+- Avoid uncontrolled flood mesh as the default because it wastes airtime and
+  makes video latency unpredictable.
+
+See `docs/fieldmesh-ap-sdk-architecture.md` and
+`sdk/c/include/fieldmesh_sdk.h` for the first SDK contract.
 
 ## Protocol Shape
 

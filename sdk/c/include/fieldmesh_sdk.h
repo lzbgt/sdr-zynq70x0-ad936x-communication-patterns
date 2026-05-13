@@ -1,0 +1,261 @@
+#ifndef FIELDMESH_SDK_H
+#define FIELDMESH_SDK_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define FIELDMESH_SDK_VERSION_MAJOR 0
+#define FIELDMESH_SDK_VERSION_MINOR 1
+#define FIELDMESH_SDK_VERSION_PATCH 0
+
+#define FIELDMESH_ID_TEXT_MAX 64
+#define FIELDMESH_NAME_TEXT_MAX 96
+#define FIELDMESH_ADDR_TEXT_MAX 96
+#define FIELDMESH_SECRET_TEXT_MAX 256
+
+typedef struct fieldmesh_context fieldmesh_context_t;
+typedef struct fieldmesh_ap fieldmesh_ap_t;
+typedef struct fieldmesh_session fieldmesh_session_t;
+typedef struct fieldmesh_stream fieldmesh_stream_t;
+
+typedef enum fieldmesh_status {
+    FIELDMESH_OK = 0,
+    FIELDMESH_ERR_INVALID_ARG = -1,
+    FIELDMESH_ERR_TIMEOUT = -2,
+    FIELDMESH_ERR_NO_MEMORY = -3,
+    FIELDMESH_ERR_TRANSPORT = -4,
+    FIELDMESH_ERR_AUTH = -5,
+    FIELDMESH_ERR_POLICY = -6,
+    FIELDMESH_ERR_NOT_FOUND = -7,
+    FIELDMESH_ERR_UNSUPPORTED = -8
+} fieldmesh_status_t;
+
+typedef enum fieldmesh_transport {
+    FIELDMESH_TRANSPORT_AUTO = 0,
+    FIELDMESH_TRANSPORT_USB_ETH = 1,
+    FIELDMESH_TRANSPORT_PHY_ETH = 2,
+    FIELDMESH_TRANSPORT_IP = 3
+} fieldmesh_transport_t;
+
+typedef enum fieldmesh_node_class {
+    FIELDMESH_NODE_ENDPOINT = 1,
+    FIELDMESH_NODE_HUB = 2,
+    FIELDMESH_NODE_COORDINATOR = 3,
+    FIELDMESH_NODE_RELAY = 4,
+    FIELDMESH_NODE_OBSERVER = 5,
+    FIELDMESH_NODE_GATEWAY = 6,
+    FIELDMESH_NODE_AP_BROKER = 7
+} fieldmesh_node_class_t;
+
+typedef enum fieldmesh_mode {
+    FIELDMESH_MODE_AUTO = 0,
+    FIELDMESH_MODE_P2P = 1,
+    FIELDMESH_MODE_STAR = 2,
+    FIELDMESH_MODE_GRAPH = 3,
+    FIELDMESH_MODE_SCHEDULED = 4
+} fieldmesh_mode_t;
+
+typedef enum fieldmesh_traffic_class {
+    FIELDMESH_CLASS_C0_CONTROL = 0,
+    FIELDMESH_CLASS_C1_TELEMETRY = 1,
+    FIELDMESH_CLASS_C2_VIDEO_BASE = 2,
+    FIELDMESH_CLASS_C3_ENHANCEMENT = 3,
+    FIELDMESH_CLASS_C4_BACKGROUND = 4
+} fieldmesh_traffic_class_t;
+
+typedef enum fieldmesh_join_method {
+    FIELDMESH_JOIN_CREDENTIAL = 1,
+    FIELDMESH_JOIN_DERIVED_CERT = 2,
+    FIELDMESH_JOIN_AP_AUDIT = 3
+} fieldmesh_join_method_t;
+
+typedef enum fieldmesh_ap_policy {
+    FIELDMESH_AP_POLICY_PREDEFINED = 1,
+    FIELDMESH_AP_POLICY_AUTONOMOUS_SWARM = 2,
+    FIELDMESH_AP_POLICY_HYBRID = 3
+} fieldmesh_ap_policy_t;
+
+typedef enum fieldmesh_route_kind {
+    FIELDMESH_ROUTE_DIRECT = 1,
+    FIELDMESH_ROUTE_AP_RELAYED = 2,
+    FIELDMESH_ROUTE_SCHEDULED_RELAY = 3,
+    FIELDMESH_ROUTE_FANOUT = 4
+} fieldmesh_route_kind_t;
+
+typedef struct fieldmesh_config {
+    fieldmesh_transport_t transport;
+    char bind_interface[FIELDMESH_NAME_TEXT_MAX];
+    char bind_address[FIELDMESH_ADDR_TEXT_MAX];
+    uint16_t control_port;
+    uint32_t timeout_ms;
+} fieldmesh_config_t;
+
+typedef struct fieldmesh_ap_info {
+    char ap_id[FIELDMESH_ID_TEXT_MAX];
+    char network_id[FIELDMESH_ID_TEXT_MAX];
+    char name[FIELDMESH_NAME_TEXT_MAX];
+    char address[FIELDMESH_ADDR_TEXT_MAX];
+    fieldmesh_transport_t transport;
+    uint32_t supported_modes_mask;
+    uint32_t node_classes_mask;
+    uint32_t max_kbps;
+    int8_t link_quality_hint_db;
+    uint8_t requires_audit;
+    uint8_t supports_derived_cert;
+} fieldmesh_ap_info_t;
+
+typedef struct fieldmesh_ap_candidate {
+    char node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_ap_policy_t policy;
+    uint32_t node_classes_mask;
+    uint32_t supported_modes_mask;
+    uint32_t max_kbps;
+    uint32_t reachable_peer_count;
+    uint32_t uptime_s;
+    uint16_t clock_quality;
+    uint16_t power_score;
+    uint16_t compute_score;
+    uint16_t relay_score;
+    uint16_t security_score;
+    uint8_t wall_powered;
+    uint8_t has_disciplined_clock;
+    uint8_t relay_allowed;
+    uint8_t provisioned_identity;
+} fieldmesh_ap_candidate_t;
+
+typedef struct fieldmesh_ap_election_result {
+    char elected_node_id[FIELDMESH_ID_TEXT_MAX];
+    char network_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_ap_policy_t policy;
+    uint32_t election_epoch;
+    uint32_t candidate_score;
+    uint8_t temporary_ap;
+    uint8_t handover_allowed;
+} fieldmesh_ap_election_result_t;
+
+typedef struct fieldmesh_join_request {
+    fieldmesh_join_method_t method;
+    char ap_id[FIELDMESH_ID_TEXT_MAX];
+    char network_id[FIELDMESH_ID_TEXT_MAX];
+    char node_name[FIELDMESH_NAME_TEXT_MAX];
+    char credential[FIELDMESH_SECRET_TEXT_MAX];
+    char cert_reference[FIELDMESH_SECRET_TEXT_MAX];
+    uint32_t requested_node_classes_mask;
+    uint32_t timeout_ms;
+} fieldmesh_join_request_t;
+
+typedef struct fieldmesh_peer_info {
+    char node_id[FIELDMESH_ID_TEXT_MAX];
+    char name[FIELDMESH_NAME_TEXT_MAX];
+    uint32_t node_classes_mask;
+    uint32_t supported_modes_mask;
+    uint32_t max_kbps;
+    uint8_t direct_reachable;
+    uint8_t relay_allowed;
+} fieldmesh_peer_info_t;
+
+typedef struct fieldmesh_route_info {
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    char relay_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_route_kind_t route_kind;
+    fieldmesh_mode_t selected_mode;
+    uint16_t stream_id;
+    uint16_t slot;
+    uint32_t epoch;
+    uint32_t delivered_kbps;
+    uint32_t queue_age_ms;
+} fieldmesh_route_info_t;
+
+typedef struct fieldmesh_stream_config {
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    uint16_t stream_id;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mode_t requested_mode;
+    uint32_t deadline_ms;
+    uint32_t bitrate_hint_kbps;
+} fieldmesh_stream_config_t;
+
+typedef struct fieldmesh_packet_meta {
+    char src_node_id[FIELDMESH_ID_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    uint16_t stream_id;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mode_t mode;
+    uint32_t sequence;
+    uint32_t epoch;
+    uint16_t slot;
+    uint32_t queue_age_ms;
+} fieldmesh_packet_meta_t;
+
+typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
+typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
+
+fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
+                                            fieldmesh_context_t **out_context);
+void fieldmesh_context_destroy(fieldmesh_context_t *context);
+
+fieldmesh_status_t fieldmesh_browse_aps(fieldmesh_context_t *context,
+                                        uint32_t timeout_ms,
+                                        fieldmesh_ap_callback_t callback,
+                                        void *user);
+fieldmesh_status_t fieldmesh_publish_ap_candidate(fieldmesh_context_t *context,
+                                                  const fieldmesh_ap_candidate_t *candidate);
+fieldmesh_status_t fieldmesh_elect_ap(fieldmesh_context_t *context,
+                                      fieldmesh_ap_policy_t policy,
+                                      uint32_t timeout_ms,
+                                      fieldmesh_ap_election_result_t *out_result);
+fieldmesh_status_t fieldmesh_accept_ap_handover(fieldmesh_context_t *context,
+                                                const fieldmesh_ap_election_result_t *result);
+
+fieldmesh_status_t fieldmesh_join_ap(fieldmesh_context_t *context,
+                                     const fieldmesh_join_request_t *request,
+                                     fieldmesh_session_t **out_session);
+fieldmesh_status_t fieldmesh_leave(fieldmesh_session_t *session);
+
+fieldmesh_status_t fieldmesh_ap_start(fieldmesh_context_t *context,
+                                      const char *network_id,
+                                      const char *policy_name,
+                                      fieldmesh_ap_t **out_ap);
+fieldmesh_status_t fieldmesh_ap_stop(fieldmesh_ap_t *ap);
+fieldmesh_status_t fieldmesh_ap_audit_join(fieldmesh_ap_t *ap,
+                                           const char *node_id,
+                                           int approve);
+
+fieldmesh_status_t fieldmesh_list_peers(fieldmesh_session_t *session,
+                                        fieldmesh_peer_callback_t callback,
+                                        void *user);
+fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
+                                         const char *dst_node_id,
+                                         uint16_t stream_id,
+                                         fieldmesh_route_info_t *out_route);
+
+fieldmesh_status_t fieldmesh_request_mode(fieldmesh_session_t *session,
+                                          fieldmesh_mode_t mode,
+                                          const char *reason);
+
+fieldmesh_status_t fieldmesh_open_stream(fieldmesh_session_t *session,
+                                         const fieldmesh_stream_config_t *config,
+                                         fieldmesh_stream_t **out_stream);
+fieldmesh_status_t fieldmesh_close_stream(fieldmesh_stream_t *stream);
+fieldmesh_status_t fieldmesh_send(fieldmesh_stream_t *stream,
+                                  const void *payload,
+                                  size_t payload_len,
+                                  const fieldmesh_packet_meta_t *meta);
+fieldmesh_status_t fieldmesh_recv(fieldmesh_stream_t *stream,
+                                  void *payload,
+                                  size_t payload_capacity,
+                                  size_t *out_payload_len,
+                                  fieldmesh_packet_meta_t *out_meta,
+                                  uint32_t timeout_ms);
+
+const char *fieldmesh_status_string(fieldmesh_status_t status);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

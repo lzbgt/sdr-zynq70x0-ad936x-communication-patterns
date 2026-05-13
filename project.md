@@ -237,6 +237,10 @@ user and vendor configuration.
   selection/negotiation.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
   packet, control-plane, mode-selection, and conducted-test spec.
+- `docs/fieldmesh-ap-sdk-architecture.md` - product-facing AP/broker and
+  portable C SDK architecture for making Z203-class 2R2T hardware a commanded
+  radio AP/broker while keeping Z103/Z203 default firmware in passive learner
+  mode.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward IIO and PL packet queues without changing
   the common packet header or trace contract.
@@ -418,10 +422,20 @@ user and vendor configuration.
   sidecar preflight that runs board-local `dt-scan`, read-only `ctrl-scan`,
   and read-only `dma-scan`, then emits a single assertion summary before any
   packet DMA smoke test starts transfers.
+- `tools/run_fieldmesh_board_adaptive_control.sh` - SSH-driven board control
+  smoke that starts a real board as an adaptive passive learner, sends host
+  peer advertisements plus an application/user command, and asserts that the
+  board only accepts proactive mode negotiation after the command.
 - `tools/run_fieldmesh_board_dma_smoke.sh` - SSH-driven guarded sidecar DMA
   smoke runner that reruns the board sidecar preflight, copies a committed
   FieldMesh frame vector to the board, records `dma-plan`, and only then starts
   a live RX-before-TX DMA transfer with an explicit `--allow-live-writes` gate.
+- `sdk/c/include/fieldmesh_sdk.h` - first pure C SDK ABI contract for AP
+  browse, credential/cert/audit join, peer discovery, route query, mode request,
+  and prioritized payload streams over USB Ethernet, physical Ethernet, or IP
+  transports.
+- `tools/verify_fieldmesh_sdk.sh` - C99 header smoke build for the SDK public
+  header and example.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
@@ -674,7 +688,10 @@ Expected result in the current Pluto-compatible firmware state:
    learners; applications or users can command any board to become the proactive
    initiator. The 1R1T firmware must adapt to the 2R2T peer's advertised
    capabilities, explicit command state, and negotiated mode, rather than
-   assuming a fixed P2P/star/graph/scheduled pattern.
+   assuming a fixed P2P/star/graph/scheduled pattern. Product direction:
+   Z203-class 2R2T hardware should become the commanded AP/broker/coordinator
+   target for network formation, discovery, routing, and relay, while Z103-class
+   1R1T remains the constrained endpoint target.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
