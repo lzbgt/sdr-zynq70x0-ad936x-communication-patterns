@@ -11,8 +11,9 @@ This is an RTLS-style feature, and GPS has two separate jobs when present:
   timestamps share a meaningful epoch.
 - GPS position is used for localization when a node has a valid fix.
 - RSSI/SNR gives coarse range and confidence when GPS is absent or denied.
-- TDOA gives relative geometry when multiple timestamped receivers or a shared
-  AP/coordinator timebase are available.
+- Packet-timing TDOA gives relative geometry when multiple timestamped
+  receivers, a shared AP/coordinator timebase, or calibrated probe/response
+  turnaround timing are available.
 - The AP/broker fuses peer reports into a local coordinate frame and publishes
   confidence, error radius, and topology centrality.
 
@@ -47,6 +48,7 @@ Each peer periodically reports:
 - RSSI and SNR from each visible peer or AP;
 - packet loss, retry, and FEC recovery counters;
 - timestamped receive events for TDOA windows;
+- deliberate RTLS probe/response packets with calibrated response delay;
 - velocity or motion class when available;
 - confidence and error bounds.
 
@@ -69,18 +71,22 @@ FieldMesh uses a tiered estimator:
 1. **GPS/PPS fused:** use GPS position when the fix is fresh and the PPS/clock
    quality is good. Error radius is small and confidence is high. The same PPS
    discipline also tightens scheduled-mode slots and TDOA measurement windows.
-2. **RSSI + TDOA:** if GPS is absent, derive coarse range from RSSI/SNR and
-   relative bearing/position from TDOA deltas against AP/relay anchors.
+2. **Packet timing + RSSI + TDOA:** if GPS is absent, derive coarse range from
+   RSSI/SNR and relative bearing/position from packet timestamp deltas against
+   AP/relay anchors. The responder must use either a scheduled response slot or
+   a calibrated turnaround delay so the AP can remove processing latency from
+   the TDOA estimate.
 3. **RSSI only:** if there are not enough timestamped receivers, keep only
    range class and confidence. This is still useful for route ranking.
 4. **Unknown:** if the estimate is stale or low confidence, do not use it for
    AP handover. Keep the peer visible but avoid geometry-dependent choices.
 
-TDOA is useful only when timestamp quality is known. For Z203/Z103, first
-prototype assumptions are:
+TDOA is useful only when timestamp quality and responder timing are known. For
+Z203/Z103, first prototype assumptions are:
 
 - GPS/PPS or AP-coordinator time establishes a shared epoch;
 - sidecar packet descriptors carry RX timestamps;
+- RTLS probe and response packets have fixed fields and calibrated turnaround;
 - AP or relay nodes collect peer reports and solve the relative frame;
 - guard intervals widen when clock quality is poor.
 
@@ -119,7 +125,7 @@ The first implementation is `fieldmesh-udp-probe rtls-estimate`.
 It verifies three deterministic cases:
 
 - mixed GPS and fallback estimates;
-- GPS-denied operation where all peers use RSSI/TDOA;
+- GPS-denied operation where all peers use packet-timing TDOA plus RSSI/SNR;
 - GPS-lock operation where all peers use GPS/PPS fused estimates.
 
 The output is intentionally NDJSON so the same trace shape can later be fed by

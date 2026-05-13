@@ -126,8 +126,9 @@ Next concrete work:
   expected to maximize useful connectivity over the next lease window.
 - Keep the RTLS/relative-positioning gate green with
   `tools/verify_fieldmesh_rtls.sh`. It currently models GPS/PPS fused
-  positions, GPS-denied RSSI/SNR/TDOA fallback, confidence/error radius, and
-  `estimated_geo_centrality` as inputs for AP election and route selection.
+  positions, GPS-denied packet-timing TDOA plus RSSI/SNR fallback,
+  confidence/error radius, and `estimated_geo_centrality` as inputs for AP
+  election and route selection.
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
   normal runtime reachability is restored. Use
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;

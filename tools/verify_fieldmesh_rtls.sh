@@ -55,13 +55,15 @@ for name, rows in (("mixed", mixed), ("gps-denied", denied), ("gps-lock", locked
             raise SystemExit(f"{name} bad centrality")
 
 mixed_sources = {row.get("position_source") for row in rows_named(mixed, "rtls_estimate")}
-if "gps_pps_fused" not in mixed_sources or "rssi_tdoa" not in mixed_sources:
-    raise SystemExit("mixed scenario must include GPS and RSSI/TDOA estimates")
+if "gps_pps_fused" not in mixed_sources or "packet_timing_tdoa" not in mixed_sources:
+    raise SystemExit("mixed scenario must include GPS and packet-timing TDOA estimates")
 
-if any(row.get("position_source") != "rssi_tdoa" for row in rows_named(denied, "rtls_estimate")):
-    raise SystemExit("gps-denied scenario must fall back to RSSI/TDOA")
+if any(row.get("position_source") != "packet_timing_tdoa" for row in rows_named(denied, "rtls_estimate")):
+    raise SystemExit("gps-denied scenario must fall back to packet-timing TDOA")
 if any(row.get("position_source") != "gps_pps_fused" for row in rows_named(locked, "rtls_estimate")):
     raise SystemExit("gps-lock scenario must use GPS/PPS fused estimates")
+if not all(row.get("usable_without_gps") is True for row in rows_named(denied, "rtls_timing_probe")):
+    raise SystemExit("gps-denied timing probes must be usable without GPS")
 
 print(json.dumps({
     "event": "fieldmesh_rtls_check",

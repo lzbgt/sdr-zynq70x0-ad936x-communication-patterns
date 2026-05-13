@@ -1382,7 +1382,7 @@ static struct rtls_estimate rtls_estimate_peer(const struct config *cfg,
 {
     struct rtls_estimate estimate = {
         .node_id = sample->node_id,
-        .source = "rssi_tdoa",
+        .source = "packet_timing_tdoa",
         .x_cm = 0,
         .y_cm = 0,
         .error_radius_cm = 0,
@@ -1426,8 +1426,8 @@ static int run_rtls_estimate(const struct config *cfg)
     printf("{\"event\":\"rtls_window_start\",\"transport\":\"rtls-estimate\","
            "\"network_id\":\"%s\",\"scenario\":\"%s\","
            "\"coordinate_frame\":\"ap_local_xy_cm\","
-           "\"methods\":[\"gps_pps_fused\",\"rssi_tdoa\",\"rssi_only_fallback\"],"
-           "\"tdoa_requires\":\"shared_pps_or_ap_clock_calibration\","
+           "\"methods\":[\"gps_pps_fused\",\"packet_timing_tdoa\",\"rssi_only_fallback\"],"
+           "\"tdoa_requires\":\"shared_pps_or_calibrated_probe_response_timing\","
            "\"default_policy\":\"passive_learner\"}\n",
            cfg->network_id, cfg->scenario);
 
@@ -1453,6 +1453,15 @@ static int run_rtls_estimate(const struct config *cfg)
                sample->node_id, sample->hardware, sample->radio,
                gps_lock ? "true" : "false", sample->rssi_dbm, sample->snr_db,
                sample->tdoa_ab_ns, sample->tdoa_ac_ns, sample->velocity_cm_s);
+        printf("{\"event\":\"rtls_timing_probe\",\"transport\":\"rtls-estimate\","
+               "\"node_id\":\"%s\",\"probe_sequence\":%zu,"
+               "\"probe_packet\":\"FIELD_MESH_RTLS_PROBE\","
+               "\"response_packet\":\"FIELD_MESH_RTLS_RESPONSE\","
+               "\"turnaround_calibrated\":true,"
+               "\"response_delay_us\":%d,"
+               "\"rx_timestamp_source\":\"sidecar_descriptor\","
+               "\"usable_without_gps\":true}\n",
+               sample->node_id, i + 1U, 250 + (int)i * 20);
         printf("{\"event\":\"rtls_estimate\",\"transport\":\"rtls-estimate\","
                "\"node_id\":\"%s\",\"position_source\":\"%s\","
                "\"x_cm\":%d,\"y_cm\":%d,\"error_radius_cm\":%d,"
