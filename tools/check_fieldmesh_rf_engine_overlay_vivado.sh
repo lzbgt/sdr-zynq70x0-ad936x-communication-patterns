@@ -103,6 +103,19 @@ foreach pin {
   fieldmesh_bpsk_symbolizer/byte_count
   fieldmesh_bpsk_symbolizer/symbol_count
   fieldmesh_bpsk_symbolizer/packet_count
+  fieldmesh_ctrl/rf_tx_enable
+  fieldmesh_ctrl/rf_tx_armed
+  fieldmesh_ctrl/rf_schedule_enable
+  fieldmesh_ctrl/rf_current_epoch
+  fieldmesh_ctrl/rf_current_slot
+  fieldmesh_ctrl/rf_tx_epoch
+  fieldmesh_ctrl/rf_tx_slot
+  fieldmesh_ctrl/rf_guard_pass_sample_count
+  fieldmesh_ctrl/rf_guard_pass_packet_count
+  fieldmesh_ctrl/rf_guard_blocked_cycle_count
+  fieldmesh_ctrl/rf_guard_drop_late_sample_count
+  fieldmesh_ctrl/rf_guard_drop_late_packet_count
+  fieldmesh_ctrl/rf_guard_fault
   fieldmesh_iq_tx_guard/clk
   fieldmesh_iq_tx_guard/rst
   fieldmesh_iq_tx_guard/enable
@@ -132,6 +145,28 @@ foreach pin {
     error "\$pin pin missing"
   }
 }
+
+proc assert_same_net {left right} {
+  set left_net [get_bd_nets -quiet -of_objects [get_bd_pins \$left]]
+  set right_net [get_bd_nets -quiet -of_objects [get_bd_pins \$right]]
+  if {[llength \$left_net] != 1 || [llength \$right_net] != 1 || "\$left_net" ne "\$right_net"} {
+    error "\$left and \$right must share exactly one net"
+  }
+}
+
+assert_same_net fieldmesh_ctrl/rf_tx_enable fieldmesh_iq_tx_guard/tx_enable
+assert_same_net fieldmesh_ctrl/rf_tx_armed fieldmesh_iq_tx_guard/tx_armed
+assert_same_net fieldmesh_ctrl/rf_schedule_enable fieldmesh_iq_tx_guard/schedule_enable
+assert_same_net fieldmesh_ctrl/rf_current_epoch fieldmesh_iq_tx_guard/current_epoch
+assert_same_net fieldmesh_ctrl/rf_current_slot fieldmesh_iq_tx_guard/current_slot
+assert_same_net fieldmesh_ctrl/rf_tx_epoch fieldmesh_iq_tx_guard/tx_epoch
+assert_same_net fieldmesh_ctrl/rf_tx_slot fieldmesh_iq_tx_guard/tx_slot
+assert_same_net fieldmesh_ctrl/rf_guard_pass_sample_count fieldmesh_iq_tx_guard/pass_sample_count
+assert_same_net fieldmesh_ctrl/rf_guard_pass_packet_count fieldmesh_iq_tx_guard/pass_packet_count
+assert_same_net fieldmesh_ctrl/rf_guard_blocked_cycle_count fieldmesh_iq_tx_guard/blocked_cycle_count
+assert_same_net fieldmesh_ctrl/rf_guard_drop_late_sample_count fieldmesh_iq_tx_guard/drop_late_sample_count
+assert_same_net fieldmesh_ctrl/rf_guard_drop_late_packet_count fieldmesh_iq_tx_guard/drop_late_packet_count
+assert_same_net fieldmesh_ctrl/rf_guard_fault fieldmesh_iq_tx_guard/fault
 
 foreach seg {
   SEG_data_fieldmesh_ctrl

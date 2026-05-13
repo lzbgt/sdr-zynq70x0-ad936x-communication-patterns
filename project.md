@@ -569,6 +569,10 @@ user and vendor configuration.
   `fieldmesh_apply_rf_tx_guard()` so the daemon can plan the
   `fieldmesh_iq_tx_guard` arming slot and safety prerequisites without setting
   TX enable, writing hardware, using IIO, or routing payloads over host IP.
+  The mapped sidecar control wrapper now owns the RF TX guard control/status
+  pins at the `0x100+` lightweight register range, so later software can reach
+  the guard through the existing FieldMesh control window instead of a separate
+  AXI aperture.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
@@ -660,8 +664,9 @@ user and vendor configuration.
   enable, and scheduling as outer guarded blocks.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary
   that only admits IQ samples when TX is enabled, armed, and in the allowed
-  schedule slot; the copied RF-engine overlay ties it unarmed and parks its IQ
-  output until the scheduler/filter/driver path exists.
+  schedule slot; the copied RF-engine overlay wires its control/status pins to
+  the sidecar AXI-lite window, resets it unarmed, and parks its IQ output until
+  the scheduler/filter/driver path exists.
 - `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` - deterministic scheduled
   descriptor gate wired between class-ring dequeue and packet-memory loopback
   in the full simulation wrapper; it holds future-slot descriptors, drops stale
@@ -727,7 +732,8 @@ user and vendor configuration.
   HDL tree, applies the FieldMesh sidecar DMA plus RF packet-engine overlay,
   and runs Vivado project/BD generation checks without synthesis to prove
   `fieldmesh_bpsk_symbolizer` and `fieldmesh_iq_tx_guard` are BD-visible, the
-  guard is parked unarmed, and no FieldMesh RF output connects to AD936x TX.
+  guard is driven by the sidecar control window but resets unarmed, and no
+  FieldMesh RF output connects to AD936x TX.
 - `tools/build_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
   Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in
@@ -964,14 +970,14 @@ Expected result in the current Pluto-compatible firmware state:
    Z103 passed this read-only live preflight at `192.168.3.1`; evidence is
    archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
-   The non-transmitting RF-engine copied overlay, now including the parked
-   `fieldmesh_iq_tx_guard`, builds timing-clean for both variants too: Z103
-   `system_top.bit`/XSA hashes are
-   `168ac782b030cb587ace2532a8baa54f1215ec1a86bb7115033fcf47346da3b3` and
-   `631db6d423dc6bc737e64afa4dddae0ecdb3dc267c320ccfd9986d54a4324526`;
+   The non-transmitting RF-engine copied overlay, now including the
+   sidecar-control-wired `fieldmesh_iq_tx_guard`, builds timing-clean for both
+   variants too: Z103 `system_top.bit`/XSA hashes are
+   `592eb8a746c7dc2016e4f64eca3849a0eeb784619d3097e78af12be52b4ea2c0` and
+   `c125a043476f7fb7dd1d80034e79e11d7d1e58e2b55309577079339d2b890edd`;
    Z203 hashes are
-   `3f790a3b95d9cf0a5601dab70d9ead75e30696dcb659370076c87284a18845ee` and
-   `63b37af750fd48aca455ff0dd8ede605db4bfd3eaf995eebf44b27a6ab8b3d39`.
+   `ec00509cd29d9585c153514a2f3b4f1c3aff71e9382cf1b74e6b8919b1372336` and
+   `79e2df27b8b84c6da0eae574555f832c1281fbeecd967f12b3c470a8073466b7`.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

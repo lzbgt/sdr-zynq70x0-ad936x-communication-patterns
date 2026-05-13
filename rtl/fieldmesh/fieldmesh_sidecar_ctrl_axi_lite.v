@@ -40,6 +40,21 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     output wire         s_axi_rvalid,
     input  wire         s_axi_rready,
 
+    output wire         rf_tx_enable,
+    output wire         rf_tx_armed,
+    output wire         rf_schedule_enable,
+    output wire [31:0]  rf_current_epoch,
+    output wire [15:0]  rf_current_slot,
+    output wire [31:0]  rf_tx_epoch,
+    output wire [15:0]  rf_tx_slot,
+
+    input  wire [31:0]  rf_guard_pass_sample_count,
+    input  wire [31:0]  rf_guard_pass_packet_count,
+    input  wire [31:0]  rf_guard_blocked_cycle_count,
+    input  wire [31:0]  rf_guard_drop_late_sample_count,
+    input  wire [31:0]  rf_guard_drop_late_packet_count,
+    input  wire         rf_guard_fault,
+
     output wire         irq,
     output wire [2:0]   irq_status
 );
@@ -47,24 +62,42 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
 generate if (SYNTH_LIGHT) begin : gen_light
     localparam [31:0] FM_ID_VALUE = 32'h464d1001;
 
-    localparam [7:0] REG_ID         = 8'h00;
-    localparam [7:0] REG_CONTROL    = 8'h04;
-    localparam [7:0] REG_STATUS     = 8'h08;
-    localparam [7:0] REG_IRQ_STATUS = 8'h0c;
-    localparam [7:0] REG_IRQ_MASK   = 8'h10;
+    localparam [11:0] REG_ID         = 12'h000;
+    localparam [11:0] REG_CONTROL    = 12'h004;
+    localparam [11:0] REG_STATUS     = 12'h008;
+    localparam [11:0] REG_IRQ_STATUS = 12'h00c;
+    localparam [11:0] REG_IRQ_MASK   = 12'h010;
+    localparam [11:0] REG_RF_TX_GUARD_CONTROL        = 12'h100;
+    localparam [11:0] REG_RF_CURRENT_EPOCH           = 12'h104;
+    localparam [11:0] REG_RF_CURRENT_SLOT            = 12'h108;
+    localparam [11:0] REG_RF_TX_EPOCH                = 12'h10c;
+    localparam [11:0] REG_RF_TX_SLOT                 = 12'h110;
+    localparam [11:0] REG_RF_GUARD_STATUS            = 12'h114;
+    localparam [11:0] REG_RF_PASS_SAMPLE_COUNT       = 12'h118;
+    localparam [11:0] REG_RF_PASS_PACKET_COUNT       = 12'h11c;
+    localparam [11:0] REG_RF_BLOCKED_CYCLE_COUNT     = 12'h120;
+    localparam [11:0] REG_RF_DROP_LATE_SAMPLE_COUNT  = 12'h124;
+    localparam [11:0] REG_RF_DROP_LATE_PACKET_COUNT  = 12'h128;
 
     wire rst = !s_axi_aresetn;
 
     reg        aw_seen;
-    reg [7:0]  awaddr_hold;
+    reg [11:0] awaddr_hold;
     reg        w_seen;
     reg [31:0] wdata_hold;
     reg [3:0]  wstrb_hold;
     reg        read_pending;
-    reg [7:0]  read_addr_hold;
+    reg [11:0] read_addr_hold;
     reg        enable;
     reg        soft_reset_seen;
     reg [2:0]  irq_mask;
+    reg        rf_tx_enable_r;
+    reg        rf_tx_armed_r;
+    reg        rf_schedule_enable_r;
+    reg [31:0] rf_current_epoch_r;
+    reg [15:0] rf_current_slot_r;
+    reg [31:0] rf_tx_epoch_r;
+    reg [15:0] rf_tx_slot_r;
     reg [1:0]  bresp_r;
     reg        bvalid_r;
     reg [31:0] rdata_r;
@@ -81,23 +114,37 @@ generate if (SYNTH_LIGHT) begin : gen_light
     assign s_axi_rvalid = rvalid_r;
     assign irq_status = {1'b0, soft_reset_seen, enable};
     assign irq = |(irq_status & irq_mask);
+    assign rf_tx_enable = rf_tx_enable_r;
+    assign rf_tx_armed = rf_tx_armed_r;
+    assign rf_schedule_enable = rf_schedule_enable_r;
+    assign rf_current_epoch = rf_current_epoch_r;
+    assign rf_current_slot = rf_current_slot_r;
+    assign rf_tx_epoch = rf_tx_epoch_r;
+    assign rf_tx_slot = rf_tx_slot_r;
 
     always @(posedge s_axi_aclk) begin
         if (rst) begin
             aw_seen <= 1'b0;
-            awaddr_hold <= 8'd0;
+            awaddr_hold <= 12'd0;
             w_seen <= 1'b0;
             wdata_hold <= 32'd0;
             wstrb_hold <= 4'd0;
             enable <= 1'b0;
             soft_reset_seen <= 1'b0;
             irq_mask <= 3'b000;
+            rf_tx_enable_r <= 1'b0;
+            rf_tx_armed_r <= 1'b0;
+            rf_schedule_enable_r <= 1'b0;
+            rf_current_epoch_r <= 32'd0;
+            rf_current_slot_r <= 16'd0;
+            rf_tx_epoch_r <= 32'd0;
+            rf_tx_slot_r <= 16'd0;
             bresp_r <= 2'b00;
             bvalid_r <= 1'b0;
         end else begin
             if (s_axi_awvalid && s_axi_awready) begin
                 aw_seen <= 1'b1;
-                awaddr_hold <= s_axi_awaddr[7:0];
+                awaddr_hold <= s_axi_awaddr[11:0];
             end
 
             if (s_axi_wvalid && s_axi_wready) begin
@@ -119,6 +166,15 @@ generate if (SYNTH_LIGHT) begin : gen_light
                             end
                         end
                         REG_IRQ_MASK: irq_mask <= wdata_hold[2:0];
+                        REG_RF_TX_GUARD_CONTROL: begin
+                            rf_tx_enable_r <= wdata_hold[0];
+                            rf_tx_armed_r <= wdata_hold[1];
+                            rf_schedule_enable_r <= wdata_hold[2];
+                        end
+                        REG_RF_CURRENT_EPOCH: rf_current_epoch_r <= wdata_hold;
+                        REG_RF_CURRENT_SLOT: rf_current_slot_r <= wdata_hold[15:0];
+                        REG_RF_TX_EPOCH: rf_tx_epoch_r <= wdata_hold;
+                        REG_RF_TX_SLOT: rf_tx_slot_r <= wdata_hold[15:0];
                     endcase
                 end
                 bresp_r <= 2'b00;
@@ -136,13 +192,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
     always @(posedge s_axi_aclk) begin
         if (rst) begin
             read_pending <= 1'b0;
-            read_addr_hold <= 8'd0;
+            read_addr_hold <= 12'd0;
             rdata_r <= 32'd0;
             rresp_r <= 2'b00;
             rvalid_r <= 1'b0;
         end else begin
             if (s_axi_arvalid && s_axi_arready) begin
-                read_addr_hold <= s_axi_araddr[7:0];
+                read_addr_hold <= s_axi_araddr[11:0];
                 read_pending <= 1'b1;
             end
 
@@ -153,6 +209,17 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_STATUS: rdata_r <= {29'd0, irq_status};
                     REG_IRQ_STATUS: rdata_r <= {29'd0, irq_status};
                     REG_IRQ_MASK: rdata_r <= {29'd0, irq_mask};
+                    REG_RF_TX_GUARD_CONTROL: rdata_r <= {29'd0, rf_schedule_enable_r, rf_tx_armed_r, rf_tx_enable_r};
+                    REG_RF_CURRENT_EPOCH: rdata_r <= rf_current_epoch_r;
+                    REG_RF_CURRENT_SLOT: rdata_r <= {16'd0, rf_current_slot_r};
+                    REG_RF_TX_EPOCH: rdata_r <= rf_tx_epoch_r;
+                    REG_RF_TX_SLOT: rdata_r <= {16'd0, rf_tx_slot_r};
+                    REG_RF_GUARD_STATUS: rdata_r <= {23'd0, rf_guard_fault, 5'd0, rf_schedule_enable_r, rf_tx_armed_r, rf_tx_enable_r};
+                    REG_RF_PASS_SAMPLE_COUNT: rdata_r <= rf_guard_pass_sample_count;
+                    REG_RF_PASS_PACKET_COUNT: rdata_r <= rf_guard_pass_packet_count;
+                    REG_RF_BLOCKED_CYCLE_COUNT: rdata_r <= rf_guard_blocked_cycle_count;
+                    REG_RF_DROP_LATE_SAMPLE_COUNT: rdata_r <= rf_guard_drop_late_sample_count;
+                    REG_RF_DROP_LATE_PACKET_COUNT: rdata_r <= rf_guard_drop_late_packet_count;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;
@@ -166,6 +233,14 @@ generate if (SYNTH_LIGHT) begin : gen_light
         end
     end
 end else begin : gen_full
+assign rf_tx_enable = 1'b0;
+assign rf_tx_armed = 1'b0;
+assign rf_schedule_enable = 1'b0;
+assign rf_current_epoch = 32'd0;
+assign rf_current_slot = 16'd0;
+assign rf_tx_epoch = 32'd0;
+assign rf_tx_slot = 16'd0;
+
 fieldmesh_packet_mem_axi_lite #(
     .MEM_BYTES(MEM_BYTES),
     .ADDR_WIDTH(ADDR_WIDTH),

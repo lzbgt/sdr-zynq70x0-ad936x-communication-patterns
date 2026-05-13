@@ -190,8 +190,9 @@ synthesizable RF packet-engine TX primitive: it converts packet bytes into
 MSB-first signed I/Q BPSK symbols, but still does not own RF tuning, TX enable,
 filtering, or scheduled transmission. `fieldmesh_iq_tx_guard.v` is the
 post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
-in the allowed schedule slot, and the copied RF-engine overlay ties it unarmed
-with its IQ output parked. `fieldmesh_slot_admission_gate.v` is also
+in the allowed schedule slot, and the copied RF-engine overlay wires its
+control and status pins to the sidecar AXI-lite window while resetting it
+unarmed with its IQ output parked. `fieldmesh_slot_admission_gate.v` is also
 part of the required RTL set, but remains parked until the packet path is ready
 for scheduled-mode admission: it holds future-slot descriptors, drops stale
 scheduled descriptors, and leaves non-scheduled traffic unblocked.
@@ -299,10 +300,12 @@ The first non-transmitting RF packet-engine overlay is a separate opt-in mode:
 With `--rf-engine-overlay`, the patcher implies the control, bridge, and DMA
 overlays but replaces the packet loopback with a TX packet-engine sink:
 `fieldmesh_axis_bridge/m_tx_packet_*` feeds `fieldmesh_bpsk_symbolizer/s_axis_*`.
-The symbolizer's IQ output feeds `fieldmesh_iq_tx_guard`, which is tied
-unarmed and parks the guarded IQ output behind the RF packet-engine boundary.
-The overlay does not connect to AD936x TX, open IIO buffers, tune RF, or start
-hardware transmission.
+The symbolizer's IQ output feeds `fieldmesh_iq_tx_guard`; its arming, schedule,
+and status pins are now wired to the existing `fieldmesh_ctrl` AXI-lite window
+at the RF TX guard register range. The guard still resets unarmed and parks the
+guarded IQ output behind the RF packet-engine boundary. The overlay does not
+connect to AD936x TX, open IIO buffers, tune RF, or start hardware
+transmission.
 
 Validate the RF packet-engine overlay through Vivado project/block-design
 generation without running synthesis or connecting AD936x TX:

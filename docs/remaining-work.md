@@ -229,7 +229,10 @@ Next concrete work:
   and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
   bridge parser can feed the BPSK symbolizer and `fieldmesh_iq_tx_guard` while
-  the guarded IQ output remains disconnected from AD936x TX. The SDK/daemon now
+  the guarded IQ output remains disconnected from AD936x TX. The guard's
+  arming, schedule, and counter/status pins are now reachable through the
+  existing sidecar control window at `0x100+`, but they reset unarmed and still
+  do not connect to an AD936x TX driver. The SDK/daemon now
   has the first post-symbolizer guard control contract too:
   `fieldmesh_plan_rf_tx_guard()` / `fieldmesh_apply_rf_tx_guard()` and daemon
   `FIELDMESH_RF_TX_GUARD_PLAN` derive a dry-run arming plan for

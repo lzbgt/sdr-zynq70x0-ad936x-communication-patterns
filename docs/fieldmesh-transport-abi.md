@@ -180,7 +180,13 @@ before the local packet-memory loopback core. It remains local-memory only;
 external DMA, IIO buffers, deeper descriptor memory, and RF/baseband logic are
 later integration points. `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v`
 wraps this register map for the provisional `0x43C00000` sidecar control
-window and exports live RX/fault interrupt state for later PS wiring.
+window and exports live RX/fault interrupt state for later PS wiring. In its
+lightweight BD-facing mode, the same wrapper also exposes the RF TX guard
+control boundary at `0x100+`: software can set `rf_tx_enable`, `rf_tx_armed`,
+schedule epoch/slot fields, and read `fieldmesh_iq_tx_guard` counters through
+the mapped control window. These registers reset unarmed and are only a guard
+boundary; the RF-engine overlay still leaves the guarded IQ output disconnected
+from AD936x TX.
 
 `rtl/fieldmesh/fieldmesh_class_priority_queue.v` is the first class-priority
 queue slice. It stores one pending descriptor per C0..C4 class and always
@@ -401,6 +407,23 @@ writes to these offsets and supports one outstanding read or write transaction.
 | `0x80` | `FM_SCHED_PASS_COUNT` | descriptors admitted through the slot gate |
 | `0x84` | `FM_SCHED_WAIT_COUNT` | cycles where a future scheduled descriptor was held |
 | `0x88` | `FM_SCHED_DROP_COUNT` | stale scheduled descriptors dropped by the slot gate |
+
+The lightweight sidecar-control wrapper, used by the copied-HDL BD overlay,
+adds these RF TX guard registers above the packet-memory scheduler range:
+
+| Offset | Name | Meaning |
+|---:|---|---|
+| `0x100` | `FM_RF_TX_GUARD_CONTROL` | bit 0 `rf_tx_enable`, bit 1 `rf_tx_armed`, bit 2 `rf_schedule_enable` |
+| `0x104` | `FM_RF_CURRENT_EPOCH` | scheduler epoch presented to `fieldmesh_iq_tx_guard` |
+| `0x108` | `FM_RF_CURRENT_SLOT` | scheduler slot in low 16 bits |
+| `0x10c` | `FM_RF_TX_EPOCH` | target TX epoch presented to the guard |
+| `0x110` | `FM_RF_TX_SLOT` | target TX slot in low 16 bits |
+| `0x114` | `FM_RF_GUARD_STATUS` | control bits plus bit 8 guard fault |
+| `0x118` | `FM_RF_PASS_SAMPLE_COUNT` | guarded samples admitted |
+| `0x11c` | `FM_RF_PASS_PACKET_COUNT` | guarded packets admitted |
+| `0x120` | `FM_RF_BLOCKED_CYCLE_COUNT` | cycles blocked while unarmed or waiting |
+| `0x124` | `FM_RF_DROP_LATE_SAMPLE_COUNT` | late scheduled samples dropped |
+| `0x128` | `FM_RF_DROP_LATE_PACKET_COUNT` | late scheduled packets dropped |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

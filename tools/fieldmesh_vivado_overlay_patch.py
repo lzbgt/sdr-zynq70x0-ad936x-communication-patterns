@@ -80,12 +80,22 @@ update_compile_order -fileset sources_1
 """
 
 
-def render_control_overlay() -> str:
+def render_control_overlay(rf_guard_defaults: bool = True) -> str:
+    rf_guard_tieoffs = ""
+    if rf_guard_defaults:
+        rf_guard_tieoffs = """ad_connect GND fieldmesh_ctrl/rf_guard_pass_sample_count
+ad_connect GND fieldmesh_ctrl/rf_guard_pass_packet_count
+ad_connect GND fieldmesh_ctrl/rf_guard_blocked_cycle_count
+ad_connect GND fieldmesh_ctrl/rf_guard_drop_late_sample_count
+ad_connect GND fieldmesh_ctrl/rf_guard_drop_late_packet_count
+ad_connect GND fieldmesh_ctrl/rf_guard_fault
+"""
     return f"""
 {BD_CTRL_BEGIN}
 create_bd_cell -type module -reference fieldmesh_sidecar_ctrl_axi_lite fieldmesh_ctrl
 ad_connect sys_cpu_clk fieldmesh_ctrl/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ctrl/s_axi_aresetn
+{rf_guard_tieoffs.rstrip()}
 ad_cpu_interconnect 0x43C00000 fieldmesh_ctrl
 ad_cpu_interrupt ps-11 mb-11 fieldmesh_ctrl/irq
 {BD_CTRL_END}
@@ -216,21 +226,28 @@ create_bd_cell -type module -reference fieldmesh_iq_tx_guard fieldmesh_iq_tx_gua
 ad_connect sys_cpu_clk fieldmesh_iq_tx_guard/clk
 ad_connect sys_cpu_reset fieldmesh_iq_tx_guard/rst
 ad_connect VCC fieldmesh_iq_tx_guard/enable
-ad_connect GND fieldmesh_iq_tx_guard/tx_enable
-ad_connect GND fieldmesh_iq_tx_guard/tx_armed
-ad_connect GND fieldmesh_iq_tx_guard/schedule_enable
-ad_connect GND fieldmesh_iq_tx_guard/current_epoch
-ad_connect GND fieldmesh_iq_tx_guard/current_slot
-ad_connect GND fieldmesh_iq_tx_guard/tx_epoch
-ad_connect GND fieldmesh_iq_tx_guard/tx_slot
+ad_connect fieldmesh_ctrl/rf_tx_enable fieldmesh_iq_tx_guard/tx_enable
+ad_connect fieldmesh_ctrl/rf_tx_armed fieldmesh_iq_tx_guard/tx_armed
+ad_connect fieldmesh_ctrl/rf_schedule_enable fieldmesh_iq_tx_guard/schedule_enable
+ad_connect fieldmesh_ctrl/rf_current_epoch fieldmesh_iq_tx_guard/current_epoch
+ad_connect fieldmesh_ctrl/rf_current_slot fieldmesh_iq_tx_guard/current_slot
+ad_connect fieldmesh_ctrl/rf_tx_epoch fieldmesh_iq_tx_guard/tx_epoch
+ad_connect fieldmesh_ctrl/rf_tx_slot fieldmesh_iq_tx_guard/tx_slot
+ad_connect fieldmesh_iq_tx_guard/pass_sample_count fieldmesh_ctrl/rf_guard_pass_sample_count
+ad_connect fieldmesh_iq_tx_guard/pass_packet_count fieldmesh_ctrl/rf_guard_pass_packet_count
+ad_connect fieldmesh_iq_tx_guard/blocked_cycle_count fieldmesh_ctrl/rf_guard_blocked_cycle_count
+ad_connect fieldmesh_iq_tx_guard/drop_late_sample_count fieldmesh_ctrl/rf_guard_drop_late_sample_count
+ad_connect fieldmesh_iq_tx_guard/drop_late_packet_count fieldmesh_ctrl/rf_guard_drop_late_packet_count
+ad_connect fieldmesh_iq_tx_guard/fault fieldmesh_ctrl/rf_guard_fault
 
 ad_connect fieldmesh_axis_bridge/m_tx_packet_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid
 ad_connect fieldmesh_bpsk_symbolizer/s_axis_tready fieldmesh_axis_bridge/m_tx_packet_tready
 ad_connect fieldmesh_axis_bridge/m_tx_packet_tdata fieldmesh_bpsk_symbolizer/s_axis_tdata
 ad_connect fieldmesh_axis_bridge/m_tx_packet_tlast fieldmesh_bpsk_symbolizer/s_axis_tlast
 
-# The symbolizer and TX guard are BD-visible here, but the guard is deliberately
-# unarmed and its IQ output is parked behind the RF packet-engine boundary. No
+# The symbolizer and TX guard are BD-visible here, and the guard is controlled
+# by the existing sidecar AXI-lite control window. The guard still resets
+# unarmed, and its IQ output is parked behind the RF packet-engine boundary. No
 # AD936x TX path, IIO buffer, RF tuning, or TX-enable driver is connected by
 # this overlay.
 ad_connect fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
@@ -279,7 +296,7 @@ def patch_system_bd(
             raise SystemExit("system_bd.tcl: expected ADI DMA interconnect anchor not found")
         if "ad_cpu_interrupt ps-12 mb-12 axi_ad9361_dac_dma/irq" not in text:
             raise SystemExit("system_bd.tcl: expected ADI DMA interrupt anchor not found")
-        blocks.append(render_control_overlay())
+        blocks.append(render_control_overlay(rf_guard_defaults=not rf_engine_overlay))
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
         blocks.append(render_bridge_overlay(park_byte_ports=not dma_overlay, rf_engine_overlay=rf_engine_overlay))
     if dma_overlay and BD_DMA_BEGIN not in text:

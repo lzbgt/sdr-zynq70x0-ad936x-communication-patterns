@@ -2499,7 +2499,10 @@ The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
 implies the sidecar DMA overlay, removes the packet-loopback shortcut, feeds
 `fieldmesh_axis_bridge/m_tx_packet_*` into `fieldmesh_bpsk_symbolizer/s_axis_*`,
 feeds generated IQ into `fieldmesh_iq_tx_guard`, and parks the guard output
-unarmed. `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
+unarmed. The guard arming, schedule, and counter/status pins are now connected
+to the mapped `fieldmesh_ctrl` lightweight register window at `0x100+`, while
+the guarded IQ output stays disconnected from AD936x TX.
+`tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_bpsk_symbolizer` and `fieldmesh_iq_tx_guard` present, address
 segments intact, and no AD936x TX connection from the FieldMesh RF-engine
@@ -2519,8 +2522,8 @@ Result: both copied RF-engine overlay builds produced timing-clean
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  168ac782b030cb587ace2532a8baa54f1215ec1a86bb7115033fcf47346da3b3
-system_top.xsa  631db6d423dc6bc737e64afa4dddae0ecdb3dc267c320ccfd9986d54a4324526
+system_top.bit  592eb8a746c7dc2016e4f64eca3849a0eeb784619d3097e78af12be52b4ea2c0
+system_top.xsa  c125a043476f7fb7dd1d80034e79e11d7d1e58e2b55309577079339d2b890edd
 ```
 
 Z203 outputs:
@@ -2528,8 +2531,8 @@ Z203 outputs:
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  3f790a3b95d9cf0a5601dab70d9ead75e30696dcb659370076c87284a18845ee
-system_top.xsa  63b37af750fd48aca455ff0dd8ede605db4bfd3eaf995eebf44b27a6ab8b3d39
+system_top.bit  ec00509cd29d9585c153514a2f3b4f1c3aff71e9382cf1b74e6b8919b1372336
+system_top.xsa  79e2df27b8b84c6da0eae574555f832c1281fbeecd967f12b3c470a8073466b7
 ```
 
 After the user reset the Z103, two more live-gate captures were taken:
