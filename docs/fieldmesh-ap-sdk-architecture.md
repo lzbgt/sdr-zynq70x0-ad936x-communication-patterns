@@ -71,11 +71,12 @@ Election inputs:
 - hardware class: 2R2T generally scores higher than 1R1T;
 - role permissions: AP, coordinator, relay, and gateway allowed or forbidden;
 - power state: wall power beats battery for AP duties;
-- clock quality: GPS/PPS or disciplined clock beats local-only timing;
+- clock quality: GNSS/PPS, including the attached BDS+GPS receiver path, or
+  disciplined clock beats local-only timing;
 - reachability: candidate can hear and serve the most peers;
 - measured RSSI and SNR from every visible peer;
-- built-in RTLS estimates: GPS/PPS when available, packet-timing TDOA plus
-  RSSI/SNR fallback when GPS is absent, and estimated geographic or topology
+- built-in RTLS estimates: GNSS/PPS when available, packet-timing TDOA plus
+  RSSI/SNR fallback when GNSS is absent, and estimated geographic or topology
   centrality;
 - route centrality and link stability;
 - mobility prediction: velocity/heading stability, expected topology lifetime,
@@ -236,9 +237,12 @@ Prototype direction:
 
 ## SDK Transport Assumption
 
-The SDK should be pure C and treat both USB Ethernet and physical Ethernet as
-IP transports. That is the correct portability boundary for embedded Linux,
-desktop Linux, Windows, and macOS.
+The core SDK should keep a pure C ABI and treat both USB Ethernet and physical
+Ethernet as IP transports. That is the correct portability boundary for
+embedded Linux, desktop Linux, Windows, and macOS. Production applications do
+not need to be written in C: the preferred app layer can be C++ on top of the C
+ABI, and a peer Rust SDK/binding should expose the same concepts for Rust apps
+without forking the protocol contract.
 
 Transport backends:
 
@@ -273,11 +277,58 @@ Required properties:
 
 - C99-compatible public header;
 - no C++ ABI dependency;
+- C++ app wrapper and Rust binding may layer above the C ABI;
 - callback and polling styles both possible;
 - opaque handles for ABI stability;
 - transport-independent node/AP/peer structs;
 - explicit timeout and cancellation fields;
 - no hidden role launch: AP/proactive behavior is commanded through API calls.
+
+## Application Plane Model
+
+The production-facing app should expose both control-plane and data-plane
+features while keeping the board-to-board payload path on RF. The primary app
+implementation target should be C++ for desktop/embedded product UI and media
+pipeline work, with Rust support through a peer Rust SDK/binding where desired:
+
+- peer discovery and AP browsing;
+- AP election, audit/join, lease, and handover controls;
+- network topology viewer with AP, relay, direct, and degraded route states;
+- relative colocating/RTLS map viewer using GNSS/PPS when present, including
+  BDS+GPS constellation state, and packet-timing TDOA plus RSSI/SNR when GNSS
+  is absent;
+- stream directory and subscription controls;
+- live data streaming, including camera capture/preview;
+- link-state driven bitrate, FEC, relay, and route policy controls.
+
+The host app can run as source, sink, or both. A camera demo should support:
+
+```text
+Windows/Linux/macOS/embedded app
+  -> SDK over local USB Ethernet or physical Ethernet
+  -> local FieldMesh board
+  -> FieldMesh RF data plane
+  -> peer FieldMesh board
+  -> SDK over local USB Ethernet or physical Ethernet
+  -> peer app preview
+```
+
+For lab work, the source and sink can be two app instances on one physical PC
+as long as they use separate logical host-facing board interfaces and do not
+route payloads through the host IP stack between boards. In production, the
+same SDK flow runs on two separate PCs or embedded hosts.
+
+Control plane examples are AP browse/elect/join, stream open/subscribe, peer
+registry, topology, RTLS, and link policy. Data plane examples are camera
+frames, telemetry records, files, and customer payload streams. C0/C1 traffic
+should stay ahead of camera/video payloads; C2 carries the bounded-latency video
+base layer; C3/C4 carry enhancement and bulk data.
+
+The topology view is the radio topology: AP/coordinator leases, direct RF
+links, relay paths, RF route quality, scheduled slots, RTLS confidence, and
+degraded links. It must not present the host USB Ethernet or physical Ethernet
+wiring as the mesh topology. Those host links are only local app-to-board
+management and SDK ingress/egress paths.
 
 ## AP/Broker Flow
 
@@ -315,7 +366,7 @@ Stage 1: API and trace contract
 - Add AP/broker messages to the trace vocabulary.
 - Add executable `ap-elect` traces for preferred AP, RSSI/SNR/geo/capability
   based autonomous 2R2T AP, and emergency 1R1T AP fallback.
-- Add SDK RTLS calls so applications can feed GPS/PPS, RSSI/SNR, and
+- Add SDK RTLS calls so applications can feed GNSS/PPS, RSSI/SNR, and
   packet-timing TDOA measurements into AP election and route selection.
 
 Stage 2: Board-local service

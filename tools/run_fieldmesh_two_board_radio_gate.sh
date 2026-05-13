@@ -26,18 +26,39 @@ ssh_args=(
 capture_identity() {
   local ip="$1"
   local out="$2"
-  sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "${ssh_user}@${ip}" \
+  local tmp="${out}.tmp"
+  rm -f "$tmp"
+  sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" -o ConnectTimeout=15 \
+    -o ServerAliveInterval=3 -o ServerAliveCountMax=3 "${ssh_user}@${ip}" \
     "hostname; uname -a; fw_printenv mode hostname ipaddr ipaddr_host fieldmesh_node_id fieldmesh_network_id 2>/dev/null || true; command -v fieldmesh-udp-probe; command -v fieldmeshctl || true; ip route" \
-    > "$out"
+    > "$tmp"
+  mv "$tmp" "$out"
 }
 
 capture_identity "$z203_ip" "$out_dir/z203_identity.txt"
 capture_identity "$z103_ip" "$out_dir/z103_identity.txt"
 
+SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" OUT_DIR="$out_dir/z203_iio" \
+  "$repo_root/tools/run_fieldmesh_board_iio_scan.sh" "$z203_ip"
+SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" OUT_DIR="$out_dir/z103_iio" \
+  "$repo_root/tools/run_fieldmesh_board_iio_scan.sh" "$z103_ip"
+
 "$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" \
   "$z203_ip" "$frame" "$out_dir/z203_sidecar_dma_smoke"
 "$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" \
   "$z103_ip" "$frame" "$out_dir/z103_sidecar_dma_smoke"
+
+"$repo_root/tools/fieldmesh_rf_binding_plan.py" \
+  --z203-ip "$z203_ip" \
+  --z103-ip "$z103_ip" \
+  --z203-scan "$out_dir/z203_iio/iio_scan.ndjson" \
+  --z203-plan "$out_dir/z203_iio/iio_plan.ndjson" \
+  --z203-dma "$out_dir/z203_sidecar_dma_smoke/dma_smoke.ndjson" \
+  --z103-scan "$out_dir/z103_iio/iio_scan.ndjson" \
+  --z103-plan "$out_dir/z103_iio/iio_plan.ndjson" \
+  --z103-dma "$out_dir/z103_sidecar_dma_smoke/dma_smoke.ndjson" \
+  --frame "$frame" \
+  > "$out_dir/rf_binding_plan.json"
 
 python3 - "$out_dir" "$z203_ip" "$z103_ip" <<'PY'
 import json
@@ -65,6 +86,7 @@ z203_identity = (out_dir / "z203_identity.txt").read_text(encoding="utf-8")
 z103_identity = (out_dir / "z103_identity.txt").read_text(encoding="utf-8")
 z203_ok = smoke_ok(out_dir / "z203_sidecar_dma_smoke" / "dma_smoke.ndjson")
 z103_ok = smoke_ok(out_dir / "z103_sidecar_dma_smoke" / "dma_smoke.ndjson")
+rf_plan = json.loads((out_dir / "rf_binding_plan.json").read_text(encoding="utf-8"))
 
 if "fieldmesh-udp-probe" not in z203_identity:
     raise SystemExit("Z203 is missing fieldmesh-udp-probe")
@@ -74,8 +96,16 @@ if "ipaddr=192.168.3.1" not in z103_identity:
     raise SystemExit("Z103 identity did not show split host-facing IP")
 if not z203_ok or not z103_ok:
     raise SystemExit("one or both sidecar DMA smoke tests failed")
+if rf_plan.get("event") != "fieldmesh_rf_binding_plan" or rf_plan.get("ok") is not True:
+    raise SystemExit(f"RF binding plan failed: {rf_plan}")
+radio = rf_plan.get("radio_data_plane", {})
+management = rf_plan.get("management_plane", {})
+if management.get("uses_inter_board_ip_routing") is not False:
+    raise SystemExit("RF binding plan attempted inter-board IP routing")
+if radio.get("opens_iio_buffers") is not False or radio.get("starts_rf_tx") is not False:
+    raise SystemExit("RF binding plan must be read-only")
 
-print(json.dumps({
+result = {
     "event": "fieldmesh_two_board_radio_gate",
     "ok": True,
     "management_plane": {
@@ -86,12 +116,20 @@ print(json.dumps({
     "radio_data_plane": {
         "expected_between_boards": True,
         "uses_inter_board_ip_routing": False,
-        "current_gate": "per-board sidecar DMA packet readiness",
-        "next_gate": "bind FieldMesh packet stream to AD936x RF TX/RX path",
+        "current_gate": "per-board sidecar DMA plus read-only AD936x IIO RF binding readiness",
+        "next_gate": radio.get("next_gate"),
+        "opens_iio_buffers": False,
+        "starts_rf_tx": False,
     },
     "z203_sidecar_dma_smoke": z203_ok,
     "z103_sidecar_dma_smoke": z103_ok,
-}, sort_keys=True))
+    "rf_binding_plan": str(out_dir / "rf_binding_plan.json"),
+}
+(out_dir / "two_board_radio_gate.json").write_text(
+    json.dumps(result, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+print(json.dumps(result, sort_keys=True))
 PY
 
 echo "Capture directory: $out_dir"

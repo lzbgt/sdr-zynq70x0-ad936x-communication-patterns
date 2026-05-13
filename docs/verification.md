@@ -2805,7 +2805,7 @@ OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_two_board
   ./tools/run_fieldmesh_two_board_radio_gate.sh
 ```
 
-This gate:
+The earlier two-board radio gate:
 
 - captures Z203 at host-facing `192.168.2.1` and Z103 at host-facing
   `192.168.3.1`;
@@ -2815,11 +2815,40 @@ This gate:
 - marks the next data-plane gate as binding the FieldMesh packet stream to the
   AD936x RF TX/RX path.
 
-The live assertion was:
+The earlier live assertion was:
 
 ```json
 {"event":"fieldmesh_two_board_radio_gate","management_plane":{"host_facing_only":true,"z103_host_ip":"192.168.3.1","z203_host_ip":"192.168.2.1"},"ok":true,"radio_data_plane":{"current_gate":"per-board sidecar DMA packet readiness","expected_between_boards":true,"next_gate":"bind FieldMesh packet stream to AD936x RF TX/RX path","uses_inter_board_ip_routing":false},"z103_sidecar_dma_smoke":true,"z203_sidecar_dma_smoke":true}
 ```
+
+The current RF-binding version extends that gate:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_rf_binding_plan_20260514-004950 \
+  ./tools/run_fieldmesh_two_board_radio_gate.sh
+```
+
+Result:
+
+- both boards passed read-only AD936x IIO scan/plan;
+- both boards passed guarded sidecar DMA packet smoke;
+- `rf_binding_plan.json` selected `cf-ad9361-lpc` for RF RX and
+  `cf-ad9361-dds-core-lpc` for RF TX on both Z203 and Z103;
+- the saved assertion keeps `uses_inter_board_ip_routing=false`,
+  `opens_iio_buffers=false`, and `starts_rf_tx=false`;
+- the next gate is a conducted or shielded AD936x IQ burst encoder/decoder
+  smoke with explicit frequency, attenuation, and TX enable guard.
+
+The saved assertion is:
+
+```json
+{"event":"fieldmesh_two_board_radio_gate","management_plane":{"host_facing_only":true,"z103_host_ip":"192.168.3.1","z203_host_ip":"192.168.2.1"},"ok":true,"radio_data_plane":{"current_gate":"per-board sidecar DMA plus read-only AD936x IIO RF binding readiness","expected_between_boards":true,"next_gate":"conducted AD936x IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX enable guard","opens_iio_buffers":false,"starts_rf_tx":false,"uses_inter_board_ip_routing":false},"rf_binding_plan":"resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_rf_binding_plan_20260514-004950/rf_binding_plan.json","z103_sidecar_dma_smoke":true,"z203_sidecar_dma_smoke":true}
+```
+
+Note: a later same-directory rerun was interrupted while recapturing Z203
+identity after Z203 SSH stopped responding. The capture includes
+`z203_identity_provenance.txt`; the Z203 IIO and DMA artifacts in the same
+directory are from the successful RF-binding run.
 
 Refreshed runtime artifact hashes after the CLI fix:
 

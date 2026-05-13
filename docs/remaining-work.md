@@ -147,11 +147,20 @@ Next concrete work:
   resolves to Z203 while `192.168.3.1` resolves to Z103. These addresses are
   host-facing management/control paths only, not a board-to-board subnet. The
   new `tools/run_fieldmesh_two_board_radio_gate.sh` verifies both boards over
-  those management paths and proves per-board sidecar DMA packet readiness
-  while explicitly asserting that inter-board payloads must use the FieldMesh
-  radio data plane. The next live-safe step is binding FieldMesh packets to the
-  AD936x RF TX/RX path, then running AP browse/election/join as host commands
-  whose peer payload traffic crosses RF.
+  those management paths, proves per-board sidecar DMA packet readiness, runs
+  read-only AD936x IIO scan/plan capture, emits `rf_binding_plan.json`, and
+  explicitly asserts that inter-board payloads must use the FieldMesh radio
+  data plane. The next live-safe step is a conducted or shielded RF IQ
+  encoder/decoder smoke with explicit frequency, attenuation, and TX enable
+  guards, then running AP browse/election/join as host commands whose peer
+  payload traffic crosses RF.
+- Build the practical two-host camera-stream demo on top of the SDK once the
+  RF stream path is live. The intended product flow is one app that can source
+  or preview camera data: Host A camera -> local board over USB/physical
+  Ethernet SDK data ingress -> FieldMesh RF -> peer board -> Host B preview.
+  Host A and Host B may be the same physical PC for lab testing, but the test
+  must keep them as logical hosts and preserve the split between SDK control
+  plane and RF data plane.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

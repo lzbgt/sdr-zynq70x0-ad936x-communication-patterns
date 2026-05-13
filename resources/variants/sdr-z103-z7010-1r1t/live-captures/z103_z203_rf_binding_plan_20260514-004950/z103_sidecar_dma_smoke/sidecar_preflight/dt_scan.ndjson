@@ -1,0 +1,6 @@
+{"event":"dt_scan_start","transport":"dt-scan","dt_root":"/proc/device-tree"}
+{"event":"dt_node","transport":"dt-scan","node":"fieldmesh_ctrl","path":"/proc/device-tree/fpga-axi@0/fieldmesh-ctrl@43c00000","present":true,"compatible_ok":true,"reg_ok":true,"reg_base":"0x43c00000","reg_size":"0x00010000"}
+{"event":"dt_node","transport":"dt-scan","node":"fieldmesh_tx_dma","path":"/proc/device-tree/fpga-axi@0/dma@43c10000","present":true,"compatible_ok":true,"reg_ok":true,"reg_base":"0x43c10000","reg_size":"0x00010000"}
+{"event":"dt_node","transport":"dt-scan","node":"fieldmesh_rx_dma","path":"/proc/device-tree/fpga-axi@0/dma@43c20000","present":true,"compatible_ok":true,"reg_ok":true,"reg_base":"0x43c20000","reg_size":"0x00010000"}
+{"event":"dt_node","transport":"dt-scan","node":"fieldmesh_packet","path":"/proc/device-tree/fpga-axi@0/fieldmesh-packet","present":true,"compatible_ok":true,"reg_ok":true,"reg_base":"0x00000000","reg_size":"0x00000000"}
+{"event":"dt_scan_end","transport":"dt-scan","dt_root":"/proc/device-tree","ok":true}

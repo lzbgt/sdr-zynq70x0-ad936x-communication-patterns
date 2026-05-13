@@ -222,7 +222,7 @@ user and vendor configuration.
 - `docs/vivado-linux-wsl.md` - local Vivado 2025.1 installer inventory,
   WSL/Arch support boundary, disk-space check, license placement, and install
   workflow.
-- `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, GPS/PPS,
+- `docs/schematic-notes.md` - SDR-Z203 schematic findings for RF, GNSS/PPS,
   VCTCXO, Zynq, and boot-mode wiring.
 - `docs/nvmfs-mtd2.md` - read-only diagnosis of the `qspi-nvmfs` / `mtd2`
   mount failure and safe recovery boundary.
@@ -242,8 +242,9 @@ user and vendor configuration.
   radio AP/broker while keeping Z103/Z203 default firmware in passive learner
   mode.
 - `docs/fieldmesh-rtls-positioning.md` - built-in RTLS/relative-positioning
-  design using GPS/PPS when available and packet-timing TDOA plus RSSI/SNR when
-  GPS is absent, feeding AP election, routing, scheduling, and SDK peer state.
+  design using GNSS/PPS when available, including the attached BDS+GPS receiver
+  path, and packet-timing TDOA plus RSSI/SNR when GNSS is absent, feeding AP
+  election, routing, scheduling, and SDK peer state.
 - `docs/fieldmesh-maritime-range.md` - ship-to-ship range model for sea
   deployments, including radio horizon, link budget, fade margin, and
   production vs low-power planning ranges.
@@ -441,12 +442,16 @@ user and vendor configuration.
   FieldMesh AP election contract, including preferred 2R2T AP, autonomous
   2R2T election, and emergency 1R1T AP fallback.
 - `tools/verify_fieldmesh_rtls.sh` - host-side RTLS/relative-positioning check
-  for GPS/PPS fused estimates and GPS-denied packet-timing TDOA plus RSSI/SNR
+  for GNSS/PPS fused estimates and GNSS-denied packet-timing TDOA plus RSSI/SNR
   fallback estimates.
 - `tools/run_fieldmesh_board_dma_smoke.sh` - SSH-driven guarded sidecar DMA
   smoke runner that reruns the board sidecar preflight, copies a committed
   FieldMesh frame vector to the board, records `dma-plan`, and only then starts
   a live RX-before-TX DMA transfer with an explicit `--allow-live-writes` gate.
+- `tools/fieldmesh_rf_binding_plan.py` - read-only two-board RF binding
+  planner. It combines sidecar DMA smoke captures with AD936x IIO scan/plan
+  captures, selects RF RX/TX IIO endpoints, and asserts that host-facing IP
+  remains management only while no IIO buffers or RF TX are started.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
@@ -758,6 +763,15 @@ Expected result in the current Pluto-compatible firmware state:
    both boards over those host links, verifies sidecar packet DMA readiness on
    each board, and leaves actual peer payloads assigned to the FieldMesh
    RF/sidecar data plane.
+   The gate now also records read-only AD936x IIO scan/plan evidence on both
+   boards and emits `rf_binding_plan.json`, which keeps host IP out of the
+   inter-board path and marks the next gate as a conducted or shielded IQ
+   burst encoder/decoder smoke. The practical product demo after that is one
+   SDK host camera app that can source or preview video: Host A camera over
+   USB/physical Ethernet to peer board A, FieldMesh RF to peer board B, then
+   USB/physical Ethernet to Host B preview. Host A and Host B can be the same
+   physical PC for lab testing, but they remain two logical hosts with a
+   distinct SDK control plane and RF data plane.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

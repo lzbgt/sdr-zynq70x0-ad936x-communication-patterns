@@ -164,8 +164,11 @@ radio/sidecar data plane.
    ```
 
    This verifies both host-facing management paths and sidecar packet DMA
-   readiness on both boards, while explicitly asserting that inter-board IP
-   routing is not part of the design.
+   readiness on both boards, runs read-only AD936x IIO scan/plan capture on
+   both boards, emits `rf_binding_plan.json`, and explicitly asserts that
+   inter-board IP routing is not part of the design. The RF binding plan opens
+   no IIO buffers and starts no RF TX; it is the last read-only gate before a
+   conducted or shielded radio test.
 
 4. Run the Z203 AP service on the PC/interface attached to Z203:
 
@@ -185,6 +188,57 @@ radio/sidecar data plane.
 6. Once both control planes are distinct, replace deterministic demo responses
    with real AP admission, peer registry, route query, and RF-backed stream
    transport.
+
+## Two-Host Camera Stream Demo Target
+
+The practical application demo should be one portable host app that can act as
+source, sink, or both. The preferred production app can be C++ for camera,
+preview, and UI work; Rust is also a good supported app target through a Rust
+SDK/binding paired with the pure-C SDK ABI:
+
+```text
+Host A camera app
+  -> USB Ethernet or physical Ethernet SDK data socket
+  -> peer board A
+  -> FieldMesh RF data plane
+  -> peer board B
+  -> USB Ethernet or physical Ethernet SDK data socket
+  -> Host B preview app
+```
+
+Host A and Host B may be the same physical PC for lab testing, as long as the
+test treats them as two logical hosts with separate board-facing interfaces and
+separate app instances. The customer architecture remains the same when those
+apps move to two different PCs or embedded hosts.
+
+The demo has two planes:
+
+- **Control plane:** SDK commands over host-facing USB/physical Ethernet:
+  browse APs, join/audit, elect or command AP/proactive role, discover peers,
+  open a stream, subscribe to a stream, query RTLS/link state, and adapt
+  bitrate or route policy.
+- **Data plane:** camera frames are packetized as prioritized FieldMesh streams
+  and must cross the board-to-board RF path. Host-facing IP is only the ingress
+  and egress API to each local board; it is not the inter-board network.
+
+The topology viewer in this app is a radio topology viewer. It should show
+AP/coordinator state, peer discovery, direct RF links, relay paths, scheduled
+slots, RTLS/relative colocating confidence, and route quality. It should not
+draw the host USB Ethernet or physical Ethernet links as mesh links.
+
+Suggested stream classes:
+
+- C0/C1: session control, keepalive, route changes, camera metadata, and
+  bitrate-control feedback.
+- C2: video base layer with bounded latency and drop-old-frame behavior.
+- C3: enhancement frames or opportunistic quality increase.
+- C4: file snapshots, logs, or bulk transfer.
+
+The first implementation can use simple intra-frame chunks or JPEG/H.264/H.265
+access units from a Windows camera pipeline. The SDK-facing ABI should stay C
+and transport-neutral so the same application can run on Windows, Linux,
+macOS, or embedded Linux. A later GUI can wrap the same SDK calls for camera
+selection and preview.
 
 ## Safety
 

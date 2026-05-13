@@ -1,0 +1,1 @@
+z203_identity.txt was restored from resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_two_board_radio_gate_20260514-0055/z203_identity.txt after an interrupted same-directory rerun overwrote the freshly captured identity file. The same RF binding run still contains Z203 IIO and sidecar DMA captures from 2026-05-14 00:49:52 through 00:49:58.

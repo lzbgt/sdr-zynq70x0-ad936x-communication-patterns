@@ -5,12 +5,14 @@ grade GPS replacement. The goal is enough real-time relative geometry to improve
 AP election, relay choice, routing, scheduled airtime, and operator awareness
 for moving peers such as AGVs, vessels, cameras, and field robots.
 
-This is an RTLS-style feature, and GPS has two separate jobs when present:
+This is an RTLS-style feature, and GNSS has two separate jobs when present. The
+attached receiver path should be treated as BDS+GPS capable, with PPS used as
+the timing signal when available:
 
-- GPS/PPS is used for time sync so scheduled mode, TDOA windows, and packet RX
+- GNSS/PPS is used for time sync so scheduled mode, TDOA windows, and packet RX
   timestamps share a meaningful epoch.
-- GPS position is used for localization when a node has a valid fix.
-- RSSI/SNR gives coarse range and confidence when GPS is absent or denied.
+- GNSS position is used for localization when a node has a valid BDS/GPS fix.
+- RSSI/SNR gives coarse range and confidence when GNSS is absent or denied.
 - Packet-timing TDOA gives relative geometry when multiple timestamped
   receivers, a shared AP/coordinator timebase, or calibrated probe/response
   turnaround timing are available.
@@ -19,7 +21,7 @@ This is an RTLS-style feature, and GPS has two separate jobs when present:
 
 ## Board Evidence
 
-The SDR-Z203 external package includes GPS-oriented examples and tools:
+The SDR-Z203 external package includes GNSS/GPS-oriented examples and tools:
 
 - `/mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档/gps_transfer`
 - `/mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档/gps_vctcxo`
@@ -29,8 +31,9 @@ The SDR-Z203 external package includes GPS-oriented examples and tools:
 The `gps_transfer` example is a UART pass-through design. Its SDK `main.c`
 reads from PS UART0 and writes to PS UART1, while the top RTL exposes
 `UART_0_rxd`/`UART_0_txd`. Its constraints bind those pins to `K21` and `L21`.
-That is enough evidence to treat GPS/NMEA ingestion as a practical board
-workflow.
+That is enough evidence to treat GNSS/NMEA ingestion as a practical board
+workflow. For product docs and UI, call this GNSS where possible and expose the
+constellation state, including BDS+GPS when the receiver reports it.
 
 The `gps_vctcxo` example contains AD936x and GPIO control code and is useful
 for later clock-discipline work. The FieldMesh RTLS design should not depend on
@@ -43,7 +46,8 @@ clock measurement.
 Each peer periodically reports:
 
 - stable node ID and hardware class;
-- GPS fix state, local position, and fix age when available;
+- GNSS fix state and constellation mask such as BDS+GPS, local position, and
+  fix age when available;
 - PPS or coordinator-clock discipline state;
 - RSSI and SNR from each visible peer or AP;
 - packet loss, retry, and FEC recovery counters;
@@ -54,14 +58,14 @@ Each peer periodically reports:
 
 The AP/broker or elected coordinator emits:
 
-- `rtls_measurement`: raw GPS/PPS, RSSI/SNR, packet-timing TDOA, and timing
+- `rtls_measurement`: raw GNSS/PPS, RSSI/SNR, packet-timing TDOA, and timing
   quality inputs;
 - `rtls_estimate`: fused local `x_cm`/`y_cm`, error radius, confidence, and
   `estimated_geo_centrality`;
 - `rtls_summary`: peer count, GPS/fallback counts, and which output fields are
   valid for AP election and routing.
 
-The local coordinate frame is AP-relative at first. A GPS-locked AP can anchor
+The local coordinate frame is AP-relative at first. A GNSS-locked AP can anchor
 that frame to latitude/longitude later, but the early mesh experiments only need
 stable relative geometry.
 
@@ -69,10 +73,10 @@ stable relative geometry.
 
 FieldMesh uses a tiered estimator:
 
-1. **GPS/PPS fused:** use GPS position when the fix is fresh and the PPS/clock
+1. **GNSS/PPS fused:** use GNSS position when the fix is fresh and the PPS/clock
    quality is good. Error radius is small and confidence is high. The same PPS
    discipline also tightens scheduled-mode slots and TDOA measurement windows.
-2. **Packet timing + RSSI + TDOA:** if GPS is absent, derive coarse range from
+2. **Packet timing + RSSI + TDOA:** if GNSS is absent, derive coarse range from
    RSSI/SNR and relative bearing/position from packet timestamp deltas against
    AP/relay anchors. The responder must use either a scheduled response slot or
    a calibrated turnaround delay so the AP can remove processing latency from
@@ -85,13 +89,13 @@ FieldMesh uses a tiered estimator:
 TDOA is useful only when timestamp quality and responder timing are known. For
 Z203/Z103, first prototype assumptions are:
 
-- GPS/PPS or AP-coordinator time establishes a shared epoch;
+- GNSS/PPS or AP-coordinator time establishes a shared epoch;
 - sidecar packet descriptors carry RX timestamps;
 - RTLS probe and response packets have fixed fields and calibrated turnaround;
 - AP or relay nodes collect peer reports and solve the relative frame;
 - guard intervals widen when clock quality is poor.
 
-## GPS-Denied Indoor Accuracy Envelope
+## GNSS-Denied Indoor Accuracy Envelope
 
 Indoor RTLS should be sold and engineered as a relative-topology feature first,
 not as a guaranteed survey-grade location system. Multipath, antenna placement,
@@ -120,7 +124,7 @@ Deployment constraints:
 
 Recommended product claim:
 
-> GPS-assisted outdoors; GPS-denied indoor relative RTLS with 2-8 m typical
+> GNSS-assisted outdoors; GNSS-denied indoor relative RTLS with 2-8 m typical
 > accuracy after calibration, falling back to room/zone-level RSSI/SNR when
 > timing geometry is weak.
 
@@ -163,16 +167,16 @@ The first implementation is `fieldmesh-udp-probe rtls-estimate`.
 
 It verifies three deterministic cases:
 
-- mixed GPS and fallback estimates;
-- GPS-denied operation where all peers use packet-timing TDOA plus RSSI/SNR;
-- GPS-lock operation where all peers use GPS/PPS fused estimates.
+- mixed GNSS and fallback estimates;
+- GNSS-denied operation where all peers use packet-timing TDOA plus RSSI/SNR;
+- GNSS-lock operation where all peers use GNSS/PPS fused estimates.
 
 The output is intentionally NDJSON so the same trace shape can later be fed by
-real GPS UART, IIO/link metrics, and PL RX timestamps.
+real GNSS UART, IIO/link metrics, and PL RX timestamps.
 
 The C SDK now exposes the same model to host applications:
 
-- `fieldmesh_report_rtls_measurement()` accepts GPS/PPS, RSSI/SNR,
+- `fieldmesh_report_rtls_measurement()` accepts GNSS/PPS, RSSI/SNR,
   packet-timing TDOA, RX timestamp, and calibrated response-delay inputs;
 - `fieldmesh_get_peer_position()` returns one fused estimate for a peer;
 - `fieldmesh_list_peer_positions()` publishes all known estimates to AP,
@@ -184,7 +188,7 @@ position estimate shape.
 
 ## Next Implementation Steps
 
-1. Add real board GPS/NMEA capture using the Z203 `gps_transfer` evidence and
+1. Add real board GNSS/NMEA capture using the Z203 `gps_transfer` evidence and
    Linux serial paths.
 2. Add packet RX timestamp capture in the sidecar descriptor path.
 3. Feed SDK RTLS estimates into the board daemon peer registry.

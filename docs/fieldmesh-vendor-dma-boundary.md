@@ -412,6 +412,22 @@ Directly replacing `cpack`, `tx_upack`, or the ADI `axi_dmac` blocks is a later
 step only after the packet path, scheduler, trace evidence, and recovery path
 are proven.
 
+The first two-board RF binding gate is intentionally read-only:
+
+```sh
+Z203_IP=192.168.2.1 Z103_IP=192.168.3.1 \
+  tools/run_fieldmesh_two_board_radio_gate.sh
+```
+
+That gate now combines host-facing identity capture, per-board sidecar DMA
+smoke, per-board AD936x IIO scan/plan capture, and
+`tools/fieldmesh_rf_binding_plan.py`. The generated `rf_binding_plan.json`
+states that host-facing IP is management only, that board-to-board payloads
+must use the FieldMesh RF/sidecar data plane, and that the gate opens no IIO
+buffers and starts no RF TX. The next RF step must be a conducted or shielded
+IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX
+enable guards.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.
