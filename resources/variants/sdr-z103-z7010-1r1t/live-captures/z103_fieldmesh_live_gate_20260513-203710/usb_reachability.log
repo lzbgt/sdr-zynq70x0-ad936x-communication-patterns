@@ -1,0 +1,70 @@
+== WSL network ==
+lo               UNKNOWN        127.0.0.1/8 10.255.255.254/32 ::1/128
+eth0             UP             172.28.195.20/20 fe80::215:5dff:feaa:73c6/64
+default via 172.28.192.1 dev eth0 proto kernel
+172.28.192.0/20 dev eth0 proto kernel scope link src 172.28.195.20
+
+== WSL ping 192.168.2.1 ==
+PING 192.168.2.1 (192.168.2.1) 56(84) bytes of data.
+64 bytes from 192.168.2.1: icmp_seq=1 ttl=63 time=1.12 ms
+64 bytes from 192.168.2.1: icmp_seq=2 ttl=63 time=0.655 ms
+64 bytes from 192.168.2.1: icmp_seq=3 ttl=63 time=1.05 ms
+64 bytes from 192.168.2.1: icmp_seq=4 ttl=63 time=0.435 ms
+
+--- 192.168.2.1 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3012ms
+rtt min/avg/max/mdev = 0.435/0.814/1.121/0.281 ms
+
+== WSL USB visibility ==
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 003: ID 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+      407      0 crw-rw-r--   1 root     root     189, 128 May 12 23:58 /dev/bus/usb/002/001
+      429      0 crw-rw-rw-   1 root     root     189,   2 May 13 20:37 /dev/bus/usb/001/003
+      405      0 crw-rw-r--   1 root     root     189,   0 May 12 23:58 /dev/bus/usb/001/001
+
+== Windows Pluto/RNDIS/FTDI PnP devices ==
+
+Class     FriendlyName                       InstanceId
+-----     ------------                       ----------
+USB       USB Composite Device               USB\VID_0456&PID_B673\5&68EE1F5&0&3
+USB       USB Mass Storage Device            USB\VID_0456&PID_B673&MI_02\6&1DC2E353&0&0002
+WPD       PlutoSDR                           SWD\WPDBUSENUM\_??_USBSTOR#DISK&VEN_LINUX&PROD_FILE-STOR_GADGET&REV_060...
+Ports     PlutoSDR Serial Console (COM3)     USB\VID_0456&PID_B673&MI_03\6&1DC2E353&0&0003
+Net       PlutoSDR USB Ethernet/RNDIS Gadget USB\VID_0456&PID_B673&MI_00\6&1DC2E353&0&0000
+USBDevice IIO                                USB\VID_0456&PID_B673&MI_05\6&1DC2E353&0&0005
+
+
+
+== Windows network adapters ==
+
+Name     InterfaceDescription               Status MacAddress        LinkSpeed ifIndex
+----     --------------------               ------ ----------        --------- -------
+ÒÔÌ«Íø 2 PlutoSDR USB Ethernet/RNDIS Gadget Up     00-E0-22-AD-C8-3B 0 bps          11
+
+
+
+== Windows 192.168.2.x IPv4 addresses ==
+
+InterfaceAlias IPAddress    PrefixLength PrefixOrigin
+-------------- ---------    ------------ ------------
+ÒÔÌ«Íø 2       192.168.2.10           24         Dhcp
+
+
+
+== usbipd status ==
+
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-1    0403:6010  USB Serial Converter A, USB Serial Converter B                Attached
+1-3    0456:b673  PlutoSDR USB Ethernet/RNDIS Gadget, USB Mass Storage Devi...  Not shared
+1-6    0408:548d  HP True Vision FHD Camera, Camera DFU Device                  Not shared
+1-14   8087:0033  Intel(R) Wireless Bluetooth(R)                                Not shared
+
+Persisted:
+GUID                                  DEVICE
+0e7bffac-a23e-4799-a3d7-60a7e94aaafc  USB Serial Converter A, USB Serial Converter B
+
+Source                                 Version
+------                                 -------
+C:\Program Files\usbipd-win\usbipd.exe 0.0.0.0

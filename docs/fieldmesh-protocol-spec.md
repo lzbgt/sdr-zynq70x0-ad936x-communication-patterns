@@ -41,6 +41,26 @@ LoRa modulation and should target video/data rates far above LoRa-class links.
 Z103 must remain a first-class member. Any required endpoint feature that does
 not fit Z7010/1R1T is too large for the first product direction.
 
+## Staged Board Plan
+
+The immediate two-board workflow is:
+
+1. Verify the SDR-Z103 / Z7010 / 1R1T board with customized firmware first.
+2. When the SDR-Z203 / Z7020 / 2R2T board is plugged in, rebuild and reflash it.
+3. Power both boards, keep the 2R2T board connected to this host, and run P2P,
+   star, graph, and scheduled communication-pattern experiments.
+
+Both Z103 and Z203 firmware should boot as passive learners. A board listens for
+peer advertisements and capability reports by default; it is not launched as a
+fixed hub, relay, endpoint, or scheduler. An application or user command may
+promote any board into a proactive initiator, and that command then drives mode
+proposal and contract negotiation.
+
+The 1R1T endpoint firmware must adapt to the 2R2T peer. It should treat
+`CAPABILITY_REPORT`, link reports, user/application commands, and the selected
+`MODE_CONTRACT` as the source of truth for whether it uses P2P, joins a
+star/fanout hub, follows a graph relay policy, or obeys scheduled slots.
+
 ## Traffic Classes
 
 | Class | Name | Examples | Policy |
@@ -318,6 +338,28 @@ candidates from device/channel metadata before an IIO packet pipe is attempted.
 They intentionally stay smaller than the Python harness. Use them for
 board-runtime validation; keep the Python harness as the richer host-side
 reference.
+
+The default no-role board command is now a passive learner:
+
+```sh
+fieldmesh-udp-probe
+```
+
+It binds to `0.0.0.0:49000`, listens for peer advertisements and user/application
+commands, and does not become a proactive initiator by itself. Applications can
+exercise the same model explicitly:
+
+```sh
+fieldmesh-udp-probe adaptive-listen --host 0.0.0.0 --port 49000 --mode auto
+fieldmesh-udp-probe advertise --host <peer-ip> --port 49000 --node-profile z203
+fieldmesh-udp-probe command --host <peer-ip> --port 49000 --mode scheduled
+```
+
+`advertise` reports board capabilities such as 1R1T endpoint or 2R2T
+coordinator/relay support. `command` is the application/user promotion point:
+it requests a proactive initiator role and a communication model, while the
+listener still finalizes the selected `MODE_CONTRACT` from learned peer
+capabilities.
 
 When the board is reachable over SSH and is running an image that contains
 `fieldmesh-udp-probe`, the end-to-end board smoke test is:

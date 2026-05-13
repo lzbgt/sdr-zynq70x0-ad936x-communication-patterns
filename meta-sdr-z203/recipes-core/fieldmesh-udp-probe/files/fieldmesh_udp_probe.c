@@ -48,6 +48,7 @@ struct config {
     const char *scenario;
     const char *mode;
     const char *traffic_profile;
+    const char *node_profile;
     const char *iio_uri;
     const char *file;
     const char *dt_root;
@@ -114,8 +115,12 @@ static void usage(FILE *out)
 {
     fprintf(out,
         "Usage:\n"
+        "  fieldmesh-udp-probe   # default passive learner on 0.0.0.0:49000\n"
         "  fieldmesh-udp-probe send --host HOST --port PORT [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe receive --host HOST --port PORT [--count N] [--timeout-ms N]\n"
+        "  fieldmesh-udp-probe advertise --host HOST --port PORT [--node-profile z103|z203]\n"
+        "  fieldmesh-udp-probe command --host HOST --port PORT [--mode auto|p2p|star|graph|scheduled]\n"
+        "  fieldmesh-udp-probe adaptive-listen --host HOST --port PORT [--count N] [--timeout-ms N] [--mode auto|p2p|star|graph|scheduled]\n"
         "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-replay --file FRAME.bin\n"
@@ -151,15 +156,16 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     const char *value = NULL;
 
     *cfg = (struct config) {
-        .role = NULL,
-        .host = "127.0.0.1",
-        .port = 0,
+        .role = "adaptive-listen",
+        .host = "0.0.0.0",
+        .port = 49000,
         .ticks = 8,
         .count = 0,
         .timeout_ms = 1000,
         .scenario = "p2p",
-        .mode = "p2p",
+        .mode = "auto",
         .traffic_profile = "basic",
+        .node_profile = "z103",
         .iio_uri = "local:",
         .file = NULL,
         .dt_root = "/proc/device-tree",
@@ -172,9 +178,12 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .dma_size = 0x10000U,
     };
 
+    if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+        usage(stdout);
+        return 1;
+    }
     if (argc < 2) {
-        usage(stderr);
-        return 2;
+        return 0;
     }
     cfg->role = argv[1];
 
@@ -199,6 +208,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             if (!arg_value(argc, argv, &i, &cfg->mode)) return 2;
         } else if (!strcmp(argv[i], "--traffic-profile")) {
             if (!arg_value(argc, argv, &i, &cfg->traffic_profile)) return 2;
+        } else if (!strcmp(argv[i], "--node-profile")) {
+            if (!arg_value(argc, argv, &i, &cfg->node_profile)) return 2;
         } else if (!strcmp(argv[i], "--iio-uri")) {
             if (!arg_value(argc, argv, &i, &cfg->iio_uri)) return 2;
         } else if (!strcmp(argv[i], "--file")) {
@@ -235,6 +246,9 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
 
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
+        strcmp(cfg->role, "advertise") &&
+        strcmp(cfg->role, "command") &&
+        strcmp(cfg->role, "adaptive-listen") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
@@ -242,7 +256,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-plan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
@@ -272,6 +286,10 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if (!strcmp(cfg->role, "dma-scan") && cfg->dma_size < 0x14U) {
         fprintf(stderr, "--dma-size must cover the 0x00..0x10 DMA registers\n");
+        return 2;
+    }
+    if (strcmp(cfg->node_profile, "z103") && strcmp(cfg->node_profile, "z203")) {
+        fprintf(stderr, "--node-profile must be z103 or z203\n");
         return 2;
     }
     return 0;
@@ -998,6 +1016,315 @@ static void emit_send_negotiation(const struct config *cfg, const char *selected
 
     printf("{\"event\":\"mode_decision\",\"selected_mode\":\"%s\",\"reason\":\"%s\","
            "\"coordinator\":\"z203-hub\"}\n", selected, reason);
+}
+
+static const char *profile_node_id(const char *profile)
+{
+    return !strcmp(profile, "z203") ? "z203-hub" : "z103-a";
+}
+
+static const char *profile_hardware(const char *profile)
+{
+    return !strcmp(profile, "z203") ? "sdr-z203-z7020-2r2t" : "sdr-z103-z7010-1r1t";
+}
+
+static const char *profile_roles_json(const char *profile)
+{
+    return !strcmp(profile, "z203") ?
+        "[\"hub\",\"coordinator\",\"relay\",\"gateway\",\"observer\"]" :
+        "[\"endpoint\",\"observer\"]";
+}
+
+static const char *profile_modes_json(const char *profile)
+{
+    return !strcmp(profile, "z203") ?
+        "[\"p2p\",\"star\",\"graph\",\"scheduled\"]" :
+        "[\"p2p\",\"star\"]";
+}
+
+static const char *profile_radio(const char *profile)
+{
+    return !strcmp(profile, "z203") ? "2r2t" : "1r1t";
+}
+
+static const char *profile_clock(const char *profile)
+{
+    return !strcmp(profile, "z203") ? "gps_pps_candidate" : "local";
+}
+
+static int profile_max_kbps(const char *profile)
+{
+    return !strcmp(profile, "z203") ? 7000 : 2500;
+}
+
+static int send_json_datagram(int sock, const struct sockaddr_in *addr, const char *json)
+{
+    ssize_t sent = sendto(sock, json, strlen(json), 0,
+                          (const struct sockaddr *)addr, sizeof(*addr));
+    return sent == (ssize_t)strlen(json) ? 0 : -1;
+}
+
+static int run_advertise(const struct config *cfg)
+{
+    int sock;
+    struct sockaddr_in addr;
+    char capability[768];
+    char beacon[512];
+    const char *node = profile_node_id(cfg->node_profile);
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return 1;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(cfg->port);
+    if (inet_pton(AF_INET, cfg->host, &addr.sin_addr) != 1) {
+        fprintf(stderr, "bad --host address: %s\n", cfg->host);
+        close(sock);
+        return 2;
+    }
+
+    snprintf(capability, sizeof(capability),
+             "{\"event\":\"capability_report\",\"node_id\":\"%s\","
+             "\"hardware\":\"%s\",\"roles\":%s,\"radio\":\"%s\","
+             "\"clock\":\"%s\",\"max_kbps\":%d,"
+             "\"traffic_classes\":[\"C0\",\"C1\",\"C2\",\"C3\",\"C4\"]}",
+             node, profile_hardware(cfg->node_profile), profile_roles_json(cfg->node_profile),
+             profile_radio(cfg->node_profile), profile_clock(cfg->node_profile),
+             profile_max_kbps(cfg->node_profile));
+    snprintf(beacon, sizeof(beacon),
+             "{\"event\":\"discovery_beacon\",\"node_id\":\"%s\","
+             "\"supported_modes\":%s,\"roles\":%s,\"clock\":\"%s\","
+             "\"max_kbps\":%d}",
+             node, profile_modes_json(cfg->node_profile), profile_roles_json(cfg->node_profile),
+             profile_clock(cfg->node_profile), profile_max_kbps(cfg->node_profile));
+
+    printf("{\"event\":\"advertise_start\",\"transport\":\"udp-advertise\","
+           "\"node_id\":\"%s\",\"node_profile\":\"%s\",\"host\":\"%s\","
+           "\"port\":%u,\"datagrams\":2,\"proactive\":false,"
+           "\"initiates_mode\":false}\n",
+           node, cfg->node_profile, cfg->host, cfg->port);
+    if (send_json_datagram(sock, &addr, capability) != 0 ||
+        send_json_datagram(sock, &addr, beacon) != 0) {
+        printf("{\"event\":\"advertise_end\",\"transport\":\"udp-advertise\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               errno, strerror(errno));
+        close(sock);
+        return 1;
+    }
+    printf("%s\n", capability);
+    printf("%s\n", beacon);
+    printf("{\"event\":\"advertise_end\",\"transport\":\"udp-advertise\","
+           "\"ok\":true,\"node_id\":\"%s\"}\n", node);
+    close(sock);
+    return 0;
+}
+
+static int run_command(const struct config *cfg)
+{
+    int sock;
+    struct sockaddr_in addr;
+    char command[512];
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return 1;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(cfg->port);
+    if (inet_pton(AF_INET, cfg->host, &addr.sin_addr) != 1) {
+        fprintf(stderr, "bad --host address: %s\n", cfg->host);
+        close(sock);
+        return 2;
+    }
+
+    snprintf(command, sizeof(command),
+             "{\"event\":\"user_command\",\"commanded_role\":\"proactive_initiator\","
+             "\"requested_mode\":\"%s\",\"traffic_profile\":\"%s\","
+             "\"source\":\"application_or_user\"}",
+             cfg->mode, cfg->traffic_profile);
+
+    printf("{\"event\":\"command_start\",\"transport\":\"udp-command\","
+           "\"host\":\"%s\",\"port\":%u,\"requested_mode\":\"%s\"}\n",
+           cfg->host, cfg->port, cfg->mode);
+    if (send_json_datagram(sock, &addr, command) != 0) {
+        printf("{\"event\":\"command_end\",\"transport\":\"udp-command\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               errno, strerror(errno));
+        close(sock);
+        return 1;
+    }
+    printf("%s\n", command);
+    printf("{\"event\":\"command_end\",\"transport\":\"udp-command\","
+           "\"ok\":true,\"requested_mode\":\"%s\"}\n", cfg->mode);
+    close(sock);
+    return 0;
+}
+
+static bool json_has(const char *json, const char *needle)
+{
+    return strstr(json, needle) != NULL;
+}
+
+static const char *json_requested_mode(const char *json)
+{
+    if (json_has(json, "\"requested_mode\":\"scheduled\"")) return "scheduled";
+    if (json_has(json, "\"requested_mode\":\"graph\"")) return "graph";
+    if (json_has(json, "\"requested_mode\":\"star\"")) return "star";
+    if (json_has(json, "\"requested_mode\":\"p2p\"")) return "p2p";
+    if (json_has(json, "\"requested_mode\":\"auto\"")) return "auto";
+    return NULL;
+}
+
+static const char *choose_adaptive_mode(const struct config *cfg, bool peer_star,
+                                        bool peer_graph, bool peer_scheduled,
+                                        bool peer_coordinator, bool peer_relay,
+                                        bool peer_pps)
+{
+    if (strcmp(cfg->mode, "auto")) {
+        return cfg->mode;
+    }
+    if (peer_scheduled && peer_coordinator && peer_pps) {
+        return "scheduled";
+    }
+    if (peer_graph && peer_relay) {
+        return "graph";
+    }
+    if (peer_star) {
+        return "star";
+    }
+    return "p2p";
+}
+
+static int run_adaptive_listen(const struct config *cfg)
+{
+    int sock;
+    struct sockaddr_in addr;
+    uint8_t buf[2048];
+    int received = 0;
+    bool peer_star = false;
+    bool peer_graph = false;
+    bool peer_scheduled = false;
+    bool peer_coordinator = false;
+    bool peer_relay = false;
+    bool peer_pps = false;
+    bool saw_advertisement = false;
+    bool saw_command = false;
+    const char *commanded_mode = NULL;
+    const char *selected;
+    const char *reason;
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return 1;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(cfg->port);
+    if (inet_pton(AF_INET, cfg->host, &addr.sin_addr) != 1) {
+        fprintf(stderr, "bad --host address: %s\n", cfg->host);
+        close(sock);
+        return 2;
+    }
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+        perror("bind");
+        close(sock);
+        return 1;
+    }
+
+    printf("{\"event\":\"adaptive_listen_start\",\"transport\":\"udp-adaptive-listen\","
+           "\"host\":\"%s\",\"port\":%u,\"requested_mode\":\"%s\","
+           "\"default_policy\":\"passive_learner\",\"proactive\":false}\n",
+           cfg->host, cfg->port, cfg->mode);
+
+    while (cfg->count <= 0 || received < cfg->count) {
+        fd_set readfds;
+        struct timeval tv;
+        int ready;
+        ssize_t got;
+
+        FD_ZERO(&readfds);
+        FD_SET(sock, &readfds);
+        tv.tv_sec = cfg->timeout_ms / 1000;
+        tv.tv_usec = (cfg->timeout_ms % 1000) * 1000;
+        ready = select(sock + 1, &readfds, NULL, NULL, &tv);
+        if (ready == 0 && cfg->count <= 0) {
+            continue;
+        }
+        if (ready <= 0) {
+            break;
+        }
+        got = recvfrom(sock, buf, sizeof(buf) - 1U, 0, NULL, NULL);
+        if (got <= 0) {
+            break;
+        }
+        buf[got] = 0;
+        received++;
+        saw_advertisement = saw_advertisement ||
+            json_has((const char *)buf, "capability_report") ||
+            json_has((const char *)buf, "discovery_beacon");
+        if (json_has((const char *)buf, "user_command")) {
+            saw_command = true;
+            commanded_mode = json_requested_mode((const char *)buf);
+        }
+        peer_star = peer_star || json_has((const char *)buf, "\"star\"");
+        peer_graph = peer_graph || json_has((const char *)buf, "\"graph\"");
+        peer_scheduled = peer_scheduled || json_has((const char *)buf, "\"scheduled\"");
+        peer_coordinator = peer_coordinator || json_has((const char *)buf, "\"coordinator\"");
+        peer_relay = peer_relay || json_has((const char *)buf, "\"relay\"");
+        peer_pps = peer_pps || json_has((const char *)buf, "pps");
+        printf("{\"event\":\"peer_advertisement\",\"transport\":\"udp-adaptive-listen\","
+               "\"bytes\":%zd,\"peer_star\":%s,\"peer_graph\":%s,"
+               "\"peer_scheduled\":%s,\"peer_coordinator\":%s,"
+               "\"peer_relay\":%s,\"peer_pps\":%s}\n",
+               got, peer_star ? "true" : "false", peer_graph ? "true" : "false",
+               peer_scheduled ? "true" : "false", peer_coordinator ? "true" : "false",
+               peer_relay ? "true" : "false", peer_pps ? "true" : "false");
+    }
+
+    if (commanded_mode && strcmp(commanded_mode, "auto")) {
+        selected = commanded_mode;
+        reason = "user_or_application_command";
+    } else {
+        selected = choose_adaptive_mode(cfg, peer_star, peer_graph, peer_scheduled,
+                                        peer_coordinator, peer_relay, peer_pps);
+        reason = strcmp(cfg->mode, "auto") ? "user_forced" : "peer_capability_advertisement";
+    }
+    if (commanded_mode) {
+        printf("{\"event\":\"command_state\",\"transport\":\"udp-adaptive-listen\","
+               "\"saw_command\":%s,\"commanded_mode\":\"%s\","
+               "\"proactive_allowed\":%s}\n",
+               saw_command ? "true" : "false", commanded_mode,
+               saw_command ? "true" : "false");
+    } else {
+        printf("{\"event\":\"command_state\",\"transport\":\"udp-adaptive-listen\","
+               "\"saw_command\":%s,\"commanded_mode\":null,"
+               "\"proactive_allowed\":%s}\n",
+               saw_command ? "true" : "false",
+               saw_command ? "true" : "false");
+    }
+    printf("{\"event\":\"mode_proposal\",\"transport\":\"udp-adaptive-listen\","
+           "\"selected_mode\":\"%s\",\"reason\":\"%s\"}\n",
+           selected, reason);
+    printf("{\"event\":\"mode_accept\",\"transport\":\"udp-adaptive-listen\","
+           "\"node_id\":\"%s\",\"selected_mode\":\"%s\"}\n",
+           profile_node_id(cfg->node_profile), selected);
+    printf("{\"event\":\"mode_contract\",\"transport\":\"udp-adaptive-listen\","
+           "\"selected_mode\":\"%s\",\"c0_latency_budget_ms\":20,"
+           "\"c1_latency_budget_ms\":50,\"stale_video_drop_ms\":120,"
+           "\"traffic_priority\":[\"C0\",\"C1\",\"C2\",\"C3\",\"C4\"]}\n", selected);
+    printf("{\"event\":\"adaptive_listen_end\",\"transport\":\"udp-adaptive-listen\","
+           "\"ok\":%s,\"advertisements\":%d,\"saw_command\":%s,"
+           "\"selected_mode\":\"%s\"}\n",
+           (saw_advertisement || saw_command) ? "true" : "false", received,
+           saw_command ? "true" : "false", selected);
+    close(sock);
+    return (saw_advertisement || saw_command) ? 0 : 1;
 }
 
 static int run_send(const struct config *cfg)
@@ -1747,6 +2074,15 @@ int main(int argc, char **argv)
     int parsed = parse_args(argc, argv, &cfg);
     if (parsed != 0) {
         return parsed == 1 ? 0 : parsed;
+    }
+    if (!strcmp(cfg.role, "advertise")) {
+        return run_advertise(&cfg);
+    }
+    if (!strcmp(cfg.role, "command")) {
+        return run_command(&cfg);
+    }
+    if (!strcmp(cfg.role, "adaptive-listen")) {
+        return run_adaptive_listen(&cfg);
     }
     if (!strcmp(cfg.role, "send")) {
         return run_send(&cfg);

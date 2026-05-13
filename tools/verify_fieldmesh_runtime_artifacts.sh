@@ -70,9 +70,15 @@ verify_variant() {
     trap 'rm -f "$strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
 
-    for token in dt-scan ctrl-scan dma-scan dma-plan iio-scan iio-plan pl-replay; do
+    for token in adaptive-listen advertise dt-scan ctrl-scan dma-scan dma-plan iio-scan iio-plan pl-replay; do
         if ! grep -qxF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe role in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in udp-command user_command; do
+        if ! grep -qF "$token" "$strings_out"; then
+            echo "Missing fieldmesh-udp-probe command path in $name rootfs: $token" >&2
             exit 1
         fi
     done

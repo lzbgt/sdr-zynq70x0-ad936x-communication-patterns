@@ -647,17 +647,22 @@ Expected result in the current Pluto-compatible firmware state:
 
 ## Near-Term Work
 
-1. Boot the rebuilt Z103 Yocto Linux package through a non-flashing path, then
-   verify USB RNDIS, IIO, and the RF datapath.
-2. Restore Z103 normal USB/RNDIS or SSH reachability. Current diagnostics show
-   FT2232 JTAG attached but no Pluto/RNDIS data USB device; the latest capture
-   is
-   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_reachability_fieldmesh_gate_20260513-040656.txt`.
-   Restore the Pluto data USB path, then capture a Z103 QSPI backup before
-   considering any Z103 flash write.
-3. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
+1. Verify the SDR-Z103 / Z7010 / 1R1T board with the customized FieldMesh
+   firmware first. The 2026-05-13 reset restored Windows Pluto/RNDIS briefly
+   and FT2232 could be attached to WSL, but the live gate still failed at the
+   PS-side DAP/DSCR reset-halt boundary. SSH timed out, so no Z103 QSPI backup
+   has been captured yet.
+2. After the user plugs in the SDR-Z203 / Z7020 / 2R2T board, rebuild and
+   reflash the 2R2T board.
+3. Power both boards, keep the 2R2T board connected to this host, then run the
+   communication-pattern experiments. Both firmwares should boot as passive
+   learners; applications or users can command any board to become the proactive
+   initiator. The 1R1T firmware must adapt to the 2R2T peer's advertised
+   capabilities, explicit command state, and negotiated mode, rather than
+   assuming a fixed P2P/star/graph/scheduled pattern.
+4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
-4. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
+5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
    BD-generation proof to a synthesizable integration. The current copied-tree
    overlay leaves the ADI sample-DMA windows at `0x7C400000` and `0x7C420000`
    untouched, maps `fieldmesh_ctrl` at `0x43C00000`, maps sidecar packet TX/RX
@@ -678,8 +683,7 @@ Expected result in the current Pluto-compatible firmware state:
    those preflights, then execute a transfer-starting sidecar DMA smoke test
    only after the dry-run plan and board preflight are green. The first live Z103
    FieldMesh live-gate capture is archived under
-   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/`;
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203710/`;
    it passed artifact preparation and TAP-level JTAG scan, then failed at the
    PS-side DAP/DSCR reset-halt boundary before payload loading, so the sidecar
-   preflight remains gated until a real JTAG-mode power cycle clears that
-   debug state.
+   preflight remains gated.

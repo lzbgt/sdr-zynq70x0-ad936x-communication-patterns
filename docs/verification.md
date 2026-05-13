@@ -2276,14 +2276,15 @@ carry the current preflight roles:
 ```
 
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
-`dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. Refreshed
-rootfs hashes:
+`adaptive-listen`, `advertise`, the `udp-command` path, `dt-scan`, `ctrl-scan`,
+`dma-scan`, and `dma-plan` are present. Refreshed rootfs hashes after the
+passive-learner control update:
 
 ```text
-z203 rootfs.cpio.gz 54d69e62bc38b89b755e9e593a45b9a5f25d56467f7e9e496762a3254ac71ee5
-z203 rootfs.tar.gz  a40693de391e1498003945e959a0b5e811ed31163f11995c91418bfce4ef5ca0
-z103 rootfs.cpio.gz eaf053296e375015473b80b96a9d064648474202486b3171bcb6a2931ce9c02e
-z103 rootfs.tar.gz  b534ca89a37d194af38a0c846ce5086b91a821f7a6657558a9779f30538e0557
+z203 rootfs.cpio.gz d6a4c84a116b899ce40dd65dd9eff7b0a9c651be470a37b2c84e2b694fc6571a
+z203 rootfs.tar.gz  e0ee048e1a277fa2e66d471c0eb57cfe7a16448160b81af2fb1487f7e2f438ae
+z103 rootfs.cpio.gz a4806f748fde16f7a5c4061af6e4e2ba7ada67e5e062d86eca0bcd4634eb47c1
+z103 rootfs.tar.gz  557652cc6482d0b5618a9a0364c671b7041ed854a3b31e18562b59db0e0ac64b
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2294,22 +2295,22 @@ gate:
 ```
 
 Result: both variants passed. The verifier checks that the rootfs probe binary
-contains the expected FieldMesh roles, including `dma-scan` and `dma-plan`, the
+contains the expected FieldMesh roles and passive-learner command path, the
 matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after the `dma-plan` rootfs rebuild:
+Refreshed package and RAM-boot hashes after the passive-learner rootfs rebuild:
 
 ```text
-z203 pluto.frm f8dc5acfb20d1b836f93ce24d1f15c6e39f3526958398138c45cf95a9d8ee872
-z203 pluto.itb 992e19d0714e8b1c5ca6f51788bd657aff80ad647f16cb035e28b0d6009a5f46
+z203 pluto.frm 20eb4f28e353076d3c242bfb43d36a50deaa1e7b30c85d6eac7b5a5bf169bf06
+z203 pluto.itb 6f1fe9df021c138243ff9168adda8ba571fc9e5ff629c7762a9454a49ed1d830
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk fc505d1c0077fc60396778e091e2ec291e7f52efd42628399e8b390a952c50ef
-z103 pluto.frm 650465b3f85b8335922c2daa305324e518d3d829d3af73759aed440d732c8f81
-z103 pluto.itb a74481462f57e2744322b6ff4120c1f676088b9443a9137d6b7513928d4bab62
+z203 jtag ramdisk 7d8b6d1f623b28bb65400ceaa5c1cdde5cbd9808eeddf785298f35ad6a580af9
+z103 pluto.frm 1e4b76fb4ef441421c1d744b7db18458be010a1485bd7508e0c13ca498825251
+z103 pluto.itb 3a03a06bf9660da2fae477fead343bf6d5541f5eae9f3121dbbf669ee6189277
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk ac78e6bfe6f40c68be0953e377e4946ba84800b2e86e966b30cd107198c84bc4
+z103 jtag ramdisk 9b979cb818b539bb623a6251a0dfc6105c07f86c43dc3cb679c86ea6d9cff817
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2374,6 +2375,44 @@ control endpoint.
 its matching `PASS:` line and must not emit `FAIL:` or `Fatal:`. This closes a
 Vivado simulator behavior where a `$fatal` line could still allow the shell
 script to continue.
+
+After the user reset the Z103, two more live-gate captures were taken:
+
+```text
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203621/
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203710/
+```
+
+The first run confirmed the FT2232 was not yet attached into WSL: OpenOCD
+reported `no device found` for VID:PID `0403:6010`, while Windows saw both
+Pluto/RNDIS and FT2232. After `tools/attach_ft2232_jtag_to_wsl.ps1`, WSL saw
+the FT2232 and `/dev/ttyUSB0`/`/dev/ttyUSB1`; the second live gate passed JTAG
+TAP scan and the USB reachability section showed successful ping to
+`192.168.2.1`. The RAM boot still failed before payload loading at
+`JTAG_PS_SOFT_RESET` with invalid DAP ACKs, `JTAG-DP STICKY ERROR`, APB-AP
+initialization failures, and final DSCR halt timeout. The read-only sidecar
+preflight was skipped.
+
+Because runtime USB briefly returned, `tools/backup_z103_qspi_live.sh` was
+attempted next. It timed out connecting to `192.168.2.1:22`, so no QSPI backup
+was captured. A follow-up `tools/verify_z103_board.sh` capture at
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_verify_board_20260513-204026.txt`
+then showed 100 percent ping loss to `192.168.2.1`.
+
+The passive-learner/proactive-command control path was added to the C probe and
+checked locally:
+
+```sh
+./tools/verify_fieldmesh_adaptive_control.sh
+```
+
+The test starts a Z103-profile `adaptive-listen` process, sends Z203-profile
+`advertise` datagrams, then sends an application/user `command` requesting
+`scheduled`. The listener remains passive until the command arrives, then emits
+`command_state`, `mode_proposal`, `mode_accept`, `mode_contract`, and
+`adaptive_listen_end` with `selected_mode=scheduled`. The advertisement trace is
+explicitly not a proactive communication-mode launch; only the `command` trace
+promotes a node toward proactive initiation.
 
 ## Verification Gaps
 

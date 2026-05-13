@@ -20,18 +20,22 @@ start only after a real JTAG-mode power cycle.
 
 ## Latest Z103 Capture
 
-The first full live-gate run is archived at:
+The latest reset-run captures are archived at:
 
 ```text
-resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203621/
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203710/
 ```
 
-It verified runtime artifacts, prepared the RAM-boot payload, captured USB
-reachability, and scanned the JTAG chain. USB still exposed only the FT2232
-JTAG/UART interface, not the Pluto/RNDIS data USB function. JTAG TAP scan
-passed, but the RAM boot stopped before payload loading at the known PS-side
-DAP/DSCR reset-halt boundary. The sidecar preflight was skipped because the
-FieldMesh runtime never booted.
+The first run was before FT2232 was attached into WSL, so OpenOCD could not open
+the FTDI device. After running `tools/attach_ft2232_jtag_to_wsl.ps1`, the
+second run saw `/dev/ttyUSB0`, `/dev/ttyUSB1`, and JTAG TAP scan passed. Windows
+also exposed Pluto/RNDIS and WSL pinged `192.168.2.1` during the live-gate USB
+capture. The RAM boot still stopped before payload loading at the known PS-side
+DAP/DSCR reset-halt boundary, and the sidecar preflight was skipped because the
+FieldMesh runtime never booted. A follow-up QSPI backup attempt timed out on
+SSH port 22, and a later `tools/verify_z103_board.sh` capture again showed
+100 percent ping loss.
 
 ## One-Shot Runner
 

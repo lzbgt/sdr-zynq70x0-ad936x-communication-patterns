@@ -31,13 +31,15 @@ Completed baseline:
 Open live gates:
 
 - Restore normal Z103 USB/RNDIS or another live read path, then capture a full
-  Z103 QSPI backup before any Z103 flash write. After the latest JTAG RAM-boot
-  boundary, `tools/verify_z103_board.sh` captured 100 percent ping loss to
-  `192.168.2.1`. The latest USB reachability diagnostic shows the FT2232
-  JTAG/UART device attached to WSL, no present Pluto/RNDIS data USB device in
-  Windows, and no WSL `192.168.2.x` interface. Use
-  `tools/diagnose_pluto_usb_reachability.sh` after reconnecting/recovering the
-  data USB path, then `tools/backup_z103_qspi_live.sh` once reachable.
+  Z103 QSPI backup before any Z103 flash write. After the 2026-05-13 reset,
+  Windows exposed Pluto/RNDIS and WSL could briefly ping `192.168.2.1`, but SSH
+  to port 22 timed out and no QSPI backup was captured. The same reset required
+  reattaching FT2232 to WSL before OpenOCD could see JTAG. The latest archived
+  live gate is
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203710/`.
+  It passed artifact prep and JTAG TAP scan, then failed again at the PS-side
+  DAP/DSCR reset-halt boundary before payload loading. A post-attempt
+  `tools/verify_z103_board.sh` capture again showed 100 percent ping loss.
 - Extend the generated Z103 path from JTAG U-Boot to rebuilt Linux/rootfs boot,
   then verify USB RNDIS, IIO, and RF datapath. The first FIT-from-RAM attempt
   stopped during the large OpenOCD memory transfer; the first QSPI-FIT handoff
@@ -89,6 +91,17 @@ unchanged.
 
 Next concrete work:
 
+- Follow the staged two-board plan:
+  1. Verify the SDR-Z103 / Z7010 / 1R1T board with the customized FieldMesh
+     firmware first.
+  2. After the user plugs in the SDR-Z203 / Z7020 / 2R2T board, rebuild and
+     reflash the 2R2T board.
+  3. Power both boards, keep the 2R2T board connected to this host, and run
+     communication-pattern experiments. Both boards should default to passive
+     learner mode; an application or user command can promote any board into a
+     proactive initiator. The 1R1T firmware must use capability reports and
+     commands from the 2R2T peer to select or accept the correct mode instead of
+     assuming a fixed pattern.
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
   normal runtime reachability is restored. Use
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;

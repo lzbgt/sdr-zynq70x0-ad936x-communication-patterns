@@ -1,0 +1,7 @@
+step	status	log
+verify_runtime_artifacts	0	/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203621/verify_runtime_artifacts.log
+prepare_jtag_ram_payload	0	/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203621/prepare_jtag_ram_payload.log
+usb_reachability	0	/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203621/usb_reachability.log
+jtag_scan	1	/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203621/jtag_scan.log
+fieldmesh_jtag_ram_boot	1	/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203621/fieldmesh_jtag_ram_boot.log
+board_sidecar_preflight	SKIP	/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203621/board_sidecar_preflight.log

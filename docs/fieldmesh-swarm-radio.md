@@ -384,6 +384,21 @@ Phase 4: Purpose-built hardware
 Start conducted or shielded. The first goal is protocol behavior and customer
 value, not maximum range.
 
+Current staged hardware plan:
+
+1. Verify the SDR-Z103 / Z7010 / 1R1T board with customized firmware.
+2. When the SDR-Z203 / Z7020 / 2R2T board is plugged in, rebuild and reflash
+   the 2R2T board.
+3. Power both boards with the 2R2T board connected to this host, then run P2P,
+   star/fanout, graph/relay, and scheduled-sharing experiments.
+
+The important product rule is that both boards boot in passive learner mode.
+They listen for advertisements by default and are promoted into proactive
+initiation only by an application or user command. The 1R1T endpoint must adapt
+to the 2R2T peer by selecting or accepting P2P/star/graph/scheduled behavior
+from capability reports, clock/link state, explicit commands, and the negotiated
+mode contract, not from a board-specific hardcoded assumption.
+
 Milestone 1: Common packet pipe
 
 - Shared packet header: network ID, node ID, stream ID, traffic class, sequence

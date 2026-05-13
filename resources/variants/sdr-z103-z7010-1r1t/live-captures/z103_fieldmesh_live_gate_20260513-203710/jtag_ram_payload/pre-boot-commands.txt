@@ -1,0 +1,4 @@
+fdt addr 0x02a00000
+fdt get value model / model
+if test "${model}" > "Analog Devices Pluto"; then run adi_loadvals_pluto; fi
+if test "${model}" > "Z7010/AD9363"; then run adi_loadvals; fi

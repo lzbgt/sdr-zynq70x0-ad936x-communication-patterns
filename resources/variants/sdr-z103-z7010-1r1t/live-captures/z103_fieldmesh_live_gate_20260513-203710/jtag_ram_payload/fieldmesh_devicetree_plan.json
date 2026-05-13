@@ -1,0 +1,31 @@
+{
+  "event": "fieldmesh_devicetree_plan",
+  "ok": true,
+  "variants": [
+    {
+      "check": {
+        "checks": {
+          "axi_dmac_compatible": true,
+          "ctrl_irq": true,
+          "fieldmesh_ctrl_compatible": true,
+          "fieldmesh_ctrl_node": true,
+          "fieldmesh_packet_compatible": true,
+          "fieldmesh_packet_node": true,
+          "fieldmesh_rx_dma_node": true,
+          "fieldmesh_tx_dma_node": true,
+          "rx_dma_reg": true,
+          "rx_irq": true,
+          "stream_width": true,
+          "tx_dma_reg": true,
+          "tx_irq": true
+        },
+        "ok": true
+      },
+      "dtb": "/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203710/jtag_ram_payload/devicetree/z103/z103-zynq-pluto-sdr-fieldmesh.dtb",
+      "fragment": "/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203710/jtag_ram_payload/devicetree/z103/fieldmesh-sidecar.dtsi",
+      "linux_root": "/root/work/ZYNQ7020/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux",
+      "merged_dts": "/root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-203710/jtag_ram_payload/devicetree/z103/z103-zynq-pluto-sdr-fieldmesh.dts",
+      "variant": "z103"
+    }
+  ]
+}
