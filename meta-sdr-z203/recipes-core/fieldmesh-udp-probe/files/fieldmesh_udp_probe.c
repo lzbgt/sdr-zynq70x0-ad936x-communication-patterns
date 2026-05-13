@@ -49,6 +49,9 @@ struct config {
     const char *mode;
     const char *traffic_profile;
     const char *node_profile;
+    const char *ap_policy;
+    const char *preferred_ap;
+    const char *network_id;
     const char *iio_uri;
     const char *file;
     const char *dt_root;
@@ -125,6 +128,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe advertise --host HOST --port PORT [--node-profile z103|z203]\n"
         "  fieldmesh-udp-probe command --host HOST --port PORT [--mode auto|p2p|star|graph|scheduled]\n"
         "  fieldmesh-udp-probe adaptive-listen --host HOST --port PORT [--count N] [--timeout-ms N] [--mode auto|p2p|star|graph|scheduled]\n"
+        "  fieldmesh-udp-probe ap-elect [--scenario z103-only|z203-only|mixed] [--ap-policy predefined|autonomous-swarm|hybrid] [--preferred-ap NODE] [--network-id ID]\n"
         "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-replay --file FRAME.bin\n"
@@ -171,6 +175,9 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .mode = "auto",
         .traffic_profile = "basic",
         .node_profile = "z103",
+        .ap_policy = "hybrid",
+        .preferred_ap = NULL,
+        .network_id = "fieldmesh-lab",
         .iio_uri = "local:",
         .file = NULL,
         .dt_root = "/proc/device-tree",
@@ -219,6 +226,12 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             if (!arg_value(argc, argv, &i, &cfg->traffic_profile)) return 2;
         } else if (!strcmp(argv[i], "--node-profile")) {
             if (!arg_value(argc, argv, &i, &cfg->node_profile)) return 2;
+        } else if (!strcmp(argv[i], "--ap-policy")) {
+            if (!arg_value(argc, argv, &i, &cfg->ap_policy)) return 2;
+        } else if (!strcmp(argv[i], "--preferred-ap")) {
+            if (!arg_value(argc, argv, &i, &cfg->preferred_ap)) return 2;
+        } else if (!strcmp(argv[i], "--network-id")) {
+            if (!arg_value(argc, argv, &i, &cfg->network_id)) return 2;
         } else if (!strcmp(argv[i], "--iio-uri")) {
             if (!arg_value(argc, argv, &i, &cfg->iio_uri)) return 2;
         } else if (!strcmp(argv[i], "--file")) {
@@ -268,6 +281,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "advertise") &&
         strcmp(cfg->role, "command") &&
         strcmp(cfg->role, "adaptive-listen") &&
+        strcmp(cfg->role, "ap-elect") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
@@ -276,11 +290,12 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-smoke") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
+        strcmp(cfg->role, "ap-elect") &&
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "dma-plan") &&
@@ -319,6 +334,17 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if (strcmp(cfg->node_profile, "z103") && strcmp(cfg->node_profile, "z203")) {
         fprintf(stderr, "--node-profile must be z103 or z203\n");
+        return 2;
+    }
+    if (strcmp(cfg->ap_policy, "predefined") &&
+        strcmp(cfg->ap_policy, "autonomous-swarm") &&
+        strcmp(cfg->ap_policy, "hybrid")) {
+        fprintf(stderr, "--ap-policy must be predefined, autonomous-swarm, or hybrid\n");
+        return 2;
+    }
+    if (!strcmp(cfg->role, "ap-elect") && !strcmp(cfg->ap_policy, "predefined") &&
+        !cfg->preferred_ap) {
+        fprintf(stderr, "--preferred-ap must be set when --ap-policy predefined is used\n");
         return 2;
     }
     return 0;
@@ -1084,6 +1110,329 @@ static const char *profile_clock(const char *profile)
 static int profile_max_kbps(const char *profile)
 {
     return !strcmp(profile, "z203") ? 7000 : 2500;
+}
+
+struct ap_candidate {
+    const char *node_id;
+    const char *hardware;
+    const char *radio;
+    const char *roles_json;
+    const char *modes_json;
+    int max_kbps;
+    int reachable_peer_count;
+    int clock_quality;
+    int power_score;
+    int compute_score;
+    int relay_score;
+    int security_score;
+    int avg_rssi_dbm;
+    int avg_snr_db;
+    int geo_centrality_score;
+    int link_stability_score;
+    int mobility_score;
+    int handover_penalty;
+    bool wall_powered;
+    bool has_disciplined_clock;
+    bool relay_allowed;
+    bool provisioned_identity;
+    bool ap_allowed;
+};
+
+static const struct ap_candidate AP_CANDIDATES[] = {
+    {
+        .node_id = "z103-a",
+        .hardware = "sdr-z103-z7010-1r1t",
+        .radio = "1r1t",
+        .roles_json = "[\"endpoint\",\"observer\"]",
+        .modes_json = "[\"p2p\",\"star\"]",
+        .max_kbps = 2500,
+        .reachable_peer_count = 1,
+        .clock_quality = 35,
+        .power_score = 40,
+        .compute_score = 35,
+        .relay_score = 15,
+        .security_score = 60,
+        .avg_rssi_dbm = -64,
+        .avg_snr_db = 18,
+        .geo_centrality_score = 55,
+        .link_stability_score = 70,
+        .mobility_score = 55,
+        .handover_penalty = 20,
+        .wall_powered = false,
+        .has_disciplined_clock = false,
+        .relay_allowed = false,
+        .provisioned_identity = true,
+        .ap_allowed = true,
+    },
+    {
+        .node_id = "z103-b",
+        .hardware = "sdr-z103-z7010-1r1t",
+        .radio = "1r1t",
+        .roles_json = "[\"endpoint\",\"observer\"]",
+        .modes_json = "[\"p2p\",\"star\"]",
+        .max_kbps = 2500,
+        .reachable_peer_count = 1,
+        .clock_quality = 30,
+        .power_score = 35,
+        .compute_score = 35,
+        .relay_score = 10,
+        .security_score = 60,
+        .avg_rssi_dbm = -72,
+        .avg_snr_db = 14,
+        .geo_centrality_score = 45,
+        .link_stability_score = 55,
+        .mobility_score = 50,
+        .handover_penalty = 20,
+        .wall_powered = false,
+        .has_disciplined_clock = false,
+        .relay_allowed = false,
+        .provisioned_identity = true,
+        .ap_allowed = true,
+    },
+    {
+        .node_id = "z203-hub",
+        .hardware = "sdr-z203-z7020-2r2t",
+        .radio = "2r2t",
+        .roles_json = "[\"hub\",\"coordinator\",\"relay\",\"gateway\",\"observer\",\"ap_broker\"]",
+        .modes_json = "[\"p2p\",\"star\",\"graph\",\"scheduled\"]",
+        .max_kbps = 7000,
+        .reachable_peer_count = 3,
+        .clock_quality = 85,
+        .power_score = 95,
+        .compute_score = 90,
+        .relay_score = 95,
+        .security_score = 75,
+        .avg_rssi_dbm = -55,
+        .avg_snr_db = 28,
+        .geo_centrality_score = 95,
+        .link_stability_score = 92,
+        .mobility_score = 88,
+        .handover_penalty = 0,
+        .wall_powered = true,
+        .has_disciplined_clock = true,
+        .relay_allowed = true,
+        .provisioned_identity = true,
+        .ap_allowed = true,
+    },
+    {
+        .node_id = "z203-relay",
+        .hardware = "sdr-z203-z7020-2r2t",
+        .radio = "2r2t",
+        .roles_json = "[\"relay\",\"observer\",\"ap_broker\"]",
+        .modes_json = "[\"p2p\",\"star\",\"graph\",\"scheduled\"]",
+        .max_kbps = 7000,
+        .reachable_peer_count = 2,
+        .clock_quality = 70,
+        .power_score = 70,
+        .compute_score = 85,
+        .relay_score = 85,
+        .security_score = 70,
+        .avg_rssi_dbm = -61,
+        .avg_snr_db = 24,
+        .geo_centrality_score = 78,
+        .link_stability_score = 80,
+        .mobility_score = 82,
+        .handover_penalty = 35,
+        .wall_powered = false,
+        .has_disciplined_clock = true,
+        .relay_allowed = true,
+        .provisioned_identity = true,
+        .ap_allowed = true,
+    },
+};
+
+static bool ap_candidate_in_scenario(const struct config *cfg, const struct ap_candidate *candidate)
+{
+    if (!strcmp(cfg->scenario, "z103-only")) {
+        return !strcmp(candidate->radio, "1r1t");
+    }
+    if (!strcmp(cfg->scenario, "z203-only")) {
+        return !strcmp(candidate->radio, "2r2t");
+    }
+    return true;
+}
+
+static bool ap_policy_allows_preferred(const struct config *cfg)
+{
+    return !strcmp(cfg->ap_policy, "predefined") || !strcmp(cfg->ap_policy, "hybrid");
+}
+
+static bool ap_policy_allows_autonomous(const struct config *cfg)
+{
+    return !strcmp(cfg->ap_policy, "autonomous-swarm") || !strcmp(cfg->ap_policy, "hybrid");
+}
+
+static uint32_t ap_candidate_score(const struct config *cfg, const struct ap_candidate *candidate)
+{
+    uint32_t score = 0;
+
+    if (!candidate->ap_allowed) {
+        return 0;
+    }
+    score += (uint32_t)candidate->max_kbps / 100U;
+    score += (uint32_t)candidate->reachable_peer_count * 40U;
+    score += (uint32_t)candidate->clock_quality * 2U;
+    score += (uint32_t)candidate->power_score * 2U;
+    score += (uint32_t)candidate->compute_score;
+    score += (uint32_t)candidate->relay_score * 2U;
+    score += (uint32_t)candidate->security_score;
+    score += (uint32_t)(candidate->avg_rssi_dbm + 100) * 3U;
+    score += (uint32_t)candidate->avg_snr_db * 8U;
+    score += (uint32_t)candidate->geo_centrality_score * 3U;
+    score += (uint32_t)candidate->link_stability_score * 2U;
+    score += (uint32_t)candidate->mobility_score * 2U;
+    if (score > (uint32_t)candidate->handover_penalty) {
+        score -= (uint32_t)candidate->handover_penalty;
+    }
+    if (!strcmp(candidate->radio, "2r2t")) score += 250U;
+    if (candidate->wall_powered) score += 100U;
+    if (candidate->has_disciplined_clock) score += 100U;
+    if (candidate->relay_allowed) score += 100U;
+    if (candidate->provisioned_identity) score += 75U;
+    if (cfg->preferred_ap && !strcmp(cfg->preferred_ap, candidate->node_id) &&
+        ap_policy_allows_preferred(cfg)) {
+        score += 10000U;
+    }
+    return score;
+}
+
+static int compare_node_id(const char *a, const char *b)
+{
+    return strcmp(a, b);
+}
+
+static int run_ap_elect(const struct config *cfg)
+{
+    const struct ap_candidate *best = NULL;
+    uint32_t best_score = 0;
+    int candidates = 0;
+    int votes = 0;
+    bool preferred_seen = false;
+    bool autonomous = ap_policy_allows_autonomous(cfg);
+    bool preferred_selected = false;
+    const char *reason = autonomous ? "deterministic_candidate_score" : "predefined_ap";
+    char preferred_json[96];
+
+    if (cfg->preferred_ap) {
+        snprintf(preferred_json, sizeof(preferred_json), "\"%s\"", cfg->preferred_ap);
+    } else {
+        snprintf(preferred_json, sizeof(preferred_json), "null");
+    }
+
+    printf("{\"event\":\"ap_election_start\",\"transport\":\"ap-elect\","
+           "\"scenario\":\"%s\",\"ap_policy\":\"%s\",\"network_id\":\"%s\","
+           "\"preferred_ap\":%s,\"default_policy\":\"passive_learner\","
+           "\"ap_visible\":false,\"autonomous_allowed\":%s,"
+           "\"consensus_algorithm\":\"deterministic_metric_quorum\","
+           "\"score_inputs\":[\"capability\",\"rssi\",\"snr\","
+           "\"estimated_geo_centrality\",\"mobility_prediction\","
+           "\"reachability\",\"relay\",\"clock\",\"power\",\"security\","
+           "\"handover_hysteresis\"]}\n",
+           cfg->scenario, cfg->ap_policy, cfg->network_id,
+           preferred_json, autonomous ? "true" : "false");
+
+    for (size_t i = 0; i < sizeof(AP_CANDIDATES) / sizeof(AP_CANDIDATES[0]); i++) {
+        const struct ap_candidate *candidate = &AP_CANDIDATES[i];
+        uint32_t score;
+        if (!ap_candidate_in_scenario(cfg, candidate)) {
+            continue;
+        }
+        if (cfg->preferred_ap && !strcmp(cfg->preferred_ap, candidate->node_id)) {
+            preferred_seen = true;
+        }
+        candidates++;
+        score = ap_candidate_score(cfg, candidate);
+        printf("{\"event\":\"ap_candidate\",\"transport\":\"ap-elect\","
+               "\"node_id\":\"%s\",\"hardware\":\"%s\",\"radio\":\"%s\","
+               "\"roles\":%s,\"supported_modes\":%s,\"max_kbps\":%d,"
+               "\"reachable_peer_count\":%d,\"clock_quality\":%d,"
+               "\"power_score\":%d,\"compute_score\":%d,\"relay_score\":%d,"
+               "\"security_score\":%d,\"avg_rssi_dbm\":%d,\"avg_snr_db\":%d,"
+               "\"estimated_geo_centrality\":%d,\"link_stability_score\":%d,"
+               "\"mobility_score\":%d,\"handover_penalty\":%d,"
+               "\"wall_powered\":%s,"
+               "\"has_disciplined_clock\":%s,\"relay_allowed\":%s,"
+               "\"provisioned_identity\":%s,\"candidate_score\":%u}\n",
+               candidate->node_id, candidate->hardware, candidate->radio,
+               candidate->roles_json, candidate->modes_json, candidate->max_kbps,
+               candidate->reachable_peer_count, candidate->clock_quality,
+               candidate->power_score, candidate->compute_score, candidate->relay_score,
+               candidate->security_score, candidate->avg_rssi_dbm, candidate->avg_snr_db,
+               candidate->geo_centrality_score, candidate->link_stability_score,
+               candidate->mobility_score, candidate->handover_penalty,
+               candidate->wall_powered ? "true" : "false",
+               candidate->has_disciplined_clock ? "true" : "false",
+               candidate->relay_allowed ? "true" : "false",
+               candidate->provisioned_identity ? "true" : "false", score);
+        if (!best || score > best_score ||
+            (score == best_score && compare_node_id(candidate->node_id, best->node_id) < 0)) {
+            best = candidate;
+            best_score = score;
+        }
+    }
+
+    if (!best || candidates == 0) {
+        printf("{\"event\":\"ap_election_result\",\"transport\":\"ap-elect\","
+               "\"ok\":false,\"error\":\"no_candidate\"}\n");
+        return 1;
+    }
+    if (!strcmp(cfg->ap_policy, "predefined") && cfg->preferred_ap && !preferred_seen) {
+        printf("{\"event\":\"ap_election_result\",\"transport\":\"ap-elect\","
+               "\"ok\":false,\"error\":\"preferred_ap_not_visible\","
+               "\"preferred_ap\":\"%s\"}\n", cfg->preferred_ap);
+        return 1;
+    }
+
+    if (cfg->preferred_ap && ap_policy_allows_preferred(cfg) &&
+        !strcmp(best->node_id, cfg->preferred_ap)) {
+        reason = "preferred_ap_policy";
+        preferred_selected = true;
+    } else if (!strcmp(best->radio, "2r2t")) {
+        reason = "max_connectivity_2r2t_capability_consensus";
+    } else {
+        reason = "max_connectivity_emergency_1r1t_consensus";
+    }
+
+    printf("{\"event\":\"ap_consensus_round\",\"transport\":\"ap-elect\","
+           "\"round\":1,\"algorithm\":\"deterministic_metric_quorum\","
+           "\"candidate_count\":%d,\"quorum\":%d,"
+           "\"metric_commitment\":\"capability+rssi+snr+geo+mobility+reachability+policy\","
+           "\"lease_ms\":5000,\"handover_hysteresis_db\":6,"
+           "\"handover_min_score_delta\":150}\n",
+           candidates, candidates / 2 + 1);
+    for (size_t i = 0; i < sizeof(AP_CANDIDATES) / sizeof(AP_CANDIDATES[0]); i++) {
+        const struct ap_candidate *voter = &AP_CANDIDATES[i];
+        if (!ap_candidate_in_scenario(cfg, voter)) {
+            continue;
+        }
+        votes++;
+        printf("{\"event\":\"ap_vote\",\"transport\":\"ap-elect\","
+               "\"round\":1,\"voter\":\"%s\",\"selected_ap\":\"%s\","
+               "\"observed_score\":%u,\"vote_reason\":\"highest_metric_score\"}\n",
+               voter->node_id, best->node_id, best_score);
+    }
+    printf("{\"event\":\"ap_consensus_result\",\"transport\":\"ap-elect\","
+           "\"round\":1,\"ok\":true,\"elected_ap\":\"%s\","
+           "\"votes\":%d,\"quorum\":%d,\"finality\":\"soft_until_handover\"}\n",
+           best->node_id, votes, candidates / 2 + 1);
+
+    printf("{\"event\":\"ap_election_result\",\"transport\":\"ap-elect\","
+           "\"ok\":true,\"network_id\":\"%s\",\"election_epoch\":1,"
+           "\"elected_ap\":\"%s\",\"candidate_score\":%u,"
+           "\"temporary_ap\":%s,\"handover_allowed\":true,"
+           "\"reason\":\"%s\",\"tie_break\":\"stable_node_id\"}\n",
+           cfg->network_id, best->node_id, best_score,
+           preferred_selected ? "false" : "true", reason);
+    printf("{\"event\":\"ap_beacon\",\"transport\":\"ap-elect\","
+           "\"ap_id\":\"%s\",\"network_id\":\"%s\",\"join_methods\":[\"credential\","
+           "\"derived_cert\",\"ap_audit\"],\"policy_version\":1,"
+           "\"supported_modes\":%s,\"subnet_hint\":\"fieldmesh:%s\"}\n",
+           best->node_id, cfg->network_id, best->modes_json, cfg->network_id);
+    printf("{\"event\":\"peer_directory\",\"transport\":\"ap-elect\","
+           "\"ap_id\":\"%s\",\"network_id\":\"%s\",\"peers\":%d,"
+           "\"route_policy\":\"direct_preferred_relay_when_needed\"}\n",
+           best->node_id, cfg->network_id, candidates);
+    return 0;
 }
 
 static int send_json_datagram(int sock, const struct sockaddr_in *addr, const char *json)
@@ -2450,6 +2799,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "adaptive-listen")) {
         return run_adaptive_listen(&cfg);
+    }
+    if (!strcmp(cfg.role, "ap-elect")) {
+        return run_ap_elect(&cfg);
     }
     if (!strcmp(cfg.role, "send")) {
         return run_send(&cfg);

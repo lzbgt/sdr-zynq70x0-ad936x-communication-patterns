@@ -2276,15 +2276,15 @@ carry the current preflight roles:
 ```
 
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
-`adaptive-listen`, `advertise`, the `udp-command` path, `dt-scan`, `ctrl-scan`,
-`dma-scan`, and `dma-plan` are present. Refreshed rootfs hashes after the
-passive-learner control update:
+`adaptive-listen`, `advertise`, `ap-elect`, the `udp-command` path, `dt-scan`,
+`ctrl-scan`, `dma-scan`, and `dma-plan` are present. Refreshed rootfs hashes
+after the AP-election update:
 
 ```text
-z203 rootfs.cpio.gz d6a4c84a116b899ce40dd65dd9eff7b0a9c651be470a37b2c84e2b694fc6571a
-z203 rootfs.tar.gz  e0ee048e1a277fa2e66d471c0eb57cfe7a16448160b81af2fb1487f7e2f438ae
-z103 rootfs.cpio.gz a4806f748fde16f7a5c4061af6e4e2ba7ada67e5e062d86eca0bcd4634eb47c1
-z103 rootfs.tar.gz  557652cc6482d0b5618a9a0364c671b7041ed854a3b31e18562b59db0e0ac64b
+z203 rootfs.cpio.gz 0e00dad4cd4d147e5d6aa7aa944763589955b5da30e517183140feee449df0e9
+z203 rootfs.tar.gz  4c0fc1f830769ba587eda3de3f5b0a6e85a4ee1f394d96e7ee0a7f482adea06d
+z103 rootfs.cpio.gz cdb13b4882b4e85fb3aa0610d395f32e85f697209f55dc12bcf517707fbc671f
+z103 rootfs.tar.gz  56a67faa7bbeb077828ab86d49cb63ece2b580bf0b8219b77e2be125ad92396b
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2300,17 +2300,17 @@ matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after the passive-learner rootfs rebuild:
+Refreshed package and RAM-boot hashes after the AP-election rootfs rebuild:
 
 ```text
-z203 pluto.frm 20eb4f28e353076d3c242bfb43d36a50deaa1e7b30c85d6eac7b5a5bf169bf06
-z203 pluto.itb 6f1fe9df021c138243ff9168adda8ba571fc9e5ff629c7762a9454a49ed1d830
+z203 pluto.frm 3f2f0a0116c0677f46bb0d966bf90de868ee808f3790c35efcc8e512fc96bf78
+z203 pluto.itb c90cbcadf8967faeb48c0f6d4ae4da0441c1d8fe5de3e8c71af9f81837b99a2d
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 7d8b6d1f623b28bb65400ceaa5c1cdde5cbd9808eeddf785298f35ad6a580af9
-z103 pluto.frm 1e4b76fb4ef441421c1d744b7db18458be010a1485bd7508e0c13ca498825251
-z103 pluto.itb 3a03a06bf9660da2fae477fead343bf6d5541f5eae9f3121dbbf669ee6189277
+z203 jtag ramdisk 3d4b8afcf5b209cbe8cba6b090166330afe7cfb95df0c153519a14ed4743489c
+z103 pluto.frm 51b76d4ed277b700f64ca60f7784dd7c1158bd06d055e2a2aaa4db6ffcccdbfd
+z103 pluto.itb f0e49844954e7b88ebe7730cbe3d5be7cd03cc910b86735db281609f2eb8899d
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk 9b979cb818b539bb623a6251a0dfc6105c07f86c43dc3cb679c86ea6d9cff817
+z103 jtag ramdisk b3eb972abd47fc1ec6220ac81899edf3c6df86417d919bac070fc95c12138cd4
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2529,6 +2529,31 @@ The SDK header contract was added and compile-checked with:
 The architecture decision is now hybrid: predefined AP/broker for production
 deployments that have a known owner, plus autonomous AP election for ad-hoc
 heterogeneous swarms when no AP is visible.
+
+## FieldMesh AP Election And SDK Demo Gate
+
+The C probe now has an executable AP-election model:
+
+```sh
+./tools/verify_fieldmesh_ap_election.sh
+```
+
+This verifies:
+
+- mixed swarm with preferred `z203-hub` elects Z203 as non-temporary AP;
+- Z203-only autonomous swarm elects `z203-hub`;
+- Z103-only autonomous swarm elects `z103-a` as a temporary emergency AP;
+- predefined AP policy fails if the preferred AP is not visible.
+- score inputs include capability, RSSI, SNR, estimated geo/topology
+  centrality, mobility prediction, reachability, and handover hysteresis;
+- consensus traces include quorum, votes, lease timing, and handover margins.
+
+The SDK check now compile-checks the public header plus AP and endpoint demo
+skeletons:
+
+```sh
+./tools/verify_fieldmesh_sdk.sh
+```
 
 ## Verification Gaps
 

@@ -117,6 +117,13 @@ Next concrete work:
   Ethernet and physical Ethernet as socket transports, then add AP browse,
   AP election, credential/audit join, peer discovery, route query, and
   prioritized stream send/receive.
+- Keep the executable AP election trace green with
+  `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
+  Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and
+  predefined-AP failure when the preferred AP is not visible. The election
+  model must remain RSSI/SNR, estimated geo/topology, mobility, reachability,
+  capability, and consensus based so moving AGV/ship/robot swarms select the AP
+  expected to maximize useful connectivity over the next lease window.
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
   normal runtime reachability is restored. Use
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;

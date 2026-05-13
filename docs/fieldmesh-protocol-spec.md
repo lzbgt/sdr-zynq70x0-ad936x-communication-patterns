@@ -159,10 +159,25 @@ FieldMesh supports two network-formation modes:
   `AP_CANDIDATE` reports and deterministically elect a temporary AP.
 
 Autonomous election must work with 1R1T-only, 2R2T-only, or mixed swarms. The
-default score should prefer commanded/provisioned APs, then 2R2T nodes with
-good power and clock, then 1R1T wall-powered nodes, then 1R1T emergency APs.
-The elected AP can hand over later, but only through explicit `AP_HANDOVER`
-policy so active streams are not surprised.
+score should combine commanded/provisioned AP policy with capability,
+RSSI/SNR, estimated geographic or topology centrality, mobility prediction,
+reachability, relay quality, clock quality, power, and security state. The
+elected AP can hand over later, but only through explicit `AP_HANDOVER` policy
+with hysteresis and lease timing so active streams are not surprised.
+
+The current C probe exposes this contract as:
+
+```sh
+fieldmesh-udp-probe ap-elect \
+  --scenario mixed \
+  --ap-policy hybrid \
+  --preferred-ap z203-hub \
+  --network-id fieldmesh-lab
+```
+
+`ap-elect` emits `ap_candidate`, `ap_consensus_round`, `ap_vote`,
+`ap_consensus_result`, `ap_election_result`, `ap_beacon`, and `peer_directory`
+rows. It is still a trace/model role, not a persistent daemon.
 
 ## SDK Model
 

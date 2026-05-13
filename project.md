@@ -426,6 +426,9 @@ user and vendor configuration.
   smoke that starts a real board as an adaptive passive learner, sends host
   peer advertisements plus an application/user command, and asserts that the
   board only accepts proactive mode negotiation after the command.
+- `tools/verify_fieldmesh_ap_election.sh` - host-side trace check for the
+  FieldMesh AP election contract, including preferred 2R2T AP, autonomous
+  2R2T election, and emergency 1R1T AP fallback.
 - `tools/run_fieldmesh_board_dma_smoke.sh` - SSH-driven guarded sidecar DMA
   smoke runner that reruns the board sidecar preflight, copies a committed
   FieldMesh frame vector to the board, records `dma-plan`, and only then starts
@@ -434,8 +437,11 @@ user and vendor configuration.
   browse, credential/cert/audit join, peer discovery, route query, mode request,
   and prioritized payload streams over USB Ethernet, physical Ethernet, or IP
   transports.
+- `sdk/c/examples/` - compile-checked C SDK demo skeletons for a commanded AP
+  application and an endpoint application that browses, joins, opens a stream,
+  and sends prioritized payload.
 - `tools/verify_fieldmesh_sdk.sh` - C99 header smoke build for the SDK public
-  header and example.
+  header and examples.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

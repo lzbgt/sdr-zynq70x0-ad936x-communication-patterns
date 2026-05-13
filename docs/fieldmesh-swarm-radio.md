@@ -273,6 +273,16 @@ Best architecture:
 See `docs/fieldmesh-ap-sdk-architecture.md` and
 `sdk/c/include/fieldmesh_sdk.h` for the first SDK contract.
 
+The first executable AP-election model is `fieldmesh-udp-probe ap-elect`,
+covered by `tools/verify_fieldmesh_ap_election.sh`. It checks mixed-swarm
+Z203 preference, autonomous 2R2T election, and 1R1T-only emergency AP fallback.
+The election score is intentionally based on max expected connectivity:
+capability, RSSI/SNR, estimated geo/topology centrality, mobility prediction,
+reachability, relay quality, clock/power/security state, and handover
+hysteresis. This matters for moving AGV, robot, ship, and field-camera swarms
+where the best AP is the node expected to keep the most useful links alive over
+the next lease window, not simply the node with the strongest current sample.
+
 ## Protocol Shape
 
 Roles:

@@ -73,10 +73,56 @@ Election inputs:
 - power state: wall power beats battery for AP duties;
 - clock quality: GPS/PPS or disciplined clock beats local-only timing;
 - reachability: candidate can hear and serve the most peers;
-- route centrality and link quality;
+- measured RSSI and SNR from every visible peer;
+- estimated geographic or topology centrality;
+- route centrality and link stability;
+- mobility prediction: velocity/heading stability, expected topology lifetime,
+  and whether the node is moving with or away from the group;
+- handover hysteresis: penalty for unnecessary AP changes while streams are
+  active;
 - compute, memory, FEC, and queue capacity;
 - security state: provisioned certificate/key and policy version;
 - uptime and stability.
+
+Do not elect an AP from a single local opinion. Each node should publish an
+`AP_CANDIDATE` metric commitment and a vote over the same candidate set. The
+first practical consensus algorithm should be deterministic metric quorum:
+
+1. Candidate window opens after the AP beacon timeout.
+2. Nodes exchange signed candidate reports with capability, RSSI/SNR summary,
+   estimated position or topology centrality, mobility prediction,
+   reachability, power, clock, and policy fields.
+3. Every node computes the same normalized score for every visible candidate.
+4. Every node emits a vote for the highest valid score.
+5. A candidate becomes temporary AP only after quorum for the same winner.
+6. Ties use stable node ID and election epoch.
+7. Finality is leased. A new election can replace the AP only if the current AP
+   lease expires, the AP disappears, or the new candidate beats the current AP
+   by the configured handover margin for enough consecutive measurement
+   windows.
+
+This is not heavy blockchain-style consensus. It is a bounded, deterministic
+leader-election protocol suitable for a small RF swarm where the goal is max
+connectivity and predictable airtime.
+
+For dynamic moving peers such as AGVs, ships, field robots, and mobile cameras,
+the election window should aggregate measurements over time instead of using
+one RSSI/SNR snapshot. Each candidate should publish:
+
+- neighbor table with RSSI/SNR/packet loss per peer;
+- estimated position, relative bearing, or topology-distance hints where
+  available;
+- velocity or motion class: stationary, slow convoy, crossing, separating, or
+  unknown;
+- predicted peer coverage for the next lease interval;
+- direct-route and relay-route quality estimates.
+
+The AP score should maximize expected connectivity over the next lease, not
+just current receive strength. For example, a wall-powered dock node may be
+best for a harbor network, while a convoy-center AGV may be best for moving
+warehouse robots, and a 2R2T vessel in the middle of a formation may be best
+for ships at sea. Handover should be deliberate because changing AP during
+video or control traffic costs airtime and can break latency guarantees.
 
 Election behavior:
 
@@ -263,6 +309,8 @@ Stage 1: API and trace contract
 - Keep `fieldmesh-udp-probe` as the reference implementation.
 - Verify board passive learner plus application command over UDP.
 - Add AP/broker messages to the trace vocabulary.
+- Add executable `ap-elect` traces for preferred AP, RSSI/SNR/geo/capability
+  based autonomous 2R2T AP, and emergency 1R1T AP fallback.
 
 Stage 2: Board-local service
 
@@ -313,3 +361,28 @@ endpoint target, but it can still become an emergency AP when policy allows and
 no better candidate exists. Both must keep the same passive default and be
 driven into AP/proactive behavior by SDK command, saved policy, or election
 result, not by separate firmware images.
+
+## Two-PC Demo Shape
+
+For early product validation, use one host PC per board:
+
+- PC A connects to the Z203 2R2T board over USB Ethernet or physical Ethernet.
+- PC B connects to the Z103 1R1T board over USB Ethernet.
+- Both boards boot passive learner firmware.
+- The PC A application can command Z203 into AP/broker mode.
+- The PC B application browses APs, joins with audit or credential policy, and
+  opens a prioritized stream.
+- If no AP is visible, both applications can run AP candidate exchange and
+  election. A mixed swarm should choose Z203; a 1R1T-only swarm can choose a
+  temporary emergency AP.
+
+Current SDK examples are compile-checked skeletons:
+
+- `sdk/c/examples/fieldmesh_ap_demo.c`
+- `sdk/c/examples/fieldmesh_endpoint_demo.c`
+
+Current executable trace gate:
+
+```sh
+./tools/verify_fieldmesh_ap_election.sh
+```

@@ -6,9 +6,12 @@ out_dir="$repo_root/.config/fieldmesh/sdk"
 mkdir -p "$out_dir"
 
 cc="${CC:-cc}"
-"$cc" -std=c99 -Wall -Wextra -Werror \
-    -I"$repo_root/sdk/c/include" \
-    "$repo_root/sdk/c/examples/fieldmesh_sdk_header_smoke.c" \
-    -c -o "$out_dir/fieldmesh_sdk_header_smoke.o"
+for source in "$repo_root"/sdk/c/examples/*.c; do
+    object="$out_dir/$(basename "${source%.c}").o"
+    "$cc" -std=c99 -Wall -Wextra -Werror \
+        -I"$repo_root/sdk/c/include" \
+        "$source" \
+        -c -o "$object"
+done
 
 echo "fieldmesh_sdk_header_check=pass"
