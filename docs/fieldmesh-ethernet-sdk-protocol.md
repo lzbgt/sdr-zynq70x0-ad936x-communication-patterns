@@ -57,6 +57,17 @@ Host Ethernet/IP is only the SDK ingress/egress path to the local board.
 Peer-to-peer payloads must leave the local board over FieldMesh RF/sidecar and
 arrive at the peer host through that peer's local daemon.
 
+Long-term production data should be exposed above the daemon as either:
+
+- a virtual network interface such as `swarm0`, where normal sockets carry IP,
+  UDP/RTP/SRT-like video, telemetry, and control packets; or
+- an equivalent daemon stream API with the same routing, QoS, and security
+  semantics.
+
+Raw IIO buffers are not the production network API. IIO remains the local RF
+configuration, calibration, diagnostics, and conducted-test backend owned by
+the daemon.
+
 ## Control Messages
 
 Minimum daemon messages:
@@ -153,6 +164,13 @@ The daemon fuses:
 - packet-timing two-way ranging and TDOA with calibrated response delays;
 - RSSI/SNR fallback;
 - AP or relay anchor reports.
+
+Useful packet-timing RTLS requires board/FPGA-level timing. Linux userspace
+timestamps may be logged for diagnostics, but they are not accurate enough for
+serious TDOA or scheduled ranging. The RF path must expose calibrated TX/RX
+timestamps, known RF/ADC/DAC latency, PPS or disciplined clock state, and a
+sharp preamble/correlation sequence before the daemon marks a timing estimate
+as route-grade.
 
 `RTLS_GET` returns:
 

@@ -127,6 +127,14 @@ warehouse robots, and a 2R2T vessel in the middle of a formation may be best
 for ships at sea. Handover should be deliberate because changing AP during
 video or control traffic costs airtime and can break latency guarantees.
 
+Route scoring should be edge based. A direct route remains preferred only when
+SNR margin, packet error rate, estimated throughput, latency, and route
+stability satisfy the stream contract. Otherwise, the AP/mesh manager should
+compare relay paths using radio quality, geographic progress, relay load, queue
+age, and recent delivery history. For sea links, do not assume the closest
+geographic node is best; antenna height and sea-surface multipath can make a
+farther relay more reliable than a closer one.
+
 Election behavior:
 
 1. All nodes boot passive.
@@ -300,6 +308,25 @@ allowed local device actions into libiio/sidecar/driver calls under policy.
 This split lets a Windows camera app, a Linux gateway, and an embedded host use
 the same control/data-plane API while keeping RF setup and safety gates
 auditable.
+
+The product SDK should settle into five service layers while keeping the
+public ABI C-stable:
+
+1. **Radio HAL:** frequency, bandwidth, gain, RSSI/SNR, clock state, scheduled
+   TX, and packet RX primitives.
+2. **PHY service:** waveform, MCS, CFO/EVM/PER, FEC policy, frame TX/RX, and
+   timestamped ranging packet support.
+3. **Mesh MAC:** discovery, neighbor table, route selection, control/data
+   queues, AP/relay election, and scheduled relay policy.
+4. **Network adapter:** `swarm0` or equivalent daemon stream API, with QoS
+   queues for control, telemetry, video, and bulk data.
+5. **Application SDK:** video send/preview, telemetry publish, command send,
+   fleet position, link status, and topology queries.
+
+The first implementation can expose these as C SDK calls and daemon messages
+before a real `swarm0` netdev exists. The design point is still the same:
+apps use packet/stream semantics, while the daemon owns IIO and local RF
+details.
 
 ## C SDK Surface
 

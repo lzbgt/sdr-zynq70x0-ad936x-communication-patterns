@@ -38,6 +38,51 @@ The differentiator is not only range. It is:
 - graceful degradation,
 - and APIs for customer payload data.
 
+## Production Modem Boundary
+
+The reviewed `design.md` note reinforces the key product boundary: FieldMesh is
+not just Pluto firmware plus host apps. The production value comes from turning
+Zynq + AD936x into a real packet radio modem with custom PHY, MAC, mesh,
+routing, security, and SDK layers.
+
+Use IIO for what it is good at:
+
+- AD936x configuration and calibration;
+- RF diagnostics and factory test;
+- guarded conducted/shielded IQ experiments;
+- board bring-up and recovery.
+
+Do not expose raw IIO IQ streaming as the normal product data plane. The
+customer-facing data plane should be packet/network oriented. The practical
+target is a daemon-owned virtual network adapter such as `swarm0`, or an
+equivalent daemon stream API, so applications can use normal packet concepts
+for video, telemetry, control, and bulk data while the board daemon maps those
+packets into scheduled FieldMesh RF frames.
+
+Production stack:
+
+```text
+Host apps and SDK
+  -> host Ethernet/IP to local board daemon
+  -> FieldMesh virtual network or stream API
+  -> mesh manager: peers, routes, AP election, RTLS, security
+  -> TDMA/TDD MAC: beacons, control slots, data slots, relay slots, ranging
+  -> packet PHY: preamble, sync, FEC, MCS, timestamps, ranging sequences
+  -> Zynq PL + AD936x: DMA, timestamp counter, scheduled TX/RX, RF front end
+```
+
+The PL/PS split should stay explicit:
+
+- **PL/FPGA:** sample timestamps, preamble detection, coarse sync/correlation,
+  packet DMA, scheduled TX at exact time, RX timestamp capture, and optional
+  OFDM/FEC acceleration.
+- **PS/Linux:** mesh routing, relay/AP election, neighbor table, security,
+  SDK daemon, GNSS/BDS+GPS parsing, RTLS fusion, configuration, logging, and
+  UI/service integration.
+
+This keeps early IIO work valuable without letting IIO become the long-term
+network abstraction.
+
 ## Communication Patterns
 
 ### 1. Star / Fanout
@@ -329,6 +374,9 @@ Link adaptation:
   video resolution, frame rate, and enhancement layers based on link state.
 - Protect control and telemetry before preserving video quality.
 - Prefer predictable degradation over buffering surprises.
+- Do not use RSSI alone. Include SNR/EVM, packet error rate, retransmission
+  count, queue delay, MCS success history, CFO/Doppler estimate, and timing
+  residuals when available.
 
 Security:
 
@@ -337,6 +385,13 @@ Security:
 - Encrypted customer payload streams.
 - Replay protection tied to frame counters or time epochs.
 - Signed firmware and signed network policy profiles.
+
+Relay selection must avoid a fragile single point. Keep a primary relay,
+secondary relay, direct fallback, store-and-forward fallback for delay-tolerant
+classes, and multi-hop fallback where policy allows. Link adaptation can update
+quickly, but AP/relay leader changes should use hysteresis across several
+measurement windows so moving ships, robots, and AGVs do not flap between
+leaders.
 
 ## Mode Selection And Negotiation
 

@@ -172,6 +172,13 @@ Next concrete work:
   Host A and Host B may be the same physical PC for lab testing, but the test
   must keep them as logical hosts and preserve the split between SDK control
   plane and RF data plane.
+- Consolidate the reviewed `design.md` production insight into implementation:
+  IIO remains a local RF configuration, diagnostics, calibration, and
+  conducted-test backend, while the product data plane should move toward a
+  daemon-owned packet interface such as `swarm0` or an equivalent stream API.
+  The next software architecture step is a small host-visible network/stream
+  adapter that maps normal packet or stream semantics onto FieldMesh classes,
+  routes, and schedules without exposing raw IQ buffers to applications.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

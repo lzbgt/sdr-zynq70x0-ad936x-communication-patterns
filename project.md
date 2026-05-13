@@ -234,7 +234,10 @@ user and vendor configuration.
   concept, framed as "high-bandwidth LoRa" for performance use cases, covering
   star/fanout, graph/relay, GPS-scheduled cooperative sharing, and P2P
   communication modes, plus Z203/Z103 prototype roles and mode
-  selection/negotiation.
+  selection/negotiation. The reviewed `design.md` production insight is
+  consolidated there: IIO is a local RF control/diagnostic/prototyping backend,
+  while the product data plane should become a packet modem exposed through
+  `swarm0` or an equivalent daemon stream API.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
   packet, control-plane, mode-selection, and conducted-test spec.
 - `docs/fieldmesh-ap-sdk-architecture.md` - product-facing AP/broker and
