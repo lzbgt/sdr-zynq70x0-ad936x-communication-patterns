@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "fieldmesh_sdk.h"
 
 #include <stdio.h>
@@ -47,6 +49,109 @@ static fieldmesh_ap_policy_t parse_policy(const char *text)
         return FIELDMESH_AP_POLICY_AUTONOMOUS_SWARM;
     }
     return (fieldmesh_ap_policy_t)0;
+}
+
+static uint8_t prefix_from_netmask(const char *text, uint8_t fallback)
+{
+    unsigned int a;
+    unsigned int b;
+    unsigned int c;
+    unsigned int d;
+    unsigned int octets[4];
+    uint32_t mask = 0u;
+    uint8_t prefix = 0u;
+    uint8_t seen_zero = 0u;
+    int i;
+
+    if (!text || sscanf(text, "%u.%u.%u.%u", &a, &b, &c, &d) != 4) {
+        return fallback;
+    }
+    octets[0] = a;
+    octets[1] = b;
+    octets[2] = c;
+    octets[3] = d;
+    for (i = 0; i < 4; ++i) {
+        if (octets[i] > 255u) {
+            return fallback;
+        }
+        mask = (mask << 8) | octets[i];
+    }
+    for (i = 31; i >= 0; --i) {
+        if (mask & (1u << (unsigned int)i)) {
+            if (seen_zero) {
+                return fallback;
+            }
+            ++prefix;
+        } else {
+            seen_zero = 1u;
+        }
+    }
+    return prefix > 30u ? fallback : prefix;
+}
+
+static void apply_env_value(fieldmesh_network_profile_t *profile,
+                            const char *key,
+                            const char *value)
+{
+    if (!key || !value || value[0] == '\0') {
+        return;
+    }
+    if (strcmp(key, "hostname") == 0) {
+        if (profile->node_id[0] == '\0' || strcmp(profile->node_id, "z203-hub") == 0) {
+            copy_arg(profile->node_id, sizeof(profile->node_id), value);
+        }
+        copy_arg(profile->friendly_name, sizeof(profile->friendly_name), value);
+    } else if (strcmp(key, "ipaddr") == 0) {
+        copy_arg(profile->usb_device_ip, sizeof(profile->usb_device_ip), value);
+    } else if (strcmp(key, "ipaddr_host") == 0) {
+        copy_arg(profile->usb_host_ip, sizeof(profile->usb_host_ip), value);
+    } else if (strcmp(key, "netmask") == 0) {
+        profile->usb_prefix_len = prefix_from_netmask(value, profile->usb_prefix_len);
+    } else if (strcmp(key, "ipaddr_eth") == 0) {
+        copy_arg(profile->phy_device_ip, sizeof(profile->phy_device_ip), value);
+    } else if (strcmp(key, "netmask_eth") == 0) {
+        profile->phy_prefix_len = prefix_from_netmask(value, profile->phy_prefix_len);
+    } else if (strcmp(key, "fieldmesh_node_id") == 0) {
+        copy_arg(profile->node_id, sizeof(profile->node_id), value);
+    } else if (strcmp(key, "fieldmesh_network_id") == 0) {
+        copy_arg(profile->network_id, sizeof(profile->network_id), value);
+    } else if (strcmp(key, "fieldmesh_preferred_ap") == 0) {
+        copy_arg(profile->preferred_ap_id, sizeof(profile->preferred_ap_id), value);
+    } else if (strcmp(key, "fieldmesh_ap_policy") == 0) {
+        fieldmesh_ap_policy_t policy = parse_policy(value);
+        if (policy != (fieldmesh_ap_policy_t)0) {
+            profile->ap_policy = policy;
+        }
+    }
+}
+
+static void load_board_env_profile(fieldmesh_network_profile_t *profile)
+{
+#if !defined(_WIN32)
+    FILE *pipe;
+    char line[256];
+
+    pipe = popen("fw_printenv hostname ipaddr ipaddr_host netmask ipaddr_eth "
+                 "netmask_eth fieldmesh_node_id fieldmesh_network_id "
+                 "fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null", "r");
+    if (!pipe) {
+        return;
+    }
+    while (fgets(line, sizeof(line), pipe)) {
+        char *equals = strchr(line, '=');
+        char *value;
+        if (!equals) {
+            continue;
+        }
+        *equals = '\0';
+        value = equals + 1;
+        value[strcspn(value, "\r\n")] = '\0';
+        apply_env_value(profile, line, value);
+    }
+    (void)pclose(pipe);
+#else
+    (void)profile;
+#endif
 }
 
 static void print_profile(const char *event, const fieldmesh_network_profile_t *profile)
@@ -165,6 +270,7 @@ int main(int argc, char **argv)
         fieldmesh_context_destroy(ctx);
         return 1;
     }
+    load_board_env_profile(&profile);
     if (parse_profile_args(argc, argv, option_start, &profile, &flags) != 0) {
         fieldmesh_context_destroy(ctx);
         return usage(argv[0]);

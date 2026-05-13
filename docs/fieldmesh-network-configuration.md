@@ -32,7 +32,10 @@ The firmware must therefore support configuration before two-board experiments:
 The first shipped board CLI surface is `/usr/bin/fieldmeshctl`. It validates
 and accepts a profile into the SDK reference context, reports whether
 persistence/reboot/rollback would be required, and does not itself write init
-scripts, U-Boot environment, or host routing.
+scripts, U-Boot environment, or host routing. On board images it also overlays
+`profile show` from `fw_printenv` when those persistent keys are present, so
+operators see the active USB subnet and FieldMesh identity instead of a
+compiled SDK default.
 
 The first persistent writer is host-side:
 `tools/apply_fieldmesh_network_profile_ssh.py`. It reaches a board over SSH,
@@ -93,6 +96,18 @@ tools/apply_fieldmesh_network_profile_ssh.py \
   --reboot
 ```
 
+The board must first be running a FieldMesh runtime that contains
+`fieldmeshctl`. For Pluto-style QSPI images, the guarded installer is:
+
+```sh
+APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+  tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.2.1
+```
+
+The installer records target identity, package hash, update log, and reboot
+output, and refuses to write unless the reachable board matches the requested
+variant and exposes `mtd3 "qspi-linux"` plus `/sbin/update_frm.sh`.
+
 The CLI currently prints NDJSON by default, because it is used directly by
 host-side test runners and later board-side provisioning tools. The intended
 production expansion is to add subcommands for credential storage, radio
@@ -133,8 +148,8 @@ For the current Z203/Z103 lab setup:
 1. Keep Z203 on `192.168.2.1/24` until the 2R2T installed runtime is verified.
 2. Move Z103 USB Ethernet to a second subnet, for example
    `192.168.3.1/24`, with host-side `192.168.3.10/24`, using the
-   `fieldmeshctl profile validate/apply` shape first and the later persistent
-   OS writer once implemented.
+   `fieldmeshctl profile validate/apply` shape first and the guarded
+   persistent SSH writer once the target is known.
 3. Run the Z203 AP service on one PC/interface:
 
    ```sh
@@ -171,3 +186,21 @@ the requested variant or if `fieldmeshctl` is missing, unless the operator
 intentionally overrides that guard. This still does not solve USB interface
 selection by itself; it makes the actual write auditable once the target route
 is known.
+
+## Live Split-Subnet Status
+
+The 2026-05-14 Z103 bring-up proved this path on hardware:
+
+- the stock Z103 first refused the persistent writer because `fieldmeshctl` was
+  missing;
+- after the matched FieldMesh `pluto.frm` was installed, the writer applied
+  `hostname=z103-endpoint`, `ipaddr=192.168.3.1`, `ipaddr_host=192.168.3.10`,
+  `fieldmesh_node_id=z103-endpoint`, `fieldmesh_network_id=fieldmesh-lab`,
+  `fieldmesh_preferred_ap=z203-hub`, and `fieldmesh_ap_policy=hybrid`;
+- a BusyBox/u-boot-tools quirk was found: `fw_setenv -s FILE` returned success
+  but wrote empty values, so the writer now applies each key with individual
+  `fw_setenv key value` calls;
+- after reboot, `192.168.2.1` resolved to Z203 and `192.168.3.1` resolved to
+  Z103;
+- refreshed Z103 firmware now makes `fieldmeshctl profile show` report the
+  persistent profile from U-Boot env.

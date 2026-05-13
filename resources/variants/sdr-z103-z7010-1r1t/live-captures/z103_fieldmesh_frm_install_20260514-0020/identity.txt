@@ -1,0 +1,17 @@
+fieldmesh_frm_identity_begin
+hostname=pluto
+uname=Linux pluto 6.1.0 #17 SMP PREEMPT Mon Jan 26 12:16:27 CST 2026 armv7l GNU/Linux
+model=Analog Devices PlutoSDR Rev.C (Z7010/AD9363)
+mode=1r1t
+ipaddr=192.168.2.1
+ipaddr_host=192.168.2.10
+netmask=255.255.255.0
+fit_size=0x900000
+dev:    size   erasesize  name
+mtd0: 00100000 00010000 "qspi-fsbl-uboot"
+mtd1: 00020000 00010000 "qspi-uboot-env"
+mtd2: 000e0000 00010000 "qspi-nvmfs"
+mtd3: 01e00000 00010000 "qspi-linux"
+update_frm=present
+fieldmeshctl=missing
+fieldmesh_frm_identity_end

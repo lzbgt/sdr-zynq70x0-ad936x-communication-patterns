@@ -134,19 +134,20 @@ Next concrete work:
   prioritized stream send/receive services. The pure-C
   `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
   two-PC path.
-- Use the new guarded network-profile writer from
-  `docs/fieldmesh-network-configuration.md` on live hardware. The packaged
+- Keep the guarded network-profile writer from
+  `docs/fieldmesh-network-configuration.md` live-safe. The packaged
   `fieldmeshctl profile show|validate|apply|rollback` path verifies split USB
   subnet profiles such as Z103 on `192.168.3.1/24`, and
-  `tools/apply_fieldmesh_network_profile_ssh.py` now adds a persistent SSH
-  writer for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and FieldMesh profile env
-  keys with explicit variant matching and rollback backup. The next live-safe
-  step is selecting the correct board route/interface, confirming the reachable
-  target has the FieldMesh runtime installed, applying the Z103 split subnet,
-  rebooting, then configuring the host adapter route so one host can keep Z203
-  and Z103 separated instead of colliding at the Pluto default `192.168.2.1`.
-  The current dry-run against `192.168.2.1` reached a Z103-class stock runtime
-  and correctly refused to apply because `fieldmeshctl` was missing.
+  `tools/apply_fieldmesh_network_profile_ssh.py` now has a proven persistent
+  SSH writer for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and FieldMesh profile
+  env keys with explicit variant matching and rollback backup. The 2026-05-14
+  Z103 run installed the FieldMesh `pluto.frm`, applied
+  `z103-endpoint@192.168.3.1`, fixed the writer to avoid a BusyBox
+  `fw_setenv -s` empty-value quirk, and verified that `192.168.2.1` now
+  resolves to Z203 while `192.168.3.1` resolves to Z103. The next live-safe
+  step is using those split board addresses for the two-PC/two-board AP
+  browse/election/join flow and then replacing deterministic demo responses
+  with real admission, peer discovery, route query, and stream services.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

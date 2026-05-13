@@ -222,7 +222,10 @@ def validate_identity(args: argparse.Namespace, identity_text: str) -> dict[str,
 def apply_script(profile: Profile, allow_volatile: bool, reboot: bool) -> str:
     backup_root = "/mnt/jffs2/fieldmesh-profile-backups"
     fallback_root = "/tmp/fieldmesh-profile-backups"
-    batch = "\n".join(fw_setenv_lines(profile)) + "\n"
+    set_commands = "\n".join(
+        f"fw_setenv {shlex.quote(key)} {shlex.quote(value)}"
+        for key, value in (line.split(" ", 1) for line in fw_setenv_lines(profile))
+    )
     keys = " ".join(shlex.quote(key) for key in ENV_KEYS)
     reboot_cmd = "reboot" if reboot else "true"
     return f"""set -eu
@@ -239,10 +242,7 @@ fi
 stamp="$(date +%Y%m%d-%H%M%S)"
 backup="$backup_root/profile-$stamp.env"
 fw_printenv {keys} > "$backup" 2>/dev/null || true
-cat > /tmp/fieldmesh-fw-setenv.tmp <<'EOF_FIELDMESH_FW_SETENV'
-{batch}EOF_FIELDMESH_FW_SETENV
-fw_setenv -s /tmp/fieldmesh-fw-setenv.tmp
-rm -f /tmp/fieldmesh-fw-setenv.tmp
+{set_commands}
 printf 'backup_path=%s\\n' "$backup"
 fw_printenv hostname ipaddr ipaddr_host netmask ipaddr_eth netmask_eth fieldmesh_node_id fieldmesh_network_id fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null || true
 sync
@@ -255,9 +255,10 @@ def rollback_script(backup_path: str, reboot: bool) -> str:
     return f"""set -eu
 backup={shlex.quote(backup_path)}
 test -f "$backup"
-sed 's/=/ /' "$backup" > /tmp/fieldmesh-fw-rollback.tmp
-fw_setenv -s /tmp/fieldmesh-fw-rollback.tmp
-rm -f /tmp/fieldmesh-fw-rollback.tmp
+while IFS='=' read -r key value; do
+  [ -n "$key" ] || continue
+  fw_setenv "$key" "$value"
+done < "$backup"
 printf 'rollback_backup_path=%s\\n' "$backup"
 fw_printenv {' '.join(shlex.quote(key) for key in ENV_KEYS)} 2>/dev/null || true
 sync

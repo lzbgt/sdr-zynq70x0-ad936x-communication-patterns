@@ -1,0 +1,1 @@
+{"event":"fieldmesh_frm_install_plan","variant":"z103","host":"192.168.2.1","frm":"/root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm","remote_frm":"/tmp/fieldmesh-z103.frm","apply":1,"allow_flash_writes":1,"reboot_after":1}

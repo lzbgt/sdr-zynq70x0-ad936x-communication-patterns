@@ -2722,6 +2722,87 @@ The planned env batch was still visible for audit: `ipaddr=192.168.3.1`,
 `ipaddr_host=192.168.3.10`, `netmask=255.255.255.0`, and FieldMesh profile
 keys.
 
+## Z103 FieldMesh QSPI Runtime And Split-Subnet Bring-Up
+
+After the stock-runtime dry run refused persistent writes, the live Z103 QSPI
+runtime was backed up and refreshed through the guarded Pluto `.frm` updater:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/firmware/qspi-live-backup-fieldmesh-preflash-20260514-0018 \
+  ./tools/backup_z103_qspi_live.sh
+
+APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_frm_install_20260514-0020 \
+  ./tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.2.1
+```
+
+The first `apply_fieldmesh_network_profile_ssh.py --apply` attempt exposed a
+board-specific u-boot-tools behavior: BusyBox `fw_setenv -s FILE` returned
+success but wrote empty values. The writer now applies each key with an
+individual `fw_setenv key value` call, and the fixed run wrote:
+
+```text
+hostname=z103-endpoint
+ipaddr=192.168.3.1
+ipaddr_host=192.168.3.10
+netmask=255.255.255.0
+fieldmesh_node_id=z103-endpoint
+fieldmesh_network_id=fieldmesh-lab
+fieldmesh_preferred_ap=z203-hub
+fieldmesh_ap_policy=hybrid
+```
+
+After rebuilding both Yocto images with the corrected `fieldmeshctl` profile
+display path, the refreshed Z103 package was installed again:
+
+```sh
+APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_profile_cli_refresh_20260514-0032 \
+  ./tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.3.1
+```
+
+The rebooted board answers at `192.168.3.1` and `fieldmeshctl profile show`
+now reports the persistent profile from U-Boot env:
+
+```json
+{"event":"fieldmeshctl_profile_show","node_id":"z103-endpoint","network_id":"fieldmesh-lab","friendly_name":"z103-endpoint","usb_device_ip":"192.168.3.1","usb_host_ip":"192.168.3.10","usb_prefix_len":24,"phy_device_ip":"","phy_host_ip":"","phy_prefix_len":0,"ap_policy":"hybrid","preferred_ap_id":"z203-hub","allow_emergency_1r1t_ap":1,"radio_freq_mhz":2400,"radio_bandwidth_hz":1000000}
+```
+
+Live split-subnet verification:
+
+```sh
+BOARD_IP=192.168.3.1 ./tools/verify_z103_board.sh
+
+BOARD_IP=192.168.3.1 SSH_PASS=analog \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sidecar_preflight_split_subnet_20260514-0035 \
+  ./tools/run_fieldmesh_board_sidecar_preflight.sh
+
+VARIANT=z103 BOARD_IP=192.168.3.1 SSH_PASS=analog UPLOAD_IF_MISSING=0 \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_split_subnet_20260514-0035 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+Results:
+
+- `192.168.2.1` resolves to the Z203 host name, while `192.168.3.1` resolves
+  to `z103-endpoint`;
+- Z103 passes ping, IIO network context, and HTTP at `192.168.3.1`;
+- Z103 sidecar preflight assertion passes with `ctrl_id=0x464d1001`, four DT
+  nodes, and both TX/RX DMA windows;
+- installed Z103 SDK daemon answers AP browse, AP election, join state, peer
+  state, and RTLS state without transient upload.
+
+Refreshed runtime artifact hashes after the CLI fix:
+
+```text
+Z203 rootfs.tar.gz: 7f014f1ccb87c95732da815dbb455eabd1d1f5227c6b67c3676c3b0dd6270828
+Z203 pluto.frm:     017f635acc22bead3687b11c1183fc0762759bb07fb929a669a52fa60f54ca00
+Z203 pluto.itb:     cce40dcd4077caf45e4a0a5ad37018320b9abb84defb58c3ee74a44ede85e043
+Z103 rootfs.tar.gz: bb37298035d9531f1d894ba8dbae1a0b8cfb74b6361ce78bbc4033aeba316404
+Z103 pluto.frm:     cf7defff643b74dfe9a8c84922ece10588662aabaf11f6e9846a48bce156a7b8
+Z103 pluto.itb:     875b033cb802596bc13b3c0de3777cc78636a7a20f2d4ec18db61a6d5a688a99
+```
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:
@@ -2752,8 +2833,9 @@ for GPS UART pass-through and `gps_vctcxo` for later clock-discipline work.
 - Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, `pluto.frm` packaging,
   and QSPI `mtd3` flash/boot verification now complete locally on WSL Arch.
 - SDR-Z103 Yocto ARM image, U-Boot, Pluto-runtime rootfs audit, and
-  `pluto.frm` packaging now complete locally on WSL Arch, but the rebuilt Z103
-  Linux package has not booted on hardware yet.
+  `pluto.frm` packaging now complete locally on WSL Arch. The rebuilt Z103
+  FieldMesh package now boots from QSPI on hardware at `192.168.3.1` and
+  passes ping, IIO, HTTP, sidecar preflight, and installed SDK daemon smoke.
 - No GPS PPS/NMEA test has been performed yet.
 - No openwifi SD boot test has been performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA

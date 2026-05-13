@@ -723,10 +723,12 @@ Expected result in the current Pluto-compatible firmware state:
 ## Near-Term Work
 
 1. Verify the SDR-Z103 / Z7010 / 1R1T board with the customized FieldMesh
-   firmware first. The 2026-05-13 reset restored Windows Pluto/RNDIS briefly
-   and FT2232 could be attached to WSL, but the live gate still failed at the
-   PS-side DAP/DSCR reset-halt boundary. SSH timed out, so no Z103 QSPI backup
-   has been captured yet.
+   firmware first. The 2026-05-14 QSPI path is now green enough for the
+   two-board host setup: a preflash QSPI backup was captured, the matched
+   FieldMesh `pluto.frm` was installed through the board updater, Z103 was
+   moved to `192.168.3.1/24`, and the refreshed runtime passes ping, IIO,
+   HTTP, `fieldmeshctl profile show` from persistent U-Boot env, read-only
+   sidecar preflight, and installed SDK daemon AP/peer/RTLS queries.
 2. The SDR-Z203 / Z7020 / 2R2T board has been rebuilt and reloaded through the
    verified SD/QSPI boot path with the matched FieldMesh bitstream, devicetree,
    kernel, and Yocto initramfs. The live board passes ping, IIO, HTTP,
@@ -743,13 +745,15 @@ Expected result in the current Pluto-compatible firmware state:
    Z203-class 2R2T hardware should become the commanded AP/broker/coordinator
    target for network formation, discovery, routing, and relay, while Z103-class
    1R1T remains the constrained endpoint target. The refreshed Z203 SD/QSPI
-  runtime now installs `/usr/bin/fieldmesh-state-daemon-demo` and passes the
+   runtime now installs `/usr/bin/fieldmesh-state-daemon-demo` and passes the
    SDK AP browse/election/join plus peer/RTLS state socket smoke from the
    running image. The SDK now also includes the first `fieldmeshctl` network
    profile API/CLI for validating split USB-Ethernet subnets before persistent
    profile writes are enabled. The host-side SSH writer now adds the first
    guarded persistent path for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and
-   FieldMesh profile env keys, gated by target identity and rollback backup.
+   FieldMesh profile env keys, gated by target identity and rollback backup;
+   the live Z103 write proved the split subnet, and `192.168.2.1` now resolves
+   to the Z203 while `192.168.3.1` resolves to the Z103 endpoint.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
