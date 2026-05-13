@@ -223,7 +223,10 @@ Next concrete work:
   handoff evidence and proves packet-to-IQ-to-packet recovery. The binding
   assertion now ties that transport report to live sidecar DMA smoke evidence.
   The next step is replacing the modelled packet-engine IQ path with the first
-  guarded live sidecar/RF data path.
+  guarded live sidecar/RF data path. The first synthesizable TX primitive for
+  that path is now `fieldmesh_bpsk_iq_symbolizer`: it maps packet bytes into
+  repeated signed BPSK I/Q symbols while keeping tuning, filtering, TX enable,
+  and scheduled launch outside the primitive.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

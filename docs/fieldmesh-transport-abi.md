@@ -310,7 +310,8 @@ Move these responsibilities into PL only when measured pressure justifies it:
 Keep the RTL descriptor-loopback, direct-register, AXI-lite, packet-memory,
 integrated AXI packet-memory, class-priority queue, descriptor-ring, and packet
 AXI-stream source/sink/loopback/adapter/header-guard/parser/byte-pipe/sidecar-bridge
-simulations green before adding vendor DMA wiring or IIO/RF transport binding.
+and RF packet-engine symbolizer simulations green before adding vendor DMA
+wiring or live RF transport binding.
 
 ### Shared Descriptor
 

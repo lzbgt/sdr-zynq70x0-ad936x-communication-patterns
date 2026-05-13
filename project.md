@@ -642,6 +642,10 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v` - width adapter between ADI
   `axi_dmac` 16-bit minimum AXI-stream ports and FieldMesh's byte-only packet
   stream contract.
+- `rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v` - first synthesizable RF
+  packet-engine TX primitive. It maps byte-stream packet bits, MSB first, into
+  repeated signed I/Q BPSK symbols while leaving RF tuning, filtering, TX
+  enable, and scheduling as outer guarded blocks.
 - `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` - deterministic scheduled
   descriptor gate wired between class-ring dequeue and packet-memory loopback
   in the full simulation wrapper; it holds future-slot descriptors, drops stale
@@ -722,6 +726,7 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v`, and
   `tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v`,
   `tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v`, and
+  `tb/fieldmesh/fieldmesh_bpsk_iq_symbolizer_tb.v`, and
   `tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor, packet-memory, and sidecar transport RTL gates.

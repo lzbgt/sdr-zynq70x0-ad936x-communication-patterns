@@ -185,9 +185,12 @@ sidebands, and the PL-to-PS side validates sidebands against the packet header
 before emitting byte-only packets. `fieldmesh_axis16_byte_adapter.v` sits
 between that byte-pipe bridge and ADI `axi_dmac`, because the ADI DMA IP
 accepts 16-bit and wider AXI-stream ports while the FieldMesh packet ABI
-remains byte-oriented. `fieldmesh_slot_admission_gate.v` is also part of the
-required RTL set, but remains parked until the packet path is ready for
-scheduled-mode admission: it holds future-slot descriptors, drops stale
+remains byte-oriented. `fieldmesh_bpsk_iq_symbolizer.v` is the first
+synthesizable RF packet-engine TX primitive: it converts packet bytes into
+MSB-first signed I/Q BPSK symbols, but still does not own RF tuning, TX enable,
+filtering, or scheduled transmission. `fieldmesh_slot_admission_gate.v` is also
+part of the required RTL set, but remains parked until the packet path is ready
+for scheduled-mode admission: it holds future-slot descriptors, drops stale
 scheduled descriptors, and leaves non-scheduled traffic unblocked.
 
 The first control-only block-design overlay is opt-in:

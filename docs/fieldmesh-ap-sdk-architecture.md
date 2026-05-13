@@ -568,7 +568,10 @@ Stage 2: Board-local service
   `tools/fieldmesh_rf_packet_engine_binding_assert.py` then ties the daemon
   handoff and transport report to live sidecar DMA smoke evidence, so the same
   committed frame is checked across adapter intent, board packet DMA, and
-  packet-engine IQ recovery.
+  packet-engine IQ recovery. The first PL primitive behind that boundary is
+  `fieldmesh_bpsk_iq_symbolizer`, which maps packet bytes to repeated signed
+  BPSK I/Q symbols without taking ownership of RF tuning, filtering, TX enable,
+  or scheduled launch.
 - Use daemon `FIELDMESH_TUN_FD_PUMP` and
   `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
   boundary: the SDK accepts a pure-C read callback, so production code can

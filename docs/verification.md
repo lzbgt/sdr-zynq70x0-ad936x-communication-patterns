@@ -2064,7 +2064,7 @@ when a synthetic Tcl change moved ADI RX from HP1 onto HP0.
 The overlay scaffold generator produced valid JSON, a 13-file RTL list, Tcl
 constants, and a non-mutating Vivado overlay stub.
 The overlay patcher successfully patched a temporary copied HDL tree, copied
-all 13 FieldMesh RTL files, added project and Makefile references, and was
+all FieldMesh RTL files, added project and Makefile references, and was
 idempotent on a second apply. Its opt-in control overlay also appended the
 `fieldmesh_ctrl` BD module, `0x43C00000` CPU interconnect, and `ps-11 mb-11`
 IRQ wiring to a temporary copied tree; the post-patch sidecar check reported
@@ -2455,6 +2455,15 @@ control endpoint.
 its matching `PASS:` line and must not emit `FAIL:` or `Fatal:`. This closes a
 Vivado simulator behavior where a `$fatal` line could still allow the shell
 script to continue.
+
+The first RF packet-engine TX primitive was added as
+`rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v` with
+`tb/fieldmesh/fieldmesh_bpsk_iq_symbolizer_tb.v`. It accepts byte-stream packet
+data and emits repeated signed I/Q BPSK symbols, MSB first. The test covers
+output backpressure, bit order, signed I samples, zero Q samples, TLAST on the
+final repeated symbol, and byte/symbol/packet counters. It is included in the
+required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
+TX boundary.
 
 After the user reset the Z103, two more live-gate captures were taken:
 
