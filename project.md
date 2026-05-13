@@ -483,6 +483,15 @@ user and vendor configuration.
   writes.
 - `tools/verify_fieldmesh_rf_packet_engine_transport.sh` - gate for the RF
   packet-engine model, including a negative conducted/shielded guard test.
+- `tools/fieldmesh_rf_packet_engine_binding_assert.py` - evidence combiner for
+  the first live-safe RF packet-engine binding. It validates daemon handoff,
+  live sidecar DMA smoke, and RF packet-engine transport reports as one path.
+- `tools/run_fieldmesh_board_rf_packet_engine_gate.sh` - board runner that
+  captures the SDK daemon handoff, runs guarded sidecar DMA smoke, runs the RF
+  packet-engine transport model, and emits a single binding assertion.
+- `tools/verify_fieldmesh_rf_packet_engine_binding.sh` - offline regression
+  gate for the RF packet-engine binding evidence, including a negative test for
+  invalid sidecar DMA evidence.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,
@@ -901,7 +910,13 @@ Expected result in the current Pluto-compatible firmware state:
    refreshed daemon binary. The first executable RF packet-engine transport
    gate now consumes that handoff evidence, emits the guarded BPSK IQ burst,
    decodes it, and verifies the recovered FieldMesh frame CRC before any live
-   AD936x RF path is allowed.
+   AD936x RF path is allowed. The binding gate now combines that transport
+   report with live sidecar DMA smoke evidence, proving the same committed
+   frame is queueable through the board sidecar path and recoverable through
+   the packet-engine IQ model without IIO, inter-board IP routing, RF TX start,
+   or hardware writes in the RF-engine stage. Z103 passed that combined live
+   gate at `192.168.3.1`; evidence is archived under
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/`.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

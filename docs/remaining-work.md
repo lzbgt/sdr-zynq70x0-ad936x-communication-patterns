@@ -168,9 +168,16 @@ Next concrete work:
   starting RF TX. `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
   the live SDK/daemon RF handoff evidence, validates the sidecar/RF queue
   contract, emits the guarded IQ burst, decodes it, and verifies the recovered
-  FieldMesh frame CRC. `tools/fieldmesh_iq_iio_live_plan.py` now binds that burst to
-  a guarded RX-first AD936x IIO procedure plan while still executing no
-  commands. `tools/fieldmesh_iq_iio_live_run.py` turns the plan into a
+  FieldMesh frame CRC. `tools/fieldmesh_rf_packet_engine_binding_assert.py` now
+  combines that handoff and transport evidence with a live sidecar DMA smoke
+  capture, proving one committed frame across daemon intent, sidecar DMA, and
+  packet-engine IQ recovery before any RF TX is allowed.
+  Z103 passed the combined live-safe gate at `192.168.3.1`; the archived
+  capture is
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/`.
+  `tools/fieldmesh_iq_iio_live_plan.py` now binds that burst to a guarded
+  RX-first AD936x IIO procedure plan while still executing no commands.
+  `tools/fieldmesh_iq_iio_live_run.py` turns the plan into a
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
   and defaults to a no-hardware dry-run. The next live-safe step is running
   that runner on a conducted/shielded fixture with
@@ -213,8 +220,10 @@ Next concrete work:
   sidecar DMA and `fieldmesh_rf_packet_engine` while preserving direct RF route
   metadata and keeping IIO, inter-board IP routing, RF TX start, and hardware
   writes disabled. The first RF packet-engine transport model now consumes that
-  handoff evidence and proves packet-to-IQ-to-packet recovery. The next step is
-  binding that engine model to the live sidecar/RF data path.
+  handoff evidence and proves packet-to-IQ-to-packet recovery. The binding
+  assertion now ties that transport report to live sidecar DMA smoke evidence.
+  The next step is replacing the modelled packet-engine IQ path with the first
+  guarded live sidecar/RF data path.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

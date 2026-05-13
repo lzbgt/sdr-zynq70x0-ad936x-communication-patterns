@@ -456,6 +456,17 @@ FieldMesh frame, decodes them back to the same frame, and still reports no IIO
 buffer opens, no RF TX start, no inter-board IP routing, and no hardware
 writes.
 
+The binding evidence gate combines that transport report with the live
+sidecar-DMA smoke evidence:
+
+```sh
+./tools/verify_fieldmesh_rf_packet_engine_binding.sh
+```
+
+It validates one path shape across daemon handoff, board sidecar DMA loopback,
+and packet-engine IQ recovery before any conducted/shielded RF TX runner is
+allowed.
+
 The next gate plans the live AD936x IIO procedure but still executes nothing:
 
 ```sh

@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Validate FieldMesh RF packet-engine binding evidence."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+
+def load_json_lines(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = line.strip()
+        if not line or not line.startswith("{"):
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"{path}:{lineno}: invalid JSON: {exc}") from exc
+    return rows
+
+
+def one_event(path: Path, event: str) -> dict[str, Any]:
+    matches = [row for row in load_json_lines(path) if row.get("event") == event]
+    if not matches:
+        raise SystemExit(f"{path}: missing {event}")
+    return matches[-1]
+
+
+def load_report(path: Path, event: str) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if data.get("event") != event:
+        raise SystemExit(f"{path}: expected event {event}, got {data.get('event')}")
+    return data
+
+
+def require_zeroes(row: dict[str, Any], keys: tuple[str, ...], label: str) -> None:
+    for key in keys:
+        if row.get(key) not in (0, False):
+            raise SystemExit(f"{label}: {key} must be 0/false")
+
+
+def require_ones(row: dict[str, Any], keys: tuple[str, ...], label: str) -> None:
+    for key in keys:
+        if row.get(key) not in (1, True):
+            raise SystemExit(f"{label}: {key} must be 1/true")
+
+
+def validate(args: argparse.Namespace) -> dict[str, Any]:
+    handoff = one_event(args.handoff, "sdk_daemon_rf_packet_engine")
+    dma = one_event(args.dma_smoke, "dma_smoke_end")
+    transport = load_report(args.transport_report, "fieldmesh_rf_packet_engine_transport")
+
+    require_ones(
+        handoff,
+        (
+            "queued_to_sidecar",
+            "queued_to_rf_engine",
+            "requires_sidecar_preflight",
+            "requires_rf_tx_guard",
+            "uses_sidecar_dma",
+            "uses_rf_packet_engine",
+        ),
+        "handoff",
+    )
+    require_zeroes(
+        handoff,
+        (
+            "uses_iio",
+            "uses_inter_board_ip_routing",
+            "opens_iio_buffers",
+            "starts_rf_tx",
+            "writes_hardware",
+            "commands_executed",
+        ),
+        "handoff",
+    )
+    if handoff.get("rf_engine") != "fieldmesh_rf_packet_engine":
+        raise SystemExit("handoff did not target fieldmesh_rf_packet_engine")
+
+    if dma.get("ok") is not True or dma.get("rx_match") is not True:
+        raise SystemExit(f"sidecar DMA smoke failed: {dma}")
+    if int(dma.get("expected_crc", -1)) != int(dma.get("rx_crc", -2)):
+        raise SystemExit("sidecar DMA smoke CRC mismatch")
+
+    if transport.get("ok") is not True:
+        raise SystemExit("RF packet-engine transport report is not ok")
+    engine = transport.get("engine", {})
+    safety = transport.get("safety", {})
+    frame = transport.get("frame", {})
+    if engine.get("name") != "fieldmesh_rf_packet_engine":
+        raise SystemExit("transport used wrong RF engine")
+    if engine.get("recovered_frame_match") is not True:
+        raise SystemExit("transport did not recover the original frame")
+    require_ones(safety, ("uses_sidecar_dma", "uses_rf_packet_engine"), "transport safety")
+    require_zeroes(
+        safety,
+        (
+            "uses_iio",
+            "uses_inter_board_ip_routing",
+            "opens_iio_buffers",
+            "starts_rf_tx",
+            "writes_hardware",
+            "commands_executed",
+            "live_rf_allowed",
+        ),
+        "transport safety",
+    )
+
+    frame_crc = int(frame.get("frame_crc", -1))
+    if frame_crc != int(dma.get("rx_crc", -2)):
+        raise SystemExit(
+            f"transport frame CRC {frame_crc} does not match sidecar DMA RX CRC {dma.get('rx_crc')}"
+        )
+    if int(frame.get("packet_len", -1)) != int(dma.get("packet_len", -2)):
+        raise SystemExit(
+            f"transport packet_len {frame.get('packet_len')} does not match sidecar DMA packet_len {dma.get('packet_len')}"
+        )
+
+    summary = {
+        "event": "fieldmesh_rf_packet_engine_binding_assert",
+        "ok": True,
+        "handoff": str(args.handoff),
+        "dma_smoke": str(args.dma_smoke),
+        "transport_report": str(args.transport_report),
+        "rf_engine": "fieldmesh_rf_packet_engine",
+        "adapter_name": handoff.get("adapter_name"),
+        "route_kind": handoff.get("route_kind"),
+        "queued_to_sidecar": True,
+        "queued_to_rf_engine": True,
+        "uses_sidecar_dma": True,
+        "uses_rf_packet_engine": True,
+        "uses_iio": False,
+        "uses_inter_board_ip_routing": False,
+        "starts_rf_tx": False,
+        "writes_hardware": False,
+        "packet_len": int(frame.get("packet_len", 0)),
+        "frame_crc": frame_crc,
+        "iq_samples": engine.get("iq_samples"),
+        "recovered_frame_match": True,
+    }
+    args.out.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return summary
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--handoff", type=Path, required=True, help="host_query.ndjson with FIELDMESH_RF_PACKET_ENGINE")
+    parser.add_argument("--dma-smoke", type=Path, required=True, help="dma_smoke.ndjson from a live sidecar DMA smoke")
+    parser.add_argument(
+        "--transport-report",
+        type=Path,
+        required=True,
+        help="fieldmesh_rf_packet_engine_transport.json from the IQ transport model",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path(".config/fieldmesh/rf-packet-engine-binding/fieldmesh_rf_packet_engine_binding_assert.json"),
+    )
+    parser.add_argument("--pretty", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    summary = validate(args)
+    if args.pretty:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

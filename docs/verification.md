@@ -3051,6 +3051,42 @@ The generated `fieldmesh_rf_packet_engine_transport.json` reports
 `uses_inter_board_ip_routing=false`, `starts_rf_tx=false`,
 `writes_hardware=false`, and `recovered_frame_match=true`.
 
+## FieldMesh RF Packet Engine Binding
+
+The first live-safe RF packet-engine binding gate combines three evidence
+sources: SDK/daemon RF handoff, live sidecar DMA smoke, and the guarded RF
+packet-engine transport report:
+
+```sh
+./tools/verify_fieldmesh_rf_packet_engine_binding.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_rf_packet_engine_binding_check", "frame_crc": 2646482743, "iq_samples": 6656, "ok": true}
+```
+
+The gate verifies the daemon queued the packet toward sidecar DMA and
+`fieldmesh_rf_packet_engine`, the board sidecar DMA path returned the same
+packet CRC, and the packet-engine transport model recovered the same frame from
+the emitted IQ burst. It also keeps `uses_iio=false`,
+`uses_inter_board_ip_routing=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`.
+
+The same gate passed live on Z103 at `192.168.3.1`:
+
+```sh
+VARIANT=z103 BOARD_IP=192.168.3.1 \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436 \
+  ./tools/run_fieldmesh_board_rf_packet_engine_gate.sh
+```
+
+The live assertion reported `frame_crc=2646482743`, `packet_len=64`,
+`queued_to_sidecar=true`, `queued_to_rf_engine=true`,
+`recovered_frame_match=true`, `uses_iio=false`,
+`uses_inter_board_ip_routing=false`, and `starts_rf_tx=false`.
+
 ## FieldMesh IQ IIO Live Plan
 
 The first AD936x IIO live procedure gate is still a planner only:

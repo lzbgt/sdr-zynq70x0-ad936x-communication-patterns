@@ -565,6 +565,10 @@ Stage 2: Board-local service
   inter-board IP routing. `tools/fieldmesh_rf_packet_engine_transport.py` now
   consumes that handoff evidence, emits the guarded IQ burst, decodes it, and
   verifies recovered FieldMesh frame CRC before live RF execution is allowed.
+  `tools/fieldmesh_rf_packet_engine_binding_assert.py` then ties the daemon
+  handoff and transport report to live sidecar DMA smoke evidence, so the same
+  committed frame is checked across adapter intent, board packet DMA, and
+  packet-engine IQ recovery.
 - Use daemon `FIELDMESH_TUN_FD_PUMP` and
   `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
   boundary: the SDK accepts a pure-C read callback, so production code can

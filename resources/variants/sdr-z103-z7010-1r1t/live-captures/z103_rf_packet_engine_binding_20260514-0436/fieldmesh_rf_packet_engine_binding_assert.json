@@ -1,0 +1,22 @@
+{
+  "adapter_name": "swarm0",
+  "dma_smoke": "resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/sidecar_dma_smoke/dma_smoke.ndjson",
+  "event": "fieldmesh_rf_packet_engine_binding_assert",
+  "frame_crc": 2646482743,
+  "handoff": "resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/sdk_daemon/host_query.ndjson",
+  "iq_samples": 6656,
+  "ok": true,
+  "packet_len": 64,
+  "queued_to_rf_engine": true,
+  "queued_to_sidecar": true,
+  "recovered_frame_match": true,
+  "rf_engine": "fieldmesh_rf_packet_engine",
+  "route_kind": 1,
+  "starts_rf_tx": false,
+  "transport_report": "resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/rf_packet_engine_transport/fieldmesh_rf_packet_engine_transport.json",
+  "uses_iio": false,
+  "uses_inter_board_ip_routing": false,
+  "uses_rf_packet_engine": true,
+  "uses_sidecar_dma": true,
+  "writes_hardware": false
+}
