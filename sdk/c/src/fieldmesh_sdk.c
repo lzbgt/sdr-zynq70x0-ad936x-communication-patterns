@@ -6,6 +6,7 @@
 
 #define FIELDMESH_MAX_APS 4
 #define FIELDMESH_MAX_CANDIDATES 16
+#define FIELDMESH_MAX_POSITIONS 16
 #define FIELDMESH_MAX_STREAM_PAYLOAD 2048
 
 struct fieldmesh_context {
@@ -14,6 +15,8 @@ struct fieldmesh_context {
     size_t ap_count;
     fieldmesh_ap_candidate_t candidates[FIELDMESH_MAX_CANDIDATES];
     size_t candidate_count;
+    fieldmesh_position_estimate_t positions[FIELDMESH_MAX_POSITIONS];
+    size_t position_count;
     uint32_t next_sequence;
     uint32_t election_epoch;
 };
@@ -148,6 +151,67 @@ static uint32_t normalized_signed_metric(int value, int min_value, int max_value
         value = max_value;
     }
     return (uint32_t)((value - min_value) * 100 / (max_value - min_value));
+}
+
+static uint8_t clamp_u8(uint32_t value, uint8_t max_value)
+{
+    return value > max_value ? max_value : (uint8_t)value;
+}
+
+static uint32_t abs_i32_to_u32(int32_t value)
+{
+    return value < 0 ? (uint32_t)(-value) : (uint32_t)value;
+}
+
+static fieldmesh_position_estimate_t estimate_position(
+    const fieldmesh_rtls_measurement_t *measurement)
+{
+    fieldmesh_position_estimate_t estimate;
+    uint32_t snr_score;
+    uint32_t rssi_score;
+    uint32_t tdoa_spread;
+
+    memset(&estimate, 0, sizeof(estimate));
+    sdk_copy_text(estimate.node_id, sizeof(estimate.node_id), measurement->node_id);
+    estimate.measured_age_ms = measurement->measured_age_ms;
+
+    if (measurement->gps_lock && measurement->pps_lock) {
+        estimate.source = FIELDMESH_POSITION_GPS_PPS_FUSED;
+        estimate.x_cm = (measurement->gps_lon_e7 % 100000) * 11;
+        estimate.y_cm = (measurement->gps_lat_e7 % 100000) * 11;
+        estimate.error_radius_cm = 120u + measurement->measured_age_ms / 20u;
+        estimate.confidence = 95u;
+        estimate.estimated_geo_centrality = 92u;
+    } else if (measurement->turnaround_calibrated || measurement->response_delay_us > 0u) {
+        tdoa_spread = (abs_i32_to_u32(measurement->tdoa_ab_ns) +
+                       abs_i32_to_u32(measurement->tdoa_ac_ns)) / 2u;
+        snr_score = normalized_signed_metric(measurement->snr_db, 0, 40);
+        rssi_score = normalized_signed_metric(measurement->rssi_dbm, -100, -20);
+        estimate.source = FIELDMESH_POSITION_PACKET_TIMING_TDOA;
+        estimate.x_cm = measurement->tdoa_ab_ns / 3;
+        estimate.y_cm = measurement->tdoa_ac_ns / 3;
+        estimate.error_radius_cm = 350u + tdoa_spread / 8u +
+                                   measurement->response_delay_us / 4u;
+        estimate.confidence = clamp_u8(35u + snr_score / 2u + rssi_score / 4u, 88u);
+        estimate.estimated_geo_centrality = (uint16_t)clamp_u8(45u + snr_score / 3u, 88u);
+    } else {
+        rssi_score = normalized_signed_metric(measurement->rssi_dbm, -100, -20);
+        estimate.source = FIELDMESH_POSITION_RSSI_ONLY;
+        estimate.x_cm = (int32_t)(10000u - rssi_score * 75u);
+        estimate.y_cm = 0;
+        estimate.error_radius_cm = 2500u;
+        estimate.confidence = clamp_u8(20u + rssi_score / 3u, 55u);
+        estimate.estimated_geo_centrality = (uint16_t)clamp_u8(30u + rssi_score / 4u, 60u);
+    }
+
+    if (measurement->measured_age_ms > 3000u && estimate.confidence > 20u) {
+        estimate.confidence = (uint8_t)(estimate.confidence - 20u);
+        estimate.error_radius_cm += measurement->measured_age_ms / 2u;
+    }
+    estimate.usable_for_routing = estimate.confidence >= 45u ? 1u : 0u;
+    estimate.usable_for_ap_election =
+        (estimate.confidence >= 55u && estimate.estimated_geo_centrality >= 40u) ? 1u : 0u;
+    return estimate;
 }
 
 static uint32_t candidate_score(const fieldmesh_ap_candidate_t *candidate)
@@ -502,6 +566,62 @@ fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
     out_route->delivered_kbps = 1024u;
     out_route->queue_age_ms = 4u;
     return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,
+                                                     const fieldmesh_rtls_measurement_t *measurement)
+{
+    fieldmesh_position_estimate_t estimate;
+    size_t i;
+
+    if (!context || !measurement || measurement->node_id[0] == '\0') {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    estimate = estimate_position(measurement);
+    for (i = 0; i < context->position_count; ++i) {
+        if (strcmp(context->positions[i].node_id, estimate.node_id) == 0) {
+            context->positions[i] = estimate;
+            return FIELDMESH_OK;
+        }
+    }
+    if (context->position_count >= FIELDMESH_MAX_POSITIONS) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    context->positions[context->position_count++] = estimate;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_get_peer_position(fieldmesh_context_t *context,
+                                               const char *node_id,
+                                               fieldmesh_position_estimate_t *out_estimate)
+{
+    size_t i;
+
+    if (!context || !node_id || !out_estimate) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->position_count; ++i) {
+        if (strcmp(context->positions[i].node_id, node_id) == 0) {
+            *out_estimate = context->positions[i];
+            return FIELDMESH_OK;
+        }
+    }
+    return FIELDMESH_ERR_NOT_FOUND;
+}
+
+fieldmesh_status_t fieldmesh_list_peer_positions(fieldmesh_context_t *context,
+                                                 fieldmesh_position_callback_t callback,
+                                                 void *user)
+{
+    size_t i;
+
+    if (!context || !callback) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->position_count; ++i) {
+        callback(&context->positions[i], user);
+    }
+    return context->position_count > 0 ? FIELDMESH_OK : FIELDMESH_ERR_NOT_FOUND;
 }
 
 fieldmesh_status_t fieldmesh_request_mode(fieldmesh_session_t *session,

@@ -265,6 +265,7 @@ The first SDK contract should be small and C ABI stable:
 - send prioritized payload;
 - receive payload with metadata;
 - query route, link, and mode contract;
+- report RTLS measurements and query fused peer position estimates;
 - request proactive mode from application/user.
 
 Required properties:
@@ -313,6 +314,8 @@ Stage 1: API and trace contract
 - Add AP/broker messages to the trace vocabulary.
 - Add executable `ap-elect` traces for preferred AP, RSSI/SNR/geo/capability
   based autonomous 2R2T AP, and emergency 1R1T AP fallback.
+- Add SDK RTLS calls so applications can feed GPS/PPS, RSSI/SNR, and
+  packet-timing TDOA measurements into AP election and route selection.
 
 Stage 2: Board-local service
 
@@ -327,6 +330,9 @@ Stage 3: AP admission and peer registry
   registry in software.
 - Implement AP candidate reports, deterministic AP election, and safe handover
   policy for swarms without a predefined AP.
+- Publish RTLS position estimates into the peer registry so the AP/broker can
+  make relay, slot, and handover choices from the same geometry model as the
+  firmware probe.
 - Record all decisions as NDJSON for reproducible experiments.
 
 Stage 4: Data-plane route selection
@@ -383,6 +389,7 @@ Current SDK examples are compile-checked skeletons:
 - `sdk/c/examples/fieldmesh_ap_demo.c`
 - `sdk/c/examples/fieldmesh_endpoint_demo.c`
 - `sdk/c/examples/fieldmesh_reference_demo.c`
+- `sdk/c/examples/fieldmesh_rtls_demo.c`
 - `sdk/c/examples/fieldmesh_udp_discovery_demo.c`
 
 Current executable gates:

@@ -70,5 +70,22 @@ if seen[0].get("ap_id") != "z203-hub" or seen[0].get("network_id") != "fieldmesh
     raise SystemExit("UDP AP browse saw wrong AP")
 PY
 
+python3 - "$out_dir/fieldmesh_rtls_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+positions = [event for event in events if event.get("event") == "sdk_rtls_position"]
+summary = [event for event in events if event.get("event") == "sdk_rtls_summary"]
+sources = {event.get("node_id"): event.get("source") for event in positions}
+if sources.get("z203-gps-anchor") != "gps_pps_fused":
+    raise SystemExit("SDK RTLS GPS peer did not use GPS/PPS fused source")
+if sources.get("z103-gps-denied") != "packet_timing_tdoa":
+    raise SystemExit("SDK RTLS GPS-denied peer did not use packet-timing TDOA")
+if not summary or summary[0].get("gps_denied_usable_for_ap_election") != 1:
+    raise SystemExit("SDK RTLS GPS-denied estimate is not AP-election usable")
+PY
+
 echo "fieldmesh_sdk_reference_check=pass"
 echo "fieldmesh_sdk_udp_discovery_check=pass"
+echo "fieldmesh_sdk_rtls_check=pass"

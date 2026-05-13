@@ -176,6 +176,42 @@ typedef struct fieldmesh_route_info {
     uint32_t queue_age_ms;
 } fieldmesh_route_info_t;
 
+typedef enum fieldmesh_position_source {
+    FIELDMESH_POSITION_UNKNOWN = 0,
+    FIELDMESH_POSITION_GPS_PPS_FUSED = 1,
+    FIELDMESH_POSITION_PACKET_TIMING_TDOA = 2,
+    FIELDMESH_POSITION_RSSI_ONLY = 3
+} fieldmesh_position_source_t;
+
+typedef struct fieldmesh_rtls_measurement {
+    char node_id[FIELDMESH_ID_TEXT_MAX];
+    uint8_t gps_lock;
+    uint8_t pps_lock;
+    uint8_t turnaround_calibrated;
+    int32_t gps_lat_e7;
+    int32_t gps_lon_e7;
+    int8_t rssi_dbm;
+    int8_t snr_db;
+    int32_t tdoa_ab_ns;
+    int32_t tdoa_ac_ns;
+    uint32_t response_delay_us;
+    uint32_t rx_timestamp_ns;
+    uint32_t measured_age_ms;
+} fieldmesh_rtls_measurement_t;
+
+typedef struct fieldmesh_position_estimate {
+    char node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_position_source_t source;
+    int32_t x_cm;
+    int32_t y_cm;
+    uint32_t error_radius_cm;
+    uint8_t confidence;
+    uint8_t usable_for_ap_election;
+    uint8_t usable_for_routing;
+    uint16_t estimated_geo_centrality;
+    uint32_t measured_age_ms;
+} fieldmesh_position_estimate_t;
+
 typedef struct fieldmesh_stream_config {
     char dst_node_id[FIELDMESH_ID_TEXT_MAX];
     uint16_t stream_id;
@@ -199,6 +235,8 @@ typedef struct fieldmesh_packet_meta {
 
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
+typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
+                                              void *user);
 
 fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
                                             fieldmesh_context_t **out_context);
@@ -238,6 +276,14 @@ fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
                                          const char *dst_node_id,
                                          uint16_t stream_id,
                                          fieldmesh_route_info_t *out_route);
+fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,
+                                                     const fieldmesh_rtls_measurement_t *measurement);
+fieldmesh_status_t fieldmesh_get_peer_position(fieldmesh_context_t *context,
+                                               const char *node_id,
+                                               fieldmesh_position_estimate_t *out_estimate);
+fieldmesh_status_t fieldmesh_list_peer_positions(fieldmesh_context_t *context,
+                                                 fieldmesh_position_callback_t callback,
+                                                 void *user);
 
 fieldmesh_status_t fieldmesh_request_mode(fieldmesh_session_t *session,
                                           fieldmesh_mode_t mode,

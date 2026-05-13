@@ -128,7 +128,9 @@ Next concrete work:
   `tools/verify_fieldmesh_rtls.sh`. It currently models GPS/PPS fused
   positions, GPS-denied packet-timing TDOA plus RSSI/SNR fallback,
   confidence/error radius, and `estimated_geo_centrality` as inputs for AP
-  election and route selection.
+  election and route selection. The SDK now has the same RTLS measurement and
+  position-estimate API; the next step is feeding live board GPS/link/timing
+  data into that API through the daemon.
 - Run `fieldmesh-udp-probe` split UDP mode on Z203 first, then on Z103 once
   normal runtime reachability is restored. Use
   `tools/run_fieldmesh_board_udp_probe.sh` for the SSH-driven board smoke test;

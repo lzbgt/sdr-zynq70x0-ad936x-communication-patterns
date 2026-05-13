@@ -242,8 +242,8 @@ user and vendor configuration.
   radio AP/broker while keeping Z103/Z203 default firmware in passive learner
   mode.
 - `docs/fieldmesh-rtls-positioning.md` - built-in RTLS/relative-positioning
-  design using GPS/PPS when available and RSSI/SNR/TDOA fallback when GPS is
-  absent, feeding AP election, routing, scheduling, and SDK peer state.
+  design using GPS/PPS when available and packet-timing TDOA plus RSSI/SNR when
+  GPS is absent, feeding AP election, routing, scheduling, and SDK peer state.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward IIO and PL packet queues without changing
   the common packet header or trace contract.
@@ -440,15 +440,17 @@ user and vendor configuration.
   a live RX-before-TX DMA transfer with an explicit `--allow-live-writes` gate.
 - `sdk/c/include/fieldmesh_sdk.h` - first pure C SDK ABI contract for AP
   browse, credential/cert/audit join, peer discovery, route query, mode request,
-  and prioritized payload streams over USB Ethernet, physical Ethernet, or IP
-  transports.
+  RTLS position estimates, and prioritized payload streams over USB Ethernet,
+  physical Ethernet, or IP transports.
 - `sdk/c/src/fieldmesh_sdk.c` - portable in-process SDK reference
   implementation for AP browse, metric-based AP election, audit join, peer
-  discovery, route query, mode request, and stream send/receive.
+  discovery, RTLS estimation, route query, mode request, and stream
+  send/receive.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
-  application, endpoint application, header ABI smoke, and end-to-end reference
-  AP election/join/route/stream flow, plus a UDP AP-beacon/browse demo for
-  two-PC USB-Ethernet or physical-Ethernet experiments.
+  application, endpoint application, header ABI smoke, RTLS estimation,
+  end-to-end reference AP election/join/route/stream flow, plus a UDP
+  AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
+  experiments.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the

@@ -131,12 +131,24 @@ It verifies three deterministic cases:
 The output is intentionally NDJSON so the same trace shape can later be fed by
 real GPS UART, IIO/link metrics, and PL RX timestamps.
 
+The C SDK now exposes the same model to host applications:
+
+- `fieldmesh_report_rtls_measurement()` accepts GPS/PPS, RSSI/SNR, TDOA, RX
+  timestamp, and calibrated response-delay inputs;
+- `fieldmesh_get_peer_position()` returns one fused estimate for a peer;
+- `fieldmesh_list_peer_positions()` publishes all known estimates to AP,
+  routing, and application logic.
+
+This keeps RTLS from becoming only a board diagnostic. The AP/broker,
+autonomous election path, and application demos can all consume the same
+position estimate shape.
+
 ## Next Implementation Steps
 
 1. Add real board GPS/NMEA capture using the Z203 `gps_transfer` evidence and
    Linux serial paths.
 2. Add packet RX timestamp capture in the sidecar descriptor path.
-3. Add AP-side RTLS state to the SDK daemon and expose peer position updates.
+3. Feed SDK RTLS estimates into the board daemon peer registry.
 4. Feed measured `estimated_geo_centrality` directly into AP election instead
    of static scenario values.
 5. Validate two-board and then three-node movement tests before relying on RTLS
