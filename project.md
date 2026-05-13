@@ -532,14 +532,16 @@ user and vendor configuration.
   writes disabled and rejecting unguarded commits. `tools/fieldmesh_tun_apply_run.py`
   turns that checked report into a board-local `swarm0` pre-state/apply/rollback
   script and keeps live execution behind explicit Zynq, CAP_NET_ADMIN, and
-  network-write guards.
+  network-write guards. It now also exposes a TUN packetizer API for
+  classifying IPv4 packets from `swarm0` into C0-C4 and sending them through
+  the FieldMesh adapter path.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
   a UDP state-daemon AP/peer/RTLS/`swarm0`/TUN apply/IIO-admin query demo, a
   `swarm0` adapter packet-classification demo, a routed TUN gateway planning
-  demo, a two-PC AP browse/election/audit-join/stream-flow demo, a
-  `fieldmeshctl` profile CLI demo, plus a UDP
+  demo, a TUN IP-packetizer demo, a two-PC AP browse/election/audit-join/
+  stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
   AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
   experiments.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
@@ -865,6 +867,10 @@ Expected result in the current Pluto-compatible firmware state:
    `CONFIG_TUN=y`; the refreshed Z103 package was installed live at
    `192.168.3.1`, exposed `/dev/net/tun`, created `swarm0`, assigned
    `10.77.1.1/16`, installed the `10.77.2.0/24` route, and rolled back cleanly.
+   The SDK now has the first TUN packetizer path as well: daemon/control,
+   telemetry, video base, video enhancement, and bulk IPv4 flows are classified
+   into C0-C4 and sent through the adapter without IIO or inter-board IP
+   routing.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

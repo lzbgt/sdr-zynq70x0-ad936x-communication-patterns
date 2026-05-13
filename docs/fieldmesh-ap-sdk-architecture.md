@@ -552,6 +552,11 @@ Stage 2: Board-local service
   smoke: it opens the `swarm0` adapter shape and maps C0 control, C1 telemetry,
   C2 video base, C3 enhancement, and C4 bulk payloads through the pure-C SDK
   without exposing raw IIO buffers to applications.
+- Use `fieldmesh_tun_packetizer_demo` as the first TUN data-path smoke: it
+  takes IPv4 packets as if read from `swarm0`, classifies daemon/control,
+  telemetry, video base, video enhancement, and bulk flows into C0-C4, and
+  forwards them through the FieldMesh adapter while keeping
+  `uses_iio=0` and `uses_inter_board_ip_routing=0`.
 - The state daemon now also serves the same adapter mapping through a
   `FIELDMESH_SWARM_ADAPTER` request, so host SDK clients can inspect the
   product payload plane over the board daemon protocol before a real TUN

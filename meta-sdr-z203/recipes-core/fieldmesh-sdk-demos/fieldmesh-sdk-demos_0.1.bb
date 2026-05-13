@@ -13,6 +13,7 @@ SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_state_daemon_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_swarm_adapter_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_tun_gateway_demo.c;subdir=fieldmesh-sdk/examples \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_tun_packetizer_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_two_pc_flow_demo.c;subdir=fieldmesh-sdk/examples \
 "
 
@@ -51,6 +52,12 @@ do_compile() {
         -o fieldmesh-tun-gateway-demo
     ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
         -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
+        ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_tun_packetizer_demo.c \
+        ${S}/src${FIELDMESH_REPO_ROOT}/sdk/c/src/fieldmesh_sdk.c \
+        ${LDFLAGS} \
+        -o fieldmesh-tun-packetizer-demo
+    ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
+        -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
         ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_two_pc_flow_demo.c \
         ${S}/src${FIELDMESH_REPO_ROOT}/sdk/c/src/fieldmesh_sdk.c \
         ${LDFLAGS} \
@@ -64,5 +71,6 @@ do_install() {
     install -m 0755 ${B}/fieldmesh-state-daemon-demo ${D}${bindir}/fieldmesh-state-daemon-demo
     install -m 0755 ${B}/fieldmesh-swarm-adapter-demo ${D}${bindir}/fieldmesh-swarm-adapter-demo
     install -m 0755 ${B}/fieldmesh-tun-gateway-demo ${D}${bindir}/fieldmesh-tun-gateway-demo
+    install -m 0755 ${B}/fieldmesh-tun-packetizer-demo ${D}${bindir}/fieldmesh-tun-packetizer-demo
     install -m 0755 ${B}/fieldmesh-two-pc-flow-demo ${D}${bindir}/fieldmesh-two-pc-flow-demo
 }

@@ -396,6 +396,27 @@ typedef struct fieldmesh_tun_apply_report {
     uint8_t rollback_command_count;
 } fieldmesh_tun_apply_report_t;
 
+typedef struct fieldmesh_tun_packet_report {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_payload_kind_t payload_kind;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mode_t mode;
+    uint16_t stream_id;
+    uint32_t sequence;
+    uint32_t deadline_ms;
+    uint32_t bitrate_hint_kbps;
+    uint32_t packet_len;
+    uint8_t ip_version;
+    uint8_t ip_protocol;
+    uint8_t dscp;
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t sent_to_fieldmesh_adapter;
+} fieldmesh_tun_packet_report_t;
+
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
 typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
@@ -526,6 +547,15 @@ fieldmesh_status_t fieldmesh_apply_tun_adapter(fieldmesh_session_t *session,
                                                const fieldmesh_tun_config_t *config,
                                                uint32_t flags,
                                                fieldmesh_tun_apply_report_t *out_report);
+fieldmesh_status_t fieldmesh_classify_tun_packet(
+    const void *packet,
+    size_t packet_len,
+    fieldmesh_tun_packet_report_t *out_report);
+fieldmesh_status_t fieldmesh_tun_packetizer_send(
+    fieldmesh_adapter_t *adapter,
+    const void *packet,
+    size_t packet_len,
+    fieldmesh_tun_packet_report_t *out_report);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

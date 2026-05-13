@@ -60,6 +60,10 @@ in `src/fieldmesh_sdk.c`:
   `ip tuntap`/address/link/route commands without creating a live interface.
   It also validates the apply/rollback contract while keeping
   `commands_executed=0` and `writes_network=0`.
+- `examples/fieldmesh_tun_packetizer_demo.c` is the first executable TUN data
+  path packetizer. It classifies IPv4 packets read from `swarm0` into C0-C4
+  FieldMesh traffic classes, preserves direct RF route intent, and sends those
+  packets through the SDK adapter path without IIO or inter-board IP routing.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and
@@ -82,7 +86,9 @@ calls to board services over USB Ethernet, physical Ethernet, or explicit IP.
 The images also install `/usr/bin/fieldmesh-device-iio-demo` for the local
 device/IIO layer, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
 `swarm0` packet/stream adapter mapping, `/usr/bin/fieldmesh-tun-gateway-demo`
-for the first routed TUN gateway plan, `/usr/bin/fieldmesh-two-pc-flow-demo`
-for the first board-attached AP browse/election/audit-join/scheduled-stream
-smoke, and `/usr/bin/fieldmeshctl` for split-subnet profile validation before
-persistent network writes are enabled.
+for the first routed TUN gateway plan, `/usr/bin/fieldmesh-tun-packetizer-demo`
+for TUN IP packet classification into FieldMesh classes,
+`/usr/bin/fieldmesh-two-pc-flow-demo` for the first board-attached AP
+browse/election/audit-join/scheduled-stream smoke, and `/usr/bin/fieldmeshctl`
+for split-subnet profile validation before persistent network writes are
+enabled.

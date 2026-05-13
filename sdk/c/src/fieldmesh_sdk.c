@@ -1593,6 +1593,129 @@ fieldmesh_status_t fieldmesh_apply_tun_adapter(fieldmesh_session_t *session,
     return FIELDMESH_OK;
 }
 
+static uint16_t read_be16(const uint8_t *bytes)
+{
+    return (uint16_t)(((uint16_t)bytes[0] << 8) | (uint16_t)bytes[1]);
+}
+
+static fieldmesh_payload_kind_t classify_ipv4_flow(uint8_t protocol,
+                                                   uint8_t dscp,
+                                                   uint16_t src_port,
+                                                   uint16_t dst_port)
+{
+    if (dscp >= 48u || protocol == 1u ||
+        src_port == 49000u || dst_port == 49000u ||
+        src_port == 55421u || dst_port == 55421u) {
+        return FIELDMESH_PAYLOAD_CONTROL;
+    }
+    if (dscp == 46u || dscp == 26u ||
+        src_port == 14550u || dst_port == 14550u ||
+        src_port == 14551u || dst_port == 14551u) {
+        return FIELDMESH_PAYLOAD_TELEMETRY;
+    }
+    if (dscp == 34u ||
+        src_port == 5004u || dst_port == 5004u ||
+        src_port == 5600u || dst_port == 5600u) {
+        return FIELDMESH_PAYLOAD_VIDEO_BASE;
+    }
+    if (dscp == 36u ||
+        src_port == 5006u || dst_port == 5006u ||
+        src_port == 5601u || dst_port == 5601u) {
+        return FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT;
+    }
+    return FIELDMESH_PAYLOAD_BULK;
+}
+
+fieldmesh_status_t fieldmesh_classify_tun_packet(
+    const void *packet,
+    size_t packet_len,
+    fieldmesh_tun_packet_report_t *out_report)
+{
+    const uint8_t *bytes = (const uint8_t *)packet;
+    uint8_t version;
+    uint8_t ihl_words;
+    uint8_t header_len;
+    uint8_t protocol;
+    uint8_t dscp;
+    uint16_t src_port = 0u;
+    uint16_t dst_port = 0u;
+    fieldmesh_payload_kind_t payload_kind;
+    fieldmesh_traffic_class_t traffic_class;
+    uint32_t deadline_ms = 0u;
+
+    if (!packet || packet_len < 20u || !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    version = (uint8_t)(bytes[0] >> 4);
+    ihl_words = (uint8_t)(bytes[0] & 0x0fu);
+    header_len = (uint8_t)(ihl_words * 4u);
+    if (version != 4u || ihl_words < 5u || header_len > packet_len) {
+        return FIELDMESH_ERR_UNSUPPORTED;
+    }
+    protocol = bytes[9];
+    dscp = (uint8_t)(bytes[1] >> 2);
+    if ((protocol == 6u || protocol == 17u) && packet_len >= (size_t)header_len + 4u) {
+        src_port = read_be16(&bytes[header_len]);
+        dst_port = read_be16(&bytes[header_len + 2u]);
+    }
+    payload_kind = classify_ipv4_flow(protocol, dscp, src_port, dst_port);
+    if (fieldmesh_classify_payload(payload_kind, &traffic_class, &deadline_ms) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(out_report, 0, sizeof(*out_report));
+    sdk_copy_text(out_report->adapter_name, sizeof(out_report->adapter_name), "swarm0");
+    out_report->payload_kind = payload_kind;
+    out_report->traffic_class = traffic_class;
+    out_report->mode = FIELDMESH_MODE_SCHEDULED;
+    out_report->packet_len = (uint32_t)packet_len;
+    out_report->ip_version = version;
+    out_report->ip_protocol = protocol;
+    out_report->dscp = dscp;
+    out_report->src_port = src_port;
+    out_report->dst_port = dst_port;
+    out_report->deadline_ms = deadline_ms;
+    out_report->uses_iio = 0u;
+    out_report->uses_inter_board_ip_routing = 0u;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_tun_packetizer_send(
+    fieldmesh_adapter_t *adapter,
+    const void *packet,
+    size_t packet_len,
+    fieldmesh_tun_packet_report_t *out_report)
+{
+    fieldmesh_tun_packet_report_t report;
+    fieldmesh_adapter_packet_t adapter_packet;
+    fieldmesh_status_t status;
+
+    if (!adapter || !packet || !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = fieldmesh_classify_tun_packet(packet, packet_len, &report);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    status = fieldmesh_adapter_send_packet(adapter, report.payload_kind, packet,
+                                           packet_len, &adapter_packet);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    sdk_copy_text(report.adapter_name, sizeof(report.adapter_name),
+                  adapter->config.adapter_name);
+    sdk_copy_text(report.dst_node_id, sizeof(report.dst_node_id),
+                  adapter->config.dst_node_id);
+    report.mode = adapter_packet.mode;
+    report.stream_id = adapter_packet.stream_id;
+    report.sequence = adapter_packet.sequence;
+    report.deadline_ms = adapter_packet.deadline_ms;
+    report.bitrate_hint_kbps = adapter_packet.bitrate_hint_kbps;
+    report.sent_to_fieldmesh_adapter = 1u;
+    *out_report = report;
+    return FIELDMESH_OK;
+}
+
 const char *fieldmesh_status_string(fieldmesh_status_t status)
 {
     switch (status) {

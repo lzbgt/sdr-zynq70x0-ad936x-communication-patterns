@@ -196,8 +196,10 @@ Next concrete work:
   executing network writes by default. Z103 live execution now passes after
   enabling kernel `CONFIG_TUN=y`: `swarm0` is created, assigned
   `10.77.1.1/16`, routed toward `10.77.2.0/24`, and rolled back cleanly. The
-  next step is connecting the TUN file descriptor to the daemon packetizer and
-  FieldMesh RF packet engine instead of just proving the netdev lifecycle.
+  SDK now also has the first TUN packetizer API/demo that classifies IPv4
+  packets into C0-C4 and forwards them through the FieldMesh adapter. The next
+  step is binding that packetizer to the live TUN file descriptor in the daemon
+  and then to the FieldMesh RF packet engine.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

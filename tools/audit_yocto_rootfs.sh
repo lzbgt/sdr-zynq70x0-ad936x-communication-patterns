@@ -46,6 +46,7 @@ required_paths=(
     /usr/bin/fieldmesh-state-daemon-demo
     /usr/bin/fieldmesh-swarm-adapter-demo
     /usr/bin/fieldmesh-tun-gateway-demo
+    /usr/bin/fieldmesh-tun-packetizer-demo
     /usr/bin/fieldmesh-two-pc-flow-demo
     /usr/bin/fieldmesh-udp-probe
     /usr/bin/fw_printenv

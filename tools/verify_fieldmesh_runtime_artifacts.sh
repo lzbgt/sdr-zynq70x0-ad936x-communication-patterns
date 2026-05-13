@@ -77,14 +77,16 @@ verify_variant() {
     daemon_strings_out="$(mktemp)"
     swarm_adapter_strings_out="$(mktemp)"
     tun_gateway_strings_out="$(mktemp)"
+    tun_packetizer_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$two_pc_strings_out"' RETURN
+    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-swarm-adapter-demo | strings > "$swarm_adapter_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-gateway-demo | strings > "$tun_gateway_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
 
     for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke iio-scan iio-plan pl-replay; do
@@ -188,6 +190,22 @@ verify_variant() {
         020000000103; do
         if ! grep -qF "$token" "$tun_gateway_strings_out"; then
             echo "Missing fieldmesh-tun-gateway-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        sdk_tun_packetizer_open \
+        sdk_tun_packetizer_packet \
+        sdk_tun_packetizer_summary \
+        tun_ip_packet_stream \
+        fieldmesh_rf_packet_engine \
+        control_daemon \
+        telemetry_mavlink \
+        video_base_rtp \
+        video_enhancement_rtp \
+        bulk_tcp; do
+        if ! grep -qF "$token" "$tun_packetizer_strings_out"; then
+            echo "Missing fieldmesh-tun-packetizer-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done

@@ -2312,14 +2312,19 @@ changed to POSIX `/bin/sh`, both Z203/Z103 kernel recipes now force
 post-rollback state confirmed the interface and route were gone. Evidence is
 archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_tun_apply_20260514-0322/`.
+`./tools/verify_fieldmesh_sdk.sh` now also checks
+`fieldmesh_tun_packetizer_demo`: synthetic IPv4 daemon/control, telemetry,
+video base, video enhancement, and bulk flows are classified into C0-C4 and
+sent through the FieldMesh adapter with `uses_iio=0` and
+`uses_inter_board_ip_routing=0`.
 
 ```text
-z203 rootfs.cpio.gz 5e4adffcee3c62725bc4eb15c5bb9bf364b0137d9c3d2903e5314442532c3dcd
-z203 rootfs.tar.gz  f759b88ca1fdd334be1fb8d3935fb5cab3bdfa80405ab6b6edac4b8da1d4220c
-z103 rootfs.cpio.gz 129426e163258d82337a883628de8f17dccf8ab2bb59ca942783227a8dfeeed3
-z103 rootfs.tar.gz  57bd911a29a98d3e4fec583979afed3db20dec1a8ecb9a3afe1c7b685608580a
-z203 pluto.frm      9fc871296fe5a68b6bee58c291b75cfa19f9460fdb04a83e3faca22bf60b87e6
-z103 pluto.frm      2757717713a4234fec3e0fa4b2b1e66caf6cbf423bc6ffb64fbb96b808a51f24
+z203 rootfs.cpio.gz 255e24d20d29ff902da2e01624dd7581b442b64ca1b4f1c281ab8f686cc39de4
+z203 rootfs.tar.gz  ce1f666a9717652541637e38dae949b4c91befc2f4a0928452e2cacc4be4c9ed
+z103 rootfs.cpio.gz 28efbc5dae3d92ff2437424d2fb9a25cde456e9b4ea244f595d3b51d333ec496
+z103 rootfs.tar.gz  44fd5ea2d446c011d73bc1101c3bd2bef659d005ef161dae324de641989ddbc6
+z203 pluto.frm      32bc4cb96cb44b2ef4bbbc8dfd484b33a10129212d009ea0444a594cfc220bcd
+z103 pluto.frm      9480636cf83b203b58bfcbe68a3dc0949500dfb81bba4bd92e1dd1ffdd5dbfe8
 z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
 z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
@@ -3040,19 +3045,19 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after adding the TUN gateway planning API:
+Refreshed runtime artifact hashes after adding the TUN packetizer API:
 
 ```text
-Z203 rootfs.cpio.gz: 5e4adffcee3c62725bc4eb15c5bb9bf364b0137d9c3d2903e5314442532c3dcd
-Z203 rootfs.tar.gz:  cbd55fcfaf0ec31fe91c4e41fe7748c19652d83327a70cf9e5de376d1b58b3be
-Z203 pluto.frm:      1792c97445a7560b316c72f0580b7274bad2cc6b77054041c924b922907da236
-Z203 pluto.itb:      4ae02e23a05fa4c3b28bda6e7507cae6624e98926bc7b073ba1ae718d6d11090
-Z203 jtag ramdisk:   78df2f439d7a660b8d3ab129ef1dcd0ca5827543880dc5cc9311ccfb1989b985
-Z103 rootfs.cpio.gz: 129426e163258d82337a883628de8f17dccf8ab2bb59ca942783227a8dfeeed3
-Z103 rootfs.tar.gz:  3c742101239042cd4073bfa3ae455a8ee84d11beb1f18fe17416c6aeb050012a
-Z103 pluto.frm:      ac20c0bb23540fa3514e14d34de1f22b46ccc2847cede446e03258edf821e2a1
-Z103 pluto.itb:      4158cebc386136636705e1f8f37bc94bc58eee024d6b9761865fca265305b418
-Z103 jtag ramdisk:   08eecd4849c8e74a8bfc54876c5617c1fe3d965a89d8d53bcce6b12c1df475fe
+Z203 rootfs.cpio.gz: 255e24d20d29ff902da2e01624dd7581b442b64ca1b4f1c281ab8f686cc39de4
+Z203 rootfs.tar.gz:  ce1f666a9717652541637e38dae949b4c91befc2f4a0928452e2cacc4be4c9ed
+Z203 pluto.frm:      32bc4cb96cb44b2ef4bbbc8dfd484b33a10129212d009ea0444a594cfc220bcd
+Z203 pluto.itb:      a585462f0b0cb5d47b201334316adbffb917522f72a1c817e3252916bfce6c9f
+Z203 jtag ramdisk:   1aa0a100b49a535284cb1e90924ad85ca33ca44c2fa43a4c8cf0c92da0b06e2a
+Z103 rootfs.cpio.gz: 28efbc5dae3d92ff2437424d2fb9a25cde456e9b4ea244f595d3b51d333ec496
+Z103 rootfs.tar.gz:  44fd5ea2d446c011d73bc1101c3bd2bef659d005ef161dae324de641989ddbc6
+Z103 pluto.frm:      9480636cf83b203b58bfcbe68a3dc0949500dfb81bba4bd92e1dd1ffdd5dbfe8
+Z103 pluto.itb:      4efc80eb92d75707e1c54235f7ee3d351519e2b7f87a211f79ee17c43391e42a
+Z103 jtag ramdisk:   fa792026bf1849b3b5efd218e75e32840d3667ca1668c94b3a7cb199e546abc9
 ```
 
 ## FieldMesh RTLS Positioning Gate

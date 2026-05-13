@@ -350,6 +350,53 @@ if not rollback or rollback[0].get("command") != "ip link delete swarm0":
     raise SystemExit("TUN gateway rollback command failed")
 PY
 
+python3 - "$out_dir/fieldmesh_tun_packetizer_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+opened = [event for event in events if event.get("event") == "sdk_tun_packetizer_open"]
+packets = [event for event in events if event.get("event") == "sdk_tun_packetizer_packet"]
+summary = [event for event in events if event.get("event") == "sdk_tun_packetizer_summary"]
+if not opened or opened[0].get("adapter_name") != "swarm0":
+    raise SystemExit("TUN packetizer did not open swarm0")
+if opened[0].get("adapter_kind") != "virtual_netdev" or opened[0].get("tun_fd_required") != 1:
+    raise SystemExit("TUN packetizer did not expose virtual-netdev boundary")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if opened[0].get(key) != 0:
+        raise SystemExit(f"TUN packetizer open key {key} must be 0")
+expected = {
+    "control_daemon": (1, 0, 20),
+    "telemetry_mavlink": (2, 1, 50),
+    "video_base_rtp": (3, 2, 80),
+    "video_enhancement_rtp": (4, 3, 150),
+    "bulk_tcp": (5, 4, 1000),
+}
+seen = {event.get("flow"): event for event in packets}
+if set(seen) != set(expected):
+    raise SystemExit(f"TUN packetizer flows mismatch: {sorted(seen)}")
+for flow, (payload_kind, traffic_class, deadline_ms) in expected.items():
+    event = seen[flow]
+    if event.get("payload_kind") != payload_kind:
+        raise SystemExit(f"TUN packetizer payload kind mismatch for {flow}")
+    if event.get("traffic_class") != traffic_class:
+        raise SystemExit(f"TUN packetizer traffic class mismatch for {flow}")
+    if event.get("deadline_ms") != deadline_ms:
+        raise SystemExit(f"TUN packetizer deadline mismatch for {flow}")
+    if event.get("sent_to_fieldmesh_adapter") != 1 or event.get("packet_len", 0) <= 20:
+        raise SystemExit(f"TUN packetizer did not forward {flow}")
+    for key in ("uses_iio", "uses_inter_board_ip_routing"):
+        if event.get(key) != 0:
+            raise SystemExit(f"TUN packetizer packet key {key} must be 0")
+if seen["video_base_rtp"].get("bitrate_hint_kbps") != 2500:
+    raise SystemExit("TUN packetizer video-base bitrate hint changed")
+if not summary or summary[0].get("packets") != 5 or summary[0].get("classes") != 5:
+    raise SystemExit("TUN packetizer summary failed")
+if summary[0].get("next_boundary") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("TUN packetizer next boundary is wrong")
+PY
+echo "fieldmesh_sdk_tun_packetizer_check=pass"
+
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \
     "$out_dir/fieldmeshctl_profile_apply.ndjson" \
