@@ -134,15 +134,19 @@ Next concrete work:
   prioritized stream send/receive services. The pure-C
   `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
   two-PC path.
-- Expand the new network-profile SDK/CLI described in
-  `docs/fieldmesh-network-configuration.md` from validation/planning into a
-  persistent board writer. The current `fieldmeshctl profile
-  show|validate|apply|rollback` path is packaged and verifies split USB subnet
-  profiles such as Z103 on `192.168.3.1/24`, but it deliberately stops before
-  editing init scripts, U-Boot environment, host routes, credentials, or radio
-  profiles. The next live-safe step is target identification plus transactional
-  OS apply/rollback so one host can keep Z203 and Z103 separated instead of
-  colliding at the Pluto default `192.168.2.1`.
+- Use the new guarded network-profile writer from
+  `docs/fieldmesh-network-configuration.md` on live hardware. The packaged
+  `fieldmeshctl profile show|validate|apply|rollback` path verifies split USB
+  subnet profiles such as Z103 on `192.168.3.1/24`, and
+  `tools/apply_fieldmesh_network_profile_ssh.py` now adds a persistent SSH
+  writer for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and FieldMesh profile env
+  keys with explicit variant matching and rollback backup. The next live-safe
+  step is selecting the correct board route/interface, confirming the reachable
+  target has the FieldMesh runtime installed, applying the Z103 split subnet,
+  rebooting, then configuring the host adapter route so one host can keep Z203
+  and Z103 separated instead of colliding at the Pluto default `192.168.2.1`.
+  The current dry-run against `192.168.2.1` reached a Z103-class stock runtime
+  and correctly refused to apply because `fieldmeshctl` was missing.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

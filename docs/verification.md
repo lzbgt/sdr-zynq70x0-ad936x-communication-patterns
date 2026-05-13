@@ -2693,6 +2693,35 @@ This is a planning/validation gate only; persistent board network writes are
 still intentionally gated until target identification and automatic rollback
 are implemented.
 
+The first host-side persistent writer safety gate is:
+
+```sh
+./tools/verify_fieldmesh_network_profile_writer.sh
+```
+
+It uses synthetic Z103/Z203 SSH identity captures. The positive case verifies
+that a Z103 profile plans the U-Boot env batch for `ipaddr=192.168.3.1`,
+`ipaddr_host=192.168.3.10`, `netmask=255.255.255.0`, and FieldMesh profile
+keys. The negative case verifies the writer rejects a Z203 identity when
+`--variant z103` is requested. Live writes still require
+`--apply --allow-persistent-writes` and a reachable target that passes identity,
+`fieldmeshctl`, `fw_setenv`, and rollback-backup checks.
+
+A live no-write dry run against the currently reachable `192.168.2.1` path was
+also captured:
+
+```text
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_network_profile_dry_run_20260514-0010/plan.json
+```
+
+The reachable board identified as Z103-class stock runtime
+(`mode=1r1t`, `Analog Devices PlutoSDR Rev.C (Z7010/AD9363)`) with writable
+rollback storage and `fw_setenv`, but without `fieldmeshctl`. The writer
+therefore returned `safe_to_apply=false` and refused persistent profile writes.
+The planned env batch was still visible for audit: `ipaddr=192.168.3.1`,
+`ipaddr_host=192.168.3.10`, `netmask=255.255.255.0`, and FieldMesh profile
+keys.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

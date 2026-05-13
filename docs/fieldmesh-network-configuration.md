@@ -29,10 +29,17 @@ The firmware must therefore support configuration before two-board experiments:
 
 ## CLI Shape
 
-The first shipped CLI surface is `/usr/bin/fieldmeshctl`. It is intentionally
-non-mutating for now: it validates and accepts a profile into the SDK reference
-context, reports whether persistence/reboot/rollback would be required, and
-does not yet write init scripts, U-Boot environment, or host routing.
+The first shipped board CLI surface is `/usr/bin/fieldmeshctl`. It validates
+and accepts a profile into the SDK reference context, reports whether
+persistence/reboot/rollback would be required, and does not itself write init
+scripts, U-Boot environment, or host routing.
+
+The first persistent writer is host-side:
+`tools/apply_fieldmesh_network_profile_ssh.py`. It reaches a board over SSH,
+collects local identity evidence, requires an explicit Z203/Z103 variant match,
+requires `fieldmeshctl` and `fw_setenv` by default, saves a rollback backup,
+and only writes U-Boot environment keys when both `--apply` and
+`--allow-persistent-writes` are present.
 
 Current commands are explicit and scriptable:
 
@@ -55,6 +62,35 @@ fieldmeshctl profile apply \
   --prefix 24 \
   --persist
 fieldmeshctl profile rollback
+```
+
+Host-side persistent staging uses the same profile values:
+
+```sh
+tools/apply_fieldmesh_network_profile_ssh.py \
+  --host 192.168.2.1 \
+  --variant z103 \
+  --node-id z103-endpoint \
+  --network-id fieldmesh-lab \
+  --usb-device-ip 192.168.3.1 \
+  --usb-host-ip 192.168.3.10 \
+  --prefix 24
+```
+
+That command only prints a JSON plan. A real write requires:
+
+```sh
+tools/apply_fieldmesh_network_profile_ssh.py \
+  --host 192.168.2.1 \
+  --variant z103 \
+  --node-id z103-endpoint \
+  --network-id fieldmesh-lab \
+  --usb-device-ip 192.168.3.1 \
+  --usb-host-ip 192.168.3.10 \
+  --prefix 24 \
+  --apply \
+  --allow-persistent-writes \
+  --reboot
 ```
 
 The CLI currently prints NDJSON by default, because it is used directly by
@@ -127,8 +163,11 @@ Profile application must be transactional:
 No permanent credential writes should be enabled until recovery paths are
 stable on both Z203 and Z103.
 
-The current implementation stops before permanent writes. This is deliberate:
-with both boards attached, plain `192.168.2.1` may resolve to either USB
-gadget, so the next writer must identify the target board by USB interface,
-serial, hostname, or an already-separated route before touching persistent
-network state.
+The board-local `fieldmeshctl` still stops before permanent writes; it is the
+common CLI/SDK profile surface. The SSH writer is the guarded persistent path.
+With both boards attached, plain `192.168.2.1` may resolve to either USB
+gadget, so the writer refuses to write if the reachable target does not match
+the requested variant or if `fieldmeshctl` is missing, unless the operator
+intentionally overrides that guard. This still does not solve USB interface
+selection by itself; it makes the actual write auditable once the target route
+is known.

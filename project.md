@@ -452,6 +452,15 @@ user and vendor configuration.
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
   election, AP join state, peer state, and RTLS state queries over the same UDP
   socket path intended for USB Ethernet and physical Ethernet.
+- `tools/apply_fieldmesh_network_profile_ssh.py` - host-side FieldMesh network
+  profile writer. It collects board identity over SSH, requires an explicit
+  Z203/Z103 variant match, requires `fieldmeshctl` and `fw_setenv` by default,
+  saves a rollback backup, and only writes U-Boot network/profile keys with
+  `--apply --allow-persistent-writes`.
+- `tools/verify_fieldmesh_network_profile_writer.sh` - synthetic safety gate
+  for the SSH network-profile writer. It verifies the planned Z103
+  `192.168.3.1/24` split-subnet env batch and rejects a mismatched Z203
+  identity.
 - `tools/fieldmesh_range_estimator.py` - ship-to-ship maritime range estimator
   for FieldMesh planning. It reports radio horizon, receiver sensitivity,
   link-budget range, and the final reliable range after fade margin.
@@ -738,7 +747,9 @@ Expected result in the current Pluto-compatible firmware state:
    SDK AP browse/election/join plus peer/RTLS state socket smoke from the
    running image. The SDK now also includes the first `fieldmeshctl` network
    profile API/CLI for validating split USB-Ethernet subnets before persistent
-   profile writes are enabled.
+   profile writes are enabled. The host-side SSH writer now adds the first
+   guarded persistent path for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and
+   FieldMesh profile env keys, gated by target identity and rollback backup.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
