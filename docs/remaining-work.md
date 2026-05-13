@@ -208,6 +208,10 @@ Next concrete work:
   ADI IQ DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
+- Wire `fieldmesh_slot_admission_gate` into the packet descriptor path after
+  the sidecar preflight is live. The gate is currently simulation-verified and
+  part of the copied-HDL required RTL set, but it is not yet connected between
+  class descriptor dequeue and packet transport in the overlay.
 
 FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
 `docs/fieldmesh-protocol-spec.md`.

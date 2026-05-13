@@ -1910,7 +1910,7 @@ rm -f "$tmp_hp"
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
 python3 -m json.tool \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_sidecar_plan.json >/dev/null
-test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "11"
+test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "13"
 rg 'Do not modify axi_ad9361_adc_dma' \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_bd_overlay_stub.tcl
 tmp_overlay=$(mktemp -d)
@@ -1925,7 +1925,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
   >/tmp/fieldmesh_overlay_patch.json
 python3 -m json.tool /tmp/fieldmesh_overlay_patch.json >/dev/null
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "11"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "13"
 rg 'fieldmesh_packet_axis_byte_pipe_loopback.v' \
   "$tmp_overlay/hdl/projects/pluto/system_project.tcl" \
   "$tmp_overlay/hdl/projects/pluto/Makefile"
@@ -2023,7 +2023,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
 python3 -m json.tool /tmp/fieldmesh_overlay_dma_patch.json >/dev/null
 rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|0x43C10000|0x43C20000' \
   "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "12"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "13"
 ./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \
   --variant z203dma="$tmp_overlay/hdl/projects/pluto/system_bd.tcl" >/tmp/fieldmesh_dma_sidecar_plan.json
 ./tools/fieldmesh_vivado_overlay_patch.py \
@@ -2061,10 +2061,10 @@ JSON, review Markdown, and Tcl constants from the same checked contract.
 temporary repo root.
 `--check-hp-policy` passed for both imported variants and failed as expected
 when a synthetic Tcl change moved ADI RX from HP1 onto HP0.
-The overlay scaffold generator produced valid JSON, a 12-file RTL list, Tcl
+The overlay scaffold generator produced valid JSON, a 13-file RTL list, Tcl
 constants, and a non-mutating Vivado overlay stub.
 The overlay patcher successfully patched a temporary copied HDL tree, copied
-all 12 FieldMesh RTL files, added project and Makefile references, and was
+all 13 FieldMesh RTL files, added project and Makefile references, and was
 idempotent on a second apply. Its opt-in control overlay also appended the
 `fieldmesh_ctrl` BD module, `0x43C00000` CPU interconnect, and `ps-11 mb-11`
 IRQ wiring to a temporary copied tree; the post-patch sidecar check reported
@@ -2328,6 +2328,14 @@ The RAM boot failed before payload loading at `JTAG_PS_SOFT_RESET` with invalid
 DAP ACKs, `JTAG-DP STICKY ERROR`, APB-AP initialization failure, and
 `timeout waiting for DSCR bit change`. Because boot did not complete, the
 read-only board sidecar preflight was skipped.
+
+The first deterministic scheduled-slot RTL admission gate was added as
+`rtl/fieldmesh/fieldmesh_slot_admission_gate.v` with
+`tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v`. The test covers scheduled
+current-slot pass, non-scheduled bypass, future-slot backpressure, stale-slot
+drop/fault, and optional C0 emergency bypass. It is included in the required
+FieldMesh RTL set for scaffold/patcher checks, but it is not yet wired into the
+copied DMA overlay.
 
 ## Verification Gaps
 

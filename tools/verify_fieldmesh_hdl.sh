@@ -28,6 +28,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_slot_admission_gate.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v" \
@@ -45,7 +46,8 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_axis_header_parser_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v" \
-  "$repo_root/tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v"
+  "$repo_root/tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v"
 xelab fieldmesh_desc_loopback_core_tb -s fieldmesh_desc_loopback_core_tb
 xsim fieldmesh_desc_loopback_core_tb -runall
 xelab fieldmesh_desc_loopback_regs_tb -s fieldmesh_desc_loopback_regs_tb
@@ -82,3 +84,5 @@ xelab fieldmesh_sidecar_axis_bridge_tb -s fieldmesh_sidecar_axis_bridge_tb
 xsim fieldmesh_sidecar_axis_bridge_tb -runall
 xelab fieldmesh_axis16_byte_adapter_tb -s fieldmesh_axis16_byte_adapter_tb
 xsim fieldmesh_axis16_byte_adapter_tb -runall
+xelab fieldmesh_slot_admission_gate_tb -s fieldmesh_slot_admission_gate_tb
+xsim fieldmesh_slot_admission_gate_tb -runall

@@ -428,6 +428,14 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 17. Scale descriptor memory and add timestamp/slot gates.
 18. Only then connect the RF/baseband path.
 
+The first timestamp/slot gate is now `fieldmesh_slot_admission_gate`. It is
+still simulation-only and not yet wired into the copied DMA overlay. It treats
+mode `4` as scheduled mode, passes non-scheduled traffic, holds future
+scheduled descriptors by deasserting upstream ready, drops stale scheduled
+descriptors, and allows optional C0 emergency bypass. This gives scheduled
+star/graph work a deterministic admission boundary before any RF/baseband path
+is connected.
+
 ## Done Criteria For This ABI
 
 - Same FieldMesh packet bytes can pass through UDP, IIO-loopback, and PL

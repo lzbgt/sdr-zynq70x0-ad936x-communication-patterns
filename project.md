@@ -477,6 +477,10 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v` - width adapter between ADI
   `axi_dmac` 16-bit minimum AXI-stream ports and FieldMesh's byte-only packet
   stream contract.
+- `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` - deterministic scheduled
+  descriptor gate that holds future-slot descriptors, drops stale scheduled
+  descriptors, and lets non-scheduled traffic pass before RF/baseband
+  integration.
 - `tools/fieldmesh_vendor_dma_inventory.py` - parses the Z203/Z103 vendor
   `system_bd.tcl` files and emits the ADI RX/TX DMA address, stream, HP-port,
   and IRQ boundary that FieldMesh must avoid overwriting during hardware
@@ -548,8 +552,9 @@ user and vendor configuration.
   `tb/fieldmesh/fieldmesh_axis_header_guard_tb.v`,
   `tb/fieldmesh/fieldmesh_axis_header_parser_tb.v`, and
   `tb/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback_tb.v`, and
-  `tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v`, and
-  `tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v` with
+  `tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v`,
+  `tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v`, and
+  `tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v` with
   `tools/verify_fieldmesh_hdl.sh` - Vivado simulator testbenches and wrapper
   for the descriptor, packet-memory, and sidecar transport RTL gates.
 - `tools/run_fieldmesh_board_udp_probe.sh` - SSH-driven board-runtime smoke
