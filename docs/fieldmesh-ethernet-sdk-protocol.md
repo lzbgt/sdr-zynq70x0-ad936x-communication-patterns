@@ -57,18 +57,35 @@ Host Ethernet/IP is only the SDK ingress/egress path to the local board.
 Peer-to-peer payloads must leave the local board over FieldMesh RF/sidecar and
 arrive at the peer host through that peer's local daemon.
 
-Long-term production data should be exposed above the daemon as either:
+Long-term production data should be exposed on the board above the daemon as
+either:
 
 - a virtual network interface such as `swarm0`, where normal sockets carry IP,
   UDP/RTP/SRT-like video, telemetry, and control packets; or
 - an equivalent daemon stream API with the same routing, QoS, and security
   semantics.
 
-The preferred MVP is TUN-backed `swarm0` first, not a custom kernel netdev.
-That keeps the implementation in the daemon, allows ordinary IP tools such as
-`ping`, `tcpdump`, and UDP/RTP senders to work during bring-up, and still lets
-the daemon map packets onto FieldMesh streams, classes, routes, and schedules.
-A TAP or custom netdev can follow once the modem/MAC behavior is stable.
+`swarm0` lives on the Zynq SDR gateway, not on the host PC. The host sees only
+ordinary USB Ethernet, physical Ethernet, Wi-Fi, or another normal IP link to
+the board. That keeps host applications free of SDR, AD936x, IIO, and custom
+mesh drivers.
+
+The preferred product mode is a routed Layer-3 gateway:
+
+```text
+host/camera/robot computer -> eth0/usb0 on Zynq
+  -> Linux routing/firewall/QoS -> swarm0 TUN
+  -> meshd -> production packet DMA/MAC/PHY -> AD936x RF
+```
+
+The preferred MVP is therefore TUN-backed `swarm0` first, not TAP and not a
+custom kernel netdev. TUN carries IP packets, avoids Ethernet broadcast storms,
+allows ordinary tools such as `ping`, `tcpdump`, SSH, UDP/RTP, and SRT-like
+senders during bring-up, and still lets the daemon map packets onto FieldMesh
+streams, classes, routes, and schedules. TAP or transparent Layer-2 bridging is
+a later compatibility mode only for customers that explicitly require Ethernet
+frame bridging; it should not be the first product mode because ARP, mDNS,
+broadcast, multicast, and unknown-unicast flooding can waste scarce RF airtime.
 
 Raw IIO buffers are not the production network API and must not sit in the
 real board-to-board communication loop. IIO remains the local RF configuration,
@@ -97,11 +114,13 @@ Minimum daemon messages:
 | `TOPOLOGY_GET` | client -> daemon | Get radio topology graph, route state, AP lease, and relay paths. |
 | `RTLS_REPORT` | client/daemon -> daemon | Feed GNSS/PPS, packet-timing TDOA, RSSI/SNR, or timing calibration. |
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
+| `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
 | `DEVICE_IIO_PLAN` | client -> daemon | Plan guarded local IIO/RF action without executing. |
 | `DEVICE_IIO_EXECUTE` | client -> daemon | Execute guarded local IIO action only under policy and explicit approval. |
 
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
-election, join, peer, RTLS, and `FIELDMESH_DEVICE_IIO_PLAN` shape.
+election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`, and
+`FIELDMESH_DEVICE_IIO_PLAN` shape.
 
 ## Capability Advertisements
 
@@ -226,6 +245,18 @@ Host A app -> local daemon -> board A -> FieldMesh RF -> board B -> local daemon
 
 Host A and Host B may be two app instances on one physical PC for testing, but
 the topology viewer must show the radio topology, not host Ethernet links.
+
+The same app can also use normal routed IP once `swarm0` is backed by the board
+daemon:
+
+```text
+Host A camera app -> board A host-facing IP -> board A swarm0/meshd
+  -> FieldMesh RF -> board B meshd/swarm0 -> board B host-facing IP
+  -> Host B preview app
+```
+
+In that mode the host sends to a mesh IP or remote routed subnet. The board is
+the SDR router/gateway, while the host remains a normal IP endpoint.
 
 ## Local IIO Admin Bridge
 

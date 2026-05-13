@@ -40,8 +40,9 @@ in `src/fieldmesh_sdk.c`:
   low-attenuation rejection, and explicit live-RF approval flags.
 - `examples/fieldmesh_state_daemon_demo.c` is the first socket daemon boundary:
   one process serves AP browse, AP election, AP join state, peer state, RTLS
-  state, and local IIO bridge planning over UDP, and another process queries it
-  over the same IP path intended for USB Ethernet and physical Ethernet.
+  state, the `swarm0` packet adapter, and local IIO admin planning over UDP,
+  and another process queries it over the same IP path intended for USB
+  Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
@@ -49,7 +50,10 @@ in `src/fieldmesh_sdk.c`:
 - `examples/fieldmesh_swarm_adapter_demo.c` is the first executable `swarm0`
   adapter shape. It keeps the SDK ABI pure C, maps control/telemetry/video/
   enhancement/bulk payloads onto C0-C4 traffic classes, and proves the product
-  data plane is packet/stream oriented rather than raw IIO IQ.
+  data plane is packet/stream oriented rather than raw IIO IQ. Production
+  `swarm0` is intended to run on the Zynq board as a TUN/L3 routed gateway
+  endpoint; host applications should see ordinary IP over USB Ethernet,
+  physical Ethernet, or another local host-facing link.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and

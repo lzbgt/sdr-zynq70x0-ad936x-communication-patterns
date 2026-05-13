@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 6 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 7 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -170,8 +170,9 @@ ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
+swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_adapter"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 6 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 7 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "z203-hub":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -183,6 +184,15 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
     raise SystemExit("SDK daemon peer-state query failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("SDK daemon RTLS-state query failed")
+if not swarm_adapter or swarm_adapter[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon swarm adapter query failed")
+if swarm_adapter[0].get("product_data_plane") != "packet_stream":
+    raise SystemExit("SDK daemon swarm adapter did not expose packet-stream plane")
+if swarm_adapter[0].get("traffic_class") != 2 or swarm_adapter[0].get("deadline_ms") != 80:
+    raise SystemExit("SDK daemon swarm adapter did not classify video base as C2")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if swarm_adapter[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon swarm adapter key {key} must be 0")
 if not iio_bridge or iio_bridge[0].get("sdk_layer") != "local_iio_device":
     raise SystemExit("SDK daemon IIO bridge plan query failed")
 if iio_bridge[0].get("served_over") != "host_eth_ip":

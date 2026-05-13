@@ -129,15 +129,17 @@ separate:
   is not the board-to-board mesh network.
 
 The application SDK normally uses the Ethernet/IP layer. For those clients,
-there should be a pre-implemented FieldMesh bridge daemon running on the Zynq
-ARM Linux OS. The daemon listens on the configured SDK control port, owns the
-local IIO/device backend, and serves the FieldMesh Ethernet protocol to host
-applications. Host apps do not need direct libiio access for normal operation.
+there should be a pre-implemented FieldMesh mesh gateway daemon running on the
+Zynq ARM Linux OS. The daemon listens on the configured SDK control port, owns
+the board-local `swarm0` routed packet interface plus the local IIO/device
+admin backend, and serves the FieldMesh Ethernet protocol to host
+applications. Host apps do not need direct libiio access for normal operation,
+and they do not host `swarm0`; they see ordinary IP routes through the board.
 The IIO/device layer is still part of the product SDK boundary, but it should
 be exposed as an explicit device-control backend with stronger safety and
 permissions because it can configure RF and buffers.
 
-The SDK ABI itself remains pure C. The board bridge daemon and richer demo
+The SDK ABI itself remains pure C. The board mesh gateway daemon and richer demo
 clients/apps may be C++ implementations that link or wrap the C SDK ABI.
 
 The profile API remains common:
@@ -153,7 +155,7 @@ fieldmesh_rollback_network_profile(ctx);
 
 Applications should not shell out for normal runtime control. The CLI is for
 humans, manufacturing, provisioning, and recovery. The SDK is for application
-control. Internal tools and the board bridge daemon may use libiio or
+control. Internal tools and the board mesh gateway daemon may use libiio or
 board-local probes, but customer payload routing still stays on FieldMesh RF
 once it leaves the host-facing local board link.
 

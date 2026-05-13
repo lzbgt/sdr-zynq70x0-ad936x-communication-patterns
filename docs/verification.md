@@ -2284,18 +2284,21 @@ flow demos are now also packaged as `/usr/bin/fieldmeshctl`,
 `/usr/bin/fieldmesh-swarm-adapter-demo`, and
 `/usr/bin/fieldmesh-two-pc-flow-demo` in both developer images. Their rootfs
 strings include `fieldmeshctl_profile_*`, AP browse/election/join,
-`FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`, AP/peer/RTLS response tags,
-`sdk_swarm_adapter_*`, `swarm0`, `packet_stream`, and the two-PC
-join/stream-flow response tags. Refreshed rootfs hashes after adding the
-network profile CLI and packet adapter demo:
+`FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`,
+`FIELDMESH_SWARM_ADAPTER`, AP/peer/RTLS response tags,
+`sdk_daemon_swarm_adapter`, `sdk_swarm_adapter_*`, `swarm0`,
+`packet_stream`, and the two-PC
+join/stream-flow response tags. Refreshed rootfs hashes after wiring the
+daemon `FIELDMESH_SWARM_ADAPTER` query and consolidating the routed gateway
+design:
 
 ```text
-z203 rootfs.cpio.gz 8fc38f72140703bb98c9c20d4f76be3687a894bcb4423412b3441fa3b424ebde
-z203 rootfs.tar.gz  2c87ea41899842a596428319b5aa25c166a585b15f66598b1c81c4ef784f25d8
-z103 rootfs.cpio.gz b5e7f2adb3a82af962c638bda7bbd98c1fd46b0035dd3840394cd3da4465f29a
-z103 rootfs.tar.gz  7838414aa5a312162fb1cc6a7ebd1c0b5158fc6e868407bfe1680c0c69faa8ba
-z203 pluto.frm      7d07a1c254f0f9aab3b8631fabe8251966cc51d611fc5f3ce4f004dbf4db80a0
-z103 pluto.frm      09a692c15deebdbd5406c7c08974f5e57370bc5334f9dd1626cbd8d3f71159c4
+z203 rootfs.cpio.gz 0bd841e96ab9c7afe45ebeda429457075029bb74e2c0fa0ef38f869fd3b9cd49
+z203 rootfs.tar.gz  c331638bc6149bf767447a836a409cedb514fec978d498dd5908f089857d0556
+z103 rootfs.cpio.gz b9df0458f53c3d5dc145dce6e933d95aa0df7e126db20cec74f2d175eb579a09
+z103 rootfs.tar.gz  e8511183231dcba2b093a399974578f696bc265388bc34cba68f94dbe9d09b0c
+z203 pluto.frm      02e58c383124efe28082e8bd1f8c6cbc748484ef39051fcb3897b9b25b0a9217
+z103 pluto.frm      81003ca4391df46357b01472c8828686e2031e87c52321dfa0a26750e145bf8b
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2312,18 +2315,18 @@ matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after adding the SDK network profile
-CLI:
+Refreshed package and RAM-boot hashes after wiring the daemon swarm-adapter
+query:
 
 ```text
-z203 pluto.frm b448fc74e7632802788ab46aacd6a62be2e7a5b0f79b2328e6ee0f69ba196c83
-z203 pluto.itb 7e4036ee063a32a88fdc3721ec2feabc9284d38e3098d57bb9fc4e188ae70ca9
+z203 pluto.frm 02e58c383124efe28082e8bd1f8c6cbc748484ef39051fcb3897b9b25b0a9217
+z203 pluto.itb cebd5b12be6bf3a7c854d56ad8c240ca56727178bff4d992780412410f00ceaa
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk b7b6d1cabbc83fcb5ad7fac4dd63055f876c5d78881b720b4c832ffa7c2d5803
-z103 pluto.frm bad6635a2d3e15996309a68c84e31f573842ae2a43d40eb0f8282475468347af
-z103 pluto.itb 820953facb2a521935fb55bef3aea5625b67357bf9417354239e7f3ce8896dbe
+z203 jtag ramdisk 9456f48c2b68679cd4c187615aa78d330af288442847f1e119a3494b5f224951
+z103 pluto.frm 81003ca4391df46357b01472c8828686e2031e87c52321dfa0a26750e145bf8b
+z103 pluto.itb 16b1cb8185c4919993928d8cbc284187fae5be361dc7c45dcc95ba9365281f7d
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk bad1e97a60cab796a789fc6bf51f85809d859b12e109d4d93c16f1b88067e499
+z103 jtag ramdisk de7b516345e74548a587e5e185090b47499a6f3ba328d943c6eeef1e95142352
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic

@@ -125,10 +125,11 @@ Next concrete work:
   interface. `docs/fieldmesh-ethernet-sdk-protocol.md` now defines the default
   daemon protocol for Ethernet SDK clients: control plane, data plane,
   discovery/join, capability advertisement, RTLS/co-location, streaming, local
-  IIO bridge, predefined AP, and autonomous swarm mesh. Both Z203 and Z103
+  IIO admin bridge, predefined AP, and autonomous swarm mesh. Both Z203 and Z103
   developer images install `/usr/bin/fieldmesh-state-daemon-demo`, and the
   daemon now answers AP browse, AP election, AP join state, peer state, RTLS
-  state, and local IIO bridge planning over the same UDP socket boundary. The
+  state, `swarm0` adapter mapping, and local IIO admin planning over the same
+  UDP socket boundary. The
   2026-05-14 Z103 live checks proved the new IIO bridge response first by
   transiently uploading the refreshed daemon with `FORCE_UPLOAD=1`, then by
   reflashing the refreshed FieldMesh package and rerunning the socket smoke
@@ -140,7 +141,11 @@ Next concrete work:
   board peer discovery, route query, and prioritized stream send/receive
   services. The pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke
   target for that two-PC path; production daemon and apps may be C++ while the
-  SDK ABI remains pure C.
+  SDK ABI remains pure C. The next data-plane step is backing the daemon
+  adapter with a Zynq-local userspace TUN `swarm0` endpoint and Linux routed
+  gateway policy. Do this before considering TAP/Layer-2 bridging; host
+  Ethernet is management and local ingress/egress, while RF topology remains
+  the FieldMesh topology.
 - Keep the guarded network-profile writer from
   `docs/fieldmesh-network-configuration.md` live-safe. The packaged
   `fieldmeshctl profile show|validate|apply|rollback` path verifies split USB
@@ -180,9 +185,11 @@ Next concrete work:
   daemon-owned packet interface such as `swarm0` or an equivalent stream API.
   The first pure-C adapter API and packaged `fieldmesh-swarm-adapter-demo` now
   map normal packet or stream semantics onto FieldMesh classes, routes, and
-  schedules without exposing raw IQ buffers to applications. The next step is
-  wiring this adapter into the board daemon and then backing it with a
-  userspace TUN `swarm0` endpoint.
+  schedules without exposing raw IQ buffers to applications. The reviewed
+  `note2.md` gateway correction is now canonical too: `swarm0` belongs on the
+  Zynq SDR gateway, the host sees ordinary IP, and the default product mode is
+  routed Layer-3 TUN rather than transparent Layer-2 bridging. The next step is
+  backing the daemon adapter with a userspace TUN `swarm0` endpoint.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

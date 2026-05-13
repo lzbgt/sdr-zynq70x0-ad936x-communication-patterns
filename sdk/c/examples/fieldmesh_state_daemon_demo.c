@@ -287,6 +287,64 @@ static int build_response(fieldmesh_context_t *context,
                  route.relay_node_id);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_SWARM_ADAPTER")) {
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_packet_t tx_packet;
+        fieldmesh_adapter_packet_t rx_packet;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_STREAM_API,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 200,
+            .mtu_bytes = FIELDMESH_ADAPTER_DEFAULT_MTU,
+            .expose_virtual_netdev = 0,
+        };
+        const char payload[] = "daemon-video-base-packet";
+        char rx_payload[128];
+        size_t rx_len = 0;
+        int failed = 0;
+
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", "z103-endpoint");
+        if (fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
+            fieldmesh_adapter_send_packet(adapter, FIELDMESH_PAYLOAD_VIDEO_BASE,
+                                          payload, sizeof(payload), &tx_packet) !=
+                FIELDMESH_OK ||
+            fieldmesh_adapter_recv_packet(adapter, rx_payload, sizeof(rx_payload),
+                                          &rx_len, &rx_packet, 1000) !=
+                FIELDMESH_OK ||
+            rx_len != sizeof(payload) ||
+            memcmp(rx_payload, payload, rx_len) != 0) {
+            failed = 1;
+        }
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        if (failed) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_swarm_adapter\","
+                 "\"adapter_name\":\"swarm0\","
+                 "\"product_data_plane\":\"packet_stream\","
+                 "\"tun_mvp_target\":1,"
+                 "\"payload\":\"video_base\","
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"deadline_ms\":%u,"
+                 "\"bitrate_hint_kbps\":%u,"
+                 "\"tx_len\":%lu,"
+                 "\"rx_len\":%lu,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0}\n",
+                 (unsigned)rx_packet.traffic_class, (unsigned)rx_packet.mode,
+                 rx_packet.stream_id, rx_packet.deadline_ms,
+                 tx_packet.bitrate_hint_kbps, (unsigned long)sizeof(payload),
+                 (unsigned long)rx_len);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_DEVICE_IIO_PLAN")) {
         fieldmesh_device_profile_t tx_profile;
         fieldmesh_device_profile_t rx_profile;
@@ -446,6 +504,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_DEVICE_IIO_PLAN v1") == 0) {
         printf("{\"event\":\"sdk_daemon_query_complete\",\"host\":\"%s\","
                "\"port\":%u}\n",

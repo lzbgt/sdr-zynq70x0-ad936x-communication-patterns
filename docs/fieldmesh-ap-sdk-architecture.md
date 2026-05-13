@@ -217,6 +217,49 @@ The SDK can present this like a subnet:
 
 The RF implementation underneath may be P2P, star, graph, or scheduled.
 
+## Routed Gateway Default
+
+The default product architecture is a routed SDR mesh gateway, not a naive
+Ethernet bridge. The host-facing side remains normal IP over USB Ethernet,
+physical Ethernet, Wi-Fi, or an embedded LAN. The radio-facing side is a
+board-local `swarm0` virtual interface and daemon packet engine.
+
+```text
+host/camera/robot/ship computer
+  -> normal Ethernet or USB Ethernet
+  -> Zynq eth0/usb0
+  -> Linux routing/firewall/QoS
+  -> swarm0 TUN
+  -> meshd packetization, security, routing, scheduling
+  -> PL packet DMA/MAC/PHY
+  -> AD936x RF mesh
+```
+
+In this model the host does not install SDR drivers, IIO tooling, AD936x
+control code, or `swarm0`. It only needs ordinary IP configuration: an address,
+a gateway route toward the local board, and optional DNS or static routes.
+
+Use Layer-3 routed mode by default because it is predictable and RF-efficient.
+Layer-2 TAP/bridge mode should remain optional and later, because transparent
+Ethernet bridging brings ARP floods, mDNS floods, broadcast/multicast load,
+unknown-unicast flooding, harder QoS, and more difficult relay scheduling.
+
+Example deployment shape:
+
+```text
+Ship A host subnet: 192.168.10.0/24
+Ship A board eth0:  192.168.10.1
+Ship A swarm0:      10.77.1.1/16
+
+Ship B host subnet: 192.168.20.0/24
+Ship B board eth0:  192.168.20.1
+Ship B swarm0:      10.77.2.1/16
+```
+
+Ship A can reach Ship B by mesh IP or by a routed remote host subnet. The radio
+topology remains FieldMesh RF topology; host Ethernet links are only local
+ingress and egress.
+
 ## Join And Trust Model
 
 The first practical security model should support three join paths:
@@ -320,8 +363,8 @@ public ABI C-stable:
    timestamped ranging packet support.
 3. **Mesh MAC:** discovery, neighbor table, route selection, control/data
    queues, AP/relay election, and scheduled relay policy.
-4. **Network adapter:** `swarm0` or equivalent daemon stream API, with QoS
-   queues for control, telemetry, video, and bulk data.
+4. **Network adapter:** Zynq-local TUN-backed `swarm0` or equivalent daemon
+   stream API, with QoS queues for control, telemetry, video, and bulk data.
 5. **Application SDK:** video send/preview, telemetry publish, command send,
    fleet position, link status, and topology queries.
 
@@ -334,6 +377,8 @@ Use a userspace TUN-backed `swarm0` as the first virtual network target. It is
 easier to debug and ship than a custom kernel netdev, while preserving the
 same product contract: normal packets enter the daemon, then the daemon maps
 them onto FieldMesh traffic classes, routes, relay policy, and TDMA/TDD slots.
+TAP or a kernel netdev can follow only if routed TUN is too limiting for a
+customer workflow or transparent Layer-2 bridging becomes a hard requirement.
 
 ## C SDK Surface
 
@@ -456,7 +501,7 @@ Stage 2: Board-local service
   SDK demos: USB Ethernet, physical Ethernet, or explicit IP.
 - The first checked daemon boundary is `fieldmesh_state_daemon_demo`, which
   serves AP browse, AP election, AP join state, peer registry, RTLS position
-  state, and a local IIO bridge plan over UDP.
+  state, the `swarm0` packet adapter, and a local IIO admin plan over UDP.
 - Package that daemon into both Z203 and Z103 developer images as
   `/usr/bin/fieldmesh-state-daemon-demo`, so the same SDK socket contract can
   be exercised on two PCs attached to boards over USB Ethernet or physical
@@ -473,6 +518,10 @@ Stage 2: Board-local service
   smoke: it opens the `swarm0` adapter shape and maps C0 control, C1 telemetry,
   C2 video base, C3 enhancement, and C4 bulk payloads through the pure-C SDK
   without exposing raw IIO buffers to applications.
+- The state daemon now also serves the same adapter mapping through a
+  `FIELDMESH_SWARM_ADAPTER` request, so host SDK clients can inspect the
+  product payload plane over the board daemon protocol before a real TUN
+  interface exists.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

@@ -239,7 +239,10 @@ user and vendor configuration.
   while the product data plane should become a packet modem exposed through
   `swarm0` or an equivalent daemon stream API. The reviewed `note1.md` stack
   note reinforces a TUN-backed `swarm0` MVP before any custom kernel netdev,
-  plus explicit link-adaptation, mesh-routing, and position-fusion loops.
+  plus explicit link-adaptation, mesh-routing, and position-fusion loops. The
+  reviewed `note2.md` gateway note further clarifies that `swarm0` lives on the
+  Zynq board, not on the host, and that the default product should be a routed
+  Layer-3 SDR mesh gateway rather than a transparent Ethernet bridge.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
   packet, control-plane, mode-selection, and conducted-test spec.
 - `docs/fieldmesh-ap-sdk-architecture.md` - product-facing AP/broker and
@@ -261,8 +264,9 @@ user and vendor configuration.
 - `docs/fieldmesh-ethernet-sdk-protocol.md` - host-facing board-daemon protocol
   spec for Ethernet SDK clients. It defines the default Zynq Linux daemon,
   control plane, data plane, discovery/join, capability advertisements,
-  RTLS/co-location, streaming, local IIO bridge, predefined AP, and autonomous
-  swarm mesh behavior.
+  RTLS/co-location, streaming, the `swarm0` adapter mapping, local IIO admin
+  bridge, routed TUN gateway behavior, predefined AP, and autonomous swarm mesh
+  behavior.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward memory/driver and PL packet queues without
   changing the common packet header or trace contract. IIO is not part of the
@@ -521,7 +525,7 @@ user and vendor configuration.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
-  a UDP state-daemon AP/peer/RTLS/IIO-bridge query demo, a `swarm0` adapter
+  a UDP state-daemon AP/peer/RTLS/`swarm0`/IIO-admin query demo, a `swarm0` adapter
   packet-classification demo, a two-PC AP browse/election/audit-join/
   stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
   AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
@@ -818,12 +822,13 @@ Expected result in the current Pluto-compatible firmware state:
    preview. Host A and Host B can be the same physical PC for lab testing, but
    they remain two logical hosts with a distinct SDK control plane and RF data
    plane.
-   Ethernet SDK clients should talk to a pre-installed board bridge daemon on
-   Zynq ARM Linux. That daemon listens on the configured SDK port, owns local
-   IIO/device control, and may be implemented in C++ as long as the SDK ABI
-   remains pure C. Z103 live smokes on 2026-05-14 proved the refreshed daemon
+   Ethernet SDK clients should talk to a pre-installed board mesh gateway
+   daemon on Zynq ARM Linux. That daemon listens on the configured SDK port,
+   owns local IIO/admin control and the board-local `swarm0` packet adapter,
+   and may be implemented in C++ as long as the SDK ABI remains pure C. Z103
+   live smokes on 2026-05-14 proved the refreshed daemon
    can answer AP browse/election/join, peer state, RTLS state, and local
-   IIO-bridge planning over the host-facing UDP socket. The first check staged
+   IIO admin planning over the host-facing UDP socket. The first check staged
    the daemon transiently with `FORCE_UPLOAD=1`; the second reflashed the
    refreshed FieldMesh package and reran the same check with
    `UPLOAD_IF_MISSING=0`, so the IIO-bridge request is now installed Z103
@@ -831,8 +836,9 @@ Expected result in the current Pluto-compatible firmware state:
    packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
    telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into
    FieldMesh streams while keeping IIO out of the product data plane. The
-   refreshed Z203/Z103 images, FieldMesh packages, and JTAG RAM-boot staging
-   include that adapter demo.
+   daemon now also answers `FIELDMESH_SWARM_ADAPTER` over the host-facing SDK
+   socket, and the refreshed Z203/Z103 images, FieldMesh packages, and JTAG
+   RAM-boot staging include that adapter demo.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

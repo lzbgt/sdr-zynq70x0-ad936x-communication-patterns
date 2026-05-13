@@ -68,12 +68,20 @@ TAP or a custom netdev only after the modem, MAC, and security behavior is
 stable. The pure-C SDK now has a checked adapter contract for this interim
 shape.
 
+The reviewed `note2.md` gateway note clarifies where `swarm0` belongs:
+`swarm0` is a Zynq-local TUN interface owned by the board daemon. Host devices
+do not need SDR drivers, IIO, AD936x control, or a FieldMesh netdev. They see a
+normal routed gateway over USB Ethernet, physical Ethernet, Wi-Fi, or an
+embedded LAN. The board routes between the host-facing interface and
+`swarm0`, while `meshd` packetizes, secures, schedules, and forwards those
+packets over RF.
+
 Production stack:
 
 ```text
 Host apps and SDK
   -> host Ethernet/IP to local board daemon
-  -> FieldMesh virtual network or stream API
+  -> Zynq-local FieldMesh virtual network or stream API
   -> mesh manager: peers, routes, AP election, RTLS, security
   -> TDMA/TDD MAC: beacons, control slots, data slots, relay slots, ranging
   -> packet PHY: preamble, sync, FEC, MCS, timestamps, ranging sequences
@@ -99,6 +107,19 @@ app/SDK packet -> daemon -> kernel/driver or UIO endpoint
 IIO may remain in admin tools for tuning, calibration, diagnostics, and
 conducted/shielded lab procedures, but customer payloads should not traverse
 IIO in the product loop.
+
+Default customer topology should be Layer-3 routed gateway mode:
+
+```text
+host/camera/ship computer -> board eth0/usb0
+  -> Linux routing/firewall/QoS -> swarm0 TUN
+  -> meshd -> FieldMesh RF -> peer meshd/swarm0
+  -> peer board eth0/usb0 -> peer host
+```
+
+Layer-2 bridge/TAP mode is a later compatibility option only. It is not the
+default because broadcast, multicast, ARP, mDNS, and unknown-unicast traffic can
+consume RF airtime and make QoS/relay scheduling harder.
 
 Three product control loops should be kept separate:
 
@@ -328,11 +349,11 @@ SDK behavior:
 - separates host-facing Ethernet/IP control/data ingress from the local
   IIO/device-control layer used for AD936x PHY, IQ buffer, and sidecar
   diagnostics;
-- serves Ethernet SDK clients through a board-resident Zynq Linux bridge daemon
-  that owns the local IIO backend and listens on the configured FieldMesh SDK
-  control port;
-- allows the bridge daemon and demo apps to be C++ while keeping the SDK ABI
-  pure C;
+- serves Ethernet SDK clients through a board-resident Zynq Linux mesh gateway
+  daemon that owns the board-local `swarm0` routed packet interface, owns local
+  IIO admin/control, and listens on the configured FieldMesh SDK control port;
+- allows the mesh gateway daemon and demo apps to be C++ while keeping the SDK
+  ABI pure C;
 - lets applications browse APs, join networks, discover peers, open streams,
   send prioritized payloads, and query route state;
 - lets applications command a capable 2R2T board into AP/broker mode instead

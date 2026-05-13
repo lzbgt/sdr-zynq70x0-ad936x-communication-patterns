@@ -125,12 +125,14 @@ verify_variant() {
         FIELDMESH_AP_JOIN \
         FIELDMESH_STATE_PEERS \
         FIELDMESH_STATE_RTLS \
+        FIELDMESH_SWARM_ADAPTER \
         FIELDMESH_DEVICE_IIO_PLAN \
         sdk_daemon_ap_browse \
         sdk_daemon_ap_election \
         sdk_daemon_join_state \
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
+        sdk_daemon_swarm_adapter \
         sdk_daemon_iio_bridge_plan; do
         if ! grep -qF "$token" "$daemon_strings_out"; then
             echo "Missing fieldmesh-state-daemon-demo token in $name rootfs: $token" >&2
