@@ -12,6 +12,13 @@ typedef int socklen_t;
 #define fieldmesh_close_socket closesocket
 #else
 #include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#if defined(__linux__)
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#include <sys/ioctl.h>
+#endif
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -109,6 +116,74 @@ static fieldmesh_status_t read_tun_fd_once(void *user,
     }
     *out_packet_len = (size_t)received;
     return FIELDMESH_OK;
+#endif
+}
+
+static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno)
+{
+#if defined(_WIN32) || !defined(__linux__)
+    (void)ifname;
+    if (out_fd) {
+        *out_fd = -1;
+    }
+    if (out_errno) {
+        *out_errno = 0;
+    }
+    return -1;
+#else
+    struct ifreq ifr;
+    int check_fd;
+    int fd;
+
+    if (!ifname || !out_fd) {
+        if (out_errno) {
+            *out_errno = EINVAL;
+        }
+        return -1;
+    }
+
+    check_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (check_fd < 0) {
+        if (out_errno) {
+            *out_errno = errno;
+        }
+        return -1;
+    }
+    memset(&ifr, 0, sizeof(ifr));
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+    if (ioctl(check_fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
+        if (out_errno) {
+            *out_errno = ENODEV;
+        }
+        close(check_fd);
+        return -1;
+    }
+    close(check_fd);
+
+    fd = open("/dev/net/tun", O_RDWR | O_NONBLOCK);
+    if (fd < 0) {
+        if (out_errno) {
+            *out_errno = errno;
+        }
+        return -1;
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+    if (ioctl(fd, TUNSETIFF, (void *)&ifr) < 0) {
+        if (out_errno) {
+            *out_errno = errno;
+        }
+        close(fd);
+        return -1;
+    }
+
+    *out_fd = fd;
+    if (out_errno) {
+        *out_errno = 0;
+    }
+    return 0;
 #endif
 }
 
@@ -413,6 +488,130 @@ static int build_response(fieldmesh_context_t *context,
                  tx_packet.bitrate_hint_kbps, (unsigned long)sizeof(payload),
                  (unsigned long)rx_len);
         return 0;
+    }
+    if (strstr(request, "FIELDMESH_TUN_DEV_PUMP")) {
+        int allow_live = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
+        int tun_read_fd = -1;
+        int tun_errno = 0;
+
+        if (!allow_live) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_device_pump_guard\","
+                     "\"adapter_name\":\"swarm0\","
+                     "\"production_tun_path\":\"/dev/net/tun\","
+                     "\"requires_allow_live_tun_read\":1,"
+                     "\"requires_cap_net_admin\":1,"
+                     "\"requires_existing_swarm0\":1,"
+                     "\"opens_dev_net_tun\":0,"
+                     "\"attaches_tun_if\":0,"
+                     "\"reads_from_tun\":0,"
+                     "\"commands_executed\":0,"
+                     "\"writes_network\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"next_boundary\":\"fieldmesh_rf_packet_engine\"}\n");
+            return 0;
+        }
+
+        if (open_live_tun_read_fd("swarm0", &tun_read_fd, &tun_errno) != 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_device_pump_live\","
+                     "\"adapter_name\":\"swarm0\","
+                     "\"ok\":0,"
+                     "\"production_tun_path\":\"/dev/net/tun\","
+                     "\"requires_existing_swarm0\":1,"
+                     "\"opens_dev_net_tun\":1,"
+                     "\"attaches_tun_if\":0,"
+                     "\"reads_from_tun\":0,"
+                     "\"errno_value\":%d,"
+                     "\"commands_executed\":0,"
+                     "\"writes_network\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0}\n",
+                     tun_errno);
+            return 0;
+        }
+
+        {
+            fieldmesh_adapter_t *adapter = NULL;
+            fieldmesh_adapter_config_t adapter_config = {
+                .adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV,
+                .requested_mode = FIELDMESH_MODE_SCHEDULED,
+                .stream_id_base = 200,
+                .mtu_bytes = 1200,
+                .expose_virtual_netdev = 1,
+            };
+            unsigned char pump_buffer[1536];
+            fieldmesh_tun_pump_report_t pump_report;
+            fieldmesh_status_t status;
+
+            snprintf(adapter_config.adapter_name,
+                     sizeof(adapter_config.adapter_name), "%s", "swarm0");
+            snprintf(adapter_config.dst_node_id,
+                     sizeof(adapter_config.dst_node_id), "%s", "020000000103");
+            status = fieldmesh_open_adapter(session, &adapter_config, &adapter);
+            if (status == FIELDMESH_OK) {
+                status = fieldmesh_tun_packetizer_pump_once(
+                    adapter, read_tun_fd_once, &tun_read_fd, pump_buffer,
+                    sizeof(pump_buffer), &pump_report);
+            }
+            if (adapter) {
+                (void)fieldmesh_close_adapter(adapter);
+            }
+            close(tun_read_fd);
+
+            if (status != FIELDMESH_OK) {
+                snprintf(response, response_len,
+                         "{\"event\":\"sdk_daemon_tun_device_pump_live\","
+                         "\"adapter_name\":\"swarm0\","
+                         "\"ok\":0,"
+                         "\"status\":\"%s\","
+                         "\"production_tun_path\":\"/dev/net/tun\","
+                         "\"requires_existing_swarm0\":1,"
+                         "\"opens_dev_net_tun\":1,"
+                         "\"attaches_tun_if\":1,"
+                         "\"reads_from_tun\":0,"
+                         "\"commands_executed\":0,"
+                         "\"writes_network\":0,"
+                         "\"uses_iio\":0,"
+                         "\"uses_inter_board_ip_routing\":0}\n",
+                         fieldmesh_status_string(status));
+                return 0;
+            }
+
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_device_pump_live\","
+                     "\"adapter_name\":\"%s\","
+                     "\"ok\":1,"
+                     "\"production_tun_path\":\"/dev/net/tun\","
+                     "\"requires_existing_swarm0\":1,"
+                     "\"opens_dev_net_tun\":1,"
+                     "\"attaches_tun_if\":1,"
+                     "\"reads_from_tun\":%u,"
+                     "\"packets_read\":%u,"
+                     "\"packets_sent\":%u,"
+                     "\"bytes_read\":%u,"
+                     "\"bytes_sent\":%u,"
+                     "\"payload_kind\":%u,"
+                     "\"traffic_class\":%u,"
+                     "\"deadline_ms\":%u,"
+                     "\"sent_to_fieldmesh_adapter\":%u,"
+                     "\"commands_executed\":0,"
+                     "\"writes_network\":0,"
+                     "\"uses_iio\":%u,"
+                     "\"uses_inter_board_ip_routing\":%u,"
+                     "\"next_boundary\":\"fieldmesh_rf_packet_engine\"}\n",
+                     pump_report.packet.adapter_name, pump_report.read_from_tun,
+                     pump_report.packets_read, pump_report.packets_sent,
+                     pump_report.bytes_read, pump_report.bytes_sent,
+                     (unsigned)pump_report.packet.payload_kind,
+                     (unsigned)pump_report.packet.traffic_class,
+                     pump_report.packet.deadline_ms,
+                     pump_report.sent_to_fieldmesh_adapter,
+                     pump_report.uses_iio,
+                     pump_report.uses_inter_board_ip_routing);
+            return 0;
+        }
     }
     if (strstr(request, "FIELDMESH_TUN_FD_PUMP")) {
         fieldmesh_adapter_t *adapter = NULL;
@@ -795,6 +994,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_VALIDATE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_COMMIT v1") == 0 &&

@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 11 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 12 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -176,11 +176,12 @@ join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_adapter"]
 tun_fd_pump = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump"]
+tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 11 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 12 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -224,6 +225,19 @@ if tun_fd_pump[0].get("next_boundary") != "fieldmesh_rf_packet_engine":
 for key in ("uses_iio", "uses_inter_board_ip_routing"):
     if tun_fd_pump[0].get(key) != 0:
         raise SystemExit(f"SDK daemon TUN fd pump key {key} must be 0")
+if not tun_device_guard or tun_device_guard[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon TUN device pump guard query failed")
+if tun_device_guard[0].get("production_tun_path") != "/dev/net/tun":
+    raise SystemExit("SDK daemon TUN device pump guard lost production TUN path")
+for key in ("requires_allow_live_tun_read", "requires_cap_net_admin", "requires_existing_swarm0"):
+    if tun_device_guard[0].get(key) != 1:
+        raise SystemExit(f"SDK daemon TUN device pump guard key {key} must be 1")
+for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "commands_executed",
+            "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
+    if tun_device_guard[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon TUN device pump guard key {key} must be 0")
+if tun_device_guard[0].get("next_boundary") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("SDK daemon TUN device pump guard next boundary is wrong")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN plan query failed")
 if tun_plan[0].get("dst_device_eui") != "020000000103":

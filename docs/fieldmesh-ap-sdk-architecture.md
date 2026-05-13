@@ -562,6 +562,10 @@ Stage 2: Board-local service
   boundary: the SDK accepts a pure-C read callback, so production code can
   connect a real board-local TUN fd while the verifier feeds deterministic
   packets without network writes.
+- Use daemon `FIELDMESH_TUN_DEV_PUMP` as the guarded production boundary for
+  `/dev/net/tun`: without `ALLOW_LIVE_TUN_READ` it reports only preconditions;
+  with the allow token on a board it requires an existing `swarm0`, opens the
+  TUN descriptor nonblocking, and pumps one packet into the FieldMesh adapter.
 - The state daemon now also serves the same adapter mapping through a
   `FIELDMESH_SWARM_ADAPTER` request, so host SDK clients can inspect the
   product payload plane over the board daemon protocol before a real TUN

@@ -199,9 +199,11 @@ Next concrete work:
   SDK now also has the first TUN packetizer API/demo that classifies IPv4
   packets into C0-C4 and forwards them through the FieldMesh adapter. The
   daemon now exposes the first callback-backed TUN fd pump and the verifier
-  uses a real POSIX fd read path. The next step is swapping that deterministic
-  pipe fd for a live board-local `/dev/net/tun` descriptor, then binding the
-  adapter output to the FieldMesh RF packet engine.
+  uses a real POSIX fd read path. It also exposes a guarded
+  `FIELDMESH_TUN_DEV_PUMP` production path that refuses live `/dev/net/tun`
+  reads unless explicitly allowed, requires an existing `swarm0`, and stays
+  non-IIO/non-IP-routed. The next step is exercising that guarded live path on
+  a board, then binding the adapter output to the FieldMesh RF packet engine.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

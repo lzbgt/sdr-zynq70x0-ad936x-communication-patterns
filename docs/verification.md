@@ -2324,14 +2324,18 @@ source in the verifier, feeds a video-base IPv4 packet into the FieldMesh
 adapter, verifies loopback, and reports `fd_source=posix_pipe_fd`,
 `production_tun_path=/dev/net/tun`, `tun_fd_attached=1`, `read_from_tun=1`,
 `sent_to_fieldmesh_adapter=1`, and `next_boundary=fieldmesh_rf_packet_engine`.
+The same daemon smoke now also queries guarded `FIELDMESH_TUN_DEV_PUMP` without
+the live allow token and verifies it reports `/dev/net/tun`, required
+`swarm0`/`CAP_NET_ADMIN`, no descriptor open, no TUN attach, no packet read, no
+network writes, no IIO, and no inter-board IP routing.
 
 ```text
-z203 rootfs.cpio.gz 025318a2880c7c2e1e0795ff419841fa745ccf52d37994587775a9c225fd12f6
-z203 rootfs.tar.gz  4ab520819657485a8f1326e2fcf486757ca024de1589e1da08f82dfc1cd1ff00
-z103 rootfs.cpio.gz cc800c10804bac3a281ca99d96ef6d19c21d9ca59762d93ffe0f1fc0ccee450d
-z103 rootfs.tar.gz  f88c1f2ad7365142ba076931ff6a80753c7b402b142c20b889a09f7bce4fa33d
-z203 pluto.frm      35f37443bc963aecd0e51c4d67117ba99a42be7277f218ca848e379c9bb16ce0
-z103 pluto.frm      b7857a42eb630e67dfb268e1619bcdb55565af196e9fdc044b601d540335c99c
+z203 rootfs.cpio.gz 18a2e0615d614cae2f6758cd26c30b73558610589c0d8031a37938cb3936ebbb
+z203 rootfs.tar.gz  79799d696715f58d9eb00f77f9881cc6cbbee83d90920696c852ce4bef36de3b
+z103 rootfs.cpio.gz bca5cc3062c8d7f659a6de08e396ca483a81dc5313b00594bffbfa0cbdd45bc6
+z103 rootfs.tar.gz  2cb9f712dabc36760854c0eb7b1cd8175849e12b819a3e5ec38f8cb51c4a6fca
+z203 pluto.frm      ad94cc4f19aa4a2fa51077fcf2672d9b05ea7128d35905de1f22c090a8a50102
+z103 pluto.frm      458d36764165a25a841e43a500a417a3eb4313bb8b49fc10809ffe2e0a455e2f
 z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
 z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
@@ -3056,14 +3060,14 @@ Refreshed runtime artifact hashes after switching the daemon TUN fd pump to a
 real fd read source:
 
 ```text
-Z203 rootfs.cpio.gz: 025318a2880c7c2e1e0795ff419841fa745ccf52d37994587775a9c225fd12f6
-Z203 rootfs.tar.gz:  4ab520819657485a8f1326e2fcf486757ca024de1589e1da08f82dfc1cd1ff00
-Z203 pluto.frm:      35f37443bc963aecd0e51c4d67117ba99a42be7277f218ca848e379c9bb16ce0
+Z203 rootfs.cpio.gz: 18a2e0615d614cae2f6758cd26c30b73558610589c0d8031a37938cb3936ebbb
+Z203 rootfs.tar.gz:  79799d696715f58d9eb00f77f9881cc6cbbee83d90920696c852ce4bef36de3b
+Z203 pluto.frm:      ad94cc4f19aa4a2fa51077fcf2672d9b05ea7128d35905de1f22c090a8a50102
 Z203 pluto.itb:      ec6f0e628ac8c24c2c97a76c44b66dca836f4942a6edddf8286d0753ccc84223
 Z203 jtag ramdisk:   4e159fdcfca7e9377799607eb16ed2447e762c6ecd737dceff0823222832c2d7
-Z103 rootfs.cpio.gz: cc800c10804bac3a281ca99d96ef6d19c21d9ca59762d93ffe0f1fc0ccee450d
-Z103 rootfs.tar.gz:  f88c1f2ad7365142ba076931ff6a80753c7b402b142c20b889a09f7bce4fa33d
-Z103 pluto.frm:      b7857a42eb630e67dfb268e1619bcdb55565af196e9fdc044b601d540335c99c
+Z103 rootfs.cpio.gz: bca5cc3062c8d7f659a6de08e396ca483a81dc5313b00594bffbfa0cbdd45bc6
+Z103 rootfs.tar.gz:  2cb9f712dabc36760854c0eb7b1cd8175849e12b819a3e5ec38f8cb51c4a6fca
+Z103 pluto.frm:      458d36764165a25a841e43a500a417a3eb4313bb8b49fc10809ffe2e0a455e2f
 Z103 pluto.itb:      8b85dc7223b95e7522ef74b8583c24ce1a9635edcaa3925cb041f5d970531ac3
 Z103 jtag ramdisk:   339dc4d09e7bc13943948ac38fb1c1104466789c05c541f3368baf44df1b1f84
 ```

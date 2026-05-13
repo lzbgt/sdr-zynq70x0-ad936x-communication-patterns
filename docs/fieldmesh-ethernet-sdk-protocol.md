@@ -266,6 +266,13 @@ a memory-copy callback. The pump emits `tun_fd_attached=1`, `read_from_tun=1`,
 `sent_to_fieldmesh_adapter=1`, and the same no-IIO/no-inter-board-IP safety
 flags before the next boundary becomes the RF packet engine.
 
+The daemon also exposes a guarded production request,
+`FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the
+preconditions: `/dev/net/tun`, `swarm0`, `CAP_NET_ADMIN`, and no commands,
+network writes, IIO, or inter-board IP routing. With the allow token on a board,
+the daemon opens `/dev/net/tun`, refuses to create a missing `swarm0`, attaches
+the TUN fd nonblocking, and pumps at most one packet into the same adapter path.
+
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh
 address, remote mesh CIDR, destination device EUI, selected direct/relay route,
