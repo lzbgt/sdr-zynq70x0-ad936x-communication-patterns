@@ -183,7 +183,8 @@ Next concrete work:
   checks rootfs probe roles, package artifacts, JTAG RAM-boot hashes, and
   package-vs-RAM-boot DTB parity before a live boot attempt. The sidecar
   preflight now also includes read-only `dma-scan` for the TX/RX sidecar DMA
-  windows before any transfer-starting packet DMA test.
+  windows plus a host-side assertion summary before any transfer-starting
+  packet DMA test.
 - Boot a FieldMesh package through a non-flashing path, then run
   `fieldmesh-udp-probe dt-scan`, read-only `ctrl-scan`, and read-only
   `dma-scan` before starting sidecar packet DMA/IIO
@@ -192,8 +193,9 @@ Next concrete work:
   Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the
   payload; use a real JTAG-mode power cycle before retrying. When runtime is
-  reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures both
-  preflights over SSH. Keep the ADI IQ DMA path untouched.
+  reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures the
+  three preflights over SSH and writes `preflight_assert.json`. Keep the ADI IQ
+  DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

@@ -66,17 +66,19 @@ control registers, and requires register `0x00` to return `0x464d1001`. For
 offline tests, `--ctrl-mem-file FILE` reads the same offsets from a synthetic
 file instead of `/dev/mem`.
 
-The SSH wrapper runs both preflights on a reachable board image:
+The SSH wrapper runs all sidecar preflights on a reachable board image:
 
 ```sh
 ./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
 ```
 
-It captures `dt_scan.ndjson`, `ctrl_scan.ndjson`, and `dma_scan.ndjson`.
-`dma-scan` opens `/dev/mem` read-only and samples the first few TX/RX sidecar
-DMA registers without writing registers or starting transfers. A packet-DMA
-smoke test should only run after all three files show a matching FieldMesh DTB,
-a live control-window ID, and readable sidecar DMA windows.
+It captures `dt_scan.ndjson`, `ctrl_scan.ndjson`, `dma_scan.ndjson`, and a
+derived `preflight_assert.json` from
+`tools/fieldmesh_sidecar_preflight_assert.py`. `dma-scan` opens `/dev/mem`
+read-only and samples the first few TX/RX sidecar DMA registers without
+writing registers or starting transfers. A packet-DMA smoke test should only
+run after the assertion summary confirms a matching FieldMesh DTB, a live
+control-window ID, and readable sidecar DMA windows.
 
 ## Matched Package
 

@@ -337,7 +337,10 @@ fieldmesh-udp-probe dma-scan \
 
 `dma-scan` opens `/dev/mem` read-only, reads a small register set from the TX
 and RX sidecar DMA windows, and never writes registers or starts transfers.
-Run the wrapper before any packet-DMA smoke test.
+Run the wrapper before any packet-DMA smoke test. The wrapper also runs
+`tools/fieldmesh_sidecar_preflight_assert.py` over the saved `dt_scan.ndjson`,
+`ctrl_scan.ndjson`, and `dma_scan.ndjson` files and writes a single
+`preflight_assert.json` pass/fail summary.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

@@ -2220,8 +2220,8 @@ fieldmesh-udp-probe ctrl-scan --ctrl-mem-file <synthetic-register-file>
 Result: `ctrl-scan` emitted read-only `ctrl_reg` rows for ID, control, status,
 IRQ status, and IRQ mask, and accepted the expected sidecar ID `0x464d1001`.
 On hardware, run `tools/run_fieldmesh_board_sidecar_preflight.sh` after the
-matched FieldMesh image boots; it captures both `dt-scan` and read-only
-`ctrl-scan` before any packet-DMA register access.
+matched FieldMesh image boots; it captures `dt-scan`, read-only `ctrl-scan`,
+and read-only `dma-scan` before any packet-DMA register access.
 
 The sidecar DMA preflight was added next and checked offline with synthetic
 readable and truncated register images:
@@ -2278,6 +2278,20 @@ contains the expected FieldMesh roles, including `dma-scan`, the matched
 Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
+
+The board sidecar preflight assertion was added and checked with synthetic
+captures:
+
+```sh
+tools/fieldmesh_sidecar_preflight_assert.py \
+  <dt_scan.ndjson> <ctrl_scan.ndjson> <dma_scan.ndjson>
+```
+
+Result: the good synthetic capture emitted
+`fieldmesh_sidecar_preflight_assert` with four devicetree nodes, five control
+registers, ten DMA registers, and control ID `0x464d1001`. A negative
+control-ID capture failed as expected. The SSH wrapper now writes this result
+to `preflight_assert.json` next to the raw board captures.
 
 ## Verification Gaps
 

@@ -40,5 +40,10 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dt" "$out_dir/dt_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_ctrl" "$out_dir/ctrl_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dma" "$out_dir/dma_scan.ndjson"
+"$repo_root/tools/fieldmesh_sidecar_preflight_assert.py" \
+    "$out_dir/dt_scan.ndjson" \
+    "$out_dir/ctrl_scan.ndjson" \
+    "$out_dir/dma_scan.ndjson" \
+    | tee "$out_dir/preflight_assert.json"
 
 echo "Capture directory: $out_dir"

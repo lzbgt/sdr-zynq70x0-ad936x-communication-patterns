@@ -410,10 +410,14 @@ user and vendor configuration.
   locally, and records read-only RX/TX packet-pipe candidate selection.
 - `tools/run_fieldmesh_board_sidecar_preflight.sh` - SSH-driven FieldMesh
   sidecar preflight that runs board-local `dt-scan`, read-only `ctrl-scan`,
-  and read-only `dma-scan` before any packet DMA smoke test starts transfers.
+  and read-only `dma-scan`, then emits a single assertion summary before any
+  packet DMA smoke test starts transfers.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
+- `tools/fieldmesh_sidecar_preflight_assert.py` - offline validator for the
+  sidecar `dt-scan`, `ctrl-scan`, and `dma-scan` captures, also used by the
+  SSH helper to write `preflight_assert.json`.
 - `tools/fieldmesh_iio_pipe_dry_run.py` - offline planner that consumes the
   selected IIO RX/TX candidates and committed FieldMesh vectors, then emits the
   per-frame packet-pipe mapping a later non-RF IIO buffer test must preserve.
@@ -653,7 +657,8 @@ Expected result in the current Pluto-compatible firmware state:
    assembled for both variants with matching bitstream/DTB pairs. The Z203 and
    Z103 developer images and FieldMesh packages were refreshed after adding
    read-only `ctrl-scan`; `dma-scan` now extends that preflight to read-only
-   packet-DMA window discovery before starting transfers. Next boot a
+   packet-DMA window discovery, and the SSH wrapper now asserts all three
+   captures into `preflight_assert.json` before starting transfers. Next boot a
    FieldMesh package through a non-flashing path, run those preflights, then
    scale descriptor storage
    beyond the shallow class rings and bind the path to IIO/PL before open-air
