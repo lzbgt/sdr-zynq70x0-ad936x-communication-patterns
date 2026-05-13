@@ -500,6 +500,12 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_rf_tx_guard_run.sh` - gate for the RF TX guard
   runner dry-run plus negative tests for missing legal profile, missing
   sidecar preflight, and missing Zynq target confirmation for live preflight.
+- `tools/verify_fieldmesh_rf_tx_guard_apply.sh` - gate for the board-runtime
+  RF TX guard register writer. It uses synthetic control-window memory to prove
+  `fieldmesh-udp-probe rf-guard-scan` is read-only and
+  `rf-guard-apply` requires all safety declarations plus
+  `--allow-live-writes`, arms only the guard registers, never enables AD936x
+  TX, and rolls the guard window back.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,
@@ -572,7 +578,13 @@ user and vendor configuration.
   The mapped sidecar control wrapper now owns the RF TX guard control/status
   pins at the `0x100+` lightweight register range, so later software can reach
   the guard through the existing FieldMesh control window instead of a separate
-  AXI aperture.
+  AXI aperture. The board-runtime probe now has `rf-guard-scan` and guarded
+  `rf-guard-apply` roles for that register window; the apply path requires the
+  sidecar preflight assertion, conducted/shielded and legal-frequency
+  declarations, RX-first, RF-engine-ready and Zynq-target confirmations, and
+  `--allow-live-writes`. It writes only the guard registers, reports
+  `sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, then rolls the guard
+  control window back.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
@@ -701,8 +713,9 @@ user and vendor configuration.
   runs the read-only sidecar preflight only after a successful boot.
 - `tools/verify_fieldmesh_runtime_artifacts.sh` - checks that refreshed Z203
   and Z103 FieldMesh runtime artifacts are internally consistent: rootfs probe
-  roles, Pluto-style package files, RAM-boot staging hashes, and sidecar DTB
-  parity between package and RAM-boot staging.
+  roles including `rf-guard-scan`/`rf-guard-apply`, Pluto-style package files,
+  RAM-boot staging hashes, and sidecar DTB parity between package and RAM-boot
+  staging.
 - `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
   idempotent `system_project.tcl`/`Makefile` references; dry-run is the

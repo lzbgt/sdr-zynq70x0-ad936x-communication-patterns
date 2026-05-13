@@ -354,9 +354,11 @@ Next concrete work:
   Z203/Z103 Pluto-style update payloads without mutating the default images.
   The packages and developer rootfs images were refreshed after adding
   read-only `ctrl-scan`, and both rootfs tarballs contain the updated
-  `fieldmesh-udp-probe`. `tools/verify_fieldmesh_runtime_artifacts.sh` now
-  checks rootfs probe roles, package artifacts, JTAG RAM-boot hashes, and
-  package-vs-RAM-boot DTB parity before a live boot attempt. The sidecar
+  `fieldmesh-udp-probe`, including `rf-guard-scan` and guarded
+  `rf-guard-apply` for the RF TX guard control window.
+  `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,
+  package artifacts, JTAG RAM-boot hashes, and package-vs-RAM-boot DTB parity
+  before a live boot attempt. The sidecar
   preflight now also includes read-only `dma-scan` for the TX/RX sidecar DMA
   windows plus a host-side assertion summary before any transfer-starting
   packet DMA test. `dma-plan` has been added as the software-only bridge from

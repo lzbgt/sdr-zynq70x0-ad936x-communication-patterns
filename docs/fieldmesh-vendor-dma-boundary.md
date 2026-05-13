@@ -436,6 +436,34 @@ to loop the bridge parser output back into the guarded RX byte path. The
 committed capture is under
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_dma_smoke_20260513-215806/`.
 
+The RF TX guard control window has its own guarded runtime path:
+
+```sh
+fieldmesh-udp-probe rf-guard-scan \
+  --ctrl-base 0x43c00000
+
+fieldmesh-udp-probe rf-guard-apply \
+  --preflight-assert preflight_assert.json \
+  --allow-live-writes \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --rx-first \
+  --tx-enable-guard \
+  --sidecar-preflight-passed \
+  --rf-engine-ready \
+  --target-is-zynq-board \
+  --slot-epoch 12 \
+  --slot-index 3
+```
+
+`rf-guard-scan` opens the sidecar control window read-only and reports the
+`0x100+` guard control/status/counter registers. `rf-guard-apply` refuses to
+run without the same sidecar preflight assertion and explicit RF safety
+declarations. When allowed, it maps only the FieldMesh control window, programs
+`fieldmesh_iq_tx_guard` epoch/slot/control registers, reports that AD936x TX
+enable and RF TX start remain false, and rolls the guard registers back before
+exit.
+
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:
 

@@ -2350,6 +2350,16 @@ dry-run, and rejects missing legal-frequency, missing sidecar-preflight, and
 missing Zynq-target confirmation for live preflight. The generated script is
 read-only and explicitly leaves TX enable, TX armed, hardware writes, and RF TX
 start disabled.
+The board-runtime register writer was then added behind the same safety model:
+`fieldmesh-udp-probe rf-guard-scan` reads the `0x100+` guard registers, and
+`fieldmesh-udp-probe rf-guard-apply` refuses to run without
+`--allow-live-writes`, a green sidecar preflight assertion, conducted/shielded
+and legal-frequency declarations, RX-first ordering, TX-enable-guard,
+RF-engine-ready, sidecar-preflight, and Zynq-target confirmations.
+`./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
+memory to verify the writer arms only the guard registers, reports
+`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolls the register
+window back.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying
@@ -2379,12 +2389,12 @@ capture is archived at
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_tun_device_pump_20260514-0409/`.
 
 ```text
-z203 rootfs.cpio.gz a5870eb9b6ffbac37eae59b8473f572c43a49d17e0afa02c0d19301a25465ec7
-z203 rootfs.tar.gz  380ba29afae7927176f40079aa070b9a2e85710c21163039783f468ee5db961a
-z103 rootfs.cpio.gz ae0408a5c5911c24fe5ec82ab27358445b8f666919b32ed08c0a99362a5096ba
-z103 rootfs.tar.gz  f64be888c2790703465b5f60fb97d2d8181625f7c4ef6ea1c786d824a9b28263
-z203 pluto.frm      df9d0f745309f684c819cc24659b308f9c7f3a32ba7ea72d9d90f1db07a35943
-z103 pluto.frm      6b2dfe06b590370a6132396ab0f2acbea7c4c6e7b77c8df2dad18f1e18e79281
+z203 rootfs.cpio.gz 2e850fc87a1d5c8eae1a3135ec13b9d82546663720322a2b2c317aac049cb6ed
+z203 rootfs.tar.gz  4a7b301dd2d7f3e276159469da96b9751c8626f908a1a9aa5ae21b3d40572bfe
+z103 rootfs.cpio.gz 2dce8b52f374e72a52858306d2b27353347243c3c167da40514573d93421508c
+z103 rootfs.tar.gz  9c85b608bd78fb40c8678e18a78e0f426ed4d830c56796fa4e60bb277e3d81a8
+z203 pluto.frm      8386cdb2674946ad137fc97e338138ea08d5184fbf6c21c3c31d73343c38ff47
+z103 pluto.frm      fc221f3d9a2f12cc285190abccf2c922ba78d6a4c5dba45e93d2b5a6133416e6
 z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
 z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
@@ -2403,18 +2413,18 @@ matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after wiring the RF TX guard planning
-query:
+Refreshed package and RAM-boot hashes after adding the RF TX guard board
+writer:
 
 ```text
-z203 pluto.frm df9d0f745309f684c819cc24659b308f9c7f3a32ba7ea72d9d90f1db07a35943
-z203 pluto.itb 721fb79f2d17a8db855addaa25cee9ad184328ba995afd4814fe974578042305
+z203 pluto.frm 8386cdb2674946ad137fc97e338138ea08d5184fbf6c21c3c31d73343c38ff47
+z203 pluto.itb f99c3025ad498a2ab556fcfb9c75fad3842412458734a5e51b74742f7fd46e9c
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk d465c8b1b9d41088e94d0d0c4e812ea458a108445b618bcc0d48064f9d3c3d08
-z103 pluto.frm 6b2dfe06b590370a6132396ab0f2acbea7c4c6e7b77c8df2dad18f1e18e79281
-z103 pluto.itb 0bcb2bfdfaeb1577997367585018ae313e7ed91351ad845a0b34359c0c50e01c
+z203 jtag ramdisk 91337fa8fe957ed39f93ad2b95e3bdf83bace577e5fcc16e46a6ab88a4f3dfd7
+z103 pluto.frm fc221f3d9a2f12cc285190abccf2c922ba78d6a4c5dba45e93d2b5a6133416e6
+z103 pluto.itb 104b270fc7d3661739883db47ee21c6edec4c4f1045ff2764b36e59d220b30fd
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk e9f0ad96aeed5ad66bda35f8893b89e66165c6049331eedf7f6745eb01e20ef4
+z103 jtag ramdisk d25c009b28887be3010115d8cce77ad4acd9b9030aeb6b646988a5af613648ab
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic

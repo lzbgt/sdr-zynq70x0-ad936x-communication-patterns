@@ -65,6 +65,16 @@ struct config {
     uint32_t dma_size;
     uint32_t tx_buffer;
     uint32_t rx_buffer;
+    uint32_t rf_slot_epoch;
+    uint32_t rf_slot_index;
+    uint32_t rf_arm_window_us;
+    bool conducted_or_shielded;
+    bool legal_frequency_profile;
+    bool rx_first;
+    bool tx_enable_guard;
+    bool sidecar_preflight_passed;
+    bool rf_engine_ready;
+    bool target_is_zynq_board;
     bool allow_live_writes;
 };
 
@@ -117,6 +127,7 @@ struct fieldmesh_desc {
 
 static void emit_local_loopback_trace(const char *transport, const struct trace *tr, bool rx_ok,
                                       uint32_t transport_seq, uint32_t frame_crc);
+static bool preflight_assert_file_ok(const char *path, char *err, size_t err_len);
 
 static void usage(FILE *out)
 {
@@ -142,6 +153,8 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe dma-scan [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000] [--dma-size 0x10000] [--dma-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-plan --file FRAME.bin [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000]\n"
         "  fieldmesh-udp-probe dma-smoke --file FRAME.bin --preflight-assert FILE --allow-live-writes [--tx-buffer ADDR] [--rx-buffer ADDR]\n"
+        "  fieldmesh-udp-probe rf-guard-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
+        "  fieldmesh-udp-probe rf-guard-apply --preflight-assert FILE --allow-live-writes --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board [--slot-epoch N] [--slot-index N] [--arm-window-us N]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -192,6 +205,16 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .dma_size = 0x10000U,
         .tx_buffer = 0x1f000000U,
         .rx_buffer = 0x1f100000U,
+        .rf_slot_epoch = 0U,
+        .rf_slot_index = 0U,
+        .rf_arm_window_us = 5000U,
+        .conducted_or_shielded = false,
+        .legal_frequency_profile = false,
+        .rx_first = false,
+        .tx_enable_guard = false,
+        .sidecar_preflight_passed = false,
+        .rf_engine_ready = false,
+        .target_is_zynq_board = false,
         .allow_live_writes = false,
     };
 
@@ -266,6 +289,29 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         } else if (!strcmp(argv[i], "--rx-buffer")) {
             if (!arg_value(argc, argv, &i, &value)) return 2;
             cfg->rx_buffer = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--slot-epoch")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->rf_slot_epoch = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--slot-index")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->rf_slot_index = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--arm-window-us")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->rf_arm_window_us = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--conducted-or-shielded")) {
+            cfg->conducted_or_shielded = true;
+        } else if (!strcmp(argv[i], "--legal-frequency-profile")) {
+            cfg->legal_frequency_profile = true;
+        } else if (!strcmp(argv[i], "--rx-first")) {
+            cfg->rx_first = true;
+        } else if (!strcmp(argv[i], "--tx-enable-guard")) {
+            cfg->tx_enable_guard = true;
+        } else if (!strcmp(argv[i], "--sidecar-preflight-passed")) {
+            cfg->sidecar_preflight_passed = true;
+        } else if (!strcmp(argv[i], "--rf-engine-ready")) {
+            cfg->rf_engine_ready = true;
+        } else if (!strcmp(argv[i], "--target-is-zynq-board")) {
+            cfg->target_is_zynq_board = true;
         } else if (!strcmp(argv[i], "--allow-live-writes")) {
             cfg->allow_live_writes = true;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
@@ -290,9 +336,11 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "dma-plan") &&
         strcmp(cfg->role, "dma-smoke") &&
+        strcmp(cfg->role, "rf-guard-scan") &&
+        strcmp(cfg->role, "rf-guard-apply") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
@@ -303,6 +351,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "dma-plan") &&
         strcmp(cfg->role, "dma-smoke") &&
+        strcmp(cfg->role, "rf-guard-scan") &&
+        strcmp(cfg->role, "rf-guard-apply") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
@@ -323,12 +373,38 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         fprintf(stderr, "dma-smoke requires --preflight-assert FILE\n");
         return 2;
     }
+    if (!strcmp(cfg->role, "rf-guard-apply")) {
+        if (!cfg->allow_live_writes) {
+            fprintf(stderr, "rf-guard-apply requires --allow-live-writes\n");
+            return 2;
+        }
+        if (!cfg->preflight_assert_file) {
+            fprintf(stderr, "rf-guard-apply requires --preflight-assert FILE\n");
+            return 2;
+        }
+        if (!cfg->conducted_or_shielded || !cfg->legal_frequency_profile ||
+            !cfg->rx_first || !cfg->tx_enable_guard ||
+            !cfg->sidecar_preflight_passed || !cfg->rf_engine_ready ||
+            !cfg->target_is_zynq_board) {
+            fprintf(stderr, "rf-guard-apply requires all RF safety declarations\n");
+            return 2;
+        }
+        if (cfg->rf_slot_index > 0xffffU || cfg->rf_arm_window_us == 0U) {
+            fprintf(stderr, "rf-guard-apply slot index/window out of range\n");
+            return 2;
+        }
+    }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
         fprintf(stderr, "--ticks and --timeout-ms must be positive\n");
         return 2;
     }
     if (!strcmp(cfg->role, "ctrl-scan") && cfg->ctrl_size < 0x14U) {
         fprintf(stderr, "--ctrl-size must cover the 0x00..0x10 control registers\n");
+        return 2;
+    }
+    if ((!strcmp(cfg->role, "rf-guard-scan") || !strcmp(cfg->role, "rf-guard-apply")) &&
+        cfg->ctrl_size < 0x12cU) {
+        fprintf(stderr, "--ctrl-size must cover the 0x100..0x128 RF guard registers\n");
         return 2;
     }
     if (!strcmp(cfg->role, "dma-scan") && cfg->dma_size < 0x14U) {
@@ -2488,6 +2564,39 @@ static bool read_ctrl_reg(int fd, bool file_backed, uint32_t base, uint32_t offs
     return true;
 }
 
+static bool write_ctrl_reg(int fd, bool file_backed, uint32_t base, uint32_t offset, uint32_t value)
+{
+    uint8_t buf[4];
+    uint32_t phys = base + offset;
+    off_t pos = (off_t)(file_backed ? offset : phys);
+    long page_size;
+    off_t page_base;
+    off_t page_offset;
+    uint8_t *mapped;
+
+    put_le32(buf, value);
+    if (!file_backed) {
+        page_size = sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) {
+            return false;
+        }
+        page_base = (off_t)(phys & ~((uint32_t)page_size - 1U));
+        page_offset = (off_t)(phys - (uint32_t)page_base);
+        mapped = mmap(NULL, (size_t)page_size, PROT_READ | PROT_WRITE,
+                      MAP_SHARED, fd, page_base);
+        if (mapped == MAP_FAILED) {
+            return false;
+        }
+        memcpy(mapped + page_offset, buf, sizeof(buf));
+        msync(mapped, (size_t)page_size, MS_SYNC);
+        munmap(mapped, (size_t)page_size);
+        return true;
+    }
+
+    ssize_t wrote = pwrite(fd, buf, sizeof(buf), pos);
+    return wrote == (ssize_t)sizeof(buf);
+}
+
 static int run_ctrl_scan(const struct config *cfg)
 {
     static const struct ctrl_reg_expectation regs[] = {
@@ -2538,6 +2647,181 @@ static int run_ctrl_scan(const struct config *cfg)
     printf("{\"event\":\"ctrl_scan_end\",\"transport\":\"ctrl-scan\","
            "\"ok\":%s,\"id_ok\":%s,\"id\":\"0x%08x\"}\n",
            ok ? "true" : "false", id_value == 0x464d1001U ? "true" : "false", id_value);
+    return ok ? 0 : 1;
+}
+
+#define FIELDMESH_CTRL_ID_VALUE 0x464d1001U
+#define RF_GUARD_REG_CONTROL 0x100U
+#define RF_GUARD_REG_CURRENT_EPOCH 0x104U
+#define RF_GUARD_REG_CURRENT_SLOT 0x108U
+#define RF_GUARD_REG_TX_EPOCH 0x10cU
+#define RF_GUARD_REG_TX_SLOT 0x110U
+#define RF_GUARD_REG_STATUS 0x114U
+#define RF_GUARD_REG_PASS_SAMPLE_COUNT 0x118U
+#define RF_GUARD_REG_PASS_PACKET_COUNT 0x11cU
+#define RF_GUARD_REG_BLOCKED_CYCLE_COUNT 0x120U
+#define RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT 0x124U
+#define RF_GUARD_REG_DROP_LATE_PACKET_COUNT 0x128U
+#define RF_GUARD_CONTROL_ARMED 0x7U
+
+static int run_rf_guard_scan(const struct config *cfg)
+{
+    static const struct ctrl_reg_expectation regs[] = {
+        {"id", 0x00U},
+        {"rf_guard_control", RF_GUARD_REG_CONTROL},
+        {"rf_current_epoch", RF_GUARD_REG_CURRENT_EPOCH},
+        {"rf_current_slot", RF_GUARD_REG_CURRENT_SLOT},
+        {"rf_tx_epoch", RF_GUARD_REG_TX_EPOCH},
+        {"rf_tx_slot", RF_GUARD_REG_TX_SLOT},
+        {"rf_guard_status", RF_GUARD_REG_STATUS},
+        {"rf_pass_sample_count", RF_GUARD_REG_PASS_SAMPLE_COUNT},
+        {"rf_pass_packet_count", RF_GUARD_REG_PASS_PACKET_COUNT},
+        {"rf_blocked_cycle_count", RF_GUARD_REG_BLOCKED_CYCLE_COUNT},
+        {"rf_drop_late_sample_count", RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT},
+        {"rf_drop_late_packet_count", RF_GUARD_REG_DROP_LATE_PACKET_COUNT},
+    };
+    const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
+    bool file_backed = cfg->ctrl_mem_file != NULL;
+    bool ok = true;
+    uint32_t id_value = 0;
+    int fd;
+
+    printf("{\"event\":\"rf_guard_scan_start\",\"transport\":\"rf-guard-scan\","
+           "\"path\":\"%s\",\"base\":\"0x%08x\",\"size\":\"0x%08x\","
+           "\"opens_write\":false,\"starts_rf_tx\":false,\"uses_iio\":false,"
+           "\"file_backed\":%s}\n",
+           path, cfg->ctrl_base, cfg->ctrl_size, file_backed ? "true" : "false");
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        printf("{\"event\":\"rf_guard_scan_end\",\"transport\":\"rf-guard-scan\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               errno, strerror(errno));
+        return 1;
+    }
+
+    for (size_t i = 0; i < sizeof(regs) / sizeof(regs[0]); i++) {
+        uint32_t value = 0;
+        bool read_ok = read_ctrl_reg(fd, file_backed, cfg->ctrl_base, regs[i].offset, &value);
+        if (!read_ok) {
+            ok = false;
+        }
+        if (!strcmp(regs[i].name, "id")) {
+            id_value = value;
+            if (read_ok && value != FIELDMESH_CTRL_ID_VALUE) {
+                ok = false;
+            }
+        }
+        printf("{\"event\":\"rf_guard_reg\",\"transport\":\"rf-guard-scan\","
+               "\"name\":\"%s\",\"offset\":\"0x%03x\",\"read_ok\":%s,"
+               "\"value\":\"0x%08x\"}\n",
+               regs[i].name, regs[i].offset, read_ok ? "true" : "false", value);
+    }
+
+    close(fd);
+    printf("{\"event\":\"rf_guard_scan_end\",\"transport\":\"rf-guard-scan\","
+           "\"ok\":%s,\"id_ok\":%s,\"id\":\"0x%08x\"}\n",
+           ok ? "true" : "false", id_value == FIELDMESH_CTRL_ID_VALUE ? "true" : "false",
+           id_value);
+    return ok ? 0 : 1;
+}
+
+static int run_rf_guard_apply(const struct config *cfg)
+{
+    const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
+    bool file_backed = cfg->ctrl_mem_file != NULL;
+    uint32_t old_control = 0;
+    uint32_t old_current_epoch = 0;
+    uint32_t old_current_slot = 0;
+    uint32_t old_tx_epoch = 0;
+    uint32_t old_tx_slot = 0;
+    uint32_t id_value = 0;
+    uint32_t status_value = 0;
+    bool ok = false;
+    bool wrote = false;
+    bool rolled_back = false;
+    int fd = -1;
+    char err[160] = {0};
+
+    printf("{\"event\":\"rf_guard_apply_start\",\"transport\":\"rf-guard-apply\","
+           "\"path\":\"%s\",\"base\":\"0x%08x\",\"slot_epoch\":%u,"
+           "\"slot_index\":%u,\"arm_window_us\":%u,\"writes_registers\":true,"
+           "\"starts_rf_tx\":false,\"uses_iio\":false,"
+           "\"uses_inter_board_ip_routing\":false,\"file_backed\":%s}\n",
+           path, cfg->ctrl_base, cfg->rf_slot_epoch, cfg->rf_slot_index,
+           cfg->rf_arm_window_us, file_backed ? "true" : "false");
+
+    if (!preflight_assert_file_ok(cfg->preflight_assert_file, err, sizeof(err))) {
+        goto out;
+    }
+    fd = open(path, O_RDWR | O_SYNC);
+    if (fd < 0) {
+        snprintf(err, sizeof(err), "open guard control window: %s", strerror(errno));
+        goto out;
+    }
+    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, 0x00U, &id_value) ||
+        id_value != FIELDMESH_CTRL_ID_VALUE) {
+        snprintf(err, sizeof(err), "fieldmesh control ID mismatch");
+        goto out;
+    }
+    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, &old_control) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, &old_current_epoch) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, &old_current_slot) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH, &old_tx_epoch) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT, &old_tx_slot)) {
+        snprintf(err, sizeof(err), "read RF guard rollback state failed");
+        goto out;
+    }
+
+    if (!write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, cfg->rf_slot_epoch) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, cfg->rf_slot_index & 0xffffU) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH, cfg->rf_slot_epoch) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT, cfg->rf_slot_index & 0xffffU) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, RF_GUARD_CONTROL_ARMED)) {
+        snprintf(err, sizeof(err), "write RF guard arm registers failed");
+        goto out;
+    }
+    wrote = true;
+
+    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_STATUS, &status_value);
+    printf("{\"event\":\"rf_guard_apply_write\",\"transport\":\"rf-guard-apply\","
+           "\"control\":\"0x%08x\",\"current_epoch\":%u,\"current_slot\":%u,"
+           "\"tx_epoch\":%u,\"tx_slot\":%u,\"sets_guard_tx_enable\":true,"
+           "\"sets_guard_tx_armed\":true,\"sets_ad936x_tx_enable\":false,"
+           "\"starts_rf_tx\":false}\n",
+           RF_GUARD_CONTROL_ARMED, cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU,
+           cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU);
+    printf("{\"event\":\"rf_guard_apply_status\",\"transport\":\"rf-guard-apply\","
+           "\"status\":\"0x%08x\"}\n", status_value);
+
+out:
+    if (fd >= 0 && wrote) {
+        bool rb_ok =
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, 0U) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT, old_tx_slot) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH, old_tx_epoch) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, old_current_slot) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, old_current_epoch) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, old_control);
+        rolled_back = rb_ok;
+        printf("{\"event\":\"rf_guard_apply_rollback\",\"transport\":\"rf-guard-apply\","
+               "\"ok\":%s,\"control\":\"0x%08x\",\"current_epoch\":%u,"
+               "\"current_slot\":%u,\"tx_epoch\":%u,\"tx_slot\":%u}\n",
+               rb_ok ? "true" : "false", old_control, old_current_epoch,
+               old_current_slot & 0xffffU, old_tx_epoch, old_tx_slot & 0xffffU);
+    }
+    ok = wrote && rolled_back;
+    printf("{\"event\":\"rf_guard_apply_end\",\"transport\":\"rf-guard-apply\","
+           "\"ok\":%s,\"id\":\"0x%08x\",\"wrote_registers\":%s,"
+           "\"rolled_back\":%s,\"starts_rf_tx\":false,\"error\":%s}\n",
+           ok ? "true" : "false", id_value, wrote ? "true" : "false",
+           rolled_back ? "true" : "false", ok ? "null" : "\"rf guard apply failed\"");
+    if (fd >= 0) {
+        close(fd);
+    }
+    if (!ok && err[0]) {
+        fprintf(stderr, "%s\n", err);
+    }
     return ok ? 0 : 1;
 }
 
@@ -3071,6 +3355,12 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "dma-smoke")) {
         return run_dma_smoke(&cfg);
+    }
+    if (!strcmp(cfg.role, "rf-guard-scan")) {
+        return run_rf_guard_scan(&cfg);
+    }
+    if (!strcmp(cfg.role, "rf-guard-apply")) {
+        return run_rf_guard_apply(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);
