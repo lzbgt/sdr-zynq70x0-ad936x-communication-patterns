@@ -716,6 +716,10 @@ user and vendor configuration.
   tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
   Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in
   the copied `.config/fieldmesh/` workspace.
+- `tools/build_fieldmesh_rf_engine_overlay_vivado.sh` - copies a Z203 or Z103
+  HDL tree, applies the non-transmitting FieldMesh RF-engine overlay, runs the
+  normal ADI Pluto Vivado make flow, and verifies the resulting
+  `system_top.bit`/XSA in the copied `.config/fieldmesh/` workspace.
 - `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v`,
   `tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v`, and
@@ -929,6 +933,13 @@ Expected result in the current Pluto-compatible firmware state:
    or hardware writes in the RF-engine stage. Z103 passed that combined live
    gate at `192.168.3.1`; evidence is archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/`.
+   The non-transmitting RF-engine copied overlay now builds timing-clean for
+   both variants too: Z103 `system_top.bit`/XSA hashes are
+   `889fa0abfd96e760847e85c6e898b67e52aa635a0671ce254dd8c8e2f0c6c000` and
+   `bac6916492e7371a99b5d837356ec3044e3a2ba837f49649206919ca096c8378`;
+   Z203 hashes are
+   `6fce72c034d455097c6028feada2737ee5cd0fe2fec5e2e496d51f56510b5593` and
+   `3f9afd56612664650a6da44b8bb1b3f477a367fafc8caa2df1d384f186c47b16`.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

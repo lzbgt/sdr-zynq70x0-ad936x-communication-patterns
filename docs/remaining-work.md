@@ -330,7 +330,10 @@ Next concrete work:
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
   sources. The Z203 and Z103 copied overlay builds are both timing-clean after
-  the slot-gated packet-memory refresh.
+  the slot-gated packet-memory refresh. `tools/build_fieldmesh_rf_engine_overlay_vivado.sh`
+  now provides the equivalent non-transmitting RF-engine overlay build gate;
+  both Z203 and Z103 produce timing-clean `system_top.bit`/XSA artifacts with
+  the BPSK symbolizer BD-visible and disconnected from AD936x TX.
 - `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.

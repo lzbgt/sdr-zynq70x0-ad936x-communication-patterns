@@ -2473,6 +2473,33 @@ validated that copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_bpsk_symbolizer` present, address segments intact, and no AD936x TX
 connection from the FieldMesh RF-engine overlay.
 
+The same non-transmitting RF-engine overlay was then built through the full ADI
+Pluto Vivado make flow:
+
+```sh
+./tools/build_fieldmesh_rf_engine_overlay_vivado.sh z103
+./tools/build_fieldmesh_rf_engine_overlay_vivado.sh z203
+```
+
+Result: both copied RF-engine overlay builds produced timing-clean
+`system_top.bit`/XSA artifacts. Z103 outputs:
+
+```text
+.config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+.config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa
+system_top.bit  889fa0abfd96e760847e85c6e898b67e52aa635a0671ce254dd8c8e2f0c6c000
+system_top.xsa  bac6916492e7371a99b5d837356ec3044e3a2ba837f49649206919ca096c8378
+```
+
+Z203 outputs:
+
+```text
+.config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+.config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa
+system_top.bit  6fce72c034d455097c6028feada2737ee5cd0fe2fec5e2e496d51f56510b5593
+system_top.xsa  3f9afd56612664650a6da44b8bb1b3f477a367fafc8caa2df1d384f186c47b16
+```
+
 After the user reset the Z103, two more live-gate captures were taken:
 
 ```text

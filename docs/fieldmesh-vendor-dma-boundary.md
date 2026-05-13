@@ -315,10 +315,20 @@ Build the same copied-HDL overlay into a bitstream/XSA with:
 ./tools/build_fieldmesh_dma_overlay_vivado.sh z103
 ```
 
-The build helper applies the same patch, runs the normal ADI Pluto Vivado make
-flow, and then calls `tools/verify_pluto_hdl_build.sh` against the copied
-workspace. Outputs live under `.config/fieldmesh/dma-overlay-build-z203/` or
-`.config/fieldmesh/dma-overlay-build-z103/`.
+Build the non-transmitting RF packet-engine overlay into a bitstream/XSA with:
+
+```sh
+./tools/build_fieldmesh_rf_engine_overlay_vivado.sh z203
+./tools/build_fieldmesh_rf_engine_overlay_vivado.sh z103
+```
+
+The build helpers apply the selected patch, run the normal ADI Pluto Vivado make
+flow, and then call `tools/verify_pluto_hdl_build.sh` against the copied
+workspace. DMA-overlay outputs live under
+`.config/fieldmesh/dma-overlay-build-z203/` or
+`.config/fieldmesh/dma-overlay-build-z103/`; RF-engine overlay outputs live
+under `.config/fieldmesh/rf-engine-overlay-build-z203/` or
+`.config/fieldmesh/rf-engine-overlay-build-z103/`.
 
 These are still copied-HDL integration gates. The DMA gate proves the namespace,
 HP-port split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream
@@ -326,8 +336,10 @@ connections, and address segments are BD-visible on both variants. The RF-engine
 gate proves the first packet-to-symbol TX primitive is BD-visible behind the
 sidecar packet path while still disconnected from AD936x TX. The Z203 and Z103
 DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
-artifacts. The RF-engine overlay is not yet built into a timing artifact and
-does not yet provide a flashed runtime image or live board RF traffic.
+artifacts. The RF-engine overlay paths have also produced timing-clean
+`system_top.bit`/XSA artifacts while still leaving AD936x TX disconnected. The
+RF-engine overlay does not yet provide a flashed runtime image or live board RF
+traffic.
 
 The matching devicetree contract is generated and checked separately:
 
