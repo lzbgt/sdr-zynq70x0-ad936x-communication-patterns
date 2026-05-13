@@ -283,9 +283,9 @@ board packet DMA, and RF packet-engine sample recovery are checked together.
 The first PL TX primitive for that engine is `fieldmesh_bpsk_iq_symbolizer`;
 it is deliberately a byte-to-symbol block, not a complete modem or RF-control
 abstraction. The copied-HDL `--rf-engine-overlay` mode makes that primitive
-BD-visible behind the sidecar DMA/bridge TX path while keeping the generated
-IQ stream disconnected from AD936x TX until the guarded scheduler/filter/driver
-path exists.
+BD-visible behind the sidecar DMA/bridge TX path and immediately feeds
+`fieldmesh_iq_tx_guard`. The guard stays unarmed and its IQ output remains
+disconnected from AD936x TX until the scheduler/filter/driver path exists.
 
 The daemon also exposes a guarded production request,
 `FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the

@@ -81,6 +81,7 @@ foreach cell {
   fieldmesh_tx_dma
   fieldmesh_rx_dma
   fieldmesh_bpsk_symbolizer
+  fieldmesh_iq_tx_guard
 } {
   if {[llength [get_bd_cells -quiet \$cell]] != 1} {
     error "\$cell cell missing"
@@ -102,6 +103,30 @@ foreach pin {
   fieldmesh_bpsk_symbolizer/byte_count
   fieldmesh_bpsk_symbolizer/symbol_count
   fieldmesh_bpsk_symbolizer/packet_count
+  fieldmesh_iq_tx_guard/clk
+  fieldmesh_iq_tx_guard/rst
+  fieldmesh_iq_tx_guard/enable
+  fieldmesh_iq_tx_guard/tx_enable
+  fieldmesh_iq_tx_guard/tx_armed
+  fieldmesh_iq_tx_guard/schedule_enable
+  fieldmesh_iq_tx_guard/current_epoch
+  fieldmesh_iq_tx_guard/current_slot
+  fieldmesh_iq_tx_guard/tx_epoch
+  fieldmesh_iq_tx_guard/tx_slot
+  fieldmesh_iq_tx_guard/s_axis_tvalid
+  fieldmesh_iq_tx_guard/s_axis_tready
+  fieldmesh_iq_tx_guard/s_axis_tdata
+  fieldmesh_iq_tx_guard/s_axis_tlast
+  fieldmesh_iq_tx_guard/m_axis_tvalid
+  fieldmesh_iq_tx_guard/m_axis_tready
+  fieldmesh_iq_tx_guard/m_axis_tdata
+  fieldmesh_iq_tx_guard/m_axis_tlast
+  fieldmesh_iq_tx_guard/pass_sample_count
+  fieldmesh_iq_tx_guard/pass_packet_count
+  fieldmesh_iq_tx_guard/blocked_cycle_count
+  fieldmesh_iq_tx_guard/drop_late_sample_count
+  fieldmesh_iq_tx_guard/drop_late_packet_count
+  fieldmesh_iq_tx_guard/fault
 } {
   if {[llength [get_bd_pins -quiet \$pin]] != 1} {
     error "\$pin pin missing"
@@ -123,10 +148,20 @@ if {[llength \$tx_ready_nets] != 1} {
   error "fieldmesh_axis_bridge/m_tx_packet_tready is not connected to exactly one net"
 }
 
-foreach open_output {
+foreach symbolizer_to_guard {
   fieldmesh_bpsk_symbolizer/m_axis_tvalid
   fieldmesh_bpsk_symbolizer/m_axis_tdata
   fieldmesh_bpsk_symbolizer/m_axis_tlast
+} {
+  if {[llength [get_bd_nets -quiet -of_objects [get_bd_pins \$symbolizer_to_guard]]] != 1} {
+    error "\$symbolizer_to_guard must feed the IQ TX guard"
+  }
+}
+
+foreach open_output {
+  fieldmesh_iq_tx_guard/m_axis_tvalid
+  fieldmesh_iq_tx_guard/m_axis_tdata
+  fieldmesh_iq_tx_guard/m_axis_tlast
 } {
   if {[llength [get_bd_nets -quiet -of_objects [get_bd_pins \$open_output]]] != 0} {
     error "\$open_output must remain unconnected in the non-transmitting overlay"

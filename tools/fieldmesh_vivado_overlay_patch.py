@@ -212,15 +212,32 @@ ad_connect sys_cpu_clk fieldmesh_bpsk_symbolizer/clk
 ad_connect sys_cpu_reset fieldmesh_bpsk_symbolizer/rst
 ad_connect VCC fieldmesh_bpsk_symbolizer/enable
 
+create_bd_cell -type module -reference fieldmesh_iq_tx_guard fieldmesh_iq_tx_guard
+ad_connect sys_cpu_clk fieldmesh_iq_tx_guard/clk
+ad_connect sys_cpu_reset fieldmesh_iq_tx_guard/rst
+ad_connect VCC fieldmesh_iq_tx_guard/enable
+ad_connect GND fieldmesh_iq_tx_guard/tx_enable
+ad_connect GND fieldmesh_iq_tx_guard/tx_armed
+ad_connect GND fieldmesh_iq_tx_guard/schedule_enable
+ad_connect GND fieldmesh_iq_tx_guard/current_epoch
+ad_connect GND fieldmesh_iq_tx_guard/current_slot
+ad_connect GND fieldmesh_iq_tx_guard/tx_epoch
+ad_connect GND fieldmesh_iq_tx_guard/tx_slot
+
 ad_connect fieldmesh_axis_bridge/m_tx_packet_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid
 ad_connect fieldmesh_bpsk_symbolizer/s_axis_tready fieldmesh_axis_bridge/m_tx_packet_tready
 ad_connect fieldmesh_axis_bridge/m_tx_packet_tdata fieldmesh_bpsk_symbolizer/s_axis_tdata
 ad_connect fieldmesh_axis_bridge/m_tx_packet_tlast fieldmesh_bpsk_symbolizer/s_axis_tlast
 
-# The symbolizer is BD-visible here, but its IQ output is deliberately parked
-# behind the guarded RF packet-engine boundary. No AD936x TX path, IIO buffer,
-# RF tuning, or TX-enable logic is connected by this overlay.
-ad_connect VCC fieldmesh_bpsk_symbolizer/m_axis_tready
+# The symbolizer and TX guard are BD-visible here, but the guard is deliberately
+# unarmed and its IQ output is parked behind the RF packet-engine boundary. No
+# AD936x TX path, IIO buffer, RF tuning, or TX-enable driver is connected by
+# this overlay.
+ad_connect fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
+ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_bpsk_symbolizer/m_axis_tready
+ad_connect fieldmesh_bpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
+ad_connect fieldmesh_bpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast
+ad_connect VCC fieldmesh_iq_tx_guard/m_axis_tready
 {BD_RF_ENGINE_END}
 """
 
@@ -252,7 +269,10 @@ def patch_system_bd(
             raise SystemExit("system_bd.tcl: FieldMesh bridge overlay is already parked; start from a clean copied HDL tree for --dma-overlay")
     if ("fieldmesh_tx_dma" in text or "fieldmesh_rx_dma" in text) and BD_DMA_BEGIN not in text:
         raise SystemExit("system_bd.tcl: FieldMesh DMA overlay appears partially present")
-    if "fieldmesh_bpsk_symbolizer" in text and BD_RF_ENGINE_BEGIN not in text:
+    if (
+        "fieldmesh_bpsk_symbolizer" in text
+        or "fieldmesh_iq_tx_guard" in text
+    ) and BD_RF_ENGINE_BEGIN not in text:
         raise SystemExit("system_bd.tcl: FieldMesh RF packet engine overlay appears partially present")
     if control_overlay and BD_CTRL_BEGIN not in text:
         if "ad_cpu_interconnect 0x7C420000 axi_ad9361_dac_dma" not in text:
@@ -387,7 +407,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--rf-engine-overlay",
         action="store_true",
-        help="also add a non-transmitting fieldmesh_bpsk_symbolizer cell behind the sidecar DMA/bridge TX packet path",
+        help="also add non-transmitting fieldmesh_bpsk_symbolizer and IQ TX guard cells behind the sidecar DMA/bridge TX packet path",
     )
     return parser.parse_args()
 

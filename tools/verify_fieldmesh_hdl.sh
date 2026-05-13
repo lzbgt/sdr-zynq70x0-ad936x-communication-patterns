@@ -29,6 +29,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_iq_tx_guard.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_slot_admission_gate.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v" \
@@ -49,6 +50,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_bpsk_iq_symbolizer_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_iq_tx_guard_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v"
 
 run_tb() {
@@ -79,4 +81,5 @@ run_tb fieldmesh_packet_axis_byte_pipe_loopback_tb
 run_tb fieldmesh_sidecar_axis_bridge_tb
 run_tb fieldmesh_axis16_byte_adapter_tb
 run_tb fieldmesh_bpsk_iq_symbolizer_tb
+run_tb fieldmesh_iq_tx_guard_tb
 run_tb fieldmesh_slot_admission_gate_tb

@@ -2465,13 +2465,21 @@ final repeated symbol, and byte/symbol/packet counters. It is included in the
 required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
 TX boundary.
 
+`rtl/fieldmesh/fieldmesh_iq_tx_guard.v` with
+`tb/fieldmesh/fieldmesh_iq_tx_guard_tb.v` adds the first post-symbolizer RF TX
+guard. The test covers unarmed and future-slot backpressure, current-slot
+admission, output backpressure, late-slot drops/fault reporting, and
+schedule-disabled pass-through.
+
 The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
 implies the sidecar DMA overlay, removes the packet-loopback shortcut, feeds
 `fieldmesh_axis_bridge/m_tx_packet_*` into `fieldmesh_bpsk_symbolizer/s_axis_*`,
-and parks the symbolizer IQ output. `tools/check_fieldmesh_rf_engine_overlay_vivado.sh`
-validated that copied Z203 and Z103 HDL trees generate block designs with
-`fieldmesh_bpsk_symbolizer` present, address segments intact, and no AD936x TX
-connection from the FieldMesh RF-engine overlay.
+feeds generated IQ into `fieldmesh_iq_tx_guard`, and parks the guard output
+unarmed. `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
+copied Z203 and Z103 HDL trees generate block designs with
+`fieldmesh_bpsk_symbolizer` and `fieldmesh_iq_tx_guard` present, address
+segments intact, and no AD936x TX connection from the FieldMesh RF-engine
+overlay.
 
 The same non-transmitting RF-engine overlay was then built through the full ADI
 Pluto Vivado make flow:
@@ -2487,8 +2495,8 @@ Result: both copied RF-engine overlay builds produced timing-clean
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  889fa0abfd96e760847e85c6e898b67e52aa635a0671ce254dd8c8e2f0c6c000
-system_top.xsa  bac6916492e7371a99b5d837356ec3044e3a2ba837f49649206919ca096c8378
+system_top.bit  168ac782b030cb587ace2532a8baa54f1215ec1a86bb7115033fcf47346da3b3
+system_top.xsa  631db6d423dc6bc737e64afa4dddae0ecdb3dc267c320ccfd9986d54a4324526
 ```
 
 Z203 outputs:
@@ -2496,8 +2504,8 @@ Z203 outputs:
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  6fce72c034d455097c6028feada2737ee5cd0fe2fec5e2e496d51f56510b5593
-system_top.xsa  3f9afd56612664650a6da44b8bb1b3f477a367fafc8caa2df1d384f186c47b16
+system_top.bit  3f790a3b95d9cf0a5601dab70d9ead75e30696dcb659370076c87284a18845ee
+system_top.xsa  63b37af750fd48aca455ff0dd8ede605db4bfd3eaf995eebf44b27a6ab8b3d39
 ```
 
 After the user reset the Z103, two more live-gate captures were taken:

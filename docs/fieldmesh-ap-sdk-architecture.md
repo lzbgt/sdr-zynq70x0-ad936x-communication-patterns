@@ -571,9 +571,11 @@ Stage 2: Board-local service
   packet-engine IQ recovery. The first PL primitive behind that boundary is
   `fieldmesh_bpsk_iq_symbolizer`, which maps packet bytes to repeated signed
   BPSK I/Q symbols without taking ownership of RF tuning, filtering, TX enable,
-  or scheduled launch. The `--rf-engine-overlay` copied-HDL gate now proves
-  that primitive is BD-visible behind the sidecar DMA/bridge TX path while its
-  IQ output remains disconnected from AD936x TX.
+  or scheduled launch. `fieldmesh_iq_tx_guard` is the next boundary; it only
+  admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The
+  `--rf-engine-overlay` copied-HDL gate now proves both cells are BD-visible
+  behind the sidecar DMA/bridge TX path while guarded IQ remains disconnected
+  from AD936x TX.
 - Use daemon `FIELDMESH_TUN_FD_PUMP` and
   `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
   boundary: the SDK accepts a pure-C read callback, so production code can

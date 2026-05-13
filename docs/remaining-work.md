@@ -228,8 +228,8 @@ Next concrete work:
   repeated signed BPSK I/Q symbols while keeping tuning, filtering, TX enable,
   and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
-  bridge parser can feed the BPSK symbolizer while the IQ output remains
-  disconnected from AD936x TX.
+  bridge parser can feed the BPSK symbolizer and `fieldmesh_iq_tx_guard` while
+  the guarded IQ output remains disconnected from AD936x TX.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and
