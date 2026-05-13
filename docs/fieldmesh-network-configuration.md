@@ -29,22 +29,39 @@ The firmware must therefore support configuration before two-board experiments:
 
 ## CLI Shape
 
-Prototype commands should be explicit and scriptable:
+The first shipped CLI surface is `/usr/bin/fieldmeshctl`. It is intentionally
+non-mutating for now: it validates and accepts a profile into the SDK reference
+context, reports whether persistence/reboot/rollback would be required, and
+does not yet write init scripts, U-Boot environment, or host routing.
+
+Current commands are explicit and scriptable:
 
 ```sh
 fieldmeshctl profile show
-fieldmeshctl profile set node-id z203-hub network-id fieldmesh-lab
-fieldmeshctl net usb set --device-ip 192.168.20.1 --host-ip 192.168.20.10 --prefix 24
-fieldmeshctl ap policy set hybrid --preferred z203-hub --allow-emergency-1r1t yes
-fieldmeshctl join credential set --network fieldmesh-lab --psk-file /mnt/jffs2/fieldmesh.psk
-fieldmeshctl radio profile set maritime-2m --freq-mhz 2400 --bandwidth-hz 1000000
-fieldmeshctl profile validate
-fieldmeshctl profile apply --persist
+fieldmeshctl profile validate \
+  --node-id z103-endpoint \
+  --network-id fieldmesh-lab \
+  --friendly-name "Z103 endpoint" \
+  --usb-device-ip 192.168.3.1 \
+  --usb-host-ip 192.168.3.10 \
+  --prefix 24 \
+  --ap-policy hybrid \
+  --preferred-ap-id z203-hub
+fieldmeshctl profile apply \
+  --node-id z103-endpoint \
+  --network-id fieldmesh-lab \
+  --usb-device-ip 192.168.3.1 \
+  --usb-host-ip 192.168.3.10 \
+  --prefix 24 \
+  --persist
 fieldmeshctl profile rollback
 ```
 
-The CLI must print machine-readable JSON when `--json` is passed, because it
-will be used by host-side test runners.
+The CLI currently prints NDJSON by default, because it is used directly by
+host-side test runners and later board-side provisioning tools. The intended
+production expansion is to add subcommands for credential storage, radio
+profiles, persistent OS application, live reachability checks, and automatic
+rollback.
 
 ## SDK Shape
 
@@ -54,12 +71,24 @@ The SDK should expose the same profile as a C ABI:
 fieldmesh_get_network_profile(ctx, &profile);
 fieldmesh_set_network_profile(ctx, &profile);
 fieldmesh_validate_network_profile(ctx, &profile, &report);
-fieldmesh_apply_network_profile(ctx, &profile, FIELDMESH_PROFILE_PERSIST);
+fieldmesh_apply_network_profile(ctx, &profile, FIELDMESH_PROFILE_APPLY_PERSIST,
+                                &report);
+fieldmesh_rollback_network_profile(ctx);
 ```
 
 Applications should not shell out for normal runtime control. The CLI is for
 humans, manufacturing, provisioning, and recovery. The SDK is for application
 control.
+
+The first ABI covers:
+
+- board identity: `node_id`, `network_id`, friendly name;
+- USB Ethernet split-subnet planning: device IP, host IP, prefix;
+- optional physical Ethernet addressing;
+- AP policy: predefined, autonomous swarm, or hybrid;
+- preferred AP ID and emergency 1R1T AP allowance;
+- radio frequency and bandwidth metadata;
+- validation report fields for reboot, persistence, and rollback handling.
 
 ## Initial Two-Board Host Plan
 
@@ -67,7 +96,9 @@ For the current Z203/Z103 lab setup:
 
 1. Keep Z203 on `192.168.2.1/24` until the 2R2T installed runtime is verified.
 2. Move Z103 USB Ethernet to a second subnet, for example
-   `192.168.3.1/24`, with host-side `192.168.3.10/24`.
+   `192.168.3.1/24`, with host-side `192.168.3.10/24`, using the
+   `fieldmeshctl profile validate/apply` shape first and the later persistent
+   OS writer once implemented.
 3. Run the Z203 AP service on one PC/interface:
 
    ```sh
@@ -95,3 +126,9 @@ Profile application must be transactional:
 
 No permanent credential writes should be enabled until recovery paths are
 stable on both Z203 and Z103.
+
+The current implementation stops before permanent writes. This is deliberate:
+with both boards attached, plain `192.168.2.1` may resolve to either USB
+gadget, so the next writer must identify the target board by USB interface,
+serial, hostname, or an already-separated route before touching persistent
+network state.

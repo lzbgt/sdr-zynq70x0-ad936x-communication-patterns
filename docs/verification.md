@@ -2278,19 +2278,20 @@ carry the current preflight roles:
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
 `adaptive-listen`, `advertise`, `ap-elect`, `rtls-estimate`, the `udp-command`
 path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. The
-FieldMesh SDK state-daemon and two-PC flow demos are now also packaged as
-`/usr/bin/fieldmesh-state-daemon-demo` and
+FieldMesh SDK profile CLI, state-daemon, and two-PC flow demos are now also
+packaged as `/usr/bin/fieldmeshctl`,
+`/usr/bin/fieldmesh-state-daemon-demo`, and
 `/usr/bin/fieldmesh-two-pc-flow-demo` in both developer images. Their rootfs
-strings include AP browse/election/join, `FIELDMESH_STATE_PEERS`,
-`FIELDMESH_STATE_RTLS`, AP/peer/RTLS response tags, and the two-PC
-join/stream-flow response tags. Refreshed rootfs hashes after adding the
-expanded packaged SDK demos:
+strings include `fieldmeshctl_profile_*`, AP browse/election/join,
+`FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`, AP/peer/RTLS response tags,
+and the two-PC join/stream-flow response tags. Refreshed rootfs hashes after
+adding the network profile CLI:
 
 ```text
-z203 rootfs.cpio.gz f479f3b9717ef51a0635a45712603e5491822204df31e73131fa1de9b9716a53
-z203 rootfs.tar.gz  89b54aacb054e06478bd0bb2a59a46084305dc0b4de106469a75c8b2ae710404
-z103 rootfs.cpio.gz b2b99630ef9d2e714154e0bb6137d86d976fada016be489e5dfe9e749c1f798b
-z103 rootfs.tar.gz  0b48e4896f98e0cdcce168c7fe2d3d1276f8e3015bfa6e58cf0758cbe4e90f45
+z203 rootfs.cpio.gz 0c97c0798869583ca5762a4c12f78dd6bdd97361f6e994e7779986dc8704d5e3
+z203 rootfs.tar.gz  061649cf1c795e9e9cca8f1f91b1fd391d9916b17558751dae628731151cfe18
+z103 rootfs.cpio.gz 4303cb69c7a2e834bc48021c2a8e6df0c947a81df867822725e53c61f6d79fc0
+z103 rootfs.tar.gz  87118b6ec6e2d819b0baa3aeb29c83dc17d12e57145c791a0b061c6ac100819e
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2307,17 +2308,18 @@ matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after the SDK daemon rootfs rebuild:
+Refreshed package and RAM-boot hashes after adding the SDK network profile
+CLI:
 
 ```text
-z203 pluto.frm 8f60f7bd563ee58450e21e681b1163ce14987feac12765f11388209f73646f61
-z203 pluto.itb 1d6eed8314489403faa37e64426152fbec1ac7d386e43f694f9fb3923b412890
+z203 pluto.frm b448fc74e7632802788ab46aacd6a62be2e7a5b0f79b2328e6ee0f69ba196c83
+z203 pluto.itb 7e4036ee063a32a88fdc3721ec2feabc9284d38e3098d57bb9fc4e188ae70ca9
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 358aef70c266c4d3ad29c70d9543f2ccc8842e249cd10b97566997d0f62fa794
-z103 pluto.frm a12a82556ab32f6a1526700da7cd6d87c1b7fd23a44b9efa6440a7fd411214c1
-z103 pluto.itb 26aa878c605c2c02ed739f872f4e07c568950cbf7742b006abb133d815316016
+z203 jtag ramdisk b7b6d1cabbc83fcb5ad7fac4dd63055f876c5d78881b720b4c832ffa7c2d5803
+z103 pluto.frm bad6635a2d3e15996309a68c84e31f573842ae2a43d40eb0f8282475468347af
+z103 pluto.itb 820953facb2a521935fb55bef3aea5625b67357bf9417354239e7f3ce8896dbe
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk 2b20ec190bd0f7c15c3661bb2d888572fc687bb7bfe9f27217a30dbde8828f46
+z103 jtag ramdisk bad1e97a60cab796a789fc6bf51f85809d859b12e109d4d93c16f1b88067e499
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2681,6 +2683,15 @@ scheduled stream open, and C1 telemetry send:
 ```sh
 ./tools/verify_fieldmesh_sdk.sh
 ```
+
+The same SDK gate now also runs `fieldmeshctl_demo` as the first network
+profile CLI/API check. It verifies the default Pluto-style USB address,
+validates a split-subnet Z103 profile at `192.168.3.1/24` with host
+`192.168.3.10/24`, checks that `profile apply --persist` reports reboot and
+rollback metadata, and checks `profile rollback` through the SDK state path.
+This is a planning/validation gate only; persistent board network writes are
+still intentionally gated until target identification and automatic rollback
+are implemented.
 
 ## FieldMesh RTLS Positioning Gate
 

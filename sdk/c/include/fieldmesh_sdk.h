@@ -16,6 +16,7 @@ extern "C" {
 #define FIELDMESH_NAME_TEXT_MAX 96
 #define FIELDMESH_ADDR_TEXT_MAX 96
 #define FIELDMESH_SECRET_TEXT_MAX 256
+#define FIELDMESH_PROFILE_APPLY_PERSIST 0x00000001u
 
 typedef struct fieldmesh_context fieldmesh_context_t;
 typedef struct fieldmesh_ap fieldmesh_ap_t;
@@ -93,6 +94,31 @@ typedef struct fieldmesh_config {
     uint16_t control_port;
     uint32_t timeout_ms;
 } fieldmesh_config_t;
+
+typedef struct fieldmesh_network_profile {
+    char node_id[FIELDMESH_ID_TEXT_MAX];
+    char network_id[FIELDMESH_ID_TEXT_MAX];
+    char friendly_name[FIELDMESH_NAME_TEXT_MAX];
+    char usb_device_ip[FIELDMESH_ADDR_TEXT_MAX];
+    char usb_host_ip[FIELDMESH_ADDR_TEXT_MAX];
+    uint8_t usb_prefix_len;
+    char phy_device_ip[FIELDMESH_ADDR_TEXT_MAX];
+    char phy_host_ip[FIELDMESH_ADDR_TEXT_MAX];
+    uint8_t phy_prefix_len;
+    fieldmesh_ap_policy_t ap_policy;
+    char preferred_ap_id[FIELDMESH_ID_TEXT_MAX];
+    uint8_t allow_emergency_1r1t_ap;
+    uint32_t radio_freq_mhz;
+    uint32_t radio_bandwidth_hz;
+} fieldmesh_network_profile_t;
+
+typedef struct fieldmesh_profile_validation_report {
+    uint8_t valid;
+    uint8_t requires_reboot;
+    uint8_t rollback_supported;
+    uint8_t persist_requested;
+    char message[FIELDMESH_SECRET_TEXT_MAX];
+} fieldmesh_profile_validation_report_t;
 
 typedef struct fieldmesh_ap_info {
     char ap_id[FIELDMESH_ID_TEXT_MAX];
@@ -241,6 +267,23 @@ typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_
 fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
                                             fieldmesh_context_t **out_context);
 void fieldmesh_context_destroy(fieldmesh_context_t *context);
+
+fieldmesh_status_t fieldmesh_get_network_profile(
+    fieldmesh_context_t *context,
+    fieldmesh_network_profile_t *out_profile);
+fieldmesh_status_t fieldmesh_set_network_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_network_profile_t *profile);
+fieldmesh_status_t fieldmesh_validate_network_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_network_profile_t *profile,
+    fieldmesh_profile_validation_report_t *out_report);
+fieldmesh_status_t fieldmesh_apply_network_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_network_profile_t *profile,
+    uint32_t flags,
+    fieldmesh_profile_validation_report_t *out_report);
+fieldmesh_status_t fieldmesh_rollback_network_profile(fieldmesh_context_t *context);
 
 fieldmesh_status_t fieldmesh_browse_aps(fieldmesh_context_t *context,
                                         uint32_t timeout_ms,

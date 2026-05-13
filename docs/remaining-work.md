@@ -134,11 +134,15 @@ Next concrete work:
   prioritized stream send/receive services. The pure-C
   `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
   two-PC path.
-- Add the persistent network-profile CLI/SDK described in
-  `docs/fieldmesh-network-configuration.md`, starting with USB Ethernet subnet
-  configuration and rollback. This is now a prerequisite for clean one-host
-  two-board experiments because both Pluto-style devices default to
-  `192.168.2.1`.
+- Expand the new network-profile SDK/CLI described in
+  `docs/fieldmesh-network-configuration.md` from validation/planning into a
+  persistent board writer. The current `fieldmeshctl profile
+  show|validate|apply|rollback` path is packaged and verifies split USB subnet
+  profiles such as Z103 on `192.168.3.1/24`, but it deliberately stops before
+  editing init scripts, U-Boot environment, host routes, credentials, or radio
+  profiles. The next live-safe step is target identification plus transactional
+  OS apply/rollback so one host can keep Z203 and Z103 separated instead of
+  colliding at the Pluto default `192.168.2.1`.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

@@ -29,6 +29,7 @@ verify_variant() {
     local rootfs_tar
     local rootfs_cpio
     local strings_out
+    local ctl_strings_out
     local daemon_strings_out
     local two_pc_strings_out
 
@@ -69,10 +70,12 @@ verify_variant() {
     require_file "$jtag_dir/boot/devicetree.dtb"
 
     strings_out="$(mktemp)"
+    ctl_strings_out="$(mktemp)"
     daemon_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$daemon_strings_out" "$two_pc_strings_out"' RETURN
+    trap 'rm -f "$strings_out" "$ctl_strings_out" "$daemon_strings_out" "$two_pc_strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
 
@@ -85,6 +88,18 @@ verify_variant() {
     for token in udp-command user_command; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe command path in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        fieldmeshctl_profile_show \
+        fieldmeshctl_profile_validate \
+        fieldmeshctl_profile_apply \
+        fieldmeshctl_profile_rollback \
+        usb_device_ip \
+        persist_requested; do
+        if ! grep -qF "$token" "$ctl_strings_out"; then
+            echo "Missing fieldmeshctl token in $name rootfs: $token" >&2
             exit 1
         fi
     done

@@ -11,6 +11,9 @@
 
 struct fieldmesh_context {
     fieldmesh_config_t config;
+    fieldmesh_network_profile_t profile;
+    fieldmesh_network_profile_t previous_profile;
+    uint8_t has_previous_profile;
     fieldmesh_ap_info_t aps[FIELDMESH_MAX_APS];
     size_t ap_count;
     fieldmesh_ap_candidate_t candidates[FIELDMESH_MAX_CANDIDATES];
@@ -106,6 +109,83 @@ static void init_default_aps(fieldmesh_context_t *context)
     ap->link_quality_hint_db = 18;
     ap->requires_audit = 1;
     ap->supports_derived_cert = 0;
+}
+
+static void init_default_profile(fieldmesh_context_t *context)
+{
+    memset(&context->profile, 0, sizeof(context->profile));
+    sdk_copy_text(context->profile.node_id, sizeof(context->profile.node_id), "z203-hub");
+    sdk_copy_text(context->profile.network_id, sizeof(context->profile.network_id),
+                  "fieldmesh-lab");
+    sdk_copy_text(context->profile.friendly_name, sizeof(context->profile.friendly_name),
+                  "FieldMesh node");
+    sdk_copy_text(context->profile.usb_device_ip, sizeof(context->profile.usb_device_ip),
+                  "192.168.2.1");
+    sdk_copy_text(context->profile.usb_host_ip, sizeof(context->profile.usb_host_ip),
+                  "192.168.2.10");
+    context->profile.usb_prefix_len = 24u;
+    context->profile.ap_policy = FIELDMESH_AP_POLICY_HYBRID;
+    sdk_copy_text(context->profile.preferred_ap_id, sizeof(context->profile.preferred_ap_id),
+                  "z203-hub");
+    context->profile.allow_emergency_1r1t_ap = 1u;
+    context->profile.radio_freq_mhz = 2400u;
+    context->profile.radio_bandwidth_hz = 1000000u;
+}
+
+static int parse_ipv4_octets(const char *text, uint8_t octets[4])
+{
+    unsigned int values[4];
+    char tail;
+    int count;
+
+    if (!text || text[0] == '\0') {
+        return 0;
+    }
+    count = sscanf(text, "%u.%u.%u.%u%c",
+                   &values[0], &values[1], &values[2], &values[3], &tail);
+    if (count != 4) {
+        return 0;
+    }
+    if (values[0] > 255u || values[1] > 255u ||
+        values[2] > 255u || values[3] > 255u) {
+        return 0;
+    }
+    octets[0] = (uint8_t)values[0];
+    octets[1] = (uint8_t)values[1];
+    octets[2] = (uint8_t)values[2];
+    octets[3] = (uint8_t)values[3];
+    return 1;
+}
+
+static int same_ipv4(const char *left, const char *right)
+{
+    uint8_t a[4];
+    uint8_t b[4];
+
+    return parse_ipv4_octets(left, a) && parse_ipv4_octets(right, b) &&
+           memcmp(a, b, sizeof(a)) == 0;
+}
+
+static int valid_ap_policy(fieldmesh_ap_policy_t policy)
+{
+    return policy == FIELDMESH_AP_POLICY_PREDEFINED ||
+           policy == FIELDMESH_AP_POLICY_AUTONOMOUS_SWARM ||
+           policy == FIELDMESH_AP_POLICY_HYBRID;
+}
+
+static fieldmesh_status_t fill_profile_report(
+    fieldmesh_profile_validation_report_t *report,
+    uint8_t valid,
+    const char *message)
+{
+    if (report) {
+        memset(report, 0, sizeof(*report));
+        report->valid = valid;
+        report->requires_reboot = valid ? 1u : 0u;
+        report->rollback_supported = valid ? 1u : 0u;
+        sdk_copy_text(report->message, sizeof(report->message), message);
+    }
+    return valid ? FIELDMESH_OK : FIELDMESH_ERR_POLICY;
 }
 
 static fieldmesh_ap_candidate_t default_candidate(const char *node_id,
@@ -311,6 +391,7 @@ fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
     }
     context->next_sequence = 1u;
     context->election_epoch = 1u;
+    init_default_profile(context);
     init_default_aps(context);
     *out_context = context;
     return FIELDMESH_OK;
@@ -319,6 +400,132 @@ fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
 void fieldmesh_context_destroy(fieldmesh_context_t *context)
 {
     free(context);
+}
+
+fieldmesh_status_t fieldmesh_get_network_profile(
+    fieldmesh_context_t *context,
+    fieldmesh_network_profile_t *out_profile)
+{
+    if (!context || !out_profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    *out_profile = context->profile;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_validate_network_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_network_profile_t *profile,
+    fieldmesh_profile_validation_report_t *out_report)
+{
+    uint8_t ignored_octets[4];
+
+    (void)context;
+    if (!profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (profile->node_id[0] == '\0') {
+        return fill_profile_report(out_report, 0u, "node_id is required");
+    }
+    if (profile->network_id[0] == '\0') {
+        return fill_profile_report(out_report, 0u, "network_id is required");
+    }
+    if (!parse_ipv4_octets(profile->usb_device_ip, ignored_octets)) {
+        return fill_profile_report(out_report, 0u, "usb_device_ip must be IPv4");
+    }
+    if (!parse_ipv4_octets(profile->usb_host_ip, ignored_octets)) {
+        return fill_profile_report(out_report, 0u, "usb_host_ip must be IPv4");
+    }
+    if (same_ipv4(profile->usb_device_ip, profile->usb_host_ip)) {
+        return fill_profile_report(out_report, 0u,
+                                   "usb_device_ip and usb_host_ip must differ");
+    }
+    if (profile->usb_prefix_len == 0u || profile->usb_prefix_len > 30u) {
+        return fill_profile_report(out_report, 0u,
+                                   "usb_prefix_len must be in 1..30");
+    }
+    if (profile->phy_device_ip[0] != '\0' &&
+        !parse_ipv4_octets(profile->phy_device_ip, ignored_octets)) {
+        return fill_profile_report(out_report, 0u, "phy_device_ip must be IPv4");
+    }
+    if (profile->phy_host_ip[0] != '\0' &&
+        !parse_ipv4_octets(profile->phy_host_ip, ignored_octets)) {
+        return fill_profile_report(out_report, 0u, "phy_host_ip must be IPv4");
+    }
+    if (profile->phy_device_ip[0] != '\0' && profile->phy_host_ip[0] != '\0' &&
+        same_ipv4(profile->phy_device_ip, profile->phy_host_ip)) {
+        return fill_profile_report(out_report, 0u,
+                                   "phy_device_ip and phy_host_ip must differ");
+    }
+    if (profile->phy_prefix_len > 30u) {
+        return fill_profile_report(out_report, 0u,
+                                   "phy_prefix_len must be 0 or in 1..30");
+    }
+    if (!valid_ap_policy(profile->ap_policy)) {
+        return fill_profile_report(out_report, 0u, "ap_policy is invalid");
+    }
+    if (profile->radio_freq_mhz == 0u || profile->radio_bandwidth_hz == 0u) {
+        return fill_profile_report(out_report, 0u,
+                                   "radio frequency and bandwidth are required");
+    }
+    return fill_profile_report(out_report, 1u, "profile valid; reboot required to persist");
+}
+
+fieldmesh_status_t fieldmesh_set_network_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_network_profile_t *profile)
+{
+    fieldmesh_status_t status;
+
+    if (!context || !profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = fieldmesh_validate_network_profile(context, profile, NULL);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    context->profile = *profile;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_apply_network_profile(
+    fieldmesh_context_t *context,
+    const fieldmesh_network_profile_t *profile,
+    uint32_t flags,
+    fieldmesh_profile_validation_report_t *out_report)
+{
+    fieldmesh_status_t status;
+
+    if (!context || !profile) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = fieldmesh_validate_network_profile(context, profile, out_report);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    context->previous_profile = context->profile;
+    context->has_previous_profile = 1u;
+    context->profile = *profile;
+    if (out_report) {
+        out_report->persist_requested =
+            (flags & FIELDMESH_PROFILE_APPLY_PERSIST) ? 1u : 0u;
+        sdk_copy_text(out_report->message, sizeof(out_report->message),
+                      "profile accepted; apply to board network scripts/env then reboot");
+    }
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_rollback_network_profile(fieldmesh_context_t *context)
+{
+    if (!context) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (!context->has_previous_profile) {
+        return FIELDMESH_ERR_NOT_FOUND;
+    }
+    context->profile = context->previous_profile;
+    context->has_previous_profile = 0u;
+    return FIELDMESH_OK;
 }
 
 fieldmesh_status_t fieldmesh_browse_aps(fieldmesh_context_t *context,

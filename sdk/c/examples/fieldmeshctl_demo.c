@@ -1,0 +1,197 @@
+#include "fieldmesh_sdk.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int require_ok(fieldmesh_status_t status, const char *operation)
+{
+    if (status == FIELDMESH_OK) {
+        return 0;
+    }
+    fprintf(stderr, "%s failed: %s\n", operation, fieldmesh_status_string(status));
+    return 1;
+}
+
+static void copy_arg(char *dst, size_t dst_len, const char *src)
+{
+    if (dst_len == 0u) {
+        return;
+    }
+    snprintf(dst, dst_len, "%s", src ? src : "");
+}
+
+static const char *policy_name(fieldmesh_ap_policy_t policy)
+{
+    switch (policy) {
+    case FIELDMESH_AP_POLICY_PREDEFINED:
+        return "predefined";
+    case FIELDMESH_AP_POLICY_AUTONOMOUS_SWARM:
+        return "autonomous-swarm";
+    case FIELDMESH_AP_POLICY_HYBRID:
+        return "hybrid";
+    default:
+        return "invalid";
+    }
+}
+
+static fieldmesh_ap_policy_t parse_policy(const char *text)
+{
+    if (!text || strcmp(text, "hybrid") == 0) {
+        return FIELDMESH_AP_POLICY_HYBRID;
+    }
+    if (strcmp(text, "predefined") == 0) {
+        return FIELDMESH_AP_POLICY_PREDEFINED;
+    }
+    if (strcmp(text, "autonomous-swarm") == 0) {
+        return FIELDMESH_AP_POLICY_AUTONOMOUS_SWARM;
+    }
+    return (fieldmesh_ap_policy_t)0;
+}
+
+static void print_profile(const char *event, const fieldmesh_network_profile_t *profile)
+{
+    printf("{\"event\":\"%s\",\"node_id\":\"%s\",\"network_id\":\"%s\","
+           "\"friendly_name\":\"%s\",\"usb_device_ip\":\"%s\",\"usb_host_ip\":\"%s\","
+           "\"usb_prefix_len\":%u,\"phy_device_ip\":\"%s\",\"phy_host_ip\":\"%s\","
+           "\"phy_prefix_len\":%u,\"ap_policy\":\"%s\",\"preferred_ap_id\":\"%s\","
+           "\"allow_emergency_1r1t_ap\":%u,\"radio_freq_mhz\":%u,"
+           "\"radio_bandwidth_hz\":%u}\n",
+           event, profile->node_id, profile->network_id, profile->friendly_name,
+           profile->usb_device_ip, profile->usb_host_ip, profile->usb_prefix_len,
+           profile->phy_device_ip, profile->phy_host_ip, profile->phy_prefix_len,
+           policy_name(profile->ap_policy), profile->preferred_ap_id,
+           profile->allow_emergency_1r1t_ap, profile->radio_freq_mhz,
+           profile->radio_bandwidth_hz);
+}
+
+static void print_report(const char *event,
+                         fieldmesh_status_t status,
+                         const fieldmesh_network_profile_t *profile,
+                         const fieldmesh_profile_validation_report_t *report)
+{
+    printf("{\"event\":\"%s\",\"status\":\"%s\",\"valid\":%u,"
+           "\"requires_reboot\":%u,\"rollback_supported\":%u,"
+           "\"persist_requested\":%u,\"node_id\":\"%s\",\"network_id\":\"%s\","
+           "\"usb_device_ip\":\"%s\",\"usb_host_ip\":\"%s\",\"message\":\"%s\"}\n",
+           event, fieldmesh_status_string(status), report ? report->valid : 0u,
+           report ? report->requires_reboot : 0u,
+           report ? report->rollback_supported : 0u,
+           report ? report->persist_requested : 0u,
+           profile ? profile->node_id : "", profile ? profile->network_id : "",
+           profile ? profile->usb_device_ip : "", profile ? profile->usb_host_ip : "",
+           report ? report->message : "");
+}
+
+static int usage(const char *argv0)
+{
+    fprintf(stderr,
+            "usage: %s profile show|validate|apply|rollback "
+            "[--node-id ID] [--network-id ID] [--friendly-name NAME] "
+            "[--usb-device-ip IP] [--usb-host-ip IP] [--prefix N] "
+            "[--phy-device-ip IP] [--phy-host-ip IP] [--phy-prefix N] "
+            "[--ap-policy predefined|autonomous-swarm|hybrid] "
+            "[--preferred-ap-id ID] [--persist]\n",
+            argv0);
+    return 2;
+}
+
+static int parse_profile_args(int argc,
+                              char **argv,
+                              int start,
+                              fieldmesh_network_profile_t *profile,
+                              uint32_t *flags)
+{
+    int i;
+
+    for (i = start; i < argc; ++i) {
+        if (strcmp(argv[i], "--persist") == 0) {
+            *flags |= FIELDMESH_PROFILE_APPLY_PERSIST;
+        } else if (i + 1 >= argc) {
+            return -1;
+        } else if (strcmp(argv[i], "--node-id") == 0) {
+            copy_arg(profile->node_id, sizeof(profile->node_id), argv[++i]);
+        } else if (strcmp(argv[i], "--network-id") == 0) {
+            copy_arg(profile->network_id, sizeof(profile->network_id), argv[++i]);
+        } else if (strcmp(argv[i], "--friendly-name") == 0) {
+            copy_arg(profile->friendly_name, sizeof(profile->friendly_name), argv[++i]);
+        } else if (strcmp(argv[i], "--usb-device-ip") == 0) {
+            copy_arg(profile->usb_device_ip, sizeof(profile->usb_device_ip), argv[++i]);
+        } else if (strcmp(argv[i], "--usb-host-ip") == 0) {
+            copy_arg(profile->usb_host_ip, sizeof(profile->usb_host_ip), argv[++i]);
+        } else if (strcmp(argv[i], "--prefix") == 0) {
+            profile->usb_prefix_len = (uint8_t)strtoul(argv[++i], 0, 10);
+        } else if (strcmp(argv[i], "--phy-device-ip") == 0) {
+            copy_arg(profile->phy_device_ip, sizeof(profile->phy_device_ip), argv[++i]);
+        } else if (strcmp(argv[i], "--phy-host-ip") == 0) {
+            copy_arg(profile->phy_host_ip, sizeof(profile->phy_host_ip), argv[++i]);
+        } else if (strcmp(argv[i], "--phy-prefix") == 0) {
+            profile->phy_prefix_len = (uint8_t)strtoul(argv[++i], 0, 10);
+        } else if (strcmp(argv[i], "--ap-policy") == 0) {
+            profile->ap_policy = parse_policy(argv[++i]);
+        } else if (strcmp(argv[i], "--preferred-ap-id") == 0) {
+            copy_arg(profile->preferred_ap_id, sizeof(profile->preferred_ap_id), argv[++i]);
+        } else {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    fieldmesh_context_t *ctx = 0;
+    fieldmesh_config_t config;
+    fieldmesh_network_profile_t profile;
+    fieldmesh_profile_validation_report_t report;
+    fieldmesh_status_t status;
+    uint32_t flags = 0;
+    int rc = 0;
+    const char *group = argc > 1 ? argv[1] : "profile";
+    const char *command = argc > 2 ? argv[2] : "show";
+    int option_start = argc > 2 ? 3 : argc;
+
+    if (strcmp(group, "profile") != 0) {
+        return usage(argv[0]);
+    }
+    memset(&config, 0, sizeof(config));
+    config.transport = FIELDMESH_TRANSPORT_USB_ETH;
+    config.control_port = 49000u;
+    config.timeout_ms = 1000u;
+    if (require_ok(fieldmesh_context_create(&config, &ctx), "context_create")) {
+        return 1;
+    }
+    if (require_ok(fieldmesh_get_network_profile(ctx, &profile), "get_profile")) {
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
+    if (parse_profile_args(argc, argv, option_start, &profile, &flags) != 0) {
+        fieldmesh_context_destroy(ctx);
+        return usage(argv[0]);
+    }
+
+    if (strcmp(command, "show") == 0) {
+        print_profile("fieldmeshctl_profile_show", &profile);
+    } else if (strcmp(command, "validate") == 0) {
+        status = fieldmesh_validate_network_profile(ctx, &profile, &report);
+        print_report("fieldmeshctl_profile_validate", status, &profile, &report);
+        rc = status == FIELDMESH_OK ? 0 : 1;
+    } else if (strcmp(command, "apply") == 0) {
+        status = fieldmesh_apply_network_profile(ctx, &profile, flags, &report);
+        print_report("fieldmeshctl_profile_apply", status, &profile, &report);
+        rc = status == FIELDMESH_OK ? 0 : 1;
+    } else if (strcmp(command, "rollback") == 0) {
+        (void)fieldmesh_apply_network_profile(ctx, &profile, 0u, &report);
+        status = fieldmesh_rollback_network_profile(ctx);
+        (void)fieldmesh_get_network_profile(ctx, &profile);
+        printf("{\"event\":\"fieldmeshctl_profile_rollback\",\"status\":\"%s\","
+               "\"node_id\":\"%s\",\"usb_device_ip\":\"%s\"}\n",
+               fieldmesh_status_string(status), profile.node_id, profile.usb_device_ip);
+        rc = status == FIELDMESH_OK ? 0 : 1;
+    } else {
+        rc = usage(argv[0]);
+    }
+
+    fieldmesh_context_destroy(ctx);
+    return rc;
+}

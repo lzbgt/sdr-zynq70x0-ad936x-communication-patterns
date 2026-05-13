@@ -9,6 +9,9 @@ The intended production boundary is socket-based:
 - Physical Ethernet boards expose the same SDK transport.
 - Applications browse APs, join with credential/cert/audit policy, discover
   peers, query routes, and send prioritized payload streams.
+- Applications and provisioning tools can inspect, validate, apply, and roll
+  back a common FieldMesh network profile for USB Ethernet, physical Ethernet,
+  AP policy, and radio metadata.
 - AP/proactive behavior is commanded by the application, provisioning policy,
   or autonomous election. Boards do not boot into a hidden fixed role.
 
@@ -33,6 +36,10 @@ in `src/fieldmesh_sdk.c`:
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
   UDP.
+- `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
+  `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
+  same SDK network-profile ABI intended for board provisioning, recovery, and
+  host application control.
 - `examples/fieldmesh_udp_discovery_demo.c` is a two-PC AP-beacon/browse
   transport demo over UDP sockets. It uses the SDK AP model and works over USB
   Ethernet, physical Ethernet, or normal IP routing.
@@ -43,4 +50,6 @@ developer images now also install `/usr/bin/fieldmesh-state-daemon-demo`. That
 daemon is the first board-packaged service shape for mapping AP, peer, route,
 and RTLS C ABI calls to board services over USB Ethernet, physical Ethernet, or
 explicit IP. The images also install `/usr/bin/fieldmesh-two-pc-flow-demo` for
-the first board-attached AP browse/election/audit-join/scheduled-stream smoke.
+the first board-attached AP browse/election/audit-join/scheduled-stream smoke,
+and `/usr/bin/fieldmeshctl` for split-subnet profile validation before
+persistent network writes are enabled.

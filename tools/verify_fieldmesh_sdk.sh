@@ -51,6 +51,32 @@ sleep 0.2
 "$two_pc_demo" endpoint-flow 127.0.0.1 49125 2000 >"$two_pc_endpoint_log"
 wait "$two_pc_pid"
 
+fieldmeshctl="$out_dir/fieldmeshctl_demo"
+"$fieldmeshctl" profile show >"$out_dir/fieldmeshctl_profile_show.ndjson"
+"$fieldmeshctl" profile validate \
+    --node-id z103-endpoint \
+    --network-id fieldmesh-lab \
+    --friendly-name "Z103 endpoint" \
+    --usb-device-ip 192.168.3.1 \
+    --usb-host-ip 192.168.3.10 \
+    --prefix 24 \
+    --ap-policy hybrid \
+    --preferred-ap-id z203-hub \
+    >"$out_dir/fieldmeshctl_profile_validate.ndjson"
+"$fieldmeshctl" profile apply \
+    --node-id z103-endpoint \
+    --network-id fieldmesh-lab \
+    --friendly-name "Z103 endpoint" \
+    --usb-device-ip 192.168.3.1 \
+    --usb-host-ip 192.168.3.10 \
+    --prefix 24 \
+    --ap-policy hybrid \
+    --preferred-ap-id z203-hub \
+    --persist \
+    >"$out_dir/fieldmeshctl_profile_apply.ndjson"
+"$fieldmeshctl" profile rollback \
+    >"$out_dir/fieldmeshctl_profile_rollback.ndjson"
+
 python3 - "$out_dir/fieldmesh_reference_demo.ndjson" <<'PY'
 import json
 import sys
@@ -156,8 +182,38 @@ if "sdk_two_pc_endpoint_flow_complete" not in events:
     raise SystemExit("two-PC endpoint flow did not complete")
 PY
 
+python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
+    "$out_dir/fieldmeshctl_profile_validate.ndjson" \
+    "$out_dir/fieldmeshctl_profile_apply.ndjson" \
+    "$out_dir/fieldmeshctl_profile_rollback.ndjson" <<'PY'
+import json
+import sys
+
+show = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+validate = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if line.strip()]
+apply = [json.loads(line) for line in open(sys.argv[3], encoding="utf-8") if line.strip()]
+rollback = [json.loads(line) for line in open(sys.argv[4], encoding="utf-8") if line.strip()]
+if not show or show[0].get("event") != "fieldmeshctl_profile_show":
+    raise SystemExit("fieldmeshctl profile show failed")
+if show[0].get("usb_device_ip") != "192.168.2.1":
+    raise SystemExit("fieldmeshctl default USB device IP changed unexpectedly")
+if not validate or validate[0].get("event") != "fieldmeshctl_profile_validate":
+    raise SystemExit("fieldmeshctl profile validate failed")
+if validate[0].get("valid") != 1 or validate[0].get("usb_device_ip") != "192.168.3.1":
+    raise SystemExit("fieldmeshctl profile validation rejected split subnet")
+if not apply or apply[0].get("event") != "fieldmeshctl_profile_apply":
+    raise SystemExit("fieldmeshctl profile apply failed")
+if apply[0].get("persist_requested") != 1 or apply[0].get("requires_reboot") != 1:
+    raise SystemExit("fieldmeshctl profile apply did not mark persist/reboot")
+if not rollback or rollback[0].get("event") != "fieldmeshctl_profile_rollback":
+    raise SystemExit("fieldmeshctl profile rollback failed")
+if rollback[0].get("status") != "ok":
+    raise SystemExit("fieldmeshctl profile rollback did not return ok")
+PY
+
 echo "fieldmesh_sdk_reference_check=pass"
 echo "fieldmesh_sdk_udp_discovery_check=pass"
 echo "fieldmesh_sdk_rtls_check=pass"
 echo "fieldmesh_sdk_state_daemon_check=pass"
 echo "fieldmesh_sdk_two_pc_flow_check=pass"
+echo "fieldmesh_sdk_profile_check=pass"
