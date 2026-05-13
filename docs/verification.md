@@ -2525,6 +2525,28 @@ The board-side listener started with `default_policy=passive_learner` and
 Capture:
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_adaptive_control_20260513-220604/`
 
+## Z203 SDK State-Daemon Socket Smoke
+
+The packaged SDK state daemon was then exercised on the reachable Z203 over the
+normal USB Ethernet/IP path. The board was still running the previous SD/QSPI
+rootfs, so this smoke uploaded the matched ARM daemon binary from the refreshed
+rootfs tarball to `/tmp` instead of claiming a flashed-image install. The host
+queried the board daemon for peer state and RTLS state:
+
+```sh
+VARIANT=z203 ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.2.1
+```
+
+The board process handled both requests, and the host received:
+
+```json
+{"event":"sdk_daemon_peer_state","network_id":"fieldmesh-lab","peers":2,"relay_capable":1,"total_kbps":9200}
+{"event":"sdk_daemon_rtls_state","network_id":"fieldmesh-lab","positions":2,"gps_pps_fused":1,"packet_timing_tdoa":1,"ap_usable":2}
+```
+
+Committed capture:
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sdk_daemon_20260513-232131/`
+
 The SDK header contract was added and compile-checked with:
 
 ```sh

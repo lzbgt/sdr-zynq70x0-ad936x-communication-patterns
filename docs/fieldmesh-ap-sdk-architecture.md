@@ -330,6 +330,10 @@ Stage 2: Board-local service
   `/usr/bin/fieldmesh-state-daemon-demo`, so the same SDK socket contract can
   be exercised on two PCs attached to boards over USB Ethernet or physical
   Ethernet.
+- Use `tools/run_fieldmesh_board_sdk_daemon.sh` as the live smoke: it validates
+  the peer/RTLS UDP state queries against an installed board daemon, or against
+  a transient `/tmp` daemon uploaded from the matching rootfs before the SD/QSPI
+  image is restaged.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

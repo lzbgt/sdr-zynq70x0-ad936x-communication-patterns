@@ -1,0 +1,1 @@
+Linux sdr-z203-zynq7 6.1.0 #1 SMP PREEMPT Sun May 10 17:32:38 UTC 2026 armv7l GNU/Linux

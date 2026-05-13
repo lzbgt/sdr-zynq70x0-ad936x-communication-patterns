@@ -439,6 +439,11 @@ user and vendor configuration.
   smoke runner that reruns the board sidecar preflight, copies a committed
   FieldMesh frame vector to the board, records `dma-plan`, and only then starts
   a live RX-before-TX DMA transfer with an explicit `--allow-live-writes` gate.
+- `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
+  runner. It uses an installed board daemon when present, or can transiently
+  upload the matching rootfs daemon to `/tmp`, then verifies peer and RTLS
+  state queries over the same UDP socket path intended for USB Ethernet and
+  physical Ethernet.
 - `sdk/c/include/fieldmesh_sdk.h` - first pure C SDK ABI contract for AP
   browse, credential/cert/audit join, peer discovery, route query, mode request,
   RTLS position estimates, and prioritized payload streams over USB Ethernet,
