@@ -32,6 +32,7 @@ verify_variant() {
     local ctl_strings_out
     local daemon_strings_out
     local swarm_adapter_strings_out
+    local tun_gateway_strings_out
     local two_pc_strings_out
 
     case "$name" in
@@ -75,13 +76,15 @@ verify_variant() {
     ctl_strings_out="$(mktemp)"
     daemon_strings_out="$(mktemp)"
     swarm_adapter_strings_out="$(mktemp)"
+    tun_gateway_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$two_pc_strings_out"' RETURN
+    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$two_pc_strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-swarm-adapter-demo | strings > "$swarm_adapter_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-gateway-demo | strings > "$tun_gateway_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
 
     for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke iio-scan iio-plan pl-replay; do
@@ -139,6 +142,7 @@ verify_variant() {
         FIELDMESH_STATE_PEERS \
         FIELDMESH_STATE_RTLS \
         FIELDMESH_SWARM_ADAPTER \
+        FIELDMESH_TUN_PLAN \
         FIELDMESH_DEVICE_IIO_PLAN \
         sdk_daemon_ap_browse \
         sdk_daemon_ap_election \
@@ -146,6 +150,7 @@ verify_variant() {
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
         sdk_daemon_swarm_adapter \
+        sdk_daemon_tun_plan \
         sdk_daemon_iio_bridge_plan \
         020000000203 \
         020000000103; do
@@ -164,6 +169,18 @@ verify_variant() {
         tun_mvp_target; do
         if ! grep -qF "$token" "$swarm_adapter_strings_out"; then
             echo "Missing fieldmesh-swarm-adapter-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        sdk_tun_gateway_plan \
+        sdk_tun_gateway_command \
+        swarm0 \
+        creates_tun_on_board \
+        uses_inter_board_ip_routing \
+        020000000103; do
+        if ! grep -qF "$token" "$tun_gateway_strings_out"; then
+            echo "Missing fieldmesh-tun-gateway-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done

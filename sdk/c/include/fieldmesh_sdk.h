@@ -349,6 +349,37 @@ typedef struct fieldmesh_adapter_packet {
     uint32_t queue_age_ms;
 } fieldmesh_adapter_packet_t;
 
+typedef struct fieldmesh_tun_config {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char local_mesh_ip[FIELDMESH_ADDR_TEXT_MAX];
+    char remote_mesh_cidr[FIELDMESH_ADDR_TEXT_MAX];
+    char host_facing_device_ip[FIELDMESH_ADDR_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    uint8_t mesh_prefix_len;
+    uint32_t mtu_bytes;
+} fieldmesh_tun_config_t;
+
+typedef struct fieldmesh_tun_plan {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char local_mesh_ip[FIELDMESH_ADDR_TEXT_MAX];
+    char remote_mesh_cidr[FIELDMESH_ADDR_TEXT_MAX];
+    char host_facing_device_ip[FIELDMESH_ADDR_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    char host_route_hint[FIELDMESH_ADDR_TEXT_MAX];
+    uint8_t mesh_prefix_len;
+    uint32_t mtu_bytes;
+    fieldmesh_adapter_kind_t adapter_kind;
+    fieldmesh_route_kind_t route_kind;
+    fieldmesh_mode_t selected_mode;
+    uint8_t creates_tun_on_board;
+    uint8_t creates_tun_on_host;
+    uint8_t uses_tap;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t requires_cap_net_admin;
+    uint8_t command_count;
+} fieldmesh_tun_plan_t;
+
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
 typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
@@ -472,6 +503,9 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
                                                  size_t *out_payload_len,
                                                  fieldmesh_adapter_packet_t *out_packet,
                                                  uint32_t timeout_ms);
+fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
+                                              const fieldmesh_tun_config_t *config,
+                                              fieldmesh_tun_plan_t *out_plan);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

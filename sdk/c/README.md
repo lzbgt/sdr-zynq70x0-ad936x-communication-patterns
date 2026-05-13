@@ -40,9 +40,9 @@ in `src/fieldmesh_sdk.c`:
   low-attenuation rejection, and explicit live-RF approval flags.
 - `examples/fieldmesh_state_daemon_demo.c` is the first socket daemon boundary:
   one process serves AP browse, AP election, AP join state, peer state, RTLS
-  state, the `swarm0` packet adapter, and local IIO admin planning over UDP,
-  and another process queries it over the same IP path intended for USB
-  Ethernet and physical Ethernet.
+  state, the `swarm0` packet adapter, routed TUN gateway planning, and local
+  IIO admin planning over UDP, and another process queries it over the same IP
+  path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
@@ -54,6 +54,10 @@ in `src/fieldmesh_sdk.c`:
   `swarm0` is intended to run on the Zynq board as a TUN/L3 routed gateway
   endpoint; host applications should see ordinary IP over USB Ethernet,
   physical Ethernet, or another local host-facing link.
+- `examples/fieldmesh_tun_gateway_demo.c` is the first executable TUN gateway
+  plan. It reports the board-local `swarm0` address, remote mesh CIDR,
+  destination device EUI, selected RF route, MTU, safety flags, and planned
+  `ip tuntap`/address/link/route commands without creating a live interface.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and
@@ -75,7 +79,8 @@ service shape for mapping AP, peer, route, RTLS, and local IIO/device C ABI
 calls to board services over USB Ethernet, physical Ethernet, or explicit IP.
 The images also install `/usr/bin/fieldmesh-device-iio-demo` for the local
 device/IIO layer, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
-`swarm0` packet/stream adapter mapping, `/usr/bin/fieldmesh-two-pc-flow-demo`
+`swarm0` packet/stream adapter mapping, `/usr/bin/fieldmesh-tun-gateway-demo`
+for the first routed TUN gateway plan, `/usr/bin/fieldmesh-two-pc-flow-demo`
 for the first board-attached AP browse/election/audit-join/scheduled-stream
 smoke, and `/usr/bin/fieldmeshctl` for split-subnet profile validation before
 persistent network writes are enabled.

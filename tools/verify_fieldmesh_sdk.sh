@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 7 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 8 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -175,8 +175,9 @@ ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_electi
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_adapter"]
+tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 7 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 8 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -199,6 +200,19 @@ if swarm_adapter[0].get("traffic_class") != 2 or swarm_adapter[0].get("deadline_
 for key in ("uses_iio", "uses_inter_board_ip_routing"):
     if swarm_adapter[0].get(key) != 0:
         raise SystemExit(f"SDK daemon swarm adapter key {key} must be 0")
+if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon TUN plan query failed")
+if tun_plan[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("SDK daemon TUN plan used wrong destination EUI")
+if tun_plan[0].get("route_kind") != 1 or tun_plan[0].get("selected_mode") != 4:
+    raise SystemExit("SDK daemon TUN plan did not preserve direct scheduled route")
+if tun_plan[0].get("creates_tun_on_board") != 1 or tun_plan[0].get("creates_tun_on_host") != 0:
+    raise SystemExit("SDK daemon TUN plan must create TUN only on board side")
+if tun_plan[0].get("requires_cap_net_admin") != 1 or tun_plan[0].get("command_count") != 4:
+    raise SystemExit("SDK daemon TUN plan command metadata failed")
+for key in ("uses_tap", "uses_iio", "uses_inter_board_ip_routing"):
+    if tun_plan[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon TUN plan key {key} must be 0")
 if not iio_bridge or iio_bridge[0].get("sdk_layer") != "local_iio_device":
     raise SystemExit("SDK daemon IIO bridge plan query failed")
 if iio_bridge[0].get("served_over") != "host_eth_ip":
@@ -277,6 +291,39 @@ if summary[0].get("tun_mvp_target") != 1:
     raise SystemExit("swarm adapter did not mark TUN MVP target")
 PY
 
+python3 - "$out_dir/fieldmesh_tun_gateway_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+plans = [event for event in events if event.get("event") == "sdk_tun_gateway_plan"]
+commands = [event for event in events if event.get("event") == "sdk_tun_gateway_command"]
+if not plans:
+    raise SystemExit("TUN gateway demo did not emit a plan")
+plan = plans[0]
+if plan.get("adapter_name") != "swarm0":
+    raise SystemExit("TUN gateway did not plan swarm0")
+if plan.get("local_mesh_ip") != "10.77.1.1" or plan.get("remote_mesh_cidr") != "10.77.2.0/24":
+    raise SystemExit("TUN gateway planned wrong mesh addressing")
+if plan.get("dst_device_eui") != "020000000103":
+    raise SystemExit("TUN gateway did not use compact destination EUI")
+if plan.get("route_kind") != 1 or plan.get("selected_mode") != 4:
+    raise SystemExit("TUN gateway did not preserve direct scheduled route")
+if plan.get("mtu_bytes") != 1200:
+    raise SystemExit("TUN gateway MTU changed unexpectedly")
+if plan.get("creates_tun_on_board") != 1 or plan.get("creates_tun_on_host") != 0:
+    raise SystemExit("TUN gateway must create TUN only on board side")
+if plan.get("requires_cap_net_admin") != 1 or plan.get("command_count") != 4:
+    raise SystemExit("TUN gateway command metadata failed")
+for key in ("uses_tap", "uses_iio", "uses_inter_board_ip_routing"):
+    if plan.get(key) != 0:
+        raise SystemExit(f"TUN gateway key {key} must be 0")
+if len(commands) != 4:
+    raise SystemExit("TUN gateway did not emit the expected command plan")
+if not any("ip tuntap add dev swarm0 mode tun" in event.get("command", "") for event in commands):
+    raise SystemExit("TUN gateway missing tuntap command")
+PY
+
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \
     "$out_dir/fieldmeshctl_profile_apply.ndjson" \
@@ -317,4 +364,5 @@ echo "fieldmesh_sdk_device_iio_check=pass"
 echo "fieldmesh_sdk_state_daemon_check=pass"
 echo "fieldmesh_sdk_two_pc_flow_check=pass"
 echo "fieldmesh_sdk_swarm_adapter_check=pass"
+echo "fieldmesh_sdk_tun_gateway_check=pass"
 echo "fieldmesh_sdk_profile_check=pass"

@@ -345,6 +345,63 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned long)rx_len);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_TUN_PLAN")) {
+        fieldmesh_tun_config_t tun_config = {
+            0,
+        };
+        fieldmesh_tun_plan_t tun_plan = {
+            0,
+        };
+
+        snprintf(tun_config.adapter_name, sizeof(tun_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(tun_config.local_mesh_ip, sizeof(tun_config.local_mesh_ip),
+                 "%s", "10.77.1.1");
+        snprintf(tun_config.remote_mesh_cidr, sizeof(tun_config.remote_mesh_cidr),
+                 "%s", "10.77.2.0/24");
+        snprintf(tun_config.host_facing_device_ip,
+                 sizeof(tun_config.host_facing_device_ip), "%s", "192.168.2.1");
+        snprintf(tun_config.dst_node_id, sizeof(tun_config.dst_node_id),
+                 "%s", "020000000103");
+        tun_config.mesh_prefix_len = 16u;
+        tun_config.mtu_bytes = 1200u;
+
+        if (fieldmesh_plan_tun_adapter(session, &tun_config, &tun_plan) !=
+            FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_plan\","
+                 "\"adapter_name\":\"%s\","
+                 "\"local_mesh_ip\":\"%s\","
+                 "\"remote_mesh_cidr\":\"%s\","
+                 "\"host_facing_device_ip\":\"%s\","
+                 "\"host_route_hint\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"adapter_kind\":%u,"
+                 "\"route_kind\":%u,"
+                 "\"selected_mode\":%u,"
+                 "\"mtu_bytes\":%lu,"
+                 "\"creates_tun_on_board\":%u,"
+                 "\"creates_tun_on_host\":%u,"
+                 "\"uses_tap\":%u,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"requires_cap_net_admin\":%u,"
+                 "\"command_count\":%u}\n",
+                 tun_plan.adapter_name, tun_plan.local_mesh_ip,
+                 tun_plan.remote_mesh_cidr, tun_plan.host_facing_device_ip,
+                 tun_plan.host_route_hint, tun_plan.dst_node_id,
+                 (unsigned)tun_plan.adapter_kind,
+                 (unsigned)tun_plan.route_kind,
+                 (unsigned)tun_plan.selected_mode,
+                 (unsigned long)tun_plan.mtu_bytes,
+                 tun_plan.creates_tun_on_board, tun_plan.creates_tun_on_host,
+                 tun_plan.uses_tap, tun_plan.uses_iio,
+                 tun_plan.uses_inter_board_ip_routing,
+                 tun_plan.requires_cap_net_admin, tun_plan.command_count);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_DEVICE_IIO_PLAN")) {
         fieldmesh_device_profile_t tx_profile;
         fieldmesh_device_profile_t rx_profile;
@@ -426,7 +483,7 @@ static int serve_state(const char *bind_ip,
         struct sockaddr_in src_addr;
         socklen_t src_len = (socklen_t)sizeof(src_addr);
         char request[256];
-        char response[512];
+        char response[1024];
         int received = recvfrom(sockfd, request, (int)(sizeof(request) - 1), 0,
                                 (struct sockaddr *)&src_addr, &src_len);
 
@@ -461,7 +518,7 @@ static int query_once(fieldmesh_socket_t sockfd,
                       const struct sockaddr_in *dst,
                       const char *request)
 {
-    char response[512];
+    char response[1024];
     struct sockaddr_in src_addr;
     socklen_t src_len = (socklen_t)sizeof(src_addr);
     int received;
@@ -505,6 +562,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_DEVICE_IIO_PLAN v1") == 0) {
         printf("{\"event\":\"sdk_daemon_query_complete\",\"host\":\"%s\","
                "\"port\":%u}\n",

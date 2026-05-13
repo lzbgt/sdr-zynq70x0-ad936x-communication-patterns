@@ -116,11 +116,13 @@ Minimum daemon messages:
 | `RTLS_REPORT` | client/daemon -> daemon | Feed GNSS/PPS, packet-timing TDOA, RSSI/SNR, or timing calibration. |
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
+| `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `DEVICE_IIO_PLAN` | client -> daemon | Plan guarded local IIO/RF action without executing. |
 | `DEVICE_IIO_EXECUTE` | client -> daemon | Execute guarded local IIO action only under policy and explicit approval. |
 
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
-election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`, and
+election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
+`FIELDMESH_TUN_PLAN`, and
 `FIELDMESH_DEVICE_IIO_PLAN` shape.
 
 ## Capability Advertisements
@@ -249,6 +251,16 @@ The pure-C SDK now has an executable adapter contract for this mapping:
 daemon policy. The first demo maps control, telemetry, video base,
 enhancement, and bulk payloads to C0-C4 without using IIO or inter-board IP
 routing.
+
+The pure-C SDK also exposes the first TUN gateway planning contract through
+`fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh
+address, remote mesh CIDR, destination device EUI, selected direct/relay route,
+MTU, safety flags, and the command count needed to create `swarm0` on the
+Zynq side. The current implementation is deliberately plan-only: it marks
+`creates_tun_on_board=1`, `creates_tun_on_host=0`, `uses_tap=0`,
+`uses_iio=0`, and `uses_inter_board_ip_routing=0`. Actual `ip tuntap`,
+address, link, and route commands require a later live-safe daemon operation
+with rollback and explicit privilege checks.
 
 Camera demo target:
 

@@ -521,13 +521,15 @@ user and vendor configuration.
   local device/IIO planning, mode request, and stream send/receive. The SDK ABI
   stays pure C even when board daemons or apps are C++. It now also exposes the
   first `swarm0`/stream-adapter API for mapping product packets onto C0-C4
-  FieldMesh traffic classes.
+  FieldMesh traffic classes, plus a plan-only routed TUN gateway API for
+  creating board-local `swarm0` later under explicit daemon privilege checks.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
-  a UDP state-daemon AP/peer/RTLS/`swarm0`/IIO-admin query demo, a `swarm0` adapter
-  packet-classification demo, a two-PC AP browse/election/audit-join/
-  stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
+  a UDP state-daemon AP/peer/RTLS/`swarm0`/TUN/IIO-admin query demo, a
+  `swarm0` adapter packet-classification demo, a routed TUN gateway planning
+  demo, a two-PC AP browse/election/audit-join/stream-flow demo, a
+  `fieldmeshctl` profile CLI demo, plus a UDP
   AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
   experiments.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
@@ -536,7 +538,8 @@ user and vendor configuration.
   demos into both board images as `/usr/bin/fieldmeshctl`,
   `/usr/bin/fieldmesh-device-iio-demo`,
   `/usr/bin/fieldmesh-state-daemon-demo`,
-  `/usr/bin/fieldmesh-swarm-adapter-demo`, and
+  `/usr/bin/fieldmesh-swarm-adapter-demo`,
+  `/usr/bin/fieldmesh-tun-gateway-demo`, and
   `/usr/bin/fieldmesh-two-pc-flow-demo` for board-attached two-PC tests.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
@@ -840,9 +843,10 @@ Expected result in the current Pluto-compatible firmware state:
    packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
    telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into
    FieldMesh streams while keeping IIO out of the product data plane. The
-   daemon now also answers `FIELDMESH_SWARM_ADAPTER` over the host-facing SDK
-   socket, and the refreshed Z203/Z103 images, FieldMesh packages, and JTAG
-   RAM-boot staging include that adapter demo.
+   daemon now also answers `FIELDMESH_SWARM_ADAPTER` and
+   `FIELDMESH_TUN_PLAN` over the host-facing SDK socket, and the refreshed
+   Z203/Z103 images, FieldMesh packages, and JTAG RAM-boot staging include
+   the adapter and routed TUN gateway planning demos.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

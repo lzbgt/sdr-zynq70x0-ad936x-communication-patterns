@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-7}"
+requests="${REQUESTS:-8}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -134,10 +134,11 @@ ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
+tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 7:
+if not end or end[-1].get("handled") != 8:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
@@ -149,6 +150,17 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("relay_capable") < 1:
     raise SystemExit("board SDK daemon peer-state response failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("board SDK daemon RTLS-state response failed")
+if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
+    raise SystemExit("board SDK daemon TUN plan response failed")
+if tun_plan[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("board SDK daemon TUN plan used wrong destination EUI")
+if tun_plan[0].get("creates_tun_on_board") != 1 or tun_plan[0].get("creates_tun_on_host") != 0:
+    raise SystemExit("board SDK daemon TUN plan must create TUN only on board side")
+if tun_plan[0].get("requires_cap_net_admin") != 1:
+    raise SystemExit("board SDK daemon TUN plan must declare CAP_NET_ADMIN")
+for key in ("uses_tap", "uses_iio", "uses_inter_board_ip_routing"):
+    if tun_plan[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon TUN safety key {key} must be 0")
 if not iio_bridge or iio_bridge[0].get("sdk_layer") != "local_iio_device":
     raise SystemExit("board SDK daemon IIO bridge plan response failed")
 if iio_bridge[0].get("served_over") != "host_eth_ip":
@@ -167,6 +179,7 @@ print(json.dumps({
     "join_events": len(join_state),
     "peer_events": len(peer),
     "rtls_events": len(rtls),
+    "tun_plan_events": len(tun_plan),
     "iio_bridge_events": len(iio_bridge),
 }, sort_keys=True))
 PY

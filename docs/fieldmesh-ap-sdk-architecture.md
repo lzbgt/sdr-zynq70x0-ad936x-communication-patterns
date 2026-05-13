@@ -394,6 +394,11 @@ same product contract: normal packets enter the daemon, then the daemon maps
 them onto FieldMesh traffic classes, routes, relay policy, and TDMA/TDD slots.
 TAP or a kernel netdev can follow only if routed TUN is too limiting for a
 customer workflow or transparent Layer-2 bridging becomes a hard requirement.
+The first checked SDK step is plan-only: `fieldmesh_plan_tun_adapter()` and the
+daemon `FIELDMESH_TUN_PLAN` request describe the Zynq-local `swarm0` TUN
+endpoint, route, MTU, and privilege requirements without creating any live
+interface. Live creation belongs behind an audited daemon operation with
+rollback.
 
 ## C SDK Surface
 
@@ -540,6 +545,10 @@ Stage 2: Board-local service
   `FIELDMESH_SWARM_ADAPTER` request, so host SDK clients can inspect the
   product payload plane over the board daemon protocol before a real TUN
   interface exists.
+- Use `fieldmesh_tun_gateway_demo` and daemon `FIELDMESH_TUN_PLAN` as the
+  first routed-gateway contract: both keep `swarm0` on the Zynq board, report
+  the compact destination device EUI, preserve the selected FieldMesh RF route,
+  and return no-IIO/no-inter-board-IP safety flags before any live TUN create.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

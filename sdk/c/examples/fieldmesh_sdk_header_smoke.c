@@ -74,6 +74,20 @@ int main(void)
         .deadline_ms = 80,
         .bitrate_hint_kbps = 2500,
     };
+    fieldmesh_tun_config_t tun = {
+        .adapter_name = "swarm0",
+        .local_mesh_ip = "10.77.1.1",
+        .remote_mesh_cidr = "10.77.2.0/24",
+        .host_facing_device_ip = "192.168.2.1",
+        .dst_node_id = "020000000103",
+        .mesh_prefix_len = 16,
+        .mtu_bytes = 1200,
+    };
+    fieldmesh_tun_plan_t tun_plan = {
+        .adapter_name = "swarm0",
+        .creates_tun_on_board = 1,
+        .requires_cap_net_admin = 1,
+    };
     fieldmesh_device_profile_t device = {
         .center_frequency_hz = 2400000000ull,
         .sample_rate_hz = 1000000,
@@ -102,6 +116,8 @@ int main(void)
     (void)meta;
     (void)adapter;
     (void)adapter_packet;
+    (void)tun;
+    (void)tun_plan;
     (void)device;
     (void)device_report;
     (void)iio_plan;

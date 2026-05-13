@@ -1502,6 +1502,62 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
     return FIELDMESH_ERR_TIMEOUT;
 }
 
+fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
+                                              const fieldmesh_tun_config_t *config,
+                                              fieldmesh_tun_plan_t *out_plan)
+{
+    fieldmesh_route_info_t route;
+    const char *adapter_name;
+    const char *local_mesh_ip;
+    const char *remote_mesh_cidr;
+    const char *host_facing_device_ip;
+    uint32_t mtu_bytes;
+
+    if (!session || !session->joined || !config || !out_plan) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (config->dst_node_id[0] == '\0' || config->local_mesh_ip[0] == '\0' ||
+        config->remote_mesh_cidr[0] == '\0' || config->host_facing_device_ip[0] == '\0') {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    mtu_bytes = config->mtu_bytes ? config->mtu_bytes : FIELDMESH_ADAPTER_DEFAULT_MTU;
+    if (mtu_bytes > FIELDMESH_ADAPTER_DEFAULT_MTU || mtu_bytes > FIELDMESH_MAX_STREAM_PAYLOAD) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    if (fieldmesh_query_route(session, config->dst_node_id, 100u, &route) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+
+    adapter_name = config->adapter_name[0] ? config->adapter_name : "swarm0";
+    local_mesh_ip = config->local_mesh_ip;
+    remote_mesh_cidr = config->remote_mesh_cidr;
+    host_facing_device_ip = config->host_facing_device_ip;
+
+    memset(out_plan, 0, sizeof(*out_plan));
+    sdk_copy_text(out_plan->adapter_name, sizeof(out_plan->adapter_name), adapter_name);
+    sdk_copy_text(out_plan->local_mesh_ip, sizeof(out_plan->local_mesh_ip), local_mesh_ip);
+    sdk_copy_text(out_plan->remote_mesh_cidr, sizeof(out_plan->remote_mesh_cidr),
+                  remote_mesh_cidr);
+    sdk_copy_text(out_plan->host_facing_device_ip, sizeof(out_plan->host_facing_device_ip),
+                  host_facing_device_ip);
+    sdk_copy_text(out_plan->dst_node_id, sizeof(out_plan->dst_node_id), route.dst_node_id);
+    sdk_copy_text(out_plan->host_route_hint, sizeof(out_plan->host_route_hint),
+                  host_facing_device_ip);
+    out_plan->mesh_prefix_len = config->mesh_prefix_len ? config->mesh_prefix_len : 16u;
+    out_plan->mtu_bytes = mtu_bytes;
+    out_plan->adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV;
+    out_plan->route_kind = route.route_kind;
+    out_plan->selected_mode = route.selected_mode;
+    out_plan->creates_tun_on_board = 1u;
+    out_plan->creates_tun_on_host = 0u;
+    out_plan->uses_tap = 0u;
+    out_plan->uses_iio = 0u;
+    out_plan->uses_inter_board_ip_routing = 0u;
+    out_plan->requires_cap_net_admin = 1u;
+    out_plan->command_count = 4u;
+    return FIELDMESH_OK;
+}
+
 const char *fieldmesh_status_string(fieldmesh_status_t status)
 {
     switch (status) {

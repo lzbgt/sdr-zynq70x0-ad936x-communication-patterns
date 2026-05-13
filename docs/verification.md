@@ -2281,24 +2281,25 @@ path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. The
 FieldMesh SDK profile CLI, state-daemon, `swarm0` packet adapter, and two-PC
 flow demos are now also packaged as `/usr/bin/fieldmeshctl`,
 `/usr/bin/fieldmesh-state-daemon-demo`,
-`/usr/bin/fieldmesh-swarm-adapter-demo`, and
+`/usr/bin/fieldmesh-swarm-adapter-demo`,
+`/usr/bin/fieldmesh-tun-gateway-demo`, and
 `/usr/bin/fieldmesh-two-pc-flow-demo` in both developer images. Their rootfs
 strings include `fieldmeshctl_profile_*`, AP browse/election/join,
 `FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`,
-`FIELDMESH_SWARM_ADAPTER`, AP/peer/RTLS response tags,
-`sdk_daemon_swarm_adapter`, `sdk_swarm_adapter_*`, `swarm0`,
-`packet_stream`, and the two-PC
-join/stream-flow response tags. Refreshed rootfs hashes after wiring the
-daemon `FIELDMESH_SWARM_ADAPTER` query and consolidating the routed gateway
-design:
+`FIELDMESH_SWARM_ADAPTER`, `FIELDMESH_TUN_PLAN`, AP/peer/RTLS response tags,
+`sdk_daemon_swarm_adapter`, `sdk_daemon_tun_plan`, `sdk_swarm_adapter_*`,
+`sdk_tun_gateway_*`, `swarm0`, `packet_stream`, and the two-PC
+join/stream-flow response tags. Refreshed rootfs and package hashes after
+wiring the daemon `FIELDMESH_TUN_PLAN` query and packaging the routed TUN
+gateway plan demo:
 
 ```text
-z203 rootfs.cpio.gz bcaf85e10b346794bf6d3f20ffede4df527fc762891d41c3299d5621b649e0a8
-z203 rootfs.tar.gz  6752a7e40ee38fbc3efe1b8f6f8adf493616d8eee8161c9d21cb74f7107a443a
-z103 rootfs.cpio.gz 640b966df702a826eb0742b8f54fca293e72bf6afef2c34254aea232d867a3a3
-z103 rootfs.tar.gz  a1a6954f501c413ecbe78f0cb9b9f6d92056f98bb6d2c45f19d58e6d864b841f
-z203 pluto.frm      062591323c484a831953fa1796850ee104cf08bfb6ee16ef516e30471824a55e
-z103 pluto.frm      dcaf8dd9ceff45628ffae40385cfe72387b0acfc39b7e291f5cc972688daab2b
+z203 rootfs.cpio.gz 29ad0ccd0789c7096f9377f017210dff0bace68603d50353dfc924d5ab11bafc
+z203 rootfs.tar.gz  8ad48d1b558a83f82aca0c80735d079412202d36e1b33f396c22aba8433ee67c
+z103 rootfs.cpio.gz b1da7929e6259fd1d392ff779f1ad8ba998011083bbd0b41c0c9a00e19e58aec
+z103 rootfs.tar.gz  ebff28b18aea58c4624d22367088360aab1a00944837cf2f3f46c4a3133d1d17
+z203 pluto.frm      18cccd9e1354c1552d4961cbbbbc7494138184e5b7aef4a1a224c488b0555b5e
+z103 pluto.frm      2c5860ec588b9987e18b4843c94762a2c03297d35a72976cac13340a2bfea929
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -3017,19 +3018,19 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after the identity/capability model cleanup:
+Refreshed runtime artifact hashes after adding the TUN gateway planning API:
 
 ```text
-Z203 rootfs.cpio.gz: 6c1c3887781a2f5ca08ddd5e8df948fb2d260ada3e2d73bbf9aeb9f8309964e8
-Z203 rootfs.tar.gz:  ce69cd2032ca40a97f6ff271acf4780c7ec08a5e18149cfdc859beeecf51077b
-Z203 pluto.frm:      3f80c347092c600b0dd08004beea9fc169fde972064be35204329b57b01cac8e
-Z203 pluto.itb:      e6c76b7ff636a777e0ee705296fd237d7d024166768ea53ca737689f8eef1ea7
-Z203 jtag ramdisk:   e40d8034c801860f6753b771ff2a813dc652247f988697ce8f212d8f6c796286
-Z103 rootfs.cpio.gz: 4bc69f232940ffcbf7af6b31b5e450a06797bcf2022dc7a7650c496e97176546
-Z103 rootfs.tar.gz:  784dd3abda32198de212db69367455c9fda808a04ede1e757f96a7baf8ebb7dd
-Z103 pluto.frm:      1ab984ca85c30fddf21d159d8a7fc6aa70df81e9ef629edcb46b977a39952b89
-Z103 pluto.itb:      84dd8c7a14681ac79afdd244e2e7926f2cb432e4de108d63aa52c4efc4507275
-Z103 jtag ramdisk:   2dfcef21ac1c715ab465cbb05929cc1c2435a0ac1f70f2590a750ef5f7620f02
+Z203 rootfs.cpio.gz: 29ad0ccd0789c7096f9377f017210dff0bace68603d50353dfc924d5ab11bafc
+Z203 rootfs.tar.gz:  8ad48d1b558a83f82aca0c80735d079412202d36e1b33f396c22aba8433ee67c
+Z203 pluto.frm:      18cccd9e1354c1552d4961cbbbbc7494138184e5b7aef4a1a224c488b0555b5e
+Z203 pluto.itb:      d71d7c8d165f68e2d9f5e5f8b8db14c8ab41ac64b85d6011990ce13eee3137e2
+Z203 jtag ramdisk:   e13f752eeb99a13e865864c6bb3cbb216a4815f9cf835549ef9ee66d469830a7
+Z103 rootfs.cpio.gz: b1da7929e6259fd1d392ff779f1ad8ba998011083bbd0b41c0c9a00e19e58aec
+Z103 rootfs.tar.gz:  ebff28b18aea58c4624d22367088360aab1a00944837cf2f3f46c4a3133d1d17
+Z103 pluto.frm:      2c5860ec588b9987e18b4843c94762a2c03297d35a72976cac13340a2bfea929
+Z103 pluto.itb:      c86d76cccab6ca65a605eac25c0686d0e53a1fe8d570155cf60c52285c11aab5
+Z103 jtag ramdisk:   c8cec36f3718053331cc69241698a92e2db94fe82660b088427b4c9a664f7bb2
 ```
 
 ## FieldMesh RTLS Positioning Gate
