@@ -54,7 +54,8 @@ Each peer periodically reports:
 
 The AP/broker or elected coordinator emits:
 
-- `rtls_measurement`: raw GPS/RSSI/SNR/TDOA inputs;
+- `rtls_measurement`: raw GPS/PPS, RSSI/SNR, packet-timing TDOA, and timing
+  quality inputs;
 - `rtls_estimate`: fused local `x_cm`/`y_cm`, error radius, confidence, and
   `estimated_geo_centrality`;
 - `rtls_summary`: peer count, GPS/fallback counts, and which output fields are
@@ -89,6 +90,44 @@ Z203/Z103, first prototype assumptions are:
 - RTLS probe and response packets have fixed fields and calibrated turnaround;
 - AP or relay nodes collect peer reports and solve the relative frame;
 - guard intervals widen when clock quality is poor.
+
+## GPS-Denied Indoor Accuracy Envelope
+
+Indoor RTLS should be sold and engineered as a relative-topology feature first,
+not as a guaranteed survey-grade location system. Multipath, antenna placement,
+clock quality, RF bandwidth, and anchor geometry dominate the result.
+
+Conservative first-product accuracy targets:
+
+| Measurement mode | Indoor expectation |
+| --- | ---: |
+| RSSI/SNR only | 10-30 m, sometimes worse in multipath |
+| Two-way packet timing without shared PPS | 3-15 m typical |
+| Packet-timing TDOA with calibrated response delay and AP/coordinator timebase | 2-8 m typical |
+| Good LOS, high SNR, wide RF bandwidth, calibrated clocks and antennas | 0.5-3 m possible |
+| Dense anchors with good geometry and calibration | sub-meter possible, not first target |
+
+Deployment constraints:
+
+- two boards can estimate range class, link quality, and relative movement, but
+  not robust 2D position;
+- three timing anchors are the minimum for 2D relative position;
+- four or more anchors are preferred for stable indoor production;
+- poor anchor geometry can make a high-quality timing measurement produce a
+  weak position estimate;
+- when timing confidence is low, the system should degrade to room/zone-level
+  RSSI/SNR topology instead of publishing false precision.
+
+Recommended product claim:
+
+> GPS-assisted outdoors; GPS-denied indoor relative RTLS with 2-8 m typical
+> accuracy after calibration, falling back to room/zone-level RSSI/SNR when
+> timing geometry is weak.
+
+For AGVs, ships, robots, and mobile cameras, the valuable output is usually
+live relative topology: which node is central, who can relay, who is moving
+away, who has LOS-like timing, and which AP/route is likely to remain useful
+for the next lease window.
 
 ## How It Affects The Network
 
@@ -133,8 +172,8 @@ real GPS UART, IIO/link metrics, and PL RX timestamps.
 
 The C SDK now exposes the same model to host applications:
 
-- `fieldmesh_report_rtls_measurement()` accepts GPS/PPS, RSSI/SNR, TDOA, RX
-  timestamp, and calibrated response-delay inputs;
+- `fieldmesh_report_rtls_measurement()` accepts GPS/PPS, RSSI/SNR,
+  packet-timing TDOA, RX timestamp, and calibrated response-delay inputs;
 - `fieldmesh_get_peer_position()` returns one fused estimate for a peer;
 - `fieldmesh_list_peer_positions()` publishes all known estimates to AP,
   routing, and application logic.

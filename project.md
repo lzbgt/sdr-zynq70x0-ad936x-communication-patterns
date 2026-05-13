@@ -433,7 +433,8 @@ user and vendor configuration.
   FieldMesh AP election contract, including preferred 2R2T AP, autonomous
   2R2T election, and emergency 1R1T AP fallback.
 - `tools/verify_fieldmesh_rtls.sh` - host-side RTLS/relative-positioning check
-  for GPS/PPS fused estimates and RSSI/SNR/TDOA fallback estimates.
+  for GPS/PPS fused estimates and GPS-denied packet-timing TDOA plus RSSI/SNR
+  fallback estimates.
 - `tools/run_fieldmesh_board_dma_smoke.sh` - SSH-driven guarded sidecar DMA
   smoke runner that reruns the board sidecar preflight, copies a committed
   FieldMesh frame vector to the board, records `dma-plan`, and only then starts
