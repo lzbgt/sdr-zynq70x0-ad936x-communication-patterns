@@ -1,0 +1,382 @@
+#!/usr/bin/env python3
+"""Run or dry-run a guarded conducted AD936x IIO IQ burst procedure."""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import json
+import shlex
+import subprocess
+import time
+from pathlib import Path
+from typing import Any
+
+import fieldmesh_iq_burst_smoke as iq_smoke
+
+
+MIN_FIXTURE_ATTENUATION_DB = 30.0
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SystemExit(f"{path}: expected JSON object")
+    return data
+
+
+def require_plan(plan: dict[str, Any]) -> None:
+    if plan.get("event") != "fieldmesh_iq_iio_live_plan" or plan.get("ok") is not True:
+        raise SystemExit("input is not a successful FieldMesh IIO live plan")
+    management = plan.get("management_plane", {})
+    safety = plan.get("safety", {})
+    if management.get("uses_inter_board_ip_routing") is not False:
+        raise SystemExit("live run plan must not use inter-board IP routing")
+    for key in ("executes_commands", "opens_iio_buffers", "starts_rf_tx", "writes_hardware"):
+        if safety.get(key) is not False:
+            raise SystemExit(f"live run must start from a non-executing plan: {key}={safety.get(key)!r}")
+    if plan.get("tx_board") == plan.get("rx_board"):
+        raise SystemExit("live run requires distinct TX and RX boards")
+
+
+def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
+    if not args.conducted_or_shielded:
+        raise SystemExit("--conducted-or-shielded is required")
+    if not args.legal_frequency_profile:
+        raise SystemExit("--legal-frequency-profile is required")
+    if not args.tx_enable_guard:
+        raise SystemExit("--tx-enable-guard is required")
+    if not args.rx_first:
+        raise SystemExit("--rx-first is required")
+    if args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
+        raise SystemExit(
+            f"--fixture-attenuation-db must be >= {MIN_FIXTURE_ATTENUATION_DB:g} dB"
+        )
+    plan_attenuation = float(plan.get("safety", {}).get("fixture_attenuation_db", 0.0))
+    if args.fixture_attenuation_db < plan_attenuation:
+        raise SystemExit(
+            f"--fixture-attenuation-db must be >= planned {plan_attenuation:g} dB"
+        )
+    if args.execute_live_rf and not args.allow_hardware_writes:
+        raise SystemExit("--execute-live-rf also requires --allow-hardware-writes")
+    if args.execute_live_rf and not (args.tx_uri and args.rx_uri):
+        raise SystemExit("--execute-live-rf requires --tx-uri and --rx-uri")
+
+
+def shell_quote(args: list[str]) -> str:
+    return " ".join(shlex.quote(arg) for arg in args)
+
+
+def command_row(
+    name: str,
+    args: list[str],
+    *,
+    stdin_file: str | None = None,
+    stdout_file: str | None = None,
+    background: bool = False,
+) -> dict[str, Any]:
+    rendered = shell_quote(args)
+    if stdin_file:
+        rendered = f"{rendered} < {shlex.quote(stdin_file)}"
+    if stdout_file:
+        rendered = f"{rendered} > {shlex.quote(stdout_file)}"
+    if background:
+        rendered = f"{rendered} &"
+    return {
+        "name": name,
+        "argv": args,
+        "stdin_file": stdin_file,
+        "stdout_file": stdout_file,
+        "background": background,
+        "shell": rendered,
+    }
+
+
+def iio_attr_channel(uri: str, device: str, channel: str, attr: str, value: int | float | str) -> list[str]:
+    return [
+        "iio_attr",
+        "-u",
+        uri,
+        "-c",
+        device,
+        channel,
+        attr,
+        str(value),
+    ]
+
+
+def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> list[dict[str, Any]]:
+    fixture = {
+        "center_frequency_hz": None,
+        "sample_rate_hz": None,
+        "rf_bandwidth_hz": None,
+    }
+    for step in plan["command_plan"]:
+        if step["name"] == "configure_rx_phy":
+            fixture.update(
+                {
+                    "center_frequency_hz": step["center_frequency_hz"],
+                    "sample_rate_hz": step["sample_rate_hz"],
+                    "rf_bandwidth_hz": step["rf_bandwidth_hz"],
+                }
+            )
+            break
+    if None in fixture.values():
+        raise SystemExit("live plan is missing RF fixture parameters")
+
+    tx_iio = plan["radio_data_plane"]["tx_iio"]
+    rx_iio = plan["radio_data_plane"]["rx_iio"]
+    iq = plan["iq_burst"]
+    tx_uri = args.tx_uri or f"ip:<{plan['tx_board']}-management-ip>"
+    rx_uri = args.rx_uri or f"ip:<{plan['rx_board']}-management-ip>"
+    timeout_s = max(1, args.timeout_ms // 1000)
+    samples = int(iq["iq_samples"])
+    buffer_size = args.buffer_size or samples
+
+    rows = [
+        command_row(
+            "configure_rx_sampling_frequency",
+            iio_attr_channel(rx_uri, "ad9361-phy", "voltage0", "sampling_frequency", fixture["sample_rate_hz"]),
+        ),
+        command_row(
+            "configure_rx_rf_bandwidth",
+            iio_attr_channel(rx_uri, "ad9361-phy", "voltage0", "rf_bandwidth", fixture["rf_bandwidth_hz"]),
+        ),
+        command_row(
+            "configure_rx_lo",
+            iio_attr_channel(rx_uri, "ad9361-phy", "altvoltage0", "frequency", fixture["center_frequency_hz"]),
+        ),
+        command_row(
+            "configure_tx_sampling_frequency",
+            iio_attr_channel(tx_uri, "ad9361-phy", "voltage0", "sampling_frequency", fixture["sample_rate_hz"]),
+        ),
+        command_row(
+            "configure_tx_rf_bandwidth",
+            iio_attr_channel(tx_uri, "ad9361-phy", "voltage0", "rf_bandwidth", fixture["rf_bandwidth_hz"]),
+        ),
+        command_row(
+            "configure_tx_lo",
+            iio_attr_channel(tx_uri, "ad9361-phy", "altvoltage1", "frequency", fixture["center_frequency_hz"]),
+        ),
+        command_row(
+            "arm_rx_iio_buffer",
+            [
+                "timeout",
+                str(timeout_s),
+                "iio_readdev",
+                "-u",
+                rx_uri,
+                "-b",
+                str(buffer_size),
+                "-s",
+                str(samples),
+                rx_iio["rx_name"],
+                "voltage0",
+                "voltage1",
+            ],
+            stdout_file=str(capture_path),
+            background=True,
+        ),
+        command_row(
+            "load_tx_iio_buffer",
+            [
+                "iio_writedev",
+                "-u",
+                tx_uri,
+                "-b",
+                str(buffer_size),
+                "-s",
+                str(samples),
+                tx_iio["tx_name"],
+                "voltage0",
+                "voltage1",
+            ],
+            stdin_file=iq["iq_file"],
+        ),
+    ]
+    return rows
+
+
+def write_script(path: Path, commands: list[dict[str, Any]]) -> None:
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "",
+        "# Generated by fieldmesh_iq_iio_live_run.py. Review fixture safety before use.",
+    ]
+    for row in commands:
+        lines.append(f"# {row['name']}")
+        lines.append(row["shell"])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.chmod(0o755)
+
+
+def run_command(row: dict[str, Any], *, stdin_file: str | None = None, stdout_file: str | None = None) -> dict[str, Any]:
+    started = time.monotonic()
+    stdin_context = open(stdin_file, "rb") if stdin_file else contextlib.nullcontext(subprocess.DEVNULL)
+    stdout_context = open(stdout_file, "wb") if stdout_file else contextlib.nullcontext(subprocess.DEVNULL)
+    with stdin_context as stdin_handle, stdout_context as stdout_handle:
+        proc = subprocess.run(
+            row["argv"],
+            stdin=stdin_handle,
+            stdout=stdout_handle,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    return {
+        "name": row["name"],
+        "returncode": proc.returncode,
+        "stderr": proc.stderr.decode("utf-8", errors="replace"),
+        "elapsed_ms": int((time.monotonic() - started) * 1000),
+    }
+
+
+def execute_live(commands: list[dict[str, Any]], capture_path: Path) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for row in commands[:6]:
+        result = run_command(row)
+        results.append(result)
+        if result["returncode"] != 0:
+            raise SystemExit(f"{row['name']} failed: {result['stderr'].strip()}")
+
+    rx_row = commands[6]
+    tx_row = commands[7]
+    rx_stdout = open(capture_path, "wb")
+    try:
+        rx_proc = subprocess.Popen(
+            rx_row["argv"],
+            stdin=subprocess.DEVNULL,
+            stdout=rx_stdout,
+            stderr=subprocess.PIPE,
+        )
+        time.sleep(0.25)
+        tx_result = run_command(tx_row, stdin_file=tx_row["stdin_file"])
+        results.append(tx_result)
+        rx_timeout_s = int(rx_row["argv"][1]) + 2
+        rx_stderr = rx_proc.communicate(timeout=rx_timeout_s)[1]
+        results.append(
+            {
+                "name": rx_row["name"],
+                "returncode": rx_proc.returncode,
+                "stderr": rx_stderr.decode("utf-8", errors="replace"),
+            }
+        )
+    finally:
+        rx_stdout.close()
+        if rx_proc.poll() is None:
+            rx_proc.terminate()
+            try:
+                rx_proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                rx_proc.kill()
+    for result in results[6:]:
+        if result["returncode"] != 0:
+            raise SystemExit(f"{result['name']} failed: {result.get('stderr', '').strip()}")
+    return results
+
+
+def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> dict[str, Any]:
+    if not capture_path.exists():
+        return {"attempted": False, "reason": "capture file missing"}
+    iq = capture_path.read_bytes()
+    if not iq:
+        return {"attempted": False, "reason": "capture file empty"}
+    smoke_report = load_json(Path(plan["iq_burst"]["report"]))
+    samples_per_symbol = int(smoke_report["encoding"]["samples_per_symbol"])
+    try:
+        recovered = iq_smoke.recover_frame(iq_smoke.decode_bpsk_iq(iq, samples_per_symbol))
+    except Exception as exc:  # noqa: BLE001 - report decode failures in JSON.
+        return {"attempted": True, "ok": False, "error": str(exc), "capture_bytes": len(iq)}
+    crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+    return {
+        "attempted": True,
+        "ok": crc == plan["iq_burst"]["frame_crc"],
+        "capture_bytes": len(iq),
+        "recovered_frame_crc": crc,
+        "expected_frame_crc": plan["iq_burst"]["frame_crc"],
+    }
+
+
+def build_report(args: argparse.Namespace) -> dict[str, Any]:
+    plan = load_json(args.live_plan)
+    require_plan(plan)
+    require_guard(args, plan)
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    capture_path = args.out_dir / "rx_capture_i16le.iq"
+    commands = command_script(plan, args, capture_path)
+    script_path = args.out_dir / "run_iio_burst.sh"
+    write_script(script_path, commands)
+
+    command_results: list[dict[str, Any]] = []
+    decode: dict[str, Any] = {"attempted": False, "reason": "dry-run"}
+    if args.execute_live_rf:
+        command_results = execute_live(commands, capture_path)
+        decode = decode_capture(plan, args, capture_path)
+
+    safety = {
+        "conducted_or_shielded": True,
+        "fixture_attenuation_db": args.fixture_attenuation_db,
+        "legal_frequency_profile": True,
+        "tx_enable_guard": True,
+        "rx_first": True,
+        "executes_commands": bool(args.execute_live_rf),
+        "opens_iio_buffers": bool(args.execute_live_rf),
+        "starts_rf_tx": bool(args.execute_live_rf),
+        "writes_hardware": bool(args.execute_live_rf),
+        "live_rf_allowed_by_this_tool": bool(args.execute_live_rf),
+    }
+    report = {
+        "event": "fieldmesh_iq_iio_live_run",
+        "ok": not args.execute_live_rf or decode.get("ok") is True,
+        "mode": "execute-live-rf" if args.execute_live_rf else "dry-run",
+        "tx_board": plan["tx_board"],
+        "rx_board": plan["rx_board"],
+        "tx_uri": args.tx_uri,
+        "rx_uri": args.rx_uri,
+        "management_plane": plan["management_plane"],
+        "radio_data_plane": plan["radio_data_plane"],
+        "iq_burst": plan["iq_burst"],
+        "safety": safety,
+        "generated_script": str(script_path),
+        "capture_file": str(capture_path),
+        "commands": commands,
+        "command_results": command_results,
+        "decode": decode,
+    }
+    out_path = args.out_dir / "fieldmesh_iq_iio_live_run.json"
+    out_path.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+    return report
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--live-plan", type=Path, required=True)
+    parser.add_argument("--out-dir", type=Path, default=Path(".config/fieldmesh/iq-iio-live-run"))
+    parser.add_argument("--tx-uri")
+    parser.add_argument("--rx-uri")
+    parser.add_argument("--buffer-size", type=int)
+    parser.add_argument("--timeout-ms", type=int, default=5000)
+    parser.add_argument("--fixture-attenuation-db", type=float, required=True)
+    parser.add_argument("--conducted-or-shielded", action="store_true")
+    parser.add_argument("--legal-frequency-profile", action="store_true")
+    parser.add_argument("--tx-enable-guard", action="store_true")
+    parser.add_argument("--rx-first", action="store_true")
+    parser.add_argument("--execute-live-rf", action="store_true")
+    parser.add_argument("--allow-hardware-writes", action="store_true")
+    parser.add_argument("--pretty", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    report = build_report(args)
+    print(json.dumps(report, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

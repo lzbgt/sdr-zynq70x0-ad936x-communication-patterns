@@ -116,7 +116,24 @@ rollback.
 
 ## SDK Shape
 
-The SDK should expose the same profile as a C ABI:
+The SDK should expose the same profile as a C ABI and should keep two layers
+separate:
+
+- **Host-facing Ethernet/IP layer:** portable socket API over USB Ethernet,
+  physical Ethernet, or routed IP. This is where desktop, embedded Linux,
+  Windows, and macOS applications browse APs, join, command roles, inspect
+  topology, and send/receive application streams through the local board.
+- **Local device/IIO layer:** board-local or trusted host tooling for AD936x
+  PHY configuration, IIO scan/plan, IQ buffer tests, sidecar DMA readiness, and
+  recovery diagnostics. This layer controls the local board/radio resources; it
+  is not the board-to-board mesh network.
+
+The application SDK normally uses the Ethernet/IP layer. The IIO/device layer
+is still part of the product SDK boundary, but it should be exposed as an
+explicit device-control backend with stronger safety and permissions because it
+can configure RF and buffers.
+
+The profile API remains common:
 
 ```c
 fieldmesh_get_network_profile(ctx, &profile);
@@ -129,7 +146,9 @@ fieldmesh_rollback_network_profile(ctx);
 
 Applications should not shell out for normal runtime control. The CLI is for
 humans, manufacturing, provisioning, and recovery. The SDK is for application
-control.
+control. Internal tools may use libiio or board-local probes, but customer
+payload routing still stays on FieldMesh RF once it leaves the host-facing
+local board link.
 
 The first ABI covers:
 

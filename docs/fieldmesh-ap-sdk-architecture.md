@@ -235,14 +235,16 @@ Prototype direction:
 - implement real certificate derivation after the packet path and policy model
   are stable.
 
-## SDK Transport Assumption
+## SDK Layering
 
-The core SDK should keep a pure C ABI and treat both USB Ethernet and physical
-Ethernet as IP transports. That is the correct portability boundary for
-embedded Linux, desktop Linux, Windows, and macOS. Production applications do
-not need to be written in C: the preferred app layer can be C++ on top of the C
-ABI, and a peer Rust SDK/binding should expose the same concepts for Rust apps
-without forking the protocol contract.
+The SDK should have two explicit layers.
+
+The first layer is the host-facing Ethernet/IP layer. It keeps a pure C ABI and
+treats both USB Ethernet and physical Ethernet as IP transports. That is the
+correct portability boundary for embedded Linux, desktop Linux, Windows, and
+macOS. Production applications do not need to be written in C: the preferred
+app layer can be C++ on top of the C ABI, and a peer Rust SDK/binding should
+expose the same concepts for Rust apps without forking the protocol contract.
 
 Transport backends:
 
@@ -255,6 +257,22 @@ The SDK should not require libusb for normal USB Ethernet operation. The OS
 already exposes the device as a network interface. A separate provisioning tool
 may use USB-specific APIs later, but the customer payload SDK should stay
 socket-based.
+
+The second layer is the local device/IIO layer. It is for board-local services
+or trusted host tools that must configure the AD936x PHY, inspect IIO devices,
+run guarded IQ buffer procedures, inspect sidecar DMA readiness, or recover a
+board. This layer may wrap libiio, `/dev/mem` read-only preflights, SSH
+helpers, or board daemons, but it must be exposed as device control rather than
+as the FieldMesh radio network. In product terms:
+
+- Ethernet/IP SDK calls manage the local board and application streams.
+- IIO/device SDK calls configure or verify local radio resources.
+- Board-to-board peer payloads still cross the FieldMesh RF data plane, not
+  host Ethernet routing.
+
+This split lets a Windows camera app, a Linux gateway, and an embedded host use
+the same control/data-plane API while keeping RF setup and safety gates
+auditable.
 
 ## C SDK Surface
 

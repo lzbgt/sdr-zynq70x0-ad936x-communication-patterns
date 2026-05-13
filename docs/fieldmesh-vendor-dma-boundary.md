@@ -459,6 +459,22 @@ explicit TX enable before capture. The tool still reports
 `executes_commands=false`, `opens_iio_buffers=false`, `starts_rf_tx=false`, and
 `writes_hardware=false`.
 
+The guarded runner is the next layer:
+
+```sh
+./tools/verify_fieldmesh_iq_iio_live_run.sh
+```
+
+It consumes the verified `fieldmesh_iq_iio_live_plan`, regenerates a reviewable
+RX-first command script, and verifies that the default path remains a dry-run.
+The generated script configures RX PHY first, configures TX PHY second, starts
+`iio_readdev` for RX capture, then runs `iio_writedev` for the TX IQ burst.
+The default report keeps `executes_commands=false`,
+`opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
+A real conducted/shielded fixture run requires
+`--execute-live-rf --allow-hardware-writes` in addition to the same legal
+frequency, attenuation, TX-enable, and RX-first declarations.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.

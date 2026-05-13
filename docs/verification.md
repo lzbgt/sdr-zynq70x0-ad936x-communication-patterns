@@ -2909,6 +2909,29 @@ RX capture. The plan keeps `uses_inter_board_ip_routing=false` and reports
 `writes_hardware=false`. The verifier also rejects missing legal-frequency
 profile and too-low fixture attenuation.
 
+## FieldMesh IQ IIO Live Runner
+
+The guarded IIO runner consumes the live plan and defaults to a dry-run:
+
+```sh
+./tools/verify_fieldmesh_iq_iio_live_run.sh
+```
+
+Result:
+
+```json
+{"commands": 8, "event": "fieldmesh_iq_iio_live_run_check", "mode": "dry-run", "ok": true, "rx_board": "z103", "tx_board": "z203"}
+```
+
+The generated command script is RX-first: `iio_attr` RX PHY configuration,
+`iio_attr` TX PHY configuration, `iio_readdev` RX capture arming, then
+`iio_writedev` TX IQ burst loading. The default report keeps
+`executes_commands=false`, `opens_iio_buffers=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`. The verifier also rejects missing legal-frequency
+profile, insufficient fixture attenuation, and `--execute-live-rf` unless
+`--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
+therefore explicit and auditable.
+
 Refreshed runtime artifact hashes after the CLI fix:
 
 ```text

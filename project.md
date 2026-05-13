@@ -470,6 +470,14 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_iq_iio_live_plan.sh` - gate for the live IIO
   procedure planner, including negative tests for missing legal-frequency
   profile and insufficient fixture attenuation.
+- `tools/fieldmesh_iq_iio_live_run.py` - guarded IIO burst runner. By default
+  it only writes a reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev`
+  script from the verified live plan. A real conducted/shielded RF run requires
+  `--execute-live-rf --allow-hardware-writes` plus the same legal-frequency,
+  attenuation, TX-enable, and RX-first guards.
+- `tools/verify_fieldmesh_iq_iio_live_run.sh` - gate for the guarded IIO
+  runner dry-run and negative tests for missing legal-frequency profile,
+  missing hardware-write approval, and insufficient fixture attenuation.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
@@ -784,12 +792,14 @@ Expected result in the current Pluto-compatible firmware state:
    The gate now also records read-only AD936x IIO scan/plan evidence on both
    boards and emits `rf_binding_plan.json`, which keeps host IP out of the
    inter-board path and marks the next gate as a conducted or shielded IQ
-   burst encoder/decoder smoke. The practical product demo after that is one
-   SDK host camera app that can source or preview video: Host A camera over
-   USB/physical Ethernet to peer board A, FieldMesh RF to peer board B, then
-   USB/physical Ethernet to Host B preview. Host A and Host B can be the same
-   physical PC for lab testing, but they remain two logical hosts with a
-   distinct SDK control plane and RF data plane.
+   burst encoder/decoder smoke. The guarded IIO runner now turns that plan
+   into an RX-first command script, while defaulting to no hardware execution.
+   The practical product demo after that is one SDK host camera app that can
+   source or preview video: Host A camera over USB/physical Ethernet to peer
+   board A, FieldMesh RF to peer board B, then USB/physical Ethernet to Host B
+   preview. Host A and Host B can be the same physical PC for lab testing, but
+   they remain two logical hosts with a distinct SDK control plane and RF data
+   plane.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

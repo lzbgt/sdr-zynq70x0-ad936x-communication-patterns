@@ -251,6 +251,9 @@ SDK behavior:
 - pure C ABI first;
 - works from embedded Linux, desktop Linux, Windows, and macOS;
 - treats USB Ethernet and physical Ethernet as socket transports;
+- separates host-facing Ethernet/IP control/data ingress from the local
+  IIO/device-control layer used for AD936x PHY, IQ buffer, and sidecar
+  diagnostics;
 - lets applications browse APs, join networks, discover peers, open streams,
   send prioritized payloads, and query route state;
 - lets applications command a capable 2R2T board into AP/broker mode instead

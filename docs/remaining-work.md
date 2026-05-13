@@ -154,10 +154,12 @@ Next concrete work:
   and decodes a guarded FieldMesh IQ burst without opening IIO buffers or
   starting RF TX. `tools/fieldmesh_iq_iio_live_plan.py` now binds that burst to
   a guarded RX-first AD936x IIO procedure plan while still executing no
-  commands. The next live-safe step is implementing the actual conducted IIO
-  buffer runner behind the same legal-frequency, attenuation, TX-enable, and
-  RX-first guards, then running AP browse/election/join as host commands whose
-  peer payload traffic crosses RF.
+  commands. `tools/fieldmesh_iq_iio_live_run.py` turns the plan into a
+  reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
+  and defaults to a no-hardware dry-run. The next live-safe step is running
+  that runner on a conducted/shielded fixture with
+  `--execute-live-rf --allow-hardware-writes`, then running AP
+  browse/election/join as host commands whose peer payload traffic crosses RF.
 - Build the practical two-host camera-stream demo on top of the SDK once the
   RF stream path is live. The intended product flow is one app that can source
   or preview camera data: Host A camera -> local board over USB/physical
