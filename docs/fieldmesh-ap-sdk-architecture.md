@@ -557,6 +557,11 @@ Stage 2: Board-local service
   telemetry, video base, video enhancement, and bulk flows into C0-C4, and
   forwards them through the FieldMesh adapter while keeping
   `uses_iio=0` and `uses_inter_board_ip_routing=0`.
+- Use daemon `FIELDMESH_TUN_FD_PUMP` and
+  `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
+  boundary: the SDK accepts a pure-C read callback, so production code can
+  connect a real board-local TUN fd while the verifier feeds deterministic
+  packets without network writes.
 - The state daemon now also serves the same adapter mapping through a
   `FIELDMESH_SWARM_ADAPTER` request, so host SDK clients can inspect the
   product payload plane over the board daemon protocol before a real TUN

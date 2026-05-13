@@ -144,6 +144,7 @@ verify_variant() {
         FIELDMESH_STATE_PEERS \
         FIELDMESH_STATE_RTLS \
         FIELDMESH_SWARM_ADAPTER \
+        FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_PLAN \
         FIELDMESH_TUN_APPLY_VALIDATE \
         FIELDMESH_TUN_APPLY_COMMIT \
@@ -154,6 +155,7 @@ verify_variant() {
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
         sdk_daemon_swarm_adapter \
+        sdk_daemon_tun_fd_pump \
         sdk_daemon_tun_plan \
         sdk_daemon_tun_apply \
         sdk_daemon_tun_apply_rejected \

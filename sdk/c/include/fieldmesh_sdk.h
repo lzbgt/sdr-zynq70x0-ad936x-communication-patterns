@@ -417,10 +417,28 @@ typedef struct fieldmesh_tun_packet_report {
     uint8_t sent_to_fieldmesh_adapter;
 } fieldmesh_tun_packet_report_t;
 
+typedef struct fieldmesh_tun_pump_report {
+    fieldmesh_tun_packet_report_t packet;
+    uint32_t packets_read;
+    uint32_t packets_sent;
+    uint32_t bytes_read;
+    uint32_t bytes_sent;
+    uint8_t tun_fd_attached;
+    uint8_t read_from_tun;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t sent_to_fieldmesh_adapter;
+} fieldmesh_tun_pump_report_t;
+
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
 typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
                                               void *user);
+typedef fieldmesh_status_t (*fieldmesh_tun_read_callback_t)(
+    void *user,
+    void *packet,
+    size_t packet_capacity,
+    size_t *out_packet_len);
 
 fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
                                             fieldmesh_context_t **out_context);
@@ -556,6 +574,13 @@ fieldmesh_status_t fieldmesh_tun_packetizer_send(
     const void *packet,
     size_t packet_len,
     fieldmesh_tun_packet_report_t *out_report);
+fieldmesh_status_t fieldmesh_tun_packetizer_pump_once(
+    fieldmesh_adapter_t *adapter,
+    fieldmesh_tun_read_callback_t read_packet,
+    void *read_user,
+    void *packet_buffer,
+    size_t packet_capacity,
+    fieldmesh_tun_pump_report_t *out_report);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

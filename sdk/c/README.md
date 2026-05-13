@@ -40,9 +40,10 @@ in `src/fieldmesh_sdk.c`:
   low-attenuation rejection, and explicit live-RF approval flags.
 - `examples/fieldmesh_state_daemon_demo.c` is the first socket daemon boundary:
   one process serves AP browse, AP election, AP join state, peer state, RTLS
-  state, the `swarm0` packet adapter, routed TUN gateway planning, and local
-  IIO admin planning over UDP, and another process queries it over the same IP
-  path intended for USB Ethernet and physical Ethernet.
+  state, the `swarm0` packet adapter, a callback-backed TUN packet pump,
+  routed TUN gateway planning, and local IIO admin planning over UDP, and
+  another process queries it over the same IP path intended for USB Ethernet
+  and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
@@ -64,6 +65,9 @@ in `src/fieldmesh_sdk.c`:
   path packetizer. It classifies IPv4 packets read from `swarm0` into C0-C4
   FieldMesh traffic classes, preserves direct RF route intent, and sends those
   packets through the SDK adapter path without IIO or inter-board IP routing.
+  The SDK also exposes `fieldmesh_tun_packetizer_pump_once()`, a pure-C
+  callback contract for daemon code that reads from a real board-local TUN
+  file descriptor and forwards one packet into the FieldMesh adapter path.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and

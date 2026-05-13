@@ -43,6 +43,71 @@ struct ap_summary {
     char preferred_ap[FIELDMESH_ID_TEXT_MAX];
 };
 
+struct tun_read_fixture {
+    const unsigned char *packet;
+    size_t packet_len;
+    uint8_t consumed;
+};
+
+static void put_be16(unsigned char *dst, uint16_t value)
+{
+    dst[0] = (unsigned char)(value >> 8);
+    dst[1] = (unsigned char)(value & 0xffu);
+}
+
+static size_t make_tun_demo_ipv4_packet(unsigned char *packet,
+                                        size_t packet_capacity)
+{
+    const size_t ip_header_len = 20u;
+    const size_t udp_header_len = 8u;
+    const size_t payload_len = 32u;
+    size_t total_len = ip_header_len + udp_header_len + payload_len;
+    size_t i;
+
+    if (packet_capacity < total_len) {
+        return 0u;
+    }
+    memset(packet, 0, total_len);
+    packet[0] = 0x45u;
+    packet[1] = (unsigned char)(34u << 2);
+    put_be16(&packet[2], (uint16_t)total_len);
+    packet[8] = 64u;
+    packet[9] = 17u;
+    packet[12] = 10u;
+    packet[13] = 77u;
+    packet[14] = 1u;
+    packet[15] = 1u;
+    packet[16] = 10u;
+    packet[17] = 77u;
+    packet[18] = 2u;
+    packet[19] = 20u;
+    put_be16(&packet[ip_header_len], 60000u);
+    put_be16(&packet[ip_header_len + 2u], 5004u);
+    put_be16(&packet[ip_header_len + 4u],
+             (uint16_t)(udp_header_len + payload_len));
+    for (i = ip_header_len + udp_header_len; i < total_len; ++i) {
+        packet[i] = (unsigned char)(0x41u + (unsigned char)(i & 0x0fu));
+    }
+    return total_len;
+}
+
+static fieldmesh_status_t read_tun_fixture(void *user,
+                                           void *packet,
+                                           size_t packet_capacity,
+                                           size_t *out_packet_len)
+{
+    struct tun_read_fixture *fixture = (struct tun_read_fixture *)user;
+
+    if (!fixture || !packet || !out_packet_len || fixture->consumed ||
+        fixture->packet_len > packet_capacity) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    memcpy(packet, fixture->packet, fixture->packet_len);
+    *out_packet_len = fixture->packet_len;
+    fixture->consumed = 1u;
+    return FIELDMESH_OK;
+}
+
 static int socket_startup(void)
 {
 #ifdef _WIN32
@@ -345,6 +410,88 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned long)rx_len);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_TUN_FD_PUMP")) {
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 200,
+            .mtu_bytes = 1200,
+            .expose_virtual_netdev = 1,
+        };
+        unsigned char tx_packet[256];
+        unsigned char pump_buffer[256];
+        unsigned char rx_packet[256];
+        fieldmesh_tun_pump_report_t pump_report;
+        fieldmesh_adapter_packet_t rx_meta;
+        struct tun_read_fixture fixture = {
+            0,
+        };
+        size_t tx_len;
+        size_t rx_len = 0u;
+        int failed = 0;
+
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", "020000000103");
+        tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
+        fixture.packet = tx_packet;
+        fixture.packet_len = tx_len;
+        if (tx_len == 0u ||
+            fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
+            fieldmesh_tun_packetizer_pump_once(adapter, read_tun_fixture,
+                                               &fixture, pump_buffer,
+                                               sizeof(pump_buffer),
+                                               &pump_report) != FIELDMESH_OK ||
+            fieldmesh_adapter_recv_packet(adapter, rx_packet, sizeof(rx_packet),
+                                          &rx_len, &rx_meta, 1000) !=
+                FIELDMESH_OK ||
+            rx_len != tx_len ||
+            memcmp(rx_packet, tx_packet, rx_len) != 0) {
+            failed = 1;
+        }
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        if (failed) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_fd_pump\","
+                 "\"adapter_name\":\"%s\","
+                 "\"tun_fd_attached\":%u,"
+                 "\"read_from_tun\":%u,"
+                 "\"packets_read\":%u,"
+                 "\"packets_sent\":%u,"
+                 "\"bytes_read\":%u,"
+                 "\"bytes_sent\":%u,"
+                 "\"payload_kind\":%u,"
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"deadline_ms\":%u,"
+                 "\"bitrate_hint_kbps\":%u,"
+                 "\"sent_to_fieldmesh_adapter\":%u,"
+                 "\"rx_loopback_verified\":1,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"next_boundary\":\"fieldmesh_rf_packet_engine\"}\n",
+                 pump_report.packet.adapter_name, pump_report.tun_fd_attached,
+                 pump_report.read_from_tun, pump_report.packets_read,
+                 pump_report.packets_sent, pump_report.bytes_read,
+                 pump_report.bytes_sent,
+                 (unsigned)pump_report.packet.payload_kind,
+                 (unsigned)pump_report.packet.traffic_class,
+                 (unsigned)pump_report.packet.mode,
+                 pump_report.packet.stream_id,
+                 pump_report.packet.deadline_ms,
+                 pump_report.packet.bitrate_hint_kbps,
+                 pump_report.sent_to_fieldmesh_adapter,
+                 pump_report.uses_iio,
+                 pump_report.uses_inter_board_ip_routing);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_PLAN")) {
         fieldmesh_tun_config_t tun_config = {
             0,
@@ -620,6 +767,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_VALIDATE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_COMMIT v1") == 0 &&

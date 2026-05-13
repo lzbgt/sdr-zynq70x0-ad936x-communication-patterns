@@ -116,6 +116,7 @@ Minimum daemon messages:
 | `RTLS_REPORT` | client/daemon -> daemon | Feed GNSS/PPS, packet-timing TDOA, RSSI/SNR, or timing calibration. |
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
+| `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |
 | `TUN_APPLY_COMMIT` | client -> daemon | Apply `swarm0` only with explicit network-write authorization and rollback state. |
@@ -124,9 +125,9 @@ Minimum daemon messages:
 
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
-`FIELDMESH_TUN_PLAN`, `FIELDMESH_TUN_APPLY_VALIDATE`, guarded
-`FIELDMESH_TUN_APPLY_COMMIT` rejection, and
-`FIELDMESH_DEVICE_IIO_PLAN` shape.
+`FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
+`FIELDMESH_TUN_APPLY_VALIDATE`, guarded `FIELDMESH_TUN_APPLY_COMMIT`
+rejection, and `FIELDMESH_DEVICE_IIO_PLAN` shape.
 
 ## Capability Advertisements
 
@@ -254,6 +255,15 @@ The pure-C SDK now has an executable adapter contract for this mapping:
 daemon policy. The first demo maps control, telemetry, video base,
 enhancement, and bulk payloads to C0-C4 without using IIO or inter-board IP
 routing.
+
+The daemon-side TUN packet pump is now explicit in the pure-C SDK:
+`fieldmesh_tun_packetizer_pump_once()` accepts a read callback, packet buffer,
+and FieldMesh adapter. A production daemon can implement that callback with
+`read(tun_fd, ...)` on the board-local `/dev/net/tun` descriptor, while tests
+can feed deterministic packets without creating network state. The pump emits
+`tun_fd_attached=1`, `read_from_tun=1`, `sent_to_fieldmesh_adapter=1`, and the
+same no-IIO/no-inter-board-IP safety flags before the next boundary becomes the
+RF packet engine.
 
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh

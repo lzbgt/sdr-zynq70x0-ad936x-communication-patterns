@@ -1716,6 +1716,49 @@ fieldmesh_status_t fieldmesh_tun_packetizer_send(
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_tun_packetizer_pump_once(
+    fieldmesh_adapter_t *adapter,
+    fieldmesh_tun_read_callback_t read_packet,
+    void *read_user,
+    void *packet_buffer,
+    size_t packet_capacity,
+    fieldmesh_tun_pump_report_t *out_report)
+{
+    fieldmesh_tun_packet_report_t packet_report;
+    fieldmesh_status_t status;
+    size_t packet_len = 0u;
+
+    if (!adapter || !read_packet || !packet_buffer || packet_capacity == 0u ||
+        !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    status = read_packet(read_user, packet_buffer, packet_capacity, &packet_len);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    if (packet_len == 0u || packet_len > packet_capacity) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    status = fieldmesh_tun_packetizer_send(adapter, packet_buffer, packet_len,
+                                           &packet_report);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+
+    out_report->packet = packet_report;
+    out_report->packets_read = 1u;
+    out_report->packets_sent = 1u;
+    out_report->bytes_read = (uint32_t)packet_len;
+    out_report->bytes_sent = packet_report.packet_len;
+    out_report->tun_fd_attached = 1u;
+    out_report->read_from_tun = 1u;
+    out_report->uses_iio = 0u;
+    out_report->uses_inter_board_ip_routing = 0u;
+    out_report->sent_to_fieldmesh_adapter = packet_report.sent_to_fieldmesh_adapter;
+    return FIELDMESH_OK;
+}
+
 const char *fieldmesh_status_string(fieldmesh_status_t status)
 {
     switch (status) {
