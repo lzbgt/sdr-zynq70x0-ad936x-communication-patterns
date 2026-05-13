@@ -203,13 +203,16 @@ Next concrete work:
   windows plus a host-side assertion summary before any transfer-starting
   packet DMA test. `dma-plan` has been added as the software-only bridge from
   committed FieldMesh vectors to a concrete RX-before-TX sidecar DMA transfer
-  plan.
-- On Z203, run the first transfer-starting sidecar packet-DMA smoke test after
-  replaying `dma-plan` against the committed vector corpus. The SD/QSPI
-  FieldMesh runtime already passed `dt-scan`, read-only `ctrl-scan`,
-  read-only `dma-scan`, and `preflight_assert.json`; register reads now use
-  read-only `mmap()` for `/dev/mem` physical addresses. Keep this as the gate
-  before any RF packet experiment. `tools/run_fieldmesh_jtag_yocto_ram.sh` now
+  plan, and Z203 now passes the guarded live `dma-smoke` transfer for
+  `frame_000.bin` after the overlay bridge parser output was looped back into
+  the guarded RX byte path.
+- On Z203, keep the passed sidecar preflight plus guarded DMA smoke as the gate
+  before any RF packet experiment. The SD/QSPI FieldMesh runtime passed
+  `dt-scan`, read-only `ctrl-scan`, read-only `dma-scan`,
+  `preflight_assert.json`, `dma-plan`, and live `dma-smoke`; register reads now
+  use read-only `mmap()` for `/dev/mem` physical addresses, and the only
+  transfer-starting step requires the explicit `--allow-live-writes` flag.
+  `tools/run_fieldmesh_jtag_yocto_ram.sh` now
   prepares the matching FieldMesh bitstream/DTB/kernel/initramfs RAM-boot
   payloads for Z203 and Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the

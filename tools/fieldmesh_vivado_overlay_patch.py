@@ -92,11 +92,29 @@ ad_cpu_interrupt ps-11 mb-11 fieldmesh_ctrl/irq
 
 def render_bridge_overlay(park_byte_ports: bool) -> str:
     byte_parking = ""
+    packet_loopback = """ad_connect fieldmesh_axis_bridge/m_tx_packet_tvalid fieldmesh_axis_bridge/s_rx_packet_tvalid
+ad_connect fieldmesh_axis_bridge/s_rx_packet_tready fieldmesh_axis_bridge/m_tx_packet_tready
+ad_connect fieldmesh_axis_bridge/m_tx_packet_tdata fieldmesh_axis_bridge/s_rx_packet_tdata
+ad_connect fieldmesh_axis_bridge/m_tx_packet_tlast fieldmesh_axis_bridge/s_rx_packet_tlast
+ad_connect fieldmesh_axis_bridge/m_tx_packet_tuser_class fieldmesh_axis_bridge/s_rx_packet_tuser_class
+ad_connect fieldmesh_axis_bridge/m_tx_packet_tuser_mode fieldmesh_axis_bridge/s_rx_packet_tuser_mode
+ad_connect fieldmesh_axis_bridge/m_tx_packet_tuser_stream_id fieldmesh_axis_bridge/s_rx_packet_tuser_stream_id
+ad_connect fieldmesh_axis_bridge/m_tx_packet_tuser_slot fieldmesh_axis_bridge/s_rx_packet_tuser_slot
+"""
     if park_byte_ports:
         byte_parking = """ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tvalid
 ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tdata
 ad_connect GND fieldmesh_axis_bridge/s_tx_axis_tlast
 ad_connect VCC fieldmesh_axis_bridge/m_rx_axis_tready
+"""
+        packet_loopback = """ad_connect VCC fieldmesh_axis_bridge/m_tx_packet_tready
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tvalid
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tdata
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tlast
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_class
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_mode
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_stream_id
+ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_slot
 """
     return f"""
 {BD_BRIDGE_BEGIN}
@@ -105,14 +123,7 @@ ad_connect sys_cpu_clk fieldmesh_axis_bridge/clk
 ad_connect sys_cpu_reset fieldmesh_axis_bridge/rst
 ad_connect VCC fieldmesh_axis_bridge/enable
 {byte_parking.rstrip()}
-ad_connect VCC fieldmesh_axis_bridge/m_tx_packet_tready
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tvalid
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tdata
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tlast
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_class
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_mode
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_stream_id
-ad_connect GND fieldmesh_axis_bridge/s_rx_packet_tuser_slot
+{packet_loopback.rstrip()}
 {BD_BRIDGE_END}
 """
 

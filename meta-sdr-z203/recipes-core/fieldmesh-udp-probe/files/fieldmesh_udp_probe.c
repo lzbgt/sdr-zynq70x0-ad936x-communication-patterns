@@ -56,9 +56,13 @@ struct config {
     uint32_t ctrl_base;
     uint32_t ctrl_size;
     const char *dma_mem_file;
+    const char *preflight_assert_file;
     uint32_t tx_dma_base;
     uint32_t rx_dma_base;
     uint32_t dma_size;
+    uint32_t tx_buffer;
+    uint32_t rx_buffer;
+    bool allow_live_writes;
 };
 
 struct trace {
@@ -132,6 +136,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe ctrl-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-scan [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000] [--dma-size 0x10000] [--dma-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-plan --file FRAME.bin [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000]\n"
+        "  fieldmesh-udp-probe dma-smoke --file FRAME.bin --preflight-assert FILE --allow-live-writes [--tx-buffer ADDR] [--rx-buffer ADDR]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -173,9 +178,13 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .ctrl_base = 0x43c00000U,
         .ctrl_size = 0x10000U,
         .dma_mem_file = NULL,
+        .preflight_assert_file = NULL,
         .tx_dma_base = 0x43c10000U,
         .rx_dma_base = 0x43c20000U,
         .dma_size = 0x10000U,
+        .tx_buffer = 0x1f000000U,
+        .rx_buffer = 0x1f100000U,
+        .allow_live_writes = false,
     };
 
     if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
@@ -235,6 +244,16 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             cfg->dma_size = (uint32_t)strtoul(value, NULL, 0);
         } else if (!strcmp(argv[i], "--dma-mem-file")) {
             if (!arg_value(argc, argv, &i, &cfg->dma_mem_file)) return 2;
+        } else if (!strcmp(argv[i], "--preflight-assert")) {
+            if (!arg_value(argc, argv, &i, &cfg->preflight_assert_file)) return 2;
+        } else if (!strcmp(argv[i], "--tx-buffer")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->tx_buffer = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--rx-buffer")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->rx_buffer = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--allow-live-writes")) {
+            cfg->allow_live_writes = true;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -254,9 +273,10 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "dma-plan") &&
+        strcmp(cfg->role, "dma-smoke") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
@@ -264,6 +284,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "dma-plan") &&
+        strcmp(cfg->role, "dma-smoke") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
@@ -271,9 +292,17 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if ((!strcmp(cfg->role, "verify-frame") || !strcmp(cfg->role, "mmap-replay") ||
          !strcmp(cfg->role, "desc-replay") || !strcmp(cfg->role, "pl-replay") ||
-         !strcmp(cfg->role, "dma-plan")) &&
+         !strcmp(cfg->role, "dma-plan") || !strcmp(cfg->role, "dma-smoke")) &&
         cfg->file == NULL) {
         fprintf(stderr, "--file must be set for %s\n", cfg->role);
+        return 2;
+    }
+    if (!strcmp(cfg->role, "dma-smoke") && !cfg->allow_live_writes) {
+        fprintf(stderr, "dma-smoke requires --allow-live-writes\n");
+        return 2;
+    }
+    if (!strcmp(cfg->role, "dma-smoke") && !cfg->preflight_assert_file) {
+        fprintf(stderr, "dma-smoke requires --preflight-assert FILE\n");
         return 2;
     }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
@@ -1941,6 +1970,79 @@ struct dma_reg_expectation {
     uint32_t offset;
 };
 
+#define AXI_DMAC_REG_IRQ_PENDING 0x084U
+#define AXI_DMAC_REG_CTRL 0x400U
+#define AXI_DMAC_REG_TRANSFER_ID 0x404U
+#define AXI_DMAC_REG_START_TRANSFER 0x408U
+#define AXI_DMAC_REG_FLAGS 0x40cU
+#define AXI_DMAC_REG_DEST_ADDRESS 0x410U
+#define AXI_DMAC_REG_SRC_ADDRESS 0x414U
+#define AXI_DMAC_REG_X_LENGTH 0x418U
+#define AXI_DMAC_REG_Y_LENGTH 0x41cU
+#define AXI_DMAC_REG_DEST_STRIDE 0x420U
+#define AXI_DMAC_REG_SRC_STRIDE 0x424U
+#define AXI_DMAC_REG_TRANSFER_DONE 0x428U
+#define AXI_DMAC_CTRL_ENABLE 0x1U
+#define AXI_DMAC_FLAG_LAST 0x2U
+
+struct phys_mapping {
+    void *map;
+    size_t map_len;
+    uint8_t *ptr;
+};
+
+static bool map_physical_window(int fd, uint32_t phys, size_t len, int prot,
+                                struct phys_mapping *mapping)
+{
+    long page_size = sysconf(_SC_PAGESIZE);
+    uint32_t page_mask;
+    off_t page_base;
+    size_t page_offset;
+    size_t map_len;
+
+    if (page_size <= 0 || len == 0) {
+        return false;
+    }
+    page_mask = (uint32_t)page_size - 1U;
+    page_base = (off_t)(phys & ~page_mask);
+    page_offset = (size_t)(phys - (uint32_t)page_base);
+    map_len = page_offset + len;
+    map_len = (map_len + (size_t)page_size - 1U) & ~((size_t)page_size - 1U);
+
+    mapping->map = mmap(NULL, map_len, prot, MAP_SHARED, fd, page_base);
+    if (mapping->map == MAP_FAILED) {
+        mapping->map = NULL;
+        mapping->map_len = 0;
+        mapping->ptr = NULL;
+        return false;
+    }
+    mapping->map_len = map_len;
+    mapping->ptr = (uint8_t *)mapping->map + page_offset;
+    return true;
+}
+
+static void unmap_physical_window(struct phys_mapping *mapping)
+{
+    if (mapping->map) {
+        munmap(mapping->map, mapping->map_len);
+    }
+    mapping->map = NULL;
+    mapping->map_len = 0;
+    mapping->ptr = NULL;
+}
+
+static uint32_t dma_reg_read(const struct phys_mapping *regs, uint32_t offset)
+{
+    volatile uint32_t *reg = (volatile uint32_t *)(void *)(regs->ptr + offset);
+    return *reg;
+}
+
+static void dma_reg_write(const struct phys_mapping *regs, uint32_t offset, uint32_t value)
+{
+    volatile uint32_t *reg = (volatile uint32_t *)(void *)(regs->ptr + offset);
+    *reg = value;
+}
+
 static bool read_dma_reg(int fd, bool file_backed, uint32_t file_base, uint32_t phys_base,
                          uint32_t offset, uint32_t *value)
 {
@@ -2114,6 +2216,225 @@ out:
     return ok ? 0 : 1;
 }
 
+static bool preflight_assert_file_ok(const char *path, char *err, size_t err_len)
+{
+    char buf[4096];
+    FILE *fp = fopen(path, "rb");
+    size_t got;
+
+    if (!fp) {
+        snprintf(err, err_len, "open preflight assert: %s", strerror(errno));
+        return false;
+    }
+    got = fread(buf, 1, sizeof(buf) - 1U, fp);
+    if (ferror(fp)) {
+        snprintf(err, err_len, "read preflight assert: %s", strerror(errno));
+        fclose(fp);
+        return false;
+    }
+    fclose(fp);
+    buf[got] = '\0';
+
+    if (!strstr(buf, "\"event\":\"fieldmesh_sidecar_preflight_assert\"") &&
+        !strstr(buf, "\"event\": \"fieldmesh_sidecar_preflight_assert\"")) {
+        snprintf(err, err_len, "preflight assert event missing");
+        return false;
+    }
+    if (!strstr(buf, "\"ok\":true") && !strstr(buf, "\"ok\": true")) {
+        snprintf(err, err_len, "preflight assert is not ok");
+        return false;
+    }
+    if (!strstr(buf, "\"ctrl_id\":\"0x464d1001\"") &&
+        !strstr(buf, "\"ctrl_id\": \"0x464d1001\"")) {
+        snprintf(err, err_len, "preflight control ID missing");
+        return false;
+    }
+    return true;
+}
+
+static bool poll_dma_done(const struct phys_mapping *regs, uint32_t transfer_id, int timeout_ms,
+                          int *polls, uint32_t *done_value)
+{
+    uint32_t mask = 1U << (transfer_id & 31U);
+    struct timespec delay = {.tv_sec = 0, .tv_nsec = 1000000L};
+
+    for (int i = 0; i < timeout_ms; i++) {
+        uint32_t done = dma_reg_read(regs, AXI_DMAC_REG_TRANSFER_DONE);
+        *done_value = done;
+        *polls = i + 1;
+        if (done & mask) {
+            return true;
+        }
+        nanosleep(&delay, NULL);
+    }
+    return false;
+}
+
+static int run_dma_smoke(const struct config *cfg)
+{
+    uint8_t frame[MAX_FRAME + 1U];
+    size_t frame_len = 0;
+    uint16_t packet_len = 0;
+    uint32_t transport_seq = 0;
+    uint32_t frame_crc = 0;
+    uint32_t aligned_bytes = 0;
+    const uint8_t *packet = frame + FIELD_MESH_FRAME_LEN;
+    struct phys_mapping tx_regs = {0};
+    struct phys_mapping rx_regs = {0};
+    struct phys_mapping tx_buf = {0};
+    struct phys_mapping rx_buf = {0};
+    uint32_t tx_id = 0;
+    uint32_t rx_id = 0;
+    uint32_t tx_done_value = 0;
+    uint32_t rx_done_value = 0;
+    int tx_polls = 0;
+    int rx_polls = 0;
+    uint32_t rx_crc = 0;
+    bool tx_done = false;
+    bool rx_done = false;
+    bool rx_match = false;
+    bool ok = false;
+    int fd = -1;
+    char err[160] = {0};
+
+    printf("{\"event\":\"dma_smoke_start\",\"transport\":\"dma-smoke\","
+           "\"file\":\"%s\",\"preflight_assert\":\"%s\","
+           "\"tx_dma_base\":\"0x%08x\",\"rx_dma_base\":\"0x%08x\","
+           "\"tx_buffer\":\"0x%08x\",\"rx_buffer\":\"0x%08x\","
+           "\"writes_registers\":true,\"starts_transfer\":true,"
+           "\"allow_live_writes\":%s}\n",
+           cfg->file, cfg->preflight_assert_file, cfg->tx_dma_base,
+           cfg->rx_dma_base, cfg->tx_buffer, cfg->rx_buffer,
+           cfg->allow_live_writes ? "true" : "false");
+
+    if (!preflight_assert_file_ok(cfg->preflight_assert_file, err, sizeof(err))) {
+        goto out;
+    }
+    if (!read_frame_file(cfg->file, frame, sizeof(frame), &frame_len, err, sizeof(err))) {
+        goto out;
+    }
+    if (frame_len > MAX_FRAME) {
+        snprintf(err, sizeof(err), "transport frame too large");
+        goto out;
+    }
+    if (frame_len >= FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
+        packet_len = get_le16(frame + 2);
+        transport_seq = get_le32(frame + 4);
+        if (frame_len >= FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+            frame_crc = get_le32(frame + FIELD_MESH_FRAME_LEN + packet_len);
+        }
+    }
+    if (!decode_frame(frame, frame_len, err, sizeof(err))) {
+        goto out;
+    }
+    aligned_bytes = (uint32_t)((packet_len + 1U) & ~1U);
+    if (aligned_bytes == 0U || aligned_bytes > DESC_MODEL_PACKET_STRIDE) {
+        snprintf(err, sizeof(err), "packet length outside smoke buffer stride");
+        goto out;
+    }
+
+    fd = open("/dev/mem", O_RDWR | O_SYNC);
+    if (fd < 0) {
+        snprintf(err, sizeof(err), "open /dev/mem: %s", strerror(errno));
+        goto out;
+    }
+    if (!map_physical_window(fd, cfg->tx_dma_base, 0x454U, PROT_READ | PROT_WRITE, &tx_regs) ||
+        !map_physical_window(fd, cfg->rx_dma_base, 0x454U, PROT_READ | PROT_WRITE, &rx_regs) ||
+        !map_physical_window(fd, cfg->tx_buffer, aligned_bytes, PROT_READ | PROT_WRITE, &tx_buf) ||
+        !map_physical_window(fd, cfg->rx_buffer, aligned_bytes, PROT_READ | PROT_WRITE, &rx_buf)) {
+        snprintf(err, sizeof(err), "map /dev/mem: %s", strerror(errno));
+        goto out;
+    }
+
+    if (dma_reg_read(&tx_regs, 0x0cU) != 0x444d4143U ||
+        dma_reg_read(&rx_regs, 0x0cU) != 0x444d4143U) {
+        snprintf(err, sizeof(err), "sidecar DMA magic mismatch");
+        goto out;
+    }
+
+    memcpy(tx_buf.ptr, packet, packet_len);
+    if (aligned_bytes > packet_len) {
+        memset(tx_buf.ptr + packet_len, 0, aligned_bytes - packet_len);
+    }
+    memset(rx_buf.ptr, 0xa5, aligned_bytes);
+    msync(tx_buf.map, tx_buf.map_len, MS_SYNC);
+    msync(rx_buf.map, rx_buf.map_len, MS_SYNC);
+
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
+
+    rx_id = dma_reg_read(&rx_regs, AXI_DMAC_REG_TRANSFER_ID) & 31U;
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_DEST_ADDRESS, cfg->rx_buffer);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_DEST_STRIDE, 0);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_X_LENGTH, aligned_bytes - 1U);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_Y_LENGTH, 0);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_FLAGS, AXI_DMAC_FLAG_LAST);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_START_TRANSFER, 1);
+
+    tx_id = dma_reg_read(&tx_regs, AXI_DMAC_REG_TRANSFER_ID) & 31U;
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_SRC_ADDRESS, cfg->tx_buffer);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_SRC_STRIDE, 0);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_X_LENGTH, aligned_bytes - 1U);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_Y_LENGTH, 0);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_FLAGS, AXI_DMAC_FLAG_LAST);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_START_TRANSFER, 1);
+
+    printf("{\"event\":\"dma_smoke_submit\",\"transport\":\"dma-smoke\","
+           "\"rx_armed_before_tx\":true,\"rx_transfer_id\":%u,"
+           "\"tx_transfer_id\":%u,\"packet_len\":%u,\"aligned_bytes\":%u}\n",
+           rx_id, tx_id, packet_len, aligned_bytes);
+
+    rx_done = poll_dma_done(&rx_regs, rx_id, cfg->timeout_ms, &rx_polls, &rx_done_value);
+    tx_done = poll_dma_done(&tx_regs, tx_id, cfg->timeout_ms, &tx_polls, &tx_done_value);
+    msync(rx_buf.map, rx_buf.map_len, MS_SYNC);
+    rx_crc = fieldmesh_crc32(rx_buf.ptr, packet_len);
+    rx_match = rx_done && tx_done && !memcmp(rx_buf.ptr, packet, packet_len);
+    ok = rx_match;
+
+    printf("{\"event\":\"dma_smoke_poll\",\"transport\":\"dma-smoke\","
+           "\"rx_done\":%s,\"tx_done\":%s,\"rx_polls\":%d,\"tx_polls\":%d,"
+           "\"rx_done_value\":\"0x%08x\",\"tx_done_value\":\"0x%08x\"}\n",
+           rx_done ? "true" : "false", tx_done ? "true" : "false",
+           rx_polls, tx_polls, rx_done_value, tx_done_value);
+    printf("{\"event\":\"packet_trace\",\"transport\":\"dma-smoke\","
+           "\"epoch\":%u,\"slot\":%u,\"mode\":\"%s\","
+           "\"src_node\":\"%s\",\"dst_node\":\"%s\",\"stream_id\":%u,"
+           "\"traffic_class\":\"%s\",\"sequence\":%u,\"payload_len\":%u,"
+           "\"rx_transport_seq\":%u,\"rx_frame_crc\":%u}\n",
+           get_le32(packet + 18), get_le16(packet + 22), mode_name(packet[15]),
+           node_name(get_le16(packet + 8)), node_name(get_le16(packet + 10)),
+           get_le16(packet + 12), class_name(packet[14]), get_le32(packet + 24),
+           get_le16(packet + 28), transport_seq, frame_crc);
+
+out:
+    if (tx_regs.map) {
+        dma_reg_write(&tx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+    }
+    if (rx_regs.map) {
+        dma_reg_write(&rx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+    }
+    printf("{\"event\":\"dma_smoke_end\",\"transport\":\"dma-smoke\","
+           "\"ok\":%s,\"packet_len\":%u,\"aligned_bytes\":%u,"
+           "\"transport_seq\":%u,\"expected_crc\":%u,\"rx_crc\":%u,"
+           "\"rx_match\":%s,\"error\":%s}\n",
+           ok ? "true" : "false", packet_len, aligned_bytes, transport_seq,
+           frame_crc, rx_crc, rx_match ? "true" : "false",
+           ok ? "null" : "\"dma smoke failed\"");
+    unmap_physical_window(&tx_regs);
+    unmap_physical_window(&rx_regs);
+    unmap_physical_window(&tx_buf);
+    unmap_physical_window(&rx_buf);
+    if (fd >= 0) {
+        close(fd);
+    }
+    if (!ok && err[0]) {
+        fprintf(stderr, "%s\n", err);
+    }
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -2165,6 +2486,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "dma-plan")) {
         return run_dma_plan(&cfg);
+    }
+    if (!strcmp(cfg.role, "dma-smoke")) {
+        return run_dma_smoke(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);

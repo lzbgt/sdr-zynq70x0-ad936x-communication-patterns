@@ -418,6 +418,10 @@ user and vendor configuration.
   sidecar preflight that runs board-local `dt-scan`, read-only `ctrl-scan`,
   and read-only `dma-scan`, then emits a single assertion summary before any
   packet DMA smoke test starts transfers.
+- `tools/run_fieldmesh_board_dma_smoke.sh` - SSH-driven guarded sidecar DMA
+  smoke runner that reruns the board sidecar preflight, copies a committed
+  FieldMesh frame vector to the board, records `dma-plan`, and only then starts
+  a live RX-before-TX DMA transfer with an explicit `--allow-live-writes` gate.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
@@ -526,7 +530,9 @@ user and vendor configuration.
   `fieldmesh_ctrl` BD module/address/IRQ wiring to copied `system_bd.tcl`;
   `--bridge-overlay` also instantiates the parked `fieldmesh_axis_bridge`
   byte-pipe endpoint; `--dma-overlay` adds provisional sidecar ADI `axi_dmac`
-  TX/RX packet DMAs through the 16-bit-to-byte adapter.
+  TX/RX packet DMAs through the 16-bit-to-byte adapter and loops the bridge
+  parser output back into the guarded RX path for the first non-RF packet-DMA
+  transfer gate.
 - `tools/check_fieldmesh_control_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the FieldMesh control overlay, and runs Vivado project/BD
   generation checks without synthesis to prove the `fieldmesh_ctrl` cell,
@@ -660,7 +666,9 @@ Expected result in the current Pluto-compatible firmware state:
    verified SD/QSPI boot path with the matched FieldMesh bitstream, devicetree,
    kernel, and Yocto initramfs. The live board passes ping, IIO, HTTP,
    `dt-scan`, read-only `ctrl-scan`, read-only `dma-scan`, and the sidecar
-   preflight assertion.
+   preflight assertion. It also passes the first guarded sidecar DMA smoke:
+   `frame_000.bin` transfers through the sidecar TX DMA, byte parser/guard
+   loopback, and sidecar RX DMA with matching packet CRC.
 3. Power both boards, keep the 2R2T board connected to this host, then run the
    communication-pattern experiments. Both firmwares should boot as passive
    learners; applications or users can command any board to become the proactive
@@ -688,9 +696,9 @@ Expected result in the current Pluto-compatible firmware state:
    asserts all three live captures into `preflight_assert.json` before starting
    transfers. The Z203 SD/QSPI FieldMesh runtime now proves those preflights on
    hardware after switching `/dev/mem` register reads from raw `pread()` to
-   read-only `mmap()` for physical addresses. Next execute a transfer-starting
-   sidecar DMA smoke test only after the dry-run plan is replayed against the
-   current vector corpus. The first live Z103
+   read-only `mmap()` for physical addresses, and the first live sidecar DMA
+   smoke passes after wiring the DMA overlay's parser output back through the
+   guarded RX byte path. The first live Z103
    FieldMesh live-gate capture is archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203710/`;
    it passed artifact preparation and TAP-level JTAG scan, then failed at the

@@ -2460,6 +2460,48 @@ application/user `command --mode star` promoted the receiver toward proactive
 mode negotiation, and the Z203 listener ended with `selected_mode=star` and
 `reason=user_or_application_command`.
 
+## Z203 FieldMesh Sidecar DMA Smoke
+
+The first transfer-starting sidecar DMA smoke exposed one integration bug: the
+TX DMA path reached the bridge parser, but the parser output was still parked
+instead of being looped into the guarded RX byte path. That left RX DMA armed
+with no incoming stream, so `rx_done=false` while TX completed.
+
+The Vivado overlay patcher now wires `fieldmesh_axis_bridge/m_tx_packet_*` back
+to `fieldmesh_axis_bridge/s_rx_packet_*` when `--dma-overlay` is used. This
+keeps the first live test non-RF and verifies the sidecar packet-DMA path
+through TX DMA, 16-bit/8-bit adaptation, packet-header parsing, header guard,
+and RX DMA.
+
+Both corrected copied overlays rebuilt timing-clean:
+
+```text
+Z203 bitstream: 4b8689a9bc408158225b7043a3c09a71cb4d8c2b24168f2a47b90d99acdb460a
+Z203 XSA:       c139bf757980d24908d928be79f0cc418f743c87af8891ca8773ae4af4a6d83c
+Z103 bitstream: f9b6983ca7569b529438ad149594e8037f3c64e01a15a4b5a357ec725ba97908
+Z103 XSA:       debc8738b21ff7f0bede57b81bf36221b4b2aae3cd4867458ce322c4a0a8cb91
+```
+
+After regenerating matched packages and restaging the Z203 SD boot files, the
+board passed:
+
+```sh
+SSH_PASS=analog TIMEOUT_MS=5000 \
+  ./tools/run_fieldmesh_board_dma_smoke.sh \
+  192.168.2.1 resources/fieldmesh/vectors/frame_000.bin \
+  .config/fieldmesh/z203-dma-smoke-20260513-215806
+```
+
+The capture reports:
+
+```json
+{"event":"fieldmesh_board_dma_smoke_assert","ok":true,
+ "packet_len":64,"rx_crc":2646482743,"transport_seq":0}
+```
+
+Committed capture:
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_dma_smoke_20260513-215806/`
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

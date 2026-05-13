@@ -367,6 +367,25 @@ the required order: arm RX before TX, start RX before TX, then verify the RX
 packet CRC. It is intentionally non-destructive: it does not open `/dev/mem`,
 write DMA registers, or start a transfer.
 
+The transfer-starting smoke is deliberately guarded:
+
+```sh
+fieldmesh-udp-probe dma-smoke \
+  --file resources/fieldmesh/vectors/frame_000.bin \
+  --preflight-assert preflight_assert.json \
+  --allow-live-writes
+```
+
+`dma-smoke` refuses to run without a green sidecar preflight assertion and the
+explicit live-write flag. It maps the TX/RX sidecar DMA controls plus reserved
+DDR packet buffers, arms RX before TX, starts both channels, and verifies the RX
+packet bytes and CRC against the committed vector.
+
+On 2026-05-13 the first live Z203 smoke passed after the DMA overlay was fixed
+to loop the bridge parser output back into the guarded RX byte path. The
+committed capture is under
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_dma_smoke_20260513-215806/`.
+
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:
 
