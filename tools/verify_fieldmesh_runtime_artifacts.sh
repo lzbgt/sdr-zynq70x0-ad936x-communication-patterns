@@ -143,6 +143,8 @@ verify_variant() {
         FIELDMESH_STATE_RTLS \
         FIELDMESH_SWARM_ADAPTER \
         FIELDMESH_TUN_PLAN \
+        FIELDMESH_TUN_APPLY_VALIDATE \
+        FIELDMESH_TUN_APPLY_COMMIT \
         FIELDMESH_DEVICE_IIO_PLAN \
         sdk_daemon_ap_browse \
         sdk_daemon_ap_election \
@@ -151,6 +153,8 @@ verify_variant() {
         sdk_daemon_rtls_state \
         sdk_daemon_swarm_adapter \
         sdk_daemon_tun_plan \
+        sdk_daemon_tun_apply \
+        sdk_daemon_tun_apply_rejected \
         sdk_daemon_iio_bridge_plan \
         020000000203 \
         020000000103; do
@@ -175,8 +179,11 @@ verify_variant() {
     for token in \
         sdk_tun_gateway_plan \
         sdk_tun_gateway_command \
+        sdk_tun_gateway_apply \
+        sdk_tun_gateway_rollback_command \
         swarm0 \
         creates_tun_on_board \
+        writes_network \
         uses_inter_board_ip_routing \
         020000000103; do
         if ! grep -qF "$token" "$tun_gateway_strings_out"; then

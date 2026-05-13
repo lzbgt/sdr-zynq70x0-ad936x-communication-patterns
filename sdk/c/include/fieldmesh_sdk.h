@@ -20,6 +20,8 @@ extern "C" {
 #define FIELDMESH_DEVICE_TEXT_MAX 96
 #define FIELDMESH_ADAPTER_NAME_TEXT_MAX 32
 #define FIELDMESH_ADAPTER_DEFAULT_MTU 1500u
+#define FIELDMESH_TUN_APPLY_VALIDATE_ONLY 0x00000001u
+#define FIELDMESH_TUN_APPLY_ALLOW_NETWORK_WRITES 0x00000002u
 #define FIELDMESH_PROFILE_APPLY_PERSIST 0x00000001u
 
 typedef struct fieldmesh_context fieldmesh_context_t;
@@ -380,6 +382,20 @@ typedef struct fieldmesh_tun_plan {
     uint8_t command_count;
 } fieldmesh_tun_plan_t;
 
+typedef struct fieldmesh_tun_apply_report {
+    fieldmesh_tun_plan_t plan;
+    char rollback_hint[FIELDMESH_ADDR_TEXT_MAX];
+    uint32_t flags;
+    uint8_t accepted;
+    uint8_t dry_run;
+    uint8_t live_writes_requested;
+    uint8_t live_writes_authorized;
+    uint8_t commands_executed;
+    uint8_t writes_network;
+    uint8_t rollback_available;
+    uint8_t rollback_command_count;
+} fieldmesh_tun_apply_report_t;
+
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
 typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
@@ -506,6 +522,10 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
 fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
                                               const fieldmesh_tun_config_t *config,
                                               fieldmesh_tun_plan_t *out_plan);
+fieldmesh_status_t fieldmesh_apply_tun_adapter(fieldmesh_session_t *session,
+                                               const fieldmesh_tun_config_t *config,
+                                               uint32_t flags,
+                                               fieldmesh_tun_apply_report_t *out_report);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

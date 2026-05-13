@@ -36,6 +36,7 @@ int main(void)
         .mtu_bytes = 1200,
     };
     fieldmesh_tun_plan_t plan;
+    fieldmesh_tun_apply_report_t apply;
 
     strcpy(join.ap_id, "020000000203");
     strcpy(join.network_id, "fieldmesh-lab");
@@ -46,7 +47,11 @@ int main(void)
         require_ok(fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
                                           "tun-gateway-demo"), "request_mode") ||
         require_ok(fieldmesh_plan_tun_adapter(session, &tun, &plan),
-                   "plan_tun_adapter")) {
+                   "plan_tun_adapter") ||
+        require_ok(fieldmesh_apply_tun_adapter(session, &tun,
+                                               FIELDMESH_TUN_APPLY_VALIDATE_ONLY,
+                                               &apply),
+                   "apply_tun_adapter_validate")) {
         fieldmesh_context_destroy(ctx);
         return 1;
     }
@@ -86,6 +91,22 @@ int main(void)
            "\"order\":3,\"command\":\"ip link set swarm0 mtu 1200 up\"}\n");
     printf("{\"event\":\"sdk_tun_gateway_command\","
            "\"order\":4,\"command\":\"ip route add 10.77.2.0/24 dev swarm0\"}\n");
+    printf("{\"event\":\"sdk_tun_gateway_apply\","
+           "\"accepted\":%u,"
+           "\"dry_run\":%u,"
+           "\"live_writes_requested\":%u,"
+           "\"live_writes_authorized\":%u,"
+           "\"commands_executed\":%u,"
+           "\"writes_network\":%u,"
+           "\"rollback_available\":%u,"
+           "\"rollback_command_count\":%u}\n",
+           apply.accepted, apply.dry_run, apply.live_writes_requested,
+           apply.live_writes_authorized, apply.commands_executed,
+           apply.writes_network, apply.rollback_available,
+           apply.rollback_command_count);
+    printf("{\"event\":\"sdk_tun_gateway_rollback_command\","
+           "\"order\":1,\"command\":\"%s\"}\n",
+           apply.rollback_hint);
 
     (void)fieldmesh_leave(session);
     fieldmesh_context_destroy(ctx);

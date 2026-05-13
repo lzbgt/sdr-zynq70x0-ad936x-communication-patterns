@@ -58,6 +58,8 @@ in `src/fieldmesh_sdk.c`:
   plan. It reports the board-local `swarm0` address, remote mesh CIDR,
   destination device EUI, selected RF route, MTU, safety flags, and planned
   `ip tuntap`/address/link/route commands without creating a live interface.
+  It also validates the apply/rollback contract while keeping
+  `commands_executed=0` and `writes_network=0`.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and

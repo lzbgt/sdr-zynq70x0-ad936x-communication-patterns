@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 8 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 10 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -176,8 +176,10 @@ join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_adapter"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
+tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
+tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 8 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 10 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -213,6 +215,19 @@ if tun_plan[0].get("requires_cap_net_admin") != 1 or tun_plan[0].get("command_co
 for key in ("uses_tap", "uses_iio", "uses_inter_board_ip_routing"):
     if tun_plan[0].get(key) != 0:
         raise SystemExit(f"SDK daemon TUN plan key {key} must be 0")
+if not tun_apply or tun_apply[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon TUN apply validation failed")
+if tun_apply[0].get("accepted") != 1 or tun_apply[0].get("dry_run") != 1:
+    raise SystemExit("SDK daemon TUN apply validation must be accepted dry-run")
+for key in ("live_writes_requested", "live_writes_authorized", "commands_executed", "writes_network"):
+    if tun_apply[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon TUN dry-run key {key} must be 0")
+if tun_apply[0].get("rollback_available") != 1 or tun_apply[0].get("rollback_command_count") != 1:
+    raise SystemExit("SDK daemon TUN apply must expose rollback")
+if not tun_reject or tun_reject[0].get("reason") != "missing_allow_network_writes":
+    raise SystemExit("SDK daemon TUN unguarded commit was not rejected")
+if tun_reject[0].get("commands_executed") != 0 or tun_reject[0].get("writes_network") != 0:
+    raise SystemExit("SDK daemon TUN rejected commit must not execute commands")
 if not iio_bridge or iio_bridge[0].get("sdk_layer") != "local_iio_device":
     raise SystemExit("SDK daemon IIO bridge plan query failed")
 if iio_bridge[0].get("served_over") != "host_eth_ip":
@@ -298,6 +313,8 @@ import sys
 events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
 plans = [event for event in events if event.get("event") == "sdk_tun_gateway_plan"]
 commands = [event for event in events if event.get("event") == "sdk_tun_gateway_command"]
+applies = [event for event in events if event.get("event") == "sdk_tun_gateway_apply"]
+rollback = [event for event in events if event.get("event") == "sdk_tun_gateway_rollback_command"]
 if not plans:
     raise SystemExit("TUN gateway demo did not emit a plan")
 plan = plans[0]
@@ -322,6 +339,15 @@ if len(commands) != 4:
     raise SystemExit("TUN gateway did not emit the expected command plan")
 if not any("ip tuntap add dev swarm0 mode tun" in event.get("command", "") for event in commands):
     raise SystemExit("TUN gateway missing tuntap command")
+if not applies or applies[0].get("accepted") != 1 or applies[0].get("dry_run") != 1:
+    raise SystemExit("TUN gateway did not validate apply as dry-run")
+for key in ("live_writes_requested", "live_writes_authorized", "commands_executed", "writes_network"):
+    if applies[0].get(key) != 0:
+        raise SystemExit(f"TUN gateway apply key {key} must be 0")
+if applies[0].get("rollback_available") != 1 or applies[0].get("rollback_command_count") != 1:
+    raise SystemExit("TUN gateway apply did not expose rollback")
+if not rollback or rollback[0].get("command") != "ip link delete swarm0":
+    raise SystemExit("TUN gateway rollback command failed")
 PY
 
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \

@@ -88,6 +88,18 @@ int main(void)
         .creates_tun_on_board = 1,
         .requires_cap_net_admin = 1,
     };
+    fieldmesh_tun_apply_report_t tun_apply = {
+        .plan = {
+            .adapter_name = "swarm0",
+            .creates_tun_on_board = 1,
+            .requires_cap_net_admin = 1,
+        },
+        .rollback_hint = "ip link delete swarm0",
+        .flags = FIELDMESH_TUN_APPLY_VALIDATE_ONLY,
+        .accepted = 1,
+        .dry_run = 1,
+        .rollback_available = 1,
+    };
     fieldmesh_device_profile_t device = {
         .center_frequency_hz = 2400000000ull,
         .sample_rate_hz = 1000000,
@@ -118,6 +130,7 @@ int main(void)
     (void)adapter_packet;
     (void)tun;
     (void)tun_plan;
+    (void)tun_apply;
     (void)device;
     (void)device_report;
     (void)iio_plan;

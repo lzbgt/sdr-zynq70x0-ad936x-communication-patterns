@@ -2286,20 +2286,23 @@ flow demos are now also packaged as `/usr/bin/fieldmeshctl`,
 `/usr/bin/fieldmesh-two-pc-flow-demo` in both developer images. Their rootfs
 strings include `fieldmeshctl_profile_*`, AP browse/election/join,
 `FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`,
-`FIELDMESH_SWARM_ADAPTER`, `FIELDMESH_TUN_PLAN`, AP/peer/RTLS response tags,
-`sdk_daemon_swarm_adapter`, `sdk_daemon_tun_plan`, `sdk_swarm_adapter_*`,
-`sdk_tun_gateway_*`, `swarm0`, `packet_stream`, and the two-PC
+`FIELDMESH_SWARM_ADAPTER`, `FIELDMESH_TUN_PLAN`,
+`FIELDMESH_TUN_APPLY_VALIDATE`, `FIELDMESH_TUN_APPLY_COMMIT`, AP/peer/RTLS
+response tags, `sdk_daemon_swarm_adapter`, `sdk_daemon_tun_plan`,
+`sdk_daemon_tun_apply`, `sdk_daemon_tun_apply_rejected`,
+`sdk_swarm_adapter_*`, `sdk_tun_gateway_*`, `swarm0`, `packet_stream`, and
+the two-PC
 join/stream-flow response tags. Refreshed rootfs and package hashes after
-wiring the daemon `FIELDMESH_TUN_PLAN` query and packaging the routed TUN
-gateway plan demo:
+wiring the daemon `FIELDMESH_TUN_APPLY_VALIDATE` query, guarded commit
+rejection, and packaging the routed TUN gateway apply-validation demo:
 
 ```text
-z203 rootfs.cpio.gz 29ad0ccd0789c7096f9377f017210dff0bace68603d50353dfc924d5ab11bafc
-z203 rootfs.tar.gz  8ad48d1b558a83f82aca0c80735d079412202d36e1b33f396c22aba8433ee67c
-z103 rootfs.cpio.gz b1da7929e6259fd1d392ff779f1ad8ba998011083bbd0b41c0c9a00e19e58aec
-z103 rootfs.tar.gz  ebff28b18aea58c4624d22367088360aab1a00944837cf2f3f46c4a3133d1d17
-z203 pluto.frm      18cccd9e1354c1552d4961cbbbbc7494138184e5b7aef4a1a224c488b0555b5e
-z103 pluto.frm      2c5860ec588b9987e18b4843c94762a2c03297d35a72976cac13340a2bfea929
+z203 rootfs.cpio.gz 5e4adffcee3c62725bc4eb15c5bb9bf364b0137d9c3d2903e5314442532c3dcd
+z203 rootfs.tar.gz  cbd55fcfaf0ec31fe91c4e41fe7748c19652d83327a70cf9e5de376d1b58b3be
+z103 rootfs.cpio.gz 129426e163258d82337a883628de8f17dccf8ab2bb59ca942783227a8dfeeed3
+z103 rootfs.tar.gz  3c742101239042cd4073bfa3ae455a8ee84d11beb1f18fe17416c6aeb050012a
+z203 pluto.frm      1792c97445a7560b316c72f0580b7274bad2cc6b77054041c924b922907da236
+z103 pluto.frm      ac20c0bb23540fa3514e14d34de1f22b46ccc2847cede446e03258edf821e2a1
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -3021,16 +3024,16 @@ therefore explicit and auditable.
 Refreshed runtime artifact hashes after adding the TUN gateway planning API:
 
 ```text
-Z203 rootfs.cpio.gz: 29ad0ccd0789c7096f9377f017210dff0bace68603d50353dfc924d5ab11bafc
-Z203 rootfs.tar.gz:  8ad48d1b558a83f82aca0c80735d079412202d36e1b33f396c22aba8433ee67c
-Z203 pluto.frm:      18cccd9e1354c1552d4961cbbbbc7494138184e5b7aef4a1a224c488b0555b5e
-Z203 pluto.itb:      d71d7c8d165f68e2d9f5e5f8b8db14c8ab41ac64b85d6011990ce13eee3137e2
-Z203 jtag ramdisk:   e13f752eeb99a13e865864c6bb3cbb216a4815f9cf835549ef9ee66d469830a7
-Z103 rootfs.cpio.gz: b1da7929e6259fd1d392ff779f1ad8ba998011083bbd0b41c0c9a00e19e58aec
-Z103 rootfs.tar.gz:  ebff28b18aea58c4624d22367088360aab1a00944837cf2f3f46c4a3133d1d17
-Z103 pluto.frm:      2c5860ec588b9987e18b4843c94762a2c03297d35a72976cac13340a2bfea929
-Z103 pluto.itb:      c86d76cccab6ca65a605eac25c0686d0e53a1fe8d570155cf60c52285c11aab5
-Z103 jtag ramdisk:   c8cec36f3718053331cc69241698a92e2db94fe82660b088427b4c9a664f7bb2
+Z203 rootfs.cpio.gz: 5e4adffcee3c62725bc4eb15c5bb9bf364b0137d9c3d2903e5314442532c3dcd
+Z203 rootfs.tar.gz:  cbd55fcfaf0ec31fe91c4e41fe7748c19652d83327a70cf9e5de376d1b58b3be
+Z203 pluto.frm:      1792c97445a7560b316c72f0580b7274bad2cc6b77054041c924b922907da236
+Z203 pluto.itb:      4ae02e23a05fa4c3b28bda6e7507cae6624e98926bc7b073ba1ae718d6d11090
+Z203 jtag ramdisk:   78df2f439d7a660b8d3ab129ef1dcd0ca5827543880dc5cc9311ccfb1989b985
+Z103 rootfs.cpio.gz: 129426e163258d82337a883628de8f17dccf8ab2bb59ca942783227a8dfeeed3
+Z103 rootfs.tar.gz:  3c742101239042cd4073bfa3ae455a8ee84d11beb1f18fe17416c6aeb050012a
+Z103 pluto.frm:      ac20c0bb23540fa3514e14d34de1f22b46ccc2847cede446e03258edf821e2a1
+Z103 pluto.itb:      4158cebc386136636705e1f8f37bc94bc58eee024d6b9761865fca265305b418
+Z103 jtag ramdisk:   08eecd4849c8e74a8bfc54876c5617c1fe3d965a89d8d53bcce6b12c1df475fe
 ```
 
 ## FieldMesh RTLS Positioning Gate

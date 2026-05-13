@@ -117,12 +117,15 @@ Minimum daemon messages:
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
+| `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |
+| `TUN_APPLY_COMMIT` | client -> daemon | Apply `swarm0` only with explicit network-write authorization and rollback state. |
 | `DEVICE_IIO_PLAN` | client -> daemon | Plan guarded local IIO/RF action without executing. |
 | `DEVICE_IIO_EXECUTE` | client -> daemon | Execute guarded local IIO action only under policy and explicit approval. |
 
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
-`FIELDMESH_TUN_PLAN`, and
+`FIELDMESH_TUN_PLAN`, `FIELDMESH_TUN_APPLY_VALIDATE`, guarded
+`FIELDMESH_TUN_APPLY_COMMIT` rejection, and
 `FIELDMESH_DEVICE_IIO_PLAN` shape.
 
 ## Capability Advertisements
@@ -261,6 +264,15 @@ Zynq side. The current implementation is deliberately plan-only: it marks
 `uses_iio=0`, and `uses_inter_board_ip_routing=0`. Actual `ip tuntap`,
 address, link, and route commands require a later live-safe daemon operation
 with rollback and explicit privilege checks.
+
+The first apply contract is also checked, but it still performs no network
+writes by default. `fieldmesh_apply_tun_adapter()` validates the planned TUN
+operation, exposes rollback state (`ip link delete swarm0` for the current
+single-interface MVP), and reports `commands_executed=0` and
+`writes_network=0` in dry-run mode. The daemon rejects an unguarded
+`FIELDMESH_TUN_APPLY_COMMIT`; a future live path must require explicit
+network-write authorization, CAP_NET_ADMIN or equivalent privilege, captured
+pre-state, and rollback before it executes any command.
 
 Camera demo target:
 

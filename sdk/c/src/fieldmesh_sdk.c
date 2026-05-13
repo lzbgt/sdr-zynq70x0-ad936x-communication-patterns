@@ -1558,6 +1558,41 @@ fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_apply_tun_adapter(fieldmesh_session_t *session,
+                                               const fieldmesh_tun_config_t *config,
+                                               uint32_t flags,
+                                               fieldmesh_tun_apply_report_t *out_report)
+{
+    fieldmesh_tun_plan_t plan;
+    uint8_t validate_only = (flags & FIELDMESH_TUN_APPLY_VALIDATE_ONLY) != 0u;
+    uint8_t allow_writes = (flags & FIELDMESH_TUN_APPLY_ALLOW_NETWORK_WRITES) != 0u;
+
+    if (!out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    if (!validate_only && !allow_writes) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    if (fieldmesh_plan_tun_adapter(session, config, &plan) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+
+    out_report->plan = plan;
+    sdk_copy_text(out_report->rollback_hint, sizeof(out_report->rollback_hint),
+                  "ip link delete swarm0");
+    out_report->flags = flags;
+    out_report->accepted = 1u;
+    out_report->dry_run = validate_only;
+    out_report->live_writes_requested = allow_writes;
+    out_report->live_writes_authorized = allow_writes;
+    out_report->commands_executed = 0u;
+    out_report->writes_network = 0u;
+    out_report->rollback_available = 1u;
+    out_report->rollback_command_count = 1u;
+    return FIELDMESH_OK;
+}
+
 const char *fieldmesh_status_string(fieldmesh_status_t status)
 {
     switch (status) {

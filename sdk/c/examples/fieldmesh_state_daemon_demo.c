@@ -402,6 +402,64 @@ static int build_response(fieldmesh_context_t *context,
                  tun_plan.requires_cap_net_admin, tun_plan.command_count);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_TUN_APPLY_COMMIT") &&
+        !strstr(request, "ALLOW_NETWORK_WRITES")) {
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_apply_rejected\","
+                 "\"reason\":\"missing_allow_network_writes\","
+                 "\"commands_executed\":0,"
+                 "\"writes_network\":0,"
+                 "\"rollback_available\":1}\n");
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_TUN_APPLY_VALIDATE") ||
+        strstr(request, "FIELDMESH_TUN_APPLY_COMMIT")) {
+        fieldmesh_tun_config_t tun_config = {
+            0,
+        };
+        fieldmesh_tun_apply_report_t apply = {
+            0,
+        };
+        uint32_t flags = FIELDMESH_TUN_APPLY_VALIDATE_ONLY;
+
+        snprintf(tun_config.adapter_name, sizeof(tun_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(tun_config.local_mesh_ip, sizeof(tun_config.local_mesh_ip),
+                 "%s", "10.77.1.1");
+        snprintf(tun_config.remote_mesh_cidr, sizeof(tun_config.remote_mesh_cidr),
+                 "%s", "10.77.2.0/24");
+        snprintf(tun_config.host_facing_device_ip,
+                 sizeof(tun_config.host_facing_device_ip), "%s", "192.168.2.1");
+        snprintf(tun_config.dst_node_id, sizeof(tun_config.dst_node_id),
+                 "%s", "020000000103");
+        tun_config.mesh_prefix_len = 16u;
+        tun_config.mtu_bytes = 1200u;
+        if (strstr(request, "ALLOW_NETWORK_WRITES")) {
+            flags = FIELDMESH_TUN_APPLY_ALLOW_NETWORK_WRITES;
+        }
+        if (fieldmesh_apply_tun_adapter(session, &tun_config, flags, &apply) !=
+            FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_apply\","
+                 "\"adapter_name\":\"%s\","
+                 "\"accepted\":%u,"
+                 "\"dry_run\":%u,"
+                 "\"live_writes_requested\":%u,"
+                 "\"live_writes_authorized\":%u,"
+                 "\"commands_executed\":%u,"
+                 "\"writes_network\":%u,"
+                 "\"rollback_available\":%u,"
+                 "\"rollback_command_count\":%u,"
+                 "\"rollback_hint\":\"%s\"}\n",
+                 apply.plan.adapter_name, apply.accepted, apply.dry_run,
+                 apply.live_writes_requested, apply.live_writes_authorized,
+                 apply.commands_executed, apply.writes_network,
+                 apply.rollback_available, apply.rollback_command_count,
+                 apply.rollback_hint);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_DEVICE_IIO_PLAN")) {
         fieldmesh_device_profile_t tx_profile;
         fieldmesh_device_profile_t rx_profile;
@@ -563,6 +621,8 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_VALIDATE v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_COMMIT v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_DEVICE_IIO_PLAN v1") == 0) {
         printf("{\"event\":\"sdk_daemon_query_complete\",\"host\":\"%s\","
                "\"port\":%u}\n",

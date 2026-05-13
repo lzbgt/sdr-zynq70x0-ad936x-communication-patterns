@@ -397,7 +397,12 @@ customer workflow or transparent Layer-2 bridging becomes a hard requirement.
 The first checked SDK step is plan-only: `fieldmesh_plan_tun_adapter()` and the
 daemon `FIELDMESH_TUN_PLAN` request describe the Zynq-local `swarm0` TUN
 endpoint, route, MTU, and privilege requirements without creating any live
-interface. Live creation belongs behind an audited daemon operation with
+interface. The next checked step validates the apply path:
+`fieldmesh_apply_tun_adapter()` and daemon `FIELDMESH_TUN_APPLY_VALIDATE`
+report rollback state while keeping `commands_executed=0` and
+`writes_network=0`. Unguarded `FIELDMESH_TUN_APPLY_COMMIT` is rejected. Live
+creation belongs behind an audited daemon operation with explicit
+network-write authorization, privilege checks, captured pre-state, and
 rollback.
 
 ## C SDK Surface
@@ -549,6 +554,8 @@ Stage 2: Board-local service
   first routed-gateway contract: both keep `swarm0` on the Zynq board, report
   the compact destination device EUI, preserve the selected FieldMesh RF route,
   and return no-IIO/no-inter-board-IP safety flags before any live TUN create.
+  The same demo and daemon now validate TUN apply/rollback state without
+  executing network writes, and reject unguarded commits.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

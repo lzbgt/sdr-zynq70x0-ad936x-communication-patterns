@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-8}"
+requests="${REQUESTS:-10}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -135,10 +135,12 @@ ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_electi
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
+tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
+tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 8:
+if not end or end[-1].get("handled") != 10:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
@@ -161,6 +163,17 @@ if tun_plan[0].get("requires_cap_net_admin") != 1:
 for key in ("uses_tap", "uses_iio", "uses_inter_board_ip_routing"):
     if tun_plan[0].get(key) != 0:
         raise SystemExit(f"board SDK daemon TUN safety key {key} must be 0")
+if not tun_apply or tun_apply[0].get("adapter_name") != "swarm0":
+    raise SystemExit("board SDK daemon TUN apply validation response failed")
+if tun_apply[0].get("accepted") != 1 or tun_apply[0].get("dry_run") != 1:
+    raise SystemExit("board SDK daemon TUN apply validation must be accepted dry-run")
+for key in ("live_writes_requested", "live_writes_authorized", "commands_executed", "writes_network"):
+    if tun_apply[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon TUN apply key {key} must be 0")
+if tun_apply[0].get("rollback_available") != 1:
+    raise SystemExit("board SDK daemon TUN apply must expose rollback")
+if not tun_reject or tun_reject[0].get("reason") != "missing_allow_network_writes":
+    raise SystemExit("board SDK daemon did not reject unguarded TUN commit")
 if not iio_bridge or iio_bridge[0].get("sdk_layer") != "local_iio_device":
     raise SystemExit("board SDK daemon IIO bridge plan response failed")
 if iio_bridge[0].get("served_over") != "host_eth_ip":
@@ -180,6 +193,8 @@ print(json.dumps({
     "peer_events": len(peer),
     "rtls_events": len(rtls),
     "tun_plan_events": len(tun_plan),
+    "tun_apply_events": len(tun_apply),
+    "tun_reject_events": len(tun_reject),
     "iio_bridge_events": len(iio_bridge),
 }, sort_keys=True))
 PY

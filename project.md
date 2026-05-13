@@ -523,10 +523,12 @@ user and vendor configuration.
   first `swarm0`/stream-adapter API for mapping product packets onto C0-C4
   FieldMesh traffic classes, plus a plan-only routed TUN gateway API for
   creating board-local `swarm0` later under explicit daemon privilege checks.
+  The TUN path now also validates apply/rollback state while keeping network
+  writes disabled and rejecting unguarded commits.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
-  a UDP state-daemon AP/peer/RTLS/`swarm0`/TUN/IIO-admin query demo, a
+  a UDP state-daemon AP/peer/RTLS/`swarm0`/TUN apply/IIO-admin query demo, a
   `swarm0` adapter packet-classification demo, a routed TUN gateway planning
   demo, a two-PC AP browse/election/audit-join/stream-flow demo, a
   `fieldmeshctl` profile CLI demo, plus a UDP
@@ -846,7 +848,9 @@ Expected result in the current Pluto-compatible firmware state:
    daemon now also answers `FIELDMESH_SWARM_ADAPTER` and
    `FIELDMESH_TUN_PLAN` over the host-facing SDK socket, and the refreshed
    Z203/Z103 images, FieldMesh packages, and JTAG RAM-boot staging include
-   the adapter and routed TUN gateway planning demos.
+   the adapter and routed TUN gateway planning/apply-validation demos. An
+   unguarded daemon TUN commit is rejected with zero commands executed and zero
+   network writes.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

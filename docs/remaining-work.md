@@ -190,9 +190,11 @@ Next concrete work:
   `note2.md` gateway correction is now canonical too: `swarm0` belongs on the
   Zynq SDR gateway, the host sees ordinary IP, and the default product mode is
   routed Layer-3 TUN rather than transparent Layer-2 bridging. The SDK and
-  daemon now expose the first plan-only TUN gateway contract; the next step is
-  implementing the live-safe userspace TUN `swarm0` create/apply path with
-  rollback, then routing packets into the FieldMesh RF packet engine.
+  daemon now expose the first TUN gateway plan plus dry-run apply/rollback
+  validation, and reject unguarded commits. The next step is implementing the
+  live-safe userspace TUN `swarm0` create/apply executor with captured
+  pre-state and rollback, then routing packets into the FieldMesh RF packet
+  engine.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and
