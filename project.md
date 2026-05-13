@@ -461,6 +461,15 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_iq_burst_smoke.sh` - gate for the IQ burst smoke,
   including a negative test that refuses to plan a burst without the
   conducted/shielded guard.
+- `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
+  planner for conducted/shielded RF tests. It combines the two-board RF
+  binding plan with the IQ burst smoke report, requires legal-frequency,
+  attenuation, TX-enable, RX-first, and conducted/shielded declarations, then
+  emits an RX-first command plan without executing commands, opening IIO
+  buffers, or starting RF TX.
+- `tools/verify_fieldmesh_iq_iio_live_plan.sh` - gate for the live IIO
+  procedure planner, including negative tests for missing legal-frequency
+  profile and insufficient fixture attenuation.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

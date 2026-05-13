@@ -2878,6 +2878,37 @@ The generated `fieldmesh_iq_burst_smoke.json` reports
 `recovered_frame_match=true`. The same verifier also checks that the tool
 refuses a burst plan when the conducted/shielded guard is missing.
 
+## FieldMesh IQ IIO Live Plan
+
+The first AD936x IIO live procedure gate is still a planner only:
+
+```sh
+./tools/verify_fieldmesh_iq_iio_live_plan.sh
+```
+
+It combines:
+
+- committed two-board `rf_binding_plan.json`;
+- generated `fieldmesh_iq_burst_smoke.json`;
+- `--conducted-or-shielded`;
+- `--legal-frequency-profile`;
+- `--tx-enable-guard`;
+- `--rx-first`;
+- `--fixture-attenuation-db 60`.
+
+Result:
+
+```json
+{"event": "fieldmesh_iq_iio_live_plan_check", "iq_samples": 6656, "ok": true, "rx_board": "z103", "tx_board": "z203"}
+```
+
+The planned order is RX-first: configure RX PHY, configure TX PHY, arm RX
+buffer, load TX buffer, require explicit TX enable and capture, then decode the
+RX capture. The plan keeps `uses_inter_board_ip_routing=false` and reports
+`executes_commands=false`, `opens_iio_buffers=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`. The verifier also rejects missing legal-frequency
+profile and too-low fixture attenuation.
+
 Refreshed runtime artifact hashes after the CLI fix:
 
 ```text

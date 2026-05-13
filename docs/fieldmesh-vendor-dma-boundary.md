@@ -443,6 +443,22 @@ original frame, and emits `fieldmesh_iq_burst_smoke.json`. It still reports
 This creates the sample-buffer contract for the later live AD936x conducted
 test without touching the board RF path yet.
 
+The next gate plans the live AD936x IIO procedure but still executes nothing:
+
+```sh
+./tools/verify_fieldmesh_iq_iio_live_plan.sh
+```
+
+It combines the committed two-board `rf_binding_plan.json` with the generated
+IQ burst smoke report. The resulting `fieldmesh_iq_iio_live_plan` keeps
+`uses_inter_board_ip_routing=false` and requires all live RF declarations:
+conducted/shielded fixture, legal frequency profile, attenuation evidence,
+explicit TX-enable guard, and RX-first ordering. The command plan is RX-first:
+configure RX PHY, configure TX PHY, arm RX buffer, load TX buffer, then require
+explicit TX enable before capture. The tool still reports
+`executes_commands=false`, `opens_iio_buffers=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.
