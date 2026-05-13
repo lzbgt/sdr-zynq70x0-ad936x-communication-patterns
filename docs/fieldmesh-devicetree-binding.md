@@ -61,10 +61,11 @@ read-only control-window check:
 fieldmesh-udp-probe ctrl-scan --ctrl-base 0x43c00000 --ctrl-size 0x10000
 ```
 
-It opens `/dev/mem` read-only, reads only the lightweight FieldMesh sidecar
-control registers, and requires register `0x00` to return `0x464d1001`. For
-offline tests, `--ctrl-mem-file FILE` reads the same offsets from a synthetic
-file instead of `/dev/mem`.
+It opens `/dev/mem` read-only, maps the target physical register page with
+read-only `mmap()`, reads only the lightweight FieldMesh sidecar control
+registers, and requires register `0x00` to return `0x464d1001`. For offline
+tests, `--ctrl-mem-file FILE` reads the same offsets from a synthetic file
+instead of `/dev/mem`.
 
 The SSH wrapper runs all sidecar preflights on a reachable board image:
 
@@ -75,10 +76,11 @@ The SSH wrapper runs all sidecar preflights on a reachable board image:
 It captures `dt_scan.ndjson`, `ctrl_scan.ndjson`, `dma_scan.ndjson`, and a
 derived `preflight_assert.json` from
 `tools/fieldmesh_sidecar_preflight_assert.py`. `dma-scan` opens `/dev/mem`
-read-only and samples the first few TX/RX sidecar DMA registers without
-writing registers or starting transfers. A packet-DMA smoke test should only
-run after the assertion summary confirms a matching FieldMesh DTB, a live
-control-window ID, and readable sidecar DMA windows.
+read-only, maps the target physical register pages with read-only `mmap()`, and
+samples the first few TX/RX sidecar DMA registers without writing registers or
+starting transfers. A packet-DMA smoke test should only run after the assertion
+summary confirms a matching FieldMesh DTB, a live control-window ID, and
+readable sidecar DMA windows.
 
 ## Matched Package
 
@@ -99,5 +101,7 @@ FieldMesh packages under `.config/fieldmesh/runtime-package-*/fit-work/`.
 ## Current Boundary
 
 This is a binding contract, offline validation gate, and package assembly path.
-The generated FieldMesh packages have not yet booted on hardware, and the
-fragment is still not installed into the default Z203/Z103 Yocto kernels.
+The Z203 SD/QSPI FieldMesh runtime has booted this fragment with the matched
+overlay bitstream and passed the board-side sidecar preflight. Z103 remains
+gated on its runtime/JTAG boot boundary, and the fragment is still not installed
+into the default Z203/Z103 Yocto kernels.

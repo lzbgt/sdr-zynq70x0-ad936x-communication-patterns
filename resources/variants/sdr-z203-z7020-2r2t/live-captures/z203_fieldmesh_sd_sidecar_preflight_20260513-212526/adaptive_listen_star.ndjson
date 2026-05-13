@@ -1,0 +1,9 @@
+{"event":"adaptive_listen_start","transport":"udp-adaptive-listen","host":"0.0.0.0","port":49002,"requested_mode":"auto","default_policy":"passive_learner","proactive":false}
+{"event":"peer_advertisement","transport":"udp-adaptive-listen","bytes":205,"peer_star":false,"peer_graph":false,"peer_scheduled":false,"peer_coordinator":false,"peer_relay":false,"peer_pps":false}
+{"event":"peer_advertisement","transport":"udp-adaptive-listen","bytes":144,"peer_star":true,"peer_graph":false,"peer_scheduled":false,"peer_coordinator":false,"peer_relay":false,"peer_pps":false}
+{"event":"peer_advertisement","transport":"udp-adaptive-listen","bytes":144,"peer_star":true,"peer_graph":false,"peer_scheduled":false,"peer_coordinator":false,"peer_relay":false,"peer_pps":false}
+{"event":"command_state","transport":"udp-adaptive-listen","saw_command":true,"commanded_mode":"star","proactive_allowed":true}
+{"event":"mode_proposal","transport":"udp-adaptive-listen","selected_mode":"star","reason":"user_or_application_command"}
+{"event":"mode_accept","transport":"udp-adaptive-listen","node_id":"z103-a","selected_mode":"star"}
+{"event":"mode_contract","transport":"udp-adaptive-listen","selected_mode":"star","c0_latency_budget_ms":20,"c1_latency_budget_ms":50,"stale_video_drop_ms":120,"traffic_priority":["C0","C1","C2","C3","C4"]}
+{"event":"adaptive_listen_end","transport":"udp-adaptive-listen","ok":true,"advertisements":3,"saw_command":true,"selected_mode":"star"}

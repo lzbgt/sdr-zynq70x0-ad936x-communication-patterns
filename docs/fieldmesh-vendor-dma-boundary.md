@@ -318,10 +318,11 @@ The second userspace preflight is read-only control-window discovery:
 fieldmesh-udp-probe ctrl-scan --ctrl-base 0x43c00000 --ctrl-size 0x10000
 ```
 
-`ctrl-scan` opens `/dev/mem` read-only and checks the lightweight sidecar ID
-register at `0x43C00000` for `0x464d1001`. It also reports the control,
-status, IRQ status, and IRQ mask registers without writing them. For host tests
-or captured register images, use `--ctrl-mem-file FILE`.
+`ctrl-scan` opens `/dev/mem` read-only, maps the target physical register page
+with read-only `mmap()`, and checks the lightweight sidecar ID register at
+`0x43C00000` for `0x464d1001`. It also reports the control, status, IRQ status,
+and IRQ mask registers without writing them. For host tests or captured
+register images, use `--ctrl-mem-file FILE`.
 
 The board wrapper combines these gates:
 
@@ -338,12 +339,17 @@ fieldmesh-udp-probe dma-scan \
   --dma-size 0x10000
 ```
 
-`dma-scan` opens `/dev/mem` read-only, reads a small register set from the TX
-and RX sidecar DMA windows, and never writes registers or starts transfers.
+`dma-scan` opens `/dev/mem` read-only, maps the target physical register pages
+with read-only `mmap()`, reads a small register set from the TX and RX sidecar
+DMA windows, and never writes registers or starts transfers.
 Run the wrapper before any packet-DMA smoke test. The wrapper also runs
 `tools/fieldmesh_sidecar_preflight_assert.py` over the saved `dt_scan.ndjson`,
 `ctrl_scan.ndjson`, and `dma_scan.ndjson` files and writes a single
 `preflight_assert.json` pass/fail summary.
+
+On 2026-05-13 the Z203 SD/QSPI FieldMesh runtime passed this wrapper with the
+matched FieldMesh bitstream and devicetree. The committed capture is under
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sd_sidecar_preflight_20260513-212526/`.
 
 Before moving from preflight into a transfer-starting smoke test, run the
 vector-fed dry-run planner:

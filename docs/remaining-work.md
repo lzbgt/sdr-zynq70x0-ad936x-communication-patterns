@@ -94,8 +94,10 @@ Next concrete work:
 - Follow the staged two-board plan:
   1. Verify the SDR-Z103 / Z7010 / 1R1T board with the customized FieldMesh
      firmware first.
-  2. After the user plugs in the SDR-Z203 / Z7020 / 2R2T board, rebuild and
-     reflash the 2R2T board.
+  2. The SDR-Z203 / Z7020 / 2R2T board has been rebuilt and reloaded through
+     SD/QSPI mode with the matched FieldMesh runtime. It now passes ping, IIO,
+     HTTP, `dt-scan`, read-only `ctrl-scan`, read-only `dma-scan`, and the
+     sidecar preflight assertion.
   3. Power both boards, keep the 2R2T board connected to this host, and run
      communication-pattern experiments. Both boards should default to passive
      learner mode; an application or user command can promote any board into a
@@ -202,12 +204,12 @@ Next concrete work:
   packet DMA test. `dma-plan` has been added as the software-only bridge from
   committed FieldMesh vectors to a concrete RX-before-TX sidecar DMA transfer
   plan.
-- Boot a FieldMesh package through a non-flashing path, then run
-  `fieldmesh-udp-probe dt-scan`, read-only `ctrl-scan`, and read-only
-  `dma-scan` before starting sidecar packet DMA/IIO
-  registers. Run `dma-plan` against the committed vector corpus before any
-  transfer-starting smoke test so buffer sizes, 16-bit alignment, and RX/TX
-  ordering are already asserted. `tools/run_fieldmesh_jtag_yocto_ram.sh` now
+- On Z203, run the first transfer-starting sidecar packet-DMA smoke test after
+  replaying `dma-plan` against the committed vector corpus. The SD/QSPI
+  FieldMesh runtime already passed `dt-scan`, read-only `ctrl-scan`,
+  read-only `dma-scan`, and `preflight_assert.json`; register reads now use
+  read-only `mmap()` for `/dev/mem` physical addresses. Keep this as the gate
+  before any RF packet experiment. `tools/run_fieldmesh_jtag_yocto_ram.sh` now
   prepares the matching FieldMesh bitstream/DTB/kernel/initramfs RAM-boot
   payloads for Z203 and Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the

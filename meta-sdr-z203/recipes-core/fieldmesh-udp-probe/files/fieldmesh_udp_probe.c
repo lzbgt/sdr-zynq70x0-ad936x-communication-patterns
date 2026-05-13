@@ -1851,7 +1851,30 @@ struct ctrl_reg_expectation {
 static bool read_ctrl_reg(int fd, bool file_backed, uint32_t base, uint32_t offset, uint32_t *value)
 {
     uint8_t buf[4];
-    off_t pos = (off_t)(file_backed ? offset : base + offset);
+    uint32_t phys = base + offset;
+    off_t pos = (off_t)(file_backed ? offset : phys);
+    long page_size;
+    off_t page_base;
+    off_t page_offset;
+    uint8_t *mapped;
+
+    if (!file_backed) {
+        page_size = sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) {
+            return false;
+        }
+        page_base = (off_t)(phys & ~((uint32_t)page_size - 1U));
+        page_offset = (off_t)(phys - (uint32_t)page_base);
+        mapped = mmap(NULL, (size_t)page_size, PROT_READ, MAP_SHARED, fd, page_base);
+        if (mapped == MAP_FAILED) {
+            return false;
+        }
+        memcpy(buf, mapped + page_offset, sizeof(buf));
+        munmap(mapped, (size_t)page_size);
+        *value = get_le32(buf);
+        return true;
+    }
+
     ssize_t got = pread(fd, buf, sizeof(buf), pos);
     if (got != (ssize_t)sizeof(buf)) {
         return false;
@@ -1922,7 +1945,30 @@ static bool read_dma_reg(int fd, bool file_backed, uint32_t file_base, uint32_t 
                          uint32_t offset, uint32_t *value)
 {
     uint8_t buf[4];
+    uint32_t phys = phys_base + offset;
     off_t pos = (off_t)((file_backed ? file_base : phys_base) + offset);
+    long page_size;
+    off_t page_base;
+    off_t page_offset;
+    uint8_t *mapped;
+
+    if (!file_backed) {
+        page_size = sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) {
+            return false;
+        }
+        page_base = (off_t)(phys & ~((uint32_t)page_size - 1U));
+        page_offset = (off_t)(phys - (uint32_t)page_base);
+        mapped = mmap(NULL, (size_t)page_size, PROT_READ, MAP_SHARED, fd, page_base);
+        if (mapped == MAP_FAILED) {
+            return false;
+        }
+        memcpy(buf, mapped + page_offset, sizeof(buf));
+        munmap(mapped, (size_t)page_size);
+        *value = get_le32(buf);
+        return true;
+    }
+
     ssize_t got = pread(fd, buf, sizeof(buf), pos);
     if (got != (ssize_t)sizeof(buf)) {
         return false;

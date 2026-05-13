@@ -1,0 +1,3 @@
+{"event":"command_start","transport":"udp-command","host":"192.168.2.1","port":49002,"requested_mode":"star"}
+{"event":"user_command","commanded_role":"proactive_initiator","requested_mode":"star","traffic_profile":"basic","source":"application_or_user"}
+{"event":"command_end","transport":"udp-command","ok":true,"requested_mode":"star"}

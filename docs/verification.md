@@ -2414,6 +2414,52 @@ The test starts a Z103-profile `adaptive-listen` process, sends Z203-profile
 explicitly not a proactive communication-mode launch; only the `command` trace
 promotes a node toward proactive initiation.
 
+## Z203 FieldMesh SD/QSPI Runtime
+
+After the user reattached the SDR-Z203 in SD/QSPI mode, the matched FieldMesh
+runtime was staged for the SD boot partition:
+
+```sh
+./tools/stage_fieldmesh_sd_boot_files.sh z203
+SSH_PASS=analog ./tools/install_sd_boot_files_over_ssh.sh \
+  .config/sdcard-staging/fieldmesh-z203 192.168.2.1
+```
+
+The staging helper generated a fresh SD `BOOT.bin` from the FieldMesh overlay
+XSA/bitstream, generated the matching sidecar DTB, wrapped the Yocto kernel and
+initramfs as U-Boot images, and emitted `SHA256SUMS`. After reboot, the board
+answered at `192.168.2.1` and passed:
+
+```sh
+./tools/verify_board.sh 192.168.2.1
+SSH_PASS=analog ./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
+```
+
+The first sidecar scan attempt proved the DT nodes were present but exposed a
+userspace bug: raw `pread()` against `/dev/mem` physical offsets failed for
+`ctrl-scan` and `dma-scan`. The probe now uses read-only page `mmap()` for real
+`/dev/mem` register windows while preserving `pread()` for synthetic
+`--ctrl-mem-file` and `--dma-mem-file` tests.
+
+After rebuilding the Z203 and Z103 rootfs images, regenerating the matched
+FieldMesh packages, restaging the Z203 SD files, reinstalling them, and
+rebooting, the board-side preflight passed:
+
+```json
+{"event":"fieldmesh_sidecar_preflight_assert","ok":true,
+ "ctrl_id":"0x464d1001","dt_nodes":4,"ctrl_regs":5,
+ "dma_regs":10,"dma_windows":["tx","rx"]}
+```
+
+Committed capture:
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sd_sidecar_preflight_20260513-212526/`
+
+The same booted board also passed the adaptive passive-learner check. A
+Z103-profile advertisement did not initiate a mode by itself; a subsequent
+application/user `command --mode star` promoted the receiver toward proactive
+mode negotiation, and the Z203 listener ended with `selected_mode=star` and
+`reason=user_or_application_command`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

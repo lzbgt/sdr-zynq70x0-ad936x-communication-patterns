@@ -311,6 +311,10 @@ user and vendor configuration.
   backup helper, defaulting to the Z103 resource tree and `root`/`analog`.
 - `tools/stage_sd_boot_files.sh` - create SD-card boot staging directories for
   factory 2R2T or local Yocto+Vivado boot tests.
+- `tools/stage_fieldmesh_sd_boot_files.sh` - create a Z203-only SD boot
+  staging directory for the matched FieldMesh overlay bitstream, generated
+  sidecar DTB, Yocto kernel, and Yocto initramfs. Z103 is intentionally rejected
+  because no SD-card wiring is verified.
 - `tools/install_sd_boot_files.sh` - copy a staged SD boot set to a mounted SD
   card and verify checksums.
 - `tools/install_sd_boot_files_over_ssh.sh` - copy a staged SD boot set to
@@ -652,8 +656,11 @@ Expected result in the current Pluto-compatible firmware state:
    and FT2232 could be attached to WSL, but the live gate still failed at the
    PS-side DAP/DSCR reset-halt boundary. SSH timed out, so no Z103 QSPI backup
    has been captured yet.
-2. After the user plugs in the SDR-Z203 / Z7020 / 2R2T board, rebuild and
-   reflash the 2R2T board.
+2. The SDR-Z203 / Z7020 / 2R2T board has been rebuilt and reloaded through the
+   verified SD/QSPI boot path with the matched FieldMesh bitstream, devicetree,
+   kernel, and Yocto initramfs. The live board passes ping, IIO, HTTP,
+   `dt-scan`, read-only `ctrl-scan`, read-only `dma-scan`, and the sidecar
+   preflight assertion.
 3. Power both boards, keep the 2R2T board connected to this host, then run the
    communication-pattern experiments. Both firmwares should boot as passive
    learners; applications or users can command any board to become the proactive
@@ -679,9 +686,11 @@ Expected result in the current Pluto-compatible firmware state:
    packet-DMA window discovery, and `dma-plan` dry-runs the per-vector TX/RX
    buffer/order contract without touching DMA registers. The SSH wrapper now
    asserts all three live captures into `preflight_assert.json` before starting
-   transfers. Next boot a FieldMesh package through a non-flashing path, run
-   those preflights, then execute a transfer-starting sidecar DMA smoke test
-   only after the dry-run plan and board preflight are green. The first live Z103
+   transfers. The Z203 SD/QSPI FieldMesh runtime now proves those preflights on
+   hardware after switching `/dev/mem` register reads from raw `pread()` to
+   read-only `mmap()` for physical addresses. Next execute a transfer-starting
+   sidecar DMA smoke test only after the dry-run plan is replayed against the
+   current vector corpus. The first live Z103
    FieldMesh live-gate capture is archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-203710/`;
    it passed artifact preparation and TAP-level JTAG scan, then failed at the
