@@ -298,6 +298,11 @@ packet-engine, and TX-enable guard preconditions. The current request is
 intentionally dry-run: `sets_tx_enable=0`, `sets_tx_armed=0`,
 `writes_hardware=0`, `starts_rf_tx=0`, `commands_executed=0`, `uses_iio=0`,
 and `uses_inter_board_ip_routing=0`.
+`tools/fieldmesh_rf_tx_guard_run.py` is the checked runner for this boundary:
+it consumes the daemon report, writes a board-local read-only preflight script,
+and only executes pre-state checks when conducted/shielded, legal-frequency,
+RX-first, sidecar-preflight, RF-engine-ready, and Zynq-target declarations are
+explicit. It is not the live register writer yet.
 
 The daemon also exposes a guarded production request,
 `FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the

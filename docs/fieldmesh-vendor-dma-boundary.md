@@ -523,8 +523,14 @@ RX-first, sidecar-preflight, RF-engine, and TX-enable guard prerequisites.
 `fieldmesh_apply_rf_tx_guard()` currently reports validation/rollback metadata
 but executes no commands, writes no hardware, starts no RF TX, and does not use
 IIO or inter-board IP routing. The daemon exposes this as
-`FIELDMESH_RF_TX_GUARD_PLAN`; live arming still belongs to a later guarded
-board runner after the scheduler/filter/driver path exists.
+`FIELDMESH_RF_TX_GUARD_PLAN`. `tools/fieldmesh_rf_tx_guard_run.py` consumes
+that daemon report and generates the first board-local read-only preflight
+script for the guard boundary. Even its live-preflight mode only runs pre-state
+checks after explicit conducted/shielded, legal-frequency, RX-first,
+sidecar-preflight, RF-engine-ready, and Zynq-target declarations; it still does
+not set TX enable, arm the guard, write hardware, or start RF TX. Real live
+arming still belongs to a later guarded register runner after the
+scheduler/filter/driver path exists.
 
 The next gate plans the live AD936x IIO procedure but still executes nothing:
 

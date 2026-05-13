@@ -1,0 +1,11 @@
+{
+  "board_ip": "192.168.3.1",
+  "commands": 6,
+  "event": "fieldmesh_board_rf_tx_guard_preflight_assert",
+  "guard_name": "fieldmesh_iq_tx_guard",
+  "live_preflight_executed": true,
+  "live_preflight_ok": true,
+  "ok": true,
+  "rf_engine": "fieldmesh_rf_packet_engine",
+  "variant": "z103"
+}

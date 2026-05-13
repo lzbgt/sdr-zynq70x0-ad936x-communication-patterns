@@ -2343,6 +2343,21 @@ and the conducted/shielded, legal-frequency, RX-first, sidecar-preflight,
 RF-engine, and TX-enable guard prerequisites, and still reports
 `sets_tx_enable=0`, `sets_tx_armed=0`, `writes_hardware=0`, `starts_rf_tx=0`,
 `commands_executed=0`, `uses_iio=0`, and `uses_inter_board_ip_routing=0`.
+`./tools/verify_fieldmesh_rf_tx_guard_run.sh` now consumes that daemon report
+and checks the first board-local RF TX guard preflight runner. The runner
+generates `fieldmesh_rf_tx_guard_preflight.sh`, proves the default mode is
+dry-run, and rejects missing legal-frequency, missing sidecar-preflight, and
+missing Zynq-target confirmation for live preflight. The generated script is
+read-only and explicitly leaves TX enable, TX armed, hardware writes, and RF TX
+start disabled.
+`ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
+./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
+against Z103 by transiently uploading the refreshed daemon, querying
+`FIELDMESH_RF_TX_GUARD_PLAN`, generating the read-only board script, running
+that script on the board shell, and confirming `sets_tx_enable=0`,
+`sets_tx_armed=0`, `writes_hardware=0`, and `starts_rf_tx=0`. Evidence is
+archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
 The same daemon smoke now also queries guarded `FIELDMESH_TUN_DEV_PUMP` without
 the live allow token and verifies it reports `/dev/net/tun`, required
 `swarm0`/`CAP_NET_ADMIN`, no descriptor open, no TUN attach, no packet read, no

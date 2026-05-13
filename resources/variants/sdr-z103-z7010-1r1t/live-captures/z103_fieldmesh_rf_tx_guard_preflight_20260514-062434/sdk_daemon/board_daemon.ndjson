@@ -1,0 +1,16 @@
+{"event":"sdk_daemon_start","bind":"0.0.0.0","port":55421,"requests":14}
+{"event":"sdk_daemon_request","bytes":22,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":21,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":20,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":24,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":23,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":26,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":29,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":29,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":24,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":25,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":21,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":31,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":29,"src":"192.168.3.10"}
+{"event":"sdk_daemon_request","bytes":28,"src":"192.168.3.10"}
+{"event":"sdk_daemon_end","handled":14}

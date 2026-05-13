@@ -492,6 +492,14 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_rf_packet_engine_binding.sh` - offline regression
   gate for the RF packet-engine binding evidence, including a negative test for
   invalid sidecar DMA evidence.
+- `tools/fieldmesh_rf_tx_guard_run.py` - guarded board-local RF TX guard
+  preflight runner. It consumes the daemon `FIELDMESH_RF_TX_GUARD_PLAN`
+  report, generates a read-only Zynq shell script for guard/sidecar/RF-engine
+  pre-state checks, and keeps `sets_tx_enable=0`, `sets_tx_armed=0`,
+  `writes_hardware=0`, and `starts_rf_tx=0`.
+- `tools/verify_fieldmesh_rf_tx_guard_run.sh` - gate for the RF TX guard
+  runner dry-run plus negative tests for missing legal profile, missing
+  sidecar preflight, and missing Zynq target confirmation for live preflight.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,
@@ -948,7 +956,14 @@ Expected result in the current Pluto-compatible firmware state:
    engine, and TX-enable guard requirements, and still reports
    `sets_tx_enable=0`, `sets_tx_armed=0`, `writes_hardware=0`,
    `starts_rf_tx=0`, `commands_executed=0`, `uses_iio=0`, and
-   `uses_inter_board_ip_routing=0`.
+   `uses_inter_board_ip_routing=0`. `tools/fieldmesh_rf_tx_guard_run.py`
+   now consumes that daemon report and generates the first board-local
+   read-only preflight script for the guard boundary; it can execute only
+   pre-state checks under explicit conducted/shielded, legal-frequency,
+   RX-first, sidecar-preflight, RF-engine-ready, and Zynq-target declarations.
+   Z103 passed this read-only live preflight at `192.168.3.1`; evidence is
+   archived under
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
    The non-transmitting RF-engine copied overlay, now including the parked
    `fieldmesh_iq_tx_guard`, builds timing-clean for both variants too: Z103
    `system_top.bit`/XSA hashes are

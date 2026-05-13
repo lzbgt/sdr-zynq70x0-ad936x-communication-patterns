@@ -235,9 +235,13 @@ Next concrete work:
   `FIELDMESH_RF_TX_GUARD_PLAN` derive a dry-run arming plan for
   `fieldmesh_iq_tx_guard`, report slot epoch/index and safety prerequisites,
   and still execute no commands, write no hardware, start no RF TX, use no IIO,
-  and do no inter-board IP routing. The next step is replacing that dry-run
-  guard contract with a board-local guarded runner only after the
-  scheduler/filter/driver path is ready.
+  and do no inter-board IP routing. `tools/fieldmesh_rf_tx_guard_run.py` now
+  turns that daemon report into a board-local read-only preflight script for
+  the guard boundary and refuses live preflight unless the conducted/shielded,
+  legal-frequency, RX-first, sidecar-preflight, RF-engine-ready, and
+  Zynq-target declarations are explicit. Z103 has passed that read-only live
+  preflight. The next step is replacing that preflight with a real board-local
+  guard register runner only after the scheduler/filter/driver path is ready.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and
