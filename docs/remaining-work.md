@@ -199,8 +199,13 @@ Next concrete work:
   three preflights over SSH and writes `preflight_assert.json`.
   `tools/run_fieldmesh_live_gate.sh` now wraps artifact verification, JTAG
   scan, non-flashing RAM boot, and read-only sidecar preflight into one
-  timestamped capture directory for the next post-power-cycle attempt. Keep
-  the ADI IQ DMA path untouched.
+  timestamped capture directory for the next post-power-cycle attempt. The
+  first full Z103 live-gate capture is archived at
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/`;
+  it passed artifact preparation and TAP-level scan, then failed at the same
+  DAP/DSCR boundary before payload loading, so a repeat without a physical
+  JTAG-mode power cycle is expected to reproduce the same failure. Keep the
+  ADI IQ DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

@@ -2310,6 +2310,25 @@ FieldMesh JTAG RAM boot, and only runs the read-only sidecar preflight if the
 boot command exits successfully. The no-boot selftest verified the timestamped
 logging/status path while skipping the RAM boot and sidecar preflight steps.
 
+The first full Z103 live-gate run was also captured:
+
+```sh
+./tools/run_fieldmesh_live_gate.sh z103
+```
+
+Capture:
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/`
+
+Result: runtime artifact verification, JTAG RAM-payload preparation, USB
+reachability capture, and TAP-level JTAG scan completed. The USB capture still
+showed only the FT2232 `0403:6010` interface, no Pluto/RNDIS `0456:b673`
+runtime USB function, and no response from `192.168.2.1`. The JTAG scan found
+the PL and CPU TAPs, but the CPU debug path still reported DSCR/DCC timeout.
+The RAM boot failed before payload loading at `JTAG_PS_SOFT_RESET` with invalid
+DAP ACKs, `JTAG-DP STICKY ERROR`, APB-AP initialization failure, and
+`timeout waiting for DSCR bit change`. Because boot did not complete, the
+read-only board sidecar preflight was skipped.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

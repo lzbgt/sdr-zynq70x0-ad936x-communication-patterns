@@ -1,0 +1,4 @@
+30f51e9e95f8fbccf1ca0add3c3293faf10b8d9a3b8c45505544d6a30a8a6c6b  /root/work/ZYNQ7020/.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
+38ca37464e00e469d9cbb2e76426900e1e061dc6dacfc5ad7c496ca4f846add9  /root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-085831/jtag_ram_payload/boot/uImage
+24e816807cfc3677301e5c7dc381680b53f01898f7d832f0af1f6bd4e42da200  /root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-085831/jtag_ram_payload/boot/uramdisk.image.gz
+eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8  /root/work/ZYNQ7020/.config/fieldmesh/live-gate-z103-20260513-085831/jtag_ram_payload/boot/devicetree.dtb

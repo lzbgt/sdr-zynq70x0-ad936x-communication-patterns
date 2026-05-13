@@ -667,5 +667,9 @@ Expected result in the current Pluto-compatible firmware state:
    captures into `preflight_assert.json` before starting transfers. Next boot a
    FieldMesh package through a non-flashing path, run those preflights, then
    bind the path to IIO/PL before open-air RF tests. The first live Z103
-   FieldMesh RAM-boot attempt is currently
-   blocked at the PS-side DAP/DSCR reset-halt boundary before payload loading.
+   FieldMesh live-gate capture is archived under
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/`;
+   it passed artifact preparation and TAP-level JTAG scan, then failed at the
+   PS-side DAP/DSCR reset-halt boundary before payload loading, so the sidecar
+   preflight remains gated until a real JTAG-mode power cycle clears that
+   debug state.

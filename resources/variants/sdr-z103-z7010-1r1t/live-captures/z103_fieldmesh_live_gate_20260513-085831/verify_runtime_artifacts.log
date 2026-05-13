@@ -1,0 +1,9 @@
+fieldmesh_runtime_artifacts=z103
+915ad25659081b1f7d8daf237b37130c5258ba1aed14524288fdd1338611a860  /root/work/ZYNQ7020/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz
+80337638b17d9aabaf32a074022fcdc5f5e2bdebcae04bb1f9fc5a762c346ac4  /root/work/ZYNQ7020/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz
+cd7a4703af292b9b0602e4c8104ba8328abcb716da766da33daa412a54ee1993  /root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm
+2770e21870005ba5bee41567bc30668ea9a9bdab67fa4cbab765ede6164ba1ba  /root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.itb
+eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8  /root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z103/devicetree/z103/z103-zynq-pluto-sdr-fieldmesh.dtb
+38ca37464e00e469d9cbb2e76426900e1e061dc6dacfc5ad7c496ca4f846add9  /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/boot/uImage
+24e816807cfc3677301e5c7dc381680b53f01898f7d832f0af1f6bd4e42da200  /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/boot/uramdisk.image.gz
+eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8  /root/work/ZYNQ7020/.config/fieldmesh/jtag-ram-boot-z103/boot/devicetree.dtb

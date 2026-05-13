@@ -18,6 +18,21 @@ The remaining gate is physical: the current Z103 state has shown JTAG TAP
 visibility but PS-side DAP/DSCR errors. The next useful live attempt should
 start only after a real JTAG-mode power cycle.
 
+## Latest Z103 Capture
+
+The first full live-gate run is archived at:
+
+```text
+resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/
+```
+
+It verified runtime artifacts, prepared the RAM-boot payload, captured USB
+reachability, and scanned the JTAG chain. USB still exposed only the FT2232
+JTAG/UART interface, not the Pluto/RNDIS data USB function. JTAG TAP scan
+passed, but the RAM boot stopped before payload loading at the known PS-side
+DAP/DSCR reset-halt boundary. The sidecar preflight was skipped because the
+FieldMesh runtime never booted.
+
 ## One-Shot Runner
 
 Use:
