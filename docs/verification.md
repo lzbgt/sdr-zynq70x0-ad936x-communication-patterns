@@ -3027,6 +3027,30 @@ The generated `fieldmesh_iq_burst_smoke.json` reports
 `recovered_frame_match=true`. The same verifier also checks that the tool
 refuses a burst plan when the conducted/shielded guard is missing.
 
+## FieldMesh RF Packet Engine Transport
+
+The first RF packet-engine transport model consumes the SDK/daemon handoff
+capture and then runs the guarded IQ encode/decode path:
+
+```sh
+./tools/verify_fieldmesh_rf_packet_engine_transport.sh
+```
+
+It uses
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_engine_daemon_20260514-0420/host_query.ndjson`
+as the handoff source and `resources/fieldmesh/vectors/frame_000.bin` as the
+packet-engine frame. Result:
+
+```json
+{"event": "fieldmesh_rf_packet_engine_transport_check", "frame_crc": 2646482743, "iq_samples": 6656, "ok": true}
+```
+
+The generated `fieldmesh_rf_packet_engine_transport.json` reports
+`queued_to_sidecar=1`, `queued_to_rf_engine=1`, `uses_sidecar_dma=true`,
+`uses_rf_packet_engine=true`, `uses_iio=false`,
+`uses_inter_board_ip_routing=false`, `starts_rf_tx=false`,
+`writes_hardware=false`, and `recovered_frame_match=true`.
+
 ## FieldMesh IQ IIO Live Plan
 
 The first AD936x IIO live procedure gate is still a planner only:

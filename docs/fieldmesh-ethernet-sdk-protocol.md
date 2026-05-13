@@ -274,7 +274,10 @@ route, and return the sidecar-DMA/RF-engine queue contract. This is still a
 guarded handoff, not live transmission: it reports `uses_sidecar_dma=1` and
 `uses_rf_packet_engine=1`, while `uses_iio=0`,
 `uses_inter_board_ip_routing=0`, `opens_iio_buffers=0`, `starts_rf_tx=0`, and
-`writes_hardware=0`.
+`writes_hardware=0`. The first transport model,
+`tools/fieldmesh_rf_packet_engine_transport.py`, consumes this daemon handoff
+evidence and proves the packet-engine path through guarded BPSK IQ emission and
+decode before any live RF TX is allowed.
 
 The daemon also exposes a guarded production request,
 `FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the

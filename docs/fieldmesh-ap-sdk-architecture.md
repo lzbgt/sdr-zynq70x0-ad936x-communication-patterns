@@ -562,7 +562,9 @@ Stage 2: Board-local service
   the packet is queued toward sidecar DMA and `fieldmesh_rf_packet_engine`,
   direct-or-relayed route metadata is preserved, and the checked handoff still
   starts no RF TX, opens no IIO buffers, writes no hardware, and uses no
-  inter-board IP routing.
+  inter-board IP routing. `tools/fieldmesh_rf_packet_engine_transport.py` now
+  consumes that handoff evidence, emits the guarded IQ burst, decodes it, and
+  verifies recovered FieldMesh frame CRC before live RF execution is allowed.
 - Use daemon `FIELDMESH_TUN_FD_PUMP` and
   `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
   boundary: the SDK accepts a pure-C read callback, so production code can

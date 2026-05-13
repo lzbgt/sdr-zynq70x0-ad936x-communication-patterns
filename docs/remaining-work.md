@@ -165,7 +165,10 @@ Next concrete work:
   explicitly asserts that inter-board payloads must use the FieldMesh radio
   data plane. The offline `tools/fieldmesh_iq_burst_smoke.py` gate now creates
   and decodes a guarded FieldMesh IQ burst without opening IIO buffers or
-  starting RF TX. `tools/fieldmesh_iq_iio_live_plan.py` now binds that burst to
+  starting RF TX. `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
+  the live SDK/daemon RF handoff evidence, validates the sidecar/RF queue
+  contract, emits the guarded IQ burst, decodes it, and verifies the recovered
+  FieldMesh frame CRC. `tools/fieldmesh_iq_iio_live_plan.py` now binds that burst to
   a guarded RX-first AD936x IIO procedure plan while still executing no
   commands. `tools/fieldmesh_iq_iio_live_run.py` turns the plan into a
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
@@ -209,8 +212,9 @@ Next concrete work:
   packet-engine handoff API and daemon request: it queues packets toward
   sidecar DMA and `fieldmesh_rf_packet_engine` while preserving direct RF route
   metadata and keeping IIO, inter-board IP routing, RF TX start, and hardware
-  writes disabled. The next step is replacing that guarded handoff contract
-  with the real RF packet engine transport.
+  writes disabled. The first RF packet-engine transport model now consumes that
+  handoff evidence and proves packet-to-IQ-to-packet recovery. The next step is
+  binding that engine model to the live sidecar/RF data path.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

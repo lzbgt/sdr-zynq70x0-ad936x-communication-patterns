@@ -443,6 +443,19 @@ original frame, and emits `fieldmesh_iq_burst_smoke.json`. It still reports
 This creates the sample-buffer contract for the later live AD936x conducted
 test without touching the board RF path yet.
 
+The RF packet-engine transport model now ties that sample-buffer contract to
+the SDK/daemon handoff evidence:
+
+```sh
+./tools/verify_fieldmesh_rf_packet_engine_transport.sh
+```
+
+It consumes the live `FIELDMESH_RF_PACKET_ENGINE` daemon capture, validates the
+sidecar-DMA/RF-engine queue flags, emits BPSK IQ samples for the committed
+FieldMesh frame, decodes them back to the same frame, and still reports no IIO
+buffer opens, no RF TX start, no inter-board IP routing, and no hardware
+writes.
+
 The next gate plans the live AD936x IIO procedure but still executes nothing:
 
 ```sh

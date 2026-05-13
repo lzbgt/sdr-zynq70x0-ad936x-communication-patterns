@@ -476,6 +476,13 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_iq_burst_smoke.sh` - gate for the IQ burst smoke,
   including a negative test that refuses to plan a burst without the
   conducted/shielded guard.
+- `tools/fieldmesh_rf_packet_engine_transport.py` - guarded RF packet-engine
+  transport model. It consumes the SDK/daemon RF handoff evidence, validates
+  the sidecar/RF queue contract, emits a BPSK IQ burst from a FieldMesh frame,
+  decodes it back to the same frame, and still starts no RF TX or hardware
+  writes.
+- `tools/verify_fieldmesh_rf_packet_engine_transport.sh` - gate for the RF
+  packet-engine model, including a negative conducted/shielded guard test.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,
@@ -891,7 +898,10 @@ Expected result in the current Pluto-compatible firmware state:
    preserved, and the handoff still opens no IIO buffers, starts no RF TX, and
    writes no hardware. A transient live Z103 state-daemon smoke at
    `192.168.3.1` passed the new `FIELDMESH_RF_PACKET_ENGINE` request with the
-   refreshed daemon binary.
+   refreshed daemon binary. The first executable RF packet-engine transport
+   gate now consumes that handoff evidence, emits the guarded BPSK IQ burst,
+   decodes it, and verifies the recovered FieldMesh frame CRC before any live
+   AD936x RF path is allowed.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
