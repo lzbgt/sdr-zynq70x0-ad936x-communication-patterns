@@ -129,11 +129,16 @@ video or control traffic costs airtime and can break latency guarantees.
 
 Route scoring should be edge based. A direct route remains preferred only when
 SNR margin, packet error rate, estimated throughput, latency, and route
-stability satisfy the stream contract. Otherwise, the AP/mesh manager should
-compare relay paths using radio quality, geographic progress, relay load, queue
-age, and recent delivery history. For sea links, do not assume the closest
-geographic node is best; antenna height and sea-surface multipath can make a
-farther relay more reliable than a closer one.
+stability satisfy the stream contract. When those conditions are true, traffic
+should use direct peer-to-peer RF even if an AP is present. The AP remains the
+coordinator and policy authority, but it must not hairpin payload traffic
+through itself just because it formed the network. Otherwise, the AP/mesh
+manager should compare relay paths using radio quality, geographic progress,
+relay load, queue age, and recent delivery history, and use AP relay when an AP
+is available and direct peer communication is weak, blocked, or forbidden by
+policy. For sea links, do not assume the closest geographic node is best;
+antenna height and sea-surface multipath can make a farther relay more
+reliable than a closer one.
 
 Election behavior:
 
@@ -198,7 +203,11 @@ Concepts:
 
 - **AP ID:** identity of a network-forming AP/broker.
 - **Network ID:** private mission/site/customer network.
-- **Node ID:** stable member identity inside the FieldMesh network.
+- **Device EUI:** compact stable 6-byte hex identity, defaulting from the
+  board MAC/EUI and configurable by CLI/SDK during provisioning.
+- **Node ID / hostname:** human-readable label for operators and host
+  networking. It is not the route key and does not imply role.
+- **Device type:** hardware family such as Z203 2R2T or Z103 1R1T.
 - **Peer ID:** reachable node or application endpoint.
 - **Stream ID:** logical customer payload stream.
 - **Route:** direct, AP-relayed, scheduled relay, or fanout subscription path.
@@ -216,6 +225,12 @@ The SDK can present this like a subnet:
 - query route and link state.
 
 The RF implementation underneath may be P2P, star, graph, or scheduled.
+
+Keep these domain concepts separate. A Z203 or Z103 is a device type with a
+capability set and an AP-capability score. Hub, AP, endpoint, relay, gateway,
+observer, and RTLS anchor are runtime roles granted by command, election, join
+contract, or policy. Hostnames such as `z203`, `z103`, `camera-12`, or
+`ship-a` are labels only.
 
 ## Routed Gateway Default
 
@@ -465,8 +480,10 @@ Typical AP network formation:
 5. AP application accepts, rejects, or audits each request.
 6. AP publishes a signed mode contract.
 7. Nodes discover peers and streams.
-8. Direct routes are preferred when link reports allow them.
-9. AP relay routes are used when direct links fail or policy requires relay.
+8. Direct P2P RF routes are preferred when link reports satisfy the stream
+   contract.
+9. AP relay routes are used only when direct links fail, degrade below policy,
+   or policy requires relay.
 10. Schedule and route updates are pushed as topology changes.
 
 Typical endpoint flow:
@@ -489,7 +506,8 @@ Stage 1: API and trace contract
 - Verify board passive learner plus application command over UDP.
 - Add AP/broker messages to the trace vocabulary.
 - Add executable `ap-elect` traces for preferred AP, RSSI/SNR/geo/capability
-  based autonomous 2R2T AP, and emergency 1R1T AP fallback.
+  based autonomous AP election, and lower-capability fallback when policy
+  allows.
 - Add SDK RTLS calls so applications can feed GNSS/PPS, RSSI/SNR, and
   packet-timing TDOA measurements into AP election and route selection.
 
@@ -538,7 +556,9 @@ Stage 3: AP admission and peer registry
 
 Stage 4: Data-plane route selection
 
-- Implement direct and AP-relayed UDP packet paths first.
+- Implement direct-first and AP-relayed UDP packet paths first: healthy peers
+  use direct P2P RF, and AP relay is the fallback when direct health is weak,
+  blocked, or policy-forbidden.
 - Bind the same route decisions to sidecar DMA packet transport.
 - Only then attach RF/baseband transport.
 
@@ -556,8 +576,8 @@ Use a hybrid architecture:
   customers who need deterministic ownership.
 - **Autonomous swarm mode** for ad-hoc field deployment where no AP is known.
 - **Direct route preference** for peers with good direct link quality.
-- **AP/broker relay** when direct peer communication fails or policy requires
-  mediation.
+- **AP/broker relay** only when direct peer communication fails, degrades below
+  the stream contract, or policy requires mediation.
 - **Scheduled graph relay** when deterministic airtime matters.
 
 This is better than a pure mesh because full uncontrolled mesh wastes airtime

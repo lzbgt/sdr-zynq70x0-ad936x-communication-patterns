@@ -119,6 +119,7 @@ typedef struct fieldmesh_config {
 } fieldmesh_config_t;
 
 typedef struct fieldmesh_network_profile {
+    char device_eui[FIELDMESH_ID_TEXT_MAX];
     char node_id[FIELDMESH_ID_TEXT_MAX];
     char network_id[FIELDMESH_ID_TEXT_MAX];
     char friendly_name[FIELDMESH_NAME_TEXT_MAX];
@@ -246,11 +247,14 @@ typedef struct fieldmesh_join_request {
 } fieldmesh_join_request_t;
 
 typedef struct fieldmesh_peer_info {
+    char device_uuid[FIELDMESH_ID_TEXT_MAX];
     char node_id[FIELDMESH_ID_TEXT_MAX];
     char name[FIELDMESH_NAME_TEXT_MAX];
+    char device_type[FIELDMESH_NAME_TEXT_MAX];
     uint32_t node_classes_mask;
     uint32_t supported_modes_mask;
     uint32_t max_kbps;
+    uint16_t ap_capability_score;
     uint8_t direct_reachable;
     uint8_t relay_allowed;
 } fieldmesh_peer_info_t;

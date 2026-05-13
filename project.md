@@ -454,8 +454,8 @@ user and vendor configuration.
   peer advertisements plus an application/user command, and asserts that the
   board only accepts proactive mode negotiation after the command.
 - `tools/verify_fieldmesh_ap_election.sh` - host-side trace check for the
-  FieldMesh AP election contract, including preferred 2R2T AP, autonomous
-  2R2T election, and emergency 1R1T AP fallback.
+  FieldMesh AP election contract, including preferred AP, autonomous capability
+  based election, and lower-capability fallback when policy allows.
 - `tools/verify_fieldmesh_rtls.sh` - host-side RTLS/relative-positioning check
   for GNSS/PPS fused estimates and GNSS-denied packet-timing TDOA plus RSSI/SNR
   fallback estimates.
@@ -797,7 +797,10 @@ Expected result in the current Pluto-compatible firmware state:
    assuming a fixed P2P/star/graph/scheduled pattern. Product direction:
    Z203-class 2R2T hardware should become the commanded AP/broker/coordinator
    target for network formation, discovery, routing, and relay, while Z103-class
-   1R1T remains the constrained endpoint target. The refreshed Z203 SD/QSPI
+   1R1T remains the constrained endpoint target. Route policy is direct-first:
+   if two peers have a healthy RF link, payload communication should be direct
+   P2P; AP/broker relay is for weak, blocked, unstable, or policy-forbidden
+   direct links. The refreshed Z203 SD/QSPI
    runtime now installs `/usr/bin/fieldmesh-state-daemon-demo` and passes the
    SDK AP browse/election/join plus peer/RTLS state socket smoke from the
    running image. The SDK now also includes the first `fieldmeshctl` network
@@ -805,8 +808,9 @@ Expected result in the current Pluto-compatible firmware state:
    profile writes are enabled. The host-side SSH writer now adds the first
    guarded persistent path for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and
    FieldMesh profile env keys, gated by target identity and rollback backup;
-   the live Z103 write proved the split subnet, and `192.168.2.1` now resolves
-   to the Z203 while `192.168.3.1` resolves to the Z103 endpoint. These IPs are
+  the live Z103 write proved the split subnet, and `192.168.2.1` now resolves
+  to the Z203-class board while `192.168.3.1` resolves to the Z103-class board.
+  These IPs are
    host-facing management paths only. The new two-board radio gate commands
    both boards over those host links, verifies sidecar packet DMA readiness on
    each board, and leaves actual peer payloads assigned to the FieldMesh

@@ -20,6 +20,8 @@ ENV_KEYS = (
     "netmask",
     "ipaddr_eth",
     "netmask_eth",
+    "ethaddr",
+    "fieldmesh_device_eui",
     "fieldmesh_node_id",
     "fieldmesh_network_id",
     "fieldmesh_preferred_ap",
@@ -29,6 +31,7 @@ ENV_KEYS = (
 
 @dataclass
 class Profile:
+    device_eui: str
     node_id: str
     network_id: str
     usb_device_ip: str
@@ -48,6 +51,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ssh-user", default="root")
     parser.add_argument("--ssh-pass", default="analog")
     parser.add_argument("--variant", choices=("z203", "z103"), required=True)
+    parser.add_argument("--device-eui", default="",
+                        help="12 hex chars; defaults from board MAC/EUI convention")
     parser.add_argument("--node-id", required=True)
     parser.add_argument("--network-id", default="fieldmesh-lab")
     parser.add_argument("--usb-device-ip", required=True)
@@ -55,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prefix", type=int, default=24)
     parser.add_argument("--ap-policy", choices=("predefined", "autonomous-swarm", "hybrid"),
                         default="hybrid")
-    parser.add_argument("--preferred-ap-id", default="z203-hub")
+    parser.add_argument("--preferred-ap-id", default="020000000203")
     parser.add_argument("--phy-device-ip", default="")
     parser.add_argument("--phy-prefix", type=int, default=24)
     parser.add_argument("--mock-identity-file", default="")
@@ -70,6 +75,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def validate_profile(args: argparse.Namespace) -> Profile:
+    device_eui = args.device_eui or ("020000000203" if args.variant == "z203" else "020000000103")
+    device_eui = device_eui.replace(":", "").replace("-", "")
+    if len(device_eui) != 12 or any(ch not in "0123456789abcdefABCDEF" for ch in device_eui):
+        raise SystemExit("device-eui must be 12 hex chars")
     usb_device = ipaddress.IPv4Address(args.usb_device_ip)
     usb_host = ipaddress.IPv4Address(args.usb_host_ip)
     if usb_device == usb_host:
@@ -83,6 +92,7 @@ def validate_profile(args: argparse.Namespace) -> Profile:
         if args.phy_prefix <= 0 or args.phy_prefix > 30:
             raise SystemExit("phy-prefix must be in 1..30 when phy-device-ip is set")
     return Profile(
+        device_eui=device_eui,
         node_id=args.node_id,
         network_id=args.network_id,
         usb_device_ip=str(usb_device),
@@ -143,7 +153,7 @@ echo "uname=$(uname -a 2>/dev/null || true)"
 printf 'model='
 cat /proc/device-tree/model 2>/dev/null | tr '\\000' ' ' || true
 echo
-fw_printenv hostname mode ipaddr ipaddr_host netmask ipaddr_eth netmask_eth qspiboot 2>/dev/null || true
+fw_printenv hostname mode ethaddr ipaddr ipaddr_host netmask ipaddr_eth netmask_eth qspiboot fieldmesh_device_eui 2>/dev/null || true
 if command -v fieldmeshctl >/dev/null 2>&1; then
   echo "fieldmeshctl=present"
 else
@@ -190,6 +200,7 @@ def fw_setenv_lines(profile: Profile) -> list[str]:
         f"ipaddr {profile.usb_device_ip}",
         f"ipaddr_host {profile.usb_host_ip}",
         f"netmask {netmask(profile.prefix)}",
+        f"fieldmesh_device_eui {profile.device_eui}",
         f"fieldmesh_node_id {profile.node_id}",
         f"fieldmesh_network_id {profile.network_id}",
         f"fieldmesh_preferred_ap {profile.preferred_ap_id}",
@@ -244,7 +255,7 @@ backup="$backup_root/profile-$stamp.env"
 fw_printenv {keys} > "$backup" 2>/dev/null || true
 {set_commands}
 printf 'backup_path=%s\\n' "$backup"
-fw_printenv hostname ipaddr ipaddr_host netmask ipaddr_eth netmask_eth fieldmesh_node_id fieldmesh_network_id fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null || true
+fw_printenv hostname ethaddr ipaddr ipaddr_host netmask ipaddr_eth netmask_eth fieldmesh_device_eui fieldmesh_node_id fieldmesh_network_id fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null || true
 sync
 {reboot_cmd}
 """
@@ -276,6 +287,7 @@ def main() -> int:
         "variant": args.variant,
         "host": args.host,
         "profile": {
+            "device_eui": profile.device_eui,
             "node_id": profile.node_id,
             "network_id": profile.network_id,
             "usb_device_ip": profile.usb_device_ip,

@@ -30,7 +30,7 @@ udp_demo="$out_dir/fieldmesh_udp_discovery_demo"
 "$udp_demo" browse 127.0.0.1 49123 2000 >"$udp_log" &
 udp_pid=$!
 sleep 0.2
-"$udp_demo" ap-beacon 127.0.0.1 49123 z203-hub fieldmesh-lab >"$udp_send_log"
+"$udp_demo" ap-beacon 127.0.0.1 49123 020000000203 fieldmesh-lab >"$udp_send_log"
 wait "$udp_pid"
 
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
@@ -54,24 +54,26 @@ wait "$two_pc_pid"
 fieldmeshctl="$out_dir/fieldmeshctl_demo"
 "$fieldmeshctl" profile show >"$out_dir/fieldmeshctl_profile_show.ndjson"
 "$fieldmeshctl" profile validate \
-    --node-id z103-endpoint \
+    --device-eui 020000000103 \
+    --node-id node-b \
     --network-id fieldmesh-lab \
-    --friendly-name "Z103 endpoint" \
+    --friendly-name "Z103 lab board" \
     --usb-device-ip 192.168.3.1 \
     --usb-host-ip 192.168.3.10 \
     --prefix 24 \
     --ap-policy hybrid \
-    --preferred-ap-id z203-hub \
+    --preferred-ap-id 020000000203 \
     >"$out_dir/fieldmeshctl_profile_validate.ndjson"
 "$fieldmeshctl" profile apply \
-    --node-id z103-endpoint \
+    --device-eui 020000000103 \
+    --node-id node-b \
     --network-id fieldmesh-lab \
-    --friendly-name "Z103 endpoint" \
+    --friendly-name "Z103 lab board" \
     --usb-device-ip 192.168.3.1 \
     --usb-host-ip 192.168.3.10 \
     --prefix 24 \
     --ap-policy hybrid \
-    --preferred-ap-id z203-hub \
+    --preferred-ap-id 020000000203 \
     --persist \
     >"$out_dir/fieldmeshctl_profile_apply.ndjson"
 "$fieldmeshctl" profile rollback \
@@ -90,10 +92,12 @@ for event in events:
 elections = by_event.get("sdk_election", [])
 routes = by_event.get("sdk_route", [])
 packets = by_event.get("sdk_packet", [])
-if not elections or elections[0].get("elected_node_id") != "z203-hub":
-    raise SystemExit("reference SDK did not elect z203-hub")
+if not elections or elections[0].get("elected_node_id") != "020000000203":
+    raise SystemExit("reference SDK did not elect higher-capability Z203 EUI")
 if not routes or routes[0].get("mode") != 4:
     raise SystemExit("reference SDK did not select scheduled mode")
+if routes[0].get("route_kind") != 1:
+    raise SystemExit("reference SDK did not prefer direct RF route for healthy peer")
 if not packets or packets[0].get("stream_id") != 7 or packets[0].get("sequence") < 1:
     raise SystemExit("reference SDK packet loopback failed")
 if len(by_event.get("sdk_ap", [])) < 1 or len(by_event.get("sdk_peer", [])) < 1:
@@ -110,7 +114,7 @@ if not sent or sent[0].get("event") != "sdk_udp_ap_beacon_sent":
     raise SystemExit("UDP AP beacon send failed")
 if not seen or seen[0].get("event") != "sdk_udp_ap_seen":
     raise SystemExit("UDP AP browse failed")
-if seen[0].get("ap_id") != "z203-hub" or seen[0].get("network_id") != "fieldmesh-lab":
+if seen[0].get("ap_id") != "020000000203" or seen[0].get("network_id") != "fieldmesh-lab":
     raise SystemExit("UDP AP browse saw wrong AP")
 PY
 
@@ -174,12 +178,14 @@ swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_a
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 7 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
-if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "z203-hub":
+if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
-if not ap_election or ap_election[0].get("elected_node_id") != "z203-hub":
+if not ap_election or ap_election[0].get("elected_node_id") != "020000000203":
     raise SystemExit("SDK daemon AP election query failed")
 if not join_state or join_state[0].get("joined") is not True or join_state[0].get("selected_mode") != 4:
     raise SystemExit("SDK daemon AP join query failed")
+if join_state[0].get("route_kind") != 1:
+    raise SystemExit("SDK daemon did not prefer direct route for healthy peer")
 if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
     raise SystemExit("SDK daemon peer-state query failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
@@ -214,12 +220,12 @@ events = {row.get("event"): row for row in endpoint}
 if not any(row.get("event") == "sdk_two_pc_ap_service_end" and row.get("handled") == 5
            for row in service):
     raise SystemExit("two-PC AP service did not handle all requests")
-if events.get("sdk_two_pc_ap_seen", {}).get("ap_id") != "z203-hub":
-    raise SystemExit("two-PC flow did not browse z203-hub")
-if events.get("sdk_two_pc_ap_elected", {}).get("elected_node_id") != "z203-hub":
-    raise SystemExit("two-PC flow did not elect z203-hub")
-if events.get("sdk_two_pc_join_accepted", {}).get("node_id") != "z103-endpoint":
-    raise SystemExit("two-PC flow did not join z103-endpoint")
+if events.get("sdk_two_pc_ap_seen", {}).get("ap_id") != "020000000203":
+    raise SystemExit("two-PC flow did not browse Z203 EUI")
+if events.get("sdk_two_pc_ap_elected", {}).get("elected_node_id") != "020000000203":
+    raise SystemExit("two-PC flow did not elect higher-capability Z203 EUI")
+if events.get("sdk_two_pc_join_accepted", {}).get("device_eui") != "020000000103":
+    raise SystemExit("two-PC flow did not join Z103 EUI")
 if events.get("sdk_two_pc_stream_opened", {}).get("mode") != 4:
     raise SystemExit("two-PC flow did not open scheduled stream")
 if events.get("sdk_two_pc_stream_tx", {}).get("traffic_class") != 1:
@@ -286,10 +292,14 @@ if not show or show[0].get("event") != "fieldmeshctl_profile_show":
     raise SystemExit("fieldmeshctl profile show failed")
 if show[0].get("usb_device_ip") != "192.168.2.1":
     raise SystemExit("fieldmeshctl default USB device IP changed unexpectedly")
+if show[0].get("device_eui") != "020000000203":
+    raise SystemExit("fieldmeshctl default device EUI changed unexpectedly")
 if not validate or validate[0].get("event") != "fieldmeshctl_profile_validate":
     raise SystemExit("fieldmeshctl profile validate failed")
 if validate[0].get("valid") != 1 or validate[0].get("usb_device_ip") != "192.168.3.1":
     raise SystemExit("fieldmeshctl profile validation rejected split subnet")
+if validate[0].get("device_eui") != "020000000103":
+    raise SystemExit("fieldmeshctl profile validation did not carry configured device EUI")
 if not apply or apply[0].get("event") != "fieldmeshctl_profile_apply":
     raise SystemExit("fieldmeshctl profile apply failed")
 if apply[0].get("persist_requested") != 1 or apply[0].get("requires_reboot") != 1:

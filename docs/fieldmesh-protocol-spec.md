@@ -174,7 +174,7 @@ The current C probe exposes this contract as:
 fieldmesh-udp-probe ap-elect \
   --scenario mixed \
   --ap-policy hybrid \
-  --preferred-ap z203-hub \
+  --preferred-ap 020000000203 \
   --network-id fieldmesh-lab
 ```
 
@@ -299,18 +299,19 @@ Required event fields:
 
 ## First Conducted Test Matrix
 
-1. Z103 endpoint to Z203 hub, P2P C0/C1/C2 load.
-2. Z203 source to two receivers, star/fanout stream subscription.
-3. Z203 coordinator with two endpoints, static scheduled slots.
-4. Z203 coordinator with two endpoints, dynamic slot reassignment.
-5. Z203 relay forwards selected traffic under explicit graph policy.
+1. Z103-class board to Z203-class board, direct P2P C0/C1/C2 load when RF link
+   quality is good.
+2. Z203-class source to two receivers, star/fanout stream subscription.
+3. Elected coordinator with two endpoints, static scheduled slots.
+4. Elected coordinator with two endpoints, dynamic slot reassignment.
+5. Relay-capable node forwards selected traffic under explicit graph policy.
 6. Auto mode chooses P2P/star/scheduled from advertised capabilities.
 
 Pass criteria:
 
 - C0/C1 latency remains bounded while C2/C3 degrades.
 - Mode decision is visible and explainable.
-- Z103 endpoint participates without requiring 2R2T-only features.
+- Z103-class boards participate without requiring 2R2T-only features.
 - Packet traces are sufficient to reproduce failures.
 
 ## Software Trace Harness
@@ -442,8 +443,9 @@ fieldmesh-udp-probe advertise --host <peer-ip> --port 49000 --node-profile z203
 fieldmesh-udp-probe command --host <peer-ip> --port 49000 --mode scheduled
 ```
 
-`advertise` reports board capabilities such as 1R1T endpoint or 2R2T
-coordinator/relay support. `command` is the application/user promotion point:
+`advertise` reports board type and capabilities such as 1R1T/2R2T RF resources,
+coordinator weight, relay support, clock quality, and security state.
+`command` is the application/user promotion point:
 it requests a proactive initiator role and a communication model, while the
 listener still finalizes the selected `MODE_CONTRACT` from learned peer
 capabilities.
@@ -590,7 +592,7 @@ RF waveform.
 - Keep PHY and MAC separated: packet/control-plane tests should run before the
   final RF waveform is chosen.
 - Prefer a user-space prototype first, then move only proven hot paths into PL.
-- Keep the Z203 path feature-rich, but continuously test the Z103 endpoint so
-  the design does not drift into a lab-only architecture.
+- Keep the Z203-class path feature-rich, but continuously test the Z103-class
+  path so the design does not drift into a lab-only architecture.
 - Treat all RF field tests as a later phase after conducted behavior is stable
   and legal channel/power profiles are defined.

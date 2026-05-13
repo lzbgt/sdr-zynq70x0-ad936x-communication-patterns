@@ -170,7 +170,7 @@ static int create_demo_state(fieldmesh_context_t **out_context,
     };
 
     config.control_port = port;
-    snprintf(join.ap_id, sizeof(join.ap_id), "%s", "z203-hub");
+    snprintf(join.ap_id, sizeof(join.ap_id), "%s", "020000000203");
     snprintf(join.network_id, sizeof(join.network_id), "%s", "fieldmesh-lab");
     snprintf(join.node_name, sizeof(join.node_name), "%s", "daemon-client");
     snprintf(gps_peer.node_id, sizeof(gps_peer.node_id), "%s", "z203-gps-anchor");
@@ -269,13 +269,13 @@ static int build_response(fieldmesh_context_t *context,
     if (strstr(request, "FIELDMESH_AP_JOIN")) {
         fieldmesh_route_info_t route;
 
-        if (fieldmesh_query_route(session, "z103-endpoint", 7, &route) != FIELDMESH_OK) {
+        if (fieldmesh_query_route(session, "020000000103", 7, &route) != FIELDMESH_OK) {
             return 1;
         }
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_join_state\","
                  "\"network_id\":\"fieldmesh-lab\","
-                 "\"ap_id\":\"z203-hub\","
+                 "\"ap_id\":\"020000000203\","
                  "\"joined\":true,"
                  "\"dst_node_id\":\"%s\","
                  "\"route_kind\":%u,"
@@ -306,7 +306,7 @@ static int build_response(fieldmesh_context_t *context,
         snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
                  "%s", "swarm0");
         snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
-                 "%s", "z103-endpoint");
+                 "%s", "020000000103");
         if (fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
             fieldmesh_adapter_send_packet(adapter, FIELDMESH_PAYLOAD_VIDEO_BASE,
                                           payload, sizeof(payload), &tx_packet) !=

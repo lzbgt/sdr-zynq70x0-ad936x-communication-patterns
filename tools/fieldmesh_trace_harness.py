@@ -28,7 +28,7 @@ MODE_IDS = {"p2p": 1, "star": 2, "graph": 3, "scheduled": 4}
 MODE_NAMES = {value: key for key, value in MODE_IDS.items()}
 CLASS_IDS = {name: index for index, name in enumerate(TRAFFIC_CLASSES)}
 CLASS_NAMES = {value: key for key, value in CLASS_IDS.items()}
-NODE_IDS = {"z103-a": 0x0101, "z103-b": 0x0102, "z203-hub": 0x0201, "z203-relay": 0x0202}
+NODE_IDS = {"020000000103": 0x0101, "020000000104": 0x0102, "020000000203": 0x0201, "020000000204": 0x0202}
 NODE_NAMES = {value: key for key, value in NODE_IDS.items()}
 FIELD_MESH_MAGIC = 0x464D
 FIELD_MESH_VERSION = 1
@@ -73,32 +73,32 @@ class PacketTrace:
 
 
 PROFILES = {
-    "z103-endpoint": Node(
-        node_id="z103-a",
+    "020000000103": Node(
+        node_id="020000000103",
         hardware="sdr-z103-z7010-1r1t",
         roles=("endpoint", "observer"),
         radio="1r1t",
         clock="local",
         max_kbps=2500,
     ),
-    "z103-endpoint-b": Node(
-        node_id="z103-b",
+    "020000000104": Node(
+        node_id="020000000104",
         hardware="sdr-z103-z7010-1r1t",
         roles=("endpoint", "observer"),
         radio="1r1t",
         clock="local",
         max_kbps=2500,
     ),
-    "z203-hub": Node(
-        node_id="z203-hub",
+    "020000000203": Node(
+        node_id="020000000203",
         hardware="sdr-z203-z7020-2r2t",
         roles=("hub", "coordinator", "relay", "gateway", "observer"),
         radio="2r2t",
         clock="gps_pps_candidate",
         max_kbps=7000,
     ),
-    "z203-relay": Node(
-        node_id="z203-relay",
+    "020000000204": Node(
+        node_id="020000000204",
         hardware="sdr-z203-z7020-2r2t",
         roles=("relay", "observer"),
         radio="2r2t",
@@ -237,11 +237,11 @@ def unpack_memory_frame(frame: bytes) -> dict[str, object]:
 
 
 SCENARIOS = {
-    "p2p": ("z103-endpoint", "z203-hub"),
-    "star": ("z203-hub", "z103-endpoint", "z203-relay"),
-    "graph": ("z103-endpoint", "z203-relay", "z203-hub"),
-    "scheduled": ("z203-hub", "z103-endpoint", "z103-endpoint-b"),
-    "auto": ("z203-hub", "z103-endpoint", "z103-endpoint-b"),
+    "p2p": ("020000000103", "020000000203"),
+    "star": ("020000000203", "020000000103", "020000000204"),
+    "graph": ("020000000103", "020000000204", "020000000203"),
+    "scheduled": ("020000000203", "020000000103", "020000000104"),
+    "auto": ("020000000203", "020000000103", "020000000104"),
 }
 
 

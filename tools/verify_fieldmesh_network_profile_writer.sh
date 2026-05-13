@@ -45,20 +45,22 @@ EOF_BAD
 "$repo_root/tools/apply_fieldmesh_network_profile_ssh.py" \
     --mock-identity-file "$good_identity" \
     --variant z103 \
-    --node-id z103-endpoint \
+    --device-eui 020000000103 \
+    --node-id node-b \
     --network-id fieldmesh-lab \
     --usb-device-ip 192.168.3.1 \
     --usb-host-ip 192.168.3.10 \
     --prefix 24 \
     --ap-policy hybrid \
-    --preferred-ap-id z203-hub \
+    --preferred-ap-id 020000000203 \
     > "$good_plan"
 
 set +e
 "$repo_root/tools/apply_fieldmesh_network_profile_ssh.py" \
     --mock-identity-file "$bad_identity" \
     --variant z103 \
-    --node-id z103-endpoint \
+    --device-eui 020000000103 \
+    --node-id node-b \
     --usb-device-ip 192.168.3.1 \
     --usb-host-ip 192.168.3.10 \
     > "$bad_plan" 2> "$out_dir/bad.stderr"
@@ -80,11 +82,14 @@ if good.get("safe_to_apply") is not True:
 profile = good.get("profile", {})
 if profile.get("usb_device_ip") != "192.168.3.1":
     raise SystemExit("planned USB device IP mismatch")
+if profile.get("device_eui") != "020000000103":
+    raise SystemExit("planned device EUI mismatch")
 if profile.get("netmask") != "255.255.255.0":
     raise SystemExit("planned netmask mismatch")
 fw_lines = "\n".join(good.get("fw_setenv", []))
 for token in ("ipaddr 192.168.3.1", "ipaddr_host 192.168.3.10",
-              "fieldmesh_node_id z103-endpoint",
+              "fieldmesh_device_eui 020000000103",
+              "fieldmesh_node_id node-b",
               "fieldmesh_ap_policy hybrid"):
     if token not in fw_lines:
         raise SystemExit(f"missing fw_setenv token: {token}")

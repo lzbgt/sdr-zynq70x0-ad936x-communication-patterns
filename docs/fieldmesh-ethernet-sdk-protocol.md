@@ -25,7 +25,8 @@ Every message carries:
 - `proto`: `fieldmesh-eth-sdk`;
 - `version`: `1`;
 - `network_id`;
-- `node_id` when known;
+- `device_eui` when known: 6-byte hex identity derived from MAC/EUI by default;
+- `node_id`/hostname when known: operator label only;
 - `request_id`;
 - `timestamp_ms`;
 - optional `auth` envelope once credential/cert/audit join is enabled.
@@ -126,6 +127,7 @@ election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`, and
 
 Each node periodically advertises:
 
+- device EUI and device type;
 - board class: `1r1t`, `2r2t`, gateway, relay, endpoint, observer;
 - RF capability: bands, bandwidths, sample rates, TX/RX chain count,
   legal/regulatory profile, antenna hints;
@@ -138,9 +140,11 @@ Each node periodically advertises:
 - security: device identity, cert state, policy version, audit requirement;
 - relay permission and route capacity.
 
-Capabilities are control-plane inputs. They do not force a node into a role.
-All nodes still boot passive and become proactive only by command, saved policy,
-or election.
+Capabilities are control-plane inputs. They do not force a node into a role,
+and hostnames do not encode role. Z203 and Z103 are device types with different
+capability weights; either can be endpoint, hub/AP, relay, observer, or gateway
+when command, policy, and election allow it. All nodes still boot passive and
+become proactive only by command, saved policy, or election.
 
 ## Discovery And Join
 
@@ -161,10 +165,19 @@ Join returns a session contract:
 
 - assigned node ID;
 - traffic classes and allowed streams;
-- route policy: direct, AP-relayed, graph, scheduled, or fanout;
+- route policy: direct-first, AP-relayed fallback, graph, scheduled, or fanout;
 - RTLS privacy policy;
 - AP lease and handover policy;
 - encryption/session key metadata.
+
+Route policy is direct-first by default. If two peers can hear each other with
+enough SNR margin, packet error rate, latency, estimated throughput, and queue
+age to satisfy the stream contract, their payload should use direct P2P RF. The
+AP/broker still coordinates membership, leases, security, schedules, topology,
+and fallback decisions, but it should not relay healthy direct traffic. AP
+relay is selected when direct RF is weak, blocked, unstable, forbidden by
+policy, or when a scheduled/fanout contract explicitly needs the AP or another
+relay.
 
 ## AP Election And Swarm Mode
 

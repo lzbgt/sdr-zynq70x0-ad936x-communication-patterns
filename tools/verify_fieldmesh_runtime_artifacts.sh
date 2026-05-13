@@ -96,6 +96,18 @@ verify_variant() {
             exit 1
         fi
     done
+    for token in 020000000203 020000000103; do
+        if ! grep -qF "$token" "$strings_out"; then
+            echo "Missing FieldMesh compact device EUI in $name probe: $token" >&2
+            exit 1
+        fi
+    done
+    for stale in z203-hub z103-endpoint z103-a z103-b z203-relay; do
+        if grep -qF "$stale" "$strings_out"; then
+            echo "Stale role-derived node identifier in $name probe: $stale" >&2
+            exit 1
+        fi
+    done
     for token in \
         sdk_device_iio_profile \
         sdk_device_iio_plan \
@@ -113,6 +125,7 @@ verify_variant() {
         fieldmeshctl_profile_apply \
         fieldmeshctl_profile_rollback \
         usb_device_ip \
+        device_eui \
         persist_requested; do
         if ! grep -qF "$token" "$ctl_strings_out"; then
             echo "Missing fieldmeshctl token in $name rootfs: $token" >&2
@@ -133,7 +146,9 @@ verify_variant() {
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
         sdk_daemon_swarm_adapter \
-        sdk_daemon_iio_bridge_plan; do
+        sdk_daemon_iio_bridge_plan \
+        020000000203 \
+        020000000103; do
         if ! grep -qF "$token" "$daemon_strings_out"; then
             echo "Missing fieldmesh-state-daemon-demo token in $name rootfs: $token" >&2
             exit 1

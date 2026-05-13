@@ -397,16 +397,16 @@ writes to these offsets and supports one outstanding read or write transaction.
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
 
-## Z103 And Z203 Roles
+## Z103 And Z203 Capability Profiles
 
-**Z103 endpoint**
+**Z103-class 1R1T profile**
 
 - Must support packet TX/RX, C0/C1 priority, and C2 degradation evidence.
 - Should use the smallest queue and descriptor count that passes the trace
   assertions.
 - Must not depend on Ethernet, SD-card boot, or 2R2T-only features.
 
-**Z203 hub/coordinator**
+**Z203-class 2R2T profile**
 
 - Can host larger queues, coordinator policy, graph/relay experiments, and
   optional diversity/cooperative receive experiments.
@@ -456,5 +456,6 @@ admission boundary before any RF/baseband path is connected.
   loopback.
 - Trace assertions pass for P2P, star, graph, scheduled, and auto scenarios.
 - C0/C1 latency remains bounded while C2/C3/C4 degrades or drops.
-- Z103 endpoint and Z203 hub use the same userspace API and packet header.
+- Z103-class and Z203-class boards use the same userspace API and packet
+  header; current role is selected by policy/election/command, not board name.
 - PL faults are diagnosable without touching ADI DMA registers first.

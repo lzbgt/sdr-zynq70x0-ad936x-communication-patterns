@@ -18,7 +18,8 @@ through a host/network path with explicit routing.
 
 The firmware must therefore support configuration before two-board experiments:
 
-- board identity: `node_id`, board class, friendly name;
+- board identity: `device_eui`, `device_type`, `node_id`/hostname, and
+  friendly name;
 - network identity: `network_id`, AP policy, credential/cert/audit mode;
 - USB Ethernet profile: device IP, host/DHCP range, netmask, hostname;
 - physical Ethernet profile when present;
@@ -37,6 +38,13 @@ scripts, U-Boot environment, or host routing. On board images it also overlays
 operators see the active USB subnet and FieldMesh identity instead of a
 compiled SDK default.
 
+`device_eui` is the stable compact device identity for routing, security, peer
+databases, and AP election reports. It is six bytes encoded as 12 hex
+characters, defaults from the board MAC/EUI (`ethaddr` when available), and can
+be overridden by `fieldmesh_device_eui` or `fieldmeshctl profile --device-eui`
+during provisioning. `node_id`, Linux hostname, and friendly name are human
+labels only; they must not imply board capability or current role.
+
 The first persistent writer is host-side:
 `tools/apply_fieldmesh_network_profile_ssh.py`. It reaches a board over SSH,
 collects local identity evidence, requires an explicit Z203/Z103 variant match,
@@ -49,16 +57,18 @@ Current commands are explicit and scriptable:
 ```sh
 fieldmeshctl profile show
 fieldmeshctl profile validate \
-  --node-id z103-endpoint \
+  --device-eui 020000000103 \
+  --node-id node-b \
   --network-id fieldmesh-lab \
-  --friendly-name "Z103 endpoint" \
+  --friendly-name "Z103 lab board" \
   --usb-device-ip 192.168.3.1 \
   --usb-host-ip 192.168.3.10 \
   --prefix 24 \
   --ap-policy hybrid \
-  --preferred-ap-id z203-hub
+  --preferred-ap-id 020000000203
 fieldmeshctl profile apply \
-  --node-id z103-endpoint \
+  --device-eui 020000000103 \
+  --node-id node-b \
   --network-id fieldmesh-lab \
   --usb-device-ip 192.168.3.1 \
   --usb-host-ip 192.168.3.10 \
@@ -73,7 +83,8 @@ Host-side persistent staging uses the same profile values:
 tools/apply_fieldmesh_network_profile_ssh.py \
   --host 192.168.2.1 \
   --variant z103 \
-  --node-id z103-endpoint \
+  --device-eui 020000000103 \
+  --node-id node-b \
   --network-id fieldmesh-lab \
   --usb-device-ip 192.168.3.1 \
   --usb-host-ip 192.168.3.10 \
@@ -86,7 +97,8 @@ That command only prints a JSON plan. A real write requires:
 tools/apply_fieldmesh_network_profile_ssh.py \
   --host 192.168.2.1 \
   --variant z103 \
-  --node-id z103-endpoint \
+  --device-eui 020000000103 \
+  --node-id node-b \
   --network-id fieldmesh-lab \
   --usb-device-ip 192.168.3.1 \
   --usb-host-ip 192.168.3.10 \
@@ -161,7 +173,8 @@ once it leaves the host-facing local board link.
 
 The first ABI covers:
 
-- board identity: `node_id`, `network_id`, friendly name;
+- board identity: `device_eui`, `device_type`, `node_id`, `network_id`, and
+  friendly name;
 - USB Ethernet split-subnet planning: device IP, host IP, prefix;
 - optional physical Ethernet addressing;
 - AP policy: predefined, autonomous swarm, or hybrid;
@@ -297,9 +310,10 @@ The 2026-05-14 Z103 bring-up proved this path on hardware:
 - the stock Z103 first refused the persistent writer because `fieldmeshctl` was
   missing;
 - after the matched FieldMesh `pluto.frm` was installed, the writer applied
-  `hostname=z103-endpoint`, `ipaddr=192.168.3.1`, `ipaddr_host=192.168.3.10`,
-  `fieldmesh_node_id=z103-endpoint`, `fieldmesh_network_id=fieldmesh-lab`,
-  `fieldmesh_preferred_ap=z203-hub`, and `fieldmesh_ap_policy=hybrid`;
+  `hostname=node-b`, `ipaddr=192.168.3.1`, `ipaddr_host=192.168.3.10`,
+  `fieldmesh_device_eui=020000000103`, `fieldmesh_node_id=node-b`,
+  `fieldmesh_network_id=fieldmesh-lab`,
+  `fieldmesh_preferred_ap=020000000203`, and `fieldmesh_ap_policy=hybrid`;
 - a BusyBox/u-boot-tools quirk was found: `fw_setenv -s FILE` returned success
   but wrote empty values, so the writer now applies each key with individual
   `fw_setenv key value` calls;

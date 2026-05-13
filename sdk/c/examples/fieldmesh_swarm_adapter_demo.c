@@ -62,11 +62,11 @@ int main(void)
     unsigned received = 0;
     size_t i;
 
-    strcpy(join.ap_id, "z203-hub");
+    strcpy(join.ap_id, "020000000203");
     strcpy(join.network_id, "fieldmesh-lab");
     strcpy(join.node_name, "sdk-swarm0-endpoint");
     strcpy(adapter_config.adapter_name, "swarm0");
-    strcpy(adapter_config.dst_node_id, "z103-endpoint");
+    strcpy(adapter_config.dst_node_id, "020000000103");
     fill_video_payload(video_base, sizeof(video_base), 0x21u);
     fill_video_payload(video_enhancement, sizeof(video_enhancement), 0x72u);
     frames[0] = (struct demo_frame){
@@ -100,7 +100,7 @@ int main(void)
            "\"adapter_kind\":\"stream_api\",\"product_data_plane\":\"packet_stream\","
            "\"host_link\":\"usb_or_phy_eth_control\",\"radio_topology_only\":1,"
            "\"uses_iio\":0,\"uses_inter_board_ip_routing\":0,"
-           "\"dst_node_id\":\"z103-endpoint\",\"mode\":%u,\"stream_id_base\":100,"
+           "\"dst_device_eui\":\"020000000103\",\"mode\":%u,\"stream_id_base\":100,"
            "\"mtu_bytes\":%u}\n",
            (unsigned)FIELDMESH_MODE_SCHEDULED, FIELDMESH_ADAPTER_DEFAULT_MTU);
 

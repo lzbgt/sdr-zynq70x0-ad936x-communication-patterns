@@ -89,16 +89,16 @@ static int make_demo_state(fieldmesh_context_t **out_context,
     config.timeout_ms = 2000;
     memset(&join, 0, sizeof(join));
     join.method = FIELDMESH_JOIN_AP_AUDIT;
-    snprintf(join.ap_id, sizeof(join.ap_id), "%s", "z203-hub");
+    snprintf(join.ap_id, sizeof(join.ap_id), "%s", "020000000203");
     snprintf(join.network_id, sizeof(join.network_id), "%s", "fieldmesh-lab");
-    snprintf(join.node_name, sizeof(join.node_name), "%s", "z103-endpoint");
+    snprintf(join.node_name, sizeof(join.node_name), "%s", "node-b");
     join.requested_node_classes_mask = 1u << FIELDMESH_NODE_ENDPOINT;
     join.timeout_ms = 5000;
 
     if (fieldmesh_context_create(&config, &context) != FIELDMESH_OK ||
         fieldmesh_ap_start(context, "fieldmesh-lab", "commanded-two-pc-ap", &ap) !=
             FIELDMESH_OK ||
-        fieldmesh_ap_audit_join(ap, "z103-endpoint", 1) != FIELDMESH_OK ||
+        fieldmesh_ap_audit_join(ap, "020000000103", 1) != FIELDMESH_OK ||
         fieldmesh_join_ap(context, &join, &session) != FIELDMESH_OK ||
         fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
                                "application_or_user") != FIELDMESH_OK) {
@@ -159,8 +159,9 @@ static int build_response(fieldmesh_context_t *context,
     if (strstr(request, "AP_JOIN")) {
         snprintf(response, response_len,
                  "{\"event\":\"sdk_two_pc_join_accepted\","
-                 "\"ap_id\":\"z203-hub\","
-                 "\"node_id\":\"z103-endpoint\","
+                 "\"ap_id\":\"020000000203\","
+                 "\"device_eui\":\"020000000103\","
+                 "\"node_id\":\"node-b\","
                  "\"method\":%u,"
                  "\"mode\":%u}\n",
                  (unsigned)FIELDMESH_JOIN_AP_AUDIT,
@@ -170,7 +171,7 @@ static int build_response(fieldmesh_context_t *context,
     if (strstr(request, "STREAM_OPEN")) {
         fieldmesh_route_info_t route;
 
-        if (fieldmesh_query_route(session, "z103-endpoint", 7, &route) != FIELDMESH_OK) {
+        if (fieldmesh_query_route(session, "020000000103", 7, &route) != FIELDMESH_OK) {
             return 1;
         }
         snprintf(response, response_len,
@@ -192,14 +193,14 @@ static int build_response(fieldmesh_context_t *context,
 
         memset(&stream_config, 0, sizeof(stream_config));
         snprintf(stream_config.dst_node_id, sizeof(stream_config.dst_node_id),
-                 "%s", "z103-endpoint");
+                 "%s", "020000000103");
         stream_config.stream_id = 7;
         stream_config.traffic_class = FIELDMESH_CLASS_C1_TELEMETRY;
         stream_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
         stream_config.deadline_ms = 50;
         stream_config.bitrate_hint_kbps = 64;
         memset(&meta, 0, sizeof(meta));
-        snprintf(meta.dst_node_id, sizeof(meta.dst_node_id), "%s", "z103-endpoint");
+        snprintf(meta.dst_node_id, sizeof(meta.dst_node_id), "%s", "020000000103");
         if (fieldmesh_open_stream(session, &stream_config, &stream) == FIELDMESH_OK &&
             fieldmesh_send(stream, payload, sizeof(payload), &meta) == FIELDMESH_OK) {
             snprintf(response, response_len,
@@ -324,9 +325,9 @@ static int run_endpoint_flow(const char *ap_ip, uint16_t port, long timeout_ms)
     static const char *requests[] = {
         "AP_BROWSE v1",
         "AP_ELECT v1",
-        "AP_JOIN z103-endpoint audit",
-        "STREAM_OPEN z103-endpoint 7 C1",
-        "STREAM_SEND z103-endpoint 7 telemetry",
+        "AP_JOIN 020000000103 audit",
+        "STREAM_OPEN 020000000103 7 C1",
+        "STREAM_SEND 020000000103 7 telemetry",
     };
     fieldmesh_socket_t sockfd = INVALID_SOCKET;
     struct sockaddr_in dst;

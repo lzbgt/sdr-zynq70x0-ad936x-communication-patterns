@@ -458,8 +458,8 @@ static const char *class_name(uint8_t traffic_class)
 static const char *node_name(uint16_t node)
 {
     switch (node) {
-    case 0x0101: return "z103-a";
-    case 0x0201: return "z203-hub";
+    case 0x0101: return "020000000103";
+    case 0x0201: return "020000000203";
     default: return "unknown";
     }
 }
@@ -483,9 +483,9 @@ static void make_trace(const struct config *cfg, int tick, int class_index, stru
     tr->mode = mode_id(effective_mode(cfg));
     tr->mode_name = mode_name(tr->mode);
     tr->src_node = 0x0101;
-    tr->src_name = "z103-a";
+    tr->src_name = "020000000103";
     tr->dst_node = 0x0201;
-    tr->dst_name = "z203-hub";
+    tr->dst_name = "020000000203";
     tr->stream_id = 100;
     tr->traffic_class = (uint8_t)class_index;
     tr->traffic_name = class_name(tr->traffic_class);
@@ -1033,52 +1033,52 @@ static void emit_send_negotiation(const struct config *cfg, const char *selected
 {
     const char *reason = mode_reason(cfg, selected);
 
-    printf("{\"event\":\"capability_report\",\"node_id\":\"z103-a\","
-           "\"hardware\":\"sdr-z103-z7010-1r1t\",\"roles\":[\"endpoint\",\"observer\"],"
+    printf("{\"event\":\"capability_report\",\"node_id\":\"020000000103\","
+           "\"hardware\":\"sdr-z103-z7010-1r1t\",\"roles\":[\"endpoint\",\"observer\",\"relay\",\"ap_broker\"],"
            "\"radio\":\"1r1t\",\"clock\":\"local\",\"max_kbps\":2500}\n");
-    printf("{\"event\":\"capability_report\",\"node_id\":\"z203-hub\","
+    printf("{\"event\":\"capability_report\",\"node_id\":\"020000000203\","
            "\"hardware\":\"sdr-z203-z7020-2r2t\",\"roles\":[\"hub\",\"coordinator\",\"relay\",\"gateway\",\"observer\"],"
            "\"radio\":\"2r2t\",\"clock\":\"gps_pps_candidate\",\"max_kbps\":7000}\n");
-    printf("{\"event\":\"discovery_beacon\",\"node_id\":\"z103-a\","
+    printf("{\"event\":\"discovery_beacon\",\"node_id\":\"020000000103\","
            "\"supported_modes\":[\"p2p\",\"star\"],\"clock\":\"local\",\"max_kbps\":2500}\n");
-    printf("{\"event\":\"discovery_beacon\",\"node_id\":\"z203-hub\","
+    printf("{\"event\":\"discovery_beacon\",\"node_id\":\"020000000203\","
            "\"supported_modes\":[\"p2p\",\"star\",\"graph\",\"scheduled\"],"
            "\"clock\":\"gps_pps_candidate\",\"max_kbps\":7000}\n");
-    printf("{\"event\":\"join_request\",\"node_id\":\"z103-a\",\"coordinator\":\"z203-hub\","
-           "\"requested_roles\":[\"endpoint\",\"observer\"]}\n");
-    printf("{\"event\":\"join_accept\",\"node_id\":\"z103-a\",\"coordinator\":\"z203-hub\","
-           "\"admitted_roles\":[\"endpoint\",\"observer\"]}\n");
-    printf("{\"event\":\"mode_request\",\"requested_mode\":\"%s\",\"requester\":\"z103-a\","
-           "\"coordinator\":\"z203-hub\",\"traffic_profile\":\"%s\"}\n",
+    printf("{\"event\":\"join_request\",\"node_id\":\"020000000103\",\"coordinator\":\"020000000203\","
+           "\"requested_roles\":[\"endpoint\",\"observer\",\"relay\",\"ap_broker\"]}\n");
+    printf("{\"event\":\"join_accept\",\"node_id\":\"020000000103\",\"coordinator\":\"020000000203\","
+           "\"admitted_roles\":[\"endpoint\",\"observer\",\"relay\",\"ap_broker\"]}\n");
+    printf("{\"event\":\"mode_request\",\"requested_mode\":\"%s\",\"requester\":\"020000000103\","
+           "\"coordinator\":\"020000000203\",\"traffic_profile\":\"%s\"}\n",
            cfg->mode, cfg->traffic_profile);
-    printf("{\"event\":\"mode_proposal\",\"coordinator\":\"z203-hub\","
+    printf("{\"event\":\"mode_proposal\",\"coordinator\":\"020000000203\","
            "\"selected_mode\":\"%s\",\"reason\":\"%s\"}\n", selected, reason);
-    printf("{\"event\":\"mode_accept\",\"node_id\":\"z103-a\",\"selected_mode\":\"%s\"}\n", selected);
-    printf("{\"event\":\"mode_accept\",\"node_id\":\"z203-hub\",\"selected_mode\":\"%s\"}\n", selected);
+    printf("{\"event\":\"mode_accept\",\"node_id\":\"020000000103\",\"selected_mode\":\"%s\"}\n", selected);
+    printf("{\"event\":\"mode_accept\",\"node_id\":\"020000000203\",\"selected_mode\":\"%s\"}\n", selected);
 
     if (!strcmp(selected, "star")) {
-        printf("{\"event\":\"stream_subscribe\",\"stream_id\":100,\"source\":\"z103-a\","
-               "\"subscribers\":[\"z203-hub\"]}\n");
+        printf("{\"event\":\"stream_subscribe\",\"stream_id\":100,\"source\":\"020000000103\","
+               "\"subscribers\":[\"020000000203\"]}\n");
     } else if (!strcmp(selected, "graph")) {
-        printf("{\"event\":\"route_update\",\"coordinator\":\"z203-hub\","
-               "\"route_edges\":[[\"z103-a\",\"z203-relay\"],[\"z203-relay\",\"z203-hub\"]],"
+        printf("{\"event\":\"route_update\",\"coordinator\":\"020000000203\","
+               "\"route_edges\":[[\"020000000103\",\"020000000204\"],[\"020000000204\",\"020000000203\"]],"
                "\"allowed_classes\":[\"C0\",\"C1\",\"C2\"]}\n");
     } else if (!strcmp(selected, "scheduled")) {
-        printf("{\"event\":\"schedule_update\",\"coordinator\":\"z203-hub\","
+        printf("{\"event\":\"schedule_update\",\"coordinator\":\"020000000203\","
                "\"epoch\":1000,\"guard_us\":500,\"emergency_minislot\":true,"
-               "\"slots\":[{\"slot\":1,\"owner\":\"z103-a\",\"classes\":[\"C0\",\"C1\",\"C2\"]}]}\n");
+               "\"slots\":[{\"slot\":1,\"owner\":\"020000000103\",\"classes\":[\"C0\",\"C1\",\"C2\"]}]}\n");
     } else {
         printf("{\"event\":\"link_profile\",\"mode\":\"p2p\","
-               "\"peers\":[\"z103-a\",\"z203-hub\"],\"reserved_classes\":[\"C0\",\"C1\"]}\n");
+               "\"peers\":[\"020000000103\",\"020000000203\"],\"reserved_classes\":[\"C0\",\"C1\"]}\n");
     }
 
     printf("{\"event\":\"mode_decision\",\"selected_mode\":\"%s\",\"reason\":\"%s\","
-           "\"coordinator\":\"z203-hub\"}\n", selected, reason);
+           "\"coordinator\":\"020000000203\"}\n", selected, reason);
 }
 
 static const char *profile_node_id(const char *profile)
 {
-    return !strcmp(profile, "z203") ? "z203-hub" : "z103-a";
+    return !strcmp(profile, "z203") ? "020000000203" : "020000000103";
 }
 
 static const char *profile_hardware(const char *profile)
@@ -1090,7 +1090,7 @@ static const char *profile_roles_json(const char *profile)
 {
     return !strcmp(profile, "z203") ?
         "[\"hub\",\"coordinator\",\"relay\",\"gateway\",\"observer\"]" :
-        "[\"endpoint\",\"observer\"]";
+        "[\"endpoint\",\"observer\",\"relay\",\"ap_broker\"]";
 }
 
 static const char *profile_modes_json(const char *profile)
@@ -1167,10 +1167,10 @@ struct rtls_estimate {
 
 static const struct ap_candidate AP_CANDIDATES[] = {
     {
-        .node_id = "z103-a",
+        .node_id = "020000000103",
         .hardware = "sdr-z103-z7010-1r1t",
         .radio = "1r1t",
-        .roles_json = "[\"endpoint\",\"observer\"]",
+        .roles_json = "[\"endpoint\",\"observer\",\"relay\",\"ap_broker\"]",
         .modes_json = "[\"p2p\",\"star\"]",
         .max_kbps = 2500,
         .reachable_peer_count = 1,
@@ -1187,15 +1187,15 @@ static const struct ap_candidate AP_CANDIDATES[] = {
         .handover_penalty = 20,
         .wall_powered = false,
         .has_disciplined_clock = false,
-        .relay_allowed = false,
+        .relay_allowed = true,
         .provisioned_identity = true,
         .ap_allowed = true,
     },
     {
-        .node_id = "z103-b",
+        .node_id = "020000000104",
         .hardware = "sdr-z103-z7010-1r1t",
         .radio = "1r1t",
-        .roles_json = "[\"endpoint\",\"observer\"]",
+        .roles_json = "[\"endpoint\",\"observer\",\"relay\",\"ap_broker\"]",
         .modes_json = "[\"p2p\",\"star\"]",
         .max_kbps = 2500,
         .reachable_peer_count = 1,
@@ -1212,12 +1212,12 @@ static const struct ap_candidate AP_CANDIDATES[] = {
         .handover_penalty = 20,
         .wall_powered = false,
         .has_disciplined_clock = false,
-        .relay_allowed = false,
+        .relay_allowed = true,
         .provisioned_identity = true,
         .ap_allowed = true,
     },
     {
-        .node_id = "z203-hub",
+        .node_id = "020000000203",
         .hardware = "sdr-z203-z7020-2r2t",
         .radio = "2r2t",
         .roles_json = "[\"hub\",\"coordinator\",\"relay\",\"gateway\",\"observer\",\"ap_broker\"]",
@@ -1242,7 +1242,7 @@ static const struct ap_candidate AP_CANDIDATES[] = {
         .ap_allowed = true,
     },
     {
-        .node_id = "z203-relay",
+        .node_id = "020000000204",
         .hardware = "sdr-z203-z7020-2r2t",
         .radio = "2r2t",
         .roles_json = "[\"relay\",\"observer\",\"ap_broker\"]",
@@ -1270,7 +1270,7 @@ static const struct ap_candidate AP_CANDIDATES[] = {
 
 static const struct rtls_peer_sample RTLS_SAMPLES[] = {
     {
-        .node_id = "z203-hub",
+        .node_id = "020000000203",
         .hardware = "sdr-z203-z7020-2r2t",
         .radio = "2r2t",
         .gps_lock = 1,
@@ -1283,7 +1283,7 @@ static const struct rtls_peer_sample RTLS_SAMPLES[] = {
         .velocity_cm_s = 0,
     },
     {
-        .node_id = "z103-a",
+        .node_id = "020000000103",
         .hardware = "sdr-z103-z7010-1r1t",
         .radio = "1r1t",
         .gps_lock = 1,
@@ -1296,7 +1296,7 @@ static const struct rtls_peer_sample RTLS_SAMPLES[] = {
         .velocity_cm_s = 80,
     },
     {
-        .node_id = "z103-b",
+        .node_id = "020000000104",
         .hardware = "sdr-z103-z7010-1r1t",
         .radio = "1r1t",
         .gps_lock = 0,
@@ -1309,7 +1309,7 @@ static const struct rtls_peer_sample RTLS_SAMPLES[] = {
         .velocity_cm_s = 120,
     },
     {
-        .node_id = "z203-relay",
+        .node_id = "020000000204",
         .hardware = "sdr-z203-z7020-2r2t",
         .radio = "2r2t",
         .gps_lock = 1,
@@ -1615,9 +1615,9 @@ static int run_ap_elect(const struct config *cfg)
         reason = "preferred_ap_policy";
         preferred_selected = true;
     } else if (!strcmp(best->radio, "2r2t")) {
-        reason = "max_connectivity_2r2t_capability_consensus";
+        reason = "max_connectivity_capability_consensus";
     } else {
-        reason = "max_connectivity_emergency_1r1t_consensus";
+        reason = "max_connectivity_lower_capability_fallback_consensus";
     }
 
     printf("{\"event\":\"ap_consensus_round\",\"transport\":\"ap-elect\","

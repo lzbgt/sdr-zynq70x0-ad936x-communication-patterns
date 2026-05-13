@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-6}"
+requests="${REQUESTS:-7}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -137,11 +137,11 @@ iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 6:
+if not end or end[-1].get("handled") != 7:
     raise SystemExit("board SDK daemon did not handle all requests")
-if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "z203-hub":
+if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
-if not ap_election or ap_election[0].get("elected_node_id") != "z203-hub":
+if not ap_election or ap_election[0].get("elected_node_id") != "020000000203":
     raise SystemExit("board SDK daemon AP election response failed")
 if not join_state or join_state[0].get("joined") is not True or join_state[0].get("selected_mode") != 4:
     raise SystemExit("board SDK daemon AP join response failed")

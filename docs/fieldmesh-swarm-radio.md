@@ -337,7 +337,8 @@ AP/broker behavior:
 - credential, derived-certificate, or AP-audit join;
 - peer and stream discovery after join;
 - direct peer route when healthy;
-- AP-relayed route when direct communication is weak or blocked;
+- AP-relayed route only when direct communication is weak, blocked, unstable,
+  or policy-forbidden;
 - graph/scheduled relay when route policy requires deterministic sharing;
 - visible mode contract, route reason, link state, and degradation state.
 
@@ -366,10 +367,12 @@ Best architecture:
 - Use autonomous swarm election when no AP exists. Mixed 1R1T/2R2T swarms
   should elect the best available AP from capability, power, clock, security,
   and reachability reports.
-- Prefer a 2R2T AP/broker, but allow a 1R1T emergency AP when policy allows and
-  no better node is live.
-- Use direct peer routes when healthy; use AP relay or scheduled graph relay
-  when direct communication is weak or blocked.
+- Prefer the highest-scoring AP/broker candidate; Z203-class 2R2T boards often
+  score higher in mixed swarms, but Z103-class 1R1T boards can still be elected
+  when policy allows and no better node is live.
+- Use direct peer routes when healthy. Use AP relay or scheduled graph relay
+  only when direct communication is weak, blocked, unstable, or
+  policy-forbidden.
 - Avoid uncontrolled flood mesh as the default because it wastes airtime and
   makes video latency unpredictable.
 
@@ -488,7 +491,7 @@ Mode preference:
 | Obstructed or extended area | Graph/relay | selected nodes forward traffic |
 | GPS/PPS lock is strong across nodes | Scheduled cooperative | deterministic sharing and lower collision risk |
 | Clock lock is absent or weak | P2P or coordinator-timed star | simpler timing and larger guards |
-| Z103 endpoint joins Z203 hub | Star or scheduled star | Z203 can absorb hub complexity |
+| Lower-capability node joins a higher-capability elected AP | Star or scheduled star | The elected AP can absorb coordination complexity |
 
 Fallback rules:
 
@@ -575,8 +578,8 @@ Current staged hardware plan:
 
 The important product rule is that both boards boot in passive learner mode.
 They listen for advertisements by default and are promoted into proactive
-initiation only by an application or user command. The 1R1T endpoint must adapt
-to the 2R2T peer by selecting or accepting P2P/star/graph/scheduled behavior
+initiation only by an application or user command. Each node must adapt to peer
+capability reports by selecting or accepting P2P/star/graph/scheduled behavior
 from capability reports, clock/link state, explicit commands, and the negotiated
 mode contract, not from a board-specific hardcoded assumption.
 
@@ -642,7 +645,8 @@ Milestone 1: Common packet pipe
 
 Milestone 2: P2P profile
 
-- One Z103 endpoint sends video-like C2 data and C1 telemetry to one Z203 hub.
+- One board sends video-like C2 data and C1 telemetry directly to another board
+  when RF link quality is good.
 - C0 control packets remain bounded while C2 load is increased.
 - Profile changes reduce video-like load before C0/C1 traffic fails.
 
@@ -672,8 +676,9 @@ Done criteria for the prototype:
 - A user can choose P2P, star, graph, or scheduled mode explicitly.
 - Auto mode can negotiate a mode from advertised capabilities and measured link
   quality.
-- Z103 can participate as a constrained 1R1T endpoint.
-- Z203 can act as hub/coordinator/relay with optional 2R2T-specific features.
+- Z103-class boards can participate as constrained 1R1T nodes.
+- Z203-class boards can advertise stronger coordinator/relay capability through
+  capability scores, without hard-coding them as a role.
 - The same customer payload API works across both boards.
 
 ## Risks And Constraints

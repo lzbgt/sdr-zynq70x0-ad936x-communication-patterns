@@ -2293,12 +2293,12 @@ daemon `FIELDMESH_SWARM_ADAPTER` query and consolidating the routed gateway
 design:
 
 ```text
-z203 rootfs.cpio.gz 0bd841e96ab9c7afe45ebeda429457075029bb74e2c0fa0ef38f869fd3b9cd49
-z203 rootfs.tar.gz  c331638bc6149bf767447a836a409cedb514fec978d498dd5908f089857d0556
-z103 rootfs.cpio.gz b9df0458f53c3d5dc145dce6e933d95aa0df7e126db20cec74f2d175eb579a09
-z103 rootfs.tar.gz  e8511183231dcba2b093a399974578f696bc265388bc34cba68f94dbe9d09b0c
-z203 pluto.frm      02e58c383124efe28082e8bd1f8c6cbc748484ef39051fcb3897b9b25b0a9217
-z103 pluto.frm      81003ca4391df46357b01472c8828686e2031e87c52321dfa0a26750e145bf8b
+z203 rootfs.cpio.gz bcaf85e10b346794bf6d3f20ffede4df527fc762891d41c3299d5621b649e0a8
+z203 rootfs.tar.gz  6752a7e40ee38fbc3efe1b8f6f8adf493616d8eee8161c9d21cb74f7107a443a
+z103 rootfs.cpio.gz 640b966df702a826eb0742b8f54fca293e72bf6afef2c34254aea232d867a3a3
+z103 rootfs.tar.gz  a1a6954f501c413ecbe78f0cb9b9f6d92056f98bb6d2c45f19d58e6d864b841f
+z203 pluto.frm      062591323c484a831953fa1796850ee104cf08bfb6ee16ef516e30471824a55e
+z103 pluto.frm      dcaf8dd9ceff45628ffae40385cfe72387b0acfc39b7e291f5cc972688daab2b
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2319,14 +2319,14 @@ Refreshed package and RAM-boot hashes after wiring the daemon swarm-adapter
 query:
 
 ```text
-z203 pluto.frm 02e58c383124efe28082e8bd1f8c6cbc748484ef39051fcb3897b9b25b0a9217
-z203 pluto.itb cebd5b12be6bf3a7c854d56ad8c240ca56727178bff4d992780412410f00ceaa
+z203 pluto.frm 062591323c484a831953fa1796850ee104cf08bfb6ee16ef516e30471824a55e
+z203 pluto.itb 0661d881930ff98f448ab6cbfa9bd98b48540ef7adc3a79219f72f3a02d0c9a7
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 9456f48c2b68679cd4c187615aa78d330af288442847f1e119a3494b5f224951
-z103 pluto.frm 81003ca4391df46357b01472c8828686e2031e87c52321dfa0a26750e145bf8b
-z103 pluto.itb 16b1cb8185c4919993928d8cbc284187fae5be361dc7c45dcc95ba9365281f7d
+z203 jtag ramdisk a66de3f27f95a3d3b594266eb2e909f4041f6c4c2b816d34e159cca130d980a1
+z103 pluto.frm dcaf8dd9ceff45628ffae40385cfe72387b0acfc39b7e291f5cc972688daab2b
+z103 pluto.itb 50eeb1a3d37ec33a750e256f37a49a7202e16e61579da7436c64a06335b69a5c
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk de7b516345e74548a587e5e185090b47499a6f3ba328d943c6eeef1e95142352
+z103 jtag ramdisk 4cc0442951e392e0db3ac57bbb18a2af60fa5038c56602116ae344911560e717
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2607,10 +2607,10 @@ The board answered all five SDK state requests over the normal USB Ethernet/IP
 path:
 
 ```json
-{"event":"sdk_daemon_ap_browse","network_id":"fieldmesh-lab","aps":2,"audit_required":2,"total_kbps":9200,"preferred_ap":"z203-hub"}
-{"event":"sdk_daemon_ap_election","network_id":"fieldmesh-lab","elected_node_id":"z203-hub","temporary_ap":0,"handover_allowed":1,"candidate_score":5468}
-{"event":"sdk_daemon_join_state","network_id":"fieldmesh-lab","ap_id":"z203-hub","joined":true,"dst_node_id":"z103-endpoint","route_kind":3,"selected_mode":4,"stream_id":7,"relay_node_id":"z203-hub"}
-{"event":"sdk_daemon_peer_state","network_id":"fieldmesh-lab","peers":2,"relay_capable":1,"total_kbps":9200}
+{"event":"sdk_daemon_ap_browse","network_id":"fieldmesh-lab","aps":2,"audit_required":2,"total_kbps":9200,"preferred_ap":"020000000203"}
+{"event":"sdk_daemon_ap_election","network_id":"fieldmesh-lab","elected_node_id":"020000000203","temporary_ap":0,"handover_allowed":1,"candidate_score":5468}
+{"event":"sdk_daemon_join_state","network_id":"fieldmesh-lab","ap_id":"020000000203","joined":true,"dst_node_id":"020000000103","route_kind":1,"selected_mode":4,"stream_id":7,"relay_node_id":""}
+{"event":"sdk_daemon_peer_state","network_id":"fieldmesh-lab","peers":2,"relay_capable":2,"total_kbps":9200}
 {"event":"sdk_daemon_rtls_state","network_id":"fieldmesh-lab","positions":2,"gps_pps_fused":1,"packet_timing_tdoa":1,"ap_usable":2}
 ```
 
@@ -2664,9 +2664,10 @@ The C probe now has an executable AP-election model:
 
 This verifies:
 
-- mixed swarm with preferred `z203-hub` elects Z203 as non-temporary AP;
-- Z203-only autonomous swarm elects `z203-hub`;
-- Z103-only autonomous swarm elects `z103-a` as a temporary emergency AP;
+- mixed swarm with preferred `020000000203` elects the higher-capability
+  Z203-class node as non-temporary AP;
+- Z203-only autonomous swarm elects `020000000203`;
+- Z103-only autonomous swarm elects `020000000103` as a temporary fallback AP;
 - predefined AP policy fails if the preferred AP is not visible.
 - score inputs include capability, RSSI, SNR, estimated geo/topology
   centrality, mobility prediction, reachability, and handover hysteresis;
@@ -2675,7 +2676,7 @@ This verifies:
 The SDK check now builds `sdk/c/src/fieldmesh_sdk.c`, links every C demo, runs
 the commanded AP demo, endpoint demo, header smoke, reference demo, RTLS demo,
 local device/IIO demo, and state-daemon demo, then asserts the reference demo
-elects `z203-hub`, discovers AP/peer state, selects scheduled mode, and loops a
+elects `020000000203`, discovers AP/peer state, selects scheduled mode, and loops a
 packet through the SDK stream API. The RTLS demo verifies that applications can
 report GPS/PPS measurements and GPS-denied packet-timing TDOA measurements,
 then query fused peer position estimates. The device/IIO demo verifies the
@@ -2752,13 +2753,14 @@ success but wrote empty values. The writer now applies each key with an
 individual `fw_setenv key value` call, and the fixed run wrote:
 
 ```text
-hostname=z103-endpoint
+hostname=node-b
 ipaddr=192.168.3.1
 ipaddr_host=192.168.3.10
 netmask=255.255.255.0
-fieldmesh_node_id=z103-endpoint
+fieldmesh_device_eui=020000000103
+fieldmesh_node_id=node-b
 fieldmesh_network_id=fieldmesh-lab
-fieldmesh_preferred_ap=z203-hub
+fieldmesh_preferred_ap=020000000203
 fieldmesh_ap_policy=hybrid
 ```
 
@@ -2775,7 +2777,7 @@ The rebooted board answers at `192.168.3.1` and `fieldmeshctl profile show`
 now reports the persistent profile from U-Boot env:
 
 ```json
-{"event":"fieldmeshctl_profile_show","node_id":"z103-endpoint","network_id":"fieldmesh-lab","friendly_name":"z103-endpoint","usb_device_ip":"192.168.3.1","usb_host_ip":"192.168.3.10","usb_prefix_len":24,"phy_device_ip":"","phy_host_ip":"","phy_prefix_len":0,"ap_policy":"hybrid","preferred_ap_id":"z203-hub","allow_emergency_1r1t_ap":1,"radio_freq_mhz":2400,"radio_bandwidth_hz":1000000}
+{"event":"fieldmeshctl_profile_show","device_eui":"020000000103","device_uuid":"020000000103","node_id":"node-b","network_id":"fieldmesh-lab","friendly_name":"node-b","usb_device_ip":"192.168.3.1","usb_host_ip":"192.168.3.10","usb_prefix_len":24,"phy_device_ip":"","phy_host_ip":"","phy_prefix_len":0,"ap_policy":"hybrid","preferred_ap_id":"020000000203","allow_emergency_1r1t_ap":1,"radio_freq_mhz":2400,"radio_bandwidth_hz":1000000}
 ```
 
 Live split-subnet verification:
@@ -2795,7 +2797,7 @@ VARIANT=z103 BOARD_IP=192.168.3.1 SSH_PASS=analog UPLOAD_IF_MISSING=0 \
 Results:
 
 - `192.168.2.1` resolves to the Z203 host name, while `192.168.3.1` resolves
-  to `z103-endpoint`;
+  to `node-b`;
 - Z103 passes ping, IIO network context, and HTTP at `192.168.3.1`;
 - Z103 sidecar preflight assertion passes with `ctrl_id=0x464d1001`, four DT
   nodes, and both TX/RX DMA windows;
@@ -3015,15 +3017,19 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after the CLI fix:
+Refreshed runtime artifact hashes after the identity/capability model cleanup:
 
 ```text
-Z203 rootfs.tar.gz: 352bca9612effdeadf6024a72430b965f61026c5befe6dcbfb246bb03ab18c74
-Z203 pluto.frm:     df7dac37d4247734c964c657c4d009c580eb0d7e725f575b2f7845f5175afca7
-Z203 pluto.itb:     37b309b8c9d17a329bc7051a749ba7baec43962ca305c5fbcd3512bb7f7701d3
-Z103 rootfs.tar.gz: 8dcd0bc3c56e72812da1d123fd0be0b72d4f225b6d375191761f89259c5d3038
-Z103 pluto.frm:     ce60cddf58cf3bc59f1ac16e2c57ba175d112496cd22f5520f26b5fb443cb665
-Z103 pluto.itb:     22891eb5eda718427246e400d2c1218a0d9794b4c258be105df32a4a9a054c5b
+Z203 rootfs.cpio.gz: 6c1c3887781a2f5ca08ddd5e8df948fb2d260ada3e2d73bbf9aeb9f8309964e8
+Z203 rootfs.tar.gz:  ce69cd2032ca40a97f6ff271acf4780c7ec08a5e18149cfdc859beeecf51077b
+Z203 pluto.frm:      3f80c347092c600b0dd08004beea9fc169fde972064be35204329b57b01cac8e
+Z203 pluto.itb:      e6c76b7ff636a777e0ee705296fd237d7d024166768ea53ca737689f8eef1ea7
+Z203 jtag ramdisk:   e40d8034c801860f6753b771ff2a813dc652247f988697ce8f212d8f6c796286
+Z103 rootfs.cpio.gz: 4bc69f232940ffcbf7af6b31b5e450a06797bcf2022dc7a7650c496e97176546
+Z103 rootfs.tar.gz:  784dd3abda32198de212db69367455c9fda808a04ede1e757f96a7baf8ebb7dd
+Z103 pluto.frm:      1ab984ca85c30fddf21d159d8a7fc6aa70df81e9ef629edcb46b977a39952b89
+Z103 pluto.itb:      84dd8c7a14681ac79afdd244e2e7926f2cb432e4de108d63aa52c4efc4507275
+Z103 jtag ramdisk:   2dfcef21ac1c715ab465cbb05929cc1c2435a0ac1f70f2590a750ef5f7620f02
 ```
 
 ## FieldMesh RTLS Positioning Gate

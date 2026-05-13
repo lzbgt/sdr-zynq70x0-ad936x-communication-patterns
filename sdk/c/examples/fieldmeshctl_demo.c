@@ -97,10 +97,24 @@ static void apply_env_value(fieldmesh_network_profile_t *profile,
         return;
     }
     if (strcmp(key, "hostname") == 0) {
-        if (profile->node_id[0] == '\0' || strcmp(profile->node_id, "z203-hub") == 0) {
+        if (profile->node_id[0] == '\0' || strcmp(profile->node_id, "node-a") == 0) {
             copy_arg(profile->node_id, sizeof(profile->node_id), value);
         }
         copy_arg(profile->friendly_name, sizeof(profile->friendly_name), value);
+    } else if (strcmp(key, "ethaddr") == 0 ||
+               strcmp(key, "fieldmesh_device_eui") == 0) {
+        char compact[13];
+        size_t in_index;
+        size_t out_index = 0u;
+
+        for (in_index = 0u; value[in_index] != '\0' && out_index < 12u; ++in_index) {
+            if (value[in_index] == ':' || value[in_index] == '-') {
+                continue;
+            }
+            compact[out_index++] = value[in_index];
+        }
+        compact[out_index] = '\0';
+        copy_arg(profile->device_eui, sizeof(profile->device_eui), compact);
     } else if (strcmp(key, "ipaddr") == 0) {
         copy_arg(profile->usb_device_ip, sizeof(profile->usb_device_ip), value);
     } else if (strcmp(key, "ipaddr_host") == 0) {
@@ -131,8 +145,8 @@ static void load_board_env_profile(fieldmesh_network_profile_t *profile)
     FILE *pipe;
     char line[256];
 
-    pipe = popen("fw_printenv hostname ipaddr ipaddr_host netmask ipaddr_eth "
-                 "netmask_eth fieldmesh_node_id fieldmesh_network_id "
+    pipe = popen("fw_printenv hostname ethaddr ipaddr ipaddr_host netmask ipaddr_eth "
+                 "netmask_eth fieldmesh_device_eui fieldmesh_node_id fieldmesh_network_id "
                  "fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null", "r");
     if (!pipe) {
         return;
@@ -156,13 +170,15 @@ static void load_board_env_profile(fieldmesh_network_profile_t *profile)
 
 static void print_profile(const char *event, const fieldmesh_network_profile_t *profile)
 {
-    printf("{\"event\":\"%s\",\"node_id\":\"%s\",\"network_id\":\"%s\","
+    printf("{\"event\":\"%s\",\"device_eui\":\"%s\",\"device_uuid\":\"%s\","
+           "\"node_id\":\"%s\",\"network_id\":\"%s\","
            "\"friendly_name\":\"%s\",\"usb_device_ip\":\"%s\",\"usb_host_ip\":\"%s\","
            "\"usb_prefix_len\":%u,\"phy_device_ip\":\"%s\",\"phy_host_ip\":\"%s\","
            "\"phy_prefix_len\":%u,\"ap_policy\":\"%s\",\"preferred_ap_id\":\"%s\","
            "\"allow_emergency_1r1t_ap\":%u,\"radio_freq_mhz\":%u,"
            "\"radio_bandwidth_hz\":%u}\n",
-           event, profile->node_id, profile->network_id, profile->friendly_name,
+           event, profile->device_eui, profile->device_eui,
+           profile->node_id, profile->network_id, profile->friendly_name,
            profile->usb_device_ip, profile->usb_host_ip, profile->usb_prefix_len,
            profile->phy_device_ip, profile->phy_host_ip, profile->phy_prefix_len,
            policy_name(profile->ap_policy), profile->preferred_ap_id,
@@ -177,12 +193,14 @@ static void print_report(const char *event,
 {
     printf("{\"event\":\"%s\",\"status\":\"%s\",\"valid\":%u,"
            "\"requires_reboot\":%u,\"rollback_supported\":%u,"
-           "\"persist_requested\":%u,\"node_id\":\"%s\",\"network_id\":\"%s\","
+           "\"persist_requested\":%u,\"device_eui\":\"%s\","
+           "\"device_uuid\":\"%s\",\"node_id\":\"%s\",\"network_id\":\"%s\","
            "\"usb_device_ip\":\"%s\",\"usb_host_ip\":\"%s\",\"message\":\"%s\"}\n",
            event, fieldmesh_status_string(status), report ? report->valid : 0u,
            report ? report->requires_reboot : 0u,
            report ? report->rollback_supported : 0u,
            report ? report->persist_requested : 0u,
+           profile ? profile->device_eui : "", profile ? profile->device_eui : "",
            profile ? profile->node_id : "", profile ? profile->network_id : "",
            profile ? profile->usb_device_ip : "", profile ? profile->usb_host_ip : "",
            report ? report->message : "");
@@ -192,7 +210,8 @@ static int usage(const char *argv0)
 {
     fprintf(stderr,
             "usage: %s profile show|validate|apply|rollback "
-            "[--node-id ID] [--network-id ID] [--friendly-name NAME] "
+            "[--device-eui 12HEX] [--node-id ID] [--network-id ID] "
+            "[--friendly-name NAME] "
             "[--usb-device-ip IP] [--usb-host-ip IP] [--prefix N] "
             "[--phy-device-ip IP] [--phy-host-ip IP] [--phy-prefix N] "
             "[--ap-policy predefined|autonomous-swarm|hybrid] "
@@ -216,6 +235,8 @@ static int parse_profile_args(int argc,
             return -1;
         } else if (strcmp(argv[i], "--node-id") == 0) {
             copy_arg(profile->node_id, sizeof(profile->node_id), argv[++i]);
+        } else if (strcmp(argv[i], "--device-eui") == 0) {
+            copy_arg(profile->device_eui, sizeof(profile->device_eui), argv[++i]);
         } else if (strcmp(argv[i], "--network-id") == 0) {
             copy_arg(profile->network_id, sizeof(profile->network_id), argv[++i]);
         } else if (strcmp(argv[i], "--friendly-name") == 0) {

@@ -25,8 +25,11 @@ static void on_peer(const fieldmesh_peer_info_t *peer, void *user)
 
     if (peer) {
         counts->peers++;
-        printf("{\"event\":\"sdk_peer\",\"node_id\":\"%s\",\"max_kbps\":%u,\"relay_allowed\":%u}\n",
-               peer->node_id, peer->max_kbps, peer->relay_allowed);
+        printf("{\"event\":\"sdk_peer\",\"device_uuid\":\"%s\",\"device_type\":\"%s\","
+               "\"node_id\":\"%s\",\"max_kbps\":%u,\"direct_reachable\":%u,"
+               "\"relay_allowed\":%u}\n",
+               peer->device_uuid, peer->device_type, peer->node_id,
+               peer->max_kbps, peer->direct_reachable, peer->relay_allowed);
     }
 }
 
@@ -119,12 +122,12 @@ int main(void)
         .bitrate_hint_kbps = 128,
     };
 
-    strcpy(z203.node_id, "z203-hub");
-    strcpy(z103.node_id, "z103-emergency");
-    strcpy(join.ap_id, "z203-hub");
+    strcpy(z203.node_id, "020000000203");
+    strcpy(z103.node_id, "020000000103");
+    strcpy(join.ap_id, "020000000203");
     strcpy(join.network_id, "fieldmesh-lab");
     strcpy(join.node_name, "sdk-endpoint");
-    strcpy(stream_config.dst_node_id, "z103-endpoint");
+    strcpy(stream_config.dst_node_id, "020000000103");
 
     if (require_ok(fieldmesh_context_create(&config, &ctx), "context_create")) {
         return 1;
@@ -138,7 +141,7 @@ int main(void)
     }
     printf("{\"event\":\"sdk_election\",\"elected_node_id\":\"%s\",\"score\":%u,\"temporary_ap\":%u}\n",
            election.elected_node_id, election.candidate_score, election.temporary_ap);
-    if (strcmp(election.elected_node_id, "z203-hub") != 0) {
+    if (strcmp(election.elected_node_id, "020000000203") != 0) {
         fieldmesh_context_destroy(ctx);
         return 1;
     }
@@ -147,7 +150,7 @@ int main(void)
         require_ok(fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
                                           "reference-demo"), "request_mode") ||
         require_ok(fieldmesh_list_peers(session, on_peer, &counts), "list_peers") ||
-        require_ok(fieldmesh_query_route(session, "z103-endpoint", 7, &route), "query_route") ||
+        require_ok(fieldmesh_query_route(session, "020000000103", 7, &route), "query_route") ||
         require_ok(fieldmesh_open_stream(session, &stream_config, &stream), "open_stream") ||
         require_ok(fieldmesh_send(stream, payload, sizeof(payload), 0), "send") ||
         require_ok(fieldmesh_recv(stream, rx_payload, sizeof(rx_payload), &rx_len, &rx_meta, 1000),

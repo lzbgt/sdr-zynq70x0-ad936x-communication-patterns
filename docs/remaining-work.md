@@ -116,8 +116,9 @@ Next concrete work:
 - Adopt the hybrid AP/broker architecture documented in
   `docs/fieldmesh-ap-sdk-architecture.md`: predefined AP when a deployment has
   a known owner/gateway, autonomous AP election when no AP is visible, direct
-  peer routes when healthy, and AP/scheduled relay when direct communication is
-  weak or blocked. Z203-class 2R2T is the preferred AP/broker target, but a
+  peer routes when healthy, and AP/scheduled relay only when direct
+  communication is weak, blocked, unstable, or policy-forbidden. Z203-class
+  2R2T is the preferred AP/broker target, but a
   1R1T node can be elected as an emergency AP when policy allows and no better
   candidate exists.
 - Extend the SDK from the current in-process reference library and
@@ -154,7 +155,7 @@ Next concrete work:
   SSH writer for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and FieldMesh profile
   env keys with explicit variant matching and rollback backup. The 2026-05-14
   Z103 run installed the FieldMesh `pluto.frm`, applied
-  `z103-endpoint@192.168.3.1`, fixed the writer to avoid a BusyBox
+  `node-b@192.168.3.1` with `fieldmesh_device_eui=020000000103`, fixed the writer to avoid a BusyBox
   `fw_setenv -s` empty-value quirk, and verified that `192.168.2.1` now
   resolves to Z203 while `192.168.3.1` resolves to Z103. These addresses are
   host-facing management/control paths only, not a board-to-board subnet. The
