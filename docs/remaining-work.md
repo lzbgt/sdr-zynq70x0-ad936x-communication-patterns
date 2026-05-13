@@ -119,11 +119,14 @@ Next concrete work:
   checks its peer/RTLS query strings in both rootfs tarballs. Z203 has also
   passed a live SDK daemon socket smoke over USB Ethernet by transiently
   uploading the matched daemon from the refreshed rootfs to `/tmp` on the
-  still-running previous image. The next implementation should restage the
-  refreshed SD/QSPI boot files so the daemon is installed at `/usr/bin`, run
-  the same daemon path from two PCs attached to the boards, then map AP browse,
-  AP election, credential/audit join, peer discovery, route query, and
-  prioritized stream send/receive onto board services.
+  previous image. The refreshed Z203 SD/QSPI boot files have since been
+  installed over SSH to `/dev/mmcblk0p1`; after reboot, Z203 passes the same
+  SDK daemon socket smoke with `UPLOAD_IF_MISSING=0`, proving
+  `/usr/bin/fieldmesh-state-daemon-demo` is present in the running image. The
+  next implementation should run the daemon path from two PCs attached to the
+  boards, then map AP browse, AP election, credential/audit join, peer
+  discovery, route query, and prioritized stream send/receive onto board
+  services.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

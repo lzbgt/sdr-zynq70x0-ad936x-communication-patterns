@@ -1,0 +1,3 @@
+{"event":"sdk_daemon_peer_state","network_id":"fieldmesh-lab","peers":2,"relay_capable":1,"total_kbps":9200}
+{"event":"sdk_daemon_rtls_state","network_id":"fieldmesh-lab","positions":2,"gps_pps_fused":1,"packet_timing_tdoa":1,"ap_usable":2}
+{"event":"sdk_daemon_query_complete","host":"192.168.2.1","port":55421}

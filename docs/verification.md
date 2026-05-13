@@ -2547,6 +2547,40 @@ The board process handled both requests, and the host received:
 Committed capture:
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sdk_daemon_20260513-232131/`
 
+## Z203 Installed FieldMesh Runtime Refresh
+
+The refreshed FieldMesh SD boot set was regenerated and installed onto the
+Z203 SD FAT partition over SSH:
+
+```sh
+./tools/stage_fieldmesh_sd_boot_files.sh z203
+SSH_PASS=analog ./tools/install_sd_boot_files_over_ssh.sh \
+  .config/sdcard-staging/fieldmesh-z203 192.168.2.1
+```
+
+The installer mounted `/dev/mmcblk0p1`, copied `BOOT.bin`, `devicetree.dtb`,
+`uEnv.txt`, `uImage`, `uramdisk.image.gz`, and `SHA256SUMS`, then verified every
+file on the board before unmounting. After reboot, SSH reported the refreshed
+image and `/usr/bin/fieldmesh-state-daemon-demo` was installed. The installed
+daemon path was then checked with transient upload disabled:
+
+```sh
+VARIANT=z203 UPLOAD_IF_MISSING=0 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.2.1
+```
+
+The board handled both peer-state and RTLS-state requests from the host. The
+refreshed image also passed `./tools/verify_board.sh 192.168.2.1` and the
+read-only FieldMesh sidecar preflight:
+
+```json
+{"event":"fieldmesh_sidecar_preflight_assert","ok":true,
+ "ctrl_id":"0x464d1001","dt_nodes":4,"dma_windows":["tx","rx"]}
+```
+
+Committed capture:
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_installed_runtime_20260513-232648/`
+
 The SDK header contract was added and compile-checked with:
 
 ```sh

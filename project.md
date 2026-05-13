@@ -718,7 +718,9 @@ Expected result in the current Pluto-compatible firmware state:
    assuming a fixed P2P/star/graph/scheduled pattern. Product direction:
    Z203-class 2R2T hardware should become the commanded AP/broker/coordinator
    target for network formation, discovery, routing, and relay, while Z103-class
-   1R1T remains the constrained endpoint target.
+   1R1T remains the constrained endpoint target. The refreshed Z203 SD/QSPI
+   runtime now installs `/usr/bin/fieldmesh-state-daemon-demo` and passes the
+   SDK peer/RTLS state socket smoke from the running image.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL
