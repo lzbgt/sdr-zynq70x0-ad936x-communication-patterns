@@ -1,0 +1,12 @@
+{
+  "board_ip": "192.168.3.1",
+  "bytes_read": 84,
+  "event": "fieldmesh_board_tun_device_pump_assert",
+  "inject_rc": 1,
+  "ok": true,
+  "packets_read": 1,
+  "payload_kind": 1,
+  "rollback_clean": true,
+  "traffic_class": 0,
+  "variant": "z103"
+}

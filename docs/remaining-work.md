@@ -202,8 +202,11 @@ Next concrete work:
   uses a real POSIX fd read path. It also exposes a guarded
   `FIELDMESH_TUN_DEV_PUMP` production path that refuses live `/dev/net/tun`
   reads unless explicitly allowed, requires an existing `swarm0`, and stays
-  non-IIO/non-IP-routed. The next step is exercising that guarded live path on
-  a board, then binding the adapter output to the FieldMesh RF packet engine.
+  non-IIO/non-IP-routed. Z103 now passes the live guarded read with an actual
+  packet queued through `swarm0`: `/dev/net/tun` is opened by the daemon, the
+  packet is read, classified as C0 control, forwarded to the FieldMesh adapter,
+  and `swarm0` is rolled back. The next step is binding the adapter output to
+  the FieldMesh RF packet engine.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

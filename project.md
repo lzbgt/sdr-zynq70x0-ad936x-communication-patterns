@@ -878,7 +878,10 @@ Expected result in the current Pluto-compatible firmware state:
    the FieldMesh adapter. A separate guarded `FIELDMESH_TUN_DEV_PUMP` request
    now owns the production `/dev/net/tun` boundary: it refuses live reads unless
    explicitly allowed, requires existing board-local `swarm0`, and keeps the
-   path free of IIO and inter-board IP routing.
+   path free of IIO and inter-board IP routing. Z103 now passes the live version:
+   the daemon opens `/dev/net/tun`, reads one queued `swarm0` packet, classifies
+   it as C0 control, forwards it to the FieldMesh adapter, and the runner rolls
+   `swarm0` back.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

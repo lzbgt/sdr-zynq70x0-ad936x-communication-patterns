@@ -1,0 +1,5 @@
+[{"ifindex":10,"ifname":"swarm0","flags":["POINTOPOINT","MULTICAST","NOARP","UP","LOWER_UP"],"mtu":1200,"qdisc":"pfifo_fast","operstate":"UP","group":"default","txqlen":500,"link_type":"none","addr_info":[{"family":"inet","local":"10.77.1.1","prefixlen":16,"scope":"global","label":"swarm0","valid_life_time":4294967295,"preferred_life_time":4294967295}]}]
+PING 10.77.2.20 (10.77.2.20): 56 data bytes
+
+--- 10.77.2.20 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss

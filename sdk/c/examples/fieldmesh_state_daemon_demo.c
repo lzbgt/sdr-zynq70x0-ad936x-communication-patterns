@@ -20,6 +20,7 @@ typedef int socklen_t;
 #include <sys/ioctl.h>
 #endif
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -48,6 +49,12 @@ struct ap_summary {
     unsigned audit_required;
     uint32_t total_kbps;
     char preferred_ap[FIELDMESH_ID_TEXT_MAX];
+};
+
+struct tun_fd_read_context {
+    int fd;
+    uint32_t wait_ms;
+    int last_errno;
 };
 
 static void put_be16(unsigned char *dst, uint16_t value)
@@ -119,6 +126,48 @@ static fieldmesh_status_t read_tun_fd_once(void *user,
 #endif
 }
 
+static fieldmesh_status_t read_tun_fd_wait_once(void *user,
+                                                void *packet,
+                                                size_t packet_capacity,
+                                                size_t *out_packet_len)
+{
+#ifdef _WIN32
+    (void)user;
+    (void)packet;
+    (void)packet_capacity;
+    (void)out_packet_len;
+    return FIELDMESH_ERR_UNSUPPORTED;
+#else
+    struct tun_fd_read_context *ctx = (struct tun_fd_read_context *)user;
+    fd_set readfds;
+    struct timeval timeout;
+    int selected;
+
+    if (!ctx || ctx->fd < 0 || !packet || !out_packet_len ||
+        packet_capacity == 0u) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+
+    FD_ZERO(&readfds);
+    FD_SET(ctx->fd, &readfds);
+    timeout.tv_sec = ctx->wait_ms / 1000u;
+    timeout.tv_usec = (long)((ctx->wait_ms % 1000u) * 1000u);
+    selected = select(ctx->fd + 1, &readfds, NULL, NULL, &timeout);
+    if (selected <= 0 || !FD_ISSET(ctx->fd, &readfds)) {
+        return FIELDMESH_ERR_TIMEOUT;
+    }
+    {
+        ssize_t received = read(ctx->fd, packet, packet_capacity);
+        if (received <= 0) {
+            ctx->last_errno = errno;
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+        *out_packet_len = (size_t)received;
+    }
+    return FIELDMESH_OK;
+#endif
+}
+
 static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno)
 {
 #if defined(_WIN32) || !defined(__linux__)
@@ -160,7 +209,7 @@ static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno
     }
     close(check_fd);
 
-    fd = open("/dev/net/tun", O_RDWR | O_NONBLOCK);
+    fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
         if (out_errno) {
             *out_errno = errno;
@@ -543,6 +592,10 @@ static int build_response(fieldmesh_context_t *context,
             };
             unsigned char pump_buffer[1536];
             fieldmesh_tun_pump_report_t pump_report;
+            struct tun_fd_read_context read_ctx = {
+                .fd = tun_read_fd,
+                .wait_ms = 8000u,
+            };
             fieldmesh_status_t status;
 
             snprintf(adapter_config.adapter_name,
@@ -552,7 +605,7 @@ static int build_response(fieldmesh_context_t *context,
             status = fieldmesh_open_adapter(session, &adapter_config, &adapter);
             if (status == FIELDMESH_OK) {
                 status = fieldmesh_tun_packetizer_pump_once(
-                    adapter, read_tun_fd_once, &tun_read_fd, pump_buffer,
+                    adapter, read_tun_fd_wait_once, &read_ctx, pump_buffer,
                     sizeof(pump_buffer), &pump_report);
             }
             if (adapter) {
@@ -571,11 +624,12 @@ static int build_response(fieldmesh_context_t *context,
                          "\"opens_dev_net_tun\":1,"
                          "\"attaches_tun_if\":1,"
                          "\"reads_from_tun\":0,"
+                         "\"read_errno_value\":%d,"
                          "\"commands_executed\":0,"
                          "\"writes_network\":0,"
                          "\"uses_iio\":0,"
                          "\"uses_inter_board_ip_routing\":0}\n",
-                         fieldmesh_status_string(status));
+                         fieldmesh_status_string(status), read_ctx.last_errno);
                 return 0;
             }
 

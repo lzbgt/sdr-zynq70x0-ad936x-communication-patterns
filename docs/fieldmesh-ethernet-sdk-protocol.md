@@ -271,7 +271,9 @@ The daemon also exposes a guarded production request,
 preconditions: `/dev/net/tun`, `swarm0`, `CAP_NET_ADMIN`, and no commands,
 network writes, IIO, or inter-board IP routing. With the allow token on a board,
 the daemon opens `/dev/net/tun`, refuses to create a missing `swarm0`, attaches
-the TUN fd nonblocking, and pumps at most one packet into the same adapter path.
+the TUN fd, waits for one packet inside a bounded read window, and pumps that
+packet into the same adapter path. `tools/run_fieldmesh_board_tun_device_pump.sh`
+is the live Zynq gate for this boundary.
 
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh

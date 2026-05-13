@@ -1,0 +1,3 @@
+{"event":"sdk_daemon_start","bind":"0.0.0.0","port":55431,"requests":1}
+{"event":"sdk_daemon_request","bytes":45,"src":"192.168.3.10"}
+{"event":"sdk_daemon_end","handled":1}

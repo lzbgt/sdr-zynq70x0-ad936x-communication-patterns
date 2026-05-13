@@ -2329,13 +2329,28 @@ the live allow token and verifies it reports `/dev/net/tun`, required
 `swarm0`/`CAP_NET_ADMIN`, no descriptor open, no TUN attach, no packet read, no
 network writes, no IIO, and no inter-board IP routing.
 
+Live Z103 also passed the guarded TUN device pump with explicit
+`ALLOW_LIVE_TUN_READ=1`:
+
+```sh
+ALLOW_LIVE_TUN_READ=1 VARIANT=z103 BOARD_IP=192.168.3.1 \
+  FORCE_UPLOAD=1 OUT_DIR=.config/fieldmesh/board-tun-device-pump-z103 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+```
+
+The runner created `swarm0`, sent one ICMP packet through the TUN interface,
+received it through the daemon-owned `/dev/net/tun` fd, classified it as C0
+control, forwarded it to the FieldMesh adapter, and rolled `swarm0` back. The
+capture is archived at
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_tun_device_pump_20260514-0409/`.
+
 ```text
-z203 rootfs.cpio.gz 18a2e0615d614cae2f6758cd26c30b73558610589c0d8031a37938cb3936ebbb
-z203 rootfs.tar.gz  79799d696715f58d9eb00f77f9881cc6cbbee83d90920696c852ce4bef36de3b
-z103 rootfs.cpio.gz bca5cc3062c8d7f659a6de08e396ca483a81dc5313b00594bffbfa0cbdd45bc6
-z103 rootfs.tar.gz  2cb9f712dabc36760854c0eb7b1cd8175849e12b819a3e5ec38f8cb51c4a6fca
-z203 pluto.frm      ad94cc4f19aa4a2fa51077fcf2672d9b05ea7128d35905de1f22c090a8a50102
-z103 pluto.frm      458d36764165a25a841e43a500a417a3eb4313bb8b49fc10809ffe2e0a455e2f
+z203 rootfs.cpio.gz 75e8e4faec1f723d6d4e6ef0891ca79349e41dece5a4f2ea6fc4502b4f9ca1df
+z203 rootfs.tar.gz  9dcf361bb31cbcaaf0a95f4ed977a7a5c098165b742b05a338ecc9c0ca0793e5
+z103 rootfs.cpio.gz 5c5c054d6b82f6653002ac82c8c78d1537d1abc6ac90b212b64bcd45c62c878a
+z103 rootfs.tar.gz  cd6cbfc53b8cf50d2c34d84ababdd22da364bdf017cabe3b9fe37ded97353bfe
+z203 pluto.frm      f242c5eb5afa2c71d72513e3e8d0086b8d07ddb419d25e78ea3fb83eaafa2435
+z103 pluto.frm      44a9935272527ec05b645d8f7f07f9a04da6b4f3a632744ac97ffd5527a6a67d
 z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
 z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
@@ -3060,14 +3075,14 @@ Refreshed runtime artifact hashes after switching the daemon TUN fd pump to a
 real fd read source:
 
 ```text
-Z203 rootfs.cpio.gz: 18a2e0615d614cae2f6758cd26c30b73558610589c0d8031a37938cb3936ebbb
-Z203 rootfs.tar.gz:  79799d696715f58d9eb00f77f9881cc6cbbee83d90920696c852ce4bef36de3b
-Z203 pluto.frm:      ad94cc4f19aa4a2fa51077fcf2672d9b05ea7128d35905de1f22c090a8a50102
+Z203 rootfs.cpio.gz: 75e8e4faec1f723d6d4e6ef0891ca79349e41dece5a4f2ea6fc4502b4f9ca1df
+Z203 rootfs.tar.gz:  9dcf361bb31cbcaaf0a95f4ed977a7a5c098165b742b05a338ecc9c0ca0793e5
+Z203 pluto.frm:      f242c5eb5afa2c71d72513e3e8d0086b8d07ddb419d25e78ea3fb83eaafa2435
 Z203 pluto.itb:      ec6f0e628ac8c24c2c97a76c44b66dca836f4942a6edddf8286d0753ccc84223
 Z203 jtag ramdisk:   4e159fdcfca7e9377799607eb16ed2447e762c6ecd737dceff0823222832c2d7
-Z103 rootfs.cpio.gz: bca5cc3062c8d7f659a6de08e396ca483a81dc5313b00594bffbfa0cbdd45bc6
-Z103 rootfs.tar.gz:  2cb9f712dabc36760854c0eb7b1cd8175849e12b819a3e5ec38f8cb51c4a6fca
-Z103 pluto.frm:      458d36764165a25a841e43a500a417a3eb4313bb8b49fc10809ffe2e0a455e2f
+Z103 rootfs.cpio.gz: 5c5c054d6b82f6653002ac82c8c78d1537d1abc6ac90b212b64bcd45c62c878a
+Z103 rootfs.tar.gz:  cd6cbfc53b8cf50d2c34d84ababdd22da364bdf017cabe3b9fe37ded97353bfe
+Z103 pluto.frm:      44a9935272527ec05b645d8f7f07f9a04da6b4f3a632744ac97ffd5527a6a67d
 Z103 pluto.itb:      8b85dc7223b95e7522ef74b8583c24ce1a9635edcaa3925cb041f5d970531ac3
 Z103 jtag ramdisk:   339dc4d09e7bc13943948ac38fb1c1104466789c05c541f3368baf44df1b1f84
 ```
