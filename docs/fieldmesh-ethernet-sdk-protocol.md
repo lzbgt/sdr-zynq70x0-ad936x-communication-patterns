@@ -260,10 +260,11 @@ The daemon-side TUN packet pump is now explicit in the pure-C SDK:
 `fieldmesh_tun_packetizer_pump_once()` accepts a read callback, packet buffer,
 and FieldMesh adapter. A production daemon can implement that callback with
 `read(tun_fd, ...)` on the board-local `/dev/net/tun` descriptor, while tests
-can feed deterministic packets without creating network state. The pump emits
-`tun_fd_attached=1`, `read_from_tun=1`, `sent_to_fieldmesh_adapter=1`, and the
-same no-IIO/no-inter-board-IP safety flags before the next boundary becomes the
-RF packet engine.
+can feed deterministic packets through a POSIX pipe fd without creating
+network state. The daemon verifier now uses that real fd read path rather than
+a memory-copy callback. The pump emits `tun_fd_attached=1`, `read_from_tun=1`,
+`sent_to_fieldmesh_adapter=1`, and the same no-IIO/no-inter-board-IP safety
+flags before the next boundary becomes the RF packet engine.
 
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh

@@ -2319,18 +2319,19 @@ archived under
 video base, video enhancement, and bulk flows are classified into C0-C4 and
 sent through the FieldMesh adapter with `uses_iio=0` and
 `uses_inter_board_ip_routing=0`. The same gate now checks daemon
-`FIELDMESH_TUN_FD_PUMP`: a callback-backed TUN read feeds a video-base IPv4
-packet into the FieldMesh adapter, verifies loopback, and reports
-`tun_fd_attached=1`, `read_from_tun=1`, `sent_to_fieldmesh_adapter=1`, and
-`next_boundary=fieldmesh_rf_packet_engine`.
+`FIELDMESH_TUN_FD_PUMP`: a callback-backed TUN read now uses a real POSIX fd
+source in the verifier, feeds a video-base IPv4 packet into the FieldMesh
+adapter, verifies loopback, and reports `fd_source=posix_pipe_fd`,
+`production_tun_path=/dev/net/tun`, `tun_fd_attached=1`, `read_from_tun=1`,
+`sent_to_fieldmesh_adapter=1`, and `next_boundary=fieldmesh_rf_packet_engine`.
 
 ```text
-z203 rootfs.cpio.gz 1933dd96405338affd99b5d0e9eee1e20f34907cc4aaee197a66217fe03b84fc
-z203 rootfs.tar.gz  14fc65c8c2cfa3eca2512830a942e348327d09dbed1338fa3b3daa460998467d
-z103 rootfs.cpio.gz dbcd0fb435735eefa62cd3fd71e016c359e6a2f8a88e70ccdeca781cf05096db
-z103 rootfs.tar.gz  72f3ebdd9113a4d9e517ad2d9559fa6d01a1d5fd02192329b48b68cb35e2084a
-z203 pluto.frm      ae39af4fdec655937e971405d287ce41ebf3120f214a080a23bff3537a9f7eab
-z103 pluto.frm      195e444c6e60aa381fb5785a6b569a21c2756957bfbb7d8eba03f98110af6bcd
+z203 rootfs.cpio.gz 025318a2880c7c2e1e0795ff419841fa745ccf52d37994587775a9c225fd12f6
+z203 rootfs.tar.gz  4ab520819657485a8f1326e2fcf486757ca024de1589e1da08f82dfc1cd1ff00
+z103 rootfs.cpio.gz cc800c10804bac3a281ca99d96ef6d19c21d9ca59762d93ffe0f1fc0ccee450d
+z103 rootfs.tar.gz  f88c1f2ad7365142ba076931ff6a80753c7b402b142c20b889a09f7bce4fa33d
+z203 pluto.frm      35f37443bc963aecd0e51c4d67117ba99a42be7277f218ca848e379c9bb16ce0
+z103 pluto.frm      b7857a42eb630e67dfb268e1619bcdb55565af196e9fdc044b601d540335c99c
 z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
 z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
@@ -3051,19 +3052,20 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after adding the daemon TUN fd pump:
+Refreshed runtime artifact hashes after switching the daemon TUN fd pump to a
+real fd read source:
 
 ```text
-Z203 rootfs.cpio.gz: 1933dd96405338affd99b5d0e9eee1e20f34907cc4aaee197a66217fe03b84fc
-Z203 rootfs.tar.gz:  14fc65c8c2cfa3eca2512830a942e348327d09dbed1338fa3b3daa460998467d
-Z203 pluto.frm:      ae39af4fdec655937e971405d287ce41ebf3120f214a080a23bff3537a9f7eab
-Z203 pluto.itb:      011c3b19b84029c0d0d66f3c9fc20bf56894b39ad5f88673e4b2671b0f4dabb8
-Z203 jtag ramdisk:   36952b6acbc2ba1766e8b8a4fc41f10fafe28092976e46462740f6085cec596a
-Z103 rootfs.cpio.gz: dbcd0fb435735eefa62cd3fd71e016c359e6a2f8a88e70ccdeca781cf05096db
-Z103 rootfs.tar.gz:  72f3ebdd9113a4d9e517ad2d9559fa6d01a1d5fd02192329b48b68cb35e2084a
-Z103 pluto.frm:      195e444c6e60aa381fb5785a6b569a21c2756957bfbb7d8eba03f98110af6bcd
-Z103 pluto.itb:      7b6bd9bdf2521934724aad379f19cac549bbcb80b9b317b4a9e30dbb4cee1c8a
-Z103 jtag ramdisk:   5710db2f34ce56412c9179081946cded59bc1f7c57dca790fe0ef06146b081c9
+Z203 rootfs.cpio.gz: 025318a2880c7c2e1e0795ff419841fa745ccf52d37994587775a9c225fd12f6
+Z203 rootfs.tar.gz:  4ab520819657485a8f1326e2fcf486757ca024de1589e1da08f82dfc1cd1ff00
+Z203 pluto.frm:      35f37443bc963aecd0e51c4d67117ba99a42be7277f218ca848e379c9bb16ce0
+Z203 pluto.itb:      ec6f0e628ac8c24c2c97a76c44b66dca836f4942a6edddf8286d0753ccc84223
+Z203 jtag ramdisk:   4e159fdcfca7e9377799607eb16ed2447e762c6ecd737dceff0823222832c2d7
+Z103 rootfs.cpio.gz: cc800c10804bac3a281ca99d96ef6d19c21d9ca59762d93ffe0f1fc0ccee450d
+Z103 rootfs.tar.gz:  f88c1f2ad7365142ba076931ff6a80753c7b402b142c20b889a09f7bce4fa33d
+Z103 pluto.frm:      b7857a42eb630e67dfb268e1619bcdb55565af196e9fdc044b601d540335c99c
+Z103 pluto.itb:      8b85dc7223b95e7522ef74b8583c24ce1a9635edcaa3925cb041f5d970531ac3
+Z103 jtag ramdisk:   339dc4d09e7bc13943948ac38fb1c1104466789c05c541f3368baf44df1b1f84
 ```
 
 ## FieldMesh RTLS Positioning Gate

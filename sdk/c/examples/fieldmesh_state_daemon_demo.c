@@ -43,12 +43,6 @@ struct ap_summary {
     char preferred_ap[FIELDMESH_ID_TEXT_MAX];
 };
 
-struct tun_read_fixture {
-    const unsigned char *packet;
-    size_t packet_len;
-    uint8_t consumed;
-};
-
 static void put_be16(unsigned char *dst, uint16_t value)
 {
     dst[0] = (unsigned char)(value >> 8);
@@ -91,21 +85,31 @@ static size_t make_tun_demo_ipv4_packet(unsigned char *packet,
     return total_len;
 }
 
-static fieldmesh_status_t read_tun_fixture(void *user,
+static fieldmesh_status_t read_tun_fd_once(void *user,
                                            void *packet,
                                            size_t packet_capacity,
                                            size_t *out_packet_len)
 {
-    struct tun_read_fixture *fixture = (struct tun_read_fixture *)user;
+#ifdef _WIN32
+    (void)user;
+    (void)packet;
+    (void)packet_capacity;
+    (void)out_packet_len;
+    return FIELDMESH_ERR_UNSUPPORTED;
+#else
+    int *fd = (int *)user;
+    ssize_t received;
 
-    if (!fixture || !packet || !out_packet_len || fixture->consumed ||
-        fixture->packet_len > packet_capacity) {
+    if (!fd || *fd < 0 || !packet || !out_packet_len || packet_capacity == 0u) {
         return FIELDMESH_ERR_TRANSPORT;
     }
-    memcpy(packet, fixture->packet, fixture->packet_len);
-    *out_packet_len = fixture->packet_len;
-    fixture->consumed = 1u;
+    received = read(*fd, packet, packet_capacity);
+    if (received <= 0) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    *out_packet_len = (size_t)received;
     return FIELDMESH_OK;
+#endif
 }
 
 static int socket_startup(void)
@@ -424,24 +428,37 @@ static int build_response(fieldmesh_context_t *context,
         unsigned char rx_packet[256];
         fieldmesh_tun_pump_report_t pump_report;
         fieldmesh_adapter_packet_t rx_meta;
-        struct tun_read_fixture fixture = {
-            0,
-        };
         size_t tx_len;
         size_t rx_len = 0u;
+        int tun_read_fd = -1;
         int failed = 0;
+#ifndef _WIN32
+        int pipe_fd[2] = {-1, -1};
+#endif
 
         snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
                  "%s", "swarm0");
         snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
                  "%s", "020000000103");
         tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
-        fixture.packet = tx_packet;
-        fixture.packet_len = tx_len;
+#ifdef _WIN32
+        failed = 1;
+#else
+        if (pipe(pipe_fd) != 0 ||
+            write(pipe_fd[1], tx_packet, tx_len) != (ssize_t)tx_len) {
+            failed = 1;
+        }
+        if (pipe_fd[1] >= 0) {
+            close(pipe_fd[1]);
+            pipe_fd[1] = -1;
+        }
+        tun_read_fd = pipe_fd[0];
+#endif
         if (tx_len == 0u ||
+            failed ||
             fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
-            fieldmesh_tun_packetizer_pump_once(adapter, read_tun_fixture,
-                                               &fixture, pump_buffer,
+            fieldmesh_tun_packetizer_pump_once(adapter, read_tun_fd_once,
+                                               &tun_read_fd, pump_buffer,
                                                sizeof(pump_buffer),
                                                &pump_report) != FIELDMESH_OK ||
             fieldmesh_adapter_recv_packet(adapter, rx_packet, sizeof(rx_packet),
@@ -454,12 +471,22 @@ static int build_response(fieldmesh_context_t *context,
         if (adapter) {
             (void)fieldmesh_close_adapter(adapter);
         }
+#ifndef _WIN32
+        if (pipe_fd[0] >= 0) {
+            close(pipe_fd[0]);
+        }
+        if (pipe_fd[1] >= 0) {
+            close(pipe_fd[1]);
+        }
+#endif
         if (failed) {
             return 1;
         }
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_tun_fd_pump\","
                  "\"adapter_name\":\"%s\","
+                 "\"fd_source\":\"posix_pipe_fd\","
+                 "\"production_tun_path\":\"/dev/net/tun\","
                  "\"tun_fd_attached\":%u,"
                  "\"read_from_tun\":%u,"
                  "\"packets_read\":%u,"

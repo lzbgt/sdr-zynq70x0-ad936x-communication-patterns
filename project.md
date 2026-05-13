@@ -873,8 +873,9 @@ Expected result in the current Pluto-compatible firmware state:
    telemetry, video base, video enhancement, and bulk IPv4 flows are classified
    into C0-C4 and sent through the adapter without IIO or inter-board IP
    routing. The daemon now also checks a callback-backed `FIELDMESH_TUN_FD_PUMP`
-   path that models reading one packet from the board-local TUN owner and
-   forwarding it to the FieldMesh adapter.
+   path that reads one packet from a real POSIX fd source, keeps
+   `/dev/net/tun` as the production descriptor path, and forwards the packet to
+   the FieldMesh adapter.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

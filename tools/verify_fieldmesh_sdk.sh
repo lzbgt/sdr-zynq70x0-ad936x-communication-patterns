@@ -207,6 +207,10 @@ if not tun_fd_pump or tun_fd_pump[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN fd pump query failed")
 if tun_fd_pump[0].get("tun_fd_attached") != 1 or tun_fd_pump[0].get("read_from_tun") != 1:
     raise SystemExit("SDK daemon TUN fd pump did not model a live TUN read")
+if tun_fd_pump[0].get("fd_source") != "posix_pipe_fd":
+    raise SystemExit("SDK daemon TUN fd pump did not use a real POSIX fd source")
+if tun_fd_pump[0].get("production_tun_path") != "/dev/net/tun":
+    raise SystemExit("SDK daemon TUN fd pump lost the production TUN path")
 if tun_fd_pump[0].get("packets_read") != 1 or tun_fd_pump[0].get("packets_sent") != 1:
     raise SystemExit("SDK daemon TUN fd pump packet counts failed")
 if tun_fd_pump[0].get("payload_kind") != 3 or tun_fd_pump[0].get("traffic_class") != 2:

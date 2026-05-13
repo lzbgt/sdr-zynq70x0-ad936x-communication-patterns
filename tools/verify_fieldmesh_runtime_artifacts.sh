@@ -156,6 +156,8 @@ verify_variant() {
         sdk_daemon_rtls_state \
         sdk_daemon_swarm_adapter \
         sdk_daemon_tun_fd_pump \
+        posix_pipe_fd \
+        /dev/net/tun \
         sdk_daemon_tun_plan \
         sdk_daemon_tun_apply \
         sdk_daemon_tun_apply_rejected \
