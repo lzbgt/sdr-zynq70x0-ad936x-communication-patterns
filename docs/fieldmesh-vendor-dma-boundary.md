@@ -282,6 +282,32 @@ project/block-design generation without running synthesis:
 ./tools/check_fieldmesh_dma_overlay_vivado.sh z103
 ```
 
+The first non-transmitting RF packet-engine overlay is a separate opt-in mode:
+
+```sh
+./tools/fieldmesh_vivado_overlay_patch.py \
+  --repo-root "$PWD" \
+  --hdl-tree .config/fieldmesh/some-copied-hdl \
+  --variant-name z203 \
+  --rf-engine-overlay \
+  --apply
+```
+
+With `--rf-engine-overlay`, the patcher implies the control, bridge, and DMA
+overlays but replaces the packet loopback with a TX packet-engine sink:
+`fieldmesh_axis_bridge/m_tx_packet_*` feeds `fieldmesh_bpsk_symbolizer/s_axis_*`.
+The symbolizer's IQ output remains parked behind the guarded RF packet-engine
+boundary. The overlay does not connect to AD936x TX, open IIO buffers, tune RF,
+or start hardware transmission.
+
+Validate the RF packet-engine overlay through Vivado project/block-design
+generation without running synthesis or connecting AD936x TX:
+
+```sh
+./tools/check_fieldmesh_rf_engine_overlay_vivado.sh z203
+./tools/check_fieldmesh_rf_engine_overlay_vivado.sh z103
+```
+
 Build the same copied-HDL overlay into a bitstream/XSA with:
 
 ```sh
@@ -294,12 +320,14 @@ flow, and then calls `tools/verify_pluto_hdl_build.sh` against the copied
 workspace. Outputs live under `.config/fieldmesh/dma-overlay-build-z203/` or
 `.config/fieldmesh/dma-overlay-build-z103/`.
 
-This is still a copied-HDL integration gate. It proves the namespace, HP-port
-split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream connections,
-and address segments are BD-visible on both variants. The Z203 and Z103 paths
-have both produced timing-clean `system_top.bit`/XSA artifacts from that copied
-overlay. This
-does not yet provide a flashed runtime image or live board traffic.
+These are still copied-HDL integration gates. The DMA gate proves the namespace,
+HP-port split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream
+connections, and address segments are BD-visible on both variants. The RF-engine
+gate proves the first packet-to-symbol TX primitive is BD-visible behind the
+sidecar packet path while still disconnected from AD936x TX. The Z203 and Z103
+DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
+artifacts. The RF-engine overlay is not yet built into a timing artifact and
+does not yet provide a flashed runtime image or live board RF traffic.
 
 The matching devicetree contract is generated and checked separately:
 

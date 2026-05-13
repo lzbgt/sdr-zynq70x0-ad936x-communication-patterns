@@ -226,7 +226,10 @@ Next concrete work:
   guarded live sidecar/RF data path. The first synthesizable TX primitive for
   that path is now `fieldmesh_bpsk_iq_symbolizer`: it maps packet bytes into
   repeated signed BPSK I/Q symbols while keeping tuning, filtering, TX enable,
-  and scheduled launch outside the primitive.
+  and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
+  gate now proves the sidecar TX DMA path can feed the bridge parser and the
+  bridge parser can feed the BPSK symbolizer while the IQ output remains
+  disconnected from AD936x TX.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

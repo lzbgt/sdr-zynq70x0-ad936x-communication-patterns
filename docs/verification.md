@@ -2465,6 +2465,14 @@ final repeated symbol, and byte/symbol/packet counters. It is included in the
 required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
 TX boundary.
 
+The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
+implies the sidecar DMA overlay, removes the packet-loopback shortcut, feeds
+`fieldmesh_axis_bridge/m_tx_packet_*` into `fieldmesh_bpsk_symbolizer/s_axis_*`,
+and parks the symbolizer IQ output. `tools/check_fieldmesh_rf_engine_overlay_vivado.sh`
+validated that copied Z203 and Z103 HDL trees generate block designs with
+`fieldmesh_bpsk_symbolizer` present, address segments intact, and no AD936x TX
+connection from the FieldMesh RF-engine overlay.
+
 After the user reset the Z103, two more live-gate captures were taken:
 
 ```text

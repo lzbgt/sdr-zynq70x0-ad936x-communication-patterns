@@ -285,10 +285,16 @@ and reset from `sys_cpu_clk`/`sys_cpu_resetn`, AXI-lite at `0x43C00000`, and
 IRQ `ps-11 mb-11`. Its opt-in `--bridge-overlay` mode appends
 `fieldmesh_sidecar_axis_bridge` as `fieldmesh_axis_bridge`, clocks/resets it,
 and parks the byte-pipe pins until real packet DMA is added.
+Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
+the parsed TX packet stream into `fieldmesh_bpsk_symbolizer`, and leaves the IQ
+output unconnected from AD936x TX.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
-`tools/check_fieldmesh_bridge_overlay_vivado.sh` verify that copied Z203/Z103
-HDL trees can generate the Vivado block design with these cells present. This
-is still not the sidecar packet DMA path.
+`tools/check_fieldmesh_bridge_overlay_vivado.sh`,
+`tools/check_fieldmesh_dma_overlay_vivado.sh`, and
+`tools/check_fieldmesh_rf_engine_overlay_vivado.sh` verify that copied
+Z203/Z103 HDL trees can generate the Vivado block design with these cells
+present. The RF-engine gate is still non-transmitting and does not connect the
+symbolizer to the AD936x datapath.
 
 Keep these responsibilities in Linux first:
 

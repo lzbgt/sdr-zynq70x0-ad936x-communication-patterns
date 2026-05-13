@@ -691,7 +691,9 @@ user and vendor configuration.
   byte-pipe endpoint; `--dma-overlay` adds provisional sidecar ADI `axi_dmac`
   TX/RX packet DMAs through the 16-bit-to-byte adapter and loops the bridge
   parser output back into the guarded RX path for the first non-RF packet-DMA
-  transfer gate.
+  transfer gate; `--rf-engine-overlay` instead feeds the bridge parser output
+  into `fieldmesh_bpsk_symbolizer` and leaves the generated IQ stream parked
+  behind the guarded RF packet-engine boundary.
 - `tools/check_fieldmesh_control_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the FieldMesh control overlay, and runs Vivado project/BD
   generation checks without synthesis to prove the `fieldmesh_ctrl` cell,
@@ -705,6 +707,11 @@ user and vendor configuration.
   runs Vivado project/BD generation checks without synthesis to prove
   `fieldmesh_tx_dma`, `fieldmesh_rx_dma`, and `fieldmesh_axis16_adapter` are
   BD-visible on the reserved sidecar namespace.
+- `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` - copies a Z203 or Z103
+  HDL tree, applies the FieldMesh sidecar DMA plus RF packet-engine overlay,
+  and runs Vivado project/BD generation checks without synthesis to prove
+  `fieldmesh_bpsk_symbolizer` is BD-visible, fed by the parsed packet stream,
+  and not connected to AD936x TX.
 - `tools/build_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
   Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in
