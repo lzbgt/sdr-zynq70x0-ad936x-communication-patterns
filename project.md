@@ -437,11 +437,14 @@ user and vendor configuration.
   browse, credential/cert/audit join, peer discovery, route query, mode request,
   and prioritized payload streams over USB Ethernet, physical Ethernet, or IP
   transports.
-- `sdk/c/examples/` - compile-checked C SDK demo skeletons for a commanded AP
-  application and an endpoint application that browses, joins, opens a stream,
-  and sends prioritized payload.
-- `tools/verify_fieldmesh_sdk.sh` - C99 header smoke build for the SDK public
-  header and examples.
+- `sdk/c/src/fieldmesh_sdk.c` - portable in-process SDK reference
+  implementation for AP browse, metric-based AP election, audit join, peer
+  discovery, route query, mode request, and stream send/receive.
+- `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
+  application, endpoint application, header ABI smoke, and end-to-end reference
+  AP election/join/route/stream flow.
+- `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
+  SDK implementation and demos.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

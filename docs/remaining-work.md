@@ -112,11 +112,11 @@ Next concrete work:
   weak or blocked. Z203-class 2R2T is the preferred AP/broker target, but a
   1R1T node can be elected as an emergency AP when policy allows and no better
   candidate exists.
-- Turn the SDK contract in `sdk/c/include/fieldmesh_sdk.h` into a real host
-  library and board daemon interface. The first implementation should keep USB
-  Ethernet and physical Ethernet as socket transports, then add AP browse,
+- Extend the SDK from the current in-process reference library into a real host
+  library plus board daemon interface. The next implementation should keep USB
+  Ethernet and physical Ethernet as socket transports, then map AP browse,
   AP election, credential/audit join, peer discovery, route query, and
-  prioritized stream send/receive.
+  prioritized stream send/receive onto board services.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

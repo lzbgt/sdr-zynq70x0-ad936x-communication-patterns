@@ -2548,8 +2548,10 @@ This verifies:
   centrality, mobility prediction, reachability, and handover hysteresis;
 - consensus traces include quorum, votes, lease timing, and handover margins.
 
-The SDK check now compile-checks the public header plus AP and endpoint demo
-skeletons:
+The SDK check now builds `sdk/c/src/fieldmesh_sdk.c`, links every C demo, runs
+the commanded AP demo, endpoint demo, header smoke, and reference demo, then
+asserts the reference demo elects `z203-hub`, discovers AP/peer state, selects
+scheduled mode, and loops a packet through the SDK stream API:
 
 ```sh
 ./tools/verify_fieldmesh_sdk.sh

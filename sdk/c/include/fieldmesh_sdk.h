@@ -115,6 +115,12 @@ typedef struct fieldmesh_ap_candidate {
     uint32_t supported_modes_mask;
     uint32_t max_kbps;
     uint32_t reachable_peer_count;
+    int8_t avg_rssi_dbm;
+    int8_t avg_snr_db;
+    uint16_t estimated_geo_centrality;
+    uint16_t link_stability_score;
+    uint16_t mobility_score;
+    uint16_t handover_penalty;
     uint32_t uptime_s;
     uint16_t clock_quality;
     uint16_t power_score;

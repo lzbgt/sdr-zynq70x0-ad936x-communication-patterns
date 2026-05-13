@@ -306,7 +306,8 @@ Typical endpoint flow:
 Stage 1: API and trace contract
 
 - Add C SDK public header.
-- Keep `fieldmesh-udp-probe` as the reference implementation.
+- Add a portable in-process SDK reference implementation and runnable examples.
+- Keep `fieldmesh-udp-probe` as the board-runtime trace implementation.
 - Verify board passive learner plus application command over UDP.
 - Add AP/broker messages to the trace vocabulary.
 - Add executable `ap-elect` traces for preferred AP, RSSI/SNR/geo/capability
@@ -380,9 +381,11 @@ Current SDK examples are compile-checked skeletons:
 
 - `sdk/c/examples/fieldmesh_ap_demo.c`
 - `sdk/c/examples/fieldmesh_endpoint_demo.c`
+- `sdk/c/examples/fieldmesh_reference_demo.c`
 
-Current executable trace gate:
+Current executable gates:
 
 ```sh
 ./tools/verify_fieldmesh_ap_election.sh
+./tools/verify_fieldmesh_sdk.sh
 ```
