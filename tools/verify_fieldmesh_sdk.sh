@@ -33,6 +33,15 @@ sleep 0.2
 "$udp_demo" ap-beacon 127.0.0.1 49123 z203-hub fieldmesh-lab >"$udp_send_log"
 wait "$udp_pid"
 
+daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
+daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
+daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
+"$daemon_demo" serve 127.0.0.1 49124 2 3000 >"$daemon_log" &
+daemon_pid=$!
+sleep 0.2
+"$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
+wait "$daemon_pid"
+
 python3 - "$out_dir/fieldmesh_reference_demo.ndjson" <<'PY'
 import json
 import sys
@@ -86,6 +95,26 @@ if not summary or summary[0].get("gps_denied_usable_for_ap_election") != 1:
     raise SystemExit("SDK RTLS GPS-denied estimate is not AP-election usable")
 PY
 
+python3 - "$daemon_log" "$daemon_query_log" <<'PY'
+import json
+import sys
+
+serve = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+query = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if line.strip()]
+peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
+rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 2 for row in serve):
+    raise SystemExit("SDK daemon did not handle both state requests")
+if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
+    raise SystemExit("SDK daemon peer-state query failed")
+if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
+    raise SystemExit("SDK daemon RTLS-state query failed")
+if not done:
+    raise SystemExit("SDK daemon client did not finish")
+PY
+
 echo "fieldmesh_sdk_reference_check=pass"
 echo "fieldmesh_sdk_udp_discovery_check=pass"
 echo "fieldmesh_sdk_rtls_check=pass"
+echo "fieldmesh_sdk_state_daemon_check=pass"

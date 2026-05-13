@@ -2550,14 +2550,16 @@ This verifies:
 - consensus traces include quorum, votes, lease timing, and handover margins.
 
 The SDK check now builds `sdk/c/src/fieldmesh_sdk.c`, links every C demo, runs
-the commanded AP demo, endpoint demo, header smoke, reference demo, and RTLS
-demo, then asserts the reference demo elects `z203-hub`, discovers AP/peer
-state, selects scheduled mode, and loops a packet through the SDK stream API.
-The RTLS demo verifies that applications can report GPS/PPS measurements and
-GPS-denied packet-timing TDOA measurements, then query fused peer position
-estimates. The check also runs `fieldmesh_udp_discovery_demo` over loopback UDP
-to prove an AP beacon can be sent and browsed over the same socket boundary
-intended for USB Ethernet, physical Ethernet, and IP:
+the commanded AP demo, endpoint demo, header smoke, reference demo, RTLS demo,
+and state-daemon demo, then asserts the reference demo elects `z203-hub`,
+discovers AP/peer state, selects scheduled mode, and loops a packet through the
+SDK stream API. The RTLS demo verifies that applications can report GPS/PPS
+measurements and GPS-denied packet-timing TDOA measurements, then query fused
+peer position estimates. The state-daemon demo serves peer and RTLS state over
+UDP and proves a separate client can query it over the same socket boundary
+intended for USB Ethernet, physical Ethernet, and IP. The check also runs
+`fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
+sent and browsed:
 
 ```sh
 ./tools/verify_fieldmesh_sdk.sh

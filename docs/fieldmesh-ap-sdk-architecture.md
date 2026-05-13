@@ -322,6 +322,10 @@ Stage 2: Board-local service
 
 - Add a small board daemon that exposes AP/peer/session state over the SDK
   control port.
+- Keep the state service queryable over the same socket boundary used by the
+  SDK demos: USB Ethernet, physical Ethernet, or explicit IP.
+- The first checked daemon boundary is `fieldmesh_state_daemon_demo`, which
+  serves peer registry and RTLS position state over UDP.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

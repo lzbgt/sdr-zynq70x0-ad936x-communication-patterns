@@ -25,11 +25,14 @@ in `src/fieldmesh_sdk.c`:
 - `examples/fieldmesh_rtls_demo.c` exercises the application-facing RTLS API:
   GPS/PPS fused positions when available, and packet-timing TDOA plus RSSI/SNR
   when GPS is absent.
+- `examples/fieldmesh_state_daemon_demo.c` is the first socket daemon boundary:
+  one process serves peer and RTLS state over UDP, and another process queries
+  it over the same IP path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_udp_discovery_demo.c` is a two-PC AP-beacon/browse
   transport demo over UDP sockets. It uses the SDK AP model and works over USB
   Ethernet, physical Ethernet, or normal IP routing.
 
 The reference SDK is intentionally in-process and transport-neutral. The board
-runtime implementation is still `fieldmesh-udp-probe`, and the next production
-step is a socket daemon that maps this same C ABI to board services over USB
-Ethernet, physical Ethernet, or explicit IP.
+runtime implementation is still `fieldmesh-udp-probe`; the state-daemon demo is
+the first host-side service shape for mapping the C ABI to board services over
+USB Ethernet, physical Ethernet, or explicit IP.
