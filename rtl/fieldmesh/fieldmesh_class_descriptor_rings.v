@@ -1,7 +1,7 @@
-// FieldMesh shallow descriptor rings with class-priority dequeue.
+// FieldMesh descriptor rings with class-priority dequeue.
 //
-// This block extends the one-entry policy queue into two descriptor slots per
-// traffic class. Each class is FIFO internally; the dequeue selector still
+// This block provides four descriptor slots per traffic class. Each class is
+// FIFO internally; the dequeue selector still
 // chooses the lowest numbered non-empty class first.
 
 `timescale 1ns/1ps
@@ -46,51 +46,78 @@ module fieldmesh_class_descriptor_rings (
     output reg         fault
 );
 
-reg [1:0] count [0:4];
-reg       head [0:4];
+localparam [2:0] RING_DEPTH = 3'd4;
 
-reg [31:0] packet_addr [0:9];
-reg [15:0] packet_len [0:9];
-reg [15:0] stream_id [0:9];
-reg [7:0]  mode [0:9];
-reg [15:0] flags [0:9];
-reg [31:0] epoch [0:9];
-reg [15:0] slot [0:9];
-reg [15:0] queue_age_ms [0:9];
-reg [31:0] timestamp_lo [0:9];
-reg [31:0] timestamp_hi [0:9];
+reg [2:0] count [0:4];
+reg [1:0] head [0:4];
+
+reg [31:0] packet_addr [0:19];
+reg [15:0] packet_len [0:19];
+reg [15:0] stream_id [0:19];
+reg [7:0]  mode [0:19];
+reg [15:0] flags [0:19];
+reg [31:0] epoch [0:19];
+reg [15:0] slot [0:19];
+reg [15:0] queue_age_ms [0:19];
+reg [31:0] timestamp_lo [0:19];
+reg [31:0] timestamp_hi [0:19];
 
 wire enqueue_class_valid = enqueue_traffic_class <= 8'd4;
 wire [2:0] enqueue_class = enqueue_traffic_class[2:0];
-wire enqueue_slot_free =
-    enqueue_class_valid &&
-    count[enqueue_class] < 2'd2;
 wire [2:0] dequeue_class =
-    count[0] != 2'd0 ? 3'd0 :
-    count[1] != 2'd0 ? 3'd1 :
-    count[2] != 2'd0 ? 3'd2 :
-    count[3] != 2'd0 ? 3'd3 :
-    count[4] != 2'd0 ? 3'd4 :
+    count[0] != 3'd0 ? 3'd0 :
+    count[1] != 3'd0 ? 3'd1 :
+    count[2] != 3'd0 ? 3'd2 :
+    count[3] != 3'd0 ? 3'd3 :
+    count[4] != 3'd0 ? 3'd4 :
     3'd0;
 
-wire enqueue_tail = (count[enqueue_class] == 2'd0) ? head[enqueue_class] : ~head[enqueue_class];
-wire [3:0] enqueue_index = {1'b0, enqueue_class} * 4'd2 + {3'd0, enqueue_tail};
-wire [3:0] dequeue_index = {1'b0, dequeue_class} * 4'd2 + {3'd0, head[dequeue_class]};
+wire dequeue_fire = dequeue_valid && dequeue_ready;
+wire same_enqueue_dequeue_class =
+    enqueue_class_valid && dequeue_valid && enqueue_class == dequeue_class;
+wire [2:0] enqueue_class_count =
+    !enqueue_class_valid ? RING_DEPTH :
+    enqueue_class == 3'd0 ? count[0] :
+    enqueue_class == 3'd1 ? count[1] :
+    enqueue_class == 3'd2 ? count[2] :
+    enqueue_class == 3'd3 ? count[3] :
+    count[4];
+wire [1:0] enqueue_class_head =
+    !enqueue_class_valid ? 2'd0 :
+    enqueue_class == 3'd0 ? head[0] :
+    enqueue_class == 3'd1 ? head[1] :
+    enqueue_class == 3'd2 ? head[2] :
+    enqueue_class == 3'd3 ? head[3] :
+    head[4];
+wire [1:0] dequeue_class_head =
+    dequeue_class == 3'd0 ? head[0] :
+    dequeue_class == 3'd1 ? head[1] :
+    dequeue_class == 3'd2 ? head[2] :
+    dequeue_class == 3'd3 ? head[3] :
+    head[4];
+wire [1:0] enqueue_tail = enqueue_class_head + enqueue_class_count[1:0];
+wire enqueue_slot_free =
+    enqueue_class_valid &&
+    (enqueue_class_count < RING_DEPTH ||
+     (dequeue_fire && same_enqueue_dequeue_class));
+wire enqueue_fire = enqueue_valid && enqueue_slot_free;
+wire [4:0] enqueue_index = {enqueue_class, 2'b00} + {3'd0, enqueue_tail};
+wire [4:0] dequeue_index = {dequeue_class, 2'b00} + {3'd0, dequeue_class_head};
 
 assign enqueue_ready = enable && enqueue_slot_free;
 assign dequeue_valid = enable && (
-    count[0] != 2'd0 ||
-    count[1] != 2'd0 ||
-    count[2] != 2'd0 ||
-    count[3] != 2'd0 ||
-    count[4] != 2'd0
+    count[0] != 3'd0 ||
+    count[1] != 3'd0 ||
+    count[2] != 3'd0 ||
+    count[3] != 3'd0 ||
+    count[4] != 3'd0
 );
 assign class_pending = {
-    count[4] != 2'd0,
-    count[3] != 2'd0,
-    count[2] != 2'd0,
-    count[1] != 2'd0,
-    count[0] != 2'd0
+    count[4] != 3'd0,
+    count[3] != 3'd0,
+    count[2] != 3'd0,
+    count[1] != 3'd0,
+    count[0] != 3'd0
 };
 
 integer idx;
@@ -116,10 +143,10 @@ always @(posedge clk) begin
         drop_count <= 32'd0;
         fault <= 1'b0;
         for (idx = 0; idx < 5; idx = idx + 1) begin
-            count[idx] <= 2'd0;
-            head[idx] <= 1'b0;
+            count[idx] <= 3'd0;
+            head[idx] <= 2'd0;
         end
-        for (idx = 0; idx < 10; idx = idx + 1) begin
+        for (idx = 0; idx < 20; idx = idx + 1) begin
             packet_addr[idx] <= 32'd0;
             packet_len[idx] <= 16'd0;
             stream_id[idx] <= 16'd0;
@@ -134,20 +161,20 @@ always @(posedge clk) begin
     end else begin
         if (!enable) begin
             for (idx = 0; idx < 5; idx = idx + 1) begin
-                count[idx] <= 2'd0;
-                head[idx] <= 1'b0;
+                count[idx] <= 3'd0;
+                head[idx] <= 2'd0;
             end
         end else begin
-            if (dequeue_valid && dequeue_ready) begin
-                if (count[dequeue_class] == 2'd2) begin
-                    head[dequeue_class] <= ~head[dequeue_class];
+            if (dequeue_fire) begin
+                head[dequeue_class] <= head[dequeue_class] + 2'd1;
+                if (!(enqueue_fire && same_enqueue_dequeue_class)) begin
+                    count[dequeue_class] <= count[dequeue_class] - 3'd1;
                 end
-                count[dequeue_class] <= count[dequeue_class] - 2'd1;
                 dequeue_count <= dequeue_count + 32'd1;
             end
 
             if (enqueue_valid) begin
-                if (enqueue_slot_free) begin
+                if (enqueue_fire) begin
                     packet_addr[enqueue_index] <= enqueue_packet_addr;
                     packet_len[enqueue_index] <= enqueue_packet_len;
                     stream_id[enqueue_index] <= enqueue_stream_id;
@@ -158,7 +185,9 @@ always @(posedge clk) begin
                     queue_age_ms[enqueue_index] <= enqueue_queue_age_ms;
                     timestamp_lo[enqueue_index] <= enqueue_timestamp_lo;
                     timestamp_hi[enqueue_index] <= enqueue_timestamp_hi;
-                    count[enqueue_class] <= count[enqueue_class] + 2'd1;
+                    if (!(dequeue_fire && same_enqueue_dequeue_class)) begin
+                        count[enqueue_class] <= count[enqueue_class] + 3'd1;
+                    end
                     enqueue_count <= enqueue_count + 32'd1;
                 end else begin
                     drop_count <= drop_count + 32'd1;

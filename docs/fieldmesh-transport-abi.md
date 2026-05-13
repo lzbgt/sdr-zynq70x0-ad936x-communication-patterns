@@ -167,9 +167,9 @@ and rejects out-of-range descriptors.
 
 `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v` wires descriptor submission,
 descriptor readback, and byte-wide packet-memory access behind one AXI-lite
-slave. It now submits descriptors through the shallow class descriptor rings
+slave. It now submits descriptors through the four-slot class descriptor rings
 before the local packet-memory loopback core. It remains local-memory only;
-external DMA, IIO buffers, scaled descriptor memory, and RF/baseband logic are
+external DMA, IIO buffers, deeper descriptor memory, and RF/baseband logic are
 later integration points. `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v`
 wraps this register map for the provisional `0x43C00000` sidecar control
 window and exports live RX/fault interrupt state for later PS wiring.
@@ -181,10 +181,11 @@ served ahead of already-pending C2/C4 descriptors and rejects duplicate or
 invalid class enqueues.
 
 `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` expands that policy into
-two descriptor slots per C0..C4 class. It preserves FIFO order inside each
+four descriptor slots per C0..C4 class. It preserves FIFO order inside each
 class and still selects the lowest numbered non-empty class first. The current
 test covers C0/C2/C4 priority ordering, FIFO behavior within C2/C4, full-ring
-drops, and invalid-class drops. The packet-memory AXI-lite test also verifies
+drops, invalid-class drops, and same-cycle refill when a full class dequeues.
+The packet-memory AXI-lite test also verifies
 the rings in the integrated path by holding the RX completion slot busy,
 queuing C4/C2/C0 descriptors, then acknowledging RX descriptors and observing
 C0, C2, C2, C4 drain order through copied packet bytes.

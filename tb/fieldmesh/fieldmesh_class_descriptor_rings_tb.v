@@ -112,8 +112,15 @@ task expect_dequeue;
     input [31:0] sequence;
     begin
         if (!dequeue_valid) fail("dequeue_valid was not asserted");
-        if (dequeue_traffic_class != expected_class) fail("traffic class mismatch");
-        if (dequeue_packet_addr != 32'h5000_0000 + sequence) fail("packet_addr mismatch");
+        if (dequeue_traffic_class != expected_class) begin
+            $display("expected class %0d got %0d", expected_class, dequeue_traffic_class);
+            fail("traffic class mismatch");
+        end
+        if (dequeue_packet_addr != 32'h5000_0000 + sequence) begin
+            $display("expected sequence %0d packet_addr 0x%08x got 0x%08x",
+                     sequence, 32'h5000_0000 + sequence, dequeue_packet_addr);
+            fail("packet_addr mismatch");
+        end
         if (dequeue_packet_len != 16'd96 + sequence[7:0]) fail("packet_len mismatch");
         if (dequeue_stream_id != 16'd30 + sequence[15:0]) fail("stream_id mismatch");
         if (dequeue_epoch != 32'd200 + sequence) fail("epoch mismatch");
@@ -125,6 +132,36 @@ task expect_dequeue;
     end
 endtask
 
+task enqueue_and_dequeue_same_cycle;
+    input [7:0] expected_class;
+    input [31:0] old_sequence;
+    input [31:0] new_sequence;
+    begin
+        @(negedge clk);
+        if (!dequeue_valid) fail("same-cycle dequeue_valid was not asserted");
+        if (dequeue_traffic_class != expected_class) fail("same-cycle traffic class mismatch");
+        if (dequeue_packet_addr != 32'h5000_0000 + old_sequence) fail("same-cycle packet_addr mismatch");
+        enqueue_packet_addr = 32'h5000_0000 + new_sequence;
+        enqueue_packet_len = 16'd96 + new_sequence[7:0];
+        enqueue_stream_id = 16'd30 + new_sequence[15:0];
+        enqueue_traffic_class = expected_class;
+        enqueue_mode = 8'd4;
+        enqueue_flags = 16'h0021;
+        enqueue_epoch = 32'd200 + new_sequence;
+        enqueue_slot = new_sequence[15:0];
+        enqueue_queue_age_ms = 16'd5;
+        enqueue_timestamp_lo = new_sequence;
+        enqueue_timestamp_hi = 32'd0;
+        enqueue_valid = 1'b1;
+        dequeue_ready = 1'b1;
+        #1;
+        if (!enqueue_ready) fail("full ring did not accept enqueue while dequeueing same class");
+        @(negedge clk);
+        enqueue_valid = 1'b0;
+        dequeue_ready = 1'b0;
+    end
+endtask
+
 initial begin
     repeat (3) @(negedge clk);
     rst = 1'b0;
@@ -132,31 +169,52 @@ initial begin
 
     enqueue_desc(8'd4, 32'd40);
     enqueue_desc(8'd4, 32'd41);
+    enqueue_desc(8'd4, 32'd42);
+    enqueue_desc(8'd4, 32'd43);
     enqueue_desc(8'd2, 32'd20);
     enqueue_desc(8'd2, 32'd21);
+    enqueue_desc(8'd2, 32'd22);
     enqueue_desc(8'd0, 32'd0);
 
     if (class_pending != 5'b10101) fail("pending classes mismatch");
     expect_dequeue(8'd0, 32'd0);
     expect_dequeue(8'd2, 32'd20);
     expect_dequeue(8'd2, 32'd21);
+    expect_dequeue(8'd2, 32'd22);
     expect_dequeue(8'd4, 32'd40);
     expect_dequeue(8'd4, 32'd41);
+    expect_dequeue(8'd4, 32'd42);
+    expect_dequeue(8'd4, 32'd43);
 
     enqueue_desc(8'd1, 32'd10);
     enqueue_desc(8'd1, 32'd11);
     enqueue_desc(8'd1, 32'd12);
+    enqueue_desc(8'd1, 32'd13);
+    enqueue_desc(8'd1, 32'd14);
     if (drop_count != 32'd1) fail("full ring drop_count mismatch");
     if (!fault) fail("fault was not set for full class ring");
 
     expect_dequeue(8'd1, 32'd10);
     expect_dequeue(8'd1, 32'd11);
+    expect_dequeue(8'd1, 32'd12);
+    expect_dequeue(8'd1, 32'd13);
+
+    enqueue_desc(8'd3, 32'd30);
+    enqueue_desc(8'd3, 32'd31);
+    enqueue_desc(8'd3, 32'd32);
+    enqueue_desc(8'd3, 32'd33);
+    if (enqueue_ready) fail("full class was ready without same-cycle dequeue");
+    enqueue_and_dequeue_same_cycle(8'd3, 32'd30, 32'd34);
+    expect_dequeue(8'd3, 32'd31);
+    expect_dequeue(8'd3, 32'd32);
+    expect_dequeue(8'd3, 32'd33);
+    expect_dequeue(8'd3, 32'd34);
 
     enqueue_desc(8'd7, 32'd70);
     if (drop_count != 32'd2) fail("invalid class drop_count mismatch");
 
-    if (enqueue_count != 32'd7) fail("enqueue_count mismatch");
-    if (dequeue_count != 32'd7) fail("dequeue_count mismatch");
+    if (enqueue_count != 32'd17) fail("enqueue_count mismatch");
+    if (dequeue_count != 32'd17) fail("dequeue_count mismatch");
 
     $display("PASS: fieldmesh_class_descriptor_rings_tb");
     $finish;

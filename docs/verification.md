@@ -1705,12 +1705,14 @@ and verifies copied RX bytes through `FM_MEM_RDATA`. It also holds RX valid,
 queues C4, C2, C2, and C0 descriptors behind the integrated class rings, then
 acknowledges completions and verifies copied packet bytes drain in C0, C2, C2,
 C4 order. The class-priority queue test enqueues C4, C2, then C0 and verifies
-dequeue order C0, C2, C4, plus duplicate/invalid class drops. The descriptor-ring
-test enqueues C4/C4, C2/C2, then C0 and verifies dequeue order C0, C2, C2, C4,
-C4, then checks full-ring and invalid-class drops. The packet AXI-stream source
-test consumes a completed RX descriptor, emits four bytes with backpressure and
-`tlast`, preserves class/mode/stream/slot sidebands, and drops an invalid
-descriptor with `fault` set. The packet AXI-stream sink test accepts four bytes
+dequeue order C0, C2, C4, plus duplicate/invalid class drops. The
+descriptor-ring test enqueues four C4 descriptors, three C2 descriptors, then
+C0 and verifies dequeue order C0, C2, C2, C2, C4, C4, C4, C4. It also checks
+four-slot full-ring drops, invalid-class drops, and same-cycle refill when a
+full class dequeues. The packet AXI-stream source test consumes a completed RX
+descriptor, emits four bytes with backpressure and `tlast`, preserves
+class/mode/stream/slot sidebands, and drops an invalid descriptor with `fault`
+set. The packet AXI-stream sink test accepts four bytes
 into packet memory, emits the expected completed descriptor, deasserts `tready`
 while that descriptor is pending, and drops an out-of-range packet with `fault`
 set. The packet AXI-stream loopback test writes TX memory, moves two packets
@@ -1732,8 +1734,8 @@ descriptor metadata, and checks selected RX packet bytes. The sidecar axis
 bridge test validates the split packet-transport boundary: PS-to-PL byte-only
 packets are parsed into FieldMesh sidebands, PL-to-PS sidebanded packets are
 guarded before byte-only output, and bad header/sideband cases set fault
-counters. This does not instantiate ADI DMA, IIO, scaled descriptor memory, or
-RF logic yet.
+counters. This does not instantiate ADI DMA, IIO, external descriptor memory,
+or RF logic yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 

@@ -405,7 +405,7 @@ Milestone 1: Common packet pipe
   `rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v` verifies the first
   packet-byte copy path, and `rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v`
   wires packet-memory access and descriptor submit/readback behind one AXI-lite
-  shell. It now submits through the shallow class descriptor rings before the
+  shell. It now submits through the four-slot class descriptor rings before the
   local packet-memory copy path and exports live IRQ status.
   `rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v` wraps that register map as
   the BD-facing control endpoint for the provisional `0x43C00000`
@@ -413,7 +413,8 @@ Milestone 1: Common packet pipe
   `rtl/fieldmesh/fieldmesh_class_priority_queue.v` verifies that lower numbered
   traffic classes dequeue before already-pending lower-priority descriptors.
   `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` extends that policy into
-  two descriptor slots per C0..C4 class while preserving FIFO inside each class.
+  four descriptor slots per C0..C4 class while preserving FIFO inside each
+  class and accepting same-cycle refill when a full class dequeues.
   `rtl/fieldmesh/fieldmesh_packet_axis_source.v` is the first stream-shaped
   packet boundary after packet memory, with AXI-stream-style byte output,
   `tlast`, backpressure, and packet metadata sidebands.

@@ -446,9 +446,10 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_class_priority_queue.v` - one-entry-per-class
   descriptor queue that proves C0..C4 lowest-class-first dequeue before deeper
   descriptor rings are added.
-- `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` - shallow two-entry
-  descriptor rings per C0..C4 class, preserving FIFO within each class and
-  lowest-class-first dequeue across classes.
+- `rtl/fieldmesh/fieldmesh_class_descriptor_rings.v` - four-slot descriptor
+  rings per C0..C4 class, preserving FIFO within each class,
+  lowest-class-first dequeue across classes, and same-cycle refill when a full
+  class dequeues.
 - `rtl/fieldmesh/fieldmesh_packet_axis_source.v` - completed RX descriptor to
   AXI-stream-style byte source, carrying packet bytes, `tlast`, backpressure,
   and class/mode/stream/slot sideband metadata.
@@ -660,7 +661,6 @@ Expected result in the current Pluto-compatible firmware state:
    packet-DMA window discovery, and the SSH wrapper now asserts all three
    captures into `preflight_assert.json` before starting transfers. Next boot a
    FieldMesh package through a non-flashing path, run those preflights, then
-   scale descriptor storage
-   beyond the shallow class rings and bind the path to IIO/PL before open-air
-   RF tests. The first live Z103 FieldMesh RAM-boot attempt is currently
+   bind the path to IIO/PL before open-air RF tests. The first live Z103
+   FieldMesh RAM-boot attempt is currently
    blocked at the PS-side DAP/DSCR reset-halt boundary before payload loading.

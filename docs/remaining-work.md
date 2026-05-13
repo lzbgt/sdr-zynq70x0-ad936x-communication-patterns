@@ -113,12 +113,13 @@ Next concrete work:
   packet-memory AXI-lite wrapper now verify descriptor handshakes,
   register-mapped submit/ack, byte-copy behavior, and CPU-visible byte memory
   access in simulation. The class-priority queue now verifies one-entry-per
-  C0..C4 pending descriptors and lowest-class-first dequeue. The shallow
-  descriptor rings now verify two slots per C0..C4 class, FIFO within a class,
-  lowest-class-first dequeue across classes, full-ring drops, and invalid-class
-  drops. The packet-memory AXI-lite wrapper now submits through those rings and
-  verifies C0/C2/C4 drain order through copied packet bytes while RX completion
-  backpressure is active. The packet AXI-stream source now verifies completed
+  C0..C4 pending descriptors and lowest-class-first dequeue. The descriptor
+  rings now verify four slots per C0..C4 class, FIFO within a class,
+  lowest-class-first dequeue across classes, full-ring drops, invalid-class
+  drops, and same-cycle refill when a full class dequeues. The packet-memory
+  AXI-lite wrapper now submits through those rings and verifies C0/C2/C4 drain
+  order through copied packet bytes while RX completion backpressure is active.
+  The packet AXI-stream source now verifies completed
   RX descriptor consumption, byte streaming, `tlast`, metadata sidebands,
   backpressure, and invalid-descriptor drops. The packet AXI-stream sink now
   verifies byte ingress into packet memory, completion descriptor generation,
