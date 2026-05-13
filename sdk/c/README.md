@@ -46,6 +46,10 @@ in `src/fieldmesh_sdk.c`:
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
   UDP.
+- `examples/fieldmesh_swarm_adapter_demo.c` is the first executable `swarm0`
+  adapter shape. It keeps the SDK ABI pure C, maps control/telemetry/video/
+  enhancement/bulk payloads onto C0-C4 traffic classes, and proves the product
+  data plane is packet/stream oriented rather than raw IIO IQ.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and
@@ -66,7 +70,8 @@ and Z103 developer images now also install
 service shape for mapping AP, peer, route, RTLS, and local IIO/device C ABI
 calls to board services over USB Ethernet, physical Ethernet, or explicit IP.
 The images also install `/usr/bin/fieldmesh-device-iio-demo` for the local
-device/IIO layer, `/usr/bin/fieldmesh-two-pc-flow-demo` for the first
-board-attached AP browse/election/audit-join/scheduled-stream smoke, and
-`/usr/bin/fieldmeshctl` for split-subnet profile validation before persistent
-network writes are enabled.
+device/IIO layer, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
+`swarm0` packet/stream adapter mapping, `/usr/bin/fieldmesh-two-pc-flow-demo`
+for the first board-attached AP browse/election/audit-join/scheduled-stream
+smoke, and `/usr/bin/fieldmeshctl` for split-subnet profile validation before
+persistent network writes are enabled.

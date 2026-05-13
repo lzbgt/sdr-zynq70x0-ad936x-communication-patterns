@@ -18,12 +18,15 @@ extern "C" {
 #define FIELDMESH_SECRET_TEXT_MAX 256
 #define FIELDMESH_IIO_URI_TEXT_MAX 128
 #define FIELDMESH_DEVICE_TEXT_MAX 96
+#define FIELDMESH_ADAPTER_NAME_TEXT_MAX 32
+#define FIELDMESH_ADAPTER_DEFAULT_MTU 1500u
 #define FIELDMESH_PROFILE_APPLY_PERSIST 0x00000001u
 
 typedef struct fieldmesh_context fieldmesh_context_t;
 typedef struct fieldmesh_ap fieldmesh_ap_t;
 typedef struct fieldmesh_session fieldmesh_session_t;
 typedef struct fieldmesh_stream fieldmesh_stream_t;
+typedef struct fieldmesh_adapter fieldmesh_adapter_t;
 
 typedef enum fieldmesh_status {
     FIELDMESH_OK = 0,
@@ -93,6 +96,19 @@ typedef enum fieldmesh_route_kind {
     FIELDMESH_ROUTE_SCHEDULED_RELAY = 3,
     FIELDMESH_ROUTE_FANOUT = 4
 } fieldmesh_route_kind_t;
+
+typedef enum fieldmesh_adapter_kind {
+    FIELDMESH_ADAPTER_STREAM_API = 1,
+    FIELDMESH_ADAPTER_VIRTUAL_NETDEV = 2
+} fieldmesh_adapter_kind_t;
+
+typedef enum fieldmesh_payload_kind {
+    FIELDMESH_PAYLOAD_CONTROL = 1,
+    FIELDMESH_PAYLOAD_TELEMETRY = 2,
+    FIELDMESH_PAYLOAD_VIDEO_BASE = 3,
+    FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT = 4,
+    FIELDMESH_PAYLOAD_BULK = 5
+} fieldmesh_payload_kind_t;
 
 typedef struct fieldmesh_config {
     fieldmesh_transport_t transport;
@@ -308,6 +324,27 @@ typedef struct fieldmesh_packet_meta {
     uint32_t queue_age_ms;
 } fieldmesh_packet_meta_t;
 
+typedef struct fieldmesh_adapter_config {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_adapter_kind_t adapter_kind;
+    fieldmesh_mode_t requested_mode;
+    uint16_t stream_id_base;
+    uint32_t mtu_bytes;
+    uint8_t expose_virtual_netdev;
+} fieldmesh_adapter_config_t;
+
+typedef struct fieldmesh_adapter_packet {
+    fieldmesh_payload_kind_t payload_kind;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mode_t mode;
+    uint16_t stream_id;
+    uint32_t sequence;
+    uint32_t deadline_ms;
+    uint32_t bitrate_hint_kbps;
+    uint32_t queue_age_ms;
+} fieldmesh_adapter_packet_t;
+
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
 typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
@@ -412,6 +449,25 @@ fieldmesh_status_t fieldmesh_recv(fieldmesh_stream_t *stream,
                                   size_t *out_payload_len,
                                   fieldmesh_packet_meta_t *out_meta,
                                   uint32_t timeout_ms);
+
+fieldmesh_status_t fieldmesh_open_adapter(fieldmesh_session_t *session,
+                                          const fieldmesh_adapter_config_t *config,
+                                          fieldmesh_adapter_t **out_adapter);
+fieldmesh_status_t fieldmesh_close_adapter(fieldmesh_adapter_t *adapter);
+fieldmesh_status_t fieldmesh_classify_payload(fieldmesh_payload_kind_t payload_kind,
+                                              fieldmesh_traffic_class_t *out_class,
+                                              uint32_t *out_deadline_ms);
+fieldmesh_status_t fieldmesh_adapter_send_packet(fieldmesh_adapter_t *adapter,
+                                                 fieldmesh_payload_kind_t payload_kind,
+                                                 const void *payload,
+                                                 size_t payload_len,
+                                                 fieldmesh_adapter_packet_t *out_packet);
+fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
+                                                 void *payload,
+                                                 size_t payload_capacity,
+                                                 size_t *out_payload_len,
+                                                 fieldmesh_adapter_packet_t *out_packet,
+                                                 uint32_t timeout_ms);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

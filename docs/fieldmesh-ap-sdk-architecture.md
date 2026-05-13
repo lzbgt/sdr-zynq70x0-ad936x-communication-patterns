@@ -284,17 +284,17 @@ already exposes the device as a network interface. A separate provisioning tool
 may use USB-specific APIs later, but the customer payload SDK should stay
 socket-based.
 
-The second layer is the local device/IIO layer. It is for board-local services
-or trusted host tools that must configure the AD936x PHY, inspect IIO devices,
-run guarded IQ buffer procedures, inspect sidecar DMA readiness, or recover a
-board. This layer may wrap libiio, `/dev/mem` read-only preflights, SSH
-helpers, or board daemons, but it must be exposed as device control rather than
-as the FieldMesh radio network. In product terms:
+The second layer is the local device/IIO admin layer. It is for board-local
+services or trusted host tools that must configure the AD936x PHY, inspect IIO
+devices, run guarded IQ buffer procedures, inspect sidecar DMA readiness, or
+recover a board. This layer may wrap libiio, `/dev/mem` read-only preflights,
+SSH helpers, or board daemons, but it must be exposed as device control rather
+than as the FieldMesh radio network. In product terms:
 
 - Ethernet/IP SDK calls manage the local board and application streams.
-- IIO/device SDK calls configure or verify local radio resources.
+- IIO/device SDK calls configure or verify local radio resources only.
 - Board-to-board peer payloads still cross the FieldMesh RF data plane, not
-  host Ethernet routing.
+  host Ethernet routing and not IIO buffers.
 
 For Ethernet SDK clients, the production shape is a pre-implemented FieldMesh
 board daemon running on Zynq ARM Linux. The daemon listens on the configured
@@ -302,8 +302,10 @@ SDK control port over USB Ethernet, physical Ethernet, or explicit IP; owns the
 local IIO/device backend; and serves the FieldMesh control/data protocol to
 host applications. Desktop apps should not need direct libiio access for normal
 operation. They ask the daemon to browse APs, join, query topology/RTLS,
-open streams, and request guarded RF/device actions. The daemon then translates
-allowed local device actions into libiio/sidecar/driver calls under policy.
+open streams, and request guarded RF/device admin actions. The daemon then
+translates allowed local device actions into libiio or driver calls under
+policy. It must translate customer payload streams into the production packet
+DMA/driver path, not into IIO IQ buffers.
 
 This split lets a Windows camera app, a Linux gateway, and an embedded host use
 the same control/data-plane API while keeping RF setup and safety gates
@@ -327,6 +329,11 @@ The first implementation can expose these as C SDK calls and daemon messages
 before a real `swarm0` netdev exists. The design point is still the same:
 apps use packet/stream semantics, while the daemon owns IIO and local RF
 details.
+
+Use a userspace TUN-backed `swarm0` as the first virtual network target. It is
+easier to debug and ship than a custom kernel netdev, while preserving the
+same product contract: normal packets enter the daemon, then the daemon maps
+them onto FieldMesh traffic classes, routes, relay policy, and TDMA/TDD slots.
 
 ## C SDK Surface
 
@@ -462,6 +469,10 @@ Stage 2: Board-local service
   AP side serves browse/election/join/stream requests and the endpoint side
   runs AP browse, deterministic AP election, AP-audit join, scheduled stream
   open, and C1 telemetry send over UDP.
+- Use `fieldmesh_swarm_adapter_demo` as the first product-data-plane API
+  smoke: it opens the `swarm0` adapter shape and maps C0 control, C1 telemetry,
+  C2 video base, C3 enhancement, and C4 bulk payloads through the pure-C SDK
+  without exposing raw IIO buffers to applications.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

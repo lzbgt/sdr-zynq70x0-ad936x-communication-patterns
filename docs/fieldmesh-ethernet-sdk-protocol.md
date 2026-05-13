@@ -64,9 +64,17 @@ Long-term production data should be exposed above the daemon as either:
 - an equivalent daemon stream API with the same routing, QoS, and security
   semantics.
 
-Raw IIO buffers are not the production network API. IIO remains the local RF
-configuration, calibration, diagnostics, and conducted-test backend owned by
-the daemon.
+The preferred MVP is TUN-backed `swarm0` first, not a custom kernel netdev.
+That keeps the implementation in the daemon, allows ordinary IP tools such as
+`ping`, `tcpdump`, and UDP/RTP senders to work during bring-up, and still lets
+the daemon map packets onto FieldMesh streams, classes, routes, and schedules.
+A TAP or custom netdev can follow once the modem/MAC behavior is stable.
+
+Raw IIO buffers are not the production network API and must not sit in the
+real board-to-board communication loop. IIO remains the local RF configuration,
+calibration, diagnostics, and conducted-test backend owned by the daemon. The
+payload path is packet/stream API -> daemon -> production PL/driver packet
+path -> RF.
 
 ## Control Messages
 
@@ -202,6 +210,14 @@ Traffic classes:
 - C3: enhancement frames or opportunistic quality;
 - C4: logs, snapshots, and bulk transfer.
 
+The pure-C SDK now has an executable adapter contract for this mapping:
+`fieldmesh_open_adapter()` opens `swarm0` or a stream-equivalent adapter,
+`fieldmesh_adapter_send_packet()` classifies payloads, and
+`fieldmesh_adapter_recv_packet()` returns packet metadata suitable for app or
+daemon policy. The first demo maps control, telemetry, video base,
+enhancement, and bulk payloads to C0-C4 without using IIO or inter-board IP
+routing.
+
 Camera demo target:
 
 ```text
@@ -211,16 +227,16 @@ Host A app -> local daemon -> board A -> FieldMesh RF -> board B -> local daemon
 Host A and Host B may be two app instances on one physical PC for testing, but
 the topology viewer must show the radio topology, not host Ethernet links.
 
-## Local IIO Bridge
+## Local IIO Admin Bridge
 
-Ethernet clients request local RF actions through daemon messages, not direct
-libiio calls:
+Ethernet clients may request local RF admin actions through daemon messages,
+not direct libiio calls:
 
 - `DEVICE_IIO_PLAN` returns RX-first AD936x/IIO commands and safety state.
 - `DEVICE_IIO_EXECUTE` requires conducted/shielded declaration, legal frequency
   profile, attenuation evidence, TX-enable guard, RX-first ordering, and
   hardware-write approval.
-- The daemon may use libiio, sidecar DMA, or board-local drivers underneath.
+- The daemon may use libiio or board-local drivers underneath for admin tasks.
 
 The default policy is dry-run/planning. Live IIO/RF execution is opt-in,
 audited, and rejected unless all guards match the active regulatory and fixture

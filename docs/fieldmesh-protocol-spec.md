@@ -329,7 +329,7 @@ The first committed harness has four transport modes:
 - `mem-loopback`: wraps complete FieldMesh packets in the transport shim frame
   from `docs/fieldmesh-transport-abi.md`, validates frame sync/length/CRC, then
   validates the contained packet header. This is the first step beyond UDP
-  toward an IIO or PL packet pipe.
+  toward a memory/driver or PL packet pipe.
 
 Traffic profiles:
 
@@ -417,13 +417,13 @@ tests, including lightweight sender-side capability and mode-negotiation events.
 It also supports local `mem-loopback` and `mmap-loopback` roles for ABI
 shim-frame validation without a network peer. `mmap-loopback` uses a small
 mapped slot ring, which is closer to the eventual board-local IIO/PL packet
-queue than the plain stack-memory loopback. Yocto board builds also compile an
-`iio-scan` and `iio-plan` roles with libiio. They do not transport FieldMesh
-packets yet. `iio-scan` captures whether the board runtime can see a local or
-URI-selected IIO context, and `iio-plan` ranks read-only RX/TX buffer
-candidates from device/channel metadata before an IIO packet pipe is attempted.
-They intentionally stay smaller than the Python harness. Use them for
-board-runtime validation; keep the Python harness as the richer host-side
+queue than the plain stack-memory loopback. Yocto board builds also compile
+`iio-scan` and `iio-plan` roles with libiio. They are radio-admin diagnostics,
+not FieldMesh packet transports. `iio-scan` captures whether the board runtime
+can see a local or URI-selected IIO context, and `iio-plan` ranks read-only
+RX/TX buffer candidates from device/channel metadata for conducted lab
+planning. They intentionally stay smaller than the Python harness. Use them
+for board-runtime validation; keep the Python harness as the richer host-side
 reference.
 
 The default no-role board command is now a passive learner:
@@ -459,7 +459,8 @@ The helper starts the receiver on the board, sends stress-profile packets from
 the host, fetches the board NDJSON capture, and verifies packet counts plus
 `rx_ok=true`.
 
-Before the UDP or IIO packet transport tests on a rebuilt board image, run:
+Before packet-driver or PL transport tests on a rebuilt board image, run the
+IIO scan only as a radio-admin diagnostic:
 
 ```sh
 BOARD_IP=192.168.2.1 ./tools/run_fieldmesh_board_iio_scan.sh
@@ -543,9 +544,10 @@ their traces are treated as meaningful.
 
 The next implementation boundary is defined in
 `docs/fieldmesh-transport-abi.md`: keep the FieldMesh packet header and trace
-contract stable while moving the byte stream from UDP into an IIO buffer shim
+contract stable while moving the byte stream from UDP into a memory/driver shim
 and then a PL descriptor queue. The C `pl-replay` role is the software model of
-that queue. `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`,
+that queue. IIO remains an admin/diagnostic interface and is not in the product
+payload path. `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`,
 `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v`, and
 `rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v` are the first
 simulation-verified PL descriptor-loopback, register-submit, and AXI-lite
@@ -568,7 +570,7 @@ wires those two stream boundaries together with separate TX/RX packet memories,
 and `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` exposes the same stream
 pair as external TX/RX AXI-stream ports.
 `rtl/fieldmesh/fieldmesh_axis_header_guard.v` verifies those sidebands against
-the in-band packet header before the path is treated as a byte-only DMA/IIO
+the in-band packet header before the path is treated as a byte-only DMA
 pipe. `rtl/fieldmesh/fieldmesh_axis_header_parser.v` reconstructs those
 sidebands on RX, and
 `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies a complete
@@ -576,7 +578,7 @@ guarded byte-pipe loopback model. `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v
 is the first sidecar packet transport bridge: the PS-to-PL direction parses
 byte-only packets into FieldMesh sidebands, and the PL-to-PS direction checks
 sidebands before emitting byte-only packets. The next PL target is binding that
-bridge to a runtime-visible sidecar DMA/IIO packet transport. A copied-HDL
+bridge to a runtime-visible sidecar packet-DMA transport. A copied-HDL
 Vivado overlay now proves the BD can host sidecar ADI `axi_dmac` packet DMAs
 through a 16-bit-to-byte adapter. The matching devicetree/userspace preflight
 is now drafted; the next target is integrating it only with a matching

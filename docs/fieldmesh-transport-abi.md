@@ -1,8 +1,8 @@
 # FieldMesh Transport ABI
 
 This note defines the next implementation boundary after the UDP trace harness:
-move the same FieldMesh packet stream toward a board-local IIO or PL packet
-pipe without changing the protocol header or trace contract.
+move the same FieldMesh packet stream toward a board-local memory/driver and PL
+packet pipe without changing the protocol header or trace contract.
 
 The goal is not the final RF waveform. The goal is a stable software/FPGA
 boundary that can carry P2P, star, graph, and scheduled-mode packets while
@@ -17,7 +17,7 @@ FieldMesh should keep four layers separate:
    queues, and degradation rules.
 3. **Packet transport ABI:** byte packets moving between Linux and the fast
    path.
-4. **PHY/RF implementation:** AD936x/IIO prototype, PL modem, or future custom
+4. **PHY/RF implementation:** PL modem, AD936x RF front end, or future custom
    radio hardware.
 
 The UDP harness and `fieldmesh-udp-probe` already exercise layers 1 and 2 with
@@ -41,30 +41,31 @@ Acceptance:
   traces.
 - No board or PL dependency is required.
 
-## Stage 1: IIO Buffer Packet Pipe
+## Stage 1: Memory/Driver Packet Pipe
 
-Use a sidecar IIO device or sidecar DMA path as a packet byte pipe before
+Use a memory/driver shim or sidecar DMA path as a packet byte pipe before
 creating a new modem. This is still a conducted/baseband experiment, not an
-over-the-air claim. Do not route first FieldMesh packet tests through the
-existing ADI AD936x sample-DMA register windows.
+over-the-air claim. Do not route FieldMesh product payload tests through raw
+IIO buffers or through the existing ADI AD936x sample-DMA register windows.
 
 Status: the host harness implements `--transport mem-loopback`, and the C
 runtime probe implements both `fieldmesh-udp-probe mem-loopback` and
 `fieldmesh-udp-probe mmap-loopback`. All three use the shim frame below around
 complete FieldMesh packets and validate the frame sync, frame length, frame CRC,
 and contained FieldMesh packet header. `mmap-loopback` adds a small mapped slot
-ring so the C probe exercises a board-local memory endpoint before an IIO or PL
-endpoint exists.
+ring so the C probe exercises a board-local memory endpoint before a packet
+driver or PL endpoint exists.
 
 The Yocto-built C probe also has `fieldmesh-udp-probe iio-scan --iio-uri
 local:` and `fieldmesh-udp-probe iio-plan --iio-uri local:`. These modes only
 enumerate the selected IIO context and rank RX/TX buffer candidates from
-device/channel metadata; they are runtime preflights for this stage, not
-FieldMesh packet transports. `tools/fieldmesh_iio_preflight_assert.py` validates
+device/channel metadata; they are runtime radio-admin diagnostics, not
+FieldMesh packet transports and not a product data path.
+`tools/fieldmesh_iio_preflight_assert.py` validates
 their NDJSON captures offline so live board evidence can be rechecked without
 rerunning the board. `tools/fieldmesh_iio_pipe_dry_run.py` consumes the same
 captures plus the committed vector manifest and emits the per-frame TX/RX IIO
-candidate mapping that a later non-RF buffer test must preserve.
+candidate mapping used by guarded conducted lab tests.
 
 Candidate shape:
 
@@ -229,7 +230,7 @@ completion descriptor pending to prove ingress backpressure reaches the external
 stream boundary. It does not instantiate ADI DMA or IIO yet.
 
 `rtl/fieldmesh/fieldmesh_axis_header_guard.v` is the byte-only transport guard
-for DMA/IIO binding. It passes AXI-stream bytes and `tlast` through unchanged,
+for DMA binding. It passes AXI-stream bytes and `tlast` through unchanged,
 but verifies that the PL sideband fields (`traffic_class`, `mode`, `stream_id`,
 and `slot`) match the in-band FieldMesh packet header before the stream crosses
 into a transport that may not preserve sidebands. The test proves output
@@ -242,12 +243,12 @@ header, reconstructs class/mode/stream/slot sidebands, and re-emits the packet
 in the internal stream shape consumed by `fieldmesh_packet_axis_sink.v`.
 `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` wires the adapter,
 guard, parser, and sink into the first complete byte-pipe transport model.
-This verifies that the FieldMesh packet bytes can cross a DMA/IIO-shaped pipe
+This verifies that the FieldMesh packet bytes can cross a byte-only DMA-shaped pipe
 with only bytes and `tlast`, then recover the metadata needed by the PL packet
 sink.
 
 `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` splits that loopback model into
-the two sidecar transport directions needed by a real packet DMA/IIO boundary.
+the two sidecar transport directions needed by a real packet DMA boundary.
 The PS-to-PL side parses byte-only packets into FieldMesh stream sidebands; the
 PL-to-PS side checks sideband metadata before emitting byte-only packets.
 
@@ -283,7 +284,7 @@ block-design cell: `fieldmesh_sidecar_ctrl_axi_lite` as `fieldmesh_ctrl`, clock
 and reset from `sys_cpu_clk`/`sys_cpu_resetn`, AXI-lite at `0x43C00000`, and
 IRQ `ps-11 mb-11`. Its opt-in `--bridge-overlay` mode appends
 `fieldmesh_sidecar_axis_bridge` as `fieldmesh_axis_bridge`, clocks/resets it,
-and parks the byte-pipe pins until real packet DMA/IIO is added.
+and parks the byte-pipe pins until real packet DMA is added.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh` verify that copied Z203/Z103
 HDL trees can generate the Vivado block design with these cells present. This
@@ -437,7 +438,7 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 15. Generate and compile the matching sidecar devicetree fragment, and keep the
     userspace `dt-scan` preflight green before touching sidecar registers.
 16. Integrate the fragment only with a matching FieldMesh bitstream, then run
-    board-runtime DMA/IIO validation.
+    board-runtime packet-DMA validation.
 17. Scale descriptor memory and add timestamp/slot gates.
 18. Only then connect the RF/baseband path.
 

@@ -1672,7 +1672,7 @@ rm -f "$tmp"
 Result: `pl_descriptor_replay=10`, `packet_trace_rx_ok_count=10`,
 `validated_rx_ok_count=10`, and traffic classes C0..C4 were all present. This
 does not touch ADI RF/IQ DMA; it validates the modeled FieldMesh TX/RX
-descriptor loopback before HDL or IIO packet transport work.
+descriptor loopback before HDL packet transport work.
 
 The first RTL descriptor-loopback slice was verified with Vivado simulator:
 
@@ -2278,20 +2278,24 @@ carry the current preflight roles:
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
 `adaptive-listen`, `advertise`, `ap-elect`, `rtls-estimate`, the `udp-command`
 path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. The
-FieldMesh SDK profile CLI, state-daemon, and two-PC flow demos are now also
-packaged as `/usr/bin/fieldmeshctl`,
-`/usr/bin/fieldmesh-state-daemon-demo`, and
+FieldMesh SDK profile CLI, state-daemon, `swarm0` packet adapter, and two-PC
+flow demos are now also packaged as `/usr/bin/fieldmeshctl`,
+`/usr/bin/fieldmesh-state-daemon-demo`,
+`/usr/bin/fieldmesh-swarm-adapter-demo`, and
 `/usr/bin/fieldmesh-two-pc-flow-demo` in both developer images. Their rootfs
 strings include `fieldmeshctl_profile_*`, AP browse/election/join,
 `FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`, AP/peer/RTLS response tags,
-and the two-PC join/stream-flow response tags. Refreshed rootfs hashes after
-adding the network profile CLI:
+`sdk_swarm_adapter_*`, `swarm0`, `packet_stream`, and the two-PC
+join/stream-flow response tags. Refreshed rootfs hashes after adding the
+network profile CLI and packet adapter demo:
 
 ```text
-z203 rootfs.cpio.gz 0c97c0798869583ca5762a4c12f78dd6bdd97361f6e994e7779986dc8704d5e3
-z203 rootfs.tar.gz  061649cf1c795e9e9cca8f1f91b1fd391d9916b17558751dae628731151cfe18
-z103 rootfs.cpio.gz 4303cb69c7a2e834bc48021c2a8e6df0c947a81df867822725e53c61f6d79fc0
-z103 rootfs.tar.gz  87118b6ec6e2d819b0baa3aeb29c83dc17d12e57145c791a0b061c6ac100819e
+z203 rootfs.cpio.gz 8fc38f72140703bb98c9c20d4f76be3687a894bcb4423412b3441fa3b424ebde
+z203 rootfs.tar.gz  2c87ea41899842a596428319b5aa25c166a585b15f66598b1c81c4ef784f25d8
+z103 rootfs.cpio.gz b5e7f2adb3a82af962c638bda7bbd98c1fd46b0035dd3840394cd3da4465f29a
+z103 rootfs.tar.gz  7838414aa5a312162fb1cc6a7ebd1c0b5158fc6e868407bfe1680c0c69faa8ba
+z203 pluto.frm      7d07a1c254f0f9aab3b8631fabe8251966cc51d611fc5f3ce4f004dbf4db80a0
+z103 pluto.frm      09a692c15deebdbd5406c7c08974f5e57370bc5334f9dd1626cbd8d3f71159c4
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency

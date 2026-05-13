@@ -52,12 +52,21 @@ Use IIO for what it is good at:
 - guarded conducted/shielded IQ experiments;
 - board bring-up and recovery.
 
-Do not expose raw IIO IQ streaming as the normal product data plane. The
+Do not put IIO buffers in the real communication path. IIO is not the product
+data plane, and it is not the long-term packet transport between boards. The
 customer-facing data plane should be packet/network oriented. The practical
 target is a daemon-owned virtual network adapter such as `swarm0`, or an
 equivalent daemon stream API, so applications can use normal packet concepts
 for video, telemetry, control, and bulk data while the board daemon maps those
-packets into scheduled FieldMesh RF frames.
+packets into scheduled FieldMesh RF frames through the production PL/driver
+packet path.
+
+The reviewed `note1.md` stack note reinforces the same path: IIO remains a
+radio HAL/debug backend, while the product abstraction should be app packets
+into `swarm0`. Use a TUN-backed userspace adapter for the MVP, then consider
+TAP or a custom netdev only after the modem, MAC, and security behavior is
+stable. The pure-C SDK now has a checked adapter contract for this interim
+shape.
 
 Production stack:
 
@@ -80,8 +89,28 @@ The PL/PS split should stay explicit:
   SDK daemon, GNSS/BDS+GPS parsing, RTLS fusion, configuration, logging, and
   UI/service integration.
 
-This keeps early IIO work valuable without letting IIO become the long-term
-network abstraction.
+The production communication path is:
+
+```text
+app/SDK packet -> daemon -> kernel/driver or UIO endpoint
+  -> PL packet DMA/MAC/PHY timing blocks -> AD936x RF
+```
+
+IIO may remain in admin tools for tuning, calibration, diagnostics, and
+conducted/shielded lab procedures, but customer payloads should not traverse
+IIO in the product loop.
+
+Three product control loops should be kept separate:
+
+- **Link adaptation loop:** every 100 ms to 1 s from RSSI, SNR, EVM, PER, ACK
+  rate, CFO/Doppler, and queue delay into MCS, FEC, TX power, retransmission,
+  and direct/relay preference.
+- **Mesh routing loop:** every 1 s to 5 s from neighbor table, positions, link
+  quality, relay load, and flow demand into next hop, backup next hop, relay
+  role, and slot requests.
+- **Position fusion loop:** at GNSS/ranging rate from GNSS/BDS+GPS, PPS lock,
+  packet timing TDOA/TWR, peer positions, and clock drift into position,
+  uncertainty, clock state, and geo-routing metadata.
 
 ## Communication Patterns
 
@@ -535,12 +564,12 @@ Milestone 1: Common packet pipe
 - Shared packet header: network ID, node ID, stream ID, traffic class, sequence
   number, epoch/slot, payload length, and authentication tag.
 - User-space packet generator and receiver on both Z103 and Z203.
-- IIO or PL loopback transport first, then RF transport after link framing is
-  observable.
+- Memory and PL loopback transport first, then RF transport after link framing
+  is observable.
 - CSV/JSON trace of packet loss, latency, bitrate, and queue age.
 - The staged packet-pipe ABI is defined in `docs/fieldmesh-transport-abi.md`:
-  UDP reference first, IIO buffer shim second, PL descriptor queue third, and RF
-  attachment only after trace assertions pass. The current C `pl-replay` role
+  UDP reference first, memory/driver shim second, PL descriptor queue third, and
+  RF attachment only after trace assertions pass. The current C `pl-replay` role
   models the first TX/RX descriptor-ring loopback against committed binary
   vectors, and `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` is the first
   simulation-verified RTL descriptor-loopback slice.
@@ -569,21 +598,21 @@ Milestone 1: Common packet pipe
   descriptor on `tlast`.
   `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v` wires the source/sink pair
   with separate TX/RX packet memories, proving the stream boundary can carry
-  packet bytes and metadata end-to-end before DMA/IIO integration.
+  packet bytes and metadata end-to-end before production DMA integration.
   `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` then exposes that same
   source/sink pair as external AXI-stream TX/RX ports, with simulation covering
   external ready backpressure and RX completion backpressure before a sidecar
-  DMA or IIO pipe is attached.
+  packet DMA pipe is attached.
   `rtl/fieldmesh/fieldmesh_axis_header_guard.v` is the byte-only transport
   guard: it passes bytes and `tlast` through unchanged while checking that
   sideband class/mode/stream/slot metadata matches the in-band FieldMesh packet
-  header before those bytes enter a DMA/IIO path that may drop sidebands.
+  header before those bytes enter a byte-only DMA path that may drop sidebands.
   `rtl/fieldmesh/fieldmesh_axis_header_parser.v` reconstructs those sidebands
   from the in-band header on RX, and
   `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` verifies the first
   complete byte-only transport model from TX packet memory back into RX packet
   memory. `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` splits that model into
-  the two sidecar transport directions needed by a later DMA/IIO overlay:
+  the two sidecar transport directions needed by the packet-DMA overlay:
   PS-to-PL byte streams are parsed into FieldMesh packet sidebands, and PL-to-PS
   packet streams are guarded before becoming byte-only output streams.
   `docs/fieldmesh-vendor-dma-boundary.md` records the existing ADI Pluto

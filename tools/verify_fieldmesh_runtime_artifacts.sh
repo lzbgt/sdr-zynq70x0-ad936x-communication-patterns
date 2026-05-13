@@ -31,6 +31,7 @@ verify_variant() {
     local strings_out
     local ctl_strings_out
     local daemon_strings_out
+    local swarm_adapter_strings_out
     local two_pc_strings_out
 
     case "$name" in
@@ -73,12 +74,14 @@ verify_variant() {
     device_iio_strings_out="$(mktemp)"
     ctl_strings_out="$(mktemp)"
     daemon_strings_out="$(mktemp)"
+    swarm_adapter_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$two_pc_strings_out"' RETURN
+    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$two_pc_strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-swarm-adapter-demo | strings > "$swarm_adapter_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
 
     for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke iio-scan iio-plan pl-replay; do
@@ -131,6 +134,19 @@ verify_variant() {
         sdk_daemon_iio_bridge_plan; do
         if ! grep -qF "$token" "$daemon_strings_out"; then
             echo "Missing fieldmesh-state-daemon-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        sdk_swarm_adapter_open \
+        sdk_swarm_adapter_tx \
+        sdk_swarm_adapter_rx \
+        sdk_swarm_adapter_summary \
+        swarm0 \
+        packet_stream \
+        tun_mvp_target; do
+        if ! grep -qF "$token" "$swarm_adapter_strings_out"; then
+            echo "Missing fieldmesh-swarm-adapter-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done

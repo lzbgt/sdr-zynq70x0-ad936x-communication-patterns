@@ -48,6 +48,14 @@ struct fieldmesh_stream {
     int has_packet;
 };
 
+struct fieldmesh_adapter {
+    fieldmesh_session_t *session;
+    fieldmesh_adapter_config_t config;
+    fieldmesh_stream_t *streams[5];
+    uint32_t next_sequence;
+    uint8_t last_class_index;
+};
+
 static void sdk_copy_text(char *dst, size_t dst_len, const char *src)
 {
     if (!dst || dst_len == 0) {
@@ -1112,6 +1120,273 @@ fieldmesh_status_t fieldmesh_recv(fieldmesh_stream_t *stream,
     }
     stream->has_packet = 0;
     return FIELDMESH_OK;
+}
+
+static uint8_t traffic_class_index(fieldmesh_traffic_class_t traffic_class)
+{
+    if (traffic_class < FIELDMESH_CLASS_C0_CONTROL ||
+        traffic_class > FIELDMESH_CLASS_C4_BACKGROUND) {
+        return 0u;
+    }
+    return (uint8_t)traffic_class;
+}
+
+fieldmesh_status_t fieldmesh_classify_payload(fieldmesh_payload_kind_t payload_kind,
+                                              fieldmesh_traffic_class_t *out_class,
+                                              uint32_t *out_deadline_ms)
+{
+    fieldmesh_traffic_class_t traffic_class;
+    uint32_t deadline_ms;
+
+    if (!out_class) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    switch (payload_kind) {
+    case FIELDMESH_PAYLOAD_CONTROL:
+        traffic_class = FIELDMESH_CLASS_C0_CONTROL;
+        deadline_ms = 20u;
+        break;
+    case FIELDMESH_PAYLOAD_TELEMETRY:
+        traffic_class = FIELDMESH_CLASS_C1_TELEMETRY;
+        deadline_ms = 50u;
+        break;
+    case FIELDMESH_PAYLOAD_VIDEO_BASE:
+        traffic_class = FIELDMESH_CLASS_C2_VIDEO_BASE;
+        deadline_ms = 80u;
+        break;
+    case FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT:
+        traffic_class = FIELDMESH_CLASS_C3_ENHANCEMENT;
+        deadline_ms = 150u;
+        break;
+    case FIELDMESH_PAYLOAD_BULK:
+        traffic_class = FIELDMESH_CLASS_C4_BACKGROUND;
+        deadline_ms = 1000u;
+        break;
+    default:
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    *out_class = traffic_class;
+    if (out_deadline_ms) {
+        *out_deadline_ms = deadline_ms;
+    }
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_open_adapter(fieldmesh_session_t *session,
+                                          const fieldmesh_adapter_config_t *config,
+                                          fieldmesh_adapter_t **out_adapter)
+{
+    fieldmesh_adapter_t *adapter;
+    fieldmesh_adapter_config_t local_config;
+
+    if (!session || !session->joined || !config || !out_adapter) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (config->adapter_kind != FIELDMESH_ADAPTER_STREAM_API &&
+        config->adapter_kind != FIELDMESH_ADAPTER_VIRTUAL_NETDEV) {
+        return FIELDMESH_ERR_UNSUPPORTED;
+    }
+    if (config->dst_node_id[0] == '\0' || config->stream_id_base == 0u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (config->mtu_bytes > FIELDMESH_MAX_STREAM_PAYLOAD) {
+        return FIELDMESH_ERR_POLICY;
+    }
+
+    memset(&local_config, 0, sizeof(local_config));
+    local_config = *config;
+    if (local_config.adapter_name[0] == '\0') {
+        sdk_copy_text(local_config.adapter_name, sizeof(local_config.adapter_name), "swarm0");
+    }
+    if (local_config.requested_mode == FIELDMESH_MODE_AUTO) {
+        local_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
+    }
+    if (local_config.mtu_bytes == 0u) {
+        local_config.mtu_bytes = FIELDMESH_ADAPTER_DEFAULT_MTU;
+    }
+
+    adapter = (fieldmesh_adapter_t *)calloc(1, sizeof(*adapter));
+    if (!adapter) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    adapter->session = session;
+    adapter->config = local_config;
+    adapter->next_sequence = 1u;
+    *out_adapter = adapter;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_close_adapter(fieldmesh_adapter_t *adapter)
+{
+    size_t i;
+
+    if (!adapter) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < sizeof(adapter->streams) / sizeof(adapter->streams[0]); ++i) {
+        if (adapter->streams[i]) {
+            (void)fieldmesh_close_stream(adapter->streams[i]);
+        }
+    }
+    free(adapter);
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t adapter_get_stream(fieldmesh_adapter_t *adapter,
+                                             fieldmesh_traffic_class_t traffic_class,
+                                             uint32_t deadline_ms,
+                                             uint32_t bitrate_hint_kbps,
+                                             fieldmesh_stream_t **out_stream)
+{
+    fieldmesh_stream_config_t stream_config;
+    uint8_t index;
+
+    if (!adapter || !out_stream) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    index = traffic_class_index(traffic_class);
+    if (!adapter->streams[index]) {
+        memset(&stream_config, 0, sizeof(stream_config));
+        sdk_copy_text(stream_config.dst_node_id, sizeof(stream_config.dst_node_id),
+                      adapter->config.dst_node_id);
+        stream_config.stream_id = (uint16_t)(adapter->config.stream_id_base + index);
+        stream_config.traffic_class = traffic_class;
+        stream_config.requested_mode = adapter->config.requested_mode;
+        stream_config.deadline_ms = deadline_ms;
+        stream_config.bitrate_hint_kbps = bitrate_hint_kbps;
+        if (fieldmesh_open_stream(adapter->session, &stream_config,
+                                  &adapter->streams[index]) != FIELDMESH_OK) {
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+    }
+    *out_stream = adapter->streams[index];
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_adapter_send_packet(fieldmesh_adapter_t *adapter,
+                                                 fieldmesh_payload_kind_t payload_kind,
+                                                 const void *payload,
+                                                 size_t payload_len,
+                                                 fieldmesh_adapter_packet_t *out_packet)
+{
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_packet_meta_t meta;
+    fieldmesh_stream_t *stream = NULL;
+    uint32_t deadline_ms = 0u;
+    uint32_t bitrate_hint_kbps = 0u;
+    fieldmesh_status_t status;
+
+    if (!adapter || !payload || payload_len == 0u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (payload_len > adapter->config.mtu_bytes) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    status = fieldmesh_classify_payload(payload_kind, &traffic_class, &deadline_ms);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    switch (payload_kind) {
+    case FIELDMESH_PAYLOAD_VIDEO_BASE:
+        bitrate_hint_kbps = 2500u;
+        break;
+    case FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT:
+        bitrate_hint_kbps = 3500u;
+        break;
+    case FIELDMESH_PAYLOAD_BULK:
+        bitrate_hint_kbps = 1000u;
+        break;
+    default:
+        bitrate_hint_kbps = 128u;
+        break;
+    }
+    status = adapter_get_stream(adapter, traffic_class, deadline_ms,
+                                bitrate_hint_kbps, &stream);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+
+    memset(&meta, 0, sizeof(meta));
+    sdk_copy_text(meta.dst_node_id, sizeof(meta.dst_node_id), adapter->config.dst_node_id);
+    meta.traffic_class = traffic_class;
+    meta.mode = adapter->config.requested_mode;
+    meta.sequence = adapter->next_sequence++;
+    status = fieldmesh_send(stream, payload, payload_len, &meta);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    adapter->last_class_index = traffic_class_index(traffic_class);
+    if (out_packet) {
+        memset(out_packet, 0, sizeof(*out_packet));
+        out_packet->payload_kind = payload_kind;
+        out_packet->traffic_class = traffic_class;
+        out_packet->mode = adapter->config.requested_mode;
+        out_packet->stream_id = stream->config.stream_id;
+        out_packet->sequence = stream->last_meta.sequence;
+        out_packet->deadline_ms = deadline_ms;
+        out_packet->bitrate_hint_kbps = bitrate_hint_kbps;
+        out_packet->queue_age_ms = stream->last_meta.queue_age_ms;
+    }
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
+                                                 void *payload,
+                                                 size_t payload_capacity,
+                                                 size_t *out_payload_len,
+                                                 fieldmesh_adapter_packet_t *out_packet,
+                                                 uint32_t timeout_ms)
+{
+    fieldmesh_packet_meta_t meta;
+    fieldmesh_status_t status;
+    size_t i;
+    uint8_t index;
+
+    if (!adapter || !payload || !out_payload_len) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < sizeof(adapter->streams) / sizeof(adapter->streams[0]); ++i) {
+        index = (uint8_t)((adapter->last_class_index + i) %
+                          (sizeof(adapter->streams) / sizeof(adapter->streams[0])));
+        if (!adapter->streams[index]) {
+            continue;
+        }
+        status = fieldmesh_recv(adapter->streams[index], payload, payload_capacity,
+                                out_payload_len, &meta, timeout_ms);
+        if (status == FIELDMESH_OK) {
+            if (out_packet) {
+                uint32_t deadline_ms = 0u;
+                fieldmesh_payload_kind_t payload_kind = (fieldmesh_payload_kind_t)(index + 1u);
+
+                memset(out_packet, 0, sizeof(*out_packet));
+                out_packet->payload_kind = payload_kind;
+                out_packet->traffic_class = meta.traffic_class;
+                out_packet->mode = meta.mode;
+                out_packet->stream_id = meta.stream_id;
+                out_packet->sequence = meta.sequence;
+                out_packet->queue_age_ms = meta.queue_age_ms;
+                (void)fieldmesh_classify_payload(payload_kind, &out_packet->traffic_class,
+                                                 &deadline_ms);
+                out_packet->deadline_ms = deadline_ms;
+                switch (payload_kind) {
+                case FIELDMESH_PAYLOAD_VIDEO_BASE:
+                    out_packet->bitrate_hint_kbps = 2500u;
+                    break;
+                case FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT:
+                    out_packet->bitrate_hint_kbps = 3500u;
+                    break;
+                case FIELDMESH_PAYLOAD_BULK:
+                    out_packet->bitrate_hint_kbps = 1000u;
+                    break;
+                default:
+                    out_packet->bitrate_hint_kbps = 128u;
+                    break;
+                }
+            }
+            return FIELDMESH_OK;
+        }
+    }
+    return FIELDMESH_ERR_TIMEOUT;
 }
 
 const char *fieldmesh_status_string(fieldmesh_status_t status)

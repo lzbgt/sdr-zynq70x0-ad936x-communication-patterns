@@ -237,7 +237,9 @@ user and vendor configuration.
   selection/negotiation. The reviewed `design.md` production insight is
   consolidated there: IIO is a local RF control/diagnostic/prototyping backend,
   while the product data plane should become a packet modem exposed through
-  `swarm0` or an equivalent daemon stream API.
+  `swarm0` or an equivalent daemon stream API. The reviewed `note1.md` stack
+  note reinforces a TUN-backed `swarm0` MVP before any custom kernel netdev,
+  plus explicit link-adaptation, mesh-routing, and position-fusion loops.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing FieldMesh
   packet, control-plane, mode-selection, and conducted-test spec.
 - `docs/fieldmesh-ap-sdk-architecture.md` - product-facing AP/broker and
@@ -262,11 +264,12 @@ user and vendor configuration.
   RTLS/co-location, streaming, local IIO bridge, predefined AP, and autonomous
   swarm mesh behavior.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
-  UDP FieldMesh packet stream toward IIO and PL packet queues without changing
-  the common packet header or trace contract.
-- `docs/fieldmesh-vendor-dma-boundary.md` - source-derived ADI Pluto
-  DMA/IIO boundary inventory for binding FieldMesh beside, not over, the
-  existing AD936x IQ sample DMA path.
+  UDP FieldMesh packet stream toward memory/driver and PL packet queues without
+  changing the common packet header or trace contract. IIO is not part of the
+  production communication loop.
+- `docs/fieldmesh-vendor-dma-boundary.md` - source-derived ADI Pluto sample-DMA
+  and IIO inventory for binding FieldMesh beside, not over, the existing
+  AD936x IQ sample path.
 - `docs/fieldmesh-devicetree-binding.md` - FieldMesh sidecar devicetree
   contract for the control node, packet DMAs, packet client node, and runtime
   `dt-scan` preflight.
@@ -506,25 +509,30 @@ user and vendor configuration.
 - `sdk/c/include/fieldmesh_sdk.h` - first pure C SDK ABI contract for AP
   browse, credential/cert/audit join, peer discovery, route query, mode request,
   RTLS position estimates, network profile validation/apply/rollback, local
-  device/IIO planning, and prioritized payload streams over USB Ethernet,
+  device/IIO admin planning, and prioritized payload streams over USB Ethernet,
   physical Ethernet, or IP transports.
 - `sdk/c/src/fieldmesh_sdk.c` - portable in-process SDK reference
   implementation for AP browse, metric-based AP election, audit join, peer
   discovery, RTLS estimation, route query, network profile validation/planning,
   local device/IIO planning, mode request, and stream send/receive. The SDK ABI
-  stays pure C even when board daemons or apps are C++.
+  stays pure C even when board daemons or apps are C++. It now also exposes the
+  first `swarm0`/stream-adapter API for mapping product packets onto C0-C4
+  FieldMesh traffic classes.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
-  a UDP state-daemon AP/peer/RTLS/IIO-bridge query demo, a two-PC AP
-  browse/election/audit-join/stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
-  physical-Ethernet experiments.
+  a UDP state-daemon AP/peer/RTLS/IIO-bridge query demo, a `swarm0` adapter
+  packet-classification demo, a two-PC AP browse/election/audit-join/
+  stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
+  AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
+  experiments.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
   demos into both board images as `/usr/bin/fieldmeshctl`,
   `/usr/bin/fieldmesh-device-iio-demo`,
-  `/usr/bin/fieldmesh-state-daemon-demo`, and
+  `/usr/bin/fieldmesh-state-daemon-demo`,
+  `/usr/bin/fieldmesh-swarm-adapter-demo`, and
   `/usr/bin/fieldmesh-two-pc-flow-demo` for board-attached two-PC tests.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
@@ -536,11 +544,11 @@ user and vendor configuration.
   SSH helper to write `preflight_assert.json`.
 - `tools/fieldmesh_iio_pipe_dry_run.py` - offline planner that consumes the
   selected IIO RX/TX candidates and committed FieldMesh vectors, then emits the
-  per-frame packet-pipe mapping a later non-RF IIO buffer test must preserve.
+  per-frame packet-pipe mapping for guarded non-RF lab tests.
 - `rtl/fieldmesh/fieldmesh_desc_loopback_core.v` - first PL-facing FieldMesh
   descriptor-loopback RTL slice, verifying ownership, completion, timestamp
   flag preservation, traffic-class bounds, and drop/fault behavior before
-  AXI-lite/DMA/IIO/RF integration.
+  AXI-lite/packet-DMA/RF integration.
 - `rtl/fieldmesh/fieldmesh_desc_loopback_regs.v` - direct register-facing
   wrapper around the descriptor loopback core with AXI-lite-friendly offsets for
   TX submit, RX readback, RX ack, and counters.
@@ -573,21 +581,21 @@ user and vendor configuration.
   that writes packet memory and emits a completed descriptor on `tlast`.
 - `rtl/fieldmesh/fieldmesh_packet_axis_loopback.v` - simulation shell wiring
   the packet stream source and sink together with separate TX/RX memories before
-  DMA/IIO adapter integration.
+  packet-DMA adapter integration.
 - `rtl/fieldmesh/fieldmesh_packet_axis_dma_adapter.v` - simulation shell that
   exposes the packet stream source/sink pair as external AXI-stream TX/RX ports
-  before attaching ADI DMA, custom DMA, or an IIO packet pipe.
+  before attaching sidecar packet DMA or a custom packet driver.
 - `rtl/fieldmesh/fieldmesh_axis_header_guard.v` - byte-only transport guard
   that checks AXI-stream sideband metadata against the in-band FieldMesh packet
-  header before DMA/IIO binding.
+  header before byte-only DMA binding.
 - `rtl/fieldmesh/fieldmesh_axis_header_parser.v` - RX-side byte-only stream
   parser that validates the FieldMesh packet header and reconstructs sideband
-  metadata after a DMA/IIO-shaped pipe.
+  metadata after a byte-only DMA-shaped pipe.
 - `rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v` - complete
   simulation byte-pipe model wiring adapter, guard, parser, and sink so packet
   bytes cross the transport boundary with only bytes plus `tlast`.
 - `rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v` - sidecar packet transport
-  bridge for the future DMA/IIO boundary; PS-to-PL byte streams are parsed into
+  bridge for the packet-DMA boundary; PS-to-PL byte streams are parsed into
   FieldMesh packet sidebands, and PL-to-PS packet streams are guarded before
   becoming byte-only output streams.
 - `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v` - width adapter between ADI
@@ -819,7 +827,12 @@ Expected result in the current Pluto-compatible firmware state:
    the daemon transiently with `FORCE_UPLOAD=1`; the second reflashed the
    refreshed FieldMesh package and reran the same check with
    `UPLOAD_IF_MISSING=0`, so the IIO-bridge request is now installed Z103
-   behavior.
+   behavior. The SDK now has the first pure-C `swarm0`/stream adapter API and
+   packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
+   telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into
+   FieldMesh streams while keeping IIO out of the product data plane. The
+   refreshed Z203/Z103 images, FieldMesh packages, and JTAG RAM-boot staging
+   include that adapter demo.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

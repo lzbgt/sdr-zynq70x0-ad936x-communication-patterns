@@ -218,6 +218,49 @@ if "sdk_two_pc_endpoint_flow_complete" not in events:
     raise SystemExit("two-PC endpoint flow did not complete")
 PY
 
+python3 - "$out_dir/fieldmesh_swarm_adapter_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+by_event = {}
+for event in events:
+    by_event.setdefault(event.get("event"), []).append(event)
+opened = by_event.get("sdk_swarm_adapter_open", [])
+tx = by_event.get("sdk_swarm_adapter_tx", [])
+rx = by_event.get("sdk_swarm_adapter_rx", [])
+summary = by_event.get("sdk_swarm_adapter_summary", [])
+if not opened or opened[0].get("adapter_name") != "swarm0":
+    raise SystemExit("swarm adapter did not open swarm0")
+if opened[0].get("product_data_plane") != "packet_stream":
+    raise SystemExit("swarm adapter did not expose packet-stream product plane")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if opened[0].get(key) != 0:
+        raise SystemExit(f"swarm adapter safety key {key} must be 0")
+classes = {event.get("payload"): event for event in tx}
+expected = {
+    "control": (0, 20),
+    "telemetry": (1, 50),
+    "video_base": (2, 80),
+    "video_enhancement": (3, 150),
+    "bulk": (4, 1000),
+}
+if set(classes) != set(expected):
+    raise SystemExit("swarm adapter did not send all expected payload classes")
+for name, (traffic_class, deadline) in expected.items():
+    event = classes[name]
+    if event.get("traffic_class") != traffic_class or event.get("deadline_ms") != deadline:
+        raise SystemExit(f"swarm adapter classified {name} incorrectly")
+if classes["video_base"].get("bitrate_hint_kbps") != 2500:
+    raise SystemExit("swarm adapter video-base bitrate hint changed")
+if len(rx) != len(tx):
+    raise SystemExit("swarm adapter did not receive every packet")
+if not summary or summary[0].get("sent") != 5 or summary[0].get("received") != 5:
+    raise SystemExit("swarm adapter summary failed")
+if summary[0].get("tun_mvp_target") != 1:
+    raise SystemExit("swarm adapter did not mark TUN MVP target")
+PY
+
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \
     "$out_dir/fieldmeshctl_profile_apply.ndjson" \
@@ -253,4 +296,5 @@ echo "fieldmesh_sdk_rtls_check=pass"
 echo "fieldmesh_sdk_device_iio_check=pass"
 echo "fieldmesh_sdk_state_daemon_check=pass"
 echo "fieldmesh_sdk_two_pc_flow_check=pass"
+echo "fieldmesh_sdk_swarm_adapter_check=pass"
 echo "fieldmesh_sdk_profile_check=pass"

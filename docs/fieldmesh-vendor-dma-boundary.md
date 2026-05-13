@@ -113,7 +113,7 @@ Sidecar stream direction:
   -> `fieldmesh_rx_dma` -> userspace buffer.
 
 That ordering keeps in-band packet headers as the metadata source after a
-byte-only DMA/IIO boundary, while still checking outgoing PL sidebands before
+byte-only DMA boundary, while still checking outgoing PL sidebands before
 bytes leave the packet engine.
 
 ## Sidecar Plan Generator
@@ -180,7 +180,7 @@ BD-facing control endpoint for the provisional `fieldmesh_ctrl` window at
 widens the address port for an interconnect-visible sidecar window, and exports
 live IRQ/status pins for later PS interrupt wiring. It also includes
 `fieldmesh_sidecar_axis_bridge.v`, the first sidecar packet transport bridge:
-the PS-to-PL side parses byte-only DMA/IIO packets into FieldMesh metadata
+the PS-to-PL side parses byte-only DMA packets into FieldMesh metadata
 sidebands, and the PL-to-PS side validates sidebands against the packet header
 before emitting byte-only packets. `fieldmesh_axis16_byte_adapter.v` sits
 between that byte-pipe bridge and ADI `axi_dmac`, because the ADI DMA IP
@@ -235,7 +235,7 @@ The first parked packet-bridge overlay is also opt-in:
 With `--bridge-overlay`, the patcher appends an idempotent
 `fieldmesh_axis_bridge` BD module instance to `system_bd.tcl`, connects it to
 `sys_cpu_clk`/`sys_cpu_reset`, enables it, and parks the byte-stream/packet
-inputs with constants until a real packet DMA/IIO endpoint is added. This does
+inputs with constants until a real packet DMA endpoint is added. This does
 not create `fieldmesh_tx_dma` or `fieldmesh_rx_dma`, and it does not touch the
 existing ADI sample-DMA path.
 

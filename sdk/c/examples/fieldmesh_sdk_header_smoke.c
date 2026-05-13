@@ -60,6 +60,20 @@ int main(void)
         .traffic_class = FIELDMESH_CLASS_C1_TELEMETRY,
         .mode = FIELDMESH_MODE_AUTO,
     };
+    fieldmesh_adapter_config_t adapter = {
+        .adapter_kind = FIELDMESH_ADAPTER_STREAM_API,
+        .requested_mode = FIELDMESH_MODE_SCHEDULED,
+        .stream_id_base = 100,
+        .mtu_bytes = FIELDMESH_ADAPTER_DEFAULT_MTU,
+    };
+    fieldmesh_adapter_packet_t adapter_packet = {
+        .payload_kind = FIELDMESH_PAYLOAD_VIDEO_BASE,
+        .traffic_class = FIELDMESH_CLASS_C2_VIDEO_BASE,
+        .mode = FIELDMESH_MODE_SCHEDULED,
+        .stream_id = 102,
+        .deadline_ms = 80,
+        .bitrate_hint_kbps = 2500,
+    };
     fieldmesh_device_profile_t device = {
         .center_frequency_hz = 2400000000ull,
         .sample_rate_hz = 1000000,
@@ -86,6 +100,8 @@ int main(void)
     (void)candidate;
     (void)election;
     (void)meta;
+    (void)adapter;
+    (void)adapter_packet;
     (void)device;
     (void)device_report;
     (void)iio_plan;

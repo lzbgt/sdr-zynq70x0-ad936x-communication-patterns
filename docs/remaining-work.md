@@ -68,26 +68,28 @@ board-runtime sender/receiver for the same split UDP smoke tests without Python
 on the board. `tools/fieldmesh_trace_assert.py` validates trace invariants for
 negotiation, mode contracts, C0/C1 latency budgets, stale video-like
 degradation, and receive failures. `docs/fieldmesh-transport-abi.md` now
-defines the staged UDP -> IIO buffer -> PL descriptor queue boundary for moving
-the same packet stream toward the fast path. The harness now implements
-`--transport mem-loopback`, a memory-only proof of the ABI shim frame before an
-IIO or PL endpoint exists; the packaged C probe also supports
+defines the staged UDP -> memory/driver shim -> PL descriptor queue boundary
+for moving the same packet stream toward the fast path. The harness now
+implements `--transport mem-loopback`, a memory-only proof of the ABI shim
+frame before a driver or PL endpoint exists; the packaged C probe also supports
 `fieldmesh-udp-probe mem-loopback` and `fieldmesh-udp-probe mmap-loopback` for
 board-local validation once runtime access is available. The mapped-memory role
 uses a small slot ring, so the next transport step is no longer "prove a local
-memory endpoint"; it is specifically "bind the same shim frames to IIO or PL."
+memory endpoint"; it is specifically "bind the same shim frames to the packet
+driver/PL path."
 The Yocto-built C probe now also has `fieldmesh-udp-probe iio-scan`,
 `fieldmesh-udp-probe iio-plan`, and `fieldmesh-udp-probe dt-scan`.
 `tools/run_fieldmesh_board_iio_scan.sh` captures board-local IIO readiness plus
-read-only RX/TX packet-pipe candidate selection once runtime SSH access is
-restored. The helper now writes a `preflight_assert.json` summary through
+read-only RF diagnostic candidate selection once runtime SSH access is
+restored. These IIO scans are admin diagnostics, not a product payload path.
+The helper now writes a `preflight_assert.json` summary through
 `tools/fieldmesh_iio_preflight_assert.py`, which can also revalidate saved
 captures offline, and an `iio_pipe_dry_run.ndjson` mapping through
 `tools/fieldmesh_iio_pipe_dry_run.py`. `tools/fieldmesh_devicetree_plan.py`
 generates and compiles the FieldMesh sidecar DTS fragment for Z203/Z103 without
 mutating vendor Linux trees. `resources/fieldmesh/vectors/` now pins the packet
-and shim-frame bytes that IIO and PL loopback implementations must carry
-unchanged.
+and shim-frame bytes that memory/driver and PL loopback implementations must
+carry unchanged.
 
 Next concrete work:
 
@@ -176,9 +178,11 @@ Next concrete work:
   IIO remains a local RF configuration, diagnostics, calibration, and
   conducted-test backend, while the product data plane should move toward a
   daemon-owned packet interface such as `swarm0` or an equivalent stream API.
-  The next software architecture step is a small host-visible network/stream
-  adapter that maps normal packet or stream semantics onto FieldMesh classes,
-  routes, and schedules without exposing raw IQ buffers to applications.
+  The first pure-C adapter API and packaged `fieldmesh-swarm-adapter-demo` now
+  map normal packet or stream semantics onto FieldMesh classes, routes, and
+  schedules without exposing raw IQ buffers to applications. The next step is
+  wiring this adapter into the board daemon and then backing it with a
+  userspace TUN `swarm0` endpoint.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and
@@ -199,18 +203,18 @@ Next concrete work:
   it is blocked until a board running the rebuilt image is reachable at the
   Pluto USB/RNDIS IP.
 - Run `tools/run_fieldmesh_board_iio_scan.sh` on the same reachable board image
-  before attempting IIO packet transport, and capture both the IIO device
+  only as a radio-admin diagnostic gate, and capture both the IIO device
   inventory, `iio-plan` RX/TX candidate selection, and host-side vector dry-run.
   Current live check on 2026-05-13 found no response at `192.168.2.1` and only
   the FT2232 JTAG/UART USB device in WSL; the saved capture is
   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_reachability_fieldmesh_gate_20260513-040656.txt`.
   This is gated on restoring or reattaching the Pluto/RNDIS data USB function.
 - Keep `tools/fieldmesh_vector_tool.py verify` and `verify-c` checks green as
-  packet bytes move into IIO or PL. `verify-c` runs C `verify-frame`,
+  packet bytes move into memory/driver and PL paths. `verify-c` runs C `verify-frame`,
   `mmap-replay`, `desc-replay`, and `pl-replay`, including descriptor field
   comparison and packet-copy CRC checks.
-- Bind the same shim frame to a real IIO buffer or integrated PL loopback
-  endpoint while preserving the FieldMesh packet bytes and passing
+- Bind the same shim frame to an integrated PL/driver loopback endpoint while
+  preserving the FieldMesh packet bytes and passing
   `tools/fieldmesh_trace_assert.py`. `desc-replay` and `pl-replay` now emit
   assertion-ready `packet_trace` rows. The RTL core, direct register wrapper,
   AXI-lite shell, standalone packet-memory loopback, and integrated
@@ -234,7 +238,7 @@ Next concrete work:
   source/sink pair as external AXI-stream TX/RX ports and verifies external
   ready/backpressure behavior. The byte-only header guard now verifies that
   sideband metadata matches the in-band FieldMesh packet header before bytes
-  cross a DMA/IIO boundary that may not preserve sidebands. The RX-side parser
+  cross a byte-only DMA boundary that may not preserve sidebands. The RX-side parser
   reconstructs those sidebands from the in-band header, and the byte-pipe
   loopback model verifies adapter -> guard -> parser -> sink transfer through
   bytes plus `tlast`. `tools/fieldmesh_vendor_dma_inventory.py` now parses the
