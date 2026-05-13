@@ -178,13 +178,15 @@ Next concrete work:
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.
 - Boot a FieldMesh package through a non-flashing path, then run
-  `fieldmesh-udp-probe dt-scan` before touching sidecar packet DMA/IIO
+  `fieldmesh-udp-probe dt-scan` and read-only `ctrl-scan` before touching
+  sidecar packet DMA/IIO
   registers. `tools/run_fieldmesh_jtag_yocto_ram.sh` now prepares the matching
   FieldMesh bitstream/DTB/kernel/initramfs RAM-boot payloads for Z203 and
   Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the
-  payload; use a real JTAG-mode power cycle before retrying. Keep the ADI IQ
-  DMA path untouched.
+  payload; use a real JTAG-mode power cycle before retrying. When runtime is
+  reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures both
+  preflights over SSH. Keep the ADI IQ DMA path untouched.
 - Preserve bounded-latency degradation evidence from real board or IIO/PL
   traces before attempting any open-air range test.
 

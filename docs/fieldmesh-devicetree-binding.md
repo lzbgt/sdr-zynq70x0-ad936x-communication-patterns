@@ -54,6 +54,28 @@ It emits NDJSON rows for the control node, TX DMA, RX DMA, and packet node. A
 future board-side DMA smoke test should run this before touching any FieldMesh
 register or DMA window.
 
+After `dt-scan` passes, `fieldmesh-udp-probe ctrl-scan` performs the first
+read-only control-window check:
+
+```sh
+fieldmesh-udp-probe ctrl-scan --ctrl-base 0x43c00000 --ctrl-size 0x10000
+```
+
+It opens `/dev/mem` read-only, reads only the lightweight FieldMesh sidecar
+control registers, and requires register `0x00` to return `0x464d1001`. For
+offline tests, `--ctrl-mem-file FILE` reads the same offsets from a synthetic
+file instead of `/dev/mem`.
+
+The SSH wrapper runs both preflights on a reachable board image:
+
+```sh
+./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
+```
+
+It captures `dt_scan.ndjson` and `ctrl_scan.ndjson`. A packet-DMA smoke test
+should only run after both files show a matching FieldMesh DTB and a live
+control-window ID.
+
 ## Matched Package
 
 Use the FieldMesh package wrapper to keep the sidecar DTB paired with the

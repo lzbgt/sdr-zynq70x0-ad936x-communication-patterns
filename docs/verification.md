@@ -2196,6 +2196,30 @@ ramdisk, or DTB payload was loaded. The current live retry gate is therefore a
 real JTAG-mode power cycle before rerunning the FieldMesh RAM boot and
 `fieldmesh-udp-probe dt-scan`.
 
+The FieldMesh sidecar control preflight was added to the board probe and
+checked offline with a synthetic register image:
+
+```sh
+./tools/build_fieldmesh_udp_probe_host.sh
+fieldmesh-udp-probe ctrl-scan --ctrl-mem-file <synthetic-register-file>
+```
+
+Result: `ctrl-scan` emitted read-only `ctrl_reg` rows for ID, control, status,
+IRQ status, and IRQ mask, and accepted the expected sidecar ID `0x464d1001`.
+On hardware, run `tools/run_fieldmesh_board_sidecar_preflight.sh` after the
+matched FieldMesh image boots; it captures both `dt-scan` and read-only
+`ctrl-scan` before any packet-DMA register access.
+
+The updated probe was rebuilt for both Yocto variants:
+
+```sh
+./tools/yocto_arm_as_builder.sh bitbake fieldmesh-udp-probe
+./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
+```
+
+Result: both recipe builds succeeded. BitBake emitted only the existing Arch
+host-distribution warning and root-run `host-user-contaminated` QA warnings.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

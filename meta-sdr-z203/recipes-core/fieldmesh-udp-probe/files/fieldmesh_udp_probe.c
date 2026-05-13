@@ -1,4 +1,7 @@
+#define _XOPEN_SOURCE 700
+
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -48,6 +51,9 @@ struct config {
     const char *iio_uri;
     const char *file;
     const char *dt_root;
+    const char *ctrl_mem_file;
+    uint32_t ctrl_base;
+    uint32_t ctrl_size;
 };
 
 struct trace {
@@ -114,6 +120,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
+        "  fieldmesh-udp-probe ctrl-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -150,6 +157,9 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .iio_uri = "local:",
         .file = NULL,
         .dt_root = "/proc/device-tree",
+        .ctrl_mem_file = NULL,
+        .ctrl_base = 0x43c00000U,
+        .ctrl_size = 0x10000U,
     };
 
     if (argc < 2) {
@@ -185,6 +195,14 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             if (!arg_value(argc, argv, &i, &cfg->file)) return 2;
         } else if (!strcmp(argv[i], "--dt-root")) {
             if (!arg_value(argc, argv, &i, &cfg->dt_root)) return 2;
+        } else if (!strcmp(argv[i], "--ctrl-base")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->ctrl_base = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--ctrl-size")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->ctrl_size = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--ctrl-mem-file")) {
+            if (!arg_value(argc, argv, &i, &cfg->ctrl_mem_file)) return 2;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -198,13 +216,15 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     if (strcmp(cfg->role, "send") && strcmp(cfg->role, "receive") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
+        strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
+        strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
@@ -218,6 +238,10 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
         fprintf(stderr, "--ticks and --timeout-ms must be positive\n");
+        return 2;
+    }
+    if (!strcmp(cfg->role, "ctrl-scan") && cfg->ctrl_size < 0x14U) {
+        fprintf(stderr, "--ctrl-size must cover the 0x00..0x10 control registers\n");
         return 2;
     }
     return 0;
@@ -1462,6 +1486,76 @@ static int run_dt_scan(const struct config *cfg)
     return ok ? 0 : 1;
 }
 
+struct ctrl_reg_expectation {
+    const char *name;
+    uint32_t offset;
+};
+
+static bool read_ctrl_reg(int fd, bool file_backed, uint32_t base, uint32_t offset, uint32_t *value)
+{
+    uint8_t buf[4];
+    off_t pos = (off_t)(file_backed ? offset : base + offset);
+    ssize_t got = pread(fd, buf, sizeof(buf), pos);
+    if (got != (ssize_t)sizeof(buf)) {
+        return false;
+    }
+    *value = get_le32(buf);
+    return true;
+}
+
+static int run_ctrl_scan(const struct config *cfg)
+{
+    static const struct ctrl_reg_expectation regs[] = {
+        {"id", 0x00U},
+        {"control", 0x04U},
+        {"status", 0x08U},
+        {"irq_status", 0x0cU},
+        {"irq_mask", 0x10U},
+    };
+    const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
+    bool file_backed = cfg->ctrl_mem_file != NULL;
+    bool ok = true;
+    uint32_t id_value = 0;
+    int fd;
+
+    printf("{\"event\":\"ctrl_scan_start\",\"transport\":\"ctrl-scan\","
+           "\"path\":\"%s\",\"base\":\"0x%08x\",\"size\":\"0x%08x\","
+           "\"opens_write\":false,\"file_backed\":%s}\n",
+           path, cfg->ctrl_base, cfg->ctrl_size, file_backed ? "true" : "false");
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        printf("{\"event\":\"ctrl_scan_end\",\"transport\":\"ctrl-scan\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               errno, strerror(errno));
+        return 1;
+    }
+
+    for (size_t i = 0; i < sizeof(regs) / sizeof(regs[0]); i++) {
+        uint32_t value = 0;
+        bool read_ok = read_ctrl_reg(fd, file_backed, cfg->ctrl_base, regs[i].offset, &value);
+        if (!read_ok) {
+            ok = false;
+        }
+        if (!strcmp(regs[i].name, "id")) {
+            id_value = value;
+            if (read_ok && value != 0x464d1001U) {
+                ok = false;
+            }
+        }
+        printf("{\"event\":\"ctrl_reg\",\"transport\":\"ctrl-scan\","
+               "\"name\":\"%s\",\"offset\":\"0x%02x\",\"read_ok\":%s,"
+               "\"value\":\"0x%08x\"}\n",
+               regs[i].name, regs[i].offset, read_ok ? "true" : "false", value);
+    }
+
+    close(fd);
+    printf("{\"event\":\"ctrl_scan_end\",\"transport\":\"ctrl-scan\","
+           "\"ok\":%s,\"id_ok\":%s,\"id\":\"0x%08x\"}\n",
+           ok ? "true" : "false", id_value == 0x464d1001U ? "true" : "false", id_value);
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -1495,6 +1589,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "dt-scan")) {
         return run_dt_scan(&cfg);
+    }
+    if (!strcmp(cfg.role, "ctrl-scan")) {
+        return run_ctrl_scan(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);

@@ -307,7 +307,26 @@ That helper writes a `fieldmesh-sidecar.dtsi`, merges it with each variant's
 Pluto DTS in `.config/fieldmesh/devicetree-plan/`, compiles DTBs with `dtc`,
 and checks the expected control, TX DMA, RX DMA, and packet client nodes. On a
 future runtime image, `fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree`
-is the userspace preflight before touching any sidecar DMA register.
+is the first userspace preflight before touching any sidecar DMA register.
+
+The second userspace preflight is read-only control-window discovery:
+
+```sh
+fieldmesh-udp-probe ctrl-scan --ctrl-base 0x43c00000 --ctrl-size 0x10000
+```
+
+`ctrl-scan` opens `/dev/mem` read-only and checks the lightweight sidecar ID
+register at `0x43C00000` for `0x464d1001`. It also reports the control,
+status, IRQ status, and IRQ mask registers without writing them. For host tests
+or captured register images, use `--ctrl-mem-file FILE`.
+
+The board wrapper combines these gates:
+
+```sh
+./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
+```
+
+Run this before any packet-DMA smoke test.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:
