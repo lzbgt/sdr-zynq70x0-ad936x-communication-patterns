@@ -326,6 +326,10 @@ Stage 2: Board-local service
   SDK demos: USB Ethernet, physical Ethernet, or explicit IP.
 - The first checked daemon boundary is `fieldmesh_state_daemon_demo`, which
   serves peer registry and RTLS position state over UDP.
+- Package that daemon into both Z203 and Z103 developer images as
+  `/usr/bin/fieldmesh-state-daemon-demo`, so the same SDK socket contract can
+  be exercised on two PCs attached to boards over USB Ethernet or physical
+  Ethernet.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

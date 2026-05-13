@@ -33,6 +33,7 @@ in `src/fieldmesh_sdk.c`:
   Ethernet, physical Ethernet, or normal IP routing.
 
 The reference SDK is intentionally in-process and transport-neutral. The board
-runtime implementation is still `fieldmesh-udp-probe`; the state-daemon demo is
-the first host-side service shape for mapping the C ABI to board services over
-USB Ethernet, physical Ethernet, or explicit IP.
+runtime implementation is still `fieldmesh-udp-probe`, and both Z203 and Z103
+developer images now also install `/usr/bin/fieldmesh-state-daemon-demo`. That
+daemon is the first board-packaged service shape for mapping the C ABI to board
+services over USB Ethernet, physical Ethernet, or explicit IP.

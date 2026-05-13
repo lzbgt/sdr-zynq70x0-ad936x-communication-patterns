@@ -452,6 +452,10 @@ user and vendor configuration.
   end-to-end reference AP election/join/route/stream flow, a UDP state-daemon
   peer/RTLS query demo, plus a UDP AP-beacon/browse demo for two-PC
   USB-Ethernet or physical-Ethernet experiments.
+- `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
+  `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
+  the SDK state-daemon demo into both board images as
+  `/usr/bin/fieldmesh-state-daemon-demo` for board-attached two-PC tests.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the

@@ -29,6 +29,7 @@ verify_variant() {
     local rootfs_tar
     local rootfs_cpio
     local strings_out
+    local daemon_strings_out
 
     case "$name" in
         z203)
@@ -67,8 +68,10 @@ verify_variant() {
     require_file "$jtag_dir/boot/devicetree.dtb"
 
     strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out"' RETURN
+    daemon_strings_out="$(mktemp)"
+    trap 'rm -f "$strings_out" "$daemon_strings_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
 
     for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke iio-scan iio-plan pl-replay; do
         if ! grep -qxF "$token" "$strings_out"; then
@@ -79,6 +82,12 @@ verify_variant() {
     for token in udp-command user_command; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe command path in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in FIELDMESH_STATE_PEERS FIELDMESH_STATE_RTLS sdk_daemon_peer_state sdk_daemon_rtls_state; do
+        if ! grep -qF "$token" "$daemon_strings_out"; then
+            echo "Missing fieldmesh-state-daemon-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done

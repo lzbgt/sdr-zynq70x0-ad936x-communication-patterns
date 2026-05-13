@@ -41,6 +41,7 @@ required_paths=(
     /usr/sbin/pluto_reboot
     /usr/sbin/iiod
     /usr/bin/iio_info
+    /usr/bin/fieldmesh-state-daemon-demo
     /usr/bin/fieldmesh-udp-probe
     /usr/bin/fw_printenv
     /usr/bin/fw_setenv

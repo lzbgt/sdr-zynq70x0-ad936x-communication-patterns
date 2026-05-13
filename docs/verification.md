@@ -2277,14 +2277,18 @@ carry the current preflight roles:
 
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
 `adaptive-listen`, `advertise`, `ap-elect`, `rtls-estimate`, the `udp-command`
-path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. Refreshed
-rootfs hashes after the RTLS packet-timing update:
+path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. The
+FieldMesh SDK state-daemon demo is now also packaged as
+`/usr/bin/fieldmesh-state-daemon-demo` in both developer images; its rootfs
+strings include the `FIELDMESH_STATE_PEERS` and `FIELDMESH_STATE_RTLS` query
+paths plus peer/RTLS response tags. Refreshed rootfs hashes after adding the
+packaged SDK daemon:
 
 ```text
-z203 rootfs.cpio.gz ba9a3e31ec7ba9711876b145908d21bb8a3ef43438a2ad3dd6fb99ce9ca7cccb
-z203 rootfs.tar.gz  94ca45564a4c3789b43d712feae1fd3f42d30eaa832a8913dbf11060bbb10658
-z103 rootfs.cpio.gz 14cc16a31aeb144af10b2bc7bc20a942dca6a16e78b3ed5e0272e4f69dbfef49
-z103 rootfs.tar.gz  1769be8fd8d6e7ba13319adfac4eadc37328ea718a370da368d51b143f3df3c3
+z203 rootfs.cpio.gz 0d416807b657e5921bd57ced0276fcb11972aac96fed2f9d000cb373ff6f1fda
+z203 rootfs.tar.gz  6f1d814203a10398cf6f5c06c09f76df91c63d0efbb7be3321e7d48b6ba67d0d
+z103 rootfs.cpio.gz a53f758eee0fffc5911cd77ef0a0fd566c257b80f40589327e1523c2b8d69623
+z103 rootfs.tar.gz  d82dace576aa54bea12f05472f4f5858881c5899b5c084e46aed90d78d296210
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2296,22 +2300,22 @@ gate:
 
 Result: both variants passed. The verifier checks that the rootfs probe binary
 contains the expected FieldMesh roles and passive-learner command path, the
+rootfs SDK daemon binary contains the expected peer/RTLS query paths, the
 matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after the RTLS packet-timing rootfs
-rebuild:
+Refreshed package and RAM-boot hashes after the SDK daemon rootfs rebuild:
 
 ```text
-z203 pluto.frm 9fb6784a04f07a7c8fc003f164b53209075411d4b24adb18b05a540bbe2ab5af
-z203 pluto.itb a77d7abe6cb39de92ca959d191f9414504ecc9d6dfe4499534b627045e6adcca
+z203 pluto.frm b71fa7f4764617d20f20bffca8b86c8a15f140c97429a395a4913b1f8e438aca
+z203 pluto.itb 17efe2d667c885efa6c1c85858b95f41eb72fc5b85de6cdd0e7a310bb7d1ca48
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk c3582cd5a7fe65892cc9bcc16209b2ef2dddb5fea0239e0524cf110112fbefa0
-z103 pluto.frm d6de9c10f2b176e492e9f965c3b917ad5c0979c5552cb8234d4eb4056560eadc
-z103 pluto.itb 8390aae4f808fee7a26cb8746ff78ff503e701c10d181a1aa3ab02ece611b76d
+z203 jtag ramdisk 72d7642d234ad5377003ab9e721cadacabf7a6105f51d3bbe2c305ef6762332c
+z103 pluto.frm 5fc67125d3805e61689f2a6a6d25de3ba860fa40aeede01a29325d9443471517
+z103 pluto.itb 797509737f4b2d263f4ec795acc6000a1e5973da7e515b0996b09d9c33c9d328
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk b9d83e7aa01b24ff0bd56e23628f0a35d380bfccbd17dc2640fd00307e64f495
+z103 jtag ramdisk 8294d702e91d00a54d6cbfcdd28428ba63297af6765b101a13c133ddc94700f1
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
