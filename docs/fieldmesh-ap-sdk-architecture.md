@@ -325,22 +325,23 @@ Stage 2: Board-local service
 - Keep the state service queryable over the same socket boundary used by the
   SDK demos: USB Ethernet, physical Ethernet, or explicit IP.
 - The first checked daemon boundary is `fieldmesh_state_daemon_demo`, which
-  serves peer registry and RTLS position state over UDP.
+  serves AP browse, AP election, AP join state, peer registry, and RTLS
+  position state over UDP.
 - Package that daemon into both Z203 and Z103 developer images as
   `/usr/bin/fieldmesh-state-daemon-demo`, so the same SDK socket contract can
   be exercised on two PCs attached to boards over USB Ethernet or physical
   Ethernet.
 - Use `tools/run_fieldmesh_board_sdk_daemon.sh` as the live smoke: it validates
-  the peer/RTLS UDP state queries against an installed board daemon, or against
-  a transient `/tmp` daemon uploaded from the matching rootfs before the SD/QSPI
-  image is restaged.
+  AP browse/election/join plus peer/RTLS UDP state queries against an installed
+  board daemon, or against a transient `/tmp` daemon uploaded from the matching
+  rootfs before the SD/QSPI image is restaged.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 
 Stage 3: AP admission and peer registry
 
-- Implement AP browse, join request, audit decision, peer list, and stream
-  registry in software.
+- Replace the deterministic demo AP browse/join responses with the real board
+  service and credential/audit policy engine.
 - Implement AP candidate reports, deterministic AP election, and safe handover
   policy for swarms without a predefined AP.
 - Publish RTLS position estimates into the peer registry so the AP/broker can

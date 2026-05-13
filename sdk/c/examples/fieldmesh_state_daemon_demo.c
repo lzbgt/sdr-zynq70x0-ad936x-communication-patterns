@@ -36,6 +36,13 @@ struct position_summary {
     unsigned ap_usable;
 };
 
+struct ap_summary {
+    unsigned aps;
+    unsigned audit_required;
+    uint32_t total_kbps;
+    char preferred_ap[FIELDMESH_ID_TEXT_MAX];
+};
+
 static int socket_startup(void)
 {
 #ifdef _WIN32
@@ -102,6 +109,23 @@ static void on_position(const fieldmesh_position_estimate_t *estimate, void *use
     }
 }
 
+static void on_ap(const fieldmesh_ap_info_t *ap, void *user)
+{
+    struct ap_summary *summary = (struct ap_summary *)user;
+
+    if (!ap) {
+        return;
+    }
+    if (summary->aps == 0) {
+        snprintf(summary->preferred_ap, sizeof(summary->preferred_ap), "%s", ap->ap_id);
+    }
+    summary->aps++;
+    summary->total_kbps += ap->max_kbps;
+    if (ap->requires_audit) {
+        summary->audit_required++;
+    }
+}
+
 static int create_demo_state(fieldmesh_context_t **out_context,
                              fieldmesh_session_t **out_session,
                              uint16_t port)
@@ -154,6 +178,8 @@ static int create_demo_state(fieldmesh_context_t **out_context,
 
     if (fieldmesh_context_create(&config, &context) != FIELDMESH_OK ||
         fieldmesh_join_ap(context, &join, &session) != FIELDMESH_OK ||
+        fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
+                               "application_or_user") != FIELDMESH_OK ||
         fieldmesh_report_rtls_measurement(context, &gps_peer) != FIELDMESH_OK ||
         fieldmesh_report_rtls_measurement(context, &gps_denied_peer) != FIELDMESH_OK) {
         if (session) {
@@ -203,6 +229,62 @@ static int build_response(fieldmesh_context_t *context,
                  "\"ap_usable\":%u}\n",
                  summary.positions, summary.gps_pps_fused,
                  summary.packet_timing_tdoa, summary.ap_usable);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_AP_BROWSE")) {
+        struct ap_summary summary = {0};
+
+        if (fieldmesh_browse_aps(context, 1000, on_ap, &summary) != FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_ap_browse\","
+                 "\"network_id\":\"fieldmesh-lab\","
+                 "\"aps\":%u,"
+                 "\"audit_required\":%u,"
+                 "\"total_kbps\":%u,"
+                 "\"preferred_ap\":\"%s\"}\n",
+                 summary.aps, summary.audit_required, summary.total_kbps,
+                 summary.preferred_ap);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_AP_ELECT")) {
+        fieldmesh_ap_election_result_t result;
+
+        if (fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID, 1000,
+                               &result) != FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_ap_election\","
+                 "\"network_id\":\"%s\","
+                 "\"elected_node_id\":\"%s\","
+                 "\"temporary_ap\":%u,"
+                 "\"handover_allowed\":%u,"
+                 "\"candidate_score\":%u}\n",
+                 result.network_id, result.elected_node_id, result.temporary_ap,
+                 result.handover_allowed, result.candidate_score);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_AP_JOIN")) {
+        fieldmesh_route_info_t route;
+
+        if (fieldmesh_query_route(session, "z103-endpoint", 7, &route) != FIELDMESH_OK) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_join_state\","
+                 "\"network_id\":\"fieldmesh-lab\","
+                 "\"ap_id\":\"z203-hub\","
+                 "\"joined\":true,"
+                 "\"dst_node_id\":\"%s\","
+                 "\"route_kind\":%u,"
+                 "\"selected_mode\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"relay_node_id\":\"%s\"}\n",
+                 route.dst_node_id, (unsigned)route.route_kind,
+                 (unsigned)route.selected_mode, route.stream_id,
+                 route.relay_node_id);
         return 0;
     }
     snprintf(response, response_len,
@@ -323,7 +405,10 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
     dst.sin_family = AF_INET;
     dst.sin_port = htons(port);
     dst.sin_addr.s_addr = inet_addr(host);
-    if (query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
+    if (query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_AP_ELECT v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0) {
         printf("{\"event\":\"sdk_daemon_query_complete\",\"host\":\"%s\","
                "\"port\":%u}\n",

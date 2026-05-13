@@ -2280,15 +2280,15 @@ carry the current preflight roles:
 path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. The
 FieldMesh SDK state-daemon demo is now also packaged as
 `/usr/bin/fieldmesh-state-daemon-demo` in both developer images; its rootfs
-strings include the `FIELDMESH_STATE_PEERS` and `FIELDMESH_STATE_RTLS` query
-paths plus peer/RTLS response tags. Refreshed rootfs hashes after adding the
-packaged SDK daemon:
+strings include AP browse/election/join, `FIELDMESH_STATE_PEERS`, and
+`FIELDMESH_STATE_RTLS` query paths plus AP/peer/RTLS response tags. Refreshed
+rootfs hashes after adding the expanded packaged SDK daemon:
 
 ```text
-z203 rootfs.cpio.gz 0d416807b657e5921bd57ced0276fcb11972aac96fed2f9d000cb373ff6f1fda
-z203 rootfs.tar.gz  6f1d814203a10398cf6f5c06c09f76df91c63d0efbb7be3321e7d48b6ba67d0d
-z103 rootfs.cpio.gz a53f758eee0fffc5911cd77ef0a0fd566c257b80f40589327e1523c2b8d69623
-z103 rootfs.tar.gz  d82dace576aa54bea12f05472f4f5858881c5899b5c084e46aed90d78d296210
+z203 rootfs.cpio.gz 27bfd192b94d767727afd47f6cb6f43715dc98d6938e69acbf990b39ddf6adfd
+z203 rootfs.tar.gz  5ec497c8cd39f15e536584f41696ce113032d766942e4ae909356413ab6bcd00
+z103 rootfs.cpio.gz c57f26ecbd52e7ecdacd3c738a353abb4fe6935590635e23188a66d39931955e
+z103 rootfs.tar.gz  b670696a7a2ffd5498fb8537ad0e8cb31a3ebcae2c725140bd08041f4343a549
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2300,7 +2300,7 @@ gate:
 
 Result: both variants passed. The verifier checks that the rootfs probe binary
 contains the expected FieldMesh roles and passive-learner command path, the
-rootfs SDK daemon binary contains the expected peer/RTLS query paths, the
+rootfs SDK daemon binary contains the expected AP/peer/RTLS query paths, the
 matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
@@ -2308,14 +2308,14 @@ for JTAG RAM boot.
 Refreshed package and RAM-boot hashes after the SDK daemon rootfs rebuild:
 
 ```text
-z203 pluto.frm b71fa7f4764617d20f20bffca8b86c8a15f140c97429a395a4913b1f8e438aca
-z203 pluto.itb 17efe2d667c885efa6c1c85858b95f41eb72fc5b85de6cdd0e7a310bb7d1ca48
+z203 pluto.frm fa14cc2abae92c25b7d597154960b7e44402a917e938d3477cf90cfe91486403
+z203 pluto.itb 89ae62ca85da6412daccd58063d0d31340fba63783b27637d3980f8680b515b6
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 72d7642d234ad5377003ab9e721cadacabf7a6105f51d3bbe2c305ef6762332c
-z103 pluto.frm 5fc67125d3805e61689f2a6a6d25de3ba860fa40aeede01a29325d9443471517
-z103 pluto.itb 797509737f4b2d263f4ec795acc6000a1e5973da7e515b0996b09d9c33c9d328
+z203 jtag ramdisk 42bbb7c92589c0cbd3b534a36ac59abcbde94dd03f24c724c358effc605e40e7
+z103 pluto.frm 58587b9d04e571a8675a62de2f36b785a04abe0fd8521cbf0264f27d7f5e7b08
+z103 pluto.itb 09cec4e251fa5cf376e796bd05fb2ffba29d9a96acab23c50fa481537fe9231f
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk 8294d702e91d00a54d6cbfcdd28428ba63297af6765b101a13c133ddc94700f1
+z103 jtag ramdisk 52f662a91f7c59442e2c8547d9c04307c3e43660e40568234ed9ea39af60fc68
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2581,6 +2581,34 @@ read-only FieldMesh sidecar preflight:
 Committed capture:
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_installed_runtime_20260513-232648/`
 
+## Z203 Installed SDK AP-Flow Socket Smoke
+
+After expanding the daemon protocol, the Z203 SD/QSPI boot files were restaged
+with the refreshed rootfs, installed over SSH, and the board was rebooted. The
+installed daemon was checked with transient upload disabled:
+
+```sh
+VARIANT=z203 UPLOAD_IF_MISSING=0 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.2.1
+```
+
+The board answered all five SDK state requests over the normal USB Ethernet/IP
+path:
+
+```json
+{"event":"sdk_daemon_ap_browse","network_id":"fieldmesh-lab","aps":2,"audit_required":2,"total_kbps":9200,"preferred_ap":"z203-hub"}
+{"event":"sdk_daemon_ap_election","network_id":"fieldmesh-lab","elected_node_id":"z203-hub","temporary_ap":0,"handover_allowed":1,"candidate_score":5468}
+{"event":"sdk_daemon_join_state","network_id":"fieldmesh-lab","ap_id":"z203-hub","joined":true,"dst_node_id":"z103-endpoint","route_kind":3,"selected_mode":4,"stream_id":7,"relay_node_id":"z203-hub"}
+{"event":"sdk_daemon_peer_state","network_id":"fieldmesh-lab","peers":2,"relay_capable":1,"total_kbps":9200}
+{"event":"sdk_daemon_rtls_state","network_id":"fieldmesh-lab","positions":2,"gps_pps_fused":1,"packet_timing_tdoa":1,"ap_usable":2}
+```
+
+The same boot then passed `./tools/verify_board.sh 192.168.2.1` and the
+read-only sidecar preflight again. Captures:
+
+- `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sdk_ap_flow_20260513-233623/`
+- `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sidecar_preflight_ap_flow_20260513-233634/`
+
 The SDK header contract was added and compile-checked with:
 
 ```sh
@@ -2615,9 +2643,10 @@ and state-daemon demo, then asserts the reference demo elects `z203-hub`,
 discovers AP/peer state, selects scheduled mode, and loops a packet through the
 SDK stream API. The RTLS demo verifies that applications can report GPS/PPS
 measurements and GPS-denied packet-timing TDOA measurements, then query fused
-peer position estimates. The state-daemon demo serves peer and RTLS state over
-UDP and proves a separate client can query it over the same socket boundary
-intended for USB Ethernet, physical Ethernet, and IP. The check also runs
+peer position estimates. The state-daemon demo serves AP browse, AP election,
+AP join state, peer state, and RTLS state over UDP and proves a separate client
+can query it over the same socket boundary intended for USB Ethernet, physical
+Ethernet, and IP. The check also runs
 `fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
 sent and browsed:
 

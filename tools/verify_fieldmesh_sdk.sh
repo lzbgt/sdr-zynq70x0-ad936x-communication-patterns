@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 2 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 5 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -103,9 +103,18 @@ serve = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if lin
 query = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if line.strip()]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
+ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
+join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 2 for row in serve):
-    raise SystemExit("SDK daemon did not handle both state requests")
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 5 for row in serve):
+    raise SystemExit("SDK daemon did not handle all state requests")
+if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "z203-hub":
+    raise SystemExit("SDK daemon AP browse query failed")
+if not ap_election or ap_election[0].get("elected_node_id") != "z203-hub":
+    raise SystemExit("SDK daemon AP election query failed")
+if not join_state or join_state[0].get("joined") is not True or join_state[0].get("selected_mode") != 4:
+    raise SystemExit("SDK daemon AP join query failed")
 if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
     raise SystemExit("SDK daemon peer-state query failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
