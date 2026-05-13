@@ -2824,6 +2824,50 @@ The IIO-bridge response stayed management-plane only:
 Capture:
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_iio_bridge_20260514-012732/`
 
+## Z103 Persistent SDK Daemon IIO-Bridge Refresh
+
+The refreshed Z103 FieldMesh package was then installed persistently so the
+IIO-bridge request is no longer only a transient `/tmp` daemon behavior:
+
+```sh
+APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 SSH_PASS=analog \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_iio_bridge_persistent_install_20260514-013100 \
+  ./tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.3.1
+```
+
+After reboot, the board returned on `192.168.3.1`. The installed daemon was
+then checked with transient upload disabled:
+
+```sh
+VARIANT=z103 BOARD_IP=192.168.3.1 SSH_PASS=analog UPLOAD_IF_MISSING=0 \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_iio_bridge_installed_20260514-013442 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+Result:
+
+```json
+{"ap_browse_events":1,"ap_election_events":1,"event":"fieldmesh_board_sdk_daemon_assert","iio_bridge_events":1,"join_events":1,"ok":true,"peer_events":1,"rtls_events":1}
+```
+
+Post-update board checks also passed:
+
+```sh
+BOARD_IP=192.168.3.1 ./tools/verify_z103_board.sh
+
+BOARD_IP=192.168.3.1 SSH_PASS=analog \
+  OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sidecar_preflight_iio_bridge_installed_20260514-013452 \
+  ./tools/run_fieldmesh_board_sidecar_preflight.sh
+```
+
+The sidecar preflight still reported `ctrl_id=0x464d1001`, four devicetree
+nodes, and both TX/RX DMA windows. Captures:
+
+- `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_iio_bridge_persistent_install_20260514-013100/`
+- `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_iio_bridge_installed_20260514-013442/`
+- `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sidecar_preflight_iio_bridge_installed_20260514-013452/`
+- `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_verify_board_20260514-013452.txt`
+
 ## Two-Board Radio Data-Plane Gate
 
 The split USB subnets are management/control paths between the host and each
