@@ -326,7 +326,18 @@ The board wrapper combines these gates:
 ./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
 ```
 
-Run this before any packet-DMA smoke test.
+It also runs read-only sidecar DMA discovery:
+
+```sh
+fieldmesh-udp-probe dma-scan \
+  --tx-dma-base 0x43c10000 \
+  --rx-dma-base 0x43c20000 \
+  --dma-size 0x10000
+```
+
+`dma-scan` opens `/dev/mem` read-only, reads a small register set from the TX
+and RX sidecar DMA windows, and never writes registers or starts transfers.
+Run the wrapper before any packet-DMA smoke test.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

@@ -181,10 +181,12 @@ Next concrete work:
   read-only `ctrl-scan`, and both rootfs tarballs contain the updated
   `fieldmesh-udp-probe`. `tools/verify_fieldmesh_runtime_artifacts.sh` now
   checks rootfs probe roles, package artifacts, JTAG RAM-boot hashes, and
-  package-vs-RAM-boot DTB parity before a live boot attempt.
+  package-vs-RAM-boot DTB parity before a live boot attempt. The sidecar
+  preflight now also includes read-only `dma-scan` for the TX/RX sidecar DMA
+  windows before any transfer-starting packet DMA test.
 - Boot a FieldMesh package through a non-flashing path, then run
-  `fieldmesh-udp-probe dt-scan` and read-only `ctrl-scan` before touching
-  sidecar packet DMA/IIO
+  `fieldmesh-udp-probe dt-scan`, read-only `ctrl-scan`, and read-only
+  `dma-scan` before starting sidecar packet DMA/IIO
   registers. `tools/run_fieldmesh_jtag_yocto_ram.sh` now prepares the matching
   FieldMesh bitstream/DTB/kernel/initramfs RAM-boot payloads for Z203 and
   Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at

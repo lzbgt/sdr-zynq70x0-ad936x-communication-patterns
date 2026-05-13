@@ -402,15 +402,15 @@ user and vendor configuration.
   models a first TX/RX descriptor-ring loopback while emitting assertion-ready
   `packet_trace` rows; Yocto board builds also link libiio for the `iio-scan`
   and `iio-plan` runtime preflight roles and include `dt-scan` plus read-only
-  `ctrl-scan` preflights for the FieldMesh sidecar devicetree and control
-  register contracts.
+  `ctrl-scan`/`dma-scan` preflights for the FieldMesh sidecar devicetree,
+  control register, and packet DMA register contracts.
 - `tools/run_fieldmesh_board_iio_scan.sh` - SSH-driven FieldMesh/IIO preflight
   that runs `fieldmesh-udp-probe iio-scan` and `iio-plan` on a reachable
   rebuilt board image, verifies that at least one IIO device is visible
   locally, and records read-only RX/TX packet-pipe candidate selection.
 - `tools/run_fieldmesh_board_sidecar_preflight.sh` - SSH-driven FieldMesh
-  sidecar preflight that runs board-local `dt-scan` and read-only `ctrl-scan`
-  before any packet DMA smoke test touches sidecar registers.
+  sidecar preflight that runs board-local `dt-scan`, read-only `ctrl-scan`,
+  and read-only `dma-scan` before any packet DMA smoke test starts transfers.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
@@ -652,9 +652,10 @@ Expected result in the current Pluto-compatible firmware state:
    offline validated, and FieldMesh-specific `pluto.frm` packages can now be
    assembled for both variants with matching bitstream/DTB pairs. The Z203 and
    Z103 developer images and FieldMesh packages were refreshed after adding
-   read-only `ctrl-scan`, so the next live boot has the full `dt-scan` plus
-   `ctrl-scan` preflight available. Next boot a FieldMesh package through a
-   non-flashing path, run those preflights, then scale descriptor storage
+   read-only `ctrl-scan`; `dma-scan` now extends that preflight to read-only
+   packet-DMA window discovery before starting transfers. Next boot a
+   FieldMesh package through a non-flashing path, run those preflights, then
+   scale descriptor storage
    beyond the shallow class rings and bind the path to IIO/PL before open-air
    RF tests. The first live Z103 FieldMesh RAM-boot attempt is currently
    blocked at the PS-side DAP/DSCR reset-halt boundary before payload loading.

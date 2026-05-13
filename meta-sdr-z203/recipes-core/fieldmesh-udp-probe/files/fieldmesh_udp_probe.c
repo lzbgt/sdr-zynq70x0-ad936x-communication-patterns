@@ -54,6 +54,10 @@ struct config {
     const char *ctrl_mem_file;
     uint32_t ctrl_base;
     uint32_t ctrl_size;
+    const char *dma_mem_file;
+    uint32_t tx_dma_base;
+    uint32_t rx_dma_base;
+    uint32_t dma_size;
 };
 
 struct trace {
@@ -121,6 +125,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
         "  fieldmesh-udp-probe ctrl-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
+        "  fieldmesh-udp-probe dma-scan [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000] [--dma-size 0x10000] [--dma-mem-file FILE]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -160,6 +165,10 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .ctrl_mem_file = NULL,
         .ctrl_base = 0x43c00000U,
         .ctrl_size = 0x10000U,
+        .dma_mem_file = NULL,
+        .tx_dma_base = 0x43c10000U,
+        .rx_dma_base = 0x43c20000U,
+        .dma_size = 0x10000U,
     };
 
     if (argc < 2) {
@@ -203,6 +212,17 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             cfg->ctrl_size = (uint32_t)strtoul(value, NULL, 0);
         } else if (!strcmp(argv[i], "--ctrl-mem-file")) {
             if (!arg_value(argc, argv, &i, &cfg->ctrl_mem_file)) return 2;
+        } else if (!strcmp(argv[i], "--tx-dma-base")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->tx_dma_base = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--rx-dma-base")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->rx_dma_base = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--dma-size")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->dma_size = (uint32_t)strtoul(value, NULL, 0);
+        } else if (!strcmp(argv[i], "--dma-mem-file")) {
+            if (!arg_value(argc, argv, &i, &cfg->dma_mem_file)) return 2;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -217,14 +237,16 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
+        strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
+        strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
@@ -242,6 +264,10 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if (!strcmp(cfg->role, "ctrl-scan") && cfg->ctrl_size < 0x14U) {
         fprintf(stderr, "--ctrl-size must cover the 0x00..0x10 control registers\n");
+        return 2;
+    }
+    if (!strcmp(cfg->role, "dma-scan") && cfg->dma_size < 0x14U) {
+        fprintf(stderr, "--dma-size must cover the 0x00..0x10 DMA registers\n");
         return 2;
     }
     return 0;
@@ -1556,6 +1582,78 @@ static int run_ctrl_scan(const struct config *cfg)
     return ok ? 0 : 1;
 }
 
+struct dma_reg_expectation {
+    const char *name;
+    uint32_t offset;
+};
+
+static bool read_dma_reg(int fd, bool file_backed, uint32_t file_base, uint32_t phys_base,
+                         uint32_t offset, uint32_t *value)
+{
+    uint8_t buf[4];
+    off_t pos = (off_t)((file_backed ? file_base : phys_base) + offset);
+    ssize_t got = pread(fd, buf, sizeof(buf), pos);
+    if (got != (ssize_t)sizeof(buf)) {
+        return false;
+    }
+    *value = get_le32(buf);
+    return true;
+}
+
+static int run_dma_scan(const struct config *cfg)
+{
+    static const struct dma_reg_expectation regs[] = {
+        {"reg_00", 0x00U},
+        {"reg_04", 0x04U},
+        {"reg_08", 0x08U},
+        {"reg_0c", 0x0cU},
+        {"reg_10", 0x10U},
+    };
+    const char *path = cfg->dma_mem_file ? cfg->dma_mem_file : "/dev/mem";
+    bool file_backed = cfg->dma_mem_file != NULL;
+    bool ok = true;
+    int fd;
+
+    printf("{\"event\":\"dma_scan_start\",\"transport\":\"dma-scan\","
+           "\"path\":\"%s\",\"tx_base\":\"0x%08x\",\"rx_base\":\"0x%08x\","
+           "\"size\":\"0x%08x\",\"opens_write\":false,\"starts_transfer\":false,"
+           "\"file_backed\":%s}\n",
+           path, cfg->tx_dma_base, cfg->rx_dma_base, cfg->dma_size,
+           file_backed ? "true" : "false");
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        printf("{\"event\":\"dma_scan_end\",\"transport\":\"dma-scan\","
+               "\"ok\":false,\"error\":%d,\"error_text\":\"%s\"}\n",
+               errno, strerror(errno));
+        return 1;
+    }
+
+    for (int which = 0; which < 2; which++) {
+        const char *label = which == 0 ? "tx" : "rx";
+        uint32_t phys_base = which == 0 ? cfg->tx_dma_base : cfg->rx_dma_base;
+        uint32_t file_base = which == 0 ? 0U : cfg->dma_size;
+
+        for (size_t i = 0; i < sizeof(regs) / sizeof(regs[0]); i++) {
+            uint32_t value = 0;
+            bool read_ok = read_dma_reg(fd, file_backed, file_base, phys_base, regs[i].offset, &value);
+            if (!read_ok) {
+                ok = false;
+            }
+            printf("{\"event\":\"dma_reg\",\"transport\":\"dma-scan\","
+                   "\"dma\":\"%s\",\"base\":\"0x%08x\",\"name\":\"%s\","
+                   "\"offset\":\"0x%02x\",\"read_ok\":%s,\"value\":\"0x%08x\"}\n",
+                   label, phys_base, regs[i].name, regs[i].offset,
+                   read_ok ? "true" : "false", value);
+        }
+    }
+
+    close(fd);
+    printf("{\"event\":\"dma_scan_end\",\"transport\":\"dma-scan\",\"ok\":%s}\n",
+           ok ? "true" : "false");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -1592,6 +1690,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "ctrl-scan")) {
         return run_ctrl_scan(&cfg);
+    }
+    if (!strcmp(cfg.role, "dma-scan")) {
+        return run_dma_scan(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);

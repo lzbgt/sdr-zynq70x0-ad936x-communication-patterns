@@ -2167,11 +2167,11 @@ Result: both wrappers generated a FieldMesh DTB, passed the normal Pluto-style
 unsigned package flow. Captured hashes:
 
 ```text
-z203 pluto.frm    00b800192f4f52e35ff1c0be5282b26c1356d72e1880ee7559a9c61624850dd2
-z203 pluto.itb    ae1a2d7ad30b6710cf23537e0ee3cc376b1e43d5503bbb1cea1028d813295b80
+z203 pluto.frm    81c62d291193c7e25df113f00f05baad560d88a0dab86ca15dfd66d1235bb5a9
+z203 pluto.itb    2cb405e35833f3fa22d8c56cce61176a167d23bf11ddcf8c4588da9c8febee34
 z203 fieldmesh dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z103 pluto.frm    69e01215fe480d336f6bd167350418ae806470ec10fe7ccb1f1272f424d24ebf
-z103 pluto.itb    75c1d91e47fc9174a4ac0f30fbb870f2f1c225fa6f0fef9e2612154b6b6f79ab
+z103 pluto.frm    5c7cee67acf42b4ac6bc27572be9666d11cb8f5e6b9a9f291ce29d452f046774
+z103 pluto.itb    e358f8695e7857a2b20f6f4182535c45859823d621290db08378753ec5cc17f9
 z103 fieldmesh dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
 ```
 
@@ -2187,16 +2187,16 @@ Result: both variants generated legacy U-Boot `uImage`,
 and a local `SHA256SUMS` file under `.config/fieldmesh/jtag-ram-boot-z203/`
 and `.config/fieldmesh/jtag-ram-boot-z103/`.
 
-Current staged RAM-boot hashes after refreshing the image with `ctrl-scan`:
+Current staged RAM-boot hashes after refreshing the image with `dma-scan`:
 
 ```text
 z203 bitstream 6aac02cae87fda05feccea612da46d72f013f70ac672bc38684012036d113874
 z203 uImage    a148ebbcad02c736c8aef6d42f77ad2004c25aa7a2726a1b3473ee1a5ae597ae
-z203 ramdisk   807b10549cd0452f6960ba4a48e9be2ded962c9be103539a82655d1ca56be2f8
+z203 ramdisk   526f114f0b62105317259f62b6f57f341e1107c7d8b36c9b6199fe7759426cbf
 z203 dtb       38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
 z103 bitstream 3e8e741db27b073ce5c5da3e1ea4caab6ed7dbc4dcd9daf4b344cadfff31a818
 z103 uImage    38ca37464e00e469d9cbb2e76426900e1e061dc6dacfc5ad7c496ca4f846add9
-z103 ramdisk   5a1d4750831b7be0bb26d5377a8f72ca836aa558267c537d3d01ceeeedde81e4
+z103 ramdisk   24e816807cfc3677301e5c7dc381680b53f01898f7d832f0af1f6bd4e42da200
 z103 dtb       eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
 ```
 
@@ -2223,6 +2223,19 @@ On hardware, run `tools/run_fieldmesh_board_sidecar_preflight.sh` after the
 matched FieldMesh image boots; it captures both `dt-scan` and read-only
 `ctrl-scan` before any packet-DMA register access.
 
+The sidecar DMA preflight was added next and checked offline with synthetic
+readable and truncated register images:
+
+```sh
+./tools/build_fieldmesh_udp_probe_host.sh
+fieldmesh-udp-probe dma-scan --dma-mem-file <synthetic-register-file>
+```
+
+Result: the readable synthetic image emitted read-only `dma_reg` rows for both
+TX and RX sidecar DMA windows and ended with `"ok":true`; the truncated image
+failed with `"ok":false`. `dma-scan` does not write registers or start
+transfers.
+
 The updated probe was rebuilt for both Yocto variants:
 
 ```sh
@@ -2234,7 +2247,7 @@ Result: both recipe builds succeeded. BitBake emitted only the existing Arch
 host-distribution warning and root-run `host-user-contaminated` QA warnings.
 
 The full developer images were then rebuilt and audited so the runtime packages
-carry `ctrl-scan`:
+carry the current preflight roles:
 
 ```sh
 ./tools/yocto_arm_as_builder.sh bitbake sdr-z203-arm-image
@@ -2244,13 +2257,13 @@ carry `ctrl-scan`:
 ```
 
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
-`dt-scan` and `ctrl-scan` are present. Refreshed rootfs hashes:
+`dt-scan`, `ctrl-scan`, and `dma-scan` are present. Refreshed rootfs hashes:
 
 ```text
-z203 rootfs.cpio.gz 172691a425d41af20382353a2277745368e6e884525e6ce8bad52c3c9eea0a4d
-z203 rootfs.tar.gz  a2e156149cca4831eb043dd47610b127eaa32b24a32112194181bed55adfb8d1
-z103 rootfs.cpio.gz 40a244c8c7947431f157a687954f913f62d46c490afd756e9c78d521e0d63d9e
-z103 rootfs.tar.gz  f0e4f5d1bb991aa70a49402129630b0520d16f0509b90e445beba1b48af8e20a
+z203 rootfs.cpio.gz cbc95fd68d0a1f3af8cb38346967a075948055757923ce82c1cadc6f8ccc767c
+z203 rootfs.tar.gz  086ce01ed759106cb8e821a24754570c0e09425aefc2f2b22e3143aca46142af
+z103 rootfs.cpio.gz 915ad25659081b1f7d8daf237b37130c5258ba1aed14524288fdd1338611a860
+z103 rootfs.tar.gz  80337638b17d9aabaf32a074022fcdc5f5e2bdebcae04bb1f9fc5a762c346ac4
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2261,9 +2274,10 @@ gate:
 ```
 
 Result: both variants passed. The verifier checks that the rootfs probe binary
-contains the expected FieldMesh roles, the matched Pluto-style package files
-exist, the staged RAM-boot `SHA256SUMS` files validate, and the FieldMesh DTB
-in the package matches the FieldMesh DTB staged for JTAG RAM boot.
+contains the expected FieldMesh roles, including `dma-scan`, the matched
+Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
+validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
+for JTAG RAM boot.
 
 ## Verification Gaps
 

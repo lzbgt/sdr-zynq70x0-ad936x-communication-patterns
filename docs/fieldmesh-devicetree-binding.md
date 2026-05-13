@@ -72,9 +72,11 @@ The SSH wrapper runs both preflights on a reachable board image:
 ./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
 ```
 
-It captures `dt_scan.ndjson` and `ctrl_scan.ndjson`. A packet-DMA smoke test
-should only run after both files show a matching FieldMesh DTB and a live
-control-window ID.
+It captures `dt_scan.ndjson`, `ctrl_scan.ndjson`, and `dma_scan.ndjson`.
+`dma-scan` opens `/dev/mem` read-only and samples the first few TX/RX sidecar
+DMA registers without writing registers or starting transfers. A packet-DMA
+smoke test should only run after all three files show a matching FieldMesh DTB,
+a live control-window ID, and readable sidecar DMA windows.
 
 ## Matched Package
 
