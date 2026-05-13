@@ -48,41 +48,32 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_sidecar_axis_bridge_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis16_byte_adapter_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v"
-xelab fieldmesh_desc_loopback_core_tb -s fieldmesh_desc_loopback_core_tb
-xsim fieldmesh_desc_loopback_core_tb -runall
-xelab fieldmesh_desc_loopback_regs_tb -s fieldmesh_desc_loopback_regs_tb
-xsim fieldmesh_desc_loopback_regs_tb -runall
-xelab fieldmesh_desc_loopback_axi_lite_tb -s fieldmesh_desc_loopback_axi_lite_tb
-xsim fieldmesh_desc_loopback_axi_lite_tb -runall
-xelab fieldmesh_packet_mem_loopback_core_tb -s fieldmesh_packet_mem_loopback_core_tb
-xsim fieldmesh_packet_mem_loopback_core_tb -runall
-xelab fieldmesh_packet_mem_axi_lite_tb -s fieldmesh_packet_mem_axi_lite_tb
-xsim fieldmesh_packet_mem_axi_lite_tb -runall
-xelab fieldmesh_sidecar_ctrl_axi_lite_tb -s fieldmesh_sidecar_ctrl_axi_lite_tb
-xsim fieldmesh_sidecar_ctrl_axi_lite_tb -runall
-xelab fieldmesh_sidecar_ctrl_axi_lite_light_tb -s fieldmesh_sidecar_ctrl_axi_lite_light_tb
-xsim fieldmesh_sidecar_ctrl_axi_lite_light_tb -runall
-xelab fieldmesh_class_priority_queue_tb -s fieldmesh_class_priority_queue_tb
-xsim fieldmesh_class_priority_queue_tb -runall
-xelab fieldmesh_class_descriptor_rings_tb -s fieldmesh_class_descriptor_rings_tb
-xsim fieldmesh_class_descriptor_rings_tb -runall
-xelab fieldmesh_packet_axis_source_tb -s fieldmesh_packet_axis_source_tb
-xsim fieldmesh_packet_axis_source_tb -runall
-xelab fieldmesh_packet_axis_sink_tb -s fieldmesh_packet_axis_sink_tb
-xsim fieldmesh_packet_axis_sink_tb -runall
-xelab fieldmesh_packet_axis_loopback_tb -s fieldmesh_packet_axis_loopback_tb
-xsim fieldmesh_packet_axis_loopback_tb -runall
-xelab fieldmesh_packet_axis_dma_adapter_tb -s fieldmesh_packet_axis_dma_adapter_tb
-xsim fieldmesh_packet_axis_dma_adapter_tb -runall
-xelab fieldmesh_axis_header_guard_tb -s fieldmesh_axis_header_guard_tb
-xsim fieldmesh_axis_header_guard_tb -runall
-xelab fieldmesh_axis_header_parser_tb -s fieldmesh_axis_header_parser_tb
-xsim fieldmesh_axis_header_parser_tb -runall
-xelab fieldmesh_packet_axis_byte_pipe_loopback_tb -s fieldmesh_packet_axis_byte_pipe_loopback_tb
-xsim fieldmesh_packet_axis_byte_pipe_loopback_tb -runall
-xelab fieldmesh_sidecar_axis_bridge_tb -s fieldmesh_sidecar_axis_bridge_tb
-xsim fieldmesh_sidecar_axis_bridge_tb -runall
-xelab fieldmesh_axis16_byte_adapter_tb -s fieldmesh_axis16_byte_adapter_tb
-xsim fieldmesh_axis16_byte_adapter_tb -runall
-xelab fieldmesh_slot_admission_gate_tb -s fieldmesh_slot_admission_gate_tb
-xsim fieldmesh_slot_admission_gate_tb -runall
+
+run_tb() {
+  local tb="$1"
+  local log="$work_dir/$tb.out"
+  xelab "$tb" -s "$tb"
+  xsim "$tb" -runall 2>&1 | tee "$log"
+  rg "PASS: $tb" "$log" >/dev/null
+  ! rg "FAIL:|Fatal:" "$log" >/dev/null
+}
+
+run_tb fieldmesh_desc_loopback_core_tb
+run_tb fieldmesh_desc_loopback_regs_tb
+run_tb fieldmesh_desc_loopback_axi_lite_tb
+run_tb fieldmesh_packet_mem_loopback_core_tb
+run_tb fieldmesh_packet_mem_axi_lite_tb
+run_tb fieldmesh_sidecar_ctrl_axi_lite_tb
+run_tb fieldmesh_sidecar_ctrl_axi_lite_light_tb
+run_tb fieldmesh_class_priority_queue_tb
+run_tb fieldmesh_class_descriptor_rings_tb
+run_tb fieldmesh_packet_axis_source_tb
+run_tb fieldmesh_packet_axis_sink_tb
+run_tb fieldmesh_packet_axis_loopback_tb
+run_tb fieldmesh_packet_axis_dma_adapter_tb
+run_tb fieldmesh_axis_header_guard_tb
+run_tb fieldmesh_axis_header_parser_tb
+run_tb fieldmesh_packet_axis_byte_pipe_loopback_tb
+run_tb fieldmesh_sidecar_axis_bridge_tb
+run_tb fieldmesh_axis16_byte_adapter_tb
+run_tb fieldmesh_slot_admission_gate_tb

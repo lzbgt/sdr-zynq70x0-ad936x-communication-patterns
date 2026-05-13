@@ -75,6 +75,11 @@ localparam [7:0] REG_MEM_RDATA       = 8'h68;
 localparam [7:0] REG_QUEUE_PENDING   = 8'h6c;
 localparam [7:0] REG_QUEUE_ENQ_COUNT = 8'h70;
 localparam [7:0] REG_QUEUE_DEQ_COUNT = 8'h74;
+localparam [7:0] REG_SCHED_EPOCH     = 8'h78;
+localparam [7:0] REG_SCHED_SLOT      = 8'h7c;
+localparam [7:0] REG_SCHED_PASS      = 8'h80;
+localparam [7:0] REG_SCHED_WAIT      = 8'h84;
+localparam [7:0] REG_SCHED_DROP      = 8'h88;
 
 wire rst = !s_axi_aresetn;
 
@@ -88,6 +93,8 @@ reg [7:0]  read_addr_hold;
 
 reg enable;
 reg loopback_enable;
+reg schedule_enable;
+reg emergency_bypass_enable;
 reg tx_submit;
 reg rx_ready;
 reg soft_reset;
@@ -103,12 +110,16 @@ reg [15:0] tx_slot;
 reg [15:0] tx_queue_age_ms;
 reg [31:0] tx_timestamp_lo;
 reg [31:0] tx_timestamp_hi;
+reg [31:0] current_epoch;
+reg [15:0] current_slot;
 reg [ADDR_WIDTH-1:0] mem_addr;
 reg mem_wr_en;
 reg [7:0] mem_wr_data;
 
 wire queue_enqueue_ready;
 wire queue_dequeue_valid;
+wire gate_dequeue_ready;
+wire gate_tx_valid;
 wire core_tx_ready;
 wire rx_valid;
 wire [31:0] queue_tx_packet_addr;
@@ -122,6 +133,17 @@ wire [15:0] queue_tx_slot;
 wire [15:0] queue_tx_queue_age_ms;
 wire [31:0] queue_tx_timestamp_lo;
 wire [31:0] queue_tx_timestamp_hi;
+wire [31:0] gate_tx_packet_addr;
+wire [15:0] gate_tx_packet_len;
+wire [15:0] gate_tx_stream_id;
+wire [7:0]  gate_tx_traffic_class;
+wire [7:0]  gate_tx_mode;
+wire [15:0] gate_tx_flags;
+wire [31:0] gate_tx_epoch;
+wire [15:0] gate_tx_slot;
+wire [15:0] gate_tx_queue_age_ms;
+wire [31:0] gate_tx_timestamp_lo;
+wire [31:0] gate_tx_timestamp_hi;
 wire [31:0] rx_packet_addr;
 wire [15:0] rx_packet_len;
 wire [15:0] rx_stream_id;
@@ -143,8 +165,12 @@ wire [31:0] queue_enqueue_count;
 wire [31:0] queue_dequeue_count;
 wire [31:0] queue_drop_count;
 wire queue_fault;
-wire [31:0] drop_count = core_drop_count + queue_drop_count;
-wire fault = core_fault | queue_fault;
+wire [31:0] sched_pass_count;
+wire [31:0] sched_wait_count;
+wire [31:0] sched_drop_count;
+wire sched_fault;
+wire [31:0] drop_count = core_drop_count + queue_drop_count + sched_drop_count;
+wire fault = core_fault | queue_fault | sched_fault;
 
 assign irq_status = {fault, rx_valid, completed_count != 32'd0};
 assign irq = fault | rx_valid;
@@ -171,7 +197,7 @@ fieldmesh_class_descriptor_rings queue (
     .enqueue_timestamp_lo(tx_timestamp_lo),
     .enqueue_timestamp_hi(tx_timestamp_hi),
     .dequeue_valid(queue_dequeue_valid),
-    .dequeue_ready(core_tx_ready),
+    .dequeue_ready(gate_dequeue_ready),
     .dequeue_packet_addr(queue_tx_packet_addr),
     .dequeue_packet_len(queue_tx_packet_len),
     .dequeue_stream_id(queue_tx_stream_id),
@@ -190,6 +216,46 @@ fieldmesh_class_descriptor_rings queue (
     .fault(queue_fault)
 );
 
+fieldmesh_slot_admission_gate slot_gate (
+    .clk(s_axi_aclk),
+    .rst(rst | soft_reset),
+    .enable(enable),
+    .schedule_enable(schedule_enable),
+    .emergency_bypass_enable(emergency_bypass_enable),
+    .current_epoch(current_epoch),
+    .current_slot(current_slot),
+    .s_valid(queue_dequeue_valid),
+    .s_ready(gate_dequeue_ready),
+    .s_packet_addr(queue_tx_packet_addr),
+    .s_packet_len(queue_tx_packet_len),
+    .s_stream_id(queue_tx_stream_id),
+    .s_traffic_class(queue_tx_traffic_class),
+    .s_mode(queue_tx_mode),
+    .s_flags(queue_tx_flags),
+    .s_epoch(queue_tx_epoch),
+    .s_slot(queue_tx_slot),
+    .s_queue_age_ms(queue_tx_queue_age_ms),
+    .s_timestamp_lo(queue_tx_timestamp_lo),
+    .s_timestamp_hi(queue_tx_timestamp_hi),
+    .m_valid(gate_tx_valid),
+    .m_ready(core_tx_ready),
+    .m_packet_addr(gate_tx_packet_addr),
+    .m_packet_len(gate_tx_packet_len),
+    .m_stream_id(gate_tx_stream_id),
+    .m_traffic_class(gate_tx_traffic_class),
+    .m_mode(gate_tx_mode),
+    .m_flags(gate_tx_flags),
+    .m_epoch(gate_tx_epoch),
+    .m_slot(gate_tx_slot),
+    .m_queue_age_ms(gate_tx_queue_age_ms),
+    .m_timestamp_lo(gate_tx_timestamp_lo),
+    .m_timestamp_hi(gate_tx_timestamp_hi),
+    .pass_count(sched_pass_count),
+    .wait_count(sched_wait_count),
+    .drop_late_count(sched_drop_count),
+    .fault(sched_fault)
+);
+
 fieldmesh_packet_mem_loopback_core #(
     .MEM_BYTES(MEM_BYTES),
     .ADDR_WIDTH(ADDR_WIDTH),
@@ -205,19 +271,19 @@ fieldmesh_packet_mem_loopback_core #(
     .mem_wr_data(mem_wr_data),
     .mem_rd_addr(mem_addr),
     .mem_rd_data(mem_rd_data),
-    .tx_valid(queue_dequeue_valid),
+    .tx_valid(gate_tx_valid),
     .tx_ready(core_tx_ready),
-    .tx_packet_addr(queue_tx_packet_addr),
-    .tx_packet_len(queue_tx_packet_len),
-    .tx_stream_id(queue_tx_stream_id),
-    .tx_traffic_class(queue_tx_traffic_class),
-    .tx_mode(queue_tx_mode),
-    .tx_flags(queue_tx_flags),
-    .tx_epoch(queue_tx_epoch),
-    .tx_slot(queue_tx_slot),
-    .tx_queue_age_ms(queue_tx_queue_age_ms),
-    .tx_timestamp_lo(queue_tx_timestamp_lo),
-    .tx_timestamp_hi(queue_tx_timestamp_hi),
+    .tx_packet_addr(gate_tx_packet_addr),
+    .tx_packet_len(gate_tx_packet_len),
+    .tx_stream_id(gate_tx_stream_id),
+    .tx_traffic_class(gate_tx_traffic_class),
+    .tx_mode(gate_tx_mode),
+    .tx_flags(gate_tx_flags),
+    .tx_epoch(gate_tx_epoch),
+    .tx_slot(gate_tx_slot),
+    .tx_queue_age_ms(gate_tx_queue_age_ms),
+    .tx_timestamp_lo(gate_tx_timestamp_lo),
+    .tx_timestamp_hi(gate_tx_timestamp_hi),
     .rx_valid(rx_valid),
     .rx_ready(rx_ready),
     .rx_packet_addr(rx_packet_addr),
@@ -248,6 +314,8 @@ always @(posedge s_axi_aclk) begin
         s_axi_bvalid <= 1'b0;
         enable <= 1'b0;
         loopback_enable <= 1'b0;
+        schedule_enable <= 1'b0;
+        emergency_bypass_enable <= 1'b0;
         tx_submit <= 1'b0;
         rx_ready <= 1'b0;
         soft_reset <= 1'b0;
@@ -262,6 +330,8 @@ always @(posedge s_axi_aclk) begin
         tx_queue_age_ms <= 16'd0;
         tx_timestamp_lo <= 32'd0;
         tx_timestamp_hi <= 32'd0;
+        current_epoch <= 32'd0;
+        current_slot <= 16'd0;
         mem_addr <= {ADDR_WIDTH{1'b0}};
         mem_wr_en <= 1'b0;
         mem_wr_data <= 8'd0;
@@ -289,6 +359,8 @@ always @(posedge s_axi_aclk) begin
                         enable <= wdata_hold[0];
                         loopback_enable <= wdata_hold[1];
                         soft_reset <= wdata_hold[2];
+                        schedule_enable <= wdata_hold[3];
+                        emergency_bypass_enable <= wdata_hold[4];
                         tx_submit <= wdata_hold[8];
                         rx_ready <= wdata_hold[9];
                     end
@@ -309,6 +381,8 @@ always @(posedge s_axi_aclk) begin
                     REG_TX_TS_LO: tx_timestamp_lo <= wdata_hold;
                     REG_TX_TS_HI: tx_timestamp_hi <= wdata_hold;
                     REG_TX_FLAGS: tx_flags <= wdata_hold[15:0];
+                    REG_SCHED_EPOCH: current_epoch <= wdata_hold;
+                    REG_SCHED_SLOT: current_slot <= wdata_hold[15:0];
                     REG_MEM_ADDR: mem_addr <= wdata_hold[ADDR_WIDTH-1:0];
                     REG_MEM_WDATA: begin
                         mem_wr_data <= wdata_hold[7:0];
@@ -344,7 +418,7 @@ always @(posedge s_axi_aclk) begin
         if (read_pending) begin
             case (read_addr_hold)
                 REG_ID: s_axi_rdata <= FM_ID_VALUE;
-                REG_CONTROL: s_axi_rdata <= {20'd0, rx_ready, tx_submit, 5'd0, soft_reset, loopback_enable, enable};
+                REG_CONTROL: s_axi_rdata <= {22'd0, rx_ready, tx_submit, 3'd0, emergency_bypass_enable, schedule_enable, soft_reset, loopback_enable, enable};
                 REG_STATUS: s_axi_rdata <= {22'd0, queue_class_pending, fault, rx_valid, queue_enqueue_ready, loopback_enable, enable};
                 REG_IRQ_STATUS: s_axi_rdata <= {29'd0, irq_status};
                 REG_TX_PACKET_ADDR: s_axi_rdata <= tx_packet_addr;
@@ -372,6 +446,11 @@ always @(posedge s_axi_aclk) begin
                 REG_QUEUE_PENDING: s_axi_rdata <= {27'd0, queue_class_pending};
                 REG_QUEUE_ENQ_COUNT: s_axi_rdata <= queue_enqueue_count;
                 REG_QUEUE_DEQ_COUNT: s_axi_rdata <= queue_dequeue_count;
+                REG_SCHED_EPOCH: s_axi_rdata <= current_epoch;
+                REG_SCHED_SLOT: s_axi_rdata <= {16'd0, current_slot};
+                REG_SCHED_PASS: s_axi_rdata <= sched_pass_count;
+                REG_SCHED_WAIT: s_axi_rdata <= sched_wait_count;
+                REG_SCHED_DROP: s_axi_rdata <= sched_drop_count;
                 default: s_axi_rdata <= 32'd0;
             endcase
             s_axi_rresp <= 2'b00;

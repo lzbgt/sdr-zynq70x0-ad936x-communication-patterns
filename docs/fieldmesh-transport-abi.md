@@ -343,14 +343,15 @@ Queue layout:
 
 The simulation wrappers use the following direct-descriptor register block.
 Control bit 0 enables the core, bit 1 enables loopback, bit 2 is a one-cycle
-soft reset, bit 8 submits the loaded TX descriptor, and bit 9 acknowledges the
-current RX descriptor. The AXI-lite shell accepts full 32-bit writes to these
-offsets and supports one outstanding read or write transaction.
+soft reset, bit 3 enables scheduled-slot admission, bit 4 enables C0 emergency
+bypass through the slot gate, bit 8 submits the loaded TX descriptor, and bit 9
+acknowledges the current RX descriptor. The AXI-lite shell accepts full 32-bit
+writes to these offsets and supports one outstanding read or write transaction.
 
 | Offset | Name | Notes |
 | --- | --- | --- |
 | `0x00` | `FM_ID` | constant `0x464d0001` |
-| `0x04` | `FM_CONTROL` | enable, loopback, soft reset, TX submit, RX ack |
+| `0x04` | `FM_CONTROL` | enable, loopback, soft reset, schedule enable, C0 bypass, TX submit, RX ack |
 | `0x08` | `FM_STATUS` | enable, loopback, TX ready, RX valid, fault |
 | `0x0c` | `FM_IRQ_STATUS` | done counter nonzero, RX ready, error summary; exported IRQ asserts only for live RX ready or error |
 | `0x10` | `FM_TX_PACKET_ADDR` | direct TX descriptor packet address |
@@ -378,7 +379,12 @@ offsets and supports one outstanding read or write transaction.
 | `0x68` | `FM_MEM_RDATA` | read selected packet memory byte in low 8 bits |
 | `0x6c` | `FM_QUEUE_PENDING` | low five bits show pending C0..C4 class rings |
 | `0x70` | `FM_QUEUE_ENQ_COUNT` | descriptors accepted into class rings |
-| `0x74` | `FM_QUEUE_DEQ_COUNT` | descriptors dequeued from class rings into packet memory |
+| `0x74` | `FM_QUEUE_DEQ_COUNT` | descriptors dequeued from class rings into slot admission |
+| `0x78` | `FM_SCHED_EPOCH` | current scheduler epoch used by the slot gate |
+| `0x7c` | `FM_SCHED_SLOT` | current scheduler slot in low 16 bits |
+| `0x80` | `FM_SCHED_PASS_COUNT` | descriptors admitted through the slot gate |
+| `0x84` | `FM_SCHED_WAIT_COUNT` | cycles where a future scheduled descriptor was held |
+| `0x88` | `FM_SCHED_DROP_COUNT` | stale scheduled descriptors dropped by the slot gate |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
@@ -429,12 +435,12 @@ small address window so faults can be isolated during JTAG/OpenOCD probing.
 18. Only then connect the RF/baseband path.
 
 The first timestamp/slot gate is now `fieldmesh_slot_admission_gate`. It is
-still simulation-only and not yet wired into the copied DMA overlay. It treats
-mode `4` as scheduled mode, passes non-scheduled traffic, holds future
-scheduled descriptors by deasserting upstream ready, drops stale scheduled
-descriptors, and allows optional C0 emergency bypass. This gives scheduled
-star/graph work a deterministic admission boundary before any RF/baseband path
-is connected.
+wired between class-ring dequeue and the packet-memory loopback core in the
+full simulation wrapper. It treats mode `4` as scheduled mode, passes
+non-scheduled traffic, holds future scheduled descriptors by deasserting
+upstream ready, drops stale scheduled descriptors, and allows optional C0
+emergency bypass. This gives scheduled star/graph work a deterministic
+admission boundary before any RF/baseband path is connected.
 
 ## Done Criteria For This ABI
 

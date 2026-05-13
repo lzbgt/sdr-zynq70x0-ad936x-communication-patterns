@@ -30,6 +30,11 @@ localparam [7:0] REG_MEM_RDATA       = 8'h68;
 localparam [7:0] REG_QUEUE_PENDING   = 8'h6c;
 localparam [7:0] REG_QUEUE_ENQ_COUNT = 8'h70;
 localparam [7:0] REG_QUEUE_DEQ_COUNT = 8'h74;
+localparam [7:0] REG_SCHED_EPOCH     = 8'h78;
+localparam [7:0] REG_SCHED_SLOT      = 8'h7c;
+localparam [7:0] REG_SCHED_PASS      = 8'h80;
+localparam [7:0] REG_SCHED_WAIT      = 8'h84;
+localparam [7:0] REG_SCHED_DROP      = 8'h88;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -54,6 +59,7 @@ wire rvalid;
 reg rready = 1'b1;
 wire irq;
 wire [2:0] irq_status;
+reg [31:0] readback;
 
 fieldmesh_packet_mem_axi_lite dut (
     .s_axi_aclk(clk),
@@ -182,6 +188,26 @@ task submit_desc;
     end
 endtask
 
+task submit_desc_slot;
+    input [31:0] packet_addr;
+    input [15:0] packet_len;
+    input [15:0] stream_id;
+    input [7:0] traffic_class;
+    input [31:0] epoch;
+    input [15:0] slot;
+    begin
+        axi_write(REG_TX_PACKET_ADDR, packet_addr);
+        axi_write(REG_TX_LEN_STREAM, {stream_id, packet_len});
+        axi_write(REG_TX_CLASS_MODE, {16'd0, 8'd4, traffic_class});
+        axi_write(REG_TX_EPOCH, epoch);
+        axi_write(REG_TX_SLOT_AGE, {16'd6, slot});
+        axi_write(REG_TX_TS_LO, epoch);
+        axi_write(REG_TX_TS_HI, 32'd0);
+        axi_write(REG_TX_FLAGS, {16'd0, FM_DESC_OWN | FM_DESC_TIMESTAMP_VALID});
+        axi_write(REG_CONTROL, 32'h0000_011b);
+    end
+endtask
+
 task expect_rx_desc;
     input [31:0] packet_addr;
     input [15:0] packet_len;
@@ -278,6 +304,38 @@ initial begin
     expect_axi(REG_QUEUE_PENDING, 32'd0);
     expect_axi(REG_QUEUE_DEQ_COUNT, 32'd6);
     expect_axi(REG_DROP_COUNTER, 32'd0);
+
+    axi_write(REG_CONTROL, 32'h0000_021b);
+    repeat (3) @(negedge clk);
+    axi_write(REG_SCHED_EPOCH, 32'd700);
+    axi_write(REG_SCHED_SLOT, 32'd5);
+    expect_axi(REG_SCHED_EPOCH, 32'd700);
+    expect_axi(REG_SCHED_SLOT, 32'd5);
+
+    mem_write(10'd120, 8'he8);
+    submit_desc_slot(32'd120, 16'd1, 16'd700, 8'd2, 32'd700, 16'd8);
+    repeat (4) @(negedge clk);
+    expect_axi(REG_DONE_COUNTER, 32'd6);
+    expect_axi(REG_QUEUE_PENDING, 32'h0000_0004);
+    axi_read(REG_SCHED_WAIT, readback);
+    if (readback == 32'd0) fail("future scheduled descriptor did not wait");
+
+    axi_write(REG_SCHED_SLOT, 32'd8);
+    repeat (4) @(negedge clk);
+    expect_rx_desc(32'd632, 16'd1, 16'd700, 8'd2);
+    expect_mem(10'd632, 8'he8);
+    expect_axi(REG_DONE_COUNTER, 32'd7);
+    expect_axi(REG_SCHED_PASS, 32'd7);
+
+    axi_write(REG_CONTROL, 32'h0000_021b);
+    repeat (3) @(negedge clk);
+    mem_write(10'd124, 8'hdd);
+    axi_write(REG_SCHED_SLOT, 32'd10);
+    submit_desc_slot(32'd124, 16'd1, 16'd701, 8'd2, 32'd700, 16'd9);
+    repeat (4) @(negedge clk);
+    expect_axi(REG_DONE_COUNTER, 32'd7);
+    expect_axi(REG_SCHED_DROP, 32'd1);
+    expect_axi(REG_DROP_COUNTER, 32'd1);
 
     $display("PASS: fieldmesh_packet_mem_axi_lite_tb");
     $finish;

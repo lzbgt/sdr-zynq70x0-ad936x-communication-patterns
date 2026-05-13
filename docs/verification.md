@@ -2331,11 +2331,19 @@ read-only board sidecar preflight was skipped.
 
 The first deterministic scheduled-slot RTL admission gate was added as
 `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` with
-`tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v`. The test covers scheduled
-current-slot pass, non-scheduled bypass, future-slot backpressure, stale-slot
-drop/fault, and optional C0 emergency bypass. It is included in the required
-FieldMesh RTL set for scaffold/patcher checks, but it is not yet wired into the
-copied DMA overlay.
+`tb/fieldmesh/fieldmesh_slot_admission_gate_tb.v`. It is wired between
+class-ring dequeue and packet-memory loopback in
+`fieldmesh_packet_mem_axi_lite`. The tests cover scheduled current-slot pass,
+non-scheduled bypass, future-slot backpressure, stale-slot drop/fault, optional
+C0 emergency bypass, and AXI-lite scheduler registers/counters at `0x78` through
+`0x88`. It is included in the required FieldMesh RTL set for scaffold/patcher
+checks, while the copied DMA overlay still uses the lightweight BD-facing
+control endpoint.
+
+`tools/verify_fieldmesh_hdl.sh` was also tightened so each XSim run must emit
+its matching `PASS:` line and must not emit `FAIL:` or `Fatal:`. This closes a
+Vivado simulator behavior where a `$fatal` line could still allow the shell
+script to continue.
 
 ## Verification Gaps
 

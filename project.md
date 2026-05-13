@@ -478,8 +478,9 @@ user and vendor configuration.
   `axi_dmac` 16-bit minimum AXI-stream ports and FieldMesh's byte-only packet
   stream contract.
 - `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` - deterministic scheduled
-  descriptor gate that holds future-slot descriptors, drops stale scheduled
-  descriptors, and lets non-scheduled traffic pass before RF/baseband
+  descriptor gate wired between class-ring dequeue and packet-memory loopback
+  in the full simulation wrapper; it holds future-slot descriptors, drops stale
+  scheduled descriptors, and lets non-scheduled traffic pass before RF/baseband
   integration.
 - `tools/fieldmesh_vendor_dma_inventory.py` - parses the Z203/Z103 vendor
   `system_bd.tcl` files and emits the ADI RX/TX DMA address, stream, HP-port,
