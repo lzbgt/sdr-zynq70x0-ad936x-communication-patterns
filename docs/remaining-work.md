@@ -193,9 +193,11 @@ Next concrete work:
   daemon now expose the first TUN gateway plan plus dry-run apply/rollback
   validation, reject unguarded commits, and feed a guarded `swarm0` apply
   runner that generates board-local pre-state/apply/rollback scripts without
-  executing network writes by default. The next step is live board execution
-  of that guarded TUN path under explicit authorization, then routing packets
-  into the FieldMesh RF packet engine.
+  executing network writes by default. Z103 live execution now passes after
+  enabling kernel `CONFIG_TUN=y`: `swarm0` is created, assigned
+  `10.77.1.1/16`, routed toward `10.77.2.0/24`, and rolled back cleanly. The
+  next step is connecting the TUN file descriptor to the daemon packetizer and
+  FieldMesh RF packet engine instead of just proving the netdev lifecycle.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

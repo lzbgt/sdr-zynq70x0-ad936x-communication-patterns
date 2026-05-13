@@ -498,6 +498,11 @@ user and vendor configuration.
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
   election, AP join state, peer state, and RTLS state queries over the same UDP
   socket path intended for USB Ethernet and physical Ethernet.
+- `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
+  runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
+  guarded board-local TUN apply script, and only creates network state when
+  `ALLOW_LIVE_NETWORK=1`; live runs capture post-apply state and roll back by
+  deleting `swarm0`.
 - `tools/apply_fieldmesh_network_profile_ssh.py` - host-side FieldMesh network
   profile writer. It collects board identity over SSH, requires an explicit
   Z203/Z103 variant match, requires `fieldmeshctl` and `fw_setenv` by default,
@@ -856,7 +861,10 @@ Expected result in the current Pluto-compatible firmware state:
    network writes. The new TUN apply runner consumes the validated report and
    emits a board-local `swarm0` script with pre-state capture and rollback,
    but remains dry-run unless live network writes are explicitly authorized on
-   a Zynq target with CAP_NET_ADMIN.
+   a Zynq target with CAP_NET_ADMIN. The Z203/Z103 kernel recipes now force
+   `CONFIG_TUN=y`; the refreshed Z103 package was installed live at
+   `192.168.3.1`, exposed `/dev/net/tun`, created `swarm0`, assigned
+   `10.77.1.1/16`, installed the `10.77.2.0/24` route, and rolled back cleanly.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

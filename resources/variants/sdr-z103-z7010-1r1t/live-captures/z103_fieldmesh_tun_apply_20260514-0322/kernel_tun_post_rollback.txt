@@ -1,0 +1,4 @@
+Linux z103-endpoint 6.1.0 #1 SMP PREEMPT Tue May 12 15:31:10 UTC 2026 armv7l GNU/Linux
+proc_misc_tun=200 tun
+crw-rw-rw-    1 root     root       10, 200 Jan  1  1970 /dev/net/tun
+Device "swarm0" does not exist.

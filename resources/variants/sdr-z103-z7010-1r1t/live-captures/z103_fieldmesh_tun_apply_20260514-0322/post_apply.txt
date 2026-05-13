@@ -1,0 +1,4 @@
+post_apply_link
+[{"ifindex":4,"ifname":"swarm0","flags":["NO-CARRIER","POINTOPOINT","MULTICAST","NOARP","UP"],"mtu":1200,"qdisc":"pfifo_fast","operstate":"DOWN","group":"default","txqlen":500,"link_type":"none","addr_info":[{"family":"inet","local":"10.77.1.1","prefixlen":16,"scope":"global","label":"swarm0","valid_life_time":4294967295,"preferred_life_time":4294967295}]}]
+post_apply_route
+10.77.2.0/24 dev swarm0 scope link linkdown

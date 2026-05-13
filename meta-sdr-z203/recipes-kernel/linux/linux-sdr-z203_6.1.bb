@@ -15,3 +15,7 @@ KERNEL_DEVICETREE:sdr-z203-zynq7 = "zynq-pluto-sdr.dtb"
 
 PV = "6.1+vendor"
 
+do_configure:append() {
+    ${S}/scripts/config --file ${B}/.config --enable TUN
+    oe_runmake -C ${S} O=${B} olddefconfig
+}

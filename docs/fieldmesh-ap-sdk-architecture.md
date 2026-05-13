@@ -407,7 +407,9 @@ rollback. `tools/fieldmesh_tun_apply_run.py` is the first checked executor
 boundary: it converts the SDK apply-validation report into a board-local
 `swarm0` shell script with pre-state probes, apply commands, and rollback, but
 defaults to dry-run and refuses live network writes unless the Zynq target,
-CAP_NET_ADMIN, and write-authorization guards are all explicit.
+CAP_NET_ADMIN, and write-authorization guards are all explicit. The board
+kernel recipes now force `CONFIG_TUN=y`, and the generated script is POSIX
+`/bin/sh` so it runs on the Pluto-style rootfs without adding `bash`.
 
 ## C SDK Surface
 

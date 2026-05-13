@@ -1,0 +1,7 @@
+{"event":"sdk_tun_gateway_plan","adapter_name":"swarm0","local_mesh_ip":"10.77.1.1","mesh_prefix_len":16,"remote_mesh_cidr":"10.77.2.0/24","host_facing_device_ip":"192.168.2.1","host_route_hint":"192.168.2.1","dst_device_eui":"020000000103","adapter_kind":2,"route_kind":1,"selected_mode":4,"mtu_bytes":1200,"creates_tun_on_board":1,"creates_tun_on_host":0,"uses_tap":0,"uses_iio":0,"uses_inter_board_ip_routing":0,"requires_cap_net_admin":1,"command_count":4}
+{"event":"sdk_tun_gateway_command","order":1,"command":"ip tuntap add dev swarm0 mode tun"}
+{"event":"sdk_tun_gateway_command","order":2,"command":"ip addr add 10.77.1.1/16 dev swarm0"}
+{"event":"sdk_tun_gateway_command","order":3,"command":"ip link set swarm0 mtu 1200 up"}
+{"event":"sdk_tun_gateway_command","order":4,"command":"ip route add 10.77.2.0/24 dev swarm0"}
+{"event":"sdk_tun_gateway_apply","accepted":1,"dry_run":1,"live_writes_requested":0,"live_writes_authorized":0,"commands_executed":0,"writes_network":0,"rollback_available":1,"rollback_command_count":1}
+{"event":"sdk_tun_gateway_rollback_command","order":1,"command":"ip link delete swarm0"}

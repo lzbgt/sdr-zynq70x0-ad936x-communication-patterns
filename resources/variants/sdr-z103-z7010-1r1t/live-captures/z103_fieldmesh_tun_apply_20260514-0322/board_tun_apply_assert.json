@@ -1,0 +1,10 @@
+{
+  "board_ip": "192.168.3.1",
+  "commands": 4,
+  "event": "fieldmesh_board_tun_apply_assert",
+  "live_network_executed": true,
+  "ok": true,
+  "pre_state": 5,
+  "rollback_clean": true,
+  "variant": "z103"
+}

@@ -2303,13 +2303,25 @@ unless network writes, Zynq-board targeting, and CAP_NET_ADMIN are all
 explicitly acknowledged. The verifier keeps `writes_network=0` and does not
 create a TUN device on the host.
 
+On 2026-05-14 the Z103 live gate exposed the missing production dependency:
+the earlier image had no `bash` and no kernel TUN device. The generator was
+changed to POSIX `/bin/sh`, both Z203/Z103 kernel recipes now force
+`CONFIG_TUN=y`, and the refreshed Z103 package was installed at
+`192.168.3.1`. The live `ALLOW_LIVE_NETWORK=1` run created `swarm0`, assigned
+`10.77.1.1/16`, installed the `10.77.2.0/24` route, then removed `swarm0`;
+post-rollback state confirmed the interface and route were gone. Evidence is
+archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_tun_apply_20260514-0322/`.
+
 ```text
 z203 rootfs.cpio.gz 5e4adffcee3c62725bc4eb15c5bb9bf364b0137d9c3d2903e5314442532c3dcd
-z203 rootfs.tar.gz  cbd55fcfaf0ec31fe91c4e41fe7748c19652d83327a70cf9e5de376d1b58b3be
+z203 rootfs.tar.gz  f759b88ca1fdd334be1fb8d3935fb5cab3bdfa80405ab6b6edac4b8da1d4220c
 z103 rootfs.cpio.gz 129426e163258d82337a883628de8f17dccf8ab2bb59ca942783227a8dfeeed3
-z103 rootfs.tar.gz  3c742101239042cd4073bfa3ae455a8ee84d11beb1f18fe17416c6aeb050012a
-z203 pluto.frm      1792c97445a7560b316c72f0580b7274bad2cc6b77054041c924b922907da236
-z103 pluto.frm      ac20c0bb23540fa3514e14d34de1f22b46ccc2847cede446e03258edf821e2a1
+z103 rootfs.tar.gz  57bd911a29a98d3e4fec583979afed3db20dec1a8ecb9a3afe1c7b685608580a
+z203 pluto.frm      9fc871296fe5a68b6bee58c291b75cfa19f9460fdb04a83e3faca22bf60b87e6
+z103 pluto.frm      2757717713a4234fec3e0fa4b2b1e66caf6cbf423bc6ffb64fbb96b808a51f24
+z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
+z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency

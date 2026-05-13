@@ -57,7 +57,8 @@ script = Path(report["generated_script"])
 if not script.exists():
     raise SystemExit(f"missing generated script: {script}")
 script_text = script.read_text(encoding="utf-8")
-for token in ("test -c /dev/net/tun", "ip tuntap add dev swarm0 mode tun",
+for token in ("#!/bin/sh", "set -eu", "CONFIG_TUN",
+              "test -c /dev/net/tun", "ip tuntap add dev swarm0 mode tun",
               "trap 'ip link delete swarm0"):
     if token not in script_text:
         raise SystemExit(f"generated script missing {token}")
