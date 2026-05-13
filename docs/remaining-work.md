@@ -105,6 +105,12 @@ Next concrete work:
      proactive initiator. The 1R1T firmware must use capability reports and
      commands from the 2R2T peer to select or accept the correct mode instead of
      assuming a fixed pattern.
+     Current live gate: with both boards attached, Windows sees two
+     Pluto/RNDIS devices and two FT2232 devices, but both Pluto-style USB
+     Ethernet gadgets default to the same device IP. The currently reachable
+     `192.168.2.1` answers as the Z103-class stock `pluto` runtime, so the
+     boards need distinct USB-Ethernet subnets or host interfaces before more
+     SSH writes or two-board SDK tests.
 - Adopt the hybrid AP/broker architecture documented in
   `docs/fieldmesh-ap-sdk-architecture.md`: predefined AP when a deployment has
   a known owner/gateway, autonomous AP election when no AP is visible, direct
@@ -125,7 +131,14 @@ Next concrete work:
   boundary. The next implementation should run the daemon path from two PCs
   attached to the boards, then replace the deterministic demo AP/join responses
   with real credential/audit admission, board peer discovery, route query, and
-  prioritized stream send/receive services.
+  prioritized stream send/receive services. The pure-C
+  `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
+  two-PC path.
+- Add the persistent network-profile CLI/SDK described in
+  `docs/fieldmesh-network-configuration.md`, starting with USB Ethernet subnet
+  configuration and rollback. This is now a prerequisite for clean one-host
+  two-board experiments because both Pluto-style devices default to
+  `192.168.2.1`.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

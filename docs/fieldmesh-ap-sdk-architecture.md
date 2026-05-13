@@ -335,6 +335,10 @@ Stage 2: Board-local service
   AP browse/election/join plus peer/RTLS UDP state queries against an installed
   board daemon, or against a transient `/tmp` daemon uploaded from the matching
   rootfs before the SD/QSPI image is restaged.
+- Use `fieldmesh_two_pc_flow_demo` as the first two-PC application flow: the
+  AP side serves browse/election/join/stream requests and the endpoint side
+  runs AP browse, deterministic AP election, AP-audit join, scheduled stream
+  open, and C1 telemetry send over UDP.
 - Keep USB Ethernet and physical Ethernet as identical socket transports.
 - Store no permanent secrets until recovery/update paths are stable.
 

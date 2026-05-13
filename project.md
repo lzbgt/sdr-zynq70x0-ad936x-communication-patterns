@@ -247,6 +247,9 @@ user and vendor configuration.
 - `docs/fieldmesh-maritime-range.md` - ship-to-ship range model for sea
   deployments, including radio horizon, link budget, fade margin, and
   production vs low-power planning ranges.
+- `docs/fieldmesh-network-configuration.md` - CLI and SDK profile boundary for
+  configuring node identity, USB/physical Ethernet subnets, AP policy,
+  credentials, radio profile, and safe rollback.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward IIO and PL packet queues without changing
   the common packet header or trace contract.
@@ -461,12 +464,14 @@ user and vendor configuration.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation,
   end-to-end reference AP election/join/route/stream flow, a UDP state-daemon
-  AP/peer/RTLS query demo, plus a UDP AP-beacon/browse demo for two-PC
-  USB-Ethernet or physical-Ethernet experiments.
+  AP/peer/RTLS query demo, a two-PC AP browse/election/audit-join/stream-flow
+  demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
+  physical-Ethernet experiments.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
-  the SDK state-daemon demo into both board images as
-  `/usr/bin/fieldmesh-state-daemon-demo` for board-attached two-PC tests.
+  the SDK state-daemon and two-PC flow demos into both board images as
+  `/usr/bin/fieldmesh-state-daemon-demo` and
+  `/usr/bin/fieldmesh-two-pc-flow-demo` for board-attached two-PC tests.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the

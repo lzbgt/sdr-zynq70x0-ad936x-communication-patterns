@@ -2278,17 +2278,19 @@ carry the current preflight roles:
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
 `adaptive-listen`, `advertise`, `ap-elect`, `rtls-estimate`, the `udp-command`
 path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. The
-FieldMesh SDK state-daemon demo is now also packaged as
-`/usr/bin/fieldmesh-state-daemon-demo` in both developer images; its rootfs
-strings include AP browse/election/join, `FIELDMESH_STATE_PEERS`, and
-`FIELDMESH_STATE_RTLS` query paths plus AP/peer/RTLS response tags. Refreshed
-rootfs hashes after adding the expanded packaged SDK daemon:
+FieldMesh SDK state-daemon and two-PC flow demos are now also packaged as
+`/usr/bin/fieldmesh-state-daemon-demo` and
+`/usr/bin/fieldmesh-two-pc-flow-demo` in both developer images. Their rootfs
+strings include AP browse/election/join, `FIELDMESH_STATE_PEERS`,
+`FIELDMESH_STATE_RTLS`, AP/peer/RTLS response tags, and the two-PC
+join/stream-flow response tags. Refreshed rootfs hashes after adding the
+expanded packaged SDK demos:
 
 ```text
-z203 rootfs.cpio.gz 27bfd192b94d767727afd47f6cb6f43715dc98d6938e69acbf990b39ddf6adfd
-z203 rootfs.tar.gz  5ec497c8cd39f15e536584f41696ce113032d766942e4ae909356413ab6bcd00
-z103 rootfs.cpio.gz c57f26ecbd52e7ecdacd3c738a353abb4fe6935590635e23188a66d39931955e
-z103 rootfs.tar.gz  b670696a7a2ffd5498fb8537ad0e8cb31a3ebcae2c725140bd08041f4343a549
+z203 rootfs.cpio.gz f479f3b9717ef51a0635a45712603e5491822204df31e73131fa1de9b9716a53
+z203 rootfs.tar.gz  89b54aacb054e06478bd0bb2a59a46084305dc0b4de106469a75c8b2ae710404
+z103 rootfs.cpio.gz b2b99630ef9d2e714154e0bb6137d86d976fada016be489e5dfe9e749c1f798b
+z103 rootfs.tar.gz  0b48e4896f98e0cdcce168c7fe2d3d1276f8e3015bfa6e58cf0758cbe4e90f45
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2308,14 +2310,14 @@ for JTAG RAM boot.
 Refreshed package and RAM-boot hashes after the SDK daemon rootfs rebuild:
 
 ```text
-z203 pluto.frm fa14cc2abae92c25b7d597154960b7e44402a917e938d3477cf90cfe91486403
-z203 pluto.itb 89ae62ca85da6412daccd58063d0d31340fba63783b27637d3980f8680b515b6
+z203 pluto.frm 8f60f7bd563ee58450e21e681b1163ce14987feac12765f11388209f73646f61
+z203 pluto.itb 1d6eed8314489403faa37e64426152fbec1ac7d386e43f694f9fb3923b412890
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 42bbb7c92589c0cbd3b534a36ac59abcbde94dd03f24c724c358effc605e40e7
-z103 pluto.frm 58587b9d04e571a8675a62de2f36b785a04abe0fd8521cbf0264f27d7f5e7b08
-z103 pluto.itb 09cec4e251fa5cf376e796bd05fb2ffba29d9a96acab23c50fa481537fe9231f
+z203 jtag ramdisk 358aef70c266c4d3ad29c70d9543f2ccc8842e249cd10b97566997d0f62fa794
+z103 pluto.frm a12a82556ab32f6a1526700da7cd6d87c1b7fd23a44b9efa6440a7fd411214c1
+z103 pluto.itb 26aa878c605c2c02ed739f872f4e07c568950cbf7742b006abb133d815316016
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk 52f662a91f7c59442e2c8547d9c04307c3e43660e40568234ed9ea39af60fc68
+z103 jtag ramdisk 2b20ec190bd0f7c15c3661bb2d888572fc687bb7bfe9f27217a30dbde8828f46
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2609,6 +2611,30 @@ read-only sidecar preflight again. Captures:
 - `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sdk_ap_flow_20260513-233623/`
 - `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_sidecar_preflight_ap_flow_20260513-233634/`
 
+## Two-Board USB Collision Capture
+
+After the 1R1T board was attached alongside the 2R2T board, Windows reported
+two Pluto/RNDIS gadgets and two FT2232 devices. Both Pluto-style USB Ethernet
+gadgets still advertise the default device-side address, so the single
+reachable `192.168.2.1` path became ambiguous. The live SSH/IIO identity at
+that address was the Z103-class stock runtime:
+
+```text
+hostname: pluto
+kernel: Linux pluto 6.1.0 #17 SMP PREEMPT Mon Jan 26 12:16:27 CST 2026 armv7l
+fw_env ipaddr: 192.168.2.1
+IIO hw_model: Analog Devices PlutoSDR Rev.C (Z7010-AD9361)
+```
+
+Capture:
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_collision_20260513-235434/z103_usb_collision.txt`
+
+Conclusion: do not run further SSH writes or two-board SDK tests by plain
+`192.168.2.1` while both boards share the default Pluto subnet. The next live
+step is the network-profile CLI/SDK path in
+`docs/fieldmesh-network-configuration.md`, or physically attaching the boards
+to separate hosts/interfaces with explicit routing.
+
 The SDK header contract was added and compile-checked with:
 
 ```sh
@@ -2648,7 +2674,9 @@ AP join state, peer state, and RTLS state over UDP and proves a separate client
 can query it over the same socket boundary intended for USB Ethernet, physical
 Ethernet, and IP. The check also runs
 `fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
-sent and browsed:
+sent and browsed. It also runs `fieldmesh_two_pc_flow_demo` over loopback UDP
+to prove the two-PC control flow: AP browse, AP election, AP-audit join,
+scheduled stream open, and C1 telemetry send:
 
 ```sh
 ./tools/verify_fieldmesh_sdk.sh

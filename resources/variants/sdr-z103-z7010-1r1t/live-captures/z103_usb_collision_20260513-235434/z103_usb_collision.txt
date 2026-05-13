@@ -1,0 +1,129 @@
+== ssh identity ==
+pluto
+Linux pluto 6.1.0 #17 SMP PREEMPT Mon Jan 26 12:16:27 CST 2026 armv7l GNU/Linux
+#S23udc
+PRODUCT="PlutoSDR (ADALM-PLUTO)"
+USBPID=0xb673
+ENDPOINTS=3
+
+#S40network / S41network
+UDHCPD_CONF=/etc/udhcpd.conf
+CONF=/opt/config.txt
+IFAC=/etc/network/interfaces
+
+#update.sh
+TARGET=plutosdr
+FIRMWARE=/mnt/msd/pluto.frm
+FRM_MAGIC="ITB PlutoSDR (ADALM-PLUTO)"
+
+ipaddr=192.168.2.1
+== iio summary ==
+iio_info version: 0.26 (git tag:v0.26)
+Libiio version: 0.26 (git tag: v0.26) backends: local xml ip usb serial
+IIO context created with network backend.
+Backend version: 0.26 (git tag: v0.26)
+Backend description string: 192.168.2.1 Linux (none) 6.1.0 #17 SMP PREEMPT Mon Jan 26 12:16:27 CST 2026 armv7l
+IIO context has 9 attributes:
+	hw_model: Analog Devices PlutoSDR Rev.C (Z7010-AD9361)
+	hw_model_variant: 1
+	hw_serial:
+	fw_version: device-fw
+	ad9361-phy,xo_correction: 40000000
+	ad9361-phy,model: ad9361
+	local,kernel: 6.1.0
+	uri: ip:192.168.2.1
+	ip,ip-addr: 192.168.2.1
+IIO context has 4 devices:
+	iio:device0: ad9361-phy
+		9 channels found:
+			altvoltage1: TX_LO (output)
+			9 channel-specific attributes found:
+				attr  0: external value: 0
+				attr  1: fastlock_load value: 0
+				attr  2: fastlock_recall ERROR: Invalid argument (22)
+				attr  3: fastlock_save value: 0 91,91,91,91,91,91,91,91,91,91,91,91,91,91,91,91
+				attr  4: fastlock_store value: 0
+				attr  5: frequency value: 2450000000
+				attr  6: frequency_available value: [46875001 1 6000000000]
+				attr  7: label value: TX_LO
+				attr  8: powerdown value: 0
+			voltage0:  (input)
+			15 channel-specific attributes found:
+				attr  0: bb_dc_offset_tracking_en value: 1
+				attr  1: filter_fir_en value: 0
+				attr  2: gain_control_mode value: slow_attack
+				attr  3: gain_control_mode_available value: manual fast_attack slow_attack hybrid
+				attr  4: hardwaregain value: 71.000000 dB
+				attr  5: hardwaregain_available value: [-3 1 71]
+				attr  6: quadrature_tracking_en value: 1
+				attr  7: rf_bandwidth value: 18000000
+				attr  8: rf_bandwidth_available value: [200000 1 56000000]
+				attr  9: rf_dc_offset_tracking_en value: 1
+				attr 10: rf_port_select value: A_BALANCED
+				attr 11: rf_port_select_available value: A_BALANCED B_BALANCED C_BALANCED A_N A_P B_N B_P C_N C_P TX_MONITOR1 TX_MONITOR2 TX_MONITOR1_2
+				attr 12: rssi value: 91.25 dB
+				attr 13: sampling_frequency value: 30720000
+				attr 14: sampling_frequency_available value: [2083333 1 61440000]
+			voltage3:  (output)
+			8 channel-specific attributes found:
+				attr  0: filter_fir_en value: 0
+				attr  1: raw value: 306
+				attr  2: rf_bandwidth value: 18000000
+				attr  3: rf_bandwidth_available value: [200000 1 40000000]
+				attr  4: rf_port_select_available value: A B
+				attr  5: sampling_frequency value: 30720000
+				attr  6: sampling_frequency_available value: [2083333 1 61440000]
+				attr  7: scale value: 1.000000
+			altvoltage0: RX_LO (output)
+			9 channel-specific attributes found:
+				attr  0: external value: 0
+				attr  1: fastlock_load value: 0
+				attr  2: fastlock_recall ERROR: Invalid argument (22)
+				attr  3: fastlock_save value: 0 194,194,194,194,194,194,194,194,194,194,194,194,194,194,194,194
+				attr  4: fastlock_store value: 0
+				attr  5: frequency value: 2400000000
+				attr  6: frequency_available value: [70000000 1 6000000000]
+				attr  7: label value: RX_LO
+				attr  8: powerdown value: 0
+			voltage2:  (output)
+			8 channel-specific attributes found:
+				attr  0: filter_fir_en value: 0
+				attr  1: raw value: 306
+				attr  2: rf_bandwidth value: 18000000
+				attr  3: rf_bandwidth_available value: [200000 1 40000000]
+				attr  4: rf_port_select_available value: A B
+				attr  5: sampling_frequency value: 30720000
+				attr  6: sampling_frequency_available value: [2083333 1 61440000]
+				attr  7: scale value: 1.000000
+			temp0:  (input)
+			1 channel-specific attributes found:
+				attr  0: input value: 45614
+== windows usbipd ==
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-1    0403:6010  USB Serial Converter A, USB Serial Converter B                Shared
+1-3    0456:b673  PlutoSDR USB Ethernet/RNDIS Gadget, USB Mass Storage Devi...  Not shared
+1-6    0408:548d  HP True Vision FHD Camera, Camera DFU Device                  Not shared
+1-14   8087:0033  Intel(R) Wireless Bluetooth(R)                                Not shared
+2-3    0456:b673  PlutoSDR USB Ethernet/RNDIS Gadget #2, USB Mass Storage D...  Not shared
+2-4    0403:6010  USB Serial Converter A, USB Serial Converter B                Shared
+
+Persisted:
+GUID                                  DEVICE
+
+== windows pluto adapters ==
+
+Name     InterfaceDescription                  Status MacAddress        LinkSpeed  ifIndex
+----     --------------------                  ------ ----------        ---------  -------
+ÒÔÌ«Íø 2 PlutoSDR USB Ethernet/RNDIS Gadget    Up     00-E0-22-AD-C8-3B 0 bps           11
+ÒÔÌ«Íø 3 PlutoSDR USB Ethernet/RNDIS Gadget #2 Up     00-E0-22-AD-C8-3B 426.0 Mbps      64
+
+
+== windows pluto ipv4 ==
+
+InterfaceAlias                     IPAddress      PrefixLength InterfaceIndex
+--------------                     ---------      ------------ --------------
+ÒÔÌ«Íø 3                           192.168.2.10             24             64
+vEthernet (WSL (Hyper-V firewall)) 172.28.192.1             20             48
+ÒÔÌ«Íø 2                           169.254.239.25           16             11
+ÒÔÌ«Íø                             192.168.1.2              24             20

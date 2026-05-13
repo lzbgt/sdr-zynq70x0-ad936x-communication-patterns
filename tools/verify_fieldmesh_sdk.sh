@@ -42,6 +42,15 @@ sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
 wait "$daemon_pid"
 
+two_pc_log="$out_dir/fieldmesh_two_pc_flow_ap.ndjson"
+two_pc_endpoint_log="$out_dir/fieldmesh_two_pc_flow_endpoint.ndjson"
+two_pc_demo="$out_dir/fieldmesh_two_pc_flow_demo"
+"$two_pc_demo" ap-service 127.0.0.1 49125 5 3000 >"$two_pc_log" &
+two_pc_pid=$!
+sleep 0.2
+"$two_pc_demo" endpoint-flow 127.0.0.1 49125 2000 >"$two_pc_endpoint_log"
+wait "$two_pc_pid"
+
 python3 - "$out_dir/fieldmesh_reference_demo.ndjson" <<'PY'
 import json
 import sys
@@ -123,7 +132,32 @@ if not done:
     raise SystemExit("SDK daemon client did not finish")
 PY
 
+python3 - "$two_pc_log" "$two_pc_endpoint_log" <<'PY'
+import json
+import sys
+
+service = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+endpoint = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if line.strip()]
+events = {row.get("event"): row for row in endpoint}
+if not any(row.get("event") == "sdk_two_pc_ap_service_end" and row.get("handled") == 5
+           for row in service):
+    raise SystemExit("two-PC AP service did not handle all requests")
+if events.get("sdk_two_pc_ap_seen", {}).get("ap_id") != "z203-hub":
+    raise SystemExit("two-PC flow did not browse z203-hub")
+if events.get("sdk_two_pc_ap_elected", {}).get("elected_node_id") != "z203-hub":
+    raise SystemExit("two-PC flow did not elect z203-hub")
+if events.get("sdk_two_pc_join_accepted", {}).get("node_id") != "z103-endpoint":
+    raise SystemExit("two-PC flow did not join z103-endpoint")
+if events.get("sdk_two_pc_stream_opened", {}).get("mode") != 4:
+    raise SystemExit("two-PC flow did not open scheduled stream")
+if events.get("sdk_two_pc_stream_tx", {}).get("traffic_class") != 1:
+    raise SystemExit("two-PC flow did not send C1 telemetry")
+if "sdk_two_pc_endpoint_flow_complete" not in events:
+    raise SystemExit("two-PC endpoint flow did not complete")
+PY
+
 echo "fieldmesh_sdk_reference_check=pass"
 echo "fieldmesh_sdk_udp_discovery_check=pass"
 echo "fieldmesh_sdk_rtls_check=pass"
 echo "fieldmesh_sdk_state_daemon_check=pass"
+echo "fieldmesh_sdk_two_pc_flow_check=pass"

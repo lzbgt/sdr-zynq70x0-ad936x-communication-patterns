@@ -29,6 +29,10 @@ in `src/fieldmesh_sdk.c`:
   one process serves AP browse, AP election, AP join state, peer state, and
   RTLS state over UDP, and another process queries it over the same IP path
   intended for USB Ethernet and physical Ethernet.
+- `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
+  demo: one side runs an AP service, and the other runs endpoint browse,
+  AP election, audit join, scheduled stream open, and C1 telemetry send over
+  UDP.
 - `examples/fieldmesh_udp_discovery_demo.c` is a two-PC AP-beacon/browse
   transport demo over UDP sockets. It uses the SDK AP model and works over USB
   Ethernet, physical Ethernet, or normal IP routing.
@@ -38,4 +42,5 @@ runtime implementation is still `fieldmesh-udp-probe`, and both Z203 and Z103
 developer images now also install `/usr/bin/fieldmesh-state-daemon-demo`. That
 daemon is the first board-packaged service shape for mapping AP, peer, route,
 and RTLS C ABI calls to board services over USB Ethernet, physical Ethernet, or
-explicit IP.
+explicit IP. The images also install `/usr/bin/fieldmesh-two-pc-flow-demo` for
+the first board-attached AP browse/election/audit-join/scheduled-stream smoke.
