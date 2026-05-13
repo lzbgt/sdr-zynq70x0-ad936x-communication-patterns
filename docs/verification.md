@@ -2276,15 +2276,15 @@ carry the current preflight roles:
 ```
 
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
-`adaptive-listen`, `advertise`, `ap-elect`, the `udp-command` path, `dt-scan`,
-`ctrl-scan`, `dma-scan`, and `dma-plan` are present. Refreshed rootfs hashes
-after the AP-election update:
+`adaptive-listen`, `advertise`, `ap-elect`, `rtls-estimate`, the `udp-command`
+path, `dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. Refreshed
+rootfs hashes after the RTLS update:
 
 ```text
-z203 rootfs.cpio.gz 0e00dad4cd4d147e5d6aa7aa944763589955b5da30e517183140feee449df0e9
-z203 rootfs.tar.gz  4c0fc1f830769ba587eda3de3f5b0a6e85a4ee1f394d96e7ee0a7f482adea06d
-z103 rootfs.cpio.gz cdb13b4882b4e85fb3aa0610d395f32e85f697209f55dc12bcf517707fbc671f
-z103 rootfs.tar.gz  56a67faa7bbeb077828ab86d49cb63ece2b580bf0b8219b77e2be125ad92396b
+z203 rootfs.cpio.gz 1192bf3a136495264efc377393d8264310072c9619c1f890c71f9f3f0600a5a6
+z203 rootfs.tar.gz  b57e77329ecb25347233c1803a49471492b0d255ae52af6d597556ed03e1bfa9
+z103 rootfs.cpio.gz c03833aebd318f2ccad018cf50ff0370c5c0d4d1f8f84e32c340a18446806882
+z103 rootfs.tar.gz  7e13036b111c75ead8593771cb85a83df2891f4e835d2358f6eda3606a1a0cac
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2300,17 +2300,17 @@ matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after the AP-election rootfs rebuild:
+Refreshed package and RAM-boot hashes after the RTLS rootfs rebuild:
 
 ```text
-z203 pluto.frm 3f2f0a0116c0677f46bb0d966bf90de868ee808f3790c35efcc8e512fc96bf78
-z203 pluto.itb c90cbcadf8967faeb48c0f6d4ae4da0441c1d8fe5de3e8c71af9f81837b99a2d
+z203 pluto.frm 1b1dd8fcd803e14b3107ef3401499b22f78b9fc58e7bf6c113d0172d6c7ac95c
+z203 pluto.itb c06e58a24f14205b0a6fe13b62dacfba85607bcd25818f8a01fd35952cde78b2
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 3d4b8afcf5b209cbe8cba6b090166330afe7cfb95df0c153519a14ed4743489c
-z103 pluto.frm 51b76d4ed277b700f64ca60f7784dd7c1158bd06d055e2a2aaa4db6ffcccdbfd
-z103 pluto.itb f0e49844954e7b88ebe7730cbe3d5be7cd03cc910b86735db281609f2eb8899d
+z203 jtag ramdisk d30d143436c6b30a4cf91385d966b0cc0f583fa269c266b144f1bc8e978e46e4
+z103 pluto.frm 708bd7578079bdf7d0da97edf597cc774f09b4dbc91fd4fae2f95a539e7ca7fa
+z103 pluto.itb 1bd40916005e95cf763b48d0ec522673dc34c902809cb3f013b30478009db722
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk b3eb972abd47fc1ec6220ac81899edf3c6df86417d919bac070fc95c12138cd4
+z103 jtag ramdisk 97940e259cbe9058f3443a86f56e4e4283ccb2d1b2e253bcc6ada7d00e1a0ef3
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic
@@ -2559,6 +2559,25 @@ physical Ethernet, and IP:
 ```sh
 ./tools/verify_fieldmesh_sdk.sh
 ```
+
+## FieldMesh RTLS Positioning Gate
+
+Built-in RTLS/relative positioning was added as a host and board-probe role:
+
+```sh
+./tools/verify_fieldmesh_rtls.sh
+```
+
+The gate runs `fieldmesh-udp-probe rtls-estimate` for mixed GPS/fallback,
+GPS-denied, and GPS-lock scenarios. It asserts every estimate is usable for AP
+election and route selection, that GPS-denied peers fall back to RSSI/TDOA, and
+that GPS-lock peers use GPS/PPS fused estimates. GPS is treated as both a time
+sync source and a localization source when present; when absent, the system
+keeps a coarse RTLS model from RSSI/SNR/TDOA and coordinator timing.
+
+The design is grounded in the external Z203 GPS assets under
+`/mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档`, especially `gps_transfer`
+for GPS UART pass-through and `gps_vctcxo` for later clock-discipline work.
 
 ## Verification Gaps
 

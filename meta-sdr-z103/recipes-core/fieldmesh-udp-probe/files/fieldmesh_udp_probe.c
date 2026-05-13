@@ -129,6 +129,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe command --host HOST --port PORT [--mode auto|p2p|star|graph|scheduled]\n"
         "  fieldmesh-udp-probe adaptive-listen --host HOST --port PORT [--count N] [--timeout-ms N] [--mode auto|p2p|star|graph|scheduled]\n"
         "  fieldmesh-udp-probe ap-elect [--scenario z103-only|z203-only|mixed] [--ap-policy predefined|autonomous-swarm|hybrid] [--preferred-ap NODE] [--network-id ID]\n"
+        "  fieldmesh-udp-probe rtls-estimate [--scenario gps-lock|gps-denied|mixed] [--network-id ID]\n"
         "  fieldmesh-udp-probe mem-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-loopback [--ticks N] [--mode auto|p2p|star|graph|scheduled] [--traffic-profile basic|video|stress]\n"
         "  fieldmesh-udp-probe mmap-replay --file FRAME.bin\n"
@@ -282,6 +283,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "command") &&
         strcmp(cfg->role, "adaptive-listen") &&
         strcmp(cfg->role, "ap-elect") &&
+        strcmp(cfg->role, "rtls-estimate") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
@@ -290,12 +292,13 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-smoke") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ap-elect") &&
+        strcmp(cfg->role, "rtls-estimate") &&
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
         strcmp(cfg->role, "dma-plan") &&
@@ -1138,6 +1141,30 @@ struct ap_candidate {
     bool ap_allowed;
 };
 
+struct rtls_peer_sample {
+    const char *node_id;
+    const char *hardware;
+    const char *radio;
+    int gps_lock;
+    int gps_x_cm;
+    int gps_y_cm;
+    int rssi_dbm;
+    int snr_db;
+    int tdoa_ab_ns;
+    int tdoa_ac_ns;
+    int velocity_cm_s;
+};
+
+struct rtls_estimate {
+    const char *node_id;
+    const char *source;
+    int x_cm;
+    int y_cm;
+    int error_radius_cm;
+    int confidence;
+    int geo_centrality;
+};
+
 static const struct ap_candidate AP_CANDIDATES[] = {
     {
         .node_id = "z103-a",
@@ -1241,6 +1268,61 @@ static const struct ap_candidate AP_CANDIDATES[] = {
     },
 };
 
+static const struct rtls_peer_sample RTLS_SAMPLES[] = {
+    {
+        .node_id = "z203-hub",
+        .hardware = "sdr-z203-z7020-2r2t",
+        .radio = "2r2t",
+        .gps_lock = 1,
+        .gps_x_cm = 0,
+        .gps_y_cm = 0,
+        .rssi_dbm = -42,
+        .snr_db = 30,
+        .tdoa_ab_ns = 0,
+        .tdoa_ac_ns = 0,
+        .velocity_cm_s = 0,
+    },
+    {
+        .node_id = "z103-a",
+        .hardware = "sdr-z103-z7010-1r1t",
+        .radio = "1r1t",
+        .gps_lock = 1,
+        .gps_x_cm = 1250,
+        .gps_y_cm = 360,
+        .rssi_dbm = -55,
+        .snr_db = 22,
+        .tdoa_ab_ns = 37,
+        .tdoa_ac_ns = 18,
+        .velocity_cm_s = 80,
+    },
+    {
+        .node_id = "z103-b",
+        .hardware = "sdr-z103-z7010-1r1t",
+        .radio = "1r1t",
+        .gps_lock = 0,
+        .gps_x_cm = 0,
+        .gps_y_cm = 0,
+        .rssi_dbm = -68,
+        .snr_db = 15,
+        .tdoa_ab_ns = -22,
+        .tdoa_ac_ns = 44,
+        .velocity_cm_s = 120,
+    },
+    {
+        .node_id = "z203-relay",
+        .hardware = "sdr-z203-z7020-2r2t",
+        .radio = "2r2t",
+        .gps_lock = 1,
+        .gps_x_cm = 520,
+        .gps_y_cm = -880,
+        .rssi_dbm = -50,
+        .snr_db = 26,
+        .tdoa_ab_ns = -12,
+        .tdoa_ac_ns = -31,
+        .velocity_cm_s = 40,
+    },
+};
+
 static bool ap_candidate_in_scenario(const struct config *cfg, const struct ap_candidate *candidate)
 {
     if (!strcmp(cfg->scenario, "z103-only")) {
@@ -1260,6 +1342,141 @@ static bool ap_policy_allows_preferred(const struct config *cfg)
 static bool ap_policy_allows_autonomous(const struct config *cfg)
 {
     return !strcmp(cfg->ap_policy, "autonomous-swarm") || !strcmp(cfg->ap_policy, "hybrid");
+}
+
+static int bounded_int(int value, int min_value, int max_value)
+{
+    if (value < min_value) {
+        return min_value;
+    }
+    if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
+
+static int rtls_sample_visible(const struct config *cfg, const struct rtls_peer_sample *sample)
+{
+    if (!strcmp(cfg->scenario, "z103-only")) {
+        return !strcmp(sample->radio, "1r1t");
+    }
+    if (!strcmp(cfg->scenario, "z203-only")) {
+        return !strcmp(sample->radio, "2r2t");
+    }
+    return 1;
+}
+
+static int rtls_sample_gps_lock(const struct config *cfg, const struct rtls_peer_sample *sample)
+{
+    if (!strcmp(cfg->scenario, "gps-denied")) {
+        return 0;
+    }
+    if (!strcmp(cfg->scenario, "gps-lock")) {
+        return 1;
+    }
+    return sample->gps_lock;
+}
+
+static struct rtls_estimate rtls_estimate_peer(const struct config *cfg,
+                                               const struct rtls_peer_sample *sample)
+{
+    struct rtls_estimate estimate = {
+        .node_id = sample->node_id,
+        .source = "rssi_tdoa",
+        .x_cm = 0,
+        .y_cm = 0,
+        .error_radius_cm = 0,
+        .confidence = 0,
+        .geo_centrality = 0,
+    };
+    int gps_lock = rtls_sample_gps_lock(cfg, sample);
+    int range_hint_cm = bounded_int((sample->rssi_dbm + 90) * 55, 250, 3800);
+    int tdoa_x_cm = sample->tdoa_ab_ns * 18;
+    int tdoa_y_cm = sample->tdoa_ac_ns * 18;
+    int snr_bonus = bounded_int(sample->snr_db * 2, 0, 80);
+    int mobility_penalty = bounded_int(sample->velocity_cm_s / 4, 0, 45);
+    int distance_from_center;
+
+    if (gps_lock) {
+        estimate.source = "gps_pps_fused";
+        estimate.x_cm = sample->gps_x_cm;
+        estimate.y_cm = sample->gps_y_cm;
+        estimate.error_radius_cm = sample->velocity_cm_s > 90 ? 220 : 140;
+        estimate.confidence = bounded_int(94 + sample->snr_db / 10 - mobility_penalty / 10, 80, 99);
+    } else {
+        estimate.x_cm = range_hint_cm / 2 + tdoa_x_cm;
+        estimate.y_cm = range_hint_cm / 3 + tdoa_y_cm;
+        estimate.error_radius_cm = bounded_int(950 - snr_bonus * 5 + mobility_penalty * 8, 300, 1500);
+        estimate.confidence = bounded_int(70 + snr_bonus / 2 - mobility_penalty, 25, 82);
+    }
+
+    distance_from_center = abs(estimate.x_cm) + abs(estimate.y_cm);
+    estimate.geo_centrality = bounded_int(100 - distance_from_center / 80 -
+                                          estimate.error_radius_cm / 120, 10, 98);
+    return estimate;
+}
+
+static int run_rtls_estimate(const struct config *cfg)
+{
+    int peer_count = 0;
+    int gps_locked = 0;
+    int fallback_count = 0;
+    int centrality_sum = 0;
+
+    printf("{\"event\":\"rtls_window_start\",\"transport\":\"rtls-estimate\","
+           "\"network_id\":\"%s\",\"scenario\":\"%s\","
+           "\"coordinate_frame\":\"ap_local_xy_cm\","
+           "\"methods\":[\"gps_pps_fused\",\"rssi_tdoa\",\"rssi_only_fallback\"],"
+           "\"tdoa_requires\":\"shared_pps_or_ap_clock_calibration\","
+           "\"default_policy\":\"passive_learner\"}\n",
+           cfg->network_id, cfg->scenario);
+
+    for (size_t i = 0; i < sizeof(RTLS_SAMPLES) / sizeof(RTLS_SAMPLES[0]); i++) {
+        const struct rtls_peer_sample *sample = &RTLS_SAMPLES[i];
+        struct rtls_estimate estimate;
+        int gps_lock;
+
+        if (!rtls_sample_visible(cfg, sample)) {
+            continue;
+        }
+        gps_lock = rtls_sample_gps_lock(cfg, sample);
+        estimate = rtls_estimate_peer(cfg, sample);
+        peer_count++;
+        gps_locked += gps_lock ? 1 : 0;
+        fallback_count += gps_lock ? 0 : 1;
+        centrality_sum += estimate.geo_centrality;
+        printf("{\"event\":\"rtls_measurement\",\"transport\":\"rtls-estimate\","
+               "\"node_id\":\"%s\",\"hardware\":\"%s\",\"radio\":\"%s\","
+               "\"gps_lock\":%s,\"rssi_dbm\":%d,\"snr_db\":%d,"
+               "\"tdoa_ab_ns\":%d,\"tdoa_ac_ns\":%d,"
+               "\"velocity_cm_s\":%d}\n",
+               sample->node_id, sample->hardware, sample->radio,
+               gps_lock ? "true" : "false", sample->rssi_dbm, sample->snr_db,
+               sample->tdoa_ab_ns, sample->tdoa_ac_ns, sample->velocity_cm_s);
+        printf("{\"event\":\"rtls_estimate\",\"transport\":\"rtls-estimate\","
+               "\"node_id\":\"%s\",\"position_source\":\"%s\","
+               "\"x_cm\":%d,\"y_cm\":%d,\"error_radius_cm\":%d,"
+               "\"confidence\":%d,\"estimated_geo_centrality\":%d,"
+               "\"usable_for_ap_election\":true,"
+               "\"usable_for_route_selection\":true}\n",
+               estimate.node_id, estimate.source, estimate.x_cm, estimate.y_cm,
+               estimate.error_radius_cm, estimate.confidence, estimate.geo_centrality);
+    }
+
+    if (peer_count == 0) {
+        printf("{\"event\":\"rtls_summary\",\"transport\":\"rtls-estimate\","
+               "\"ok\":false,\"error\":\"no_visible_peers\"}\n");
+        return 1;
+    }
+    printf("{\"event\":\"rtls_summary\",\"transport\":\"rtls-estimate\","
+           "\"ok\":true,\"network_id\":\"%s\",\"peers\":%d,"
+           "\"gps_locked_peers\":%d,\"fallback_peers\":%d,"
+           "\"average_geo_centrality\":%d,"
+           "\"ap_election_input\":\"estimated_geo_centrality\","
+           "\"routing_input\":\"relative_position_confidence\"}\n",
+           cfg->network_id, peer_count, gps_locked, fallback_count,
+           centrality_sum / peer_count);
+    return 0;
 }
 
 static uint32_t ap_candidate_score(const struct config *cfg, const struct ap_candidate *candidate)
@@ -1325,7 +1542,8 @@ static int run_ap_elect(const struct config *cfg)
            "\"ap_visible\":false,\"autonomous_allowed\":%s,"
            "\"consensus_algorithm\":\"deterministic_metric_quorum\","
            "\"score_inputs\":[\"capability\",\"rssi\",\"snr\","
-           "\"estimated_geo_centrality\",\"mobility_prediction\","
+           "\"estimated_geo_centrality\",\"rtls_position_confidence\","
+           "\"tdoa_fallback\",\"mobility_prediction\","
            "\"reachability\",\"relay\",\"clock\",\"power\",\"security\","
            "\"handover_hysteresis\"]}\n",
            cfg->scenario, cfg->ap_policy, cfg->network_id,
@@ -1396,7 +1614,7 @@ static int run_ap_elect(const struct config *cfg)
     printf("{\"event\":\"ap_consensus_round\",\"transport\":\"ap-elect\","
            "\"round\":1,\"algorithm\":\"deterministic_metric_quorum\","
            "\"candidate_count\":%d,\"quorum\":%d,"
-           "\"metric_commitment\":\"capability+rssi+snr+geo+mobility+reachability+policy\","
+           "\"metric_commitment\":\"capability+rssi+snr+rtls_geo+tdoa+mobility+reachability+policy\","
            "\"lease_ms\":5000,\"handover_hysteresis_db\":6,"
            "\"handover_min_score_delta\":150}\n",
            candidates, candidates / 2 + 1);
@@ -2802,6 +3020,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "ap-elect")) {
         return run_ap_elect(&cfg);
+    }
+    if (!strcmp(cfg.role, "rtls-estimate")) {
+        return run_rtls_estimate(&cfg);
     }
     if (!strcmp(cfg.role, "send")) {
         return run_send(&cfg);

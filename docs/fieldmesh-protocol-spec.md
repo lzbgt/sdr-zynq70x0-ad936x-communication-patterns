@@ -124,6 +124,9 @@ Initial message types:
   route graph, fallback profiles.
 - `LINK_REPORT`: RSSI-like level, SNR/EVM-like quality, loss, FEC recovery,
   latency, queue age, delivered bitrate.
+- `RTLS_REPORT`: GPS/PPS lock state, RSSI/SNR/TDOA measurement window, fused
+  relative position, error radius, confidence, and estimated geo/topology
+  centrality.
 - `SCHEDULE_UPDATE`: slot ownership, guard interval, profile, emergency slots.
 - `ROUTE_UPDATE`: graph edges, relay permission, per-hop traffic classes.
 - `PEER_DIRECTORY`: peers, stream IDs, direct/relayed reachability, and service

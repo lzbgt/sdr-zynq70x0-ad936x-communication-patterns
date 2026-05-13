@@ -345,6 +345,9 @@ Inputs:
   class;
 - link measurements: RSSI-like level, EVM/SNR-like quality, packet loss, FEC
   margin, latency, and queue age;
+- positioning measurements: GPS/PPS fix when available, RSSI/SNR/TDOA fallback
+  when GPS is absent, confidence/error radius, and relative topology
+  centrality;
 - traffic intent: control only, video, telemetry, bulk data, gateway bridge, or
   relay service;
 - regulatory profile: allowed frequencies, channel widths, duty cycle, and

@@ -74,7 +74,8 @@ Election inputs:
 - clock quality: GPS/PPS or disciplined clock beats local-only timing;
 - reachability: candidate can hear and serve the most peers;
 - measured RSSI and SNR from every visible peer;
-- estimated geographic or topology centrality;
+- built-in RTLS estimates: GPS/PPS when available, RSSI/SNR/TDOA fallback when
+  GPS is absent, and estimated geographic or topology centrality;
 - route centrality and link stability;
 - mobility prediction: velocity/heading stability, expected topology lifetime,
   and whether the node is moving with or away from the group;
@@ -89,8 +90,8 @@ Do not elect an AP from a single local opinion. Each node should publish an
 first practical consensus algorithm should be deterministic metric quorum:
 
 1. Candidate window opens after the AP beacon timeout.
-2. Nodes exchange signed candidate reports with capability, RSSI/SNR summary,
-   estimated position or topology centrality, mobility prediction,
+2. Nodes exchange signed candidate reports with capability, RSSI/SNR/TDOA
+   summary, estimated position or topology centrality, mobility prediction,
    reachability, power, clock, and policy fields.
 3. Every node computes the same normalized score for every visible candidate.
 4. Every node emits a vote for the highest valid score.
@@ -109,9 +110,9 @@ For dynamic moving peers such as AGVs, ships, field robots, and mobile cameras,
 the election window should aggregate measurements over time instead of using
 one RSSI/SNR snapshot. Each candidate should publish:
 
-- neighbor table with RSSI/SNR/packet loss per peer;
-- estimated position, relative bearing, or topology-distance hints where
-  available;
+- neighbor table with RSSI/SNR/TDOA/packet loss per peer;
+- RTLS position source, confidence, error radius, relative bearing, or
+  topology-distance hints where available;
 - velocity or motion class: stationary, slow convoy, crossing, separating, or
   unknown;
 - predicted peer coverage for the next lease interval;

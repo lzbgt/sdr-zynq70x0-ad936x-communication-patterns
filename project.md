@@ -241,6 +241,9 @@ user and vendor configuration.
   portable C SDK architecture for making Z203-class 2R2T hardware a commanded
   radio AP/broker while keeping Z103/Z203 default firmware in passive learner
   mode.
+- `docs/fieldmesh-rtls-positioning.md` - built-in RTLS/relative-positioning
+  design using GPS/PPS when available and RSSI/SNR/TDOA fallback when GPS is
+  absent, feeding AP election, routing, scheduling, and SDK peer state.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward IIO and PL packet queues without changing
   the common packet header or trace contract.
@@ -429,6 +432,8 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_ap_election.sh` - host-side trace check for the
   FieldMesh AP election contract, including preferred 2R2T AP, autonomous
   2R2T election, and emergency 1R1T AP fallback.
+- `tools/verify_fieldmesh_rtls.sh` - host-side RTLS/relative-positioning check
+  for GPS/PPS fused estimates and RSSI/SNR/TDOA fallback estimates.
 - `tools/run_fieldmesh_board_dma_smoke.sh` - SSH-driven guarded sidecar DMA
   smoke runner that reruns the board sidecar preflight, copies a committed
   FieldMesh frame vector to the board, records `dma-plan`, and only then starts

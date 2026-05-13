@@ -66,6 +66,8 @@ assert any(
     and "rssi" in row.get("score_inputs", [])
     and "snr" in row.get("score_inputs", [])
     and "estimated_geo_centrality" in row.get("score_inputs", [])
+    and "rtls_position_confidence" in row.get("score_inputs", [])
+    and "tdoa_fallback" in row.get("score_inputs", [])
     and "mobility_prediction" in row.get("score_inputs", [])
     and "handover_hysteresis" in row.get("score_inputs", [])
     for row in mixed
