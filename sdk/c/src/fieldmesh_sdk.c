@@ -1586,6 +1586,107 @@ fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_plan_rf_tx_guard(
+    fieldmesh_adapter_t *adapter,
+    const fieldmesh_rf_packet_plan_t *packet_plan,
+    fieldmesh_rf_tx_guard_plan_t *out_plan)
+{
+    if (!adapter || !adapter->session || !packet_plan || !out_plan) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (!packet_plan->uses_sidecar_dma || !packet_plan->uses_rf_packet_engine ||
+        !packet_plan->requires_rf_tx_guard || packet_plan->uses_iio ||
+        packet_plan->uses_inter_board_ip_routing || packet_plan->opens_iio_buffers ||
+        packet_plan->starts_rf_tx || packet_plan->writes_hardware) {
+        return FIELDMESH_ERR_POLICY;
+    }
+
+    memset(out_plan, 0, sizeof(*out_plan));
+    sdk_copy_text(out_plan->guard_name, sizeof(out_plan->guard_name),
+                  "fieldmesh_iq_tx_guard");
+    sdk_copy_text(out_plan->engine_name, sizeof(out_plan->engine_name),
+                  packet_plan->engine_name);
+    sdk_copy_text(out_plan->adapter_name, sizeof(out_plan->adapter_name),
+                  packet_plan->adapter_name);
+    sdk_copy_text(out_plan->dst_node_id, sizeof(out_plan->dst_node_id),
+                  packet_plan->dst_node_id);
+    out_plan->traffic_class = packet_plan->traffic_class;
+    out_plan->mode = packet_plan->mode;
+    out_plan->route_kind = packet_plan->route_kind;
+    out_plan->stream_id = packet_plan->stream_id;
+    out_plan->sequence = packet_plan->sequence;
+    out_plan->deadline_ms = packet_plan->deadline_ms;
+    out_plan->arm_window_us = 5000u;
+    out_plan->slot_epoch = packet_plan->sequence / 4096u;
+    out_plan->slot_index = (uint16_t)(packet_plan->sequence & 0x0fffu);
+    out_plan->requires_conducted_or_shielded = 1u;
+    out_plan->requires_legal_frequency_profile = 1u;
+    out_plan->requires_rx_first = 1u;
+    out_plan->requires_sidecar_preflight = packet_plan->requires_sidecar_preflight;
+    out_plan->requires_rf_packet_engine = 1u;
+    out_plan->requires_tx_enable_guard = 1u;
+    out_plan->schedules_exact_tx = packet_plan->schedules_exact_tx;
+    out_plan->sets_tx_enable = 0u;
+    out_plan->sets_tx_armed = 0u;
+    out_plan->writes_hardware = 0u;
+    out_plan->starts_rf_tx = 0u;
+    out_plan->commands_executed = 0u;
+    out_plan->uses_iio = 0u;
+    out_plan->uses_inter_board_ip_routing = 0u;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_apply_rf_tx_guard(
+    fieldmesh_adapter_t *adapter,
+    const fieldmesh_rf_packet_plan_t *packet_plan,
+    uint32_t flags,
+    fieldmesh_rf_tx_guard_apply_report_t *out_report)
+{
+    fieldmesh_rf_tx_guard_plan_t plan;
+    fieldmesh_context_t *context;
+    uint8_t arm_requested;
+    uint8_t writes_requested;
+    uint8_t authorized;
+    fieldmesh_status_t status;
+
+    if (!out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    status = fieldmesh_plan_rf_tx_guard(adapter, packet_plan, &plan);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+
+    context = adapter->session->context;
+    arm_requested =
+        (flags & FIELDMESH_RF_TX_GUARD_ALLOW_ARM) ? 1u : 0u;
+    writes_requested =
+        (flags & FIELDMESH_RF_TX_GUARD_ALLOW_HARDWARE_WRITES) ? 1u : 0u;
+    authorized =
+        (arm_requested && writes_requested &&
+         context->device_profile.conducted_or_shielded &&
+         context->device_profile.legal_frequency_profile &&
+         context->device_profile.tx_enable_guard &&
+         context->device_profile.rx_first_required &&
+         context->device_profile.allow_hardware_writes) ? 1u : 0u;
+
+    out_report->plan = plan;
+    out_report->flags = flags;
+    out_report->live_arm_requested = arm_requested;
+    out_report->hardware_writes_requested = writes_requested;
+    out_report->live_arm_authorized = authorized;
+    out_report->hardware_writes_authorized = authorized;
+    out_report->dry_run =
+        (flags & FIELDMESH_RF_TX_GUARD_VALIDATE_ONLY) || !authorized ? 1u : 0u;
+    out_report->accepted = out_report->dry_run || authorized ? 1u : 0u;
+    out_report->rollback_available = 1u;
+    out_report->commands_executed = 0u;
+    out_report->writes_hardware = 0u;
+    out_report->starts_rf_tx = 0u;
+    return FIELDMESH_OK;
+}
+
 fieldmesh_status_t fieldmesh_plan_tun_adapter(fieldmesh_session_t *session,
                                               const fieldmesh_tun_config_t *config,
                                               fieldmesh_tun_plan_t *out_plan)

@@ -229,7 +229,15 @@ Next concrete work:
   and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
   bridge parser can feed the BPSK symbolizer and `fieldmesh_iq_tx_guard` while
-  the guarded IQ output remains disconnected from AD936x TX.
+  the guarded IQ output remains disconnected from AD936x TX. The SDK/daemon now
+  has the first post-symbolizer guard control contract too:
+  `fieldmesh_plan_rf_tx_guard()` / `fieldmesh_apply_rf_tx_guard()` and daemon
+  `FIELDMESH_RF_TX_GUARD_PLAN` derive a dry-run arming plan for
+  `fieldmesh_iq_tx_guard`, report slot epoch/index and safety prerequisites,
+  and still execute no commands, write no hardware, start no RF TX, use no IIO,
+  and do no inter-board IP routing. The next step is replacing that dry-run
+  guard contract with a board-local guarded runner only after the
+  scheduler/filter/driver path is ready.
 - Keep the executable AP election trace green with
   `tools/verify_fieldmesh_ap_election.sh`. It currently covers preferred
   Z203 AP, autonomous Z203 election, emergency Z103-only AP fallback, and

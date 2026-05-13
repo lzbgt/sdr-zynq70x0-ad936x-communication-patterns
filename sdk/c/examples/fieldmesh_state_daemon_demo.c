@@ -629,6 +629,118 @@ static int build_response(fieldmesh_context_t *context,
                  rf_report.commands_executed);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_TX_GUARD_PLAN")) {
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 200,
+            .mtu_bytes = 1200,
+            .expose_virtual_netdev = 1,
+        };
+        unsigned char tx_packet[256];
+        fieldmesh_tun_packet_report_t tun_report;
+        fieldmesh_adapter_packet_t packet_meta;
+        fieldmesh_rf_packet_plan_t rf_plan;
+        fieldmesh_rf_tx_guard_apply_report_t guard_report;
+        size_t tx_len;
+        int failed = 0;
+
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", "020000000103");
+        tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
+        if (tx_len == 0u ||
+            fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
+            fieldmesh_tun_packetizer_send(adapter, tx_packet, tx_len,
+                                          &tun_report) != FIELDMESH_OK ||
+            fieldmesh_adapter_recv_packet(adapter, tx_packet, sizeof(tx_packet),
+                                          &tx_len, &packet_meta, 1000) !=
+                FIELDMESH_OK ||
+            fieldmesh_plan_rf_packet(adapter, &packet_meta, tx_len,
+                                     &rf_plan) != FIELDMESH_OK ||
+            fieldmesh_apply_rf_tx_guard(
+                adapter, &rf_plan, FIELDMESH_RF_TX_GUARD_VALIDATE_ONLY,
+                &guard_report) != FIELDMESH_OK) {
+            failed = 1;
+        }
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        if (failed) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_tx_guard_plan\","
+                 "\"adapter_name\":\"%s\","
+                 "\"rf_engine\":\"%s\","
+                 "\"guard_name\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"route_kind\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"sequence\":%u,"
+                 "\"deadline_ms\":%u,"
+                 "\"arm_window_us\":%u,"
+                 "\"slot_epoch\":%u,"
+                 "\"slot_index\":%u,"
+                 "\"requires_conducted_or_shielded\":%u,"
+                 "\"requires_legal_frequency_profile\":%u,"
+                 "\"requires_rx_first\":%u,"
+                 "\"requires_sidecar_preflight\":%u,"
+                 "\"requires_rf_packet_engine\":%u,"
+                 "\"requires_tx_enable_guard\":%u,"
+                 "\"schedules_exact_tx\":%u,"
+                 "\"sets_tx_enable\":%u,"
+                 "\"sets_tx_armed\":%u,"
+                 "\"dry_run\":%u,"
+                 "\"rollback_available\":%u,"
+                 "\"live_arm_requested\":%u,"
+                 "\"live_arm_authorized\":%u,"
+                 "\"hardware_writes_requested\":%u,"
+                 "\"hardware_writes_authorized\":%u,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"starts_rf_tx\":%u,"
+                 "\"writes_hardware\":%u,"
+                 "\"commands_executed\":%u}\n",
+                 guard_report.plan.adapter_name,
+                 guard_report.plan.engine_name,
+                 guard_report.plan.guard_name,
+                 guard_report.plan.dst_node_id,
+                 (unsigned)guard_report.plan.traffic_class,
+                 (unsigned)guard_report.plan.mode,
+                 (unsigned)guard_report.plan.route_kind,
+                 guard_report.plan.stream_id,
+                 guard_report.plan.sequence,
+                 guard_report.plan.deadline_ms,
+                 guard_report.plan.arm_window_us,
+                 guard_report.plan.slot_epoch,
+                 guard_report.plan.slot_index,
+                 guard_report.plan.requires_conducted_or_shielded,
+                 guard_report.plan.requires_legal_frequency_profile,
+                 guard_report.plan.requires_rx_first,
+                 guard_report.plan.requires_sidecar_preflight,
+                 guard_report.plan.requires_rf_packet_engine,
+                 guard_report.plan.requires_tx_enable_guard,
+                 guard_report.plan.schedules_exact_tx,
+                 guard_report.plan.sets_tx_enable,
+                 guard_report.plan.sets_tx_armed,
+                 guard_report.dry_run,
+                 guard_report.rollback_available,
+                 guard_report.live_arm_requested,
+                 guard_report.live_arm_authorized,
+                 guard_report.hardware_writes_requested,
+                 guard_report.hardware_writes_authorized,
+                 guard_report.plan.uses_iio,
+                 guard_report.plan.uses_inter_board_ip_routing,
+                 guard_report.starts_rf_tx,
+                 guard_report.writes_hardware,
+                 guard_report.commands_executed);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_DEV_PUMP")) {
         int allow_live = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
         int tun_read_fd = -1;
@@ -1139,6 +1251,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&

@@ -556,7 +556,11 @@ user and vendor configuration.
   `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` produce the
   sidecar-DMA/RF-engine queue contract and keep `uses_iio=0`,
   `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and `writes_hardware=0`
-  until a guarded live RF engine implements the final transport.
+  until a guarded live RF engine implements the final transport. The SDK now
+  also exposes `fieldmesh_plan_rf_tx_guard()` /
+  `fieldmesh_apply_rf_tx_guard()` so the daemon can plan the
+  `fieldmesh_iq_tx_guard` arming slot and safety prerequisites without setting
+  TX enable, writing hardware, using IIO, or routing payloads over host IP.
 - `sdk/c/examples/` - linked/runnable C SDK demos for a commanded AP
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
@@ -935,8 +939,16 @@ Expected result in the current Pluto-compatible firmware state:
    frame is queueable through the board sidecar path and recoverable through
    the packet-engine IQ model without IIO, inter-board IP routing, RF TX start,
    or hardware writes in the RF-engine stage. Z103 passed that combined live
-   gate at `192.168.3.1`; evidence is archived under
-   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/`.
+  gate at `192.168.3.1`; evidence is archived under
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_packet_engine_binding_20260514-0436/`.
+   The SDK daemon now answers `FIELDMESH_RF_TX_GUARD_PLAN` as the first
+   scheduler/filter/driver control boundary after that handoff: it derives a
+   `fieldmesh_iq_tx_guard` dry-run plan from the RF packet plan, reports slot
+   epoch/index and conducted/shielded, legal-frequency, RX-first, sidecar, RF
+   engine, and TX-enable guard requirements, and still reports
+   `sets_tx_enable=0`, `sets_tx_armed=0`, `writes_hardware=0`,
+   `starts_rf_tx=0`, `commands_executed=0`, `uses_iio=0`, and
+   `uses_inter_board_ip_routing=0`.
    The non-transmitting RF-engine copied overlay, now including the parked
    `fieldmesh_iq_tx_guard`, builds timing-clean for both variants too: Z103
    `system_top.bit`/XSA hashes are

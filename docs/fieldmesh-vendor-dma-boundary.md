@@ -514,6 +514,18 @@ It validates one path shape across daemon handoff, board sidecar DMA loopback,
 and packet-engine IQ recovery before any conducted/shielded RF TX runner is
 allowed.
 
+The next software boundary is now represented in the pure-C SDK and daemon as
+a dry-run TX guard plan. `fieldmesh_plan_rf_tx_guard()` derives a
+`fieldmesh_iq_tx_guard` arming plan from an RF packet-engine packet plan:
+adapter, destination EUI, traffic class, selected direct/relay route, slot
+epoch/index, arm window, and the required conducted/shielded, legal-frequency,
+RX-first, sidecar-preflight, RF-engine, and TX-enable guard prerequisites.
+`fieldmesh_apply_rf_tx_guard()` currently reports validation/rollback metadata
+but executes no commands, writes no hardware, starts no RF TX, and does not use
+IIO or inter-board IP routing. The daemon exposes this as
+`FIELDMESH_RF_TX_GUARD_PLAN`; live arming still belongs to a later guarded
+board runner after the scheduler/filter/driver path exists.
+
 The next gate plans the live AD936x IIO procedure but still executes nothing:
 
 ```sh

@@ -36,7 +36,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 13 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 14 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -176,13 +176,14 @@ join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_adapter"]
 rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_packet_engine"]
+rf_tx_guard = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_guard_plan"]
 tun_fd_pump = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 13 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 14 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -225,6 +226,33 @@ for key in ("uses_iio", "uses_inter_board_ip_routing", "opens_iio_buffers",
             "starts_rf_tx", "writes_hardware", "commands_executed"):
     if rf_packet_engine[0].get(key) != 0:
         raise SystemExit(f"SDK daemon RF packet-engine key {key} must be 0")
+if not rf_tx_guard or rf_tx_guard[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon RF TX guard plan query failed")
+if rf_tx_guard[0].get("rf_engine") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("SDK daemon RF TX guard used wrong engine")
+if rf_tx_guard[0].get("guard_name") != "fieldmesh_iq_tx_guard":
+    raise SystemExit("SDK daemon RF TX guard used wrong guard")
+if rf_tx_guard[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("SDK daemon RF TX guard used wrong destination EUI")
+if rf_tx_guard[0].get("traffic_class") != 2 or rf_tx_guard[0].get("mode") != 4:
+    raise SystemExit("SDK daemon RF TX guard did not preserve scheduled video-base metadata")
+if rf_tx_guard[0].get("route_kind") != 1:
+    raise SystemExit("SDK daemon RF TX guard did not preserve direct RF route")
+if rf_tx_guard[0].get("arm_window_us") != 5000:
+    raise SystemExit("SDK daemon RF TX guard arm window changed")
+for key in ("requires_conducted_or_shielded", "requires_legal_frequency_profile",
+            "requires_rx_first", "requires_sidecar_preflight",
+            "requires_rf_packet_engine", "requires_tx_enable_guard",
+            "schedules_exact_tx", "dry_run", "rollback_available"):
+    if rf_tx_guard[0].get(key) != 1:
+        raise SystemExit(f"SDK daemon RF TX guard key {key} must be 1")
+for key in ("sets_tx_enable", "sets_tx_armed", "live_arm_requested",
+            "live_arm_authorized", "hardware_writes_requested",
+            "hardware_writes_authorized", "uses_iio",
+            "uses_inter_board_ip_routing", "starts_rf_tx",
+            "writes_hardware", "commands_executed"):
+    if rf_tx_guard[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon RF TX guard key {key} must be 0")
 if not tun_fd_pump or tun_fd_pump[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN fd pump query failed")
 if tun_fd_pump[0].get("tun_fd_attached") != 1 or tun_fd_pump[0].get("read_from_tun") != 1:

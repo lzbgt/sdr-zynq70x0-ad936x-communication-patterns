@@ -2288,10 +2288,11 @@ flow demos are now also packaged as `/usr/bin/fieldmeshctl`,
 strings include `fieldmeshctl_profile_*`, AP browse/election/join,
 `FIELDMESH_STATE_PEERS`, `FIELDMESH_STATE_RTLS`,
 `FIELDMESH_SWARM_ADAPTER`, `FIELDMESH_RF_PACKET_ENGINE`,
-`FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
+`FIELDMESH_RF_TX_GUARD_PLAN`, `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
 `FIELDMESH_TUN_APPLY_VALIDATE`, `FIELDMESH_TUN_APPLY_COMMIT`, AP/peer/RTLS
 response tags, `sdk_daemon_swarm_adapter`,
-`sdk_daemon_rf_packet_engine`, `sdk_daemon_tun_plan`,
+`sdk_daemon_rf_packet_engine`, `sdk_daemon_rf_tx_guard_plan`,
+`sdk_daemon_tun_plan`,
 `sdk_daemon_tun_fd_pump`, `sdk_daemon_tun_apply`,
 `sdk_daemon_tun_apply_rejected`,
 `sdk_swarm_adapter_*`, `sdk_tun_gateway_*`, `swarm0`, `packet_stream`, and
@@ -2334,6 +2335,14 @@ no inter-board IP routing, no RF TX start, no hardware writes, and no commands
 executed. A transient live Z103 daemon smoke with the refreshed binary also
 passed that request at `192.168.3.1`; evidence is archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_engine_daemon_20260514-0420/`.
+The same SDK gate now also checks `fieldmesh_plan_rf_tx_guard()` /
+`fieldmesh_apply_rf_tx_guard()` and daemon `FIELDMESH_RF_TX_GUARD_PLAN`: the
+daemon derives a dry-run `fieldmesh_iq_tx_guard` arming plan from the RF packet
+plan, preserves the direct scheduled route metadata, reports slot epoch/index
+and the conducted/shielded, legal-frequency, RX-first, sidecar-preflight,
+RF-engine, and TX-enable guard prerequisites, and still reports
+`sets_tx_enable=0`, `sets_tx_armed=0`, `writes_hardware=0`, `starts_rf_tx=0`,
+`commands_executed=0`, `uses_iio=0`, and `uses_inter_board_ip_routing=0`.
 The same daemon smoke now also queries guarded `FIELDMESH_TUN_DEV_PUMP` without
 the live allow token and verifies it reports `/dev/net/tun`, required
 `swarm0`/`CAP_NET_ADMIN`, no descriptor open, no TUN attach, no packet read, no
@@ -2355,12 +2364,12 @@ capture is archived at
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_tun_device_pump_20260514-0409/`.
 
 ```text
-z203 rootfs.cpio.gz dbd0b78164c1e21c74979f5912e16e473b50ea6ea9b3a01c4bf28ae21be0bcf2
-z203 rootfs.tar.gz  7bca9bd93300f54c8ca6862082f98007d06618f2eb616bb9d632b03f9f6af1fd
-z103 rootfs.cpio.gz fdc52964b013316ec52ccf9840fdec9ab97e48753b80a1d25908f9961cef5245
-z103 rootfs.tar.gz  5f0579152906509c535c41355e753cac5c139e25341bdf16183aba3e4026ddc0
-z203 pluto.frm      708313335b8eb502c1d91ff7c5b68e4e5aa7db9324ce05fe27cdfccd2eb59a46
-z103 pluto.frm      64ea785dd997436c6fc81281f950535191457700b50d27190beeadfcaa1bfcf2
+z203 rootfs.cpio.gz a5870eb9b6ffbac37eae59b8473f572c43a49d17e0afa02c0d19301a25465ec7
+z203 rootfs.tar.gz  380ba29afae7927176f40079aa070b9a2e85710c21163039783f468ee5db961a
+z103 rootfs.cpio.gz ae0408a5c5911c24fe5ec82ab27358445b8f666919b32ed08c0a99362a5096ba
+z103 rootfs.tar.gz  f64be888c2790703465b5f60fb97d2d8181625f7c4ef6ea1c786d824a9b28263
+z203 pluto.frm      df9d0f745309f684c819cc24659b308f9c7f3a32ba7ea72d9d90f1db07a35943
+z103 pluto.frm      6b2dfe06b590370a6132396ab0f2acbea7c4c6e7b77c8df2dad18f1e18e79281
 z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
 z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
 ```
@@ -2379,18 +2388,18 @@ matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
 
-Refreshed package and RAM-boot hashes after wiring the RF packet-engine handoff
+Refreshed package and RAM-boot hashes after wiring the RF TX guard planning
 query:
 
 ```text
-z203 pluto.frm 708313335b8eb502c1d91ff7c5b68e4e5aa7db9324ce05fe27cdfccd2eb59a46
-z203 pluto.itb bc5b62c32541a53aa5ff9c4e8c06cf8033c6865363cafc732ac0574d6c5e420d
+z203 pluto.frm df9d0f745309f684c819cc24659b308f9c7f3a32ba7ea72d9d90f1db07a35943
+z203 pluto.itb 721fb79f2d17a8db855addaa25cee9ad184328ba995afd4814fe974578042305
 z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
-z203 jtag ramdisk 247dba030d6977c3313bb696f37902ae31cee47fbdc22f334daffc5c1a82cef7
-z103 pluto.frm 64ea785dd997436c6fc81281f950535191457700b50d27190beeadfcaa1bfcf2
-z103 pluto.itb 833019dd22bd9c22dc6d2842bfabdc7b73be1503088d847242af8ae8c702edf1
+z203 jtag ramdisk d465c8b1b9d41088e94d0d0c4e812ea458a108445b618bcc0d48064f9d3c3d08
+z103 pluto.frm 6b2dfe06b590370a6132396ab0f2acbea7c4c6e7b77c8df2dad18f1e18e79281
+z103 pluto.itb 0bcb2bfdfaeb1577997367585018ae313e7ed91351ad845a0b34359c0c50e01c
 z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
-z103 jtag ramdisk ff824a8fe771565e8e59185cf0f0e1cff4c5a41c60f537f1920d4e231801aa66
+z103 jtag ramdisk e9f0ad96aeed5ad66bda35f8893b89e66165c6049331eedf7f6745eb01e20ef4
 ```
 
 The board sidecar preflight assertion was added and checked with synthetic

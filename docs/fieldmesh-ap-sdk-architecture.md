@@ -576,6 +576,14 @@ Stage 2: Board-local service
   `--rf-engine-overlay` copied-HDL gate now proves both cells are BD-visible
   behind the sidecar DMA/bridge TX path while guarded IQ remains disconnected
   from AD936x TX.
+- Use `fieldmesh_plan_rf_tx_guard()` / `fieldmesh_apply_rf_tx_guard()` and
+  daemon `FIELDMESH_RF_TX_GUARD_PLAN` as the first scheduler/filter/driver
+  control boundary after the symbolizer. It plans `fieldmesh_iq_tx_guard`
+  arming from the checked RF packet-engine plan, reports the slot epoch/index
+  and safety prerequisites, and remains dry-run by default:
+  `sets_tx_enable=0`, `sets_tx_armed=0`, `writes_hardware=0`,
+  `starts_rf_tx=0`, `commands_executed=0`, `uses_iio=0`, and
+  `uses_inter_board_ip_routing=0`.
 - Use daemon `FIELDMESH_TUN_FD_PUMP` and
   `fieldmesh_tun_packetizer_pump_once()` as the first live-TUN ownership
   boundary: the SDK accepts a pure-C read callback, so production code can

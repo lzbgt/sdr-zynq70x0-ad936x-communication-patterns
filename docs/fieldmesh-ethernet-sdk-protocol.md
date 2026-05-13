@@ -117,6 +117,7 @@ Minimum daemon messages:
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
 | `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
+| `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |
@@ -286,6 +287,17 @@ abstraction. The copied-HDL `--rf-engine-overlay` mode makes that primitive
 BD-visible behind the sidecar DMA/bridge TX path and immediately feeds
 `fieldmesh_iq_tx_guard`. The guard stays unarmed and its IQ output remains
 disconnected from AD936x TX until the scheduler/filter/driver path exists.
+
+The SDK now has the first software contract for that scheduler/filter/driver
+boundary: `fieldmesh_plan_rf_tx_guard()` and `fieldmesh_apply_rf_tx_guard()`.
+The daemon request `FIELDMESH_RF_TX_GUARD_PLAN` derives a guard plan from a
+checked RF packet-engine plan, preserves direct/relay route metadata, assigns a
+deterministic slot epoch/index, and reports the required conducted/shielded
+fixture, legal frequency profile, RX-first ordering, sidecar preflight, RF
+packet-engine, and TX-enable guard preconditions. The current request is
+intentionally dry-run: `sets_tx_enable=0`, `sets_tx_armed=0`,
+`writes_hardware=0`, `starts_rf_tx=0`, `commands_executed=0`, `uses_iio=0`,
+and `uses_inter_board_ip_routing=0`.
 
 The daemon also exposes a guarded production request,
 `FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the
