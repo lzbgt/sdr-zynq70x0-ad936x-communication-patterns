@@ -646,9 +646,11 @@ Expected result in the current Pluto-compatible firmware state:
    `system_top.bit`/XSA; the Z203 and Z103 copied overlays are timing-clean.
    The sidecar devicetree binding plus `dt-scan` preflight are drafted and
    offline validated, and FieldMesh-specific `pluto.frm` packages can now be
-   assembled for both variants with matching bitstream/DTB pairs. Next boot a
-   FieldMesh package through a non-flashing path, run `fieldmesh-udp-probe
-   dt-scan` and read-only `ctrl-scan`, then scale descriptor storage beyond
-   the shallow class rings and bind the path to IIO/PL before open-air RF
-   tests. The first live Z103 FieldMesh RAM-boot attempt is currently blocked
-   at the PS-side DAP/DSCR reset-halt boundary before payload loading.
+   assembled for both variants with matching bitstream/DTB pairs. The Z203 and
+   Z103 developer images and FieldMesh packages were refreshed after adding
+   read-only `ctrl-scan`, so the next live boot has the full `dt-scan` plus
+   `ctrl-scan` preflight available. Next boot a FieldMesh package through a
+   non-flashing path, run those preflights, then scale descriptor storage
+   beyond the shallow class rings and bind the path to IIO/PL before open-air
+   RF tests. The first live Z103 FieldMesh RAM-boot attempt is currently
+   blocked at the PS-side DAP/DSCR reset-halt boundary before payload loading.

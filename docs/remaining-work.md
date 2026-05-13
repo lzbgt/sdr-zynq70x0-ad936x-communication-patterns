@@ -177,6 +177,9 @@ Next concrete work:
 - `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.
+  The packages and developer rootfs images were refreshed after adding
+  read-only `ctrl-scan`, and both rootfs tarballs contain the updated
+  `fieldmesh-udp-probe`.
 - Boot a FieldMesh package through a non-flashing path, then run
   `fieldmesh-udp-probe dt-scan` and read-only `ctrl-scan` before touching
   sidecar packet DMA/IIO
