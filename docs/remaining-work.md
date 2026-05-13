@@ -150,10 +150,12 @@ Next concrete work:
   those management paths, proves per-board sidecar DMA packet readiness, runs
   read-only AD936x IIO scan/plan capture, emits `rf_binding_plan.json`, and
   explicitly asserts that inter-board payloads must use the FieldMesh radio
-  data plane. The next live-safe step is a conducted or shielded RF IQ
-  encoder/decoder smoke with explicit frequency, attenuation, and TX enable
-  guards, then running AP browse/election/join as host commands whose peer
-  payload traffic crosses RF.
+  data plane. The offline `tools/fieldmesh_iq_burst_smoke.py` gate now creates
+  and decodes a guarded FieldMesh IQ burst without opening IIO buffers or
+  starting RF TX. The next live-safe step is binding that IQ burst to an AD936x
+  conducted/shielded buffer path with explicit frequency, attenuation, and TX
+  enable guards, then running AP browse/election/join as host commands whose
+  peer payload traffic crosses RF.
 - Build the practical two-host camera-stream demo on top of the SDK once the
   RF stream path is live. The intended product flow is one app that can source
   or preview camera data: Host A camera -> local board over USB/physical

@@ -2850,6 +2850,34 @@ identity after Z203 SSH stopped responding. The capture includes
 `z203_identity_provenance.txt`; the Z203 IIO and DMA artifacts in the same
 directory are from the successful RF-binding run.
 
+## FieldMesh IQ Burst Smoke
+
+The first conducted-test IQ burst gate is offline and does not touch hardware:
+
+```sh
+./tools/verify_fieldmesh_iq_burst_smoke.sh
+```
+
+It runs `tools/fieldmesh_iq_burst_smoke.py` over
+`resources/fieldmesh/vectors/frame_000.bin` with explicit RF fixture fields:
+
+- `center_frequency_hz=2400000000`;
+- `sample_rate_hz=1000000`;
+- `rf_bandwidth_hz=1000000`;
+- `fixture_attenuation_db=60`;
+- `--conducted-or-shielded`.
+
+Result:
+
+```json
+{"event": "fieldmesh_iq_burst_smoke_check", "fixture_attenuation_db": 60.0, "iq_samples": 6656, "ok": true}
+```
+
+The generated `fieldmesh_iq_burst_smoke.json` reports
+`opens_iio_buffers=false`, `starts_rf_tx=false`, `writes_hardware=false`, and
+`recovered_frame_match=true`. The same verifier also checks that the tool
+refuses a burst plan when the conducted/shielded guard is missing.
+
 Refreshed runtime artifact hashes after the CLI fix:
 
 ```text

@@ -452,6 +452,15 @@ user and vendor configuration.
   planner. It combines sidecar DMA smoke captures with AD936x IIO scan/plan
   captures, selects RF RX/TX IIO endpoints, and asserts that host-facing IP
   remains management only while no IIO buffers or RF TX are started.
+- `tools/fieldmesh_iq_burst_smoke.py` - offline conducted-test IQ burst smoke.
+  It wraps a committed FieldMesh frame with a preamble/length/CRC, synthesizes
+  interleaved int16 BPSK IQ samples, decodes them back to the same frame, and
+  requires explicit frequency, sample-rate, bandwidth, attenuation, and
+  conducted/shielded fixture arguments while still opening no IIO buffers and
+  starting no RF TX.
+- `tools/verify_fieldmesh_iq_burst_smoke.sh` - gate for the IQ burst smoke,
+  including a negative test that refuses to plan a burst without the
+  conducted/shielded guard.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
