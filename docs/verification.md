@@ -2240,6 +2240,21 @@ TX and RX sidecar DMA windows and ended with `"ok":true`; the truncated image
 failed with `"ok":false`. `dma-scan` does not write registers or start
 transfers.
 
+The sidecar DMA transfer planner was added as the final dry-run gate before a
+register-writing smoke test:
+
+```sh
+./tools/build_fieldmesh_udp_probe_host.sh
+./tools/fieldmesh_vector_tool.py verify-c resources/fieldmesh/vectors/manifest.json \
+  --probe .config/fieldmesh/fieldmesh-udp-probe-host
+```
+
+Result: all 10 committed FieldMesh frame vectors passed `verify-frame`,
+`mmap-replay`, `desc-replay`, `pl-replay`, and `dma-plan`. The `dma-plan`
+checks asserted no register writes, no transfer starts, two buffer plans
+(`ps_to_pl` and `pl_to_ps`), 16-bit aligned byte counts, RX-before-TX ordering,
+and one `packet_trace` per vector.
+
 The updated probe was rebuilt for both Yocto variants:
 
 ```sh
@@ -2261,13 +2276,14 @@ carry the current preflight roles:
 ```
 
 `strings` on `/usr/bin/fieldmesh-udp-probe` from both rootfs tarballs confirmed
-`dt-scan`, `ctrl-scan`, and `dma-scan` are present. Refreshed rootfs hashes:
+`dt-scan`, `ctrl-scan`, `dma-scan`, and `dma-plan` are present. Refreshed
+rootfs hashes:
 
 ```text
-z203 rootfs.cpio.gz cbc95fd68d0a1f3af8cb38346967a075948055757923ce82c1cadc6f8ccc767c
-z203 rootfs.tar.gz  086ce01ed759106cb8e821a24754570c0e09425aefc2f2b22e3143aca46142af
-z103 rootfs.cpio.gz 915ad25659081b1f7d8daf237b37130c5258ba1aed14524288fdd1338611a860
-z103 rootfs.tar.gz  80337638b17d9aabaf32a074022fcdc5f5e2bdebcae04bb1f9fc5a762c346ac4
+z203 rootfs.cpio.gz 54d69e62bc38b89b755e9e593a45b9a5f25d56467f7e9e496762a3254ac71ee5
+z203 rootfs.tar.gz  a40693de391e1498003945e959a0b5e811ed31163f11995c91418bfce4ef5ca0
+z103 rootfs.cpio.gz eaf053296e375015473b80b96a9d064648474202486b3171bcb6a2931ce9c02e
+z103 rootfs.tar.gz  b534ca89a37d194af38a0c846ce5086b91a821f7a6657558a9779f30538e0557
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency
@@ -2278,10 +2294,23 @@ gate:
 ```
 
 Result: both variants passed. The verifier checks that the rootfs probe binary
-contains the expected FieldMesh roles, including `dma-scan`, the matched
-Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
+contains the expected FieldMesh roles, including `dma-scan` and `dma-plan`, the
+matched Pluto-style package files exist, the staged RAM-boot `SHA256SUMS` files
 validate, and the FieldMesh DTB in the package matches the FieldMesh DTB staged
 for JTAG RAM boot.
+
+Refreshed package and RAM-boot hashes after the `dma-plan` rootfs rebuild:
+
+```text
+z203 pluto.frm f8dc5acfb20d1b836f93ce24d1f15c6e39f3526958398138c45cf95a9d8ee872
+z203 pluto.itb 992e19d0714e8b1c5ca6f51788bd657aff80ad647f16cb035e28b0d6009a5f46
+z203 jtag dtb 38d834aedbae9f36d6682c4f360bf3a162c697f2fb908f42f57cc47b44979457
+z203 jtag ramdisk fc505d1c0077fc60396778e091e2ec291e7f52efd42628399e8b390a952c50ef
+z103 pluto.frm 650465b3f85b8335922c2daa305324e518d3d829d3af73759aed440d732c8f81
+z103 pluto.itb a74481462f57e2744322b6ff4120c1f676088b9443a9137d6b7513928d4bab62
+z103 jtag dtb eb97ea561316a716a4cba573c74ad62bb16328fb1a9e5138971a1471974b5ca8
+z103 jtag ramdisk ac78e6bfe6f40c68be0953e377e4946ba84800b2e86e966b30cd107198c84bc4
+```
 
 The board sidecar preflight assertion was added and checked with synthetic
 captures:

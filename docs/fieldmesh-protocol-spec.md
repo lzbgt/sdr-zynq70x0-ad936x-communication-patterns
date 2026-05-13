@@ -385,9 +385,10 @@ The vector corpus is deliberately small: scheduled/auto stress traffic for two
 ticks. It covers all traffic classes C0..C4, the largest current payload size,
 header CRC, shim-frame CRC, transport sequence handling, and PL descriptor field
 mapping. The C verification path runs `verify-frame`, `mmap-replay`,
-`desc-replay`, and `pl-replay` for every frame file, compares descriptor output
-against the manifest, and checks the modeled PL packet-copy CRC. `desc-replay`
-and `pl-replay` also emit assertion-ready `packet_trace` rows, so aggregate
+`desc-replay`, `pl-replay`, and `dma-plan` for every frame file, compares
+descriptor output against the manifest, checks the modeled PL packet-copy CRC,
+and checks the sidecar DMA dry-run transfer plan. `desc-replay`, `pl-replay`,
+and `dma-plan` also emit assertion-ready `packet_trace` rows, so aggregate
 replay captures can be checked with:
 
 ```sh

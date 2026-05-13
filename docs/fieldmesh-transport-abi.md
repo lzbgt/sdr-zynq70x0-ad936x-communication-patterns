@@ -135,8 +135,9 @@ Or verify every committed vector against the host-built C probe:
 
 These files are the contract for IIO and PL loopback work: new transports must
 carry the same frame bytes, preserve the manifest parse fields, and pass
-decode-only, mapped-memory replay, descriptor replay, PL descriptor replay, and
-the descriptor-loopback RTL simulation before adding RF/baseband behavior.
+decode-only, mapped-memory replay, descriptor replay, PL descriptor replay,
+sidecar DMA transfer planning, and the descriptor-loopback RTL simulation before
+adding RF/baseband behavior.
 
 ## Stage 2: PL Packet Queue ABI
 
@@ -150,6 +151,12 @@ models a first TX/RX descriptor-ring loopback, copies the packet into modeled
 PL packet memory, completes TX/RX descriptors, and emits assertion-ready
 `packet_trace` rows so the PL boundary can be checked with
 `tools/fieldmesh_trace_assert.py --no-negotiation`.
+
+The probe also has `dma-plan`, a dry-run sidecar DMA gate. It reads the same
+vector frames, emits the planned PS-to-PL and PL-to-PS buffer descriptors, and
+asserts RX-before-TX ordering without opening `/dev/mem`, writing DMA registers,
+or starting a transfer. This is the last software-only gate before a live
+packet-DMA smoke test.
 
 The first HDL slice is `rtl/fieldmesh/fieldmesh_desc_loopback_core.v`, with
 `tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v` and

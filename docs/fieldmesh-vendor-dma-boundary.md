@@ -345,6 +345,22 @@ Run the wrapper before any packet-DMA smoke test. The wrapper also runs
 `ctrl_scan.ndjson`, and `dma_scan.ndjson` files and writes a single
 `preflight_assert.json` pass/fail summary.
 
+Before moving from preflight into a transfer-starting smoke test, run the
+vector-fed dry-run planner:
+
+```sh
+fieldmesh-udp-probe dma-plan \
+  --file resources/fieldmesh/vectors/frame_000.bin \
+  --tx-dma-base 0x43c10000 \
+  --rx-dma-base 0x43c20000
+```
+
+`dma-plan` validates the committed FieldMesh shim frame, derives the packet byte
+length for the 16-bit stream adapter, emits TX/RX DDR buffer choices, and records
+the required order: arm RX before TX, start RX before TX, then verify the RX
+packet CRC. It is intentionally non-destructive: it does not open `/dev/mem`,
+write DMA registers, or start a transfer.
+
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:
 

@@ -186,13 +186,17 @@ Next concrete work:
   package-vs-RAM-boot DTB parity before a live boot attempt. The sidecar
   preflight now also includes read-only `dma-scan` for the TX/RX sidecar DMA
   windows plus a host-side assertion summary before any transfer-starting
-  packet DMA test.
+  packet DMA test. `dma-plan` has been added as the software-only bridge from
+  committed FieldMesh vectors to a concrete RX-before-TX sidecar DMA transfer
+  plan.
 - Boot a FieldMesh package through a non-flashing path, then run
   `fieldmesh-udp-probe dt-scan`, read-only `ctrl-scan`, and read-only
   `dma-scan` before starting sidecar packet DMA/IIO
-  registers. `tools/run_fieldmesh_jtag_yocto_ram.sh` now prepares the matching
-  FieldMesh bitstream/DTB/kernel/initramfs RAM-boot payloads for Z203 and
-  Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at
+  registers. Run `dma-plan` against the committed vector corpus before any
+  transfer-starting smoke test so buffer sizes, 16-bit alignment, and RX/TX
+  ordering are already asserted. `tools/run_fieldmesh_jtag_yocto_ram.sh` now
+  prepares the matching FieldMesh bitstream/DTB/kernel/initramfs RAM-boot
+  payloads for Z203 and Z103. The 2026-05-13 Z103 live attempt reached the JTAG chain but failed at
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the
   payload; use a real JTAG-mode power cycle before retrying. When runtime is
   reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures the

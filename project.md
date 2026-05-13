@@ -403,7 +403,9 @@ user and vendor configuration.
   `packet_trace` rows; Yocto board builds also link libiio for the `iio-scan`
   and `iio-plan` runtime preflight roles and include `dt-scan` plus read-only
   `ctrl-scan`/`dma-scan` preflights for the FieldMesh sidecar devicetree,
-  control register, and packet DMA register contracts.
+  control register, and packet DMA register contracts. `dma-plan` consumes the
+  same committed frame vectors and emits a no-write, no-start TX/RX sidecar DMA
+  transfer plan before any live register-writing packet test.
 - `tools/run_fieldmesh_board_iio_scan.sh` - SSH-driven FieldMesh/IIO preflight
   that runs `fieldmesh-udp-probe iio-scan` and `iio-plan` on a reachable
   rebuilt board image, verifies that at least one IIO device is visible
@@ -669,10 +671,12 @@ Expected result in the current Pluto-compatible firmware state:
    assembled for both variants with matching bitstream/DTB pairs. The Z203 and
    Z103 developer images and FieldMesh packages were refreshed after adding
    read-only `ctrl-scan`; `dma-scan` now extends that preflight to read-only
-   packet-DMA window discovery, and the SSH wrapper now asserts all three
-   captures into `preflight_assert.json` before starting transfers. Next boot a
-   FieldMesh package through a non-flashing path, run those preflights, then
-   bind the path to IIO/PL before open-air RF tests. The first live Z103
+   packet-DMA window discovery, and `dma-plan` dry-runs the per-vector TX/RX
+   buffer/order contract without touching DMA registers. The SSH wrapper now
+   asserts all three live captures into `preflight_assert.json` before starting
+   transfers. Next boot a FieldMesh package through a non-flashing path, run
+   those preflights, then execute a transfer-starting sidecar DMA smoke test
+   only after the dry-run plan and board preflight are green. The first live Z103
    FieldMesh live-gate capture is archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_live_gate_20260513-085831/`;
    it passed artifact preparation and TAP-level JTAG scan, then failed at the

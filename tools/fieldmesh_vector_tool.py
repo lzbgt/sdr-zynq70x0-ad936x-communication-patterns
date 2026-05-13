@@ -182,7 +182,7 @@ def verify_c_probe(args: argparse.Namespace) -> None:
 
     for row in manifest.get("vectors", []):
         frame_path = base_dir / row["frame_file"]
-        for role in ("verify-frame", "mmap-replay", "desc-replay", "pl-replay"):
+        for role in ("verify-frame", "mmap-replay", "desc-replay", "pl-replay", "dma-plan"):
             try:
                 events = run_probe_events(args.probe, role, frame_path)
             except (RuntimeError, json.JSONDecodeError) as exc:
@@ -209,6 +209,32 @@ def verify_c_probe(args: argparse.Namespace) -> None:
                     errors.append(f"{frame_path}: pl-replay packet_trace rx_ok is not true")
                 if event.get("packet_copy_crc") != event.get("frame_crc"):
                     errors.append(f"{frame_path}: pl-replay packet copy crc mismatch")
+            if role == "dma-plan":
+                start_events = [event for event in events if event.get("event") == "dma_plan_start"]
+                buffer_events = [event for event in events if event.get("event") == "dma_buffer_plan"]
+                order_events = [event for event in events if event.get("event") == "dma_order_plan"]
+                packet_traces = [event for event in events if event.get("event") == "packet_trace"]
+                if len(start_events) != 1:
+                    errors.append(f"{frame_path}: dma-plan expected one dma_plan_start, got {len(start_events)}")
+                elif start_events[0].get("writes_registers") is not False or start_events[0].get("starts_transfer") is not False:
+                    errors.append(f"{frame_path}: dma-plan start must be dry-run only")
+                if len(buffer_events) != 2:
+                    errors.append(f"{frame_path}: dma-plan expected two dma_buffer_plan events, got {len(buffer_events)}")
+                else:
+                    directions = {event.get("direction") for event in buffer_events}
+                    if directions != {"ps_to_pl", "pl_to_ps"}:
+                        errors.append(f"{frame_path}: dma-plan direction mismatch: {sorted(directions)}")
+                    for buffer_event in buffer_events:
+                        if buffer_event.get("packet_len") != row["packet_bytes"]:
+                            errors.append(f"{frame_path}: dma-plan packet_len mismatch")
+                        if buffer_event.get("aligned_bytes", 0) < row["packet_bytes"]:
+                            errors.append(f"{frame_path}: dma-plan aligned length too small")
+                if len(order_events) != 1 or order_events[0].get("rx_armed_before_tx") is not True:
+                    errors.append(f"{frame_path}: dma-plan must require RX-before-TX ordering")
+                if len(packet_traces) != 1:
+                    errors.append(f"{frame_path}: dma-plan expected one packet_trace, got {len(packet_traces)}")
+                if event.get("transport_seq") != row["frame"]["transport_seq"]:
+                    errors.append(f"{frame_path}: dma-plan transport sequence mismatch")
 
     summary = {
         "event": "fieldmesh_c_vectors_verified",

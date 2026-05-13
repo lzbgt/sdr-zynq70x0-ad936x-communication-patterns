@@ -126,6 +126,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
         "  fieldmesh-udp-probe ctrl-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-scan [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000] [--dma-size 0x10000] [--dma-mem-file FILE]\n"
+        "  fieldmesh-udp-probe dma-plan --file FRAME.bin [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000]\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -238,22 +239,25 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
+        strcmp(cfg->role, "dma-plan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
+        strcmp(cfg->role, "dma-plan") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
         return 2;
     }
     if ((!strcmp(cfg->role, "verify-frame") || !strcmp(cfg->role, "mmap-replay") ||
-         !strcmp(cfg->role, "desc-replay") || !strcmp(cfg->role, "pl-replay")) &&
+         !strcmp(cfg->role, "desc-replay") || !strcmp(cfg->role, "pl-replay") ||
+         !strcmp(cfg->role, "dma-plan")) &&
         cfg->file == NULL) {
         fprintf(stderr, "--file must be set for %s\n", cfg->role);
         return 2;
@@ -1654,6 +1658,89 @@ static int run_dma_scan(const struct config *cfg)
     return ok ? 0 : 1;
 }
 
+static int run_dma_plan(const struct config *cfg)
+{
+    uint8_t frame[MAX_FRAME + 1U];
+    size_t frame_len = 0;
+    uint16_t packet_len = 0;
+    uint32_t transport_seq = 0;
+    uint32_t frame_crc = 0;
+    uint32_t aligned_bytes = 0;
+    uint32_t tx_buffer = 0x1f000000U;
+    uint32_t rx_buffer = 0x1f100000U;
+    const uint8_t *packet = frame + FIELD_MESH_FRAME_LEN;
+    char err[128] = {0};
+    bool ok = false;
+
+    printf("{\"event\":\"dma_plan_start\",\"transport\":\"dma-plan\","
+           "\"file\":\"%s\",\"tx_dma_base\":\"0x%08x\",\"rx_dma_base\":\"0x%08x\","
+           "\"writes_registers\":false,\"starts_transfer\":false,"
+           "\"requires_preflight\":[\"dt-scan\",\"ctrl-scan\",\"dma-scan\"]}\n",
+           cfg->file, cfg->tx_dma_base, cfg->rx_dma_base);
+
+    if (!read_frame_file(cfg->file, frame, sizeof(frame), &frame_len, err, sizeof(err))) {
+        goto out;
+    }
+    if (frame_len > MAX_FRAME) {
+        snprintf(err, sizeof(err), "transport frame too large");
+        goto out;
+    }
+    if (frame_len >= FIELD_MESH_FRAME_LEN + FIELD_MESH_FRAME_CRC_LEN) {
+        packet_len = get_le16(frame + 2);
+        transport_seq = get_le32(frame + 4);
+        if (frame_len >= FIELD_MESH_FRAME_LEN + packet_len + FIELD_MESH_FRAME_CRC_LEN) {
+            frame_crc = get_le32(frame + FIELD_MESH_FRAME_LEN + packet_len);
+        }
+    }
+    ok = decode_frame(frame, frame_len, err, sizeof(err));
+    if (!ok) {
+        goto out;
+    }
+
+    aligned_bytes = (uint32_t)((packet_len + 1U) & ~1U);
+    tx_buffer += transport_seq * DESC_MODEL_PACKET_STRIDE;
+    rx_buffer += transport_seq * DESC_MODEL_PACKET_STRIDE;
+
+    printf("{\"event\":\"dma_buffer_plan\",\"transport\":\"dma-plan\","
+           "\"direction\":\"ps_to_pl\",\"dma\":\"tx\",\"dma_base\":\"0x%08x\","
+           "\"ddr_addr\":\"0x%08x\",\"packet_len\":%u,\"aligned_bytes\":%u,"
+           "\"requires_16bit_alignment\":true,\"pad_byte_required\":%s}\n",
+           cfg->tx_dma_base, tx_buffer, packet_len, aligned_bytes,
+           (packet_len & 1U) ? "true" : "false");
+    printf("{\"event\":\"dma_buffer_plan\",\"transport\":\"dma-plan\","
+           "\"direction\":\"pl_to_ps\",\"dma\":\"rx\",\"dma_base\":\"0x%08x\","
+           "\"ddr_addr\":\"0x%08x\",\"packet_len\":%u,\"aligned_bytes\":%u,"
+           "\"requires_16bit_alignment\":true,\"pad_byte_required\":%s}\n",
+           cfg->rx_dma_base, rx_buffer, packet_len, aligned_bytes,
+           (packet_len & 1U) ? "true" : "false");
+    printf("{\"event\":\"dma_order_plan\",\"transport\":\"dma-plan\","
+           "\"rx_armed_before_tx\":true,\"steps\":["
+           "\"copy_packet_to_tx_buffer\","
+           "\"arm_rx_s2mm_descriptor\","
+           "\"arm_tx_mm2s_descriptor\","
+           "\"start_rx_then_tx\","
+           "\"poll_rx_then_tx_completion\","
+           "\"verify_rx_packet_crc\"],"
+           "\"live_test_may_write_registers\":true}\n");
+    printf("{\"event\":\"packet_trace\",\"transport\":\"dma-plan\","
+           "\"epoch\":%u,\"slot\":%u,\"mode\":\"%s\","
+           "\"src_node\":\"%s\",\"dst_node\":\"%s\",\"stream_id\":%u,"
+           "\"traffic_class\":\"%s\",\"sequence\":%u,\"payload_len\":%u,"
+           "\"rx_transport_seq\":%u,\"rx_frame_crc\":%u}\n",
+           get_le32(packet + 18), get_le16(packet + 22), mode_name(packet[15]),
+           node_name(get_le16(packet + 8)), node_name(get_le16(packet + 10)),
+           get_le16(packet + 12), class_name(packet[14]), get_le32(packet + 24),
+           get_le16(packet + 28), transport_seq, frame_crc);
+
+out:
+    printf("{\"event\":\"dma_plan_end\",\"transport\":\"dma-plan\","
+           "\"ok\":%s,\"frame_bytes\":%zu,\"packet_len\":%u,"
+           "\"transport_seq\":%u,\"frame_crc\":%u,\"error\":%s}\n",
+           ok ? "true" : "false", frame_len, packet_len, transport_seq,
+           frame_crc, ok ? "null" : "\"dma plan decode failed\"");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -1693,6 +1780,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "dma-scan")) {
         return run_dma_scan(&cfg);
+    }
+    if (!strcmp(cfg.role, "dma-plan")) {
+        return run_dma_plan(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);
