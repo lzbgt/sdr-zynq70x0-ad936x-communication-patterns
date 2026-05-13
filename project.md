@@ -495,6 +495,10 @@ user and vendor configuration.
   RAM-boot payload for Z203 or Z103 from the Yocto kernel/rootfs, matching
   sidecar DTB, and timing-clean FieldMesh bitstream, then delegates to the
   OpenOCD/U-Boot RAM loader.
+- `tools/verify_fieldmesh_runtime_artifacts.sh` - checks that refreshed Z203
+  and Z103 FieldMesh runtime artifacts are internally consistent: rootfs probe
+  roles, Pluto-style package files, RAM-boot staging hashes, and sidecar DTB
+  parity between package and RAM-boot staging.
 - `tools/fieldmesh_vivado_overlay_patch.py` - patches a copied Pluto HDL tree
   by copying FieldMesh RTL under `projects/pluto/fieldmesh/` and adding
   idempotent `system_project.tcl`/`Makefile` references; dry-run is the

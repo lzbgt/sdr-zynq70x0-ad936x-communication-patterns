@@ -179,7 +179,9 @@ Next concrete work:
   Z203/Z103 Pluto-style update payloads without mutating the default images.
   The packages and developer rootfs images were refreshed after adding
   read-only `ctrl-scan`, and both rootfs tarballs contain the updated
-  `fieldmesh-udp-probe`.
+  `fieldmesh-udp-probe`. `tools/verify_fieldmesh_runtime_artifacts.sh` now
+  checks rootfs probe roles, package artifacts, JTAG RAM-boot hashes, and
+  package-vs-RAM-boot DTB parity before a live boot attempt.
 - Boot a FieldMesh package through a non-flashing path, then run
   `fieldmesh-udp-probe dt-scan` and read-only `ctrl-scan` before touching
   sidecar packet DMA/IIO

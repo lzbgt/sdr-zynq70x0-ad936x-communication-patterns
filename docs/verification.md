@@ -2253,6 +2253,18 @@ z103 rootfs.cpio.gz 40a244c8c7947431f157a687954f913f62d46c490afd756e9c78d521e0d6
 z103 rootfs.tar.gz  f0e4f5d1bb991aa70a49402129630b0520d16f0509b90e445beba1b48af8e20a
 ```
 
+The refreshed package/rootfs/RAM-boot set was then checked as one consistency
+gate:
+
+```sh
+./tools/verify_fieldmesh_runtime_artifacts.sh all
+```
+
+Result: both variants passed. The verifier checks that the rootfs probe binary
+contains the expected FieldMesh roles, the matched Pluto-style package files
+exist, the staged RAM-boot `SHA256SUMS` files validate, and the FieldMesh DTB
+in the package matches the FieldMesh DTB staged for JTAG RAM boot.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known
