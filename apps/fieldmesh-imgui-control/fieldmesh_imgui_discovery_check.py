@@ -8,17 +8,24 @@ import threading
 from pathlib import Path
 
 
-def serve_once(sock: socket.socket, payload: dict) -> None:
-    data, addr = sock.recvfrom(2048)
-    if b"FIELDMESH_HELLO" in data:
-        sock.sendto((json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+def serve_until_closed(sock: socket.socket, payload: dict) -> None:
+    sock.settimeout(0.2)
+    while True:
+        try:
+            data, addr = sock.recvfrom(2048)
+        except socket.timeout:
+            continue
+        except OSError:
+            break
+        if b"FIELDMESH_HELLO" in data:
+            sock.sendto((json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8"), addr)
 
 
 def bind_server(payload: dict) -> tuple[socket.socket, int, threading.Thread]:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
-    thread = threading.Thread(target=serve_once, args=(sock, payload), daemon=True)
+    thread = threading.Thread(target=serve_until_closed, args=(sock, payload), daemon=True)
     thread.start()
     return sock, port, thread
 
@@ -61,7 +68,29 @@ def main() -> int:
     candidates = f"127.0.0.1:{server_a[1]},127.0.0.1:{server_b[1]}"
     try:
         with tempfile.TemporaryDirectory() as tmp:
-            snapshot = Path(tmp) / "snapshot.json"
+            default_snapshot = Path(tmp) / "default.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--snapshot-output",
+                    str(default_snapshot),
+                ],
+                check=True,
+            )
+            default_data = json.loads(default_snapshot.read_text(encoding="utf-8"))
+            if default_data["profile_source"] != "runtime_discovery":
+                raise SystemExit("GUI did not use runtime discovery without profile")
+            if default_data["detected_board_count"] != 2:
+                raise SystemExit("GUI did not discover both board daemons")
+            if default_data["connected_to_board"]:
+                raise SystemExit("runtime discovery must not auto-connect to the first board")
+            if default_data["selected_board_eui"] != "":
+                raise SystemExit("runtime discovery must wait for explicit board selection")
+
+            snapshot = Path(tmp) / "selected.json"
             subprocess.run(
                 [
                     str(app),

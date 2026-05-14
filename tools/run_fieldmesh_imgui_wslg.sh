@@ -273,6 +273,7 @@ fi
 if [ -n "$profile" ]; then
     app_args=(--profile "$profile" "${app_args[@]}")
 fi
+app_args=(--instance "$instance" "${app_args[@]}")
 
 if [ "$detach" -eq 1 ]; then
     log_file="/tmp/${instance}.log"
