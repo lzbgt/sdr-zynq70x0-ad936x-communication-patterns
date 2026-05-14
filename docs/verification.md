@@ -3715,6 +3715,45 @@ visible. Explicit QSPI writes are refused after a failed integrity precheck
 unless `ALLOW_Z203_DAMAGED_QSPI_WRITE=1` is set for a deliberate repair
 attempt.
 
+### Z203 QSPI Tail Write And U-Boot Repair Probe
+
+The Linux MTD write path was tested on one unused `mtd3` tail eraseblock, after
+the current FIT payload boundary:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_qspi_tail_write_20260515-045831 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_QSPI_TAIL_TEST=1 \
+BOARD_IP=192.168.1.10 \
+  ./tools/test_z203_qspi_tail_write.sh 192.168.1.10
+```
+
+Result: failed. `mtd_debug erase` read back all `0xff`, but the subsequent
+program/readback did not match the pattern. The dominant unexpected one-bit
+mask was again `0x44`, across 49,152 of 65,536 bytes. That proves Linux-side
+MTD erase can work while Linux-side programming is not trustworthy on this
+Z203 QSPI path.
+
+A U-Boot capability probe then confirmed that U-Boot can access the SD card,
+can load files with `fatload`, exposes `sf` commands, and sees the same corrupt
+QSPI header via `sf read`:
+
+```text
+resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_capability_20260515-045908/
+```
+
+The first full U-Boot QSPI repair attempt staged the product FIT onto SD and
+tried to write QSPI `0x200000`, but the generated command used
+variable-expanded `+${fm_fit_size}` lengths that this U-Boot rejected. The
+operation did not report a verify pass/fail before timeout, and the board was
+recovered with JTAG PS reset. The current SD/initramfs runtime then passed the
+installed daemon gate again, and a post-attempt QSPI integrity capture still
+reports `safe_z203_install_mode=sd`.
+
+`tools/run_z203_uboot_qspi_repair.sh` now emits fixed hex FIT/write lengths and
+fixed 4 KiB-aligned erase lengths. Before another full repair write, run a
+small U-Boot tail-sector write/readback probe so full-FIT repair is not the
+first test of the U-Boot write path.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

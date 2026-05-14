@@ -1,0 +1,4 @@
+local_itb=/root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.itb
+local_itb_sha256=3166d3b91cd8b940ca88764e4accf341ea91f2ad325c11c20e1a7eef5080da9e
+local_fit_head_sha256=028ffaf333327dc71350e89f683f8cc8455f09fab5e9ccc68d29b6b9cbe9784a
+local_fit_size=28871995

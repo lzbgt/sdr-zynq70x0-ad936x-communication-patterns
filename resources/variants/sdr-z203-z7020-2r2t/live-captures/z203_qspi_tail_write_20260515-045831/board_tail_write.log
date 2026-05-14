@@ -1,0 +1,22 @@
+fieldmesh_z203_qspi_tail_write_begin
+hostname=fm-z203
+mtd_debug_info_begin
+mtd.type = MTD_NORFLASH
+mtd.flags = MTD_CAP_NORFLASH
+mtd.size = 31457280 (30M)
+mtd.erasesize = 65536 (64K)
+mtd.writesize = 1
+mtd.oobsize = 0
+regions = 0
+
+mtd_debug_info_end
+Copied 65536 bytes from address 0x01b90000 in flash to /tmp/fieldmesh-z203-qspi-tail-57423.before.bin
+6539d6833277b55dfb594a64dae412fe250261c49b7df00a9f3a8601783f8633  /tmp/fieldmesh-z203-qspi-tail-57423.before.bin
+4cb91f7ce59d0d964a3206787b09d304e715cc76fc78eb8fcbccb24bd4eda530  /tmp/fieldmesh-z203-qspi-tail-57423.pattern.bin
+Erased 65536 bytes from address 0x01b90000 in flash
+Copied 65536 bytes from address 0x01b90000 in flash to /tmp/fieldmesh-z203-qspi-tail-57423.erased.bin
+Copied 65536 bytes from /tmp/fieldmesh-z203-qspi-tail-57423.pattern.bin to address 0x01b90000 in flash
+Copied 65536 bytes from address 0x01b90000 in flash to /tmp/fieldmesh-z203-qspi-tail-57423.after.bin
+71189f7fb6aed638640078fba3a35fda6c39c8962e74dcc75935aac948da9063  /tmp/fieldmesh-z203-qspi-tail-57423.erased.bin
+6539d6833277b55dfb594a64dae412fe250261c49b7df00a9f3a8601783f8633  /tmp/fieldmesh-z203-qspi-tail-57423.after.bin
+fieldmesh_z203_qspi_tail_write_end

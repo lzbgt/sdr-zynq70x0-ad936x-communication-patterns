@@ -1,0 +1,6 @@
+mmc dev 0
+fatload mmc 0 0x10000000 fieldmesh-z203.itb
+setenv fm_fit_size ${filesize}
+sf probe
+sf protect unlock 0x200000 +${fm_fit_size}
+if sf erase 0x200000 +${fm_fit_size} && sf write 0x10000000 0x200000 ${fm_fit_size} && sf read 0x14000000 0x200000 0x1000 && cmp.b 0x10000000 0x14000000 0x1000; then echo __FIELDMESH_QSPI_REPAIR_VERIFY_PASS__; setenv fit_size ${fm_fit_size}; run qspiboot; else echo __FIELDMESH_QSPI_REPAIR_VERIFY_FAIL__; reset; fi

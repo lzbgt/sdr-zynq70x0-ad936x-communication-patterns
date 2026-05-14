@@ -1,0 +1,59 @@
+{
+  "board_ip": "192.168.1.10",
+  "cmdline": "console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk",
+  "daemon_sha256": "62c2655bb80cfe0062459c0a2e135eae86b97d1349642e9b0db923a01a552771",
+  "diagnosis": "QSPI is not a trusted Z203 install target: mtd3 readback or U-Boot environment validation failed. Use the refreshed SD/initramfs runtime path until QSPI erase/write/readback and qspiboot both pass.",
+  "event": "fieldmesh_z203_qspi_integrity_diag",
+  "fw_env_readable": false,
+  "hostname": "fm-z203",
+  "local_fit_head_sha256": "028ffaf333327dc71350e89f683f8cc8455f09fab5e9ccc68d29b6b9cbe9784a",
+  "local_fit_size": 28871995,
+  "local_itb": "/root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.itb",
+  "local_itb_sha256": "3166d3b91cd8b940ca88764e4accf341ea91f2ad325c11c20e1a7eef5080da9e",
+  "mtd3_compare": {
+    "actual_magic_hex": "d44dfeed",
+    "bytes_compared": 4096,
+    "dominant_missing_one_bit_count": 0,
+    "dominant_missing_one_bit_mask_hex": "0x00",
+    "dominant_unexpected_one_bit_count": 2965,
+    "dominant_unexpected_one_bit_mask_hex": "0x44",
+    "expected_magic_hex": "d00dfeed",
+    "first4096_matches": false,
+    "first64_matches": false,
+    "first_mismatch": {
+      "actual": 212,
+      "expected": 208,
+      "offset": 0
+    },
+    "has_unexpected_one_bits": true,
+    "label": "mtd3_vs_local_fit",
+    "matches": false,
+    "mismatch_count": 3706
+  },
+  "mtd3_head_sha256": "e26b6cd35c42b40616c1da32754a7a760e80fa498616bd5a98eac324ea634633",
+  "mtdblock3_compare": {
+    "actual_magic_hex": "d44dfeed",
+    "bytes_compared": 4096,
+    "dominant_missing_one_bit_count": 0,
+    "dominant_missing_one_bit_mask_hex": "0x00",
+    "dominant_unexpected_one_bit_count": 2965,
+    "dominant_unexpected_one_bit_mask_hex": "0x44",
+    "expected_magic_hex": "d00dfeed",
+    "first4096_matches": false,
+    "first64_matches": false,
+    "first_mismatch": {
+      "actual": 212,
+      "expected": 208,
+      "offset": 0
+    },
+    "has_unexpected_one_bits": true,
+    "label": "mtdblock3_vs_local_fit",
+    "matches": false,
+    "mismatch_count": 3706
+  },
+  "mtdblock3_head_sha256": "e26b6cd35c42b40616c1da32754a7a760e80fa498616bd5a98eac324ea634633",
+  "qspi_integrity_pass": false,
+  "qspi_mtd3_matches_local_fit_head": false,
+  "qspi_mtdblock3_matches_local_fit_head": false,
+  "safe_z203_install_mode": "sd"
+}

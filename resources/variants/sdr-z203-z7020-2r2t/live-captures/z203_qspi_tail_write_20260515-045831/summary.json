@@ -1,0 +1,31 @@
+{
+  "after_compare": {
+    "dominant_missing_one_bit_count": 0,
+    "dominant_missing_one_bit_mask_hex": "0x00",
+    "dominant_unexpected_one_bit_count": 16384,
+    "dominant_unexpected_one_bit_mask_hex": "0x44",
+    "first_mismatch": {
+      "actual": 68,
+      "expected": 0,
+      "offset": 0
+    },
+    "mismatch_count": 49152
+  },
+  "board_ip": "192.168.1.10",
+  "bytes_tested": 65536,
+  "diagnosis": "mtd_debug tail write/readback failed; Linux QSPI MTD access is not trustworthy for Z203 repair.",
+  "erase_readback_all_ff": true,
+  "erased_compare": {
+    "dominant_missing_one_bit_count": 0,
+    "dominant_missing_one_bit_mask_hex": "0x00",
+    "dominant_unexpected_one_bit_count": 0,
+    "dominant_unexpected_one_bit_mask_hex": "0x00",
+    "first_mismatch": null,
+    "mismatch_count": 0
+  },
+  "event": "fieldmesh_z203_qspi_tail_write",
+  "scratch_offset": 28901376,
+  "scratch_offset_hex": "0x1b90000",
+  "tail_write_pass": false,
+  "write_readback_matches": false
+}

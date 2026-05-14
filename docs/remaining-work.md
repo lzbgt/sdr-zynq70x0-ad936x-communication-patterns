@@ -80,7 +80,16 @@ Firmware state:
   local FIT magic `d00dfeed`, live QSPI magic `d44dfeed`, and a dominant
   unexpected one-bit mask of `0x44` across the first 4 KiB. That makes this a
   QSPI erase/write/readback integrity issue, not only a stale `fit_size`
-  variable.
+  variable. A live tail-eraseblock test with `mtd_debug` showed erase readback
+  works (`0xff`), but programming still leaves the same `0x44` bits set, so
+  Linux-side MTD writes are not trusted for Z203 QSPI repair.
+- U-Boot can see the SD card and SPI NOR, and `sf read` sees the same corrupt
+  QSPI header. The first full U-Boot repair attempt was recovered by JTAG PS
+  reset; it exposed a command-generation bug where variable-expanded
+  `+${fm_fit_size}` lengths are rejected by this U-Boot. The repaired helper
+  now emits fixed hex FIT/write lengths and fixed 4 KiB-aligned erase lengths,
+  but do not run another full QSPI write until a small U-Boot tail-sector
+  write/readback probe passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

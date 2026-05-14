@@ -1,0 +1,135 @@
+﻿# Z203 serial U-Boot command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-15T05:01:33.9045561+08:00
+# InterruptSeconds: 14
+
+# >>>
+
+
+Poky (Yocto Project Reference Distro) 5.0.17 fm-z203 /dev/ttyPS0
+
+
+
+fm-z203 login:
+# >>> root
+root
+
+WARNING: Poky is a reference Yocto Project distribution that should be used for
+testing and development purposes only. It is recommended that you create your
+own distribution for production use.
+
+7[r[999;999H[6n
+# >>> analog
+8root@fm-z203:~#
+# >>>
+
+root@fm-z203:~#
+# >>> echo __FIELDMESH_PRE_UBOOT_REBOOT__
+echo __FIELDMESH_PRE_UBOOT_REBOOT__
+__FIELDMESH_PRE_UBOOT_REBOOT__
+root@fm-z203:~#
+# >>> sync
+sync
+root@fm-z203:~#
+# >>> reboot
+reboot
+
+
+Broadcast message from root@fm-z203 (tt?own for reboot NOW!
+
+
+INIT: Switching to runlevel: 6
+
+root@fm-
+INIT: Sending processes configured via /etc/inittab the TERM signal
+
+Stopping Dropbear SSH server: stopped /usr/sbin/dropbear (pid 775)
+dropbear.
+ * Stopping Avahi mDNS/DNS-SD Daemon: avahi-daemon
+   ...done.
+Stopping bluetooth: bluetoothd.
+Stopping system message bus: dbus.
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Stopping syslogd/klogd: stopped syslogd (pid 790)
+stopped klogd (pid 794)
+done
+Stopping Telephony daemon
+Unmounting remote filesystems...
+Stopping rpcbind daemon...
+done.
+Stopping Linux NFC daemon
+Stopping Lighttpd Web Server: stopped /usr/sbin/lighttpd (pid 813)
+lighttpd.
+Deconfiguring network interfaces... ifdown: interface usb1 not configured
+
+?root@fm-z203:~# macb e000b000.ethernet eth0: Link is Down
+done.
+Sending all processes the TERM signal...
+
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~# Sending all processes the KILL signal...
+Deactivating swap...
+Unmounting local filesystems...
+mount: mounting rootfs on / failed: Device or resource busy
+ffs_data_put(): freeing
+Rebooting... reboot: Restarting system
+
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+*** Warning - bad CRC, using default environment
+
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+reading uEnv.txt
+7585 bytes read in 13 ms (569.3 KiB/s)
+Importing environment from SD ...
+Hit any key to stop autoboot:  0  0
+Pluto>
+Pluto>
+# >>> mmc dev 0
+mmc dev 0
+switch to partitions #0, OK
+mmc0 is current device
+Pluto>
+# >>> fatload mmc 0 0x10000000 fieldmesh-z203.itb
+fatload mmc 0 0x10000000 fieldmesh-z203.itb
+reading fieldmesh-z203.itb
+28871995 bytes read in 1500 ms (18.4 MiB/s)
+Pluto>
+# >>> setenv fm_fit_size ${filesize}
+setenv fm_fit_size ${filesize}
+Pluto>
+# >>> sf probe
+sf probe
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+Pluto>
+# >>> sf protect unlock 0x200000 +${fm_fit_size}
+sf protect unlock 0x200000 +${fm_fit_size}
+len is not a valid number
+Pluto>
+# >>> if sf erase 0x200000 +${fm_fit_size} && sf write 0x10000000 0x200000 ${fm_fit_size} && sf read 0x14000000 0x200000 0x1000 && cmp.b 0x10000000 0x14000000 0x1000; then echo __FIELDMESH_QSPI_REPAIR_VERIFY_PASS__; setenv fit_size ${fm_fit_size}; run qspiboot; else echo __FIELDMESH_QSPI_REPAIR_VERIFY_FAIL__; reset; fi
+if sf erase 0x200000 +${fm_fit_size} && sf write 0x10000000 0x200000 ${fm_fit_size} && sf read 0x14000000 0x200000 0x1000 && cmp.b 0x10000000 0x14000000 0x1000; then echo __FIELDMESH_QSPI_REPAIR_VERIFY_PASS__; setenv fit_size ${fm_fit_size}; run qspiboot; else echo __FIELDMESH_QSPI_REPAIR_VERIFY_FAIL__; reset; fi
+
+# Stopped: 2026-05-15T05:05:10.9122609+08:00

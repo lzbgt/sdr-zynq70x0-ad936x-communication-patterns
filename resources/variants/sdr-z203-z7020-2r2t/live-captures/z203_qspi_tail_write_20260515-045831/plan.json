@@ -1,0 +1,1 @@
+{"event":"fieldmesh_z203_qspi_tail_write_plan","board_ip":"192.168.1.10","local_itb":"/root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.itb","fit_size":28871995,"mtd3_size":31457280,"erase_size":65536,"scratch_offset":28901376,"scratch_offset_hex":"0x1b90000","apply":1,"allow_flash_writes":1,"allow_qspi_tail_test":1}
