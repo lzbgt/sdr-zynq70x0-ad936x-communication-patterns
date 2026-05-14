@@ -3022,12 +3022,13 @@ close, bounded/live-loop flags, matching byte/chunk accounting, and
 `health="ok"`. This is the dependency-light production hook for bounded
 FFmpeg/GStreamer/native camera capture and preview wrappers.
 
-The same SDK gate converts both the default app log and the live command-pipe
-log through `fieldmesh_app_snapshot.py`. The snapshot must preserve the pure-C
-SDK boundary, report `overall_health="ok"`, include AP browser/election state,
+The same SDK gate writes native C++ snapshots with `--snapshot-output` and also
+converts both the default app log and the live command-pipe log through
+`fieldmesh_app_snapshot.py`. Both snapshot paths must preserve the pure-C SDK
+boundary, report `overall_health="ok"`, include AP browser/election state,
 radio topology links, RTLS positions, camera frame/preview accounting,
-lifecycle close state, and UI feature flags for network browser, topology
-view, RTLS map, camera stream, and route health.
+lifecycle close state, and UI feature flags for network browser, topology view,
+RTLS map, camera stream, and route health.
 
 The same gate now also verifies command-preset generation:
 

@@ -30,6 +30,7 @@ struct AppOptions {
     const char *camera_command = nullptr;
     const char *preview_output_path = nullptr;
     const char *preview_command = nullptr;
+    const char *snapshot_output_path = nullptr;
     size_t chunk_size = 640;
     unsigned max_chunks = 0;
     unsigned target_fps = 0;
@@ -239,6 +240,7 @@ void print_usage(const char *program)
     std::fprintf(stderr,
                  "usage: %s [--camera-input PATH|-] [--camera-command CMD] "
                  "[--preview-output PATH] [--preview-command CMD] "
+                 "[--snapshot-output PATH] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
                  "[--pace-realtime] [--live-stream-loop]\n",
                  program);
@@ -290,6 +292,8 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             options->preview_output_path = argv[++i];
         } else if (std::strcmp(argv[i], "--preview-command") == 0 && i + 1 < argc) {
             options->preview_command = argv[++i];
+        } else if (std::strcmp(argv[i], "--snapshot-output") == 0 && i + 1 < argc) {
+            options->snapshot_output_path = argv[++i];
         } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
             if (!parse_size(argv[++i], &options->chunk_size)) {
                 std::fprintf(stderr, "invalid --chunk-size\n");
@@ -907,6 +911,209 @@ bool transmit_camera_chunk(fieldmesh_adapter_t *camera_stream,
     return true;
 }
 
+void print_json_string(FILE *out, const char *text)
+{
+    std::fputc('"', out);
+    for (const unsigned char *p = reinterpret_cast<const unsigned char *>(text ? text : "");
+         *p != 0u; ++p) {
+        switch (*p) {
+        case '\\':
+            std::fputs("\\\\", out);
+            break;
+        case '"':
+            std::fputs("\\\"", out);
+            break;
+        case '\b':
+            std::fputs("\\b", out);
+            break;
+        case '\f':
+            std::fputs("\\f", out);
+            break;
+        case '\n':
+            std::fputs("\\n", out);
+            break;
+        case '\r':
+            std::fputs("\\r", out);
+            break;
+        case '\t':
+            std::fputs("\\t", out);
+            break;
+        default:
+            if (*p < 0x20u) {
+                std::fprintf(out, "\\u%04x", static_cast<unsigned>(*p));
+            } else {
+                std::fputc(static_cast<int>(*p), out);
+            }
+            break;
+        }
+    }
+    std::fputc('"', out);
+}
+
+bool write_app_snapshot(const AppOptions &options,
+                        const ApList &aps,
+                        const PeerList &peers,
+                        const PositionList &positions,
+                        const fieldmesh_ap_election_result_t &election,
+                        unsigned topology_links,
+                        unsigned frames_tx,
+                        unsigned frames_rx,
+                        unsigned rf_queued,
+                        size_t camera_input_bytes,
+                        size_t preview_bytes,
+                        unsigned stream_target_fps,
+                        bool control_plane_ok,
+                        bool data_plane_ok,
+                        bool capture_opened,
+                        bool capture_closed,
+                        bool preview_opened,
+                        bool preview_closed,
+                        bool sdk_stream_closed,
+                        uint64_t stream_duration_ms)
+{
+    FILE *out;
+
+    if (!options.snapshot_output_path) {
+        return true;
+    }
+    out = std::fopen(options.snapshot_output_path, "wb");
+    if (!out) {
+        std::fprintf(stderr, "failed to open snapshot output: %s\n",
+                     options.snapshot_output_path);
+        return false;
+    }
+
+    std::fprintf(out,
+                 "{\n"
+                 "  \"event\": \"fieldmesh_app_snapshot\",\n"
+                 "  \"app\": \"fieldmesh-control-camera\",\n"
+                 "  \"sdk_abi\": \"pure_c\",\n"
+                 "  \"snapshot_source\": \"native_cpp_app\",\n"
+                 "  \"overall_health\": \"%s\",\n"
+                 "  \"control_plane_ok\": %s,\n"
+                 "  \"data_plane_ok\": %s,\n"
+                 "  \"radio_topology_only\": true,\n"
+                 "  \"host_eth_topology\": false,\n"
+                 "  \"uses_inter_board_ip_routing\": false,\n"
+                 "  \"starts_rf_tx\": false,\n"
+                 "  \"writes_hardware\": false,\n"
+                 "  \"network\": {\n"
+                 "    \"elected_ap\": {\"elected_device_eui\": ",
+                 (control_plane_ok && data_plane_ok) ? "ok" : "degraded",
+                 control_plane_ok ? "true" : "false",
+                 data_plane_ok ? "true" : "false");
+    print_json_string(out, election.elected_node_id);
+    std::fprintf(out,
+                 ", \"network_id\": ");
+    print_json_string(out, election.network_id);
+    std::fprintf(out,
+                 ", \"policy\": %u, \"score\": %u},\n"
+                 "    \"aps\": [\n",
+                 static_cast<unsigned>(election.policy), election.candidate_score);
+    for (size_t i = 0; i < aps.aps.size(); ++i) {
+        const auto &ap = aps.aps[i];
+
+        std::fprintf(out, "      {\"ap_id\": ");
+        print_json_string(out, ap.ap_id);
+        std::fprintf(out, ", \"network_id\": ");
+        print_json_string(out, ap.network_id);
+        std::fprintf(out, ", \"name\": ");
+        print_json_string(out, ap.name);
+        std::fprintf(out, ", \"max_kbps\": %u}%s\n",
+                     ap.max_kbps, i + 1u == aps.aps.size() ? "" : ",");
+    }
+    std::fprintf(out,
+                 "    ]\n"
+                 "  },\n"
+                 "  \"topology\": {\n"
+                 "    \"link_count\": %u,\n"
+                 "    \"links\": [\n",
+                 topology_links);
+    for (size_t i = 0; i < peers.peers.size(); ++i) {
+        const auto &peer = peers.peers[i];
+
+        std::fprintf(out, "      {\"device_eui\": ");
+        print_json_string(out, peer.device_uuid);
+        std::fprintf(out, ", \"hostname\": ");
+        print_json_string(out, peer.node_id);
+        std::fprintf(out, ", \"device_type\": ");
+        print_json_string(out, peer.device_type);
+        std::fprintf(out,
+                     ", \"direct_reachable\": %s, \"relay_allowed\": %s, "
+                     "\"ap_capability_score\": %u}%s\n",
+                     peer.direct_reachable ? "true" : "false",
+                     peer.relay_allowed ? "true" : "false",
+                     peer.ap_capability_score,
+                     i + 1u == peers.peers.size() ? "" : ",");
+    }
+    std::fprintf(out,
+                 "    ],\n"
+                 "    \"positions\": [\n");
+    for (size_t i = 0; i < positions.positions.size(); ++i) {
+        const auto &position = positions.positions[i];
+
+        std::fprintf(out, "      {\"device_eui\": ");
+        print_json_string(out, position.node_id);
+        std::fprintf(out,
+                     ", \"source\": %u, \"x_cm\": %d, \"y_cm\": %d, "
+                     "\"error_radius_cm\": %u, \"confidence\": %u}%s\n",
+                     static_cast<unsigned>(position.source), position.x_cm,
+                     position.y_cm, position.error_radius_cm, position.confidence,
+                     i + 1u == positions.positions.size() ? "" : ",");
+    }
+    std::fprintf(out,
+                 "    ]\n"
+                 "  },\n"
+                 "  \"camera\": {\n"
+                 "    \"source\": ");
+    print_json_string(out, camera_source_name(options));
+    std::fprintf(out,
+                 ",\n"
+                 "    \"frames_tx\": %u,\n"
+                 "    \"frames_rx\": %u,\n"
+                 "    \"rf_queued\": %u,\n"
+                 "    \"preview_matches\": %u,\n"
+                 "    \"capture_bytes\": %lu,\n"
+                 "    \"preview_bytes\": %lu,\n"
+                 "    \"stream_target_fps\": %u,\n"
+                 "    \"pace_realtime\": %s,\n"
+                 "    \"live_stream_loop\": %s,\n"
+                 "    \"lifecycle\": {\n"
+                 "      \"capture_opened\": %s,\n"
+                 "      \"capture_closed\": %s,\n"
+                 "      \"preview_opened\": %s,\n"
+                 "      \"preview_closed\": %s,\n"
+                 "      \"sdk_stream_closed\": %s,\n"
+                 "      \"duration_ms\": %lu\n"
+                 "    }\n"
+                 "  },\n"
+                 "  \"ui\": {\n"
+                 "    \"show_network_browser\": true,\n"
+                 "    \"show_topology_view\": true,\n"
+                 "    \"show_rtls_map\": true,\n"
+                 "    \"show_camera_stream\": true,\n"
+                 "    \"show_route_health\": true\n"
+                 "  }\n"
+                 "}\n",
+                 frames_tx, frames_rx, rf_queued, frames_rx,
+                 static_cast<unsigned long>(camera_input_bytes),
+                 static_cast<unsigned long>(preview_bytes), stream_target_fps,
+                 options.pace_realtime ? "true" : "false",
+                 options.live_stream_loop ? "true" : "false",
+                 capture_opened ? "true" : "false",
+                 capture_closed ? "true" : "false",
+                 preview_opened ? "true" : "false",
+                 preview_closed ? "true" : "false",
+                 sdk_stream_closed ? "true" : "false",
+                 static_cast<unsigned long>(stream_duration_ms));
+    if (std::fclose(out) != 0) {
+        std::fprintf(stderr, "failed to close snapshot output: %s\n",
+                     options.snapshot_output_path);
+        return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -1333,6 +1540,18 @@ int main(int argc, char **argv)
                 control_plane_ok ? "true" : "false",
                 data_plane_ok ? "true" : "false",
                 (control_plane_ok && data_plane_ok) ? "ok" : "degraded");
+
+    if (!write_app_snapshot(options, aps, peers, positions, election,
+                            topology_links, frames_tx, frames_rx, rf_queued,
+                            camera_input_bytes, preview_bytes.size(),
+                            stream_target_fps, control_plane_ok, data_plane_ok,
+                            capture_opened, capture_closed, preview_opened,
+                            preview_closed, sdk_stream_closed,
+                            stream_duration_ms)) {
+        (void)fieldmesh_leave(session);
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
 
     std::printf("{\"event\":\"app_summary\","
                 "\"control_plane_ok\":%s,"

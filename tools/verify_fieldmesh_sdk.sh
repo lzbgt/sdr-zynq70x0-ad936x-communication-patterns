@@ -33,6 +33,8 @@ control_camera_snapshot_helper="$repo_root/apps/fieldmesh-control-camera-demo/fi
 control_camera_preset_log="$out_dir/fieldmesh_camera_pipe_presets.ndjson"
 control_camera_snapshot_log="$out_dir/fieldmesh_control_camera_snapshot.json"
 control_camera_command_snapshot_log="$out_dir/fieldmesh_control_camera_command_snapshot.json"
+control_camera_native_snapshot="$out_dir/fieldmesh_control_camera_native_snapshot.json"
+control_camera_command_native_snapshot="$out_dir/fieldmesh_control_camera_command_native_snapshot.json"
 control_camera_input="$out_dir/fieldmesh_camera_input.bin"
 control_camera_preview="$out_dir/fieldmesh_camera_preview.bin"
 control_camera_command_preview="$out_dir/fieldmesh_camera_command_preview.bin"
@@ -47,6 +49,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
 "$control_camera_app" \
     --camera-input "$control_camera_input" \
     --preview-output "$control_camera_preview" \
+    --snapshot-output "$control_camera_native_snapshot" \
     --chunk-size 64 \
     >"$control_camera_external_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_external.stderr"
@@ -57,6 +60,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --max-chunks 3 \
     --target-fps 15 \
     --live-stream-loop \
+    --snapshot-output "$control_camera_command_native_snapshot" \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
 "$control_camera_snapshot_helper" \
@@ -978,7 +982,8 @@ if planned != [0, 66666, 133333]:
 PY
 echo "fieldmesh_sdk_control_camera_command_pipe_check=pass"
 
-python3 - "$control_camera_snapshot_log" "$control_camera_command_snapshot_log" <<'PY'
+python3 - "$control_camera_snapshot_log" "$control_camera_command_snapshot_log" \
+    "$control_camera_native_snapshot" "$control_camera_command_native_snapshot" <<'PY'
 import json
 import sys
 
@@ -1019,6 +1024,18 @@ for snapshot in snapshots:
             raise SystemExit(f"app snapshot UI flag {key} missing")
 if snapshots[1].get("camera", {}).get("live_stream_loop") is not True:
     raise SystemExit("command app snapshot did not preserve live-loop status")
+native = snapshots[2]
+native_command = snapshots[3]
+if native.get("snapshot_source") != "native_cpp_app":
+    raise SystemExit("native app snapshot source changed")
+if native_command.get("snapshot_source") != "native_cpp_app":
+    raise SystemExit("native command app snapshot source changed")
+if native.get("camera", {}).get("source") != "external_camera_stream":
+    raise SystemExit("native app snapshot did not preserve external input source")
+if native_command.get("camera", {}).get("source") != "external_capture_command":
+    raise SystemExit("native command app snapshot did not preserve command source")
+if native_command.get("camera", {}).get("live_stream_loop") is not True:
+    raise SystemExit("native command app snapshot did not preserve live-loop status")
 PY
 echo "fieldmesh_sdk_control_camera_snapshot_check=pass"
 
