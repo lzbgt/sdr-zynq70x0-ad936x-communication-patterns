@@ -73,6 +73,14 @@ in `src/fieldmesh_sdk.c`:
   The SDK also exposes `fieldmesh_tun_packetizer_pump_once()`, a pure-C
   callback contract for daemon code that reads from a real board-local TUN
   file descriptor and forwards one packet into the FieldMesh adapter path.
+- `examples/fieldmesh_camera_stream_demo.c` is the first pure-C camera stream
+  contract. It opens a scheduled `swarm0` camera stream with
+  `fieldmesh_open_camera_stream()`, sends one video-base frame with
+  `fieldmesh_camera_stream_frame()`, verifies preview bytes, and proves the
+  data plane queues to the FieldMesh RF packet-engine handoff without IIO,
+  inter-board IP routing, RF TX start, or hardware writes. C++ and Rust apps
+  should build camera capture/preview around this ABI instead of reimplementing
+  stream and RF-handoff policy.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and
@@ -83,7 +91,8 @@ in `src/fieldmesh_sdk.c`:
 
 The first C++ app-level demo lives outside the SDK ABI in
 `../../apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp`.
-It consumes only the pure-C SDK, then emits a production-shaped NDJSON flow for
+It consumes only the pure-C SDK camera stream API, then emits a
+production-shaped NDJSON flow for
 AP browse, AP election, user-commanded repurpose into proactive camera
 streaming, radio-only topology, GNSS/PPS plus packet-timing RTLS positions, and
 video-base camera chunks queued through the `swarm0`/RF packet-engine handoff.
@@ -105,7 +114,8 @@ and Z103 developer images now also install
 service shape for mapping AP, peer, route, RTLS, and local IIO/device C ABI
 calls to board services over USB Ethernet, physical Ethernet, or explicit IP.
 The images also install `/usr/bin/fieldmesh-device-iio-demo` for the local
-device/IIO layer, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
+device/IIO layer, `/usr/bin/fieldmesh-camera-stream-demo` for the first pure-C
+camera stream contract, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
 `swarm0` packet/stream adapter mapping, `/usr/bin/fieldmesh-tun-gateway-demo`
 for the first routed TUN gateway plan, `/usr/bin/fieldmesh-tun-packetizer-demo`
 for TUN IP packet classification into FieldMesh classes,

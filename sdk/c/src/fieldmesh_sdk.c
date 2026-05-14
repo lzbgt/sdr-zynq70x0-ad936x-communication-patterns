@@ -1586,6 +1586,95 @@ fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_open_camera_stream(
+    fieldmesh_session_t *session,
+    const fieldmesh_camera_stream_config_t *config,
+    fieldmesh_adapter_t **out_adapter)
+{
+    fieldmesh_adapter_config_t adapter_config;
+
+    if (!session || !config || !out_adapter || !config->adapter_name[0] ||
+        !config->dst_node_id[0]) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(&adapter_config, 0, sizeof(adapter_config));
+    sdk_copy_text(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                  config->adapter_name);
+    sdk_copy_text(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                  config->dst_node_id);
+    adapter_config.adapter_kind = FIELDMESH_ADAPTER_STREAM_API;
+    adapter_config.requested_mode =
+        config->requested_mode == FIELDMESH_MODE_AUTO ?
+            FIELDMESH_MODE_SCHEDULED :
+            config->requested_mode;
+    adapter_config.stream_id_base =
+        config->stream_id_base ? config->stream_id_base : 500u;
+    adapter_config.mtu_bytes =
+        config->mtu_bytes ? config->mtu_bytes : FIELDMESH_ADAPTER_DEFAULT_MTU;
+    adapter_config.expose_virtual_netdev = 0u;
+    return fieldmesh_open_adapter(session, &adapter_config, out_adapter);
+}
+
+fieldmesh_status_t fieldmesh_camera_stream_frame(
+    fieldmesh_adapter_t *adapter,
+    const void *input,
+    size_t input_len,
+    void *preview,
+    size_t preview_capacity,
+    size_t *out_preview_len,
+    fieldmesh_camera_frame_report_t *out_report)
+{
+    fieldmesh_adapter_packet_t tx_packet;
+    fieldmesh_adapter_packet_t rx_packet;
+    fieldmesh_rf_packet_submit_report_t rf_report;
+    size_t preview_len = 0u;
+    fieldmesh_status_t status;
+
+    if (!adapter || !input || input_len == 0u || !preview || !out_preview_len ||
+        !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (preview_capacity < input_len) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    status = fieldmesh_adapter_send_packet(adapter, FIELDMESH_PAYLOAD_VIDEO_BASE,
+                                           input, input_len, &tx_packet);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    status = fieldmesh_adapter_recv_packet(adapter, preview, preview_capacity,
+                                           &preview_len, &rx_packet, 1000u);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    status = fieldmesh_submit_rf_packet(adapter, &rx_packet, preview_len, 0u,
+                                        &rf_report);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+
+    out_report->tx_packet = tx_packet;
+    out_report->rx_packet = rx_packet;
+    out_report->rf_report = rf_report;
+    out_report->input_bytes = (uint32_t)input_len;
+    out_report->preview_bytes = (uint32_t)preview_len;
+    out_report->preview_match =
+        (preview_len == input_len && memcmp(preview, input, input_len) == 0) ? 1u : 0u;
+    out_report->control_plane_ok = 1u;
+    out_report->data_plane_ok =
+        (out_report->preview_match &&
+         rx_packet.payload_kind == FIELDMESH_PAYLOAD_VIDEO_BASE &&
+         rx_packet.traffic_class == FIELDMESH_CLASS_C2_VIDEO_BASE &&
+         rf_report.queued_to_sidecar && rf_report.queued_to_rf_engine &&
+         !rf_report.plan.uses_iio &&
+         !rf_report.plan.uses_inter_board_ip_routing &&
+         !rf_report.starts_rf_tx &&
+         !rf_report.writes_hardware) ? 1u : 0u;
+    *out_preview_len = preview_len;
+    return out_report->data_plane_ok ? FIELDMESH_OK : FIELDMESH_ERR_TRANSPORT;
+}
+
 fieldmesh_status_t fieldmesh_plan_rf_tx_guard(
     fieldmesh_adapter_t *adapter,
     const fieldmesh_rf_packet_plan_t *packet_plan,

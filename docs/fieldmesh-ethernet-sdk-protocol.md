@@ -362,12 +362,20 @@ Host A camera app -> board A host-facing IP -> board A swarm0/meshd
 In that mode the host sends to a mesh IP or remote routed subnet. The board is
 the SDR router/gateway, while the host remains a normal IP endpoint.
 
+`sdk/c/examples/fieldmesh_camera_stream_demo.c` is the pure-C camera stream
+contract for this split. It opens a scheduled `swarm0` camera stream, sends a
+video-base frame, verifies preview bytes, and queues the frame to the
+FieldMesh RF packet-engine handoff. This keeps camera stream policy in the SDK
+ABI, so richer C++ or Rust applications do not duplicate the traffic-class,
+route, and safety rules.
+
 `apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp` is the
 first app-shaped executable for this split. It is intentionally C++ while the
 SDK boundary remains pure C. The demo models AP browse, AP election,
 application/user repurpose into proactive camera streaming, radio topology,
-relative co-location estimates, and video-base frame chunks. Each frame chunk
-is queued to the FieldMesh adapter and RF packet-engine contract with
+relative co-location estimates, and video-base frame chunks through the pure-C
+camera stream API. Each frame chunk is queued to the FieldMesh adapter and RF
+packet-engine contract with
 `uses_iio=0`, `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and
 `writes_hardware=0`. The demo now also accepts `--camera-input PATH|-`,
 `--chunk-size`, and `--preview-output PATH`, so a real camera pipeline can feed

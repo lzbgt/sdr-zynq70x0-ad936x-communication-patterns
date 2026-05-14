@@ -543,6 +543,35 @@ if summary[0].get("rf_packets") != 5 or summary[0].get("rf_engine_bound") != 1:
 PY
 echo "fieldmesh_sdk_tun_packetizer_check=pass"
 
+python3 - "$out_dir/fieldmesh_camera_stream_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+camera = [event for event in events if event.get("event") == "sdk_camera_stream"]
+if not camera:
+    raise SystemExit("camera stream SDK demo did not emit stream event")
+camera = camera[0]
+if camera.get("adapter_name") != "swarm0" or camera.get("dst_device_eui") != "020000000103":
+    raise SystemExit("camera stream SDK demo used wrong adapter or destination")
+if camera.get("payload_kind") != 3 or camera.get("traffic_class") != 2:
+    raise SystemExit("camera stream SDK demo must use video-base C2")
+if camera.get("mode") != 4 or camera.get("route_kind") != 1:
+    raise SystemExit("camera stream SDK demo must use scheduled direct RF path")
+if camera.get("input_bytes") != 384 or camera.get("preview_bytes") != 384:
+    raise SystemExit("camera stream SDK demo byte accounting failed")
+if camera.get("preview_match") != 1:
+    raise SystemExit("camera stream SDK demo preview did not match input")
+if camera.get("queued_to_sidecar") != 1 or camera.get("queued_to_rf_engine") != 1:
+    raise SystemExit("camera stream SDK demo did not queue to RF engine")
+if camera.get("control_plane_ok") != 1 or camera.get("data_plane_ok") != 1:
+    raise SystemExit("camera stream SDK demo planes did not pass")
+for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+    if camera.get(key) != 0:
+        raise SystemExit(f"camera stream SDK demo key {key} must be 0")
+PY
+echo "fieldmesh_sdk_camera_stream_check=pass"
+
 python3 - "$out_dir/fieldmesh_control_camera_demo.ndjson" <<'PY'
 import json
 import sys

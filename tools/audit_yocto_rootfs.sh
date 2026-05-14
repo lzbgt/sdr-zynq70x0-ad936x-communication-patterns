@@ -41,6 +41,7 @@ required_paths=(
     /usr/sbin/pluto_reboot
     /usr/sbin/iiod
     /usr/bin/iio_info
+    /usr/bin/fieldmesh-camera-stream-demo
     /usr/bin/fieldmesh-device-iio-demo
     /usr/bin/fieldmeshctl
     /usr/bin/fieldmesh-state-daemon-demo

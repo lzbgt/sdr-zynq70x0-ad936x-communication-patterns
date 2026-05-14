@@ -395,6 +395,25 @@ typedef struct fieldmesh_rf_packet_submit_report {
     uint8_t starts_rf_tx;
 } fieldmesh_rf_packet_submit_report_t;
 
+typedef struct fieldmesh_camera_stream_config {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_mode_t requested_mode;
+    uint16_t stream_id_base;
+    uint32_t mtu_bytes;
+} fieldmesh_camera_stream_config_t;
+
+typedef struct fieldmesh_camera_frame_report {
+    fieldmesh_adapter_packet_t tx_packet;
+    fieldmesh_adapter_packet_t rx_packet;
+    fieldmesh_rf_packet_submit_report_t rf_report;
+    uint32_t input_bytes;
+    uint32_t preview_bytes;
+    uint8_t preview_match;
+    uint8_t control_plane_ok;
+    uint8_t data_plane_ok;
+} fieldmesh_camera_frame_report_t;
+
 typedef struct fieldmesh_rf_tx_guard_plan {
     char guard_name[FIELDMESH_NAME_TEXT_MAX];
     char engine_name[FIELDMESH_NAME_TEXT_MAX];
@@ -656,6 +675,18 @@ fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
                                               size_t payload_len,
                                               uint32_t flags,
                                               fieldmesh_rf_packet_submit_report_t *out_report);
+fieldmesh_status_t fieldmesh_open_camera_stream(
+    fieldmesh_session_t *session,
+    const fieldmesh_camera_stream_config_t *config,
+    fieldmesh_adapter_t **out_adapter);
+fieldmesh_status_t fieldmesh_camera_stream_frame(
+    fieldmesh_adapter_t *adapter,
+    const void *input,
+    size_t input_len,
+    void *preview,
+    size_t preview_capacity,
+    size_t *out_preview_len,
+    fieldmesh_camera_frame_report_t *out_report);
 fieldmesh_status_t fieldmesh_plan_rf_tx_guard(
     fieldmesh_adapter_t *adapter,
     const fieldmesh_rf_packet_plan_t *packet_plan,

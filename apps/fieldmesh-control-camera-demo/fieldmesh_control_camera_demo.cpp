@@ -341,11 +341,11 @@ int main(int argc, char **argv)
     AppOptions options;
     fieldmesh_context_t *ctx = nullptr;
     fieldmesh_session_t *session = nullptr;
-    fieldmesh_adapter_t *adapter = nullptr;
+    fieldmesh_adapter_t *camera_stream = nullptr;
     fieldmesh_config_t config{};
     fieldmesh_ap_election_result_t election{};
     fieldmesh_join_request_t join{};
-    fieldmesh_adapter_config_t adapter_config{};
+    fieldmesh_camera_stream_config_t camera_config{};
     ApList aps;
     PeerList peers;
     PositionList positions;
@@ -461,17 +461,16 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    copy_text(adapter_config.adapter_name, sizeof(adapter_config.adapter_name), "swarm0");
-    copy_text(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+    copy_text(camera_config.adapter_name, sizeof(camera_config.adapter_name), "swarm0");
+    copy_text(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
               "020000000103");
-    adapter_config.adapter_kind = FIELDMESH_ADAPTER_STREAM_API;
-    adapter_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
-    adapter_config.stream_id_base = 500;
-    adapter_config.mtu_bytes = 1200;
-    adapter_config.expose_virtual_netdev = 0;
+    camera_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
+    camera_config.stream_id_base = 500;
+    camera_config.mtu_bytes = 1200;
 
-    if (!require_ok(fieldmesh_open_adapter(session, &adapter_config, &adapter),
-                    "open_adapter")) {
+    if (!require_ok(fieldmesh_open_camera_stream(session, &camera_config,
+                                                 &camera_stream),
+                    "open_camera_stream")) {
         (void)fieldmesh_leave(session);
         fieldmesh_context_destroy(ctx);
         return 1;
@@ -500,24 +499,15 @@ int main(int argc, char **argv)
 
     for (const auto &camera_chunk : camera_chunks) {
             std::array<unsigned char, 1200> rx_payload{};
-            fieldmesh_adapter_packet_t tx_packet{};
-            fieldmesh_adapter_packet_t rx_packet{};
-            fieldmesh_rf_packet_submit_report_t rf_report{};
+            fieldmesh_camera_frame_report_t frame_report{};
             size_t rx_len = 0;
 
-            if (!require_ok(fieldmesh_adapter_send_packet(
-                                adapter, FIELDMESH_PAYLOAD_VIDEO_BASE,
-                                camera_chunk.payload.data(),
-                                camera_chunk.payload.size(), &tx_packet),
-                            "adapter_send_camera") ||
-                !require_ok(fieldmesh_adapter_recv_packet(
-                                adapter, rx_payload.data(), rx_payload.size(), &rx_len,
-                                &rx_packet, 1000),
-                            "adapter_recv_camera") ||
-                !require_ok(fieldmesh_submit_rf_packet(adapter, &rx_packet, rx_len, 0u,
-                                                       &rf_report),
-                            "submit_rf_packet")) {
-                (void)fieldmesh_close_adapter(adapter);
+            if (!require_ok(fieldmesh_camera_stream_frame(
+                                camera_stream, camera_chunk.payload.data(),
+                                camera_chunk.payload.size(), rx_payload.data(),
+                                rx_payload.size(), &rx_len, &frame_report),
+                            "camera_stream_frame")) {
+                (void)fieldmesh_close_adapter(camera_stream);
                 (void)fieldmesh_leave(session);
                 fieldmesh_context_destroy(ctx);
                 return 1;
@@ -525,7 +515,7 @@ int main(int argc, char **argv)
             if (rx_len != camera_chunk.payload.size() ||
                 std::memcmp(rx_payload.data(), camera_chunk.payload.data(), rx_len) != 0) {
                 std::fprintf(stderr, "camera preview payload mismatch\n");
-                (void)fieldmesh_close_adapter(adapter);
+                (void)fieldmesh_close_adapter(camera_stream);
                 (void)fieldmesh_leave(session);
                 fieldmesh_context_destroy(ctx);
                 return 1;
@@ -534,7 +524,7 @@ int main(int argc, char **argv)
                                  rx_payload.begin() + static_cast<std::ptrdiff_t>(rx_len));
             ++frames_tx;
             ++frames_rx;
-            rf_queued += rf_report.queued_to_rf_engine ? 1u : 0u;
+            rf_queued += frame_report.rf_report.queued_to_rf_engine ? 1u : 0u;
             std::printf("{\"event\":\"app_camera_frame_tx\","
                         "\"frame_index\":%u,"
                         "\"chunk_index\":%u,"
@@ -553,16 +543,20 @@ int main(int argc, char **argv)
                         "\"starts_rf_tx\":%u,"
                         "\"writes_hardware\":%u}\n",
                         camera_chunk.frame_index, camera_chunk.chunk_index,
-                        static_cast<unsigned>(rx_packet.payload_kind),
-                        static_cast<unsigned>(rx_packet.traffic_class),
-                        static_cast<unsigned>(rx_packet.mode), rx_packet.stream_id,
-                        rx_packet.sequence, rf_report.plan.packet_len,
-                        rf_report.plan.frame_bytes,
-                        static_cast<unsigned>(rf_report.plan.route_kind),
-                        rf_report.queued_to_sidecar, rf_report.queued_to_rf_engine,
-                        rf_report.plan.uses_iio,
-                        rf_report.plan.uses_inter_board_ip_routing,
-                        rf_report.starts_rf_tx, rf_report.writes_hardware);
+                        static_cast<unsigned>(frame_report.rx_packet.payload_kind),
+                        static_cast<unsigned>(frame_report.rx_packet.traffic_class),
+                        static_cast<unsigned>(frame_report.rx_packet.mode),
+                        frame_report.rx_packet.stream_id,
+                        frame_report.rx_packet.sequence,
+                        frame_report.rf_report.plan.packet_len,
+                        frame_report.rf_report.plan.frame_bytes,
+                        static_cast<unsigned>(frame_report.rf_report.plan.route_kind),
+                        frame_report.rf_report.queued_to_sidecar,
+                        frame_report.rf_report.queued_to_rf_engine,
+                        frame_report.rf_report.plan.uses_iio,
+                        frame_report.rf_report.plan.uses_inter_board_ip_routing,
+                        frame_report.rf_report.starts_rf_tx,
+                        frame_report.rf_report.writes_hardware);
             std::printf("{\"event\":\"app_camera_preview_rx\","
                         "\"frame_index\":%u,"
                         "\"chunk_index\":%u,"
@@ -578,7 +572,7 @@ int main(int argc, char **argv)
         if (!preview) {
             std::fprintf(stderr, "failed to open preview output: %s\n",
                          options.preview_output_path);
-            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_close_adapter(camera_stream);
             (void)fieldmesh_leave(session);
             fieldmesh_context_destroy(ctx);
             return 1;
@@ -589,7 +583,7 @@ int main(int argc, char **argv)
             std::fprintf(stderr, "failed to write preview output: %s\n",
                          options.preview_output_path);
             std::fclose(preview);
-            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_close_adapter(camera_stream);
             (void)fieldmesh_leave(session);
             fieldmesh_context_destroy(ctx);
             return 1;
@@ -640,7 +634,7 @@ int main(int argc, char **argv)
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(preview_bytes.size()));
 
-    (void)fieldmesh_close_adapter(adapter);
+    (void)fieldmesh_close_adapter(camera_stream);
     (void)fieldmesh_leave(session);
     fieldmesh_context_destroy(ctx);
     return (control_plane_ok && data_plane_ok) ? 0 : 1;

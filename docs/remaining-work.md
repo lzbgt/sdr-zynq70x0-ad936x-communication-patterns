@@ -193,26 +193,29 @@ Next concrete work:
   that runner on a conducted/shielded fixture with
   `--execute-live-rf --allow-hardware-writes`, then running AP
   browse/election/join as host commands whose peer payload traffic crosses RF.
-- Extend the new C++ `apps/fieldmesh-control-camera-demo` into a live two-host
-  camera-stream demo once the board daemon and RF stream path are connected end
-  to end. The current executable already verifies the production-shaped SDK
-  control plane (browse/elect/repurpose/topology/RTLS) and queues video-base
-  chunks through the `swarm0`/RF packet-engine handoff without IIO or
-  inter-board IP routing. The Z103 installed board daemon now exposes and
-  passes the same composition as `FIELDMESH_APP_CONTROL_CAMERA`; Z203 is still
-  pending because its host link was unreachable during the latest installed
-  runtime batch. After Z203 is reachable, run the installed daemon flow on both
-  boards. The C++ app now accepts an external camera byte stream through
-  `--camera-input PATH|-`, chunks it, sends it through the same SDK/RF handoff,
-  and writes the preview side with `--preview-output`; the SDK verifier
-  byte-compares preview output against input. The remaining app work is
-  replacing that file/stdin source with real platform camera capture and GUI
-  rendering. The intended live product flow is still one app that can source or
-  preview camera data: Host A camera -> local board over USB/physical Ethernet
-  SDK data ingress -> FieldMesh RF -> peer board -> Host B preview. Host A and
-  Host B may be the same physical PC for lab testing, but the test must keep
-  them as logical hosts and preserve the split between SDK control plane and RF
-  data plane.
+- Extend the new pure-C camera stream SDK API and C++
+  `apps/fieldmesh-control-camera-demo` into a live two-host camera-stream demo
+  once the board daemon and RF stream path are connected end to end. The SDK
+  now owns the camera stream policy through `fieldmesh_open_camera_stream()`
+  and `fieldmesh_camera_stream_frame()`, and the C++ app consumes that ABI
+  instead of reimplementing stream classification or RF-handoff policy. The
+  current executable already verifies the production-shaped SDK control plane
+  (browse/elect/repurpose/topology/RTLS) and queues video-base chunks through
+  the `swarm0`/RF packet-engine handoff without IIO or inter-board IP routing.
+  The Z103 installed board daemon now exposes and passes the same composition
+  as `FIELDMESH_APP_CONTROL_CAMERA`; Z203 is still pending because its host
+  link was unreachable during the latest installed runtime batch. After Z203
+  is reachable, run the installed daemon flow on both boards. The C++ app now
+  accepts an external camera byte stream through `--camera-input PATH|-`,
+  chunks it, sends it through the same SDK/RF handoff, and writes the preview
+  side with `--preview-output`; the SDK verifier byte-compares preview output
+  against input. The remaining app work is replacing that file/stdin source
+  with real platform camera capture and GUI rendering. The intended live
+  product flow is still one app that can source or preview camera data: Host A
+  camera -> local board over USB/physical Ethernet SDK data ingress ->
+  FieldMesh RF -> peer board -> Host B preview. Host A and Host B may be the
+  same physical PC for lab testing, but the test must keep them as logical
+  hosts and preserve the split between SDK control plane and RF data plane.
 - Consolidate the reviewed `design.md` production insight into implementation:
   IIO remains a local RF configuration, diagnostics, calibration, and
   conducted-test backend, while the product data plane should move toward a
@@ -380,11 +383,13 @@ Next concrete work:
 - `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.
-  The packages and developer rootfs images were refreshed after adding
-  read-only `ctrl-scan`, and both rootfs tarballs contain the updated
+  The packages and developer rootfs images were refreshed after adding the
+  pure-C camera stream SDK demo, and both rootfs tarballs contain the updated
   `fieldmesh-udp-probe`, including `rf-guard-scan` and guarded
-  `rf-guard-apply` for the RF TX guard control window. The scan also reports
-  the reset-off DAC source-select and driver status registers.
+  `rf-guard-apply` for the RF TX guard control window, plus
+  `/usr/bin/fieldmesh-camera-stream-demo` for the SDK-owned video-base stream
+  contract. The scan also reports the reset-off DAC source-select and driver
+  status registers.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard
@@ -407,8 +412,9 @@ Next concrete work:
   conducted/shielded fixture and running it with bounded duration plus
   rollback evidence.
   `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,
-  package artifacts, JTAG RAM-boot hashes, and package-vs-RAM-boot DTB parity
-  before a live boot attempt. The sidecar
+  packaged SDK demos including `fieldmesh-camera-stream-demo`, package
+  artifacts, JTAG RAM-boot hashes, and package-vs-RAM-boot DTB parity before a
+  live boot attempt. The sidecar
   preflight now also includes read-only `dma-scan` for the TX/RX sidecar DMA
   windows plus a host-side assertion summary before any transfer-starting
   packet DMA test. `dma-plan` has been added as the software-only bridge from

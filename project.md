@@ -626,7 +626,9 @@ user and vendor configuration.
   a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
   query demo, including the composed `FIELDMESH_APP_CONTROL_CAMERA` app-level
   control/data-plane request, a `swarm0` adapter packet-classification demo, a
-  routed TUN gateway planning demo, a TUN IP-packetizer demo, a two-PC AP
+  routed TUN gateway planning demo, a TUN IP-packetizer demo, a pure-C camera
+  stream demo over `fieldmesh_open_camera_stream()` and
+  `fieldmesh_camera_stream_frame()`, a two-PC AP
   browse/election/audit-join/stream-flow demo, a `fieldmeshctl` profile CLI
   demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
   physical-Ethernet experiments.
@@ -634,8 +636,8 @@ user and vendor configuration.
   pure-C SDK ABI. It verifies AP browse/election, user-commanded repurpose into
   proactive camera streaming, radio-only topology, GNSS/PPS plus packet-timing
   RTLS/co-location estimates, and video-base frame chunks queued through the
-  `swarm0`/RF packet-engine handoff without IIO, inter-board IP routing, or
-  live RF TX. It now also accepts external camera bytes through
+  SDK camera stream API and `swarm0`/RF packet-engine handoff without IIO,
+  inter-board IP routing, or live RF TX. It now also accepts external camera bytes through
   `--camera-input PATH|-`, chunks them with `--chunk-size`, and writes the
   receive/preview side with `--preview-output`, which lets a platform camera
   pipeline feed the same SDK path before a GUI renderer exists.
@@ -644,6 +646,7 @@ user and vendor configuration.
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
   demos into both board images as `/usr/bin/fieldmeshctl`,
   `/usr/bin/fieldmesh-device-iio-demo`,
+  `/usr/bin/fieldmesh-camera-stream-demo`,
   `/usr/bin/fieldmesh-state-daemon-demo`,
   `/usr/bin/fieldmesh-swarm-adapter-demo`,
   `/usr/bin/fieldmesh-tun-gateway-demo`, and
@@ -969,14 +972,15 @@ Expected result in the current Pluto-compatible firmware state:
    inter-board path and marks the next gate as a conducted or shielded IQ
    burst encoder/decoder smoke. The guarded IIO runner now turns that plan
    into an RX-first command script, while defaulting to no hardware execution.
-   The first app-shaped product demo now exists as a C++ executable over the
-   pure-C SDK ABI: it browses AP-capable peers, elects the AP by capability and
-   link/topology metrics, models a user-commanded proactive camera-streaming
-   role, displays radio-only topology and RTLS/co-location state, and queues
-   video-base frame chunks through the `swarm0`/RF packet-engine handoff. The
-   practical live target remains one SDK host camera app that can source or
-   preview video: Host A camera over USB/physical Ethernet to peer board A,
-   FieldMesh RF to peer board B, then USB/physical Ethernet to Host B preview.
+   The first camera product path now has a pure-C SDK stream helper and a C++
+   executable over that ABI: it browses AP-capable peers, elects the AP by
+   capability and link/topology metrics, models a user-commanded proactive
+   camera-streaming role, displays radio-only topology and RTLS/co-location
+   state, and queues video-base frame chunks through the `swarm0`/RF
+   packet-engine handoff. The practical live target remains one SDK host
+   camera app that can source or preview video: Host A camera over USB/physical
+   Ethernet to peer board A, FieldMesh RF to peer board B, then USB/physical
+   Ethernet to Host B preview.
    Host A and Host B can be the same physical PC for lab testing, but they
    remain two logical hosts with a distinct SDK control plane and RF data
    plane.

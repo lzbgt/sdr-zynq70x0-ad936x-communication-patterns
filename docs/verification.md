@@ -2914,8 +2914,13 @@ sent and browsed. It also runs `fieldmesh_two_pc_flow_demo` over loopback UDP
 to prove the two-PC control flow: AP browse, AP election, AP-audit join,
 scheduled stream open, and C1 telemetry send:
 
-The same gate now also builds and runs the C++
-`apps/fieldmesh-control-camera-demo` app against the pure-C SDK ABI. That app
+The same gate now also builds and runs the pure-C
+`fieldmesh_camera_stream_demo` plus the C++
+`apps/fieldmesh-control-camera-demo` app against the pure-C SDK ABI. The C
+demo verifies `fieldmesh_open_camera_stream()` and
+`fieldmesh_camera_stream_frame()` directly: video-base C2 traffic, scheduled
+direct RF route, preview byte match, RF packet-engine handoff, and no IIO,
+inter-board IP routing, RF TX start, or hardware writes. The C++ app
 verifies the product-level control plane (AP browse/election, application/user
 repurpose, radio-only topology, and GNSS/PPS plus packet-timing RTLS
 positions) and the first camera-like data plane: six video-base chunks are
@@ -2988,9 +2993,9 @@ fieldmesh-control-camera-demo \
   --chunk-size 64
 ```
 
-and byte-compares preview output against input. This keeps the SDK ABI pure C
-while giving the C++ app a real camera-pipeline ingress/preview boundary for
-Windows, Linux, macOS, or embedded hosts.
+and byte-compares preview output against input. This keeps the camera stream
+policy in the pure-C SDK while giving the C++ app a real camera-pipeline
+ingress/preview boundary for Windows, Linux, macOS, or embedded hosts.
 
 The same SDK gate now also runs `fieldmeshctl_demo` as the first network
 profile CLI/API check. It verifies the default Pluto-style USB address,
@@ -3374,20 +3379,20 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after switching the daemon TUN fd pump to a
-real fd read source:
+Refreshed runtime artifact hashes after packaging the pure-C camera stream SDK
+demo into both developer images:
 
 ```text
-Z203 rootfs.cpio.gz: 75e8e4faec1f723d6d4e6ef0891ca79349e41dece5a4f2ea6fc4502b4f9ca1df
-Z203 rootfs.tar.gz:  9dcf361bb31cbcaaf0a95f4ed977a7a5c098165b742b05a338ecc9c0ca0793e5
-Z203 pluto.frm:      f242c5eb5afa2c71d72513e3e8d0086b8d07ddb419d25e78ea3fb83eaafa2435
-Z203 pluto.itb:      ec6f0e628ac8c24c2c97a76c44b66dca836f4942a6edddf8286d0753ccc84223
-Z203 jtag ramdisk:   4e159fdcfca7e9377799607eb16ed2447e762c6ecd737dceff0823222832c2d7
-Z103 rootfs.cpio.gz: 5c5c054d6b82f6653002ac82c8c78d1537d1abc6ac90b212b64bcd45c62c878a
-Z103 rootfs.tar.gz:  cd6cbfc53b8cf50d2c34d84ababdd22da364bdf017cabe3b9fe37ded97353bfe
-Z103 pluto.frm:      44a9935272527ec05b645d8f7f07f9a04da6b4f3a632744ac97ffd5527a6a67d
-Z103 pluto.itb:      8b85dc7223b95e7522ef74b8583c24ce1a9635edcaa3925cb041f5d970531ac3
-Z103 jtag ramdisk:   339dc4d09e7bc13943948ac38fb1c1104466789c05c541f3368baf44df1b1f84
+Z203 rootfs.cpio.gz: 7ddba25d8457c8f95de52ff610ba26dcea4dfefcfd187cdb3270bfd3ec6fb01f
+Z203 rootfs.tar.gz:  f2a59b26a66572a63b5c65950e67700035cff6e3e6c36e3ed249a9844c6bf6e1
+Z203 pluto.frm:      3d0ab9706fc3950e8900d40c4cef05d6a039832488e978d3f249722684375972
+Z203 pluto.itb:      1ff5e4ca4d9431fee5b438a8881eac6c5d458b39146d1c6ea524dea0f6602183
+Z203 jtag ramdisk:   46a097da06f709d602524fc50a5d265d63df0ca4ffff2ded5b338ee009f1ec7d
+Z103 rootfs.cpio.gz: 3f9e3feeca8f5e3d827405dd45bf81d9b64359fcf4a5aabe584197644c4a0e8f
+Z103 rootfs.tar.gz:  0c0f534b42a70a16182cf83d4a0e209ed36dded698b4195730d0510b43eb9020
+Z103 pluto.frm:      abfa29c64cbeb8482e9a1d648faa3227513cdc32137a8be6a3a82bb5d1b677c2
+Z103 pluto.itb:      79ab0f278cf258f4ec02145a9ed266af714b30dad421b3b101f50612d0e1a340
+Z103 jtag ramdisk:   843ff60ed4e17c9e9c469e00c09ad0fe518218cf738cb44c9a47e731a226b909
 ```
 
 ## FieldMesh RTLS Positioning Gate

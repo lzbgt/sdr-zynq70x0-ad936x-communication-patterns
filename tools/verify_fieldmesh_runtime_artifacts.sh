@@ -28,6 +28,7 @@ verify_variant() {
     local dtb
     local rootfs_tar
     local rootfs_cpio
+    local camera_stream_strings_out
     local strings_out
     local ctl_strings_out
     local daemon_strings_out
@@ -77,6 +78,7 @@ verify_variant() {
     require_file "$jtag_dir/boot/devicetree.dtb"
 
     strings_out="$(mktemp)"
+    camera_stream_strings_out="$(mktemp)"
     device_iio_strings_out="$(mktemp)"
     ctl_strings_out="$(mktemp)"
     daemon_strings_out="$(mktemp)"
@@ -89,8 +91,9 @@ verify_variant() {
     rf_tx_disable_out="$(mktemp)"
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
@@ -125,6 +128,21 @@ verify_variant() {
     for token in 020000000203 020000000103; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing FieldMesh compact device EUI in $name probe: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        sdk_camera_stream \
+        swarm0 \
+        fieldmesh_rf_packet_engine \
+        queued_to_rf_engine \
+        uses_inter_board_ip_routing \
+        control_plane_ok \
+        data_plane_ok \
+        020000000203 \
+        020000000103; do
+        if ! grep -qF "$token" "$camera_stream_strings_out"; then
+            echo "Missing fieldmesh-camera-stream-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done
