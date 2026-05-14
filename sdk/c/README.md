@@ -162,10 +162,14 @@ Linux, Windows, and macOS, including the app-side live-loop and target-FPS
 wiring.
 
 The production GUI boundary lives in `../../apps/fieldmesh-imgui-control/`.
-It is a Dear ImGui C++ golden IM app surface for board selection, peer
-discovery, chat messaging, control-plane actions, radio topology, relative
-co-location, and live video publish/subscribe controls. It embeds an
-in-process Python module named `fieldmesh_imgui`; the
+It is a Dear ImGui C++ golden IM app surface with a normal connection setup
+page first: users select a detected board and choose radio intent through
+presets/dropdowns for channel, bandwidth, sample rate, modulation, FEC,
+adaptive MCS, direct P2P preference, and AP relay fallback. After connect it
+shows the chat surface: peer list, message history, input box, control-plane
+actions, radio topology, relative co-location, and video invite/accept/deny
+controls for host camera sessions. It embeds an in-process Python module named
+`fieldmesh_imgui`; the
 `fieldmesh_imgui_pyapi.py` file is only a headless CI harness. The app model is
 symmetric, like an IM client: either instance can message, publish video,
 subscribe to video, or run authorized control operations. The GUI does not
@@ -180,8 +184,13 @@ compiled app constants. On Arch WSL, the GUI can be displayed on the Windows
 host through WSLg by launching the Linux binary with
 `../../tools/run_fieldmesh_imgui_wslg.sh`; this sets the X11/Wayland/Pulse/GPU
 bridge environment for the GLFW/OpenGL3 app target and is packaging plumbing
-rather than part of the SDK ABI. Command CA private keys must stay outside the
-app, and per-device private keys should live in the OS key store, secure
+rather than part of the SDK ABI. The WSL binary needs an explicit host-camera
+bridge if it is to consume the Windows built-in camera. The production Windows
+binary should be built natively with Visual Studio Community or another Windows
+C++ toolchain, keep the radio boards attached to Windows, and access Windows
+camera and USB/RNDIS/serial devices through native APIs or capture-wrapper
+pipes. Command CA private keys must stay outside the app, and per-device
+private keys should live in the OS key store, secure
 element, or board-side secure storage.
 
 The SDK level must remain pure C. Keep this ABI stable even if production

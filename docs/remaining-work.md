@@ -280,9 +280,11 @@ Next concrete work:
   `--daemon-host` app operation through the pure-C `fieldmesh_daemon_request()`
   Ethernet client, covering `FIELDMESH_HELLO`, app-control, and camera-chunk
   protocol requests. The new `apps/fieldmesh-imgui-control` boundary is the
-  interactive GUI direction: a Dear ImGui C++ golden IM app surface for board
-  selection, peer discovery, chat messaging, control-plane actions, radio
-  topology, relative co-location, and live video publish/subscribe controls.
+  interactive GUI direction: a Dear ImGui C++ golden IM app surface with
+  connection setup first, detected-board selection, dropdown radio
+  profile/channel controls, then peer discovery, chat messaging, control-plane
+  actions, radio topology, relative co-location, and video invite/accept/deny
+  controls for host camera sessions.
   It embeds an in-process Python module named `fieldmesh_imgui`, while
   `fieldmesh_imgui_pyapi.py` remains only a headless CI harness. It models
   mandatory command-CA-derived mutual authentication and scoped authorization.
@@ -293,10 +295,14 @@ Next concrete work:
   keys are never bundled. On Arch WSL, the developer GUI path is WSLg: the app
   runs as a Linux process and appears as a Windows-host window through
   `tools/run_fieldmesh_imgui_wslg.sh`; the GLFW/OpenGL3 backend target is now
-  the first visible desktop binary path. The remaining app work is wiring the
-  ImGui panels to live daemon calls and platform capture/preview backends,
-  platform preset installation UX, packaged desktop launchers, deeper platform
-  codec supervision, and the
+  the first visible desktop binary path. WSL camera use requires an explicit
+  bridge from Windows capture into the Linux process, while the production
+  Windows app should build natively with Visual Studio Community and keep board
+  USB/RNDIS/serial plus built-in camera access on the Windows host. The
+  remaining app work is wiring the ImGui panels to live daemon calls and
+  platform capture/preview backends, Windows native build packaging, platform
+  preset installation UX, packaged desktop launchers, deeper platform codec
+  supervision, and the
   conducted/shielded RF TX/RX data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A

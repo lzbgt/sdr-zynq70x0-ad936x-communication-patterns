@@ -3055,13 +3055,16 @@ verifying `fieldmesh_daemon_request()` carries one
 in headless mode. It checks the real embedded Python API source for an
 in-process `fieldmesh_imgui` module and separately runs the subprocess
 `fieldmesh_imgui_pyapi.py` CI harness against the headless binary. The gate
-proves tests can select a board, browse peers, elect an AP, open a chat, send a
-message, and start live video publish/subscribe controls without requiring a
-display. It also runs two symmetric GUI instances, so the app behaves like an
-IM client rather than a hardcoded sender/receiver tool. The same snapshot gate
-also verifies embedded public command-CA trust metadata, auth policy schema,
-codec defaults, external test-profile loading for deployment identity,
-OS/board secure-storage private-key ownership, and `user_runs_shell_scripts=false`.
+proves the GUI starts on a connection setup page, lists detected boards from
+the external profile, exposes dropdown-driven radio profile/channel controls,
+then enters the IM chat surface after board selection. It verifies peer browse,
+AP election, chat open, message send, and video invite/preview controls without
+requiring a display. It also runs two symmetric GUI instances, so the app
+behaves like an IM client rather than a hardcoded sender/receiver tool. The
+same snapshot gate also verifies embedded public command-CA trust metadata,
+auth policy schema, codec defaults, external test-profile loading for
+deployment identity, OS/board secure-storage private-key ownership, and
+`user_runs_shell_scripts=false`.
 When WSLg sockets are present, the same gate also checks
 `tools/run_fieldmesh_imgui_wslg.sh --check-bridge`, which verifies the Arch WSL
 to Windows-host GUI bridge environment before any manual GUI launch. When

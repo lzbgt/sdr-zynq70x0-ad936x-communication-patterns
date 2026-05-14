@@ -64,12 +64,12 @@ if peer_a.get("selected_board_eui") != "020000000203":
     raise SystemExit("peer A GUI instance did not select Z203")
 if peer_b.get("selected_board_eui") != "020000000103":
     raise SystemExit("peer B GUI instance did not select Z103")
-if peer_a.get("camera_publish_enabled") is not True:
-    raise SystemExit("peer A GUI instance did not publish")
+if peer_a.get("video_invite_pending") is not True:
+    raise SystemExit("peer A GUI instance did not create a video invite")
 if peer_a.get("camera_preview_enabled") is not True:
     raise SystemExit("peer A GUI instance did not subscribe")
-if peer_b.get("camera_publish_enabled") is not True:
-    raise SystemExit("peer B GUI instance did not publish")
+if peer_b.get("video_invite_pending") is not True:
+    raise SystemExit("peer B GUI instance did not create a video invite")
 if peer_b.get("camera_preview_enabled") is not True:
     raise SystemExit("peer B GUI instance did not subscribe")
 if peer_a.get("camera_dst_eui") != "020000000103":
@@ -107,6 +107,22 @@ for label, snapshot in (("peer_a", peer_a), ("peer_b", peer_b)):
         raise SystemExit(f"{label} GUI did not expose messaging")
     if snapshot.get("live_video_available") is not True:
         raise SystemExit(f"{label} GUI did not expose live video")
+    if snapshot.get("connected_to_board") is not True or snapshot.get("current_page") != "chat":
+        raise SystemExit(f"{label} GUI did not enter chat page after board selection")
+    if snapshot.get("connection_setup_page") is not True or snapshot.get("chat_page") is not True:
+        raise SystemExit(f"{label} GUI missing connection/chat pages")
+    if snapshot.get("host_camera_selection") is not True:
+        raise SystemExit(f"{label} GUI missing host camera selection")
+    if snapshot.get("video_accept_deny_available") is not True:
+        raise SystemExit(f"{label} GUI missing video accept/deny controls")
+    if snapshot.get("advanced_radio_options") is not True:
+        raise SystemExit(f"{label} GUI missing advanced radio options")
+    if snapshot.get("radio_config_drop_downs") is not True:
+        raise SystemExit(f"{label} GUI radio config is not dropdown-driven")
+    if snapshot.get("radio_direct_p2p_preferred") is not True:
+        raise SystemExit(f"{label} GUI no longer prefers direct P2P")
+    if snapshot.get("radio_ap_relay_fallback") is not True:
+        raise SystemExit(f"{label} GUI no longer exposes AP relay fallback")
     if snapshot.get("embedded_python_api") is not True:
         raise SystemExit(f"{label} GUI did not expose Python API")
     if snapshot.get("python_api_mode") != "embedded_in_process":
@@ -125,8 +141,10 @@ api_subscribe = client.subscribe_camera("020000000203")
 api_message = client.send_message("python api message")
 if api_message.messages_sent != 1 or api_message.last_message_text != "python api message":
     raise SystemExit("Python API message action failed")
-if not api_publish.camera_publish_enabled or api_publish.camera_dst_eui != "020000000103":
-    raise SystemExit("Python API publish action failed")
+if api_publish.camera_publish_enabled or not api_publish.video_invite_pending:
+    raise SystemExit("Python API publish should create a video invite")
+if api_publish.camera_dst_eui != "020000000103":
+    raise SystemExit("Python API publish destination changed")
 if not api_subscribe.camera_preview_enabled:
     raise SystemExit("Python API subscribe action failed")
 
@@ -140,7 +158,7 @@ summary = {
         "publishes_to": peer_a["camera_dst_eui"],
         "subscribes_from": peer_a["subscribed_device_eui"],
         "messages_sent": peer_a["messages_sent"],
-        "camera_publish_enabled": peer_a["camera_publish_enabled"],
+        "video_invite_pending": peer_a["video_invite_pending"],
         "camera_preview_enabled": peer_a["camera_preview_enabled"],
     },
     "peer_b": {
@@ -150,7 +168,7 @@ summary = {
         "publishes_to": peer_b["camera_dst_eui"],
         "subscribes_from": peer_b["subscribed_device_eui"],
         "messages_sent": peer_b["messages_sent"],
-        "camera_publish_enabled": peer_b["camera_publish_enabled"],
+        "video_invite_pending": peer_b["video_invite_pending"],
         "camera_preview_enabled": peer_b["camera_preview_enabled"],
     },
     "embedded_python_api": True,
@@ -166,6 +184,12 @@ summary = {
     "authorization_required": True,
     "messaging_available": True,
     "live_video_available": True,
+    "connection_setup_page": True,
+    "chat_page": True,
+    "host_camera_selection": True,
+    "video_accept_deny_available": True,
+    "advanced_radio_options": True,
+    "radio_config_drop_downs": True,
     "radio_topology_only": True,
     "uses_inter_board_ip_routing": False,
     "starts_rf_tx": False,

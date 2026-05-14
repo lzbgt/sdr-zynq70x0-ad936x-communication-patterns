@@ -49,6 +49,18 @@ class FieldMeshGuiSnapshot:
         return bool(self.raw["camera_publish_enabled"])
 
     @property
+    def video_invite_pending(self) -> bool:
+        return bool(self.raw["video_invite_pending"])
+
+    @property
+    def connected_to_board(self) -> bool:
+        return bool(self.raw["connected_to_board"])
+
+    @property
+    def current_page(self) -> str:
+        return str(self.raw["current_page"])
+
+    @property
     def camera_preview_enabled(self) -> bool:
         return bool(self.raw["camera_preview_enabled"])
 

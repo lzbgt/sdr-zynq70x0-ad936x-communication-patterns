@@ -42,15 +42,35 @@ struct GuiPeer {
 struct GuiCamera {
     bool publish_enabled;
     bool preview_enabled;
+    bool invite_pending;
+    bool incoming_invite;
+    bool session_active;
     std::string source_name;
     std::string preview_name;
     std::string dst_device_eui;
     std::string subscribed_device_eui;
+    std::string pending_peer_eui;
     unsigned target_fps;
     unsigned target_bitrate_kbps;
     unsigned frames_tx;
     unsigned frames_rx;
     unsigned queued_to_rf_engine;
+};
+
+struct GuiRadioConfig {
+    unsigned frequency_mhz;
+    unsigned channel_index;
+    unsigned bandwidth_khz;
+    unsigned sample_rate_ksps;
+    std::string profile_name;
+    std::string modulation;
+    std::string fec;
+    std::string access_mode;
+    std::string timing_mode;
+    bool adaptive_mcs;
+    bool direct_p2p_preferred;
+    bool ap_relay_fallback;
+    bool apply_pending;
 };
 
 struct GuiConversation {
@@ -100,6 +120,7 @@ struct GuiState {
     std::vector<GuiMessage> messages;
     GuiSecurity security;
     GuiCamera camera;
+    GuiRadioConfig radio;
     std::string selected_conversation_eui;
     std::string draft_message;
     unsigned messages_sent;
@@ -107,6 +128,7 @@ struct GuiState {
     std::string selected_ap_eui;
     std::string operation_status;
     std::string profile_source;
+    bool connected_to_board;
     bool auto_election_enabled;
     bool radio_topology_only;
     bool uses_inter_board_ip_routing;
@@ -122,6 +144,36 @@ const GuiBoard *selected_board(const GuiState &state)
         }
     }
     return state.boards.empty() ? nullptr : &state.boards[0];
+}
+
+[[maybe_unused]] const GuiConversation *selected_conversation(const GuiState &state)
+{
+    for (const GuiConversation &conversation : state.conversations) {
+        if (conversation.peer_eui == state.selected_conversation_eui) {
+            return &conversation;
+        }
+    }
+    return state.conversations.empty() ? nullptr : &state.conversations[0];
+}
+
+[[maybe_unused]] const GuiPeer *peer_by_eui(const GuiState &state, const std::string &peer_eui)
+{
+    for (const GuiPeer &peer : state.peers) {
+        if (peer.device_eui == peer_eui) {
+            return &peer;
+        }
+    }
+    return nullptr;
+}
+
+[[maybe_unused]] bool connect_selected_board(GuiState *state)
+{
+    if (!selected_board(*state)) {
+        return false;
+    }
+    state->connected_to_board = true;
+    state->operation_status = "board_connected";
+    return true;
 }
 
 unsigned text_bytes(const char *text)
@@ -191,15 +243,32 @@ void populate_demo_state(GuiState *state)
     state->security.codec_preset_bytes = text_bytes(kCodecPresetJson);
     state->camera.publish_enabled = false;
     state->camera.preview_enabled = false;
-    state->camera.source_name = "platform camera pipe";
+    state->camera.invite_pending = false;
+    state->camera.incoming_invite = false;
+    state->camera.session_active = false;
+    state->camera.source_name = "Built-in camera";
     state->camera.preview_name = "platform preview pipe";
     state->camera.dst_device_eui.clear();
     state->camera.subscribed_device_eui.clear();
+    state->camera.pending_peer_eui.clear();
     state->camera.target_fps = 30;
     state->camera.target_bitrate_kbps = 1800;
     state->camera.frames_tx = 0;
     state->camera.frames_rx = 0;
     state->camera.queued_to_rf_engine = 0;
+    state->radio.frequency_mhz = 2400;
+    state->radio.channel_index = 1;
+    state->radio.bandwidth_khz = 5000;
+    state->radio.sample_rate_ksps = 7680;
+    state->radio.profile_name = "Balanced mesh video";
+    state->radio.modulation = "BPSK";
+    state->radio.fec = "LDPC";
+    state->radio.access_mode = "scheduled_mesh";
+    state->radio.timing_mode = "pps_aligned_slots";
+    state->radio.adaptive_mcs = true;
+    state->radio.direct_p2p_preferred = true;
+    state->radio.ap_relay_fallback = true;
+    state->radio.apply_pending = false;
     state->selected_conversation_eui.clear();
     state->draft_message = "FieldMesh link check";
     state->messages_sent = 0;
@@ -207,6 +276,7 @@ void populate_demo_state(GuiState *state)
     state->selected_ap_eui.clear();
     state->operation_status = "idle";
     state->profile_source = "none";
+    state->connected_to_board = false;
     state->auto_election_enabled = true;
     state->radio_topology_only = true;
     state->uses_inter_board_ip_routing = false;
@@ -312,6 +382,7 @@ bool api_select_board(GuiState *state, const std::string &device_eui)
         matched = matched || board.selected;
     }
     if (matched) {
+        state->connected_to_board = true;
         state->operation_status = "python_api_board_selected";
     }
     return matched;
@@ -366,10 +437,10 @@ bool api_send_message(GuiState *state, const std::string &text)
 bool api_publish_camera(GuiState *state, const std::string &dst_eui)
 {
     state->camera.dst_device_eui = dst_eui;
-    state->camera.publish_enabled = true;
-    state->camera.frames_tx += 1u;
-    state->camera.queued_to_rf_engine += 1u;
-    state->operation_status = "python_api_camera_publish_started";
+    state->camera.pending_peer_eui = dst_eui;
+    state->camera.invite_pending = true;
+    state->camera.publish_enabled = false;
+    state->operation_status = "python_api_video_invite_sent";
     return true;
 }
 
@@ -377,8 +448,37 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
 {
     state->camera.subscribed_device_eui = src_eui;
     state->camera.preview_enabled = true;
+    state->camera.session_active = true;
     state->camera.frames_rx += 1u;
     state->operation_status = "python_api_camera_subscribe_started";
+    return true;
+}
+
+[[maybe_unused]] bool accept_video_invite(GuiState *state)
+{
+    if (state->camera.pending_peer_eui.empty()) {
+        return false;
+    }
+    state->camera.incoming_invite = false;
+    state->camera.invite_pending = false;
+    state->camera.session_active = true;
+    state->camera.preview_enabled = true;
+    state->camera.subscribed_device_eui = state->camera.pending_peer_eui;
+    state->operation_status = "video_invite_accepted";
+    return true;
+}
+
+[[maybe_unused]] bool deny_video_invite(GuiState *state)
+{
+    if (state->camera.pending_peer_eui.empty()) {
+        return false;
+    }
+    state->camera.incoming_invite = false;
+    state->camera.invite_pending = false;
+    state->camera.session_active = false;
+    state->camera.preview_enabled = false;
+    state->camera.pending_peer_eui.clear();
+    state->operation_status = "video_invite_denied";
     return true;
 }
 
@@ -428,6 +528,31 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"messaging_available\": true,\n"
                  "  \"live_video_available\": true,\n"
                  "  \"control_plane_actions\": true,\n"
+                 "  \"connection_setup_page\": true,\n"
+                 "  \"chat_page\": true,\n"
+                 "  \"current_page\": \"%s\",\n"
+                 "  \"connected_to_board\": %s,\n"
+                 "  \"detected_board_count\": %lu,\n"
+                 "  \"host_camera_selection\": true,\n"
+                 "  \"video_invite_pending\": %s,\n"
+                 "  \"video_accept_deny_available\": true,\n"
+                 "  \"video_session_active\": %s,\n"
+                 "  \"selected_camera_name\": \"%s\",\n"
+                 "  \"advanced_radio_options\": true,\n"
+                 "  \"radio_config_drop_downs\": true,\n"
+                 "  \"radio_profile_name\": \"%s\",\n"
+                 "  \"radio_frequency_mhz\": %u,\n"
+                 "  \"radio_channel_index\": %u,\n"
+                 "  \"radio_bandwidth_khz\": %u,\n"
+                 "  \"radio_sample_rate_ksps\": %u,\n"
+                 "  \"radio_modulation\": \"%s\",\n"
+                 "  \"radio_fec\": \"%s\",\n"
+                 "  \"radio_access_mode\": \"%s\",\n"
+                 "  \"radio_timing_mode\": \"%s\",\n"
+                 "  \"radio_adaptive_mcs\": %s,\n"
+                 "  \"radio_direct_p2p_preferred\": %s,\n"
+                 "  \"radio_ap_relay_fallback\": %s,\n"
+                 "  \"radio_apply_pending\": %s,\n"
                  "  \"embedded_python_api\": true,\n"
                  "  \"python_api_mode\": \"embedded_in_process\",\n"
                  "  \"python_api_module\": \"fieldmesh_imgui\",\n"
@@ -483,6 +608,25 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.security.profile_schema_bytes,
                  state.security.auth_policy_bytes,
                  state.security.codec_preset_bytes,
+                 state.connected_to_board ? "chat" : "connection_setup",
+                 state.connected_to_board ? "true" : "false",
+                 static_cast<unsigned long>(state.boards.size()),
+                 state.camera.invite_pending ? "true" : "false",
+                 state.camera.session_active ? "true" : "false",
+                 state.camera.source_name.c_str(),
+                 state.radio.profile_name.c_str(),
+                 state.radio.frequency_mhz,
+                 state.radio.channel_index,
+                 state.radio.bandwidth_khz,
+                 state.radio.sample_rate_ksps,
+                 state.radio.modulation.c_str(),
+                 state.radio.fec.c_str(),
+                 state.radio.access_mode.c_str(),
+                 state.radio.timing_mode.c_str(),
+                 state.radio.adaptive_mcs ? "true" : "false",
+                 state.radio.direct_p2p_preferred ? "true" : "false",
+                 state.radio.ap_relay_fallback ? "true" : "false",
+                 state.radio.apply_pending ? "true" : "false",
                  board ? board->device_eui.c_str() : "",
                  board ? board->daemon_host.c_str() : "",
                  state.selected_conversation_eui.c_str(),
@@ -523,123 +667,271 @@ void end_panel()
     ImGui::EndChild();
 }
 
-void render_board_selection(GuiState *state)
+void render_connection_setup(GuiState *state)
 {
-    begin_panel("Board Selection", ImVec2(0.0f, 155.0f));
+    struct RadioPreset {
+        const char *name;
+        unsigned frequency_mhz;
+        unsigned channel_index;
+        unsigned bandwidth_khz;
+        unsigned sample_rate_ksps;
+        const char *modulation;
+        const char *fec;
+    };
+    static const RadioPreset presets[] = {
+        {"Balanced mesh video", 2400, 1, 5000, 7680, "BPSK", "LDPC"},
+        {"Long range robust", 915, 3, 1000, 1920, "BPSK", "convolutional"},
+        {"High throughput short range", 2450, 6, 10000, 15360, "OFDM", "LDPC"},
+    };
+    static const char *preset_names[] = {
+        "Balanced mesh video",
+        "Long range robust",
+        "High throughput short range",
+    };
+    static const char *channels[] = {"1", "2", "3", "4", "5", "6", "7", "8"};
+    static const unsigned channel_values[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    static const char *bandwidth_names[] = {"1000 kHz", "5000 kHz", "10000 kHz", "20000 kHz"};
+    static const unsigned bandwidth_values[] = {1000, 5000, 10000, 20000};
+    static const char *sample_rate_names[] = {"1920 ksps", "7680 ksps", "15360 ksps", "30720 ksps"};
+    static const unsigned sample_rate_values[] = {1920, 7680, 15360, 30720};
+    static const char *modulations[] = {"BPSK", "QPSK", "16QAM", "OFDM"};
+    static const char *fec_modes[] = {"none", "convolutional", "LDPC", "polar"};
+    int frequency = static_cast<int>(state->radio.frequency_mhz);
+    int preset_index = 0;
+    int channel_index = 0;
+    int bandwidth_index = 1;
+    int sample_rate_index = 1;
+    int modulation_index = 0;
+    int fec_index = 2;
+
+    for (int i = 0; i < 3; ++i) {
+        if (state->radio.profile_name == preset_names[i]) {
+            preset_index = i;
+        }
+    }
+    for (int i = 0; i < 8; ++i) {
+        if (state->radio.channel_index == channel_values[i]) {
+            channel_index = i;
+        }
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (state->radio.bandwidth_khz == bandwidth_values[i]) {
+            bandwidth_index = i;
+        }
+        if (state->radio.sample_rate_ksps == sample_rate_values[i]) {
+            sample_rate_index = i;
+        }
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (state->radio.modulation == modulations[i]) {
+            modulation_index = i;
+        }
+        if (state->radio.fec == fec_modes[i]) {
+            fec_index = i;
+        }
+    }
+
+    ImGui::BeginChild("connection-setup-page", ImVec2(0.0f, 0.0f), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    ImGui::TextUnformatted("Connect to a FieldMesh board");
+    ImGui::TextUnformatted("Select the board attached to this host. Peer traffic uses the radio network.");
+    ImGui::Spacing();
+
+    ImGui::BeginChild("connection-board-list", ImVec2(0.0f, 330.0f), true,
+                      ImGuiWindowFlags_NoSavedSettings);
+    ImGui::TextUnformatted("Detected Boards");
+    ImGui::Separator();
     for (GuiBoard &board : state->boards) {
         ImGui::PushID(board.device_eui.c_str());
-        if (ImGui::Selectable(board.hostname.c_str(), board.selected)) {
+        if (ImGui::Selectable(board.hostname.c_str(), board.selected,
+                              ImGuiSelectableFlags_AllowDoubleClick,
+                              ImVec2(0.0f, 44.0f))) {
             for (GuiBoard &other : state->boards) {
                 other.selected = false;
             }
             board.selected = true;
+            if (ImGui::IsMouseDoubleClicked(0)) {
+                (void)connect_selected_board(state);
+            }
         }
-        ImGui::SameLine();
-        ImGui::Text("%s %s:%u", board.device_type.c_str(),
+        ImGui::Text("%s  %s:%u", board.device_type.c_str(),
                     board.daemon_host.c_str(), board.daemon_port);
+        ImGui::Text("Capabilities: %s%s",
+                    board.ap_capable ? "AP " : "",
+                    board.camera_stream_capable ? "camera-stream" : "");
         ImGui::PopID();
     }
-    end_panel();
+    ImGui::EndChild();
+
+    const GuiBoard *board = selected_board(*state);
+    if (board) {
+        ImGui::Text("Selected: %s  %s:%u", board->hostname.c_str(),
+                    board->daemon_host.c_str(), board->daemon_port);
+    }
+    if (ImGui::Button("Connect", ImVec2(160.0f, 34.0f))) {
+        (void)connect_selected_board(state);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Refresh Boards", ImVec2(160.0f, 34.0f))) {
+        state->operation_status = "board_discovery_requested";
+    }
+    ImGui::SameLine();
+    ImGui::Text("Status: %s", state->operation_status.c_str());
+
+    ImGui::Spacing();
+    ImGui::BeginChild("advanced-radio-options", ImVec2(0.0f, 210.0f), true,
+                      ImGuiWindowFlags_NoSavedSettings);
+    ImGui::TextUnformatted("Advanced Radio");
+    ImGui::Separator();
+    if (ImGui::Combo("Profile", &preset_index, preset_names, 3)) {
+        const RadioPreset &preset = presets[preset_index];
+        state->radio.profile_name = preset.name;
+        state->radio.frequency_mhz = preset.frequency_mhz;
+        state->radio.channel_index = preset.channel_index;
+        state->radio.bandwidth_khz = preset.bandwidth_khz;
+        state->radio.sample_rate_ksps = preset.sample_rate_ksps;
+        state->radio.modulation = preset.modulation;
+        state->radio.fec = preset.fec;
+        state->radio.apply_pending = true;
+    }
+    if (ImGui::SliderInt("Frequency MHz", &frequency, 300, 6000)) {
+        state->radio.frequency_mhz = static_cast<unsigned>(frequency);
+        state->radio.apply_pending = true;
+    }
+    if (ImGui::Combo("Channel", &channel_index, channels, 8)) {
+        state->radio.channel_index = channel_values[channel_index];
+        state->radio.apply_pending = true;
+    }
+    if (ImGui::Combo("Bandwidth", &bandwidth_index, bandwidth_names, 4)) {
+        state->radio.bandwidth_khz = bandwidth_values[bandwidth_index];
+        state->radio.apply_pending = true;
+    }
+    if (ImGui::Combo("Sample rate", &sample_rate_index, sample_rate_names, 4)) {
+        state->radio.sample_rate_ksps = sample_rate_values[sample_rate_index];
+        state->radio.apply_pending = true;
+    }
+    if (ImGui::Combo("Modulation", &modulation_index, modulations, 4)) {
+        state->radio.modulation = modulations[modulation_index];
+        state->radio.apply_pending = true;
+    }
+    if (ImGui::Combo("FEC", &fec_index, fec_modes, 4)) {
+        state->radio.fec = fec_modes[fec_index];
+        state->radio.apply_pending = true;
+    }
+    ImGui::Checkbox("Adaptive MCS", &state->radio.adaptive_mcs);
+    ImGui::SameLine();
+    ImGui::Checkbox("Prefer direct P2P", &state->radio.direct_p2p_preferred);
+    ImGui::SameLine();
+    ImGui::Checkbox("AP relay fallback", &state->radio.ap_relay_fallback);
+    if (ImGui::Button("Apply Radio Profile")) {
+        state->radio.apply_pending = true;
+        state->operation_status = "radio_profile_apply_requested";
+    }
+    ImGui::SameLine();
+    ImGui::Text("Mode: %s / %s", state->radio.access_mode.c_str(),
+                state->radio.timing_mode.c_str());
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::BeginChild("connection-security-summary", ImVec2(0.0f, 0.0f), true,
+                      ImGuiWindowFlags_NoSavedSettings);
+    ImGui::TextUnformatted("Security");
+    ImGui::Separator();
+    ImGui::Text("Mutual auth: %s", state->security.mutual_auth_state.c_str());
+    ImGui::Text("Authorization: %s", state->security.authorization_scope.c_str());
+    ImGui::Text("Trust: %s", state->security.command_ca.c_str());
+    ImGui::TextUnformatted("Deployment profile is external; app resources carry public trust and schema data.");
+    ImGui::EndChild();
+    ImGui::EndChild();
 }
 
-void render_control_plane(GuiState *state)
+void render_control_plane_strip(GuiState *state)
 {
-    begin_panel("Control Plane", ImVec2(0.0f, 145.0f));
+    ImGui::BeginChild("control-plane-actions", ImVec2(0.0f, 72.0f), true,
+                      ImGuiWindowFlags_NoSavedSettings);
     ImGui::Checkbox("Auto elect AP", &state->auto_election_enabled);
+    ImGui::SameLine();
     if (ImGui::Button("Browse Peers")) {
-        state->operation_status = "peer browse requested";
+        state->operation_status = "peer_browse_requested";
     }
     ImGui::SameLine();
     if (ImGui::Button("Elect AP")) {
         if (state->auto_election_enabled && !state->boards.empty()) {
             state->selected_ap_eui = state->boards[0].device_eui;
         }
-        state->operation_status = "ap election requested";
+        state->operation_status = "ap_election_requested";
     }
-    if (ImGui::Button("Apply Capability Policy")) {
-        state->operation_status = "capability policy requested";
+    ImGui::SameLine();
+    if (ImGui::Button("Repurpose")) {
+        state->operation_status = "capability_policy_requested";
     }
     ImGui::Text("Selected AP: %s", state->selected_ap_eui.c_str());
-    ImGui::Text("Status: %s", state->operation_status.c_str());
-    end_panel();
+    ImGui::EndChild();
 }
 
-void render_security(GuiState *state)
+void render_peer_list(GuiState *state)
 {
-    begin_panel("Security", ImVec2(0.0f, 0.0f));
-    ImGui::Text("Command CA: %s", state->security.command_ca.c_str());
-    ImGui::Text("CA fingerprint: %s",
-                state->security.command_ca_fingerprint.c_str());
-    ImGui::Text("Provisioning: %s", state->security.provisioning_model.c_str());
-    ImGui::Text("Private key: %s",
-                state->security.device_private_key_source.c_str());
-    ImGui::Checkbox("Bundled trust bundle",
-                    &state->security.bundled_trust_bundle);
-    ImGui::Checkbox("Deployment profile embedded",
-                    &state->security.bundled_demo_profile);
-    ImGui::Checkbox("Resources embedded in app",
-                    &state->security.resources_embedded_in_app);
-    ImGui::Checkbox("Mutual auth required",
-                    &state->security.mutual_auth_required);
-    ImGui::Checkbox("Authorization required",
-                    &state->security.authorization_required);
-    ImGui::Text("Scopes: %s", state->security.authorization_scope.c_str());
-    ImGui::Text("Embedded resources: %u",
-                state->security.embedded_resource_count);
-    ImGui::Text("Trust/schema/policy/codec bytes: %u/%u/%u/%u",
-                state->security.trust_bundle_bytes,
-                state->security.profile_schema_bytes,
-                state->security.auth_policy_bytes,
-                state->security.codec_preset_bytes);
-    ImGui::TextUnformatted("Command CA private key is never bundled.");
-    ImGui::TextUnformatted("Verification scripts are developer gates, not user workflow.");
-    end_panel();
-}
-
-void render_chats(GuiState *state)
-{
-    char message_buffer[160];
-
-    std::snprintf(message_buffer, sizeof(message_buffer), "%s",
-                  state->draft_message.c_str());
-    begin_panel("Chats", ImVec2(0.0f, 0.0f));
-    ImGui::Columns(2);
+    begin_panel("Peers", ImVec2(260.0f, 0.0f));
     for (GuiConversation &conversation : state->conversations) {
+        const GuiPeer *peer = peer_by_eui(*state, conversation.peer_eui);
         ImGui::PushID(conversation.peer_eui.c_str());
         if (ImGui::Selectable(conversation.display_name.c_str(),
-                              conversation.selected)) {
+                              conversation.selected,
+                              0, ImVec2(0.0f, 46.0f))) {
             (void)api_open_conversation(state, conversation.peer_eui);
         }
-        if (conversation.unread_count > 0u) {
-            ImGui::SameLine();
-            ImGui::Text("unread %u", conversation.unread_count);
+        ImGui::Text("%s  unread %u",
+                    peer && peer->direct_reachable ? "direct" : "relay-ready",
+                    conversation.unread_count);
+        if (peer) {
+            ImGui::Text("SNR %d dB  PER %d/1000", peer->snr_db, peer->per_mille);
         }
         ImGui::PopID();
     }
-    ImGui::NextColumn();
-    for (const GuiMessage &message : state->messages) {
-        if (message.peer_eui == state->selected_conversation_eui) {
-            ImGui::Text("%s: %s", message.direction.c_str(),
-                        message.text.c_str());
-        }
-    }
-    if (ImGui::InputText("Message", message_buffer, sizeof(message_buffer))) {
-        state->draft_message = message_buffer;
-    }
-    if (ImGui::Button("Send Message")) {
-        (void)api_send_message(state, state->draft_message);
-    }
-    ImGui::Columns(1);
     end_panel();
 }
 
-void render_topology(GuiState *state)
+void render_messages(GuiState *state)
 {
-    begin_panel("Radio Network Topology", ImVec2(0.0f, 420.0f));
+    char message_buffer[160];
+    const GuiConversation *conversation = selected_conversation(*state);
+
+    std::snprintf(message_buffer, sizeof(message_buffer), "%s",
+                  state->draft_message.c_str());
+    begin_panel("Messages", ImVec2(0.0f, 0.0f));
+    if (conversation) {
+        ImGui::Text("Chat with %s", conversation->display_name.c_str());
+    }
+    ImGui::Separator();
+    ImGui::BeginChild("message-history", ImVec2(0.0f, -42.0f), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    for (const GuiMessage &message : state->messages) {
+        if (message.peer_eui == state->selected_conversation_eui) {
+            ImGui::Text("%s", message.direction == "tx" ? "Me" : "Peer");
+            ImGui::SameLine(70.0f);
+            ImGui::TextWrapped("%s", message.text.c_str());
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", message.status.c_str());
+        }
+    }
+    ImGui::EndChild();
+    if (ImGui::InputText("Input", message_buffer, sizeof(message_buffer))) {
+        state->draft_message = message_buffer;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Send", ImVec2(76.0f, 0.0f))) {
+        (void)api_send_message(state, state->draft_message);
+    }
+    end_panel();
+}
+
+void render_topology_compact(GuiState *state)
+{
+    begin_panel("Radio Network Topology", ImVec2(0.0f, 230.0f));
     ImDrawList *draw = ImGui::GetWindowDrawList();
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImVec2 canvas(avail.x > 120.0f ? avail.x : 120.0f, 320.0f);
+    ImVec2 canvas(avail.x > 120.0f ? avail.x : 120.0f, 145.0f);
     float center_x = origin.x + canvas.x * 0.5f;
     float center_y = origin.y + canvas.y * 0.5f;
     draw->AddRectFilled(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
@@ -662,24 +954,32 @@ void render_topology(GuiState *state)
     end_panel();
 }
 
-void render_video_stream(GuiState *state)
+void render_conversation_actions(GuiState *state)
 {
-    char dst_buffer[32];
-    char subscribe_buffer[32];
+    static const char *camera_names[] = {
+        "Built-in camera",
+        "External USB camera",
+        "Virtual camera",
+    };
+    const GuiConversation *conversation = selected_conversation(*state);
+    std::string peer_eui = conversation ? conversation->peer_eui :
+                           state->camera.dst_device_eui;
     int target_fps = static_cast<int>(state->camera.target_fps);
     int target_kbps = static_cast<int>(state->camera.target_bitrate_kbps);
+    int camera_index = 0;
 
-    std::snprintf(dst_buffer, sizeof(dst_buffer), "%s",
-                  state->camera.dst_device_eui.c_str());
-    std::snprintf(subscribe_buffer, sizeof(subscribe_buffer), "%s",
-                  state->camera.subscribed_device_eui.c_str());
-    begin_panel("Video Chat", ImVec2(0.0f, 0.0f));
-    if (ImGui::InputText("Publish to EUI", dst_buffer, sizeof(dst_buffer))) {
-        state->camera.dst_device_eui = dst_buffer;
+    for (int i = 0; i < 3; ++i) {
+        if (state->camera.source_name == camera_names[i]) {
+            camera_index = i;
+        }
     }
-    if (ImGui::InputText("Subscribe from EUI", subscribe_buffer,
-                         sizeof(subscribe_buffer))) {
-        state->camera.subscribed_device_eui = subscribe_buffer;
+    begin_panel("Conversation", ImVec2(0.0f, 0.0f));
+    if (conversation) {
+        ImGui::Text("Peer: %s", conversation->display_name.c_str());
+        ImGui::Text("EUI: %s", conversation->peer_eui.c_str());
+    }
+    if (ImGui::Combo("Camera", &camera_index, camera_names, 3)) {
+        state->camera.source_name = camera_names[camera_index];
     }
     if (ImGui::SliderInt("Target FPS", &target_fps, 1, 60)) {
         state->camera.target_fps = static_cast<unsigned>(target_fps);
@@ -687,19 +987,68 @@ void render_video_stream(GuiState *state)
     if (ImGui::SliderInt("Target kbps", &target_kbps, 64, 12000)) {
         state->camera.target_bitrate_kbps = static_cast<unsigned>(target_kbps);
     }
-    if (ImGui::Button(state->camera.publish_enabled ? "Stop Publishing" :
-                                                    "Publish Camera")) {
-        state->camera.publish_enabled = !state->camera.publish_enabled;
+    if (ImGui::Button("Video", ImVec2(98.0f, 30.0f))) {
+        (void)api_publish_camera(state, peer_eui);
     }
     ImGui::SameLine();
-    if (ImGui::Button(state->camera.preview_enabled ? "Stop Preview" :
-                                                    "Subscribe Preview")) {
-        state->camera.preview_enabled = !state->camera.preview_enabled;
+    if (ImGui::Button("Share Screen", ImVec2(116.0f, 30.0f))) {
+        state->operation_status = "screen_share_invite_requested";
     }
+    if (state->camera.invite_pending) {
+        ImGui::Text("Video invite pending: %s",
+                    state->camera.pending_peer_eui.c_str());
+        if (ImGui::Button("Cancel Invite")) {
+            state->camera.invite_pending = false;
+            state->camera.pending_peer_eui.clear();
+            state->operation_status = "video_invite_cancelled";
+        }
+    }
+    if (state->camera.incoming_invite) {
+        ImGui::Separator();
+        ImGui::Text("Incoming video invite from %s",
+                    state->camera.pending_peer_eui.c_str());
+        if (ImGui::Button("Accept", ImVec2(90.0f, 28.0f))) {
+            (void)accept_video_invite(state);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Deny", ImVec2(90.0f, 28.0f))) {
+            (void)deny_video_invite(state);
+        }
+    }
+    ImGui::Separator();
+    ImGui::Text("Session: %s", state->camera.session_active ? "active" : "idle");
     ImGui::Text("Frames TX/RX: %u/%u", state->camera.frames_tx,
                 state->camera.frames_rx);
     ImGui::Text("RF queued: %u", state->camera.queued_to_rf_engine);
+    ImGui::Text("Status: %s", state->operation_status.c_str());
     end_panel();
+}
+
+void render_chat_page(GuiState *state)
+{
+    render_control_plane_strip(state);
+    float content_h = ImGui::GetContentRegionAvail().y;
+
+    ImGui::BeginChild("peer-list-column", ImVec2(270.0f, content_h), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    render_peer_list(state);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("message-column", ImVec2(0.0f, content_h), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    float side_w = 360.0f;
+    ImGui::BeginChild("message-main", ImVec2(-side_w - 8.0f, 0.0f), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    render_messages(state);
+    ImGui::EndChild();
+    ImGui::SameLine();
+    ImGui::BeginChild("conversation-side", ImVec2(side_w, 0.0f), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    render_conversation_actions(state);
+    render_topology_compact(state);
+    ImGui::EndChild();
+    ImGui::EndChild();
 }
 
 void fieldmesh_imgui_render(GuiState *state)
@@ -715,31 +1064,18 @@ void fieldmesh_imgui_render(GuiState *state)
                              ImGuiWindowFlags_NoBringToFrontOnFocus;
 
     ImGui::Begin("FieldMesh Golden IM Dashboard", nullptr, flags);
-    ImGui::TextUnformatted("FieldMesh Golden IM");
+    ImGui::TextUnformatted("FieldMesh IM");
     ImGui::SameLine();
     ImGui::Text("status: %s", state->operation_status.c_str());
+    ImGui::SameLine();
+    ImGui::Text("profile: %s", state->profile_source.c_str());
     ImGui::Separator();
 
-    float content_h = ImGui::GetContentRegionAvail().y;
-    ImGui::BeginChild("left-control-column", ImVec2(330.0f, content_h), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    render_board_selection(state);
-    render_control_plane(state);
-    render_security(state);
-    ImGui::EndChild();
-
-    ImGui::SameLine();
-    ImGui::BeginChild("chat-column", ImVec2(430.0f, content_h), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    render_chats(state);
-    ImGui::EndChild();
-
-    ImGui::SameLine();
-    ImGui::BeginChild("right-media-column", ImVec2(0.0f, content_h), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    render_topology(state);
-    render_video_stream(state);
-    ImGui::EndChild();
+    if (state->connected_to_board) {
+        render_chat_page(state);
+    } else {
+        render_connection_setup(state);
+    }
     ImGui::End();
 }
 #else

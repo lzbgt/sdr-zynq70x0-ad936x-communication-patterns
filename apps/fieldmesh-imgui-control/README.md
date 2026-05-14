@@ -10,6 +10,9 @@ the board daemon protocol.
 The GUI owns:
 
 - board selection by daemon endpoint and device EUI;
+- connection setup with normal-user dropdown radio profiles for frequency,
+  channel, bandwidth, modulation, FEC, adaptive MCS, direct P2P preference, and
+  AP relay fallback, with daemon-side guarded apply as the only hardware path;
 - peer discovery and conversation selection;
 - messaging over the FieldMesh data plane;
 - control-plane actions: peer browse, AP election, explicit AP selection, and
@@ -95,6 +98,16 @@ command-line harness verifies: `FIELDMESH_HELLO`,
 `FIELDMESH_APP_CONTROL_CAMERA`, `FIELDMESH_CAMERA_SESSION_PLAN`,
 `FIELDMESH_ROUTE_METRICS`, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
 `FIELDMESH_CAMERA_STREAM_CHUNK`.
+
+The WSLg route is for developer bring-up. A production Windows app should build
+the same C++ app core with a native backend using the installed Visual Studio
+Community toolchain, keep board USB/RNDIS/serial devices attached to Windows,
+and capture the host camera through Windows APIs or an FFmpeg/GStreamer/native
+wrapper process. If a developer wants to use the host built-in camera from the
+WSL Linux binary, that camera must be bridged explicitly into WSL, for example
+through a Windows capture process that streams encoded bytes into the app pipe
+or through a supported USB/video-device forwarding path. The Linux app must not
+assume Windows camera or board devices are automatically present inside WSL.
 
 The shell scripts and `testdata/golden_lab.profile` are developer/CI gates, not
 the end-user workflow. Two symmetric instances can be smoke-tested without a

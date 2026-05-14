@@ -659,9 +659,14 @@ user and vendor configuration.
   writes the receive/preview side with `--preview-output`, which lets a
   platform camera pipeline feed the same SDK path before a GUI renderer exists.
 - `apps/fieldmesh-imgui-control/` - Dear ImGui C++ golden IM app boundary. It
-  models a symmetric peer client for board selection, peer discovery, chat
-  messaging, control-plane actions, radio topology, relative co-location, and
-  live video publish/subscribe controls. It embeds an in-process Python module
+  models a symmetric peer client with a first-run connection setup page for
+  selecting a detected board and choosing dropdown-driven radio profiles
+  (frequency intent, channel, bandwidth, sample rate, modulation, FEC,
+  adaptive MCS, direct P2P preference, and AP relay fallback). After connect it
+  presents the normal IM surface: peer list, message history, input box,
+  control-plane actions, radio topology, relative co-location, and video
+  invite/accept/deny controls for host camera sessions. It embeds an
+  in-process Python module
   named `fieldmesh_imgui`; the Python subprocess helper is only a CI/headless
   harness. The app carries the production security model explicitly:
   command-CA-derived device certificates, mutual authentication, and scoped
@@ -674,7 +679,13 @@ user and vendor configuration.
   on WSL, `tools/run_fieldmesh_imgui_wslg.sh` provides the Windows-host GUI
   bridge by setting the WSLg X11/Wayland/Pulse/GPU environment before
   launching the GLFW/OpenGL3 ImGui binary; product packaging should hide that
-  bridge inside a desktop shortcut/app bundle.
+  bridge inside a desktop shortcut/app bundle. WSLg is developer plumbing; the
+  production Windows app should build the same C++ app core with the installed
+  Visual Studio Community toolchain, keep board USB/RNDIS/serial devices
+  attached to Windows, and use Windows camera capture directly or via a native
+  FFmpeg/GStreamer/wrapper pipe. A WSL Linux app can consume the host built-in
+  camera only through an explicit bridge, not by assuming Windows video devices
+  appear in WSL.
   It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
@@ -1100,9 +1111,11 @@ Expected result in the current Pluto-compatible firmware state:
    packet-engine binding gate still recovered frame CRC `2646482743` while
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
    The production GUI boundary is now `apps/fieldmesh-imgui-control/`: a Dear
-   ImGui C++ golden IM app surface for board selection, peer discovery, chat
-   messaging, control-plane actions, radio topology, relative co-location, and
-   live video publish/subscribe controls. It embeds an in-process Python module
+   ImGui C++ golden IM app surface with connection setup first, board
+   selection from detected devices, dropdown radio profile controls, then the
+   chat surface with peer list, message history, input box, control-plane
+   actions, radio topology, relative co-location, and video invite/accept/deny
+   controls. It embeds an in-process Python module
    named `fieldmesh_imgui`; `fieldmesh_imgui_pyapi.py` is only a headless test
    harness. The app treats command-CA-derived mutual authentication plus
    scoped authorization as mandatory production security.
