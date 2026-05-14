@@ -109,7 +109,59 @@ mutating vendor Linux trees. `resources/fieldmesh/vectors/` now pins the packet
 and shim-frame bytes that memory/driver and PL loopback implementations must
 carry unchanged.
 
-Next concrete work:
+Current concrete work:
+
+- Keep the hybrid AP/broker architecture from
+  `docs/fieldmesh-ap-sdk-architecture.md`: predefined AP when a deployment has
+  a known owner/gateway, autonomous AP election when no AP is visible, direct
+  peer routes when healthy, and AP/scheduled relay only when direct
+  communication is weak, blocked, unstable, or policy-forbidden. Z203-class
+  2R2T remains the preferred AP/broker target, but a 1R1T node can become an
+  emergency AP when policy allows and no better candidate exists.
+- Treat host Ethernet/USB/PHY links as management and local ingress/egress.
+  The latest live product-shaped gate uses Z203 over PHY management
+  `192.168.1.10` and Z103 over USB management `192.168.3.1`; it passed AP
+  browse/election/join, radio topology, RTLS/co-location, camera session
+  planning, route-health adaptation, camera chunk ingress, preview status, RF
+  packet-engine handoff, and the paired two-board radio-readiness assertion.
+  Evidence includes
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`,
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_explicit_camera_flow_20260514-1718/`,
+  and
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_app_daemon_client_flow_20260514-173828/`.
+  Z203's second USB/RNDIS data gadget is still worth restoring, but it is no
+  longer the blocker for two-board app/daemon testing because PHY management is
+  working.
+- Continue replacing deterministic demo responses with production services:
+  real credential/audit admission, runtime peer discovery, measured route
+  query, codec-integrated adaptation feedback, prioritized stream
+  send/receive, and structured event delivery. The SDK ABI remains pure C; the
+  production daemon and GUI app can be C++ on top of it.
+- Keep profiles as test/provisioning fixtures only. Normal GUI startup must use
+  runtime discovery and app -> SDK -> daemon configuration. The app, SDK, and
+  daemon must not compile in deployment EUI, hostname, endpoint, or fixed AP
+  role.
+- Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
+  endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
+  host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board
+  IP routing.
+- The next RF data-plane gate is conducted/shielded only: use the RF
+  packet-engine handoff, BPSK symbolizer, IQ TX guard, DAC clock bridge, and DAC
+  source-select path to run a bounded TX/RX measurement with explicit legal
+  frequency, attenuation, RX-first capture, TX enable, rollback, and evidence.
+  Until that passes, all board/app capacity tables remain planning envelopes,
+  not measured RF throughput claims.
+- The next app/product gate is a packaged GUI validation cycle: two symmetric
+  ImGui instances, live daemon discovery, board selection, chat send/receive,
+  video invite/accept/deny, camera/screen source selection, topology/range
+  updates, embedded Python logs, and no profile required for normal startup.
+- The next customer-facing performance gate is measurement, not more prose:
+  collect real Mbps, concurrent video-lane capacity, range/error, jitter,
+  packet loss, and power consumption per Z203/Z103 plan as described in
+  `docs/fieldmesh-board-parameters-performance.md`.
+
+Historical implementation notes, retained for provenance. Some blocked states
+below were later superseded by the current PHY-management two-board gates above:
 
 - Follow the staged two-board plan:
   1. Verify the SDR-Z103 / Z7010 / 1R1T board with the customized FieldMesh
