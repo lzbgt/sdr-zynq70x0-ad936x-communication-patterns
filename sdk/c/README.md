@@ -135,6 +135,9 @@ from the C++ app, including AP browse/election, operations, radio topology, RTLS
 positions, camera stream state, lifecycle health, and UI feature flags. The
 companion `fieldmesh_app_snapshot.py` helper can derive the same model from an
 existing NDJSON app log for replay, tests, or post-processing.
+`--dashboard-output PATH` writes the first native browser-viewable dashboard
+artifact from the C++ app, with network browser, operations, radio topology,
+relative co-location map, camera stream metrics, and safety invariants.
 `fieldmesh_camera_pipe.py` provides
 `capture-file`/`preview-file` commands for deterministic tests and a `preset`
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for

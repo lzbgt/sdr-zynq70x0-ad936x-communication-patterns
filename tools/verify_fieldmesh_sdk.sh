@@ -35,6 +35,8 @@ control_camera_snapshot_log="$out_dir/fieldmesh_control_camera_snapshot.json"
 control_camera_command_snapshot_log="$out_dir/fieldmesh_control_camera_command_snapshot.json"
 control_camera_native_snapshot="$out_dir/fieldmesh_control_camera_native_snapshot.json"
 control_camera_command_native_snapshot="$out_dir/fieldmesh_control_camera_command_native_snapshot.json"
+control_camera_dashboard="$out_dir/fieldmesh_control_camera_dashboard.html"
+control_camera_command_dashboard="$out_dir/fieldmesh_control_camera_command_dashboard.html"
 control_camera_input="$out_dir/fieldmesh_camera_input.bin"
 control_camera_preview="$out_dir/fieldmesh_camera_preview.bin"
 control_camera_command_preview="$out_dir/fieldmesh_camera_command_preview.bin"
@@ -50,6 +52,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --camera-input "$control_camera_input" \
     --preview-output "$control_camera_preview" \
     --snapshot-output "$control_camera_native_snapshot" \
+    --dashboard-output "$control_camera_dashboard" \
     --chunk-size 64 \
     >"$control_camera_external_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_external.stderr"
@@ -61,6 +64,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --target-fps 15 \
     --live-stream-loop \
     --snapshot-output "$control_camera_command_native_snapshot" \
+    --dashboard-output "$control_camera_command_dashboard" \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
 "$control_camera_snapshot_helper" \
@@ -1038,6 +1042,33 @@ if native_command.get("camera", {}).get("live_stream_loop") is not True:
     raise SystemExit("native command app snapshot did not preserve live-loop status")
 PY
 echo "fieldmesh_sdk_control_camera_snapshot_check=pass"
+
+python3 - "$control_camera_dashboard" "$control_camera_command_dashboard" <<'PY'
+from pathlib import Path
+import sys
+
+for path in sys.argv[1:]:
+    text = Path(path).read_text(encoding="utf-8")
+    for token in (
+        "FieldMesh Control Camera",
+        'data-view="network"',
+        'data-view="topology"',
+        'data-view="rtls"',
+        'data-view="camera"',
+        'data-view="safety"',
+        "020000000203",
+        "020000000103",
+        "RF TX disabled",
+        "No inter-board IP routing",
+    ):
+        if token not in text:
+            raise SystemExit(f"dashboard {path} missing {token}")
+    if "Inter-board IP routing</th><td>disabled" not in text:
+        raise SystemExit(f"dashboard {path} did not preserve routing invariant")
+    if "Hardware writes</th><td>disabled" not in text:
+        raise SystemExit(f"dashboard {path} did not preserve hardware-write invariant")
+PY
+echo "fieldmesh_sdk_control_camera_dashboard_check=pass"
 
 python3 - "$control_camera_preset_log" <<'PY'
 import json

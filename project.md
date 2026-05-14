@@ -665,6 +665,9 @@ user and vendor configuration.
   AP browse/election, operations, radio topology, RTLS positions, camera stream
   state, lifecycle health, and UI feature flags. `fieldmesh_app_snapshot.py`
   folds existing app NDJSON into the same snapshot shape for replay and tests.
+  `--dashboard-output PATH` writes the first native browser-viewable dashboard
+  artifact with network browser, operations, radio topology, relative
+  co-location map, camera stream metrics, and safety invariants.
   `fieldmesh_camera_pipe.py` supplies deterministic file-backed capture/preview
   helpers for tests plus Linux/Windows/macOS FFmpeg, GStreamer, and
   native-wrapper command presets for real hosts; the presets now select the app

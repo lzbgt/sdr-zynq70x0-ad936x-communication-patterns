@@ -425,6 +425,10 @@ state, radio topology, RTLS map points, camera stream status, lifecycle health,
 route-health visibility, and the safety invariants that the app did not use
 inter-board IP routing, start RF TX, or write hardware. `fieldmesh_app_snapshot.py`
 produces the same model from existing NDJSON logs for replay and tests.
+`--dashboard-output` renders the same native state into a browser-viewable HTML
+dashboard with a network browser, operations status, radio topology table,
+relative co-location map, camera stream metrics, and explicit safety invariant
+status.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

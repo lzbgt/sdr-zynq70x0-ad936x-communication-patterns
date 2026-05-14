@@ -258,9 +258,12 @@ Next concrete work:
   writes a native C++ GUI/supervisor snapshot for AP browse, election,
   operations, radio topology, RTLS map points, camera stream state, lifecycle
   health, and route-health visibility; `fieldmesh_app_snapshot.py` can derive
-  the same shape from saved NDJSON. The remaining app work is GUI rendering,
-  platform preset installation UX, deeper platform codec supervision, and the
-  conducted/shielded RF TX/RX data-plane gate.
+  the same shape from saved NDJSON. `--dashboard-output` now writes a
+  browser-viewable native dashboard with network browser, operations, radio
+  topology, relative co-location, camera metrics, and safety sections. The
+  remaining app work is an interactive packaged GUI, platform preset
+  installation UX, deeper platform codec supervision, and the conducted/shielded
+  RF TX/RX data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->

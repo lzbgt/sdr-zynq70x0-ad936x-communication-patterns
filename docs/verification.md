@@ -3030,6 +3030,13 @@ radio topology links, RTLS positions, camera frame/preview accounting,
 lifecycle close state, and UI feature flags for network browser, topology view,
 RTLS map, camera stream, and route health.
 
+The SDK gate also asks the C++ app to write `--dashboard-output` HTML for both
+the external-file and live command-pipe runs. The verifier checks that the
+dashboard contains the network browser, radio topology, relative co-location,
+camera stream, and safety sections, includes both known device EUIs, and keeps
+the no-inter-board-IP-routing, no-RF-TX, and no-hardware-write invariants
+visible.
+
 The same gate now also verifies command-preset generation:
 
 ```sh

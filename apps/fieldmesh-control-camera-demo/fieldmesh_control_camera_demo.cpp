@@ -31,6 +31,7 @@ struct AppOptions {
     const char *preview_output_path = nullptr;
     const char *preview_command = nullptr;
     const char *snapshot_output_path = nullptr;
+    const char *dashboard_output_path = nullptr;
     size_t chunk_size = 640;
     unsigned max_chunks = 0;
     unsigned target_fps = 0;
@@ -240,7 +241,7 @@ void print_usage(const char *program)
     std::fprintf(stderr,
                  "usage: %s [--camera-input PATH|-] [--camera-command CMD] "
                  "[--preview-output PATH] [--preview-command CMD] "
-                 "[--snapshot-output PATH] "
+                 "[--snapshot-output PATH] [--dashboard-output PATH] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
                  "[--pace-realtime] [--live-stream-loop]\n",
                  program);
@@ -294,6 +295,8 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             options->preview_command = argv[++i];
         } else if (std::strcmp(argv[i], "--snapshot-output") == 0 && i + 1 < argc) {
             options->snapshot_output_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--dashboard-output") == 0 && i + 1 < argc) {
+            options->dashboard_output_path = argv[++i];
         } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
             if (!parse_size(argv[++i], &options->chunk_size)) {
                 std::fprintf(stderr, "invalid --chunk-size\n");
@@ -950,6 +953,43 @@ void print_json_string(FILE *out, const char *text)
     std::fputc('"', out);
 }
 
+void print_html_text(FILE *out, const char *text)
+{
+    for (const unsigned char *p = reinterpret_cast<const unsigned char *>(text ? text : "");
+         *p != 0u; ++p) {
+        switch (*p) {
+        case '&':
+            std::fputs("&amp;", out);
+            break;
+        case '<':
+            std::fputs("&lt;", out);
+            break;
+        case '>':
+            std::fputs("&gt;", out);
+            break;
+        case '"':
+            std::fputs("&quot;", out);
+            break;
+        case '\'':
+            std::fputs("&#39;", out);
+            break;
+        default:
+            std::fputc(static_cast<int>(*p), out);
+            break;
+        }
+    }
+}
+
+int map_position_x(int32_t x_cm)
+{
+    return std::max(40, std::min(560, 300 + static_cast<int>(x_cm / 4)));
+}
+
+int map_position_y(int32_t y_cm)
+{
+    return std::max(40, std::min(300, 170 - static_cast<int>(y_cm / 4)));
+}
+
 bool write_app_snapshot(const AppOptions &options,
                         const ApList &aps,
                         const PeerList &peers,
@@ -1109,6 +1149,183 @@ bool write_app_snapshot(const AppOptions &options,
     if (std::fclose(out) != 0) {
         std::fprintf(stderr, "failed to close snapshot output: %s\n",
                      options.snapshot_output_path);
+        return false;
+    }
+    return true;
+}
+
+bool write_app_dashboard(const AppOptions &options,
+                         const ApList &aps,
+                         const PeerList &peers,
+                         const PositionList &positions,
+                         const fieldmesh_ap_election_result_t &election,
+                         unsigned topology_links,
+                         unsigned frames_tx,
+                         unsigned frames_rx,
+                         unsigned rf_queued,
+                         size_t camera_input_bytes,
+                         size_t preview_bytes,
+                         unsigned stream_target_fps,
+                         bool control_plane_ok,
+                         bool data_plane_ok,
+                         bool capture_closed,
+                         bool preview_closed,
+                         bool sdk_stream_closed)
+{
+    FILE *out;
+
+    if (!options.dashboard_output_path) {
+        return true;
+    }
+    out = std::fopen(options.dashboard_output_path, "wb");
+    if (!out) {
+        std::fprintf(stderr, "failed to open dashboard output: %s\n",
+                     options.dashboard_output_path);
+        return false;
+    }
+
+    std::fputs(
+        "<!doctype html>\n"
+        "<html lang=\"en\">\n"
+        "<head>\n"
+        "<meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        "<title>FieldMesh Control Camera Dashboard</title>\n"
+        "<style>\n"
+        ":root{color-scheme:light;--ink:#16211f;--muted:#5c6865;--line:#cbd8d3;"
+        "--ok:#0d7a4f;--warn:#a05b00;--bg:#f7faf8;--panel:#ffffff;--rf:#1d5f9c;}\n"
+        "*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;"
+        "background:var(--bg);color:var(--ink);letter-spacing:0;}\n"
+        "header{padding:20px 28px;background:#ffffff;border-bottom:1px solid var(--line);}\n"
+        "h1{margin:0 0 10px;font-size:26px;font-weight:700}h2{margin:0 0 12px;font-size:18px;}\n"
+        "main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px 28px;}\n"
+        "section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;}\n"
+        ".wide{grid-column:1/-1}.status{display:flex;flex-wrap:wrap;gap:8px}.pill{border:1px solid var(--line);"
+        "border-radius:999px;padding:5px 10px;font-size:13px;background:#fdfefe}.ok{color:var(--ok)}.warn{color:var(--warn)}\n"
+        "table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);}\n"
+        "th{color:var(--muted);font-weight:600}.metric{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}\n"
+        ".metric div{border:1px solid var(--line);border-radius:6px;padding:10px;background:#fbfdfc}.metric b{display:block;font-size:20px;}\n"
+        "svg{width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#f8fbff}.node{fill:#1d5f9c}.error{fill:#1d5f9c22;stroke:#1d5f9c55}.label{font-size:12px;fill:#16211f;}\n"
+        "@media(max-width:820px){main{grid-template-columns:1fr;padding:14px}.metric{grid-template-columns:repeat(2,minmax(0,1fr));}}\n"
+        "</style>\n"
+        "</head>\n"
+        "<body>\n",
+        out);
+    std::fprintf(out,
+                 "<header><h1>FieldMesh Control Camera</h1><div class=\"status\">"
+                 "<span class=\"pill %s\">Health %s</span>"
+                 "<span class=\"pill %s\">Control plane %s</span>"
+                 "<span class=\"pill %s\">Data plane %s</span>"
+                 "<span class=\"pill ok\">RF TX disabled</span>"
+                 "<span class=\"pill ok\">No inter-board IP routing</span>"
+                 "</div></header>\n<main>\n",
+                 (control_plane_ok && data_plane_ok) ? "ok" : "warn",
+                 (control_plane_ok && data_plane_ok) ? "ok" : "degraded",
+                 control_plane_ok ? "ok" : "warn",
+                 control_plane_ok ? "ok" : "degraded",
+                 data_plane_ok ? "ok" : "warn",
+                 data_plane_ok ? "ok" : "degraded");
+
+    std::fputs("<section data-view=\"network\"><h2>Network Browser</h2><table><thead><tr>"
+               "<th>AP EUI</th><th>Name</th><th>Network</th><th>Max kbps</th></tr></thead><tbody>\n",
+               out);
+    for (const auto &ap : aps.aps) {
+        std::fputs("<tr><td>", out);
+        print_html_text(out, ap.ap_id);
+        std::fputs("</td><td>", out);
+        print_html_text(out, ap.name);
+        std::fputs("</td><td>", out);
+        print_html_text(out, ap.network_id);
+        std::fprintf(out, "</td><td>%u</td></tr>\n", ap.max_kbps);
+    }
+    std::fputs("</tbody></table></section>\n", out);
+
+    std::fputs("<section data-view=\"operation\"><h2>Operations</h2><table><tbody>", out);
+    std::fputs("<tr><th>Elected AP</th><td>", out);
+    print_html_text(out, election.elected_node_id);
+    std::fprintf(out,
+                 "</td></tr><tr><th>Network</th><td>");
+    print_html_text(out, election.network_id);
+    std::fprintf(out,
+                 "</td></tr><tr><th>Election score</th><td>%u</td></tr>"
+                 "<tr><th>Mode</th><td>scheduled camera stream</td></tr>"
+                 "</tbody></table></section>\n",
+                 election.candidate_score);
+
+    std::fputs("<section class=\"wide\" data-view=\"topology\"><h2>Radio Topology</h2><table><thead><tr>"
+               "<th>Device EUI</th><th>Hostname</th><th>Type</th><th>Direct</th><th>Relay</th><th>AP score</th></tr></thead><tbody>\n",
+               out);
+    for (const auto &peer : peers.peers) {
+        std::fputs("<tr><td>", out);
+        print_html_text(out, peer.device_uuid);
+        std::fputs("</td><td>", out);
+        print_html_text(out, peer.node_id);
+        std::fputs("</td><td>", out);
+        print_html_text(out, peer.device_type);
+        std::fprintf(out,
+                     "</td><td>%s</td><td>%s</td><td>%u</td></tr>\n",
+                     peer.direct_reachable ? "yes" : "no",
+                     peer.relay_allowed ? "yes" : "no",
+                     peer.ap_capability_score);
+    }
+    std::fputs("</tbody></table></section>\n", out);
+
+    std::fputs("<section data-view=\"rtls\"><h2>Relative Co-location</h2>"
+               "<svg viewBox=\"0 0 600 340\" role=\"img\" aria-label=\"relative co-location map\">"
+               "<line x1=\"300\" y1=\"20\" x2=\"300\" y2=\"320\" stroke=\"#cbd8d3\"/>"
+               "<line x1=\"20\" y1=\"170\" x2=\"580\" y2=\"170\" stroke=\"#cbd8d3\"/>\n",
+               out);
+    for (const auto &position : positions.positions) {
+        const int x = map_position_x(position.x_cm);
+        const int y = map_position_y(position.y_cm);
+        const int radius = std::max(8, std::min(70, static_cast<int>(position.error_radius_cm / 12u)));
+
+        std::fprintf(out, "<circle class=\"error\" cx=\"%d\" cy=\"%d\" r=\"%d\"/>", x, y, radius);
+        std::fprintf(out, "<circle class=\"node\" cx=\"%d\" cy=\"%d\" r=\"6\"/>", x, y);
+        std::fprintf(out, "<text class=\"label\" x=\"%d\" y=\"%d\">", x + 10, y - 8);
+        print_html_text(out, position.node_id);
+        std::fputs("</text>\n", out);
+    }
+    std::fputs("</svg></section>\n", out);
+
+    std::fprintf(out,
+                 "<section data-view=\"camera\"><h2>Camera Stream</h2>"
+                 "<div class=\"metric\">"
+                 "<div><span>TX frames</span><b>%u</b></div>"
+                 "<div><span>RX frames</span><b>%u</b></div>"
+                 "<div><span>RF queued</span><b>%u</b></div>"
+                 "<div><span>Target FPS</span><b>%u</b></div>"
+                 "</div><table><tbody>"
+                 "<tr><th>Source</th><td>",
+                 frames_tx, frames_rx, rf_queued, stream_target_fps);
+    print_html_text(out, camera_source_name(options));
+    std::fprintf(out,
+                 "</td></tr><tr><th>Capture bytes</th><td>%lu</td></tr>"
+                 "<tr><th>Preview bytes</th><td>%lu</td></tr>"
+                 "<tr><th>Capture closed</th><td>%s</td></tr>"
+                 "<tr><th>Preview closed</th><td>%s</td></tr>"
+                 "<tr><th>SDK stream closed</th><td>%s</td></tr>"
+                 "</tbody></table></section>\n",
+                 static_cast<unsigned long>(camera_input_bytes),
+                 static_cast<unsigned long>(preview_bytes),
+                 capture_closed ? "yes" : "no",
+                 preview_closed ? "yes" : "no",
+                 sdk_stream_closed ? "yes" : "no");
+
+    std::fprintf(out,
+                 "<section class=\"wide\" data-view=\"safety\"><h2>Safety Invariants</h2>"
+                 "<table><tbody>"
+                 "<tr><th>Radio topology links</th><td>%u</td></tr>"
+                 "<tr><th>IIO data path</th><td>disabled</td></tr>"
+                 "<tr><th>Inter-board IP routing</th><td>disabled</td></tr>"
+                 "<tr><th>RF TX start</th><td>disabled</td></tr>"
+                 "<tr><th>Hardware writes</th><td>disabled</td></tr>"
+                 "</tbody></table></section>\n",
+                 topology_links);
+    std::fputs("</main></body></html>\n", out);
+    if (std::fclose(out) != 0) {
+        std::fprintf(stderr, "failed to close dashboard output: %s\n",
+                     options.dashboard_output_path);
         return false;
     }
     return true;
@@ -1548,6 +1765,15 @@ int main(int argc, char **argv)
                             capture_opened, capture_closed, preview_opened,
                             preview_closed, sdk_stream_closed,
                             stream_duration_ms)) {
+        (void)fieldmesh_leave(session);
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
+    if (!write_app_dashboard(options, aps, peers, positions, election,
+                             topology_links, frames_tx, frames_rx, rf_queued,
+                             camera_input_bytes, preview_bytes.size(),
+                             stream_target_fps, control_plane_ok, data_plane_ok,
+                             capture_closed, preview_closed, sdk_stream_closed)) {
         (void)fieldmesh_leave(session);
         fieldmesh_context_destroy(ctx);
         return 1;
