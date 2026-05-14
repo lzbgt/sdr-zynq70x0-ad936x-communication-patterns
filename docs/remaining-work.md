@@ -122,9 +122,12 @@ Firmware state:
   raw WREN leaves SR1 at `0x02`, raw WRDI also leaves SR1 at `0x02`, `sf erase`
   and rollback erase verify cleanly, `sf write` reports success, but immediate
   readback of an all-zero pattern is still `0x44` for every shown byte. Do not
-  run another full QSPI FIT repair; the next useful diagnostic is a raw
-  page-program/address/data-path probe or flash replacement/cross-board
-  comparison.
+  run another full QSPI FIT repair. A direct `sspi` probe with W25Q256 4-byte
+  raw read/page-program opcodes (`0x13`/`0x12`) did not set WEL through raw
+  WREN and left the scratch byte erased (`0xff`), while the `sf write` path
+  still produces `0x44`. The next useful diagnostic is to compare the U-Boot
+  `sf` write-enable/program implementation against raw `sspi`, or perform a
+  flash replacement/cross-board comparison.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

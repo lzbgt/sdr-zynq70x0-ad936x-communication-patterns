@@ -3942,6 +3942,25 @@ after reboot. Full QSPI FIT repair remains blocked; the next useful diagnostic
 is a raw page-program/address/data-path probe or flash replacement/cross-board
 comparison, not another FIT write.
 
+The raw page-program probe then bypassed `sf write` and used W25Q256 4-byte
+address opcodes directly through `sspi`: raw read `0x13` and raw page-program
+`0x12`, targeting only one byte in the same rollback-protected scratch sector:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_raw_page_program_20260515-063431 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_RAW_PAGE_PROGRAM_TEST=1 \
+  ./tools/test_z203_uboot_qspi_raw_page_program.sh 192.168.1.10
+```
+
+Result: failed safely, with rollback verified. Raw read after erase returned
+`0xff`; raw WREN did not set SR1 WEL (`0x00` before and after WREN); raw
+4-byte page-program left the byte at `0xff`; `sf read` also showed the scratch
+sector remained erased; rollback erase/readback passed; and the installed Z203
+daemon gate passed after reboot. This separates two failure surfaces: raw
+`sspi` does not establish the write-enable/program transaction, while the
+driver-level `sf write` path does attempt a program but produces the stuck
+`0x44` pattern. Full FIT repair remains blocked.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

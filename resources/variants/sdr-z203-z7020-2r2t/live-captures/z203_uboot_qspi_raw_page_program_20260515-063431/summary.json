@@ -1,0 +1,54 @@
+{
+  "board_ip": "192.168.1.10",
+  "bytes_erased": 4096,
+  "bytes_programmed": 1,
+  "diagnosis": "Raw erase/read is clean but raw page-program did not produce expected byte; inspect serial log for transfer/address behavior.",
+  "erase_command_passed": true,
+  "erase_verify_passed": true,
+  "event": "fieldmesh_z203_uboot_qspi_raw_page_program",
+  "first_sf_readback_line": {
+    "address": "0x14000000",
+    "bytes": [
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff",
+      "0xff"
+    ]
+  },
+  "qspi_abs_offset": 31059968,
+  "qspi_abs_offset_hex": "0x1d9f000",
+  "qspi_address_4b": "01D9F000",
+  "raw_program_opcode": "0x12",
+  "raw_program_verify_passed": false,
+  "raw_read_after_erase": {
+    "data_byte": "0xff",
+    "raw": "0000000000FF"
+  },
+  "raw_read_after_program": {
+    "data_byte": "0xff",
+    "raw": "0000000000FF"
+  },
+  "raw_read_opcode": "0x13",
+  "rollback_erase_passed": true,
+  "status": {
+    "after_raw_program_fsr": "0x00",
+    "after_raw_program_sr1": "0x00",
+    "after_raw_program_sr2": "0x02",
+    "after_raw_program_sr3": "0x60",
+    "after_raw_wren_sr1": "0x00",
+    "after_rollback_sr1": "0x00",
+    "before_raw_wren_sr1": "0x00"
+  }
+}
