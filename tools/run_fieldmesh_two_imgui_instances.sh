@@ -7,6 +7,7 @@ build_dir="${BUILD_DIR:-$repo_root/.config/fieldmesh/imgui-control-build}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-imgui-instances}"
 z203_ip="${Z203_IP:-192.168.1.10}"
 z103_ip="${Z103_IP:-192.168.3.1}"
+profile="${PROFILE:-$app_dir/testdata/golden_lab.profile}"
 skip_build="${SKIP_BUILD:-0}"
 
 mkdir -p "$out_dir"
@@ -22,6 +23,7 @@ if [ ! -x "$app" ]; then
 fi
 
 "$app" --self-test \
+    --profile "$profile" \
     --snapshot-output "$out_dir/peer_a_gui_snapshot.json" \
     --daemon-host "$z203_ip" \
     --api-browse \
@@ -33,6 +35,7 @@ fi
     --api-subscribe-camera 020000000103
 
 "$app" --self-test \
+    --profile "$profile" \
     --snapshot-output "$out_dir/peer_b_gui_snapshot.json" \
     --daemon-host "$z103_ip" \
     --api-browse \
@@ -43,7 +46,7 @@ fi
     --api-publish-camera 020000000203 \
     --api-subscribe-camera 020000000203
 
-PYTHONPATH="$app_dir" python3 - "$app" "$out_dir" <<'PY'
+PYTHONPATH="$app_dir" python3 - "$app" "$out_dir" "$profile" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -52,9 +55,10 @@ from fieldmesh_imgui_pyapi import FieldMeshGuiClient
 
 app = Path(sys.argv[1])
 out_dir = Path(sys.argv[2])
+profile = Path(sys.argv[3])
 peer_a = json.loads((out_dir / "peer_a_gui_snapshot.json").read_text(encoding="utf-8"))
 peer_b = json.loads((out_dir / "peer_b_gui_snapshot.json").read_text(encoding="utf-8"))
-client = FieldMeshGuiClient(app)
+client = FieldMeshGuiClient(app, profile)
 
 if peer_a.get("selected_board_eui") != "020000000203":
     raise SystemExit("peer A GUI instance did not select Z203")
@@ -83,8 +87,12 @@ for label, snapshot in (("peer_a", peer_a), ("peer_b", peer_b)):
         raise SystemExit(f"{label} GUI security model changed")
     if snapshot.get("bundled_trust_bundle") is not True:
         raise SystemExit(f"{label} GUI did not bundle public trust metadata")
-    if snapshot.get("bundled_demo_profile") is not True:
-        raise SystemExit(f"{label} GUI did not bundle the demo runtime profile")
+    if snapshot.get("bundled_demo_profile") is not False:
+        raise SystemExit(f"{label} GUI bundled a deployment profile")
+    if snapshot.get("deployment_profile_embedded") is not False:
+        raise SystemExit(f"{label} GUI embedded deployment profile")
+    if snapshot.get("profile_source") in ("", "none", "app_binary"):
+        raise SystemExit(f"{label} GUI did not use an external profile")
     if snapshot.get("command_ca_private_key_bundled") is not False:
         raise SystemExit(f"{label} GUI bundled a command CA private key")
     if snapshot.get("user_runs_shell_scripts") is not False:
@@ -101,6 +109,10 @@ for label, snapshot in (("peer_a", peer_a), ("peer_b", peer_b)):
         raise SystemExit(f"{label} GUI did not expose live video")
     if snapshot.get("embedded_python_api") is not True:
         raise SystemExit(f"{label} GUI did not expose Python API")
+    if snapshot.get("python_api_mode") != "embedded_in_process":
+        raise SystemExit(f"{label} GUI Python API is not embedded in-process")
+    if snapshot.get("python_cli_wrapper") is not False:
+        raise SystemExit(f"{label} GUI Python API is a CLI wrapper")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit(f"{label} GUI topology is not radio topology")
     if snapshot.get("uses_inter_board_ip_routing") is not False:
@@ -144,7 +156,9 @@ summary = {
     "embedded_python_api": True,
     "security_model": "command_ca_derived_mutual_auth",
     "bundled_trust_bundle": True,
-    "bundled_demo_profile": True,
+    "bundled_demo_profile": False,
+    "deployment_profile_embedded": False,
+    "profile_source": str(profile),
     "command_ca_private_key_bundled": False,
     "user_runs_shell_scripts": False,
     "derived_certificates": True,

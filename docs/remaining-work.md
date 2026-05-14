@@ -282,16 +282,21 @@ Next concrete work:
   protocol requests. The new `apps/fieldmesh-imgui-control` boundary is the
   interactive GUI direction: a Dear ImGui C++ golden IM app surface for board
   selection, peer discovery, chat messaging, control-plane actions, radio
-  topology, relative co-location, and live video publish/subscribe controls,
-  with `fieldmesh_imgui_pyapi.py` for Python-driven tests. It models mandatory
-  command-CA-derived mutual authentication and scoped authorization. It also
-  models the correct user workflow: the app bundle carries public trust
-  metadata, demo profiles, board defaults, and codec presets; users should not
-  run shell scripts, and command CA private keys are never bundled. The
-  remaining app work is wiring the ImGui panels to live daemon calls and
-  platform capture/preview backends, platform preset installation UX, deeper
-  platform codec supervision, and the conducted/shielded RF TX/RX data-plane
-  gate.
+  topology, relative co-location, and live video publish/subscribe controls.
+  It embeds an in-process Python module named `fieldmesh_imgui`, while
+  `fieldmesh_imgui_pyapi.py` remains only a headless CI harness. It models
+  mandatory command-CA-derived mutual authentication and scoped authorization.
+  It also models the correct user workflow: the app bundle carries public trust
+  metadata, auth policy schema, and codec presets; deployment identity comes
+  from discovery, provisioning, or an external runtime profile rather than
+  compiled app EUIs; users should not run shell scripts, and command CA private
+  keys are never bundled. On Arch WSL, the developer GUI path is WSLg: the app
+  runs as a Linux process and appears as a Windows-host window through
+  `tools/run_fieldmesh_imgui_wslg.sh`. The remaining app work is wiring the
+  ImGui panels to live daemon calls and platform capture/preview backends,
+  platform preset installation UX, packaged desktop launchers, deeper platform
+  codec supervision, and the
+  conducted/shielded RF TX/RX data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->

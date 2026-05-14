@@ -16,4 +16,8 @@ SKIP_BUILD=1 \
     OUT_DIR="$out_dir/two-instances" \
     "$repo_root/tools/run_fieldmesh_two_imgui_instances.sh" >/dev/null
 
+if [ -S /tmp/.X11-unix/X0 ] || [ -S /mnt/wslg/.X11-unix/X0 ]; then
+    "$repo_root/tools/run_fieldmesh_imgui_wslg.sh" --check-bridge >/dev/null
+fi
+
 echo "fieldmesh_imgui_app_check=pass"

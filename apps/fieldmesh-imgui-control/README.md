@@ -20,25 +20,66 @@ The GUI owns:
 - mandatory command-CA-derived certificate mutual authentication and scoped
   authorization for demo peer sessions, with room for optional app-specific
   security above the FieldMesh security layer;
-- a bundled demo runtime profile and public command-CA trust metadata, so
-  normal users launch the app instead of running shell scripts;
-- embedded Python automation through `fieldmesh_imgui_pyapi.py`, which drives
-  the same C++ app state/API surface in headless test mode.
+- embedded public command-CA trust metadata, auth policy schema, and codec
+  defaults, so normal users launch the app instead of running shell scripts;
+- runtime identity from peer discovery, provisioning, or an external profile,
+  never hardcoded app EUIs or board endpoints compiled into the app;
+- an in-process embedded Python module named `fieldmesh_imgui`, matching the
+  standard desktop-app pattern used by tools such as KiCad. It exposes app
+  actions directly from inside the GUI process rather than shelling out to the
+  executable.
 
 The app bundle may include public trust anchors, certificate fingerprints,
-default board profiles, daemon ports, codec presets, and policy metadata. It
-must not bundle the command CA private key. Per-device private keys should live
-in the OS key store, secure element, or board-side secure storage; the demo app
-only carries derived certificate identity metadata needed to authenticate and
-authorize sessions.
+profile schema, codec presets, and policy metadata. It must not compile in
+deployment identity such as app/device EUIs, board hostnames, daemon IPs, or
+fixed peer lists. That information comes from discovery, provisioning, or an
+external runtime profile used by tests. The app also must not bundle the
+command CA private key. Per-device private keys should live in the OS key
+store, secure element, or board-side secure storage.
 
 The default `make check` target builds a dependency-free headless check that
-verifies the GUI state model and ImGui render source. To build the real Dear
-ImGui target, provide an ImGui checkout:
+verifies the GUI state model, ImGui render source, embedded resource contract,
+and embedded Python API source. In CI, `fieldmesh_imgui_pyapi.py` is only a
+subprocess test harness for the headless binary; it is not the production app
+Python API. To build the Dear ImGui app-core target, provide an ImGui checkout:
 
 ```sh
 make -C apps/fieldmesh-imgui-control gui IMGUI_DIR=/path/to/imgui
 ```
+
+To build the GUI with the embedded Python interpreter and in-process
+`fieldmesh_imgui` module, use Python development headers/libs:
+
+```sh
+make -C apps/fieldmesh-imgui-control gui-python IMGUI_DIR=/path/to/imgui
+```
+
+On Arch Linux under WSL, GUI windows are bridged to the Windows host by WSLg.
+The app still runs as a Linux process in WSL; WSLg exposes windows through its
+X11/Wayland sockets and audio/GPU bridge. The FieldMesh launcher sets the same
+bridge environment used by the adjacent `../wsl-archlinux-gui` reference. Once
+the platform backend/window-loop binary is built or packaged, launch it through
+this bridge:
+
+```sh
+tools/run_fieldmesh_imgui_wslg.sh --check-bridge
+
+make -C apps/fieldmesh-imgui-control gui-python IMGUI_DIR=/path/to/imgui
+
+GUI_APP=/path/to/packaged/fieldmesh-imgui-control \
+tools/run_fieldmesh_imgui_wslg.sh --detach \
+    --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
+    --instance fieldmesh-peer-a
+
+GUI_APP=/path/to/packaged/fieldmesh-imgui-control \
+tools/run_fieldmesh_imgui_wslg.sh --detach \
+    --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
+    --instance fieldmesh-peer-b
+```
+
+Those two instances should appear as normal Windows desktop windows after the
+platform backend is linked. In a packaged product this launcher logic belongs
+in the desktop shortcut/app bundle, not in an operator shell workflow.
 
 Platform backends such as GLFW, SDL, DirectX, Metal, or Vulkan stay outside the
 pure-C SDK. The app core should call the same daemon operations that the
@@ -47,8 +88,9 @@ command-line harness verifies: `FIELDMESH_HELLO`,
 `FIELDMESH_ROUTE_METRICS`, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
 `FIELDMESH_CAMERA_STREAM_CHUNK`.
 
-The shell scripts are developer/CI gates, not the end-user workflow. Two
-symmetric instances can be smoke-tested without a display during development:
+The shell scripts and `testdata/golden_lab.profile` are developer/CI gates, not
+the end-user workflow. Two symmetric instances can be smoke-tested without a
+display during development:
 
 ```sh
 ./tools/run_fieldmesh_two_imgui_instances.sh

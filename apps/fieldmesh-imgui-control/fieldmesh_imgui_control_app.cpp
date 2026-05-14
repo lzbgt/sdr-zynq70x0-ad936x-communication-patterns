@@ -1,8 +1,11 @@
 #include "fieldmesh_sdk.h"
+#include "fieldmesh_imgui_embedded_resources.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -82,6 +85,12 @@ struct GuiSecurity {
     bool bundled_demo_profile;
     bool command_ca_private_key_bundled;
     bool user_runs_shell_scripts;
+    bool resources_embedded_in_app;
+    unsigned embedded_resource_count;
+    unsigned trust_bundle_bytes;
+    unsigned profile_schema_bytes;
+    unsigned auth_policy_bytes;
+    unsigned codec_preset_bytes;
 };
 
 struct GuiState {
@@ -97,6 +106,7 @@ struct GuiState {
     unsigned messages_received;
     std::string selected_ap_eui;
     std::string operation_status;
+    std::string profile_source;
     bool auto_election_enabled;
     bool radio_topology_only;
     bool uses_inter_board_ip_routing;
@@ -114,28 +124,46 @@ const GuiBoard *selected_board(const GuiState &state)
     return state.boards.empty() ? nullptr : &state.boards[0];
 }
 
+unsigned text_bytes(const char *text)
+{
+    return static_cast<unsigned>(std::strlen(text));
+}
+
+std::vector<std::string> split_csv(const std::string &line)
+{
+    std::vector<std::string> fields;
+    std::stringstream stream(line);
+    std::string field;
+
+    while (std::getline(stream, field, ',')) {
+        fields.push_back(field);
+    }
+    return fields;
+}
+
+bool parse_bool_field(const std::string &field)
+{
+    return field == "1" || field == "true" || field == "yes";
+}
+
+unsigned parse_unsigned_field(const std::string &field)
+{
+    return static_cast<unsigned>(std::strtoul(field.c_str(), nullptr, 10));
+}
+
+int parse_int_field(const std::string &field)
+{
+    return static_cast<int>(std::strtol(field.c_str(), nullptr, 10));
+}
+
 void populate_demo_state(GuiState *state)
 {
-    state->boards = {
-        {"020000000203", "sdr-z203-zynq7", "z203-2r2t",
-         "192.168.1.10", 55441, true, true, true},
-        {"020000000103", "sdr-z103-zynq7", "z103-1r1t",
-         "192.168.3.1", 55442, false, true, true},
-    };
-    state->peers = {
-        {"020000000203", "sdr-z203-zynq7", "z203-2r2t",
-         true, true, 28, 5, -180, 0, 90},
-        {"020000000103", "sdr-z103-zynq7", "z103-1r1t",
-         true, true, 24, 8, 220, 70, 120},
-    };
-    state->conversations = {
-        {"020000000203", "Z203 lab peer", 0, true},
-        {"020000000103", "Z103 lab peer", 1, false},
-    };
-    state->messages = {
-        {"020000000203", "rx", "Z203 online on PHY Ethernet", "delivered"},
-        {"020000000103", "rx", "Z103 online on USB Ethernet", "delivered"},
-    };
+    using namespace fieldmesh_imgui_resources;
+
+    state->boards.clear();
+    state->peers.clear();
+    state->conversations.clear();
+    state->messages.clear();
     state->security.command_ca = "fieldmesh-command-ca";
     state->security.command_ca_fingerprint =
         "sha256:5d7f8c4d6b71f0c4b1d6a6e37e24f17a0e9af4b8a3c0d6f1e5a8c2b49e6d31aa";
@@ -151,31 +179,122 @@ void populate_demo_state(GuiState *state)
     state->security.authorization_required = true;
     state->security.app_security_optional = true;
     state->security.bundled_trust_bundle = true;
-    state->security.bundled_demo_profile = true;
+    state->security.bundled_demo_profile = false;
     state->security.command_ca_private_key_bundled = false;
     state->security.user_runs_shell_scripts = false;
+    state->security.resources_embedded_in_app = true;
+    state->security.embedded_resource_count = kEmbeddedResourceCount;
+    state->security.trust_bundle_bytes =
+        text_bytes(kCommandCaCertificatePem) + text_bytes(kDemoDeviceCertificatePem);
+    state->security.profile_schema_bytes = text_bytes(kProfileSchemaJson);
+    state->security.auth_policy_bytes = text_bytes(kAuthPolicyJson);
+    state->security.codec_preset_bytes = text_bytes(kCodecPresetJson);
     state->camera.publish_enabled = false;
     state->camera.preview_enabled = false;
     state->camera.source_name = "platform camera pipe";
     state->camera.preview_name = "platform preview pipe";
-    state->camera.dst_device_eui = "020000000103";
-    state->camera.subscribed_device_eui = "020000000203";
+    state->camera.dst_device_eui.clear();
+    state->camera.subscribed_device_eui.clear();
     state->camera.target_fps = 30;
     state->camera.target_bitrate_kbps = 1800;
     state->camera.frames_tx = 0;
     state->camera.frames_rx = 0;
     state->camera.queued_to_rf_engine = 0;
-    state->selected_conversation_eui = "020000000203";
+    state->selected_conversation_eui.clear();
     state->draft_message = "FieldMesh link check";
     state->messages_sent = 0;
-    state->messages_received = 2;
-    state->selected_ap_eui = "020000000203";
+    state->messages_received = 0;
+    state->selected_ap_eui.clear();
     state->operation_status = "idle";
+    state->profile_source = "none";
     state->auto_election_enabled = true;
     state->radio_topology_only = true;
     state->uses_inter_board_ip_routing = false;
     state->starts_rf_tx = false;
     state->writes_hardware = false;
+}
+
+bool load_runtime_profile(GuiState *state, const char *path)
+{
+    std::ifstream input(path);
+    std::string line;
+
+    if (!input) {
+        std::fprintf(stderr, "failed to open profile: %s\n", path);
+        return false;
+    }
+    state->boards.clear();
+    state->peers.clear();
+    state->conversations.clear();
+    state->messages.clear();
+    state->messages_received = 0;
+    while (std::getline(input, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        std::size_t equal = line.find('=');
+        if (equal == std::string::npos) {
+            continue;
+        }
+        std::string key = line.substr(0, equal);
+        std::vector<std::string> fields = split_csv(line.substr(equal + 1));
+        if (key == "board" && fields.size() >= 8u) {
+            state->boards.push_back({fields[0], fields[1], fields[2], fields[3],
+                                     parse_unsigned_field(fields[4]),
+                                     parse_bool_field(fields[5]),
+                                     parse_bool_field(fields[6]),
+                                     parse_bool_field(fields[7])});
+        } else if (key == "peer" && fields.size() >= 10u) {
+            state->peers.push_back({fields[0], fields[1], fields[2],
+                                    parse_bool_field(fields[3]),
+                                    parse_bool_field(fields[4]),
+                                    parse_int_field(fields[5]),
+                                    parse_int_field(fields[6]),
+                                    parse_int_field(fields[7]),
+                                    parse_int_field(fields[8]),
+                                    parse_unsigned_field(fields[9])});
+        } else if (key == "conversation" && fields.size() >= 4u) {
+            state->conversations.push_back({fields[0], fields[1],
+                                            parse_unsigned_field(fields[2]),
+                                            parse_bool_field(fields[3])});
+        } else if (key == "message" && fields.size() >= 4u) {
+            state->messages.push_back({fields[0], fields[1], fields[2], fields[3]});
+            if (fields[1] == "rx") {
+                state->messages_received += 1u;
+            }
+        } else if (key == "selected_ap" && !fields.empty()) {
+            state->selected_ap_eui = fields[0];
+        } else if (key == "camera_dst" && !fields.empty()) {
+            state->camera.dst_device_eui = fields[0];
+        } else if (key == "camera_subscribe" && !fields.empty()) {
+            state->camera.subscribed_device_eui = fields[0];
+        }
+    }
+    if (state->selected_conversation_eui.empty()) {
+        for (const GuiConversation &conversation : state->conversations) {
+            if (conversation.selected) {
+                state->selected_conversation_eui = conversation.peer_eui;
+                break;
+            }
+        }
+    }
+    if (state->selected_conversation_eui.empty() && !state->conversations.empty()) {
+        state->selected_conversation_eui = state->conversations[0].peer_eui;
+        state->conversations[0].selected = true;
+    }
+    if (state->selected_ap_eui.empty() && !state->boards.empty()) {
+        state->selected_ap_eui = state->boards[0].device_eui;
+    }
+    if (state->camera.dst_device_eui.empty() && !state->peers.empty()) {
+        state->camera.dst_device_eui = state->peers[0].device_eui;
+    }
+    if (state->camera.subscribed_device_eui.empty() && !state->peers.empty()) {
+        state->camera.subscribed_device_eui = state->peers[0].device_eui;
+    }
+    state->profile_source = path;
+    state->security.bundled_demo_profile = false;
+    state->operation_status = "runtime_profile_loaded";
+    return true;
 }
 
 bool api_browse_peers(GuiState *state)
@@ -203,8 +322,10 @@ bool api_elect_ap(GuiState *state, const std::string &preferred_eui)
     if (!preferred_eui.empty()) {
         state->selected_ap_eui = preferred_eui;
         state->auto_election_enabled = false;
+    } else if (!state->boards.empty()) {
+        state->selected_ap_eui = state->boards[0].device_eui;
+        state->auto_election_enabled = true;
     } else {
-        state->selected_ap_eui = "020000000203";
         state->auto_election_enabled = true;
     }
     state->operation_status = "python_api_ap_elected";
@@ -292,13 +413,26 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"bundled_demo_profile\": %s,\n"
                  "  \"command_ca_private_key_bundled\": %s,\n"
                  "  \"user_runs_shell_scripts\": %s,\n"
+                 "  \"resources_embedded_in_app\": %s,\n"
+                 "  \"resource_source\": \"app_binary\",\n"
+                 "  \"embedded_resource_count\": %u,\n"
+                 "  \"embedded_resource_names\": [\"command_ca_certificate_pem\", \"demo_device_certificate_pem\", \"runtime_profile_schema_json\", \"auth_policy_json\", \"codec_preset_json\"],\n"
+                 "  \"deployment_profile_embedded\": false,\n"
+                 "  \"profile_source\": \"%s\",\n"
+                 "  \"trust_bundle_bytes\": %u,\n"
+                 "  \"profile_schema_bytes\": %u,\n"
+                 "  \"auth_policy_bytes\": %u,\n"
+                 "  \"codec_preset_bytes\": %u,\n"
                  "  \"board_selection\": true,\n"
                  "  \"peer_discovery\": true,\n"
                  "  \"messaging_available\": true,\n"
                  "  \"live_video_available\": true,\n"
                  "  \"control_plane_actions\": true,\n"
                  "  \"embedded_python_api\": true,\n"
-                 "  \"python_api_module\": \"fieldmesh_imgui_pyapi\",\n"
+                 "  \"python_api_mode\": \"embedded_in_process\",\n"
+                 "  \"python_api_module\": \"fieldmesh_imgui\",\n"
+                 "  \"python_cli_wrapper\": false,\n"
+                 "  \"python_test_harness\": \"fieldmesh_imgui_pyapi.py\",\n"
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
                  "  \"relative_colocation_viewer\": true,\n"
                  "  \"selected_board_eui\": \"%s\",\n"
@@ -342,6 +476,13 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.security.bundled_demo_profile ? "true" : "false",
                  state.security.command_ca_private_key_bundled ? "true" : "false",
                  state.security.user_runs_shell_scripts ? "true" : "false",
+                 state.security.resources_embedded_in_app ? "true" : "false",
+                 state.security.embedded_resource_count,
+                 state.profile_source.c_str(),
+                 state.security.trust_bundle_bytes,
+                 state.security.profile_schema_bytes,
+                 state.security.auth_policy_bytes,
+                 state.security.codec_preset_bytes,
                  board ? board->device_eui.c_str() : "",
                  board ? board->daemon_host.c_str() : "",
                  state.selected_conversation_eui.c_str(),
@@ -398,8 +539,9 @@ void render_control_plane(GuiState *state)
     }
     ImGui::SameLine();
     if (ImGui::Button("Elect AP")) {
-        state->selected_ap_eui = state->auto_election_enabled ?
-            "020000000203" : state->selected_ap_eui;
+        if (state->auto_election_enabled && !state->boards.empty()) {
+            state->selected_ap_eui = state->boards[0].device_eui;
+        }
         state->operation_status = "ap election requested";
     }
     if (ImGui::Button("Apply Capability Policy")) {
@@ -421,13 +563,22 @@ void render_security(GuiState *state)
                 state->security.device_private_key_source.c_str());
     ImGui::Checkbox("Bundled trust bundle",
                     &state->security.bundled_trust_bundle);
-    ImGui::Checkbox("Bundled demo profile",
+    ImGui::Checkbox("Deployment profile embedded",
                     &state->security.bundled_demo_profile);
+    ImGui::Checkbox("Resources embedded in app",
+                    &state->security.resources_embedded_in_app);
     ImGui::Checkbox("Mutual auth required",
                     &state->security.mutual_auth_required);
     ImGui::Checkbox("Authorization required",
                     &state->security.authorization_required);
     ImGui::Text("Scopes: %s", state->security.authorization_scope.c_str());
+    ImGui::Text("Embedded resources: %u",
+                state->security.embedded_resource_count);
+    ImGui::Text("Trust/schema/policy/codec bytes: %u/%u/%u/%u",
+                state->security.trust_bundle_bytes,
+                state->security.profile_schema_bytes,
+                state->security.auth_policy_bytes,
+                state->security.codec_preset_bytes);
     ImGui::TextUnformatted("Command CA private key is never bundled.");
     ImGui::TextUnformatted("Verification scripts are developer gates, not user workflow.");
     ImGui::End();
@@ -571,10 +722,17 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--self-test") == 0) {
             self_test = true;
+        } else if (std::strcmp(argv[i], "--profile") == 0 && i + 1 < argc) {
+            if (!load_runtime_profile(&state, argv[++i])) {
+                return 1;
+            }
         } else if (std::strcmp(argv[i], "--snapshot-output") == 0 && i + 1 < argc) {
             snapshot_output = argv[++i];
         } else if (std::strcmp(argv[i], "--daemon-host") == 0 && i + 1 < argc) {
-            state.boards[0].daemon_host = argv[++i];
+            const char *host = argv[++i];
+            if (!state.boards.empty()) {
+                state.boards[0].daemon_host = host;
+            }
         } else if (std::strcmp(argv[i], "--preview") == 0) {
             state.camera.preview_enabled = true;
         } else if (std::strcmp(argv[i], "--publish") == 0) {
@@ -598,7 +756,8 @@ int main(int argc, char **argv)
         } else {
             std::fprintf(stderr,
                          "usage: %s [--self-test] [--snapshot-output PATH] "
-                         "[--publish|--preview] [--daemon-host HOST] "
+                         "[--profile PATH] [--publish|--preview] "
+                         "[--daemon-host HOST] "
                          "[--api-browse] [--api-select-board EUI] "
                          "[--api-elect-ap EUI] [--api-open-chat EUI] "
                          "[--api-send-message TEXT] [--api-publish-camera EUI] "

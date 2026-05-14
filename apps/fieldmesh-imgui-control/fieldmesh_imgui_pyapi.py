@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Python automation API for the FieldMesh ImGui control app.
+"""Subprocess test harness for the FieldMesh ImGui control app.
 
-The production GUI is C++/Dear ImGui. This module is intentionally thin: it
-drives the same app binary in headless API mode so Python tests can exercise
-board selection, peer discovery, chat messaging, control-plane operations,
-topology state, and live video publish/subscribe controls without linking
-Python into the pure-C SDK.
+The production GUI embeds Python in-process as module ``fieldmesh_imgui``.
+This file is deliberately only a CI/headless test harness for environments
+without Python development headers or a windowing backend. It must not be
+documented as the user-facing app Python API.
 """
 
 from __future__ import annotations
@@ -67,8 +66,9 @@ class FieldMeshGuiSnapshot:
 
 
 class FieldMeshGuiClient:
-    def __init__(self, app: str | Path):
+    def __init__(self, app: str | Path, profile: str | Path | None = None):
         self.app = Path(app)
+        self.profile = Path(profile) if profile else None
 
     def snapshot(self, *args: str) -> FieldMeshGuiSnapshot:
         with TemporaryDirectory(prefix="fieldmesh-imgui-api-") as tmp:
@@ -76,10 +76,14 @@ class FieldMeshGuiClient:
             command = [
                 str(self.app),
                 "--self-test",
+            ]
+            if self.profile:
+                command.extend(["--profile", str(self.profile)])
+            command.extend([
                 "--snapshot-output",
                 str(output),
                 *args,
-            ]
+            ])
             subprocess.run(command, check=True)
             return FieldMeshGuiSnapshot(json.loads(output.read_text(encoding="utf-8")))
 

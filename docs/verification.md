@@ -3052,14 +3052,19 @@ verifying `fieldmesh_daemon_request()` carries one
 `FIELDMESH_HELLO` request, one `FIELDMESH_APP_CONTROL_CAMERA` request, plus three
 `FIELDMESH_CAMERA_STREAM_CHUNK` requests through the Ethernet daemon protocol.
 `tools/verify_fieldmesh_imgui_app.sh` separately builds the Dear ImGui app core
-in headless mode and runs `fieldmesh_imgui_pyapi.py` against it, proving Python
-tests can select a board, browse peers, elect an AP, open a chat, send a
+in headless mode. It checks the real embedded Python API source for an
+in-process `fieldmesh_imgui` module and separately runs the subprocess
+`fieldmesh_imgui_pyapi.py` CI harness against the headless binary. The gate
+proves tests can select a board, browse peers, elect an AP, open a chat, send a
 message, and start live video publish/subscribe controls without requiring a
 display. It also runs two symmetric GUI instances, so the app behaves like an
 IM client rather than a hardcoded sender/receiver tool. The same snapshot gate
-also verifies bundled public command-CA trust metadata, bundled demo profile
-state, OS/board secure-storage private-key ownership, and
-`user_runs_shell_scripts=false`.
+also verifies embedded public command-CA trust metadata, auth policy schema,
+codec defaults, external test-profile loading for deployment identity,
+OS/board secure-storage private-key ownership, and `user_runs_shell_scripts=false`.
+When WSLg sockets are present, the same gate also checks
+`tools/run_fieldmesh_imgui_wslg.sh --check-bridge`, which verifies the Arch WSL
+to Windows-host GUI bridge environment before any manual GUI launch.
 `tools/verify_fieldmesh_sdk.sh` runs both app gates before the broader SDK
 suite.
 

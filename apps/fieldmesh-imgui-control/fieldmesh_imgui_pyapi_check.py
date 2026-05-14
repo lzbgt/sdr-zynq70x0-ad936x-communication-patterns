@@ -5,7 +5,7 @@ from fieldmesh_imgui_pyapi import FieldMeshGuiClient
 
 
 def main() -> int:
-    client = FieldMeshGuiClient(sys.argv[1])
+    client = FieldMeshGuiClient(sys.argv[1], sys.argv[2])
     selected = client.select_board("020000000103")
     if selected.selected_board_eui != "020000000103":
         raise SystemExit("Python API board selection failed")

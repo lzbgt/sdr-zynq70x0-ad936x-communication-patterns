@@ -1,0 +1,11 @@
+board=020000000203,sdr-z203-zynq7,z203-2r2t,192.168.1.10,55441,1,1,1
+board=020000000103,sdr-z103-zynq7,z103-1r1t,192.168.3.1,55442,0,1,1
+peer=020000000203,sdr-z203-zynq7,z203-2r2t,1,1,28,5,-180,0,90
+peer=020000000103,sdr-z103-zynq7,z103-1r1t,1,1,24,8,220,70,120
+conversation=020000000203,Z203 lab peer,0,1
+conversation=020000000103,Z103 lab peer,1,0
+message=020000000203,rx,Z203 online on PHY Ethernet,delivered
+message=020000000103,rx,Z103 online on USB Ethernet,delivered
+selected_ap=020000000203
+camera_dst=020000000103
+camera_subscribe=020000000203

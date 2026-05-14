@@ -6,7 +6,12 @@ from pathlib import Path
 
 def main() -> int:
     source = Path(sys.argv[1]).read_text(encoding="utf-8")
-    snapshot = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+    resources = Path(sys.argv[2]).read_text(encoding="utf-8")
+    embedded_python = Path(sys.argv[3]).read_text(encoding="utf-8")
+    snapshot = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+    for forbidden in ("020000000203", "020000000103", "192.168.1.10", "192.168.3.1"):
+        if forbidden in source or forbidden in resources or forbidden in embedded_python:
+            raise SystemExit(f"app binary resources must not hardcode deployment value {forbidden}")
     for token in (
         "FIELDMESH_WITH_IMGUI",
         "#include \"imgui.h\"",
@@ -19,6 +24,21 @@ def main() -> int:
     ):
         if token not in source:
             raise SystemExit(f"ImGui app source missing {token}")
+    for token in (
+        "#include <Python.h>",
+        "PyModuleDef",
+        "PyInit_fieldmesh_imgui",
+        "PyImport_AppendInittab",
+        "Py_Initialize",
+        "browse_peers",
+        "send_message",
+        "publish_video",
+        "subscribe_video",
+    ):
+        if token not in embedded_python:
+            raise SystemExit(f"embedded Python API source missing {token}")
+    if "subprocess" in embedded_python or "system(" in embedded_python:
+        raise SystemExit("embedded Python API must not be a CLI/subprocess wrapper")
     if snapshot.get("event") != "fieldmesh_imgui_control_snapshot":
         raise SystemExit("ImGui app snapshot event changed")
     if snapshot.get("gui_framework") != "dear_imgui":
@@ -49,8 +69,16 @@ def main() -> int:
         raise SystemExit("ImGui app must not own raw device private keys")
     if snapshot.get("bundled_trust_bundle") is not True:
         raise SystemExit("ImGui app must bundle public trust metadata")
-    if snapshot.get("bundled_demo_profile") is not True:
-        raise SystemExit("ImGui app must bundle the demo runtime profile")
+    if snapshot.get("bundled_demo_profile") is not False:
+        raise SystemExit("ImGui app must not bundle a deployment profile")
+    if snapshot.get("deployment_profile_embedded") is not False:
+        raise SystemExit("ImGui app must not embed deployment profiles")
+    if snapshot.get("profile_source") in ("", "none", "app_binary"):
+        raise SystemExit("ImGui app must load test identity from external profile")
+    if snapshot.get("resources_embedded_in_app") is not True:
+        raise SystemExit("ImGui app must embed common resources")
+    if snapshot.get("embedded_resource_count", 0) < 4:
+        raise SystemExit("ImGui app embedded resource count too small")
     if snapshot.get("command_ca_private_key_bundled") is not False:
         raise SystemExit("ImGui app must not bundle the command CA private key")
     if snapshot.get("user_runs_shell_scripts") is not False:
@@ -67,8 +95,12 @@ def main() -> int:
         raise SystemExit("ImGui app must expose control-plane actions")
     if snapshot.get("embedded_python_api") is not True:
         raise SystemExit("ImGui app must expose embedded Python API")
-    if snapshot.get("python_api_module") != "fieldmesh_imgui_pyapi":
-        raise SystemExit("ImGui app Python API module changed")
+    if snapshot.get("python_api_mode") != "embedded_in_process":
+        raise SystemExit("ImGui app Python API must be embedded in-process")
+    if snapshot.get("python_api_module") != "fieldmesh_imgui":
+        raise SystemExit("ImGui app embedded Python module changed")
+    if snapshot.get("python_cli_wrapper") is not False:
+        raise SystemExit("ImGui app Python API must not be a CLI wrapper")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit("ImGui app topology viewer must be radio topology")
     if snapshot.get("relative_colocation_viewer") is not True:
@@ -86,7 +118,7 @@ def main() -> int:
     if snapshot.get("messages_received", 0) < 1:
         raise SystemExit("ImGui app must expose message history")
     if snapshot.get("selected_board_eui") != "020000000203":
-        raise SystemExit("ImGui app default selected board changed")
+        raise SystemExit("ImGui app did not load selected board from test profile")
     if snapshot.get("uses_inter_board_ip_routing") is not False:
         raise SystemExit("ImGui app must not model inter-board IP routing")
     if snapshot.get("starts_rf_tx") is not False or snapshot.get("writes_hardware") is not False:

@@ -661,14 +661,20 @@ user and vendor configuration.
 - `apps/fieldmesh-imgui-control/` - Dear ImGui C++ golden IM app boundary. It
   models a symmetric peer client for board selection, peer discovery, chat
   messaging, control-plane actions, radio topology, relative co-location, and
-  live video publish/subscribe controls, and includes
-  `fieldmesh_imgui_pyapi.py` so Python tests can drive the same app state. The
-  app carries the production security model explicitly: command-CA-derived
-  device certificates, mutual authentication, and scoped authorization before
-  privileged operations. The app bundle owns the demo runtime profile, board
-  defaults, public command-CA trust metadata, certificate fingerprints, and
-  codec presets; shell scripts are developer gates, not user workflow, and the
-  command CA private key is never bundled.
+  live video publish/subscribe controls. It embeds an in-process Python module
+  named `fieldmesh_imgui`; the Python subprocess helper is only a CI/headless
+  harness. The app carries the production security model explicitly:
+  command-CA-derived device certificates, mutual authentication, and scoped
+  authorization before privileged operations. The app bundle owns public
+  command-CA trust metadata, certificate fingerprints, auth policy schema, and
+  codec presets, but not deployment identity: app/device EUIs, board
+  hostnames, daemon IPs, and peer lists come from discovery, provisioning, or
+  an external runtime profile. Shell scripts are developer gates, not user
+  workflow, and the command CA private key is never bundled. Under Arch Linux
+  on WSL, `tools/run_fieldmesh_imgui_wslg.sh` provides the Windows-host GUI
+  bridge by setting the WSLg X11/Wayland/Pulse/GPU environment before launching
+  the Linux GUI binary; product packaging should hide that bridge inside a
+  desktop shortcut/app bundle.
   It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
@@ -1096,14 +1102,19 @@ Expected result in the current Pluto-compatible firmware state:
    The production GUI boundary is now `apps/fieldmesh-imgui-control/`: a Dear
    ImGui C++ golden IM app surface for board selection, peer discovery, chat
    messaging, control-plane actions, radio topology, relative co-location, and
-   live video publish/subscribe controls. It includes
-   `fieldmesh_imgui_pyapi.py` so Python tests can drive the same app state
-   without requiring a display, and it treats command-CA-derived mutual
-   authentication plus scoped authorization as mandatory production security.
-   Its snapshot now proves the app carries bundled public trust/profile
-   metadata while requiring private device keys from OS/board secure storage
-   and never bundling the command CA private key. Users should launch the app;
-   the shell scripts remain developer/CI verification harnesses.
+   live video publish/subscribe controls. It embeds an in-process Python module
+   named `fieldmesh_imgui`; `fieldmesh_imgui_pyapi.py` is only a headless test
+   harness. The app treats command-CA-derived mutual authentication plus
+   scoped authorization as mandatory production security.
+   Its snapshot now proves the app carries bundled public trust/policy/codec
+   resources while loading deployment identity from an external profile for
+   tests, requiring private device keys from OS/board secure storage, and never
+   bundling the command CA private key. Users should launch the app; the shell
+   scripts remain developer/CI verification harnesses. The Arch WSL developer
+   path uses WSLg to show the Linux GUI as normal Windows desktop windows; the
+   repo launcher mirrors `../wsl-archlinux-gui/scripts/wslg-run.sh` and checks
+   `DISPLAY`, Wayland, PulseAudio, and `/dev/dxg` before starting one or more
+   app instances.
    Z203's USB/RNDIS data gadget is still not exposed as a second Windows
    network adapter: `192.168.2.1` did not answer ping after a COM5-driven
    UDC/network restart, even though COM5 confirmed Z203 Linux has `usb0`
