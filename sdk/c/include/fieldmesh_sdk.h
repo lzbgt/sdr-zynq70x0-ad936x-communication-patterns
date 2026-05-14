@@ -124,6 +124,12 @@ typedef struct fieldmesh_config {
     uint32_t timeout_ms;
 } fieldmesh_config_t;
 
+typedef struct fieldmesh_daemon_client_config {
+    char host[FIELDMESH_ADDR_TEXT_MAX];
+    uint16_t port;
+    uint32_t timeout_ms;
+} fieldmesh_daemon_client_config_t;
+
 typedef struct fieldmesh_network_profile {
     char device_eui[FIELDMESH_ID_TEXT_MAX];
     char node_id[FIELDMESH_ID_TEXT_MAX];
@@ -823,6 +829,12 @@ fieldmesh_status_t fieldmesh_tun_packetizer_pump_once(
     void *packet_buffer,
     size_t packet_capacity,
     fieldmesh_tun_pump_report_t *out_report);
+fieldmesh_status_t fieldmesh_daemon_request(
+    const fieldmesh_daemon_client_config_t *config,
+    const char *request,
+    char *response,
+    size_t response_capacity,
+    size_t *out_response_len);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

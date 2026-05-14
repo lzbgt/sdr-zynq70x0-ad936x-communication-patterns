@@ -21,22 +21,30 @@ out_dir = Path(sys.argv[1])
 input_path = out_dir / "camera_input.bin"
 preview_path = out_dir / "camera_preview.bin"
 explicit_preview_path = out_dir / "explicit_camera_preview.bin"
+daemon_preview_path = out_dir / "daemon_camera_preview.bin"
 native_snapshot_path = out_dir / "camera_snapshot.json"
 explicit_native_snapshot_path = out_dir / "explicit_camera_snapshot.json"
+daemon_native_snapshot_path = out_dir / "daemon_camera_snapshot.json"
 replayed_snapshot_path = out_dir / "camera_replayed_snapshot.json"
 dashboard_path = out_dir / "camera_dashboard.html"
 explicit_dashboard_path = out_dir / "explicit_camera_dashboard.html"
+daemon_dashboard_path = out_dir / "daemon_camera_dashboard.html"
 preset_path = out_dir / "camera_preset.json"
 ndjson_path = out_dir / "camera_app.ndjson"
 explicit_ndjson_path = out_dir / "explicit_camera_app.ndjson"
+daemon_ndjson_path = out_dir / "daemon_camera_app.ndjson"
+daemon_server_path = out_dir / "daemon_camera_server.ndjson"
 
 if not filecmp.cmp(input_path, preview_path, shallow=False):
     raise SystemExit("control-camera app preview output did not match input")
 if not filecmp.cmp(input_path, explicit_preview_path, shallow=False):
     raise SystemExit("explicit control-camera preview output did not match input")
+if not filecmp.cmp(input_path, daemon_preview_path, shallow=False):
+    raise SystemExit("daemon control-camera preview output did not match input")
 
 native = json.loads(native_snapshot_path.read_text(encoding="utf-8"))
 explicit_native = json.loads(explicit_native_snapshot_path.read_text(encoding="utf-8"))
+daemon_native = json.loads(daemon_native_snapshot_path.read_text(encoding="utf-8"))
 replayed = json.loads(replayed_snapshot_path.read_text(encoding="utf-8"))
 preset = json.loads(preset_path.read_text(encoding="utf-8"))
 events = [
@@ -49,8 +57,18 @@ explicit_events = [
     for line in explicit_ndjson_path.read_text(encoding="utf-8").splitlines()
     if line.strip()
 ]
+daemon_events = [
+    json.loads(line)
+    for line in daemon_ndjson_path.read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
+daemon_server_events = [
+    json.loads(line)
+    for line in daemon_server_path.read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
 
-for snapshot in (native, explicit_native, replayed):
+for snapshot in (native, explicit_native, daemon_native, replayed):
     if snapshot.get("event") != "fieldmesh_app_snapshot":
         raise SystemExit("snapshot event name changed")
     if snapshot.get("overall_health") != "ok":
@@ -72,11 +90,16 @@ if explicit_native.get("camera", {}).get("dst_device_eui") != "020000000203":
     raise SystemExit("explicit native snapshot destination changed")
 if explicit_native.get("network", {}).get("elected_ap", {}).get("elected_device_eui") != "020000000103":
     raise SystemExit("explicit native snapshot did not preserve user AP")
+if daemon_native.get("camera", {}).get("daemon_client_enabled") is not True:
+    raise SystemExit("daemon native snapshot did not mark daemon client")
+if daemon_native.get("camera", {}).get("daemon_host") != "127.0.0.1":
+    raise SystemExit("daemon native snapshot did not preserve daemon host")
 if replayed.get("camera", {}).get("frames_tx") != 3:
     raise SystemExit("replayed snapshot frame count changed")
 
 dashboard = dashboard_path.read_text(encoding="utf-8")
 explicit_dashboard = explicit_dashboard_path.read_text(encoding="utf-8")
+daemon_dashboard = daemon_dashboard_path.read_text(encoding="utf-8")
 for token in (
     "FieldMesh Control Camera",
     'data-view="network"',
@@ -91,10 +114,16 @@ for token in (
         raise SystemExit(f"dashboard missing {token}")
     if token not in explicit_dashboard:
         raise SystemExit(f"explicit dashboard missing {token}")
+    if token not in daemon_dashboard:
+        raise SystemExit(f"daemon dashboard missing {token}")
 if "AP selection</th><td>user explicit" not in explicit_dashboard:
     raise SystemExit("explicit dashboard did not show user AP selection")
 if "Destination EUI</th><td>020000000203" not in explicit_dashboard:
     raise SystemExit("explicit dashboard did not show selected destination")
+if "Daemon client</th><td>enabled" not in daemon_dashboard:
+    raise SystemExit("daemon dashboard did not show daemon client")
+if "Daemon endpoint</th><td>127.0.0.1:55431" not in daemon_dashboard:
+    raise SystemExit("daemon dashboard did not show daemon endpoint")
 
 if "--live-stream-loop" not in preset.get("app_command", ""):
     raise SystemExit("camera preset did not choose live stream loop")
@@ -132,6 +161,30 @@ if not explicit_summary or explicit_summary[-1].get("control_plane_ok") is not T
     raise SystemExit("explicit app summary control plane failed")
 if explicit_summary[-1].get("data_plane_ok") is not True:
     raise SystemExit("explicit app summary data plane failed")
+
+daemon_by_name = {}
+for event in daemon_events:
+    daemon_by_name.setdefault(event.get("event"), []).append(event)
+
+if len(daemon_by_name.get("app_daemon_control_ack", [])) != 1:
+    raise SystemExit("daemon app did not acknowledge app control")
+if len(daemon_by_name.get("app_daemon_camera_chunk_ack", [])) != 3:
+    raise SystemExit("daemon app did not acknowledge three camera chunks")
+daemon_stream = daemon_by_name.get("app_camera_stream_open", [])
+if not daemon_stream or daemon_stream[0].get("daemon_client_enabled") is not True:
+    raise SystemExit("daemon app stream did not mark daemon client enabled")
+daemon_summary = daemon_by_name.get("app_summary", [])
+if not daemon_summary or daemon_summary[-1].get("data_plane_ok") is not True:
+    raise SystemExit("daemon app summary data plane failed")
+
+server_by_name = {}
+for event in daemon_server_events:
+    server_by_name.setdefault(event.get("event"), []).append(event)
+if len(server_by_name.get("sdk_daemon_request", [])) != 4:
+    raise SystemExit("daemon server did not receive four app requests")
+server_end = server_by_name.get("sdk_daemon_end", [])
+if not server_end or server_end[-1].get("handled") != 4:
+    raise SystemExit("daemon server request count changed")
 PY
 
 echo "fieldmesh_app_build_check=pass"

@@ -3038,14 +3038,19 @@ the no-inter-board-IP-routing, no-RF-TX, and no-hardware-write invariants
 visible.
 
 `tools/verify_fieldmesh_app_build.sh` is the app-local build gate. It invokes
-`make -C apps/fieldmesh-control-camera-demo`, compiles the pure-C SDK object and
-C++ app into `.config/fieldmesh/control-camera-build`, runs the deterministic
-camera input through preview, native snapshot, replayed snapshot, dashboard,
-and preset generation, then asserts the same safety and byte-match invariants.
+`make -C apps/fieldmesh-control-camera-demo`, compiles the pure-C SDK object,
+the C++ app, and a loopback `fieldmesh-state-daemon-demo` into
+`.config/fieldmesh/control-camera-build`, runs the deterministic camera input
+through preview, native snapshot, replayed snapshot, dashboard, and preset
+generation, then asserts the same safety and byte-match invariants.
 It also runs a user-explicit operation case with
 `--preferred-ap-eui 020000000103 --dst-eui 020000000203`, proving AP selection
 mode and camera destination are explicit device-EUI fields rather than
-hostname, board type, or hardcoded hub/node labels.
+hostname, board type, or hardcoded hub/node labels. The same app-local gate now
+starts the daemon on loopback and runs the app with `--daemon-host 127.0.0.1`,
+verifying `fieldmesh_daemon_request()` carries one
+`FIELDMESH_APP_CONTROL_CAMERA` request plus three
+`FIELDMESH_CAMERA_STREAM_CHUNK` requests through the Ethernet daemon protocol.
 `tools/verify_fieldmesh_sdk.sh` runs this app build gate before the broader SDK
 suite.
 

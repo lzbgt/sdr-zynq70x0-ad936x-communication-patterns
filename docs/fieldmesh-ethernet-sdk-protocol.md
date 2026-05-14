@@ -440,6 +440,13 @@ The daemon now has the matching app-level request,
 the Ethernet SDK service boundary: browse/elect/join state, commanded
 proactive role, radio-only topology, RTLS summary, and video-base RF handoff
 all return in one response without granting RF TX or hardware writes.
+The pure-C SDK now includes `fieldmesh_daemon_request()` for this host-facing
+service boundary. The C++ app can run with `--daemon-host`, `--daemon-port`,
+and `--daemon-timeout-ms`; in that mode it keeps local SDK capture/preview
+accounting for deterministic UI state while also sending app-control and
+camera-chunk requests to the daemon over the Ethernet protocol. This is the
+intended production split: rich apps own user workflow and media lifecycle,
+the C SDK owns protocol transport, and the board daemon owns RF/device state.
 `tools/run_fieldmesh_two_board_camera_flow.sh` composes this into the first
 live logical two-host gate: source-side camera control/data ingress through one
 board daemon, preview-side status through the peer board daemon, and a paired

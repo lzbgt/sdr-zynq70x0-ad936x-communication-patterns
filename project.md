@@ -671,10 +671,16 @@ user and vendor configuration.
   `--dashboard-output PATH` writes the first native browser-viewable dashboard
   artifact with network browser, operations, radio topology, relative
   co-location map, camera stream metrics, and safety invariants.
+  `--daemon-host`, `--daemon-port`, and `--daemon-timeout-ms` now let the same
+  app call the FieldMesh board daemon through the pure-C
+  `fieldmesh_daemon_request()` Ethernet SDK primitive, exercising app-control
+  and camera-chunk data-plane requests over the daemon protocol while retaining
+  deterministic local preview/snapshot output for tests.
   The app now has a local `Makefile`; `tools/verify_fieldmesh_app_build.sh`
   builds the pure-C SDK object plus the C++ app, verifies Python helpers,
   snapshot output, dashboard output, preview byte matching, explicit AP/dst
-  selection, and preset wiring without requiring the full SDK suite.
+  selection, daemon-backed app-control/chunk transport, and preset wiring
+  without requiring the full SDK suite.
   `fieldmesh_camera_pipe.py` supplies deterministic file-backed capture/preview
   helpers for tests plus Linux/Windows/macOS FFmpeg, GStreamer, and
   native-wrapper command presets for real hosts; the presets now select the app

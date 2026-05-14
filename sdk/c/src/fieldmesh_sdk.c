@@ -1,8 +1,34 @@
 #include "fieldmesh_sdk.h"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+typedef SOCKET fieldmesh_sdk_socket_t;
+typedef int fieldmesh_sdk_socklen_t;
+#define FIELDMESH_SDK_INVALID_SOCKET INVALID_SOCKET
+#define FIELDMESH_SDK_SOCKET_ERROR SOCKET_ERROR
+#define fieldmesh_sdk_close_socket closesocket
+#else
+typedef int fieldmesh_sdk_socket_t;
+typedef socklen_t fieldmesh_sdk_socklen_t;
+#define FIELDMESH_SDK_INVALID_SOCKET (-1)
+#define FIELDMESH_SDK_SOCKET_ERROR (-1)
+#define fieldmesh_sdk_close_socket close
+#endif
 
 #define FIELDMESH_MAX_APS 4
 #define FIELDMESH_MAX_CANDIDATES 16
@@ -114,6 +140,53 @@ static void sdk_copy_text(char *dst, size_t dst_len, const char *src)
         return;
     }
     (void)snprintf(dst, dst_len, "%s", src);
+}
+
+static int sdk_socket_startup(void)
+{
+#ifdef _WIN32
+    WSADATA data;
+
+    return WSAStartup(MAKEWORD(2, 2), &data);
+#else
+    return 0;
+#endif
+}
+
+static void sdk_socket_cleanup(void)
+{
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
+
+static int sdk_set_socket_timeout(fieldmesh_sdk_socket_t sockfd,
+                                  uint32_t timeout_ms)
+{
+#ifdef _WIN32
+    DWORD timeout = timeout_ms;
+
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                      (const char *)&timeout, (int)sizeof(timeout));
+#else
+    struct timeval timeout;
+
+    timeout.tv_sec = (time_t)(timeout_ms / 1000u);
+    timeout.tv_usec = (suseconds_t)((timeout_ms % 1000u) * 1000u);
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                      &timeout, (socklen_t)sizeof(timeout));
+#endif
+}
+
+static int sdk_is_recv_timeout(void)
+{
+#ifdef _WIN32
+    int err = WSAGetLastError();
+
+    return err == WSAETIMEDOUT || err == WSAEWOULDBLOCK;
+#else
+    return errno == EAGAIN || errno == EWOULDBLOCK;
+#endif
 }
 
 static uint32_t mode_mask(void)
@@ -2263,6 +2336,76 @@ fieldmesh_status_t fieldmesh_tun_packetizer_pump_once(
     out_report->uses_inter_board_ip_routing = 0u;
     out_report->sent_to_fieldmesh_adapter = packet_report.sent_to_fieldmesh_adapter;
     return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_daemon_request(
+    const fieldmesh_daemon_client_config_t *config,
+    const char *request,
+    char *response,
+    size_t response_capacity,
+    size_t *out_response_len)
+{
+    fieldmesh_sdk_socket_t sockfd = FIELDMESH_SDK_INVALID_SOCKET;
+    struct sockaddr_in dst;
+    uint32_t timeout_ms;
+    size_t request_len;
+    int received;
+    fieldmesh_status_t status = FIELDMESH_ERR_TRANSPORT;
+
+    if (out_response_len) {
+        *out_response_len = 0u;
+    }
+    if (!config || !request || !response || response_capacity == 0u ||
+        config->host[0] == '\0' || config->port == 0u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    request_len = strlen(request);
+    if (request_len == 0u || request_len > 60000u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    timeout_ms = config->timeout_ms == 0u ? 1000u : config->timeout_ms;
+    response[0] = '\0';
+    if (sdk_socket_startup() != 0) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == FIELDMESH_SDK_INVALID_SOCKET) {
+        goto out;
+    }
+    (void)sdk_set_socket_timeout(sockfd, timeout_ms);
+
+    memset(&dst, 0, sizeof(dst));
+    dst.sin_family = AF_INET;
+    dst.sin_port = htons(config->port);
+    if (inet_pton(AF_INET, config->host, &dst.sin_addr) != 1) {
+        status = FIELDMESH_ERR_INVALID_ARG;
+        goto out;
+    }
+    if (sendto(sockfd, request, (int)request_len, 0,
+               (const struct sockaddr *)&dst,
+               (fieldmesh_sdk_socklen_t)sizeof(dst)) == FIELDMESH_SDK_SOCKET_ERROR) {
+        goto out;
+    }
+    received = recvfrom(sockfd, response, (int)(response_capacity - 1u), 0,
+                        NULL, NULL);
+    if (received < 0) {
+        status = sdk_is_recv_timeout() ? FIELDMESH_ERR_TIMEOUT :
+                                         FIELDMESH_ERR_TRANSPORT;
+        goto out;
+    }
+    response[received] = '\0';
+    if (out_response_len) {
+        *out_response_len = (size_t)received;
+    }
+    status = FIELDMESH_OK;
+
+out:
+    if (sockfd != FIELDMESH_SDK_INVALID_SOCKET) {
+        fieldmesh_sdk_close_socket(sockfd);
+    }
+    sdk_socket_cleanup();
+    return status;
 }
 
 const char *fieldmesh_status_string(fieldmesh_status_t status)

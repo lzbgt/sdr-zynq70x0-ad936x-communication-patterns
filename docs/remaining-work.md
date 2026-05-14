@@ -271,7 +271,10 @@ Next concrete work:
   app has a local Makefile and `tools/verify_fieldmesh_app_build.sh`, so it can
   be built and smoke-tested without running the full SDK suite; that gate now
   includes both default auto election and explicit user-selected AP/destination
-  EUI paths. The remaining app work is an interactive packaged GUI, platform preset installation UX,
+  EUI paths. It also starts a loopback board daemon and verifies
+  `--daemon-host` app operation through the pure-C `fieldmesh_daemon_request()`
+  Ethernet client, covering app-control and camera-chunk protocol requests.
+  The remaining app work is an interactive packaged GUI, platform preset installation UX,
   deeper platform codec supervision, and the conducted/shielded RF TX/RX
   data-plane gate.
   The intended live

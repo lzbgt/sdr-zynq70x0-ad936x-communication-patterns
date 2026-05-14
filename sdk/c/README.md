@@ -59,6 +59,11 @@ in `src/fieldmesh_sdk.c`:
   that accepts one encoded camera byte chunk and returns preview/checksum/RF
   handoff status. A separate process queries those services over the same IP
   path intended for USB Ethernet and physical Ethernet.
+- The SDK also exposes `fieldmesh_daemon_request()`, a small pure-C UDP client
+  primitive for host apps that need to call the board-resident daemon directly.
+  It is intentionally message-oriented: C++/Rust apps build the protocol
+  request, the pure-C SDK owns timeout/error handling, and the board daemon
+  remains the only local owner of RF/device state.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
@@ -145,7 +150,10 @@ Build it directly with `make -C ../../apps/fieldmesh-control-camera-demo` from
 this directory, or run `tools/verify_fieldmesh_app_build.sh` from the repo root
 to compile the SDK object, app, Python helpers, snapshots, dashboard, and
 preview byte-compare path. The app-local gate also runs an explicit-operation
-case with user-selected AP and destination EUI.
+case with user-selected AP and destination EUI, then starts a loopback
+`fieldmesh-state-daemon-demo` and verifies the app can send
+`FIELDMESH_APP_CONTROL_CAMERA` plus camera chunks through
+`fieldmesh_daemon_request()`.
 `fieldmesh_camera_pipe.py` provides
 `capture-file`/`preview-file` commands for deterministic tests and a `preset`
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for

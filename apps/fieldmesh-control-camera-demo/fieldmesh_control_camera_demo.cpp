@@ -35,6 +35,9 @@ struct AppOptions {
     const char *dashboard_output_path = nullptr;
     const char *preferred_ap_eui = nullptr;
     const char *dst_device_eui = "020000000103";
+    const char *daemon_host = nullptr;
+    uint16_t daemon_port = 55421;
+    uint32_t daemon_timeout_ms = 2000;
     size_t chunk_size = 640;
     unsigned max_chunks = 0;
     unsigned target_fps = 0;
@@ -274,6 +277,8 @@ void print_usage(const char *program)
                  "[--preview-output PATH] [--preview-command CMD] "
                  "[--snapshot-output PATH] [--dashboard-output PATH] "
                  "[--preferred-ap-eui EUI] [--dst-eui EUI] "
+                 "[--daemon-host IP] [--daemon-port PORT] "
+                 "[--daemon-timeout-ms MS] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
                  "[--pace-realtime] [--live-stream-loop]\n",
                  program);
@@ -311,6 +316,28 @@ bool parse_uint(const char *text, unsigned *value)
     return true;
 }
 
+bool parse_uint16(const char *text, uint16_t *value)
+{
+    unsigned parsed;
+
+    if (!value || !parse_uint(text, &parsed) || parsed == 0u || parsed > 65535u) {
+        return false;
+    }
+    *value = static_cast<uint16_t>(parsed);
+    return true;
+}
+
+bool parse_u32_timeout(const char *text, uint32_t *value)
+{
+    unsigned parsed;
+
+    if (!value || !parse_uint(text, &parsed)) {
+        return false;
+    }
+    *value = static_cast<uint32_t>(parsed);
+    return true;
+}
+
 bool parse_options(int argc, char **argv, AppOptions *options)
 {
     if (!options) {
@@ -333,6 +360,18 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             options->preferred_ap_eui = argv[++i];
         } else if (std::strcmp(argv[i], "--dst-eui") == 0 && i + 1 < argc) {
             options->dst_device_eui = argv[++i];
+        } else if (std::strcmp(argv[i], "--daemon-host") == 0 && i + 1 < argc) {
+            options->daemon_host = argv[++i];
+        } else if (std::strcmp(argv[i], "--daemon-port") == 0 && i + 1 < argc) {
+            if (!parse_uint16(argv[++i], &options->daemon_port)) {
+                std::fprintf(stderr, "invalid --daemon-port\n");
+                return false;
+            }
+        } else if (std::strcmp(argv[i], "--daemon-timeout-ms") == 0 && i + 1 < argc) {
+            if (!parse_u32_timeout(argv[++i], &options->daemon_timeout_ms)) {
+                std::fprintf(stderr, "invalid --daemon-timeout-ms\n");
+                return false;
+            }
         } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
             if (!parse_size(argv[++i], &options->chunk_size)) {
                 std::fprintf(stderr, "invalid --chunk-size\n");
@@ -364,6 +403,135 @@ bool parse_options(int argc, char **argv, AppOptions *options)
         std::fprintf(stderr, "--camera-input and --camera-command are mutually exclusive\n");
         return false;
     }
+    return true;
+}
+
+bool daemon_client_enabled(const AppOptions &options)
+{
+    return options.daemon_host && options.daemon_host[0] != '\0';
+}
+
+void append_payload_hex(std::string *request, const std::vector<unsigned char> &payload)
+{
+    static const char k_hex[] = "0123456789abcdef";
+
+    if (!request) {
+        return;
+    }
+    request->reserve(request->size() + payload.size() * 2u);
+    for (unsigned char byte : payload) {
+        request->push_back(k_hex[(byte >> 4) & 0x0f]);
+        request->push_back(k_hex[byte & 0x0f]);
+    }
+}
+
+bool daemon_response_ok(const std::string &response)
+{
+    if (response.find("\"ok\":false") != std::string::npos) {
+        return false;
+    }
+    return response.find("\"ok\":true") != std::string::npos ||
+           response.find("\"event\":\"sdk_daemon_") != std::string::npos;
+}
+
+bool request_daemon(const AppOptions &options,
+                    const std::string &request,
+                    const char *operation,
+                    std::string *response)
+{
+    fieldmesh_daemon_client_config_t config{};
+    char buffer[4096];
+    size_t response_len = 0u;
+    fieldmesh_status_t status;
+
+    if (!daemon_client_enabled(options) || !response) {
+        return true;
+    }
+    copy_text(config.host, sizeof(config.host), options.daemon_host);
+    config.port = options.daemon_port;
+    config.timeout_ms = options.daemon_timeout_ms;
+    status = fieldmesh_daemon_request(&config, request.c_str(), buffer,
+                                      sizeof(buffer), &response_len);
+    if (status != FIELDMESH_OK) {
+        std::fprintf(stderr, "%s daemon request failed: %s\n", operation,
+                     fieldmesh_status_string(status));
+        return false;
+    }
+    response->assign(buffer, response_len);
+    if (!daemon_response_ok(*response)) {
+        std::fprintf(stderr, "%s daemon response was not ok: %s\n",
+                     operation, response->c_str());
+        return false;
+    }
+    return true;
+}
+
+bool send_daemon_app_control(const AppOptions &options)
+{
+    std::string request = "FIELDMESH_APP_CONTROL_CAMERA v1";
+    std::string response;
+
+    if (!daemon_client_enabled(options)) {
+        return true;
+    }
+    if (options.preferred_ap_eui) {
+        request += " preferred_ap=";
+        request += options.preferred_ap_eui;
+    }
+    request += " dst=";
+    request += options.dst_device_eui;
+    if (!request_daemon(options, request, "app_control_camera", &response)) {
+        return false;
+    }
+    std::printf("{\"event\":\"app_daemon_control_ack\","
+                "\"daemon_host\":\"%s\","
+                "\"daemon_port\":%u,"
+                "\"operation\":\"FIELDMESH_APP_CONTROL_CAMERA\","
+                "\"preferred_ap_eui\":\"%s\","
+                "\"dst_device_eui\":\"%s\","
+                "\"ok\":true,"
+                "\"uses_inter_board_ip_routing\":0}\n",
+                options.daemon_host,
+                static_cast<unsigned>(options.daemon_port),
+                options.preferred_ap_eui ? options.preferred_ap_eui : "",
+                options.dst_device_eui);
+    return true;
+}
+
+bool send_daemon_camera_chunk(const AppOptions &options,
+                              const CameraChunk &camera_chunk,
+                              unsigned chunk_counter)
+{
+    std::string request = "FIELDMESH_CAMERA_STREAM_CHUNK v1 ";
+    std::string response;
+
+    if (!daemon_client_enabled(options)) {
+        return true;
+    }
+    append_payload_hex(&request, camera_chunk.payload);
+    request += " dst=";
+    request += options.dst_device_eui;
+    if (!request_daemon(options, request, "camera_stream_chunk", &response)) {
+        return false;
+    }
+    std::printf("{\"event\":\"app_daemon_camera_chunk_ack\","
+                "\"daemon_host\":\"%s\","
+                "\"daemon_port\":%u,"
+                "\"operation\":\"FIELDMESH_CAMERA_STREAM_CHUNK\","
+                "\"chunk_counter\":%u,"
+                "\"frame_index\":%u,"
+                "\"chunk_index\":%u,"
+                "\"input_bytes\":%lu,"
+                "\"dst_device_eui\":\"%s\","
+                "\"ok\":true,"
+                "\"uses_inter_board_ip_routing\":0}\n",
+                options.daemon_host,
+                static_cast<unsigned>(options.daemon_port),
+                chunk_counter,
+                camera_chunk.frame_index,
+                camera_chunk.chunk_index,
+                static_cast<unsigned long>(camera_chunk.payload.size()),
+                options.dst_device_eui);
     return true;
 }
 
@@ -864,6 +1032,7 @@ bool close_preview_sink(const AppOptions &options,
 }
 
 bool transmit_camera_chunk(fieldmesh_adapter_t *camera_stream,
+                           const AppOptions &options,
                            const CameraChunk &camera_chunk,
                            std::chrono::steady_clock::time_point stream_start,
                            unsigned chunk_counter,
@@ -902,6 +1071,9 @@ bool transmit_camera_chunk(fieldmesh_adapter_t *camera_stream,
     ++(*frames_tx);
     ++(*frames_rx);
     *rf_queued += frame_report.rf_report.queued_to_rf_engine ? 1u : 0u;
+    if (!send_daemon_camera_chunk(options, camera_chunk, chunk_counter)) {
+        return false;
+    }
     std::printf("{\"event\":\"app_camera_frame_tx\","
                 "\"frame_index\":%u,"
                 "\"chunk_index\":%u,"
@@ -1149,6 +1321,13 @@ bool write_app_snapshot(const AppOptions &options,
     print_json_string(out, options.dst_device_eui);
     std::fprintf(out,
                  ",\n"
+                 "    \"daemon_client_enabled\": %s,\n"
+                 "    \"daemon_host\": ",
+                 daemon_client_enabled(options) ? "true" : "false");
+    print_json_string(out, options.daemon_host ? options.daemon_host : "");
+    std::fprintf(out,
+                 ",\n"
+                 "    \"daemon_port\": %u,\n"
                  "    \"frames_tx\": %u,\n"
                  "    \"frames_rx\": %u,\n"
                  "    \"rf_queued\": %u,\n"
@@ -1175,6 +1354,7 @@ bool write_app_snapshot(const AppOptions &options,
                  "    \"show_route_health\": true\n"
                  "  }\n"
                  "}\n",
+                 static_cast<unsigned>(options.daemon_port),
                  frames_tx, frames_rx, rf_queued, frames_rx,
                  static_cast<unsigned long>(camera_input_bytes),
                  static_cast<unsigned long>(preview_bytes), stream_target_fps,
@@ -1344,6 +1524,16 @@ bool write_app_dashboard(const AppOptions &options,
     std::fprintf(out,
                  "</td></tr><tr><th>Destination EUI</th><td>");
     print_html_text(out, options.dst_device_eui);
+    std::fprintf(out,
+                 "</td></tr><tr><th>Daemon client</th><td>%s</td></tr>"
+                 "<tr><th>Daemon endpoint</th><td>",
+                 daemon_client_enabled(options) ? "enabled" : "disabled");
+    if (daemon_client_enabled(options)) {
+        print_html_text(out, options.daemon_host);
+        std::fprintf(out, ":%u", static_cast<unsigned>(options.daemon_port));
+    } else {
+        std::fputs("disabled", out);
+    }
     std::fprintf(out,
                  "</td></tr><tr><th>Capture bytes</th><td>%lu</td></tr>"
                  "<tr><th>Preview bytes</th><td>%lu</td></tr>"
@@ -1517,6 +1707,12 @@ int main(int argc, char **argv)
                 "\"mode\":%u}\n",
                 static_cast<unsigned>(FIELDMESH_MODE_SCHEDULED));
 
+    if (!send_daemon_app_control(options)) {
+        (void)fieldmesh_leave(session);
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
+
     if (!require_ok(fieldmesh_list_peers(session, on_peer, &peers), "list_peers")) {
         (void)fieldmesh_leave(session);
         fieldmesh_context_destroy(ctx);
@@ -1635,6 +1831,9 @@ int main(int argc, char **argv)
                 "\"payload_kind\":%u,"
                 "\"traffic_class\":%u,"
                 "\"preview_enabled\":true,"
+                "\"daemon_client_enabled\":%s,"
+                "\"daemon_host\":\"%s\","
+                "\"daemon_port\":%u,"
                 "\"uses_iio\":0,"
                 "\"uses_inter_board_ip_routing\":0}\n",
                 camera_config.dst_node_id,
@@ -1666,7 +1865,10 @@ int main(int argc, char **argv)
                 stream_target_fps,
                 options.pace_realtime ? "true" : "false",
                 static_cast<unsigned>(FIELDMESH_PAYLOAD_VIDEO_BASE),
-                static_cast<unsigned>(FIELDMESH_CLASS_C2_VIDEO_BASE));
+                static_cast<unsigned>(FIELDMESH_CLASS_C2_VIDEO_BASE),
+                daemon_client_enabled(options) ? "true" : "false",
+                options.daemon_host ? options.daemon_host : "",
+                static_cast<unsigned>(options.daemon_port));
 
     const auto stream_start = std::chrono::steady_clock::now();
     unsigned chunk_counter = 0;
@@ -1700,7 +1902,7 @@ int main(int argc, char **argv)
             if (!have_chunk) {
                 break;
             }
-            if (!transmit_camera_chunk(camera_stream, camera_chunk, stream_start,
+            if (!transmit_camera_chunk(camera_stream, options, camera_chunk, stream_start,
                                        chunk_counter, stream_target_fps,
                                        options.pace_realtime, &preview_bytes,
                                        &frames_tx, &frames_rx, &rf_queued)) {
@@ -1736,7 +1938,7 @@ int main(int argc, char **argv)
         preview_closed = true;
     } else {
         for (const auto &camera_chunk : camera_chunks) {
-            if (!transmit_camera_chunk(camera_stream, camera_chunk, stream_start,
+            if (!transmit_camera_chunk(camera_stream, options, camera_chunk, stream_start,
                                        chunk_counter, stream_target_fps,
                                        options.pace_realtime, &preview_bytes,
                                        &frames_tx, &frames_rx, &rf_queued)) {
