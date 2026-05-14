@@ -46,7 +46,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 14 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 15 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -187,13 +187,14 @@ iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge
 swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_adapter"]
 rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_packet_engine"]
 rf_tx_guard = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_guard_plan"]
+app_camera = [row for row in query if row.get("event") == "sdk_daemon_app_control_camera"]
 tun_fd_pump = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 14 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 15 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -263,6 +264,33 @@ for key in ("sets_tx_enable", "sets_tx_armed", "live_arm_requested",
             "writes_hardware", "commands_executed"):
     if rf_tx_guard[0].get(key) != 0:
         raise SystemExit(f"SDK daemon RF TX guard key {key} must be 0")
+if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
+    raise SystemExit("SDK daemon app control/camera query failed")
+if app_camera[0].get("sdk_abi") != "pure_c" or app_camera[0].get("client_app_language") != "cpp":
+    raise SystemExit("SDK daemon app control/camera ABI metadata failed")
+if app_camera[0].get("control_plane_ok") is not True or app_camera[0].get("data_plane_ok") is not True:
+    raise SystemExit("SDK daemon app control/camera planes did not pass")
+if app_camera[0].get("elected_device_eui") != "020000000203":
+    raise SystemExit("SDK daemon app control/camera elected wrong AP")
+if app_camera[0].get("requested_role") != "proactive_camera_streamer":
+    raise SystemExit("SDK daemon app control/camera missed commanded role")
+if app_camera[0].get("launched_role") != "passive_learner":
+    raise SystemExit("SDK daemon app control/camera should launch passive")
+if app_camera[0].get("topology") != "radio" or app_camera[0].get("host_eth_topology") is not False:
+    raise SystemExit("SDK daemon app control/camera topology must be radio-only")
+if app_camera[0].get("rtls_gps_pps_fused") != 1 or app_camera[0].get("rtls_packet_timing_tdoa") != 1:
+    raise SystemExit("SDK daemon app control/camera RTLS summary failed")
+if app_camera[0].get("frames_tx") != 6 or app_camera[0].get("frames_rx") != 6:
+    raise SystemExit("SDK daemon app control/camera frame counts failed")
+if app_camera[0].get("rf_queued") != 6 or app_camera[0].get("direct_routes") != 6:
+    raise SystemExit("SDK daemon app control/camera RF queue/direct route failed")
+if app_camera[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon app control/camera used wrong adapter")
+if app_camera[0].get("payload_kind") != 3 or app_camera[0].get("traffic_class") != 2:
+    raise SystemExit("SDK daemon app control/camera must stream video-base C2")
+for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+    if app_camera[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon app control/camera key {key} must be 0")
 if not tun_fd_pump or tun_fd_pump[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN fd pump query failed")
 if tun_fd_pump[0].get("tun_fd_attached") != 1 or tun_fd_pump[0].get("read_from_tun") != 1:

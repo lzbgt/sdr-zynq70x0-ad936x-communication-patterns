@@ -2903,9 +2903,12 @@ then query fused peer position estimates. The device/IIO demo verifies the
 second SDK layer: AD936x local-device profile validation, guarded dry-run IQ
 burst planning, low-attenuation rejection, and explicit live-RF approval flags.
 The state-daemon demo serves AP browse, AP election, AP join state, peer state,
-RTLS state, and local IIO bridge planning over UDP and proves a separate client
-can query it over the same socket boundary intended for USB Ethernet, physical
-Ethernet, and IP. The check also runs
+RTLS state, the app-level `FIELDMESH_APP_CONTROL_CAMERA` flow, and local IIO
+bridge planning over UDP and proves a separate client can query it over the
+same socket boundary intended for USB Ethernet, physical Ethernet, and IP. The
+app-level daemon flow composes browse/elect/repurpose/topology/RTLS plus six
+video-base RF packet-engine handoff chunks while keeping IIO, inter-board IP
+routing, RF TX, and hardware writes disabled. The check also runs
 `fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
 sent and browsed. It also runs `fieldmesh_two_pc_flow_demo` over loopback UDP
 to prove the two-PC control flow: AP browse, AP election, AP-audit join,

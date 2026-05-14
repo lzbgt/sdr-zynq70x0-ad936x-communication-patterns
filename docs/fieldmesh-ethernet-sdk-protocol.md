@@ -118,6 +118,7 @@ Minimum daemon messages:
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
 | `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
+| `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |
@@ -127,6 +128,7 @@ Minimum daemon messages:
 
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
+`FIELDMESH_APP_CONTROL_CAMERA`,
 `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
 `FIELDMESH_TUN_APPLY_VALIDATE`, guarded `FIELDMESH_TUN_APPLY_COMMIT`
 rejection, and `FIELDMESH_DEVICE_IIO_PLAN` shape.
@@ -369,6 +371,12 @@ is queued to the FieldMesh adapter and RF packet-engine contract with
 `uses_iio=0`, `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and
 `writes_hardware=0`; live camera capture and GUI rendering are the next app
 layer once the board daemon path is connected end to end.
+
+The daemon now has the matching app-level request,
+`FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over
+the Ethernet SDK service boundary: browse/elect/join state, commanded
+proactive role, radio-only topology, RTLS summary, and video-base RF handoff
+all return in one response without granting RF TX or hardware writes.
 
 ## Local IIO Admin Bridge
 

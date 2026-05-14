@@ -188,12 +188,14 @@ Next concrete work:
   to end. The current executable already verifies the production-shaped SDK
   control plane (browse/elect/repurpose/topology/RTLS) and queues video-base
   chunks through the `swarm0`/RF packet-engine handoff without IIO or
-  inter-board IP routing. The intended live product flow is still one app that
-  can source or preview camera data: Host A camera -> local board over
-  USB/physical Ethernet SDK data ingress -> FieldMesh RF -> peer board -> Host
-  B preview. Host A and Host B may be the same physical PC for lab testing, but
-  the test must keep them as logical hosts and preserve the split between SDK
-  control plane and RF data plane.
+  inter-board IP routing. The board daemon now exposes the same composition as
+  `FIELDMESH_APP_CONTROL_CAMERA`, so the remaining work is live two-host
+  daemon execution and real camera capture/preview. The intended live product
+  flow is still one app that can source or preview camera data: Host A camera
+  -> local board over USB/physical Ethernet SDK data ingress -> FieldMesh RF ->
+  peer board -> Host B preview. Host A and Host B may be the same physical PC
+  for lab testing, but the test must keep them as logical hosts and preserve
+  the split between SDK control plane and RF data plane.
 - Consolidate the reviewed `design.md` production insight into implementation:
   IIO remains a local RF configuration, diagnostics, calibration, and
   conducted-test backend, while the product data plane should move toward a

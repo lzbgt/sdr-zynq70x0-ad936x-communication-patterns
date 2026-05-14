@@ -624,11 +624,12 @@ user and vendor configuration.
   application, endpoint application, header ABI smoke, RTLS estimation, local
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
   a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
-  query demo, a `swarm0` adapter packet-classification demo, a routed TUN
-  gateway planning demo, a TUN IP-packetizer demo, a two-PC AP browse/election/audit-join/
-  stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
-  AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
-  experiments.
+  query demo, including the composed `FIELDMESH_APP_CONTROL_CAMERA` app-level
+  control/data-plane request, a `swarm0` adapter packet-classification demo, a
+  routed TUN gateway planning demo, a TUN IP-packetizer demo, a two-PC AP
+  browse/election/audit-join/stream-flow demo, a `fieldmeshctl` profile CLI
+  demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
+  physical-Ethernet experiments.
 - `apps/fieldmesh-control-camera-demo/` - first C++ app-level demo over the
   pure-C SDK ABI. It verifies AP browse/election, user-commanded repurpose into
   proactive camera streaming, radio-only topology, GNSS/PPS plus packet-timing

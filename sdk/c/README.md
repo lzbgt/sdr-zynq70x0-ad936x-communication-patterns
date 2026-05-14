@@ -42,8 +42,12 @@ in `src/fieldmesh_sdk.c`:
   one process serves AP browse, AP election, AP join state, peer state, RTLS
   state, the `swarm0` packet adapter, a callback-backed TUN packet pump,
   RF packet-engine handoff planning, routed TUN gateway planning, and local
-  IIO admin planning over UDP, and another process queries it over the same IP
-  path intended for USB Ethernet and physical Ethernet.
+  IIO admin planning over UDP. It now also serves
+  `FIELDMESH_APP_CONTROL_CAMERA`, a composed control/data-plane request that
+  verifies AP browse/election, user-commanded proactive camera streaming,
+  radio-only topology, RTLS state, and six video-base chunks queued into the RF
+  packet-engine handoff. A separate process queries those services over the
+  same IP path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over

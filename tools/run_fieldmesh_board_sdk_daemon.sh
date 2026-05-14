@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-14}"
+requests="${REQUESTS:-15}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -136,6 +136,7 @@ join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_packet_engine"]
 rf_tx_guard = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_guard_plan"]
+app_camera = [row for row in query if row.get("event") == "sdk_daemon_app_control_camera"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
@@ -143,7 +144,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 14:
+if not end or end[-1].get("handled") != 15:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
@@ -186,6 +187,27 @@ for key in ("sets_tx_enable", "sets_tx_armed", "live_arm_requested",
             "writes_hardware", "commands_executed"):
     if rf_tx_guard[0].get(key) != 0:
         raise SystemExit(f"board SDK daemon RF TX guard key {key} must be 0")
+if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
+    raise SystemExit("board SDK daemon app control/camera response failed")
+if app_camera[0].get("control_plane_ok") is not True or app_camera[0].get("data_plane_ok") is not True:
+    raise SystemExit("board SDK daemon app control/camera planes failed")
+if app_camera[0].get("elected_device_eui") != "020000000203":
+    raise SystemExit("board SDK daemon app control/camera elected wrong AP")
+if app_camera[0].get("requested_role") != "proactive_camera_streamer":
+    raise SystemExit("board SDK daemon app control/camera missed commanded role")
+if app_camera[0].get("launched_role") != "passive_learner":
+    raise SystemExit("board SDK daemon app control/camera should launch passive")
+if app_camera[0].get("topology") != "radio" or app_camera[0].get("host_eth_topology") is not False:
+    raise SystemExit("board SDK daemon app control/camera topology must be radio")
+if app_camera[0].get("frames_tx") != 6 or app_camera[0].get("frames_rx") != 6:
+    raise SystemExit("board SDK daemon app control/camera frame count failed")
+if app_camera[0].get("rf_queued") != 6 or app_camera[0].get("direct_routes") != 6:
+    raise SystemExit("board SDK daemon app control/camera RF handoff failed")
+if app_camera[0].get("payload_kind") != 3 or app_camera[0].get("traffic_class") != 2:
+    raise SystemExit("board SDK daemon app control/camera must stream video-base C2")
+for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+    if app_camera[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon app control/camera key {key} must be 0")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("board SDK daemon TUN plan response failed")
 if not tun_device_guard or tun_device_guard[0].get("adapter_name") != "swarm0":
@@ -239,6 +261,7 @@ print(json.dumps({
     "rtls_events": len(rtls),
     "rf_packet_engine_events": len(rf_packet_engine),
     "rf_tx_guard_events": len(rf_tx_guard),
+    "app_camera_events": len(app_camera),
     "tun_plan_events": len(tun_plan),
     "tun_device_guard_events": len(tun_device_guard),
     "tun_apply_events": len(tun_apply),

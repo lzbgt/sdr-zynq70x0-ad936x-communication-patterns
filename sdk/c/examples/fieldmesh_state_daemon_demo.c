@@ -99,6 +99,19 @@ static size_t make_tun_demo_ipv4_packet(unsigned char *packet,
     return total_len;
 }
 
+static void fill_camera_demo_chunk(unsigned char *payload,
+                                   size_t payload_len,
+                                   unsigned frame_index,
+                                   unsigned chunk_index)
+{
+    size_t i;
+
+    for (i = 0; i < payload_len; ++i) {
+        payload[i] = (unsigned char)(
+            0x40u + ((frame_index * 17u + chunk_index * 31u + i * 7u) & 0x3fu));
+    }
+}
+
 static fieldmesh_status_t read_tun_fd_once(void *user,
                                            void *packet,
                                            size_t packet_capacity,
@@ -741,6 +754,131 @@ static int build_response(fieldmesh_context_t *context,
                  guard_report.commands_executed);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_APP_CONTROL_CAMERA")) {
+        struct ap_summary aps = {0};
+        struct peer_summary peers = {0};
+        struct position_summary positions = {0};
+        fieldmesh_ap_election_result_t election;
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_STREAM_API,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 500,
+            .mtu_bytes = 1200,
+            .expose_virtual_netdev = 0,
+        };
+        unsigned frames_tx = 0;
+        unsigned frames_rx = 0;
+        unsigned rf_queued = 0;
+        unsigned direct_routes = 0;
+        int failed = 0;
+        unsigned frame;
+        unsigned chunk;
+
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", "020000000103");
+        if (fieldmesh_browse_aps(context, 1000, on_ap, &aps) != FIELDMESH_OK ||
+            fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID, 1000,
+                               &election) != FIELDMESH_OK ||
+            fieldmesh_list_peers(session, on_peer, &peers) != FIELDMESH_OK ||
+            fieldmesh_list_peer_positions(context, on_position, &positions) !=
+                FIELDMESH_OK ||
+            fieldmesh_open_adapter(session, &adapter_config, &adapter) !=
+                FIELDMESH_OK) {
+            failed = 1;
+        }
+
+        for (frame = 0; !failed && frame < 3u; ++frame) {
+            for (chunk = 0; chunk < 2u; ++chunk) {
+                unsigned char payload[640];
+                unsigned char rx_payload[800];
+                fieldmesh_adapter_packet_t tx_packet;
+                fieldmesh_adapter_packet_t rx_packet;
+                fieldmesh_rf_packet_submit_report_t rf_report;
+                size_t rx_len = 0u;
+
+                fill_camera_demo_chunk(payload, sizeof(payload), frame, chunk);
+                if (fieldmesh_adapter_send_packet(
+                        adapter, FIELDMESH_PAYLOAD_VIDEO_BASE, payload,
+                        sizeof(payload), &tx_packet) != FIELDMESH_OK ||
+                    fieldmesh_adapter_recv_packet(adapter, rx_payload,
+                                                  sizeof(rx_payload), &rx_len,
+                                                  &rx_packet, 1000) != FIELDMESH_OK ||
+                    fieldmesh_submit_rf_packet(adapter, &rx_packet, rx_len, 0u,
+                                               &rf_report) != FIELDMESH_OK ||
+                    rx_len != sizeof(payload) ||
+                    memcmp(rx_payload, payload, rx_len) != 0 ||
+                    rx_packet.payload_kind != FIELDMESH_PAYLOAD_VIDEO_BASE ||
+                    rx_packet.traffic_class != FIELDMESH_CLASS_C2_VIDEO_BASE) {
+                    failed = 1;
+                    break;
+                }
+                frames_tx++;
+                frames_rx++;
+                if (rf_report.queued_to_rf_engine &&
+                    rf_report.queued_to_sidecar &&
+                    rf_report.plan.route_kind == FIELDMESH_ROUTE_DIRECT &&
+                    !rf_report.plan.uses_iio &&
+                    !rf_report.plan.uses_inter_board_ip_routing &&
+                    !rf_report.starts_rf_tx &&
+                    !rf_report.writes_hardware) {
+                    rf_queued++;
+                    direct_routes++;
+                }
+            }
+        }
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        if (failed) {
+            return 1;
+        }
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_app_control_camera\","
+                 "\"app\":\"fieldmesh-control-camera\","
+                 "\"sdk_abi\":\"pure_c\","
+                 "\"client_app_language\":\"cpp\","
+                 "\"control_plane_ok\":%s,"
+                 "\"data_plane_ok\":%s,"
+                 "\"aps\":%u,"
+                 "\"peers\":%u,"
+                 "\"positions\":%u,"
+                 "\"elected_device_eui\":\"%s\","
+                 "\"requested_role\":\"proactive_camera_streamer\","
+                 "\"launched_role\":\"passive_learner\","
+                 "\"commanded_by\":\"user_or_application\","
+                 "\"topology\":\"radio\","
+                 "\"host_eth_topology\":false,"
+                 "\"rtls_gps_pps_fused\":%u,"
+                 "\"rtls_packet_timing_tdoa\":%u,"
+                 "\"frames_tx\":%u,"
+                 "\"frames_rx\":%u,"
+                 "\"rf_queued\":%u,"
+                 "\"direct_routes\":%u,"
+                 "\"adapter_name\":\"swarm0\","
+                 "\"payload_kind\":%u,"
+                 "\"traffic_class\":%u,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n",
+                 (aps.aps > 0u && peers.peers > 0u && positions.positions > 0u &&
+                  strcmp(election.elected_node_id, "020000000203") == 0) ?
+                     "true" :
+                     "false",
+                 (frames_tx == 6u && frames_rx == 6u && rf_queued == 6u) ?
+                     "true" :
+                     "false",
+                 aps.aps, peers.peers, positions.positions,
+                 election.elected_node_id, positions.gps_pps_fused,
+                 positions.packet_timing_tdoa, frames_tx, frames_rx, rf_queued,
+                 direct_routes, (unsigned)FIELDMESH_PAYLOAD_VIDEO_BASE,
+                 (unsigned)FIELDMESH_CLASS_C2_VIDEO_BASE);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_DEV_PUMP")) {
         int allow_live = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
         int tun_read_fd = -1;
@@ -1171,7 +1309,7 @@ static int serve_state(const char *bind_ip,
         struct sockaddr_in src_addr;
         socklen_t src_len = (socklen_t)sizeof(src_addr);
         char request[256];
-        char response[1024];
+        char response[2048];
         int received = recvfrom(sockfd, request, (int)(sizeof(request) - 1), 0,
                                 (struct sockaddr *)&src_addr, &src_len);
 
@@ -1206,7 +1344,7 @@ static int query_once(fieldmesh_socket_t sockfd,
                       const struct sockaddr_in *dst,
                       const char *request)
 {
-    char response[1024];
+    char response[2048];
     struct sockaddr_in src_addr;
     socklen_t src_len = (socklen_t)sizeof(src_addr);
     int received;
@@ -1252,6 +1390,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_APP_CONTROL_CAMERA v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&

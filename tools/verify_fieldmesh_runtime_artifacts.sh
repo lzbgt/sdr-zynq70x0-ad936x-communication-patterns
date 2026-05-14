@@ -167,6 +167,7 @@ verify_variant() {
         FIELDMESH_SWARM_ADAPTER \
         FIELDMESH_RF_PACKET_ENGINE \
         FIELDMESH_RF_TX_GUARD_PLAN \
+        FIELDMESH_APP_CONTROL_CAMERA \
         FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_DEV_PUMP \
         FIELDMESH_TUN_PLAN \
@@ -181,6 +182,9 @@ verify_variant() {
         sdk_daemon_swarm_adapter \
         sdk_daemon_rf_packet_engine \
         sdk_daemon_rf_tx_guard_plan \
+        sdk_daemon_app_control_camera \
+        fieldmesh-control-camera \
+        proactive_camera_streamer \
         sdk_daemon_tun_fd_pump \
         sdk_daemon_tun_device_pump_guard \
         posix_pipe_fd \
