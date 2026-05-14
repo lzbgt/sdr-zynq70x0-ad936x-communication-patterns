@@ -1,0 +1,4 @@
+4cb91f7ce59d0d964a3206787b09d304e715cc76fc78eb8fcbccb24bd4eda530  /tmp/fieldmesh-z203-uboot-tail/fm-qspi-tail.bin
+71189f7fb6aed638640078fba3a35fda6c39c8962e74dcc75935aac948da9063  /tmp/fieldmesh-z203-uboot-tail/fm-qspi-ff.bin
+-rwxr-xr-x    1 root     root         65536 Mar  9 12:39 /tmp/fieldmesh-z203-uboot-tail/fm-qspi-tail.bin
+-rwxr-xr-x    1 root     root         65536 Mar  9 12:39 /tmp/fieldmesh-z203-uboot-tail/fm-qspi-ff.bin

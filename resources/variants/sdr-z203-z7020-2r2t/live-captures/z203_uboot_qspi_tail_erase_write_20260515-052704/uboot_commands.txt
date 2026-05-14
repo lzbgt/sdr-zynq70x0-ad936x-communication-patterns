@@ -1,0 +1,8 @@
+mmc dev 0
+fatload mmc 0 0x10000000 fm-qspi-tail.bin
+fatload mmc 0 0x15000000 fm-qspi-ff.bin
+sf probe
+sf protect unlock 0x1D90000 0x10000
+if sf erase 0x1D90000 0x10000 && sf read 0x14000000 0x1D90000 0x10000 && cmp.b 0x15000000 0x14000000 0x10000; then echo __FIELDMESH_QSPI_TAIL_ERASE_VERIFY_PASS__; else echo __FIELDMESH_QSPI_TAIL_ERASE_VERIFY_FAIL__; fi
+if sf write 0x10000000 0x1D90000 0x10000 && sf read 0x14000000 0x1D90000 0x10000 && cmp.b 0x10000000 0x14000000 0x10000; then echo __FIELDMESH_QSPI_TAIL_VERIFY_PASS__; else echo __FIELDMESH_QSPI_TAIL_VERIFY_FAIL__; fi
+reset

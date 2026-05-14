@@ -1,0 +1,25 @@
+{
+  "board_ip": "192.168.1.10",
+  "bytes_tested": 65536,
+  "diagnosis": "U-Boot sf erase/readback is clean, but write/readback leaves stuck bits; investigate SPI NOR program mode, write-enable/status-register handling, or flash hardware.",
+  "event": "fieldmesh_z203_uboot_qspi_tail_write",
+  "linux_post_read_compare": {
+    "dominant_missing_one_bit_count": 0,
+    "dominant_missing_one_bit_mask_hex": "0x00",
+    "dominant_unexpected_one_bit_count": 16384,
+    "dominant_unexpected_one_bit_mask_hex": "0x44",
+    "first_mismatch": {
+      "actual": 68,
+      "expected": 0,
+      "offset": 0
+    },
+    "mismatch_count": 49152
+  },
+  "linux_post_read_matches": false,
+  "mtd3_scratch_offset": 28901376,
+  "mtd3_scratch_offset_hex": "0x1b90000",
+  "qspi_abs_offset": 30998528,
+  "qspi_abs_offset_hex": "0x1d90000",
+  "uboot_erase_readback_all_ff": true,
+  "uboot_write_readback_matches": false
+}

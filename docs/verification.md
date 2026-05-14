@@ -3754,19 +3754,22 @@ fixed 4 KiB-aligned erase lengths. A smaller U-Boot tail-sector write/readback
 probe was then added and run before retrying full-FIT repair:
 
 ```sh
-OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_tail_write_20260515-052209 \
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_tail_erase_write_20260515-052704 \
 APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_TAIL_TEST=1 \
 BOARD_IP=192.168.1.10 \
   ./tools/test_z203_uboot_qspi_tail_write.sh 192.168.1.10
 ```
 
-Result: failed. U-Boot `sf erase` and `sf write` reported success on absolute
-QSPI offset `0x1d90000`, but immediate `sf read` plus `cmp.b` failed at byte
-zero: expected `0x00`, read `0x44`. The Linux post-read of the same `mtd3`
-tail sector also showed 49,152 mismatches and dominant unexpected mask `0x44`.
-That means the Z203 QSPI repair blocker is below the Linux MTD path and also
-affects U-Boot `sf`; full QSPI FIT repair remains blocked until the raw
-controller/flash access issue is isolated.
+Result: failed, but with a narrower diagnosis. U-Boot `sf erase` followed by
+immediate `sf read` compared cleanly against a 64 KiB all-`0xff` pattern at
+absolute QSPI offset `0x1d90000`. U-Boot `sf write` then reported success, but
+immediate `sf read` plus `cmp.b` failed at byte zero: expected `0x00`, read
+`0x44`. The Linux post-read of the same `mtd3` tail sector also showed 49,152
+mismatches and dominant unexpected mask `0x44`. This points at the SPI NOR
+program path, write-enable/status handling, or flash hardware, not just stale
+U-Boot `fit_size`, not just Linux MTD, and not a basic erase/read problem.
+Full QSPI FIT repair remains blocked until a small U-Boot tail-sector
+write/readback passes.
 
 ## FieldMesh RTLS Positioning Gate
 

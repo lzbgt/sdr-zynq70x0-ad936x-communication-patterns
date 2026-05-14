@@ -12,7 +12,9 @@ allow_flash="${ALLOW_FLASH_WRITES:-0}"
 allow_tail_test="${ALLOW_Z203_UBOOT_QSPI_TAIL_TEST:-0}"
 load_addr="${LOAD_ADDR:-0x10000000}"
 verify_addr="${VERIFY_ADDR:-0x14000000}"
+ff_addr="${FF_ADDR:-0x15000000}"
 sd_filename="${SD_FILENAME:-fm-qspi-tail.bin}"
+sd_ff_filename="${SD_FF_FILENAME:-fm-qspi-ff.bin}"
 
 # The scratch sector is inside /dev/mtd3 but beyond the current FIT payload.
 # QSPI absolute offset = mtd3 partition offset 0x200000 + mtd3 tail offset 0x1b90000.
@@ -53,10 +55,17 @@ while len(data) < size:
     data.extend(((byte ^ (block_index & 0xff)) & 0xff) for byte in seed)
 out.write_bytes(bytes(data[:size]))
 PY
+python3 - "$out_dir/ff.bin" "$test_len_dec" <<'PY'
+import sys
+from pathlib import Path
+
+Path(sys.argv[1]).write_bytes(bytes([0xff]) * int(sys.argv[2]))
+PY
 pattern_sha="$(sha256sum "$out_dir/pattern.bin" | awk '{print $1}')"
+ff_sha="$(sha256sum "$out_dir/ff.bin" | awk '{print $1}')"
 
 cat > "$out_dir/plan.json" <<EOF_PLAN
-{"event":"fieldmesh_z203_uboot_qspi_tail_write_plan","board_ip":"$board_ip","serial_port":"$serial_port","sd_filename":"$sd_filename","pattern_sha256":"$pattern_sha","mtd3_scratch_offset":$mtd3_scratch_offset_dec,"mtd3_scratch_offset_hex":"$mtd3_scratch_offset_hex","qspi_abs_offset":$qspi_abs_offset_dec,"qspi_abs_offset_hex":"$qspi_abs_offset_hex","test_len":$test_len_dec,"test_len_hex":"$test_len_hex","load_addr":"$load_addr","verify_addr":"$verify_addr","apply":$apply,"allow_flash_writes":$allow_flash,"allow_z203_uboot_qspi_tail_test":$allow_tail_test}
+{"event":"fieldmesh_z203_uboot_qspi_tail_write_plan","board_ip":"$board_ip","serial_port":"$serial_port","sd_filename":"$sd_filename","sd_ff_filename":"$sd_ff_filename","pattern_sha256":"$pattern_sha","ff_sha256":"$ff_sha","mtd3_scratch_offset":$mtd3_scratch_offset_dec,"mtd3_scratch_offset_hex":"$mtd3_scratch_offset_hex","qspi_abs_offset":$qspi_abs_offset_dec,"qspi_abs_offset_hex":"$qspi_abs_offset_hex","test_len":$test_len_dec,"test_len_hex":"$test_len_hex","load_addr":"$load_addr","verify_addr":"$verify_addr","ff_addr":"$ff_addr","apply":$apply,"allow_flash_writes":$allow_flash,"allow_z203_uboot_qspi_tail_test":$allow_tail_test}
 EOF_PLAN
 cat "$out_dir/plan.json"
 
@@ -74,26 +83,33 @@ ssh_args=(
     -o ConnectTimeout=8
 )
 remote_pattern="/tmp/$sd_filename"
+remote_ff="/tmp/$sd_ff_filename"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$out_dir/pattern.bin" "$remote:$remote_pattern"
+sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$out_dir/ff.bin" "$remote:$remote_ff"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "set -eu
 rm -rf /tmp/fieldmesh-z203-uboot-tail
 mkdir -p /tmp/fieldmesh-z203-uboot-tail
 mount -t vfat /dev/mmcblk0p1 /tmp/fieldmesh-z203-uboot-tail
 cp '$remote_pattern' /tmp/fieldmesh-z203-uboot-tail/'$sd_filename'
+cp '$remote_ff' /tmp/fieldmesh-z203-uboot-tail/'$sd_ff_filename'
 sync
 sha256sum /tmp/fieldmesh-z203-uboot-tail/'$sd_filename'
+sha256sum /tmp/fieldmesh-z203-uboot-tail/'$sd_ff_filename'
 ls -l /tmp/fieldmesh-z203-uboot-tail/'$sd_filename'
+ls -l /tmp/fieldmesh-z203-uboot-tail/'$sd_ff_filename'
 umount /tmp/fieldmesh-z203-uboot-tail
-rm -rf /tmp/fieldmesh-z203-uboot-tail '$remote_pattern'
+rm -rf /tmp/fieldmesh-z203-uboot-tail '$remote_pattern' '$remote_ff'
 " > "$out_dir/sd_stage_pattern.log" 2>&1
 
 commands_file="$out_dir/uboot_commands.txt"
 cat > "$commands_file" <<EOF_CMDS
 mmc dev 0
 fatload mmc 0 $load_addr $sd_filename
+fatload mmc 0 $ff_addr $sd_ff_filename
 sf probe
 sf protect unlock $qspi_abs_offset_hex $test_len_hex
-if sf erase $qspi_abs_offset_hex $test_len_hex && sf write $load_addr $qspi_abs_offset_hex $test_len_hex && sf read $verify_addr $qspi_abs_offset_hex $test_len_hex && cmp.b $load_addr $verify_addr $test_len_hex; then echo __FIELDMESH_QSPI_TAIL_VERIFY_PASS__; else echo __FIELDMESH_QSPI_TAIL_VERIFY_FAIL__; fi
+if sf erase $qspi_abs_offset_hex $test_len_hex && sf read $verify_addr $qspi_abs_offset_hex $test_len_hex && cmp.b $ff_addr $verify_addr $test_len_hex; then echo __FIELDMESH_QSPI_TAIL_ERASE_VERIFY_PASS__; else echo __FIELDMESH_QSPI_TAIL_ERASE_VERIFY_FAIL__; fi
+if sf write $load_addr $qspi_abs_offset_hex $test_len_hex && sf read $verify_addr $qspi_abs_offset_hex $test_len_hex && cmp.b $load_addr $verify_addr $test_len_hex; then echo __FIELDMESH_QSPI_TAIL_VERIFY_PASS__; else echo __FIELDMESH_QSPI_TAIL_VERIFY_FAIL__; fi
 reset
 EOF_CMDS
 
@@ -118,6 +134,10 @@ if ! ping -c 1 -W 1 "$board_ip" >/dev/null 2>&1; then
     exit 1
 fi
 
+uboot_erase_pass=false
+if grep -aEq '^[[:space:]]*__FIELDMESH_QSPI_TAIL_ERASE_VERIFY_PASS__[[:space:]]*$' "$out_dir/serial_uboot_qspi_tail_write.txt"; then
+    uboot_erase_pass=true
+fi
 uboot_pass=false
 if grep -aEq '^[[:space:]]*__FIELDMESH_QSPI_TAIL_VERIFY_PASS__[[:space:]]*$' "$out_dir/serial_uboot_qspi_tail_write.txt"; then
     uboot_pass=true
@@ -138,7 +158,7 @@ sha256sum '$remote_after'
 fi
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "rm -f '$remote_after'" >/dev/null 2>&1 || true
 
-python3 - "$out_dir/pattern.bin" "$out_dir/linux_after.bin" "$out_dir/summary.json" "$board_ip" "$qspi_abs_offset_dec" "$mtd3_scratch_offset_dec" "$uboot_pass" "$linux_read_matches" <<'PY'
+python3 - "$out_dir/pattern.bin" "$out_dir/linux_after.bin" "$out_dir/summary.json" "$board_ip" "$qspi_abs_offset_dec" "$mtd3_scratch_offset_dec" "$uboot_erase_pass" "$uboot_pass" "$linux_read_matches" <<'PY'
 from collections import Counter
 import json
 import sys
@@ -150,8 +170,9 @@ out_path = Path(sys.argv[3])
 board_ip = sys.argv[4]
 qspi_abs_offset = int(sys.argv[5])
 mtd3_scratch_offset = int(sys.argv[6])
-uboot_pass = sys.argv[7] == "true"
-linux_read_matches = sys.argv[8] == "true"
+uboot_erase_pass = sys.argv[7] == "true"
+uboot_pass = sys.argv[8] == "true"
+linux_read_matches = sys.argv[9] == "true"
 
 summary = {
     "event": "fieldmesh_z203_uboot_qspi_tail_write",
@@ -161,6 +182,7 @@ summary = {
     "mtd3_scratch_offset": mtd3_scratch_offset,
     "mtd3_scratch_offset_hex": f"0x{mtd3_scratch_offset:x}",
     "bytes_tested": pattern_path.stat().st_size,
+    "uboot_erase_readback_all_ff": uboot_erase_pass,
     "uboot_write_readback_matches": uboot_pass,
     "linux_post_read_matches": linux_read_matches,
 }
@@ -199,8 +221,10 @@ if uboot_pass and linux_read_matches:
     summary["diagnosis"] = "U-Boot sf and Linux MTD both read back the tail pattern; retry full QSPI FIT repair with fixed U-Boot lengths."
 elif uboot_pass:
     summary["diagnosis"] = "U-Boot sf writes and verifies the tail pattern, but Linux MTD reads it differently; repair should use U-Boot and Linux MTD should remain untrusted."
+elif uboot_erase_pass:
+    summary["diagnosis"] = "U-Boot sf erase/readback is clean, but write/readback leaves stuck bits; investigate SPI NOR program mode, write-enable/status-register handling, or flash hardware."
 else:
-    summary["diagnosis"] = "U-Boot sf tail write/readback failed; investigate QSPI controller, flash protection, partition offset, or hardware before full repair."
+    summary["diagnosis"] = "U-Boot sf erase or write readback failed; investigate QSPI controller, flash protection, partition offset, or hardware before full repair."
 
 out_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 print(out_path.read_text(encoding="utf-8"), end="")

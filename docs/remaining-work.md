@@ -88,12 +88,12 @@ Firmware state:
   reset; it exposed a command-generation bug where variable-expanded
   `+${fm_fit_size}` lengths are rejected by this U-Boot. The repaired helper
   now emits fixed hex FIT/write lengths and fixed 4 KiB-aligned erase lengths,
-  but the follow-up U-Boot tail-sector write/readback probe also failed:
-  U-Boot `sf erase` and `sf write` reported success, then immediate `sf read`
-  plus `cmp.b` saw byte `0x44` where the pattern expected `0x00`. Linux
-  post-read saw the same dominant `0x44` corruption. Do not run another full
-  QSPI FIT repair until the lower-level QSPI controller/flash access problem is
-  isolated and a small U-Boot tail-sector write/readback passes.
+  but the follow-up U-Boot tail-sector write/readback probe also failed. The
+  refined probe shows U-Boot `sf erase` plus immediate `sf read` cleanly returns
+  all `0xff`, but `sf write` followed by `sf read` leaves byte `0x44` where the
+  pattern expected `0x00`. Linux post-read sees the same dominant `0x44`
+  corruption. Do not run another full QSPI FIT repair until the SPI NOR program
+  path is isolated and a small U-Boot tail-sector write/readback passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
