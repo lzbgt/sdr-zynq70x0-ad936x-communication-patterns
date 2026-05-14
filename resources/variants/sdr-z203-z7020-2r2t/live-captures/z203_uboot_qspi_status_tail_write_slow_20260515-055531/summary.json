@@ -33,7 +33,7 @@
   "qspi_abs_offset_hex": "0x1d9f000",
   "rollback": "sf erase scratch sector",
   "rollback_erase_passed": true,
-  "sf_probe_command": "sf probe",
+  "sf_probe_command": "sf probe 0:0 1000000 0",
   "status": {
     "after_erase_sr1": "0x00",
     "after_erase_sr2": "0x02",

@@ -11,6 +11,12 @@ allow_status_test="${ALLOW_Z203_UBOOT_QSPI_STATUS_TAIL_TEST:-0}"
 load_addr="${LOAD_ADDR:-0x10000000}"
 verify_addr="${VERIFY_ADDR:-0x14000000}"
 ff_addr="${FF_ADDR:-0x15000000}"
+sf_probe_args="${SF_PROBE_ARGS:-}"
+if [[ -n "$sf_probe_args" ]]; then
+    sf_probe_command="sf probe $sf_probe_args"
+else
+    sf_probe_command="sf probe"
+fi
 
 # QSPI absolute offset = mtd3 partition offset 0x200000 + mtd3 tail scratch offset.
 # Keep this beyond the current product FIT and use one 4 KiB eraseblock only.
@@ -32,7 +38,7 @@ fi
 
 mkdir -p "$out_dir"
 cat > "$out_dir/plan.json" <<EOF_PLAN
-{"event":"fieldmesh_z203_uboot_qspi_status_tail_write_plan","board_ip":"$board_ip","serial_port":"$serial_port","mtd3_scratch_offset":$mtd3_scratch_offset_dec,"mtd3_scratch_offset_hex":"$mtd3_scratch_offset_hex","qspi_abs_offset":$qspi_abs_offset_dec,"qspi_abs_offset_hex":"$qspi_abs_offset_hex","test_len":$test_len_dec,"test_len_hex":"$test_len_hex","load_addr":"$load_addr","verify_addr":"$verify_addr","ff_addr":"$ff_addr","pattern":"0x00","rollback":"sf erase scratch sector","apply":$apply,"allow_flash_writes":$allow_flash,"allow_z203_uboot_qspi_status_tail_test":$allow_status_test}
+{"event":"fieldmesh_z203_uboot_qspi_status_tail_write_plan","board_ip":"$board_ip","serial_port":"$serial_port","sf_probe_command":"$sf_probe_command","mtd3_scratch_offset":$mtd3_scratch_offset_dec,"mtd3_scratch_offset_hex":"$mtd3_scratch_offset_hex","qspi_abs_offset":$qspi_abs_offset_dec,"qspi_abs_offset_hex":"$qspi_abs_offset_hex","test_len":$test_len_dec,"test_len_hex":"$test_len_hex","load_addr":"$load_addr","verify_addr":"$verify_addr","ff_addr":"$ff_addr","pattern":"0x00","rollback":"sf erase scratch sector","apply":$apply,"allow_flash_writes":$allow_flash,"allow_z203_uboot_qspi_status_tail_test":$allow_status_test}
 EOF_PLAN
 cat "$out_dir/plan.json"
 
@@ -45,7 +51,7 @@ fi
 commands_file="$out_dir/uboot_commands.txt"
 cat > "$commands_file" <<EOF_CMDS
 version
-sf probe
+$sf_probe_command
 mw.b $load_addr 0x00 $test_len_hex
 mw.b $ff_addr 0xff $test_len_hex
 echo __FIELDMESH_STATUS_BASE_SR1__
@@ -95,6 +101,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass \
     -ReadAfterCommandMs 2200 \
     -ReadAfterFinalCommandSeconds 60
 
+perl -0pi -e 's/^\x{feff}//; s/\r\n/\n/g; s/\r/\n/g; s/[ \t]+(?=\n)//g' \
+    "$out_dir/serial_uboot_qspi_status_tail_write.txt"
+
 deadline=$((SECONDS + 150))
 while (( SECONDS < deadline )); do
     if ping -c 1 -W 1 "$board_ip" >/dev/null 2>&1; then
@@ -112,7 +121,7 @@ LC_ALL=C tr -d '\000' < "$out_dir/serial_uboot_qspi_status_tail_write.txt" > "$o
 perl -0pi -e 's/^\x{feff}//; s/\r\n/\n/g; s/\r/\n/g; s/[ \t]+(?=\n)//g' \
     "$out_dir/serial_uboot_qspi_status_tail_write.clean.txt"
 
-python3 - "$out_dir/serial_uboot_qspi_status_tail_write.clean.txt" "$out_dir/summary.json" "$board_ip" "$qspi_abs_offset_dec" "$mtd3_scratch_offset_dec" "$test_len_dec" <<'PY'
+python3 - "$out_dir/serial_uboot_qspi_status_tail_write.clean.txt" "$out_dir/summary.json" "$board_ip" "$qspi_abs_offset_dec" "$mtd3_scratch_offset_dec" "$test_len_dec" "$sf_probe_command" <<'PY'
 import json
 import re
 import sys
@@ -124,6 +133,7 @@ board_ip = sys.argv[3]
 qspi_abs_offset = int(sys.argv[4])
 mtd3_scratch_offset = int(sys.argv[5])
 test_len = int(sys.argv[6])
+sf_probe_command = sys.argv[7]
 text = log_path.read_text(encoding="utf-8", errors="replace")
 
 def has_marker(name: str) -> bool:
@@ -155,6 +165,7 @@ for match in re.finditer(r"^\s*([0-9A-Fa-f]{8}):((?:\s+[0-9A-Fa-f]{2}){1,16})", 
 summary = {
     "event": "fieldmesh_z203_uboot_qspi_status_tail_write",
     "board_ip": board_ip,
+    "sf_probe_command": sf_probe_command,
     "qspi_abs_offset": qspi_abs_offset,
     "qspi_abs_offset_hex": f"0x{qspi_abs_offset:x}",
     "mtd3_scratch_offset": mtd3_scratch_offset,

@@ -3848,6 +3848,19 @@ bytes. `sf write` reported success, but `cmp.b` failed immediately
 SR2 stayed `0x02`; SR3 stayed `0x60`. The scratch sector was erased again and
 verified as rollback. Full QSPI FIT repair remains blocked.
 
+The same probe was repeated with explicit low-speed U-Boot SPI flash probing:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_status_tail_write_slow_20260515-055531 \
+SF_PROBE_ARGS="0:0 1000000 0" \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_STATUS_TAIL_TEST=1 \
+  ./tools/test_z203_uboot_qspi_status_tail_write.sh 192.168.1.10
+```
+
+Result: still failed identically. `sf erase` verified as all `0xff`; `sf write`
+reported success; readback of an all-zero pattern returned `0x44`; rollback
+erase verified. This makes simple U-Boot SPI clock rate an unlikely root cause.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

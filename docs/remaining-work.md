@@ -105,9 +105,11 @@ Firmware state:
   4 KiB status-instrumented scratch write at absolute offset `0x1d9f000`
   confirmed the failure: erase/readback passed, `sf write` reported success,
   readback returned `0x44` for an all-zero pattern, SR1 stayed `0x00` through
-  the write, and rollback erase/readback passed. Do not run another full QSPI
-  FIT repair until the SPI NOR program path is isolated and a small U-Boot
-  tail-sector write/readback passes.
+  the write, and rollback erase/readback passed. Repeating the same probe with
+  `sf probe 0:0 1000000 0` failed identically, so simple U-Boot SPI clock rate
+  is unlikely to be the root cause. Do not run another full QSPI FIT repair
+  until the SPI NOR program path is isolated and a small U-Boot tail-sector
+  write/readback passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
