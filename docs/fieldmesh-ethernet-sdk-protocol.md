@@ -410,7 +410,11 @@ preview while the FieldMesh app owns network operations, adaptation, and RF
 handoff. `fieldmesh_camera_pipe.py` is the concrete helper for that boundary:
 `capture-file`/`preview-file` provide deterministic test pipes, and `preset`
 emits Linux/Windows/macOS FFmpeg, GStreamer, or native-wrapper commands that
-can be passed directly to the C++ app.
+can be passed directly to the C++ app. The app command path can be bounded with
+`--max-chunks`, tagged with `--target-fps`, and optionally paced with
+`--pace-realtime`; each emitted frame event carries `planned_tx_us` so the
+desktop app, daemon, and later GUI can reason about capture pacing separately
+from RF route adaptation.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

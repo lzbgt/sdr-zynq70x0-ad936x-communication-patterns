@@ -180,8 +180,14 @@ def build_preset(args: argparse.Namespace) -> dict[str, object]:
             preview_command,
             "--chunk-size",
             str(args.chunk_size),
+            "--target-fps",
+            str(args.fps),
         ]
     )
+    if args.max_chunks:
+        app_command += " " + shell_join(["--max-chunks", str(args.max_chunks)])
+    if args.pace_realtime:
+        app_command += " --pace-realtime"
     return {
         "event": "fieldmesh_camera_pipe_preset",
         "platform": args.platform,
@@ -192,6 +198,8 @@ def build_preset(args: argparse.Namespace) -> dict[str, object]:
         "fps": args.fps,
         "bitrate_kbps": args.bitrate_kbps,
         "chunk_size": args.chunk_size,
+        "max_chunks": args.max_chunks,
+        "pace_realtime": args.pace_realtime,
         "camera_command": camera_command,
         "preview_command": preview_command,
         "app_command": app_command,
@@ -210,6 +218,8 @@ def add_common_preset_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--fps", type=int, default=15)
     parser.add_argument("--bitrate-kbps", type=int, default=900)
     parser.add_argument("--chunk-size", type=int, default=640)
+    parser.add_argument("--max-chunks", type=int, default=0)
+    parser.add_argument("--pace-realtime", action="store_true")
     parser.add_argument("--app", default="fieldmesh-control-camera-demo")
 
 

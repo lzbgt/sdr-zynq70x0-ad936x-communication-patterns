@@ -2,10 +2,12 @@
 
 #include <array>
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 #include <string>
 #include <vector>
 
@@ -29,6 +31,9 @@ struct AppOptions {
     const char *preview_output_path = nullptr;
     const char *preview_command = nullptr;
     size_t chunk_size = 640;
+    unsigned max_chunks = 0;
+    unsigned target_fps = 0;
+    bool pace_realtime = false;
 };
 
 struct CameraChunk {
@@ -218,7 +223,8 @@ void print_usage(const char *program)
     std::fprintf(stderr,
                  "usage: %s [--camera-input PATH|-] [--camera-command CMD] "
                  "[--preview-output PATH] [--preview-command CMD] "
-                 "[--chunk-size BYTES]\n",
+                 "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
+                 "[--pace-realtime]\n",
                  program);
 }
 
@@ -235,6 +241,22 @@ bool parse_size(const char *text, size_t *value)
         return false;
     }
     *value = static_cast<size_t>(parsed);
+    return true;
+}
+
+bool parse_uint(const char *text, unsigned *value)
+{
+    char *end = nullptr;
+    unsigned long parsed;
+
+    if (!text || !value) {
+        return false;
+    }
+    parsed = std::strtoul(text, &end, 10);
+    if (!end || *end != '\0' || parsed == 0ul || parsed > 1000000ul) {
+        return false;
+    }
+    *value = static_cast<unsigned>(parsed);
     return true;
 }
 
@@ -257,6 +279,18 @@ bool parse_options(int argc, char **argv, AppOptions *options)
                 std::fprintf(stderr, "invalid --chunk-size\n");
                 return false;
             }
+        } else if (std::strcmp(argv[i], "--max-chunks") == 0 && i + 1 < argc) {
+            if (!parse_uint(argv[++i], &options->max_chunks)) {
+                std::fprintf(stderr, "invalid --max-chunks\n");
+                return false;
+            }
+        } else if (std::strcmp(argv[i], "--target-fps") == 0 && i + 1 < argc) {
+            if (!parse_uint(argv[++i], &options->target_fps)) {
+                std::fprintf(stderr, "invalid --target-fps\n");
+                return false;
+            }
+        } else if (std::strcmp(argv[i], "--pace-realtime") == 0) {
+            options->pace_realtime = true;
         } else if (std::strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0]);
             std::exit(0);
@@ -270,6 +304,42 @@ bool parse_options(int argc, char **argv, AppOptions *options)
         return false;
     }
     return true;
+}
+
+bool append_stream_chunks(FILE *input,
+                          size_t chunk_size,
+                          unsigned max_chunks,
+                          std::vector<CameraChunk> *chunks,
+                          size_t *input_bytes)
+{
+    std::vector<unsigned char> buffer(chunk_size);
+
+    if (!input || !chunks || !input_bytes || chunk_size == 0u) {
+        return false;
+    }
+    for (;;) {
+        size_t got = std::fread(buffer.data(), 1, buffer.size(), input);
+
+        if (got > 0u) {
+            CameraChunk chunk;
+
+            chunk.frame_index = static_cast<unsigned>(chunks->size());
+            chunk.chunk_index = 0u;
+            chunk.payload.assign(buffer.begin(),
+                                 buffer.begin() + static_cast<std::ptrdiff_t>(got));
+            *input_bytes += got;
+            chunks->push_back(chunk);
+            if (max_chunks != 0u && chunks->size() >= max_chunks) {
+                return true;
+            }
+        }
+        if (got < buffer.size()) {
+            if (std::ferror(input)) {
+                return false;
+            }
+            return true;
+        }
+    }
 }
 
 bool read_all(FILE *input, std::vector<unsigned char> *data)
@@ -338,6 +408,38 @@ bool load_camera_input(const AppOptions &options, std::vector<unsigned char> *da
     return ok;
 }
 
+bool load_camera_command_chunks(const AppOptions &options,
+                                std::vector<CameraChunk> *chunks,
+                                size_t *input_bytes)
+{
+    FILE *input;
+    bool ok;
+
+    if (!options.camera_command || !chunks || !input_bytes) {
+        return false;
+    }
+    input = open_process_pipe(options.camera_command, "r");
+    if (!input) {
+        std::fprintf(stderr, "failed to start camera command: %s\n",
+                     options.camera_command);
+        return false;
+    }
+    ok = append_stream_chunks(input, options.chunk_size, options.max_chunks,
+                              chunks, input_bytes);
+    if (close_process_pipe(input) != 0) {
+        if (options.max_chunks == 0u || chunks->size() < options.max_chunks) {
+            std::fprintf(stderr, "camera command failed: %s\n",
+                         options.camera_command);
+            return false;
+        }
+    }
+    if (!ok) {
+        std::fprintf(stderr, "failed to read camera command output: %s\n",
+                     options.camera_command);
+    }
+    return ok;
+}
+
 bool build_camera_chunks(const AppOptions &options,
                          std::vector<CameraChunk> *chunks,
                          size_t *input_bytes)
@@ -349,7 +451,17 @@ bool build_camera_chunks(const AppOptions &options,
     }
     *input_bytes = 0u;
     chunks->clear();
-    if (options.camera_input_path || options.camera_command) {
+    if (options.camera_command) {
+        if (!load_camera_command_chunks(options, chunks, input_bytes)) {
+            return false;
+        }
+        if (chunks->empty()) {
+            std::fprintf(stderr, "camera command produced no bytes\n");
+            return false;
+        }
+        return true;
+    }
+    if (options.camera_input_path) {
         if (!load_camera_input(options, &input)) {
             return false;
         }
@@ -357,7 +469,6 @@ bool build_camera_chunks(const AppOptions &options,
             std::fprintf(stderr, "camera input is empty\n");
             return false;
         }
-        *input_bytes = input.size();
         for (size_t offset = 0u; offset < input.size(); offset += options.chunk_size) {
             CameraChunk chunk;
             size_t count = std::min(options.chunk_size, input.size() - offset);
@@ -367,6 +478,10 @@ bool build_camera_chunks(const AppOptions &options,
             chunk.payload.assign(input.begin() + static_cast<std::ptrdiff_t>(offset),
                                  input.begin() + static_cast<std::ptrdiff_t>(offset + count));
             chunks->push_back(chunk);
+            *input_bytes += count;
+            if (options.max_chunks != 0u && chunks->size() >= options.max_chunks) {
+                break;
+            }
         }
         return true;
     }
@@ -381,6 +496,9 @@ bool build_camera_chunks(const AppOptions &options,
             fill_camera_chunk(chunk.payload, frame, chunk_index);
             *input_bytes += chunk.payload.size();
             chunks->push_back(chunk);
+            if (options.max_chunks != 0u && chunks->size() >= options.max_chunks) {
+                return true;
+            }
         }
     }
     return true;
@@ -462,6 +580,37 @@ bool write_preview_output(const AppOptions &options,
     return true;
 }
 
+unsigned effective_target_fps(const AppOptions &options,
+                              const fieldmesh_camera_adaptation_report_t &adaptation)
+{
+    if (options.target_fps != 0u) {
+        return options.target_fps;
+    }
+    return adaptation.target_fps != 0u ? adaptation.target_fps : 1u;
+}
+
+uint64_t planned_timestamp_us(unsigned chunk_index, unsigned target_fps)
+{
+    if (target_fps == 0u) {
+        return 0u;
+    }
+    return (static_cast<uint64_t>(chunk_index) * 1000000ull) /
+           static_cast<uint64_t>(target_fps);
+}
+
+void maybe_pace_stream(bool pace_realtime,
+                       std::chrono::steady_clock::time_point start,
+                       unsigned chunk_index,
+                       unsigned target_fps)
+{
+    if (!pace_realtime || target_fps == 0u) {
+        return;
+    }
+    std::this_thread::sleep_until(
+        start + std::chrono::microseconds(
+                    static_cast<long long>(planned_timestamp_us(chunk_index, target_fps))));
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -490,6 +639,7 @@ int main(int argc, char **argv)
     unsigned topology_links = 0;
     bool control_plane_ok = false;
     bool data_plane_ok = false;
+    unsigned stream_target_fps = 0;
 
     if (!parse_options(argc, argv, &options) ||
         !build_camera_chunks(options, &camera_chunks, &camera_input_bytes)) {
@@ -500,9 +650,13 @@ int main(int argc, char **argv)
                 "\"source\":\"%s\","
                 "\"capture_boundary\":\"external_encoded_byte_stream\","
                 "\"sdk_abi\":\"pure_c\","
+                "\"streaming_read\":%s,"
+                "\"max_chunks\":%u,"
                 "\"chunks\":%lu,"
                 "\"bytes\":%lu}\n",
                 camera_source_name(options),
+                options.camera_command ? "true" : "false",
+                options.max_chunks,
                 static_cast<unsigned long>(camera_chunks.size()),
                 static_cast<unsigned long>(camera_input_bytes));
 
@@ -641,6 +795,7 @@ int main(int argc, char **argv)
         fieldmesh_context_destroy(ctx);
         return 1;
     }
+    stream_target_fps = effective_target_fps(options, camera_adaptation);
 
     std::printf("{\"event\":\"app_camera_stream_open\","
                 "\"adapter_name\":\"swarm0\","
@@ -670,6 +825,8 @@ int main(int argc, char **argv)
                 "\"adapt_target_bitrate_kbps\":%u,"
                 "\"adapt_backpressure_asserted\":%u,"
                 "\"adapt_drop_enhancement\":%u,"
+                "\"stream_target_fps\":%u,"
+                "\"pace_realtime\":%s,"
                 "\"payload_kind\":%u,"
                 "\"traffic_class\":%u,"
                 "\"preview_enabled\":true,"
@@ -697,76 +854,92 @@ int main(int argc, char **argv)
                 camera_adaptation.target_bitrate_kbps,
                 camera_adaptation.backpressure_asserted,
                 camera_adaptation.drop_enhancement,
+                stream_target_fps,
+                options.pace_realtime ? "true" : "false",
                 static_cast<unsigned>(FIELDMESH_PAYLOAD_VIDEO_BASE),
                 static_cast<unsigned>(FIELDMESH_CLASS_C2_VIDEO_BASE));
 
+    const auto stream_start = std::chrono::steady_clock::now();
+    unsigned chunk_counter = 0;
     for (const auto &camera_chunk : camera_chunks) {
-            std::array<unsigned char, 1200> rx_payload{};
-            fieldmesh_camera_frame_report_t frame_report{};
-            size_t rx_len = 0;
+        std::array<unsigned char, 1200> rx_payload{};
+        fieldmesh_camera_frame_report_t frame_report{};
+        size_t rx_len = 0;
+        uint64_t planned_tx_us;
 
-            if (!require_ok(fieldmesh_camera_stream_frame(
-                                camera_stream, camera_chunk.payload.data(),
-                                camera_chunk.payload.size(), rx_payload.data(),
-                                rx_payload.size(), &rx_len, &frame_report),
-                            "camera_stream_frame")) {
-                (void)fieldmesh_close_adapter(camera_stream);
-                (void)fieldmesh_leave(session);
-                fieldmesh_context_destroy(ctx);
-                return 1;
-            }
-            if (rx_len != camera_chunk.payload.size() ||
-                std::memcmp(rx_payload.data(), camera_chunk.payload.data(), rx_len) != 0) {
-                std::fprintf(stderr, "camera preview payload mismatch\n");
-                (void)fieldmesh_close_adapter(camera_stream);
-                (void)fieldmesh_leave(session);
-                fieldmesh_context_destroy(ctx);
-                return 1;
-            }
-            preview_bytes.insert(preview_bytes.end(), rx_payload.begin(),
-                                 rx_payload.begin() + static_cast<std::ptrdiff_t>(rx_len));
-            ++frames_tx;
-            ++frames_rx;
-            rf_queued += frame_report.rf_report.queued_to_rf_engine ? 1u : 0u;
-            std::printf("{\"event\":\"app_camera_frame_tx\","
-                        "\"frame_index\":%u,"
-                        "\"chunk_index\":%u,"
-                        "\"payload_kind\":%u,"
-                        "\"traffic_class\":%u,"
-                        "\"mode\":%u,"
-                        "\"stream_id\":%u,"
-                        "\"sequence\":%u,"
-                        "\"packet_len\":%u,"
-                        "\"frame_bytes\":%u,"
-                        "\"route_kind\":%u,"
-                        "\"queued_to_sidecar\":%u,"
-                        "\"queued_to_rf_engine\":%u,"
-                        "\"uses_iio\":%u,"
-                        "\"uses_inter_board_ip_routing\":%u,"
-                        "\"starts_rf_tx\":%u,"
-                        "\"writes_hardware\":%u}\n",
-                        camera_chunk.frame_index, camera_chunk.chunk_index,
-                        static_cast<unsigned>(frame_report.rx_packet.payload_kind),
-                        static_cast<unsigned>(frame_report.rx_packet.traffic_class),
-                        static_cast<unsigned>(frame_report.rx_packet.mode),
-                        frame_report.rx_packet.stream_id,
-                        frame_report.rx_packet.sequence,
-                        frame_report.rf_report.plan.packet_len,
-                        frame_report.rf_report.plan.frame_bytes,
-                        static_cast<unsigned>(frame_report.rf_report.plan.route_kind),
-                        frame_report.rf_report.queued_to_sidecar,
-                        frame_report.rf_report.queued_to_rf_engine,
-                        frame_report.rf_report.plan.uses_iio,
-                        frame_report.rf_report.plan.uses_inter_board_ip_routing,
-                        frame_report.rf_report.starts_rf_tx,
-                        frame_report.rf_report.writes_hardware);
-            std::printf("{\"event\":\"app_camera_preview_rx\","
-                        "\"frame_index\":%u,"
-                        "\"chunk_index\":%u,"
-                        "\"packet_len\":%lu,"
-                        "\"preview_match\":true}\n",
-                        camera_chunk.frame_index, camera_chunk.chunk_index,
-                        static_cast<unsigned long>(rx_len));
+        maybe_pace_stream(options.pace_realtime, stream_start, chunk_counter,
+                          stream_target_fps);
+        planned_tx_us = planned_timestamp_us(chunk_counter, stream_target_fps);
+
+        if (!require_ok(fieldmesh_camera_stream_frame(
+                            camera_stream, camera_chunk.payload.data(),
+                            camera_chunk.payload.size(), rx_payload.data(),
+                            rx_payload.size(), &rx_len, &frame_report),
+                        "camera_stream_frame")) {
+            (void)fieldmesh_close_adapter(camera_stream);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        if (rx_len != camera_chunk.payload.size() ||
+            std::memcmp(rx_payload.data(), camera_chunk.payload.data(), rx_len) != 0) {
+            std::fprintf(stderr, "camera preview payload mismatch\n");
+            (void)fieldmesh_close_adapter(camera_stream);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        preview_bytes.insert(preview_bytes.end(), rx_payload.begin(),
+                             rx_payload.begin() + static_cast<std::ptrdiff_t>(rx_len));
+        ++frames_tx;
+        ++frames_rx;
+        rf_queued += frame_report.rf_report.queued_to_rf_engine ? 1u : 0u;
+        std::printf("{\"event\":\"app_camera_frame_tx\","
+                    "\"frame_index\":%u,"
+                    "\"chunk_index\":%u,"
+                    "\"payload_kind\":%u,"
+                    "\"traffic_class\":%u,"
+                    "\"mode\":%u,"
+                    "\"stream_id\":%u,"
+                    "\"sequence\":%u,"
+                    "\"packet_len\":%u,"
+                    "\"frame_bytes\":%u,"
+                    "\"planned_tx_us\":%lu,"
+                    "\"stream_target_fps\":%u,"
+                    "\"pace_realtime\":%s,"
+                    "\"route_kind\":%u,"
+                    "\"queued_to_sidecar\":%u,"
+                    "\"queued_to_rf_engine\":%u,"
+                    "\"uses_iio\":%u,"
+                    "\"uses_inter_board_ip_routing\":%u,"
+                    "\"starts_rf_tx\":%u,"
+                    "\"writes_hardware\":%u}\n",
+                    camera_chunk.frame_index, camera_chunk.chunk_index,
+                    static_cast<unsigned>(frame_report.rx_packet.payload_kind),
+                    static_cast<unsigned>(frame_report.rx_packet.traffic_class),
+                    static_cast<unsigned>(frame_report.rx_packet.mode),
+                    frame_report.rx_packet.stream_id,
+                    frame_report.rx_packet.sequence,
+                    frame_report.rf_report.plan.packet_len,
+                    frame_report.rf_report.plan.frame_bytes,
+                    static_cast<unsigned long>(planned_tx_us),
+                    stream_target_fps,
+                    options.pace_realtime ? "true" : "false",
+                    static_cast<unsigned>(frame_report.rf_report.plan.route_kind),
+                    frame_report.rf_report.queued_to_sidecar,
+                    frame_report.rf_report.queued_to_rf_engine,
+                    frame_report.rf_report.plan.uses_iio,
+                    frame_report.rf_report.plan.uses_inter_board_ip_routing,
+                    frame_report.rf_report.starts_rf_tx,
+                    frame_report.rf_report.writes_hardware);
+        std::printf("{\"event\":\"app_camera_preview_rx\","
+                    "\"frame_index\":%u,"
+                    "\"chunk_index\":%u,"
+                    "\"packet_len\":%lu,"
+                    "\"preview_match\":true}\n",
+                    camera_chunk.frame_index, camera_chunk.chunk_index,
+                    static_cast<unsigned long>(rx_len));
+        ++chunk_counter;
     }
 
     if (!write_preview_output(options, preview_bytes, camera_input_bytes)) {
@@ -798,6 +971,8 @@ int main(int argc, char **argv)
                 "\"camera_source\":\"%s\","
                 "\"camera_input_bytes\":%lu,"
                 "\"preview_bytes\":%lu,"
+                "\"stream_target_fps\":%u,"
+                "\"pace_realtime\":%s,"
                 "\"radio_topology_only\":true,"
                 "\"host_eth_topology\":false,"
                 "\"production_path\":\"sdk_daemon_swarm0_rf_packet_engine\"}\n",
@@ -809,7 +984,9 @@ int main(int argc, char **argv)
                 topology_links, frames_tx, frames_rx, rf_queued,
                 camera_source_name(options),
                 static_cast<unsigned long>(camera_input_bytes),
-                static_cast<unsigned long>(preview_bytes.size()));
+                static_cast<unsigned long>(preview_bytes.size()),
+                stream_target_fps,
+                options.pace_realtime ? "true" : "false");
 
     (void)fieldmesh_close_adapter(camera_stream);
     (void)fieldmesh_leave(session);

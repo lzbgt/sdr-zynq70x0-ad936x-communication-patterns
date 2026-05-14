@@ -647,16 +647,18 @@ user and vendor configuration.
   proactive camera streaming, radio-only topology, GNSS/PPS plus packet-timing
   RTLS/co-location estimates, and video-base frame chunks queued through the
   SDK camera stream API and `swarm0`/RF packet-engine handoff without IIO,
-  inter-board IP routing, or live RF TX. It now also accepts external camera bytes through
-  `--camera-input PATH|-`, chunks them with `--chunk-size`, and writes the
-  receive/preview side with `--preview-output`, which lets a platform camera
-  pipeline feed the same SDK path before a GUI renderer exists. It also
-  supports `--camera-command CMD` and `--preview-command CMD` so a
+  inter-board IP routing, or live RF TX. It now also accepts external camera
+  bytes through `--camera-input PATH|-`, chunks them with `--chunk-size`, and
+  writes the receive/preview side with `--preview-output`, which lets a
+  platform camera pipeline feed the same SDK path before a GUI renderer exists.
+  It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
-  handoff. `fieldmesh_camera_pipe.py` supplies deterministic file-backed
-  capture/preview helpers for tests plus Linux/Windows/macOS FFmpeg,
-  GStreamer, and native-wrapper command presets for real hosts.
+  handoff. Command capture can be bounded with `--max-chunks`, tagged with
+  planned transmit timestamps through `--target-fps`, and optionally paced with
+  `--pace-realtime`. `fieldmesh_camera_pipe.py` supplies deterministic
+  file-backed capture/preview helpers for tests plus Linux/Windows/macOS
+  FFmpeg, GStreamer, and native-wrapper command presets for real hosts.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow

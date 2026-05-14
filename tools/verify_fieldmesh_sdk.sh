@@ -51,6 +51,8 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --camera-command "$control_camera_pipe_helper capture-file --input '$control_camera_input'" \
     --preview-command "$control_camera_pipe_helper preview-file --output '$control_camera_command_preview'" \
     --chunk-size 64 \
+    --max-chunks 3 \
+    --target-fps 15 \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
 "$control_camera_pipe_helper" preset \
@@ -893,12 +895,18 @@ if capture.get("source") != "external_capture_command":
     raise SystemExit("command camera capture source was not reported")
 if capture.get("capture_boundary") != "external_encoded_byte_stream":
     raise SystemExit("command camera capture boundary changed")
+if capture.get("streaming_read") is not True or capture.get("max_chunks") != 3:
+    raise SystemExit("command camera did not use bounded streaming read")
 if stream.get("camera_source") != "external_capture_command":
     raise SystemExit("command camera stream source changed")
+if stream.get("stream_target_fps") != 15 or stream.get("pace_realtime") is not False:
+    raise SystemExit("command camera stream pacing metadata changed")
 if preview.get("sink") != "external_preview_command":
     raise SystemExit("command camera preview sink was not reported")
 if summary.get("camera_source") != "external_capture_command":
     raise SystemExit("command camera summary source changed")
+if summary.get("stream_target_fps") != 15 or summary.get("pace_realtime") is not False:
+    raise SystemExit("command camera summary pacing metadata changed")
 if summary.get("camera_input_bytes") != input_size or summary.get("preview_bytes") != preview_size:
     raise SystemExit("command camera byte accounting failed")
 if len(frames) != 3 or summary.get("frames_tx") != 3 or summary.get("frames_rx") != 3:
@@ -908,9 +916,14 @@ if preview.get("matches_input") is not True or preview.get("bytes") != input_siz
 for frame in frames:
     if frame.get("payload_kind") != 3 or frame.get("traffic_class") != 2:
         raise SystemExit("command camera frame was not video-base C2")
+    if frame.get("stream_target_fps") != 15 or frame.get("pace_realtime") is not False:
+        raise SystemExit("command camera frame pacing metadata changed")
     for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
         if frame.get(key) != 0:
             raise SystemExit(f"command camera frame key {key} must be 0")
+planned = [frame.get("planned_tx_us") for frame in frames]
+if planned != [0, 66666, 133333]:
+    raise SystemExit(f"command camera planned timestamps changed: {planned}")
 PY
 echo "fieldmesh_sdk_control_camera_command_pipe_check=pass"
 
@@ -938,6 +951,10 @@ for event in events:
         raise SystemExit("camera pipe preset missing camera command app wiring")
     if "--preview-command" not in event.get("app_command", ""):
         raise SystemExit("camera pipe preset missing preview command app wiring")
+    if "--target-fps" not in event.get("app_command", ""):
+        raise SystemExit("camera pipe preset missing pacing app wiring")
+    if event.get("max_chunks") != 0 or event.get("pace_realtime") is not False:
+        raise SystemExit("camera pipe preset default pacing guard changed")
     if event.get("backend") == "ffmpeg" and "ffmpeg" not in event.get("camera_command", ""):
         raise SystemExit("ffmpeg camera preset did not use ffmpeg")
     if event.get("backend") == "gstreamer" and "gst-launch-1.0" not in event.get("camera_command", ""):

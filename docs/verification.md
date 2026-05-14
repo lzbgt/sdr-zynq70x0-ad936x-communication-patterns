@@ -3005,15 +3005,18 @@ The SDK gate also verifies the process-pipe camera boundary through
 fieldmesh-control-camera-demo \
   --camera-command "fieldmesh_camera_pipe.py capture-file --input .config/fieldmesh/sdk/fieldmesh_camera_input.bin" \
   --preview-command "fieldmesh_camera_pipe.py preview-file --output .config/fieldmesh/sdk/fieldmesh_camera_command_preview.bin" \
-  --chunk-size 64
+  --chunk-size 64 \
+  --max-chunks 3 \
+  --target-fps 15
 ```
 
 The verifier checks `app_camera_capture_source` reports
 `external_capture_command`, `app_camera_preview_output` reports
 `external_preview_command`, three video-base chunks traverse the SDK/RF handoff
-path, and the command preview output byte-matches the input. This is the
-dependency-light production hook for FFmpeg/GStreamer/native camera capture and
-preview wrappers.
+path, planned transmit timestamps are `[0, 66666, 133333]` microseconds at
+15 fps, and the command preview output byte-matches the input. This is the
+dependency-light production hook for bounded FFmpeg/GStreamer/native camera
+capture and preview wrappers.
 
 The same gate now also verifies command-preset generation:
 
