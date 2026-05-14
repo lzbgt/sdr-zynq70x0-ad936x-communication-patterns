@@ -119,12 +119,16 @@ Displayed range is calculated as Euclidean distance between peer XY positions:
 range_m = sqrt((x_a_cm - x_b_cm)^2 + (y_a_cm - y_b_cm)^2) / 100
 ```
 
-When RTLS/GNSS/packet-timing positions are available, those XY coordinates are
-the preferred source. When only route metrics are available, the app derives a
-coarse radial range estimate from RSSI, SNR, and PER and marks the source as
-`route_metrics_rssi_snr_per`. The visible range text is drawn in a badge so it
-does not disappear into topology lines. The app snapshot exposes
-`topology_range_calculation`, `topology_metrics_live`, and
+When RTLS/GNSS/packet-timing positions or profile/discovery position seeds are
+available, those XY coordinates are the source of displayed range. Live route
+metrics update link health, route recommendation, freshness, and confidence,
+but they must not overwrite known co-location coordinates. When no position
+source exists, the app may derive only a bounded, low-confidence radial hint
+from RSSI, SNR, and PER and marks the source as `route_metrics_link_hint`.
+This avoids turning a degraded near-field link into a false tens-of-meters
+distance. The visible range text is drawn in a badge so it does not disappear
+into topology lines. The app snapshot exposes `topology_range_calculation`,
+`topology_route_metrics_overwrite_position`, `topology_metrics_live`, and
 `topology_update_count` for automated tests and GUI supervisors.
 
 The WSLg route is for developer bring-up. A production Windows app should build

@@ -75,7 +75,10 @@ def main() -> int:
         "clamped_visible",
         "background_badge",
         "refresh_topology_metrics",
-        "euclidean_peer_xy_cm_from_rtls_or_route_metrics",
+        "peer_has_position_model",
+        "normalize_peer_positions_to_local",
+        "route_metrics_link_hint",
+        "euclidean_peer_xy_cm_from_rtls_or_position_seed",
         "connection-security-summary",
         "begin_panel(\"Radio Network Topology\"",
         "chat-layout-table",
@@ -238,8 +241,14 @@ def main() -> int:
         raise SystemExit("topology labels must be clamped visible")
     if snapshot.get("topology_range_label_style") != "background_badge":
         raise SystemExit("topology range labels must use readable badges")
-    if snapshot.get("topology_range_calculation") != "euclidean_peer_xy_cm_from_rtls_or_route_metrics":
+    if snapshot.get("topology_range_calculation") != "euclidean_peer_xy_cm_from_rtls_or_position_seed":
         raise SystemExit("topology range calculation must be documented in snapshot")
+    if snapshot.get("topology_route_metrics_overwrite_position") is not False:
+        raise SystemExit("route metrics must not overwrite RTLS/profile topology positions")
+    if snapshot.get("topology_max_peer_range_m", 999.0) > 2.5:
+        raise SystemExit("profile topology range unexpectedly exceeds the lab-scale fixture")
+    if snapshot.get("topology_position_model_peers", 0) < 2:
+        raise SystemExit("topology snapshot must preserve peer position models")
     if "topology_update_count" not in snapshot:
         raise SystemExit("topology snapshot must expose update count")
     if snapshot.get("responsive_chat_layout") is not True:

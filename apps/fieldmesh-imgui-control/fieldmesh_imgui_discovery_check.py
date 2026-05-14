@@ -20,6 +20,36 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
             break
         if b"FIELDMESH_HELLO" in data:
             sock.sendto((json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_ROUTE_METRICS" in data:
+            route = {
+                "event": "sdk_daemon_route_metrics",
+                "ok": True,
+                "metrics_api": "fieldmesh_query_route_metrics",
+                "dst_device_eui": "02aabb000002",
+                "relay_device_eui": "02aabb000001",
+                "current_route": 2,
+                "recommended_route": 2,
+                "selected_mode": 2,
+                "stream_id": 500,
+                "rssi_dbm": -68,
+                "snr_db": 11,
+                "evm_db": -13,
+                "per_mille": 140,
+                "ack_latency_ms": 160,
+                "jitter_ms": 110,
+                "queue_age_ms": 210,
+                "delivered_kbps": 760,
+                "estimated_kbps": 900,
+                "cfo_hz": 1450,
+                "doppler_hz": 16,
+                "timing_residual_ns": 380,
+                "measured_age_ms": 120,
+                "direct_reachable": 0,
+                "relay_available": 1,
+                "uses_iio": 0,
+                "uses_inter_board_ip_routing": 0,
+            }
+            sock.sendto((json.dumps(route, separators=(",", ":")) + "\n").encode("utf-8"), addr)
 
 
 def bind_server(payload: dict) -> tuple[socket.socket, int, threading.Thread]:
@@ -125,6 +155,30 @@ def main() -> int:
                 raise SystemExit("remote peer should be distinct from the local board")
             if data["python_automation_runs"] != 1:
                 raise SystemExit("embedded Python automation action was not surfaced")
+
+            topology_snapshot = Path(tmp) / "topology_refresh.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--api-refresh-topology",
+                    "--snapshot-output",
+                    str(topology_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            topology = json.loads(topology_snapshot.read_text(encoding="utf-8"))
+            if topology["topology_metrics_live"] is not True:
+                raise SystemExit("topology metrics refresh did not run")
+            if topology["topology_route_metrics_overwrite_position"] is not False:
+                raise SystemExit("route metrics must not overwrite topology coordinates")
+            if topology["topology_max_peer_range_m"] > 3.0:
+                raise SystemExit("route metrics refresh inflated near-field topology range")
 
             send_snapshot = Path(tmp) / "send.json"
             subprocess.run(

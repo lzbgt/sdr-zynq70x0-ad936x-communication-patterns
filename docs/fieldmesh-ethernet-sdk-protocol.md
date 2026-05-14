@@ -447,9 +447,11 @@ Topology range display is derived from the radio topology model, not host
 Ethernet. The app asks the selected board daemon for per-peer
 `ROUTE_METRICS_GET` / `FIELDMESH_ROUTE_METRICS ... dst=<peer-eui>` updates and
 uses RTLS/GNSS/packet-timing XY coordinates when available. Displayed peer
-range is the Euclidean XY distance in meters. If precise XY is unavailable,
-the GUI may show a coarse radial estimate derived from RSSI, SNR, and PER, and
-must mark that source so users do not confuse it with calibrated RTLS.
+range is the Euclidean XY distance in meters. Route metrics update link health
+and route recommendation; they must not overwrite known RTLS/profile/discovery
+coordinates. If no position source exists, the GUI may show only a bounded,
+low-confidence radial hint derived from RSSI, SNR, and PER, and must mark that
+source so users do not confuse link degradation with calibrated distance.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

@@ -42,6 +42,48 @@ const GuiBoard *selected_board(const GuiState &state)
     return nullptr;
 }
 
+bool peer_has_position_model(const GuiPeer &peer)
+{
+    return peer.range_source == "profile_rtls_xy" ||
+           peer.range_source == "runtime_discovery_seed" ||
+           peer.range_source == "relative_xy" ||
+           peer.range_source == "local_origin";
+}
+
+void normalize_peer_positions_to_local(GuiState *state,
+                                       const std::string &device_eui)
+{
+    int local_x_cm = 0;
+    int local_y_cm = 0;
+    bool found_local = false;
+
+    for (const GuiPeer &peer : state->peers) {
+        if (peer.device_eui == device_eui && peer_has_position_model(peer)) {
+            local_x_cm = peer.x_cm;
+            local_y_cm = peer.y_cm;
+            found_local = true;
+            break;
+        }
+    }
+    if (!found_local) {
+        return;
+    }
+    for (GuiPeer &peer : state->peers) {
+        if (!peer_has_position_model(peer)) {
+            continue;
+        }
+        peer.x_cm -= local_x_cm;
+        peer.y_cm -= local_y_cm;
+        if (peer.device_eui == device_eui) {
+            peer.x_cm = 0;
+            peer.y_cm = 0;
+            peer.range_source = "local_origin";
+        } else if (peer.range_source == "local_origin") {
+            peer.range_source = "relative_xy";
+        }
+    }
+}
+
 bool select_board_eui(GuiState *state, const std::string &device_eui)
 {
     bool matched = false;
@@ -52,6 +94,7 @@ bool select_board_eui(GuiState *state, const std::string &device_eui)
     }
     if (matched) {
         state->selected_board_eui = device_eui;
+        normalize_peer_positions_to_local(state, device_eui);
     }
     return matched;
 }
@@ -292,13 +335,16 @@ bool json_number_field(const char *json, const char *key, long *out)
 
 int estimate_range_cm_from_metrics(int rssi_dbm, int snr_db, unsigned per_mille)
 {
-    int range_cm = 300 + ((-rssi_dbm - 40) * 120) - (snr_db * 18) +
-        static_cast<int>(per_mille * 8u);
+    int range_cm = 250;
 
-    if (range_cm < 100) {
-        range_cm = 100;
-    } else if (range_cm > 50000) {
-        range_cm = 50000;
+    if (rssi_dbm >= -58 && snr_db >= 20 && per_mille <= 50u) {
+        range_cm = 200;
+    } else if (rssi_dbm >= -66 && snr_db >= 14 && per_mille <= 120u) {
+        range_cm = 450;
+    } else if (rssi_dbm >= -74 && snr_db >= 9 && per_mille <= 220u) {
+        range_cm = 800;
+    } else {
+        range_cm = 1200;
     }
     return range_cm;
 }
@@ -535,15 +581,18 @@ bool poll_message_bus(GuiState *state)
         peer.relay_available = relay != 0;
         peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
         peer.range_update_count += 1u;
-        peer.range_source = "route_metrics_rssi_snr_per";
-        range_cm = estimate_range_cm_from_metrics(peer.rssi_dbm,
-                                                  peer.snr_db,
-                                                  static_cast<unsigned>(peer.per_mille));
-        angle = 0.65 + static_cast<double>(remote_index) * 1.9;
-        peer.x_cm = static_cast<int>(std::cos(angle) * range_cm);
-        peer.y_cm = static_cast<int>(std::sin(angle) * range_cm);
-        peer.error_radius_cm =
-            static_cast<unsigned>(120u + static_cast<unsigned>(peer.per_mille) * 2u);
+        if (!peer_has_position_model(peer)) {
+            peer.range_source = "route_metrics_link_hint";
+            range_cm = estimate_range_cm_from_metrics(
+                peer.rssi_dbm,
+                peer.snr_db,
+                static_cast<unsigned>(peer.per_mille));
+            angle = 0.65 + static_cast<double>(remote_index) * 1.9;
+            peer.x_cm = static_cast<int>(std::cos(angle) * range_cm);
+            peer.y_cm = static_cast<int>(std::sin(angle) * range_cm);
+            peer.error_radius_cm =
+                static_cast<unsigned>(250u + static_cast<unsigned>(peer.per_mille));
+        }
         updated = true;
         ++remote_index;
     }
@@ -553,6 +602,40 @@ bool poll_message_bus(GuiState *state)
         state->operation_status = "topology_metrics_refreshed";
     }
     return updated;
+}
+
+double max_topology_peer_range_m(const GuiState &state)
+{
+    double max_range_m = 0.0;
+
+    for (std::size_t i = 0; i < state.peers.size(); ++i) {
+        for (std::size_t j = i + 1u; j < state.peers.size(); ++j) {
+            const double dx_m =
+                static_cast<double>(state.peers[i].x_cm - state.peers[j].x_cm) /
+                100.0;
+            const double dy_m =
+                static_cast<double>(state.peers[i].y_cm - state.peers[j].y_cm) /
+                100.0;
+            const double range_m = std::sqrt(dx_m * dx_m + dy_m * dy_m);
+
+            if (range_m > max_range_m) {
+                max_range_m = range_m;
+            }
+        }
+    }
+    return max_range_m;
+}
+
+unsigned count_position_model_peers(const GuiState &state)
+{
+    unsigned count = 0u;
+
+    for (const GuiPeer &peer : state.peers) {
+        if (peer_has_position_model(peer)) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 void populate_demo_state(GuiState *state)
@@ -1170,7 +1253,10 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"topology_zoomable\": true,\n"
                  "  \"topology_label_placement\": \"clamped_visible\",\n"
                  "  \"topology_range_label_style\": \"background_badge\",\n"
-                 "  \"topology_range_calculation\": \"euclidean_peer_xy_cm_from_rtls_or_route_metrics\",\n"
+                 "  \"topology_range_calculation\": \"euclidean_peer_xy_cm_from_rtls_or_position_seed\",\n"
+                 "  \"topology_route_metrics_overwrite_position\": false,\n"
+                 "  \"topology_max_peer_range_m\": %.2f,\n"
+                 "  \"topology_position_model_peers\": %u,\n"
                  "  \"topology_metrics_live\": %s,\n"
                  "  \"topology_update_count\": %u,\n"
                  "  \"topology_zoom\": %.2f,\n"
@@ -1263,6 +1349,8 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.python.last_ok ? "true" : "false",
                  escaped_python_output.c_str(),
                  escaped_python_log.c_str(),
+                 max_topology_peer_range_m(state),
+                 count_position_model_peers(state),
                  state.topology_metrics_live ? "true" : "false",
                  state.topology_update_count,
                  static_cast<double>(state.topology_zoom),
@@ -1935,6 +2023,7 @@ int main(int argc, char **argv)
     bool api_toggle_mic = false;
     bool api_toggle_screen = false;
     bool api_run_python = false;
+    bool api_refresh_topology = false;
     bool profile_loaded = false;
 
     populate_demo_state(&state);
@@ -1990,6 +2079,8 @@ int main(int argc, char **argv)
             api_toggle_screen = true;
         } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
             api_run_python = true;
+        } else if (std::strcmp(argv[i], "--api-refresh-topology") == 0) {
+            api_refresh_topology = true;
         } else {
             std::fprintf(stderr,
                          "usage: %s [--self-test] [--snapshot-output PATH] "
@@ -2001,7 +2092,8 @@ int main(int argc, char **argv)
                          "[--api-share-screen EUI] [--api-subscribe-camera EUI] "
                          "[--api-accept-video] [--api-deny-video] "
                          "[--api-toggle-camera] [--api-toggle-mic] "
-                         "[--api-toggle-screen] [--api-run-python]\n",
+                         "[--api-toggle-screen] [--api-run-python] "
+                         "[--api-refresh-topology]\n",
                          argv[0]);
             return 2;
         }
@@ -2056,6 +2148,9 @@ int main(int argc, char **argv)
     }
     if (api_run_python && !run_python_automation(&state)) {
         return 1;
+    }
+    if (api_refresh_topology) {
+        (void)refresh_topology_metrics(&state);
     }
     (void)poll_message_bus(&state);
 
