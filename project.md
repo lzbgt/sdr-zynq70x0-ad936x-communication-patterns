@@ -672,9 +672,9 @@ user and vendor configuration.
   an external runtime profile. Shell scripts are developer gates, not user
   workflow, and the command CA private key is never bundled. Under Arch Linux
   on WSL, `tools/run_fieldmesh_imgui_wslg.sh` provides the Windows-host GUI
-  bridge by setting the WSLg X11/Wayland/Pulse/GPU environment before launching
-  the Linux GUI binary; product packaging should hide that bridge inside a
-  desktop shortcut/app bundle.
+  bridge by setting the WSLg X11/Wayland/Pulse/GPU environment before
+  launching the GLFW/OpenGL3 ImGui binary; product packaging should hide that
+  bridge inside a desktop shortcut/app bundle.
   It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
@@ -1114,7 +1114,7 @@ Expected result in the current Pluto-compatible firmware state:
    path uses WSLg to show the Linux GUI as normal Windows desktop windows; the
    repo launcher mirrors `../wsl-archlinux-gui/scripts/wslg-run.sh` and checks
    `DISPLAY`, Wayland, PulseAudio, and `/dev/dxg` before starting one or more
-   app instances.
+   GLFW/OpenGL3 app instances.
    Z203's USB/RNDIS data gadget is still not exposed as a second Windows
    network adapter: `192.168.2.1` did not answer ping after a COM5-driven
    UDC/network restart, even though COM5 confirmed Z203 Linux has `usb0`

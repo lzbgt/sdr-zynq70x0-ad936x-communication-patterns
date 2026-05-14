@@ -8,9 +8,11 @@ def main() -> int:
     source = Path(sys.argv[1]).read_text(encoding="utf-8")
     resources = Path(sys.argv[2]).read_text(encoding="utf-8")
     embedded_python = Path(sys.argv[3]).read_text(encoding="utf-8")
-    snapshot = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+    platform_source = Path(sys.argv[4]).read_text(encoding="utf-8")
+    snapshot = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
     for forbidden in ("020000000203", "020000000103", "192.168.1.10", "192.168.3.1"):
-        if forbidden in source or forbidden in resources or forbidden in embedded_python:
+        if (forbidden in source or forbidden in resources or
+                forbidden in embedded_python or forbidden in platform_source):
             raise SystemExit(f"app binary resources must not hardcode deployment value {forbidden}")
     for token in (
         "FIELDMESH_WITH_IMGUI",
@@ -39,6 +41,17 @@ def main() -> int:
             raise SystemExit(f"embedded Python API source missing {token}")
     if "subprocess" in embedded_python or "system(" in embedded_python:
         raise SystemExit("embedded Python API must not be a CLI/subprocess wrapper")
+    for token in (
+        "#include <GLFW/glfw3.h>",
+        "ImGui_ImplGlfw_InitForOpenGL",
+        "ImGui_ImplOpenGL3_Init",
+        "glfwCreateWindow",
+        "glfwSwapBuffers",
+        "fieldmesh_imgui_render(&state)",
+        "fieldmesh_imgui_start_embedded_python",
+    ):
+        if token not in platform_source:
+            raise SystemExit(f"GLFW/WSLg GUI source missing {token}")
     if snapshot.get("event") != "fieldmesh_imgui_control_snapshot":
         raise SystemExit("ImGui app snapshot event changed")
     if snapshot.get("gui_framework") != "dear_imgui":

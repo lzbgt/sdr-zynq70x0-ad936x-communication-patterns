@@ -1,5 +1,3 @@
-#include <cstddef>
-
 #ifdef FIELDMESH_WITH_EMBEDDED_PYTHON
 #include <Python.h>
 

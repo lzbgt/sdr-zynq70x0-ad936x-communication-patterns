@@ -47,39 +47,46 @@ Python API. To build the Dear ImGui app-core target, provide an ImGui checkout:
 make -C apps/fieldmesh-imgui-control gui IMGUI_DIR=/path/to/imgui
 ```
 
+To build a visible desktop window, use the GLFW/OpenGL3 platform backend. This
+links Dear ImGui's standard `imgui_impl_glfw` and `imgui_impl_opengl3`
+backends, then runs the same FieldMesh IM app state and render function:
+
+```sh
+make -C apps/fieldmesh-imgui-control gui-glfw IMGUI_DIR=/path/to/imgui
+```
+
 To build the GUI with the embedded Python interpreter and in-process
 `fieldmesh_imgui` module, use Python development headers/libs:
 
 ```sh
-make -C apps/fieldmesh-imgui-control gui-python IMGUI_DIR=/path/to/imgui
+make -C apps/fieldmesh-imgui-control gui-glfw-python IMGUI_DIR=/path/to/imgui
 ```
 
 On Arch Linux under WSL, GUI windows are bridged to the Windows host by WSLg.
 The app still runs as a Linux process in WSL; WSLg exposes windows through its
 X11/Wayland sockets and audio/GPU bridge. The FieldMesh launcher sets the same
 bridge environment used by the adjacent `../wsl-archlinux-gui` reference. Once
-the platform backend/window-loop binary is built or packaged, launch it through
-this bridge:
+the GLFW/OpenGL3 binary is built or packaged, launch it through this bridge:
 
 ```sh
 tools/run_fieldmesh_imgui_wslg.sh --check-bridge
 
-make -C apps/fieldmesh-imgui-control gui-python IMGUI_DIR=/path/to/imgui
+make -C apps/fieldmesh-imgui-control gui-glfw-python IMGUI_DIR=/path/to/imgui
 
-GUI_APP=/path/to/packaged/fieldmesh-imgui-control \
+GUI_APP=.config/fieldmesh/imgui-control-build/fieldmesh-imgui-control-glfw \
 tools/run_fieldmesh_imgui_wslg.sh --detach \
     --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
     --instance fieldmesh-peer-a
 
-GUI_APP=/path/to/packaged/fieldmesh-imgui-control \
+GUI_APP=.config/fieldmesh/imgui-control-build/fieldmesh-imgui-control-glfw \
 tools/run_fieldmesh_imgui_wslg.sh --detach \
     --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
     --instance fieldmesh-peer-b
 ```
 
 Those two instances should appear as normal Windows desktop windows after the
-platform backend is linked. In a packaged product this launcher logic belongs
-in the desktop shortcut/app bundle, not in an operator shell workflow.
+platform backend is linked. In a packaged product this WSLg environment setup
+belongs in the desktop shortcut/app bundle, not in an operator shell workflow.
 
 Platform backends such as GLFW, SDL, DirectX, Metal, or Vulkan stay outside the
 pure-C SDK. The app core should call the same daemon operations that the

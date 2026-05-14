@@ -13,12 +13,16 @@ CPPFLAGS ?= -I$(SDK_DIR)/include
 
 HEADLESS_APP := $(BUILD_DIR)/fieldmesh-imgui-control-headless
 GUI_APP := $(BUILD_DIR)/fieldmesh-imgui-control
+GUI_GLFW_APP := $(BUILD_DIR)/fieldmesh-imgui-control-glfw
 SDK_OBJ := $(BUILD_DIR)/fieldmesh_sdk.o
 PY_EMBED_OBJ := $(BUILD_DIR)/fieldmesh_imgui_embedded_python.o
 TEST_PROFILE := $(APP_DIR)/testdata/golden_lab.profile
+GLFW_CFLAGS ?= $(shell pkg-config --cflags glfw3 2>/dev/null)
+GLFW_LIBS ?= $(shell pkg-config --libs glfw3 2>/dev/null || printf '%s' '-lglfw')
+OPENGL_LIBS ?= $(shell pkg-config --libs gl 2>/dev/null || printf '%s' '-lGL')
 
 .ONESHELL:
-.PHONY: all check clean gui gui-python
+.PHONY: all check clean gui gui-python gui-glfw gui-glfw-python
 
 all: $(HEADLESS_APP)
 
@@ -63,6 +67,42 @@ gui-python: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h
 		$$(python3-config --embed --ldflags) \
 		-o "$(GUI_APP)"
 
+gui-glfw: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) | $(BUILD_DIR)
+	@test -n "$(IMGUI_DIR)" || { echo "Set IMGUI_DIR=/path/to/dear-imgui"; exit 2; }
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DFIELDMESH_WITH_IMGUI=1 \
+		-I"$(IMGUI_DIR)" -I"$(IMGUI_DIR)/backends" \
+		$(GLFW_CFLAGS) \
+		fieldmesh_imgui_glfw_main.cpp "$(SDK_OBJ)" "$(PY_EMBED_OBJ)" \
+		"$(IMGUI_DIR)/imgui.cpp" \
+		"$(IMGUI_DIR)/imgui_draw.cpp" \
+		"$(IMGUI_DIR)/imgui_tables.cpp" \
+		"$(IMGUI_DIR)/imgui_widgets.cpp" \
+		"$(IMGUI_DIR)/backends/imgui_impl_glfw.cpp" \
+		"$(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp" \
+		$(GLFW_LIBS) $(OPENGL_LIBS) -ldl \
+		-o "$(GUI_GLFW_APP)"
+
+gui-glfw-python: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) | $(BUILD_DIR)
+	@test -n "$(IMGUI_DIR)" || { echo "Set IMGUI_DIR=/path/to/dear-imgui"; exit 2; }
+	python3-config --embed --cflags >/dev/null
+	python3-config --embed --ldflags >/dev/null
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DFIELDMESH_WITH_EMBEDDED_PYTHON=1 \
+		$$(python3-config --embed --cflags) \
+		-c fieldmesh_imgui_embedded_python.cpp \
+		-o "$(BUILD_DIR)/fieldmesh_imgui_embedded_python_embed.o"
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DFIELDMESH_WITH_IMGUI=1 -DFIELDMESH_WITH_EMBEDDED_PYTHON=1 \
+		-I"$(IMGUI_DIR)" -I"$(IMGUI_DIR)/backends" \
+		$(GLFW_CFLAGS) $$(python3-config --embed --cflags) \
+		fieldmesh_imgui_glfw_main.cpp "$(SDK_OBJ)" "$(BUILD_DIR)/fieldmesh_imgui_embedded_python_embed.o" \
+		"$(IMGUI_DIR)/imgui.cpp" \
+		"$(IMGUI_DIR)/imgui_draw.cpp" \
+		"$(IMGUI_DIR)/imgui_tables.cpp" \
+		"$(IMGUI_DIR)/imgui_widgets.cpp" \
+		"$(IMGUI_DIR)/backends/imgui_impl_glfw.cpp" \
+		"$(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp" \
+		$(GLFW_LIBS) $(OPENGL_LIBS) -ldl $$(python3-config --embed --ldflags) \
+		-o "$(GUI_GLFW_APP)"
+
 check: $(HEADLESS_APP)
 	mkdir -p "$(OUT_DIR)"
 	python3 -m py_compile \
@@ -76,6 +116,7 @@ check: $(HEADLESS_APP)
 		fieldmesh_imgui_control_app.cpp \
 		fieldmesh_imgui_embedded_resources.h \
 		fieldmesh_imgui_embedded_python.cpp \
+		fieldmesh_imgui_glfw_main.cpp \
 		"$(OUT_DIR)/imgui_control_snapshot.json"
 	PYTHONPATH="$$(pwd)" ./fieldmesh_imgui_pyapi_check.py "$(HEADLESS_APP)" "$(TEST_PROFILE)"
 

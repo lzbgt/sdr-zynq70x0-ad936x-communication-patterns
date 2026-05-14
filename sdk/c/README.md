@@ -179,9 +179,10 @@ must come from discovery, provisioning, or an external runtime profile, not
 compiled app constants. On Arch WSL, the GUI can be displayed on the Windows
 host through WSLg by launching the Linux binary with
 `../../tools/run_fieldmesh_imgui_wslg.sh`; this sets the X11/Wayland/Pulse/GPU
-bridge environment and is packaging plumbing rather than part of the SDK ABI.
-Command CA private keys must stay outside the app, and per-device private keys
-should live in the OS key store, secure element, or board-side secure storage.
+bridge environment for the GLFW/OpenGL3 app target and is packaging plumbing
+rather than part of the SDK ABI. Command CA private keys must stay outside the
+app, and per-device private keys should live in the OS key store, secure
+element, or board-side secure storage.
 
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the

@@ -18,6 +18,18 @@ SKIP_BUILD=1 \
 
 if [ -S /tmp/.X11-unix/X0 ] || [ -S /mnt/wslg/.X11-unix/X0 ]; then
     "$repo_root/tools/run_fieldmesh_imgui_wslg.sh" --check-bridge >/dev/null
+    if [ -n "${IMGUI_DIR:-}" ]; then
+        make -C "$app_dir" \
+            BUILD_DIR="$build_dir" \
+            gui-glfw-python \
+            IMGUI_DIR="$IMGUI_DIR" >/dev/null
+        GUI_APP="$build_dir/fieldmesh-imgui-control-glfw" \
+            "$repo_root/tools/run_fieldmesh_imgui_wslg.sh" \
+            --profile "$app_dir/testdata/golden_lab.profile" \
+            --instance fieldmesh-imgui-smoke \
+            -- --smoke-frame \
+            --snapshot-output "$out_dir/wslg_glfw_smoke_snapshot.json" >/dev/null
+    fi
 fi
 
 echo "fieldmesh_imgui_app_check=pass"

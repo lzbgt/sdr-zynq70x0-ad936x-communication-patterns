@@ -292,7 +292,8 @@ Next concrete work:
   compiled app EUIs; users should not run shell scripts, and command CA private
   keys are never bundled. On Arch WSL, the developer GUI path is WSLg: the app
   runs as a Linux process and appears as a Windows-host window through
-  `tools/run_fieldmesh_imgui_wslg.sh`. The remaining app work is wiring the
+  `tools/run_fieldmesh_imgui_wslg.sh`; the GLFW/OpenGL3 backend target is now
+  the first visible desktop binary path. The remaining app work is wiring the
   ImGui panels to live daemon calls and platform capture/preview backends,
   platform preset installation UX, packaged desktop launchers, deeper platform
   codec supervision, and the

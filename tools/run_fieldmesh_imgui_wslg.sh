@@ -22,7 +22,7 @@ USAGE
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_dir="$repo_root/apps/fieldmesh-imgui-control"
 build_dir="${BUILD_DIR:-$repo_root/.config/fieldmesh/imgui-control-build}"
-gui_app="${GUI_APP:-$build_dir/fieldmesh-imgui-control}"
+gui_app="${GUI_APP:-$build_dir/fieldmesh-imgui-control-glfw}"
 profile="${PROFILE:-}"
 instance="fieldmesh-imgui"
 detach=0
@@ -124,7 +124,7 @@ fieldmesh-wslg: GUI app binary not found or not executable:
   $gui_app
 
 Build it first, for example:
-  make -C "$app_dir" gui-python IMGUI_DIR=/path/to/imgui
+  make -C "$app_dir" gui-glfw-python IMGUI_DIR=/path/to/imgui
 
 The headless CI binary is not a Windows-visible GUI window.
 EOF

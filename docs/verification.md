@@ -3064,7 +3064,9 @@ codec defaults, external test-profile loading for deployment identity,
 OS/board secure-storage private-key ownership, and `user_runs_shell_scripts=false`.
 When WSLg sockets are present, the same gate also checks
 `tools/run_fieldmesh_imgui_wslg.sh --check-bridge`, which verifies the Arch WSL
-to Windows-host GUI bridge environment before any manual GUI launch.
+to Windows-host GUI bridge environment before any manual GUI launch. When
+`IMGUI_DIR` points to a Dear ImGui checkout, the gate additionally builds the
+GLFW/OpenGL3 target and runs one WSLg `--smoke-frame` with snapshot output.
 `tools/verify_fieldmesh_sdk.sh` runs both app gates before the broader SDK
 suite.
 

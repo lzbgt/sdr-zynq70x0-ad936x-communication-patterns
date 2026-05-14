@@ -704,6 +704,7 @@ void fieldmesh_imgui_render(GuiState *)
 
 }  // namespace
 
+#ifndef FIELDMESH_IMGUI_NO_MAIN
 int main(int argc, char **argv)
 {
     GuiState state;
@@ -809,3 +810,4 @@ int main(int argc, char **argv)
     return 2;
 #endif
 }
+#endif
