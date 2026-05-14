@@ -101,9 +101,13 @@ Firmware state:
   W25Q256 status-register probe around erase/program operations. The read-only
   `sspi` probe returned JEDEC ID `EF4019` and status bytes SR1 `0x02`, SR2
   `0x02`, SR3 `0x60`, flag status `0x00`; a volatile WEL-latch probe left SR1
-  at `0x02` even after raw write-disable and write-enable opcodes. Do not run
-  another full QSPI FIT repair until the SPI NOR program path is isolated and
-  a small U-Boot tail-sector write/readback passes.
+  at `0x02` even after raw write-disable and write-enable opcodes. A guarded
+  4 KiB status-instrumented scratch write at absolute offset `0x1d9f000`
+  confirmed the failure: erase/readback passed, `sf write` reported success,
+  readback returned `0x44` for an all-zero pattern, SR1 stayed `0x00` through
+  the write, and rollback erase/readback passed. Do not run another full QSPI
+  FIT repair until the SPI NOR program path is isolated and a small U-Boot
+  tail-sector write/readback passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

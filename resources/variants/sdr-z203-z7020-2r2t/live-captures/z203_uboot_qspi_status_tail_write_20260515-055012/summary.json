@@ -1,0 +1,53 @@
+{
+  "board_ip": "192.168.1.10",
+  "bytes_tested": 4096,
+  "diagnosis": "U-Boot sf erase/readback is clean and sf write reports success, but write readback still fails; QSPI program path remains blocked.",
+  "erase_command_passed": true,
+  "erase_verify_passed": true,
+  "event": "fieldmesh_z203_uboot_qspi_status_tail_write",
+  "first_readback_line": {
+    "address": "0x14000000",
+    "bytes": [
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44"
+    ]
+  },
+  "mtd3_scratch_offset": 28962816,
+  "mtd3_scratch_offset_hex": "0x1b9f000",
+  "pattern": "0x00",
+  "qspi_abs_offset": 31059968,
+  "qspi_abs_offset_hex": "0x1d9f000",
+  "rollback": "sf erase scratch sector",
+  "rollback_erase_passed": true,
+  "status": {
+    "after_erase_sr1": "0x00",
+    "after_erase_sr2": "0x02",
+    "after_erase_sr3": "0x60",
+    "after_rollback_sr1": "0x00",
+    "after_write_sr1": "0x00",
+    "after_write_sr2": "0x02",
+    "after_write_sr3": "0x60",
+    "base_fsr": "0x00",
+    "base_sr1": "0x02",
+    "base_sr2": "0x02",
+    "base_sr3": "0x60",
+    "before_erase_sr1": "0x02",
+    "before_write_sr1": "0x00"
+  },
+  "write_command_passed": true,
+  "write_verify_passed": false
+}

@@ -3832,6 +3832,22 @@ the already-probed SPI flash driver, but it narrows the next step: record
 SR1/SR2/SR3 around a guarded tail-sector `sf erase` and `sf write` probe. Full
 QSPI FIT repair remains blocked.
 
+The status-instrumented scratch-sector probe was then added and run:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_status_tail_write_20260515-055012 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_STATUS_TAIL_TEST=1 \
+  ./tools/test_z203_uboot_qspi_status_tail_write.sh 192.168.1.10
+```
+
+Result: still failed, with rollback passing. The probe used a 4 KiB scratch
+sector at QSPI absolute offset `0x1d9f000`, verified erase/readback as all
+`0xff`, wrote an all-zero pattern, and read back all `0x44` at the first 64
+bytes. `sf write` reported success, but `cmp.b` failed immediately
+(`0x00 != 0x44`). SR1 was `0x00` before write, after write, and after rollback;
+SR2 stayed `0x02`; SR3 stayed `0x60`. The scratch sector was erased again and
+verified as rollback. Full QSPI FIT repair remains blocked.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:
