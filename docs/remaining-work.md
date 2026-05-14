@@ -92,8 +92,12 @@ Firmware state:
   refined probe shows U-Boot `sf erase` plus immediate `sf read` cleanly returns
   all `0xff`, but `sf write` followed by `sf read` leaves byte `0x44` where the
   pattern expected `0x00`. Linux post-read sees the same dominant `0x44`
-  corruption. Do not run another full QSPI FIT repair until the SPI NOR program
-  path is isolated and a small U-Boot tail-sector write/readback passes.
+  corruption. The follow-up constant-byte classifier confirms that erase
+  readback is clean for every pattern, but any byte pattern that requires
+  clearing either bit in mask `0x44` reads back with that bit still set
+  (`0x00 -> 0x44`, `0xbb -> 0xff`, `0xaa -> 0xee`, `0x7b -> 0x7f`).
+  Do not run another full QSPI FIT repair until the SPI NOR program path is
+  isolated and a small U-Boot tail-sector write/readback passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

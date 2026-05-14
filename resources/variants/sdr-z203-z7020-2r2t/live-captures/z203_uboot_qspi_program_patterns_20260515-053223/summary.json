@@ -1,0 +1,112 @@
+{
+  "aggregate_unexpected_one_mask_hex": "0x44",
+  "all_erase_readbacks_clean": true,
+  "all_writes_match": false,
+  "board_ip": "192.168.1.10",
+  "bytes_tested_per_pattern": 65536,
+  "diagnosis": "QSPI program readback leaves bits from mask 0x44 set whenever patterns require clearing those bits.",
+  "event": "fieldmesh_z203_uboot_qspi_program_patterns",
+  "patterns": [
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": null,
+      "pattern_hex": "0xff",
+      "write_readback_matches": true
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0x44",
+        "expected_hex": "0x00",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x44"
+      },
+      "pattern_hex": "0x00",
+      "write_readback_matches": false
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": null,
+      "pattern_hex": "0x44",
+      "write_readback_matches": true
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0xff",
+        "expected_hex": "0xbb",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x44"
+      },
+      "pattern_hex": "0xbb",
+      "write_readback_matches": false
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": null,
+      "pattern_hex": "0x55",
+      "write_readback_matches": true
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0xee",
+        "expected_hex": "0xaa",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x44"
+      },
+      "pattern_hex": "0xaa",
+      "write_readback_matches": false
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0x55",
+        "expected_hex": "0x11",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x44"
+      },
+      "pattern_hex": "0x11",
+      "write_readback_matches": false
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0x66",
+        "expected_hex": "0x22",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x44"
+      },
+      "pattern_hex": "0x22",
+      "write_readback_matches": false
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0xcc",
+        "expected_hex": "0x88",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x44"
+      },
+      "pattern_hex": "0x88",
+      "write_readback_matches": false
+    },
+    {
+      "erase_readback_all_ff": true,
+      "first_mismatch": {
+        "actual_hex": "0x7f",
+        "expected_hex": "0x7b",
+        "missing_one_mask_hex": "0x00",
+        "unexpected_one_mask_hex": "0x04"
+      },
+      "pattern_hex": "0x7b",
+      "write_readback_matches": false
+    }
+  ],
+  "qspi_abs_offset": 30998528,
+  "qspi_abs_offset_hex": "0x1d90000",
+  "unexpected_one_masks_hex": [
+    "0x04",
+    "0x44"
+  ]
+}

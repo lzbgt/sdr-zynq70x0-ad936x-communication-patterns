@@ -3771,6 +3771,33 @@ U-Boot `fit_size`, not just Linux MTD, and not a basic erase/read problem.
 Full QSPI FIT repair remains blocked until a small U-Boot tail-sector
 write/readback passes.
 
+The U-Boot program path was then classified with constant-byte patterns:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_program_patterns_20260515-053223 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_PATTERN_TEST=1 \
+BOARD_IP=192.168.1.10 \
+  ./tools/test_z203_uboot_qspi_program_patterns.sh 192.168.1.10
+```
+
+Result: failed, with a consistent stuck program mask. All erase/readback checks
+passed. Writes passed only for patterns that did not require clearing bits
+`0x44`, such as `0xff`, `0x44`, and `0x55`. Writes failed when either of those
+bits had to be programmed low:
+
+- `0x00` read back as `0x44`.
+- `0xbb` read back as `0xff`.
+- `0xaa` read back as `0xee`.
+- `0x11` read back as `0x55`.
+- `0x22` read back as `0x66`.
+- `0x88` read back as `0xcc`.
+- `0x7b` read back as `0x7f`.
+
+So the working model is now: Z203 QSPI erase and read are functional, but page
+program does not clear bits covered by mask `0x44`. The next repair step is to
+inspect SPI NOR status/register/program mode and controller wiring/IO mode
+before any full FIT rewrite.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:
