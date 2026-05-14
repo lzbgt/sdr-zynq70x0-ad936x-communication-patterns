@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+
+. "${FIELD_MESH_RADIO_COMMON:-/usr/libexec/fieldmesh/fieldmesh-radio-common.sh}"
+
+event="fieldmesh_radio_tx_enable"
+max_duration_ms=""
+tx_attenuation_db=""
+conducted_or_shielded=0
+rx_first=0
+tx_enable_guard=0
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --max-duration-ms) max_duration_ms="$2"; shift 2 ;;
+        --tx-attenuation-db) tx_attenuation_db="$2"; shift 2 ;;
+        --conducted-or-shielded) conducted_or_shielded=1; shift ;;
+        --rx-first) rx_first=1; shift ;;
+        --tx-enable-guard) tx_enable_guard=1; shift ;;
+        *) fm_error "$event" "unknown argument: $1" ;;
+    esac
+done
+
+[ -n "$max_duration_ms" ] || fm_error "$event" "--max-duration-ms is required"
+[ -n "$tx_attenuation_db" ] || fm_error "$event" "--tx-attenuation-db is required"
+[ "$conducted_or_shielded" = "1" ] || fm_error "$event" "--conducted-or-shielded is required"
+[ "$rx_first" = "1" ] || fm_error "$event" "--rx-first is required"
+[ "$tx_enable_guard" = "1" ] || fm_error "$event" "--tx-enable-guard is required"
+
+fm_require_live_rf "$event"
+[ "$max_duration_ms" -ge 1 ] 2>/dev/null || fm_error "$event" "--max-duration-ms must be numeric"
+[ "$max_duration_ms" -le 1000 ] || fm_error "$event" "--max-duration-ms must be <= 1000"
+[ "$max_duration_ms" -le "$FIELD_MESH_MAX_TX_DURATION_MS" ] ||
+    fm_error "$event" "--max-duration-ms exceeds FIELD_MESH_MAX_TX_DURATION_MS"
+fm_float_ge "$tx_attenuation_db" 0 || fm_error "$event" "--tx-attenuation-db must be >= 0"
+
+tx_gain_db="-$tx_attenuation_db"
+fm_iio_attr "$event" -c ad9361-phy voltage0 hardwaregain "$tx_gain_db"
+fm_sleep_ms "$event" "$max_duration_ms"
+fieldmesh-radio-tx-disable --reason bounded-window-complete
+
+printf '{"event":"%s","ok":true,"max_duration_ms":%s,"tx_attenuation_db":%s,"fixture_id":"%s","writes_hardware":true,"starts_rf_tx":true,"bounded":true,"rolled_back":true}\n' \
+    "$event" "$max_duration_ms" "$tx_attenuation_db" "$(fm_json_escape "$FIELD_MESH_FIXTURE_ID")"

@@ -360,6 +360,16 @@ Host A camera app -> board A host-facing IP -> board A swarm0/meshd
 In that mode the host sends to a mesh IP or remote routed subnet. The board is
 the SDR router/gateway, while the host remains a normal IP endpoint.
 
+`apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp` is the
+first app-shaped executable for this split. It is intentionally C++ while the
+SDK boundary remains pure C. The demo models AP browse, AP election,
+application/user repurpose into proactive camera streaming, radio topology,
+relative co-location estimates, and video-base frame chunks. Each frame chunk
+is queued to the FieldMesh adapter and RF packet-engine contract with
+`uses_iio=0`, `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and
+`writes_hardware=0`; live camera capture and GUI rendering are the next app
+layer once the board daemon path is connected end to end.
+
 ## Local IIO Admin Bridge
 
 Ethernet clients may request local RF admin actions through daemon messages,

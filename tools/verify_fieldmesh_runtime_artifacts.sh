@@ -34,6 +34,11 @@ verify_variant() {
     local swarm_adapter_strings_out
     local tun_gateway_strings_out
     local two_pc_strings_out
+    local rf_safe_tune_out
+    local rf_tx_enable_out
+    local rf_tx_disable_out
+    local rf_common_out
+    local rf_ctrl_write_out
 
     case "$name" in
         z203)
@@ -79,7 +84,12 @@ verify_variant() {
     tun_gateway_strings_out="$(mktemp)"
     tun_packetizer_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out"' RETURN
+    rf_safe_tune_out="$(mktemp)"
+    rf_tx_enable_out="$(mktemp)"
+    rf_tx_disable_out="$(mktemp)"
+    rf_common_out="$(mktemp)"
+    rf_ctrl_write_out="$(mktemp)"
+    trap 'rm -f "$strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
@@ -88,6 +98,11 @@ verify_variant() {
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-gateway-demo | strings > "$tun_gateway_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-safe-tune | strings > "$rf_safe_tune_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-enable | strings > "$rf_tx_enable_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-disable | strings > "$rf_tx_disable_out"
+    tar -xOf "$rootfs_tar" ./usr/libexec/fieldmesh/fieldmesh-radio-common.sh | strings > "$rf_common_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-ctrl-write | strings > "$rf_ctrl_write_out"
 
     for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke rf-guard-scan rf-guard-apply rf-source-apply iio-scan iio-plan pl-replay; do
         if ! grep -qxF "$token" "$strings_out"; then
@@ -242,6 +257,54 @@ verify_variant() {
         sdk_two_pc_endpoint_flow_complete; do
         if ! grep -qF "$token" "$two_pc_strings_out"; then
             echo "Missing fieldmesh-two-pc-flow-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        FIELD_MESH_FIXTURE_ATTENUATION_DB \
+        iio_attr \
+        fieldmesh_radio_safe_tune; do
+        if ! grep -qF -- "$token" "$rf_safe_tune_out"; then
+            echo "Missing fieldmesh-radio-safe-tune token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        FIELD_MESH_EXECUTE_LIVE_TX \
+        FIELD_MESH_ALLOW_HARDWARE_WRITES \
+        FIELD_MESH_ALLOW_RF_TX \
+        FIELD_MESH_FIXTURE_ID \
+        FIELD_MESH_BACKEND_DRY_RUN; do
+        if ! grep -qF -- "$token" "$rf_common_out"; then
+            echo "Missing fieldmesh-radio-common token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        FIELD_MESH_MAX_TX_DURATION_MS \
+        fieldmesh-radio-tx-disable \
+        fieldmesh_radio_tx_enable; do
+        if ! grep -qF -- "$token" "$rf_tx_enable_out"; then
+            echo "Missing fieldmesh-radio-tx-enable token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        FIELD_MESH_ALLOW_HARDWARE_WRITES \
+        -89.75 \
+        fieldmesh_radio_tx_disable; do
+        if ! grep -qF -- "$token" "$rf_tx_disable_out"; then
+            echo "Missing fieldmesh-radio-tx-disable token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        fieldmesh_ctrl_write \
+        FIELD_MESH_EXECUTE_LIVE_TX \
+        FIELD_MESH_ALLOW_HARDWARE_WRITES \
+        /dev/mem; do
+        if ! grep -qF -- "$token" "$rf_ctrl_write_out"; then
+            echo "Missing fieldmesh-ctrl-write token in $name rootfs: $token" >&2
             exit 1
         fi
     done

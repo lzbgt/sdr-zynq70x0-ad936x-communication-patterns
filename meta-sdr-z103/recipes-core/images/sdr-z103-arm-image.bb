@@ -15,6 +15,7 @@ IMAGE_INSTALL:append = " \
     libubootenv-bin \
     lighttpd \
     mtd-utils \
+    fieldmesh-rf-tools \
     fieldmesh-sdk-demos \
     fieldmesh-udp-probe \
     sdr-z103-board-files \

@@ -24,6 +24,16 @@ for source in "$repo_root"/sdk/c/examples/*.c; do
     "$binary" >"$out_dir/$name.ndjson" 2>"$out_dir/$name.stderr"
 done
 
+cxx="${CXX:-c++}"
+control_camera_app="$out_dir/fieldmesh-control-camera-demo"
+"$cxx" -std=c++17 -Wall -Wextra -Werror \
+    -I"$repo_root/sdk/c/include" \
+    "$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp" \
+    "$sdk_object" \
+    -o "$control_camera_app"
+"$control_camera_app" >"$out_dir/fieldmesh_control_camera_demo.ndjson" \
+    2>"$out_dir/fieldmesh_control_camera_demo.stderr"
+
 udp_log="$out_dir/fieldmesh_udp_discovery_loopback.ndjson"
 udp_send_log="$out_dir/fieldmesh_udp_discovery_send.ndjson"
 udp_demo="$out_dir/fieldmesh_udp_discovery_demo"
@@ -494,6 +504,95 @@ if summary[0].get("rf_packets") != 5 or summary[0].get("rf_engine_bound") != 1:
     raise SystemExit("TUN packetizer RF packet-engine summary failed")
 PY
 echo "fieldmesh_sdk_tun_packetizer_check=pass"
+
+python3 - "$out_dir/fieldmesh_control_camera_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+by_event = {}
+for event in events:
+    by_event.setdefault(event.get("event"), []).append(event)
+
+summary = by_event.get("app_summary", [])
+if not summary:
+    raise SystemExit("control/camera app did not emit summary")
+summary = summary[0]
+if summary.get("control_plane_ok") is not True or summary.get("data_plane_ok") is not True:
+    raise SystemExit("control/camera app did not pass control and data planes")
+if summary.get("radio_topology_only") is not True or summary.get("host_eth_topology") is not False:
+    raise SystemExit("control/camera app confused radio topology with host Ethernet")
+if summary.get("frames_tx") != 6 or summary.get("frames_rx") != 6 or summary.get("rf_queued") != 6:
+    raise SystemExit("control/camera app did not queue every camera frame")
+if summary.get("production_path") != "sdk_daemon_swarm0_rf_packet_engine":
+    raise SystemExit("control/camera app reported wrong production path")
+
+aps = by_event.get("app_network_browse", [])
+if len(aps) < 2:
+    raise SystemExit("control/camera app did not browse both AP-capable peers")
+for ap in aps:
+    if ap.get("radio_topology") is not True or ap.get("host_eth_topology") is not False:
+        raise SystemExit("control/camera AP browse must be radio topology only")
+
+election = by_event.get("app_ap_elected", [])
+if not election or election[0].get("elected_device_eui") != "020000000203":
+    raise SystemExit("control/camera app did not elect Z203 EUI by capability")
+if election[0].get("reason") != "capability_rssi_snr_geo_mobility_consensus":
+    raise SystemExit("control/camera app election reason changed")
+
+ops = by_event.get("app_operation_command", [])
+if not ops or ops[0].get("requested_role") != "proactive_camera_streamer":
+    raise SystemExit("control/camera app did not model user-commanded proactive role")
+if ops[0].get("launched_role") != "passive_learner":
+    raise SystemExit("control/camera app should launch as passive learner")
+
+links = by_event.get("app_topology_link", [])
+if len(links) < 2:
+    raise SystemExit("control/camera app did not emit radio topology links")
+if not any(link.get("device_type") == "sdr-z203-z7020-2r2t" for link in links):
+    raise SystemExit("control/camera app topology missing Z203 device type")
+if not any(link.get("device_type") == "sdr-z103-z7010-1r1t" for link in links):
+    raise SystemExit("control/camera app topology missing Z103 device type")
+for link in links:
+    if link.get("radio_topology") is not True or link.get("host_eth_topology") is not False:
+        raise SystemExit("control/camera topology must be radio topology only")
+    if link.get("uses_inter_board_ip_routing") != 0:
+        raise SystemExit("control/camera topology must not use inter-board IP routing")
+
+positions = by_event.get("app_rtls_position", [])
+sources = {position.get("source") for position in positions}
+if 1 not in sources or 2 not in sources:
+    raise SystemExit("control/camera app needs GNSS/PPS and packet-timing RTLS estimates")
+for position in positions:
+    if position.get("radio_topology") is not True or position.get("host_eth_topology") is not False:
+        raise SystemExit("control/camera RTLS view must be radio topology only")
+
+stream_open = by_event.get("app_camera_stream_open", [])
+if not stream_open or stream_open[0].get("radio_data_plane") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("control/camera app did not open RF packet-engine data plane")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if stream_open[0].get(key) != 0:
+        raise SystemExit(f"control/camera stream key {key} must be 0")
+
+frames = by_event.get("app_camera_frame_tx", [])
+previews = by_event.get("app_camera_preview_rx", [])
+if len(frames) != 6 or len(previews) != 6:
+    raise SystemExit("control/camera app did not produce six TX and preview events")
+for frame in frames:
+    if frame.get("payload_kind") != 3 or frame.get("traffic_class") != 2:
+        raise SystemExit("control/camera frame was not video-base C2")
+    if frame.get("mode") != 4 or frame.get("route_kind") != 1:
+        raise SystemExit("control/camera frame was not direct scheduled RF route")
+    if frame.get("queued_to_sidecar") != 1 or frame.get("queued_to_rf_engine") != 1:
+        raise SystemExit("control/camera frame did not queue sidecar/RF engine")
+    for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+        if frame.get(key) != 0:
+            raise SystemExit(f"control/camera frame key {key} must be 0")
+for preview in previews:
+    if preview.get("preview_match") is not True:
+        raise SystemExit("control/camera preview did not match transmitted frame")
+PY
+echo "fieldmesh_sdk_control_camera_app_check=pass"
 
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \

@@ -1,0 +1,49 @@
+#!/bin/sh
+set -eu
+
+. "${FIELD_MESH_RADIO_COMMON:-/usr/libexec/fieldmesh/fieldmesh-radio-common.sh}"
+
+event="fieldmesh_radio_safe_tune"
+center_frequency_hz=""
+sample_rate_hz=""
+rf_bandwidth_hz=""
+fixture_attenuation_db=""
+conducted_or_shielded=0
+legal_frequency_profile=0
+rx_first=0
+tx_enable_guard=0
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --center-frequency-hz) center_frequency_hz="$2"; shift 2 ;;
+        --sample-rate-hz) sample_rate_hz="$2"; shift 2 ;;
+        --rf-bandwidth-hz) rf_bandwidth_hz="$2"; shift 2 ;;
+        --fixture-attenuation-db) fixture_attenuation_db="$2"; shift 2 ;;
+        --conducted-or-shielded) conducted_or_shielded=1; shift ;;
+        --legal-frequency-profile) legal_frequency_profile=1; shift ;;
+        --rx-first) rx_first=1; shift ;;
+        --tx-enable-guard) tx_enable_guard=1; shift ;;
+        *) fm_error "$event" "unknown argument: $1" ;;
+    esac
+done
+
+[ -n "$center_frequency_hz" ] || fm_error "$event" "--center-frequency-hz is required"
+[ -n "$sample_rate_hz" ] || fm_error "$event" "--sample-rate-hz is required"
+[ -n "$rf_bandwidth_hz" ] || fm_error "$event" "--rf-bandwidth-hz is required"
+[ -n "$fixture_attenuation_db" ] || fm_error "$event" "--fixture-attenuation-db is required"
+[ "$conducted_or_shielded" = "1" ] || fm_error "$event" "--conducted-or-shielded is required"
+[ "$legal_frequency_profile" = "1" ] || fm_error "$event" "--legal-frequency-profile is required"
+[ "$rx_first" = "1" ] || fm_error "$event" "--rx-first is required"
+[ "$tx_enable_guard" = "1" ] || fm_error "$event" "--tx-enable-guard is required"
+
+fm_require_live_hardware "$event"
+fm_float_ge "$fixture_attenuation_db" 30 || fm_error "$event" "--fixture-attenuation-db must be >= 30"
+fm_float_ge "$FIELD_MESH_FIXTURE_ATTENUATION_DB" "$fixture_attenuation_db" ||
+    fm_error "$event" "environment fixture attenuation is below requested attenuation"
+
+fm_iio_attr "$event" -c ad9361-phy altvoltage1 frequency "$center_frequency_hz"
+fm_iio_attr "$event" -c ad9361-phy voltage0 sampling_frequency "$sample_rate_hz"
+fm_iio_attr "$event" -c ad9361-phy voltage0 rf_bandwidth "$rf_bandwidth_hz"
+
+printf '{"event":"%s","ok":true,"center_frequency_hz":%s,"sample_rate_hz":%s,"rf_bandwidth_hz":%s,"fixture_attenuation_db":%s,"writes_hardware":true,"starts_rf_tx":false}\n' \
+    "$event" "$center_frequency_hz" "$sample_rate_hz" "$rf_bandwidth_hz" "$fixture_attenuation_db"

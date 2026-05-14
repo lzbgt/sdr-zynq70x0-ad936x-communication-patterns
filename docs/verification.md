@@ -2911,6 +2911,15 @@ sent and browsed. It also runs `fieldmesh_two_pc_flow_demo` over loopback UDP
 to prove the two-PC control flow: AP browse, AP election, AP-audit join,
 scheduled stream open, and C1 telemetry send:
 
+The same gate now also builds and runs the C++
+`apps/fieldmesh-control-camera-demo` app against the pure-C SDK ABI. That app
+verifies the product-level control plane (AP browse/election, application/user
+repurpose, radio-only topology, and GNSS/PPS plus packet-timing RTLS
+positions) and the first camera-like data plane: six video-base chunks are
+queued through the `swarm0` adapter and RF packet-engine handoff with
+`uses_iio=0`, `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and
+`writes_hardware=0`.
+
 ```sh
 ./tools/verify_fieldmesh_sdk.sh
 ```

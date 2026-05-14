@@ -629,6 +629,12 @@ user and vendor configuration.
   stream-flow demo, a `fieldmeshctl` profile CLI demo, plus a UDP
   AP-beacon/browse demo for two-PC USB-Ethernet or physical-Ethernet
   experiments.
+- `apps/fieldmesh-control-camera-demo/` - first C++ app-level demo over the
+  pure-C SDK ABI. It verifies AP browse/election, user-commanded repurpose into
+  proactive camera streaming, radio-only topology, GNSS/PPS plus packet-timing
+  RTLS/co-location estimates, and video-base frame chunks queued through the
+  `swarm0`/RF packet-engine handoff without IIO, inter-board IP routing, or
+  live RF TX.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
@@ -959,11 +965,16 @@ Expected result in the current Pluto-compatible firmware state:
    inter-board path and marks the next gate as a conducted or shielded IQ
    burst encoder/decoder smoke. The guarded IIO runner now turns that plan
    into an RX-first command script, while defaulting to no hardware execution.
-   The practical product demo after that is one SDK host camera app that can
-   source or preview video: Host A camera over USB/physical Ethernet to peer
-   board A, FieldMesh RF to peer board B, then USB/physical Ethernet to Host B
-   preview. Host A and Host B can be the same physical PC for lab testing, but
-   they remain two logical hosts with a distinct SDK control plane and RF data
+   The first app-shaped product demo now exists as a C++ executable over the
+   pure-C SDK ABI: it browses AP-capable peers, elects the AP by capability and
+   link/topology metrics, models a user-commanded proactive camera-streaming
+   role, displays radio-only topology and RTLS/co-location state, and queues
+   video-base frame chunks through the `swarm0`/RF packet-engine handoff. The
+   practical live target remains one SDK host camera app that can source or
+   preview video: Host A camera over USB/physical Ethernet to peer board A,
+   FieldMesh RF to peer board B, then USB/physical Ethernet to Host B preview.
+   Host A and Host B can be the same physical PC for lab testing, but they
+   remain two logical hosts with a distinct SDK control plane and RF data
    plane.
    Ethernet SDK clients should talk to a pre-installed board mesh gateway
    daemon on Zynq ARM Linux. That daemon listens on the configured SDK port,

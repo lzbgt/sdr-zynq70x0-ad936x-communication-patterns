@@ -77,6 +77,14 @@ in `src/fieldmesh_sdk.c`:
   transport demo over UDP sockets. It uses the SDK AP model and works over USB
   Ethernet, physical Ethernet, or normal IP routing.
 
+The first C++ app-level demo lives outside the SDK ABI in
+`../../apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp`.
+It consumes only the pure-C SDK, then emits a production-shaped NDJSON flow for
+AP browse, AP election, user-commanded repurpose into proactive camera
+streaming, radio-only topology, GNSS/PPS plus packet-timing RTLS positions, and
+video-base camera chunks queued through the `swarm0`/RF packet-engine handoff.
+It is still a deterministic SDK verifier, not a GUI and not live camera capture.
+
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the
 primary desktop/embedded app layer for camera capture, preview, topology, and

@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+. "${FIELD_MESH_RADIO_COMMON:-/usr/libexec/fieldmesh/fieldmesh-radio-common.sh}"
+
+event="fieldmesh_radio_tx_disable"
+reason="manual"
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --reason) reason="$2"; shift 2 ;;
+        *) fm_error "$event" "unknown argument: $1" ;;
+    esac
+done
+
+if [ "${FIELD_MESH_BACKEND_DRY_RUN:-0}" != "1" ]; then
+    [ "${FIELD_MESH_ALLOW_HARDWARE_WRITES:-0}" = "1" ] ||
+        fm_error "$event" "FIELD_MESH_ALLOW_HARDWARE_WRITES=1 is required"
+fi
+
+fm_iio_attr "$event" -c ad9361-phy voltage0 hardwaregain -89.75
+printf '{"event":"%s","ok":true,"reason":"%s","writes_hardware":true,"starts_rf_tx":false,"tx_attenuation_db":89.75}\n' \
+    "$event" "$(fm_json_escape "$reason")"

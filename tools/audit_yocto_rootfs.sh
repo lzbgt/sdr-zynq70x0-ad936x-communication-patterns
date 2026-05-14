@@ -48,7 +48,12 @@ required_paths=(
     /usr/bin/fieldmesh-tun-gateway-demo
     /usr/bin/fieldmesh-tun-packetizer-demo
     /usr/bin/fieldmesh-two-pc-flow-demo
+    /usr/bin/fieldmesh-ctrl-write
+    /usr/bin/fieldmesh-radio-safe-tune
+    /usr/bin/fieldmesh-radio-tx-enable
+    /usr/bin/fieldmesh-radio-tx-disable
     /usr/bin/fieldmesh-udp-probe
+    /usr/libexec/fieldmesh/fieldmesh-radio-common.sh
     /usr/bin/fw_printenv
     /usr/bin/fw_setenv
     /usr/sbin/flash_erase

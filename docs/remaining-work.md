@@ -183,13 +183,17 @@ Next concrete work:
   that runner on a conducted/shielded fixture with
   `--execute-live-rf --allow-hardware-writes`, then running AP
   browse/election/join as host commands whose peer payload traffic crosses RF.
-- Build the practical two-host camera-stream demo on top of the SDK once the
-  RF stream path is live. The intended product flow is one app that can source
-  or preview camera data: Host A camera -> local board over USB/physical
-  Ethernet SDK data ingress -> FieldMesh RF -> peer board -> Host B preview.
-  Host A and Host B may be the same physical PC for lab testing, but the test
-  must keep them as logical hosts and preserve the split between SDK control
-  plane and RF data plane.
+- Extend the new C++ `apps/fieldmesh-control-camera-demo` into a live two-host
+  camera-stream demo once the board daemon and RF stream path are connected end
+  to end. The current executable already verifies the production-shaped SDK
+  control plane (browse/elect/repurpose/topology/RTLS) and queues video-base
+  chunks through the `swarm0`/RF packet-engine handoff without IIO or
+  inter-board IP routing. The intended live product flow is still one app that
+  can source or preview camera data: Host A camera -> local board over
+  USB/physical Ethernet SDK data ingress -> FieldMesh RF -> peer board -> Host
+  B preview. Host A and Host B may be the same physical PC for lab testing, but
+  the test must keep them as logical hosts and preserve the split between SDK
+  control plane and RF data plane.
 - Consolidate the reviewed `design.md` production insight into implementation:
   IIO remains a local RF configuration, diagnostics, calibration, and
   conducted-test backend, while the product data plane should move toward a
