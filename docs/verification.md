@@ -3380,20 +3380,27 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after switching the board daemon's
-app-camera flow to the same pure-C camera stream SDK API used by the C++ app:
+The SDK daemon gate now also exercises direct camera data-plane ingress with
+`FIELDMESH_CAMERA_STREAM_CHUNK`. The request accepts one encoded chunk over the
+host-facing Ethernet SDK socket, forwards it through
+`fieldmesh_camera_stream_frame()`, and reports matching preview/input checksums
+plus RF packet-engine handoff state while still asserting no IIO use, no
+inter-board IP routing, no RF TX start, and no hardware writes.
+
+Refreshed runtime artifact hashes after adding the direct camera chunk request
+to the packaged board daemon:
 
 ```text
-Z203 rootfs.cpio.gz: 4e2d923c845db19584b54efb9e779541bd0af4bdcb15b9ee6aa41126a71ef0f9
-Z203 rootfs.tar.gz:  c5ddd1acffee69cf2bb17b4fd81d346e82349f7fa6d5712877485d426016f052
-Z203 pluto.frm:      f6c1fb8ab3e01ca1740b170c4793eeb666483398dc3ec0c75ee0ea83b30cc84c
-Z203 pluto.itb:      eb00f842b69e5262513ac21e967fe92c9b18db4b661ded127b88c8f48a16154c
-Z203 jtag ramdisk:   45df6ed8da8f2a9409b1a3380bb283cc7ae2dc26805e1b7a31503fadcc313c82
-Z103 rootfs.cpio.gz: b81b601f24ff1dee4b31e02c59aaba27ece6db681b8f085ddece5e1fa065d432
-Z103 rootfs.tar.gz:  fa5cbe25439b1232f4640b606771f0ebaf777a4963956f90a8df2e9863756856
-Z103 pluto.frm:      75792219d75b75daec94e43fb8335395216d01ccecd6d504183c4e8453184d31
-Z103 pluto.itb:      89978b81fd9a57be4ecd51620ed2957179bc113429c1bf22e7bf49c529772432
-Z103 jtag ramdisk:   c8650682247a31f8f71e83314c902b8c388c5dfcb13e3db8cb97e3c76e2303d2
+Z203 rootfs.cpio.gz: 652909447fa914522671d9f7dfc332f2b7c791e0a6f8ec1e94343534afb784d7
+Z203 rootfs.tar.gz:  a5f6e9976210cbf325640f37f79dc6502b42775d1d0db5e1af2d1ad10cd51f9a
+Z203 pluto.frm:      7d0ae6af20d8cc723ef7d999163c354262fb862f27b6a4b9891b4eb6ac039da6
+Z203 pluto.itb:      03506865b347e9fc5bdc1ec3b2314dce813a702844110f8611d0239d1f043f7c
+Z203 jtag ramdisk:   2ad7a1e3ba5e2b61ddb68a8015be9dfe75da1bac425d3fd9004e9bd09b82d340
+Z103 rootfs.cpio.gz: e007acf3bf4f247b77ffb517bda1d8cde4036df3049d2d27d6ff6dc78eef5b98
+Z103 rootfs.tar.gz:  7c02c5c09b861f1b3b22f7b9821588005cdfaec7a4320e0f351d64be91fd19f4
+Z103 pluto.frm:      709c0f90127ad1e8cc197e789627498b57a31ee70d406fa7d885d01d4dc2cef6
+Z103 pluto.itb:      272884216b7f1c0d6c0418ff035da31f3e0926d15bb73be05b71728341f34141
+Z103 jtag ramdisk:   8250eb60f8e4441fcc4ec590ab019acc861309ac1068d55d70fa7a8b2af65d02
 ```
 
 ## FieldMesh RTLS Positioning Gate

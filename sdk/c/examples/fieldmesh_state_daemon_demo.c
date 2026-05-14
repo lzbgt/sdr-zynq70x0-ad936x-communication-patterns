@@ -112,6 +112,60 @@ static void fill_camera_demo_chunk(unsigned char *payload,
     }
 }
 
+static int hex_value(int ch)
+{
+    if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+    }
+    return -1;
+}
+
+static size_t parse_hex_payload(const char *hex,
+                                unsigned char *payload,
+                                size_t payload_capacity)
+{
+    size_t len = 0u;
+
+    if (!hex || !payload) {
+        return 0u;
+    }
+    while (*hex == ' ' || *hex == '\t') {
+        ++hex;
+    }
+    while (hex[0] && hex[1] && hex[0] != '\r' && hex[0] != '\n') {
+        int hi = hex_value((unsigned char)hex[0]);
+        int lo = hex_value((unsigned char)hex[1]);
+
+        if (hi < 0 || lo < 0 || len >= payload_capacity) {
+            return 0u;
+        }
+        payload[len++] = (unsigned char)((hi << 4) | lo);
+        hex += 2;
+    }
+    if (*hex && *hex != '\r' && *hex != '\n') {
+        return 0u;
+    }
+    return len;
+}
+
+static uint32_t checksum32(const unsigned char *payload, size_t payload_len)
+{
+    uint32_t hash = 2166136261u;
+    size_t i;
+
+    for (i = 0; i < payload_len; ++i) {
+        hash ^= payload[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
 static fieldmesh_status_t read_tun_fd_once(void *user,
                                            void *packet,
                                            size_t packet_capacity,
@@ -881,6 +935,93 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)FIELDMESH_CLASS_C2_VIDEO_BASE);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_CAMERA_STREAM_CHUNK")) {
+        const char *hex = strstr(request, " v1 ");
+        unsigned char payload[1200];
+        unsigned char preview[1200];
+        size_t payload_len = 0u;
+        size_t preview_len = 0u;
+        fieldmesh_adapter_t *camera_stream = NULL;
+        fieldmesh_camera_stream_config_t camera_config = {
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 500,
+            .mtu_bytes = 1200,
+        };
+        fieldmesh_camera_frame_report_t frame_report;
+        fieldmesh_status_t status;
+
+        snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
+                 "%s", "020000000103");
+        payload_len = parse_hex_payload(hex ? hex + 4 : NULL, payload,
+                                        sizeof(payload));
+        if (payload_len == 0u ||
+            fieldmesh_open_camera_stream(session, &camera_config,
+                                         &camera_stream) != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_stream_chunk\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_request\"}\n");
+            return 0;
+        }
+
+        status = fieldmesh_camera_stream_frame(
+            camera_stream, payload, payload_len, preview, sizeof(preview),
+            &preview_len, &frame_report);
+        (void)fieldmesh_close_adapter(camera_stream);
+        if (status != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_stream_chunk\","
+                     "\"ok\":false,"
+                     "\"error\":\"stream_failed\"}\n");
+            return 0;
+        }
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_camera_stream_chunk\","
+                 "\"ok\":true,"
+                 "\"sdk_abi\":\"pure_c\","
+                 "\"stream_api\":\"fieldmesh_camera_stream_frame\","
+                 "\"adapter_name\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"input_bytes\":%u,"
+                 "\"preview_bytes\":%u,"
+                 "\"input_checksum\":%u,"
+                 "\"preview_checksum\":%u,"
+                 "\"preview_match\":%u,"
+                 "\"payload_kind\":%u,"
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"route_kind\":%u,"
+                 "\"queued_to_sidecar\":%u,"
+                 "\"queued_to_rf_engine\":%u,"
+                 "\"control_plane_ok\":%u,"
+                 "\"data_plane_ok\":%u,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"starts_rf_tx\":%u,"
+                 "\"writes_hardware\":%u}\n",
+                 frame_report.rf_report.plan.adapter_name,
+                 frame_report.rf_report.plan.dst_node_id,
+                 (unsigned)payload_len, (unsigned)preview_len,
+                 checksum32(payload, payload_len),
+                 checksum32(preview, preview_len),
+                 frame_report.preview_match,
+                 (unsigned)frame_report.rx_packet.payload_kind,
+                 (unsigned)frame_report.rx_packet.traffic_class,
+                 (unsigned)frame_report.rx_packet.mode,
+                 (unsigned)frame_report.rf_report.plan.route_kind,
+                 frame_report.rf_report.queued_to_sidecar,
+                 frame_report.rf_report.queued_to_rf_engine,
+                 frame_report.control_plane_ok,
+                 frame_report.data_plane_ok,
+                 frame_report.rf_report.plan.uses_iio,
+                 frame_report.rf_report.plan.uses_inter_board_ip_routing,
+                 frame_report.rf_report.starts_rf_tx,
+                 frame_report.rf_report.writes_hardware);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_DEV_PUMP")) {
         int allow_live = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
         int tun_read_fd = -1;
@@ -1310,7 +1451,7 @@ static int serve_state(const char *bind_ip,
     while (handled < requests) {
         struct sockaddr_in src_addr;
         socklen_t src_len = (socklen_t)sizeof(src_addr);
-        char request[256];
+        char request[4096];
         char response[2048];
         int received = recvfrom(sockfd, request, (int)(sizeof(request) - 1), 0,
                                 (struct sockaddr *)&src_addr, &src_len);
@@ -1393,6 +1534,9 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_APP_CONTROL_CAMERA v1") == 0 &&
+        query_once(sockfd, &dst,
+                   "FIELDMESH_CAMERA_STREAM_CHUNK v1 "
+                   "00112233445566778899aabbccddeeff") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&

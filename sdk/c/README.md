@@ -47,8 +47,10 @@ in `src/fieldmesh_sdk.c`:
   verifies AP browse/election, user-commanded proactive camera streaming,
   radio-only topology, RTLS state, and six video-base chunks queued into the RF
   packet-engine handoff through the same pure-C camera stream API used by the
-  C++ app. A separate process queries those services over the same IP path
-  intended for USB Ethernet and physical Ethernet.
+  C++ app. It also serves `FIELDMESH_CAMERA_STREAM_CHUNK`, a direct Ethernet
+  SDK data-plane request that accepts one encoded camera byte chunk and returns
+  preview/checksum/RF handoff status. A separate process queries those services
+  over the same IP path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over

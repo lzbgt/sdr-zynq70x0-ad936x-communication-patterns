@@ -134,8 +134,10 @@ Next concrete work:
   developer images install `/usr/bin/fieldmesh-state-daemon-demo`, and the
   daemon now answers AP browse, AP election, AP join state, peer state, RTLS
   state, `swarm0` adapter mapping, the app-level camera control/data-plane
-  composition through `fieldmesh_camera_stream_frame()`, and local IIO admin
-  planning over the same UDP socket boundary.
+  composition through `fieldmesh_camera_stream_frame()`, direct
+  `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane ingress with preview/checksum/RF
+  handoff status, and local IIO admin planning over the same UDP socket
+  boundary.
   The
   2026-05-14 Z103 live checks proved the new IIO bridge response first by
   transiently uploading the refreshed daemon with `FORCE_UPLOAD=1`, then by
@@ -144,20 +146,23 @@ Next concrete work:
   IIO-bridge planning request and `FIELDMESH_APP_CONTROL_CAMERA` persistently,
   and the refreshed daemon verifier now requires that the app-camera flow uses
   the pure-C camera stream SDK API and reports six preview byte matches. The
-  post-install RF packet-engine binding gate still recovers the same committed
-  frame while keeping IIO, inter-board IP routing, RF TX, and
-  hardware writes disabled. The next implementation should restore Z203 host
-  reachability, run the same installed daemon flow on Z203, then run the
-  daemon path from two PCs attached to the boards before replacing the
-  deterministic demo AP/join responses with real credential/audit admission,
-  board peer discovery, route query, and prioritized stream send/receive
-  services. The pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke
-  target for that two-PC path; production daemon and apps may be C++ while the
-  SDK ABI remains pure C. The next data-plane step is backing the daemon
-  adapter with a Zynq-local userspace TUN `swarm0` endpoint and Linux routed
-  gateway policy. Do this before considering TAP/Layer-2 bridging; host
-  Ethernet is management and local ingress/egress, while RF topology remains
-  the FieldMesh topology.
+  same daemon contract now has a direct chunk-level camera ingress request so
+  host apps do not need to reimplement stream classification or RF handoff
+  policy for each encoded frame fragment. The post-install RF packet-engine
+  binding gate still recovers the same committed frame while keeping IIO,
+  inter-board IP routing, RF TX, and hardware writes disabled. The next
+  implementation should restore Z203 host reachability, run the same installed
+  daemon flow on Z203, then run the daemon path from two PCs attached to the
+  boards before replacing the deterministic demo AP/join responses with real
+  credential/audit admission, board peer discovery, route query, prioritized
+  stream send/receive services, and session-level camera flow control. The
+  pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
+  two-PC path; production daemon and apps may be C++ while the SDK ABI remains
+  pure C. The daemon adapter already has a Zynq-local userspace TUN `swarm0`
+  endpoint path, packetizer, and one-packet live read gate; the remaining data
+  plane work is binding those streams to a real RF transport session with
+  backpressure. Host Ethernet is management and local ingress/egress, while RF
+  topology remains the FieldMesh topology.
 - Keep the guarded network-profile writer from
   `docs/fieldmesh-network-configuration.md` live-safe. The packaged
   `fieldmeshctl profile show|validate|apply|rollback` path verifies split USB
@@ -206,14 +211,17 @@ Next concrete work:
   (browse/elect/repurpose/topology/RTLS) and queues video-base chunks through
   the `swarm0`/RF packet-engine handoff without IIO or inter-board IP routing.
   The Z103 installed board daemon now exposes and passes the same composition
-  as `FIELDMESH_APP_CONTROL_CAMERA`; Z203 is still pending because its host
-  link was unreachable during the latest installed runtime batch. After Z203
-  is reachable, run the installed daemon flow on both boards. The C++ app now
-  accepts an external camera byte stream through `--camera-input PATH|-`,
-  chunks it, sends it through the same SDK/RF handoff, and writes the preview
-  side with `--preview-output`; the SDK verifier byte-compares preview output
-  against input. The remaining app work is replacing that file/stdin source
-  with real platform camera capture and GUI rendering. The intended live
+  as `FIELDMESH_APP_CONTROL_CAMERA`; the daemon contract also accepts one
+  encoded camera chunk through `FIELDMESH_CAMERA_STREAM_CHUNK` and returns
+  preview/checksum/RF handoff status from the same pure-C SDK stream API. Z203
+  is still pending because its host link was unreachable during the latest
+  installed runtime batch. After Z203 is reachable, run the installed daemon
+  flow on both boards. The C++ app now accepts an external camera byte stream
+  through `--camera-input PATH|-`, chunks it, sends it through the same SDK/RF
+  handoff, and writes the preview side with `--preview-output`; the SDK
+  verifier byte-compares preview output against input. The remaining app work
+  is replacing that file/stdin source with real platform camera capture, GUI
+  rendering, and continuous stream pacing. The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->
   FieldMesh RF -> peer board -> Host B preview. Host A and Host B may be the

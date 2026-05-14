@@ -625,9 +625,10 @@ user and vendor configuration.
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
   a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
   query demo, including the composed `FIELDMESH_APP_CONTROL_CAMERA` app-level
-  control/data-plane request, a `swarm0` adapter packet-classification demo, a
-  routed TUN gateway planning demo, a TUN IP-packetizer demo, a pure-C camera
-  stream demo over `fieldmesh_open_camera_stream()` and
+  control/data-plane request and direct `FIELDMESH_CAMERA_STREAM_CHUNK`
+  data-plane request, a `swarm0` adapter packet-classification demo, a routed
+  TUN gateway planning demo, a TUN IP-packetizer demo, a pure-C camera stream
+  demo over `fieldmesh_open_camera_stream()` and
   `fieldmesh_camera_stream_frame()`, a two-PC AP
   browse/election/audit-join/stream-flow demo, a `fieldmeshctl` profile CLI
   demo, plus a UDP AP-beacon/browse demo for two-PC USB-Ethernet or
@@ -998,9 +999,12 @@ Expected result in the current Pluto-compatible firmware state:
    app-camera composition too: the installed daemon answered all 15 SDK
    requests, including `FIELDMESH_APP_CONTROL_CAMERA`. The packaged daemon now
    uses the same pure-C `fieldmesh_camera_stream_frame()` path as the C++ app
-   for that composition, and the post-install RF packet-engine binding gate
-   still recovered frame CRC `2646482743` while keeping IIO, inter-board IP
-   routing, RF TX, and hardware writes disabled.
+   for that composition. The daemon contract also exposes direct
+   `FIELDMESH_CAMERA_STREAM_CHUNK` ingress so an Ethernet SDK client can submit
+   one encoded camera chunk and receive preview/checksum/RF handoff status
+   without reimplementing stream classification. The post-install RF
+   packet-engine binding gate still recovered frame CRC `2646482743` while
+   keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
    The matching Z203 installed-runtime app-camera gate is currently blocked by
    host reachability: `192.168.2.1` did not answer ping in the same live batch.
    A follow-up host diagnostic showed two FT2232/JTAG-UART devices but only one

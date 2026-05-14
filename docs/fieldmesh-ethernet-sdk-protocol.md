@@ -119,6 +119,7 @@ Minimum daemon messages:
 | `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
 | `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. |
+| `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |
@@ -129,6 +130,7 @@ Minimum daemon messages:
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
+`FIELDMESH_CAMERA_STREAM_CHUNK`,
 `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
 `FIELDMESH_TUN_APPLY_VALIDATE`, guarded `FIELDMESH_TUN_APPLY_COMMIT`
 rejection, and `FIELDMESH_DEVICE_IIO_PLAN` shape.

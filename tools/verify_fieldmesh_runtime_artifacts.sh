@@ -186,6 +186,7 @@ verify_variant() {
         FIELDMESH_RF_PACKET_ENGINE \
         FIELDMESH_RF_TX_GUARD_PLAN \
         FIELDMESH_APP_CONTROL_CAMERA \
+        FIELDMESH_CAMERA_STREAM_CHUNK \
         FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_DEV_PUMP \
         FIELDMESH_TUN_PLAN \
@@ -201,7 +202,10 @@ verify_variant() {
         sdk_daemon_rf_packet_engine \
         sdk_daemon_rf_tx_guard_plan \
         sdk_daemon_app_control_camera \
+        sdk_daemon_camera_stream_chunk \
         fieldmesh_camera_stream_frame \
+        input_checksum \
+        preview_checksum \
         preview_matches \
         fieldmesh-control-camera \
         proactive_camera_streamer \
