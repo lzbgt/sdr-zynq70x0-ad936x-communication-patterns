@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-18}"
+requests="${REQUESTS:-19}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -130,6 +130,7 @@ serve = load(serve_path)
 query = load(query_path)
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
@@ -147,7 +148,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 18:
+if not end or end[-1].get("handled") != 19:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
@@ -159,6 +160,25 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("relay_capable") < 1:
     raise SystemExit("board SDK daemon peer-state response failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("board SDK daemon RTLS-state response failed")
+if not route_metrics or route_metrics[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon route metrics response failed")
+if route_metrics[0].get("metrics_api") != "fieldmesh_query_route_metrics":
+    raise SystemExit("board SDK daemon route metrics did not use SDK metrics API")
+if route_metrics[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("board SDK daemon route metrics used wrong destination EUI")
+if route_metrics[0].get("current_route") != 1 or route_metrics[0].get("recommended_route") != 2:
+    raise SystemExit("board SDK daemon route metrics should recommend AP relay")
+if route_metrics[0].get("selected_mode") != 4 or route_metrics[0].get("stream_id") != 500:
+    raise SystemExit("board SDK daemon route metrics mode/stream changed")
+if route_metrics[0].get("snr_db") != 11 or route_metrics[0].get("per_mille") != 140:
+    raise SystemExit("board SDK daemon route metric values changed")
+if route_metrics[0].get("queue_age_ms") != 210 or route_metrics[0].get("delivered_kbps") != 760:
+    raise SystemExit("board SDK daemon route throughput values changed")
+if route_metrics[0].get("direct_reachable") != 1 or route_metrics[0].get("relay_available") != 1:
+    raise SystemExit("board SDK daemon route reachability flags changed")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if route_metrics[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon route metrics key {key} must be 0")
 if not rf_packet_engine or rf_packet_engine[0].get("adapter_name") != "swarm0":
     raise SystemExit("board SDK daemon RF packet-engine response failed")
 if rf_packet_engine[0].get("rf_engine") != "fieldmesh_rf_packet_engine":
@@ -232,6 +252,10 @@ if not camera_adaptation or camera_adaptation[0].get("ok") is not True:
     raise SystemExit("board SDK daemon camera adaptation response failed")
 if camera_adaptation[0].get("adapt_api") != "fieldmesh_adapt_camera_stream_session":
     raise SystemExit("board SDK daemon camera adaptation did not use SDK API")
+if camera_adaptation[0].get("metrics_api") != "fieldmesh_query_route_metrics":
+    raise SystemExit("board SDK daemon camera adaptation did not consume route metrics")
+if camera_adaptation[0].get("recommended_route") != 2:
+    raise SystemExit("board SDK daemon camera adaptation should carry AP-relay recommendation")
 if camera_adaptation[0].get("action") != 4 or camera_adaptation[0].get("selected_route") != 2:
     raise SystemExit("board SDK daemon camera adaptation should switch to AP relay")
 if camera_adaptation[0].get("target_fps") != 15 or camera_adaptation[0].get("target_bitrate_kbps") != 900:
@@ -305,6 +329,7 @@ print(json.dumps({
     "join_events": len(join_state),
     "peer_events": len(peer),
     "rtls_events": len(rtls),
+    "route_metrics_events": len(route_metrics),
     "rf_packet_engine_events": len(rf_packet_engine),
     "rf_tx_guard_events": len(rf_tx_guard),
     "app_camera_events": len(app_camera),

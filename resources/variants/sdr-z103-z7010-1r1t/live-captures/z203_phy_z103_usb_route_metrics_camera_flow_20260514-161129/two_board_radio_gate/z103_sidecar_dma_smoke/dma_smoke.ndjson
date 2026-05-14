@@ -1,0 +1,5 @@
+{"event":"dma_smoke_start","transport":"dma-smoke","file":"/tmp/fieldmesh_dma_smoke_frame.bin","preflight_assert":"/tmp/fieldmesh_dma_smoke_preflight.json","tx_dma_base":"0x43c10000","rx_dma_base":"0x43c20000","tx_buffer":"0x1f000000","rx_buffer":"0x1f100000","writes_registers":true,"starts_transfer":true,"allow_live_writes":true}
+{"event":"dma_smoke_submit","transport":"dma-smoke","rx_armed_before_tx":true,"rx_transfer_id":3,"tx_transfer_id":3,"packet_len":64,"aligned_bytes":64}
+{"event":"dma_smoke_poll","transport":"dma-smoke","rx_done":true,"tx_done":true,"rx_polls":1,"tx_polls":1,"rx_done_value":"0x0000000f","tx_done_value":"0x0000000f"}
+{"event":"packet_trace","transport":"dma-smoke","epoch":1000,"slot":0,"mode":"scheduled","src_node":"020000000103","dst_node":"020000000203","stream_id":100,"traffic_class":"C0","sequence":0,"payload_len":32,"rx_transport_seq":0,"rx_frame_crc":2646482743}
+{"event":"dma_smoke_end","transport":"dma-smoke","ok":true,"packet_len":64,"aligned_bytes":64,"transport_seq":0,"expected_crc":2646482743,"rx_crc":2646482743,"rx_match":true,"error":null}

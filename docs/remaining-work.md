@@ -136,6 +136,7 @@ Next concrete work:
   state, `swarm0` adapter mapping, the app-level camera control/data-plane
   composition through `fieldmesh_camera_stream_frame()`, direct
   `FIELDMESH_CAMERA_SESSION_PLAN` flow-control planning,
+  `FIELDMESH_ROUTE_METRICS` measured route-health queries,
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` route-health adaptation, direct
   `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane ingress with preview/checksum/RF
   handoff status, and local IIO admin planning over the same UDP socket
@@ -149,11 +150,12 @@ Next concrete work:
   and the refreshed daemon verifier now requires that the app-camera flow uses
   the pure-C camera stream SDK API and reports six preview byte matches. The
   same daemon contract now has session-level camera flow-control planning,
-  route-health adaptation, and direct chunk-level camera ingress, so host apps
+  route-health metrics, adaptation, and direct chunk-level camera ingress, so host apps
   do not need to reimplement pacing, ACK cadence, reorder windows,
   backpressure, AP-relay fallback, stream classification, or RF handoff policy
   for each encoded frame fragment; a live Z103 transient-daemon smoke on
   2026-05-14 verified `FIELDMESH_CAMERA_SESSION_PLAN`,
+  `FIELDMESH_ROUTE_METRICS`,
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
   `FIELDMESH_CAMERA_STREAM_CHUNK`. The post-install RF packet-engine
   binding gate still recovers the same committed frame while keeping IIO,

@@ -3381,16 +3381,20 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 therefore explicit and auditable.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
-`FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
+`FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
+`FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
 `FIELDMESH_CAMERA_STREAM_CHUNK`. The session plan reports target FPS, bitrate
 hint, inflight window, ACK cadence, reorder window, jitter buffer,
-backpressure, and keepalive policy. The adaptation request feeds route health
-into `fieldmesh_adapt_camera_stream_session()` and returns bitrate/FPS/window,
-ACK, backpressure, keyframe, and route actions. The chunk request accepts one
-encoded chunk over the host-facing Ethernet SDK socket, forwards it through
-`fieldmesh_camera_stream_frame()`, and reports matching preview/input checksums
-plus RF packet-engine handoff state while still asserting no IIO use, no
-inter-board IP routing, no RF TX start, and no hardware writes.
+backpressure, and keepalive policy. The route-metrics request reports measured
+RSSI/SNR/EVM/PER, ACK latency, jitter, queue age, throughput, CFO/Doppler,
+timing residual, and direct-vs-relay recommendation. The adaptation request
+feeds that measured route health into `fieldmesh_adapt_camera_stream_session()`
+and returns bitrate/FPS/window, ACK, backpressure, keyframe, and route actions.
+The chunk request accepts one encoded chunk over the host-facing Ethernet SDK
+socket, forwards it through `fieldmesh_camera_stream_frame()`, and reports
+matching preview/input checksums plus RF packet-engine handoff state while
+still asserting no IIO use, no inter-board IP routing, no RF TX start, and no
+hardware writes.
 
 A live Z103 transient-daemon smoke then verified the session-plan and
 chunk-ingress requests against the reachable board at `192.168.3.1`:
@@ -3422,8 +3426,9 @@ OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_sdk_daemon
 ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
 ```
 
-Both live daemon runs passed and reported `camera_adaptation_events=1`. The
-two-board radio-readiness gate also passed with Z203 management on
+Both live daemon runs passed and reported `route_metrics_events=1` and
+`camera_adaptation_events=1`. The two-board radio-readiness gate also passed
+with Z203 management on
 `192.168.1.10` and Z103 management on `192.168.3.1`; the emitted report kept
 `uses_inter_board_ip_routing=false`, `opens_iio_buffers=false`, and
 `starts_rf_tx=false`.
@@ -3442,28 +3447,48 @@ Result: passed. The summary report `two_board_camera_flow.json` shows logical
 Host A as the Z203 camera source over physical Ethernet and logical Host B as
 the Z103 preview side over USB Ethernet. Both board daemons passed AP
 browse/election/join, radio topology, RTLS/co-location, camera session
-planning, route-health adaptation, direct camera chunk ingress, preview status,
-and RF packet-engine handoff. The paired radio-readiness gate also passed with
+planning, route metrics, route-health adaptation, direct camera chunk ingress,
+preview status, and RF packet-engine handoff. The paired radio-readiness gate
+also passed with
 `uses_inter_board_ip_routing=false`, `uses_iio=false`, `starts_rf_tx=false`,
 and `writes_hardware=false`; the remaining live gap is still the
 conducted/shielded over-air RF TX/RX procedure. The evidence was archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
 
-Refreshed runtime artifact hashes after adding camera session planning,
-adaptive camera feedback, and the direct camera chunk request to the packaged
-board daemon:
+After adding `FIELDMESH_ROUTE_METRICS`, the same two-board gate was rerun with
+the refreshed daemon uploaded transiently:
+
+```sh
+FORCE_UPLOAD=1 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_route_metrics_camera_flow_20260514-161129 \
+./tools/run_fieldmesh_two_board_camera_flow.sh
+```
+
+Result: passed. Both board daemon assertions reported
+`route_metrics_events=1`, `camera_session_events=1`,
+`camera_adaptation_events=1`, and `camera_chunk_events=1`. The composed
+summary shows `route_metrics_api="fieldmesh_query_route_metrics"`,
+`route_snr_db=11`, `route_per_mille=140`, `route_queue_age_ms=210`,
+`route_recommended_route=2`, and camera adaptation switching to AP relay with
+`camera_target_bitrate_kbps=900` and `camera_target_fps=15` on both logical
+source and sink sides. The paired radio-readiness gate still passed with
+`uses_inter_board_ip_routing=false`, `uses_iio=false`, `starts_rf_tx=false`,
+and `writes_hardware=false`.
+
+Refreshed runtime artifact hashes after adding measured route metrics to the
+camera adaptation path in the packaged board daemon:
 
 ```text
-Z203 rootfs.cpio.gz: 88d54fa6d9f45fddab28a96d9866ca3c4ab0c891e85b5fecd3a4847d1dbe3974
-Z203 rootfs.tar.gz:  281b3363852db5ec2f0ec73ee907c30f85a86116cfaa67bd868df979fe1e8574
-Z203 pluto.frm:      4efa8c9ac00e38cf36c62ea8ae537918c9efe92aa9b538e20df04e603d5330c3
-Z203 pluto.itb:      6cbf2ba5d61a7d1abd26cd0d0256e60ce829a3115a6affdb2d7997307e1b6220
-Z203 jtag ramdisk:   a7dd7af6b6b2d49e84260464f858431996fa95f3da4558b7d87a27c135266dd2
-Z103 rootfs.cpio.gz: 418ad25539611ac7da3d54165075a99c18f42d8e5d32177f826f2008d15e57bc
-Z103 rootfs.tar.gz:  0372d83e7504b3195eab8e8af076128967e3300177dd1ef54344d52b42db3c5d
-Z103 pluto.frm:      9d965dfeb4bb07300bf8dc2008dd7f131b20226de8cf00904cf782a67ade7efc
-Z103 pluto.itb:      83eab9faf831ae6f702f7280a2dcb5359fc45407e8518f6090299ee070b0d722
-Z103 jtag ramdisk:   e315ca8c2228039882e056be6b2ef40a7cfa88847f89ad2dd9b4114e3166c1fc
+Z203 rootfs.cpio.gz: 54f40c14400e46342ff7d26af55e889cf0c91a62f449ed0643c1f5b292dceca5
+Z203 rootfs.tar.gz:  c5904b51dcd6bb58c796b899f26e763a9aaeaf437597e52ef6e8223dc75dd727
+Z203 pluto.frm:      eb84a8d8cec5ac82dc51f44cfe64205abf8a469097be87625ef9f2f6ddaf5f32
+Z203 pluto.itb:      3af75390942da1c2d0eb11ef2807b99077a1ab3423a8abce28ed32ff9aa325bc
+Z203 jtag ramdisk:   1d18d177f2228110f66fa328be02f3996290eb259376680c4dd18203c1076a2e
+Z103 rootfs.cpio.gz: 71352c801ad6d5d9437dfd6b2ea7279286c8d22dbf092eed7a1e9fa7e5fed63f
+Z103 rootfs.tar.gz:  30c8852cc7bb24ea306648a101aec4eac95d97e46101c4f1c8c980b74688f834
+Z103 pluto.frm:      3b002bdf350f7bea5cd4d2100725a0714ad0feea4137d546789748f67acff5fe
+Z103 pluto.itb:      4b5b16e57d995bd625a021128b1bdb498cdf66a9555ea11a62528b730da761ad
+Z103 jtag ramdisk:   03c30966207689fa90133a1ff9e1e650ae8d05d19a9751cd7b627bbd7e8b8871
 ```
 
 ## FieldMesh RTLS Positioning Gate

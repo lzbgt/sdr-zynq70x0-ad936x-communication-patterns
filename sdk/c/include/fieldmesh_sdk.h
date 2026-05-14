@@ -277,6 +277,32 @@ typedef struct fieldmesh_route_info {
     uint32_t queue_age_ms;
 } fieldmesh_route_info_t;
 
+typedef struct fieldmesh_route_metrics {
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    char relay_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_route_kind_t current_route;
+    fieldmesh_route_kind_t recommended_route;
+    fieldmesh_mode_t selected_mode;
+    uint16_t stream_id;
+    int8_t rssi_dbm;
+    int8_t snr_db;
+    int8_t evm_db;
+    uint16_t per_mille;
+    uint32_t ack_latency_ms;
+    uint32_t jitter_ms;
+    uint32_t queue_age_ms;
+    uint32_t delivered_kbps;
+    uint32_t estimated_kbps;
+    int32_t cfo_hz;
+    int32_t doppler_hz;
+    int32_t timing_residual_ns;
+    uint32_t measured_age_ms;
+    uint8_t direct_reachable;
+    uint8_t relay_available;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+} fieldmesh_route_metrics_t;
+
 typedef enum fieldmesh_position_source {
     FIELDMESH_POSITION_UNKNOWN = 0,
     FIELDMESH_POSITION_GPS_PPS_FUSED = 1,
@@ -684,6 +710,11 @@ fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
                                          const char *dst_node_id,
                                          uint16_t stream_id,
                                          fieldmesh_route_info_t *out_route);
+fieldmesh_status_t fieldmesh_query_route_metrics(
+    fieldmesh_session_t *session,
+    const char *dst_node_id,
+    uint16_t stream_id,
+    fieldmesh_route_metrics_t *out_metrics);
 fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,
                                                      const fieldmesh_rtls_measurement_t *measurement);
 fieldmesh_status_t fieldmesh_get_peer_position(fieldmesh_context_t *context,

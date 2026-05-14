@@ -187,7 +187,9 @@ verify_variant() {
         FIELDMESH_RF_TX_GUARD_PLAN \
         FIELDMESH_APP_CONTROL_CAMERA \
         FIELDMESH_CAMERA_SESSION_PLAN \
+        FIELDMESH_CAMERA_ADAPTATION_FEEDBACK \
         FIELDMESH_CAMERA_STREAM_CHUNK \
+        FIELDMESH_ROUTE_METRICS \
         FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_DEV_PUMP \
         FIELDMESH_TUN_PLAN \
@@ -199,6 +201,7 @@ verify_variant() {
         sdk_daemon_join_state \
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
+        sdk_daemon_route_metrics \
         sdk_daemon_swarm_adapter \
         sdk_daemon_rf_packet_engine \
         sdk_daemon_rf_tx_guard_plan \
@@ -207,6 +210,7 @@ verify_variant() {
         sdk_daemon_camera_adaptation \
         sdk_daemon_camera_stream_chunk \
         fieldmesh_plan_camera_stream_session \
+        fieldmesh_query_route_metrics \
         fieldmesh_adapt_camera_stream_session \
         fieldmesh_camera_stream_frame \
         input_checksum \

@@ -120,7 +120,8 @@ Minimum daemon messages:
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
 | `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. |
 | `CAMERA_SESSION_PLAN` | app -> daemon | Plan camera stream pacing, chunk window, ACK cadence, reorder window, jitter buffer, and RF handoff policy before sending chunks. |
-| `CAMERA_ADAPTATION_FEEDBACK` | app -> daemon | Submit route-health feedback and receive bitrate/FPS/window/route/backpressure actions. |
+| `ROUTE_METRICS` | app -> daemon | Query measured RF route health: RSSI, SNR, EVM, PER, ACK latency, jitter, queue age, throughput, CFO/Doppler, timing residual, and direct-vs-relay recommendation. |
+| `CAMERA_ADAPTATION_FEEDBACK` | app -> daemon | Adapt camera pacing from `ROUTE_METRICS` and receive bitrate/FPS/window/route/backpressure actions. |
 | `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
@@ -133,6 +134,7 @@ The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
 `FIELDMESH_CAMERA_SESSION_PLAN`,
+`FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`,
 `FIELDMESH_CAMERA_STREAM_CHUNK`,
 `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,

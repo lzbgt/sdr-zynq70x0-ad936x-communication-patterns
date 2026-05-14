@@ -56,7 +56,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 18 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 19 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -190,6 +190,7 @@ serve = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if lin
 query = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if line.strip()]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
@@ -207,7 +208,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 18 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 19 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -221,6 +222,25 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
     raise SystemExit("SDK daemon peer-state query failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("SDK daemon RTLS-state query failed")
+if not route_metrics or route_metrics[0].get("ok") is not True:
+    raise SystemExit("SDK daemon route metrics query failed")
+if route_metrics[0].get("metrics_api") != "fieldmesh_query_route_metrics":
+    raise SystemExit("SDK daemon route metrics did not use SDK metrics API")
+if route_metrics[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("SDK daemon route metrics used wrong destination EUI")
+if route_metrics[0].get("current_route") != 1 or route_metrics[0].get("recommended_route") != 2:
+    raise SystemExit("SDK daemon route metrics should recommend AP relay for degraded direct path")
+if route_metrics[0].get("selected_mode") != 4 or route_metrics[0].get("stream_id") != 500:
+    raise SystemExit("SDK daemon route metrics mode/stream changed")
+if route_metrics[0].get("snr_db") != 11 or route_metrics[0].get("per_mille") != 140:
+    raise SystemExit("SDK daemon route metrics link-quality values changed")
+if route_metrics[0].get("queue_age_ms") != 210 or route_metrics[0].get("delivered_kbps") != 760:
+    raise SystemExit("SDK daemon route metrics queue/throughput values changed")
+if route_metrics[0].get("direct_reachable") != 1 or route_metrics[0].get("relay_available") != 1:
+    raise SystemExit("SDK daemon route metrics reachability flags changed")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if route_metrics[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon route metrics key {key} must be 0")
 if not swarm_adapter or swarm_adapter[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon swarm adapter query failed")
 if swarm_adapter[0].get("product_data_plane") != "packet_stream":
@@ -333,6 +353,10 @@ if not camera_adaptation or camera_adaptation[0].get("ok") is not True:
     raise SystemExit("SDK daemon camera adaptation query failed")
 if camera_adaptation[0].get("sdk_abi") != "pure_c" or camera_adaptation[0].get("adapt_api") != "fieldmesh_adapt_camera_stream_session":
     raise SystemExit("SDK daemon camera adaptation ABI metadata failed")
+if camera_adaptation[0].get("metrics_api") != "fieldmesh_query_route_metrics":
+    raise SystemExit("SDK daemon camera adaptation did not consume route metrics")
+if camera_adaptation[0].get("recommended_route") != 2:
+    raise SystemExit("SDK daemon camera adaptation should carry AP-relay recommendation")
 if camera_adaptation[0].get("action") != 4 or camera_adaptation[0].get("selected_route") != 2:
     raise SystemExit("SDK daemon camera adaptation should switch to AP relay under bad direct link")
 if camera_adaptation[0].get("target_fps") != 15 or camera_adaptation[0].get("target_bitrate_kbps") != 900:
@@ -632,9 +656,15 @@ if camera.get("session_ack_every_chunks") != 4 or camera.get("session_reorder_wi
     raise SystemExit("camera stream SDK demo session flow control failed")
 if camera.get("session_requires_backpressure") != 1 or camera.get("session_requires_keepalive") != 1:
     raise SystemExit("camera stream SDK demo session must require backpressure/keepalive")
-if camera.get("adapt_action") != 2 or camera.get("adapt_target_bitrate_kbps") != 1350:
+if camera.get("metrics_api") != "fieldmesh_query_route_metrics":
+    raise SystemExit("camera stream SDK demo did not consume route metrics")
+if camera.get("route_snr_db") != 11 or camera.get("route_per_mille") != 140:
+    raise SystemExit("camera stream SDK demo route metric values changed")
+if camera.get("route_queue_age_ms") != 210 or camera.get("route_recommended_kind") != 2:
+    raise SystemExit("camera stream SDK demo route recommendation changed")
+if camera.get("adapt_action") != 4 or camera.get("adapt_target_bitrate_kbps") != 900:
     raise SystemExit("camera stream SDK demo adaptation policy failed")
-if camera.get("adapt_ack_every_chunks") != 2 or camera.get("adapt_reorder_window_chunks") != 20:
+if camera.get("adapt_ack_every_chunks") != 1 or camera.get("adapt_reorder_window_chunks") != 24:
     raise SystemExit("camera stream SDK demo adaptation flow control failed")
 if camera.get("adapt_backpressure_asserted") != 1 or camera.get("adapt_drop_enhancement") != 1:
     raise SystemExit("camera stream SDK demo adaptation must assert backpressure/drop enhancement")
@@ -721,7 +751,13 @@ if stream_open[0].get("ack_every_chunks") != 4 or stream_open[0].get("reorder_wi
     raise SystemExit("control/camera app session flow-control policy failed")
 if stream_open[0].get("requires_backpressure") != 1 or stream_open[0].get("requires_keepalive") != 1:
     raise SystemExit("control/camera app session must require backpressure/keepalive")
-if stream_open[0].get("adapt_action") != 2 or stream_open[0].get("adapt_target_bitrate_kbps") != 1350:
+if stream_open[0].get("metrics_api") != "fieldmesh_query_route_metrics":
+    raise SystemExit("control/camera app did not consume route metrics")
+if stream_open[0].get("route_snr_db") != 11 or stream_open[0].get("route_per_mille") != 140:
+    raise SystemExit("control/camera app route metric values changed")
+if stream_open[0].get("route_queue_age_ms") != 210 or stream_open[0].get("route_recommended_kind") != 2:
+    raise SystemExit("control/camera app route recommendation changed")
+if stream_open[0].get("adapt_action") != 4 or stream_open[0].get("adapt_target_bitrate_kbps") != 900:
     raise SystemExit("control/camera app adaptation policy failed")
 if stream_open[0].get("adapt_backpressure_asserted") != 1 or stream_open[0].get("adapt_drop_enhancement") != 1:
     raise SystemExit("control/camera app adaptation must assert backpressure/drop enhancement")

@@ -491,6 +491,68 @@ static int build_response(fieldmesh_context_t *context,
                  summary.packet_timing_tdoa, summary.ap_usable);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_ROUTE_METRICS")) {
+        fieldmesh_route_metrics_t metrics;
+
+        if (fieldmesh_query_route_metrics(session, "020000000103", 500u,
+                                          &metrics) != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_route_metrics\","
+                     "\"ok\":false,"
+                     "\"error\":\"route_metrics_failed\"}\n");
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_route_metrics\","
+                 "\"ok\":true,"
+                 "\"metrics_api\":\"fieldmesh_query_route_metrics\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"relay_device_eui\":\"%s\","
+                 "\"current_route\":%u,"
+                 "\"recommended_route\":%u,"
+                 "\"selected_mode\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"rssi_dbm\":%d,"
+                 "\"snr_db\":%d,"
+                 "\"evm_db\":%d,"
+                 "\"per_mille\":%u,"
+                 "\"ack_latency_ms\":%u,"
+                 "\"jitter_ms\":%u,"
+                 "\"queue_age_ms\":%u,"
+                 "\"delivered_kbps\":%u,"
+                 "\"estimated_kbps\":%u,"
+                 "\"cfo_hz\":%d,"
+                 "\"doppler_hz\":%d,"
+                 "\"timing_residual_ns\":%d,"
+                 "\"measured_age_ms\":%u,"
+                 "\"direct_reachable\":%u,"
+                 "\"relay_available\":%u,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u}\n",
+                 metrics.dst_node_id, metrics.relay_node_id,
+                 (unsigned)metrics.current_route,
+                 (unsigned)metrics.recommended_route,
+                 (unsigned)metrics.selected_mode,
+                 metrics.stream_id,
+                 metrics.rssi_dbm,
+                 metrics.snr_db,
+                 metrics.evm_db,
+                 metrics.per_mille,
+                 metrics.ack_latency_ms,
+                 metrics.jitter_ms,
+                 metrics.queue_age_ms,
+                 metrics.delivered_kbps,
+                 metrics.estimated_kbps,
+                 metrics.cfo_hz,
+                 metrics.doppler_hz,
+                 metrics.timing_residual_ns,
+                 metrics.measured_age_ms,
+                 metrics.direct_reachable,
+                 metrics.relay_available,
+                 metrics.uses_iio,
+                 metrics.uses_inter_board_ip_routing);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_AP_BROWSE")) {
         struct ap_summary summary = {0};
 
@@ -1009,24 +1071,34 @@ static int build_response(fieldmesh_context_t *context,
         fieldmesh_camera_session_plan_t plan;
         fieldmesh_camera_stream_feedback_t feedback;
         fieldmesh_camera_adaptation_report_t adaptation;
+        fieldmesh_route_metrics_t metrics;
 
         snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
                  "%s", "swarm0");
         snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
                  "%s", "020000000103");
         memset(&feedback, 0, sizeof(feedback));
-        feedback.rssi_dbm = -68;
-        feedback.snr_db = 11;
-        feedback.per_mille = 140;
-        feedback.queue_age_ms = 210;
-        feedback.latency_ms = 160;
-        feedback.jitter_ms = 110;
-        feedback.delivered_kbps = 760;
-        feedback.relay_available = 1u;
-        feedback.current_route = FIELDMESH_ROUTE_DIRECT;
-        if (fieldmesh_plan_camera_stream_session(session, &camera_config,
-                                                 &plan) != FIELDMESH_OK ||
-            fieldmesh_adapt_camera_stream_session(session, &plan, &feedback,
+        if (fieldmesh_query_route_metrics(session, camera_config.dst_node_id,
+                                          camera_config.stream_id_base,
+                                          &metrics) != FIELDMESH_OK ||
+            fieldmesh_plan_camera_stream_session(session, &camera_config,
+                                                 &plan) != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_adaptation\","
+                     "\"ok\":false,"
+                     "\"error\":\"plan_or_metrics_failed\"}\n");
+            return 0;
+        }
+        feedback.rssi_dbm = metrics.rssi_dbm;
+        feedback.snr_db = metrics.snr_db;
+        feedback.per_mille = metrics.per_mille;
+        feedback.queue_age_ms = metrics.queue_age_ms;
+        feedback.latency_ms = metrics.ack_latency_ms;
+        feedback.jitter_ms = metrics.jitter_ms;
+        feedback.delivered_kbps = metrics.delivered_kbps;
+        feedback.relay_available = metrics.relay_available;
+        feedback.current_route = metrics.current_route;
+        if (fieldmesh_adapt_camera_stream_session(session, &plan, &feedback,
                                                   &adaptation) != FIELDMESH_OK) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_camera_adaptation\","
@@ -1040,8 +1112,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"ok\":true,"
                  "\"sdk_abi\":\"pure_c\","
                  "\"adapt_api\":\"fieldmesh_adapt_camera_stream_session\","
+                 "\"metrics_api\":\"fieldmesh_query_route_metrics\","
                  "\"adapter_name\":\"%s\","
                  "\"dst_device_eui\":\"%s\","
+                 "\"recommended_route\":%u,"
                  "\"feedback_snr_db\":%d,"
                  "\"feedback_per_mille\":%u,"
                  "\"feedback_queue_age_ms\":%u,"
@@ -1062,6 +1136,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":%u,"
                  "\"writes_hardware\":%u}\n",
                  plan.adapter_name, plan.dst_node_id,
+                 (unsigned)metrics.recommended_route,
                  feedback.snr_db, feedback.per_mille, feedback.queue_age_ms,
                  feedback.delivered_kbps,
                  (unsigned)adaptation.action,
@@ -1676,6 +1751,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_ROUTE_METRICS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&

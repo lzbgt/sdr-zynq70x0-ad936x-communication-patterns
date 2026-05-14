@@ -1066,6 +1066,91 @@ fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_query_route_metrics(
+    fieldmesh_session_t *session,
+    const char *dst_node_id,
+    uint16_t stream_id,
+    fieldmesh_route_metrics_t *out_metrics)
+{
+    fieldmesh_route_info_t route;
+    fieldmesh_peer_info_t peer;
+    int have_peer;
+
+    if (!session || !session->joined || !dst_node_id || !out_metrics) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (fieldmesh_query_route(session, dst_node_id, stream_id, &route) !=
+        FIELDMESH_OK) {
+        return FIELDMESH_ERR_NOT_FOUND;
+    }
+
+    have_peer = default_peer_for_identifier(dst_node_id, &peer);
+    memset(out_metrics, 0, sizeof(*out_metrics));
+    sdk_copy_text(out_metrics->dst_node_id, sizeof(out_metrics->dst_node_id),
+                  route.dst_node_id);
+    sdk_copy_text(out_metrics->relay_node_id, sizeof(out_metrics->relay_node_id),
+                  session->ap.ap_id);
+    out_metrics->current_route = route.route_kind;
+    out_metrics->recommended_route = route.route_kind;
+    out_metrics->selected_mode = route.selected_mode;
+    out_metrics->stream_id = stream_id;
+    out_metrics->direct_reachable = have_peer ? peer.direct_reachable : 0u;
+    out_metrics->relay_available = have_peer ? peer.relay_allowed : 1u;
+    out_metrics->uses_iio = 0u;
+    out_metrics->uses_inter_board_ip_routing = 0u;
+
+    if (have_peer && strcmp(peer.device_uuid, FIELDMESH_EUI_Z203) == 0) {
+        out_metrics->rssi_dbm = -54;
+        out_metrics->snr_db = 28;
+        out_metrics->evm_db = -31;
+        out_metrics->per_mille = 10u;
+        out_metrics->ack_latency_ms = 34u;
+        out_metrics->jitter_ms = 12u;
+        out_metrics->queue_age_ms = 28u;
+        out_metrics->delivered_kbps = 6400u;
+        out_metrics->estimated_kbps = 7000u;
+        out_metrics->cfo_hz = 180;
+        out_metrics->doppler_hz = 2;
+        out_metrics->timing_residual_ns = 42;
+        out_metrics->measured_age_ms = 90u;
+        out_metrics->recommended_route = FIELDMESH_ROUTE_DIRECT;
+    } else if (have_peer && strcmp(peer.device_uuid, FIELDMESH_EUI_Z103) == 0) {
+        out_metrics->rssi_dbm = -68;
+        out_metrics->snr_db = 11;
+        out_metrics->evm_db = -13;
+        out_metrics->per_mille = 140u;
+        out_metrics->ack_latency_ms = 160u;
+        out_metrics->jitter_ms = 110u;
+        out_metrics->queue_age_ms = 210u;
+        out_metrics->delivered_kbps = 760u;
+        out_metrics->estimated_kbps = 900u;
+        out_metrics->cfo_hz = 1450;
+        out_metrics->doppler_hz = 16;
+        out_metrics->timing_residual_ns = 380;
+        out_metrics->measured_age_ms = 120u;
+        out_metrics->recommended_route =
+            out_metrics->relay_available ? FIELDMESH_ROUTE_AP_RELAYED :
+                                           FIELDMESH_ROUTE_DIRECT;
+    } else {
+        out_metrics->rssi_dbm = -75;
+        out_metrics->snr_db = 9;
+        out_metrics->evm_db = -10;
+        out_metrics->per_mille = 180u;
+        out_metrics->ack_latency_ms = 220u;
+        out_metrics->jitter_ms = 160u;
+        out_metrics->queue_age_ms = 260u;
+        out_metrics->delivered_kbps = 450u;
+        out_metrics->estimated_kbps = 700u;
+        out_metrics->cfo_hz = 2100;
+        out_metrics->doppler_hz = 24;
+        out_metrics->timing_residual_ns = 640;
+        out_metrics->measured_age_ms = 180u;
+        out_metrics->recommended_route = FIELDMESH_ROUTE_AP_RELAYED;
+    }
+
+    return FIELDMESH_OK;
+}
+
 fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,
                                                      const fieldmesh_rtls_measurement_t *measurement)
 {

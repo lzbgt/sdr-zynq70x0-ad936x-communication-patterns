@@ -69,13 +69,14 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 18:
+    if not end or end[-1].get("handled") != 19:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     ap_browse = one(query, "sdk_daemon_ap_browse")
     ap_election = one(query, "sdk_daemon_ap_election")
     join_state = one(query, "sdk_daemon_join_state")
     rtls = one(query, "sdk_daemon_rtls_state")
+    route_metrics = one(query, "sdk_daemon_route_metrics")
     camera_session = one(query, "sdk_daemon_camera_session_plan")
     camera_adaptation = one(query, "sdk_daemon_camera_adaptation")
     camera_chunk = one(query, "sdk_daemon_camera_stream_chunk")
@@ -88,10 +89,20 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} join/scheduled-mode state failed")
     if rtls.get("positions") != 2 or rtls.get("packet_timing_tdoa") != 1:
         raise SystemExit(f"{label} RTLS state failed")
+    if route_metrics.get("ok") is not True or route_metrics.get("metrics_api") != "fieldmesh_query_route_metrics":
+        raise SystemExit(f"{label} route metrics failed")
+    if route_metrics.get("current_route") != 1 or route_metrics.get("recommended_route") != 2:
+        raise SystemExit(f"{label} route metrics did not recommend relay fallback")
+    if route_metrics.get("uses_iio") != 0 or route_metrics.get("uses_inter_board_ip_routing") != 0:
+        raise SystemExit(f"{label} route metrics must not use IIO or inter-board IP routing")
     if camera_session.get("ok") is not True or camera_session.get("session_api") != "fieldmesh_plan_camera_stream_session":
         raise SystemExit(f"{label} camera session plan failed")
     if camera_adaptation.get("ok") is not True or camera_adaptation.get("adapt_api") != "fieldmesh_adapt_camera_stream_session":
         raise SystemExit(f"{label} camera adaptation failed")
+    if camera_adaptation.get("metrics_api") != "fieldmesh_query_route_metrics":
+        raise SystemExit(f"{label} camera adaptation did not consume route metrics")
+    if camera_adaptation.get("recommended_route") != 2 or camera_adaptation.get("selected_route") != 2:
+        raise SystemExit(f"{label} camera adaptation did not switch to AP relay")
     if camera_chunk.get("ok") is not True or camera_chunk.get("preview_match") != 1:
         raise SystemExit(f"{label} camera chunk preview failed")
     if app_camera.get("control_plane_ok") is not True or app_camera.get("data_plane_ok") is not True:
@@ -118,6 +129,11 @@ def daemon_summary(label, path):
         "selected_mode": join_state.get("selected_mode"),
         "rtls_positions": rtls.get("positions"),
         "packet_timing_tdoa": rtls.get("packet_timing_tdoa"),
+        "route_metrics_api": route_metrics.get("metrics_api"),
+        "route_recommended_route": route_metrics.get("recommended_route"),
+        "route_snr_db": route_metrics.get("snr_db"),
+        "route_per_mille": route_metrics.get("per_mille"),
+        "route_queue_age_ms": route_metrics.get("queue_age_ms"),
         "camera_session_api": camera_session.get("session_api"),
         "camera_adaptation_api": camera_adaptation.get("adapt_api"),
         "camera_adaptation_action": camera_adaptation.get("action"),

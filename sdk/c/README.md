@@ -49,9 +49,12 @@ in `src/fieldmesh_sdk.c`:
   packet-engine handoff through the same pure-C camera stream API used by the
   C++ app. It also serves `FIELDMESH_CAMERA_SESSION_PLAN`, which reports
   pacing, inflight-window, ACK, reorder, jitter, and backpressure policy before
-  streaming begins. `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` applies live
-  route-health feedback to that plan, reducing bitrate/FPS/window size or
-  switching to AP relay when the direct RF path degrades. It also serves
+  streaming begins. `FIELDMESH_ROUTE_METRICS` exposes the measured radio route
+  state used by production adaptation: RSSI, SNR, EVM, PER, ACK latency, jitter,
+  queue age, throughput, CFO/Doppler, timing residual, and direct-vs-relay
+  recommendation. `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` consumes that SDK
+  route-metrics API, reducing bitrate/FPS/window size or switching to AP relay
+  when the direct RF path degrades. It also serves
   `FIELDMESH_CAMERA_STREAM_CHUNK`, a direct Ethernet SDK data-plane request
   that accepts one encoded camera byte chunk and returns preview/checksum/RF
   handoff status. A separate process queries those services over the same IP

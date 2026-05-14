@@ -349,6 +349,7 @@ int main(int argc, char **argv)
     fieldmesh_camera_session_plan_t camera_session{};
     fieldmesh_camera_stream_feedback_t camera_feedback{};
     fieldmesh_camera_adaptation_report_t camera_adaptation{};
+    fieldmesh_route_metrics_t camera_route_metrics{};
     ApList aps;
     PeerList peers;
     PositionList positions;
@@ -470,15 +471,23 @@ int main(int argc, char **argv)
     camera_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
-    camera_feedback.rssi_dbm = -64;
-    camera_feedback.snr_db = 18;
-    camera_feedback.per_mille = 65;
-    camera_feedback.queue_age_ms = 130;
-    camera_feedback.latency_ms = 90;
-    camera_feedback.jitter_ms = 72;
-    camera_feedback.delivered_kbps = 1350;
-    camera_feedback.relay_available = 1;
-    camera_feedback.current_route = FIELDMESH_ROUTE_DIRECT;
+    if (!require_ok(fieldmesh_query_route_metrics(
+                        session, camera_config.dst_node_id,
+                        camera_config.stream_id_base, &camera_route_metrics),
+                    "query_route_metrics")) {
+        (void)fieldmesh_leave(session);
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
+    camera_feedback.rssi_dbm = camera_route_metrics.rssi_dbm;
+    camera_feedback.snr_db = camera_route_metrics.snr_db;
+    camera_feedback.per_mille = camera_route_metrics.per_mille;
+    camera_feedback.queue_age_ms = camera_route_metrics.queue_age_ms;
+    camera_feedback.latency_ms = camera_route_metrics.ack_latency_ms;
+    camera_feedback.jitter_ms = camera_route_metrics.jitter_ms;
+    camera_feedback.delivered_kbps = camera_route_metrics.delivered_kbps;
+    camera_feedback.relay_available = camera_route_metrics.relay_available;
+    camera_feedback.current_route = camera_route_metrics.current_route;
 
     if (!require_ok(fieldmesh_plan_camera_stream_session(session, &camera_config,
                                                          &camera_session),
@@ -512,6 +521,11 @@ int main(int argc, char **argv)
                 "\"jitter_buffer_ms\":%u,"
                 "\"requires_backpressure\":%u,"
                 "\"requires_keepalive\":%u,"
+                "\"metrics_api\":\"fieldmesh_query_route_metrics\","
+                "\"route_snr_db\":%d,"
+                "\"route_per_mille\":%u,"
+                "\"route_queue_age_ms\":%u,"
+                "\"route_recommended_kind\":%u,"
                 "\"adapt_action\":%u,"
                 "\"adapt_route_kind\":%u,"
                 "\"adapt_target_fps\":%u,"
@@ -535,6 +549,10 @@ int main(int argc, char **argv)
                 camera_session.jitter_buffer_ms,
                 camera_session.requires_backpressure,
                 camera_session.requires_session_keepalive,
+                camera_route_metrics.snr_db,
+                camera_route_metrics.per_mille,
+                camera_route_metrics.queue_age_ms,
+                static_cast<unsigned>(camera_route_metrics.recommended_route),
                 static_cast<unsigned>(camera_adaptation.action),
                 static_cast<unsigned>(camera_adaptation.selected_route),
                 camera_adaptation.target_fps,

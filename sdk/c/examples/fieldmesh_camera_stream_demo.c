@@ -23,6 +23,7 @@ int main(void)
     fieldmesh_camera_session_plan_t session_plan;
     fieldmesh_camera_stream_feedback_t feedback;
     fieldmesh_camera_adaptation_report_t adaptation;
+    fieldmesh_route_metrics_t route_metrics;
     fieldmesh_camera_frame_report_t report;
     unsigned char input[384];
     unsigned char preview[384];
@@ -51,20 +52,28 @@ int main(void)
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
     memset(&feedback, 0, sizeof(feedback));
-    feedback.rssi_dbm = -66;
-    feedback.snr_db = 17;
-    feedback.per_mille = 70;
-    feedback.queue_age_ms = 135;
-    feedback.latency_ms = 95;
-    feedback.jitter_ms = 70;
-    feedback.delivered_kbps = 1250;
-    feedback.relay_available = 1;
-    feedback.current_route = FIELDMESH_ROUTE_DIRECT;
 
     fill_camera_bytes(input, sizeof(input));
     if (fieldmesh_context_create(&config, &ctx) != FIELDMESH_OK ||
-        fieldmesh_join_ap(ctx, &join, &session) != FIELDMESH_OK ||
-        fieldmesh_plan_camera_stream_session(session, &camera_config,
+        fieldmesh_join_ap(ctx, &join, &session) != FIELDMESH_OK) {
+        goto out;
+    }
+    if (fieldmesh_query_route_metrics(session, camera_config.dst_node_id,
+                                      camera_config.stream_id_base,
+                                      &route_metrics) != FIELDMESH_OK) {
+        goto out;
+    }
+    feedback.rssi_dbm = route_metrics.rssi_dbm;
+    feedback.snr_db = route_metrics.snr_db;
+    feedback.per_mille = route_metrics.per_mille;
+    feedback.queue_age_ms = route_metrics.queue_age_ms;
+    feedback.latency_ms = route_metrics.ack_latency_ms;
+    feedback.jitter_ms = route_metrics.jitter_ms;
+    feedback.delivered_kbps = route_metrics.delivered_kbps;
+    feedback.relay_available = route_metrics.relay_available;
+    feedback.current_route = route_metrics.current_route;
+
+    if (fieldmesh_plan_camera_stream_session(session, &camera_config,
                                              &session_plan) != FIELDMESH_OK ||
         fieldmesh_adapt_camera_stream_session(session, &session_plan, &feedback,
                                               &adaptation) != FIELDMESH_OK ||
@@ -94,6 +103,11 @@ int main(void)
            "\"session_jitter_buffer_ms\":%u,"
            "\"session_requires_backpressure\":%u,"
            "\"session_requires_keepalive\":%u,"
+           "\"metrics_api\":\"fieldmesh_query_route_metrics\","
+           "\"route_snr_db\":%d,"
+           "\"route_per_mille\":%u,"
+           "\"route_queue_age_ms\":%u,"
+           "\"route_recommended_kind\":%u,"
            "\"adapt_action\":%u,"
            "\"adapt_route_kind\":%u,"
            "\"adapt_target_fps\":%u,"
@@ -126,6 +140,10 @@ int main(void)
            session_plan.jitter_buffer_ms,
            session_plan.requires_backpressure,
            session_plan.requires_session_keepalive,
+           route_metrics.snr_db,
+           route_metrics.per_mille,
+           route_metrics.queue_age_ms,
+           (unsigned)route_metrics.recommended_route,
            (unsigned)adaptation.action,
            (unsigned)adaptation.selected_route,
            adaptation.target_fps,

@@ -632,6 +632,7 @@ user and vendor configuration.
   a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
   query demo, including the composed `FIELDMESH_APP_CONTROL_CAMERA` app-level
   control/data-plane request, `FIELDMESH_CAMERA_SESSION_PLAN`,
+  `FIELDMESH_ROUTE_METRICS`,
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and direct
   `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane request, a `swarm0` adapter
   packet-classification demo, a routed
@@ -1010,13 +1011,17 @@ Expected result in the current Pluto-compatible firmware state:
    for that composition. The daemon contract also exposes
    `FIELDMESH_CAMERA_SESSION_PLAN` for pacing, inflight-window, ACK cadence,
    reorder-window, jitter-buffer, backpressure, and keepalive policy,
-   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` for bitrate/FPS/window/backpressure
-   and AP-relay fallback decisions, plus direct `FIELDMESH_CAMERA_STREAM_CHUNK`
-   ingress so an Ethernet SDK client can submit one encoded camera chunk and
-   receive preview/checksum/RF handoff status without reimplementing stream
-   classification. Live daemon smokes verified the session planner, adaptation,
-   and chunk ingress with `camera_session_events=1`,
-   `camera_adaptation_events=1`, and `camera_chunk_events=1`. The post-install RF
+   `FIELDMESH_ROUTE_METRICS` for measured RSSI/SNR/EVM/PER, latency, jitter,
+   queue, throughput, CFO/Doppler, timing residual, and direct-vs-relay route
+   recommendation, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` for
+   bitrate/FPS/window/backpressure and AP-relay fallback decisions from that
+   measured route state, plus direct `FIELDMESH_CAMERA_STREAM_CHUNK` ingress so
+   an Ethernet SDK client can submit one encoded camera chunk and receive
+   preview/checksum/RF handoff status without reimplementing stream
+   classification. Live daemon smokes verified the session planner, route
+   metrics, adaptation, and chunk ingress with `camera_session_events=1`,
+   `route_metrics_events=1`, `camera_adaptation_events=1`, and
+   `camera_chunk_events=1`. The post-install RF
    packet-engine binding gate still recovered frame CRC `2646482743` while
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
    Z203's USB/RNDIS data gadget is still not exposed as a second Windows

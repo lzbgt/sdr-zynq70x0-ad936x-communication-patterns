@@ -1,0 +1,1 @@
+/tmp/fieldmesh-state-daemon-demo serve 0.0.0.0 55432 19 3000
