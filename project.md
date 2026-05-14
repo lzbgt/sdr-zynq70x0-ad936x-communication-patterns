@@ -267,6 +267,11 @@ user and vendor configuration.
   RTLS/co-location, streaming, the `swarm0` adapter mapping, local IIO admin
   bridge, routed TUN gateway behavior, predefined AP, and autonomous swarm mesh
   behavior.
+- `docs/fieldmesh-production-refactor-roadmap.md` - planned production
+  refactor roadmap for the golden IM app, portable app core, platform driver
+  layers, SDK common facilities, daemon messaging/data-plane evolution, and
+  command-CA/cloud licensing model. It is a planning document only; it does not
+  change the current verified implementation.
 - `docs/fieldmesh-transport-abi.md` - staged transport boundary for moving the
   UDP FieldMesh packet stream toward memory/driver and PL packet queues without
   changing the common packet header or trace contract. IIO is not part of the

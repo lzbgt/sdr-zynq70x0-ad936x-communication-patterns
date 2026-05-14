@@ -4,6 +4,24 @@ This page tracks concrete work still open after the verified WSL Arch Yocto,
 Vivado, SD boot, QSPI `mtd3`, and OpenOCD JTAG bring-up. Recently closed gates
 are kept briefly when they affect the remaining recovery decisions.
 
+## Planned Production Refactor
+
+Status: documented only; implementation intentionally deferred.
+
+The next architecture cleanup is captured in
+`docs/fieldmesh-production-refactor-roadmap.md`. It records the planned split
+between the golden IM app shell, portable app core, platform driver layer,
+pure-C SDK, board daemon, and RF packet path. It also captures the intended SDK
+common-facility extraction, daemon messaging/data-plane redesign candidates
+including ZMQ, and the mandatory command-CA/cloud licensing model for derived
+certificates, mutual authentication, authorization, revocation, and signed
+entitlements.
+
+Do not start this refactor until the current manual GUI validation and RF gates
+are stable enough to protect behavior. Profiles remain test/provisioning
+fixtures only; normal apps must discover devices and capabilities at runtime,
+with no hardcoded app EUI, board EUI, hostname, endpoint, or fixed AP role.
+
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
 Status: resource import, read-only serial baseline, source preflight, Vivado

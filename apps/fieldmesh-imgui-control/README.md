@@ -40,6 +40,12 @@ external runtime profile used by tests. The app also must not bundle the
 command CA private key. Per-device private keys should live in the OS key
 store, secure element, or board-side secure storage.
 
+The planned production refactor is tracked in
+`../../docs/fieldmesh-production-refactor-roadmap.md`. That plan separates the
+IM app into a portable app core, UI layer, platform driver layer, SDK adapter,
+and test-profile fixtures, then moves stable common behavior into the pure-C
+SDK. It is not implemented yet.
+
 The default `make check` target builds a dependency-free headless check that
 verifies the GUI state model, ImGui render source, embedded resource contract,
 and embedded Python API source. In CI, `fieldmesh_imgui_pyapi.py` is only a
