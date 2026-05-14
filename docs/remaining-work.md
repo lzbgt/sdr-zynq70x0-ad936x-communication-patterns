@@ -79,6 +79,8 @@ Firmware state:
   Z203 QSPI repair must use dedicated scratch-probe/repair helpers, not product
   install. It also resolves and refuses a forced Z203 QSPI mode before starting
   parallel board updates, so a Z203 refusal cannot accidentally reflash Z103.
+  `tools/verify_fieldmesh_connected_board_installer.sh` now verifies this
+  ordering with synthetic failure inputs, without touching either board.
   Do not mark QSPI install repaired until `mtd3` readback, U-Boot environment
   access, and U-Boot `qspiboot` all verify. The latest live integrity capture
   shows the

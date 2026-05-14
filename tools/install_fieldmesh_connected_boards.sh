@@ -12,6 +12,10 @@ z203_install_mode="${Z203_INSTALL_MODE:-auto}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/install-connected-$(date +%Y%m%d-%H%M%S)}"
+diagnose_z203_qspi_integrity_sh="${DIAGNOSE_Z203_QSPI_INTEGRITY_SH:-$repo_root/tools/diagnose_z203_qspi_integrity.sh}"
+install_fieldmesh_pluto_frm_sh="${INSTALL_FIELDMESH_PLUTO_FRM_SH:-$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh}"
+stage_fieldmesh_sd_boot_files_sh="${STAGE_FIELDMESH_SD_BOOT_FILES_SH:-$repo_root/tools/stage_fieldmesh_sd_boot_files.sh}"
+install_sd_boot_files_over_ssh_sh="${INSTALL_SD_BOOT_FILES_OVER_SSH_SH:-$repo_root/tools/install_sd_boot_files_over_ssh.sh}"
 
 mkdir -p "$out_dir"
 
@@ -100,7 +104,7 @@ z203_has_sd_partition() {
 z203_qspi_integrity_pass() {
     local diag_dir="$out_dir/z203-qspi-integrity-precheck"
     if ! OUT_DIR="$diag_dir" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-        "$repo_root/tools/diagnose_z203_qspi_integrity.sh" "$z203_ip" \
+        "$diagnose_z203_qspi_integrity_sh" "$z203_ip" \
         >"$out_dir/z203_qspi_integrity_precheck.log" 2>&1; then
         cat "$out_dir/z203_qspi_integrity_precheck.log" >&2
         return 1
@@ -117,10 +121,10 @@ PY
 
 install_z203_sd() {
     sd_stage="$out_dir/z203-sd-stage"
-    OUT_DIR="$sd_stage" "$repo_root/tools/stage_fieldmesh_sd_boot_files.sh" z203 \
+    OUT_DIR="$sd_stage" "$stage_fieldmesh_sd_boot_files_sh" z203 \
         >"$out_dir/z203_sd_stage.log" 2>&1
     SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-        "$repo_root/tools/install_sd_boot_files_over_ssh.sh" "$sd_stage" "$z203_ip" \
+        "$install_sd_boot_files_over_ssh_sh" "$sd_stage" "$z203_ip" \
         >"$out_dir/z203_sd_install.log" 2>&1
     if [ "$reboot_after" = "1" ]; then
         sshpass -p "$ssh_pass" ssh \
@@ -144,7 +148,7 @@ install_z203_qspi() {
     fi
     APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
         OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-        "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
+        "$install_fieldmesh_pluto_frm_sh" z203 "$z203_ip"
 }
 
 cat > "$out_dir/plan.json" <<EOF_PLAN
@@ -220,7 +224,7 @@ z203_pid=$!
 (
     APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
         OUT_DIR="$out_dir/z103" BOARD_IP="$z103_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-        "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z103 "$z103_ip"
+        "$install_fieldmesh_pluto_frm_sh" z103 "$z103_ip"
 ) >"$out_dir/z103_install.log" 2>&1 &
 z103_pid=$!
 

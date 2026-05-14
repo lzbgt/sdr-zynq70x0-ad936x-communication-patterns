@@ -3733,6 +3733,18 @@ checked after the earlier installer ordering bug exposed an unintended Z103
 update, and its installed daemon gate still passed under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_post_installer_refusal_regression_gate_20260515-071051/`.
 
+The same ordering is now covered without live board writes:
+
+```sh
+./tools/verify_fieldmesh_connected_board_installer.sh
+```
+
+The verifier injects a synthetic failed Z203 QSPI integrity diagnostic plus a
+fake package installer that records any call. It passes only if forced
+`Z203_INSTALL_MODE=qspi` exits nonzero before any board installer is called,
+before `z103_install.log` exists, and with
+`z203_damaged_qspi_override_supported=false` in the plan.
+
 ### Z203 QSPI Tail Write And U-Boot Repair Probe
 
 The Linux MTD write path was tested on one unused `mtd3` tail eraseblock, after
