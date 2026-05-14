@@ -287,7 +287,9 @@ Current concrete work:
 - Keep profiles as test/provisioning fixtures only. Normal GUI startup must use
   runtime discovery and app -> SDK -> daemon configuration. The app, SDK, and
   daemon must not compile in deployment EUI, hostname, endpoint, or fixed AP
-  role.
+  role. Runtime GUI discovery must list boards without auto-connecting and
+  without silently electing the first board as AP; AP selection is an explicit
+  or daemon-elected control-plane result.
 - Keep lab peers out of production SDK contexts. The SDK now starts with an
   empty observed-radio registry unless a test explicitly calls
   `fieldmesh_seed_test_lab_fixtures()` or sets the verifier fixture flag. A

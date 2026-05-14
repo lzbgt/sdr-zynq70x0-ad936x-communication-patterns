@@ -693,7 +693,9 @@ user and vendor configuration.
   models a symmetric peer client with a first-run connection setup page for
   selecting a detected board and choosing dropdown-driven radio profiles
   (frequency intent, channel, bandwidth, sample rate, modulation, FEC,
-  adaptive MCS, direct P2P preference, and AP relay fallback). After connect it
+  adaptive MCS, direct P2P preference, and AP relay fallback). Runtime
+  discovery lists boards from daemon `HELLO` responses without auto-connecting
+  and without silently electing the first board as AP. After connect it
   presents the normal IM surface: peer list, message history, input box,
   control-plane actions, radio topology, relative co-location, and video
   invite/accept/deny controls for host camera sessions. It embeds an

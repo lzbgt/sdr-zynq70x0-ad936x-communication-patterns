@@ -237,6 +237,8 @@ def main() -> int:
                 raise SystemExit("runtime discovery must not auto-connect to the first board")
             if default_data["selected_board_eui"] != "":
                 raise SystemExit("runtime discovery must wait for explicit board selection")
+            if default_data["selected_ap_eui"] != "":
+                raise SystemExit("runtime discovery must not preselect an AP before election")
             if default_data["topology_position_model_peers"] != 0:
                 raise SystemExit("runtime discovery must not fabricate topology coordinates")
             if default_data["topology_max_peer_range_m"] >= 0:
@@ -278,6 +280,8 @@ def main() -> int:
                     raise SystemExit("GUI runtime discovery is still capped below dynamic swarm scale")
                 if many_data["connected_to_board"]:
                     raise SystemExit("many-board runtime discovery must still wait for explicit selection")
+                if many_data["selected_ap_eui"] != "":
+                    raise SystemExit("many-board runtime discovery must not preselect an AP")
             finally:
                 for sock, _port, _thread in many_servers:
                     sock.close()
@@ -309,6 +313,8 @@ def main() -> int:
                 raise SystemExit("discovered daemon host not preserved")
             if data["local_board_eui"] != "02aabb000002":
                 raise SystemExit("connected local board identity is not explicit")
+            if data["selected_ap_eui"] != "":
+                raise SystemExit("explicit board connection must not silently elect the first AP")
             if data["active_remote_peer_eui"] != "02aabb000001":
                 raise SystemExit("remote peer should be distinct from the local board")
             if data["active_remote_peer_eui"] == data["selected_board_eui"]:

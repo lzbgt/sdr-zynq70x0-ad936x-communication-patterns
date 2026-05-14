@@ -151,7 +151,10 @@ assume Windows camera or board devices are automatically present inside WSL.
 For normal WSLg developer launch, do not pass the lab profile. The launcher
 exports a runtime discovery candidate list and the app calls the pure-C SDK
 daemon discovery path, so the connection setup page is populated from board
-`FIELDMESH_HELLO` responses and their advertised capability set:
+`FIELDMESH_HELLO` responses and their advertised capability set. Runtime
+discovery does not preselect a local board or AP; the operator must explicitly
+connect to a detected board, and AP election remains a separate control-plane
+action:
 
 ```sh
 IMGUI_DIR=/root/work/ZYNQ7020/.config/third_party/imgui \

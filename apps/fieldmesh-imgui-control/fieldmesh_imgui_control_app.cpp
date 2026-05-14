@@ -1164,7 +1164,8 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
                                  boards[i].requires_mutual_auth_for_production != 0u,
                                  boards[i].rtls_position_capable != 0u});
     }
-    state->selected_ap_eui = state->boards[0].device_eui;
+    state->selected_ap_eui.clear();
+    state->auto_election_enabled = true;
     state->camera.dst_device_eui.clear();
     state->camera.subscribed_device_eui.clear();
     state->operation_status = "runtime_discovery_loaded_select_board";

@@ -3067,10 +3067,11 @@ deployment identity, OS/board secure-storage private-key ownership, and
 `user_runs_shell_scripts=false`.
 The runtime-discovery subtest now launches 32 loopback daemon endpoints and
 requires all 32 to appear on the connection setup page without auto-connecting,
-which verifies the GUI is no longer capped by the old 16-board lab array. The
-source-contract check also verifies the WSLg helper stages forced transient
-daemons from product deploy aliases `fm-z203` and `fm-z103`, not stale legacy
-machine deploy directories.
+without selecting the first AP, which verifies the GUI is no longer capped by
+the old 16-board lab array and no longer makes first-endpoint AP assumptions.
+The source-contract check also verifies the WSLg helper stages forced
+transient daemons from product deploy aliases `fm-z203` and `fm-z103`, not
+stale legacy machine deploy directories.
 When WSLg sockets are present, the same gate also checks
 `tools/run_fieldmesh_imgui_wslg.sh --check-bridge`, which verifies the Arch WSL
 to Windows-host GUI bridge environment before any manual GUI launch. When
