@@ -27,7 +27,7 @@ do_configure:prepend() {
     ln -sf "${S}/include/libfdt_env.h" "${B}/host-fdt-include/libfdt_env.h"
 }
 
-COMPATIBLE_MACHINE = "sdr-z103-zynq7"
+COMPATIBLE_MACHINE = "(sdr-z103-zynq7|fm-z103)"
 
 PROVIDES += "virtual/bootloader"
 

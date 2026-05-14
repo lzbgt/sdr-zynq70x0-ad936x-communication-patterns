@@ -95,13 +95,14 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 23:
+    if not end or end[-1].get("handled") != 24:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
     ap_browse = one(query, "sdk_daemon_ap_browse")
     ap_election = one(query, "sdk_daemon_ap_election")
     join_state = one(query, "sdk_daemon_join_state")
+    rtls_report = one(query, "sdk_daemon_rtls_report")
     rtls = one(query, "sdk_daemon_rtls_state")
     rtls_position = one(query, "sdk_daemon_rtls_position")
     route_metrics = one(query, "sdk_daemon_route_metrics")
@@ -132,8 +133,18 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} join/scheduled-mode state failed")
     if rtls.get("positions") != 2 or rtls.get("packet_timing_tdoa") != 1:
         raise SystemExit(f"{label} RTLS state failed")
+    if rtls_report.get("ok") is not True:
+        raise SystemExit(f"{label} RTLS report failed")
+    if rtls_report.get("measurement_api") != "fieldmesh_report_rtls_measurement":
+        raise SystemExit(f"{label} RTLS report did not use SDK measurement API")
+    if rtls_report.get("updates_peer_registry") != 1:
+        raise SystemExit(f"{label} RTLS report did not update peer registry")
+    if rtls_report.get("x_cm") != 200 or rtls_report.get("y_cm") != 120:
+        raise SystemExit(f"{label} RTLS report did not publish updated position")
     if rtls_position.get("ok") is not True:
         raise SystemExit(f"{label} RTLS position failed")
+    if rtls_position.get("x_cm") != rtls_report.get("x_cm") or rtls_position.get("y_cm") != rtls_report.get("y_cm"):
+        raise SystemExit(f"{label} RTLS position did not reflect latest report")
     if rtls_position.get("position_source") not in ("gps_pps_fused", "packet_timing_tdoa"):
         raise SystemExit(f"{label} RTLS position source is not usable")
     if rtls_position.get("radio_topology_only") != 1 or rtls_position.get("host_eth_topology") != 0:
@@ -189,6 +200,9 @@ def daemon_summary(label, path):
         "joined": join_state.get("joined"),
         "selected_mode": join_state.get("selected_mode"),
         "rtls_positions": rtls.get("positions"),
+        "rtls_report_source": rtls_report.get("position_source"),
+        "rtls_report_x_cm": rtls_report.get("x_cm"),
+        "rtls_report_y_cm": rtls_report.get("y_cm"),
         "rtls_position_source": rtls_position.get("position_source"),
         "rtls_position_error_radius_cm": rtls_position.get("error_radius_cm"),
         "packet_timing_tdoa": rtls.get("packet_timing_tdoa"),

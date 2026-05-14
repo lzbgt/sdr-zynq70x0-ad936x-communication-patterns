@@ -168,8 +168,13 @@ SDK:
 ## Current Daemon Behavior
 
 `FIELDMESH_RTLS_POSITION` is the runtime API boundary used by the GUI and test
-gates, but the current `fieldmesh-state-daemon-demo` still seeds deterministic
-RTLS measurements at startup. Those measurements prove the app, SDK, daemon,
+gates. `FIELDMESH_RTLS_REPORT` is now the daemon ingestion boundary for live
+or harness-provided measurements; it validates compact device EUI and
+GNSS/PPS/TDOA fields, calls `fieldmesh_report_rtls_measurement()`, and returns
+the fused position.
+
+The current `fieldmesh-state-daemon-demo` still contains deterministic startup
+measurements for verification. Those measurements prove the app, SDK, daemon,
 and topology rendering path without pretending that board movement is already
 being sampled from live hardware.
 

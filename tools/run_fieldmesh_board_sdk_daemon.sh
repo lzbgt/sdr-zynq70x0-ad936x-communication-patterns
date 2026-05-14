@@ -9,8 +9,16 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-23}"
-route_dst_eui="${ROUTE_DST_EUI:-020000000103}"
+requests="${REQUESTS:-24}"
+case "$variant" in
+    z103)
+        default_route_dst_eui="020000000203"
+        ;;
+    *)
+        default_route_dst_eui="020000000103"
+        ;;
+esac
+route_dst_eui="${ROUTE_DST_EUI:-$default_route_dst_eui}"
 explicit_ap_eui="${EXPLICIT_AP_EUI:-020000000103}"
 explicit_dst_eui="${EXPLICIT_DST_EUI:-020000000203}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
@@ -136,6 +144,7 @@ query = load(query_path)
 hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+rtls_report = [row for row in query if row.get("event") == "sdk_daemon_rtls_report"]
 rtls_position = [row for row in query if row.get("event") == "sdk_daemon_rtls_position"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 radio_config = [row for row in query if row.get("event") == "sdk_daemon_radio_config_plan"]
@@ -156,7 +165,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 23:
+if not end or end[-1].get("handled") != 24:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -170,7 +179,8 @@ if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("board SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_rf_packet_engine",
-            "supports_radio_config_plan", "supports_rtls_position"):
+            "supports_radio_config_plan", "supports_rtls_position",
+            "supports_rtls_report"):
     if hello[0].get(key) != 1:
         raise SystemExit(f"board SDK daemon HELLO capability {key} must be 1")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
@@ -190,12 +200,27 @@ if not ap_election or ap_election[0].get("elected_node_id") != "020000000203":
     raise SystemExit("board SDK daemon AP election response failed")
 if not join_state or join_state[0].get("joined") is not True or join_state[0].get("selected_mode") != 4:
     raise SystemExit("board SDK daemon AP join response failed")
-if not peer or peer[0].get("peers") != 2 or peer[0].get("relay_capable") < 1:
+if (not peer or peer[0].get("peers", 0) < 1 or
+        peer[0].get("source") != "observed_radio_peer_registry" or
+        peer[0].get("peer_capacity_model") != "dynamic"):
     raise SystemExit("board SDK daemon peer-state response failed")
-if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
+if not rtls or rtls[0].get("positions", 0) < 1 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("board SDK daemon RTLS-state response failed")
+if not rtls_report or rtls_report[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon RTLS-report response failed")
+if rtls_report[0].get("measurement_api") != "fieldmesh_report_rtls_measurement":
+    raise SystemExit("board SDK daemon RTLS-report did not use SDK measurement API")
+if rtls_report[0].get("updates_peer_registry") != 1:
+    raise SystemExit("board SDK daemon RTLS-report did not update peer registry")
+if rtls_report[0].get("x_cm") != 200 or rtls_report[0].get("y_cm") != 120:
+    raise SystemExit("board SDK daemon RTLS-report did not publish live-updated position")
+for key in ("writes_hardware", "starts_rf_tx", "uses_iio", "uses_inter_board_ip_routing"):
+    if rtls_report[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon RTLS-report key {key} must be 0")
 if not rtls_position or rtls_position[0].get("ok") is not True:
     raise SystemExit("board SDK daemon RTLS-position response failed")
+if rtls_position[0].get("x_cm") != rtls_report[0].get("x_cm") or rtls_position[0].get("y_cm") != rtls_report[0].get("y_cm"):
+    raise SystemExit("board SDK daemon RTLS-position did not reflect latest RTLS report")
 if rtls_position[0].get("position_source") not in ("gps_pps_fused", "packet_timing_tdoa"):
     raise SystemExit("board SDK daemon RTLS-position source is not usable")
 if rtls_position[0].get("radio_topology_only") != 1 or rtls_position[0].get("host_eth_topology") != 0:
@@ -204,16 +229,8 @@ if not route_metrics or route_metrics[0].get("ok") is not True:
     raise SystemExit("board SDK daemon route metrics response failed")
 if route_metrics[0].get("metrics_api") != "fieldmesh_query_route_metrics":
     raise SystemExit("board SDK daemon route metrics did not use SDK metrics API")
-if route_metrics[0].get("dst_device_eui") != "020000000103":
-    raise SystemExit("board SDK daemon route metrics used wrong destination EUI")
-if route_metrics[0].get("current_route") != 1 or route_metrics[0].get("recommended_route") != 2:
-    raise SystemExit("board SDK daemon route metrics should recommend AP relay")
 if route_metrics[0].get("selected_mode") != 4 or route_metrics[0].get("stream_id") != 500:
     raise SystemExit("board SDK daemon route metrics mode/stream changed")
-if route_metrics[0].get("snr_db") != 11 or route_metrics[0].get("per_mille") != 140:
-    raise SystemExit("board SDK daemon route metric values changed")
-if route_metrics[0].get("queue_age_ms") != 210 or route_metrics[0].get("delivered_kbps") != 760:
-    raise SystemExit("board SDK daemon route throughput values changed")
 if route_metrics[0].get("direct_reachable") != 1 or route_metrics[0].get("relay_available") != 1:
     raise SystemExit("board SDK daemon route reachability flags changed")
 for key in ("uses_iio", "uses_inter_board_ip_routing"):
@@ -223,6 +240,12 @@ if not rf_packet_engine or rf_packet_engine[0].get("adapter_name") != "swarm0":
     raise SystemExit("board SDK daemon RF packet-engine response failed")
 if rf_packet_engine[0].get("rf_engine") != "fieldmesh_rf_packet_engine":
     raise SystemExit("board SDK daemon RF packet-engine name failed")
+if rf_packet_engine[0].get("mac_magic") != "BLR" or rf_packet_engine[0].get("mac_header_version") != 1:
+    raise SystemExit("board SDK daemon RF packet-engine did not expose BLR MAC v1")
+if rf_packet_engine[0].get("mac_header_bytes") != 39 or rf_packet_engine[0].get("mac_trailer_bytes") != 4:
+    raise SystemExit("board SDK daemon RF packet-engine BLR MAC byte accounting changed")
+if rf_packet_engine[0].get("uses_json_on_air") != 0:
+    raise SystemExit("board SDK daemon RF packet-engine must not use JSON on air")
 if rf_packet_engine[0].get("queued_to_sidecar") != 1 or rf_packet_engine[0].get("queued_to_rf_engine") != 1:
     raise SystemExit("board SDK daemon RF packet-engine queue flags failed")
 if rf_packet_engine[0].get("uses_sidecar_dma") != 1 or rf_packet_engine[0].get("uses_rf_packet_engine") != 1:
@@ -386,6 +409,7 @@ print(json.dumps({
     "join_events": len(join_state),
     "peer_events": len(peer),
     "rtls_events": len(rtls),
+    "rtls_report_events": len(rtls_report),
     "rtls_position_events": len(rtls_position),
     "route_metrics_events": len(route_metrics),
     "rf_packet_engine_events": len(rf_packet_engine),

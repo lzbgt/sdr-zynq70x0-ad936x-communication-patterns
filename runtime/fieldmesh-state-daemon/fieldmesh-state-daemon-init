@@ -3,6 +3,8 @@
 DAEMON=/usr/bin/fieldmesh-state-daemon-demo
 PIDFILE=/var/run/fieldmesh-state-daemon.pid
 LOGFILE=/tmp/fieldmesh-state-daemon.ndjson
+LOG_MAX_BYTES=262144
+LOG_BACKUPS=2
 PORT=55441
 REQUESTS=2147483647
 TIMEOUT_MS=86400000
@@ -11,6 +13,33 @@ read_fwenv() {
     key="$1"
     command -v fw_printenv >/dev/null 2>&1 || return 1
     fw_printenv -n "$key" 2>/dev/null | tr -d '\r\n'
+}
+
+rotate_log_if_needed() {
+    [ -f "$LOGFILE" ] || return 0
+    size="$(wc -c < "$LOGFILE" 2>/dev/null || echo 0)"
+    case "$size" in
+        ''|*[!0-9]*)
+            return 0
+            ;;
+    esac
+    [ "$size" -lt "$LOG_MAX_BYTES" ] && return 0
+    index="$LOG_BACKUPS"
+    while [ "$index" -gt 1 ]; do
+        prev=$((index - 1))
+        [ -f "$LOGFILE.$prev" ] && mv "$LOGFILE.$prev" "$LOGFILE.$index"
+        index="$prev"
+    done
+    [ -f "$LOGFILE" ] && mv "$LOGFILE" "$LOGFILE.1"
+    : > "$LOGFILE"
+}
+
+run_with_rotating_log() {
+    "$DAEMON" serve 0.0.0.0 "$PORT" "$REQUESTS" "$TIMEOUT_MS" 2>&1 |
+    while IFS= read -r line; do
+        rotate_log_if_needed
+        printf '%s\n' "$line" >> "$LOGFILE"
+    done
 }
 
 case "$1" in
@@ -34,9 +63,12 @@ case "$1" in
             exit 0
         fi
         mkdir -p /var/run
-        nohup "$DAEMON" serve 0.0.0.0 "$PORT" "$REQUESTS" "$TIMEOUT_MS" \
-            > "$LOGFILE" 2>&1 &
+        nohup "$0" run > /dev/null 2>&1 &
         echo "$!" > "$PIDFILE"
+        ;;
+    run)
+        [ -x "$DAEMON" ] || exit 0
+        run_with_rotating_log
         ;;
     stop)
         if [ -f "$PIDFILE" ]; then

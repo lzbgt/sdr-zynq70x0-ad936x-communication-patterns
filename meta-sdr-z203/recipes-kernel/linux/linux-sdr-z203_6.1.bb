@@ -8,7 +8,7 @@ inherit kernel externalsrc
 EXTERNALSRC ?= "${SDR_Z203_VENDOR_FW}/linux"
 EXTERNALSRC_BUILD ?= "${WORKDIR}/linux-build"
 
-COMPATIBLE_MACHINE = "sdr-z203-zynq7"
+COMPATIBLE_MACHINE = "(sdr-z203-zynq7|fm-z203)"
 
 KBUILD_DEFCONFIG:sdr-z203-zynq7 = "zynq_pluto_defconfig"
 KERNEL_DEVICETREE:sdr-z203-zynq7 = "zynq-pluto-sdr.dtb"

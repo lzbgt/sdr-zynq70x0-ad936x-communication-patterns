@@ -12,6 +12,9 @@ extern "C" {
 #define FIELDMESH_SDK_VERSION_MINOR 1
 #define FIELDMESH_SDK_VERSION_PATCH 0
 
+#define FIELDMESH_EUI_BYTES 6u
+#define FIELDMESH_EUI_TEXT_CHARS 12u
+#define FIELDMESH_EUI_TEXT_MAX 13u
 #define FIELDMESH_ID_TEXT_MAX 64
 #define FIELDMESH_NAME_TEXT_MAX 96
 #define FIELDMESH_ADDR_TEXT_MAX 96
@@ -20,6 +23,21 @@ extern "C" {
 #define FIELDMESH_DEVICE_TEXT_MAX 96
 #define FIELDMESH_ADAPTER_NAME_TEXT_MAX 32
 #define FIELDMESH_ADAPTER_DEFAULT_MTU 1500u
+#define FIELDMESH_MAC_MAGIC_TEXT "BLR"
+#define FIELDMESH_MAC_VERSION_1 1u
+#define FIELDMESH_MAC_HEADER_BYTES 39u
+#define FIELDMESH_MAC_TRAILER_BYTES 4u
+#define FIELDMESH_MAC_TLV_DEVICE_NAME 0x01u
+#define FIELDMESH_MAC_TLV_CAPABILITY_MASK 0x02u
+#define FIELDMESH_MAC_TLV_GNSS_POSITION 0x03u
+#define FIELDMESH_MAC_TLV_PPS_EPOCH 0x04u
+#define FIELDMESH_MAC_TLV_TDOA_OBSERVABLE 0x05u
+#define FIELDMESH_MAC_TLV_TOF_OBSERVABLE 0x06u
+#define FIELDMESH_MAC_TLV_ROUTE_METRICS 0x07u
+#define FIELDMESH_MAC_TLV_BRIDGE_META 0x08u
+#define FIELDMESH_MAC_TLV_DTYPE 0x09u
+#define FIELDMESH_DEVICE_TYPE_1R1T 0x0011u
+#define FIELDMESH_DEVICE_TYPE_2R2T 0x0022u
 #define FIELDMESH_TUN_APPLY_VALIDATE_ONLY 0x00000001u
 #define FIELDMESH_TUN_APPLY_ALLOW_NETWORK_WRITES 0x00000002u
 #define FIELDMESH_RF_PACKET_ALLOW_LIVE_TX 0x00000001u
@@ -103,6 +121,23 @@ typedef enum fieldmesh_route_kind {
     FIELDMESH_ROUTE_FANOUT = 4
 } fieldmesh_route_kind_t;
 
+typedef enum fieldmesh_mac_frame_type {
+    FIELDMESH_MAC_FRAME_PRESENCE = 1,
+    FIELDMESH_MAC_FRAME_PEER_DELTA = 2,
+    FIELDMESH_MAC_FRAME_RTLS_OBSERVATION = 3,
+    FIELDMESH_MAC_FRAME_ROUTE_CONTROL = 4,
+    FIELDMESH_MAC_FRAME_APP_DATA = 5
+} fieldmesh_mac_frame_type_t;
+
+typedef enum fieldmesh_mac_path_mode {
+    FIELDMESH_MAC_PATH_DIRECT_P2P = 0,
+    FIELDMESH_MAC_PATH_AP_RELAY = 1,
+    FIELDMESH_MAC_PATH_GRAPH_RELAY = 2,
+    FIELDMESH_MAC_PATH_SCHEDULED_RELAY = 3,
+    FIELDMESH_MAC_PATH_TRANSPARENT_BRIDGE = 4,
+    FIELDMESH_MAC_PATH_GROUP_FANOUT = 5
+} fieldmesh_mac_path_mode_t;
+
 typedef enum fieldmesh_adapter_kind {
     FIELDMESH_ADAPTER_STREAM_API = 1,
     FIELDMESH_ADAPTER_VIRTUAL_NETDEV = 2
@@ -143,6 +178,7 @@ typedef struct fieldmesh_discovered_board {
     uint8_t rf_packet_engine_capable;
     uint8_t requires_mutual_auth_for_production;
     uint8_t rtls_position_capable;
+    uint8_t rtls_report_capable;
 } fieldmesh_discovered_board_t;
 
 typedef struct fieldmesh_network_profile {
@@ -402,6 +438,24 @@ typedef struct fieldmesh_adapter_packet {
     uint32_t queue_age_ms;
 } fieldmesh_adapter_packet_t;
 
+typedef struct fieldmesh_mac_frame_header {
+    uint8_t version;
+    uint16_t profile_id;
+    fieldmesh_mac_frame_type_t frame_type;
+    fieldmesh_traffic_class_t traffic_class;
+    uint8_t header_flags;
+    fieldmesh_mac_path_mode_t path_mode;
+    uint8_t hop_limit;
+    uint8_t src_eui[FIELDMESH_EUI_BYTES];
+    uint8_t dst_eui[FIELDMESH_EUI_BYTES];
+    uint8_t relay_eui[FIELDMESH_EUI_BYTES];
+    uint32_t sequence;
+    uint16_t stream_id;
+    uint16_t payload_len_bytes;
+    uint32_t header_crc32c;
+    uint32_t payload_crc32c;
+} fieldmesh_mac_frame_header_t;
+
 typedef struct fieldmesh_rf_packet_plan {
     char engine_name[FIELDMESH_NAME_TEXT_MAX];
     char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
@@ -417,6 +471,11 @@ typedef struct fieldmesh_rf_packet_plan {
     uint32_t packet_len;
     uint32_t frame_bytes;
     uint32_t max_frame_bytes;
+    char mac_magic[4];
+    uint8_t mac_header_version;
+    fieldmesh_mac_path_mode_t mac_path_mode;
+    uint16_t mac_header_bytes;
+    uint16_t mac_trailer_bytes;
     uint8_t uses_sidecar_dma;
     uint8_t uses_rf_packet_engine;
     uint8_t uses_iio;
@@ -736,6 +795,8 @@ fieldmesh_status_t fieldmesh_query_route_metrics(
     const char *dst_node_id,
     uint16_t stream_id,
     fieldmesh_route_metrics_t *out_metrics);
+fieldmesh_status_t fieldmesh_report_peer_presence(fieldmesh_context_t *context,
+                                                  const char *device_eui);
 fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,
                                                      const fieldmesh_rtls_measurement_t *measurement);
 fieldmesh_status_t fieldmesh_get_peer_position(fieldmesh_context_t *context,
@@ -782,6 +843,25 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
                                                  size_t *out_payload_len,
                                                  fieldmesh_adapter_packet_t *out_packet,
                                                  uint32_t timeout_ms);
+fieldmesh_status_t fieldmesh_eui_from_text(const char *text,
+                                           uint8_t out_eui[FIELDMESH_EUI_BYTES]);
+fieldmesh_status_t fieldmesh_eui_to_text(const uint8_t eui[FIELDMESH_EUI_BYTES],
+                                         char *out_text,
+                                         size_t out_text_len);
+fieldmesh_status_t fieldmesh_encode_mac_frame(
+    const fieldmesh_mac_frame_header_t *header,
+    const void *payload,
+    size_t payload_len,
+    uint8_t *out_frame,
+    size_t out_frame_capacity,
+    size_t *out_frame_len);
+fieldmesh_status_t fieldmesh_decode_mac_frame(
+    const uint8_t *frame,
+    size_t frame_len,
+    fieldmesh_mac_frame_header_t *out_header,
+    uint8_t *out_payload,
+    size_t out_payload_capacity,
+    size_t *out_payload_len);
 fieldmesh_status_t fieldmesh_plan_rf_packet(fieldmesh_adapter_t *adapter,
                                             const fieldmesh_adapter_packet_t *packet,
                                             size_t payload_len,

@@ -20,6 +20,13 @@ Initial default:
 - future binary profile: fixed header plus typed TLVs using the same message
   names and field semantics.
 
+The JSON endpoint is a compatibility and inspection envelope. It must not be
+treated as the scalable peer-directory wire format. Production peer discovery,
+RTLS, and topology updates use a byte-level, variable-length TLV message stream
+with explicit lengths, sequence numbers, and pagination. UDP datagrams, daemon
+buffers, and GUI snapshots may still have bounded chunks, but those are
+transport fragments, not product limits.
+
 Every message carries:
 
 - `proto`: `fieldmesh-eth-sdk`;
@@ -113,7 +120,7 @@ Minimum daemon messages:
 | `AP_AUDIT_DECIDE` | AP app -> daemon | Approve, reject, or restrict a join request. |
 | `PEER_LIST` | client -> daemon | List joined peers and direct/relay reachability. |
 | `TOPOLOGY_GET` | client -> daemon | Get radio topology graph, route state, AP lease, and relay paths. |
-| `RTLS_REPORT` | client/daemon -> daemon | Feed GNSS/PPS, packet-timing TDOA, RSSI/SNR, or timing calibration. |
+| `RTLS_REPORT` | client/daemon -> daemon | Feed GNSS/PPS, packet-timing TDOA, RSSI/SNR, or timing calibration into the peer registry. The current daemon request is `FIELDMESH_RTLS_REPORT v1 node=<12hex> ...`. |
 | `RTLS_GET` | client -> daemon | Query peer relative position and confidence. |
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
 | `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
@@ -129,6 +136,78 @@ Minimum daemon messages:
 | `TUN_APPLY_COMMIT` | client -> daemon | Apply `swarm0` only with explicit network-write authorization and rollback state. |
 | `DEVICE_IIO_PLAN` | client -> daemon | Plan guarded local IIO/RF action without executing. |
 | `DEVICE_IIO_EXECUTE` | client -> daemon | Execute guarded local IIO action only under policy and explicit approval. |
+
+## Binary TLV Peer Directory
+
+Air discovery is radio-native:
+
+1. Every node passively listens during discovery/control windows.
+2. A node transmits a signed presence beacon only after CCA reports the channel
+   clear for the required guard time.
+3. Presence beacons carry device EUI, capability digest, cert state, clock
+   quality, GNSS/PPS state, RF chain/band profile, queue/stream capacity, and
+   RTLS/ranging observables.
+4. Receivers update an observed peer registry from decoded RF beacons, AP
+   candidate reports, ranging packets, and authenticated peer control frames.
+5. Host-discovered USB/RNDIS/PHY daemons identify only local boards available
+   for control. They are not chat peers, topology peers, or proof of radio
+   reachability.
+
+Peer-directory TLVs are variable length and repeatable:
+
+```text
+struct fieldmesh_tlv_frame {
+    uint8_t  magic[3];     // "BLR"
+    uint8_t  version;      // 1
+    uint8_t  msg_type;     // PEER_DIRECTORY, PEER_DELTA, RTLS_REPORT, ...
+    uint32_t sequence;
+    uint32_t total_length; // bytes after this header
+    uint16_t tlv_count;
+    uint16_t flags;        // paged, delta, authenticated, truncated
+    uint8_t  tlvs[];
+}
+
+struct fieldmesh_tlv {
+    uint16_t type;
+    uint16_t length;
+    uint8_t  value[length];
+}
+```
+
+This host TLV stream mirrors the compact air MAC but is not the air MAC itself.
+The air MAC uses the `BLR` frame header from `fieldmesh-swarm-radio.md`:
+6-byte source/destination/relay EUIs, 4-bit path mode, 4-bit traffic class,
+sequence, stream ID, payload length, and CRC/auth trailer. App strings,
+hostnames, peer names, and large capability tables are not present in ordinary
+chat/video/control frames. They appear only in declare/presence TLVs or in
+host-side management projections.
+
+Constrained hosts such as STM32-class MCUs should use the binary TLV control
+stream and compact `BLR` MAC helpers directly. The line-delimited JSON daemon
+responses are debug/prototype projections for desktop tooling; they are not
+required for an MCU host and must not be forwarded over the radio.
+
+`PEER_DIRECTORY` pages carry one or more `PEER_RECORD` TLVs. A `PEER_RECORD`
+contains nested TLVs so future firmware can add fields without changing the
+base message:
+
+| TLV | Type | Notes |
+| --- | --- | --- |
+| `DEVICE_EUI` | 6 bytes | Stable device identity, normally MAC/EUI derived unless provisioned. |
+| `DTYPE` | u16 | Predefined product code, e.g. `0x0011=1R1T`, `0x0022=2R2T`; not a role. |
+| `HOSTNAME` | UTF-8 | Operator/app label only; never required in ordinary air frames. |
+| `CAPABILITY_BITS` | u64 | RF chains, AP/relay/gateway, camera, RTLS, stream classes. |
+| `RF_PROFILE` | nested | Bands, channels, bandwidths, MCS/FEC set, legal profile. |
+| `SECURITY_STATE` | nested | Derived certificate state, CA fingerprint, authorization scope. |
+| `LINK_METRICS` | nested | RSSI, SNR, EVM, PER, ACK latency, queue age, throughput. |
+| `RTLS_OBSERVABLES` | nested | GNSS/BDS, PPS, TOF/TDOA, timestamp, confidence, age. |
+| `AP_LEASE` | nested | Current AP membership and relay relationship when present. |
+
+The daemon JSON `FIELDMESH_STATE_PEERS` response is only a debug projection of
+that registry. It reports the full observed count and as many serialized peer
+records as fit in one debug response. Product GUIs should move to the TLV
+directory/delta stream for hundreds of peers instead of depending on one JSON
+datagram.
 
 The prototype `fieldmesh_state_daemon_demo` already checks
 `FIELDMESH_HELLO` capability/security negotiation, AP browse, election, join,
@@ -245,6 +324,15 @@ as route-grade.
 - confidence and error radius;
 - usability flags for AP election and route selection;
 - measurement age.
+
+`FIELDMESH_RTLS_REPORT` is the first live-ingestion contract. A GNSS service,
+packet timestamp service, or test harness may report `node=<12hex>`,
+`gps_lock`, `pps_lock`, `gps_lat_e7`, `gps_lon_e7`, `tdoa_ab_ns`,
+`tdoa_ac_ns`, `response_delay_us`, `rx_timestamp_ns`, RSSI/SNR, and
+`measured_age_ms`. The daemon validates the compact EUI and ranges, calls
+`fieldmesh_report_rtls_measurement()`, updates the peer registry, and returns
+the fused position. It still writes no hardware, starts no RF TX, opens no IIO
+buffers, and does not use inter-board IP routing.
 
 With only two boards, the daemon should expose range/link quality and relative
 movement, not claim full 2D position. Stable 2D RTLS needs 3+ timing anchors;

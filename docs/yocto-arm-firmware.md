@@ -180,7 +180,7 @@ bitbake-layers add-layer /root/work/ZYNQ7020/meta-sdr-z203
 Add these local settings to `conf/local.conf`:
 
 ```conf
-MACHINE = "sdr-z203-zynq7"
+MACHINE = "fm-z203"
 DL_DIR = "/root/work/ZYNQ7020/yocto/downloads"
 SSTATE_DIR = "/root/work/ZYNQ7020/yocto/sstate-cache"
 SDR_Z203_VENDOR_FW = "/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw"

@@ -43,6 +43,8 @@ int main(void)
     strcpy(join.node_name, "tun-gateway-demo");
 
     if (require_ok(fieldmesh_context_create(&config, &ctx), "context_create") ||
+        require_ok(fieldmesh_report_peer_presence(ctx, tun.dst_node_id),
+                   "report_peer_presence") ||
         require_ok(fieldmesh_join_ap(ctx, &join, &session), "join_ap") ||
         require_ok(fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
                                           "tun-gateway-demo"), "request_mode") ||

@@ -55,6 +55,7 @@ int main(void)
 
     fill_camera_bytes(input, sizeof(input));
     if (fieldmesh_context_create(&config, &ctx) != FIELDMESH_OK ||
+        fieldmesh_report_peer_presence(ctx, camera_config.dst_node_id) != FIELDMESH_OK ||
         fieldmesh_join_ap(ctx, &join, &session) != FIELDMESH_OK) {
         goto out;
     }

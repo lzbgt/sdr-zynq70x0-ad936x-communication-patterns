@@ -5,7 +5,9 @@ Yocto layer for the SDR-Z103 ARM-side firmware work.
 This layer is intentionally focused on the processing-system firmware and keeps
 SDR-Z103 outputs separate from the SDR-Z203 build. It provides:
 
-- `sdr-z103-zynq7`, a Cortex-A9 hard-float Zynq-7000 machine definition.
+- `fm-z103`, the concise Yocto machine alias for the Z103 1R1T board. The
+  product display name is `FM-Z103`; the legacy `sdr-z103-zynq7` machine remains
+  as a recipe-compatibility base.
 - `sdr-z103-arm-image`, a small developer image with SSH, IIO, U-Boot env tools,
   networking tools, and board identity/config files.
 - `sdr-z103-pluto-runtime`, which imports the essential Pluto USB gadget,

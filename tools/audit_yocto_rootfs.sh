@@ -45,6 +45,7 @@ required_paths=(
     /usr/bin/iio_info
     /usr/bin/fieldmesh-camera-stream-demo
     /usr/bin/fieldmesh-device-iio-demo
+    /usr/bin/fieldmesh-mac-frame-demo
     /usr/bin/fieldmeshctl
     /usr/bin/fieldmesh-state-daemon-demo
     /usr/bin/fieldmesh-swarm-adapter-demo
@@ -91,11 +92,16 @@ fi
 check_contains() {
     local path="$1"
     local pattern="$2"
+    local content
 
-    if tar -xOf "$rootfs" ".${path}" | grep -qF "$pattern"; then
+    content="$(mktemp)"
+    if tar -xOf "$rootfs" ".${path}" > "$content" &&
+        grep -a -qF "$pattern" "$content"; then
         printf 'OK      %s contains %s\n' "$path" "$pattern"
+        rm -f "$content"
     else
         printf 'BAD     %s missing %s\n' "$path" "$pattern"
+        rm -f "$content"
         missing=1
     fi
 }
@@ -103,18 +109,29 @@ check_contains() {
 check_not_contains() {
     local path="$1"
     local pattern="$2"
+    local content
 
-    if tar -xOf "$rootfs" ".${path}" | grep -qF "$pattern"; then
+    content="$(mktemp)"
+    if tar -xOf "$rootfs" ".${path}" > "$content" &&
+        grep -a -qF "$pattern" "$content"; then
         printf 'BAD     %s still contains %s\n' "$path" "$pattern"
+        rm -f "$content"
         missing=1
     else
         printf 'OK      %s excludes %s\n' "$path" "$pattern"
+        rm -f "$content"
     fi
 }
 
 check_contains /etc/init.d/S40network '/usr/sbin/udhcpd /etc/udhcpd.conf'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'fieldmesh-state-daemon-demo'
 check_contains /etc/init.d/S55fieldmesh-state-daemon '55441'
+check_contains /etc/init.d/S55fieldmesh-state-daemon 'LOG_MAX_BYTES'
+check_contains /etc/init.d/S55fieldmesh-state-daemon 'rotate_log_if_needed'
+check_contains /usr/bin/fieldmesh-mac-frame-demo 'sdk_mac_frame'
+check_contains /usr/bin/fieldmesh-mac-frame-demo 'BLR'
+check_contains /usr/bin/fieldmesh-state-daemon-demo 'mac_magic'
+check_contains /usr/bin/fieldmesh-state-daemon-demo 'uses_json_on_air'
 check_contains /sbin/update.sh 'copy_without_trailing_bytes "$FILE"'
 check_contains /sbin/update_frm.sh 'copy_without_trailing_bytes "$FILE"'
 check_not_contains /sbin/update.sh 'head -c -33'

@@ -14,7 +14,7 @@ DEPENDS += "dtc-native"
 EXTERNALSRC ?= "${SDR_Z203_VENDOR_FW}/u-boot-xlnx"
 EXTERNALSRC_BUILD ?= "${WORKDIR}/u-boot-build"
 
-COMPATIBLE_MACHINE = "sdr-z203-zynq7"
+COMPATIBLE_MACHINE = "(sdr-z203-zynq7|fm-z203)"
 
 PROVIDES += "virtual/bootloader"
 

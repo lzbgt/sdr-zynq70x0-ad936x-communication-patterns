@@ -140,6 +140,185 @@ Three product control loops should be kept separate:
 
 ## Communication Patterns
 
+## Air Payload Encoding
+
+FieldMesh RF frames are binary. JSON is never used over the air and must not be
+part of the RF payload format. JSON exists only on host-facing prototype/debug
+control sockets and generated logs.
+
+All RF control/data-plane payloads use a compact bit-level frame envelope:
+
+```text
+bit  0..23   magic                 ASCII "BLR"
+bit 24..31   header_version        currently 1
+bit 32..47   sync/profile id       selected by channel profile
+bit 48..51   frame_type            presence, peer_delta, rtls, route, app_data
+bit 52..55   traffic_class         C0..C4
+bit 56..63   header_flags          ack_req, encrypted, fec, fragment, last
+bit 64..67   path_mode             direct, AP relay, graph relay, bridge
+bit 68..71   hop_limit
+bit 72..119  src_eui               6-byte device EUI
+bit 120..167 dst_eui_or_group      6-byte peer, group, or broadcast EUI
+bit 168..215 relay_eui_or_zero     next relay/AP when relayed
+bit 216..247 sequence              per source/frame_type
+bit 248..263 stream_id
+bit 264..279 payload_len_bytes
+bit 280..311 header_crc32c
+bit 312..    payload bytes
+last 32 bits payload_crc32c or auth tag trailer, profile dependent
+```
+
+Multi-byte integers are big-endian on the air. Optional authentication,
+encryption, and FEC are profile fields negotiated outside the payload. The base
+header stays fixed so FPGA/driver parsing can classify, route, and schedule
+without a JSON parser or string matching.
+
+`path_mode` defines address interpretation:
+
+| `path_mode` | Meaning | Address behavior |
+| --- | --- | --- |
+| `0` direct P2P | Source and destination are direct RF peers. | `relay_eui_or_zero` is zero. |
+| `1` AP relay | AP/broker forwards because direct path is weak or policy-selected. | `relay_eui_or_zero` is AP EUI. |
+| `2` graph relay | Explicit next-hop relay in a mesh route. | `relay_eui_or_zero` is next hop; `hop_limit` decrements. |
+| `3` scheduled relay | Relay occurs in reserved TDMA relay slot. | Relay EUI plus stream schedule identify slot. |
+| `4` transparent bridge | Payload carries an L2 bridge frame extension. | Bridge metadata extension identifies original L2 endpoints. |
+| `5` group/fanout | Destination is a group EUI. | Relay may be zero or AP/fanout broker. |
+
+Transparent bridge is a supported product mode, not a mock or debug feature.
+It is valuable when a customer needs drop-in Ethernet behavior: legacy devices
+that cannot be changed, protocols that depend on L2 adjacency, industrial
+controllers, vendor discovery tools, VLAN handoff, or fast field replacement
+of an Ethernet cable with a radio link. It is not the default mode because L2
+broadcast, multicast, ARP, mDNS, and unknown unicast can consume airtime and
+make QoS harder. If a deployment enables transparent bridge,
+`frame_type=app_data` plus `path_mode=4` carries this bridge extension before
+the bridged payload:
+
+```text
+bit 0..15    bridge_ethertype_or_tag
+bit 16..23   bridge_flags          arp, multicast, vlan, unknown_unicast
+bit 24..31   bridge_ttl
+bit 32..79   original_src_mac
+bit 80..127  original_dst_mac
+bit 128..143 vlan_tci_or_zero
+bit 144..159 l2_payload_offset_bytes
+```
+
+Bridge frames remain subject to the same traffic class, schedule, security,
+rate limits, and relay policy as routed frames. Production firmware should
+offer bridge mode as a deliberate configuration with airtime controls,
+broadcast suppression options, multicast policy, and topology visibility.
+
+### Presence Beacon Payload
+
+Every node passively listens during discovery/control windows. A node may
+broadcast presence only after clear-channel assessment reports idle for the
+configured guard interval. Presence beacons are low duty cycle and signed when
+certificates are provisioned.
+
+```text
+bit 0..3     presence_version
+bit 4..7     beacon_reason         periodic, boot, capability_change, AP_loss
+bit 8..15    capability_digest_id
+bit 16..31   capability_bits_low   endpoint/AP/relay/gateway/RTLS/camera
+bit 32..47   capability_bits_high  RF chains, bands, FEC/MCS families
+bit 48..63   device_type_code      u16, e.g. 0x0011=1R1T, 0x0022=2R2T
+bit 64..71   cert_state            none, provisioned, expiring, revoked
+bit 72..79   clock_state           none, GNSS, GNSS+PPS, holdover
+bit 80..87   cca_channel_busy_pct
+bit 88..95   tx_power_class
+bit 96..111  max_payload_mbps_q8   Mbps * 256 planning hint
+bit 112..127 queue_depth_q8        normalized queue/load indicator
+bit 128..159 uptime_s_mod
+bit 160..191 nonce_or_epoch_low
+bit 192..    optional TLV extension area, length from frame payload_len
+```
+
+The beacon does not assign roles. Role/AP/relay decisions come from policy,
+authorization, election, and link state. A Z203 and a Z103 are device types
+with different capability weights; either can appear as a peer and either can
+be commanded/elected into allowed roles.
+
+The TLV extension is the only place for human/application metadata such as
+peer display name. Normal chat/video/control frames carry only 6-byte EUIs,
+stream IDs, traffic class, sequence, relay, and payload/auth material. A peer
+does not repeat its name, hostname, board label, GNSS fix, or capability table
+in every frame.
+
+Presence/declare TLVs:
+
+| Type | Payload | Purpose |
+| --- | --- | --- |
+| `0x01` device name | UTF-8 display name, length-limited by payload budget. | Optional app/UI label. |
+| `0x02` capability mask | Bitset for AP/relay/camera/RTLS/bands/MCS/FEC families. | Peer operation and AP election. |
+| `0x03` GNSS position | `lat_e7`, `lon_e7`, `alt_dm`, `error_cm`, fix flags. | GNSS/BDS range and topology. |
+| `0x04` PPS epoch | Timebase epoch, PPS quality, holdover age. | TOF/TDOA scheduling and validation. |
+| `0x05` TDOA observable | RX timestamp deltas and timing quality. | Multilateration/range update. |
+| `0x06` TOF observable | Request/response timestamp pair or calibrated delay. | Pairwise range update. |
+| `0x07` route metrics | RSSI/SNR/EVM/PER/queue/ACK latency. | Direct-vs-relay selection. |
+| `0x08` bridge metadata | VLAN/ethertype/broadcast-control hints. | Transparent bridge mode. |
+| `0x09` DTYPE | `u16`, e.g. `0x0011=1R1T`, `0x0022=2R2T`. | Device capability class, not role. |
+
+SDK text-buffer constants such as hostnames, labels, and debug addresses are
+host-control conveniences only. They are not MAC fields. A low-memory MCU host
+can parse the presence TLVs and `BLR` headers without allocating UTF-8 names or
+JSON strings unless the application explicitly wants display metadata.
+| `0x08` bridge metadata | Original L2 endpoint metadata when bridge mode is enabled. | Transparent bridge mode. |
+| `0x09` device type code | u16 predefined product code. `0x0011=1R1T`, `0x0022=2R2T`. | Capability weighting without strings. |
+
+### Peer Directory Delta Payload
+
+Peer discovery scales by deltas, not full table broadcasts. Each receiver keeps
+an observed registry keyed by device EUI. The AP/broker may aggregate and
+rebroadcast signed deltas when useful, but a node also learns direct peers from
+its own passive receive path.
+
+```text
+bit 0..7     directory_version
+bit 8..15    page_index
+bit 16..23   page_count
+bit 24..31   record_count
+repeat record_count:
+  bit 0..47   peer_eui
+  bit 48..55  record_flags         added, updated, removed, direct, via_ap
+  bit 56..71  device_type_code     u16, e.g. 0x0011=1R1T, 0x0022=2R2T
+  bit 72..87  capability_bits_low
+  bit 88..103 link_age_ms_q4       age in 16 ms units
+  bit 104..111 rssi_dbm_s8
+  bit 112..119 snr_db_s8
+  bit 120..135 per_mille_u16
+  bit 136..151 est_kbps_u16        coarse link rate, profile scaled
+  bit 152..199 ap_or_relay_eui     zero when direct/unassigned
+```
+
+For hundreds of peers, records are split across pages or sent as deltas. The
+host-facing daemon can expose the same registry through a TLV stream or a debug
+JSON projection, but the air payload stays binary and bounded by scheduled
+control airtime.
+
+### RTLS Observable Payload
+
+RTLS is an observable stream, not a static profile coordinate.
+
+```text
+bit 0..3     rtls_version
+bit 4..7     source_mask           GNSS, BDS, PPS, TOF, TDOA, RSSI
+bit 8..15    confidence_pct
+bit 16..31   age_ms
+bit 32..63   rx_timestamp_32
+bit 64..95   response_delay_ns_q4
+bit 96..127  tdoa_ab_ns_s32
+bit 128..159 tdoa_ac_ns_s32
+bit 160..191 tof_ns_s32
+bit 192..223 lat_e7_s32           optional when GNSS/BDS valid
+bit 224..255 lon_e7_s32           optional when GNSS/BDS valid
+bit 256..271 alt_dm_s16           optional
+```
+
+Range shown in the GUI must be derived from fresh RTLS observables or GNSS/BDS
+position fixes. It must not be derived from host attachment, test profiles, or
+hardcoded peer tables.
+
 ### 1. Star / Fanout
 
 One hub or vehicle transmits to many receivers, or one hub schedules multiple

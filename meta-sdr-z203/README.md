@@ -5,7 +5,9 @@ Yocto layer for the SDR-Z203 ARM-side firmware work.
 This layer is intentionally focused on the processing-system firmware while the
 Vivado/FPGA toolchain is still being prepared. It provides:
 
-- `sdr-z203-zynq7`, a Cortex-A9 hard-float Zynq-7000 machine definition.
+- `fm-z203`, the concise Yocto machine alias for the Z203 2R2T board. The
+  product display name is `FM-Z203`; the legacy `sdr-z203-zynq7` machine remains
+  as a recipe-compatibility base.
 - `sdr-z203-arm-image`, a small developer image with SSH, IIO, U-Boot env tools,
   networking tools, and board identity/config files.
 - `sdr-z203-pluto-runtime`, which imports the essential Pluto USB gadget,

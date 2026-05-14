@@ -122,6 +122,8 @@ int main(void)
     strcpy(adapter_config.dst_node_id, "020000000103");
 
     if (require_ok(fieldmesh_context_create(&config, &ctx), "context_create") ||
+        require_ok(fieldmesh_report_peer_presence(ctx, adapter_config.dst_node_id),
+                   "report_peer_presence") ||
         require_ok(fieldmesh_join_ap(ctx, &join, &session), "join_ap") ||
         require_ok(fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
                                           "tun-packetizer-demo"), "request_mode") ||

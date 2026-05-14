@@ -20,6 +20,36 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
             break
         if b"FIELDMESH_HELLO" in data:
             sock.sendto((json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_STATE_PEERS" in data:
+            peer = {
+                "event": "sdk_daemon_peer_state",
+                "ok": True,
+                "source": "observed_radio_peer_registry",
+                "peer_capacity_model": "dynamic",
+                "network_id": "fieldmesh-lab",
+                "peers": 1,
+                "serialized_peers": 1,
+                "truncated": 0,
+                "relay_capable": 1,
+                "total_kbps": payload["radio_peer_max_kbps"],
+                "peer_list": [
+                    {
+                        "device_eui": payload["radio_peer_eui"],
+                        "hostname": payload["radio_peer_hostname"],
+                        "device_type": payload["radio_peer_type"],
+                        "direct_reachable": 1,
+                        "relay_available": 1,
+                        "max_kbps": payload["radio_peer_max_kbps"],
+                    }
+                ],
+                "peer0_eui": payload["radio_peer_eui"],
+                "peer0_hostname": payload["radio_peer_hostname"],
+                "peer0_device_type": payload["radio_peer_type"],
+                "peer0_direct_reachable": 1,
+                "peer0_relay_available": 1,
+                "peer0_max_kbps": payload["radio_peer_max_kbps"],
+            }
+            sock.sendto((json.dumps(peer, separators=(",", ":")) + "\n").encode("utf-8"), addr)
         elif b"FIELDMESH_ROUTE_METRICS" in data:
             route = {
                 "event": "sdk_daemon_route_metrics",
@@ -147,6 +177,7 @@ def hello(device_eui: str, hostname: str, device_type: str) -> dict:
         "supports_camera_session_plan": 1,
         "supports_route_metrics": 1,
         "supports_rtls_position": 1,
+        "supports_rtls_report": 1,
         "supports_camera_stream_chunk": 1,
         "supports_tun_gateway": 1,
         "supports_rf_packet_engine": 1,
@@ -161,8 +192,22 @@ def main() -> int:
     if len(sys.argv) != 2:
         raise SystemExit(f"usage: {sys.argv[0]} HEADLESS_APP")
     app = Path(sys.argv[1])
-    server_a = bind_server(hello("02aabb000001", "fieldmesh-a", "z203-2r2t"))
-    server_b = bind_server(hello("02aabb000002", "fieldmesh-b", "z103-1r1t"))
+    hello_a = hello("02aabb000001", "fieldmesh-a", "z203-2r2t")
+    hello_a.update({
+        "radio_peer_eui": "02aabb000002",
+        "radio_peer_hostname": "fieldmesh-b",
+        "radio_peer_type": "z103-1r1t",
+        "radio_peer_max_kbps": 2200,
+    })
+    hello_b = hello("02aabb000002", "fieldmesh-b", "z103-1r1t")
+    hello_b.update({
+        "radio_peer_eui": "02aabb000001",
+        "radio_peer_hostname": "fieldmesh-a",
+        "radio_peer_type": "z203-2r2t",
+        "radio_peer_max_kbps": 7000,
+    })
+    server_a = bind_server(hello_a)
+    server_b = bind_server(hello_b)
     sockets = [server_a[0], server_b[0]]
     threads = [server_a[2], server_b[2]]
     candidates = f"127.0.0.1:{server_a[1]},127.0.0.1:{server_b[1]}"
@@ -226,6 +271,8 @@ def main() -> int:
                 raise SystemExit("connected local board identity is not explicit")
             if data["active_remote_peer_eui"] != "02aabb000001":
                 raise SystemExit("remote peer should be distinct from the local board")
+            if data["active_remote_peer_eui"] == data["selected_board_eui"]:
+                raise SystemExit("board discovery leaked into the peer list")
             if data["python_automation_runs"] != 1:
                 raise SystemExit("embedded Python automation action was not surfaced")
 
@@ -250,10 +297,10 @@ def main() -> int:
                 raise SystemExit("topology metrics refresh did not run")
             if topology["topology_route_metrics_overwrite_position"] is not False:
                 raise SystemExit("route metrics must not overwrite topology coordinates")
-            if topology["topology_position_model_peers"] != 2:
-                raise SystemExit("RTLS refresh did not populate both peer positions")
-            if topology["topology_gnss_position_peers"] < 1:
-                raise SystemExit("GNSS/BDS position source was not surfaced")
+            if topology["topology_position_model_peers"] != 1:
+                raise SystemExit("RTLS refresh did not populate the radio peer position")
+            if topology["topology_gnss_position_peers"] != 0:
+                raise SystemExit("selected local board must not be injected as a radio peer")
             if topology["topology_timing_position_peers"] < 1:
                 raise SystemExit("TOF/TDOA timing source was not surfaced")
             if not (1.0 <= topology["topology_max_peer_range_m"] <= 2.5):

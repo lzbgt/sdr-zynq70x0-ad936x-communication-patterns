@@ -49,6 +49,9 @@ struct fieldmesh_context {
     size_t ap_count;
     fieldmesh_ap_candidate_t candidates[FIELDMESH_MAX_CANDIDATES];
     size_t candidate_count;
+    fieldmesh_peer_info_t *peers;
+    size_t peer_count;
+    size_t peer_capacity;
     fieldmesh_position_estimate_t positions[FIELDMESH_MAX_POSITIONS];
     size_t position_count;
     uint32_t next_sequence;
@@ -315,6 +318,204 @@ static int valid_device_eui(const char *value)
         }
     }
     return 1;
+}
+
+static uint8_t hex_value(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return (uint8_t)(c - '0');
+    }
+    if (c >= 'a' && c <= 'f') {
+        return (uint8_t)(10 + c - 'a');
+    }
+    if (c >= 'A' && c <= 'F') {
+        return (uint8_t)(10 + c - 'A');
+    }
+    return 0u;
+}
+
+static int eui_text_to_bytes(const char *text, uint8_t out[6])
+{
+    size_t i;
+
+    if (!valid_device_eui(text) || !out) {
+        return 0;
+    }
+    for (i = 0; i < 6u; ++i) {
+        out[i] = (uint8_t)((hex_value(text[i * 2u]) << 4) |
+                           hex_value(text[i * 2u + 1u]));
+    }
+    return 1;
+}
+
+static void eui_bytes_to_text(const uint8_t bytes[6],
+                              char *out,
+                              size_t out_len)
+{
+    static const char hex[] = "0123456789abcdef";
+    size_t i;
+
+    if (!bytes || !out || out_len < 13u) {
+        return;
+    }
+    for (i = 0; i < 6u; ++i) {
+        out[i * 2u] = hex[(bytes[i] >> 4) & 0x0fu];
+        out[i * 2u + 1u] = hex[bytes[i] & 0x0fu];
+    }
+    out[12] = '\0';
+}
+
+static void write_be16(uint8_t *bytes, uint16_t value)
+{
+    bytes[0] = (uint8_t)((value >> 8) & 0xffu);
+    bytes[1] = (uint8_t)(value & 0xffu);
+}
+
+static uint16_t read_be16(const uint8_t *bytes)
+{
+    return (uint16_t)(((uint16_t)bytes[0] << 8) | (uint16_t)bytes[1]);
+}
+
+static void write_be32(uint8_t *bytes, uint32_t value)
+{
+    bytes[0] = (uint8_t)((value >> 24) & 0xffu);
+    bytes[1] = (uint8_t)((value >> 16) & 0xffu);
+    bytes[2] = (uint8_t)((value >> 8) & 0xffu);
+    bytes[3] = (uint8_t)(value & 0xffu);
+}
+
+static uint32_t read_be32(const uint8_t *bytes)
+{
+    return ((uint32_t)bytes[0] << 24) |
+           ((uint32_t)bytes[1] << 16) |
+           ((uint32_t)bytes[2] << 8) |
+           (uint32_t)bytes[3];
+}
+
+static uint32_t crc32c_update(uint32_t crc, const uint8_t *data, size_t len)
+{
+    size_t i;
+
+    crc = ~crc;
+    for (i = 0; i < len; ++i) {
+        uint8_t bit;
+
+        crc ^= data[i];
+        for (bit = 0; bit < 8u; ++bit) {
+            uint32_t mask = (uint32_t)(0u - (crc & 1u));
+            crc = (crc >> 1) ^ (0x82f63b78u & mask);
+        }
+    }
+    return ~crc;
+}
+
+static fieldmesh_mac_path_mode_t route_kind_to_mac_path(fieldmesh_route_kind_t route_kind)
+{
+    switch (route_kind) {
+    case FIELDMESH_ROUTE_DIRECT:
+        return FIELDMESH_MAC_PATH_DIRECT_P2P;
+    case FIELDMESH_ROUTE_AP_RELAYED:
+        return FIELDMESH_MAC_PATH_AP_RELAY;
+    case FIELDMESH_ROUTE_SCHEDULED_RELAY:
+        return FIELDMESH_MAC_PATH_SCHEDULED_RELAY;
+    case FIELDMESH_ROUTE_FANOUT:
+        return FIELDMESH_MAC_PATH_GROUP_FANOUT;
+    default:
+        return FIELDMESH_MAC_PATH_GRAPH_RELAY;
+    }
+}
+
+fieldmesh_status_t fieldmesh_eui_from_text(const char *text,
+                                           uint8_t out_eui[FIELDMESH_EUI_BYTES])
+{
+    if (!eui_text_to_bytes(text, out_eui)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_eui_to_text(const uint8_t eui[FIELDMESH_EUI_BYTES],
+                                         char *out_text,
+                                         size_t out_text_len)
+{
+    if (!eui || !out_text || out_text_len < FIELDMESH_EUI_TEXT_MAX) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    eui_bytes_to_text(eui, out_text, out_text_len);
+    return FIELDMESH_OK;
+}
+
+static int observed_peer_for_identifier(const fieldmesh_context_t *context,
+                                        const char *identifier,
+                                        fieldmesh_peer_info_t *out_peer)
+{
+    size_t i;
+
+    if (!context || !identifier || !out_peer) {
+        return 0;
+    }
+    for (i = 0; i < context->peer_count; ++i) {
+        const fieldmesh_peer_info_t *peer = &context->peers[i];
+        if (strcmp(identifier, peer->device_uuid) == 0 ||
+            strcmp(identifier, peer->node_id) == 0) {
+            *out_peer = *peer;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static fieldmesh_status_t upsert_observed_peer(fieldmesh_context_t *context,
+                                               const char *node_id)
+{
+    fieldmesh_peer_info_t peer;
+    const fieldmesh_device_fixture_t *fixture;
+    size_t i;
+
+    if (!context || !node_id || !valid_device_eui(node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    fixture = find_device_fixture(node_id);
+    memset(&peer, 0, sizeof(peer));
+    if (fixture) {
+        if (!default_peer_for_identifier(node_id, &peer)) {
+            return FIELDMESH_ERR_NOT_FOUND;
+        }
+    } else {
+        sdk_copy_text(peer.device_uuid, sizeof(peer.device_uuid), node_id);
+        sdk_copy_text(peer.node_id, sizeof(peer.node_id), node_id);
+        sdk_copy_text(peer.name, sizeof(peer.name), "observed-fieldmesh-peer");
+        sdk_copy_text(peer.device_type, sizeof(peer.device_type), "fieldmesh-radio-peer");
+        peer.node_classes_mask = class_mask(FIELDMESH_NODE_ENDPOINT);
+        peer.supported_modes_mask = (1u << FIELDMESH_MODE_P2P) |
+                                    (1u << FIELDMESH_MODE_STAR);
+        peer.max_kbps = 1000u;
+        peer.ap_capability_score = 30u;
+        peer.direct_reachable = 1u;
+        peer.relay_allowed = 0u;
+    }
+
+    for (i = 0; i < context->peer_count; ++i) {
+        if (strcmp(context->peers[i].device_uuid, peer.device_uuid) == 0) {
+            context->peers[i] = peer;
+            return FIELDMESH_OK;
+        }
+    }
+    if (context->peer_count >= context->peer_capacity) {
+        size_t next_capacity = context->peer_capacity == 0u ?
+            16u : context->peer_capacity * 2u;
+        fieldmesh_peer_info_t *next_peers =
+            (fieldmesh_peer_info_t *)realloc(context->peers,
+                                             next_capacity * sizeof(*next_peers));
+
+        if (!next_peers) {
+            return FIELDMESH_ERR_NO_MEMORY;
+        }
+        context->peers = next_peers;
+        context->peer_capacity = next_capacity;
+    }
+    context->peers[context->peer_count++] = peer;
+    return FIELDMESH_OK;
 }
 
 static void init_default_aps(fieldmesh_context_t *context)
@@ -671,6 +872,10 @@ fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
 
 void fieldmesh_context_destroy(fieldmesh_context_t *context)
 {
+    if (!context) {
+        return;
+    }
+    free(context->peers);
     free(context);
 }
 
@@ -976,6 +1181,9 @@ fieldmesh_status_t fieldmesh_publish_ap_candidate(fieldmesh_context_t *context,
         return FIELDMESH_ERR_POLICY;
     }
     context->candidates[context->candidate_count++] = *candidate;
+    if (valid_device_eui(candidate->node_id)) {
+        (void)upsert_observed_peer(context, candidate->node_id);
+    }
     return FIELDMESH_OK;
 }
 
@@ -1134,20 +1342,17 @@ fieldmesh_status_t fieldmesh_list_peers(fieldmesh_session_t *session,
                                         fieldmesh_peer_callback_t callback,
                                         void *user)
 {
-    fieldmesh_peer_info_t peer;
+    size_t i;
 
     if (!session || !session->joined || !callback) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    if (!default_peer_for_identifier(FIELDMESH_LAB_EUI_A, &peer)) {
+    if (session->context->peer_count == 0u) {
         return FIELDMESH_ERR_NOT_FOUND;
     }
-    callback(&peer, user);
-
-    if (!default_peer_for_identifier(FIELDMESH_LAB_EUI_B, &peer)) {
-        return FIELDMESH_ERR_NOT_FOUND;
+    for (i = 0; i < session->context->peer_count; ++i) {
+        callback(&session->context->peers[i], user);
     }
-    callback(&peer, user);
     return FIELDMESH_OK;
 }
 
@@ -1162,7 +1367,7 @@ fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
     if (!session || !session->joined || !dst_node_id || !out_route) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    have_peer = default_peer_for_identifier(dst_node_id, &peer);
+    have_peer = observed_peer_for_identifier(session->context, dst_node_id, &peer);
     memset(out_route, 0, sizeof(*out_route));
     if (have_peer) {
         sdk_copy_text(out_route->dst_node_id, sizeof(out_route->dst_node_id),
@@ -1213,7 +1418,7 @@ fieldmesh_status_t fieldmesh_query_route_metrics(
         return FIELDMESH_ERR_NOT_FOUND;
     }
 
-    have_peer = default_peer_for_identifier(dst_node_id, &peer);
+    have_peer = observed_peer_for_identifier(session->context, dst_node_id, &peer);
     memset(out_metrics, 0, sizeof(*out_metrics));
     sdk_copy_text(out_metrics->dst_node_id, sizeof(out_metrics->dst_node_id),
                   route.dst_node_id);
@@ -1281,6 +1486,15 @@ fieldmesh_status_t fieldmesh_query_route_metrics(
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_report_peer_presence(fieldmesh_context_t *context,
+                                                  const char *device_eui)
+{
+    if (!context || !device_eui || !valid_device_eui(device_eui)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    return upsert_observed_peer(context, device_eui);
+}
+
 fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,
                                                      const fieldmesh_rtls_measurement_t *measurement)
 {
@@ -1289,6 +1503,10 @@ fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *contex
 
     if (!context || !measurement || measurement->node_id[0] == '\0') {
         return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (valid_device_eui(measurement->node_id) &&
+        upsert_observed_peer(context, measurement->node_id) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_POLICY;
     }
     estimate = estimate_position(measurement);
     for (i = 0; i < context->position_count; ++i) {
@@ -1447,6 +1665,127 @@ fieldmesh_status_t fieldmesh_recv(fieldmesh_stream_t *stream,
         *out_meta = stream->last_meta;
     }
     stream->has_packet = 0;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_encode_mac_frame(
+    const fieldmesh_mac_frame_header_t *header,
+    const void *payload,
+    size_t payload_len,
+    uint8_t *out_frame,
+    size_t out_frame_capacity,
+    size_t *out_frame_len)
+{
+    uint32_t header_crc;
+    uint32_t payload_crc;
+    size_t frame_len;
+
+    if (!header || !out_frame || !out_frame_len || payload_len > 0xffffu ||
+        (payload_len && !payload)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    frame_len = (size_t)FIELDMESH_MAC_HEADER_BYTES + payload_len +
+                (size_t)FIELDMESH_MAC_TRAILER_BYTES;
+    if (out_frame_capacity < frame_len) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (header->version != FIELDMESH_MAC_VERSION_1 ||
+        header->frame_type > 15 ||
+        header->traffic_class > 15 ||
+        header->path_mode > 15 ||
+        header->hop_limit > 15u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(out_frame, 0, frame_len);
+    out_frame[0] = (uint8_t)'B';
+    out_frame[1] = (uint8_t)'L';
+    out_frame[2] = (uint8_t)'R';
+    out_frame[3] = header->version;
+    write_be16(&out_frame[4], header->profile_id);
+    out_frame[6] = (uint8_t)(((uint8_t)header->frame_type << 4) |
+                             ((uint8_t)header->traffic_class & 0x0fu));
+    out_frame[7] = header->header_flags;
+    out_frame[8] = (uint8_t)(((uint8_t)header->path_mode << 4) |
+                             (header->hop_limit & 0x0fu));
+    memcpy(&out_frame[9], header->src_eui, FIELDMESH_EUI_BYTES);
+    memcpy(&out_frame[15], header->dst_eui, FIELDMESH_EUI_BYTES);
+    memcpy(&out_frame[21], header->relay_eui, FIELDMESH_EUI_BYTES);
+    write_be32(&out_frame[27], header->sequence);
+    write_be16(&out_frame[31], header->stream_id);
+    write_be16(&out_frame[33], (uint16_t)payload_len);
+    header_crc = crc32c_update(0u, out_frame, 35u);
+    write_be32(&out_frame[35], header_crc);
+    if (payload_len > 0u) {
+        memcpy(&out_frame[FIELDMESH_MAC_HEADER_BYTES], payload, payload_len);
+    }
+    payload_crc = crc32c_update(0u, &out_frame[FIELDMESH_MAC_HEADER_BYTES],
+                                payload_len);
+    write_be32(&out_frame[FIELDMESH_MAC_HEADER_BYTES + payload_len],
+               payload_crc);
+    *out_frame_len = frame_len;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_decode_mac_frame(
+    const uint8_t *frame,
+    size_t frame_len,
+    fieldmesh_mac_frame_header_t *out_header,
+    uint8_t *out_payload,
+    size_t out_payload_capacity,
+    size_t *out_payload_len)
+{
+    uint16_t payload_len;
+    uint32_t header_crc;
+    uint32_t payload_crc;
+    size_t expected_len;
+
+    if (!frame || !out_header || !out_payload_len ||
+        frame_len < (size_t)FIELDMESH_MAC_HEADER_BYTES +
+                    (size_t)FIELDMESH_MAC_TRAILER_BYTES) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (frame[0] != (uint8_t)'B' || frame[1] != (uint8_t)'L' ||
+        frame[2] != (uint8_t)'R' || frame[3] != FIELDMESH_MAC_VERSION_1) {
+        return FIELDMESH_ERR_UNSUPPORTED;
+    }
+    payload_len = read_be16(&frame[33]);
+    expected_len = (size_t)FIELDMESH_MAC_HEADER_BYTES + payload_len +
+                   (size_t)FIELDMESH_MAC_TRAILER_BYTES;
+    if (frame_len != expected_len) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    header_crc = crc32c_update(0u, frame, 35u);
+    payload_crc = crc32c_update(0u, &frame[FIELDMESH_MAC_HEADER_BYTES],
+                                payload_len);
+    if (header_crc != read_be32(&frame[35]) ||
+        payload_crc != read_be32(&frame[FIELDMESH_MAC_HEADER_BYTES + payload_len])) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    if (payload_len > out_payload_capacity || (payload_len && !out_payload)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(out_header, 0, sizeof(*out_header));
+    out_header->version = frame[3];
+    out_header->profile_id = read_be16(&frame[4]);
+    out_header->frame_type = (fieldmesh_mac_frame_type_t)((frame[6] >> 4) & 0x0fu);
+    out_header->traffic_class = (fieldmesh_traffic_class_t)(frame[6] & 0x0fu);
+    out_header->header_flags = frame[7];
+    out_header->path_mode = (fieldmesh_mac_path_mode_t)((frame[8] >> 4) & 0x0fu);
+    out_header->hop_limit = (uint8_t)(frame[8] & 0x0fu);
+    memcpy(out_header->src_eui, &frame[9], FIELDMESH_EUI_BYTES);
+    memcpy(out_header->dst_eui, &frame[15], FIELDMESH_EUI_BYTES);
+    memcpy(out_header->relay_eui, &frame[21], FIELDMESH_EUI_BYTES);
+    out_header->sequence = read_be32(&frame[27]);
+    out_header->stream_id = read_be16(&frame[31]);
+    out_header->payload_len_bytes = payload_len;
+    out_header->header_crc32c = header_crc;
+    out_header->payload_crc32c = payload_crc;
+    if (payload_len > 0u) {
+        memcpy(out_payload, &frame[FIELDMESH_MAC_HEADER_BYTES], payload_len);
+    }
+    *out_payload_len = payload_len;
     return FIELDMESH_OK;
 }
 
@@ -1754,8 +2093,18 @@ fieldmesh_status_t fieldmesh_plan_rf_packet(fieldmesh_adapter_t *adapter,
     out_plan->deadline_ms = packet->deadline_ms;
     out_plan->bitrate_hint_kbps = packet->bitrate_hint_kbps;
     out_plan->packet_len = (uint32_t)payload_len;
-    out_plan->frame_bytes = (uint32_t)payload_len + 16u;
-    out_plan->max_frame_bytes = mtu_bytes + 16u;
+    out_plan->frame_bytes = (uint32_t)payload_len +
+                            FIELDMESH_MAC_HEADER_BYTES +
+                            FIELDMESH_MAC_TRAILER_BYTES;
+    out_plan->max_frame_bytes = mtu_bytes +
+                                FIELDMESH_MAC_HEADER_BYTES +
+                                FIELDMESH_MAC_TRAILER_BYTES;
+    sdk_copy_text(out_plan->mac_magic, sizeof(out_plan->mac_magic),
+                  FIELDMESH_MAC_MAGIC_TEXT);
+    out_plan->mac_header_version = FIELDMESH_MAC_VERSION_1;
+    out_plan->mac_path_mode = route_kind_to_mac_path(route.route_kind);
+    out_plan->mac_header_bytes = FIELDMESH_MAC_HEADER_BYTES;
+    out_plan->mac_trailer_bytes = FIELDMESH_MAC_TRAILER_BYTES;
     out_plan->uses_sidecar_dma = 1u;
     out_plan->uses_rf_packet_engine = 1u;
     out_plan->uses_iio = 0u;
@@ -2229,11 +2578,6 @@ fieldmesh_status_t fieldmesh_apply_tun_adapter(fieldmesh_session_t *session,
     return FIELDMESH_OK;
 }
 
-static uint16_t read_be16(const uint8_t *bytes)
-{
-    return (uint16_t)(((uint16_t)bytes[0] << 8) | (uint16_t)bytes[1]);
-}
-
 static fieldmesh_payload_kind_t classify_ipv4_flow(uint8_t protocol,
                                                    uint8_t dscp,
                                                    uint16_t src_port,
@@ -2622,6 +2966,8 @@ fieldmesh_status_t fieldmesh_discover_daemons(
             sdk_json_get_boolish(response, "requires_mutual_auth_for_production");
         board.rtls_position_capable =
             sdk_json_get_boolish(response, "supports_rtls_position");
+        board.rtls_report_capable =
+            sdk_json_get_boolish(response, "supports_rtls_report");
         out_boards[count++] = board;
     }
     if (out_board_count) {

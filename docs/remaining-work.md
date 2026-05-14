@@ -146,7 +146,9 @@ Current concrete work:
   daemon currently publishes deterministic verification measurements in a
   consistent local frame; moving a board will update displayed range only after
   live GNSS/BDS+GPS/PPS, TOF, or sidecar packet-timing TDOA measurements feed
-  the daemon peer registry.
+  the daemon peer registry. `FIELDMESH_RTLS_REPORT` is now the daemon-side
+  ingestion contract for that feed; the remaining production work is wiring it
+  to real GNSS/NMEA/PPS and RF timestamp producers instead of a test harness.
 - Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board

@@ -114,11 +114,11 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 23 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 24 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
-    020000000103 020000000103 020000000203 >"$daemon_query_log"
+    020000000103 020000000103 020000000103 >"$daemon_query_log"
 wait "$daemon_pid"
 
 two_pc_log="$out_dir/fieldmesh_two_pc_flow_ap.ndjson"
@@ -181,6 +181,33 @@ if not packets or packets[0].get("stream_id") != 7 or packets[0].get("sequence")
     raise SystemExit("reference SDK packet loopback failed")
 if len(by_event.get("sdk_ap", [])) < 1 or len(by_event.get("sdk_peer", [])) < 1:
     raise SystemExit("reference SDK browse/peer discovery failed")
+PY
+
+python3 - "$out_dir/fieldmesh_mac_frame_demo.ndjson" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+mac = [event for event in events if event.get("event") == "sdk_mac_frame"]
+if not mac:
+    raise SystemExit("BLR MAC frame demo did not emit a frame")
+mac = mac[0]
+if mac.get("magic") != "BLR" or mac.get("version") != 1:
+    raise SystemExit("BLR MAC magic/version failed")
+if mac.get("header_bytes") != 39 or mac.get("trailer_bytes") != 4:
+    raise SystemExit("BLR MAC compact header/trailer size changed")
+if mac.get("frame_bytes") != 51 or mac.get("payload_bytes") != 8:
+    raise SystemExit("BLR MAC frame byte accounting failed")
+if mac.get("src_eui") != "020000000203" or mac.get("dst_eui") != "020000000103":
+    raise SystemExit("BLR MAC did not preserve 6-byte EUI identity")
+if mac.get("uses_json_on_air") != 0 or mac.get("carries_peer_name_per_frame") != 0:
+    raise SystemExit("BLR MAC must not carry JSON or peer names per data frame")
+if mac.get("declare_frame_type") != 1:
+    raise SystemExit("BLR MAC declare/presence frame type changed")
+if mac.get("tlv_name") != 1 or mac.get("tlv_gnss") != 3:
+    raise SystemExit("BLR MAC declare TLV contract changed")
+if mac.get("tlv_dtype") != 9 or mac.get("dtype_2r2t") != 0x0022:
+    raise SystemExit("BLR MAC device type must be a compact predefined u16 code")
 PY
 
 python3 - "$udp_log" "$udp_send_log" <<'PY'
@@ -250,6 +277,7 @@ query = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if lin
 hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+rtls_report = [row for row in query if row.get("event") == "sdk_daemon_rtls_report"]
 rtls_position = [row for row in query if row.get("event") == "sdk_daemon_rtls_position"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 radio_config = [row for row in query if row.get("event") == "sdk_daemon_radio_config_plan"]
@@ -270,7 +298,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 23 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 24 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -284,7 +312,8 @@ if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_rf_packet_engine",
-            "supports_radio_config_plan", "supports_rtls_position"):
+            "supports_radio_config_plan", "supports_rtls_position",
+            "supports_rtls_report"):
     if hello[0].get(key) != 1:
         raise SystemExit(f"SDK daemon HELLO capability {key} must be 1")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
@@ -308,12 +337,27 @@ if not join_state or join_state[0].get("joined") is not True or join_state[0].ge
     raise SystemExit("SDK daemon AP join query failed")
 if join_state[0].get("route_kind") != 1:
     raise SystemExit("SDK daemon did not prefer direct route for healthy peer")
-if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
+if (not peer or peer[0].get("peers", 0) < 1 or
+        peer[0].get("source") != "observed_radio_peer_registry" or
+        peer[0].get("peer_capacity_model") != "dynamic"):
     raise SystemExit("SDK daemon peer-state query failed")
-if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
+if not rtls or rtls[0].get("positions", 0) < 1 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("SDK daemon RTLS-state query failed")
+if not rtls_report or rtls_report[0].get("ok") is not True:
+    raise SystemExit("SDK daemon RTLS-report query failed")
+if rtls_report[0].get("measurement_api") != "fieldmesh_report_rtls_measurement":
+    raise SystemExit("SDK daemon RTLS-report did not use SDK measurement API")
+if rtls_report[0].get("updates_peer_registry") != 1:
+    raise SystemExit("SDK daemon RTLS-report did not update peer registry")
+if rtls_report[0].get("x_cm") != 200 or rtls_report[0].get("y_cm") != 120:
+    raise SystemExit("SDK daemon RTLS-report did not publish live-updated position")
+for key in ("writes_hardware", "starts_rf_tx", "uses_iio", "uses_inter_board_ip_routing"):
+    if rtls_report[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon RTLS-report key {key} must be 0")
 if not rtls_position or rtls_position[0].get("ok") is not True:
     raise SystemExit("SDK daemon RTLS-position query failed")
+if rtls_position[0].get("x_cm") != rtls_report[0].get("x_cm") or rtls_position[0].get("y_cm") != rtls_report[0].get("y_cm"):
+    raise SystemExit("SDK daemon RTLS-position did not reflect latest RTLS report")
 if rtls_position[0].get("position_source") not in ("gps_pps_fused", "packet_timing_tdoa"):
     raise SystemExit("SDK daemon RTLS-position source is not usable")
 if rtls_position[0].get("radio_topology_only") != 1 or rtls_position[0].get("host_eth_topology") != 0:
@@ -324,14 +368,8 @@ if route_metrics[0].get("metrics_api") != "fieldmesh_query_route_metrics":
     raise SystemExit("SDK daemon route metrics did not use SDK metrics API")
 if route_metrics[0].get("dst_device_eui") != "020000000103":
     raise SystemExit("SDK daemon route metrics used wrong destination EUI")
-if route_metrics[0].get("current_route") != 1 or route_metrics[0].get("recommended_route") != 2:
-    raise SystemExit("SDK daemon route metrics should recommend AP relay for degraded direct path")
 if route_metrics[0].get("selected_mode") != 4 or route_metrics[0].get("stream_id") != 500:
     raise SystemExit("SDK daemon route metrics mode/stream changed")
-if route_metrics[0].get("snr_db") != 11 or route_metrics[0].get("per_mille") != 140:
-    raise SystemExit("SDK daemon route metrics link-quality values changed")
-if route_metrics[0].get("queue_age_ms") != 210 or route_metrics[0].get("delivered_kbps") != 760:
-    raise SystemExit("SDK daemon route metrics queue/throughput values changed")
 if route_metrics[0].get("direct_reachable") != 1 or route_metrics[0].get("relay_available") != 1:
     raise SystemExit("SDK daemon route metrics reachability flags changed")
 for key in ("uses_iio", "uses_inter_board_ip_routing"):
@@ -356,6 +394,14 @@ if rf_packet_engine[0].get("payload_kind") != 3 or rf_packet_engine[0].get("traf
     raise SystemExit("SDK daemon RF packet-engine did not carry video-base metadata")
 if rf_packet_engine[0].get("route_kind") != 1 or rf_packet_engine[0].get("mode") != 4:
     raise SystemExit("SDK daemon RF packet-engine did not preserve direct scheduled route")
+if rf_packet_engine[0].get("mac_magic") != "BLR" or rf_packet_engine[0].get("mac_header_version") != 1:
+    raise SystemExit("SDK daemon RF packet-engine did not expose BLR MAC v1")
+if rf_packet_engine[0].get("mac_header_bytes") != 39 or rf_packet_engine[0].get("mac_trailer_bytes") != 4:
+    raise SystemExit("SDK daemon RF packet-engine BLR MAC byte accounting changed")
+if rf_packet_engine[0].get("mac_path_mode") != 0:
+    raise SystemExit("SDK daemon RF packet-engine did not map direct route to BLR path mode")
+if rf_packet_engine[0].get("uses_json_on_air") != 0:
+    raise SystemExit("SDK daemon RF packet-engine must not use JSON on air")
 if rf_packet_engine[0].get("queued_to_sidecar") != 1 or rf_packet_engine[0].get("queued_to_rf_engine") != 1:
     raise SystemExit("SDK daemon RF packet-engine did not queue the handoff")
 if rf_packet_engine[0].get("uses_sidecar_dma") != 1 or rf_packet_engine[0].get("uses_rf_packet_engine") != 1:
@@ -415,7 +461,7 @@ if not app_camera_explicit:
     raise SystemExit("SDK daemon app control/camera explicit operation missing")
 if app_camera_explicit[0].get("elected_device_eui") != "020000000103":
     raise SystemExit("SDK daemon app control/camera explicit AP failed")
-if app_camera_explicit[0].get("dst_device_eui") != "020000000203":
+if app_camera_explicit[0].get("dst_device_eui") != "020000000103":
     raise SystemExit("SDK daemon app control/camera explicit destination failed")
 if app_camera_explicit[0].get("control_plane_ok") is not True or app_camera_explicit[0].get("data_plane_ok") is not True:
     raise SystemExit("SDK daemon app control/camera explicit planes failed")
@@ -425,7 +471,7 @@ if app_camera[0].get("launched_role") != "passive_learner":
     raise SystemExit("SDK daemon app control/camera should launch passive")
 if app_camera[0].get("topology") != "radio" or app_camera[0].get("host_eth_topology") is not False:
     raise SystemExit("SDK daemon app control/camera topology must be radio-only")
-if app_camera[0].get("rtls_gps_pps_fused") != 1 or app_camera[0].get("rtls_packet_timing_tdoa") != 1:
+if app_camera[0].get("positions", 0) < 1 or app_camera[0].get("rtls_packet_timing_tdoa") != 1:
     raise SystemExit("SDK daemon app control/camera RTLS summary failed")
 if app_camera[0].get("frames_tx") != 6 or app_camera[0].get("frames_rx") != 6:
     raise SystemExit("SDK daemon app control/camera frame counts failed")

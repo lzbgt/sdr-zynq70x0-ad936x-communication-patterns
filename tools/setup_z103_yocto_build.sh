@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build_dir="${Z103_YOCTO_BUILD_DIR:-$repo_root/yocto/builds/sdr-z103-arm}"
 vendor_fw="${SDR_Z103_VENDOR_FW:-$repo_root/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw}"
+machine="${FIELDMESH_YOCTO_MACHINE:-fm-z103}"
 
 if [ ! -d "$repo_root/yocto/layers/poky" ]; then
     echo "Missing Yocto poky layer: $repo_root/yocto/layers/poky" >&2
@@ -42,7 +43,7 @@ BBLAYERS ?= " \\
 EOF
 
 cat > "$build_dir/conf/local.conf" <<EOF
-MACHINE ??= "sdr-z103-zynq7"
+MACHINE = "$machine"
 DISTRO ?= "poky"
 PACKAGE_CLASSES ?= "package_rpm"
 EXTRA_IMAGE_FEATURES ?= "debug-tweaks"

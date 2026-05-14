@@ -87,12 +87,13 @@ verify_variant() {
     tun_gateway_strings_out="$(mktemp)"
     tun_packetizer_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
+    mac_frame_strings_out="$(mktemp)"
     rf_safe_tune_out="$(mktemp)"
     rf_tx_enable_out="$(mktemp)"
     rf_tx_disable_out="$(mktemp)"
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$mac_frame_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
@@ -103,6 +104,7 @@ verify_variant() {
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-gateway-demo | strings > "$tun_gateway_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-mac-frame-demo | strings > "$mac_frame_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-safe-tune | strings > "$rf_safe_tune_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-enable | strings > "$rf_tx_enable_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-disable | strings > "$rf_tx_disable_out"
@@ -145,6 +147,12 @@ verify_variant() {
         020000000103; do
         if ! grep -qF "$token" "$camera_stream_strings_out"; then
             echo "Missing fieldmesh-camera-stream-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in sdk_mac_frame BLR carries_peer_name_per_frame tlv_dtype dtype_2r2t; do
+        if ! grep -qF "$token" "$mac_frame_strings_out"; then
+            echo "Missing fieldmesh-mac-frame-demo token in $name rootfs: $token" >&2
             exit 1
         fi
     done
@@ -206,6 +214,7 @@ verify_variant() {
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
         sdk_daemon_rtls_position \
+        sdk_daemon_rtls_report \
         sdk_daemon_route_metrics \
         sdk_daemon_swarm_adapter \
         sdk_daemon_rf_packet_engine \
@@ -222,6 +231,7 @@ verify_variant() {
         requires_mutual_auth_for_production \
         supports_camera_stream_chunk \
         supports_rtls_position \
+        supports_rtls_report \
         input_checksum \
         preview_checksum \
         preview_matches \
@@ -251,7 +261,8 @@ verify_variant() {
             exit 1
         fi
     done
-    for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" fieldmesh_daemon_port; do
+    for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" \
+            fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed; do
         if ! grep -qF "$token" "$daemon_init_out"; then
             echo "Missing FieldMesh daemon init token in $name rootfs: $token" >&2
             exit 1

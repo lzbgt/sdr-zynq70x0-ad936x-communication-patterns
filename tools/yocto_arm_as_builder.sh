@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build_dir="$repo_root/yocto/builds/sdr-z203-arm"
 builder_user="${YOCTO_BUILDER_USER:-yoctobuilder}"
+machine="${FIELDMESH_YOCTO_MACHINE:-fm-z203}"
 
 if ! id "$builder_user" >/dev/null 2>&1; then
     echo "Missing build user: $builder_user" >&2
@@ -22,6 +23,10 @@ if [ -d "$repo_root/yocto" ]; then
     if ! su -s /usr/bin/bash "$builder_user" -c "test -w '$repo_root/yocto'" >/dev/null 2>&1; then
         chown -R "$builder_user:root" "$repo_root/yocto"
     fi
+fi
+
+if [ -f "$build_dir/conf/local.conf" ]; then
+    sed -i -E 's/^MACHINE[ ?]*=[ ?]*"[^"]+"/MACHINE = "'"$machine"'"/' "$build_dir/conf/local.conf"
 fi
 
 su -s /usr/bin/bash "$builder_user" -c \

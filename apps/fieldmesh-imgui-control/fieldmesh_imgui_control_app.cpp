@@ -204,6 +204,8 @@ void select_default_peer_for_local_board(GuiState *state)
     state->camera.subscribed_device_eui = peer_eui;
 }
 
+bool refresh_radio_peers(GuiState *state);
+
 [[maybe_unused]] bool connect_selected_board(GuiState *state)
 {
     const GuiBoard *board = selected_board(*state);
@@ -213,8 +215,9 @@ void select_default_peer_for_local_board(GuiState *state)
         return false;
     }
     (void)select_board_eui(state, board->device_eui);
-    select_default_peer_for_local_board(state);
     state->connected_to_board = true;
+    (void)refresh_radio_peers(state);
+    select_default_peer_for_local_board(state);
     state->operation_status = "board_connected:" + board->device_eui;
     return true;
 }
@@ -224,8 +227,9 @@ void select_default_peer_for_local_board(GuiState *state)
     if (!select_board_eui(state, device_eui)) {
         return false;
     }
-    select_default_peer_for_local_board(state);
     state->connected_to_board = true;
+    (void)refresh_radio_peers(state);
+    select_default_peer_for_local_board(state);
     state->operation_status = "board_connected:" + device_eui;
     return true;
 }
@@ -829,6 +833,19 @@ double max_topology_peer_range_m(const GuiState &state)
     bool have_range = false;
 
     for (std::size_t i = 0; i < state.peers.size(); ++i) {
+        if (peer_has_position_model(state.peers[i])) {
+            const double local_dx_m =
+                static_cast<double>(state.peers[i].x_cm) / 100.0;
+            const double local_dy_m =
+                static_cast<double>(state.peers[i].y_cm) / 100.0;
+            const double local_range_m =
+                std::sqrt(local_dx_m * local_dx_m + local_dy_m * local_dy_m);
+
+            if (local_range_m > max_range_m) {
+                max_range_m = local_range_m;
+            }
+            have_range = true;
+        }
         for (std::size_t j = i + 1u; j < state.peers.size(); ++j) {
             if (!peer_has_position_model(state.peers[i]) ||
                 !peer_has_position_model(state.peers[j])) {
@@ -1140,49 +1157,151 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
                                  false,
                                  boards[i].ap_capable != 0u,
                                  boards[i].camera_stream_capable != 0u,
-                                boards[i].route_metrics_capable != 0u,
-                                boards[i].tun_gateway_capable != 0u,
-                                boards[i].rf_packet_engine_capable != 0u,
-                                boards[i].requires_mutual_auth_for_production != 0u,
-                                boards[i].rtls_position_capable != 0u});
-        state->peers.push_back({boards[i].device_eui,
-                                boards[i].hostname,
-                                boards[i].device_type,
-                                true,
-                                true,
-                                -60,
-                                24,
-                                3,
+                                 boards[i].route_metrics_capable != 0u,
+                                 boards[i].tun_gateway_capable != 0u,
+                                 boards[i].rf_packet_engine_capable != 0u,
+                                 boards[i].requires_mutual_auth_for_production != 0u,
+                                 boards[i].rtls_position_capable != 0u});
+    }
+    state->selected_ap_eui = state->boards[0].device_eui;
+    state->camera.dst_device_eui.clear();
+    state->camera.subscribed_device_eui.clear();
+    state->operation_status = "runtime_discovery_loaded_select_board";
+    return true;
+}
+
+bool refresh_radio_peers(GuiState *state)
+{
+    const GuiBoard *board = selected_board(*state);
+    fieldmesh_daemon_client_config_t config;
+    char response[8192];
+    size_t response_len = 0u;
+    long peer_count = 0;
+    long serialized_peers = 0;
+    std::vector<GuiPeer> previous_peers = state->peers;
+    std::vector<GuiConversation> previous_conversations = state->conversations;
+    std::string previous_selected_conversation = state->selected_conversation_eui;
+    std::string previous_camera_dst = state->camera.dst_device_eui;
+    std::string previous_camera_subscribe = state->camera.subscribed_device_eui;
+
+    if (!state || !state->connected_to_board || !board) {
+        return false;
+    }
+    std::memset(&config, 0, sizeof(config));
+    std::snprintf(config.host, sizeof(config.host), "%s",
+                  board->daemon_host.c_str());
+    config.port = static_cast<uint16_t>(board->daemon_port);
+    config.timeout_ms = 400u;
+    state->peers.clear();
+    state->conversations.clear();
+    state->selected_conversation_eui.clear();
+    state->camera.dst_device_eui.clear();
+    state->camera.subscribed_device_eui.clear();
+    if (fieldmesh_daemon_request(&config, "FIELDMESH_STATE_PEERS v1",
+                                 response, sizeof(response), &response_len) !=
+            FIELDMESH_OK ||
+        response_len == 0u ||
+        !std::strstr(response, "\"ok\":true")) {
+        if (state->profile_source != "runtime_discovery" &&
+            !previous_peers.empty()) {
+            state->peers = previous_peers;
+            state->conversations = previous_conversations;
+            state->selected_conversation_eui = previous_selected_conversation;
+            state->camera.dst_device_eui = previous_camera_dst;
+            state->camera.subscribed_device_eui = previous_camera_subscribe;
+            state->operation_status = "radio_peer_discovery_profile_fixture";
+            return true;
+        }
+        state->operation_status = "radio_peer_discovery_unreachable";
+        return false;
+    }
+    (void)json_number_field(response, "peers", &peer_count);
+    (void)json_number_field(response, "serialized_peers", &serialized_peers);
+    if (peer_count <= 0 || serialized_peers <= 0) {
+        if (state->profile_source != "runtime_discovery" &&
+            !previous_peers.empty()) {
+            state->peers = previous_peers;
+            state->conversations = previous_conversations;
+            state->selected_conversation_eui = previous_selected_conversation;
+            state->camera.dst_device_eui = previous_camera_dst;
+            state->camera.subscribed_device_eui = previous_camera_subscribe;
+            state->operation_status = "radio_peer_discovery_profile_fixture";
+            return true;
+        }
+        state->operation_status = "radio_peer_discovery_empty";
+        return false;
+    }
+    for (long i = 0; i < serialized_peers && i < 512; ++i) {
+        char key[48];
+        std::string eui;
+        std::string hostname;
+        std::string device_type;
+        long direct = 0;
+        long relay = 0;
+
+        std::snprintf(key, sizeof(key), "peer%ld_eui", i);
+        if (!json_string_field(response, key, &eui) || eui.empty() ||
+            eui == state->selected_board_eui) {
+            continue;
+        }
+        std::snprintf(key, sizeof(key), "peer%ld_hostname", i);
+        (void)json_string_field(response, key, &hostname);
+        std::snprintf(key, sizeof(key), "peer%ld_device_type", i);
+        (void)json_string_field(response, key, &device_type);
+        std::snprintf(key, sizeof(key), "peer%ld_direct_reachable", i);
+        (void)json_number_field(response, key, &direct);
+        std::snprintf(key, sizeof(key), "peer%ld_relay_available", i);
+        (void)json_number_field(response, key, &relay);
+        state->peers.push_back({eui,
+                                hostname.empty() ? eui : hostname,
+                                device_type.empty() ? "fieldmesh-radio-peer" :
+                                                      device_type,
+                                direct != 0,
+                                relay != 0,
+                                -127,
+                                0,
+                                0,
                                 0,
                                 0,
                                 0u,
                                 0u,
                                 0u,
                                 "position_pending"});
-        state->conversations.push_back({boards[i].device_eui,
-                                        boards[i].hostname,
+        state->conversations.push_back({eui,
+                                        hostname.empty() ? eui : hostname,
                                         0u,
                                         false});
     }
-    state->selected_ap_eui = state->boards[0].device_eui;
-    state->selected_conversation_eui = state->conversations[0].peer_eui;
-    state->camera.dst_device_eui = state->conversations[0].peer_eui;
-    state->camera.subscribed_device_eui = state->conversations[0].peer_eui;
-    state->operation_status = "runtime_discovery_loaded_select_board";
+    if (state->peers.empty()) {
+        state->operation_status = "radio_peer_discovery_empty";
+        return false;
+    }
+    select_default_peer_for_local_board(state);
+    (void)refresh_topology_metrics(state);
+    state->operation_status = "radio_peer_discovery_loaded";
     return true;
 }
 
 bool api_browse_peers(GuiState *state)
 {
-    state->operation_status = "python_api_peer_browse";
-    return !state->peers.empty();
+    if (!state->connected_to_board && !state->peers.empty()) {
+        state->operation_status = "python_api_peer_browse_profile_fixture";
+        return true;
+    }
+    bool ok = refresh_radio_peers(state);
+
+    if (ok) {
+        state->operation_status = "python_api_peer_browse";
+    }
+    return ok;
 }
 
 bool api_select_board(GuiState *state, const std::string &device_eui)
 {
     if (select_board_eui(state, device_eui)) {
-        select_default_peer_for_local_board(state);
         state->connected_to_board = true;
+        (void)refresh_radio_peers(state);
+        select_default_peer_for_local_board(state);
         state->operation_status = "board_connected:" + device_eui;
         return true;
     }
