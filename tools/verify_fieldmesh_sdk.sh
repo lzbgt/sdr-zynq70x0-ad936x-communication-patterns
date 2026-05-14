@@ -27,8 +27,10 @@ done
 cxx="${CXX:-c++}"
 control_camera_app="$out_dir/fieldmesh-control-camera-demo"
 control_camera_external_log="$out_dir/fieldmesh_control_camera_demo_external.ndjson"
+control_camera_command_log="$out_dir/fieldmesh_control_camera_demo_command.ndjson"
 control_camera_input="$out_dir/fieldmesh_camera_input.bin"
 control_camera_preview="$out_dir/fieldmesh_camera_preview.bin"
+control_camera_command_preview="$out_dir/fieldmesh_camera_command_preview.bin"
 "$cxx" -std=c++17 -Wall -Wextra -Werror \
     -I"$repo_root/sdk/c/include" \
     "$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp" \
@@ -43,6 +45,12 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --chunk-size 64 \
     >"$control_camera_external_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_external.stderr"
+"$control_camera_app" \
+    --camera-command "cat '$control_camera_input'" \
+    --preview-command "cat > '$control_camera_command_preview'" \
+    --chunk-size 64 \
+    >"$control_camera_command_log" \
+    2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
 
 udp_log="$out_dir/fieldmesh_udp_discovery_loopback.ndjson"
 udp_send_log="$out_dir/fieldmesh_udp_discovery_send.ndjson"
@@ -827,6 +835,57 @@ for frame in frames:
             raise SystemExit(f"external camera frame key {key} must be 0")
 PY
 echo "fieldmesh_sdk_control_camera_external_input_check=pass"
+
+python3 - "$control_camera_command_log" "$control_camera_input" "$control_camera_command_preview" <<'PY'
+import filecmp
+import json
+import os
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+by_event = {}
+for event in events:
+    by_event.setdefault(event.get("event"), []).append(event)
+
+capture = by_event.get("app_camera_capture_source", [])
+summary = by_event.get("app_summary", [])
+stream = by_event.get("app_camera_stream_open", [])
+preview = by_event.get("app_camera_preview_output", [])
+frames = by_event.get("app_camera_frame_tx", [])
+if not capture or not summary or not stream or not preview:
+    raise SystemExit("command camera app run missed capture/summary/stream/preview")
+capture = capture[0]
+summary = summary[0]
+stream = stream[0]
+preview = preview[0]
+input_size = os.path.getsize(sys.argv[2])
+preview_size = os.path.getsize(sys.argv[3])
+if not filecmp.cmp(sys.argv[2], sys.argv[3], shallow=False):
+    raise SystemExit("command camera preview output did not match input")
+if capture.get("source") != "external_capture_command":
+    raise SystemExit("command camera capture source was not reported")
+if capture.get("capture_boundary") != "external_encoded_byte_stream":
+    raise SystemExit("command camera capture boundary changed")
+if stream.get("camera_source") != "external_capture_command":
+    raise SystemExit("command camera stream source changed")
+if preview.get("sink") != "external_preview_command":
+    raise SystemExit("command camera preview sink was not reported")
+if summary.get("camera_source") != "external_capture_command":
+    raise SystemExit("command camera summary source changed")
+if summary.get("camera_input_bytes") != input_size or summary.get("preview_bytes") != preview_size:
+    raise SystemExit("command camera byte accounting failed")
+if len(frames) != 3 or summary.get("frames_tx") != 3 or summary.get("frames_rx") != 3:
+    raise SystemExit("command camera input should split into three chunks")
+if preview.get("matches_input") is not True or preview.get("bytes") != input_size:
+    raise SystemExit("command camera preview report failed")
+for frame in frames:
+    if frame.get("payload_kind") != 3 or frame.get("traffic_class") != 2:
+        raise SystemExit("command camera frame was not video-base C2")
+    for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+        if frame.get(key) != 0:
+            raise SystemExit(f"command camera frame key {key} must be 0")
+PY
+echo "fieldmesh_sdk_control_camera_command_pipe_check=pass"
 
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \

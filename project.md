@@ -650,7 +650,11 @@ user and vendor configuration.
   inter-board IP routing, or live RF TX. It now also accepts external camera bytes through
   `--camera-input PATH|-`, chunks them with `--chunk-size`, and writes the
   receive/preview side with `--preview-output`, which lets a platform camera
-  pipeline feed the same SDK path before a GUI renderer exists.
+  pipeline feed the same SDK path before a GUI renderer exists. It also
+  supports `--camera-command CMD` and `--preview-command CMD` so a
+  Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
+  or a native wrapper process while FieldMesh owns route adaptation and RF
+  handoff.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
@@ -994,6 +998,12 @@ Expected result in the current Pluto-compatible firmware state:
    Host A and Host B can be the same physical PC for lab testing, but they
    remain two logical hosts with a distinct SDK control plane and RF data
    plane.
+   The C++ app now has a concrete production capture/preview boundary:
+   `--camera-command` reads encoded camera bytes from a platform capture
+   process, and `--preview-command` writes received preview bytes to a platform
+   renderer/decoder process. This keeps OpenCV/FFmpeg/GStreamer/native camera
+   choices above the SDK while the pure-C SDK remains the stable transport and
+   policy ABI.
    Ethernet SDK clients should talk to a pre-installed board mesh gateway
    daemon on Zynq ARM Linux. That daemon listens on the configured SDK port,
    owns local IIO/admin control and the board-local `swarm0` packet adapter,

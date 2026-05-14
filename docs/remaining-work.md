@@ -176,7 +176,7 @@ Next concrete work:
   Next work is replacing the deterministic demo AP/join responses with real
   credential/audit admission, board peer discovery, measured route query,
   codec-integrated adaptation feedback, prioritized stream send/receive
-  services, and a real camera capture/preview UI. The
+  services, and a packaged GUI. The
   pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
   two-PC path; production daemon and apps may be C++ while the SDK ABI remains
   pure C. The daemon adapter already has a Zynq-local userspace TUN `swarm0`
@@ -242,9 +242,12 @@ Next concrete work:
   flow on both boards. The C++ app now accepts an external camera byte stream
   through `--camera-input PATH|-`, chunks it, sends it through the same SDK/RF
   handoff, and writes the preview side with `--preview-output`; the SDK
-  verifier byte-compares preview output against input. The remaining app work
-  is replacing that file/stdin source with real platform camera capture, GUI
-  rendering, and continuous stream pacing. The intended live
+  verifier byte-compares preview output against input. It now also supports
+  `--camera-command` and `--preview-command`, so FFmpeg, GStreamer, or native
+  wrapper processes can provide platform capture and preview without changing
+  the pure-C SDK transport ABI. The remaining app work is packaging concrete
+  Windows/Linux/macOS capture command presets, GUI rendering, and continuous
+  stream pacing. The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->
   FieldMesh RF -> peer board -> Host B preview. Host A and Host B may be the

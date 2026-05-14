@@ -25,7 +25,9 @@ struct PositionList {
 
 struct AppOptions {
     const char *camera_input_path = nullptr;
+    const char *camera_command = nullptr;
     const char *preview_output_path = nullptr;
+    const char *preview_command = nullptr;
     size_t chunk_size = 640;
 };
 
@@ -34,6 +36,28 @@ struct CameraChunk {
     unsigned frame_index = 0;
     unsigned chunk_index = 0;
 };
+
+#ifdef _WIN32
+FILE *open_process_pipe(const char *command, const char *mode)
+{
+    return _popen(command, mode);
+}
+
+int close_process_pipe(FILE *pipe)
+{
+    return _pclose(pipe);
+}
+#else
+FILE *open_process_pipe(const char *command, const char *mode)
+{
+    return popen(command, mode);
+}
+
+int close_process_pipe(FILE *pipe)
+{
+    return pclose(pipe);
+}
+#endif
 
 void copy_text(char *dst, size_t dst_len, const char *src)
 {
@@ -192,7 +216,8 @@ void fill_camera_chunk(std::vector<unsigned char> &payload,
 void print_usage(const char *program)
 {
     std::fprintf(stderr,
-                 "usage: %s [--camera-input PATH|-] [--preview-output PATH] "
+                 "usage: %s [--camera-input PATH|-] [--camera-command CMD] "
+                 "[--preview-output PATH] [--preview-command CMD] "
                  "[--chunk-size BYTES]\n",
                  program);
 }
@@ -221,8 +246,12 @@ bool parse_options(int argc, char **argv, AppOptions *options)
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--camera-input") == 0 && i + 1 < argc) {
             options->camera_input_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--camera-command") == 0 && i + 1 < argc) {
+            options->camera_command = argv[++i];
         } else if (std::strcmp(argv[i], "--preview-output") == 0 && i + 1 < argc) {
             options->preview_output_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--preview-command") == 0 && i + 1 < argc) {
+            options->preview_command = argv[++i];
         } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
             if (!parse_size(argv[++i], &options->chunk_size)) {
                 std::fprintf(stderr, "invalid --chunk-size\n");
@@ -235,6 +264,10 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             print_usage(argv[0]);
             return false;
         }
+    }
+    if (options->camera_input_path && options->camera_command) {
+        std::fprintf(stderr, "--camera-input and --camera-command are mutually exclusive\n");
+        return false;
     }
     return true;
 }
@@ -265,8 +298,27 @@ bool load_camera_input(const AppOptions &options, std::vector<unsigned char> *da
     FILE *input = nullptr;
     bool ok;
 
-    if (!options.camera_input_path || !data) {
+    if ((!options.camera_input_path && !options.camera_command) || !data) {
         return false;
+    }
+    if (options.camera_command) {
+        input = open_process_pipe(options.camera_command, "r");
+        if (!input) {
+            std::fprintf(stderr, "failed to start camera command: %s\n",
+                         options.camera_command);
+            return false;
+        }
+        ok = read_all(input, data);
+        if (close_process_pipe(input) != 0) {
+            std::fprintf(stderr, "camera command failed: %s\n",
+                         options.camera_command);
+            return false;
+        }
+        if (!ok) {
+            std::fprintf(stderr, "failed to read camera command output: %s\n",
+                         options.camera_command);
+        }
+        return ok;
     }
     if (std::strcmp(options.camera_input_path, "-") == 0) {
         return read_all(stdin, data);
@@ -297,7 +349,7 @@ bool build_camera_chunks(const AppOptions &options,
     }
     *input_bytes = 0u;
     chunks->clear();
-    if (options.camera_input_path) {
+    if (options.camera_input_path || options.camera_command) {
         if (!load_camera_input(options, &input)) {
             return false;
         }
@@ -330,6 +382,82 @@ bool build_camera_chunks(const AppOptions &options,
             *input_bytes += chunk.payload.size();
             chunks->push_back(chunk);
         }
+    }
+    return true;
+}
+
+const char *camera_source_name(const AppOptions &options)
+{
+    if (options.camera_command) {
+        return "external_capture_command";
+    }
+    if (options.camera_input_path) {
+        return "external_camera_stream";
+    }
+    return "synthetic_pattern";
+}
+
+bool write_all(FILE *output, const std::vector<unsigned char> &data)
+{
+    return data.empty() ||
+           std::fwrite(data.data(), 1, data.size(), output) == data.size();
+}
+
+bool write_preview_output(const AppOptions &options,
+                          const std::vector<unsigned char> &preview_bytes,
+                          size_t camera_input_bytes)
+{
+    if (options.preview_output_path) {
+        FILE *preview = std::fopen(options.preview_output_path, "wb");
+
+        if (!preview) {
+            std::fprintf(stderr, "failed to open preview output: %s\n",
+                         options.preview_output_path);
+            return false;
+        }
+        if (!write_all(preview, preview_bytes)) {
+            std::fprintf(stderr, "failed to write preview output: %s\n",
+                         options.preview_output_path);
+            std::fclose(preview);
+            return false;
+        }
+        std::fclose(preview);
+        std::printf("{\"event\":\"app_camera_preview_output\","
+                    "\"sink\":\"file\","
+                    "\"path\":\"%s\","
+                    "\"bytes\":%lu,"
+                    "\"matches_input\":%s}\n",
+                    options.preview_output_path,
+                    static_cast<unsigned long>(preview_bytes.size()),
+                    ((options.camera_input_path || options.camera_command) &&
+                     preview_bytes.size() == camera_input_bytes) ? "true" : "false");
+    }
+    if (options.preview_command) {
+        FILE *preview = open_process_pipe(options.preview_command, "w");
+
+        if (!preview) {
+            std::fprintf(stderr, "failed to start preview command: %s\n",
+                         options.preview_command);
+            return false;
+        }
+        if (!write_all(preview, preview_bytes)) {
+            std::fprintf(stderr, "failed to write preview command input: %s\n",
+                         options.preview_command);
+            close_process_pipe(preview);
+            return false;
+        }
+        if (close_process_pipe(preview) != 0) {
+            std::fprintf(stderr, "preview command failed: %s\n",
+                         options.preview_command);
+            return false;
+        }
+        std::printf("{\"event\":\"app_camera_preview_output\","
+                    "\"sink\":\"external_preview_command\","
+                    "\"bytes\":%lu,"
+                    "\"matches_input\":%s}\n",
+                    static_cast<unsigned long>(preview_bytes.size()),
+                    ((options.camera_input_path || options.camera_command) &&
+                     preview_bytes.size() == camera_input_bytes) ? "true" : "false");
     }
     return true;
 }
@@ -367,6 +495,16 @@ int main(int argc, char **argv)
         !build_camera_chunks(options, &camera_chunks, &camera_input_bytes)) {
         return 2;
     }
+
+    std::printf("{\"event\":\"app_camera_capture_source\","
+                "\"source\":\"%s\","
+                "\"capture_boundary\":\"external_encoded_byte_stream\","
+                "\"sdk_abi\":\"pure_c\","
+                "\"chunks\":%lu,"
+                "\"bytes\":%lu}\n",
+                camera_source_name(options),
+                static_cast<unsigned long>(camera_chunks.size()),
+                static_cast<unsigned long>(camera_input_bytes));
 
     config.transport = FIELDMESH_TRANSPORT_USB_ETH;
     config.control_port = 49000;
@@ -537,7 +675,7 @@ int main(int argc, char **argv)
                 "\"preview_enabled\":true,"
                 "\"uses_iio\":0,"
                 "\"uses_inter_board_ip_routing\":0}\n",
-                options.camera_input_path ? "external_camera_stream" : "synthetic_pattern",
+                camera_source_name(options),
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(options.chunk_size),
                 static_cast<unsigned long>(camera_chunks.size()),
@@ -631,37 +769,11 @@ int main(int argc, char **argv)
                         static_cast<unsigned long>(rx_len));
     }
 
-    if (options.preview_output_path) {
-        FILE *preview = std::fopen(options.preview_output_path, "wb");
-
-        if (!preview) {
-            std::fprintf(stderr, "failed to open preview output: %s\n",
-                         options.preview_output_path);
-            (void)fieldmesh_close_adapter(camera_stream);
-            (void)fieldmesh_leave(session);
-            fieldmesh_context_destroy(ctx);
-            return 1;
-        }
-        if (!preview_bytes.empty() &&
-            std::fwrite(preview_bytes.data(), 1, preview_bytes.size(), preview) !=
-                preview_bytes.size()) {
-            std::fprintf(stderr, "failed to write preview output: %s\n",
-                         options.preview_output_path);
-            std::fclose(preview);
-            (void)fieldmesh_close_adapter(camera_stream);
-            (void)fieldmesh_leave(session);
-            fieldmesh_context_destroy(ctx);
-            return 1;
-        }
-        std::fclose(preview);
-        std::printf("{\"event\":\"app_camera_preview_output\","
-                    "\"path\":\"%s\","
-                    "\"bytes\":%lu,"
-                    "\"matches_input\":%s}\n",
-                    options.preview_output_path,
-                    static_cast<unsigned long>(preview_bytes.size()),
-                    (options.camera_input_path &&
-                     preview_bytes.size() == camera_input_bytes) ? "true" : "false");
+    if (!write_preview_output(options, preview_bytes, camera_input_bytes)) {
+        (void)fieldmesh_close_adapter(camera_stream);
+        (void)fieldmesh_leave(session);
+        fieldmesh_context_destroy(ctx);
+        return 1;
     }
 
     control_plane_ok = !aps.aps.empty() && !peers.peers.empty() &&
@@ -695,7 +807,7 @@ int main(int argc, char **argv)
                 static_cast<unsigned long>(peers.peers.size()),
                 static_cast<unsigned long>(positions.positions.size()),
                 topology_links, frames_tx, frames_rx, rf_queued,
-                options.camera_input_path ? "external_camera_stream" : "synthetic_pattern",
+                camera_source_name(options),
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(preview_bytes.size()));
 

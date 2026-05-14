@@ -116,8 +116,14 @@ video-base camera chunks queued through the `swarm0`/RF packet-engine handoff.
 By default it generates deterministic frame chunks for CI, but it can also read
 an external byte stream with `--camera-input PATH|-`, chunk it with
 `--chunk-size`, and write the receive/preview side with `--preview-output`.
-This is the SDK/app boundary a real Windows, Linux, macOS, or embedded camera
-pipeline can drive before a GUI is added.
+For production camera integration without adding SDK dependencies, it also
+accepts `--camera-command CMD` and `--preview-command CMD`: the app reads an
+encoded camera byte stream from the capture command and writes received preview
+bytes to the preview command. Platform wrappers can use FFmpeg, GStreamer, or
+native camera APIs behind those process pipes while the FieldMesh transport
+still uses the pure-C SDK camera stream ABI. This is the SDK/app boundary a
+real Windows, Linux, macOS, or embedded camera pipeline can drive before a GUI
+is added.
 
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the

@@ -2998,6 +2998,22 @@ and byte-compares preview output against input. This keeps the camera stream
 policy in the pure-C SDK while giving the C++ app a real camera-pipeline
 ingress/preview boundary for Windows, Linux, macOS, or embedded hosts.
 
+The SDK gate also verifies the process-pipe camera boundary:
+
+```sh
+fieldmesh-control-camera-demo \
+  --camera-command "cat .config/fieldmesh/sdk/fieldmesh_camera_input.bin" \
+  --preview-command "cat > .config/fieldmesh/sdk/fieldmesh_camera_command_preview.bin" \
+  --chunk-size 64
+```
+
+The verifier checks `app_camera_capture_source` reports
+`external_capture_command`, `app_camera_preview_output` reports
+`external_preview_command`, three video-base chunks traverse the SDK/RF handoff
+path, and the command preview output byte-matches the input. This is the
+dependency-light production hook for FFmpeg/GStreamer/native camera capture and
+preview wrappers.
+
 The same SDK gate now also runs `fieldmeshctl_demo` as the first network
 profile CLI/API check. It verifies the default Pluto-style USB address,
 validates a split-subnet Z103 profile at `192.168.3.1/24` with host
