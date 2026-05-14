@@ -661,6 +661,9 @@ user and vendor configuration.
   with `--pace-realtime`. The app now also emits `app_stream_lifecycle` so a
   GUI or supervisor can consume capture/preview process state, clean stream
   close status, byte/chunk accounting, and `ok`/`degraded` health.
+  `fieldmesh_app_snapshot.py` folds the app NDJSON into one GUI/supervisor
+  snapshot covering AP browse/election, operations, radio topology, RTLS
+  positions, camera stream state, lifecycle health, and UI feature flags.
   `fieldmesh_camera_pipe.py` supplies deterministic file-backed capture/preview
   helpers for tests plus Linux/Windows/macOS FFmpeg, GStreamer, and
   native-wrapper command presets for real hosts; the presets now select the app

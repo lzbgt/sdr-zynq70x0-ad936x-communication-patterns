@@ -130,7 +130,10 @@ and `--pace-realtime` can make the app sleep to that schedule. The app emits
 mode, chunk and byte counts, stream close status, and an `ok`/`degraded` health
 field for a future GUI or supervisor. This is the SDK/app boundary a real
 Windows, Linux, macOS, or embedded camera pipeline can drive before a GUI is
-added. The companion `fieldmesh_camera_pipe.py` helper provides
+added. The companion `fieldmesh_app_snapshot.py` helper converts app NDJSON
+into a single GUI/supervisor JSON snapshot with AP browse/election, operations,
+radio topology, RTLS positions, camera stream state, lifecycle health, and UI
+feature flags. `fieldmesh_camera_pipe.py` provides
 `capture-file`/`preview-file` commands for deterministic tests and a `preset`
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for
 Linux, Windows, and macOS, including the app-side live-loop and target-FPS

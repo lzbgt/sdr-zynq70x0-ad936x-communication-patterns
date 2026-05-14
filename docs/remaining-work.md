@@ -254,9 +254,12 @@ Next concrete work:
   `--max-chunks`, emits `planned_tx_us` from `--target-fps`, and can optionally
   sleep to that cadence with `--pace-realtime`. It also reports
   `app_stream_lifecycle` with capture/preview process state, clean stream close,
-  byte/chunk accounting, and `ok`/`degraded` health. The remaining app work is
-  GUI rendering, platform preset installation UX, deeper platform codec
-  supervision, and the conducted/shielded RF TX/RX data-plane gate.
+  byte/chunk accounting, and `ok`/`degraded` health. `fieldmesh_app_snapshot.py`
+  now turns the app NDJSON into one GUI/supervisor snapshot for AP browse,
+  election, operations, radio topology, RTLS map points, camera stream state,
+  lifecycle health, and route-health visibility. The remaining app work is GUI
+  rendering, platform preset installation UX, deeper platform codec supervision,
+  and the conducted/shielded RF TX/RX data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->

@@ -420,6 +420,11 @@ capture pacing separately from RF route adaptation. The app also emits
 `app_stream_lifecycle` so UI/service code can track capture process state,
 preview process state, clean SDK stream close, bounded-run status, chunk/byte
 counts, elapsed time, and `ok`/`degraded` health without scraping frame events.
+`fieldmesh_app_snapshot.py` is the first GUI-facing adapter over those events:
+it normalizes app NDJSON into AP/election state, radio topology, RTLS map
+points, camera stream status, lifecycle health, route-health visibility, and
+the safety invariants that the app did not use inter-board IP routing, start RF
+TX, or write hardware.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

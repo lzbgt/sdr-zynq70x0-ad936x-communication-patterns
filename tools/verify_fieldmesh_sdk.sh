@@ -29,7 +29,10 @@ control_camera_app="$out_dir/fieldmesh-control-camera-demo"
 control_camera_external_log="$out_dir/fieldmesh_control_camera_demo_external.ndjson"
 control_camera_command_log="$out_dir/fieldmesh_control_camera_demo_command.ndjson"
 control_camera_pipe_helper="$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_camera_pipe.py"
+control_camera_snapshot_helper="$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_app_snapshot.py"
 control_camera_preset_log="$out_dir/fieldmesh_camera_pipe_presets.ndjson"
+control_camera_snapshot_log="$out_dir/fieldmesh_control_camera_snapshot.json"
+control_camera_command_snapshot_log="$out_dir/fieldmesh_control_camera_command_snapshot.json"
 control_camera_input="$out_dir/fieldmesh_camera_input.bin"
 control_camera_preview="$out_dir/fieldmesh_camera_preview.bin"
 control_camera_command_preview="$out_dir/fieldmesh_camera_command_preview.bin"
@@ -56,6 +59,12 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --live-stream-loop \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
+"$control_camera_snapshot_helper" \
+    --input "$out_dir/fieldmesh_control_camera_demo.ndjson" \
+    --output "$control_camera_snapshot_log"
+"$control_camera_snapshot_helper" \
+    --input "$control_camera_command_log" \
+    --output "$control_camera_command_snapshot_log"
 "$control_camera_pipe_helper" preset \
     --platform linux \
     --backend ffmpeg \
@@ -968,6 +977,50 @@ if planned != [0, 66666, 133333]:
     raise SystemExit(f"command camera planned timestamps changed: {planned}")
 PY
 echo "fieldmesh_sdk_control_camera_command_pipe_check=pass"
+
+python3 - "$control_camera_snapshot_log" "$control_camera_command_snapshot_log" <<'PY'
+import json
+import sys
+
+snapshots = [json.load(open(path, encoding="utf-8")) for path in sys.argv[1:]]
+for snapshot in snapshots:
+    if snapshot.get("event") != "fieldmesh_app_snapshot":
+        raise SystemExit("app snapshot event name changed")
+    if snapshot.get("sdk_abi") != "pure_c":
+        raise SystemExit("app snapshot must preserve pure-C SDK ABI")
+    if snapshot.get("overall_health") != "ok":
+        raise SystemExit("app snapshot health changed")
+    if snapshot.get("control_plane_ok") is not True or snapshot.get("data_plane_ok") is not True:
+        raise SystemExit("app snapshot plane status failed")
+    if snapshot.get("radio_topology_only") is not True or snapshot.get("host_eth_topology") is not False:
+        raise SystemExit("app snapshot topology classification failed")
+    for key in ("uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+        if snapshot.get(key) is not False:
+            raise SystemExit(f"app snapshot key {key} must be false")
+    network = snapshot.get("network", {})
+    if len(network.get("aps", [])) < 2:
+        raise SystemExit("app snapshot missing AP browser state")
+    if network.get("elected_ap", {}).get("elected_device_eui") != "020000000203":
+        raise SystemExit("app snapshot elected AP changed")
+    topology = snapshot.get("topology", {})
+    if len(topology.get("links", [])) < 2 or len(topology.get("positions", [])) < 2:
+        raise SystemExit("app snapshot missing topology or RTLS state")
+    camera = snapshot.get("camera", {})
+    if camera.get("frames_tx") != camera.get("frames_rx"):
+        raise SystemExit("app snapshot camera frame accounting failed")
+    if camera.get("preview_matches") != camera.get("frames_tx"):
+        raise SystemExit("app snapshot preview accounting failed")
+    if camera.get("lifecycle", {}).get("sdk_stream_closed") is not True:
+        raise SystemExit("app snapshot lifecycle close state failed")
+    ui = snapshot.get("ui", {})
+    for key in ("show_network_browser", "show_topology_view", "show_rtls_map",
+                "show_camera_stream", "show_route_health"):
+        if ui.get(key) is not True:
+            raise SystemExit(f"app snapshot UI flag {key} missing")
+if snapshots[1].get("camera", {}).get("live_stream_loop") is not True:
+    raise SystemExit("command app snapshot did not preserve live-loop status")
+PY
+echo "fieldmesh_sdk_control_camera_snapshot_check=pass"
 
 python3 - "$control_camera_preset_log" <<'PY'
 import json
