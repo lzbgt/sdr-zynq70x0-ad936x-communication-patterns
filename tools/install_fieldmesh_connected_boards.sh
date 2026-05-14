@@ -62,11 +62,32 @@ if not payload.get("device_eui") or payload.get("device_eui") == "000000000000":
     raise SystemExit(f"{name}: daemon did not report a real device_eui")
 if not payload.get("device_type"):
     raise SystemExit(f"{name}: daemon did not report device_type")
-print(f"{name}_hello=pass host={host} eui={payload.get('device_eui')} type={payload.get('device_type')} hostname={payload.get('hostname')}")
+for key in (
+    "supports_app_control_camera",
+    "supports_camera_stream_chunk",
+    "supports_route_metrics",
+    "supports_route_metrics_report",
+    "supports_rtls_report",
+    "supports_rtls_position",
+    "supports_mac_ingest",
+):
+    if payload.get(key) != 1:
+        raise SystemExit(
+            f"{name}: installed daemon is stale or incomplete: "
+            f"{key}={payload.get(key)!r}; payload={payload!r}"
+        )
+for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
+            "starts_rf_tx", "writes_hardware"):
+    if payload.get(key) != 0:
+        raise SystemExit(
+            f"{name}: installed daemon safety invariant failed: "
+            f"{key}={payload.get(key)!r}; payload={payload!r}"
+        )
+print(f"{name}_hello=pass host={host} eui={payload.get('device_eui')} type={payload.get('device_type')} hostname={payload.get('hostname')} supports_mac_ingest={payload.get('supports_mac_ingest')}")
 PY
 }
 
-z203_has_sd_boot() {
+z203_has_sd_partition() {
     sshpass -p "$ssh_pass" ssh \
         -o ConnectTimeout=5 \
         -o StrictHostKeyChecking=no \
@@ -117,13 +138,14 @@ fi
                 "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
             ;;
         auto)
-            if z203_has_sd_boot; then
-                install_z203_sd
-            else
-                APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
-                    OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-                    "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
+            if z203_has_sd_partition; then
+                echo "Z203 SD partition is present, but auto install now uses QSPI" >&2
+                echo "because SD file staging does not prove the board boots SD." >&2
+                echo "Set Z203_INSTALL_MODE=sd only for an explicit SD-boot test." >&2
             fi
+            APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
+                OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+                "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
             ;;
         *)
             echo "Invalid Z203_INSTALL_MODE=$z203_install_mode; expected auto, sd, or qspi" >&2

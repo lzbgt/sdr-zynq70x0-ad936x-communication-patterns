@@ -45,11 +45,22 @@ Firmware state:
 
 - Z103 `pluto.frm` was flashed and its installed daemon passed the MAC-ingest
   SDK gate after reboot.
-- Z203 SD boot files were restaged and the board is reachable, but the running
-  installed daemon is still stale and fails the new `supports_mac_ingest` gate.
-  The previous QSPI fallback write also failed flash verification. Until the
-  Z203 boot source or QSPI verify issue is fixed, use `FORCE_UPLOAD=1` for
-  Z203 live product gates and treat persistent Z203 firmware refresh as open.
+- Z203 SD boot files were restaged and the board is reachable, but the board is
+  still booting a stale QSPI/initramfs runtime. The diagnostic helper
+  `tools/diagnose_fieldmesh_z203_persistent_boot.sh` shows
+  `root=/dev/ram`, an installed daemon hash of
+  `4b5d11728e68666d2b158606beef154083893ba8b48d9e12a67b4339ce50bce2`,
+  `installed_daemon_has_mac_ingest=false`, SD files readable, unreadable
+  U-Boot environment through `fw_printenv`, and a QSPI `mtd3` FIT header that
+  does not match the current local FieldMesh FIT header. This means
+  `/dev/mmcblk0p1` presence alone is not proof that the board boots SD. The
+  connected-board installer now prefers QSPI in auto mode and its post-install
+  daemon check requires the current FieldMesh capabilities instead of accepting
+  a generic HELLO.
+- Until the Z203 boot source or QSPI verify issue is fixed, use
+  `FORCE_UPLOAD=1` for Z203 live product gates and treat persistent Z203
+  firmware refresh as open. `Z203_INSTALL_MODE=sd` is now an explicit SD-boot
+  experiment only, not the default update path.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
