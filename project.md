@@ -363,6 +363,9 @@ user and vendor configuration.
 - `tools/test_z103_linux_qspi_program_patterns.sh` - guarded Z103 Linux MTD
   constant-pattern classifier that replays the Z203 stuck-bit pattern set on a
   healthy board and rolls the scratch eraseblock back afterward.
+- `tools/classify_fieldmesh_qspi_fault.py` - no-write evidence classifier that
+  joins the Z203 failing probes, the Z103 healthy reference, and Z203 integrity
+  state into an explicit QSPI install/repair policy.
 - `tools/verify_fieldmesh_connected_board_installer.sh` - synthetic guard that
   proves forced Z203 QSPI refusal happens before any parallel Z103/Z203 package
   update can start.

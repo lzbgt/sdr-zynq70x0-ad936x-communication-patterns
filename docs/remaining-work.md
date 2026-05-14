@@ -161,7 +161,10 @@ Firmware state:
   classifier replayed the same constant-byte set used to expose Z203 stuck bits
   (`0xff`, `0x00`, `0x44`, `0xbb`, `0x55`, `0xaa`, `0x11`, `0x22`, `0x88`,
   `0x7b`) through Linux MTD at the same product-family scratch offset. Every
-  write matched and every rollback erase verified. That makes the remaining
+  write matched and every rollback erase verified. `tools/classify_fieldmesh_qspi_fault.py`
+  now turns these captures into a no-write policy verdict:
+  `z203_qspi_program_fault_classified`, `normal_z203_qspi_install_allowed=false`,
+  and `full_z203_qspi_fit_repair_allowed=false`. That makes the remaining
   Z203 blocker board-specific to Z203 flash programming, Z203 QSPI-controller
   electrical/config behavior, or the Z203 flash device itself; do not retry a
   Z203 full-FIT write until a Z203 small program/readback path passes.

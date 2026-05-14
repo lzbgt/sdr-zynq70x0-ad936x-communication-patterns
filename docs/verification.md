@@ -4104,6 +4104,22 @@ class, not a shared Linux MTD, Winbond W25Q256, or test-pattern artifact. Full
 Z203 QSPI FIT repair remains blocked until Z203 itself passes a small guarded
 program/readback probe.
 
+The accumulated QSPI evidence is now machine-classified by a no-write gate:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_qspi_fault_classification_20260515-072348
+mkdir -p "$OUT_DIR"
+tools/classify_fieldmesh_qspi_fault.py --output "$OUT_DIR/summary.json" \
+  | tee "$OUT_DIR/stdout.json"
+```
+
+Result: passed with verdict `z203_qspi_program_fault_classified`. The generated
+policy keeps `normal_z203_qspi_install_allowed=false` and
+`full_z203_qspi_fit_repair_allowed=false`. The required exit criteria before
+any Z203 full-FIT QSPI repair are a passing Z203 guarded small
+program/readback probe, `qspi_integrity_pass=true`, and a verified U-Boot
+`qspiboot` of the current FieldMesh FIT.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

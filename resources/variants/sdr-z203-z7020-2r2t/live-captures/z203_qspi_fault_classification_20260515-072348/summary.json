@@ -1,0 +1,63 @@
+{
+  "diagnosis": "Z203 erase/readback and rollback work, but program/readback leaves the 0x44 stuck-bit signature. Z103 clears the same patterns through the product-family Linux MTD path, so this is Z203-specific.",
+  "event": "fieldmesh_qspi_fault_classification",
+  "fault_classified": true,
+  "full_z203_qspi_fit_repair_allowed": false,
+  "install_policy": "normal_installer_must_use_sd_for_z203",
+  "normal_z203_qspi_install_allowed": false,
+  "repair_policy": "block_full_fit_repair_until_z203_small_write_passes",
+  "requires_before_z203_qspi_repair": [
+    "Z203 guarded small program/readback passes on a rollback scratch sector",
+    "Z203 QSPI integrity gate reports qspi_integrity_pass=true",
+    "U-Boot qspiboot verifies the current FieldMesh FIT"
+  ],
+  "verdict": "z203_qspi_program_fault_classified",
+  "z103_pattern": {
+    "all_erase_readbacks_clean": true,
+    "all_rollbacks_clean": true,
+    "all_writes_match": true,
+    "event": "fieldmesh_z103_linux_qspi_program_patterns",
+    "healthy_reference_passed": true,
+    "scratch_precondition_passed": true
+  },
+  "z203_integrity": {
+    "diagnosis": "QSPI is not a trusted Z203 install target: mtd3 readback or U-Boot environment validation failed. Use the refreshed SD/initramfs runtime path until QSPI erase/write/readback and qspiboot both pass.",
+    "event": "fieldmesh_z203_qspi_integrity_diag",
+    "present": true,
+    "qspi_integrity_pass": false,
+    "safe_z203_install_mode": "sd"
+  },
+  "z203_linux": {
+    "dominant_unexpected_one_bit_mask_hex": "0x44",
+    "event": "fieldmesh_z203_linux_qspi_status_tail_write",
+    "linux_path_reproduces_fault": true,
+    "rollback_erase_passed": true,
+    "write_readback_matches": false
+  },
+  "z203_pattern": {
+    "aggregate_unexpected_one_mask_hex": "0x44",
+    "all_writes_match": false,
+    "erase_readback_clean": true,
+    "event": "fieldmesh_z203_uboot_qspi_program_patterns",
+    "failed_patterns": [
+      "0x00",
+      "0xbb",
+      "0xaa",
+      "0x11",
+      "0x22",
+      "0x88",
+      "0x7b"
+    ],
+    "fault_signature_matches_z203_0x44": true,
+    "passed_patterns": [
+      "0xff",
+      "0x44",
+      "0x55"
+    ],
+    "path_behavior": "erase_clean_program_stuck_bits",
+    "unexpected_one_masks_hex": [
+      "0x04",
+      "0x44"
+    ]
+  }
+}
