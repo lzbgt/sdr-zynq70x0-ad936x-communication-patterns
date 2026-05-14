@@ -165,6 +165,28 @@ SDK:
 - allow applications to disable location export while still allowing local
   routing use.
 
+## Current Daemon Behavior
+
+`FIELDMESH_RTLS_POSITION` is the runtime API boundary used by the GUI and test
+gates, but the current `fieldmesh-state-daemon-demo` still seeds deterministic
+RTLS measurements at startup. Those measurements prove the app, SDK, daemon,
+and topology rendering path without pretending that board movement is already
+being sampled from live hardware.
+
+That means physically moving a Z203 or Z103 will not change displayed range
+until a production measurement feed updates the daemon peer registry. The
+required feed is one or more of:
+
+- fresh GNSS/BDS+GPS fixes with known local coordinate conversion;
+- PPS-disciplined TOF using calibrated RF, packet, and FPGA latency;
+- packet-timing TDOA from sidecar RX timestamps and calibrated response slots;
+- coordinator/AP fused reports from three or more useful timing anchors.
+
+Route metrics such as RSSI, SNR, PER, queue age, and ACK latency remain link
+health inputs. They may change with movement and may affect routing or
+confidence, but they must not overwrite physical range unless a deployment has
+an explicit RSSI/range calibration model.
+
 ## Current Executable Gate
 
 The first implementation is `fieldmesh-udp-probe rtls-estimate`.

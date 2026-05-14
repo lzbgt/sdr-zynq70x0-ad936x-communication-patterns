@@ -142,6 +142,7 @@ typedef struct fieldmesh_discovered_board {
     uint8_t tun_gateway_capable;
     uint8_t rf_packet_engine_capable;
     uint8_t requires_mutual_auth_for_production;
+    uint8_t rtls_position_capable;
 } fieldmesh_discovered_board_t;
 
 typedef struct fieldmesh_network_profile {

@@ -71,10 +71,16 @@ run_radio_gate = sys.argv[8] == "1"
 
 def load_rows(path):
     rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
         line = line.strip()
         if line.startswith("{"):
-            rows.append(json.loads(line))
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                if index == len(lines) - 1:
+                    continue
+                raise
     return rows
 
 
@@ -89,7 +95,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 22:
+    if not end or end[-1].get("handled") != 23:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -97,6 +103,7 @@ def daemon_summary(label, path):
     ap_election = one(query, "sdk_daemon_ap_election")
     join_state = one(query, "sdk_daemon_join_state")
     rtls = one(query, "sdk_daemon_rtls_state")
+    rtls_position = one(query, "sdk_daemon_rtls_position")
     route_metrics = one(query, "sdk_daemon_route_metrics")
     camera_session = one(query, "sdk_daemon_camera_session_plan")
     camera_adaptation = one(query, "sdk_daemon_camera_adaptation")
@@ -125,6 +132,12 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} join/scheduled-mode state failed")
     if rtls.get("positions") != 2 or rtls.get("packet_timing_tdoa") != 1:
         raise SystemExit(f"{label} RTLS state failed")
+    if rtls_position.get("ok") is not True:
+        raise SystemExit(f"{label} RTLS position failed")
+    if rtls_position.get("position_source") not in ("gps_pps_fused", "packet_timing_tdoa"):
+        raise SystemExit(f"{label} RTLS position source is not usable")
+    if rtls_position.get("radio_topology_only") != 1 or rtls_position.get("host_eth_topology") != 0:
+        raise SystemExit(f"{label} RTLS position confused host Ethernet with radio topology")
     if route_metrics.get("ok") is not True or route_metrics.get("metrics_api") != "fieldmesh_query_route_metrics":
         raise SystemExit(f"{label} route metrics failed")
     if route_metrics.get("current_route") != 1 or route_metrics.get("recommended_route") != 2:
@@ -176,6 +189,8 @@ def daemon_summary(label, path):
         "joined": join_state.get("joined"),
         "selected_mode": join_state.get("selected_mode"),
         "rtls_positions": rtls.get("positions"),
+        "rtls_position_source": rtls_position.get("position_source"),
+        "rtls_position_error_radius_cm": rtls_position.get("error_radius_cm"),
         "packet_timing_tdoa": rtls.get("packet_timing_tdoa"),
         "route_metrics_api": route_metrics.get("metrics_api"),
         "route_recommended_route": route_metrics.get("recommended_route"),

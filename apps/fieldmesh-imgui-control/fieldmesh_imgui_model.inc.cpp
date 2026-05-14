@@ -11,6 +11,7 @@ struct GuiBoard {
     bool tun_gateway_capable;
     bool rf_packet_engine_capable;
     bool mutual_auth_required;
+    bool rtls_position_capable;
 };
 
 struct GuiPeer {

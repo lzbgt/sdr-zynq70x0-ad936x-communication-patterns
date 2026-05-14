@@ -159,10 +159,16 @@ use_installed_daemon = sys.argv[6] == "1"
 
 def load_rows(path):
     rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for index, line in enumerate(lines):
         line = line.strip()
         if line.startswith("{"):
-            rows.append(json.loads(line))
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                if index == len(lines) - 1:
+                    continue
+                raise
     return rows
 
 

@@ -50,6 +50,54 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                 "uses_inter_board_ip_routing": 0,
             }
             sock.sendto((json.dumps(route, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_RTLS_POSITION" in data:
+            text = data.decode("utf-8", errors="ignore")
+            dst = payload["device_eui"]
+            for part in text.split():
+                if part.startswith("dst="):
+                    dst = part.split("=", 1)[1]
+                    break
+            positions = {
+                "02aabb000001": {
+                    "source": "gps_pps_fused",
+                    "x_cm": 0,
+                    "y_cm": 0,
+                    "error_radius_cm": 120,
+                    "confidence": 95,
+                },
+                "02aabb000002": {
+                    "source": "packet_timing_tdoa",
+                    "x_cm": 160,
+                    "y_cm": 80,
+                    "error_radius_cm": 420,
+                    "confidence": 76,
+                },
+            }
+            position = positions.get(dst)
+            if position is None:
+                rtls = {
+                    "event": "sdk_daemon_rtls_position",
+                    "ok": False,
+                    "dst_device_eui": dst,
+                    "error": "position_unavailable",
+                }
+            else:
+                rtls = {
+                    "event": "sdk_daemon_rtls_position",
+                    "ok": True,
+                    "dst_device_eui": dst,
+                    "position_source": position["source"],
+                    "x_cm": position["x_cm"],
+                    "y_cm": position["y_cm"],
+                    "error_radius_cm": position["error_radius_cm"],
+                    "confidence": position["confidence"],
+                    "usable_for_ap_election": 1,
+                    "usable_for_routing": 1,
+                    "measured_age_ms": 60,
+                    "radio_topology_only": 1,
+                    "host_eth_topology": 0,
+                }
+            sock.sendto((json.dumps(rtls, separators=(",", ":")) + "\n").encode("utf-8"), addr)
         elif b"FIELDMESH_RADIO_CONFIG_PLAN" in data:
             radio = {
                 "event": "sdk_daemon_radio_config_plan",
@@ -98,6 +146,7 @@ def hello(device_eui: str, hostname: str, device_type: str) -> dict:
         "supports_app_control_camera": 1,
         "supports_camera_session_plan": 1,
         "supports_route_metrics": 1,
+        "supports_rtls_position": 1,
         "supports_camera_stream_chunk": 1,
         "supports_tun_gateway": 1,
         "supports_rf_packet_engine": 1,
@@ -201,10 +250,14 @@ def main() -> int:
                 raise SystemExit("topology metrics refresh did not run")
             if topology["topology_route_metrics_overwrite_position"] is not False:
                 raise SystemExit("route metrics must not overwrite topology coordinates")
-            if topology["topology_position_model_peers"] != 1:
-                raise SystemExit("route metrics must not fabricate remote topology coordinates")
-            if topology["topology_max_peer_range_m"] >= 0:
-                raise SystemExit("route metrics refresh fabricated a topology range")
+            if topology["topology_position_model_peers"] != 2:
+                raise SystemExit("RTLS refresh did not populate both peer positions")
+            if topology["topology_gnss_position_peers"] < 1:
+                raise SystemExit("GNSS/BDS position source was not surfaced")
+            if topology["topology_timing_position_peers"] < 1:
+                raise SystemExit("TOF/TDOA timing source was not surfaced")
+            if not (1.0 <= topology["topology_max_peer_range_m"] <= 2.5):
+                raise SystemExit("RTLS refresh did not produce the expected live peer range")
 
             radio_snapshot = Path(tmp) / "radio_config.json"
             subprocess.run(

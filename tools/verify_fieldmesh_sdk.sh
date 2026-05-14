@@ -114,7 +114,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 22 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 23 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -250,6 +250,7 @@ query = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if lin
 hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
+rtls_position = [row for row in query if row.get("event") == "sdk_daemon_rtls_position"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 radio_config = [row for row in query if row.get("event") == "sdk_daemon_radio_config_plan"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
@@ -269,7 +270,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 22 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 23 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -283,7 +284,7 @@ if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_rf_packet_engine",
-            "supports_radio_config_plan"):
+            "supports_radio_config_plan", "supports_rtls_position"):
     if hello[0].get(key) != 1:
         raise SystemExit(f"SDK daemon HELLO capability {key} must be 1")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
@@ -311,6 +312,12 @@ if not peer or peer[0].get("peers") != 2 or peer[0].get("total_kbps", 0) < 9000:
     raise SystemExit("SDK daemon peer-state query failed")
 if not rtls or rtls[0].get("positions") != 2 or rtls[0].get("packet_timing_tdoa") != 1:
     raise SystemExit("SDK daemon RTLS-state query failed")
+if not rtls_position or rtls_position[0].get("ok") is not True:
+    raise SystemExit("SDK daemon RTLS-position query failed")
+if rtls_position[0].get("position_source") not in ("gps_pps_fused", "packet_timing_tdoa"):
+    raise SystemExit("SDK daemon RTLS-position source is not usable")
+if rtls_position[0].get("radio_topology_only") != 1 or rtls_position[0].get("host_eth_topology") != 0:
+    raise SystemExit("SDK daemon RTLS-position confused host Ethernet with radio topology")
 if not route_metrics or route_metrics[0].get("ok") is not True:
     raise SystemExit("SDK daemon route metrics query failed")
 if route_metrics[0].get("metrics_api") != "fieldmesh_query_route_metrics":

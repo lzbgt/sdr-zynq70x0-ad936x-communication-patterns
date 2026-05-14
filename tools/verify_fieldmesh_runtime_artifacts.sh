@@ -205,6 +205,7 @@ verify_variant() {
         sdk_daemon_join_state \
         sdk_daemon_peer_state \
         sdk_daemon_rtls_state \
+        sdk_daemon_rtls_position \
         sdk_daemon_route_metrics \
         sdk_daemon_swarm_adapter \
         sdk_daemon_rf_packet_engine \
@@ -220,6 +221,7 @@ verify_variant() {
         root_ca_derived_certs \
         requires_mutual_auth_for_production \
         supports_camera_stream_chunk \
+        supports_rtls_position \
         input_checksum \
         preview_checksum \
         preview_matches \

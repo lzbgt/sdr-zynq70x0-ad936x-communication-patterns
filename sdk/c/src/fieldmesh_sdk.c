@@ -2620,6 +2620,8 @@ fieldmesh_status_t fieldmesh_discover_daemons(
             sdk_json_get_boolish(response, "supports_rf_packet_engine");
         board.requires_mutual_auth_for_production =
             sdk_json_get_boolish(response, "requires_mutual_auth_for_production");
+        board.rtls_position_capable =
+            sdk_json_get_boolish(response, "supports_rtls_position");
         out_boards[count++] = board;
     }
     if (out_board_count) {

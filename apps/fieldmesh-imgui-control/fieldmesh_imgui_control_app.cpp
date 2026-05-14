@@ -422,6 +422,48 @@ bool json_boolish_field(const char *json, const char *key, bool *out)
     return false;
 }
 
+bool json_string_field(const char *json,
+                       const char *key,
+                       std::string *out)
+{
+    char pattern[96];
+    const char *pos;
+    const char *end;
+
+    if (!json || !key || !out) {
+        return false;
+    }
+    std::snprintf(pattern, sizeof(pattern), "\"%s\":\"", key);
+    pos = std::strstr(json, pattern);
+    if (!pos) {
+        return false;
+    }
+    pos += std::strlen(pattern);
+    end = std::strchr(pos, '"');
+    if (!end || end < pos) {
+        return false;
+    }
+    out->assign(pos, static_cast<size_t>(end - pos));
+    return true;
+}
+
+std::string rtls_source_for_gui(const std::string &source)
+{
+    if (source == "gps_pps_fused" || source == "gnss_bds_position") {
+        return "gnss_bds_position";
+    }
+    if (source == "time_sync_tof") {
+        return "time_sync_tof";
+    }
+    if (source == "packet_timing_tdoa") {
+        return "packet_timing_tdoa";
+    }
+    if (source == "test_fixture_position") {
+        return "test_fixture_position";
+    }
+    return "position_pending";
+}
+
 bool request_radio_config_plan(GuiState *state)
 {
     const GuiBoard *board = selected_board(*state);
@@ -660,7 +702,7 @@ bool poll_message_bus(GuiState *state)
     bool updated = false;
 
     if (!state || !state->connected_to_board || !board ||
-        !board->route_metrics_capable) {
+        (!board->route_metrics_capable && !board->rtls_position_capable)) {
         return false;
     }
     std::memset(&config, 0, sizeof(config));
@@ -668,6 +710,60 @@ bool poll_message_bus(GuiState *state)
                   board->daemon_host.c_str());
     config.port = static_cast<uint16_t>(board->daemon_port);
     config.timeout_ms = 120u;
+
+    if (board->rtls_position_capable) {
+        bool rtls_updated = false;
+
+        for (GuiPeer &peer : state->peers) {
+            char request[96];
+            char response[2048];
+            size_t response_len = 0u;
+            long x_cm = 0;
+            long y_cm = 0;
+            long error_cm = 0;
+            long age = 0;
+            std::string source;
+
+            std::snprintf(request, sizeof(request),
+                          "FIELDMESH_RTLS_POSITION v1 dst=%s",
+                          peer.device_eui.c_str());
+            if (fieldmesh_daemon_request(&config, request, response,
+                                         sizeof(response), &response_len) !=
+                    FIELDMESH_OK ||
+                response_len == 0u ||
+                !std::strstr(response, "\"ok\":true")) {
+                continue;
+            }
+            if (!json_number_field(response, "x_cm", &x_cm) ||
+                !json_number_field(response, "y_cm", &y_cm) ||
+                !json_number_field(response, "error_radius_cm", &error_cm) ||
+                !json_string_field(response, "position_source", &source)) {
+                continue;
+            }
+            (void)json_number_field(response, "measured_age_ms", &age);
+            peer.x_cm = static_cast<int>(x_cm);
+            peer.y_cm = static_cast<int>(y_cm);
+            peer.error_radius_cm =
+                static_cast<unsigned>(error_cm < 0 ? 0 : error_cm);
+            peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
+            peer.range_source = rtls_source_for_gui(source);
+            peer.range_update_count += 1u;
+            rtls_updated = true;
+            updated = true;
+        }
+        if (rtls_updated) {
+            normalize_peer_positions_to_local(state, state->selected_board_eui);
+        }
+    }
+
+    if (!board->route_metrics_capable) {
+        if (updated) {
+            state->topology_metrics_live = true;
+            state->topology_update_count += 1u;
+            state->operation_status = "topology_rtls_refreshed";
+        }
+        return updated;
+    }
 
     for (GuiPeer &peer : state->peers) {
         char request[96];
@@ -932,6 +1028,7 @@ bool load_runtime_profile(GuiState *state, const char *path)
                                      true,
                                      true,
                                      true,
+                                     true,
                                      true});
             if (parse_bool_field(fields[5])) {
                 state->selected_board_eui = fields[0];
@@ -1046,7 +1143,8 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
                                 boards[i].route_metrics_capable != 0u,
                                 boards[i].tun_gateway_capable != 0u,
                                 boards[i].rf_packet_engine_capable != 0u,
-                                boards[i].requires_mutual_auth_for_production != 0u});
+                                boards[i].requires_mutual_auth_for_production != 0u,
+                                boards[i].rtls_position_capable != 0u});
         state->peers.push_back({boards[i].device_eui,
                                 boards[i].hostname,
                                 boards[i].device_type,

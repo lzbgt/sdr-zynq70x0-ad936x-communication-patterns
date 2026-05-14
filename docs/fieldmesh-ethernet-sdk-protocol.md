@@ -444,17 +444,18 @@ status. The dashboard includes AP selection mode and selected destination EUI
 so user-commanded operations are visible to the supervisor.
 
 Topology range display is derived from the radio topology model, not host
-Ethernet. The app asks the selected board daemon for per-peer
-`ROUTE_METRICS_GET` / `FIELDMESH_ROUTE_METRICS ... dst=<peer-eui>` updates and
-uses RTLS/GNSS/packet-timing XY coordinates when available. Displayed peer
-range is the Euclidean XY distance in meters from GNSS/BDS-GPS position,
-BDS/GPS/PPS time-synced TOF, packet-timing TDOA/multilateration, or explicit
-test-fixture coordinates. Route metrics update link health and route
-recommendation; they must not overwrite known RTLS/topology/test coordinates.
-Runtime discovery must not fabricate a numeric physical range. If no position
-source exists, the GUI may use a visual layout for readability, but the numeric
-range should remain pending until a daemon RTLS/topology report provides
-coordinates or range.
+Ethernet. Runtime discovery advertises RTLS capability, then the app asks the
+selected board daemon for per-peer
+`RTLS_POSITION_GET` / `FIELDMESH_RTLS_POSITION ... dst=<peer-eui>` reports.
+Displayed peer range is the Euclidean XY distance in meters from
+GNSS/BDS-GPS position, BDS/GPS/PPS time-synced TOF, packet-timing
+TDOA/multilateration, or explicit test-fixture coordinates. The app also asks
+for `ROUTE_METRICS_GET` / `FIELDMESH_ROUTE_METRICS ... dst=<peer-eui>` updates,
+but route metrics update link health and route recommendation only; they must
+not overwrite known RTLS/topology/test coordinates. Runtime discovery must not
+fabricate a numeric physical range. If no position source exists, the GUI may
+use a visual layout for readability, but the numeric range should remain
+pending until a daemon RTLS/topology report provides coordinates or range.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

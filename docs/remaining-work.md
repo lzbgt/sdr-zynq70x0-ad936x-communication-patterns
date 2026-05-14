@@ -141,6 +141,12 @@ Current concrete work:
   runtime discovery and app -> SDK -> daemon configuration. The app, SDK, and
   daemon must not compile in deployment EUI, hostname, endpoint, or fixed AP
   role.
+- Treat `FIELDMESH_RTLS_POSITION` as the live topology API boundary, not proof
+  that physical movement is already connected to the boards. The installed
+  daemon currently publishes deterministic verification measurements in a
+  consistent local frame; moving a board will update displayed range only after
+  live GNSS/BDS+GPS/PPS, TOF, or sidecar packet-timing TDOA measurements feed
+  the daemon peer registry.
 - Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board

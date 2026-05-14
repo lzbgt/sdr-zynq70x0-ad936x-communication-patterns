@@ -108,10 +108,12 @@ command-line harness verifies: `FIELDMESH_HELLO`,
 
 ## Topology Ranges
 
-The topology view is not a static drawing. The app starts with peer XY
-coordinates from runtime discovery or a test profile, then the GLFW event
-worker refreshes route metrics from the selected board daemon with
-`FIELDMESH_ROUTE_METRICS v1 dst=<peer-eui>`. Each peer keeps the latest RSSI,
+The topology view is not a static drawing. Runtime discovery identifies board
+daemons and their capabilities, then the app asks the selected board daemon for
+per-peer RTLS positions with `FIELDMESH_RTLS_POSITION v1 dst=<peer-eui>`.
+If RTLS is available, those GNSS/BDS, TOF, or TDOA coordinates drive displayed
+range. The app separately refreshes route metrics with
+`FIELDMESH_ROUTE_METRICS v1 dst=<peer-eui>` so each peer keeps the latest RSSI,
 SNR, PER, route reachability, metrics age, and update count.
 
 Displayed range is calculated as Euclidean distance between peer XY positions:
@@ -121,16 +123,18 @@ range_m = sqrt((x_a_cm - x_b_cm)^2 + (y_a_cm - y_b_cm)^2) / 100
 ```
 
 Production range sources are GNSS/BDS-GPS positions, BDS/GPS/PPS time-synced
-TOF, and packet-timing TDOA/multilateration from daemon RTLS reports.
-Test-fixture coordinates may exist only in automation profiles. Runtime
-discovery does not invent physical coordinates. Live route metrics update link
-health, route recommendation, freshness, and confidence, but they must not
-overwrite known co-location coordinates or create a synthetic distance. When no
-position source exists, the topology lays peers out visually and labels numeric
-range as pending. This avoids turning a degraded near-field link into a false
-tens-of-meters distance, and also avoids showing a hardcoded lab value such as
-1.61 m. The visible range text is drawn in a badge so it does not disappear
-into topology lines. The app snapshot exposes `topology_range_calculation`,
+TOF, and packet-timing TDOA/multilateration from daemon RTLS reports. Board
+hardware capability alone is not enough; the daemon must publish a current
+RTLS position/range report. Test-fixture coordinates may exist only in
+automation profiles. Runtime discovery does not invent physical coordinates.
+Live route metrics update link health, route recommendation, freshness, and
+confidence, but they must not overwrite known co-location coordinates or create
+a synthetic distance. When no position source exists, the topology lays peers
+out visually and labels numeric range as pending. This avoids turning a
+degraded near-field link into a false tens-of-meters distance, and also avoids
+showing a hardcoded lab value such as 1.61 m. The visible range text is drawn
+in a badge so it does not disappear into topology lines. The app snapshot
+exposes `topology_range_calculation`,
 `topology_route_metrics_overwrite_position`, `topology_metrics_live`, and
 `topology_update_count` for automated tests and GUI supervisors.
 
