@@ -351,6 +351,9 @@ user and vendor configuration.
 - `tools/diagnose_z203_qspi_uboot_source_path.sh` - capture the built Z203
   U-Boot SPI flash source/config path, including BAR/EAR bank behavior, before
   any further QSPI repair probe.
+- `tools/test_z203_uboot_qspi_bar_program_path.sh` - guarded Z203 U-Boot
+  scratch-sector probe that proves BAR/EAR bank selection and rollback before
+  classifying QSPI program-path failures.
 - `tools/backup_z103_qspi_live.sh` - Z103-specific wrapper around the live QSPI
   backup helper, defaulting to the Z103 resource tree and `root`/`analog`.
 - `tools/stage_sd_boot_files.sh` - create SD-card boot staging directories for

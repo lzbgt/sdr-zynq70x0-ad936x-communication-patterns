@@ -3983,6 +3983,28 @@ SR1/SR2 after write-enable, the selected write opcode, address bytes, and first
 data bytes around a rollback-protected scratch write. Full QSPI FIT repair
 remains blocked until that small write/readback passes.
 
+The guarded BAR/EAR `sf` path probe was then added and run live:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_bar_program_path_20260515-0648 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_BAR_PROGRAM_PATH_TEST=1 \
+  ./tools/test_z203_uboot_qspi_bar_program_path.sh 192.168.1.10
+```
+
+Result: failed safely, with rollback verified and the installed daemon passing
+after reboot. The probe proved the U-Boot bank register path is live: EAR read
+back `0x00` after a bank-0 read, `0x01` after a read from the scratch offset
+above 16 MiB, and `0x00` again after returning to bank 0. The scratch erase
+verified as all `0xff`; `sf write` reported success; EAR stayed `0x01`;
+readback of the all-zero pattern was `44 44 ...`; rollback erase verified.
+From source/config the expected U-Boot program opcode is `0x32`
+(`CMD_QUAD_PAGE_PROGRAM`) because the Zynq QSPI driver advertises
+`SPI_OPM_TX_QPP` and the W25Q256 table allows `WR_QPP`; Linux debugfs had
+reported program opcode `0x02`, yet Linux MTD also reproduces the same stuck
+`0x44` readback. This rules out a missing BAR/EAR bank switch and makes the
+remaining suspect the program transfer, flash status/config, or the flash
+hardware itself. Full QSPI FIT repair remains blocked.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

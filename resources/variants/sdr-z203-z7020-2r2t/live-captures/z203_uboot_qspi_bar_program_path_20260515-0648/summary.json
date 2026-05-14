@@ -1,0 +1,62 @@
+{
+  "bank_switch_observed": true,
+  "board_ip": "192.168.1.10",
+  "bytes_tested": 4096,
+  "diagnosis": "BAR/EAR bank switching is live and sf write reports success, but scratch readback still fails; failure is in program transfer, flash status/config, or flash hardware behavior.",
+  "ear": {
+    "after_bank0_read": "0x00",
+    "after_bank0_read_again": "0x00",
+    "after_bank1_read": "0x01",
+    "after_erase": "0x01",
+    "after_probe": "0x00",
+    "after_rollback": "0x01",
+    "after_write": "0x01",
+    "before_write": "0x01"
+  },
+  "erase_command_passed": true,
+  "erase_verify_passed": true,
+  "event": "fieldmesh_z203_uboot_qspi_bar_program_path",
+  "first_readback_line": {
+    "address": "0x14000000",
+    "bytes": [
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44"
+    ]
+  },
+  "linux_debugfs_reported_program_opcode": "0x02",
+  "mtd3_scratch_offset": 28962816,
+  "mtd3_scratch_offset_hex": "0x1b9f000",
+  "pattern": "0x00",
+  "qspi_abs_offset": 31059968,
+  "qspi_abs_offset_hex": "0x1d9f000",
+  "rollback_erase_passed": true,
+  "source_expected_bank_register": "EAR/RDEAR=0xc8/WREAR=0xc5",
+  "source_expected_uboot_write_opcode": "0x32",
+  "source_expected_uboot_write_opcode_name": "CMD_QUAD_PAGE_PROGRAM",
+  "status": {
+    "after_rollback_sr1": "0x00",
+    "after_write_sr1": "0x00",
+    "after_write_sr2": "0x02",
+    "after_write_sr3": "0x60",
+    "base_sr1": "0x02",
+    "base_sr2": "0x02",
+    "base_sr3": "0x60",
+    "before_write_sr1": "0x00"
+  },
+  "write_command_passed": true,
+  "write_verify_passed": false
+}

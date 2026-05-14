@@ -131,10 +131,15 @@ Firmware state:
   bank/extended-address register path and then page-program style transfers
   unless the SPI slave is explicitly in 4-byte mode. The raw 4-byte `sspi`
   probe is therefore not equivalent to the failing `sf write` path. The next
-  useful diagnostic is an instrumented U-Boot `sf` path probe that captures
-  EAR/BAR selection, SR1/SR2 after write-enable, the selected write opcode,
-  address bytes, and first data bytes around a rollback-protected scratch
-  write. Full FIT repair remains blocked until that small path passes.
+  guarded U-Boot BAR/EAR `sf` path probe proved the bank register is live:
+  EAR moved from bank `0x00` to `0x01` for the scratch offset above 16 MiB and
+  back to `0x00` for bank 0. Scratch erase and rollback erase verified, but
+  `sf write` still read back `0x44` for an all-zero pattern. Source/config
+  implies U-Boot selects `0x32` (`CMD_QUAD_PAGE_PROGRAM`) while Linux debugfs
+  reports program opcode `0x02`; both paths reproduce the same stuck bits, so
+  this is no longer a missing bank-switch diagnosis. Full FIT repair remains
+  blocked until program transfer, flash status/config, or flash hardware is
+  isolated.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
