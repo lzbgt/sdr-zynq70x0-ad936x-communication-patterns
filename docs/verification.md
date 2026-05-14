@@ -2383,6 +2383,12 @@ TX-enable guard, sidecar preflight, RF-engine, and Zynq target declarations,
 and emits a future bounded TX-enable plus rollback sequence while still
 reporting `executes_commands=false`, `writes_hardware=false`, and
 `starts_rf_tx=false`.
+`./tools/verify_fieldmesh_rf_tx_enable_run.sh` adds the next executor gate. It
+consumes that plan, generates a rollback-protected board script, verifies the
+default path remains dry-run, rejects missing review permission, rejects live
+execution without a backend, and proves a mock backend can be invoked only
+after the hardware-write, RF-TX, fixture, attenuation, RX-first, and operator
+confirmation gates are present. The verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying

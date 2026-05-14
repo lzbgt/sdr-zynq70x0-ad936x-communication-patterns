@@ -546,9 +546,34 @@ work and roll back, then emits a future sequence:
 source select, guard arm, safe tuning, bounded TX-enable, TX disable, source
 rollback, and guard rollback. It still executes no commands, writes no
 hardware, opens no IIO buffers, and starts no RF TX.
-window back before exit. It is still not an RF transmit path: it does not
-connect the guarded IQ stream to AD936x TX, does not set AD936x TX enable, and
-does not start RF TX.
+
+The next executor boundary turns that plan into a guarded board script and an
+explicit backend invocation contract:
+
+```sh
+./tools/fieldmesh_rf_tx_enable_run.py \
+  --tx-enable-plan .config/fieldmesh/rf-tx-enable-plan/plan/fieldmesh_rf_tx_enable_plan.json \
+  --out-dir .config/fieldmesh/rf-tx-enable-run \
+  --fixture-attenuation-db 60 \
+  --max-tx-duration-ms 100 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --rx-first \
+  --tx-enable-guard \
+  --sidecar-preflight-passed \
+  --rf-engine-ready \
+  --target-is-zynq-board \
+  --allow-review-script
+```
+
+Default mode is dry-run: it writes `fieldmesh_rf_tx_enable_execute.sh` with a
+rollback trap but executes no commands, writes no hardware, starts no RF TX,
+and opens no IIO buffers. Live execution additionally requires
+`--execute-live-tx --allow-hardware-writes --allow-rf-tx`, the exact operator
+confirmation string, a fixture ID, and an executable TX backend. The wrapper
+validates the plan and safety declarations, then invokes only that explicit
+backend; the generated board script remains the review/deployment artifact for
+the later conducted/shielded fixture runner.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

@@ -531,6 +531,16 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_rf_tx_enable_plan.sh` - gate for the review-only
   TX-enable planner, including negative tests for weak fixture attenuation and
   missing legal-frequency declaration.
+- `tools/fieldmesh_rf_tx_enable_run.py` - guarded conducted/shielded
+  TX-enable executor boundary. It consumes the verified plan, generates a
+  board-local source-select/guard/tune/rollback script, stays dry-run by
+  default, and only invokes an explicit TX backend when hardware-write, RF-TX,
+  fixture, attenuation, RX-first, and operator-confirmation gates are all
+  present.
+- `tools/verify_fieldmesh_rf_tx_enable_run.sh` - gate for the TX-enable
+  executor boundary. It verifies dry-run safety, missing review permission,
+  missing backend rejection, and mock-backend live execution without touching
+  board RF hardware.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,

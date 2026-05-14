@@ -376,8 +376,13 @@ Next concrete work:
 - `tools/fieldmesh_rf_tx_enable_plan.py` now joins green sidecar preflight,
   guard-write, and source-select evidence into a review-only conducted/shielded
   TX-enable sequence with bounded duration and rollback. It still executes no
-  commands and starts no RF TX. The next live work is implementing the board
-  script executor for a real conducted/shielded fixture.
+  commands and starts no RF TX. `tools/fieldmesh_rf_tx_enable_run.py` now
+  consumes that plan, generates a rollback-protected board script, and only
+  invokes an explicit TX backend after the hardware-write, RF-TX, fixture,
+  attenuation, RX-first, and operator-confirmation gates are present. The next
+  live work is implementing the actual board backend for a real
+  conducted/shielded fixture and running it with bounded duration plus
+  rollback evidence.
   `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,
   package artifacts, JTAG RAM-boot hashes, and package-vs-RAM-boot DTB parity
   before a live boot attempt. The sidecar
