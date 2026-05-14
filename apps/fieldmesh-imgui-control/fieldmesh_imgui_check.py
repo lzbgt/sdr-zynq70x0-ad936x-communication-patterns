@@ -17,12 +17,14 @@ def main() -> int:
     for token in (
         "FIELDMESH_WITH_IMGUI",
         "#include \"imgui.h\"",
-        "ImGui::Begin(\"Board Selection\")",
-        "ImGui::Begin(\"Chats\")",
-        "ImGui::Begin(\"Control Plane\")",
-        "ImGui::Begin(\"Security\")",
-        "ImGui::Begin(\"Radio Network Topology\")",
-        "ImGui::Begin(\"Video Chat\")",
+        "ImGuiCond_Always",
+        "ImGuiWindowFlags_NoSavedSettings",
+        "ImGui::Begin(\"Board Selection\"",
+        "ImGui::Begin(\"Chats\"",
+        "ImGui::Begin(\"Control Plane\"",
+        "ImGui::Begin(\"Security\"",
+        "ImGui::Begin(\"Radio Network Topology\"",
+        "ImGui::Begin(\"Video Chat\"",
     ):
         if token not in source:
             raise SystemExit(f"ImGui app source missing {token}")
@@ -47,6 +49,7 @@ def main() -> int:
         "ImGui_ImplOpenGL3_Init",
         "glfwCreateWindow",
         "glfwSwapBuffers",
+        "io.IniFilename = nullptr",
         "fieldmesh_imgui_render(&state)",
         "fieldmesh_imgui_start_embedded_python",
     ):

@@ -110,6 +110,8 @@ int main(int argc, char **argv)
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
     ImGui::StyleColorsLight();
 
     if (!ImGui_ImplGlfw_InitForOpenGL(window, true)) {

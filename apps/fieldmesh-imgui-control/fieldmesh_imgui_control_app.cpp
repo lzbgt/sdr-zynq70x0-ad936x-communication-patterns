@@ -511,9 +511,17 @@ bool write_snapshot(const GuiState &state, const char *path)
 }
 
 #ifdef FIELDMESH_WITH_IMGUI
+void set_panel_geometry(float x, float y, float w, float h)
+{
+    ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+}
+
 void render_board_selection(GuiState *state)
 {
-    ImGui::Begin("Board Selection");
+    set_panel_geometry(10.0f, 10.0f, 380.0f, 170.0f);
+    ImGui::Begin("Board Selection", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
     for (GuiBoard &board : state->boards) {
         ImGui::PushID(board.device_eui.c_str());
         if (ImGui::Selectable(board.hostname.c_str(), board.selected)) {
@@ -532,7 +540,9 @@ void render_board_selection(GuiState *state)
 
 void render_control_plane(GuiState *state)
 {
-    ImGui::Begin("Control Plane");
+    set_panel_geometry(400.0f, 10.0f, 390.0f, 170.0f);
+    ImGui::Begin("Control Plane", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
     ImGui::Checkbox("Auto elect AP", &state->auto_election_enabled);
     if (ImGui::Button("Browse Peers")) {
         state->operation_status = "peer browse requested";
@@ -554,7 +564,9 @@ void render_control_plane(GuiState *state)
 
 void render_security(GuiState *state)
 {
-    ImGui::Begin("Security");
+    set_panel_geometry(800.0f, 10.0f, 470.0f, 270.0f);
+    ImGui::Begin("Security", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
     ImGui::Text("Command CA: %s", state->security.command_ca.c_str());
     ImGui::Text("CA fingerprint: %s",
                 state->security.command_ca_fingerprint.c_str());
@@ -590,7 +602,9 @@ void render_chats(GuiState *state)
 
     std::snprintf(message_buffer, sizeof(message_buffer), "%s",
                   state->draft_message.c_str());
-    ImGui::Begin("Chats");
+    set_panel_geometry(10.0f, 190.0f, 570.0f, 610.0f);
+    ImGui::Begin("Chats", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
     ImGui::Columns(2);
     for (GuiConversation &conversation : state->conversations) {
         ImGui::PushID(conversation.peer_eui.c_str());
@@ -623,7 +637,9 @@ void render_chats(GuiState *state)
 
 void render_topology(GuiState *state)
 {
-    ImGui::Begin("Radio Network Topology");
+    set_panel_geometry(590.0f, 290.0f, 680.0f, 360.0f);
+    ImGui::Begin("Radio Network Topology", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
     ImDrawList *draw = ImGui::GetWindowDrawList();
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 canvas(560.0f, 320.0f);
@@ -658,7 +674,9 @@ void render_video_stream(GuiState *state)
                   state->camera.dst_device_eui.c_str());
     std::snprintf(subscribe_buffer, sizeof(subscribe_buffer), "%s",
                   state->camera.subscribed_device_eui.c_str());
-    ImGui::Begin("Video Chat");
+    set_panel_geometry(590.0f, 660.0f, 680.0f, 140.0f);
+    ImGui::Begin("Video Chat", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
     if (ImGui::InputText("Publish to EUI", dst_buffer, sizeof(dst_buffer))) {
         state->camera.dst_device_eui = dst_buffer;
     }
