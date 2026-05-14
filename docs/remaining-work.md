@@ -107,12 +107,13 @@ Next concrete work:
      proactive initiator. The 1R1T firmware must use capability reports and
      commands from the 2R2T peer to select or accept the correct mode instead of
      assuming a fixed pattern.
-     Current live gate: with both boards attached, Windows sees two
-     Pluto/RNDIS devices and two FT2232 devices, but both Pluto-style USB
-     Ethernet gadgets default to the same device IP. The currently reachable
-     `192.168.2.1` answers as the Z103-class stock `pluto` runtime, so the
-     boards need distinct USB-Ethernet subnets or host interfaces before more
-     SSH writes or two-board SDK tests.
+     Current live gate: Z103 has been reflashed with the refreshed FieldMesh
+     package at `192.168.3.1`, and the installed daemon now passes the composed
+     `FIELDMESH_APP_CONTROL_CAMERA` flow with transient upload disabled. In
+     the same batch, Z203 did not answer `192.168.2.1` ping from the host, so
+     the two-board persistent daemon gate is blocked on restoring the Z203
+     host link before running the matching installed app-camera and RF
+     packet-engine checks.
 - Adopt the hybrid AP/broker architecture documented in
   `docs/fieldmesh-ap-sdk-architecture.md`: predefined AP when a deployment has
   a known owner/gateway, autonomous AP election when no AP is visible, direct
@@ -129,15 +130,19 @@ Next concrete work:
   IIO admin bridge, predefined AP, and autonomous swarm mesh. Both Z203 and Z103
   developer images install `/usr/bin/fieldmesh-state-daemon-demo`, and the
   daemon now answers AP browse, AP election, AP join state, peer state, RTLS
-  state, `swarm0` adapter mapping, and local IIO admin planning over the same
-  UDP socket boundary. The
+  state, `swarm0` adapter mapping, the app-level camera control/data-plane
+  composition, and local IIO admin planning over the same UDP socket boundary.
+  The
   2026-05-14 Z103 live checks proved the new IIO bridge response first by
   transiently uploading the refreshed daemon with `FORCE_UPLOAD=1`, then by
   reflashing the refreshed FieldMesh package and rerunning the socket smoke
-  with `UPLOAD_IF_MISSING=0`. The installed Z103 daemon now answers the
-  IIO-bridge planning request persistently and the board still passes ping,
-  IIO, HTTP, and sidecar preflight. The next implementation should run the
-  daemon path from two PCs attached to the boards, then replace the
+  with `UPLOAD_IF_MISSING=0`. The installed Z103 daemon now answers both the
+  IIO-bridge planning request and `FIELDMESH_APP_CONTROL_CAMERA` persistently,
+  and the post-install RF packet-engine binding gate still recovers the same
+  committed frame while keeping IIO, inter-board IP routing, RF TX, and
+  hardware writes disabled. The next implementation should restore Z203 host
+  reachability, run the same installed daemon flow on Z203, then run the
+  daemon path from two PCs attached to the boards before replacing the
   deterministic demo AP/join responses with real credential/audit admission,
   board peer discovery, route query, and prioritized stream send/receive
   services. The pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke
@@ -156,8 +161,10 @@ Next concrete work:
   env keys with explicit variant matching and rollback backup. The 2026-05-14
   Z103 run installed the FieldMesh `pluto.frm`, applied
   `node-b@192.168.3.1` with `fieldmesh_device_eui=020000000103`, fixed the writer to avoid a BusyBox
-  `fw_setenv -s` empty-value quirk, and verified that `192.168.2.1` now
-  resolves to Z203 while `192.168.3.1` resolves to Z103. These addresses are
+  `fw_setenv -s` empty-value quirk, and verified split host-facing identities
+  with Z103 at `192.168.3.1`. A later 2026-05-14 check found that
+  `192.168.2.1` no longer answered from the host, so Z203 must be reattached or
+  recovered before more two-board installed-runtime tests. These addresses are
   host-facing management/control paths only, not a board-to-board subnet. The
   new `tools/run_fieldmesh_two_board_radio_gate.sh` verifies both boards over
   those management paths, proves per-board sidecar DMA packet readiness, runs
@@ -188,14 +195,17 @@ Next concrete work:
   to end. The current executable already verifies the production-shaped SDK
   control plane (browse/elect/repurpose/topology/RTLS) and queues video-base
   chunks through the `swarm0`/RF packet-engine handoff without IIO or
-  inter-board IP routing. The board daemon now exposes the same composition as
-  `FIELDMESH_APP_CONTROL_CAMERA`, so the remaining work is live two-host
-  daemon execution and real camera capture/preview. The intended live product
-  flow is still one app that can source or preview camera data: Host A camera
-  -> local board over USB/physical Ethernet SDK data ingress -> FieldMesh RF ->
-  peer board -> Host B preview. Host A and Host B may be the same physical PC
-  for lab testing, but the test must keep them as logical hosts and preserve
-  the split between SDK control plane and RF data plane.
+  inter-board IP routing. The Z103 installed board daemon now exposes and
+  passes the same composition as `FIELDMESH_APP_CONTROL_CAMERA`; Z203 is still
+  pending because its host link was unreachable during the latest installed
+  runtime batch. After Z203 is reachable, run the installed daemon flow on both
+  boards, then replace synthetic video chunks with real camera capture/preview.
+  The intended live product flow is still one app that can source or preview
+  camera data: Host A camera -> local board over USB/physical Ethernet SDK data
+  ingress -> FieldMesh RF -> peer board -> Host B preview. Host A and Host B
+  may be the same physical PC for lab testing, but the test must keep them as
+  logical hosts and preserve the split between SDK control plane and RF data
+  plane.
 - Consolidate the reviewed `design.md` production insight into implementation:
   IIO remains a local RF configuration, diagnostics, calibration, and
   conducted-test backend, while the product data plane should move toward a

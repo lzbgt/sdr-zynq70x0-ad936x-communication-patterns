@@ -2927,6 +2927,48 @@ queued through the `swarm0` adapter and RF packet-engine handoff with
 ./tools/verify_fieldmesh_sdk.sh
 ```
 
+## Z103 Installed App-Camera Daemon Runtime
+
+After adding the app-level control/camera flow, the refreshed Z103 FieldMesh
+package was installed persistently again:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_app_camera_frm_install_20260514-1346 \
+  APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+  ./tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.3.1
+```
+
+The board returned at `192.168.3.1`, and the installed daemon was checked with
+transient upload disabled:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_installed_app_camera_daemon_20260514-1349 \
+  VARIANT=z103 UPLOAD_IF_MISSING=0 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+Result: passed. The installed `/usr/bin/fieldmesh-state-daemon-demo` handled
+all 15 host-facing SDK requests, including `FIELDMESH_APP_CONTROL_CAMERA`, and
+reported `app_camera_events=1` with `ok=true`.
+
+The same installed runtime then passed the RF packet-engine binding postcheck:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_installed_app_camera_postcheck_20260514-1350 \
+  ./tools/run_fieldmesh_board_rf_packet_engine_gate.sh 192.168.3.1
+```
+
+That postcheck re-ran the SDK daemon smoke, sidecar preflight, sidecar DMA
+smoke, and RF packet-engine transport assertion. It reported
+`frame_crc=2646482743`, `recovered_frame_match=true`, `uses_iio=false`,
+`uses_inter_board_ip_routing=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`.
+
+The corresponding Z203 installed-runtime app-camera check was not run in this
+capture batch because `192.168.2.1` did not answer ping from the host. This is
+a live host-link/board-reachability blocker for the two-board persistent daemon
+gate, not a failed app-camera software assertion.
+
 The same SDK gate now also runs `fieldmeshctl_demo` as the first network
 profile CLI/API check. It verifies the default Pluto-style USB address,
 validates a split-subnet Z103 profile at `192.168.3.1/24` with host
