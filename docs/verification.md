@@ -3428,6 +3428,27 @@ two-board radio-readiness gate also passed with Z203 management on
 `uses_inter_board_ip_routing=false`, `opens_iio_buffers=false`, and
 `starts_rf_tx=false`.
 
+The first composed two-board camera-flow gate now exercises the same path as a
+logical source/preview application pair while keeping both boards on their
+reachable host-facing links:
+
+```sh
+FORCE_UPLOAD=1 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
+OUT_DIR=.config/fieldmesh/two-board-camera-flow-20260514-continue \
+./tools/run_fieldmesh_two_board_camera_flow.sh
+```
+
+Result: passed. The summary report `two_board_camera_flow.json` shows logical
+Host A as the Z203 camera source over physical Ethernet and logical Host B as
+the Z103 preview side over USB Ethernet. Both board daemons passed AP
+browse/election/join, radio topology, RTLS/co-location, camera session
+planning, route-health adaptation, direct camera chunk ingress, preview status,
+and RF packet-engine handoff. The paired radio-readiness gate also passed with
+`uses_inter_board_ip_routing=false`, `uses_iio=false`, `starts_rf_tx=false`,
+and `writes_hardware=false`; the remaining live gap is still the
+conducted/shielded over-air RF TX/RX procedure. The evidence was archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
+
 Refreshed runtime artifact hashes after adding camera session planning,
 adaptive camera feedback, and the direct camera chunk request to the packaged
 board daemon:

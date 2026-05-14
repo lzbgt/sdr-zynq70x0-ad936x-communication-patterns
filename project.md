@@ -563,6 +563,12 @@ user and vendor configuration.
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
   election, AP join state, peer state, and RTLS state queries over the same UDP
   socket path intended for USB Ethernet and physical Ethernet.
+- `tools/run_fieldmesh_two_board_camera_flow.sh` - live two-board logical
+  host/app gate. It runs the SDK daemon path on Z203 and Z103, validates AP
+  browse/election/join, radio topology, RTLS, camera session planning, route
+  adaptation, chunk ingress, preview status, RF packet-engine handoff, and the
+  paired radio-readiness gate while keeping host IP management-only and
+  inter-board payload traffic on the FieldMesh RF/sidecar contract.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
@@ -1022,6 +1028,16 @@ Expected result in the current Pluto-compatible firmware state:
    two FT2232/JTAG-UART devices but only one Pluto RNDIS/data gadget, assigned
    to the Z103 `192.168.3.10/24` Windows interface; no `192.168.2.0/24`
    Windows interface or WSL USB device was present for Z203 data traffic.
+   The first composed two-board camera-flow gate now passes over the reachable
+   host-facing links: logical Host A uses Z203 over physical Ethernet
+   `192.168.1.10`, logical Host B uses Z103 over USB Ethernet `192.168.3.1`,
+   both board daemons pass AP browse/election/join, radio topology, RTLS,
+   camera session planning, camera route adaptation, chunk ingress, preview
+   status, and RF packet-engine handoff, and the paired radio-readiness gate
+   still reports `uses_inter_board_ip_routing=false`, `uses_iio=false`,
+   `starts_rf_tx=false`, and `writes_hardware=false`. Evidence is archived
+   under
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
    The SDK now has the first pure-C `swarm0`/stream adapter API and
    packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
    telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into

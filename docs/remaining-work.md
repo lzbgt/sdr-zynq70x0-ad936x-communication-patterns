@@ -162,11 +162,19 @@ Next concrete work:
   the board is reachable over physical Ethernet at `192.168.1.10`; a live
   2026-05-14 daemon smoke passed over that PHY Ethernet path while Z103 used
   USB Ethernet at `192.168.3.1`, and the two-board radio-readiness gate passed
-  with host IP used only for management. Next work is running this path from
-  two PCs attached to the boards, then replacing the deterministic demo AP/join
-  responses with real credential/audit admission, board peer discovery,
-  measured route query, codec-integrated adaptation feedback, and prioritized
-  stream send/receive services. The
+  with host IP used only for management. The new
+  `tools/run_fieldmesh_two_board_camera_flow.sh` gate now composes those
+  pieces into the logical two-host product path: Host A camera source over
+  Z203 PHY management, Host B preview over Z103 USB management, AP
+  browse/election/join, radio topology, RTLS/co-location, camera session
+  planning, route-health adaptation, chunk ingress, preview status, RF
+  packet-engine handoff, and the paired two-board radio-readiness assertion.
+  That live gate passed with evidence under
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
+  Next work is replacing the deterministic demo AP/join responses with real
+  credential/audit admission, board peer discovery, measured route query,
+  codec-integrated adaptation feedback, prioritized stream send/receive
+  services, and a real camera capture/preview UI. The
   pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
   two-PC path; production daemon and apps may be C++ while the SDK ABI remains
   pure C. The daemon adapter already has a Zynq-local userspace TUN `swarm0`

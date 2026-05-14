@@ -408,6 +408,11 @@ The daemon now has the matching app-level request,
 the Ethernet SDK service boundary: browse/elect/join state, commanded
 proactive role, radio-only topology, RTLS summary, and video-base RF handoff
 all return in one response without granting RF TX or hardware writes.
+`tools/run_fieldmesh_two_board_camera_flow.sh` composes this into the first
+live logical two-host gate: source-side camera control/data ingress through one
+board daemon, preview-side status through the peer board daemon, and a paired
+radio-readiness assertion that keeps host Ethernet as management/local
+ingress-egress only.
 
 ## Local IIO Admin Bridge
 
