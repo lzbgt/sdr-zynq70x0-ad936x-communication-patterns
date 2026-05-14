@@ -68,6 +68,12 @@ struct GuiRadioConfig {
     bool direct_p2p_preferred;
     bool ap_relay_fallback;
     bool apply_pending;
+    bool daemon_config_supported;
+    bool daemon_config_sent;
+    bool daemon_config_ok;
+    bool daemon_config_writes_hardware;
+    unsigned daemon_config_events;
+    std::string daemon_config_status;
 };
 
 struct GuiPythonAutomation {
@@ -140,6 +146,8 @@ struct GuiState {
     std::string discovery_candidates;
     size_t message_bus_read_offset;
     float topology_zoom;
+    int topology_center_x_cm;
+    int topology_center_y_cm;
     bool event_worker_enabled;
     unsigned event_dispatch_count;
     unsigned topology_update_count;

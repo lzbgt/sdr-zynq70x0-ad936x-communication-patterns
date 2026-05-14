@@ -89,7 +89,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 21:
+    if not end or end[-1].get("handled") != 22:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")

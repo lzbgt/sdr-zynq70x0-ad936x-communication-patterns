@@ -233,6 +233,68 @@ static int request_device_eui_or_default(const char *request,
     return 1;
 }
 
+static int request_uint_or_default(const char *request,
+                                   const char *key,
+                                   unsigned default_value,
+                                   unsigned min_value,
+                                   unsigned max_value,
+                                   unsigned *out)
+{
+    char value[32];
+    char *end = NULL;
+    unsigned long parsed;
+    int found;
+
+    if (!out) {
+        return 0;
+    }
+    *out = default_value;
+    found = copy_request_field(request, key, value, sizeof(value));
+    if (found < 0) {
+        return 0;
+    }
+    if (found == 0) {
+        return default_value >= min_value && default_value <= max_value;
+    }
+    parsed = strtoul(value, &end, 10);
+    if (end == value || *end != '\0' ||
+        parsed < min_value || parsed > max_value) {
+        return 0;
+    }
+    *out = (unsigned)parsed;
+    return 1;
+}
+
+static int request_text_or_default(const char *request,
+                                   const char *key,
+                                   const char *default_value,
+                                   char *out,
+                                   size_t out_len)
+{
+    int found;
+
+    if (!default_value || !out || out_len == 0u ||
+        strlen(default_value) >= out_len) {
+        return 0;
+    }
+    snprintf(out, out_len, "%s", default_value);
+    found = copy_request_field(request, key, out, out_len);
+    return found >= 0;
+}
+
+static int text_in_set(const char *value,
+                       const char *a,
+                       const char *b,
+                       const char *c,
+                       const char *d)
+{
+    return value &&
+        ((a && strcmp(value, a) == 0) ||
+         (b && strcmp(value, b) == 0) ||
+         (c && strcmp(value, c) == 0) ||
+         (d && strcmp(value, d) == 0));
+}
+
 static int copy_env_text(const char *name, char *dst, size_t dst_len)
 {
     const char *value = getenv(name);
@@ -640,6 +702,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"supports_camera_stream_chunk\":1,"
                  "\"supports_tun_gateway\":1,"
                  "\"supports_rf_packet_engine\":1,"
+                 "\"supports_radio_config_plan\":1,"
                  "\"uses_iio_data_path\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
                  "\"starts_rf_tx\":0,"
@@ -647,6 +710,67 @@ static int build_response(fieldmesh_context_t *context,
                  device_eui,
                  hostname,
                  device_type);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RADIO_CONFIG_PLAN")) {
+        unsigned frequency_mhz = 2400u;
+        unsigned channel = 1u;
+        unsigned bandwidth_khz = 5000u;
+        unsigned sample_rate_ksps = 7680u;
+        unsigned adaptive_mcs = 1u;
+        unsigned direct_p2p = 1u;
+        unsigned ap_relay_fallback = 1u;
+        char modulation[32];
+        char fec[32];
+
+        if (!request_uint_or_default(request, "frequency_mhz=", 2400u,
+                                     300u, 6000u, &frequency_mhz) ||
+            !request_uint_or_default(request, "channel=", 1u,
+                                     1u, 255u, &channel) ||
+            !request_uint_or_default(request, "bandwidth_khz=", 5000u,
+                                     100u, 20000u, &bandwidth_khz) ||
+            !request_uint_or_default(request, "sample_rate_ksps=", 7680u,
+                                     100u, 61440u, &sample_rate_ksps) ||
+            !request_uint_or_default(request, "adaptive_mcs=", 1u,
+                                     0u, 1u, &adaptive_mcs) ||
+            !request_uint_or_default(request, "direct_p2p=", 1u,
+                                     0u, 1u, &direct_p2p) ||
+            !request_uint_or_default(request, "ap_relay_fallback=", 1u,
+                                     0u, 1u, &ap_relay_fallback) ||
+            !request_text_or_default(request, "modulation=", "BPSK",
+                                     modulation, sizeof(modulation)) ||
+            !request_text_or_default(request, "fec=", "LDPC",
+                                     fec, sizeof(fec)) ||
+            !text_in_set(modulation, "BPSK", "QPSK", "16QAM", "OFDM") ||
+            !text_in_set(fec, "none", "convolutional", "LDPC", "polar")) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_radio_config_plan\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_radio_config\","
+                     "\"writes_hardware\":0,"
+                     "\"commands_executed\":0}\n");
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_radio_config_plan\","
+                 "\"ok\":true,"
+                 "\"config_source\":\"app_sdk_daemon\","
+                 "\"frequency_mhz\":%u,"
+                 "\"channel\":%u,"
+                 "\"bandwidth_khz\":%u,"
+                 "\"sample_rate_ksps\":%u,"
+                 "\"modulation\":\"%s\","
+                 "\"fec\":\"%s\","
+                 "\"adaptive_mcs\":%u,"
+                 "\"direct_p2p\":%u,"
+                 "\"ap_relay_fallback\":%u,"
+                 "\"requires_guarded_apply\":1,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"starts_rf_tx\":0}\n",
+                 frequency_mhz, channel, bandwidth_khz, sample_rate_ksps,
+                 modulation, fec, adaptive_mcs, direct_p2p,
+                 ap_relay_fallback);
         return 0;
     }
     if (strstr(request, "FIELDMESH_STATE_PEERS")) {
@@ -2050,6 +2174,11 @@ static int query_state(const char *host,
     dst.sin_port = htons(port);
     dst.sin_addr.s_addr = inet_addr(host);
     if (query_once(sockfd, &dst, "FIELDMESH_HELLO v1") == 0 &&
+        query_once(sockfd, &dst,
+                   "FIELDMESH_RADIO_CONFIG_PLAN v1 "
+                   "frequency_mhz=2400 channel=1 bandwidth_khz=5000 "
+                   "sample_rate_ksps=7680 modulation=BPSK fec=LDPC "
+                   "adaptive_mcs=1 direct_p2p=1 ap_relay_fallback=1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_ELECT v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&

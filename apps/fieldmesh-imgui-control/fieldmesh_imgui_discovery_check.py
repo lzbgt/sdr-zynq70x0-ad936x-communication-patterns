@@ -50,6 +50,26 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                 "uses_inter_board_ip_routing": 0,
             }
             sock.sendto((json.dumps(route, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_RADIO_CONFIG_PLAN" in data:
+            radio = {
+                "event": "sdk_daemon_radio_config_plan",
+                "ok": True,
+                "config_source": "app_sdk_daemon",
+                "frequency_mhz": 2400,
+                "channel": 1,
+                "bandwidth_khz": 5000,
+                "sample_rate_ksps": 7680,
+                "modulation": "BPSK",
+                "fec": "LDPC",
+                "adaptive_mcs": 1,
+                "direct_p2p": 1,
+                "ap_relay_fallback": 1,
+                "requires_guarded_apply": 1,
+                "writes_hardware": 0,
+                "commands_executed": 0,
+                "starts_rf_tx": 0,
+            }
+            sock.sendto((json.dumps(radio, separators=(",", ":")) + "\n").encode("utf-8"), addr)
 
 
 def bind_server(payload: dict) -> tuple[socket.socket, int, threading.Thread]:
@@ -123,6 +143,10 @@ def main() -> int:
                 raise SystemExit("runtime discovery must not auto-connect to the first board")
             if default_data["selected_board_eui"] != "":
                 raise SystemExit("runtime discovery must wait for explicit board selection")
+            if default_data["topology_position_model_peers"] != 0:
+                raise SystemExit("runtime discovery must not fabricate topology coordinates")
+            if default_data["topology_max_peer_range_m"] >= 0:
+                raise SystemExit("runtime discovery must not report a synthetic peer range")
 
             snapshot = Path(tmp) / "selected.json"
             subprocess.run(
@@ -177,8 +201,34 @@ def main() -> int:
                 raise SystemExit("topology metrics refresh did not run")
             if topology["topology_route_metrics_overwrite_position"] is not False:
                 raise SystemExit("route metrics must not overwrite topology coordinates")
-            if topology["topology_max_peer_range_m"] > 3.0:
-                raise SystemExit("route metrics refresh inflated near-field topology range")
+            if topology["topology_position_model_peers"] != 1:
+                raise SystemExit("route metrics must not fabricate remote topology coordinates")
+            if topology["topology_max_peer_range_m"] >= 0:
+                raise SystemExit("route metrics refresh fabricated a topology range")
+
+            radio_snapshot = Path(tmp) / "radio_config.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--api-apply-radio-config",
+                    "--snapshot-output",
+                    str(radio_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            radio = json.loads(radio_snapshot.read_text(encoding="utf-8"))
+            if radio["radio_config_daemon_sent"] is not True:
+                raise SystemExit("radio config was not sent through app->SDK->daemon")
+            if radio["radio_config_daemon_ok"] is not True:
+                raise SystemExit("radio config daemon plan failed")
+            if radio["radio_config_daemon_writes_hardware"] is not False:
+                raise SystemExit("radio config plan must not write hardware")
 
             send_snapshot = Path(tmp) / "send.json"
             subprocess.run(

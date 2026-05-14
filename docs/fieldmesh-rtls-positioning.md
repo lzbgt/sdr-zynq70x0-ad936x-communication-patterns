@@ -12,10 +12,14 @@ the timing signal when available:
 - GNSS/PPS is used for time sync so scheduled mode, TDOA windows, and packet RX
   timestamps share a meaningful epoch.
 - GNSS position is used for localization when a node has a valid BDS/GPS fix.
-- RSSI/SNR gives coarse range and confidence when GNSS is absent or denied.
+- Time-synced TOF can estimate pairwise range when both devices share a
+  BDS/GPS/PPS-disciplined clock or an equivalent calibrated common timebase.
 - Packet-timing TDOA gives relative geometry when multiple timestamped
   receivers, a shared AP/coordinator timebase, or calibrated probe/response
   turnaround timing are available.
+- RSSI/SNR is link-health input only by default. It may inform confidence and
+  routing, but it should not be displayed as physical range unless a deployment
+  has an explicit calibration model.
 - The AP/broker fuses peer reports into a local coordinate frame and publishes
   confidence, error radius, and topology centrality.
 
@@ -58,8 +62,8 @@ Each peer periodically reports:
 
 The AP/broker or elected coordinator emits:
 
-- `rtls_measurement`: raw GNSS/PPS, RSSI/SNR, packet-timing TDOA, and timing
-  quality inputs;
+- `rtls_measurement`: raw GNSS/PPS, time-synced TOF, RSSI/SNR, packet-timing
+  TDOA, and timing quality inputs;
 - `rtls_estimate`: fused local `x_cm`/`y_cm`, error radius, confidence, and
   `estimated_geo_centrality`;
 - `rtls_summary`: peer count, GPS/fallback counts, and which output fields are
@@ -76,14 +80,18 @@ FieldMesh uses a tiered estimator:
 1. **GNSS/PPS fused:** use GNSS position when the fix is fresh and the PPS/clock
    quality is good. Error radius is small and confidence is high. The same PPS
    discipline also tightens scheduled-mode slots and TDOA measurement windows.
-2. **Packet timing + RSSI + TDOA:** if GNSS is absent, derive coarse range from
-   RSSI/SNR and relative bearing/position from packet timestamp deltas against
-   AP/relay anchors. The responder must use either a scheduled response slot or
-   a calibrated turnaround delay so the AP can remove processing latency from
-   the TDOA estimate.
-3. **RSSI only:** if there are not enough timestamped receivers, keep only
-   range class and confidence. This is still useful for route ranking.
-4. **Unknown:** if the estimate is stale or low confidence, do not use it for
+2. **Time-synced TOF:** if both devices have BDS/GPS/PPS-disciplined clocks or
+   another calibrated common timebase, compute pairwise range from one-way
+   time of flight after subtracting fixed RF/packet/FPGA latency calibration.
+3. **Packet timing + TDOA:** if GNSS position is absent, derive relative
+   bearing/position from packet timestamp deltas against AP/relay anchors. The
+   responder must use either a scheduled response slot or a calibrated
+   turnaround delay so the AP can remove processing latency from the TDOA
+   estimate.
+4. **RSSI/SNR link health:** if there are not enough timestamped receivers,
+   keep link class and confidence for routing. Do not present this as physical
+   range without a deployment-specific calibration.
+5. **Unknown:** if the estimate is stale or low confidence, do not use it for
    AP handover. Keep the peer visible but avoid geometry-dependent choices.
 
 TDOA is useful only when timestamp quality and responder timing are known. For

@@ -64,6 +64,8 @@ void apply_action_args(GuiState *state, int argc, char **argv)
             toggle_local_screen(state);
         } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
             (void)run_python_automation(state);
+        } else if (std::strcmp(argv[i], "--api-apply-radio-config") == 0) {
+            (void)request_radio_config_plan(state);
         } else if (std::strcmp(argv[i], "--publish") == 0) {
             state->camera.publish_enabled = true;
         } else if (std::strcmp(argv[i], "--preview") == 0) {

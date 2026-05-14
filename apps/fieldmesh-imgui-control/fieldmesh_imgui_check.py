@@ -71,14 +71,22 @@ def main() -> int:
         "Hover between peers for distance",
         "distance_meters",
         "point_segment_distance",
-        "SliderFloat(\"Zoom\"",
+        "Zoom -",
+        "Zoom +",
+        "center_topology_on_click",
+        "IsMouseDoubleClicked",
+        "peer_has_gnss_position",
+        "peer_has_timing_position",
+        "GNSS",
+        "TOF",
         "clamped_visible",
         "background_badge",
         "refresh_topology_metrics",
         "peer_has_position_model",
         "normalize_peer_positions_to_local",
-        "route_metrics_link_hint",
-        "euclidean_peer_xy_cm_from_rtls_or_position_seed",
+        "route_metrics_link_only",
+        "test_fixture_position",
+        "euclidean_xy_from_gnss_bds_tof_tdoa_or_test_fixture",
         "connection-security-summary",
         "begin_panel(\"Radio Network Topology\"",
         "chat-layout-table",
@@ -198,6 +206,8 @@ def main() -> int:
         raise SystemExit("ImGui app must expose advanced radio channel options")
     if snapshot.get("radio_config_drop_downs") is not True:
         raise SystemExit("ImGui app radio config must be dropdown driven")
+    if snapshot.get("radio_config_via_daemon") is not True:
+        raise SystemExit("radio metadata must be configured through app->SDK->daemon")
     if snapshot.get("radio_profile_name") not in (
             "Balanced mesh video",
             "Long range robust",
@@ -237,18 +247,26 @@ def main() -> int:
         raise SystemExit("topology page must draw AP membership links")
     if snapshot.get("topology_zoomable") is not True:
         raise SystemExit("topology page must be zoomable")
+    if snapshot.get("topology_zoom_control") != "buttons_and_double_click_center":
+        raise SystemExit("topology zoom must use buttons and double-click centering")
+    if snapshot.get("topology_gnss_visual_effect") is not True:
+        raise SystemExit("GNSS/BDS peers must have a topology visual effect")
     if snapshot.get("topology_label_placement") != "clamped_visible":
         raise SystemExit("topology labels must be clamped visible")
     if snapshot.get("topology_range_label_style") != "background_badge":
         raise SystemExit("topology range labels must use readable badges")
-    if snapshot.get("topology_range_calculation") != "euclidean_peer_xy_cm_from_rtls_or_position_seed":
+    if snapshot.get("topology_range_calculation") != "euclidean_xy_from_gnss_bds_tof_tdoa_or_test_fixture":
         raise SystemExit("topology range calculation must be documented in snapshot")
     if snapshot.get("topology_route_metrics_overwrite_position") is not False:
         raise SystemExit("route metrics must not overwrite RTLS/profile topology positions")
     if snapshot.get("topology_max_peer_range_m", 999.0) > 2.5:
-        raise SystemExit("profile topology range unexpectedly exceeds the lab-scale fixture")
+        raise SystemExit("test fixture topology range unexpectedly exceeds the lab-scale fixture")
     if snapshot.get("topology_position_model_peers", 0) < 2:
         raise SystemExit("topology snapshot must preserve peer position models")
+    if snapshot.get("topology_gnss_position_peers", 0) < 1:
+        raise SystemExit("test fixture must expose a GNSS/BDS topology source")
+    if snapshot.get("topology_timing_position_peers", 0) < 1:
+        raise SystemExit("test fixture must expose a TOF/TDOA topology source")
     if "topology_update_count" not in snapshot:
         raise SystemExit("topology snapshot must expose update count")
     if snapshot.get("responsive_chat_layout") is not True:

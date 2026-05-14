@@ -1,7 +1,7 @@
 board=020000000203,sdr-z203-zynq7,z203-2r2t,192.168.1.10,55441,1,1,1
 board=020000000103,sdr-z103-zynq7,z103-1r1t,192.168.3.1,55442,0,1,1
-peer=020000000203,sdr-z203-zynq7,z203-2r2t,1,1,28,5,0,0,90
-peer=020000000103,sdr-z103-zynq7,z103-1r1t,1,1,24,8,180,50,120
+peer=020000000203,sdr-z203-zynq7,z203-2r2t,1,1,28,5,0,0,90,gnss_bds_position
+peer=020000000103,sdr-z103-zynq7,z103-1r1t,1,1,24,8,180,50,120,time_sync_tof
 conversation=020000000203,Z203 lab peer,0,1
 conversation=020000000103,Z103 lab peer,1,0
 message=020000000203,rx,Z203 online on PHY Ethernet,delivered

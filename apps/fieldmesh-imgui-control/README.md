@@ -25,8 +25,9 @@ The GUI owns:
   security above the FieldMesh security layer;
 - embedded public command-CA trust metadata, auth policy schema, and codec
   defaults, so normal users launch the app instead of running shell scripts;
-- runtime identity from peer discovery, provisioning, or an external profile,
-  never hardcoded app EUIs or board endpoints compiled into the app;
+- runtime identity from peer discovery and provisioning, never hardcoded app
+  EUIs or board endpoints compiled into the app. External profiles are
+  automation fixtures only;
 - an in-process embedded Python module named `fieldmesh_imgui`, matching the
   standard desktop-app pattern used by tools such as KiCad. It exposes app
   actions directly from inside the GUI process rather than shelling out to the
@@ -119,14 +120,16 @@ Displayed range is calculated as Euclidean distance between peer XY positions:
 range_m = sqrt((x_a_cm - x_b_cm)^2 + (y_a_cm - y_b_cm)^2) / 100
 ```
 
-When RTLS/GNSS/packet-timing positions or profile/discovery position seeds are
-available, those XY coordinates are the source of displayed range. Live route
-metrics update link health, route recommendation, freshness, and confidence,
-but they must not overwrite known co-location coordinates. When no position
-source exists, the app may derive only a bounded, low-confidence radial hint
-from RSSI, SNR, and PER and marks the source as `route_metrics_link_hint`.
-This avoids turning a degraded near-field link into a false tens-of-meters
-distance. The visible range text is drawn in a badge so it does not disappear
+Production range sources are GNSS/BDS-GPS positions, BDS/GPS/PPS time-synced
+TOF, and packet-timing TDOA/multilateration from daemon RTLS reports.
+Test-fixture coordinates may exist only in automation profiles. Runtime
+discovery does not invent physical coordinates. Live route metrics update link
+health, route recommendation, freshness, and confidence, but they must not
+overwrite known co-location coordinates or create a synthetic distance. When no
+position source exists, the topology lays peers out visually and labels numeric
+range as pending. This avoids turning a degraded near-field link into a false
+tens-of-meters distance, and also avoids showing a hardcoded lab value such as
+1.61 m. The visible range text is drawn in a badge so it does not disappear
 into topology lines. The app snapshot exposes `topology_range_calculation`,
 `topology_route_metrics_overwrite_position`, `topology_metrics_live`, and
 `topology_update_count` for automated tests and GUI supervisors.
@@ -154,7 +157,8 @@ tools/run_fieldmesh_imgui_wslg.sh --detach \
 ```
 
 `testdata/golden_lab.profile` is a deterministic developer/CI fixture, not the
-normal GUI workflow. It can still be supplied to reproduce tests exactly. Board
+normal GUI workflow and not an operator configuration file. It can still be
+supplied to reproduce tests exactly. Board
 daemons are expected to be installed in the board runtime image and started at
 power-up by `/etc/init.d/S55fieldmesh-state-daemon`; this is independent of
 whether the host is Windows, Linux, or macOS. If a board is reachable but still
@@ -172,8 +176,8 @@ to use the Pluto-style `.frm` path. The launcher itself does not stage hidden
 daemon binaries by default; it discovers the daemons installed in the board
 runtime.
 
-Two
-symmetric instances can be smoke-tested without a display during development:
+Two symmetric instances can be smoke-tested without a display during
+development:
 
 ```sh
 ./tools/run_fieldmesh_two_imgui_instances.sh

@@ -256,6 +256,9 @@ user and vendor configuration.
 - `docs/fieldmesh-maritime-range.md` - ship-to-ship range model for sea
   deployments, including radio horizon, link budget, fade margin, and
   production vs low-power planning ranges.
+- `docs/fieldmesh-board-parameters-performance.md` - draft Z203/Z103 board
+  parameter and performance vocabulary for GUI presets, daemon radio-config
+  planning, data-plane classes, range sources, metrics, and measurement gates.
 - `docs/fieldmesh-network-configuration.md` - CLI and SDK profile boundary for
   configuring node identity, USB/physical Ethernet subnets, AP policy,
   credentials, radio profile, and safe rollback. The first `fieldmeshctl`

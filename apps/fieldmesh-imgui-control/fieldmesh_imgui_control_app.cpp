@@ -44,10 +44,63 @@ const GuiBoard *selected_board(const GuiState &state)
 
 bool peer_has_position_model(const GuiPeer &peer)
 {
-    return peer.range_source == "profile_rtls_xy" ||
-           peer.range_source == "runtime_discovery_seed" ||
+    return peer.range_source == "gnss_bds_position" ||
+           peer.range_source == "local_origin_gnss_bds_position" ||
+           peer.range_source == "time_sync_tof" ||
+           peer.range_source == "local_origin_time_sync_tof" ||
+           peer.range_source == "packet_timing_tdoa" ||
+           peer.range_source == "local_origin_packet_timing_tdoa" ||
+           peer.range_source == "test_fixture_position" ||
            peer.range_source == "relative_xy" ||
            peer.range_source == "local_origin";
+}
+
+bool peer_has_gnss_position(const GuiPeer &peer)
+{
+    return peer.range_source == "gnss_bds_position" ||
+           peer.range_source == "local_origin_gnss_bds_position";
+}
+
+bool peer_has_timing_position(const GuiPeer &peer)
+{
+    return peer.range_source == "time_sync_tof" ||
+           peer.range_source == "local_origin_time_sync_tof" ||
+           peer.range_source == "local_origin_packet_timing_tdoa" ||
+           peer.range_source == "packet_timing_tdoa";
+}
+
+std::string local_origin_source_for(const std::string &source)
+{
+    if (source == "gnss_bds_position" ||
+        source == "local_origin_gnss_bds_position") {
+        return "local_origin_gnss_bds_position";
+    }
+    if (source == "time_sync_tof" ||
+        source == "local_origin_time_sync_tof") {
+        return "local_origin_time_sync_tof";
+    }
+    if (source == "packet_timing_tdoa" ||
+        source == "local_origin_packet_timing_tdoa") {
+        return "local_origin_packet_timing_tdoa";
+    }
+    return "local_origin";
+}
+
+std::string remote_source_for_previous_local(const std::string &source)
+{
+    if (source == "local_origin_gnss_bds_position") {
+        return "gnss_bds_position";
+    }
+    if (source == "local_origin_time_sync_tof") {
+        return "time_sync_tof";
+    }
+    if (source == "local_origin_packet_timing_tdoa") {
+        return "packet_timing_tdoa";
+    }
+    if (source == "local_origin") {
+        return "relative_xy";
+    }
+    return source;
 }
 
 void normalize_peer_positions_to_local(GuiState *state,
@@ -75,11 +128,13 @@ void normalize_peer_positions_to_local(GuiState *state,
         peer.x_cm -= local_x_cm;
         peer.y_cm -= local_y_cm;
         if (peer.device_eui == device_eui) {
+            const std::string previous_source = peer.range_source;
             peer.x_cm = 0;
             peer.y_cm = 0;
-            peer.range_source = "local_origin";
-        } else if (peer.range_source == "local_origin") {
-            peer.range_source = "relative_xy";
+            peer.range_source = local_origin_source_for(previous_source);
+        } else {
+            peer.range_source =
+                remote_source_for_previous_local(peer.range_source);
         }
     }
 }
@@ -333,20 +388,100 @@ bool json_number_field(const char *json, const char *key, long *out)
     return end != pos;
 }
 
-int estimate_range_cm_from_metrics(int rssi_dbm, int snr_db, unsigned per_mille)
+bool json_boolish_field(const char *json, const char *key, bool *out)
 {
-    int range_cm = 250;
+    long number = 0;
 
-    if (rssi_dbm >= -58 && snr_db >= 20 && per_mille <= 50u) {
-        range_cm = 200;
-    } else if (rssi_dbm >= -66 && snr_db >= 14 && per_mille <= 120u) {
-        range_cm = 450;
-    } else if (rssi_dbm >= -74 && snr_db >= 9 && per_mille <= 220u) {
-        range_cm = 800;
-    } else {
-        range_cm = 1200;
+    if (!json || !key || !out) {
+        return false;
     }
-    return range_cm;
+    if (json_number_field(json, key, &number)) {
+        *out = number != 0;
+        return true;
+    }
+    char pattern[96];
+    const char *pos;
+
+    std::snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    pos = std::strstr(json, pattern);
+    if (!pos) {
+        return false;
+    }
+    pos += std::strlen(pattern);
+    while (*pos == ' ' || *pos == '\t') {
+        ++pos;
+    }
+    if (std::strncmp(pos, "true", 4) == 0) {
+        *out = true;
+        return true;
+    }
+    if (std::strncmp(pos, "false", 5) == 0) {
+        *out = false;
+        return true;
+    }
+    return false;
+}
+
+bool request_radio_config_plan(GuiState *state)
+{
+    const GuiBoard *board = selected_board(*state);
+    fieldmesh_daemon_client_config_t config;
+    char request[512];
+    char response[2048];
+    size_t response_len = 0u;
+    bool ok = false;
+    bool writes_hardware = true;
+
+    if (!board) {
+        state->operation_status = "radio_config_select_board_first";
+        return false;
+    }
+    std::memset(&config, 0, sizeof(config));
+    std::snprintf(config.host, sizeof(config.host), "%s",
+                  board->daemon_host.c_str());
+    config.port = static_cast<uint16_t>(board->daemon_port);
+    config.timeout_ms = 400u;
+    std::snprintf(request, sizeof(request),
+                  "FIELDMESH_RADIO_CONFIG_PLAN v1 "
+                  "frequency_mhz=%u channel=%u bandwidth_khz=%u "
+                  "sample_rate_ksps=%u modulation=%s fec=%s "
+                  "adaptive_mcs=%u direct_p2p=%u ap_relay_fallback=%u",
+                  state->radio.frequency_mhz,
+                  state->radio.channel_index,
+                  state->radio.bandwidth_khz,
+                  state->radio.sample_rate_ksps,
+                  state->radio.modulation.c_str(),
+                  state->radio.fec.c_str(),
+                  state->radio.adaptive_mcs ? 1u : 0u,
+                  state->radio.direct_p2p_preferred ? 1u : 0u,
+                  state->radio.ap_relay_fallback ? 1u : 0u);
+    state->radio.daemon_config_sent = true;
+    state->radio.daemon_config_events += 1u;
+    if (fieldmesh_daemon_request(&config, request, response,
+                                 sizeof(response), &response_len) !=
+            FIELDMESH_OK ||
+        response_len == 0u) {
+        state->radio.daemon_config_ok = false;
+        state->radio.daemon_config_supported = false;
+        state->radio.daemon_config_status = "daemon_unreachable";
+        state->operation_status = "radio_config_daemon_unreachable";
+        return false;
+    }
+    (void)json_boolish_field(response, "ok", &ok);
+    (void)json_boolish_field(response, "writes_hardware", &writes_hardware);
+    state->radio.daemon_config_ok = ok;
+    state->radio.daemon_config_supported =
+        std::strstr(response, "sdk_daemon_radio_config_plan") != nullptr;
+    state->radio.daemon_config_writes_hardware = writes_hardware;
+    if (ok && !writes_hardware) {
+        state->radio.apply_pending = false;
+        state->radio.daemon_config_status = "planned_by_daemon";
+        state->operation_status = "radio_config_planned_by_daemon";
+        return true;
+    }
+    state->radio.daemon_config_status = "daemon_rejected";
+    state->operation_status = "radio_config_daemon_rejected";
+    return false;
 }
 
 bool append_bus_event(const std::string &src_eui,
@@ -523,7 +658,6 @@ bool poll_message_bus(GuiState *state)
     const GuiBoard *board = selected_board(*state);
     fieldmesh_daemon_client_config_t config;
     bool updated = false;
-    unsigned remote_index = 0u;
 
     if (!state || !state->connected_to_board || !board ||
         !board->route_metrics_capable) {
@@ -545,13 +679,12 @@ bool poll_message_bus(GuiState *state)
         long age = 0;
         long direct = 0;
         long relay = 0;
-        int range_cm;
-        double angle;
 
         if (peer.device_eui == state->selected_board_eui) {
+            const std::string previous_source = peer.range_source;
             peer.x_cm = 0;
             peer.y_cm = 0;
-            peer.range_source = "local_origin";
+            peer.range_source = local_origin_source_for(previous_source);
             continue;
         }
         std::snprintf(request, sizeof(request),
@@ -562,13 +695,11 @@ bool poll_message_bus(GuiState *state)
                 FIELDMESH_OK ||
             response_len == 0u ||
             !std::strstr(response, "\"ok\":true")) {
-            ++remote_index;
             continue;
         }
         if (!json_number_field(response, "snr_db", &snr) ||
             !json_number_field(response, "per_mille", &per) ||
             !json_number_field(response, "rssi_dbm", &rssi)) {
-            ++remote_index;
             continue;
         }
         (void)json_number_field(response, "measured_age_ms", &age);
@@ -582,19 +713,11 @@ bool poll_message_bus(GuiState *state)
         peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
         peer.range_update_count += 1u;
         if (!peer_has_position_model(peer)) {
-            peer.range_source = "route_metrics_link_hint";
-            range_cm = estimate_range_cm_from_metrics(
-                peer.rssi_dbm,
-                peer.snr_db,
-                static_cast<unsigned>(peer.per_mille));
-            angle = 0.65 + static_cast<double>(remote_index) * 1.9;
-            peer.x_cm = static_cast<int>(std::cos(angle) * range_cm);
-            peer.y_cm = static_cast<int>(std::sin(angle) * range_cm);
+            peer.range_source = "route_metrics_link_only";
             peer.error_radius_cm =
                 static_cast<unsigned>(250u + static_cast<unsigned>(peer.per_mille));
         }
         updated = true;
-        ++remote_index;
     }
     if (updated) {
         state->topology_metrics_live = true;
@@ -607,9 +730,14 @@ bool poll_message_bus(GuiState *state)
 double max_topology_peer_range_m(const GuiState &state)
 {
     double max_range_m = 0.0;
+    bool have_range = false;
 
     for (std::size_t i = 0; i < state.peers.size(); ++i) {
         for (std::size_t j = i + 1u; j < state.peers.size(); ++j) {
+            if (!peer_has_position_model(state.peers[i]) ||
+                !peer_has_position_model(state.peers[j])) {
+                continue;
+            }
             const double dx_m =
                 static_cast<double>(state.peers[i].x_cm - state.peers[j].x_cm) /
                 100.0;
@@ -621,9 +749,10 @@ double max_topology_peer_range_m(const GuiState &state)
             if (range_m > max_range_m) {
                 max_range_m = range_m;
             }
+            have_range = true;
         }
     }
-    return max_range_m;
+    return have_range ? max_range_m : -1.0;
 }
 
 unsigned count_position_model_peers(const GuiState &state)
@@ -632,6 +761,30 @@ unsigned count_position_model_peers(const GuiState &state)
 
     for (const GuiPeer &peer : state.peers) {
         if (peer_has_position_model(peer)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+unsigned count_gnss_position_peers(const GuiState &state)
+{
+    unsigned count = 0u;
+
+    for (const GuiPeer &peer : state.peers) {
+        if (peer_has_gnss_position(peer)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+unsigned count_timing_position_peers(const GuiState &state)
+{
+    unsigned count = 0u;
+
+    for (const GuiPeer &peer : state.peers) {
+        if (peer_has_timing_position(peer)) {
             ++count;
         }
     }
@@ -705,6 +858,12 @@ void populate_demo_state(GuiState *state)
     state->radio.direct_p2p_preferred = true;
     state->radio.ap_relay_fallback = true;
     state->radio.apply_pending = false;
+    state->radio.daemon_config_supported = false;
+    state->radio.daemon_config_sent = false;
+    state->radio.daemon_config_ok = false;
+    state->radio.daemon_config_writes_hardware = false;
+    state->radio.daemon_config_events = 0u;
+    state->radio.daemon_config_status = "not_sent";
     state->python.script =
         "import fieldmesh_imgui\n"
         "fieldmesh_imgui.browse_peers()\n";
@@ -725,6 +884,8 @@ void populate_demo_state(GuiState *state)
     state->discovery_candidates.clear();
     state->message_bus_read_offset = 0u;
     state->topology_zoom = 1.0f;
+    state->topology_center_x_cm = 0;
+    state->topology_center_y_cm = 0;
     state->event_worker_enabled = true;
     state->event_dispatch_count = 0u;
     state->topology_update_count = 0u;
@@ -776,6 +937,9 @@ bool load_runtime_profile(GuiState *state, const char *path)
                 state->selected_board_eui = fields[0];
             }
         } else if (key == "peer" && fields.size() >= 10u) {
+            std::string source = fields.size() >= 11u ?
+                fields[10] : "test_fixture_position";
+
             state->peers.push_back({fields[0], fields[1], fields[2],
                                     parse_bool_field(fields[3]),
                                     parse_bool_field(fields[4]),
@@ -787,7 +951,7 @@ bool load_runtime_profile(GuiState *state, const char *path)
                                     parse_unsigned_field(fields[9]),
                                     0u,
                                     0u,
-                                    "profile_rtls_xy"});
+                                    source});
         } else if (key == "conversation" && fields.size() >= 4u) {
             state->conversations.push_back({fields[0], fields[1],
                                             parse_unsigned_field(fields[2]),
@@ -891,12 +1055,12 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
                                 -60,
                                 24,
                                 3,
-                                static_cast<int>(i * 140u),
-                                static_cast<int>(i * 80u),
-                                45u,
+                                0,
+                                0,
                                 0u,
                                 0u,
-                                "runtime_discovery_seed"});
+                                0u,
+                                "position_pending"});
         state->conversations.push_back({boards[i].device_eui,
                                         boards[i].hostname,
                                         0u,
@@ -1235,6 +1399,13 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"radio_direct_p2p_preferred\": %s,\n"
                  "  \"radio_ap_relay_fallback\": %s,\n"
                  "  \"radio_apply_pending\": %s,\n"
+                 "  \"radio_config_via_daemon\": true,\n"
+                 "  \"radio_config_daemon_supported\": %s,\n"
+                 "  \"radio_config_daemon_sent\": %s,\n"
+                 "  \"radio_config_daemon_ok\": %s,\n"
+                 "  \"radio_config_daemon_writes_hardware\": %s,\n"
+                 "  \"radio_config_daemon_events\": %u,\n"
+                 "  \"radio_config_status\": \"%s\",\n"
                  "  \"embedded_python_api\": true,\n"
                  "  \"python_api_mode\": \"embedded_in_process\",\n"
                  "  \"python_api_module\": \"fieldmesh_imgui\",\n"
@@ -1251,15 +1422,21 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"topology_distance_hover\": true,\n"
                  "  \"topology_ap_membership_links\": true,\n"
                  "  \"topology_zoomable\": true,\n"
+                 "  \"topology_zoom_control\": \"buttons_and_double_click_center\",\n"
+                 "  \"topology_gnss_visual_effect\": true,\n"
                  "  \"topology_label_placement\": \"clamped_visible\",\n"
                  "  \"topology_range_label_style\": \"background_badge\",\n"
-                 "  \"topology_range_calculation\": \"euclidean_peer_xy_cm_from_rtls_or_position_seed\",\n"
+                 "  \"topology_range_calculation\": \"euclidean_xy_from_gnss_bds_tof_tdoa_or_test_fixture\",\n"
                  "  \"topology_route_metrics_overwrite_position\": false,\n"
                  "  \"topology_max_peer_range_m\": %.2f,\n"
                  "  \"topology_position_model_peers\": %u,\n"
+                 "  \"topology_gnss_position_peers\": %u,\n"
+                 "  \"topology_timing_position_peers\": %u,\n"
                  "  \"topology_metrics_live\": %s,\n"
                  "  \"topology_update_count\": %u,\n"
                  "  \"topology_zoom\": %.2f,\n"
+                 "  \"topology_center_x_cm\": %d,\n"
+                 "  \"topology_center_y_cm\": %d,\n"
                  "  \"responsive_chat_layout\": true,\n"
                  "  \"chat_layout_engine\": \"imgui_table_no_overlay\",\n"
                  "  \"relative_colocation_viewer\": true,\n"
@@ -1345,15 +1522,25 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.radio.direct_p2p_preferred ? "true" : "false",
                  state.radio.ap_relay_fallback ? "true" : "false",
                  state.radio.apply_pending ? "true" : "false",
+                 state.radio.daemon_config_supported ? "true" : "false",
+                 state.radio.daemon_config_sent ? "true" : "false",
+                 state.radio.daemon_config_ok ? "true" : "false",
+                 state.radio.daemon_config_writes_hardware ? "true" : "false",
+                 state.radio.daemon_config_events,
+                 state.radio.daemon_config_status.c_str(),
                  state.python.runs,
                  state.python.last_ok ? "true" : "false",
                  escaped_python_output.c_str(),
                  escaped_python_log.c_str(),
                  max_topology_peer_range_m(state),
                  count_position_model_peers(state),
+                 count_gnss_position_peers(state),
+                 count_timing_position_peers(state),
                  state.topology_metrics_live ? "true" : "false",
                  state.topology_update_count,
                  static_cast<double>(state.topology_zoom),
+                 state.topology_center_x_cm,
+                 state.topology_center_y_cm,
                  board ? board->device_eui.c_str() : "",
                  board ? board->hostname.c_str() : "",
                  board ? board->device_type.c_str() : "",
@@ -1606,11 +1793,13 @@ void render_connection_setup(GuiState *state)
     ImGui::Checkbox("AP relay fallback", &state->radio.ap_relay_fallback);
     if (ImGui::Button("Apply Radio Profile")) {
         state->radio.apply_pending = true;
-        state->operation_status = "radio_profile_apply_requested";
+        (void)request_radio_config_plan(state);
     }
     ImGui::SameLine();
-    ImGui::Text("Mode: %s / %s", state->radio.access_mode.c_str(),
-                state->radio.timing_mode.c_str());
+    ImGui::Text("Mode: %s / %s  daemon: %s",
+                state->radio.access_mode.c_str(),
+                state->radio.timing_mode.c_str(),
+                state->radio.daemon_config_status.c_str());
     ImGui::EndChild();
 
     ImGui::Spacing();
@@ -1788,8 +1977,18 @@ void render_topology_compact(GuiState *state)
                   ImVec2(origin.x + canvas.x - 20.0f, center_y),
                   IM_COL32(203, 216, 211, 255));
     for (const GuiPeer &peer : state->peers) {
-        float x = center_x + static_cast<float>(peer.x_cm) / 4.0f;
-        float y = center_y - static_cast<float>(peer.y_cm) / 4.0f;
+        const std::size_t index = static_cast<std::size_t>(&peer - &state->peers[0]);
+        float x;
+        float y;
+
+        if (peer_has_position_model(peer)) {
+            x = center_x + static_cast<float>(peer.x_cm) / 4.0f;
+            y = center_y - static_cast<float>(peer.y_cm) / 4.0f;
+        } else {
+            const float angle = 0.75f + static_cast<float>(index) * 2.1f;
+            x = center_x + std::cos(angle) * 42.0f;
+            y = center_y + std::sin(angle) * 42.0f;
+        }
         draw->AddCircleFilled(ImVec2(x, y), 7.0f, IM_COL32(29, 95, 156, 255));
         draw->AddText(ImVec2(x + 10.0f, y - 10.0f),
                       IM_COL32(22, 33, 31, 255), peer.device_eui.c_str());
@@ -2024,6 +2223,7 @@ int main(int argc, char **argv)
     bool api_toggle_screen = false;
     bool api_run_python = false;
     bool api_refresh_topology = false;
+    bool api_apply_radio_config = false;
     bool profile_loaded = false;
 
     populate_demo_state(&state);
@@ -2081,6 +2281,8 @@ int main(int argc, char **argv)
             api_run_python = true;
         } else if (std::strcmp(argv[i], "--api-refresh-topology") == 0) {
             api_refresh_topology = true;
+        } else if (std::strcmp(argv[i], "--api-apply-radio-config") == 0) {
+            api_apply_radio_config = true;
         } else {
             std::fprintf(stderr,
                          "usage: %s [--self-test] [--snapshot-output PATH] "
@@ -2093,7 +2295,8 @@ int main(int argc, char **argv)
                          "[--api-accept-video] [--api-deny-video] "
                          "[--api-toggle-camera] [--api-toggle-mic] "
                          "[--api-toggle-screen] [--api-run-python] "
-                         "[--api-refresh-topology]\n",
+                         "[--api-refresh-topology] "
+                         "[--api-apply-radio-config]\n",
                          argv[0]);
             return 2;
         }
@@ -2147,6 +2350,9 @@ int main(int argc, char **argv)
         toggle_local_screen(&state);
     }
     if (api_run_python && !run_python_automation(&state)) {
+        return 1;
+    }
+    if (api_apply_radio_config && !request_radio_config_plan(&state)) {
         return 1;
     }
     if (api_refresh_topology) {

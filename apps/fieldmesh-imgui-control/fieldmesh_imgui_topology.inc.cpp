@@ -1,5 +1,8 @@
 float distance_meters(const GuiPeer &a, const GuiPeer &b)
 {
+    if (!peer_has_position_model(a) || !peer_has_position_model(b)) {
+        return -1.0f;
+    }
     const float dx = static_cast<float>(a.x_cm - b.x_cm) / 100.0f;
     const float dy = static_cast<float>(a.y_cm - b.y_cm) / 100.0f;
 
@@ -27,13 +30,65 @@ float point_segment_distance(const ImVec2 &p, const ImVec2 &a, const ImVec2 &b)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+ImVec2 topology_peer_point(const GuiState *state,
+                           const GuiPeer &peer,
+                           std::size_t index,
+                           float center_x,
+                           float center_y)
+{
+    if (peer_has_position_model(peer)) {
+        return ImVec2(center_x +
+                          static_cast<float>(peer.x_cm - state->topology_center_x_cm) *
+                              state->topology_zoom / 3.0f,
+                      center_y -
+                          static_cast<float>(peer.y_cm - state->topology_center_y_cm) *
+                              state->topology_zoom / 3.0f);
+    }
+    const float angle = 0.75f + static_cast<float>(index) * 2.1f;
+    const float radius = 74.0f * state->topology_zoom;
+
+    return ImVec2(center_x + std::cos(angle) * radius,
+                  center_y + std::sin(angle) * radius);
+}
+
+void center_topology_on_click(GuiState *state,
+                              const ImVec2 &mouse,
+                              float center_x,
+                              float center_y)
+{
+    const float safe_zoom = state->topology_zoom > 0.1f ?
+        state->topology_zoom : 1.0f;
+
+    state->topology_center_x_cm +=
+        static_cast<int>((mouse.x - center_x) * 3.0f / safe_zoom);
+    state->topology_center_y_cm -=
+        static_cast<int>((mouse.y - center_y) * 3.0f / safe_zoom);
+    state->topology_zoom = 1.0f;
+}
+
 void render_topology_page(GuiState *state)
 {
     begin_panel("Network Topology", ImVec2(0.0f, 0.0f));
-    ImGui::SliderFloat("Zoom", &state->topology_zoom, 0.5f, 3.0f, "%.1fx");
+    if (ImGui::Button("Zoom -")) {
+        state->topology_zoom *= 0.8f;
+        if (state->topology_zoom < 0.5f) {
+            state->topology_zoom = 0.5f;
+        }
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Reset View")) {
+    ImGui::Text("%.1fx", static_cast<double>(state->topology_zoom));
+    ImGui::SameLine();
+    if (ImGui::Button("Zoom +")) {
+        state->topology_zoom *= 1.25f;
+        if (state->topology_zoom > 3.0f) {
+            state->topology_zoom = 3.0f;
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Center")) {
         state->topology_zoom = 1.0f;
+        state->topology_center_x_cm = 0;
+        state->topology_center_y_cm = 0;
     }
     ImDrawList *draw = ImGui::GetWindowDrawList();
     ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -53,15 +108,21 @@ void render_topology_page(GuiState *state)
                   IM_COL32(190, 202, 212, 255));
     draw->AddText(ImVec2(origin.x + 14.0f, origin.y + 12.0f),
                   IM_COL32(30, 42, 54, 255),
-                  "Relative co-location map, meters from packet timing/GNSS fusion");
+                  "Relative co-location map, meters from GNSS/BDS, TOF, or TDOA");
+
+    ImGui::InvisibleButton("topology-canvas-hitbox", canvas);
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+        center_topology_on_click(state, mouse, center_x, center_y);
+    }
 
     std::vector<ImVec2> points;
     points.reserve(state->peers.size());
-    for (const GuiPeer &peer : state->peers) {
-        points.push_back(ImVec2(center_x + static_cast<float>(peer.x_cm) *
-                                           state->topology_zoom / 3.0f,
-                                center_y - static_cast<float>(peer.y_cm) *
-                                           state->topology_zoom / 3.0f));
+    for (std::size_t i = 0; i < state->peers.size(); ++i) {
+        points.push_back(topology_peer_point(state,
+                                             state->peers[i],
+                                             i,
+                                             center_x,
+                                             center_y));
     }
 
     for (std::size_t i = 0; i < state->peers.size(); ++i) {
@@ -93,8 +154,12 @@ void render_topology_page(GuiState *state)
     }
     if (hovered_a >= 0 && hovered_b >= 0) {
         char label[96];
-        std::snprintf(label, sizeof(label), "%.2f m",
-                      static_cast<double>(hovered_distance));
+        if (hovered_distance >= 0.0f) {
+            std::snprintf(label, sizeof(label), "%.2f m",
+                          static_cast<double>(hovered_distance));
+        } else {
+            std::snprintf(label, sizeof(label), "%s", "range pending");
+        }
         ImVec2 label_pos((points[static_cast<std::size_t>(hovered_a)].x +
                           points[static_cast<std::size_t>(hovered_b)].x) * 0.5f + 8.0f,
                          (points[static_cast<std::size_t>(hovered_a)].y +
@@ -121,10 +186,24 @@ void render_topology_page(GuiState *state)
         const GuiPeer &peer = state->peers[i];
         const bool is_local = peer.device_eui == state->selected_board_eui;
         const bool is_ap = peer.device_eui == state->selected_ap_eui;
+        const bool has_gnss = peer_has_gnss_position(peer);
+        const bool has_timing = peer_has_timing_position(peer);
         const ImU32 color = is_local ? IM_COL32(46, 125, 50, 255) :
                             is_ap ? IM_COL32(203, 111, 33, 255) :
                                     IM_COL32(31, 91, 164, 255);
         draw->AddCircleFilled(points[i], is_ap ? 10.0f : 8.0f, color);
+        if (has_gnss) {
+            const float pulse = 13.0f +
+                static_cast<float>(std::sin(ImGui::GetTime() * 4.0)) * 2.0f;
+            draw->AddCircle(points[i], pulse, IM_COL32(16, 150, 128, 210), 32, 2.0f);
+            draw->AddCircle(points[i], pulse + 5.0f, IM_COL32(16, 150, 128, 80), 32, 1.5f);
+            draw->AddText(ImVec2(points[i].x - 18.0f, points[i].y + 16.0f),
+                          IM_COL32(8, 98, 84, 255), "GNSS");
+        } else if (has_timing) {
+            draw->AddCircle(points[i], 14.0f, IM_COL32(82, 104, 190, 190), 24, 2.0f);
+            draw->AddText(ImVec2(points[i].x - 14.0f, points[i].y + 16.0f),
+                          IM_COL32(66, 78, 160, 255), "TOF");
+        }
         draw->AddCircle(points[i], static_cast<float>(peer.error_radius_cm) / 12.0f,
                         IM_COL32(77, 121, 168, 90), 24, 1.0f);
         ImVec2 text_pos(points[i].x + 12.0f, points[i].y - 12.0f);
@@ -135,14 +214,14 @@ void render_topology_page(GuiState *state)
         draw->AddText(text_pos,
                       IM_COL32(24, 33, 41, 255), peer.hostname.c_str());
     }
-    ImGui::Dummy(canvas);
     ImGui::Text("AP: %s", state->selected_ap_eui.c_str());
     ImGui::SameLine();
-    ImGui::Text("Range: peer XY Euclidean meters, refreshed from route metrics when live.");
+    ImGui::Text("Range: GNSS/BDS, time-synced TOF, packet TDOA, or test fixture only.");
+    ImGui::Text("Double click the map to restore 1.0x and center on that point.");
     ImGui::Text("Topology updates: %u  source: %s",
                 state->topology_update_count,
                 state->topology_metrics_live ? "live daemon metrics" :
-                                               "profile/RTLS seed");
+                                               "position source pending/test fixture");
     ImGui::TextUnformatted("Hover between peers for distance; AP membership links are always shown.");
     end_panel();
 }

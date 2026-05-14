@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-21}"
+requests="${REQUESTS:-22}"
 route_dst_eui="${ROUTE_DST_EUI:-020000000103}"
 explicit_ap_eui="${EXPLICIT_AP_EUI:-020000000103}"
 explicit_dst_eui="${EXPLICIT_DST_EUI:-020000000203}"
@@ -137,6 +137,7 @@ hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
+radio_config = [row for row in query if row.get("event") == "sdk_daemon_radio_config_plan"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
@@ -154,7 +155,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 21:
+if not end or end[-1].get("handled") != 22:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -167,7 +168,8 @@ if hello[0].get("auth_model") != "root_ca_derived_certs":
 if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("board SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
-            "supports_route_metrics", "supports_rf_packet_engine"):
+            "supports_route_metrics", "supports_rf_packet_engine",
+            "supports_radio_config_plan"):
     if hello[0].get(key) != 1:
         raise SystemExit(f"board SDK daemon HELLO capability {key} must be 1")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
@@ -176,6 +178,13 @@ for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
         raise SystemExit(f"board SDK daemon HELLO key {key} must be 0")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
+if not radio_config or radio_config[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon radio config plan response failed")
+if radio_config[0].get("config_source") != "app_sdk_daemon":
+    raise SystemExit("board SDK daemon radio config source changed")
+for key in ("writes_hardware", "commands_executed", "starts_rf_tx"):
+    if radio_config[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon radio config key {key} must be 0")
 if not ap_election or ap_election[0].get("elected_node_id") != "020000000203":
     raise SystemExit("board SDK daemon AP election response failed")
 if not join_state or join_state[0].get("joined") is not True or join_state[0].get("selected_mode") != 4:
