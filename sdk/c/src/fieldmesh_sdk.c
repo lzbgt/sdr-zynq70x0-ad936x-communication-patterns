@@ -1789,6 +1789,121 @@ fieldmesh_status_t fieldmesh_decode_mac_frame(
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_encode_sdk_frame(
+    const fieldmesh_sdk_frame_header_t *header,
+    const void *tlv_payload,
+    size_t tlv_payload_len,
+    uint8_t *out_frame,
+    size_t out_frame_capacity,
+    size_t *out_frame_len)
+{
+    uint32_t header_crc;
+    uint32_t payload_crc;
+    size_t frame_len;
+
+    if (!header || !out_frame || !out_frame_len || tlv_payload_len > 0xffffu ||
+        (tlv_payload_len && !tlv_payload)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (header->version != FIELDMESH_SDK_VERSION_1 ||
+        header->header_len_bytes != FIELDMESH_SDK_HEADER_BYTES ||
+        header->msg_type > 255) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    frame_len = (size_t)FIELDMESH_SDK_HEADER_BYTES + tlv_payload_len +
+                (size_t)FIELDMESH_SDK_TRAILER_BYTES;
+    if (out_frame_capacity < frame_len) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(out_frame, 0, frame_len);
+    out_frame[0] = (uint8_t)'B';
+    out_frame[1] = (uint8_t)'L';
+    out_frame[2] = (uint8_t)'R';
+    out_frame[3] = header->version;
+    out_frame[4] = (uint8_t)header->msg_type;
+    out_frame[5] = header->flags;
+    write_be16(&out_frame[6], header->header_len_bytes);
+    write_be32(&out_frame[8], header->sequence);
+    write_be32(&out_frame[12], header->request_id);
+    write_be16(&out_frame[16], header->tlv_count);
+    write_be16(&out_frame[18], (uint16_t)tlv_payload_len);
+    header_crc = crc32c_update(0u, out_frame, 20u);
+    write_be32(&out_frame[20], header_crc);
+    if (tlv_payload_len > 0u) {
+        memcpy(&out_frame[FIELDMESH_SDK_HEADER_BYTES], tlv_payload,
+               tlv_payload_len);
+    }
+    payload_crc = crc32c_update(0u, &out_frame[FIELDMESH_SDK_HEADER_BYTES],
+                                tlv_payload_len);
+    write_be32(&out_frame[FIELDMESH_SDK_HEADER_BYTES + tlv_payload_len],
+               payload_crc);
+    *out_frame_len = frame_len;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_decode_sdk_frame(
+    const uint8_t *frame,
+    size_t frame_len,
+    fieldmesh_sdk_frame_header_t *out_header,
+    uint8_t *out_tlv_payload,
+    size_t out_tlv_payload_capacity,
+    size_t *out_tlv_payload_len)
+{
+    uint16_t header_len;
+    uint16_t payload_len;
+    uint32_t header_crc;
+    uint32_t payload_crc;
+    size_t expected_len;
+
+    if (!frame || !out_header || !out_tlv_payload_len ||
+        frame_len < (size_t)FIELDMESH_SDK_HEADER_BYTES +
+                    (size_t)FIELDMESH_SDK_TRAILER_BYTES) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (frame[0] != (uint8_t)'B' || frame[1] != (uint8_t)'L' ||
+        frame[2] != (uint8_t)'R' || frame[3] != FIELDMESH_SDK_VERSION_1) {
+        return FIELDMESH_ERR_UNSUPPORTED;
+    }
+    header_len = read_be16(&frame[6]);
+    payload_len = read_be16(&frame[18]);
+    if (header_len != FIELDMESH_SDK_HEADER_BYTES) {
+        return FIELDMESH_ERR_UNSUPPORTED;
+    }
+    expected_len = (size_t)header_len + payload_len +
+                   (size_t)FIELDMESH_SDK_TRAILER_BYTES;
+    if (frame_len != expected_len) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    header_crc = crc32c_update(0u, frame, 20u);
+    payload_crc = crc32c_update(0u, &frame[header_len], payload_len);
+    if (header_crc != read_be32(&frame[20]) ||
+        payload_crc != read_be32(&frame[header_len + payload_len])) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    if (payload_len > out_tlv_payload_capacity ||
+        (payload_len && !out_tlv_payload)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(out_header, 0, sizeof(*out_header));
+    out_header->version = frame[3];
+    out_header->msg_type = (fieldmesh_sdk_msg_type_t)frame[4];
+    out_header->flags = frame[5];
+    out_header->header_len_bytes = header_len;
+    out_header->sequence = read_be32(&frame[8]);
+    out_header->request_id = read_be32(&frame[12]);
+    out_header->tlv_count = read_be16(&frame[16]);
+    out_header->payload_len_bytes = payload_len;
+    out_header->header_crc32c = header_crc;
+    out_header->payload_crc32c = payload_crc;
+    if (payload_len > 0u) {
+        memcpy(out_tlv_payload, &frame[header_len], payload_len);
+    }
+    *out_tlv_payload_len = payload_len;
+    return FIELDMESH_OK;
+}
+
 static uint8_t traffic_class_index(fieldmesh_traffic_class_t traffic_class)
 {
     if (traffic_class < FIELDMESH_CLASS_C0_CONTROL ||

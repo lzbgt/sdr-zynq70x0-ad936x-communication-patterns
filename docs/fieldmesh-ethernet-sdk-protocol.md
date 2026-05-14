@@ -16,9 +16,8 @@ Initial default:
 
 - transport: UDP request/response for discovery and state queries;
 - port: `49000` for production profile, with tests free to override;
-- encoding: line-delimited JSON for prototype/debug visibility;
-- future binary profile: fixed header plus typed TLVs using the same message
-  names and field semantics.
+- production encoding: compact binary `BLR` SDK frames with typed TLVs;
+- debug encoding: line-delimited JSON projections for desktop inspection only.
 
 The JSON endpoint is a compatibility and inspection envelope. It must not be
 treated as the scalable peer-directory wire format. Production peer discovery,
@@ -27,16 +26,19 @@ with explicit lengths, sequence numbers, and pagination. UDP datagrams, daemon
 buffers, and GUI snapshots may still have bounded chunks, but those are
 transport fragments, not product limits.
 
-Every message carries:
+Every binary SDK message carries:
 
-- `proto`: `fieldmesh-eth-sdk`;
+- `magic`: ASCII `BLR`;
 - `version`: `1`;
-- `network_id`;
-- `device_eui` when known: 6-byte hex identity derived from MAC/EUI by default;
-- `node_id`/hostname when known: operator label only;
+- `msg_type`;
+- `sequence`;
 - `request_id`;
-- `timestamp_ms`;
-- optional `auth` envelope once credential/cert/audit join is enabled.
+- variable TLVs for network, device EUI, operation, RTLS, route, stream, and
+  security state;
+- optional `AUTH` TLV once credential/cert/audit join is enabled.
+
+Hostnames, display names, and UI labels are optional TLV metadata. They are not
+required in every SDK message, and MCU clients can ignore them.
 
 ## Plane Split
 
@@ -136,6 +138,71 @@ Minimum daemon messages:
 | `TUN_APPLY_COMMIT` | client -> daemon | Apply `swarm0` only with explicit network-write authorization and rollback state. |
 | `DEVICE_IIO_PLAN` | client -> daemon | Plan guarded local IIO/RF action without executing. |
 | `DEVICE_IIO_EXECUTE` | client -> daemon | Execute guarded local IIO action only under policy and explicit approval. |
+
+## Binary SDK Frame
+
+The host-facing SDK frame is separate from the RF MAC frame but uses the same
+3-byte `BLR` magic and versioning model so small hosts have one parser style.
+All multi-byte fields are network byte order. The first supported profile is
+intentionally fixed at a small 24-byte header so an STM32F1 can parse it from a
+small stack buffer before dispatching TLVs.
+
+```text
+bit   0..23   magic              ASCII "BLR"
+bit  24..31   version            0x01
+bit  32..39   msg_type           u8, see table below
+bit  40..47   flags              bit0=response, bit1=error, bit2=more_pages,
+                                 bit3=auth_present, bit4=ack_required
+bit  48..63   header_len         u16, currently 24 bytes
+bit  64..95   sequence           u32, monotonic per SDK endpoint
+bit  96..127  request_id         u32, echoed in responses
+bit 128..143  tlv_count          u16
+bit 144..159  payload_len        u16, bytes of TLVs after this header
+bit 160..191  header_crc32c      CRC32C over bits 0..159
+bit 192..     TLV payload        repeated `sdk_tlv`
+last 32 bits  payload_crc32c     CRC32C over TLV payload bytes
+```
+
+Each SDK TLV has a 4-byte header:
+
+```text
+bit  0..7    type
+bit  8..15   flags              bit0=critical, bit1=encrypted, bit2=fragment
+bit 16..31   length             bytes following this TLV header
+bit 32..     value
+```
+
+Base SDK message types:
+
+| Code | Message | Direction | Notes |
+| --- | --- | --- | --- |
+| `0x01` | `HELLO` | app/host -> daemon | Capability/security negotiation. |
+| `0x02` | `PEER_DIRECTORY` | daemon -> app/host | Paged observed-radio peer table. |
+| `0x03` | `PEER_DELTA` | daemon -> app/host | Incremental peer add/update/remove. |
+| `0x04` | `RTLS_REPORT` | app/daemon -> daemon | GNSS/PPS/TOF/TDOA/range observations. |
+| `0x05` | `ROUTE_METRICS` | daemon -> app/host | RSSI/SNR/EVM/PER/latency/queue metrics. |
+| `0x06` | `APP_CONTROL` | app/host -> daemon | User operations, AP choice, repurpose. |
+| `0x07` | `CAMERA_CHUNK` | app/host -> daemon | Encoded camera/screen/audio payload chunk metadata. |
+| `0x08` | `SECURITY` | both | Derived cert, CA, authorization, challenge/response. |
+
+Base SDK TLVs:
+
+| Code | TLV | Value | Notes |
+| --- | --- | --- | --- |
+| `0x01` | `DEVICE_EUI` | 6 bytes | Stable compact identity. |
+| `0x02` | `DTYPE` | u16 | `0x0011=1R1T`, `0x0022=2R2T`; not a role. |
+| `0x03` | `CAPS` | u32/u64 bitset | RF chains, relay/AP, camera, RTLS, stream classes. |
+| `0x04` | `STATUS` | nested | Health, daemon state, queue state. |
+| `0x05` | `RTLS` | nested | GNSS/BDS/PPS/TOF/TDOA/range fields with age/confidence. |
+| `0x06` | `ROUTE` | nested | Direct/relay path, metrics, AP lease. |
+| `0x07` | `CAMERA` | nested | FPS, bitrate, chunk id, stream id, media controls. |
+| `0x08` | `AUTH` | nested | CA id, derived cert id, challenge, signature/MAC. |
+| `0x09` | `APP_META` | optional UTF-8 | Display name, chat title, UI-only metadata. |
+
+The SDK binary payload is the production control/data-plane format for
+resource-constrained hosts. JSON responses may remain available for desktop
+debuggers, CI, logs, and GUI replay, but an embedded host must be able to drive
+discovery, control, RTLS, and camera chunking using only this binary envelope.
 
 ## Binary TLV Peer Directory
 

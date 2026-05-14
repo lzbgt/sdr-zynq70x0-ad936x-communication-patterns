@@ -192,6 +192,10 @@ mac = [event for event in events if event.get("event") == "sdk_mac_frame"]
 if not mac:
     raise SystemExit("BLR MAC frame demo did not emit a frame")
 mac = mac[0]
+sdk = [event for event in events if event.get("event") == "sdk_payload_frame"]
+if not sdk:
+    raise SystemExit("BLR SDK payload frame demo did not emit a frame")
+sdk = sdk[0]
 if mac.get("magic") != "BLR" or mac.get("version") != 1:
     raise SystemExit("BLR MAC magic/version failed")
 if mac.get("header_bytes") != 39 or mac.get("trailer_bytes") != 4:
@@ -208,6 +212,16 @@ if mac.get("tlv_name") != 1 or mac.get("tlv_gnss") != 3:
     raise SystemExit("BLR MAC declare TLV contract changed")
 if mac.get("tlv_dtype") != 9 or mac.get("dtype_2r2t") != 0x0022:
     raise SystemExit("BLR MAC device type must be a compact predefined u16 code")
+if sdk.get("magic") != "BLR" or sdk.get("version") != 1:
+    raise SystemExit("BLR SDK payload magic/version failed")
+if sdk.get("header_bytes") != 24 or sdk.get("tlv_header_bytes") != 4 or sdk.get("trailer_bytes") != 4:
+    raise SystemExit("BLR SDK payload compact header/TLV/trailer size changed")
+if sdk.get("msg_type") != 2 or sdk.get("tlv_count") != 3:
+    raise SystemExit("BLR SDK peer directory message shape changed")
+if sdk.get("tlv_eui") != 1 or sdk.get("tlv_dtype") != 2 or sdk.get("tlv_caps") != 3:
+    raise SystemExit("BLR SDK base TLV codes changed")
+if sdk.get("uses_json") != 0 or sdk.get("stm32f1_parseable") != 1:
+    raise SystemExit("BLR SDK payload must stay binary and MCU parseable")
 PY
 
 python3 - "$udp_log" "$udp_send_log" <<'PY'

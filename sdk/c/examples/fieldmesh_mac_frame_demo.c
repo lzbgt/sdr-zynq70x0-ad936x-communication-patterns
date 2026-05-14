@@ -27,20 +27,34 @@ int main(void)
         0x00u, 0x00u, 0x00u, 0x00u,
         0x00u, 0x00u, 0x00u, 0x78u
     };
+    static const unsigned char sdk_payload[] = {
+        FIELDMESH_SDK_TLV_DEVICE_EUI, 0x00u, 0x00u, 0x06u,
+        0x02u, 0x00u, 0x00u, 0x02u, 0x03u,
+        FIELDMESH_SDK_TLV_DTYPE, 0x00u, 0x00u, 0x02u,
+        0x00u, 0x22u,
+        FIELDMESH_SDK_TLV_CAPS, 0x00u, 0x00u, 0x04u,
+        0x00u, 0x00u, 0x00u, 0x0fu
+    };
     fieldmesh_mac_frame_header_t header;
     fieldmesh_mac_frame_header_t decoded;
     fieldmesh_mac_frame_header_t declare_header;
     fieldmesh_mac_frame_header_t decoded_declare;
+    fieldmesh_sdk_frame_header_t sdk_header;
+    fieldmesh_sdk_frame_header_t decoded_sdk;
     unsigned char frame[128];
     unsigned char declare_frame[160];
+    unsigned char sdk_frame[128];
     unsigned char decoded_payload[32];
     unsigned char decoded_declare_payload[64];
+    unsigned char decoded_sdk_payload[64];
     char src_text[FIELDMESH_EUI_TEXT_MAX];
     char dst_text[FIELDMESH_EUI_TEXT_MAX];
     size_t frame_len = 0u;
     size_t declare_frame_len = 0u;
+    size_t sdk_frame_len = 0u;
     size_t decoded_payload_len = 0u;
     size_t decoded_declare_len = 0u;
+    size_t decoded_sdk_len = 0u;
 
     memset(&header, 0, sizeof(header));
     header.version = FIELDMESH_MAC_VERSION_1;
@@ -115,6 +129,36 @@ int main(void)
         return 1;
     }
 
+    memset(&sdk_header, 0, sizeof(sdk_header));
+    sdk_header.version = FIELDMESH_SDK_VERSION_1;
+    sdk_header.msg_type = FIELDMESH_SDK_MSG_PEER_DIRECTORY;
+    sdk_header.header_len_bytes = FIELDMESH_SDK_HEADER_BYTES;
+    sdk_header.sequence = 100u;
+    sdk_header.request_id = 0x203103u;
+    sdk_header.tlv_count = 3u;
+    if (require_ok(fieldmesh_encode_sdk_frame(&sdk_header, sdk_payload,
+                                              sizeof(sdk_payload),
+                                              sdk_frame, sizeof(sdk_frame),
+                                              &sdk_frame_len),
+                   "encode_sdk_frame") ||
+        require_ok(fieldmesh_decode_sdk_frame(sdk_frame, sdk_frame_len,
+                                              &decoded_sdk,
+                                              decoded_sdk_payload,
+                                              sizeof(decoded_sdk_payload),
+                                              &decoded_sdk_len),
+                   "decode_sdk_frame")) {
+        return 1;
+    }
+    if (decoded_sdk.version != FIELDMESH_SDK_VERSION_1 ||
+        decoded_sdk.msg_type != FIELDMESH_SDK_MSG_PEER_DIRECTORY ||
+        decoded_sdk.header_len_bytes != FIELDMESH_SDK_HEADER_BYTES ||
+        decoded_sdk.tlv_count != 3u ||
+        decoded_sdk_len != sizeof(sdk_payload) ||
+        memcmp(decoded_sdk_payload, sdk_payload, sizeof(sdk_payload)) != 0) {
+        fprintf(stderr, "decoded BLR SDK frame did not match input\n");
+        return 1;
+    }
+
     printf("{\"event\":\"sdk_mac_frame\","
            "\"magic\":\"BLR\","
            "\"version\":%u,"
@@ -155,5 +199,35 @@ int main(void)
            (unsigned)FIELDMESH_MAC_TLV_GNSS_POSITION,
            (unsigned)FIELDMESH_MAC_TLV_DTYPE,
            (unsigned)FIELDMESH_DEVICE_TYPE_2R2T);
+    printf("{\"event\":\"sdk_payload_frame\","
+           "\"magic\":\"BLR\","
+           "\"version\":%u,"
+           "\"header_bytes\":%u,"
+           "\"tlv_header_bytes\":%u,"
+           "\"trailer_bytes\":%u,"
+           "\"frame_bytes\":%lu,"
+           "\"payload_bytes\":%lu,"
+           "\"msg_type\":%u,"
+           "\"tlv_count\":%u,"
+           "\"tlv_eui\":%u,"
+           "\"tlv_dtype\":%u,"
+           "\"tlv_caps\":%u,"
+           "\"header_crc32c\":%u,"
+           "\"payload_crc32c\":%u,"
+           "\"uses_json\":0,"
+           "\"stm32f1_parseable\":1}\n",
+           (unsigned)decoded_sdk.version,
+           (unsigned)FIELDMESH_SDK_HEADER_BYTES,
+           (unsigned)FIELDMESH_SDK_TLV_HEADER_BYTES,
+           (unsigned)FIELDMESH_SDK_TRAILER_BYTES,
+           (unsigned long)sdk_frame_len,
+           (unsigned long)decoded_sdk_len,
+           (unsigned)decoded_sdk.msg_type,
+           (unsigned)decoded_sdk.tlv_count,
+           (unsigned)FIELDMESH_SDK_TLV_DEVICE_EUI,
+           (unsigned)FIELDMESH_SDK_TLV_DTYPE,
+           (unsigned)FIELDMESH_SDK_TLV_CAPS,
+           decoded_sdk.header_crc32c,
+           decoded_sdk.payload_crc32c);
     return 0;
 }
