@@ -265,7 +265,7 @@ verify_variant() {
         fi
     done
     for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" \
-            fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed; do
+            REQUESTS=0 fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed; do
         if ! grep -qF "$token" "$daemon_init_out"; then
             echo "Missing FieldMesh daemon init token in $name rootfs: $token" >&2
             exit 1

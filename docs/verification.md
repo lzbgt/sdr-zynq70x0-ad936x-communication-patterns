@@ -3080,6 +3080,13 @@ GLFW/OpenGL3 target and runs one WSLg `--smoke-frame` with snapshot output.
 `tools/verify_fieldmesh_sdk.sh` runs both app gates before the broader SDK
 suite.
 
+`tools/verify_fieldmesh_state_daemon_forever.sh` builds the same
+`fieldmesh-state-daemon-demo` binary and starts it with `REQUESTS=0`. It sends
+two `FIELDMESH_HELLO` requests separated by more than one receive timeout and
+asserts the daemon remains alive, reports `serve_forever=true`, and handles
+both requests. This guards the board power-up daemon against the old
+max-request-count workaround.
+
 The same gate now also verifies command-preset generation:
 
 ```sh

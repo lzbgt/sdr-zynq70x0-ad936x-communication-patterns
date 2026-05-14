@@ -381,7 +381,11 @@ below were later superseded by the current PHY-management two-board gates above:
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` route-health adaptation, direct
   `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane ingress with preview/checksum/RF
   handoff status, and local IIO admin planning over the same UDP socket
-  boundary. `FIELDMESH_APP_CONTROL_CAMERA`, `FIELDMESH_CAMERA_SESSION_PLAN`,
+  boundary. The installed power-up daemon uses an explicit `REQUESTS=0`
+  always-on serve mode, and the board init script rotates daemon logs with a
+  fixed size cap so long-running discovery/chat/video tests do not grow flash
+  or tmpfs usage without bound. `FIELDMESH_APP_CONTROL_CAMERA`,
+  `FIELDMESH_CAMERA_SESSION_PLAN`,
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and `FIELDMESH_CAMERA_STREAM_CHUNK`
   now accept compact `dst=<12hex>` operation fields, and the app-control
   request also accepts `preferred_ap=<12hex>` for user-explicit AP selection.

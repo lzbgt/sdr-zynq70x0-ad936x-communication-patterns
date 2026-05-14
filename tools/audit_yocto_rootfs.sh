@@ -128,6 +128,7 @@ check_not_contains() {
 check_contains /etc/init.d/S40network '/usr/sbin/udhcpd /etc/udhcpd.conf'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'fieldmesh-state-daemon-demo'
 check_contains /etc/init.d/S55fieldmesh-state-daemon '55441'
+check_contains /etc/init.d/S55fieldmesh-state-daemon 'REQUESTS=0'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'LOG_MAX_BYTES'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'rotate_log_if_needed'
 check_contains /usr/bin/fieldmesh-mac-frame-demo 'sdk_mac_frame'

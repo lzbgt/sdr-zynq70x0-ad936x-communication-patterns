@@ -168,9 +168,11 @@ normal GUI workflow and not an operator configuration file. It can still be
 supplied to reproduce tests exactly. Board
 daemons are expected to be installed in the board runtime image and started at
 power-up by `/etc/init.d/S55fieldmesh-state-daemon`; this is independent of
-whether the host is Windows, Linux, or macOS. If a board is reachable but still
-runs stale firmware, install the connected board packages instead of relying on
-temporary staged daemons:
+whether the host is Windows, Linux, or macOS. The installed init script uses
+the daemon's explicit `REQUESTS=0` forever mode and bounded log rotation, not a
+large request-count timeout. If a board is reachable but still runs stale
+firmware, install the connected board packages instead of relying on temporary
+staged daemons:
 
 ```sh
 APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \

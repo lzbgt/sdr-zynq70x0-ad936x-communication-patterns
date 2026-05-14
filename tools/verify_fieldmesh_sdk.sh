@@ -8,6 +8,7 @@ mkdir -p "$out_dir"
 "$repo_root/tools/check_fieldmesh_no_hardcoded_moving_metrics.sh"
 "$repo_root/tools/verify_fieldmesh_imgui_app.sh"
 "$repo_root/tools/verify_fieldmesh_app_build.sh"
+"$repo_root/tools/verify_fieldmesh_state_daemon_forever.sh"
 
 cc="${CC:-cc}"
 sdk_object="$out_dir/fieldmesh_sdk.o"

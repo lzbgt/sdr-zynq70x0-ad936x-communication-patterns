@@ -714,6 +714,7 @@ static void usage(const char *argv0)
 {
     fprintf(stderr, "usage:\n");
     fprintf(stderr, "  %s serve BIND_IP PORT REQUESTS TIMEOUT_MS\n", argv0);
+    fprintf(stderr, "     REQUESTS=0 runs until stopped by the supervisor\n");
     fprintf(stderr, "  %s query HOST PORT TIMEOUT_MS ROUTE_DST_EUI [EXPLICIT_AP_EUI EXPLICIT_DST_EUI]\n", argv0);
 }
 
@@ -2874,6 +2875,7 @@ static int serve_state(const char *bind_ip,
     struct sockaddr_in bind_addr;
     struct timeval timeout;
     long handled = 0;
+    int serve_forever = requests == 0;
     int rc = 1;
 
     if (create_demo_state(&context, &session, port) != 0) {
@@ -2897,9 +2899,10 @@ static int serve_state(const char *bind_ip,
         goto out;
     }
     printf("{\"event\":\"sdk_daemon_start\",\"bind\":\"%s\",\"port\":%u,"
-           "\"requests\":%ld}\n",
-           bind_ip, port, requests);
-    while (handled < requests) {
+           "\"requests\":%ld,\"serve_forever\":%s}\n",
+           bind_ip, port, requests, serve_forever ? "true" : "false");
+    fflush(stdout);
+    while (serve_forever || handled < requests) {
         struct sockaddr_in src_addr;
         socklen_t src_len = (socklen_t)sizeof(src_addr);
         char request[4096];
@@ -2932,10 +2935,12 @@ static int serve_state(const char *bind_ip,
         printf("{\"event\":\"sdk_daemon_request\",\"bytes\":%d,"
                "\"src\":\"%s\"}\n",
                received, inet_ntoa(src_addr.sin_addr));
+        fflush(stdout);
         handled++;
     }
     printf("{\"event\":\"sdk_daemon_end\",\"handled\":%ld}\n", handled);
-    rc = handled == requests ? 0 : 1;
+    fflush(stdout);
+    rc = serve_forever || handled == requests ? 0 : 1;
 
 out:
     if (sockfd != INVALID_SOCKET) {
@@ -3123,7 +3128,7 @@ int main(int argc, char **argv)
         long requests = strtol(argv[4], 0, 10);
         long timeout_ms = strtol(argv[5], 0, 10);
 
-        if (port != 0 && requests > 0 && timeout_ms > 0) {
+        if (port != 0 && requests >= 0 && timeout_ms > 0) {
             rc = serve_state(argv[2], port, requests, timeout_ms);
         }
     } else if (strcmp(argv[1], "query") == 0 && (argc == 6 || argc == 8)) {
