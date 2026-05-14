@@ -3,6 +3,7 @@
 #include <array>
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -32,6 +33,8 @@ struct AppOptions {
     const char *preview_command = nullptr;
     const char *snapshot_output_path = nullptr;
     const char *dashboard_output_path = nullptr;
+    const char *preferred_ap_eui = nullptr;
+    const char *dst_device_eui = "020000000103";
     size_t chunk_size = 640;
     unsigned max_chunks = 0;
     unsigned target_fps = 0;
@@ -157,6 +160,34 @@ void on_position(const fieldmesh_position_estimate_t *estimate, void *user)
                 estimate->usable_for_routing, estimate->estimated_geo_centrality);
 }
 
+bool ap_seen(const ApList &aps, const char *ap_eui)
+{
+    if (!ap_eui || std::strlen(ap_eui) == 0u) {
+        return false;
+    }
+    for (const auto &ap : aps.aps) {
+        if (std::strcmp(ap.ap_id, ap_eui) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool valid_compact_eui(const char *eui)
+{
+    if (!eui || std::strlen(eui) != 12u) {
+        return false;
+    }
+    for (size_t i = 0; i < 12u; ++i) {
+        const unsigned char c = static_cast<unsigned char>(eui[i]);
+
+        if (!std::isxdigit(c)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void publish_candidate(fieldmesh_context_t *ctx,
                        const char *device_eui,
                        bool z203_capability_bias)
@@ -242,6 +273,7 @@ void print_usage(const char *program)
                  "usage: %s [--camera-input PATH|-] [--camera-command CMD] "
                  "[--preview-output PATH] [--preview-command CMD] "
                  "[--snapshot-output PATH] [--dashboard-output PATH] "
+                 "[--preferred-ap-eui EUI] [--dst-eui EUI] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
                  "[--pace-realtime] [--live-stream-loop]\n",
                  program);
@@ -297,6 +329,10 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             options->snapshot_output_path = argv[++i];
         } else if (std::strcmp(argv[i], "--dashboard-output") == 0 && i + 1 < argc) {
             options->dashboard_output_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--preferred-ap-eui") == 0 && i + 1 < argc) {
+            options->preferred_ap_eui = argv[++i];
+        } else if (std::strcmp(argv[i], "--dst-eui") == 0 && i + 1 < argc) {
+            options->dst_device_eui = argv[++i];
         } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
             if (!parse_size(argv[++i], &options->chunk_size)) {
                 std::fprintf(stderr, "invalid --chunk-size\n");
@@ -1109,6 +1145,10 @@ bool write_app_snapshot(const AppOptions &options,
     print_json_string(out, camera_source_name(options));
     std::fprintf(out,
                  ",\n"
+                 "    \"dst_device_eui\": ");
+    print_json_string(out, options.dst_device_eui);
+    std::fprintf(out,
+                 ",\n"
                  "    \"frames_tx\": %u,\n"
                  "    \"frames_rx\": %u,\n"
                  "    \"rf_queued\": %u,\n"
@@ -1249,8 +1289,10 @@ bool write_app_dashboard(const AppOptions &options,
     std::fprintf(out,
                  "</td></tr><tr><th>Election score</th><td>%u</td></tr>"
                  "<tr><th>Mode</th><td>scheduled camera stream</td></tr>"
+                 "<tr><th>AP selection</th><td>%s</td></tr>"
                  "</tbody></table></section>\n",
-                 election.candidate_score);
+                 election.candidate_score,
+                 options.preferred_ap_eui ? "user explicit" : "auto election");
 
     std::fputs("<section class=\"wide\" data-view=\"topology\"><h2>Radio Topology</h2><table><thead><tr>"
                "<th>Device EUI</th><th>Hostname</th><th>Type</th><th>Direct</th><th>Relay</th><th>AP score</th></tr></thead><tbody>\n",
@@ -1299,6 +1341,9 @@ bool write_app_dashboard(const AppOptions &options,
                  "<tr><th>Source</th><td>",
                  frames_tx, frames_rx, rf_queued, stream_target_fps);
     print_html_text(out, camera_source_name(options));
+    std::fprintf(out,
+                 "</td></tr><tr><th>Destination EUI</th><td>");
+    print_html_text(out, options.dst_device_eui);
     std::fprintf(out,
                  "</td></tr><tr><th>Capture bytes</th><td>%lu</td></tr>"
                  "<tr><th>Preview bytes</th><td>%lu</td></tr>"
@@ -1365,8 +1410,19 @@ int main(int argc, char **argv)
     bool preview_opened = false;
     bool preview_closed = !options.preview_output_path && !options.preview_command;
     bool sdk_stream_closed = false;
+    const char *expected_ap_eui = nullptr;
 
     if (!parse_options(argc, argv, &options)) {
+        return 2;
+    }
+    if (!valid_compact_eui(options.dst_device_eui)) {
+        std::fprintf(stderr, "invalid --dst-eui, expected 12 hex characters\n");
+        return 2;
+    }
+    if (options.preferred_ap_eui &&
+        !valid_compact_eui(options.preferred_ap_eui)) {
+        std::fprintf(stderr,
+                     "invalid --preferred-ap-eui, expected 12 hex characters\n");
         return 2;
     }
     if (!options.live_stream_loop &&
@@ -1412,6 +1468,18 @@ int main(int argc, char **argv)
         fieldmesh_context_destroy(ctx);
         return 1;
     }
+    if (options.preferred_ap_eui) {
+        if (!ap_seen(aps, options.preferred_ap_eui)) {
+            std::fprintf(stderr, "preferred AP not found: %s\n",
+                         options.preferred_ap_eui);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        copy_text(election.elected_node_id, sizeof(election.elected_node_id),
+                  options.preferred_ap_eui);
+    }
+    expected_ap_eui = options.preferred_ap_eui ? options.preferred_ap_eui :
+                                                "020000000203";
 
     std::printf("{\"event\":\"app_ap_elected\","
                 "\"elected_device_eui\":\"%s\","
@@ -1419,10 +1487,12 @@ int main(int argc, char **argv)
                 "\"policy\":%u,"
                 "\"score\":%u,"
                 "\"temporary_ap\":%u,"
+                "\"selection_mode\":\"%s\","
                 "\"reason\":\"capability_rssi_snr_geo_mobility_consensus\"}\n",
                 election.elected_node_id, election.network_id,
                 static_cast<unsigned>(election.policy), election.candidate_score,
-                election.temporary_ap);
+                election.temporary_ap,
+                options.preferred_ap_eui ? "user_explicit" : "auto_election");
 
     copy_text(join.ap_id, sizeof(join.ap_id), election.elected_node_id);
     copy_text(join.network_id, sizeof(join.network_id), election.network_id);
@@ -1493,7 +1563,7 @@ int main(int argc, char **argv)
 
     copy_text(camera_config.adapter_name, sizeof(camera_config.adapter_name), "swarm0");
     copy_text(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
-              "020000000103");
+              options.dst_device_eui);
     camera_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
@@ -1533,7 +1603,7 @@ int main(int argc, char **argv)
 
     std::printf("{\"event\":\"app_camera_stream_open\","
                 "\"adapter_name\":\"swarm0\","
-                "\"dst_device_eui\":\"020000000103\","
+                "\"dst_device_eui\":\"%s\","
                 "\"host_ingress\":\"usb_or_phy_eth\","
                 "\"radio_data_plane\":\"fieldmesh_rf_packet_engine\","
                 "\"camera_source\":\"%s\","
@@ -1567,6 +1637,7 @@ int main(int argc, char **argv)
                 "\"preview_enabled\":true,"
                 "\"uses_iio\":0,"
                 "\"uses_inter_board_ip_routing\":0}\n",
+                camera_config.dst_node_id,
                 camera_source_name(options),
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(options.chunk_size),
@@ -1693,7 +1764,7 @@ int main(int argc, char **argv)
 
     control_plane_ok = !aps.aps.empty() && !peers.peers.empty() &&
                        !positions.positions.empty() &&
-                       std::strcmp(election.elected_node_id, "020000000203") == 0 &&
+                       std::strcmp(election.elected_node_id, expected_ap_eui) == 0 &&
                        topology_links >= 2u;
     data_plane_ok = frames_tx > 0u &&
                     frames_tx == frames_rx &&

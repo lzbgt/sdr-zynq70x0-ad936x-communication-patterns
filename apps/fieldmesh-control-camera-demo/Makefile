@@ -40,6 +40,16 @@ check: $(APP)
 		--chunk-size 64 \
 		>"$(OUT_DIR)/camera_app.ndjson" \
 		2>"$(OUT_DIR)/camera_app.stderr"
+	"$(APP)" \
+		--camera-input "$(OUT_DIR)/camera_input.bin" \
+		--preview-output "$(OUT_DIR)/explicit_camera_preview.bin" \
+		--snapshot-output "$(OUT_DIR)/explicit_camera_snapshot.json" \
+		--dashboard-output "$(OUT_DIR)/explicit_camera_dashboard.html" \
+		--chunk-size 64 \
+		--preferred-ap-eui 020000000103 \
+		--dst-eui 020000000203 \
+		>"$(OUT_DIR)/explicit_camera_app.ndjson" \
+		2>"$(OUT_DIR)/explicit_camera_app.stderr"
 	./fieldmesh_app_snapshot.py \
 		--input "$(OUT_DIR)/camera_app.ndjson" \
 		--output "$(OUT_DIR)/camera_replayed_snapshot.json"

@@ -658,7 +658,10 @@ user and vendor configuration.
   capture bytes, then reads, transmits, receives, and writes preview chunks
   incrementally. Command capture can be bounded with `--max-chunks`, tagged
   with planned transmit timestamps through `--target-fps`, and optionally paced
-  with `--pace-realtime`. The app now also emits `app_stream_lifecycle` so a
+  with `--pace-realtime`. The app also supports `--preferred-ap-eui` for
+  user-explicit AP selection and `--dst-eui` for the camera destination peer,
+  keeping AP role, device identity, hostname, and stream destination separate.
+  The app now also emits `app_stream_lifecycle` so a
   GUI or supervisor can consume capture/preview process state, clean stream
   close status, byte/chunk accounting, and `ok`/`degraded` health.
   `--snapshot-output PATH` writes a native C++ GUI/supervisor snapshot covering
@@ -670,8 +673,8 @@ user and vendor configuration.
   co-location map, camera stream metrics, and safety invariants.
   The app now has a local `Makefile`; `tools/verify_fieldmesh_app_build.sh`
   builds the pure-C SDK object plus the C++ app, verifies Python helpers,
-  snapshot output, dashboard output, preview byte matching, and preset wiring
-  without requiring the full SDK suite.
+  snapshot output, dashboard output, preview byte matching, explicit AP/dst
+  selection, and preset wiring without requiring the full SDK suite.
   `fieldmesh_camera_pipe.py` supplies deterministic file-backed capture/preview
   helpers for tests plus Linux/Windows/macOS FFmpeg, GStreamer, and
   native-wrapper command presets for real hosts; the presets now select the app
@@ -1012,7 +1015,9 @@ Expected result in the current Pluto-compatible firmware state:
    capability and link/topology metrics, models a user-commanded proactive
    camera-streaming role, displays radio-only topology and RTLS/co-location
    state, and queues video-base frame chunks through the `swarm0`/RF
-   packet-engine handoff. The practical live target remains one SDK host
+   packet-engine handoff. The app can also override AP selection and stream
+   destination by compact device EUI, so explicit user operations do not depend
+   on board hostname or fixed hub/node labels. The practical live target remains one SDK host
    camera app that can source or preview video: Host A camera over USB/physical
    Ethernet to peer board A, FieldMesh RF to peer board B, then USB/physical
    Ethernet to Host B preview.

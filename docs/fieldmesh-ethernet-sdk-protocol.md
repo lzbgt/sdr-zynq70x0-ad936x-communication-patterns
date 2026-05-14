@@ -416,7 +416,11 @@ can be passed directly to the C++ app. The app command path can be bounded with
 before the capture pipe is consumed, and each capture chunk is transmitted and
 written to the preview pipe incrementally. Each emitted frame event carries
 `planned_tx_us` so the desktop app, daemon, and later GUI can reason about
-capture pacing separately from RF route adaptation. The app also emits
+capture pacing separately from RF route adaptation. `--preferred-ap-eui` lets
+an operator or supervisor override automatic AP election after browse, while
+`--dst-eui` selects the camera stream peer. Both flags use compact device EUIs;
+they do not overload hostname, board type, or transient hub/node role. The app
+also emits
 `app_stream_lifecycle` so UI/service code can track capture process state,
 preview process state, clean SDK stream close, bounded-run status, chunk/byte
 counts, elapsed time, and `ok`/`degraded` health. `--snapshot-output` is the
@@ -428,7 +432,8 @@ produces the same model from existing NDJSON logs for replay and tests.
 `--dashboard-output` renders the same native state into a browser-viewable HTML
 dashboard with a network browser, operations status, radio topology table,
 relative co-location map, camera stream metrics, and explicit safety invariant
-status.
+status. The dashboard includes AP selection mode and selected destination EUI
+so user-commanded operations are visible to the supervisor.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

@@ -262,8 +262,9 @@ Next concrete work:
   browser-viewable native dashboard with network browser, operations, radio
   topology, relative co-location, camera metrics, and safety sections. The
   app has a local Makefile and `tools/verify_fieldmesh_app_build.sh`, so it can
-  be built and smoke-tested without running the full SDK suite. The remaining
-  app work is an interactive packaged GUI, platform preset installation UX,
+  be built and smoke-tested without running the full SDK suite; that gate now
+  includes both default auto election and explicit user-selected AP/destination
+  EUI paths. The remaining app work is an interactive packaged GUI, platform preset installation UX,
   deeper platform codec supervision, and the conducted/shielded RF TX/RX
   data-plane gate.
   The intended live

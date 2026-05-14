@@ -125,7 +125,10 @@ still uses the pure-C SDK camera stream ABI. `--live-stream-loop` opens the SDK
 stream before consuming the capture pipe, then reads, transmits, receives, and
 writes preview chunks incrementally. `--max-chunks` gives deterministic bounded
 reads for live camera commands, `--target-fps` stamps planned transmit times,
-and `--pace-realtime` can make the app sleep to that schedule. The app emits
+and `--pace-realtime` can make the app sleep to that schedule. `--preferred-ap-eui`
+switches from automatic AP election to a user-explicit AP, and `--dst-eui`
+selects the camera stream destination peer; both are compact 12-hex device
+EUIs, separate from hostnames and device capability classes. The app emits
 `app_stream_lifecycle` with capture/preview process state, bounded/live-loop
 mode, chunk and byte counts, stream close status, and an `ok`/`degraded` health
 field for a future GUI or supervisor. This is the SDK/app boundary a real
@@ -141,7 +144,8 @@ relative co-location map, camera stream metrics, and safety invariants.
 Build it directly with `make -C ../../apps/fieldmesh-control-camera-demo` from
 this directory, or run `tools/verify_fieldmesh_app_build.sh` from the repo root
 to compile the SDK object, app, Python helpers, snapshots, dashboard, and
-preview byte-compare path.
+preview byte-compare path. The app-local gate also runs an explicit-operation
+case with user-selected AP and destination EUI.
 `fieldmesh_camera_pipe.py` provides
 `capture-file`/`preview-file` commands for deterministic tests and a `preset`
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for

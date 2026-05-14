@@ -79,6 +79,7 @@ def build_snapshot(events: list[dict[str, Any]], source: str) -> dict[str, Any]:
         },
         "camera": {
             "source": summary.get("camera_source"),
+            "dst_device_eui": stream.get("dst_device_eui"),
             "stream": stream,
             "lifecycle": lifecycle,
             "frames_tx": summary.get("frames_tx", len(frames)),
