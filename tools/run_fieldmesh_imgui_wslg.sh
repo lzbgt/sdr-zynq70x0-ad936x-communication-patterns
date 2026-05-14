@@ -5,10 +5,11 @@ usage() {
     cat <<'USAGE'
 Usage:
   run_fieldmesh_imgui_wslg.sh [--check-bridge]
-  run_fieldmesh_imgui_wslg.sh [--detach] [--profile PATH] [--instance NAME] [--] [app-args...]
+  run_fieldmesh_imgui_wslg.sh [--detach] [--no-build] [--profile PATH] [--instance NAME] [--] [app-args...]
 
 Environment:
   GUI_APP=/path/to/fieldmesh-imgui-control
+  IMGUI_DIR=/path/to/imgui
   PROFILE=/path/to/runtime.profile
 
 Examples:
@@ -23,10 +24,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_dir="$repo_root/apps/fieldmesh-imgui-control"
 build_dir="${BUILD_DIR:-$repo_root/.config/fieldmesh/imgui-control-build}"
 gui_app="${GUI_APP:-$build_dir/fieldmesh-imgui-control-glfw}"
+imgui_dir="${IMGUI_DIR:-$repo_root/.config/third_party/imgui}"
 profile="${PROFILE:-}"
 instance="fieldmesh-imgui"
 detach=0
 check_bridge=0
+auto_build=1
 app_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -41,6 +44,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --detach)
             detach=1
+            shift
+            ;;
+        --no-build)
+            auto_build=0
             shift
             ;;
         --profile)
@@ -119,12 +126,28 @@ if [ "$check_bridge" -eq 1 ]; then
 fi
 
 if [ ! -x "$gui_app" ]; then
+    if [ "$auto_build" -eq 1 ] && [ -f "$imgui_dir/imgui.cpp" ]; then
+        echo "fieldmesh-wslg: building missing GUI binary with IMGUI_DIR=$imgui_dir" >&2
+        make -C "$app_dir" \
+            BUILD_DIR="$build_dir" \
+            gui-glfw-python \
+            IMGUI_DIR="$imgui_dir" >/dev/null
+    fi
+fi
+
+if [ ! -x "$gui_app" ]; then
     cat >&2 <<EOF
 fieldmesh-wslg: GUI app binary not found or not executable:
   $gui_app
 
-Build it first, for example:
-  make -C "$app_dir" gui-glfw-python IMGUI_DIR=/path/to/imgui
+Build it first, or provide an ImGui checkout for automatic build:
+  IMGUI_DIR=/path/to/imgui tools/run_fieldmesh_imgui_wslg.sh --profile ...
+
+Expected default ImGui checkout:
+  $imgui_dir
+
+Manual build:
+  make -C "$app_dir" gui-glfw-python IMGUI_DIR="$imgui_dir"
 
 The headless CI binary is not a Windows-visible GUI window.
 EOF

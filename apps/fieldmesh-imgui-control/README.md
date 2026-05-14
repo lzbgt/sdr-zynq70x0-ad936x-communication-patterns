@@ -73,20 +73,21 @@ tools/run_fieldmesh_imgui_wslg.sh --check-bridge
 
 make -C apps/fieldmesh-imgui-control gui-glfw-python IMGUI_DIR=/path/to/imgui
 
-GUI_APP=.config/fieldmesh/imgui-control-build/fieldmesh-imgui-control-glfw \
 tools/run_fieldmesh_imgui_wslg.sh --detach \
     --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
     --instance fieldmesh-peer-a
 
-GUI_APP=.config/fieldmesh/imgui-control-build/fieldmesh-imgui-control-glfw \
 tools/run_fieldmesh_imgui_wslg.sh --detach \
     --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
     --instance fieldmesh-peer-b
 ```
 
-Those two instances should appear as normal Windows desktop windows after the
-platform backend is linked. In a packaged product this WSLg environment setup
-belongs in the desktop shortcut/app bundle, not in an operator shell workflow.
+The launcher defaults to `.config/fieldmesh/imgui-control-build/fieldmesh-imgui-control-glfw`.
+If that binary is missing and `IMGUI_DIR` or `.config/third_party/imgui` is
+available, it builds `gui-glfw-python` automatically before launching. Those two
+instances should appear as normal Windows desktop windows after the platform
+backend is linked. In a packaged product this WSLg environment setup belongs in
+the desktop shortcut/app bundle, not in an operator shell workflow.
 
 Platform backends such as GLFW, SDL, DirectX, Metal, or Vulkan stay outside the
 pure-C SDK. The app core should call the same daemon operations that the
