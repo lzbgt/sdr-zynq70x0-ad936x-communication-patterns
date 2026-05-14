@@ -360,6 +360,9 @@ user and vendor configuration.
 - `tools/test_z103_linux_qspi_scratch_write.sh` - guarded Z103 Linux MTD
   scratch-erasure/program/readback/rollback probe used as the healthy-board
   comparison for Z203 QSPI failures.
+- `tools/test_z103_linux_qspi_program_patterns.sh` - guarded Z103 Linux MTD
+  constant-pattern classifier that replays the Z203 stuck-bit pattern set on a
+  healthy board and rolls the scratch eraseblock back afterward.
 - `tools/verify_fieldmesh_connected_board_installer.sh` - synthetic guard that
   proves forced Z203 QSPI refusal happens before any parallel Z103/Z203 package
   update can start.

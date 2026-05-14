@@ -4079,6 +4079,31 @@ generic repo/test-script assumption and not explained by the Linux debugfs
 opcode alone. Full Z203 QSPI FIT repair remains blocked until a Z203 small
 program/readback path passes.
 
+The Z103 comparison was then widened to the exact constant-byte pattern set
+that classifies the Z203 stuck-bit behavior:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_linux_qspi_program_patterns_20260515-071759 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z103_LINUX_QSPI_PATTERN_TEST=1 \
+  ./tools/test_z103_linux_qspi_program_patterns.sh 192.168.3.1
+```
+
+Result: passed. Z103 programmed and read back `0xff`, `0x00`, `0x44`, `0xbb`,
+`0x55`, `0xaa`, `0x11`, `0x22`, `0x88`, and `0x7b` exactly, then rolled the
+scratch eraseblock back to all `0xff` after every pattern. The installed daemon
+gate passed afterward:
+
+```sh
+VARIANT=z103 BOARD_IP=192.168.3.1 UPLOAD_IF_MISSING=0 PORT=55454 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_post_qspi_patterns_daemon_20260515-071834 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+This makes the Z203 `0x44` pattern a Z203-specific QSPI program/readback fault
+class, not a shared Linux MTD, Winbond W25Q256, or test-pattern artifact. Full
+Z203 QSPI FIT repair remains blocked until Z203 itself passes a small guarded
+program/readback probe.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

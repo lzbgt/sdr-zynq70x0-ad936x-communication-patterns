@@ -1,0 +1,167 @@
+{
+  "all_erase_readbacks_clean": true,
+  "all_rollbacks_clean": true,
+  "all_writes_match": true,
+  "board_ip": "192.168.3.1",
+  "bytes_tested_per_pattern": 4096,
+  "diagnosis": "Z103 Linux MTD program/readback clears every tested stuck-bit pattern and rolls back cleanly.",
+  "event": "fieldmesh_z103_linux_qspi_program_patterns",
+  "mtd3_scratch_offset": 28901376,
+  "mtd3_scratch_offset_hex": "0x1b90000",
+  "patterns": [
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0xff",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x00",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x44",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0xbb",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x55",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0xaa",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x11",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x22",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x88",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    },
+    {
+      "erase_rc": 0,
+      "erase_readback_all_ff": true,
+      "pattern_hex": "0x7b",
+      "rollback_erase_passed": true,
+      "rollback_erase_rc": 0,
+      "write_compare": {
+        "dominant_unexpected_one_bit_count": 0,
+        "dominant_unexpected_one_bit_mask_hex": "0x00",
+        "first_mismatch": null,
+        "mismatch_count": 0
+      },
+      "write_rc": 0,
+      "write_readback_matches": true
+    }
+  ],
+  "qspi_abs_offset": 30998528,
+  "qspi_abs_offset_hex": "0x1d90000",
+  "scratch_precondition_passed": true,
+  "ssh_rc": 0
+}

@@ -157,8 +157,12 @@ Firmware state:
   mode before any Z203 full-FIT write. The guarded Z103 Linux MTD scratch probe
   has now passed: the selected tail eraseblock was already all `0xff`, a 4 KiB
   all-zero program read back exactly, rollback erase read back all `0xff`, and
-  the installed Z103 daemon passed afterward. That makes the remaining Z203
-  blocker board-specific to Z203 flash programming, Z203 QSPI-controller
+  the installed Z103 daemon passed afterward. The follow-up Z103 pattern
+  classifier replayed the same constant-byte set used to expose Z203 stuck bits
+  (`0xff`, `0x00`, `0x44`, `0xbb`, `0x55`, `0xaa`, `0x11`, `0x22`, `0x88`,
+  `0x7b`) through Linux MTD at the same product-family scratch offset. Every
+  write matched and every rollback erase verified. That makes the remaining
+  Z203 blocker board-specific to Z203 flash programming, Z203 QSPI-controller
   electrical/config behavior, or the Z203 flash device itself; do not retry a
   Z203 full-FIT write until a Z203 small program/readback path passes.
 
