@@ -22,6 +22,35 @@ are stable enough to protect behavior. Profiles remain test/provisioning
 fixtures only; normal apps must discover devices and capabilities at runtime,
 with no hardcoded app EUI, board EUI, hostname, endpoint, or fixed AP role.
 
+## Current FieldMesh Discovery/Firmware Status
+
+Status: BLR binary peer discovery ingestion is now the product path; Z203
+persistent refresh still needs boot/flash repair.
+
+The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
+`FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary
+MAC frames that the RF receive path must ingest. Presence/declare frames update
+the observed peer registry, AP registry, and RTLS registry from 6-byte EUIs and
+compact TLVs. Packet-timing TDOA is now a real TLV value, not a profile-derived
+or hardcoded coordinate, so a peer without a GNSS fix can still publish timing
+observations for topology/range.
+
+The latest live two-board gate passed with forced transient daemon upload:
+Z203 at `192.168.1.10` and Z103 at `192.168.3.1` both handled BLR MAC ingest,
+observed peer discovery, packet-timing RTLS, app control, camera chunk ingress,
+and RF packet-engine handoff without IIO data path, inter-board IP routing, RF
+TX start, or hardware writes.
+
+Firmware state:
+
+- Z103 `pluto.frm` was flashed and its installed daemon passed the MAC-ingest
+  SDK gate after reboot.
+- Z203 SD boot files were restaged and the board is reachable, but the running
+  installed daemon is still stale and fails the new `supports_mac_ingest` gate.
+  The previous QSPI fallback write also failed flash verification. Until the
+  Z203 boot source or QSPI verify issue is fixed, use `FORCE_UPLOAD=1` for
+  Z203 live product gates and treat persistent Z203 firmware refresh as open.
+
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
 Status: resource import, read-only serial baseline, source preflight, Vivado

@@ -481,6 +481,32 @@ typedef struct fieldmesh_mac_frame_header {
     uint32_t payload_crc32c;
 } fieldmesh_mac_frame_header_t;
 
+typedef struct fieldmesh_mac_ingest_report {
+    char src_device_eui[FIELDMESH_ID_TEXT_MAX];
+    char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_mac_frame_type_t frame_type;
+    fieldmesh_mac_path_mode_t path_mode;
+    uint16_t profile_id;
+    uint32_t sequence;
+    uint16_t stream_id;
+    uint16_t payload_len_bytes;
+    uint16_t tlv_count;
+    uint16_t unknown_tlv_count;
+    uint16_t device_type_code;
+    uint32_t capability_mask;
+    uint8_t has_device_name;
+    uint8_t has_gnss_position;
+    uint8_t has_pps_epoch;
+    uint8_t has_tdoa_observable;
+    uint8_t has_tof_observable;
+    uint8_t has_route_metrics;
+    uint8_t updates_peer_registry;
+    uint8_t updates_ap_registry;
+    uint8_t updates_rtls_registry;
+    uint8_t updates_route_registry;
+    uint8_t uses_json_on_air;
+} fieldmesh_mac_ingest_report_t;
+
 typedef struct fieldmesh_sdk_frame_header {
     uint8_t version;
     fieldmesh_sdk_msg_type_t msg_type;
@@ -909,6 +935,11 @@ fieldmesh_status_t fieldmesh_decode_mac_frame(
     uint8_t *out_payload,
     size_t out_payload_capacity,
     size_t *out_payload_len);
+fieldmesh_status_t fieldmesh_ingest_mac_frame(
+    fieldmesh_context_t *context,
+    const uint8_t *frame,
+    size_t frame_len,
+    fieldmesh_mac_ingest_report_t *out_report);
 fieldmesh_status_t fieldmesh_encode_sdk_frame(
     const fieldmesh_sdk_frame_header_t *header,
     const void *tlv_payload,

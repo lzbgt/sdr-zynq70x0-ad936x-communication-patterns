@@ -45,6 +45,7 @@ struct AppOptions {
     const char *rtls_fixture = nullptr;
     const char *route_metrics_fixture = nullptr;
     uint16_t daemon_port = 55421;
+    uint16_t daemon_peer_device_type_code = 0;
     uint32_t daemon_timeout_ms = 2000;
     size_t chunk_size = 640;
     unsigned max_chunks = 0;
@@ -312,6 +313,69 @@ bool report_rtls_fixtures(fieldmesh_context_t *ctx, const char *records)
     return reported;
 }
 
+bool load_rtls_fixture_for_node(const char *records,
+                                const char *node_eui,
+                                fieldmesh_rtls_measurement_t *out_measurement)
+{
+    std::string remaining = records ? records : "";
+
+    if (!valid_compact_eui(node_eui) || !out_measurement) {
+        return false;
+    }
+    while (!remaining.empty()) {
+        const size_t split = remaining.find(';');
+        const std::string record = remaining.substr(0, split);
+        char parsed_node[32] = {};
+        long values[12] = {};
+
+        if (std::sscanf(record.c_str(),
+                        "%31[^,],%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld",
+                        parsed_node, &values[0], &values[1], &values[2],
+                        &values[3], &values[4], &values[5], &values[6],
+                        &values[7], &values[8], &values[9], &values[10],
+                        &values[11]) == 13 &&
+            std::strcmp(parsed_node, node_eui) == 0 &&
+            valid_compact_eui(parsed_node)) {
+            fieldmesh_rtls_measurement_t measurement{};
+
+            copy_text(measurement.node_id, sizeof(measurement.node_id), parsed_node);
+            measurement.gps_lock = static_cast<uint8_t>(values[0] != 0);
+            measurement.pps_lock = static_cast<uint8_t>(values[1] != 0);
+            measurement.turnaround_calibrated = static_cast<uint8_t>(values[2] != 0);
+            measurement.gps_lat_e7 = static_cast<int32_t>(values[3]);
+            measurement.gps_lon_e7 = static_cast<int32_t>(values[4]);
+            measurement.rssi_dbm = static_cast<int8_t>(values[5]);
+            measurement.snr_db = static_cast<int8_t>(values[6]);
+            measurement.tdoa_ab_ns = static_cast<int32_t>(values[7]);
+            measurement.tdoa_ac_ns = static_cast<int32_t>(values[8]);
+            measurement.response_delay_us = static_cast<uint32_t>(values[9]);
+            measurement.rx_timestamp_ns = static_cast<uint32_t>(values[10]);
+            measurement.measured_age_ms = static_cast<uint32_t>(values[11]);
+            *out_measurement = measurement;
+            return true;
+        }
+        if (split == std::string::npos) {
+            break;
+        }
+        remaining.erase(0, split + 1u);
+    }
+    return false;
+}
+
+void put_be16(std::vector<unsigned char> *payload, uint16_t value)
+{
+    payload->push_back(static_cast<unsigned char>((value >> 8) & 0xffu));
+    payload->push_back(static_cast<unsigned char>(value & 0xffu));
+}
+
+void put_be32(std::vector<unsigned char> *payload, uint32_t value)
+{
+    payload->push_back(static_cast<unsigned char>((value >> 24) & 0xffu));
+    payload->push_back(static_cast<unsigned char>((value >> 16) & 0xffu));
+    payload->push_back(static_cast<unsigned char>((value >> 8) & 0xffu));
+    payload->push_back(static_cast<unsigned char>(value & 0xffu));
+}
+
 void fill_camera_chunk(std::vector<unsigned char> &payload,
                        unsigned frame_index,
                        unsigned chunk_index)
@@ -336,7 +400,7 @@ void print_usage(const char *program)
                  "[--daemon-host IP] [--daemon-port PORT] "
                  "[--rtls-fixture CSV] "
                  "[--route-metrics-fixture CSV] "
-                 "[--daemon-timeout-ms MS] "
+                 "[--daemon-timeout-ms MS] [--daemon-peer-dtype CODE] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
                  "[--pace-realtime] [--live-stream-loop] "
                  "[--seed-demo-fixtures]\n",
@@ -433,6 +497,11 @@ bool parse_options(int argc, char **argv, AppOptions *options)
         } else if (std::strcmp(argv[i], "--daemon-timeout-ms") == 0 && i + 1 < argc) {
             if (!parse_u32_timeout(argv[++i], &options->daemon_timeout_ms)) {
                 std::fprintf(stderr, "invalid --daemon-timeout-ms\n");
+                return false;
+            }
+        } else if (std::strcmp(argv[i], "--daemon-peer-dtype") == 0 && i + 1 < argc) {
+            if (!parse_uint16(argv[++i], &options->daemon_peer_device_type_code)) {
+                std::fprintf(stderr, "invalid --daemon-peer-dtype\n");
                 return false;
             }
         } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
@@ -578,6 +647,105 @@ bool send_daemon_hello(const AppOptions &options)
                 "\"writes_hardware\":0}\n",
                 options.daemon_host,
                 static_cast<unsigned>(options.daemon_port));
+    return true;
+}
+
+bool send_daemon_peer_declare(const AppOptions &options)
+{
+    fieldmesh_mac_frame_header_t header{};
+    fieldmesh_rtls_measurement_t rtls{};
+    std::vector<unsigned char> payload;
+    std::vector<unsigned char> frame(256);
+    size_t frame_len = 0u;
+    std::string request = "FIELDMESH_MAC_INGEST v1 ";
+    std::string response;
+    const char *dst_eui = options.preferred_ap_eui ? options.preferred_ap_eui : "000000000000";
+    bool has_rtls = false;
+
+    if (!daemon_client_enabled(options)) {
+        return true;
+    }
+    if (!valid_compact_eui(options.dst_device_eui)) {
+        std::fprintf(stderr, "invalid daemon peer declare dst EUI\n");
+        return false;
+    }
+
+    if (options.daemon_peer_device_type_code != 0u) {
+        payload.push_back(FIELDMESH_MAC_TLV_DTYPE);
+        payload.push_back(2u);
+        put_be16(&payload, options.daemon_peer_device_type_code);
+    }
+    has_rtls = load_rtls_fixture_for_node(options.rtls_fixture,
+                                          options.dst_device_eui, &rtls);
+    if (has_rtls && rtls.gps_lock) {
+        payload.push_back(FIELDMESH_MAC_TLV_GNSS_POSITION);
+        payload.push_back(16u);
+        put_be32(&payload, static_cast<uint32_t>(rtls.gps_lat_e7));
+        put_be32(&payload, static_cast<uint32_t>(rtls.gps_lon_e7));
+        put_be32(&payload, 0u);
+        put_be32(&payload, rtls.measured_age_ms);
+    }
+    if (has_rtls && rtls.pps_lock) {
+        payload.push_back(FIELDMESH_MAC_TLV_PPS_EPOCH);
+        payload.push_back(0u);
+    }
+    if (has_rtls &&
+        (rtls.turnaround_calibrated || rtls.response_delay_us > 0u ||
+         rtls.tdoa_ab_ns != 0 || rtls.tdoa_ac_ns != 0)) {
+        payload.push_back(FIELDMESH_MAC_TLV_TDOA_OBSERVABLE);
+        payload.push_back(20u);
+        put_be32(&payload, static_cast<uint32_t>(rtls.tdoa_ab_ns));
+        put_be32(&payload, static_cast<uint32_t>(rtls.tdoa_ac_ns));
+        put_be32(&payload, rtls.response_delay_us);
+        put_be32(&payload, rtls.rx_timestamp_ns);
+        put_be16(&payload, static_cast<uint16_t>(rtls.measured_age_ms > 65535u ?
+                                                 65535u : rtls.measured_age_ms));
+        payload.push_back(static_cast<unsigned char>(rtls.rssi_dbm));
+        payload.push_back(static_cast<unsigned char>(rtls.snr_db));
+    }
+
+    header.version = FIELDMESH_MAC_VERSION_1;
+    header.frame_type = FIELDMESH_MAC_FRAME_PRESENCE;
+    header.traffic_class = FIELDMESH_CLASS_C1_TELEMETRY;
+    header.path_mode = FIELDMESH_MAC_PATH_GROUP_FANOUT;
+    header.hop_limit = 1u;
+    header.sequence = 1u;
+    header.stream_id = 1u;
+    if (fieldmesh_eui_from_text(options.dst_device_eui, header.src_eui) != FIELDMESH_OK ||
+        fieldmesh_eui_from_text(dst_eui, header.dst_eui) != FIELDMESH_OK ||
+        fieldmesh_encode_mac_frame(&header,
+                                   payload.empty() ? nullptr : payload.data(),
+                                   payload.size(), frame.data(), frame.size(),
+                                   &frame_len) != FIELDMESH_OK) {
+        std::fprintf(stderr, "failed to build BLR peer declare frame\n");
+        return false;
+    }
+    frame.resize(frame_len);
+    append_payload_hex(&request, frame);
+    if (!request_daemon(options, request, "mac_ingest", &response)) {
+        return false;
+    }
+    if (response.find("\"ingest_api\":\"fieldmesh_ingest_mac_frame\"") == std::string::npos ||
+        response.find("\"updates_peer_registry\":1") == std::string::npos ||
+        response.find("\"uses_json_on_air\":0") == std::string::npos) {
+        std::fprintf(stderr, "mac_ingest daemon response missing registry update: %s\n",
+                     response.c_str());
+        return false;
+    }
+    std::printf("{\"event\":\"app_daemon_peer_declare\","
+                "\"daemon_host\":\"%s\","
+                "\"daemon_port\":%u,"
+                "\"operation\":\"FIELDMESH_MAC_INGEST\","
+                "\"src_device_eui\":\"%s\","
+                "\"dst_device_eui\":\"%s\","
+                "\"has_rtls_fixture\":%s,"
+                "\"uses_json_on_air\":0,"
+                "\"ok\":true}\n",
+                options.daemon_host,
+                static_cast<unsigned>(options.daemon_port),
+                options.dst_device_eui,
+                dst_eui,
+                has_rtls ? "true" : "false");
     return true;
 }
 
@@ -1827,7 +1995,9 @@ int main(int argc, char **argv)
                 "\"mode\":%u}\n",
                 static_cast<unsigned>(FIELDMESH_MODE_SCHEDULED));
 
-    if (!send_daemon_hello(options) || !send_daemon_app_control(options)) {
+    if (!send_daemon_hello(options) ||
+        !send_daemon_peer_declare(options) ||
+        !send_daemon_app_control(options)) {
         (void)fieldmesh_leave(session);
         fieldmesh_context_destroy(ctx);
         return 1;

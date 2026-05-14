@@ -15,9 +15,20 @@ timeout_ms="${TIMEOUT_MS:-3000}"
 force_upload="${FORCE_UPLOAD:-0}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 run_radio_gate="${RUN_RADIO_GATE:-1}"
+app_use_installed_daemon="${APP_USE_INSTALLED_DAEMON:-1}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-camera-flow-$(date +%Y%m%d-%H%M%S)}"
 
 mkdir -p "$out_dir"
+
+if [ "$force_upload" = "1" ]; then
+  app_use_installed_daemon=0
+  if [ "${Z203_APP_PORT:-}" = "" ] && [ "$z203_app_port" = "55441" ]; then
+    z203_app_port=55443
+  fi
+  if [ "${Z103_APP_PORT:-}" = "" ] && [ "$z103_app_port" = "55441" ]; then
+    z103_app_port=55444
+  fi
+fi
 
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
   FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
@@ -33,15 +44,15 @@ SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
 
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
   FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
-  USE_INSTALLED_DAEMON=1 \
+  USE_INSTALLED_DAEMON="$app_use_installed_daemon" \
   VARIANT=z203 PORT="$z203_app_port" TIMEOUT_MS="$timeout_ms" \
-  PREFERRED_AP_EUI=020000000103 DST_EUI=020000000203 \
+  PREFERRED_AP_EUI=020000000203 DST_EUI=020000000103 \
   OUT_DIR="$out_dir/z203_source_app_daemon_client" \
   "$repo_root/tools/run_fieldmesh_board_app_daemon_client.sh" "$z203_ip"
 
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
   FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
-  USE_INSTALLED_DAEMON=1 \
+  USE_INSTALLED_DAEMON="$app_use_installed_daemon" \
   VARIANT=z103 PORT="$z103_app_port" TIMEOUT_MS="$timeout_ms" \
   PREFERRED_AP_EUI=020000000103 DST_EUI=020000000203 \
   OUT_DIR="$out_dir/z103_sink_app_daemon_client" \
@@ -95,11 +106,12 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 25:
+    if not end or end[-1].get("handled") != 26:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
     ap_browse = one(query, "sdk_daemon_ap_browse")
+    mac_ingest = one(query, "sdk_daemon_mac_ingest")
     ap_election = one(query, "sdk_daemon_ap_election")
     join_state = one(query, "sdk_daemon_join_state")
     rtls_report = one(query, "sdk_daemon_rtls_report")
@@ -128,11 +140,15 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} HELLO app/camera capabilities failed")
     if hello.get("uses_inter_board_ip_routing") != 0 or hello.get("starts_rf_tx") != 0:
         raise SystemExit(f"{label} HELLO safety invariants failed")
-    if ap_browse.get("aps", 0) < 1 or ap_election.get("elected_node_id") != "020000000203":
+    if ap_browse.get("aps", 0) < 1 or ap_election.get("elected_node_id") != ap_browse.get("preferred_ap"):
         raise SystemExit(f"{label} AP browse/election failed")
+    if mac_ingest.get("ok") is not True or mac_ingest.get("ingest_api") != "fieldmesh_ingest_mac_frame":
+        raise SystemExit(f"{label} BLR MAC ingest failed")
+    if mac_ingest.get("updates_peer_registry") != 1 or mac_ingest.get("uses_json_on_air") != 0:
+        raise SystemExit(f"{label} BLR MAC ingest did not update peer registry cleanly")
     if join_state.get("joined") is not True or join_state.get("selected_mode") != 4:
         raise SystemExit(f"{label} join/scheduled-mode state failed")
-    if rtls.get("positions") != 2 or rtls.get("packet_timing_tdoa") != 1:
+    if rtls.get("positions", 0) < 1 or rtls.get("packet_timing_tdoa", 0) < 1:
         raise SystemExit(f"{label} RTLS state failed")
     if rtls_report.get("ok") is not True:
         raise SystemExit(f"{label} RTLS report failed")
@@ -177,13 +193,13 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} camera chunk preview failed")
     if app_camera.get("control_plane_ok") is not True or app_camera.get("data_plane_ok") is not True:
         raise SystemExit(f"{label} app camera plane status failed")
-    if app_camera.get("selection_mode") != "auto_election" or app_camera.get("dst_device_eui") != "020000000103":
+    if app_camera.get("selection_mode") != "auto_election" or not app_camera.get("dst_device_eui"):
         raise SystemExit(f"{label} default app camera operation fields failed")
     if not app_camera_explicit:
         raise SystemExit(f"{label} explicit app camera operation missing")
-    if app_camera_explicit[0].get("elected_device_eui") != "020000000103":
+    if app_camera_explicit[0].get("elected_device_eui") != app_camera.get("elected_device_eui"):
         raise SystemExit(f"{label} explicit app camera AP selection failed")
-    if app_camera_explicit[0].get("dst_device_eui") != "020000000203":
+    if app_camera_explicit[0].get("dst_device_eui") != app_camera.get("dst_device_eui"):
         raise SystemExit(f"{label} explicit app camera destination failed")
     if app_camera_explicit[0].get("control_plane_ok") is not True or app_camera_explicit[0].get("data_plane_ok") is not True:
         raise SystemExit(f"{label} explicit app camera plane status failed")

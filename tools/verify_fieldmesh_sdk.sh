@@ -140,7 +140,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 25 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 26 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -240,6 +240,10 @@ if mac.get("tlv_name") != 1 or mac.get("tlv_gnss") != 3:
     raise SystemExit("BLR MAC declare TLV contract changed")
 if mac.get("tlv_dtype") != 9 or mac.get("dtype_2r2t") != 0x0022:
     raise SystemExit("BLR MAC device type must be a compact predefined u16 code")
+if mac.get("ingest_api") != "fieldmesh_ingest_mac_frame":
+    raise SystemExit("BLR MAC demo did not exercise SDK ingest API")
+if mac.get("ingest_updates_peer_registry") != 1 or mac.get("ingest_updates_rtls_registry") != 1:
+    raise SystemExit("BLR MAC declare did not update live peer/RTLS registries")
 if sdk.get("magic") != "BLR" or sdk.get("version") != 1:
     raise SystemExit("BLR SDK payload magic/version failed")
 if sdk.get("header_bytes") != 24 or sdk.get("tlv_header_bytes") != 4 or sdk.get("trailer_bytes") != 4:
@@ -324,6 +328,7 @@ rtls_position = [row for row in query if row.get("event") == "sdk_daemon_rtls_po
 route_metrics_report = [row for row in query if row.get("event") == "sdk_daemon_route_metrics_report"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 radio_config = [row for row in query if row.get("event") == "sdk_daemon_radio_config_plan"]
+mac_ingest = [row for row in query if row.get("event") == "sdk_daemon_mac_ingest"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
 ap_election = [row for row in query if row.get("event") == "sdk_daemon_ap_election"]
 join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state"]
@@ -341,7 +346,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 25 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 26 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -356,7 +361,7 @@ if hello[0].get("requires_mutual_auth_for_production") != 1:
 for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
-            "supports_rtls_report"):
+            "supports_rtls_report", "supports_mac_ingest"):
     if hello[0].get(key) != 1:
         raise SystemExit(f"SDK daemon HELLO capability {key} must be 1")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
@@ -374,6 +379,12 @@ if radio_config[0].get("frequency_mhz") != 2400 or radio_config[0].get("channel"
 for key in ("writes_hardware", "commands_executed", "starts_rf_tx"):
     if radio_config[0].get(key) != 0:
         raise SystemExit(f"SDK daemon radio config key {key} must be 0")
+if not mac_ingest or mac_ingest[0].get("ok") is not True:
+    raise SystemExit("SDK daemon BLR MAC ingest query failed")
+if mac_ingest[0].get("ingest_api") != "fieldmesh_ingest_mac_frame":
+    raise SystemExit("SDK daemon BLR MAC ingest did not use SDK API")
+if mac_ingest[0].get("updates_peer_registry") != 1 or mac_ingest[0].get("uses_json_on_air") != 0:
+    raise SystemExit("SDK daemon BLR MAC ingest did not update peer registry cleanly")
 if not ap_election or ap_election[0].get("elected_node_id") != "020000000203":
     raise SystemExit("SDK daemon AP election query failed")
 if not join_state or join_state[0].get("joined") is not True or join_state[0].get("selected_mode") != 4:

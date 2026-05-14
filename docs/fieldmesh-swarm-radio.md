@@ -253,7 +253,7 @@ Presence/declare TLVs:
 | `0x02` capability mask | Bitset for AP/relay/camera/RTLS/bands/MCS/FEC families. | Peer operation and AP election. |
 | `0x03` GNSS position | `lat_e7`, `lon_e7`, `alt_dm`, `error_cm`, fix flags. | GNSS/BDS range and topology. |
 | `0x04` PPS epoch | Timebase epoch, PPS quality, holdover age. | TOF/TDOA scheduling and validation. |
-| `0x05` TDOA observable | RX timestamp deltas and timing quality. | Multilateration/range update. |
+| `0x05` TDOA observable | 20 bytes: `tdoa_ab_ns:i32`, `tdoa_ac_ns:i32`, `response_delay_us:u32`, `rx_timestamp_ns_low:u32`, `measured_age_ms:u16`, `rssi_dbm:i8`, `snr_db:i8`. | Multilateration/range update. |
 | `0x06` TOF observable | Request/response timestamp pair or calibrated delay. | Pairwise range update. |
 | `0x07` route metrics | RSSI/SNR/EVM/PER/queue/ACK latency. | Direct-vs-relay selection. |
 | `0x08` bridge metadata | VLAN/ethertype/broadcast-control hints. | Transparent bridge mode. |
@@ -263,8 +263,12 @@ SDK text-buffer constants such as hostnames, labels, and debug addresses are
 host-control conveniences only. They are not MAC fields. A low-memory MCU host
 can parse the presence TLVs and `BLR` headers without allocating UTF-8 names or
 JSON strings unless the application explicitly wants display metadata.
-| `0x08` bridge metadata | Original L2 endpoint metadata when bridge mode is enabled. | Transparent bridge mode. |
-| `0x09` device type code | u16 predefined product code. `0x0011=1R1T`, `0x0022=2R2T`. | Capability weighting without strings. |
+
+The SDK runtime path for this is `fieldmesh_ingest_mac_frame()`: it decodes a
+binary `BLR` frame, parses compact TLVs, updates the observed peer registry, and
+publishes GNSS/BDS/RTLS-derived position records when present. Host-side JSON is
+only a debug projection of that registry. Peer discovery must not depend on USB,
+RNDIS, PHY Ethernet, app profiles, or host co-location.
 
 ### Peer Directory Delta Payload
 

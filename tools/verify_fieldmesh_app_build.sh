@@ -179,6 +179,8 @@ if daemon_hello[0].get("requires_mutual_auth_for_production") is not True:
     raise SystemExit("daemon app HELLO must require production mutual auth")
 if len(daemon_by_name.get("app_daemon_control_ack", [])) != 1:
     raise SystemExit("daemon app did not acknowledge app control")
+if len(daemon_by_name.get("app_daemon_peer_declare", [])) != 1:
+    raise SystemExit("daemon app did not send one BLR peer declare")
 if len(daemon_by_name.get("app_daemon_camera_chunk_ack", [])) != 3:
     raise SystemExit("daemon app did not acknowledge three camera chunks")
 daemon_stream = daemon_by_name.get("app_camera_stream_open", [])
@@ -191,10 +193,10 @@ if not daemon_summary or daemon_summary[-1].get("data_plane_ok") is not True:
 server_by_name = {}
 for event in daemon_server_events:
     server_by_name.setdefault(event.get("event"), []).append(event)
-if len(server_by_name.get("sdk_daemon_request", [])) != 5:
-    raise SystemExit("daemon server did not receive five app requests")
+if len(server_by_name.get("sdk_daemon_request", [])) != 6:
+    raise SystemExit("daemon server did not receive six app requests")
 server_end = server_by_name.get("sdk_daemon_end", [])
-if not server_end or server_end[-1].get("handled") != 5:
+if not server_end or server_end[-1].get("handled") != 6:
     raise SystemExit("daemon server request count changed")
 PY
 

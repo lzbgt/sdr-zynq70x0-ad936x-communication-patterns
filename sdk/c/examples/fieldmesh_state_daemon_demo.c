@@ -85,6 +85,14 @@ static void put_be16(unsigned char *dst, uint16_t value)
     dst[1] = (unsigned char)(value & 0xffu);
 }
 
+static void put_be32(unsigned char *dst, uint32_t value)
+{
+    dst[0] = (unsigned char)((value >> 24) & 0xffu);
+    dst[1] = (unsigned char)((value >> 16) & 0xffu);
+    dst[2] = (unsigned char)((value >> 8) & 0xffu);
+    dst[3] = (unsigned char)(value & 0xffu);
+}
+
 static size_t make_tun_demo_ipv4_packet(unsigned char *packet,
                                         size_t packet_capacity)
 {
@@ -180,6 +188,100 @@ static size_t parse_hex_payload(const char *hex,
         return 0u;
     }
     return len;
+}
+
+static int valid_compact_eui(const char *eui);
+
+static int write_hex_payload(char *dst,
+                             size_t dst_len,
+                             const unsigned char *payload,
+                             size_t payload_len)
+{
+    static const char hex[] = "0123456789abcdef";
+    size_t i;
+
+    if (!dst || !payload || dst_len < payload_len * 2u + 1u) {
+        return 0;
+    }
+    for (i = 0u; i < payload_len; ++i) {
+        dst[i * 2u] = hex[(payload[i] >> 4) & 0x0fu];
+        dst[i * 2u + 1u] = hex[payload[i] & 0x0fu];
+    }
+    dst[payload_len * 2u] = '\0';
+    return 1;
+}
+
+static uint16_t test_device_type_for_eui(const char *device_eui)
+{
+    if (device_eui && strcmp(device_eui, "020000000203") == 0) {
+        return FIELDMESH_DEVICE_TYPE_2R2T;
+    }
+    if (device_eui && strcmp(device_eui, "020000000103") == 0) {
+        return FIELDMESH_DEVICE_TYPE_1R1T;
+    }
+    return 0u;
+}
+
+static int make_mac_ingest_request(char *request,
+                                   size_t request_len,
+                                   const char *src_eui,
+                                   const char *dst_eui)
+{
+    unsigned char payload[32];
+    unsigned char frame[128];
+    char frame_hex[257];
+    fieldmesh_mac_frame_header_t header;
+    size_t payload_len = 0u;
+    size_t frame_len = 0u;
+    uint16_t device_type_code = test_device_type_for_eui(src_eui);
+
+    if (!request || !valid_compact_eui(src_eui) ||
+        (dst_eui && dst_eui[0] != '\0' && !valid_compact_eui(dst_eui))) {
+        return 0;
+    }
+    if (device_type_code != 0u) {
+        payload[payload_len++] = FIELDMESH_MAC_TLV_DTYPE;
+        payload[payload_len++] = 2u;
+        put_be16(&payload[payload_len], device_type_code);
+        payload_len += 2u;
+    }
+    payload[payload_len++] = FIELDMESH_MAC_TLV_CAPABILITY_MASK;
+    payload[payload_len++] = 4u;
+    put_be32(&payload[payload_len],
+             (1u << FIELDMESH_MODE_P2P) |
+             (1u << FIELDMESH_MODE_STAR) |
+             (1u << FIELDMESH_MODE_GRAPH) |
+             (1u << FIELDMESH_MODE_SCHEDULED));
+    payload_len += 4u;
+    payload[payload_len++] = FIELDMESH_MAC_TLV_GNSS_POSITION;
+    payload[payload_len++] = 16u;
+    put_be32(&payload[payload_len], 0u);
+    payload_len += 4u;
+    put_be32(&payload[payload_len], 0u);
+    payload_len += 4u;
+    put_be32(&payload[payload_len], 0u);
+    payload_len += 4u;
+    put_be32(&payload[payload_len], 0u);
+    payload_len += 4u;
+
+    memset(&header, 0, sizeof(header));
+    header.version = FIELDMESH_MAC_VERSION_1;
+    header.frame_type = FIELDMESH_MAC_FRAME_PRESENCE;
+    header.traffic_class = FIELDMESH_CLASS_C1_TELEMETRY;
+    header.path_mode = FIELDMESH_MAC_PATH_GROUP_FANOUT;
+    header.hop_limit = 1u;
+    header.sequence = 1u;
+    header.stream_id = 1u;
+    if (fieldmesh_eui_from_text(src_eui, header.src_eui) != FIELDMESH_OK ||
+        fieldmesh_eui_from_text(dst_eui && dst_eui[0] ? dst_eui : "000000000000",
+                                header.dst_eui) != FIELDMESH_OK ||
+        fieldmesh_encode_mac_frame(&header, payload, payload_len, frame,
+                                   sizeof(frame), &frame_len) != FIELDMESH_OK ||
+        !write_hex_payload(frame_hex, sizeof(frame_hex), frame, frame_len)) {
+        return 0;
+    }
+    return snprintf(request, request_len, "FIELDMESH_MAC_INGEST v1 %s",
+                    frame_hex) > 0;
 }
 
 static uint32_t checksum32(const unsigned char *payload, size_t payload_len)
@@ -913,6 +1015,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"supports_camera_session_plan\":1,"
                  "\"supports_route_metrics\":1,"
                  "\"supports_route_metrics_report\":1,"
+                 "\"supports_mac_ingest\":1,"
                  "\"supports_rtls_position\":1,"
                  "\"supports_rtls_report\":1,"
                  "\"supports_camera_stream_chunk\":1,"
@@ -987,6 +1090,91 @@ static int build_response(fieldmesh_context_t *context,
                  frequency_mhz, channel, bandwidth_khz, sample_rate_ksps,
                  modulation, fec, adaptive_mcs, direct_p2p,
                  ap_relay_fallback);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_MAC_INGEST")) {
+        unsigned char frame[512];
+        const char *payload_hex = strstr(request, " v1 ");
+        size_t frame_len;
+        fieldmesh_mac_ingest_report_t report;
+        fieldmesh_status_t status;
+
+        if (!payload_hex) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_mac_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"missing_blr_frame\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        payload_hex += 4;
+        frame_len = parse_hex_payload(payload_hex, frame, sizeof(frame));
+        if (frame_len == 0u) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_mac_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_blr_frame_hex\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        memset(&report, 0, sizeof(report));
+        status = fieldmesh_ingest_mac_frame(context, frame, frame_len, &report);
+        if (status != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_mac_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"%s\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n",
+                     fieldmesh_status_string(status));
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_mac_ingest\","
+                 "\"ok\":true,"
+                 "\"ingest_api\":\"fieldmesh_ingest_mac_frame\","
+                 "\"magic\":\"BLR\","
+                 "\"version\":%u,"
+                 "\"src_device_eui\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"frame_type\":%u,"
+                 "\"path_mode\":%u,"
+                 "\"tlv_count\":%u,"
+                 "\"unknown_tlv_count\":%u,"
+                 "\"device_type_code\":%u,"
+                 "\"capability_mask\":%u,"
+                 "\"has_gnss_position\":%u,"
+                 "\"updates_peer_registry\":%u,"
+                 "\"updates_ap_registry\":%u,"
+                 "\"updates_rtls_registry\":%u,"
+                 "\"updates_route_registry\":%u,"
+                 "\"uses_json_on_air\":%u,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n",
+                 (unsigned)FIELDMESH_MAC_VERSION_1,
+                 report.src_device_eui,
+                 report.dst_device_eui,
+                 (unsigned)report.frame_type,
+                 (unsigned)report.path_mode,
+                 (unsigned)report.tlv_count,
+                 (unsigned)report.unknown_tlv_count,
+                 (unsigned)report.device_type_code,
+                 (unsigned)report.capability_mask,
+                 (unsigned)report.has_gnss_position,
+                 (unsigned)report.updates_peer_registry,
+                 (unsigned)report.updates_ap_registry,
+                 (unsigned)report.updates_rtls_registry,
+                 (unsigned)report.updates_route_registry,
+                 (unsigned)report.uses_json_on_air);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RTLS_REPORT")) {
@@ -2793,6 +2981,7 @@ static int query_state(const char *host,
     fieldmesh_socket_t sockfd = INVALID_SOCKET;
     struct sockaddr_in dst;
     struct timeval timeout;
+    char mac_ingest_request[320];
     char route_metrics_report_request[512];
     char route_metrics_request[96];
     char rtls_position_request[96];
@@ -2814,6 +3003,10 @@ static int query_state(const char *host,
     if (!valid_compact_eui(route_dst_eui) ||
         !valid_compact_eui(explicit_ap_eui) ||
         !valid_compact_eui(explicit_dst_eui)) {
+        return 1;
+    }
+    if (!make_mac_ingest_request(mac_ingest_request, sizeof(mac_ingest_request),
+                                 route_dst_eui, explicit_ap_eui)) {
         return 1;
     }
     snprintf(route_metrics_request, sizeof(route_metrics_request),
@@ -2881,6 +3074,7 @@ static int query_state(const char *host,
                    "frequency_mhz=2400 channel=1 bandwidth_khz=5000 "
                    "sample_rate_ksps=7680 modulation=BPSK fec=LDPC "
                    "adaptive_mcs=1 direct_p2p=1 ap_relay_fallback=1") == 0 &&
+        query_once(sockfd, &dst, mac_ingest_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_ELECT v1") == 0 &&
         query_once(sockfd, &dst, rtls_report_request) == 0 &&

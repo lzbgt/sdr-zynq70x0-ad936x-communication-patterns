@@ -153,7 +153,7 @@ verify_variant() {
             exit 1
         fi
     done
-    for token in sdk_mac_frame BLR carries_peer_name_per_frame tlv_dtype dtype_2r2t; do
+    for token in sdk_mac_frame BLR carries_peer_name_per_frame tlv_dtype dtype_2r2t fieldmesh_ingest_mac_frame; do
         if ! grep -qF "$token" "$mac_frame_strings_out"; then
             echo "Missing fieldmesh-mac-frame-demo token in $name rootfs: $token" >&2
             exit 1

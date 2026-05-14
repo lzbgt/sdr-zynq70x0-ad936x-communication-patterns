@@ -41,6 +41,10 @@ int main(void)
     fieldmesh_mac_frame_header_t decoded_declare;
     fieldmesh_sdk_frame_header_t sdk_header;
     fieldmesh_sdk_frame_header_t decoded_sdk;
+    fieldmesh_context_t *ctx = NULL;
+    fieldmesh_config_t config;
+    fieldmesh_mac_ingest_report_t ingest_report;
+    fieldmesh_position_estimate_t position;
     unsigned char frame[128];
     unsigned char declare_frame[160];
     unsigned char sdk_frame[128];
@@ -128,6 +132,29 @@ int main(void)
         fprintf(stderr, "decoded BLR declare frame did not match input\n");
         return 1;
     }
+    memset(&config, 0, sizeof(config));
+    if (require_ok(fieldmesh_context_create(&config, &ctx),
+                   "context_create") ||
+        require_ok(fieldmesh_ingest_mac_frame(ctx, declare_frame,
+                                              declare_frame_len,
+                                              &ingest_report),
+                   "ingest_mac_frame") ||
+        require_ok(fieldmesh_get_peer_position(ctx, "020000000203",
+                                               &position),
+                   "get_ingested_position")) {
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
+    if (ingest_report.updates_peer_registry != 1u ||
+        ingest_report.updates_ap_registry != 1u ||
+        ingest_report.updates_rtls_registry != 1u ||
+        ingest_report.uses_json_on_air != 0u ||
+        strcmp(ingest_report.src_device_eui, "020000000203") != 0 ||
+        position.source != FIELDMESH_POSITION_GPS_PPS_FUSED) {
+        fprintf(stderr, "BLR declare ingest did not update live registries\n");
+        fieldmesh_context_destroy(ctx);
+        return 1;
+    }
 
     memset(&sdk_header, 0, sizeof(sdk_header));
     sdk_header.version = FIELDMESH_SDK_VERSION_1;
@@ -180,7 +207,11 @@ int main(void)
            "\"tlv_name\":%u,"
            "\"tlv_gnss\":%u,"
            "\"tlv_dtype\":%u,"
-           "\"dtype_2r2t\":%u}\n",
+           "\"dtype_2r2t\":%u,"
+           "\"ingest_api\":\"fieldmesh_ingest_mac_frame\","
+           "\"ingest_updates_peer_registry\":%u,"
+           "\"ingest_updates_ap_registry\":%u,"
+           "\"ingest_updates_rtls_registry\":%u}\n",
            (unsigned)decoded.version,
            (unsigned)FIELDMESH_MAC_HEADER_BYTES,
            (unsigned)FIELDMESH_MAC_TRAILER_BYTES,
@@ -198,7 +229,10 @@ int main(void)
            (unsigned)FIELDMESH_MAC_TLV_DEVICE_NAME,
            (unsigned)FIELDMESH_MAC_TLV_GNSS_POSITION,
            (unsigned)FIELDMESH_MAC_TLV_DTYPE,
-           (unsigned)FIELDMESH_DEVICE_TYPE_2R2T);
+           (unsigned)FIELDMESH_DEVICE_TYPE_2R2T,
+           (unsigned)ingest_report.updates_peer_registry,
+           (unsigned)ingest_report.updates_ap_registry,
+           (unsigned)ingest_report.updates_rtls_registry);
     printf("{\"event\":\"sdk_payload_frame\","
            "\"magic\":\"BLR\","
            "\"version\":%u,"
@@ -229,5 +263,6 @@ int main(void)
            (unsigned)FIELDMESH_SDK_TLV_CAPS,
            decoded_sdk.header_crc32c,
            decoded_sdk.payload_crc32c);
+    fieldmesh_context_destroy(ctx);
     return 0;
 }

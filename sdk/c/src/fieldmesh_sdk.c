@@ -644,6 +644,51 @@ static fieldmesh_status_t upsert_observed_peer(fieldmesh_context_t *context,
     return FIELDMESH_OK;
 }
 
+static const char *device_type_name_from_code(uint16_t device_type_code)
+{
+    switch (device_type_code) {
+    case FIELDMESH_DEVICE_TYPE_1R1T:
+        return "FM-Z103-1R1T";
+    case FIELDMESH_DEVICE_TYPE_2R2T:
+        return "FM-Z203-2R2T";
+    default:
+        return "fieldmesh-radio-peer";
+    }
+}
+
+static uint32_t device_type_max_kbps_hint(uint16_t device_type_code)
+{
+    switch (device_type_code) {
+    case FIELDMESH_DEVICE_TYPE_1R1T:
+        return 2200u;
+    case FIELDMESH_DEVICE_TYPE_2R2T:
+        return 7000u;
+    default:
+        return 0u;
+    }
+}
+
+static fieldmesh_status_t upsert_peer_info(fieldmesh_context_t *context,
+                                           const fieldmesh_peer_info_t *peer)
+{
+    size_t i;
+
+    if (!context || !peer || !valid_device_eui(peer->device_uuid)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->peer_count; ++i) {
+        if (strcmp(context->peers[i].device_uuid, peer->device_uuid) == 0) {
+            context->peers[i] = *peer;
+            return FIELDMESH_OK;
+        }
+    }
+    if (ensure_peer_capacity(context, context->peer_count + 1u) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->peers[context->peer_count++] = *peer;
+    return FIELDMESH_OK;
+}
+
 static void candidate_to_ap_info(const fieldmesh_ap_candidate_t *candidate,
                                  fieldmesh_ap_info_t *ap)
 {
@@ -917,13 +962,15 @@ static fieldmesh_position_estimate_t estimate_position(
     sdk_copy_text(estimate.node_id, sizeof(estimate.node_id), measurement->node_id);
     estimate.measured_age_ms = measurement->measured_age_ms;
 
-    if (measurement->gps_lock && measurement->pps_lock) {
+    if (measurement->gps_lock) {
         estimate.source = FIELDMESH_POSITION_GPS_PPS_FUSED;
         estimate.x_cm = (measurement->gps_lon_e7 % 100000) * 11;
         estimate.y_cm = (measurement->gps_lat_e7 % 100000) * 11;
-        estimate.error_radius_cm = 120u + measurement->measured_age_ms / 20u;
-        estimate.confidence = 95u;
-        estimate.estimated_geo_centrality = 92u;
+        estimate.error_radius_cm =
+            (measurement->pps_lock ? 120u : 500u) +
+            measurement->measured_age_ms / 20u;
+        estimate.confidence = measurement->pps_lock ? 95u : 80u;
+        estimate.estimated_geo_centrality = measurement->pps_lock ? 92u : 75u;
     } else if (measurement->turnaround_calibrated || measurement->response_delay_us > 0u) {
         tdoa_spread = (abs_i32_to_u32(measurement->tdoa_ab_ns) +
                        abs_i32_to_u32(measurement->tdoa_ac_ns)) / 2u;
@@ -1999,6 +2046,236 @@ fieldmesh_status_t fieldmesh_decode_mac_frame(
         memcpy(out_payload, &frame[FIELDMESH_MAC_HEADER_BYTES], payload_len);
     }
     *out_payload_len = payload_len;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_ingest_mac_frame(
+    fieldmesh_context_t *context,
+    const uint8_t *frame,
+    size_t frame_len,
+    fieldmesh_mac_ingest_report_t *out_report)
+{
+    fieldmesh_mac_frame_header_t header;
+    fieldmesh_peer_info_t peer;
+    fieldmesh_ap_candidate_t candidate;
+    fieldmesh_ap_info_t ap;
+    fieldmesh_rtls_measurement_t rtls;
+    fieldmesh_position_estimate_t estimate;
+    uint8_t *payload = NULL;
+    size_t payload_len = 0u;
+    size_t offset = 0u;
+    char declared_name[FIELDMESH_NAME_TEXT_MAX];
+    uint16_t device_type_code = 0u;
+    uint32_t capability_mask = 0u;
+    uint8_t has_gnss = 0u;
+    uint8_t has_pps = 0u;
+    uint8_t has_tdoa = 0u;
+    fieldmesh_status_t status;
+    size_t i;
+
+    if (!context || !frame || !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(out_report, 0, sizeof(*out_report));
+    memset(&header, 0, sizeof(header));
+    memset(&rtls, 0, sizeof(rtls));
+    declared_name[0] = '\0';
+
+    if (frame_len < (size_t)FIELDMESH_MAC_HEADER_BYTES +
+                    (size_t)FIELDMESH_MAC_TRAILER_BYTES) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    payload_len = (size_t)read_be16(&frame[33]);
+    payload = (uint8_t *)malloc(payload_len ? payload_len : 1u);
+    if (!payload) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    status = fieldmesh_decode_mac_frame(frame, frame_len, &header, payload,
+                                        payload_len, &payload_len);
+    if (status != FIELDMESH_OK) {
+        free(payload);
+        return status;
+    }
+    if (fieldmesh_eui_to_text(header.src_eui, out_report->src_device_eui,
+                              sizeof(out_report->src_device_eui)) != FIELDMESH_OK ||
+        fieldmesh_eui_to_text(header.dst_eui, out_report->dst_device_eui,
+                              sizeof(out_report->dst_device_eui)) != FIELDMESH_OK ||
+        !valid_device_eui(out_report->src_device_eui)) {
+        free(payload);
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    out_report->frame_type = header.frame_type;
+    out_report->path_mode = header.path_mode;
+    out_report->profile_id = header.profile_id;
+    out_report->sequence = header.sequence;
+    out_report->stream_id = header.stream_id;
+    out_report->payload_len_bytes = (uint16_t)payload_len;
+    out_report->uses_json_on_air = 0u;
+
+    while (offset + 2u <= payload_len) {
+        uint8_t tlv_type = payload[offset];
+        uint8_t tlv_len = payload[offset + 1u];
+        const uint8_t *value = &payload[offset + 2u];
+
+        offset += 2u;
+        if (offset + tlv_len > payload_len) {
+            free(payload);
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+        ++out_report->tlv_count;
+        switch (tlv_type) {
+        case FIELDMESH_MAC_TLV_DEVICE_NAME:
+            if (tlv_len > 0u) {
+                size_t copy_len = tlv_len;
+                if (copy_len >= sizeof(declared_name)) {
+                    copy_len = sizeof(declared_name) - 1u;
+                }
+                memcpy(declared_name, value, copy_len);
+                declared_name[copy_len] = '\0';
+                out_report->has_device_name = 1u;
+            }
+            break;
+        case FIELDMESH_MAC_TLV_DTYPE:
+            if (tlv_len != 2u) {
+                free(payload);
+                return FIELDMESH_ERR_TRANSPORT;
+            }
+            device_type_code = read_be16(value);
+            out_report->device_type_code = device_type_code;
+            break;
+        case FIELDMESH_MAC_TLV_CAPABILITY_MASK:
+            if (tlv_len != 4u) {
+                free(payload);
+                return FIELDMESH_ERR_TRANSPORT;
+            }
+            capability_mask = read_be32(value);
+            out_report->capability_mask = capability_mask;
+            break;
+        case FIELDMESH_MAC_TLV_GNSS_POSITION:
+            if (tlv_len != 16u) {
+                free(payload);
+                return FIELDMESH_ERR_TRANSPORT;
+            }
+            has_gnss = 1u;
+            out_report->has_gnss_position = 1u;
+            rtls.gps_lock = 1u;
+            rtls.gps_lat_e7 = (int32_t)read_be32(&value[0]);
+            rtls.gps_lon_e7 = (int32_t)read_be32(&value[4]);
+            rtls.measured_age_ms = read_be32(&value[12]);
+            break;
+        case FIELDMESH_MAC_TLV_PPS_EPOCH:
+            has_pps = 1u;
+            out_report->has_pps_epoch = 1u;
+            break;
+        case FIELDMESH_MAC_TLV_TDOA_OBSERVABLE:
+            if (tlv_len != 20u) {
+                free(payload);
+                return FIELDMESH_ERR_TRANSPORT;
+            }
+            has_tdoa = 1u;
+            out_report->has_tdoa_observable = 1u;
+            rtls.turnaround_calibrated = 1u;
+            rtls.tdoa_ab_ns = (int32_t)read_be32(&value[0]);
+            rtls.tdoa_ac_ns = (int32_t)read_be32(&value[4]);
+            rtls.response_delay_us = read_be32(&value[8]);
+            rtls.rx_timestamp_ns = read_be32(&value[12]);
+            rtls.measured_age_ms = read_be16(&value[16]);
+            rtls.rssi_dbm = (int8_t)value[18];
+            rtls.snr_db = (int8_t)value[19];
+            break;
+        case FIELDMESH_MAC_TLV_TOF_OBSERVABLE:
+            out_report->has_tof_observable = 1u;
+            break;
+        case FIELDMESH_MAC_TLV_ROUTE_METRICS:
+            out_report->has_route_metrics = 1u;
+            break;
+        default:
+            ++out_report->unknown_tlv_count;
+            break;
+        }
+        offset += tlv_len;
+    }
+    if (offset != payload_len) {
+        free(payload);
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+
+    memset(&peer, 0, sizeof(peer));
+    sdk_copy_text(peer.device_uuid, sizeof(peer.device_uuid),
+                  out_report->src_device_eui);
+    sdk_copy_text(peer.node_id, sizeof(peer.node_id),
+                  out_report->src_device_eui);
+    sdk_copy_text(peer.name, sizeof(peer.name),
+                  declared_name[0] ? declared_name : out_report->src_device_eui);
+    sdk_copy_text(peer.device_type, sizeof(peer.device_type),
+                  device_type_name_from_code(device_type_code));
+    peer.node_classes_mask = class_mask(FIELDMESH_NODE_ENDPOINT);
+    peer.supported_modes_mask =
+        capability_mask ? capability_mask :
+        ((1u << FIELDMESH_MODE_P2P) | (1u << FIELDMESH_MODE_STAR));
+    peer.max_kbps = device_type_max_kbps_hint(device_type_code);
+    peer.direct_reachable = header.path_mode == FIELDMESH_MAC_PATH_DIRECT_P2P ||
+                            header.path_mode == FIELDMESH_MAC_PATH_GROUP_FANOUT;
+    peer.relay_allowed = (header.path_mode == FIELDMESH_MAC_PATH_AP_RELAY ||
+                          header.path_mode == FIELDMESH_MAC_PATH_GRAPH_RELAY ||
+                          header.path_mode == FIELDMESH_MAC_PATH_SCHEDULED_RELAY ||
+                          (peer.supported_modes_mask & (1u << FIELDMESH_MODE_GRAPH))) ? 1u : 0u;
+    if (peer.relay_allowed) {
+        peer.node_classes_mask |= class_mask(FIELDMESH_NODE_RELAY);
+    }
+    if (header.frame_type == FIELDMESH_MAC_FRAME_PRESENCE) {
+        peer.node_classes_mask |= class_mask(FIELDMESH_NODE_AP_BROKER);
+    }
+    if (upsert_peer_info(context, &peer) != FIELDMESH_OK) {
+        free(payload);
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    out_report->updates_peer_registry = 1u;
+
+    if (header.frame_type == FIELDMESH_MAC_FRAME_PRESENCE) {
+        memset(&candidate, 0, sizeof(candidate));
+        sdk_copy_text(candidate.node_id, sizeof(candidate.node_id),
+                      out_report->src_device_eui);
+        candidate.policy = FIELDMESH_AP_POLICY_HYBRID;
+        candidate.node_classes_mask = peer.node_classes_mask;
+        candidate.supported_modes_mask = peer.supported_modes_mask;
+        candidate.max_kbps = peer.max_kbps;
+        candidate.relay_allowed = peer.relay_allowed;
+        candidate.has_disciplined_clock = has_pps;
+        candidate.provisioned_identity = 0u;
+        if (upsert_ap_candidate(context, &candidate) == FIELDMESH_OK) {
+            candidate_to_ap_info(&candidate, &ap);
+            if (upsert_ap_info(context, &ap) == FIELDMESH_OK) {
+                out_report->updates_ap_registry = 1u;
+            }
+        }
+    }
+
+    if (has_gnss || has_tdoa) {
+        sdk_copy_text(rtls.node_id, sizeof(rtls.node_id),
+                      out_report->src_device_eui);
+        rtls.pps_lock = has_pps;
+        estimate = estimate_position(&rtls);
+        for (i = 0; i < context->position_count; ++i) {
+            if (strcmp(context->positions[i].node_id, estimate.node_id) == 0) {
+                context->positions[i] = estimate;
+                out_report->updates_rtls_registry = 1u;
+                break;
+            }
+        }
+        if (!out_report->updates_rtls_registry) {
+            if (ensure_position_capacity(context, context->position_count + 1u) !=
+                FIELDMESH_OK) {
+                free(payload);
+                return FIELDMESH_ERR_NO_MEMORY;
+            }
+            context->positions[context->position_count++] = estimate;
+            out_report->updates_rtls_registry = 1u;
+        }
+    }
+
+    free(payload);
     return FIELDMESH_OK;
 }
 

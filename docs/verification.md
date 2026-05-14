@@ -3613,20 +3613,23 @@ and start video publish/subscribe. The same gate runs
 `tools/run_fieldmesh_two_imgui_instances.sh`, which verifies two symmetric GUI
 instances can operate as peer IM clients.
 
-Refreshed runtime artifact hashes after adding app/daemon `FIELDMESH_HELLO`
-negotiation and the ImGui/Python app boundary:
+Refreshed runtime artifact hashes after adding app/daemon `FIELDMESH_HELLO`,
+the ImGui/Python app boundary, and binary `BLR` MAC peer-discovery ingestion.
+The current live two-board gate uses `FIELDMESH_MAC_INGEST` to feed compact
+presence/TDOA TLVs into the observed peer and RTLS registries before camera
+control/data-plane validation:
 
 ```text
-Z203 rootfs.cpio.gz: f18685340047dde0090276b44d6c15d7163793ff2a7697ab081c60793c863230
-Z203 rootfs.tar.gz:  083aca8be0a9ee52403a9d7003d056a9eeffcd4c90fb6b5efdab4630c1988d8c
-Z203 pluto.frm:      972fd8c077e619d85b3b1a9632faa89e1e65c845399b7b0e44ebc88590ae20e9
-Z203 pluto.itb:      a963244fc0971e72ac52a93fff1f1857e1e8e4a1f59e6001c8264d4a3ee570be
-Z203 jtag ramdisk:   22397ba53a8402cd3ac4b144f729cf1004e9508b60608ed6c9840724d152e9d1
-Z103 rootfs.cpio.gz: d420efb16e9d38aff28057b970bf82788833ba4a2451a05e63d9d3777d5e5a38
-Z103 rootfs.tar.gz:  03a6be5c6521e2d3ad29e9e1d9009d860b308eda1c9fa389227190a09bf0f1a1
-Z103 pluto.frm:      107610a2f3825ce1714fbb27f3c322ea798f4f0da62057815a7bbdfa7cfc249b
-Z103 pluto.itb:      6544c95b5ae421afc2b7a8efed4c6e189a21709381ebb73599f7a95549f8fcc6
-Z103 jtag ramdisk:   2ac9a2e923c7f0da7f698a5a38697ecf0dcee102fa8a85d383091824b4d5b2da
+Z203 rootfs.cpio.gz: 9da8a917a6512c3b7f6de3da3d1b8eab8df576c734470e4614af796b0c1ec12e
+Z203 rootfs.tar.gz:  43102bbf9b350e18e9772681df4672f7f731288e10a64ba9cffe5aa8cae62fbd
+Z203 pluto.frm:      aa2159c6080e3260611e077608e396889ca295a9ac98f3d7f706900d7052ac12
+Z203 pluto.itb:      3166d3b91cd8b940ca88764e4accf341ea91f2ad325c11c20e1a7eef5080da9e
+Z203 jtag ramdisk:   7349b9059083fdec71fc53550f84b7b97d0a3b3e8b0e108274595d5f13c82700
+Z103 rootfs.cpio.gz: 0a829dc42dc412045f0687a29a3c04ac8d59fb0d7b3f8ed6a68135b074e5c2f8
+Z103 rootfs.tar.gz:  defc31e585c8ddf3a9a26a6e6d05f5f0bd9f05127cbaa7bf6b25f2e11575de5a
+Z103 pluto.frm:      f61615352930776feb79c8667e0b525acdf126d0fe77d85d28473bcb157545fd
+Z103 pluto.itb:      c63178b1e5e54b071deec8ea15823891d7342dfe88387b7550bd7daecc4d3f65
+Z103 jtag ramdisk:   2663e6726477ef5409970a96230a2365968be8f6d77087381815b3760e749994
 ```
 
 ## FieldMesh RTLS Positioning Gate

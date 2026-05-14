@@ -421,6 +421,21 @@ packet timestamp service, or test harness may report `node=<12hex>`,
 the fused position. It still writes no hardware, starts no RF TX, opens no IIO
 buffers, and does not use inter-board IP routing.
 
+`FIELDMESH_MAC_INGEST` is the binary peer-discovery ingestion contract. The
+request body carries a hex-encoded `BLR` MAC frame for host testing or a daemon
+debug bridge; production radio receive code should call the same
+`fieldmesh_ingest_mac_frame()` API directly with received bytes. A presence
+frame updates the observed radio-peer registry from 6-byte EUIs and compact
+TLVs such as `DTYPE`, capability mask, GNSS/BDS position, PPS epoch, TOF/TDOA,
+and route metrics. It is not profile based, not host-topology based, and not
+JSON on the air.
+
+The `TDOA` presence TLV is binary and fixed-width inside the TLV value:
+`tdoa_ab_ns:i32`, `tdoa_ac_ns:i32`, `response_delay_us:u32`,
+`rx_timestamp_ns_low:u32`, `measured_age_ms:u16`, `rssi_dbm:i8`,
+`snr_db:i8`. This lets STM32-class hosts publish packet-timing observations
+without JSON, strings, heap-heavy maps, or profile-side fake coordinates.
+
 With only two boards, the daemon should expose range/link quality and relative
 movement, not claim full 2D position. Stable 2D RTLS needs 3+ timing anchors;
 4+ is preferred indoors.

@@ -10,13 +10,14 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55441}"
 timeout_ms="${TIMEOUT_MS:-5000}"
-requests="${REQUESTS:-5}"
+requests="${REQUESTS:-6}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
 use_installed_daemon="${USE_INSTALLED_DAEMON:-0}"
-preferred_ap_eui="${PREFERRED_AP_EUI:-020000000103}"
-dst_eui="${DST_EUI:-020000000203}"
+preferred_ap_eui="${PREFERRED_AP_EUI:-}"
+dst_eui="${DST_EUI:-}"
+peer_dtype="${PEER_DTYPE:-}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-app-daemon-client-$(date +%Y%m%d-%H%M%S)}"
 case "$out_dir" in
     /*) ;;
@@ -34,10 +35,16 @@ case "$variant" in
     z203)
         fieldmesh_resolve_image_paths z203 "$repo_root"
         rootfs_tar="$FIELDMESH_ROOTFS_TAR"
+        preferred_ap_eui="${preferred_ap_eui:-020000000203}"
+        dst_eui="${dst_eui:-020000000103}"
+        peer_dtype="${peer_dtype:-17}"
         ;;
     z103)
         fieldmesh_resolve_image_paths z103 "$repo_root"
         rootfs_tar="$FIELDMESH_ROOTFS_TAR"
+        preferred_ap_eui="${preferred_ap_eui:-020000000103}"
+        dst_eui="${dst_eui:-020000000203}"
+        peer_dtype="${peer_dtype:-34}"
         ;;
     *)
         echo "Unsupported VARIANT: $variant" >&2
@@ -116,6 +123,7 @@ set +e
     --daemon-host "$board_ip" \
     --daemon-port "$port" \
     --daemon-timeout-ms "$timeout_ms" \
+    --daemon-peer-dtype "$peer_dtype" \
     --seed-demo-fixtures \
     --rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
     --route-metrics-fixture "1,1,4,500,-45,28,-30,12,32,10,4,2100,2600,160,1,42,20,1,1" \
@@ -197,6 +205,7 @@ for row in app_rows:
 control = by_event.get("app_daemon_control_ack", [])
 chunks = by_event.get("app_daemon_camera_chunk_ack", [])
 hello = by_event.get("app_daemon_hello", [])
+peer_declare = by_event.get("app_daemon_peer_declare", [])
 stream = by_event.get("app_camera_stream_open", [])
 summary = by_event.get("app_summary", [])
 
@@ -222,6 +231,8 @@ if control[0].get("dst_device_eui") != dst_eui:
     raise SystemExit("daemon app-control destination EUI mismatch")
 if len(chunks) != 3:
     raise SystemExit("expected exactly three daemon camera chunk acknowledgements")
+if len(peer_declare) != 1 or peer_declare[0].get("ok") is not True:
+    raise SystemExit("missing one BLR daemon peer declare acknowledgement")
 if any(row.get("dst_device_eui") != dst_eui for row in chunks):
     raise SystemExit("daemon camera chunk destination EUI mismatch")
 if not stream or stream[0].get("daemon_client_enabled") is not True:
@@ -257,9 +268,9 @@ daemon_requests = [row for row in daemon_rows if row.get("event") == "sdk_daemon
 if use_installed_daemon:
     daemon_request_count = len(daemon_requests)
 else:
-    if not daemon_end or daemon_end[-1].get("handled") != 5:
-        raise SystemExit("board daemon did not handle the five app requests")
-    if len(daemon_requests) != 5:
+    if not daemon_end or daemon_end[-1].get("handled") != 6:
+        raise SystemExit("board daemon did not handle the six app requests")
+    if len(daemon_requests) != 6:
         raise SystemExit("board daemon request count changed")
     daemon_request_count = len(daemon_requests)
 
@@ -271,6 +282,7 @@ result = {
     "preferred_ap_eui": preferred_ap_eui,
     "dst_device_eui": dst_eui,
     "daemon_hello_events": len(hello),
+    "daemon_mac_ingest_events": len(peer_declare),
     "daemon_control_events": len(control),
     "daemon_camera_chunk_events": len(chunks),
     "frames_tx": summary[-1].get("frames_tx"),

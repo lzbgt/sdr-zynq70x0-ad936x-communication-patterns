@@ -61,7 +61,7 @@ check: $(APP) $(DAEMON)
 		>"$(OUT_DIR)/explicit_camera_app.ndjson" \
 		2>"$(OUT_DIR)/explicit_camera_app.stderr"
 	daemon_pid=; \
-	FIELDMESH_DEMO_SEED_PEERS=1 "$(DAEMON)" serve 127.0.0.1 55431 5 5000 \
+	FIELDMESH_DEMO_SEED_PEERS=1 "$(DAEMON)" serve 127.0.0.1 55431 6 5000 \
 		>"$(OUT_DIR)/daemon_camera_server.ndjson" \
 		2>"$(OUT_DIR)/daemon_camera_server.stderr" & \
 	daemon_pid="$$!"; \
@@ -77,6 +77,7 @@ check: $(APP) $(DAEMON)
 		--dst-eui 020000000203 \
 		--daemon-host 127.0.0.1 \
 		--daemon-port 55431 \
+		--daemon-peer-dtype 34 \
 		--seed-demo-fixtures \
 		--rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
 		--route-metrics-fixture "1,1,4,500,-45,28,-30,12,32,10,4,2100,2600,160,1,42,20,1,1" \
