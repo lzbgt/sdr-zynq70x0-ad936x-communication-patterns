@@ -346,6 +346,8 @@ user and vendor configuration.
   partition sizes.
 - `tools/compare_qspi_backup.sh` - compare a live QSPI backup against curated
   factory firmware sets without touching the board.
+- `tools/diagnose_z203_qspi_integrity.sh` - compare live Z203 QSPI `mtd3`
+  readback with the current product FIT before any QSPI install attempt.
 - `tools/backup_z103_qspi_live.sh` - Z103-specific wrapper around the live QSPI
   backup helper, defaulting to the Z103 resource tree and `root`/`analog`.
 - `tools/stage_sd_boot_files.sh` - create SD-card boot staging directories for

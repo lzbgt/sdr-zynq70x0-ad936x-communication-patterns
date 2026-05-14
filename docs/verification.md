@@ -3686,6 +3686,35 @@ path. `tools/diagnose_fieldmesh_z203_persistent_boot.sh` now separates
 `installed_runtime_current=true` from `qspi_fit_current=false` so the installed
 SD runtime is not confused with a repaired QSPI FIT.
 
+### Z203 QSPI Integrity Diagnostic
+
+The read-only QSPI integrity gate was added and run against live Z203:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_qspi_integrity_diag_20260515-045356 \
+BOARD_IP=192.168.1.10 \
+  ./tools/diagnose_z203_qspi_integrity.sh 192.168.1.10
+```
+
+Result: failed, as expected. Z203 is running the current SD/initramfs runtime
+with daemon hash
+`62c2655bb80cfe0062459c0a2e135eae86b97d1349642e9b0db923a01a552771`, but live
+QSPI is still not a trusted install target:
+
+- local product FIT first-word magic: `d00dfeed`;
+- `/dev/mtd3` and `/dev/mtdblock3` first-word magic: `d44dfeed`;
+- first 4 KiB mismatch count: 3706 bytes;
+- dominant unexpected one-bit mask: `0x44`;
+- U-Boot environment is still unreadable from Linux;
+- `safe_z203_install_mode=sd`.
+
+`tools/install_fieldmesh_connected_boards.sh` now uses this integrity gate in
+Z203 auto mode. It selects QSPI only when readback and U-Boot-env checks pass;
+otherwise it selects the proven SD/initramfs path when the SD partition is
+visible. Explicit QSPI writes are refused after a failed integrity precheck
+unless `ALLOW_Z203_DAMAGED_QSPI_WRITE=1` is set for a deliberate repair
+attempt.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

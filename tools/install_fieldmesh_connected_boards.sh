@@ -97,6 +97,24 @@ z203_has_sd_partition() {
         'test -b /dev/mmcblk0p1' >/dev/null 2>&1
 }
 
+z203_qspi_integrity_pass() {
+    local diag_dir="$out_dir/z203-qspi-integrity-precheck"
+    if ! OUT_DIR="$diag_dir" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+        "$repo_root/tools/diagnose_z203_qspi_integrity.sh" "$z203_ip" \
+        >"$out_dir/z203_qspi_integrity_precheck.log" 2>&1; then
+        cat "$out_dir/z203_qspi_integrity_precheck.log" >&2
+        return 1
+    fi
+    python3 - "$diag_dir/summary.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+summary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+raise SystemExit(0 if summary.get("qspi_integrity_pass") is True else 1)
+PY
+}
+
 install_z203_sd() {
     sd_stage="$out_dir/z203-sd-stage"
     OUT_DIR="$sd_stage" "$repo_root/tools/stage_fieldmesh_sd_boot_files.sh" z203 \
@@ -116,6 +134,22 @@ install_z203_sd() {
     echo "Capture directory: $out_dir"
 }
 
+install_z203_qspi() {
+    local prechecked="${1:-0}"
+    if [ "$prechecked" != "1" ] && ! z203_qspi_integrity_pass; then
+        if [ "${ALLOW_Z203_DAMAGED_QSPI_WRITE:-0}" != "1" ]; then
+            echo "Z203 QSPI integrity precheck failed; refusing QSPI flash." >&2
+            echo "Use Z203_INSTALL_MODE=sd for the current proven path, or set" >&2
+            echo "ALLOW_Z203_DAMAGED_QSPI_WRITE=1 only for a deliberate QSPI repair attempt." >&2
+            return 1
+        fi
+        echo "Warning: overriding failed Z203 QSPI integrity precheck." >&2
+    fi
+    APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
+        OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+        "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
+}
+
 cat > "$out_dir/plan.json" <<EOF_PLAN
 {"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode"}
 EOF_PLAN
@@ -133,19 +167,21 @@ fi
             install_z203_sd
             ;;
         qspi)
-            APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
-                OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-                "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
+            install_z203_qspi
             ;;
         auto)
-            if z203_has_sd_partition; then
-                echo "Z203 SD partition is present, but auto install now uses QSPI" >&2
-                echo "because SD file staging does not prove the board boots SD." >&2
-                echo "Set Z203_INSTALL_MODE=sd only for an explicit SD-boot test." >&2
+            if z203_qspi_integrity_pass; then
+                echo "Z203 QSPI integrity precheck passed; auto install uses QSPI." >&2
+                install_z203_qspi 1
+            elif z203_has_sd_partition; then
+                echo "Z203 QSPI integrity precheck failed; auto install uses SD." >&2
+                echo "The post-install daemon HELLO still verifies the running runtime." >&2
+                install_z203_sd
+            else
+                echo "Z203 QSPI integrity precheck failed and no SD partition is visible." >&2
+                echo "Set Z203_INSTALL_MODE=qspi ALLOW_Z203_DAMAGED_QSPI_WRITE=1 only for a deliberate repair attempt." >&2
+                exit 1
             fi
-            APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
-                OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
-                "$repo_root/tools/install_fieldmesh_pluto_frm_over_ssh.sh" z203 "$z203_ip"
             ;;
         *)
             echo "Invalid Z203_INSTALL_MODE=$z203_install_mode; expected auto, sd, or qspi" >&2

@@ -68,10 +68,19 @@ Firmware state:
 - QSPI refresh remains open because U-Boot environment access is broken from
   Linux and the QSPI `mtd3` readback still does not match the local FIT header.
   A volatile serial test of `setenv fit_size 1B88D3B; run qspiboot` entered
-  U-Boot DFU, then recovered by serial reset into the SD boot path. Keep
-  `Z203_INSTALL_MODE=sd` as the explicit current Z203 installed-runtime path;
-  do not mark QSPI install repaired until `mtd3` readback and U-Boot boot both
-  verify.
+  U-Boot DFU, then recovered by serial reset into the SD boot path.
+  `tools/diagnose_z203_qspi_integrity.sh` is now the read-only gate for this:
+  it compares live `/dev/mtd3` and `/dev/mtdblock3` FIT headers against the
+  product `fm-z203` FIT, captures SPI/MTD/U-Boot-env evidence, and reports
+  `safe_z203_install_mode`. The connected-board installer now uses QSPI in
+  auto mode only when that integrity gate passes; otherwise it falls back to
+  the proven SD/initramfs path when the SD partition is visible. Do not mark
+  QSPI install repaired until `mtd3` readback, U-Boot environment access, and
+  U-Boot `qspiboot` all verify. The latest live integrity capture shows the
+  local FIT magic `d00dfeed`, live QSPI magic `d44dfeed`, and a dominant
+  unexpected one-bit mask of `0x44` across the first 4 KiB. That makes this a
+  QSPI erase/write/readback integrity issue, not only a stale `fit_size`
+  variable.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
