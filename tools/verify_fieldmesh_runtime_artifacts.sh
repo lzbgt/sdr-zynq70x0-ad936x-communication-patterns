@@ -204,8 +204,10 @@ verify_variant() {
         sdk_daemon_rf_tx_guard_plan \
         sdk_daemon_app_control_camera \
         sdk_daemon_camera_session_plan \
+        sdk_daemon_camera_adaptation \
         sdk_daemon_camera_stream_chunk \
         fieldmesh_plan_camera_stream_session \
+        fieldmesh_adapt_camera_stream_session \
         fieldmesh_camera_stream_frame \
         input_checksum \
         preview_checksum \

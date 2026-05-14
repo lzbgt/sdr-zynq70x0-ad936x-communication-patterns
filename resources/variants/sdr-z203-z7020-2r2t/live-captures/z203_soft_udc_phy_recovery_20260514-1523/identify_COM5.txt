@@ -1,0 +1,25 @@
+﻿# Serial command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-14T15:12:17.4249656+08:00
+
+# >>>
+
+Poky (Yocto Project Reference Distro) 5.0.17 sdr-z203-zynq7 /dev/ttyPS0
+
+sdr-z203-zynq7 login:
+# >>> root
+root
+
+WARNING: Poky is a reference Yocto Project distribution that should be used for
+testing and development purposes only. It is recommended that you create your
+own distribution for production use.
+
+7[r[999;999H[6n
+# >>> analog
+8root@sdr-z203-zynq7:~#
+# >>> echo __SERIAL_LOGIN_READY__
+echo __SERIAL_LOGIN_READY__
+__SERIAL_LOGIN_READY__
+root@sdr-z203-zynq7:~#
+# Stopped: 2026-05-14T15:12:26.0226421+08:00

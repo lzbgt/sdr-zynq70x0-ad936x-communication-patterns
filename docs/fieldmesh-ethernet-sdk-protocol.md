@@ -120,6 +120,7 @@ Minimum daemon messages:
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
 | `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. |
 | `CAMERA_SESSION_PLAN` | app -> daemon | Plan camera stream pacing, chunk window, ACK cadence, reorder window, jitter buffer, and RF handoff policy before sending chunks. |
+| `CAMERA_ADAPTATION_FEEDBACK` | app -> daemon | Submit route-health feedback and receive bitrate/FPS/window/route/backpressure actions. |
 | `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
@@ -132,6 +133,7 @@ The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
 `FIELDMESH_CAMERA_SESSION_PLAN`,
+`FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`,
 `FIELDMESH_CAMERA_STREAM_CHUNK`,
 `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
 `FIELDMESH_TUN_APPLY_VALIDATE`, guarded `FIELDMESH_TUN_APPLY_COMMIT`
@@ -262,9 +264,14 @@ The current camera SDK exposes this as
 `fieldmesh_plan_camera_stream_session()`: default video-base C2 sessions use
 scheduled direct RF, 30 fps target pacing, eight inflight chunks, ACK every
 four chunks, a sixteen-chunk reorder window, a 120 ms jitter buffer, explicit
-backpressure, and keepalive. These are policy defaults, not fixed PHY limits;
-the production daemon should adapt them from route quality, queue age, PER,
-SNR/EVM, and selected codec bitrate.
+backpressure, and keepalive. `fieldmesh_adapt_camera_stream_session()` then
+applies route-health feedback. Healthy links may raise bitrate/window size;
+moderate PER, queue age, jitter, or SNR degradation reduces bitrate and asserts
+backpressure; severe direct-link degradation switches to AP relay when a relay
+is available, requests a keyframe, and drops enhancement traffic. These are
+policy defaults, not fixed PHY limits; production implementations should feed
+them with measured PER, queue age, SNR/EVM, delivered bitrate, route kind,
+codec state, and user policy.
 
 The pure-C SDK now has an executable adapter contract for this mapping:
 `fieldmesh_open_adapter()` opens `swarm0` or a stream-equivalent adapter,

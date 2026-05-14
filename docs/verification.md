@@ -3381,13 +3381,16 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 therefore explicit and auditable.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
-`FIELDMESH_CAMERA_SESSION_PLAN` and `FIELDMESH_CAMERA_STREAM_CHUNK`. The session
-plan reports target FPS, bitrate hint, inflight window, ACK cadence, reorder
-window, jitter buffer, backpressure, and keepalive policy. The chunk request
-accepts one encoded chunk over the host-facing Ethernet SDK socket, forwards it
-through `fieldmesh_camera_stream_frame()`, and reports matching preview/input
-checksums plus RF packet-engine handoff state while still asserting no IIO use,
-no inter-board IP routing, no RF TX start, and no hardware writes.
+`FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
+`FIELDMESH_CAMERA_STREAM_CHUNK`. The session plan reports target FPS, bitrate
+hint, inflight window, ACK cadence, reorder window, jitter buffer,
+backpressure, and keepalive policy. The adaptation request feeds route health
+into `fieldmesh_adapt_camera_stream_session()` and returns bitrate/FPS/window,
+ACK, backpressure, keyframe, and route actions. The chunk request accepts one
+encoded chunk over the host-facing Ethernet SDK socket, forwards it through
+`fieldmesh_camera_stream_frame()`, and reports matching preview/input checksums
+plus RF packet-engine handoff state while still asserting no IIO use, no
+inter-board IP routing, no RF TX start, and no hardware writes.
 
 A live Z103 transient-daemon smoke then verified the session-plan and
 chunk-ingress requests against the reachable board at `192.168.3.1`:
@@ -3403,20 +3406,43 @@ Result: passed. The board daemon assertion reported
 app-camera request all use the shared camera stream SDK path under the
 host-facing control/data-plane socket.
 
-Refreshed runtime artifact hashes after adding camera session planning and the
-direct camera chunk request to the packaged board daemon:
+On 2026-05-14 the Z203 USB/RNDIS data gadget was still not exposed as a second
+Windows network adapter after a COM5-driven UDC/network restart. COM5 confirmed
+Z203 Linux was healthy, `usb0` remained `192.168.2.1/24`, and the board was
+reachable over physical Ethernet at `192.168.1.10/24`. The refreshed daemon was
+therefore tested through the valid host-facing PHY Ethernet path:
+
+```sh
+VARIANT=z203 FORCE_UPLOAD=1 \
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_phy_sdk_daemon_adaptation_20260514-152007 \
+./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.1.10
+
+VARIANT=z103 FORCE_UPLOAD=1 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_usb_sdk_daemon_adaptation_20260514-152007 \
+./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+Both live daemon runs passed and reported `camera_adaptation_events=1`. The
+two-board radio-readiness gate also passed with Z203 management on
+`192.168.1.10` and Z103 management on `192.168.3.1`; the emitted report kept
+`uses_inter_board_ip_routing=false`, `opens_iio_buffers=false`, and
+`starts_rf_tx=false`.
+
+Refreshed runtime artifact hashes after adding camera session planning,
+adaptive camera feedback, and the direct camera chunk request to the packaged
+board daemon:
 
 ```text
-Z203 rootfs.cpio.gz: 3eb71c0b4166135c49f6930f439cd5860cac95acade9bef3c824b08561d5b3a7
-Z203 rootfs.tar.gz:  2460b19d7181423b0f829e71d1e565d2f0c3368729cec468b540afeca087ce41
-Z203 pluto.frm:      a3cdb2b70a1c6d2c9fcf0b17737e25b17886d0bed1a492b20d5bd3f5da782c5a
-Z203 pluto.itb:      9930d4e34b75f5aeca7ba99fddd0def61584ee2a907a6075493b75edfd0ba214
-Z203 jtag ramdisk:   6774e75c6e92eb4673e61d0707708bcf62dda0720a6f1d0f28a1e71fcafff0d0
-Z103 rootfs.cpio.gz: 9d481375eee90323d4526410dc8831a29ef9e3886529e3c3b86973dd81a06a55
-Z103 rootfs.tar.gz:  781c3a4fe4e3db690a4753e359250bc97896f932f7b083ebec7750084d04bd57
-Z103 pluto.frm:      8b6e96b452124451915f347329066518460a25cfb31adc5eacb84f9f786a5aa9
-Z103 pluto.itb:      67b4818fa5914ddc0f21622899b49ed4d8d5c754e1a05c84d5d9430d066c37cf
-Z103 jtag ramdisk:   b810bc2f26bca542096ed522c849a1261016de850a937b93c7e277ee03abe0ed
+Z203 rootfs.cpio.gz: 88d54fa6d9f45fddab28a96d9866ca3c4ab0c891e85b5fecd3a4847d1dbe3974
+Z203 rootfs.tar.gz:  281b3363852db5ec2f0ec73ee907c30f85a86116cfaa67bd868df979fe1e8574
+Z203 pluto.frm:      4efa8c9ac00e38cf36c62ea8ae537918c9efe92aa9b538e20df04e603d5330c3
+Z203 pluto.itb:      6cbf2ba5d61a7d1abd26cd0d0256e60ce829a3115a6affdb2d7997307e1b6220
+Z203 jtag ramdisk:   a7dd7af6b6b2d49e84260464f858431996fa95f3da4558b7d87a27c135266dd2
+Z103 rootfs.cpio.gz: 418ad25539611ac7da3d54165075a99c18f42d8e5d32177f826f2008d15e57bc
+Z103 rootfs.tar.gz:  0372d83e7504b3195eab8e8af076128967e3300177dd1ef54344d52b42db3c5d
+Z103 pluto.frm:      9d965dfeb4bb07300bf8dc2008dd7f131b20226de8cf00904cf782a67ade7efc
+Z103 pluto.itb:      83eab9faf831ae6f702f7280a2dcb5359fc45407e8518f6090299ee070b0d722
+Z103 jtag ramdisk:   e315ca8c2228039882e056be6b2ef40a7cfa88847f89ad2dd9b4114e3166c1fc
 ```
 
 ## FieldMesh RTLS Positioning Gate

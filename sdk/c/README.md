@@ -49,10 +49,13 @@ in `src/fieldmesh_sdk.c`:
   packet-engine handoff through the same pure-C camera stream API used by the
   C++ app. It also serves `FIELDMESH_CAMERA_SESSION_PLAN`, which reports
   pacing, inflight-window, ACK, reorder, jitter, and backpressure policy before
-  streaming begins, plus `FIELDMESH_CAMERA_STREAM_CHUNK`, a direct Ethernet SDK
-  data-plane request that accepts one encoded camera byte chunk and returns
-  preview/checksum/RF handoff status. A separate process queries those services
-  over the same IP path intended for USB Ethernet and physical Ethernet.
+  streaming begins. `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` applies live
+  route-health feedback to that plan, reducing bitrate/FPS/window size or
+  switching to AP relay when the direct RF path degrades. It also serves
+  `FIELDMESH_CAMERA_STREAM_CHUNK`, a direct Ethernet SDK data-plane request
+  that accepts one encoded camera byte chunk and returns preview/checksum/RF
+  handoff status. A separate process queries those services over the same IP
+  path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
@@ -86,9 +89,12 @@ in `src/fieldmesh_sdk.c`:
   data plane queues to the FieldMesh RF packet-engine handoff without IIO,
   inter-board IP routing, RF TX start, or hardware writes. The session plan
   includes target FPS, bitrate hint, inflight chunks, ACK cadence, reorder
-  window, jitter buffer, backpressure, and keepalive policy. C++ and Rust apps
-  should build camera capture/preview around this ABI instead of reimplementing
-  stream and RF-handoff policy.
+  window, jitter buffer, backpressure, and keepalive policy. It also verifies
+  `fieldmesh_adapt_camera_stream_session()`, which turns PER, queue age,
+  jitter, SNR, delivered bitrate, and relay availability into camera bitrate,
+  FPS, ACK, reorder, backpressure, keyframe, and route actions. C++ and Rust
+  apps should build camera capture/preview around this ABI instead of
+  reimplementing stream and RF-handoff policy.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes
   `fieldmeshctl profile show|validate|apply|rollback` as NDJSON and uses the
   same SDK network-profile ABI intended for board provisioning, recovery, and

@@ -21,6 +21,8 @@ int main(void)
     fieldmesh_join_request_t join;
     fieldmesh_camera_stream_config_t camera_config;
     fieldmesh_camera_session_plan_t session_plan;
+    fieldmesh_camera_stream_feedback_t feedback;
+    fieldmesh_camera_adaptation_report_t adaptation;
     fieldmesh_camera_frame_report_t report;
     unsigned char input[384];
     unsigned char preview[384];
@@ -48,12 +50,24 @@ int main(void)
     camera_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
+    memset(&feedback, 0, sizeof(feedback));
+    feedback.rssi_dbm = -66;
+    feedback.snr_db = 17;
+    feedback.per_mille = 70;
+    feedback.queue_age_ms = 135;
+    feedback.latency_ms = 95;
+    feedback.jitter_ms = 70;
+    feedback.delivered_kbps = 1250;
+    feedback.relay_available = 1;
+    feedback.current_route = FIELDMESH_ROUTE_DIRECT;
 
     fill_camera_bytes(input, sizeof(input));
     if (fieldmesh_context_create(&config, &ctx) != FIELDMESH_OK ||
         fieldmesh_join_ap(ctx, &join, &session) != FIELDMESH_OK ||
         fieldmesh_plan_camera_stream_session(session, &camera_config,
                                              &session_plan) != FIELDMESH_OK ||
+        fieldmesh_adapt_camera_stream_session(session, &session_plan, &feedback,
+                                              &adaptation) != FIELDMESH_OK ||
         fieldmesh_open_camera_stream(session, &camera_config, &camera) !=
             FIELDMESH_OK ||
         fieldmesh_camera_stream_frame(camera, input, sizeof(input), preview,
@@ -80,6 +94,14 @@ int main(void)
            "\"session_jitter_buffer_ms\":%u,"
            "\"session_requires_backpressure\":%u,"
            "\"session_requires_keepalive\":%u,"
+           "\"adapt_action\":%u,"
+           "\"adapt_route_kind\":%u,"
+           "\"adapt_target_fps\":%u,"
+           "\"adapt_target_bitrate_kbps\":%u,"
+           "\"adapt_ack_every_chunks\":%u,"
+           "\"adapt_reorder_window_chunks\":%u,"
+           "\"adapt_backpressure_asserted\":%u,"
+           "\"adapt_drop_enhancement\":%u,"
            "\"input_bytes\":%u,"
            "\"preview_bytes\":%u,"
            "\"preview_match\":%u,"
@@ -104,6 +126,14 @@ int main(void)
            session_plan.jitter_buffer_ms,
            session_plan.requires_backpressure,
            session_plan.requires_session_keepalive,
+           (unsigned)adaptation.action,
+           (unsigned)adaptation.selected_route,
+           adaptation.target_fps,
+           adaptation.target_bitrate_kbps,
+           adaptation.ack_every_chunks,
+           adaptation.reorder_window_chunks,
+           adaptation.backpressure_asserted,
+           adaptation.drop_enhancement,
            report.input_bytes, report.preview_bytes,
            report.preview_match, report.rf_report.queued_to_sidecar,
            report.rf_report.queued_to_rf_engine,

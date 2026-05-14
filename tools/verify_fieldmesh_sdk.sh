@@ -56,7 +56,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 17 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 18 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -199,6 +199,7 @@ rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_p
 rf_tx_guard = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_guard_plan"]
 app_camera = [row for row in query if row.get("event") == "sdk_daemon_app_control_camera"]
 camera_session = [row for row in query if row.get("event") == "sdk_daemon_camera_session_plan"]
+camera_adaptation = [row for row in query if row.get("event") == "sdk_daemon_camera_adaptation"]
 camera_chunk = [row for row in query if row.get("event") == "sdk_daemon_camera_stream_chunk"]
 tun_fd_pump = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
@@ -206,7 +207,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 17 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 18 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -328,6 +329,23 @@ if camera_session[0].get("uses_sidecar_dma") != 1 or camera_session[0].get("uses
 for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
     if camera_session[0].get(key) != 0:
         raise SystemExit(f"SDK daemon camera session key {key} must be 0")
+if not camera_adaptation or camera_adaptation[0].get("ok") is not True:
+    raise SystemExit("SDK daemon camera adaptation query failed")
+if camera_adaptation[0].get("sdk_abi") != "pure_c" or camera_adaptation[0].get("adapt_api") != "fieldmesh_adapt_camera_stream_session":
+    raise SystemExit("SDK daemon camera adaptation ABI metadata failed")
+if camera_adaptation[0].get("action") != 4 or camera_adaptation[0].get("selected_route") != 2:
+    raise SystemExit("SDK daemon camera adaptation should switch to AP relay under bad direct link")
+if camera_adaptation[0].get("target_fps") != 15 or camera_adaptation[0].get("target_bitrate_kbps") != 900:
+    raise SystemExit("SDK daemon camera adaptation throttle target failed")
+if camera_adaptation[0].get("max_inflight_chunks") != 4 or camera_adaptation[0].get("ack_every_chunks") != 1:
+    raise SystemExit("SDK daemon camera adaptation inflight/ACK policy failed")
+if camera_adaptation[0].get("drop_enhancement") != 1 or camera_adaptation[0].get("require_keyframe") != 1:
+    raise SystemExit("SDK daemon camera adaptation must request recovery actions")
+if camera_adaptation[0].get("backpressure_asserted") != 1:
+    raise SystemExit("SDK daemon camera adaptation must assert backpressure")
+for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+    if camera_adaptation[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon camera adaptation key {key} must be 0")
 if not camera_chunk or camera_chunk[0].get("ok") is not True:
     raise SystemExit("SDK daemon camera stream chunk query failed")
 if camera_chunk[0].get("sdk_abi") != "pure_c" or camera_chunk[0].get("stream_api") != "fieldmesh_camera_stream_frame":
@@ -614,6 +632,12 @@ if camera.get("session_ack_every_chunks") != 4 or camera.get("session_reorder_wi
     raise SystemExit("camera stream SDK demo session flow control failed")
 if camera.get("session_requires_backpressure") != 1 or camera.get("session_requires_keepalive") != 1:
     raise SystemExit("camera stream SDK demo session must require backpressure/keepalive")
+if camera.get("adapt_action") != 2 or camera.get("adapt_target_bitrate_kbps") != 1350:
+    raise SystemExit("camera stream SDK demo adaptation policy failed")
+if camera.get("adapt_ack_every_chunks") != 2 or camera.get("adapt_reorder_window_chunks") != 20:
+    raise SystemExit("camera stream SDK demo adaptation flow control failed")
+if camera.get("adapt_backpressure_asserted") != 1 or camera.get("adapt_drop_enhancement") != 1:
+    raise SystemExit("camera stream SDK demo adaptation must assert backpressure/drop enhancement")
 if camera.get("preview_match") != 1:
     raise SystemExit("camera stream SDK demo preview did not match input")
 if camera.get("queued_to_sidecar") != 1 or camera.get("queued_to_rf_engine") != 1:
@@ -697,6 +721,10 @@ if stream_open[0].get("ack_every_chunks") != 4 or stream_open[0].get("reorder_wi
     raise SystemExit("control/camera app session flow-control policy failed")
 if stream_open[0].get("requires_backpressure") != 1 or stream_open[0].get("requires_keepalive") != 1:
     raise SystemExit("control/camera app session must require backpressure/keepalive")
+if stream_open[0].get("adapt_action") != 2 or stream_open[0].get("adapt_target_bitrate_kbps") != 1350:
+    raise SystemExit("control/camera app adaptation policy failed")
+if stream_open[0].get("adapt_backpressure_asserted") != 1 or stream_open[0].get("adapt_drop_enhancement") != 1:
+    raise SystemExit("control/camera app adaptation must assert backpressure/drop enhancement")
 for key in ("uses_iio", "uses_inter_board_ip_routing"):
     if stream_open[0].get(key) != 0:
         raise SystemExit(f"control/camera stream key {key} must be 0")

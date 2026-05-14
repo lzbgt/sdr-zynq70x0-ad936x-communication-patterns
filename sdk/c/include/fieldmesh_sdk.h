@@ -440,6 +440,44 @@ typedef struct fieldmesh_camera_session_plan {
     uint8_t requires_session_keepalive;
 } fieldmesh_camera_session_plan_t;
 
+typedef enum fieldmesh_camera_adaptation_action {
+    FIELDMESH_CAMERA_ADAPT_MAINTAIN = 0,
+    FIELDMESH_CAMERA_ADAPT_INCREASE = 1,
+    FIELDMESH_CAMERA_ADAPT_REDUCE = 2,
+    FIELDMESH_CAMERA_ADAPT_THROTTLE = 3,
+    FIELDMESH_CAMERA_ADAPT_SWITCH_RELAY = 4
+} fieldmesh_camera_adaptation_action_t;
+
+typedef struct fieldmesh_camera_stream_feedback {
+    int8_t rssi_dbm;
+    int8_t snr_db;
+    uint16_t per_mille;
+    uint32_t queue_age_ms;
+    uint32_t latency_ms;
+    uint32_t jitter_ms;
+    uint32_t delivered_kbps;
+    uint8_t relay_available;
+    fieldmesh_route_kind_t current_route;
+} fieldmesh_camera_stream_feedback_t;
+
+typedef struct fieldmesh_camera_adaptation_report {
+    fieldmesh_camera_adaptation_action_t action;
+    fieldmesh_route_kind_t selected_route;
+    uint32_t target_fps;
+    uint32_t target_bitrate_kbps;
+    uint32_t max_inflight_chunks;
+    uint32_t ack_every_chunks;
+    uint32_t reorder_window_chunks;
+    uint32_t jitter_buffer_ms;
+    uint8_t drop_enhancement;
+    uint8_t require_keyframe;
+    uint8_t backpressure_asserted;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t starts_rf_tx;
+    uint8_t writes_hardware;
+} fieldmesh_camera_adaptation_report_t;
+
 typedef struct fieldmesh_rf_tx_guard_plan {
     char guard_name[FIELDMESH_NAME_TEXT_MAX];
     char engine_name[FIELDMESH_NAME_TEXT_MAX];
@@ -709,6 +747,11 @@ fieldmesh_status_t fieldmesh_plan_camera_stream_session(
     fieldmesh_session_t *session,
     const fieldmesh_camera_stream_config_t *config,
     fieldmesh_camera_session_plan_t *out_plan);
+fieldmesh_status_t fieldmesh_adapt_camera_stream_session(
+    fieldmesh_session_t *session,
+    const fieldmesh_camera_session_plan_t *plan,
+    const fieldmesh_camera_stream_feedback_t *feedback,
+    fieldmesh_camera_adaptation_report_t *out_report);
 fieldmesh_status_t fieldmesh_camera_stream_frame(
     fieldmesh_adapter_t *adapter,
     const void *input,

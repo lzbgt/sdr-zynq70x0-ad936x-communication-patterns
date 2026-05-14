@@ -1,0 +1,6 @@
+{"event":"dma_plan_start","transport":"dma-plan","file":"/tmp/fieldmesh_dma_smoke_frame.bin","tx_dma_base":"0x43c10000","rx_dma_base":"0x43c20000","writes_registers":false,"starts_transfer":false,"requires_preflight":["dt-scan","ctrl-scan","dma-scan"]}
+{"event":"dma_buffer_plan","transport":"dma-plan","direction":"ps_to_pl","dma":"tx","dma_base":"0x43c10000","ddr_addr":"0x1f000000","packet_len":64,"aligned_bytes":64,"requires_16bit_alignment":true,"pad_byte_required":false}
+{"event":"dma_buffer_plan","transport":"dma-plan","direction":"pl_to_ps","dma":"rx","dma_base":"0x43c20000","ddr_addr":"0x1f100000","packet_len":64,"aligned_bytes":64,"requires_16bit_alignment":true,"pad_byte_required":false}
+{"event":"dma_order_plan","transport":"dma-plan","rx_armed_before_tx":true,"steps":["copy_packet_to_tx_buffer","arm_rx_s2mm_descriptor","arm_tx_mm2s_descriptor","start_rx_then_tx","poll_rx_then_tx_completion","verify_rx_packet_crc"],"live_test_may_write_registers":true}
+{"event":"packet_trace","transport":"dma-plan","epoch":1000,"slot":0,"mode":"scheduled","src_node":"z103-a","dst_node":"z203-hub","stream_id":100,"traffic_class":"C0","sequence":0,"payload_len":32,"rx_transport_seq":0,"rx_frame_crc":2646482743}
+{"event":"dma_plan_end","transport":"dma-plan","ok":true,"frame_bytes":76,"packet_len":64,"transport_seq":0,"frame_crc":2646482743,"error":null}

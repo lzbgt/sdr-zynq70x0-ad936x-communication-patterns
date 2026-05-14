@@ -347,6 +347,8 @@ int main(int argc, char **argv)
     fieldmesh_join_request_t join{};
     fieldmesh_camera_stream_config_t camera_config{};
     fieldmesh_camera_session_plan_t camera_session{};
+    fieldmesh_camera_stream_feedback_t camera_feedback{};
+    fieldmesh_camera_adaptation_report_t camera_adaptation{};
     ApList aps;
     PeerList peers;
     PositionList positions;
@@ -468,10 +470,23 @@ int main(int argc, char **argv)
     camera_config.requested_mode = FIELDMESH_MODE_SCHEDULED;
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
+    camera_feedback.rssi_dbm = -64;
+    camera_feedback.snr_db = 18;
+    camera_feedback.per_mille = 65;
+    camera_feedback.queue_age_ms = 130;
+    camera_feedback.latency_ms = 90;
+    camera_feedback.jitter_ms = 72;
+    camera_feedback.delivered_kbps = 1350;
+    camera_feedback.relay_available = 1;
+    camera_feedback.current_route = FIELDMESH_ROUTE_DIRECT;
 
     if (!require_ok(fieldmesh_plan_camera_stream_session(session, &camera_config,
                                                          &camera_session),
                     "plan_camera_stream_session") ||
+        !require_ok(fieldmesh_adapt_camera_stream_session(
+                        session, &camera_session, &camera_feedback,
+                        &camera_adaptation),
+                    "adapt_camera_stream_session") ||
         !require_ok(fieldmesh_open_camera_stream(session, &camera_config,
                                                  &camera_stream),
                     "open_camera_stream")) {
@@ -497,6 +512,12 @@ int main(int argc, char **argv)
                 "\"jitter_buffer_ms\":%u,"
                 "\"requires_backpressure\":%u,"
                 "\"requires_keepalive\":%u,"
+                "\"adapt_action\":%u,"
+                "\"adapt_route_kind\":%u,"
+                "\"adapt_target_fps\":%u,"
+                "\"adapt_target_bitrate_kbps\":%u,"
+                "\"adapt_backpressure_asserted\":%u,"
+                "\"adapt_drop_enhancement\":%u,"
                 "\"payload_kind\":%u,"
                 "\"traffic_class\":%u,"
                 "\"preview_enabled\":true,"
@@ -514,6 +535,12 @@ int main(int argc, char **argv)
                 camera_session.jitter_buffer_ms,
                 camera_session.requires_backpressure,
                 camera_session.requires_session_keepalive,
+                static_cast<unsigned>(camera_adaptation.action),
+                static_cast<unsigned>(camera_adaptation.selected_route),
+                camera_adaptation.target_fps,
+                camera_adaptation.target_bitrate_kbps,
+                camera_adaptation.backpressure_asserted,
+                camera_adaptation.drop_enhancement,
                 static_cast<unsigned>(FIELDMESH_PAYLOAD_VIDEO_BASE),
                 static_cast<unsigned>(FIELDMESH_CLASS_C2_VIDEO_BASE));
 

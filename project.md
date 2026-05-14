@@ -625,7 +625,8 @@ user and vendor configuration.
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
   a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
   query demo, including the composed `FIELDMESH_APP_CONTROL_CAMERA` app-level
-  control/data-plane request, `FIELDMESH_CAMERA_SESSION_PLAN`, and direct
+  control/data-plane request, `FIELDMESH_CAMERA_SESSION_PLAN`,
+  `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and direct
   `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane request, a `swarm0` adapter
   packet-classification demo, a routed
   TUN gateway planning demo, a TUN IP-packetizer demo, a pure-C camera stream
@@ -1002,20 +1003,25 @@ Expected result in the current Pluto-compatible firmware state:
    uses the same pure-C `fieldmesh_camera_stream_frame()` path as the C++ app
    for that composition. The daemon contract also exposes
    `FIELDMESH_CAMERA_SESSION_PLAN` for pacing, inflight-window, ACK cadence,
-   reorder-window, jitter-buffer, backpressure, and keepalive policy, plus direct
-   `FIELDMESH_CAMERA_STREAM_CHUNK` ingress so an Ethernet SDK client can submit
-   one encoded camera chunk and receive preview/checksum/RF handoff status
-   without reimplementing stream classification. A live Z103 transient-daemon
-   smoke at `192.168.3.1` verified the session planner and chunk ingress with
-   `camera_session_events=1` and `camera_chunk_events=1`. The post-install RF
+   reorder-window, jitter-buffer, backpressure, and keepalive policy,
+   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` for bitrate/FPS/window/backpressure
+   and AP-relay fallback decisions, plus direct `FIELDMESH_CAMERA_STREAM_CHUNK`
+   ingress so an Ethernet SDK client can submit one encoded camera chunk and
+   receive preview/checksum/RF handoff status without reimplementing stream
+   classification. Live daemon smokes verified the session planner, adaptation,
+   and chunk ingress with `camera_session_events=1`,
+   `camera_adaptation_events=1`, and `camera_chunk_events=1`. The post-install RF
    packet-engine binding gate still recovered frame CRC `2646482743` while
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
-   The matching Z203 installed-runtime app-camera gate is currently blocked by
-   host reachability: `192.168.2.1` did not answer ping in the same live batch.
-   A follow-up host diagnostic showed two FT2232/JTAG-UART devices but only one
-   Pluto RNDIS/data gadget, assigned to the Z103 `192.168.3.10/24` Windows
-   interface; no `192.168.2.0/24` Windows interface or WSL USB device was
-   present for Z203 data traffic.
+   Z203's USB/RNDIS data gadget is still not exposed as a second Windows
+   network adapter: `192.168.2.1` did not answer ping after a COM5-driven
+   UDC/network restart, even though COM5 confirmed Z203 Linux has `usb0`
+   configured. The board is reachable through physical Ethernet at
+   `192.168.1.10`, and the live daemon smoke over that host-facing PHY path
+   passed with `camera_adaptation_events=1`. A follow-up host diagnostic showed
+   two FT2232/JTAG-UART devices but only one Pluto RNDIS/data gadget, assigned
+   to the Z103 `192.168.3.10/24` Windows interface; no `192.168.2.0/24`
+   Windows interface or WSL USB device was present for Z203 data traffic.
    The SDK now has the first pure-C `swarm0`/stream adapter API and
    packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
    telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into

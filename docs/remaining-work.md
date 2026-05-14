@@ -135,7 +135,8 @@ Next concrete work:
   daemon now answers AP browse, AP election, AP join state, peer state, RTLS
   state, `swarm0` adapter mapping, the app-level camera control/data-plane
   composition through `fieldmesh_camera_stream_frame()`, direct
-  `FIELDMESH_CAMERA_SESSION_PLAN` flow-control planning, direct
+  `FIELDMESH_CAMERA_SESSION_PLAN` flow-control planning,
+  `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` route-health adaptation, direct
   `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane ingress with preview/checksum/RF
   handoff status, and local IIO admin planning over the same UDP socket
   boundary.
@@ -147,20 +148,25 @@ Next concrete work:
   IIO-bridge planning request and `FIELDMESH_APP_CONTROL_CAMERA` persistently,
   and the refreshed daemon verifier now requires that the app-camera flow uses
   the pure-C camera stream SDK API and reports six preview byte matches. The
-  same daemon contract now has session-level camera flow-control planning and
-  direct chunk-level camera ingress, so host apps do not need to reimplement
-  pacing, ACK cadence, reorder windows, stream classification, or RF handoff
-  policy for each encoded frame fragment; a live Z103 transient-daemon smoke on
-  2026-05-14 verified `FIELDMESH_CAMERA_SESSION_PLAN` and
-  `FIELDMESH_CAMERA_STREAM_CHUNK` with `camera_session_events=1` and
-  `camera_chunk_events=1` at `192.168.3.1`. The post-install RF packet-engine
+  same daemon contract now has session-level camera flow-control planning,
+  route-health adaptation, and direct chunk-level camera ingress, so host apps
+  do not need to reimplement pacing, ACK cadence, reorder windows,
+  backpressure, AP-relay fallback, stream classification, or RF handoff policy
+  for each encoded frame fragment; a live Z103 transient-daemon smoke on
+  2026-05-14 verified `FIELDMESH_CAMERA_SESSION_PLAN`,
+  `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
+  `FIELDMESH_CAMERA_STREAM_CHUNK`. The post-install RF packet-engine
   binding gate still recovers the same committed frame while keeping IIO,
   inter-board IP routing, RF TX, and hardware writes disabled. The next
-  implementation should restore Z203 host reachability, run the same installed
-  daemon flow on Z203, then run the daemon path from two PCs attached to the
-  boards before replacing the deterministic demo AP/join responses with real
-  credential/audit admission, board peer discovery, route query, adaptive
-  bitrate feedback, and prioritized stream send/receive services. The
+  implementation should still restore Z203's second USB/RNDIS data gadget, but
+  the board is reachable over physical Ethernet at `192.168.1.10`; a live
+  2026-05-14 daemon smoke passed over that PHY Ethernet path while Z103 used
+  USB Ethernet at `192.168.3.1`, and the two-board radio-readiness gate passed
+  with host IP used only for management. Next work is running this path from
+  two PCs attached to the boards, then replacing the deterministic demo AP/join
+  responses with real credential/audit admission, board peer discovery,
+  measured route query, codec-integrated adaptation feedback, and prioritized
+  stream send/receive services. The
   pure-C `fieldmesh-two-pc-flow-demo` is now the packaged smoke target for that
   two-PC path; production daemon and apps may be C++ while the SDK ABI remains
   pure C. The daemon adapter already has a Zynq-local userspace TUN `swarm0`
@@ -217,8 +223,9 @@ Next concrete work:
   the `swarm0`/RF packet-engine handoff without IIO or inter-board IP routing.
   The Z103 installed board daemon now exposes and passes the same composition
   as `FIELDMESH_APP_CONTROL_CAMERA`; the daemon contract also plans camera
-  session flow control through `FIELDMESH_CAMERA_SESSION_PLAN`, accepts one
-  encoded camera chunk through `FIELDMESH_CAMERA_STREAM_CHUNK`, and returns
+  session flow control through `FIELDMESH_CAMERA_SESSION_PLAN`, adapts it
+  through `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, accepts one encoded camera
+  chunk through `FIELDMESH_CAMERA_STREAM_CHUNK`, and returns
   preview/checksum/RF handoff status from the same pure-C SDK stream API. Z203
   is still pending because its host link was unreachable during the latest
   installed runtime batch. After Z203 is reachable, run the installed daemon

@@ -1000,6 +1000,87 @@ static int build_response(fieldmesh_context_t *context,
                  plan.starts_rf_tx, plan.writes_hardware);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK")) {
+        fieldmesh_camera_stream_config_t camera_config = {
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 500,
+            .mtu_bytes = 1200,
+        };
+        fieldmesh_camera_session_plan_t plan;
+        fieldmesh_camera_stream_feedback_t feedback;
+        fieldmesh_camera_adaptation_report_t adaptation;
+
+        snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
+                 "%s", "020000000103");
+        memset(&feedback, 0, sizeof(feedback));
+        feedback.rssi_dbm = -68;
+        feedback.snr_db = 11;
+        feedback.per_mille = 140;
+        feedback.queue_age_ms = 210;
+        feedback.latency_ms = 160;
+        feedback.jitter_ms = 110;
+        feedback.delivered_kbps = 760;
+        feedback.relay_available = 1u;
+        feedback.current_route = FIELDMESH_ROUTE_DIRECT;
+        if (fieldmesh_plan_camera_stream_session(session, &camera_config,
+                                                 &plan) != FIELDMESH_OK ||
+            fieldmesh_adapt_camera_stream_session(session, &plan, &feedback,
+                                                  &adaptation) != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_adaptation\","
+                     "\"ok\":false,"
+                     "\"error\":\"adapt_failed\"}\n");
+            return 0;
+        }
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_camera_adaptation\","
+                 "\"ok\":true,"
+                 "\"sdk_abi\":\"pure_c\","
+                 "\"adapt_api\":\"fieldmesh_adapt_camera_stream_session\","
+                 "\"adapter_name\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"feedback_snr_db\":%d,"
+                 "\"feedback_per_mille\":%u,"
+                 "\"feedback_queue_age_ms\":%u,"
+                 "\"feedback_delivered_kbps\":%u,"
+                 "\"action\":%u,"
+                 "\"selected_route\":%u,"
+                 "\"target_fps\":%u,"
+                 "\"target_bitrate_kbps\":%u,"
+                 "\"max_inflight_chunks\":%u,"
+                 "\"ack_every_chunks\":%u,"
+                 "\"reorder_window_chunks\":%u,"
+                 "\"jitter_buffer_ms\":%u,"
+                 "\"drop_enhancement\":%u,"
+                 "\"require_keyframe\":%u,"
+                 "\"backpressure_asserted\":%u,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"starts_rf_tx\":%u,"
+                 "\"writes_hardware\":%u}\n",
+                 plan.adapter_name, plan.dst_node_id,
+                 feedback.snr_db, feedback.per_mille, feedback.queue_age_ms,
+                 feedback.delivered_kbps,
+                 (unsigned)adaptation.action,
+                 (unsigned)adaptation.selected_route,
+                 adaptation.target_fps,
+                 adaptation.target_bitrate_kbps,
+                 adaptation.max_inflight_chunks,
+                 adaptation.ack_every_chunks,
+                 adaptation.reorder_window_chunks,
+                 adaptation.jitter_buffer_ms,
+                 adaptation.drop_enhancement,
+                 adaptation.require_keyframe,
+                 adaptation.backpressure_asserted,
+                 adaptation.uses_iio,
+                 adaptation.uses_inter_board_ip_routing,
+                 adaptation.starts_rf_tx,
+                 adaptation.writes_hardware);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_CAMERA_STREAM_CHUNK")) {
         const char *hex = strstr(request, " v1 ");
         unsigned char payload[1200];
@@ -1600,6 +1681,7 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_APP_CONTROL_CAMERA v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_CAMERA_SESSION_PLAN v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK v1") == 0 &&
         query_once(sockfd, &dst,
                    "FIELDMESH_CAMERA_STREAM_CHUNK v1 "
                    "00112233445566778899aabbccddeeff") == 0 &&

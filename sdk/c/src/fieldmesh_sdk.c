@@ -1668,6 +1668,100 @@ fieldmesh_status_t fieldmesh_plan_camera_stream_session(
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_adapt_camera_stream_session(
+    fieldmesh_session_t *session,
+    const fieldmesh_camera_session_plan_t *plan,
+    const fieldmesh_camera_stream_feedback_t *feedback,
+    fieldmesh_camera_adaptation_report_t *out_report)
+{
+    uint32_t target_bitrate;
+    uint32_t target_fps;
+    uint32_t max_inflight;
+    uint32_t ack_every;
+    uint32_t reorder_window;
+    uint32_t jitter_buffer;
+    fieldmesh_route_kind_t selected_route;
+    fieldmesh_camera_adaptation_action_t action;
+
+    if (!session || !plan || !feedback || !out_report ||
+        !plan->adapter_name[0] || !plan->dst_node_id[0]) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+
+    target_bitrate = plan->target_bitrate_kbps;
+    target_fps = plan->target_fps;
+    max_inflight = plan->max_inflight_chunks;
+    ack_every = plan->ack_every_chunks;
+    reorder_window = plan->reorder_window_chunks;
+    jitter_buffer = plan->jitter_buffer_ms;
+    selected_route = feedback->current_route == FIELDMESH_ROUTE_AP_RELAYED ?
+                         FIELDMESH_ROUTE_AP_RELAYED :
+                         FIELDMESH_ROUTE_DIRECT;
+    action = FIELDMESH_CAMERA_ADAPT_MAINTAIN;
+
+    if (feedback->snr_db >= 26 && feedback->per_mille <= 20u &&
+        feedback->queue_age_ms <= 80u &&
+        feedback->delivered_kbps + 300u >= plan->target_bitrate_kbps) {
+        action = FIELDMESH_CAMERA_ADAPT_INCREASE;
+        target_bitrate = plan->target_bitrate_kbps + plan->target_bitrate_kbps / 4u;
+        if (target_bitrate > 2600u) {
+            target_bitrate = 2600u;
+        }
+        max_inflight = plan->max_inflight_chunks + 2u;
+        if (max_inflight > 12u) {
+            max_inflight = 12u;
+        }
+        ack_every = 6u;
+        jitter_buffer = 90u;
+    } else if (feedback->per_mille >= 120u || feedback->queue_age_ms >= 180u ||
+               feedback->snr_db <= 12) {
+        action = feedback->relay_available ? FIELDMESH_CAMERA_ADAPT_SWITCH_RELAY :
+                                             FIELDMESH_CAMERA_ADAPT_THROTTLE;
+        selected_route = feedback->relay_available ? FIELDMESH_ROUTE_AP_RELAYED :
+                                                     selected_route;
+        target_bitrate = plan->target_bitrate_kbps / 2u;
+        if (target_bitrate < 450u) {
+            target_bitrate = 450u;
+        }
+        target_fps = 15u;
+        max_inflight = 4u;
+        ack_every = 1u;
+        reorder_window = 24u;
+        jitter_buffer = 220u;
+        out_report->drop_enhancement = 1u;
+        out_report->require_keyframe = 1u;
+        out_report->backpressure_asserted = 1u;
+    } else if (feedback->per_mille >= 50u || feedback->queue_age_ms >= 120u ||
+               feedback->jitter_ms >= 90u || feedback->snr_db <= 18) {
+        action = FIELDMESH_CAMERA_ADAPT_REDUCE;
+        target_bitrate = (plan->target_bitrate_kbps * 3u) / 4u;
+        if (target_bitrate < 700u) {
+            target_bitrate = 700u;
+        }
+        max_inflight = 6u;
+        ack_every = 2u;
+        reorder_window = 20u;
+        jitter_buffer = 160u;
+        out_report->drop_enhancement = 1u;
+        out_report->backpressure_asserted = 1u;
+    }
+
+    out_report->action = action;
+    out_report->selected_route = selected_route;
+    out_report->target_fps = target_fps;
+    out_report->target_bitrate_kbps = target_bitrate;
+    out_report->max_inflight_chunks = max_inflight;
+    out_report->ack_every_chunks = ack_every;
+    out_report->reorder_window_chunks = reorder_window;
+    out_report->jitter_buffer_ms = jitter_buffer;
+    out_report->uses_iio = 0u;
+    out_report->uses_inter_board_ip_routing = 0u;
+    out_report->starts_rf_tx = 0u;
+    out_report->writes_hardware = 0u;
+    return FIELDMESH_OK;
+}
+
 fieldmesh_status_t fieldmesh_camera_stream_frame(
     fieldmesh_adapter_t *adapter,
     const void *input,

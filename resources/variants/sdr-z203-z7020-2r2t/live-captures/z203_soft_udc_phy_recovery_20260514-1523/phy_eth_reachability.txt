@@ -1,0 +1,15 @@
+sdr-z203-zynq7
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 00:0a:35:00:01:22 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.10/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::20a:35ff:fe00:122/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
+5: usb0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 00:05:f7:19:e7:93 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.2.1/24 scope global usb0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::205:f7ff:fe19:e793/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
+/usr/bin/fieldmesh-state-daemon-demo
+/usr/bin/fieldmesh-udp-probe
