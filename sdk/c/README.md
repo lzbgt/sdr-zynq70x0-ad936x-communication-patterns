@@ -123,7 +123,10 @@ bytes to the preview command. Platform wrappers can use FFmpeg, GStreamer, or
 native camera APIs behind those process pipes while the FieldMesh transport
 still uses the pure-C SDK camera stream ABI. This is the SDK/app boundary a
 real Windows, Linux, macOS, or embedded camera pipeline can drive before a GUI
-is added.
+is added. The companion `fieldmesh_camera_pipe.py` helper provides
+`capture-file`/`preview-file` commands for deterministic tests and a `preset`
+subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for
+Linux, Windows, and macOS.
 
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the

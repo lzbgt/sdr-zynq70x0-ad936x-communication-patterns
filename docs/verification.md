@@ -2998,12 +2998,13 @@ and byte-compares preview output against input. This keeps the camera stream
 policy in the pure-C SDK while giving the C++ app a real camera-pipeline
 ingress/preview boundary for Windows, Linux, macOS, or embedded hosts.
 
-The SDK gate also verifies the process-pipe camera boundary:
+The SDK gate also verifies the process-pipe camera boundary through
+`apps/fieldmesh-control-camera-demo/fieldmesh_camera_pipe.py`:
 
 ```sh
 fieldmesh-control-camera-demo \
-  --camera-command "cat .config/fieldmesh/sdk/fieldmesh_camera_input.bin" \
-  --preview-command "cat > .config/fieldmesh/sdk/fieldmesh_camera_command_preview.bin" \
+  --camera-command "fieldmesh_camera_pipe.py capture-file --input .config/fieldmesh/sdk/fieldmesh_camera_input.bin" \
+  --preview-command "fieldmesh_camera_pipe.py preview-file --output .config/fieldmesh/sdk/fieldmesh_camera_command_preview.bin" \
   --chunk-size 64
 ```
 
@@ -3013,6 +3014,19 @@ The verifier checks `app_camera_capture_source` reports
 path, and the command preview output byte-matches the input. This is the
 dependency-light production hook for FFmpeg/GStreamer/native camera capture and
 preview wrappers.
+
+The same gate now also verifies command-preset generation:
+
+```sh
+fieldmesh_camera_pipe.py preset --platform linux --backend ffmpeg --device /dev/video0
+fieldmesh_camera_pipe.py preset --platform windows --backend ffmpeg --device "Integrated Camera"
+fieldmesh_camera_pipe.py preset --platform macos --backend gstreamer --device 0
+fieldmesh_camera_pipe.py preset --platform linux --backend native --device camera0
+```
+
+The generated JSON must include `camera_command`, `preview_command`, and a
+ready-to-run app command while preserving `sdk_abi="pure_c"` and the
+`external_encoded_byte_stream` capture boundary.
 
 The same SDK gate now also runs `fieldmeshctl_demo` as the first network
 profile CLI/API check. It verifies the default Pluto-style USB address,

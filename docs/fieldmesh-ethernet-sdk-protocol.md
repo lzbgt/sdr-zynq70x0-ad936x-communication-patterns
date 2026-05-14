@@ -407,7 +407,10 @@ side. For production integration without adding SDK dependencies, it also
 accepts `--camera-command CMD` and `--preview-command CMD`; those process pipes
 let FFmpeg, GStreamer, or a native wrapper own platform camera capture and
 preview while the FieldMesh app owns network operations, adaptation, and RF
-handoff.
+handoff. `fieldmesh_camera_pipe.py` is the concrete helper for that boundary:
+`capture-file`/`preview-file` provide deterministic test pipes, and `preset`
+emits Linux/Windows/macOS FFmpeg, GStreamer, or native-wrapper commands that
+can be passed directly to the C++ app.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

@@ -28,6 +28,8 @@ cxx="${CXX:-c++}"
 control_camera_app="$out_dir/fieldmesh-control-camera-demo"
 control_camera_external_log="$out_dir/fieldmesh_control_camera_demo_external.ndjson"
 control_camera_command_log="$out_dir/fieldmesh_control_camera_demo_command.ndjson"
+control_camera_pipe_helper="$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_camera_pipe.py"
+control_camera_preset_log="$out_dir/fieldmesh_camera_pipe_presets.ndjson"
 control_camera_input="$out_dir/fieldmesh_camera_input.bin"
 control_camera_preview="$out_dir/fieldmesh_camera_preview.bin"
 control_camera_command_preview="$out_dir/fieldmesh_camera_command_preview.bin"
@@ -46,11 +48,36 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     >"$control_camera_external_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_external.stderr"
 "$control_camera_app" \
-    --camera-command "cat '$control_camera_input'" \
-    --preview-command "cat > '$control_camera_command_preview'" \
+    --camera-command "$control_camera_pipe_helper capture-file --input '$control_camera_input'" \
+    --preview-command "$control_camera_pipe_helper preview-file --output '$control_camera_command_preview'" \
     --chunk-size 64 \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
+"$control_camera_pipe_helper" preset \
+    --platform linux \
+    --backend ffmpeg \
+    --device /dev/video0 \
+    --width 640 \
+    --height 360 \
+    --fps 15 \
+    --bitrate-kbps 900 \
+    --chunk-size 640 \
+    >"$control_camera_preset_log"
+"$control_camera_pipe_helper" preset \
+    --platform windows \
+    --backend ffmpeg \
+    --device "Integrated Camera" \
+    >>"$control_camera_preset_log"
+"$control_camera_pipe_helper" preset \
+    --platform macos \
+    --backend gstreamer \
+    --device 0 \
+    >>"$control_camera_preset_log"
+"$control_camera_pipe_helper" preset \
+    --platform linux \
+    --backend native \
+    --device camera0 \
+    >>"$control_camera_preset_log"
 
 udp_log="$out_dir/fieldmesh_udp_discovery_loopback.ndjson"
 udp_send_log="$out_dir/fieldmesh_udp_discovery_send.ndjson"
@@ -886,6 +913,39 @@ for frame in frames:
             raise SystemExit(f"command camera frame key {key} must be 0")
 PY
 echo "fieldmesh_sdk_control_camera_command_pipe_check=pass"
+
+python3 - "$control_camera_preset_log" <<'PY'
+import json
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+if len(events) != 4:
+    raise SystemExit("camera pipe preset count changed")
+seen = {(event.get("platform"), event.get("backend")) for event in events}
+for expected in (("linux", "ffmpeg"), ("windows", "ffmpeg"), ("macos", "gstreamer"), ("linux", "native")):
+    if expected not in seen:
+        raise SystemExit(f"missing camera pipe preset {expected}")
+for event in events:
+    if event.get("event") != "fieldmesh_camera_pipe_preset":
+        raise SystemExit("camera pipe preset event name changed")
+    if event.get("sdk_abi") != "pure_c":
+        raise SystemExit("camera pipe preset must preserve pure-C SDK ABI")
+    if event.get("capture_boundary") != "external_encoded_byte_stream":
+        raise SystemExit("camera pipe capture boundary changed")
+    if event.get("preview_boundary") != "external_preview_command":
+        raise SystemExit("camera pipe preview boundary changed")
+    if "--camera-command" not in event.get("app_command", ""):
+        raise SystemExit("camera pipe preset missing camera command app wiring")
+    if "--preview-command" not in event.get("app_command", ""):
+        raise SystemExit("camera pipe preset missing preview command app wiring")
+    if event.get("backend") == "ffmpeg" and "ffmpeg" not in event.get("camera_command", ""):
+        raise SystemExit("ffmpeg camera preset did not use ffmpeg")
+    if event.get("backend") == "gstreamer" and "gst-launch-1.0" not in event.get("camera_command", ""):
+        raise SystemExit("gstreamer camera preset did not use gst-launch")
+    if event.get("backend") == "native" and "fieldmesh-native-camera-capture" not in event.get("camera_command", ""):
+        raise SystemExit("native camera preset did not use native capture placeholder")
+PY
+echo "fieldmesh_sdk_control_camera_preset_check=pass"
 
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \

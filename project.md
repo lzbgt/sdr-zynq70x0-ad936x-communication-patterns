@@ -654,7 +654,9 @@ user and vendor configuration.
   supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
-  handoff.
+  handoff. `fieldmesh_camera_pipe.py` supplies deterministic file-backed
+  capture/preview helpers for tests plus Linux/Windows/macOS FFmpeg,
+  GStreamer, and native-wrapper command presets for real hosts.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
@@ -1003,7 +1005,9 @@ Expected result in the current Pluto-compatible firmware state:
    process, and `--preview-command` writes received preview bytes to a platform
    renderer/decoder process. This keeps OpenCV/FFmpeg/GStreamer/native camera
    choices above the SDK while the pure-C SDK remains the stable transport and
-   policy ABI.
+   policy ABI. The app helper now generates validated FFmpeg/GStreamer/native
+   preset command lines and provides file-backed capture/preview commands for
+   deterministic CI and remote-host testing.
    Ethernet SDK clients should talk to a pre-installed board mesh gateway
    daemon on Zynq ARM Linux. That daemon listens on the configured SDK port,
    owns local IIO/admin control and the board-local `swarm0` packet adapter,

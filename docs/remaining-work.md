@@ -245,9 +245,11 @@ Next concrete work:
   verifier byte-compares preview output against input. It now also supports
   `--camera-command` and `--preview-command`, so FFmpeg, GStreamer, or native
   wrapper processes can provide platform capture and preview without changing
-  the pure-C SDK transport ABI. The remaining app work is packaging concrete
-  Windows/Linux/macOS capture command presets, GUI rendering, and continuous
-  stream pacing. The intended live
+  the pure-C SDK transport ABI. The app helper now emits concrete
+  Windows/Linux/macOS FFmpeg, GStreamer, and native-wrapper presets, and the
+  SDK verifier checks the helper through file-backed process pipes. The
+  remaining app work is GUI rendering, platform preset installation UX, and
+  continuous stream pacing. The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->
   FieldMesh RF -> peer board -> Host B preview. Host A and Host B may be the
