@@ -4005,6 +4005,24 @@ reported program opcode `0x02`, yet Linux MTD also reproduces the same stuck
 remaining suspect the program transfer, flash status/config, or the flash
 hardware itself. Full QSPI FIT repair remains blocked.
 
+The follow-up Z203/Z103 cross-board comparison was read-only:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_qspi_cross_board_status_20260515-065813 \
+  ./tools/diagnose_fieldmesh_qspi_cross_board_status.sh
+```
+
+Result: passed without rebooting or writing flash. Both boards were reachable:
+Z203 at `192.168.1.10` with hostname `fm-z203`, and Z103 at `192.168.3.1`
+with hostname `z103-endpoint`. Linux reports the same Winbond `w25q256`
+32 MiB SPI NOR, read opcode `0x6b`, program opcode `0x02`, QSPI
+`MODULE_ID=0x01090101`, and the same `failed to read ear reg` boot log on both
+boards. That comparison rules out a Z203-only basic flash identity, Linux
+opcode, or controller-ID mismatch. Full Z203 QSPI FIT repair remains blocked;
+the next useful diagnostic is a controlled program-mode/status comparison or a
+guarded scratch write on a known-good board before attempting another Z203 FIT
+write.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

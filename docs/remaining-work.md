@@ -139,7 +139,15 @@ Firmware state:
   reports program opcode `0x02`; both paths reproduce the same stuck bits, so
   this is no longer a missing bank-switch diagnosis. Full FIT repair remains
   blocked until program transfer, flash status/config, or flash hardware is
-  isolated.
+  isolated. A read-only Z203/Z103 cross-board comparison shows both boards
+  identify as Winbond `w25q256` 32 MiB flash through Linux, both use read opcode
+  `0x6b` and program opcode `0x02`, both expose QSPI `MODULE_ID=0x01090101`,
+  and both log `failed to read ear reg`. Therefore the Z203 write failure is
+  not explained by basic Linux flash identity, opcode selection, or controller
+  register identity. The next probe must isolate program transfer/status/config
+  or flash hardware behavior directly, ideally by comparing a guarded scratch
+  write on the healthy Z103 or forcing a controlled non-QPP/non-quad program
+  mode before any Z203 full-FIT write.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

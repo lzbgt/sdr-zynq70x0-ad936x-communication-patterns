@@ -1,0 +1,334 @@
+fieldmesh_linux_qspi_status_begin
+label=z203
+ip=192.168.1.10
+hostname=fm-z203
+uname=Linux fm-z203 6.1.0 #1 SMP PREEMPT Sun May 10 18:17:23 UTC 2026 armv7l GNU/Linux
+cmdline=console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+proc_mtd_begin
+dev:    size   erasesize  name
+mtd0: 00100000 00010000 "qspi-fsbl-uboot"
+mtd1: 00020000 00010000 "qspi-uboot-env"
+mtd2: 000e0000 00010000 "qspi-nvmfs"
+mtd3: 01e00000 00010000 "qspi-linux"
+proc_mtd_end
+proc_iomem_begin
+00000000-3fffffff : System RAM
+  00008000-00afffff : Kernel code
+  00c00000-00ccc46f : Kernel data
+43c10000-43c1ffff : 43c10000.dma dma@43c10000
+43c20000-43c2ffff : 43c20000.dma dma@43c20000
+79020000-79025fff : 79020000.cf-ad9361-lpc cf-ad9361-lpc@79020000
+7c400000-7c40ffff : 7c400000.dma dma@7c400000
+7c420000-7c42ffff : 7c420000.dma dma@7c420000
+e0001000-e0001fff : xuartps
+e0002000-e0002fff : usb@e0002000
+  e0002000-e0002fff : ci_hdrc.0 usb@e0002000
+e0006000-e0006fff : e0006000.spi spi@e0006000
+e000a000-e000afff : e000a000.gpio gpio@e000a000
+e000b000-e000bfff : e000b000.ethernet ethernet@e000b000
+e000d000-e000dfff : e000d000.spi spi@e000d000
+e0100000-e0100fff : e0100000.mmc mmc@e0100000
+f8003000-f8003fff : dma-controller@f8003000
+f8005000-f8005fff : f8005000.watchdog watchdog@f8005000
+f8007000-f80070ff : f8007000.devcfg devcfg@f8007000
+f8007100-f800711f : f8007100.adc adc@f8007100
+f8801000-f8801fff : etb@f8801000
+f8803000-f8803fff : tpiu@f8803000
+f8804000-f8804fff : funnel@f8804000
+f889c000-f889cfff : ptm@f889c000
+f889d000-f889dfff : ptm@f889d000
+fffc0000-fffcffff : fffc0000.sram sram@fffc0000
+proc_iomem_end
+qspi_sysfs_begin
+path=/sys/bus/spi/devices/spi0.0
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/bus/spi/devices/spi0.0 -> ../../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0
+modalias=spi:spi-nor
+driver_override=
+path=/sys/class/mtd/mtd0
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd0 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd0
+name=qspi-fsbl-uboot
+size=1048576
+erasesize=65536
+flags=0xc00
+path=/sys/class/mtd/mtd1
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd1 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd1
+name=qspi-uboot-env
+size=131072
+erasesize=65536
+flags=0xc00
+path=/sys/class/mtd/mtd2
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd2 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd2
+name=qspi-nvmfs
+size=917504
+erasesize=65536
+flags=0xc00
+path=/sys/class/mtd/mtd3
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd3 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd3
+name=qspi-linux
+size=31457280
+erasesize=65536
+flags=0xc00
+path=/sys/devices/soc0/axi/e000d000.spi
+drwxr-xr-x    4 root     root             0 Jan  1  1970 .
+drwxr-xr-x   28 root     root             0 Jan  1  1970 ..
+lrwxrwxrwx    1 root     root             0 Mar  9 12:41 driver -> ../../../../bus/platform/drivers/zynq-qspi
+-rw-r--r--    1 root     root          4096 Mar  9 12:41 driver_override
+-r--r--r--    1 root     root          4096 Mar  9 12:41 modalias
+lrwxrwxrwx    1 root     root             0 Mar  9 12:41 of_node -> ../../../../firmware/devicetree/base/axi/spi@e000d000
+drwxr-xr-x    2 root     root             0 Mar  9 12:41 power
+drwxr-xr-x    3 root     root             0 Jan  1  1970 spi_master
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 subsystem -> ../../../../bus/platform
+-rw-r--r--    1 root     root          4096 Jan  1  1970 uevent
+modalias=of:NspiT(null)Cxlnx,zynq-qspi-1.0
+driver_override=(null)
+qspi_sysfs_end
+spi_nor_debugfs_begin
+file=/sys/kernel/debug/spi-nor/spi0.0/capabilities
+Supported read modes by the flash
+ 1S-1S-1S
+  opcode	0x03
+  mode cycles	0
+  dummy cycles	0
+ 1S-1S-2S
+  opcode	0x3b
+  mode cycles	0
+  dummy cycles	8
+ 1S-1S-4S
+  opcode	0x6b
+  mode cycles	0
+  dummy cycles	8
+
+Supported page program modes by the flash
+ 1S-1S-1S
+  opcode	0x02
+file=/sys/kernel/debug/spi-nor/spi0.0/params
+name		w25q256
+id		ef 40 19
+size		32.0 MiB
+write size	1
+page size	256
+address nbytes	3
+flags		HAS_16BIT_SR
+
+opcodes
+ read		0x6b
+  dummy cycles	8
+ erase		0xd8
+ program	0x02
+ 8D extension	none
+
+protocols
+ read		1S-1S-4S
+ write		1S-1S-1S
+ register	1S-1S-1S
+
+erase commands
+ 20 (4.00 KiB) [0]
+ d8 (64.0 KiB) [1]
+ c7 (32.0 MiB)
+
+sector map
+ region (in hex)   | erase mask | flags
+ ------------------+------------+----------
+ 00000000-01ffffff |     [01  ] |
+spi_nor_debugfs_end
+clk_debugfs_begin
+clk=spi0
+clk_rate=166666665
+clk_flags=CLK_SET_RATE_PARENT
+clk_enable_count=0
+clk_prepare_count=0
+clk_parent=spi0_div
+clk=spi0_aper
+clk_rate=111111110
+clk_flags=clk_enable_count=0
+clk_prepare_count=0
+clk_parent=cpu_1x
+clk=spi0_div
+clk_rate=166666665
+clk_flags=clk_enable_count=0
+clk_prepare_count=0
+clk_parent=spi0_mux
+clk=spi0_mux
+clk_rate=999999990
+clk_flags=CLK_SET_RATE_NO_REPARENT
+clk_enable_count=0
+clk_prepare_count=0
+clk_parent=iopll
+clk=lqspi
+clk_rate=199999998
+clk_flags=CLK_SET_RATE_PARENT
+clk_enable_count=2
+clk_prepare_count=1
+clk_parent=lqspi_div
+clk=lqspi_aper
+clk_rate=111111110
+clk_flags=clk_enable_count=2
+clk_prepare_count=1
+clk_parent=cpu_1x
+clk=lqspi_div
+clk_rate=199999998
+clk_flags=clk_enable_count=1
+clk_prepare_count=1
+clk_parent=lqspi_mux
+clk=lqspi_mux
+clk_rate=999999990
+clk_flags=CLK_SET_RATE_NO_REPARENT
+clk_enable_count=1
+clk_prepare_count=1
+clk_parent=iopll
+clk_debugfs_end
+dmesg_qspi_begin
+Mount-cache hash table entries: 2048 (order: 1, 8192 bytes, linear)
+Mountpoint-cache hash table entries: 2048 (order: 1, 8192 bytes, linear)
+futex hash table entries: 512 (order: 3, 32768 bytes, linear)
+printk: bootconsole [earlycon0] disabled
+IP idents hash table entries: 16384 (order: 5, 131072 bytes, linear)
+tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+TCP established hash table entries: 8192 (order: 3, 32768 bytes, linear)
+TCP bind hash table entries: 8192 (order: 5, 131072 bytes, linear)
+UDP hash table entries: 512 (order: 2, 16384 bytes, linear)
+UDP-Lite hash table entries: 512 (order: 2, 16384 bytes, linear)
+SPI driver spidev has no spi_device_id for adi,swspi
+spi-nor spi0.0: failed to read ear reg
+spi-nor spi0.0: w25q256 (32768 Kbytes)
+4 fixed-partitions partitions found on MTD device spi0.0
+Creating 4 MTD partitions on "spi0.0":
+0x000000000000-0x000000100000 : "qspi-fsbl-uboot"
+0x000000100000-0x000000120000 : "qspi-uboot-env"
+0x000000120000-0x000000200000 : "qspi-nvmfs"
+0x000000200000-0x000002000000 : "qspi-linux"
+ad9361 spi1.0: ad9361_probe : enter (ad9361)
+ad9361 spi1.0: ad9361_probe : AD936x Rev 0 successfully initialized
+jffs2: Empty flash at 0x00020504 ends at 0x00020508
+jffs2: Empty flash at 0x00020ba8 ends at 0x00020bac
+jffs2: Empty flash at 0x0002100c ends at 0x00021010
+jffs2: Empty flash at 0x00027c7c ends at 0x00027c80
+jffs2: Empty flash at 0x00027c84 ends at 0x00027c88
+jffs2: Empty flash at 0x00027dc4 ends at 0x00027dc8
+jffs2: Empty flash at 0x000280ec ends at 0x000280f0
+jffs2: Empty flash at 0x00028140 ends at 0x00028144
+jffs2: Empty flash at 0x0002da7c ends at 0x0002da80
+jffs2: Empty flash at 0x0002db38 ends at 0x0002db3c
+jffs2: Empty flash at 0x0002dccc ends at 0x0002dcd0
+jffs2: Empty flash at 0x0002e244 ends at 0x0002e248
+jffs2: Empty flash at 0x0002e5cc ends at 0x0002e5d0
+jffs2: Empty flash at 0x000310a4 ends at 0x000310a8
+jffs2: Empty flash at 0x00031238 ends at 0x0003123c
+jffs2: Empty flash at 0x00031590 ends at 0x00031594
+jffs2: Empty flash at 0x00031b24 ends at 0x00031b28
+jffs2: Empty flash at 0x0003b0f8 ends at 0x0003b0fc
+jffs2: Empty flash at 0x0003b1fc ends at 0x0003b200
+jffs2: Empty flash at 0x0003b390 ends at 0x0003b394
+jffs2: Empty flash at 0x0003b9b4 ends at 0x0003b9b8
+jffs2: Empty flash at 0x0003bcb0 ends at 0x0003bcb4
+jffs2: Empty flash at 0x0003e6e0 ends at 0x0003e6e4
+jffs2: Empty flash at 0x0003ea2c ends at 0x0003ea30
+jffs2: Empty flash at 0x0003eb9c ends at 0x0003eba0
+jffs2: Empty flash at 0x00042168 ends at 0x0004216c
+jffs2: Empty flash at 0x000422fc ends at 0x00042300
+jffs2: Empty flash at 0x00042490 ends at 0x00042494
+jffs2: Empty flash at 0x00042c5c ends at 0x00042c60
+jffs2: Empty flash at 0x00042df0 ends at 0x00042df4
+jffs2: Empty flash at 0x00045e2c ends at 0x00045e30
+jffs2: Empty flash at 0x0004626c ends at 0x00046270
+jffs2: Empty flash at 0x00049c70 ends at 0x00049c74
+jffs2: Empty flash at 0x00049ca4 ends at 0x00049ca8
+jffs2: Empty flash at 0x0004cba8 ends at 0x0004cbac
+jffs2: Empty flash at 0x0004cd3c ends at 0x0004cd40
+jffs2: Empty flash at 0x0004d59c ends at 0x0004d5a0
+jffs2: Empty flash at 0x0004d738 ends at 0x0004d73c
+jffs2: Empty flash at 0x0004d79c ends at 0x0004d7a0
+jffs2: Empty flash at 0x0004d7b4 ends at 0x0004d7b8
+jffs2: Empty flash at 0x0004d7d8 ends at 0x0004d7e0
+jffs2: Empty flash at 0x00053684 ends at 0x00053688
+jffs2: Empty flash at 0x00053b8c ends at 0x00053b90
+jffs2: Empty flash at 0x00053e5c ends at 0x00053e60
+jffs2: Empty flash at 0x00054184 ends at 0x00054188
+jffs2: Empty flash at 0x00056e70 ends at 0x00056e74
+jffs2: Empty flash at 0x00056f4c ends at 0x00056f50
+jffs2: Empty flash at 0x0005d344 ends at 0x0005d348
+jffs2: Empty flash at 0x0005d378 ends at 0x0005d37c
+jffs2: Empty flash at 0x0005d4d8 ends at 0x0005d4dc
+jffs2: Empty flash at 0x0005d50c ends at 0x0005d510
+jffs2: Empty flash at 0x0005db2c ends at 0x0005db30
+jffs2: Empty flash at 0x0006433c ends at 0x00064340
+jffs2: Empty flash at 0x00064434 ends at 0x00064438
+jffs2: Empty flash at 0x000644d0 ends at 0x000644d4
+jffs2: Empty flash at 0x000645c8 ends at 0x000645cc
+jffs2: Empty flash at 0x00064c1c ends at 0x00064c20
+jffs2: Empty flash at 0x00064ccc ends at 0x00064cd0
+jffs2: Empty flash at 0x00064db0 ends at 0x00064db4
+jffs2: Empty flash at 0x000650d8 ends at 0x000650dc
+jffs2: Empty flash at 0x00067be8 ends at 0x00067bec
+jffs2: Empty flash at 0x00067f10 ends at 0x00067f14
+jffs2: Empty flash at 0x000683d0 ends at 0x000683d4
+jffs2: Empty flash at 0x000683e4 ends at 0x000683e8
+jffs2: Empty flash at 0x000683f0 ends at 0x000683f4
+jffs2: Empty flash at 0x00068490 ends at 0x00068494
+jffs2: Empty flash at 0x00068564 ends at 0x00068568
+jffs2: Empty flash at 0x0006888c ends at 0x00068890
+jffs2: Empty flash at 0x000728cc ends at 0x000728d0
+jffs2: Empty flash at 0x0008e51c ends at 0x0008e520
+jffs2: Empty flash at 0x00095534 ends at 0x00095538
+jffs2: Empty flash at 0x000956c8 ends at 0x000956cc
+jffs2: Empty flash at 0x00098e80 ends at 0x00098e84
+jffs2: Empty flash at 0x00099014 ends at 0x00099018
+jffs2: Empty flash at 0x0009902c ends at 0x00099030
+jffs2: Empty flash at 0x000990a8 ends at 0x000990ac
+jffs2: Empty flash at 0x000991a8 ends at 0x000991ac
+jffs2: Empty flash at 0x00099244 ends at 0x00099248
+jffs2: Empty flash at 0x0009c5cc ends at 0x0009c5d0
+jffs2: Empty flash at 0x0009c748 ends at 0x0009c74c
+jffs2: Empty flash at 0x0009c750 ends at 0x0009c754
+jffs2: Empty flash at 0x0009c8dc ends at 0x0009c8e0
+jffs2: Empty flash at 0x0009c8e4 ends at 0x0009c8e8
+jffs2: Empty flash at 0x0009c8ec ends at 0x0009c8f0
+jffs2: Empty flash at 0x0009ca70 ends at 0x0009ca74
+jffs2: Empty flash at 0x0009ca84 ends at 0x0009ca8c
+jffs2: Empty flash at 0x0009cf1c ends at 0x0009cf20
+jffs2: Empty flash at 0x0009d3d8 ends at 0x0009d3dc
+jffs2: Empty flash at 0x000a6e80 ends at 0x000a6e84
+jffs2: Empty flash at 0x000a703c ends at 0x000a7040
+jffs2: Empty flash at 0x000a71a8 ends at 0x000a71ac
+jffs2: Empty flash at 0x000b0c18 ends at 0x000b0c1c
+jffs2: Empty flash at 0x000c120c ends at 0x000c1210
+jffs2: Empty flash at 0x000c13a0 ends at 0x000c13a4
+jffs2: Empty flash at 0x000c1494 ends at 0x000c1498
+jffs2: Empty flash at 0x000c1534 ends at 0x000c1538
+jffs2: Empty flash at 0x000c1544 ends at 0x000c1548
+jffs2: Empty flash at 0x000c1b88 ends at 0x000c1b8c
+jffs2: Empty flash at 0x000c78a0 ends at 0x000c78a4
+jffs2: Empty flash at 0x000c78c0 ends at 0x000c78c4
+jffs2: Empty flash at 0x000c7a34 ends at 0x000c7a38
+jffs2: Empty flash at 0x000c7f74 ends at 0x000c7f78
+jffs2: Empty flash at 0x000c8214 ends at 0x000c8218
+jffs2: Empty flash at 0x000cae9c ends at 0x000caea0
+jffs2: Empty flash at 0x000cb030 ends at 0x000cb034
+jffs2: Empty flash at 0x000cb998 ends at 0x000cb99c
+jffs2: Empty flash at 0x000cb9e0 ends at 0x000cb9e4
+jffs2: Empty flash at 0x000cbcc0 ends at 0x000cbcc4
+jffs2: Empty flash at 0x000cbd08 ends at 0x000cbd0c
+jffs2: Empty flash at 0x000cea58 ends at 0x000cea5c
+jffs2: Empty flash at 0x000cea78 ends at 0x000cea7c
+jffs2: Empty flash at 0x000cf0a0 ends at 0x000cf0a4
+jffs2: Empty flash at 0x000cf40c ends at 0x000cf410
+jffs2: Empty flash at 0x000cf414 ends at 0x000cf418
+jffs2: Empty flash at 0x000d2b00 ends at 0x000d2b04
+jffs2: Empty flash at 0x000d2e28 ends at 0x000d2e2c
+dmesg_qspi_end
+qspi_registers_begin
+reg.CONFIG 0xe000d000=0x800a7cc9
+reg.INT_STATUS 0xe000d004=0x00000004
+reg.INT_MASK 0xe000d010=0x00000000
+reg.ENABLE 0xe000d014=0x00000001
+reg.DELAY 0xe000d018=0x00000000
+reg.TX_THRESH 0xe000d028=0x00000001
+reg.RX_THRESH 0xe000d02c=0x00000020
+reg.GPIO 0xe000d030=0x00000001
+reg.LQSPI_CFG 0xe000d0a0=0x0000016b
+reg.LQSPI_STS 0xe000d0a4=0x00000000
+reg.MODULE_ID 0xe000d0fc=0x01090101
+qspi_registers_end
+fieldmesh_linux_qspi_status_end

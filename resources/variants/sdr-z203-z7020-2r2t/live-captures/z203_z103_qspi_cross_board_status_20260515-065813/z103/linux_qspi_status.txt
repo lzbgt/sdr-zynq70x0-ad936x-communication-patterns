@@ -1,0 +1,246 @@
+fieldmesh_linux_qspi_status_begin
+label=z103
+ip=192.168.3.1
+hostname=z103-endpoint
+uname=Linux z103-endpoint 6.1.0 #1 SMP PREEMPT Tue May 12 16:46:30 UTC 2026 armv7l GNU/Linux
+cmdline=console=ttyPS0,115200 maxcpus=1 rootfstype=ramfs root=/dev/ram0 rw quiet loglevel=4 clk_ignore_unused uboot=U-Boot PlutoSDR (Dec 17 2025 - 20:50:07 -0800)
+proc_mtd_begin
+dev:    size   erasesize  name
+mtd0: 00100000 00010000 "qspi-fsbl-uboot"
+mtd1: 00020000 00010000 "qspi-uboot-env"
+mtd2: 000e0000 00010000 "qspi-nvmfs"
+mtd3: 01e00000 00010000 "qspi-linux"
+proc_mtd_end
+proc_iomem_begin
+00000000-1fffffff : System RAM
+  00008000-00afffff : Kernel code
+  00c00000-00cc846f : Kernel data
+43c10000-43c1ffff : 43c10000.dma dma@43c10000
+43c20000-43c2ffff : 43c20000.dma dma@43c20000
+79020000-79025fff : 79020000.cf-ad9361-lpc cf-ad9361-lpc@79020000
+7c400000-7c40ffff : 7c400000.dma dma@7c400000
+7c420000-7c42ffff : 7c420000.dma dma@7c420000
+e0001000-e0001fff : xuartps
+e0002000-e0002fff : usb@e0002000
+  e0002000-e0002fff : ci_hdrc.0 usb@e0002000
+e0006000-e0006fff : e0006000.spi spi@e0006000
+e000a000-e000afff : e000a000.gpio gpio@e000a000
+e000d000-e000dfff : e000d000.spi spi@e000d000
+f8003000-f8003fff : dma-controller@f8003000
+f8005000-f8005fff : f8005000.watchdog watchdog@f8005000
+f8007000-f80070ff : f8007000.devcfg devcfg@f8007000
+f8007100-f800711f : f8007100.adc adc@f8007100
+f8801000-f8801fff : etb@f8801000
+f8803000-f8803fff : tpiu@f8803000
+f8804000-f8804fff : funnel@f8804000
+f889c000-f889cfff : ptm@f889c000
+f889d000-f889dfff : ptm@f889d000
+fffc0000-fffcffff : fffc0000.sram sram@fffc0000
+proc_iomem_end
+qspi_sysfs_begin
+path=/sys/bus/spi/devices/spi0.0
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/bus/spi/devices/spi0.0 -> ../../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0
+modalias=spi:spi-nor
+driver_override=
+path=/sys/class/mtd/mtd0
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd0 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd0
+name=qspi-fsbl-uboot
+size=1048576
+erasesize=65536
+flags=0xc00
+path=/sys/class/mtd/mtd1
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd1 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd1
+name=qspi-uboot-env
+size=131072
+erasesize=65536
+flags=0xc00
+path=/sys/class/mtd/mtd2
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd2 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd2
+name=qspi-nvmfs
+size=917504
+erasesize=65536
+flags=0xc00
+path=/sys/class/mtd/mtd3
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 /sys/class/mtd/mtd3 -> ../../devices/soc0/axi/e000d000.spi/spi_master/spi0/spi0.0/mtd/mtd3
+name=qspi-linux
+size=31457280
+erasesize=65536
+flags=0xc00
+path=/sys/devices/soc0/axi/e000d000.spi
+drwxr-xr-x    4 root     root             0 Jan  1  1970 .
+drwxr-xr-x   28 root     root             0 Jan  1  1970 ..
+lrwxrwxrwx    1 root     root             0 Mar  9 15:08 driver -> ../../../../bus/platform/drivers/zynq-qspi
+-rw-r--r--    1 root     root          4096 Mar  9 15:08 driver_override
+-r--r--r--    1 root     root          4096 Mar  9 15:08 modalias
+lrwxrwxrwx    1 root     root             0 Mar  9 15:08 of_node -> ../../../../firmware/devicetree/base/axi/spi@e000d000
+drwxr-xr-x    2 root     root             0 Mar  9 15:08 power
+drwxr-xr-x    3 root     root             0 Jan  1  1970 spi_master
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 subsystem -> ../../../../bus/platform
+-rw-r--r--    1 root     root          4096 Jan  1  1970 uevent
+modalias=of:NspiT(null)Cxlnx,zynq-qspi-1.0
+driver_override=(null)
+qspi_sysfs_end
+spi_nor_debugfs_begin
+file=/sys/kernel/debug/spi-nor/spi0.0/capabilities
+Supported read modes by the flash
+ 1S-1S-1S
+  opcode	0x03
+  mode cycles	0
+  dummy cycles	0
+ 1S-1S-2S
+  opcode	0x3b
+  mode cycles	0
+  dummy cycles	8
+ 1S-1S-4S
+  opcode	0x6b
+  mode cycles	0
+  dummy cycles	8
+
+Supported page program modes by the flash
+ 1S-1S-1S
+  opcode	0x02
+file=/sys/kernel/debug/spi-nor/spi0.0/params
+name		w25q256
+id		ef 40 19
+size		32.0 MiB
+write size	1
+page size	256
+address nbytes	3
+flags		HAS_16BIT_SR
+
+opcodes
+ read		0x6b
+  dummy cycles	8
+ erase		0xd8
+ program	0x02
+ 8D extension	none
+
+protocols
+ read		1S-1S-4S
+ write		1S-1S-1S
+ register	1S-1S-1S
+
+erase commands
+ 20 (4.00 KiB) [0]
+ d8 (64.0 KiB) [1]
+ c7 (32.0 MiB)
+
+sector map
+ region (in hex)   | erase mask | flags
+ ------------------+------------+----------
+ 00000000-01ffffff |     [01  ] |
+spi_nor_debugfs_end
+clk_debugfs_begin
+clk=spi0
+clk_rate=166666665
+clk_flags=CLK_SET_RATE_PARENT
+clk_enable_count=0
+clk_prepare_count=0
+clk_parent=spi0_div
+clk=spi0_aper
+clk_rate=111111110
+clk_flags=clk_enable_count=0
+clk_prepare_count=0
+clk_parent=cpu_1x
+clk=spi0_div
+clk_rate=166666665
+clk_flags=clk_enable_count=0
+clk_prepare_count=0
+clk_parent=spi0_mux
+clk=spi0_mux
+clk_rate=999999990
+clk_flags=CLK_SET_RATE_NO_REPARENT
+clk_enable_count=0
+clk_prepare_count=0
+clk_parent=iopll
+clk=lqspi
+clk_rate=199999998
+clk_flags=CLK_SET_RATE_PARENT
+clk_enable_count=2
+clk_prepare_count=1
+clk_parent=lqspi_div
+clk=lqspi_aper
+clk_rate=111111110
+clk_flags=clk_enable_count=2
+clk_prepare_count=1
+clk_parent=cpu_1x
+clk=lqspi_div
+clk_rate=199999998
+clk_flags=clk_enable_count=1
+clk_prepare_count=1
+clk_parent=lqspi_mux
+clk=lqspi_mux
+clk_rate=999999990
+clk_flags=CLK_SET_RATE_NO_REPARENT
+clk_enable_count=1
+clk_prepare_count=1
+clk_parent=iopll
+clk_debugfs_end
+dmesg_qspi_begin
+Early memory node ranges
+Dentry cache hash table entries: 65536 (order: 6, 262144 bytes, linear)
+Inode-cache hash table entries: 32768 (order: 5, 131072 bytes, linear)
+L2C-310 enabling early BRESP for Cortex-A9
+Mount-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes, linear)
+futex hash table entries: 512 (order: 3, 32768 bytes, linear)
+IP idents hash table entries: 8192 (order: 4, 65536 bytes, linear)
+tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+TCP established hash table entries: 4096 (order: 2, 16384 bytes, linear)
+TCP bind hash table entries: 4096 (order: 4, 65536 bytes, linear)
+UDP hash table entries: 256 (order: 1, 8192 bytes, linear)
+UDP-Lite hash table entries: 256 (order: 1, 8192 bytes, linear)
+SPI driver spidev has no spi_device_id for adi,swspi
+spi-nor spi0.0: failed to read ear reg
+spi-nor spi0.0: w25q256 (32768 Kbytes)
+4 fixed-partitions partitions found on MTD device spi0.0
+Creating 4 MTD partitions on "spi0.0":
+0x000000000000-0x000000100000 : "qspi-fsbl-uboot"
+0x000000100000-0x000000120000 : "qspi-uboot-env"
+0x000000120000-0x000000200000 : "qspi-nvmfs"
+0x000000200000-0x000002000000 : "qspi-linux"
+ad9361 spi1.0: ad9361_probe : enter (ad9361)
+ad9361 spi1.0: ad9361_probe : AD936x Rev 0 successfully initialized
+jffs2: Empty flash at 0x00020630 ends at 0x00021000
+jffs2: Empty flash at 0x00021954 ends at 0x00022000
+jffs2: Empty flash at 0x0002d44c ends at 0x0002d450
+jffs2: Empty flash at 0x00060528 ends at 0x00061000
+jffs2: Empty flash at 0x00061914 ends at 0x00062000
+jffs2: Empty flash at 0x000a11c4 ends at 0x000a11c8
+jffs2: Empty flash at 0x000a1a88 ends at 0x000a2000
+jffs2: Empty flash at 0x000a2350 ends at 0x000a2354
+jffs2: Empty flash at 0x000a25e0 ends at 0x000a25e4
+jffs2: Empty flash at 0x000a2a08 ends at 0x000a2a0c
+jffs2: Empty flash at 0x000a2fdc ends at 0x000a2fe0
+jffs2: Empty flash at 0x000a3460 ends at 0x000a3464
+jffs2: Empty flash at 0x000a35bc ends at 0x000a35c0
+jffs2: Empty flash at 0x000a374c ends at 0x000a3750
+jffs2: Empty flash at 0x000a3cb4 ends at 0x000a3cb8
+jffs2: Empty flash at 0x000a5c7c ends at 0x000a5c80
+jffs2: Empty flash at 0x000a65a0 ends at 0x000a65a4
+jffs2: Empty flash at 0x000a6cf8 ends at 0x000a6cfc
+jffs2: Empty flash at 0x000a6f00 ends at 0x000a6f04
+jffs2: Empty flash at 0x000a8340 ends at 0x000a8344
+jffs2: Empty flash at 0x000a8f98 ends at 0x000a8f9c
+jffs2: Empty flash at 0x000a963c ends at 0x000a9640
+jffs2: Empty flash at 0x000aaa3c ends at 0x000aaa40
+jffs2: Empty flash at 0x000ab78c ends at 0x000ab790
+jffs2: Empty flash at 0x000abbe8 ends at 0x000abbec
+jffs2: Empty flash at 0x000afc1c ends at 0x000afc20
+jffs2: Empty flash at 0x000b065c ends at 0x000b0660
+dmesg_qspi_end
+qspi_registers_begin
+reg.CONFIG 0xe000d000=0x800a7cc9
+reg.INT_STATUS 0xe000d004=0x00000004
+reg.INT_MASK 0xe000d010=0x00000000
+reg.ENABLE 0xe000d014=0x00000001
+reg.DELAY 0xe000d018=0x00000000
+reg.TX_THRESH 0xe000d028=0x00000001
+reg.RX_THRESH 0xe000d02c=0x00000020
+reg.GPIO 0xe000d030=0x00000001
+reg.LQSPI_CFG 0xe000d0a0=0x0000016b
+reg.LQSPI_STS 0xe000d0a4=0x00000000
+reg.MODULE_ID 0xe000d0fc=0x01090101
+qspi_registers_end
+fieldmesh_linux_qspi_status_end

@@ -1,0 +1,1 @@
+resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_qspi_cross_board_status_20260515-065813/devmem_read32.arm: ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=ffc8e19392d18fa6f1229fdb6204f261cbdf71fc, for GNU/Linux 5.15.0, with debug_info, not stripped
