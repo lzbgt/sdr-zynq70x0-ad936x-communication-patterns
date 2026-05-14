@@ -74,9 +74,14 @@ Firmware state:
   product `fm-z203` FIT, captures SPI/MTD/U-Boot-env evidence, and reports
   `safe_z203_install_mode`. The connected-board installer now uses QSPI in
   auto mode only when that integrity gate passes; otherwise it falls back to
-  the proven SD/initramfs path when the SD partition is visible. Do not mark
-  QSPI install repaired until `mtd3` readback, U-Boot environment access, and
-  U-Boot `qspiboot` all verify. The latest live integrity capture shows the
+  the proven SD/initramfs path when the SD partition is visible. The normal
+  connected-board installer no longer has a damaged-QSPI override; deliberate
+  Z203 QSPI repair must use dedicated scratch-probe/repair helpers, not product
+  install. It also resolves and refuses a forced Z203 QSPI mode before starting
+  parallel board updates, so a Z203 refusal cannot accidentally reflash Z103.
+  Do not mark QSPI install repaired until `mtd3` readback, U-Boot environment
+  access, and U-Boot `qspiboot` all verify. The latest live integrity capture
+  shows the
   local FIT magic `d00dfeed`, live QSPI magic `d44dfeed`, and a dominant
   unexpected one-bit mask of `0x44` across the first 4 KiB. That makes this a
   QSPI erase/write/readback integrity issue, not only a stale `fit_size`

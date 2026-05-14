@@ -3711,9 +3711,27 @@ QSPI is still not a trusted install target:
 `tools/install_fieldmesh_connected_boards.sh` now uses this integrity gate in
 Z203 auto mode. It selects QSPI only when readback and U-Boot-env checks pass;
 otherwise it selects the proven SD/initramfs path when the SD partition is
-visible. Explicit QSPI writes are refused after a failed integrity precheck
-unless `ALLOW_Z203_DAMAGED_QSPI_WRITE=1` is set for a deliberate repair
-attempt.
+visible. Explicit QSPI writes are refused from the normal installer after a
+failed integrity precheck. Deliberate Z203 QSPI repair must use dedicated
+scratch-probe/repair helpers, not product install.
+
+After the Z103 healthy-board scratch comparison, the connected-board installer
+was tightened again so Z203 mode resolution happens before any parallel board
+install starts. This command must refuse Z203 QSPI and must not create a
+`z103_install.log`:
+
+```sh
+APPLY=1 ALLOW_FLASH_WRITES=1 Z203_INSTALL_MODE=qspi \
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_qspi_normal_installer_refusal_20260515-071147 \
+  ./tools/install_fieldmesh_connected_boards.sh
+```
+
+Result: passed as a refusal. The capture contains the Z203 QSPI integrity
+precheck and no Z103 install log, proving the product installer no longer
+starts unrelated board writes when forced Z203 QSPI is blocked. Z103 was also
+checked after the earlier installer ordering bug exposed an unintended Z103
+update, and its installed daemon gate still passed under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_post_installer_refusal_regression_gate_20260515-071051/`.
 
 ### Z203 QSPI Tail Write And U-Boot Repair Probe
 

@@ -1,0 +1,1 @@
+{"event":"fieldmesh_connected_board_install_plan","z203_ip":"192.168.1.10","z103_ip":"192.168.3.1","port":55441,"apply":1,"allow_flash_writes":1,"reboot_after":1,"z203_install_mode":"qspi","z203_damaged_qspi_override_supported":false}

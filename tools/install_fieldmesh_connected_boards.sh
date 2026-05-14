@@ -137,13 +137,10 @@ install_z203_sd() {
 install_z203_qspi() {
     local prechecked="${1:-0}"
     if [ "$prechecked" != "1" ] && ! z203_qspi_integrity_pass; then
-        if [ "${ALLOW_Z203_DAMAGED_QSPI_WRITE:-0}" != "1" ]; then
-            echo "Z203 QSPI integrity precheck failed; refusing QSPI flash." >&2
-            echo "Use Z203_INSTALL_MODE=sd for the current proven path, or set" >&2
-            echo "ALLOW_Z203_DAMAGED_QSPI_WRITE=1 only for a deliberate QSPI repair attempt." >&2
-            return 1
-        fi
-        echo "Warning: overriding failed Z203 QSPI integrity precheck." >&2
+        echo "Z203 QSPI integrity precheck failed; refusing normal QSPI install." >&2
+        echo "Use Z203_INSTALL_MODE=sd for the current proven path." >&2
+        echo "QSPI repair must use dedicated scratch-probe/repair helpers, not the normal installer." >&2
+        return 1
     fi
     APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER="$reboot_after" \
         OUT_DIR="$out_dir/z203" BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
@@ -151,7 +148,7 @@ install_z203_qspi() {
 }
 
 cat > "$out_dir/plan.json" <<EOF_PLAN
-{"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode"}
+{"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode","z203_damaged_qspi_override_supported":false}
 EOF_PLAN
 cat "$out_dir/plan.json"
 
@@ -161,30 +158,59 @@ if [ "$apply" != "1" ] || [ "$allow_flash" != "1" ]; then
     exit 0
 fi
 
+z203_resolved_install_mode=""
+z203_qspi_prechecked=0
+case "$z203_install_mode" in
+    sd)
+        z203_resolved_install_mode="sd"
+        ;;
+    qspi)
+        if z203_qspi_integrity_pass; then
+            z203_resolved_install_mode="qspi"
+            z203_qspi_prechecked=1
+        else
+            echo "Z203 QSPI integrity precheck failed; refusing normal QSPI install before starting any board update." >&2
+            echo "Use Z203_INSTALL_MODE=sd for the current proven path." >&2
+            echo "QSPI repair must use dedicated scratch-probe/repair helpers, not the normal installer." >&2
+            exit 1
+        fi
+        ;;
+    auto)
+        if z203_qspi_integrity_pass; then
+            echo "Z203 QSPI integrity precheck passed; auto install uses QSPI." >&2
+            z203_resolved_install_mode="qspi"
+            z203_qspi_prechecked=1
+        elif z203_has_sd_partition; then
+            echo "Z203 QSPI integrity precheck failed; auto install uses SD." >&2
+            echo "The post-install daemon HELLO still verifies the running runtime." >&2
+            z203_resolved_install_mode="sd"
+        else
+            echo "Z203 QSPI integrity precheck failed and no SD partition is visible." >&2
+            echo "Repair QSPI with dedicated scratch-probe/repair helpers before using normal installs." >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Invalid Z203_INSTALL_MODE=$z203_install_mode; expected auto, sd, or qspi" >&2
+        exit 2
+        ;;
+esac
+
+cat > "$out_dir/resolved_plan.json" <<EOF_RESOLVED
+{"event":"fieldmesh_connected_board_install_resolved_plan","z203_requested_install_mode":"$z203_install_mode","z203_resolved_install_mode":"$z203_resolved_install_mode","z203_qspi_prechecked":$z203_qspi_prechecked,"starts_parallel_installs_after_resolution":true}
+EOF_RESOLVED
+cat "$out_dir/resolved_plan.json"
+
 (
-    case "$z203_install_mode" in
+    case "$z203_resolved_install_mode" in
         sd)
             install_z203_sd
             ;;
         qspi)
-            install_z203_qspi
-            ;;
-        auto)
-            if z203_qspi_integrity_pass; then
-                echo "Z203 QSPI integrity precheck passed; auto install uses QSPI." >&2
-                install_z203_qspi 1
-            elif z203_has_sd_partition; then
-                echo "Z203 QSPI integrity precheck failed; auto install uses SD." >&2
-                echo "The post-install daemon HELLO still verifies the running runtime." >&2
-                install_z203_sd
-            else
-                echo "Z203 QSPI integrity precheck failed and no SD partition is visible." >&2
-                echo "Set Z203_INSTALL_MODE=qspi ALLOW_Z203_DAMAGED_QSPI_WRITE=1 only for a deliberate repair attempt." >&2
-                exit 1
-            fi
+            install_z203_qspi "$z203_qspi_prechecked"
             ;;
         *)
-            echo "Invalid Z203_INSTALL_MODE=$z203_install_mode; expected auto, sd, or qspi" >&2
+            echo "Invalid resolved Z203 install mode: $z203_resolved_install_mode" >&2
             exit 2
             ;;
     esac
