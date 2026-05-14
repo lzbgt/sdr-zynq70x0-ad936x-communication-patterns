@@ -29,7 +29,12 @@ FieldMesh targets the gap:
 > vehicles, and field instruments that need video/data without depending on
 > Wi-Fi or cellular infrastructure.
 
-The differentiator is not only range. It is:
+FieldMesh is not positioned as generally better than Wi-Fi. Wi-Fi should win
+when the customer mainly needs commodity devices and peak indoor Mbps.
+FieldMesh should win only when the customer values deterministic private radio
+behavior: explicit traffic classes, direct/relay policy, planned degradation,
+topology/range awareness, and SDK control over the link. The differentiator is
+not only range. It is:
 
 - high bandwidth,
 - predictable latency,

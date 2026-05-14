@@ -5,6 +5,36 @@ vocabulary for the FieldMesh SDK, daemon, and golden IM app. It is a planning
 and integration document, not a regulatory claim or final measured RF
 datasheet.
 
+## Product Position Versus Wi-Fi
+
+FieldMesh should not be presented as "faster Wi-Fi." Commodity Wi-Fi is better
+for indoor peak throughput, mature MIMO/OFDM silicon, low-cost clients, laptop
+and phone compatibility, and hundreds of Mbps to Gbps when signal conditions
+are good.
+
+FieldMesh is justified when the customer needs a different operating model:
+
+| Scenario | Commodity Wi-Fi | FieldMesh target |
+| --- | --- | --- |
+| Peak indoor Mbps | Usually much better | Not the main claim |
+| Commodity device ecosystem | Excellent | Requires FieldMesh SDK/app/board |
+| Deterministic control/video priority | Best-effort unless heavily engineered | Core traffic-class design |
+| Direct P2P, AP relay, scheduled graph policy | Limited and implementation-specific | Core routing/control-plane feature |
+| Long-range private directional link | Possible but awkward and regulatory-dependent | First-class planning target |
+| Graceful video degradation under poor links | Depends on application stack | Built into stream admission and adaptation |
+| GNSS/PPS/TDOA topology and range | Not native | Core topology/RTLS feature |
+| Customer payload/API integration | Usually above Wi-Fi, not in the link model | SDK/daemon product surface |
+
+The honest product claim is:
+
+> FieldMesh is a controlled private broadband radio system for messaging,
+> live video, telemetry, relay, and topology-aware operation where deterministic
+> behavior matters more than peak Mbps.
+
+The customer capacity table below therefore answers "which deterministic
+control/video plan can this board support?" rather than "is this faster than a
+Wi-Fi router?"
+
 ## Board Matrix
 
 | Board | Zynq | RFIC/topology | Current lab management path | Product role preference |
