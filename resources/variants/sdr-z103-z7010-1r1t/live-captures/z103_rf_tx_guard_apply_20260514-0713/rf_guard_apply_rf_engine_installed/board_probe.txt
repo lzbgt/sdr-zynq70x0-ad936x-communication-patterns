@@ -1,0 +1,3 @@
+Linux z103-endpoint 6.1.0 #1 SMP PREEMPT Tue May 12 15:31:10 UTC 2026 armv7l GNU/Linux
+/usr/bin/fieldmesh-udp-probe
+rf_guard_apply=present

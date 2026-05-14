@@ -2368,6 +2368,29 @@ that script on the board shell, and confirming `sets_tx_enable=0`,
 `sets_tx_armed=0`, `writes_hardware=0`, and `starts_rf_tx=0`. Evidence is
 archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
+The RF-engine overlay package was then generated separately with
+`./tools/package_fieldmesh_rf_engine_pluto_frm.sh z103` and installed on Z103
+with:
+
+```sh
+FRM=.config/fieldmesh/rf-engine-runtime-package-z103/fit-work/build/pluto.frm \
+  APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+  ./tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.3.1
+```
+
+After the board returned at `192.168.3.1`, this passed against the installed
+runtime:
+
+```sh
+VARIANT=z103 APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1 FORCE_UPLOAD=0 \
+  ./tools/run_fieldmesh_board_rf_tx_guard_apply.sh 192.168.3.1
+```
+
+The run captured a green sidecar preflight, scanned the RF guard window, wrote
+only the guard control/slot registers, reported
+`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolled the guard
+window back. Evidence is archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_tx_guard_apply_20260514-0713/`.
 The same daemon smoke now also queries guarded `FIELDMESH_TUN_DEV_PUMP` without
 the live allow token and verifies it reports `/dev/net/tun`, required
 `swarm0`/`CAP_NET_ADMIN`, no descriptor open, no TUN attach, no packet read, no

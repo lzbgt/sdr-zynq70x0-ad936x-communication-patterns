@@ -1,0 +1,14 @@
+{
+  "applied": true,
+  "board_ip": "192.168.3.1",
+  "event": "fieldmesh_board_rf_tx_guard_apply_assert",
+  "ok": true,
+  "preflight_ok": true,
+  "rolled_back": true,
+  "scan_after_ok": true,
+  "scan_before_ok": true,
+  "sets_ad936x_tx_enable": false,
+  "starts_rf_tx": false,
+  "variant": "z103",
+  "writes_guard_registers": true
+}

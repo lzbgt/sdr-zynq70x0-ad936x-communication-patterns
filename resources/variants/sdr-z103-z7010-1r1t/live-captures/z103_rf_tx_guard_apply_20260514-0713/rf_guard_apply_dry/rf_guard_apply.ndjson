@@ -1,0 +1,1 @@
+{"event":"rf_guard_apply_skipped","ok":true,"reason":"set APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1 to write and roll back the guard registers","writes_guard_registers":false,"sets_ad936x_tx_enable":false,"starts_rf_tx":false}

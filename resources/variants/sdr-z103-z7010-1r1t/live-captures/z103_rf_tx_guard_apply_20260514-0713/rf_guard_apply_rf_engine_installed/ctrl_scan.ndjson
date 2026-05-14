@@ -1,0 +1,7 @@
+{"event":"ctrl_scan_start","transport":"ctrl-scan","path":"/dev/mem","base":"0x43c00000","size":"0x00010000","opens_write":false,"file_backed":false}
+{"event":"ctrl_reg","transport":"ctrl-scan","name":"id","offset":"0x00","read_ok":true,"value":"0x464d1001"}
+{"event":"ctrl_reg","transport":"ctrl-scan","name":"control","offset":"0x04","read_ok":true,"value":"0x00000000"}
+{"event":"ctrl_reg","transport":"ctrl-scan","name":"status","offset":"0x08","read_ok":true,"value":"0x00000000"}
+{"event":"ctrl_reg","transport":"ctrl-scan","name":"irq_status","offset":"0x0c","read_ok":true,"value":"0x00000000"}
+{"event":"ctrl_reg","transport":"ctrl-scan","name":"irq_mask","offset":"0x10","read_ok":true,"value":"0x00000000"}
+{"event":"ctrl_scan_end","transport":"ctrl-scan","ok":true,"id_ok":true,"id":"0x464d1001"}

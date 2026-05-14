@@ -506,6 +506,11 @@ user and vendor configuration.
   `rf-guard-apply` requires all safety declarations plus
   `--allow-live-writes`, arms only the guard registers, never enables AD936x
   TX, and rolls the guard window back.
+- `tools/run_fieldmesh_board_rf_tx_guard_apply.sh` - live board runner for the
+  same RF TX guard register path. It captures sidecar preflight, scans the
+  guard registers, optionally applies and rolls back the guard window only with
+  `APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1`, and asserts AD936x TX/RF TX remain
+  disabled.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,
@@ -703,6 +708,10 @@ user and vendor configuration.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the timing-clean FieldMesh DMA overlay bitstream.
+- `tools/package_fieldmesh_rf_engine_pluto_frm.sh` - packages the
+  non-transmitting RF-engine overlay bitstream into a separate FieldMesh
+  Pluto-style payload under `.config/fieldmesh/rf-engine-runtime-package-*`,
+  leaving the default DMA runtime package untouched.
 - `tools/run_fieldmesh_jtag_yocto_ram.sh` - prepares a non-flashing FieldMesh
   RAM-boot payload for Z203 or Z103 from the Yocto kernel/rootfs, matching
   sidecar DTB, and timing-clean FieldMesh bitstream, then delegates to the

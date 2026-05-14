@@ -1,0 +1,5 @@
+{"event":"rf_guard_apply_start","transport":"rf-guard-apply","path":"/dev/mem","base":"0x43c00000","slot_epoch":12,"slot_index":3,"arm_window_us":5000,"writes_registers":true,"starts_rf_tx":false,"uses_iio":false,"uses_inter_board_ip_routing":false,"file_backed":false}
+{"event":"rf_guard_apply_write","transport":"rf-guard-apply","control":"0x00000007","current_epoch":12,"current_slot":3,"tx_epoch":12,"tx_slot":3,"sets_guard_tx_enable":true,"sets_guard_tx_armed":true,"sets_ad936x_tx_enable":false,"starts_rf_tx":false}
+{"event":"rf_guard_apply_status","transport":"rf-guard-apply","status":"0x00000007"}
+{"event":"rf_guard_apply_rollback","transport":"rf-guard-apply","ok":true,"control":"0x00000000","current_epoch":0,"current_slot":0,"tx_epoch":0,"tx_slot":0}
+{"event":"rf_guard_apply_end","transport":"rf-guard-apply","ok":true,"id":"0x464d1001","wrote_registers":true,"rolled_back":true,"starts_rf_tx":false,"error":null}

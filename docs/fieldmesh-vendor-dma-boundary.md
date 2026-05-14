@@ -464,6 +464,25 @@ declarations. When allowed, it maps only the FieldMesh control window, programs
 enable and RF TX start remain false, and rolls the guard registers back before
 exit.
 
+The matching RF-engine runtime package is intentionally separate from the
+default sidecar-DMA package:
+
+```sh
+./tools/package_fieldmesh_rf_engine_pluto_frm.sh z103
+FRM=.config/fieldmesh/rf-engine-runtime-package-z103/fit-work/build/pluto.frm \
+  APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+  ./tools/install_fieldmesh_pluto_frm_over_ssh.sh z103 192.168.3.1
+
+VARIANT=z103 APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1 \
+  ./tools/run_fieldmesh_board_rf_tx_guard_apply.sh 192.168.3.1
+```
+
+The live runner captures sidecar preflight, scans the RF guard registers,
+applies the guard window only under the explicit write flags, and rolls the
+window back before exit. It is still not an RF transmit path: it does not
+connect the guarded IQ stream to AD936x TX, does not set AD936x TX enable, and
+does not start RF TX.
+
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:
 

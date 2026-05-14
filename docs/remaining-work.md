@@ -356,6 +356,10 @@ Next concrete work:
   read-only `ctrl-scan`, and both rootfs tarballs contain the updated
   `fieldmesh-udp-probe`, including `rf-guard-scan` and guarded
   `rf-guard-apply` for the RF TX guard control window.
+  `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
+  non-transmitting RF-engine package separate from the default DMA package, and
+  Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard
+  write/rollback gate on the installed RF-engine runtime.
   `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,
   package artifacts, JTAG RAM-boot hashes, and package-vs-RAM-boot DTB parity
   before a live boot attempt. The sidecar

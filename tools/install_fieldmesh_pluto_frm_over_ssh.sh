@@ -13,12 +13,12 @@ out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/frm-install-$variant-$(date +%Y
 
 case "$variant" in
   z203)
-    frm="$repo_root/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.frm"
+    frm="${FRM:-$repo_root/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.frm}"
     expected_mode="2r2t"
     expected_hint="z203\\|z7020\\|2r2t"
     ;;
   z103)
-    frm="$repo_root/.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm"
+    frm="${FRM:-$repo_root/.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm}"
     expected_mode="1r1t"
     expected_hint="z103\\|z7010\\|ad9363\\|1r1t"
     ;;
