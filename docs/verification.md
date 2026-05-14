@@ -3750,9 +3750,23 @@ installed daemon gate again, and a post-attempt QSPI integrity capture still
 reports `safe_z203_install_mode=sd`.
 
 `tools/run_z203_uboot_qspi_repair.sh` now emits fixed hex FIT/write lengths and
-fixed 4 KiB-aligned erase lengths. Before another full repair write, run a
-small U-Boot tail-sector write/readback probe so full-FIT repair is not the
-first test of the U-Boot write path.
+fixed 4 KiB-aligned erase lengths. A smaller U-Boot tail-sector write/readback
+probe was then added and run before retrying full-FIT repair:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_tail_write_20260515-052209 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_TAIL_TEST=1 \
+BOARD_IP=192.168.1.10 \
+  ./tools/test_z203_uboot_qspi_tail_write.sh 192.168.1.10
+```
+
+Result: failed. U-Boot `sf erase` and `sf write` reported success on absolute
+QSPI offset `0x1d90000`, but immediate `sf read` plus `cmp.b` failed at byte
+zero: expected `0x00`, read `0x44`. The Linux post-read of the same `mtd3`
+tail sector also showed 49,152 mismatches and dominant unexpected mask `0x44`.
+That means the Z203 QSPI repair blocker is below the Linux MTD path and also
+affects U-Boot `sf`; full QSPI FIT repair remains blocked until the raw
+controller/flash access issue is isolated.
 
 ## FieldMesh RTLS Positioning Gate
 
