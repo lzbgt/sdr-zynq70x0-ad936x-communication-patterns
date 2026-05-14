@@ -65,6 +65,11 @@ in `src/fieldmesh_sdk.c`:
   It is intentionally message-oriented: C++/Rust apps build the protocol
   request, the pure-C SDK owns timeout/error handling, and the board daemon
   remains the only local owner of RF/device state.
+- `fieldmesh_discover_daemons()` is the host-facing runtime discovery API used
+  by the ImGui app connection setup page. It probes candidate daemon endpoints,
+  parses `FIELDMESH_HELLO`, and returns runtime device EUI, hostname, device
+  type, endpoint, and advertised capability flags. Test profiles remain CI
+  fixtures; normal apps should discover present boards through this SDK path.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over

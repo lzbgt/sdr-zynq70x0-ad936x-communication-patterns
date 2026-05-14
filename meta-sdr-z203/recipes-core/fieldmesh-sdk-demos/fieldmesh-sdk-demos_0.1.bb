@@ -16,6 +16,7 @@ SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_tun_gateway_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_tun_packetizer_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_two_pc_flow_demo.c;subdir=fieldmesh-sdk/examples \
+    file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-state-daemon/fieldmesh-state-daemon-init;subdir=fieldmesh-sdk/init \
 "
 
 S = "${WORKDIR}/fieldmesh-sdk"
@@ -72,7 +73,7 @@ do_compile() {
 }
 
 do_install() {
-    install -d ${D}${bindir}
+    install -d ${D}${bindir} ${D}${sysconfdir}/init.d ${D}${sysconfdir}/rcS.d
     install -m 0755 ${B}/fieldmesh-camera-stream-demo ${D}${bindir}/fieldmesh-camera-stream-demo
     install -m 0755 ${B}/fieldmesh-device-iio-demo ${D}${bindir}/fieldmesh-device-iio-demo
     install -m 0755 ${B}/fieldmeshctl ${D}${bindir}/fieldmeshctl
@@ -81,4 +82,6 @@ do_install() {
     install -m 0755 ${B}/fieldmesh-tun-gateway-demo ${D}${bindir}/fieldmesh-tun-gateway-demo
     install -m 0755 ${B}/fieldmesh-tun-packetizer-demo ${D}${bindir}/fieldmesh-tun-packetizer-demo
     install -m 0755 ${B}/fieldmesh-two-pc-flow-demo ${D}${bindir}/fieldmesh-two-pc-flow-demo
+    install -m 0755 ${S}/init${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-state-daemon/fieldmesh-state-daemon-init ${D}${sysconfdir}/init.d/S55fieldmesh-state-daemon
+    ln -sf ../init.d/S55fieldmesh-state-daemon ${D}${sysconfdir}/rcS.d/S55fieldmesh-state-daemon
 }

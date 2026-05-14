@@ -24,6 +24,9 @@ if [ -d "$repo_root/yocto" ]; then
     fi
 fi
 
+su -s /usr/bin/bash "$builder_user" -c \
+    "git config --global --add safe.directory '$repo_root' >/dev/null 2>&1 || true"
+
 if [ "$#" -eq 0 ]; then
     set -- bitbake -p
 fi

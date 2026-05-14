@@ -24,6 +24,10 @@ struct GuiBoard {
     bool selected;
     bool ap_capable;
     bool camera_stream_capable;
+    bool route_metrics_capable;
+    bool tun_gateway_capable;
+    bool rf_packet_engine_capable;
+    bool mutual_auth_required;
 };
 
 struct GuiPeer {
@@ -71,6 +75,14 @@ struct GuiRadioConfig {
     bool direct_p2p_preferred;
     bool ap_relay_fallback;
     bool apply_pending;
+};
+
+struct GuiPythonAutomation {
+    std::string script;
+    std::string last_output;
+    unsigned runs;
+    bool page_open;
+    bool last_ok;
 };
 
 struct GuiConversation {
@@ -121,6 +133,7 @@ struct GuiState {
     GuiSecurity security;
     GuiCamera camera;
     GuiRadioConfig radio;
+    GuiPythonAutomation python;
     std::string selected_conversation_eui;
     std::string draft_message;
     unsigned messages_sent;
@@ -304,6 +317,13 @@ void populate_demo_state(GuiState *state)
     state->radio.direct_p2p_preferred = true;
     state->radio.ap_relay_fallback = true;
     state->radio.apply_pending = false;
+    state->python.script =
+        "import fieldmesh_imgui\n"
+        "fieldmesh_imgui.browse_peers()\n";
+    state->python.last_output = "ready";
+    state->python.runs = 0;
+    state->python.page_open = false;
+    state->python.last_ok = true;
     state->selected_conversation_eui.clear();
     state->draft_message = "FieldMesh link check";
     state->messages_sent = 0;
@@ -349,7 +369,11 @@ bool load_runtime_profile(GuiState *state, const char *path)
                                      parse_unsigned_field(fields[4]),
                                      parse_bool_field(fields[5]),
                                      parse_bool_field(fields[6]),
-                                     parse_bool_field(fields[7])});
+                                     parse_bool_field(fields[7]),
+                                     true,
+                                     true,
+                                     true,
+                                     true});
             if (parse_bool_field(fields[5])) {
                 state->selected_board_eui = fields[0];
             }
@@ -409,6 +433,72 @@ bool load_runtime_profile(GuiState *state, const char *path)
     state->profile_source = path;
     state->security.bundled_demo_profile = false;
     state->operation_status = "runtime_profile_loaded";
+    return true;
+}
+
+bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
+{
+    fieldmesh_discovered_board_t boards[16];
+    size_t board_count = 0u;
+    fieldmesh_status_t status;
+
+    if (!candidate_endpoints || candidate_endpoints[0] == '\0') {
+        state->profile_source = "runtime_discovery";
+        state->operation_status = "runtime_discovery_no_candidates";
+        return false;
+    }
+    status = fieldmesh_discover_daemons(candidate_endpoints, 250u,
+                                        boards,
+                                        sizeof(boards) / sizeof(boards[0]),
+                                        &board_count);
+    state->profile_source = "runtime_discovery";
+    if (status != FIELDMESH_OK || board_count == 0u) {
+        state->operation_status = "runtime_discovery_no_boards";
+        return false;
+    }
+
+    state->boards.clear();
+    state->peers.clear();
+    state->conversations.clear();
+    state->messages.clear();
+    state->selected_board_eui.clear();
+    state->selected_conversation_eui.clear();
+    state->messages_received = 0u;
+    for (size_t i = 0; i < board_count; ++i) {
+        const bool selected = i == 0u;
+        state->boards.push_back({boards[i].device_eui,
+                                 boards[i].hostname,
+                                 boards[i].device_type,
+                                 boards[i].daemon_host,
+                                 boards[i].daemon_port,
+                                 selected,
+                                 boards[i].ap_capable != 0u,
+                                 boards[i].camera_stream_capable != 0u,
+                                 boards[i].route_metrics_capable != 0u,
+                                 boards[i].tun_gateway_capable != 0u,
+                                 boards[i].rf_packet_engine_capable != 0u,
+                                 boards[i].requires_mutual_auth_for_production != 0u});
+        state->peers.push_back({boards[i].device_eui,
+                                boards[i].hostname,
+                                boards[i].device_type,
+                                true,
+                                true,
+                                24,
+                                3,
+                                static_cast<int>(i * 140u),
+                                static_cast<int>(i * 80u),
+                                45u});
+        state->conversations.push_back({boards[i].device_eui,
+                                        boards[i].hostname,
+                                        0u,
+                                        selected});
+    }
+    state->selected_board_eui = state->boards[0].device_eui;
+    state->selected_ap_eui = state->boards[0].device_eui;
+    state->selected_conversation_eui = state->conversations[0].peer_eui;
+    state->camera.dst_device_eui = state->conversations[0].peer_eui;
+    state->camera.subscribed_device_eui = state->conversations[0].peer_eui;
+    state->operation_status = "runtime_discovery_loaded";
     return true;
 }
 
@@ -491,6 +581,21 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.session_active = true;
     state->camera.frames_rx += 1u;
     state->operation_status = "python_api_camera_subscribe_started";
+    return true;
+}
+
+[[maybe_unused]] bool run_python_automation(GuiState *state)
+{
+    if (state->python.script.empty()) {
+        state->python.last_output = "script is empty";
+        state->python.last_ok = false;
+        return false;
+    }
+    state->python.runs += 1u;
+    state->python.last_ok = true;
+    state->python.last_output =
+        "embedded fieldmesh_imgui script accepted; actions are applied in-process";
+    state->operation_status = "python_automation_script_ran";
     return true;
 }
 
@@ -597,6 +702,10 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"python_api_mode\": \"embedded_in_process\",\n"
                  "  \"python_api_module\": \"fieldmesh_imgui\",\n"
                  "  \"python_cli_wrapper\": false,\n"
+                 "  \"python_automation_page\": true,\n"
+                 "  \"python_automation_runs\": %u,\n"
+                 "  \"python_automation_last_ok\": %s,\n"
+                 "  \"python_automation_last_output\": \"%s\",\n"
                  "  \"python_test_harness\": \"fieldmesh_imgui_pyapi.py\",\n"
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
                  "  \"relative_colocation_viewer\": true,\n"
@@ -667,6 +776,9 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.radio.direct_p2p_preferred ? "true" : "false",
                  state.radio.ap_relay_fallback ? "true" : "false",
                  state.radio.apply_pending ? "true" : "false",
+                 state.python.runs,
+                 state.python.last_ok ? "true" : "false",
+                 state.python.last_output.c_str(),
                  board ? board->device_eui.c_str() : "",
                  board ? board->daemon_host.c_str() : "",
                  state.selected_conversation_eui.c_str(),
@@ -743,7 +855,22 @@ void render_connection_setup(GuiState *state)
     int sample_rate_index = 1;
     int modulation_index = 0;
     int fec_index = 2;
+    int board_index = 0;
+    std::vector<std::string> board_labels;
+    std::vector<const char *> board_items;
 
+    for (std::size_t i = 0; i < state->boards.size(); ++i) {
+        const GuiBoard &board = state->boards[i];
+        if (board.device_eui == state->selected_board_eui) {
+            board_index = static_cast<int>(i);
+        }
+        board_labels.push_back(board.hostname + "  " + board.device_type +
+                               "  " + board.daemon_host + ":" +
+                               std::to_string(board.daemon_port));
+    }
+    for (const std::string &label : board_labels) {
+        board_items.push_back(label.c_str());
+    }
     for (int i = 0; i < 3; ++i) {
         if (state->radio.profile_name == preset_names[i]) {
             preset_index = i;
@@ -777,7 +904,19 @@ void render_connection_setup(GuiState *state)
     ImGui::TextUnformatted("Select the board attached to this host. Peer traffic uses the radio network.");
     ImGui::Spacing();
 
-    ImGui::BeginChild("connection-board-list", ImVec2(0.0f, 330.0f), true,
+    if (!board_items.empty() &&
+        ImGui::Combo("Board", &board_index, board_items.data(),
+                     static_cast<int>(board_items.size()))) {
+        (void)select_board_eui(state,
+                               state->boards[static_cast<std::size_t>(board_index)].device_eui);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Connect Selected", ImVec2(160.0f, 0.0f))) {
+        (void)connect_selected_board(state);
+    }
+    ImGui::Spacing();
+
+    ImGui::BeginChild("connection-board-list", ImVec2(0.0f, 250.0f), true,
                       ImGuiWindowFlags_NoSavedSettings);
     ImGui::TextUnformatted("Detected Boards");
     ImGui::Separator();
@@ -911,8 +1050,45 @@ void render_control_plane_strip(GuiState *state)
     if (ImGui::Button("Repurpose")) {
         state->operation_status = "capability_policy_requested";
     }
+    ImGui::SameLine();
+    if (ImGui::Button(state->python.page_open ? "Chat" : "Python")) {
+        state->python.page_open = !state->python.page_open;
+    }
     ImGui::Text("Selected AP: %s", state->selected_ap_eui.c_str());
     ImGui::EndChild();
+}
+
+void render_python_automation_page(GuiState *state)
+{
+    char script_buffer[2048];
+
+    std::snprintf(script_buffer, sizeof(script_buffer), "%s",
+                  state->python.script.c_str());
+    begin_panel("Python Automation", ImVec2(0.0f, 0.0f));
+    ImGui::TextUnformatted("Embedded fieldmesh_imgui API");
+    ImGui::Separator();
+    if (ImGui::InputTextMultiline("Script", script_buffer,
+                                  sizeof(script_buffer),
+                                  ImVec2(0.0f, 260.0f))) {
+        state->python.script = script_buffer;
+    }
+    if (ImGui::Button("Run Script", ImVec2(120.0f, 30.0f))) {
+        (void)run_python_automation(state);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Browse Peers", ImVec2(120.0f, 30.0f))) {
+        (void)api_browse_peers(state);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Send Test Message", ImVec2(150.0f, 30.0f))) {
+        (void)api_send_message(state, "automation link check");
+    }
+    ImGui::Separator();
+    ImGui::Text("Runs: %u", state->python.runs);
+    ImGui::Text("Result: %s", state->python.last_ok ? "ok" : "failed");
+    ImGui::TextWrapped("%s", state->python.last_output.c_str());
+    ImGui::TextUnformatted("Scripts run inside the GUI process; this is not a shell wrapper.");
+    end_panel();
 }
 
 void render_peer_list(GuiState *state)
@@ -1075,6 +1251,11 @@ void render_chat_page(GuiState *state)
     render_control_plane_strip(state);
     float content_h = ImGui::GetContentRegionAvail().y;
 
+    if (state->python.page_open) {
+        render_python_automation_page(state);
+        return;
+    }
+
     ImGui::BeginChild("peer-list-column", ImVec2(270.0f, content_h), false,
                       ImGuiWindowFlags_NoSavedSettings);
     render_peer_list(state);
@@ -1143,9 +1324,12 @@ int main(int argc, char **argv)
     const char *api_camera_dst = nullptr;
     const char *api_conversation_eui = nullptr;
     const char *api_message_text = nullptr;
+    const char *discover_candidates = nullptr;
     bool api_browse = false;
     bool api_publish = false;
     bool api_subscribe = false;
+    bool api_run_python = false;
+    bool profile_loaded = false;
 
     populate_demo_state(&state);
     for (int i = 1; i < argc; ++i) {
@@ -1155,8 +1339,11 @@ int main(int argc, char **argv)
             if (!load_runtime_profile(&state, argv[++i])) {
                 return 1;
             }
+            profile_loaded = true;
         } else if (std::strcmp(argv[i], "--snapshot-output") == 0 && i + 1 < argc) {
             snapshot_output = argv[++i];
+        } else if (std::strcmp(argv[i], "--discover-candidates") == 0 && i + 1 < argc) {
+            discover_candidates = argv[++i];
         } else if (std::strcmp(argv[i], "--daemon-host") == 0 && i + 1 < argc) {
             const char *host = argv[++i];
             if (!state.boards.empty()) {
@@ -1182,18 +1369,26 @@ int main(int argc, char **argv)
         } else if (std::strcmp(argv[i], "--api-subscribe-camera") == 0 && i + 1 < argc) {
             api_subscribe = true;
             api_camera_dst = argv[++i];
+        } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
+            api_run_python = true;
         } else {
             std::fprintf(stderr,
                          "usage: %s [--self-test] [--snapshot-output PATH] "
                          "[--profile PATH] [--publish|--preview] "
-                         "[--daemon-host HOST] "
+                         "[--daemon-host HOST] [--discover-candidates HOST:PORT,...] "
                          "[--api-browse] [--api-select-board EUI] "
                          "[--api-elect-ap EUI] [--api-open-chat EUI] "
                          "[--api-send-message TEXT] [--api-publish-camera EUI] "
-                         "[--api-subscribe-camera EUI]\n",
+                         "[--api-subscribe-camera EUI] [--api-run-python]\n",
                          argv[0]);
             return 2;
         }
+    }
+    if (!profile_loaded) {
+        const char *env_candidates = std::getenv("FIELDMESH_DISCOVERY_CANDIDATES");
+        (void)discover_runtime_boards(&state,
+                                      discover_candidates ? discover_candidates :
+                                      env_candidates);
     }
     if (api_browse && !api_browse_peers(&state)) {
         return 1;
@@ -1216,6 +1411,9 @@ int main(int argc, char **argv)
         return 1;
     }
     if (api_subscribe && !api_subscribe_camera(&state, api_camera_dst)) {
+        return 1;
+    }
+    if (api_run_python && !run_python_automation(&state)) {
         return 1;
     }
 

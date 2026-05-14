@@ -8,6 +8,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -40,6 +41,8 @@ void apply_action_args(GuiState *state, int argc, char **argv)
             (void)api_publish_camera(state, argv[++i]);
         } else if (std::strcmp(argv[i], "--api-subscribe-camera") == 0 && i + 1 < argc) {
             (void)api_subscribe_camera(state, argv[++i]);
+        } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
+            (void)run_python_automation(state);
         } else if (std::strcmp(argv[i], "--publish") == 0) {
             state->camera.publish_enabled = true;
         } else if (std::strcmp(argv[i], "--preview") == 0) {
@@ -55,8 +58,10 @@ int main(int argc, char **argv)
     GuiState state;
     const char *profile = nullptr;
     const char *snapshot_output = nullptr;
+    const char *discover_candidates = nullptr;
     const char *instance = "FieldMesh IM";
     bool smoke_frame = false;
+    bool profile_loaded = false;
 
     populate_demo_state(&state);
     for (int i = 1; i < argc; ++i) {
@@ -64,6 +69,8 @@ int main(int argc, char **argv)
             profile = argv[++i];
         } else if (std::strcmp(argv[i], "--snapshot-output") == 0 && i + 1 < argc) {
             snapshot_output = argv[++i];
+        } else if (std::strcmp(argv[i], "--discover-candidates") == 0 && i + 1 < argc) {
+            discover_candidates = argv[++i];
         } else if (std::strcmp(argv[i], "--instance") == 0 && i + 1 < argc) {
             instance = argv[++i];
         } else if (std::strcmp(argv[i], "--smoke-frame") == 0) {
@@ -78,6 +85,13 @@ int main(int argc, char **argv)
     }
     if (profile && !load_runtime_profile(&state, profile)) {
         return 1;
+    }
+    profile_loaded = profile != nullptr;
+    if (!profile_loaded) {
+        const char *env_candidates = std::getenv("FIELDMESH_DISCOVERY_CANDIDATES");
+        (void)discover_runtime_boards(&state,
+                                      discover_candidates ? discover_candidates :
+                                      env_candidates);
     }
     apply_action_args(&state, argc, argv);
 #ifdef FIELDMESH_WITH_EMBEDDED_PYTHON

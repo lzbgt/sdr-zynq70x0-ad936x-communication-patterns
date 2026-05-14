@@ -109,6 +109,7 @@ check: $(HEADLESS_APP)
 	mkdir -p "$(OUT_DIR)"
 	python3 -m py_compile \
 		fieldmesh_imgui_check.py \
+		fieldmesh_imgui_discovery_check.py \
 		fieldmesh_imgui_pyapi.py \
 		fieldmesh_imgui_pyapi_check.py
 	"$(HEADLESS_APP)" --self-test \
@@ -120,6 +121,7 @@ check: $(HEADLESS_APP)
 		fieldmesh_imgui_embedded_python.cpp \
 		fieldmesh_imgui_glfw_main.cpp \
 		"$(OUT_DIR)/imgui_control_snapshot.json"
+	./fieldmesh_imgui_discovery_check.py "$(HEADLESS_APP)"
 	PYTHONPATH="$$(pwd)" ./fieldmesh_imgui_pyapi_check.py "$(HEADLESS_APP)" "$(TEST_PROFILE)"
 
 clean:

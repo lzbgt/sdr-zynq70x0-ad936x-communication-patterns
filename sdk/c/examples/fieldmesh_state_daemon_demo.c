@@ -233,6 +233,87 @@ static int request_device_eui_or_default(const char *request,
     return 1;
 }
 
+static int copy_env_text(const char *name, char *dst, size_t dst_len)
+{
+    const char *value = getenv(name);
+
+    if (!value || !dst || dst_len == 0u || value[0] == '\0' ||
+        strlen(value) >= dst_len) {
+        return 0;
+    }
+    snprintf(dst, dst_len, "%s", value);
+    return 1;
+}
+
+static int read_first_line_file(const char *path, char *dst, size_t dst_len)
+{
+    FILE *input;
+
+    if (!path || !dst || dst_len == 0u) {
+        return 0;
+    }
+    input = fopen(path, "rb");
+    if (!input) {
+        return 0;
+    }
+    if (!fgets(dst, (int)dst_len, input)) {
+        fclose(input);
+        return 0;
+    }
+    fclose(input);
+    dst[strcspn(dst, "\r\n\t ")] = '\0';
+    return dst[0] != '\0';
+}
+
+static void runtime_hostname(char *dst, size_t dst_len)
+{
+    if (!dst || dst_len == 0u) {
+        return;
+    }
+    if (read_first_line_file("/proc/sys/kernel/hostname", dst, dst_len) ||
+        read_first_line_file("/etc/hostname", dst, dst_len)) {
+        return;
+    }
+    snprintf(dst, dst_len, "%s", "fieldmesh-daemon");
+}
+
+static void runtime_device_type(const char *hostname, char *dst, size_t dst_len)
+{
+    if (!dst || dst_len == 0u) {
+        return;
+    }
+    if (copy_env_text("FIELDMESH_DEVICE_TYPE", dst, dst_len)) {
+        return;
+    }
+    if (hostname && strstr(hostname, "z103")) {
+        snprintf(dst, dst_len, "%s", "sdr-z103-z7010-1r1t");
+    } else if (hostname && strstr(hostname, "z203")) {
+        snprintf(dst, dst_len, "%s", "sdr-z203-z7020-2r2t");
+    } else {
+        snprintf(dst, dst_len, "%s", "fieldmesh-board");
+    }
+}
+
+static void runtime_device_eui(const char *hostname, char *dst, size_t dst_len)
+{
+    if (!dst || dst_len == 0u) {
+        return;
+    }
+    if (copy_env_text("FIELDMESH_DEVICE_EUI", dst, dst_len) &&
+        valid_compact_eui(dst)) {
+        return;
+    }
+    if (read_first_line_file("/etc/fieldmesh/device_eui", dst, dst_len) &&
+        valid_compact_eui(dst)) {
+        return;
+    }
+    if (hostname && strstr(hostname, "z103")) {
+        snprintf(dst, dst_len, "%s", "020000000103");
+    } else {
+        snprintf(dst, dst_len, "%s", "020000000203");
+    }
+}
+
 static fieldmesh_status_t read_tun_fd_once(void *user,
                                            void *packet,
                                            size_t packet_capacity,
@@ -531,6 +612,13 @@ static int build_response(fieldmesh_context_t *context,
                           size_t response_len)
 {
     if (strstr(request, "FIELDMESH_HELLO")) {
+        char device_eui[FIELDMESH_ID_TEXT_MAX];
+        char hostname[FIELDMESH_NAME_TEXT_MAX];
+        char device_type[FIELDMESH_NAME_TEXT_MAX];
+
+        runtime_hostname(hostname, sizeof(hostname));
+        runtime_device_eui(hostname, device_eui, sizeof(device_eui));
+        runtime_device_type(hostname, device_type, sizeof(device_type));
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_hello\","
                  "\"ok\":true,"
@@ -539,8 +627,9 @@ static int build_response(fieldmesh_context_t *context,
                  "\"daemon\":\"fieldmesh-state-daemon-demo\","
                  "\"sdk_abi\":\"pure_c\","
                  "\"network_id\":\"fieldmesh-lab\","
-                 "\"device_eui\":\"020000000203\","
-                 "\"hostname\":\"fieldmesh-daemon\","
+                 "\"device_eui\":\"%s\","
+                 "\"hostname\":\"%s\","
+                 "\"device_type\":\"%s\","
                  "\"auth_model\":\"root_ca_derived_certs\","
                  "\"security_state\":\"demo_unprovisioned\","
                  "\"authorization\":\"scoped_operations\","
@@ -554,7 +643,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"uses_iio_data_path\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
                  "\"starts_rf_tx\":0,"
-                 "\"writes_hardware\":0}\n");
+                 "\"writes_hardware\":0}\n",
+                 device_eui,
+                 hostname,
+                 device_type);
         return 0;
     }
     if (strstr(request, "FIELDMESH_STATE_PEERS")) {
@@ -1852,6 +1944,16 @@ static int serve_state(const char *bind_ip,
                                 (struct sockaddr *)&src_addr, &src_len);
 
         if (received <= 0) {
+#ifdef _WIN32
+            int last_error = WSAGetLastError();
+            if (last_error == WSAETIMEDOUT || last_error == WSAEINTR) {
+                continue;
+            }
+#else
+            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+                continue;
+            }
+#endif
             break;
         }
         request[received] = '\0';

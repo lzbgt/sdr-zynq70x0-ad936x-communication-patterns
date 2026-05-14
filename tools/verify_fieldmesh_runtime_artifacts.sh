@@ -82,6 +82,7 @@ verify_variant() {
     device_iio_strings_out="$(mktemp)"
     ctl_strings_out="$(mktemp)"
     daemon_strings_out="$(mktemp)"
+    daemon_init_out="$(mktemp)"
     swarm_adapter_strings_out="$(mktemp)"
     tun_gateway_strings_out="$(mktemp)"
     tun_packetizer_strings_out="$(mktemp)"
@@ -91,12 +92,13 @@ verify_variant() {
     rf_tx_disable_out="$(mktemp)"
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmeshctl | strings > "$ctl_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo | strings > "$daemon_strings_out"
+    tar -xOf "$rootfs_tar" ./etc/init.d/S55fieldmesh-state-daemon | strings > "$daemon_init_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-swarm-adapter-demo | strings > "$swarm_adapter_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-gateway-demo | strings > "$tun_gateway_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
@@ -244,6 +246,12 @@ verify_variant() {
         020000000103; do
         if ! grep -qF "$token" "$daemon_strings_out"; then
             echo "Missing fieldmesh-state-daemon-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" fieldmesh_daemon_port; do
+        if ! grep -qF "$token" "$daemon_init_out"; then
+            echo "Missing FieldMesh daemon init token in $name rootfs: $token" >&2
             exit 1
         fi
     done

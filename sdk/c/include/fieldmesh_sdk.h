@@ -130,6 +130,20 @@ typedef struct fieldmesh_daemon_client_config {
     uint32_t timeout_ms;
 } fieldmesh_daemon_client_config_t;
 
+typedef struct fieldmesh_discovered_board {
+    char device_eui[FIELDMESH_ID_TEXT_MAX];
+    char hostname[FIELDMESH_NAME_TEXT_MAX];
+    char device_type[FIELDMESH_NAME_TEXT_MAX];
+    char daemon_host[FIELDMESH_ADDR_TEXT_MAX];
+    uint16_t daemon_port;
+    uint8_t ap_capable;
+    uint8_t camera_stream_capable;
+    uint8_t route_metrics_capable;
+    uint8_t tun_gateway_capable;
+    uint8_t rf_packet_engine_capable;
+    uint8_t requires_mutual_auth_for_production;
+} fieldmesh_discovered_board_t;
+
 typedef struct fieldmesh_network_profile {
     char device_eui[FIELDMESH_ID_TEXT_MAX];
     char node_id[FIELDMESH_ID_TEXT_MAX];
@@ -835,6 +849,12 @@ fieldmesh_status_t fieldmesh_daemon_request(
     char *response,
     size_t response_capacity,
     size_t *out_response_len);
+fieldmesh_status_t fieldmesh_discover_daemons(
+    const char *candidate_endpoints,
+    uint32_t timeout_ms,
+    fieldmesh_discovered_board_t *out_boards,
+    size_t board_capacity,
+    size_t *out_board_count);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

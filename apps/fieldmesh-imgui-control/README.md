@@ -77,12 +77,12 @@ tools/run_fieldmesh_imgui_wslg.sh --check-bridge
 make -C apps/fieldmesh-imgui-control gui-glfw-python IMGUI_DIR=/path/to/imgui
 
 tools/run_fieldmesh_imgui_wslg.sh --detach \
-    --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
-    --instance fieldmesh-peer-a
+    --instance fieldmesh-peer-a \
+    -- --instance "FieldMesh Peer A"
 
 tools/run_fieldmesh_imgui_wslg.sh --detach \
-    --profile apps/fieldmesh-imgui-control/testdata/golden_lab.profile \
-    --instance fieldmesh-peer-b
+    --instance fieldmesh-peer-b \
+    -- --instance "FieldMesh Peer B"
 ```
 
 The launcher defaults to `.config/fieldmesh/imgui-control-build/fieldmesh-imgui-control-glfw`.
@@ -109,9 +109,39 @@ through a Windows capture process that streams encoded bytes into the app pipe
 or through a supported USB/video-device forwarding path. The Linux app must not
 assume Windows camera or board devices are automatically present inside WSL.
 
-The shell scripts and `testdata/golden_lab.profile` are developer/CI gates, not
-the end-user workflow. Two symmetric instances can be smoke-tested without a
-display during development:
+For normal WSLg developer launch, do not pass the lab profile. The launcher
+exports a runtime discovery candidate list and the app calls the pure-C SDK
+daemon discovery path, so the connection setup page is populated from board
+`FIELDMESH_HELLO` responses and their advertised capability set:
+
+```sh
+IMGUI_DIR=/root/work/ZYNQ7020/.config/third_party/imgui \
+tools/run_fieldmesh_imgui_wslg.sh --detach \
+    --instance fieldmesh-peer-a \
+    -- --instance "FieldMesh Peer A"
+```
+
+`testdata/golden_lab.profile` is a deterministic developer/CI fixture, not the
+normal GUI workflow. It can still be supplied to reproduce tests exactly. Board
+daemons are expected to be installed in the board runtime image and started at
+power-up by `/etc/init.d/S55fieldmesh-state-daemon`; this is independent of
+whether the host is Windows, Linux, or macOS. If a board is reachable but still
+runs stale firmware, install the connected board packages instead of relying on
+temporary staged daemons:
+
+```sh
+APPLY=1 ALLOW_FLASH_WRITES=1 REBOOT_AFTER=1 \
+tools/install_fieldmesh_connected_boards.sh
+```
+
+For the current lab Z203, that installer auto-detects `/dev/mmcblk0p1` and
+updates the SD boot files because the board is booting from SD. Z103 continues
+to use the Pluto-style `.frm` path. The launcher itself does not stage hidden
+daemon binaries by default; it discovers the daemons installed in the board
+runtime.
+
+Two
+symmetric instances can be smoke-tested without a display during development:
 
 ```sh
 ./tools/run_fieldmesh_two_imgui_instances.sh

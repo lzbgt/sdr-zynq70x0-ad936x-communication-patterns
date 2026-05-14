@@ -31,6 +31,9 @@ if ! su -s /usr/bin/bash "$builder_user" -c "test -w '$build_dir'" >/dev/null 2>
     chown -R "$builder_user:root" "$build_dir"
 fi
 
+su -s /usr/bin/bash "$builder_user" -c \
+    "git config --global --add safe.directory '$repo_root' >/dev/null 2>&1 || true"
+
 if [ "$#" -eq 0 ]; then
     set -- bitbake -p
 fi

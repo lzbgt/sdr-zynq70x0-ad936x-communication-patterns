@@ -26,9 +26,13 @@ def main() -> int:
         "connection-board-list",
         "select_board_eui",
         "connect_board_eui",
+        "ImGui::Combo(\"Board\"",
+        "Connect Selected",
         "advanced-radio-options",
         "Advanced Radio",
         "Profile",
+        "discover_runtime_boards",
+        "fieldmesh_discover_daemons",
         "Frequency MHz",
         "Channel",
         "Bandwidth",
@@ -37,6 +41,8 @@ def main() -> int:
         "begin_panel(\"Peers\"",
         "begin_panel(\"Messages\"",
         "begin_panel(\"Conversation\"",
+        "Python Automation",
+        "Run Script",
         "Built-in camera",
         "Accept",
         "Deny",
@@ -174,6 +180,8 @@ def main() -> int:
         raise SystemExit("ImGui app embedded Python module changed")
     if snapshot.get("python_cli_wrapper") is not False:
         raise SystemExit("ImGui app Python API must not be a CLI wrapper")
+    if snapshot.get("python_automation_page") is not True:
+        raise SystemExit("ImGui app must expose an in-app Python automation page")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit("ImGui app topology viewer must be radio topology")
     if snapshot.get("relative_colocation_viewer") is not True:

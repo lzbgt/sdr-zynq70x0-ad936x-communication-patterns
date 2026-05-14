@@ -8,7 +8,7 @@ z103_ip="${Z103_IP:-192.168.3.1}"
 z203_port="${Z203_PORT:-55431}"
 z103_port="${Z103_PORT:-55432}"
 z203_app_port="${Z203_APP_PORT:-55441}"
-z103_app_port="${Z103_APP_PORT:-55442}"
+z103_app_port="${Z103_APP_PORT:-55441}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 timeout_ms="${TIMEOUT_MS:-3000}"
@@ -33,6 +33,7 @@ SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
 
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
   FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
+  USE_INSTALLED_DAEMON=1 \
   VARIANT=z203 PORT="$z203_app_port" TIMEOUT_MS="$timeout_ms" \
   PREFERRED_AP_EUI=020000000103 DST_EUI=020000000203 \
   OUT_DIR="$out_dir/z203_source_app_daemon_client" \
@@ -40,6 +41,7 @@ SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
 
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
   FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
+  USE_INSTALLED_DAEMON=1 \
   VARIANT=z103 PORT="$z103_app_port" TIMEOUT_MS="$timeout_ms" \
   PREFERRED_AP_EUI=020000000103 DST_EUI=020000000203 \
   OUT_DIR="$out_dir/z103_sink_app_daemon_client" \

@@ -13,6 +13,7 @@ requests="${REQUESTS:-5}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
+use_installed_daemon="${USE_INSTALLED_DAEMON:-0}"
 preferred_ap_eui="${PREFERRED_AP_EUI:-020000000103}"
 dst_eui="${DST_EUI:-020000000203}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-app-daemon-client-$(date +%Y%m%d-%H%M%S)}"
@@ -85,14 +86,19 @@ if [ "$force_upload" = "1" ] || ! grep -q "/fieldmesh-state-daemon-demo" "$out_d
     remote_bin="/tmp/fieldmesh-state-daemon-demo"
 fi
 
-printf '%s\n' "$remote_bin serve 0.0.0.0 $port $requests $timeout_ms" > "$out_dir/remote_command.txt"
+if [ "$use_installed_daemon" = "1" ]; then
+    printf '%s\n' "use installed fieldmesh-state-daemon-demo on $board_ip:$port" > "$out_dir/remote_command.txt"
+    remote_pid=""
+else
+    printf '%s\n' "$remote_bin serve 0.0.0.0 $port $requests $timeout_ms" > "$out_dir/remote_command.txt"
 
-sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-    "rm -f '$remote_log'; nohup $remote_bin serve 0.0.0.0 '$port' '$requests' '$timeout_ms' > '$remote_log' 2>&1 & echo \$!" \
-    > "$out_dir/board_daemon.pid"
-remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "rm -f '$remote_log'; nohup $remote_bin serve 0.0.0.0 '$port' '$requests' '$timeout_ms' > '$remote_log' 2>&1 & echo \$!" \
+        > "$out_dir/board_daemon.pid"
+    remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
 
-sleep 0.5
+    sleep 0.5
+fi
 
 set +e
 "$app_bin" \
@@ -112,17 +118,23 @@ set +e
 app_rc=$?
 set -e
 
-for _ in $(seq 1 5); do
-    if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "kill -0 '$remote_pid' 2>/dev/null"; then
-        break
+if [ "$use_installed_daemon" = "1" ]; then
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "cat /tmp/fieldmesh-state-daemon.ndjson 2>/dev/null || true" \
+        > "$out_dir/board_daemon.ndjson"
+else
+    for _ in $(seq 1 5); do
+        if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "kill -0 '$remote_pid' 2>/dev/null"; then
+            break
+        fi
+        sleep 1
+    done
+
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_log" "$out_dir/board_daemon.ndjson" || true
+
+    if sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "kill -0 '$remote_pid' 2>/dev/null"; then
+        sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "kill '$remote_pid' 2>/dev/null || true"
     fi
-    sleep 1
-done
-
-sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_log" "$out_dir/board_daemon.ndjson" || true
-
-if sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "kill -0 '$remote_pid' 2>/dev/null"; then
-    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "kill '$remote_pid' 2>/dev/null || true"
 fi
 
 if [ "$app_rc" -ne 0 ]; then
@@ -131,7 +143,7 @@ if [ "$app_rc" -ne 0 ]; then
     exit "$app_rc"
 fi
 
-python3 - "$out_dir" "$board_ip" "$port" "$preferred_ap_eui" "$dst_eui" <<'PY'
+python3 - "$out_dir" "$board_ip" "$port" "$preferred_ap_eui" "$dst_eui" "$use_installed_daemon" <<'PY'
 import filecmp
 import json
 import sys
@@ -142,6 +154,7 @@ board_ip = sys.argv[2]
 port = int(sys.argv[3])
 preferred_ap_eui = sys.argv[4]
 dst_eui = sys.argv[5]
+use_installed_daemon = sys.argv[6] == "1"
 
 
 def load_rows(path):
@@ -229,10 +242,14 @@ for token in (
 
 daemon_end = [row for row in daemon_rows if row.get("event") == "sdk_daemon_end"]
 daemon_requests = [row for row in daemon_rows if row.get("event") == "sdk_daemon_request"]
-if not daemon_end or daemon_end[-1].get("handled") != 5:
-    raise SystemExit("board daemon did not handle the five app requests")
-if len(daemon_requests) != 5:
-    raise SystemExit("board daemon request count changed")
+if use_installed_daemon:
+    daemon_request_count = len(daemon_requests)
+else:
+    if not daemon_end or daemon_end[-1].get("handled") != 5:
+        raise SystemExit("board daemon did not handle the five app requests")
+    if len(daemon_requests) != 5:
+        raise SystemExit("board daemon request count changed")
+    daemon_request_count = len(daemon_requests)
 
 result = {
     "event": "fieldmesh_board_app_daemon_client",
@@ -248,7 +265,8 @@ result = {
     "frames_rx": summary[-1].get("frames_rx"),
     "rf_queued": summary[-1].get("rf_queued"),
     "preview_matches_input": True,
-    "daemon_requests": len(daemon_requests),
+    "daemon_requests": daemon_request_count,
+    "installed_daemon": use_installed_daemon,
     "uses_inter_board_ip_routing": False,
     "starts_rf_tx": False,
     "writes_hardware": False,

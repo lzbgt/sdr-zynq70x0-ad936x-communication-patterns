@@ -22,6 +22,7 @@ required_paths=(
     /etc/init.d/S24usb-getty
     /etc/init.d/S40network
     /etc/init.d/S45msd
+    /etc/init.d/S55fieldmesh-state-daemon
     /etc/init.d/S98autostart
     /etc/rcS.d/S20pluto-preboot
     /etc/rcS.d/S21misc
@@ -29,6 +30,7 @@ required_paths=(
     /etc/rcS.d/S24usb-getty
     /etc/rcS.d/S40network
     /etc/rcS.d/S45msd
+    /etc/rcS.d/S55fieldmesh-state-daemon
     /etc/rcS.d/S98autostart
     /sbin/update.sh
     /sbin/update_frm.sh
@@ -111,6 +113,8 @@ check_not_contains() {
 }
 
 check_contains /etc/init.d/S40network '/usr/sbin/udhcpd /etc/udhcpd.conf'
+check_contains /etc/init.d/S55fieldmesh-state-daemon 'fieldmesh-state-daemon-demo'
+check_contains /etc/init.d/S55fieldmesh-state-daemon '55441'
 check_contains /sbin/update.sh 'copy_without_trailing_bytes "$FILE"'
 check_contains /sbin/update_frm.sh 'copy_without_trailing_bytes "$FILE"'
 check_not_contains /sbin/update.sh 'head -c -33'

@@ -15,12 +15,12 @@ case "$variant" in
   z203)
     frm="${FRM:-$repo_root/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.frm}"
     expected_mode="2r2t"
-    expected_hint="z203\\|z7020\\|2r2t"
+    expected_hint="z203|z7020|2r2t"
     ;;
   z103)
     frm="${FRM:-$repo_root/.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm}"
     expected_mode="1r1t"
-    expected_hint="z103\\|z7010\\|ad9363\\|1r1t"
+    expected_hint="z103|z7010|ad9363|1r1t"
     ;;
   *)
     echo "usage: $0 <z203|z103> [board-ip]" >&2
@@ -40,6 +40,8 @@ fi
 mkdir -p "$out_dir"
 remote="${ssh_user}@${board_ip}"
 remote_frm="/tmp/fieldmesh-${variant}.frm"
+remote_itb="/tmp/fieldmesh-${variant}.itb"
+itb="${FRM_ITB:-${frm%.frm}.itb}"
 ssh_args=(
   -o StrictHostKeyChecking=no
   -o UserKnownHostsFile=/dev/null
@@ -102,9 +104,33 @@ if [[ "$allow_flash" != "1" ]]; then
 fi
 
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" -O "$frm" "$remote:$remote_frm"
+set +e
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "set -e; sha256sum '$remote_frm' 2>/dev/null || md5sum '$remote_frm'; /sbin/update_frm.sh '$remote_frm'; fw_printenv fit_size mode ipaddr ipaddr_host 2>/dev/null || true; sync" \
   > "$out_dir/update_frm.log"
+update_rc=$?
+set -e
+if [[ "$update_rc" -ne 0 ]] || grep -qE '(^|[[:space:]])Failed([[:space:]]|$)' "$out_dir/update_frm.log"; then
+  if [[ -f "$itb" ]]; then
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" -O "$itb" "$remote:$remote_itb"
+    set +e
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+      "set -e; command -v flashcp >/dev/null; sha256sum '$remote_itb' 2>/dev/null || md5sum '$remote_itb'; flashcp -v '$remote_itb' /dev/mtd3; sync" \
+      > "$out_dir/flashcp.log" 2>&1
+    flashcp_rc=$?
+    set -e
+    if [[ "$flashcp_rc" -ne 0 ]]; then
+      cat "$out_dir/update_frm.log" >&2
+      cat "$out_dir/flashcp.log" >&2
+      echo "Firmware install failed: update_frm_rc=$update_rc flashcp_rc=$flashcp_rc" >&2
+      exit 1
+    fi
+  else
+    cat "$out_dir/update_frm.log" >&2
+    echo "Firmware install failed and missing FIT fallback: $itb" >&2
+    exit 1
+  fi
+fi
 
 if [[ "$reboot_after" == "1" ]]; then
   sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "sync; reboot" \

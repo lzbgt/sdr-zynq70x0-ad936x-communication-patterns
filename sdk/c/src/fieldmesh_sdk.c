@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #ifdef _WIN32
 typedef SOCKET fieldmesh_sdk_socket_t;
@@ -140,6 +141,61 @@ static void sdk_copy_text(char *dst, size_t dst_len, const char *src)
         return;
     }
     (void)snprintf(dst, dst_len, "%s", src);
+}
+
+static const char *sdk_json_value_start(const char *json, const char *key)
+{
+    const char *pos;
+    char pattern[96];
+
+    if (!json || !key) {
+        return NULL;
+    }
+    (void)snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    pos = strstr(json, pattern);
+    if (!pos) {
+        return NULL;
+    }
+    pos += strlen(pattern);
+    while (*pos == ' ' || *pos == '\t') {
+        ++pos;
+    }
+    return pos;
+}
+
+static int sdk_json_get_string(const char *json, const char *key,
+                               char *dst, size_t dst_len)
+{
+    const char *pos = sdk_json_value_start(json, key);
+    size_t len = 0u;
+
+    if (!pos || !dst || dst_len == 0u || *pos != '"') {
+        return 0;
+    }
+    ++pos;
+    while (pos[len] && pos[len] != '"' && len + 1u < dst_len) {
+        dst[len] = pos[len];
+        ++len;
+    }
+    if (pos[len] != '"') {
+        dst[0] = '\0';
+        return 0;
+    }
+    dst[len] = '\0';
+    return 1;
+}
+
+static uint8_t sdk_json_get_boolish(const char *json, const char *key)
+{
+    const char *pos = sdk_json_value_start(json, key);
+
+    if (!pos) {
+        return 0u;
+    }
+    if (*pos == '1' || strncmp(pos, "true", 4u) == 0) {
+        return 1u;
+    }
+    return 0u;
 }
 
 static int sdk_socket_startup(void)
@@ -2406,6 +2462,169 @@ out:
     }
     sdk_socket_cleanup();
     return status;
+}
+
+static int sdk_split_endpoint(const char *endpoint,
+                              char *host,
+                              size_t host_len,
+                              uint16_t *port)
+{
+    const char *colon;
+    char *end = NULL;
+    unsigned long parsed_port;
+    size_t host_copy_len;
+
+    if (!endpoint || !host || host_len == 0u || !port) {
+        return 0;
+    }
+    while (*endpoint == ' ' || *endpoint == '\t' || *endpoint == '\n' ||
+           *endpoint == '\r') {
+        ++endpoint;
+    }
+    if (*endpoint == '\0') {
+        return 0;
+    }
+    colon = strrchr(endpoint, ':');
+    if (!colon || colon == endpoint || colon[1] == '\0') {
+        return 0;
+    }
+    host_copy_len = (size_t)(colon - endpoint);
+    if (host_copy_len >= host_len) {
+        return 0;
+    }
+    memcpy(host, endpoint, host_copy_len);
+    host[host_copy_len] = '\0';
+    parsed_port = strtoul(colon + 1, &end, 10);
+    if (end == colon + 1 || parsed_port == 0u || parsed_port > 65535u) {
+        return 0;
+    }
+    *port = (uint16_t)parsed_port;
+    return 1;
+}
+
+static int sdk_board_seen(const fieldmesh_discovered_board_t *boards,
+                          size_t count,
+                          const char *device_eui)
+{
+    size_t i;
+
+    if (!boards || !device_eui || device_eui[0] == '\0') {
+        return 0;
+    }
+    for (i = 0; i < count; ++i) {
+        if (strcmp(boards[i].device_eui, device_eui) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+fieldmesh_status_t fieldmesh_discover_daemons(
+    const char *candidate_endpoints,
+    uint32_t timeout_ms,
+    fieldmesh_discovered_board_t *out_boards,
+    size_t board_capacity,
+    size_t *out_board_count)
+{
+    const char *cursor;
+    size_t count = 0u;
+    fieldmesh_status_t last_status = FIELDMESH_ERR_NOT_FOUND;
+
+    if (out_board_count) {
+        *out_board_count = 0u;
+    }
+    if (!candidate_endpoints || !out_boards || board_capacity == 0u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_boards, 0, sizeof(out_boards[0]) * board_capacity);
+    cursor = candidate_endpoints;
+    while (*cursor && count < board_capacity) {
+        char endpoint[160];
+        char host[FIELDMESH_ADDR_TEXT_MAX];
+        char response[2048];
+        fieldmesh_daemon_client_config_t config;
+        fieldmesh_discovered_board_t board;
+        size_t len = 0u;
+        size_t response_len = 0u;
+        uint16_t port = 0u;
+        fieldmesh_status_t status;
+
+        while (*cursor == ' ' || *cursor == '\t' || *cursor == ',' ||
+               *cursor == ';' || *cursor == '\n' || *cursor == '\r') {
+            ++cursor;
+        }
+        while (cursor[len] && cursor[len] != ',' && cursor[len] != ';' &&
+               cursor[len] != ' ' && cursor[len] != '\t' &&
+               cursor[len] != '\n' && cursor[len] != '\r') {
+            ++len;
+        }
+        if (len == 0u) {
+            break;
+        }
+        if (len >= sizeof(endpoint)) {
+            cursor += len;
+            continue;
+        }
+        memcpy(endpoint, cursor, len);
+        endpoint[len] = '\0';
+        cursor += len;
+        if (!sdk_split_endpoint(endpoint, host, sizeof(host), &port)) {
+            continue;
+        }
+
+        memset(&config, 0, sizeof(config));
+        sdk_copy_text(config.host, sizeof(config.host), host);
+        config.port = port;
+        config.timeout_ms = timeout_ms == 0u ? 250u : timeout_ms;
+        status = fieldmesh_daemon_request(&config, "FIELDMESH_HELLO v1",
+                                          response, sizeof(response),
+                                          &response_len);
+        last_status = status;
+        if (status != FIELDMESH_OK || response_len == 0u ||
+            !strstr(response, "\"event\":\"sdk_daemon_hello\"")) {
+            continue;
+        }
+
+        memset(&board, 0, sizeof(board));
+        if (!sdk_json_get_string(response, "device_eui",
+                                 board.device_eui,
+                                 sizeof(board.device_eui)) ||
+            !valid_device_eui(board.device_eui)) {
+            continue;
+        }
+        if (sdk_board_seen(out_boards, count, board.device_eui)) {
+            continue;
+        }
+        if (!sdk_json_get_string(response, "hostname",
+                                 board.hostname,
+                                 sizeof(board.hostname))) {
+            sdk_copy_text(board.hostname, sizeof(board.hostname), host);
+        }
+        if (!sdk_json_get_string(response, "device_type",
+                                 board.device_type,
+                                 sizeof(board.device_type))) {
+            sdk_copy_text(board.device_type, sizeof(board.device_type),
+                          "fieldmesh-board");
+        }
+        sdk_copy_text(board.daemon_host, sizeof(board.daemon_host), host);
+        board.daemon_port = port;
+        board.ap_capable = 1u;
+        board.camera_stream_capable =
+            sdk_json_get_boolish(response, "supports_camera_stream_chunk");
+        board.route_metrics_capable =
+            sdk_json_get_boolish(response, "supports_route_metrics");
+        board.tun_gateway_capable =
+            sdk_json_get_boolish(response, "supports_tun_gateway");
+        board.rf_packet_engine_capable =
+            sdk_json_get_boolish(response, "supports_rf_packet_engine");
+        board.requires_mutual_auth_for_production =
+            sdk_json_get_boolish(response, "requires_mutual_auth_for_production");
+        out_boards[count++] = board;
+    }
+    if (out_board_count) {
+        *out_board_count = count;
+    }
+    return count > 0u ? FIELDMESH_OK : last_status;
 }
 
 const char *fieldmesh_status_string(fieldmesh_status_t status)

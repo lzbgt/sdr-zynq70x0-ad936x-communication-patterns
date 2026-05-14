@@ -11,6 +11,9 @@ Environment:
   GUI_APP=/path/to/fieldmesh-imgui-control
   IMGUI_DIR=/path/to/imgui
   PROFILE=/path/to/runtime.profile
+  FIELDMESH_DISCOVERY_CANDIDATES=host:port,host:port
+  FIELDMESH_WSLG_START_DAEMONS=1|0
+  FIELDMESH_WSLG_FORCE_STAGE_DAEMONS=1|0
 
 Examples:
   tools/run_fieldmesh_imgui_wslg.sh --check-bridge
@@ -125,9 +128,122 @@ if [ "$check_bridge" -eq 1 ]; then
     exit 0
 fi
 
+if [ -z "$profile" ] && [ -z "${FIELDMESH_DISCOVERY_CANDIDATES:-}" ]; then
+    export FIELDMESH_DISCOVERY_CANDIDATES="${FIELDMESH_DISCOVERY_CANDIDATES:-192.168.1.10:55441,192.168.3.1:55441,192.168.3.1:55442,192.168.2.1:55441,192.168.2.1:55442,127.0.0.1:55441,127.0.0.1:55442}"
+fi
+
+start_daemon_if_needed() {
+    host="$1"
+    port="$2"
+    requests="${3:-2000}"
+    timeout_ms="${4:-3000}"
+    staged_bin="/tmp/fieldmesh-state-daemon-demo-imgui"
+    rootfs_tar=""
+
+    set +e
+    python3 - "$host" "$port" <<'PY'
+import socket
+import sys
+
+host = sys.argv[1]
+port = int(sys.argv[2])
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.settimeout(0.18)
+try:
+    sock.sendto(b"FIELDMESH_HELLO v1", (host, port))
+    data, _ = sock.recvfrom(2048)
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+raise SystemExit(0 if b'"event":"sdk_daemon_hello"' in data else 1)
+PY
+    probe_rc=$?
+    set -e
+    if [ "$probe_rc" -eq 0 ]; then
+        return 0
+    fi
+
+    if ! command -v sshpass >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! ping -c 1 -W 1 "$host" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if [ "${FIELDMESH_WSLG_FORCE_STAGE_DAEMONS:-0}" = "1" ]; then
+        case "$host" in
+            192.168.3.*)
+                rootfs_tar="$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz"
+                ;;
+            *)
+                rootfs_tar="$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz"
+                ;;
+        esac
+        if [ -f "$rootfs_tar" ]; then
+            tmp_daemon="/tmp/fieldmesh-state-daemon-demo-imgui.$$"
+            tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-state-daemon-demo > "$tmp_daemon"
+            chmod 0755 "$tmp_daemon"
+            sshpass -p "${SSH_PASS:-analog}" scp \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                -o LogLevel=ERROR \
+                "$tmp_daemon" "${SSH_USER:-root}@$host:$staged_bin" \
+                >/dev/null 2>&1 || true
+            rm -f "$tmp_daemon"
+        fi
+    fi
+    sshpass -p "${SSH_PASS:-analog}" ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o LogLevel=ERROR \
+        "${SSH_USER:-root}@$host" \
+        "pkill -f 'fieldmesh-state-daemon-demo.*serve 0.0.0.0 $port' 2>/dev/null || true; \
+         daemon=''; \
+         if [ '${FIELDMESH_WSLG_FORCE_STAGE_DAEMONS:-0}' = '1' ] && [ -x '$staged_bin' ]; then daemon='$staged_bin'; fi; \
+         [ -n \"\$daemon\" ] || daemon=\$(command -v fieldmesh-state-daemon-demo || true); \
+         [ -n \"\$daemon\" ] && \
+         nohup \"\$daemon\" serve 0.0.0.0 '$port' '$requests' '$timeout_ms' \
+         > '/tmp/fieldmesh_imgui_${port}.ndjson' 2>&1 &" \
+        >/dev/null 2>&1 || true
+}
+
+if [ -z "$profile" ] && [ "${FIELDMESH_WSLG_START_DAEMONS:-1}" = "1" ]; then
+    old_ifs="$IFS"
+    IFS=',; '
+    for endpoint in $FIELDMESH_DISCOVERY_CANDIDATES; do
+        case "$endpoint" in
+            *:*)
+                start_daemon_if_needed "${endpoint%:*}" "${endpoint##*:}" || true
+                ;;
+        esac
+    done
+    IFS="$old_ifs"
+fi
+
+needs_build=0
 if [ ! -x "$gui_app" ]; then
+    needs_build=1
+else
+    for src in \
+        "$app_dir/fieldmesh_imgui_control_app.cpp" \
+        "$app_dir/fieldmesh_imgui_glfw_main.cpp" \
+        "$app_dir/fieldmesh_imgui_embedded_python.cpp" \
+        "$app_dir/fieldmesh_imgui_embedded_resources.h" \
+        "$app_dir/Makefile" \
+        "$repo_root/sdk/c/src/fieldmesh_sdk.c" \
+        "$repo_root/sdk/c/include/fieldmesh_sdk.h"
+    do
+        if [ "$src" -nt "$gui_app" ]; then
+            needs_build=1
+            break
+        fi
+    done
+fi
+
+if [ "$needs_build" -eq 1 ]; then
     if [ "$auto_build" -eq 1 ] && [ -f "$imgui_dir/imgui.cpp" ]; then
-        echo "fieldmesh-wslg: building missing GUI binary with IMGUI_DIR=$imgui_dir" >&2
+        echo "fieldmesh-wslg: building GUI binary with IMGUI_DIR=$imgui_dir" >&2
         make -C "$app_dir" \
             BUILD_DIR="$build_dir" \
             gui-glfw-python \

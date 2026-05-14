@@ -1,0 +1,65 @@
+#!/bin/sh
+
+DAEMON=/usr/bin/fieldmesh-state-daemon-demo
+PIDFILE=/var/run/fieldmesh-state-daemon.pid
+LOGFILE=/tmp/fieldmesh-state-daemon.ndjson
+PORT=55441
+REQUESTS=2147483647
+TIMEOUT_MS=86400000
+
+read_fwenv() {
+    key="$1"
+    command -v fw_printenv >/dev/null 2>&1 || return 1
+    fw_printenv -n "$key" 2>/dev/null | tr -d '\r\n'
+}
+
+case "$1" in
+    start|"")
+        [ -x "$DAEMON" ] || exit 0
+        env_port="$(read_fwenv fieldmesh_daemon_port || true)"
+        env_eui="$(read_fwenv fieldmesh_device_eui || true)"
+        case "$env_port" in
+            ''|*[!0-9]*)
+                ;;
+            *)
+                PORT="$env_port"
+                ;;
+        esac
+        case "$env_eui" in
+            ????????????)
+                export FIELDMESH_DEVICE_EUI="$env_eui"
+                ;;
+        esac
+        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            exit 0
+        fi
+        mkdir -p /var/run
+        nohup "$DAEMON" serve 0.0.0.0 "$PORT" "$REQUESTS" "$TIMEOUT_MS" \
+            > "$LOGFILE" 2>&1 &
+        echo "$!" > "$PIDFILE"
+        ;;
+    stop)
+        if [ -f "$PIDFILE" ]; then
+            kill "$(cat "$PIDFILE")" 2>/dev/null || true
+            rm -f "$PIDFILE"
+        fi
+        ;;
+    restart)
+        "$0" stop
+        "$0" start
+        ;;
+    status)
+        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            echo "fieldmesh-state-daemon running"
+            exit 0
+        fi
+        echo "fieldmesh-state-daemon stopped"
+        exit 1
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
