@@ -511,17 +511,21 @@ bool write_snapshot(const GuiState &state, const char *path)
 }
 
 #ifdef FIELDMESH_WITH_IMGUI
-void set_panel_geometry(float x, float y, float w, float h)
+void begin_panel(const char *title, const ImVec2 &size)
 {
-    ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
+    ImGui::BeginChild(title, size, true, ImGuiWindowFlags_NoSavedSettings);
+    ImGui::TextUnformatted(title);
+    ImGui::Separator();
+}
+
+void end_panel()
+{
+    ImGui::EndChild();
 }
 
 void render_board_selection(GuiState *state)
 {
-    set_panel_geometry(10.0f, 10.0f, 380.0f, 170.0f);
-    ImGui::Begin("Board Selection", nullptr,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    begin_panel("Board Selection", ImVec2(0.0f, 155.0f));
     for (GuiBoard &board : state->boards) {
         ImGui::PushID(board.device_eui.c_str());
         if (ImGui::Selectable(board.hostname.c_str(), board.selected)) {
@@ -535,14 +539,12 @@ void render_board_selection(GuiState *state)
                     board.daemon_host.c_str(), board.daemon_port);
         ImGui::PopID();
     }
-    ImGui::End();
+    end_panel();
 }
 
 void render_control_plane(GuiState *state)
 {
-    set_panel_geometry(400.0f, 10.0f, 390.0f, 170.0f);
-    ImGui::Begin("Control Plane", nullptr,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    begin_panel("Control Plane", ImVec2(0.0f, 145.0f));
     ImGui::Checkbox("Auto elect AP", &state->auto_election_enabled);
     if (ImGui::Button("Browse Peers")) {
         state->operation_status = "peer browse requested";
@@ -559,14 +561,12 @@ void render_control_plane(GuiState *state)
     }
     ImGui::Text("Selected AP: %s", state->selected_ap_eui.c_str());
     ImGui::Text("Status: %s", state->operation_status.c_str());
-    ImGui::End();
+    end_panel();
 }
 
 void render_security(GuiState *state)
 {
-    set_panel_geometry(800.0f, 10.0f, 470.0f, 270.0f);
-    ImGui::Begin("Security", nullptr,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    begin_panel("Security", ImVec2(0.0f, 0.0f));
     ImGui::Text("Command CA: %s", state->security.command_ca.c_str());
     ImGui::Text("CA fingerprint: %s",
                 state->security.command_ca_fingerprint.c_str());
@@ -593,7 +593,7 @@ void render_security(GuiState *state)
                 state->security.codec_preset_bytes);
     ImGui::TextUnformatted("Command CA private key is never bundled.");
     ImGui::TextUnformatted("Verification scripts are developer gates, not user workflow.");
-    ImGui::End();
+    end_panel();
 }
 
 void render_chats(GuiState *state)
@@ -602,9 +602,7 @@ void render_chats(GuiState *state)
 
     std::snprintf(message_buffer, sizeof(message_buffer), "%s",
                   state->draft_message.c_str());
-    set_panel_geometry(10.0f, 190.0f, 570.0f, 610.0f);
-    ImGui::Begin("Chats", nullptr,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    begin_panel("Chats", ImVec2(0.0f, 0.0f));
     ImGui::Columns(2);
     for (GuiConversation &conversation : state->conversations) {
         ImGui::PushID(conversation.peer_eui.c_str());
@@ -632,35 +630,36 @@ void render_chats(GuiState *state)
         (void)api_send_message(state, state->draft_message);
     }
     ImGui::Columns(1);
-    ImGui::End();
+    end_panel();
 }
 
 void render_topology(GuiState *state)
 {
-    set_panel_geometry(590.0f, 290.0f, 680.0f, 360.0f);
-    ImGui::Begin("Radio Network Topology", nullptr,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    begin_panel("Radio Network Topology", ImVec2(0.0f, 420.0f));
     ImDrawList *draw = ImGui::GetWindowDrawList();
     ImVec2 origin = ImGui::GetCursorScreenPos();
-    ImVec2 canvas(560.0f, 320.0f);
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    ImVec2 canvas(avail.x > 120.0f ? avail.x : 120.0f, 320.0f);
+    float center_x = origin.x + canvas.x * 0.5f;
+    float center_y = origin.y + canvas.y * 0.5f;
     draw->AddRectFilled(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
                         IM_COL32(248, 251, 255, 255));
-    draw->AddLine(ImVec2(origin.x + 280.0f, origin.y + 20.0f),
-                  ImVec2(origin.x + 280.0f, origin.y + 300.0f),
+    draw->AddLine(ImVec2(center_x, origin.y + 20.0f),
+                  ImVec2(center_x, origin.y + canvas.y - 20.0f),
                   IM_COL32(203, 216, 211, 255));
-    draw->AddLine(ImVec2(origin.x + 20.0f, origin.y + 160.0f),
-                  ImVec2(origin.x + 540.0f, origin.y + 160.0f),
+    draw->AddLine(ImVec2(origin.x + 20.0f, center_y),
+                  ImVec2(origin.x + canvas.x - 20.0f, center_y),
                   IM_COL32(203, 216, 211, 255));
     for (const GuiPeer &peer : state->peers) {
-        float x = origin.x + 280.0f + static_cast<float>(peer.x_cm) / 4.0f;
-        float y = origin.y + 160.0f - static_cast<float>(peer.y_cm) / 4.0f;
+        float x = center_x + static_cast<float>(peer.x_cm) / 4.0f;
+        float y = center_y - static_cast<float>(peer.y_cm) / 4.0f;
         draw->AddCircleFilled(ImVec2(x, y), 7.0f, IM_COL32(29, 95, 156, 255));
         draw->AddText(ImVec2(x + 10.0f, y - 10.0f),
                       IM_COL32(22, 33, 31, 255), peer.device_eui.c_str());
     }
     ImGui::Dummy(canvas);
     ImGui::TextUnformatted("Topology is radio reachability, not host Ethernet.");
-    ImGui::End();
+    end_panel();
 }
 
 void render_video_stream(GuiState *state)
@@ -674,9 +673,7 @@ void render_video_stream(GuiState *state)
                   state->camera.dst_device_eui.c_str());
     std::snprintf(subscribe_buffer, sizeof(subscribe_buffer), "%s",
                   state->camera.subscribed_device_eui.c_str());
-    set_panel_geometry(590.0f, 660.0f, 680.0f, 140.0f);
-    ImGui::Begin("Video Chat", nullptr,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+    begin_panel("Video Chat", ImVec2(0.0f, 0.0f));
     if (ImGui::InputText("Publish to EUI", dst_buffer, sizeof(dst_buffer))) {
         state->camera.dst_device_eui = dst_buffer;
     }
@@ -702,17 +699,48 @@ void render_video_stream(GuiState *state)
     ImGui::Text("Frames TX/RX: %u/%u", state->camera.frames_tx,
                 state->camera.frames_rx);
     ImGui::Text("RF queued: %u", state->camera.queued_to_rf_engine);
-    ImGui::End();
+    end_panel();
 }
 
 void fieldmesh_imgui_render(GuiState *state)
 {
+    ImGuiViewport *viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+                             ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoCollapse |
+                             ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    ImGui::Begin("FieldMesh Golden IM Dashboard", nullptr, flags);
+    ImGui::TextUnformatted("FieldMesh Golden IM");
+    ImGui::SameLine();
+    ImGui::Text("status: %s", state->operation_status.c_str());
+    ImGui::Separator();
+
+    float content_h = ImGui::GetContentRegionAvail().y;
+    ImGui::BeginChild("left-control-column", ImVec2(330.0f, content_h), false,
+                      ImGuiWindowFlags_NoSavedSettings);
     render_board_selection(state);
-    render_chats(state);
     render_control_plane(state);
     render_security(state);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("chat-column", ImVec2(430.0f, content_h), false,
+                      ImGuiWindowFlags_NoSavedSettings);
+    render_chats(state);
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("right-media-column", ImVec2(0.0f, content_h), false,
+                      ImGuiWindowFlags_NoSavedSettings);
     render_topology(state);
     render_video_stream(state);
+    ImGui::EndChild();
+    ImGui::End();
 }
 #else
 void fieldmesh_imgui_render(GuiState *)

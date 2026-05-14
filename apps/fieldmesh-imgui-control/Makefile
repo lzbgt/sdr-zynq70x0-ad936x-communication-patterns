@@ -22,6 +22,8 @@ GLFW_LIBS ?= $(shell pkg-config --libs glfw3 2>/dev/null || printf '%s' '-lglfw'
 OPENGL_LIBS ?= $(shell pkg-config --libs gl 2>/dev/null || printf '%s' '-lGL')
 
 .ONESHELL:
+SHELL := /bin/sh
+.SHELLFLAGS := -eu -c
 .PHONY: all check clean gui gui-python gui-glfw gui-glfw-python
 
 all: $(HEADLESS_APP)

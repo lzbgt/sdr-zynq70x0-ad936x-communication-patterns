@@ -19,12 +19,16 @@ def main() -> int:
         "#include \"imgui.h\"",
         "ImGuiCond_Always",
         "ImGuiWindowFlags_NoSavedSettings",
-        "ImGui::Begin(\"Board Selection\"",
-        "ImGui::Begin(\"Chats\"",
-        "ImGui::Begin(\"Control Plane\"",
-        "ImGui::Begin(\"Security\"",
-        "ImGui::Begin(\"Radio Network Topology\"",
-        "ImGui::Begin(\"Video Chat\"",
+        "ImGui::Begin(\"FieldMesh Golden IM Dashboard\"",
+        "begin_panel(\"Board Selection\"",
+        "begin_panel(\"Chats\"",
+        "begin_panel(\"Control Plane\"",
+        "begin_panel(\"Security\"",
+        "begin_panel(\"Radio Network Topology\"",
+        "begin_panel(\"Video Chat\"",
+        "left-control-column",
+        "chat-column",
+        "right-media-column",
     ):
         if token not in source:
             raise SystemExit(f"ImGui app source missing {token}")
