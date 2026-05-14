@@ -3894,6 +3894,33 @@ fault below the specific U-Boot `sf` driver path: both Linux MTD and U-Boot can
 erase/read, both report program success, and both read back stuck `0x44` bits
 after programming.
 
+The next read-only diagnostic captured Zynq QSPI controller state from both
+Linux and serial U-Boot:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_qspi_controller_state_20260515-061825 \
+RUN_UBOOT=1 \
+  ./tools/diagnose_z203_qspi_controller_state.sh 192.168.1.10
+```
+
+Result: passed as a read-only capture. The helper builds a temporary ARM
+`/dev/mem` reader from the Yocto cross toolchain, uploads it to Z203, captures
+Linux sysfs/debugfs/SPI-NOR/clock state, then reboots through serial U-Boot and
+captures `md.l` register reads plus raw `sspi` status. Linux and U-Boot both
+read QSPI module ID `0x01090101`; U-Boot raw SPI JEDEC is `EF4019`, matching
+Linux `spi-nor` debugfs `w25q256`. Differences observed at idle were:
+
+- `CONFIG`: Linux `0x800a7cc9`, U-Boot `0x800a7ccf`.
+- `ENABLE`: Linux `0x00000001`, U-Boot `0x00000000`.
+- `LQSPI_CFG`: Linux `0x0000016b`, U-Boot `0x00000000`.
+
+Linux SPI-NOR debugfs reports read opcode `0x6b` (`1S-1S-4S`) and page-program
+opcode `0x02` (`1S-1S-1S`). Because the stuck `0x44` program behavior
+reproduces under both Linux and U-Boot even though their idle controller mode
+differs, the next repair diagnostic should inspect status/config transitions
+around write-enable/page-program at the controller/flash level, not retry the
+full FIT write.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

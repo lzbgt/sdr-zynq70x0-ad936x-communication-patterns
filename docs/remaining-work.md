@@ -114,6 +114,12 @@ Firmware state:
   tested byte. That rules out a U-Boot-only `sf` bug. Do not run another full
   QSPI FIT repair until the shared Zynq QSPI controller, SPI NOR status/config,
   or flash hardware program path is isolated and a small write/readback passes.
+  A read-only controller capture now proves both Linux and U-Boot can read the
+  Zynq QSPI register block (`MODULE_ID=0x01090101`) and the flash JEDEC ID
+  (`EF4019`). Linux and U-Boot differ in idle `CONFIG`, `ENABLE`, and
+  `LQSPI_CFG`, but both still hit the same stuck-bit program failure, so the
+  next diagnostic is status/config transition capture around write-enable and
+  page-program rather than another full FIT repair.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

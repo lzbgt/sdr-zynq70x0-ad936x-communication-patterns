@@ -1,0 +1,52 @@
+{
+  "board_ip": "192.168.1.10",
+  "diagnosis": "Linux and U-Boot can both read the Zynq QSPI controller register block; continue by comparing controller mode bits and SPI-NOR status/config before programming.",
+  "event": "fieldmesh_z203_qspi_controller_state",
+  "has_linux_qspi_devicetree": true,
+  "has_linux_spi_nor_debugfs": true,
+  "hostname": "fm-z203",
+  "linux_registers": {
+    "CONFIG": "0x800a7cc9",
+    "DELAY": "0x00000000",
+    "ENABLE": "0x00000001",
+    "GPIO": "0x00000001",
+    "INT_MASK": "0x00000000",
+    "INT_STATUS": "0x00000004",
+    "LQSPI_CFG": "0x0000016b",
+    "LQSPI_STS": "0x00000000",
+    "MODULE_ID": "0x01090101",
+    "RX_THRESH": "0x00000020",
+    "TX_THRESH": "0x00000001"
+  },
+  "matched_register_differences": {
+    "CONFIG": {
+      "linux": "0x800a7cc9",
+      "uboot": "0x800a7ccf"
+    },
+    "ENABLE": {
+      "linux": "0x00000001",
+      "uboot": "0x00000000"
+    },
+    "LQSPI_CFG": {
+      "linux": "0x0000016b",
+      "uboot": "0x00000000"
+    }
+  },
+  "read_only": true,
+  "run_uboot": true,
+  "uboot_jedec_id": "0xEF4019",
+  "uboot_registers": {
+    "CONFIG": "0x800a7ccf",
+    "DELAY": "0x00000000",
+    "ENABLE": "0x00000000",
+    "GPIO": "0x00000001",
+    "INT_MASK": "0x00000000",
+    "INT_STATUS": "0x00000004",
+    "LQSPI_CFG": "0x00000000",
+    "LQSPI_STS": "0x00000000",
+    "MODULE_ID": "0x01090101",
+    "RX_THRESH": "0x00000020",
+    "TX_THRESH": "0x00000001"
+  },
+  "writes_flash": false
+}
