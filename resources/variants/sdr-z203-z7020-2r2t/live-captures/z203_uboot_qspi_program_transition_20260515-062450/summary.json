@@ -1,0 +1,83 @@
+{
+  "board_ip": "192.168.1.10",
+  "bytes_tested": 4096,
+  "diagnosis": "sf write reports success, but raw WREN/WRDI status transition capture is abnormal; inspect flash status/config handling before any repair.",
+  "erase_command_passed": true,
+  "erase_verify_passed": true,
+  "event": "fieldmesh_z203_uboot_qspi_program_transition",
+  "first_readback_line": {
+    "address": "0x14000000",
+    "bytes": [
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44",
+      "0x44"
+    ]
+  },
+  "pattern": "0x00",
+  "qspi_abs_offset": 31059968,
+  "qspi_abs_offset_hex": "0x1d9f000",
+  "raw_wrdi_clears_wel": false,
+  "raw_wren_sets_wel": true,
+  "registers": {
+    "after_rollback": {
+      "CONFIG": "0x800a7cf9",
+      "ENABLE": "0x00000000",
+      "GPIO": "0x00000001",
+      "INT_STATUS": "0x00000004",
+      "LQSPI_CFG": "0x00000000",
+      "LQSPI_STS": "0x00000000"
+    },
+    "after_write": {
+      "CONFIG": "0x800a7cf9",
+      "ENABLE": "0x00000000",
+      "GPIO": "0x00000001",
+      "INT_STATUS": "0x00000004",
+      "LQSPI_CFG": "0x00000000",
+      "LQSPI_STS": "0x00000000"
+    },
+    "before_erase": {
+      "CONFIG": "0x800a7cf9",
+      "ENABLE": "0x00000000",
+      "GPIO": "0x00000001",
+      "INT_STATUS": "0x00000004",
+      "LQSPI_CFG": "0x00000000",
+      "LQSPI_STS": "0x00000000"
+    },
+    "before_write": {
+      "CONFIG": "0x800a7cf9",
+      "ENABLE": "0x00000000",
+      "GPIO": "0x00000001",
+      "INT_STATUS": "0x00000004",
+      "LQSPI_CFG": "0x00000000",
+      "LQSPI_STS": "0x00000000"
+    }
+  },
+  "rollback_erase_passed": true,
+  "status": {
+    "after_raw_wrdi_sr1": "0x02",
+    "after_raw_wren_sr1": "0x02",
+    "after_rollback_sr1": "0x00",
+    "after_write_fsr": "0x00",
+    "after_write_sr1": "0x00",
+    "after_write_sr2": "0x02",
+    "after_write_sr3": "0x60",
+    "base_sr1": "0x02",
+    "base_sr2": "0x02",
+    "before_write_sr1": "0x00"
+  },
+  "write_command_passed": true,
+  "write_verify_passed": false
+}

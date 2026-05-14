@@ -117,9 +117,14 @@ Firmware state:
   A read-only controller capture now proves both Linux and U-Boot can read the
   Zynq QSPI register block (`MODULE_ID=0x01090101`) and the flash JEDEC ID
   (`EF4019`). Linux and U-Boot differ in idle `CONFIG`, `ENABLE`, and
-  `LQSPI_CFG`, but both still hit the same stuck-bit program failure, so the
-  next diagnostic is status/config transition capture around write-enable and
-  page-program rather than another full FIT repair.
+  `LQSPI_CFG`, but both still hit the same stuck-bit program failure. The
+  follow-up U-Boot program-transition probe at the same scratch sector shows
+  raw WREN leaves SR1 at `0x02`, raw WRDI also leaves SR1 at `0x02`, `sf erase`
+  and rollback erase verify cleanly, `sf write` reports success, but immediate
+  readback of an all-zero pattern is still `0x44` for every shown byte. Do not
+  run another full QSPI FIT repair; the next useful diagnostic is a raw
+  page-program/address/data-path probe or flash replacement/cross-board
+  comparison.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

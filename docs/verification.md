@@ -3921,6 +3921,27 @@ differs, the next repair diagnostic should inspect status/config transitions
 around write-enable/page-program at the controller/flash level, not retry the
 full FIT write.
 
+The guarded U-Boot program-transition probe was then added and run against the
+same scratch sector:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_program_transition_20260515-062450 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_PROGRAM_TRANSITION_TEST=1 \
+  ./tools/test_z203_uboot_qspi_program_transition.sh 192.168.1.10
+```
+
+Result: failed safely, with rollback verified. Raw WREN showed SR1 `0x02`,
+raw WRDI did not clear SR1 (`0x02`), erase/readback passed as all `0xff`,
+`sf write` reported success, and immediate readback of the all-zero pattern was
+`44 44 ...` at `0x14000000`. SR1 was `0x00` before and after the `sf write`,
+SR2 remained `0x02`, SR3 remained `0x60`, FSR was `0x00`, and the sampled QSPI
+registers stayed stable (`CONFIG=0x800a7cf9`, `INT_STATUS=0x00000004`,
+`ENABLE=0x00000000`, `GPIO=0x00000001`, `LQSPI_CFG=0`, `LQSPI_STS=0`).
+Rollback erase/readback passed, and the installed Z203 daemon gate passed
+after reboot. Full QSPI FIT repair remains blocked; the next useful diagnostic
+is a raw page-program/address/data-path probe or flash replacement/cross-board
+comparison, not another FIT write.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:
