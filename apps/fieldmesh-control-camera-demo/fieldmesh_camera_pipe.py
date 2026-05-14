@@ -182,6 +182,7 @@ def build_preset(args: argparse.Namespace) -> dict[str, object]:
             str(args.chunk_size),
             "--target-fps",
             str(args.fps),
+            "--live-stream-loop",
         ]
     )
     if args.max_chunks:

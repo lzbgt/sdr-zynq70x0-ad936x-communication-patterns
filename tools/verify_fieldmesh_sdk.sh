@@ -53,6 +53,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --chunk-size 64 \
     --max-chunks 3 \
     --target-fps 15 \
+    --live-stream-loop \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
 "$control_camera_pipe_helper" preset \
@@ -895,17 +896,25 @@ if capture.get("source") != "external_capture_command":
     raise SystemExit("command camera capture source was not reported")
 if capture.get("capture_boundary") != "external_encoded_byte_stream":
     raise SystemExit("command camera capture boundary changed")
-if capture.get("streaming_read") is not True or capture.get("max_chunks") != 3:
+if (capture.get("streaming_read") is not True or
+        capture.get("live_stream_loop") is not True or
+        capture.get("max_chunks") != 3):
     raise SystemExit("command camera did not use bounded streaming read")
 if stream.get("camera_source") != "external_capture_command":
     raise SystemExit("command camera stream source changed")
+if stream.get("live_stream_loop") is not True:
+    raise SystemExit("command camera stream did not use live loop")
 if stream.get("stream_target_fps") != 15 or stream.get("pace_realtime") is not False:
     raise SystemExit("command camera stream pacing metadata changed")
 if preview.get("sink") != "external_preview_command":
     raise SystemExit("command camera preview sink was not reported")
+if preview.get("streaming_write") is not True:
+    raise SystemExit("command camera preview did not use streaming write")
 if summary.get("camera_source") != "external_capture_command":
     raise SystemExit("command camera summary source changed")
-if summary.get("stream_target_fps") != 15 or summary.get("pace_realtime") is not False:
+if (summary.get("stream_target_fps") != 15 or
+        summary.get("pace_realtime") is not False or
+        summary.get("live_stream_loop") is not True):
     raise SystemExit("command camera summary pacing metadata changed")
 if summary.get("camera_input_bytes") != input_size or summary.get("preview_bytes") != preview_size:
     raise SystemExit("command camera byte accounting failed")
@@ -953,6 +962,8 @@ for event in events:
         raise SystemExit("camera pipe preset missing preview command app wiring")
     if "--target-fps" not in event.get("app_command", ""):
         raise SystemExit("camera pipe preset missing pacing app wiring")
+    if "--live-stream-loop" not in event.get("app_command", ""):
+        raise SystemExit("camera pipe preset missing live stream app wiring")
     if event.get("max_chunks") != 0 or event.get("pace_realtime") is not False:
         raise SystemExit("camera pipe preset default pacing guard changed")
     if event.get("backend") == "ffmpeg" and "ffmpeg" not in event.get("camera_command", ""):

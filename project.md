@@ -654,11 +654,14 @@ user and vendor configuration.
   It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
-  handoff. Command capture can be bounded with `--max-chunks`, tagged with
-  planned transmit timestamps through `--target-fps`, and optionally paced with
-  `--pace-realtime`. `fieldmesh_camera_pipe.py` supplies deterministic
+  handoff. `--live-stream-loop` opens the SDK camera stream before consuming
+  capture bytes, then reads, transmits, receives, and writes preview chunks
+  incrementally. Command capture can be bounded with `--max-chunks`, tagged
+  with planned transmit timestamps through `--target-fps`, and optionally paced
+  with `--pace-realtime`. `fieldmesh_camera_pipe.py` supplies deterministic
   file-backed capture/preview helpers for tests plus Linux/Windows/macOS
-  FFmpeg, GStreamer, and native-wrapper command presets for real hosts.
+  FFmpeg, GStreamer, and native-wrapper command presets for real hosts; the
+  presets now select the app live-loop path by default.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow

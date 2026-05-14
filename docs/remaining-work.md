@@ -247,12 +247,15 @@ Next concrete work:
   wrapper processes can provide platform capture and preview without changing
   the pure-C SDK transport ABI. The app helper now emits concrete
   Windows/Linux/macOS FFmpeg, GStreamer, and native-wrapper presets, and the
-  SDK verifier checks the helper through file-backed process pipes. Command
-  capture can now run as a bounded stream with `--max-chunks`, emits
-  `planned_tx_us` from `--target-fps`, and can optionally sleep to that cadence
-  with `--pace-realtime`. The remaining app work is GUI rendering, platform
-  preset installation UX, real codec/camera process lifecycle management, and
-  the conducted/shielded RF TX/RX data-plane gate. The intended live
+  SDK verifier checks the helper through file-backed process pipes. The app can
+  now open the SDK stream first with `--live-stream-loop`, then incrementally
+  read capture chunks, send them through the SDK/RF handoff path, and write
+  preview chunks. Command capture can run as a bounded stream with
+  `--max-chunks`, emits `planned_tx_us` from `--target-fps`, and can optionally
+  sleep to that cadence with `--pace-realtime`. The remaining app work is GUI
+  rendering, platform preset installation UX, real codec/camera process
+  lifecycle management, and the conducted/shielded RF TX/RX data-plane gate.
+  The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->
   FieldMesh RF -> peer board -> Host B preview. Host A and Host B may be the

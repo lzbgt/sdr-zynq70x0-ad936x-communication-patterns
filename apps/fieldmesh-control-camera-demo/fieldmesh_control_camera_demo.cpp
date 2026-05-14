@@ -34,12 +34,28 @@ struct AppOptions {
     unsigned max_chunks = 0;
     unsigned target_fps = 0;
     bool pace_realtime = false;
+    bool live_stream_loop = false;
 };
 
 struct CameraChunk {
     std::vector<unsigned char> payload;
     unsigned frame_index = 0;
     unsigned chunk_index = 0;
+};
+
+struct LiveCameraSource {
+    FILE *input = nullptr;
+    bool process = false;
+    bool close_file = false;
+    bool synthetic = false;
+    unsigned chunks_read = 0;
+    size_t bytes_read = 0;
+};
+
+struct PreviewSink {
+    FILE *file = nullptr;
+    FILE *process = nullptr;
+    size_t bytes_written = 0;
 };
 
 #ifdef _WIN32
@@ -224,7 +240,7 @@ void print_usage(const char *program)
                  "usage: %s [--camera-input PATH|-] [--camera-command CMD] "
                  "[--preview-output PATH] [--preview-command CMD] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
-                 "[--pace-realtime]\n",
+                 "[--pace-realtime] [--live-stream-loop]\n",
                  program);
 }
 
@@ -291,6 +307,8 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             }
         } else if (std::strcmp(argv[i], "--pace-realtime") == 0) {
             options->pace_realtime = true;
+        } else if (std::strcmp(argv[i], "--live-stream-loop") == 0) {
+            options->live_stream_loop = true;
         } else if (std::strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0]);
             std::exit(0);
@@ -611,6 +629,284 @@ void maybe_pace_stream(bool pace_realtime,
                     static_cast<long long>(planned_timestamp_us(chunk_index, target_fps))));
 }
 
+bool open_live_camera_source(const AppOptions &options, LiveCameraSource *source)
+{
+    if (!source) {
+        return false;
+    }
+    *source = LiveCameraSource{};
+    if (options.camera_command) {
+        source->input = open_process_pipe(options.camera_command, "r");
+        source->process = true;
+        if (!source->input) {
+            std::fprintf(stderr, "failed to start camera command: %s\n",
+                         options.camera_command);
+            return false;
+        }
+        return true;
+    }
+    if (options.camera_input_path) {
+        if (std::strcmp(options.camera_input_path, "-") == 0) {
+            source->input = stdin;
+            return true;
+        }
+        source->input = std::fopen(options.camera_input_path, "rb");
+        source->close_file = true;
+        if (!source->input) {
+            std::fprintf(stderr, "failed to open camera input: %s\n",
+                         options.camera_input_path);
+            return false;
+        }
+        return true;
+    }
+    source->synthetic = true;
+    return true;
+}
+
+bool close_live_camera_source(const AppOptions &options, LiveCameraSource *source)
+{
+    int rc = 0;
+
+    if (!source || !source->input) {
+        return true;
+    }
+    if (source->process) {
+        rc = close_process_pipe(source->input);
+        source->input = nullptr;
+        if (rc != 0 &&
+            (options.max_chunks == 0u || source->chunks_read < options.max_chunks)) {
+            std::fprintf(stderr, "camera command failed: %s\n",
+                         options.camera_command);
+            return false;
+        }
+    } else if (source->close_file) {
+        std::fclose(source->input);
+        source->input = nullptr;
+    }
+    return true;
+}
+
+bool read_live_camera_chunk(const AppOptions &options,
+                            LiveCameraSource *source,
+                            CameraChunk *chunk,
+                            bool *have_chunk)
+{
+    std::vector<unsigned char> buffer(options.chunk_size);
+    unsigned synthetic_limit = options.max_chunks != 0u ? options.max_chunks : 6u;
+
+    if (!source || !chunk || !have_chunk) {
+        return false;
+    }
+    *have_chunk = false;
+    if (options.max_chunks != 0u && source->chunks_read >= options.max_chunks) {
+        return true;
+    }
+    if (source->synthetic) {
+        if (source->chunks_read >= synthetic_limit) {
+            return true;
+        }
+        chunk->frame_index = source->chunks_read / 2u;
+        chunk->chunk_index = source->chunks_read % 2u;
+        chunk->payload.resize(options.chunk_size);
+        fill_camera_chunk(chunk->payload, chunk->frame_index, chunk->chunk_index);
+        source->bytes_read += chunk->payload.size();
+        ++source->chunks_read;
+        *have_chunk = true;
+        return true;
+    }
+    if (!source->input) {
+        return false;
+    }
+    const size_t got = std::fread(buffer.data(), 1, buffer.size(), source->input);
+    if (got > 0u) {
+        chunk->frame_index = source->chunks_read;
+        chunk->chunk_index = 0u;
+        chunk->payload.assign(buffer.begin(),
+                              buffer.begin() + static_cast<std::ptrdiff_t>(got));
+        source->bytes_read += got;
+        ++source->chunks_read;
+        *have_chunk = true;
+        return true;
+    }
+    if (std::ferror(source->input)) {
+        return false;
+    }
+    return true;
+}
+
+bool open_preview_sink(const AppOptions &options, PreviewSink *sink)
+{
+    if (!sink) {
+        return false;
+    }
+    *sink = PreviewSink{};
+    if (options.preview_output_path) {
+        sink->file = std::fopen(options.preview_output_path, "wb");
+        if (!sink->file) {
+            std::fprintf(stderr, "failed to open preview output: %s\n",
+                         options.preview_output_path);
+            return false;
+        }
+    }
+    if (options.preview_command) {
+        sink->process = open_process_pipe(options.preview_command, "w");
+        if (!sink->process) {
+            std::fprintf(stderr, "failed to start preview command: %s\n",
+                         options.preview_command);
+            if (sink->file) {
+                std::fclose(sink->file);
+                sink->file = nullptr;
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+bool write_preview_sink(PreviewSink *sink, const unsigned char *data, size_t len)
+{
+    if (!sink || !data || len == 0u) {
+        return true;
+    }
+    if (sink->file && std::fwrite(data, 1, len, sink->file) != len) {
+        return false;
+    }
+    if (sink->process && std::fwrite(data, 1, len, sink->process) != len) {
+        return false;
+    }
+    sink->bytes_written += len;
+    return true;
+}
+
+bool close_preview_sink(const AppOptions &options,
+                        PreviewSink *sink,
+                        size_t camera_input_bytes)
+{
+    if (!sink) {
+        return true;
+    }
+    if (sink->file) {
+        if (std::fclose(sink->file) != 0) {
+            sink->file = nullptr;
+            return false;
+        }
+        sink->file = nullptr;
+        std::printf("{\"event\":\"app_camera_preview_output\","
+                    "\"sink\":\"file\","
+                    "\"path\":\"%s\","
+                    "\"streaming_write\":true,"
+                    "\"bytes\":%lu,"
+                    "\"matches_input\":%s}\n",
+                    options.preview_output_path,
+                    static_cast<unsigned long>(sink->bytes_written),
+                    sink->bytes_written == camera_input_bytes ? "true" : "false");
+    }
+    if (sink->process) {
+        if (close_process_pipe(sink->process) != 0) {
+            sink->process = nullptr;
+            std::fprintf(stderr, "preview command failed: %s\n",
+                         options.preview_command);
+            return false;
+        }
+        sink->process = nullptr;
+        std::printf("{\"event\":\"app_camera_preview_output\","
+                    "\"sink\":\"external_preview_command\","
+                    "\"streaming_write\":true,"
+                    "\"bytes\":%lu,"
+                    "\"matches_input\":%s}\n",
+                    static_cast<unsigned long>(sink->bytes_written),
+                    sink->bytes_written == camera_input_bytes ? "true" : "false");
+    }
+    return true;
+}
+
+bool transmit_camera_chunk(fieldmesh_adapter_t *camera_stream,
+                           const CameraChunk &camera_chunk,
+                           std::chrono::steady_clock::time_point stream_start,
+                           unsigned chunk_counter,
+                           unsigned stream_target_fps,
+                           bool pace_realtime,
+                           std::vector<unsigned char> *preview_bytes,
+                           unsigned *frames_tx,
+                           unsigned *frames_rx,
+                           unsigned *rf_queued)
+{
+    std::array<unsigned char, 1200> rx_payload{};
+    fieldmesh_camera_frame_report_t frame_report{};
+    size_t rx_len = 0;
+    uint64_t planned_tx_us;
+
+    if (!camera_stream || !preview_bytes || !frames_tx || !frames_rx || !rf_queued) {
+        return false;
+    }
+    maybe_pace_stream(pace_realtime, stream_start, chunk_counter, stream_target_fps);
+    planned_tx_us = planned_timestamp_us(chunk_counter, stream_target_fps);
+
+    if (!require_ok(fieldmesh_camera_stream_frame(
+                        camera_stream, camera_chunk.payload.data(),
+                        camera_chunk.payload.size(), rx_payload.data(),
+                        rx_payload.size(), &rx_len, &frame_report),
+                    "camera_stream_frame")) {
+        return false;
+    }
+    if (rx_len != camera_chunk.payload.size() ||
+        std::memcmp(rx_payload.data(), camera_chunk.payload.data(), rx_len) != 0) {
+        std::fprintf(stderr, "camera preview payload mismatch\n");
+        return false;
+    }
+    preview_bytes->insert(preview_bytes->end(), rx_payload.begin(),
+                          rx_payload.begin() + static_cast<std::ptrdiff_t>(rx_len));
+    ++(*frames_tx);
+    ++(*frames_rx);
+    *rf_queued += frame_report.rf_report.queued_to_rf_engine ? 1u : 0u;
+    std::printf("{\"event\":\"app_camera_frame_tx\","
+                "\"frame_index\":%u,"
+                "\"chunk_index\":%u,"
+                "\"payload_kind\":%u,"
+                "\"traffic_class\":%u,"
+                "\"mode\":%u,"
+                "\"stream_id\":%u,"
+                "\"sequence\":%u,"
+                "\"packet_len\":%u,"
+                "\"frame_bytes\":%u,"
+                "\"planned_tx_us\":%lu,"
+                "\"stream_target_fps\":%u,"
+                "\"pace_realtime\":%s,"
+                "\"route_kind\":%u,"
+                "\"queued_to_sidecar\":%u,"
+                "\"queued_to_rf_engine\":%u,"
+                "\"uses_iio\":%u,"
+                "\"uses_inter_board_ip_routing\":%u,"
+                "\"starts_rf_tx\":%u,"
+                "\"writes_hardware\":%u}\n",
+                camera_chunk.frame_index, camera_chunk.chunk_index,
+                static_cast<unsigned>(frame_report.rx_packet.payload_kind),
+                static_cast<unsigned>(frame_report.rx_packet.traffic_class),
+                static_cast<unsigned>(frame_report.rx_packet.mode),
+                frame_report.rx_packet.stream_id,
+                frame_report.rx_packet.sequence,
+                frame_report.rf_report.plan.packet_len,
+                frame_report.rf_report.plan.frame_bytes,
+                static_cast<unsigned long>(planned_tx_us),
+                stream_target_fps,
+                pace_realtime ? "true" : "false",
+                static_cast<unsigned>(frame_report.rf_report.plan.route_kind),
+                frame_report.rf_report.queued_to_sidecar,
+                frame_report.rf_report.queued_to_rf_engine,
+                frame_report.rf_report.plan.uses_iio,
+                frame_report.rf_report.plan.uses_inter_board_ip_routing,
+                frame_report.rf_report.starts_rf_tx,
+                frame_report.rf_report.writes_hardware);
+    std::printf("{\"event\":\"app_camera_preview_rx\","
+                "\"frame_index\":%u,"
+                "\"chunk_index\":%u,"
+                "\"packet_len\":%lu,"
+                "\"preview_match\":true}\n",
+                camera_chunk.frame_index, camera_chunk.chunk_index,
+                static_cast<unsigned long>(rx_len));
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -641,7 +937,10 @@ int main(int argc, char **argv)
     bool data_plane_ok = false;
     unsigned stream_target_fps = 0;
 
-    if (!parse_options(argc, argv, &options) ||
+    if (!parse_options(argc, argv, &options)) {
+        return 2;
+    }
+    if (!options.live_stream_loop &&
         !build_camera_chunks(options, &camera_chunks, &camera_input_bytes)) {
         return 2;
     }
@@ -651,11 +950,13 @@ int main(int argc, char **argv)
                 "\"capture_boundary\":\"external_encoded_byte_stream\","
                 "\"sdk_abi\":\"pure_c\","
                 "\"streaming_read\":%s,"
+                "\"live_stream_loop\":%s,"
                 "\"max_chunks\":%u,"
                 "\"chunks\":%lu,"
                 "\"bytes\":%lu}\n",
                 camera_source_name(options),
-                options.camera_command ? "true" : "false",
+                (options.camera_command || options.live_stream_loop) ? "true" : "false",
+                options.live_stream_loop ? "true" : "false",
                 options.max_chunks,
                 static_cast<unsigned long>(camera_chunks.size()),
                 static_cast<unsigned long>(camera_input_bytes));
@@ -806,6 +1107,7 @@ int main(int argc, char **argv)
                 "\"camera_input_bytes\":%lu,"
                 "\"chunk_size\":%lu,"
                 "\"chunks\":%lu,"
+                "\"live_stream_loop\":%s,"
                 "\"target_fps\":%u,"
                 "\"target_bitrate_kbps\":%u,"
                 "\"max_inflight_chunks\":%u,"
@@ -835,7 +1137,10 @@ int main(int argc, char **argv)
                 camera_source_name(options),
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(options.chunk_size),
-                static_cast<unsigned long>(camera_chunks.size()),
+                static_cast<unsigned long>(options.live_stream_loop ?
+                                               options.max_chunks :
+                                               camera_chunks.size()),
+                options.live_stream_loop ? "true" : "false",
                 camera_session.target_fps,
                 camera_session.target_bitrate_kbps,
                 camera_session.max_inflight_chunks,
@@ -861,101 +1166,100 @@ int main(int argc, char **argv)
 
     const auto stream_start = std::chrono::steady_clock::now();
     unsigned chunk_counter = 0;
-    for (const auto &camera_chunk : camera_chunks) {
-        std::array<unsigned char, 1200> rx_payload{};
-        fieldmesh_camera_frame_report_t frame_report{};
-        size_t rx_len = 0;
-        uint64_t planned_tx_us;
+    if (options.live_stream_loop) {
+        LiveCameraSource source;
+        PreviewSink sink;
 
-        maybe_pace_stream(options.pace_realtime, stream_start, chunk_counter,
-                          stream_target_fps);
-        planned_tx_us = planned_timestamp_us(chunk_counter, stream_target_fps);
-
-        if (!require_ok(fieldmesh_camera_stream_frame(
-                            camera_stream, camera_chunk.payload.data(),
-                            camera_chunk.payload.size(), rx_payload.data(),
-                            rx_payload.size(), &rx_len, &frame_report),
-                        "camera_stream_frame")) {
+        if (!open_live_camera_source(options, &source) ||
+            !open_preview_sink(options, &sink)) {
+            (void)close_live_camera_source(options, &source);
             (void)fieldmesh_close_adapter(camera_stream);
             (void)fieldmesh_leave(session);
             fieldmesh_context_destroy(ctx);
             return 1;
         }
-        if (rx_len != camera_chunk.payload.size() ||
-            std::memcmp(rx_payload.data(), camera_chunk.payload.data(), rx_len) != 0) {
-            std::fprintf(stderr, "camera preview payload mismatch\n");
+        for (;;) {
+            CameraChunk camera_chunk;
+            bool have_chunk = false;
+            size_t preview_start = preview_bytes.size();
+
+            if (!read_live_camera_chunk(options, &source, &camera_chunk, &have_chunk)) {
+                (void)close_preview_sink(options, &sink, camera_input_bytes);
+                (void)close_live_camera_source(options, &source);
+                (void)fieldmesh_close_adapter(camera_stream);
+                (void)fieldmesh_leave(session);
+                fieldmesh_context_destroy(ctx);
+                return 1;
+            }
+            if (!have_chunk) {
+                break;
+            }
+            if (!transmit_camera_chunk(camera_stream, camera_chunk, stream_start,
+                                       chunk_counter, stream_target_fps,
+                                       options.pace_realtime, &preview_bytes,
+                                       &frames_tx, &frames_rx, &rf_queued)) {
+                (void)close_preview_sink(options, &sink, camera_input_bytes);
+                (void)close_live_camera_source(options, &source);
+                (void)fieldmesh_close_adapter(camera_stream);
+                (void)fieldmesh_leave(session);
+                fieldmesh_context_destroy(ctx);
+                return 1;
+            }
+            camera_input_bytes = source.bytes_read;
+            if (!write_preview_sink(&sink, preview_bytes.data() + preview_start,
+                                    preview_bytes.size() - preview_start)) {
+                std::fprintf(stderr, "failed to write preview sink\n");
+                (void)close_preview_sink(options, &sink, camera_input_bytes);
+                (void)close_live_camera_source(options, &source);
+                (void)fieldmesh_close_adapter(camera_stream);
+                (void)fieldmesh_leave(session);
+                fieldmesh_context_destroy(ctx);
+                return 1;
+            }
+            ++chunk_counter;
+        }
+        camera_input_bytes = source.bytes_read;
+        if (!close_preview_sink(options, &sink, camera_input_bytes) ||
+            !close_live_camera_source(options, &source)) {
             (void)fieldmesh_close_adapter(camera_stream);
             (void)fieldmesh_leave(session);
             fieldmesh_context_destroy(ctx);
             return 1;
         }
-        preview_bytes.insert(preview_bytes.end(), rx_payload.begin(),
-                             rx_payload.begin() + static_cast<std::ptrdiff_t>(rx_len));
-        ++frames_tx;
-        ++frames_rx;
-        rf_queued += frame_report.rf_report.queued_to_rf_engine ? 1u : 0u;
-        std::printf("{\"event\":\"app_camera_frame_tx\","
-                    "\"frame_index\":%u,"
-                    "\"chunk_index\":%u,"
-                    "\"payload_kind\":%u,"
-                    "\"traffic_class\":%u,"
-                    "\"mode\":%u,"
-                    "\"stream_id\":%u,"
-                    "\"sequence\":%u,"
-                    "\"packet_len\":%u,"
-                    "\"frame_bytes\":%u,"
-                    "\"planned_tx_us\":%lu,"
-                    "\"stream_target_fps\":%u,"
-                    "\"pace_realtime\":%s,"
-                    "\"route_kind\":%u,"
-                    "\"queued_to_sidecar\":%u,"
-                    "\"queued_to_rf_engine\":%u,"
-                    "\"uses_iio\":%u,"
-                    "\"uses_inter_board_ip_routing\":%u,"
-                    "\"starts_rf_tx\":%u,"
-                    "\"writes_hardware\":%u}\n",
-                    camera_chunk.frame_index, camera_chunk.chunk_index,
-                    static_cast<unsigned>(frame_report.rx_packet.payload_kind),
-                    static_cast<unsigned>(frame_report.rx_packet.traffic_class),
-                    static_cast<unsigned>(frame_report.rx_packet.mode),
-                    frame_report.rx_packet.stream_id,
-                    frame_report.rx_packet.sequence,
-                    frame_report.rf_report.plan.packet_len,
-                    frame_report.rf_report.plan.frame_bytes,
-                    static_cast<unsigned long>(planned_tx_us),
-                    stream_target_fps,
-                    options.pace_realtime ? "true" : "false",
-                    static_cast<unsigned>(frame_report.rf_report.plan.route_kind),
-                    frame_report.rf_report.queued_to_sidecar,
-                    frame_report.rf_report.queued_to_rf_engine,
-                    frame_report.rf_report.plan.uses_iio,
-                    frame_report.rf_report.plan.uses_inter_board_ip_routing,
-                    frame_report.rf_report.starts_rf_tx,
-                    frame_report.rf_report.writes_hardware);
-        std::printf("{\"event\":\"app_camera_preview_rx\","
-                    "\"frame_index\":%u,"
-                    "\"chunk_index\":%u,"
-                    "\"packet_len\":%lu,"
-                    "\"preview_match\":true}\n",
-                    camera_chunk.frame_index, camera_chunk.chunk_index,
-                    static_cast<unsigned long>(rx_len));
-        ++chunk_counter;
-    }
+    } else {
+        for (const auto &camera_chunk : camera_chunks) {
+            if (!transmit_camera_chunk(camera_stream, camera_chunk, stream_start,
+                                       chunk_counter, stream_target_fps,
+                                       options.pace_realtime, &preview_bytes,
+                                       &frames_tx, &frames_rx, &rf_queued)) {
+                (void)fieldmesh_close_adapter(camera_stream);
+                (void)fieldmesh_leave(session);
+                fieldmesh_context_destroy(ctx);
+                return 1;
+            }
+            ++chunk_counter;
+        }
 
-    if (!write_preview_output(options, preview_bytes, camera_input_bytes)) {
-        (void)fieldmesh_close_adapter(camera_stream);
-        (void)fieldmesh_leave(session);
-        fieldmesh_context_destroy(ctx);
-        return 1;
+        if (!write_preview_output(options, preview_bytes, camera_input_bytes)) {
+            (void)fieldmesh_close_adapter(camera_stream);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
     }
 
     control_plane_ok = !aps.aps.empty() && !peers.peers.empty() &&
                        !positions.positions.empty() &&
                        std::strcmp(election.elected_node_id, "020000000203") == 0 &&
                        topology_links >= 2u;
-    data_plane_ok = frames_tx == camera_chunks.size() &&
-                    frames_rx == camera_chunks.size() &&
-                    rf_queued == camera_chunks.size() &&
+    data_plane_ok = frames_tx > 0u &&
+                    frames_tx == frames_rx &&
+                    frames_tx == rf_queued &&
+                    (!options.live_stream_loop ||
+                     options.max_chunks == 0u ||
+                     frames_tx == options.max_chunks) &&
+                    (options.live_stream_loop ||
+                     frames_tx == camera_chunks.size()) &&
                     preview_bytes.size() == camera_input_bytes;
 
     std::printf("{\"event\":\"app_summary\","
@@ -973,6 +1277,7 @@ int main(int argc, char **argv)
                 "\"preview_bytes\":%lu,"
                 "\"stream_target_fps\":%u,"
                 "\"pace_realtime\":%s,"
+                "\"live_stream_loop\":%s,"
                 "\"radio_topology_only\":true,"
                 "\"host_eth_topology\":false,"
                 "\"production_path\":\"sdk_daemon_swarm0_rf_packet_engine\"}\n",
@@ -986,7 +1291,8 @@ int main(int argc, char **argv)
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(preview_bytes.size()),
                 stream_target_fps,
-                options.pace_realtime ? "true" : "false");
+                options.pace_realtime ? "true" : "false",
+                options.live_stream_loop ? "true" : "false");
 
     (void)fieldmesh_close_adapter(camera_stream);
     (void)fieldmesh_leave(session);
