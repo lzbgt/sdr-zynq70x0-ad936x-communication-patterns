@@ -369,10 +369,15 @@ Next concrete work:
 - The DAC source-select writer is now a separate safety boundary:
   `fieldmesh-udp-probe rf-source-apply` requires all RF guard declarations plus
   `--allow-rf-source-select`, writes only `0x12c`, reports AD936x TX/RF TX
-  remain disabled, and rolls source select back to the vendor path. Z103 passed
-  `APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1` with
-  `./tools/run_fieldmesh_board_rf_source_apply.sh 192.168.3.1` on the RF-engine
-  runtime before any conducted/shielded TX enable work.
+  remain disabled, and rolls source select back to the vendor path. The first
+  live run exposed stale RF-engine hardware because readback stayed zero; the
+  apply path now rejects that case. After installing the refreshed RF-engine
+  package, Z103 passed with source-select readback asserted and rolled back.
+- `tools/fieldmesh_rf_tx_enable_plan.py` now joins green sidecar preflight,
+  guard-write, and source-select evidence into a review-only conducted/shielded
+  TX-enable sequence with bounded duration and rollback. It still executes no
+  commands and starts no RF TX. The next live work is implementing the board
+  script executor for a real conducted/shielded fixture.
   `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,
   package artifacts, JTAG RAM-boot hashes, and package-vs-RAM-boot DTB parity
   before a live boot attempt. The sidecar

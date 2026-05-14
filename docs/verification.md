@@ -2367,12 +2367,22 @@ the DAC source selector: it proves `rf-source-apply` refuses missing
 target confirmation, writes only `FM_RF_DAC_SOURCE_CONTROL`, reports
 `sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolls source select
 back to zero.
-`APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1 FORCE_UPLOAD=1 VARIANT=z103
-./tools/run_fieldmesh_board_rf_source_apply.sh 192.168.3.1` then passed on
-Z103 with the RF-engine runtime: sidecar preflight passed, source select was
-written and rolled back, and AD936x TX/RF TX stayed disabled. Evidence is
-archived under
-`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_source_apply_20260514-125207/`.
+The first Z103 source-select run exposed a useful mismatch: the old installed
+RF-engine runtime did not read back `FM_RF_DAC_SOURCE_CONTROL[0]`. The apply
+path now fails unless source-select reads back asserted. After installing the
+refreshed RF-engine package, `APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1
+FORCE_UPLOAD=1 VARIANT=z103 ./tools/run_fieldmesh_board_rf_source_apply.sh
+192.168.3.1` passed with `source_control=0x00000001`,
+`source_status=0x00000003`, rollback to zero, and AD936x TX/RF TX still
+disabled. Evidence is archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_source_apply_readback_20260514-1301/`.
+`./tools/verify_fieldmesh_rf_tx_enable_plan.sh` then added the review-only
+TX-enable gate: it consumes live guard/source/preflight evidence, requires
+conducted/shielded fixture attenuation, legal frequency profile, RX-first,
+TX-enable guard, sidecar preflight, RF-engine, and Zynq target declarations,
+and emits a future bounded TX-enable plus rollback sequence while still
+reporting `executes_commands=false`, `writes_hardware=false`, and
+`starts_rf_tx=false`.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying

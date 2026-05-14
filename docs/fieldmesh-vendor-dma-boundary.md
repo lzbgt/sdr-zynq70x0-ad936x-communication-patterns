@@ -508,6 +508,44 @@ VARIANT=z103 APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1 \
 
 The live runner captures sidecar preflight, scans the RF guard registers,
 applies the guard window only under the explicit write flags, and rolls the
+window back. The matching DAC source-select runner is:
+
+```sh
+VARIANT=z103 APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1 \
+  ./tools/run_fieldmesh_board_rf_source_apply.sh 192.168.3.1
+```
+
+It requires the refreshed RF-engine runtime where `0x12c` reads back bit 0
+asserted while selected and `0x130` reports the synchronized DAC source status.
+Older RF-engine packages that do not expose the source-select register are now
+rejected by readback.
+
+The next TX-enable boundary is review-only:
+
+```sh
+./tools/fieldmesh_rf_tx_enable_plan.py \
+  --rf-guard-apply rf_guard_apply.ndjson \
+  --rf-source-apply rf_source_apply.ndjson \
+  --preflight-assert preflight_assert.json \
+  --out-dir .config/fieldmesh/rf-tx-enable-plan \
+  --center-frequency-hz 915000000 \
+  --sample-rate-hz 1000000 \
+  --rf-bandwidth-hz 1000000 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --rx-first \
+  --tx-enable-guard \
+  --sidecar-preflight-passed \
+  --rf-engine-ready \
+  --target-is-zynq-board
+```
+
+This tool validates that the guard writer and DAC source-select writer both
+work and roll back, then emits a future sequence:
+source select, guard arm, safe tuning, bounded TX-enable, TX disable, source
+rollback, and guard rollback. It still executes no commands, writes no
+hardware, opens no IIO buffers, and starts no RF TX.
 window back before exit. It is still not an RF transmit path: it does not
 connect the guarded IQ stream to AD936x TX, does not set AD936x TX enable, and
 does not start RF TX.

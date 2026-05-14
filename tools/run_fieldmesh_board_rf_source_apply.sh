@@ -162,6 +162,8 @@ end = next((row for row in apply_rows if row.get("event") == "rf_source_apply_en
 if applied:
     if not write or write.get("selects_fieldmesh_dac_source") is not True:
         raise SystemExit("RF source apply did not select FieldMesh DAC source")
+    if write.get("source_control") != "0x00000001":
+        raise SystemExit(f"RF source-select readback was not asserted: {write}")
     if write.get("sets_ad936x_tx_enable") is not False or write.get("starts_rf_tx") is not False:
         raise SystemExit("RF source apply crossed the AD936x/RF TX safety boundary")
     if not rollback or rollback.get("ok") is not True:

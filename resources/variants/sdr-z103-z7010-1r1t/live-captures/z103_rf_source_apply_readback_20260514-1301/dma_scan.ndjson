@@ -1,0 +1,12 @@
+{"event":"dma_scan_start","transport":"dma-scan","path":"/dev/mem","tx_base":"0x43c10000","rx_base":"0x43c20000","size":"0x00010000","opens_write":false,"starts_transfer":false,"file_backed":false}
+{"event":"dma_reg","transport":"dma-scan","dma":"tx","base":"0x43c10000","name":"reg_00","offset":"0x00","read_ok":true,"value":"0x00040563"}
+{"event":"dma_reg","transport":"dma-scan","dma":"tx","base":"0x43c10000","name":"reg_04","offset":"0x04","read_ok":true,"value":"0x00000000"}
+{"event":"dma_reg","transport":"dma-scan","dma":"tx","base":"0x43c10000","name":"reg_08","offset":"0x08","read_ok":true,"value":"0x00000000"}
+{"event":"dma_reg","transport":"dma-scan","dma":"tx","base":"0x43c10000","name":"reg_0c","offset":"0x0c","read_ok":true,"value":"0x444d4143"}
+{"event":"dma_reg","transport":"dma-scan","dma":"tx","base":"0x43c10000","name":"reg_10","offset":"0x10","read_ok":true,"value":"0x00070311"}
+{"event":"dma_reg","transport":"dma-scan","dma":"rx","base":"0x43c20000","name":"reg_00","offset":"0x00","read_ok":true,"value":"0x00040563"}
+{"event":"dma_reg","transport":"dma-scan","dma":"rx","base":"0x43c20000","name":"reg_04","offset":"0x04","read_ok":true,"value":"0x00000000"}
+{"event":"dma_reg","transport":"dma-scan","dma":"rx","base":"0x43c20000","name":"reg_08","offset":"0x08","read_ok":true,"value":"0x00000000"}
+{"event":"dma_reg","transport":"dma-scan","dma":"rx","base":"0x43c20000","name":"reg_0c","offset":"0x0c","read_ok":true,"value":"0x444d4143"}
+{"event":"dma_reg","transport":"dma-scan","dma":"rx","base":"0x43c20000","name":"reg_10","offset":"0x10","read_ok":true,"value":"0x00071103"}
+{"event":"dma_scan_end","transport":"dma-scan","ok":true}

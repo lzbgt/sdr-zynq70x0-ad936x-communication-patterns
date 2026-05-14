@@ -2917,6 +2917,10 @@ static int run_rf_source_apply(const struct config *cfg)
            "\"selects_fieldmesh_dac_source\":true,"
            "\"sets_ad936x_tx_enable\":false,\"starts_rf_tx\":false}\n",
            source_control, source_status);
+    if ((source_control & 0x1U) == 0U) {
+        snprintf(err, sizeof(err), "RF DAC source select did not read back asserted");
+        goto out;
+    }
 
 out:
     if (fd >= 0 && wrote) {
