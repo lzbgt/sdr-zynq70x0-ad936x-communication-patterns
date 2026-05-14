@@ -625,8 +625,9 @@ user and vendor configuration.
   device/IIO planning, end-to-end reference AP election/join/route/stream flow,
   a UDP state-daemon AP/peer/RTLS/`swarm0`/RF-engine/TUN fd pump/TUN apply/IIO-admin
   query demo, including the composed `FIELDMESH_APP_CONTROL_CAMERA` app-level
-  control/data-plane request and direct `FIELDMESH_CAMERA_STREAM_CHUNK`
-  data-plane request, a `swarm0` adapter packet-classification demo, a routed
+  control/data-plane request, `FIELDMESH_CAMERA_SESSION_PLAN`, and direct
+  `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane request, a `swarm0` adapter
+  packet-classification demo, a routed
   TUN gateway planning demo, a TUN IP-packetizer demo, a pure-C camera stream
   demo over `fieldmesh_open_camera_stream()` and
   `fieldmesh_camera_stream_frame()`, a two-PC AP
@@ -999,12 +1000,14 @@ Expected result in the current Pluto-compatible firmware state:
    app-camera composition too: the installed daemon answered all 15 SDK
    requests, including `FIELDMESH_APP_CONTROL_CAMERA`. The packaged daemon now
    uses the same pure-C `fieldmesh_camera_stream_frame()` path as the C++ app
-   for that composition. The daemon contract also exposes direct
+   for that composition. The daemon contract also exposes
+   `FIELDMESH_CAMERA_SESSION_PLAN` for pacing, inflight-window, ACK cadence,
+   reorder-window, jitter-buffer, backpressure, and keepalive policy, plus direct
    `FIELDMESH_CAMERA_STREAM_CHUNK` ingress so an Ethernet SDK client can submit
    one encoded camera chunk and receive preview/checksum/RF handoff status
    without reimplementing stream classification. A live Z103 transient-daemon
-   smoke at `192.168.3.1` verified the new request with
-   `camera_chunk_events=1`. The post-install RF
+   smoke at `192.168.3.1` verified the session planner and chunk ingress with
+   `camera_session_events=1` and `camera_chunk_events=1`. The post-install RF
    packet-engine binding gate still recovered frame CRC `2646482743` while
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
    The matching Z203 installed-runtime app-camera gate is currently blocked by

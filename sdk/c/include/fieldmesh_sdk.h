@@ -414,6 +414,32 @@ typedef struct fieldmesh_camera_frame_report {
     uint8_t data_plane_ok;
 } fieldmesh_camera_frame_report_t;
 
+typedef struct fieldmesh_camera_session_plan {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_payload_kind_t payload_kind;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mode_t mode;
+    fieldmesh_route_kind_t route_kind;
+    uint16_t stream_id_base;
+    uint32_t mtu_bytes;
+    uint32_t target_fps;
+    uint32_t target_bitrate_kbps;
+    uint32_t max_inflight_chunks;
+    uint32_t ack_every_chunks;
+    uint32_t reorder_window_chunks;
+    uint32_t jitter_buffer_ms;
+    uint32_t frame_budget_bytes;
+    uint8_t uses_sidecar_dma;
+    uint8_t uses_rf_packet_engine;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t starts_rf_tx;
+    uint8_t writes_hardware;
+    uint8_t requires_backpressure;
+    uint8_t requires_session_keepalive;
+} fieldmesh_camera_session_plan_t;
+
 typedef struct fieldmesh_rf_tx_guard_plan {
     char guard_name[FIELDMESH_NAME_TEXT_MAX];
     char engine_name[FIELDMESH_NAME_TEXT_MAX];
@@ -679,6 +705,10 @@ fieldmesh_status_t fieldmesh_open_camera_stream(
     fieldmesh_session_t *session,
     const fieldmesh_camera_stream_config_t *config,
     fieldmesh_adapter_t **out_adapter);
+fieldmesh_status_t fieldmesh_plan_camera_stream_session(
+    fieldmesh_session_t *session,
+    const fieldmesh_camera_stream_config_t *config,
+    fieldmesh_camera_session_plan_t *out_plan);
 fieldmesh_status_t fieldmesh_camera_stream_frame(
     fieldmesh_adapter_t *adapter,
     const void *input,

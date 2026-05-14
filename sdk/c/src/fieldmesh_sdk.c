@@ -1615,6 +1615,59 @@ fieldmesh_status_t fieldmesh_open_camera_stream(
     return fieldmesh_open_adapter(session, &adapter_config, out_adapter);
 }
 
+fieldmesh_status_t fieldmesh_plan_camera_stream_session(
+    fieldmesh_session_t *session,
+    const fieldmesh_camera_stream_config_t *config,
+    fieldmesh_camera_session_plan_t *out_plan)
+{
+    fieldmesh_mode_t mode;
+    uint32_t mtu_bytes;
+    uint32_t target_bitrate_kbps;
+
+    if (!session || !config || !out_plan || !config->adapter_name[0] ||
+        !config->dst_node_id[0]) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_plan, 0, sizeof(*out_plan));
+    mode = config->requested_mode == FIELDMESH_MODE_AUTO ?
+               FIELDMESH_MODE_SCHEDULED :
+               config->requested_mode;
+    mtu_bytes = config->mtu_bytes ? config->mtu_bytes : FIELDMESH_ADAPTER_DEFAULT_MTU;
+    target_bitrate_kbps = mtu_bytes >= 1200u ? 1800u : 900u;
+
+    sdk_copy_text(out_plan->adapter_name, sizeof(out_plan->adapter_name),
+                  config->adapter_name);
+    sdk_copy_text(out_plan->dst_node_id, sizeof(out_plan->dst_node_id),
+                  config->dst_node_id);
+    out_plan->payload_kind = FIELDMESH_PAYLOAD_VIDEO_BASE;
+    out_plan->traffic_class = FIELDMESH_CLASS_C2_VIDEO_BASE;
+    out_plan->mode = mode;
+    out_plan->route_kind = FIELDMESH_ROUTE_DIRECT;
+    out_plan->stream_id_base =
+        config->stream_id_base ? config->stream_id_base : 500u;
+    out_plan->mtu_bytes = mtu_bytes;
+    out_plan->target_fps = 30u;
+    out_plan->target_bitrate_kbps = target_bitrate_kbps;
+    out_plan->max_inflight_chunks = 8u;
+    out_plan->ack_every_chunks = 4u;
+    out_plan->reorder_window_chunks = 16u;
+    out_plan->jitter_buffer_ms = 120u;
+    out_plan->frame_budget_bytes =
+        (target_bitrate_kbps * 1000u) / (8u * out_plan->target_fps);
+    if (out_plan->frame_budget_bytes < mtu_bytes) {
+        out_plan->frame_budget_bytes = mtu_bytes;
+    }
+    out_plan->uses_sidecar_dma = 1u;
+    out_plan->uses_rf_packet_engine = 1u;
+    out_plan->uses_iio = 0u;
+    out_plan->uses_inter_board_ip_routing = 0u;
+    out_plan->starts_rf_tx = 0u;
+    out_plan->writes_hardware = 0u;
+    out_plan->requires_backpressure = 1u;
+    out_plan->requires_session_keepalive = 1u;
+    return FIELDMESH_OK;
+}
+
 fieldmesh_status_t fieldmesh_camera_stream_frame(
     fieldmesh_adapter_t *adapter,
     const void *input,

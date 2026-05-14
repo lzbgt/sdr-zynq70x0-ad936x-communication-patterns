@@ -20,6 +20,7 @@ int main(void)
     fieldmesh_config_t config;
     fieldmesh_join_request_t join;
     fieldmesh_camera_stream_config_t camera_config;
+    fieldmesh_camera_session_plan_t session_plan;
     fieldmesh_camera_frame_report_t report;
     unsigned char input[384];
     unsigned char preview[384];
@@ -51,6 +52,8 @@ int main(void)
     fill_camera_bytes(input, sizeof(input));
     if (fieldmesh_context_create(&config, &ctx) != FIELDMESH_OK ||
         fieldmesh_join_ap(ctx, &join, &session) != FIELDMESH_OK ||
+        fieldmesh_plan_camera_stream_session(session, &camera_config,
+                                             &session_plan) != FIELDMESH_OK ||
         fieldmesh_open_camera_stream(session, &camera_config, &camera) !=
             FIELDMESH_OK ||
         fieldmesh_camera_stream_frame(camera, input, sizeof(input), preview,
@@ -69,6 +72,14 @@ int main(void)
            "\"mode\":%u,"
            "\"route_kind\":%u,"
            "\"stream_id\":%u,"
+           "\"session_target_fps\":%u,"
+           "\"session_target_bitrate_kbps\":%u,"
+           "\"session_max_inflight_chunks\":%u,"
+           "\"session_ack_every_chunks\":%u,"
+           "\"session_reorder_window_chunks\":%u,"
+           "\"session_jitter_buffer_ms\":%u,"
+           "\"session_requires_backpressure\":%u,"
+           "\"session_requires_keepalive\":%u,"
            "\"input_bytes\":%u,"
            "\"preview_bytes\":%u,"
            "\"preview_match\":%u,"
@@ -85,7 +96,15 @@ int main(void)
            (unsigned)report.rx_packet.traffic_class,
            (unsigned)report.rx_packet.mode,
            (unsigned)report.rf_report.plan.route_kind,
-           report.rx_packet.stream_id, report.input_bytes, report.preview_bytes,
+           report.rx_packet.stream_id, session_plan.target_fps,
+           session_plan.target_bitrate_kbps,
+           session_plan.max_inflight_chunks,
+           session_plan.ack_every_chunks,
+           session_plan.reorder_window_chunks,
+           session_plan.jitter_buffer_ms,
+           session_plan.requires_backpressure,
+           session_plan.requires_session_keepalive,
+           report.input_bytes, report.preview_bytes,
            report.preview_match, report.rf_report.queued_to_sidecar,
            report.rf_report.queued_to_rf_engine,
            report.rf_report.plan.uses_iio,

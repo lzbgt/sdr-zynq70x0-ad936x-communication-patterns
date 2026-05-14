@@ -3380,40 +3380,43 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-The SDK daemon gate now also exercises direct camera data-plane ingress with
-`FIELDMESH_CAMERA_STREAM_CHUNK`. The request accepts one encoded chunk over the
-host-facing Ethernet SDK socket, forwards it through
-`fieldmesh_camera_stream_frame()`, and reports matching preview/input checksums
-plus RF packet-engine handoff state while still asserting no IIO use, no
-inter-board IP routing, no RF TX start, and no hardware writes.
+The SDK daemon gate now also exercises camera session/data-plane ingress with
+`FIELDMESH_CAMERA_SESSION_PLAN` and `FIELDMESH_CAMERA_STREAM_CHUNK`. The session
+plan reports target FPS, bitrate hint, inflight window, ACK cadence, reorder
+window, jitter buffer, backpressure, and keepalive policy. The chunk request
+accepts one encoded chunk over the host-facing Ethernet SDK socket, forwards it
+through `fieldmesh_camera_stream_frame()`, and reports matching preview/input
+checksums plus RF packet-engine handoff state while still asserting no IIO use,
+no inter-board IP routing, no RF TX start, and no hardware writes.
 
-A live Z103 transient-daemon smoke then verified the same request against the
-reachable board at `192.168.3.1`:
+A live Z103 transient-daemon smoke then verified the session-plan and
+chunk-ingress requests against the reachable board at `192.168.3.1`:
 
 ```sh
-OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_camera_chunk_20260514-144653 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_camera_session_daemon_20260514-150330 \
 FORCE_UPLOAD=1 ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
 ```
 
 Result: passed. The board daemon assertion reported
-`camera_chunk_events=1`, `app_camera_events=1`, and `ok=true`, proving the
-direct chunk ingress and composed app-camera request both use the shared
-camera stream SDK path under the host-facing control/data-plane socket.
+`camera_session_events=1`, `camera_chunk_events=1`, `app_camera_events=1`, and
+`ok=true`, proving the session planner, direct chunk ingress, and composed
+app-camera request all use the shared camera stream SDK path under the
+host-facing control/data-plane socket.
 
-Refreshed runtime artifact hashes after adding the direct camera chunk request
-to the packaged board daemon:
+Refreshed runtime artifact hashes after adding camera session planning and the
+direct camera chunk request to the packaged board daemon:
 
 ```text
-Z203 rootfs.cpio.gz: 652909447fa914522671d9f7dfc332f2b7c791e0a6f8ec1e94343534afb784d7
-Z203 rootfs.tar.gz:  a5f6e9976210cbf325640f37f79dc6502b42775d1d0db5e1af2d1ad10cd51f9a
-Z203 pluto.frm:      7d0ae6af20d8cc723ef7d999163c354262fb862f27b6a4b9891b4eb6ac039da6
-Z203 pluto.itb:      03506865b347e9fc5bdc1ec3b2314dce813a702844110f8611d0239d1f043f7c
-Z203 jtag ramdisk:   2ad7a1e3ba5e2b61ddb68a8015be9dfe75da1bac425d3fd9004e9bd09b82d340
-Z103 rootfs.cpio.gz: e007acf3bf4f247b77ffb517bda1d8cde4036df3049d2d27d6ff6dc78eef5b98
-Z103 rootfs.tar.gz:  7c02c5c09b861f1b3b22f7b9821588005cdfaec7a4320e0f351d64be91fd19f4
-Z103 pluto.frm:      709c0f90127ad1e8cc197e789627498b57a31ee70d406fa7d885d01d4dc2cef6
-Z103 pluto.itb:      272884216b7f1c0d6c0418ff035da31f3e0926d15bb73be05b71728341f34141
-Z103 jtag ramdisk:   8250eb60f8e4441fcc4ec590ab019acc861309ac1068d55d70fa7a8b2af65d02
+Z203 rootfs.cpio.gz: 3eb71c0b4166135c49f6930f439cd5860cac95acade9bef3c824b08561d5b3a7
+Z203 rootfs.tar.gz:  2460b19d7181423b0f829e71d1e565d2f0c3368729cec468b540afeca087ce41
+Z203 pluto.frm:      a3cdb2b70a1c6d2c9fcf0b17737e25b17886d0bed1a492b20d5bd3f5da782c5a
+Z203 pluto.itb:      9930d4e34b75f5aeca7ba99fddd0def61584ee2a907a6075493b75edfd0ba214
+Z203 jtag ramdisk:   6774e75c6e92eb4673e61d0707708bcf62dda0720a6f1d0f28a1e71fcafff0d0
+Z103 rootfs.cpio.gz: 9d481375eee90323d4526410dc8831a29ef9e3886529e3c3b86973dd81a06a55
+Z103 rootfs.tar.gz:  781c3a4fe4e3db690a4753e359250bc97896f932f7b083ebec7750084d04bd57
+Z103 pluto.frm:      8b6e96b452124451915f347329066518460a25cfb31adc5eacb84f9f786a5aa9
+Z103 pluto.itb:      67b4818fa5914ddc0f21622899b49ed4d8d5c754e1a05c84d5d9430d066c37cf
+Z103 jtag ramdisk:   b810bc2f26bca542096ed522c849a1261016de850a937b93c7e277ee03abe0ed
 ```
 
 ## FieldMesh RTLS Positioning Gate

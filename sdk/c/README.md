@@ -47,8 +47,10 @@ in `src/fieldmesh_sdk.c`:
   verifies AP browse/election, user-commanded proactive camera streaming,
   radio-only topology, RTLS state, and six video-base chunks queued into the RF
   packet-engine handoff through the same pure-C camera stream API used by the
-  C++ app. It also serves `FIELDMESH_CAMERA_STREAM_CHUNK`, a direct Ethernet
-  SDK data-plane request that accepts one encoded camera byte chunk and returns
+  C++ app. It also serves `FIELDMESH_CAMERA_SESSION_PLAN`, which reports
+  pacing, inflight-window, ACK, reorder, jitter, and backpressure policy before
+  streaming begins, plus `FIELDMESH_CAMERA_STREAM_CHUNK`, a direct Ethernet SDK
+  data-plane request that accepts one encoded camera byte chunk and returns
   preview/checksum/RF handoff status. A separate process queries those services
   over the same IP path intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
@@ -77,11 +79,14 @@ in `src/fieldmesh_sdk.c`:
   callback contract for daemon code that reads from a real board-local TUN
   file descriptor and forwards one packet into the FieldMesh adapter path.
 - `examples/fieldmesh_camera_stream_demo.c` is the first pure-C camera stream
-  contract. It opens a scheduled `swarm0` camera stream with
+  contract. It plans a scheduled `swarm0` session with
+  `fieldmesh_plan_camera_stream_session()`, opens it with
   `fieldmesh_open_camera_stream()`, sends one video-base frame with
   `fieldmesh_camera_stream_frame()`, verifies preview bytes, and proves the
   data plane queues to the FieldMesh RF packet-engine handoff without IIO,
-  inter-board IP routing, RF TX start, or hardware writes. C++ and Rust apps
+  inter-board IP routing, RF TX start, or hardware writes. The session plan
+  includes target FPS, bitrate hint, inflight chunks, ACK cadence, reorder
+  window, jitter buffer, backpressure, and keepalive policy. C++ and Rust apps
   should build camera capture/preview around this ABI instead of reimplementing
   stream and RF-handoff policy.
 - `examples/fieldmeshctl_demo.c` is the first CLI/profile boundary. It exposes

@@ -119,6 +119,7 @@ Minimum daemon messages:
 | `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
 | `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. |
+| `CAMERA_SESSION_PLAN` | app -> daemon | Plan camera stream pacing, chunk window, ACK cadence, reorder window, jitter buffer, and RF handoff policy before sending chunks. |
 | `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
@@ -130,6 +131,7 @@ Minimum daemon messages:
 The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
 election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
+`FIELDMESH_CAMERA_SESSION_PLAN`,
 `FIELDMESH_CAMERA_STREAM_CHUNK`,
 `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
 `FIELDMESH_TUN_APPLY_VALIDATE`, guarded `FIELDMESH_TUN_APPLY_COMMIT`
@@ -241,6 +243,8 @@ movement, not claim full 2D position. Stable 2D RTLS needs 3+ timing anchors;
 Streams are logical FieldMesh payload channels:
 
 - `STREAM_OPEN`: peer/group, class, deadline, bitrate hint, reliability/FEC.
+- `STREAM_PLAN`: compute pacing, inflight window, ACK cadence, reorder window,
+  jitter buffer, and route policy before streaming begins.
 - `STREAM_TX`: chunk or access unit into the local daemon.
 - `STREAM_RX`: chunk or access unit from the local daemon.
 - `STREAM_FEEDBACK`: loss, queue age, SNR, route, bitrate, and FEC feedback.
@@ -253,6 +257,14 @@ Traffic classes:
 - C2: video base layer with bounded latency and drop-old-frame behavior;
 - C3: enhancement frames or opportunistic quality;
 - C4: logs, snapshots, and bulk transfer.
+
+The current camera SDK exposes this as
+`fieldmesh_plan_camera_stream_session()`: default video-base C2 sessions use
+scheduled direct RF, 30 fps target pacing, eight inflight chunks, ACK every
+four chunks, a sixteen-chunk reorder window, a 120 ms jitter buffer, explicit
+backpressure, and keepalive. These are policy defaults, not fixed PHY limits;
+the production daemon should adapt them from route quality, queue age, PER,
+SNR/EVM, and selected codec bitrate.
 
 The pure-C SDK now has an executable adapter contract for this mapping:
 `fieldmesh_open_adapter()` opens `swarm0` or a stream-equivalent adapter,

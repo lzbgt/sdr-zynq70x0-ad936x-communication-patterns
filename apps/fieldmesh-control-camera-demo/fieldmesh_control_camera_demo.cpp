@@ -346,6 +346,7 @@ int main(int argc, char **argv)
     fieldmesh_ap_election_result_t election{};
     fieldmesh_join_request_t join{};
     fieldmesh_camera_stream_config_t camera_config{};
+    fieldmesh_camera_session_plan_t camera_session{};
     ApList aps;
     PeerList peers;
     PositionList positions;
@@ -468,7 +469,10 @@ int main(int argc, char **argv)
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
 
-    if (!require_ok(fieldmesh_open_camera_stream(session, &camera_config,
+    if (!require_ok(fieldmesh_plan_camera_stream_session(session, &camera_config,
+                                                         &camera_session),
+                    "plan_camera_stream_session") ||
+        !require_ok(fieldmesh_open_camera_stream(session, &camera_config,
                                                  &camera_stream),
                     "open_camera_stream")) {
         (void)fieldmesh_leave(session);
@@ -485,6 +489,14 @@ int main(int argc, char **argv)
                 "\"camera_input_bytes\":%lu,"
                 "\"chunk_size\":%lu,"
                 "\"chunks\":%lu,"
+                "\"target_fps\":%u,"
+                "\"target_bitrate_kbps\":%u,"
+                "\"max_inflight_chunks\":%u,"
+                "\"ack_every_chunks\":%u,"
+                "\"reorder_window_chunks\":%u,"
+                "\"jitter_buffer_ms\":%u,"
+                "\"requires_backpressure\":%u,"
+                "\"requires_keepalive\":%u,"
                 "\"payload_kind\":%u,"
                 "\"traffic_class\":%u,"
                 "\"preview_enabled\":true,"
@@ -494,6 +506,14 @@ int main(int argc, char **argv)
                 static_cast<unsigned long>(camera_input_bytes),
                 static_cast<unsigned long>(options.chunk_size),
                 static_cast<unsigned long>(camera_chunks.size()),
+                camera_session.target_fps,
+                camera_session.target_bitrate_kbps,
+                camera_session.max_inflight_chunks,
+                camera_session.ack_every_chunks,
+                camera_session.reorder_window_chunks,
+                camera_session.jitter_buffer_ms,
+                camera_session.requires_backpressure,
+                camera_session.requires_session_keepalive,
                 static_cast<unsigned>(FIELDMESH_PAYLOAD_VIDEO_BASE),
                 static_cast<unsigned>(FIELDMESH_CLASS_C2_VIDEO_BASE));
 
