@@ -682,8 +682,11 @@ user and vendor configuration.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary
   that only admits IQ samples when TX is enabled, armed, and in the allowed
   schedule slot; the copied RF-engine overlay wires its control/status pins to
-  the sidecar AXI-lite window, resets it unarmed, and parks its IQ output until
-  the scheduler/filter/driver path exists.
+  the sidecar AXI-lite window, resets it unarmed, and parks its IQ output
+  behind a clock-domain bridge until the scheduler/filter/driver path exists.
+- `rtl/fieldmesh/fieldmesh_axis_async_fifo.v` - AXI-stream CDC FIFO that moves
+  guarded IQ samples from the sidecar/RF packet-engine clock domain into the
+  AD9361 DAC `l_clk` domain before any DAC datapath connection is allowed.
 - `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` - deterministic scheduled
   descriptor gate wired between class-ring dequeue and packet-memory loopback
   in the full simulation wrapper; it holds future-slot descriptors, drops stale
@@ -736,7 +739,9 @@ user and vendor configuration.
   parser output back into the guarded RX path for the first non-RF packet-DMA
   transfer gate; `--rf-engine-overlay` instead feeds the bridge parser output
   into `fieldmesh_bpsk_symbolizer`, routes generated IQ through
-  `fieldmesh_iq_tx_guard`, and leaves the guarded IQ stream parked.
+  `fieldmesh_iq_tx_guard`, crosses into the AD9361 DAC clock domain through
+  `fieldmesh_axis_async_fifo`, and leaves that DAC-clock-domain IQ stream
+  parked.
 - `tools/check_fieldmesh_control_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the FieldMesh control overlay, and runs Vivado project/BD
   generation checks without synthesis to prove the `fieldmesh_ctrl` cell,
@@ -753,9 +758,10 @@ user and vendor configuration.
 - `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` - copies a Z203 or Z103
   HDL tree, applies the FieldMesh sidecar DMA plus RF packet-engine overlay,
   and runs Vivado project/BD generation checks without synthesis to prove
-  `fieldmesh_bpsk_symbolizer` and `fieldmesh_iq_tx_guard` are BD-visible, the
-  guard is driven by the sidecar control window but resets unarmed, and no
-  FieldMesh RF output connects to AD936x TX.
+  `fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
+  `fieldmesh_axis_async_fifo` are BD-visible, the guard is driven by the
+  sidecar control window but resets unarmed, the FIFO sink is clocked from
+  `axi_ad9361/l_clk`, and no FieldMesh RF output connects to AD936x TX.
 - `tools/build_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
   Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in
@@ -993,13 +999,14 @@ Expected result in the current Pluto-compatible firmware state:
    archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
    The non-transmitting RF-engine copied overlay, now including the
-   sidecar-control-wired `fieldmesh_iq_tx_guard`, builds timing-clean for both
-   variants too: Z103 `system_top.bit`/XSA hashes are
-   `592eb8a746c7dc2016e4f64eca3849a0eeb784619d3097e78af12be52b4ea2c0` and
-   `c125a043476f7fb7dd1d80034e79e11d7d1e58e2b55309577079339d2b890edd`;
+   sidecar-control-wired `fieldmesh_iq_tx_guard` plus an async FIFO into the
+   AD9361 DAC `l_clk` domain, builds timing-clean for both variants too: Z103
+   `system_top.bit`/XSA hashes are
+   `126b08c89639b49c055ea04d270ef6051b9f03b3be67d7b54ceb6e8ef9054800` and
+   `b29487d102d48d1ef3ceafe56c453161267027cd50479f3e922a46bdb9ddc2a4`;
    Z203 hashes are
-   `ec00509cd29d9585c153514a2f3b4f1c3aff71e9382cf1b74e6b8919b1372336` and
-   `79e2df27b8b84c6da0eae574555f832c1281fbeecd967f12b3c470a8073466b7`.
+   `7f387d119fad2173e6db69f8428bc0af646be351152c0a70182e2b27cc1b334f` and
+   `c25451993b84e1871914c026ac8cd450589e5b698a25406fc9b859bf1539e453`.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

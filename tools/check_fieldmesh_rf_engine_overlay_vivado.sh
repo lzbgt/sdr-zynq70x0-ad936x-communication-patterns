@@ -82,6 +82,7 @@ foreach cell {
   fieldmesh_rx_dma
   fieldmesh_bpsk_symbolizer
   fieldmesh_iq_tx_guard
+  fieldmesh_iq_tx_cdc
 } {
   if {[llength [get_bd_cells -quiet \$cell]] != 1} {
     error "\$cell cell missing"
@@ -140,6 +141,21 @@ foreach pin {
   fieldmesh_iq_tx_guard/drop_late_sample_count
   fieldmesh_iq_tx_guard/drop_late_packet_count
   fieldmesh_iq_tx_guard/fault
+  fieldmesh_iq_tx_cdc/s_clk
+  fieldmesh_iq_tx_cdc/s_rst
+  fieldmesh_iq_tx_cdc/m_clk
+  fieldmesh_iq_tx_cdc/m_rst
+  fieldmesh_iq_tx_cdc/enable
+  fieldmesh_iq_tx_cdc/s_axis_tvalid
+  fieldmesh_iq_tx_cdc/s_axis_tready
+  fieldmesh_iq_tx_cdc/s_axis_tdata
+  fieldmesh_iq_tx_cdc/s_axis_tlast
+  fieldmesh_iq_tx_cdc/m_axis_tvalid
+  fieldmesh_iq_tx_cdc/m_axis_tready
+  fieldmesh_iq_tx_cdc/m_axis_tdata
+  fieldmesh_iq_tx_cdc/m_axis_tlast
+  fieldmesh_iq_tx_cdc/full
+  fieldmesh_iq_tx_cdc/empty
 } {
   if {[llength [get_bd_pins -quiet \$pin]] != 1} {
     error "\$pin pin missing"
@@ -193,10 +209,17 @@ foreach symbolizer_to_guard {
   }
 }
 
+assert_same_net fieldmesh_iq_tx_guard/m_axis_tvalid fieldmesh_iq_tx_cdc/s_axis_tvalid
+assert_same_net fieldmesh_iq_tx_guard/m_axis_tready fieldmesh_iq_tx_cdc/s_axis_tready
+assert_same_net fieldmesh_iq_tx_guard/m_axis_tdata fieldmesh_iq_tx_cdc/s_axis_tdata
+assert_same_net fieldmesh_iq_tx_guard/m_axis_tlast fieldmesh_iq_tx_cdc/s_axis_tlast
+assert_same_net axi_ad9361/l_clk fieldmesh_iq_tx_cdc/m_clk
+assert_same_net axi_ad9361/rst fieldmesh_iq_tx_cdc/m_rst
+
 foreach open_output {
-  fieldmesh_iq_tx_guard/m_axis_tvalid
-  fieldmesh_iq_tx_guard/m_axis_tdata
-  fieldmesh_iq_tx_guard/m_axis_tlast
+  fieldmesh_iq_tx_cdc/m_axis_tvalid
+  fieldmesh_iq_tx_cdc/m_axis_tdata
+  fieldmesh_iq_tx_cdc/m_axis_tlast
 } {
   if {[llength [get_bd_nets -quiet -of_objects [get_bd_pins \$open_output]]] != 0} {
     error "\$open_output must remain unconnected in the non-transmitting overlay"

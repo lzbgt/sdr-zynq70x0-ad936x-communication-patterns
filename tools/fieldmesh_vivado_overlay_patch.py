@@ -23,28 +23,45 @@ BD_DMA_BEGIN = "# FieldMesh sidecar DMA overlay: begin"
 BD_DMA_END = "# FieldMesh sidecar DMA overlay: end"
 BD_RF_ENGINE_BEGIN = "# FieldMesh RF packet engine overlay: begin"
 BD_RF_ENGINE_END = "# FieldMesh RF packet engine overlay: end"
+RF_ENGINE_XDC = "constraints/fieldmesh_axis_async_fifo_cdc.xdc"
 
 
 def rel_rtl_name(rtl_path: str) -> str:
     return f"fieldmesh/{Path(rtl_path).name}"
 
 
-def patch_system_project(text: str, rel_files: list[str]) -> tuple[str, bool]:
-    if all(f'"{rel}"' in text for rel in rel_files):
+def patch_system_project(text: str, rel_files: list[str], rel_xdc_files: list[str]) -> tuple[str, bool]:
+    all_project_files = rel_files + rel_xdc_files
+    missing_project_files = [rel for rel in all_project_files if f'"{rel}"' not in text]
+    if not missing_project_files:
         return text, False
 
     lines = text.splitlines()
     marker = '  "$ad_hdl_dir/library/common/ad_iobuf.v"]'
-    try:
+    if marker in lines:
         idx = lines.index(marker)
-    except ValueError as exc:
-        raise SystemExit("system_project.tcl: expected ad_iobuf.v list terminator not found") from exc
+        new_lines = lines[:idx]
+        new_lines.append('  "$ad_hdl_dir/library/common/ad_iobuf.v" \\')
+        for rel in missing_project_files[:-1]:
+            new_lines.append(f'  "{rel}" \\')
+        new_lines.append(f'  "{missing_project_files[-1]}"]')
+        new_lines.extend(lines[idx + 1 :])
+        return "\n".join(new_lines) + "\n", True
+
+    try:
+        idx = next(
+            index
+            for index, line in reversed(list(enumerate(lines)))
+            if line.strip().endswith("]") and line.strip().startswith('"')
+        )
+    except StopIteration as exc:
+        raise SystemExit("system_project.tcl: expected project file list terminator not found") from exc
 
     new_lines = lines[:idx]
-    new_lines.append('  "$ad_hdl_dir/library/common/ad_iobuf.v" \\')
-    for rel in rel_files[:-1]:
+    new_lines.append(lines[idx].replace('"]', '" \\'))
+    for rel in missing_project_files[:-1]:
         new_lines.append(f'  "{rel}" \\')
-    new_lines.append(f'  "{rel_files[-1]}"]')
+    new_lines.append(f'  "{missing_project_files[-1]}"]')
     new_lines.extend(lines[idx + 1 :])
     return "\n".join(new_lines) + "\n", True
 
@@ -254,7 +271,18 @@ ad_connect fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_
 ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_bpsk_symbolizer/m_axis_tready
 ad_connect fieldmesh_bpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
 ad_connect fieldmesh_bpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast
-ad_connect VCC fieldmesh_iq_tx_guard/m_axis_tready
+
+create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_tx_cdc
+ad_connect sys_cpu_clk fieldmesh_iq_tx_cdc/s_clk
+ad_connect sys_cpu_reset fieldmesh_iq_tx_cdc/s_rst
+ad_connect axi_ad9361/l_clk fieldmesh_iq_tx_cdc/m_clk
+ad_connect axi_ad9361/rst fieldmesh_iq_tx_cdc/m_rst
+ad_connect VCC fieldmesh_iq_tx_cdc/enable
+ad_connect fieldmesh_iq_tx_guard/m_axis_tvalid fieldmesh_iq_tx_cdc/s_axis_tvalid
+ad_connect fieldmesh_iq_tx_cdc/s_axis_tready fieldmesh_iq_tx_guard/m_axis_tready
+ad_connect fieldmesh_iq_tx_guard/m_axis_tdata fieldmesh_iq_tx_cdc/s_axis_tdata
+ad_connect fieldmesh_iq_tx_guard/m_axis_tlast fieldmesh_iq_tx_cdc/s_axis_tlast
+ad_connect VCC fieldmesh_iq_tx_cdc/m_axis_tready
 {BD_RF_ENGINE_END}
 """
 
@@ -354,8 +382,18 @@ def apply_patch(
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
 
+    rel_xdc_files = [rel_rtl_name(RF_ENGINE_XDC)] if rf_engine_overlay else []
+    copied_xdc_files = []
+    for src_rel, dst_rel in zip([RF_ENGINE_XDC] if rf_engine_overlay else [], rel_xdc_files, strict=True):
+        src = repo_root / src_rel
+        dst = project_dir / dst_rel
+        copied_xdc_files.append(str(dst))
+        if apply:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
     project_text = system_project.read_text()
-    patched_project, project_changed = patch_system_project(project_text, rel_files)
+    patched_project, project_changed = patch_system_project(project_text, rel_files, rel_xdc_files)
     make_text = makefile.read_text()
     patched_make, make_changed = patch_makefile(make_text, rel_files)
     system_bd_text = system_bd.read_text()
@@ -395,6 +433,7 @@ def apply_patch(
         "system_project_changed": project_changed,
         "makefile_changed": make_changed,
         "copied_rtl_files": copied_files,
+        "copied_xdc_files": copied_xdc_files,
         "sidecar_ok": plan["ok"],
         "post_patch_sidecar_ok": post_plan_ok,
     }

@@ -2527,19 +2527,27 @@ TX boundary.
 guard. The test covers unarmed and future-slot backpressure, current-slot
 admission, output backpressure, late-slot drops/fault reporting, and
 schedule-disabled pass-through.
+`rtl/fieldmesh/fieldmesh_axis_async_fifo.v` with
+`tb/fieldmesh/fieldmesh_axis_async_fifo_tb.v` adds the guarded-IQ CDC bridge
+from the sidecar/RF packet-engine clock domain into the AD9361 DAC `l_clk`
+domain. The test covers packet ordering, `tlast`, sink backpressure, disabled
+handshake, and sustained streaming beyond FIFO depth.
 
 The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
 implies the sidecar DMA overlay, removes the packet-loopback shortcut, feeds
 `fieldmesh_axis_bridge/m_tx_packet_*` into `fieldmesh_bpsk_symbolizer/s_axis_*`,
-feeds generated IQ into `fieldmesh_iq_tx_guard`, and parks the guard output
-unarmed. The guard arming, schedule, and counter/status pins are now connected
-to the mapped `fieldmesh_ctrl` lightweight register window at `0x100+`, while
-the guarded IQ output stays disconnected from AD936x TX.
+feeds generated IQ into `fieldmesh_iq_tx_guard`, crosses guarded IQ through
+`fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and parks that
+FIFO output. The guard arming, schedule, and counter/status pins are now
+connected to the mapped `fieldmesh_ctrl` lightweight register window at
+`0x100+`, while the DAC-clock-domain IQ output stays disconnected from AD936x
+TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
-`fieldmesh_bpsk_symbolizer` and `fieldmesh_iq_tx_guard` present, address
-segments intact, and no AD936x TX connection from the FieldMesh RF-engine
-overlay.
+`fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
+`fieldmesh_axis_async_fifo` present, address segments intact, the CDC sink
+clocked from `axi_ad9361/l_clk`, and no AD936x TX connection from the FieldMesh
+RF-engine overlay.
 
 The same non-transmitting RF-engine overlay was then built through the full ADI
 Pluto Vivado make flow:
@@ -2555,8 +2563,8 @@ Result: both copied RF-engine overlay builds produced timing-clean
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  592eb8a746c7dc2016e4f64eca3849a0eeb784619d3097e78af12be52b4ea2c0
-system_top.xsa  c125a043476f7fb7dd1d80034e79e11d7d1e58e2b55309577079339d2b890edd
+system_top.bit  126b08c89639b49c055ea04d270ef6051b9f03b3be67d7b54ceb6e8ef9054800
+system_top.xsa  b29487d102d48d1ef3ceafe56c453161267027cd50479f3e922a46bdb9ddc2a4
 ```
 
 Z203 outputs:
@@ -2564,8 +2572,8 @@ Z203 outputs:
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  ec00509cd29d9585c153514a2f3b4f1c3aff71e9382cf1b74e6b8919b1372336
-system_top.xsa  79e2df27b8b84c6da0eae574555f832c1281fbeecd967f12b3c470a8073466b7
+system_top.bit  7f387d119fad2173e6db69f8428bc0af646be351152c0a70182e2b27cc1b334f
+system_top.xsa  c25451993b84e1871914c026ac8cd450589e5b698a25406fc9b859bf1539e453
 ```
 
 After the user reset the Z103, two more live-gate captures were taken:

@@ -285,10 +285,11 @@ The first PL TX primitive for that engine is `fieldmesh_bpsk_iq_symbolizer`;
 it is deliberately a byte-to-symbol block, not a complete modem or RF-control
 abstraction. The copied-HDL `--rf-engine-overlay` mode makes that primitive
 BD-visible behind the sidecar DMA/bridge TX path and immediately feeds
-`fieldmesh_iq_tx_guard`. The guard's arming, schedule, and counter/status pins
-are wired to the existing sidecar control window, but the registers reset
-unarmed and its IQ output remains disconnected from AD936x TX until the
-scheduler/filter/driver path is authorized.
+`fieldmesh_iq_tx_guard`, then `fieldmesh_axis_async_fifo` to cross into the
+AD9361 DAC `l_clk` domain. The guard's arming, schedule, and counter/status
+pins are wired to the existing sidecar control window, but the registers reset
+unarmed and the DAC-clock-domain FIFO output remains disconnected from AD936x
+TX until the scheduler/filter/driver path is authorized.
 
 The SDK now has the first software contract for that scheduler/filter/driver
 boundary: `fieldmesh_plan_rf_tx_guard()` and `fieldmesh_apply_rf_tx_guard()`.

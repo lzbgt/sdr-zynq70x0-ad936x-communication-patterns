@@ -229,8 +229,9 @@ Next concrete work:
   and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
   bridge parser can feed the BPSK symbolizer and `fieldmesh_iq_tx_guard` while
-  the guarded IQ output remains disconnected from AD936x TX. The guard's
-  arming, schedule, and counter/status pins are now reachable through the
+  the guarded IQ stream crosses into the AD9361 DAC clock domain through
+  `fieldmesh_axis_async_fifo` and remains disconnected from AD936x TX. The
+  guard's arming, schedule, and counter/status pins are now reachable through the
   existing sidecar control window at `0x100+`, but they reset unarmed and still
   do not connect to an AD936x TX driver. The SDK/daemon now
   has the first post-symbolizer guard control contract too:
@@ -348,7 +349,8 @@ Next concrete work:
   the slot-gated packet-memory refresh. `tools/build_fieldmesh_rf_engine_overlay_vivado.sh`
   now provides the equivalent non-transmitting RF-engine overlay build gate;
   both Z203 and Z103 produce timing-clean `system_top.bit`/XSA artifacts with
-  the BPSK symbolizer BD-visible and disconnected from AD936x TX.
+  the BPSK symbolizer, TX guard, and AD9361-clock-domain async FIFO BD-visible
+  and disconnected from AD936x TX.
 - `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.

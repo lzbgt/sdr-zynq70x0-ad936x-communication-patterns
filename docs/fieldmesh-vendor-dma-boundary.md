@@ -192,10 +192,12 @@ filtering, or scheduled transmission. `fieldmesh_iq_tx_guard.v` is the
 post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
 control and status pins to the sidecar AXI-lite window while resetting it
-unarmed with its IQ output parked. `fieldmesh_slot_admission_gate.v` is also
-part of the required RTL set, but remains parked until the packet path is ready
-for scheduled-mode admission: it holds future-slot descriptors, drops stale
-scheduled descriptors, and leaves non-scheduled traffic unblocked.
+unarmed. `fieldmesh_axis_async_fifo.v` then moves guarded IQ samples into the
+AD9361 DAC `l_clk` domain; the copied RF-engine overlay parks that FIFO output
+instead of connecting it to the DAC datapath. `fieldmesh_slot_admission_gate.v`
+is also part of the required RTL set, but remains parked until the packet path
+is ready for scheduled-mode admission: it holds future-slot descriptors, drops
+stale scheduled descriptors, and leaves non-scheduled traffic unblocked.
 
 The first control-only block-design overlay is opt-in:
 
@@ -302,9 +304,10 @@ overlays but replaces the packet loopback with a TX packet-engine sink:
 `fieldmesh_axis_bridge/m_tx_packet_*` feeds `fieldmesh_bpsk_symbolizer/s_axis_*`.
 The symbolizer's IQ output feeds `fieldmesh_iq_tx_guard`; its arming, schedule,
 and status pins are now wired to the existing `fieldmesh_ctrl` AXI-lite window
-at the RF TX guard register range. The guard still resets unarmed and parks the
-guarded IQ output behind the RF packet-engine boundary. The overlay does not
-connect to AD936x TX, open IIO buffers, tune RF, or start hardware
+at the RF TX guard register range. The guard still resets unarmed, then feeds
+`fieldmesh_axis_async_fifo` so the next parked boundary is already in the
+AD9361 DAC clock domain. The overlay does not connect to AD936x TX, open IIO
+buffers, tune RF, or start hardware
 transmission.
 
 Validate the RF packet-engine overlay through Vivado project/block-design
@@ -344,9 +347,9 @@ gate proves the first packet-to-symbol TX primitive is BD-visible behind the
 sidecar packet path while still disconnected from AD936x TX. The Z203 and Z103
 DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
 artifacts. The RF-engine overlay paths have also produced timing-clean
-`system_top.bit`/XSA artifacts while still leaving AD936x TX disconnected. The
-RF-engine overlay does not yet provide a flashed runtime image or live board RF
-traffic.
+`system_top.bit`/XSA artifacts with the async FIFO CDC bridge in place while
+still leaving AD936x TX disconnected. The RF-engine overlay does not yet provide
+a flashed runtime image or live board RF traffic.
 
 The matching devicetree contract is generated and checked separately:
 
