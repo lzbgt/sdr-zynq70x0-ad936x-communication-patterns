@@ -1,0 +1,33 @@
+{
+  "capture": "z203_uboot_sspi_wel_latch_20260515-054519",
+  "board": "FM-Z203",
+  "ip": "192.168.1.10",
+  "serial_port": "COM5",
+  "result": "wel_latch_did_not_clear_in_sspi_probe",
+  "flash_write_attempted": false,
+  "qspi_repair_allowed": false,
+  "observations": [
+    {
+      "step": "after_sf_probe",
+      "sr1_opcode_05": "0x02"
+    },
+    {
+      "step": "after_raw_write_disable_opcode_04",
+      "sr1_opcode_05": "0x02"
+    },
+    {
+      "step": "after_raw_write_enable_opcode_06",
+      "sr1_opcode_05": "0x02"
+    },
+    {
+      "step": "after_second_raw_write_disable_opcode_04",
+      "sr1_opcode_05": "0x02"
+    }
+  ],
+  "diagnosis": [
+    "Raw sspi opcode transport works, but SR1 remained 0x02 through write-disable/write-enable latch checks.",
+    "This strengthens the suspicion that the Z203 issue is in SPI NOR status/write-enable/protection handling, controller mode, or flash hardware behavior.",
+    "No flash contents were intentionally programmed by this probe."
+  ],
+  "next_step": "Instrument a guarded tail-sector erase/program probe that records SR1/SR2/SR3 before and after each sf operation, then keep full FIT repair blocked unless the small write/readback passes."
+}

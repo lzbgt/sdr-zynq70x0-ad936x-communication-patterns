@@ -3811,6 +3811,27 @@ the next safe repair diagnostic is a raw `sspi` status-register probe of the
 W25Q256 write-enable, busy, and protection bits around a small tail-sector
 erase/program operation. Full QSPI FIT repair remains blocked.
 
+That raw read-only probe was then run:
+
+```sh
+resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_sspi_status_read_20260515-054302/
+```
+
+Result: `sspi` read the expected W25Q256 JEDEC ID (`EF4019`) and status bytes:
+SR1 `0x02`, SR2 `0x02`, SR3 `0x60`, flag status `0x00`. A follow-up volatile
+write-enable-latch probe did not program flash contents:
+
+```sh
+resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_sspi_wel_latch_20260515-054519/
+```
+
+SR1 stayed `0x02` after raw write-disable (`0x04`), write-enable (`0x06`), and
+another write-disable (`0x04`). That does not yet prove whether the WEL bit is
+truly stuck or whether this old U-Boot `sspi` path is interacting badly with
+the already-probed SPI flash driver, but it narrows the next step: record
+SR1/SR2/SR3 around a guarded tail-sector `sf erase` and `sf write` probe. Full
+QSPI FIT repair remains blocked.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

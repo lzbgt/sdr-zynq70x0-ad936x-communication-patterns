@@ -1,0 +1,23 @@
+{
+  "capture": "z203_uboot_sspi_status_read_20260515-054302",
+  "board": "FM-Z203",
+  "ip": "192.168.1.10",
+  "serial_port": "COM5",
+  "result": "raw_sspi_status_read_passed",
+  "flash_write_attempted": false,
+  "qspi_repair_allowed": false,
+  "jedec_id_response": "00EF4019",
+  "decoded_jedec_id": "EF4019",
+  "status_register_reads": {
+    "sr1_opcode_05": "0x02",
+    "sr2_opcode_35": "0x02",
+    "sr3_opcode_15": "0x60",
+    "flag_status_opcode_70": "0x00"
+  },
+  "diagnosis": [
+    "U-Boot sspi can read the W25Q256 JEDEC ID and status registers.",
+    "The status read path is usable for the next guarded write-enable/program diagnostic.",
+    "No full QSPI FIT repair was attempted."
+  ],
+  "next_step": "Check volatile WEL/busy/protection transitions around a small tail-sector erase/program probe before any full FIT repair."
+}

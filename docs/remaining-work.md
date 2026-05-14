@@ -98,7 +98,10 @@ Firmware state:
   (`0x00 -> 0x44`, `0xbb -> 0xff`, `0xaa -> 0xee`, `0x7b -> 0x7f`).
   A follow-up U-Boot capability probe shows `sspi` is available while generic
   `spi` and `mtd` commands are not, so the next repair diagnostic is a raw
-  W25Q256 status-register probe around erase/program operations. Do not run
+  W25Q256 status-register probe around erase/program operations. The read-only
+  `sspi` probe returned JEDEC ID `EF4019` and status bytes SR1 `0x02`, SR2
+  `0x02`, SR3 `0x60`, flag status `0x00`; a volatile WEL-latch probe left SR1
+  at `0x02` even after raw write-disable and write-enable opcodes. Do not run
   another full QSPI FIT repair until the SPI NOR program path is isolated and
   a small U-Boot tail-sector write/readback passes.
 

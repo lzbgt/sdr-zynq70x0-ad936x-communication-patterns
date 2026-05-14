@@ -1,0 +1,11 @@
+version
+sf probe
+sspi 0:0.0 32 9f000000
+sspi 0:0 32 9f000000
+sspi 0:0.0 16 0500
+sspi 0:0.0 16 3500
+sspi 0:0.0 16 1500
+sspi 0:0.0 16 7000
+sspi 0:0 16 0500
+sspi 0:0 16 3500
+reset
