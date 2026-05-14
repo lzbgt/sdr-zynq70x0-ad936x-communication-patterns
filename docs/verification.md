@@ -3861,6 +3861,39 @@ Result: still failed identically. `sf erase` verified as all `0xff`; `sf write`
 reported success; readback of an all-zero pattern returned `0x44`; rollback
 erase verified. This makes simple U-Boot SPI clock rate an unlikely root cause.
 
+The same scratch-write diagnosis was then repeated through Linux MTD. A first
+attempt with the initial helper revision intentionally matched the U-Boot 4 KiB
+sector size, but Linux exposes `mtd3` as 64 KiB eraseblocks, so `mtd_debug
+erase` returned `MEMERASE: Invalid argument`; the sector was recovered
+afterward through the U-Boot rollback path:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_linux_qspi_status_tail_write_20260515-060321 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_LINUX_QSPI_STATUS_TAIL_TEST=1 \
+  ./tools/test_z203_linux_qspi_status_tail_write.sh 192.168.1.10
+
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_qspi_status_tail_recovery_20260515-060405 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_UBOOT_QSPI_STATUS_TAIL_TEST=1 \
+  ./tools/test_z203_uboot_qspi_status_tail_write.sh 192.168.1.10
+```
+
+The corrected Linux probe uses a 64 KiB-aligned scratch eraseblock at mtd3
+offset `0x1b90000` while programming only the first 4 KiB with the same
+all-zero pattern:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_linux_qspi_status_tail_write_aligned_20260515-060836 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z203_LINUX_QSPI_STATUS_TAIL_TEST=1 \
+  ./tools/test_z203_linux_qspi_status_tail_write.sh 192.168.1.10
+```
+
+Result: Linux matches U-Boot. `mtd_debug erase` and rollback erase both
+verified as all `0xff`, `mtd_debug write` returned success, and readback of the
+4 KiB all-zero pattern returned `0x44` for every tested byte. This isolates the
+fault below the specific U-Boot `sf` driver path: both Linux MTD and U-Boot can
+erase/read, both report program success, and both read back stuck `0x44` bits
+after programming.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

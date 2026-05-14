@@ -1,0 +1,337 @@
+fieldmesh_z203_linux_qspi_status_tail_write_begin
+hostname=fm-z203
+uname=Linux fm-z203 6.1.0 #1 SMP PREEMPT Sun May 10 18:17:23 UTC 2026 armv7l GNU/Linux
+proc_mtd_begin
+dev:    size   erasesize  name
+mtd0: 00100000 00010000 "qspi-fsbl-uboot"
+mtd1: 00020000 00010000 "qspi-uboot-env"
+mtd2: 000e0000 00010000 "qspi-nvmfs"
+mtd3: 01e00000 00010000 "qspi-linux"
+proc_mtd_end
+mtd3_sysfs_begin
+name=qspi-linux
+size=31457280
+erasesize=65536
+flags=0xc00
+mtd3_sysfs_end
+mtd_debug_info_begin
+mtd.type = MTD_NORFLASH
+mtd.flags = MTD_CAP_NORFLASH
+mtd.size = 31457280 (30M)
+mtd.erasesize = 65536 (64K)
+mtd.writesize = 1
+mtd.oobsize = 0
+regions = 0
+
+mtd_debug_info_end
+dmesg_before_begin
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070018: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0007001c: 0x4644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070020: 0x4644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000728cc ends at 0x000728d0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0008000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0008001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x0008e51c ends at 0x0008e520
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090000: 0x4c44 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090004: 0xec4d instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090008: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009000c: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090010: 0x44e4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090018: 0x45e4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009001c: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090020: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00095534 ends at 0x00095538
+jffs2: Empty flash at 0x000956c8 ends at 0x000956cc
+jffs2: Empty flash at 0x00098e80 ends at 0x00098e84
+jffs2: Empty flash at 0x00099014 ends at 0x00099018
+jffs2: Empty flash at 0x0009902c ends at 0x00099030
+jffs2: Empty flash at 0x000990a8 ends at 0x000990ac
+jffs2: Empty flash at 0x000991a8 ends at 0x000991ac
+jffs2: Empty flash at 0x00099244 ends at 0x00099248
+jffs2: Empty flash at 0x0009c5cc ends at 0x0009c5d0
+jffs2: Empty flash at 0x0009c748 ends at 0x0009c74c
+jffs2: Empty flash at 0x0009c750 ends at 0x0009c754
+jffs2: Empty flash at 0x0009c8dc ends at 0x0009c8e0
+jffs2: Empty flash at 0x0009c8e4 ends at 0x0009c8e8
+jffs2: Empty flash at 0x0009c8ec ends at 0x0009c8f0
+jffs2: Empty flash at 0x0009ca70 ends at 0x0009ca74
+jffs2: Empty flash at 0x0009ca84 ends at 0x0009ca8c
+jffs2: Empty flash at 0x0009cf1c ends at 0x0009cf20
+jffs2: Empty flash at 0x0009d3d8 ends at 0x0009d3dc
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0000: 0x56c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0004: 0xffc6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0008: 0xe6e7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a000c: 0xc7ce instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0010: 0xfede instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0014: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a001c: 0xe6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0020: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0024: 0xcfce instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000a6e80 ends at 0x000a6e84
+jffs2: Empty flash at 0x000a703c ends at 0x000a7040
+jffs2: Empty flash at 0x000a71a8 ends at 0x000a71ac
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0000: 0x7e7f instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0004: 0xc444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0008: 0xc6c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b000c: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0010: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0014: 0xc4c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0018: 0x44c5 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0020: 0xc6c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0024: 0x45d5 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000b0c18 ends at 0x000b0c1c
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0000: 0xd446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0008: 0x4445 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c000c: 0xd44e instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0010: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000c120c ends at 0x000c1210
+jffs2: Empty flash at 0x000c13a0 ends at 0x000c13a4
+jffs2: Empty flash at 0x000c1494 ends at 0x000c1498
+jffs2: Empty flash at 0x000c1534 ends at 0x000c1538
+jffs2: Empty flash at 0x000c1544 ends at 0x000c1548
+jffs2: Empty flash at 0x000c1b88 ends at 0x000c1b8c
+jffs2: Empty flash at 0x000c78a0 ends at 0x000c78a4
+jffs2: Empty flash at 0x000c78c0 ends at 0x000c78c4
+jffs2: Empty flash at 0x000c7a34 ends at 0x000c7a38
+jffs2: Empty flash at 0x000c7f74 ends at 0x000c7f78
+jffs2: Empty flash at 0x000c8214 ends at 0x000c8218
+jffs2: Empty flash at 0x000cae9c ends at 0x000caea0
+jffs2: Empty flash at 0x000cb030 ends at 0x000cb034
+jffs2: Empty flash at 0x000cb998 ends at 0x000cb99c
+jffs2: Empty flash at 0x000cb9e0 ends at 0x000cb9e4
+jffs2: Empty flash at 0x000cbcc0 ends at 0x000cbcc4
+jffs2: Empty flash at 0x000cbd08 ends at 0x000cbd0c
+jffs2: Empty flash at 0x000cea58 ends at 0x000cea5c
+jffs2: Empty flash at 0x000cea78 ends at 0x000cea7c
+jffs2: Empty flash at 0x000cf0a0 ends at 0x000cf0a4
+jffs2: Empty flash at 0x000cf40c ends at 0x000cf410
+jffs2: Empty flash at 0x000cf414 ends at 0x000cf418
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0000: 0x4546 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d000c: 0x444c instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0020: 0x4546 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000d2b00 ends at 0x000d2b04
+jffs2: Empty flash at 0x000d2e28 ends at 0x000d2e2c
+jffs2: Cowardly refusing to erase blocks on filesystem with no valid JFFS2 nodes
+dmesg_before_end
+cmd_ready=0
+Copied 4096 bytes from address 0x01b9f000 in flash to /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.before.bin
+f47a8ec3e9aff2318d896942282ad4fe37d6391c82914f54a5da8a37de1300c6  /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.before.bin
+ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7  /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.pattern-zero.bin
+f47a8ec3e9aff2318d896942282ad4fe37d6391c82914f54a5da8a37de1300c6  /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.pattern-ff.bin
+MEMERASE: Invalid argument
+Copied 4096 bytes from address 0x01b9f000 in flash to /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.erased.bin
+Copied 4096 bytes from /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.pattern-zero.bin to address 0x01b9f000 in flash
+Copied 4096 bytes from address 0x01b9f000 in flash to /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.after.bin
+MEMERASE: Invalid argument
+Copied 4096 bytes from address 0x01b9f000 in flash to /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.rollback.bin
+results_begin
+read_before_rc=0
+erase_rc=1
+read_erased_rc=0
+erase_cmp_rc=0
+write_rc=0
+read_after_rc=0
+write_cmp_rc=1
+rollback_erase_rc=1
+read_rollback_rc=0
+rollback_cmp_rc=1
+f47a8ec3e9aff2318d896942282ad4fe37d6391c82914f54a5da8a37de1300c6  /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.erased.bin
+267e5d2bb42138bdf23ccb5fbdea09385169de4c686f7c12034ccd7bb0c6899d  /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.after.bin
+267e5d2bb42138bdf23ccb5fbdea09385169de4c686f7c12034ccd7bb0c6899d  /tmp/fieldmesh-z203-linux-qspi-status-tail-66673.rollback.bin
+results_end
+dmesg_after_begin
+jffs2: Empty flash at 0x00056e70 ends at 0x00056e74
+jffs2: Empty flash at 0x00056f4c ends at 0x00056f50
+jffs2: Empty flash at 0x0005d344 ends at 0x0005d348
+jffs2: Empty flash at 0x0005d378 ends at 0x0005d37c
+jffs2: Empty flash at 0x0005d4d8 ends at 0x0005d4dc
+jffs2: Empty flash at 0x0005d50c ends at 0x0005d510
+jffs2: Empty flash at 0x0005db2c ends at 0x0005db30
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060008: 0x4446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0006000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0006001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060020: 0xc444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060024: 0xc444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x0006433c ends at 0x00064340
+jffs2: Empty flash at 0x00064434 ends at 0x00064438
+jffs2: Empty flash at 0x000644d0 ends at 0x000644d4
+jffs2: Empty flash at 0x000645c8 ends at 0x000645cc
+jffs2: Empty flash at 0x00064c1c ends at 0x00064c20
+jffs2: Empty flash at 0x00064ccc ends at 0x00064cd0
+jffs2: Empty flash at 0x00064db0 ends at 0x00064db4
+jffs2: Empty flash at 0x000650d8 ends at 0x000650dc
+jffs2: Empty flash at 0x00067be8 ends at 0x00067bec
+jffs2: Empty flash at 0x00067f10 ends at 0x00067f14
+jffs2: Empty flash at 0x000683d0 ends at 0x000683d4
+jffs2: Empty flash at 0x000683e4 ends at 0x000683e8
+jffs2: Empty flash at 0x000683f0 ends at 0x000683f4
+jffs2: Empty flash at 0x00068490 ends at 0x00068494
+jffs2: Empty flash at 0x00068564 ends at 0x00068568
+jffs2: Empty flash at 0x0006888c ends at 0x00068890
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0007000c: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070010: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070014: 0x4446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070018: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0007001c: 0x4644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070020: 0x4644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000728cc ends at 0x000728d0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0008000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0008001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x0008e51c ends at 0x0008e520
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090000: 0x4c44 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090004: 0xec4d instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090008: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009000c: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090010: 0x44e4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090018: 0x45e4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009001c: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090020: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00095534 ends at 0x00095538
+jffs2: Empty flash at 0x000956c8 ends at 0x000956cc
+jffs2: Empty flash at 0x00098e80 ends at 0x00098e84
+jffs2: Empty flash at 0x00099014 ends at 0x00099018
+jffs2: Empty flash at 0x0009902c ends at 0x00099030
+jffs2: Empty flash at 0x000990a8 ends at 0x000990ac
+jffs2: Empty flash at 0x000991a8 ends at 0x000991ac
+jffs2: Empty flash at 0x00099244 ends at 0x00099248
+jffs2: Empty flash at 0x0009c5cc ends at 0x0009c5d0
+jffs2: Empty flash at 0x0009c748 ends at 0x0009c74c
+jffs2: Empty flash at 0x0009c750 ends at 0x0009c754
+jffs2: Empty flash at 0x0009c8dc ends at 0x0009c8e0
+jffs2: Empty flash at 0x0009c8e4 ends at 0x0009c8e8
+jffs2: Empty flash at 0x0009c8ec ends at 0x0009c8f0
+jffs2: Empty flash at 0x0009ca70 ends at 0x0009ca74
+jffs2: Empty flash at 0x0009ca84 ends at 0x0009ca8c
+jffs2: Empty flash at 0x0009cf1c ends at 0x0009cf20
+jffs2: Empty flash at 0x0009d3d8 ends at 0x0009d3dc
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0000: 0x56c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0004: 0xffc6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0008: 0xe6e7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a000c: 0xc7ce instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0010: 0xfede instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0014: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a001c: 0xe6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0020: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0024: 0xcfce instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000a6e80 ends at 0x000a6e84
+jffs2: Empty flash at 0x000a703c ends at 0x000a7040
+jffs2: Empty flash at 0x000a71a8 ends at 0x000a71ac
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0000: 0x7e7f instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0004: 0xc444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0008: 0xc6c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b000c: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0010: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0014: 0xc4c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0018: 0x44c5 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0020: 0xc6c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0024: 0x45d5 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000b0c18 ends at 0x000b0c1c
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0000: 0xd446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0008: 0x4445 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c000c: 0xd44e instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0010: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000c120c ends at 0x000c1210
+jffs2: Empty flash at 0x000c13a0 ends at 0x000c13a4
+jffs2: Empty flash at 0x000c1494 ends at 0x000c1498
+jffs2: Empty flash at 0x000c1534 ends at 0x000c1538
+jffs2: Empty flash at 0x000c1544 ends at 0x000c1548
+jffs2: Empty flash at 0x000c1b88 ends at 0x000c1b8c
+jffs2: Empty flash at 0x000c78a0 ends at 0x000c78a4
+jffs2: Empty flash at 0x000c78c0 ends at 0x000c78c4
+jffs2: Empty flash at 0x000c7a34 ends at 0x000c7a38
+jffs2: Empty flash at 0x000c7f74 ends at 0x000c7f78
+jffs2: Empty flash at 0x000c8214 ends at 0x000c8218
+jffs2: Empty flash at 0x000cae9c ends at 0x000caea0
+jffs2: Empty flash at 0x000cb030 ends at 0x000cb034
+jffs2: Empty flash at 0x000cb998 ends at 0x000cb99c
+jffs2: Empty flash at 0x000cb9e0 ends at 0x000cb9e4
+jffs2: Empty flash at 0x000cbcc0 ends at 0x000cbcc4
+jffs2: Empty flash at 0x000cbd08 ends at 0x000cbd0c
+jffs2: Empty flash at 0x000cea58 ends at 0x000cea5c
+jffs2: Empty flash at 0x000cea78 ends at 0x000cea7c
+jffs2: Empty flash at 0x000cf0a0 ends at 0x000cf0a4
+jffs2: Empty flash at 0x000cf40c ends at 0x000cf410
+jffs2: Empty flash at 0x000cf414 ends at 0x000cf418
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0000: 0x4546 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d000c: 0x444c instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0020: 0x4546 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000d2b00 ends at 0x000d2b04
+jffs2: Empty flash at 0x000d2e28 ends at 0x000d2e2c
+jffs2: Cowardly refusing to erase blocks on filesystem with no valid JFFS2 nodes
+dmesg_after_end
+fieldmesh_z203_linux_qspi_status_tail_write_end

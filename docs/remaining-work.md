@@ -107,9 +107,13 @@ Firmware state:
   readback returned `0x44` for an all-zero pattern, SR1 stayed `0x00` through
   the write, and rollback erase/readback passed. Repeating the same probe with
   `sf probe 0:0 1000000 0` failed identically, so simple U-Boot SPI clock rate
-  is unlikely to be the root cause. Do not run another full QSPI FIT repair
-  until the SPI NOR program path is isolated and a small U-Boot tail-sector
-  write/readback passes.
+  is unlikely to be the root cause. A matched Linux MTD probe now uses a valid
+  64 KiB-aligned `mtd3` scratch eraseblock and writes the same 4 KiB all-zero
+  pattern. It also reproduces the failure: Linux erase/readback and rollback
+  pass, `mtd_debug write` reports success, and readback is `0x44` for every
+  tested byte. That rules out a U-Boot-only `sf` bug. Do not run another full
+  QSPI FIT repair until the shared Zynq QSPI controller, SPI NOR status/config,
+  or flash hardware program path is isolated and a small write/readback passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
