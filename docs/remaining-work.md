@@ -230,11 +230,12 @@ Next concrete work:
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
   bridge parser can feed the BPSK symbolizer and `fieldmesh_iq_tx_guard` while
   the guarded IQ stream crosses into the AD9361 DAC clock domain through
-  `fieldmesh_axis_async_fifo` and reaches a hard-disabled
+  `fieldmesh_axis_async_fifo` and reaches a reset-off sidecar-controlled
   `fieldmesh_iq_dac_driver` inserted between `tx_upack` and
   `tx_fir_interpolator`. The guard's arming, schedule, and counter/status pins
   are now reachable through the existing sidecar control window at `0x100+`,
-  but they reset unarmed and the DAC driver remains selected to vendor
+  and the DAC source-select/status registers are now visible at `0x12c+`, but
+  they reset unarmed/off and the DAC driver remains selected to vendor
   pass-through. The SDK/daemon now
   has the first post-symbolizer guard control contract too:
   `fieldmesh_plan_rf_tx_guard()` / `fieldmesh_apply_rf_tx_guard()` and daemon
@@ -359,7 +360,8 @@ Next concrete work:
   The packages and developer rootfs images were refreshed after adding
   read-only `ctrl-scan`, and both rootfs tarballs contain the updated
   `fieldmesh-udp-probe`, including `rf-guard-scan` and guarded
-  `rf-guard-apply` for the RF TX guard control window.
+  `rf-guard-apply` for the RF TX guard control window. The scan also reports
+  the reset-off DAC source-select and driver status registers.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard

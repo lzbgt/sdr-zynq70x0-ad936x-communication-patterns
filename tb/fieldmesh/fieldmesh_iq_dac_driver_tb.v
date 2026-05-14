@@ -75,6 +75,10 @@ initial begin
     expect(out_i_sample == 16'h1111 && out_q_sample == 16'h2222, "passes vendor IQ data");
 
     select_fieldmesh = 1'b1;
+    s_axis_tvalid = 1'b0;
+    i_tick = 1'b0;
+    repeat (2) @(posedge clk);
+    i_tick = 1'b1;
     s_axis_tvalid = 1'b1;
     s_axis_tdata = 32'h1234_abcd;
     s_axis_tlast = 1'b0;

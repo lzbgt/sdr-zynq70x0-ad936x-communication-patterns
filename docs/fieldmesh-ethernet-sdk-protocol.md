@@ -289,7 +289,7 @@ BD-visible behind the sidecar DMA/bridge TX path and immediately feeds
 AD9361 DAC `l_clk` domain, then `fieldmesh_iq_dac_driver` at the vendor
 `tx_upack`/`tx_fir_interpolator` boundary. The guard's arming, schedule, and
 counter/status pins are wired to the existing sidecar control window, but the
-registers reset unarmed and the DAC driver remains hard-selected to vendor
+registers reset unarmed and the DAC driver source selector resets to vendor
 pass-through until the scheduler/filter/driver path is authorized.
 
 The SDK now has the first software contract for that scheduler/filter/driver

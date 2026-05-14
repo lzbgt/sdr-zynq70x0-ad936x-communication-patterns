@@ -2351,15 +2351,16 @@ missing Zynq-target confirmation for live preflight. The generated script is
 read-only and explicitly leaves TX enable, TX armed, hardware writes, and RF TX
 start disabled.
 The board-runtime register writer was then added behind the same safety model:
-`fieldmesh-udp-probe rf-guard-scan` reads the `0x100+` guard registers, and
+`fieldmesh-udp-probe rf-guard-scan` reads the `0x100+` guard registers plus the
+DAC source-select/status registers through `0x13c`, and
 `fieldmesh-udp-probe rf-guard-apply` refuses to run without
 `--allow-live-writes`, a green sidecar preflight assertion, conducted/shielded
 and legal-frequency declarations, RX-first ordering, TX-enable-guard,
 RF-engine-ready, sidecar-preflight, and Zynq-target confirmations.
 `./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
 memory to verify the writer arms only the guard registers, reports
-`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolls the register
-window back.
+`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, leaves DAC source
+selection off, and rolls the register window back.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying
@@ -2546,15 +2547,15 @@ feeds generated IQ into `fieldmesh_iq_tx_guard`, crosses guarded IQ through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver`. The guard arming, schedule, and counter/status pins
 are now connected to the mapped `fieldmesh_ctrl` lightweight register window at
-`0x100+`, while the DAC driver source select stays hard-tied to vendor
-pass-through so FieldMesh IQ is not selected for AD936x TX.
+`0x100+`, while the DAC driver source select is sidecar-controlled but resets
+to vendor pass-through so FieldMesh IQ is not selected for AD936x TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
 `fieldmesh_axis_async_fifo` present, address segments intact, the CDC sink and
 DAC driver clocked from `axi_ad9361/l_clk`, the driver inserted between
-`tx_upack` and `tx_fir_interpolator`, and the FieldMesh source selector
-hard-tied off.
+`tx_upack` and `tx_fir_interpolator`, and the FieldMesh source selector wired
+to the sidecar control window while reset-off.
 
 The same non-transmitting RF-engine overlay was then built through the full ADI
 Pluto Vivado make flow:
@@ -2570,8 +2571,8 @@ Result: both copied RF-engine overlay builds produced timing-clean
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  925921e3834a6f31fc3bec6a96d0a992a5b26b7de66636628f2bdeef284cb700
-system_top.xsa  3711f1e5dedbd4b7d7f4a559c68677116051aeb345c1b8fdcd5aeae4f51da04a
+system_top.bit  23ed999b1f42fdf4fd81a45cadb51626609655499fe9681625c0204cdc1ba122
+system_top.xsa  c6505b705b6726777960c787e3018a87b295bded97fb0d1c03d81f8b27ae1c2a
 ```
 
 Z203 outputs:
@@ -2579,8 +2580,8 @@ Z203 outputs:
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  ee296c70aeefc89140becbbbf9519f0f02e86cdbf22744bc6d304bac14d737b0
-system_top.xsa  c2fd66e34489689de606e80f404aa3c850d899a1dd3676fe636ced96894ec242
+system_top.bit  069cff53dbe9d83cc1759d6747544346c8b99fe187a883685eeef849b967b279
+system_top.xsa  5f6e56fe2d3b8235a313c5a437e1678d88e2b3512a763cf272acd57eb2e08a86
 ```
 
 After the user reset the Z103, two more live-gate captures were taken:

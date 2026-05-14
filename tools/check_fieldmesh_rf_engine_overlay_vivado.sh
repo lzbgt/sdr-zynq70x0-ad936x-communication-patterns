@@ -112,12 +112,17 @@ foreach pin {
   fieldmesh_ctrl/rf_current_slot
   fieldmesh_ctrl/rf_tx_epoch
   fieldmesh_ctrl/rf_tx_slot
+  fieldmesh_ctrl/rf_source_select
   fieldmesh_ctrl/rf_guard_pass_sample_count
   fieldmesh_ctrl/rf_guard_pass_packet_count
   fieldmesh_ctrl/rf_guard_blocked_cycle_count
   fieldmesh_ctrl/rf_guard_drop_late_sample_count
   fieldmesh_ctrl/rf_guard_drop_late_packet_count
   fieldmesh_ctrl/rf_guard_fault
+  fieldmesh_ctrl/rf_dac_sample_count
+  fieldmesh_ctrl/rf_dac_packet_count
+  fieldmesh_ctrl/rf_dac_underflow_count
+  fieldmesh_ctrl/rf_dac_active
   fieldmesh_iq_tx_guard/clk
   fieldmesh_iq_tx_guard/rst
   fieldmesh_iq_tx_guard/enable
@@ -241,6 +246,7 @@ assert_same_net axi_ad9361/rst fieldmesh_iq_tx_cdc/m_rst
 
 assert_same_net axi_ad9361/l_clk fieldmesh_iq_dac_driver/clk
 assert_same_net axi_ad9361/rst fieldmesh_iq_dac_driver/rst
+assert_same_net fieldmesh_ctrl/rf_source_select fieldmesh_iq_dac_driver/select_fieldmesh
 assert_same_net axi_ad9361/dac_valid_i0 fieldmesh_iq_dac_driver/i_tick
 assert_same_net axi_ad9361/dac_valid_q0 fieldmesh_iq_dac_driver/q_tick
 assert_same_net tx_fir_interpolator/enable_out_0 fieldmesh_iq_dac_driver/i_gate
@@ -255,15 +261,10 @@ assert_same_net fieldmesh_iq_dac_driver/out_i_sample tx_fir_interpolator/data_in
 assert_same_net fieldmesh_iq_dac_driver/out_q_sample tx_fir_interpolator/data_in_1
 assert_same_net fieldmesh_iq_dac_driver/upack_enable_i tx_upack/enable_0
 assert_same_net fieldmesh_iq_dac_driver/upack_enable_q tx_upack/enable_1
-
-set source_select_net [get_bd_nets -quiet -of_objects [get_bd_pins fieldmesh_iq_dac_driver/select_fieldmesh]]
-if {[llength \$source_select_net] != 1} {
-  error "fieldmesh_iq_dac_driver/select_fieldmesh must be tied off"
-}
-set source_select_drivers [get_bd_pins -quiet -of_objects \$source_select_net -filter {DIR == O}]
-if {[llength \$source_select_drivers] != 1 || ![string match "*GND*/dout" "\$source_select_drivers"]} {
-  error "fieldmesh_iq_dac_driver/select_fieldmesh must remain hard-tied to GND in this overlay"
-}
+assert_same_net fieldmesh_iq_dac_driver/sample_count fieldmesh_ctrl/rf_dac_sample_count
+assert_same_net fieldmesh_iq_dac_driver/packet_count fieldmesh_ctrl/rf_dac_packet_count
+assert_same_net fieldmesh_iq_dac_driver/underflow_count fieldmesh_ctrl/rf_dac_underflow_count
+assert_same_net fieldmesh_iq_dac_driver/active fieldmesh_ctrl/rf_dac_active
 
 foreach forbidden_cell {
   axi_ad9361_dac_dma

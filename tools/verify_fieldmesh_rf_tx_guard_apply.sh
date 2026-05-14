@@ -127,9 +127,18 @@ for name in (
     "rf_current_slot",
     "rf_tx_epoch",
     "rf_tx_slot",
+    "rf_dac_source_control",
 ):
     if after_regs.get(name) != "0x00000000":
         raise SystemExit(f"RF guard register {name} was not rolled back")
+for name in (
+    "rf_dac_source_status",
+    "rf_dac_sample_count",
+    "rf_dac_packet_count",
+    "rf_dac_underflow_count",
+):
+    if after_regs.get(name) != "0x00000000":
+        raise SystemExit(f"RF DAC status register {name} was unexpectedly nonzero")
 if z103[-1].get("event") != "rf_guard_scan_end" or z103[-1].get("ok") is not True:
     raise SystemExit("Z103 mirrored probe failed RF guard scan")
 

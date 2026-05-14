@@ -55,6 +55,7 @@ wire [31:0] rf_current_epoch;
 wire [15:0] rf_current_slot;
 wire [31:0] rf_tx_epoch;
 wire [15:0] rf_tx_slot;
+wire rf_source_select;
 
 fieldmesh_sidecar_ctrl_axi_lite #(
     .SYNTH_LIGHT(0)
@@ -87,12 +88,17 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .rf_current_slot(rf_current_slot),
     .rf_tx_epoch(rf_tx_epoch),
     .rf_tx_slot(rf_tx_slot),
+    .rf_source_select(rf_source_select),
     .rf_guard_pass_sample_count(32'd0),
     .rf_guard_pass_packet_count(32'd0),
     .rf_guard_blocked_cycle_count(32'd0),
     .rf_guard_drop_late_sample_count(32'd0),
     .rf_guard_drop_late_packet_count(32'd0),
     .rf_guard_fault(1'b0),
+    .rf_dac_sample_count(32'd0),
+    .rf_dac_packet_count(32'd0),
+    .rf_dac_underflow_count(32'd0),
+    .rf_dac_active(1'b0),
     .irq(irq),
     .irq_status(irq_status)
 );
@@ -187,6 +193,7 @@ initial begin
     expect_axi(REG_ID, 32'h464d0002);
     if (irq || irq_status != 3'b000) fail("IRQ asserted after reset");
     if (rf_tx_enable || rf_tx_armed || rf_schedule_enable) fail("full sidecar wrapper drove RF TX guard control");
+    if (rf_source_select) fail("full sidecar wrapper selected RF DAC source");
     if (rf_current_epoch != 32'd0 || rf_current_slot != 16'd0) fail("full sidecar wrapper drove RF current schedule");
     if (rf_tx_epoch != 32'd0 || rf_tx_slot != 16'd0) fail("full sidecar wrapper drove RF target schedule");
 

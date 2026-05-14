@@ -106,6 +106,10 @@ ad_connect GND fieldmesh_ctrl/rf_guard_blocked_cycle_count
 ad_connect GND fieldmesh_ctrl/rf_guard_drop_late_sample_count
 ad_connect GND fieldmesh_ctrl/rf_guard_drop_late_packet_count
 ad_connect GND fieldmesh_ctrl/rf_guard_fault
+ad_connect GND fieldmesh_ctrl/rf_dac_sample_count
+ad_connect GND fieldmesh_ctrl/rf_dac_packet_count
+ad_connect GND fieldmesh_ctrl/rf_dac_underflow_count
+ad_connect GND fieldmesh_ctrl/rf_dac_active
 """
     return f"""
 {BD_CTRL_BEGIN}
@@ -287,7 +291,7 @@ create_bd_cell -type module -reference fieldmesh_iq_dac_driver fieldmesh_iq_dac_
 ad_connect axi_ad9361/l_clk fieldmesh_iq_dac_driver/clk
 ad_connect axi_ad9361/rst fieldmesh_iq_dac_driver/rst
 ad_connect VCC fieldmesh_iq_dac_driver/enable
-ad_connect GND fieldmesh_iq_dac_driver/select_fieldmesh
+ad_connect fieldmesh_ctrl/rf_source_select fieldmesh_iq_dac_driver/select_fieldmesh
 ad_connect axi_ad9361/dac_valid_i0 fieldmesh_iq_dac_driver/i_tick
 ad_connect axi_ad9361/dac_valid_q0 fieldmesh_iq_dac_driver/q_tick
 ad_connect tx_fir_interpolator/enable_out_0 fieldmesh_iq_dac_driver/i_gate
@@ -298,6 +302,10 @@ ad_connect fieldmesh_iq_tx_cdc/m_axis_tvalid fieldmesh_iq_dac_driver/s_axis_tval
 ad_connect fieldmesh_iq_dac_driver/s_axis_tready fieldmesh_iq_tx_cdc/m_axis_tready
 ad_connect fieldmesh_iq_tx_cdc/m_axis_tdata fieldmesh_iq_dac_driver/s_axis_tdata
 ad_connect fieldmesh_iq_tx_cdc/m_axis_tlast fieldmesh_iq_dac_driver/s_axis_tlast
+ad_connect fieldmesh_iq_dac_driver/sample_count fieldmesh_ctrl/rf_dac_sample_count
+ad_connect fieldmesh_iq_dac_driver/packet_count fieldmesh_ctrl/rf_dac_packet_count
+ad_connect fieldmesh_iq_dac_driver/underflow_count fieldmesh_ctrl/rf_dac_underflow_count
+ad_connect fieldmesh_iq_dac_driver/active fieldmesh_ctrl/rf_dac_active
 
 proc fieldmesh_disconnect_pin {{pin_name}} {{
   set pin [get_bd_pins -quiet $pin_name]

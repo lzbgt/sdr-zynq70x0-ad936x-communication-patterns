@@ -504,8 +504,8 @@ user and vendor configuration.
   RF TX guard register writer. It uses synthetic control-window memory to prove
   `fieldmesh-udp-probe rf-guard-scan` is read-only and
   `rf-guard-apply` requires all safety declarations plus
-  `--allow-live-writes`, arms only the guard registers, never enables AD936x
-  TX, and rolls the guard window back.
+  `--allow-live-writes`, arms only the guard registers, leaves DAC source
+  selection off, never enables AD936x TX, and rolls the guard window back.
 - `tools/run_fieldmesh_board_rf_tx_guard_apply.sh` - live board runner for the
   same RF TX guard register path. It captures sidecar preflight, scans the
   guard registers, optionally applies and rolls back the guard window only with
@@ -689,8 +689,9 @@ user and vendor configuration.
   AD9361 DAC `l_clk` domain before any DAC datapath connection is allowed.
 - `rtl/fieldmesh/fieldmesh_iq_dac_driver.v` - DAC-clock-domain source driver
   that sits between `tx_upack` and `tx_fir_interpolator`; it passes the vendor
-  TX path through while `select_fieldmesh=0`, and only consumes FieldMesh IQ
-  when a later guarded source-select path enables it.
+  TX path through while `select_fieldmesh=0`. The RF-engine overlay now wires
+  that selector and driver counters to the sidecar control window, but reset
+  and current guarded apply flows keep the selector off.
 - `rtl/fieldmesh/fieldmesh_slot_admission_gate.v` - deterministic scheduled
   descriptor gate wired between class-ring dequeue and packet-memory loopback
   in the full simulation wrapper; it holds future-slot descriptors, drops stale
@@ -744,8 +745,8 @@ user and vendor configuration.
   transfer gate; `--rf-engine-overlay` instead feeds the bridge parser output
   into `fieldmesh_bpsk_symbolizer`, routes generated IQ through
   `fieldmesh_iq_tx_guard`, crosses into the AD9361 DAC clock domain through
-  `fieldmesh_axis_async_fifo`, and feeds a hard-disabled DAC-domain source
-  driver that passes the vendor `tx_upack` path through unchanged.
+  `fieldmesh_axis_async_fifo`, and feeds a sidecar-controlled DAC-domain source
+  driver that still resets to vendor `tx_upack` pass-through.
 - `tools/check_fieldmesh_control_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the FieldMesh control overlay, and runs Vivado project/BD
   generation checks without synthesis to prove the `fieldmesh_ctrl` cell,
@@ -766,7 +767,7 @@ user and vendor configuration.
   `fieldmesh_axis_async_fifo`, and `fieldmesh_iq_dac_driver` are BD-visible,
   the guard is driven by the sidecar control window but resets unarmed, the FIFO
   sink and DAC driver are clocked from `axi_ad9361/l_clk`, and the FieldMesh
-  source selector remains hard-tied off.
+  source selector is sidecar-controlled but resets off.
 - `tools/build_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
   Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in
@@ -1005,14 +1006,14 @@ Expected result in the current Pluto-compatible firmware state:
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
    The non-transmitting RF-engine copied overlay, now including the
    sidecar-control-wired `fieldmesh_iq_tx_guard`, async FIFO into the AD9361
-   DAC `l_clk` domain, and hard-disabled DAC source driver, builds
-   timing-clean for both variants too: Z103
+   DAC `l_clk` domain, and reset-off sidecar-controlled DAC source driver,
+   builds timing-clean for both variants too: Z103
    `system_top.bit`/XSA hashes are
-   `925921e3834a6f31fc3bec6a96d0a992a5b26b7de66636628f2bdeef284cb700` and
-   `3711f1e5dedbd4b7d7f4a559c68677116051aeb345c1b8fdcd5aeae4f51da04a`;
+   `23ed999b1f42fdf4fd81a45cadb51626609655499fe9681625c0204cdc1ba122` and
+   `c6505b705b6726777960c787e3018a87b295bded97fb0d1c03d81f8b27ae1c2a`;
    Z203 hashes are
-   `ee296c70aeefc89140becbbbf9519f0f02e86cdbf22744bc6d304bac14d737b0` and
-   `c2fd66e34489689de606e80f404aa3c850d899a1dd3676fe636ced96894ec242`.
+   `069cff53dbe9d83cc1759d6747544346c8b99fe187a883685eeef849b967b279` and
+   `5f6e56fe2d3b8235a313c5a437e1678d88e2b3512a763cf272acd57eb2e08a86`.
 4. Perform controlled RF loopback tests with the rebuilt Z203 and Z103 FPGA
    images.
 5. Move the provisional FieldMesh sidecar DMA overlay from copied-HDL

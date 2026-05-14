@@ -47,6 +47,7 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     output wire [15:0]  rf_current_slot,
     output wire [31:0]  rf_tx_epoch,
     output wire [15:0]  rf_tx_slot,
+    output wire         rf_source_select,
 
     input  wire [31:0]  rf_guard_pass_sample_count,
     input  wire [31:0]  rf_guard_pass_packet_count,
@@ -54,6 +55,14 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  rf_guard_drop_late_sample_count,
     input  wire [31:0]  rf_guard_drop_late_packet_count,
     input  wire         rf_guard_fault,
+    (* X_INTERFACE_IGNORE = "TRUE" *)
+    input  wire [31:0]  rf_dac_sample_count,
+    (* X_INTERFACE_IGNORE = "TRUE" *)
+    input  wire [31:0]  rf_dac_packet_count,
+    (* X_INTERFACE_IGNORE = "TRUE" *)
+    input  wire [31:0]  rf_dac_underflow_count,
+    (* X_INTERFACE_IGNORE = "TRUE" *)
+    input  wire         rf_dac_active,
 
     output wire         irq,
     output wire [2:0]   irq_status
@@ -78,6 +87,11 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_RF_BLOCKED_CYCLE_COUNT     = 12'h120;
     localparam [11:0] REG_RF_DROP_LATE_SAMPLE_COUNT  = 12'h124;
     localparam [11:0] REG_RF_DROP_LATE_PACKET_COUNT  = 12'h128;
+    localparam [11:0] REG_RF_DAC_SOURCE_CONTROL      = 12'h12c;
+    localparam [11:0] REG_RF_DAC_SOURCE_STATUS       = 12'h130;
+    localparam [11:0] REG_RF_DAC_SAMPLE_COUNT        = 12'h134;
+    localparam [11:0] REG_RF_DAC_PACKET_COUNT        = 12'h138;
+    localparam [11:0] REG_RF_DAC_UNDERFLOW_COUNT     = 12'h13c;
 
     wire rst = !s_axi_aresetn;
 
@@ -98,6 +112,15 @@ generate if (SYNTH_LIGHT) begin : gen_light
     reg [15:0] rf_current_slot_r;
     reg [31:0] rf_tx_epoch_r;
     reg [15:0] rf_tx_slot_r;
+    reg        rf_source_select_r;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_packet_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_packet_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_underflow_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_underflow_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg        rf_dac_active_meta;
+    (* ASYNC_REG = "TRUE" *) reg        rf_dac_active_sync;
     reg [1:0]  bresp_r;
     reg        bvalid_r;
     reg [31:0] rdata_r;
@@ -121,6 +144,29 @@ generate if (SYNTH_LIGHT) begin : gen_light
     assign rf_current_slot = rf_current_slot_r;
     assign rf_tx_epoch = rf_tx_epoch_r;
     assign rf_tx_slot = rf_tx_slot_r;
+    assign rf_source_select = rf_source_select_r;
+
+    always @(posedge s_axi_aclk) begin
+        if (rst) begin
+            rf_dac_sample_count_meta <= 32'd0;
+            rf_dac_sample_count_sync <= 32'd0;
+            rf_dac_packet_count_meta <= 32'd0;
+            rf_dac_packet_count_sync <= 32'd0;
+            rf_dac_underflow_count_meta <= 32'd0;
+            rf_dac_underflow_count_sync <= 32'd0;
+            rf_dac_active_meta <= 1'b0;
+            rf_dac_active_sync <= 1'b0;
+        end else begin
+            rf_dac_sample_count_meta <= rf_dac_sample_count;
+            rf_dac_sample_count_sync <= rf_dac_sample_count_meta;
+            rf_dac_packet_count_meta <= rf_dac_packet_count;
+            rf_dac_packet_count_sync <= rf_dac_packet_count_meta;
+            rf_dac_underflow_count_meta <= rf_dac_underflow_count;
+            rf_dac_underflow_count_sync <= rf_dac_underflow_count_meta;
+            rf_dac_active_meta <= rf_dac_active;
+            rf_dac_active_sync <= rf_dac_active_meta;
+        end
+    end
 
     always @(posedge s_axi_aclk) begin
         if (rst) begin
@@ -139,6 +185,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
             rf_current_slot_r <= 16'd0;
             rf_tx_epoch_r <= 32'd0;
             rf_tx_slot_r <= 16'd0;
+            rf_source_select_r <= 1'b0;
             bresp_r <= 2'b00;
             bvalid_r <= 1'b0;
         end else begin
@@ -175,6 +222,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
                         REG_RF_CURRENT_SLOT: rf_current_slot_r <= wdata_hold[15:0];
                         REG_RF_TX_EPOCH: rf_tx_epoch_r <= wdata_hold;
                         REG_RF_TX_SLOT: rf_tx_slot_r <= wdata_hold[15:0];
+                        REG_RF_DAC_SOURCE_CONTROL: rf_source_select_r <= wdata_hold[0];
                     endcase
                 end
                 bresp_r <= 2'b00;
@@ -220,6 +268,11 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_RF_BLOCKED_CYCLE_COUNT: rdata_r <= rf_guard_blocked_cycle_count;
                     REG_RF_DROP_LATE_SAMPLE_COUNT: rdata_r <= rf_guard_drop_late_sample_count;
                     REG_RF_DROP_LATE_PACKET_COUNT: rdata_r <= rf_guard_drop_late_packet_count;
+                    REG_RF_DAC_SOURCE_CONTROL: rdata_r <= {31'd0, rf_source_select_r};
+                    REG_RF_DAC_SOURCE_STATUS: rdata_r <= {30'd0, rf_dac_active_sync, rf_source_select_r};
+                    REG_RF_DAC_SAMPLE_COUNT: rdata_r <= rf_dac_sample_count_sync;
+                    REG_RF_DAC_PACKET_COUNT: rdata_r <= rf_dac_packet_count_sync;
+                    REG_RF_DAC_UNDERFLOW_COUNT: rdata_r <= rf_dac_underflow_count_sync;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;
@@ -240,6 +293,7 @@ assign rf_current_epoch = 32'd0;
 assign rf_current_slot = 16'd0;
 assign rf_tx_epoch = 32'd0;
 assign rf_tx_slot = 16'd0;
+assign rf_source_select = 1'b0;
 
 fieldmesh_packet_mem_axi_lite #(
     .MEM_BYTES(MEM_BYTES),

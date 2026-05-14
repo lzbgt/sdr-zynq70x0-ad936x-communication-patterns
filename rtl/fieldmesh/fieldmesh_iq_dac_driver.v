@@ -44,7 +44,20 @@ module fieldmesh_iq_dac_driver (
     output wire        active
 );
 
-wire selected = enable && select_fieldmesh;
+(* ASYNC_REG = "TRUE" *) reg select_fieldmesh_meta = 1'b0;
+(* ASYNC_REG = "TRUE" *) reg select_fieldmesh_sync = 1'b0;
+
+always @(posedge clk) begin
+    if (rst) begin
+        select_fieldmesh_meta <= 1'b0;
+        select_fieldmesh_sync <= 1'b0;
+    end else begin
+        select_fieldmesh_meta <= select_fieldmesh;
+        select_fieldmesh_sync <= select_fieldmesh_meta;
+    end
+end
+
+wire selected = enable && select_fieldmesh_sync;
 wire dac_tick = i_tick && q_tick && i_gate && q_gate;
 wire fieldmesh_sample = selected && dac_tick && s_axis_tvalid;
 

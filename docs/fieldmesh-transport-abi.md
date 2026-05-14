@@ -187,7 +187,8 @@ schedule epoch/slot fields, and read `fieldmesh_iq_tx_guard` counters through
 the mapped control window. These registers reset unarmed and are only a guard
 boundary; the RF-engine overlay now crosses guarded IQ into the AD9361 DAC
 clock domain through `fieldmesh_axis_async_fifo`, then reaches a
-hard-disabled `fieldmesh_iq_dac_driver` that passes the vendor TX path through.
+sidecar-controlled `fieldmesh_iq_dac_driver` that resets to vendor TX
+pass-through.
 
 `rtl/fieldmesh/fieldmesh_class_priority_queue.v` is the first class-priority
 queue slice. It stores one pending descriptor per C0..C4 class and always
@@ -296,8 +297,8 @@ Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
 the parsed TX packet stream into `fieldmesh_bpsk_symbolizer`, routes generated
 IQ through `fieldmesh_iq_tx_guard`, crosses it through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
-`fieldmesh_iq_dac_driver` while its source selector is hard-tied to vendor
-pass-through.
+`fieldmesh_iq_dac_driver` while its source selector resets to vendor
+pass-through through the sidecar control window.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,
 `tools/check_fieldmesh_dma_overlay_vivado.sh`, and
@@ -305,7 +306,7 @@ pass-through.
 Z203/Z103 HDL trees can generate the Vivado block design with these cells
 present. The RF-engine gate is still non-transmitting: the DAC-domain driver is
 inserted at the vendor TX datapath boundary, but FieldMesh source selection is
-hard-disabled.
+reset-off and the current guarded apply path does not enable it.
 
 Keep these responsibilities in Linux first:
 
@@ -428,6 +429,11 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x120` | `FM_RF_BLOCKED_CYCLE_COUNT` | cycles blocked while unarmed or waiting |
 | `0x124` | `FM_RF_DROP_LATE_SAMPLE_COUNT` | late scheduled samples dropped |
 | `0x128` | `FM_RF_DROP_LATE_PACKET_COUNT` | late scheduled packets dropped |
+| `0x12c` | `FM_RF_DAC_SOURCE_CONTROL` | bit 0 selects FieldMesh IQ into the DAC source driver when all outer RF safety gates also allow it |
+| `0x130` | `FM_RF_DAC_SOURCE_STATUS` | bit 0 source-select state, bit 1 DAC source driver active |
+| `0x134` | `FM_RF_DAC_SAMPLE_COUNT` | DAC-domain FieldMesh samples accepted by the source driver |
+| `0x138` | `FM_RF_DAC_PACKET_COUNT` | DAC-domain FieldMesh packet ends accepted by the source driver |
+| `0x13c` | `FM_RF_DAC_UNDERFLOW_COUNT` | DAC source driver underflows while FieldMesh source is selected |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

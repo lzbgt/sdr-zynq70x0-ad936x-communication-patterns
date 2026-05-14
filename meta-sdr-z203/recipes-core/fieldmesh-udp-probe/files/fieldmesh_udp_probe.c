@@ -403,8 +403,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         return 2;
     }
     if ((!strcmp(cfg->role, "rf-guard-scan") || !strcmp(cfg->role, "rf-guard-apply")) &&
-        cfg->ctrl_size < 0x12cU) {
-        fprintf(stderr, "--ctrl-size must cover the 0x100..0x128 RF guard registers\n");
+        cfg->ctrl_size < 0x140U) {
+        fprintf(stderr, "--ctrl-size must cover the 0x100..0x13c RF guard/DAC registers\n");
         return 2;
     }
     if (!strcmp(cfg->role, "dma-scan") && cfg->dma_size < 0x14U) {
@@ -2662,6 +2662,11 @@ static int run_ctrl_scan(const struct config *cfg)
 #define RF_GUARD_REG_BLOCKED_CYCLE_COUNT 0x120U
 #define RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT 0x124U
 #define RF_GUARD_REG_DROP_LATE_PACKET_COUNT 0x128U
+#define RF_DAC_REG_SOURCE_CONTROL 0x12cU
+#define RF_DAC_REG_SOURCE_STATUS 0x130U
+#define RF_DAC_REG_SAMPLE_COUNT 0x134U
+#define RF_DAC_REG_PACKET_COUNT 0x138U
+#define RF_DAC_REG_UNDERFLOW_COUNT 0x13cU
 #define RF_GUARD_CONTROL_ARMED 0x7U
 
 static int run_rf_guard_scan(const struct config *cfg)
@@ -2679,6 +2684,11 @@ static int run_rf_guard_scan(const struct config *cfg)
         {"rf_blocked_cycle_count", RF_GUARD_REG_BLOCKED_CYCLE_COUNT},
         {"rf_drop_late_sample_count", RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT},
         {"rf_drop_late_packet_count", RF_GUARD_REG_DROP_LATE_PACKET_COUNT},
+        {"rf_dac_source_control", RF_DAC_REG_SOURCE_CONTROL},
+        {"rf_dac_source_status", RF_DAC_REG_SOURCE_STATUS},
+        {"rf_dac_sample_count", RF_DAC_REG_SAMPLE_COUNT},
+        {"rf_dac_packet_count", RF_DAC_REG_PACKET_COUNT},
+        {"rf_dac_underflow_count", RF_DAC_REG_UNDERFLOW_COUNT},
     };
     const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
     bool file_backed = cfg->ctrl_mem_file != NULL;

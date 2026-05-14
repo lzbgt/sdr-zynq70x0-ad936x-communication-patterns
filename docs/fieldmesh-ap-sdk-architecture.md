@@ -576,8 +576,8 @@ Stage 2: Board-local service
   `--rf-engine-overlay` copied-HDL gate now proves the symbolizer, TX guard,
   async FIFO, and DAC-domain source driver are BD-visible behind the sidecar
   DMA/bridge TX path, with guard control/status wired through the existing
-  sidecar control window while the source driver remains hard-selected to
-  vendor TX pass-through.
+  sidecar control window while the source driver selector also lives in that
+  window and resets to vendor TX pass-through.
 - Use `fieldmesh_plan_rf_tx_guard()` / `fieldmesh_apply_rf_tx_guard()` and
   daemon `FIELDMESH_RF_TX_GUARD_PLAN` as the first scheduler/filter/driver
   control boundary after the symbolizer. It plans `fieldmesh_iq_tx_guard`
