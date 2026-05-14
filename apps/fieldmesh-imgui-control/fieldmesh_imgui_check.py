@@ -14,6 +14,7 @@ def main() -> int:
     embedded_python = Path(sys.argv[3]).read_text(encoding="utf-8")
     platform_source = Path(sys.argv[4]).read_text(encoding="utf-8")
     snapshot = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
+    launcher = Path(sys.argv[6]).read_text(encoding="utf-8") if len(sys.argv) > 6 else ""
     for forbidden in ("020000000203", "020000000103", "192.168.1.10", "192.168.3.1"):
         if (forbidden in source or forbidden in resources or
                 forbidden in embedded_python or forbidden in platform_source):
@@ -41,6 +42,7 @@ def main() -> int:
         "Profile",
         "discover_runtime_boards",
         "fieldmesh_discover_daemons",
+        "kDiscoveryBoardCapacity = 256u",
         "Frequency MHz",
         "Channel",
         "Bandwidth",
@@ -112,6 +114,14 @@ def main() -> int:
             raise SystemExit(f"embedded Python API source missing {token}")
     if "subprocess" in embedded_python or "system(" in embedded_python:
         raise SystemExit("embedded Python API must not be a CLI/subprocess wrapper")
+    if "sdr-z203-zynq7" in launcher or "sdr-z103-zynq7" in launcher:
+        raise SystemExit("WSLg launcher must stage product fm-z203/fm-z103 images, not legacy machine deploy paths")
+    for token in (
+        "deploy/images/fm-z203/sdr-z203-arm-image-fm-z203.rootfs.tar.gz",
+        "deploy/images/fm-z103/sdr-z103-arm-image-fm-z103.rootfs.tar.gz",
+    ):
+        if token not in launcher:
+            raise SystemExit(f"WSLg launcher missing product deploy path {token}")
     for token in (
         "#include <GLFW/glfw3.h>",
         "ImGui_ImplGlfw_InitForOpenGL",

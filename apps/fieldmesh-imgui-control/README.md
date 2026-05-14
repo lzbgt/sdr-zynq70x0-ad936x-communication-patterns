@@ -178,7 +178,12 @@ For the current lab Z203, that installer auto-detects `/dev/mmcblk0p1` and
 updates the SD boot files because the board is booting from SD. Z103 continues
 to use the Pluto-style `.frm` path. The launcher itself does not stage hidden
 daemon binaries by default; it discovers the daemons installed in the board
-runtime.
+runtime. If a developer deliberately sets `FIELDMESH_WSLG_FORCE_STAGE_DAEMONS=1`,
+the launcher stages from the product deploy aliases `fm-z203` and `fm-z103`,
+not the old verbose machine deploy directories. Runtime board discovery in the
+GUI is sized for dynamic swarms rather than the old small lab cap; the verifier
+now exercises 32 daemon endpoints and the app buffer is sized for 256 detected
+boards.
 
 Two symmetric instances can be smoke-tested without a display during
 development:

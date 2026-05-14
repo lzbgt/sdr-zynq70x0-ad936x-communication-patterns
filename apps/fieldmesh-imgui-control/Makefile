@@ -120,7 +120,8 @@ check: $(HEADLESS_APP)
 		fieldmesh_imgui_embedded_resources.h \
 		fieldmesh_imgui_embedded_python.cpp \
 		fieldmesh_imgui_glfw_main.cpp \
-		"$(OUT_DIR)/imgui_control_snapshot.json"
+		"$(OUT_DIR)/imgui_control_snapshot.json" \
+		"$(REPO_ROOT)/tools/run_fieldmesh_imgui_wslg.sh"
 	./fieldmesh_imgui_discovery_check.py "$(HEADLESS_APP)"
 	PYTHONPATH="$$(pwd)" ./fieldmesh_imgui_pyapi_check.py "$(HEADLESS_APP)" "$(TEST_PROFILE)"
 

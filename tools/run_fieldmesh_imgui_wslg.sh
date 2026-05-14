@@ -174,10 +174,10 @@ PY
     if [ "${FIELDMESH_WSLG_FORCE_STAGE_DAEMONS:-0}" = "1" ]; then
         case "$host" in
             192.168.3.*)
-                rootfs_tar="$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz"
+                rootfs_tar="$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/fm-z103/sdr-z103-arm-image-fm-z103.rootfs.tar.gz"
                 ;;
             *)
-                rootfs_tar="$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz"
+                rootfs_tar="$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/fm-z203/sdr-z203-arm-image-fm-z203.rootfs.tar.gz"
                 ;;
         esac
         if [ -f "$rootfs_tar" ]; then

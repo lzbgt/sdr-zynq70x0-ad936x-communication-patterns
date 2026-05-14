@@ -710,8 +710,12 @@ user and vendor configuration.
   on WSL, `tools/run_fieldmesh_imgui_wslg.sh` provides the Windows-host GUI
   bridge by setting the WSLg X11/Wayland/Pulse/GPU environment before
   launching the GLFW/OpenGL3 ImGui binary; product packaging should hide that
-  bridge inside a desktop shortcut/app bundle. WSLg is developer plumbing; the
-  production Windows app should build the same C++ app core with the installed
+  bridge inside a desktop shortcut/app bundle. The WSLg helper now stages any
+  explicitly forced transient daemons from the product deploy aliases
+  `fm-z203`/`fm-z103`, not legacy machine deploy directories, and the GUI
+  runtime-discovery path is verified above the old 16-board lab cap. WSLg is
+  developer plumbing; the production Windows app should build the same C++ app
+  core with the installed
   Visual Studio Community toolchain, keep board USB/RNDIS/serial devices
   attached to Windows, and use Windows camera capture directly or via a native
   FFmpeg/GStreamer/wrapper pipe. A WSL Linux app can consume the host built-in

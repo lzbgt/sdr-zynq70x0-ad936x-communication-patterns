@@ -242,6 +242,46 @@ def main() -> int:
             if default_data["topology_max_peer_range_m"] >= 0:
                 raise SystemExit("runtime discovery must not report a synthetic peer range")
 
+            many_servers = []
+            try:
+                many_candidates = []
+                for index in range(32):
+                    payload = hello(
+                        f"02ccbb{index:06x}",
+                        f"fieldmesh-many-{index:03d}",
+                        "z203-2r2t" if index % 2 == 0 else "z103-1r1t",
+                    )
+                    payload.update({
+                        "radio_peer_eui": "02ccbbffffff",
+                        "radio_peer_hostname": "fieldmesh-many-peer",
+                        "radio_peer_type": "fieldmesh-peer",
+                        "radio_peer_max_kbps": 1200 + index,
+                    })
+                    server = bind_server(payload)
+                    many_servers.append(server)
+                    many_candidates.append(f"127.0.0.1:{server[1]}")
+                many_snapshot = Path(tmp) / "many_boards.json"
+                subprocess.run(
+                    [
+                        str(app),
+                        "--self-test",
+                        "--discover-candidates",
+                        ",".join(many_candidates),
+                        "--snapshot-output",
+                        str(many_snapshot),
+                    ],
+                    check=True,
+                    env=env,
+                )
+                many_data = json.loads(many_snapshot.read_text(encoding="utf-8"))
+                if many_data["detected_board_count"] != 32:
+                    raise SystemExit("GUI runtime discovery is still capped below dynamic swarm scale")
+                if many_data["connected_to_board"]:
+                    raise SystemExit("many-board runtime discovery must still wait for explicit selection")
+            finally:
+                for sock, _port, _thread in many_servers:
+                    sock.close()
+
             snapshot = Path(tmp) / "selected.json"
             subprocess.run(
                 [

@@ -1118,7 +1118,8 @@ bool load_runtime_profile(GuiState *state, const char *path)
 
 bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
 {
-    fieldmesh_discovered_board_t boards[16];
+    static constexpr std::size_t kDiscoveryBoardCapacity = 256u;
+    std::vector<fieldmesh_discovered_board_t> boards(kDiscoveryBoardCapacity);
     size_t board_count = 0u;
     fieldmesh_status_t status;
 
@@ -1130,8 +1131,8 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
     }
     state->discovery_candidates = candidate_endpoints;
     status = fieldmesh_discover_daemons(candidate_endpoints, 250u,
-                                        boards,
-                                        sizeof(boards) / sizeof(boards[0]),
+                                        boards.data(),
+                                        boards.size(),
                                         &board_count);
     state->profile_source = "runtime_discovery";
     if (status != FIELDMESH_OK || board_count == 0u) {

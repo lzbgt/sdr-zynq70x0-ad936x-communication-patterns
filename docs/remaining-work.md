@@ -320,6 +320,10 @@ Current concrete work:
   ImGui instances, live daemon discovery, board selection, chat send/receive,
   video invite/accept/deny, camera/screen source selection, topology/range
   updates, embedded Python logs, and no profile required for normal startup.
+  The current WSLg/developer launcher now uses product deploy aliases for any
+  explicitly forced daemon staging, and the runtime-discovery verifier exercises
+  32 daemon endpoints with the app discovery buffer sized for 256 boards, so
+  the connection setup page is no longer tied to the old small lab cap.
 - The next customer-facing performance gate is measurement, not more prose:
   collect real Mbps, concurrent video-lane capacity, range/error, jitter,
   packet loss, and power consumption per Z203/Z103 plan as described in
