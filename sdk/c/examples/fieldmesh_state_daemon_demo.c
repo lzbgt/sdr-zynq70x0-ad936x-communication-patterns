@@ -1567,6 +1567,12 @@ static int build_response(fieldmesh_context_t *context,
             .stream_id_base = 500,
             .mtu_bytes = 1200,
         };
+        fieldmesh_status_t ap_status;
+        fieldmesh_status_t elect_status;
+        fieldmesh_status_t peer_status;
+        fieldmesh_status_t position_status;
+        fieldmesh_status_t stream_status;
+        const char *error_reason = "none";
         unsigned frames_tx = 0;
         unsigned frames_rx = 0;
         unsigned preview_matches = 0;
@@ -1607,18 +1613,37 @@ static int build_response(fieldmesh_context_t *context,
                  "%s", "swarm0");
         snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
                  "%s", dst_device_eui);
-        if (fieldmesh_browse_aps(context, 1000, on_ap, &aps) != FIELDMESH_OK ||
-            fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID, 1000,
-                               &election) != FIELDMESH_OK ||
-            fieldmesh_list_peers(session, on_peer, &peers) != FIELDMESH_OK ||
-            fieldmesh_list_peer_positions(context, on_position, &positions) !=
-                FIELDMESH_OK ||
-            fieldmesh_open_camera_stream(session, &camera_config, &camera_stream) !=
-                FIELDMESH_OK) {
+        ap_status = fieldmesh_browse_aps(context, 1000, on_ap, &aps);
+        elect_status = fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID,
+                                          1000, &election);
+        peer_status = fieldmesh_list_peers(session, on_peer, &peers);
+        position_status = fieldmesh_list_peer_positions(context, on_position,
+                                                        &positions);
+        stream_status = fieldmesh_open_camera_stream(session, &camera_config,
+                                                     &camera_stream);
+        if (ap_status != FIELDMESH_OK || elect_status != FIELDMESH_OK ||
+            peer_status != FIELDMESH_OK || position_status != FIELDMESH_OK ||
+            stream_status != FIELDMESH_OK) {
+            if (peer_status == FIELDMESH_ERR_NOT_FOUND ||
+                position_status == FIELDMESH_ERR_NOT_FOUND ||
+                stream_status == FIELDMESH_ERR_NOT_FOUND) {
+                error_reason = "no_observed_radio_peer";
+            } else if (ap_status != FIELDMESH_OK) {
+                error_reason = "ap_browse_failed";
+            } else if (elect_status != FIELDMESH_OK) {
+                error_reason = "ap_election_failed";
+            } else if (peer_status != FIELDMESH_OK) {
+                error_reason = "peer_registry_failed";
+            } else if (position_status != FIELDMESH_OK) {
+                error_reason = "rtls_registry_failed";
+            } else {
+                error_reason = "camera_stream_open_failed";
+            }
             failed = 1;
         }
         if (!failed && preferred_ap_eui[0] != '\0') {
             if (!aps.requested_ap_seen) {
+                error_reason = "preferred_ap_not_observed";
                 failed = 1;
             } else {
                 snprintf(election.elected_node_id,
@@ -1669,7 +1694,32 @@ static int build_response(fieldmesh_context_t *context,
             (void)fieldmesh_close_adapter(camera_stream);
         }
         if (failed) {
-            return 1;
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_control_camera\","
+                     "\"ok\":false,"
+                     "\"error\":\"%s\","
+                     "\"dst_device_eui\":\"%s\","
+                     "\"selection_mode\":\"%s\","
+                     "\"aps\":%u,"
+                     "\"peers\":%u,"
+                     "\"positions\":%u,"
+                     "\"ap_status\":%d,"
+                     "\"elect_status\":%d,"
+                     "\"peer_status\":%d,"
+                     "\"position_status\":%d,"
+                     "\"stream_status\":%d,"
+                     "\"requires_radio_peer\":true,"
+                     "\"uses_profile_peer\":false,"
+                     "\"uses_host_peer_discovery\":false,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n",
+                     error_reason, camera_config.dst_node_id, selection_mode,
+                     aps.aps, peers.peers, positions.positions,
+                     (int)ap_status, (int)elect_status, (int)peer_status,
+                     (int)position_status, (int)stream_status);
+            return 0;
         }
 
         snprintf(response, response_len,
@@ -2449,10 +2499,14 @@ static int serve_state(const char *bind_ip,
             break;
         }
         request[received] = '\0';
-        if (build_response(context, session, request, response, sizeof(response)) == 0) {
-            (void)sendto(sockfd, response, (int)strlen(response), 0,
-                         (const struct sockaddr *)&src_addr, src_len);
+        if (build_response(context, session, request, response, sizeof(response)) != 0) {
+            snprintf(response, sizeof(response),
+                     "{\"event\":\"sdk_daemon_error\","
+                     "\"error\":\"request_failed\","
+                     "\"responded\":true}\n");
         }
+        (void)sendto(sockfd, response, (int)strlen(response), 0,
+                     (const struct sockaddr *)&src_addr, src_len);
         printf("{\"event\":\"sdk_daemon_request\",\"bytes\":%d,"
                "\"src\":\"%s\"}\n",
                received, inet_ntoa(src_addr.sin_addr));
