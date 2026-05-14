@@ -81,6 +81,14 @@ for label, snapshot in (("peer_a", peer_a), ("peer_b", peer_b)):
         raise SystemExit(f"{label} GUI is not symmetric IM peer model")
     if snapshot.get("security_model") != "command_ca_derived_mutual_auth":
         raise SystemExit(f"{label} GUI security model changed")
+    if snapshot.get("bundled_trust_bundle") is not True:
+        raise SystemExit(f"{label} GUI did not bundle public trust metadata")
+    if snapshot.get("bundled_demo_profile") is not True:
+        raise SystemExit(f"{label} GUI did not bundle the demo runtime profile")
+    if snapshot.get("command_ca_private_key_bundled") is not False:
+        raise SystemExit(f"{label} GUI bundled a command CA private key")
+    if snapshot.get("user_runs_shell_scripts") is not False:
+        raise SystemExit(f"{label} GUI required shell scripts for app use")
     if snapshot.get("derived_certificates") is not True:
         raise SystemExit(f"{label} GUI did not require derived certs")
     if snapshot.get("mutual_auth_required") is not True:
@@ -135,6 +143,10 @@ summary = {
     },
     "embedded_python_api": True,
     "security_model": "command_ca_derived_mutual_auth",
+    "bundled_trust_bundle": True,
+    "bundled_demo_profile": True,
+    "command_ca_private_key_bundled": False,
+    "user_runs_shell_scripts": False,
     "derived_certificates": True,
     "mutual_auth_required": True,
     "authorization_required": True,

@@ -284,7 +284,10 @@ Next concrete work:
   selection, peer discovery, chat messaging, control-plane actions, radio
   topology, relative co-location, and live video publish/subscribe controls,
   with `fieldmesh_imgui_pyapi.py` for Python-driven tests. It models mandatory
-  command-CA-derived mutual authentication and scoped authorization. The
+  command-CA-derived mutual authentication and scoped authorization. It also
+  models the correct user workflow: the app bundle carries public trust
+  metadata, demo profiles, board defaults, and codec presets; users should not
+  run shell scripts, and command CA private keys are never bundled. The
   remaining app work is wiring the ImGui panels to live daemon calls and
   platform capture/preview backends, platform preset installation UX, deeper
   platform codec supervision, and the conducted/shielded RF TX/RX data-plane

@@ -13,6 +13,7 @@ def main() -> int:
         "ImGui::Begin(\"Board Selection\")",
         "ImGui::Begin(\"Chats\")",
         "ImGui::Begin(\"Control Plane\")",
+        "ImGui::Begin(\"Security\")",
         "ImGui::Begin(\"Radio Network Topology\")",
         "ImGui::Begin(\"Video Chat\")",
     ):
@@ -32,6 +33,8 @@ def main() -> int:
         raise SystemExit("ImGui app security model changed")
     if snapshot.get("command_ca") != "fieldmesh-command-ca":
         raise SystemExit("ImGui app command CA changed")
+    if not str(snapshot.get("command_ca_fingerprint", "")).startswith("sha256:"):
+        raise SystemExit("ImGui app must bundle a command CA fingerprint")
     if snapshot.get("derived_certificates") is not True:
         raise SystemExit("ImGui app must use derived certificates")
     if snapshot.get("mutual_auth_required") is not True:
@@ -40,6 +43,18 @@ def main() -> int:
         raise SystemExit("ImGui app must require authorization")
     if "messaging" not in snapshot.get("authorization_scope", ""):
         raise SystemExit("ImGui app auth scope must include messaging")
+    if snapshot.get("provisioning_model") != "bundled_command_ca_public_trust_derived_device_cert":
+        raise SystemExit("ImGui app provisioning model changed")
+    if snapshot.get("device_private_key_source") != "os_keystore_or_board_secure_storage":
+        raise SystemExit("ImGui app must not own raw device private keys")
+    if snapshot.get("bundled_trust_bundle") is not True:
+        raise SystemExit("ImGui app must bundle public trust metadata")
+    if snapshot.get("bundled_demo_profile") is not True:
+        raise SystemExit("ImGui app must bundle the demo runtime profile")
+    if snapshot.get("command_ca_private_key_bundled") is not False:
+        raise SystemExit("ImGui app must not bundle the command CA private key")
+    if snapshot.get("user_runs_shell_scripts") is not False:
+        raise SystemExit("ImGui app must not require users to run shell scripts")
     if snapshot.get("board_selection") is not True:
         raise SystemExit("ImGui app must expose board selection")
     if snapshot.get("peer_discovery") is not True:

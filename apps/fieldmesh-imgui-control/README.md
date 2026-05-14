@@ -20,8 +20,17 @@ The GUI owns:
 - mandatory command-CA-derived certificate mutual authentication and scoped
   authorization for demo peer sessions, with room for optional app-specific
   security above the FieldMesh security layer;
+- a bundled demo runtime profile and public command-CA trust metadata, so
+  normal users launch the app instead of running shell scripts;
 - embedded Python automation through `fieldmesh_imgui_pyapi.py`, which drives
   the same C++ app state/API surface in headless test mode.
+
+The app bundle may include public trust anchors, certificate fingerprints,
+default board profiles, daemon ports, codec presets, and policy metadata. It
+must not bundle the command CA private key. Per-device private keys should live
+in the OS key store, secure element, or board-side secure storage; the demo app
+only carries derived certificate identity metadata needed to authenticate and
+authorize sessions.
 
 The default `make check` target builds a dependency-free headless check that
 verifies the GUI state model and ImGui render source. To build the real Dear
@@ -38,7 +47,8 @@ command-line harness verifies: `FIELDMESH_HELLO`,
 `FIELDMESH_ROUTE_METRICS`, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
 `FIELDMESH_CAMERA_STREAM_CHUNK`.
 
-Two symmetric instances can be smoke-tested without a display:
+The shell scripts are developer/CI gates, not the end-user workflow. Two
+symmetric instances can be smoke-tested without a display during development:
 
 ```sh
 ./tools/run_fieldmesh_two_imgui_instances.sh

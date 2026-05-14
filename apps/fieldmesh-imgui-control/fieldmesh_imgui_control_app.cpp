@@ -66,15 +66,22 @@ struct GuiMessage {
 
 struct GuiSecurity {
     std::string command_ca;
+    std::string command_ca_fingerprint;
     std::string device_cert;
     std::string peer_cert;
     std::string mutual_auth_state;
     std::string authorization_scope;
     std::string app_security_layer;
+    std::string device_private_key_source;
+    std::string provisioning_model;
     bool derived_certificates;
     bool mutual_auth_required;
     bool authorization_required;
     bool app_security_optional;
+    bool bundled_trust_bundle;
+    bool bundled_demo_profile;
+    bool command_ca_private_key_bundled;
+    bool user_runs_shell_scripts;
 };
 
 struct GuiState {
@@ -130,15 +137,23 @@ void populate_demo_state(GuiState *state)
         {"020000000103", "rx", "Z103 online on USB Ethernet", "delivered"},
     };
     state->security.command_ca = "fieldmesh-command-ca";
+    state->security.command_ca_fingerprint =
+        "sha256:5d7f8c4d6b71f0c4b1d6a6e37e24f17a0e9af4b8a3c0d6f1e5a8c2b49e6d31aa";
     state->security.device_cert = "derived-device-cert";
     state->security.peer_cert = "derived-peer-cert";
     state->security.mutual_auth_state = "required";
     state->security.authorization_scope = "peer_discovery,control_plane,messaging,live_video";
     state->security.app_security_layer = "demo_none";
+    state->security.device_private_key_source = "os_keystore_or_board_secure_storage";
+    state->security.provisioning_model = "bundled_command_ca_public_trust_derived_device_cert";
     state->security.derived_certificates = true;
     state->security.mutual_auth_required = true;
     state->security.authorization_required = true;
     state->security.app_security_optional = true;
+    state->security.bundled_trust_bundle = true;
+    state->security.bundled_demo_profile = true;
+    state->security.command_ca_private_key_bundled = false;
+    state->security.user_runs_shell_scripts = false;
     state->camera.publish_enabled = false;
     state->camera.preview_enabled = false;
     state->camera.source_name = "platform camera pipe";
@@ -264,12 +279,19 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"app_model\": \"symmetric_im_peer\",\n"
                  "  \"security_model\": \"command_ca_derived_mutual_auth\",\n"
                  "  \"command_ca\": \"%s\",\n"
+                 "  \"command_ca_fingerprint\": \"%s\",\n"
                  "  \"derived_certificates\": %s,\n"
                  "  \"mutual_auth_required\": %s,\n"
                  "  \"authorization_required\": %s,\n"
                  "  \"authorization_scope\": \"%s\",\n"
                  "  \"app_security_layer\": \"%s\",\n"
                  "  \"app_security_optional\": %s,\n"
+                 "  \"provisioning_model\": \"%s\",\n"
+                 "  \"device_private_key_source\": \"%s\",\n"
+                 "  \"bundled_trust_bundle\": %s,\n"
+                 "  \"bundled_demo_profile\": %s,\n"
+                 "  \"command_ca_private_key_bundled\": %s,\n"
+                 "  \"user_runs_shell_scripts\": %s,\n"
                  "  \"board_selection\": true,\n"
                  "  \"peer_discovery\": true,\n"
                  "  \"messaging_available\": true,\n"
@@ -307,12 +329,19 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"writes_hardware\": %s\n"
                  "}\n",
                  state.security.command_ca.c_str(),
+                 state.security.command_ca_fingerprint.c_str(),
                  state.security.derived_certificates ? "true" : "false",
                  state.security.mutual_auth_required ? "true" : "false",
                  state.security.authorization_required ? "true" : "false",
                  state.security.authorization_scope.c_str(),
                  state.security.app_security_layer.c_str(),
                  state.security.app_security_optional ? "true" : "false",
+                 state.security.provisioning_model.c_str(),
+                 state.security.device_private_key_source.c_str(),
+                 state.security.bundled_trust_bundle ? "true" : "false",
+                 state.security.bundled_demo_profile ? "true" : "false",
+                 state.security.command_ca_private_key_bundled ? "true" : "false",
+                 state.security.user_runs_shell_scripts ? "true" : "false",
                  board ? board->device_eui.c_str() : "",
                  board ? board->daemon_host.c_str() : "",
                  state.selected_conversation_eui.c_str(),
@@ -378,6 +407,29 @@ void render_control_plane(GuiState *state)
     }
     ImGui::Text("Selected AP: %s", state->selected_ap_eui.c_str());
     ImGui::Text("Status: %s", state->operation_status.c_str());
+    ImGui::End();
+}
+
+void render_security(GuiState *state)
+{
+    ImGui::Begin("Security");
+    ImGui::Text("Command CA: %s", state->security.command_ca.c_str());
+    ImGui::Text("CA fingerprint: %s",
+                state->security.command_ca_fingerprint.c_str());
+    ImGui::Text("Provisioning: %s", state->security.provisioning_model.c_str());
+    ImGui::Text("Private key: %s",
+                state->security.device_private_key_source.c_str());
+    ImGui::Checkbox("Bundled trust bundle",
+                    &state->security.bundled_trust_bundle);
+    ImGui::Checkbox("Bundled demo profile",
+                    &state->security.bundled_demo_profile);
+    ImGui::Checkbox("Mutual auth required",
+                    &state->security.mutual_auth_required);
+    ImGui::Checkbox("Authorization required",
+                    &state->security.authorization_required);
+    ImGui::Text("Scopes: %s", state->security.authorization_scope.c_str());
+    ImGui::TextUnformatted("Command CA private key is never bundled.");
+    ImGui::TextUnformatted("Verification scripts are developer gates, not user workflow.");
     ImGui::End();
 }
 
@@ -489,6 +541,7 @@ void fieldmesh_imgui_render(GuiState *state)
     render_board_selection(state);
     render_chats(state);
     render_control_plane(state);
+    render_security(state);
     render_topology(state);
     render_video_stream(state);
 }

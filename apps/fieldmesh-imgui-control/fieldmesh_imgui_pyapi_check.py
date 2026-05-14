@@ -9,6 +9,10 @@ def main() -> int:
     selected = client.select_board("020000000103")
     if selected.selected_board_eui != "020000000103":
         raise SystemExit("Python API board selection failed")
+    if not selected.bundled_trust_bundle:
+        raise SystemExit("Python API did not expose bundled trust bundle")
+    if selected.user_runs_shell_scripts:
+        raise SystemExit("GUI workflow must not require shell scripts")
     elected = client.elect_ap("020000000103")
     if elected.selected_ap_eui != "020000000103":
         raise SystemExit("Python API AP election failed")

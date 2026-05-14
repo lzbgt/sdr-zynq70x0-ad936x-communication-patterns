@@ -57,6 +57,14 @@ class FieldMeshGuiSnapshot:
     def operation_status(self) -> str:
         return str(self.raw["operation_status"])
 
+    @property
+    def bundled_trust_bundle(self) -> bool:
+        return bool(self.raw["bundled_trust_bundle"])
+
+    @property
+    def user_runs_shell_scripts(self) -> bool:
+        return bool(self.raw["user_runs_shell_scripts"])
+
 
 class FieldMeshGuiClient:
     def __init__(self, app: str | Path):

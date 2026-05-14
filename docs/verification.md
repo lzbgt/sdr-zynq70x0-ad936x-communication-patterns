@@ -3056,7 +3056,10 @@ in headless mode and runs `fieldmesh_imgui_pyapi.py` against it, proving Python
 tests can select a board, browse peers, elect an AP, open a chat, send a
 message, and start live video publish/subscribe controls without requiring a
 display. It also runs two symmetric GUI instances, so the app behaves like an
-IM client rather than a hardcoded sender/receiver tool.
+IM client rather than a hardcoded sender/receiver tool. The same snapshot gate
+also verifies bundled public command-CA trust metadata, bundled demo profile
+state, OS/board secure-storage private-key ownership, and
+`user_runs_shell_scripts=false`.
 `tools/verify_fieldmesh_sdk.sh` runs both app gates before the broader SDK
 suite.
 

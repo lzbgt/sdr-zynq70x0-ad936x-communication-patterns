@@ -170,7 +170,12 @@ app state in headless mode for tests. The app model is symmetric, like an IM
 client: either instance can message, publish video, subscribe to video, or run
 authorized control operations. The GUI does not change the SDK rule: transport
 and protocol primitives remain pure C, and production operation requires
-command-CA-derived mutual authentication plus scoped authorization.
+command-CA-derived mutual authentication plus scoped authorization. Normal
+users should not run the verification shell scripts; the app package should
+carry the demo runtime profile, board defaults, public command-CA trust
+metadata, certificate fingerprints, and codec presets. Command CA private keys
+must stay outside the app, and per-device private keys should live in the OS
+key store, secure element, or board-side secure storage.
 
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the
