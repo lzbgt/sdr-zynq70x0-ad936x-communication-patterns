@@ -186,8 +186,8 @@ control boundary at `0x100+`: software can set `rf_tx_enable`, `rf_tx_armed`,
 schedule epoch/slot fields, and read `fieldmesh_iq_tx_guard` counters through
 the mapped control window. These registers reset unarmed and are only a guard
 boundary; the RF-engine overlay now crosses guarded IQ into the AD9361 DAC
-clock domain through `fieldmesh_axis_async_fifo`, then leaves that output
-disconnected from AD936x TX.
+clock domain through `fieldmesh_axis_async_fifo`, then reaches a
+hard-disabled `fieldmesh_iq_dac_driver` that passes the vendor TX path through.
 
 `rtl/fieldmesh/fieldmesh_class_priority_queue.v` is the first class-priority
 queue slice. It stores one pending descriptor per C0..C4 class and always
@@ -295,15 +295,17 @@ and parks the byte-pipe pins until real packet DMA is added.
 Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
 the parsed TX packet stream into `fieldmesh_bpsk_symbolizer`, routes generated
 IQ through `fieldmesh_iq_tx_guard`, crosses it through
-`fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and leaves the
-FIFO output unconnected from AD936x TX.
+`fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
+`fieldmesh_iq_dac_driver` while its source selector is hard-tied to vendor
+pass-through.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,
 `tools/check_fieldmesh_dma_overlay_vivado.sh`, and
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` verify that copied
 Z203/Z103 HDL trees can generate the Vivado block design with these cells
-present. The RF-engine gate is still non-transmitting and does not connect the
-DAC-clock-domain FieldMesh IQ output to the AD936x datapath.
+present. The RF-engine gate is still non-transmitting: the DAC-domain driver is
+inserted at the vendor TX datapath boundary, but FieldMesh source selection is
+hard-disabled.
 
 Keep these responsibilities in Linux first:
 

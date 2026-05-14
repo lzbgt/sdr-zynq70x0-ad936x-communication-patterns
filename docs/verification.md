@@ -2532,22 +2532,29 @@ schedule-disabled pass-through.
 from the sidecar/RF packet-engine clock domain into the AD9361 DAC `l_clk`
 domain. The test covers packet ordering, `tlast`, sink backpressure, disabled
 handshake, and sustained streaming beyond FIFO depth.
+`rtl/fieldmesh/fieldmesh_iq_dac_driver.v` with
+`tb/fieldmesh/fieldmesh_iq_dac_driver_tb.v` adds the DAC-clock-domain source
+driver between `tx_upack` and `tx_fir_interpolator`. The test covers vendor
+pass-through while deselected, FieldMesh IQ consumption on DAC-valid ticks,
+unpacker-read suppression while selected, TLAST packet counting, and underflow
+counting.
 
 The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
 implies the sidecar DMA overlay, removes the packet-loopback shortcut, feeds
 `fieldmesh_axis_bridge/m_tx_packet_*` into `fieldmesh_bpsk_symbolizer/s_axis_*`,
 feeds generated IQ into `fieldmesh_iq_tx_guard`, crosses guarded IQ through
-`fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and parks that
-FIFO output. The guard arming, schedule, and counter/status pins are now
-connected to the mapped `fieldmesh_ctrl` lightweight register window at
-`0x100+`, while the DAC-clock-domain IQ output stays disconnected from AD936x
-TX.
+`fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
+`fieldmesh_iq_dac_driver`. The guard arming, schedule, and counter/status pins
+are now connected to the mapped `fieldmesh_ctrl` lightweight register window at
+`0x100+`, while the DAC driver source select stays hard-tied to vendor
+pass-through so FieldMesh IQ is not selected for AD936x TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
-`fieldmesh_axis_async_fifo` present, address segments intact, the CDC sink
-clocked from `axi_ad9361/l_clk`, and no AD936x TX connection from the FieldMesh
-RF-engine overlay.
+`fieldmesh_axis_async_fifo` present, address segments intact, the CDC sink and
+DAC driver clocked from `axi_ad9361/l_clk`, the driver inserted between
+`tx_upack` and `tx_fir_interpolator`, and the FieldMesh source selector
+hard-tied off.
 
 The same non-transmitting RF-engine overlay was then built through the full ADI
 Pluto Vivado make flow:
@@ -2563,8 +2570,8 @@ Result: both copied RF-engine overlay builds produced timing-clean
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  126b08c89639b49c055ea04d270ef6051b9f03b3be67d7b54ceb6e8ef9054800
-system_top.xsa  b29487d102d48d1ef3ceafe56c453161267027cd50479f3e922a46bdb9ddc2a4
+system_top.bit  925921e3834a6f31fc3bec6a96d0a992a5b26b7de66636628f2bdeef284cb700
+system_top.xsa  3711f1e5dedbd4b7d7f4a559c68677116051aeb345c1b8fdcd5aeae4f51da04a
 ```
 
 Z203 outputs:
@@ -2572,8 +2579,8 @@ Z203 outputs:
 ```text
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit
 .config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa
-system_top.bit  7f387d119fad2173e6db69f8428bc0af646be351152c0a70182e2b27cc1b334f
-system_top.xsa  c25451993b84e1871914c026ac8cd450589e5b698a25406fc9b859bf1539e453
+system_top.bit  ee296c70aeefc89140becbbbf9519f0f02e86cdbf22744bc6d304bac14d737b0
+system_top.xsa  c2fd66e34489689de606e80f404aa3c850d899a1dd3676fe636ced96894ec242
 ```
 
 After the user reset the Z103, two more live-gate captures were taken:

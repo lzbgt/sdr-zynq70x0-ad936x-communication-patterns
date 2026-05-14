@@ -193,11 +193,14 @@ post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
 control and status pins to the sidecar AXI-lite window while resetting it
 unarmed. `fieldmesh_axis_async_fifo.v` then moves guarded IQ samples into the
-AD9361 DAC `l_clk` domain; the copied RF-engine overlay parks that FIFO output
-instead of connecting it to the DAC datapath. `fieldmesh_slot_admission_gate.v`
-is also part of the required RTL set, but remains parked until the packet path
-is ready for scheduled-mode admission: it holds future-slot descriptors, drops
-stale scheduled descriptors, and leaves non-scheduled traffic unblocked.
+AD9361 DAC `l_clk` domain. `fieldmesh_iq_dac_driver.v` is the first DAC-domain
+source boundary: it is inserted between `tx_upack` and `tx_fir_interpolator`,
+passes the vendor TX path through while `select_fieldmesh=0`, and only consumes
+FieldMesh IQ after a later guarded source-select path enables it.
+`fieldmesh_slot_admission_gate.v` is also part of the required RTL set, but
+remains parked until the packet path is ready for scheduled-mode admission: it
+holds future-slot descriptors, drops stale scheduled descriptors, and leaves
+non-scheduled traffic unblocked.
 
 The first control-only block-design overlay is opt-in:
 
@@ -305,10 +308,10 @@ overlays but replaces the packet loopback with a TX packet-engine sink:
 The symbolizer's IQ output feeds `fieldmesh_iq_tx_guard`; its arming, schedule,
 and status pins are now wired to the existing `fieldmesh_ctrl` AXI-lite window
 at the RF TX guard register range. The guard still resets unarmed, then feeds
-`fieldmesh_axis_async_fifo` so the next parked boundary is already in the
-AD9361 DAC clock domain. The overlay does not connect to AD936x TX, open IIO
-buffers, tune RF, or start hardware
-transmission.
+`fieldmesh_axis_async_fifo` and `fieldmesh_iq_dac_driver` so the next boundary
+is already in the AD9361 DAC clock domain. The driver is hard-selected to vendor
+pass-through in this overlay, so FieldMesh does not drive the DAC datapath, open
+IIO buffers, tune RF, or start hardware transmission.
 
 Validate the RF packet-engine overlay through Vivado project/block-design
 generation without running synthesis or connecting AD936x TX:
@@ -347,9 +350,9 @@ gate proves the first packet-to-symbol TX primitive is BD-visible behind the
 sidecar packet path while still disconnected from AD936x TX. The Z203 and Z103
 DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
 artifacts. The RF-engine overlay paths have also produced timing-clean
-`system_top.bit`/XSA artifacts with the async FIFO CDC bridge in place while
-still leaving AD936x TX disconnected. The RF-engine overlay does not yet provide
-a flashed runtime image or live board RF traffic.
+`system_top.bit`/XSA artifacts with the async FIFO CDC bridge and hard-disabled
+DAC source driver in place. The RF-engine overlay does not yet provide a live
+FieldMesh-selected AD936x TX source or live board RF traffic.
 
 The matching devicetree contract is generated and checked separately:
 

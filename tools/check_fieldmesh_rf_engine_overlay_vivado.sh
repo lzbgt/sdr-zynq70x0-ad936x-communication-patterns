@@ -83,6 +83,7 @@ foreach cell {
   fieldmesh_bpsk_symbolizer
   fieldmesh_iq_tx_guard
   fieldmesh_iq_tx_cdc
+  fieldmesh_iq_dac_driver
 } {
   if {[llength [get_bd_cells -quiet \$cell]] != 1} {
     error "\$cell cell missing"
@@ -156,6 +157,28 @@ foreach pin {
   fieldmesh_iq_tx_cdc/m_axis_tlast
   fieldmesh_iq_tx_cdc/full
   fieldmesh_iq_tx_cdc/empty
+  fieldmesh_iq_dac_driver/clk
+  fieldmesh_iq_dac_driver/rst
+  fieldmesh_iq_dac_driver/enable
+  fieldmesh_iq_dac_driver/select_fieldmesh
+  fieldmesh_iq_dac_driver/i_tick
+  fieldmesh_iq_dac_driver/q_tick
+  fieldmesh_iq_dac_driver/i_gate
+  fieldmesh_iq_dac_driver/q_gate
+  fieldmesh_iq_dac_driver/vnd_i_sample
+  fieldmesh_iq_dac_driver/vnd_q_sample
+  fieldmesh_iq_dac_driver/upack_enable_i
+  fieldmesh_iq_dac_driver/upack_enable_q
+  fieldmesh_iq_dac_driver/s_axis_tvalid
+  fieldmesh_iq_dac_driver/s_axis_tready
+  fieldmesh_iq_dac_driver/s_axis_tdata
+  fieldmesh_iq_dac_driver/s_axis_tlast
+  fieldmesh_iq_dac_driver/out_i_sample
+  fieldmesh_iq_dac_driver/out_q_sample
+  fieldmesh_iq_dac_driver/sample_count
+  fieldmesh_iq_dac_driver/packet_count
+  fieldmesh_iq_dac_driver/underflow_count
+  fieldmesh_iq_dac_driver/active
 } {
   if {[llength [get_bd_pins -quiet \$pin]] != 1} {
     error "\$pin pin missing"
@@ -216,14 +239,30 @@ assert_same_net fieldmesh_iq_tx_guard/m_axis_tlast fieldmesh_iq_tx_cdc/s_axis_tl
 assert_same_net axi_ad9361/l_clk fieldmesh_iq_tx_cdc/m_clk
 assert_same_net axi_ad9361/rst fieldmesh_iq_tx_cdc/m_rst
 
-foreach open_output {
-  fieldmesh_iq_tx_cdc/m_axis_tvalid
-  fieldmesh_iq_tx_cdc/m_axis_tdata
-  fieldmesh_iq_tx_cdc/m_axis_tlast
-} {
-  if {[llength [get_bd_nets -quiet -of_objects [get_bd_pins \$open_output]]] != 0} {
-    error "\$open_output must remain unconnected in the non-transmitting overlay"
-  }
+assert_same_net axi_ad9361/l_clk fieldmesh_iq_dac_driver/clk
+assert_same_net axi_ad9361/rst fieldmesh_iq_dac_driver/rst
+assert_same_net axi_ad9361/dac_valid_i0 fieldmesh_iq_dac_driver/i_tick
+assert_same_net axi_ad9361/dac_valid_q0 fieldmesh_iq_dac_driver/q_tick
+assert_same_net tx_fir_interpolator/enable_out_0 fieldmesh_iq_dac_driver/i_gate
+assert_same_net tx_fir_interpolator/enable_out_1 fieldmesh_iq_dac_driver/q_gate
+assert_same_net tx_upack/fifo_rd_data_0 fieldmesh_iq_dac_driver/vnd_i_sample
+assert_same_net tx_upack/fifo_rd_data_1 fieldmesh_iq_dac_driver/vnd_q_sample
+assert_same_net fieldmesh_iq_tx_cdc/m_axis_tvalid fieldmesh_iq_dac_driver/s_axis_tvalid
+assert_same_net fieldmesh_iq_tx_cdc/m_axis_tready fieldmesh_iq_dac_driver/s_axis_tready
+assert_same_net fieldmesh_iq_tx_cdc/m_axis_tdata fieldmesh_iq_dac_driver/s_axis_tdata
+assert_same_net fieldmesh_iq_tx_cdc/m_axis_tlast fieldmesh_iq_dac_driver/s_axis_tlast
+assert_same_net fieldmesh_iq_dac_driver/out_i_sample tx_fir_interpolator/data_in_0
+assert_same_net fieldmesh_iq_dac_driver/out_q_sample tx_fir_interpolator/data_in_1
+assert_same_net fieldmesh_iq_dac_driver/upack_enable_i tx_upack/enable_0
+assert_same_net fieldmesh_iq_dac_driver/upack_enable_q tx_upack/enable_1
+
+set source_select_net [get_bd_nets -quiet -of_objects [get_bd_pins fieldmesh_iq_dac_driver/select_fieldmesh]]
+if {[llength \$source_select_net] != 1} {
+  error "fieldmesh_iq_dac_driver/select_fieldmesh must be tied off"
+}
+set source_select_drivers [get_bd_pins -quiet -of_objects \$source_select_net -filter {DIR == O}]
+if {[llength \$source_select_drivers] != 1 || ![string match "*GND*/dout" "\$source_select_drivers"]} {
+  error "fieldmesh_iq_dac_driver/select_fieldmesh must remain hard-tied to GND in this overlay"
 }
 
 foreach forbidden_cell {

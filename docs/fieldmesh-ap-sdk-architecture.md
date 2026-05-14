@@ -574,9 +574,10 @@ Stage 2: Board-local service
   or scheduled launch. `fieldmesh_iq_tx_guard` is the next boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The
   `--rf-engine-overlay` copied-HDL gate now proves the symbolizer, TX guard,
-  and async FIFO are BD-visible behind the sidecar DMA/bridge TX path, with
-  guard control/status wired through the existing sidecar control window while
-  the DAC-clock-domain FIFO output remains disconnected from AD936x TX.
+  async FIFO, and DAC-domain source driver are BD-visible behind the sidecar
+  DMA/bridge TX path, with guard control/status wired through the existing
+  sidecar control window while the source driver remains hard-selected to
+  vendor TX pass-through.
 - Use `fieldmesh_plan_rf_tx_guard()` / `fieldmesh_apply_rf_tx_guard()` and
   daemon `FIELDMESH_RF_TX_GUARD_PLAN` as the first scheduler/filter/driver
   control boundary after the symbolizer. It plans `fieldmesh_iq_tx_guard`

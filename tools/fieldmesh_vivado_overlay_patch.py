@@ -282,7 +282,42 @@ ad_connect fieldmesh_iq_tx_guard/m_axis_tvalid fieldmesh_iq_tx_cdc/s_axis_tvalid
 ad_connect fieldmesh_iq_tx_cdc/s_axis_tready fieldmesh_iq_tx_guard/m_axis_tready
 ad_connect fieldmesh_iq_tx_guard/m_axis_tdata fieldmesh_iq_tx_cdc/s_axis_tdata
 ad_connect fieldmesh_iq_tx_guard/m_axis_tlast fieldmesh_iq_tx_cdc/s_axis_tlast
-ad_connect VCC fieldmesh_iq_tx_cdc/m_axis_tready
+
+create_bd_cell -type module -reference fieldmesh_iq_dac_driver fieldmesh_iq_dac_driver
+ad_connect axi_ad9361/l_clk fieldmesh_iq_dac_driver/clk
+ad_connect axi_ad9361/rst fieldmesh_iq_dac_driver/rst
+ad_connect VCC fieldmesh_iq_dac_driver/enable
+ad_connect GND fieldmesh_iq_dac_driver/select_fieldmesh
+ad_connect axi_ad9361/dac_valid_i0 fieldmesh_iq_dac_driver/i_tick
+ad_connect axi_ad9361/dac_valid_q0 fieldmesh_iq_dac_driver/q_tick
+ad_connect tx_fir_interpolator/enable_out_0 fieldmesh_iq_dac_driver/i_gate
+ad_connect tx_fir_interpolator/enable_out_1 fieldmesh_iq_dac_driver/q_gate
+ad_connect tx_upack/fifo_rd_data_0 fieldmesh_iq_dac_driver/vnd_i_sample
+ad_connect tx_upack/fifo_rd_data_1 fieldmesh_iq_dac_driver/vnd_q_sample
+ad_connect fieldmesh_iq_tx_cdc/m_axis_tvalid fieldmesh_iq_dac_driver/s_axis_tvalid
+ad_connect fieldmesh_iq_dac_driver/s_axis_tready fieldmesh_iq_tx_cdc/m_axis_tready
+ad_connect fieldmesh_iq_tx_cdc/m_axis_tdata fieldmesh_iq_dac_driver/s_axis_tdata
+ad_connect fieldmesh_iq_tx_cdc/m_axis_tlast fieldmesh_iq_dac_driver/s_axis_tlast
+
+proc fieldmesh_disconnect_pin {{pin_name}} {{
+  set pin [get_bd_pins -quiet $pin_name]
+  if {{[llength $pin] != 1}} {{
+    error "expected one pin to disconnect: $pin_name"
+  }}
+  foreach net [get_bd_nets -quiet -of_objects $pin] {{
+    disconnect_bd_net $net $pin
+  }}
+}}
+
+fieldmesh_disconnect_pin tx_fir_interpolator/data_in_0
+fieldmesh_disconnect_pin tx_fir_interpolator/data_in_1
+fieldmesh_disconnect_pin tx_upack/enable_0
+fieldmesh_disconnect_pin tx_upack/enable_1
+
+ad_connect fieldmesh_iq_dac_driver/out_i_sample tx_fir_interpolator/data_in_0
+ad_connect fieldmesh_iq_dac_driver/out_q_sample tx_fir_interpolator/data_in_1
+ad_connect fieldmesh_iq_dac_driver/upack_enable_i tx_upack/enable_0
+ad_connect fieldmesh_iq_dac_driver/upack_enable_q tx_upack/enable_1
 {BD_RF_ENGINE_END}
 """
 
