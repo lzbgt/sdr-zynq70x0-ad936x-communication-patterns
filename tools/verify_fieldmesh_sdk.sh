@@ -5,6 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out_dir="$repo_root/.config/fieldmesh/sdk"
 mkdir -p "$out_dir"
 
+"$repo_root/tools/verify_fieldmesh_app_build.sh"
+
 cc="${CC:-cc}"
 sdk_object="$out_dir/fieldmesh_sdk.o"
 "$cc" -std=c99 -Wall -Wextra -Werror \

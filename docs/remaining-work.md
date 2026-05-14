@@ -261,9 +261,11 @@ Next concrete work:
   the same shape from saved NDJSON. `--dashboard-output` now writes a
   browser-viewable native dashboard with network browser, operations, radio
   topology, relative co-location, camera metrics, and safety sections. The
-  remaining app work is an interactive packaged GUI, platform preset
-  installation UX, deeper platform codec supervision, and the conducted/shielded
-  RF TX/RX data-plane gate.
+  app has a local Makefile and `tools/verify_fieldmesh_app_build.sh`, so it can
+  be built and smoke-tested without running the full SDK suite. The remaining
+  app work is an interactive packaged GUI, platform preset installation UX,
+  deeper platform codec supervision, and the conducted/shielded RF TX/RX
+  data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->

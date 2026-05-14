@@ -3037,6 +3037,14 @@ camera stream, and safety sections, includes both known device EUIs, and keeps
 the no-inter-board-IP-routing, no-RF-TX, and no-hardware-write invariants
 visible.
 
+`tools/verify_fieldmesh_app_build.sh` is the app-local build gate. It invokes
+`make -C apps/fieldmesh-control-camera-demo`, compiles the pure-C SDK object and
+C++ app into `.config/fieldmesh/control-camera-build`, runs the deterministic
+camera input through preview, native snapshot, replayed snapshot, dashboard,
+and preset generation, then asserts the same safety and byte-match invariants.
+`tools/verify_fieldmesh_sdk.sh` runs this app build gate before the broader SDK
+suite.
+
 The same gate now also verifies command-preset generation:
 
 ```sh

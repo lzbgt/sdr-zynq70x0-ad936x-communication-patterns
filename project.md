@@ -668,6 +668,10 @@ user and vendor configuration.
   `--dashboard-output PATH` writes the first native browser-viewable dashboard
   artifact with network browser, operations, radio topology, relative
   co-location map, camera stream metrics, and safety invariants.
+  The app now has a local `Makefile`; `tools/verify_fieldmesh_app_build.sh`
+  builds the pure-C SDK object plus the C++ app, verifies Python helpers,
+  snapshot output, dashboard output, preview byte matching, and preset wiring
+  without requiring the full SDK suite.
   `fieldmesh_camera_pipe.py` supplies deterministic file-backed capture/preview
   helpers for tests plus Linux/Windows/macOS FFmpeg, GStreamer, and
   native-wrapper command presets for real hosts; the presets now select the app

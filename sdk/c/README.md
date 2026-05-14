@@ -138,6 +138,10 @@ existing NDJSON app log for replay, tests, or post-processing.
 `--dashboard-output PATH` writes the first native browser-viewable dashboard
 artifact from the C++ app, with network browser, operations, radio topology,
 relative co-location map, camera stream metrics, and safety invariants.
+Build it directly with `make -C ../../apps/fieldmesh-control-camera-demo` from
+this directory, or run `tools/verify_fieldmesh_app_build.sh` from the repo root
+to compile the SDK object, app, Python helpers, snapshots, dashboard, and
+preview byte-compare path.
 `fieldmesh_camera_pipe.py` provides
 `capture-file`/`preview-file` commands for deterministic tests and a `preset`
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for
