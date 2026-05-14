@@ -820,6 +820,11 @@ for frame in frames:
 for preview in previews:
     if preview.get("preview_match") is not True:
         raise SystemExit("control/camera preview did not match transmitted frame")
+lifecycle = by_event.get("app_stream_lifecycle", [])
+if not lifecycle or lifecycle[0].get("sdk_stream_closed") is not True:
+    raise SystemExit("control/camera app did not report clean SDK stream close")
+if lifecycle[0].get("health") != "ok" or lifecycle[0].get("chunks") != 6:
+    raise SystemExit("control/camera app lifecycle health changed")
 PY
 echo "fieldmesh_sdk_control_camera_app_check=pass"
 
@@ -838,11 +843,13 @@ summary = by_event.get("app_summary", [])
 stream = by_event.get("app_camera_stream_open", [])
 preview = by_event.get("app_camera_preview_output", [])
 frames = by_event.get("app_camera_frame_tx", [])
-if not summary or not stream or not preview:
+life = by_event.get("app_stream_lifecycle", [])
+if not summary or not stream or not preview or not life:
     raise SystemExit("external camera app run missed summary/stream/preview")
 summary = summary[0]
 stream = stream[0]
 preview = preview[0]
+lifecycle = life[0]
 input_size = os.path.getsize(sys.argv[2])
 preview_size = os.path.getsize(sys.argv[3])
 if not filecmp.cmp(sys.argv[2], sys.argv[3], shallow=False):
@@ -857,6 +864,10 @@ if len(frames) != 3 or summary.get("frames_tx") != 3 or summary.get("frames_rx")
     raise SystemExit("external camera input should split into three chunks")
 if preview.get("matches_input") is not True or preview.get("bytes") != input_size:
     raise SystemExit("external camera preview report failed")
+if lifecycle.get("health") != "ok" or lifecycle.get("sdk_stream_closed") is not True:
+    raise SystemExit("external camera lifecycle health failed")
+if lifecycle.get("capture_bytes") != input_size or lifecycle.get("preview_bytes") != preview_size:
+    raise SystemExit("external camera lifecycle byte accounting failed")
 for frame in frames:
     if frame.get("payload_kind") != 3 or frame.get("traffic_class") != 2:
         raise SystemExit("external camera frame was not video-base C2")
@@ -882,12 +893,14 @@ summary = by_event.get("app_summary", [])
 stream = by_event.get("app_camera_stream_open", [])
 preview = by_event.get("app_camera_preview_output", [])
 frames = by_event.get("app_camera_frame_tx", [])
-if not capture or not summary or not stream or not preview:
+life = by_event.get("app_stream_lifecycle", [])
+if not capture or not summary or not stream or not preview or not life:
     raise SystemExit("command camera app run missed capture/summary/stream/preview")
 capture = capture[0]
 summary = summary[0]
 stream = stream[0]
 preview = preview[0]
+lifecycle = life[0]
 input_size = os.path.getsize(sys.argv[2])
 preview_size = os.path.getsize(sys.argv[3])
 if not filecmp.cmp(sys.argv[2], sys.argv[3], shallow=False):
@@ -922,6 +935,26 @@ if len(frames) != 3 or summary.get("frames_tx") != 3 or summary.get("frames_rx")
     raise SystemExit("command camera input should split into three chunks")
 if preview.get("matches_input") is not True or preview.get("bytes") != input_size:
     raise SystemExit("command camera preview report failed")
+if lifecycle.get("health") != "ok":
+    raise SystemExit("command camera lifecycle health failed")
+if (lifecycle.get("capture_process") is not True or
+        lifecycle.get("preview_process") is not True or
+        lifecycle.get("capture_opened") is not True or
+        lifecycle.get("capture_closed") is not True or
+        lifecycle.get("preview_opened") is not True or
+        lifecycle.get("preview_closed") is not True or
+        lifecycle.get("sdk_stream_closed") is not True):
+    raise SystemExit("command camera lifecycle process state failed")
+if (lifecycle.get("live_stream_loop") is not True or
+        lifecycle.get("streaming_read") is not True or
+        lifecycle.get("streaming_write") is not True or
+        lifecycle.get("bounded_run") is not True):
+    raise SystemExit("command camera lifecycle stream mode failed")
+if (lifecycle.get("chunks") != 3 or
+        lifecycle.get("capture_bytes") != input_size or
+        lifecycle.get("preview_bytes") != preview_size or
+        lifecycle.get("stream_target_fps") != 15):
+    raise SystemExit("command camera lifecycle accounting failed")
 for frame in frames:
     if frame.get("payload_kind") != 3 or frame.get("traffic_class") != 2:
         raise SystemExit("command camera frame was not video-base C2")

@@ -936,6 +936,11 @@ int main(int argc, char **argv)
     bool control_plane_ok = false;
     bool data_plane_ok = false;
     unsigned stream_target_fps = 0;
+    bool capture_opened = false;
+    bool capture_closed = false;
+    bool preview_opened = false;
+    bool preview_closed = !options.preview_output_path && !options.preview_command;
+    bool sdk_stream_closed = false;
 
     if (!parse_options(argc, argv, &options)) {
         return 2;
@@ -943,6 +948,10 @@ int main(int argc, char **argv)
     if (!options.live_stream_loop &&
         !build_camera_chunks(options, &camera_chunks, &camera_input_bytes)) {
         return 2;
+    }
+    if (!options.live_stream_loop) {
+        capture_opened = true;
+        capture_closed = true;
     }
 
     std::printf("{\"event\":\"app_camera_capture_source\","
@@ -1178,6 +1187,8 @@ int main(int argc, char **argv)
             fieldmesh_context_destroy(ctx);
             return 1;
         }
+        capture_opened = true;
+        preview_opened = sink.file != nullptr || sink.process != nullptr;
         for (;;) {
             CameraChunk camera_chunk;
             bool have_chunk = false;
@@ -1226,6 +1237,8 @@ int main(int argc, char **argv)
             fieldmesh_context_destroy(ctx);
             return 1;
         }
+        capture_closed = true;
+        preview_closed = true;
     } else {
         for (const auto &camera_chunk : camera_chunks) {
             if (!transmit_camera_chunk(camera_stream, camera_chunk, stream_start,
@@ -1246,7 +1259,13 @@ int main(int argc, char **argv)
             fieldmesh_context_destroy(ctx);
             return 1;
         }
+        preview_opened = options.preview_output_path || options.preview_command;
+        preview_closed = true;
     }
+    const auto stream_end = std::chrono::steady_clock::now();
+    const uint64_t stream_duration_ms = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            stream_end - stream_start).count());
 
     control_plane_ok = !aps.aps.empty() && !peers.peers.empty() &&
                        !positions.positions.empty() &&
@@ -1261,6 +1280,59 @@ int main(int argc, char **argv)
                     (options.live_stream_loop ||
                      frames_tx == camera_chunks.size()) &&
                     preview_bytes.size() == camera_input_bytes;
+    sdk_stream_closed =
+        require_ok(fieldmesh_close_adapter(camera_stream), "close_camera_stream");
+    camera_stream = nullptr;
+    data_plane_ok = data_plane_ok && sdk_stream_closed && capture_closed && preview_closed;
+
+    std::printf("{\"event\":\"app_stream_lifecycle\","
+                "\"camera_source\":\"%s\","
+                "\"capture_process\":%s,"
+                "\"preview_process\":%s,"
+                "\"capture_opened\":%s,"
+                "\"capture_closed\":%s,"
+                "\"preview_opened\":%s,"
+                "\"preview_closed\":%s,"
+                "\"sdk_stream_closed\":%s,"
+                "\"live_stream_loop\":%s,"
+                "\"streaming_read\":%s,"
+                "\"streaming_write\":%s,"
+                "\"bounded_run\":%s,"
+                "\"stream_target_fps\":%u,"
+                "\"pace_realtime\":%s,"
+                "\"chunks\":%u,"
+                "\"capture_bytes\":%lu,"
+                "\"preview_bytes\":%lu,"
+                "\"duration_ms\":%lu,"
+                "\"actual_fps_x1000\":%lu,"
+                "\"control_plane_ok\":%s,"
+                "\"data_plane_ok\":%s,"
+                "\"health\":\"%s\"}\n",
+                camera_source_name(options),
+                options.camera_command ? "true" : "false",
+                options.preview_command ? "true" : "false",
+                capture_opened ? "true" : "false",
+                capture_closed ? "true" : "false",
+                preview_opened ? "true" : "false",
+                preview_closed ? "true" : "false",
+                sdk_stream_closed ? "true" : "false",
+                options.live_stream_loop ? "true" : "false",
+                (options.camera_command || options.live_stream_loop) ? "true" : "false",
+                (options.live_stream_loop &&
+                 (options.preview_output_path || options.preview_command)) ? "true" : "false",
+                options.max_chunks != 0u ? "true" : "false",
+                stream_target_fps,
+                options.pace_realtime ? "true" : "false",
+                frames_tx,
+                static_cast<unsigned long>(camera_input_bytes),
+                static_cast<unsigned long>(preview_bytes.size()),
+                static_cast<unsigned long>(stream_duration_ms),
+                static_cast<unsigned long>(
+                    (static_cast<uint64_t>(frames_tx) * 1000000ull) /
+                    (stream_duration_ms == 0u ? 1u : stream_duration_ms)),
+                control_plane_ok ? "true" : "false",
+                data_plane_ok ? "true" : "false",
+                (control_plane_ok && data_plane_ok) ? "ok" : "degraded");
 
     std::printf("{\"event\":\"app_summary\","
                 "\"control_plane_ok\":%s,"
@@ -1294,7 +1366,6 @@ int main(int argc, char **argv)
                 options.pace_realtime ? "true" : "false",
                 options.live_stream_loop ? "true" : "false");
 
-    (void)fieldmesh_close_adapter(camera_stream);
     (void)fieldmesh_leave(session);
     fieldmesh_context_destroy(ctx);
     return (control_plane_ok && data_plane_ok) ? 0 : 1;

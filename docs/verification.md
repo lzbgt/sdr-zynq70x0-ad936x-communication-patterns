@@ -3016,8 +3016,11 @@ The verifier checks `app_camera_capture_source` reports
 `external_preview_command`, three video-base chunks traverse the SDK/RF handoff
 path, planned transmit timestamps are `[0, 66666, 133333]` microseconds at
 15 fps, `live_stream_loop=true`, `streaming_write=true`, and the command
-preview output byte-matches the input. This is the dependency-light production
-hook for bounded FFmpeg/GStreamer/native camera capture and preview wrappers.
+preview output byte-matches the input. The same gate requires
+`app_stream_lifecycle` with capture/preview process state, clean SDK stream
+close, bounded/live-loop flags, matching byte/chunk accounting, and
+`health="ok"`. This is the dependency-light production hook for bounded
+FFmpeg/GStreamer/native camera capture and preview wrappers.
 
 The same gate now also verifies command-preset generation:
 

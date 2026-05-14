@@ -658,10 +658,13 @@ user and vendor configuration.
   capture bytes, then reads, transmits, receives, and writes preview chunks
   incrementally. Command capture can be bounded with `--max-chunks`, tagged
   with planned transmit timestamps through `--target-fps`, and optionally paced
-  with `--pace-realtime`. `fieldmesh_camera_pipe.py` supplies deterministic
-  file-backed capture/preview helpers for tests plus Linux/Windows/macOS
-  FFmpeg, GStreamer, and native-wrapper command presets for real hosts; the
-  presets now select the app live-loop path by default.
+  with `--pace-realtime`. The app now also emits `app_stream_lifecycle` so a
+  GUI or supervisor can consume capture/preview process state, clean stream
+  close status, byte/chunk accounting, and `ok`/`degraded` health.
+  `fieldmesh_camera_pipe.py` supplies deterministic file-backed capture/preview
+  helpers for tests plus Linux/Windows/macOS FFmpeg, GStreamer, and
+  native-wrapper command presets for real hosts; the presets now select the app
+  live-loop path by default.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow

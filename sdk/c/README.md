@@ -125,10 +125,12 @@ still uses the pure-C SDK camera stream ABI. `--live-stream-loop` opens the SDK
 stream before consuming the capture pipe, then reads, transmits, receives, and
 writes preview chunks incrementally. `--max-chunks` gives deterministic bounded
 reads for live camera commands, `--target-fps` stamps planned transmit times,
-and `--pace-realtime` can make the app sleep to that schedule. This is the
-SDK/app boundary a real Windows, Linux, macOS, or embedded camera pipeline can
-drive before a GUI is added. The companion `fieldmesh_camera_pipe.py` helper
-provides
+and `--pace-realtime` can make the app sleep to that schedule. The app emits
+`app_stream_lifecycle` with capture/preview process state, bounded/live-loop
+mode, chunk and byte counts, stream close status, and an `ok`/`degraded` health
+field for a future GUI or supervisor. This is the SDK/app boundary a real
+Windows, Linux, macOS, or embedded camera pipeline can drive before a GUI is
+added. The companion `fieldmesh_camera_pipe.py` helper provides
 `capture-file`/`preview-file` commands for deterministic tests and a `preset`
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for
 Linux, Windows, and macOS, including the app-side live-loop and target-FPS

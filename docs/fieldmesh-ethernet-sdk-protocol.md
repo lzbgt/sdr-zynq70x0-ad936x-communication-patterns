@@ -416,7 +416,10 @@ can be passed directly to the C++ app. The app command path can be bounded with
 before the capture pipe is consumed, and each capture chunk is transmitted and
 written to the preview pipe incrementally. Each emitted frame event carries
 `planned_tx_us` so the desktop app, daemon, and later GUI can reason about
-capture pacing separately from RF route adaptation.
+capture pacing separately from RF route adaptation. The app also emits
+`app_stream_lifecycle` so UI/service code can track capture process state,
+preview process state, clean SDK stream close, bounded-run status, chunk/byte
+counts, elapsed time, and `ok`/`degraded` health without scraping frame events.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over
