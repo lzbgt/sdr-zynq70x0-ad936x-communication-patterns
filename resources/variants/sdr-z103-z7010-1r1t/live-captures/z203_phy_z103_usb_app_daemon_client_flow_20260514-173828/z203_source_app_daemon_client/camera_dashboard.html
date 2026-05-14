@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FieldMesh Control Camera Dashboard</title>
+<style>
+:root{color-scheme:light;--ink:#16211f;--muted:#5c6865;--line:#cbd8d3;--ok:#0d7a4f;--warn:#a05b00;--bg:#f7faf8;--panel:#ffffff;--rf:#1d5f9c;}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink);letter-spacing:0;}
+header{padding:20px 28px;background:#ffffff;border-bottom:1px solid var(--line);}
+h1{margin:0 0 10px;font-size:26px;font-weight:700}h2{margin:0 0 12px;font-size:18px;}
+main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px 28px;}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;}
+.wide{grid-column:1/-1}.status{display:flex;flex-wrap:wrap;gap:8px}.pill{border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:13px;background:#fdfefe}.ok{color:var(--ok)}.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);}
+th{color:var(--muted);font-weight:600}.metric{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.metric div{border:1px solid var(--line);border-radius:6px;padding:10px;background:#fbfdfc}.metric b{display:block;font-size:20px;}
+svg{width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#f8fbff}.node{fill:#1d5f9c}.error{fill:#1d5f9c22;stroke:#1d5f9c55}.label{font-size:12px;fill:#16211f;}
+@media(max-width:820px){main{grid-template-columns:1fr;padding:14px}.metric{grid-template-columns:repeat(2,minmax(0,1fr));}}
+</style>
+</head>
+<body>
+<header><h1>FieldMesh Control Camera</h1><div class="status"><span class="pill ok">Health ok</span><span class="pill ok">Control plane ok</span><span class="pill ok">Data plane ok</span><span class="pill ok">RF TX disabled</span><span class="pill ok">No inter-board IP routing</span></div></header>
+<main>
+<section data-view="network"><h2>Network Browser</h2><table><thead><tr><th>AP EUI</th><th>Name</th><th>Network</th><th>Max kbps</th></tr></thead><tbody>
+<tr><td>020000000203</td><td>node-a Z203 2R2T capable node</td><td>fieldmesh-lab</td><td>7000</td></tr>
+<tr><td>020000000103</td><td>node-b Z103 1R1T capable node</td><td>fieldmesh-lab</td><td>2200</td></tr>
+</tbody></table></section>
+<section data-view="operation"><h2>Operations</h2><table><tbody><tr><th>Elected AP</th><td>020000000103</td></tr><tr><th>Network</th><td>fieldmesh-lab</td></tr><tr><th>Election score</th><td>5660</td></tr><tr><th>Mode</th><td>scheduled camera stream</td></tr><tr><th>AP selection</th><td>user explicit</td></tr></tbody></table></section>
+<section class="wide" data-view="topology"><h2>Radio Topology</h2><table><thead><tr><th>Device EUI</th><th>Hostname</th><th>Type</th><th>Direct</th><th>Relay</th><th>AP score</th></tr></thead><tbody>
+<tr><td>020000000203</td><td>node-a</td><td>sdr-z203-z7020-2r2t</td><td>yes</td><td>yes</td><td>92</td></tr>
+<tr><td>020000000103</td><td>node-b</td><td>sdr-z103-z7010-1r1t</td><td>yes</td><td>yes</td><td>38</td></tr>
+</tbody></table></section>
+<section data-view="rtls"><h2>Relative Co-location</h2><svg viewBox="0 0 600 340" role="img" aria-label="relative co-location map"><line x1="300" y1="20" x2="300" y2="320" stroke="#cbd8d3"/><line x1="20" y1="170" x2="580" y2="170" stroke="#cbd8d3"/>
+<circle class="error" cx="560" cy="40" r="10"/><circle class="node" cx="560" cy="40" r="6"/><text class="label" x="570" y="32">020000000203</text>
+<circle class="error" cx="302" cy="171" r="34"/><circle class="node" cx="302" cy="171" r="6"/><text class="label" x="312" y="163">020000000103</text>
+</svg></section>
+<section data-view="camera"><h2>Camera Stream</h2><div class="metric"><div><span>TX frames</span><b>3</b></div><div><span>RX frames</span><b>3</b></div><div><span>RF queued</span><b>3</b></div><div><span>Target FPS</span><b>30</b></div></div><table><tbody><tr><th>Source</th><td>external_camera_stream</td></tr><tr><th>Destination EUI</th><td>020000000203</td></tr><tr><th>Daemon client</th><td>enabled</td></tr><tr><th>Daemon endpoint</th><td>192.168.1.10:55441</td></tr><tr><th>Capture bytes</th><td>140</td></tr><tr><th>Preview bytes</th><td>140</td></tr><tr><th>Capture closed</th><td>yes</td></tr><tr><th>Preview closed</th><td>yes</td></tr><tr><th>SDK stream closed</th><td>yes</td></tr></tbody></table></section>
+<section class="wide" data-view="safety"><h2>Safety Invariants</h2><table><tbody><tr><th>Radio topology links</th><td>2</td></tr><tr><th>IIO data path</th><td>disabled</td></tr><tr><th>Inter-board IP routing</th><td>disabled</td></tr><tr><th>RF TX start</th><td>disabled</td></tr><tr><th>Hardware writes</th><td>disabled</td></tr></tbody></table></section>
+</main></body></html>

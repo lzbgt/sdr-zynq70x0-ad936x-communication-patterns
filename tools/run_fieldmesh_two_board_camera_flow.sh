@@ -7,6 +7,8 @@ z203_ip="${Z203_IP:-192.168.1.10}"
 z103_ip="${Z103_IP:-192.168.3.1}"
 z203_port="${Z203_PORT:-55431}"
 z103_port="${Z103_PORT:-55432}"
+z203_app_port="${Z203_APP_PORT:-55441}"
+z103_app_port="${Z103_APP_PORT:-55442}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 timeout_ms="${TIMEOUT_MS:-3000}"
@@ -29,6 +31,20 @@ SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
   OUT_DIR="$out_dir/z103_sink_daemon" \
   "$repo_root/tools/run_fieldmesh_board_sdk_daemon.sh" "$z103_ip"
 
+SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+  FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
+  VARIANT=z203 PORT="$z203_app_port" TIMEOUT_MS="$timeout_ms" \
+  PREFERRED_AP_EUI=020000000103 DST_EUI=020000000203 \
+  OUT_DIR="$out_dir/z203_source_app_daemon_client" \
+  "$repo_root/tools/run_fieldmesh_board_app_daemon_client.sh" "$z203_ip"
+
+SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+  FORCE_UPLOAD="$force_upload" UPLOAD_IF_MISSING="$upload_if_missing" \
+  VARIANT=z103 PORT="$z103_app_port" TIMEOUT_MS="$timeout_ms" \
+  PREFERRED_AP_EUI=020000000103 DST_EUI=020000000203 \
+  OUT_DIR="$out_dir/z103_sink_app_daemon_client" \
+  "$repo_root/tools/run_fieldmesh_board_app_daemon_client.sh" "$z103_ip"
+
 if [ "$run_radio_gate" = "1" ]; then
   SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
     Z203_IP="$z203_ip" Z103_IP="$z103_ip" \
@@ -36,7 +52,7 @@ if [ "$run_radio_gate" = "1" ]; then
     "$repo_root/tools/run_fieldmesh_two_board_radio_gate.sh" >/dev/null
 fi
 
-python3 - "$out_dir" "$z203_ip" "$z103_ip" "$z203_port" "$z103_port" "$run_radio_gate" <<'PY'
+python3 - "$out_dir" "$z203_ip" "$z103_ip" "$z203_port" "$z103_port" "$z203_app_port" "$z103_app_port" "$run_radio_gate" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -46,7 +62,9 @@ z203_ip = sys.argv[2]
 z103_ip = sys.argv[3]
 z203_port = int(sys.argv[4])
 z103_port = int(sys.argv[5])
-run_radio_gate = sys.argv[6] == "1"
+z203_app_port = int(sys.argv[6])
+z103_app_port = int(sys.argv[7])
+run_radio_gate = sys.argv[8] == "1"
 
 
 def load_rows(path):
@@ -171,6 +189,34 @@ def daemon_summary(label, path):
 
 source = daemon_summary("logical_host_a_z203_source", out_dir / "z203_source_daemon")
 sink = daemon_summary("logical_host_b_z103_sink", out_dir / "z103_sink_daemon")
+source_app = json.loads(
+    (out_dir / "z203_source_app_daemon_client" / "app_daemon_client.json").read_text(
+        encoding="utf-8"
+    )
+)
+sink_app = json.loads(
+    (out_dir / "z103_sink_app_daemon_client" / "app_daemon_client.json").read_text(
+        encoding="utf-8"
+    )
+)
+for label, app_summary, expected_ip, expected_port in (
+    ("source_app", source_app, z203_ip, z203_app_port),
+    ("sink_app", sink_app, z103_ip, z103_app_port),
+):
+    if app_summary.get("ok") is not True:
+        raise SystemExit(f"{label} failed")
+    if app_summary.get("board_ip") != expected_ip:
+        raise SystemExit(f"{label} board IP mismatch")
+    if app_summary.get("daemon_port") != expected_port:
+        raise SystemExit(f"{label} daemon port mismatch")
+    if app_summary.get("daemon_control_events") != 1:
+        raise SystemExit(f"{label} app-control event count changed")
+    if app_summary.get("daemon_camera_chunk_events") != 3:
+        raise SystemExit(f"{label} camera chunk event count changed")
+    if app_summary.get("preview_matches_input") is not True:
+        raise SystemExit(f"{label} preview did not match input")
+    if app_summary.get("uses_inter_board_ip_routing") is not False:
+        raise SystemExit(f"{label} used inter-board IP routing")
 
 radio_summary = None
 if run_radio_gate:
@@ -194,6 +240,7 @@ result = {
             "host_facing_transport": "physical_ethernet",
             "board_ip": z203_ip,
             "daemon_port": z203_port,
+            "app_daemon_port": z203_app_port,
         },
         "host_b": {
             "role": "camera_preview",
@@ -201,6 +248,7 @@ result = {
             "host_facing_transport": "usb_ethernet",
             "board_ip": z103_ip,
             "daemon_port": z103_port,
+            "app_daemon_port": z103_app_port,
         },
         "same_physical_pc_allowed": True,
     },
@@ -228,6 +276,8 @@ result = {
     },
     "source": source,
     "sink": sink,
+    "source_app_daemon_client": source_app,
+    "sink_app_daemon_client": sink_app,
     "radio_gate": radio_summary,
 }
 

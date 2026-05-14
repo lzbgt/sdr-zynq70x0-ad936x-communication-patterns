@@ -3561,6 +3561,29 @@ Result: passed. Each board daemon handled 20 requests and reported two
 `starts_rf_tx=0`, and `writes_hardware=0`. The paired radio-readiness gate
 again passed over Z203 physical Ethernet plus Z103 USB Ethernet.
 
+After adding `fieldmesh_daemon_request()` and the C++ app `--daemon-host`
+path, the live two-board gate was extended to start an additional board daemon
+per board and run the desktop app itself against those daemon endpoints:
+
+```sh
+FORCE_UPLOAD=1 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_app_daemon_client_flow_20260514-173828 \
+./tools/run_fieldmesh_two_board_camera_flow.sh
+```
+
+Result: passed. Z203 handled the app daemon-client path on port `55441`, and
+Z103 handled it on port `55442`. Each app run sent one
+`FIELDMESH_APP_CONTROL_CAMERA` request plus three
+`FIELDMESH_CAMERA_STREAM_CHUNK` requests through the pure-C
+`fieldmesh_daemon_request()` API, byte-compared preview output against input,
+and wrote native snapshot/dashboard outputs showing the daemon endpoint. The
+combined two-board summary reports both board app-client paths with
+`daemon_control_events=1`, `daemon_camera_chunk_events=3`, `frames_tx=3`,
+`frames_rx=3`, `rf_queued=3`, `preview_matches_input=true`,
+`uses_inter_board_ip_routing=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`. The paired radio-readiness gate again passed with no
+IIO data path and no RF TX start.
+
 Refreshed runtime artifact hashes after adding explicit AP/destination EUI
 operation fields to the packaged board daemon:
 

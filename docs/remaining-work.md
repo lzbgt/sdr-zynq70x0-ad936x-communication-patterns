@@ -180,6 +180,11 @@ Next concrete work:
   app-control events per board: default `auto_election` and `user_explicit`
   AP/destination EUI selection. Evidence:
   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_explicit_camera_flow_20260514-1718/`.
+  The gate now also runs the actual C++ app daemon-client path against both
+  boards: the app sends one app-control request and three camera chunks through
+  `fieldmesh_daemon_request()` to each board daemon, verifies preview byte
+  match, and writes snapshot/dashboard state for the daemon endpoint. Evidence:
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_app_daemon_client_flow_20260514-173828/`.
   Next work is replacing the deterministic demo AP/join responses with real
   credential/audit admission, board peer discovery, measured route query,
   codec-integrated adaptation feedback, prioritized stream send/receive

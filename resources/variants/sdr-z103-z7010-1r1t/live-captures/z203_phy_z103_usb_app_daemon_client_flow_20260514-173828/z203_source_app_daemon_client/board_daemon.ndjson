@@ -1,0 +1,6 @@
+{"event":"sdk_daemon_start","bind":"0.0.0.0","port":55441,"requests":4}
+{"event":"sdk_daemon_request","bytes":74,"src":"192.168.1.2"}
+{"event":"sdk_daemon_request","bytes":178,"src":"192.168.1.2"}
+{"event":"sdk_daemon_request","bytes":178,"src":"192.168.1.2"}
+{"event":"sdk_daemon_request","bytes":74,"src":"192.168.1.2"}
+{"event":"sdk_daemon_end","handled":4}

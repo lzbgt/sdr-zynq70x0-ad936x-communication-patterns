@@ -547,9 +547,10 @@ Stage 2: Board-local service
 - Use `tools/run_fieldmesh_two_board_camera_flow.sh` as the composed
   source/preview gate: logical Host A reaches Z203 over USB or physical
   Ethernet, logical Host B reaches Z103 over USB or physical Ethernet, both
-  board daemons prove the control plane and camera stream policy, and the
-  paired radio gate proves the expected FieldMesh RF/sidecar data-plane
-  boundary without inter-board IP routing.
+  board daemons prove the control plane and camera stream policy, the C++
+  control-camera app proves the host Ethernet SDK daemon-client path against
+  each board, and the paired radio gate proves the expected FieldMesh
+  RF/sidecar data-plane boundary without inter-board IP routing.
 - Use `fieldmesh_two_pc_flow_demo` as the first two-PC application flow: the
   AP side serves browse/election/join/stream requests and the endpoint side
   runs AP browse, deterministic AP election, AP-audit join, scheduled stream

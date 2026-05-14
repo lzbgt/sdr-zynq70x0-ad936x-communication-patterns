@@ -563,12 +563,19 @@ user and vendor configuration.
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
   election, AP join state, peer state, and RTLS state queries over the same UDP
   socket path intended for USB Ethernet and physical Ethernet.
+- `tools/run_fieldmesh_board_app_daemon_client.sh` - SSH/live app gate for the
+  C++ control-camera app's Ethernet SDK client path. It starts a board daemon,
+  runs `fieldmesh-control-camera-demo --daemon-host BOARD_IP`, sends the
+  app-control request plus camera chunks through `fieldmesh_daemon_request()`,
+  and checks preview byte match, snapshot/dashboard endpoint state, daemon
+  request count, and the no-IIO/no-inter-board-IP/no-RF-TX safety invariants.
 - `tools/run_fieldmesh_two_board_camera_flow.sh` - live two-board logical
-  host/app gate. It runs the SDK daemon path on Z203 and Z103, validates AP
-  browse/election/join, radio topology, RTLS, camera session planning, route
-  adaptation, chunk ingress, preview status, RF packet-engine handoff, and the
-  paired radio-readiness gate while keeping host IP management-only and
-  inter-board payload traffic on the FieldMesh RF/sidecar contract.
+  host/app gate. It runs the SDK daemon path and the C++ app daemon-client path
+  on Z203 and Z103, validates AP browse/election/join, radio topology, RTLS,
+  camera session planning, route adaptation, chunk ingress, preview status, RF
+  packet-engine handoff, and the paired radio-readiness gate while keeping host
+  IP management-only and inter-board payload traffic on the FieldMesh
+  RF/sidecar contract.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
