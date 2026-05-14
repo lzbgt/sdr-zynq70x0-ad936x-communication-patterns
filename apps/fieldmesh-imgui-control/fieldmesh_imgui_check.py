@@ -42,6 +42,8 @@ def main() -> int:
         "begin_panel(\"Peers\"",
         "begin_panel(\"Messages\"",
         "begin_panel(\"Conversation\"",
+        "Connected local board",
+        "Active remote peer",
         "Python Automation",
         "Run Script",
         "Built-in camera",

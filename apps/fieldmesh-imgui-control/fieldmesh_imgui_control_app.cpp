@@ -185,11 +185,17 @@ bool select_board_eui(GuiState *state, const std::string &device_eui)
 [[maybe_unused]] const GuiConversation *selected_conversation(const GuiState &state)
 {
     for (const GuiConversation &conversation : state.conversations) {
-        if (conversation.peer_eui == state.selected_conversation_eui) {
+        if (conversation.peer_eui == state.selected_conversation_eui &&
+            conversation.peer_eui != state.selected_board_eui) {
             return &conversation;
         }
     }
-    return state.conversations.empty() ? nullptr : &state.conversations[0];
+    for (const GuiConversation &conversation : state.conversations) {
+        if (conversation.peer_eui != state.selected_board_eui) {
+            return &conversation;
+        }
+    }
+    return nullptr;
 }
 
 [[maybe_unused]] const GuiPeer *peer_by_eui(const GuiState &state, const std::string &peer_eui)
@@ -540,8 +546,9 @@ bool api_browse_peers(GuiState *state)
 bool api_select_board(GuiState *state, const std::string &device_eui)
 {
     if (select_board_eui(state, device_eui)) {
+        select_default_peer_for_local_board(state);
         state->connected_to_board = true;
-        state->operation_status = "python_api_board_selected";
+        state->operation_status = "board_connected:" + device_eui;
         return true;
     }
     return false;
@@ -739,8 +746,13 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
                  "  \"relative_colocation_viewer\": true,\n"
                  "  \"selected_board_eui\": \"%s\",\n"
+                 "  \"selected_board_hostname\": \"%s\",\n"
+                 "  \"selected_board_device_type\": \"%s\",\n"
                  "  \"selected_board_host\": \"%s\",\n"
+                 "  \"local_board_eui\": \"%s\",\n"
+                 "  \"local_board_host\": \"%s\",\n"
                  "  \"selected_conversation_eui\": \"%s\",\n"
+                 "  \"active_remote_peer_eui\": \"%s\",\n"
                  "  \"last_message_text\": \"%s\",\n"
                  "  \"messages_sent\": %u,\n"
                  "  \"messages_received\": %u,\n"
@@ -809,7 +821,12 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.python.last_ok ? "true" : "false",
                  state.python.last_output.c_str(),
                  board ? board->device_eui.c_str() : "",
+                 board ? board->hostname.c_str() : "",
+                 board ? board->device_type.c_str() : "",
                  board ? board->daemon_host.c_str() : "",
+                 board ? board->device_eui.c_str() : "",
+                 board ? board->daemon_host.c_str() : "",
+                 state.selected_conversation_eui.c_str(),
                  state.selected_conversation_eui.c_str(),
                  state.draft_message.c_str(),
                  state.messages_sent,
@@ -1138,7 +1155,12 @@ void render_python_automation_page(GuiState *state)
 void render_peer_list(GuiState *state)
 {
     begin_panel("Peers", ImVec2(260.0f, 0.0f));
+    bool shown_peer = false;
+
     for (GuiConversation &conversation : state->conversations) {
+        if (conversation.peer_eui == state->selected_board_eui) {
+            continue;
+        }
         const GuiPeer *peer = peer_by_eui(*state, conversation.peer_eui);
         ImGui::PushID(conversation.peer_eui.c_str());
         if (ImGui::Selectable(conversation.display_name.c_str(),
@@ -1153,6 +1175,10 @@ void render_peer_list(GuiState *state)
             ImGui::Text("SNR %d dB  PER %d/1000", peer->snr_db, peer->per_mille);
         }
         ImGui::PopID();
+        shown_peer = true;
+    }
+    if (!shown_peer) {
+        ImGui::TextUnformatted("No remote peers discovered yet.");
     }
     end_panel();
 }
@@ -1292,6 +1318,21 @@ void render_conversation_actions(GuiState *state)
 
 void render_chat_page(GuiState *state)
 {
+    const GuiBoard *board = selected_board(*state);
+
+    ImGui::BeginChild("local-board-banner", ImVec2(0.0f, 52.0f), true,
+                      ImGuiWindowFlags_NoSavedSettings);
+    if (board) {
+        ImGui::Text("Connected local board: %s", board->hostname.c_str());
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s  %s:%u", board->device_eui.c_str(),
+                            board->daemon_host.c_str(), board->daemon_port);
+    } else {
+        ImGui::TextUnformatted("No local board connected");
+    }
+    ImGui::Text("Active remote peer: %s", state->selected_conversation_eui.c_str());
+    ImGui::EndChild();
+
     render_control_plane_strip(state);
     float content_h = ImGui::GetContentRegionAvail().y;
 

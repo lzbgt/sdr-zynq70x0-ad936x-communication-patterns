@@ -114,6 +114,10 @@ def main() -> int:
                 raise SystemExit("explicit discovered-board selection failed")
             if data["selected_board_host"] != "127.0.0.1":
                 raise SystemExit("discovered daemon host not preserved")
+            if data["local_board_eui"] != "02aabb000002":
+                raise SystemExit("connected local board identity is not explicit")
+            if data["active_remote_peer_eui"] != "02aabb000001":
+                raise SystemExit("remote peer should be distinct from the local board")
             if data["python_automation_runs"] != 1:
                 raise SystemExit("embedded Python automation action was not surfaced")
     finally:
