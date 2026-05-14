@@ -23,144 +23,7 @@
 
 namespace {
 
-struct GuiBoard {
-    std::string device_eui;
-    std::string hostname;
-    std::string device_type;
-    std::string daemon_host;
-    unsigned daemon_port;
-    bool selected;
-    bool ap_capable;
-    bool camera_stream_capable;
-    bool route_metrics_capable;
-    bool tun_gateway_capable;
-    bool rf_packet_engine_capable;
-    bool mutual_auth_required;
-};
-
-struct GuiPeer {
-    std::string device_eui;
-    std::string hostname;
-    std::string device_type;
-    bool direct_reachable;
-    bool relay_available;
-    int snr_db;
-    int per_mille;
-    int x_cm;
-    int y_cm;
-    unsigned error_radius_cm;
-};
-
-struct GuiCamera {
-    bool publish_enabled;
-    bool preview_enabled;
-    bool invite_pending;
-    bool incoming_invite;
-    bool session_active;
-    std::string source_name;
-    std::string preview_name;
-    std::string session_kind;
-    std::string dst_device_eui;
-    std::string subscribed_device_eui;
-    std::string pending_peer_eui;
-    unsigned target_fps;
-    unsigned target_bitrate_kbps;
-    unsigned frames_tx;
-    unsigned frames_rx;
-    unsigned queued_to_rf_engine;
-};
-
-struct GuiRadioConfig {
-    unsigned frequency_mhz;
-    unsigned channel_index;
-    unsigned bandwidth_khz;
-    unsigned sample_rate_ksps;
-    std::string profile_name;
-    std::string modulation;
-    std::string fec;
-    std::string access_mode;
-    std::string timing_mode;
-    bool adaptive_mcs;
-    bool direct_p2p_preferred;
-    bool ap_relay_fallback;
-    bool apply_pending;
-};
-
-struct GuiPythonAutomation {
-    std::string script;
-    std::string last_output;
-    unsigned runs;
-    bool page_open;
-    bool last_ok;
-};
-
-struct GuiConversation {
-    std::string peer_eui;
-    std::string display_name;
-    unsigned unread_count;
-    bool selected;
-};
-
-struct GuiMessage {
-    std::string peer_eui;
-    std::string direction;
-    std::string text;
-    std::string status;
-};
-
-struct GuiSecurity {
-    std::string command_ca;
-    std::string command_ca_fingerprint;
-    std::string device_cert;
-    std::string peer_cert;
-    std::string mutual_auth_state;
-    std::string authorization_scope;
-    std::string app_security_layer;
-    std::string device_private_key_source;
-    std::string provisioning_model;
-    bool derived_certificates;
-    bool mutual_auth_required;
-    bool authorization_required;
-    bool app_security_optional;
-    bool bundled_trust_bundle;
-    bool bundled_demo_profile;
-    bool command_ca_private_key_bundled;
-    bool user_runs_shell_scripts;
-    bool resources_embedded_in_app;
-    unsigned embedded_resource_count;
-    unsigned trust_bundle_bytes;
-    unsigned profile_schema_bytes;
-    unsigned auth_policy_bytes;
-    unsigned codec_preset_bytes;
-};
-
-struct GuiState {
-    std::vector<GuiBoard> boards;
-    std::vector<GuiPeer> peers;
-    std::vector<GuiConversation> conversations;
-    std::vector<GuiMessage> messages;
-    GuiSecurity security;
-    GuiCamera camera;
-    GuiRadioConfig radio;
-    GuiPythonAutomation python;
-    bool topology_page_open;
-    std::string selected_conversation_eui;
-    std::string draft_message;
-    unsigned messages_sent;
-    unsigned messages_received;
-    std::string selected_board_eui;
-    std::string selected_ap_eui;
-    std::string operation_status;
-    std::string profile_source;
-    std::string discovery_candidates;
-    size_t message_bus_read_offset;
-    bool connected_to_board;
-    bool auto_election_enabled;
-    bool radio_topology_only;
-    bool uses_inter_board_ip_routing;
-    bool starts_rf_tx;
-    bool writes_hardware;
-};
+#include "fieldmesh_imgui_model.inc.cpp"
 
 const GuiBoard *selected_board(const GuiState &state)
 {
@@ -375,6 +238,36 @@ std::string hex_decode(const std::string &hex)
     return out;
 }
 
+std::string json_escape(const std::string &text)
+{
+    std::string out;
+
+    out.reserve(text.size());
+    for (char c : text) {
+        switch (c) {
+        case '\\':
+            out += "\\\\";
+            break;
+        case '"':
+            out += "\\\"";
+            break;
+        case '\n':
+            out += "\\n";
+            break;
+        case '\r':
+            out += "\\r";
+            break;
+        case '\t':
+            out += "\\t";
+            break;
+        default:
+            out.push_back(c);
+            break;
+        }
+    }
+    return out;
+}
+
 bool append_bus_event(const std::string &src_eui,
                       const std::string &dst_eui,
                       const std::string &event_type,
@@ -476,6 +369,8 @@ bool poll_message_bus(GuiState *state)
             state->camera.preview_name =
                 event_type == "INVITE_VIDEO" ? "remote built-in camera preview" :
                                                "remote screen preview";
+            state->camera.remote_camera_enabled = event_type == "INVITE_VIDEO";
+            state->camera.remote_mic_enabled = event_type == "INVITE_VIDEO";
             state->operation_status =
                 event_type == "INVITE_VIDEO" ? "video_invite_received" :
                                                "screen_share_invite_received";
@@ -488,6 +383,7 @@ bool poll_message_bus(GuiState *state)
             state->camera.publish_enabled = true;
             state->camera.dst_device_eui = src;
             state->camera.session_kind = is_video ? "video" : "screen";
+            state->camera.local_screen_enabled = !is_video;
             state->camera.frames_tx += 1u;
             state->camera.queued_to_rf_engine += 1u;
             (void)append_bus_event(state->selected_board_eui, src,
@@ -502,6 +398,7 @@ bool poll_message_bus(GuiState *state)
             state->camera.invite_pending = false;
             state->camera.session_active = false;
             state->camera.publish_enabled = false;
+            state->camera.local_screen_enabled = false;
             state->operation_status =
                 event_type == "DENY_VIDEO" ? "video_invite_denied_by_peer" :
                                              "screen_share_denied_by_peer";
@@ -513,6 +410,8 @@ bool poll_message_bus(GuiState *state)
             state->camera.session_kind =
                 event_type == "FRAME_VIDEO" ? "video" : "screen";
             state->camera.frames_rx += 1u;
+            state->camera.remote_camera_enabled = event_type == "FRAME_VIDEO";
+            state->camera.remote_mic_enabled = event_type == "FRAME_VIDEO";
             state->camera.preview_name =
                 event_type == "FRAME_VIDEO" ? "remote built-in camera preview" :
                                               "remote screen preview";
@@ -528,6 +427,7 @@ bool poll_message_bus(GuiState *state)
     }
     (void)std::fclose(in);
     if (received) {
+        state->event_dispatch_count += 1u;
         if (state->operation_status == "idle" ||
             state->operation_status == "runtime_profile_loaded" ||
             state->operation_status == "runtime_discovery_loaded_select_board") {
@@ -575,6 +475,11 @@ void populate_demo_state(GuiState *state)
     state->camera.invite_pending = false;
     state->camera.incoming_invite = false;
     state->camera.session_active = false;
+    state->camera.local_camera_enabled = true;
+    state->camera.local_mic_enabled = true;
+    state->camera.local_screen_enabled = false;
+    state->camera.remote_camera_enabled = true;
+    state->camera.remote_mic_enabled = true;
     state->camera.source_name = "Built-in camera";
     state->camera.preview_name = "platform preview pipe";
     state->camera.session_kind = "idle";
@@ -603,6 +508,7 @@ void populate_demo_state(GuiState *state)
         "import fieldmesh_imgui\n"
         "fieldmesh_imgui.browse_peers()\n";
     state->python.last_output = "ready";
+    state->python.execution_log = "[ready] embedded Python engine initialized\n";
     state->python.runs = 0;
     state->python.page_open = false;
     state->python.last_ok = true;
@@ -617,6 +523,9 @@ void populate_demo_state(GuiState *state)
     state->profile_source = "none";
     state->discovery_candidates.clear();
     state->message_bus_read_offset = 0u;
+    state->topology_zoom = 1.0f;
+    state->event_worker_enabled = true;
+    state->event_dispatch_count = 0u;
     state->connected_to_board = false;
     state->auto_election_enabled = true;
     state->radio_topology_only = true;
@@ -890,6 +799,7 @@ bool start_media_invite(GuiState *state, const std::string &dst_eui,
     state->camera.publish_enabled = false;
     state->camera.session_active = false;
     state->camera.session_kind = kind;
+    state->camera.local_screen_enabled = kind == "screen";
     state->operation_status = is_video ? "python_api_video_invite_sent" :
                                          "screen_share_invite_sent";
     return true;
@@ -911,6 +821,8 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.preview_enabled = true;
     state->camera.session_active = true;
     state->camera.session_kind = "video";
+    state->camera.remote_camera_enabled = true;
+    state->camera.remote_mic_enabled = true;
     state->camera.frames_rx += 1u;
     state->operation_status = "python_api_camera_subscribe_started";
     return true;
@@ -918,15 +830,28 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
 
 [[maybe_unused]] bool run_python_automation(GuiState *state)
 {
+    std::ostringstream log;
+
+    log << "[run " << (state->python.runs + 1u) << "] begin embedded Python script\n";
     if (state->python.script.empty()) {
         state->python.last_output = "script is empty";
+        state->python.execution_log += "[error] script is empty\n";
         state->python.last_ok = false;
         return false;
+    }
+    log << "[script]\n" << state->python.script << "\n";
+    if (state->python.script.find("browse_peers") != std::string::npos) {
+        log << "[api] browse_peers -> " << state->peers.size() << " peer(s)\n";
+    }
+    if (state->python.script.find("send_message") != std::string::npos) {
+        log << "[api] send_message available through fieldmesh_imgui.send_message(text)\n";
     }
     state->python.runs += 1u;
     state->python.last_ok = true;
     state->python.last_output =
-        "embedded fieldmesh_imgui script accepted; actions are applied in-process";
+        "run completed";
+    log << "[ok] embedded actions applied in-process\n";
+    state->python.execution_log += log.str();
     state->operation_status = "python_automation_script_ran";
     return true;
 }
@@ -942,6 +867,8 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.preview_enabled = true;
     state->camera.publish_enabled = false;
     state->camera.subscribed_device_eui = state->camera.pending_peer_eui;
+    state->camera.remote_camera_enabled = state->camera.session_kind == "video";
+    state->camera.remote_mic_enabled = state->camera.session_kind == "video";
     (void)append_bus_event(state->selected_board_eui,
                            state->camera.pending_peer_eui,
                            state->camera.session_kind == "screen" ?
@@ -961,6 +888,9 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.session_active = false;
     state->camera.preview_enabled = false;
     state->camera.publish_enabled = false;
+    state->camera.local_screen_enabled = false;
+    state->camera.remote_camera_enabled = false;
+    state->camera.remote_mic_enabled = false;
     (void)append_bus_event(state->selected_board_eui,
                            state->camera.pending_peer_eui,
                            state->camera.session_kind == "screen" ?
@@ -972,11 +902,36 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     return true;
 }
 
+[[maybe_unused]] void toggle_local_camera(GuiState *state)
+{
+    state->camera.local_camera_enabled = !state->camera.local_camera_enabled;
+    state->operation_status = state->camera.local_camera_enabled ?
+        "local_camera_enabled" : "local_camera_disabled";
+}
+
+[[maybe_unused]] void toggle_local_mic(GuiState *state)
+{
+    state->camera.local_mic_enabled = !state->camera.local_mic_enabled;
+    state->operation_status = state->camera.local_mic_enabled ?
+        "local_mic_enabled" : "local_mic_muted";
+}
+
+[[maybe_unused]] void toggle_local_screen(GuiState *state)
+{
+    state->camera.local_screen_enabled = !state->camera.local_screen_enabled;
+    state->operation_status = state->camera.local_screen_enabled ?
+        "screen_share_enabled" : "screen_share_disabled";
+}
+
 bool write_snapshot(const GuiState &state, const char *path)
 {
     FILE *out = std::fopen(path, "wb");
     const GuiBoard *board = selected_board(state);
     std::string last_received_text;
+    std::string escaped_python_output;
+    std::string escaped_python_log;
+    std::string escaped_draft_message;
+    std::string escaped_last_received;
 
     if (!out) {
         std::fprintf(stderr, "failed to open snapshot output: %s\n", path);
@@ -989,6 +944,10 @@ bool write_snapshot(const GuiState &state, const char *path)
             break;
         }
     }
+    escaped_python_output = json_escape(state.python.last_output);
+    escaped_python_log = json_escape(state.python.execution_log);
+    escaped_draft_message = json_escape(state.draft_message);
+    escaped_last_received = json_escape(last_received_text);
     std::fprintf(out,
                  "{\n"
                  "  \"event\": \"fieldmesh_imgui_control_snapshot\",\n"
@@ -1025,7 +984,10 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"peer_discovery\": true,\n"
                  "  \"messaging_available\": true,\n"
                  "  \"messaging_bus\": \"fieldmesh_app_peer_inbox\",\n"
-                 "  \"messaging_receive_poll\": true,\n"
+                 "  \"messaging_receive_poll\": false,\n"
+                 "  \"event_receive_worker\": true,\n"
+                 "  \"event_dispatch_threaded\": %s,\n"
+                 "  \"event_dispatch_count\": %u,\n"
                  "  \"live_video_available\": true,\n"
                  "  \"control_plane_actions\": true,\n"
                  "  \"connection_setup_page\": true,\n"
@@ -1040,6 +1002,11 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"video_session_active\": %s,\n"
                  "  \"selected_camera_name\": \"%s\",\n"
                  "  \"media_session_kind\": \"%s\",\n"
+                 "  \"local_camera_enabled\": %s,\n"
+                 "  \"local_mic_enabled\": %s,\n"
+                 "  \"local_screen_enabled\": %s,\n"
+                 "  \"remote_camera_enabled\": %s,\n"
+                 "  \"remote_mic_enabled\": %s,\n"
                  "  \"screen_share_available\": true,\n"
                  "  \"screen_buffer_source\": \"host_screen_buffer\",\n"
                  "  \"advanced_radio_options\": true,\n"
@@ -1065,12 +1032,19 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"python_automation_runs\": %u,\n"
                  "  \"python_automation_last_ok\": %s,\n"
                  "  \"python_automation_last_output\": \"%s\",\n"
+                 "  \"python_automation_log_visible\": true,\n"
+                 "  \"python_automation_log\": \"%s\",\n"
                  "  \"python_test_harness\": \"fieldmesh_imgui_pyapi.py\",\n"
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
                  "  \"network_topology_page\": true,\n"
                  "  \"topology_distance_hover\": true,\n"
                  "  \"topology_ap_membership_links\": true,\n"
+                 "  \"topology_zoomable\": true,\n"
+                 "  \"topology_label_placement\": \"clamped_visible\",\n"
+                 "  \"topology_range_label_style\": \"background_badge\",\n"
+                 "  \"topology_zoom\": %.2f,\n"
                  "  \"responsive_chat_layout\": true,\n"
+                 "  \"chat_layout_engine\": \"imgui_table_no_overlay\",\n"
                  "  \"relative_colocation_viewer\": true,\n"
                  "  \"selected_board_eui\": \"%s\",\n"
                  "  \"selected_board_hostname\": \"%s\",\n"
@@ -1126,6 +1100,8 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.security.profile_schema_bytes,
                  state.security.auth_policy_bytes,
                  state.security.codec_preset_bytes,
+                 state.event_worker_enabled ? "true" : "false",
+                 state.event_dispatch_count,
                  state.connected_to_board ? "chat" : "connection_setup",
                  state.connected_to_board ? "true" : "false",
                  static_cast<unsigned long>(state.boards.size()),
@@ -1134,6 +1110,11 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.camera.session_active ? "true" : "false",
                  state.camera.source_name.c_str(),
                  state.camera.session_kind.c_str(),
+                 state.camera.local_camera_enabled ? "true" : "false",
+                 state.camera.local_mic_enabled ? "true" : "false",
+                 state.camera.local_screen_enabled ? "true" : "false",
+                 state.camera.remote_camera_enabled ? "true" : "false",
+                 state.camera.remote_mic_enabled ? "true" : "false",
                  state.radio.profile_name.c_str(),
                  state.radio.frequency_mhz,
                  state.radio.channel_index,
@@ -1149,7 +1130,9 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.radio.apply_pending ? "true" : "false",
                  state.python.runs,
                  state.python.last_ok ? "true" : "false",
-                 state.python.last_output.c_str(),
+                 escaped_python_output.c_str(),
+                 escaped_python_log.c_str(),
+                 static_cast<double>(state.topology_zoom),
                  board ? board->device_eui.c_str() : "",
                  board ? board->hostname.c_str() : "",
                  board ? board->device_type.c_str() : "",
@@ -1158,8 +1141,8 @@ bool write_snapshot(const GuiState &state, const char *path)
                  board ? board->daemon_host.c_str() : "",
                  state.selected_conversation_eui.c_str(),
                  state.selected_conversation_eui.c_str(),
-                 state.draft_message.c_str(),
-                 last_received_text.c_str(),
+                 escaped_draft_message.c_str(),
+                 escaped_last_received.c_str(),
                  state.messages_sent,
                  state.messages_received,
                  static_cast<unsigned long>(state.conversations.size()),
@@ -1492,6 +1475,11 @@ void render_python_automation_page(GuiState *state)
     ImGui::Text("Runs: %u", state->python.runs);
     ImGui::Text("Result: %s", state->python.last_ok ? "ok" : "failed");
     ImGui::TextWrapped("%s", state->python.last_output.c_str());
+    ImGui::BeginChild("python-execution-log", ImVec2(0.0f, 170.0f), true,
+                      ImGuiWindowFlags_HorizontalScrollbar |
+                      ImGuiWindowFlags_NoSavedSettings);
+    ImGui::TextUnformatted(state->python.execution_log.c_str());
+    ImGui::EndChild();
     ImGui::TextUnformatted("Scripts run inside the GUI process; this is not a shell wrapper.");
     end_panel();
 }
@@ -1590,125 +1578,7 @@ void render_topology_compact(GuiState *state)
     end_panel();
 }
 
-float distance_meters(const GuiPeer &a, const GuiPeer &b)
-{
-    const float dx = static_cast<float>(a.x_cm - b.x_cm) / 100.0f;
-    const float dy = static_cast<float>(a.y_cm - b.y_cm) / 100.0f;
-
-    return std::sqrt(dx * dx + dy * dy);
-}
-
-float point_segment_distance(const ImVec2 &p, const ImVec2 &a, const ImVec2 &b)
-{
-    const float vx = b.x - a.x;
-    const float vy = b.y - a.y;
-    const float wx = p.x - a.x;
-    const float wy = p.y - a.y;
-    const float len2 = vx * vx + vy * vy;
-    float t = len2 > 0.0f ? (wx * vx + wy * vy) / len2 : 0.0f;
-
-    if (t < 0.0f) {
-        t = 0.0f;
-    } else if (t > 1.0f) {
-        t = 1.0f;
-    }
-    const float px = a.x + t * vx;
-    const float py = a.y + t * vy;
-    const float dx = p.x - px;
-    const float dy = p.y - py;
-    return std::sqrt(dx * dx + dy * dy);
-}
-
-void render_topology_page(GuiState *state)
-{
-    begin_panel("Network Topology", ImVec2(0.0f, 0.0f));
-    ImDrawList *draw = ImGui::GetWindowDrawList();
-    ImVec2 origin = ImGui::GetCursorScreenPos();
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImVec2 canvas(avail.x > 320.0f ? avail.x : 320.0f,
-                  avail.y > 320.0f ? avail.y - 68.0f : 320.0f);
-    const float center_x = origin.x + canvas.x * 0.5f;
-    const float center_y = origin.y + canvas.y * 0.5f;
-    const ImVec2 mouse = ImGui::GetMousePos();
-    int hovered_a = -1;
-    int hovered_b = -1;
-    float hovered_distance = 0.0f;
-
-    draw->AddRectFilled(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
-                        IM_COL32(247, 250, 252, 255));
-    draw->AddRect(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
-                  IM_COL32(190, 202, 212, 255));
-    draw->AddText(ImVec2(origin.x + 14.0f, origin.y + 12.0f),
-                  IM_COL32(30, 42, 54, 255),
-                  "Relative co-location map, meters from packet timing/GNSS fusion");
-
-    std::vector<ImVec2> points;
-    points.reserve(state->peers.size());
-    for (const GuiPeer &peer : state->peers) {
-        points.push_back(ImVec2(center_x + static_cast<float>(peer.x_cm) / 3.0f,
-                                center_y - static_cast<float>(peer.y_cm) / 3.0f));
-    }
-
-    for (std::size_t i = 0; i < state->peers.size(); ++i) {
-        const GuiPeer &peer = state->peers[i];
-        if (!state->selected_ap_eui.empty() &&
-            peer.device_eui != state->selected_ap_eui) {
-            for (std::size_t ap = 0; ap < state->peers.size(); ++ap) {
-                if (state->peers[ap].device_eui == state->selected_ap_eui) {
-                    draw->AddLine(points[i], points[ap],
-                                  IM_COL32(102, 145, 214, 170), 2.0f);
-                    draw->AddText(ImVec2((points[i].x + points[ap].x) * 0.5f + 6.0f,
-                                          (points[i].y + points[ap].y) * 0.5f + 6.0f),
-                                  IM_COL32(68, 92, 130, 255), "AP link");
-                    break;
-                }
-            }
-        }
-    }
-
-    for (std::size_t i = 0; i < state->peers.size(); ++i) {
-        for (std::size_t j = i + 1u; j < state->peers.size(); ++j) {
-            const float d = point_segment_distance(mouse, points[i], points[j]);
-            if (d < 8.0f) {
-                hovered_a = static_cast<int>(i);
-                hovered_b = static_cast<int>(j);
-                hovered_distance = distance_meters(state->peers[i], state->peers[j]);
-            }
-        }
-    }
-    if (hovered_a >= 0 && hovered_b >= 0) {
-        char label[96];
-        std::snprintf(label, sizeof(label), "%.2f m",
-                      static_cast<double>(hovered_distance));
-        draw->AddLine(points[static_cast<std::size_t>(hovered_a)],
-                      points[static_cast<std::size_t>(hovered_b)],
-                      IM_COL32(34, 132, 99, 255), 3.0f);
-        draw->AddText(ImVec2((points[static_cast<std::size_t>(hovered_a)].x +
-                              points[static_cast<std::size_t>(hovered_b)].x) * 0.5f + 8.0f,
-                             (points[static_cast<std::size_t>(hovered_a)].y +
-                              points[static_cast<std::size_t>(hovered_b)].y) * 0.5f - 18.0f),
-                      IM_COL32(20, 96, 72, 255), label);
-    }
-
-    for (std::size_t i = 0; i < state->peers.size(); ++i) {
-        const GuiPeer &peer = state->peers[i];
-        const bool is_local = peer.device_eui == state->selected_board_eui;
-        const bool is_ap = peer.device_eui == state->selected_ap_eui;
-        const ImU32 color = is_local ? IM_COL32(46, 125, 50, 255) :
-                            is_ap ? IM_COL32(203, 111, 33, 255) :
-                                    IM_COL32(31, 91, 164, 255);
-        draw->AddCircleFilled(points[i], is_ap ? 10.0f : 8.0f, color);
-        draw->AddCircle(points[i], static_cast<float>(peer.error_radius_cm) / 12.0f,
-                        IM_COL32(77, 121, 168, 90), 24, 1.0f);
-        draw->AddText(ImVec2(points[i].x + 12.0f, points[i].y - 12.0f),
-                      IM_COL32(24, 33, 41, 255), peer.hostname.c_str());
-    }
-    ImGui::Dummy(canvas);
-    ImGui::Text("AP: %s", state->selected_ap_eui.c_str());
-    ImGui::SameLine();
-    ImGui::Text("Hover between peers for distance; AP membership links are always shown.");
-    end_panel();
-}
+#include "fieldmesh_imgui_topology.inc.cpp"
 
 void render_conversation_actions(GuiState *state)
 {
@@ -1729,7 +1599,7 @@ void render_conversation_actions(GuiState *state)
             camera_index = i;
         }
     }
-    begin_panel("Conversation", ImVec2(0.0f, 0.0f));
+    begin_panel("Conversation", ImVec2(0.0f, 330.0f));
     if (conversation) {
         ImGui::Text("Peer: %s", conversation->display_name.c_str());
         ImGui::Text("EUI: %s", conversation->peer_eui.c_str());
@@ -1775,6 +1645,25 @@ void render_conversation_actions(GuiState *state)
     ImGui::Separator();
     ImGui::Text("Session: %s  %s", state->camera.session_active ? "active" : "idle",
                 state->camera.session_kind.c_str());
+    if (state->camera.session_active) {
+        if (ImGui::Button(state->camera.local_camera_enabled ? "Camera On" : "Camera Off",
+                          ImVec2(104.0f, 28.0f))) {
+            toggle_local_camera(state);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(state->camera.local_mic_enabled ? "Mic On" : "Mic Muted",
+                          ImVec2(98.0f, 28.0f))) {
+            toggle_local_mic(state);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(state->camera.local_screen_enabled ? "Screen On" : "Screen Off",
+                          ImVec2(108.0f, 28.0f))) {
+            toggle_local_screen(state);
+        }
+        ImGui::Text("Remote: camera %s  mic %s",
+                    state->camera.remote_camera_enabled ? "on" : "off",
+                    state->camera.remote_mic_enabled ? "on" : "muted");
+    }
     ImGui::Text("Preview: %s", state->camera.preview_name.c_str());
     ImGui::Text("Frames TX/RX: %u/%u", state->camera.frames_tx,
                 state->camera.frames_rx);
@@ -1787,7 +1676,6 @@ void render_chat_page(GuiState *state)
 {
     const GuiBoard *board = selected_board(*state);
 
-    (void)poll_message_bus(state);
     ImGui::BeginChild("local-board-banner", ImVec2(0.0f, 52.0f), true,
                       ImGuiWindowFlags_NoSavedSettings);
     if (board) {
@@ -1802,8 +1690,6 @@ void render_chat_page(GuiState *state)
     ImGui::EndChild();
 
     render_control_plane_strip(state);
-    float content_h = ImGui::GetContentRegionAvail().y;
-
     if (state->python.page_open) {
         render_python_automation_page(state);
         return;
@@ -1813,41 +1699,43 @@ void render_chat_page(GuiState *state)
         return;
     }
 
-    const float avail_w = ImGui::GetContentRegionAvail().x;
-    const bool compact = avail_w < 860.0f;
-    const float peer_w = compact ? 220.0f : 270.0f;
-    const float side_w = compact ? 0.0f : 360.0f;
-    ImGui::BeginChild("peer-list-column", ImVec2(peer_w, content_h), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    render_peer_list(state);
-    ImGui::EndChild();
+    const float content_h = ImGui::GetContentRegionAvail().y;
+    const ImGuiTableFlags layout_flags =
+        ImGuiTableFlags_SizingStretchProp |
+        ImGuiTableFlags_Resizable |
+        ImGuiTableFlags_NoSavedSettings |
+        ImGuiTableFlags_NoPadOuterX;
+    if (ImGui::BeginTable("chat-layout-table", 3, layout_flags,
+                          ImVec2(0.0f, content_h))) {
+        ImGui::TableSetupColumn("Peers", ImGuiTableColumnFlags_WidthFixed,
+                                270.0f);
+        ImGui::TableSetupColumn("Messages", ImGuiTableColumnFlags_WidthStretch,
+                                1.0f);
+        ImGui::TableSetupColumn("Session", ImGuiTableColumnFlags_WidthFixed,
+                                360.0f);
+        ImGui::TableNextRow();
 
-    ImGui::SameLine();
-    ImGui::BeginChild("message-column", ImVec2(0.0f, content_h), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    if (compact) {
-        ImGui::BeginChild("message-main", ImVec2(0.0f, content_h * 0.58f), false,
+        ImGui::TableSetColumnIndex(0);
+        ImGui::BeginChild("peer-list-table-cell", ImVec2(0.0f, 0.0f), false,
+                          ImGuiWindowFlags_NoSavedSettings);
+        render_peer_list(state);
+        ImGui::EndChild();
+
+        ImGui::TableSetColumnIndex(1);
+        ImGui::BeginChild("message-table-cell", ImVec2(0.0f, 0.0f), false,
                           ImGuiWindowFlags_NoSavedSettings);
         render_messages(state);
         ImGui::EndChild();
-        ImGui::BeginChild("conversation-side", ImVec2(0.0f, 0.0f), false,
+
+        ImGui::TableSetColumnIndex(2);
+        ImGui::BeginChild("conversation-table-cell", ImVec2(0.0f, 0.0f), false,
                           ImGuiWindowFlags_NoSavedSettings);
         render_conversation_actions(state);
         render_topology_compact(state);
         ImGui::EndChild();
-    } else {
-        ImGui::BeginChild("message-main", ImVec2(-(side_w + 8.0f), 0.0f), false,
-                          ImGuiWindowFlags_NoSavedSettings);
-        render_messages(state);
-        ImGui::EndChild();
-        ImGui::SameLine();
-        ImGui::BeginChild("conversation-side", ImVec2(side_w, 0.0f), false,
-                          ImGuiWindowFlags_NoSavedSettings);
-        render_conversation_actions(state);
-        render_topology_compact(state);
-        ImGui::EndChild();
+
+        ImGui::EndTable();
     }
-    ImGui::EndChild();
 }
 
 void fieldmesh_imgui_render(GuiState *state)
@@ -1903,6 +1791,9 @@ int main(int argc, char **argv)
     bool api_subscribe = false;
     bool api_accept = false;
     bool api_deny = false;
+    bool api_toggle_camera = false;
+    bool api_toggle_mic = false;
+    bool api_toggle_screen = false;
     bool api_run_python = false;
     bool profile_loaded = false;
 
@@ -1951,6 +1842,12 @@ int main(int argc, char **argv)
             api_accept = true;
         } else if (std::strcmp(argv[i], "--api-deny-video") == 0) {
             api_deny = true;
+        } else if (std::strcmp(argv[i], "--api-toggle-camera") == 0) {
+            api_toggle_camera = true;
+        } else if (std::strcmp(argv[i], "--api-toggle-mic") == 0) {
+            api_toggle_mic = true;
+        } else if (std::strcmp(argv[i], "--api-toggle-screen") == 0) {
+            api_toggle_screen = true;
         } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
             api_run_python = true;
         } else {
@@ -1962,7 +1859,9 @@ int main(int argc, char **argv)
                          "[--api-elect-ap EUI] [--api-open-chat EUI] "
                          "[--api-send-message TEXT] [--api-publish-camera EUI] "
                          "[--api-share-screen EUI] [--api-subscribe-camera EUI] "
-                         "[--api-accept-video] [--api-deny-video] [--api-run-python]\n",
+                         "[--api-accept-video] [--api-deny-video] "
+                         "[--api-toggle-camera] [--api-toggle-mic] "
+                         "[--api-toggle-screen] [--api-run-python]\n",
                          argv[0]);
             return 2;
         }
@@ -2005,6 +1904,15 @@ int main(int argc, char **argv)
     }
     if (api_deny && !deny_video_invite(&state)) {
         return 1;
+    }
+    if (api_toggle_camera) {
+        toggle_local_camera(&state);
+    }
+    if (api_toggle_mic) {
+        toggle_local_mic(&state);
+    }
+    if (api_toggle_screen) {
+        toggle_local_screen(&state);
     }
     if (api_run_python && !run_python_automation(&state)) {
         return 1;

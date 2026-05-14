@@ -11,7 +11,11 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <atomic>
+#include <chrono>
+#include <mutex>
 #include <string>
+#include <thread>
 
 #ifdef FIELDMESH_WITH_EMBEDDED_PYTHON
 extern "C" bool fieldmesh_imgui_start_embedded_python(void);
@@ -47,6 +51,12 @@ void apply_action_args(GuiState *state, int argc, char **argv)
             (void)accept_video_invite(state);
         } else if (std::strcmp(argv[i], "--api-deny-video") == 0) {
             (void)deny_video_invite(state);
+        } else if (std::strcmp(argv[i], "--api-toggle-camera") == 0) {
+            toggle_local_camera(state);
+        } else if (std::strcmp(argv[i], "--api-toggle-mic") == 0) {
+            toggle_local_mic(state);
+        } else if (std::strcmp(argv[i], "--api-toggle-screen") == 0) {
+            toggle_local_screen(state);
         } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
             (void)run_python_automation(state);
         } else if (std::strcmp(argv[i], "--publish") == 0) {
@@ -150,13 +160,28 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    std::mutex state_mutex;
+    std::atomic<bool> receive_worker_running(true);
+    std::thread receive_worker([&]() {
+        while (receive_worker_running.load()) {
+            {
+                std::lock_guard<std::mutex> lock(state_mutex);
+                (void)poll_message_bus(&state);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        }
+    });
+
     do {
         glfwPollEvents();
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        fieldmesh_imgui_render(&state);
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            fieldmesh_imgui_render(&state);
+        }
 
         ImGui::Render();
         int display_w = 0;
@@ -169,7 +194,14 @@ int main(int argc, char **argv)
         glfwSwapBuffers(window);
     } while (!glfwWindowShouldClose(window) && !smoke_frame);
 
-    (void)poll_message_bus(&state);
+    receive_worker_running.store(false);
+    if (receive_worker.joinable()) {
+        receive_worker.join();
+    }
+    {
+        std::lock_guard<std::mutex> lock(state_mutex);
+        (void)poll_message_bus(&state);
+    }
     if (snapshot_output && !write_snapshot(state, snapshot_output)) {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();

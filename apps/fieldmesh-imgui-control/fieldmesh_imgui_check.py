@@ -5,7 +5,11 @@ from pathlib import Path
 
 
 def main() -> int:
-    source = Path(sys.argv[1]).read_text(encoding="utf-8")
+    source_path = Path(sys.argv[1])
+    source = source_path.read_text(encoding="utf-8")
+    for fragment in ("fieldmesh_imgui_model.inc.cpp",
+                     "fieldmesh_imgui_topology.inc.cpp"):
+        source += "\n" + (source_path.parent / fragment).read_text(encoding="utf-8")
     resources = Path(sys.argv[2]).read_text(encoding="utf-8")
     embedded_python = Path(sys.argv[3]).read_text(encoding="utf-8")
     platform_source = Path(sys.argv[4]).read_text(encoding="utf-8")
@@ -17,6 +21,8 @@ def main() -> int:
     for token in (
         "FIELDMESH_WITH_IMGUI",
         "#include \"imgui.h\"",
+        "fieldmesh_imgui_model.inc.cpp",
+        "fieldmesh_imgui_topology.inc.cpp",
         "ImGuiCond_Always",
         "ImGuiWindowFlags_NoSavedSettings",
         "ImGui::Begin(\"FieldMesh Golden IM Dashboard\"",
@@ -49,10 +55,12 @@ def main() -> int:
         "FRAME_VIDEO",
         "FRAME_SCREEN",
         "poll_message_bus",
+        "receive_worker",
         "begin_panel(\"Conversation\"",
         "Connected local board",
         "Active remote peer",
         "Python Automation",
+        "python-execution-log",
         "Run Script",
         "Built-in camera",
         "Accept",
@@ -62,11 +70,16 @@ def main() -> int:
         "Hover between peers for distance",
         "distance_meters",
         "point_segment_distance",
+        "SliderFloat(\"Zoom\"",
+        "clamped_visible",
+        "background_badge",
         "connection-security-summary",
         "begin_panel(\"Radio Network Topology\"",
-        "peer-list-column",
-        "message-column",
-        "conversation-side",
+        "chat-layout-table",
+        "peer-list-table-cell",
+        "message-table-cell",
+        "conversation-table-cell",
+        "ImGuiTableFlags_NoSavedSettings",
     ):
         if token not in source:
             raise SystemExit(f"ImGui app source missing {token}")
@@ -147,8 +160,10 @@ def main() -> int:
         raise SystemExit("ImGui app must expose peer discovery")
     if snapshot.get("messaging_available") is not True:
         raise SystemExit("ImGui app must expose messaging")
-    if snapshot.get("messaging_receive_poll") is not True:
-        raise SystemExit("ImGui app must poll for received messages")
+    if snapshot.get("messaging_receive_poll") is not False:
+        raise SystemExit("ImGui app must not rely on UI-thread polling")
+    if snapshot.get("event_receive_worker") is not True:
+        raise SystemExit("ImGui app must use an event receive worker")
     if snapshot.get("live_video_available") is not True:
         raise SystemExit("ImGui app must expose live video")
     if snapshot.get("control_plane_actions") is not True:
@@ -200,6 +215,8 @@ def main() -> int:
         raise SystemExit("ImGui app Python API must not be a CLI wrapper")
     if snapshot.get("python_automation_page") is not True:
         raise SystemExit("ImGui app must expose an in-app Python automation page")
+    if snapshot.get("python_automation_log_visible") is not True:
+        raise SystemExit("Python automation page must expose execution logs")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit("ImGui app topology viewer must be radio topology")
     if snapshot.get("network_topology_page") is not True:
@@ -208,8 +225,16 @@ def main() -> int:
         raise SystemExit("topology page must annotate hovered peer distances")
     if snapshot.get("topology_ap_membership_links") is not True:
         raise SystemExit("topology page must draw AP membership links")
+    if snapshot.get("topology_zoomable") is not True:
+        raise SystemExit("topology page must be zoomable")
+    if snapshot.get("topology_label_placement") != "clamped_visible":
+        raise SystemExit("topology labels must be clamped visible")
+    if snapshot.get("topology_range_label_style") != "background_badge":
+        raise SystemExit("topology range labels must use readable badges")
     if snapshot.get("responsive_chat_layout") is not True:
         raise SystemExit("chat layout must be responsive to window size changes")
+    if snapshot.get("chat_layout_engine") != "imgui_table_no_overlay":
+        raise SystemExit("chat layout must use the no-overlay table engine")
     if snapshot.get("relative_colocation_viewer") is not True:
         raise SystemExit("ImGui app must expose relative co-location")
     if snapshot.get("video_publish_available") is not True:
@@ -220,6 +245,10 @@ def main() -> int:
         raise SystemExit("ImGui app must support screen sharing")
     if snapshot.get("screen_buffer_source") != "host_screen_buffer":
         raise SystemExit("screen share must use the host screen buffer source")
+    if snapshot.get("local_camera_enabled") is not True:
+        raise SystemExit("local camera should default enabled")
+    if snapshot.get("local_mic_enabled") is not True:
+        raise SystemExit("local mic should default enabled")
     if snapshot.get("camera_publish_enabled") is not False:
         raise SystemExit("ImGui app must not hardcode publish state")
     if snapshot.get("camera_preview_enabled") is not False:

@@ -37,10 +37,10 @@ $(SDK_OBJ): $(SDK_DIR)/src/fieldmesh_sdk.c $(SDK_DIR)/include/fieldmesh_sdk.h | 
 $(PY_EMBED_OBJ): fieldmesh_imgui_embedded_python.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c "$<" -o "$@"
 
-$(HEADLESS_APP): fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) $(SDK_DIR)/include/fieldmesh_sdk.h | $(BUILD_DIR)
+$(HEADLESS_APP): fieldmesh_imgui_control_app.cpp fieldmesh_imgui_model.inc.cpp fieldmesh_imgui_topology.inc.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) $(SDK_DIR)/include/fieldmesh_sdk.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) "$<" "$(SDK_OBJ)" "$(PY_EMBED_OBJ)" -o "$@"
 
-gui: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) | $(BUILD_DIR)
+gui: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_model.inc.cpp fieldmesh_imgui_topology.inc.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) | $(BUILD_DIR)
 	@test -n "$(IMGUI_DIR)" || { echo "Set IMGUI_DIR=/path/to/dear-imgui"; exit 2; }
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DFIELDMESH_WITH_IMGUI=1 \
 		-I"$(IMGUI_DIR)" \
@@ -51,7 +51,7 @@ gui: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_
 		"$(IMGUI_DIR)/imgui_widgets.cpp" \
 		-o "$(GUI_APP)"
 
-gui-python: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) | $(BUILD_DIR)
+gui-python: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_model.inc.cpp fieldmesh_imgui_topology.inc.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) | $(BUILD_DIR)
 	@test -n "$(IMGUI_DIR)" || { echo "Set IMGUI_DIR=/path/to/dear-imgui"; exit 2; }
 	python3-config --embed --cflags >/dev/null
 	python3-config --embed --ldflags >/dev/null
@@ -69,7 +69,7 @@ gui-python: fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h
 		$$(python3-config --embed --ldflags) \
 		-o "$(GUI_APP)"
 
-gui-glfw: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) | $(BUILD_DIR)
+gui-glfw: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmesh_imgui_model.inc.cpp fieldmesh_imgui_topology.inc.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) $(PY_EMBED_OBJ) | $(BUILD_DIR)
 	@test -n "$(IMGUI_DIR)" || { echo "Set IMGUI_DIR=/path/to/dear-imgui"; exit 2; }
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -DFIELDMESH_WITH_IMGUI=1 \
 		-I"$(IMGUI_DIR)" -I"$(IMGUI_DIR)/backends" \
@@ -84,7 +84,7 @@ gui-glfw: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmes
 		$(GLFW_LIBS) $(OPENGL_LIBS) -ldl \
 		-o "$(GUI_GLFW_APP)"
 
-gui-glfw-python: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) | $(BUILD_DIR)
+gui-glfw-python: fieldmesh_imgui_glfw_main.cpp fieldmesh_imgui_control_app.cpp fieldmesh_imgui_model.inc.cpp fieldmesh_imgui_topology.inc.cpp fieldmesh_imgui_embedded_resources.h $(SDK_OBJ) | $(BUILD_DIR)
 	@test -n "$(IMGUI_DIR)" || { echo "Set IMGUI_DIR=/path/to/dear-imgui"; exit 2; }
 	python3-config --embed --cflags >/dev/null
 	python3-config --embed --ldflags >/dev/null
@@ -112,7 +112,7 @@ check: $(HEADLESS_APP)
 		fieldmesh_imgui_discovery_check.py \
 		fieldmesh_imgui_pyapi.py \
 		fieldmesh_imgui_pyapi_check.py
-	"$(HEADLESS_APP)" --self-test \
+	FIELDMESH_IM_BUS_DIR="$(OUT_DIR)/self-test-bus" "$(HEADLESS_APP)" --self-test \
 		--profile "$(TEST_PROFILE)" \
 		--snapshot-output "$(OUT_DIR)/imgui_control_snapshot.json"
 	./fieldmesh_imgui_check.py \
