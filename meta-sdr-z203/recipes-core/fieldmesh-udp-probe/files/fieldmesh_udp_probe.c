@@ -76,6 +76,7 @@ struct config {
     bool rf_engine_ready;
     bool target_is_zynq_board;
     bool allow_live_writes;
+    bool allow_rf_source_select;
 };
 
 struct trace {
@@ -155,6 +156,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe dma-smoke --file FRAME.bin --preflight-assert FILE --allow-live-writes [--tx-buffer ADDR] [--rx-buffer ADDR]\n"
         "  fieldmesh-udp-probe rf-guard-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe rf-guard-apply --preflight-assert FILE --allow-live-writes --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board [--slot-epoch N] [--slot-index N] [--arm-window-us N]\n"
+        "  fieldmesh-udp-probe rf-source-apply --preflight-assert FILE --allow-live-writes --allow-rf-source-select --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
 }
 
@@ -216,6 +218,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .rf_engine_ready = false,
         .target_is_zynq_board = false,
         .allow_live_writes = false,
+        .allow_rf_source_select = false,
     };
 
     if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
@@ -314,6 +317,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             cfg->target_is_zynq_board = true;
         } else if (!strcmp(argv[i], "--allow-live-writes")) {
             cfg->allow_live_writes = true;
+        } else if (!strcmp(argv[i], "--allow-rf-source-select")) {
+            cfg->allow_rf_source_select = true;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -338,9 +343,10 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-smoke") &&
         strcmp(cfg->role, "rf-guard-scan") &&
         strcmp(cfg->role, "rf-guard-apply") &&
+        strcmp(cfg->role, "rf-source-apply") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, rf-source-apply, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
@@ -353,6 +359,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "dma-smoke") &&
         strcmp(cfg->role, "rf-guard-scan") &&
         strcmp(cfg->role, "rf-guard-apply") &&
+        strcmp(cfg->role, "rf-source-apply") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role) && cfg->port == 0) {
         fprintf(stderr, "--port must be set and non-zero\n");
@@ -394,6 +401,27 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             return 2;
         }
     }
+    if (!strcmp(cfg->role, "rf-source-apply")) {
+        if (!cfg->allow_live_writes) {
+            fprintf(stderr, "rf-source-apply requires --allow-live-writes\n");
+            return 2;
+        }
+        if (!cfg->allow_rf_source_select) {
+            fprintf(stderr, "rf-source-apply requires --allow-rf-source-select\n");
+            return 2;
+        }
+        if (!cfg->preflight_assert_file) {
+            fprintf(stderr, "rf-source-apply requires --preflight-assert FILE\n");
+            return 2;
+        }
+        if (!cfg->conducted_or_shielded || !cfg->legal_frequency_profile ||
+            !cfg->rx_first || !cfg->tx_enable_guard ||
+            !cfg->sidecar_preflight_passed || !cfg->rf_engine_ready ||
+            !cfg->target_is_zynq_board) {
+            fprintf(stderr, "rf-source-apply requires all RF safety declarations\n");
+            return 2;
+        }
+    }
     if (cfg->ticks < 1 || cfg->timeout_ms < 1) {
         fprintf(stderr, "--ticks and --timeout-ms must be positive\n");
         return 2;
@@ -402,7 +430,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         fprintf(stderr, "--ctrl-size must cover the 0x00..0x10 control registers\n");
         return 2;
     }
-    if ((!strcmp(cfg->role, "rf-guard-scan") || !strcmp(cfg->role, "rf-guard-apply")) &&
+    if ((!strcmp(cfg->role, "rf-guard-scan") || !strcmp(cfg->role, "rf-guard-apply") ||
+         !strcmp(cfg->role, "rf-source-apply")) &&
         cfg->ctrl_size < 0x140U) {
         fprintf(stderr, "--ctrl-size must cover the 0x100..0x13c RF guard/DAC registers\n");
         return 2;
@@ -2835,6 +2864,89 @@ out:
     return ok ? 0 : 1;
 }
 
+static int run_rf_source_apply(const struct config *cfg)
+{
+    const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
+    bool file_backed = cfg->ctrl_mem_file != NULL;
+    uint32_t old_source_control = 0;
+    uint32_t id_value = 0;
+    uint32_t source_control = 0;
+    uint32_t source_status = 0;
+    bool ok = false;
+    bool wrote = false;
+    bool rolled_back = false;
+    int fd = -1;
+    char err[160] = {0};
+
+    printf("{\"event\":\"rf_source_apply_start\",\"transport\":\"rf-source-apply\","
+           "\"path\":\"%s\",\"base\":\"0x%08x\",\"writes_registers\":true,"
+           "\"writes_only_fieldmesh_control_window\":true,"
+           "\"sets_ad936x_tx_enable\":false,\"starts_rf_tx\":false,"
+           "\"uses_iio\":false,\"uses_inter_board_ip_routing\":false,"
+           "\"file_backed\":%s}\n",
+           path, cfg->ctrl_base, file_backed ? "true" : "false");
+
+    if (!preflight_assert_file_ok(cfg->preflight_assert_file, err, sizeof(err))) {
+        goto out;
+    }
+    fd = open(path, O_RDWR | O_SYNC);
+    if (fd < 0) {
+        snprintf(err, sizeof(err), "open DAC source control window: %s", strerror(errno));
+        goto out;
+    }
+    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, 0x00U, &id_value) ||
+        id_value != FIELDMESH_CTRL_ID_VALUE) {
+        snprintf(err, sizeof(err), "fieldmesh control ID mismatch");
+        goto out;
+    }
+    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL,
+                       &old_source_control)) {
+        snprintf(err, sizeof(err), "read RF DAC source rollback state failed");
+        goto out;
+    }
+
+    if (!write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL, 1U)) {
+        snprintf(err, sizeof(err), "write RF DAC source select failed");
+        goto out;
+    }
+    wrote = true;
+    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL, &source_control);
+    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_STATUS, &source_status);
+    printf("{\"event\":\"rf_source_apply_write\",\"transport\":\"rf-source-apply\","
+           "\"source_control\":\"0x%08x\",\"source_status\":\"0x%08x\","
+           "\"selects_fieldmesh_dac_source\":true,"
+           "\"sets_ad936x_tx_enable\":false,\"starts_rf_tx\":false}\n",
+           source_control, source_status);
+
+out:
+    if (fd >= 0 && wrote) {
+        bool rb_ok =
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL,
+                           old_source_control);
+        uint32_t rollback_source_control = 0;
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL,
+                      &rollback_source_control);
+        rolled_back = rb_ok && rollback_source_control == old_source_control;
+        printf("{\"event\":\"rf_source_apply_rollback\",\"transport\":\"rf-source-apply\","
+               "\"ok\":%s,\"source_control\":\"0x%08x\"}\n",
+               rolled_back ? "true" : "false", rollback_source_control);
+    }
+    ok = wrote && rolled_back;
+    printf("{\"event\":\"rf_source_apply_end\",\"transport\":\"rf-source-apply\","
+           "\"ok\":%s,\"id\":\"0x%08x\",\"wrote_registers\":%s,"
+           "\"rolled_back\":%s,\"sets_ad936x_tx_enable\":false,"
+           "\"starts_rf_tx\":false,\"error\":%s}\n",
+           ok ? "true" : "false", id_value, wrote ? "true" : "false",
+           rolled_back ? "true" : "false", ok ? "null" : "\"RF DAC source apply failed\"");
+    if (fd >= 0) {
+        close(fd);
+    }
+    if (!ok && err[0]) {
+        fprintf(stderr, "%s\n", err);
+    }
+    return ok ? 0 : 1;
+}
+
 struct dma_reg_expectation {
     const char *name;
     uint32_t offset;
@@ -3371,6 +3483,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "rf-guard-apply")) {
         return run_rf_guard_apply(&cfg);
+    }
+    if (!strcmp(cfg.role, "rf-source-apply")) {
+        return run_rf_source_apply(&cfg);
     }
     if (!strcmp(cfg.role, "verify-frame")) {
         return run_verify_frame(&cfg);

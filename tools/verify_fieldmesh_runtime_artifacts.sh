@@ -89,13 +89,13 @@ verify_variant() {
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
 
-    for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke rf-guard-scan rf-guard-apply iio-scan iio-plan pl-replay; do
+    for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke rf-guard-scan rf-guard-apply rf-source-apply iio-scan iio-plan pl-replay; do
         if ! grep -qxF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe role in $name rootfs: $token" >&2
             exit 1
         fi
     done
-    for token in sets_ad936x_tx_enable rf_guard_apply_rollback rf_guard_scan_start; do
+    for token in sets_ad936x_tx_enable rf_guard_apply_rollback rf_guard_scan_start rf_source_apply_rollback allow-rf-source-select; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe RF guard token in $name rootfs: $token" >&2
             exit 1

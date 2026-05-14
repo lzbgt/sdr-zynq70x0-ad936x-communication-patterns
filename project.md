@@ -511,6 +511,16 @@ user and vendor configuration.
   guard registers, optionally applies and rolls back the guard window only with
   `APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1`, and asserts AD936x TX/RF TX remain
   disabled.
+- `tools/verify_fieldmesh_rf_source_apply.sh` - gate for the separate DAC
+  source-select writer. It proves `rf-source-apply` needs all RF safety
+  declarations, `--allow-live-writes`, and the extra
+  `--allow-rf-source-select` confirmation, writes only `0x12c`, never enables
+  AD936x TX, and rolls source select back to the vendor DAC path.
+- `tools/run_fieldmesh_board_rf_source_apply.sh` - live board runner for the
+  same DAC source-select path. It defaults to scan/dry-run and only selects and
+  rolls back the FieldMesh DAC source with
+  `APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1`. Z103 passed this gate on the
+  RF-engine runtime with AD936x TX/RF TX still disabled.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for conducted/shielded RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,

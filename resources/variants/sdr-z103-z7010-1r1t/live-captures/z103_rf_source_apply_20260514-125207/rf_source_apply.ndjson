@@ -1,0 +1,4 @@
+{"event":"rf_source_apply_start","transport":"rf-source-apply","path":"/dev/mem","base":"0x43c00000","writes_registers":true,"writes_only_fieldmesh_control_window":true,"sets_ad936x_tx_enable":false,"starts_rf_tx":false,"uses_iio":false,"uses_inter_board_ip_routing":false,"file_backed":false}
+{"event":"rf_source_apply_write","transport":"rf-source-apply","source_control":"0x00000000","source_status":"0x00000000","selects_fieldmesh_dac_source":true,"sets_ad936x_tx_enable":false,"starts_rf_tx":false}
+{"event":"rf_source_apply_rollback","transport":"rf-source-apply","ok":true,"source_control":"0x00000000"}
+{"event":"rf_source_apply_end","transport":"rf-source-apply","ok":true,"id":"0x464d1001","wrote_registers":true,"rolled_back":true,"sets_ad936x_tx_enable":false,"starts_rf_tx":false,"error":null}

@@ -2361,6 +2361,18 @@ RF-engine-ready, sidecar-preflight, and Zynq-target confirmations.
 memory to verify the writer arms only the guard registers, reports
 `sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, leaves DAC source
 selection off, and rolls the register window back.
+`./tools/verify_fieldmesh_rf_source_apply.sh` adds the next guard boundary for
+the DAC source selector: it proves `rf-source-apply` refuses missing
+`--allow-live-writes`, missing `--allow-rf-source-select`, and missing Zynq
+target confirmation, writes only `FM_RF_DAC_SOURCE_CONTROL`, reports
+`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolls source select
+back to zero.
+`APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1 FORCE_UPLOAD=1 VARIANT=z103
+./tools/run_fieldmesh_board_rf_source_apply.sh 192.168.3.1` then passed on
+Z103 with the RF-engine runtime: sidecar preflight passed, source select was
+written and rolled back, and AD936x TX/RF TX stayed disabled. Evidence is
+archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_source_apply_20260514-125207/`.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying

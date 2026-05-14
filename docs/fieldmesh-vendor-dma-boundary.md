@@ -463,6 +463,18 @@ fieldmesh-udp-probe rf-guard-apply \
   --target-is-zynq-board \
   --slot-epoch 12 \
   --slot-index 3
+
+fieldmesh-udp-probe rf-source-apply \
+  --preflight-assert preflight_assert.json \
+  --allow-live-writes \
+  --allow-rf-source-select \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --rx-first \
+  --tx-enable-guard \
+  --sidecar-preflight-passed \
+  --rf-engine-ready \
+  --target-is-zynq-board
 ```
 
 `rf-guard-scan` opens the sidecar control window read-only and reports the
@@ -473,6 +485,13 @@ declarations. When allowed, it maps only the FieldMesh control window, programs
 `fieldmesh_iq_tx_guard` epoch/slot/control registers, leaves DAC source
 selection off, reports that AD936x TX enable and RF TX start remain false, and
 rolls the guard registers back before exit.
+
+`rf-source-apply` is deliberately separate from `rf-guard-apply`. It requires
+the same safety declarations plus `--allow-rf-source-select`, writes only the
+FieldMesh DAC source-select register at `0x12c`, reads back source status, then
+rolls source select back to the vendor DAC path. It still does not enable
+AD936x TX, start RF TX, open IIO buffers, or write outside the FieldMesh control
+window.
 
 The matching RF-engine runtime package is intentionally separate from the
 default sidecar-DMA package:
