@@ -1,0 +1,28 @@
+{
+  "config": {
+    "cmd_sf": true,
+    "dm_spi_flash": true,
+    "spi_flash_4k_sectors": true,
+    "spi_flash_bar": true,
+    "spi_flash_mtd_disabled": true,
+    "spi_flash_winbond": true,
+    "zynq_qspi": true
+  },
+  "diagnosis": "The built Z203 U-Boot source/config uses the SPI flash stack with BAR/EAR bank support for the 32 MiB Winbond W25Q256. For offsets above 16 MiB, the configured sf path is expected to select a bank/extended-address register and then issue a 3-byte page-program style transfer unless the SPI slave is explicitly in 4-byte mode. Therefore the raw 4-byte sspi probe is not equivalent to the failing sf write path. Full QSPI FIT repair remains blocked until a small bank-register plus page-program path is instrumented and passes write/readback.",
+  "event": "fieldmesh_z203_qspi_uboot_source_path",
+  "next_probe": "Do not attempt a full FIT write. Add an instrumented U-Boot probe around the configured sf path: capture EAR/BAR before and after bank select, capture SR1/SR2 after write-enable, log the selected write opcode, address bytes, and first data bytes, then verify one rollback-protected scratch write/readback.",
+  "read_only": true,
+  "sf_ops_sha256": "924cd254891a0d303ae216628ec1477d60e8ff3ed329737537a3e6588abef8cb",
+  "source_inference": {
+    "bar_boundary_is_16_mib": true,
+    "bar_write_command_can_be_wrear": true,
+    "default_program_command_is_page_program": true,
+    "non_4byte_path_calls_bank_select": true,
+    "qpp_program_possible_if_controller_advertises_qpp": true,
+    "w25q256_is_32_mib": true
+  },
+  "spi_flash_sha256": "2ab3665cb08a6cd82ba6f97aa9231f14cd5ef1e7d61ace7cdcd605ada501c4dc",
+  "uboot_config_sha256": "a1595e140f20846e15b8174c45256dee5b4a96466200cd4fcfff9ad811c85015",
+  "writes_flash": false,
+  "zynq_qspi_sha256": "03e6d8b39c4c6aad9b2a0a92cddfff9098c330e1acba0c9c56a6ebc8763be5e9"
+}

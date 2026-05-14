@@ -1,0 +1,71 @@
+   160		ret = spi_claim_bus(flash->spi);
+   161		if (ret) {
+   162			debug("SF: unable to claim SPI bus\n");
+   163			return ret;
+   164		}
+   165
+   166		switch (idcode0) {
+   167		case SPI_FLASH_CFI_MFR_STMICRO:
+   168			/* Some Micron need WREN command; all will accept it */
+   169			need_wren = true;
+   170		case SPI_FLASH_CFI_MFR_MACRONIX:
+   171		case SPI_FLASH_CFI_MFR_WINBOND:
+   172			if (need_wren)
+   173				spi_flash_cmd_write_enable(flash);
+   174
+   175			cmd = enable ? CMD_ENTER_4B_ADDR : CMD_EXIT_4B_ADDR;
+   176			ret = spi_flash_cmd(flash->spi, cmd, NULL, 0);
+   177			if (need_wren)
+   178				spi_flash_cmd_write_disable(flash);
+   179
+   180			break;
+   181		default:
+   182			/* Spansion style */
+   183			bar = enable << 7;
+   184			cmd = CMD_BANKADDR_BRWR;
+   185			ret = spi_flash_cmd_write(flash->spi, &cmd, 1, &bar, 1);
+   186		}
+   187
+   188		spi_release_bus(flash->spi);
+   189
+   190		return ret;
+   191	}
+   192
+   193	#ifdef CONFIG_SPI_FLASH_BAR
+   194	static int spi_flash_cmd_bankaddr_write(struct spi_flash *flash, u8 bank_sel)
+   195	{
+   196		u8 cmd;
+   197		int ret;
+   198		u8 upage_curr;
+   199
+   200		upage_curr = flash->spi->flags & SPI_XFER_U_PAGE;
+   201
+   202		if (flash->dual_flash != SF_DUAL_STACKED_FLASH) {
+   203			if (flash->bank_curr == bank_sel) {
+   204				debug("SF: not require to enable bank%d\n", bank_sel);
+   205				return 0;
+   206			}
+   207		} else if (flash->upage_prev == upage_curr) {
+   208			if (flash->bank_curr == bank_sel) {
+   209				debug("SF: not require to enable bank%d\n", bank_sel);
+   210				return 0;
+   211			}
+   212		} else {
+   213			flash->upage_prev = upage_curr;
+   214		}
+   215
+   216		cmd = flash->bank_write_cmd;
+   217		ret = spi_flash_write_common(flash, &cmd, 1, &bank_sel, 1);
+   218		if (ret < 0) {
+   219			debug("SF: fail to write bank register\n");
+   220			return ret;
+   221		}
+   222		flash->bank_curr = bank_sel;
+   223
+   224		return 0;
+   225	}
+   226
+   227	static int spi_flash_bank(struct spi_flash *flash, u32 offset)
+   228	{
+   229		u8 bank_sel;
+   230		int ret;

@@ -1,0 +1,75 @@
+fieldmesh_z203_qspi_uboot_source_path_begin
+uboot_src=/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx
+uboot_build=/root/work/ZYNQ7020/yocto/builds/sdr-z203-arm/tmp/work/sdr_z203_zynq7-poky-linux-gnueabi/u-boot-sdr-z203/2026.01+vendor/u-boot-build
+uboot_config=/root/work/ZYNQ7020/yocto/builds/sdr-z203-arm/tmp/work/sdr_z203_zynq7-poky-linux-gnueabi/u-boot-sdr-z203/2026.01+vendor/u-boot-build/.config
+uboot_config_sha256=a1595e140f20846e15b8174c45256dee5b4a96466200cd4fcfff9ad811c85015
+sf_ops_sha256=924cd254891a0d303ae216628ec1477d60e8ff3ed329737537a3e6588abef8cb
+spi_flash_sha256=2ab3665cb08a6cd82ba6f97aa9231f14cd5ef1e7d61ace7cdcd605ada501c4dc
+zynq_qspi_sha256=03e6d8b39c4c6aad9b2a0a92cddfff9098c330e1acba0c9c56a6ebc8763be5e9
+config_flags_begin
+164:CONFIG_DM_SPI_FLASH=y
+303:CONFIG_CMD_SF=y
+510:CONFIG_SPI_FLASH=y
+511:CONFIG_SPI_FLASH_BAR=y
+520:CONFIG_SPI_FLASH_WINBOND=y
+521:CONFIG_SPI_FLASH_USE_4K_SECTORS=y
+523:# CONFIG_SPI_FLASH_MTD is not set
+597:CONFIG_ZYNQ_QSPI=y
+config_flags_end
+source_refs_begin
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/include/spi.h:31:#define SPI_4BYTE_MODE	0x1
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:62:#define SPI_FLASH_16MB_BOUN		0x1000000
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:83:#define CMD_PAGE_PROGRAM		0x02
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:86:#define CMD_QUAD_PAGE_PROGRAM		0x32
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:111:# define CMD_BANKADDR_BRWR		0x17
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:113:# define CMD_EXTNADDR_WREAR		0xC5
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:235:int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:258: * spi_flash_scan - scan the SPI FLASH
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_internal.h:267:int spi_flash_scan(struct spi_flash *flash);
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_params.c:134:	{"W25Q256",	   0xef4019, 0x0,	64 * 1024,   512, RD_FULL,	    WR_QPP | SECT_4K},
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:170:	bank_sel = offset / (SPI_FLASH_16MB_BOUN << flash->shift);
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:188:	cmd = flash->bank_write_cmd;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:208:	if (flash->size <= SPI_FLASH_16MB_BOUN)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:214:		flash->bank_write_cmd = CMD_BANKADDR_BRWR;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:218:		flash->bank_write_cmd = CMD_EXTNADDR_WREAR;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:457:		if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:490:int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:522:		if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:537:		if (flash->spi->bytemode == SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:617:	if (flash->spi->bytemode == SPI_4BYTE_MODE)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:638:		if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:646:					     SPI_FLASH_16MB_BOUN;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:648:			remain_len = ((SPI_FLASH_16MB_BOUN << flash->shift) *
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:655:			if (len > (SPI_FLASH_16MB_BOUN << flash->shift))
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:656:				read_len = SPI_FLASH_16MB_BOUN << flash->shift;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:661:		if (flash->spi->bytemode == SPI_4BYTE_MODE)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1164:		cmd = CMD_BANKADDR_BRWR;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1240:int spi_flash_scan(struct spi_flash *flash)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1370:	flash->write = spi_flash_cmd_write_ops;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1422:	if ((flash->size >> flash->shift) > SPI_FLASH_16MB_BOUN) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1423:		if (flash->spi->bytemode == SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1437:		if (flash->spi->bytemode == SPI_4BYTE_MODE)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1489:			flash->write_cmd = CMD_PAGE_PROGRAM;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1491:			flash->write_cmd = CMD_QUAD_PAGE_PROGRAM;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1494:		flash->write_cmd = CMD_PAGE_PROGRAM;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1500:	    (flash->write_cmd == CMD_QUAD_PAGE_PROGRAM)) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1578:	     (flash->size > SPI_FLASH_16MB_BOUN)) ||
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/spi_flash.c:1580:	     (flash->size > SPI_FLASH_16MB_BOUN << 1))) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:184:		cmd = CMD_BANKADDR_BRWR;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:216:	cmd = flash->bank_write_cmd;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:227:static int spi_flash_bank(struct spi_flash *flash, u32 offset)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:232:	bank_sel = offset / (SPI_FLASH_16MB_BOUN << flash->shift);
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:433:		if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:435:			ret = spi_flash_bank(flash, bank_addr);
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:467:int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:491:		if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:493:			ret = spi_flash_bank(flash, bank_addr);
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:506:		if (flash->spi->bytemode == SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:586:	if (flash->spi->bytemode == SPI_4BYTE_MODE)
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:606:		if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:608:			bank_sel = spi_flash_bank(flash, bank_addr);
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:614:					     SPI_FLASH_16MB_BOUN;
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:616:			remain_len = ((SPI_FLASH_16MB_BOUN << flash->shift) *
+/root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/u-boot-xlnx/drivers/mtd/spi/sf_ops.c:626:		if (flash->spi->bytemode == SPI_4BYTE_MODE)
+source_refs_end
+fieldmesh_z203_qspi_uboot_source_path_end

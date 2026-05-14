@@ -3961,6 +3961,28 @@ daemon gate passed after reboot. This separates two failure surfaces: raw
 driver-level `sf write` path does attempt a program but produces the stuck
 `0x44` pattern. Full FIT repair remains blocked.
 
+The follow-up source/config diagnosis was read-only:
+
+```sh
+OUT_DIR=resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_qspi_uboot_source_path_20260515-064242 \
+  ./tools/diagnose_z203_qspi_uboot_source_path.sh
+```
+
+Result: passed as a local source/build-config capture. The built Z203 U-Boot
+configuration has `CONFIG_DM_SPI_FLASH=y`, `CONFIG_CMD_SF=y`,
+`CONFIG_SPI_FLASH_BAR=y`, `CONFIG_SPI_FLASH_WINBOND=y`,
+`CONFIG_SPI_FLASH_USE_4K_SECTORS=y`, `CONFIG_ZYNQ_QSPI=y`, and no
+`CONFIG_SPI_FLASH_MTD`. The matched source identifies the live flash as
+Winbond `W25Q256`, 512 erase sectors of 64 KiB, total 32 MiB. For offsets
+above the 16 MiB boundary, the configured `sf` read/write/erase path uses the
+bank/extended-address register path when the SPI slave is not in 4-byte mode,
+then issues page-program style transfers. That means the raw 4-byte `sspi`
+probe is not equivalent to the failing `sf write` path. The next useful
+diagnostic is an instrumented `sf` path probe that captures EAR/BAR selection,
+SR1/SR2 after write-enable, the selected write opcode, address bytes, and first
+data bytes around a rollback-protected scratch write. Full QSPI FIT repair
+remains blocked until that small write/readback passes.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

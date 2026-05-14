@@ -125,9 +125,16 @@ Firmware state:
   run another full QSPI FIT repair. A direct `sspi` probe with W25Q256 4-byte
   raw read/page-program opcodes (`0x13`/`0x12`) did not set WEL through raw
   WREN and left the scratch byte erased (`0xff`), while the `sf write` path
-  still produces `0x44`. The next useful diagnostic is to compare the U-Boot
-  `sf` write-enable/program implementation against raw `sspi`, or perform a
-  flash replacement/cross-board comparison.
+  still produces `0x44`. A read-only source/config diagnosis now shows why
+  that comparison matters: this Z203 U-Boot build has `CONFIG_SPI_FLASH_BAR=y`
+  for the 32 MiB Winbond W25Q256, so offsets above 16 MiB use the
+  bank/extended-address register path and then page-program style transfers
+  unless the SPI slave is explicitly in 4-byte mode. The raw 4-byte `sspi`
+  probe is therefore not equivalent to the failing `sf write` path. The next
+  useful diagnostic is an instrumented U-Boot `sf` path probe that captures
+  EAR/BAR selection, SR1/SR2 after write-enable, the selected write opcode,
+  address bytes, and first data bytes around a rollback-protected scratch
+  write. Full FIT repair remains blocked until that small path passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

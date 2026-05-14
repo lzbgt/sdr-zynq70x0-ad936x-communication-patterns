@@ -1,0 +1,220 @@
+     1	/*
+     2	 * (C) Copyright 2011 - 2013 Xilinx
+     3	 *
+     4	 * Xilinx Zynq Quad-SPI(QSPI) controller driver (master mode only)
+     5	 *
+     6	 * SPDX-License-Identifier:	GPL-2.0+
+     7	 */
+     8
+     9	#include <common.h>
+    10	#include <malloc.h>
+    11	#include <dm.h>
+    12	#include <ubi_uboot.h>
+    13	#include <spi.h>
+    14	#include <spi_flash.h>
+    15	#include <asm/io.h>
+    16	#include <asm/arch/hardware.h>
+    17	#include <asm/arch/sys_proto.h>
+    18	#include <asm/arch/clk.h>
+    19	#include "../mtd/spi/sf_internal.h"
+    20
+    21	/* QSPI Transmit Data Register */
+    22	#define ZYNQ_QSPI_TXD_00_00_OFFSET	0x1C /* Transmit 4-byte inst, WO */
+    23	#define ZYNQ_QSPI_TXD_00_01_OFFSET	0x80 /* Transmit 1-byte inst, WO */
+    24	#define ZYNQ_QSPI_TXD_00_10_OFFSET	0x84 /* Transmit 2-byte inst, WO */
+    25	#define ZYNQ_QSPI_TXD_00_11_OFFSET	0x88 /* Transmit 3-byte inst, WO */
+    26
+    27	/*
+    28	 * QSPI Configuration Register bit Masks
+    29	 *
+    30	 * This register contains various control bits that effect the operation
+    31	 * of the QSPI controller
+    32	 */
+    33	#define ZYNQ_QSPI_CONFIG_IFMODE_MASK	(1 << 31)  /* Flash intrface mode*/
+    34	#define ZYNQ_QSPI_CONFIG_MSA_MASK	(1 << 15)  /* Manual start enb */
+    35	#define ZYNQ_QSPI_CONFIG_MCS_MASK	(1 << 14)  /* Manual chip select */
+    36	#define ZYNQ_QSPI_CONFIG_PCS_MASK	(1 << 10)  /* Peri chip select */
+    37	#define ZYNQ_QSPI_CONFIG_FW_MASK	(0x3 << 6) /* FIFO width */
+    38	#define ZYNQ_QSPI_CONFIG_BAUD_DIV_MASK	(0x7 << 3) /* Baud rate div */
+    39	#define ZYNQ_QSPI_CONFIG_MSTREN_MASK	(1 << 0)   /* Mode select */
+    40	#define ZYNQ_QSPI_CONFIG_MANSRT_MASK	0x00010000 /* Manual TX Start */
+    41	#define ZYNQ_QSPI_CONFIG_CPHA_MASK	0x00000004 /* Clock Phase Control */
+    42	#define ZYNQ_QSPI_CONFIG_CPOL_MASK	0x00000002 /* Clock Polarity Control */
+    43	#define ZYNQ_QSPI_CONFIG_SSCTRL_MASK	0x00003C00 /* Slave Select Mask */
+    44	/*
+    45	 * QSPI Interrupt Registers bit Masks
+    46	 *
+    47	 * All the four interrupt registers (Status/Mask/Enable/Disable) have the same
+    48	 * bit definitions.
+    49	 */
+    50	#define ZYNQ_QSPI_IXR_TXNFULL_MASK	0x00000004 /* QSPI TX FIFO Overflow */
+    51	#define ZYNQ_QSPI_IXR_TXFULL_MASK	0x00000008 /* QSPI TX FIFO is full */
+    52	#define ZYNQ_QSPI_IXR_RXNEMTY_MASK	0x00000010 /* QSPI RX FIFO Not Empty */
+    53	#define ZYNQ_QSPI_IXR_ALL_MASK		(ZYNQ_QSPI_IXR_TXNFULL_MASK | \
+    54						ZYNQ_QSPI_IXR_RXNEMTY_MASK)
+    55
+    56	/*
+    57	 * QSPI Enable Register bit Masks
+    58	 *
+    59	 * This register is used to enable or disable the QSPI controller
+    60	 */
+    61	#define ZYNQ_QSPI_ENABLE_ENABLE_MASK	0x00000001 /* QSPI Enable Bit Mask */
+    62
+    63	/*
+    64	 * QSPI Linear Configuration Register
+    65	 *
+    66	 * It is named Linear Configuration but it controls other modes when not in
+    67	 * linear mode also.
+    68	 */
+    69	#define ZYNQ_QSPI_LCFG_TWO_MEM_MASK	0x40000000 /* QSPI Enable Bit Mask */
+    70	#define ZYNQ_QSPI_LCFG_SEP_BUS_MASK	0x20000000 /* QSPI Enable Bit Mask */
+    71	#define ZYNQ_QSPI_LCFG_U_PAGE		0x10000000 /* QSPI Upper memory set */
+    72
+    73	#define ZYNQ_QSPI_LCFG_DUMMY_SHIFT	8
+    74
+    75	#define ZYNQ_QSPI_FR_QOUT_CODE	0x6B	/* read instruction code */
+    76	#define ZYNQ_QSPI_FR_DUALIO_CODE	0xBB
+    77
+    78	/*
+    79	 * The modebits configurable by the driver to make the SPI support different
+    80	 * data formats
+    81	 */
+    82	#define MODEBITS			(SPI_CPOL | SPI_CPHA)
+    83
+    84	/* Definitions for the status of queue */
+    85	#define ZYNQ_QSPI_QUEUE_STOPPED		0
+    86	#define ZYNQ_QSPI_QUEUE_RUNNING		1
+    87	#define ZYNQ_QSPI_RXFIFO_THRESHOLD	32
+    88	#define ZYNQ_QSPI_FIFO_DEPTH		63
+    89
+    90	/* QSPI MIO's count for different connection topologies */
+    91	#define ZYNQ_QSPI_MIO_NUM_QSPI0		6
+    92	#define ZYNQ_QSPI_MIO_NUM_QSPI1		5
+    93	#define ZYNQ_QSPI_MIO_NUM_QSPI1_CS	1
+    94
+    95	/* QSPI MIO's count for different connection topologies */
+    96	#define ZYNQ_QSPI_MIO_NUM_QSPI0_DIO	4
+    97	#define ZYNQ_QSPI_MIO_NUM_QSPI1_DIO	3
+    98	#define ZYNQ_QSPI_MIO_NUM_QSPI1_CS_DIO	1
+    99
+   100	/* QSPI register offsets */
+   101	struct zynq_qspi_regs {
+   102		u32 confr;	/* 0x00 */
+   103		u32 isr;	/* 0x04 */
+   104		u32 ier;	/* 0x08 */
+   105		u32 idisr;	/* 0x0C */
+   106		u32 imaskr;	/* 0x10 */
+   107		u32 enbr;	/* 0x14 */
+   108		u32 dr;		/* 0x18 */
+   109		u32 txd0r;	/* 0x1C */
+   110		u32 drxr;	/* 0x20 */
+   111		u32 sicr;	/* 0x24 */
+   112		u32 txftr;	/* 0x28 */
+   113		u32 rxftr;	/* 0x2C */
+   114		u32 gpior;	/* 0x30 */
+   115		u32 reserved0[19];
+   116		u32 txd1r;	/* 0x80 */
+   117		u32 txd2r;	/* 0x84 */
+   118		u32 txd3r;	/* 0x88 */
+   119		u32 reserved1[5];
+   120		u32 lcr;	/* 0xA0 */
+   121		u32 reserved2[22];
+   122		u32 midr;	/* 0xFC */
+   123	};
+   124
+   125
+   126	struct zynq_qspi_platdata {
+   127		struct zynq_qspi_regs *regs;
+   128		u32 frequency;          /* input frequency */
+   129		u32 speed_hz;
+   130	//	u32 is_dual;
+   131	};
+   132
+   133	struct zynq_qspi_priv {
+   134		struct zynq_qspi_regs *regs;
+   135		u8 mode;
+   136		u32 freq;
+   137		const void *txbuf;
+   138		void *rxbuf;
+   139		unsigned len;
+   140		int bytes_to_transfer;
+   141		int bytes_to_receive;
+   142		unsigned int is_inst;
+   143		unsigned int is_dual;
+   144	        unsigned int is_dio;
+   145	        unsigned int u_page;
+   146		unsigned cs_change:1;
+   147	};
+   148
+   149	static int zynq_qspi_ofdata_to_platdata(struct udevice *bus)
+   150	{
+   151		struct zynq_qspi_platdata *plat = bus->platdata;
+   152
+   153		debug("%s\n", __func__);
+   154		plat->regs = (struct zynq_qspi_regs *)ZYNQ_QSPI_BASEADDR;
+   155
+   156		plat->frequency = 166666666;
+   157		plat->speed_hz = plat->frequency / 2;
+   158
+   159		return 0;
+   160	}
+   161
+   162	/*
+   163	 * zynq_qspi_init_hw - Initialize the hardware
+   164	 * @is_dual:		Indicates whether dual memories are used
+   165	 * @cs:			Indicates which chip select is used in dual stacked
+   166	 *
+   167	 * The default settings of the QSPI controller's configurable parameters on
+   168	 * reset are
+   169	 *	- Master mode
+   170	 *	- Baud rate divisor is set to 2
+   171	 *	- Threshold value for TX FIFO not full interrupt is set to 1
+   172	 *	- Flash memory interface mode enabled
+   173	 *	- Size of the word to be transferred as 8 bit
+   174	 * This function performs the following actions
+   175	 *	- Disable and clear all the interrupts
+   176	 *	- Enable manual slave select
+   177	 *	- Enable auto start
+   178	 *	- Deselect all the chip select lines
+   179	 *	- Set the size of the word to be transferred as 32 bit
+   180	 *	- Set the little endian mode of TX FIFO and
+   181	 *	- Enable the QSPI controller
+   182	 */
+   183	static void zynq_qspi_init_hw(struct zynq_qspi_priv *priv)
+   184	{
+   185		u32 config_reg;
+   186		struct zynq_qspi_regs *regs = priv->regs;
+   187
+   188		writel(~ZYNQ_QSPI_ENABLE_ENABLE_MASK, &regs->enbr);
+   189		writel(0x7F, &regs->idisr);
+   190
+   191		/* Disable linear mode as the boot loader may have used it */
+   192		writel(0x0, &regs->lcr);
+   193
+   194		/* Clear the TX and RX threshold reg */
+   195		writel(0x1, &regs->txftr);
+   196		writel(ZYNQ_QSPI_RXFIFO_THRESHOLD, &regs->rxftr);
+   197
+   198		/* Clear the RX FIFO */
+   199		while (readl(&regs->isr) & ZYNQ_QSPI_IXR_RXNEMTY_MASK)
+   200			readl(&regs->drxr);
+   201
+   202		debug("%s is_dual:0x%x, is_dio:0x%x\n", __func__, priv->is_dual, priv->is_dio);
+   203
+   204		writel(0x7F, &regs->isr);
+   205		config_reg = readl(&regs->confr);
+   206		config_reg &= ~ZYNQ_QSPI_CONFIG_MSA_MASK;
+   207		config_reg |= ZYNQ_QSPI_CONFIG_IFMODE_MASK |
+   208			ZYNQ_QSPI_CONFIG_MCS_MASK | ZYNQ_QSPI_CONFIG_PCS_MASK |
+   209			ZYNQ_QSPI_CONFIG_FW_MASK | ZYNQ_QSPI_CONFIG_MSTREN_MASK;
+   210		if (priv->is_dual == SF_DUAL_STACKED_FLASH)
+   211			config_reg |= 0x10;
+   212		writel(config_reg, &regs->confr);
+   213
+   214		if (priv->is_dual == SF_DUAL_PARALLEL_FLASH) {
+   215			if (priv->is_dio == SF_DUALIO_FLASH)
+   216				/* Enable two memories on seperate buses */
+   217				writel((ZYNQ_QSPI_LCFG_TWO_MEM_MASK |
+   218					ZYNQ_QSPI_LCFG_SEP_BUS_MASK |
+   219					(1 << ZYNQ_QSPI_LCFG_DUMMY_SHIFT) |
+   220					ZYNQ_QSPI_FR_DUALIO_CODE),

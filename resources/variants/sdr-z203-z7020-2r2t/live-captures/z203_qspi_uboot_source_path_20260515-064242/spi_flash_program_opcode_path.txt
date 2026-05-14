@@ -1,0 +1,44 @@
+  1465				if ((idcode[0] == SPI_FLASH_CFI_MFR_SPANSION) &&
+  1466				    (idcode[5] == SPI_FLASH_SPANSION_S25FS_FMLY)) {
+  1467					flash->read_cmd = CMD_READ_QUAD_IO_FAST;
+  1468				} else {
+  1469					cmd = spi_read_cmds_array[cmd - 1];
+  1470					flash->read_cmd = cmd;
+  1471				}
+  1472			} else {
+  1473				flash->read_cmd = CMD_READ_DUAL_IO_FAST;
+  1474			}
+  1475		} else {
+  1476			if (idcode[0] == SPI_FLASH_CFI_MFR_ISSI)
+  1477				flash->read_cmd = CMD_READ_QUAD_IO_FAST;
+  1478			else
+  1479				/* Go for default supported read cmd */
+  1480				flash->read_cmd = CMD_READ_ARRAY_FAST;
+  1481		}
+  1482
+  1483		/* Not require to look for fastest only two write cmds yet */
+  1484		if ((params->flags & WR_QPP) &&
+  1485		    (flash->spi->op_mode_tx & SPI_OPM_TX_QPP) &&
+  1486		    (flash->spi->dio != SF_DUALIO_FLASH)) {
+  1487			if ((idcode[0] == SPI_FLASH_CFI_MFR_SPANSION) &&
+  1488			    (idcode[5] == SPI_FLASH_SPANSION_S25FS_FMLY))
+  1489				flash->write_cmd = CMD_PAGE_PROGRAM;
+  1490			else
+  1491				flash->write_cmd = CMD_QUAD_PAGE_PROGRAM;
+  1492		} else {
+  1493			/* Go for default supported write cmd */
+  1494			flash->write_cmd = CMD_PAGE_PROGRAM;
+  1495		}
+  1496
+  1497		/* Set the quad enable bit - only for quad commands */
+  1498		if ((flash->read_cmd == CMD_READ_QUAD_OUTPUT_FAST) ||
+  1499		    (flash->read_cmd == CMD_READ_QUAD_IO_FAST) ||
+  1500		    (flash->write_cmd == CMD_QUAD_PAGE_PROGRAM)) {
+  1501			if (spi_flash_set_qeb(flash, idcode[0])) {
+  1502				debug("SF: Fail to set QEB for %02x\n", idcode[0]);
+  1503				return 0;
+  1504			}
+  1505	#ifdef CONFIG_SF_DUAL_FLASH
+  1506			if (flash->dual_flash & SF_DUAL_STACKED_FLASH) {
+  1507				flash->spi->flags |= SPI_XFER_U_PAGE;
+  1508				if (spi_flash_set_qeb(flash, idcode[0])) {

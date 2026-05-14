@@ -1,0 +1,56 @@
+   470		unsigned long byte_addr, page_size;
+   471		u32 write_addr, bank_addr;
+   472		size_t chunk_len, actual;
+   473		u8 cmd[SPI_FLASH_CMD_LEN + 1];
+   474		int ret = -1;
+   475		u32 cmdlen;
+   476
+   477		page_size = flash->page_size;
+   478
+   479		cmd[0] = flash->write_cmd;
+   480		for (actual = 0; actual < len; actual += chunk_len) {
+   481			write_addr = offset;
+   482			bank_addr = offset;
+   483
+   484	#ifdef CONFIG_SF_DUAL_FLASH
+   485			if (flash->dual_flash > SF_SINGLE_FLASH)
+   486				spi_flash_dual_flash(flash, &write_addr);
+   487			if (flash->dual_flash == SF_DUAL_STACKED_FLASH)
+   488				bank_addr = write_addr;
+   489	#endif
+   490
+   491			if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+   492	#ifdef CONFIG_SPI_FLASH_BAR
+   493				ret = spi_flash_bank(flash, bank_addr);
+   494				if (ret < 0)
+   495					return ret;
+   496	#endif
+   497			}
+   498
+   499			byte_addr = offset % page_size;
+   500			chunk_len = min(len - actual, (size_t)(page_size - byte_addr));
+   501
+   502			if (flash->spi->max_write_size)
+   503				chunk_len = min(chunk_len,
+   504						(size_t)flash->spi->max_write_size);
+   505
+   506			if (flash->spi->bytemode == SPI_4BYTE_MODE) {
+   507				spi_flash_addr(write_addr, cmd, 1);
+   508				cmdlen = SPI_FLASH_CMD_LEN + 1;
+   509			} else {
+   510				spi_flash_addr(write_addr, cmd, 0);
+   511				cmdlen = SPI_FLASH_CMD_LEN;
+   512			}
+   513
+   514			debug("SF: 0x%p => cmd = { 0x%02x 0x%02x%02x%02x } chunk_len = %zu\n",
+   515			      buf + actual, cmd[0], cmd[1], cmd[2], cmd[3], chunk_len);
+   516
+   517	#ifdef CONFIG_SPI_GENERIC
+   518			if (flash->dual_flash == SF_DUAL_PARALLEL_FLASH)
+   519				flash->spi->flags |= SPI_XFER_STRIPE;
+   520	#endif
+   521			ret = spi_flash_write_common(flash, cmd, cmdlen,
+   522						buf + actual, chunk_len);
+   523			if (ret < 0) {
+   524				debug("SF: write failed\n");
+   525				break;

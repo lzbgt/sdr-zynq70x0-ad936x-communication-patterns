@@ -1,0 +1,46 @@
+   600	#ifdef CONFIG_SF_DUAL_FLASH
+   601			if (flash->dual_flash > SF_SINGLE_FLASH)
+   602				spi_flash_dual_flash(flash, &read_addr);
+   603			if (flash->dual_flash == SF_DUAL_STACKED_FLASH)
+   604				bank_addr = read_addr;
+   605	#endif
+   606			if (flash->spi->bytemode != SPI_4BYTE_MODE) {
+   607	#ifdef CONFIG_SPI_FLASH_BAR
+   608				bank_sel = spi_flash_bank(flash, bank_addr);
+   609				if (bank_sel < 0)
+   610					return ret;
+   611				if ((flash->dual_flash == SF_DUAL_STACKED_FLASH) &&
+   612				    (flash->spi->flags & SPI_XFER_U_PAGE))
+   613					bank_sel += (flash->size >> 1)/
+   614						     SPI_FLASH_16MB_BOUN;
+   615	#endif
+   616				remain_len = ((SPI_FLASH_16MB_BOUN << flash->shift) *
+   617						(bank_sel + 1)) - offset;
+   618				if (len < remain_len)
+   619					read_len = len;
+   620				else
+   621					read_len = remain_len;
+   622			} else {
+   623				read_len = len;
+   624			}
+   625
+   626			if (flash->spi->bytemode == SPI_4BYTE_MODE)
+   627				spi_flash_addr(read_addr, cmd, 1);
+   628			else
+   629				spi_flash_addr(read_addr, cmd, 0);
+   630
+   631			debug("%s: Byte Mode:0x%x\n",__func__,  flash->spi->bytemode);
+   632	#ifdef CONFIG_SPI_GENERIC
+   633			if (flash->dual_flash == SF_DUAL_PARALLEL_FLASH)
+   634				flash->spi->flags |= SPI_XFER_STRIPE;
+   635	#endif
+   636
+   637			ret = spi_flash_read_common(flash, cmd, cmdsz, data, read_len);
+   638			if (ret < 0) {
+   639				debug("SF: read failed\n");
+   640				break;
+   641			}
+   642
+   643			offset += read_len;
+   644			len -= read_len;
+   645			data += read_len;

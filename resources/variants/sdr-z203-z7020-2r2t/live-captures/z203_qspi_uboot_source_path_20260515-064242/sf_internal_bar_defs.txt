@@ -1,0 +1,73 @@
+    44	#endif
+    45		SECT_32K	= BIT(1),
+    46		E_FSR		= BIT(2),
+    47		SST_WP		= BIT(3),
+    48		WR_QPP		= BIT(4),
+    49		SST_BP		= BIT(5),
+    50		SST_LOCKBP	= BIT(6),
+    51	};
+    52
+    53	#define SST_WR		(SST_BP | SST_WP)
+    54
+    55	enum spi_nor_option_flags {
+    56		SNOR_F_SST_WR		= BIT(0),
+    57		SNOR_F_USE_FSR		= BIT(1),
+    58	};
+    59
+    60	#define SPI_FLASH_3B_ADDR_LEN		3
+    61	#define SPI_FLASH_CMD_LEN		(1 + SPI_FLASH_3B_ADDR_LEN)
+    62	#define SPI_FLASH_16MB_BOUN		0x1000000
+    63
+    64	/* CFI Manufacture ID's */
+    65	#define SPI_FLASH_CFI_MFR_SPANSION	0x01
+    66	#define SPI_FLASH_CFI_MFR_STMICRO	0x20
+    67	#define SPI_FLASH_CFI_MFR_MACRONIX	0xc2
+    68	#define SPI_FLASH_CFI_MFR_SST		0xbf
+    69	#define SPI_FLASH_CFI_MFR_WINBOND	0xef
+    70	#define SPI_FLASH_CFI_MFR_ATMEL		0x1f
+    71	#define SPI_FLASH_CFI_MFR_ISSI		0x9d
+    72
+    73	#define SPI_FLASH_SPANSION_S25FS_FMLY	0x81
+    74
+    75	/* Erase commands */
+    76	#define CMD_ERASE_4K			0x20
+    77	#define CMD_ERASE_32K			0x52
+    78	#define CMD_ERASE_CHIP			0xc7
+    79	#define CMD_ERASE_64K			0xd8
+    80
+    81	/* Write commands */
+    82	#define CMD_WRITE_STATUS		0x01
+    83	#define CMD_PAGE_PROGRAM		0x02
+    84	#define CMD_WRITE_DISABLE		0x04
+    85	#define CMD_WRITE_ENABLE		0x06
+    86	#define CMD_QUAD_PAGE_PROGRAM		0x32
+    87	#define CMD_WRITE_EVCR			0x61
+    88
+    89	#define CMD_READ_CONFIG			0x35
+    90	#define CMD_FLAG_STATUS			0x70
+    91	/* Used for Micron, Macronix and Winbond flashes */
+    92	#define CMD_ENTER_4B_ADDR		0xB7
+    93	#define CMD_EXIT_4B_ADDR		0xE9
+    94
+    95	/* Read commands */
+    96	#define CMD_READ_ARRAY_SLOW		0x03
+    97	#define CMD_READ_ARRAY_FAST		0x0b
+    98	#define CMD_READ_DUAL_OUTPUT_FAST	0x3b
+    99	#define CMD_READ_DUAL_IO_FAST		0xbb
+   100	#define CMD_READ_QUAD_OUTPUT_FAST	0x6b
+   101	#define CMD_READ_QUAD_IO_FAST		0xeb
+   102	#define CMD_READ_ID			0x9f
+   103	#define CMD_READ_STATUS			0x05
+   104	#define CMD_READ_STATUS1		0x35
+   105	#define CMD_READ_CONFIG			0x35
+   106	#define CMD_FLAG_STATUS			0x70
+   107	#define CMD_READ_EVCR			0x65
+   108
+   109	/* Bank addr access commands */
+   110	#ifdef CONFIG_SPI_FLASH_BAR
+   111	# define CMD_BANKADDR_BRWR		0x17
+   112	# define CMD_BANKADDR_BRRD		0x16
+   113	# define CMD_EXTNADDR_WREAR		0xC5
+   114	# define CMD_EXTNADDR_RDEAR		0xC8
+   115	#endif
+   116

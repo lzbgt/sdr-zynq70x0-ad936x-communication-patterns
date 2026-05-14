@@ -1,0 +1,211 @@
+  1240	int spi_flash_scan(struct spi_flash *flash)
+  1241	{
+  1242		struct spi_slave *spi = flash->spi;
+  1243		const struct spi_flash_params *params;
+  1244		u16 jedec, ext_jedec;
+  1245		u8 idcode[6];
+  1246	#ifdef CONFIG_SPI_GENERIC
+  1247		u8 idcode_up[6];
+  1248		u8 i;
+  1249	#endif
+  1250		u8 cmd;
+  1251		int ret;
+  1252
+  1253
+  1254	#ifdef CONFIG_SPI_GENERIC
+  1255		if (spi->option & SF_DUAL_PARALLEL_FLASH)
+  1256			flash->spi->flags |= SPI_XFER_LOWER;
+  1257	#endif
+  1258
+  1259		/* Read the ID codes */
+  1260		ret = spi_flash_cmd(spi, CMD_READ_ID, idcode, sizeof(idcode));
+  1261		if (ret) {
+  1262			printf("SF: Failed to get idcodes\n");
+  1263			return -EINVAL;
+  1264		}
+  1265
+  1266	#ifdef CONFIG_SPI_GENERIC
+  1267		if (spi->option == SF_DUAL_PARALLEL_FLASH) {
+  1268			spi->flags |= SPI_XFER_UPPER;
+  1269			ret = spi_flash_cmd(spi, CMD_READ_ID, idcode_up,
+  1270					    sizeof(idcode_up));
+  1271			if (ret) {
+  1272				printf("SF: Failed to get idcodes\n");
+  1273				return -EINVAL;
+  1274			}
+  1275			for (i = 0; i < sizeof(idcode); i++) {
+  1276				if (idcode[i] != idcode_up[i]) {
+  1277					printf("SF: Failed to get same idcodes\n");
+  1278					return -EINVAL;
+  1279				}
+  1280			}
+  1281		}
+  1282	#endif
+  1283
+  1284	#ifdef DEBUG
+  1285		printf("SF: Got idcodes\n");
+  1286		print_buffer(0, idcode, 1, sizeof(idcode), 0);
+  1287	#endif
+  1288
+  1289		jedec = idcode[1] << 8 | idcode[2];
+  1290		ext_jedec = idcode[3] << 8 | idcode[4];
+  1291
+  1292		if (jedec == 0xBB19 && ext_jedec == 0x1000 && idcode[5] == 0)
+  1293			pluto_revA = 1;
+  1294		else
+  1295			pluto_revA = 0;
+  1296
+  1297		/* Validate params from spi_flash_params table */
+  1298		params = spi_flash_params_table;
+  1299		for (; params->name != NULL; params++) {
+  1300			if ((params->jedec >> 16) == idcode[0]) {
+  1301				if ((params->jedec & 0xFFFF) == jedec) {
+  1302					if (params->ext_jedec == 0)
+  1303						break;
+  1304					else if (params->ext_jedec == ext_jedec)
+  1305						break;
+  1306				}
+  1307			}
+  1308		}
+  1309
+  1310		if (!params->name) {
+  1311			printf("SF: Unsupported flash IDs: ");
+  1312			printf("manuf %02x, jedec %04x, ext_jedec %04x\n",
+  1313			       idcode[0], jedec, ext_jedec);
+  1314			return -EPROTONOSUPPORT;
+  1315		}
+  1316
+  1317	#ifdef CONFIG_SPI_FLASH_SPANSION
+  1318		/*
+  1319		 * The S25FS-S family physical sectors may be configured as a
+  1320		 * hybrid combination of eight 4-kB parameter sectors
+  1321		 * at the top or bottom of the address space with all
+  1322		 * but one of the remaining sectors being uniform size.
+  1323		 * The Parameter Sector Erase commands (20h or 21h) must
+  1324		 * be used to erase the 4-kB parameter sectors individually.
+  1325		 * The Sector (uniform sector) Erase commands (D8h or DCh)
+  1326		 * must be used to erase any of the remaining
+  1327		 * sectors, including the portion of highest or lowest address
+  1328		 * sector that is not overlaid by the parameter sectors.
+  1329		 * The uniform sector erase command has no effect on parameter sectors.
+  1330		 */
+  1331		if ((jedec == 0x0219 || (jedec == 0x0220)) &&
+  1332		    (ext_jedec & 0xff00) == 0x4d00) {
+  1333			int ret;
+  1334			u8 id[6];
+  1335
+  1336			/* Read the ID codes again, 6 bytes */
+  1337			ret = spi_flash_cmd(flash->spi, CMD_READ_ID, id, sizeof(id));
+  1338			if (ret)
+  1339				return -EIO;
+  1340
+  1341			ret = memcmp(id, idcode, 5);
+  1342			if (ret)
+  1343				return -EIO;
+  1344
+  1345			/* 0x81: S25FS-S family 0x80: S25FL-S family */
+  1346			if (id[5] == 0x81) {
+  1347				ret = spansion_s25fss_disable_4KB_erase(spi);
+  1348				if (ret)
+  1349					return ret;
+  1350			}
+  1351		}
+  1352	#endif
+  1353		/* Flash powers up read-only, so clear BP# bits */
+  1354		if (idcode[0] == SPI_FLASH_CFI_MFR_ATMEL ||
+  1355		    idcode[0] == SPI_FLASH_CFI_MFR_MACRONIX ||
+  1356		    idcode[0] == SPI_FLASH_CFI_MFR_SST)
+  1357			write_sr(flash, 0);
+  1358
+  1359		/* Assign spi data */
+  1360		flash->name = params->name;
+  1361		flash->memory_map = spi->memory_map;
+  1362		flash->dual_flash = flash->spi->option;
+  1363
+  1364		/* Assign spi flash flags */
+  1365		if (params->flags & SST_WR)
+  1366			flash->flags |= SNOR_F_SST_WR;
+  1367
+  1368		/* Assign spi_flash ops */
+  1369	#ifndef CONFIG_DM_SPI_FLASH
+  1370		flash->write = spi_flash_cmd_write_ops;
+  1371	#if defined(CONFIG_SPI_FLASH_SST)
+  1372		if (flash->flags & SNOR_F_SST_WR) {
+  1373			if (flash->spi->op_mode_tx & SPI_OPM_TX_BP)
+  1374				flash->write = sst_write_bp;
+  1375			else
+  1376				flash->write = sst_write_wp;
+  1377		}
+  1378	#endif
+  1379		flash->erase = spi_flash_cmd_erase_ops;
+  1380		flash->read = spi_flash_cmd_read_ops;
+  1381	#endif
+  1382
+  1383		/* lock hooks are flash specific - assign them based on idcode0 */
+  1384		switch (idcode[0]) {
+  1385	#if defined(CONFIG_SPI_FLASH_STMICRO) || defined(CONFIG_SPI_FLASH_SST)
+  1386		case SPI_FLASH_CFI_MFR_STMICRO:
+  1387		case SPI_FLASH_CFI_MFR_SST:
+  1388			flash->flash_lock = stm_lock;
+  1389			flash->flash_unlock = stm_unlock;
+  1390			flash->flash_is_locked = stm_is_locked;
+  1391	#endif
+  1392			break;
+  1393		default:
+  1394			debug("SF: Lock ops not supported for %02x flash\n", idcode[0]);
+  1395		}
+  1396
+  1397		/* Compute the flash size */
+  1398		flash->shift = (flash->dual_flash & SF_DUAL_PARALLEL_FLASH) ? 1 : 0;
+  1399		/*
+  1400		 * The Spansion S25FL032P and S25FL064P have 256b pages, yet use the
+  1401		 * 0x4d00 Extended JEDEC code. The rest of the Spansion flashes with
+  1402		 * the 0x4d00 Extended JEDEC code have 512b pages. All of the others
+  1403		 * have 256b pages.
+  1404		 */
+  1405		if (ext_jedec == 0x4d00) {
+  1406			if ((jedec == 0x0215) || (jedec == 0x216) || (jedec == 0x220))
+  1407				flash->page_size = 256;
+  1408			else
+  1409				flash->page_size = 512;
+  1410		} else {
+  1411			flash->page_size = 256;
+  1412		}
+  1413		flash->page_size <<= flash->shift;
+  1414		flash->sector_size = params->sector_size << flash->shift;
+  1415		flash->size = flash->sector_size * params->nr_sectors;
+  1416
+  1417		/*
+  1418		 * So far, the 4-byte address mode haven't been supported in U-Boot,
+  1419		 * and make sure the chip (> 16MiB) in default 3-byte address mode,
+  1420		 * in case of warm bootup, the chip was set to 4-byte mode in kernel.
+  1421		 */
+  1422		if ((flash->size >> flash->shift) > SPI_FLASH_16MB_BOUN) {
+  1423			if (flash->spi->bytemode == SPI_4BYTE_MODE) {
+  1424				if (spi_flash_cmd_4B_addr_switch(flash, true,
+  1425								 idcode[0]) < 0)
+  1426					printf("SF: enter 4B address mode failed\n");
+  1427			} else {
+  1428				if (spi_flash_cmd_4B_addr_switch(flash, false,
+  1429								 idcode[0]) < 0)
+  1430					printf("SF: enter 3B address mode failed\n");
+  1431			}
+  1432		} else {
+  1433			/*
+  1434			 * Clear the 4-byte support if the flash size is
+  1435			 * less than 16MB
+  1436			 */
+  1437			if (flash->spi->bytemode == SPI_4BYTE_MODE)
+  1438				flash->spi->bytemode = 0;
+  1439		}
+  1440
+  1441	#ifdef CONFIG_SF_DUAL_FLASH
+  1442		if (flash->dual_flash & SF_DUAL_STACKED_FLASH)
+  1443			flash->size <<= 1;
+  1444	#endif
+  1445
+  1446		/* Compute erase sector and command */
+  1447		if (params->flags & SECT_4K) {
+  1448			flash->erase_cmd = CMD_ERASE_4K;
+  1449			flash->erase_size = 4096 << flash->shift;
+  1450		} else if (params->flags & SECT_32K) {

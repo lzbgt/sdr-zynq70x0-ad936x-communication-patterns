@@ -1,0 +1,101 @@
+   150			flash->spi->flags |= SPI_XFER_UPPER;
+   151			dataup[1] = wc;
+   152			ret = spi_flash_write_common(flash, &cmd, 1, &dataup, 2);
+   153			if (ret) {
+   154				debug("SF: fail to write config register\n");
+   155				return ret;
+   156			}
+   157		}
+   158	#endif
+   159
+   160		return 0;
+   161	}
+   162	#endif
+   163
+   164	#ifdef CONFIG_SPI_FLASH_BAR
+   165	static int spi_flash_write_bar(struct spi_flash *flash, u32 offset)
+   166	{
+   167		u8 cmd, bank_sel, upage_curr;
+   168		int ret;
+   169
+   170		bank_sel = offset / (SPI_FLASH_16MB_BOUN << flash->shift);
+   171
+   172		upage_curr = flash->spi->flags & SPI_XFER_U_PAGE;
+   173
+   174		if (flash->dual_flash != SF_DUAL_STACKED_FLASH) {
+   175			if (flash->bank_curr == bank_sel) {
+   176				debug("SF: not require to enable bank%d\n", bank_sel);
+   177				goto bar_end;
+   178			}
+   179		} else if (flash->upage_prev == upage_curr) {
+   180			if (flash->bank_curr == bank_sel) {
+   181				debug("SF: not require to enable bank%d\n", bank_sel);
+   182				goto bar_end;
+   183			}
+   184		} else {
+   185			flash->upage_prev = upage_curr;
+   186		}
+   187
+   188		cmd = flash->bank_write_cmd;
+   189		ret = spi_flash_write_common(flash, &cmd, 1, &bank_sel, 1);
+   190		if (ret < 0) {
+   191			debug("SF: fail to write bank register\n");
+   192			return ret;
+   193		}
+   194
+   195	bar_end:
+   196		flash->bank_curr = bank_sel;
+   197		return flash->bank_curr;
+   198	}
+   199
+   200	static int spi_flash_read_bar(struct spi_flash *flash, u8 idcode0)
+   201	{
+   202		u8 curr_bank = 0;
+   203	#ifdef CONFIG_SPI_GENERIC
+   204		u8 curr_bank_up = 0;
+   205	#endif
+   206		int ret;
+   207
+   208		if (flash->size <= SPI_FLASH_16MB_BOUN)
+   209			goto bank_end;
+   210
+   211		switch (idcode0) {
+   212		case SPI_FLASH_CFI_MFR_SPANSION:
+   213			flash->bank_read_cmd = CMD_BANKADDR_BRRD;
+   214			flash->bank_write_cmd = CMD_BANKADDR_BRWR;
+   215			break;
+   216		default:
+   217			flash->bank_read_cmd = CMD_EXTNADDR_RDEAR;
+   218			flash->bank_write_cmd = CMD_EXTNADDR_WREAR;
+   219		}
+   220
+   221	#ifdef CONFIG_SPI_GENERIC
+   222		if (flash->dual_flash == SF_DUAL_PARALLEL_FLASH) {
+   223			flash->spi->flags |= SPI_XFER_LOWER;
+   224			ret = spi_flash_read_common(flash, &flash->bank_read_cmd, 1,
+   225						    &curr_bank, 1);
+   226			if (ret)
+   227				return ret;
+   228
+   229			flash->spi->flags |= SPI_XFER_UPPER;
+   230			ret = spi_flash_read_common(flash, &flash->bank_read_cmd, 1,
+   231						    &curr_bank_up, 1);
+   232			if (ret)
+   233				return ret;
+   234			if (curr_bank != curr_bank_up) {
+   235				printf("Incorrect Bank selections Dual parallel\n");
+   236				return -EINVAL;
+   237			}
+   238		} else {
+   239	#endif
+   240			ret = spi_flash_read_common(flash, &flash->bank_read_cmd, 1,
+   241						    &curr_bank, 1);
+   242			if (ret) {
+   243				debug("SF: fail to read bank addr register\n");
+   244				return ret;
+   245			}
+   246	#ifdef CONFIG_SPI_GENERIC
+   247		}
+   248	#endif
+   249
+   250	bank_end:
