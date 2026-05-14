@@ -4023,6 +4023,32 @@ the next useful diagnostic is a controlled program-mode/status comparison or a
 guarded scratch write on a known-good board before attempting another Z203 FIT
 write.
 
+The known-good Z103 comparison probe was then run against only an already-erased
+tail scratch eraseblock:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_linux_qspi_scratch_write_20260515-070302 \
+APPLY=1 ALLOW_FLASH_WRITES=1 ALLOW_Z103_LINUX_QSPI_SCRATCH_TEST=1 \
+  ./tools/test_z103_linux_qspi_scratch_write.sh 192.168.3.1
+```
+
+Result: passed. The precondition confirmed the full scratch eraseblock was
+already all `0xff`; Linux `mtd_debug erase` read back all `0xff`; a 4 KiB
+all-zero `mtd_debug write` read back exactly; rollback erase read back all
+`0xff`; and the installed Z103 daemon gate passed afterward:
+
+```sh
+VARIANT=z103 BOARD_IP=192.168.3.1 UPLOAD_IF_MISSING=0 PORT=55452 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_post_qspi_scratch_daemon_20260515-070315 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+This proves the same product-family Linux MTD/SPI-NOR path can program and
+rollback scratch QSPI correctly on Z103. The Z203 failure is therefore not a
+generic repo/test-script assumption and not explained by the Linux debugfs
+opcode alone. Full Z203 QSPI FIT repair remains blocked until a Z203 small
+program/readback path passes.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

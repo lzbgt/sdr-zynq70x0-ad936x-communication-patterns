@@ -357,6 +357,9 @@ user and vendor configuration.
 - `tools/diagnose_fieldmesh_qspi_cross_board_status.sh` - read-only Z203/Z103
   QSPI, SPI-NOR, clock, debugfs, and controller-register comparison before any
   further Z203 QSPI repair attempt.
+- `tools/test_z103_linux_qspi_scratch_write.sh` - guarded Z103 Linux MTD
+  scratch-erasure/program/readback/rollback probe used as the healthy-board
+  comparison for Z203 QSPI failures.
 - `tools/backup_z103_qspi_live.sh` - Z103-specific wrapper around the live QSPI
   backup helper, defaulting to the Z103 resource tree and `root`/`analog`.
 - `tools/stage_sd_boot_files.sh` - create SD-card boot staging directories for

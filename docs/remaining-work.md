@@ -147,7 +147,13 @@ Firmware state:
   register identity. The next probe must isolate program transfer/status/config
   or flash hardware behavior directly, ideally by comparing a guarded scratch
   write on the healthy Z103 or forcing a controlled non-QPP/non-quad program
-  mode before any Z203 full-FIT write.
+  mode before any Z203 full-FIT write. The guarded Z103 Linux MTD scratch probe
+  has now passed: the selected tail eraseblock was already all `0xff`, a 4 KiB
+  all-zero program read back exactly, rollback erase read back all `0xff`, and
+  the installed Z103 daemon passed afterward. That makes the remaining Z203
+  blocker board-specific to Z203 flash programming, Z203 QSPI-controller
+  electrical/config behavior, or the Z203 flash device itself; do not retry a
+  Z203 full-FIT write until a Z203 small program/readback path passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
