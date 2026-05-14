@@ -42,6 +42,12 @@ def main() -> int:
         "begin_panel(\"Peers\"",
         "begin_panel(\"Messages\"",
         "append_message_bus",
+        "append_bus_event",
+        "INVITE_VIDEO",
+        "INVITE_SCREEN",
+        "ACCEPT_VIDEO",
+        "FRAME_VIDEO",
+        "FRAME_SCREEN",
         "poll_message_bus",
         "begin_panel(\"Conversation\"",
         "Connected local board",
@@ -210,6 +216,10 @@ def main() -> int:
         raise SystemExit("ImGui app must support camera publishing")
     if snapshot.get("video_subscribe_available") is not True:
         raise SystemExit("ImGui app must support camera subscription")
+    if snapshot.get("screen_share_available") is not True:
+        raise SystemExit("ImGui app must support screen sharing")
+    if snapshot.get("screen_buffer_source") != "host_screen_buffer":
+        raise SystemExit("screen share must use the host screen buffer source")
     if snapshot.get("camera_publish_enabled") is not False:
         raise SystemExit("ImGui app must not hardcode publish state")
     if snapshot.get("camera_preview_enabled") is not False:

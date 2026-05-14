@@ -165,6 +165,143 @@ def main() -> int:
                 raise SystemExit("peer GUI instance did not receive IM message")
             if recv["last_received_text"] != "hello fieldmesh peer":
                 raise SystemExit("received IM text changed")
+
+            invite_snapshot = Path(tmp) / "video_invite.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--api-open-chat",
+                    "02aabb000002",
+                    "--api-publish-camera",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(invite_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            receiver_invite_snapshot = Path(tmp) / "video_receiver_invite.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(receiver_invite_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            receiver_invite = json.loads(receiver_invite_snapshot.read_text(encoding="utf-8"))
+            if receiver_invite["incoming_video_invite"] is not True:
+                raise SystemExit("peer GUI instance did not receive video invite")
+            if receiver_invite["media_session_kind"] != "video":
+                raise SystemExit("video invite did not preserve media kind")
+
+            accept_snapshot = Path(tmp) / "video_accept.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000002",
+                    "--api-accept-video",
+                    "--snapshot-output",
+                    str(accept_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            sender_active_snapshot = Path(tmp) / "video_sender_active.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--snapshot-output",
+                    str(sender_active_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            sender_active = json.loads(sender_active_snapshot.read_text(encoding="utf-8"))
+            if sender_active["video_session_active"] is not True:
+                raise SystemExit("video sender did not enter active session after accept")
+            if sender_active["frames_tx"] < 1:
+                raise SystemExit("video sender did not enqueue a camera frame")
+            receiver_frame_snapshot = Path(tmp) / "video_receiver_frame.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(receiver_frame_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            receiver_frame = json.loads(receiver_frame_snapshot.read_text(encoding="utf-8"))
+            if receiver_frame["frames_rx"] < 1:
+                raise SystemExit("video receiver did not receive camera frame")
+
+            screen_env = env.copy()
+            screen_env["FIELDMESH_IM_BUS_DIR"] = str(Path(tmp) / "screen-im-bus")
+            screen_invite_snapshot = Path(tmp) / "screen_invite.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--api-open-chat",
+                    "02aabb000002",
+                    "--api-share-screen",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(screen_invite_snapshot),
+                ],
+                check=True,
+                env=screen_env,
+            )
+            screen_receiver_snapshot = Path(tmp) / "screen_receiver.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(screen_receiver_snapshot),
+                ],
+                check=True,
+                env=screen_env,
+            )
+            screen_receiver = json.loads(screen_receiver_snapshot.read_text(encoding="utf-8"))
+            if screen_receiver["incoming_video_invite"] is not True:
+                raise SystemExit("peer GUI instance did not receive screen-share invite")
+            if screen_receiver["media_session_kind"] != "screen":
+                raise SystemExit("screen-share invite did not preserve media kind")
     finally:
         for thread in threads:
             thread.join(timeout=1.0)

@@ -59,6 +59,7 @@ struct GuiCamera {
     bool session_active;
     std::string source_name;
     std::string preview_name;
+    std::string session_kind;
     std::string dst_device_eui;
     std::string subscribed_device_eui;
     std::string pending_peer_eui;
@@ -374,9 +375,10 @@ std::string hex_decode(const std::string &hex)
     return out;
 }
 
-bool append_message_bus(const std::string &src_eui,
-                        const std::string &dst_eui,
-                        const std::string &text)
+bool append_bus_event(const std::string &src_eui,
+                      const std::string &dst_eui,
+                      const std::string &event_type,
+                      const std::string &text)
 {
     std::string path = message_bus_path(dst_eui);
     FILE *out = std::fopen(path.c_str(), "ab");
@@ -384,9 +386,17 @@ bool append_message_bus(const std::string &src_eui,
     if (!out) {
         return false;
     }
-    std::fprintf(out, "%s|%s|%s\n", src_eui.c_str(), dst_eui.c_str(),
+    std::fprintf(out, "%s|%s|%s|%s\n", src_eui.c_str(), dst_eui.c_str(),
+                 event_type.c_str(),
                  hex_encode(text).c_str());
     return std::fclose(out) == 0;
+}
+
+bool append_message_bus(const std::string &src_eui,
+                        const std::string &dst_eui,
+                        const std::string &text)
+{
+    return append_bus_event(src_eui, dst_eui, "MESSAGE", text);
 }
 
 void mark_conversation_unread(GuiState *state, const std::string &peer_eui)
@@ -423,13 +433,23 @@ bool poll_message_bus(GuiState *state)
         std::size_t first = row.find('|');
         std::size_t second = first == std::string::npos ?
                              std::string::npos : row.find('|', first + 1u);
+        std::size_t third = second == std::string::npos ?
+                            std::string::npos : row.find('|', second + 1u);
 
         if (second == std::string::npos) {
             continue;
         }
         std::string src = row.substr(0u, first);
         std::string dst = row.substr(first + 1u, second - first - 1u);
-        std::string payload_hex = row.substr(second + 1u);
+        std::string event_type = "MESSAGE";
+        std::string payload_hex;
+
+        if (third == std::string::npos) {
+            payload_hex = row.substr(second + 1u);
+        } else {
+            event_type = row.substr(second + 1u, third - second - 1u);
+            payload_hex = row.substr(third + 1u);
+        }
 
         while (!payload_hex.empty() &&
                (payload_hex.back() == '\n' || payload_hex.back() == '\r')) {
@@ -441,10 +461,66 @@ bool poll_message_bus(GuiState *state)
             continue;
         }
         std::string text = hex_decode(payload_hex);
-        state->messages.push_back({src, "rx", text, "received"});
-        state->messages_received += 1u;
-        mark_conversation_unread(state, src);
-        received = true;
+        if (event_type == "MESSAGE") {
+            state->messages.push_back({src, "rx", text, "received"});
+            state->messages_received += 1u;
+            mark_conversation_unread(state, src);
+            received = true;
+        } else if (event_type == "INVITE_VIDEO" || event_type == "INVITE_SCREEN") {
+            state->camera.incoming_invite = true;
+            state->camera.invite_pending = false;
+            state->camera.pending_peer_eui = src;
+            state->camera.subscribed_device_eui = src;
+            state->camera.session_kind =
+                event_type == "INVITE_VIDEO" ? "video" : "screen";
+            state->camera.preview_name =
+                event_type == "INVITE_VIDEO" ? "remote built-in camera preview" :
+                                               "remote screen preview";
+            state->operation_status =
+                event_type == "INVITE_VIDEO" ? "video_invite_received" :
+                                               "screen_share_invite_received";
+            received = true;
+        } else if (event_type == "ACCEPT_VIDEO" || event_type == "ACCEPT_SCREEN") {
+            const bool is_video = event_type == "ACCEPT_VIDEO";
+            state->camera.invite_pending = false;
+            state->camera.incoming_invite = false;
+            state->camera.session_active = true;
+            state->camera.publish_enabled = true;
+            state->camera.dst_device_eui = src;
+            state->camera.session_kind = is_video ? "video" : "screen";
+            state->camera.frames_tx += 1u;
+            state->camera.queued_to_rf_engine += 1u;
+            (void)append_bus_event(state->selected_board_eui, src,
+                                   is_video ? "FRAME_VIDEO" : "FRAME_SCREEN",
+                                   is_video ? "builtin-camera-frame" :
+                                              "screen-buffer-frame");
+            state->operation_status =
+                is_video ? "video_session_started" :
+                           "screen_share_session_started";
+            received = true;
+        } else if (event_type == "DENY_VIDEO" || event_type == "DENY_SCREEN") {
+            state->camera.invite_pending = false;
+            state->camera.session_active = false;
+            state->camera.publish_enabled = false;
+            state->operation_status =
+                event_type == "DENY_VIDEO" ? "video_invite_denied_by_peer" :
+                                             "screen_share_denied_by_peer";
+            received = true;
+        } else if (event_type == "FRAME_VIDEO" || event_type == "FRAME_SCREEN") {
+            state->camera.session_active = true;
+            state->camera.preview_enabled = true;
+            state->camera.subscribed_device_eui = src;
+            state->camera.session_kind =
+                event_type == "FRAME_VIDEO" ? "video" : "screen";
+            state->camera.frames_rx += 1u;
+            state->camera.preview_name =
+                event_type == "FRAME_VIDEO" ? "remote built-in camera preview" :
+                                              "remote screen preview";
+            state->operation_status =
+                event_type == "FRAME_VIDEO" ? "video_frame_received" :
+                                              "screen_frame_received";
+            received = true;
+        }
     }
     long offset = std::ftell(in);
     if (offset >= 0) {
@@ -501,6 +577,7 @@ void populate_demo_state(GuiState *state)
     state->camera.session_active = false;
     state->camera.source_name = "Built-in camera";
     state->camera.preview_name = "platform preview pipe";
+    state->camera.session_kind = "idle";
     state->camera.dst_device_eui.clear();
     state->camera.subscribed_device_eui.clear();
     state->camera.pending_peer_eui.clear();
@@ -790,14 +867,42 @@ bool api_send_message(GuiState *state, const std::string &text)
     return true;
 }
 
-bool api_publish_camera(GuiState *state, const std::string &dst_eui)
+bool start_media_invite(GuiState *state, const std::string &dst_eui,
+                        const std::string &kind)
 {
+    if (state->selected_board_eui.empty() ||
+        dst_eui.empty() ||
+        dst_eui == state->selected_board_eui) {
+        return false;
+    }
+    const bool is_video = kind == "video";
+    if (!append_bus_event(state->selected_board_eui, dst_eui,
+                          is_video ? "INVITE_VIDEO" : "INVITE_SCREEN",
+                          is_video ? "builtin-camera" : "screen-buffer")) {
+        state->operation_status = is_video ? "video_invite_failed" :
+                                             "screen_share_invite_failed";
+        return false;
+    }
     state->camera.dst_device_eui = dst_eui;
     state->camera.pending_peer_eui = dst_eui;
     state->camera.invite_pending = true;
+    state->camera.incoming_invite = false;
     state->camera.publish_enabled = false;
-    state->operation_status = "python_api_video_invite_sent";
+    state->camera.session_active = false;
+    state->camera.session_kind = kind;
+    state->operation_status = is_video ? "python_api_video_invite_sent" :
+                                         "screen_share_invite_sent";
     return true;
+}
+
+bool api_publish_camera(GuiState *state, const std::string &dst_eui)
+{
+    return start_media_invite(state, dst_eui, "video");
+}
+
+bool api_share_screen(GuiState *state, const std::string &dst_eui)
+{
+    return start_media_invite(state, dst_eui, "screen");
 }
 
 bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
@@ -805,6 +910,7 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.subscribed_device_eui = src_eui;
     state->camera.preview_enabled = true;
     state->camera.session_active = true;
+    state->camera.session_kind = "video";
     state->camera.frames_rx += 1u;
     state->operation_status = "python_api_camera_subscribe_started";
     return true;
@@ -834,7 +940,13 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.invite_pending = false;
     state->camera.session_active = true;
     state->camera.preview_enabled = true;
+    state->camera.publish_enabled = false;
     state->camera.subscribed_device_eui = state->camera.pending_peer_eui;
+    (void)append_bus_event(state->selected_board_eui,
+                           state->camera.pending_peer_eui,
+                           state->camera.session_kind == "screen" ?
+                               "ACCEPT_SCREEN" : "ACCEPT_VIDEO",
+                           "accepted");
     state->operation_status = "video_invite_accepted";
     return true;
 }
@@ -848,7 +960,14 @@ bool api_subscribe_camera(GuiState *state, const std::string &src_eui)
     state->camera.invite_pending = false;
     state->camera.session_active = false;
     state->camera.preview_enabled = false;
+    state->camera.publish_enabled = false;
+    (void)append_bus_event(state->selected_board_eui,
+                           state->camera.pending_peer_eui,
+                           state->camera.session_kind == "screen" ?
+                               "DENY_SCREEN" : "DENY_VIDEO",
+                           "denied");
     state->camera.pending_peer_eui.clear();
+    state->camera.session_kind = "idle";
     state->operation_status = "video_invite_denied";
     return true;
 }
@@ -916,9 +1035,13 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"detected_board_count\": %lu,\n"
                  "  \"host_camera_selection\": true,\n"
                  "  \"video_invite_pending\": %s,\n"
+                 "  \"incoming_video_invite\": %s,\n"
                  "  \"video_accept_deny_available\": true,\n"
                  "  \"video_session_active\": %s,\n"
                  "  \"selected_camera_name\": \"%s\",\n"
+                 "  \"media_session_kind\": \"%s\",\n"
+                 "  \"screen_share_available\": true,\n"
+                 "  \"screen_buffer_source\": \"host_screen_buffer\",\n"
                  "  \"advanced_radio_options\": true,\n"
                  "  \"radio_config_drop_downs\": true,\n"
                  "  \"radio_profile_name\": \"%s\",\n"
@@ -1007,8 +1130,10 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.connected_to_board ? "true" : "false",
                  static_cast<unsigned long>(state.boards.size()),
                  state.camera.invite_pending ? "true" : "false",
+                 state.camera.incoming_invite ? "true" : "false",
                  state.camera.session_active ? "true" : "false",
                  state.camera.source_name.c_str(),
+                 state.camera.session_kind.c_str(),
                  state.radio.profile_name.c_str(),
                  state.radio.frequency_mhz,
                  state.radio.channel_index,
@@ -1623,7 +1748,7 @@ void render_conversation_actions(GuiState *state)
     }
     ImGui::SameLine();
     if (ImGui::Button("Share Screen", ImVec2(116.0f, 30.0f))) {
-        state->operation_status = "screen_share_invite_requested";
+        (void)api_share_screen(state, peer_eui);
     }
     if (state->camera.invite_pending) {
         ImGui::Text("Video invite pending: %s",
@@ -1636,7 +1761,8 @@ void render_conversation_actions(GuiState *state)
     }
     if (state->camera.incoming_invite) {
         ImGui::Separator();
-        ImGui::Text("Incoming video invite from %s",
+        ImGui::Text("Incoming %s invite from %s",
+                    state->camera.session_kind.c_str(),
                     state->camera.pending_peer_eui.c_str());
         if (ImGui::Button("Accept", ImVec2(90.0f, 28.0f))) {
             (void)accept_video_invite(state);
@@ -1647,7 +1773,9 @@ void render_conversation_actions(GuiState *state)
         }
     }
     ImGui::Separator();
-    ImGui::Text("Session: %s", state->camera.session_active ? "active" : "idle");
+    ImGui::Text("Session: %s  %s", state->camera.session_active ? "active" : "idle",
+                state->camera.session_kind.c_str());
+    ImGui::Text("Preview: %s", state->camera.preview_name.c_str());
     ImGui::Text("Frames TX/RX: %u/%u", state->camera.frames_tx,
                 state->camera.frames_rx);
     ImGui::Text("RF queued: %u", state->camera.queued_to_rf_engine);
@@ -1771,7 +1899,10 @@ int main(int argc, char **argv)
     const char *discover_candidates = nullptr;
     bool api_browse = false;
     bool api_publish = false;
+    bool api_share = false;
     bool api_subscribe = false;
+    bool api_accept = false;
+    bool api_deny = false;
     bool api_run_python = false;
     bool profile_loaded = false;
 
@@ -1810,9 +1941,16 @@ int main(int argc, char **argv)
         } else if (std::strcmp(argv[i], "--api-publish-camera") == 0 && i + 1 < argc) {
             api_publish = true;
             api_camera_dst = argv[++i];
+        } else if (std::strcmp(argv[i], "--api-share-screen") == 0 && i + 1 < argc) {
+            api_share = true;
+            api_camera_dst = argv[++i];
         } else if (std::strcmp(argv[i], "--api-subscribe-camera") == 0 && i + 1 < argc) {
             api_subscribe = true;
             api_camera_dst = argv[++i];
+        } else if (std::strcmp(argv[i], "--api-accept-video") == 0) {
+            api_accept = true;
+        } else if (std::strcmp(argv[i], "--api-deny-video") == 0) {
+            api_deny = true;
         } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
             api_run_python = true;
         } else {
@@ -1823,7 +1961,8 @@ int main(int argc, char **argv)
                          "[--api-browse] [--api-select-board EUI] "
                          "[--api-elect-ap EUI] [--api-open-chat EUI] "
                          "[--api-send-message TEXT] [--api-publish-camera EUI] "
-                         "[--api-subscribe-camera EUI] [--api-run-python]\n",
+                         "[--api-share-screen EUI] [--api-subscribe-camera EUI] "
+                         "[--api-accept-video] [--api-deny-video] [--api-run-python]\n",
                          argv[0]);
             return 2;
         }
@@ -1854,7 +1993,17 @@ int main(int argc, char **argv)
     if (api_publish && !api_publish_camera(&state, api_camera_dst)) {
         return 1;
     }
+    if (api_share && !api_share_screen(&state, api_camera_dst)) {
+        return 1;
+    }
     if (api_subscribe && !api_subscribe_camera(&state, api_camera_dst)) {
+        return 1;
+    }
+    (void)poll_message_bus(&state);
+    if (api_accept && !accept_video_invite(&state)) {
+        return 1;
+    }
+    if (api_deny && !deny_video_invite(&state)) {
         return 1;
     }
     if (api_run_python && !run_python_automation(&state)) {

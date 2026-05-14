@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import sys
+import os
+from tempfile import TemporaryDirectory
 
 from fieldmesh_imgui_pyapi import FieldMeshGuiClient
 
 
 def main() -> int:
+    bus_tmp = TemporaryDirectory(prefix="fieldmesh-imgui-pyapi-bus-")
+    os.environ["FIELDMESH_IM_BUS_DIR"] = bus_tmp.name
     client = FieldMeshGuiClient(sys.argv[1], sys.argv[2])
     selected = client.select_board("020000000103")
     if selected.selected_board_eui != "020000000103":

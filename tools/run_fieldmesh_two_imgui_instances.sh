@@ -9,8 +9,12 @@ z203_ip="${Z203_IP:-192.168.1.10}"
 z103_ip="${Z103_IP:-192.168.3.1}"
 profile="${PROFILE:-$app_dir/testdata/golden_lab.profile}"
 skip_build="${SKIP_BUILD:-0}"
+bus_dir="$out_dir/im-bus"
+screen_bus_dir="$out_dir/screen-im-bus"
 
 mkdir -p "$out_dir"
+rm -rf "$bus_dir" "$screen_bus_dir"
+mkdir -p "$bus_dir" "$screen_bus_dir"
 
 if [ "$skip_build" != "1" ]; then
     make -C "$app_dir" BUILD_DIR="$build_dir" all >/dev/null
@@ -22,7 +26,7 @@ if [ ! -x "$app" ]; then
     exit 1
 fi
 
-"$app" --self-test \
+FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_a_gui_snapshot.json" \
     --daemon-host "$z203_ip" \
@@ -31,23 +35,58 @@ fi
     --api-elect-ap 020000000103 \
     --api-open-chat 020000000103 \
     --api-send-message "hello from z203 gui" \
-    --api-publish-camera 020000000103 \
-    --api-subscribe-camera 020000000103
+    --api-publish-camera 020000000103
 
-"$app" --self-test \
+FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
-    --snapshot-output "$out_dir/peer_b_gui_snapshot.json" \
+    --snapshot-output "$out_dir/peer_b_invite_snapshot.json" \
     --daemon-host "$z103_ip" \
     --api-browse \
     --api-select-board 020000000103 \
     --api-elect-ap 020000000103 \
+    --api-open-chat 020000000203
+
+FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+    --profile "$profile" \
+    --snapshot-output "$out_dir/peer_b_accept_snapshot.json" \
+    --daemon-host "$z103_ip" \
+    --api-select-board 020000000103 \
     --api-open-chat 020000000203 \
-    --api-send-message "hello from z103 gui" \
-    --api-publish-camera 020000000203 \
-    --api-subscribe-camera 020000000203
+    --api-accept-video
+
+FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+    --profile "$profile" \
+    --snapshot-output "$out_dir/peer_a_active_snapshot.json" \
+    --daemon-host "$z203_ip" \
+    --api-select-board 020000000203 \
+    --api-open-chat 020000000103
+
+FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+    --profile "$profile" \
+    --snapshot-output "$out_dir/peer_b_frame_snapshot.json" \
+    --daemon-host "$z103_ip" \
+    --api-select-board 020000000103 \
+    --api-open-chat 020000000203
+
+FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
+    --profile "$profile" \
+    --snapshot-output "$out_dir/peer_a_screen_invite_snapshot.json" \
+    --daemon-host "$z203_ip" \
+    --api-select-board 020000000203 \
+    --api-open-chat 020000000103 \
+    --api-share-screen 020000000103
+
+FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
+    --profile "$profile" \
+    --snapshot-output "$out_dir/peer_b_screen_invite_snapshot.json" \
+    --daemon-host "$z103_ip" \
+    --api-select-board 020000000103 \
+    --api-open-chat 020000000203
 
 PYTHONPATH="$app_dir" python3 - "$app" "$out_dir" "$profile" <<'PY'
 import json
+import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -57,8 +96,17 @@ app = Path(sys.argv[1])
 out_dir = Path(sys.argv[2])
 profile = Path(sys.argv[3])
 peer_a = json.loads((out_dir / "peer_a_gui_snapshot.json").read_text(encoding="utf-8"))
-peer_b = json.loads((out_dir / "peer_b_gui_snapshot.json").read_text(encoding="utf-8"))
+peer_b = json.loads((out_dir / "peer_b_invite_snapshot.json").read_text(encoding="utf-8"))
+peer_b_accept = json.loads((out_dir / "peer_b_accept_snapshot.json").read_text(encoding="utf-8"))
+peer_a_active = json.loads((out_dir / "peer_a_active_snapshot.json").read_text(encoding="utf-8"))
+peer_b_frame = json.loads((out_dir / "peer_b_frame_snapshot.json").read_text(encoding="utf-8"))
+peer_a_screen = json.loads((out_dir / "peer_a_screen_invite_snapshot.json").read_text(encoding="utf-8"))
+peer_b_screen = json.loads((out_dir / "peer_b_screen_invite_snapshot.json").read_text(encoding="utf-8"))
 client = FieldMeshGuiClient(app, profile)
+api_bus = out_dir / "api-im-bus"
+shutil.rmtree(api_bus, ignore_errors=True)
+api_bus.mkdir(parents=True, exist_ok=True)
+os.environ["FIELDMESH_IM_BUS_DIR"] = str(api_bus)
 
 if peer_a.get("selected_board_eui") != "020000000203":
     raise SystemExit("peer A GUI instance did not select Z203")
@@ -66,20 +114,34 @@ if peer_b.get("selected_board_eui") != "020000000103":
     raise SystemExit("peer B GUI instance did not select Z103")
 if peer_a.get("video_invite_pending") is not True:
     raise SystemExit("peer A GUI instance did not create a video invite")
-if peer_a.get("camera_preview_enabled") is not True:
-    raise SystemExit("peer A GUI instance did not subscribe")
-if peer_b.get("video_invite_pending") is not True:
-    raise SystemExit("peer B GUI instance did not create a video invite")
-if peer_b.get("camera_preview_enabled") is not True:
-    raise SystemExit("peer B GUI instance did not subscribe")
+if peer_b.get("incoming_video_invite") is not True:
+    raise SystemExit("peer B GUI instance did not receive video invite")
+if peer_b.get("media_session_kind") != "video":
+    raise SystemExit("peer B GUI did not preserve video media kind")
+if peer_b.get("messages_received", 0) < 1:
+    raise SystemExit("peer B GUI did not receive peer A message")
+if peer_b.get("last_received_text") != "hello from z203 gui":
+    raise SystemExit("peer B GUI last received text changed")
+if peer_b_accept.get("video_session_active") is not True:
+    raise SystemExit("peer B GUI did not accept video session")
+if peer_a_active.get("video_session_active") is not True:
+    raise SystemExit("peer A GUI did not start video after accept")
+if peer_a_active.get("frames_tx", 0) < 1:
+    raise SystemExit("peer A GUI did not enqueue built-in camera frame")
+if peer_b_frame.get("frames_rx", 0) < 1:
+    raise SystemExit("peer B GUI did not receive built-in camera frame")
+if peer_a_screen.get("video_invite_pending") is not True:
+    raise SystemExit("peer A GUI did not create screen-share invite")
+if peer_b_screen.get("incoming_video_invite") is not True:
+    raise SystemExit("peer B GUI did not receive screen-share invite")
+if peer_b_screen.get("media_session_kind") != "screen":
+    raise SystemExit("peer B GUI did not preserve screen-share media kind")
 if peer_a.get("camera_dst_eui") != "020000000103":
     raise SystemExit("peer A publish destination changed")
 if peer_b.get("camera_dst_eui") != "020000000203":
     raise SystemExit("peer B publish destination changed")
 if peer_a.get("messages_sent") != 1 or peer_a.get("last_message_text") != "hello from z203 gui":
     raise SystemExit("peer A GUI message send failed")
-if peer_b.get("messages_sent") != 1 or peer_b.get("last_message_text") != "hello from z103 gui":
-    raise SystemExit("peer B GUI message send failed")
 for label, snapshot in (("peer_a", peer_a), ("peer_b", peer_b)):
     if snapshot.get("app_model") != "symmetric_im_peer":
         raise SystemExit(f"{label} GUI is not symmetric IM peer model")
@@ -156,21 +218,25 @@ summary = {
         "selected_board_eui": peer_a["selected_board_eui"],
         "daemon_host": peer_a["selected_board_host"],
         "publishes_to": peer_a["camera_dst_eui"],
-        "subscribes_from": peer_a["subscribed_device_eui"],
+        "subscribes_from": peer_b_frame["subscribed_device_eui"],
         "messages_sent": peer_a["messages_sent"],
         "video_invite_pending": peer_a["video_invite_pending"],
-        "camera_preview_enabled": peer_a["camera_preview_enabled"],
+        "video_session_active": peer_a_active["video_session_active"],
+        "frames_tx": peer_a_active["frames_tx"],
     },
     "peer_b": {
         "board": "z103",
         "selected_board_eui": peer_b["selected_board_eui"],
         "daemon_host": peer_b["selected_board_host"],
-        "publishes_to": peer_b["camera_dst_eui"],
+        "publishes_to": peer_a["camera_dst_eui"],
         "subscribes_from": peer_b["subscribed_device_eui"],
-        "messages_sent": peer_b["messages_sent"],
-        "video_invite_pending": peer_b["video_invite_pending"],
-        "camera_preview_enabled": peer_b["camera_preview_enabled"],
+        "messages_received": peer_b["messages_received"],
+        "incoming_video_invite": peer_b["incoming_video_invite"],
+        "video_session_active": peer_b_accept["video_session_active"],
+        "frames_rx": peer_b_frame["frames_rx"],
     },
+    "screen_share_available": True,
+    "screen_share_invite_received": peer_b_screen["incoming_video_invite"],
     "embedded_python_api": True,
     "security_model": "command_ca_derived_mutual_auth",
     "bundled_trust_bundle": True,

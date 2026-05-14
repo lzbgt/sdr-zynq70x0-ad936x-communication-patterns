@@ -39,8 +39,14 @@ void apply_action_args(GuiState *state, int argc, char **argv)
             (void)api_send_message(state, argv[++i]);
         } else if (std::strcmp(argv[i], "--api-publish-camera") == 0 && i + 1 < argc) {
             (void)api_publish_camera(state, argv[++i]);
+        } else if (std::strcmp(argv[i], "--api-share-screen") == 0 && i + 1 < argc) {
+            (void)api_share_screen(state, argv[++i]);
         } else if (std::strcmp(argv[i], "--api-subscribe-camera") == 0 && i + 1 < argc) {
             (void)api_subscribe_camera(state, argv[++i]);
+        } else if (std::strcmp(argv[i], "--api-accept-video") == 0) {
+            (void)accept_video_invite(state);
+        } else if (std::strcmp(argv[i], "--api-deny-video") == 0) {
+            (void)deny_video_invite(state);
         } else if (std::strcmp(argv[i], "--api-run-python") == 0) {
             (void)run_python_automation(state);
         } else if (std::strcmp(argv[i], "--publish") == 0) {
