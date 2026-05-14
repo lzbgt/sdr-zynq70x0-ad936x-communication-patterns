@@ -3387,6 +3387,19 @@ host-facing Ethernet SDK socket, forwards it through
 plus RF packet-engine handoff state while still asserting no IIO use, no
 inter-board IP routing, no RF TX start, and no hardware writes.
 
+A live Z103 transient-daemon smoke then verified the same request against the
+reachable board at `192.168.3.1`:
+
+```sh
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_sdk_daemon_camera_chunk_20260514-144653 \
+FORCE_UPLOAD=1 ./tools/run_fieldmesh_board_sdk_daemon.sh 192.168.3.1
+```
+
+Result: passed. The board daemon assertion reported
+`camera_chunk_events=1`, `app_camera_events=1`, and `ok=true`, proving the
+direct chunk ingress and composed app-camera request both use the shared
+camera stream SDK path under the host-facing control/data-plane socket.
+
 Refreshed runtime artifact hashes after adding the direct camera chunk request
 to the packaged board daemon:
 

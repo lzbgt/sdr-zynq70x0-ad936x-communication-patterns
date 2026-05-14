@@ -1002,7 +1002,9 @@ Expected result in the current Pluto-compatible firmware state:
    for that composition. The daemon contract also exposes direct
    `FIELDMESH_CAMERA_STREAM_CHUNK` ingress so an Ethernet SDK client can submit
    one encoded camera chunk and receive preview/checksum/RF handoff status
-   without reimplementing stream classification. The post-install RF
+   without reimplementing stream classification. A live Z103 transient-daemon
+   smoke at `192.168.3.1` verified the new request with
+   `camera_chunk_events=1`. The post-install RF
    packet-engine binding gate still recovered frame CRC `2646482743` while
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
    The matching Z203 installed-runtime app-camera gate is currently blocked by

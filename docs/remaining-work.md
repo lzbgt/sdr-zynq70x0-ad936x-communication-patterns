@@ -148,7 +148,9 @@ Next concrete work:
   the pure-C camera stream SDK API and reports six preview byte matches. The
   same daemon contract now has a direct chunk-level camera ingress request so
   host apps do not need to reimplement stream classification or RF handoff
-  policy for each encoded frame fragment. The post-install RF packet-engine
+  policy for each encoded frame fragment; a live Z103 transient-daemon smoke on
+  2026-05-14 verified `FIELDMESH_CAMERA_STREAM_CHUNK` with
+  `camera_chunk_events=1` at `192.168.3.1`. The post-install RF packet-engine
   binding gate still recovers the same committed frame while keeping IIO,
   inter-board IP routing, RF TX, and hardware writes disabled. The next
   implementation should restore Z203 host reachability, run the same installed
