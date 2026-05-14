@@ -278,6 +278,8 @@ if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
     raise SystemExit("SDK daemon app control/camera query failed")
 if app_camera[0].get("sdk_abi") != "pure_c" or app_camera[0].get("client_app_language") != "cpp":
     raise SystemExit("SDK daemon app control/camera ABI metadata failed")
+if app_camera[0].get("stream_api") != "fieldmesh_camera_stream_frame":
+    raise SystemExit("SDK daemon app control/camera did not use camera stream API")
 if app_camera[0].get("control_plane_ok") is not True or app_camera[0].get("data_plane_ok") is not True:
     raise SystemExit("SDK daemon app control/camera planes did not pass")
 if app_camera[0].get("elected_device_eui") != "020000000203":
@@ -292,6 +294,8 @@ if app_camera[0].get("rtls_gps_pps_fused") != 1 or app_camera[0].get("rtls_packe
     raise SystemExit("SDK daemon app control/camera RTLS summary failed")
 if app_camera[0].get("frames_tx") != 6 or app_camera[0].get("frames_rx") != 6:
     raise SystemExit("SDK daemon app control/camera frame counts failed")
+if app_camera[0].get("preview_matches") != 6:
+    raise SystemExit("SDK daemon app control/camera preview match count failed")
 if app_camera[0].get("rf_queued") != 6 or app_camera[0].get("direct_routes") != 6:
     raise SystemExit("SDK daemon app control/camera RF queue/direct route failed")
 if app_camera[0].get("adapter_name") != "swarm0":

@@ -759,25 +759,24 @@ static int build_response(fieldmesh_context_t *context,
         struct peer_summary peers = {0};
         struct position_summary positions = {0};
         fieldmesh_ap_election_result_t election;
-        fieldmesh_adapter_t *adapter = NULL;
-        fieldmesh_adapter_config_t adapter_config = {
-            .adapter_kind = FIELDMESH_ADAPTER_STREAM_API,
+        fieldmesh_adapter_t *camera_stream = NULL;
+        fieldmesh_camera_stream_config_t camera_config = {
             .requested_mode = FIELDMESH_MODE_SCHEDULED,
             .stream_id_base = 500,
             .mtu_bytes = 1200,
-            .expose_virtual_netdev = 0,
         };
         unsigned frames_tx = 0;
         unsigned frames_rx = 0;
+        unsigned preview_matches = 0;
         unsigned rf_queued = 0;
         unsigned direct_routes = 0;
         int failed = 0;
         unsigned frame;
         unsigned chunk;
 
-        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+        snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
                  "%s", "swarm0");
-        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+        snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
                  "%s", "020000000103");
         if (fieldmesh_browse_aps(context, 1000, on_ap, &aps) != FIELDMESH_OK ||
             fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID, 1000,
@@ -785,7 +784,7 @@ static int build_response(fieldmesh_context_t *context,
             fieldmesh_list_peers(session, on_peer, &peers) != FIELDMESH_OK ||
             fieldmesh_list_peer_positions(context, on_position, &positions) !=
                 FIELDMESH_OK ||
-            fieldmesh_open_adapter(session, &adapter_config, &adapter) !=
+            fieldmesh_open_camera_stream(session, &camera_config, &camera_stream) !=
                 FIELDMESH_OK) {
             failed = 1;
         }
@@ -794,43 +793,42 @@ static int build_response(fieldmesh_context_t *context,
             for (chunk = 0; chunk < 2u; ++chunk) {
                 unsigned char payload[640];
                 unsigned char rx_payload[800];
-                fieldmesh_adapter_packet_t tx_packet;
-                fieldmesh_adapter_packet_t rx_packet;
-                fieldmesh_rf_packet_submit_report_t rf_report;
+                fieldmesh_camera_frame_report_t frame_report;
                 size_t rx_len = 0u;
 
                 fill_camera_demo_chunk(payload, sizeof(payload), frame, chunk);
-                if (fieldmesh_adapter_send_packet(
-                        adapter, FIELDMESH_PAYLOAD_VIDEO_BASE, payload,
-                        sizeof(payload), &tx_packet) != FIELDMESH_OK ||
-                    fieldmesh_adapter_recv_packet(adapter, rx_payload,
-                                                  sizeof(rx_payload), &rx_len,
-                                                  &rx_packet, 1000) != FIELDMESH_OK ||
-                    fieldmesh_submit_rf_packet(adapter, &rx_packet, rx_len, 0u,
-                                               &rf_report) != FIELDMESH_OK ||
+                if (fieldmesh_camera_stream_frame(
+                        camera_stream, payload, sizeof(payload), rx_payload,
+                        sizeof(rx_payload), &rx_len, &frame_report) != FIELDMESH_OK ||
                     rx_len != sizeof(payload) ||
                     memcmp(rx_payload, payload, rx_len) != 0 ||
-                    rx_packet.payload_kind != FIELDMESH_PAYLOAD_VIDEO_BASE ||
-                    rx_packet.traffic_class != FIELDMESH_CLASS_C2_VIDEO_BASE) {
+                    frame_report.rx_packet.payload_kind !=
+                        FIELDMESH_PAYLOAD_VIDEO_BASE ||
+                    frame_report.rx_packet.traffic_class !=
+                        FIELDMESH_CLASS_C2_VIDEO_BASE) {
                     failed = 1;
                     break;
                 }
                 frames_tx++;
                 frames_rx++;
-                if (rf_report.queued_to_rf_engine &&
-                    rf_report.queued_to_sidecar &&
-                    rf_report.plan.route_kind == FIELDMESH_ROUTE_DIRECT &&
-                    !rf_report.plan.uses_iio &&
-                    !rf_report.plan.uses_inter_board_ip_routing &&
-                    !rf_report.starts_rf_tx &&
-                    !rf_report.writes_hardware) {
+                if (frame_report.preview_match) {
+                    preview_matches++;
+                }
+                if (frame_report.rf_report.queued_to_rf_engine &&
+                    frame_report.rf_report.queued_to_sidecar &&
+                    frame_report.rf_report.plan.route_kind ==
+                        FIELDMESH_ROUTE_DIRECT &&
+                    !frame_report.rf_report.plan.uses_iio &&
+                    !frame_report.rf_report.plan.uses_inter_board_ip_routing &&
+                    !frame_report.rf_report.starts_rf_tx &&
+                    !frame_report.rf_report.writes_hardware) {
                     rf_queued++;
                     direct_routes++;
                 }
             }
         }
-        if (adapter) {
-            (void)fieldmesh_close_adapter(adapter);
+        if (camera_stream) {
+            (void)fieldmesh_close_adapter(camera_stream);
         }
         if (failed) {
             return 1;
@@ -840,6 +838,7 @@ static int build_response(fieldmesh_context_t *context,
                  "{\"event\":\"sdk_daemon_app_control_camera\","
                  "\"app\":\"fieldmesh-control-camera\","
                  "\"sdk_abi\":\"pure_c\","
+                 "\"stream_api\":\"fieldmesh_camera_stream_frame\","
                  "\"client_app_language\":\"cpp\","
                  "\"control_plane_ok\":%s,"
                  "\"data_plane_ok\":%s,"
@@ -856,6 +855,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rtls_packet_timing_tdoa\":%u,"
                  "\"frames_tx\":%u,"
                  "\"frames_rx\":%u,"
+                 "\"preview_matches\":%u,"
                  "\"rf_queued\":%u,"
                  "\"direct_routes\":%u,"
                  "\"adapter_name\":\"swarm0\","
@@ -869,13 +869,15 @@ static int build_response(fieldmesh_context_t *context,
                   strcmp(election.elected_node_id, "020000000203") == 0) ?
                      "true" :
                      "false",
-                 (frames_tx == 6u && frames_rx == 6u && rf_queued == 6u) ?
+                 (frames_tx == 6u && frames_rx == 6u &&
+                  preview_matches == 6u && rf_queued == 6u) ?
                      "true" :
                      "false",
                  aps.aps, peers.peers, positions.positions,
                  election.elected_node_id, positions.gps_pps_fused,
-                 positions.packet_timing_tdoa, frames_tx, frames_rx, rf_queued,
-                 direct_routes, (unsigned)FIELDMESH_PAYLOAD_VIDEO_BASE,
+                 positions.packet_timing_tdoa, frames_tx, frames_rx,
+                 preview_matches, rf_queued, direct_routes,
+                 (unsigned)FIELDMESH_PAYLOAD_VIDEO_BASE,
                  (unsigned)FIELDMESH_CLASS_C2_VIDEO_BASE);
         return 0;
     }

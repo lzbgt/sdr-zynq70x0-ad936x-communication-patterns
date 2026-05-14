@@ -996,9 +996,11 @@ Expected result in the current Pluto-compatible firmware state:
    `UPLOAD_IF_MISSING=0`, so the IIO-bridge request is now installed Z103
    behavior. A later persistent Z103 install verified the production-shaped
    app-camera composition too: the installed daemon answered all 15 SDK
-   requests, including `FIELDMESH_APP_CONTROL_CAMERA`, and the post-install RF
-   packet-engine binding gate still recovered frame CRC `2646482743` while
-   keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
+   requests, including `FIELDMESH_APP_CONTROL_CAMERA`. The packaged daemon now
+   uses the same pure-C `fieldmesh_camera_stream_frame()` path as the C++ app
+   for that composition, and the post-install RF packet-engine binding gate
+   still recovered frame CRC `2646482743` while keeping IIO, inter-board IP
+   routing, RF TX, and hardware writes disabled.
    The matching Z203 installed-runtime app-camera gate is currently blocked by
    host reachability: `192.168.2.1` did not answer ping in the same live batch.
    A follow-up host diagnostic showed two FT2232/JTAG-UART devices but only one

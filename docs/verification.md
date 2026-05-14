@@ -2907,8 +2907,9 @@ RTLS state, the app-level `FIELDMESH_APP_CONTROL_CAMERA` flow, and local IIO
 bridge planning over UDP and proves a separate client can query it over the
 same socket boundary intended for USB Ethernet, physical Ethernet, and IP. The
 app-level daemon flow composes browse/elect/repurpose/topology/RTLS plus six
-video-base RF packet-engine handoff chunks while keeping IIO, inter-board IP
-routing, RF TX, and hardware writes disabled. The check also runs
+video-base RF packet-engine handoff chunks through
+`fieldmesh_camera_stream_frame()` while keeping IIO, inter-board IP routing,
+RF TX, and hardware writes disabled. The check also runs
 `fieldmesh_udp_discovery_demo` over loopback UDP to prove an AP beacon can be
 sent and browsed. It also runs `fieldmesh_two_pc_flow_demo` over loopback UDP
 to prove the two-PC control flow: AP browse, AP election, AP-audit join,
@@ -3379,20 +3380,20 @@ profile, insufficient fixture attenuation, and `--execute-live-rf` unless
 `--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
 therefore explicit and auditable.
 
-Refreshed runtime artifact hashes after packaging the pure-C camera stream SDK
-demo into both developer images:
+Refreshed runtime artifact hashes after switching the board daemon's
+app-camera flow to the same pure-C camera stream SDK API used by the C++ app:
 
 ```text
-Z203 rootfs.cpio.gz: 7ddba25d8457c8f95de52ff610ba26dcea4dfefcfd187cdb3270bfd3ec6fb01f
-Z203 rootfs.tar.gz:  f2a59b26a66572a63b5c65950e67700035cff6e3e6c36e3ed249a9844c6bf6e1
-Z203 pluto.frm:      3d0ab9706fc3950e8900d40c4cef05d6a039832488e978d3f249722684375972
-Z203 pluto.itb:      1ff5e4ca4d9431fee5b438a8881eac6c5d458b39146d1c6ea524dea0f6602183
-Z203 jtag ramdisk:   46a097da06f709d602524fc50a5d265d63df0ca4ffff2ded5b338ee009f1ec7d
-Z103 rootfs.cpio.gz: 3f9e3feeca8f5e3d827405dd45bf81d9b64359fcf4a5aabe584197644c4a0e8f
-Z103 rootfs.tar.gz:  0c0f534b42a70a16182cf83d4a0e209ed36dded698b4195730d0510b43eb9020
-Z103 pluto.frm:      abfa29c64cbeb8482e9a1d648faa3227513cdc32137a8be6a3a82bb5d1b677c2
-Z103 pluto.itb:      79ab0f278cf258f4ec02145a9ed266af714b30dad421b3b101f50612d0e1a340
-Z103 jtag ramdisk:   843ff60ed4e17c9e9c469e00c09ad0fe518218cf738cb44c9a47e731a226b909
+Z203 rootfs.cpio.gz: 4e2d923c845db19584b54efb9e779541bd0af4bdcb15b9ee6aa41126a71ef0f9
+Z203 rootfs.tar.gz:  c5ddd1acffee69cf2bb17b4fd81d346e82349f7fa6d5712877485d426016f052
+Z203 pluto.frm:      f6c1fb8ab3e01ca1740b170c4793eeb666483398dc3ec0c75ee0ea83b30cc84c
+Z203 pluto.itb:      eb00f842b69e5262513ac21e967fe92c9b18db4b661ded127b88c8f48a16154c
+Z203 jtag ramdisk:   45df6ed8da8f2a9409b1a3380bb283cc7ae2dc26805e1b7a31503fadcc313c82
+Z103 rootfs.cpio.gz: b81b601f24ff1dee4b31e02c59aaba27ece6db681b8f085ddece5e1fa065d432
+Z103 rootfs.tar.gz:  fa5cbe25439b1232f4640b606771f0ebaf777a4963956f90a8df2e9863756856
+Z103 pluto.frm:      75792219d75b75daec94e43fb8335395216d01ccecd6d504183c4e8453184d31
+Z103 pluto.itb:      89978b81fd9a57be4ecd51620ed2957179bc113429c1bf22e7bf49c529772432
+Z103 jtag ramdisk:   c8650682247a31f8f71e83314c902b8c388c5dfcb13e3db8cb97e3c76e2303d2
 ```
 
 ## FieldMesh RTLS Positioning Gate

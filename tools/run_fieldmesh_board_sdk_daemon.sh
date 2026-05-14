@@ -189,6 +189,8 @@ for key in ("sets_tx_enable", "sets_tx_armed", "live_arm_requested",
         raise SystemExit(f"board SDK daemon RF TX guard key {key} must be 0")
 if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
     raise SystemExit("board SDK daemon app control/camera response failed")
+if app_camera[0].get("sdk_abi") != "pure_c" or app_camera[0].get("stream_api") != "fieldmesh_camera_stream_frame":
+    raise SystemExit("board SDK daemon app control/camera ABI path failed")
 if app_camera[0].get("control_plane_ok") is not True or app_camera[0].get("data_plane_ok") is not True:
     raise SystemExit("board SDK daemon app control/camera planes failed")
 if app_camera[0].get("elected_device_eui") != "020000000203":
@@ -201,6 +203,8 @@ if app_camera[0].get("topology") != "radio" or app_camera[0].get("host_eth_topol
     raise SystemExit("board SDK daemon app control/camera topology must be radio")
 if app_camera[0].get("frames_tx") != 6 or app_camera[0].get("frames_rx") != 6:
     raise SystemExit("board SDK daemon app control/camera frame count failed")
+if app_camera[0].get("preview_matches") != 6:
+    raise SystemExit("board SDK daemon app control/camera preview match count failed")
 if app_camera[0].get("rf_queued") != 6 or app_camera[0].get("direct_routes") != 6:
     raise SystemExit("board SDK daemon app control/camera RF handoff failed")
 if app_camera[0].get("payload_kind") != 3 or app_camera[0].get("traffic_class") != 2:

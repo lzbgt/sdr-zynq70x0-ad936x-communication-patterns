@@ -201,6 +201,8 @@ verify_variant() {
         sdk_daemon_rf_packet_engine \
         sdk_daemon_rf_tx_guard_plan \
         sdk_daemon_app_control_camera \
+        fieldmesh_camera_stream_frame \
+        preview_matches \
         fieldmesh-control-camera \
         proactive_camera_streamer \
         sdk_daemon_tun_fd_pump \

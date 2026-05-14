@@ -134,15 +134,18 @@ Next concrete work:
   developer images install `/usr/bin/fieldmesh-state-daemon-demo`, and the
   daemon now answers AP browse, AP election, AP join state, peer state, RTLS
   state, `swarm0` adapter mapping, the app-level camera control/data-plane
-  composition, and local IIO admin planning over the same UDP socket boundary.
+  composition through `fieldmesh_camera_stream_frame()`, and local IIO admin
+  planning over the same UDP socket boundary.
   The
   2026-05-14 Z103 live checks proved the new IIO bridge response first by
   transiently uploading the refreshed daemon with `FORCE_UPLOAD=1`, then by
   reflashing the refreshed FieldMesh package and rerunning the socket smoke
   with `UPLOAD_IF_MISSING=0`. The installed Z103 daemon now answers both the
   IIO-bridge planning request and `FIELDMESH_APP_CONTROL_CAMERA` persistently,
-  and the post-install RF packet-engine binding gate still recovers the same
-  committed frame while keeping IIO, inter-board IP routing, RF TX, and
+  and the refreshed daemon verifier now requires that the app-camera flow uses
+  the pure-C camera stream SDK API and reports six preview byte matches. The
+  post-install RF packet-engine binding gate still recovers the same committed
+  frame while keeping IIO, inter-board IP routing, RF TX, and
   hardware writes disabled. The next implementation should restore Z203 host
   reachability, run the same installed daemon flow on Z203, then run the
   daemon path from two PCs attached to the boards before replacing the

@@ -46,8 +46,9 @@ in `src/fieldmesh_sdk.c`:
   `FIELDMESH_APP_CONTROL_CAMERA`, a composed control/data-plane request that
   verifies AP browse/election, user-commanded proactive camera streaming,
   radio-only topology, RTLS state, and six video-base chunks queued into the RF
-  packet-engine handoff. A separate process queries those services over the
-  same IP path intended for USB Ethernet and physical Ethernet.
+  packet-engine handoff through the same pure-C camera stream API used by the
+  C++ app. A separate process queries those services over the same IP path
+  intended for USB Ethernet and physical Ethernet.
 - `examples/fieldmesh_two_pc_flow_demo.c` is the first two-PC control-flow
   demo: one side runs an AP service, and the other runs endpoint browse,
   AP election, audit join, scheduled stream open, and C1 telemetry send over
