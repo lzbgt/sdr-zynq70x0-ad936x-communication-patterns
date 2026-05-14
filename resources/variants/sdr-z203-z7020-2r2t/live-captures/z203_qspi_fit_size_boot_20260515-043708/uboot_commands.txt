@@ -1,0 +1,2 @@
+setenv fit_size 1B88D3B
+run qspiboot

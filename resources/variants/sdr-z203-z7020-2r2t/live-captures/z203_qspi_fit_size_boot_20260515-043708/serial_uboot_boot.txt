@@ -1,0 +1,140 @@
+# Z203 serial U-Boot command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-15T04:37:09.0186712+08:00
+# InterruptSeconds: 14
+
+# >>>
+
+Poky (Yocto Project Reference Distro) 5.0.17 sdr-z203-zynq7 /dev/ttyPS0
+
+sdr-z203-zynq7 login:
+# >>> root
+root
+
+WARNING: Poky is a reference Yocto Project distribution that should be used for
+testing and development purposes only. It is recommended that you create your
+own distribution for production use.
+
+7[r[999;999H[6n
+# >>> analog
+8root@sdr-z203-zynq7:~#
+# >>>
+
+root@sdr-z203-zynq7:~#
+# >>> echo __FIELDMESH_PRE_UBOOT_REBOOT__
+echo __FIELDMESH_PRE_UBOOT_REBOOT__
+__FIELDMESH_PRE_UBOOT_REBOOT__
+root@sdr-z203-zynq7:~#
+# >>> sync
+sync
+root@sdr-z203-zynq7:~#
+# >>> reboot
+reboot
+
+Broadcast message from root@sdr-z203-zynq7 (ttyPS0) (Fri Mar  9 12:5r?u??H?(?*???u?????????????????????j??H???????????j????????j??*???U??????????????????????????????z*???J????????????I5???????5jR?Stopping Dropbear SSH server: stopped /usr/sbin/dropbear (pid 773)
+dropbear.
+ * Stopping Avahi mDNS/DNS-SD Daemon: avahi-daemon
+   ...done.
+Stopping bluetooth: bluetoothd.
+Stopping system message bus: dbus.
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Stopping syslogd/klogd: stopped syslogd (pid 788)
+stopped klogd (pid 792)
+done
+Stopping Telephony daemon
+Unmounting remote filesystems...
+Stopping rpcbind daemon...
+done.
+Stopping Linux NFC daemon
+Stopping Lighttpd Web Server:
+?root@sdr-z203-zynq7:~# stopped /usr/sbin/lighttpd (pid 812)
+lighttpd.
+Deconfiguring network interfaces... ifdown: interface usb1 not configured
+macb e000b000.ethernet eth0: Link is Down
+done.
+Sending all processes the TERM signal...
+
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~#
+root@sdr-z203-zynq7:~# Sending all processes the KILL signal...
+Deactivating swap...
+Unmounting local filesystems...
+mount: mounting rootfs on / failed: Device or resource busy
+ffs_data_put(): freeing
+Rebooting... reboot: Restarting system
+
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+*** Warning - bad CRC, using default environment
+
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+reading uEnv.txt
+7585 bytes read in 13 ms (569.3 KiB/s)
+Importing environment from SD ...
+Hit any key to stop autoboot:  0  0
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+Pluto>
+# Warning: U-Boot prompt was not detected before commands were sent.
+
+# >>> setenv fit_size 1B88D3B
+setenv fit_size 1B88D3B
+Pluto>
+# >>> run qspiboot
+run qspiboot
+Booting silently
+BOOT failed entering DFU mode ...
+*** Warning: flash lock/unlock ops not supported  for 'W25Q256'
+gpio: pin 15 (gpio 15) value is 1
+Entering DFU SF mode ...
+
+# Stopped: 2026-05-15T04:39:38.7659478+08:00

@@ -1,0 +1,6 @@
+fm-z203
+Linux fm-z203 6.1.0 #1 SMP PREEMPT Sun May 10 18:17:23 UTC 2026 armv7l GNU/Linux
+/usr/bin/fieldmesh-udp-probe
+/usr/bin/fieldmeshctl
+192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.10
+192.168.2.0/24 dev usb0 proto kernel scope link src 192.168.2.1

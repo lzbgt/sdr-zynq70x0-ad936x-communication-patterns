@@ -1,0 +1,1 @@
+{"event":"fieldmesh_z203_qspi_fit_size_boot_plan","board_ip":"192.168.1.10","serial_port":"COM5","itb":"/root/work/ZYNQ7020/.config/fieldmesh/runtime-package-z203/fit-work/build/pluto.itb","fit_size_hex":"1B88D3B","persist_uboot_env":0}

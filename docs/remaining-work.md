@@ -45,8 +45,9 @@ Firmware state:
 
 - Z103 `pluto.frm` was flashed and its installed daemon passed the MAC-ingest
   SDK gate after reboot.
-- Z203 SD boot files were restaged and the board is reachable, but the board is
-  still booting a stale QSPI/initramfs runtime. The diagnostic helper
+- Z203 SD boot files were restaged and the board is reachable, but the first
+  restage used the legacy `sdr-z203-zynq7` deploy directory. The diagnostic
+  helper
   `tools/diagnose_fieldmesh_z203_persistent_boot.sh` shows
   `root=/dev/ram`, an installed daemon hash of
   `4b5d11728e68666d2b158606beef154083893ba8b48d9e12a67b4339ce50bce2`,
@@ -56,11 +57,21 @@ Firmware state:
   `/dev/mmcblk0p1` presence alone is not proof that the board boots SD. The
   connected-board installer now prefers QSPI in auto mode and its post-install
   daemon check requires the current FieldMesh capabilities instead of accepting
-  a generic HELLO.
-- Until the Z203 boot source or QSPI verify issue is fixed, use
-  `FORCE_UPLOAD=1` for Z203 live product gates and treat persistent Z203
-  firmware refresh as open. `Z203_INSTALL_MODE=sd` is now an explicit SD-boot
-  experiment only, not the default update path.
+  a generic HELLO. `tools/stage_fieldmesh_sd_boot_files.sh` now resolves the
+  product deploy alias `fm-z203` for SD staging instead of the stale legacy
+  deploy directory.
+- After restaging from `fm-z203`, the Z203 SD/initramfs boot path is current:
+  the installed daemon reports host `fm-z203`, includes `FIELDMESH_MAC_INGEST`,
+  and passes `tools/run_fieldmesh_board_sdk_daemon.sh` with
+  `UPLOAD_IF_MISSING=0`. Z203 no longer needs `FORCE_UPLOAD=1` when it is
+  booted through this SD path.
+- QSPI refresh remains open because U-Boot environment access is broken from
+  Linux and the QSPI `mtd3` readback still does not match the local FIT header.
+  A volatile serial test of `setenv fit_size 1B88D3B; run qspiboot` entered
+  U-Boot DFU, then recovered by serial reset into the SD boot path. Keep
+  `Z203_INSTALL_MODE=sd` as the explicit current Z203 installed-runtime path;
+  do not mark QSPI install repaired until `mtd3` readback and U-Boot boot both
+  verify.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

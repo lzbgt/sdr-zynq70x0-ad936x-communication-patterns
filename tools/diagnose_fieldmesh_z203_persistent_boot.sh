@@ -125,16 +125,20 @@ summary = {
     "local_itb_first64_sha256": local_first64,
     "mtd3_header_matches_local_itb": bool(board_first64 and local_first64 and board_first64 == local_first64),
 }
-summary["persistent_runtime_current"] = (
-    daemon_has_mac and daemon_has_route and summary["mtd3_header_matches_local_itb"]
-)
-if summary["sd_partition_present"] and not summary["installed_daemon_has_mac_ingest"]:
+summary["installed_runtime_current"] = daemon_has_mac and daemon_has_route
+summary["qspi_fit_current"] = summary["mtd3_header_matches_local_itb"]
+summary["persistent_runtime_current"] = summary["installed_runtime_current"] or summary["qspi_fit_current"]
+if summary["sd_partition_present"] and not summary["installed_runtime_current"]:
     summary["diagnosis"] = (
         "SD files may be staged, but the running persistent runtime is stale; "
         "do not treat /dev/mmcblk0p1 presence as proof of SD boot."
     )
-elif not summary["mtd3_header_matches_local_itb"]:
-    summary["diagnosis"] = "QSPI mtd3 readback does not match the local FieldMesh FIT header."
+elif summary["installed_runtime_current"] and not summary["qspi_fit_current"]:
+    summary["diagnosis"] = (
+        "Installed daemon is current, but QSPI mtd3 readback still does not "
+        "match the local FieldMesh FIT header; current boot is likely the "
+        "staged SD/initramfs path or QSPI readback remains unreliable."
+    )
 else:
     summary["diagnosis"] = "Persistent boot path looks consistent with the local FieldMesh FIT."
 out_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")

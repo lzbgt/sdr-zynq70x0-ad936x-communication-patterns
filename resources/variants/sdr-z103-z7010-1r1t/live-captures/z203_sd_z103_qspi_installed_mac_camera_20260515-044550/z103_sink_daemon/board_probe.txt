@@ -1,0 +1,2 @@
+Linux z103-endpoint 6.1.0 #1 SMP PREEMPT Tue May 12 16:46:30 UTC 2026 armv7l GNU/Linux
+/usr/bin/fieldmesh-state-daemon-demo

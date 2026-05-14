@@ -1,0 +1,11 @@
+z103-endpoint
+Linux z103-endpoint 6.1.0 #1 SMP PREEMPT Tue May 12 16:46:30 UTC 2026 armv7l GNU/Linux
+mode=1r1t
+hostname=z103-endpoint
+ipaddr=192.168.3.1
+ipaddr_host=192.168.3.10
+fieldmesh_node_id=z103-endpoint
+fieldmesh_network_id=fieldmesh-lab
+/usr/bin/fieldmesh-udp-probe
+/usr/bin/fieldmeshctl
+192.168.3.0/24 dev usb0 proto kernel scope link src 192.168.3.1

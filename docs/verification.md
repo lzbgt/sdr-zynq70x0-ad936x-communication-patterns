@@ -3632,6 +3632,60 @@ Z103 pluto.itb:      c63178b1e5e54b071deec8ea15823891d7342dfe88387b7550bd7daecc4
 Z103 jtag ramdisk:   2663e6726477ef5409970a96230a2365968be8f6d77087381815b3760e749994
 ```
 
+## Z203 SD Runtime Refresh From Product Deploy
+
+After the Z203 persistent-runtime diagnosis showed a stale installed daemon,
+`tools/stage_fieldmesh_sd_boot_files.sh` was corrected to stage from the
+product deploy alias `fm-z203` rather than the legacy `sdr-z203-zynq7` deploy
+directory. The refreshed SD files were installed over SSH to `/dev/mmcblk0p1`,
+the board was rebooted, and the installed daemon was verified without transient
+upload:
+
+```sh
+OUT_DIR=.config/fieldmesh/sd-stage-z203-current \
+  tools/stage_fieldmesh_sd_boot_files.sh z203
+
+SSH_PASS=analog \
+  tools/install_sd_boot_files_over_ssh.sh \
+  .config/fieldmesh/sd-stage-z203-current 192.168.1.10
+
+VARIANT=z203 PORT=55443 UPLOAD_IF_MISSING=0 FORCE_UPLOAD=0 \
+  BOARD_IP=192.168.1.10 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh
+```
+
+Result: passed. The rebooted board reports hostname `fm-z203`, installed daemon
+hash `62c2655bb80cfe0062459c0a2e135eae86b97d1349642e9b0db923a01a552771`, and
+daemon strings include `FIELDMESH_MAC_INGEST`, `supports_mac_ingest`, and
+`supports_route_metrics_report`.
+
+The installed two-board app/camera gate also passed without forced daemon
+upload:
+
+```sh
+FORCE_UPLOAD=0 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_sd_z103_qspi_installed_mac_camera_20260515-044550 \
+  ./tools/run_fieldmesh_two_board_camera_flow.sh
+```
+
+Result: passed. Z203 uses the refreshed SD/initramfs runtime, Z103 uses its
+installed QSPI runtime, both app-daemon-client paths are marked
+`installed_daemon=true`, and the radio/data-plane invariants remain clean: no
+IIO data path, no inter-board IP routing, no RF TX start, and no hardware
+writes.
+
+QSPI remains unresolved. A volatile serial U-Boot test attempted:
+
+```text
+setenv fit_size 1B88D3B
+run qspiboot
+```
+
+That path entered U-Boot DFU and was recovered by serial reset into the SD boot
+path. `tools/diagnose_fieldmesh_z203_persistent_boot.sh` now separates
+`installed_runtime_current=true` from `qspi_fit_current=false` so the installed
+SD runtime is not confused with a repaired QSPI FIT.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:

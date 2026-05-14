@@ -1,0 +1,63 @@
+{
+  "event": "fieldmesh_app_snapshot",
+  "app": "fieldmesh-control-camera",
+  "sdk_abi": "pure_c",
+  "snapshot_source": "native_cpp_app",
+  "overall_health": "ok",
+  "control_plane_ok": true,
+  "data_plane_ok": true,
+  "radio_topology_only": true,
+  "host_eth_topology": false,
+  "uses_inter_board_ip_routing": false,
+  "starts_rf_tx": false,
+  "writes_hardware": false,
+  "network": {
+    "elected_ap": {"elected_device_eui": "020000000203", "network_id": "fieldmesh-lab", "policy": 3, "score": 5468},
+    "aps": [
+      {"ap_id": "020000000203", "network_id": "fieldmesh-lab", "name": "observed FieldMesh AP", "max_kbps": 7000},
+      {"ap_id": "020000000103", "network_id": "fieldmesh-lab", "name": "observed FieldMesh AP", "max_kbps": 2200}
+    ]
+  },
+  "topology": {
+    "link_count": 2,
+    "links": [
+      {"device_eui": "020000000203", "hostname": "node-a", "device_type": "sdr-z203-z7020-2r2t", "direct_reachable": true, "relay_allowed": true, "ap_capability_score": 92},
+      {"device_eui": "020000000103", "hostname": "node-b", "device_type": "sdr-z103-z7010-1r1t", "direct_reachable": true, "relay_allowed": true, "ap_capability_score": 38}
+    ],
+    "positions": [
+      {"device_eui": "020000000203", "source": 1, "x_cm": 407110, "y_cm": 35310, "error_radius_cm": 124, "confidence": 95},
+      {"device_eui": "020000000103", "source": 2, "x_cm": 10, "y_cm": -6, "error_radius_cm": 415, "confidence": 72}
+    ]
+  },
+  "camera": {
+    "source": "external_camera_stream",
+    "dst_device_eui": "020000000103",
+    "daemon_client_enabled": true,
+    "daemon_host": "192.168.1.10",
+    "daemon_port": 55441,
+    "frames_tx": 3,
+    "frames_rx": 3,
+    "rf_queued": 3,
+    "preview_matches": 3,
+    "capture_bytes": 140,
+    "preview_bytes": 140,
+    "stream_target_fps": 30,
+    "pace_realtime": false,
+    "live_stream_loop": false,
+    "lifecycle": {
+      "capture_opened": true,
+      "capture_closed": true,
+      "preview_opened": true,
+      "preview_closed": true,
+      "sdk_stream_closed": true,
+      "duration_ms": 1
+    }
+  },
+  "ui": {
+    "show_network_browser": true,
+    "show_topology_view": true,
+    "show_rtls_map": true,
+    "show_camera_stream": true,
+    "show_route_health": true
+  }
+}

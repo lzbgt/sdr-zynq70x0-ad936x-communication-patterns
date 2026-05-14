@@ -2,14 +2,16 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-z203}"
 out_dir="${OUT_DIR:-$repo_root/.config/sdcard-staging/fieldmesh-$variant}"
 
 case "$variant" in
   z203)
-    machine="sdr-z203-zynq7"
+    fieldmesh_resolve_image_paths z203 "$repo_root"
+    machine="$FIELDMESH_MACHINE"
     image="sdr-z203-arm-image"
-    deploy_dir="${DEPLOY_DIR:-$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/$machine}"
+    deploy_dir="${DEPLOY_DIR:-$FIELDMESH_DEPLOY_DIR}"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux}"
     xsa="${XSA:-$repo_root/.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa}"
     bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
