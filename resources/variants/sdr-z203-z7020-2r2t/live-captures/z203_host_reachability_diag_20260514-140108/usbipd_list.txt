@@ -1,0 +1,10 @@
+Connected:
+BUSID  VID:PID    DEVICE                                                        STATE
+1-1    0403:6010  USB Serial Converter A, USB Serial Converter B                Shared
+1-6    0408:548d  HP True Vision FHD Camera, Camera DFU Device                  Not shared
+1-14   8087:0033  Intel(R) Wireless Bluetooth(R)                                Not shared
+2-3    0456:b673  PlutoSDR USB Ethernet/RNDIS Gadget #2, USB Mass Storage D...  Not shared
+2-4    0403:6010  USB Serial Converter A, USB Serial Converter B                Shared
+
+Persisted:
+GUID                                  DEVICE

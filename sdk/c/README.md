@@ -87,7 +87,11 @@ It consumes only the pure-C SDK, then emits a production-shaped NDJSON flow for
 AP browse, AP election, user-commanded repurpose into proactive camera
 streaming, radio-only topology, GNSS/PPS plus packet-timing RTLS positions, and
 video-base camera chunks queued through the `swarm0`/RF packet-engine handoff.
-It is still a deterministic SDK verifier, not a GUI and not live camera capture.
+By default it generates deterministic frame chunks for CI, but it can also read
+an external byte stream with `--camera-input PATH|-`, chunk it with
+`--chunk-size`, and write the receive/preview side with `--preview-output`.
+This is the SDK/app boundary a real Windows, Linux, macOS, or embedded camera
+pipeline can drive before a GUI is added.
 
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the

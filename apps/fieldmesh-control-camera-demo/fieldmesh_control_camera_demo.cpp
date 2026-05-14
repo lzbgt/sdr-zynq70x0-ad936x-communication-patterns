@@ -1,8 +1,10 @@
 #include "fieldmesh_sdk.h"
 
 #include <array>
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -19,6 +21,18 @@ struct PeerList {
 
 struct PositionList {
     std::vector<fieldmesh_position_estimate_t> positions;
+};
+
+struct AppOptions {
+    const char *camera_input_path = nullptr;
+    const char *preview_output_path = nullptr;
+    size_t chunk_size = 640;
+};
+
+struct CameraChunk {
+    std::vector<unsigned char> payload;
+    unsigned frame_index = 0;
+    unsigned chunk_index = 0;
 };
 
 void copy_text(char *dst, size_t dst_len, const char *src)
@@ -175,10 +189,156 @@ void fill_camera_chunk(std::vector<unsigned char> &payload,
     }
 }
 
+void print_usage(const char *program)
+{
+    std::fprintf(stderr,
+                 "usage: %s [--camera-input PATH|-] [--preview-output PATH] "
+                 "[--chunk-size BYTES]\n",
+                 program);
+}
+
+bool parse_size(const char *text, size_t *value)
+{
+    char *end = nullptr;
+    unsigned long parsed;
+
+    if (!text || !value) {
+        return false;
+    }
+    parsed = std::strtoul(text, &end, 10);
+    if (!end || *end != '\0' || parsed == 0ul || parsed > 1200ul) {
+        return false;
+    }
+    *value = static_cast<size_t>(parsed);
+    return true;
+}
+
+bool parse_options(int argc, char **argv, AppOptions *options)
+{
+    if (!options) {
+        return false;
+    }
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--camera-input") == 0 && i + 1 < argc) {
+            options->camera_input_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--preview-output") == 0 && i + 1 < argc) {
+            options->preview_output_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--chunk-size") == 0 && i + 1 < argc) {
+            if (!parse_size(argv[++i], &options->chunk_size)) {
+                std::fprintf(stderr, "invalid --chunk-size\n");
+                return false;
+            }
+        } else if (std::strcmp(argv[i], "--help") == 0) {
+            print_usage(argv[0]);
+            std::exit(0);
+        } else {
+            print_usage(argv[0]);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool read_all(FILE *input, std::vector<unsigned char> *data)
+{
+    std::array<unsigned char, 4096> buffer{};
+
+    if (!input || !data) {
+        return false;
+    }
+    for (;;) {
+        size_t got = std::fread(buffer.data(), 1, buffer.size(), input);
+        if (got > 0u) {
+            data->insert(data->end(), buffer.begin(), buffer.begin() + got);
+        }
+        if (got < buffer.size()) {
+            if (std::ferror(input)) {
+                return false;
+            }
+            return true;
+        }
+    }
+}
+
+bool load_camera_input(const AppOptions &options, std::vector<unsigned char> *data)
+{
+    FILE *input = nullptr;
+    bool ok;
+
+    if (!options.camera_input_path || !data) {
+        return false;
+    }
+    if (std::strcmp(options.camera_input_path, "-") == 0) {
+        return read_all(stdin, data);
+    }
+    input = std::fopen(options.camera_input_path, "rb");
+    if (!input) {
+        std::fprintf(stderr, "failed to open camera input: %s\n",
+                     options.camera_input_path);
+        return false;
+    }
+    ok = read_all(input, data);
+    std::fclose(input);
+    if (!ok) {
+        std::fprintf(stderr, "failed to read camera input: %s\n",
+                     options.camera_input_path);
+    }
+    return ok;
+}
+
+bool build_camera_chunks(const AppOptions &options,
+                         std::vector<CameraChunk> *chunks,
+                         size_t *input_bytes)
+{
+    std::vector<unsigned char> input;
+
+    if (!chunks || !input_bytes) {
+        return false;
+    }
+    *input_bytes = 0u;
+    chunks->clear();
+    if (options.camera_input_path) {
+        if (!load_camera_input(options, &input)) {
+            return false;
+        }
+        if (input.empty()) {
+            std::fprintf(stderr, "camera input is empty\n");
+            return false;
+        }
+        *input_bytes = input.size();
+        for (size_t offset = 0u; offset < input.size(); offset += options.chunk_size) {
+            CameraChunk chunk;
+            size_t count = std::min(options.chunk_size, input.size() - offset);
+
+            chunk.frame_index = static_cast<unsigned>(chunks->size());
+            chunk.chunk_index = 0u;
+            chunk.payload.assign(input.begin() + static_cast<std::ptrdiff_t>(offset),
+                                 input.begin() + static_cast<std::ptrdiff_t>(offset + count));
+            chunks->push_back(chunk);
+        }
+        return true;
+    }
+
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        for (unsigned chunk_index = 0; chunk_index < 2; ++chunk_index) {
+            CameraChunk chunk;
+
+            chunk.frame_index = frame;
+            chunk.chunk_index = chunk_index;
+            chunk.payload.resize(options.chunk_size);
+            fill_camera_chunk(chunk.payload, frame, chunk_index);
+            *input_bytes += chunk.payload.size();
+            chunks->push_back(chunk);
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
-int main()
+int main(int argc, char **argv)
 {
+    AppOptions options;
     fieldmesh_context_t *ctx = nullptr;
     fieldmesh_session_t *session = nullptr;
     fieldmesh_adapter_t *adapter = nullptr;
@@ -189,12 +349,20 @@ int main()
     ApList aps;
     PeerList peers;
     PositionList positions;
+    std::vector<CameraChunk> camera_chunks;
+    std::vector<unsigned char> preview_bytes;
+    size_t camera_input_bytes = 0u;
     unsigned frames_tx = 0;
     unsigned frames_rx = 0;
     unsigned rf_queued = 0;
     unsigned topology_links = 0;
     bool control_plane_ok = false;
     bool data_plane_ok = false;
+
+    if (!parse_options(argc, argv, &options) ||
+        !build_camera_chunks(options, &camera_chunks, &camera_input_bytes)) {
+        return 2;
+    }
 
     config.transport = FIELDMESH_TRANSPORT_USB_ETH;
     config.control_port = 49000;
@@ -314,27 +482,33 @@ int main()
                 "\"dst_device_eui\":\"020000000103\","
                 "\"host_ingress\":\"usb_or_phy_eth\","
                 "\"radio_data_plane\":\"fieldmesh_rf_packet_engine\","
+                "\"camera_source\":\"%s\","
+                "\"camera_input_bytes\":%lu,"
+                "\"chunk_size\":%lu,"
+                "\"chunks\":%lu,"
                 "\"payload_kind\":%u,"
                 "\"traffic_class\":%u,"
                 "\"preview_enabled\":true,"
                 "\"uses_iio\":0,"
                 "\"uses_inter_board_ip_routing\":0}\n",
+                options.camera_input_path ? "external_camera_stream" : "synthetic_pattern",
+                static_cast<unsigned long>(camera_input_bytes),
+                static_cast<unsigned long>(options.chunk_size),
+                static_cast<unsigned long>(camera_chunks.size()),
                 static_cast<unsigned>(FIELDMESH_PAYLOAD_VIDEO_BASE),
                 static_cast<unsigned>(FIELDMESH_CLASS_C2_VIDEO_BASE));
 
-    for (unsigned frame = 0; frame < 3; ++frame) {
-        for (unsigned chunk = 0; chunk < 2; ++chunk) {
-            std::vector<unsigned char> payload(640);
+    for (const auto &camera_chunk : camera_chunks) {
             std::array<unsigned char, 1200> rx_payload{};
             fieldmesh_adapter_packet_t tx_packet{};
             fieldmesh_adapter_packet_t rx_packet{};
             fieldmesh_rf_packet_submit_report_t rf_report{};
             size_t rx_len = 0;
 
-            fill_camera_chunk(payload, frame, chunk);
             if (!require_ok(fieldmesh_adapter_send_packet(
                                 adapter, FIELDMESH_PAYLOAD_VIDEO_BASE,
-                                payload.data(), payload.size(), &tx_packet),
+                                camera_chunk.payload.data(),
+                                camera_chunk.payload.size(), &tx_packet),
                             "adapter_send_camera") ||
                 !require_ok(fieldmesh_adapter_recv_packet(
                                 adapter, rx_payload.data(), rx_payload.size(), &rx_len,
@@ -348,14 +522,16 @@ int main()
                 fieldmesh_context_destroy(ctx);
                 return 1;
             }
-            if (rx_len != payload.size() ||
-                std::memcmp(rx_payload.data(), payload.data(), rx_len) != 0) {
+            if (rx_len != camera_chunk.payload.size() ||
+                std::memcmp(rx_payload.data(), camera_chunk.payload.data(), rx_len) != 0) {
                 std::fprintf(stderr, "camera preview payload mismatch\n");
                 (void)fieldmesh_close_adapter(adapter);
                 (void)fieldmesh_leave(session);
                 fieldmesh_context_destroy(ctx);
                 return 1;
             }
+            preview_bytes.insert(preview_bytes.end(), rx_payload.begin(),
+                                 rx_payload.begin() + static_cast<std::ptrdiff_t>(rx_len));
             ++frames_tx;
             ++frames_rx;
             rf_queued += rf_report.queued_to_rf_engine ? 1u : 0u;
@@ -376,7 +552,8 @@ int main()
                         "\"uses_inter_board_ip_routing\":%u,"
                         "\"starts_rf_tx\":%u,"
                         "\"writes_hardware\":%u}\n",
-                        frame, chunk, static_cast<unsigned>(rx_packet.payload_kind),
+                        camera_chunk.frame_index, camera_chunk.chunk_index,
+                        static_cast<unsigned>(rx_packet.payload_kind),
                         static_cast<unsigned>(rx_packet.traffic_class),
                         static_cast<unsigned>(rx_packet.mode), rx_packet.stream_id,
                         rx_packet.sequence, rf_report.plan.packet_len,
@@ -391,15 +568,51 @@ int main()
                         "\"chunk_index\":%u,"
                         "\"packet_len\":%lu,"
                         "\"preview_match\":true}\n",
-                        frame, chunk, static_cast<unsigned long>(rx_len));
+                        camera_chunk.frame_index, camera_chunk.chunk_index,
+                        static_cast<unsigned long>(rx_len));
+    }
+
+    if (options.preview_output_path) {
+        FILE *preview = std::fopen(options.preview_output_path, "wb");
+
+        if (!preview) {
+            std::fprintf(stderr, "failed to open preview output: %s\n",
+                         options.preview_output_path);
+            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
         }
+        if (!preview_bytes.empty() &&
+            std::fwrite(preview_bytes.data(), 1, preview_bytes.size(), preview) !=
+                preview_bytes.size()) {
+            std::fprintf(stderr, "failed to write preview output: %s\n",
+                         options.preview_output_path);
+            std::fclose(preview);
+            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        std::fclose(preview);
+        std::printf("{\"event\":\"app_camera_preview_output\","
+                    "\"path\":\"%s\","
+                    "\"bytes\":%lu,"
+                    "\"matches_input\":%s}\n",
+                    options.preview_output_path,
+                    static_cast<unsigned long>(preview_bytes.size()),
+                    (options.camera_input_path &&
+                     preview_bytes.size() == camera_input_bytes) ? "true" : "false");
     }
 
     control_plane_ok = !aps.aps.empty() && !peers.peers.empty() &&
                        !positions.positions.empty() &&
                        std::strcmp(election.elected_node_id, "020000000203") == 0 &&
                        topology_links >= 2u;
-    data_plane_ok = frames_tx == 6u && frames_rx == 6u && rf_queued == 6u;
+    data_plane_ok = frames_tx == camera_chunks.size() &&
+                    frames_rx == camera_chunks.size() &&
+                    rf_queued == camera_chunks.size() &&
+                    preview_bytes.size() == camera_input_bytes;
 
     std::printf("{\"event\":\"app_summary\","
                 "\"control_plane_ok\":%s,"
@@ -411,6 +624,9 @@ int main()
                 "\"frames_tx\":%u,"
                 "\"frames_rx\":%u,"
                 "\"rf_queued\":%u,"
+                "\"camera_source\":\"%s\","
+                "\"camera_input_bytes\":%lu,"
+                "\"preview_bytes\":%lu,"
                 "\"radio_topology_only\":true,"
                 "\"host_eth_topology\":false,"
                 "\"production_path\":\"sdk_daemon_swarm0_rf_packet_engine\"}\n",
@@ -419,7 +635,10 @@ int main()
                 static_cast<unsigned long>(aps.aps.size()),
                 static_cast<unsigned long>(peers.peers.size()),
                 static_cast<unsigned long>(positions.positions.size()),
-                topology_links, frames_tx, frames_rx, rf_queued);
+                topology_links, frames_tx, frames_rx, rf_queued,
+                options.camera_input_path ? "external_camera_stream" : "synthetic_pattern",
+                static_cast<unsigned long>(camera_input_bytes),
+                static_cast<unsigned long>(preview_bytes.size()));
 
     (void)fieldmesh_close_adapter(adapter);
     (void)fieldmesh_leave(session);

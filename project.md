@@ -635,7 +635,10 @@ user and vendor configuration.
   proactive camera streaming, radio-only topology, GNSS/PPS plus packet-timing
   RTLS/co-location estimates, and video-base frame chunks queued through the
   `swarm0`/RF packet-engine handoff without IIO, inter-board IP routing, or
-  live RF TX.
+  live RF TX. It now also accepts external camera bytes through
+  `--camera-input PATH|-`, chunks them with `--chunk-size`, and writes the
+  receive/preview side with `--preview-output`, which lets a platform camera
+  pipeline feed the same SDK path before a GUI renderer exists.
 - `meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/` and
   `meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/` - Yocto recipes that build
   the SDK profile CLI, local device/IIO demo, state-daemon, and two-PC flow
@@ -994,6 +997,10 @@ Expected result in the current Pluto-compatible firmware state:
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
    The matching Z203 installed-runtime app-camera gate is currently blocked by
    host reachability: `192.168.2.1` did not answer ping in the same live batch.
+   A follow-up host diagnostic showed two FT2232/JTAG-UART devices but only one
+   Pluto RNDIS/data gadget, assigned to the Z103 `192.168.3.10/24` Windows
+   interface; no `192.168.2.0/24` Windows interface or WSL USB device was
+   present for Z203 data traffic.
    The SDK now has the first pure-C `swarm0`/stream adapter API and
    packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
    telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into

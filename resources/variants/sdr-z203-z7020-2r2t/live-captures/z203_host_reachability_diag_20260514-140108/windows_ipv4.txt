@@ -1,0 +1,13 @@
+
+InterfaceAlias                     IPAddress       PrefixLength PrefixOrigin AddressState
+--------------                     ---------       ------------ ------------ ------------
+Loopback Pseudo-Interface 1        127.0.0.1                  8    WellKnown    Preferred
+vEthernet (WSL (Hyper-V firewall)) 172.28.192.1              20       Manual    Preferred
+VMware Network Adapter VMnet1      192.168.237.1             24       Manual    Preferred
+VMware Network Adapter VMnet8      192.168.61.1              24       Manual    Preferred
+WLAN                               192.168.0.104             24         Dhcp    Preferred
+以太网                             192.168.1.2               24       Manual    Preferred
+以太网 3                           192.168.3.10              24         Dhcp    Preferred
+本地连接* 1                        169.254.133.82            16    WellKnown    Tentative
+本地连接* 10                       169.254.194.164           16    WellKnown    Tentative
+蓝牙网络连接                       169.254.166.33            16    WellKnown    Tentative

@@ -113,7 +113,10 @@ Next concrete work:
      the same batch, Z203 did not answer `192.168.2.1` ping from the host, so
      the two-board persistent daemon gate is blocked on restoring the Z203
      host link before running the matching installed app-camera and RF
-     packet-engine checks.
+     packet-engine checks. A host diagnostic captured on 2026-05-14 found two
+     FT2232/JTAG-UART devices but only one Pluto RNDIS/data gadget, assigned to
+     `192.168.3.10/24`; there was no Windows `192.168.2.0/24` interface or WSL
+     USB device for Z203 data traffic.
 - Adopt the hybrid AP/broker architecture documented in
   `docs/fieldmesh-ap-sdk-architecture.md`: predefined AP when a deployment has
   a known owner/gateway, autonomous AP election when no AP is visible, direct
@@ -199,13 +202,17 @@ Next concrete work:
   passes the same composition as `FIELDMESH_APP_CONTROL_CAMERA`; Z203 is still
   pending because its host link was unreachable during the latest installed
   runtime batch. After Z203 is reachable, run the installed daemon flow on both
-  boards, then replace synthetic video chunks with real camera capture/preview.
-  The intended live product flow is still one app that can source or preview
-  camera data: Host A camera -> local board over USB/physical Ethernet SDK data
-  ingress -> FieldMesh RF -> peer board -> Host B preview. Host A and Host B
-  may be the same physical PC for lab testing, but the test must keep them as
-  logical hosts and preserve the split between SDK control plane and RF data
-  plane.
+  boards. The C++ app now accepts an external camera byte stream through
+  `--camera-input PATH|-`, chunks it, sends it through the same SDK/RF handoff,
+  and writes the preview side with `--preview-output`; the SDK verifier
+  byte-compares preview output against input. The remaining app work is
+  replacing that file/stdin source with real platform camera capture and GUI
+  rendering. The intended live product flow is still one app that can source or
+  preview camera data: Host A camera -> local board over USB/physical Ethernet
+  SDK data ingress -> FieldMesh RF -> peer board -> Host B preview. Host A and
+  Host B may be the same physical PC for lab testing, but the test must keep
+  them as logical hosts and preserve the split between SDK control plane and RF
+  data plane.
 - Consolidate the reviewed `design.md` production insight into implementation:
   IIO remains a local RF configuration, diagnostics, calibration, and
   conducted-test backend, while the product data plane should move toward a

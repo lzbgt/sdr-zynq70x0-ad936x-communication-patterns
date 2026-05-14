@@ -369,8 +369,10 @@ application/user repurpose into proactive camera streaming, radio topology,
 relative co-location estimates, and video-base frame chunks. Each frame chunk
 is queued to the FieldMesh adapter and RF packet-engine contract with
 `uses_iio=0`, `uses_inter_board_ip_routing=0`, `starts_rf_tx=0`, and
-`writes_hardware=0`; live camera capture and GUI rendering are the next app
-layer once the board daemon path is connected end to end.
+`writes_hardware=0`. The demo now also accepts `--camera-input PATH|-`,
+`--chunk-size`, and `--preview-output PATH`, so a real camera pipeline can feed
+encoded bytes into the same SDK data-plane path and byte-check the preview side
+before a GUI renderer is added.
 
 The daemon now has the matching app-level request,
 `FIELDMESH_APP_CONTROL_CAMERA`, so the same production intent is checked over

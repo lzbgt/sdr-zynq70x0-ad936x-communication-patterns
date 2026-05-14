@@ -1,0 +1,10 @@
+
+Name                               InterfaceDescription                       Status       MacAddress        LinkSpeed
+----                               --------------------                       ------       ----------        ---------
+vEthernet (WSL (Hyper-V firewall)) Hyper-V Virtual Ethernet Adapter           Up           00-15-5D-28-51-F6 10 Gbps
+VMware Network Adapter VMnet1      VMware Virtual Ethernet Adapter for VMnet1 Up           00-50-56-C0-00-01 100 Mbps
+VMware Network Adapter VMnet8      VMware Virtual Ethernet Adapter for VMnet8 Up           00-50-56-C0-00-08 100 Mbps
+WLAN                               Intel(R) Wi-Fi 6E AX211 160MHz             Up           40-D1-33-90-80-35 1.7 Gbps
+ÒÔÌ«Íø                             Realtek Gaming GbE Family Controller       Up           B4-E2-5B-06-81-D4 1 Gbps
+ÒÔÌ«Íø 3                           PlutoSDR USB Ethernet/RNDIS Gadget #2      Up           00-E0-22-AD-C8-3B 0 bps
+À¶ÑÀÍøÂçÁ¬½Ó                       Bluetooth Device (Personal Area Network)   Disconnected 40-D1-33-90-80-39 3 Mbps

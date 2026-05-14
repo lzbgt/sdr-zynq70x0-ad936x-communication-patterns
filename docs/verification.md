@@ -2969,6 +2969,29 @@ capture batch because `192.168.2.1` did not answer ping from the host. This is
 a live host-link/board-reachability blocker for the two-board persistent daemon
 gate, not a failed app-camera software assertion.
 
+The follow-up Z203 host diagnostic is archived under
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_host_reachability_diag_20260514-140108/`.
+It found that WSL had only its NAT `eth0`, Windows had a single Pluto RNDIS
+adapter with host address `192.168.3.10/24`, and `usbipd` listed two FT2232
+devices but only one Pluto composite data gadget. Windows could ping
+`192.168.3.1` and could not ping `192.168.2.1`, so the Z203 data USB/RNDIS
+function was not enumerated as a host-facing network path even though a Z203
+FT2232/JTAG-UART device may be attached.
+
+The SDK app gate now also checks an external camera byte-stream path. The
+verifier copies `resources/fieldmesh/vectors/frame_001.bin`, runs:
+
+```sh
+fieldmesh-control-camera-demo \
+  --camera-input .config/fieldmesh/sdk/fieldmesh_camera_input.bin \
+  --preview-output .config/fieldmesh/sdk/fieldmesh_camera_preview.bin \
+  --chunk-size 64
+```
+
+and byte-compares preview output against input. This keeps the SDK ABI pure C
+while giving the C++ app a real camera-pipeline ingress/preview boundary for
+Windows, Linux, macOS, or embedded hosts.
+
 The same SDK gate now also runs `fieldmeshctl_demo` as the first network
 profile CLI/API check. It verifies the default Pluto-style USB address,
 validates a split-subnet Z103 profile at `192.168.3.1/24` with host

@@ -26,6 +26,9 @@ done
 
 cxx="${CXX:-c++}"
 control_camera_app="$out_dir/fieldmesh-control-camera-demo"
+control_camera_external_log="$out_dir/fieldmesh_control_camera_demo_external.ndjson"
+control_camera_input="$out_dir/fieldmesh_camera_input.bin"
+control_camera_preview="$out_dir/fieldmesh_camera_preview.bin"
 "$cxx" -std=c++17 -Wall -Wextra -Werror \
     -I"$repo_root/sdk/c/include" \
     "$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp" \
@@ -33,6 +36,13 @@ control_camera_app="$out_dir/fieldmesh-control-camera-demo"
     -o "$control_camera_app"
 "$control_camera_app" >"$out_dir/fieldmesh_control_camera_demo.ndjson" \
     2>"$out_dir/fieldmesh_control_camera_demo.stderr"
+cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input"
+"$control_camera_app" \
+    --camera-input "$control_camera_input" \
+    --preview-output "$control_camera_preview" \
+    --chunk-size 64 \
+    >"$control_camera_external_log" \
+    2>"$out_dir/fieldmesh_control_camera_demo_external.stderr"
 
 udp_log="$out_dir/fieldmesh_udp_discovery_loopback.ndjson"
 udp_send_log="$out_dir/fieldmesh_udp_discovery_send.ndjson"
@@ -621,6 +631,49 @@ for preview in previews:
         raise SystemExit("control/camera preview did not match transmitted frame")
 PY
 echo "fieldmesh_sdk_control_camera_app_check=pass"
+
+python3 - "$control_camera_external_log" "$control_camera_input" "$control_camera_preview" <<'PY'
+import filecmp
+import json
+import os
+import sys
+
+events = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
+by_event = {}
+for event in events:
+    by_event.setdefault(event.get("event"), []).append(event)
+
+summary = by_event.get("app_summary", [])
+stream = by_event.get("app_camera_stream_open", [])
+preview = by_event.get("app_camera_preview_output", [])
+frames = by_event.get("app_camera_frame_tx", [])
+if not summary or not stream or not preview:
+    raise SystemExit("external camera app run missed summary/stream/preview")
+summary = summary[0]
+stream = stream[0]
+preview = preview[0]
+input_size = os.path.getsize(sys.argv[2])
+preview_size = os.path.getsize(sys.argv[3])
+if not filecmp.cmp(sys.argv[2], sys.argv[3], shallow=False):
+    raise SystemExit("external camera preview output did not match input")
+if summary.get("camera_source") != "external_camera_stream":
+    raise SystemExit("external camera source was not reported")
+if summary.get("camera_input_bytes") != input_size or summary.get("preview_bytes") != preview_size:
+    raise SystemExit("external camera byte accounting failed")
+if stream.get("camera_input_bytes") != input_size or stream.get("chunk_size") != 64:
+    raise SystemExit("external camera stream metadata failed")
+if len(frames) != 3 or summary.get("frames_tx") != 3 or summary.get("frames_rx") != 3:
+    raise SystemExit("external camera input should split into three chunks")
+if preview.get("matches_input") is not True or preview.get("bytes") != input_size:
+    raise SystemExit("external camera preview report failed")
+for frame in frames:
+    if frame.get("payload_kind") != 3 or frame.get("traffic_class") != 2:
+        raise SystemExit("external camera frame was not video-base C2")
+    for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
+        if frame.get(key) != 0:
+            raise SystemExit(f"external camera frame key {key} must be 0")
+PY
+echo "fieldmesh_sdk_control_camera_external_input_check=pass"
 
 python3 - "$out_dir/fieldmeshctl_profile_show.ndjson" \
     "$out_dir/fieldmeshctl_profile_validate.ndjson" \
