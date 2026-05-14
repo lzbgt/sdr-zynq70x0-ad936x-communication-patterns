@@ -69,7 +69,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 19:
+    if not end or end[-1].get("handled") != 20:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     ap_browse = one(query, "sdk_daemon_ap_browse")
@@ -80,7 +80,14 @@ def daemon_summary(label, path):
     camera_session = one(query, "sdk_daemon_camera_session_plan")
     camera_adaptation = one(query, "sdk_daemon_camera_adaptation")
     camera_chunk = one(query, "sdk_daemon_camera_stream_chunk")
-    app_camera = one(query, "sdk_daemon_app_control_camera")
+    app_cameras = [row for row in query if row.get("event") == "sdk_daemon_app_control_camera"]
+    if not app_cameras:
+        raise SystemExit(f"{label} missing app camera response")
+    app_camera = app_cameras[0]
+    app_camera_explicit = [
+        row for row in app_cameras
+        if row.get("selection_mode") == "user_explicit"
+    ]
     rf_engine = one(query, "sdk_daemon_rf_packet_engine")
 
     if ap_browse.get("aps", 0) < 1 or ap_election.get("elected_node_id") != "020000000203":
@@ -107,6 +114,16 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} camera chunk preview failed")
     if app_camera.get("control_plane_ok") is not True or app_camera.get("data_plane_ok") is not True:
         raise SystemExit(f"{label} app camera plane status failed")
+    if app_camera.get("selection_mode") != "auto_election" or app_camera.get("dst_device_eui") != "020000000103":
+        raise SystemExit(f"{label} default app camera operation fields failed")
+    if not app_camera_explicit:
+        raise SystemExit(f"{label} explicit app camera operation missing")
+    if app_camera_explicit[0].get("elected_device_eui") != "020000000103":
+        raise SystemExit(f"{label} explicit app camera AP selection failed")
+    if app_camera_explicit[0].get("dst_device_eui") != "020000000203":
+        raise SystemExit(f"{label} explicit app camera destination failed")
+    if app_camera_explicit[0].get("control_plane_ok") is not True or app_camera_explicit[0].get("data_plane_ok") is not True:
+        raise SystemExit(f"{label} explicit app camera plane status failed")
     if rf_engine.get("queued_to_sidecar") != 1 or rf_engine.get("queued_to_rf_engine") != 1:
         raise SystemExit(f"{label} RF packet-engine handoff failed")
 

@@ -1043,10 +1043,12 @@ Expected result in the current Pluto-compatible firmware state:
    refreshed FieldMesh package and reran the same check with
    `UPLOAD_IF_MISSING=0`, so the IIO-bridge request is now installed Z103
    behavior. A later persistent Z103 install verified the production-shaped
-   app-camera composition too: the installed daemon answered all 15 SDK
-   requests, including `FIELDMESH_APP_CONTROL_CAMERA`. The packaged daemon now
-   uses the same pure-C `fieldmesh_camera_stream_frame()` path as the C++ app
-   for that composition. The daemon contract also exposes
+   app-camera composition too: the installed daemon answered the SDK
+   app-camera requests, including `FIELDMESH_APP_CONTROL_CAMERA`. The packaged
+   daemon now uses the same pure-C `fieldmesh_camera_stream_frame()` path as the
+   C++ app for that composition and accepts compact EUI operation fields for
+   explicit AP selection and camera destination (`preferred_ap=...`,
+   `dst=...`). The daemon contract also exposes
    `FIELDMESH_CAMERA_SESSION_PLAN` for pacing, inflight-window, ACK cadence,
    reorder-window, jitter-buffer, backpressure, and keepalive policy,
    `FIELDMESH_ROUTE_METRICS` for measured RSSI/SNR/EVM/PER, latency, jitter,
@@ -1081,6 +1083,11 @@ Expected result in the current Pluto-compatible firmware state:
    `starts_rf_tx=false`, and `writes_hardware=false`. Evidence is archived
    under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
+   A later refreshed transient-daemon run verified the same two-board path with
+   two app-camera operation modes on each board: default auto election and
+   `user_explicit` AP/destination EUI selection
+   (`preferred_ap=020000000103`, `dst=020000000203`). Evidence:
+   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_explicit_camera_flow_20260514-1718/`.
    The SDK now has the first pure-C `swarm0`/stream adapter API and
    packaged `/usr/bin/fieldmesh-swarm-adapter-demo`; it maps C0 control, C1
    telemetry, C2 video base, C3 enhancement, and C4 bulk payloads into

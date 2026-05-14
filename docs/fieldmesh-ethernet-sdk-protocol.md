@@ -118,11 +118,11 @@ Minimum daemon messages:
 | `SWARM_ADAPTER_PLAN` | client -> daemon | Open or inspect the `swarm0`/stream adapter payload mapping. |
 | `RF_PACKET_ENGINE` | daemon internal / diagnostic | Queue adapter packet metadata toward sidecar DMA and the RF packet engine without starting RF TX. |
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
-| `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. |
-| `CAMERA_SESSION_PLAN` | app -> daemon | Plan camera stream pacing, chunk window, ACK cadence, reorder window, jitter buffer, and RF handoff policy before sending chunks. |
+| `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. Optional `preferred_ap=<12hex>` and `dst=<12hex>` fields select AP and destination by device EUI. |
+| `CAMERA_SESSION_PLAN` | app -> daemon | Plan camera stream pacing, chunk window, ACK cadence, reorder window, jitter buffer, and RF handoff policy before sending chunks. Optional `dst=<12hex>` selects the peer. |
 | `ROUTE_METRICS` | app -> daemon | Query measured RF route health: RSSI, SNR, EVM, PER, ACK latency, jitter, queue age, throughput, CFO/Doppler, timing residual, and direct-vs-relay recommendation. |
-| `CAMERA_ADAPTATION_FEEDBACK` | app -> daemon | Adapt camera pacing from `ROUTE_METRICS` and receive bitrate/FPS/window/route/backpressure actions. |
-| `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. |
+| `CAMERA_ADAPTATION_FEEDBACK` | app -> daemon | Adapt camera pacing from `ROUTE_METRICS` and receive bitrate/FPS/window/route/backpressure actions. Optional `dst=<12hex>` selects the peer. |
+| `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. Optional `dst=<12hex>` selects the peer. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
 | `TUN_PLAN` | client -> daemon | Plan a board-local routed `swarm0` TUN endpoint and route commands without creating it. |
 | `TUN_APPLY_VALIDATE` | client -> daemon | Validate `swarm0` create/route/rollback actions without writing network state. |

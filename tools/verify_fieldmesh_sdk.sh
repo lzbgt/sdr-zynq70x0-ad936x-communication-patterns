@@ -113,7 +113,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 19 3000 >"$daemon_log" &
+"$daemon_demo" serve 127.0.0.1 49124 20 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
@@ -265,7 +265,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 19 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 20 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("SDK daemon AP browse query failed")
@@ -356,6 +356,10 @@ for key in ("sets_tx_enable", "sets_tx_armed", "live_arm_requested",
         raise SystemExit(f"SDK daemon RF TX guard key {key} must be 0")
 if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
     raise SystemExit("SDK daemon app control/camera query failed")
+app_camera_explicit = [
+    row for row in app_camera
+    if row.get("selection_mode") == "user_explicit"
+]
 if app_camera[0].get("sdk_abi") != "pure_c" or app_camera[0].get("client_app_language") != "cpp":
     raise SystemExit("SDK daemon app control/camera ABI metadata failed")
 if app_camera[0].get("stream_api") != "fieldmesh_camera_stream_frame":
@@ -364,6 +368,18 @@ if app_camera[0].get("control_plane_ok") is not True or app_camera[0].get("data_
     raise SystemExit("SDK daemon app control/camera planes did not pass")
 if app_camera[0].get("elected_device_eui") != "020000000203":
     raise SystemExit("SDK daemon app control/camera elected wrong AP")
+if app_camera[0].get("selection_mode") != "auto_election":
+    raise SystemExit("SDK daemon app control/camera default selection mode failed")
+if app_camera[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("SDK daemon app control/camera default destination failed")
+if not app_camera_explicit:
+    raise SystemExit("SDK daemon app control/camera explicit operation missing")
+if app_camera_explicit[0].get("elected_device_eui") != "020000000103":
+    raise SystemExit("SDK daemon app control/camera explicit AP failed")
+if app_camera_explicit[0].get("dst_device_eui") != "020000000203":
+    raise SystemExit("SDK daemon app control/camera explicit destination failed")
+if app_camera_explicit[0].get("control_plane_ok") is not True or app_camera_explicit[0].get("data_plane_ok") is not True:
+    raise SystemExit("SDK daemon app control/camera explicit planes failed")
 if app_camera[0].get("requested_role") != "proactive_camera_streamer":
     raise SystemExit("SDK daemon app control/camera missed commanded role")
 if app_camera[0].get("launched_role") != "passive_learner":

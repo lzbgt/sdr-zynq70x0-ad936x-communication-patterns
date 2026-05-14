@@ -1,0 +1,6 @@
+{"event":"iio_plan_start","transport":"iio-plan","iio_uri":"local:"}
+{"event":"iio_packet_candidate","transport":"iio-plan","index":0,"id":"iio:device0","name":"ad9361-phy","channels":9,"input_channels":4,"output_channels":5,"scan_elements":0,"rx_score":4,"tx_score":5}
+{"event":"iio_packet_candidate","transport":"iio-plan","index":1,"id":"iio:device1","name":"xadc","channels":10,"input_channels":10,"output_channels":0,"scan_elements":0,"rx_score":10,"tx_score":0}
+{"event":"iio_packet_candidate","transport":"iio-plan","index":2,"id":"iio:device2","name":"cf-ad9361-dds-core-lpc","channels":6,"input_channels":0,"output_channels":6,"scan_elements":2,"rx_score":2,"tx_score":8}
+{"event":"iio_packet_candidate","transport":"iio-plan","index":3,"id":"iio:device3","name":"cf-ad9361-lpc","channels":2,"input_channels":2,"output_channels":0,"scan_elements":2,"rx_score":4,"tx_score":2}
+{"event":"iio_plan_end","transport":"iio-plan","iio_uri":"local:","ok":true,"devices":4,"rx_device":"iio:device1","rx_score":10,"tx_device":"iio:device2","tx_score":8,"opens_buffers":false}

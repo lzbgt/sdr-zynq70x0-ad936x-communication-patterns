@@ -140,7 +140,10 @@ Next concrete work:
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK` route-health adaptation, direct
   `FIELDMESH_CAMERA_STREAM_CHUNK` data-plane ingress with preview/checksum/RF
   handoff status, and local IIO admin planning over the same UDP socket
-  boundary.
+  boundary. `FIELDMESH_APP_CONTROL_CAMERA`, `FIELDMESH_CAMERA_SESSION_PLAN`,
+  `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and `FIELDMESH_CAMERA_STREAM_CHUNK`
+  now accept compact `dst=<12hex>` operation fields, and the app-control
+  request also accepts `preferred_ap=<12hex>` for user-explicit AP selection.
   The
   2026-05-14 Z103 live checks proved the new IIO bridge response first by
   transiently uploading the refreshed daemon with `FORCE_UPLOAD=1`, then by
@@ -173,6 +176,10 @@ Next concrete work:
   packet-engine handoff, and the paired two-board radio-readiness assertion.
   That live gate passed with evidence under
   `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
+  The refreshed transient-daemon version of the same gate also passed with two
+  app-control events per board: default `auto_election` and `user_explicit`
+  AP/destination EUI selection. Evidence:
+  `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_explicit_camera_flow_20260514-1718/`.
   Next work is replacing the deterministic demo AP/join responses with real
   credential/audit admission, board peer discovery, measured route query,
   codec-integrated adaptation feedback, prioritized stream send/receive

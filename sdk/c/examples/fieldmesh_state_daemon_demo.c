@@ -49,6 +49,8 @@ struct ap_summary {
     unsigned audit_required;
     uint32_t total_kbps;
     char preferred_ap[FIELDMESH_ID_TEXT_MAX];
+    char requested_ap[FIELDMESH_ID_TEXT_MAX];
+    unsigned requested_ap_seen;
 };
 
 struct tun_fd_read_context {
@@ -138,7 +140,8 @@ static size_t parse_hex_payload(const char *hex,
     while (*hex == ' ' || *hex == '\t') {
         ++hex;
     }
-    while (hex[0] && hex[1] && hex[0] != '\r' && hex[0] != '\n') {
+    while (hex[0] && hex[1] && hex[0] != ' ' && hex[0] != '\t' &&
+           hex[0] != '\r' && hex[0] != '\n') {
         int hi = hex_value((unsigned char)hex[0]);
         int lo = hex_value((unsigned char)hex[1]);
 
@@ -148,7 +151,8 @@ static size_t parse_hex_payload(const char *hex,
         payload[len++] = (unsigned char)((hi << 4) | lo);
         hex += 2;
     }
-    if (*hex && *hex != '\r' && *hex != '\n') {
+    if (*hex && *hex != ' ' && *hex != '\t' && *hex != '\r' &&
+        *hex != '\n') {
         return 0u;
     }
     return len;
@@ -164,6 +168,69 @@ static uint32_t checksum32(const unsigned char *payload, size_t payload_len)
         hash *= 16777619u;
     }
     return hash;
+}
+
+static int valid_compact_eui(const char *eui)
+{
+    size_t i;
+
+    if (!eui || strlen(eui) != 12u) {
+        return 0;
+    }
+    for (i = 0; i < 12u; ++i) {
+        if (hex_value((unsigned char)eui[i]) < 0) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int copy_request_field(const char *request,
+                              const char *key,
+                              char *dst,
+                              size_t dst_len)
+{
+    const char *pos;
+    size_t len = 0u;
+
+    if (!request || !key || !dst || dst_len == 0u) {
+        return -1;
+    }
+    pos = strstr(request, key);
+    if (!pos) {
+        return 0;
+    }
+    pos += strlen(key);
+    while (pos[len] && pos[len] != ' ' && pos[len] != '\t' &&
+           pos[len] != '\r' && pos[len] != '\n') {
+        ++len;
+    }
+    if (len == 0u || len >= dst_len) {
+        return -1;
+    }
+    memcpy(dst, pos, len);
+    dst[len] = '\0';
+    return 1;
+}
+
+static int request_device_eui_or_default(const char *request,
+                                         const char *key,
+                                         const char *default_eui,
+                                         char *dst,
+                                         size_t dst_len)
+{
+    int found;
+
+    if (!default_eui || !dst || dst_len == 0u ||
+        strlen(default_eui) >= dst_len) {
+        return 0;
+    }
+    snprintf(dst, dst_len, "%s", default_eui);
+    found = copy_request_field(request, key, dst, dst_len);
+    if (found < 0 || !valid_compact_eui(dst)) {
+        return 0;
+    }
+    return 1;
 }
 
 static fieldmesh_status_t read_tun_fd_once(void *user,
@@ -378,6 +445,10 @@ static void on_ap(const fieldmesh_ap_info_t *ap, void *user)
     }
     if (summary->aps == 0) {
         snprintf(summary->preferred_ap, sizeof(summary->preferred_ap), "%s", ap->ap_id);
+    }
+    if (summary->requested_ap[0] != '\0' &&
+        strcmp(summary->requested_ap, ap->ap_id) == 0) {
+        summary->requested_ap_seen = 1u;
     }
     summary->aps++;
     summary->total_kbps += ap->max_kbps;
@@ -876,6 +947,10 @@ static int build_response(fieldmesh_context_t *context,
         struct position_summary positions = {0};
         fieldmesh_ap_election_result_t election;
         fieldmesh_adapter_t *camera_stream = NULL;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+        char preferred_ap_eui[FIELDMESH_ID_TEXT_MAX] = {0};
+        const char *selection_mode = "auto_election";
+        const char *expected_ap_eui = "020000000203";
         fieldmesh_camera_stream_config_t camera_config = {
             .requested_mode = FIELDMESH_MODE_SCHEDULED,
             .stream_id_base = 500,
@@ -890,10 +965,37 @@ static int build_response(fieldmesh_context_t *context,
         unsigned frame;
         unsigned chunk;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_control_camera\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
+        if (copy_request_field(request, "preferred_ap=", preferred_ap_eui,
+                               sizeof(preferred_ap_eui)) < 0 ||
+            (preferred_ap_eui[0] != '\0' &&
+             !valid_compact_eui(preferred_ap_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_control_camera\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_preferred_ap_eui\"}\n");
+            return 0;
+        }
+        if (preferred_ap_eui[0] != '\0') {
+            snprintf(aps.requested_ap, sizeof(aps.requested_ap), "%s",
+                     preferred_ap_eui);
+            selection_mode = "user_explicit";
+            expected_ap_eui = preferred_ap_eui;
+        }
+
         snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
                  "%s", "swarm0");
         snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         if (fieldmesh_browse_aps(context, 1000, on_ap, &aps) != FIELDMESH_OK ||
             fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID, 1000,
                                &election) != FIELDMESH_OK ||
@@ -903,6 +1005,15 @@ static int build_response(fieldmesh_context_t *context,
             fieldmesh_open_camera_stream(session, &camera_config, &camera_stream) !=
                 FIELDMESH_OK) {
             failed = 1;
+        }
+        if (!failed && preferred_ap_eui[0] != '\0') {
+            if (!aps.requested_ap_seen) {
+                failed = 1;
+            } else {
+                snprintf(election.elected_node_id,
+                         sizeof(election.elected_node_id), "%s",
+                         preferred_ap_eui);
+            }
         }
 
         for (frame = 0; !failed && frame < 3u; ++frame) {
@@ -962,6 +1073,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"peers\":%u,"
                  "\"positions\":%u,"
                  "\"elected_device_eui\":\"%s\","
+                 "\"selection_mode\":\"%s\","
+                 "\"dst_device_eui\":\"%s\","
                  "\"requested_role\":\"proactive_camera_streamer\","
                  "\"launched_role\":\"passive_learner\","
                  "\"commanded_by\":\"user_or_application\","
@@ -982,7 +1095,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0}\n",
                  (aps.aps > 0u && peers.peers > 0u && positions.positions > 0u &&
-                  strcmp(election.elected_node_id, "020000000203") == 0) ?
+                  strcmp(election.elected_node_id, expected_ap_eui) == 0) ?
                      "true" :
                      "false",
                  (frames_tx == 6u && frames_rx == 6u &&
@@ -990,7 +1103,8 @@ static int build_response(fieldmesh_context_t *context,
                      "true" :
                      "false",
                  aps.aps, peers.peers, positions.positions,
-                 election.elected_node_id, positions.gps_pps_fused,
+                 election.elected_node_id, selection_mode,
+                 camera_config.dst_node_id, positions.gps_pps_fused,
                  positions.packet_timing_tdoa, frames_tx, frames_rx,
                  preview_matches, rf_queued, direct_routes,
                  (unsigned)FIELDMESH_PAYLOAD_VIDEO_BASE,
@@ -998,6 +1112,7 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_CAMERA_SESSION_PLAN")) {
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         fieldmesh_camera_stream_config_t camera_config = {
             .requested_mode = FIELDMESH_MODE_SCHEDULED,
             .stream_id_base = 500,
@@ -1005,10 +1120,20 @@ static int build_response(fieldmesh_context_t *context,
         };
         fieldmesh_camera_session_plan_t plan;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_session_plan\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
         snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
                  "%s", "swarm0");
         snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         if (fieldmesh_plan_camera_stream_session(session, &camera_config,
                                                  &plan) != FIELDMESH_OK) {
             snprintf(response, response_len,
@@ -1063,6 +1188,7 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK")) {
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         fieldmesh_camera_stream_config_t camera_config = {
             .requested_mode = FIELDMESH_MODE_SCHEDULED,
             .stream_id_base = 500,
@@ -1073,10 +1199,20 @@ static int build_response(fieldmesh_context_t *context,
         fieldmesh_camera_adaptation_report_t adaptation;
         fieldmesh_route_metrics_t metrics;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_adaptation\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
         snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
                  "%s", "swarm0");
         snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         memset(&feedback, 0, sizeof(feedback));
         if (fieldmesh_query_route_metrics(session, camera_config.dst_node_id,
                                           camera_config.stream_id_base,
@@ -1158,6 +1294,7 @@ static int build_response(fieldmesh_context_t *context,
     }
     if (strstr(request, "FIELDMESH_CAMERA_STREAM_CHUNK")) {
         const char *hex = strstr(request, " v1 ");
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         unsigned char payload[1200];
         unsigned char preview[1200];
         size_t payload_len = 0u;
@@ -1171,10 +1308,20 @@ static int build_response(fieldmesh_context_t *context,
         fieldmesh_camera_frame_report_t frame_report;
         fieldmesh_status_t status;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_camera_stream_chunk\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
         snprintf(camera_config.adapter_name, sizeof(camera_config.adapter_name),
                  "%s", "swarm0");
         snprintf(camera_config.dst_node_id, sizeof(camera_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         payload_len = parse_hex_payload(hex ? hex + 4 : NULL, payload,
                                         sizeof(payload));
         if (payload_len == 0u ||
@@ -1756,6 +1903,9 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_APP_CONTROL_CAMERA v1") == 0 &&
+        query_once(sockfd, &dst,
+                   "FIELDMESH_APP_CONTROL_CAMERA v1 "
+                   "preferred_ap=020000000103 dst=020000000203") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_CAMERA_SESSION_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK v1") == 0 &&
         query_once(sockfd, &dst,

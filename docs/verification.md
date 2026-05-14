@@ -3539,20 +3539,37 @@ source and sink sides. The paired radio-readiness gate still passed with
 `uses_inter_board_ip_routing=false`, `uses_iio=false`, `starts_rf_tx=false`,
 and `writes_hardware=false`.
 
-Refreshed runtime artifact hashes after adding measured route metrics to the
-camera adaptation path in the packaged board daemon:
+After adding explicit AP/destination EUI fields to the daemon app-camera
+operation, the two-board gate was rerun again with refreshed transient daemons:
+
+```sh
+FORCE_UPLOAD=1 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
+OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_explicit_camera_flow_20260514-1718 \
+./tools/run_fieldmesh_two_board_camera_flow.sh
+```
+
+Result: passed. Each board daemon handled 20 requests and reported two
+`sdk_daemon_app_control_camera` events: the default `auto_election` path and a
+`user_explicit` path with `preferred_ap=020000000103` and
+`dst=020000000203`. Both paths kept `control_plane_ok=true`,
+`data_plane_ok=true`, `uses_inter_board_ip_routing=0`, `uses_iio=0`,
+`starts_rf_tx=0`, and `writes_hardware=0`. The paired radio-readiness gate
+again passed over Z203 physical Ethernet plus Z103 USB Ethernet.
+
+Refreshed runtime artifact hashes after adding explicit AP/destination EUI
+operation fields to the packaged board daemon:
 
 ```text
-Z203 rootfs.cpio.gz: 54f40c14400e46342ff7d26af55e889cf0c91a62f449ed0643c1f5b292dceca5
-Z203 rootfs.tar.gz:  c5904b51dcd6bb58c796b899f26e763a9aaeaf437597e52ef6e8223dc75dd727
-Z203 pluto.frm:      eb84a8d8cec5ac82dc51f44cfe64205abf8a469097be87625ef9f2f6ddaf5f32
-Z203 pluto.itb:      3af75390942da1c2d0eb11ef2807b99077a1ab3423a8abce28ed32ff9aa325bc
-Z203 jtag ramdisk:   1d18d177f2228110f66fa328be02f3996290eb259376680c4dd18203c1076a2e
-Z103 rootfs.cpio.gz: 71352c801ad6d5d9437dfd6b2ea7279286c8d22dbf092eed7a1e9fa7e5fed63f
-Z103 rootfs.tar.gz:  30c8852cc7bb24ea306648a101aec4eac95d97e46101c4f1c8c980b74688f834
-Z103 pluto.frm:      3b002bdf350f7bea5cd4d2100725a0714ad0feea4137d546789748f67acff5fe
-Z103 pluto.itb:      4b5b16e57d995bd625a021128b1bdb498cdf66a9555ea11a62528b730da761ad
-Z103 jtag ramdisk:   03c30966207689fa90133a1ff9e1e650ae8d05d19a9751cd7b627bbd7e8b8871
+Z203 rootfs.cpio.gz: eecbc4c0629581d6ffe71dedcb38d01d79fa132981d84dfc9ffe133b1dacb82e
+Z203 rootfs.tar.gz:  ee89986c8060c783b4ccb91487b591f3d0ed34a7ac7b60e8228f6bdf77b81d02
+Z203 pluto.frm:      142e45c20d43178d5cc23e65d3f809e87a1b8ffcca3d3911d15d464848bff03f
+Z203 pluto.itb:      f66e0e3a6f6ed4d7e6d2f399c2e45bf1d4c739aec0fd5740e4d829fb4701f32c
+Z203 jtag ramdisk:   0a5f1eb7f05e2346ddeebda84a69b6ffb2f652ef1429f6c3c03b48059367c82a
+Z103 rootfs.cpio.gz: 7301a22acff6ef442b4165961c7e1d5a775924d80267a96950f73dda9e1bcdf6
+Z103 rootfs.tar.gz:  63cffd26f034c7b2cf17381814b84db0ac8b70fb22bc73bff14d003719b307c7
+Z103 pluto.frm:      4c1d618324249e7952a8c10178a1f3aa5e74cc6ff843afa5556bb8ae5386ca91
+Z103 pluto.itb:      d12b8ec05ebfd490533e79a46479cb681209c6de35ee4220d8d79aac56e4e091
+Z103 jtag ramdisk:   b9bc73ba09cb5302e1f566f147d2a58b6c20abb9bf61c3c24f2101aec4df9d81
 ```
 
 ## FieldMesh RTLS Positioning Gate

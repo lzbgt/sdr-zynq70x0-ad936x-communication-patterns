@@ -231,6 +231,10 @@ verify_variant() {
         sdk_daemon_tun_apply \
         sdk_daemon_tun_apply_rejected \
         sdk_daemon_iio_bridge_plan \
+        selection_mode \
+        user_explicit \
+        auto_election \
+        dst_device_eui \
         020000000203 \
         020000000103; do
         if ! grep -qF "$token" "$daemon_strings_out"; then
