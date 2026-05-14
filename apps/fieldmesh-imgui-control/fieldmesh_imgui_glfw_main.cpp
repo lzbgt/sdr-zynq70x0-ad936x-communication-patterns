@@ -163,6 +163,7 @@ int main(int argc, char **argv)
         glfwSwapBuffers(window);
     } while (!glfwWindowShouldClose(window) && !smoke_frame);
 
+    (void)poll_message_bus(&state);
     if (snapshot_output && !write_snapshot(state, snapshot_output)) {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();

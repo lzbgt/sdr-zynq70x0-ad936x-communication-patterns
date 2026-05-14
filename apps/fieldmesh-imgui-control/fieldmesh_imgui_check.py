@@ -41,6 +41,8 @@ def main() -> int:
         "Modulation",
         "begin_panel(\"Peers\"",
         "begin_panel(\"Messages\"",
+        "append_message_bus",
+        "poll_message_bus",
         "begin_panel(\"Conversation\"",
         "Connected local board",
         "Active remote peer",
@@ -49,6 +51,11 @@ def main() -> int:
         "Built-in camera",
         "Accept",
         "Deny",
+        "render_topology_page",
+        "Network Topology",
+        "Hover between peers for distance",
+        "distance_meters",
+        "point_segment_distance",
         "connection-security-summary",
         "begin_panel(\"Radio Network Topology\"",
         "peer-list-column",
@@ -134,6 +141,8 @@ def main() -> int:
         raise SystemExit("ImGui app must expose peer discovery")
     if snapshot.get("messaging_available") is not True:
         raise SystemExit("ImGui app must expose messaging")
+    if snapshot.get("messaging_receive_poll") is not True:
+        raise SystemExit("ImGui app must poll for received messages")
     if snapshot.get("live_video_available") is not True:
         raise SystemExit("ImGui app must expose live video")
     if snapshot.get("control_plane_actions") is not True:
@@ -187,6 +196,14 @@ def main() -> int:
         raise SystemExit("ImGui app must expose an in-app Python automation page")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit("ImGui app topology viewer must be radio topology")
+    if snapshot.get("network_topology_page") is not True:
+        raise SystemExit("ImGui app must expose a full network topology page")
+    if snapshot.get("topology_distance_hover") is not True:
+        raise SystemExit("topology page must annotate hovered peer distances")
+    if snapshot.get("topology_ap_membership_links") is not True:
+        raise SystemExit("topology page must draw AP membership links")
+    if snapshot.get("responsive_chat_layout") is not True:
+        raise SystemExit("chat layout must be responsive to window size changes")
     if snapshot.get("relative_colocation_viewer") is not True:
         raise SystemExit("ImGui app must expose relative co-location")
     if snapshot.get("video_publish_available") is not True:

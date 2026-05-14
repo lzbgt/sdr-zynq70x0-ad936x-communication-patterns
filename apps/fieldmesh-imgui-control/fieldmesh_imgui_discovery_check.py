@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import os
 from pathlib import Path
 
 
@@ -68,6 +69,8 @@ def main() -> int:
     candidates = f"127.0.0.1:{server_a[1]},127.0.0.1:{server_b[1]}"
     try:
         with tempfile.TemporaryDirectory() as tmp:
+            env = os.environ.copy()
+            env["FIELDMESH_IM_BUS_DIR"] = str(Path(tmp) / "im-bus")
             default_snapshot = Path(tmp) / "default.json"
             subprocess.run(
                 [
@@ -79,6 +82,7 @@ def main() -> int:
                     str(default_snapshot),
                 ],
                 check=True,
+                env=env,
             )
             default_data = json.loads(default_snapshot.read_text(encoding="utf-8"))
             if default_data["profile_source"] != "runtime_discovery":
@@ -104,6 +108,7 @@ def main() -> int:
                     str(snapshot),
                 ],
                 check=True,
+                env=env,
             )
             data = json.loads(snapshot.read_text(encoding="utf-8"))
             if data["profile_source"] != "runtime_discovery":
@@ -120,6 +125,46 @@ def main() -> int:
                 raise SystemExit("remote peer should be distinct from the local board")
             if data["python_automation_runs"] != 1:
                 raise SystemExit("embedded Python automation action was not surfaced")
+
+            send_snapshot = Path(tmp) / "send.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--api-open-chat",
+                    "02aabb000002",
+                    "--api-send-message",
+                    "hello fieldmesh peer",
+                    "--snapshot-output",
+                    str(send_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            recv_snapshot = Path(tmp) / "recv.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(recv_snapshot),
+                ],
+                check=True,
+                env=env,
+            )
+            recv = json.loads(recv_snapshot.read_text(encoding="utf-8"))
+            if recv["messages_received"] != 1:
+                raise SystemExit("peer GUI instance did not receive IM message")
+            if recv["last_received_text"] != "hello fieldmesh peer":
+                raise SystemExit("received IM text changed")
     finally:
         for thread in threads:
             thread.join(timeout=1.0)

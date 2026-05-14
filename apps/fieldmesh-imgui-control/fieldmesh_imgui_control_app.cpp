@@ -4,10 +4,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
 
 #ifdef FIELDMESH_WITH_IMGUI
 #include "imgui.h"
@@ -134,6 +142,7 @@ struct GuiState {
     GuiCamera camera;
     GuiRadioConfig radio;
     GuiPythonAutomation python;
+    bool topology_page_open;
     std::string selected_conversation_eui;
     std::string draft_message;
     unsigned messages_sent;
@@ -143,6 +152,7 @@ struct GuiState {
     std::string operation_status;
     std::string profile_source;
     std::string discovery_candidates;
+    size_t message_bus_read_offset;
     bool connected_to_board;
     bool auto_election_enabled;
     bool radio_topology_only;
@@ -290,6 +300,167 @@ int parse_int_field(const std::string &field)
     return static_cast<int>(std::strtol(field.c_str(), nullptr, 10));
 }
 
+std::string message_bus_dir()
+{
+    const char *env = std::getenv("FIELDMESH_IM_BUS_DIR");
+
+    if (env && env[0] != '\0') {
+        return env;
+    }
+    return "/tmp/fieldmesh-imgui-im-bus";
+}
+
+void ensure_message_bus_dir(const std::string &dir)
+{
+#if defined(_WIN32)
+    (void)_mkdir(dir.c_str());
+#else
+    (void)mkdir(dir.c_str(), 0700);
+#endif
+}
+
+std::string message_bus_path(const std::string &device_eui)
+{
+    std::string dir = message_bus_dir();
+
+    ensure_message_bus_dir(dir);
+    return dir + "/" + device_eui + ".inbox";
+}
+
+std::string hex_encode(const std::string &text)
+{
+    static const char hex[] = "0123456789abcdef";
+    std::string out;
+
+    out.reserve(text.size() * 2u);
+    for (unsigned char c : text) {
+        out.push_back(hex[c >> 4]);
+        out.push_back(hex[c & 0x0f]);
+    }
+    return out;
+}
+
+int hex_value(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+std::string hex_decode(const std::string &hex)
+{
+    std::string out;
+
+    if ((hex.size() % 2u) != 0u) {
+        return out;
+    }
+    out.reserve(hex.size() / 2u);
+    for (std::size_t i = 0; i < hex.size(); i += 2u) {
+        int hi = hex_value(hex[i]);
+        int lo = hex_value(hex[i + 1u]);
+
+        if (hi < 0 || lo < 0) {
+            return std::string();
+        }
+        out.push_back(static_cast<char>((hi << 4) | lo));
+    }
+    return out;
+}
+
+bool append_message_bus(const std::string &src_eui,
+                        const std::string &dst_eui,
+                        const std::string &text)
+{
+    std::string path = message_bus_path(dst_eui);
+    FILE *out = std::fopen(path.c_str(), "ab");
+
+    if (!out) {
+        return false;
+    }
+    std::fprintf(out, "%s|%s|%s\n", src_eui.c_str(), dst_eui.c_str(),
+                 hex_encode(text).c_str());
+    return std::fclose(out) == 0;
+}
+
+void mark_conversation_unread(GuiState *state, const std::string &peer_eui)
+{
+    for (GuiConversation &conversation : state->conversations) {
+        if (conversation.peer_eui == peer_eui &&
+            conversation.peer_eui != state->selected_conversation_eui) {
+            conversation.unread_count += 1u;
+        }
+    }
+}
+
+bool poll_message_bus(GuiState *state)
+{
+    if (state->selected_board_eui.empty()) {
+        return false;
+    }
+
+    std::string path = message_bus_path(state->selected_board_eui);
+    FILE *in = std::fopen(path.c_str(), "rb");
+    char line[1024];
+    bool received = false;
+
+    if (!in) {
+        return false;
+    }
+    if (state->message_bus_read_offset > 0u) {
+        (void)std::fseek(in,
+                         static_cast<long>(state->message_bus_read_offset),
+                         SEEK_SET);
+    }
+    while (std::fgets(line, sizeof(line), in)) {
+        std::string row(line);
+        std::size_t first = row.find('|');
+        std::size_t second = first == std::string::npos ?
+                             std::string::npos : row.find('|', first + 1u);
+
+        if (second == std::string::npos) {
+            continue;
+        }
+        std::string src = row.substr(0u, first);
+        std::string dst = row.substr(first + 1u, second - first - 1u);
+        std::string payload_hex = row.substr(second + 1u);
+
+        while (!payload_hex.empty() &&
+               (payload_hex.back() == '\n' || payload_hex.back() == '\r')) {
+            payload_hex.pop_back();
+        }
+        if (dst != state->selected_board_eui ||
+            src.empty() ||
+            src == state->selected_board_eui) {
+            continue;
+        }
+        std::string text = hex_decode(payload_hex);
+        state->messages.push_back({src, "rx", text, "received"});
+        state->messages_received += 1u;
+        mark_conversation_unread(state, src);
+        received = true;
+    }
+    long offset = std::ftell(in);
+    if (offset >= 0) {
+        state->message_bus_read_offset = static_cast<size_t>(offset);
+    }
+    (void)std::fclose(in);
+    if (received) {
+        if (state->operation_status == "idle" ||
+            state->operation_status == "runtime_profile_loaded" ||
+            state->operation_status == "runtime_discovery_loaded_select_board") {
+            state->operation_status = "message_received";
+        }
+    }
+    return received;
+}
+
 void populate_demo_state(GuiState *state)
 {
     using namespace fieldmesh_imgui_resources;
@@ -358,6 +529,7 @@ void populate_demo_state(GuiState *state)
     state->python.runs = 0;
     state->python.page_open = false;
     state->python.last_ok = true;
+    state->topology_page_open = false;
     state->selected_conversation_eui.clear();
     state->draft_message = "FieldMesh link check";
     state->messages_sent = 0;
@@ -366,6 +538,8 @@ void populate_demo_state(GuiState *state)
     state->selected_ap_eui.clear();
     state->operation_status = "idle";
     state->profile_source = "none";
+    state->discovery_candidates.clear();
+    state->message_bus_read_offset = 0u;
     state->connected_to_board = false;
     state->auto_election_enabled = true;
     state->radio_topology_only = true;
@@ -388,6 +562,7 @@ bool load_runtime_profile(GuiState *state, const char *path)
     state->conversations.clear();
     state->messages.clear();
     state->messages_received = 0;
+    state->message_bus_read_offset = 0u;
     while (std::getline(input, line)) {
         if (line.empty() || line[0] == '#') {
             continue;
@@ -500,6 +675,7 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
     state->selected_board_eui.clear();
     state->selected_conversation_eui.clear();
     state->connected_to_board = false;
+    state->message_bus_read_offset = 0u;
     state->messages_received = 0u;
     for (size_t i = 0; i < board_count; ++i) {
         state->boards.push_back({boards[i].device_eui,
@@ -589,7 +765,21 @@ bool api_open_conversation(GuiState *state, const std::string &peer_eui)
 
 bool api_send_message(GuiState *state, const std::string &text)
 {
-    if (state->selected_conversation_eui.empty() || text.empty()) {
+    if (!state->selected_board_eui.empty() &&
+        (state->selected_conversation_eui.empty() ||
+         state->selected_conversation_eui == state->selected_board_eui)) {
+        select_default_peer_for_local_board(state);
+    }
+    if (state->selected_board_eui.empty() ||
+        state->selected_conversation_eui.empty() ||
+        state->selected_conversation_eui == state->selected_board_eui ||
+        text.empty()) {
+        return false;
+    }
+    if (!append_message_bus(state->selected_board_eui,
+                            state->selected_conversation_eui,
+                            text)) {
+        state->operation_status = "message_send_failed";
         return false;
     }
     state->messages.push_back({state->selected_conversation_eui, "tx", text,
@@ -667,10 +857,18 @@ bool write_snapshot(const GuiState &state, const char *path)
 {
     FILE *out = std::fopen(path, "wb");
     const GuiBoard *board = selected_board(state);
+    std::string last_received_text;
 
     if (!out) {
         std::fprintf(stderr, "failed to open snapshot output: %s\n", path);
         return false;
+    }
+    for (std::vector<GuiMessage>::const_reverse_iterator it =
+             state.messages.rbegin(); it != state.messages.rend(); ++it) {
+        if (it->direction == "rx") {
+            last_received_text = it->text;
+            break;
+        }
     }
     std::fprintf(out,
                  "{\n"
@@ -707,6 +905,8 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"board_selection\": true,\n"
                  "  \"peer_discovery\": true,\n"
                  "  \"messaging_available\": true,\n"
+                 "  \"messaging_bus\": \"fieldmesh_app_peer_inbox\",\n"
+                 "  \"messaging_receive_poll\": true,\n"
                  "  \"live_video_available\": true,\n"
                  "  \"control_plane_actions\": true,\n"
                  "  \"connection_setup_page\": true,\n"
@@ -744,6 +944,10 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"python_automation_last_output\": \"%s\",\n"
                  "  \"python_test_harness\": \"fieldmesh_imgui_pyapi.py\",\n"
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
+                 "  \"network_topology_page\": true,\n"
+                 "  \"topology_distance_hover\": true,\n"
+                 "  \"topology_ap_membership_links\": true,\n"
+                 "  \"responsive_chat_layout\": true,\n"
                  "  \"relative_colocation_viewer\": true,\n"
                  "  \"selected_board_eui\": \"%s\",\n"
                  "  \"selected_board_hostname\": \"%s\",\n"
@@ -754,6 +958,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"selected_conversation_eui\": \"%s\",\n"
                  "  \"active_remote_peer_eui\": \"%s\",\n"
                  "  \"last_message_text\": \"%s\",\n"
+                 "  \"last_received_text\": \"%s\",\n"
                  "  \"messages_sent\": %u,\n"
                  "  \"messages_received\": %u,\n"
                  "  \"conversations\": %lu,\n"
@@ -829,6 +1034,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.selected_conversation_eui.c_str(),
                  state.selected_conversation_eui.c_str(),
                  state.draft_message.c_str(),
+                 last_received_text.c_str(),
                  state.messages_sent,
                  state.messages_received,
                  static_cast<unsigned long>(state.conversations.size()),
@@ -1112,8 +1318,21 @@ void render_control_plane_strip(GuiState *state)
         state->operation_status = "capability_policy_requested";
     }
     ImGui::SameLine();
-    if (ImGui::Button(state->python.page_open ? "Chat" : "Python")) {
+    if (ImGui::Button("Chat")) {
+        state->python.page_open = false;
+        state->topology_page_open = false;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Topology")) {
+        state->python.page_open = false;
+        state->topology_page_open = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Python")) {
         state->python.page_open = !state->python.page_open;
+        if (state->python.page_open) {
+            state->topology_page_open = false;
+        }
     }
     ImGui::Text("Selected AP: %s", state->selected_ap_eui.c_str());
     ImGui::EndChild();
@@ -1246,6 +1465,126 @@ void render_topology_compact(GuiState *state)
     end_panel();
 }
 
+float distance_meters(const GuiPeer &a, const GuiPeer &b)
+{
+    const float dx = static_cast<float>(a.x_cm - b.x_cm) / 100.0f;
+    const float dy = static_cast<float>(a.y_cm - b.y_cm) / 100.0f;
+
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+float point_segment_distance(const ImVec2 &p, const ImVec2 &a, const ImVec2 &b)
+{
+    const float vx = b.x - a.x;
+    const float vy = b.y - a.y;
+    const float wx = p.x - a.x;
+    const float wy = p.y - a.y;
+    const float len2 = vx * vx + vy * vy;
+    float t = len2 > 0.0f ? (wx * vx + wy * vy) / len2 : 0.0f;
+
+    if (t < 0.0f) {
+        t = 0.0f;
+    } else if (t > 1.0f) {
+        t = 1.0f;
+    }
+    const float px = a.x + t * vx;
+    const float py = a.y + t * vy;
+    const float dx = p.x - px;
+    const float dy = p.y - py;
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+void render_topology_page(GuiState *state)
+{
+    begin_panel("Network Topology", ImVec2(0.0f, 0.0f));
+    ImDrawList *draw = ImGui::GetWindowDrawList();
+    ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    ImVec2 canvas(avail.x > 320.0f ? avail.x : 320.0f,
+                  avail.y > 320.0f ? avail.y - 68.0f : 320.0f);
+    const float center_x = origin.x + canvas.x * 0.5f;
+    const float center_y = origin.y + canvas.y * 0.5f;
+    const ImVec2 mouse = ImGui::GetMousePos();
+    int hovered_a = -1;
+    int hovered_b = -1;
+    float hovered_distance = 0.0f;
+
+    draw->AddRectFilled(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
+                        IM_COL32(247, 250, 252, 255));
+    draw->AddRect(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
+                  IM_COL32(190, 202, 212, 255));
+    draw->AddText(ImVec2(origin.x + 14.0f, origin.y + 12.0f),
+                  IM_COL32(30, 42, 54, 255),
+                  "Relative co-location map, meters from packet timing/GNSS fusion");
+
+    std::vector<ImVec2> points;
+    points.reserve(state->peers.size());
+    for (const GuiPeer &peer : state->peers) {
+        points.push_back(ImVec2(center_x + static_cast<float>(peer.x_cm) / 3.0f,
+                                center_y - static_cast<float>(peer.y_cm) / 3.0f));
+    }
+
+    for (std::size_t i = 0; i < state->peers.size(); ++i) {
+        const GuiPeer &peer = state->peers[i];
+        if (!state->selected_ap_eui.empty() &&
+            peer.device_eui != state->selected_ap_eui) {
+            for (std::size_t ap = 0; ap < state->peers.size(); ++ap) {
+                if (state->peers[ap].device_eui == state->selected_ap_eui) {
+                    draw->AddLine(points[i], points[ap],
+                                  IM_COL32(102, 145, 214, 170), 2.0f);
+                    draw->AddText(ImVec2((points[i].x + points[ap].x) * 0.5f + 6.0f,
+                                          (points[i].y + points[ap].y) * 0.5f + 6.0f),
+                                  IM_COL32(68, 92, 130, 255), "AP link");
+                    break;
+                }
+            }
+        }
+    }
+
+    for (std::size_t i = 0; i < state->peers.size(); ++i) {
+        for (std::size_t j = i + 1u; j < state->peers.size(); ++j) {
+            const float d = point_segment_distance(mouse, points[i], points[j]);
+            if (d < 8.0f) {
+                hovered_a = static_cast<int>(i);
+                hovered_b = static_cast<int>(j);
+                hovered_distance = distance_meters(state->peers[i], state->peers[j]);
+            }
+        }
+    }
+    if (hovered_a >= 0 && hovered_b >= 0) {
+        char label[96];
+        std::snprintf(label, sizeof(label), "%.2f m",
+                      static_cast<double>(hovered_distance));
+        draw->AddLine(points[static_cast<std::size_t>(hovered_a)],
+                      points[static_cast<std::size_t>(hovered_b)],
+                      IM_COL32(34, 132, 99, 255), 3.0f);
+        draw->AddText(ImVec2((points[static_cast<std::size_t>(hovered_a)].x +
+                              points[static_cast<std::size_t>(hovered_b)].x) * 0.5f + 8.0f,
+                             (points[static_cast<std::size_t>(hovered_a)].y +
+                              points[static_cast<std::size_t>(hovered_b)].y) * 0.5f - 18.0f),
+                      IM_COL32(20, 96, 72, 255), label);
+    }
+
+    for (std::size_t i = 0; i < state->peers.size(); ++i) {
+        const GuiPeer &peer = state->peers[i];
+        const bool is_local = peer.device_eui == state->selected_board_eui;
+        const bool is_ap = peer.device_eui == state->selected_ap_eui;
+        const ImU32 color = is_local ? IM_COL32(46, 125, 50, 255) :
+                            is_ap ? IM_COL32(203, 111, 33, 255) :
+                                    IM_COL32(31, 91, 164, 255);
+        draw->AddCircleFilled(points[i], is_ap ? 10.0f : 8.0f, color);
+        draw->AddCircle(points[i], static_cast<float>(peer.error_radius_cm) / 12.0f,
+                        IM_COL32(77, 121, 168, 90), 24, 1.0f);
+        draw->AddText(ImVec2(points[i].x + 12.0f, points[i].y - 12.0f),
+                      IM_COL32(24, 33, 41, 255), peer.hostname.c_str());
+    }
+    ImGui::Dummy(canvas);
+    ImGui::Text("AP: %s", state->selected_ap_eui.c_str());
+    ImGui::SameLine();
+    ImGui::Text("Hover between peers for distance; AP membership links are always shown.");
+    end_panel();
+}
+
 void render_conversation_actions(GuiState *state)
 {
     static const char *camera_names[] = {
@@ -1320,6 +1659,7 @@ void render_chat_page(GuiState *state)
 {
     const GuiBoard *board = selected_board(*state);
 
+    (void)poll_message_bus(state);
     ImGui::BeginChild("local-board-banner", ImVec2(0.0f, 52.0f), true,
                       ImGuiWindowFlags_NoSavedSettings);
     if (board) {
@@ -1340,8 +1680,16 @@ void render_chat_page(GuiState *state)
         render_python_automation_page(state);
         return;
     }
+    if (state->topology_page_open) {
+        render_topology_page(state);
+        return;
+    }
 
-    ImGui::BeginChild("peer-list-column", ImVec2(270.0f, content_h), false,
+    const float avail_w = ImGui::GetContentRegionAvail().x;
+    const bool compact = avail_w < 860.0f;
+    const float peer_w = compact ? 220.0f : 270.0f;
+    const float side_w = compact ? 0.0f : 360.0f;
+    ImGui::BeginChild("peer-list-column", ImVec2(peer_w, content_h), false,
                       ImGuiWindowFlags_NoSavedSettings);
     render_peer_list(state);
     ImGui::EndChild();
@@ -1349,17 +1697,28 @@ void render_chat_page(GuiState *state)
     ImGui::SameLine();
     ImGui::BeginChild("message-column", ImVec2(0.0f, content_h), false,
                       ImGuiWindowFlags_NoSavedSettings);
-    float side_w = 360.0f;
-    ImGui::BeginChild("message-main", ImVec2(-side_w - 8.0f, 0.0f), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    render_messages(state);
-    ImGui::EndChild();
-    ImGui::SameLine();
-    ImGui::BeginChild("conversation-side", ImVec2(side_w, 0.0f), false,
-                      ImGuiWindowFlags_NoSavedSettings);
-    render_conversation_actions(state);
-    render_topology_compact(state);
-    ImGui::EndChild();
+    if (compact) {
+        ImGui::BeginChild("message-main", ImVec2(0.0f, content_h * 0.58f), false,
+                          ImGuiWindowFlags_NoSavedSettings);
+        render_messages(state);
+        ImGui::EndChild();
+        ImGui::BeginChild("conversation-side", ImVec2(0.0f, 0.0f), false,
+                          ImGuiWindowFlags_NoSavedSettings);
+        render_conversation_actions(state);
+        render_topology_compact(state);
+        ImGui::EndChild();
+    } else {
+        ImGui::BeginChild("message-main", ImVec2(-(side_w + 8.0f), 0.0f), false,
+                          ImGuiWindowFlags_NoSavedSettings);
+        render_messages(state);
+        ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::BeginChild("conversation-side", ImVec2(side_w, 0.0f), false,
+                          ImGuiWindowFlags_NoSavedSettings);
+        render_conversation_actions(state);
+        render_topology_compact(state);
+        ImGui::EndChild();
+    }
     ImGui::EndChild();
 }
 
@@ -1501,6 +1860,7 @@ int main(int argc, char **argv)
     if (api_run_python && !run_python_automation(&state)) {
         return 1;
     }
+    (void)poll_message_bus(&state);
 
     if (self_test) {
         if (!snapshot_output) {
