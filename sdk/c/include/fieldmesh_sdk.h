@@ -798,8 +798,14 @@ fieldmesh_status_t fieldmesh_browse_aps(fieldmesh_context_t *context,
                                         uint32_t timeout_ms,
                                         fieldmesh_ap_callback_t callback,
                                         void *user);
+fieldmesh_status_t fieldmesh_observe_ap(fieldmesh_context_t *context,
+                                        const fieldmesh_ap_info_t *ap);
 fieldmesh_status_t fieldmesh_publish_ap_candidate(fieldmesh_context_t *context,
                                                   const fieldmesh_ap_candidate_t *candidate);
+fieldmesh_status_t fieldmesh_publish_local_ap_candidate(
+    fieldmesh_context_t *context,
+    const fieldmesh_ap_candidate_t *candidate);
+fieldmesh_status_t fieldmesh_seed_test_lab_fixtures(fieldmesh_context_t *context);
 fieldmesh_status_t fieldmesh_elect_ap(fieldmesh_context_t *context,
                                       fieldmesh_ap_policy_t policy,
                                       uint32_t timeout_ms,
@@ -833,6 +839,9 @@ fieldmesh_status_t fieldmesh_query_route_metrics(
     const char *dst_node_id,
     uint16_t stream_id,
     fieldmesh_route_metrics_t *out_metrics);
+fieldmesh_status_t fieldmesh_report_route_metrics(
+    fieldmesh_context_t *context,
+    const fieldmesh_route_metrics_t *metrics);
 fieldmesh_status_t fieldmesh_report_peer_presence(fieldmesh_context_t *context,
                                                   const char *device_eui);
 fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *context,

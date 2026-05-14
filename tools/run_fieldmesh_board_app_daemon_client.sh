@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_image_paths.sh"
 
 board_ip="${BOARD_IP:-${1:-192.168.3.1}}"
 variant="${VARIANT:-z103}"
@@ -31,10 +32,12 @@ fi
 
 case "$variant" in
     z203)
-        rootfs_tar="$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz"
+        fieldmesh_resolve_image_paths z203 "$repo_root"
+        rootfs_tar="$FIELDMESH_ROOTFS_TAR"
         ;;
     z103)
-        rootfs_tar="$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz"
+        fieldmesh_resolve_image_paths z103 "$repo_root"
+        rootfs_tar="$FIELDMESH_ROOTFS_TAR"
         ;;
     *)
         echo "Unsupported VARIANT: $variant" >&2
@@ -113,6 +116,9 @@ set +e
     --daemon-host "$board_ip" \
     --daemon-port "$port" \
     --daemon-timeout-ms "$timeout_ms" \
+    --seed-demo-fixtures \
+    --rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+    --route-metrics-fixture "1,1,4,500,-45,28,-30,12,32,10,4,2100,2600,160,1,42,20,1,1" \
     > "$app_log" \
     2> "$app_stderr"
 app_rc=$?

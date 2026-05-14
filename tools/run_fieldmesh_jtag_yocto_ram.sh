@@ -2,29 +2,32 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-z203}"
 prepare_only="${PREPARE_ONLY:-0}"
 
 case "$variant" in
   z203)
-    deploy_dir="${DEPLOY_DIR:-$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/sdr-z203-zynq7}"
+    fieldmesh_resolve_image_paths z203 "$repo_root"
+    deploy_dir="$FIELDMESH_DEPLOY_DIR"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux}"
     ps7_init="${PS7_INIT_TCL:-$repo_root/.config/boot-artifacts/sdt/ps7_init.tcl}"
     uboot_elf="${UBOOT_ELF:-$repo_root/.config/boot-artifacts/boot/u-boot.elf}"
     pl_bitstream="${PL_BITSTREAM:-$repo_root/.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
     zimage="${ZIMAGE:-$deploy_dir/zImage}"
-    rootfs="${ROOTFS_CPIO_GZ:-$deploy_dir/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.cpio.gz}"
+    rootfs="$FIELDMESH_ROOTFS_CPIO_GZ"
     out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/jtag-ram-boot-z203}"
     bootargs="${BOOTARGS:-console=ttyPS0,115200n8 rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=fieldmesh-z203-jtag-ram}"
     ;;
   z103)
-    deploy_dir="${DEPLOY_DIR:-$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7}"
+    fieldmesh_resolve_image_paths z103 "$repo_root"
+    deploy_dir="$FIELDMESH_DEPLOY_DIR"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux}"
     ps7_init="${PS7_INIT_TCL:-$repo_root/.config/z103-boot-artifacts/sdt/ps7_init.tcl}"
     uboot_elf="${UBOOT_ELF:-$repo_root/.config/z103-boot-artifacts/boot/u-boot.elf}"
     pl_bitstream="${PL_BITSTREAM:-$repo_root/.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
     zimage="${ZIMAGE:-$deploy_dir/zImage}"
-    rootfs="${ROOTFS_CPIO_GZ:-$deploy_dir/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.cpio.gz}"
+    rootfs="$FIELDMESH_ROOTFS_CPIO_GZ"
     out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/jtag-ram-boot-z103}"
     bootargs="${BOOTARGS:-console=ttyPS0,115200 maxcpus=1 rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=fieldmesh-z103-jtag-ram}"
     ;;

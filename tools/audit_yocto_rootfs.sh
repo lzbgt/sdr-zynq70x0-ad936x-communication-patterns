@@ -2,7 +2,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-rootfs="${1:-$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz}"
+source "$repo_root/tools/fieldmesh_image_paths.sh"
+fieldmesh_resolve_image_paths z203 "$repo_root"
+rootfs="${1:-$FIELDMESH_ROOTFS_TAR}"
 
 if [ ! -f "$rootfs" ]; then
     echo "Rootfs tarball not found: $rootfs" >&2

@@ -31,6 +31,12 @@ typedef int fieldmesh_socket_t;
 #define fieldmesh_close_socket close
 #endif
 
+#define FIELDMESH_SYNTH_CAMERA_FRAME_STRIDE 17u
+#define FIELDMESH_SYNTH_CAMERA_CHUNK_STRIDE 31u
+#define FIELDMESH_SYNTH_CAMERA_BYTE_STRIDE 7u
+#define FIELDMESH_SYNTH_CAMERA_ALPHABET_BASE 0x40u
+#define FIELDMESH_SYNTH_CAMERA_ALPHABET_MASK 0x3fu
+
 struct peer_summary {
     unsigned peers;
     unsigned relay_capable;
@@ -124,7 +130,11 @@ static void fill_camera_demo_chunk(unsigned char *payload,
 
     for (i = 0; i < payload_len; ++i) {
         payload[i] = (unsigned char)(
-            0x40u + ((frame_index * 17u + chunk_index * 31u + i * 7u) & 0x3fu));
+            FIELDMESH_SYNTH_CAMERA_ALPHABET_BASE +
+            ((frame_index * FIELDMESH_SYNTH_CAMERA_FRAME_STRIDE +
+              chunk_index * FIELDMESH_SYNTH_CAMERA_CHUNK_STRIDE +
+              i * FIELDMESH_SYNTH_CAMERA_BYTE_STRIDE) &
+             FIELDMESH_SYNTH_CAMERA_ALPHABET_MASK));
     }
 }
 
@@ -279,28 +289,40 @@ static int request_uint_or_default(const char *request,
     return 1;
 }
 
-static int request_int_or_default(const char *request,
-                                  const char *key,
-                                  int default_value,
-                                  int min_value,
-                                  int max_value,
-                                  int *out)
+static int request_uint_required(const char *request,
+                                 const char *key,
+                                 unsigned min_value,
+                                 unsigned max_value,
+                                 unsigned *out)
+{
+    char value[32];
+    char *end = NULL;
+    unsigned long parsed;
+
+    if (!out || copy_request_field(request, key, value, sizeof(value)) <= 0) {
+        return 0;
+    }
+    parsed = strtoul(value, &end, 10);
+    if (end == value || *end != '\0' ||
+        parsed < min_value || parsed > max_value) {
+        return 0;
+    }
+    *out = (unsigned)parsed;
+    return 1;
+}
+
+static int request_int_required(const char *request,
+                                const char *key,
+                                int min_value,
+                                int max_value,
+                                int *out)
 {
     char value[32];
     char *end = NULL;
     long parsed;
-    int found;
 
-    if (!out) {
+    if (!out || copy_request_field(request, key, value, sizeof(value)) <= 0) {
         return 0;
-    }
-    *out = default_value;
-    found = copy_request_field(request, key, value, sizeof(value));
-    if (found < 0) {
-        return 0;
-    }
-    if (found == 0) {
-        return default_value >= min_value && default_value <= max_value;
     }
     parsed = strtol(value, &end, 10);
     if (end == value || *end != '\0' ||
@@ -747,6 +769,7 @@ static int create_demo_state(fieldmesh_context_t **out_context,
         .requested_node_classes_mask = (1u << FIELDMESH_NODE_ENDPOINT),
         .timeout_ms = 1000,
     };
+    fieldmesh_ap_candidate_t local_candidate;
     fieldmesh_rtls_measurement_t gps_peer = {
         .gps_lock = 1,
         .pps_lock = 1,
@@ -776,23 +799,65 @@ static int create_demo_state(fieldmesh_context_t **out_context,
     char hostname[FIELDMESH_NAME_TEXT_MAX];
     char local_eui[FIELDMESH_ID_TEXT_MAX];
     char peer_eui[FIELDMESH_ID_TEXT_MAX];
+    int seed_test_peers;
 
     config.control_port = port;
     runtime_hostname(hostname, sizeof(hostname));
     runtime_device_eui(hostname, local_eui, sizeof(local_eui));
+    seed_test_peers = getenv("FIELDMESH_DEMO_SEED_PEERS") ? 1 : 0;
     if (strcmp(local_eui, "020000000103") == 0) {
         snprintf(peer_eui, sizeof(peer_eui), "%s", "020000000203");
     } else {
         snprintf(peer_eui, sizeof(peer_eui), "%s", "020000000103");
     }
-    snprintf(join.ap_id, sizeof(join.ap_id), "%s", "020000000203");
+    memset(&local_candidate, 0, sizeof(local_candidate));
+    snprintf(local_candidate.node_id, sizeof(local_candidate.node_id), "%s", local_eui);
+    local_candidate.policy = FIELDMESH_AP_POLICY_HYBRID;
+    local_candidate.node_classes_mask = (1u << FIELDMESH_NODE_ENDPOINT) |
+                                        (1u << FIELDMESH_NODE_AP_BROKER) |
+                                        (1u << FIELDMESH_NODE_RELAY);
+    local_candidate.supported_modes_mask = (1u << FIELDMESH_MODE_P2P) |
+                                           (1u << FIELDMESH_MODE_STAR) |
+                                           (1u << FIELDMESH_MODE_GRAPH) |
+                                           (1u << FIELDMESH_MODE_SCHEDULED);
+    local_candidate.max_kbps = strstr(hostname, "z203") ? 7000u : 2200u;
+    local_candidate.reachable_peer_count = 0u;
+    local_candidate.avg_rssi_dbm = -90;
+    local_candidate.avg_snr_db = 0;
+    local_candidate.estimated_geo_centrality = 0u;
+    local_candidate.link_stability_score = 50u;
+    local_candidate.mobility_score = 50u;
+    local_candidate.clock_quality = 50u;
+    local_candidate.power_score = strstr(hostname, "z203") ? 100u : 70u;
+    local_candidate.compute_score = strstr(hostname, "z203") ? 90u : 45u;
+    local_candidate.relay_score = strstr(hostname, "z203") ? 92u : 38u;
+    local_candidate.security_score = 80u;
+    local_candidate.wall_powered = strstr(hostname, "z203") ? 1u : 0u;
+    local_candidate.has_disciplined_clock = 0u;
+    local_candidate.relay_allowed = 1u;
+    local_candidate.provisioned_identity = 1u;
+
+    snprintf(join.ap_id, sizeof(join.ap_id), "%s",
+             seed_test_peers ? "020000000203" : local_eui);
     snprintf(join.network_id, sizeof(join.network_id), "%s", "fieldmesh-lab");
     snprintf(join.node_name, sizeof(join.node_name), "%s", "daemon-client");
     snprintf(gps_peer.node_id, sizeof(gps_peer.node_id), "%s", local_eui);
     snprintf(gps_denied_peer.node_id, sizeof(gps_denied_peer.node_id), "%s", peer_eui);
-
-    if (fieldmesh_context_create(&config, &context) != FIELDMESH_OK ||
-        fieldmesh_join_ap(context, &join, &session) != FIELDMESH_OK ||
+    if (fieldmesh_context_create(&config, &context) != FIELDMESH_OK) {
+        fieldmesh_context_destroy(context);
+        return 1;
+    }
+    if (seed_test_peers) {
+        if (fieldmesh_seed_test_lab_fixtures(context) != FIELDMESH_OK) {
+            fieldmesh_context_destroy(context);
+            return 1;
+        }
+    } else if (fieldmesh_publish_local_ap_candidate(context, &local_candidate) !=
+               FIELDMESH_OK) {
+        fieldmesh_context_destroy(context);
+        return 1;
+    }
+    if (fieldmesh_join_ap(context, &join, &session) != FIELDMESH_OK ||
         fieldmesh_request_mode(session, FIELDMESH_MODE_SCHEDULED,
                                "application_or_user") != FIELDMESH_OK) {
         if (session) {
@@ -801,12 +866,14 @@ static int create_demo_state(fieldmesh_context_t **out_context,
         fieldmesh_context_destroy(context);
         return 1;
     }
-    if (getenv("FIELDMESH_DEMO_SEED_PEERS") &&
-        (fieldmesh_report_rtls_measurement(context, &gps_peer) != FIELDMESH_OK ||
-         fieldmesh_report_rtls_measurement(context, &gps_denied_peer) != FIELDMESH_OK)) {
-        (void)fieldmesh_leave(session);
-        fieldmesh_context_destroy(context);
-        return 1;
+    if (seed_test_peers) {
+        if (fieldmesh_report_rtls_measurement(context, &gps_peer) != FIELDMESH_OK ||
+            fieldmesh_report_rtls_measurement(context, &gps_denied_peer) !=
+                FIELDMESH_OK) {
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(context);
+            return 1;
+        }
     }
     *out_context = context;
     *out_session = session;
@@ -845,6 +912,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"supports_app_control_camera\":1,"
                  "\"supports_camera_session_plan\":1,"
                  "\"supports_route_metrics\":1,"
+                 "\"supports_route_metrics_report\":1,"
                  "\"supports_rtls_position\":1,"
                  "\"supports_rtls_report\":1,"
                  "\"supports_camera_stream_chunk\":1,"
@@ -927,49 +995,43 @@ static int build_response(fieldmesh_context_t *context,
         char node_eui[FIELDMESH_ID_TEXT_MAX];
         unsigned gps_lock = 0u;
         unsigned pps_lock = 0u;
-        unsigned turnaround_calibrated = 1u;
-        unsigned response_delay_us = 260u;
-        unsigned rx_timestamp_ns = 1100000u;
-        unsigned measured_age_ms = 40u;
-        int gps_lat_e7 = 374200000;
-        int gps_lon_e7 = -1220800000;
-        int rssi_dbm = -54;
-        int snr_db = 22;
-        int tdoa_ab_ns = 450;
-        int tdoa_ac_ns = 270;
+        unsigned turnaround_calibrated = 0u;
+        unsigned response_delay_us = 0u;
+        unsigned rx_timestamp_ns = 0u;
+        unsigned measured_age_ms = 0u;
+        int gps_lat_e7 = 0;
+        int gps_lon_e7 = 0;
+        int rssi_dbm = 0;
+        int snr_db = 0;
+        int tdoa_ab_ns = 0;
+        int tdoa_ac_ns = 0;
 
         memset(&measurement, 0, sizeof(measurement));
         if (copy_request_field(request, "node=", node_eui,
                                sizeof(node_eui)) <= 0 ||
             !valid_compact_eui(node_eui) ||
-            !request_uint_or_default(request, "gps_lock=", gps_lock,
-                                     0u, 1u, &gps_lock) ||
-            !request_uint_or_default(request, "pps_lock=", pps_lock,
-                                     0u, 1u, &pps_lock) ||
-            !request_uint_or_default(request, "turnaround_calibrated=",
-                                     turnaround_calibrated, 0u, 1u,
-                                     &turnaround_calibrated) ||
-            !request_uint_or_default(request, "response_delay_us=",
-                                     response_delay_us, 0u, 1000000u,
-                                     &response_delay_us) ||
-            !request_uint_or_default(request, "rx_timestamp_ns=",
-                                     rx_timestamp_ns, 0u, 4000000000u,
-                                     &rx_timestamp_ns) ||
-            !request_uint_or_default(request, "measured_age_ms=",
-                                     measured_age_ms, 0u, 60000u,
-                                     &measured_age_ms) ||
-            !request_int_or_default(request, "gps_lat_e7=", gps_lat_e7,
-                                    -900000000, 900000000, &gps_lat_e7) ||
-            !request_int_or_default(request, "gps_lon_e7=", gps_lon_e7,
-                                    -1800000000, 1800000000, &gps_lon_e7) ||
-            !request_int_or_default(request, "rssi_dbm=", rssi_dbm,
-                                    -127, 20, &rssi_dbm) ||
-            !request_int_or_default(request, "snr_db=", snr_db,
-                                    -40, 80, &snr_db) ||
-            !request_int_or_default(request, "tdoa_ab_ns=", tdoa_ab_ns,
-                                    -1000000, 1000000, &tdoa_ab_ns) ||
-            !request_int_or_default(request, "tdoa_ac_ns=", tdoa_ac_ns,
-                                    -1000000, 1000000, &tdoa_ac_ns)) {
+            !request_uint_required(request, "gps_lock=", 0u, 1u, &gps_lock) ||
+            !request_uint_required(request, "pps_lock=", 0u, 1u, &pps_lock) ||
+            !request_uint_required(request, "turnaround_calibrated=", 0u, 1u,
+                                   &turnaround_calibrated) ||
+            !request_uint_required(request, "measured_age_ms=", 0u, 60000u,
+                                   &measured_age_ms) ||
+            !request_int_required(request, "rssi_dbm=", -127, 20, &rssi_dbm) ||
+            !request_int_required(request, "snr_db=", -40, 80, &snr_db) ||
+            (gps_lock &&
+             (!request_int_required(request, "gps_lat_e7=", -900000000,
+                                    900000000, &gps_lat_e7) ||
+              !request_int_required(request, "gps_lon_e7=", -1800000000,
+                                    1800000000, &gps_lon_e7))) ||
+            (turnaround_calibrated &&
+             (!request_uint_required(request, "response_delay_us=", 0u,
+                                     1000000u, &response_delay_us) ||
+              !request_uint_required(request, "rx_timestamp_ns=", 0u,
+                                     4000000000u, &rx_timestamp_ns) ||
+              !request_int_required(request, "tdoa_ab_ns=", -1000000,
+                                    1000000, &tdoa_ab_ns) ||
+              !request_int_required(request, "tdoa_ac_ns=", -1000000,
+                                    1000000, &tdoa_ac_ns)))) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rtls_report\","
                      "\"ok\":false,"
@@ -1152,6 +1214,135 @@ static int build_response(fieldmesh_context_t *context,
                  estimate.measured_age_ms);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_ROUTE_METRICS_REPORT")) {
+        fieldmesh_route_metrics_t metrics;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+        char relay_device_eui[FIELDMESH_ID_TEXT_MAX];
+        unsigned current_route = 0u;
+        unsigned recommended_route = 0u;
+        unsigned selected_mode = 0u;
+        unsigned stream_id = 0u;
+        unsigned per_mille = 0u;
+        unsigned ack_latency_ms = 0u;
+        unsigned jitter_ms = 0u;
+        unsigned queue_age_ms = 0u;
+        unsigned delivered_kbps = 0u;
+        unsigned estimated_kbps = 0u;
+        unsigned measured_age_ms = 0u;
+        unsigned direct_reachable = 0u;
+        unsigned relay_available = 0u;
+        int rssi_dbm = 0;
+        int snr_db = 0;
+        int evm_db = 0;
+        int cfo_hz = 0;
+        int doppler_hz = 0;
+        int timing_residual_ns = 0;
+
+        memset(&metrics, 0, sizeof(metrics));
+        relay_device_eui[0] = '\0';
+        if (copy_request_field(request, "dst=", dst_device_eui,
+                               sizeof(dst_device_eui)) <= 0 ||
+            !valid_compact_eui(dst_device_eui) ||
+            (copy_request_field(request, "relay=", relay_device_eui,
+                                sizeof(relay_device_eui)) < 0) ||
+            (relay_device_eui[0] != '\0' && !valid_compact_eui(relay_device_eui)) ||
+            !request_uint_required(request, "current_route=", 1u, 4u,
+                                   &current_route) ||
+            !request_uint_required(request, "recommended_route=", 1u, 4u,
+                                   &recommended_route) ||
+            !request_uint_required(request, "selected_mode=", 0u, 4u,
+                                   &selected_mode) ||
+            !request_uint_required(request, "stream_id=", 0u, 65535u,
+                                   &stream_id) ||
+            !request_int_required(request, "rssi_dbm=", -127, 20, &rssi_dbm) ||
+            !request_int_required(request, "snr_db=", -40, 80, &snr_db) ||
+            !request_int_required(request, "evm_db=", -80, 20, &evm_db) ||
+            !request_uint_required(request, "per_mille=", 0u, 1000u,
+                                   &per_mille) ||
+            !request_uint_required(request, "ack_latency_ms=", 0u, 60000u,
+                                   &ack_latency_ms) ||
+            !request_uint_required(request, "jitter_ms=", 0u, 60000u,
+                                   &jitter_ms) ||
+            !request_uint_required(request, "queue_age_ms=", 0u, 60000u,
+                                   &queue_age_ms) ||
+            !request_uint_required(request, "delivered_kbps=", 0u, 1000000u,
+                                   &delivered_kbps) ||
+            !request_uint_required(request, "estimated_kbps=", 0u, 1000000u,
+                                   &estimated_kbps) ||
+            !request_int_required(request, "cfo_hz=", -10000000, 10000000,
+                                  &cfo_hz) ||
+            !request_int_required(request, "doppler_hz=", -1000000, 1000000,
+                                  &doppler_hz) ||
+            !request_int_required(request, "timing_residual_ns=", -100000000,
+                                  100000000, &timing_residual_ns) ||
+            !request_uint_required(request, "measured_age_ms=", 0u, 60000u,
+                                   &measured_age_ms) ||
+            !request_uint_required(request, "direct_reachable=", 0u, 1u,
+                                   &direct_reachable) ||
+            !request_uint_required(request, "relay_available=", 0u, 1u,
+                                   &relay_available)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_route_metrics_report\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_route_metrics_report\","
+                     "\"writes_hardware\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0}\n");
+            return 0;
+        }
+
+        snprintf(metrics.dst_node_id, sizeof(metrics.dst_node_id), "%s",
+                 dst_device_eui);
+        snprintf(metrics.relay_node_id, sizeof(metrics.relay_node_id), "%s",
+                 relay_device_eui);
+        metrics.current_route = (fieldmesh_route_kind_t)current_route;
+        metrics.recommended_route = (fieldmesh_route_kind_t)recommended_route;
+        metrics.selected_mode = (fieldmesh_mode_t)selected_mode;
+        metrics.stream_id = (uint16_t)stream_id;
+        metrics.rssi_dbm = (int8_t)rssi_dbm;
+        metrics.snr_db = (int8_t)snr_db;
+        metrics.evm_db = (int8_t)evm_db;
+        metrics.per_mille = (uint16_t)per_mille;
+        metrics.ack_latency_ms = ack_latency_ms;
+        metrics.jitter_ms = jitter_ms;
+        metrics.queue_age_ms = queue_age_ms;
+        metrics.delivered_kbps = delivered_kbps;
+        metrics.estimated_kbps = estimated_kbps;
+        metrics.cfo_hz = cfo_hz;
+        metrics.doppler_hz = doppler_hz;
+        metrics.timing_residual_ns = timing_residual_ns;
+        metrics.measured_age_ms = measured_age_ms;
+        metrics.direct_reachable = (uint8_t)direct_reachable;
+        metrics.relay_available = (uint8_t)relay_available;
+        metrics.uses_iio = 0u;
+        metrics.uses_inter_board_ip_routing = 0u;
+        if (fieldmesh_report_route_metrics(context, &metrics) != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_route_metrics_report\","
+                     "\"ok\":false,"
+                     "\"dst_device_eui\":\"%s\","
+                     "\"error\":\"route_metrics_report_failed\","
+                     "\"writes_hardware\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0}\n",
+                     dst_device_eui);
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_route_metrics_report\","
+                 "\"ok\":true,"
+                 "\"dst_device_eui\":\"%s\","
+                 "\"measurement_api\":\"fieldmesh_report_route_metrics\","
+                 "\"updates_route_registry\":1,"
+                 "\"writes_hardware\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0}\n",
+                 dst_device_eui);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_ROUTE_METRICS")) {
         fieldmesh_route_metrics_t metrics;
         char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
@@ -1260,9 +1451,14 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_AP_JOIN")) {
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         fieldmesh_route_info_t route;
 
-        if (fieldmesh_query_route(session, "020000000103", 7, &route) != FIELDMESH_OK) {
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui)) ||
+            fieldmesh_query_route(session, dst_device_eui, 7, &route) != FIELDMESH_OK) {
             return 1;
         }
         snprintf(response, response_len,
@@ -1293,13 +1489,20 @@ static int build_response(fieldmesh_context_t *context,
         };
         const char payload[] = "daemon-video-base-packet";
         char rx_payload[128];
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         size_t rx_len = 0;
         int failed = 0;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            return 1;
+        }
         snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
                  "%s", "swarm0");
         snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         if (fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
             fieldmesh_adapter_send_packet(adapter, FIELDMESH_PAYLOAD_VIDEO_BASE,
                                           payload, sizeof(payload), &tx_packet) !=
@@ -1352,14 +1555,21 @@ static int build_response(fieldmesh_context_t *context,
         fieldmesh_tun_packet_report_t tun_report;
         fieldmesh_adapter_packet_t rx_meta;
         fieldmesh_rf_packet_submit_report_t rf_report;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         size_t tx_len;
         size_t rx_len = 0u;
         int failed = 0;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            return 1;
+        }
         snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
                  "%s", "swarm0");
         snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
         if (tx_len == 0u ||
             fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
@@ -1454,13 +1664,20 @@ static int build_response(fieldmesh_context_t *context,
         fieldmesh_adapter_packet_t packet_meta;
         fieldmesh_rf_packet_plan_t rf_plan;
         fieldmesh_rf_tx_guard_apply_report_t guard_report;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         size_t tx_len;
         int failed = 0;
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            return 1;
+        }
         snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
                  "%s", "swarm0");
         snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
         if (tx_len == 0u ||
             fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
@@ -1561,7 +1778,7 @@ static int build_response(fieldmesh_context_t *context,
         char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         char preferred_ap_eui[FIELDMESH_ID_TEXT_MAX] = {0};
         const char *selection_mode = "auto_election";
-        const char *expected_ap_eui = "020000000203";
+        const char *expected_ap_eui = NULL;
         fieldmesh_camera_stream_config_t camera_config = {
             .requested_mode = FIELDMESH_MODE_SCHEDULED,
             .stream_id_base = 500,
@@ -1616,6 +1833,9 @@ static int build_response(fieldmesh_context_t *context,
         ap_status = fieldmesh_browse_aps(context, 1000, on_ap, &aps);
         elect_status = fieldmesh_elect_ap(context, FIELDMESH_AP_POLICY_HYBRID,
                                           1000, &election);
+        if (expected_ap_eui == NULL && elect_status == FIELDMESH_OK) {
+            expected_ap_eui = election.elected_node_id;
+        }
         peer_status = fieldmesh_list_peers(session, on_peer, &peers);
         position_status = fieldmesh_list_peer_positions(context, on_position,
                                                         &positions);
@@ -2286,6 +2506,7 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_PLAN")) {
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         fieldmesh_tun_config_t tun_config = {
             0,
         };
@@ -2301,8 +2522,14 @@ static int build_response(fieldmesh_context_t *context,
                  "%s", "10.77.2.0/24");
         snprintf(tun_config.host_facing_device_ip,
                  sizeof(tun_config.host_facing_device_ip), "%s", "192.168.2.1");
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            return 1;
+        }
         snprintf(tun_config.dst_node_id, sizeof(tun_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         tun_config.mesh_prefix_len = 16u;
         tun_config.mtu_bytes = 1200u;
 
@@ -2354,6 +2581,7 @@ static int build_response(fieldmesh_context_t *context,
     }
     if (strstr(request, "FIELDMESH_TUN_APPLY_VALIDATE") ||
         strstr(request, "FIELDMESH_TUN_APPLY_COMMIT")) {
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         fieldmesh_tun_config_t tun_config = {
             0,
         };
@@ -2370,8 +2598,14 @@ static int build_response(fieldmesh_context_t *context,
                  "%s", "10.77.2.0/24");
         snprintf(tun_config.host_facing_device_ip,
                  sizeof(tun_config.host_facing_device_ip), "%s", "192.168.2.1");
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103",
+                                           dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            return 1;
+        }
         snprintf(tun_config.dst_node_id, sizeof(tun_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         tun_config.mesh_prefix_len = 16u;
         tun_config.mtu_bytes = 1200u;
         if (strstr(request, "ALLOW_NETWORK_WRITES")) {
@@ -2559,10 +2793,22 @@ static int query_state(const char *host,
     fieldmesh_socket_t sockfd = INVALID_SOCKET;
     struct sockaddr_in dst;
     struct timeval timeout;
+    char route_metrics_report_request[512];
     char route_metrics_request[96];
     char rtls_position_request[96];
     char rtls_report_request[256];
+    char ap_join_request[96];
+    char swarm_adapter_request[96];
+    char rf_packet_request[96];
+    char rf_guard_request[96];
+    char default_app_request[128];
     char explicit_app_request[160];
+    char camera_session_request[96];
+    char camera_adaptation_request[112];
+    char camera_chunk_request[160];
+    char tun_plan_request[96];
+    char tun_apply_validate_request[112];
+    char tun_apply_commit_request[112];
     int rc = 1;
 
     if (!valid_compact_eui(route_dst_eui) ||
@@ -2572,8 +2818,25 @@ static int query_state(const char *host,
     }
     snprintf(route_metrics_request, sizeof(route_metrics_request),
              "FIELDMESH_ROUTE_METRICS v1 dst=%s", route_dst_eui);
+    snprintf(route_metrics_report_request, sizeof(route_metrics_report_request),
+             "FIELDMESH_ROUTE_METRICS_REPORT v1 dst=%s "
+             "current_route=1 recommended_route=2 selected_mode=4 stream_id=500 "
+             "rssi_dbm=-75 snr_db=9 evm_db=-10 per_mille=180 "
+             "ack_latency_ms=220 jitter_ms=160 queue_age_ms=260 "
+             "delivered_kbps=450 estimated_kbps=700 cfo_hz=2100 "
+             "doppler_hz=24 timing_residual_ns=640 measured_age_ms=180 "
+             "direct_reachable=1 relay_available=1",
+             route_dst_eui);
     snprintf(rtls_position_request, sizeof(rtls_position_request),
              "FIELDMESH_RTLS_POSITION v1 dst=%s", route_dst_eui);
+    snprintf(ap_join_request, sizeof(ap_join_request),
+             "FIELDMESH_AP_JOIN v1 dst=%s", route_dst_eui);
+    snprintf(swarm_adapter_request, sizeof(swarm_adapter_request),
+             "FIELDMESH_SWARM_ADAPTER v1 dst=%s", route_dst_eui);
+    snprintf(rf_packet_request, sizeof(rf_packet_request),
+             "FIELDMESH_RF_PACKET_ENGINE v1 dst=%s", route_dst_eui);
+    snprintf(rf_guard_request, sizeof(rf_guard_request),
+             "FIELDMESH_RF_TX_GUARD_PLAN v1 dst=%s", route_dst_eui);
     snprintf(rtls_report_request, sizeof(rtls_report_request),
              "FIELDMESH_RTLS_REPORT v1 node=%s gps_lock=0 pps_lock=0 "
              "turnaround_calibrated=1 rssi_dbm=-48 snr_db=26 "
@@ -2583,6 +2846,23 @@ static int query_state(const char *host,
     snprintf(explicit_app_request, sizeof(explicit_app_request),
              "FIELDMESH_APP_CONTROL_CAMERA v1 preferred_ap=%s dst=%s",
              explicit_ap_eui, explicit_dst_eui);
+    snprintf(default_app_request, sizeof(default_app_request),
+             "FIELDMESH_APP_CONTROL_CAMERA v1 dst=%s",
+             route_dst_eui);
+    snprintf(camera_session_request, sizeof(camera_session_request),
+             "FIELDMESH_CAMERA_SESSION_PLAN v1 dst=%s", route_dst_eui);
+    snprintf(camera_adaptation_request, sizeof(camera_adaptation_request),
+             "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK v1 dst=%s", route_dst_eui);
+    snprintf(camera_chunk_request, sizeof(camera_chunk_request),
+             "FIELDMESH_CAMERA_STREAM_CHUNK v1 "
+             "00112233445566778899aabbccddeeff dst=%s",
+             route_dst_eui);
+    snprintf(tun_plan_request, sizeof(tun_plan_request),
+             "FIELDMESH_TUN_PLAN v1 dst=%s", route_dst_eui);
+    snprintf(tun_apply_validate_request, sizeof(tun_apply_validate_request),
+             "FIELDMESH_TUN_APPLY_VALIDATE v1 dst=%s", route_dst_eui);
+    snprintf(tun_apply_commit_request, sizeof(tun_apply_commit_request),
+             "FIELDMESH_TUN_APPLY_COMMIT v1 dst=%s", route_dst_eui);
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         return 1;
@@ -2604,26 +2884,25 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_ELECT v1") == 0 &&
         query_once(sockfd, &dst, rtls_report_request) == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
+        query_once(sockfd, &dst, ap_join_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
         query_once(sockfd, &dst, rtls_position_request) == 0 &&
+        query_once(sockfd, &dst, route_metrics_report_request) == 0 &&
         query_once(sockfd, &dst, route_metrics_request) == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_APP_CONTROL_CAMERA v1") == 0 &&
+        query_once(sockfd, &dst, swarm_adapter_request) == 0 &&
+        query_once(sockfd, &dst, rf_packet_request) == 0 &&
+        query_once(sockfd, &dst, rf_guard_request) == 0 &&
+        query_once(sockfd, &dst, default_app_request) == 0 &&
         query_once(sockfd, &dst, explicit_app_request) == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_CAMERA_SESSION_PLAN v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK v1") == 0 &&
-        query_once(sockfd, &dst,
-                   "FIELDMESH_CAMERA_STREAM_CHUNK v1 "
-                   "00112233445566778899aabbccddeeff") == 0 &&
+        query_once(sockfd, &dst, camera_session_request) == 0 &&
+        query_once(sockfd, &dst, camera_adaptation_request) == 0 &&
+        query_once(sockfd, &dst, camera_chunk_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_TUN_PLAN v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_VALIDATE v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_TUN_APPLY_COMMIT v1") == 0 &&
+        query_once(sockfd, &dst, tun_plan_request) == 0 &&
+        query_once(sockfd, &dst, tun_apply_validate_request) == 0 &&
+        query_once(sockfd, &dst, tun_apply_commit_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_DEVICE_IIO_PLAN v1") == 0) {
         printf("{\"event\":\"sdk_daemon_query_complete\",\"host\":\"%s\","
                "\"port\":%u}\n",

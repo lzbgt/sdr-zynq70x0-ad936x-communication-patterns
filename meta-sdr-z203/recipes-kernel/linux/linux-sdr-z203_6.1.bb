@@ -10,10 +10,14 @@ EXTERNALSRC_BUILD ?= "${WORKDIR}/linux-build"
 
 COMPATIBLE_MACHINE = "(sdr-z203-zynq7|fm-z203)"
 
-KBUILD_DEFCONFIG:sdr-z203-zynq7 = "zynq_pluto_defconfig"
-KERNEL_DEVICETREE:sdr-z203-zynq7 = "zynq-pluto-sdr.dtb"
+KBUILD_DEFCONFIG = "zynq_pluto_defconfig"
+KERNEL_DEVICETREE = "zynq-pluto-sdr.dtb"
 
 PV = "6.1+vendor"
+
+do_configure:prepend() {
+    install -m 0644 ${S}/arch/arm/configs/zynq_pluto_defconfig ${B}/.config
+}
 
 do_configure:append() {
     ${S}/scripts/config --file ${B}/.config --enable TUN

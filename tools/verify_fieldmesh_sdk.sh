@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out_dir="$repo_root/.config/fieldmesh/sdk"
 mkdir -p "$out_dir"
 
+"$repo_root/tools/check_fieldmesh_no_hardcoded_moving_metrics.sh"
 "$repo_root/tools/verify_fieldmesh_imgui_app.sh"
 "$repo_root/tools/verify_fieldmesh_app_build.sh"
 
@@ -24,7 +25,21 @@ for source in "$repo_root"/sdk/c/examples/*.c; do
         "$source" \
         -c -o "$object"
     "$cc" "$object" "$sdk_object" -o "$binary"
-    "$binary" >"$out_dir/$name.ndjson" 2>"$out_dir/$name.stderr"
+    case "$name" in
+        fieldmesh_state_daemon_demo|fieldmesh_two_pc_flow_demo|fieldmesh_udp_discovery_demo)
+            : >"$out_dir/$name.ndjson"
+            : >"$out_dir/$name.stderr"
+            ;;
+        fieldmesh_camera_stream_demo)
+            FIELDMESH_SDK_ENABLE_TEST_FIXTURES=1 \
+            FIELDMESH_CAMERA_ROUTE_METRICS_FIXTURE="1,2,4,500,-75,9,-10,180,220,160,260,450,700,2100,24,640,180,1,1" \
+                "$binary" >"$out_dir/$name.ndjson" 2>"$out_dir/$name.stderr"
+            ;;
+        *)
+            FIELDMESH_SDK_ENABLE_TEST_FIXTURES=1 \
+                "$binary" >"$out_dir/$name.ndjson" 2>"$out_dir/$name.stderr"
+            ;;
+    esac
 done
 
 cxx="${CXX:-c++}"
@@ -48,7 +63,11 @@ control_camera_command_preview="$out_dir/fieldmesh_camera_command_preview.bin"
     "$repo_root/apps/fieldmesh-control-camera-demo/fieldmesh_control_camera_demo.cpp" \
     "$sdk_object" \
     -o "$control_camera_app"
-"$control_camera_app" >"$out_dir/fieldmesh_control_camera_demo.ndjson" \
+"$control_camera_app" \
+    --seed-demo-fixtures \
+    --rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+    --route-metrics-fixture "1,2,4,500,-75,9,-10,180,220,160,260,450,700,2100,24,640,180,1,1" \
+    >"$out_dir/fieldmesh_control_camera_demo.ndjson" \
     2>"$out_dir/fieldmesh_control_camera_demo.stderr"
 cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input"
 "$control_camera_app" \
@@ -57,6 +76,9 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --snapshot-output "$control_camera_native_snapshot" \
     --dashboard-output "$control_camera_dashboard" \
     --chunk-size 64 \
+    --seed-demo-fixtures \
+    --rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+    --route-metrics-fixture "1,2,4,500,-75,9,-10,180,220,160,260,450,700,2100,24,640,180,1,1" \
     >"$control_camera_external_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_external.stderr"
 "$control_camera_app" \
@@ -68,6 +90,9 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_001.bin" "$control_camera_input
     --live-stream-loop \
     --snapshot-output "$control_camera_command_native_snapshot" \
     --dashboard-output "$control_camera_command_dashboard" \
+    --seed-demo-fixtures \
+    --rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+    --route-metrics-fixture "1,2,4,500,-75,9,-10,180,220,160,260,450,700,2100,24,640,180,1,1" \
     >"$control_camera_command_log" \
     2>"$out_dir/fieldmesh_control_camera_demo_command.stderr"
 "$control_camera_snapshot_helper" \
@@ -108,13 +133,14 @@ udp_demo="$out_dir/fieldmesh_udp_discovery_demo"
 "$udp_demo" browse 127.0.0.1 49123 2000 >"$udp_log" &
 udp_pid=$!
 sleep 0.2
-"$udp_demo" ap-beacon 127.0.0.1 49123 020000000203 fieldmesh-lab >"$udp_send_log"
+FIELDMESH_SDK_ENABLE_TEST_FIXTURES=1 \
+    "$udp_demo" ap-beacon 127.0.0.1 49123 020000000203 fieldmesh-lab >"$udp_send_log"
 wait "$udp_pid"
 
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-"$daemon_demo" serve 127.0.0.1 49124 24 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 25 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -124,10 +150,12 @@ wait "$daemon_pid"
 two_pc_log="$out_dir/fieldmesh_two_pc_flow_ap.ndjson"
 two_pc_endpoint_log="$out_dir/fieldmesh_two_pc_flow_endpoint.ndjson"
 two_pc_demo="$out_dir/fieldmesh_two_pc_flow_demo"
-"$two_pc_demo" ap-service 127.0.0.1 49125 5 3000 >"$two_pc_log" &
+FIELDMESH_SDK_ENABLE_TEST_FIXTURES=1 \
+    "$two_pc_demo" ap-service 127.0.0.1 49125 5 3000 >"$two_pc_log" &
 two_pc_pid=$!
 sleep 0.2
-"$two_pc_demo" endpoint-flow 127.0.0.1 49125 2000 >"$two_pc_endpoint_log"
+FIELDMESH_SDK_ENABLE_TEST_FIXTURES=1 \
+    "$two_pc_demo" endpoint-flow 127.0.0.1 49125 2000 >"$two_pc_endpoint_log"
 wait "$two_pc_pid"
 
 fieldmeshctl="$out_dir/fieldmeshctl_demo"
@@ -293,6 +321,7 @@ peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
 rtls_report = [row for row in query if row.get("event") == "sdk_daemon_rtls_report"]
 rtls_position = [row for row in query if row.get("event") == "sdk_daemon_rtls_position"]
+route_metrics_report = [row for row in query if row.get("event") == "sdk_daemon_route_metrics_report"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
 radio_config = [row for row in query if row.get("event") == "sdk_daemon_radio_config_plan"]
 ap_browse = [row for row in query if row.get("event") == "sdk_daemon_ap_browse"]
@@ -312,7 +341,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 24 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 25 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -325,7 +354,7 @@ if hello[0].get("auth_model") != "root_ca_derived_certs":
 if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
-            "supports_route_metrics", "supports_rf_packet_engine",
+            "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
             "supports_rtls_report"):
     if hello[0].get(key) != 1:
@@ -376,12 +405,23 @@ if rtls_position[0].get("position_source") not in ("gps_pps_fused", "packet_timi
     raise SystemExit("SDK daemon RTLS-position source is not usable")
 if rtls_position[0].get("radio_topology_only") != 1 or rtls_position[0].get("host_eth_topology") != 0:
     raise SystemExit("SDK daemon RTLS-position confused host Ethernet with radio topology")
+if not route_metrics_report or route_metrics_report[0].get("ok") is not True:
+    raise SystemExit("SDK daemon route-metrics report query failed")
+if route_metrics_report[0].get("measurement_api") != "fieldmesh_report_route_metrics":
+    raise SystemExit("SDK daemon route-metrics report did not use SDK measurement API")
+if route_metrics_report[0].get("updates_route_registry") != 1:
+    raise SystemExit("SDK daemon route-metrics report did not update route registry")
+for key in ("writes_hardware", "starts_rf_tx", "uses_iio", "uses_inter_board_ip_routing"):
+    if route_metrics_report[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon route-metrics report key {key} must be 0")
 if not route_metrics or route_metrics[0].get("ok") is not True:
     raise SystemExit("SDK daemon route metrics query failed")
 if route_metrics[0].get("metrics_api") != "fieldmesh_query_route_metrics":
     raise SystemExit("SDK daemon route metrics did not use SDK metrics API")
 if route_metrics[0].get("dst_device_eui") != "020000000103":
     raise SystemExit("SDK daemon route metrics used wrong destination EUI")
+if route_metrics[0].get("recommended_route") != 2:
+    raise SystemExit("SDK daemon route metrics did not preserve reported recommendation")
 if route_metrics[0].get("selected_mode") != 4 or route_metrics[0].get("stream_id") != 500:
     raise SystemExit("SDK daemon route metrics mode/stream changed")
 if route_metrics[0].get("direct_reachable") != 1 or route_metrics[0].get("relay_available") != 1:
@@ -830,9 +870,9 @@ if camera.get("session_requires_backpressure") != 1 or camera.get("session_requi
     raise SystemExit("camera stream SDK demo session must require backpressure/keepalive")
 if camera.get("metrics_api") != "fieldmesh_query_route_metrics":
     raise SystemExit("camera stream SDK demo did not consume route metrics")
-if camera.get("route_snr_db") != 11 or camera.get("route_per_mille") != 140:
+if camera.get("route_snr_db") != 9 or camera.get("route_per_mille") != 180:
     raise SystemExit("camera stream SDK demo route metric values changed")
-if camera.get("route_queue_age_ms") != 210 or camera.get("route_recommended_kind") != 2:
+if camera.get("route_queue_age_ms") != 260 or camera.get("route_recommended_kind") != 2:
     raise SystemExit("camera stream SDK demo route recommendation changed")
 if camera.get("adapt_action") != 4 or camera.get("adapt_target_bitrate_kbps") != 900:
     raise SystemExit("camera stream SDK demo adaptation policy failed")
@@ -925,9 +965,9 @@ if stream_open[0].get("requires_backpressure") != 1 or stream_open[0].get("requi
     raise SystemExit("control/camera app session must require backpressure/keepalive")
 if stream_open[0].get("metrics_api") != "fieldmesh_query_route_metrics":
     raise SystemExit("control/camera app did not consume route metrics")
-if stream_open[0].get("route_snr_db") != 11 or stream_open[0].get("route_per_mille") != 140:
+if stream_open[0].get("route_snr_db") != 9 or stream_open[0].get("route_per_mille") != 180:
     raise SystemExit("control/camera app route metric values changed")
-if stream_open[0].get("route_queue_age_ms") != 210 or stream_open[0].get("route_recommended_kind") != 2:
+if stream_open[0].get("route_queue_age_ms") != 260 or stream_open[0].get("route_recommended_kind") != 2:
     raise SystemExit("control/camera app route recommendation changed")
 if stream_open[0].get("adapt_action") != 4 or stream_open[0].get("adapt_target_bitrate_kbps") != 900:
     raise SystemExit("control/camera app adaptation policy failed")

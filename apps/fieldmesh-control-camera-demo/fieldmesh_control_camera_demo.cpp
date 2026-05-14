@@ -14,6 +14,12 @@
 
 namespace {
 
+constexpr unsigned kSyntheticCameraFrameStride = 17u;
+constexpr unsigned kSyntheticCameraChunkStride = 31u;
+constexpr unsigned kSyntheticCameraByteStride = 7u;
+constexpr unsigned kSyntheticCameraAlphabetBase = 0x40u;
+constexpr unsigned kSyntheticCameraAlphabetMask = 0x3fu;
+
 struct ApList {
     std::vector<fieldmesh_ap_info_t> aps;
 };
@@ -36,6 +42,8 @@ struct AppOptions {
     const char *preferred_ap_eui = nullptr;
     const char *dst_device_eui = "020000000103";
     const char *daemon_host = nullptr;
+    const char *rtls_fixture = nullptr;
+    const char *route_metrics_fixture = nullptr;
     uint16_t daemon_port = 55421;
     uint32_t daemon_timeout_ms = 2000;
     size_t chunk_size = 640;
@@ -43,6 +51,7 @@ struct AppOptions {
     unsigned target_fps = 0;
     bool pace_realtime = false;
     bool live_stream_loop = false;
+    bool seed_demo_fixtures = false;
 };
 
 struct CameraChunk {
@@ -191,73 +200,116 @@ bool valid_compact_eui(const char *eui)
     return true;
 }
 
-void publish_candidate(fieldmesh_context_t *ctx,
-                       const char *device_eui,
-                       bool z203_capability_bias)
+bool load_route_metrics_fixture(fieldmesh_route_metrics_t *metrics,
+                                const char *dst_device_eui,
+                                const char *csv)
 {
-    fieldmesh_ap_candidate_t candidate{};
+    long values[19] = {};
 
-    copy_text(candidate.node_id, sizeof(candidate.node_id), device_eui);
-    candidate.policy = z203_capability_bias ? FIELDMESH_AP_POLICY_HYBRID :
-                                              FIELDMESH_AP_POLICY_AUTONOMOUS_SWARM;
-    candidate.node_classes_mask = (1u << FIELDMESH_NODE_ENDPOINT) |
-                                  (1u << FIELDMESH_NODE_AP_BROKER) |
-                                  (1u << FIELDMESH_NODE_RELAY);
-    candidate.supported_modes_mask = (1u << FIELDMESH_MODE_P2P) |
-                                     (1u << FIELDMESH_MODE_STAR) |
-                                     (1u << FIELDMESH_MODE_GRAPH) |
-                                     (1u << FIELDMESH_MODE_SCHEDULED);
-    candidate.max_kbps = z203_capability_bias ? 7000u : 2200u;
-    candidate.reachable_peer_count = z203_capability_bias ? 4u : 2u;
-    candidate.avg_rssi_dbm = z203_capability_bias ? -41 : -54;
-    candidate.avg_snr_db = z203_capability_bias ? 30 : 18;
-    candidate.estimated_geo_centrality = z203_capability_bias ? 90u : 58u;
-    candidate.link_stability_score = z203_capability_bias ? 93u : 67u;
-    candidate.mobility_score = z203_capability_bias ? 84u : 62u;
-    candidate.handover_penalty = z203_capability_bias ? 0u : 10u;
-    candidate.uptime_s = z203_capability_bias ? 2400u : 700u;
-    candidate.clock_quality = z203_capability_bias ? 96u : 62u;
-    candidate.power_score = z203_capability_bias ? 100u : 70u;
-    candidate.compute_score = z203_capability_bias ? 92u : 48u;
-    candidate.relay_score = z203_capability_bias ? 94u : 55u;
-    candidate.security_score = z203_capability_bias ? 92u : 82u;
-    candidate.wall_powered = z203_capability_bias ? 1u : 0u;
-    candidate.has_disciplined_clock = z203_capability_bias ? 1u : 0u;
-    candidate.relay_allowed = 1u;
-    candidate.provisioned_identity = 1u;
-
-    (void)fieldmesh_publish_ap_candidate(ctx, &candidate);
+    if (!metrics || !valid_compact_eui(dst_device_eui) || !csv ||
+        std::sscanf(csv,
+                    "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,"
+                    "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld",
+                    &values[0], &values[1], &values[2], &values[3],
+                    &values[4], &values[5], &values[6], &values[7],
+                    &values[8], &values[9], &values[10], &values[11],
+                    &values[12], &values[13], &values[14], &values[15],
+                    &values[16], &values[17], &values[18]) != 19) {
+        return false;
+    }
+    if (values[0] < 1 || values[0] > 4 ||
+        values[1] < 1 || values[1] > 4 ||
+        values[2] < 0 || values[2] > 4 ||
+        values[3] < 0 || values[3] > 65535 ||
+        values[4] < -127 || values[4] > 20 ||
+        values[5] < -40 || values[5] > 80 ||
+        values[6] < -80 || values[6] > 20 ||
+        values[7] < 0 || values[7] > 1000 ||
+        values[8] < 0 || values[8] > 60000 ||
+        values[9] < 0 || values[9] > 60000 ||
+        values[10] < 0 || values[10] > 60000 ||
+        values[11] < 0 || values[11] > 1000000 ||
+        values[12] < values[11] || values[12] > 1000000 ||
+        values[16] < 0 || values[16] > 60000 ||
+        values[17] < 0 || values[17] > 1 ||
+        values[18] < 0 || values[18] > 1) {
+        return false;
+    }
+    *metrics = {};
+    copy_text(metrics->dst_node_id, sizeof(metrics->dst_node_id), dst_device_eui);
+    metrics->current_route = static_cast<fieldmesh_route_kind_t>(values[0]);
+    metrics->recommended_route = static_cast<fieldmesh_route_kind_t>(values[1]);
+    metrics->selected_mode = static_cast<fieldmesh_mode_t>(values[2]);
+    metrics->stream_id = static_cast<uint16_t>(values[3]);
+    metrics->rssi_dbm = static_cast<int8_t>(values[4]);
+    metrics->snr_db = static_cast<int8_t>(values[5]);
+    metrics->evm_db = static_cast<int8_t>(values[6]);
+    metrics->per_mille = static_cast<uint16_t>(values[7]);
+    metrics->ack_latency_ms = static_cast<uint32_t>(values[8]);
+    metrics->jitter_ms = static_cast<uint32_t>(values[9]);
+    metrics->queue_age_ms = static_cast<uint32_t>(values[10]);
+    metrics->delivered_kbps = static_cast<uint32_t>(values[11]);
+    metrics->estimated_kbps = static_cast<uint32_t>(values[12]);
+    metrics->cfo_hz = static_cast<int32_t>(values[13]);
+    metrics->doppler_hz = static_cast<int32_t>(values[14]);
+    metrics->timing_residual_ns = static_cast<int32_t>(values[15]);
+    metrics->measured_age_ms = static_cast<uint32_t>(values[16]);
+    metrics->direct_reachable = static_cast<uint8_t>(values[17]);
+    metrics->relay_available = static_cast<uint8_t>(values[18]);
+    return true;
 }
 
-void report_positions(fieldmesh_context_t *ctx)
+bool report_rtls_fixtures(fieldmesh_context_t *ctx, const char *records)
 {
-    fieldmesh_rtls_measurement_t z203{};
-    fieldmesh_rtls_measurement_t z103{};
+    std::string remaining = records ? records : "";
+    bool reported = false;
 
-    copy_text(z203.node_id, sizeof(z203.node_id), "020000000203");
-    z203.gps_lock = 1u;
-    z203.pps_lock = 1u;
-    z203.turnaround_calibrated = 1u;
-    z203.gps_lat_e7 = 312303210;
-    z203.gps_lon_e7 = 1214737010;
-    z203.rssi_dbm = -42;
-    z203.snr_db = 29;
-    z203.measured_age_ms = 80u;
+    while (!remaining.empty()) {
+        const size_t split = remaining.find(';');
+        const std::string record = remaining.substr(0, split);
+        char node_id[32] = {};
+        long values[12] = {};
+        fieldmesh_rtls_measurement_t measurement{};
 
-    copy_text(z103.node_id, sizeof(z103.node_id), "020000000103");
-    z103.gps_lock = 0u;
-    z103.pps_lock = 0u;
-    z103.turnaround_calibrated = 1u;
-    z103.rssi_dbm = -53;
-    z103.snr_db = 19;
-    z103.tdoa_ab_ns = 31;
-    z103.tdoa_ac_ns = -18;
-    z103.response_delay_us = 250u;
-    z103.rx_timestamp_ns = 720000u;
-    z103.measured_age_ms = 45u;
-
-    (void)fieldmesh_report_rtls_measurement(ctx, &z203);
-    (void)fieldmesh_report_rtls_measurement(ctx, &z103);
+        if (std::sscanf(record.c_str(),
+                        "%31[^,],%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld",
+                        node_id, &values[0], &values[1], &values[2],
+                        &values[3], &values[4], &values[5], &values[6],
+                        &values[7], &values[8], &values[9], &values[10],
+                        &values[11]) != 13 ||
+            !valid_compact_eui(node_id) ||
+            values[0] < 0 || values[0] > 1 ||
+            values[1] < 0 || values[1] > 1 ||
+            values[2] < 0 || values[2] > 1 ||
+            values[5] < -127 || values[5] > 20 ||
+            values[6] < -40 || values[6] > 80 ||
+            values[9] < 0 || values[9] > 60000 ||
+            values[11] < 0 || values[11] > 60000) {
+            return false;
+        }
+        copy_text(measurement.node_id, sizeof(measurement.node_id), node_id);
+        measurement.gps_lock = static_cast<uint8_t>(values[0]);
+        measurement.pps_lock = static_cast<uint8_t>(values[1]);
+        measurement.turnaround_calibrated = static_cast<uint8_t>(values[2]);
+        measurement.gps_lat_e7 = static_cast<int32_t>(values[3]);
+        measurement.gps_lon_e7 = static_cast<int32_t>(values[4]);
+        measurement.rssi_dbm = static_cast<int8_t>(values[5]);
+        measurement.snr_db = static_cast<int8_t>(values[6]);
+        measurement.tdoa_ab_ns = static_cast<int32_t>(values[7]);
+        measurement.tdoa_ac_ns = static_cast<int32_t>(values[8]);
+        measurement.response_delay_us = static_cast<uint32_t>(values[9]);
+        measurement.rx_timestamp_ns = static_cast<uint64_t>(values[10]);
+        measurement.measured_age_ms = static_cast<uint32_t>(values[11]);
+        if (fieldmesh_report_rtls_measurement(ctx, &measurement) != FIELDMESH_OK) {
+            return false;
+        }
+        reported = true;
+        if (split == std::string::npos) {
+            break;
+        }
+        remaining.erase(0, split + 1u);
+    }
+    return reported;
 }
 
 void fill_camera_chunk(std::vector<unsigned char> &payload,
@@ -266,7 +318,11 @@ void fill_camera_chunk(std::vector<unsigned char> &payload,
 {
     for (size_t i = 0; i < payload.size(); ++i) {
         payload[i] = static_cast<unsigned char>(
-            0x40u + ((frame_index * 17u + chunk_index * 31u + i * 7u) & 0x3fu));
+            kSyntheticCameraAlphabetBase +
+            ((frame_index * kSyntheticCameraFrameStride +
+              chunk_index * kSyntheticCameraChunkStride +
+              i * kSyntheticCameraByteStride) &
+             kSyntheticCameraAlphabetMask));
     }
 }
 
@@ -278,9 +334,12 @@ void print_usage(const char *program)
                  "[--snapshot-output PATH] [--dashboard-output PATH] "
                  "[--preferred-ap-eui EUI] [--dst-eui EUI] "
                  "[--daemon-host IP] [--daemon-port PORT] "
+                 "[--rtls-fixture CSV] "
+                 "[--route-metrics-fixture CSV] "
                  "[--daemon-timeout-ms MS] "
                  "[--chunk-size BYTES] [--max-chunks N] [--target-fps FPS] "
-                 "[--pace-realtime] [--live-stream-loop]\n",
+                 "[--pace-realtime] [--live-stream-loop] "
+                 "[--seed-demo-fixtures]\n",
                  program);
 }
 
@@ -362,6 +421,10 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             options->dst_device_eui = argv[++i];
         } else if (std::strcmp(argv[i], "--daemon-host") == 0 && i + 1 < argc) {
             options->daemon_host = argv[++i];
+        } else if (std::strcmp(argv[i], "--rtls-fixture") == 0 && i + 1 < argc) {
+            options->rtls_fixture = argv[++i];
+        } else if (std::strcmp(argv[i], "--route-metrics-fixture") == 0 && i + 1 < argc) {
+            options->route_metrics_fixture = argv[++i];
         } else if (std::strcmp(argv[i], "--daemon-port") == 0 && i + 1 < argc) {
             if (!parse_uint16(argv[++i], &options->daemon_port)) {
                 std::fprintf(stderr, "invalid --daemon-port\n");
@@ -391,6 +454,8 @@ bool parse_options(int argc, char **argv, AppOptions *options)
             options->pace_realtime = true;
         } else if (std::strcmp(argv[i], "--live-stream-loop") == 0) {
             options->live_stream_loop = true;
+        } else if (std::strcmp(argv[i], "--seed-demo-fixtures") == 0) {
+            options->seed_demo_fixtures = true;
         } else if (std::strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0]);
             std::exit(0);
@@ -1698,8 +1763,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    publish_candidate(ctx, "020000000203", true);
-    publish_candidate(ctx, "020000000103", false);
+    if (options.seed_demo_fixtures) {
+        if (!require_ok(fieldmesh_seed_test_lab_fixtures(ctx),
+                        "seed_test_lab_fixtures")) {
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+    }
 
     if (!require_ok(fieldmesh_browse_aps(ctx, 1000, on_ap, &aps), "browse_aps") ||
         !require_ok(fieldmesh_elect_ap(ctx, FIELDMESH_AP_POLICY_HYBRID, 1000,
@@ -1799,7 +1869,27 @@ int main(int argc, char **argv)
                     route.delivered_kbps);
     }
 
-    report_positions(ctx);
+    if (options.seed_demo_fixtures) {
+        if (options.rtls_fixture &&
+            !report_rtls_fixtures(ctx, options.rtls_fixture)) {
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        if (options.route_metrics_fixture) {
+            fieldmesh_route_metrics_t fixture_metrics{};
+
+            if (!load_route_metrics_fixture(&fixture_metrics,
+                                            options.dst_device_eui,
+                                            options.route_metrics_fixture) ||
+                !require_ok(fieldmesh_report_route_metrics(ctx, &fixture_metrics),
+                            "report_route_metrics_fixture")) {
+                (void)fieldmesh_leave(session);
+                fieldmesh_context_destroy(ctx);
+                return 1;
+            }
+        }
+    }
     if (!require_ok(fieldmesh_list_peer_positions(ctx, on_position, &positions),
                     "list_peer_positions")) {
         (void)fieldmesh_leave(session);

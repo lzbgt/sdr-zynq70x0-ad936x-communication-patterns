@@ -95,7 +95,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 24:
+    if not end or end[-1].get("handled") != 25:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -105,6 +105,7 @@ def daemon_summary(label, path):
     rtls_report = one(query, "sdk_daemon_rtls_report")
     rtls = one(query, "sdk_daemon_rtls_state")
     rtls_position = one(query, "sdk_daemon_rtls_position")
+    route_metrics_report = one(query, "sdk_daemon_route_metrics_report")
     route_metrics = one(query, "sdk_daemon_route_metrics")
     camera_session = one(query, "sdk_daemon_camera_session_plan")
     camera_adaptation = one(query, "sdk_daemon_camera_adaptation")
@@ -149,6 +150,15 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} RTLS position source is not usable")
     if rtls_position.get("radio_topology_only") != 1 or rtls_position.get("host_eth_topology") != 0:
         raise SystemExit(f"{label} RTLS position confused host Ethernet with radio topology")
+    if route_metrics_report.get("ok") is not True:
+        raise SystemExit(f"{label} route metrics report failed")
+    if route_metrics_report.get("measurement_api") != "fieldmesh_report_route_metrics":
+        raise SystemExit(f"{label} route metrics report did not use SDK measurement API")
+    if route_metrics_report.get("updates_route_registry") != 1:
+        raise SystemExit(f"{label} route metrics report did not update route registry")
+    for key in ("writes_hardware", "starts_rf_tx", "uses_iio", "uses_inter_board_ip_routing"):
+        if route_metrics_report.get(key) != 0:
+            raise SystemExit(f"{label} route metrics report key {key} must be 0")
     if route_metrics.get("ok") is not True or route_metrics.get("metrics_api") != "fieldmesh_query_route_metrics":
         raise SystemExit(f"{label} route metrics failed")
     if route_metrics.get("current_route") != 1 or route_metrics.get("recommended_route") != 2:

@@ -31,9 +31,6 @@ typedef socklen_t fieldmesh_sdk_socklen_t;
 #define fieldmesh_sdk_close_socket close
 #endif
 
-#define FIELDMESH_MAX_APS 4
-#define FIELDMESH_MAX_CANDIDATES 16
-#define FIELDMESH_MAX_POSITIONS 16
 #define FIELDMESH_MAX_STREAM_PAYLOAD 2048
 
 #define FIELDMESH_LAB_EUI_A "020000000203"
@@ -45,15 +42,21 @@ struct fieldmesh_context {
     fieldmesh_network_profile_t previous_profile;
     fieldmesh_device_profile_t device_profile;
     uint8_t has_previous_profile;
-    fieldmesh_ap_info_t aps[FIELDMESH_MAX_APS];
+    fieldmesh_ap_info_t *aps;
     size_t ap_count;
-    fieldmesh_ap_candidate_t candidates[FIELDMESH_MAX_CANDIDATES];
+    size_t ap_capacity;
+    fieldmesh_ap_candidate_t *candidates;
     size_t candidate_count;
+    size_t candidate_capacity;
     fieldmesh_peer_info_t *peers;
     size_t peer_count;
     size_t peer_capacity;
-    fieldmesh_position_estimate_t positions[FIELDMESH_MAX_POSITIONS];
+    fieldmesh_position_estimate_t *positions;
     size_t position_count;
+    size_t position_capacity;
+    fieldmesh_route_metrics_t *route_metrics;
+    size_t route_metrics_count;
+    size_t route_metrics_capacity;
     uint32_t next_sequence;
     uint32_t election_epoch;
 };
@@ -302,6 +305,139 @@ static int default_peer_for_identifier(const char *identifier, fieldmesh_peer_in
     return 1;
 }
 
+static fieldmesh_status_t ensure_peer_capacity(fieldmesh_context_t *context,
+                                               size_t min_capacity)
+{
+    fieldmesh_peer_info_t *next_peers;
+    size_t next_capacity;
+
+    if (!context) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (context->peer_capacity >= min_capacity) {
+        return FIELDMESH_OK;
+    }
+    next_capacity = context->peer_capacity == 0u ? 16u : context->peer_capacity * 2u;
+    while (next_capacity < min_capacity) {
+        next_capacity *= 2u;
+    }
+    next_peers = (fieldmesh_peer_info_t *)realloc(
+        context->peers, next_capacity * sizeof(*next_peers));
+    if (!next_peers) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->peers = next_peers;
+    context->peer_capacity = next_capacity;
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t ensure_ap_capacity(fieldmesh_context_t *context,
+                                             size_t min_capacity)
+{
+    fieldmesh_ap_info_t *next_aps;
+    size_t next_capacity;
+
+    if (!context) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (context->ap_capacity >= min_capacity) {
+        return FIELDMESH_OK;
+    }
+    next_capacity = context->ap_capacity == 0u ? 8u : context->ap_capacity * 2u;
+    while (next_capacity < min_capacity) {
+        next_capacity *= 2u;
+    }
+    next_aps = (fieldmesh_ap_info_t *)realloc(context->aps,
+                                              next_capacity * sizeof(*next_aps));
+    if (!next_aps) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->aps = next_aps;
+    context->ap_capacity = next_capacity;
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t ensure_candidate_capacity(fieldmesh_context_t *context,
+                                                    size_t min_capacity)
+{
+    fieldmesh_ap_candidate_t *next_candidates;
+    size_t next_capacity;
+
+    if (!context) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (context->candidate_capacity >= min_capacity) {
+        return FIELDMESH_OK;
+    }
+    next_capacity = context->candidate_capacity == 0u ?
+        16u : context->candidate_capacity * 2u;
+    while (next_capacity < min_capacity) {
+        next_capacity *= 2u;
+    }
+    next_candidates = (fieldmesh_ap_candidate_t *)realloc(
+        context->candidates, next_capacity * sizeof(*next_candidates));
+    if (!next_candidates) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->candidates = next_candidates;
+    context->candidate_capacity = next_capacity;
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t ensure_position_capacity(fieldmesh_context_t *context,
+                                                   size_t min_capacity)
+{
+    fieldmesh_position_estimate_t *next_positions;
+    size_t next_capacity;
+
+    if (!context) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (context->position_capacity >= min_capacity) {
+        return FIELDMESH_OK;
+    }
+    next_capacity = context->position_capacity == 0u ?
+        16u : context->position_capacity * 2u;
+    while (next_capacity < min_capacity) {
+        next_capacity *= 2u;
+    }
+    next_positions = (fieldmesh_position_estimate_t *)realloc(
+        context->positions, next_capacity * sizeof(*next_positions));
+    if (!next_positions) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->positions = next_positions;
+    context->position_capacity = next_capacity;
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t ensure_route_metrics_capacity(fieldmesh_context_t *context,
+                                                        size_t min_capacity)
+{
+    fieldmesh_route_metrics_t *next_metrics;
+    size_t next_capacity;
+
+    if (!context) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (context->route_metrics_capacity >= min_capacity) {
+        return FIELDMESH_OK;
+    }
+    next_capacity = context->route_metrics_capacity == 0u ?
+        16u : context->route_metrics_capacity * 2u;
+    while (next_capacity < min_capacity) {
+        next_capacity *= 2u;
+    }
+    next_metrics = (fieldmesh_route_metrics_t *)realloc(
+        context->route_metrics, next_capacity * sizeof(*next_metrics));
+    if (!next_metrics) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->route_metrics = next_metrics;
+    context->route_metrics_capacity = next_capacity;
+    return FIELDMESH_OK;
+}
+
 static int valid_device_eui(const char *value)
 {
     size_t i;
@@ -501,60 +637,71 @@ static fieldmesh_status_t upsert_observed_peer(fieldmesh_context_t *context,
             return FIELDMESH_OK;
         }
     }
-    if (context->peer_count >= context->peer_capacity) {
-        size_t next_capacity = context->peer_capacity == 0u ?
-            16u : context->peer_capacity * 2u;
-        fieldmesh_peer_info_t *next_peers =
-            (fieldmesh_peer_info_t *)realloc(context->peers,
-                                             next_capacity * sizeof(*next_peers));
-
-        if (!next_peers) {
-            return FIELDMESH_ERR_NO_MEMORY;
-        }
-        context->peers = next_peers;
-        context->peer_capacity = next_capacity;
+    if (ensure_peer_capacity(context, context->peer_count + 1u) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_NO_MEMORY;
     }
     context->peers[context->peer_count++] = peer;
     return FIELDMESH_OK;
 }
 
-static void init_default_aps(fieldmesh_context_t *context)
+static void candidate_to_ap_info(const fieldmesh_ap_candidate_t *candidate,
+                                 fieldmesh_ap_info_t *ap)
 {
-    fieldmesh_ap_info_t *ap;
-
-    context->ap_count = 2;
-
-    ap = &context->aps[0];
     memset(ap, 0, sizeof(*ap));
-    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), FIELDMESH_LAB_EUI_A);
+    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), candidate->node_id);
     sdk_copy_text(ap->network_id, sizeof(ap->network_id), "fieldmesh-lab");
-    sdk_copy_text(ap->name, sizeof(ap->name), "node-a Z203 2R2T capable node");
-    sdk_copy_text(ap->address, sizeof(ap->address), "192.168.2.1:49000");
-    ap->transport = FIELDMESH_TRANSPORT_USB_ETH;
-    ap->supported_modes_mask = mode_mask();
-    ap->node_classes_mask = class_mask(FIELDMESH_NODE_AP_BROKER) |
-                            class_mask(FIELDMESH_NODE_RELAY) |
-                            class_mask(FIELDMESH_NODE_GATEWAY);
-    ap->max_kbps = 7000;
-    ap->link_quality_hint_db = 28;
+    sdk_copy_text(ap->name, sizeof(ap->name), "observed FieldMesh AP");
+    sdk_copy_text(ap->address, sizeof(ap->address), "radio://blr-declare");
+    ap->transport = FIELDMESH_TRANSPORT_AUTO;
+    ap->supported_modes_mask = candidate->supported_modes_mask;
+    ap->node_classes_mask = candidate->node_classes_mask;
+    ap->max_kbps = candidate->max_kbps;
+    ap->link_quality_hint_db = candidate->avg_snr_db;
     ap->requires_audit = 1;
-    ap->supports_derived_cert = 1;
+    ap->supports_derived_cert = candidate->provisioned_identity;
+}
 
-    ap = &context->aps[1];
-    memset(ap, 0, sizeof(*ap));
-    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), FIELDMESH_LAB_EUI_B);
-    sdk_copy_text(ap->network_id, sizeof(ap->network_id), "fieldmesh-lab");
-    sdk_copy_text(ap->name, sizeof(ap->name), "node-b Z103 1R1T capable node");
-    sdk_copy_text(ap->address, sizeof(ap->address), "192.168.2.1:49000");
-    ap->transport = FIELDMESH_TRANSPORT_USB_ETH;
-    ap->supported_modes_mask = (1u << FIELDMESH_MODE_P2P) |
-                               (1u << FIELDMESH_MODE_STAR);
-    ap->node_classes_mask = class_mask(FIELDMESH_NODE_ENDPOINT) |
-                            class_mask(FIELDMESH_NODE_RELAY);
-    ap->max_kbps = 2200;
-    ap->link_quality_hint_db = 18;
-    ap->requires_audit = 1;
-    ap->supports_derived_cert = 0;
+static fieldmesh_status_t upsert_ap_info(fieldmesh_context_t *context,
+                                         const fieldmesh_ap_info_t *ap)
+{
+    size_t i;
+
+    if (!context || !ap || !valid_device_eui(ap->ap_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->ap_count; ++i) {
+        if (strcmp(context->aps[i].ap_id, ap->ap_id) == 0) {
+            context->aps[i] = *ap;
+            return FIELDMESH_OK;
+        }
+    }
+    if (ensure_ap_capacity(context, context->ap_count + 1u) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->aps[context->ap_count++] = *ap;
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t upsert_ap_candidate(fieldmesh_context_t *context,
+                                              const fieldmesh_ap_candidate_t *candidate)
+{
+    size_t i;
+
+    if (!context || !candidate || !valid_device_eui(candidate->node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->candidate_count; ++i) {
+        if (strcmp(context->candidates[i].node_id, candidate->node_id) == 0) {
+            context->candidates[i] = *candidate;
+            return FIELDMESH_OK;
+        }
+    }
+    if (ensure_candidate_capacity(context, context->candidate_count + 1u) !=
+        FIELDMESH_OK) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->candidates[context->candidate_count++] = *candidate;
+    return FIELDMESH_OK;
 }
 
 static void init_default_profile(fieldmesh_context_t *context)
@@ -715,6 +862,49 @@ static uint32_t abs_i32_to_u32(int32_t value)
     return value < 0 ? (uint32_t)(-value) : (uint32_t)value;
 }
 
+static int observed_route_metrics_for_identifier(
+    const fieldmesh_context_t *context,
+    const char *identifier,
+    fieldmesh_route_metrics_t *out_metrics)
+{
+    size_t i;
+
+    if (!context || !identifier || !out_metrics) {
+        return 0;
+    }
+    for (i = 0; i < context->route_metrics_count; ++i) {
+        const fieldmesh_route_metrics_t *metrics = &context->route_metrics[i];
+        if (strcmp(identifier, metrics->dst_node_id) == 0) {
+            *out_metrics = *metrics;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static fieldmesh_status_t upsert_route_metrics(
+    fieldmesh_context_t *context,
+    const fieldmesh_route_metrics_t *metrics)
+{
+    size_t i;
+
+    if (!context || !metrics || !valid_device_eui(metrics->dst_node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->route_metrics_count; ++i) {
+        if (strcmp(context->route_metrics[i].dst_node_id, metrics->dst_node_id) == 0) {
+            context->route_metrics[i] = *metrics;
+            return FIELDMESH_OK;
+        }
+    }
+    if (ensure_route_metrics_capacity(context, context->route_metrics_count + 1u) !=
+        FIELDMESH_OK) {
+        return FIELDMESH_ERR_NO_MEMORY;
+    }
+    context->route_metrics[context->route_metrics_count++] = *metrics;
+    return FIELDMESH_OK;
+}
+
 static fieldmesh_position_estimate_t estimate_position(
     const fieldmesh_rtls_measurement_t *measurement)
 {
@@ -865,7 +1055,12 @@ fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
     context->election_epoch = 1u;
     init_default_profile(context);
     init_default_device_profile(context);
-    init_default_aps(context);
+    if (getenv("FIELDMESH_SDK_ENABLE_TEST_FIXTURES")) {
+        if (fieldmesh_seed_test_lab_fixtures(context) != FIELDMESH_OK) {
+            fieldmesh_context_destroy(context);
+            return FIELDMESH_ERR_NO_MEMORY;
+        }
+    }
     *out_context = context;
     return FIELDMESH_OK;
 }
@@ -875,7 +1070,11 @@ void fieldmesh_context_destroy(fieldmesh_context_t *context)
     if (!context) {
         return;
     }
+    free(context->aps);
+    free(context->candidates);
     free(context->peers);
+    free(context->positions);
+    free(context->route_metrics);
     free(context);
 }
 
@@ -1171,20 +1370,58 @@ fieldmesh_status_t fieldmesh_browse_aps(fieldmesh_context_t *context,
     return context->ap_count > 0 ? FIELDMESH_OK : FIELDMESH_ERR_NOT_FOUND;
 }
 
+fieldmesh_status_t fieldmesh_observe_ap(fieldmesh_context_t *context,
+                                        const fieldmesh_ap_info_t *ap)
+{
+    return upsert_ap_info(context, ap);
+}
+
+fieldmesh_status_t fieldmesh_publish_local_ap_candidate(
+    fieldmesh_context_t *context,
+    const fieldmesh_ap_candidate_t *candidate)
+{
+    fieldmesh_ap_info_t ap;
+    fieldmesh_status_t status;
+
+    if (!context || !candidate || !valid_device_eui(candidate->node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = upsert_ap_candidate(context, candidate);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    candidate_to_ap_info(candidate, &ap);
+    return upsert_ap_info(context, &ap);
+}
+
 fieldmesh_status_t fieldmesh_publish_ap_candidate(fieldmesh_context_t *context,
                                                   const fieldmesh_ap_candidate_t *candidate)
 {
-    if (!context || !candidate || candidate->node_id[0] == '\0') {
+    fieldmesh_status_t status;
+
+    status = fieldmesh_publish_local_ap_candidate(context, candidate);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    return upsert_observed_peer(context, candidate->node_id);
+}
+
+fieldmesh_status_t fieldmesh_seed_test_lab_fixtures(fieldmesh_context_t *context)
+{
+    fieldmesh_status_t status;
+    fieldmesh_ap_candidate_t z203;
+    fieldmesh_ap_candidate_t z103;
+
+    if (!context) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    if (context->candidate_count >= FIELDMESH_MAX_CANDIDATES) {
-        return FIELDMESH_ERR_POLICY;
+    z203 = default_candidate(FIELDMESH_LAB_EUI_A, 1);
+    z103 = default_candidate(FIELDMESH_LAB_EUI_B, 0);
+    status = fieldmesh_publish_ap_candidate(context, &z203);
+    if (status != FIELDMESH_OK) {
+        return status;
     }
-    context->candidates[context->candidate_count++] = *candidate;
-    if (valid_device_eui(candidate->node_id)) {
-        (void)upsert_observed_peer(context, candidate->node_id);
-    }
-    return FIELDMESH_OK;
+    return fieldmesh_publish_ap_candidate(context, &z103);
 }
 
 fieldmesh_status_t fieldmesh_elect_ap(fieldmesh_context_t *context,
@@ -1192,7 +1429,6 @@ fieldmesh_status_t fieldmesh_elect_ap(fieldmesh_context_t *context,
                                       uint32_t timeout_ms,
                                       fieldmesh_ap_election_result_t *out_result)
 {
-    fieldmesh_ap_candidate_t defaults[2];
     const fieldmesh_ap_candidate_t *best = NULL;
     const fieldmesh_ap_candidate_t *candidates = NULL;
     size_t candidate_count = 0;
@@ -1204,17 +1440,14 @@ fieldmesh_status_t fieldmesh_elect_ap(fieldmesh_context_t *context,
         return FIELDMESH_ERR_INVALID_ARG;
     }
     if (policy == FIELDMESH_AP_POLICY_PREDEFINED) {
-        best = &context->candidates[0];
         candidate_count = context->candidate_count;
         candidates = context->candidates;
+        if (candidate_count > 0u) {
+            best = &context->candidates[0];
+        }
     } else if (context->candidate_count > 0) {
         candidates = context->candidates;
         candidate_count = context->candidate_count;
-    } else {
-        defaults[0] = default_candidate(FIELDMESH_LAB_EUI_A, 1);
-        defaults[1] = default_candidate(FIELDMESH_LAB_EUI_B, 0);
-        candidates = defaults;
-        candidate_count = 2u;
     }
     if (candidate_count == 0 || !candidates) {
         return FIELDMESH_ERR_NOT_FOUND;
@@ -1362,41 +1595,57 @@ fieldmesh_status_t fieldmesh_query_route(fieldmesh_session_t *session,
                                          fieldmesh_route_info_t *out_route)
 {
     fieldmesh_peer_info_t peer;
+    fieldmesh_route_metrics_t metrics;
     int have_peer;
+    int have_metrics;
 
     if (!session || !session->joined || !dst_node_id || !out_route) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
     have_peer = observed_peer_for_identifier(session->context, dst_node_id, &peer);
-    memset(out_route, 0, sizeof(*out_route));
-    if (have_peer) {
-        sdk_copy_text(out_route->dst_node_id, sizeof(out_route->dst_node_id),
-                      peer.device_uuid);
-    } else {
-        sdk_copy_text(out_route->dst_node_id, sizeof(out_route->dst_node_id), dst_node_id);
+    have_metrics = observed_route_metrics_for_identifier(session->context,
+                                                         dst_node_id,
+                                                         &metrics);
+    if (!have_peer) {
+        return FIELDMESH_ERR_NOT_FOUND;
     }
+    memset(out_route, 0, sizeof(*out_route));
+    sdk_copy_text(out_route->dst_node_id, sizeof(out_route->dst_node_id),
+                  peer.device_uuid);
     out_route->stream_id = stream_id;
     out_route->selected_mode = session->selected_mode;
     if (out_route->selected_mode == FIELDMESH_MODE_AUTO) {
         out_route->selected_mode = FIELDMESH_MODE_SCHEDULED;
     }
-    if (have_peer && peer.direct_reachable) {
+    if (peer.direct_reachable) {
         out_route->route_kind = FIELDMESH_ROUTE_DIRECT;
         out_route->delivered_kbps = peer.max_kbps;
     } else if (out_route->selected_mode == FIELDMESH_MODE_SCHEDULED) {
         out_route->route_kind = FIELDMESH_ROUTE_SCHEDULED_RELAY;
         sdk_copy_text(out_route->relay_node_id, sizeof(out_route->relay_node_id),
-                      session->ap.ap_id);
+                      (have_metrics && metrics.relay_node_id[0] != '\0') ?
+                          metrics.relay_node_id : session->ap.ap_id);
         out_route->slot = 3u;
         out_route->epoch = 1u;
-        out_route->delivered_kbps = 1024u;
+        out_route->delivered_kbps = peer.max_kbps;
     } else {
         out_route->route_kind = FIELDMESH_ROUTE_AP_RELAYED;
         sdk_copy_text(out_route->relay_node_id, sizeof(out_route->relay_node_id),
-                      session->ap.ap_id);
-        out_route->delivered_kbps = 1024u;
+                      (have_metrics && metrics.relay_node_id[0] != '\0') ?
+                          metrics.relay_node_id : session->ap.ap_id);
+        out_route->delivered_kbps = peer.max_kbps;
     }
-    out_route->queue_age_ms = 4u;
+    if (have_metrics) {
+        if (metrics.current_route != 0) {
+            out_route->route_kind = metrics.current_route;
+        }
+        if (metrics.relay_node_id[0] != '\0') {
+            sdk_copy_text(out_route->relay_node_id, sizeof(out_route->relay_node_id),
+                          metrics.relay_node_id);
+        }
+        out_route->delivered_kbps = metrics.delivered_kbps;
+        out_route->queue_age_ms = metrics.queue_age_ms;
+    }
     return FIELDMESH_OK;
 }
 
@@ -1407,83 +1656,46 @@ fieldmesh_status_t fieldmesh_query_route_metrics(
     fieldmesh_route_metrics_t *out_metrics)
 {
     fieldmesh_route_info_t route;
-    fieldmesh_peer_info_t peer;
-    int have_peer;
 
     if (!session || !session->joined || !dst_node_id || !out_metrics) {
         return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (!observed_route_metrics_for_identifier(session->context, dst_node_id,
+                                               out_metrics)) {
+        return FIELDMESH_ERR_NOT_FOUND;
     }
     if (fieldmesh_query_route(session, dst_node_id, stream_id, &route) !=
         FIELDMESH_OK) {
         return FIELDMESH_ERR_NOT_FOUND;
     }
 
-    have_peer = observed_peer_for_identifier(session->context, dst_node_id, &peer);
-    memset(out_metrics, 0, sizeof(*out_metrics));
-    sdk_copy_text(out_metrics->dst_node_id, sizeof(out_metrics->dst_node_id),
-                  route.dst_node_id);
-    sdk_copy_text(out_metrics->relay_node_id, sizeof(out_metrics->relay_node_id),
-                  session->ap.ap_id);
-    out_metrics->current_route = route.route_kind;
-    out_metrics->recommended_route = route.route_kind;
+    if (out_metrics->current_route == 0) {
+        out_metrics->current_route = route.route_kind;
+    }
     out_metrics->selected_mode = route.selected_mode;
     out_metrics->stream_id = stream_id;
-    out_metrics->direct_reachable = have_peer ? peer.direct_reachable : 0u;
-    out_metrics->relay_available = have_peer ? peer.relay_allowed : 1u;
     out_metrics->uses_iio = 0u;
     out_metrics->uses_inter_board_ip_routing = 0u;
-
-    if (have_peer) {
-        uint32_t capacity = peer.max_kbps;
-        int degraded_direct = !peer.direct_reachable ||
-            capacity < 3000u ||
-            route.route_kind != FIELDMESH_ROUTE_DIRECT;
-
-        if (capacity > 9000u) {
-            capacity = 9000u;
-        }
-        out_metrics->estimated_kbps = degraded_direct ?
-            (capacity > 900u ? 900u : capacity) : capacity;
-        out_metrics->delivered_kbps = degraded_direct ?
-            (capacity > 760u ? 760u : capacity) :
-            (capacity > 600u ? capacity - (capacity / 12u) : capacity);
-        out_metrics->rssi_dbm = degraded_direct ? -68 : -54;
-        out_metrics->snr_db = degraded_direct ? 11 :
-            (int8_t)(18 + (capacity / 700u));
-        if (out_metrics->snr_db > 30) {
-            out_metrics->snr_db = 30;
-        }
-        out_metrics->evm_db = degraded_direct ? -13 : -31;
-        out_metrics->per_mille = degraded_direct ? 140u :
-            (capacity >= 5000u ? 10u : 80u);
-        out_metrics->ack_latency_ms = degraded_direct ? 160u : 34u;
-        out_metrics->jitter_ms = degraded_direct ? 110u : 12u;
-        out_metrics->queue_age_ms = degraded_direct ? 210u : route.queue_age_ms;
-        out_metrics->cfo_hz = degraded_direct ? 1450 : 180;
-        out_metrics->doppler_hz = degraded_direct ? 16 : 2;
-        out_metrics->timing_residual_ns = degraded_direct ? 380 : 42;
-        out_metrics->measured_age_ms = degraded_direct ? 120u : 90u;
-        out_metrics->recommended_route =
-            degraded_direct && out_metrics->relay_available ?
-            FIELDMESH_ROUTE_AP_RELAYED : FIELDMESH_ROUTE_DIRECT;
-    } else {
-        out_metrics->rssi_dbm = -75;
-        out_metrics->snr_db = 9;
-        out_metrics->evm_db = -10;
-        out_metrics->per_mille = 180u;
-        out_metrics->ack_latency_ms = 220u;
-        out_metrics->jitter_ms = 160u;
-        out_metrics->queue_age_ms = 260u;
-        out_metrics->delivered_kbps = 450u;
-        out_metrics->estimated_kbps = 700u;
-        out_metrics->cfo_hz = 2100;
-        out_metrics->doppler_hz = 24;
-        out_metrics->timing_residual_ns = 640;
-        out_metrics->measured_age_ms = 180u;
-        out_metrics->recommended_route = FIELDMESH_ROUTE_AP_RELAYED;
-    }
-
     return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_report_route_metrics(
+    fieldmesh_context_t *context,
+    const fieldmesh_route_metrics_t *metrics)
+{
+    if (!context || !metrics || !valid_device_eui(metrics->dst_node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (metrics->measured_age_ms > 60000u ||
+        metrics->estimated_kbps < metrics->delivered_kbps ||
+        metrics->per_mille > 1000u) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    if (valid_device_eui(metrics->dst_node_id) &&
+        upsert_observed_peer(context, metrics->dst_node_id) != FIELDMESH_OK) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    return upsert_route_metrics(context, metrics);
 }
 
 fieldmesh_status_t fieldmesh_report_peer_presence(fieldmesh_context_t *context,
@@ -1515,8 +1727,9 @@ fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *contex
             return FIELDMESH_OK;
         }
     }
-    if (context->position_count >= FIELDMESH_MAX_POSITIONS) {
-        return FIELDMESH_ERR_POLICY;
+    if (ensure_position_capacity(context, context->position_count + 1u) !=
+        FIELDMESH_OK) {
+        return FIELDMESH_ERR_NO_MEMORY;
     }
     context->positions[context->position_count++] = estimate;
     return FIELDMESH_OK;

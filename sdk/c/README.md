@@ -103,7 +103,10 @@ in `src/fieldmesh_sdk.c`:
   data plane queues to the FieldMesh RF packet-engine handoff without IIO,
   inter-board IP routing, RF TX start, or hardware writes. The session plan
   includes target FPS, bitrate hint, inflight chunks, ACK cadence, reorder
-  window, jitter buffer, backpressure, and keepalive policy. It also verifies
+  window, jitter buffer, backpressure, and keepalive policy. The demo consumes
+  route metrics through `fieldmesh_report_route_metrics()` before querying
+  them; the SDK does not synthesize moving RF metrics when no measurement has
+  been reported. It also verifies
   `fieldmesh_adapt_camera_stream_session()`, which turns PER, queue age,
   jitter, SNR, delivered bitrate, and relay availability into camera bitrate,
   FPS, ACK, reorder, backpressure, keyframe, and route actions. C++ and Rust

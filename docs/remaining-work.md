@@ -141,6 +141,16 @@ Current concrete work:
   runtime discovery and app -> SDK -> daemon configuration. The app, SDK, and
   daemon must not compile in deployment EUI, hostname, endpoint, or fixed AP
   role.
+- Keep lab peers out of production SDK contexts. The SDK now starts with an
+  empty observed-radio registry unless a test explicitly calls
+  `fieldmesh_seed_test_lab_fixtures()` or sets the verifier fixture flag. A
+  board daemon may register its own local AP/candidate identity for board
+  selection, but remote peers must be learned from BLR declare/listen,
+  `FIELDMESH_RTLS_REPORT`, `FIELDMESH_ROUTE_METRICS_REPORT`, or later RF
+  timestamp/TOF/TDOA services. Route metrics are not synthesized by
+  `fieldmesh_query_route_metrics()`; apps and daemons must report measured
+  RSSI/SNR/EVM/PER/latency/jitter/queue/CFO/Doppler/timing state before they
+  query it.
 - Treat `FIELDMESH_RTLS_POSITION` as the live topology API boundary, not proof
   that physical movement is already connected to the boards. The installed
   daemon currently publishes deterministic verification measurements in a

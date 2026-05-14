@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-all}"
 
 require_file() {
@@ -43,17 +44,19 @@ verify_variant() {
 
     case "$name" in
         z203)
-            machine="sdr-z203-zynq7"
-            image="sdr-z203-arm-image"
-            build_name="sdr-z203-arm"
+            fieldmesh_resolve_image_paths z203 "$repo_root"
+            machine="$FIELDMESH_MACHINE"
+            image="$FIELDMESH_IMAGE_NAME"
+            build_name="$FIELDMESH_BUILD_NAME"
             package_dir="$repo_root/.config/fieldmesh/runtime-package-z203"
             jtag_dir="$repo_root/.config/fieldmesh/jtag-ram-boot-z203"
             dtb="$package_dir/devicetree/z203/z203-zynq-pluto-sdr-fieldmesh.dtb"
             ;;
         z103)
-            machine="sdr-z103-zynq7"
-            image="sdr-z103-arm-image"
-            build_name="sdr-z103-arm"
+            fieldmesh_resolve_image_paths z103 "$repo_root"
+            machine="$FIELDMESH_MACHINE"
+            image="$FIELDMESH_IMAGE_NAME"
+            build_name="$FIELDMESH_BUILD_NAME"
             package_dir="$repo_root/.config/fieldmesh/runtime-package-z103"
             jtag_dir="$repo_root/.config/fieldmesh/jtag-ram-boot-z103"
             dtb="$package_dir/devicetree/z103/z103-zynq-pluto-sdr-fieldmesh.dtb"
@@ -64,8 +67,8 @@ verify_variant() {
             ;;
     esac
 
-    rootfs_tar="$repo_root/yocto/builds/$build_name/tmp/deploy/images/$machine/$image-$machine.rootfs.tar.gz"
-    rootfs_cpio="$repo_root/yocto/builds/$build_name/tmp/deploy/images/$machine/$image-$machine.rootfs.cpio.gz"
+    rootfs_tar="$FIELDMESH_ROOTFS_TAR"
+    rootfs_cpio="$FIELDMESH_ROOTFS_CPIO_GZ"
 
     require_file "$rootfs_tar"
     require_file "$rootfs_cpio"

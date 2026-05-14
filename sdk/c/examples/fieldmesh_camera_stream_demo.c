@@ -1,15 +1,89 @@
 #include "fieldmesh_sdk.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#define FIELDMESH_CAMERA_DEMO_BYTE_STRIDE 11u
+#define FIELDMESH_CAMERA_DEMO_ALPHABET_BASE 0x30u
+#define FIELDMESH_CAMERA_DEMO_ALPHABET_MASK 0x4fu
 
 static void fill_camera_bytes(unsigned char *payload, size_t payload_len)
 {
     size_t i;
 
     for (i = 0; i < payload_len; ++i) {
-        payload[i] = (unsigned char)(0x30u + ((i * 11u) & 0x4fu));
+        payload[i] = (unsigned char)(
+            FIELDMESH_CAMERA_DEMO_ALPHABET_BASE +
+            ((i * FIELDMESH_CAMERA_DEMO_BYTE_STRIDE) &
+             FIELDMESH_CAMERA_DEMO_ALPHABET_MASK));
     }
+}
+
+static int load_route_metrics_fixture(fieldmesh_route_metrics_t *metrics,
+                                      const char *dst_node_id,
+                                      const char *csv)
+{
+    long values[19];
+    size_t i;
+
+    if (!metrics || !dst_node_id || !csv) {
+        return 0;
+    }
+    for (i = 0; i < 19u; ++i) {
+        values[i] = 0;
+    }
+    if (sscanf(csv,
+               "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,"
+               "%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld",
+               &values[0], &values[1], &values[2], &values[3],
+               &values[4], &values[5], &values[6], &values[7],
+               &values[8], &values[9], &values[10], &values[11],
+               &values[12], &values[13], &values[14], &values[15],
+               &values[16], &values[17], &values[18]) != 19) {
+        return 0;
+    }
+    if (values[0] < 1 || values[0] > 4 ||
+        values[1] < 1 || values[1] > 4 ||
+        values[2] < 0 || values[2] > 4 ||
+        values[3] < 0 || values[3] > 65535 ||
+        values[4] < -127 || values[4] > 20 ||
+        values[5] < -40 || values[5] > 80 ||
+        values[6] < -80 || values[6] > 20 ||
+        values[7] < 0 || values[7] > 1000 ||
+        values[8] < 0 || values[8] > 60000 ||
+        values[9] < 0 || values[9] > 60000 ||
+        values[10] < 0 || values[10] > 60000 ||
+        values[11] < 0 || values[11] > 1000000 ||
+        values[12] < values[11] || values[12] > 1000000 ||
+        values[16] < 0 || values[16] > 60000 ||
+        values[17] < 0 || values[17] > 1 ||
+        values[18] < 0 || values[18] > 1) {
+        return 0;
+    }
+    memset(metrics, 0, sizeof(*metrics));
+    snprintf(metrics->dst_node_id, sizeof(metrics->dst_node_id), "%s",
+             dst_node_id);
+    metrics->current_route = (fieldmesh_route_kind_t)values[0];
+    metrics->recommended_route = (fieldmesh_route_kind_t)values[1];
+    metrics->selected_mode = (fieldmesh_mode_t)values[2];
+    metrics->stream_id = (uint16_t)values[3];
+    metrics->rssi_dbm = (int8_t)values[4];
+    metrics->snr_db = (int8_t)values[5];
+    metrics->evm_db = (int8_t)values[6];
+    metrics->per_mille = (uint16_t)values[7];
+    metrics->ack_latency_ms = (uint32_t)values[8];
+    metrics->jitter_ms = (uint32_t)values[9];
+    metrics->queue_age_ms = (uint32_t)values[10];
+    metrics->delivered_kbps = (uint32_t)values[11];
+    metrics->estimated_kbps = (uint32_t)values[12];
+    metrics->cfo_hz = (int32_t)values[13];
+    metrics->doppler_hz = (int32_t)values[14];
+    metrics->timing_residual_ns = (int32_t)values[15];
+    metrics->measured_age_ms = (uint32_t)values[16];
+    metrics->direct_reachable = (uint8_t)values[17];
+    metrics->relay_available = (uint8_t)values[18];
+    return 1;
 }
 
 int main(void)
@@ -25,6 +99,7 @@ int main(void)
     fieldmesh_camera_adaptation_report_t adaptation;
     fieldmesh_route_metrics_t route_metrics;
     fieldmesh_camera_frame_report_t report;
+    const char *route_metrics_fixture = getenv("FIELDMESH_CAMERA_ROUTE_METRICS_FIXTURE");
     unsigned char input[384];
     unsigned char preview[384];
     size_t preview_len = 0u;
@@ -52,10 +127,16 @@ int main(void)
     camera_config.stream_id_base = 500;
     camera_config.mtu_bytes = 1200;
     memset(&feedback, 0, sizeof(feedback));
+    if (!load_route_metrics_fixture(&route_metrics, camera_config.dst_node_id,
+                                    route_metrics_fixture)) {
+        fprintf(stderr, "missing or invalid FIELDMESH_CAMERA_ROUTE_METRICS_FIXTURE\n");
+        goto out;
+    }
 
     fill_camera_bytes(input, sizeof(input));
     if (fieldmesh_context_create(&config, &ctx) != FIELDMESH_OK ||
         fieldmesh_report_peer_presence(ctx, camera_config.dst_node_id) != FIELDMESH_OK ||
+        fieldmesh_report_route_metrics(ctx, &route_metrics) != FIELDMESH_OK ||
         fieldmesh_join_ap(ctx, &join, &session) != FIELDMESH_OK) {
         goto out;
     }

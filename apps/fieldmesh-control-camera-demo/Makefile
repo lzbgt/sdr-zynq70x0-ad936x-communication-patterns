@@ -42,6 +42,9 @@ check: $(APP) $(DAEMON)
 		--snapshot-output "$(OUT_DIR)/camera_snapshot.json" \
 		--dashboard-output "$(OUT_DIR)/camera_dashboard.html" \
 		--chunk-size 64 \
+		--seed-demo-fixtures \
+		--rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+		--route-metrics-fixture "1,2,4,500,-75,9,-10,180,220,160,260,450,700,2100,24,640,180,1,1" \
 		>"$(OUT_DIR)/camera_app.ndjson" \
 		2>"$(OUT_DIR)/camera_app.stderr"
 	"$(APP)" \
@@ -52,6 +55,9 @@ check: $(APP) $(DAEMON)
 		--chunk-size 64 \
 		--preferred-ap-eui 020000000103 \
 		--dst-eui 020000000203 \
+		--seed-demo-fixtures \
+		--rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+		--route-metrics-fixture "1,1,4,500,-45,28,-30,12,32,10,4,2100,2600,160,1,42,20,1,1" \
 		>"$(OUT_DIR)/explicit_camera_app.ndjson" \
 		2>"$(OUT_DIR)/explicit_camera_app.stderr"
 	daemon_pid=; \
@@ -71,6 +77,9 @@ check: $(APP) $(DAEMON)
 		--dst-eui 020000000203 \
 		--daemon-host 127.0.0.1 \
 		--daemon-port 55431 \
+		--seed-demo-fixtures \
+		--rtls-fixture "020000000203,1,1,0,312303210,1214737010,-42,29,0,0,0,0,80;020000000103,0,0,1,0,0,-53,19,31,-18,250,720000,45" \
+		--route-metrics-fixture "1,1,4,500,-45,28,-30,12,32,10,4,2100,2600,160,1,42,20,1,1" \
 		>"$(OUT_DIR)/daemon_camera_app.ndjson" \
 		2>"$(OUT_DIR)/daemon_camera_app.stderr"; then \
 		app_rc=0; \

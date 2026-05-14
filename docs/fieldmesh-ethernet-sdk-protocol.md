@@ -129,7 +129,8 @@ Minimum daemon messages:
 | `RF_TX_GUARD_PLAN` | daemon internal / diagnostic | Plan the post-symbolizer TX guard arming window and required safety preconditions without setting TX enable or writing hardware. |
 | `APP_CONTROL_CAMERA` | app -> daemon | Compose AP browse/election, user-commanded proactive camera streaming, radio topology, RTLS state, and video-base stream enqueue into one app-level control/data-plane smoke. Optional `preferred_ap=<12hex>` and `dst=<12hex>` fields select AP and destination by device EUI. |
 | `CAMERA_SESSION_PLAN` | app -> daemon | Plan camera stream pacing, chunk window, ACK cadence, reorder window, jitter buffer, and RF handoff policy before sending chunks. Optional `dst=<12hex>` selects the peer. |
-| `ROUTE_METRICS` | app -> daemon | Query measured RF route health: RSSI, SNR, EVM, PER, ACK latency, jitter, queue age, throughput, CFO/Doppler, timing residual, and direct-vs-relay recommendation. |
+| `ROUTE_METRICS_REPORT` | daemon/radio service -> daemon | Publish an observed route-health sample: RSSI, SNR, EVM, PER, ACK latency, jitter, queue age, throughput, CFO/Doppler, timing residual, and direct-vs-relay recommendation. |
+| `ROUTE_METRICS` | app -> daemon | Query the latest observed RF route-health sample. It fails as unavailable when no sample has been reported for that peer. |
 | `CAMERA_ADAPTATION_FEEDBACK` | app -> daemon | Adapt camera pacing from `ROUTE_METRICS` and receive bitrate/FPS/window/route/backpressure actions. Optional `dst=<12hex>` selects the peer. |
 | `CAMERA_STREAM_CHUNK` | app -> daemon | Submit one encoded camera byte chunk to the SDK-owned video-base stream path and return preview/checksum/RF handoff status. Optional `dst=<12hex>` selects the peer. |
 | `TUN_FD_PUMP` | daemon internal / diagnostic | Read one packet from the board-local TUN owner and forward it through the FieldMesh adapter path. |
@@ -276,11 +277,30 @@ records as fit in one debug response. Product GUIs should move to the TLV
 directory/delta stream for hundreds of peers instead of depending on one JSON
 datagram.
 
+The SDK core does not seed lab peers, lab APs, RTLS positions, route metrics,
+or physical ranges in production contexts.
+Deterministic Z203/Z103 fixtures are available only through explicit test
+opt-in (`fieldmesh_seed_test_lab_fixtures()` or the verifier environment). A
+runtime daemon registers its own local AP/candidate identity so the attached
+board can be selected and controlled, but remote peers must arrive through
+radio declare frames, RTLS reports, route-metrics reports, or equivalent live
+measurement ingestion. Profiles are provisioning/test inputs, not peer
+discovery.
+
+`fieldmesh_query_route_metrics()` is a registry read, not a simulator. It does
+not synthesize RSSI, SNR, EVM, PER, ACK latency, jitter, queue age,
+CFO/Doppler, timing residual, range, or relay recommendations. Those fields
+enter through `fieldmesh_report_route_metrics()` or daemon
+`FIELDMESH_ROUTE_METRICS_REPORT`. Test programs may inject fixture metrics
+through explicit verifier flags such as `--route-metrics-fixture`; those flags
+are not part of the normal user workflow.
+
 The prototype `fieldmesh_state_daemon_demo` already checks
 `FIELDMESH_HELLO` capability/security negotiation, AP browse, election, join,
 peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
 `FIELDMESH_CAMERA_SESSION_PLAN`,
+`FIELDMESH_ROUTE_METRICS_REPORT`,
 `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`,
 `FIELDMESH_CAMERA_STREAM_CHUNK`,
