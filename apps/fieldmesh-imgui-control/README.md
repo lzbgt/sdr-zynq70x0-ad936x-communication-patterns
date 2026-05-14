@@ -99,6 +99,28 @@ command-line harness verifies: `FIELDMESH_HELLO`,
 `FIELDMESH_ROUTE_METRICS`, `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
 `FIELDMESH_CAMERA_STREAM_CHUNK`.
 
+## Topology Ranges
+
+The topology view is not a static drawing. The app starts with peer XY
+coordinates from runtime discovery or a test profile, then the GLFW event
+worker refreshes route metrics from the selected board daemon with
+`FIELDMESH_ROUTE_METRICS v1 dst=<peer-eui>`. Each peer keeps the latest RSSI,
+SNR, PER, route reachability, metrics age, and update count.
+
+Displayed range is calculated as Euclidean distance between peer XY positions:
+
+```text
+range_m = sqrt((x_a_cm - x_b_cm)^2 + (y_a_cm - y_b_cm)^2) / 100
+```
+
+When RTLS/GNSS/packet-timing positions are available, those XY coordinates are
+the preferred source. When only route metrics are available, the app derives a
+coarse radial range estimate from RSSI, SNR, and PER and marks the source as
+`route_metrics_rssi_snr_per`. The visible range text is drawn in a badge so it
+does not disappear into topology lines. The app snapshot exposes
+`topology_range_calculation`, `topology_metrics_live`, and
+`topology_update_count` for automated tests and GUI supervisors.
+
 The WSLg route is for developer bring-up. A production Windows app should build
 the same C++ app core with a native backend using the installed Visual Studio
 Community toolchain, keep board USB/RNDIS/serial devices attached to Windows,

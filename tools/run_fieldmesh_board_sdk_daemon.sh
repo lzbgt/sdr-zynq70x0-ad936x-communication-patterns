@@ -10,6 +10,9 @@ ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
 requests="${REQUESTS:-21}"
+route_dst_eui="${ROUTE_DST_EUI:-020000000103}"
+explicit_ap_eui="${EXPLICIT_AP_EUI:-020000000103}"
+explicit_dst_eui="${EXPLICIT_DST_EUI:-020000000203}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -87,7 +90,9 @@ remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
 sleep 0.5
 
 set +e
-"$host_demo" query "$board_ip" "$port" "$timeout_ms" > "$out_dir/host_query.ndjson" 2> "$out_dir/host_query.stderr"
+"$host_demo" query "$board_ip" "$port" "$timeout_ms" \
+    "$route_dst_eui" "$explicit_ap_eui" "$explicit_dst_eui" \
+    > "$out_dir/host_query.ndjson" 2> "$out_dir/host_query.stderr"
 query_rc=$?
 set -e
 

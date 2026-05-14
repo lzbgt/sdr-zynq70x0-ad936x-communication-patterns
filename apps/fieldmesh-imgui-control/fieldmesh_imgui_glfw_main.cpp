@@ -28,6 +28,11 @@ void glfw_error_callback(int error, const char *description)
     std::fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
+void framebuffer_size_callback(GLFWwindow *, int width, int height)
+{
+    glViewport(0, 0, width, height);
+}
+
 void apply_action_args(GuiState *state, int argc, char **argv)
 {
     for (int i = 1; i < argc; ++i) {
@@ -126,6 +131,7 @@ int main(int argc, char **argv)
     const char *glsl_version = "#version 130";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 
     GLFWwindow *window = glfwCreateWindow(1280, 820, instance, nullptr, nullptr);
     if (!window) {
@@ -134,6 +140,7 @@ int main(int argc, char **argv)
         return 1;
     }
     glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSwapInterval(1);
 
     IMGUI_CHECKVERSION();
@@ -163,10 +170,16 @@ int main(int argc, char **argv)
     std::mutex state_mutex;
     std::atomic<bool> receive_worker_running(true);
     std::thread receive_worker([&]() {
+        unsigned topology_refresh_tick = 0u;
+
         while (receive_worker_running.load()) {
             {
                 std::lock_guard<std::mutex> lock(state_mutex);
                 (void)poll_message_bus(&state);
+                if (++topology_refresh_tick >= 25u) {
+                    (void)refresh_topology_metrics(&state);
+                    topology_refresh_tick = 0u;
+                }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(40));
         }
@@ -188,8 +201,9 @@ int main(int argc, char **argv)
         int display_h = 0;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
+        glDisable(GL_SCISSOR_TEST);
         glClearColor(0.95f, 0.97f, 0.98f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
     } while (!glfwWindowShouldClose(window) && !smoke_frame);

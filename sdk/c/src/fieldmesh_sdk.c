@@ -36,8 +36,8 @@ typedef socklen_t fieldmesh_sdk_socklen_t;
 #define FIELDMESH_MAX_POSITIONS 16
 #define FIELDMESH_MAX_STREAM_PAYLOAD 2048
 
-#define FIELDMESH_EUI_Z203 "020000000203"
-#define FIELDMESH_EUI_Z103 "020000000103"
+#define FIELDMESH_LAB_EUI_A "020000000203"
+#define FIELDMESH_LAB_EUI_B "020000000103"
 
 struct fieldmesh_context {
     fieldmesh_config_t config;
@@ -100,7 +100,7 @@ typedef struct fieldmesh_device_fixture {
 
 static const fieldmesh_device_fixture_t k_default_devices[] = {
     {
-        FIELDMESH_EUI_Z203,
+        FIELDMESH_LAB_EUI_A,
         "node-a",
         "sdr-z203-z7020-2r2t",
         (1u << FIELDMESH_MODE_P2P) |
@@ -116,7 +116,7 @@ static const fieldmesh_device_fixture_t k_default_devices[] = {
         1u,
     },
     {
-        FIELDMESH_EUI_Z103,
+        FIELDMESH_LAB_EUI_B,
         "node-b",
         "sdr-z103-z7010-1r1t",
         (1u << FIELDMESH_MODE_P2P) |
@@ -325,7 +325,7 @@ static void init_default_aps(fieldmesh_context_t *context)
 
     ap = &context->aps[0];
     memset(ap, 0, sizeof(*ap));
-    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), FIELDMESH_EUI_Z203);
+    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), FIELDMESH_LAB_EUI_A);
     sdk_copy_text(ap->network_id, sizeof(ap->network_id), "fieldmesh-lab");
     sdk_copy_text(ap->name, sizeof(ap->name), "node-a Z203 2R2T capable node");
     sdk_copy_text(ap->address, sizeof(ap->address), "192.168.2.1:49000");
@@ -341,7 +341,7 @@ static void init_default_aps(fieldmesh_context_t *context)
 
     ap = &context->aps[1];
     memset(ap, 0, sizeof(*ap));
-    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), FIELDMESH_EUI_Z103);
+    sdk_copy_text(ap->ap_id, sizeof(ap->ap_id), FIELDMESH_LAB_EUI_B);
     sdk_copy_text(ap->network_id, sizeof(ap->network_id), "fieldmesh-lab");
     sdk_copy_text(ap->name, sizeof(ap->name), "node-b Z103 1R1T capable node");
     sdk_copy_text(ap->address, sizeof(ap->address), "192.168.2.1:49000");
@@ -360,7 +360,7 @@ static void init_default_profile(fieldmesh_context_t *context)
 {
     memset(&context->profile, 0, sizeof(context->profile));
     sdk_copy_text(context->profile.device_eui, sizeof(context->profile.device_eui),
-                  FIELDMESH_EUI_Z203);
+                  FIELDMESH_LAB_EUI_A);
     sdk_copy_text(context->profile.node_id, sizeof(context->profile.node_id), "node-a");
     sdk_copy_text(context->profile.network_id, sizeof(context->profile.network_id),
                   "fieldmesh-lab");
@@ -373,7 +373,7 @@ static void init_default_profile(fieldmesh_context_t *context)
     context->profile.usb_prefix_len = 24u;
     context->profile.ap_policy = FIELDMESH_AP_POLICY_HYBRID;
     sdk_copy_text(context->profile.preferred_ap_id, sizeof(context->profile.preferred_ap_id),
-                  FIELDMESH_EUI_Z203);
+                  FIELDMESH_LAB_EUI_A);
     context->profile.allow_emergency_1r1t_ap = 1u;
     context->profile.radio_freq_mhz = 2400u;
     context->profile.radio_bandwidth_hz = 1000000u;
@@ -460,34 +460,34 @@ static fieldmesh_status_t fill_profile_report(
 }
 
 static fieldmesh_ap_candidate_t default_candidate(const char *device_eui,
-                                                  int is_z203_type)
+                                                  int high_capability_profile)
 {
     fieldmesh_ap_candidate_t candidate;
 
     memset(&candidate, 0, sizeof(candidate));
     sdk_copy_text(candidate.node_id, sizeof(candidate.node_id), device_eui);
     candidate.policy = FIELDMESH_AP_POLICY_HYBRID;
-    candidate.supported_modes_mask = is_z203_type ? mode_mask() :
+    candidate.supported_modes_mask = high_capability_profile ? mode_mask() :
         ((1u << FIELDMESH_MODE_P2P) | (1u << FIELDMESH_MODE_STAR));
     candidate.node_classes_mask = class_mask(FIELDMESH_NODE_ENDPOINT) |
                                   class_mask(FIELDMESH_NODE_AP_BROKER) |
                                   class_mask(FIELDMESH_NODE_RELAY);
-    candidate.max_kbps = is_z203_type ? 7000u : 2200u;
-    candidate.reachable_peer_count = is_z203_type ? 3u : 1u;
-    candidate.avg_rssi_dbm = is_z203_type ? -42 : -58;
-    candidate.avg_snr_db = is_z203_type ? 29 : 17;
-    candidate.estimated_geo_centrality = is_z203_type ? 88u : 54u;
-    candidate.link_stability_score = is_z203_type ? 90u : 62u;
-    candidate.mobility_score = is_z203_type ? 82u : 55u;
-    candidate.handover_penalty = is_z203_type ? 0u : 12u;
-    candidate.uptime_s = is_z203_type ? 1200u : 300u;
-    candidate.clock_quality = is_z203_type ? 95u : 45u;
-    candidate.power_score = is_z203_type ? 100u : 55u;
-    candidate.compute_score = is_z203_type ? 90u : 45u;
-    candidate.relay_score = is_z203_type ? 92u : 38u;
-    candidate.security_score = is_z203_type ? 90u : 70u;
-    candidate.wall_powered = is_z203_type ? 1u : 0u;
-    candidate.has_disciplined_clock = is_z203_type ? 1u : 0u;
+    candidate.max_kbps = high_capability_profile ? 7000u : 2200u;
+    candidate.reachable_peer_count = high_capability_profile ? 3u : 1u;
+    candidate.avg_rssi_dbm = high_capability_profile ? -42 : -58;
+    candidate.avg_snr_db = high_capability_profile ? 29 : 17;
+    candidate.estimated_geo_centrality = high_capability_profile ? 88u : 54u;
+    candidate.link_stability_score = high_capability_profile ? 90u : 62u;
+    candidate.mobility_score = high_capability_profile ? 82u : 55u;
+    candidate.handover_penalty = high_capability_profile ? 0u : 12u;
+    candidate.uptime_s = high_capability_profile ? 1200u : 300u;
+    candidate.clock_quality = high_capability_profile ? 95u : 45u;
+    candidate.power_score = high_capability_profile ? 100u : 55u;
+    candidate.compute_score = high_capability_profile ? 90u : 45u;
+    candidate.relay_score = high_capability_profile ? 92u : 38u;
+    candidate.security_score = high_capability_profile ? 90u : 70u;
+    candidate.wall_powered = high_capability_profile ? 1u : 0u;
+    candidate.has_disciplined_clock = high_capability_profile ? 1u : 0u;
     candidate.relay_allowed = 1u;
     candidate.provisioned_identity = 1u;
     return candidate;
@@ -1003,8 +1003,8 @@ fieldmesh_status_t fieldmesh_elect_ap(fieldmesh_context_t *context,
         candidates = context->candidates;
         candidate_count = context->candidate_count;
     } else {
-        defaults[0] = default_candidate(FIELDMESH_EUI_Z203, 1);
-        defaults[1] = default_candidate(FIELDMESH_EUI_Z103, 0);
+        defaults[0] = default_candidate(FIELDMESH_LAB_EUI_A, 1);
+        defaults[1] = default_candidate(FIELDMESH_LAB_EUI_B, 0);
         candidates = defaults;
         candidate_count = 2u;
     }
@@ -1139,12 +1139,12 @@ fieldmesh_status_t fieldmesh_list_peers(fieldmesh_session_t *session,
     if (!session || !session->joined || !callback) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    if (!default_peer_for_identifier(FIELDMESH_EUI_Z203, &peer)) {
+    if (!default_peer_for_identifier(FIELDMESH_LAB_EUI_A, &peer)) {
         return FIELDMESH_ERR_NOT_FOUND;
     }
     callback(&peer, user);
 
-    if (!default_peer_for_identifier(FIELDMESH_EUI_Z103, &peer)) {
+    if (!default_peer_for_identifier(FIELDMESH_LAB_EUI_B, &peer)) {
         return FIELDMESH_ERR_NOT_FOUND;
     }
     callback(&peer, user);
@@ -1228,38 +1228,39 @@ fieldmesh_status_t fieldmesh_query_route_metrics(
     out_metrics->uses_iio = 0u;
     out_metrics->uses_inter_board_ip_routing = 0u;
 
-    if (have_peer && strcmp(peer.device_uuid, FIELDMESH_EUI_Z203) == 0) {
-        out_metrics->rssi_dbm = -54;
-        out_metrics->snr_db = 28;
-        out_metrics->evm_db = -31;
-        out_metrics->per_mille = 10u;
-        out_metrics->ack_latency_ms = 34u;
-        out_metrics->jitter_ms = 12u;
-        out_metrics->queue_age_ms = 28u;
-        out_metrics->delivered_kbps = 6400u;
-        out_metrics->estimated_kbps = 7000u;
-        out_metrics->cfo_hz = 180;
-        out_metrics->doppler_hz = 2;
-        out_metrics->timing_residual_ns = 42;
-        out_metrics->measured_age_ms = 90u;
-        out_metrics->recommended_route = FIELDMESH_ROUTE_DIRECT;
-    } else if (have_peer && strcmp(peer.device_uuid, FIELDMESH_EUI_Z103) == 0) {
-        out_metrics->rssi_dbm = -68;
-        out_metrics->snr_db = 11;
-        out_metrics->evm_db = -13;
-        out_metrics->per_mille = 140u;
-        out_metrics->ack_latency_ms = 160u;
-        out_metrics->jitter_ms = 110u;
-        out_metrics->queue_age_ms = 210u;
-        out_metrics->delivered_kbps = 760u;
-        out_metrics->estimated_kbps = 900u;
-        out_metrics->cfo_hz = 1450;
-        out_metrics->doppler_hz = 16;
-        out_metrics->timing_residual_ns = 380;
-        out_metrics->measured_age_ms = 120u;
+    if (have_peer) {
+        uint32_t capacity = peer.max_kbps;
+        int degraded_direct = !peer.direct_reachable ||
+            capacity < 3000u ||
+            route.route_kind != FIELDMESH_ROUTE_DIRECT;
+
+        if (capacity > 9000u) {
+            capacity = 9000u;
+        }
+        out_metrics->estimated_kbps = degraded_direct ?
+            (capacity > 900u ? 900u : capacity) : capacity;
+        out_metrics->delivered_kbps = degraded_direct ?
+            (capacity > 760u ? 760u : capacity) :
+            (capacity > 600u ? capacity - (capacity / 12u) : capacity);
+        out_metrics->rssi_dbm = degraded_direct ? -68 : -54;
+        out_metrics->snr_db = degraded_direct ? 11 :
+            (int8_t)(18 + (capacity / 700u));
+        if (out_metrics->snr_db > 30) {
+            out_metrics->snr_db = 30;
+        }
+        out_metrics->evm_db = degraded_direct ? -13 : -31;
+        out_metrics->per_mille = degraded_direct ? 140u :
+            (capacity >= 5000u ? 10u : 80u);
+        out_metrics->ack_latency_ms = degraded_direct ? 160u : 34u;
+        out_metrics->jitter_ms = degraded_direct ? 110u : 12u;
+        out_metrics->queue_age_ms = degraded_direct ? 210u : route.queue_age_ms;
+        out_metrics->cfo_hz = degraded_direct ? 1450 : 180;
+        out_metrics->doppler_hz = degraded_direct ? 16 : 2;
+        out_metrics->timing_residual_ns = degraded_direct ? 380 : 42;
+        out_metrics->measured_age_ms = degraded_direct ? 120u : 90u;
         out_metrics->recommended_route =
-            out_metrics->relay_available ? FIELDMESH_ROUTE_AP_RELAYED :
-                                           FIELDMESH_ROUTE_DIRECT;
+            degraded_direct && out_metrics->relay_available ?
+            FIELDMESH_ROUTE_AP_RELAYED : FIELDMESH_ROUTE_DIRECT;
     } else {
         out_metrics->rssi_dbm = -75;
         out_metrics->snr_db = 9;
@@ -1406,7 +1407,7 @@ fieldmesh_status_t fieldmesh_send(fieldmesh_stream_t *stream,
     if (stream->last_meta.dst_node_id[0] == '\0') {
         sdk_copy_text(stream->last_meta.dst_node_id, sizeof(stream->last_meta.dst_node_id),
                       stream->config.dst_node_id[0] ? stream->config.dst_node_id :
-                      FIELDMESH_EUI_Z103);
+                      FIELDMESH_LAB_EUI_B);
     }
     stream->last_meta.stream_id = stream->config.stream_id;
     stream->last_meta.traffic_class = stream->config.traffic_class;

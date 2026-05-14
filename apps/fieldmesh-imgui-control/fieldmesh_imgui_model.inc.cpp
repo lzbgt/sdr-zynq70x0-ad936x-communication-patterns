@@ -19,11 +19,15 @@ struct GuiPeer {
     std::string device_type;
     bool direct_reachable;
     bool relay_available;
+    int rssi_dbm;
     int snr_db;
     int per_mille;
     int x_cm;
     int y_cm;
     unsigned error_radius_cm;
+    unsigned range_update_count;
+    unsigned metrics_age_ms;
+    std::string range_source;
 };
 
 struct GuiCamera {
@@ -138,6 +142,8 @@ struct GuiState {
     float topology_zoom;
     bool event_worker_enabled;
     unsigned event_dispatch_count;
+    unsigned topology_update_count;
+    bool topology_metrics_live;
     bool connected_to_board;
     bool auto_election_enabled;
     bool radio_topology_only;

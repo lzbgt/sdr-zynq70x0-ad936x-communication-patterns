@@ -138,6 +138,11 @@ void render_topology_page(GuiState *state)
     ImGui::Dummy(canvas);
     ImGui::Text("AP: %s", state->selected_ap_eui.c_str());
     ImGui::SameLine();
-    ImGui::Text("Hover between peers for distance; AP membership links are always shown.");
+    ImGui::Text("Range: peer XY Euclidean meters, refreshed from route metrics when live.");
+    ImGui::Text("Topology updates: %u  source: %s",
+                state->topology_update_count,
+                state->topology_metrics_live ? "live daemon metrics" :
+                                               "profile/RTLS seed");
+    ImGui::TextUnformatted("Hover between peers for distance; AP membership links are always shown.");
     end_panel();
 }

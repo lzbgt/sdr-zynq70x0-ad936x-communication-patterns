@@ -268,6 +268,41 @@ std::string json_escape(const std::string &text)
     return out;
 }
 
+bool json_number_field(const char *json, const char *key, long *out)
+{
+    char pattern[96];
+    const char *pos;
+    char *end = nullptr;
+
+    if (!json || !key || !out) {
+        return false;
+    }
+    std::snprintf(pattern, sizeof(pattern), "\"%s\":", key);
+    pos = std::strstr(json, pattern);
+    if (!pos) {
+        return false;
+    }
+    pos += std::strlen(pattern);
+    while (*pos == ' ' || *pos == '\t') {
+        ++pos;
+    }
+    *out = std::strtol(pos, &end, 10);
+    return end != pos;
+}
+
+int estimate_range_cm_from_metrics(int rssi_dbm, int snr_db, unsigned per_mille)
+{
+    int range_cm = 300 + ((-rssi_dbm - 40) * 120) - (snr_db * 18) +
+        static_cast<int>(per_mille * 8u);
+
+    if (range_cm < 100) {
+        range_cm = 100;
+    } else if (range_cm > 50000) {
+        range_cm = 50000;
+    }
+    return range_cm;
+}
+
 bool append_bus_event(const std::string &src_eui,
                       const std::string &dst_eui,
                       const std::string &event_type,
@@ -437,6 +472,89 @@ bool poll_message_bus(GuiState *state)
     return received;
 }
 
+[[maybe_unused]] bool refresh_topology_metrics(GuiState *state)
+{
+    const GuiBoard *board = selected_board(*state);
+    fieldmesh_daemon_client_config_t config;
+    bool updated = false;
+    unsigned remote_index = 0u;
+
+    if (!state || !state->connected_to_board || !board ||
+        !board->route_metrics_capable) {
+        return false;
+    }
+    std::memset(&config, 0, sizeof(config));
+    std::snprintf(config.host, sizeof(config.host), "%s",
+                  board->daemon_host.c_str());
+    config.port = static_cast<uint16_t>(board->daemon_port);
+    config.timeout_ms = 120u;
+
+    for (GuiPeer &peer : state->peers) {
+        char request[96];
+        char response[2048];
+        size_t response_len = 0u;
+        long snr = 0;
+        long per = 0;
+        long rssi = 0;
+        long age = 0;
+        long direct = 0;
+        long relay = 0;
+        int range_cm;
+        double angle;
+
+        if (peer.device_eui == state->selected_board_eui) {
+            peer.x_cm = 0;
+            peer.y_cm = 0;
+            peer.range_source = "local_origin";
+            continue;
+        }
+        std::snprintf(request, sizeof(request),
+                      "FIELDMESH_ROUTE_METRICS v1 dst=%s",
+                      peer.device_eui.c_str());
+        if (fieldmesh_daemon_request(&config, request, response,
+                                     sizeof(response), &response_len) !=
+                FIELDMESH_OK ||
+            response_len == 0u ||
+            !std::strstr(response, "\"ok\":true")) {
+            ++remote_index;
+            continue;
+        }
+        if (!json_number_field(response, "snr_db", &snr) ||
+            !json_number_field(response, "per_mille", &per) ||
+            !json_number_field(response, "rssi_dbm", &rssi)) {
+            ++remote_index;
+            continue;
+        }
+        (void)json_number_field(response, "measured_age_ms", &age);
+        (void)json_number_field(response, "direct_reachable", &direct);
+        (void)json_number_field(response, "relay_available", &relay);
+        peer.snr_db = static_cast<int>(snr);
+        peer.per_mille = static_cast<int>(per);
+        peer.rssi_dbm = static_cast<int>(rssi);
+        peer.direct_reachable = direct != 0;
+        peer.relay_available = relay != 0;
+        peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
+        peer.range_update_count += 1u;
+        peer.range_source = "route_metrics_rssi_snr_per";
+        range_cm = estimate_range_cm_from_metrics(peer.rssi_dbm,
+                                                  peer.snr_db,
+                                                  static_cast<unsigned>(peer.per_mille));
+        angle = 0.65 + static_cast<double>(remote_index) * 1.9;
+        peer.x_cm = static_cast<int>(std::cos(angle) * range_cm);
+        peer.y_cm = static_cast<int>(std::sin(angle) * range_cm);
+        peer.error_radius_cm =
+            static_cast<unsigned>(120u + static_cast<unsigned>(peer.per_mille) * 2u);
+        updated = true;
+        ++remote_index;
+    }
+    if (updated) {
+        state->topology_metrics_live = true;
+        state->topology_update_count += 1u;
+        state->operation_status = "topology_metrics_refreshed";
+    }
+    return updated;
+}
+
 void populate_demo_state(GuiState *state)
 {
     using namespace fieldmesh_imgui_resources;
@@ -526,6 +644,8 @@ void populate_demo_state(GuiState *state)
     state->topology_zoom = 1.0f;
     state->event_worker_enabled = true;
     state->event_dispatch_count = 0u;
+    state->topology_update_count = 0u;
+    state->topology_metrics_live = false;
     state->connected_to_board = false;
     state->auto_election_enabled = true;
     state->radio_topology_only = true;
@@ -576,11 +696,15 @@ bool load_runtime_profile(GuiState *state, const char *path)
             state->peers.push_back({fields[0], fields[1], fields[2],
                                     parse_bool_field(fields[3]),
                                     parse_bool_field(fields[4]),
+                                    -60,
                                     parse_int_field(fields[5]),
                                     parse_int_field(fields[6]),
                                     parse_int_field(fields[7]),
                                     parse_int_field(fields[8]),
-                                    parse_unsigned_field(fields[9])});
+                                    parse_unsigned_field(fields[9]),
+                                    0u,
+                                    0u,
+                                    "profile_rtls_xy"});
         } else if (key == "conversation" && fields.size() >= 4u) {
             state->conversations.push_back({fields[0], fields[1],
                                             parse_unsigned_field(fields[2]),
@@ -672,20 +796,24 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
                                  false,
                                  boards[i].ap_capable != 0u,
                                  boards[i].camera_stream_capable != 0u,
-                                 boards[i].route_metrics_capable != 0u,
-                                 boards[i].tun_gateway_capable != 0u,
-                                 boards[i].rf_packet_engine_capable != 0u,
-                                 boards[i].requires_mutual_auth_for_production != 0u});
+                                boards[i].route_metrics_capable != 0u,
+                                boards[i].tun_gateway_capable != 0u,
+                                boards[i].rf_packet_engine_capable != 0u,
+                                boards[i].requires_mutual_auth_for_production != 0u});
         state->peers.push_back({boards[i].device_eui,
                                 boards[i].hostname,
                                 boards[i].device_type,
                                 true,
                                 true,
+                                -60,
                                 24,
                                 3,
                                 static_cast<int>(i * 140u),
                                 static_cast<int>(i * 80u),
-                                45u});
+                                45u,
+                                0u,
+                                0u,
+                                "runtime_discovery_seed"});
         state->conversations.push_back({boards[i].device_eui,
                                         boards[i].hostname,
                                         0u,
@@ -1042,6 +1170,9 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"topology_zoomable\": true,\n"
                  "  \"topology_label_placement\": \"clamped_visible\",\n"
                  "  \"topology_range_label_style\": \"background_badge\",\n"
+                 "  \"topology_range_calculation\": \"euclidean_peer_xy_cm_from_rtls_or_route_metrics\",\n"
+                 "  \"topology_metrics_live\": %s,\n"
+                 "  \"topology_update_count\": %u,\n"
                  "  \"topology_zoom\": %.2f,\n"
                  "  \"responsive_chat_layout\": true,\n"
                  "  \"chat_layout_engine\": \"imgui_table_no_overlay\",\n"
@@ -1132,6 +1263,8 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.python.last_ok ? "true" : "false",
                  escaped_python_output.c_str(),
                  escaped_python_log.c_str(),
+                 state.topology_metrics_live ? "true" : "false",
+                 state.topology_update_count,
                  static_cast<double>(state.topology_zoom),
                  board ? board->device_eui.c_str() : "",
                  board ? board->hostname.c_str() : "",
@@ -1741,15 +1874,21 @@ void render_chat_page(GuiState *state)
 void fieldmesh_imgui_render(GuiState *state)
 {
     ImGuiViewport *viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(viewport->WorkSize, ImGuiCond_Always);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
-                             ImGuiWindowFlags_NoResize |
+    ImGuiIO &io = ImGui::GetIO();
+    ImVec2 root_pos = viewport ? viewport->Pos : ImVec2(0.0f, 0.0f);
+    ImVec2 root_size = io.DisplaySize;
+    if ((root_size.x <= 0.0f || root_size.y <= 0.0f) && viewport) {
+        root_size = viewport->Size;
+    }
+    ImGui::SetNextWindowPos(root_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(root_size, ImGuiCond_Always);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_NoMove |
-                             ImGuiWindowFlags_NoCollapse |
                              ImGuiWindowFlags_NoSavedSettings |
                              ImGuiWindowFlags_NoBringToFrontOnFocus;
 
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::Begin("FieldMesh Golden IM Dashboard", nullptr, flags);
     ImGui::TextUnformatted("FieldMesh IM");
     ImGui::SameLine();
@@ -1764,6 +1903,7 @@ void fieldmesh_imgui_render(GuiState *state)
         render_connection_setup(state);
     }
     ImGui::End();
+    ImGui::PopStyleVar(2);
 }
 #else
 void fieldmesh_imgui_render(GuiState *)

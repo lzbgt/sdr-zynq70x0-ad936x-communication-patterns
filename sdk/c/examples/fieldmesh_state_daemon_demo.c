@@ -482,7 +482,7 @@ static void usage(const char *argv0)
 {
     fprintf(stderr, "usage:\n");
     fprintf(stderr, "  %s serve BIND_IP PORT REQUESTS TIMEOUT_MS\n", argv0);
-    fprintf(stderr, "  %s query HOST PORT TIMEOUT_MS\n", argv0);
+    fprintf(stderr, "  %s query HOST PORT TIMEOUT_MS ROUTE_DST_EUI [EXPLICIT_AP_EUI EXPLICIT_DST_EUI]\n", argv0);
 }
 
 static void on_peer(const fieldmesh_peer_info_t *peer, void *user)
@@ -683,8 +683,18 @@ static int build_response(fieldmesh_context_t *context,
     }
     if (strstr(request, "FIELDMESH_ROUTE_METRICS")) {
         fieldmesh_route_metrics_t metrics;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
 
-        if (fieldmesh_query_route_metrics(session, "020000000103", 500u,
+        if (copy_request_field(request, "dst=", dst_device_eui,
+                               sizeof(dst_device_eui)) <= 0 ||
+            !valid_compact_eui(dst_device_eui)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_route_metrics\","
+                     "\"ok\":false,"
+                     "\"error\":\"missing_or_invalid_dst_eui\"}\n");
+            return 0;
+        }
+        if (fieldmesh_query_route_metrics(session, dst_device_eui, 500u,
                                           &metrics) != FIELDMESH_OK) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_route_metrics\","
@@ -2003,13 +2013,30 @@ static int query_once(fieldmesh_socket_t sockfd,
     return 0;
 }
 
-static int query_state(const char *host, uint16_t port, long timeout_ms)
+static int query_state(const char *host,
+                       uint16_t port,
+                       long timeout_ms,
+                       const char *route_dst_eui,
+                       const char *explicit_ap_eui,
+                       const char *explicit_dst_eui)
 {
     fieldmesh_socket_t sockfd = INVALID_SOCKET;
     struct sockaddr_in dst;
     struct timeval timeout;
+    char route_metrics_request[96];
+    char explicit_app_request[160];
     int rc = 1;
 
+    if (!valid_compact_eui(route_dst_eui) ||
+        !valid_compact_eui(explicit_ap_eui) ||
+        !valid_compact_eui(explicit_dst_eui)) {
+        return 1;
+    }
+    snprintf(route_metrics_request, sizeof(route_metrics_request),
+             "FIELDMESH_ROUTE_METRICS v1 dst=%s", route_dst_eui);
+    snprintf(explicit_app_request, sizeof(explicit_app_request),
+             "FIELDMESH_APP_CONTROL_CAMERA v1 preferred_ap=%s dst=%s",
+             explicit_ap_eui, explicit_dst_eui);
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         return 1;
@@ -2028,14 +2055,12 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
         query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_RTLS v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_ROUTE_METRICS v1") == 0 &&
+        query_once(sockfd, &dst, route_metrics_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_SWARM_ADAPTER v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_PACKET_ENGINE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_RF_TX_GUARD_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_APP_CONTROL_CAMERA v1") == 0 &&
-        query_once(sockfd, &dst,
-                   "FIELDMESH_APP_CONTROL_CAMERA v1 "
-                   "preferred_ap=020000000103 dst=020000000203") == 0 &&
+        query_once(sockfd, &dst, explicit_app_request) == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_CAMERA_SESSION_PLAN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_CAMERA_ADAPTATION_FEEDBACK v1") == 0 &&
         query_once(sockfd, &dst,
@@ -2075,12 +2100,16 @@ int main(int argc, char **argv)
         if (port != 0 && requests > 0 && timeout_ms > 0) {
             rc = serve_state(argv[2], port, requests, timeout_ms);
         }
-    } else if (strcmp(argv[1], "query") == 0 && argc == 5) {
+    } else if (strcmp(argv[1], "query") == 0 && (argc == 6 || argc == 8)) {
         uint16_t port = parse_port(argv[3]);
         long timeout_ms = strtol(argv[4], 0, 10);
+        const char *route_dst_eui = argv[5];
+        const char *explicit_ap_eui = argc == 8 ? argv[6] : argv[5];
+        const char *explicit_dst_eui = argc == 8 ? argv[7] : argv[5];
 
         if (port != 0 && timeout_ms > 0) {
-            rc = query_state(argv[2], port, timeout_ms);
+            rc = query_state(argv[2], port, timeout_ms, route_dst_eui,
+                             explicit_ap_eui, explicit_dst_eui);
         }
     } else {
         usage(argv[0]);

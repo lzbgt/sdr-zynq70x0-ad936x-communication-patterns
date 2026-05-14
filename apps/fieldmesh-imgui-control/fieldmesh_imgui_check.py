@@ -25,6 +25,7 @@ def main() -> int:
         "fieldmesh_imgui_topology.inc.cpp",
         "ImGuiCond_Always",
         "ImGuiWindowFlags_NoSavedSettings",
+        "ImGuiStyleVar_WindowBorderSize",
         "ImGui::Begin(\"FieldMesh Golden IM Dashboard\"",
         "render_connection_setup",
         "render_chat_page",
@@ -73,6 +74,8 @@ def main() -> int:
         "SliderFloat(\"Zoom\"",
         "clamped_visible",
         "background_badge",
+        "refresh_topology_metrics",
+        "euclidean_peer_xy_cm_from_rtls_or_route_metrics",
         "connection-security-summary",
         "begin_panel(\"Radio Network Topology\"",
         "chat-layout-table",
@@ -103,6 +106,10 @@ def main() -> int:
         "ImGui_ImplGlfw_InitForOpenGL",
         "ImGui_ImplOpenGL3_Init",
         "glfwCreateWindow",
+        "framebuffer_size_callback",
+        "GLFW_SCALE_TO_MONITOR",
+        "glDisable(GL_SCISSOR_TEST)",
+        "topology_refresh_tick",
         "glfwSwapBuffers",
         "io.IniFilename = nullptr",
         "fieldmesh_imgui_render(&state)",
@@ -231,6 +238,10 @@ def main() -> int:
         raise SystemExit("topology labels must be clamped visible")
     if snapshot.get("topology_range_label_style") != "background_badge":
         raise SystemExit("topology range labels must use readable badges")
+    if snapshot.get("topology_range_calculation") != "euclidean_peer_xy_cm_from_rtls_or_route_metrics":
+        raise SystemExit("topology range calculation must be documented in snapshot")
+    if "topology_update_count" not in snapshot:
+        raise SystemExit("topology snapshot must expose update count")
     if snapshot.get("responsive_chat_layout") is not True:
         raise SystemExit("chat layout must be responsive to window size changes")
     if snapshot.get("chat_layout_engine") != "imgui_table_no_overlay":

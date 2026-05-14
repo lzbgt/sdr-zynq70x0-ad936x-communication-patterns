@@ -117,7 +117,8 @@ daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
 "$daemon_demo" serve 127.0.0.1 49124 21 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
-"$daemon_demo" query 127.0.0.1 49124 2000 >"$daemon_query_log"
+"$daemon_demo" query 127.0.0.1 49124 2000 \
+    020000000103 020000000103 020000000203 >"$daemon_query_log"
 wait "$daemon_pid"
 
 two_pc_log="$out_dir/fieldmesh_two_pc_flow_ap.ndjson"
