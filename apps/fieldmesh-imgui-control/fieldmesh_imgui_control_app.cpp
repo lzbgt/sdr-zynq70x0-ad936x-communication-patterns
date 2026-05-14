@@ -125,6 +125,7 @@ struct GuiState {
     std::string draft_message;
     unsigned messages_sent;
     unsigned messages_received;
+    std::string selected_board_eui;
     std::string selected_ap_eui;
     std::string operation_status;
     std::string profile_source;
@@ -138,12 +139,33 @@ struct GuiState {
 
 const GuiBoard *selected_board(const GuiState &state)
 {
+    if (!state.selected_board_eui.empty()) {
+        for (const GuiBoard &board : state.boards) {
+            if (board.device_eui == state.selected_board_eui) {
+                return &board;
+            }
+        }
+    }
     for (const GuiBoard &board : state.boards) {
         if (board.selected) {
             return &board;
         }
     }
     return state.boards.empty() ? nullptr : &state.boards[0];
+}
+
+bool select_board_eui(GuiState *state, const std::string &device_eui)
+{
+    bool matched = false;
+
+    for (GuiBoard &board : state->boards) {
+        board.selected = board.device_eui == device_eui;
+        matched = matched || board.selected;
+    }
+    if (matched) {
+        state->selected_board_eui = device_eui;
+    }
+    return matched;
 }
 
 [[maybe_unused]] const GuiConversation *selected_conversation(const GuiState &state)
@@ -168,11 +190,24 @@ const GuiBoard *selected_board(const GuiState &state)
 
 [[maybe_unused]] bool connect_selected_board(GuiState *state)
 {
-    if (!selected_board(*state)) {
+    const GuiBoard *board = selected_board(*state);
+
+    if (!board) {
+        return false;
+    }
+    (void)select_board_eui(state, board->device_eui);
+    state->connected_to_board = true;
+    state->operation_status = "board_connected:" + board->device_eui;
+    return true;
+}
+
+[[maybe_unused]] bool connect_board_eui(GuiState *state, const std::string &device_eui)
+{
+    if (!select_board_eui(state, device_eui)) {
         return false;
     }
     state->connected_to_board = true;
-    state->operation_status = "board_connected";
+    state->operation_status = "board_connected:" + device_eui;
     return true;
 }
 
@@ -273,6 +308,7 @@ void populate_demo_state(GuiState *state)
     state->draft_message = "FieldMesh link check";
     state->messages_sent = 0;
     state->messages_received = 0;
+    state->selected_board_eui.clear();
     state->selected_ap_eui.clear();
     state->operation_status = "idle";
     state->profile_source = "none";
@@ -314,6 +350,9 @@ bool load_runtime_profile(GuiState *state, const char *path)
                                      parse_bool_field(fields[5]),
                                      parse_bool_field(fields[6]),
                                      parse_bool_field(fields[7])});
+            if (parse_bool_field(fields[5])) {
+                state->selected_board_eui = fields[0];
+            }
         } else if (key == "peer" && fields.size() >= 10u) {
             state->peers.push_back({fields[0], fields[1], fields[2],
                                     parse_bool_field(fields[3]),
@@ -355,6 +394,12 @@ bool load_runtime_profile(GuiState *state, const char *path)
     if (state->selected_ap_eui.empty() && !state->boards.empty()) {
         state->selected_ap_eui = state->boards[0].device_eui;
     }
+    if (state->selected_board_eui.empty() && !state->boards.empty()) {
+        state->selected_board_eui = state->boards[0].device_eui;
+        state->boards[0].selected = true;
+    } else if (!state->selected_board_eui.empty()) {
+        (void)select_board_eui(state, state->selected_board_eui);
+    }
     if (state->camera.dst_device_eui.empty() && !state->peers.empty()) {
         state->camera.dst_device_eui = state->peers[0].device_eui;
     }
@@ -375,17 +420,12 @@ bool api_browse_peers(GuiState *state)
 
 bool api_select_board(GuiState *state, const std::string &device_eui)
 {
-    bool matched = false;
-
-    for (GuiBoard &board : state->boards) {
-        board.selected = board.device_eui == device_eui;
-        matched = matched || board.selected;
-    }
-    if (matched) {
+    if (select_board_eui(state, device_eui)) {
         state->connected_to_board = true;
         state->operation_status = "python_api_board_selected";
+        return true;
     }
-    return matched;
+    return false;
 }
 
 bool api_elect_ap(GuiState *state, const std::string &preferred_eui)
@@ -743,16 +783,22 @@ void render_connection_setup(GuiState *state)
     ImGui::Separator();
     for (GuiBoard &board : state->boards) {
         ImGui::PushID(board.device_eui.c_str());
-        if (ImGui::Selectable(board.hostname.c_str(), board.selected,
+        const bool is_selected = state->selected_board_eui == board.device_eui;
+        if (ImGui::Selectable(board.hostname.c_str(), is_selected,
                               ImGuiSelectableFlags_AllowDoubleClick,
-                              ImVec2(0.0f, 44.0f))) {
-            for (GuiBoard &other : state->boards) {
-                other.selected = false;
-            }
-            board.selected = true;
+                              ImVec2(0.0f, 28.0f))) {
+            (void)select_board_eui(state, board.device_eui);
             if (ImGui::IsMouseDoubleClicked(0)) {
                 (void)connect_selected_board(state);
             }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Use")) {
+            (void)select_board_eui(state, board.device_eui);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Connect")) {
+            (void)connect_board_eui(state, board.device_eui);
         }
         ImGui::Text("%s  %s:%u", board.device_type.c_str(),
                     board.daemon_host.c_str(), board.daemon_port);
