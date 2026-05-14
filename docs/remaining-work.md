@@ -384,7 +384,11 @@ below were later superseded by the current PHY-management two-board gates above:
   boundary. The installed power-up daemon uses an explicit `REQUESTS=0`
   always-on serve mode, and the board init script rotates daemon logs with a
   fixed size cap so long-running discovery/chat/video tests do not grow flash
-  or tmpfs usage without bound. `FIELDMESH_APP_CONTROL_CAMERA`,
+  or tmpfs usage without bound. The runtime artifact verifier now rejects
+  stale FIT packages whose embedded ramdisk hash does not match the current
+  product rootfs, and the connected-board installer verifies the post-install
+  init/process state instead of accepting a HELLO response alone.
+  `FIELDMESH_APP_CONTROL_CAMERA`,
   `FIELDMESH_CAMERA_SESSION_PLAN`,
   `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and `FIELDMESH_CAMERA_STREAM_CHUNK`
   now accept compact `dst=<12hex>` operation fields, and the app-control

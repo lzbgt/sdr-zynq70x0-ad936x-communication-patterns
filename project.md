@@ -768,7 +768,10 @@ user and vendor configuration.
   `/usr/bin/fieldmesh-tun-gateway-demo`, and
   `/usr/bin/fieldmesh-two-pc-flow-demo` for board-attached two-PC tests. The
   installed daemon init script starts the daemon at power-up with explicit
-  `REQUESTS=0` forever semantics and fixed-size log rotation.
+  `REQUESTS=0` forever semantics and fixed-size log rotation. Runtime package
+  verification rejects stale FIT images whose embedded ramdisk does not match
+  the current product rootfs, and connected-board installs verify the
+  post-reboot init/process state in addition to daemon HELLO capabilities.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the

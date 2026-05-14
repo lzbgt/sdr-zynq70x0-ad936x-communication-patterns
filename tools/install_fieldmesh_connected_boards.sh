@@ -91,6 +91,25 @@ print(f"{name}_hello=pass host={host} eui={payload.get('device_eui')} type={payl
 PY
 }
 
+verify_powerup_daemon() {
+    host="$1"
+    name="$2"
+    sshpass -p "$ssh_pass" ssh \
+        -o ConnectTimeout=10 \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o LogLevel=ERROR \
+        "${ssh_user}@${host}" \
+        "set -e
+         grep -q '^REQUESTS=0$' /etc/init.d/S55fieldmesh-state-daemon
+         grep -q '^TIMEOUT_MS=5000$' /etc/init.d/S55fieldmesh-state-daemon
+         grep -q '^LOG_MAX_BYTES=262144$' /etc/init.d/S55fieldmesh-state-daemon
+         ps w | grep -F 'fieldmesh-state-daemon-demo serve 0.0.0.0 $port 0 5000' | grep -v grep" \
+        >"$out_dir/${name}_powerup_daemon.txt"
+    echo "${name}_powerup_daemon=pass host=${host} port=${port} requests=0 timeout_ms=5000" \
+        | tee -a "$out_dir/${name}_powerup_daemon.txt"
+}
+
 z203_has_sd_partition() {
     sshpass -p "$ssh_pass" ssh \
         -o ConnectTimeout=5 \
@@ -247,6 +266,8 @@ fi
 
 verify_hello "$z203_ip" z203 | tee "$out_dir/z203_hello.txt"
 verify_hello "$z103_ip" z103 | tee "$out_dir/z103_hello.txt"
+verify_powerup_daemon "$z203_ip" z203
+verify_powerup_daemon "$z103_ip" z103
 
 echo "fieldmesh_connected_board_install=pass"
 echo "Capture directory: $out_dir"

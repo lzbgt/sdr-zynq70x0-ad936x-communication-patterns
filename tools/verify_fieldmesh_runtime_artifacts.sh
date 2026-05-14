@@ -41,6 +41,9 @@ verify_variant() {
     local rf_tx_disable_out
     local rf_common_out
     local rf_ctrl_write_out
+    local fit_info_out
+    local rootfs_md5
+    local fit_ramdisk_md5
 
     case "$name" in
         z203)
@@ -96,7 +99,8 @@ verify_variant() {
     rf_tx_disable_out="$(mktemp)"
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$mac_frame_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out"' RETURN
+    fit_info_out="$(mktemp)"
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$mac_frame_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$fit_info_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
@@ -386,6 +390,23 @@ verify_variant() {
         exit 1
     fi
 
+    dumpimage -l "$package_dir/fit-work/build/pluto.itb" > "$fit_info_out" 2>/dev/null
+    rootfs_md5="$(md5sum "$rootfs_cpio" | awk '{print $1}')"
+    fit_ramdisk_md5="$(
+        awk '
+            /Description:[[:space:]]+Ramdisk/ { in_ramdisk = 1 }
+            in_ramdisk && /Hash value:/ { print $3; exit }
+        ' "$fit_info_out"
+    )"
+    if [[ -z "$fit_ramdisk_md5" ]]; then
+        echo "Could not find FIT ramdisk hash for $name" >&2
+        exit 1
+    fi
+    if [[ "$fit_ramdisk_md5" != "$rootfs_md5" ]]; then
+        echo "Stale FIT ramdisk for $name: FIT md5=$fit_ramdisk_md5 rootfs md5=$rootfs_md5" >&2
+        exit 1
+    fi
+
     printf 'fieldmesh_runtime_artifacts=%s\n' "$name"
     sha256sum \
         "$rootfs_cpio" \
@@ -401,6 +422,7 @@ verify_variant() {
 require_cmd tar
 require_cmd strings
 require_cmd sha256sum
+require_cmd dumpimage
 
 case "$variant" in
     all)

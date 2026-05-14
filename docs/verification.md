@@ -3087,6 +3087,19 @@ asserts the daemon remains alive, reports `serve_forever=true`, and handles
 both requests. This guards the board power-up daemon against the old
 max-request-count workaround.
 
+`tools/verify_fieldmesh_runtime_artifacts.sh` also checks that each packaged
+FIT image embeds the current product rootfs by comparing the FIT ramdisk MD5
+reported by `dumpimage -l` against the deploy `rootfs.cpio.gz`. This catches
+stale `.frm` packages where a regenerated rootfs symlink exists beside an old
+`pluto.itb`.
+
+`tools/install_fieldmesh_connected_boards.sh` verifies the post-install
+power-up daemon through both the UDP HELLO capability response and the board
+init/process state. The install is not considered complete unless
+`/etc/init.d/S55fieldmesh-state-daemon` contains `REQUESTS=0`,
+`TIMEOUT_MS=5000`, fixed log rotation, and the running daemon process uses
+those values.
+
 The same gate now also verifies command-preset generation:
 
 ```sh
