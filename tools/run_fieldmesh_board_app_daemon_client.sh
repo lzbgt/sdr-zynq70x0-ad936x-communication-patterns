@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55441}"
 timeout_ms="${TIMEOUT_MS:-5000}"
-requests="${REQUESTS:-4}"
+requests="${REQUESTS:-5}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -171,9 +171,22 @@ for row in app_rows:
 
 control = by_event.get("app_daemon_control_ack", [])
 chunks = by_event.get("app_daemon_camera_chunk_ack", [])
+hello = by_event.get("app_daemon_hello", [])
 stream = by_event.get("app_camera_stream_open", [])
 summary = by_event.get("app_summary", [])
 
+if len(hello) != 1:
+    raise SystemExit("missing one daemon HELLO acknowledgement")
+if hello[0].get("daemon_host") != board_ip or hello[0].get("daemon_port") != port:
+    raise SystemExit("daemon HELLO endpoint mismatch")
+if hello[0].get("protocol") != "fieldmesh-eth-sdk":
+    raise SystemExit("daemon HELLO protocol mismatch")
+if hello[0].get("sdk_abi") != "pure_c":
+    raise SystemExit("daemon HELLO SDK ABI mismatch")
+if hello[0].get("auth_model") != "root_ca_derived_certs":
+    raise SystemExit("daemon HELLO auth model mismatch")
+if hello[0].get("requires_mutual_auth_for_production") is not True:
+    raise SystemExit("daemon HELLO must require production mutual auth")
 if len(control) != 1:
     raise SystemExit("missing one daemon app-control acknowledgement")
 if control[0].get("daemon_host") != board_ip or control[0].get("daemon_port") != port:
@@ -216,9 +229,9 @@ for token in (
 
 daemon_end = [row for row in daemon_rows if row.get("event") == "sdk_daemon_end"]
 daemon_requests = [row for row in daemon_rows if row.get("event") == "sdk_daemon_request"]
-if not daemon_end or daemon_end[-1].get("handled") != 4:
-    raise SystemExit("board daemon did not handle the four app requests")
-if len(daemon_requests) != 4:
+if not daemon_end or daemon_end[-1].get("handled") != 5:
+    raise SystemExit("board daemon did not handle the five app requests")
+if len(daemon_requests) != 5:
     raise SystemExit("board daemon request count changed")
 
 result = {
@@ -228,6 +241,7 @@ result = {
     "daemon_port": port,
     "preferred_ap_eui": preferred_ap_eui,
     "dst_device_eui": dst_eui,
+    "daemon_hello_events": len(hello),
     "daemon_control_events": len(control),
     "daemon_camera_chunk_events": len(chunks),
     "frames_tx": summary[-1].get("frames_tx"),

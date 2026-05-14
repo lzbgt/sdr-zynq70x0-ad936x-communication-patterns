@@ -87,9 +87,10 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 20:
+    if not end or end[-1].get("handled") != 21:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
+    hello = one(query, "sdk_daemon_hello")
     ap_browse = one(query, "sdk_daemon_ap_browse")
     ap_election = one(query, "sdk_daemon_ap_election")
     join_state = one(query, "sdk_daemon_join_state")
@@ -108,6 +109,14 @@ def daemon_summary(label, path):
     ]
     rf_engine = one(query, "sdk_daemon_rf_packet_engine")
 
+    if hello.get("protocol") != "fieldmesh-eth-sdk" or hello.get("sdk_abi") != "pure_c":
+        raise SystemExit(f"{label} HELLO protocol/ABI failed")
+    if hello.get("auth_model") != "root_ca_derived_certs":
+        raise SystemExit(f"{label} HELLO auth model failed")
+    if hello.get("supports_app_control_camera") != 1 or hello.get("supports_camera_stream_chunk") != 1:
+        raise SystemExit(f"{label} HELLO app/camera capabilities failed")
+    if hello.get("uses_inter_board_ip_routing") != 0 or hello.get("starts_rf_tx") != 0:
+        raise SystemExit(f"{label} HELLO safety invariants failed")
     if ap_browse.get("aps", 0) < 1 or ap_election.get("elected_node_id") != "020000000203":
         raise SystemExit(f"{label} AP browse/election failed")
     if join_state.get("joined") is not True or join_state.get("selected_mode") != 4:
@@ -158,6 +167,8 @@ def daemon_summary(label, path):
 
     return {
         "label": label,
+        "hello_protocol": hello.get("protocol"),
+        "hello_auth_model": hello.get("auth_model"),
         "ap_count": ap_browse.get("aps"),
         "elected_ap": ap_election.get("elected_node_id"),
         "joined": join_state.get("joined"),
@@ -211,6 +222,8 @@ for label, app_summary, expected_ip, expected_port in (
         raise SystemExit(f"{label} daemon port mismatch")
     if app_summary.get("daemon_control_events") != 1:
         raise SystemExit(f"{label} app-control event count changed")
+    if app_summary.get("daemon_hello_events") != 1:
+        raise SystemExit(f"{label} daemon HELLO event count changed")
     if app_summary.get("daemon_camera_chunk_events") != 3:
         raise SystemExit(f"{label} camera chunk event count changed")
     if app_summary.get("preview_matches_input") is not True:

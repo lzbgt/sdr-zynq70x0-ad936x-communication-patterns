@@ -466,6 +466,56 @@ bool request_daemon(const AppOptions &options,
     return true;
 }
 
+bool send_daemon_hello(const AppOptions &options)
+{
+    std::string response;
+    const char *required_tokens[] = {
+        "\"event\":\"sdk_daemon_hello\"",
+        "\"protocol\":\"fieldmesh-eth-sdk\"",
+        "\"protocol_version\":1",
+        "\"sdk_abi\":\"pure_c\"",
+        "\"auth_model\":\"root_ca_derived_certs\"",
+        "\"requires_mutual_auth_for_production\":1",
+        "\"supports_app_control_camera\":1",
+        "\"supports_camera_stream_chunk\":1",
+        "\"uses_inter_board_ip_routing\":0",
+        "\"starts_rf_tx\":0",
+        "\"writes_hardware\":0",
+    };
+
+    if (!daemon_client_enabled(options)) {
+        return true;
+    }
+    if (!request_daemon(options, "FIELDMESH_HELLO v1", "hello", &response)) {
+        return false;
+    }
+    for (const char *token : required_tokens) {
+        if (response.find(token) == std::string::npos) {
+            std::fprintf(stderr, "hello daemon response missing token %s: %s\n",
+                         token, response.c_str());
+            return false;
+        }
+    }
+    std::printf("{\"event\":\"app_daemon_hello\","
+                "\"daemon_host\":\"%s\","
+                "\"daemon_port\":%u,"
+                "\"protocol\":\"fieldmesh-eth-sdk\","
+                "\"protocol_version\":1,"
+                "\"sdk_abi\":\"pure_c\","
+                "\"auth_model\":\"root_ca_derived_certs\","
+                "\"security_state\":\"demo_unprovisioned\","
+                "\"requires_mutual_auth_for_production\":true,"
+                "\"supports_app_control_camera\":true,"
+                "\"supports_camera_stream_chunk\":true,"
+                "\"ok\":true,"
+                "\"uses_inter_board_ip_routing\":0,"
+                "\"starts_rf_tx\":0,"
+                "\"writes_hardware\":0}\n",
+                options.daemon_host,
+                static_cast<unsigned>(options.daemon_port));
+    return true;
+}
+
 bool send_daemon_app_control(const AppOptions &options)
 {
     std::string request = "FIELDMESH_APP_CONTROL_CAMERA v1";
@@ -1707,7 +1757,7 @@ int main(int argc, char **argv)
                 "\"mode\":%u}\n",
                 static_cast<unsigned>(FIELDMESH_MODE_SCHEDULED));
 
-    if (!send_daemon_app_control(options)) {
+    if (!send_daemon_hello(options) || !send_daemon_app_control(options)) {
         (void)fieldmesh_leave(session);
         fieldmesh_context_destroy(ctx);
         return 1;

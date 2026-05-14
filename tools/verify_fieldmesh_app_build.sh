@@ -166,6 +166,17 @@ daemon_by_name = {}
 for event in daemon_events:
     daemon_by_name.setdefault(event.get("event"), []).append(event)
 
+daemon_hello = daemon_by_name.get("app_daemon_hello", [])
+if len(daemon_hello) != 1:
+    raise SystemExit("daemon app did not complete one HELLO handshake")
+if daemon_hello[0].get("protocol") != "fieldmesh-eth-sdk":
+    raise SystemExit("daemon app HELLO protocol changed")
+if daemon_hello[0].get("sdk_abi") != "pure_c":
+    raise SystemExit("daemon app HELLO must preserve pure-C SDK ABI")
+if daemon_hello[0].get("auth_model") != "root_ca_derived_certs":
+    raise SystemExit("daemon app HELLO auth model changed")
+if daemon_hello[0].get("requires_mutual_auth_for_production") is not True:
+    raise SystemExit("daemon app HELLO must require production mutual auth")
 if len(daemon_by_name.get("app_daemon_control_ack", [])) != 1:
     raise SystemExit("daemon app did not acknowledge app control")
 if len(daemon_by_name.get("app_daemon_camera_chunk_ack", [])) != 3:
@@ -180,10 +191,10 @@ if not daemon_summary or daemon_summary[-1].get("data_plane_ok") is not True:
 server_by_name = {}
 for event in daemon_server_events:
     server_by_name.setdefault(event.get("event"), []).append(event)
-if len(server_by_name.get("sdk_daemon_request", [])) != 4:
-    raise SystemExit("daemon server did not receive four app requests")
+if len(server_by_name.get("sdk_daemon_request", [])) != 5:
+    raise SystemExit("daemon server did not receive five app requests")
 server_end = server_by_name.get("sdk_daemon_end", [])
-if not server_end or server_end[-1].get("handled") != 4:
+if not server_end or server_end[-1].get("handled") != 5:
     raise SystemExit("daemon server request count changed")
 PY
 

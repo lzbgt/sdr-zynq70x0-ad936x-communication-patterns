@@ -55,7 +55,7 @@ check: $(APP) $(DAEMON)
 		>"$(OUT_DIR)/explicit_camera_app.ndjson" \
 		2>"$(OUT_DIR)/explicit_camera_app.stderr"
 	daemon_pid=; \
-	"$(DAEMON)" serve 127.0.0.1 55431 4 5000 \
+	"$(DAEMON)" serve 127.0.0.1 55431 5 5000 \
 		>"$(OUT_DIR)/daemon_camera_server.ndjson" \
 		2>"$(OUT_DIR)/daemon_camera_server.stderr" & \
 	daemon_pid="$$!"; \

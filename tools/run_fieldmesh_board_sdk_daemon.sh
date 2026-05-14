@@ -9,7 +9,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-20}"
+requests="${REQUESTS:-21}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 keep_transient_binaries="${KEEP_TRANSIENT_BINARIES:-0}"
@@ -128,6 +128,7 @@ def load(path):
 
 serve = load(serve_path)
 query = load(query_path)
+hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
 route_metrics = [row for row in query if row.get("event") == "sdk_daemon_route_metrics"]
@@ -148,8 +149,26 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 20:
+if not end or end[-1].get("handled") != 21:
     raise SystemExit("board SDK daemon did not handle all requests")
+if not hello or hello[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon HELLO response failed")
+if hello[0].get("protocol") != "fieldmesh-eth-sdk" or hello[0].get("protocol_version") != 1:
+    raise SystemExit("board SDK daemon HELLO protocol changed")
+if hello[0].get("sdk_abi") != "pure_c":
+    raise SystemExit("board SDK daemon HELLO must preserve pure-C SDK ABI")
+if hello[0].get("auth_model") != "root_ca_derived_certs":
+    raise SystemExit("board SDK daemon HELLO auth model changed")
+if hello[0].get("requires_mutual_auth_for_production") != 1:
+    raise SystemExit("board SDK daemon HELLO must require production mutual auth")
+for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
+            "supports_route_metrics", "supports_rf_packet_engine"):
+    if hello[0].get(key) != 1:
+        raise SystemExit(f"board SDK daemon HELLO capability {key} must be 1")
+for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
+            "starts_rf_tx", "writes_hardware"):
+    if hello[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon HELLO key {key} must be 0")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != "020000000203":
     raise SystemExit("board SDK daemon AP browse response failed")
 if not ap_election or ap_election[0].get("elected_node_id") != "020000000203":
@@ -340,6 +359,7 @@ if not done:
 print(json.dumps({
     "event": "fieldmesh_board_sdk_daemon_assert",
     "ok": True,
+    "hello_events": len(hello),
     "ap_browse_events": len(ap_browse),
     "ap_election_events": len(ap_election),
     "join_events": len(join_state),

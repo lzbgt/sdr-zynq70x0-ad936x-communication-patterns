@@ -39,7 +39,8 @@ in `src/fieldmesh_sdk.c`:
   layer: AD936x device profile validation, guarded dry-run IQ burst planning,
   low-attenuation rejection, and explicit live-RF approval flags.
 - `examples/fieldmesh_state_daemon_demo.c` is the first socket daemon boundary:
-  one process serves AP browse, AP election, AP join state, peer state, RTLS
+  one process serves `FIELDMESH_HELLO` capability/security negotiation,
+  AP browse, AP election, AP join state, peer state, RTLS
   state, the `swarm0` packet adapter, a callback-backed TUN packet pump,
   RF packet-engine handoff planning, routed TUN gateway planning, and local
   IIO admin planning over UDP. It now also serves
@@ -136,9 +137,9 @@ selects the camera stream destination peer; both are compact 12-hex device
 EUIs, separate from hostnames and device capability classes. The app emits
 `app_stream_lifecycle` with capture/preview process state, bounded/live-loop
 mode, chunk and byte counts, stream close status, and an `ok`/`degraded` health
-field for a future GUI or supervisor. This is the SDK/app boundary a real
-Windows, Linux, macOS, or embedded camera pipeline can drive before a GUI is
-added. `--snapshot-output PATH` writes the same GUI/supervisor state directly
+field for a GUI or supervisor. This is the SDK/app boundary a real Windows,
+Linux, macOS, or embedded camera pipeline can drive. `--snapshot-output PATH`
+writes the same GUI/supervisor state directly
 from the C++ app, including AP browse/election, operations, radio topology, RTLS
 positions, camera stream state, lifecycle health, and UI feature flags. The
 companion `fieldmesh_app_snapshot.py` helper can derive the same model from an
@@ -159,6 +160,17 @@ case with user-selected AP and destination EUI, then starts a loopback
 subcommand that emits FFmpeg, GStreamer, or native-wrapper command lines for
 Linux, Windows, and macOS, including the app-side live-loop and target-FPS
 wiring.
+
+The production GUI boundary lives in `../../apps/fieldmesh-imgui-control/`.
+It is a Dear ImGui C++ golden IM app surface for board selection, peer
+discovery, chat messaging, control-plane actions, radio topology, relative
+co-location, and live video publish/subscribe controls. It also provides
+`fieldmesh_imgui_pyapi.py`, a Python automation API that drives the same C++
+app state in headless mode for tests. The app model is symmetric, like an IM
+client: either instance can message, publish video, subscribe to video, or run
+authorized control operations. The GUI does not change the SDK rule: transport
+and protocol primitives remain pure C, and production operation requires
+command-CA-derived mutual authentication plus scoped authorization.
 
 The SDK level must remain pure C. Keep this ABI stable even if production
 daemons, demo clients, and applications are C++ or Rust. C++ should be the

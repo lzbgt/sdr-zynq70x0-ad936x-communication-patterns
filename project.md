@@ -658,6 +658,14 @@ user and vendor configuration.
   bytes through `--camera-input PATH|-`, chunks them with `--chunk-size`, and
   writes the receive/preview side with `--preview-output`, which lets a
   platform camera pipeline feed the same SDK path before a GUI renderer exists.
+- `apps/fieldmesh-imgui-control/` - Dear ImGui C++ golden IM app boundary. It
+  models a symmetric peer client for board selection, peer discovery, chat
+  messaging, control-plane actions, radio topology, relative co-location, and
+  live video publish/subscribe controls, and includes
+  `fieldmesh_imgui_pyapi.py` so Python tests can drive the same app state. The
+  app carries the production security model explicitly: command-CA-derived
+  device certificates, mutual authentication, and scoped authorization before
+  privileged operations.
   It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF
@@ -1071,12 +1079,24 @@ Expected result in the current Pluto-compatible firmware state:
    measured route state, plus direct `FIELDMESH_CAMERA_STREAM_CHUNK` ingress so
    an Ethernet SDK client can submit one encoded camera chunk and receive
    preview/checksum/RF handoff status without reimplementing stream
-   classification. Live daemon smokes verified the session planner, route
+   classification. Host apps now also issue `FIELDMESH_HELLO` first, so the
+   daemon advertises protocol version, pure-C SDK ABI, root-CA-derived
+   production auth model, scoped authorization, app/camera/route/RF
+   capabilities, and no-IIO/no-inter-board-IP/no-RF-TX safety invariants before
+   control/data operations. Live daemon smokes verified the session planner,
+   route
    metrics, adaptation, and chunk ingress with `camera_session_events=1`,
    `route_metrics_events=1`, `camera_adaptation_events=1`, and
    `camera_chunk_events=1`. The post-install RF
    packet-engine binding gate still recovered frame CRC `2646482743` while
    keeping IIO, inter-board IP routing, RF TX, and hardware writes disabled.
+   The production GUI boundary is now `apps/fieldmesh-imgui-control/`: a Dear
+   ImGui C++ golden IM app surface for board selection, peer discovery, chat
+   messaging, control-plane actions, radio topology, relative co-location, and
+   live video publish/subscribe controls. It includes
+   `fieldmesh_imgui_pyapi.py` so Python tests can drive the same app state
+   without requiring a display, and it treats command-CA-derived mutual
+   authentication plus scoped authorization as mandatory production security.
    Z203's USB/RNDIS data gadget is still not exposed as a second Windows
    network adapter: `192.168.2.1` did not answer ping after a COM5-driven
    UDC/network restart, even though COM5 confirmed Z203 Linux has `usb0`

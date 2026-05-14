@@ -3049,9 +3049,15 @@ mode and camera destination are explicit device-EUI fields rather than
 hostname, board type, or hardcoded hub/node labels. The same app-local gate now
 starts the daemon on loopback and runs the app with `--daemon-host 127.0.0.1`,
 verifying `fieldmesh_daemon_request()` carries one
-`FIELDMESH_APP_CONTROL_CAMERA` request plus three
+`FIELDMESH_HELLO` request, one `FIELDMESH_APP_CONTROL_CAMERA` request, plus three
 `FIELDMESH_CAMERA_STREAM_CHUNK` requests through the Ethernet daemon protocol.
-`tools/verify_fieldmesh_sdk.sh` runs this app build gate before the broader SDK
+`tools/verify_fieldmesh_imgui_app.sh` separately builds the Dear ImGui app core
+in headless mode and runs `fieldmesh_imgui_pyapi.py` against it, proving Python
+tests can select a board, browse peers, elect an AP, open a chat, send a
+message, and start live video publish/subscribe controls without requiring a
+display. It also runs two symmetric GUI instances, so the app behaves like an
+IM client rather than a hardcoded sender/receiver tool.
+`tools/verify_fieldmesh_sdk.sh` runs both app gates before the broader SDK
 suite.
 
 The same gate now also verifies command-preset generation:
@@ -3573,7 +3579,7 @@ OUT_DIR=resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_a
 
 Result: passed. Z203 handled the app daemon-client path on port `55441`, and
 Z103 handled it on port `55442`. Each app run sent one
-`FIELDMESH_APP_CONTROL_CAMERA` request plus three
+`FIELDMESH_HELLO` request, one `FIELDMESH_APP_CONTROL_CAMERA` request, plus three
 `FIELDMESH_CAMERA_STREAM_CHUNK` requests through the pure-C
 `fieldmesh_daemon_request()` API, byte-compared preview output against input,
 and wrote native snapshot/dashboard outputs showing the daemon endpoint. The
@@ -3584,20 +3590,30 @@ combined two-board summary reports both board app-client paths with
 `writes_hardware=false`. The paired radio-readiness gate again passed with no
 IIO data path and no RF TX start.
 
-Refreshed runtime artifact hashes after adding explicit AP/destination EUI
-operation fields to the packaged board daemon:
+The GUI app boundary is checked by `tools/verify_fieldmesh_imgui_app.sh`. It
+builds a headless form of the Dear ImGui C++ app, verifies the board-selection,
+peer-discovery, chat-messaging, control-plane, radio-topology, relative
+co-location, live-video publish/subscribe, and mandatory mutual-auth/security
+state model, and runs `fieldmesh_imgui_pyapi.py` against the executable so
+Python automation can select a board, elect an AP, open chats, send messages,
+and start video publish/subscribe. The same gate runs
+`tools/run_fieldmesh_two_imgui_instances.sh`, which verifies two symmetric GUI
+instances can operate as peer IM clients.
+
+Refreshed runtime artifact hashes after adding app/daemon `FIELDMESH_HELLO`
+negotiation and the ImGui/Python app boundary:
 
 ```text
-Z203 rootfs.cpio.gz: eecbc4c0629581d6ffe71dedcb38d01d79fa132981d84dfc9ffe133b1dacb82e
-Z203 rootfs.tar.gz:  ee89986c8060c783b4ccb91487b591f3d0ed34a7ac7b60e8228f6bdf77b81d02
-Z203 pluto.frm:      142e45c20d43178d5cc23e65d3f809e87a1b8ffcca3d3911d15d464848bff03f
-Z203 pluto.itb:      f66e0e3a6f6ed4d7e6d2f399c2e45bf1d4c739aec0fd5740e4d829fb4701f32c
-Z203 jtag ramdisk:   0a5f1eb7f05e2346ddeebda84a69b6ffb2f652ef1429f6c3c03b48059367c82a
-Z103 rootfs.cpio.gz: 7301a22acff6ef442b4165961c7e1d5a775924d80267a96950f73dda9e1bcdf6
-Z103 rootfs.tar.gz:  63cffd26f034c7b2cf17381814b84db0ac8b70fb22bc73bff14d003719b307c7
-Z103 pluto.frm:      4c1d618324249e7952a8c10178a1f3aa5e74cc6ff843afa5556bb8ae5386ca91
-Z103 pluto.itb:      d12b8ec05ebfd490533e79a46479cb681209c6de35ee4220d8d79aac56e4e091
-Z103 jtag ramdisk:   b9bc73ba09cb5302e1f566f147d2a58b6c20abb9bf61c3c24f2101aec4df9d81
+Z203 rootfs.cpio.gz: f18685340047dde0090276b44d6c15d7163793ff2a7697ab081c60793c863230
+Z203 rootfs.tar.gz:  083aca8be0a9ee52403a9d7003d056a9eeffcd4c90fb6b5efdab4630c1988d8c
+Z203 pluto.frm:      972fd8c077e619d85b3b1a9632faa89e1e65c845399b7b0e44ebc88590ae20e9
+Z203 pluto.itb:      a963244fc0971e72ac52a93fff1f1857e1e8e4a1f59e6001c8264d4a3ee570be
+Z203 jtag ramdisk:   22397ba53a8402cd3ac4b144f729cf1004e9508b60608ed6c9840724d152e9d1
+Z103 rootfs.cpio.gz: d420efb16e9d38aff28057b970bf82788833ba4a2451a05e63d9d3777d5e5a38
+Z103 rootfs.tar.gz:  03a6be5c6521e2d3ad29e9e1d9009d860b308eda1c9fa389227190a09bf0f1a1
+Z103 pluto.frm:      107610a2f3825ce1714fbb27f3c322ea798f4f0da62057815a7bbdfa7cfc249b
+Z103 pluto.itb:      6544c95b5ae421afc2b7a8efed4c6e189a21709381ebb73599f7a95549f8fcc6
+Z103 jtag ramdisk:   2ac9a2e923c7f0da7f698a5a38697ecf0dcee102fa8a85d383091824b4d5b2da
 ```
 
 ## FieldMesh RTLS Positioning Gate

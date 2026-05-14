@@ -278,10 +278,17 @@ Next concrete work:
   includes both default auto election and explicit user-selected AP/destination
   EUI paths. It also starts a loopback board daemon and verifies
   `--daemon-host` app operation through the pure-C `fieldmesh_daemon_request()`
-  Ethernet client, covering app-control and camera-chunk protocol requests.
-  The remaining app work is an interactive packaged GUI, platform preset installation UX,
-  deeper platform codec supervision, and the conducted/shielded RF TX/RX
-  data-plane gate.
+  Ethernet client, covering `FIELDMESH_HELLO`, app-control, and camera-chunk
+  protocol requests. The new `apps/fieldmesh-imgui-control` boundary is the
+  interactive GUI direction: a Dear ImGui C++ golden IM app surface for board
+  selection, peer discovery, chat messaging, control-plane actions, radio
+  topology, relative co-location, and live video publish/subscribe controls,
+  with `fieldmesh_imgui_pyapi.py` for Python-driven tests. It models mandatory
+  command-CA-derived mutual authentication and scoped authorization. The
+  remaining app work is wiring the ImGui panels to live daemon calls and
+  platform capture/preview backends, platform preset installation UX, deeper
+  platform codec supervision, and the conducted/shielded RF TX/RX data-plane
+  gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->

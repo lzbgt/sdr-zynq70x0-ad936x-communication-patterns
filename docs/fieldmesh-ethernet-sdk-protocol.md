@@ -130,8 +130,9 @@ Minimum daemon messages:
 | `DEVICE_IIO_PLAN` | client -> daemon | Plan guarded local IIO/RF action without executing. |
 | `DEVICE_IIO_EXECUTE` | client -> daemon | Execute guarded local IIO action only under policy and explicit approval. |
 
-The prototype `fieldmesh_state_daemon_demo` already checks the AP browse,
-election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
+The prototype `fieldmesh_state_daemon_demo` already checks
+`FIELDMESH_HELLO` capability/security negotiation, AP browse, election, join,
+peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
 `FIELDMESH_CAMERA_SESSION_PLAN`,
 `FIELDMESH_ROUTE_METRICS`,
@@ -140,6 +141,13 @@ election, join, peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_TUN_FD_PUMP`, `FIELDMESH_TUN_PLAN`,
 `FIELDMESH_TUN_APPLY_VALIDATE`, guarded `FIELDMESH_TUN_APPLY_COMMIT`
 rejection, and `FIELDMESH_DEVICE_IIO_PLAN` shape.
+
+Host apps must send `HELLO` before control/data-plane operations. The response
+advertises the protocol version, pure-C SDK ABI, root-CA-derived production
+authentication model, scoped authorization expectation, app/camera/route/RF
+capabilities, and safety invariants. Demo builds may report
+`security_state=demo_unprovisioned`, but production deployments must provision
+mutual authentication and authorization before allowing privileged operations.
 
 ## Capability Advertisements
 

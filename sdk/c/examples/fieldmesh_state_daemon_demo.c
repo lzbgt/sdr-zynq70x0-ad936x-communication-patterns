@@ -530,6 +530,33 @@ static int build_response(fieldmesh_context_t *context,
                           char *response,
                           size_t response_len)
 {
+    if (strstr(request, "FIELDMESH_HELLO")) {
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_hello\","
+                 "\"ok\":true,"
+                 "\"protocol\":\"fieldmesh-eth-sdk\","
+                 "\"protocol_version\":1,"
+                 "\"daemon\":\"fieldmesh-state-daemon-demo\","
+                 "\"sdk_abi\":\"pure_c\","
+                 "\"network_id\":\"fieldmesh-lab\","
+                 "\"device_eui\":\"020000000203\","
+                 "\"hostname\":\"fieldmesh-daemon\","
+                 "\"auth_model\":\"root_ca_derived_certs\","
+                 "\"security_state\":\"demo_unprovisioned\","
+                 "\"authorization\":\"scoped_operations\","
+                 "\"requires_mutual_auth_for_production\":1,"
+                 "\"supports_app_control_camera\":1,"
+                 "\"supports_camera_session_plan\":1,"
+                 "\"supports_route_metrics\":1,"
+                 "\"supports_camera_stream_chunk\":1,"
+                 "\"supports_tun_gateway\":1,"
+                 "\"supports_rf_packet_engine\":1,"
+                 "\"uses_iio_data_path\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n");
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_STATE_PEERS")) {
         struct peer_summary summary = {0};
 
@@ -1893,7 +1920,8 @@ static int query_state(const char *host, uint16_t port, long timeout_ms)
     dst.sin_family = AF_INET;
     dst.sin_port = htons(port);
     dst.sin_addr.s_addr = inet_addr(host);
-    if (query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&
+    if (query_once(sockfd, &dst, "FIELDMESH_HELLO v1") == 0 &&
+        query_once(sockfd, &dst, "FIELDMESH_AP_BROWSE v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_ELECT v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_AP_JOIN v1") == 0 &&
         query_once(sockfd, &dst, "FIELDMESH_STATE_PEERS v1") == 0 &&

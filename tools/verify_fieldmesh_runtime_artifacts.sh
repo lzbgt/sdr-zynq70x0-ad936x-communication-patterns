@@ -177,6 +177,7 @@ verify_variant() {
         fi
     done
     for token in \
+        FIELDMESH_HELLO \
         FIELDMESH_AP_BROWSE \
         FIELDMESH_AP_ELECT \
         FIELDMESH_AP_JOIN \
@@ -196,6 +197,7 @@ verify_variant() {
         FIELDMESH_TUN_APPLY_VALIDATE \
         FIELDMESH_TUN_APPLY_COMMIT \
         FIELDMESH_DEVICE_IIO_PLAN \
+        sdk_daemon_hello \
         sdk_daemon_ap_browse \
         sdk_daemon_ap_election \
         sdk_daemon_join_state \
@@ -213,6 +215,9 @@ verify_variant() {
         fieldmesh_query_route_metrics \
         fieldmesh_adapt_camera_stream_session \
         fieldmesh_camera_stream_frame \
+        root_ca_derived_certs \
+        requires_mutual_auth_for_production \
+        supports_camera_stream_chunk \
         input_checksum \
         preview_checksum \
         preview_matches \
