@@ -1,0 +1,11 @@
+version
+bdinfo
+help sf
+help spi
+help sspi
+help mtd
+help md
+sf probe
+sf
+printenv qspiboot fit_size qspi_offset qspi_size kernel_size loadaddr ramdisk_loadaddr devicetree_loadaddr
+reset

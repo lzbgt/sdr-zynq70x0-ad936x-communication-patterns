@@ -1,0 +1,25 @@
+{
+  "capture": "z203_uboot_spi_status_capability_20260515-053918",
+  "board": "FM-Z203",
+  "ip": "192.168.1.10",
+  "serial_port": "COM5",
+  "result": "status_probe_path_available",
+  "qspi_repair_allowed": false,
+  "uboot": {
+    "version": "2016.07 (May 10 2026 - 17:10:23 +0000)",
+    "spi_nor": "W25Q256",
+    "sf_available": true,
+    "sf_read_write_erase_available": true,
+    "sspi_available": true,
+    "spi_command_available": false,
+    "mtd_command_available": false,
+    "bad_environment_crc": true,
+    "fit_size": "0x900000"
+  },
+  "diagnosis": [
+    "U-Boot exposes sspi, so the next safe diagnostic can read SPI NOR status registers directly.",
+    "Generic spi and mtd U-Boot commands are not available.",
+    "No full QSPI FIT repair should be retried until raw status/register behavior and a small program/readback probe pass."
+  ],
+  "next_step": "Probe W25Q256 status/write-enable/busy behavior through U-Boot sspi around erase and page-program operations."
+}

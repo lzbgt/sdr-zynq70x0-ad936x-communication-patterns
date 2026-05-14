@@ -96,8 +96,11 @@ Firmware state:
   readback is clean for every pattern, but any byte pattern that requires
   clearing either bit in mask `0x44` reads back with that bit still set
   (`0x00 -> 0x44`, `0xbb -> 0xff`, `0xaa -> 0xee`, `0x7b -> 0x7f`).
-  Do not run another full QSPI FIT repair until the SPI NOR program path is
-  isolated and a small U-Boot tail-sector write/readback passes.
+  A follow-up U-Boot capability probe shows `sspi` is available while generic
+  `spi` and `mtd` commands are not, so the next repair diagnostic is a raw
+  W25Q256 status-register probe around erase/program operations. Do not run
+  another full QSPI FIT repair until the SPI NOR program path is isolated and
+  a small U-Boot tail-sector write/readback passes.
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 

@@ -1,0 +1,867 @@
+﻿# Z203 serial U-Boot command capture
+# Port: COM5
+# Baud: 115200
+# Started: 2026-05-15T05:39:19.1269727+08:00
+# InterruptSeconds: 14
+
+# >>>
+
+
+Poky (Yocto Project Reference Distro) 5.0.17 fm-z203 /dev/ttyPS0
+
+
+
+fm-z203 login:
+# >>> root
+root
+
+WARNING: Poky is a reference Yocto Project distribution that should be used for
+testing and development purposes only. It is recommended that you create your
+own distribution for production use.
+
+7[r[999;999H[6n
+# >>> analog
+8root@fm-z203:~#
+# >>>
+
+root@fm-z203:~#
+# >>> echo __FIELDMESH_PRE_UBOOT_REBOOT__
+echo __FIELDMESH_PRE_UBOOT_REBOOT__
+__FIELDMESH_PRE_UBOOT_REBOOT__
+root@fm-z203:~#
+# >>> sync
+sync
+root@fm-z203:~#
+# >>> reboot
+reboot
+
+
+Broadcast message from root@fm-z203 (tty?n for reboot NOW!
+
+
+INIT: Switching to runlevel: 6
+
+root@fm-z2
+INIT: Sending processes configured via /etc/inittab the TERM signal
+
+Stopping Dropbear SSH server: stopped /usr/sbin/dropbear (pid 769)
+dropbear.
+ * Stopping Avahi mDNS/DNS-SD Daemon: avahi-daemon
+   ...done.
+Stopping bluetooth: bluetoothd.
+Stopping system message bus: dbus.
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+Stopping syslogd/klogd: stopped syslogd (pid 784)
+stopped klogd (pid 788)
+done
+Stopping Telephony daemon
+Unmounting remote filesystems...
+Stopping rpcbind daemon...
+done.
+Stopping Linux NFC daemon
+Stopping Lighttpd Web Server: stopped /usr/sbin/lighttpd (pid 807)
+lighttpd.
+Deconfiguring network interfaces... ifdown: interface usb1 not configured
+
+root@fm-z203:~# macb e000b000.ethernet eth0: Link is Down
+done.
+Sending all processes the TERM signal...
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 515 at /drivers/usb/gadget/udc/core.c:283 usb_ep_queue+0x44/0x68
+Modules linked in:
+CPU: 1 PID: 515 Comm: file-storage Not tainted 6.1.0 #1
+Hardware name: Xilinx Zynq Platform
+ unwind_backtrace from show_stack+0x10/0x14
+ show_stack from dump_stack_lvl+0x40/0x4c
+ dump_stack_lvl from __warn+0x94/0xcc
+ __warn from warn_slowpath_fmt+0x78/0xac
+ warn_slowpath_fmt from usb_ep_queue+0x44/0x68
+ usb_ep_queue from start_transfer+0x20/0x6c
+ start_transfer from start_out_transfer+0x38/0x50
+ start_out_transfer from fsg_main_thread+0x3cc/0x1628
+ fsg_main_thread from kthread+0xf8/0x100
+ kthread from ret_from_fork+0x14/0x2c
+Exception stack(0xf0f59fb0 to 0xf0f59ff8)
+9fa0:                                     00000000 00000000 00000000 00000000
+9fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+9fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+---[ end trace 0000000000000000 ]---
+
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~#
+root@fm-z203:~# Sending all processes the KILL signal...
+Deactivating swap...
+Unmounting local filesystems...
+mount: mounting rootfs on / failed: Device or resource busy
+ffs_data_put(): freeing
+Rebooting... reboot: Restarting system
+
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+*** Warning - bad CRC, using default environment
+
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+reading uEnv.txt
+7585 bytes read in 13 ms (569.3 KiB/s)
+Importing environment from SD ...
+Hit any key to stop autoboot:  0  0
+Pluto>
+Pluto>
+Pluto>
+# >>> version
+version
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+arm-poky-linux-gnueabi-gcc (GCC) 13.4.0
+GNU ld (GNU Binutils) 2.42.0.20240723
+Pluto>
+# >>> bdinfo
+bdinfo
+arch_number = 0x00000000
+boot_params = 0x00000000
+DRAM bank   = 0x00000000
+-> start    = 0x00000000
+-> size     = 0x40000000
+baudrate    = 115200 bps
+TLB addr    = 0x3FFF0000
+relocaddr   = 0x3FF43000
+reloc off   = 0x3BF43000
+irq_sp      = 0x3EB22ED0
+sp start    = 0x3EB22EC0
+ARM frequency = 666 MHz
+DSP frequency = 0 MHz
+DDR frequency = 533 MHz
+Pluto>
+# >>> help sf
+help sf
+sf - SPI flash sub-system
+
+Usage:
+sf probe [[bus:]cs] [hz] [mode]	- init flash device on given SPI bus
+				  and chip select
+sf read addr offset|partition len	- read `len' bytes starting at
+				          `offset' or from start of mtd
+					  `partition'to memory at `addr'
+sf write addr offset|partition len	- write `len' bytes from memory
+				          at `addr' to flash at `offset'
+					  or to start of mtd `partition'
+sf erase offset|partition [+]len	- erase `len' bytes from `offset'
+					  or from start of mtd `partition'
+					 `+len' round up `len' to block size
+sf update addr offset|partition len	- erase and write `len' bytes from memory
+					  at `addr' to flash at `offset'
+					  or to start of mtd `partition'
+sf protect lock/unlock sector len	- protect/unprotect 'len' bytes starting
+					  at address 'sector'
+
+Pluto>
+# >>> help spi
+help spi
+Unknown command 'spi' - try 'help' without arguments for list of all known commands
+
+Pluto>
+# >>> help sspi
+help sspi
+sspi - SPI utility command
+
+Usage:
+sspi [<bus>:]<cs>[.<mode>] <bit_len> <dout> - Send and receive bits
+<bus>     - Identifies the SPI bus
+<cs>      - Identifies the chip select
+<mode>    - Identifies the SPI mode to use
+<bit_len> - Number of bits to send (base 10)
+<dout>    - Hexadecimal string that gets sent
+Pluto>
+# >>> help mtd
+help mtd
+Unknown command 'mtd' - try 'help' without arguments for list of all known commands
+
+Pluto>
+# >>> help md
+help md
+md - memory display
+
+Usage:
+md [.b, .w, .l] address [# of objects]
+Pluto>
+# >>> sf probe
+sf probe
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+Pluto>
+# >>> sf
+sf
+sf - SPI flash sub-system
+
+Usage:
+sf probe [[bus:]cs] [hz] [mode]	- init flash device on given SPI bus
+				  and chip select
+sf read addr offset|partition len	- read `len' bytes starting at
+				          `offset' or from start of mtd
+					  `partition'to memory at `addr'
+sf write addr offset|partition len	- write `len' bytes from memory
+				          at `addr' to flash at `offset'
+					  or to start of mtd `partition'
+sf erase offset|partition [+]len	- erase `len' bytes from `offset'
+					  or from start of mtd `partition'
+					 `+len' round up `len' to block size
+sf update addr offset|partition len	- erase and write `len' bytes from memory
+					  at `addr' to flash at `offset'
+					  or to start of mtd `partition'
+sf protect lock/unlock sector len	- protect/unprotect 'len' bytes starting
+					  at address 'sector'
+
+Pluto>
+# >>> printenv qspiboot fit_size qspi_offset qspi_size kernel_size loadaddr ramdisk_loadaddr devicetree_loadaddr
+printenv qspiboot fit_size qspi_offset qspi_size kernel_size loadaddr ramdisk_loadaddr devicetree_loadaddr
+qspiboot=set stdout nulldev;adi_hwref;test -n $PlutoRevA || gpio input 14 && set stdout serial@e0001000 && sf probe && sf protect lock 0 100000 && run dfu_sf;  set stdout serial@e0001000;itest *f8000258 == 480003 && run clear_reset_cause && run dfu_sf; itest *f8000258 == 480007 && run clear_reset_cause && run ramboot_verbose; itest *f8000258 == 480006 && run clear_reset_cause && run qspiboot_verbose; itest *f8000258 == 480002 && run clear_reset_cause && exit; echo Booting silently && set stdout nulldev; run read_sf && run adi_loadvals; envversion;setenv bootargs console=ttyPS0,115200 maxcpus=${maxcpus} rootfstype=ramfs root=/dev/ram0 rw quiet loglevel=4 clk_ignore_unused uboot="${uboot-version}" && bootm ${fit_load_address}#${fit_config} || set stdout serial@e0001000;echo BOOT failed entering DFU mode ... && sf protect lock 0 100000 && run dfu_sf
+fit_size=0x900000
+## Error: "qspi_offset" not defined
+## Error: "qspi_size" not defined
+## Error: "kernel_size" not defined
+## Error: "loadaddr" not defined
+## Error: "ramdisk_loadaddr" not defined
+## Error: "devicetree_loadaddr" not defined
+Pluto>
+# >>> reset
+reset
+resetting ...
+
+
+U-Boot 2016.07 (May 10 2026 - 17:10:23 +0000)
+
+I2C:   ready
+DRAM:  ECC disabled 1 GiB
+MMC:   sdhci@e0100000: 0
+SF: Detected W25Q256 with page size 256 Bytes, erase size 4 KiB, total 32 MiB
+*** Warning - bad CRC, using default environment
+
+In:    serial@e0001000
+Out:   serial@e0001000
+Err:   serial@e0001000
+Model: Zynq Pluto SDR Board
+reading uEnv.txt
+7585 bytes read in 13 ms (569.3 KiB/s)
+Importing environment from SD ...
+Hit any key to stop autoboot:  0
+Device: sdhci@e0100000
+Manufacturer ID: 6f
+OEM: 303
+Name: SDABC
+Tran Speed: 50000000
+Rd Block Len: 512
+SD version 3.0
+High Capacity: Yes
+Capacity: 29.2 GiB
+Bus Width: 4-bit
+Erase Group Size: 512 Bytes
+reading uEnv.txt
+7585 bytes read in 13 ms (569.3 KiB/s)
+Loaded environment from uEnv.txt
+Importing environment from SD ...
+Copying Linux from SD to RAM...
+reading uImage
+4756528 bytes read in 262 ms (17.3 MiB/s)
+reading devicetree.dtb
+19852 bytes read in 18 ms (1.1 MiB/s)
+reading uramdisk.image.gz
+21873607 bytes read in 1137 ms (18.3 MiB/s)
+## Booting kernel from Legacy Image at 02080000 ...
+   Image Name:   FieldMesh z203 Yocto Linux
+   Image Type:   ARM Linux Kernel Image (uncompressed)
+   Data Size:    4756464 Bytes = 4.5 MiB
+   Load Address: 00008000
+   Entry Point:  00008000
+   Verifying Checksum ... OK
+## Loading init Ramdisk from Legacy Image at 04000000 ...
+   Image Name:   FieldMesh z203 Yocto initramfs
+   Image Type:   ARM Linux RAMDisk Image (gzip compressed)
+   Data Size:    21873543 Bytes = 20.9 MiB
+   Load Address: 00000000
+   Entry Point:  00000000
+   Verifying Checksum ... OK
+## Flattened Device Tree blob at 02000000
+   Booting using the fdt blob at 0x2000000
+   Loading Kernel Image ... OK
+   Loading Ramdisk to 1eb23000, end 1ffff387 ... OK
+   Loading Device Tree to 1eb1b000, end 1eb22d8b ... OK
+
+Starting kernel ...
+
+Booting Linux on physical CPU 0x0
+Linux version 6.1.0 (oe-user@oe-host) (arm-poky-linux-gnueabi-gcc (GCC) 13.4.0, GNU ld (GNU Binutils) 2.42.0.20240723) #1 SMP PREEMPT Sun May 10 18:17:23 UTC 2026
+CPU: ARMv7 Processor [413fc090] revision 0 (ARMv7), cr=18c5387d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+OF: fdt: Machine model: Analog Devices PlutoSDR Rev.C (Z7020/AD9363)
+printk: bootconsole [earlycon0] enabled
+Memory policy: Data cache writealloc
+cma: Reserved 256 MiB at 0x30000000
+Zone ranges:
+  Normal   [mem 0x0000000000000000-0x000000002fffffff]
+  HighMem  [mem 0x0000000030000000-0x000000003fffffff]
+Movable zone start for each node
+Early memory node ranges
+  node   0: [mem 0x0000000000000000-0x000000003fffffff]
+Initmem setup node 0 [mem 0x0000000000000000-0x000000003fffffff]
+percpu: Embedded 11 pages/cpu s14100 r8192 d22764 u45056
+Built 1 zonelists, mobility grouping on.  Total pages: 260608
+Kernel command line: console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk
+Dentry cache hash table entries: 131072 (order: 7, 524288 bytes, linear)
+Inode-cache hash table entries: 65536 (order: 6, 262144 bytes, linear)
+mem auto-init: stack:all(zero), heap alloc:off, heap free:off
+Memory: 743312K/1048576K available (7168K kernel code, 680K rwdata, 2136K rodata, 1024K init, 137K bss, 43120K reserved, 262144K cma-reserved, 0K highmem)
+rcu: Preemptible hierarchical RCU implementation.
+rcu: 	RCU event tracing is enabled.
+rcu: 	RCU restricting CPUs from NR_CPUS=4 to nr_cpu_ids=2.
+rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=2
+NR_IRQS: 16, nr_irqs: 16, preallocated irqs: 16
+efuse mapped to (ptrval)
+slcr mapped to (ptrval)
+L2C: platform modifies aux control register: 0x72360000 -> 0x72760000
+L2C: DT/platform modifies aux control register: 0x72360000 -> 0x72760000
+L2C-310 erratum 769419 enabled
+L2C-310 enabling early BRESP for Cortex-A9
+L2C-310 full line of zeros enabled for Cortex-A9
+L2C-310 ID prefetch enabled, offset 1 lines
+L2C-310 dynamic clock gating enabled, standby mode enabled
+L2C-310 cache controller enabled, 8 ways, 512 kB
+L2C-310: CACHE_ID 0x410000c8, AUX_CTRL 0x76760001
+rcu: srcu_init: Setting srcu_struct sizes based on contention.
+zynq_clock_init: clkc starts at (ptrval)
+Zynq clock init
+sched_clock: 64 bits at 167MHz, resolution 6ns, wraps every 4398046511103ns
+clocksource: arm_global_timer: mask: 0xffffffffffffffff max_cycles: 0x26703d7dd8, max_idle_ns: 440795208065 ns
+Switching to timer-based delay loop, resolution 6ns
+clocksource: ttc_clocksource: mask: 0xffff max_cycles: 0xffff, max_idle_ns: 537538477 ns
+timer #0 at (ptrval), irq=25
+Console: colour dummy device 80x30
+Calibrating delay loop (skipped), value calculated using timer frequency.. 333.33 BogoMIPS (lpj=1666666)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 2048 (order: 1, 8192 bytes, linear)
+Mountpoint-cache hash table entries: 2048 (order: 1, 8192 bytes, linear)
+CPU: Testing write buffer coherency: ok
+CPU0: Spectre v2: using BPIALL workaround
+CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+Setting up static identity map for 0x100000 - 0x100060
+rcu: Hierarchical SRCU implementation.
+rcu: 	Max phase no-delay instances is 1000.
+smp: Bringing up secondary CPUs ...
+CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+CPU1: Spectre v2: using BPIALL workaround
+smp: Brought up 1 node, 2 CPUs
+SMP: Total of 2 processors activated (666.66 BogoMIPS).
+CPU: All CPU(s) started in SVC mode.
+devtmpfs: initialized
+VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 4
+clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+futex hash table entries: 512 (order: 3, 32768 bytes, linear)
+pinctrl core: initialized pinctrl subsystem
+NET: Registered PF_NETLINK/PF_ROUTE protocol family
+DMA: preallocated 256 KiB pool for atomic coherent allocations
+thermal_sys: Registered thermal governor 'step_wise'
+cpuidle: using governor ladder
+amba f8801000.etb: Fixing up cyclic dependency with replicator
+amba f8803000.tpiu: Fixing up cyclic dependency with replicator
+amba f8804000.funnel: Fixing up cyclic dependency with replicator
+amba f889c000.ptm: Fixing up cyclic dependency with f8804000.funnel
+amba f889d000.ptm: Fixing up cyclic dependency with f8804000.funnel
+hw-breakpoint: found 5 (+1 reserved) breakpoint and 1 watchpoint registers.
+hw-breakpoint: maximum watchpoint size is 4 bytes.
+e0001000.serial: ttyPS0 at MMIO 0xe0001000 (irq = 27, base_baud = 6249999) is a xuartps
+printk: console [ttyPS0] enabled
+printk: console [ttyPS0] enabled
+printk: bootconsole [earlycon0] disabled
+printk: bootconsole [earlycon0] disabled
+SCSI subsystem initialized
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+pps_core: LinuxPPS API ver. 1 registered
+pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+PTP clock support registered
+FPGA manager framework
+clocksource: Switched to clocksource arm_global_timer
+NET: Registered PF_INET protocol family
+IP idents hash table entries: 16384 (order: 5, 131072 bytes, linear)
+tcp_listen_portaddr_hash hash table entries: 512 (order: 0, 4096 bytes, linear)
+Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+TCP established hash table entries: 8192 (order: 3, 32768 bytes, linear)
+TCP bind hash table entries: 8192 (order: 5, 131072 bytes, linear)
+TCP: Hash tables configured (established 8192 bind 8192)
+UDP hash table entries: 512 (order: 2, 16384 bytes, linear)
+UDP-Lite hash table entries: 512 (order: 2, 16384 bytes, linear)
+NET: Registered PF_UNIX/PF_LOCAL protocol family
+Trying to unpack rootfs image as initramfs...
+armv7-pmu f8891000.pmu: hw perfevents: no interrupt-affinity property, guessing.
+hw perfevents: enabled with armv7_cortex_a9 PMU driver, 7 counters available
+Initialise system trusted keyrings
+workingset: timestamp_bits=30 max_order=18 bucket_order=0
+jffs2: version 2.2. (NAND) ?? 2001-2006 Red Hat, Inc.
+Key type asymmetric registered
+Asymmetric key parser 'x509' registered
+bounce: pool size: 64 pages
+Block layer SCSI generic (bsg) driver version 0.4 loaded (major 248)
+io scheduler mq-deadline registered
+io scheduler kyber registered
+zynq-pinctrl 700.pinctrl: zynq pinctrl initialized
+brd: module loaded
+loop: module loaded
+SPI driver spidev has no spi_device_id for adi,swspi
+spi-nor spi0.0: failed to read ear reg
+spi-nor spi0.0: w25q256 (32768 Kbytes)
+4 fixed-partitions partitions found on MTD device spi0.0
+Creating 4 MTD partitions on "spi0.0":
+0x000000000000-0x000000100000 : "qspi-fsbl-uboot"
+0x000000100000-0x000000120000 : "qspi-uboot-env"
+0x000000120000-0x000000200000 : "qspi-nvmfs"
+0x000000200000-0x000002000000 : "qspi-linux"
+tun: Universal TUN/TAP device driver, 1.6
+Freeing initrd memory: 21364K
+xgmiitorgmii e000b000.ethernet-ffffffff:08: Attached phy not ready
+macb e000b000.ethernet eth0: Cadence GEM rev 0x00020118 at 0xe000b000 irq 37 (00:0a:35:00:01:22)
+usbcore: registered new interface driver rt2500usb
+usbcore: registered new interface driver rt73usb
+usbcore: registered new interface driver rt2800usb
+usbcore: registered new interface driver rtl8187
+usbcore: registered new interface driver rtl8192cu
+usbcore: registered new interface driver rtl8xxxu
+usbcore: registered new interface driver r8152
+usbcore: registered new interface driver lan78xx
+usbcore: registered new interface driver asix
+usbcore: registered new interface driver ax88179_178a
+usbcore: registered new interface driver cdc_ether
+usbcore: registered new interface driver dm9601
+usbcore: registered new interface driver smsc75xx
+usbcore: registered new interface driver smsc95xx
+usbcore: registered new interface driver rndis_host
+usbcore: registered new interface driver r8153_ecm
+usbcore: registered new interface driver usb-storage
+usbcore: registered new interface driver usbserial_generic
+usbserial: USB Serial support registered for generic
+usbcore: registered new interface driver ftdi_sio
+usbserial: USB Serial support registered for FTDI USB Serial Device
+i2c_dev: i2c /dev entries driver
+cdns-wdt f8005000.watchdog: Xilinx Watchdog Timer with timeout 10s
+Xilinx Zynq CpuIdle Driver started
+sdhci: Secure Digital Host Controller Interface driver
+sdhci: Copyright(c) Pierre Ossman
+sdhci-pltfm: SDHCI platform and OF driver helper
+ledtrig-cpu: registered to indicate activity on CPUs
+hid: raw HID events driver (C) Jiri Kosina
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+usbcore: registered new interface driver r8712u
+usbcore: registered new interface driver r8188eu
+ad9361 spi1.0: ad9361_probe : enter (ad9361)
+mmc0: SDHCI controller on e0100000.mmc [e0100000.mmc] using ADMA
+mmc0: new high speed SDHC card at address b3f4
+mmcblk0: mmc0:b3f4 SDABC 29.2 GiB
+ mmcblk0: p1
+ad9361 spi1.0: ad9361_probe : AD936x Rev 0 successfully initialized
+cf_axi_dds 79024000.cf-ad9361-dds-core-lpc: Analog Devices CF_AXI_DDS_DDS MASTER (9.02.b) at 0x79024000 mapped to 0x(ptrval), probed DDS AD9361
+fpga_manager fpga0: Xilinx Zynq FPGA Manager registered
+NET: Registered PF_INET6 protocol family
+Segment Routing with IPv6
+In-situ OAM (IOAM) with IPv6
+sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+NET: Registered PF_PACKET protocol family
+lib80211: common routines for IEEE802.11 drivers
+zynq_pm_remap_ocm: Can't get OCM poll
+zynq_pm_suspend_init: Unable to map OCM.
+Registering SWP/SWPB emulation handler
+Loading compiled-in X.509 certificates
+xgmiitorgmii e000b000.ethernet-ffffffff:08: Attached phy not ready
+cf_axi_adc 79020000.cf-ad9361-lpc: ADI AIM (10.03.) at 0x79020000 mapped to 0x(ptrval) probed ADC AD9361 as MASTER
+xgmiitorgmii e000b000.ethernet-ffffffff:08: Attached phy not ready
+xgmiitorgmii e000b000.ethernet-ffffffff:08: Attached phy not ready
+input: gpio_keys as /devices/soc0/gpio_keys/input/input0
+xgmiitorgmii e000b000.ethernet-ffffffff:08: Attached phy not ready
+cfg80211: Loading compiled-in X.509 certificates for regulatory database
+cfg80211: Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+cfg80211: loaded regulatory.db is malformed or signature is missing/invalid
+Freeing unused kernel image (initmem) memory: 1024K
+Run /init as init process
+
+INIT: version 3.04 booting
+
+Starting udev
+udevd[403]: starting version 3.2.14
+random: crng init done
+udevd[404]: starting eudev-3.2.14
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0000000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0000001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00000024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0001000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0001001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00010024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0002000c: 0xfece instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020010: 0xeced instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020014: 0xdff6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020018: 0xdd5d instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0002001c: 0xcff5 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020020: 0xd7c5 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00020024: 0xc5f5 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00020504 ends at 0x00020508
+jffs2: Empty flash at 0x00020ba8 ends at 0x00020bac
+jffs2: Empty flash at 0x0002100c ends at 0x00021010
+jffs2: Empty flash at 0x00027c7c ends at 0x00027c80
+jffs2: Empty flash at 0x00027c84 ends at 0x00027c88
+jffs2: Empty flash at 0x00027dc4 ends at 0x00027dc8
+jffs2: Empty flash at 0x000280ec ends at 0x000280f0
+jffs2: Empty flash at 0x00028140 ends at 0x00028144
+jffs2: Empty flash at 0x0002da7c ends at 0x0002da80
+jffs2: Empty flash at 0x0002db38 ends at 0x0002db3c
+jffs2: Empty flash at 0x0002dccc ends at 0x0002dcd0
+jffs2: Empty flash at 0x0002e244 ends at 0x0002e248
+jffs2: Empty flash at 0x0002e5cc ends at 0x0002e5d0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030000: 0x7645 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030004: 0xc645 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030008: 0x444c instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0003000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030018: 0x4445 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0003001c: 0xc446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00030024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000310a4 ends at 0x000310a8
+jffs2: Empty flash at 0x00031238 ends at 0x0003123c
+jffs2: Empty flash at 0x00031590 ends at 0x00031594
+jffs2: Empty flash at 0x00031b24 ends at 0x00031b28
+jffs2: Empty flash at 0x0003b0f8 ends at 0x0003b0fc
+jffs2: Empty flash at 0x0003b1fc ends at 0x0003b200
+jffs2: Empty flash at 0x0003b390 ends at 0x0003b394
+jffs2: Empty flash at 0x0003b9b4 ends at 0x0003b9b8
+jffs2: Empty flash at 0x0003bcb0 ends at 0x0003bcb4
+jffs2: Empty flash at 0x0003e6e0 ends at 0x0003e6e4
+jffs2: Empty flash at 0x0003ea2c ends at 0x0003ea30
+jffs2: Empty flash at 0x0003eb9c ends at 0x0003eba0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040004: 0xc444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040008: 0x5644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0004000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040014: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0004001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00040024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00042168 ends at 0x0004216c
+jffs2: Empty flash at 0x000422fc ends at 0x00042300
+jffs2: Empty flash at 0x00042490 ends at 0x00042494
+jffs2: Empty flash at 0x00042c5c ends at 0x00042c60
+jffs2: Empty flash at 0x00042df0 ends at 0x00042df4
+jffs2: Empty flash at 0x00045e2c ends at 0x00045e30
+jffs2: Empty flash at 0x0004626c ends at 0x00046270
+jffs2: Empty flash at 0x00049c70 ends at 0x00049c74
+jffs2: Empty flash at 0x00049ca4 ends at 0x00049ca8
+jffs2: Empty flash at 0x0004cba8 ends at 0x0004cbac
+jffs2: Empty flash at 0x0004cd3c ends at 0x0004cd40
+jffs2: Empty flash at 0x0004d59c ends at 0x0004d5a0
+jffs2: Empty flash at 0x0004d738 ends at 0x0004d73c
+jffs2: Empty flash at 0x0004d79c ends at 0x0004d7a0
+jffs2: Empty flash at 0x0004d7b4 ends at 0x0004d7b8
+jffs2: Empty flash at 0x0004d7d8 ends at 0x0004d7e0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0005000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0005001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00050024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00053684 ends at 0x00053688
+jffs2: Empty flash at 0x00053b8c ends at 0x00053b90
+jffs2: Empty flash at 0x00053e5c ends at 0x00053e60
+jffs2: Empty flash at 0x00054184 ends at 0x00054188
+jffs2: Empty flash at 0x00056e70 ends at 0x00056e74
+jffs2: Empty flash at 0x00056f4c ends at 0x00056f50
+jffs2: Empty flash at 0x0005d344 ends at 0x0005d348
+jffs2: Empty flash at 0x0005d378 ends at 0x0005d37c
+jffs2: Empty flash at 0x0005d4d8 ends at 0x0005d4dc
+jffs2: Empty flash at 0x0005d50c ends at 0x0005d510
+jffs2: Empty flash at 0x0005db2c ends at 0x0005db30
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060008: 0x4446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0006000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0006001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060020: 0xc444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00060024: 0xc444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x0006433c ends at 0x00064340
+jffs2: Empty flash at 0x00064434 ends at 0x00064438
+jffs2: Empty flash at 0x000644d0 ends at 0x000644d4
+jffs2: Empty flash at 0x000645c8 ends at 0x000645cc
+jffs2: Empty flash at 0x00064c1c ends at 0x00064c20
+jffs2: Empty flash at 0x00064ccc ends at 0x00064cd0
+jffs2: Empty flash at 0x00064db0 ends at 0x00064db4
+jffs2: Empty flash at 0x000650d8 ends at 0x000650dc
+jffs2: Empty flash at 0x00067be8 ends at 0x00067bec
+jffs2: Empty flash at 0x00067f10 ends at 0x00067f14
+jffs2: Empty flash at 0x000683d0 ends at 0x000683d4
+jffs2: Empty flash at 0x000683e4 ends at 0x000683e8
+jffs2: Empty flash at 0x000683f0 ends at 0x000683f4
+jffs2: Empty flash at 0x00068490 ends at 0x00068494
+jffs2: Empty flash at 0x00068564 ends at 0x00068568
+jffs2: Empty flash at 0x0006888c ends at 0x00068890
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0007000c: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070010: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070014: 0x4446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070018: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0007001c: 0x4644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070020: 0x4644 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00070024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000728cc ends at 0x000728d0
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080000: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0008000c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0008001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00080024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x0008e51c ends at 0x0008e520
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090000: 0x4c44 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090004: 0xec4d instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090008: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009000c: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090010: 0x44e4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090018: 0x45e4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x0009001c: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090020: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x00090024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x00095534 ends at 0x00095538
+jffs2: Empty flash at 0x000956c8 ends at 0x000956cc
+jffs2: Empty flash at 0x00098e80 ends at 0x00098e84
+jffs2: Empty flash at 0x00099014 ends at 0x00099018
+jffs2: Empty flash at 0x0009902c ends at 0x00099030
+jffs2: Empty flash at 0x000990a8 ends at 0x000990ac
+jffs2: Empty flash at 0x000991a8 ends at 0x000991ac
+jffs2: Empty flash at 0x00099244 ends at 0x00099248
+jffs2: Empty flash at 0x0009c5cc ends at 0x0009c5d0
+jffs2: Empty flash at 0x0009c748 ends at 0x0009c74c
+jffs2: Empty flash at 0x0009c750 ends at 0x0009c754
+jffs2: Empty flash at 0x0009c8dc ends at 0x0009c8e0
+jffs2: Empty flash at 0x0009c8e4 ends at 0x0009c8e8
+jffs2: Empty flash at 0x0009c8ec ends at 0x0009c8f0
+jffs2: Empty flash at 0x0009ca70 ends at 0x0009ca74
+jffs2: Empty flash at 0x0009ca84 ends at 0x0009ca8c
+jffs2: Empty flash at 0x0009cf1c ends at 0x0009cf20
+jffs2: Empty flash at 0x0009d3d8 ends at 0x0009d3dc
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0000: 0x56c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0004: 0xffc6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0008: 0xe6e7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a000c: 0xc7ce instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0010: 0xfede instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0014: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a001c: 0xe6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0020: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000a0024: 0xcfce instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000a6e80 ends at 0x000a6e84
+jffs2: Empty flash at 0x000a703c ends at 0x000a7040
+jffs2: Empty flash at 0x000a71a8 ends at 0x000a71ac
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0000: 0x7e7f instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0004: 0xc444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0008: 0xc6c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b000c: 0x44c4 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0010: 0xc6c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0014: 0xc4c6 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0018: 0x44c5 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0020: 0xc6c7 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000b0024: 0x45d5 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000b0c18 ends at 0x000b0c1c
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0000: 0xd446 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0008: 0x4445 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c000c: 0xd44e instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0010: 0x6444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0020: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000c0024: 0x4c44 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000c120c ends at 0x000c1210
+jffs2: Empty flash at 0x000c13a0 ends at 0x000c13a4
+jffs2: Empty flash at 0x000c1494 ends at 0x000c1498
+jffs2: Empty flash at 0x000c1534 ends at 0x000c1538
+jffs2: Empty flash at 0x000c1544 ends at 0x000c1548
+jffs2: Empty flash at 0x000c1b88 ends at 0x000c1b8c
+jffs2: Empty flash at 0x000c78a0 ends at 0x000c78a4
+jffs2: Empty flash at 0x000c78c0 ends at 0x000c78c4
+jffs2: Empty flash at 0x000c7a34 ends at 0x000c7a38
+jffs2: Empty flash at 0x000c7f74 ends at 0x000c7f78
+jffs2: Empty flash at 0x000c8214 ends at 0x000c8218
+jffs2: Empty flash at 0x000cae9c ends at 0x000caea0
+jffs2: Empty flash at 0x000cb030 ends at 0x000cb034
+jffs2: Empty flash at 0x000cb998 ends at 0x000cb99c
+jffs2: Empty flash at 0x000cb9e0 ends at 0x000cb9e4
+jffs2: Empty flash at 0x000cbcc0 ends at 0x000cbcc4
+jffs2: Empty flash at 0x000cbd08 ends at 0x000cbd0c
+jffs2: Empty flash at 0x000cea58 ends at 0x000cea5c
+jffs2: Empty flash at 0x000cea78 ends at 0x000cea7c
+jffs2: Empty flash at 0x000cf0a0 ends at 0x000cf0a4
+jffs2: Empty flash at 0x000cf40c ends at 0x000cf410
+jffs2: Empty flash at 0x000cf414 ends at 0x000cf418
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0000: 0x4546 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0004: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0008: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d000c: 0x444c instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0010: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0014: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0018: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d001c: 0x4444 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0020: 0x4546 instead
+jffs2: jffs2_scan_eraseblock(): Magic bitmask 0x1985 not found at 0x000d0024: 0x4444 instead
+jffs2: Further such events for this erase block will not be printed
+jffs2: Empty flash at 0x000d2b00 ends at 0x000d2b04
+jffs2: Empty flash at 0x000d2e28 ends at 0x000d2e2c
+jffs2: Cowardly refusing to erase blocks on filesystem with no valid JFFS2 nodes
+jffs2: empty_blocks 0, bad_blocks 0, c->nr_blocks 14
+Starting miscellaneous setup: OK
+
+Starting UDC Gadgets: file system registered
+using random self ethernet address
+using random host ethernet address
+Mass Storage Function, version: 2009/09/11
+LUN: removable file: (no medium)
+read descriptors
+read strings
+usb0: HOST MAC 00:e0:22:ad:c8:3b
+usb0: MAC 00:05:f7:19:e7:93
+xgmiitorgmii e000b000.ethernet-ffffffff:08: Attached phy not ready
+OK
+
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+
+Fri Mar  9 12:34:56 UTC 2018
+
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+
+hwclock: can't open '/dev/misc/rtc': No such file or directory
+
+Starting network: macb e000b000.ethernet eth0: PHY [e000b000.ethernet-ffffffff:01] driver [Generic PHY] (irq=POLL)
+macb e000b000.ethernet eth0: configuring for phy/rgmii-rxid link mode
+OK
+
+Starting MSD Daemon: loop7: detected capacity change from 0 to 61440
+cp: can't create symlink '/mnt/msd/logs' to '/var/log': Operation not permitted
+
+cp: can't create symlink '/mnt/msd/var' to '/var/tmp': Operation not permitted
+
+OK
+
+
+INIT: Entering runlevel: 5
+
+
+Configuring network interfaces... ifup: interface lo already configured
+
+ifup: interface usb0 already configured
+
+Cannot find device "usb1"
+
+ifup: interface eth0 already configured
+
+Starting system message bus: dbus.
+
+Starting Dropbear SSH server: Generating 2048 bit rsa key, this may take a while...
+
+macb e000b000.ethernet eth0: unable to generate target frequency: 125000000 Hz
+macb e000b000.ethernet eth0: Link is Up - 1Gbps/Full - flow control tx
+IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+Public key portion is:
+
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDIQpwIal/E2NkZ8EnnHrYMIYCeAQjEkvZwDmCsLF/+ABhvr9yKtNuzDASUKeEe3apnF7ZUOh1+wsWGd1yt+zVQ35OYWBTcf/fDCEdw7jNNEyV1KBSX2Y76gLg4HppAyjeVoN/udGYwyhGEi+ZpytxOCqwMWITY/dniix9scSWHC2RJt34wai80p+Hk2+wCF4imtOAc8ZJma01LY0jMil1LgT+v8evV26jkt9EpdAbN4P1u0kQ3JqxbBSJR+ZWM78mXo9kYlqAL9jNUC8w8ZmlLd9zSErUFI943lZzq85LUDEhhYarqgWGhnQFmmusR5qV34MgUMN9jC3nM02WpF6p/ root@fm-z203
+
+Fingerprint: SHA256:2SiBoR2XGtH1A/o8AYeyz2yyK1RvJaJk1+r+yDxKf9k
+
+dropbear.
+
+Starting rpcbind daemon...done.
+
+Starting bluetooth: bluetoothd.
+
+Starting syslogd/klogd: done
+
+ * Starting Avahi mDNS/DNS-SD Daemon: avahi-daemon
+
+   ...done.
+
+Starting Telephony daemon
+
+Starting Linux NFC daemon
+
+Starting Lighttpd Web Server: lighttpd.
+
+
+
+Poky (Yocto Project Reference Distro) 5.0.17 fm-z203 /dev/ttyPS0
+
+
+
+fm-z203 login:
+# Stopped: 2026-05-15T05:40:51.9196726+08:00

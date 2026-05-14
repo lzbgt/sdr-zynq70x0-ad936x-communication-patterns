@@ -3798,6 +3798,19 @@ program does not clear bits covered by mask `0x44`. The next repair step is to
 inspect SPI NOR status/register/program mode and controller wiring/IO mode
 before any full FIT rewrite.
 
+A follow-up U-Boot capability probe captured the available low-level SPI tools:
+
+```sh
+resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_uboot_spi_status_capability_20260515-053918/
+```
+
+Result: the board booted back into the healthy SD runtime after the probe, and
+U-Boot exposes `sspi` for raw SPI transactions. `sf` read/write/erase commands
+are available, but generic `spi` and `mtd` U-Boot commands are not. This means
+the next safe repair diagnostic is a raw `sspi` status-register probe of the
+W25Q256 write-enable, busy, and protection bits around a small tail-sector
+erase/program operation. Full QSPI FIT repair remains blocked.
+
 ## FieldMesh RTLS Positioning Gate
 
 Built-in RTLS/relative positioning was added as a host and board-probe role:
