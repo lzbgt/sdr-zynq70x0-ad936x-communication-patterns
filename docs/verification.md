@@ -3100,6 +3100,16 @@ init/process state. The install is not considered complete unless
 `TIMEOUT_MS=5000`, fixed log rotation, and the running daemon process uses
 those values.
 
+`tools/verify_fieldmesh_imgui_live_no_profile.sh` is the live installed-board
+GUI gate. It builds the headless ImGui app, starts without a profile, discovers
+the installed Z203 and Z103 daemons from runtime candidates, verifies that the
+connection page does not auto-connect or preselect an AP, then explicitly
+selects each board and refreshes topology. The Z203 view must surface the
+near-field packet-timing TDOA range, while the Z103 view must mark the remote
+absolute GNSS/BDS coordinate as range pending until a compatible local-origin
+coordinate is available. This prevents unanchored GNSS coordinates from being
+rendered as false kilometer-scale peer distance.
+
 The same gate now also verifies command-preset generation:
 
 ```sh

@@ -55,6 +55,11 @@ bool peer_has_position_model(const GuiPeer &peer)
            peer.range_source == "local_origin";
 }
 
+bool peer_source_requires_local_origin(const GuiPeer &peer)
+{
+    return peer.range_source == "gnss_bds_position";
+}
+
 bool peer_has_gnss_position(const GuiPeer &peer)
 {
     return peer.range_source == "gnss_bds_position" ||
@@ -103,7 +108,7 @@ std::string remote_source_for_previous_local(const std::string &source)
     return source;
 }
 
-void normalize_peer_positions_to_local(GuiState *state,
+bool normalize_peer_positions_to_local(GuiState *state,
                                        const std::string &device_eui)
 {
     int local_x_cm = 0;
@@ -119,7 +124,14 @@ void normalize_peer_positions_to_local(GuiState *state,
         }
     }
     if (!found_local) {
-        return;
+        for (GuiPeer &peer : state->peers) {
+            if (peer_source_requires_local_origin(peer)) {
+                peer.x_cm = 0;
+                peer.y_cm = 0;
+                peer.range_source = "gnss_bds_position_pending_local_origin";
+            }
+        }
+        return false;
     }
     for (GuiPeer &peer : state->peers) {
         if (!peer_has_position_model(peer)) {
@@ -137,6 +149,7 @@ void normalize_peer_positions_to_local(GuiState *state,
                 remote_source_for_previous_local(peer.range_source);
         }
     }
+    return true;
 }
 
 bool select_board_eui(GuiState *state, const std::string &device_eui)

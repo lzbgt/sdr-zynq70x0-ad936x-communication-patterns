@@ -126,15 +126,21 @@ Production range sources are GNSS/BDS-GPS positions, BDS/GPS/PPS time-synced
 TOF, and packet-timing TDOA/multilateration from daemon RTLS reports. Board
 hardware capability alone is not enough; the daemon must publish a current
 RTLS position/range report. Test-fixture coordinates may exist only in
-automation profiles. Runtime discovery does not invent physical coordinates.
+automation profiles. Runtime discovery does not invent physical coordinates. A
+remote absolute GNSS/BDS coordinate is not enough to display range unless the
+selected local board also has a compatible local-origin coordinate. Without
+that anchor the topology keeps the peer visually discoverable but reports
+numeric range as pending; TDOA/TOF relative reports can still produce range
+without a GNSS local origin.
+
 Live route metrics update link health, route recommendation, freshness, and
 confidence, but they must not overwrite known co-location coordinates or create
-a synthetic distance. When no position source exists, the topology lays peers
-out visually and labels numeric range as pending. This avoids turning a
-degraded near-field link into a false tens-of-meters distance, and also avoids
-showing a hardcoded lab value such as 1.61 m. The visible range text is drawn
-in a badge so it does not disappear into topology lines. The app snapshot
-exposes `topology_range_calculation`,
+a synthetic distance. When no compatible position source exists, the topology
+lays peers out visually and labels numeric range as pending. This avoids
+turning a degraded near-field link into a false tens-of-meters distance, and
+also avoids showing a hardcoded lab value such as 1.61 m. The visible range
+text is drawn in a badge so it does not disappear into topology lines. The app
+snapshot exposes `topology_range_calculation`,
 `topology_route_metrics_overwrite_position`, `topology_metrics_live`, and
 `topology_update_count` for automated tests and GUI supervisors.
 

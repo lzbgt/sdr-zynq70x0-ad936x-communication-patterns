@@ -24,8 +24,8 @@ with no hardcoded app EUI, board EUI, hostname, endpoint, or fixed AP role.
 
 ## Current FieldMesh Discovery/Firmware Status
 
-Status: BLR binary peer discovery ingestion is now the product path; Z203
-persistent refresh still needs boot/flash repair.
+Status: BLR binary peer discovery ingestion is now the product path; installed
+Z203/Z103 daemon runtime is current; Z203 QSPI repair remains blocked.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary
@@ -35,16 +35,19 @@ compact TLVs. Packet-timing TDOA is now a real TLV value, not a profile-derived
 or hardcoded coordinate, so a peer without a GNSS fix can still publish timing
 observations for topology/range.
 
-The latest live two-board gate passed with forced transient daemon upload:
-Z203 at `192.168.1.10` and Z103 at `192.168.3.1` both handled BLR MAC ingest,
-observed peer discovery, packet-timing RTLS, app control, camera chunk ingress,
-and RF packet-engine handoff without IIO data path, inter-board IP routing, RF
-TX start, or hardware writes.
+The latest live two-board gate passed against installed daemons with transient
+upload disabled: Z203 at `192.168.1.10` and Z103 at `192.168.3.1` both handled
+BLR MAC ingest, observed peer discovery, packet-timing RTLS, app control,
+camera chunk ingress, and RF packet-engine handoff without IIO data path,
+inter-board IP routing, RF TX start, or hardware writes. The installed daemons
+run at power-up with explicit `REQUESTS=0` forever semantics and fixed-size log
+rotation.
 
 Firmware state:
 
-- Z103 `pluto.frm` was flashed and its installed daemon passed the MAC-ingest
-  SDK gate after reboot.
+- Z103 `pluto.frm` was regenerated from the current `fm-z103` product rootfs,
+  flashed, rebooted, and verified. Its installed init script now runs
+  `/usr/bin/fieldmesh-state-daemon-demo serve 0.0.0.0 55441 0 5000`.
 - Z203 SD boot files were restaged and the board is reachable, but the first
   restage used the legacy `sdr-z203-zynq7` deploy directory. The diagnostic
   helper
@@ -64,7 +67,8 @@ Firmware state:
   the installed daemon reports host `fm-z203`, includes `FIELDMESH_MAC_INGEST`,
   and passes `tools/run_fieldmesh_board_sdk_daemon.sh` with
   `UPLOAD_IF_MISSING=0`. Z203 no longer needs `FORCE_UPLOAD=1` when it is
-  booted through this SD path.
+  booted through this SD path. Its installed init script also runs
+  `/usr/bin/fieldmesh-state-daemon-demo serve 0.0.0.0 55441 0 5000`.
 - QSPI refresh remains open because U-Boot environment access is broken from
   Linux and the QSPI `mtd3` readback still does not match the local FIT header.
   A volatile serial test of `setenv fit_size 1B88D3B; run qspiboot` entered
@@ -325,7 +329,11 @@ Current concrete work:
   The current WSLg/developer launcher now uses product deploy aliases for any
   explicitly forced daemon staging, and the runtime-discovery verifier exercises
   32 daemon endpoints with the app discovery buffer sized for 256 boards, so
-  the connection setup page is no longer tied to the old small lab cap.
+  the connection setup page is no longer tied to the old small lab cap. The
+  live no-profile GUI gate now discovers both installed board daemons, keeps
+  board/AP selection explicit, shows Z203->Z103 packet-timing range as
+  near-field, and marks the Z103 view's unanchored remote GNSS coordinate as
+  range pending instead of rendering a false kilometer-scale distance.
 - The next customer-facing performance gate is measurement, not more prose:
   collect real Mbps, concurrent video-lane capacity, range/error, jitter,
   packet loss, and power consumption per Z203/Z103 plan as described in

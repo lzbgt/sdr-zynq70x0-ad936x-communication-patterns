@@ -774,6 +774,11 @@ user and vendor configuration.
   post-reboot init/process state in addition to daemon HELLO capabilities.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
+- `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board
+  ImGui gate. It starts the golden IM app without a profile, discovers Z203 and
+  Z103 daemons at runtime, verifies explicit board/AP selection, and guards
+  topology range handling so unanchored remote GNSS/BDS coordinates remain
+  pending instead of becoming false local distance.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
