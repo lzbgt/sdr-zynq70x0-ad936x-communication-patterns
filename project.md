@@ -720,9 +720,12 @@ user and vendor configuration.
   core with the installed
   Visual Studio Community toolchain, keep board USB/RNDIS/serial devices
   attached to Windows, and use Windows camera capture directly or via a native
-  FFmpeg/GStreamer/wrapper pipe. A WSL Linux app can consume the host built-in
-  camera only through an explicit bridge, not by assuming Windows video devices
-  appear in WSL.
+  FFmpeg/GStreamer/wrapper pipe. `apps/fieldmesh-imgui-control/CMakeLists.txt`
+  and `tools/build_fieldmesh_imgui_windows.ps1` are now the native build
+  boundary: the headless CMake target is verified on WSL, while the visible
+  Windows target uses Visual Studio 2022 plus Dear ImGui/GLFW dependencies. A
+  WSL Linux app can consume the host built-in camera only through an explicit
+  bridge, not by assuming Windows video devices appear in WSL.
   It also supports `--camera-command CMD` and `--preview-command CMD` so a
   Windows/Linux/macOS capture stack can be attached through FFmpeg, GStreamer,
   or a native wrapper process while FieldMesh owns route adaptation and RF

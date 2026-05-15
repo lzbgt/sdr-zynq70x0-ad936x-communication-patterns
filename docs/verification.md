@@ -3080,6 +3080,17 @@ GLFW/OpenGL3 target and runs one WSLg `--smoke-frame` with snapshot output.
 `tools/verify_fieldmesh_sdk.sh` runs both app gates before the broader SDK
 suite.
 
+`tools/verify_fieldmesh_imgui_windows_build_contract.sh` verifies the
+Windows-native GUI build boundary. It checks that
+`apps/fieldmesh-imgui-control/CMakeLists.txt` builds the same symmetric IM app
+core, pure-C SDK object, optional embedded Python API, and optional
+GLFW/OpenGL3 Dear ImGui backend. The gate configures and builds the headless
+CMake target on WSL, runs a snapshot self-test, and syntax-checks the
+PowerShell helper when `powershell.exe` is present. The product Windows build
+entrypoint is `tools/build_fieldmesh_imgui_windows.ps1`, which defaults to the
+Visual Studio 2022 generator and supports a vcpkg `CMAKE_TOOLCHAIN_FILE` for
+GLFW.
+
 `tools/verify_fieldmesh_state_daemon_forever.sh` builds the same
 `fieldmesh-state-daemon-demo` binary and starts it with `REQUESTS=0`. It sends
 two `FIELDMESH_HELLO` requests separated by more than one receive timeout and

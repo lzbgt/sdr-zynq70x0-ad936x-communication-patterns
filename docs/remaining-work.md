@@ -555,11 +555,14 @@ below were later superseded by the current PHY-management two-board gates above:
   the first visible desktop binary path. WSL camera use requires an explicit
   bridge from Windows capture into the Linux process, while the production
   Windows app should build natively with Visual Studio Community and keep board
-  USB/RNDIS/serial plus built-in camera access on the Windows host. The
-  remaining app work is wiring the ImGui panels to live daemon calls and
-  platform capture/preview backends, Windows native build packaging, platform
-  preset installation UX, packaged desktop launchers, deeper platform codec
-  supervision, and the
+  USB/RNDIS/serial plus built-in camera access on the Windows host. The first
+  native build boundary now exists through CMake plus
+  `tools/build_fieldmesh_imgui_windows.ps1`; CI verifies the same app core with
+  the headless CMake target, and the visible Windows target is ready for
+  Dear ImGui/GLFW dependencies through vcpkg or another Windows dependency
+  manager. The remaining app work is wiring the ImGui panels to live daemon
+  calls and platform capture/preview backends, packaged desktop launchers,
+  deeper platform codec supervision, and the
   conducted/shielded RF TX/RX data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A

@@ -154,6 +154,24 @@ through a Windows capture process that streams encoded bytes into the app pipe
 or through a supported USB/video-device forwarding path. The Linux app must not
 assume Windows camera or board devices are automatically present inside WSL.
 
+The native Windows build is CMake-based so it can use the same app core,
+embedded resources, SDK object, and embedded Python module as the WSL build.
+From a Visual Studio Developer PowerShell on the Windows host:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+  -File tools\build_fieldmesh_imgui_windows.ps1 `
+  -ImguiDir C:\path\to\imgui `
+  -VcpkgToolchain C:\path\to\vcpkg\scripts\buildsystems\vcpkg.cmake
+```
+
+That builds `fieldmesh-imgui-control-glfw.exe` with the Visual Studio 2022
+generator by default. Pass `-HeadlessOnly` to build only the no-window app
+model used by CI. The visible target expects GLFW from the Windows dependency
+manager, for example vcpkg. This is the product direction for normal operators:
+Windows keeps the board network/serial devices and host camera, while WSLg
+remains a developer bridge.
+
 For normal WSLg developer launch, do not pass the lab profile. The launcher
 exports a runtime discovery candidate list and the app calls the pure-C SDK
 daemon discovery path, so the connection setup page is populated from board
