@@ -13,12 +13,24 @@ candidates="${FIELDMESH_DISCOVERY_CANDIDATES:-$z203_ip:55441,$z103_ip:55441}"
 
 mkdir -p "$out_dir"
 make -C "$app_dir" BUILD_DIR="$build_dir" all >/dev/null
+cc -std=c99 -Wall -Wextra -Werror \
+    -I"$repo_root/sdk/c/include" \
+    "$repo_root/sdk/c/examples/fieldmesh_state_daemon_demo.c" \
+    "$repo_root/sdk/c/src/fieldmesh_sdk.c" \
+    -o "$out_dir/fieldmesh-state-daemon-demo"
 
 app="$build_dir/fieldmesh-imgui-control-headless"
 if [ ! -x "$app" ]; then
     echo "Missing ImGui app binary: $app" >&2
     exit 1
 fi
+
+"$out_dir/fieldmesh-state-daemon-demo" query "$z203_ip" 55441 5000 \
+    "$z103_eui" "$z103_eui" "$z103_eui" \
+    >"$out_dir/z203_preseed_daemon.ndjson"
+"$out_dir/fieldmesh-state-daemon-demo" query "$z103_ip" 55441 5000 \
+    "$z203_eui" "$z203_eui" "$z203_eui" \
+    >"$out_dir/z103_preseed_daemon.ndjson"
 
 FIELDMESH_IM_BUS_DIR="$out_dir/im-bus" "$app" --self-test \
     --discover-candidates "$candidates" \
@@ -90,13 +102,10 @@ if z203.get("topology_timing_position_peers", 0) < 1:
     raise SystemExit("z203: timing/TDOA position was not surfaced")
 
 z103_range = z103.get("topology_max_peer_range_m")
-if not isinstance(z103_range, (int, float)) or z103_range >= 0:
-    raise SystemExit(
-        "z103: unanchored remote GNSS coordinate produced a false range "
-        f"{z103_range!r}; expected pending range"
-    )
-if z103.get("topology_position_model_peers") != 0:
-    raise SystemExit("z103: unanchored GNSS coordinate still counted as a position")
+if not isinstance(z103_range, (int, float)) or not (0.01 <= z103_range <= 5.0):
+    raise SystemExit(f"z103: expected near-field TDOA range, got {z103_range!r}")
+if z103.get("topology_timing_position_peers", 0) < 1:
+    raise SystemExit("z103: timing/TDOA position was not surfaced")
 
 print(json.dumps({
     "event": "fieldmesh_imgui_live_no_profile",
@@ -104,7 +113,7 @@ print(json.dumps({
     "detected_board_count": default.get("detected_board_count"),
     "z203_range_m": z203_range,
     "z103_range_m": z103_range,
-    "z103_range_pending_without_local_origin": True,
+    "range_source": "preseeded_blr_mac_tdoa_reports",
 }, separators=(",", ":")))
 PY
 

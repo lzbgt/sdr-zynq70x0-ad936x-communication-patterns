@@ -73,6 +73,23 @@ struct ap_summary {
     unsigned requested_ap_seen;
 };
 
+#define APP_MESSAGE_RING_CAPACITY 32u
+#define APP_MESSAGE_PAYLOAD_CAPACITY 512u
+
+struct app_message_record {
+    uint32_t seq;
+    char src_device_eui[FIELDMESH_ID_TEXT_MAX];
+    unsigned char payload[APP_MESSAGE_PAYLOAD_CAPACITY];
+    size_t payload_len;
+};
+
+struct app_message_store {
+    uint32_t next_seq;
+    unsigned count;
+    unsigned head;
+    struct app_message_record records[APP_MESSAGE_RING_CAPACITY];
+};
+
 struct tun_fd_read_context {
     int fd;
     uint32_t wait_ms;
@@ -209,6 +226,36 @@ static int write_hex_payload(char *dst,
     }
     dst[payload_len * 2u] = '\0';
     return 1;
+}
+
+static uint32_t app_message_store_append(struct app_message_store *store,
+                                         const char *src_device_eui,
+                                         const unsigned char *payload,
+                                         size_t payload_len)
+{
+    struct app_message_record *record;
+    unsigned index;
+
+    if (!store || !valid_compact_eui(src_device_eui) || !payload ||
+        payload_len == 0u || payload_len > APP_MESSAGE_PAYLOAD_CAPACITY) {
+        return 0u;
+    }
+    if (store->next_seq == 0u) {
+        store->next_seq = 1u;
+    }
+    index = store->head % APP_MESSAGE_RING_CAPACITY;
+    record = &store->records[index];
+    memset(record, 0, sizeof(*record));
+    record->seq = store->next_seq++;
+    snprintf(record->src_device_eui, sizeof(record->src_device_eui), "%s",
+             src_device_eui);
+    memcpy(record->payload, payload, payload_len);
+    record->payload_len = payload_len;
+    store->head = (store->head + 1u) % APP_MESSAGE_RING_CAPACITY;
+    if (store->count < APP_MESSAGE_RING_CAPACITY) {
+        store->count++;
+    }
+    return record->seq;
 }
 
 static uint16_t test_device_type_for_eui(const char *device_eui)
@@ -1002,6 +1049,7 @@ static int create_demo_state(fieldmesh_context_t **out_context,
 
 static int build_response(fieldmesh_context_t *context,
                           fieldmesh_session_t *session,
+                          struct app_message_store *app_messages,
                           const char *request,
                           char *response,
                           size_t response_len)
@@ -1031,6 +1079,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"requires_mutual_auth_for_production\":1,"
                  "\"supports_app_control_camera\":1,"
                  "\"supports_app_message_send\":1,"
+                 "\"supports_app_message_ingest\":1,"
+                 "\"supports_app_message_poll\":1,"
                  "\"supports_camera_session_plan\":1,"
                  "\"supports_route_metrics\":1,"
                  "\"supports_route_metrics_report\":1,"
@@ -1965,6 +2015,121 @@ static int build_response(fieldmesh_context_t *context,
                  rf_report.plan.uses_inter_board_ip_routing,
                  rf_report.starts_rf_tx,
                  rf_report.writes_hardware);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_APP_MESSAGE_INGEST")) {
+        unsigned char payload[APP_MESSAGE_PAYLOAD_CAPACITY];
+        char src_device_eui[FIELDMESH_ID_TEXT_MAX];
+        char payload_hex[APP_MESSAGE_PAYLOAD_CAPACITY * 2u + 1u];
+        size_t payload_len;
+        uint32_t seq;
+
+        if (!request_device_eui_required(request, "src=", src_device_eui,
+                                         sizeof(src_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_src_eui\"}\n");
+            return 0;
+        }
+        if (copy_request_field(request, "payload_hex=", payload_hex,
+                               sizeof(payload_hex)) <= 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"missing_payload_hex\"}\n");
+            return 0;
+        }
+        payload_len = parse_hex_payload(payload_hex, payload, sizeof(payload));
+        seq = app_message_store_append(app_messages, src_device_eui, payload,
+                                       payload_len);
+        if (seq == 0u) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_payload_hex\"}\n");
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_app_message_ingest\","
+                 "\"ok\":true,"
+                 "\"src_device_eui\":\"%s\","
+                 "\"seq\":%u,"
+                 "\"payload_bytes\":%lu,"
+                 "\"source_path\":\"rf_packet_engine_rx\","
+                 "\"stored_for_app_event_stream\":1,"
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n",
+                 src_device_eui, seq, (unsigned long)payload_len);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_APP_MESSAGE_POLL")) {
+        unsigned since = 0u;
+        unsigned max_messages = 4u;
+        unsigned emitted = 0u;
+        unsigned oldest = 0u;
+        unsigned i;
+        char messages_json[4096];
+        size_t used = 0u;
+
+        (void)request_uint_or_default(request, "since=", 0u, 0u, 0xffffffffu,
+                                      &since);
+        (void)request_uint_or_default(request, "max=", 4u, 1u, 8u,
+                                      &max_messages);
+        messages_json[0] = '\0';
+        if (app_messages && app_messages->count > 0u) {
+            oldest = (app_messages->head + APP_MESSAGE_RING_CAPACITY -
+                      app_messages->count) % APP_MESSAGE_RING_CAPACITY;
+        }
+        for (i = 0u; app_messages && i < app_messages->count &&
+             emitted < max_messages; ++i) {
+            const struct app_message_record *record =
+                &app_messages->records[(oldest + i) %
+                                       APP_MESSAGE_RING_CAPACITY];
+            char payload_out[APP_MESSAGE_PAYLOAD_CAPACITY * 2u + 1u];
+            int wrote;
+
+            if (record->seq <= since ||
+                !write_hex_payload(payload_out, sizeof(payload_out),
+                                   record->payload, record->payload_len)) {
+                continue;
+            }
+            wrote = snprintf(&messages_json[used],
+                             sizeof(messages_json) - used,
+                             "\"message%u_seq\":%u,"
+                             "\"message%u_src\":\"%s\","
+                             "\"message%u_payload_hex\":\"%s\",",
+                             emitted, record->seq,
+                             emitted, record->src_device_eui,
+                             emitted, payload_out);
+            if (wrote < 0 ||
+                (size_t)wrote >= sizeof(messages_json) - used) {
+                break;
+            }
+            used += (size_t)wrote;
+            emitted++;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_app_message_poll\","
+                 "\"ok\":true,"
+                 "\"messages\":%u,"
+                 "\"ring_capacity\":%u,"
+                 "\"stored_messages\":%u,"
+                 "\"next_seq\":%u,"
+                 "%s"
+                 "\"source_path\":\"rf_packet_engine_rx\","
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n",
+                 emitted, APP_MESSAGE_RING_CAPACITY,
+                 app_messages ? app_messages->count : 0u,
+                 app_messages ? app_messages->next_seq : 1u,
+                 messages_json);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_TX_GUARD_PLAN")) {
@@ -3002,6 +3167,7 @@ static int serve_state(const char *bind_ip,
     fieldmesh_socket_t sockfd = INVALID_SOCKET;
     struct sockaddr_in bind_addr;
     struct timeval timeout;
+    struct app_message_store app_messages;
     long handled = 0;
     int serve_forever = requests == 0;
     int rc = 1;
@@ -3009,6 +3175,7 @@ static int serve_state(const char *bind_ip,
     if (create_demo_state(&context, &session, port) != 0) {
         return 1;
     }
+    memset(&app_messages, 0, sizeof(app_messages));
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         goto out;
@@ -3052,7 +3219,8 @@ static int serve_state(const char *bind_ip,
             break;
         }
         request[received] = '\0';
-        if (build_response(context, session, request, response, sizeof(response)) != 0) {
+        if (build_response(context, session, &app_messages, request,
+                           response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),
                      "{\"event\":\"sdk_daemon_error\","
                      "\"error\":\"request_failed\","
@@ -3124,6 +3292,8 @@ static int query_state(const char *host,
     char rf_packet_request[96];
     char rf_guard_request[96];
     char app_message_request[192];
+    char app_message_ingest_request[192];
+    char app_message_poll_request[96];
     char default_app_request[128];
     char explicit_app_request[160];
     char camera_session_request[96];
@@ -3168,6 +3338,12 @@ static int query_state(const char *host,
              "FIELDMESH_APP_MESSAGE_SEND v1 dst=%s "
              "payload_hex=68656c6c6f2d6669656c646d657368",
              route_dst_eui);
+    snprintf(app_message_ingest_request, sizeof(app_message_ingest_request),
+             "FIELDMESH_APP_MESSAGE_INGEST v1 src=%s "
+             "payload_hex=726164696f2d696d2d7278",
+             route_dst_eui);
+    snprintf(app_message_poll_request, sizeof(app_message_poll_request),
+             "FIELDMESH_APP_MESSAGE_POLL v1 since=0 max=4");
     snprintf(rtls_report_request, sizeof(rtls_report_request),
              "FIELDMESH_RTLS_REPORT v1 node=%s gps_lock=0 pps_lock=0 "
              "turnaround_calibrated=1 rssi_dbm=-48 snr_db=26 "
@@ -3226,6 +3402,8 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, rf_packet_request) == 0 &&
         query_once(sockfd, &dst, rf_guard_request) == 0 &&
         query_once(sockfd, &dst, app_message_request) == 0 &&
+        query_once(sockfd, &dst, app_message_ingest_request) == 0 &&
+        query_once(sockfd, &dst, app_message_poll_request) == 0 &&
         query_once(sockfd, &dst, default_app_request) == 0 &&
         query_once(sockfd, &dst, explicit_app_request) == 0 &&
         query_once(sockfd, &dst, camera_session_request) == 0 &&

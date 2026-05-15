@@ -142,7 +142,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 27 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 29 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -339,6 +339,8 @@ swarm_adapter = [row for row in query if row.get("event") == "sdk_daemon_swarm_a
 rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_packet_engine"]
 rf_tx_guard = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_guard_plan"]
 app_message = [row for row in query if row.get("event") == "sdk_daemon_app_message_send"]
+app_message_ingest = [row for row in query if row.get("event") == "sdk_daemon_app_message_ingest"]
+app_message_poll = [row for row in query if row.get("event") == "sdk_daemon_app_message_poll"]
 app_camera = [row for row in query if row.get("event") == "sdk_daemon_app_control_camera"]
 camera_session = [row for row in query if row.get("event") == "sdk_daemon_camera_session_plan"]
 camera_adaptation = [row for row in query if row.get("event") == "sdk_daemon_camera_adaptation"]
@@ -349,7 +351,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 27 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 29 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -362,6 +364,7 @@ if hello[0].get("auth_model") != "root_ca_derived_certs":
 if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_app_message_send",
+            "supports_app_message_ingest", "supports_app_message_poll",
             "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
@@ -518,6 +521,24 @@ for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx",
             "writes_hardware"):
     if app_message[0].get(key) != 0:
         raise SystemExit(f"SDK daemon app message key {key} must be 0")
+if not app_message_ingest or app_message_ingest[0].get("ok") is not True:
+    raise SystemExit("SDK daemon app message ingest path failed")
+if app_message_ingest[0].get("stored_for_app_event_stream") != 1:
+    raise SystemExit("SDK daemon app message was not stored for app event stream")
+if app_message_ingest[0].get("uses_json_on_air") != 0:
+    raise SystemExit("SDK daemon app message ingest must not use JSON on air")
+if not app_message_poll or app_message_poll[0].get("ok") is not True:
+    raise SystemExit("SDK daemon app message poll path failed")
+if app_message_poll[0].get("messages") != 1:
+    raise SystemExit("SDK daemon app message poll did not return the injected message")
+if app_message_poll[0].get("message0_src") != "020000000103":
+    raise SystemExit("SDK daemon app message poll source changed")
+if app_message_poll[0].get("message0_payload_hex") != "726164696f2d696d2d7278":
+    raise SystemExit("SDK daemon app message poll payload changed")
+for key in ("uses_json_on_air", "uses_iio", "uses_inter_board_ip_routing",
+            "starts_rf_tx", "writes_hardware"):
+    if app_message_poll[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon app message poll key {key} must be 0")
 if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
     raise SystemExit("SDK daemon app control/camera query failed")
 app_camera_explicit = [

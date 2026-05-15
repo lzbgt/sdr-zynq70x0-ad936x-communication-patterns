@@ -621,6 +621,73 @@ bool daemon_send_app_message(GuiState *state,
     return true;
 }
 
+void mark_conversation_unread(GuiState *state, const std::string &peer_eui);
+
+bool poll_daemon_app_messages(GuiState *state)
+{
+    const GuiBoard *board = selected_board(*state);
+    fieldmesh_daemon_client_config_t config;
+    char request[96];
+    char response[8192];
+    size_t response_len = 0u;
+    long message_count = 0;
+    bool received = false;
+
+    if (!state->connected_to_board || fixture_message_bus_allowed(*state) ||
+        !board || board->daemon_host.empty() ||
+        state->selected_board_eui.empty()) {
+        return false;
+    }
+    std::memset(&config, 0, sizeof(config));
+    std::snprintf(config.host, sizeof(config.host), "%s",
+                  board->daemon_host.c_str());
+    config.port = static_cast<uint16_t>(board->daemon_port);
+    config.timeout_ms = 250u;
+    std::snprintf(request, sizeof(request),
+                  "FIELDMESH_APP_MESSAGE_POLL v1 since=%u max=4",
+                  state->daemon_message_cursor);
+    if (fieldmesh_daemon_request(&config, request, response, sizeof(response),
+                                 &response_len) != FIELDMESH_OK ||
+        response_len == 0u ||
+        !std::strstr(response, "\"ok\":true")) {
+        return false;
+    }
+    (void)json_number_field(response, "messages", &message_count);
+    for (long i = 0; i < message_count && i < 4; ++i) {
+        char key[48];
+        long seq = 0;
+        std::string src;
+        std::string payload_hex;
+
+        std::snprintf(key, sizeof(key), "message%ld_seq", i);
+        if (!json_number_field(response, key, &seq) || seq <= 0) {
+            continue;
+        }
+        std::snprintf(key, sizeof(key), "message%ld_src", i);
+        if (!json_string_field(response, key, &src) || src.empty() ||
+            src == state->selected_board_eui) {
+            state->daemon_message_cursor =
+                static_cast<unsigned>(seq > 0 ? seq : state->daemon_message_cursor);
+            continue;
+        }
+        std::snprintf(key, sizeof(key), "message%ld_payload_hex", i);
+        if (!json_string_field(response, key, &payload_hex)) {
+            continue;
+        }
+        state->messages.push_back({src, "rx", hex_decode(payload_hex),
+                                   "received_from_daemon_rf"});
+        state->messages_received += 1u;
+        state->daemon_message_cursor = static_cast<unsigned>(seq);
+        state->event_dispatch_count += 1u;
+        mark_conversation_unread(state, src);
+        received = true;
+    }
+    if (received) {
+        state->operation_status = "message_received_from_daemon_rf";
+    }
+    return received;
+}
+
 void mark_conversation_unread(GuiState *state, const std::string &peer_eui)
 {
     for (GuiConversation &conversation : state->conversations) {
@@ -633,17 +700,21 @@ void mark_conversation_unread(GuiState *state, const std::string &peer_eui)
 
 bool poll_message_bus(GuiState *state)
 {
+    bool received = poll_daemon_app_messages(state);
+
     if (state->selected_board_eui.empty()) {
-        return false;
+        return received;
+    }
+    if (!fixture_message_bus_allowed(*state)) {
+        return received;
     }
 
     std::string path = message_bus_path(state->selected_board_eui);
     FILE *in = std::fopen(path.c_str(), "rb");
     char line[1024];
-    bool received = false;
 
     if (!in) {
-        return false;
+        return received;
     }
     if (state->message_bus_read_offset > 0u) {
         (void)std::fseek(in,
@@ -1063,6 +1134,7 @@ void populate_demo_state(GuiState *state)
     state->profile_source = "none";
     state->discovery_candidates.clear();
     state->message_bus_read_offset = 0u;
+    state->daemon_message_cursor = 0u;
     state->topology_zoom = 1.0f;
     state->topology_center_x_cm = 0;
     state->topology_center_y_cm = 0;
@@ -1093,6 +1165,7 @@ bool load_runtime_profile(GuiState *state, const char *path)
     state->messages.clear();
     state->messages_received = 0;
     state->message_bus_read_offset = 0u;
+    state->daemon_message_cursor = 0u;
     while (std::getline(input, line)) {
         if (line.empty() || line[0] == '#') {
             continue;
@@ -1215,6 +1288,7 @@ bool discover_runtime_boards(GuiState *state, const char *candidate_endpoints)
     state->selected_conversation_eui.clear();
     state->connected_to_board = false;
     state->message_bus_read_offset = 0u;
+    state->daemon_message_cursor = 0u;
     state->messages_received = 0u;
     for (size_t i = 0; i < board_count; ++i) {
         state->boards.push_back({boards[i].device_eui,
@@ -1369,6 +1443,8 @@ bool api_select_board(GuiState *state, const std::string &device_eui)
 {
     if (select_board_eui(state, device_eui)) {
         state->connected_to_board = true;
+        state->daemon_message_cursor = 0u;
+        state->message_bus_read_offset = 0u;
         (void)refresh_radio_peers(state);
         select_default_peer_for_local_board(state);
         state->operation_status = "board_connected:" + device_eui;

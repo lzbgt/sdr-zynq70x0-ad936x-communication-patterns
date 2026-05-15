@@ -69,6 +69,8 @@ if not payload.get("device_type"):
 for key in (
     "supports_app_control_camera",
     "supports_app_message_send",
+    "supports_app_message_ingest",
+    "supports_app_message_poll",
     "supports_camera_stream_chunk",
     "supports_route_metrics",
     "supports_route_metrics_report",

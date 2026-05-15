@@ -146,6 +146,7 @@ struct GuiState {
     std::string profile_source;
     std::string discovery_candidates;
     size_t message_bus_read_offset;
+    unsigned daemon_message_cursor;
     float topology_zoom;
     int topology_center_x_cm;
     int topology_center_y_cm;

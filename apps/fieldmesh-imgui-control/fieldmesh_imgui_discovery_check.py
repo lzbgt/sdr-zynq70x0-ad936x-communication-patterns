@@ -148,6 +148,54 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                 "starts_rf_tx": 0,
             }
             sock.sendto((json.dumps(radio, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_APP_MESSAGE_SEND" in data:
+            sent = {
+                "event": "sdk_daemon_app_message_send",
+                "ok": True,
+                "queued_to_rf_engine": 1,
+                "queued_to_sidecar": 1,
+                "uses_json_on_air": 0,
+                "uses_iio": 0,
+                "uses_inter_board_ip_routing": 0,
+                "starts_rf_tx": 0,
+                "writes_hardware": 0,
+            }
+            sock.sendto((json.dumps(sent, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_APP_MESSAGE_POLL" in data:
+            text = data.decode("utf-8", errors="ignore")
+            since = 0
+            for part in text.split():
+                if part.startswith("since="):
+                    try:
+                        since = int(part.split("=", 1)[1])
+                    except ValueError:
+                        since = 0
+                    break
+            messages = payload.get("app_messages", [])
+            unread = [
+                (index + 1, message)
+                for index, message in enumerate(messages)
+                if index + 1 > since
+            ]
+            response = {
+                "event": "sdk_daemon_app_message_poll",
+                "ok": True,
+                "messages": len(unread),
+                "ring_capacity": 32,
+                "stored_messages": len(messages),
+                "next_seq": len(messages) + 1,
+                "source_path": "rf_packet_engine_rx",
+                "uses_json_on_air": 0,
+                "uses_iio": 0,
+                "uses_inter_board_ip_routing": 0,
+                "starts_rf_tx": 0,
+                "writes_hardware": 0,
+            }
+            for index, (seq, message) in enumerate(unread[:4]):
+                response[f"message{index}_seq"] = seq
+                response[f"message{index}_src"] = message["src"]
+                response[f"message{index}_payload_hex"] = message["payload_hex"]
+            sock.sendto((json.dumps(response, separators=(",", ":")) + "\n").encode("utf-8"), addr)
 
 
 def bind_server(payload: dict) -> tuple[socket.socket, int, threading.Thread]:
@@ -174,6 +222,9 @@ def hello(device_eui: str, hostname: str, device_type: str) -> dict:
         "auth_model": "root_ca_derived_certs",
         "requires_mutual_auth_for_production": 1,
         "supports_app_control_camera": 1,
+        "supports_app_message_send": 1,
+        "supports_app_message_ingest": 1,
+        "supports_app_message_poll": 1,
         "supports_camera_session_plan": 1,
         "supports_route_metrics": 1,
         "supports_rtls_position": 1,
@@ -416,6 +467,62 @@ def main() -> int:
                 raise SystemExit("peer GUI instance did not receive IM message")
             if recv["last_received_text"] != "hello fieldmesh peer":
                 raise SystemExit("received IM text changed")
+
+            daemon_env = env.copy()
+            daemon_env.pop("FIELDMESH_IM_ENABLE_FIXTURE_BUS", None)
+            hello_b["app_messages"] = [{
+                "src": "02aabb000001",
+                "payload_hex": "6461656d6f6e2d72782d68656c6c6f",
+            }]
+            daemon_send_snapshot = Path(tmp) / "daemon_send.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000001",
+                    "--api-open-chat",
+                    "02aabb000002",
+                    "--api-send-message",
+                    "daemon tx hello",
+                    "--snapshot-output",
+                    str(daemon_send_snapshot),
+                ],
+                check=True,
+                env=daemon_env,
+            )
+            daemon_send = json.loads(daemon_send_snapshot.read_text(encoding="utf-8"))
+            if daemon_send["messaging_transport"] != "daemon_rf_packet_engine":
+                raise SystemExit("runtime IM send did not use daemon RF transport")
+            if daemon_send["last_message_text"] != "daemon tx hello":
+                raise SystemExit("daemon-backed IM send text changed")
+            daemon_recv_snapshot = Path(tmp) / "daemon_recv.json"
+            subprocess.run(
+                [
+                    str(app),
+                    "--self-test",
+                    "--discover-candidates",
+                    candidates,
+                    "--api-select-board",
+                    "02aabb000002",
+                    "--snapshot-output",
+                    str(daemon_recv_snapshot),
+                ],
+                check=True,
+                env=daemon_env,
+            )
+            daemon_recv = json.loads(daemon_recv_snapshot.read_text(encoding="utf-8"))
+            if daemon_recv["messages_received"] != 1:
+                raise SystemExit(
+                    "daemon-backed IM poll did not surface received message: "
+                    + json.dumps(daemon_recv, sort_keys=True)
+                )
+            if daemon_recv["last_received_text"] != "daemon-rx-hello":
+                raise SystemExit("daemon-backed IM received text changed")
+            if daemon_recv["messaging_transport"] != "daemon_rf_packet_engine":
+                raise SystemExit("runtime IM receive did not use daemon RF transport")
 
             invite_snapshot = Path(tmp) / "video_invite.json"
             subprocess.run(

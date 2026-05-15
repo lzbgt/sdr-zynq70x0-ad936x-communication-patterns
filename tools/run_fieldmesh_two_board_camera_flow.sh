@@ -106,7 +106,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 27:
+    if not end or end[-1].get("handled") != 29:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -132,6 +132,8 @@ def daemon_summary(label, path):
     ]
     rf_engine = one(query, "sdk_daemon_rf_packet_engine")
     app_message = one(query, "sdk_daemon_app_message_send")
+    app_message_ingest = one(query, "sdk_daemon_app_message_ingest")
+    app_message_poll = one(query, "sdk_daemon_app_message_poll")
 
     if hello.get("protocol") != "fieldmesh-eth-sdk" or hello.get("sdk_abi") != "pure_c":
         raise SystemExit(f"{label} HELLO protocol/ABI failed")
@@ -139,6 +141,8 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} HELLO auth model failed")
     if (hello.get("supports_app_control_camera") != 1 or
             hello.get("supports_app_message_send") != 1 or
+            hello.get("supports_app_message_ingest") != 1 or
+            hello.get("supports_app_message_poll") != 1 or
             hello.get("supports_camera_stream_chunk") != 1):
         raise SystemExit(f"{label} HELLO app/camera capabilities failed")
     if hello.get("uses_inter_board_ip_routing") != 0 or hello.get("starts_rf_tx") != 0:
@@ -212,6 +216,14 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} app message RF queue failed")
     if app_message.get("uses_json_on_air") != 0:
         raise SystemExit(f"{label} app message must not use JSON on air")
+    if app_message_ingest.get("ok") is not True or app_message_ingest.get("stored_for_app_event_stream") != 1:
+        raise SystemExit(f"{label} app message ingest failed")
+    if app_message_poll.get("ok") is not True or app_message_poll.get("messages") != 1:
+        raise SystemExit(f"{label} app message poll failed")
+    if app_message_poll.get("message0_payload_hex") != "726164696f2d696d2d7278":
+        raise SystemExit(f"{label} app message poll payload changed")
+    if app_message_ingest.get("uses_json_on_air") != 0 or app_message_poll.get("uses_json_on_air") != 0:
+        raise SystemExit(f"{label} app message receive path must not use JSON on air")
 
     for row_name, row in (
         ("camera_session", camera_session),
@@ -220,6 +232,8 @@ def daemon_summary(label, path):
         ("app_camera", app_camera),
         ("rf_engine", rf_engine),
         ("app_message", app_message),
+        ("app_message_ingest", app_message_ingest),
+        ("app_message_poll", app_message_poll),
     ):
         for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
             if row.get(key) not in (0, False, None):

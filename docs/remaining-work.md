@@ -297,7 +297,11 @@ Current concrete work:
 - Keep the GUI IM transport on the daemon/RF boundary by default.
   `FIELDMESH_APP_MESSAGE_SEND` now requires an explicit destination EUI and
   queues text payload bytes through `swarm0` and the RF packet-engine handoff.
-  The file-backed inbox is a declared automation fixture only and requires
+  The receive side now has the matching daemon event boundary:
+  `FIELDMESH_APP_MESSAGE_INGEST` stores RF/MAC-delivered message bytes in the
+  daemon app-event ring, and the GUI polls `FIELDMESH_APP_MESSAGE_POLL` with a
+  sequence cursor to surface messages in chat history. The file-backed inbox is
+  a declared automation fixture only and requires
   `FIELDMESH_IM_ENABLE_FIXTURE_BUS=1`; profiles alone must not enable it.
 - Keep lab peers out of production SDK contexts. The SDK now starts with an
   empty observed-radio registry unless a test explicitly calls
@@ -336,9 +340,12 @@ Current concrete work:
   32 daemon endpoints with the app discovery buffer sized for 256 boards, so
   the connection setup page is no longer tied to the old small lab cap. The
   live no-profile GUI gate now discovers both installed board daemons, keeps
-  board/AP selection explicit, shows Z203->Z103 packet-timing range as
-  near-field, and marks the Z103 view's unanchored remote GNSS coordinate as
-  range pending instead of rendering a false kilometer-scale distance.
+  board/AP selection explicit, pre-seeds each installed daemon through the
+  same `FIELDMESH_MAC_INGEST`/TDOA report path that live RF RX will feed, and
+  verifies both board views render the near-field packet-timing range without
+  profiles or host-side peer injection. The remaining product work is replacing
+  that verifier pre-seed with continuous over-air BLR declare/listen and RF
+  message receive delivery into the same daemon registries.
 - The next customer-facing performance gate is measurement, not more prose:
   collect real Mbps, concurrent video-lane capacity, range/error, jitter,
   packet loss, and power consumption per Z203/Z103 plan as described in

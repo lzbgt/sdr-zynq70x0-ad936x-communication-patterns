@@ -754,8 +754,12 @@ user and vendor configuration.
   Chat message send now follows the same production boundary: normal runtime
   discovery queues text payloads through daemon `FIELDMESH_APP_MESSAGE_SEND`
   into the board `swarm0`/RF packet-engine handoff with binary `BLR` air
-  framing and `uses_json_on_air=0`. The old file-backed IM inbox is no longer
-  enabled by profiles; it is an explicit CI fixture only, gated by
+  framing and `uses_json_on_air=0`. Receive now has the matching daemon event
+  boundary: RF/MAC receive code can append payloads through
+  `FIELDMESH_APP_MESSAGE_INGEST`, and the GUI event worker polls
+  `FIELDMESH_APP_MESSAGE_POLL` with a sequence cursor to surface messages in
+  the chat history. The old file-backed IM inbox is no longer enabled by
+  profiles; it is an explicit CI fixture only, gated by
   `FIELDMESH_IM_ENABLE_FIXTURE_BUS=1`.
   The app now has a local `Makefile`; `tools/verify_fieldmesh_app_build.sh`
   builds the pure-C SDK object plus the C++ app, verifies Python helpers,
@@ -787,9 +791,10 @@ user and vendor configuration.
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board
   ImGui gate. It starts the golden IM app without a profile, discovers Z203 and
-  Z103 daemons at runtime, verifies explicit board/AP selection, and guards
-  topology range handling so unanchored remote GNSS/BDS coordinates remain
-  pending instead of becoming false local distance.
+  Z103 daemons at runtime, verifies explicit board/AP selection, pre-seeds each
+  installed daemon through the same `FIELDMESH_MAC_INGEST`/TDOA path that live
+  RF RX will feed, and guards topology range handling without profiles or
+  host-side peer fixtures.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

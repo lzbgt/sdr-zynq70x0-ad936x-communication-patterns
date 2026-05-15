@@ -324,6 +324,21 @@ the queued payload leaves the board through `swarm0` and the binary `BLR`
 MAC/RF packet-engine framing. The response must report whether the payload was
 queued to the RF engine and must keep `uses_json_on_air=0`.
 
+`FIELDMESH_APP_MESSAGE_INGEST v1 src=<12-hex-eui> payload_hex=<hex>` is the
+daemon-side receive ingress used by the RF/MAC packet engine to append a
+delivered application payload into the app-event ring. `src` is mandatory and
+is the compact peer EUI from the binary MAC header/TLV context; peer display
+names stay at application declare/profile layers and are not repeated in every
+message frame. The daemon stores the payload with a monotonically increasing
+sequence number and reports `stored_for_app_event_stream=1`.
+
+`FIELDMESH_APP_MESSAGE_POLL v1 since=<seq> max=<n>` is the host-debug event
+stream read used by the GUI event worker. It returns at most `max` stored
+messages newer than `since`, plus `next_seq` for cursor advancement. This is a
+host control/debug shape only; MCU-class hosts should use the binary SDK frame
+encoding in this document, and air radio messages must stay in compact `BLR`
+MAC/TLV framing.
+
 ## Capability Advertisements
 
 Each node periodically advertises:

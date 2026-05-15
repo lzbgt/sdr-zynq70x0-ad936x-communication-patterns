@@ -3117,11 +3117,12 @@ ready after a `.frm` update.
 GUI gate. It builds the headless ImGui app, starts without a profile, discovers
 the installed Z203 and Z103 daemons from runtime candidates, verifies that the
 connection page does not auto-connect or preselect an AP, then explicitly
-selects each board and refreshes topology. The Z203 view must surface the
-near-field packet-timing TDOA range, while the Z103 view must mark the remote
-absolute GNSS/BDS coordinate as range pending until a compatible local-origin
-coordinate is available. This prevents unanchored GNSS coordinates from being
-rendered as false kilometer-scale peer distance.
+selects each board and refreshes topology. The gate pre-seeds each installed
+daemon through `FIELDMESH_MAC_INGEST` using compact BLR/TDOA reports rather
+than a GUI profile, so both selected board views must surface the same
+near-field packet-timing range. This keeps the GUI no-profile path honest while
+the remaining RF work wires continuous over-air BLR declare/listen and message
+receive delivery into the daemon registries.
 
 The same gate now also verifies command-preset generation:
 
@@ -3665,31 +3666,34 @@ instances can operate as peer IM clients. The test-only file inbox is now
 explicitly opted in with `FIELDMESH_IM_ENABLE_FIXTURE_BUS=1`; normal runtime
 discovery does not enable the inbox through profiles.
 
-The daemon-backed IM send path is covered by the SDK daemon query and installed
-two-board gate. `FIELDMESH_HELLO` advertises
-`supports_app_message_send=1`, and `FIELDMESH_APP_MESSAGE_SEND v1 dst=<eui>
-payload_hex=<hex>` requires an explicit compact destination EUI. The daemon
-queues the payload through `swarm0` and the RF packet-engine handoff, reports
-`queued_to_rf_engine=1`, and keeps `uses_json_on_air=0`,
-`uses_inter_board_ip_routing=false`, `starts_rf_tx=false`, and
-`writes_hardware=false`.
+The daemon-backed IM path is covered by the SDK daemon query, ImGui app gate,
+live no-profile GUI gate, and installed two-board gate. `FIELDMESH_HELLO`
+advertises `supports_app_message_send=1`,
+`supports_app_message_ingest=1`, and `supports_app_message_poll=1`.
+`FIELDMESH_APP_MESSAGE_SEND v1 dst=<eui> payload_hex=<hex>` requires an
+explicit compact destination EUI and queues the payload through `swarm0` and
+the RF packet-engine handoff. `FIELDMESH_APP_MESSAGE_INGEST v1 src=<eui>
+payload_hex=<hex>` is the daemon-side RX ingress boundary for RF/MAC-delivered
+application bytes, and `FIELDMESH_APP_MESSAGE_POLL v1 since=<seq> max=<n>`
+returns cursor-based app-event messages for the GUI event worker. The path keeps
+`uses_json_on_air=0`, `uses_inter_board_ip_routing=false`,
+`starts_rf_tx=false`, and `writes_hardware=false`.
 
-Refreshed runtime artifact hashes after adding app/daemon `FIELDMESH_HELLO`,
-the ImGui/Python app boundary, and binary `BLR` MAC peer-discovery ingestion.
-The current live two-board gate uses `FIELDMESH_MAC_INGEST` to feed compact
-presence/TDOA TLVs into the observed peer and RTLS registries before camera
-control/data-plane validation:
+Refreshed runtime artifact hashes after adding app/daemon IM send+receive
+support. The current live two-board gate uses `FIELDMESH_MAC_INGEST` to feed
+compact presence/TDOA TLVs into the observed peer and RTLS registries before
+camera/control/data-plane validation:
 
 ```text
-Z203 rootfs.cpio.gz: 5fe5c6ce0bead635b029bc3bce4928cd2470c91bdc820b5a15de141566f63e34
-Z203 rootfs.tar.gz:  42c309a7e610dfdd867afbafc5bf6839892ac26b9faf0e421f1fbcfa126f97ec
-Z203 pluto.frm:      0df105399107268146bc70ec204686ba81473156e09baaaa856368b4f410ee94
-Z203 pluto.itb:      696ca1c1e42a90ddb89404170118e50130691f0ee654b81d6ee7a36df93699e0
+Z203 rootfs.cpio.gz: 3e78edf24ea817f9e120b4726d4473d8188372c316854f207c601f608fa7ff9f
+Z203 rootfs.tar.gz:  4541b2ce7d64c60fdae083ee54130ef8deb18f67650b61b205ba06dc30295bdd
+Z203 pluto.frm:      af17c99c7a231964b2f0c9040dfa42cc5af5ca4f77fb605fdfbce74af67dac6f
+Z203 pluto.itb:      fdc12aa97eb5d40d20450234e0d36feb126a6377dd385b5efa616d1e9275238a
 Z203 jtag ramdisk:   7349b9059083fdec71fc53550f84b7b97d0a3b3e8b0e108274595d5f13c82700
-Z103 rootfs.cpio.gz: 2faffc278e9d0b0d04b5be15d18c7d0ea6ae763ad63a21fa996d83f77f21bcf2
-Z103 rootfs.tar.gz:  488c028635f9149559ff7c2690161e2fbf6eb84578522eb948ed5de3de0f9ea0
-Z103 pluto.frm:      088dbb698d1bff7365c10f70d7fbc943e7cdfd15d61b8b9473d4e17a61627344
-Z103 pluto.itb:      5bc493bee7f9b8ab6226fb324ba5b2c38587690891271ea6d9c6389b80156b98
+Z103 rootfs.cpio.gz: f45cd6fdc081aa32874479d5ca674adb6c37d9b9d36cb87eab1ec0e20a531963
+Z103 rootfs.tar.gz:  cff9f4c73fb3adc57746d261c4e763997515b76a0a5d003948e094b5488c8444
+Z103 pluto.frm:      f3dfddd955ecc1c4ed852e6b5f239e86c8c12856dedd44b90fdf48c6c5828adb
+Z103 pluto.itb:      1f3928d17b9dd16aeaffd35b06b60b750dd9cf11fcce91c7386de18c9ea94ccf
 Z103 jtag ramdisk:   2663e6726477ef5409970a96230a2365968be8f6d77087381815b3760e749994
 ```
 
