@@ -3109,7 +3109,9 @@ power-up daemon through both the UDP HELLO capability response and the board
 init/process state. The install is not considered complete unless
 `/etc/init.d/S55fieldmesh-state-daemon` contains `REQUESTS=0`,
 `TIMEOUT_MS=5000`, fixed log rotation, and the running daemon process uses
-those values.
+those values. The SSH process-state check retries for up to 90 seconds after
+ping/UDP recovery because Z103 can restore daemon UDP service before SSH is
+ready after a `.frm` update.
 
 `tools/verify_fieldmesh_imgui_live_no_profile.sh` is the live installed-board
 GUI gate. It builds the headless ImGui app, starts without a profile, discovers
@@ -3659,7 +3661,18 @@ state model, and runs `fieldmesh_imgui_pyapi.py` against the executable so
 Python automation can select a board, elect an AP, open chats, send messages,
 and start video publish/subscribe. The same gate runs
 `tools/run_fieldmesh_two_imgui_instances.sh`, which verifies two symmetric GUI
-instances can operate as peer IM clients.
+instances can operate as peer IM clients. The test-only file inbox is now
+explicitly opted in with `FIELDMESH_IM_ENABLE_FIXTURE_BUS=1`; normal runtime
+discovery does not enable the inbox through profiles.
+
+The daemon-backed IM send path is covered by the SDK daemon query and installed
+two-board gate. `FIELDMESH_HELLO` advertises
+`supports_app_message_send=1`, and `FIELDMESH_APP_MESSAGE_SEND v1 dst=<eui>
+payload_hex=<hex>` requires an explicit compact destination EUI. The daemon
+queues the payload through `swarm0` and the RF packet-engine handoff, reports
+`queued_to_rf_engine=1`, and keeps `uses_json_on_air=0`,
+`uses_inter_board_ip_routing=false`, `starts_rf_tx=false`, and
+`writes_hardware=false`.
 
 Refreshed runtime artifact hashes after adding app/daemon `FIELDMESH_HELLO`,
 the ImGui/Python app boundary, and binary `BLR` MAC peer-discovery ingestion.
@@ -3668,15 +3681,15 @@ presence/TDOA TLVs into the observed peer and RTLS registries before camera
 control/data-plane validation:
 
 ```text
-Z203 rootfs.cpio.gz: 9da8a917a6512c3b7f6de3da3d1b8eab8df576c734470e4614af796b0c1ec12e
-Z203 rootfs.tar.gz:  43102bbf9b350e18e9772681df4672f7f731288e10a64ba9cffe5aa8cae62fbd
-Z203 pluto.frm:      aa2159c6080e3260611e077608e396889ca295a9ac98f3d7f706900d7052ac12
-Z203 pluto.itb:      3166d3b91cd8b940ca88764e4accf341ea91f2ad325c11c20e1a7eef5080da9e
+Z203 rootfs.cpio.gz: 5fe5c6ce0bead635b029bc3bce4928cd2470c91bdc820b5a15de141566f63e34
+Z203 rootfs.tar.gz:  42c309a7e610dfdd867afbafc5bf6839892ac26b9faf0e421f1fbcfa126f97ec
+Z203 pluto.frm:      0df105399107268146bc70ec204686ba81473156e09baaaa856368b4f410ee94
+Z203 pluto.itb:      696ca1c1e42a90ddb89404170118e50130691f0ee654b81d6ee7a36df93699e0
 Z203 jtag ramdisk:   7349b9059083fdec71fc53550f84b7b97d0a3b3e8b0e108274595d5f13c82700
-Z103 rootfs.cpio.gz: 0a829dc42dc412045f0687a29a3c04ac8d59fb0d7b3f8ed6a68135b074e5c2f8
-Z103 rootfs.tar.gz:  defc31e585c8ddf3a9a26a6e6d05f5f0bd9f05127cbaa7bf6b25f2e11575de5a
-Z103 pluto.frm:      f61615352930776feb79c8667e0b525acdf126d0fe77d85d28473bcb157545fd
-Z103 pluto.itb:      c63178b1e5e54b071deec8ea15823891d7342dfe88387b7550bd7daecc4d3f65
+Z103 rootfs.cpio.gz: 2faffc278e9d0b0d04b5be15d18c7d0ea6ae763ad63a21fa996d83f77f21bcf2
+Z103 rootfs.tar.gz:  488c028635f9149559ff7c2690161e2fbf6eb84578522eb948ed5de3de0f9ea0
+Z103 pluto.frm:      088dbb698d1bff7365c10f70d7fbc943e7cdfd15d61b8b9473d4e17a61627344
+Z103 pluto.itb:      5bc493bee7f9b8ab6226fb324ba5b2c38587690891271ea6d9c6389b80156b98
 Z103 jtag ramdisk:   2663e6726477ef5409970a96230a2365968be8f6d77087381815b3760e749994
 ```
 

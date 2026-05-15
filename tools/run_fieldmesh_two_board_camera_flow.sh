@@ -106,7 +106,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 26:
+    if not end or end[-1].get("handled") != 27:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -131,12 +131,15 @@ def daemon_summary(label, path):
         if row.get("selection_mode") == "user_explicit"
     ]
     rf_engine = one(query, "sdk_daemon_rf_packet_engine")
+    app_message = one(query, "sdk_daemon_app_message_send")
 
     if hello.get("protocol") != "fieldmesh-eth-sdk" or hello.get("sdk_abi") != "pure_c":
         raise SystemExit(f"{label} HELLO protocol/ABI failed")
     if hello.get("auth_model") != "root_ca_derived_certs":
         raise SystemExit(f"{label} HELLO auth model failed")
-    if hello.get("supports_app_control_camera") != 1 or hello.get("supports_camera_stream_chunk") != 1:
+    if (hello.get("supports_app_control_camera") != 1 or
+            hello.get("supports_app_message_send") != 1 or
+            hello.get("supports_camera_stream_chunk") != 1):
         raise SystemExit(f"{label} HELLO app/camera capabilities failed")
     if hello.get("uses_inter_board_ip_routing") != 0 or hello.get("starts_rf_tx") != 0:
         raise SystemExit(f"{label} HELLO safety invariants failed")
@@ -205,6 +208,10 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} explicit app camera plane status failed")
     if rf_engine.get("queued_to_sidecar") != 1 or rf_engine.get("queued_to_rf_engine") != 1:
         raise SystemExit(f"{label} RF packet-engine handoff failed")
+    if app_message.get("ok") is not True or app_message.get("queued_to_rf_engine") != 1:
+        raise SystemExit(f"{label} app message RF queue failed")
+    if app_message.get("uses_json_on_air") != 0:
+        raise SystemExit(f"{label} app message must not use JSON on air")
 
     for row_name, row in (
         ("camera_session", camera_session),
@@ -212,6 +219,7 @@ def daemon_summary(label, path):
         ("camera_chunk", camera_chunk),
         ("app_camera", app_camera),
         ("rf_engine", rf_engine),
+        ("app_message", app_message),
     ):
         for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
             if row.get(key) not in (0, False, None):

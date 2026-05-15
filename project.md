@@ -751,6 +751,12 @@ user and vendor configuration.
   `fieldmesh_daemon_request()` Ethernet SDK primitive, exercising app-control
   and camera-chunk data-plane requests over the daemon protocol while retaining
   deterministic local preview/snapshot output for tests.
+  Chat message send now follows the same production boundary: normal runtime
+  discovery queues text payloads through daemon `FIELDMESH_APP_MESSAGE_SEND`
+  into the board `swarm0`/RF packet-engine handoff with binary `BLR` air
+  framing and `uses_json_on_air=0`. The old file-backed IM inbox is no longer
+  enabled by profiles; it is an explicit CI fixture only, gated by
+  `FIELDMESH_IM_ENABLE_FIXTURE_BUS=1`.
   The app now has a local `Makefile`; `tools/verify_fieldmesh_app_build.sh`
   builds the pure-C SDK object plus the C++ app, verifies Python helpers,
   snapshot output, dashboard output, preview byte matching, explicit AP/dst
@@ -774,7 +780,9 @@ user and vendor configuration.
   `REQUESTS=0` forever semantics and fixed-size log rotation. Runtime package
   verification rejects stale FIT images whose embedded ramdisk does not match
   the current product rootfs, and connected-board installs verify the
-  post-reboot init/process state in addition to daemon HELLO capabilities.
+  post-reboot init/process state in addition to daemon HELLO capabilities. The
+  post-reboot process check now retries SSH because Z103 can answer ping and
+  daemon UDP before SSH has finished restarting after a `.frm` update.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board

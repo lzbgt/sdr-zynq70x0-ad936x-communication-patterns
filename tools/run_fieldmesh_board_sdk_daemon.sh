@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-26}"
+requests="${REQUESTS:-27}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -167,6 +167,7 @@ join_state = [row for row in query if row.get("event") == "sdk_daemon_join_state
 iio_bridge = [row for row in query if row.get("event") == "sdk_daemon_iio_bridge_plan"]
 rf_packet_engine = [row for row in query if row.get("event") == "sdk_daemon_rf_packet_engine"]
 rf_tx_guard = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_guard_plan"]
+app_message = [row for row in query if row.get("event") == "sdk_daemon_app_message_send"]
 app_camera = [row for row in query if row.get("event") == "sdk_daemon_app_control_camera"]
 camera_session = [row for row in query if row.get("event") == "sdk_daemon_camera_session_plan"]
 camera_adaptation = [row for row in query if row.get("event") == "sdk_daemon_camera_adaptation"]
@@ -178,7 +179,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 26:
+if not end or end[-1].get("handled") != 27:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -190,7 +191,8 @@ if hello[0].get("auth_model") != "root_ca_derived_certs":
     raise SystemExit("board SDK daemon HELLO auth model changed")
 if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("board SDK daemon HELLO must require production mutual auth")
-for key in ("supports_app_control_camera", "supports_camera_stream_chunk",
+for key in ("supports_app_control_camera", "supports_app_message_send",
+            "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
             "supports_rtls_report", "supports_mac_ingest"):
@@ -305,6 +307,16 @@ for key in ("sets_tx_enable", "sets_tx_armed", "live_arm_requested",
             "writes_hardware", "commands_executed"):
     if rf_tx_guard[0].get(key) != 0:
         raise SystemExit(f"board SDK daemon RF TX guard key {key} must be 0")
+if not app_message or app_message[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon app message send path failed")
+if app_message[0].get("queued_to_rf_engine") != 1:
+    raise SystemExit("board SDK daemon app message was not queued to RF packet engine")
+if app_message[0].get("uses_json_on_air") != 0:
+    raise SystemExit("board SDK daemon app messages must not use JSON on air")
+for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx",
+            "writes_hardware"):
+    if app_message[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon app message key {key} must be 0")
 if not app_camera or app_camera[0].get("app") != "fieldmesh-control-camera":
     raise SystemExit("board SDK daemon app control/camera response failed")
 app_camera_explicit = [

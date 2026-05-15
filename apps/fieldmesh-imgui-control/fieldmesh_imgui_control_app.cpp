@@ -567,6 +567,60 @@ bool append_message_bus(const std::string &src_eui,
     return append_bus_event(src_eui, dst_eui, "MESSAGE", text);
 }
 
+bool fixture_message_bus_allowed(const GuiState &state)
+{
+    const char *env = std::getenv("FIELDMESH_IM_ENABLE_FIXTURE_BUS");
+
+    (void)state;
+    if (env && (std::strcmp(env, "1") == 0 ||
+                std::strcmp(env, "true") == 0 ||
+                std::strcmp(env, "yes") == 0)) {
+        return true;
+    }
+    return false;
+}
+
+bool daemon_send_app_message(GuiState *state,
+                             const std::string &dst_eui,
+                             const std::string &text)
+{
+    const GuiBoard *board = selected_board(*state);
+    fieldmesh_daemon_client_config_t config;
+    std::string payload_hex;
+    char request[768];
+    char response[2048];
+    size_t response_len = 0u;
+
+    if (!state->connected_to_board || !board || board->daemon_host.empty() ||
+        dst_eui.empty() || text.empty()) {
+        return false;
+    }
+    payload_hex = hex_encode(text);
+    if (payload_hex.size() >= 512u) {
+        state->operation_status = "message_too_large";
+        return false;
+    }
+    std::memset(&config, 0, sizeof(config));
+    std::snprintf(config.host, sizeof(config.host), "%s",
+                  board->daemon_host.c_str());
+    config.port = static_cast<uint16_t>(board->daemon_port);
+    config.timeout_ms = 500u;
+    std::snprintf(request, sizeof(request),
+                  "FIELDMESH_APP_MESSAGE_SEND v1 dst=%s payload_hex=%s",
+                  dst_eui.c_str(), payload_hex.c_str());
+    if (fieldmesh_daemon_request(&config, request, response, sizeof(response),
+                                 &response_len) != FIELDMESH_OK ||
+        response_len == 0u ||
+        !std::strstr(response, "\"ok\":true")) {
+        return false;
+    }
+    if (std::strstr(response, "\"queued_to_rf_engine\":1")) {
+        state->camera.queued_to_rf_engine += 1u;
+    }
+    state->operation_status = "message_queued_to_daemon_rf";
+    return true;
+}
+
 void mark_conversation_unread(GuiState *state, const std::string &peer_eui)
 {
     for (GuiConversation &conversation : state->conversations) {
@@ -1358,6 +1412,10 @@ bool api_open_conversation(GuiState *state, const std::string &peer_eui)
 
 bool api_send_message(GuiState *state, const std::string &text)
 {
+    bool daemon_ok = false;
+    bool fixture_ok = false;
+    const bool use_fixture_bus = fixture_message_bus_allowed(*state);
+
     if (!state->selected_board_eui.empty() &&
         (state->selected_conversation_eui.empty() ||
          state->selected_conversation_eui == state->selected_board_eui)) {
@@ -1369,17 +1427,26 @@ bool api_send_message(GuiState *state, const std::string &text)
         text.empty()) {
         return false;
     }
-    if (!append_message_bus(state->selected_board_eui,
-                            state->selected_conversation_eui,
-                            text)) {
+    if (use_fixture_bus) {
+        fixture_ok = append_message_bus(state->selected_board_eui,
+                                        state->selected_conversation_eui,
+                                        text);
+    } else {
+        daemon_ok = daemon_send_app_message(
+            state, state->selected_conversation_eui, text);
+    }
+    if (!daemon_ok && !fixture_ok) {
         state->operation_status = "message_send_failed";
         return false;
     }
     state->messages.push_back({state->selected_conversation_eui, "tx", text,
-                               "queued_to_fieldmesh"});
+                               daemon_ok ? "queued_to_daemon_rf" :
+                                           "queued_to_fixture_bus"});
     state->draft_message = text;
     state->messages_sent += 1u;
-    state->operation_status = "python_api_message_sent";
+    if (fixture_ok) {
+        state->operation_status = "python_api_message_sent";
+    }
     return true;
 }
 
@@ -1539,6 +1606,11 @@ bool write_snapshot(const GuiState &state, const char *path)
     std::string escaped_python_log;
     std::string escaped_draft_message;
     std::string escaped_last_received;
+    const char *messaging_transport =
+        state.connected_to_board && state.profile_source == "runtime_discovery" ?
+        "daemon_rf_packet_engine" :
+        (fixture_message_bus_allowed(state) ? "fixture_inbox" :
+                                             "daemon_rf_packet_engine");
 
     if (!out) {
         std::fprintf(stderr, "failed to open snapshot output: %s\n", path);
@@ -1591,6 +1663,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"peer_discovery\": true,\n"
                  "  \"messaging_available\": true,\n"
                  "  \"messaging_bus\": \"fieldmesh_app_peer_inbox\",\n"
+                 "  \"messaging_transport\": \"%s\",\n"
                  "  \"messaging_receive_poll\": false,\n"
                  "  \"event_receive_worker\": true,\n"
                  "  \"event_dispatch_threaded\": %s,\n"
@@ -1726,6 +1799,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.security.profile_schema_bytes,
                  state.security.auth_policy_bytes,
                  state.security.codec_preset_bytes,
+                 messaging_transport,
                  state.event_worker_enabled ? "true" : "false",
                  state.event_dispatch_count,
                  state.connected_to_board ? "chat" : "connection_setup",

@@ -37,11 +37,11 @@ observations for topology/range.
 
 The latest live two-board gate passed against installed daemons with transient
 upload disabled: Z203 at `192.168.1.10` and Z103 at `192.168.3.1` both handled
-BLR MAC ingest, observed peer discovery, packet-timing RTLS, app control,
-camera chunk ingress, and RF packet-engine handoff without IIO data path,
-inter-board IP routing, RF TX start, or hardware writes. The installed daemons
-run at power-up with explicit `REQUESTS=0` forever semantics and fixed-size log
-rotation.
+BLR MAC ingest, observed peer discovery, packet-timing RTLS, app control, chat
+message send, camera chunk ingress, and RF packet-engine handoff without IIO
+data path, inter-board IP routing, RF TX start, or hardware writes. The
+installed daemons run at power-up with explicit `REQUESTS=0` forever semantics
+and fixed-size log rotation.
 
 Firmware state:
 
@@ -294,6 +294,11 @@ Current concrete work:
   role. Runtime GUI discovery must list boards without auto-connecting and
   without silently electing the first board as AP; AP selection is an explicit
   or daemon-elected control-plane result.
+- Keep the GUI IM transport on the daemon/RF boundary by default.
+  `FIELDMESH_APP_MESSAGE_SEND` now requires an explicit destination EUI and
+  queues text payload bytes through `swarm0` and the RF packet-engine handoff.
+  The file-backed inbox is a declared automation fixture only and requires
+  `FIELDMESH_IM_ENABLE_FIXTURE_BUS=1`; profiles alone must not enable it.
 - Keep lab peers out of production SDK contexts. The SDK now starts with an
   empty observed-radio registry unless a test explicitly calls
   `fieldmesh_seed_test_lab_fixtures()` or sets the verifier fixture flag. A

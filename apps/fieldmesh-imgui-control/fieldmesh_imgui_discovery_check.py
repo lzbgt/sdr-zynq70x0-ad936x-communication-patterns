@@ -215,6 +215,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()
             env["FIELDMESH_IM_BUS_DIR"] = str(Path(tmp) / "im-bus")
+            env["FIELDMESH_IM_ENABLE_FIXTURE_BUS"] = "1"
             default_snapshot = Path(tmp) / "default.json"
             subprocess.run(
                 [

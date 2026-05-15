@@ -26,7 +26,7 @@ if [ ! -x "$app" ]; then
     exit 1
 fi
 
-FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_a_gui_snapshot.json" \
     --daemon-host "$z203_ip" \
@@ -37,7 +37,7 @@ FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --api-send-message "hello from z203 gui" \
     --api-publish-camera 020000000103
 
-FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_b_invite_snapshot.json" \
     --daemon-host "$z103_ip" \
@@ -46,7 +46,7 @@ FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --api-elect-ap 020000000103 \
     --api-open-chat 020000000203
 
-FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_b_accept_snapshot.json" \
     --daemon-host "$z103_ip" \
@@ -54,21 +54,21 @@ FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --api-open-chat 020000000203 \
     --api-accept-video
 
-FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_a_active_snapshot.json" \
     --daemon-host "$z203_ip" \
     --api-select-board 020000000203 \
     --api-open-chat 020000000103
 
-FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_b_frame_snapshot.json" \
     --daemon-host "$z103_ip" \
     --api-select-board 020000000103 \
     --api-open-chat 020000000203
 
-FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_a_screen_invite_snapshot.json" \
     --daemon-host "$z203_ip" \
@@ -76,7 +76,7 @@ FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
     --api-open-chat 020000000103 \
     --api-share-screen 020000000103
 
-FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
+FIELDMESH_IM_ENABLE_FIXTURE_BUS=1 FIELDMESH_IM_BUS_DIR="$screen_bus_dir" "$app" --self-test \
     --profile "$profile" \
     --snapshot-output "$out_dir/peer_b_screen_invite_snapshot.json" \
     --daemon-host "$z103_ip" \
@@ -107,6 +107,7 @@ api_bus = out_dir / "api-im-bus"
 shutil.rmtree(api_bus, ignore_errors=True)
 api_bus.mkdir(parents=True, exist_ok=True)
 os.environ["FIELDMESH_IM_BUS_DIR"] = str(api_bus)
+os.environ["FIELDMESH_IM_ENABLE_FIXTURE_BUS"] = "1"
 
 if peer_a.get("selected_board_eui") != "020000000203":
     raise SystemExit("peer A GUI instance did not select Z203")

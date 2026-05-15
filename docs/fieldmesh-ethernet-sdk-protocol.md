@@ -299,6 +299,7 @@ The prototype `fieldmesh_state_daemon_demo` already checks
 `FIELDMESH_HELLO` capability/security negotiation, AP browse, election, join,
 peer, RTLS, `FIELDMESH_SWARM_ADAPTER`,
 `FIELDMESH_APP_CONTROL_CAMERA`,
+`FIELDMESH_APP_MESSAGE_SEND`,
 `FIELDMESH_CAMERA_SESSION_PLAN`,
 `FIELDMESH_ROUTE_METRICS_REPORT`,
 `FIELDMESH_ROUTE_METRICS`,
@@ -314,6 +315,14 @@ authentication model, scoped authorization expectation, app/camera/route/RF
 capabilities, and safety invariants. Demo builds may report
 `security_state=demo_unprovisioned`, but production deployments must provision
 mutual authentication and authorization before allowing privileged operations.
+
+`FIELDMESH_APP_MESSAGE_SEND v1 dst=<12-hex-eui> payload_hex=<hex>` is the
+host-debug daemon request used by the golden IM app to queue a text/message
+payload into the local board data plane. `dst` is mandatory; the daemon must not
+fall back to a lab EUI. The request syntax is JSON-free host debug text, but
+the queued payload leaves the board through `swarm0` and the binary `BLR`
+MAC/RF packet-engine framing. The response must report whether the payload was
+queued to the RF engine and must keep `uses_json_on_air=0`.
 
 ## Capability Advertisements
 

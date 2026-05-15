@@ -359,6 +359,23 @@ static int request_device_eui_or_default(const char *request,
     return 1;
 }
 
+static int request_device_eui_required(const char *request,
+                                       const char *key,
+                                       char *dst,
+                                       size_t dst_len)
+{
+    int found;
+
+    if (!dst || dst_len == 0u) {
+        return 0;
+    }
+    found = copy_request_field(request, key, dst, dst_len);
+    if (found <= 0 || !valid_compact_eui(dst)) {
+        return 0;
+    }
+    return 1;
+}
+
 static int request_uint_or_default(const char *request,
                                    const char *key,
                                    unsigned default_value,
@@ -1013,6 +1030,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"authorization\":\"scoped_operations\","
                  "\"requires_mutual_auth_for_production\":1,"
                  "\"supports_app_control_camera\":1,"
+                 "\"supports_app_message_send\":1,"
                  "\"supports_camera_session_plan\":1,"
                  "\"supports_route_metrics\":1,"
                  "\"supports_route_metrics_report\":1,"
@@ -1837,6 +1855,116 @@ static int build_response(fieldmesh_context_t *context,
                  rf_report.starts_rf_tx,
                  rf_report.writes_hardware,
                  rf_report.commands_executed);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_APP_MESSAGE_SEND")) {
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_STREAM_API,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 320,
+            .mtu_bytes = 512,
+            .expose_virtual_netdev = 0,
+        };
+        unsigned char payload[512];
+        unsigned char rx_payload[512];
+        fieldmesh_adapter_packet_t tx_packet;
+        fieldmesh_adapter_packet_t rx_packet;
+        fieldmesh_rf_packet_submit_report_t rf_report;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+        char payload_hex[1025];
+        size_t payload_len = 0u;
+        size_t rx_len = 0u;
+
+        if (!request_device_eui_required(request, "dst=", dst_device_eui,
+                                         sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_send\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
+        if (copy_request_field(request, "payload_hex=", payload_hex,
+                               sizeof(payload_hex)) <= 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_send\","
+                     "\"ok\":false,"
+                     "\"error\":\"missing_payload_hex\"}\n");
+            return 0;
+        }
+        payload_len = parse_hex_payload(payload_hex, payload, sizeof(payload));
+        if (payload_len == 0u) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_send\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_payload_hex\"}\n");
+            return 0;
+        }
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", dst_device_eui);
+        if (fieldmesh_open_adapter(session, &adapter_config, &adapter) !=
+                FIELDMESH_OK ||
+            fieldmesh_adapter_send_packet(adapter, FIELDMESH_PAYLOAD_TELEMETRY,
+                                          payload, payload_len,
+                                          &tx_packet) != FIELDMESH_OK ||
+            fieldmesh_adapter_recv_packet(adapter, rx_payload,
+                                          sizeof(rx_payload), &rx_len,
+                                          &rx_packet, 1000) != FIELDMESH_OK ||
+            fieldmesh_submit_rf_packet(adapter, &rx_packet, rx_len, 0u,
+                                       &rf_report) != FIELDMESH_OK ||
+            rx_len != payload_len ||
+            memcmp(rx_payload, payload, rx_len) != 0) {
+            if (adapter) {
+                (void)fieldmesh_close_adapter(adapter);
+            }
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_app_message_send\","
+                     "\"ok\":false,"
+                     "\"dst_device_eui\":\"%s\","
+                     "\"error\":\"message_rf_queue_failed\"}\n",
+                     dst_device_eui);
+            return 0;
+        }
+        (void)tx_packet;
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_app_message_send\","
+                 "\"ok\":true,"
+                 "\"dst_device_eui\":\"%s\","
+                 "\"payload_bytes\":%lu,"
+                 "\"payload_kind\":%u,"
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"sequence\":%u,"
+                 "\"queued_to_rf_engine\":%u,"
+                 "\"queued_to_sidecar\":%u,"
+                 "\"mac_magic\":\"%s\","
+                 "\"mac_header_version\":%u,"
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"starts_rf_tx\":%u,"
+                 "\"writes_hardware\":%u}\n",
+                 dst_device_eui,
+                 (unsigned long)payload_len,
+                 (unsigned)FIELDMESH_PAYLOAD_TELEMETRY,
+                 (unsigned)rf_report.plan.traffic_class,
+                 (unsigned)rf_report.plan.mode,
+                 rf_report.plan.stream_id,
+                 rf_report.plan.sequence,
+                 rf_report.queued_to_rf_engine,
+                 rf_report.queued_to_sidecar,
+                 rf_report.plan.mac_magic,
+                 rf_report.plan.mac_header_version,
+                 rf_report.plan.uses_iio,
+                 rf_report.plan.uses_inter_board_ip_routing,
+                 rf_report.starts_rf_tx,
+                 rf_report.writes_hardware);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_TX_GUARD_PLAN")) {
@@ -2995,6 +3123,7 @@ static int query_state(const char *host,
     char swarm_adapter_request[96];
     char rf_packet_request[96];
     char rf_guard_request[96];
+    char app_message_request[192];
     char default_app_request[128];
     char explicit_app_request[160];
     char camera_session_request[96];
@@ -3035,6 +3164,10 @@ static int query_state(const char *host,
              "FIELDMESH_RF_PACKET_ENGINE v1 dst=%s", route_dst_eui);
     snprintf(rf_guard_request, sizeof(rf_guard_request),
              "FIELDMESH_RF_TX_GUARD_PLAN v1 dst=%s", route_dst_eui);
+    snprintf(app_message_request, sizeof(app_message_request),
+             "FIELDMESH_APP_MESSAGE_SEND v1 dst=%s "
+             "payload_hex=68656c6c6f2d6669656c646d657368",
+             route_dst_eui);
     snprintf(rtls_report_request, sizeof(rtls_report_request),
              "FIELDMESH_RTLS_REPORT v1 node=%s gps_lock=0 pps_lock=0 "
              "turnaround_calibrated=1 rssi_dbm=-48 snr_db=26 "
@@ -3092,6 +3225,7 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, swarm_adapter_request) == 0 &&
         query_once(sockfd, &dst, rf_packet_request) == 0 &&
         query_once(sockfd, &dst, rf_guard_request) == 0 &&
+        query_once(sockfd, &dst, app_message_request) == 0 &&
         query_once(sockfd, &dst, default_app_request) == 0 &&
         query_once(sockfd, &dst, explicit_app_request) == 0 &&
         query_once(sockfd, &dst, camera_session_request) == 0 &&

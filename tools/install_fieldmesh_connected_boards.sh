@@ -68,6 +68,7 @@ if not payload.get("device_type"):
     raise SystemExit(f"{name}: daemon did not report device_type")
 for key in (
     "supports_app_control_camera",
+    "supports_app_message_send",
     "supports_camera_stream_chunk",
     "supports_route_metrics",
     "supports_route_metrics_report",
@@ -94,20 +95,35 @@ PY
 verify_powerup_daemon() {
     host="$1"
     name="$2"
-    sshpass -p "$ssh_pass" ssh \
-        -o ConnectTimeout=10 \
-        -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null \
-        -o LogLevel=ERROR \
-        "${ssh_user}@${host}" \
-        "set -e
-         grep -q '^REQUESTS=0$' /etc/init.d/S55fieldmesh-state-daemon
-         grep -q '^TIMEOUT_MS=5000$' /etc/init.d/S55fieldmesh-state-daemon
-         grep -q '^LOG_MAX_BYTES=262144$' /etc/init.d/S55fieldmesh-state-daemon
-         ps w | grep -F 'fieldmesh-state-daemon-demo serve 0.0.0.0 $port 0 5000' | grep -v grep" \
-        >"$out_dir/${name}_powerup_daemon.txt"
+    local log="$out_dir/${name}_powerup_daemon.txt"
+    local deadline=$((SECONDS + 90))
+    local rc=1
+
+    : >"$log"
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if sshpass -p "$ssh_pass" ssh \
+            -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o LogLevel=ERROR \
+            "${ssh_user}@${host}" \
+            "set -e
+             grep -q '^REQUESTS=0$' /etc/init.d/S55fieldmesh-state-daemon
+             grep -q '^TIMEOUT_MS=5000$' /etc/init.d/S55fieldmesh-state-daemon
+             grep -q '^LOG_MAX_BYTES=262144$' /etc/init.d/S55fieldmesh-state-daemon
+             ps w | grep -F 'fieldmesh-state-daemon-demo serve 0.0.0.0 $port 0 5000' | grep -v grep" \
+            >"$log" 2>&1; then
+            rc=0
+            break
+        fi
+        sleep 3
+    done
+    if [ "$rc" -ne 0 ]; then
+        cat "$log" >&2
+        return "$rc"
+    fi
     echo "${name}_powerup_daemon=pass host=${host} port=${port} requests=0 timeout_ms=5000" \
-        | tee -a "$out_dir/${name}_powerup_daemon.txt"
+        | tee -a "$log"
 }
 
 z203_has_sd_partition() {
