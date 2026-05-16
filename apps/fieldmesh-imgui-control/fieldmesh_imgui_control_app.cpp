@@ -657,6 +657,48 @@ bool daemon_send_app_message(GuiState *state,
     return true;
 }
 
+[[maybe_unused]] bool api_set_device_eui(GuiState *state, bool dry_run)
+{
+    const GuiBoard *board = selected_board(*state);
+    fieldmesh_daemon_client_config_t config;
+    fieldmesh_device_identity_request_t request;
+    fieldmesh_device_identity_report_t report;
+    fieldmesh_status_t status;
+
+    if (!board || board->daemon_host.empty() ||
+        state->provisioning.new_eui.empty()) {
+        state->operation_status = "identity_select_board_and_eui";
+        state->provisioning.last_ok = false;
+        state->provisioning.last_message = "select a board and enter a new EUI";
+        return false;
+    }
+    std::memset(&config, 0, sizeof(config));
+    std::snprintf(config.host, sizeof(config.host), "%s",
+                  board->daemon_host.c_str());
+    config.port = static_cast<uint16_t>(board->daemon_port);
+    config.timeout_ms = 1000u;
+    std::memset(&request, 0, sizeof(request));
+    std::snprintf(request.current_eui, sizeof(request.current_eui), "%s",
+                  board->device_eui.c_str());
+    std::snprintf(request.new_eui, sizeof(request.new_eui), "%s",
+                  state->provisioning.new_eui.c_str());
+    request.persist = state->provisioning.persist ? 1u : 0u;
+    request.reboot_after_apply =
+        state->provisioning.reboot_after_apply ? 1u : 0u;
+    request.require_unique_seen_eui =
+        state->provisioning.require_unique_seen_eui ? 1u : 0u;
+    request.dry_run = dry_run ? 1u : 0u;
+    std::memset(&report, 0, sizeof(report));
+    status = fieldmesh_set_daemon_device_identity(&config, &request, &report);
+    state->provisioning.last_ok = status == FIELDMESH_OK && report.accepted;
+    state->provisioning.last_message =
+        report.message[0] ? report.message : fieldmesh_status_string(status);
+    state->operation_status = state->provisioning.last_ok ?
+        (dry_run ? "identity_change_validated" : "identity_change_requested") :
+        "identity_change_rejected";
+    return state->provisioning.last_ok;
+}
+
 void mark_conversation_unread(GuiState *state, const std::string &peer_eui);
 
 bool poll_daemon_app_messages(GuiState *state)
@@ -1159,6 +1201,14 @@ void populate_demo_state(GuiState *state)
     state->python.runs = 0;
     state->python.page_open = false;
     state->python.last_ok = true;
+    state->provisioning.page_open = false;
+    state->provisioning.persist = true;
+    state->provisioning.reboot_after_apply = true;
+    state->provisioning.dry_run = true;
+    state->provisioning.require_unique_seen_eui = true;
+    state->provisioning.last_ok = true;
+    state->provisioning.new_eui.clear();
+    state->provisioning.last_message = "ready";
     state->topology_page_open = false;
     state->selected_conversation_eui.clear();
     state->draft_message = "FieldMesh link check";
@@ -1834,6 +1884,11 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"python_automation_log_visible\": true,\n"
                  "  \"python_automation_log\": \"%s\",\n"
                  "  \"python_test_harness\": \"fieldmesh_imgui_pyapi.py\",\n"
+                 "  \"device_identity_admin_page\": true,\n"
+                 "  \"device_identity_set_uses_sdk\": true,\n"
+                 "  \"device_identity_persist_supported\": true,\n"
+                 "  \"device_identity_requires_admin_auth\": true,\n"
+                 "  \"device_identity_dry_run_default\": %s,\n"
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
                  "  \"network_topology_page\": true,\n"
                  "  \"topology_distance_hover\": true,\n"
@@ -1950,6 +2005,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  state.python.last_ok ? "true" : "false",
                  escaped_python_output.c_str(),
                  escaped_python_log.c_str(),
+                 state.provisioning.dry_run ? "true" : "false",
                  max_topology_peer_range_m(state),
                  count_position_model_peers(state),
                  count_gnss_position_peers(state),
@@ -2261,6 +2317,7 @@ void render_control_plane_strip(GuiState *state)
     ImGui::SameLine();
     if (ImGui::Button("Topology")) {
         state->python.page_open = false;
+        state->provisioning.page_open = false;
         state->topology_page_open = true;
         (void)refresh_radio_peers(state);
         (void)refresh_topology_metrics(state);
@@ -2270,10 +2327,52 @@ void render_control_plane_strip(GuiState *state)
         state->python.page_open = !state->python.page_open;
         if (state->python.page_open) {
             state->topology_page_open = false;
+            state->provisioning.page_open = false;
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Admin")) {
+        state->provisioning.page_open = !state->provisioning.page_open;
+        if (state->provisioning.page_open) {
+            state->python.page_open = false;
+            state->topology_page_open = false;
         }
     }
     ImGui::Text("Selected AP: %s", state->selected_ap_eui.c_str());
     ImGui::EndChild();
+}
+
+void render_device_identity_admin_page(GuiState *state)
+{
+    char eui_buffer[32];
+    const GuiBoard *board = selected_board(*state);
+
+    std::snprintf(eui_buffer, sizeof(eui_buffer), "%s",
+                  state->provisioning.new_eui.c_str());
+    begin_panel("Device Identity Admin", ImVec2(0.0f, 0.0f));
+    ImGui::Text("Selected board: %s",
+                board ? board->device_eui.c_str() : "none");
+    ImGui::InputText("New EUI", eui_buffer, sizeof(eui_buffer));
+    state->provisioning.new_eui = eui_buffer;
+    ImGui::Checkbox("Persist across reboot", &state->provisioning.persist);
+    ImGui::SameLine();
+    ImGui::Checkbox("Reboot after apply",
+                    &state->provisioning.reboot_after_apply);
+    ImGui::Checkbox("Reject duplicate observed EUI",
+                    &state->provisioning.require_unique_seen_eui);
+    ImGui::Checkbox("Dry run", &state->provisioning.dry_run);
+    if (ImGui::Button("Validate EUI Change", ImVec2(160.0f, 30.0f))) {
+        (void)api_set_device_eui(state, true);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Persist EUI", ImVec2(120.0f, 30.0f))) {
+        (void)api_set_device_eui(state, state->provisioning.dry_run);
+    }
+    ImGui::Separator();
+    ImGui::Text("Result: %s", state->provisioning.last_ok ? "ok" : "failed");
+    ImGui::TextWrapped("%s", state->provisioning.last_message.c_str());
+    ImGui::TextUnformatted("Requires admin authorization and board daemon identity-write scope.");
+    end_panel();
 }
 
 void render_python_automation_page(GuiState *state)
@@ -2560,6 +2659,10 @@ void render_chat_page(GuiState *state)
     render_control_plane_strip(state);
     if (state->python.page_open) {
         render_python_automation_page(state);
+        return;
+    }
+    if (state->provisioning.page_open) {
+        render_device_identity_admin_page(state);
         return;
     }
     if (state->topology_page_open) {

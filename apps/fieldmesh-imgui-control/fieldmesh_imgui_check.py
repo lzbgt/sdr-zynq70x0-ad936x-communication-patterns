@@ -70,6 +70,10 @@ def main() -> int:
         "Python Automation",
         "python-execution-log",
         "Run Script",
+        "Device Identity Admin",
+        "fieldmesh_set_daemon_device_identity",
+        "Validate EUI Change",
+        "Persist EUI",
         "Built-in camera",
         "Accept",
         "Deny",
@@ -254,6 +258,12 @@ def main() -> int:
         raise SystemExit("ImGui app must expose an in-app Python automation page")
     if snapshot.get("python_automation_log_visible") is not True:
         raise SystemExit("Python automation page must expose execution logs")
+    if snapshot.get("device_identity_admin_page") is not True:
+        raise SystemExit("ImGui app must expose device identity admin page")
+    if snapshot.get("device_identity_set_uses_sdk") is not True:
+        raise SystemExit("device identity changes must use the SDK/daemon path")
+    if snapshot.get("device_identity_requires_admin_auth") is not True:
+        raise SystemExit("device identity changes must require admin auth")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit("ImGui app topology viewer must be radio topology")
     if snapshot.get("network_topology_page") is not True:

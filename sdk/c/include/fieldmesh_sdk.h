@@ -206,6 +206,29 @@ typedef struct fieldmesh_discovered_board {
     uint8_t rtls_report_capable;
 } fieldmesh_discovered_board_t;
 
+typedef struct fieldmesh_device_identity_request {
+    char current_eui[FIELDMESH_ID_TEXT_MAX];
+    char new_eui[FIELDMESH_ID_TEXT_MAX];
+    uint8_t persist;
+    uint8_t reboot_after_apply;
+    uint8_t require_unique_seen_eui;
+    uint8_t dry_run;
+} fieldmesh_device_identity_request_t;
+
+typedef struct fieldmesh_device_identity_report {
+    uint8_t accepted;
+    uint8_t persisted;
+    uint8_t reboot_required;
+    uint8_t requires_admin_auth;
+    uint8_t duplicate_seen;
+    uint8_t wrote_jffs2_identity;
+    uint8_t wrote_uboot_env;
+    uint8_t wrote_etc_identity;
+    char old_eui[FIELDMESH_ID_TEXT_MAX];
+    char new_eui[FIELDMESH_ID_TEXT_MAX];
+    char message[FIELDMESH_SECRET_TEXT_MAX];
+} fieldmesh_device_identity_report_t;
+
 typedef struct fieldmesh_network_profile {
     char device_eui[FIELDMESH_ID_TEXT_MAX];
     char node_id[FIELDMESH_ID_TEXT_MAX];
@@ -1028,6 +1051,10 @@ fieldmesh_status_t fieldmesh_discover_daemons(
     fieldmesh_discovered_board_t *out_boards,
     size_t board_capacity,
     size_t *out_board_count);
+fieldmesh_status_t fieldmesh_set_daemon_device_identity(
+    const fieldmesh_daemon_client_config_t *config,
+    const fieldmesh_device_identity_request_t *request,
+    fieldmesh_device_identity_report_t *out_report);
 
 const char *fieldmesh_status_string(fieldmesh_status_t status);
 

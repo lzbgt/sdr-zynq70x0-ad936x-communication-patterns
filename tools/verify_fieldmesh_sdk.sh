@@ -142,7 +142,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 29 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 30 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -323,6 +323,7 @@ import sys
 serve = [json.loads(line) for line in open(sys.argv[1], encoding="utf-8") if line.strip()]
 query = [json.loads(line) for line in open(sys.argv[2], encoding="utf-8") if line.strip()]
 hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
+identity_set = [row for row in query if row.get("event") == "sdk_daemon_device_identity_set"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
 rtls_report = [row for row in query if row.get("event") == "sdk_daemon_rtls_report"]
@@ -351,7 +352,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 29 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 30 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -365,6 +366,7 @@ if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_app_message_ingest", "supports_app_message_poll",
+            "supports_device_identity_set",
             "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
@@ -388,6 +390,12 @@ for key in ("writes_hardware", "commands_executed", "starts_rf_tx"):
         raise SystemExit(f"SDK daemon radio config key {key} must be 0")
 if not mac_ingest or mac_ingest[0].get("ok") is not True:
     raise SystemExit("SDK daemon BLR MAC ingest query failed")
+if not identity_set or identity_set[0].get("ok") is not True:
+    raise SystemExit("SDK daemon device identity set dry-run failed")
+if identity_set[0].get("persisted") != 0 or identity_set[0].get("reboot_required") != 1:
+    raise SystemExit("SDK daemon identity dry-run persistence flags changed")
+if identity_set[0].get("requires_admin_auth") != 1:
+    raise SystemExit("SDK daemon identity set must require admin authorization")
 if mac_ingest[0].get("ingest_api") != "fieldmesh_ingest_mac_frame":
     raise SystemExit("SDK daemon BLR MAC ingest did not use SDK API")
 if mac_ingest[0].get("updates_peer_registry") != 1 or mac_ingest[0].get("uses_json_on_air") != 0:

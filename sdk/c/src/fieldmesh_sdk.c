@@ -204,6 +204,11 @@ static uint8_t sdk_json_get_boolish(const char *json, const char *key)
     return 0u;
 }
 
+static uint8_t sdk_json_get_uint8_boolish(const char *json, const char *key)
+{
+    return sdk_json_get_boolish(json, key);
+}
+
 static int sdk_socket_startup(void)
 {
 #ifdef _WIN32
@@ -3579,6 +3584,64 @@ fieldmesh_status_t fieldmesh_discover_daemons(
         *out_board_count = count;
     }
     return count > 0u ? FIELDMESH_OK : last_status;
+}
+
+fieldmesh_status_t fieldmesh_set_daemon_device_identity(
+    const fieldmesh_daemon_client_config_t *config,
+    const fieldmesh_device_identity_request_t *request,
+    fieldmesh_device_identity_report_t *out_report)
+{
+    char wire_request[256];
+    char response[2048];
+    size_t response_len = 0u;
+    fieldmesh_status_t status;
+
+    if (!config || !request || !out_report ||
+        !valid_device_eui(request->new_eui) ||
+        (request->current_eui[0] != '\0' &&
+         !valid_device_eui(request->current_eui))) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    (void)snprintf(wire_request, sizeof(wire_request),
+                   "FIELDMESH_DEVICE_IDENTITY_SET v1 "
+                   "new_eui=%s current_eui=%s persist=%u reboot=%u "
+                   "require_unique=%u dry_run=%u",
+                   request->new_eui,
+                   request->current_eui[0] ? request->current_eui : "none",
+                   (unsigned)(request->persist ? 1u : 0u),
+                   (unsigned)(request->reboot_after_apply ? 1u : 0u),
+                   (unsigned)(request->require_unique_seen_eui ? 1u : 0u),
+                   (unsigned)(request->dry_run ? 1u : 0u));
+    status = fieldmesh_daemon_request(config, wire_request, response,
+                                      sizeof(response), &response_len);
+    if (status != FIELDMESH_OK || response_len == 0u) {
+        return status;
+    }
+    out_report->accepted = sdk_json_get_uint8_boolish(response, "ok");
+    out_report->persisted = sdk_json_get_uint8_boolish(response, "persisted");
+    out_report->reboot_required =
+        sdk_json_get_uint8_boolish(response, "reboot_required");
+    out_report->requires_admin_auth =
+        sdk_json_get_uint8_boolish(response, "requires_admin_auth");
+    out_report->duplicate_seen =
+        sdk_json_get_uint8_boolish(response, "duplicate_seen");
+    out_report->wrote_jffs2_identity =
+        sdk_json_get_uint8_boolish(response, "wrote_jffs2_identity");
+    out_report->wrote_uboot_env =
+        sdk_json_get_uint8_boolish(response, "wrote_uboot_env");
+    out_report->wrote_etc_identity =
+        sdk_json_get_uint8_boolish(response, "wrote_etc_identity");
+    (void)sdk_json_get_string(response, "old_eui", out_report->old_eui,
+                              sizeof(out_report->old_eui));
+    (void)sdk_json_get_string(response, "new_eui", out_report->new_eui,
+                              sizeof(out_report->new_eui));
+    if (!sdk_json_get_string(response, "message", out_report->message,
+                             sizeof(out_report->message))) {
+        (void)sdk_json_get_string(response, "error", out_report->message,
+                                  sizeof(out_report->message));
+    }
+    return out_report->accepted ? FIELDMESH_OK : FIELDMESH_ERR_POLICY;
 }
 
 const char *fieldmesh_status_string(fieldmesh_status_t status)

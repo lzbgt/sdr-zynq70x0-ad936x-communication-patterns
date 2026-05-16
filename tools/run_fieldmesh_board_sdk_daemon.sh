@@ -153,6 +153,7 @@ def load(path):
 serve = load(serve_path)
 query = load(query_path)
 hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
+identity_set = [row for row in query if row.get("event") == "sdk_daemon_device_identity_set"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
 rtls = [row for row in query if row.get("event") == "sdk_daemon_rtls_state"]
 rtls_report = [row for row in query if row.get("event") == "sdk_daemon_rtls_report"]
@@ -181,7 +182,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 29:
+if not end or end[-1].get("handled") != 30:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -195,6 +196,7 @@ if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("board SDK daemon HELLO must require production mutual auth")
 for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_app_message_ingest", "supports_app_message_poll",
+            "supports_device_identity_set",
             "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
@@ -207,6 +209,10 @@ for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
         raise SystemExit(f"board SDK daemon HELLO key {key} must be 0")
 if not ap_browse or ap_browse[0].get("aps") < 1 or ap_browse[0].get("preferred_ap") != expected_ap_eui:
     raise SystemExit("board SDK daemon AP browse response failed")
+if not identity_set or identity_set[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon identity-set dry-run response failed")
+if identity_set[0].get("persisted") != 0 or identity_set[0].get("requires_admin_auth") != 1:
+    raise SystemExit("board SDK daemon identity-set safety flags changed")
 if not radio_config or radio_config[0].get("ok") is not True:
     raise SystemExit("board SDK daemon radio config plan response failed")
 if radio_config[0].get("config_source") != "app_sdk_daemon":

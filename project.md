@@ -620,6 +620,12 @@ user and vendor configuration.
   `/mnt/jffs2/fieldmesh/device_eui`, U-Boot `fieldmesh_device_eui`, and writable
   `/etc/fieldmesh/device_eui`, so SD and QSPI boot paths expose the same
   physical-board identity.
+- `fieldmesh_set_daemon_device_identity()` / `FIELDMESH_DEVICE_IDENTITY_SET` -
+  SDK/app path for changing a selected board EUI through the board daemon. It
+  supports compare-and-swap current-EUI checks, duplicate observed-peer
+  rejection, dry-run validation, persistence, and reboot request flags. Real
+  writes require daemon-side admin identity-write authorization and update the
+  same boot-source-neutral EUI stores as the provisioning writer.
 - `tools/verify_fieldmesh_network_profile_writer.sh` - synthetic safety gate
   for the SSH network-profile writer. It verifies the planned Z103
   `192.168.3.1/24` split-subnet env batch and rejects a mismatched Z203

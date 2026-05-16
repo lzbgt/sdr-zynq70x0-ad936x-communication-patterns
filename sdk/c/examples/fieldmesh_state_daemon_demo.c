@@ -22,6 +22,7 @@ typedef int socklen_t;
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -614,6 +615,107 @@ static void runtime_device_eui(const char *hostname, char *dst, size_t dst_len)
     }
 }
 
+static int write_identity_file(const char *path, const char *device_eui)
+{
+    char tmp_path[160];
+    FILE *file;
+
+    if (!path || !valid_compact_eui(device_eui) ||
+        snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", path) >=
+            (int)sizeof(tmp_path)) {
+        return 0;
+    }
+    file = fopen(tmp_path, "w");
+    if (!file) {
+        return 0;
+    }
+    if (fprintf(file, "%s\n", device_eui) < 0 || fclose(file) != 0) {
+        (void)remove(tmp_path);
+        return 0;
+    }
+    (void)chmod(tmp_path, 0644);
+    if (rename(tmp_path, path) != 0) {
+        (void)remove(tmp_path);
+        return 0;
+    }
+    return 1;
+}
+
+static int persist_device_eui(const char *device_eui,
+                              unsigned *wrote_jffs2,
+                              unsigned *wrote_uboot,
+                              unsigned *wrote_etc)
+{
+    char command[96];
+    int rc;
+
+    if (wrote_jffs2) {
+        *wrote_jffs2 = 0u;
+    }
+    if (wrote_uboot) {
+        *wrote_uboot = 0u;
+    }
+    if (wrote_etc) {
+        *wrote_etc = 0u;
+    }
+    if (!valid_compact_eui(device_eui)) {
+        return 0;
+    }
+    (void)mkdir("/mnt/jffs2", 0755);
+    (void)mkdir("/mnt/jffs2/fieldmesh", 0755);
+    if (wrote_jffs2 &&
+        write_identity_file("/mnt/jffs2/fieldmesh/device_eui", device_eui)) {
+        *wrote_jffs2 = 1u;
+    }
+    if (wrote_uboot) {
+        snprintf(command, sizeof(command), "fw_setenv fieldmesh_device_eui %s",
+                 device_eui);
+        rc = system(command);
+        if (rc == 0) {
+            *wrote_uboot = 1u;
+        }
+    }
+    (void)mkdir("/etc/fieldmesh", 0755);
+    if (wrote_etc &&
+        write_identity_file("/etc/fieldmesh/device_eui", device_eui)) {
+        *wrote_etc = 1u;
+    }
+    return ((wrote_jffs2 && *wrote_jffs2) ||
+            (wrote_uboot && *wrote_uboot) ||
+            (wrote_etc && *wrote_etc)) ? 1 : 0;
+}
+
+struct duplicate_eui_probe {
+    const char *device_eui;
+    unsigned duplicate_seen;
+};
+
+static void duplicate_eui_callback(const fieldmesh_peer_info_t *peer, void *user)
+{
+    struct duplicate_eui_probe *probe = (struct duplicate_eui_probe *)user;
+
+    if (!peer || !probe || !probe->device_eui) {
+        return;
+    }
+    if (strcmp(peer->device_uuid, probe->device_eui) == 0) {
+        probe->duplicate_seen = 1u;
+    }
+}
+
+static unsigned observed_peer_uses_eui(fieldmesh_session_t *session,
+                                       const char *device_eui)
+{
+    struct duplicate_eui_probe probe;
+
+    memset(&probe, 0, sizeof(probe));
+    probe.device_eui = device_eui;
+    if (!session || !valid_compact_eui(device_eui)) {
+        return 0u;
+    }
+    (void)fieldmesh_list_peers(session, duplicate_eui_callback, &probe);
+    return probe.duplicate_seen;
+}
+
 static fieldmesh_status_t read_tun_fd_once(void *user,
                                            void *packet,
                                            size_t packet_capacity,
@@ -1085,6 +1187,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"supports_app_message_send\":1,"
                  "\"supports_app_message_ingest\":1,"
                  "\"supports_app_message_poll\":1,"
+                 "\"supports_device_identity_set\":1,"
                  "\"supports_camera_session_plan\":1,"
                  "\"supports_route_metrics\":1,"
                  "\"supports_route_metrics_report\":1,"
@@ -1102,6 +1205,132 @@ static int build_response(fieldmesh_context_t *context,
                  device_eui,
                  hostname,
                  device_type);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_DEVICE_IDENTITY_SET")) {
+        char hostname[FIELDMESH_NAME_TEXT_MAX];
+        char old_eui[FIELDMESH_ID_TEXT_MAX];
+        char current_eui[FIELDMESH_ID_TEXT_MAX];
+        char new_eui[FIELDMESH_ID_TEXT_MAX];
+        unsigned persist = 0u;
+        unsigned reboot_after_apply = 0u;
+        unsigned require_unique = 1u;
+        unsigned dry_run = 1u;
+        unsigned duplicate_seen = 0u;
+        unsigned wrote_jffs2 = 0u;
+        unsigned wrote_uboot = 0u;
+        unsigned wrote_etc = 0u;
+        const char *allow_write;
+
+        runtime_hostname(hostname, sizeof(hostname));
+        runtime_device_eui(hostname, old_eui, sizeof(old_eui));
+        if (!request_device_eui_required(request, "new_eui=", new_eui,
+                                         sizeof(new_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_new_eui\","
+                     "\"requires_admin_auth\":1}\n");
+            return 0;
+        }
+        current_eui[0] = '\0';
+        if (copy_request_field(request, "current_eui=", current_eui,
+                               sizeof(current_eui)) < 0 ||
+            (current_eui[0] != '\0' && strcmp(current_eui, "none") != 0 &&
+             !valid_compact_eui(current_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"error\":\"invalid_current_eui\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
+        if (valid_compact_eui(current_eui) &&
+            strcmp(current_eui, old_eui) != 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"error\":\"current_eui_mismatch\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
+        (void)request_uint_or_default(request, "persist=", 0u, 0u, 1u,
+                                      &persist);
+        (void)request_uint_or_default(request, "reboot=", 0u, 0u, 1u,
+                                      &reboot_after_apply);
+        (void)request_uint_or_default(request, "require_unique=", 1u, 0u, 1u,
+                                      &require_unique);
+        (void)request_uint_or_default(request, "dry_run=", 1u, 0u, 1u,
+                                      &dry_run);
+        duplicate_seen = require_unique ?
+            observed_peer_uses_eui(session, new_eui) : 0u;
+        if (duplicate_seen) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"duplicate_seen\":1,"
+                     "\"error\":\"duplicate_observed_eui\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
+        allow_write = getenv("FIELDMESH_ALLOW_DEVICE_IDENTITY_WRITE");
+        if (persist && !dry_run &&
+            (!allow_write || strcmp(allow_write, "1") != 0)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"persisted\":0,"
+                     "\"duplicate_seen\":0,"
+                     "\"error\":\"admin_write_not_authorized\","
+                     "\"message\":\"set FIELDMESH_ALLOW_DEVICE_IDENTITY_WRITE=1 under authenticated admin control\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
+        if (persist && !dry_run &&
+            !persist_device_eui(new_eui, &wrote_jffs2, &wrote_uboot,
+                                &wrote_etc)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"persisted\":0,"
+                     "\"error\":\"identity_store_write_failed\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_device_identity_set\","
+                 "\"ok\":true,"
+                 "\"old_eui\":\"%s\","
+                 "\"new_eui\":\"%s\","
+                 "\"dry_run\":%u,"
+                 "\"persist_requested\":%u,"
+                 "\"persisted\":%u,"
+                 "\"reboot_required\":%u,"
+                 "\"duplicate_seen\":0,"
+                 "\"wrote_jffs2_identity\":%u,"
+                 "\"wrote_uboot_env\":%u,"
+                 "\"wrote_etc_identity\":%u,"
+                 "\"requires_admin_auth\":1,"
+                 "\"message\":\"device identity accepted; rediscover board after restart or reboot\"}\n",
+                 old_eui, new_eui, dry_run, persist,
+                 persist && !dry_run ? 1u : 0u,
+                 persist && reboot_after_apply ? 1u : 0u,
+                 wrote_jffs2, wrote_uboot, wrote_etc);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RADIO_CONFIG_PLAN")) {
@@ -3287,6 +3516,7 @@ static int query_state(const char *host,
     struct sockaddr_in dst;
     struct timeval timeout;
     char mac_ingest_request[320];
+    char identity_set_request[160];
     char route_metrics_report_request[512];
     char route_metrics_request[96];
     char rtls_position_request[96];
@@ -3317,6 +3547,9 @@ static int query_state(const char *host,
                                  route_dst_eui, explicit_ap_eui)) {
         return 1;
     }
+    snprintf(identity_set_request, sizeof(identity_set_request),
+             "FIELDMESH_DEVICE_IDENTITY_SET v1 current_eui=none "
+             "new_eui=02f1e1d00001 persist=1 reboot=1 require_unique=1 dry_run=1");
     snprintf(route_metrics_request, sizeof(route_metrics_request),
              "FIELDMESH_ROUTE_METRICS v1 dst=%s", route_dst_eui);
     snprintf(route_metrics_report_request, sizeof(route_metrics_report_request),
@@ -3387,6 +3620,7 @@ static int query_state(const char *host,
     dst.sin_port = htons(port);
     dst.sin_addr.s_addr = inet_addr(host);
     if (query_once(sockfd, &dst, "FIELDMESH_HELLO v1") == 0 &&
+        query_once(sockfd, &dst, identity_set_request) == 0 &&
         query_once(sockfd, &dst,
                    "FIELDMESH_RADIO_CONFIG_PLAN v1 "
                    "frequency_mhz=2400 channel=1 bandwidth_khz=5000 "

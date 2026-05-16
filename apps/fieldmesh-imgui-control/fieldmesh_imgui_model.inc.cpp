@@ -86,6 +86,17 @@ struct GuiPythonAutomation {
     bool last_ok;
 };
 
+struct GuiProvisioning {
+    bool page_open;
+    bool persist;
+    bool reboot_after_apply;
+    bool dry_run;
+    bool require_unique_seen_eui;
+    bool last_ok;
+    std::string new_eui;
+    std::string last_message;
+};
+
 struct GuiConversation {
     std::string peer_eui;
     std::string display_name;
@@ -135,6 +146,7 @@ struct GuiState {
     GuiCamera camera;
     GuiRadioConfig radio;
     GuiPythonAutomation python;
+    GuiProvisioning provisioning;
     bool topology_page_open;
     std::string selected_conversation_eui;
     std::string draft_message;

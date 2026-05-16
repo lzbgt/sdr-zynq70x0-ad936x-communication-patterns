@@ -67,6 +67,17 @@ and only writes persistent state when both `--apply` and
 U-Boot environment key and the identity mirrors above, so the same board EUI is
 seen after either QSPI or SD boot.
 
+Applications should use the SDK/daemon identity path instead of shelling out.
+The SDK exposes `fieldmesh_set_daemon_device_identity()`, which sends
+`FIELDMESH_DEVICE_IDENTITY_SET` to the selected board daemon. The request
+contains the current EUI compare-and-swap guard, the new 12-hex EUI,
+persistence and reboot flags, duplicate-observed-EUI rejection, and dry-run
+mode. The board daemon validates the EUI, rejects duplicate observed peer EUIs
+when requested, and refuses real writes unless it is running under authenticated
+admin control with identity-write authorization. When authorized, the daemon
+writes the same three identity stores: `/mnt/jffs2/fieldmesh/device_eui`,
+U-Boot `fieldmesh_device_eui`, and writable `/etc/fieldmesh/device_eui`.
+
 Current commands are explicit and scriptable:
 
 ```sh
