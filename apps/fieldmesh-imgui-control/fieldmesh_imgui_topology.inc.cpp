@@ -239,30 +239,10 @@ void render_topology_page(GuiState *state)
         }
     }
     if (hovered_local >= 0) {
-        char label[96];
-        ImVec2 label_size;
-        ImVec2 label_pos;
-
-        if (hovered_distance >= 0.0f) {
-            std::snprintf(label, sizeof(label), "local to %s: %.2f m",
-                          state->peers[static_cast<std::size_t>(hovered_local)].hostname.c_str(),
-                          static_cast<double>(hovered_distance));
-        } else {
-            std::snprintf(label, sizeof(label), "%s", "local range pending");
-        }
-        label_size = ImGui::CalcTextSize(label);
-        label_pos = clamp_topology_label(
-            ImVec2((local_point.x +
-                    points[static_cast<std::size_t>(hovered_local)].x) * 0.5f + 8.0f,
-                   (local_point.y +
-                    points[static_cast<std::size_t>(hovered_local)].y) * 0.5f - 42.0f),
-            label_size, origin, canvas);
+        (void)hovered_distance;
         draw->AddLine(local_point,
                       points[static_cast<std::size_t>(hovered_local)],
                       IM_COL32(34, 132, 99, 255), 3.0f);
-        draw_topology_badge(draw, label_pos, label,
-                            IM_COL32(20, 96, 72, 255),
-                            IM_COL32(34, 132, 99, 255));
     }
     if (hovered_a >= 0 && hovered_b >= 0) {
         char label[96];
@@ -291,8 +271,8 @@ void render_topology_page(GuiState *state)
     draw->AddCircle(local_point, 17.0f, IM_COL32(46, 125, 50, 120), 24, 2.0f);
     {
         const GuiBoard *board = selected_board(*state);
-        const char *local_label = board && !board->hostname.empty() ?
-            board->hostname.c_str() : "Local board";
+        const char *local_label = board && !board->device_eui.empty() ?
+            board->device_eui.c_str() : "Local board";
         ImVec2 label_size = ImGui::CalcTextSize(local_label);
         ImVec2 label_pos = clamp_topology_label(
             ImVec2(local_point.x + 14.0f, local_point.y - 14.0f),
@@ -333,7 +313,7 @@ void render_topology_page(GuiState *state)
         text_pos.y = std::fmax(origin.y + 30.0f,
                                std::fmin(text_pos.y, origin.y + canvas.y - 18.0f));
         draw->AddText(text_pos,
-                      IM_COL32(24, 33, 41, 255), peer.hostname.c_str());
+                      IM_COL32(24, 33, 41, 255), peer.device_eui.c_str());
     }
     ImGui::Text("AP: %s", state->selected_ap_eui.c_str());
     ImGui::SameLine();
