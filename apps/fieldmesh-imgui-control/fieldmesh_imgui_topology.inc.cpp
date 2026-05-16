@@ -9,6 +9,57 @@ float distance_meters(const GuiPeer &a, const GuiPeer &b)
     return std::sqrt(dx * dx + dy * dy);
 }
 
+float distance_from_local_meters(const GuiPeer &peer)
+{
+    if (!peer_has_position_model(peer)) {
+        return -1.0f;
+    }
+    const float dx = static_cast<float>(peer.x_cm) / 100.0f;
+    const float dy = static_cast<float>(peer.y_cm) / 100.0f;
+
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+ImVec2 topology_local_point(const GuiState *state, float center_x, float center_y)
+{
+    return ImVec2(center_x -
+                      static_cast<float>(state->topology_center_x_cm) *
+                          state->topology_zoom / 3.0f,
+                  center_y +
+                      static_cast<float>(state->topology_center_y_cm) *
+                          state->topology_zoom / 3.0f);
+}
+
+ImVec2 clamp_topology_label(const ImVec2 &label_pos,
+                            const ImVec2 &label_size,
+                            const ImVec2 &origin,
+                            const ImVec2 &canvas)
+{
+    return ImVec2(std::fmax(origin.x + 8.0f,
+                            std::fmin(label_pos.x,
+                                      origin.x + canvas.x - label_size.x - 14.0f)),
+                  std::fmax(origin.y + 30.0f,
+                            std::fmin(label_pos.y,
+                                      origin.y + canvas.y - label_size.y - 10.0f)));
+}
+
+void draw_topology_badge(ImDrawList *draw,
+                         const ImVec2 &label_pos,
+                         const char *label,
+                         ImU32 text_color,
+                         ImU32 border_color)
+{
+    ImVec2 label_size = ImGui::CalcTextSize(label);
+    ImVec2 badge_min(label_pos.x - 6.0f, label_pos.y - 4.0f);
+    ImVec2 badge_max(label_pos.x + label_size.x + 6.0f,
+                     label_pos.y + label_size.y + 4.0f);
+
+    draw->AddRectFilled(badge_min, badge_max, IM_COL32(255, 255, 255, 242),
+                        4.0f);
+    draw->AddRect(badge_min, badge_max, border_color, 4.0f, 0, 1.0f);
+    draw->AddText(label_pos, text_color, label);
+}
+
 float point_segment_distance(const ImVec2 &p, const ImVec2 &a, const ImVec2 &b)
 {
     const float vx = b.x - a.x;
@@ -94,12 +145,14 @@ void render_topology_page(GuiState *state)
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 canvas(avail.x > 320.0f ? avail.x : 320.0f,
-                  avail.y > 320.0f ? avail.y - 68.0f : 320.0f);
+                  avail.y > 388.0f ? avail.y - 68.0f : 320.0f);
     const float center_x = origin.x + canvas.x * 0.5f;
     const float center_y = origin.y + canvas.y * 0.5f;
+    const ImVec2 local_point = topology_local_point(state, center_x, center_y);
     const ImVec2 mouse = ImGui::GetMousePos();
     int hovered_a = -1;
     int hovered_b = -1;
+    int hovered_local = -1;
     float hovered_distance = 0.0f;
 
     draw->AddRectFilled(origin, ImVec2(origin.x + canvas.x, origin.y + canvas.y),
@@ -127,6 +180,32 @@ void render_topology_page(GuiState *state)
 
     for (std::size_t i = 0; i < state->peers.size(); ++i) {
         const GuiPeer &peer = state->peers[i];
+        char label[96];
+        ImVec2 label_size;
+        ImVec2 label_pos;
+        float range_m = distance_from_local_meters(peer);
+
+        draw->AddLine(local_point, points[i], IM_COL32(96, 125, 155, 145),
+                      2.0f);
+        if (range_m >= 0.0f) {
+            std::snprintf(label, sizeof(label), "%.2f m", static_cast<double>(range_m));
+        } else {
+            std::snprintf(label, sizeof(label), "%s", "range pending");
+        }
+        label_size = ImGui::CalcTextSize(label);
+        label_pos = clamp_topology_label(
+            ImVec2((local_point.x + points[i].x) * 0.5f + 10.0f,
+                   (local_point.y + points[i].y) * 0.5f - 22.0f),
+            label_size, origin, canvas);
+        draw_topology_badge(draw, label_pos, label,
+                            range_m >= 0.0f ? IM_COL32(26, 91, 76, 255) :
+                                               IM_COL32(93, 101, 109, 255),
+                            range_m >= 0.0f ? IM_COL32(42, 132, 99, 255) :
+                                               IM_COL32(150, 160, 170, 255));
+    }
+
+    for (std::size_t i = 0; i < state->peers.size(); ++i) {
+        const GuiPeer &peer = state->peers[i];
         if (!state->selected_ap_eui.empty() &&
             peer.device_eui != state->selected_ap_eui) {
             for (std::size_t ap = 0; ap < state->peers.size(); ++ap) {
@@ -143,6 +222,13 @@ void render_topology_page(GuiState *state)
     }
 
     for (std::size_t i = 0; i < state->peers.size(); ++i) {
+        const float d = point_segment_distance(mouse, local_point, points[i]);
+        if (d < 8.0f) {
+            hovered_local = static_cast<int>(i);
+            hovered_distance = distance_from_local_meters(state->peers[i]);
+        }
+    }
+    for (std::size_t i = 0; i < state->peers.size(); ++i) {
         for (std::size_t j = i + 1u; j < state->peers.size(); ++j) {
             const float d = point_segment_distance(mouse, points[i], points[j]);
             if (d < 8.0f) {
@@ -152,8 +238,35 @@ void render_topology_page(GuiState *state)
             }
         }
     }
+    if (hovered_local >= 0) {
+        char label[96];
+        ImVec2 label_size;
+        ImVec2 label_pos;
+
+        if (hovered_distance >= 0.0f) {
+            std::snprintf(label, sizeof(label), "local to %s: %.2f m",
+                          state->peers[static_cast<std::size_t>(hovered_local)].hostname.c_str(),
+                          static_cast<double>(hovered_distance));
+        } else {
+            std::snprintf(label, sizeof(label), "%s", "local range pending");
+        }
+        label_size = ImGui::CalcTextSize(label);
+        label_pos = clamp_topology_label(
+            ImVec2((local_point.x +
+                    points[static_cast<std::size_t>(hovered_local)].x) * 0.5f + 8.0f,
+                   (local_point.y +
+                    points[static_cast<std::size_t>(hovered_local)].y) * 0.5f - 42.0f),
+            label_size, origin, canvas);
+        draw->AddLine(local_point,
+                      points[static_cast<std::size_t>(hovered_local)],
+                      IM_COL32(34, 132, 99, 255), 3.0f);
+        draw_topology_badge(draw, label_pos, label,
+                            IM_COL32(20, 96, 72, 255),
+                            IM_COL32(34, 132, 99, 255));
+    }
     if (hovered_a >= 0 && hovered_b >= 0) {
         char label[96];
+        ImVec2 label_size;
         if (hovered_distance >= 0.0f) {
             std::snprintf(label, sizeof(label), "%.2f m",
                           static_cast<double>(hovered_distance));
@@ -164,22 +277,30 @@ void render_topology_page(GuiState *state)
                           points[static_cast<std::size_t>(hovered_b)].x) * 0.5f + 8.0f,
                          (points[static_cast<std::size_t>(hovered_a)].y +
                           points[static_cast<std::size_t>(hovered_b)].y) * 0.5f - 18.0f);
-        label_pos.x = std::fmax(origin.x + 8.0f,
-                                std::fmin(label_pos.x, origin.x + canvas.x - 80.0f));
-        label_pos.y = std::fmax(origin.y + 30.0f,
-                                std::fmin(label_pos.y, origin.y + canvas.y - 22.0f));
+        label_size = ImGui::CalcTextSize(label);
+        label_pos = clamp_topology_label(label_pos, label_size, origin, canvas);
         draw->AddLine(points[static_cast<std::size_t>(hovered_a)],
                       points[static_cast<std::size_t>(hovered_b)],
                       IM_COL32(34, 132, 99, 255), 3.0f);
-        ImVec2 label_size = ImGui::CalcTextSize(label);
-        ImVec2 badge_min(label_pos.x - 6.0f, label_pos.y - 4.0f);
-        ImVec2 badge_max(label_pos.x + label_size.x + 6.0f,
-                         label_pos.y + label_size.y + 4.0f);
-        draw->AddRectFilled(badge_min, badge_max, IM_COL32(255, 255, 255, 238),
-                            4.0f);
-        draw->AddRect(badge_min, badge_max, IM_COL32(34, 132, 99, 255), 4.0f,
-                      0, 1.0f);
-        draw->AddText(label_pos, IM_COL32(20, 96, 72, 255), label);
+        draw_topology_badge(draw, label_pos, label,
+                            IM_COL32(20, 96, 72, 255),
+                            IM_COL32(34, 132, 99, 255));
+    }
+
+    draw->AddCircleFilled(local_point, 10.0f, IM_COL32(46, 125, 50, 255));
+    draw->AddCircle(local_point, 17.0f, IM_COL32(46, 125, 50, 120), 24, 2.0f);
+    {
+        const GuiBoard *board = selected_board(*state);
+        const char *local_label = board && !board->hostname.empty() ?
+            board->hostname.c_str() : "Local board";
+        ImVec2 label_size = ImGui::CalcTextSize(local_label);
+        ImVec2 label_pos = clamp_topology_label(
+            ImVec2(local_point.x + 14.0f, local_point.y - 14.0f),
+            label_size, origin, canvas);
+
+        draw_topology_badge(draw, label_pos, local_label,
+                            IM_COL32(25, 78, 36, 255),
+                            IM_COL32(46, 125, 50, 255));
     }
 
     for (std::size_t i = 0; i < state->peers.size(); ++i) {
@@ -222,6 +343,6 @@ void render_topology_page(GuiState *state)
                 state->topology_update_count,
                 state->topology_metrics_live ? "live daemon metrics" :
                                                "position source pending/test fixture");
-    ImGui::TextUnformatted("Hover between peers for distance; AP membership links are always shown.");
+    ImGui::TextUnformatted("Local-to-peer range labels are always shown; hover a link for detail.");
     end_panel();
 }

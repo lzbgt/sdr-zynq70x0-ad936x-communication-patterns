@@ -2240,7 +2240,7 @@ void render_control_plane_strip(GuiState *state)
     ImGui::Checkbox("Auto elect AP", &state->auto_election_enabled);
     ImGui::SameLine();
     if (ImGui::Button("Browse Peers")) {
-        state->operation_status = "peer_browse_requested";
+        (void)api_browse_peers(state);
     }
     ImGui::SameLine();
     if (ImGui::Button("Elect AP")) {
@@ -2262,6 +2262,8 @@ void render_control_plane_strip(GuiState *state)
     if (ImGui::Button("Topology")) {
         state->python.page_open = false;
         state->topology_page_open = true;
+        (void)refresh_radio_peers(state);
+        (void)refresh_topology_metrics(state);
     }
     ImGui::SameLine();
     if (ImGui::Button("Python")) {
@@ -2394,22 +2396,50 @@ void render_topology_compact(GuiState *state)
     draw->AddLine(ImVec2(origin.x + 20.0f, center_y),
                   ImVec2(origin.x + canvas.x - 20.0f, center_y),
                   IM_COL32(203, 216, 211, 255));
+    draw->AddCircleFilled(ImVec2(center_x, center_y), 8.0f,
+                          IM_COL32(46, 125, 50, 255));
+    draw->AddText(ImVec2(center_x + 10.0f, center_y - 12.0f),
+                  IM_COL32(25, 78, 36, 255), "Local");
     for (const GuiPeer &peer : state->peers) {
         const std::size_t index = static_cast<std::size_t>(&peer - &state->peers[0]);
         float x;
         float y;
+        char range_label[64];
+        float range_m = -1.0f;
 
         if (peer_has_position_model(peer)) {
+            const float dx_m = static_cast<float>(peer.x_cm) / 100.0f;
+            const float dy_m = static_cast<float>(peer.y_cm) / 100.0f;
+
             x = center_x + static_cast<float>(peer.x_cm) / 4.0f;
             y = center_y - static_cast<float>(peer.y_cm) / 4.0f;
+            range_m = std::sqrt(dx_m * dx_m + dy_m * dy_m);
         } else {
             const float angle = 0.75f + static_cast<float>(index) * 2.1f;
             x = center_x + std::cos(angle) * 42.0f;
             y = center_y + std::sin(angle) * 42.0f;
         }
+        draw->AddLine(ImVec2(center_x, center_y), ImVec2(x, y),
+                      IM_COL32(96, 125, 155, 150), 2.0f);
         draw->AddCircleFilled(ImVec2(x, y), 7.0f, IM_COL32(29, 95, 156, 255));
         draw->AddText(ImVec2(x + 10.0f, y - 10.0f),
                       IM_COL32(22, 33, 31, 255), peer.device_eui.c_str());
+        if (range_m >= 0.0f) {
+            std::snprintf(range_label, sizeof(range_label), "%.2f m",
+                          static_cast<double>(range_m));
+        } else {
+            std::snprintf(range_label, sizeof(range_label), "%s", "pending");
+        }
+        ImVec2 label_pos((center_x + x) * 0.5f + 6.0f,
+                         (center_y + y) * 0.5f - 18.0f);
+        ImVec2 label_size = ImGui::CalcTextSize(range_label);
+        ImVec2 badge_min(label_pos.x - 5.0f, label_pos.y - 3.0f);
+        ImVec2 badge_max(label_pos.x + label_size.x + 5.0f,
+                         label_pos.y + label_size.y + 3.0f);
+        draw->AddRectFilled(badge_min, badge_max, IM_COL32(255, 255, 255, 236),
+                            4.0f);
+        draw->AddRect(badge_min, badge_max, IM_COL32(42, 132, 99, 255), 4.0f);
+        draw->AddText(label_pos, IM_COL32(20, 96, 72, 255), range_label);
     }
     ImGui::Dummy(canvas);
     ImGui::TextUnformatted("Topology is radio reachability, not host Ethernet.");
