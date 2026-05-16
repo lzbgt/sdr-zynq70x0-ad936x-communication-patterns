@@ -161,6 +161,42 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                 "writes_hardware": 0,
             }
             sock.sendto((json.dumps(sent, separators=(",", ":")) + "\n").encode("utf-8"), addr)
+        elif b"FIELDMESH_APP_MESSAGE_INGEST" in data:
+            text = data.decode("utf-8", errors="ignore")
+            src = ""
+            payload_hex = ""
+            for part in text.split():
+                if part.startswith("src="):
+                    src = part.split("=", 1)[1]
+                elif part.startswith("payload_hex="):
+                    payload_hex = part.split("=", 1)[1]
+            if src and payload_hex:
+                payload.setdefault("app_messages", []).append({
+                    "src": src,
+                    "payload_hex": payload_hex,
+                })
+                seq = len(payload["app_messages"])
+                ingest = {
+                    "event": "sdk_daemon_app_message_ingest",
+                    "ok": True,
+                    "src_device_eui": src,
+                    "seq": seq,
+                    "payload_bytes": len(payload_hex) // 2,
+                    "source_path": "rf_packet_engine_rx",
+                    "stored_for_app_event_stream": 1,
+                    "uses_json_on_air": 0,
+                    "uses_iio": 0,
+                    "uses_inter_board_ip_routing": 0,
+                    "starts_rf_tx": 0,
+                    "writes_hardware": 0,
+                }
+            else:
+                ingest = {
+                    "event": "sdk_daemon_app_message_ingest",
+                    "ok": False,
+                    "error": "invalid_test_ingest",
+                }
+            sock.sendto((json.dumps(ingest, separators=(",", ":")) + "\n").encode("utf-8"), addr)
         elif b"FIELDMESH_APP_MESSAGE_POLL" in data:
             text = data.decode("utf-8", errors="ignore")
             since = 0
@@ -470,10 +506,6 @@ def main() -> int:
 
             daemon_env = env.copy()
             daemon_env.pop("FIELDMESH_IM_ENABLE_FIXTURE_BUS", None)
-            hello_b["app_messages"] = [{
-                "src": "02aabb000001",
-                "payload_hex": "6461656d6f6e2d72782d68656c6c6f",
-            }]
             daemon_send_snapshot = Path(tmp) / "daemon_send.json"
             subprocess.run(
                 [
@@ -519,7 +551,7 @@ def main() -> int:
                     "daemon-backed IM poll did not surface received message: "
                     + json.dumps(daemon_recv, sort_keys=True)
                 )
-            if daemon_recv["last_received_text"] != "daemon-rx-hello":
+            if daemon_recv["last_received_text"] != "daemon tx hello":
                 raise SystemExit("daemon-backed IM received text changed")
             if daemon_recv["messaging_transport"] != "daemon_rf_packet_engine":
                 raise SystemExit("runtime IM receive did not use daemon RF transport")

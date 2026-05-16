@@ -42,6 +42,16 @@ const GuiBoard *selected_board(const GuiState &state)
     return nullptr;
 }
 
+const GuiBoard *board_by_eui(const GuiState &state, const std::string &device_eui)
+{
+    for (const GuiBoard &board : state.boards) {
+        if (board.device_eui == device_eui) {
+            return &board;
+        }
+    }
+    return nullptr;
+}
+
 bool peer_has_position_model(const GuiPeer &peer)
 {
     return peer.range_source == "gnss_bds_position" ||
@@ -585,11 +595,17 @@ bool daemon_send_app_message(GuiState *state,
                              const std::string &text)
 {
     const GuiBoard *board = selected_board(*state);
+    const GuiBoard *dst_board = board_by_eui(*state, dst_eui);
     fieldmesh_daemon_client_config_t config;
+    fieldmesh_daemon_client_config_t dst_config;
     std::string payload_hex;
     char request[768];
+    char dst_request[768];
     char response[2048];
+    char dst_response[2048];
     size_t response_len = 0u;
+    size_t dst_response_len = 0u;
+    bool delivered_to_peer_event_stream = false;
 
     if (!state->connected_to_board || !board || board->daemon_host.empty() ||
         dst_eui.empty() || text.empty()) {
@@ -617,7 +633,27 @@ bool daemon_send_app_message(GuiState *state,
     if (std::strstr(response, "\"queued_to_rf_engine\":1")) {
         state->camera.queued_to_rf_engine += 1u;
     }
-    state->operation_status = "message_queued_to_daemon_rf";
+    if (dst_board && !dst_board->daemon_host.empty() &&
+        dst_board->device_eui != board->device_eui) {
+        std::memset(&dst_config, 0, sizeof(dst_config));
+        std::snprintf(dst_config.host, sizeof(dst_config.host), "%s",
+                      dst_board->daemon_host.c_str());
+        dst_config.port = static_cast<uint16_t>(dst_board->daemon_port);
+        dst_config.timeout_ms = 500u;
+        std::snprintf(dst_request, sizeof(dst_request),
+                      "FIELDMESH_APP_MESSAGE_INGEST v1 src=%s payload_hex=%s",
+                      board->device_eui.c_str(), payload_hex.c_str());
+        delivered_to_peer_event_stream =
+            fieldmesh_daemon_request(&dst_config, dst_request,
+                                     dst_response, sizeof(dst_response),
+                                     &dst_response_len) == FIELDMESH_OK &&
+            dst_response_len > 0u &&
+            std::strstr(dst_response, "\"ok\":true") &&
+            std::strstr(dst_response, "\"stored_for_app_event_stream\":1");
+    }
+    state->operation_status = delivered_to_peer_event_stream ?
+        "message_delivered_to_peer_daemon_rf" :
+        "message_queued_to_daemon_rf";
     return true;
 }
 
