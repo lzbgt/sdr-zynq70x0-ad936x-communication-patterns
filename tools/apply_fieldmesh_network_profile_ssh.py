@@ -28,6 +28,11 @@ ENV_KEYS = (
     "fieldmesh_ap_policy",
 )
 
+IDENTITY_STORE_PATHS = (
+    "/mnt/jffs2/fieldmesh/device_eui",
+    "/etc/fieldmesh/device_eui",
+)
+
 
 @dataclass
 class Profile:
@@ -154,6 +159,13 @@ printf 'model='
 cat /proc/device-tree/model 2>/dev/null | tr '\\000' ' ' || true
 echo
 fw_printenv hostname mode ethaddr ipaddr ipaddr_host netmask ipaddr_eth netmask_eth qspiboot fieldmesh_device_eui 2>/dev/null || true
+for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui; do
+  if [ -f "$path" ]; then
+    printf '%s=' "$path"
+    sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t '
+    echo
+  fi
+done
 if command -v fieldmeshctl >/dev/null 2>&1; then
   echo "fieldmeshctl=present"
 else
@@ -212,6 +224,10 @@ def fw_setenv_lines(profile: Profile) -> list[str]:
     return lines
 
 
+def identity_store_lines(profile: Profile) -> list[str]:
+    return [f"{path} {profile.device_eui}" for path in IDENTITY_STORE_PATHS]
+
+
 def validate_identity(args: argparse.Namespace, identity_text: str) -> dict[str, object]:
     identity = parse_kv_lines(identity_text)
     errors = []
@@ -239,6 +255,7 @@ def apply_script(profile: Profile, allow_volatile: bool, reboot: bool) -> str:
     )
     keys = " ".join(shlex.quote(key) for key in ENV_KEYS)
     reboot_cmd = "reboot" if reboot else "true"
+    device_eui = shlex.quote(profile.device_eui)
     return f"""set -eu
 backup_root={shlex.quote(backup_root)}
 if ! mkdir -p "$backup_root" 2>/dev/null; then
@@ -253,9 +270,27 @@ fi
 stamp="$(date +%Y%m%d-%H%M%S)"
 backup="$backup_root/profile-$stamp.env"
 fw_printenv {keys} > "$backup" 2>/dev/null || true
+identity_root=/mnt/jffs2/fieldmesh
+mkdir -p "$identity_root"
 {set_commands}
+printf '%s\\n' {device_eui} > "$identity_root/device_eui.tmp"
+chmod 0644 "$identity_root/device_eui.tmp"
+mv "$identity_root/device_eui.tmp" "$identity_root/device_eui"
+if mkdir -p /etc/fieldmesh 2>/dev/null; then
+  printf '%s\\n' {device_eui} > /etc/fieldmesh/device_eui.tmp
+  chmod 0644 /etc/fieldmesh/device_eui.tmp
+  mv /etc/fieldmesh/device_eui.tmp /etc/fieldmesh/device_eui
+fi
 printf 'backup_path=%s\\n' "$backup"
+printf 'identity_store_path=%s\\n' "$identity_root/device_eui"
 fw_printenv hostname ethaddr ipaddr ipaddr_host netmask ipaddr_eth netmask_eth fieldmesh_device_eui fieldmesh_node_id fieldmesh_network_id fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null || true
+for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui; do
+  if [ -f "$path" ]; then
+    printf '%s=' "$path"
+    sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t '
+    echo
+  fi
+done
 sync
 {reboot_cmd}
 """
@@ -266,12 +301,32 @@ def rollback_script(backup_path: str, reboot: bool) -> str:
     return f"""set -eu
 backup={shlex.quote(backup_path)}
 test -f "$backup"
+restore_eui=""
 while IFS='=' read -r key value; do
   [ -n "$key" ] || continue
   fw_setenv "$key" "$value"
+  [ "$key" = "fieldmesh_device_eui" ] && restore_eui="$value"
 done < "$backup"
+if [ -n "$restore_eui" ]; then
+  mkdir -p /mnt/jffs2/fieldmesh
+  printf '%s\\n' "$restore_eui" > /mnt/jffs2/fieldmesh/device_eui.tmp
+  chmod 0644 /mnt/jffs2/fieldmesh/device_eui.tmp
+  mv /mnt/jffs2/fieldmesh/device_eui.tmp /mnt/jffs2/fieldmesh/device_eui
+  if mkdir -p /etc/fieldmesh 2>/dev/null; then
+    printf '%s\\n' "$restore_eui" > /etc/fieldmesh/device_eui.tmp
+    chmod 0644 /etc/fieldmesh/device_eui.tmp
+    mv /etc/fieldmesh/device_eui.tmp /etc/fieldmesh/device_eui
+  fi
+fi
 printf 'rollback_backup_path=%s\\n' "$backup"
 fw_printenv {' '.join(shlex.quote(key) for key in ENV_KEYS)} 2>/dev/null || true
+for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui; do
+  if [ -f "$path" ]; then
+    printf '%s=' "$path"
+    sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t '
+    echo
+  fi
+done
 sync
 {reboot_cmd}
 """
@@ -299,6 +354,7 @@ def main() -> int:
             "phy_netmask": netmask(profile.phy_prefix) if profile.phy_device_ip else "",
         },
         "fw_setenv": fw_setenv_lines(profile),
+        "identity_store": identity_store_lines(profile),
         **identity_result,
     }
 

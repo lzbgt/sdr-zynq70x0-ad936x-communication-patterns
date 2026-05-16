@@ -15,6 +15,32 @@ read_fwenv() {
     fw_printenv -n "$key" 2>/dev/null | tr -d '\r\n'
 }
 
+read_identity_file() {
+    path="$1"
+    [ -f "$path" ] || return 1
+    value="$(sed -n '1p' "$path" 2>/dev/null | tr -d '\r\n\t ')"
+    case "$value" in
+        ????????????)
+            printf '%s\n' "$value"
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+read_device_eui() {
+    read_identity_file /mnt/jffs2/fieldmesh/device_eui && return 0
+    env_eui="$(read_fwenv fieldmesh_device_eui || true)"
+    case "$env_eui" in
+        ????????????)
+            printf '%s\n' "$env_eui"
+            return 0
+            ;;
+    esac
+    read_identity_file /etc/fieldmesh/device_eui && return 0
+    return 1
+}
+
 rotate_log_if_needed() {
     [ -f "$LOGFILE" ] || return 0
     size="$(wc -c < "$LOGFILE" 2>/dev/null || echo 0)"
@@ -46,7 +72,7 @@ case "$1" in
     start|"")
         [ -x "$DAEMON" ] || exit 0
         env_port="$(read_fwenv fieldmesh_daemon_port || true)"
-        env_eui="$(read_fwenv fieldmesh_device_eui || true)"
+        env_eui="$(read_device_eui || true)"
         case "$env_port" in
             ''|*[!0-9]*)
                 ;;

@@ -615,8 +615,11 @@ user and vendor configuration.
 - `tools/apply_fieldmesh_network_profile_ssh.py` - host-side FieldMesh network
   profile writer. It collects board identity over SSH, requires an explicit
   Z203/Z103 variant match, requires `fieldmeshctl` and `fw_setenv` by default,
-  saves a rollback backup, and only writes U-Boot network/profile keys with
-  `--apply --allow-persistent-writes`.
+  saves a rollback backup, and only writes persistent network/profile state with
+  `--apply --allow-persistent-writes`. Device EUI writes are mirrored into
+  `/mnt/jffs2/fieldmesh/device_eui`, U-Boot `fieldmesh_device_eui`, and writable
+  `/etc/fieldmesh/device_eui`, so SD and QSPI boot paths expose the same
+  physical-board identity.
 - `tools/verify_fieldmesh_network_profile_writer.sh` - synthetic safety gate
   for the SSH network-profile writer. It verifies the planned Z103
   `192.168.3.1/24` split-subnet env batch and rejects a mismatched Z203

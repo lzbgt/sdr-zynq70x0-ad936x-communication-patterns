@@ -40,17 +40,32 @@ compiled SDK default.
 
 `device_eui` is the stable compact device identity for routing, security, peer
 databases, and AP election reports. It is six bytes encoded as 12 hex
-characters, defaults from the board MAC/EUI (`ethaddr` when available), and can
-be overridden by `fieldmesh_device_eui` or `fieldmeshctl profile --device-eui`
-during provisioning. `node_id`, Linux hostname, and friendly name are human
+characters. It is not the model/type code: multiple 2R2T or 1R1T boards share
+the same `DTYPE` class, but must have different EUIs.
+
+Because a board can boot either QSPI or SD images, the provisioned EUI is
+mirrored into boot-source-neutral storage:
+
+1. `/mnt/jffs2/fieldmesh/device_eui` is the FieldMesh identity mirror and is
+   preferred by board init when present.
+2. U-Boot environment key `fieldmesh_device_eui` is written when `fw_setenv`
+   is available, so bootloader and recovery tooling see the same identity.
+3. `/etc/fieldmesh/device_eui` is written as a local image seed when the active
+   root filesystem is writable.
+
+Daemon startup exports the first valid 12-hex EUI from that order as
+`FIELDMESH_DEVICE_EUI`, and the daemon also reads those files directly when run
+without the init wrapper. `node_id`, Linux hostname, and friendly name are human
 labels only; they must not imply board capability or current role.
 
 The first persistent writer is host-side:
 `tools/apply_fieldmesh_network_profile_ssh.py`. It reaches a board over SSH,
 collects local identity evidence, requires an explicit Z203/Z103 variant match,
 requires `fieldmeshctl` and `fw_setenv` by default, saves a rollback backup,
-and only writes U-Boot environment keys when both `--apply` and
-`--allow-persistent-writes` are present.
+and only writes persistent state when both `--apply` and
+`--allow-persistent-writes` are present. A successful apply writes both the
+U-Boot environment key and the identity mirrors above, so the same board EUI is
+seen after either QSPI or SD boot.
 
 Current commands are explicit and scriptable:
 

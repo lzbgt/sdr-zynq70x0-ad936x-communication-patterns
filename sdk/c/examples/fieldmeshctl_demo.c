@@ -144,25 +144,41 @@ static void load_board_env_profile(fieldmesh_network_profile_t *profile)
 #if !defined(_WIN32)
     FILE *pipe;
     char line[256];
+    const char *identity_paths[] = {
+        "/mnt/jffs2/fieldmesh/device_eui",
+        "/etc/fieldmesh/device_eui",
+    };
+    size_t path_index;
 
     pipe = popen("fw_printenv hostname ethaddr ipaddr ipaddr_host netmask ipaddr_eth "
                  "netmask_eth fieldmesh_device_eui fieldmesh_node_id fieldmesh_network_id "
                  "fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null", "r");
-    if (!pipe) {
-        return;
-    }
-    while (fgets(line, sizeof(line), pipe)) {
-        char *equals = strchr(line, '=');
-        char *value;
-        if (!equals) {
-            continue;
+    if (pipe) {
+        while (fgets(line, sizeof(line), pipe)) {
+            char *equals = strchr(line, '=');
+            char *value;
+            if (!equals) {
+                continue;
+            }
+            *equals = '\0';
+            value = equals + 1;
+            value[strcspn(value, "\r\n")] = '\0';
+            apply_env_value(profile, line, value);
         }
-        *equals = '\0';
-        value = equals + 1;
-        value[strcspn(value, "\r\n")] = '\0';
-        apply_env_value(profile, line, value);
+        (void)pclose(pipe);
     }
-    (void)pclose(pipe);
+    for (path_index = 0u; path_index < sizeof(identity_paths) / sizeof(identity_paths[0]);
+         ++path_index) {
+        FILE *file = fopen(identity_paths[path_index], "r");
+        if (file) {
+            if (fgets(line, sizeof(line), file)) {
+                line[strcspn(line, "\r\n\t ")] = '\0';
+                apply_env_value(profile, "fieldmesh_device_eui", line);
+            }
+            fclose(file);
+            break;
+        }
+    }
 #else
     (void)profile;
 #endif

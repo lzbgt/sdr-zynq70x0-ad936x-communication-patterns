@@ -599,6 +599,10 @@ static void runtime_device_eui(const char *hostname, char *dst, size_t dst_len)
         valid_compact_eui(dst)) {
         return;
     }
+    if (read_first_line_file("/mnt/jffs2/fieldmesh/device_eui", dst, dst_len) &&
+        valid_compact_eui(dst)) {
+        return;
+    }
     if (read_first_line_file("/etc/fieldmesh/device_eui", dst, dst_len) &&
         valid_compact_eui(dst)) {
         return;

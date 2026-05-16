@@ -471,7 +471,10 @@ below were later superseded by the current PHY-management two-board gates above:
   subnet profiles such as Z103 on `192.168.3.1/24`, and
   `tools/apply_fieldmesh_network_profile_ssh.py` now has a proven persistent
   SSH writer for U-Boot `ipaddr`/`ipaddr_host`/`netmask` and FieldMesh profile
-  env keys with explicit variant matching and rollback backup. The 2026-05-14
+  env keys with explicit variant matching and rollback backup. Device EUI
+  provisioning is mirrored into `/mnt/jffs2/fieldmesh/device_eui`, U-Boot
+  `fieldmesh_device_eui`, and writable `/etc/fieldmesh/device_eui`, so the same
+  physical-board EUI is available after either SD or QSPI boot. The 2026-05-14
   Z103 run installed the FieldMesh `pluto.frm`, applied
   `node-b@192.168.3.1` with `fieldmesh_device_eui=020000000103`, fixed the writer to avoid a BusyBox
   `fw_setenv -s` empty-value quirk, and verified split host-facing identities

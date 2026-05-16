@@ -93,6 +93,11 @@ for token in ("ipaddr 192.168.3.1", "ipaddr_host 192.168.3.10",
               "fieldmesh_ap_policy hybrid"):
     if token not in fw_lines:
         raise SystemExit(f"missing fw_setenv token: {token}")
+identity_lines = "\n".join(good.get("identity_store", []))
+for token in ("/mnt/jffs2/fieldmesh/device_eui 020000000103",
+              "/etc/fieldmesh/device_eui 020000000103"):
+    if token not in identity_lines:
+        raise SystemExit(f"missing identity-store token: {token}")
 if bad_rc == 0:
     raise SystemExit("bad variant identity unexpectedly passed")
 if bad.get("safe_to_apply") is not False:
