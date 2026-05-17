@@ -103,6 +103,8 @@ Minimum production gates for native TCP/IP:
 
 - daemon HELLO advertises native IP capability and `swarm0` mode;
 - board creates and rolls back `swarm0` under guarded `CAP_NET_ADMIN`;
+- daemon burst-pumps multiple TUN callback packets through the FieldMesh
+  adapter with the request-supplied peer EUI;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,

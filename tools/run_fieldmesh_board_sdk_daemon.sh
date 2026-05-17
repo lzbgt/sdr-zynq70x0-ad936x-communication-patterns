@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-30}"
+requests="${REQUESTS:-31}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -175,6 +175,7 @@ app_camera = [row for row in query if row.get("event") == "sdk_daemon_app_contro
 camera_session = [row for row in query if row.get("event") == "sdk_daemon_camera_session_plan"]
 camera_adaptation = [row for row in query if row.get("event") == "sdk_daemon_camera_adaptation"]
 camera_chunk = [row for row in query if row.get("event") == "sdk_daemon_camera_stream_chunk"]
+tun_fd_pump_burst = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump_burst"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
@@ -182,7 +183,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 30:
+if not end or end[-1].get("handled") != 31:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -434,6 +435,19 @@ if camera_chunk[0].get("queued_to_rf_engine") != 1 or camera_chunk[0].get("data_
 for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
     if camera_chunk[0].get(key) != 0:
         raise SystemExit(f"board SDK daemon camera stream chunk key {key} must be 0")
+if not tun_fd_pump_burst or tun_fd_pump_burst[0].get("adapter_name") != "swarm0":
+    raise SystemExit("board SDK daemon TUN fd burst pump response failed")
+if tun_fd_pump_burst[0].get("dst_device_eui") != route_dst_eui:
+    raise SystemExit("board SDK daemon TUN fd burst pump used wrong destination EUI")
+if tun_fd_pump_burst[0].get("packets_read") != 3 or tun_fd_pump_burst[0].get("packets_sent") != 3:
+    raise SystemExit("board SDK daemon TUN fd burst pump packet counts failed")
+if tun_fd_pump_burst[0].get("event_loop_ready") != 1 or tun_fd_pump_burst[0].get("bounded_batch") != 1:
+    raise SystemExit("board SDK daemon TUN fd burst pump event-loop metadata failed")
+if tun_fd_pump_burst[0].get("next_boundary") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("board SDK daemon TUN fd burst pump next boundary failed")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if tun_fd_pump_burst[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon TUN fd burst pump key {key} must be 0")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("board SDK daemon TUN plan response failed")
 if not tun_device_guard or tun_device_guard[0].get("adapter_name") != "swarm0":
@@ -495,6 +509,7 @@ print(json.dumps({
     "camera_session_events": len(camera_session),
     "camera_adaptation_events": len(camera_adaptation),
     "camera_chunk_events": len(camera_chunk),
+    "tun_fd_pump_burst_events": len(tun_fd_pump_burst),
     "tun_plan_events": len(tun_plan),
     "tun_device_guard_events": len(tun_device_guard),
     "tun_apply_events": len(tun_apply),

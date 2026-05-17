@@ -97,6 +97,13 @@ struct tun_fd_read_context {
     int last_errno;
 };
 
+struct tun_memory_read_context {
+    unsigned char packets[4][256];
+    size_t packet_lens[4];
+    size_t packet_count;
+    size_t next_packet;
+};
+
 static void put_be16(unsigned char *dst, uint16_t value)
 {
     dst[0] = (unsigned char)(value >> 8);
@@ -783,6 +790,32 @@ static fieldmesh_status_t read_tun_fd_wait_once(void *user,
     }
     return FIELDMESH_OK;
 #endif
+}
+
+static fieldmesh_status_t read_tun_memory_packet(void *user,
+                                                 void *packet,
+                                                 size_t packet_capacity,
+                                                 size_t *out_packet_len)
+{
+    struct tun_memory_read_context *ctx =
+        (struct tun_memory_read_context *)user;
+    size_t len;
+
+    if (!ctx || !packet || !out_packet_len) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (ctx->next_packet >= ctx->packet_count) {
+        return FIELDMESH_ERR_TIMEOUT;
+    }
+    len = ctx->packet_lens[ctx->next_packet];
+    if (len == 0u || len > packet_capacity ||
+        len > sizeof(ctx->packets[ctx->next_packet])) {
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    memcpy(packet, ctx->packets[ctx->next_packet], len);
+    *out_packet_len = len;
+    ctx->next_packet++;
+    return FIELDMESH_OK;
 }
 
 static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno)
@@ -3027,6 +3060,17 @@ static int build_response(fieldmesh_context_t *context,
         int allow_live = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
         int tun_read_fd = -1;
         int tun_errno = 0;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103", dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_device_pump_guard\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
 
         if (!allow_live) {
             snprintf(response, response_len,
@@ -3086,7 +3130,7 @@ static int build_response(fieldmesh_context_t *context,
             snprintf(adapter_config.adapter_name,
                      sizeof(adapter_config.adapter_name), "%s", "swarm0");
             snprintf(adapter_config.dst_node_id,
-                     sizeof(adapter_config.dst_node_id), "%s", "020000000103");
+                     sizeof(adapter_config.dst_node_id), "%s", dst_device_eui);
             status = fieldmesh_open_adapter(session, &adapter_config, &adapter);
             if (status == FIELDMESH_OK) {
                 status = fieldmesh_tun_packetizer_pump_once(
@@ -3152,6 +3196,116 @@ static int build_response(fieldmesh_context_t *context,
             return 0;
         }
     }
+    if (strstr(request, "FIELDMESH_TUN_FD_PUMP_BURST")) {
+        fieldmesh_adapter_t *adapter = NULL;
+        fieldmesh_adapter_config_t adapter_config = {
+            .adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV,
+            .requested_mode = FIELDMESH_MODE_SCHEDULED,
+            .stream_id_base = 200,
+            .mtu_bytes = 1200,
+            .expose_virtual_netdev = 1,
+        };
+        struct tun_memory_read_context read_ctx;
+        unsigned char pump_buffer[256];
+        fieldmesh_tun_pump_report_t pump_report;
+        fieldmesh_adapter_packet_t rx_meta;
+        unsigned char rx_packet[256];
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+        size_t rx_len = 0u;
+        uint32_t rx_packets = 0u;
+        int failed = 0;
+        size_t i;
+
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103", dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_fd_pump_burst\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
+        memset(&read_ctx, 0, sizeof(read_ctx));
+        read_ctx.packet_count = 3u;
+        for (i = 0u; i < read_ctx.packet_count; ++i) {
+            read_ctx.packet_lens[i] =
+                make_tun_demo_ipv4_packet(read_ctx.packets[i],
+                                          sizeof(read_ctx.packets[i]));
+            if (read_ctx.packet_lens[i] == 0u) {
+                failed = 1;
+            }
+            read_ctx.packets[i][19] = (unsigned char)(20u + i);
+            if (i == 0u) {
+                read_ctx.packets[i][1] = (unsigned char)(48u << 2);
+                read_ctx.packets[i][9] = 1u;
+            } else if (i == 1u) {
+                read_ctx.packets[i][1] = (unsigned char)(46u << 2);
+                put_be16(&read_ctx.packets[i][22], 14550u);
+            }
+        }
+        snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+                 "%s", "swarm0");
+        snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+                 "%s", dst_device_eui);
+        if (failed ||
+            fieldmesh_open_adapter(session, &adapter_config, &adapter) != FIELDMESH_OK ||
+            fieldmesh_tun_packetizer_pump_many(
+                adapter, read_tun_memory_packet, &read_ctx, pump_buffer,
+                sizeof(pump_buffer), (uint32_t)read_ctx.packet_count,
+                &pump_report) != FIELDMESH_OK) {
+            failed = 1;
+        }
+        while (!failed && rx_packets < read_ctx.packet_count &&
+               fieldmesh_adapter_recv_packet(adapter, rx_packet,
+                                             sizeof(rx_packet), &rx_len,
+                                             &rx_meta, 1000) == FIELDMESH_OK) {
+            (void)rx_meta;
+            if (rx_len == 0u) {
+                failed = 1;
+                break;
+            }
+            rx_packets++;
+        }
+        if (adapter) {
+            (void)fieldmesh_close_adapter(adapter);
+        }
+        if (failed || rx_packets != read_ctx.packet_count) {
+            return 1;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_fd_pump_burst\","
+                 "\"adapter_name\":\"%s\","
+                 "\"fd_source\":\"event_callback_batch\","
+                 "\"production_tun_path\":\"/dev/net/tun\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"tun_fd_attached\":%u,"
+                 "\"read_from_tun\":%u,"
+                 "\"packets_read\":%u,"
+                 "\"packets_sent\":%u,"
+                 "\"packets_rx_loopback\":%u,"
+                 "\"bytes_read\":%u,"
+                 "\"bytes_sent\":%u,"
+                 "\"payload_kind\":%u,"
+                 "\"traffic_class\":%u,"
+                 "\"mode\":%u,"
+                 "\"stream_id\":%u,"
+                 "\"sent_to_fieldmesh_adapter\":%u,"
+                 "\"event_loop_ready\":1,"
+                 "\"bounded_batch\":1,"
+                 "\"uses_iio\":%u,"
+                 "\"uses_inter_board_ip_routing\":%u,"
+                 "\"next_boundary\":\"fieldmesh_rf_packet_engine\"}\n",
+                 pump_report.packet.adapter_name, dst_device_eui,
+                 pump_report.tun_fd_attached, pump_report.read_from_tun,
+                 pump_report.packets_read, pump_report.packets_sent,
+                 rx_packets, pump_report.bytes_read, pump_report.bytes_sent,
+                 (unsigned)pump_report.packet.payload_kind,
+                 (unsigned)pump_report.packet.traffic_class,
+                 (unsigned)pump_report.packet.mode, pump_report.packet.stream_id,
+                 pump_report.sent_to_fieldmesh_adapter, pump_report.uses_iio,
+                 pump_report.uses_inter_board_ip_routing);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_FD_PUMP")) {
         fieldmesh_adapter_t *adapter = NULL;
         fieldmesh_adapter_config_t adapter_config = {
@@ -3166,6 +3320,7 @@ static int build_response(fieldmesh_context_t *context,
         unsigned char rx_packet[256];
         fieldmesh_tun_pump_report_t pump_report;
         fieldmesh_adapter_packet_t rx_meta;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         size_t tx_len;
         size_t rx_len = 0u;
         int tun_read_fd = -1;
@@ -3174,10 +3329,19 @@ static int build_response(fieldmesh_context_t *context,
         int pipe_fd[2] = {-1, -1};
 #endif
 
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103", dst_device_eui,
+                                           sizeof(dst_device_eui))) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_fd_pump\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_dst_eui\"}\n");
+            return 0;
+        }
         snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
                  "%s", "swarm0");
         snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
-                 "%s", "020000000103");
+                 "%s", dst_device_eui);
         tx_len = make_tun_demo_ipv4_packet(tx_packet, sizeof(tx_packet));
 #ifdef _WIN32
         failed = 1;
@@ -3570,6 +3734,9 @@ static int query_state(const char *host,
     char camera_session_request[96];
     char camera_adaptation_request[112];
     char camera_chunk_request[160];
+    char tun_fd_pump_request[96];
+    char tun_fd_pump_burst_request[112];
+    char tun_dev_pump_request[96];
     char tun_plan_request[96];
     char tun_apply_validate_request[112];
     char tun_apply_commit_request[112];
@@ -3638,6 +3805,12 @@ static int query_state(const char *host,
              "FIELDMESH_CAMERA_STREAM_CHUNK v1 "
              "00112233445566778899aabbccddeeff dst=%s",
              route_dst_eui);
+    snprintf(tun_fd_pump_request, sizeof(tun_fd_pump_request),
+             "FIELDMESH_TUN_FD_PUMP v1 dst=%s", route_dst_eui);
+    snprintf(tun_fd_pump_burst_request, sizeof(tun_fd_pump_burst_request),
+             "FIELDMESH_TUN_FD_PUMP_BURST v1 dst=%s", route_dst_eui);
+    snprintf(tun_dev_pump_request, sizeof(tun_dev_pump_request),
+             "FIELDMESH_TUN_DEV_PUMP v1 dst=%s", route_dst_eui);
     snprintf(tun_plan_request, sizeof(tun_plan_request),
              "FIELDMESH_TUN_PLAN v1 dst=%s", route_dst_eui);
     snprintf(tun_apply_validate_request, sizeof(tun_apply_validate_request),
@@ -3684,8 +3857,9 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, camera_session_request) == 0 &&
         query_once(sockfd, &dst, camera_adaptation_request) == 0 &&
         query_once(sockfd, &dst, camera_chunk_request) == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_TUN_FD_PUMP v1") == 0 &&
-        query_once(sockfd, &dst, "FIELDMESH_TUN_DEV_PUMP v1") == 0 &&
+        query_once(sockfd, &dst, tun_fd_pump_request) == 0 &&
+        query_once(sockfd, &dst, tun_fd_pump_burst_request) == 0 &&
+        query_once(sockfd, &dst, tun_dev_pump_request) == 0 &&
         query_once(sockfd, &dst, tun_plan_request) == 0 &&
         query_once(sockfd, &dst, tun_apply_validate_request) == 0 &&
         query_once(sockfd, &dst, tun_apply_commit_request) == 0 &&

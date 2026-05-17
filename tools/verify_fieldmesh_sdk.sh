@@ -142,7 +142,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 30 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 31 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -347,12 +347,13 @@ camera_session = [row for row in query if row.get("event") == "sdk_daemon_camera
 camera_adaptation = [row for row in query if row.get("event") == "sdk_daemon_camera_adaptation"]
 camera_chunk = [row for row in query if row.get("event") == "sdk_daemon_camera_stream_chunk"]
 tun_fd_pump = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump"]
+tun_fd_pump_burst = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump_burst"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 30 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 31 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -684,6 +685,25 @@ if tun_fd_pump[0].get("next_boundary") != "fieldmesh_rf_packet_engine":
 for key in ("uses_iio", "uses_inter_board_ip_routing"):
     if tun_fd_pump[0].get(key) != 0:
         raise SystemExit(f"SDK daemon TUN fd pump key {key} must be 0")
+if not tun_fd_pump_burst or tun_fd_pump_burst[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon TUN fd pump burst query failed")
+if tun_fd_pump_burst[0].get("fd_source") != "event_callback_batch":
+    raise SystemExit("SDK daemon TUN burst pump did not use event callback source")
+if tun_fd_pump_burst[0].get("dst_device_eui") != "020000000103":
+    raise SystemExit("SDK daemon TUN burst pump used wrong destination EUI")
+if tun_fd_pump_burst[0].get("packets_read") != 3 or tun_fd_pump_burst[0].get("packets_sent") != 3:
+    raise SystemExit("SDK daemon TUN burst pump packet counts failed")
+if tun_fd_pump_burst[0].get("packets_rx_loopback") != 3:
+    raise SystemExit("SDK daemon TUN burst pump did not loop back all packets")
+if tun_fd_pump_burst[0].get("event_loop_ready") != 1 or tun_fd_pump_burst[0].get("bounded_batch") != 1:
+    raise SystemExit("SDK daemon TUN burst pump event-loop metadata failed")
+if tun_fd_pump_burst[0].get("sent_to_fieldmesh_adapter") != 1:
+    raise SystemExit("SDK daemon TUN burst pump did not reach the adapter")
+if tun_fd_pump_burst[0].get("next_boundary") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("SDK daemon TUN burst pump next boundary is wrong")
+for key in ("uses_iio", "uses_inter_board_ip_routing"):
+    if tun_fd_pump_burst[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon TUN burst pump key {key} must be 0")
 if not tun_device_guard or tun_device_guard[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN device pump guard query failed")
 if tun_device_guard[0].get("production_tun_path") != "/dev/net/tun":

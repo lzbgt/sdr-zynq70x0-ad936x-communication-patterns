@@ -1041,6 +1041,14 @@ fieldmesh_status_t fieldmesh_tun_packetizer_pump_once(
     void *packet_buffer,
     size_t packet_capacity,
     fieldmesh_tun_pump_report_t *out_report);
+fieldmesh_status_t fieldmesh_tun_packetizer_pump_many(
+    fieldmesh_adapter_t *adapter,
+    fieldmesh_tun_read_callback_t read_packet,
+    void *read_user,
+    void *packet_buffer,
+    size_t packet_capacity,
+    uint32_t max_packets,
+    fieldmesh_tun_pump_report_t *out_report);
 fieldmesh_status_t fieldmesh_daemon_request(
     const fieldmesh_daemon_client_config_t *config,
     const char *request,

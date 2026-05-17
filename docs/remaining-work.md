@@ -31,10 +31,14 @@ Native TCP/IP is now a first-class product requirement, not only a planned
 demo convenience. The daemon capability contract advertises
 `supports_native_ip_gateway=1`, `supports_tcp_ip_client_apps=1`,
 `native_client_ip_mode=routed_l3_swarm0`, and
-`native_client_ip_interface=swarm0`. The remaining implementation work is to
-turn the guarded one-packet TUN pump into a continuous event-driven gateway,
-then prove ICMP/TCP/UDP over the RF path with measured throughput, RTT,
-retransmits, queue age, and route-failover behavior.
+`native_client_ip_interface=swarm0`. The SDK/daemon path now has both a
+single-packet TUN pump and a bounded multi-packet callback pump
+(`fieldmesh_tun_packetizer_pump_many()` / `FIELDMESH_TUN_FD_PUMP_BURST`) so
+the production daemon can drive `swarm0` from an event loop without changing
+the pure-C API. The remaining implementation work is to run that pump
+continuously against the board-local `/dev/net/tun`, then prove ICMP/TCP/UDP
+over the RF path with measured throughput, RTT, retransmits, queue age, and
+route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary

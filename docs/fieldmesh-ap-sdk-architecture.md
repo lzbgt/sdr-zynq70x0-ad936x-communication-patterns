@@ -598,6 +598,11 @@ Stage 2: Board-local service
   boundary: the SDK accepts a pure-C read callback, so production code can
   connect a real board-local TUN fd while the verifier feeds deterministic
   packets without network writes.
+- Use `fieldmesh_tun_packetizer_pump_many()` and daemon
+  `FIELDMESH_TUN_FD_PUMP_BURST` as the event-loop bridge for native TCP/IP:
+  the daemon can drain a bounded batch from the same TUN read callback,
+  classify each IP packet, and queue it through the FieldMesh adapter without
+  adding POSIX fd types or heap-heavy abstractions to the public SDK.
 - Use daemon `FIELDMESH_TUN_DEV_PUMP` as the guarded production boundary for
   `/dev/net/tun`: without `ALLOW_LIVE_TUN_READ` it reports only preconditions;
   with the allow token on a board it requires an existing `swarm0`, opens the

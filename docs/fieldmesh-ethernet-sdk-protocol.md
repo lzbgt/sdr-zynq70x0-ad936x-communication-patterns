@@ -519,6 +519,15 @@ a memory-copy callback. The pump emits `tun_fd_attached=1`, `read_from_tun=1`,
 `sent_to_fieldmesh_adapter=1`, and the same no-IIO/no-inter-board-IP safety
 flags before the next boundary becomes the RF packet engine.
 
+The same boundary now has a bounded multi-packet form,
+`fieldmesh_tun_packetizer_pump_many()`. It repeatedly invokes the same read
+callback until `max_packets` is reached or the callback returns timeout after
+at least one packet. The daemon exposes this as
+`FIELDMESH_TUN_FD_PUMP_BURST`: it proves event-loop readiness without creating
+network state by pumping multiple callback-delivered IP packets through
+`swarm0` classification and the FieldMesh adapter, preserving the compact
+destination EUI supplied in the request.
+
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter
 packet metadata and payload length, preserve the selected direct-or-relayed RF

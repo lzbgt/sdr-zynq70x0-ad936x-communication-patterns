@@ -3349,6 +3349,63 @@ fieldmesh_status_t fieldmesh_tun_packetizer_pump_once(
     return FIELDMESH_OK;
 }
 
+fieldmesh_status_t fieldmesh_tun_packetizer_pump_many(
+    fieldmesh_adapter_t *adapter,
+    fieldmesh_tun_read_callback_t read_packet,
+    void *read_user,
+    void *packet_buffer,
+    size_t packet_capacity,
+    uint32_t max_packets,
+    fieldmesh_tun_pump_report_t *out_report)
+{
+    fieldmesh_tun_packet_report_t packet_report;
+    fieldmesh_status_t status;
+    uint32_t packets = 0u;
+    uint32_t bytes = 0u;
+
+    if (!adapter || !read_packet || !packet_buffer || packet_capacity == 0u ||
+        max_packets == 0u || !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    while (packets < max_packets) {
+        size_t packet_len = 0u;
+        status = read_packet(read_user, packet_buffer, packet_capacity,
+                             &packet_len);
+        if (status == FIELDMESH_ERR_TIMEOUT) {
+            break;
+        }
+        if (status != FIELDMESH_OK) {
+            return status;
+        }
+        if (packet_len == 0u || packet_len > packet_capacity) {
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+        status = fieldmesh_tun_packetizer_send(adapter, packet_buffer,
+                                               packet_len, &packet_report);
+        if (status != FIELDMESH_OK) {
+            return status;
+        }
+        packets++;
+        bytes += (uint32_t)packet_len;
+        out_report->packet = packet_report;
+    }
+    if (packets == 0u) {
+        return FIELDMESH_ERR_TIMEOUT;
+    }
+    out_report->packets_read = packets;
+    out_report->packets_sent = packets;
+    out_report->bytes_read = bytes;
+    out_report->bytes_sent = bytes;
+    out_report->tun_fd_attached = 1u;
+    out_report->read_from_tun = 1u;
+    out_report->uses_iio = 0u;
+    out_report->uses_inter_board_ip_routing = 0u;
+    out_report->sent_to_fieldmesh_adapter =
+        out_report->packet.sent_to_fieldmesh_adapter;
+    return FIELDMESH_OK;
+}
+
 fieldmesh_status_t fieldmesh_daemon_request(
     const fieldmesh_daemon_client_config_t *config,
     const char *request,
