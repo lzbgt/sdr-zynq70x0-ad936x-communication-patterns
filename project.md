@@ -1271,8 +1271,11 @@ Expected result in the current Pluto-compatible firmware state:
    native-IP gateway service: `FIELDMESH_TUN_SERVICE_START`,
    `FIELDMESH_TUN_SERVICE_STATUS`, and `FIELDMESH_TUN_SERVICE_STOP` keep
    daemon-owned `swarm0`/adapter state. The service now uses a bounded
-   poll-style loop to wake on TUN readiness; the remaining production boundary
-   is replacing the in-process adapter loop with real RF packet ingress/egress.
+   poll-style loop to wake on TUN readiness and now sends native-IP payloads
+   through a binary BLR `APP_DATA` MAC-frame egress/ingress boundary before
+   drain-back to `swarm0`. That service gate is still diagnostic loopback, so
+   the remaining production boundary is replacing the diagnostic MAC-frame
+   loopback with real RF packet ingress/egress.
    The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is

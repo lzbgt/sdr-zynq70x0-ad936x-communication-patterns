@@ -573,6 +573,23 @@ static fieldmesh_mac_path_mode_t route_kind_to_mac_path(fieldmesh_route_kind_t r
     }
 }
 
+static fieldmesh_mac_path_mode_t adapter_mode_to_mac_path(fieldmesh_mode_t mode)
+{
+    switch (mode) {
+    case FIELDMESH_MODE_P2P:
+        return FIELDMESH_MAC_PATH_DIRECT_P2P;
+    case FIELDMESH_MODE_STAR:
+        return FIELDMESH_MAC_PATH_AP_RELAY;
+    case FIELDMESH_MODE_GRAPH:
+        return FIELDMESH_MAC_PATH_GRAPH_RELAY;
+    case FIELDMESH_MODE_SCHEDULED:
+        return FIELDMESH_MAC_PATH_SCHEDULED_RELAY;
+    case FIELDMESH_MODE_AUTO:
+    default:
+        return FIELDMESH_MAC_PATH_SCHEDULED_RELAY;
+    }
+}
+
 fieldmesh_status_t fieldmesh_eui_from_text(const char *text,
                                            uint8_t out_eui[FIELDMESH_EUI_BYTES])
 {
@@ -2436,6 +2453,30 @@ static uint8_t traffic_class_index(fieldmesh_traffic_class_t traffic_class)
     return (uint8_t)traffic_class;
 }
 
+static fieldmesh_payload_kind_t payload_kind_from_traffic_class(
+    fieldmesh_traffic_class_t traffic_class)
+{
+    if (traffic_class < FIELDMESH_CLASS_C0_CONTROL ||
+        traffic_class > FIELDMESH_CLASS_C4_BACKGROUND) {
+        return FIELDMESH_PAYLOAD_CONTROL;
+    }
+    return (fieldmesh_payload_kind_t)((uint8_t)traffic_class + 1u);
+}
+
+static uint32_t bitrate_hint_for_payload_kind(fieldmesh_payload_kind_t payload_kind)
+{
+    switch (payload_kind) {
+    case FIELDMESH_PAYLOAD_VIDEO_BASE:
+        return 2500u;
+    case FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT:
+        return 3500u;
+    case FIELDMESH_PAYLOAD_BULK:
+        return 1000u;
+    default:
+        return 128u;
+    }
+}
+
 fieldmesh_status_t fieldmesh_classify_payload(fieldmesh_payload_kind_t payload_kind,
                                               fieldmesh_traffic_class_t *out_class,
                                               uint32_t *out_deadline_ms)
@@ -2591,20 +2632,7 @@ fieldmesh_status_t fieldmesh_adapter_send_packet(fieldmesh_adapter_t *adapter,
     if (status != FIELDMESH_OK) {
         return status;
     }
-    switch (payload_kind) {
-    case FIELDMESH_PAYLOAD_VIDEO_BASE:
-        bitrate_hint_kbps = 2500u;
-        break;
-    case FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT:
-        bitrate_hint_kbps = 3500u;
-        break;
-    case FIELDMESH_PAYLOAD_BULK:
-        bitrate_hint_kbps = 1000u;
-        break;
-    default:
-        bitrate_hint_kbps = 128u;
-        break;
-    }
+    bitrate_hint_kbps = bitrate_hint_for_payload_kind(payload_kind);
     status = adapter_get_stream(adapter, traffic_class, deadline_ms,
                                 bitrate_hint_kbps, &stream);
     if (status != FIELDMESH_OK) {
@@ -2673,20 +2701,8 @@ fieldmesh_status_t fieldmesh_adapter_recv_packet(fieldmesh_adapter_t *adapter,
                 (void)fieldmesh_classify_payload(payload_kind, &out_packet->traffic_class,
                                                  &deadline_ms);
                 out_packet->deadline_ms = deadline_ms;
-                switch (payload_kind) {
-                case FIELDMESH_PAYLOAD_VIDEO_BASE:
-                    out_packet->bitrate_hint_kbps = 2500u;
-                    break;
-                case FIELDMESH_PAYLOAD_VIDEO_ENHANCEMENT:
-                    out_packet->bitrate_hint_kbps = 3500u;
-                    break;
-                case FIELDMESH_PAYLOAD_BULK:
-                    out_packet->bitrate_hint_kbps = 1000u;
-                    break;
-                default:
-                    out_packet->bitrate_hint_kbps = 128u;
-                    break;
-                }
+                out_packet->bitrate_hint_kbps =
+                    bitrate_hint_for_payload_kind(payload_kind);
             }
             return FIELDMESH_OK;
         }
@@ -2785,6 +2801,178 @@ fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
     out_report->commands_executed = 0u;
     out_report->writes_hardware = 0u;
     out_report->starts_rf_tx = 0u;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_adapter_encode_app_data_frame(
+    fieldmesh_adapter_t *adapter,
+    const fieldmesh_adapter_packet_t *packet,
+    const void *payload,
+    size_t payload_len,
+    const char *src_device_eui,
+    uint8_t *out_frame,
+    size_t out_frame_capacity,
+    size_t *out_frame_len,
+    fieldmesh_rf_app_data_frame_report_t *out_report)
+{
+    fieldmesh_mac_frame_header_t header;
+    fieldmesh_mac_path_mode_t path_mode;
+    fieldmesh_status_t status;
+
+    if (!adapter || !packet || !payload || payload_len == 0u ||
+        !src_device_eui || !out_frame || !out_frame_len ||
+        !valid_device_eui(src_device_eui) ||
+        !valid_device_eui(adapter->config.dst_node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    if (payload_len > (adapter->config.mtu_bytes ?
+                       adapter->config.mtu_bytes :
+                       FIELDMESH_ADAPTER_DEFAULT_MTU)) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    path_mode = adapter_mode_to_mac_path(adapter->config.requested_mode);
+    memset(&header, 0, sizeof(header));
+    header.version = FIELDMESH_MAC_VERSION_1;
+    header.profile_id = 1u;
+    header.frame_type = FIELDMESH_MAC_FRAME_APP_DATA;
+    header.traffic_class = packet->traffic_class;
+    header.path_mode = path_mode;
+    header.hop_limit = 3u;
+    header.sequence = packet->sequence;
+    header.stream_id = packet->stream_id;
+    if (!eui_text_to_bytes(src_device_eui, header.src_eui) ||
+        !eui_text_to_bytes(adapter->config.dst_node_id, header.dst_eui)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = fieldmesh_encode_mac_frame(&header, payload, payload_len,
+                                        out_frame, out_frame_capacity,
+                                        out_frame_len);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    if (out_report) {
+        memset(out_report, 0, sizeof(*out_report));
+        sdk_copy_text(out_report->adapter_name, sizeof(out_report->adapter_name),
+                      adapter->config.adapter_name);
+        sdk_copy_text(out_report->src_node_id, sizeof(out_report->src_node_id),
+                      src_device_eui);
+        sdk_copy_text(out_report->dst_node_id, sizeof(out_report->dst_node_id),
+                      adapter->config.dst_node_id);
+        out_report->payload_kind = packet->payload_kind;
+        out_report->traffic_class = packet->traffic_class;
+        out_report->path_mode = path_mode;
+        out_report->stream_id = packet->stream_id;
+        out_report->sequence = packet->sequence;
+        out_report->packet_len = (uint32_t)payload_len;
+        out_report->frame_len = (uint32_t)*out_frame_len;
+        out_report->encoded_mac_frame = 1u;
+        out_report->uses_json_on_air = 0u;
+        out_report->uses_iio = 0u;
+        out_report->uses_inter_board_ip_routing = 0u;
+    }
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_adapter_ingest_app_data_frame(
+    fieldmesh_adapter_t *adapter,
+    const uint8_t *frame,
+    size_t frame_len,
+    const char *local_device_eui,
+    void *payload_buffer,
+    size_t payload_capacity,
+    size_t *out_payload_len,
+    fieldmesh_adapter_packet_t *out_packet,
+    fieldmesh_rf_app_data_frame_report_t *out_report)
+{
+    fieldmesh_mac_frame_header_t header;
+    fieldmesh_packet_meta_t meta;
+    fieldmesh_stream_t *stream = NULL;
+    fieldmesh_status_t status;
+    fieldmesh_payload_kind_t payload_kind;
+    uint32_t deadline_ms = 0u;
+    uint32_t bitrate_hint_kbps;
+    char src_text[FIELDMESH_EUI_TEXT_MAX];
+    char dst_text[FIELDMESH_EUI_TEXT_MAX];
+    size_t payload_len = 0u;
+
+    if (!adapter || !frame || !local_device_eui || !payload_buffer ||
+        !out_payload_len || !valid_device_eui(local_device_eui)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    status = fieldmesh_decode_mac_frame(frame, frame_len, &header,
+                                        (uint8_t *)payload_buffer,
+                                        payload_capacity, &payload_len);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    if (header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA ||
+        payload_len == 0u ||
+        header.traffic_class < FIELDMESH_CLASS_C0_CONTROL ||
+        header.traffic_class > FIELDMESH_CLASS_C4_BACKGROUND ||
+        fieldmesh_eui_to_text(header.src_eui, src_text, sizeof(src_text)) !=
+            FIELDMESH_OK ||
+        fieldmesh_eui_to_text(header.dst_eui, dst_text, sizeof(dst_text)) !=
+            FIELDMESH_OK ||
+        strcmp(dst_text, local_device_eui) != 0) {
+        return FIELDMESH_ERR_POLICY;
+    }
+    payload_kind = payload_kind_from_traffic_class(header.traffic_class);
+    status = fieldmesh_classify_payload(payload_kind, &header.traffic_class,
+                                        &deadline_ms);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    bitrate_hint_kbps = bitrate_hint_for_payload_kind(payload_kind);
+    status = adapter_get_stream(adapter, header.traffic_class, deadline_ms,
+                                bitrate_hint_kbps, &stream);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    memset(&meta, 0, sizeof(meta));
+    sdk_copy_text(meta.src_node_id, sizeof(meta.src_node_id), src_text);
+    sdk_copy_text(meta.dst_node_id, sizeof(meta.dst_node_id), dst_text);
+    meta.stream_id = header.stream_id;
+    meta.traffic_class = header.traffic_class;
+    meta.mode = adapter->config.requested_mode;
+    meta.sequence = header.sequence;
+    status = fieldmesh_send(stream, payload_buffer, payload_len, &meta);
+    if (status != FIELDMESH_OK) {
+        return status;
+    }
+    adapter->last_class_index = traffic_class_index(header.traffic_class);
+    *out_payload_len = payload_len;
+    if (out_packet) {
+        memset(out_packet, 0, sizeof(*out_packet));
+        out_packet->payload_kind = payload_kind;
+        out_packet->traffic_class = header.traffic_class;
+        out_packet->mode = meta.mode;
+        out_packet->stream_id = header.stream_id;
+        out_packet->sequence = header.sequence;
+        out_packet->deadline_ms = deadline_ms;
+        out_packet->bitrate_hint_kbps = bitrate_hint_kbps;
+    }
+    if (out_report) {
+        memset(out_report, 0, sizeof(*out_report));
+        sdk_copy_text(out_report->adapter_name, sizeof(out_report->adapter_name),
+                      adapter->config.adapter_name);
+        sdk_copy_text(out_report->src_node_id, sizeof(out_report->src_node_id),
+                      src_text);
+        sdk_copy_text(out_report->dst_node_id, sizeof(out_report->dst_node_id),
+                      dst_text);
+        out_report->payload_kind = payload_kind;
+        out_report->traffic_class = header.traffic_class;
+        out_report->path_mode = header.path_mode;
+        out_report->stream_id = header.stream_id;
+        out_report->sequence = header.sequence;
+        out_report->packet_len = (uint32_t)payload_len;
+        out_report->frame_len = (uint32_t)frame_len;
+        out_report->decoded_mac_frame = 1u;
+        out_report->queued_to_fieldmesh_adapter = 1u;
+        out_report->accepted_for_local_node = 1u;
+        out_report->uses_json_on_air = 0u;
+        out_report->uses_iio = 0u;
+        out_report->uses_inter_board_ip_routing = 0u;
+    }
     return FIELDMESH_OK;
 }
 

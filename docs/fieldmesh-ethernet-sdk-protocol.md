@@ -554,10 +554,13 @@ The first daemon-owned service boundary is
 `ALLOW_LIVE_TUN_WRITE`, opens the existing board-local `swarm0`, owns the
 FieldMesh adapter until stop, and multiplexes the UDP control socket with the
 TUN fd using a bounded poll-style loop. Status exposes packet/byte counters,
-poll wakeups, and idle ticks while still reporting no command execution,
-network writes, IIO, or inter-board host-IP routing. Its declared next boundary
-is `rf_ip_packet_ingress_egress`, where the in-process adapter loop is replaced
-by the real RF packet engine.
+poll wakeups, idle ticks, and RF-facing BLR `APP_DATA` frame counters. Native
+IP packets now cross a binary MAC frame encode/decode boundary before they are
+drained back to `swarm0`; the live gate still marks this as diagnostic loopback,
+not RF PHY TX/RX. The service still reports no command execution, network
+writes, IIO, or inter-board host-IP routing. Its declared next boundary is
+`rf_phy_tx_rx`, where the diagnostic MAC-frame loopback is replaced by real RF
+TX/RX.
 
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter

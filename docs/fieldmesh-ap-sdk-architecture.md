@@ -617,8 +617,10 @@ Stage 2: Board-local service
   `FIELDMESH_TUN_SERVICE_START` / `STATUS` / `STOP` for the first daemon-owned
   native-IP gateway service. The service keeps `swarm0` and adapter state
   inside the always-on daemon and now uses a bounded poll-style loop to wake on
-  TUN readiness. It reports `next_boundary=rf_ip_packet_ingress_egress` until
-  the in-process adapter loop is replaced by real RF packet ingress/egress.
+  TUN readiness. It also forces native-IP payloads through BLR `APP_DATA`
+  MAC-frame egress/ingress counters before drain-back to `swarm0`. That gate is
+  still diagnostic loopback; it reports `next_boundary=rf_phy_tx_rx` until the
+  MAC-frame loopback is replaced by real RF packet ingress/egress.
 - Use `fieldmesh_tun_gateway_demo` and daemon `FIELDMESH_TUN_PLAN` as the
   first routed-gateway contract: both keep `swarm0` on the Zynq board, report
   the compact destination device EUI, preserve the selected FieldMesh RF route,

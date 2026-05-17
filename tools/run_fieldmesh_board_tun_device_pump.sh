@@ -309,7 +309,15 @@ if mode == "service":
         raise SystemExit(f"live TUN service was not driven by TUN poll readiness: {event}")
     if event.get("poll_loop_active") != 1:
         raise SystemExit("live TUN service did not report active poll loop")
-    if event.get("next_boundary") != "rf_ip_packet_ingress_egress":
+    if event.get("rf_mac_app_data_path") != 1:
+        raise SystemExit("live TUN service did not expose RF MAC app-data path")
+    if event.get("rf_phy_tx_rx") != 0:
+        raise SystemExit("live TUN service must not claim RF PHY TX/RX")
+    if event.get("rf_frames_egressed", 0) < burst_packets:
+        raise SystemExit(f"live TUN service did not encode requested RF MAC frames: {event}")
+    if event.get("rf_frames_ingressed", 0) < burst_packets:
+        raise SystemExit(f"live TUN service did not ingest requested RF MAC frames: {event}")
+    if event.get("next_boundary") != "rf_phy_tx_rx":
         raise SystemExit("live TUN service next boundary is wrong")
 elif mode == "loop":
     if event.get("sent_to_fieldmesh_adapter") != 1:

@@ -590,6 +590,26 @@ typedef struct fieldmesh_rf_packet_submit_report {
     uint8_t starts_rf_tx;
 } fieldmesh_rf_packet_submit_report_t;
 
+typedef struct fieldmesh_rf_app_data_frame_report {
+    char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
+    char src_node_id[FIELDMESH_ID_TEXT_MAX];
+    char dst_node_id[FIELDMESH_ID_TEXT_MAX];
+    fieldmesh_payload_kind_t payload_kind;
+    fieldmesh_traffic_class_t traffic_class;
+    fieldmesh_mac_path_mode_t path_mode;
+    uint16_t stream_id;
+    uint32_t sequence;
+    uint32_t packet_len;
+    uint32_t frame_len;
+    uint8_t encoded_mac_frame;
+    uint8_t decoded_mac_frame;
+    uint8_t queued_to_fieldmesh_adapter;
+    uint8_t accepted_for_local_node;
+    uint8_t uses_json_on_air;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+} fieldmesh_rf_app_data_frame_report_t;
+
 typedef struct fieldmesh_camera_stream_config {
     char adapter_name[FIELDMESH_ADAPTER_NAME_TEXT_MAX];
     char dst_node_id[FIELDMESH_ID_TEXT_MAX];
@@ -1006,6 +1026,26 @@ fieldmesh_status_t fieldmesh_submit_rf_packet(fieldmesh_adapter_t *adapter,
                                               size_t payload_len,
                                               uint32_t flags,
                                               fieldmesh_rf_packet_submit_report_t *out_report);
+fieldmesh_status_t fieldmesh_adapter_encode_app_data_frame(
+    fieldmesh_adapter_t *adapter,
+    const fieldmesh_adapter_packet_t *packet,
+    const void *payload,
+    size_t payload_len,
+    const char *src_device_eui,
+    uint8_t *out_frame,
+    size_t out_frame_capacity,
+    size_t *out_frame_len,
+    fieldmesh_rf_app_data_frame_report_t *out_report);
+fieldmesh_status_t fieldmesh_adapter_ingest_app_data_frame(
+    fieldmesh_adapter_t *adapter,
+    const uint8_t *frame,
+    size_t frame_len,
+    const char *local_device_eui,
+    void *payload_buffer,
+    size_t payload_capacity,
+    size_t *out_payload_len,
+    fieldmesh_adapter_packet_t *out_packet,
+    fieldmesh_rf_app_data_frame_report_t *out_report);
 fieldmesh_status_t fieldmesh_open_camera_stream(
     fieldmesh_session_t *session,
     const fieldmesh_camera_stream_config_t *config,
