@@ -1273,7 +1273,12 @@ Expected result in the current Pluto-compatible firmware state:
    daemon-owned `swarm0`/adapter state. The service now uses a bounded
    poll-style loop to wake on TUN readiness and now sends native-IP payloads
    through a binary BLR `APP_DATA` MAC-frame egress/ingress boundary and
-   explicit TX/RX RF transport queues before drain-back to `swarm0`. That service now defaults to `driver_queue`; `diagnostic_loopback` is explicit test-only, so the remaining production boundary is connecting the RF TX poll/RX ingest queues to real RF packet ingress/egress.
+   explicit TX/RX RF transport queues before drain-back to `swarm0`. That
+   service now defaults to `driver_queue`; RX ingest validates BLR `APP_DATA`
+   type and destination EUI before a frame can enter `swarm0`.
+   `diagnostic_loopback` is explicit test-only, so the remaining production
+   boundary is connecting the RF TX poll/RX ingest queues to real RF packet
+   ingress/egress.
    The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is

@@ -557,7 +557,12 @@ TUN fd using a bounded poll-style loop. Status exposes packet/byte counters,
 poll wakeups, idle ticks, and RF-facing BLR `APP_DATA` frame counters. Native
 IP packets now cross a binary MAC frame encode/decode boundary before they are
 drained back to `swarm0`; the service now uses explicit TX/RX RF transport
-queues. `driver_queue` is the default service transport and exposes `FIELDMESH_RF_TX_POLL` plus `FIELDMESH_RF_RX_INGEST` for the RF worker; `diagnostic_loopback` is test-only, not RF PHY TX/RX. The service still reports no command execution, network writes, IIO, or
+queues. `driver_queue` is the default service transport and exposes
+`FIELDMESH_RF_TX_POLL` plus `FIELDMESH_RF_RX_INGEST` for the RF worker.
+`FIELDMESH_RF_RX_INGEST` decodes the BLR frame before queueing it and accepts
+only `APP_DATA` frames addressed to the daemon's local EUI; other frames are
+rejected instead of being written to `swarm0`. `diagnostic_loopback` is
+test-only, not RF PHY TX/RX. The service still reports no command execution, network writes, IIO, or
 inter-board host-IP routing. Its declared next boundary is `rf_phy_tx_rx`,
 where the diagnostic transport step is replaced by real RF TX/RX.
 

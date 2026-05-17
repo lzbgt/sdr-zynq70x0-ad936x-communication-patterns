@@ -4251,7 +4251,12 @@ The daemon also now exposes the first lifecycle-managed native-IP service via
 `FIELDMESH_TUN_SERVICE_STOP`; this keeps daemon-owned `swarm0`/adapter state and
 uses a bounded poll-style loop to wake on TUN readiness. The service now routes
 the native-IP payload through BLR `APP_DATA` MAC-frame egress/ingress counters
-and explicit TX/RX RF transport queues before drain-back to `swarm0`; the default is now `driver_queue` with RF TX poll and RF RX ingest APIs; `diagnostic_loopback` is explicit test-only and the service still reports `next_boundary=rf_phy_tx_rx`.
+and explicit TX/RX RF transport queues before drain-back to `swarm0`; the
+default is now `driver_queue` with RF TX poll and RF RX ingest APIs.
+`FIELDMESH_RF_RX_INGEST` validates BLR `APP_DATA` type and destination EUI
+before a worker-delivered frame can be written to `swarm0`.
+`diagnostic_loopback` is explicit test-only and the service still reports
+`next_boundary=rf_phy_tx_rx`.
 
 Live installed-board verification on 2026-05-17 passed:
 
@@ -4271,11 +4276,19 @@ MODE=pump ALLOW_LIVE_TUN_READ=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
 MODE=pump ALLOW_LIVE_TUN_READ=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
   UPLOAD_IF_MISSING=0 VARIANT=z103 BOARD_IP=192.168.3.1 PORT=55454 \
   ./tools/run_fieldmesh_board_tun_device_pump.sh
+
+MODE=service RF_SELF_INGEST_REJECT=1 ALLOW_LIVE_TUN_READ=1 \
+  ALLOW_LIVE_TUN_WRITE=1 BURST_PACKETS=3 FORCE_UPLOAD=0 UPLOAD_IF_MISSING=0 \
+  VARIANT=z203 BOARD_IP=192.168.1.10 PORT=55463 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
 ```
 
 Both boards drained three adapter packets into `swarm0`, pumped three `swarm0`
 packets into the adapter, preserved the opposite peer EUI, avoided IIO and
-inter-board IP routing, and rolled `swarm0` back cleanly. The installed
+inter-board IP routing, and rolled `swarm0` back cleanly. The service-mode
+self-ingest rejection check polled one BLR `APP_DATA` frame addressed to the
+peer and proved the local daemon rejects it with `frame_not_for_local_eui`
+instead of writing it into `swarm0`. The installed
 two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

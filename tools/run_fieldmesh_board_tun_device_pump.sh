@@ -16,7 +16,8 @@ allow_live_tun_read="${ALLOW_LIVE_TUN_READ:-0}"
 allow_live_tun_write="${ALLOW_LIVE_TUN_WRITE:-0}"
 mode="${MODE:-pump}"
 burst_packets="${BURST_PACKETS:-1}"
-rf_transport="${RF_TRANSPORT:-diagnostic_loopback}"
+rf_transport="${RF_TRANSPORT:-driver_queue}"
+rf_self_ingest_reject="${RF_SELF_INGEST_REJECT:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-tun-device-${mode}-${variant}-${port}-$(date +%Y%m%d-%H%M%S)}"
 
 mkdir -p "$out_dir"
@@ -60,7 +61,14 @@ case "$rf_transport" in
         exit 1
         ;;
 esac
-
+if [ "$rf_self_ingest_reject" != "0" ] && [ "$rf_self_ingest_reject" != "1" ]; then
+    echo "RF_SELF_INGEST_REJECT must be 0 or 1" >&2
+    exit 1
+fi
+if [ "$rf_self_ingest_reject" = "1" ] && [ "$rf_transport" != "driver_queue" ]; then
+    echo "RF_SELF_INGEST_REJECT=1 requires RF_TRANSPORT=driver_queue" >&2
+    exit 1
+fi
 case "$mode" in
     pump)
         if [ "$allow_live_tun_read" != "1" ]; then
@@ -143,6 +151,9 @@ if [ "$mode" = "service" ]; then
     daemon_requests=3
     if [ "$rf_transport" = "driver_queue" ]; then
         daemon_requests=4
+        if [ "$rf_self_ingest_reject" = "1" ]; then
+            daemon_requests=5
+        fi
     fi
 fi
 
@@ -153,11 +164,12 @@ remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
 
 sleep 0.5
 
-python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" "$mode" "$rf_transport" \
+python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" "$mode" "$rf_transport" "$rf_self_ingest_reject" \
     > "$out_dir/host_live_request.ndjson" <<'PY' &
 import socket
 import sys
 import time
+import json
 
 host = sys.argv[1]
 port = int(sys.argv[2])
@@ -166,8 +178,18 @@ dst_eui = sys.argv[4]
 burst_packets = int(sys.argv[5])
 mode = sys.argv[6]
 rf_transport = sys.argv[7]
+rf_self_ingest_reject = sys.argv[8] == "1"
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(timeout_ms / 1000.0)
+
+def request_once(request: str) -> dict:
+    sock.sendto(request.encode("ascii"), (host, port))
+    payload, _ = sock.recvfrom(8192)
+    text = payload.decode("utf-8", errors="replace")
+    sys.stdout.write(text)
+    sys.stdout.flush()
+    return json.loads(text)
+
 if mode == "service":
     start = (
         "FIELDMESH_TUN_SERVICE_START v1 "
@@ -177,20 +199,14 @@ if mode == "service":
     )
     if rf_transport == "diagnostic_loopback":
         start += " ALLOW_DIAGNOSTIC_RF_LOOPBACK"
-    requests = [
-        start,
-        "FIELDMESH_TUN_SERVICE_STATUS v1",
-    ]
+    request_once(start)
+    time.sleep(max(2.0, burst_packets + 0.8))
+    request_once("FIELDMESH_TUN_SERVICE_STATUS v1")
     if rf_transport == "driver_queue":
-        requests.append("FIELDMESH_RF_TX_POLL v1")
-    requests.append("FIELDMESH_TUN_SERVICE_STOP v1")
-    for index, request in enumerate(requests):
-        if index == 1:
-            time.sleep(max(2.0, burst_packets + 0.8))
-        sock.sendto(request.encode("ascii"), (host, port))
-        payload, _ = sock.recvfrom(4096)
-        sys.stdout.write(payload.decode("utf-8", errors="replace"))
-        sys.stdout.flush()
+        tx_poll = request_once("FIELDMESH_RF_TX_POLL v1")
+        if rf_self_ingest_reject and tx_poll.get("frame0_hex"):
+            request_once("FIELDMESH_RF_RX_INGEST v1 " + str(tx_poll["frame0_hex"]))
+    request_once("FIELDMESH_TUN_SERVICE_STOP v1")
     raise SystemExit(0)
 if mode == "loop":
     request = (
@@ -256,7 +272,7 @@ if [ "$query_rc" -ne 0 ]; then
     exit "$query_rc"
 fi
 
-python3 - "$out_dir" "$board_ip" "$variant" "$inject_rc" "$burst_packets" "$dst_eui" "$mode" "$rf_transport" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$inject_rc" "$burst_packets" "$dst_eui" "$mode" "$rf_transport" "$rf_self_ingest_reject" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -269,6 +285,7 @@ burst_packets = int(sys.argv[5])
 dst_eui = sys.argv[6]
 mode = sys.argv[7]
 rf_transport = sys.argv[8]
+rf_self_ingest_reject = sys.argv[9] == "1"
 
 rows = []
 for line in (out_dir / "host_live_request.ndjson").read_text(encoding="utf-8").splitlines():
@@ -291,12 +308,15 @@ live = [row for row in rows if row.get("event") == event_name]
 if not live:
     raise SystemExit(f"missing {event_name} response")
 event = live[0]
+if mode == "service":
+    event = live[-1]
 if event.get("ok") != 1:
     raise SystemExit(f"live TUN device {mode} failed: {event}")
 if mode == "service":
     started = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_started"]
     stopped = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_stopped"]
     tx_poll = [row for row in rows if row.get("event") == "sdk_daemon_rf_tx_poll"]
+    rx_ingest = [row for row in rows if row.get("event") == "sdk_daemon_rf_rx_ingest"]
     if not started or started[0].get("running") != 1:
         raise SystemExit(f"live TUN service did not start: {started}")
     if not stopped or stopped[0].get("was_running") != 1:
@@ -355,6 +375,13 @@ if mode == "service":
             raise SystemExit(f"driver-queue TX poll transport changed: {tx_poll[0]}")
         if tx_poll[0].get("frame0_bytes", 0) <= 0 or not tx_poll[0].get("frame0_hex"):
             raise SystemExit(f"driver-queue TX poll did not return a BLR frame: {tx_poll[0]}")
+        if rf_self_ingest_reject:
+            if not rx_ingest:
+                raise SystemExit("self-ingest rejection response missing")
+            if rx_ingest[0].get("error") != "frame_not_for_local_eui":
+                raise SystemExit(f"self-ingest rejection returned wrong error: {rx_ingest[0]}")
+            if rx_ingest[0].get("local_device_eui") == rx_ingest[0].get("frame_dst_device_eui"):
+                raise SystemExit(f"self-ingest rejection did not expose mismatched EUIs: {rx_ingest[0]}")
     if event.get("next_boundary") != "rf_phy_tx_rx":
         raise SystemExit("live TUN service next boundary is wrong")
 elif mode == "loop":
@@ -411,6 +438,7 @@ summary = {
     "requested_packets": burst_packets,
     "dst_device_eui": dst_eui,
     "rf_transport": rf_transport,
+    "rf_self_ingest_reject": rf_self_ingest_reject,
     "bytes_read": event.get("bytes_read"),
     "bytes_written": event.get("bytes_written"),
     "traffic_class": event.get("traffic_class"),

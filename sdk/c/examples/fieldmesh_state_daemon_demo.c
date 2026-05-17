@@ -4019,8 +4019,13 @@ static int build_response(fieldmesh_context_t *context,
     }
     if (strstr(request, "FIELDMESH_RF_RX_INGEST")) {
         unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
+        unsigned char payload[1536];
+        fieldmesh_mac_frame_header_t header;
+        char dst_device_eui[FIELDMESH_EUI_TEXT_MAX];
         const char *frame_hex = strstr(request, " v1 ");
+        size_t payload_len;
         size_t frame_len;
+        fieldmesh_status_t decode_status;
 
         if (!tun_service || !tun_service->running) {
             snprintf(response, response_len,
@@ -4050,6 +4055,49 @@ static int build_response(fieldmesh_context_t *context,
                      "\"error\":\"invalid_blr_frame_hex\"}\n");
             return 0;
         }
+        payload_len = 0u;
+        memset(&header, 0, sizeof(header));
+        decode_status = fieldmesh_decode_mac_frame(frame, frame_len, &header,
+                                                   payload, sizeof(payload),
+                                                   &payload_len);
+        if (decode_status != FIELDMESH_OK ||
+            fieldmesh_eui_to_text(header.dst_eui, dst_device_eui,
+                                  sizeof(dst_device_eui)) != FIELDMESH_OK) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_rx_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_blr_app_data_frame\","
+                     "\"uses_json_on_air\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA ||
+            payload_len == 0u) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_rx_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"unsupported_blr_frame_type\","
+                     "\"frame_type\":%u,"
+                     "\"uses_json_on_air\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n",
+                     header.frame_type);
+            return 0;
+        }
+        if (strcmp(dst_device_eui, tun_service->local_device_eui) != 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_rx_ingest\","
+                     "\"ok\":false,"
+                     "\"error\":\"frame_not_for_local_eui\","
+                     "\"frame_dst_device_eui\":\"%s\","
+                     "\"local_device_eui\":\"%s\","
+                     "\"uses_json_on_air\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n",
+                     dst_device_eui, tun_service->local_device_eui);
+            return 0;
+        }
         if (!tun_service_rf_queue_push(&tun_service->rf_rx_queue, frame,
                                        frame_len)) {
             tun_service->rf_rx_queue_drops++;
@@ -4063,6 +4111,7 @@ static int build_response(fieldmesh_context_t *context,
         }
         tun_service->rf_driver_frames_ingested++;
         tun_service->rf_driver_frame_bytes_ingested += (uint32_t)frame_len;
+        tun_service_tick(tun_service);
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_rx_ingest\","
                  "\"ok\":true,"
@@ -4072,6 +4121,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_rx_queue_depth\":%u,"
                  "\"rf_driver_frames_ingested\":%u,"
                  "\"rf_driver_frame_bytes_ingested\":%u,"
+                 "\"packets_written\":%u,"
+                 "\"rf_frames_ingressed\":%u,"
                  "\"uses_json_on_air\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
                  "\"starts_rf_tx\":0,"
@@ -4081,7 +4132,9 @@ static int build_response(fieldmesh_context_t *context,
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_rx_queue.count,
                  tun_service->rf_driver_frames_ingested,
-                 tun_service->rf_driver_frame_bytes_ingested);
+                 tun_service->rf_driver_frame_bytes_ingested,
+                 tun_service->packets_written,
+                 tun_service->rf_frames_ingressed);
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STOP")) {
