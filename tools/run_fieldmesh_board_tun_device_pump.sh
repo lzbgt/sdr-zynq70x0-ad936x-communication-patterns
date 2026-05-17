@@ -13,8 +13,10 @@ timeout_ms="${TIMEOUT_MS:-5000}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 force_upload="${FORCE_UPLOAD:-0}"
 allow_live_tun_read="${ALLOW_LIVE_TUN_READ:-0}"
+allow_live_tun_write="${ALLOW_LIVE_TUN_WRITE:-0}"
+mode="${MODE:-pump}"
 burst_packets="${BURST_PACKETS:-1}"
-out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-tun-device-pump-${variant}-${port}-$(date +%Y%m%d-%H%M%S)}"
+out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-tun-device-${mode}-${variant}-${port}-$(date +%Y%m%d-%H%M%S)}"
 
 mkdir -p "$out_dir"
 
@@ -50,10 +52,24 @@ if ! [[ "$dst_eui" =~ ^[0-9A-Fa-f]{12}$ ]]; then
     exit 1
 fi
 
-if [ "$allow_live_tun_read" != "1" ]; then
-    echo "Refusing live TUN read without ALLOW_LIVE_TUN_READ=1" >&2
-    exit 1
-fi
+case "$mode" in
+    pump)
+        if [ "$allow_live_tun_read" != "1" ]; then
+            echo "Refusing live TUN read without ALLOW_LIVE_TUN_READ=1" >&2
+            exit 1
+        fi
+        ;;
+    drain)
+        if [ "$allow_live_tun_write" != "1" ]; then
+            echo "Refusing live TUN write without ALLOW_LIVE_TUN_WRITE=1" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "MODE must be pump or drain" >&2
+        exit 1
+        ;;
+esac
 
 remote="${ssh_user}@${board_ip}"
 ssh_args=(
@@ -114,7 +130,7 @@ remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
 
 sleep 0.5
 
-python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" \
+python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" "$mode" \
     > "$out_dir/host_live_request.ndjson" <<'PY' &
 import socket
 import sys
@@ -124,9 +140,15 @@ port = int(sys.argv[2])
 timeout_ms = int(sys.argv[3])
 dst_eui = sys.argv[4]
 burst_packets = int(sys.argv[5])
+mode = sys.argv[6]
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(timeout_ms / 1000.0)
-if burst_packets == 1:
+if mode == "drain":
+    request = (
+        "FIELDMESH_TUN_DEV_DRAIN_BURST v1 "
+        f"dst={dst_eui} max={burst_packets} ALLOW_LIVE_TUN_WRITE"
+    )
+elif burst_packets == 1:
     request = f"FIELDMESH_TUN_DEV_PUMP v1 dst={dst_eui} ALLOW_LIVE_TUN_READ"
 else:
     request = (
@@ -141,9 +163,15 @@ query_pid=$!
 
 sleep 0.3
 set +e
-sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-    "{ ip link set dev swarm0 up; ip route replace 10.77.2.0/24 dev swarm0; ip -json addr show dev swarm0; ping -c '$burst_packets' -W 1 10.77.2.20; } > '$remote_inject' 2>&1"
-inject_rc=$?
+if [ "$mode" = "pump" ]; then
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "{ ip link set dev swarm0 up; ip route replace 10.77.2.0/24 dev swarm0; ip -json addr show dev swarm0; ping -c '$burst_packets' -W 1 10.77.2.20; } > '$remote_inject' 2>&1"
+    inject_rc=$?
+else
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "{ ip link set dev swarm0 up; ip route replace 10.77.2.0/24 dev swarm0; ip -json addr show dev swarm0; ip -s link show dev swarm0; } > '$remote_inject' 2>&1"
+    inject_rc=$?
+fi
 wait "$query_pid"
 query_rc=$?
 set -e
@@ -173,7 +201,7 @@ if [ "$query_rc" -ne 0 ]; then
     exit "$query_rc"
 fi
 
-python3 - "$out_dir" "$board_ip" "$variant" "$inject_rc" "$burst_packets" "$dst_eui" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$inject_rc" "$burst_packets" "$dst_eui" "$mode" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -184,44 +212,60 @@ variant = sys.argv[3]
 inject_rc = int(sys.argv[4])
 burst_packets = int(sys.argv[5])
 dst_eui = sys.argv[6]
+mode = sys.argv[7]
 
 rows = []
 for line in (out_dir / "host_live_request.ndjson").read_text(encoding="utf-8").splitlines():
     line = line.strip()
     if line.startswith("{"):
         rows.append(json.loads(line))
-event_name = (
-    "sdk_daemon_tun_device_pump_live"
-    if burst_packets == 1
-    else "sdk_daemon_tun_device_pump_burst_live"
-)
+if mode == "drain":
+    event_name = "sdk_daemon_tun_device_drain_burst_live"
+else:
+    event_name = (
+        "sdk_daemon_tun_device_pump_live"
+        if burst_packets == 1
+        else "sdk_daemon_tun_device_pump_burst_live"
+    )
 live = [row for row in rows if row.get("event") == event_name]
 if not live:
     raise SystemExit(f"missing {event_name} response")
 event = live[0]
 if event.get("ok") != 1:
-    raise SystemExit(f"live TUN device pump failed: {event}")
-for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun"):
+    raise SystemExit(f"live TUN device {mode} failed: {event}")
+if mode == "drain":
+    required_ones = ("opens_dev_net_tun", "attaches_tun_if", "written_to_tun")
+else:
+    required_ones = ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun")
+for key in required_ones:
     if event.get(key) != 1:
-        raise SystemExit(f"live TUN device pump key {key} must be 1")
+        raise SystemExit(f"live TUN device {mode} key {key} must be 1")
 for key in ("commands_executed", "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
     if event.get(key) != 0:
-        raise SystemExit(f"live TUN device pump key {key} must be 0")
-if event.get("traffic_class") != 0 or event.get("payload_kind") != 1:
-    raise SystemExit("live TUN device pump did not classify the injected ICMP packet as control")
-if event.get("sent_to_fieldmesh_adapter") != 1:
-    raise SystemExit("live TUN device pump did not forward to FieldMesh adapter")
-if event.get("next_boundary") != "fieldmesh_rf_packet_engine":
-    raise SystemExit("live TUN device pump next boundary is wrong")
+        raise SystemExit(f"live TUN device {mode} key {key} must be 0")
 if event.get("dst_device_eui") != dst_eui:
-    raise SystemExit("live TUN device pump did not preserve destination EUI")
-if event.get("packets_read") != burst_packets or event.get("packets_sent") != burst_packets:
-    raise SystemExit(f"live TUN device pump packet count mismatch: {event}")
-if burst_packets > 1:
+    raise SystemExit(f"live TUN device {mode} did not preserve destination EUI")
+if mode == "drain":
+    if event.get("received_from_fieldmesh_adapter") != 1:
+        raise SystemExit("live TUN device drain did not receive from FieldMesh adapter")
+    if event.get("packets_received") != burst_packets or event.get("packets_written") != burst_packets:
+        raise SystemExit(f"live TUN device drain packet count mismatch: {event}")
+    if event.get("next_boundary") != "client_kernel_ip_stack":
+        raise SystemExit("live TUN device drain next boundary is wrong")
+else:
+    if event.get("traffic_class") != 0 or event.get("payload_kind") != 1:
+        raise SystemExit("live TUN device pump did not classify the injected ICMP packet as control")
+    if event.get("sent_to_fieldmesh_adapter") != 1:
+        raise SystemExit("live TUN device pump did not forward to FieldMesh adapter")
+    if event.get("next_boundary") != "fieldmesh_rf_packet_engine":
+        raise SystemExit("live TUN device pump next boundary is wrong")
+    if event.get("packets_read") != burst_packets or event.get("packets_sent") != burst_packets:
+        raise SystemExit(f"live TUN device pump packet count mismatch: {event}")
+if mode == "drain" or burst_packets > 1:
     if event.get("event_loop_ready") != 1 or event.get("bounded_batch") != 1:
-        raise SystemExit("live TUN burst did not report event-loop bounded batch readiness")
+        raise SystemExit(f"live TUN {mode} did not report event-loop bounded batch readiness")
     if event.get("max_packets") != burst_packets:
-        raise SystemExit("live TUN burst max_packets mismatch")
+        raise SystemExit(f"live TUN {mode} max_packets mismatch")
 
 rollback = (out_dir / "rollback.log").read_text(encoding="utf-8", errors="replace")
 rollback_clean = "does not exist" in rollback or "Cannot find device" in rollback
@@ -229,22 +273,25 @@ if not rollback_clean:
     raise SystemExit("live TUN device pump rollback did not remove swarm0")
 
 summary = {
-    "event": "fieldmesh_board_tun_device_pump_assert",
+    "event": f"fieldmesh_board_tun_device_{mode}_assert",
     "ok": True,
     "board_ip": board_ip,
     "variant": variant,
     "inject_rc": inject_rc,
     "packets_read": event.get("packets_read"),
     "packets_sent": event.get("packets_sent"),
+    "packets_received": event.get("packets_received"),
+    "packets_written": event.get("packets_written"),
     "requested_packets": burst_packets,
     "dst_device_eui": dst_eui,
     "bytes_read": event.get("bytes_read"),
+    "bytes_written": event.get("bytes_written"),
     "traffic_class": event.get("traffic_class"),
     "payload_kind": event.get("payload_kind"),
     "rollback_clean": rollback_clean,
 }
 print(json.dumps(summary, sort_keys=True))
-(out_dir / "board_tun_device_pump_assert.json").write_text(
+(out_dir / f"board_tun_device_{mode}_assert.json").write_text(
     json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 

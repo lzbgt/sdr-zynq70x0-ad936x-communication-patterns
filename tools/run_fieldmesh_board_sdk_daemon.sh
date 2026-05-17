@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-31}"
+requests="${REQUESTS:-32}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -178,12 +178,13 @@ camera_chunk = [row for row in query if row.get("event") == "sdk_daemon_camera_s
 tun_fd_pump_burst = [row for row in query if row.get("event") == "sdk_daemon_tun_fd_pump_burst"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
+tun_device_drain_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_drain_burst_guard"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 31:
+if not end or end[-1].get("handled") != 32:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -461,6 +462,19 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "commands_
             "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
     if tun_device_guard[0].get(key) != 0:
         raise SystemExit(f"board SDK daemon TUN device guard key {key} must be 0")
+if not tun_device_drain_guard or tun_device_drain_guard[0].get("adapter_name") != "swarm0":
+    raise SystemExit("board SDK daemon TUN device drain guard response failed")
+if tun_device_drain_guard[0].get("production_tun_path") != "/dev/net/tun":
+    raise SystemExit("board SDK daemon TUN device drain guard lost /dev/net/tun")
+for key in ("requires_allow_live_tun_write", "requires_cap_net_admin", "requires_existing_swarm0"):
+    if tun_device_drain_guard[0].get(key) != 1:
+        raise SystemExit(f"board SDK daemon TUN device drain guard key {key} must be 1")
+for key in ("opens_dev_net_tun", "attaches_tun_if", "writes_to_tun", "commands_executed",
+            "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
+    if tun_device_drain_guard[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon TUN device drain guard key {key} must be 0")
+if tun_device_drain_guard[0].get("next_boundary") != "client_kernel_ip_stack":
+    raise SystemExit("board SDK daemon TUN device drain next boundary failed")
 if tun_plan[0].get("dst_device_eui") != route_dst_eui:
     raise SystemExit("board SDK daemon TUN plan used wrong destination EUI")
 if tun_plan[0].get("creates_tun_on_board") != 1 or tun_plan[0].get("creates_tun_on_host") != 0:

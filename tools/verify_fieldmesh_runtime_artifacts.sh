@@ -211,6 +211,7 @@ verify_variant() {
         FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_DEV_PUMP \
         FIELDMESH_TUN_DEV_PUMP_BURST \
+        FIELDMESH_TUN_DEV_DRAIN_BURST \
         FIELDMESH_TUN_PLAN \
         FIELDMESH_TUN_APPLY_VALIDATE \
         FIELDMESH_TUN_APPLY_COMMIT \
@@ -252,11 +253,16 @@ verify_variant() {
         sdk_daemon_tun_fd_pump \
         sdk_daemon_tun_device_pump_guard \
         sdk_daemon_tun_device_pump_burst_live \
+        sdk_daemon_tun_device_drain_burst_guard \
+        sdk_daemon_tun_device_drain_burst_live \
         bounded_batch \
         posix_pipe_fd \
         /dev/net/tun \
         requires_allow_live_tun_read \
+        requires_allow_live_tun_write \
         requires_existing_swarm0 \
+        written_to_tun \
+        client_kernel_ip_stack \
         fieldmesh_rf_packet_engine \
         queued_to_rf_engine \
         uses_sidecar_dma \

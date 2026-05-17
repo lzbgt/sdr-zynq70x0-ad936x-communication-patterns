@@ -528,6 +528,17 @@ network state by pumping multiple callback-delivered IP packets through
 `swarm0` classification and the FieldMesh adapter, preserving the compact
 destination EUI supplied in the request.
 
+The reverse TUN direction is explicit as well:
+`fieldmesh_tun_packetizer_drain_many()` receives a bounded batch from the
+FieldMesh adapter and writes each IP packet through a caller-supplied TUN write
+callback. This is the SDK boundary for RF/adapter-to-client-kernel delivery.
+The daemon exposes the live guarded board path as
+`FIELDMESH_TUN_DEV_DRAIN_BURST`; without `ALLOW_LIVE_TUN_WRITE` it reports only
+the required `/dev/net/tun`, `swarm0`, and `CAP_NET_ADMIN` preconditions. With
+the allow token it attaches the existing board-local `swarm0`, drains a bounded
+adapter batch, writes the packets into the TUN fd, and reports
+`next_boundary=client_kernel_ip_stack`.
+
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter
 packet metadata and payload length, preserve the selected direct-or-relayed RF
@@ -579,7 +590,9 @@ form carries `max=<1..32>`, preserves the compact destination EUI from `dst=`,
 and reports `event_loop_ready=1` plus `bounded_batch=1` so a production daemon
 can grow this into a continuous TUN event loop without changing the pure-C
 packetizer API. `tools/run_fieldmesh_board_tun_device_pump.sh` is the live Zynq
-gate for both single-packet and bounded-burst forms.
+gate for both single-packet and bounded-burst forms. The same runner supports
+`MODE=drain` to verify `FIELDMESH_TUN_DEV_DRAIN_BURST`, the adapter-to-TUN
+injection direction needed before ordinary TCP/IP clients can receive traffic.
 
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh

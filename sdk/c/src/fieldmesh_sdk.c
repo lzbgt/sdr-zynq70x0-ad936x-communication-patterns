@@ -32,6 +32,7 @@ typedef socklen_t fieldmesh_sdk_socklen_t;
 #endif
 
 #define FIELDMESH_MAX_STREAM_PAYLOAD 2048
+#define FIELDMESH_STREAM_QUEUE_CAPACITY 8u
 
 #define FIELDMESH_LAB_EUI_A "020000000203"
 #define FIELDMESH_LAB_EUI_B "020000000103"
@@ -81,6 +82,12 @@ struct fieldmesh_stream {
     unsigned char last_payload[FIELDMESH_MAX_STREAM_PAYLOAD];
     size_t last_payload_len;
     fieldmesh_packet_meta_t last_meta;
+    unsigned char packet_queue[FIELDMESH_STREAM_QUEUE_CAPACITY][FIELDMESH_MAX_STREAM_PAYLOAD];
+    size_t packet_queue_len[FIELDMESH_STREAM_QUEUE_CAPACITY];
+    fieldmesh_packet_meta_t packet_queue_meta[FIELDMESH_STREAM_QUEUE_CAPACITY];
+    size_t packet_queue_head;
+    size_t packet_queue_tail;
+    size_t packet_queue_count;
     int has_packet;
 };
 
@@ -1879,31 +1886,48 @@ fieldmesh_status_t fieldmesh_send(fieldmesh_stream_t *stream,
     if (!stream || !stream->session || !payload || payload_len > FIELDMESH_MAX_STREAM_PAYLOAD) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    memcpy(stream->last_payload, payload, payload_len);
-    stream->last_payload_len = payload_len;
-    memset(&stream->last_meta, 0, sizeof(stream->last_meta));
-    if (meta) {
-        stream->last_meta = *meta;
+    if (stream->packet_queue_count >= FIELDMESH_STREAM_QUEUE_CAPACITY) {
+        return FIELDMESH_ERR_TRANSPORT;
     }
-    sdk_copy_text(stream->last_meta.src_node_id, sizeof(stream->last_meta.src_node_id),
+    memcpy(stream->packet_queue[stream->packet_queue_tail], payload, payload_len);
+    stream->packet_queue_len[stream->packet_queue_tail] = payload_len;
+    memset(&stream->packet_queue_meta[stream->packet_queue_tail], 0,
+           sizeof(stream->packet_queue_meta[stream->packet_queue_tail]));
+    if (meta) {
+        stream->packet_queue_meta[stream->packet_queue_tail] = *meta;
+    }
+    sdk_copy_text(stream->packet_queue_meta[stream->packet_queue_tail].src_node_id,
+                  sizeof(stream->packet_queue_meta[stream->packet_queue_tail].src_node_id),
                   "local-node");
-    if (stream->last_meta.dst_node_id[0] == '\0') {
-        sdk_copy_text(stream->last_meta.dst_node_id, sizeof(stream->last_meta.dst_node_id),
+    if (stream->packet_queue_meta[stream->packet_queue_tail].dst_node_id[0] == '\0') {
+        sdk_copy_text(stream->packet_queue_meta[stream->packet_queue_tail].dst_node_id,
+                      sizeof(stream->packet_queue_meta[stream->packet_queue_tail].dst_node_id),
                       stream->config.dst_node_id[0] ? stream->config.dst_node_id :
                       FIELDMESH_LAB_EUI_B);
     }
-    stream->last_meta.stream_id = stream->config.stream_id;
-    stream->last_meta.traffic_class = stream->config.traffic_class;
-    stream->last_meta.mode = stream->session->selected_mode == FIELDMESH_MODE_AUTO ?
+    stream->packet_queue_meta[stream->packet_queue_tail].stream_id = stream->config.stream_id;
+    stream->packet_queue_meta[stream->packet_queue_tail].traffic_class =
+        stream->config.traffic_class;
+    stream->packet_queue_meta[stream->packet_queue_tail].mode =
+        stream->session->selected_mode == FIELDMESH_MODE_AUTO ?
         stream->config.requested_mode : stream->session->selected_mode;
-    if (stream->last_meta.mode == FIELDMESH_MODE_AUTO) {
-        stream->last_meta.mode = FIELDMESH_MODE_SCHEDULED;
+    if (stream->packet_queue_meta[stream->packet_queue_tail].mode == FIELDMESH_MODE_AUTO) {
+        stream->packet_queue_meta[stream->packet_queue_tail].mode = FIELDMESH_MODE_SCHEDULED;
     }
-    stream->last_meta.sequence = stream->session->context->next_sequence++;
-    stream->last_meta.epoch = 1u;
-    stream->last_meta.slot = 3u;
-    stream->last_meta.queue_age_ms = 1u;
-    stream->has_packet = 1;
+    stream->packet_queue_meta[stream->packet_queue_tail].sequence =
+        stream->session->context->next_sequence++;
+    stream->packet_queue_meta[stream->packet_queue_tail].epoch = 1u;
+    stream->packet_queue_meta[stream->packet_queue_tail].slot = 3u;
+    stream->packet_queue_meta[stream->packet_queue_tail].queue_age_ms = 1u;
+
+    memcpy(stream->last_payload, stream->packet_queue[stream->packet_queue_tail],
+           payload_len);
+    stream->last_payload_len = payload_len;
+    stream->last_meta = stream->packet_queue_meta[stream->packet_queue_tail];
+    stream->packet_queue_tail =
+        (stream->packet_queue_tail + 1u) % FIELDMESH_STREAM_QUEUE_CAPACITY;
+    stream->packet_queue_count++;
+    stream->has_packet = stream->packet_queue_count > 0u ? 1 : 0;
     return FIELDMESH_OK;
 }
 
@@ -1918,18 +1942,22 @@ fieldmesh_status_t fieldmesh_recv(fieldmesh_stream_t *stream,
     if (!stream || !payload || !out_payload_len) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    if (!stream->has_packet) {
+    if (stream->packet_queue_count == 0u) {
         return FIELDMESH_ERR_TIMEOUT;
     }
-    if (payload_capacity < stream->last_payload_len) {
+    if (payload_capacity < stream->packet_queue_len[stream->packet_queue_head]) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
-    memcpy(payload, stream->last_payload, stream->last_payload_len);
-    *out_payload_len = stream->last_payload_len;
+    memcpy(payload, stream->packet_queue[stream->packet_queue_head],
+           stream->packet_queue_len[stream->packet_queue_head]);
+    *out_payload_len = stream->packet_queue_len[stream->packet_queue_head];
     if (out_meta) {
-        *out_meta = stream->last_meta;
+        *out_meta = stream->packet_queue_meta[stream->packet_queue_head];
     }
-    stream->has_packet = 0;
+    stream->packet_queue_head =
+        (stream->packet_queue_head + 1u) % FIELDMESH_STREAM_QUEUE_CAPACITY;
+    stream->packet_queue_count--;
+    stream->has_packet = stream->packet_queue_count > 0u ? 1 : 0;
     return FIELDMESH_OK;
 }
 
@@ -3403,6 +3431,89 @@ fieldmesh_status_t fieldmesh_tun_packetizer_pump_many(
     out_report->uses_inter_board_ip_routing = 0u;
     out_report->sent_to_fieldmesh_adapter =
         out_report->packet.sent_to_fieldmesh_adapter;
+    return FIELDMESH_OK;
+}
+
+fieldmesh_status_t fieldmesh_tun_packetizer_drain_many(
+    fieldmesh_adapter_t *adapter,
+    fieldmesh_tun_write_callback_t write_packet,
+    void *write_user,
+    void *packet_buffer,
+    size_t packet_capacity,
+    uint32_t max_packets,
+    uint32_t timeout_ms,
+    fieldmesh_tun_inject_report_t *out_report)
+{
+    fieldmesh_adapter_packet_t adapter_packet;
+    fieldmesh_tun_packet_report_t packet_report;
+    fieldmesh_status_t status;
+    uint32_t packets = 0u;
+    uint32_t bytes_received = 0u;
+    uint32_t bytes_written = 0u;
+
+    if (!adapter || !write_packet || !packet_buffer || packet_capacity == 0u ||
+        max_packets == 0u || !out_report) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memset(out_report, 0, sizeof(*out_report));
+    while (packets < max_packets) {
+        size_t packet_len = 0u;
+        size_t written_len = 0u;
+
+        status = fieldmesh_adapter_recv_packet(adapter, packet_buffer,
+                                               packet_capacity, &packet_len,
+                                               &adapter_packet, timeout_ms);
+        if (status == FIELDMESH_ERR_TIMEOUT) {
+            break;
+        }
+        if (status != FIELDMESH_OK) {
+            return status;
+        }
+        if (packet_len == 0u || packet_len > packet_capacity) {
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+        status = fieldmesh_classify_tun_packet(packet_buffer, packet_len,
+                                               &packet_report);
+        if (status != FIELDMESH_OK) {
+            return status;
+        }
+        status = write_packet(write_user, packet_buffer, packet_len,
+                              &written_len);
+        if (status != FIELDMESH_OK) {
+            return status;
+        }
+        if (written_len != packet_len) {
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+        sdk_copy_text(packet_report.adapter_name,
+                      sizeof(packet_report.adapter_name),
+                      adapter->config.adapter_name);
+        sdk_copy_text(packet_report.dst_node_id,
+                      sizeof(packet_report.dst_node_id),
+                      adapter->config.dst_node_id);
+        packet_report.mode = adapter_packet.mode;
+        packet_report.stream_id = adapter_packet.stream_id;
+        packet_report.sequence = adapter_packet.sequence;
+        packet_report.deadline_ms = adapter_packet.deadline_ms;
+        packet_report.bitrate_hint_kbps = adapter_packet.bitrate_hint_kbps;
+        packet_report.sent_to_fieldmesh_adapter = 0u;
+        out_report->packet = packet_report;
+        packets++;
+        bytes_received += (uint32_t)packet_len;
+        bytes_written += (uint32_t)written_len;
+    }
+    if (packets == 0u) {
+        return FIELDMESH_ERR_TIMEOUT;
+    }
+    out_report->packets_received = packets;
+    out_report->packets_written = packets;
+    out_report->bytes_received = bytes_received;
+    out_report->bytes_written = bytes_written;
+    out_report->tun_fd_attached = 1u;
+    out_report->written_to_tun = 1u;
+    out_report->uses_iio = 0u;
+    out_report->uses_inter_board_ip_routing = 0u;
+    out_report->received_from_fieldmesh_adapter = 1u;
     return FIELDMESH_OK;
 }
 

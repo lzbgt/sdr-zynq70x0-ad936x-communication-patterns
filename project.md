@@ -1261,7 +1261,11 @@ Expected result in the current Pluto-compatible firmware state:
    `FIELDMESH_TUN_DEV_PUMP_BURST`: both Z203 and Z103 installed daemon binaries
    open `/dev/net/tun`, read three queued `swarm0` packets, preserve the selected
    peer EUI, classify the traffic as C0 control, forward each packet to the
-   FieldMesh adapter, and roll `swarm0` back. The SDK and state daemon now also bind that adapter output
+   FieldMesh adapter, and roll `swarm0` back. The reverse native-IP boundary is
+   now explicit too: `fieldmesh_tun_packetizer_drain_many()` and
+   `FIELDMESH_TUN_DEV_DRAIN_BURST` drain a bounded FieldMesh adapter batch into
+   board-local `swarm0`, making the next boundary the client kernel IP stack.
+   The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is
    preserved, and the handoff still opens no IIO buffers, starts no RF TX, and

@@ -4230,6 +4230,46 @@ The design is grounded in the external Z203 GPS assets under
 `/mnt/c/baidunetdiskdownload/SDR-Z203/04源码与文档`, especially `gps_transfer`
 for GPS UART pass-through and `gps_vctcxo` for later clock-discipline work.
 
+## FieldMesh Native IP Gateway Direction
+
+Native TCP/IP is split into two checked daemon directions:
+
+- `MODE=pump` / `FIELDMESH_TUN_DEV_PUMP_BURST`: read actual packets from
+  board-local `swarm0`, classify them, preserve the selected destination EUI,
+  and queue them toward the FieldMesh adapter/RF packet engine.
+- `MODE=drain` / `FIELDMESH_TUN_DEV_DRAIN_BURST`: receive a bounded FieldMesh
+  adapter batch and write those IP packets into board-local `swarm0`, making
+  the next boundary the client kernel IP stack.
+
+The SDK stream shim now uses a bounded ring queue instead of a single
+last-packet slot, so same-class packet bursts cannot collapse before drain.
+
+Live installed-board verification on 2026-05-17 passed:
+
+```sh
+MODE=drain ALLOW_LIVE_TUN_WRITE=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
+  UPLOAD_IF_MISSING=0 VARIANT=z203 BOARD_IP=192.168.1.10 PORT=55451 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+
+MODE=drain ALLOW_LIVE_TUN_WRITE=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
+  UPLOAD_IF_MISSING=0 VARIANT=z103 BOARD_IP=192.168.3.1 PORT=55452 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+
+MODE=pump ALLOW_LIVE_TUN_READ=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
+  UPLOAD_IF_MISSING=0 VARIANT=z203 BOARD_IP=192.168.1.10 PORT=55453 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+
+MODE=pump ALLOW_LIVE_TUN_READ=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
+  UPLOAD_IF_MISSING=0 VARIANT=z103 BOARD_IP=192.168.3.1 PORT=55454 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+```
+
+Both boards drained three adapter packets into `swarm0`, pumped three `swarm0`
+packets into the adapter, preserved the opposite peer EUI, avoided IIO and
+inter-board IP routing, and rolled `swarm0` back cleanly. The installed
+two-board flow also passed with `tun_event_loop_ready=1` and
+`tun_drain_ready=1`.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

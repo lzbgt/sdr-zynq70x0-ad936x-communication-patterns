@@ -13,6 +13,12 @@ struct flow_case {
     fieldmesh_traffic_class_t expected_class;
 };
 
+struct memory_tun_writer {
+    unsigned char packets[5][256];
+    size_t packet_lens[5];
+    size_t packet_count;
+};
+
 static int require_ok(fieldmesh_status_t status, const char *operation)
 {
     if (status == FIELDMESH_OK) {
@@ -66,6 +72,25 @@ static size_t make_ipv4_packet(unsigned char *packet,
     return total_len;
 }
 
+static fieldmesh_status_t write_memory_tun_packet(void *user,
+                                                  const void *packet,
+                                                  size_t packet_len,
+                                                  size_t *out_written_len)
+{
+    struct memory_tun_writer *writer = (struct memory_tun_writer *)user;
+
+    if (!writer || !packet || !out_written_len ||
+        writer->packet_count >= sizeof(writer->packets) / sizeof(writer->packets[0]) ||
+        packet_len == 0u || packet_len > sizeof(writer->packets[0])) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    memcpy(writer->packets[writer->packet_count], packet, packet_len);
+    writer->packet_lens[writer->packet_count] = packet_len;
+    writer->packet_count++;
+    *out_written_len = packet_len;
+    return FIELDMESH_OK;
+}
+
 int main(void)
 {
     fieldmesh_context_t *ctx = NULL;
@@ -112,6 +137,8 @@ int main(void)
     };
     unsigned char packet[256];
     unsigned char rx_packet[256];
+    unsigned char drain_packet[256];
+    struct memory_tun_writer tun_writer;
     unsigned sent = 0;
     size_t i;
 
@@ -246,6 +273,71 @@ int main(void)
            "\"rf_packets\":%u,"
            "\"rf_engine_bound\":1}\n",
            sent, sent);
+
+    memset(&tun_writer, 0, sizeof(tun_writer));
+    for (i = 0; i < 3u; ++i) {
+        fieldmesh_tun_packet_report_t report;
+        size_t packet_len = make_ipv4_packet(packet, sizeof(packet), &flows[i]);
+
+        if (packet_len == 0u ||
+            require_ok(fieldmesh_tun_packetizer_send(adapter, packet, packet_len,
+                                                     &report),
+                       "tun_packetizer_send_drain_seed")) {
+            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+    }
+    {
+        fieldmesh_tun_inject_report_t inject_report;
+
+        if (require_ok(fieldmesh_tun_packetizer_drain_many(
+                           adapter, write_memory_tun_packet, &tun_writer,
+                           drain_packet, sizeof(drain_packet), 3u, 1000u,
+                           &inject_report),
+                       "tun_packetizer_drain_many")) {
+            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        if (tun_writer.packet_count != 3u ||
+            inject_report.packets_received != 3u ||
+            inject_report.packets_written != 3u ||
+            inject_report.received_from_fieldmesh_adapter != 1u ||
+            inject_report.written_to_tun != 1u ||
+            inject_report.uses_iio != 0u ||
+            inject_report.uses_inter_board_ip_routing != 0u) {
+            fprintf(stderr, "TUN packetizer drain mismatch\n");
+            (void)fieldmesh_close_adapter(adapter);
+            (void)fieldmesh_leave(session);
+            fieldmesh_context_destroy(ctx);
+            return 1;
+        }
+        printf("{\"event\":\"sdk_tun_packetizer_drain_many\","
+               "\"adapter_name\":\"%s\","
+               "\"dst_device_eui\":\"%s\","
+               "\"packets_received\":%u,"
+               "\"packets_written\":%u,"
+               "\"bytes_received\":%u,"
+               "\"bytes_written\":%u,"
+               "\"written_to_tun\":%u,"
+               "\"received_from_fieldmesh_adapter\":%u,"
+               "\"uses_iio\":%u,"
+               "\"uses_inter_board_ip_routing\":%u,"
+               "\"next_boundary\":\"client_kernel_ip_stack\"}\n",
+               inject_report.packet.adapter_name,
+               inject_report.packet.dst_node_id,
+               inject_report.packets_received,
+               inject_report.packets_written,
+               inject_report.bytes_received,
+               inject_report.bytes_written,
+               inject_report.written_to_tun,
+               inject_report.received_from_fieldmesh_adapter,
+               inject_report.uses_iio,
+               inject_report.uses_inter_board_ip_routing);
+    }
 
     (void)fieldmesh_close_adapter(adapter);
     (void)fieldmesh_leave(session);

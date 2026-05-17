@@ -106,7 +106,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 31:
+    if not end or end[-1].get("handled") != 32:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -132,6 +132,7 @@ def daemon_summary(label, path):
     ]
     rf_engine = one(query, "sdk_daemon_rf_packet_engine")
     tun_fd_pump_burst = one(query, "sdk_daemon_tun_fd_pump_burst")
+    tun_device_drain_guard = one(query, "sdk_daemon_tun_device_drain_burst_guard")
     app_message = one(query, "sdk_daemon_app_message_send")
     app_message_ingest = one(query, "sdk_daemon_app_message_ingest")
     app_message_poll = one(query, "sdk_daemon_app_message_poll")
@@ -217,6 +218,10 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} TUN burst pump failed")
     if tun_fd_pump_burst.get("next_boundary") != "fieldmesh_rf_packet_engine":
         raise SystemExit(f"{label} TUN burst pump next boundary failed")
+    if tun_device_drain_guard.get("requires_allow_live_tun_write") != 1:
+        raise SystemExit(f"{label} TUN drain guard did not require live write authorization")
+    if tun_device_drain_guard.get("next_boundary") != "client_kernel_ip_stack":
+        raise SystemExit(f"{label} TUN drain guard next boundary failed")
     if app_message.get("ok") is not True or app_message.get("queued_to_rf_engine") != 1:
         raise SystemExit(f"{label} app message RF queue failed")
     if app_message.get("uses_json_on_air") != 0:
@@ -281,6 +286,7 @@ def daemon_summary(label, path):
         "queued_to_rf_engine": rf_engine.get("queued_to_rf_engine"),
         "tun_burst_packets": tun_fd_pump_burst.get("packets_sent"),
         "tun_event_loop_ready": tun_fd_pump_burst.get("event_loop_ready"),
+        "tun_drain_ready": tun_device_drain_guard.get("requires_allow_live_tun_write"),
     }
 
 

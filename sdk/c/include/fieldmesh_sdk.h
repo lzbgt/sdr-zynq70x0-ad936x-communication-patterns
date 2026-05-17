@@ -797,6 +797,19 @@ typedef struct fieldmesh_tun_pump_report {
     uint8_t sent_to_fieldmesh_adapter;
 } fieldmesh_tun_pump_report_t;
 
+typedef struct fieldmesh_tun_inject_report {
+    fieldmesh_tun_packet_report_t packet;
+    uint32_t packets_received;
+    uint32_t packets_written;
+    uint32_t bytes_received;
+    uint32_t bytes_written;
+    uint8_t tun_fd_attached;
+    uint8_t written_to_tun;
+    uint8_t uses_iio;
+    uint8_t uses_inter_board_ip_routing;
+    uint8_t received_from_fieldmesh_adapter;
+} fieldmesh_tun_inject_report_t;
+
 typedef void (*fieldmesh_ap_callback_t)(const fieldmesh_ap_info_t *ap, void *user);
 typedef void (*fieldmesh_peer_callback_t)(const fieldmesh_peer_info_t *peer, void *user);
 typedef void (*fieldmesh_position_callback_t)(const fieldmesh_position_estimate_t *estimate,
@@ -806,6 +819,11 @@ typedef fieldmesh_status_t (*fieldmesh_tun_read_callback_t)(
     void *packet,
     size_t packet_capacity,
     size_t *out_packet_len);
+typedef fieldmesh_status_t (*fieldmesh_tun_write_callback_t)(
+    void *user,
+    const void *packet,
+    size_t packet_len,
+    size_t *out_written_len);
 
 fieldmesh_status_t fieldmesh_context_create(const fieldmesh_config_t *config,
                                             fieldmesh_context_t **out_context);
@@ -1049,6 +1067,15 @@ fieldmesh_status_t fieldmesh_tun_packetizer_pump_many(
     size_t packet_capacity,
     uint32_t max_packets,
     fieldmesh_tun_pump_report_t *out_report);
+fieldmesh_status_t fieldmesh_tun_packetizer_drain_many(
+    fieldmesh_adapter_t *adapter,
+    fieldmesh_tun_write_callback_t write_packet,
+    void *write_user,
+    void *packet_buffer,
+    size_t packet_capacity,
+    uint32_t max_packets,
+    uint32_t timeout_ms,
+    fieldmesh_tun_inject_report_t *out_report);
 fieldmesh_status_t fieldmesh_daemon_request(
     const fieldmesh_daemon_client_config_t *config,
     const char *request,

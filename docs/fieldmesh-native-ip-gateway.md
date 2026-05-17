@@ -21,6 +21,29 @@ client app -> host TCP/UDP/IP -> local board eth0/usb0
 The golden IM/video app remains a proof of SDK and UX capability. It is not the
 only product API. Native TCP/IP is the customer-facing default.
 
+## Operating Modes
+
+FieldMesh boards must support two product modes:
+
+1. **SDK mode.** A client app links the SDK or talks to the board daemon for
+   explicit FieldMesh operations: peer discovery, AP election, RTLS/topology,
+   messaging, video session control, radio policy, provisioning, diagnostics,
+   and admin operations. This is the mode used by the golden IM/video app when
+   it wants FieldMesh-specific UX and control-plane visibility.
+2. **Native IP gateway mode.** The board appears to client applications as an
+   ordinary IP gateway. Apps use normal TCP/UDP/ICMP sockets and do not need to
+   know about radio frames, BLR MAC, AP relay policy, RTLS, or the SDK. The
+   board daemon owns `swarm0`, packetizes IP traffic into FieldMesh classes,
+   receives RF/adapter packets back into `swarm0`, and exposes normal routes on
+   the host-facing USB Ethernet or physical Ethernet interface.
+
+The preferred product path is board-owned gateway mode: the host sees a normal
+network interface and route to the FieldMesh board. A host-side virtual NIC
+driver, such as Wintun/TAP/utun/tun, is an optional packaging layer for desktop
+apps that want a local virtual adapter, but it must feed the same board daemon
+and BLR packet path. It is not a replacement for the board's native routed
+gateway.
+
 ## Requirements
 
 - `swarm0` is created and owned on the Zynq board, not on the host PC.
@@ -105,6 +128,10 @@ Minimum production gates for native TCP/IP:
 - board creates and rolls back `swarm0` under guarded `CAP_NET_ADMIN`;
 - daemon burst-pumps multiple TUN callback packets through the FieldMesh
   adapter with the request-supplied peer EUI;
+- daemon drains multiple FieldMesh adapter packets back into board-local
+  `swarm0`, proving the RF/adapter-to-client-kernel direction;
+- SDK stream queues preserve same-class bursts instead of collapsing them into
+  a single last-packet slot;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,
