@@ -4283,6 +4283,7 @@ MODE=service RF_SELF_INGEST_REJECT=1 ALLOW_LIVE_TUN_READ=1 \
   ./tools/run_fieldmesh_board_tun_device_pump.sh
 
 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 PACKETS=3 DIRECTIONS=both \
+  VERIFY_ICMP=1 \
   ./tools/run_fieldmesh_two_board_native_ip_bridge.sh
 ```
 
@@ -4295,6 +4296,12 @@ instead of writing it into `swarm0`. The two-board native-IP bridge then used
 the validated daemon RF-worker APIs across both installed boards in both
 directions: three Z203 `swarm0` packets were ingested into Z103, and three Z103
 `swarm0` packets were ingested into Z203, for six BLR `APP_DATA` frames total.
+The same gate now keeps both daemon services alive at the same time, runs an
+actual Z203 `ping -c 3 10.77.2.20`, continuously forwards daemon RF-worker
+frames in both directions, and verifies `icmp_ping_rc=0`. The 2026-05-17 live
+run reported three transmitted and three received ICMP packets with 0% loss;
+the measured RTT range was about 26.6 ms to 50.2 ms across the host-orchestrated
+daemon bridge. This is still a daemon/RF-worker proof, not real RF PHY TX/RX.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

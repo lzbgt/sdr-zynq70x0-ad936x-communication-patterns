@@ -572,7 +572,12 @@ boards, starts both daemon services in `driver_queue` mode, and verifies both
 Z203-to-Z103 and Z103-to-Z203. Each direction injects native IP traffic into
 the source board, polls BLR frames from that source, ingests those same frames
 into the peer daemon, and requires the peer to write them into its local
-`swarm0`.
+`swarm0`. With `VERIFY_ICMP=1`, the same runner also keeps the bridge active in
+both directions while the Z203 kernel sends ICMP echo requests to Z103. The
+gate passes only when the requests and kernel-generated replies traverse the
+opposite daemon RF-worker queues and the source `ping` exits successfully.
+This proves the client TCP/IP socket boundary up to the RF-worker queues; the
+remaining boundary is replacing the worker handoff with real RF PHY TX/RX.
 
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter

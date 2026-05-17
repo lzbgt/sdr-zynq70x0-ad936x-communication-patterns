@@ -147,8 +147,14 @@ Minimum production gates for native TCP/IP:
   `APP_DATA` frames from `FIELDMESH_RF_TX_POLL`, send those exact frames to the
   peer `FIELDMESH_RF_RX_INGEST`, and write them into the peer `swarm0` without
   host-side inter-board IP routing or diagnostic loopback;
-- host route to a remote mesh peer works through the local board;
-- `ping`/ICMP succeeds through the radio path;
+- ICMP ping succeeds through the daemon RF-worker bridge: request packets leave
+  the source `swarm0`, cross the BLR `APP_DATA` worker queue, enter the peer
+  `swarm0`, trigger the peer kernel echo reply, and return through the opposite
+  worker queue. This proves the native client-kernel path before real RF PHY
+  TX/RX is enabled;
+- host route to a remote mesh peer works through the local board once the RF
+  worker queues are connected to the actual PHY;
+- `ping`/ICMP succeeds through the radio path after `rf_phy_tx_rx` is wired;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,
   RTT, retransmits, and drop counters;
 - UDP video traffic and TCP bulk traffic together preserve C0/C1 latency;

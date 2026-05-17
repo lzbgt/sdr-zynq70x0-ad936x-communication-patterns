@@ -618,7 +618,9 @@ user and vendor configuration.
   directions: Z203-to-Z103 and Z103-to-Z203. Each direction injects packets into
   the source board, polls BLR `APP_DATA` frames from that source, ingests those
   exact frames into the peer daemon, and requires the peer to write them into
-  its own `swarm0`.
+  its own `swarm0`. The default gate also runs ICMP over the same daemon bridge:
+  Z203 pings Z103 through `swarm0`, BLR `APP_DATA` TX poll, peer RX ingest, peer
+  `swarm0`, and the kernel echo reply returns through the reverse queue.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
@@ -1285,9 +1287,10 @@ Expected result in the current Pluto-compatible firmware state:
    type and destination EUI before a frame can enter `swarm0`.
    `diagnostic_loopback` is explicit test-only. The two-board native-IP bridge
    gate now moves three packets in each direction, Z203-to-Z103 and
-   Z103-to-Z203, through TX poll, peer RX ingest, and peer `swarm0`; the
-   remaining production boundary is connecting those queues to real RF packet
-   ingress/egress.
+   Z103-to-Z203, through TX poll, peer RX ingest, and peer `swarm0`; it also
+   proves an actual Z203-to-Z103 ICMP ping over the simultaneous daemon bridge.
+   The remaining production boundary is connecting those queues to real RF
+   packet ingress/egress.
    The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is

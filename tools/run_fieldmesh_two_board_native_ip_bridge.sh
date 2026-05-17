@@ -12,6 +12,7 @@ ssh_pass="${SSH_PASS:-analog}"
 timeout_ms="${TIMEOUT_MS:-5000}"
 packets="${PACKETS:-3}"
 directions="${DIRECTIONS:-both}"
+verify_icmp="${VERIFY_ICMP:-1}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-bridge-$(date +%Y%m%d-%H%M%S)}"
 
 mkdir -p "$out_dir"
@@ -32,6 +33,14 @@ case "$directions" in
         exit 1
         ;;
 esac
+if [ "$verify_icmp" != "0" ] && [ "$verify_icmp" != "1" ]; then
+    echo "VERIFY_ICMP must be 0 or 1" >&2
+    exit 1
+fi
+if [ "$verify_icmp" = "1" ] && [ "$directions" != "both" ]; then
+    echo "VERIFY_ICMP=1 requires DIRECTIONS=both" >&2
+    exit 1
+fi
 
 ssh_args=(
     -o StrictHostKeyChecking=no
@@ -297,7 +306,183 @@ if [ "$directions" = "both" ] || [ "$directions" = "z103-to-z203" ]; then
         "append"
 fi
 
-python3 - "$out_dir" "$directions" "$packets" <<'PY'
+if [ "$verify_icmp" = "1" ]; then
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$packets" \
+        >>"$out_dir/bridge.ndjson" <<'PY'
+import json
+import socket
+import sys
+
+z203_ip = sys.argv[1]
+z203_port = int(sys.argv[2])
+z103_ip = sys.argv[3]
+z103_port = int(sys.argv[4])
+timeout_ms = int(sys.argv[5])
+packets = int(sys.argv[6])
+
+def request(host: str, port: int, text: str) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_ms / 1000.0)
+    try:
+        sock.sendto(text.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(8192)
+    finally:
+        sock.close()
+    decoded = payload.decode("utf-8", errors="replace")
+    sys.stdout.write(decoded)
+    sys.stdout.flush()
+    return json.loads(decoded)
+
+request(z203_ip, z203_port, "FIELDMESH_TUN_SERVICE_STOP v1")
+request(z103_ip, z103_port, "FIELDMESH_TUN_SERVICE_STOP v1")
+request(
+    z203_ip,
+    z203_port,
+    f"FIELDMESH_TUN_SERVICE_START v1 dst=020000000103 max={packets} "
+    "rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE",
+)
+request(
+    z103_ip,
+    z103_port,
+    f"FIELDMESH_TUN_SERVICE_START v1 dst=020000000203 max={packets} "
+    "rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE",
+)
+PY
+
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$packets" "$((packets + 8))" \
+        >>"$out_dir/bridge.ndjson" <<'PY' &
+import json
+import socket
+import sys
+import time
+
+z203_ip = sys.argv[1]
+z203_port = int(sys.argv[2])
+z103_ip = sys.argv[3]
+z103_port = int(sys.argv[4])
+timeout_ms = int(sys.argv[5])
+packets = int(sys.argv[6])
+duration_s = float(sys.argv[7])
+
+def request(host: str, port: int, text: str) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_ms / 1000.0)
+    try:
+        sock.sendto(text.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(8192)
+    finally:
+        sock.close()
+    decoded = payload.decode("utf-8", errors="replace")
+    sys.stdout.write(decoded)
+    sys.stdout.flush()
+    return json.loads(decoded)
+
+deadline = time.monotonic() + duration_s
+counts = {
+    "z203_to_z103": 0,
+    "z103_to_z203": 0,
+    "poll_empty": 0,
+    "request_errors": 0,
+}
+pairs = (
+    (z203_ip, z203_port, z103_ip, z103_port, "z203_to_z103"),
+    (z103_ip, z103_port, z203_ip, z203_port, "z103_to_z203"),
+)
+while time.monotonic() < deadline:
+    moved = False
+    for src_ip, src_port, dst_ip, dst_port, key in pairs:
+        try:
+            polled = request(src_ip, src_port, "FIELDMESH_RF_TX_POLL v1")
+        except OSError:
+            counts["request_errors"] += 1
+            if counts["z203_to_z103"] >= packets and counts["z103_to_z203"] >= packets:
+                break
+            time.sleep(0.1)
+            continue
+        if polled.get("frames") != 1:
+            counts["poll_empty"] += 1
+            continue
+        frame = polled.get("frame0_hex")
+        if not frame:
+            raise SystemExit("continuous bridge poll returned no frame")
+        try:
+            ingested = request(dst_ip, dst_port, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
+        except OSError as exc:
+            raise SystemExit(f"continuous bridge ingest timed out after TX poll: {exc}") from exc
+        if ingested.get("ok") is not True:
+            raise SystemExit(f"continuous bridge ingest failed: {ingested}")
+        counts[key] += 1
+        moved = True
+    if counts["z203_to_z103"] >= packets and counts["z103_to_z203"] >= packets:
+        break
+    if not moved:
+        time.sleep(0.05)
+
+print(json.dumps({
+    "event": "fieldmesh_two_board_native_ip_continuous_bridge",
+    "ok": True,
+    "z203_to_z103_frames": counts["z203_to_z103"],
+    "z103_to_z203_frames": counts["z103_to_z203"],
+    "poll_empty": counts["poll_empty"],
+    "request_errors": counts["request_errors"],
+    "starts_rf_tx": False,
+    "writes_hardware": False,
+    "uses_inter_board_ip_routing": False,
+    "next_boundary": "rf_phy_tx_rx",
+}, sort_keys=True))
+PY
+    bridge_pid=$!
+    sleep 1
+    set +e
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
+        "ping -c '$packets' -W 2 10.77.2.20" >"$out_dir/icmp_ping_z203_to_z103.log" 2>&1
+    icmp_ping_rc=$?
+    set -e
+    wait "$bridge_pid"
+
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" \
+        >>"$out_dir/bridge.ndjson" <<'PY'
+import json
+import socket
+import sys
+
+z203_ip = sys.argv[1]
+z203_port = int(sys.argv[2])
+z103_ip = sys.argv[3]
+z103_port = int(sys.argv[4])
+timeout_ms = int(sys.argv[5])
+
+def request(host: str, port: int, text: str) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_ms / 1000.0)
+    try:
+        sock.sendto(text.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(8192)
+    finally:
+        sock.close()
+    decoded = payload.decode("utf-8", errors="replace")
+    sys.stdout.write(decoded)
+    sys.stdout.flush()
+    return json.loads(decoded)
+
+z203_status = request(z203_ip, z203_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+z103_status = request(z103_ip, z103_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+request(z203_ip, z203_port, "FIELDMESH_TUN_SERVICE_STOP v1")
+request(z103_ip, z103_port, "FIELDMESH_TUN_SERVICE_STOP v1")
+print(json.dumps({
+    "event": "fieldmesh_two_board_native_ip_icmp_status",
+    "ok": True,
+    "z203_packets_written": z203_status.get("packets_written"),
+    "z103_packets_written": z103_status.get("packets_written"),
+    "z203_rf_frames_ingressed": z203_status.get("rf_frames_ingressed"),
+    "z103_rf_frames_ingressed": z103_status.get("rf_frames_ingressed"),
+}, sort_keys=True))
+PY
+else
+    icmp_ping_rc=0
+fi
+
+python3 - "$out_dir" "$directions" "$packets" "$verify_icmp" "$icmp_ping_rc" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -305,6 +490,8 @@ from pathlib import Path
 out_dir = Path(sys.argv[1])
 directions = sys.argv[2]
 packets = int(sys.argv[3])
+verify_icmp = sys.argv[4] == "1"
+icmp_ping_rc = int(sys.argv[5])
 rows = []
 for line in (out_dir / "bridge.ndjson").read_text(encoding="utf-8").splitlines():
     line = line.strip()
@@ -327,10 +514,31 @@ for direction in expected:
         raise SystemExit(f"bridge did not poll any RF frames for {direction}")
     if row.get("sink_packets_written_after", 0) < row.get("rf_frames_polled", 0):
         raise SystemExit(f"bridge did not inject RF frames into sink swarm0 for {direction}")
+continuous = [
+    row for row in rows
+    if row.get("event") == "fieldmesh_two_board_native_ip_continuous_bridge"
+]
+icmp_status = [
+    row for row in rows
+    if row.get("event") == "fieldmesh_two_board_native_ip_icmp_status"
+]
+if verify_icmp:
+    if icmp_ping_rc != 0:
+        raise SystemExit(f"ICMP ping over daemon bridge failed with rc={icmp_ping_rc}")
+    if not continuous or continuous[-1].get("z203_to_z103_frames", 0) < packets:
+        raise SystemExit(f"continuous bridge did not move request frames: {continuous}")
+    if not continuous or continuous[-1].get("z103_to_z203_frames", 0) < packets:
+        raise SystemExit(f"continuous bridge did not move reply frames: {continuous}")
+    if not icmp_status or icmp_status[-1].get("z203_packets_written", 0) < packets:
+        raise SystemExit(f"ICMP replies were not written to Z203 swarm0: {icmp_status}")
+    if not icmp_status or icmp_status[-1].get("z103_packets_written", 0) < packets:
+        raise SystemExit(f"ICMP requests were not written to Z103 swarm0: {icmp_status}")
 report = {
     "event": "fieldmesh_two_board_native_ip_bridge_assert",
     "ok": True,
     "directions": expected,
+    "icmp_ping_ok": verify_icmp,
+    "icmp_ping_rc": icmp_ping_rc,
     "requested_packets": packets,
     "rf_frames_polled_total": sum(summaries[d].get("rf_frames_polled", 0) for d in expected),
     "sink_packets_written_total": sum(summaries[d].get("sink_packets_written_after", 0) for d in expected),

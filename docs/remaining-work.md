@@ -58,11 +58,13 @@ before the frame can reach `swarm0`. `diagnostic_loopback` remains explicit
 test-only. A two-board host RF-worker bridge now verifies the contract across
 installed daemons in both directions: Z203-to-Z103 and Z103-to-Z203 each emit
 BLR frames from the source TX poll queue, feed those exact peer-addressed
-frames through peer RX ingest, and write them into the peer `swarm0`. The
-remaining implementation work is to connect those driver
-queues to real RF packet ingress/egress, then prove ICMP/TCP/UDP over
-the RF path with measured throughput, RTT, retransmits, queue age, and
-route-failover behavior.
+frames through peer RX ingest, and write them into the peer `swarm0`. The same
+gate now also proves ICMP over the daemon RF-worker bridge: Z203 can `ping`
+Z103 through source `swarm0` -> BLR `APP_DATA` TX poll -> peer RX ingest ->
+peer `swarm0`, and the kernel echo reply returns through the reverse worker
+queue. The remaining implementation work is to connect those driver queues to
+real RF packet ingress/egress, then prove ICMP/TCP/UDP over the RF path with
+measured throughput, RTT, retransmits, queue age, and route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary
