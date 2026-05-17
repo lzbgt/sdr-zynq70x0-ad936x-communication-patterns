@@ -4252,7 +4252,7 @@ The daemon also now exposes the first lifecycle-managed native-IP service via
 uses a bounded poll-style loop to wake on TUN readiness. The service now routes
 the native-IP payload through BLR `APP_DATA` MAC-frame egress/ingress counters
 and explicit TX/RX RF transport queues before drain-back to `swarm0`; the
-default is now `driver_queue` with RF TX poll and RF RX ingest APIs.
+default is now `driver_queue` with RF TX lease/ack and RF RX ingest APIs.
 `FIELDMESH_RF_RX_INGEST` validates BLR `APP_DATA` type and destination EUI
 before a worker-delivered frame can be written to `swarm0`.
 `diagnostic_loopback` is explicit test-only and the service still reports

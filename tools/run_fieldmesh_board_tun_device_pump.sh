@@ -203,9 +203,12 @@ if mode == "service":
     time.sleep(max(2.0, burst_packets + 0.8))
     request_once("FIELDMESH_TUN_SERVICE_STATUS v1")
     if rf_transport == "driver_queue":
-        tx_poll = request_once("FIELDMESH_RF_TX_POLL v1")
-        if rf_self_ingest_reject and tx_poll.get("frame0_hex"):
-            request_once("FIELDMESH_RF_RX_INGEST v1 " + str(tx_poll["frame0_hex"]))
+        tx_lease = request_once("FIELDMESH_RF_TX_LEASE v1")
+        if rf_self_ingest_reject and tx_lease.get("frame0_hex"):
+            reject = request_once("FIELDMESH_RF_RX_INGEST v1 " +
+                                  str(tx_lease["frame0_hex"]))
+            if reject.get("ok") is True:
+                raise SystemExit("self-ingest rejection unexpectedly accepted")
     request_once("FIELDMESH_TUN_SERVICE_STOP v1")
     raise SystemExit(0)
 if mode == "loop":
@@ -315,7 +318,7 @@ if event.get("ok") != 1:
 if mode == "service":
     started = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_started"]
     stopped = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_stopped"]
-    tx_poll = [row for row in rows if row.get("event") == "sdk_daemon_rf_tx_poll"]
+    tx_lease = [row for row in rows if row.get("event") == "sdk_daemon_rf_tx_lease"]
     rx_ingest = [row for row in rows if row.get("event") == "sdk_daemon_rf_rx_ingest"]
     if not started or started[0].get("running") != 1:
         raise SystemExit(f"live TUN service did not start: {started}")
@@ -360,7 +363,9 @@ if mode == "service":
         raise SystemExit("live TUN service must not claim RF PHY TX/RX")
     if event.get("rf_transport_mode") != rf_transport:
         raise SystemExit("live TUN service transport mode changed")
-    if event.get("rf_tx_poll_api") != 1 or event.get("rf_rx_ingest_api") != 1:
+    if (event.get("rf_tx_poll_api") != 1 or
+            event.get("rf_tx_lease_ack_api") != 1 or
+            event.get("rf_rx_ingest_api") != 1):
         raise SystemExit("live TUN service did not expose RF driver queue APIs")
     if event.get("rf_tx_queue_drops", 0) != 0 or event.get("rf_rx_queue_drops", 0) != 0:
         raise SystemExit(f"live TUN service dropped RF transport frames: {event}")
@@ -369,12 +374,14 @@ if mode == "service":
     if rf_transport == "diagnostic_loopback" and event.get("rf_frames_ingressed", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not ingest requested RF MAC frames: {event}")
     if rf_transport == "driver_queue":
-        if not tx_poll or tx_poll[0].get("frames") != 1:
-            raise SystemExit(f"driver-queue service did not expose an RF TX frame: {tx_poll}")
-        if tx_poll[0].get("rf_transport_mode") != "driver_queue":
-            raise SystemExit(f"driver-queue TX poll transport changed: {tx_poll[0]}")
-        if tx_poll[0].get("frame0_bytes", 0) <= 0 or not tx_poll[0].get("frame0_hex"):
-            raise SystemExit(f"driver-queue TX poll did not return a BLR frame: {tx_poll[0]}")
+        if not tx_lease or tx_lease[0].get("frames") != 1:
+            raise SystemExit(f"driver-queue service did not expose an RF TX frame: {tx_lease}")
+        if tx_lease[0].get("rf_transport_mode") != "driver_queue":
+            raise SystemExit(f"driver-queue TX lease transport changed: {tx_lease[0]}")
+        if tx_lease[0].get("non_destructive") != 1 or tx_lease[0].get("requires_ack") != 1:
+            raise SystemExit(f"driver-queue TX lease must be non-destructive and ACKed: {tx_lease[0]}")
+        if tx_lease[0].get("frame0_bytes", 0) <= 0 or not tx_lease[0].get("frame0_hex"):
+            raise SystemExit(f"driver-queue TX lease did not return a BLR frame: {tx_lease[0]}")
         if rf_self_ingest_reject:
             if not rx_ingest:
                 raise SystemExit("self-ingest rejection response missing")

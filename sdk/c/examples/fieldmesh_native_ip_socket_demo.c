@@ -12,6 +12,22 @@
 
 #define SOCKET_DEMO_MAX_PAYLOAD 512u
 #define SOCKET_DEMO_BACKLOG 1
+#define SOCKET_DEMO_RETRY_SLICE_MS 250u
+
+static void sleep_ms(unsigned delay_ms)
+{
+    struct timeval tv;
+
+    tv.tv_sec = (time_t)(delay_ms / 1000u);
+    tv.tv_usec = (suseconds_t)((delay_ms % 1000u) * 1000u);
+    (void)select(0, NULL, NULL, NULL, &tv);
+}
+
+static int retryable_connect_error(int err)
+{
+    return err == ECONNREFUSED || err == ETIMEDOUT || err == EHOSTUNREACH ||
+           err == ENETUNREACH || err == EAGAIN || err == EINTR;
+}
 
 static int parse_port(const char *text)
 {
@@ -158,13 +174,15 @@ static int tcp_server(const char *bind_ip, int port, unsigned timeout_ms)
 static int tcp_client(const char *peer_ip, int port, const char *message,
                       unsigned timeout_ms)
 {
-    int fd;
+    int fd = -1;
     struct sockaddr_in addr;
     unsigned char echo[SOCKET_DEMO_MAX_PAYLOAD];
     size_t message_len;
     ssize_t sent;
     ssize_t got;
     int err;
+    unsigned attempt;
+    unsigned attempts;
 
     message_len = strlen(message);
     if (message_len == 0u || message_len > sizeof(echo)) {
@@ -176,15 +194,31 @@ static int tcp_client(const char *peer_ip, int port, const char *message,
         print_report("tcp-client", 0, NULL, peer_ip, port, 0, 0, err);
         return 1;
     }
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
-        err = errno;
-        print_report("tcp-client", 0, NULL, peer_ip, port, 0, 0, err);
-        return 1;
+    attempts = timeout_ms / SOCKET_DEMO_RETRY_SLICE_MS;
+    if (attempts == 0u) {
+        attempts = 1u;
     }
-    if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) != 0) {
+    err = 0;
+    for (attempt = 0; attempt < attempts; ++attempt) {
+        fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (fd < 0) {
+            err = errno;
+            print_report("tcp-client", 0, NULL, peer_ip, port, 0, 0, err);
+            return 1;
+        }
+        if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0) {
+            break;
+        }
         err = errno;
         close(fd);
+        fd = -1;
+        if (!retryable_connect_error(err) || attempt + 1u == attempts) {
+            print_report("tcp-client", 0, NULL, peer_ip, port, 0, 0, err);
+            return 1;
+        }
+        sleep_ms(SOCKET_DEMO_RETRY_SLICE_MS);
+    }
+    if (fd < 0) {
         print_report("tcp-client", 0, NULL, peer_ip, port, 0, 0, err);
         return 1;
     }
@@ -275,6 +309,10 @@ static int udp_client(const char *peer_ip, int port, const char *message,
     ssize_t sent;
     ssize_t got;
     int err;
+    unsigned attempt;
+    unsigned attempts;
+    unsigned wait_ms;
+    ssize_t total_sent = 0;
 
     message_len = strlen(message);
     if (message_len == 0u || message_len > sizeof(echo)) {
@@ -292,26 +330,37 @@ static int udp_client(const char *peer_ip, int port, const char *message,
         print_report("udp-client", 0, NULL, peer_ip, port, 0, 0, err);
         return 1;
     }
-    sent = sendto(fd, message, message_len, 0,
-                  (const struct sockaddr *)&addr, sizeof(addr));
-    if (sent != (ssize_t)message_len) {
-        err = errno;
-        close(fd);
-        print_report("udp-client", 0, NULL, peer_ip, port, sent, 0, err);
-        return 1;
+    attempts = timeout_ms / SOCKET_DEMO_RETRY_SLICE_MS;
+    if (attempts == 0u) {
+        attempts = 1u;
     }
-    err = wait_fd(fd, 0, timeout_ms);
-    if (err != 0) {
-        close(fd);
-        print_report("udp-client", 0, NULL, peer_ip, port, sent, 0, err);
-        return 1;
+    wait_ms = timeout_ms < 1000u ? timeout_ms : 1000u;
+    err = ETIMEDOUT;
+    got = 0;
+    for (attempt = 0; attempt < attempts; ++attempt) {
+        sent = sendto(fd, message, message_len, 0,
+                      (const struct sockaddr *)&addr, sizeof(addr));
+        if (sent != (ssize_t)message_len) {
+            err = errno;
+            close(fd);
+            print_report("udp-client", 0, NULL, peer_ip, port, total_sent, 0,
+                         err);
+            return 1;
+        }
+        total_sent += sent;
+        err = wait_fd(fd, 0, wait_ms);
+        if (err != 0) {
+            continue;
+        }
+        got = recv(fd, echo, sizeof(echo), 0);
+        err = got == (ssize_t)message_len &&
+                      memcmp(echo, message, message_len) == 0 ?
+                  0 : EPROTO;
+        break;
     }
-    got = recv(fd, echo, sizeof(echo), 0);
-    err = got == (ssize_t)message_len &&
-                  memcmp(echo, message, message_len) == 0 ?
-              0 : EPROTO;
     close(fd);
-    print_report("udp-client", err == 0, NULL, peer_ip, port, sent, got, err);
+    print_report("udp-client", err == 0, NULL, peer_ip, port, total_sent, got,
+                 err);
     return err == 0 ? 0 : 1;
 }
 

@@ -616,11 +616,12 @@ user and vendor configuration.
   daemon/RF-worker gate. It creates board-local `swarm0` on Z203 and Z103,
   starts both native-IP services in `driver_queue` mode, and verifies both
   directions: Z203-to-Z103 and Z103-to-Z203. Each direction injects packets into
-  the source board, polls BLR `APP_DATA` frames from that source, ingests those
-  exact frames into the peer daemon, and requires the peer to write them into
-  its own `swarm0`. The default gate also runs ICMP over the same daemon bridge:
-  Z203 pings Z103 through `swarm0`, BLR `APP_DATA` TX poll, peer RX ingest, peer
-  `swarm0`, and the kernel echo reply returns through the reverse queue.
+  the source board, leases BLR `APP_DATA` frames from that source, ingests those
+  exact frames into the peer daemon, ACKs them after successful ingest, and
+  requires the peer to write them into its own `swarm0`. The default gate also
+  runs ICMP over the same daemon bridge: Z203 pings Z103 through `swarm0`, BLR
+  `APP_DATA` TX lease, peer RX ingest, peer `swarm0`, and the kernel echo reply
+  returns through the reverse queue.
 - `tools/run_fieldmesh_two_board_native_ip_sockets.sh` - live transparent
   client-app gate. It stages `fieldmesh-native-ip-socket-demo`, starts TCP and
   UDP echo processes that use ordinary Linux sockets on `swarm0`, and verifies
@@ -1292,8 +1293,8 @@ Expected result in the current Pluto-compatible firmware state:
    type and destination EUI before a frame can enter `swarm0`.
    `diagnostic_loopback` is explicit test-only. The two-board native-IP bridge
    gate now moves three packets in each direction, Z203-to-Z103 and
-   Z103-to-Z203, through TX poll, peer RX ingest, and peer `swarm0`; it also
-   proves an actual Z203-to-Z103 ICMP ping over the simultaneous daemon bridge.
+   Z103-to-Z203, through TX lease, peer RX ingest, TX ACK, and peer `swarm0`; it
+   also proves an actual Z203-to-Z103 ICMP ping over the simultaneous daemon bridge.
    A follow-on socket gate proves normal TCP and UDP echo traffic over that
    same bridge using a tiny client/server app that does not link to FieldMesh.
    The remaining production boundary is connecting those queues to real RF

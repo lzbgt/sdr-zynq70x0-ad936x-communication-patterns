@@ -558,7 +558,12 @@ poll wakeups, idle ticks, and RF-facing BLR `APP_DATA` frame counters. Native
 IP packets now cross a binary MAC frame encode/decode boundary before they are
 drained back to `swarm0`; the service now uses explicit TX/RX RF transport
 queues. `driver_queue` is the default service transport and exposes
-`FIELDMESH_RF_TX_POLL` plus `FIELDMESH_RF_RX_INGEST` for the RF worker.
+`FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` plus
+`FIELDMESH_RF_RX_INGEST` for the RF worker. TX lease is non-destructive:
+the frame stays queued until the worker reports successful peer delivery with
+TX ACK. `FIELDMESH_RF_TX_POLL` remains as a legacy destructive diagnostic and
+must not be used by the production RF worker because a timeout after poll loses
+the frame before delivery is known.
 `FIELDMESH_RF_RX_INGEST` decodes the BLR frame before queueing it and accepts
 only `APP_DATA` frames addressed to the daemon's local EUI; other frames are
 rejected instead of being written to `swarm0`. `diagnostic_loopback` is
@@ -570,9 +575,10 @@ where the diagnostic transport step is replaced by real RF TX/RX.
 contract before RF PHY enablement. It creates `swarm0` on both installed
 boards, starts both daemon services in `driver_queue` mode, and verifies both
 Z203-to-Z103 and Z103-to-Z203. Each direction injects native IP traffic into
-the source board, polls BLR frames from that source, ingests those same frames
-into the peer daemon, and requires the peer to write them into its local
-`swarm0`. With `VERIFY_ICMP=1`, the same runner also keeps the bridge active in
+the source board, leases BLR frames from that source, ingests those same frames
+into the peer daemon, ACKs them only after ingest succeeds, and requires the
+peer to write them into its local `swarm0`. With `VERIFY_ICMP=1`, the same
+runner also keeps the bridge active in
 both directions while the Z203 kernel sends ICMP echo requests to Z103. The
 gate passes only when the requests and kernel-generated replies traverse the
 opposite daemon RF-worker queues and the source `ping` exits successfully.

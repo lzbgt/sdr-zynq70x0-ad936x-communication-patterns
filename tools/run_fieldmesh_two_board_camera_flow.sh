@@ -106,7 +106,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 37:
+    if not end or end[-1].get("handled") != 39:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -137,6 +137,8 @@ def daemon_summary(label, path):
     tun_service_start_guard = one(query, "sdk_daemon_tun_service_start_guard")
     tun_service_status = one(query, "sdk_daemon_tun_service_status")
     rf_tx_poll = one(query, "sdk_daemon_rf_tx_poll")
+    rf_tx_lease = one(query, "sdk_daemon_rf_tx_lease")
+    rf_tx_ack = one(query, "sdk_daemon_rf_tx_ack")
     rf_rx_ingest = one(query, "sdk_daemon_rf_rx_ingest")
     app_message = one(query, "sdk_daemon_app_message_send")
     app_message_ingest = one(query, "sdk_daemon_app_message_ingest")
@@ -152,6 +154,7 @@ def daemon_summary(label, path):
             hello.get("supports_app_message_poll") != 1 or
             hello.get("supports_rf_transport_driver_queue") != 1 or
             hello.get("supports_rf_tx_poll") != 1 or
+            hello.get("supports_rf_tx_lease_ack") != 1 or
             hello.get("supports_rf_rx_ingest") != 1 or
             hello.get("supports_camera_stream_chunk") != 1):
         raise SystemExit(f"{label} HELLO app/camera capabilities failed")
@@ -242,7 +245,9 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} TUN service RF MAC boundary failed")
     if tun_service_start_guard.get("rf_transport_mode") != "driver_queue":
         raise SystemExit(f"{label} TUN service transport mode changed")
-    if tun_service_start_guard.get("rf_tx_poll_api") != 1 or tun_service_start_guard.get("rf_rx_ingest_api") != 1:
+    if (tun_service_start_guard.get("rf_tx_poll_api") != 1 or
+            tun_service_start_guard.get("rf_tx_lease_ack_api") != 1 or
+            tun_service_start_guard.get("rf_rx_ingest_api") != 1):
         raise SystemExit(f"{label} TUN service driver queue APIs missing")
     if tun_service_status.get("running") != 0 or tun_service_status.get("daemon_owned_state") != 1:
         raise SystemExit(f"{label} guarded TUN service status failed")
@@ -252,10 +257,16 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} guarded TUN service status RF MAC boundary failed")
     if tun_service_status.get("rf_transport_mode") != "driver_queue":
         raise SystemExit(f"{label} guarded TUN service status transport mode changed")
-    if tun_service_status.get("rf_tx_poll_api") != 1 or tun_service_status.get("rf_rx_ingest_api") != 1:
+    if (tun_service_status.get("rf_tx_poll_api") != 1 or
+            tun_service_status.get("rf_tx_lease_ack_api") != 1 or
+            tun_service_status.get("rf_rx_ingest_api") != 1):
         raise SystemExit(f"{label} guarded TUN service driver queue APIs missing")
     if rf_tx_poll.get("error") != "tun_service_not_running":
         raise SystemExit(f"{label} RF TX poll guard failed")
+    if rf_tx_lease.get("error") != "tun_service_not_running":
+        raise SystemExit(f"{label} RF TX lease guard failed")
+    if rf_tx_ack.get("error") != "tun_service_not_running":
+        raise SystemExit(f"{label} RF TX ACK guard failed")
     if rf_rx_ingest.get("error") != "tun_service_not_running":
         raise SystemExit(f"{label} RF RX ingest guard failed")
     if app_message.get("ok") is not True or app_message.get("queued_to_rf_engine") != 1:

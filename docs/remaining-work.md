@@ -52,15 +52,19 @@ poll-style loop, so native IP packets wake the pump/drain path directly. Native
 IP packets now also cross a binary BLR `APP_DATA` MAC-frame egress/ingress
 boundary through explicit TX/RX RF transport queues before drain-back to
 `swarm0`; the default transport mode is now `driver_queue`, with
-`FIELDMESH_RF_TX_POLL` and `FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker
-boundary. RX ingest now validates BLR `APP_DATA` type and destination EUI
+`FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` and
+`FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker boundary. TX lease is
+non-destructive, so frames are removed only after ACK instead of being lost on
+delivery timeout. The older `FIELDMESH_RF_TX_POLL` remains a legacy destructive
+diagnostic. RX ingest now validates BLR `APP_DATA` type and destination EUI
 before the frame can reach `swarm0`. `diagnostic_loopback` remains explicit
 test-only. A two-board host RF-worker bridge now verifies the contract across
-installed daemons in both directions: Z203-to-Z103 and Z103-to-Z203 each emit
-BLR frames from the source TX poll queue, feed those exact peer-addressed
-frames through peer RX ingest, and write them into the peer `swarm0`. The same
+installed daemons in both directions: Z203-to-Z103 and Z103-to-Z203 each lease
+BLR frames from the source TX queue, feed those exact peer-addressed frames
+through peer RX ingest, ACK them after successful ingest, and write them into
+the peer `swarm0`. The same
 gate now also proves ICMP over the daemon RF-worker bridge: Z203 can `ping`
-Z103 through source `swarm0` -> BLR `APP_DATA` TX poll -> peer RX ingest ->
+Z103 through source `swarm0` -> BLR `APP_DATA` TX lease -> peer RX ingest ->
 peer `swarm0`, and the kernel echo reply returns through the reverse worker
 queue. A separate socket gate now proves normal TCP and UDP echo clients over
 the same path with no FieldMesh SDK dependency in the client process. The

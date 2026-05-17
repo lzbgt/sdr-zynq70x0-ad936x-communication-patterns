@@ -13,6 +13,7 @@ timeout_ms="${TIMEOUT_MS:-10000}"
 tcp_port="${TCP_PORT:-18080}"
 udp_port="${UDP_PORT:-18081}"
 message="${MESSAGE:-fieldmesh-native-ip-socket}"
+bridge_duration_s="${BRIDGE_DURATION_S:-45}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-sockets-$(date +%Y%m%d-%H%M%S)}"
 demo_bin="${SOCKET_DEMO_BIN:-$repo_root/.config/fieldmesh-native-ip-socket-demo.arm}"
 
@@ -44,8 +45,9 @@ build_socket_demo() {
     local workdir
     local cc
     local sysroot
+    local source_path="$repo_root/sdk/c/examples/fieldmesh_native_ip_socket_demo.c"
 
-    if [ -x "$demo_bin" ]; then
+    if [ -x "$demo_bin" ] && [ "$demo_bin" -nt "$source_path" ]; then
         return
     fi
     workdir="$repo_root/yocto/builds/sdr-z103-arm/tmp/work/cortexa9t2hf-neon-poky-linux-gnueabi/fieldmesh-sdk-demos/0.1"
@@ -57,7 +59,7 @@ build_socket_demo() {
     fi
     "$cc" --sysroot="$sysroot" -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard \
         -mthumb -std=c99 -Wall -Wextra -Werror \
-        "$repo_root/sdk/c/examples/fieldmesh_native_ip_socket_demo.c" \
+        "$source_path" \
         -o "$demo_bin"
 }
 
@@ -66,18 +68,27 @@ request_daemon() {
 import json
 import socket
 import sys
+import time
 
 timeout_ms = int(sys.argv[1])
 host = sys.argv[2]
 port = int(sys.argv[3])
 request = " ".join(sys.argv[4:])
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.settimeout(timeout_ms / 1000.0)
-try:
-    sock.sendto(request.encode("ascii"), (host, port))
-    payload, _ = sock.recvfrom(8192)
-finally:
-    sock.close()
+last_error = None
+for _ in range(3):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_ms / 1000.0)
+    try:
+        sock.sendto(request.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(8192)
+        break
+    except OSError as exc:
+        last_error = exc
+        time.sleep(0.2)
+    finally:
+        sock.close()
+else:
+    raise last_error if last_error is not None else TimeoutError(request)
 decoded = payload.decode("utf-8", errors="replace")
 sys.stdout.write(decoded)
 json.loads(decoded)
@@ -117,11 +128,53 @@ setup_board() {
         }" >"$log_path" 2>&1
 }
 
+wait_remote_port() {
+    local remote="$1"
+    local proto="$2"
+    local port="$3"
+    local report_path="$4"
+    local proc_path
+    local state
+    local port_hex
+
+    case "$proto" in
+        tcp)
+            proc_path="/proc/net/tcp"
+            state="0A"
+            ;;
+        udp)
+            proc_path="/proc/net/udp"
+            state="07"
+            ;;
+        *)
+            echo "unsupported protocol for port wait: $proto" >&2
+            exit 1
+            ;;
+    esac
+    port_hex="$(printf '%04X' "$port")"
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "for _i in \$(seq 1 20); do \
+             if awk -v p='$port_hex' -v st='$state' 'NR > 1 { split(\$2, a, \":\"); if (a[2] == p && \$4 == st) found = 1 } END { exit found ? 0 : 1 }' '$proc_path'; then \
+                 exit 0; \
+             fi; \
+             if [ -s '$report_path' ] && grep -q '\"ok\":false' '$report_path'; then \
+                 cat '$report_path' >&2; \
+                 exit 2; \
+             fi; \
+             sleep 1; \
+         done; \
+         echo 'timed out waiting for $proto port $port on $remote' >&2; \
+         [ ! -s '$report_path' ] || cat '$report_path' >&2; \
+         exit 1"
+}
+
 build_socket_demo
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$demo_bin" "$z203_remote:$remote_demo" >/dev/null
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$demo_bin" "$z103_remote:$remote_demo" >/dev/null
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" "chmod 0755 '$remote_demo'"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" "chmod 0755 '$remote_demo'"
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
+    "rm -f /tmp/fieldmesh_tcp_server.ndjson /tmp/fieldmesh_udp_server.ndjson"
 
 setup_board "$z203_remote" "10.77.1.1" "10.77.2.0/24" "$out_dir/z203_setup.log"
 setup_board "$z103_remote" "10.77.2.20" "10.77.1.0/24" "$out_dir/z103_setup.log"
@@ -137,7 +190,7 @@ request_daemon "$z103_ip" "$z103_port" \
     rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE \
     >>"$out_dir/socket_gate.ndjson"
 
-python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "18" \
+python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$bridge_duration_s" \
     >>"$out_dir/socket_gate.ndjson" <<'PY' &
 import json
 import socket
@@ -179,7 +232,7 @@ while time.monotonic() < deadline:
     moved = False
     for src_ip, src_port, dst_ip, dst_port, key in pairs:
         try:
-            polled = request(src_ip, src_port, "FIELDMESH_RF_TX_POLL v1")
+            polled = request(src_ip, src_port, "FIELDMESH_RF_TX_LEASE v1")
         except OSError:
             counts["request_errors"] += 1
             time.sleep(0.1)
@@ -189,13 +242,27 @@ while time.monotonic() < deadline:
             continue
         frame = polled.get("frame0_hex")
         if not frame:
-            raise SystemExit("socket bridge poll returned no frame")
+            raise SystemExit("socket bridge lease returned no frame")
         try:
             ingested = request(dst_ip, dst_port, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
         except OSError as exc:
-            raise SystemExit(f"socket bridge ingest timed out after TX poll: {exc}") from exc
+            counts["request_errors"] += 1
+            time.sleep(0.1)
+            continue
         if ingested.get("ok") is not True:
             raise SystemExit(f"socket bridge ingest failed: {ingested}")
+        for _ in range(3):
+            try:
+                acked = request(src_ip, src_port, "FIELDMESH_RF_TX_ACK v1 " + str(frame))
+            except OSError:
+                counts["request_errors"] += 1
+                time.sleep(0.1)
+                continue
+            if acked.get("ok") is True:
+                break
+            raise SystemExit(f"socket bridge TX ack failed: {acked}")
+        else:
+            raise SystemExit("socket bridge TX ack timed out after successful ingest")
         counts[key] += 1
         moved = True
     if not moved:
@@ -219,16 +286,15 @@ sleep 1
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "'$remote_demo' tcp-server 10.77.2.20 '$tcp_port' 12000 > /tmp/fieldmesh_tcp_server.ndjson 2>&1 & echo \$!" \
     >"$out_dir/z103_tcp_server.pid"
-sleep 0.5
+wait_remote_port "$z103_remote" tcp "$tcp_port" "/tmp/fieldmesh_tcp_server.ndjson"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
     "'$remote_demo' tcp-client 10.77.2.20 '$tcp_port' '$message-tcp' 12000" \
     >"$out_dir/z203_tcp_client.ndjson" 2>&1
-sleep 0.5
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "'$remote_demo' udp-server 10.77.2.20 '$udp_port' 12000 > /tmp/fieldmesh_udp_server.ndjson 2>&1 & echo \$!" \
     >"$out_dir/z103_udp_server.pid"
-sleep 0.5
+wait_remote_port "$z103_remote" udp "$udp_port" "/tmp/fieldmesh_udp_server.ndjson"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
     "'$remote_demo' udp-client 10.77.2.20 '$udp_port' '$message-udp' 12000" \
     >"$out_dir/z203_udp_client.ndjson" 2>&1

@@ -138,6 +138,8 @@ struct tun_service_state {
     uint32_t rf_frames_egressed;
     uint32_t rf_frames_ingressed;
     uint32_t rf_driver_frames_polled;
+    uint32_t rf_driver_frames_leased;
+    uint32_t rf_driver_frames_acked;
     uint32_t rf_driver_frames_ingested;
     uint32_t bytes_read;
     uint32_t bytes_sent;
@@ -146,6 +148,8 @@ struct tun_service_state {
     uint32_t rf_frame_bytes_egressed;
     uint32_t rf_frame_bytes_ingressed;
     uint32_t rf_driver_frame_bytes_polled;
+    uint32_t rf_driver_frame_bytes_leased;
+    uint32_t rf_driver_frame_bytes_acked;
     uint32_t rf_driver_frame_bytes_ingested;
     uint32_t rf_tx_queue_drops;
     uint32_t rf_rx_queue_drops;
@@ -254,6 +258,36 @@ static int tun_service_rf_queue_pop(struct tun_service_rf_queue *queue,
     queue->head = (queue->head + 1u) % TUN_SERVICE_RF_QUEUE_DEPTH;
     queue->count--;
     *out_frame_len = frame_len;
+    return 1;
+}
+
+static int tun_service_rf_queue_peek(const struct tun_service_rf_queue *queue,
+                                     unsigned char *frame,
+                                     size_t frame_capacity,
+                                     size_t *out_frame_len)
+{
+    size_t frame_len;
+
+    if (!queue || !frame || !out_frame_len || queue->count == 0u) {
+        return 0;
+    }
+    frame_len = queue->frame_lens[queue->head];
+    if (frame_len > frame_capacity) {
+        return 0;
+    }
+    memcpy(frame, queue->frames[queue->head], frame_len);
+    *out_frame_len = frame_len;
+    return 1;
+}
+
+static int tun_service_rf_queue_drop_head(struct tun_service_rf_queue *queue)
+{
+    if (!queue || queue->count == 0u) {
+        return 0;
+    }
+    queue->frame_lens[queue->head] = 0u;
+    queue->head = (queue->head + 1u) % TUN_SERVICE_RF_QUEUE_DEPTH;
+    queue->count--;
     return 1;
 }
 
@@ -899,6 +933,9 @@ static fieldmesh_status_t read_tun_fd_wait_once(void *user,
         ssize_t received = read(ctx->fd, packet, packet_capacity);
         if (received <= 0) {
             ctx->last_errno = errno;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return FIELDMESH_ERR_TIMEOUT;
+            }
             return FIELDMESH_ERR_TRANSPORT;
         }
         *out_packet_len = (size_t)received;
@@ -953,6 +990,9 @@ static fieldmesh_status_t write_tun_fd_once(void *user,
     }
     written = write(*fd, packet, packet_len);
     if (written <= 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return FIELDMESH_ERR_TIMEOUT;
+        }
         return FIELDMESH_ERR_TRANSPORT;
     }
     *out_written_len = (size_t)written;
@@ -1018,6 +1058,16 @@ static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno
         }
         close(fd);
         return -1;
+    }
+    {
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+            if (out_errno) {
+                *out_errno = errno;
+            }
+            close(fd);
+            return -1;
+        }
     }
 
     *out_fd = fd;
@@ -1111,6 +1161,8 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->rf_frames_egressed = 0u;
     service->rf_frames_ingressed = 0u;
     service->rf_driver_frames_polled = 0u;
+    service->rf_driver_frames_leased = 0u;
+    service->rf_driver_frames_acked = 0u;
     service->rf_driver_frames_ingested = 0u;
     service->rf_transport_mode = rf_transport_mode;
     service->bytes_read = 0u;
@@ -1120,6 +1172,8 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->rf_frame_bytes_egressed = 0u;
     service->rf_frame_bytes_ingressed = 0u;
     service->rf_driver_frame_bytes_polled = 0u;
+    service->rf_driver_frame_bytes_leased = 0u;
+    service->rf_driver_frame_bytes_acked = 0u;
     service->rf_driver_frame_bytes_ingested = 0u;
     service->rf_tx_queue_drops = 0u;
     service->rf_rx_queue_drops = 0u;
@@ -1726,6 +1780,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_client_ip_interface\":\"swarm0\","
                  "\"supports_rf_transport_driver_queue\":1,"
                  "\"supports_rf_tx_poll\":1,"
+                 "\"supports_rf_tx_lease_ack\":1,"
                  "\"supports_rf_rx_ingest\":1,"
                  "\"supports_rf_packet_engine\":1,"
                  "\"supports_radio_config_plan\":1,"
@@ -3772,6 +3827,7 @@ static int build_response(fieldmesh_context_t *context,
                      "\"poll_loop_active\":0,"
                      "\"rf_mac_app_data_path\":1,"
                      "\"rf_tx_poll_api\":1,"
+                     "\"rf_tx_lease_ack_api\":1,"
                      "\"rf_rx_ingest_api\":1,"
                      "\"rf_phy_tx_rx\":0,"
                      "\"rf_transport_mode\":\"%s\","
@@ -3837,6 +3893,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"poll_loop_active\":1,"
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_tx_poll_api\":1,"
+                 "\"rf_tx_lease_ack_api\":1,"
                  "\"rf_rx_ingest_api\":1,"
                  "\"rf_mac_loopback_diagnostic\":%u,"
                  "\"rf_phy_tx_rx\":0,"
@@ -3878,8 +3935,12 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_frame_bytes_egressed\":%u,"
                  "\"rf_frame_bytes_ingressed\":%u,"
                  "\"rf_driver_frames_polled\":%u,"
+                 "\"rf_driver_frames_leased\":%u,"
+                 "\"rf_driver_frames_acked\":%u,"
                  "\"rf_driver_frames_ingested\":%u,"
                  "\"rf_driver_frame_bytes_polled\":%u,"
+                 "\"rf_driver_frame_bytes_leased\":%u,"
+                 "\"rf_driver_frame_bytes_acked\":%u,"
                  "\"rf_driver_frame_bytes_ingested\":%u,"
                  "\"rf_tx_queue_depth\":%u,"
                  "\"rf_rx_queue_depth\":%u,"
@@ -3896,6 +3957,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"poll_loop_active\":%u,"
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_tx_poll_api\":1,"
+                 "\"rf_tx_lease_ack_api\":1,"
                  "\"rf_rx_ingest_api\":1,"
                  "\"rf_mac_loopback_diagnostic\":%u,"
                  "\"rf_phy_tx_rx\":0,"
@@ -3926,8 +3988,12 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_frame_bytes_egressed : 0u,
                  tun_service ? tun_service->rf_frame_bytes_ingressed : 0u,
                  tun_service ? tun_service->rf_driver_frames_polled : 0u,
+                 tun_service ? tun_service->rf_driver_frames_leased : 0u,
+                 tun_service ? tun_service->rf_driver_frames_acked : 0u,
                  tun_service ? tun_service->rf_driver_frames_ingested : 0u,
                  tun_service ? tun_service->rf_driver_frame_bytes_polled : 0u,
+                 tun_service ? tun_service->rf_driver_frame_bytes_leased : 0u,
+                 tun_service ? tun_service->rf_driver_frame_bytes_acked : 0u,
                  tun_service ? tun_service->rf_driver_frame_bytes_ingested : 0u,
                  tun_service ? (unsigned)tun_service->rf_tx_queue.count : 0u,
                  tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u,
@@ -3950,6 +4016,164 @@ static int build_response(fieldmesh_context_t *context,
                      tun_service_rf_transport_mode_name(
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE),
                  (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RF_TX_LEASE")) {
+        unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
+        char frame_hex[TUN_SERVICE_RF_FRAME_MAX * 2u + 1u];
+        size_t frame_len = 0u;
+
+        if (!tun_service || !tun_service->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_lease\","
+                     "\"ok\":false,"
+                     "\"error\":\"tun_service_not_running\","
+                     "\"rf_transport_mode\":\"driver_queue\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (!tun_service_rf_queue_peek(&tun_service->rf_tx_queue, frame,
+                                       sizeof(frame), &frame_len)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_lease\","
+                     "\"ok\":true,"
+                     "\"frames\":0,"
+                     "\"non_destructive\":1,"
+                     "\"requires_ack\":1,"
+                     "\"rf_transport_mode\":\"%s\","
+                     "\"rf_tx_queue_depth\":%u,"
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n",
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode),
+                     (unsigned)tun_service->rf_tx_queue.count);
+            return 0;
+        }
+        tun_service->rf_driver_frames_leased++;
+        tun_service->rf_driver_frame_bytes_leased += (uint32_t)frame_len;
+        if (!write_hex_payload(frame_hex, sizeof(frame_hex), frame, frame_len)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_lease\","
+                     "\"ok\":false,"
+                     "\"error\":\"frame_hex_encode_failed\"}\n");
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_tx_lease\","
+                 "\"ok\":true,"
+                 "\"frames\":1,"
+                 "\"frame0_hex\":\"%s\","
+                 "\"frame0_bytes\":%lu,"
+                 "\"non_destructive\":1,"
+                 "\"requires_ack\":1,"
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_driver_frames_leased\":%u,"
+                 "\"rf_driver_frame_bytes_leased\":%u,"
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n",
+                 frame_hex, (unsigned long)frame_len,
+                 tun_service_rf_transport_mode_name(
+                     tun_service->rf_transport_mode),
+                 (unsigned)tun_service->rf_tx_queue.count,
+                 tun_service->rf_driver_frames_leased,
+                 tun_service->rf_driver_frame_bytes_leased);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RF_TX_ACK")) {
+        unsigned char ack_frame[TUN_SERVICE_RF_FRAME_MAX];
+        unsigned char head_frame[TUN_SERVICE_RF_FRAME_MAX];
+        const char *frame_hex = strstr(request, " v1 ");
+        size_t ack_frame_len;
+        size_t head_frame_len = 0u;
+
+        if (!tun_service || !tun_service->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                     "\"ok\":false,"
+                     "\"error\":\"tun_service_not_running\","
+                     "\"rf_transport_mode\":\"driver_queue\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (!frame_hex) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                     "\"ok\":false,"
+                     "\"error\":\"missing_blr_frame_hex\"}\n");
+            return 0;
+        }
+        frame_hex += 4;
+        ack_frame_len = parse_hex_payload(frame_hex, ack_frame,
+                                          sizeof(ack_frame));
+        if (ack_frame_len == 0u) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_blr_frame_hex\"}\n");
+            return 0;
+        }
+        if (!tun_service_rf_queue_peek(&tun_service->rf_tx_queue, head_frame,
+                                       sizeof(head_frame), &head_frame_len)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_tx_queue_empty\","
+                     "\"rf_tx_queue_depth\":0}\n");
+            return 0;
+        }
+        if (ack_frame_len != head_frame_len ||
+            memcmp(ack_frame, head_frame, head_frame_len) != 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_tx_ack_frame_mismatch\","
+                     "\"ack_frame_bytes\":%lu,"
+                     "\"head_frame_bytes\":%lu,"
+                     "\"rf_tx_queue_depth\":%u}\n",
+                     (unsigned long)ack_frame_len,
+                     (unsigned long)head_frame_len,
+                     (unsigned)tun_service->rf_tx_queue.count);
+            return 0;
+        }
+        if (!tun_service_rf_queue_drop_head(&tun_service->rf_tx_queue)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_tx_queue_drop_failed\"}\n");
+            return 0;
+        }
+        tun_service->rf_driver_frames_acked++;
+        tun_service->rf_driver_frame_bytes_acked += (uint32_t)ack_frame_len;
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_tx_ack\","
+                 "\"ok\":true,"
+                 "\"frames\":1,"
+                 "\"frame0_bytes\":%lu,"
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_driver_frames_acked\":%u,"
+                 "\"rf_driver_frame_bytes_acked\":%u,"
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0}\n",
+                 (unsigned long)ack_frame_len,
+                 tun_service_rf_transport_mode_name(
+                     tun_service->rf_transport_mode),
+                 (unsigned)tun_service->rf_tx_queue.count,
+                 tun_service->rf_driver_frames_acked,
+                 tun_service->rf_driver_frame_bytes_acked);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_TX_POLL")) {
@@ -4167,6 +4391,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"poll_loop_active\":0,"
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_tx_poll_api\":1,"
+                 "\"rf_tx_lease_ack_api\":1,"
                  "\"rf_rx_ingest_api\":1,"
                  "\"rf_phy_tx_rx\":0,"
                  "\"rf_transport_mode\":\"%s\","
@@ -5270,6 +5495,8 @@ static int query_state(const char *host,
     char tun_event_loop_request[112];
     char tun_service_start_request[112];
     char tun_service_status_request[96];
+    char rf_tx_lease_request[96];
+    char rf_tx_ack_request[128];
     char rf_tx_poll_request[96];
     char rf_rx_ingest_request[96];
     char tun_plan_request[96];
@@ -5354,6 +5581,10 @@ static int query_state(const char *host,
              "FIELDMESH_TUN_SERVICE_START v1 dst=%s", route_dst_eui);
     snprintf(tun_service_status_request, sizeof(tun_service_status_request),
              "%s", "FIELDMESH_TUN_SERVICE_STATUS v1");
+    snprintf(rf_tx_lease_request, sizeof(rf_tx_lease_request),
+             "%s", "FIELDMESH_RF_TX_LEASE v1");
+    snprintf(rf_tx_ack_request, sizeof(rf_tx_ack_request),
+             "%s", "FIELDMESH_RF_TX_ACK v1 00");
     snprintf(rf_tx_poll_request, sizeof(rf_tx_poll_request),
              "%s", "FIELDMESH_RF_TX_POLL v1");
     snprintf(rf_rx_ingest_request, sizeof(rf_rx_ingest_request),
@@ -5411,6 +5642,8 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, tun_event_loop_request) == 0 &&
         query_once(sockfd, &dst, tun_service_start_request) == 0 &&
         query_once(sockfd, &dst, tun_service_status_request) == 0 &&
+        query_once(sockfd, &dst, rf_tx_lease_request) == 0 &&
+        query_once(sockfd, &dst, rf_tx_ack_request) == 0 &&
         query_once(sockfd, &dst, rf_tx_poll_request) == 0 &&
         query_once(sockfd, &dst, rf_rx_ingest_request) == 0 &&
         query_once(sockfd, &dst, tun_plan_request) == 0 &&

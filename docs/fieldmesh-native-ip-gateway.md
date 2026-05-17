@@ -137,16 +137,18 @@ Minimum production gates for native TCP/IP:
 - daemon exposes `FIELDMESH_TUN_SERVICE_START` / `STATUS` / `STOP`, keeping
   daemon-owned `swarm0`/adapter state, waking on TUN readiness, and reporting
   RF-facing BLR `APP_DATA` egress/ingress frame counters through explicit
-  TX/RX RF transport queues; the daemon exposes RF TX poll and RF RX ingest APIs
-  for a driver worker; `driver_queue` is the default service transport, while
+  TX/RX RF transport queues; the daemon exposes RF TX lease/ack and RF RX ingest
+  APIs for a driver worker; `driver_queue` is the default service transport,
+  while
   `diagnostic_loopback` is an explicit test-only mode. RX ingest rejects
   malformed BLR frames, non-`APP_DATA` frames, and frames whose destination EUI
   is not the selected local board. The next boundary remains `rf_phy_tx_rx`;
 - two installed board daemons pass a symmetric host RF-worker bridge gate:
-  Z203-to-Z103 and Z103-to-Z203 both pump source `swarm0` packets, poll BLR
-  `APP_DATA` frames from `FIELDMESH_RF_TX_POLL`, send those exact frames to the
-  peer `FIELDMESH_RF_RX_INGEST`, and write them into the peer `swarm0` without
-  host-side inter-board IP routing or diagnostic loopback;
+  Z203-to-Z103 and Z103-to-Z203 both pump source `swarm0` packets, lease BLR
+  `APP_DATA` frames from `FIELDMESH_RF_TX_LEASE`, send those exact frames to the
+  peer `FIELDMESH_RF_RX_INGEST`, ACK them with `FIELDMESH_RF_TX_ACK` only after
+  ingest succeeds, and write them into the peer `swarm0` without host-side
+  inter-board IP routing or diagnostic loopback;
 - ICMP ping succeeds through the daemon RF-worker bridge: request packets leave
   the source `swarm0`, cross the BLR `APP_DATA` worker queue, enter the peer
   `swarm0`, trigger the peer kernel echo reply, and return through the opposite

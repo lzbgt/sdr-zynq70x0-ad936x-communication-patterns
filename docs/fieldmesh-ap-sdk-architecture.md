@@ -620,11 +620,13 @@ Stage 2: Board-local service
   TUN readiness. It also forces native-IP payloads through BLR `APP_DATA`
   MAC-frame egress/ingress counters and explicit TX/RX RF transport queues
   before drain-back to `swarm0`. `driver_queue` is the default transport and
-  exposes `FIELDMESH_RF_TX_POLL` and `FIELDMESH_RF_RX_INGEST`; RX ingest accepts
-  only BLR `APP_DATA` addressed to the local board EUI. `diagnostic_loopback`
+  exposes `FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` and
+  `FIELDMESH_RF_RX_INGEST`; RX ingest accepts only BLR `APP_DATA` addressed to
+  the local board EUI. `FIELDMESH_RF_TX_POLL` is retained only as a destructive
+  diagnostic. `diagnostic_loopback`
   is opt-in test-only. The two-board native-IP bridge gate verifies the RF
-  worker contract in both directions by polling source frames and ingesting
-  them into the peer daemon before the service reports
+  worker contract in both directions by leasing source frames, ingesting them
+  into the peer daemon, and ACKing them after delivery before the service reports
   `next_boundary=rf_phy_tx_rx` for real RF packet ingress/egress.
 - Use `fieldmesh_tun_gateway_demo` and daemon `FIELDMESH_TUN_PLAN` as the
   first routed-gateway contract: both keep `swarm0` on the Zynq board, report

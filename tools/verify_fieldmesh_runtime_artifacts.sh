@@ -284,6 +284,8 @@ verify_variant() {
         diagnostic_loopback \
         supports_rf_transport_driver_queue \
         sdk_daemon_rf_tx_poll \
+        sdk_daemon_rf_tx_lease \
+        sdk_daemon_rf_tx_ack \
         sdk_daemon_rf_rx_ingest \
         fieldmesh_rf_packet_engine \
         queued_to_rf_engine \

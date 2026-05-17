@@ -9,7 +9,8 @@ z203_port="${Z203_PORT:-55441}"
 z103_port="${Z103_PORT:-55441}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
-timeout_ms="${TIMEOUT_MS:-5000}"
+timeout_ms="${TIMEOUT_MS:-10000}"
+bridge_request_timeout_ms="${BRIDGE_REQUEST_TIMEOUT_MS:-1000}"
 packets="${PACKETS:-3}"
 directions="${DIRECTIONS:-both}"
 verify_icmp="${VERIFY_ICMP:-1}"
@@ -123,6 +124,7 @@ run_direction() {
 import json
 import socket
 import sys
+import time
 
 source_name = sys.argv[1]
 source_ip = sys.argv[2]
@@ -137,17 +139,24 @@ packets = int(sys.argv[10])
 label = sys.argv[11]
 
 def request(host: str, port: int, text: str) -> dict:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout_ms / 1000.0)
-    try:
-        sock.sendto(text.encode("ascii"), (host, port))
-        payload, _ = sock.recvfrom(8192)
-    finally:
-        sock.close()
-    decoded = payload.decode("utf-8", errors="replace")
-    sys.stdout.write(decoded)
-    sys.stdout.flush()
-    return json.loads(decoded)
+    last_error = None
+    for _ in range(3):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout_ms / 1000.0)
+        try:
+            sock.sendto(text.encode("ascii"), (host, port))
+            payload, _ = sock.recvfrom(8192)
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.2)
+            continue
+        finally:
+            sock.close()
+        decoded = payload.decode("utf-8", errors="replace")
+        sys.stdout.write(decoded)
+        sys.stdout.flush()
+        return json.loads(decoded)
+    raise last_error if last_error is not None else TimeoutError(text)
 
 request(source_ip, source_port, "FIELDMESH_TUN_SERVICE_STOP v1")
 request(sink_ip, sink_port, "FIELDMESH_TUN_SERVICE_STOP v1")
@@ -189,32 +198,42 @@ packets = int(sys.argv[8])
 label = sys.argv[9]
 
 def request(host: str, port: int, text: str) -> dict:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout_ms / 1000.0)
-    try:
-        sock.sendto(text.encode("ascii"), (host, port))
-        payload, _ = sock.recvfrom(8192)
-    finally:
-        sock.close()
-    decoded = payload.decode("utf-8", errors="replace")
-    sys.stdout.write(decoded)
-    sys.stdout.flush()
-    return json.loads(decoded)
+    last_error = None
+    for _ in range(3):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout_ms / 1000.0)
+        try:
+            sock.sendto(text.encode("ascii"), (host, port))
+            payload, _ = sock.recvfrom(8192)
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.2)
+            continue
+        finally:
+            sock.close()
+        decoded = payload.decode("utf-8", errors="replace")
+        sys.stdout.write(decoded)
+        sys.stdout.flush()
+        return json.loads(decoded)
+    raise last_error if last_error is not None else TimeoutError(text)
 
 time.sleep(max(2.0, packets + 0.8))
 source_status = request(source_ip, source_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
 sink_status_before = request(sink_ip, sink_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
 delivered = 0
 for _ in range(packets):
-    polled = request(source_ip, source_port, "FIELDMESH_RF_TX_POLL v1")
+    polled = request(source_ip, source_port, "FIELDMESH_RF_TX_LEASE v1")
     if polled.get("frames") != 1:
         break
     frame = polled.get("frame0_hex")
     if not frame:
-        raise SystemExit("RF TX poll returned no frame hex")
+        raise SystemExit("RF TX lease returned no frame hex")
     ingested = request(sink_ip, sink_port, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
     if ingested.get("ok") is not True:
         raise SystemExit(f"RF RX ingest failed: {ingested}")
+    acked = request(source_ip, source_port, "FIELDMESH_RF_TX_ACK v1 " + str(frame))
+    if acked.get("ok") is not True:
+        raise SystemExit(f"RF TX ack failed: {acked}")
     delivered += 1
     time.sleep(0.2)
 sink_status_after = request(sink_ip, sink_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
@@ -229,7 +248,7 @@ summary = {
     "source": source_name,
     "sink": sink_name,
     "requested_packets": packets,
-    "rf_frames_polled": delivered,
+    "rf_frames_leased": delivered,
     "source_packets_pumped": source_status.get("packets_pumped"),
     "source_rf_frames_egressed": source_status.get("rf_frames_egressed"),
     "sink_packets_written_before": sink_status_before.get("packets_written"),
@@ -270,9 +289,9 @@ summary = [
 ]
 if not summary or summary[-1].get("ok") is not True:
     raise SystemExit(f"missing successful bridge summary for {label}")
-if summary[-1].get("rf_frames_polled", 0) < 1:
-    raise SystemExit(f"bridge did not poll any RF frames for {label}")
-if summary[-1].get("sink_packets_written_after", 0) < summary[-1].get("rf_frames_polled", 0):
+if summary[-1].get("rf_frames_leased", 0) < 1:
+    raise SystemExit(f"bridge did not lease any RF frames for {label}")
+if summary[-1].get("sink_packets_written_after", 0) < summary[-1].get("rf_frames_leased", 0):
     raise SystemExit(f"bridge did not inject RF frames into sink swarm0 for {label}")
 report = {
     "event": "fieldmesh_two_board_native_ip_bridge_direction_assert",
@@ -280,7 +299,7 @@ report = {
     "direction": label,
     "ping_rc": ping_rc,
     "requested_packets": packets,
-    "rf_frames_polled": summary[-1].get("rf_frames_polled"),
+    "rf_frames_leased": summary[-1].get("rf_frames_leased"),
     "sink_packets_written_after": summary[-1].get("sink_packets_written_after"),
     "next_boundary": summary[-1].get("next_boundary"),
 }
@@ -312,6 +331,7 @@ if [ "$verify_icmp" = "1" ]; then
 import json
 import socket
 import sys
+import time
 
 z203_ip = sys.argv[1]
 z203_port = int(sys.argv[2])
@@ -321,17 +341,24 @@ timeout_ms = int(sys.argv[5])
 packets = int(sys.argv[6])
 
 def request(host: str, port: int, text: str) -> dict:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout_ms / 1000.0)
-    try:
-        sock.sendto(text.encode("ascii"), (host, port))
-        payload, _ = sock.recvfrom(8192)
-    finally:
-        sock.close()
-    decoded = payload.decode("utf-8", errors="replace")
-    sys.stdout.write(decoded)
-    sys.stdout.flush()
-    return json.loads(decoded)
+    last_error = None
+    for _ in range(3):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout_ms / 1000.0)
+        try:
+            sock.sendto(text.encode("ascii"), (host, port))
+            payload, _ = sock.recvfrom(8192)
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.2)
+            continue
+        finally:
+            sock.close()
+        decoded = payload.decode("utf-8", errors="replace")
+        sys.stdout.write(decoded)
+        sys.stdout.flush()
+        return json.loads(decoded)
+    raise last_error if last_error is not None else TimeoutError(text)
 
 request(z203_ip, z203_port, "FIELDMESH_TUN_SERVICE_STOP v1")
 request(z103_ip, z103_port, "FIELDMESH_TUN_SERVICE_STOP v1")
@@ -349,7 +376,7 @@ request(
 )
 PY
 
-    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$packets" "$((packets + 8))" \
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$bridge_request_timeout_ms" "$packets" "$((packets + 8))" \
         >>"$out_dir/bridge.ndjson" <<'PY' &
 import json
 import socket
@@ -392,11 +419,9 @@ while time.monotonic() < deadline:
     moved = False
     for src_ip, src_port, dst_ip, dst_port, key in pairs:
         try:
-            polled = request(src_ip, src_port, "FIELDMESH_RF_TX_POLL v1")
+            polled = request(src_ip, src_port, "FIELDMESH_RF_TX_LEASE v1")
         except OSError:
             counts["request_errors"] += 1
-            if counts["z203_to_z103"] >= packets and counts["z103_to_z203"] >= packets:
-                break
             time.sleep(0.1)
             continue
         if polled.get("frames") != 1:
@@ -404,17 +429,29 @@ while time.monotonic() < deadline:
             continue
         frame = polled.get("frame0_hex")
         if not frame:
-            raise SystemExit("continuous bridge poll returned no frame")
+            raise SystemExit("continuous bridge lease returned no frame")
         try:
             ingested = request(dst_ip, dst_port, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
         except OSError as exc:
-            raise SystemExit(f"continuous bridge ingest timed out after TX poll: {exc}") from exc
+            counts["request_errors"] += 1
+            time.sleep(0.1)
+            continue
         if ingested.get("ok") is not True:
             raise SystemExit(f"continuous bridge ingest failed: {ingested}")
+        for _ in range(3):
+            try:
+                acked = request(src_ip, src_port, "FIELDMESH_RF_TX_ACK v1 " + str(frame))
+            except OSError:
+                counts["request_errors"] += 1
+                time.sleep(0.1)
+                continue
+            if acked.get("ok") is True:
+                break
+            raise SystemExit(f"continuous bridge TX ack failed: {acked}")
+        else:
+            raise SystemExit("continuous bridge TX ack timed out after successful ingest")
         counts[key] += 1
         moved = True
-    if counts["z203_to_z103"] >= packets and counts["z103_to_z203"] >= packets:
-        break
     if not moved:
         time.sleep(0.05)
 
@@ -445,6 +482,7 @@ PY
 import json
 import socket
 import sys
+import time
 
 z203_ip = sys.argv[1]
 z203_port = int(sys.argv[2])
@@ -453,17 +491,24 @@ z103_port = int(sys.argv[4])
 timeout_ms = int(sys.argv[5])
 
 def request(host: str, port: int, text: str) -> dict:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout_ms / 1000.0)
-    try:
-        sock.sendto(text.encode("ascii"), (host, port))
-        payload, _ = sock.recvfrom(8192)
-    finally:
-        sock.close()
-    decoded = payload.decode("utf-8", errors="replace")
-    sys.stdout.write(decoded)
-    sys.stdout.flush()
-    return json.loads(decoded)
+    last_error = None
+    for _ in range(3):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout_ms / 1000.0)
+        try:
+            sock.sendto(text.encode("ascii"), (host, port))
+            payload, _ = sock.recvfrom(8192)
+        except OSError as exc:
+            last_error = exc
+            time.sleep(0.2)
+            continue
+        finally:
+            sock.close()
+        decoded = payload.decode("utf-8", errors="replace")
+        sys.stdout.write(decoded)
+        sys.stdout.flush()
+        return json.loads(decoded)
+    raise last_error if last_error is not None else TimeoutError(text)
 
 z203_status = request(z203_ip, z203_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
 z103_status = request(z103_ip, z103_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
@@ -510,9 +555,9 @@ for direction in expected:
     row = summaries.get(direction)
     if not row or row.get("ok") is not True:
         raise SystemExit(f"missing successful bridge summary for {direction}")
-    if row.get("rf_frames_polled", 0) < 1:
-        raise SystemExit(f"bridge did not poll any RF frames for {direction}")
-    if row.get("sink_packets_written_after", 0) < row.get("rf_frames_polled", 0):
+    if row.get("rf_frames_leased", 0) < 1:
+        raise SystemExit(f"bridge did not lease any RF frames for {direction}")
+    if row.get("sink_packets_written_after", 0) < row.get("rf_frames_leased", 0):
         raise SystemExit(f"bridge did not inject RF frames into sink swarm0 for {direction}")
 continuous = [
     row for row in rows
@@ -540,7 +585,7 @@ report = {
     "icmp_ping_ok": verify_icmp,
     "icmp_ping_rc": icmp_ping_rc,
     "requested_packets": packets,
-    "rf_frames_polled_total": sum(summaries[d].get("rf_frames_polled", 0) for d in expected),
+    "rf_frames_leased_total": sum(summaries[d].get("rf_frames_leased", 0) for d in expected),
     "sink_packets_written_total": sum(summaries[d].get("sink_packets_written_after", 0) for d in expected),
     "next_boundary": "rf_phy_tx_rx",
 }
