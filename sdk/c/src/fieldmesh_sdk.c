@@ -3591,10 +3591,11 @@ fieldmesh_status_t fieldmesh_set_daemon_device_identity(
     const fieldmesh_device_identity_request_t *request,
     fieldmesh_device_identity_report_t *out_report)
 {
-    char wire_request[256];
+    char wire_request[640];
     char response[2048];
     size_t response_len = 0u;
     fieldmesh_status_t status;
+    size_t i;
 
     if (!config || !request || !out_report ||
         !valid_device_eui(request->new_eui) ||
@@ -3602,17 +3603,28 @@ fieldmesh_status_t fieldmesh_set_daemon_device_identity(
          !valid_device_eui(request->current_eui))) {
         return FIELDMESH_ERR_INVALID_ARG;
     }
+    for (i = 0u; i < sizeof(request->admin_token) &&
+         request->admin_token[i] != '\0'; ++i) {
+        unsigned char c = (unsigned char)request->admin_token[i];
+        if (c <= 0x20u || c >= 0x7fu) {
+            return FIELDMESH_ERR_INVALID_ARG;
+        }
+    }
+    if (i == sizeof(request->admin_token)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
     memset(out_report, 0, sizeof(*out_report));
     (void)snprintf(wire_request, sizeof(wire_request),
                    "FIELDMESH_DEVICE_IDENTITY_SET v1 "
                    "new_eui=%s current_eui=%s persist=%u reboot=%u "
-                   "require_unique=%u dry_run=%u",
+                   "require_unique=%u dry_run=%u authz=%s",
                    request->new_eui,
                    request->current_eui[0] ? request->current_eui : "none",
                    (unsigned)(request->persist ? 1u : 0u),
                    (unsigned)(request->reboot_after_apply ? 1u : 0u),
                    (unsigned)(request->require_unique_seen_eui ? 1u : 0u),
-                   (unsigned)(request->dry_run ? 1u : 0u));
+                   (unsigned)(request->dry_run ? 1u : 0u),
+                   request->admin_token[0] ? request->admin_token : "none");
     status = fieldmesh_daemon_request(config, wire_request, response,
                                       sizeof(response), &response_len);
     if (status != FIELDMESH_OK || response_len == 0u) {

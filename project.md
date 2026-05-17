@@ -624,8 +624,11 @@ user and vendor configuration.
   SDK/app path for changing a selected board EUI through the board daemon. It
   supports compare-and-swap current-EUI checks, duplicate observed-peer
   rejection, dry-run validation, persistence, and reboot request flags. Real
-  writes require daemon-side admin identity-write authorization and update the
-  same boot-source-neutral EUI stores as the provisioning writer.
+  writes require daemon-side admin identity-write authorization:
+  `FIELDMESH_ADMIN_AUTH_TOKEN` must match the SDK/app request token and
+  `FIELDMESH_ALLOW_DEVICE_IDENTITY_WRITE=1` must be set by the supervisor. The
+  GUI never bundles this token. Authorized writes update the same
+  boot-source-neutral EUI stores as the provisioning writer.
 - `tools/verify_fieldmesh_network_profile_writer.sh` - synthetic safety gate
   for the SSH network-profile writer. It verifies the planned Z103
   `192.168.3.1/24` split-subnet env batch and rejects a mismatched Z203

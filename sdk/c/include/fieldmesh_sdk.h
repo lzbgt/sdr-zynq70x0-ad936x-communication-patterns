@@ -209,6 +209,7 @@ typedef struct fieldmesh_discovered_board {
 typedef struct fieldmesh_device_identity_request {
     char current_eui[FIELDMESH_ID_TEXT_MAX];
     char new_eui[FIELDMESH_ID_TEXT_MAX];
+    char admin_token[FIELDMESH_SECRET_TEXT_MAX];
     uint8_t persist;
     uint8_t reboot_after_apply;
     uint8_t require_unique_seen_eui;

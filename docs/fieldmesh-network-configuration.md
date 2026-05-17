@@ -74,9 +74,14 @@ contains the current EUI compare-and-swap guard, the new 12-hex EUI,
 persistence and reboot flags, duplicate-observed-EUI rejection, and dry-run
 mode. The board daemon validates the EUI, rejects duplicate observed peer EUIs
 when requested, and refuses real writes unless it is running under authenticated
-admin control with identity-write authorization. When authorized, the daemon
-writes the same three identity stores: `/mnt/jffs2/fieldmesh/device_eui`,
-U-Boot `fieldmesh_device_eui`, and writable `/etc/fieldmesh/device_eui`.
+admin control with identity-write authorization. The local daemon gate requires
+both `FIELDMESH_ADMIN_AUTH_TOKEN` and `FIELDMESH_ALLOW_DEVICE_IDENTITY_WRITE=1`
+for non-dry-run persistent writes; the admin token is supplied by the app/SDK
+request, is not bundled into the GUI, and is never logged. This token gate is
+the local development stand-in for the production command-CA mutual-auth scope
+that will issue derived admin credentials. When authorized, the daemon writes
+the same three identity stores: `/mnt/jffs2/fieldmesh/device_eui`, U-Boot
+`fieldmesh_device_eui`, and writable `/etc/fieldmesh/device_eui`.
 
 Current commands are explicit and scriptable:
 

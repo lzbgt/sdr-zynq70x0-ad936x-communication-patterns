@@ -682,6 +682,8 @@ bool daemon_send_app_message(GuiState *state,
                   board->device_eui.c_str());
     std::snprintf(request.new_eui, sizeof(request.new_eui), "%s",
                   state->provisioning.new_eui.c_str());
+    std::snprintf(request.admin_token, sizeof(request.admin_token), "%s",
+                  state->provisioning.admin_token.c_str());
     request.persist = state->provisioning.persist ? 1u : 0u;
     request.reboot_after_apply =
         state->provisioning.reboot_after_apply ? 1u : 0u;
@@ -1208,6 +1210,7 @@ void populate_demo_state(GuiState *state)
     state->provisioning.require_unique_seen_eui = true;
     state->provisioning.last_ok = true;
     state->provisioning.new_eui.clear();
+    state->provisioning.admin_token.clear();
     state->provisioning.last_message = "ready";
     state->topology_page_open = false;
     state->selected_conversation_eui.clear();
@@ -1888,6 +1891,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"device_identity_set_uses_sdk\": true,\n"
                  "  \"device_identity_persist_supported\": true,\n"
                  "  \"device_identity_requires_admin_auth\": true,\n"
+                 "  \"device_identity_admin_token_bundled\": false,\n"
                  "  \"device_identity_dry_run_default\": %s,\n"
                  "  \"network_topology_viewer\": \"radio_topology\",\n"
                  "  \"network_topology_page\": true,\n"
@@ -2345,15 +2349,21 @@ void render_control_plane_strip(GuiState *state)
 void render_device_identity_admin_page(GuiState *state)
 {
     char eui_buffer[32];
+    char auth_buffer[256];
     const GuiBoard *board = selected_board(*state);
 
     std::snprintf(eui_buffer, sizeof(eui_buffer), "%s",
                   state->provisioning.new_eui.c_str());
+    std::snprintf(auth_buffer, sizeof(auth_buffer), "%s",
+                  state->provisioning.admin_token.c_str());
     begin_panel("Device Identity Admin", ImVec2(0.0f, 0.0f));
     ImGui::Text("Selected board: %s",
                 board ? board->device_eui.c_str() : "none");
     ImGui::InputText("New EUI", eui_buffer, sizeof(eui_buffer));
     state->provisioning.new_eui = eui_buffer;
+    ImGui::InputText("Admin token", auth_buffer, sizeof(auth_buffer),
+                     ImGuiInputTextFlags_Password);
+    state->provisioning.admin_token = auth_buffer;
     ImGui::Checkbox("Persist across reboot", &state->provisioning.persist);
     ImGui::SameLine();
     ImGui::Checkbox("Reboot after apply",

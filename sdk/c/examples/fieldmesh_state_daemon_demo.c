@@ -1212,6 +1212,7 @@ static int build_response(fieldmesh_context_t *context,
         char old_eui[FIELDMESH_ID_TEXT_MAX];
         char current_eui[FIELDMESH_ID_TEXT_MAX];
         char new_eui[FIELDMESH_ID_TEXT_MAX];
+        char authz[FIELDMESH_SECRET_TEXT_MAX];
         unsigned persist = 0u;
         unsigned reboot_after_apply = 0u;
         unsigned require_unique = 1u;
@@ -1221,6 +1222,7 @@ static int build_response(fieldmesh_context_t *context,
         unsigned wrote_uboot = 0u;
         unsigned wrote_etc = 0u;
         const char *allow_write;
+        const char *expected_token;
 
         runtime_hostname(hostname, sizeof(hostname));
         runtime_device_eui(hostname, old_eui, sizeof(old_eui));
@@ -1268,6 +1270,19 @@ static int build_response(fieldmesh_context_t *context,
                                       &require_unique);
         (void)request_uint_or_default(request, "dry_run=", 1u, 0u, 1u,
                                       &dry_run);
+        authz[0] = '\0';
+        if (copy_request_field(request, "authz=", authz, sizeof(authz)) < 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"persisted\":0,"
+                     "\"error\":\"invalid_admin_auth\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
         duplicate_seen = require_unique ?
             observed_peer_uses_eui(session, new_eui) : 0u;
         if (duplicate_seen) {
@@ -1278,6 +1293,24 @@ static int build_response(fieldmesh_context_t *context,
                      "\"new_eui\":\"%s\","
                      "\"duplicate_seen\":1,"
                      "\"error\":\"duplicate_observed_eui\","
+                     "\"requires_admin_auth\":1}\n",
+                     old_eui, new_eui);
+            return 0;
+        }
+        expected_token = getenv("FIELDMESH_ADMIN_AUTH_TOKEN");
+        if (persist && !dry_run &&
+            (!expected_token || expected_token[0] == '\0' ||
+             authz[0] == '\0' || strcmp(authz, "none") == 0 ||
+             strcmp(authz, expected_token) != 0)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_device_identity_set\","
+                     "\"ok\":false,"
+                     "\"old_eui\":\"%s\","
+                     "\"new_eui\":\"%s\","
+                     "\"persisted\":0,"
+                     "\"duplicate_seen\":0,"
+                     "\"error\":\"admin_auth_failed\","
+                     "\"message\":\"admin authorization token rejected\","
                      "\"requires_admin_auth\":1}\n",
                      old_eui, new_eui);
             return 0;
@@ -1293,7 +1326,7 @@ static int build_response(fieldmesh_context_t *context,
                      "\"persisted\":0,"
                      "\"duplicate_seen\":0,"
                      "\"error\":\"admin_write_not_authorized\","
-                     "\"message\":\"set FIELDMESH_ALLOW_DEVICE_IDENTITY_WRITE=1 under authenticated admin control\","
+                     "\"message\":\"set FIELDMESH_ADMIN_AUTH_TOKEN and FIELDMESH_ALLOW_DEVICE_IDENTITY_WRITE=1 under authenticated admin control\","
                      "\"requires_admin_auth\":1}\n",
                      old_eui, new_eui);
             return 0;

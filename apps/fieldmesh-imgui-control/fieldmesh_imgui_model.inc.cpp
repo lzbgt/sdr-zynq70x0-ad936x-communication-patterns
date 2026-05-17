@@ -94,6 +94,7 @@ struct GuiProvisioning {
     bool require_unique_seen_eui;
     bool last_ok;
     std::string new_eui;
+    std::string admin_token;
     std::string last_message;
 };
 

@@ -74,6 +74,7 @@ def main() -> int:
         "fieldmesh_set_daemon_device_identity",
         "Validate EUI Change",
         "Persist EUI",
+        "Admin token",
         "Built-in camera",
         "Accept",
         "Deny",
@@ -264,6 +265,8 @@ def main() -> int:
         raise SystemExit("device identity changes must use the SDK/daemon path")
     if snapshot.get("device_identity_requires_admin_auth") is not True:
         raise SystemExit("device identity changes must require admin auth")
+    if snapshot.get("device_identity_admin_token_bundled") is not False:
+        raise SystemExit("device identity admin token must not be bundled")
     if snapshot.get("network_topology_viewer") != "radio_topology":
         raise SystemExit("ImGui app topology viewer must be radio topology")
     if snapshot.get("network_topology_page") is not True:
