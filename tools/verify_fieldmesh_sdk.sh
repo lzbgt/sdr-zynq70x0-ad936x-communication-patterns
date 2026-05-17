@@ -373,6 +373,16 @@ if hello[0].get("auth_model") != "root_ca_derived_certs":
     raise SystemExit("SDK daemon HELLO auth model changed")
 if hello[0].get("requires_mutual_auth_for_production") != 1:
     raise SystemExit("SDK daemon HELLO must require production mutual auth")
+if hello[0].get("production_ready") != 0:
+    raise SystemExit("SDK daemon HELLO must not claim production readiness before RF PHY verification")
+if hello[0].get("production_readiness") != "infrastructure_verified_rf_phy_pending":
+    raise SystemExit("SDK daemon HELLO production readiness state changed")
+if hello[0].get("planned_features_production_level") != 0:
+    raise SystemExit("SDK daemon HELLO must not mark planned features production-level")
+if hello[0].get("app_verified_real_rf") != 0 or hello[0].get("rf_phy_tx_rx_verified") != 0:
+    raise SystemExit("SDK daemon HELLO must not claim real RF app/PHY verification")
+if hello[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+    raise SystemExit("SDK daemon HELLO production blocker changed")
 for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_app_message_ingest", "supports_app_message_poll",
             "supports_device_identity_set",

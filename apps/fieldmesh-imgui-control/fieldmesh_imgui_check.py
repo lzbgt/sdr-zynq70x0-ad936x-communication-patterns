@@ -174,6 +174,18 @@ def main() -> int:
         raise SystemExit("ImGui app must require authorization")
     if "messaging" not in snapshot.get("authorization_scope", ""):
         raise SystemExit("ImGui app auth scope must include messaging")
+    if snapshot.get("production_ready") is not False:
+        raise SystemExit("ImGui app must not claim production readiness before RF PHY verification")
+    if snapshot.get("production_readiness") != "infrastructure_verified_rf_phy_pending":
+        raise SystemExit("ImGui app production readiness state changed")
+    if snapshot.get("planned_features_production_level") is not False:
+        raise SystemExit("ImGui app must not mark planned features production-level")
+    if snapshot.get("app_verified_real_rf") is not False:
+        raise SystemExit("ImGui app must not claim real RF app verification")
+    if snapshot.get("rf_phy_tx_rx_verified_by_app") is not False:
+        raise SystemExit("ImGui app must not claim RF PHY verification")
+    if snapshot.get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+        raise SystemExit("ImGui app production blocker changed")
     if snapshot.get("provisioning_model") != "bundled_command_ca_public_trust_derived_device_cert":
         raise SystemExit("ImGui app provisioning model changed")
     if snapshot.get("device_private_key_source") != "os_keystore_or_board_secure_storage":

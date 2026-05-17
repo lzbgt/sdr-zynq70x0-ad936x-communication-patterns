@@ -166,6 +166,18 @@ for label, snapshot in (("peer_a", peer_a), ("peer_b", peer_b)):
         raise SystemExit(f"{label} GUI did not require mutual auth")
     if snapshot.get("authorization_required") is not True:
         raise SystemExit(f"{label} GUI did not require authorization")
+    if snapshot.get("production_ready") is not False:
+        raise SystemExit(f"{label} GUI claimed production readiness before RF PHY verification")
+    if snapshot.get("production_readiness") != "infrastructure_verified_rf_phy_pending":
+        raise SystemExit(f"{label} GUI production readiness state changed")
+    if snapshot.get("planned_features_production_level") is not False:
+        raise SystemExit(f"{label} GUI marked planned features production-level")
+    if snapshot.get("app_verified_real_rf") is not False:
+        raise SystemExit(f"{label} GUI claimed real RF app verification")
+    if snapshot.get("rf_phy_tx_rx_verified_by_app") is not False:
+        raise SystemExit(f"{label} GUI claimed RF PHY verification")
+    if snapshot.get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+        raise SystemExit(f"{label} GUI production blocker changed")
     if snapshot.get("messaging_available") is not True:
         raise SystemExit(f"{label} GUI did not expose messaging")
     if snapshot.get("live_video_available") is not True:

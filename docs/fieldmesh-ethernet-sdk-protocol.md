@@ -82,7 +82,13 @@ mesh drivers.
 The daemon advertises this product boundary with
 `supports_native_ip_gateway=1`, `supports_tcp_ip_client_apps=1`,
 `native_client_ip_mode=routed_l3_swarm0`, and
-`native_client_ip_interface=swarm0`.
+`native_client_ip_interface=swarm0`. It must not advertise full production
+readiness until the same path is verified over real RF PHY TX/RX. Current
+installed daemons therefore report `production_ready=0`,
+`production_readiness=infrastructure_verified_rf_phy_pending`,
+`planned_features_production_level=0`, `app_verified_real_rf=0`,
+`rf_phy_tx_rx_verified=0`, and
+`production_blocker=real_rf_phy_tx_rx_not_verified`.
 
 The preferred product mode is a routed Layer-3 gateway:
 
@@ -319,6 +325,10 @@ authentication model, scoped authorization expectation, app/camera/route/RF
 capabilities, and safety invariants. Demo builds may report
 `security_state=demo_unprovisioned`, but production deployments must provision
 mutual authentication and authorization before allowing privileged operations.
+The response also carries production-readiness truth fields. Until real
+over-air RF PHY TX/RX is connected and app-verified, `production_ready` and
+`planned_features_production_level` must remain false and
+`production_blocker` must name the missing RF PHY verification boundary.
 
 `FIELDMESH_APP_MESSAGE_SEND v1 dst=<12-hex-eui> payload_hex=<hex>` is the
 host-debug daemon request used by the golden IM app to queue a text/message
