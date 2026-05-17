@@ -95,6 +95,10 @@ in `src/fieldmesh_sdk.c`:
   The SDK also exposes `fieldmesh_tun_packetizer_pump_once()`, a pure-C
   callback contract for daemon code that reads from a real board-local TUN
   file descriptor and forwards one packet into the FieldMesh adapter path.
+- `examples/fieldmesh_native_ip_socket_demo.c` is intentionally not an SDK
+  client. It is a tiny TCP/UDP echo client/server that uses ordinary Linux
+  sockets on `swarm0`, proving that native client applications can run through
+  the FieldMesh gateway without linking to FieldMesh.
 - `examples/fieldmesh_camera_stream_demo.c` is the first pure-C camera stream
   contract. It plans a scheduled `swarm0` session with
   `fieldmesh_plan_camera_stream_session()`, opens it with
@@ -218,6 +222,8 @@ camera stream contract, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
 `swarm0` packet/stream adapter mapping, `/usr/bin/fieldmesh-tun-gateway-demo`
 for the first routed TUN gateway plan, `/usr/bin/fieldmesh-tun-packetizer-demo`
 for TUN IP packet classification into FieldMesh classes,
+`/usr/bin/fieldmesh-native-ip-socket-demo` for transparent TCP/UDP socket
+proofs above `swarm0`,
 `/usr/bin/fieldmesh-two-pc-flow-demo` for the first board-attached AP
 browse/election/audit-join/scheduled-stream smoke, and `/usr/bin/fieldmeshctl`
 for split-subnet profile validation before persistent network writes are

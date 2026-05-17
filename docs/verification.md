@@ -4285,6 +4285,9 @@ MODE=service RF_SELF_INGEST_REJECT=1 ALLOW_LIVE_TUN_READ=1 \
 Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 PACKETS=3 DIRECTIONS=both \
   VERIFY_ICMP=1 \
   ./tools/run_fieldmesh_two_board_native_ip_bridge.sh
+
+Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
+  ./tools/run_fieldmesh_two_board_native_ip_sockets.sh
 ```
 
 Both boards drained three adapter packets into `swarm0`, pumped three `swarm0`
@@ -4302,6 +4305,11 @@ frames in both directions, and verifies `icmp_ping_rc=0`. The 2026-05-17 live
 run reported three transmitted and three received ICMP packets with 0% loss;
 the measured RTT range was about 26.6 ms to 50.2 ms across the host-orchestrated
 daemon bridge. This is still a daemon/RF-worker proof, not real RF PHY TX/RX.
+The socket gate then staged `fieldmesh-native-ip-socket-demo` and ran ordinary
+TCP and UDP echo traffic over `swarm0`: TCP client/server each transferred 30
+bytes, UDP client/server each transferred 30 bytes, and the bridge moved seven
+Z203-to-Z103 frames plus six Z103-to-Z203 frames. The socket client/server do
+not link to the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

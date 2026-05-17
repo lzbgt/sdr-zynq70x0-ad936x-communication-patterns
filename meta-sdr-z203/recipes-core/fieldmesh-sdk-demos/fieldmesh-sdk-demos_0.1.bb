@@ -11,6 +11,7 @@ SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_camera_stream_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_device_iio_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_mac_frame_demo.c;subdir=fieldmesh-sdk/examples \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_native_ip_socket_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmeshctl_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_state_daemon_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_swarm_adapter_demo.c;subdir=fieldmesh-sdk/examples \
@@ -41,6 +42,10 @@ do_compile() {
         ${S}/src${FIELDMESH_REPO_ROOT}/sdk/c/src/fieldmesh_sdk.c \
         ${LDFLAGS} \
         -o fieldmesh-mac-frame-demo
+    ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
+        ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_native_ip_socket_demo.c \
+        ${LDFLAGS} \
+        -o fieldmesh-native-ip-socket-demo
     ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
         -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
         ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmeshctl_demo.c \
@@ -84,6 +89,7 @@ do_install() {
     install -m 0755 ${B}/fieldmesh-camera-stream-demo ${D}${bindir}/fieldmesh-camera-stream-demo
     install -m 0755 ${B}/fieldmesh-device-iio-demo ${D}${bindir}/fieldmesh-device-iio-demo
     install -m 0755 ${B}/fieldmesh-mac-frame-demo ${D}${bindir}/fieldmesh-mac-frame-demo
+    install -m 0755 ${B}/fieldmesh-native-ip-socket-demo ${D}${bindir}/fieldmesh-native-ip-socket-demo
     install -m 0755 ${B}/fieldmeshctl ${D}${bindir}/fieldmeshctl
     install -m 0755 ${B}/fieldmesh-state-daemon-demo ${D}${bindir}/fieldmesh-state-daemon-demo
     install -m 0755 ${B}/fieldmesh-swarm-adapter-demo ${D}${bindir}/fieldmesh-swarm-adapter-demo

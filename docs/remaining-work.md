@@ -62,9 +62,11 @@ frames through peer RX ingest, and write them into the peer `swarm0`. The same
 gate now also proves ICMP over the daemon RF-worker bridge: Z203 can `ping`
 Z103 through source `swarm0` -> BLR `APP_DATA` TX poll -> peer RX ingest ->
 peer `swarm0`, and the kernel echo reply returns through the reverse worker
-queue. The remaining implementation work is to connect those driver queues to
-real RF packet ingress/egress, then prove ICMP/TCP/UDP over the RF path with
-measured throughput, RTT, retransmits, queue age, and route-failover behavior.
+queue. A separate socket gate now proves normal TCP and UDP echo clients over
+the same path with no FieldMesh SDK dependency in the client process. The
+remaining implementation work is to connect those driver queues to real RF
+packet ingress/egress, then prove ICMP/TCP/UDP over the RF path with measured
+throughput, RTT, retransmits, queue age, and route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary

@@ -578,6 +578,11 @@ gate passes only when the requests and kernel-generated replies traverse the
 opposite daemon RF-worker queues and the source `ping` exits successfully.
 This proves the client TCP/IP socket boundary up to the RF-worker queues; the
 remaining boundary is replacing the worker handoff with real RF PHY TX/RX.
+`tools/run_fieldmesh_two_board_native_ip_sockets.sh` extends that proof with
+normal TCP and UDP echo applications. The socket demo intentionally avoids the
+FieldMesh SDK and uses only `socket()`, `bind()`, `connect()`, `send()`, and
+`recv()`/`recvfrom()` on `swarm0`, proving that transparent native-IP client
+applications can run above the FieldMesh daemon gateway.
 
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter

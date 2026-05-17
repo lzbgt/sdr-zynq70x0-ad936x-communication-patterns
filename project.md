@@ -621,6 +621,11 @@ user and vendor configuration.
   its own `swarm0`. The default gate also runs ICMP over the same daemon bridge:
   Z203 pings Z103 through `swarm0`, BLR `APP_DATA` TX poll, peer RX ingest, peer
   `swarm0`, and the kernel echo reply returns through the reverse queue.
+- `tools/run_fieldmesh_two_board_native_ip_sockets.sh` - live transparent
+  client-app gate. It stages `fieldmesh-native-ip-socket-demo`, starts TCP and
+  UDP echo processes that use ordinary Linux sockets on `swarm0`, and verifies
+  both protocols over the same daemon RF-worker bridge with no FieldMesh SDK
+  calls in the socket app.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
@@ -1289,6 +1294,8 @@ Expected result in the current Pluto-compatible firmware state:
    gate now moves three packets in each direction, Z203-to-Z103 and
    Z103-to-Z203, through TX poll, peer RX ingest, and peer `swarm0`; it also
    proves an actual Z203-to-Z103 ICMP ping over the simultaneous daemon bridge.
+   A follow-on socket gate proves normal TCP and UDP echo traffic over that
+   same bridge using a tiny client/server app that does not link to FieldMesh.
    The remaining production boundary is connecting those queues to real RF
    packet ingress/egress.
    The SDK and state daemon now also bind that adapter output

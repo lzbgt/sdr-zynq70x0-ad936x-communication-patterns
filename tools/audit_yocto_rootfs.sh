@@ -48,6 +48,7 @@ required_paths=(
     /usr/bin/fieldmesh-camera-stream-demo
     /usr/bin/fieldmesh-device-iio-demo
     /usr/bin/fieldmesh-mac-frame-demo
+    /usr/bin/fieldmesh-native-ip-socket-demo
     /usr/bin/fieldmeshctl
     /usr/bin/fieldmesh-state-daemon-demo
     /usr/bin/fieldmesh-swarm-adapter-demo
@@ -133,6 +134,7 @@ check_contains /etc/init.d/S55fieldmesh-state-daemon 'LOG_MAX_BYTES'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'rotate_log_if_needed'
 check_contains /usr/bin/fieldmesh-mac-frame-demo 'sdk_mac_frame'
 check_contains /usr/bin/fieldmesh-mac-frame-demo 'BLR'
+check_contains /usr/bin/fieldmesh-native-ip-socket-demo 'uses_normal_tcp_udp_sockets'
 check_contains /usr/bin/fieldmesh-state-daemon-demo 'mac_magic'
 check_contains /usr/bin/fieldmesh-state-daemon-demo 'uses_json_on_air'
 check_contains /sbin/update.sh 'copy_without_trailing_bytes "$FILE"'

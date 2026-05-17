@@ -152,6 +152,9 @@ Minimum production gates for native TCP/IP:
   `swarm0`, trigger the peer kernel echo reply, and return through the opposite
   worker queue. This proves the native client-kernel path before real RF PHY
   TX/RX is enabled;
+- normal TCP and UDP client applications succeed through the same daemon bridge
+  using ordinary sockets. The live socket gate runs a tiny TCP echo and UDP
+  echo process on top of `swarm0`; neither process links to the FieldMesh SDK;
 - host route to a remote mesh peer works through the local board once the RF
   worker queues are connected to the actual PHY;
 - `ping`/ICMP succeeds through the radio path after `rf_phy_tx_rx` is wired;
