@@ -568,9 +568,11 @@ where the diagnostic transport step is replaced by real RF TX/RX.
 
 `tools/run_fieldmesh_two_board_native_ip_bridge.sh` verifies this daemon/worker
 contract before RF PHY enablement. It creates `swarm0` on both installed
-boards, starts both daemon services in `driver_queue` mode, injects native IP
-traffic into Z203, polls BLR frames from Z203, ingests those same frames into
-Z103, and requires Z103 to write them into its local `swarm0`.
+boards, starts both daemon services in `driver_queue` mode, and verifies both
+Z203-to-Z103 and Z103-to-Z203. Each direction injects native IP traffic into
+the source board, polls BLR frames from that source, ingests those same frames
+into the peer daemon, and requires the peer to write them into its local
+`swarm0`.
 
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter

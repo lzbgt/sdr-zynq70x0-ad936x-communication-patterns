@@ -614,9 +614,11 @@ user and vendor configuration.
   RF/sidecar contract.
 - `tools/run_fieldmesh_two_board_native_ip_bridge.sh` - live two-board native-IP
   daemon/RF-worker gate. It creates board-local `swarm0` on Z203 and Z103,
-  starts both native-IP services in `driver_queue` mode, injects packets into
-  Z203, polls BLR `APP_DATA` frames from Z203, ingests those exact frames into
-  Z103, and requires Z103 to write them into its own `swarm0`.
+  starts both native-IP services in `driver_queue` mode, and verifies both
+  directions: Z203-to-Z103 and Z103-to-Z203. Each direction injects packets into
+  the source board, polls BLR `APP_DATA` frames from that source, ingests those
+  exact frames into the peer daemon, and requires the peer to write them into
+  its own `swarm0`.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
@@ -1282,9 +1284,10 @@ Expected result in the current Pluto-compatible firmware state:
    service now defaults to `driver_queue`; RX ingest validates BLR `APP_DATA`
    type and destination EUI before a frame can enter `swarm0`.
    `diagnostic_loopback` is explicit test-only. The two-board native-IP bridge
-   gate now moves three Z203 `swarm0` packets through TX poll into Z103 RX
-   ingest and into Z103 `swarm0`; the remaining production boundary is
-   connecting those queues to real RF packet ingress/egress.
+   gate now moves three packets in each direction, Z203-to-Z103 and
+   Z103-to-Z203, through TX poll, peer RX ingest, and peer `swarm0`; the
+   remaining production boundary is connecting those queues to real RF packet
+   ingress/egress.
    The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is
