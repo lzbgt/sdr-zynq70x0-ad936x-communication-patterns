@@ -568,14 +568,18 @@ and only executes pre-state checks when conducted/shielded, legal-frequency,
 RX-first, sidecar-preflight, RF-engine-ready, and Zynq-target declarations are
 explicit. It is not the live register writer yet.
 
-The daemon also exposes a guarded production request,
-`FIELDMESH_TUN_DEV_PUMP`. Without `ALLOW_LIVE_TUN_READ` it reports only the
-preconditions: `/dev/net/tun`, `swarm0`, `CAP_NET_ADMIN`, and no commands,
-network writes, IIO, or inter-board IP routing. With the allow token on a board,
-the daemon opens `/dev/net/tun`, refuses to create a missing `swarm0`, attaches
-the TUN fd, waits for one packet inside a bounded read window, and pumps that
-packet into the same adapter path. `tools/run_fieldmesh_board_tun_device_pump.sh`
-is the live Zynq gate for this boundary.
+The daemon also exposes guarded production requests,
+`FIELDMESH_TUN_DEV_PUMP` and `FIELDMESH_TUN_DEV_PUMP_BURST`. Without
+`ALLOW_LIVE_TUN_READ` they report only the preconditions: `/dev/net/tun`,
+`swarm0`, `CAP_NET_ADMIN`, and no commands, network writes, IIO, or inter-board
+IP routing. With the allow token on a board, the daemon opens `/dev/net/tun`,
+refuses to create a missing `swarm0`, attaches the TUN fd, waits for one or a
+bounded batch of packets, and pumps them into the same adapter path. The burst
+form carries `max=<1..32>`, preserves the compact destination EUI from `dst=`,
+and reports `event_loop_ready=1` plus `bounded_batch=1` so a production daemon
+can grow this into a continuous TUN event loop without changing the pure-C
+packetizer API. `tools/run_fieldmesh_board_tun_device_pump.sh` is the live Zynq
+gate for both single-packet and bounded-burst forms.
 
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh

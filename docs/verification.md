@@ -2440,15 +2440,39 @@ control, forwarded it to the FieldMesh adapter, and rolled `swarm0` back. The
 capture is archived at
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_tun_device_pump_20260514-0409/`.
 
+The live TUN device gate was extended to bounded batches after the native
+TCP/IP product requirement was promoted from planning to implementation. Both
+installed board daemons now pass `FIELDMESH_TUN_DEV_PUMP_BURST` with three
+actual ICMP packets injected through board-local `swarm0`; the daemon opens
+`/dev/net/tun`, preserves the request `dst=` EUI, reads and forwards all three
+packets to the FieldMesh adapter, reports `event_loop_ready=1` and
+`bounded_batch=1`, and rolls `swarm0` back.
+
+```sh
+ALLOW_LIVE_TUN_READ=1 BURST_PACKETS=3 FORCE_UPLOAD=0 UPLOAD_IF_MISSING=0 \
+  VARIANT=z203 BOARD_IP=192.168.1.10 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+
+ALLOW_LIVE_TUN_READ=1 BURST_PACKETS=3 FORCE_UPLOAD=0 UPLOAD_IF_MISSING=0 \
+  VARIANT=z103 BOARD_IP=192.168.3.1 \
+  ./tools/run_fieldmesh_board_tun_device_pump.sh
+```
+
+Result: both board gates passed with `packets_read=3`, `packets_sent=3`,
+`traffic_class=0`, `payload_kind=1`, and `rollback_clean=true`. The connected
+board installer also refreshed both runtimes afterward: Z203 through the
+proven SD/initramfs path because QSPI is still unsafe, and Z103 through the
+normal `.frm` update path.
+
 ```text
-z203 rootfs.cpio.gz 2e850fc87a1d5c8eae1a3135ec13b9d82546663720322a2b2c317aac049cb6ed
-z203 rootfs.tar.gz  4a7b301dd2d7f3e276159469da96b9751c8626f908a1a9aa5ae21b3d40572bfe
-z103 rootfs.cpio.gz 2dce8b52f374e72a52858306d2b27353347243c3c167da40514573d93421508c
-z103 rootfs.tar.gz  9c85b608bd78fb40c8678e18a78e0f426ed4d830c56796fa4e60bb277e3d81a8
-z203 pluto.frm      8386cdb2674946ad137fc97e338138ea08d5184fbf6c21c3c31d73343c38ff47
-z103 pluto.frm      fc221f3d9a2f12cc285190abccf2c922ba78d6a4c5dba45e93d2b5a6133416e6
-z203 uImage         9c3e41820a793564d25a2550743191c29057567903a55102eeffed39499a2374
-z103 uImage         43b51fff6ffd72d832e1c7fa73ebd3c7c058264cafac8e31542f87759c545c8a
+z203 rootfs.cpio.gz 0871c2beb7554e0cf06e4b42699c1400059a73305f5c37aa1882977f8387c04b
+z203 rootfs.tar.gz  d1a355672b658d248c77f4118ed3c3e6f9f3f31b302c9d0eff3027afe430d2b8
+z103 rootfs.cpio.gz d7cc547b5c309eb78ad7ce7958de2485779129dbf683c2d9557c4575a2947d2a
+z103 rootfs.tar.gz  c5e018f88ec3472b6c495f8846602484f37426732f9fc49f86d448b0db39c240
+z203 pluto.frm      84dc644c1bd0653071913a8f8aaafd98b99618bc918ef07daf940f6dee4bd3a7
+z103 pluto.frm      a83f53802f50e3552eee560ad842a31a1fc5c82f9f874b01fdf2b8d0402639d8
+z203 uImage         1ac683edf7979aaf1bd538ae4b42d1df2f6bbd7a1ff39b8b8b21de0a59c9284b
+z103 uImage         e1e559ac977bd82669023559acd23564db560813a47b39afcefb4caf34549f85
 ```
 
 The refreshed package/rootfs/RAM-boot set was then checked as one consistency

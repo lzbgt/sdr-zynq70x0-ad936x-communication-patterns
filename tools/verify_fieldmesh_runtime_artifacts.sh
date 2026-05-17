@@ -210,6 +210,7 @@ verify_variant() {
         FIELDMESH_ROUTE_METRICS \
         FIELDMESH_TUN_FD_PUMP \
         FIELDMESH_TUN_DEV_PUMP \
+        FIELDMESH_TUN_DEV_PUMP_BURST \
         FIELDMESH_TUN_PLAN \
         FIELDMESH_TUN_APPLY_VALIDATE \
         FIELDMESH_TUN_APPLY_COMMIT \
@@ -250,6 +251,8 @@ verify_variant() {
         proactive_camera_streamer \
         sdk_daemon_tun_fd_pump \
         sdk_daemon_tun_device_pump_guard \
+        sdk_daemon_tun_device_pump_burst_live \
+        bounded_batch \
         posix_pipe_fd \
         /dev/net/tun \
         requires_allow_live_tun_read \

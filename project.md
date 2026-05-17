@@ -1257,10 +1257,11 @@ Expected result in the current Pluto-compatible firmware state:
    the FieldMesh adapter. A separate guarded `FIELDMESH_TUN_DEV_PUMP` request
    now owns the production `/dev/net/tun` boundary: it refuses live reads unless
    explicitly allowed, requires existing board-local `swarm0`, and keeps the
-   path free of IIO and inter-board IP routing. Z103 now passes the live version:
-   the daemon opens `/dev/net/tun`, reads one queued `swarm0` packet, classifies
-   it as C0 control, forwards it to the FieldMesh adapter, and the runner rolls
-   `swarm0` back. The SDK and state daemon now also bind that adapter output
+   path free of IIO and inter-board IP routing. The live gate now also covers
+   `FIELDMESH_TUN_DEV_PUMP_BURST`: both Z203 and Z103 installed daemon binaries
+   open `/dev/net/tun`, read three queued `swarm0` packets, preserve the selected
+   peer EUI, classify the traffic as C0 control, forward each packet to the
+   FieldMesh adapter, and roll `swarm0` back. The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is
    preserved, and the handoff still opens no IIO buffers, starts no RF TX, and
