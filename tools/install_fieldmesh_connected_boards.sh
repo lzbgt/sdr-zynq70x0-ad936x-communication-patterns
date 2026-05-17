@@ -89,6 +89,16 @@ if payload.get("native_client_ip_mode") != "routed_l3_swarm0":
     raise SystemExit(f"{name}: native IP mode changed: {payload!r}")
 if payload.get("native_client_ip_interface") != "swarm0":
     raise SystemExit(f"{name}: native IP interface changed: {payload!r}")
+if payload.get("production_ready") != 0:
+    raise SystemExit(f"{name}: daemon must not claim production readiness before RF PHY verification: {payload!r}")
+if payload.get("production_readiness") != "infrastructure_verified_rf_phy_pending":
+    raise SystemExit(f"{name}: daemon production readiness state changed: {payload!r}")
+if payload.get("planned_features_production_level") != 0:
+    raise SystemExit(f"{name}: daemon must not mark planned features production-level: {payload!r}")
+if payload.get("app_verified_real_rf") != 0 or payload.get("rf_phy_tx_rx_verified") != 0:
+    raise SystemExit(f"{name}: daemon must not claim real RF app/PHY verification: {payload!r}")
+if payload.get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+    raise SystemExit(f"{name}: daemon production blocker changed: {payload!r}")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
             "starts_rf_tx", "writes_hardware"):
     if payload.get(key) != 0:

@@ -242,6 +242,12 @@ verify_variant() {
         fieldmesh_camera_stream_frame \
         root_ca_derived_certs \
         requires_mutual_auth_for_production \
+        production_ready \
+        infrastructure_verified_rf_phy_pending \
+        planned_features_production_level \
+        app_verified_real_rf \
+        rf_phy_tx_rx_verified \
+        real_rf_phy_tx_rx_not_verified \
         supports_camera_stream_chunk \
         supports_rtls_position \
         supports_rtls_report \

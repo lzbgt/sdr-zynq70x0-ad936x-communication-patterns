@@ -106,6 +106,16 @@ Firmware state:
   SD/initramfs path when the SD partition is visible. Post-reboot checks require
   current FieldMesh daemon capabilities and always-on process arguments instead
   of accepting a generic HELLO.
+- The 2026-05-17 installed runtime refresh rebuilt both product images,
+  repackaged FieldMesh runtimes, installed Z203 through the SD/initramfs path,
+  installed Z103 through the Pluto-style `.frm` path, and verified both live
+  installed daemons with `UPLOAD_IF_MISSING=0`. Both live `HELLO` responses now
+  expose the production-readiness truth state:
+  `production_ready=0`,
+  `production_readiness=infrastructure_verified_rf_phy_pending`,
+  `planned_features_production_level=0`, `app_verified_real_rf=0`,
+  `rf_phy_tx_rx_verified=0`, and
+  `production_blocker=real_rf_phy_tx_rx_not_verified`.
 - QSPI refresh remains open because U-Boot environment access is broken from
   Linux and the QSPI `mtd3` readback still does not match the local FIT header.
   A volatile serial test of `setenv fit_size 1B88D3B; run qspiboot` entered
