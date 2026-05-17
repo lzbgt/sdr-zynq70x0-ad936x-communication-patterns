@@ -10,6 +10,31 @@ control/data plane, and mandatory certificate-backed security. The existing
 verified gates remain useful, but future work should reduce ad-hoc glue and
 separate domain concepts cleanly.
 
+## Production Readiness Matrix
+
+This roadmap is not a claim that the planned features are already production
+implemented. Treat the current system in three tiers:
+
+| Capability | Current state | App verification | Production gap |
+| --- | --- | --- | --- |
+| Runtime board discovery and explicit board selection | Implemented | Golden ImGui app and no-profile live gates | Scale/soak testing across larger fleets and hostile networks |
+| Topology/range display | Implemented for observed daemon/RTLS reports | Golden ImGui topology gates | Real over-air RTLS freshness, multi-peer clutter handling, measurement error bounds |
+| Chat/message path | Implemented through daemon app-message send, ingest, and poll | Golden ImGui peer-message gates | Real RF receive binding, delivery receipts, retry/ordering policy, production auth |
+| App/camera control smoke | Implemented as control/video-base chunk path | C++ app and ImGui app gates | Full media session state machine, codec drivers, bitrate adaptation, real RF video transport |
+| Native TCP/IP client mode | Implemented through `swarm0`, daemon service, BLR `APP_DATA`, RF TX lease/ACK, and RX ingest | ICMP plus TCP/UDP socket gates over the daemon RF-worker bridge | Replace worker bridge with real RF PHY TX/RX, then measure throughput, RTT, loss, retransmits, and failover |
+| Device EUI persistence | Implemented through daemon/admin and mirrored persistent stores | SDK/daemon/profile-writer gates | Factory provisioning flow, uniqueness audit at fleet scale, secure admin authorization |
+| Layered app refactor | Planned only | Not app-verified as a separated architecture | Split app core, UI, SDK adapter, and platform drivers without regressing current gates |
+| Video/audio/screen platform drivers | Planned only | Not production-verified | OS-specific capture drivers, mute/switch controls, codecs, permissions, jitter buffers |
+| SDK common-facility extraction | Planned only | Existing SDK APIs are partially verified | Move stable app/daemon logic into testable SDK modules without creating a monolith |
+| Daemon messaging/data-plane redesign | Planned only | Current UDP text/debug and binary frame boundaries are verified | Versioned production control/event/data/admin planes, backpressure, subscriptions, MCU footprint decision |
+| Cloud CA/licensing/security | Planned only | Demo/admin-token style gates only | Mutual auth, authorization scopes, cert derivation, revocation, entitlements, audit trail |
+
+The most important remaining production boundary is still real RF PHY
+ingress/egress. Until the RF driver queues are connected to actual over-air
+transmit/receive and the app verifies messaging, topology/range, native IP, and
+media behavior over radio, FieldMesh should be described as **infrastructure
+verified**, not production complete.
+
 ## Design Rules
 
 - No app, SDK, or daemon code should hardcode deployment identity such as board
