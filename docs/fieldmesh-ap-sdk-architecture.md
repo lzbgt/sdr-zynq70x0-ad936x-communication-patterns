@@ -619,9 +619,7 @@ Stage 2: Board-local service
   inside the always-on daemon and now uses a bounded poll-style loop to wake on
   TUN readiness. It also forces native-IP payloads through BLR `APP_DATA`
   MAC-frame egress/ingress counters and explicit TX/RX RF transport queues
-  before drain-back to `swarm0`. That gate is still `diagnostic_loopback`; it
-  reports `next_boundary=rf_phy_tx_rx` until the diagnostic transport step is
-  replaced by real RF packet ingress/egress.
+  before drain-back to `swarm0`. `driver_queue` is the default transport and exposes `FIELDMESH_RF_TX_POLL` and `FIELDMESH_RF_RX_INGEST`; `diagnostic_loopback` is opt-in test-only. The service reports `next_boundary=rf_phy_tx_rx` until those queues are connected to real RF packet ingress/egress.
 - Use `fieldmesh_tun_gateway_demo` and daemon `FIELDMESH_TUN_PLAN` as the
   first routed-gateway contract: both keep `swarm0` on the Zynq board, report
   the compact destination device EUI, preserve the selected FieldMesh RF route,

@@ -51,9 +51,7 @@ daemon now multiplexes the UDP control socket and TUN fd with a bounded
 poll-style loop, so native IP packets wake the pump/drain path directly. Native
 IP packets now also cross a binary BLR `APP_DATA` MAC-frame egress/ingress
 boundary through explicit TX/RX RF transport queues before drain-back to
-`swarm0`; the active transport mode is still `diagnostic_loopback`, not RF PHY
-TX/RX. The remaining implementation work is to replace that diagnostic
-transport step with real RF packet ingress/egress, then prove ICMP/TCP/UDP over
+`swarm0`; the default transport mode is now `driver_queue`, with `FIELDMESH_RF_TX_POLL` and `FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker boundary. `diagnostic_loopback` remains explicit test-only. The remaining implementation work is to connect those driver queues to real RF packet ingress/egress, then prove ICMP/TCP/UDP over
 the RF path with measured throughput, RTT, retransmits, queue age, and
 route-failover behavior.
 

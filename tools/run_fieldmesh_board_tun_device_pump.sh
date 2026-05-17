@@ -16,6 +16,7 @@ allow_live_tun_read="${ALLOW_LIVE_TUN_READ:-0}"
 allow_live_tun_write="${ALLOW_LIVE_TUN_WRITE:-0}"
 mode="${MODE:-pump}"
 burst_packets="${BURST_PACKETS:-1}"
+rf_transport="${RF_TRANSPORT:-diagnostic_loopback}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-tun-device-${mode}-${variant}-${port}-$(date +%Y%m%d-%H%M%S)}"
 
 mkdir -p "$out_dir"
@@ -51,6 +52,14 @@ if ! [[ "$dst_eui" =~ ^[0-9A-Fa-f]{12}$ ]]; then
     echo "DST_EUI must be 12 hex characters" >&2
     exit 1
 fi
+case "$rf_transport" in
+    driver_queue|diagnostic_loopback)
+        ;;
+    *)
+        echo "RF_TRANSPORT must be driver_queue or diagnostic_loopback" >&2
+        exit 1
+        ;;
+esac
 
 case "$mode" in
     pump)
@@ -132,6 +141,9 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
 daemon_requests=1
 if [ "$mode" = "service" ]; then
     daemon_requests=3
+    if [ "$rf_transport" = "driver_queue" ]; then
+        daemon_requests=4
+    fi
 fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
@@ -141,7 +153,7 @@ remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
 
 sleep 0.5
 
-python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" "$mode" \
+python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" "$mode" "$rf_transport" \
     > "$out_dir/host_live_request.ndjson" <<'PY' &
 import socket
 import sys
@@ -153,18 +165,25 @@ timeout_ms = int(sys.argv[3])
 dst_eui = sys.argv[4]
 burst_packets = int(sys.argv[5])
 mode = sys.argv[6]
+rf_transport = sys.argv[7]
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(timeout_ms / 1000.0)
 if mode == "service":
+    start = (
+        "FIELDMESH_TUN_SERVICE_START v1 "
+        f"dst={dst_eui} max={burst_packets} "
+        f"rf_transport={rf_transport} "
+        "ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE"
+    )
+    if rf_transport == "diagnostic_loopback":
+        start += " ALLOW_DIAGNOSTIC_RF_LOOPBACK"
     requests = [
-        (
-            "FIELDMESH_TUN_SERVICE_START v1 "
-            f"dst={dst_eui} max={burst_packets} "
-            "ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE"
-        ),
+        start,
         "FIELDMESH_TUN_SERVICE_STATUS v1",
-        "FIELDMESH_TUN_SERVICE_STOP v1",
     ]
+    if rf_transport == "driver_queue":
+        requests.append("FIELDMESH_RF_TX_POLL v1")
+    requests.append("FIELDMESH_TUN_SERVICE_STOP v1")
     for index, request in enumerate(requests):
         if index == 1:
             time.sleep(max(2.0, burst_packets + 0.8))
@@ -237,7 +256,7 @@ if [ "$query_rc" -ne 0 ]; then
     exit "$query_rc"
 fi
 
-python3 - "$out_dir" "$board_ip" "$variant" "$inject_rc" "$burst_packets" "$dst_eui" "$mode" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$inject_rc" "$burst_packets" "$dst_eui" "$mode" "$rf_transport" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -249,6 +268,7 @@ inject_rc = int(sys.argv[4])
 burst_packets = int(sys.argv[5])
 dst_eui = sys.argv[6]
 mode = sys.argv[7]
+rf_transport = sys.argv[8]
 
 rows = []
 for line in (out_dir / "host_live_request.ndjson").read_text(encoding="utf-8").splitlines():
@@ -276,10 +296,13 @@ if event.get("ok") != 1:
 if mode == "service":
     started = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_started"]
     stopped = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_stopped"]
+    tx_poll = [row for row in rows if row.get("event") == "sdk_daemon_rf_tx_poll"]
     if not started or started[0].get("running") != 1:
         raise SystemExit(f"live TUN service did not start: {started}")
     if not stopped or stopped[0].get("was_running") != 1:
         raise SystemExit(f"live TUN service did not stop cleanly: {stopped}")
+    if started[0].get("rf_transport_mode") != rf_transport:
+        raise SystemExit(f"live TUN service started with wrong RF transport: {started[0]}")
     required_ones = ("daemon_owned_state", "continuous_service", "event_loop_ready")
 elif mode == "loop":
     required_ones = ("opens_dev_net_tun", "attaches_tun_if",
@@ -303,8 +326,10 @@ if mode == "service":
         raise SystemExit(f"live TUN service did not pump requested packets: {event}")
     if event.get("packets_sent", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not send requested packets: {event}")
-    if event.get("packets_written", 0) < burst_packets:
+    if rf_transport == "diagnostic_loopback" and event.get("packets_written", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not write requested packets: {event}")
+    if rf_transport == "driver_queue" and event.get("packets_written", 0) != 0:
+        raise SystemExit(f"driver-queue service must not drain frames without RF RX ingest: {event}")
     if event.get("poll_wakeups", 0) < 1:
         raise SystemExit(f"live TUN service was not driven by TUN poll readiness: {event}")
     if event.get("poll_loop_active") != 1:
@@ -313,14 +338,23 @@ if mode == "service":
         raise SystemExit("live TUN service did not expose RF MAC app-data path")
     if event.get("rf_phy_tx_rx") != 0:
         raise SystemExit("live TUN service must not claim RF PHY TX/RX")
-    if event.get("rf_transport_mode") != "diagnostic_loopback":
+    if event.get("rf_transport_mode") != rf_transport:
         raise SystemExit("live TUN service transport mode changed")
+    if event.get("rf_tx_poll_api") != 1 or event.get("rf_rx_ingest_api") != 1:
+        raise SystemExit("live TUN service did not expose RF driver queue APIs")
     if event.get("rf_tx_queue_drops", 0) != 0 or event.get("rf_rx_queue_drops", 0) != 0:
         raise SystemExit(f"live TUN service dropped RF transport frames: {event}")
     if event.get("rf_frames_egressed", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not encode requested RF MAC frames: {event}")
-    if event.get("rf_frames_ingressed", 0) < burst_packets:
+    if rf_transport == "diagnostic_loopback" and event.get("rf_frames_ingressed", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not ingest requested RF MAC frames: {event}")
+    if rf_transport == "driver_queue":
+        if not tx_poll or tx_poll[0].get("frames") != 1:
+            raise SystemExit(f"driver-queue service did not expose an RF TX frame: {tx_poll}")
+        if tx_poll[0].get("rf_transport_mode") != "driver_queue":
+            raise SystemExit(f"driver-queue TX poll transport changed: {tx_poll[0]}")
+        if tx_poll[0].get("frame0_bytes", 0) <= 0 or not tx_poll[0].get("frame0_hex"):
+            raise SystemExit(f"driver-queue TX poll did not return a BLR frame: {tx_poll[0]}")
     if event.get("next_boundary") != "rf_phy_tx_rx":
         raise SystemExit("live TUN service next boundary is wrong")
 elif mode == "loop":
@@ -376,6 +410,7 @@ summary = {
     "packets_written": event.get("packets_written"),
     "requested_packets": burst_packets,
     "dst_device_eui": dst_eui,
+    "rf_transport": rf_transport,
     "bytes_read": event.get("bytes_read"),
     "bytes_written": event.get("bytes_written"),
     "traffic_class": event.get("traffic_class"),

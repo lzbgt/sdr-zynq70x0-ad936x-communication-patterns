@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-35}"
+requests="${REQUESTS:-37}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -182,12 +182,14 @@ tun_device_drain_guard = [row for row in query if row.get("event") == "sdk_daemo
 tun_event_loop_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_event_loop_step_guard"]
 tun_service_start_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_start_guard"]
 tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tun_service_status"]
+rf_tx_poll = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_poll"]
+rf_rx_ingest = [row for row in query if row.get("event") == "sdk_daemon_rf_rx_ingest"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 35:
+if not end or end[-1].get("handled") != 37:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -204,6 +206,8 @@ for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_device_identity_set",
             "supports_tun_gateway", "supports_native_ip_gateway",
             "supports_tcp_ip_client_apps",
+            "supports_rf_transport_driver_queue",
+            "supports_rf_tx_poll", "supports_rf_rx_ingest",
             "supports_camera_stream_chunk",
             "supports_route_metrics", "supports_route_metrics_report", "supports_rf_packet_engine",
             "supports_radio_config_plan", "supports_rtls_position",
@@ -507,8 +511,10 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to
         raise SystemExit(f"board SDK daemon TUN service start key {key} must be 0")
 if tun_service_start_guard[0].get("next_boundary") != "rf_phy_tx_rx":
     raise SystemExit("board SDK daemon TUN service start next boundary failed")
-if tun_service_start_guard[0].get("rf_transport_mode") != "diagnostic_loopback":
+if tun_service_start_guard[0].get("rf_transport_mode") != "driver_queue":
     raise SystemExit("board SDK daemon TUN service start transport mode changed")
+if tun_service_start_guard[0].get("rf_tx_poll_api") != 1 or tun_service_start_guard[0].get("rf_rx_ingest_api") != 1:
+    raise SystemExit("board SDK daemon TUN service start did not expose RF driver queue APIs")
 if not tun_service_status or tun_service_status[0].get("running") != 0:
     raise SystemExit("board SDK daemon guarded TUN service status must be stopped")
 if tun_service_status[0].get("daemon_owned_state") != 1:
@@ -519,8 +525,14 @@ if tun_service_status[0].get("rf_mac_app_data_path") != 1:
     raise SystemExit("board SDK daemon TUN service status must expose RF MAC app-data path")
 if tun_service_status[0].get("rf_phy_tx_rx") != 0:
     raise SystemExit("board SDK daemon guarded TUN service status must not claim RF PHY TX/RX")
-if tun_service_status[0].get("rf_transport_mode") != "diagnostic_loopback":
+if tun_service_status[0].get("rf_transport_mode") != "driver_queue":
     raise SystemExit("board SDK daemon guarded TUN service status transport mode changed")
+if tun_service_status[0].get("rf_tx_poll_api") != 1 or tun_service_status[0].get("rf_rx_ingest_api") != 1:
+    raise SystemExit("board SDK daemon TUN service status did not expose RF driver queue APIs")
+if not rf_tx_poll or rf_tx_poll[0].get("error") != "tun_service_not_running":
+    raise SystemExit("board SDK daemon RF TX poll guard failed")
+if not rf_rx_ingest or rf_rx_ingest[0].get("error") != "tun_service_not_running":
+    raise SystemExit("board SDK daemon RF RX ingest guard failed")
 if tun_plan[0].get("dst_device_eui") != route_dst_eui:
     raise SystemExit("board SDK daemon TUN plan used wrong destination EUI")
 if tun_plan[0].get("creates_tun_on_board") != 1 or tun_plan[0].get("creates_tun_on_host") != 0:
@@ -575,6 +587,8 @@ print(json.dumps({
     "tun_event_loop_guard_events": len(tun_event_loop_guard),
     "tun_service_start_guard_events": len(tun_service_start_guard),
     "tun_service_status_events": len(tun_service_status),
+    "rf_tx_poll_events": len(rf_tx_poll),
+    "rf_rx_ingest_events": len(rf_rx_ingest),
     "tun_apply_events": len(tun_apply),
     "tun_reject_events": len(tun_reject),
     "iio_bridge_events": len(iio_bridge),

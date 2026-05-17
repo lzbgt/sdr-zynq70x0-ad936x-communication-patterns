@@ -137,8 +137,7 @@ Minimum production gates for native TCP/IP:
 - daemon exposes `FIELDMESH_TUN_SERVICE_START` / `STATUS` / `STOP`, keeping
   daemon-owned `swarm0`/adapter state, waking on TUN readiness, and reporting
   RF-facing BLR `APP_DATA` egress/ingress frame counters through explicit
-  TX/RX RF transport queues; the live gate marks the active transport mode as
-  `diagnostic_loopback` and reports the next boundary as `rf_phy_tx_rx`;
+  TX/RX RF transport queues; the daemon now exposes RF TX poll and RF RX ingest APIs for a driver worker; `driver_queue` is the default service transport, while `diagnostic_loopback` is an explicit test-only mode; the next boundary remains `rf_phy_tx_rx`;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,
