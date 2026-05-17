@@ -93,27 +93,19 @@ Firmware state:
 - Z103 `pluto.frm` was regenerated from the current `fm-z103` product rootfs,
   flashed, rebooted, and verified. Its installed init script now runs
   `/usr/bin/fieldmesh-state-daemon-demo serve 0.0.0.0 55441 0 5000`.
-- Z203 SD boot files were restaged and the board is reachable, but the first
-  restage used the legacy `sdr-z203-zynq7` deploy directory. The diagnostic
-  helper
-  `tools/diagnose_fieldmesh_z203_persistent_boot.sh` shows
-  `root=/dev/ram`, an installed daemon hash of
-  `4b5d11728e68666d2b158606beef154083893ba8b48d9e12a67b4339ce50bce2`,
-  `installed_daemon_has_mac_ingest=false`, SD files readable, unreadable
-  U-Boot environment through `fw_printenv`, and a QSPI `mtd3` FIT header that
-  does not match the current local FieldMesh FIT header. This means
-  `/dev/mmcblk0p1` presence alone is not proof that the board boots SD. The
-  connected-board installer now prefers QSPI in auto mode and its post-install
-  daemon check requires the current FieldMesh capabilities instead of accepting
-  a generic HELLO. `tools/stage_fieldmesh_sd_boot_files.sh` now resolves the
-  product deploy alias `fm-z203` for SD staging instead of the stale legacy
-  deploy directory.
-- After restaging from `fm-z203`, the Z203 SD/initramfs boot path is current:
-  the installed daemon reports host `fm-z203`, includes `FIELDMESH_MAC_INGEST`,
-  and passes `tools/run_fieldmesh_board_sdk_daemon.sh` with
+- Z203 runs the current `fm-z203` SD/initramfs product runtime. The installed
+  daemon reports host `fm-z203`, includes `FIELDMESH_MAC_INGEST`,
+  `FIELDMESH_RF_TX_LEASE`, `FIELDMESH_RF_TX_ACK`, and the native-IP service
+  controls, and passes `tools/run_fieldmesh_board_sdk_daemon.sh` with
   `UPLOAD_IF_MISSING=0`. Z203 no longer needs `FORCE_UPLOAD=1` when it is
   booted through this SD path. Its installed init script also runs
   `/usr/bin/fieldmesh-state-daemon-demo serve 0.0.0.0 55441 0 5000`.
+- The connected-board installer resolves Z203 install mode before launching
+  parallel board updates. Auto mode uses QSPI only when
+  `tools/diagnose_z203_qspi_integrity.sh` passes; otherwise it uses the proven
+  SD/initramfs path when the SD partition is visible. Post-reboot checks require
+  current FieldMesh daemon capabilities and always-on process arguments instead
+  of accepting a generic HELLO.
 - QSPI refresh remains open because U-Boot environment access is broken from
   Linux and the QSPI `mtd3` readback still does not match the local FIT header.
   A volatile serial test of `setenv fit_size 1B88D3B; run qspiboot` entered
@@ -220,12 +212,14 @@ Firmware state:
 
 ## Open Gate: SDR-Z103 Custom Build Baseline
 
-Status: resource import, read-only serial baseline, source preflight, Vivado
-XSA/bitstream rebuild, boot artifact generation, and volatile JTAG U-Boot smoke
-test are complete. The Z103 Yocto ARM image, Yocto U-Boot, Pluto runtime audit,
-and Pluto-style `pluto.frm` packaging are also complete. Generated artifacts
-have not been flashed. Linux follow-up attempts are prepared but not yet
-verified through the JTAG-assisted path.
+Status: historical/custom-build baseline retained for provenance. Resource
+import, read-only serial baseline, source preflight, Vivado XSA/bitstream
+rebuild, boot artifact generation, and volatile JTAG U-Boot smoke test are
+complete. The current FieldMesh product runtime is no longer blocked here:
+the `fm-z103` Yocto image and Pluto-style `pluto.frm` package have been
+flashed, rebooted, and verified through the installed-daemon and two-board
+FieldMesh gates. The remaining items in this section are recovery/JTAG/USB-RNDIS
+follow-ups, not blockers for the current installed two-board runtime.
 
 Completed baseline:
 
