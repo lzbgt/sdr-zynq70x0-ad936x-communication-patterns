@@ -105,10 +105,22 @@ struct tun_memory_read_context {
     size_t next_packet;
 };
 
+#define TUN_SERVICE_RF_QUEUE_DEPTH 8u
+#define TUN_SERVICE_RF_FRAME_MAX 2048u
+
+struct tun_service_rf_queue {
+    unsigned char frames[TUN_SERVICE_RF_QUEUE_DEPTH][TUN_SERVICE_RF_FRAME_MAX];
+    size_t frame_lens[TUN_SERVICE_RF_QUEUE_DEPTH];
+    size_t head;
+    size_t count;
+};
+
 struct tun_service_state {
     int running;
     int fd;
     fieldmesh_adapter_t *adapter;
+    struct tun_service_rf_queue rf_tx_queue;
+    struct tun_service_rf_queue rf_rx_queue;
     char local_device_eui[FIELDMESH_ID_TEXT_MAX];
     char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
     uint32_t max_packets_per_tick;
@@ -125,6 +137,8 @@ struct tun_service_state {
     uint32_t bytes_written;
     uint32_t rf_frame_bytes_egressed;
     uint32_t rf_frame_bytes_ingressed;
+    uint32_t rf_tx_queue_drops;
+    uint32_t rf_rx_queue_drops;
     uint32_t poll_wakeups;
     uint32_t idle_ticks;
     uint32_t recoverable_timeouts;
@@ -181,6 +195,56 @@ static size_t make_tun_demo_ipv4_packet(unsigned char *packet,
         packet[i] = (unsigned char)(0x41u + (unsigned char)(i & 0x0fu));
     }
     return total_len;
+}
+
+static void tun_service_rf_queue_reset(struct tun_service_rf_queue *queue)
+{
+    if (!queue) {
+        return;
+    }
+    queue->head = 0u;
+    queue->count = 0u;
+    memset(queue->frame_lens, 0, sizeof(queue->frame_lens));
+}
+
+static int tun_service_rf_queue_push(struct tun_service_rf_queue *queue,
+                                     const unsigned char *frame,
+                                     size_t frame_len)
+{
+    size_t index;
+
+    if (!queue || !frame || frame_len == 0u ||
+        frame_len > TUN_SERVICE_RF_FRAME_MAX ||
+        queue->count >= TUN_SERVICE_RF_QUEUE_DEPTH) {
+        return 0;
+    }
+    index = (queue->head + queue->count) % TUN_SERVICE_RF_QUEUE_DEPTH;
+    memcpy(queue->frames[index], frame, frame_len);
+    queue->frame_lens[index] = frame_len;
+    queue->count++;
+    return 1;
+}
+
+static int tun_service_rf_queue_pop(struct tun_service_rf_queue *queue,
+                                    unsigned char *frame,
+                                    size_t frame_capacity,
+                                    size_t *out_frame_len)
+{
+    size_t frame_len;
+
+    if (!queue || !frame || !out_frame_len || queue->count == 0u) {
+        return 0;
+    }
+    frame_len = queue->frame_lens[queue->head];
+    if (frame_len > frame_capacity) {
+        return 0;
+    }
+    memcpy(frame, queue->frames[queue->head], frame_len);
+    queue->frame_lens[queue->head] = 0u;
+    queue->head = (queue->head + 1u) % TUN_SERVICE_RF_QUEUE_DEPTH;
+    queue->count--;
+    *out_frame_len = frame_len;
+    return 1;
 }
 
 static void fill_camera_demo_chunk(unsigned char *payload,
@@ -1029,6 +1093,10 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->bytes_written = 0u;
     service->rf_frame_bytes_egressed = 0u;
     service->rf_frame_bytes_ingressed = 0u;
+    service->rf_tx_queue_drops = 0u;
+    service->rf_rx_queue_drops = 0u;
+    tun_service_rf_queue_reset(&service->rf_tx_queue);
+    tun_service_rf_queue_reset(&service->rf_rx_queue);
     service->poll_wakeups = 0u;
     service->idle_ticks = 0u;
     service->recoverable_timeouts = 0u;
@@ -1041,22 +1109,16 @@ static int tun_service_open(fieldmesh_session_t *session,
     return 0;
 }
 
-static fieldmesh_status_t tun_service_bridge_rf_mac_frames(
+static fieldmesh_status_t tun_service_queue_rf_egress_frames(
     struct tun_service_state *service,
     uint32_t max_packets)
 {
     unsigned char payload[1536];
-    unsigned char ingress_payload[1536];
     unsigned char egress_frame[2048];
-    unsigned char ingress_frame[2048];
     fieldmesh_adapter_packet_t packet;
-    fieldmesh_adapter_packet_t ingress_packet;
     fieldmesh_rf_app_data_frame_report_t egress_report;
-    fieldmesh_rf_app_data_frame_report_t ingress_report;
     size_t payload_len;
-    size_t ingress_payload_len;
     size_t egress_frame_len;
-    size_t ingress_frame_len;
     uint32_t i;
 
     if (!service || !service->running || !service->adapter ||
@@ -1065,7 +1127,6 @@ static fieldmesh_status_t tun_service_bridge_rf_mac_frames(
         return FIELDMESH_ERR_INVALID_ARG;
     }
     for (i = 0u; i < max_packets; ++i) {
-        fieldmesh_mac_frame_header_t ingress_header;
         fieldmesh_status_t status;
 
         payload_len = 0u;
@@ -1085,29 +1146,107 @@ static fieldmesh_status_t tun_service_bridge_rf_mac_frames(
         if (status != FIELDMESH_OK) {
             return status;
         }
+        if (!tun_service_rf_queue_push(&service->rf_tx_queue, egress_frame,
+                                       egress_frame_len)) {
+            service->rf_tx_queue_drops++;
+            return FIELDMESH_ERR_NO_MEMORY;
+        }
         service->rf_frames_egressed++;
         service->rf_frame_bytes_egressed += (uint32_t)egress_frame_len;
+    }
+    return FIELDMESH_OK;
+}
 
+static fieldmesh_status_t tun_service_rf_diagnostic_loopback_step(
+    struct tun_service_state *service,
+    uint32_t max_packets)
+{
+    unsigned char egress_payload[1536];
+    unsigned char egress_frame[2048];
+    unsigned char ingress_frame[2048];
+    fieldmesh_mac_frame_header_t egress_header;
+    fieldmesh_mac_frame_header_t ingress_header;
+    size_t egress_payload_len;
+    size_t egress_frame_len;
+    size_t ingress_frame_len;
+    uint32_t i;
+
+    if (!service || !service->running || !service->adapter ||
+        !valid_compact_eui(service->local_device_eui) ||
+        !valid_compact_eui(service->dst_device_eui)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0u; i < max_packets; ++i) {
+        fieldmesh_status_t status;
+
+        egress_frame_len = 0u;
+        if (!tun_service_rf_queue_pop(&service->rf_tx_queue, egress_frame,
+                                      sizeof(egress_frame), &egress_frame_len)) {
+            return FIELDMESH_OK;
+        }
+        egress_payload_len = 0u;
+        status = fieldmesh_decode_mac_frame(egress_frame, egress_frame_len,
+                                            &egress_header, egress_payload,
+                                            sizeof(egress_payload),
+                                            &egress_payload_len);
+        if (status != FIELDMESH_OK) {
+            return status;
+        }
         memset(&ingress_header, 0, sizeof(ingress_header));
         ingress_header.version = FIELDMESH_MAC_VERSION_1;
         ingress_header.profile_id = 1u;
         ingress_header.frame_type = FIELDMESH_MAC_FRAME_APP_DATA;
-        ingress_header.traffic_class = packet.traffic_class;
-        ingress_header.path_mode = egress_report.path_mode;
-        ingress_header.hop_limit = 3u;
-        ingress_header.sequence = packet.sequence;
-        ingress_header.stream_id = packet.stream_id;
+        ingress_header.traffic_class = egress_header.traffic_class;
+        ingress_header.path_mode = egress_header.path_mode;
+        ingress_header.hop_limit = egress_header.hop_limit;
+        ingress_header.sequence = egress_header.sequence;
+        ingress_header.stream_id = egress_header.stream_id;
         if (fieldmesh_eui_from_text(service->dst_device_eui,
                                     ingress_header.src_eui) != FIELDMESH_OK ||
             fieldmesh_eui_from_text(service->local_device_eui,
                                     ingress_header.dst_eui) != FIELDMESH_OK) {
             return FIELDMESH_ERR_INVALID_ARG;
         }
-        status = fieldmesh_encode_mac_frame(&ingress_header, payload, payload_len,
-                                            ingress_frame, sizeof(ingress_frame),
+        status = fieldmesh_encode_mac_frame(&ingress_header, egress_payload,
+                                            egress_payload_len, ingress_frame,
+                                            sizeof(ingress_frame),
                                             &ingress_frame_len);
         if (status != FIELDMESH_OK) {
             return status;
+        }
+        if (!tun_service_rf_queue_push(&service->rf_rx_queue, ingress_frame,
+                                       ingress_frame_len)) {
+            service->rf_rx_queue_drops++;
+            return FIELDMESH_ERR_NO_MEMORY;
+        }
+    }
+    return FIELDMESH_OK;
+}
+
+static fieldmesh_status_t tun_service_ingest_rf_rx_frames(
+    struct tun_service_state *service,
+    uint32_t max_packets)
+{
+    unsigned char ingress_payload[1536];
+    unsigned char ingress_frame[2048];
+    fieldmesh_adapter_packet_t ingress_packet;
+    fieldmesh_rf_app_data_frame_report_t ingress_report;
+    size_t ingress_payload_len;
+    size_t ingress_frame_len;
+    uint32_t i;
+
+    if (!service || !service->running || !service->adapter ||
+        !valid_compact_eui(service->local_device_eui)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0u; i < max_packets; ++i) {
+        fieldmesh_status_t status;
+
+        ingress_frame_len = 0u;
+        if (!tun_service_rf_queue_pop(&service->rf_rx_queue, ingress_frame,
+                                      sizeof(ingress_frame),
+                                      &ingress_frame_len)) {
+            return FIELDMESH_OK;
         }
         ingress_payload_len = 0u;
         status = fieldmesh_adapter_ingest_app_data_frame(
@@ -1158,7 +1297,25 @@ static void tun_service_tick(struct tun_service_state *service)
         return;
     }
 
-    drain_status = tun_service_bridge_rf_mac_frames(
+    drain_status = tun_service_queue_rf_egress_frames(
+        service, service->max_packets_per_tick);
+    if (drain_status != FIELDMESH_OK) {
+        service->errors++;
+        service->last_status = drain_status;
+        tun_service_close(service);
+        return;
+    }
+
+    drain_status = tun_service_rf_diagnostic_loopback_step(
+        service, service->max_packets_per_tick);
+    if (drain_status != FIELDMESH_OK) {
+        service->errors++;
+        service->last_status = drain_status;
+        tun_service_close(service);
+        return;
+    }
+
+    drain_status = tun_service_ingest_rf_rx_frames(
         service, service->max_packets_per_tick);
     if (drain_status != FIELDMESH_OK) {
         service->errors++;
@@ -3557,12 +3714,15 @@ static int build_response(fieldmesh_context_t *context,
                      "\"poll_loop_active\":0,"
                      "\"rf_mac_app_data_path\":1,"
                      "\"rf_phy_tx_rx\":0,"
+                     "\"rf_transport_mode\":\"diagnostic_loopback\","
+                     "\"rf_transport_queue_depth\":%u,"
                      "\"commands_executed\":0,"
                      "\"writes_network\":0,"
                      "\"uses_iio\":0,"
                      "\"uses_inter_board_ip_routing\":0,"
                      "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
-                     dst_device_eui, max_packets);
+                     dst_device_eui, max_packets,
+                     (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
             return 0;
         }
 
@@ -3614,12 +3774,15 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_mac_loopback_diagnostic\":1,"
                  "\"rf_phy_tx_rx\":0,"
+                 "\"rf_transport_mode\":\"diagnostic_loopback\","
+                 "\"rf_transport_queue_depth\":%u,"
                  "\"commands_executed\":0,"
                  "\"writes_network\":0,"
                  "\"uses_iio\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
                  "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
-                 local_device_eui, dst_device_eui, max_packets);
+                 local_device_eui, dst_device_eui, max_packets,
+                 (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STATUS")) {
@@ -3645,6 +3808,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"bytes_written\":%u,"
                  "\"rf_frame_bytes_egressed\":%u,"
                  "\"rf_frame_bytes_ingressed\":%u,"
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_rx_queue_depth\":%u,"
+                 "\"rf_tx_queue_drops\":%u,"
+                 "\"rf_rx_queue_drops\":%u,"
                  "\"poll_wakeups\":%u,"
                  "\"idle_ticks\":%u,"
                  "\"recoverable_timeouts\":%u,"
@@ -3657,6 +3824,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_mac_loopback_diagnostic\":%u,"
                  "\"rf_phy_tx_rx\":0,"
+                 "\"rf_transport_mode\":\"diagnostic_loopback\","
+                 "\"rf_transport_queue_depth\":%u,"
                  "\"commands_executed\":0,"
                  "\"writes_network\":0,"
                  "\"uses_iio\":0,"
@@ -3681,6 +3850,10 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->bytes_written : 0u,
                  tun_service ? tun_service->rf_frame_bytes_egressed : 0u,
                  tun_service ? tun_service->rf_frame_bytes_ingressed : 0u,
+                 tun_service ? (unsigned)tun_service->rf_tx_queue.count : 0u,
+                 tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u,
+                 tun_service ? tun_service->rf_tx_queue_drops : 0u,
+                 tun_service ? tun_service->rf_rx_queue_drops : 0u,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,
@@ -3689,7 +3862,8 @@ static int build_response(fieldmesh_context_t *context,
                      fieldmesh_status_string(tun_service->last_status) :
                      fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG),
                  tun_service && tun_service->running ? 1u : 0u,
-                 tun_service && tun_service->running ? 1u : 0u);
+                 tun_service && tun_service->running ? 1u : 0u,
+                 (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STOP")) {
@@ -3698,6 +3872,8 @@ static int build_response(fieldmesh_context_t *context,
         uint32_t packets_written = tun_service ? tun_service->packets_written : 0u;
         uint32_t rf_frames_egressed = tun_service ? tun_service->rf_frames_egressed : 0u;
         uint32_t rf_frames_ingressed = tun_service ? tun_service->rf_frames_ingressed : 0u;
+        uint32_t rf_tx_queue_drops = tun_service ? tun_service->rf_tx_queue_drops : 0u;
+        uint32_t rf_rx_queue_drops = tun_service ? tun_service->rf_rx_queue_drops : 0u;
         uint32_t ticks = tun_service ? tun_service->ticks : 0u;
 
         tun_service_close(tun_service);
@@ -3713,17 +3889,21 @@ static int build_response(fieldmesh_context_t *context,
                  "\"packets_written\":%u,"
                  "\"rf_frames_egressed\":%u,"
                  "\"rf_frames_ingressed\":%u,"
+                 "\"rf_tx_queue_drops\":%u,"
+                 "\"rf_rx_queue_drops\":%u,"
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"poll_loop_active\":0,"
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_phy_tx_rx\":0,"
+                 "\"rf_transport_mode\":\"diagnostic_loopback\","
                  "\"commands_executed\":0,"
                  "\"writes_network\":0,"
                  "\"uses_iio\":0,"
                  "\"uses_inter_board_ip_routing\":0}\n",
                  was_running, ticks, packets_pumped, packets_written,
-                 rf_frames_egressed, rf_frames_ingressed);
+                 rf_frames_egressed, rf_frames_ingressed,
+                 rf_tx_queue_drops, rf_rx_queue_drops);
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_EVENT_LOOP_STEP")) {

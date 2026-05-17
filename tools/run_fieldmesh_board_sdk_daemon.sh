@@ -507,6 +507,8 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to
         raise SystemExit(f"board SDK daemon TUN service start key {key} must be 0")
 if tun_service_start_guard[0].get("next_boundary") != "rf_phy_tx_rx":
     raise SystemExit("board SDK daemon TUN service start next boundary failed")
+if tun_service_start_guard[0].get("rf_transport_mode") != "diagnostic_loopback":
+    raise SystemExit("board SDK daemon TUN service start transport mode changed")
 if not tun_service_status or tun_service_status[0].get("running") != 0:
     raise SystemExit("board SDK daemon guarded TUN service status must be stopped")
 if tun_service_status[0].get("daemon_owned_state") != 1:
@@ -517,6 +519,8 @@ if tun_service_status[0].get("rf_mac_app_data_path") != 1:
     raise SystemExit("board SDK daemon TUN service status must expose RF MAC app-data path")
 if tun_service_status[0].get("rf_phy_tx_rx") != 0:
     raise SystemExit("board SDK daemon guarded TUN service status must not claim RF PHY TX/RX")
+if tun_service_status[0].get("rf_transport_mode") != "diagnostic_loopback":
+    raise SystemExit("board SDK daemon guarded TUN service status transport mode changed")
 if tun_plan[0].get("dst_device_eui") != route_dst_eui:
     raise SystemExit("board SDK daemon TUN plan used wrong destination EUI")
 if tun_plan[0].get("creates_tun_on_board") != 1 or tun_plan[0].get("creates_tun_on_host") != 0:

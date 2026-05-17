@@ -235,12 +235,16 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} TUN service guard did not require read/write authorization")
     if tun_service_start_guard.get("rf_mac_app_data_path") != 1 or tun_service_start_guard.get("rf_phy_tx_rx") != 0:
         raise SystemExit(f"{label} TUN service RF MAC boundary failed")
+    if tun_service_start_guard.get("rf_transport_mode") != "diagnostic_loopback":
+        raise SystemExit(f"{label} TUN service transport mode changed")
     if tun_service_status.get("running") != 0 or tun_service_status.get("daemon_owned_state") != 1:
         raise SystemExit(f"{label} guarded TUN service status failed")
     if tun_service_status.get("poll_loop_active") != 0:
         raise SystemExit(f"{label} guarded TUN service status must not report active poll loop")
     if tun_service_status.get("rf_mac_app_data_path") != 1 or tun_service_status.get("rf_phy_tx_rx") != 0:
         raise SystemExit(f"{label} guarded TUN service status RF MAC boundary failed")
+    if tun_service_status.get("rf_transport_mode") != "diagnostic_loopback":
+        raise SystemExit(f"{label} guarded TUN service status transport mode changed")
     if app_message.get("ok") is not True or app_message.get("queued_to_rf_engine") != 1:
         raise SystemExit(f"{label} app message RF queue failed")
     if app_message.get("uses_json_on_air") != 0:

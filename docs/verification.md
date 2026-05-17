@@ -4251,8 +4251,8 @@ The daemon also now exposes the first lifecycle-managed native-IP service via
 `FIELDMESH_TUN_SERVICE_STOP`; this keeps daemon-owned `swarm0`/adapter state and
 uses a bounded poll-style loop to wake on TUN readiness. The service now routes
 the native-IP payload through BLR `APP_DATA` MAC-frame egress/ingress counters
-before drain-back to `swarm0`; this is still diagnostic loopback and reports
-`next_boundary=rf_phy_tx_rx`.
+and explicit TX/RX RF transport queues before drain-back to `swarm0`; this is
+still `diagnostic_loopback` and reports `next_boundary=rf_phy_tx_rx`.
 
 Live installed-board verification on 2026-05-17 passed:
 

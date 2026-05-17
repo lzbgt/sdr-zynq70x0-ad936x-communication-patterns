@@ -279,6 +279,8 @@ verify_variant() {
         rf_mac_app_data_path \
         rf_frames_egressed \
         rf_frames_ingressed \
+        rf_transport_mode \
+        diagnostic_loopback \
         fieldmesh_rf_packet_engine \
         queued_to_rf_engine \
         uses_sidecar_dma \

@@ -313,6 +313,10 @@ if mode == "service":
         raise SystemExit("live TUN service did not expose RF MAC app-data path")
     if event.get("rf_phy_tx_rx") != 0:
         raise SystemExit("live TUN service must not claim RF PHY TX/RX")
+    if event.get("rf_transport_mode") != "diagnostic_loopback":
+        raise SystemExit("live TUN service transport mode changed")
+    if event.get("rf_tx_queue_drops", 0) != 0 or event.get("rf_rx_queue_drops", 0) != 0:
+        raise SystemExit(f"live TUN service dropped RF transport frames: {event}")
     if event.get("rf_frames_egressed", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not encode requested RF MAC frames: {event}")
     if event.get("rf_frames_ingressed", 0) < burst_packets:

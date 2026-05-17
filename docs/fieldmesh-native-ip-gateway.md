@@ -136,9 +136,9 @@ Minimum production gates for native TCP/IP:
   one bounded operation and reports `next_boundary=continuous_tun_event_loop`;
 - daemon exposes `FIELDMESH_TUN_SERVICE_START` / `STATUS` / `STOP`, keeping
   daemon-owned `swarm0`/adapter state, waking on TUN readiness, and reporting
-  RF-facing BLR `APP_DATA` egress/ingress frame counters; the live gate marks
-  this as diagnostic MAC-frame loopback and reports the next boundary as
-  `rf_phy_tx_rx`;
+  RF-facing BLR `APP_DATA` egress/ingress frame counters through explicit
+  TX/RX RF transport queues; the live gate marks the active transport mode as
+  `diagnostic_loopback` and reports the next boundary as `rf_phy_tx_rx`;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,

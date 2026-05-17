@@ -50,10 +50,11 @@ The daemon also has the first native-IP service lifecycle:
 daemon now multiplexes the UDP control socket and TUN fd with a bounded
 poll-style loop, so native IP packets wake the pump/drain path directly. Native
 IP packets now also cross a binary BLR `APP_DATA` MAC-frame egress/ingress
-boundary before drain-back to `swarm0`; this is still a diagnostic loopback, not
-RF PHY TX/RX. The remaining implementation work is to replace that diagnostic
-MAC-frame loopback with real RF packet ingress/egress, then prove ICMP/TCP/UDP
-over the RF path with measured throughput, RTT, retransmits, queue age, and
+boundary through explicit TX/RX RF transport queues before drain-back to
+`swarm0`; the active transport mode is still `diagnostic_loopback`, not RF PHY
+TX/RX. The remaining implementation work is to replace that diagnostic
+transport step with real RF packet ingress/egress, then prove ICMP/TCP/UDP over
+the RF path with measured throughput, RTT, retransmits, queue age, and
 route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes

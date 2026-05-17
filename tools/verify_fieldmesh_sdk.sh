@@ -765,6 +765,10 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to
         raise SystemExit(f"SDK daemon TUN service start guard key {key} must be 0")
 if tun_service_start_guard[0].get("next_boundary") != "rf_phy_tx_rx":
     raise SystemExit("SDK daemon TUN service start guard next boundary is wrong")
+if tun_service_start_guard[0].get("rf_transport_mode") != "diagnostic_loopback":
+    raise SystemExit("SDK daemon TUN service guard transport mode changed")
+if tun_service_start_guard[0].get("rf_transport_queue_depth", 0) < 1:
+    raise SystemExit("SDK daemon TUN service guard must expose RF transport queue depth")
 if not tun_service_status or tun_service_status[0].get("event_loop_ready") != 1:
     raise SystemExit("SDK daemon TUN service status readiness missing")
 if tun_service_status[0].get("running") != 0:
@@ -777,6 +781,8 @@ if tun_service_status[0].get("rf_mac_app_data_path") != 1:
     raise SystemExit("SDK daemon TUN service status must expose RF MAC app-data path")
 if tun_service_status[0].get("rf_phy_tx_rx") != 0:
     raise SystemExit("guarded TUN service status must not claim RF PHY TX/RX")
+if tun_service_status[0].get("rf_transport_mode") != "diagnostic_loopback":
+    raise SystemExit("guarded TUN service status transport mode changed")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN plan query failed")
 if tun_plan[0].get("dst_device_eui") != "020000000103":
