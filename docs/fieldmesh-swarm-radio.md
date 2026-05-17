@@ -113,7 +113,7 @@ IIO may remain in admin tools for tuning, calibration, diagnostics, and
 conducted/shielded lab procedures, but customer payloads should not traverse
 IIO in the product loop.
 
-Default customer topology should be Layer-3 routed gateway mode:
+Default customer topology is native TCP/IP over Layer-3 routed gateway mode:
 
 ```text
 host/camera/ship computer -> board eth0/usb0
@@ -125,6 +125,12 @@ host/camera/ship computer -> board eth0/usb0
 Layer-2 bridge/TAP mode is a later compatibility option only. It is not the
 default because broadcast, multicast, ARP, mDNS, and unknown-unicast traffic can
 consume RF airtime and make QoS/relay scheduling harder.
+
+This means a customer app can use ordinary sockets through the local board.
+TCP/IP support is not a wrapper around the golden IM app. The IM/video app is a
+demo and operator UX; the product data plane is native routed IP over `swarm0`
+plus optional optimized daemon streams for applications that want explicit
+traffic-class control.
 
 Three product control loops should be kept separate:
 

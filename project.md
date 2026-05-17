@@ -270,6 +270,11 @@ user and vendor configuration.
   RTLS/co-location, streaming, the `swarm0` adapter mapping, local IIO admin
   bridge, routed TUN gateway behavior, predefined AP, and autonomous swarm mesh
   behavior.
+- `docs/fieldmesh-native-ip-gateway.md` - production requirement that normal
+  client applications use native TCP/IP through the board as a routed
+  `swarm0` gateway. It defines the customer-facing socket model, addressing,
+  TCP/MSS/fragmentation behavior, QoS mapping, security boundary, and gates for
+  proving ICMP/TCP/UDP over FieldMesh RF.
 - `docs/fieldmesh-production-refactor-roadmap.md` - planned production
   refactor roadmap for the golden IM app, portable app core, platform driver
   layers, SDK common facilities, daemon messaging/data-plane evolution, and
@@ -647,8 +652,8 @@ user and vendor configuration.
   local device/IIO planning, mode request, and stream send/receive. The SDK ABI
   stays pure C even when board daemons or apps are C++. It now also exposes the
   first `swarm0`/stream-adapter API for mapping product packets onto C0-C4
-  FieldMesh traffic classes, plus a plan-only routed TUN gateway API for
-  creating board-local `swarm0` later under explicit daemon privilege checks.
+  FieldMesh traffic classes, plus a routed TUN gateway API for native client
+  TCP/IP over board-local `swarm0` under explicit daemon privilege checks.
   The TUN path now also validates apply/rollback state while keeping network
   writes disabled and rejecting unguarded commits. `tools/fieldmesh_tun_apply_run.py`
   turns that checked report into a board-local `swarm0` pre-state/apply/rollback

@@ -71,6 +71,8 @@ for key in (
     "supports_app_message_send",
     "supports_app_message_ingest",
     "supports_app_message_poll",
+    "supports_native_ip_gateway",
+    "supports_tcp_ip_client_apps",
     "supports_camera_stream_chunk",
     "supports_route_metrics",
     "supports_route_metrics_report",
@@ -83,6 +85,10 @@ for key in (
             f"{name}: installed daemon is stale or incomplete: "
             f"{key}={payload.get(key)!r}; payload={payload!r}"
         )
+if payload.get("native_client_ip_mode") != "routed_l3_swarm0":
+    raise SystemExit(f"{name}: native IP mode changed: {payload!r}")
+if payload.get("native_client_ip_interface") != "swarm0":
+    raise SystemExit(f"{name}: native IP interface changed: {payload!r}")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",
             "starts_rf_tx", "writes_hardware"):
     if payload.get(key) != 0:

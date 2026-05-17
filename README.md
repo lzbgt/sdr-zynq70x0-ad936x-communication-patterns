@@ -31,6 +31,9 @@ Start here:
   a "high-bandwidth LoRa" style private network for star/fanout, graph/relay,
   GPS-scheduled, and P2P video/data communication, with Z203/Z103 prototype
   roles and mode negotiation.
+- `docs/fieldmesh-native-ip-gateway.md` - native TCP/IP product boundary for
+  client apps: routed Layer-3 `swarm0` on the board, normal sockets on the
+  host, and guarded RF packetization inside the daemon.
 - `docs/fieldmesh-protocol-spec.md` - first implementation-facing packet,
   control-plane, mode-selection, and conducted-test spec for FieldMesh.
 - `tools/fieldmesh_trace_harness.py` - FieldMesh NDJSON trace harness with

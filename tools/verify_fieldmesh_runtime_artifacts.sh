@@ -239,6 +239,10 @@ verify_variant() {
         supports_camera_stream_chunk \
         supports_rtls_position \
         supports_rtls_report \
+        supports_native_ip_gateway \
+        supports_tcp_ip_client_apps \
+        native_client_ip_mode \
+        routed_l3_swarm0 \
         input_checksum \
         preview_checksum \
         preview_matches \

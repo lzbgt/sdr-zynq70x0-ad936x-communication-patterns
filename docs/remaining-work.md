@@ -27,6 +27,15 @@ with no hardcoded app EUI, board EUI, hostname, endpoint, or fixed AP role.
 Status: BLR binary peer discovery ingestion is now the product path; installed
 Z203/Z103 daemon runtime is current; Z203 QSPI repair remains blocked.
 
+Native TCP/IP is now a first-class product requirement, not only a planned
+demo convenience. The daemon capability contract advertises
+`supports_native_ip_gateway=1`, `supports_tcp_ip_client_apps=1`,
+`native_client_ip_mode=routed_l3_swarm0`, and
+`native_client_ip_interface=swarm0`. The remaining implementation work is to
+turn the guarded one-packet TUN pump into a continuous event-driven gateway,
+then prove ICMP/TCP/UDP over the RF path with measured throughput, RTT,
+retransmits, queue age, and route-failover behavior.
+
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary
 MAC frames that the RF receive path must ingest. Presence/declare frames update

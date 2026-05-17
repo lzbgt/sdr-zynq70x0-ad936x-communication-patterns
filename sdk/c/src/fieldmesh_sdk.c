@@ -3570,6 +3570,8 @@ fieldmesh_status_t fieldmesh_discover_daemons(
             sdk_json_get_boolish(response, "supports_route_metrics");
         board.tun_gateway_capable =
             sdk_json_get_boolish(response, "supports_tun_gateway");
+        board.native_ip_gateway_capable =
+            sdk_json_get_boolish(response, "supports_native_ip_gateway");
         board.rf_packet_engine_capable =
             sdk_json_get_boolish(response, "supports_rf_packet_engine");
         board.requires_mutual_auth_for_production =

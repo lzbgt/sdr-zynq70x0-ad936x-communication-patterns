@@ -67,18 +67,22 @@ Host Ethernet/IP is only the SDK ingress/egress path to the local board.
 Peer-to-peer payloads must leave the local board over FieldMesh RF/sidecar and
 arrive at the peer host through that peer's local daemon.
 
-Long-term production data should be exposed on the board above the daemon as
-either:
-
-- a virtual network interface such as `swarm0`, where normal sockets carry IP,
-  UDP/RTP/SRT-like video, telemetry, and control packets; or
-- an equivalent daemon stream API with the same routing, QoS, and security
-  semantics.
+Production data is exposed on the board as a native routed IP gateway by
+default. Normal client applications should be able to use TCP, UDP, ICMP,
+RTP/SRT-like video, SSH, HTTP, MQTT, ROS, or vendor protocols through the local
+FieldMesh board without linking a radio-specific app SDK. Optimized daemon
+stream APIs remain useful for applications that want explicit QoS/session
+control, but they are not the only customer-facing path.
 
 `swarm0` lives on the Zynq SDR gateway, not on the host PC. The host sees only
 ordinary USB Ethernet, physical Ethernet, Wi-Fi, or another normal IP link to
 the board. That keeps host applications free of SDR, AD936x, IIO, and custom
 mesh drivers.
+
+The daemon advertises this product boundary with
+`supports_native_ip_gateway=1`, `supports_tcp_ip_client_apps=1`,
+`native_client_ip_mode=routed_l3_swarm0`, and
+`native_client_ip_interface=swarm0`.
 
 The preferred product mode is a routed Layer-3 gateway:
 
