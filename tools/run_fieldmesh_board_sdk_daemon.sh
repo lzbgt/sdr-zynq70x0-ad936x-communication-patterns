@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-29}"
+requests="${REQUESTS:-30}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
