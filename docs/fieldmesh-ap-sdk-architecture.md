@@ -622,8 +622,10 @@ Stage 2: Board-local service
   before drain-back to `swarm0`. `driver_queue` is the default transport and
   exposes `FIELDMESH_RF_TX_POLL` and `FIELDMESH_RF_RX_INGEST`; RX ingest accepts
   only BLR `APP_DATA` addressed to the local board EUI. `diagnostic_loopback`
-  is opt-in test-only. The service reports `next_boundary=rf_phy_tx_rx` until
-  those queues are connected to real RF packet ingress/egress.
+  is opt-in test-only. The two-board native-IP bridge gate verifies the RF
+  worker contract by polling Z203 frames and ingesting them into Z103 before
+  the service reports `next_boundary=rf_phy_tx_rx` for real RF packet
+  ingress/egress.
 - Use `fieldmesh_tun_gateway_demo` and daemon `FIELDMESH_TUN_PLAN` as the
   first routed-gateway contract: both keep `swarm0` on the Zynq board, report
   the compact destination device EUI, preserve the selected FieldMesh RF route,

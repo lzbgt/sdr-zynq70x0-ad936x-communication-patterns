@@ -55,8 +55,11 @@ boundary through explicit TX/RX RF transport queues before drain-back to
 `FIELDMESH_RF_TX_POLL` and `FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker
 boundary. RX ingest now validates BLR `APP_DATA` type and destination EUI
 before the frame can reach `swarm0`. `diagnostic_loopback` remains explicit
-test-only. The remaining implementation work is to connect those driver queues
-to real RF packet ingress/egress, then prove ICMP/TCP/UDP over
+test-only. A two-board host RF-worker bridge now verifies the contract across
+installed daemons: Z203 emits BLR frames from its TX poll queue and Z103 accepts
+those exact peer-addressed frames through RX ingest and writes them into its
+own `swarm0`. The remaining implementation work is to connect those driver
+queues to real RF packet ingress/egress, then prove ICMP/TCP/UDP over
 the RF path with measured throughput, RTT, retransmits, queue age, and
 route-failover behavior.
 

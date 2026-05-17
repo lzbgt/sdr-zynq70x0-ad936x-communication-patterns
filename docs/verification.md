@@ -4281,6 +4281,9 @@ MODE=service RF_SELF_INGEST_REJECT=1 ALLOW_LIVE_TUN_READ=1 \
   ALLOW_LIVE_TUN_WRITE=1 BURST_PACKETS=3 FORCE_UPLOAD=0 UPLOAD_IF_MISSING=0 \
   VARIANT=z203 BOARD_IP=192.168.1.10 PORT=55463 \
   ./tools/run_fieldmesh_board_tun_device_pump.sh
+
+Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 PACKETS=3 \
+  ./tools/run_fieldmesh_two_board_native_ip_bridge.sh
 ```
 
 Both boards drained three adapter packets into `swarm0`, pumped three `swarm0`
@@ -4288,9 +4291,11 @@ packets into the adapter, preserved the opposite peer EUI, avoided IIO and
 inter-board IP routing, and rolled `swarm0` back cleanly. The service-mode
 self-ingest rejection check polled one BLR `APP_DATA` frame addressed to the
 peer and proved the local daemon rejects it with `frame_not_for_local_eui`
-instead of writing it into `swarm0`. The installed
-two-board flow also passed with `tun_event_loop_ready=1` and
-`tun_drain_ready=1`.
+instead of writing it into `swarm0`. The two-board native-IP bridge then used
+the validated daemon RF-worker APIs across both installed boards: three Z203
+`swarm0` packets were polled as BLR `APP_DATA` frames and ingested by Z103,
+which wrote three packets into its own `swarm0`. The installed two-board flow
+also passed with `tun_event_loop_ready=1` and `tun_drain_ready=1`.
 
 ## Verification Gaps
 

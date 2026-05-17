@@ -142,6 +142,11 @@ Minimum production gates for native TCP/IP:
   `diagnostic_loopback` is an explicit test-only mode. RX ingest rejects
   malformed BLR frames, non-`APP_DATA` frames, and frames whose destination EUI
   is not the selected local board. The next boundary remains `rf_phy_tx_rx`;
+- two installed board daemons pass a host RF-worker bridge gate: Z203 pumps
+  packets from its `swarm0`, the worker polls BLR `APP_DATA` frames from
+  `FIELDMESH_RF_TX_POLL`, sends those exact frames to Z103
+  `FIELDMESH_RF_RX_INGEST`, and Z103 writes them into its own `swarm0` without
+  host-side inter-board IP routing or diagnostic loopback;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,
