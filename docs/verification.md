@@ -4246,6 +4246,10 @@ last-packet slot, so same-class packet bursts cannot collapse before drain.
 `FIELDMESH_TUN_EVENT_LOOP_STEP` is the current bounded daemon event-loop
 boundary: it requires both live-read and live-write authorization, performs one
 bounded pump+drain step, and reports `next_boundary=continuous_tun_event_loop`.
+The daemon also now exposes the first lifecycle-managed native-IP service via
+`FIELDMESH_TUN_SERVICE_START`, `FIELDMESH_TUN_SERVICE_STATUS`, and
+`FIELDMESH_TUN_SERVICE_STOP`; this keeps daemon-owned `swarm0`/adapter state and
+reports `next_boundary=poll_epoll_rf_ip_loop`.
 
 Live installed-board verification on 2026-05-17 passed:
 

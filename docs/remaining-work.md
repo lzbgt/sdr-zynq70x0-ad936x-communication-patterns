@@ -44,10 +44,13 @@ reverse direction now has the matching drain contract:
 write it into board-local `swarm0`, making the next boundary the client kernel
 IP stack. `FIELDMESH_TUN_EVENT_LOOP_STEP` now combines both halves in one
 guarded bounded operation and reports `next_boundary=continuous_tun_event_loop`.
-The remaining implementation work is to replace that bounded request/response
-step with the installed daemon's long-running poll loop, then prove
-ICMP/TCP/UDP over the RF path with measured throughput, RTT, retransmits, queue
-age, and route-failover behavior.
+The daemon also has the first native-IP service lifecycle:
+`FIELDMESH_TUN_SERVICE_START`, `FIELDMESH_TUN_SERVICE_STATUS`, and
+`FIELDMESH_TUN_SERVICE_STOP` keep daemon-owned `swarm0`/adapter state and tick
+the pump/drain loop while the daemon is alive. The remaining implementation
+work is to replace tick-on-control/idle wakeups with a proper `poll`/`epoll`
+loop and then prove ICMP/TCP/UDP over the RF path with measured throughput,
+RTT, retransmits, queue age, and route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary

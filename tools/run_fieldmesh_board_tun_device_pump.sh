@@ -65,14 +65,14 @@ case "$mode" in
             exit 1
         fi
         ;;
-    loop)
+    loop|service)
         if [ "$allow_live_tun_read" != "1" ] || [ "$allow_live_tun_write" != "1" ]; then
-            echo "Refusing live TUN event-loop step without ALLOW_LIVE_TUN_READ=1 and ALLOW_LIVE_TUN_WRITE=1" >&2
+            echo "Refusing live TUN $mode without ALLOW_LIVE_TUN_READ=1 and ALLOW_LIVE_TUN_WRITE=1" >&2
             exit 1
         fi
         ;;
     *)
-        echo "MODE must be pump, drain, or loop" >&2
+        echo "MODE must be pump, drain, loop, or service" >&2
         exit 1
         ;;
 esac
@@ -129,8 +129,13 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
        ip route show 10.77.2.0/24; \
      } > '$remote_setup' 2>&1"
 
+daemon_requests=1
+if [ "$mode" = "service" ]; then
+    daemon_requests=3
+fi
+
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-    "nohup $remote_bin serve 0.0.0.0 '$port' 1 '$timeout_ms' > '$remote_log' 2>&1 & echo \$!" \
+    "nohup $remote_bin serve 0.0.0.0 '$port' '$daemon_requests' '$timeout_ms' > '$remote_log' 2>&1 & echo \$!" \
     > "$out_dir/board_daemon.pid"
 remote_pid="$(tr -d '\r\n' < "$out_dir/board_daemon.pid")"
 
@@ -140,6 +145,7 @@ python3 - "$board_ip" "$port" "$timeout_ms" "$dst_eui" "$burst_packets" "$mode" 
     > "$out_dir/host_live_request.ndjson" <<'PY' &
 import socket
 import sys
+import time
 
 host = sys.argv[1]
 port = int(sys.argv[2])
@@ -149,6 +155,24 @@ burst_packets = int(sys.argv[5])
 mode = sys.argv[6]
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(timeout_ms / 1000.0)
+if mode == "service":
+    requests = [
+        (
+            "FIELDMESH_TUN_SERVICE_START v1 "
+            f"dst={dst_eui} max={burst_packets} "
+            "ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE"
+        ),
+        "FIELDMESH_TUN_SERVICE_STATUS v1",
+        "FIELDMESH_TUN_SERVICE_STOP v1",
+    ]
+    for index, request in enumerate(requests):
+        if index == 1:
+            time.sleep(max(2.0, burst_packets + 0.8))
+        sock.sendto(request.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(4096)
+        sys.stdout.write(payload.decode("utf-8", errors="replace"))
+        sys.stdout.flush()
+    raise SystemExit(0)
 if mode == "loop":
     request = (
         "FIELDMESH_TUN_EVENT_LOOP_STEP v1 "
@@ -175,7 +199,7 @@ query_pid=$!
 
 sleep 0.3
 set +e
-if [ "$mode" = "pump" ] || [ "$mode" = "loop" ]; then
+if [ "$mode" = "pump" ] || [ "$mode" = "loop" ] || [ "$mode" = "service" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
         "{ ip link set dev swarm0 up; ip route replace 10.77.2.0/24 dev swarm0; ip -json addr show dev swarm0; ping -c '$burst_packets' -W 1 10.77.2.20; } > '$remote_inject' 2>&1"
     inject_rc=$?
@@ -231,7 +255,9 @@ for line in (out_dir / "host_live_request.ndjson").read_text(encoding="utf-8").s
     line = line.strip()
     if line.startswith("{"):
         rows.append(json.loads(line))
-if mode == "loop":
+if mode == "service":
+    event_name = "sdk_daemon_tun_service_status"
+elif mode == "loop":
     event_name = "sdk_daemon_tun_event_loop_step_live"
 elif mode == "drain":
     event_name = "sdk_daemon_tun_device_drain_burst_live"
@@ -247,7 +273,15 @@ if not live:
 event = live[0]
 if event.get("ok") != 1:
     raise SystemExit(f"live TUN device {mode} failed: {event}")
-if mode == "loop":
+if mode == "service":
+    started = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_started"]
+    stopped = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_stopped"]
+    if not started or started[0].get("running") != 1:
+        raise SystemExit(f"live TUN service did not start: {started}")
+    if not stopped or stopped[0].get("was_running") != 1:
+        raise SystemExit(f"live TUN service did not stop cleanly: {stopped}")
+    required_ones = ("daemon_owned_state", "continuous_service", "event_loop_ready")
+elif mode == "loop":
     required_ones = ("opens_dev_net_tun", "attaches_tun_if",
                      "reads_from_tun", "writes_to_tun")
 elif mode == "drain":
@@ -262,7 +296,18 @@ for key in ("commands_executed", "writes_network", "uses_iio", "uses_inter_board
         raise SystemExit(f"live TUN device {mode} key {key} must be 0")
 if event.get("dst_device_eui") != dst_eui:
     raise SystemExit(f"live TUN device {mode} did not preserve destination EUI")
-if mode == "loop":
+if mode == "service":
+    if event.get("running") != 1:
+        raise SystemExit("live TUN service status must be running before stop")
+    if event.get("packets_pumped", 0) < burst_packets:
+        raise SystemExit(f"live TUN service did not pump requested packets: {event}")
+    if event.get("packets_sent", 0) < burst_packets:
+        raise SystemExit(f"live TUN service did not send requested packets: {event}")
+    if event.get("packets_written", 0) < burst_packets:
+        raise SystemExit(f"live TUN service did not write requested packets: {event}")
+    if event.get("next_boundary") != "poll_epoll_rf_ip_loop":
+        raise SystemExit("live TUN service next boundary is wrong")
+elif mode == "loop":
     if event.get("sent_to_fieldmesh_adapter") != 1:
         raise SystemExit("live TUN event-loop step did not send to FieldMesh adapter")
     if event.get("received_from_fieldmesh_adapter") != 1:
@@ -290,9 +335,12 @@ else:
     if event.get("packets_read") != burst_packets or event.get("packets_sent") != burst_packets:
         raise SystemExit(f"live TUN device pump packet count mismatch: {event}")
 if mode in ("drain", "loop") or burst_packets > 1:
-    if event.get("event_loop_ready") != 1 or event.get("bounded_batch") != 1:
-        raise SystemExit(f"live TUN {mode} did not report event-loop bounded batch readiness")
-    if event.get("max_packets") != burst_packets:
+    if event.get("event_loop_ready") != 1:
+        raise SystemExit(f"live TUN {mode} did not report event-loop readiness")
+    if mode != "service" and event.get("bounded_batch") != 1:
+        raise SystemExit(f"live TUN {mode} did not report bounded batch readiness")
+    max_key = "max_packets_per_tick" if mode == "service" else "max_packets"
+    if event.get(max_key) != burst_packets:
         raise SystemExit(f"live TUN {mode} max_packets mismatch")
 
 rollback = (out_dir / "rollback.log").read_text(encoding="utf-8", errors="replace")

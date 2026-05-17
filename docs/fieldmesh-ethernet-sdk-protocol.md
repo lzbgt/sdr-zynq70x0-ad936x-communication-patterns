@@ -548,6 +548,16 @@ batch, drains a bounded adapter-to-client-kernel batch, and reports
 no descriptor open, command execution, network write, IIO, or inter-board IP
 routing.
 
+The first daemon-owned service boundary is
+`FIELDMESH_TUN_SERVICE_START` / `FIELDMESH_TUN_SERVICE_STATUS` /
+`FIELDMESH_TUN_SERVICE_STOP`. Start requires both `ALLOW_LIVE_TUN_READ` and
+`ALLOW_LIVE_TUN_WRITE`, opens the existing board-local `swarm0`, owns the
+FieldMesh adapter until stop, and advances bounded pump/drain ticks while the
+daemon is alive. Status exposes packet/byte counters and keeps reporting no
+command execution, network writes, IIO, or inter-board host-IP routing. Its
+declared next boundary is `poll_epoll_rf_ip_loop`, where the tick-on-wakeup
+prototype becomes a real continuous scheduler.
+
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter
 packet metadata and payload length, preserve the selected direct-or-relayed RF

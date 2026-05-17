@@ -613,6 +613,12 @@ Stage 2: Board-local service
   `FIELDMESH_SWARM_ADAPTER` request, so host SDK clients can inspect the
   product payload plane over the board daemon protocol before a real TUN
   interface exists.
+- Use `FIELDMESH_TUN_EVENT_LOOP_STEP` for the bounded full-duplex TUN proof and
+  `FIELDMESH_TUN_SERVICE_START` / `STATUS` / `STOP` for the first daemon-owned
+  native-IP gateway service. The service keeps `swarm0` and adapter state
+  inside the always-on daemon and reports `next_boundary=poll_epoll_rf_ip_loop`
+  until the scheduler is converted from tick-on-wakeup to a real `poll`/`epoll`
+  loop.
 - Use `fieldmesh_tun_gateway_demo` and daemon `FIELDMESH_TUN_PLAN` as the
   first routed-gateway contract: both keep `swarm0` on the Zynq board, report
   the compact destination device EUI, preserve the selected FieldMesh RF route,

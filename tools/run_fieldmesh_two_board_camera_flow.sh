@@ -106,7 +106,7 @@ def daemon_summary(label, path):
     query = load_rows(path / "host_query.ndjson")
     serve = load_rows(path / "board_daemon.ndjson")
     end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
-    if not end or end[-1].get("handled") != 33:
+    if not end or end[-1].get("handled") != 35:
         raise SystemExit(f"{label} daemon did not handle all requests")
 
     hello = one(query, "sdk_daemon_hello")
@@ -134,6 +134,8 @@ def daemon_summary(label, path):
     tun_fd_pump_burst = one(query, "sdk_daemon_tun_fd_pump_burst")
     tun_device_drain_guard = one(query, "sdk_daemon_tun_device_drain_burst_guard")
     tun_event_loop_guard = one(query, "sdk_daemon_tun_event_loop_step_guard")
+    tun_service_start_guard = one(query, "sdk_daemon_tun_service_start_guard")
+    tun_service_status = one(query, "sdk_daemon_tun_service_status")
     app_message = one(query, "sdk_daemon_app_message_send")
     app_message_ingest = one(query, "sdk_daemon_app_message_ingest")
     app_message_poll = one(query, "sdk_daemon_app_message_poll")
@@ -227,6 +229,12 @@ def daemon_summary(label, path):
         raise SystemExit(f"{label} TUN event-loop guard did not require read/write authorization")
     if tun_event_loop_guard.get("next_boundary") != "continuous_tun_event_loop":
         raise SystemExit(f"{label} TUN event-loop guard next boundary failed")
+    if tun_service_start_guard.get("next_boundary") != "poll_epoll_rf_ip_loop":
+        raise SystemExit(f"{label} TUN service start guard next boundary failed")
+    if tun_service_start_guard.get("requires_allow_live_tun_read") != 1 or tun_service_start_guard.get("requires_allow_live_tun_write") != 1:
+        raise SystemExit(f"{label} TUN service guard did not require read/write authorization")
+    if tun_service_status.get("running") != 0 or tun_service_status.get("daemon_owned_state") != 1:
+        raise SystemExit(f"{label} guarded TUN service status failed")
     if app_message.get("ok") is not True or app_message.get("queued_to_rf_engine") != 1:
         raise SystemExit(f"{label} app message RF queue failed")
     if app_message.get("uses_json_on_air") != 0:
@@ -293,6 +301,7 @@ def daemon_summary(label, path):
         "tun_event_loop_ready": tun_fd_pump_burst.get("event_loop_ready"),
         "tun_drain_ready": tun_device_drain_guard.get("requires_allow_live_tun_write"),
         "tun_continuous_loop_ready": tun_event_loop_guard.get("event_loop_ready"),
+        "tun_service_ready": tun_service_start_guard.get("event_loop_ready"),
     }
 
 

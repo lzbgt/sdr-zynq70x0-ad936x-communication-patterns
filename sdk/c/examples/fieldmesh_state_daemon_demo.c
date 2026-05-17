@@ -104,6 +104,27 @@ struct tun_memory_read_context {
     size_t next_packet;
 };
 
+struct tun_service_state {
+    int running;
+    int fd;
+    fieldmesh_adapter_t *adapter;
+    char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+    uint32_t max_packets_per_tick;
+    uint32_t ticks;
+    uint32_t packets_pumped;
+    uint32_t packets_sent;
+    uint32_t packets_received;
+    uint32_t packets_written;
+    uint32_t bytes_read;
+    uint32_t bytes_sent;
+    uint32_t bytes_received;
+    uint32_t bytes_written;
+    uint32_t recoverable_timeouts;
+    uint32_t errors;
+    fieldmesh_status_t last_status;
+    int last_errno;
+};
+
 static void put_be16(unsigned char *dst, uint16_t value)
 {
     dst[0] = (unsigned char)(value >> 8);
@@ -913,6 +934,152 @@ static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno
 #endif
 }
 
+static void tun_service_close(struct tun_service_state *service)
+{
+    if (!service) {
+        return;
+    }
+    if (service->adapter) {
+        (void)fieldmesh_close_adapter(service->adapter);
+        service->adapter = NULL;
+    }
+#if !defined(_WIN32)
+    if (service->fd >= 0) {
+        close(service->fd);
+    }
+#endif
+    service->fd = -1;
+    service->running = 0;
+}
+
+static int tun_service_open(fieldmesh_session_t *session,
+                            struct tun_service_state *service,
+                            const char *dst_device_eui,
+                            uint32_t max_packets_per_tick,
+                            int *out_errno)
+{
+    fieldmesh_adapter_config_t adapter_config = {
+        .adapter_kind = FIELDMESH_ADAPTER_VIRTUAL_NETDEV,
+        .requested_mode = FIELDMESH_MODE_SCHEDULED,
+        .stream_id_base = 200,
+        .mtu_bytes = 1200,
+        .expose_virtual_netdev = 1,
+    };
+    fieldmesh_status_t status;
+    int fd = -1;
+    int tun_errno = 0;
+
+    if (!session || !service || !valid_compact_eui(dst_device_eui) ||
+        max_packets_per_tick == 0u) {
+        if (out_errno) {
+            *out_errno = EINVAL;
+        }
+        return -1;
+    }
+    tun_service_close(service);
+    if (open_live_tun_read_fd("swarm0", &fd, &tun_errno) != 0) {
+        if (out_errno) {
+            *out_errno = tun_errno;
+        }
+        service->last_errno = tun_errno;
+        return -1;
+    }
+    snprintf(adapter_config.adapter_name, sizeof(adapter_config.adapter_name),
+             "%s", "swarm0");
+    snprintf(adapter_config.dst_node_id, sizeof(adapter_config.dst_node_id),
+             "%s", dst_device_eui);
+    status = fieldmesh_open_adapter(session, &adapter_config, &service->adapter);
+    if (status != FIELDMESH_OK) {
+#if !defined(_WIN32)
+        close(fd);
+#endif
+        service->fd = -1;
+        service->last_status = status;
+        if (out_errno) {
+            *out_errno = 0;
+        }
+        return -1;
+    }
+    service->fd = fd;
+    service->running = 1;
+    snprintf(service->dst_device_eui, sizeof(service->dst_device_eui),
+             "%s", dst_device_eui);
+    service->max_packets_per_tick = max_packets_per_tick;
+    service->ticks = 0u;
+    service->packets_pumped = 0u;
+    service->packets_sent = 0u;
+    service->packets_received = 0u;
+    service->packets_written = 0u;
+    service->bytes_read = 0u;
+    service->bytes_sent = 0u;
+    service->bytes_received = 0u;
+    service->bytes_written = 0u;
+    service->recoverable_timeouts = 0u;
+    service->errors = 0u;
+    service->last_status = FIELDMESH_OK;
+    service->last_errno = 0;
+    if (out_errno) {
+        *out_errno = 0;
+    }
+    return 0;
+}
+
+static void tun_service_tick(struct tun_service_state *service)
+{
+    unsigned char pump_buffer[1536];
+    unsigned char drain_buffer[1536];
+    fieldmesh_tun_pump_report_t pump_report;
+    fieldmesh_tun_inject_report_t inject_report;
+    struct tun_fd_read_context read_ctx;
+    fieldmesh_status_t pump_status;
+    fieldmesh_status_t drain_status;
+
+    if (!service || !service->running || service->fd < 0 ||
+        !service->adapter || service->max_packets_per_tick == 0u) {
+        return;
+    }
+    memset(&read_ctx, 0, sizeof(read_ctx));
+    read_ctx.fd = service->fd;
+    read_ctx.wait_ms = 0u;
+    pump_status = fieldmesh_tun_packetizer_pump_many(
+        service->adapter, read_tun_fd_wait_once, &read_ctx, pump_buffer,
+        sizeof(pump_buffer), service->max_packets_per_tick, &pump_report);
+    if (pump_status == FIELDMESH_OK) {
+        service->packets_pumped += pump_report.packets_read;
+        service->packets_sent += pump_report.packets_sent;
+        service->bytes_read += pump_report.bytes_read;
+        service->bytes_sent += pump_report.bytes_sent;
+    } else if (pump_status == FIELDMESH_ERR_TIMEOUT) {
+        service->recoverable_timeouts++;
+    } else {
+        service->errors++;
+        service->last_status = pump_status;
+        service->last_errno = read_ctx.last_errno;
+        tun_service_close(service);
+        return;
+    }
+
+    drain_status = fieldmesh_tun_packetizer_drain_many(
+        service->adapter, write_tun_fd_once, &service->fd, drain_buffer,
+        sizeof(drain_buffer), service->max_packets_per_tick, 0u,
+        &inject_report);
+    if (drain_status == FIELDMESH_OK) {
+        service->packets_received += inject_report.packets_received;
+        service->packets_written += inject_report.packets_written;
+        service->bytes_received += inject_report.bytes_received;
+        service->bytes_written += inject_report.bytes_written;
+    } else if (drain_status == FIELDMESH_ERR_TIMEOUT) {
+        service->recoverable_timeouts++;
+    } else {
+        service->errors++;
+        service->last_status = drain_status;
+        tun_service_close(service);
+        return;
+    }
+    service->ticks++;
+    service->last_status = FIELDMESH_OK;
+}
+
 static int socket_startup(void)
 {
 #ifdef _WIN32
@@ -1216,6 +1383,7 @@ static int create_demo_state(fieldmesh_context_t **out_context,
 static int build_response(fieldmesh_context_t *context,
                           fieldmesh_session_t *session,
                           struct app_message_store *app_messages,
+                          struct tun_service_state *tun_service,
                           const char *request,
                           char *response,
                           size_t response_len)
@@ -3239,6 +3407,179 @@ static int build_response(fieldmesh_context_t *context,
             return 0;
         }
     }
+    if (strstr(request, "FIELDMESH_TUN_SERVICE_START")) {
+        int allow_read = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
+        int allow_write = strstr(request, "ALLOW_LIVE_TUN_WRITE") != NULL;
+        unsigned max_packets = 4u;
+        int tun_errno = 0;
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+
+        if (!request_device_eui_or_default(request, "dst=",
+                                           "020000000103", dst_device_eui,
+                                           sizeof(dst_device_eui)) ||
+            !request_uint_or_default(request, "max=", 4u, 1u, 32u,
+                                     &max_packets)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_start_guard\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_request\"}\n");
+            return 0;
+        }
+
+        if (!allow_read || !allow_write) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_start_guard\","
+                     "\"adapter_name\":\"swarm0\","
+                     "\"production_tun_path\":\"/dev/net/tun\","
+                     "\"dst_device_eui\":\"%s\","
+                     "\"max_packets_per_tick\":%u,"
+                     "\"requires_allow_live_tun_read\":1,"
+                     "\"requires_allow_live_tun_write\":1,"
+                     "\"requires_cap_net_admin\":1,"
+                     "\"requires_existing_swarm0\":1,"
+                     "\"opens_dev_net_tun\":0,"
+                     "\"attaches_tun_if\":0,"
+                     "\"reads_from_tun\":0,"
+                     "\"writes_to_tun\":0,"
+                     "\"daemon_owned_state\":1,"
+                     "\"continuous_service\":1,"
+                     "\"event_loop_ready\":1,"
+                     "\"commands_executed\":0,"
+                     "\"writes_network\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"next_boundary\":\"poll_epoll_rf_ip_loop\"}\n",
+                     dst_device_eui, max_packets);
+            return 0;
+        }
+
+        if (tun_service_open(session, tun_service, dst_device_eui,
+                             max_packets, &tun_errno) != 0) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_started\","
+                     "\"ok\":0,"
+                     "\"adapter_name\":\"swarm0\","
+                     "\"production_tun_path\":\"/dev/net/tun\","
+                     "\"dst_device_eui\":\"%s\","
+                     "\"max_packets_per_tick\":%u,"
+                     "\"errno_value\":%d,"
+                     "\"last_status\":\"%s\","
+                     "\"opens_dev_net_tun\":1,"
+                     "\"attaches_tun_if\":0,"
+                     "\"daemon_owned_state\":1,"
+                     "\"continuous_service\":0,"
+                     "\"commands_executed\":0,"
+                     "\"writes_network\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_inter_board_ip_routing\":0}\n",
+                     dst_device_eui, max_packets, tun_errno,
+                     tun_service ?
+                         fieldmesh_status_string(tun_service->last_status) :
+                         fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG));
+            return 0;
+        }
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_service_started\","
+                 "\"ok\":1,"
+                 "\"adapter_name\":\"swarm0\","
+                 "\"production_tun_path\":\"/dev/net/tun\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"max_packets_per_tick\":%u,"
+                 "\"running\":1,"
+                 "\"opens_dev_net_tun\":1,"
+                 "\"attaches_tun_if\":1,"
+                 "\"reads_from_tun\":1,"
+                 "\"writes_to_tun\":1,"
+                 "\"daemon_owned_state\":1,"
+                 "\"continuous_service\":1,"
+                 "\"event_loop_ready\":1,"
+                 "\"commands_executed\":0,"
+                 "\"writes_network\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"next_boundary\":\"poll_epoll_rf_ip_loop\"}\n",
+                 dst_device_eui, max_packets);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_TUN_SERVICE_STATUS")) {
+        if (tun_service && tun_service->running) {
+            tun_service_tick(tun_service);
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_service_status\","
+                 "\"ok\":1,"
+                 "\"adapter_name\":\"swarm0\","
+                 "\"production_tun_path\":\"/dev/net/tun\","
+                 "\"dst_device_eui\":\"%s\","
+                 "\"running\":%u,"
+                 "\"max_packets_per_tick\":%u,"
+                 "\"ticks\":%u,"
+                 "\"packets_pumped\":%u,"
+                 "\"packets_sent\":%u,"
+                 "\"packets_received\":%u,"
+                 "\"packets_written\":%u,"
+                 "\"bytes_read\":%u,"
+                 "\"bytes_sent\":%u,"
+                 "\"bytes_received\":%u,"
+                 "\"bytes_written\":%u,"
+                 "\"recoverable_timeouts\":%u,"
+                 "\"errors\":%u,"
+                 "\"last_status\":\"%s\","
+                 "\"daemon_owned_state\":1,"
+                 "\"continuous_service\":1,"
+                 "\"event_loop_ready\":1,"
+                 "\"commands_executed\":0,"
+                 "\"writes_network\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"next_boundary\":\"poll_epoll_rf_ip_loop\"}\n",
+                 tun_service && tun_service->dst_device_eui[0] != '\0' ?
+                     tun_service->dst_device_eui : "",
+                 tun_service && tun_service->running ? 1u : 0u,
+                 tun_service ? tun_service->max_packets_per_tick : 0u,
+                 tun_service ? tun_service->ticks : 0u,
+                 tun_service ? tun_service->packets_pumped : 0u,
+                 tun_service ? tun_service->packets_sent : 0u,
+                 tun_service ? tun_service->packets_received : 0u,
+                 tun_service ? tun_service->packets_written : 0u,
+                 tun_service ? tun_service->bytes_read : 0u,
+                 tun_service ? tun_service->bytes_sent : 0u,
+                 tun_service ? tun_service->bytes_received : 0u,
+                 tun_service ? tun_service->bytes_written : 0u,
+                 tun_service ? tun_service->recoverable_timeouts : 0u,
+                 tun_service ? tun_service->errors : 0u,
+                 tun_service ?
+                     fieldmesh_status_string(tun_service->last_status) :
+                     fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG));
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_TUN_SERVICE_STOP")) {
+        uint32_t was_running = tun_service && tun_service->running ? 1u : 0u;
+        uint32_t packets_pumped = tun_service ? tun_service->packets_pumped : 0u;
+        uint32_t packets_written = tun_service ? tun_service->packets_written : 0u;
+        uint32_t ticks = tun_service ? tun_service->ticks : 0u;
+
+        tun_service_close(tun_service);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_service_stopped\","
+                 "\"ok\":1,"
+                 "\"adapter_name\":\"swarm0\","
+                 "\"production_tun_path\":\"/dev/net/tun\","
+                 "\"was_running\":%u,"
+                 "\"running\":0,"
+                 "\"ticks\":%u,"
+                 "\"packets_pumped\":%u,"
+                 "\"packets_written\":%u,"
+                 "\"daemon_owned_state\":1,"
+                 "\"continuous_service\":1,"
+                 "\"commands_executed\":0,"
+                 "\"writes_network\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0}\n",
+                 was_running, ticks, packets_pumped, packets_written);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_EVENT_LOOP_STEP")) {
         int allow_read = strstr(request, "ALLOW_LIVE_TUN_READ") != NULL;
         int allow_write = strstr(request, "ALLOW_LIVE_TUN_WRITE") != NULL;
@@ -4136,6 +4477,7 @@ static int serve_state(const char *bind_ip,
     struct sockaddr_in bind_addr;
     struct timeval timeout;
     struct app_message_store app_messages;
+    struct tun_service_state tun_service;
     long handled = 0;
     int serve_forever = requests == 0;
     int rc = 1;
@@ -4144,6 +4486,9 @@ static int serve_state(const char *bind_ip,
         return 1;
     }
     memset(&app_messages, 0, sizeof(app_messages));
+    memset(&tun_service, 0, sizeof(tun_service));
+    tun_service.fd = -1;
+    tun_service.last_status = FIELDMESH_OK;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         goto out;
@@ -4177,18 +4522,24 @@ static int serve_state(const char *bind_ip,
 #ifdef _WIN32
             int last_error = WSAGetLastError();
             if (last_error == WSAETIMEDOUT || last_error == WSAEINTR) {
+                tun_service_tick(&tun_service);
                 continue;
             }
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+                tun_service_tick(&tun_service);
                 continue;
             }
 #endif
             break;
         }
         request[received] = '\0';
-        if (build_response(context, session, &app_messages, request,
-                           response, sizeof(response)) != 0) {
+        if (tun_service.running &&
+            strstr(request, "FIELDMESH_TUN_SERVICE_STOP") == NULL) {
+            tun_service_tick(&tun_service);
+        }
+        if (build_response(context, session, &app_messages, &tun_service,
+                           request, response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),
                      "{\"event\":\"sdk_daemon_error\","
                      "\"error\":\"request_failed\","
@@ -4207,6 +4558,7 @@ static int serve_state(const char *bind_ip,
     rc = serve_forever || handled == requests ? 0 : 1;
 
 out:
+    tun_service_close(&tun_service);
     if (sockfd != INVALID_SOCKET) {
         fieldmesh_close_socket(sockfd);
     }
@@ -4273,6 +4625,8 @@ static int query_state(const char *host,
     char tun_dev_pump_request[96];
     char tun_dev_drain_request[112];
     char tun_event_loop_request[112];
+    char tun_service_start_request[112];
+    char tun_service_status_request[96];
     char tun_plan_request[96];
     char tun_apply_validate_request[112];
     char tun_apply_commit_request[112];
@@ -4351,6 +4705,10 @@ static int query_state(const char *host,
              "FIELDMESH_TUN_DEV_DRAIN_BURST v1 dst=%s", route_dst_eui);
     snprintf(tun_event_loop_request, sizeof(tun_event_loop_request),
              "FIELDMESH_TUN_EVENT_LOOP_STEP v1 dst=%s", route_dst_eui);
+    snprintf(tun_service_start_request, sizeof(tun_service_start_request),
+             "FIELDMESH_TUN_SERVICE_START v1 dst=%s", route_dst_eui);
+    snprintf(tun_service_status_request, sizeof(tun_service_status_request),
+             "%s", "FIELDMESH_TUN_SERVICE_STATUS v1");
     snprintf(tun_plan_request, sizeof(tun_plan_request),
              "FIELDMESH_TUN_PLAN v1 dst=%s", route_dst_eui);
     snprintf(tun_apply_validate_request, sizeof(tun_apply_validate_request),
@@ -4402,6 +4760,8 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, tun_dev_pump_request) == 0 &&
         query_once(sockfd, &dst, tun_dev_drain_request) == 0 &&
         query_once(sockfd, &dst, tun_event_loop_request) == 0 &&
+        query_once(sockfd, &dst, tun_service_start_request) == 0 &&
+        query_once(sockfd, &dst, tun_service_status_request) == 0 &&
         query_once(sockfd, &dst, tun_plan_request) == 0 &&
         query_once(sockfd, &dst, tun_apply_validate_request) == 0 &&
         query_once(sockfd, &dst, tun_apply_commit_request) == 0 &&

@@ -142,7 +142,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 33 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 35 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -351,11 +351,13 @@ tun_fd_pump_burst = [row for row in query if row.get("event") == "sdk_daemon_tun
 tun_device_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_pump_guard"]
 tun_device_drain_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_device_drain_burst_guard"]
 tun_event_loop_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_event_loop_step_guard"]
+tun_service_start_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_start_guard"]
+tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tun_service_status"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 33 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 35 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -747,6 +749,27 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to
         raise SystemExit(f"SDK daemon TUN event-loop guard key {key} must be 0")
 if tun_event_loop_guard[0].get("next_boundary") != "continuous_tun_event_loop":
     raise SystemExit("SDK daemon TUN event-loop guard next boundary is wrong")
+if not tun_service_start_guard or tun_service_start_guard[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon TUN service start guard query failed")
+if tun_service_start_guard[0].get("production_tun_path") != "/dev/net/tun":
+    raise SystemExit("SDK daemon TUN service start guard lost production TUN path")
+for key in ("requires_allow_live_tun_read", "requires_allow_live_tun_write",
+            "requires_cap_net_admin", "requires_existing_swarm0",
+            "daemon_owned_state", "continuous_service", "event_loop_ready"):
+    if tun_service_start_guard[0].get(key) != 1:
+        raise SystemExit(f"SDK daemon TUN service start guard key {key} must be 1")
+for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to_tun",
+            "commands_executed", "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
+    if tun_service_start_guard[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon TUN service start guard key {key} must be 0")
+if tun_service_start_guard[0].get("next_boundary") != "poll_epoll_rf_ip_loop":
+    raise SystemExit("SDK daemon TUN service start guard next boundary is wrong")
+if not tun_service_status or tun_service_status[0].get("event_loop_ready") != 1:
+    raise SystemExit("SDK daemon TUN service status readiness missing")
+if tun_service_status[0].get("running") != 0:
+    raise SystemExit("guarded TUN service status must not start live service")
+if tun_service_status[0].get("daemon_owned_state") != 1:
+    raise SystemExit("SDK daemon TUN service status must report daemon-owned state")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN plan query failed")
 if tun_plan[0].get("dst_device_eui") != "020000000103":

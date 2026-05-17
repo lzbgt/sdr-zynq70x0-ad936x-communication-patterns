@@ -134,6 +134,9 @@ Minimum production gates for native TCP/IP:
   a single last-packet slot;
 - daemon owns a guarded TUN event-loop step that performs both directions in
   one bounded operation and reports `next_boundary=continuous_tun_event_loop`;
+- daemon exposes `FIELDMESH_TUN_SERVICE_START` / `STATUS` / `STOP`, keeping
+  daemon-owned `swarm0`/adapter state and reporting the next boundary as
+  `poll_epoll_rf_ip_loop`;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,
