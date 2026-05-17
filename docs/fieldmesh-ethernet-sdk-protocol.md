@@ -552,11 +552,12 @@ The first daemon-owned service boundary is
 `FIELDMESH_TUN_SERVICE_START` / `FIELDMESH_TUN_SERVICE_STATUS` /
 `FIELDMESH_TUN_SERVICE_STOP`. Start requires both `ALLOW_LIVE_TUN_READ` and
 `ALLOW_LIVE_TUN_WRITE`, opens the existing board-local `swarm0`, owns the
-FieldMesh adapter until stop, and advances bounded pump/drain ticks while the
-daemon is alive. Status exposes packet/byte counters and keeps reporting no
-command execution, network writes, IIO, or inter-board host-IP routing. Its
-declared next boundary is `poll_epoll_rf_ip_loop`, where the tick-on-wakeup
-prototype becomes a real continuous scheduler.
+FieldMesh adapter until stop, and multiplexes the UDP control socket with the
+TUN fd using a bounded poll-style loop. Status exposes packet/byte counters,
+poll wakeups, and idle ticks while still reporting no command execution,
+network writes, IIO, or inter-board host-IP routing. Its declared next boundary
+is `rf_ip_packet_ingress_egress`, where the in-process adapter loop is replaced
+by the real RF packet engine.
 
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter

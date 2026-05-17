@@ -305,7 +305,11 @@ if mode == "service":
         raise SystemExit(f"live TUN service did not send requested packets: {event}")
     if event.get("packets_written", 0) < burst_packets:
         raise SystemExit(f"live TUN service did not write requested packets: {event}")
-    if event.get("next_boundary") != "poll_epoll_rf_ip_loop":
+    if event.get("poll_wakeups", 0) < 1:
+        raise SystemExit(f"live TUN service was not driven by TUN poll readiness: {event}")
+    if event.get("poll_loop_active") != 1:
+        raise SystemExit("live TUN service did not report active poll loop")
+    if event.get("next_boundary") != "rf_ip_packet_ingress_egress":
         raise SystemExit("live TUN service next boundary is wrong")
 elif mode == "loop":
     if event.get("sent_to_fieldmesh_adapter") != 1:

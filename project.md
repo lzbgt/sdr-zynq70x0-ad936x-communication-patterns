@@ -1270,9 +1270,9 @@ Expected result in the current Pluto-compatible firmware state:
    next boundary. The daemon now also exposes the first lifecycle-managed
    native-IP gateway service: `FIELDMESH_TUN_SERVICE_START`,
    `FIELDMESH_TUN_SERVICE_STATUS`, and `FIELDMESH_TUN_SERVICE_STOP` keep
-   daemon-owned `swarm0`/adapter state and advance the pump/drain loop on
-   daemon wakeups. The remaining production boundary is converting that
-   tick-driven service into a dedicated `poll`/`epoll` RF/IP loop.
+   daemon-owned `swarm0`/adapter state. The service now uses a bounded
+   poll-style loop to wake on TUN readiness; the remaining production boundary
+   is replacing the in-process adapter loop with real RF packet ingress/egress.
    The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is

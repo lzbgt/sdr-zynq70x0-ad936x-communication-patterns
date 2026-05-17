@@ -4249,7 +4249,8 @@ bounded pump+drain step, and reports `next_boundary=continuous_tun_event_loop`.
 The daemon also now exposes the first lifecycle-managed native-IP service via
 `FIELDMESH_TUN_SERVICE_START`, `FIELDMESH_TUN_SERVICE_STATUS`, and
 `FIELDMESH_TUN_SERVICE_STOP`; this keeps daemon-owned `swarm0`/adapter state and
-reports `next_boundary=poll_epoll_rf_ip_loop`.
+uses a bounded poll-style loop to wake on TUN readiness. It reports
+`next_boundary=rf_ip_packet_ingress_egress`.
 
 Live installed-board verification on 2026-05-17 passed:
 

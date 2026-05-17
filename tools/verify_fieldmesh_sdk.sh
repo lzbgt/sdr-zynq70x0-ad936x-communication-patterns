@@ -762,7 +762,7 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to
             "commands_executed", "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
     if tun_service_start_guard[0].get(key) != 0:
         raise SystemExit(f"SDK daemon TUN service start guard key {key} must be 0")
-if tun_service_start_guard[0].get("next_boundary") != "poll_epoll_rf_ip_loop":
+if tun_service_start_guard[0].get("next_boundary") != "rf_ip_packet_ingress_egress":
     raise SystemExit("SDK daemon TUN service start guard next boundary is wrong")
 if not tun_service_status or tun_service_status[0].get("event_loop_ready") != 1:
     raise SystemExit("SDK daemon TUN service status readiness missing")
@@ -770,6 +770,8 @@ if tun_service_status[0].get("running") != 0:
     raise SystemExit("guarded TUN service status must not start live service")
 if tun_service_status[0].get("daemon_owned_state") != 1:
     raise SystemExit("SDK daemon TUN service status must report daemon-owned state")
+if tun_service_status[0].get("poll_loop_active") != 0:
+    raise SystemExit("guarded TUN service status must not report active poll loop")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":
     raise SystemExit("SDK daemon TUN plan query failed")
 if tun_plan[0].get("dst_device_eui") != "020000000103":

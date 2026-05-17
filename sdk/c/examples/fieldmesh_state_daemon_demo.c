@@ -17,6 +17,7 @@ typedef int socklen_t;
 #if defined(__linux__)
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #endif
 #include <netinet/in.h>
@@ -119,6 +120,8 @@ struct tun_service_state {
     uint32_t bytes_sent;
     uint32_t bytes_received;
     uint32_t bytes_written;
+    uint32_t poll_wakeups;
+    uint32_t idle_ticks;
     uint32_t recoverable_timeouts;
     uint32_t errors;
     fieldmesh_status_t last_status;
@@ -1014,6 +1017,8 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->bytes_sent = 0u;
     service->bytes_received = 0u;
     service->bytes_written = 0u;
+    service->poll_wakeups = 0u;
+    service->idle_ticks = 0u;
     service->recoverable_timeouts = 0u;
     service->errors = 0u;
     service->last_status = FIELDMESH_OK;
@@ -3444,11 +3449,12 @@ static int build_response(fieldmesh_context_t *context,
                      "\"daemon_owned_state\":1,"
                      "\"continuous_service\":1,"
                      "\"event_loop_ready\":1,"
+                     "\"poll_loop_active\":0,"
                      "\"commands_executed\":0,"
                      "\"writes_network\":0,"
                      "\"uses_iio\":0,"
                      "\"uses_inter_board_ip_routing\":0,"
-                     "\"next_boundary\":\"poll_epoll_rf_ip_loop\"}\n",
+                     "\"next_boundary\":\"rf_ip_packet_ingress_egress\"}\n",
                      dst_device_eui, max_packets);
             return 0;
         }
@@ -3494,18 +3500,16 @@ static int build_response(fieldmesh_context_t *context,
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"event_loop_ready\":1,"
+                 "\"poll_loop_active\":1,"
                  "\"commands_executed\":0,"
                  "\"writes_network\":0,"
                  "\"uses_iio\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
-                 "\"next_boundary\":\"poll_epoll_rf_ip_loop\"}\n",
+                 "\"next_boundary\":\"rf_ip_packet_ingress_egress\"}\n",
                  dst_device_eui, max_packets);
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STATUS")) {
-        if (tun_service && tun_service->running) {
-            tun_service_tick(tun_service);
-        }
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_tun_service_status\","
                  "\"ok\":1,"
@@ -3523,17 +3527,20 @@ static int build_response(fieldmesh_context_t *context,
                  "\"bytes_sent\":%u,"
                  "\"bytes_received\":%u,"
                  "\"bytes_written\":%u,"
+                 "\"poll_wakeups\":%u,"
+                 "\"idle_ticks\":%u,"
                  "\"recoverable_timeouts\":%u,"
                  "\"errors\":%u,"
                  "\"last_status\":\"%s\","
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"event_loop_ready\":1,"
+                 "\"poll_loop_active\":%u,"
                  "\"commands_executed\":0,"
                  "\"writes_network\":0,"
                  "\"uses_iio\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
-                 "\"next_boundary\":\"poll_epoll_rf_ip_loop\"}\n",
+                 "\"next_boundary\":\"rf_ip_packet_ingress_egress\"}\n",
                  tun_service && tun_service->dst_device_eui[0] != '\0' ?
                      tun_service->dst_device_eui : "",
                  tun_service && tun_service->running ? 1u : 0u,
@@ -3547,11 +3554,14 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->bytes_sent : 0u,
                  tun_service ? tun_service->bytes_received : 0u,
                  tun_service ? tun_service->bytes_written : 0u,
+                 tun_service ? tun_service->poll_wakeups : 0u,
+                 tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,
                  tun_service ? tun_service->errors : 0u,
                  tun_service ?
                      fieldmesh_status_string(tun_service->last_status) :
-                     fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG));
+                     fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG),
+                 tun_service && tun_service->running ? 1u : 0u);
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STOP")) {
@@ -3573,6 +3583,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"packets_written\":%u,"
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
+                 "\"poll_loop_active\":0,"
                  "\"commands_executed\":0,"
                  "\"writes_network\":0,"
                  "\"uses_iio\":0,"
@@ -4515,29 +4526,68 @@ static int serve_state(const char *bind_ip,
         socklen_t src_len = (socklen_t)sizeof(src_addr);
         char request[4096];
         char response[8192];
-        int received = recvfrom(sockfd, request, (int)(sizeof(request) - 1), 0,
-                                (struct sockaddr *)&src_addr, &src_len);
+        int received;
+
+#if !defined(_WIN32) && defined(__linux__)
+        if (tun_service.running && tun_service.fd >= 0) {
+            struct pollfd fds[2];
+            int poll_timeout_ms = timeout_ms > 100 ? 100 : (int)timeout_ms;
+            int polled;
+
+            if (poll_timeout_ms <= 0) {
+                poll_timeout_ms = 100;
+            }
+            memset(fds, 0, sizeof(fds));
+            fds[0].fd = sockfd;
+            fds[0].events = POLLIN;
+            fds[1].fd = tun_service.fd;
+            fds[1].events = POLLIN;
+            polled = poll(fds, 2u, poll_timeout_ms);
+            if (polled < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                break;
+            }
+            if (polled == 0) {
+                tun_service.idle_ticks++;
+                tun_service_tick(&tun_service);
+                continue;
+            }
+            if ((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                tun_service.errors++;
+                tun_service.last_status = FIELDMESH_ERR_TRANSPORT;
+                tun_service_close(&tun_service);
+            } else if ((fds[1].revents & POLLIN) != 0) {
+                tun_service.poll_wakeups++;
+                tun_service_tick(&tun_service);
+            }
+            if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+                break;
+            }
+            if ((fds[0].revents & POLLIN) == 0) {
+                continue;
+            }
+        }
+#endif
+
+        received = recvfrom(sockfd, request, (int)(sizeof(request) - 1), 0,
+                            (struct sockaddr *)&src_addr, &src_len);
 
         if (received <= 0) {
 #ifdef _WIN32
             int last_error = WSAGetLastError();
             if (last_error == WSAETIMEDOUT || last_error == WSAEINTR) {
-                tun_service_tick(&tun_service);
                 continue;
             }
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-                tun_service_tick(&tun_service);
                 continue;
             }
 #endif
             break;
         }
         request[received] = '\0';
-        if (tun_service.running &&
-            strstr(request, "FIELDMESH_TUN_SERVICE_STOP") == NULL) {
-            tun_service_tick(&tun_service);
-        }
         if (build_response(context, session, &app_messages, &tun_service,
                            request, response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),

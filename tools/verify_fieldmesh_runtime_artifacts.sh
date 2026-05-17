@@ -274,7 +274,8 @@ verify_variant() {
         written_to_tun \
         client_kernel_ip_stack \
         continuous_tun_event_loop \
-        poll_epoll_rf_ip_loop \
+        rf_ip_packet_ingress_egress \
+        poll_loop_active \
         fieldmesh_rf_packet_engine \
         queued_to_rf_engine \
         uses_sidecar_dma \

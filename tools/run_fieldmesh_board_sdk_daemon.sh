@@ -504,12 +504,14 @@ for key in ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun", "writes_to
             "commands_executed", "writes_network", "uses_iio", "uses_inter_board_ip_routing"):
     if tun_service_start_guard[0].get(key) != 0:
         raise SystemExit(f"board SDK daemon TUN service start key {key} must be 0")
-if tun_service_start_guard[0].get("next_boundary") != "poll_epoll_rf_ip_loop":
+if tun_service_start_guard[0].get("next_boundary") != "rf_ip_packet_ingress_egress":
     raise SystemExit("board SDK daemon TUN service start next boundary failed")
 if not tun_service_status or tun_service_status[0].get("running") != 0:
     raise SystemExit("board SDK daemon guarded TUN service status must be stopped")
 if tun_service_status[0].get("daemon_owned_state") != 1:
     raise SystemExit("board SDK daemon TUN service status must report daemon-owned state")
+if tun_service_status[0].get("poll_loop_active") != 0:
+    raise SystemExit("board SDK daemon guarded TUN service status must not report active poll loop")
 if tun_plan[0].get("dst_device_eui") != route_dst_eui:
     raise SystemExit("board SDK daemon TUN plan used wrong destination EUI")
 if tun_plan[0].get("creates_tun_on_board") != 1 or tun_plan[0].get("creates_tun_on_host") != 0:
