@@ -13,7 +13,8 @@ timeout_ms="${TIMEOUT_MS:-10000}"
 tcp_port="${TCP_PORT:-18080}"
 udp_port="${UDP_PORT:-18081}"
 message="${MESSAGE:-fieldmesh-native-ip-socket}"
-bridge_duration_s="${BRIDGE_DURATION_S:-45}"
+bridge_duration_s="${BRIDGE_DURATION_S:-75}"
+socket_timeout_ms="${SOCKET_TIMEOUT_MS:-30000}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-sockets-$(date +%Y%m%d-%H%M%S)}"
 demo_bin="${SOCKET_DEMO_BIN:-$repo_root/.config/fieldmesh-native-ip-socket-demo.arm}"
 
@@ -284,19 +285,19 @@ bridge_pid=$!
 sleep 1
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-    "'$remote_demo' tcp-server 10.77.2.20 '$tcp_port' 12000 > /tmp/fieldmesh_tcp_server.ndjson 2>&1 & echo \$!" \
+    "'$remote_demo' tcp-server 10.77.2.20 '$tcp_port' '$socket_timeout_ms' > /tmp/fieldmesh_tcp_server.ndjson 2>&1 & echo \$!" \
     >"$out_dir/z103_tcp_server.pid"
 wait_remote_port "$z103_remote" tcp "$tcp_port" "/tmp/fieldmesh_tcp_server.ndjson"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
-    "'$remote_demo' tcp-client 10.77.2.20 '$tcp_port' '$message-tcp' 12000" \
+    "'$remote_demo' tcp-client 10.77.2.20 '$tcp_port' '$message-tcp' '$socket_timeout_ms'" \
     >"$out_dir/z203_tcp_client.ndjson" 2>&1
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-    "'$remote_demo' udp-server 10.77.2.20 '$udp_port' 12000 > /tmp/fieldmesh_udp_server.ndjson 2>&1 & echo \$!" \
+    "'$remote_demo' udp-server 10.77.2.20 '$udp_port' '$socket_timeout_ms' > /tmp/fieldmesh_udp_server.ndjson 2>&1 & echo \$!" \
     >"$out_dir/z103_udp_server.pid"
 wait_remote_port "$z103_remote" udp "$udp_port" "/tmp/fieldmesh_udp_server.ndjson"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
-    "'$remote_demo' udp-client 10.77.2.20 '$udp_port' '$message-udp' 12000" \
+    "'$remote_demo' udp-client 10.77.2.20 '$udp_port' '$message-udp' '$socket_timeout_ms'" \
     >"$out_dir/z203_udp_client.ndjson" 2>&1
 
 wait "$bridge_pid"

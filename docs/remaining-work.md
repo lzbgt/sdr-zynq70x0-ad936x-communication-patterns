@@ -68,8 +68,12 @@ Z103 through source `swarm0` -> BLR `APP_DATA` TX lease -> peer RX ingest ->
 peer `swarm0`, and the kernel echo reply returns through the reverse worker
 queue. A separate socket gate now proves normal TCP and UDP echo clients over
 the same path with no FieldMesh SDK dependency in the client process. The
-remaining implementation work is to connect those driver queues to real RF
-packet ingress/egress, then prove ICMP/TCP/UDP over the RF path with measured
+2026-05-17 socket regression also verified that RF queue pressure is now treated
+as backpressure, not a fatal service error: a full TX/RX RF queue no longer
+closes the daemon-owned TUN service, and ordinary TCP/UDP echo traffic completed
+after the refreshed installed daemons were redeployed. The remaining
+implementation work is to connect those driver queues to real RF packet
+ingress/egress, then prove ICMP/TCP/UDP over the RF path with measured
 throughput, RTT, retransmits, queue age, and route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes

@@ -221,6 +221,11 @@ static void tun_service_rf_queue_reset(struct tun_service_rf_queue *queue)
     memset(queue->frame_lens, 0, sizeof(queue->frame_lens));
 }
 
+static int tun_service_rf_queue_full(const struct tun_service_rf_queue *queue)
+{
+    return queue && queue->count >= TUN_SERVICE_RF_QUEUE_DEPTH;
+}
+
 static int tun_service_rf_queue_push(struct tun_service_rf_queue *queue,
                                      const unsigned char *frame,
                                      size_t frame_len)
@@ -1211,6 +1216,9 @@ static fieldmesh_status_t tun_service_queue_rf_egress_frames(
     for (i = 0u; i < max_packets; ++i) {
         fieldmesh_status_t status;
 
+        if (tun_service_rf_queue_full(&service->rf_tx_queue)) {
+            return FIELDMESH_OK;
+        }
         payload_len = 0u;
         status = fieldmesh_adapter_recv_packet(service->adapter, payload,
                                                sizeof(payload), &payload_len,
@@ -1261,6 +1269,9 @@ static fieldmesh_status_t tun_service_rf_diagnostic_loopback_step(
     for (i = 0u; i < max_packets; ++i) {
         fieldmesh_status_t status;
 
+        if (tun_service_rf_queue_full(&service->rf_rx_queue)) {
+            return FIELDMESH_OK;
+        }
         egress_frame_len = 0u;
         if (!tun_service_rf_queue_pop(&service->rf_tx_queue, egress_frame,
                                       sizeof(egress_frame), &egress_frame_len)) {
@@ -1361,22 +1372,24 @@ static void tun_service_tick(struct tun_service_state *service)
     memset(&read_ctx, 0, sizeof(read_ctx));
     read_ctx.fd = service->fd;
     read_ctx.wait_ms = 0u;
-    pump_status = fieldmesh_tun_packetizer_pump_many(
-        service->adapter, read_tun_fd_wait_once, &read_ctx, pump_buffer,
-        sizeof(pump_buffer), service->max_packets_per_tick, &pump_report);
-    if (pump_status == FIELDMESH_OK) {
-        service->packets_pumped += pump_report.packets_read;
-        service->packets_sent += pump_report.packets_sent;
-        service->bytes_read += pump_report.bytes_read;
-        service->bytes_sent += pump_report.bytes_sent;
-    } else if (pump_status == FIELDMESH_ERR_TIMEOUT) {
-        service->recoverable_timeouts++;
-    } else {
-        service->errors++;
-        service->last_status = pump_status;
-        service->last_errno = read_ctx.last_errno;
-        tun_service_close(service);
-        return;
+    if (!tun_service_rf_queue_full(&service->rf_tx_queue)) {
+        pump_status = fieldmesh_tun_packetizer_pump_many(
+            service->adapter, read_tun_fd_wait_once, &read_ctx, pump_buffer,
+            sizeof(pump_buffer), service->max_packets_per_tick, &pump_report);
+        if (pump_status == FIELDMESH_OK) {
+            service->packets_pumped += pump_report.packets_read;
+            service->packets_sent += pump_report.packets_sent;
+            service->bytes_read += pump_report.bytes_read;
+            service->bytes_sent += pump_report.bytes_sent;
+        } else if (pump_status == FIELDMESH_ERR_TIMEOUT) {
+            service->recoverable_timeouts++;
+        } else {
+            service->errors++;
+            service->last_status = pump_status;
+            service->last_errno = read_ctx.last_errno;
+            tun_service_close(service);
+            return;
+        }
     }
 
     drain_status = tun_service_queue_rf_egress_frames(
@@ -4327,6 +4340,9 @@ static int build_response(fieldmesh_context_t *context,
                      "\"writes_hardware\":0}\n",
                      dst_device_eui, tun_service->local_device_eui);
             return 0;
+        }
+        if (tun_service_rf_queue_full(&tun_service->rf_rx_queue)) {
+            tun_service_tick(tun_service);
         }
         if (!tun_service_rf_queue_push(&tun_service->rf_rx_queue, frame,
                                        frame_len)) {

@@ -330,11 +330,11 @@ static int udp_client(const char *peer_ip, int port, const char *message,
         print_report("udp-client", 0, NULL, peer_ip, port, 0, 0, err);
         return 1;
     }
-    attempts = timeout_ms / SOCKET_DEMO_RETRY_SLICE_MS;
+    wait_ms = timeout_ms < 1000u ? timeout_ms : 1000u;
+    attempts = (timeout_ms + wait_ms - 1u) / wait_ms;
     if (attempts == 0u) {
         attempts = 1u;
     }
-    wait_ms = timeout_ms < 1000u ? timeout_ms : 1000u;
     err = ETIMEDOUT;
     got = 0;
     for (attempt = 0; attempt < attempts; ++attempt) {

@@ -1297,6 +1297,9 @@ Expected result in the current Pluto-compatible firmware state:
    also proves an actual Z203-to-Z103 ICMP ping over the simultaneous daemon bridge.
    A follow-on socket gate proves normal TCP and UDP echo traffic over that
    same bridge using a tiny client/server app that does not link to FieldMesh.
+   The daemon now treats full RF TX/RX queues as backpressure instead of a
+   fatal service error, so TCP bursts no longer close the native-IP service
+   before UDP echo traffic can complete.
    The remaining production boundary is connecting those queues to real RF
    packet ingress/egress.
    The SDK and state daemon now also bind that adapter output

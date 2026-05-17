@@ -4308,7 +4308,14 @@ daemon bridge. This is still a daemon/RF-worker proof, not real RF PHY TX/RX.
 The socket gate then staged `fieldmesh-native-ip-socket-demo` and ran ordinary
 TCP and UDP echo traffic over `swarm0`: TCP client/server each transferred 30
 bytes, UDP client/server each transferred 30 bytes, and the bridge moved seven
-Z203-to-Z103 frames plus six Z103-to-Z203 frames. The socket client/server do
+Z203-to-Z103 frames plus six Z103-to-Z203 frames. A later installed-runtime
+regression run found that TCP bursts could fill the eight-frame RF TX queue and
+the daemon treated that normal backpressure as fatal `no-memory`, closing the
+TUN service before UDP completed. The daemon now stops reading more TUN packets
+while the RF TX queue is full and lets RX ingest drain before declaring the RX
+queue full. The refreshed installed-runtime socket gate passed again with TCP
+and UDP client/server transfers of 30 bytes each; that run moved sixteen
+Z203-to-Z103 frames and twelve Z103-to-Z203 frames. The socket client/server do
 not link to the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
