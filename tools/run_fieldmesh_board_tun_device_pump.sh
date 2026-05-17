@@ -65,8 +65,14 @@ case "$mode" in
             exit 1
         fi
         ;;
+    loop)
+        if [ "$allow_live_tun_read" != "1" ] || [ "$allow_live_tun_write" != "1" ]; then
+            echo "Refusing live TUN event-loop step without ALLOW_LIVE_TUN_READ=1 and ALLOW_LIVE_TUN_WRITE=1" >&2
+            exit 1
+        fi
+        ;;
     *)
-        echo "MODE must be pump or drain" >&2
+        echo "MODE must be pump, drain, or loop" >&2
         exit 1
         ;;
 esac
@@ -143,7 +149,13 @@ burst_packets = int(sys.argv[5])
 mode = sys.argv[6]
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(timeout_ms / 1000.0)
-if mode == "drain":
+if mode == "loop":
+    request = (
+        "FIELDMESH_TUN_EVENT_LOOP_STEP v1 "
+        f"dst={dst_eui} max={burst_packets} "
+        "ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE"
+    )
+elif mode == "drain":
     request = (
         "FIELDMESH_TUN_DEV_DRAIN_BURST v1 "
         f"dst={dst_eui} max={burst_packets} ALLOW_LIVE_TUN_WRITE"
@@ -163,7 +175,7 @@ query_pid=$!
 
 sleep 0.3
 set +e
-if [ "$mode" = "pump" ]; then
+if [ "$mode" = "pump" ] || [ "$mode" = "loop" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
         "{ ip link set dev swarm0 up; ip route replace 10.77.2.0/24 dev swarm0; ip -json addr show dev swarm0; ping -c '$burst_packets' -W 1 10.77.2.20; } > '$remote_inject' 2>&1"
     inject_rc=$?
@@ -219,7 +231,9 @@ for line in (out_dir / "host_live_request.ndjson").read_text(encoding="utf-8").s
     line = line.strip()
     if line.startswith("{"):
         rows.append(json.loads(line))
-if mode == "drain":
+if mode == "loop":
+    event_name = "sdk_daemon_tun_event_loop_step_live"
+elif mode == "drain":
     event_name = "sdk_daemon_tun_device_drain_burst_live"
 else:
     event_name = (
@@ -233,7 +247,10 @@ if not live:
 event = live[0]
 if event.get("ok") != 1:
     raise SystemExit(f"live TUN device {mode} failed: {event}")
-if mode == "drain":
+if mode == "loop":
+    required_ones = ("opens_dev_net_tun", "attaches_tun_if",
+                     "reads_from_tun", "writes_to_tun")
+elif mode == "drain":
     required_ones = ("opens_dev_net_tun", "attaches_tun_if", "written_to_tun")
 else:
     required_ones = ("opens_dev_net_tun", "attaches_tun_if", "reads_from_tun")
@@ -245,7 +262,18 @@ for key in ("commands_executed", "writes_network", "uses_iio", "uses_inter_board
         raise SystemExit(f"live TUN device {mode} key {key} must be 0")
 if event.get("dst_device_eui") != dst_eui:
     raise SystemExit(f"live TUN device {mode} did not preserve destination EUI")
-if mode == "drain":
+if mode == "loop":
+    if event.get("sent_to_fieldmesh_adapter") != 1:
+        raise SystemExit("live TUN event-loop step did not send to FieldMesh adapter")
+    if event.get("received_from_fieldmesh_adapter") != 1:
+        raise SystemExit("live TUN event-loop step did not receive from FieldMesh adapter")
+    if event.get("packets_pumped") != burst_packets or event.get("packets_sent") != burst_packets:
+        raise SystemExit(f"live TUN event-loop pump count mismatch: {event}")
+    if event.get("packets_received") != burst_packets or event.get("packets_written") != burst_packets:
+        raise SystemExit(f"live TUN event-loop drain count mismatch: {event}")
+    if event.get("next_boundary") != "continuous_tun_event_loop":
+        raise SystemExit("live TUN event-loop next boundary is wrong")
+elif mode == "drain":
     if event.get("received_from_fieldmesh_adapter") != 1:
         raise SystemExit("live TUN device drain did not receive from FieldMesh adapter")
     if event.get("packets_received") != burst_packets or event.get("packets_written") != burst_packets:
@@ -261,7 +289,7 @@ else:
         raise SystemExit("live TUN device pump next boundary is wrong")
     if event.get("packets_read") != burst_packets or event.get("packets_sent") != burst_packets:
         raise SystemExit(f"live TUN device pump packet count mismatch: {event}")
-if mode == "drain" or burst_packets > 1:
+if mode in ("drain", "loop") or burst_packets > 1:
     if event.get("event_loop_ready") != 1 or event.get("bounded_batch") != 1:
         raise SystemExit(f"live TUN {mode} did not report event-loop bounded batch readiness")
     if event.get("max_packets") != burst_packets:

@@ -4243,6 +4243,9 @@ Native TCP/IP is split into two checked daemon directions:
 
 The SDK stream shim now uses a bounded ring queue instead of a single
 last-packet slot, so same-class packet bursts cannot collapse before drain.
+`FIELDMESH_TUN_EVENT_LOOP_STEP` is the current bounded daemon event-loop
+boundary: it requires both live-read and live-write authorization, performs one
+bounded pump+drain step, and reports `next_boundary=continuous_tun_event_loop`.
 
 Live installed-board verification on 2026-05-17 passed:
 

@@ -539,6 +539,15 @@ the allow token it attaches the existing board-local `swarm0`, drains a bounded
 adapter batch, writes the packets into the TUN fd, and reports
 `next_boundary=client_kernel_ip_stack`.
 
+The first continuous-loop boundary is `FIELDMESH_TUN_EVENT_LOOP_STEP`. It is
+still a bounded request, not the final forever daemon loop, but it opens the
+board-local `swarm0` descriptor once, pumps a bounded client-kernel-to-adapter
+batch, drains a bounded adapter-to-client-kernel batch, and reports
+`next_boundary=continuous_tun_event_loop`. Live use requires both
+`ALLOW_LIVE_TUN_READ` and `ALLOW_LIVE_TUN_WRITE`; the guard response performs
+no descriptor open, command execution, network write, IIO, or inter-board IP
+routing.
+
 The RF packet-engine handoff is now explicit too:
 `fieldmesh_plan_rf_packet()` / `fieldmesh_submit_rf_packet()` take adapter
 packet metadata and payload length, preserve the selected direct-or-relayed RF
@@ -593,6 +602,9 @@ packetizer API. `tools/run_fieldmesh_board_tun_device_pump.sh` is the live Zynq
 gate for both single-packet and bounded-burst forms. The same runner supports
 `MODE=drain` to verify `FIELDMESH_TUN_DEV_DRAIN_BURST`, the adapter-to-TUN
 injection direction needed before ordinary TCP/IP clients can receive traffic.
+It also supports `MODE=loop` to verify the guarded one-step event-loop boundary
+before replacing the request/response proof with the installed daemon's
+long-running poll loop.
 
 The pure-C SDK also exposes the first TUN gateway planning contract through
 `fieldmesh_plan_tun_adapter()`. It returns the board-local adapter name, mesh

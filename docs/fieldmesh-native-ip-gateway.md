@@ -132,6 +132,8 @@ Minimum production gates for native TCP/IP:
   `swarm0`, proving the RF/adapter-to-client-kernel direction;
 - SDK stream queues preserve same-class bursts instead of collapsing them into
   a single last-packet slot;
+- daemon owns a guarded TUN event-loop step that performs both directions in
+  one bounded operation and reports `next_boundary=continuous_tun_event_loop`;
 - host route to a remote mesh peer works through the local board;
 - `ping`/ICMP succeeds through the radio path;
 - TCP `iperf3` or an equivalent socket test passes with measured throughput,

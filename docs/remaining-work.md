@@ -42,10 +42,12 @@ reverse direction now has the matching drain contract:
 `fieldmesh_tun_packetizer_drain_many()` and
 `FIELDMESH_TUN_DEV_DRAIN_BURST` receive a bounded FieldMesh adapter batch and
 write it into board-local `swarm0`, making the next boundary the client kernel
-IP stack. The remaining implementation work is to run pump and drain
-continuously as the installed daemon's TUN event loop, then prove ICMP/TCP/UDP
-over the RF path with measured throughput, RTT, retransmits, queue age, and
-route-failover behavior.
+IP stack. `FIELDMESH_TUN_EVENT_LOOP_STEP` now combines both halves in one
+guarded bounded operation and reports `next_boundary=continuous_tun_event_loop`.
+The remaining implementation work is to replace that bounded request/response
+step with the installed daemon's long-running poll loop, then prove
+ICMP/TCP/UDP over the RF path with measured throughput, RTT, retransmits, queue
+age, and route-failover behavior.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary

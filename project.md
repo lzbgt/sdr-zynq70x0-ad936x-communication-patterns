@@ -1265,6 +1265,9 @@ Expected result in the current Pluto-compatible firmware state:
    now explicit too: `fieldmesh_tun_packetizer_drain_many()` and
    `FIELDMESH_TUN_DEV_DRAIN_BURST` drain a bounded FieldMesh adapter batch into
    board-local `swarm0`, making the next boundary the client kernel IP stack.
+   `FIELDMESH_TUN_EVENT_LOOP_STEP` now combines the pump and drain halves in one
+   guarded bounded daemon step, reporting `continuous_tun_event_loop` as the
+   next boundary before the final long-running poll loop lands.
    The SDK and state daemon now also bind that adapter output
    to a checked RF packet-engine handoff contract: packets are queued toward
    sidecar DMA and `fieldmesh_rf_packet_engine`, direct RF route metadata is
