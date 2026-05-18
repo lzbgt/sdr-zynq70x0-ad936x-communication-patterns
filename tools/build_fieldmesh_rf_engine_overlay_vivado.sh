@@ -64,17 +64,9 @@ patch_args=(
   --apply
 )
 if [[ "$enable_gnss_uart_emio" == "1" ]]; then
-  if [[ "$variant" != "z203" ]]; then
-    echo "ENABLE_GNSS_UART_EMIO=1 currently has verified pins only for z203" >&2
-    exit 2
-  fi
   patch_args+=(--gnss-uart-emio)
 fi
 if [[ "$enable_gnss_pps_emio" == "1" ]]; then
-  if [[ "$variant" != "z203" ]]; then
-    echo "ENABLE_GNSS_PPS_EMIO=1 currently has verified pins only for z203" >&2
-    exit 2
-  fi
   patch_args+=(--gnss-pps-emio)
 fi
 "${patch_args[@]}" >"$work_root/fieldmesh_rf_engine_overlay_patch.json"

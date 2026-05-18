@@ -110,7 +110,8 @@ GNSS_PPS_EMIO_DTSI = """// SPDX-License-Identifier: GPL-2.0
  *
  * Include this only with a bitstream/PS7 configuration that routes the board
  * GPS_PPS signal into PS GPIO EMIO bit 17. Zynq GPIO numbering maps EMIO bit 17
- * to Linux GPIO 71 because EMIO starts at GPIO 54.
+ * to Linux GPIO 71 because EMIO starts at GPIO 54. The matching bitstream must
+ * constrain that EMIO input to the variant-specific GPS_PPS package pin.
  */
 
 / {
@@ -380,7 +381,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--enable-gnss-pps-emio",
         action="store_true",
-        help="include the Z203 GPS_PPS-to-EMIO GPIO PPS fragment; use only with a matching bitstream/PS7 config",
+        help="include the GPS_PPS-to-EMIO GPIO PPS fragment; use only with a matching variant bitstream/PS7 config",
     )
     return parser.parse_args()
 

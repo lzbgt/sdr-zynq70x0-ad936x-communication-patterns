@@ -1208,15 +1208,16 @@ user and vendor configuration.
   The opt-in Z203 GNSS PPS EMIO path now clears the PPS half in devicetree
   when the matching bitstream contract is requested.
 - `tools/verify_fieldmesh_gnss_uart_emio_overlay.sh` - verifies the opt-in
-  Z203 GNSS UART overlay patch. It proves the copied HDL patch enables PS
-  UART0 over EMIO, adds top-level `gnss_uart0_rxd`/`gnss_uart0_txd`, writes the
-  vendor-evidenced K21/L21 XDC constraints, and pairs that bitstream contract
-  with a DTB that exposes UART0 as non-console GNSS NMEA.
+  GNSS UART overlay patch for Z203 and Z103. It proves the copied HDL patch
+  enables PS UART0 over EMIO, adds top-level `gnss_uart0_rxd`/`gnss_uart0_txd`,
+  writes the variant-specific UART constraints (`K21/L21` for Z203,
+  `A20/B19` for Z103), and pairs that bitstream contract with a DTB that
+  exposes UART0 as non-console GNSS NMEA.
 - `tools/verify_fieldmesh_gnss_pps_emio_overlay.sh` - verifies the opt-in
-  Z203 GNSS PPS overlay patch. It expands PS GPIO EMIO to 18 bits, routes the
-  schematic-evidenced `GPS_PPS` M21 pin into top-level `gnss_pps`, writes the
-  M21/LVCMOS18 XDC constraint, and pairs that bitstream contract with a
-  `pps-gpio` DTB node on Linux GPIO 71.
+  GNSS PPS overlay patch for Z203 and Z103. It expands PS GPIO EMIO to 18 bits,
+  routes schematic-evidenced `GPS_PPS` into top-level `gnss_pps`, writes the
+  variant-specific PPS constraint (`M21` for Z203, `B20` for Z103), and pairs
+  that bitstream contract with a `pps-gpio` DTB node on Linux GPIO 71.
 - `tools/stage_fieldmesh_sd_boot_files.sh` - the guarded Z203 SD/initramfs
   staging path used while Z203 QSPI remains unsafe. It accepts
   `ENABLE_GNSS_UART_EMIO=1` and `ENABLE_GNSS_PPS_EMIO=1` and stages the
@@ -1241,8 +1242,9 @@ user and vendor configuration.
   evidence. The refreshed Z203 bitstream/DTB has booted with
   `CONFIG_PPS_CLIENT_GPIO=y`; live preflight now sees `/dev/pps0` and
   `/sys/class/pps/pps0`, and dmesg registers `fieldmesh-gnss-pps` as the PPS
-  source. Z203 has passed the Linux PPS exposure gate; Z103 still has no
-  configured GNSS/PPS path.
+  source. Z203 has passed the Linux PPS exposure gate. Z103 has a verified
+  schematic-backed A20/B19/B20 GNSS overlay contract, but still needs a
+  refreshed installed runtime before it can provide live GNSS/PPS evidence.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

@@ -74,17 +74,9 @@ dt_args=(
   --out-dir "$out_dir/devicetree"
 )
 if [[ "$enable_gnss_uart_emio" == "1" ]]; then
-  if [[ "$variant" != "z203" ]]; then
-    echo "ENABLE_GNSS_UART_EMIO=1 currently has verified pins only for z203" >&2
-    exit 2
-  fi
   dt_args+=(--enable-gnss-uart-emio --require-gnss-uart)
 fi
 if [[ "$enable_gnss_pps_emio" == "1" ]]; then
-  if [[ "$variant" != "z203" ]]; then
-    echo "ENABLE_GNSS_PPS_EMIO=1 currently has verified pins only for z203" >&2
-    exit 2
-  fi
   dt_args+=(--enable-gnss-pps-emio --require-gnss-pps)
 fi
 "${dt_args[@]}" >"$out_dir/fieldmesh_devicetree_plan.json"

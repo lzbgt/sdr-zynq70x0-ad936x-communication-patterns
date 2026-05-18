@@ -28,19 +28,49 @@ BD_GNSS_UART_END = "# FieldMesh GNSS UART EMIO overlay: end"
 BD_GNSS_PPS_BEGIN = "# FieldMesh GNSS PPS EMIO overlay: begin"
 BD_GNSS_PPS_END = "# FieldMesh GNSS PPS EMIO overlay: end"
 RF_ENGINE_XDC = "constraints/fieldmesh_axis_async_fifo_cdc.xdc"
-GNSS_UART_XDC_REL = "fieldmesh/fieldmesh_gnss_uart_z203.xdc"
-GNSS_PPS_XDC_REL = "fieldmesh/fieldmesh_gnss_pps_z203.xdc"
-GNSS_UART_XDC = """# FieldMesh GNSS UART EMIO constraints for SDR-Z203.
+GNSS_UART_XDC_REL_TEMPLATE = "fieldmesh/fieldmesh_gnss_uart_{variant}.xdc"
+GNSS_PPS_XDC_REL_TEMPLATE = "fieldmesh/fieldmesh_gnss_pps_{variant}.xdc"
+GNSS_UART_XDC = {
+    "z203": """# FieldMesh GNSS UART EMIO constraints for SDR-Z203.
 # Source evidence: vendor gps_transfer example routes UART_0_rxd/UART_0_txd
 # to K21/L21 with LVCMOS18. Use only on matching Z203 hardware.
 set_property -dict {PACKAGE_PIN K21 IOSTANDARD LVCMOS18} [get_ports gnss_uart0_rxd]
 set_property -dict {PACKAGE_PIN L21 IOSTANDARD LVCMOS18} [get_ports gnss_uart0_txd]
-"""
-GNSS_PPS_XDC = """# FieldMesh GNSS PPS EMIO constraint for SDR-Z203.
+""",
+    "z103": """# FieldMesh GNSS UART EMIO constraints for SDR-Z103.
+# Source evidence: SDR-Z103 schematic text extraction maps GPS_TXD/GPS_RXD
+# to Zynq package pins A20/B19 in bank 35. Use only on matching Z103 hardware.
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS18} [get_ports gnss_uart0_rxd]
+set_property -dict {PACKAGE_PIN B19 IOSTANDARD LVCMOS18} [get_ports gnss_uart0_txd]
+""",
+}
+GNSS_PPS_XDC = {
+    "z203": """# FieldMesh GNSS PPS EMIO constraint for SDR-Z203.
 # Source evidence: SDR-Z203 schematic text extraction maps GPS_PPS to Zynq
 # package pin M21 in bank 34. Use only on matching Z203 hardware.
 set_property -dict {PACKAGE_PIN M21 IOSTANDARD LVCMOS18} [get_ports gnss_pps]
-"""
+""",
+    "z103": """# FieldMesh GNSS PPS EMIO constraint for SDR-Z103.
+# Source evidence: SDR-Z103 schematic text extraction maps GPS_PPS to Zynq
+# package pin B20 in bank 35. Use only on matching Z103 hardware.
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS18} [get_ports gnss_pps]
+""",
+}
+
+
+def gnss_xdc(variant_name: str, kind: str) -> tuple[str, str]:
+    if kind == "uart":
+        table = GNSS_UART_XDC
+        template = GNSS_UART_XDC_REL_TEMPLATE
+    elif kind == "pps":
+        table = GNSS_PPS_XDC
+        template = GNSS_PPS_XDC_REL_TEMPLATE
+    else:
+        raise ValueError(kind)
+    try:
+        return template.format(variant=variant_name), table[variant_name]
+    except KeyError as exc:
+        raise SystemExit(f"{kind} GNSS EMIO has verified pins only for z203/z103, not {variant_name}") from exc
 
 
 def rel_rtl_name(rtl_path: str) -> str:
@@ -544,19 +574,21 @@ def apply_patch(
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
     if gnss_uart_emio:
-        copied_xdc_files.append(str(project_dir / GNSS_UART_XDC_REL))
+        uart_xdc_rel, uart_xdc_text = gnss_xdc(variant_name, "uart")
+        copied_xdc_files.append(str(project_dir / uart_xdc_rel))
         if apply:
-            gnss_xdc = project_dir / GNSS_UART_XDC_REL
-            gnss_xdc.parent.mkdir(parents=True, exist_ok=True)
-            gnss_xdc.write_text(GNSS_UART_XDC)
-        rel_xdc_files.append(GNSS_UART_XDC_REL)
+            gnss_xdc_path = project_dir / uart_xdc_rel
+            gnss_xdc_path.parent.mkdir(parents=True, exist_ok=True)
+            gnss_xdc_path.write_text(uart_xdc_text)
+        rel_xdc_files.append(uart_xdc_rel)
     if gnss_pps_emio:
-        copied_xdc_files.append(str(project_dir / GNSS_PPS_XDC_REL))
+        pps_xdc_rel, pps_xdc_text = gnss_xdc(variant_name, "pps")
+        copied_xdc_files.append(str(project_dir / pps_xdc_rel))
         if apply:
-            pps_xdc = project_dir / GNSS_PPS_XDC_REL
-            pps_xdc.parent.mkdir(parents=True, exist_ok=True)
-            pps_xdc.write_text(GNSS_PPS_XDC)
-        rel_xdc_files.append(GNSS_PPS_XDC_REL)
+            pps_xdc_path = project_dir / pps_xdc_rel
+            pps_xdc_path.parent.mkdir(parents=True, exist_ok=True)
+            pps_xdc_path.write_text(pps_xdc_text)
+        rel_xdc_files.append(pps_xdc_rel)
 
     project_text = system_project.read_text()
     patched_project, project_changed = patch_system_project(project_text, rel_files, rel_xdc_files)
@@ -643,12 +675,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--gnss-uart-emio",
         action="store_true",
-        help="also expose PS UART0 over EMIO as GNSS NMEA using Z203 K21/L21 constraints",
+        help="also expose PS UART0 over EMIO as GNSS NMEA using variant-specific constraints",
     )
     parser.add_argument(
         "--gnss-pps-emio",
         action="store_true",
-        help="also expose SDR-Z203 GPS_PPS on M21 as PS GPIO EMIO bit 17 for pps-gpio",
+        help="also expose variant GPS_PPS as PS GPIO EMIO bit 17 for pps-gpio",
     )
     return parser.parse_args()
 

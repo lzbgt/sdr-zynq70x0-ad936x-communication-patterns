@@ -99,11 +99,29 @@ board-level power/POR reset. If a PL AXI fault leaves OpenOCD reporting
 support an FTDI GPIO hardware-reset workaround; use a real JTAG-mode power
 cycle.
 
+## SDR-Z103 GNSS/PPS Notes
+
+`resources/variants/sdr-z103-z7010-1r1t/board/SDR-Z103原理图.pdf` also
+contains a MAX-M10S GNSS block. Text extraction shows:
+
+- `GPS_TXD` / `GPS_RXD` connected to the module UART pins.
+- `GPS_PPS` connected to the module `TIMEPULSE` pin.
+- `GPS_RST` connected to the module reset pin.
+- Zynq package-pin mapping in PL bank 35:
+  - `GPS_TXD` -> A20
+  - `GPS_RXD` -> B19
+  - `GPS_PPS` -> B20
+  - `GPS_RST` -> C20
+
+Project implication: Z103 has schematic-backed GNSS/PPS exposure candidates,
+but they are PL-bank pins, not a default Linux serial/PPS path. They require
+the guarded UART0-over-EMIO and PPS-over-EMIO bitstream/devicetree path before
+the board can provide production GNSS/PPS evidence.
+
 ## Variant Boundary
 
-These notes apply to SDR-Z203 only. SDR-Z103 is similar but is user-confirmed as
-Zynq-7010 + AD9363 + 1R1T, with schematic and board information external at
-`/mnt/c/baidunetdiskdownload/SDR-Z103`. Most source code may be shared, but the
-Zynq-7010 vs Zynq-7020 and 1R1T vs 2R2T differences still require separate
-schematic notes, constraints, PS configuration, devicetree, boot artifacts, and
-verification captures.
+These notes started from SDR-Z203 and now also record the Z103 GNSS/PPS pins
+above. SDR-Z103 is user-confirmed as Zynq-7010 + AD9363 + 1R1T. Most source
+code may be shared, but the Zynq-7010 vs Zynq-7020 and 1R1T vs 2R2T differences
+still require separate constraints, PS configuration, devicetree, boot
+artifacts, and verification captures.

@@ -56,10 +56,17 @@ GNSS hardware exposure is opt-in and must be paired with a matching bitstream:
 ```
 
 `--enable-gnss-uart-emio` exposes PS UART0 as the non-console GNSS NMEA
-device. `--enable-gnss-pps-emio` emits a `pps-gpio` node for the Z203
+device. `--enable-gnss-pps-emio` emits a `pps-gpio` node for the variant
 `GPS_PPS` signal routed to PS GPIO EMIO bit 17, which is Linux GPIO 71. These
 fragments are not enabled by default because they are only valid with the
-matching Z203 EMIO bitstream and pin constraints.
+matching EMIO bitstream and variant pin constraints.
+
+Verified constraint mappings:
+
+| Variant | GNSS UART RX input | GNSS UART TX output | PPS input |
+| --- | --- | --- | --- |
+| Z203 | K21, `GPS_TXD` | L21, `GPS_RXD` | M21, `GPS_PPS` |
+| Z103 | A20, `GPS_TXD` | B19, `GPS_RXD` | B20, `GPS_PPS` |
 
 The Linux image must also include the GPIO PPS client driver. The product
 kernel recipes force `CONFIG_PPS_CLIENT_GPIO=y`; a DTB-only PPS node is not
@@ -127,6 +134,7 @@ This is a binding contract, offline validation gate, and package assembly path.
 The Z203 SD/QSPI FieldMesh runtime has booted the UART/PPS EMIO fragment with
 the matched overlay bitstream and a kernel containing `CONFIG_PPS_CLIENT_GPIO`.
 Live preflight now sees `/dev/pps0` and `/sys/class/pps/pps0`, and dmesg shows
-the `fieldmesh-gnss-pps` source registered. Z103 remains gated on its
-runtime/JTAG boot boundary and does not currently have a configured GNSS
-UART/PPS path.
+the `fieldmesh-gnss-pps` source registered. Z103 now has a verified
+schematic-backed overlay contract for A20/B19/B20, but still needs a refreshed
+GNSS EMIO bitstream/runtime installed before it can provide live GNSS/PPS
+evidence.
