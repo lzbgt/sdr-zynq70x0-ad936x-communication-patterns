@@ -3658,7 +3658,10 @@ Result:
 This gate combines a successful live RF-worker/IIO bridge report with feature
 behavior for messaging, topology, and native-IP, then feeds the normalized app
 reports into the production gate. It refuses dry-run bridge evidence and feature
-reports that use inter-board host-IP payload routing.
+reports that use inter-board host-IP payload routing. The feature reports must
+also name the exact RF-worker/IIO bridge report and nested IQ live-run report
+they validate, so a stale or uncorrelated app result cannot be combined with a
+separate measured RF decode.
 
 The full conducted/shielded production sequence is wrapped by:
 
@@ -3678,7 +3681,8 @@ runs or consumes the RF-worker/IIO bridge, derives normalized app real-RF
 reports from messaging/topology/native-IP feature evidence, and then invokes
 the production gate. Dry-run is the default. Live RF still requires explicit
 hardware-write, RF-TX, daemon-queue mutation, fixture evidence, fixture ID, and
-operator-confirmation inputs.
+operator-confirmation inputs. Raw app feature evidence supplied to the wrapper
+must be correlated to the same bridge and IQ live-run reports.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

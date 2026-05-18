@@ -52,6 +52,35 @@ def require_bridge(bridge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def require_feature_correlation(
+    *,
+    feature: dict[str, Any],
+    feature_name: str,
+    bridge_summary: dict[str, Any],
+    bridge_report_path: Path,
+) -> None:
+    if feature.get("feature", feature.get("app_feature")) != feature_name:
+        raise SystemExit(f"{feature_name}: feature report must name the expected feature")
+    if feature.get("transport") != "real_rf_phy":
+        raise SystemExit(f"{feature_name}: feature report transport must be real_rf_phy")
+    if feature.get("rf_phy_tx_rx_verified") not in (True, 1):
+        raise SystemExit(f"{feature_name}: feature report must prove rf_phy_tx_rx_verified")
+    if feature.get("app_verified_real_rf") not in (True, 1):
+        raise SystemExit(f"{feature_name}: feature report must prove app_verified_real_rf")
+
+    expected_bridge = str(bridge_report_path.resolve(strict=False))
+    reported_bridge = feature.get("bridge_report", feature.get("rf_bridge_report"))
+    if not isinstance(reported_bridge, str) or str(Path(reported_bridge).resolve(strict=False)) != expected_bridge:
+        raise SystemExit(f"{feature_name}: feature report must reference the same RF bridge report")
+
+    expected_iq = bridge_summary.get("iq_iio_live_run")
+    reported_iq = feature.get("iq_iio_live_run")
+    if not isinstance(expected_iq, str) or not isinstance(reported_iq, str):
+        raise SystemExit(f"{feature_name}: feature report must reference the same IQ live-run report")
+    if str(Path(reported_iq).resolve(strict=False)) != str(Path(expected_iq).resolve(strict=False)):
+        raise SystemExit(f"{feature_name}: feature report must reference the same IQ live-run report")
+
+
 def messaging_details(feature: dict[str, Any]) -> dict[str, Any]:
     delivered = feature.get("messages_delivered", feature.get("messages", 0))
     if not isinstance(delivered, int) or delivered < 1:
@@ -102,6 +131,12 @@ def build_source(args: argparse.Namespace) -> dict[str, Any]:
         raise SystemExit("feature report is not ok")
     if feature.get("uses_inter_board_ip_routing") not in (False, 0, None):
         raise SystemExit("feature report must not use inter-board host-IP payload routing")
+    require_feature_correlation(
+        feature=feature,
+        feature_name=args.feature,
+        bridge_summary=bridge,
+        bridge_report_path=args.bridge_report,
+    )
 
     if args.feature == "messaging":
         details = messaging_details(feature)

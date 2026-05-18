@@ -78,15 +78,49 @@ live["source_ack"] = {
 Path(sys.argv[2]).write_text(json.dumps(live, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 
-cat > "$work_dir/messaging_feature.json" <<'JSON'
-{"event":"fieldmesh_messaging_feature_assert","ok":true,"messages_delivered":1,"uses_json_on_air":0,"uses_inter_board_ip_routing":0}
-JSON
-cat > "$work_dir/topology_feature.json" <<'JSON'
-{"event":"fieldmesh_topology_feature_assert","ok":true,"peers_with_range":1,"range_source":"packet_timing_tdoa","topology_metrics_live":true,"uses_inter_board_ip_routing":0}
-JSON
-cat > "$work_dir/native_ip_feature.json" <<'JSON'
-{"event":"fieldmesh_native_ip_feature_assert","ok":true,"icmp_ping_ok":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":0}
-JSON
+python3 - "$work_dir/live_bridge.json" "$work_dir" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+bridge = Path(sys.argv[1])
+work = Path(sys.argv[2])
+iq = json.loads(bridge.read_text(encoding="utf-8"))["iq_iio_live_run"]
+common = {
+    "ok": True,
+    "transport": "real_rf_phy",
+    "rf_phy_tx_rx_verified": True,
+    "app_verified_real_rf": True,
+    "bridge_report": str(bridge),
+    "iq_iio_live_run": iq,
+    "uses_inter_board_ip_routing": 0,
+}
+reports = {
+    "messaging": {
+        "event": "fieldmesh_messaging_feature_assert",
+        "messages_delivered": 1,
+        "uses_json_on_air": 0,
+    },
+    "topology": {
+        "event": "fieldmesh_topology_feature_assert",
+        "peers_with_range": 1,
+        "range_source": "packet_timing_tdoa",
+        "topology_metrics_live": True,
+    },
+    "native_ip": {
+        "event": "fieldmesh_native_ip_feature_assert",
+        "icmp_ping_ok": True,
+        "tcp_client_bytes": 30,
+        "udp_client_bytes": 30,
+    },
+}
+for feature, payload in reports.items():
+    data = {**common, **payload, "feature": feature}
+    (work / f"{feature}_feature.json").write_text(
+        json.dumps(data, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+PY
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_feature.json" \
@@ -116,9 +150,15 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
-cat > "$work_dir/native_ip_bad_feature.json" <<'JSON'
-{"event":"fieldmesh_native_ip_feature_assert","ok":true,"icmp_ping_ok":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":1}
-JSON
+python3 - "$work_dir/native_ip_feature.json" "$work_dir/native_ip_bad_feature.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["uses_inter_board_ip_routing"] = 1
+Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_feature.json" \
@@ -128,5 +168,26 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   OUT_DIR="$work_dir/bad-native-ip-sequence" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
   echo "conducted RF production sequence accepted host-IP-routed native-IP feature evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/messaging_feature.json" "$work_dir/messaging_uncorrelated_feature.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["bridge_report"] = "/tmp/not-the-live-bridge.json"
+Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
+  APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
+  APP_NATIVE_IP_FEATURE_REPORT="$work_dir/native_ip_feature.json" \
+  EXPECT_PRODUCTION_READY=1 \
+  OUT_DIR="$work_dir/uncorrelated-feature-sequence" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "conducted RF production sequence accepted uncorrelated feature evidence" >&2
   exit 1
 fi

@@ -40,15 +40,49 @@ live["source_ack"] = {
 Path(sys.argv[2]).write_text(json.dumps(live, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 
-cat > "$work_dir/messaging_feature.json" <<'JSON'
-{"event":"fieldmesh_messaging_feature_assert","ok":true,"messages_delivered":1,"uses_json_on_air":0,"uses_inter_board_ip_routing":0}
-JSON
-cat > "$work_dir/topology_feature.json" <<'JSON'
-{"event":"fieldmesh_topology_feature_assert","ok":true,"peers_with_range":1,"range_source":"packet_timing_tdoa","topology_metrics_live":true,"uses_inter_board_ip_routing":0}
-JSON
-cat > "$work_dir/native_ip_feature.json" <<'JSON'
-{"event":"fieldmesh_native_ip_feature_assert","ok":true,"icmp_ping_ok":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":0}
-JSON
+python3 - "$work_dir/live_bridge.json" "$work_dir" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+bridge = Path(sys.argv[1])
+work = Path(sys.argv[2])
+iq = json.loads(bridge.read_text(encoding="utf-8"))["iq_iio_live_run"]
+common = {
+    "ok": True,
+    "transport": "real_rf_phy",
+    "rf_phy_tx_rx_verified": True,
+    "app_verified_real_rf": True,
+    "bridge_report": str(bridge),
+    "iq_iio_live_run": iq,
+    "uses_inter_board_ip_routing": 0,
+}
+reports = {
+    "messaging": {
+        "event": "fieldmesh_messaging_feature_assert",
+        "messages_delivered": 1,
+        "uses_json_on_air": 0,
+    },
+    "topology": {
+        "event": "fieldmesh_topology_feature_assert",
+        "peers_with_range": 1,
+        "range_source": "packet_timing_tdoa",
+        "topology_metrics_live": True,
+    },
+    "native_ip": {
+        "event": "fieldmesh_native_ip_feature_assert",
+        "icmp_ping_ok": True,
+        "tcp_client_bytes": 30,
+        "udp_client_bytes": 30,
+    },
+}
+for feature, payload in reports.items():
+    data = {**common, **payload, "feature": feature}
+    (work / f"{feature}_feature.json").write_text(
+        json.dumps(data, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+PY
 
 for feature in messaging topology native_ip; do
   "$repo_root/tools/fieldmesh_app_real_rf_source_from_bridge.py" \
@@ -98,9 +132,15 @@ if "$repo_root/tools/fieldmesh_app_real_rf_source_from_bridge.py" \
   exit 1
 fi
 
-cat > "$work_dir/native_ip_driver_queue_feature.json" <<'JSON'
-{"event":"fieldmesh_native_ip_feature_assert","ok":true,"icmp_ping_ok":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":1}
-JSON
+python3 - "$work_dir/native_ip_feature.json" "$work_dir/native_ip_driver_queue_feature.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["uses_inter_board_ip_routing"] = 1
+Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+PY
 if "$repo_root/tools/fieldmesh_app_real_rf_source_from_bridge.py" \
   --feature native_ip \
   --bridge-report "$work_dir/live_bridge.json" \
@@ -108,5 +148,24 @@ if "$repo_root/tools/fieldmesh_app_real_rf_source_from_bridge.py" \
   --output "$work_dir/native_ip_bad_source.json" \
   >/dev/null 2>&1; then
   echo "bridge app source accepted inter-board host-IP feature evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/messaging_feature.json" "$work_dir/messaging_uncorrelated_feature.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["bridge_report"] = "/tmp/not-the-live-bridge.json"
+Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_app_real_rf_source_from_bridge.py" \
+  --feature messaging \
+  --bridge-report "$work_dir/live_bridge.json" \
+  --feature-report "$work_dir/messaging_uncorrelated_feature.json" \
+  --output "$work_dir/messaging_uncorrelated_source.json" \
+  >/dev/null 2>&1; then
+  echo "bridge app source accepted uncorrelated feature evidence" >&2
   exit 1
 fi
