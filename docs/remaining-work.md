@@ -53,16 +53,20 @@ IP packets now also cross a binary BLR `APP_DATA` MAC-frame egress/ingress
 boundary through explicit TX/RX RF transport queues before drain-back to
 `swarm0`; the default transport mode is now `driver_queue`, with
 `FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` and
-`FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker boundary. TX lease is
-non-destructive, so frames are removed only after ACK instead of being lost on
-delivery timeout. The older `FIELDMESH_RF_TX_POLL` remains a legacy destructive
-diagnostic. RX ingest now validates BLR `APP_DATA` type and destination EUI
-before the frame can reach `swarm0`. `diagnostic_loopback` remains explicit
-test-only. A two-board host RF-worker bridge now verifies the contract across
-installed daemons in both directions: Z203-to-Z103 and Z103-to-Z203 each lease
-BLR frames from the source TX queue, feed those exact peer-addressed frames
-through peer RX ingest, ACK them after successful ingest, and write them into
-the peer `swarm0`. The same
+`FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker boundary. The daemon now also
+has first-class RF worker lifecycle controls:
+`FIELDMESH_RF_WORKER_START`, `FIELDMESH_RF_WORKER_STATUS`, and
+`FIELDMESH_RF_WORKER_STOP`. That worker observes and advances the driver-queue
+boundary inside the daemon, but still reports `rf_phy_tx_rx=0`; it is not a
+fake radio. TX lease is non-destructive, so frames are removed only after ACK
+instead of being lost on delivery timeout. The older `FIELDMESH_RF_TX_POLL`
+remains a legacy destructive diagnostic. RX ingest now validates BLR `APP_DATA`
+type and destination EUI before the frame can reach `swarm0`.
+`diagnostic_loopback` remains explicit test-only. A two-board host RF-worker
+bridge now verifies the contract across installed daemons in both directions:
+Z203-to-Z103 and Z103-to-Z203 each lease BLR frames from the source TX queue,
+feed those exact peer-addressed frames through peer RX ingest, ACK them after
+successful ingest, and write them into the peer `swarm0`. The same
 gate now also proves ICMP over the daemon RF-worker bridge: Z203 can `ping`
 Z103 through source `swarm0` -> BLR `APP_DATA` TX lease -> peer RX ingest ->
 peer `swarm0`, and the kernel echo reply returns through the reverse worker
@@ -110,16 +114,19 @@ Firmware state:
   SD/initramfs path when the SD partition is visible. Post-reboot checks require
   current FieldMesh daemon capabilities and always-on process arguments instead
   of accepting a generic HELLO.
-- The 2026-05-17 installed runtime refresh rebuilt both product images,
-  repackaged FieldMesh runtimes, installed Z203 through the SD/initramfs path,
-  installed Z103 through the Pluto-style `.frm` path, and verified both live
-  installed daemons with `UPLOAD_IF_MISSING=0`. Both live `HELLO` responses now
-  expose the production-readiness truth state:
+- The 2026-05-18 installed runtime refresh rebuilt both product images,
+  repackaged FieldMesh runtimes, refreshed JTAG RAM staging, installed Z203
+  through the SD/initramfs path, installed Z103 through the Pluto-style `.frm`
+  path, and verified both live installed daemons with `UPLOAD_IF_MISSING=0`.
+  Both live `HELLO` responses now expose the production-readiness truth state:
   `production_ready=0`,
   `production_readiness=infrastructure_verified_rf_phy_pending`,
   `planned_features_production_level=0`, `app_verified_real_rf=0`,
   `rf_phy_tx_rx_verified=0`, and
-  `production_blocker=real_rf_phy_tx_rx_not_verified`.
+  `production_blocker=real_rf_phy_tx_rx_not_verified`. The refresh also
+  verified `FIELDMESH_RF_WORKER_START` / `STATUS` / `STOP`, bidirectional
+  native-IP bridge, ICMP, and TCP/UDP socket gates through the daemon-owned RF
+  worker boundary. The next blocker remains real RF PHY TX/RX.
 - QSPI refresh remains open because U-Boot environment access is broken from
   Linux and the QSPI `mtd3` readback still does not match the local FIT header.
   A volatile serial test of `setenv fit_size 1B88D3B; run qspiboot` entered

@@ -4252,13 +4252,14 @@ The daemon also now exposes the first lifecycle-managed native-IP service via
 uses a bounded poll-style loop to wake on TUN readiness. The service now routes
 the native-IP payload through BLR `APP_DATA` MAC-frame egress/ingress counters
 and explicit TX/RX RF transport queues before drain-back to `swarm0`; the
-default is now `driver_queue` with RF TX lease/ack and RF RX ingest APIs.
+default is now `driver_queue` with daemon-owned RF worker lifecycle controls,
+RF TX lease/ack, and RF RX ingest APIs.
 `FIELDMESH_RF_RX_INGEST` validates BLR `APP_DATA` type and destination EUI
 before a worker-delivered frame can be written to `swarm0`.
 `diagnostic_loopback` is explicit test-only and the service still reports
 `next_boundary=rf_phy_tx_rx`.
 
-Live installed-board verification on 2026-05-17 passed:
+Live installed-board verification on 2026-05-18 passed:
 
 ```sh
 MODE=drain ALLOW_LIVE_TUN_WRITE=1 BURST_PACKETS=3 FORCE_UPLOAD=0 \
@@ -4301,10 +4302,10 @@ directions: three Z203 `swarm0` packets were ingested into Z103, and three Z103
 `swarm0` packets were ingested into Z203, for six BLR `APP_DATA` frames total.
 The same gate now keeps both daemon services alive at the same time, runs an
 actual Z203 `ping -c 3 10.77.2.20`, continuously forwards daemon RF-worker
-frames in both directions, and verifies `icmp_ping_rc=0`. The 2026-05-17 live
-run reported three transmitted and three received ICMP packets with 0% loss;
-the measured RTT range was about 26.6 ms to 50.2 ms across the host-orchestrated
-daemon bridge. This is still a daemon/RF-worker proof, not real RF PHY TX/RX.
+frames in both directions, and verifies `icmp_ping_rc=0`. The 2026-05-18 live
+run moved three frames in each direction through the daemon-owned RF worker
+lifecycle and proved ICMP success across the bridge. This is still a
+daemon/RF-worker proof, not real RF PHY TX/RX.
 The socket gate then staged `fieldmesh-native-ip-socket-demo` and ran ordinary
 TCP and UDP echo traffic over `swarm0`: TCP client/server each transferred 30
 bytes, UDP client/server each transferred 30 bytes, and the bridge moved seven
@@ -4314,9 +4315,10 @@ the daemon treated that normal backpressure as fatal `no-memory`, closing the
 TUN service before UDP completed. The daemon now stops reading more TUN packets
 while the RF TX queue is full and lets RX ingest drain before declaring the RX
 queue full. The refreshed installed-runtime socket gate passed again with TCP
-and UDP client/server transfers of 30 bytes each; that run moved sixteen
-Z203-to-Z103 frames and twelve Z103-to-Z203 frames. The socket client/server do
-not link to the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
+and UDP client/server transfers of 30 bytes each; the 2026-05-18 run moved
+sixteen Z203-to-Z103 frames and twelve Z103-to-Z203 frames while both board
+daemons used the RF worker lifecycle. The socket client/server do not link to
+the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

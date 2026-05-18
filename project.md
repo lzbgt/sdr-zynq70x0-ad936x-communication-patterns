@@ -614,11 +614,14 @@ user and vendor configuration.
   RF/sidecar contract.
 - `tools/run_fieldmesh_two_board_native_ip_bridge.sh` - live two-board native-IP
   daemon/RF-worker gate. It creates board-local `swarm0` on Z203 and Z103,
-  starts both native-IP services in `driver_queue` mode, and verifies both
+  starts both native-IP services in `driver_queue` mode, and uses the
+  daemon-owned RF worker lifecycle plus lease/ingest/ACK APIs to verify both
   directions: Z203-to-Z103 and Z103-to-Z203. Each direction injects packets into
   the source board, leases BLR `APP_DATA` frames from that source, ingests those
   exact frames into the peer daemon, ACKs them after successful ingest, and
-  requires the peer to write them into its own `swarm0`. The default gate also
+  requires the peer to write them into its own `swarm0`. The daemon worker still
+  reports `rf_phy_tx_rx=0`; actual PHY TX/RX remains the production blocker. The
+  default gate also
   runs ICMP over the same daemon bridge: Z203 pings Z103 through `swarm0`, BLR
   `APP_DATA` TX lease, peer RX ingest, peer `swarm0`, and the kernel echo reply
   returns through the reverse queue.

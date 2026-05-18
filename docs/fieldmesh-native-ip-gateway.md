@@ -138,8 +138,13 @@ Minimum production gates for native TCP/IP:
   daemon-owned `swarm0`/adapter state, waking on TUN readiness, and reporting
   RF-facing BLR `APP_DATA` egress/ingress frame counters through explicit
   TX/RX RF transport queues; the daemon exposes RF TX lease/ack and RF RX ingest
-  APIs for a driver worker; `driver_queue` is the default service transport,
-  while
+  APIs for a driver worker;
+- daemon exposes `FIELDMESH_RF_WORKER_START` / `STATUS` / `STOP`, so the RF
+  queue worker lifecycle is owned by the board daemon instead of being only a
+  host test script. The worker advances the driver queue and reports queue
+  observations, but still reports `rf_phy_tx_rx=0` until actual PHY TX/RX is
+  integrated;
+- `driver_queue` is the default service transport, while
   `diagnostic_loopback` is an explicit test-only mode. RX ingest rejects
   malformed BLR frames, non-`APP_DATA` frames, and frames whose destination EUI
   is not the selected local board. The next boundary remains `rf_phy_tx_rx`;

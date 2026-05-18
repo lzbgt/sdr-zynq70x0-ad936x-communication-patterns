@@ -161,6 +161,18 @@ struct tun_service_state {
     int last_errno;
 };
 
+struct rf_worker_state {
+    int running;
+    uint32_t ticks;
+    uint32_t tx_queue_observations;
+    uint32_t rx_queue_observations;
+    uint32_t max_tx_queue_depth_seen;
+    uint32_t max_rx_queue_depth_seen;
+    uint32_t idle_ticks;
+    uint32_t errors;
+    fieldmesh_status_t last_status;
+};
+
 static void put_be16(unsigned char *dst, uint16_t value)
 {
     dst[0] = (unsigned char)(value >> 8);
@@ -1443,6 +1455,52 @@ static void tun_service_tick(struct tun_service_state *service)
     service->last_status = FIELDMESH_OK;
 }
 
+static void rf_worker_stop(struct rf_worker_state *worker)
+{
+    if (!worker) {
+        return;
+    }
+    worker->running = 0;
+}
+
+static void rf_worker_tick(struct rf_worker_state *worker,
+                           struct tun_service_state *service)
+{
+    uint32_t tx_depth;
+    uint32_t rx_depth;
+
+    if (!worker || !worker->running) {
+        return;
+    }
+    if (!service || !service->running) {
+        worker->errors++;
+        worker->last_status = FIELDMESH_ERR_TRANSPORT;
+        worker->running = 0;
+        return;
+    }
+
+    tun_service_tick(service);
+    tx_depth = (uint32_t)service->rf_tx_queue.count;
+    rx_depth = (uint32_t)service->rf_rx_queue.count;
+    if (tx_depth > worker->max_tx_queue_depth_seen) {
+        worker->max_tx_queue_depth_seen = tx_depth;
+    }
+    if (rx_depth > worker->max_rx_queue_depth_seen) {
+        worker->max_rx_queue_depth_seen = rx_depth;
+    }
+    if (tx_depth > 0u) {
+        worker->tx_queue_observations++;
+    }
+    if (rx_depth > 0u) {
+        worker->rx_queue_observations++;
+    }
+    if (tx_depth == 0u && rx_depth == 0u) {
+        worker->idle_ticks++;
+    }
+    worker->ticks++;
+    worker->last_status = FIELDMESH_OK;
+}
+
 static int socket_startup(void)
 {
 #ifdef _WIN32
@@ -1747,6 +1805,7 @@ static int build_response(fieldmesh_context_t *context,
                           fieldmesh_session_t *session,
                           struct app_message_store *app_messages,
                           struct tun_service_state *tun_service,
+                          struct rf_worker_state *rf_worker,
                           const char *request,
                           char *response,
                           size_t response_len)
@@ -1798,6 +1857,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_client_ip_mode\":\"routed_l3_swarm0\","
                  "\"native_client_ip_interface\":\"swarm0\","
                  "\"supports_rf_transport_driver_queue\":1,"
+                 "\"supports_rf_worker\":1,"
                  "\"supports_rf_tx_poll\":1,"
                  "\"supports_rf_tx_lease_ack\":1,"
                  "\"supports_rf_rx_ingest\":1,"
@@ -4037,6 +4097,138 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_WORKER_START")) {
+        if (!tun_service || !tun_service->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_worker_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"tun_service_not_running\","
+                     "\"daemon_owned_worker\":1,"
+                     "\"driver_queue_worker\":1,"
+                     "\"rf_tx_lease_ack_api\":1,"
+                     "\"rf_rx_ingest_api\":1,"
+                     "\"rf_phy_tx_rx\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0,"
+                     "\"next_boundary\":\"rf_phy_tx_rx\"}\n");
+            return 0;
+        }
+        if (!rf_worker) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_worker_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"worker_state_unavailable\"}\n");
+            return 0;
+        }
+        if (tun_service->rf_transport_mode !=
+            TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_worker_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_worker_requires_driver_queue\","
+                     "\"rf_transport_mode\":\"%s\","
+                     "\"rf_phy_tx_rx\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n",
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode));
+            return 0;
+        }
+        rf_worker->running = 1;
+        rf_worker->last_status = FIELDMESH_OK;
+        rf_worker_tick(rf_worker, tun_service);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_worker_start\","
+                 "\"ok\":true,"
+                 "\"running\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_rx_queue_depth\":%u,"
+                 "\"ticks\":%u,"
+                 "\"rf_tx_lease_ack_api\":1,"
+                 "\"rf_rx_ingest_api\":1,"
+                 "\"rf_phy_tx_rx\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
+                 tun_service_rf_transport_mode_name(
+                     tun_service->rf_transport_mode),
+                 (unsigned)tun_service->rf_tx_queue.count,
+                 (unsigned)tun_service->rf_rx_queue.count,
+                 rf_worker->ticks);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RF_WORKER_STATUS")) {
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_worker_status\","
+                 "\"ok\":true,"
+                 "\"running\":%u,"
+                 "\"tun_service_running\":%u,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"ticks\":%u,"
+                 "\"tx_queue_observations\":%u,"
+                 "\"rx_queue_observations\":%u,"
+                 "\"max_tx_queue_depth_seen\":%u,"
+                 "\"max_rx_queue_depth_seen\":%u,"
+                 "\"idle_ticks\":%u,"
+                 "\"errors\":%u,"
+                 "\"last_status\":\"%s\","
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_rx_queue_depth\":%u,"
+                 "\"rf_tx_lease_ack_api\":1,"
+                 "\"rf_rx_ingest_api\":1,"
+                 "\"rf_phy_tx_rx\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
+                 rf_worker && rf_worker->running ? 1u : 0u,
+                 tun_service && tun_service->running ? 1u : 0u,
+                 rf_worker ? rf_worker->ticks : 0u,
+                 rf_worker ? rf_worker->tx_queue_observations : 0u,
+                 rf_worker ? rf_worker->rx_queue_observations : 0u,
+                 rf_worker ? rf_worker->max_tx_queue_depth_seen : 0u,
+                 rf_worker ? rf_worker->max_rx_queue_depth_seen : 0u,
+                 rf_worker ? rf_worker->idle_ticks : 0u,
+                 rf_worker ? rf_worker->errors : 0u,
+                 rf_worker ?
+                     fieldmesh_status_string(rf_worker->last_status) :
+                     fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG),
+                 tun_service ?
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode) :
+                     tun_service_rf_transport_mode_name(
+                         TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE),
+                 tun_service ? (unsigned)tun_service->rf_tx_queue.count : 0u,
+                 tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RF_WORKER_STOP")) {
+        uint32_t was_running = rf_worker && rf_worker->running ? 1u : 0u;
+        uint32_t ticks = rf_worker ? rf_worker->ticks : 0u;
+
+        rf_worker_stop(rf_worker);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_worker_stop\","
+                 "\"ok\":true,"
+                 "\"was_running\":%u,"
+                 "\"running\":0,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"ticks\":%u,"
+                 "\"rf_phy_tx_rx\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
+                 was_running, ticks);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_TX_LEASE")) {
         unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
         char frame_hex[TUN_SERVICE_RF_FRAME_MAX * 2u + 1u];
@@ -4392,7 +4584,10 @@ static int build_response(fieldmesh_context_t *context,
         uint32_t rf_tx_queue_drops = tun_service ? tun_service->rf_tx_queue_drops : 0u;
         uint32_t rf_rx_queue_drops = tun_service ? tun_service->rf_rx_queue_drops : 0u;
         uint32_t ticks = tun_service ? tun_service->ticks : 0u;
+        uint32_t rf_worker_was_running =
+            rf_worker && rf_worker->running ? 1u : 0u;
 
+        rf_worker_stop(rf_worker);
         tun_service_close(tun_service);
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_tun_service_stopped\","
@@ -4411,6 +4606,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"poll_loop_active\":0,"
+                 "\"rf_worker_was_running\":%u,"
                  "\"rf_mac_app_data_path\":1,"
                  "\"rf_tx_poll_api\":1,"
                  "\"rf_tx_lease_ack_api\":1,"
@@ -4423,7 +4619,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"uses_inter_board_ip_routing\":0}\n",
                  was_running, ticks, packets_pumped, packets_written,
                  rf_frames_egressed, rf_frames_ingressed,
-                 rf_tx_queue_drops, rf_rx_queue_drops,
+                 rf_tx_queue_drops, rf_rx_queue_drops, rf_worker_was_running,
                  tun_service ?
                      tun_service_rf_transport_mode_name(
                          tun_service->rf_transport_mode) :
@@ -5329,6 +5525,7 @@ static int serve_state(const char *bind_ip,
     struct timeval timeout;
     struct app_message_store app_messages;
     struct tun_service_state tun_service;
+    struct rf_worker_state rf_worker;
     long handled = 0;
     int serve_forever = requests == 0;
     int rc = 1;
@@ -5338,8 +5535,10 @@ static int serve_state(const char *bind_ip,
     }
     memset(&app_messages, 0, sizeof(app_messages));
     memset(&tun_service, 0, sizeof(tun_service));
+    memset(&rf_worker, 0, sizeof(rf_worker));
     tun_service.fd = -1;
     tun_service.last_status = FIELDMESH_OK;
+    rf_worker.last_status = FIELDMESH_OK;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         goto out;
@@ -5391,16 +5590,25 @@ static int serve_state(const char *bind_ip,
             }
             if (polled == 0) {
                 tun_service.idle_ticks++;
-                tun_service_tick(&tun_service);
+                if (rf_worker.running) {
+                    rf_worker_tick(&rf_worker, &tun_service);
+                } else {
+                    tun_service_tick(&tun_service);
+                }
                 continue;
             }
             if ((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
                 tun_service.errors++;
                 tun_service.last_status = FIELDMESH_ERR_TRANSPORT;
                 tun_service_close(&tun_service);
+                rf_worker_stop(&rf_worker);
             } else if ((fds[1].revents & POLLIN) != 0) {
                 tun_service.poll_wakeups++;
-                tun_service_tick(&tun_service);
+                if (rf_worker.running) {
+                    rf_worker_tick(&rf_worker, &tun_service);
+                } else {
+                    tun_service_tick(&tun_service);
+                }
             }
             if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
                 break;
@@ -5429,6 +5637,7 @@ static int serve_state(const char *bind_ip,
         }
         request[received] = '\0';
         if (build_response(context, session, &app_messages, &tun_service,
+                           &rf_worker,
                            request, response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),
                      "{\"event\":\"sdk_daemon_error\","
@@ -5448,6 +5657,7 @@ static int serve_state(const char *bind_ip,
     rc = serve_forever || handled == requests ? 0 : 1;
 
 out:
+    rf_worker_stop(&rf_worker);
     tun_service_close(&tun_service);
     if (sockfd != INVALID_SOCKET) {
         fieldmesh_close_socket(sockfd);
@@ -5517,6 +5727,9 @@ static int query_state(const char *host,
     char tun_event_loop_request[112];
     char tun_service_start_request[112];
     char tun_service_status_request[96];
+    char rf_worker_start_request[96];
+    char rf_worker_status_request[96];
+    char rf_worker_stop_request[96];
     char rf_tx_lease_request[96];
     char rf_tx_ack_request[128];
     char rf_tx_poll_request[96];
@@ -5603,6 +5816,12 @@ static int query_state(const char *host,
              "FIELDMESH_TUN_SERVICE_START v1 dst=%s", route_dst_eui);
     snprintf(tun_service_status_request, sizeof(tun_service_status_request),
              "%s", "FIELDMESH_TUN_SERVICE_STATUS v1");
+    snprintf(rf_worker_start_request, sizeof(rf_worker_start_request),
+             "%s", "FIELDMESH_RF_WORKER_START v1");
+    snprintf(rf_worker_status_request, sizeof(rf_worker_status_request),
+             "%s", "FIELDMESH_RF_WORKER_STATUS v1");
+    snprintf(rf_worker_stop_request, sizeof(rf_worker_stop_request),
+             "%s", "FIELDMESH_RF_WORKER_STOP v1");
     snprintf(rf_tx_lease_request, sizeof(rf_tx_lease_request),
              "%s", "FIELDMESH_RF_TX_LEASE v1");
     snprintf(rf_tx_ack_request, sizeof(rf_tx_ack_request),
@@ -5664,6 +5883,9 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, tun_event_loop_request) == 0 &&
         query_once(sockfd, &dst, tun_service_start_request) == 0 &&
         query_once(sockfd, &dst, tun_service_status_request) == 0 &&
+        query_once(sockfd, &dst, rf_worker_start_request) == 0 &&
+        query_once(sockfd, &dst, rf_worker_status_request) == 0 &&
+        query_once(sockfd, &dst, rf_worker_stop_request) == 0 &&
         query_once(sockfd, &dst, rf_tx_lease_request) == 0 &&
         query_once(sockfd, &dst, rf_tx_ack_request) == 0 &&
         query_once(sockfd, &dst, rf_tx_poll_request) == 0 &&

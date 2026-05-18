@@ -98,6 +98,8 @@ PY
 
 cleanup() {
     set +e
+    request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_STOP v1 >/dev/null 2>&1
+    request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_STOP v1 >/dev/null 2>&1
     request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STOP v1 >/dev/null 2>&1
     request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STOP v1 >/dev/null 2>&1
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
@@ -189,6 +191,10 @@ request_daemon "$z203_ip" "$z203_port" \
 request_daemon "$z103_ip" "$z103_port" \
     FIELDMESH_TUN_SERVICE_START v1 dst=020000000203 max=8 \
     rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE \
+    >>"$out_dir/socket_gate.ndjson"
+request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_START v1 \
+    >>"$out_dir/socket_gate.ndjson"
+request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_START v1 \
     >>"$out_dir/socket_gate.ndjson"
 
 python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$bridge_duration_s" \

@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-39}"
+requests="${REQUESTS:-42}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -182,6 +182,9 @@ tun_device_drain_guard = [row for row in query if row.get("event") == "sdk_daemo
 tun_event_loop_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_event_loop_step_guard"]
 tun_service_start_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_start_guard"]
 tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tun_service_status"]
+rf_worker_start = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_start"]
+rf_worker_status = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_status"]
+rf_worker_stop = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_stop"]
 rf_tx_poll = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_poll"]
 rf_tx_lease = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_lease"]
 rf_tx_ack = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_ack"]
@@ -191,7 +194,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 39:
+if not end or end[-1].get("handled") != 42:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -219,6 +222,7 @@ for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_tun_gateway", "supports_native_ip_gateway",
             "supports_tcp_ip_client_apps",
             "supports_rf_transport_driver_queue",
+            "supports_rf_worker",
             "supports_rf_tx_poll", "supports_rf_tx_lease_ack",
             "supports_rf_rx_ingest",
             "supports_camera_stream_chunk",
@@ -548,6 +552,14 @@ if (tun_service_status[0].get("rf_tx_poll_api") != 1 or
     raise SystemExit("board SDK daemon TUN service status did not expose RF driver queue APIs")
 if not rf_tx_poll or rf_tx_poll[0].get("error") != "tun_service_not_running":
     raise SystemExit("board SDK daemon RF TX poll guard failed")
+if not rf_worker_start or rf_worker_start[0].get("error") != "tun_service_not_running":
+    raise SystemExit("board SDK daemon RF worker start guard failed")
+if not rf_worker_status or rf_worker_status[0].get("driver_queue_worker") != 1:
+    raise SystemExit("board SDK daemon RF worker status response failed")
+if rf_worker_status[0].get("running") != 0 or rf_worker_status[0].get("rf_phy_tx_rx") != 0:
+    raise SystemExit("board SDK daemon RF worker status must remain RF-PHY-pending")
+if not rf_worker_stop or rf_worker_stop[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon RF worker stop response failed")
 if not rf_tx_lease or rf_tx_lease[0].get("error") != "tun_service_not_running":
     raise SystemExit("board SDK daemon RF TX lease guard failed")
 if not rf_tx_ack or rf_tx_ack[0].get("error") != "tun_service_not_running":

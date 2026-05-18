@@ -289,6 +289,12 @@ verify_variant() {
         driver_queue \
         diagnostic_loopback \
         supports_rf_transport_driver_queue \
+        supports_rf_worker \
+        sdk_daemon_rf_worker_start \
+        sdk_daemon_rf_worker_status \
+        sdk_daemon_rf_worker_stop \
+        daemon_owned_worker \
+        driver_queue_worker \
         sdk_daemon_rf_tx_poll \
         sdk_daemon_rf_tx_lease \
         sdk_daemon_rf_tx_ack \

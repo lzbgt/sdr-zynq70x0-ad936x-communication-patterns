@@ -73,6 +73,7 @@ for key in (
     "supports_app_message_poll",
     "supports_native_ip_gateway",
     "supports_tcp_ip_client_apps",
+    "supports_rf_worker",
     "supports_camera_stream_chunk",
     "supports_route_metrics",
     "supports_route_metrics_report",

@@ -64,9 +64,11 @@ for host, port in hosts:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(timeout_ms / 1000.0)
     try:
-        sock.sendto(b"FIELDMESH_TUN_SERVICE_STOP v1", (host, port))
-        payload, _ = sock.recvfrom(8192)
-        sys.stdout.write(payload.decode("utf-8", errors="replace"))
+        for text in (b"FIELDMESH_RF_WORKER_STOP v1",
+                     b"FIELDMESH_TUN_SERVICE_STOP v1"):
+            sock.sendto(text, (host, port))
+            payload, _ = sock.recvfrom(8192)
+            sys.stdout.write(payload.decode("utf-8", errors="replace"))
     except OSError:
         pass
     finally:
@@ -172,6 +174,12 @@ request(
     f"FIELDMESH_TUN_SERVICE_START v1 dst={sink_dst_eui} max={packets} "
     "rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE",
 )
+source_worker = request(source_ip, source_port, "FIELDMESH_RF_WORKER_START v1")
+sink_worker = request(sink_ip, sink_port, "FIELDMESH_RF_WORKER_START v1")
+if source_worker.get("ok") is not True or source_worker.get("rf_phy_tx_rx") != 0:
+    raise SystemExit(f"source RF worker did not start safely: {source_worker}")
+if sink_worker.get("ok") is not True or sink_worker.get("rf_phy_tx_rx") != 0:
+    raise SystemExit(f"sink RF worker did not start safely: {sink_worker}")
 PY
 
     set +e
@@ -237,6 +245,10 @@ for _ in range(packets):
     delivered += 1
     time.sleep(0.2)
 sink_status_after = request(sink_ip, sink_port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+source_worker_status = request(source_ip, source_port, "FIELDMESH_RF_WORKER_STATUS v1")
+sink_worker_status = request(sink_ip, sink_port, "FIELDMESH_RF_WORKER_STATUS v1")
+request(source_ip, source_port, "FIELDMESH_RF_WORKER_STOP v1")
+request(sink_ip, sink_port, "FIELDMESH_RF_WORKER_STOP v1")
 request(source_ip, source_port, "FIELDMESH_TUN_SERVICE_STOP v1")
 request(sink_ip, sink_port, "FIELDMESH_TUN_SERVICE_STOP v1")
 
@@ -254,6 +266,8 @@ summary = {
     "sink_packets_written_before": sink_status_before.get("packets_written"),
     "sink_packets_written_after": sink_status_after.get("packets_written"),
     "sink_rf_frames_ingressed": sink_status_after.get("rf_frames_ingressed"),
+    "source_rf_worker_ticks": source_worker_status.get("ticks"),
+    "sink_rf_worker_ticks": sink_worker_status.get("ticks"),
     "uses_inter_board_ip_routing": False,
     "starts_rf_tx": False,
     "writes_hardware": False,
@@ -265,6 +279,8 @@ if sink_status_after.get("packets_written", 0) < delivered:
     raise SystemExit(f"sink did not write delivered frames into swarm0: {summary}")
 if sink_status_after.get("rf_frames_ingressed", 0) < delivered:
     raise SystemExit(f"sink did not count delivered RF ingress frames: {summary}")
+if source_worker_status.get("rf_phy_tx_rx") != 0 or sink_worker_status.get("rf_phy_tx_rx") != 0:
+    raise SystemExit(f"RF worker must not claim real PHY TX/RX: {summary}")
 print(json.dumps(summary, sort_keys=True))
 PY
 

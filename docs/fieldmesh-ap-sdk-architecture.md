@@ -621,9 +621,11 @@ Stage 2: Board-local service
   MAC-frame egress/ingress counters and explicit TX/RX RF transport queues
   before drain-back to `swarm0`. `driver_queue` is the default transport and
   exposes `FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` and
-  `FIELDMESH_RF_RX_INGEST`; RX ingest accepts only BLR `APP_DATA` addressed to
-  the local board EUI. `FIELDMESH_RF_TX_POLL` is retained only as a destructive
-  diagnostic. `diagnostic_loopback`
+  `FIELDMESH_RF_RX_INGEST`; `FIELDMESH_RF_WORKER_START` / `STATUS` / `STOP`
+  owns the board-side RF queue worker lifecycle while still reporting
+  `rf_phy_tx_rx=0` until real PHY TX/RX is integrated. RX ingest accepts only
+  BLR `APP_DATA` addressed to the local board EUI. `FIELDMESH_RF_TX_POLL` is
+  retained only as a destructive diagnostic. `diagnostic_loopback`
   is opt-in test-only. The two-board native-IP bridge gate verifies the RF
   worker contract in both directions by leasing source frames, ingesting them
   into the peer daemon, and ACKing them after delivery before the service reports

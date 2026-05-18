@@ -569,11 +569,15 @@ IP packets now cross a binary MAC frame encode/decode boundary before they are
 drained back to `swarm0`; the service now uses explicit TX/RX RF transport
 queues. `driver_queue` is the default service transport and exposes
 `FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` plus
-`FIELDMESH_RF_RX_INGEST` for the RF worker. TX lease is non-destructive:
-the frame stays queued until the worker reports successful peer delivery with
-TX ACK. `FIELDMESH_RF_TX_POLL` remains as a legacy destructive diagnostic and
-must not be used by the production RF worker because a timeout after poll loses
-the frame before delivery is known.
+`FIELDMESH_RF_RX_INGEST` for the RF worker. The daemon also exposes
+`FIELDMESH_RF_WORKER_START`, `FIELDMESH_RF_WORKER_STATUS`, and
+`FIELDMESH_RF_WORKER_STOP` so the RF-driver queue lifecycle is daemon-owned.
+This worker boundary does not start hardware RF TX/RX yet; status must keep
+`rf_phy_tx_rx=0` until an actual PHY driver path is connected and verified.
+TX lease is non-destructive: the frame stays queued until the worker reports
+successful peer delivery with TX ACK. `FIELDMESH_RF_TX_POLL` remains as a
+legacy destructive diagnostic and must not be used by the production RF worker
+because a timeout after poll loses the frame before delivery is known.
 `FIELDMESH_RF_RX_INGEST` decodes the BLR frame before queueing it and accepts
 only `APP_DATA` frames addressed to the daemon's local EUI; other frames are
 rejected instead of being written to `swarm0`. `diagnostic_loopback` is
