@@ -1331,6 +1331,12 @@ Expected result in the current Pluto-compatible firmware state:
    The daemon also exposes `FIELDMESH_RF_WORKER_PHY_PLAN` as the explicit live
    PHY binding guard and keeps `production_ready=0` until the real RF PHY
    driver path is wired and measured.
+   The latest two-board RF binding gate uses Z203 over physical Ethernet
+   `192.168.1.10` and Z103 over USB management `192.168.3.1`, archives current
+   RF-engine IIO/DMA evidence under
+   `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/`,
+   and records `dma_validation_modes={z203:tx_submit,z103:tx_submit}`. It opens
+   no IIO buffers and starts no RF TX.
    The remaining production boundary is connecting those queues to real RF
    packet ingress/egress.
    The SDK and state daemon now also bind that adapter output

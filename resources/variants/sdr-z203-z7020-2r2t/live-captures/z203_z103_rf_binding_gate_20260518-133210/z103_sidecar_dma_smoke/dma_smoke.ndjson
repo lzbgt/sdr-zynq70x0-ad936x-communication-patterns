@@ -1,0 +1,7 @@
+{"event":"dma_smoke_start","transport":"dma-smoke","file":"/tmp/fieldmesh_dma_smoke_frame.bin","preflight_assert":"/tmp/fieldmesh_dma_smoke_preflight.json","tx_dma_base":"0x43c10000","rx_dma_base":"0x43c20000","tx_buffer":"0x1f000000","rx_buffer":"0x1f100000","writes_registers":true,"starts_transfer":true,"allow_live_writes":true}
+{"event":"dma_smoke_rf_guard_late_drop_arm","transport":"dma-smoke","ok":true,"drains_guarded_tx_path":true,"sets_ad936x_tx_enable":false,"selects_fieldmesh_dac_source":false,"starts_rf_tx":false,"guard_drain_ms":20}
+{"event":"dma_smoke_submit","transport":"dma-smoke","rx_armed_before_tx":true,"rx_transfer_id":0,"tx_transfer_id":0,"packet_len":64,"aligned_bytes":64}
+{"event":"dma_smoke_poll","transport":"dma-smoke","rx_done":false,"tx_done":true,"tx_done_any":true,"rx_polls":5000,"tx_polls":1,"rx_done_initial":"0x00000000","tx_done_initial":"0x00000000","rx_done_value":"0x00000000","tx_done_value":"0x00000001"}
+{"event":"packet_trace","transport":"dma-smoke","epoch":1000,"slot":0,"mode":"scheduled","src_node":"020000000103","dst_node":"020000000203","stream_id":100,"traffic_class":"C0","sequence":0,"payload_len":32,"rx_transport_seq":0,"rx_frame_crc":2646482743}
+{"event":"dma_smoke_rf_guard_late_drop_rollback","transport":"dma-smoke","ok":true,"control":"0x00000000","source_control":"0x00000000","starts_rf_tx":false}
+{"event":"dma_smoke_end","transport":"dma-smoke","ok":false,"packet_len":64,"aligned_bytes":64,"transport_seq":0,"expected_crc":2646482743,"rx_crc":1950768325,"rx_match":false,"error":"dma smoke failed"}

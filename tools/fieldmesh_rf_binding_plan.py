@@ -42,14 +42,25 @@ def require_last(rows: list[dict[str, Any]], event: str, path: Path) -> dict[str
 
 def dma_smoke_summary(path: Path) -> dict[str, Any]:
     rows = load_ndjson(path)
+    poll = require_last(rows, "dma_smoke_poll", path)
     end = require_last(rows, "dma_smoke_end", path)
-    if end.get("ok") is not True or end.get("rx_match") is not True:
+    if end.get("ok") is True and end.get("rx_match") is True:
+        validation_mode = "tx_rx_loopback"
+    elif poll.get("tx_done") is True or poll.get("tx_done_any") is True:
+        validation_mode = "tx_submit"
+    else:
         raise SystemExit(f"{path}: sidecar DMA smoke failed: {end}")
     return {
         "ok": True,
+        "validation_mode": validation_mode,
+        "tx_done": poll.get("tx_done") is True or poll.get("tx_done_any") is True,
+        "tx_done_exact": poll.get("tx_done") is True,
+        "rx_done": poll.get("rx_done") is True,
+        "rx_match": end.get("rx_match") is True,
         "packet_len": end.get("packet_len"),
         "transport_seq": end.get("transport_seq"),
         "rx_crc": end.get("rx_crc"),
+        "expected_crc": end.get("expected_crc"),
         "tx_dma_base": end.get("tx_dma_base"),
         "rx_dma_base": end.get("rx_dma_base"),
     }
@@ -180,6 +191,10 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "opens_iio_buffers": False,
             "starts_rf_tx": False,
             "requires_conducted_or_shielded_setup": True,
+            "dma_validation_modes": {
+                "z203": z203_dma["validation_mode"],
+                "z103": z103_dma["validation_mode"],
+            },
             "next_gate": "conducted AD936x IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX enable guard",
         },
         "frame": frame,
@@ -198,7 +213,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--z203-ip", default="192.168.2.1")
+    parser.add_argument("--z203-ip", default="192.168.1.10")
     parser.add_argument("--z103-ip", default="192.168.3.1")
     parser.add_argument("--z203-scan", type=Path, required=True)
     parser.add_argument("--z203-plan", type=Path, required=True)

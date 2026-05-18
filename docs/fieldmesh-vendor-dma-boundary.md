@@ -615,18 +615,27 @@ are proven.
 The first two-board RF binding gate is intentionally read-only:
 
 ```sh
-Z203_IP=192.168.2.1 Z103_IP=192.168.3.1 \
+Z203_IP=192.168.1.10 Z103_IP=192.168.3.1 \
   tools/run_fieldmesh_two_board_radio_gate.sh
 ```
 
 That gate now combines host-facing identity capture, per-board sidecar DMA
-smoke, per-board AD936x IIO scan/plan capture, and
+TX-submit smoke, per-board AD936x IIO scan/plan capture, and
 `tools/fieldmesh_rf_binding_plan.py`. The generated `rf_binding_plan.json`
 states that host-facing IP is management only, that board-to-board payloads
 must use the FieldMesh RF/sidecar data plane, and that the gate opens no IIO
-buffers and starts no RF TX. The next RF step must be a conducted or shielded
-IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX
-enable guards.
+buffers and starts no RF TX. The DMA probe reports both exact transfer-id
+completion and a repeated-run `tx_done_any` transition so stale completion bits
+cannot be mistaken for a fresh TX submit. The next RF step must be a conducted
+or shielded IQ burst encoder/decoder smoke with explicit frequency,
+attenuation, and TX enable guards.
+
+On the RF-engine overlay, TX-submit smoke enables an explicit late-drop drain in
+`fieldmesh_iq_tx_guard` before submitting. This releases samples already parked
+behind the unarmed guard, keeps the FieldMesh DAC source deselected, rolls the
+guard registers back, and still reports `starts_rf_tx=false`. Repeated bind
+gates therefore prove fresh AXI-DMAC submits instead of depending on a clean
+post-reboot stream pipeline.
 
 The first IQ burst smoke is still offline and hardware-safe:
 

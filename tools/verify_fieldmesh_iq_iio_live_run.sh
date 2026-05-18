@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work_dir="$repo_root/.config/fieldmesh/iq-iio-live-run"
-binding="$repo_root/resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_rf_binding_plan_20260514-004950/rf_binding_plan.json"
+binding="$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json"
 
 rm -rf "$work_dir"
 mkdir -p "$work_dir"
@@ -35,7 +35,7 @@ mkdir -p "$work_dir"
 "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --live-plan "$work_dir/iq_iio_live_plan.json" \
   --out-dir "$work_dir/run" \
-  --tx-uri ip:192.168.2.1 \
+  --tx-uri ip:192.168.1.10 \
   --rx-uri ip:192.168.3.1 \
   --fixture-attenuation-db 60 \
   --conducted-or-shielded \
@@ -92,7 +92,7 @@ PY
 if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --live-plan "$work_dir/iq_iio_live_plan.json" \
   --out-dir "$work_dir/missing-legal" \
-  --tx-uri ip:192.168.2.1 \
+  --tx-uri ip:192.168.1.10 \
   --rx-uri ip:192.168.3.1 \
   --fixture-attenuation-db 60 \
   --conducted-or-shielded \
@@ -106,7 +106,7 @@ fi
 if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --live-plan "$work_dir/iq_iio_live_plan.json" \
   --out-dir "$work_dir/missing-write-allow" \
-  --tx-uri ip:192.168.2.1 \
+  --tx-uri ip:192.168.1.10 \
   --rx-uri ip:192.168.3.1 \
   --fixture-attenuation-db 60 \
   --conducted-or-shielded \
@@ -122,7 +122,7 @@ fi
 if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --live-plan "$work_dir/iq_iio_live_plan.json" \
   --out-dir "$work_dir/low-attenuation" \
-  --tx-uri ip:192.168.2.1 \
+  --tx-uri ip:192.168.1.10 \
   --rx-uri ip:192.168.3.1 \
   --fixture-attenuation-db 20 \
   --conducted-or-shielded \

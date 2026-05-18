@@ -149,7 +149,7 @@ for key in ("bitstream_sha256", "devicetree_sha256"):
         raise SystemExit(f"{name}: missing {key} in runtime package manifest: {manifest!r}")
 PY
 
-    for token in sets_ad936x_tx_enable rf_guard_apply_rollback rf_guard_scan_start rf_source_apply_rollback allow-rf-source-select readback_ok rf_page_addressable; do
+    for token in sets_ad936x_tx_enable rf_guard_apply_rollback rf_guard_scan_start rf_source_apply_rollback allow-rf-source-select readback_ok rf_page_addressable tx_done_any rf_guard_late_drop; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe RF guard token in $name rootfs: $token" >&2
             exit 1

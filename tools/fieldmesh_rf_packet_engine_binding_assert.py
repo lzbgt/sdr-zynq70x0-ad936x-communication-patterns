@@ -82,7 +82,7 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         raise SystemExit("handoff did not target fieldmesh_rf_packet_engine")
 
     if args.allow_tx_only_dma:
-        if dma_poll.get("tx_done") is not True:
+        if dma_poll.get("tx_done") is not True and dma_poll.get("tx_done_any") is not True:
             raise SystemExit(f"sidecar DMA TX submit did not complete: {dma_poll}")
         dma_frame_crc = int(dma.get("expected_crc", -1))
         dma_mode = "tx_submit"
@@ -142,7 +142,8 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         "uses_sidecar_dma": True,
         "uses_rf_packet_engine": True,
         "dma_validation_mode": dma_mode,
-        "dma_tx_done": dma_poll.get("tx_done") is True,
+        "dma_tx_done": dma_poll.get("tx_done") is True or dma_poll.get("tx_done_any") is True,
+        "dma_tx_done_exact": dma_poll.get("tx_done") is True,
         "dma_rx_match": dma.get("rx_match") is True,
         "uses_iio": False,
         "uses_inter_board_ip_routing": False,

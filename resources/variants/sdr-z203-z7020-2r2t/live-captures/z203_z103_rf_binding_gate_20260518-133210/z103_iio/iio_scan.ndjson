@@ -1,0 +1,7 @@
+{"event":"iio_scan_start","transport":"iio-scan","iio_uri":"local:"}
+{"event":"iio_context","transport":"iio-scan","iio_uri":"local:","name":"local","description":"Linux z103-endpoint 6.1.0 #1 SMP PREEMPT Tue May 12 16:46:30 UTC 2026 armv7l","version":"0.25-b6028fd","devices":4}
+{"event":"iio_device","transport":"iio-scan","index":0,"id":"iio:device0","name":"ad9361-phy","channels":9}
+{"event":"iio_device","transport":"iio-scan","index":1,"id":"iio:device1","name":"xadc","channels":10}
+{"event":"iio_device","transport":"iio-scan","index":2,"id":"iio:device2","name":"cf-ad9361-dds-core-lpc","channels":6}
+{"event":"iio_device","transport":"iio-scan","index":3,"id":"iio:device3","name":"cf-ad9361-lpc","channels":2}
+{"event":"iio_scan_end","transport":"iio-scan","iio_uri":"local:","ok":true,"devices":4}

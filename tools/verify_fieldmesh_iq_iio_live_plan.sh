@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work_dir="$repo_root/.config/fieldmesh/iq-iio-live-plan"
-binding="$repo_root/resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_rf_binding_plan_20260514-004950/rf_binding_plan.json"
+binding="$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json"
 
 rm -rf "$work_dir"
 mkdir -p "$work_dir"

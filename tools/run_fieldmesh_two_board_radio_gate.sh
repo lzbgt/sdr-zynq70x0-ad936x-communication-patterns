@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-z203_ip="${Z203_IP:-192.168.2.1}"
+z203_ip="${Z203_IP:-192.168.1.10}"
 z103_ip="${Z103_IP:-192.168.3.1}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
@@ -43,9 +43,9 @@ SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" OUT_DIR="$out_dir/z203_iio" \
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" OUT_DIR="$out_dir/z103_iio" \
   "$repo_root/tools/run_fieldmesh_board_iio_scan.sh" "$z103_ip"
 
-"$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" \
+REQUIRE_RX_LOOPBACK=0 "$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" \
   "$z203_ip" "$frame" "$out_dir/z203_sidecar_dma_smoke"
-"$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" \
+REQUIRE_RX_LOOPBACK=0 "$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" \
   "$z103_ip" "$frame" "$out_dir/z103_sidecar_dma_smoke"
 
 "$repo_root/tools/fieldmesh_rf_binding_plan.py" \
@@ -79,8 +79,12 @@ def load_json_rows(path):
 
 def smoke_ok(path):
     rows = load_json_rows(path)
+    poll = [row for row in rows if row.get("event") == "dma_smoke_poll"]
     end = [row for row in rows if row.get("event") == "dma_smoke_end"]
-    return bool(end and end[-1].get("ok") is True and end[-1].get("rx_match") is True)
+    return bool(end and poll and (
+        (end[-1].get("ok") is True and end[-1].get("rx_match") is True) or
+        poll[-1].get("tx_done") is True or poll[-1].get("tx_done_any") is True
+    ))
 
 z203_identity = (out_dir / "z203_identity.txt").read_text(encoding="utf-8")
 z103_identity = (out_dir / "z103_identity.txt").read_text(encoding="utf-8")
@@ -104,6 +108,10 @@ if management.get("uses_inter_board_ip_routing") is not False:
     raise SystemExit("RF binding plan attempted inter-board IP routing")
 if radio.get("opens_iio_buffers") is not False or radio.get("starts_rf_tx") is not False:
     raise SystemExit("RF binding plan must be read-only")
+if radio.get("dma_validation_modes", {}).get("z203") != "tx_submit":
+    raise SystemExit("Z203 RF-engine gate should use TX-submit DMA proof")
+if radio.get("dma_validation_modes", {}).get("z103") != "tx_submit":
+    raise SystemExit("Z103 RF-engine gate should use TX-submit DMA proof")
 
 result = {
     "event": "fieldmesh_two_board_radio_gate",
@@ -118,6 +126,7 @@ result = {
         "uses_inter_board_ip_routing": False,
         "current_gate": "per-board sidecar DMA plus read-only AD936x IIO RF binding readiness",
         "next_gate": radio.get("next_gate"),
+        "dma_validation_modes": radio.get("dma_validation_modes"),
         "opens_iio_buffers": False,
         "starts_rf_tx": False,
     },

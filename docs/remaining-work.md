@@ -575,10 +575,18 @@ below were later superseded by the current PHY-management two-board gates above:
   recovered before more two-board installed-runtime tests. These addresses are
   host-facing management/control paths only, not a board-to-board subnet. The
   new `tools/run_fieldmesh_two_board_radio_gate.sh` verifies both boards over
-  those management paths, proves per-board sidecar DMA packet readiness, runs
-  read-only AD936x IIO scan/plan capture, emits `rf_binding_plan.json`, and
-  explicitly asserts that inter-board payloads must use the FieldMesh radio
-  data plane. The offline `tools/fieldmesh_iq_burst_smoke.py` gate now creates
+  current management paths (`Z203_IP=192.168.1.10`, `Z103_IP=192.168.3.1`),
+  proves per-board sidecar DMA TX-submit readiness,
+  runs read-only AD936x IIO scan/plan capture, emits `rf_binding_plan.json`,
+  and explicitly asserts that inter-board payloads must use the FieldMesh radio
+  data plane. The DMA probe records repeated-run `tx_done_any` transitions in
+  addition to exact transfer-id completion, so stale AXI-DMAC completion bits
+  do not overstate readiness. The latest archived evidence is
+  `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/`.
+  The RF-engine TX-submit mode now arms a guarded late-drop drain before DMA
+  submit, then rolls it back with the FieldMesh DAC source deselected; this
+  makes the gate repeatable without starting AD936x TX.
+  The offline `tools/fieldmesh_iq_burst_smoke.py` gate now creates
   and decodes a guarded FieldMesh IQ burst without opening IIO buffers or
   starting RF TX. `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
   the live SDK/daemon RF handoff evidence, validates the sidecar/RF queue

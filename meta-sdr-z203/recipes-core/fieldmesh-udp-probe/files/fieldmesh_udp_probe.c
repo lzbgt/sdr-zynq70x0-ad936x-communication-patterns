@@ -77,6 +77,8 @@ struct config {
     bool target_is_zynq_board;
     bool allow_live_writes;
     bool allow_rf_source_select;
+    bool rf_guard_late_drop;
+    uint32_t guard_drain_ms;
 };
 
 struct trace {
@@ -153,7 +155,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe ctrl-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-scan [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000] [--dma-size 0x10000] [--dma-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-plan --file FRAME.bin [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000]\n"
-        "  fieldmesh-udp-probe dma-smoke --file FRAME.bin --preflight-assert FILE --allow-live-writes [--tx-buffer ADDR] [--rx-buffer ADDR]\n"
+        "  fieldmesh-udp-probe dma-smoke --file FRAME.bin --preflight-assert FILE --allow-live-writes [--tx-buffer ADDR] [--rx-buffer ADDR] [--rf-guard-late-drop --guard-drain-ms N]\n"
         "  fieldmesh-udp-probe rf-guard-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe rf-guard-apply --preflight-assert FILE --allow-live-writes --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board [--slot-epoch N] [--slot-index N] [--arm-window-us N]\n"
         "  fieldmesh-udp-probe rf-source-apply --preflight-assert FILE --allow-live-writes --allow-rf-source-select --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board\n"
@@ -219,6 +221,8 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .target_is_zynq_board = false,
         .allow_live_writes = false,
         .allow_rf_source_select = false,
+        .rf_guard_late_drop = false,
+        .guard_drain_ms = 20U,
     };
 
     if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
@@ -319,6 +323,11 @@ static int parse_args(int argc, char **argv, struct config *cfg)
             cfg->allow_live_writes = true;
         } else if (!strcmp(argv[i], "--allow-rf-source-select")) {
             cfg->allow_rf_source_select = true;
+        } else if (!strcmp(argv[i], "--rf-guard-late-drop")) {
+            cfg->rf_guard_late_drop = true;
+        } else if (!strcmp(argv[i], "--guard-drain-ms")) {
+            if (!arg_value(argc, argv, &i, &value)) return 2;
+            cfg->guard_drain_ms = (uint32_t)strtoul(value, NULL, 0);
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             usage(stdout);
             return 1;
@@ -378,6 +387,13 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if (!strcmp(cfg->role, "dma-smoke") && !cfg->preflight_assert_file) {
         fprintf(stderr, "dma-smoke requires --preflight-assert FILE\n");
+        return 2;
+    }
+    if (!strcmp(cfg->role, "dma-smoke") && cfg->rf_guard_late_drop &&
+        (!cfg->tx_enable_guard || !cfg->rf_engine_ready || !cfg->target_is_zynq_board)) {
+        fprintf(stderr,
+                "dma-smoke --rf-guard-late-drop requires --tx-enable-guard, "
+                "--rf-engine-ready, and --target-is-zynq-board\n");
         return 2;
     }
     if (!strcmp(cfg->role, "rf-guard-apply")) {
@@ -3319,6 +3335,93 @@ static bool poll_dma_done(const struct phys_mapping *regs, uint32_t transfer_id,
     return false;
 }
 
+struct rf_guard_late_drop_state {
+    uint32_t old_control;
+    uint32_t old_current_epoch;
+    uint32_t old_current_slot;
+    uint32_t old_tx_epoch;
+    uint32_t old_tx_slot;
+    uint32_t old_source_control;
+    bool armed;
+};
+
+static void sleep_ms(uint32_t delay_ms)
+{
+    struct timespec delay = {
+        .tv_sec = (time_t)(delay_ms / 1000U),
+        .tv_nsec = (long)(delay_ms % 1000U) * 1000000L,
+    };
+    while (nanosleep(&delay, &delay) < 0 && errno == EINTR) {
+    }
+}
+
+static bool arm_rf_guard_late_drop(const struct config *cfg,
+                                   const struct phys_mapping *ctrl_regs,
+                                   struct rf_guard_late_drop_state *state,
+                                   char *err,
+                                   size_t err_len)
+{
+    uint32_t id_value = dma_reg_read(ctrl_regs, 0x00U);
+    if (id_value != FIELDMESH_CTRL_ID_VALUE) {
+        snprintf(err, err_len, "fieldmesh control ID mismatch for RF guard drain");
+        return false;
+    }
+
+    state->old_control = dma_reg_read(ctrl_regs, RF_GUARD_REG_CONTROL);
+    state->old_current_epoch = dma_reg_read(ctrl_regs, RF_GUARD_REG_CURRENT_EPOCH);
+    state->old_current_slot = dma_reg_read(ctrl_regs, RF_GUARD_REG_CURRENT_SLOT);
+    state->old_tx_epoch = dma_reg_read(ctrl_regs, RF_GUARD_REG_TX_EPOCH);
+    state->old_tx_slot = dma_reg_read(ctrl_regs, RF_GUARD_REG_TX_SLOT);
+    state->old_source_control = dma_reg_read(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL);
+
+    dma_reg_write(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL, 0U);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_EPOCH, 1U);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_SLOT, 1U);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_EPOCH, 0U);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_SLOT, 0U);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CONTROL, RF_GUARD_CONTROL_ARMED);
+    state->armed = true;
+
+    printf("{\"event\":\"dma_smoke_rf_guard_late_drop_arm\","
+           "\"transport\":\"dma-smoke\","
+           "\"ok\":true,\"drains_guarded_tx_path\":true,"
+           "\"sets_ad936x_tx_enable\":false,\"selects_fieldmesh_dac_source\":false,"
+           "\"starts_rf_tx\":false,\"guard_drain_ms\":%u}\n",
+           cfg->guard_drain_ms);
+    sleep_ms(cfg->guard_drain_ms);
+    return true;
+}
+
+static void rollback_rf_guard_late_drop(const struct phys_mapping *ctrl_regs,
+                                        struct rf_guard_late_drop_state *state)
+{
+    bool ok = true;
+    uint32_t control = 0;
+    uint32_t source_control = 0;
+
+    if (!state->armed) {
+        return;
+    }
+
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CONTROL, 0U);
+    dma_reg_write(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL, state->old_source_control);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_SLOT, state->old_tx_slot);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_EPOCH, state->old_tx_epoch);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_SLOT, state->old_current_slot);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_EPOCH, state->old_current_epoch);
+    dma_reg_write(ctrl_regs, RF_GUARD_REG_CONTROL, state->old_control);
+
+    control = dma_reg_read(ctrl_regs, RF_GUARD_REG_CONTROL);
+    source_control = dma_reg_read(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL);
+    ok = control == state->old_control && source_control == state->old_source_control;
+    printf("{\"event\":\"dma_smoke_rf_guard_late_drop_rollback\","
+           "\"transport\":\"dma-smoke\",\"ok\":%s,"
+           "\"control\":\"0x%08x\",\"source_control\":\"0x%08x\","
+           "\"starts_rf_tx\":false}\n",
+           ok ? "true" : "false", control, source_control);
+    state->armed = false;
+}
+
 static int run_dma_smoke(const struct config *cfg)
 {
     uint8_t frame[MAX_FRAME + 1U];
@@ -3330,17 +3433,22 @@ static int run_dma_smoke(const struct config *cfg)
     const uint8_t *packet = frame + FIELD_MESH_FRAME_LEN;
     struct phys_mapping tx_regs = {0};
     struct phys_mapping rx_regs = {0};
+    struct phys_mapping ctrl_regs = {0};
     struct phys_mapping tx_buf = {0};
     struct phys_mapping rx_buf = {0};
+    struct rf_guard_late_drop_state guard_drop = {0};
     uint32_t tx_id = 0;
     uint32_t rx_id = 0;
     uint32_t tx_done_value = 0;
     uint32_t rx_done_value = 0;
+    uint32_t tx_done_initial = 0;
+    uint32_t rx_done_initial = 0;
     int tx_polls = 0;
     int rx_polls = 0;
     uint32_t rx_crc = 0;
     bool tx_done = false;
     bool rx_done = false;
+    bool tx_done_any = false;
     bool rx_match = false;
     bool ok = false;
     int fd = -1;
@@ -3389,6 +3497,9 @@ static int run_dma_smoke(const struct config *cfg)
     }
     if (!map_physical_window(fd, cfg->tx_dma_base, 0x454U, PROT_READ | PROT_WRITE, &tx_regs) ||
         !map_physical_window(fd, cfg->rx_dma_base, 0x454U, PROT_READ | PROT_WRITE, &rx_regs) ||
+        (cfg->rf_guard_late_drop &&
+         !map_physical_window(fd, cfg->ctrl_base, cfg->ctrl_size, PROT_READ | PROT_WRITE,
+                              &ctrl_regs)) ||
         !map_physical_window(fd, cfg->tx_buffer, aligned_bytes, PROT_READ | PROT_WRITE, &tx_buf) ||
         !map_physical_window(fd, cfg->rx_buffer, aligned_bytes, PROT_READ | PROT_WRITE, &rx_buf)) {
         snprintf(err, sizeof(err), "map /dev/mem: %s", strerror(errno));
@@ -3398,6 +3509,10 @@ static int run_dma_smoke(const struct config *cfg)
     if (dma_reg_read(&tx_regs, 0x0cU) != 0x444d4143U ||
         dma_reg_read(&rx_regs, 0x0cU) != 0x444d4143U) {
         snprintf(err, sizeof(err), "sidecar DMA magic mismatch");
+        goto out;
+    }
+    if (cfg->rf_guard_late_drop &&
+        !arm_rf_guard_late_drop(cfg, &ctrl_regs, &guard_drop, err, sizeof(err))) {
         goto out;
     }
 
@@ -3413,6 +3528,8 @@ static int run_dma_smoke(const struct config *cfg)
     dma_reg_write(&rx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
     dma_reg_write(&tx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
     dma_reg_write(&rx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
+    tx_done_initial = dma_reg_read(&tx_regs, AXI_DMAC_REG_TRANSFER_DONE);
+    rx_done_initial = dma_reg_read(&rx_regs, AXI_DMAC_REG_TRANSFER_DONE);
     dma_reg_write(&tx_regs, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
     dma_reg_write(&rx_regs, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
 
@@ -3439,16 +3556,20 @@ static int run_dma_smoke(const struct config *cfg)
 
     rx_done = poll_dma_done(&rx_regs, rx_id, cfg->timeout_ms, &rx_polls, &rx_done_value);
     tx_done = poll_dma_done(&tx_regs, tx_id, cfg->timeout_ms, &tx_polls, &tx_done_value);
+    tx_done_any = tx_done || (tx_done_value != 0U && tx_done_value != tx_done_initial);
     msync(rx_buf.map, rx_buf.map_len, MS_SYNC);
     rx_crc = fieldmesh_crc32(rx_buf.ptr, packet_len);
     rx_match = rx_done && tx_done && !memcmp(rx_buf.ptr, packet, packet_len);
     ok = rx_match;
 
     printf("{\"event\":\"dma_smoke_poll\",\"transport\":\"dma-smoke\","
-           "\"rx_done\":%s,\"tx_done\":%s,\"rx_polls\":%d,\"tx_polls\":%d,"
+           "\"rx_done\":%s,\"tx_done\":%s,\"tx_done_any\":%s,"
+           "\"rx_polls\":%d,\"tx_polls\":%d,"
+           "\"rx_done_initial\":\"0x%08x\",\"tx_done_initial\":\"0x%08x\","
            "\"rx_done_value\":\"0x%08x\",\"tx_done_value\":\"0x%08x\"}\n",
            rx_done ? "true" : "false", tx_done ? "true" : "false",
-           rx_polls, tx_polls, rx_done_value, tx_done_value);
+           tx_done_any ? "true" : "false", rx_polls, tx_polls,
+           rx_done_initial, tx_done_initial, rx_done_value, tx_done_value);
     printf("{\"event\":\"packet_trace\",\"transport\":\"dma-smoke\","
            "\"epoch\":%u,\"slot\":%u,\"mode\":\"%s\","
            "\"src_node\":\"%s\",\"dst_node\":\"%s\",\"stream_id\":%u,"
@@ -3460,6 +3581,9 @@ static int run_dma_smoke(const struct config *cfg)
            get_le16(packet + 28), transport_seq, frame_crc);
 
 out:
+    if (ctrl_regs.map) {
+        rollback_rf_guard_late_drop(&ctrl_regs, &guard_drop);
+    }
     if (tx_regs.map) {
         dma_reg_write(&tx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
         dma_reg_write(&tx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
@@ -3477,6 +3601,7 @@ out:
            ok ? "null" : "\"dma smoke failed\"");
     unmap_physical_window(&tx_regs);
     unmap_physical_window(&rx_regs);
+    unmap_physical_window(&ctrl_regs);
     unmap_physical_window(&tx_buf);
     unmap_physical_window(&rx_buf);
     if (fd >= 0) {
