@@ -277,6 +277,9 @@ PY
         infrastructure_verified_rf_phy_pending \
         planned_features_production_level \
         app_verified_real_rf \
+        rf_hw \
+        rf_air \
+        rf_queue \
         rf_phy_tx_rx_verified \
         real_rf_phy_tx_rx_not_verified \
         supports_camera_stream_chunk \

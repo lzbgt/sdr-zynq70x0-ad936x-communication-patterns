@@ -758,6 +758,12 @@ user and vendor configuration.
   exact frames into the peer daemon, ACKs them after successful ingest, and
   requires the peer to write them into its own `swarm0`. The daemon worker still
   reports `rf_phy_tx_rx=0`; actual PHY TX/RX remains the production blocker.
+  This does not mean the boards lack antennas or RF hardware. Daemon `HELLO`
+  now separates those states: `rf_hw=1`, `rf_air=1`, and
+  `rf_queue=1` can all be true while `rf_phy_tx_rx_verified=0`
+  until a real FieldMesh `APP_DATA` frame is decoded over the air and app
+  evidence such as messaging, topology, and native-IP iperf is generated from
+  that same path.
   `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the prerequisites for the real PHY
   binding and refuses to claim live RF or production readiness before sidecar,
   packet-engine, TX-guard, conducted/legal, RX-first, and measured-link evidence

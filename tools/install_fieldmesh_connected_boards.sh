@@ -98,6 +98,12 @@ if payload.get("planned_features_production_level") != 0:
     raise SystemExit(f"{name}: daemon must not mark planned features production-level: {payload!r}")
 if payload.get("app_verified_real_rf") != 0 or payload.get("rf_phy_tx_rx_verified") != 0:
     raise SystemExit(f"{name}: daemon must not claim real RF app/PHY verification: {payload!r}")
+if payload.get("rf_hw") != 1:
+    raise SystemExit(f"{name}: daemon must distinguish RF hardware presence from RF proof: {payload!r}")
+if payload.get("rf_air") != 1:
+    raise SystemExit(f"{name}: daemon RF path model changed: {payload!r}")
+if payload.get("rf_queue") != 1:
+    raise SystemExit(f"{name}: daemon RF worker queue readiness changed: {payload!r}")
 if payload.get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
     raise SystemExit(f"{name}: daemon production blocker changed: {payload!r}")
 for key in ("uses_iio_data_path", "uses_inter_board_ip_routing",

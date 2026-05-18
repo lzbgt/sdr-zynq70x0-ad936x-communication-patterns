@@ -20,7 +20,7 @@ iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
 allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
 host_pc_case="${HOST_PC_CASE:-0}"
 allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
-out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)}"
+out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)-$$}"
 swarm_mtu="${SWARM_MTU:-}"
 
 mkdir -p "$out_dir"

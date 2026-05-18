@@ -392,6 +392,12 @@ if hello[0].get("planned_features_production_level") != 0:
     raise SystemExit("SDK daemon HELLO must not mark planned features production-level")
 if hello[0].get("app_verified_real_rf") != 0 or hello[0].get("rf_phy_tx_rx_verified") != 0:
     raise SystemExit("SDK daemon HELLO must not claim real RF app/PHY verification")
+if hello[0].get("rf_hw") != 1:
+    raise SystemExit("SDK daemon HELLO must distinguish RF hardware presence from RF proof")
+if hello[0].get("rf_air") != 1:
+    raise SystemExit("SDK daemon HELLO must report over-air RF path model")
+if hello[0].get("rf_queue") != 1:
+    raise SystemExit("SDK daemon HELLO must expose RF worker queue readiness")
 if hello[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
     raise SystemExit("SDK daemon HELLO production blocker changed")
 for key in ("supports_app_control_camera", "supports_app_message_send",

@@ -144,6 +144,13 @@ Minimum production gates for native TCP/IP:
   host test script. The worker advances the driver queue and reports queue
   observations, but still reports `rf_phy_tx_rx=0` until actual PHY TX/RX is
   integrated;
+- daemon `HELLO` separates physical RF capability from production proof:
+  `rf_hw=1` means the board exposes an RF-capable SDR path,
+  `rf_air=1` means the intended production path is antenna-to-air,
+  and `rf_queue=1` means the daemon RF queue boundary is ready.
+  Those fields can all be true while `rf_phy_tx_rx_verified=0`; production
+  evidence starts only after a FieldMesh `APP_DATA` frame is decoded over the
+  air and app traffic is proven on that same path;
 - daemon exposes `FIELDMESH_RF_WORKER_PHY_PLAN`, which is the guard contract
   for binding the worker queue to a live PHY driver. It reports the required
   sidecar preflight, sidecar DMA, RF packet-engine proof, TX guard, proven DAC

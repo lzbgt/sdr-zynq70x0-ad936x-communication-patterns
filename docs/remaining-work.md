@@ -58,7 +58,14 @@ has first-class RF worker lifecycle controls:
 `FIELDMESH_RF_WORKER_START`, `FIELDMESH_RF_WORKER_STATUS`, and
 `FIELDMESH_RF_WORKER_STOP`. That worker observes and advances the driver-queue
 boundary inside the daemon, but still reports `rf_phy_tx_rx=0`; it is not a
-fake radio. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
+fake radio. Installed daemons now separate physical capability from proof:
+`rf_hw=1` means the board exposes an RF-capable SDR path,
+`rf_air=1` means production traffic is expected to use the
+antenna-to-air path, and `rf_queue=1` means the daemon RF queue
+boundary is ready. Those fields are not enough to mark the system production
+ready. `rf_phy_tx_rx_verified=1` is reserved for measured over-air decode of the
+actual FieldMesh `APP_DATA` path plus same-path app evidence such as messaging,
+topology, and native-IP iperf. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
 legal frequency profile, RX-first validation, and measured link evidence are
