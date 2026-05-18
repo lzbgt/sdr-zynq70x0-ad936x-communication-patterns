@@ -119,7 +119,7 @@ must not be the real communication payload path.
 
 Radio bandwidth and sample rate are configuration inputs. Users and product
 tests need application throughput budgets in Mbps, with explicit concurrent
-stream support. Until conducted/shielded RF measurements exist, the numbers
+stream support. Until authorized over-air RF measurements exist, the numbers
 below are targets and test envelopes, not measured guarantees.
 
 The customer-facing capacity table should report both **link mode** and
@@ -160,10 +160,10 @@ guarantees:
 | --- | --- | --- | --- | --- |
 | Robust control | 0.05-0.25 | 0 | 1-3 km with small antennas and narrow channel | 10-30 km with legal PA, antenna gain, height, and fade margin |
 | Low-rate video | 0.5-1.5 | 1 low-rate, or 2 thumbnail | hundreds of meters to 1-3 km depending on bandwidth and antennas | 5-20 km when bandwidth is narrow and antenna installation is good |
-| Standard video | 2-5 | 1 normal, or 2 reduced | short-range LOS/conducted first; open-air range must be measured | 2-10 km class with enough EIRP/antenna margin |
+| Standard video | 2-5 | 1 normal, or 2 reduced | short-range LOS first; open-air range must be measured | 2-10 km class with enough EIRP/antenna margin |
 | Dual video | 4-10 | 2 C2 streams | short-range/high-SNR only until measured | 1-5 km class unless antenna, power, and channel plan provide margin |
-| Enhanced video | 8-20 | 1 high-quality or 2 adaptive | conducted/shielded and very short LOS first | short-range specialist mode, not the long-range default |
-| High throughput | 20+ | future multi-lane | conducted/high-SNR validation only | future mode after OFDM/MCS measurements |
+| Enhanced video | 8-20 | 1 high-quality or 2 adaptive | authorized very short LOS first | short-range specialist mode, not the long-range default |
+| High throughput | 20+ | future multi-lane | high-SNR over-air validation only | future mode after OFDM/MCS measurements |
 
 The same hardware can move between these plans, but physics trades bandwidth
 against range. A wider OFDM channel can support more Mbps and more video lanes,
@@ -267,15 +267,15 @@ Verified so far:
 - The RF packet-engine handoff, sidecar DMA, guarded BPSK symbolizer, TX guard,
   DAC clock bridge, and DAC source-select controls are built and tested without
   starting RF TX.
-- Conducted/shielded RF TX/RX is still guarded and not yet a production
-  over-the-air data-plane measurement.
+- Authorized over-air RF TX/RX is still guarded and not yet a production
+  data-plane measurement.
 
 ## Measurement Plan
 
 Before claiming product bandwidth or range:
 
-1. Capture real board daemon metrics for C0-C4 traffic under controlled
-   conducted attenuation.
+1. Capture real board daemon metrics for C0-C4 traffic over an authorized
+   controlled over-air RF path.
 2. Measure C2 video-base throughput, latency, jitter, and recovery while
    changing attenuation and route policy.
 3. Verify direct P2P first, AP relay fallback second, with route hysteresis.
@@ -283,6 +283,5 @@ Before claiming product bandwidth or range:
    range error radius against a physical fixture.
 5. Repeat with Z203-as-AP, Z103-as-AP, and mixed relay topologies to quantify
    capability-based AP weighting.
-6. Only after conducted/shielded tests pass, run legal radiated tests with
-   documented frequency, bandwidth, EIRP, antenna, environment, and safety
-   controls.
+6. Run legal over-air tests with documented frequency, bandwidth, EIRP,
+   antenna, environment, RF-path authorization, and safety controls.

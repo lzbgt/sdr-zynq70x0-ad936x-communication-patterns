@@ -270,8 +270,8 @@ optional app-level security envelope.
    authorization scopes, cloud CA client, signed entitlements, revocation, and
    offline cache behavior.
 7. Production hardening phase: soak tests, two-instance IM tests, real
-   camera/audio/screen tests, route adaptation tests, and conducted/shielded RF
-   gates.
+   camera/audio/screen tests, route adaptation tests, and authorized over-air
+   RF gates.
 
 ## Non-Goals For The Planning Phase
 

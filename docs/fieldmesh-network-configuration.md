@@ -239,8 +239,8 @@ radio/sidecar data plane.
    readiness on both boards, runs read-only AD936x IIO scan/plan capture on
    both boards, emits `rf_binding_plan.json`, and explicitly asserts that
    inter-board IP routing is not part of the design. The RF binding plan opens
-   no IIO buffers and starts no RF TX; it is the last read-only gate before a
-   conducted or shielded radio test.
+  no IIO buffers and starts no RF TX; it is the last read-only gate before a
+  controlled authorized over-air radio test.
 
 4. Run the Z203 AP service on the PC/interface attached to Z203:
 

@@ -147,7 +147,7 @@ Minimum production gates for native TCP/IP:
 - daemon exposes `FIELDMESH_RF_WORKER_PHY_PLAN`, which is the guard contract
   for binding the worker queue to a live PHY driver. It reports the required
   sidecar preflight, sidecar DMA, RF packet-engine proof, TX guard, proven DAC
-  source-select readback, conducted/shielded setup, legal frequency profile,
+  source-select readback, authorized over-air RF path, legal frequency profile,
   RX-first validation, and measured link evidence. It does not start RF TX and keeps production
   readiness false until the real PHY driver path is wired and verified;
 - daemon exposes `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE` and
@@ -155,7 +155,7 @@ Minimum production gates for native TCP/IP:
   RF-worker-to-driver binding contract and the supplied evidence flags without
   opening IIO buffers, starting RF TX, writing hardware, running shell
   commands, or using inter-board host IP routing. `APPLY` is deliberately
-  refused until the same evidence exists from conducted/shielded live tests and
+  refused until the same evidence exists from authorized over-air live tests and
   the live RF authorization path is implemented. Both responses must keep
   `rf_phy_tx_rx=0` and `production_ready=0` until real radio TX/RX is measured;
 - `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` proves that boundary on an

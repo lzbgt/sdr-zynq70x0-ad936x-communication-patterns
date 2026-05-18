@@ -54,7 +54,7 @@ Use IIO for what it is good at:
 
 - AD936x configuration and calibration;
 - RF diagnostics and factory test;
-- guarded conducted/shielded IQ experiments;
+- guarded authorized over-air IQ experiments;
 - board bring-up and recovery.
 
 Do not put IIO buffers in the real communication path. IIO is not the product
@@ -110,7 +110,7 @@ app/SDK packet -> daemon -> kernel/driver or UIO endpoint
 ```
 
 IIO may remain in admin tools for tuning, calibration, diagnostics, and
-conducted/shielded lab procedures, but customer payloads should not traverse
+legacy lab-containment procedures, but customer payloads should not traverse
 IIO in the product loop.
 
 Default customer topology is native TCP/IP over Layer-3 routed gateway mode:
@@ -699,12 +699,13 @@ Fallback rules:
 
 ## First Sellable Developer Kit
 
-The first commercial artifact should be a conducted/shielded developer kit, not
-a consumer FPV product.
+The first commercial artifact should be an authorized low-power over-air
+developer kit, not a consumer FPV product.
 
 Minimum demo:
 
-1. Two or three SDR-Z203-class prototype nodes in conducted or shielded setup.
+1. Two or three SDR-Z203-class prototype nodes in a controlled legal over-air
+   setup.
 2. One video-like high-rate stream.
 3. One telemetry/control stream with strict latency priority.
 4. Star/fanout mode where multiple receivers subscribe to the same stream.
@@ -759,8 +760,8 @@ Phase 4: Purpose-built hardware
 
 ## First Implementation Plan On Z103 And Z203
 
-Start conducted or shielded. The first goal is protocol behavior and customer
-value, not maximum range.
+Start with a controlled, legal, low-power over-air path. The first goal is
+protocol behavior and customer value, not maximum range.
 
 Current staged hardware plan:
 

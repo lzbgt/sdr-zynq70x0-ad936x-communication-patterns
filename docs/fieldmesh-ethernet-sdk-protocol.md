@@ -333,7 +333,7 @@ over-air RF PHY TX/RX is connected and app-verified, `production_ready` and
 `FIELDMESH_RF_WORKER_PHY_PLAN v1` reports the live-RF prerequisites required
 before the daemon RF worker can drive an actual PHY path: sidecar preflight,
 sidecar DMA, RF packet-engine proof, TX guard, proven DAC source-select
-readback, conducted/shielded setup, legal frequency profile, RX-first
+readback, authorized over-air RF path, legal frequency profile, RX-first
 validation, and measured-link evidence. It is a planning response only.
 
 `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE v1 ...` validates the daemon-owned RF
@@ -341,14 +341,14 @@ worker to PHY-driver binding contract using explicit evidence flags supplied
 by the guarded live-test harness. It must not open IIO buffers, start RF TX,
 write hardware, execute commands, use inter-board host IP routing, or put JSON
 on air. `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY v1` remains refused with
-`live_rf_allowed=0` until the live conducted/shielded RF evidence path exists.
+`live_rf_allowed=0` until the live authorized over-air RF evidence path exists.
 `driver_prerequisites_ready=1` and `binding_ready=1` mean only that the daemon
 worker, driver queue, sidecar DMA, RF packet engine, TX guard contract, and DAC
 source-select readback are present. If `rf_dac_source_select_passed=0`, the
 response must keep `driver_prerequisites_ready=0`, `binding_ready=0`, and
 `production_blocker=rf_dac_source_select_not_verified`.
-`live_rf_prerequisites_ready=1` additionally requires conducted or shielded
-setup, legal frequency profile, RX-first validation, and measured-link
+`live_rf_prerequisites_ready=1` additionally requires authorized RF path
+evidence, legal frequency profile, RX-first validation, and measured-link
 evidence. Both responses keep `rf_phy_tx_rx=0`, `app_verified_real_rf=0`, and
 `production_ready=0` until measured radio TX/RX passes.
 
@@ -654,15 +654,15 @@ The SDK now has the first software contract for that scheduler/filter/driver
 boundary: `fieldmesh_plan_rf_tx_guard()` and `fieldmesh_apply_rf_tx_guard()`.
 The daemon request `FIELDMESH_RF_TX_GUARD_PLAN` derives a guard plan from a
 checked RF packet-engine plan, preserves direct/relay route metadata, assigns a
-deterministic slot epoch/index, and reports the required conducted/shielded
-fixture, legal frequency profile, RX-first ordering, sidecar preflight, RF
+deterministic slot epoch/index, and reports the required authorized RF-path,
+legal frequency profile, RX-first ordering, sidecar preflight, RF
 packet-engine, and TX-enable guard preconditions. The current request is
 intentionally dry-run: `sets_tx_enable=0`, `sets_tx_armed=0`,
 `writes_hardware=0`, `starts_rf_tx=0`, `commands_executed=0`, `uses_iio=0`,
 and `uses_inter_board_ip_routing=0`.
 `tools/fieldmesh_rf_tx_guard_run.py` is the checked runner for this boundary:
 it consumes the daemon report, writes a board-local read-only preflight script,
-and only executes pre-state checks when conducted/shielded, legal-frequency,
+and only executes pre-state checks when authorized RF-path, legal-frequency,
 RX-first, sidecar-preflight, RF-engine-ready, and Zynq-target declarations are
 explicit. It is not the live register writer yet.
 
@@ -815,8 +815,8 @@ Ethernet clients may request local RF admin actions through daemon messages,
 not direct libiio calls:
 
 - `DEVICE_IIO_PLAN` returns RX-first AD936x/IIO commands and safety state.
-- `DEVICE_IIO_EXECUTE` requires conducted/shielded declaration, legal frequency
-  profile, attenuation evidence, TX-enable guard, RX-first ordering, and
+- `DEVICE_IIO_EXECUTE` requires authorized RF-path declaration, legal frequency
+  profile, RF path evidence, TX-enable guard, RX-first ordering, and
   hardware-write approval.
 - The daemon may use libiio or board-local drivers underneath for admin tasks.
 

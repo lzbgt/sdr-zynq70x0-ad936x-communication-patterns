@@ -244,8 +244,9 @@ What not to do:
   Walksnail, analog, and HDZero already own strong parts of that market.
 - Do not ship Zynq-7020 + AD9363 as the final air unit unless the selling price
   and use case justify it.
-- Do not start with open-air high-power experiments. Start conducted/shielded
-  and design around regulatory constraints from day one.
+- Do not start with high-power experiments. Start with controlled legal
+  low-power over-air tests and design around regulatory constraints from day
+  one.
 
 Important hardware boundary:
 
@@ -302,7 +303,7 @@ Product shape:
 - Regression tests for wireless firmware releases.
 - Pairing, reconnect, weak-signal, interference, roaming, packet-loss, and
   watchdog-recovery scenarios.
-- Shielded or conducted setup with pass/fail reports.
+- Controlled legal over-air setup with pass/fail reports.
 - Scenario library sold as software/support, not just hardware.
 
 Role of this board:
@@ -439,7 +440,7 @@ Minimum useful version:
    vehicle, remote instrument, or industrial FPV payload.
 2. Define the link contract: video resolution/fps, maximum end-to-end latency,
    control-data latency, telemetry rate, range target, and failure behavior.
-3. Build a conducted/shielded SDR-Z203 prototype with video packetization,
+3. Build an authorized over-air SDR-Z203 prototype with video packetization,
    telemetry side channel, configurable FEC/interleaving, fanout mode,
    graph/relay mode, scheduled slot mode, and quality telemetry.
 4. Measure degradation curves under attenuation, burst loss, Doppler-like
@@ -489,13 +490,14 @@ experience before investing in custom air/ground RF hardware.
 ## Safety And Regulatory Notes
 
 - Prefer receive-only tests until the signal chain is understood.
-- Use conducted tests with attenuators for TX/RX loopback.
-- Do not connect TX directly to RX without appropriate attenuation.
+- Use controlled legal over-air tests for board-to-board TX/RX validation.
+- Do not connect TX directly to RX without appropriate attenuation if a lab
+  containment fixture is ever used.
 - Be careful with firmware that exposes wider AD9361-style tuning ranges than
   the board or attached RF frontend may actually support.
 - Observe local RF regulations for any over-the-air transmission.
-- For commercial products, separate receive-only monitoring, conducted/shielded
-  test fixtures, and licensed/owned-system transmission modes clearly in the
+- For commercial products, separate receive-only monitoring, optional lab
+  containment fixtures, and licensed/owned-system transmission modes clearly in the
   UI, documentation, and sales material.
 
 ## Resolved Board Facts

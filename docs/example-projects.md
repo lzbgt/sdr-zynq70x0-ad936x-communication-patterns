@@ -309,7 +309,8 @@ Uses:
 
 First implementation:
 
-1. Start conducted or shielded; do not begin with open-air transmission.
+1. Start with controlled legal low-power over-air transmission; do not begin
+   with range or power claims.
 2. Build a synthetic video-like UDP payload plus a small control/telemetry
    stream.
 3. Define traffic classes for control, telemetry, video base layer, video

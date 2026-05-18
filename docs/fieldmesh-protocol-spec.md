@@ -1,8 +1,9 @@
 # FieldMesh Protocol Spec Draft
 
 This is the first implementation-facing spec for the FieldMesh high-bandwidth
-swarm-radio work. It is intentionally small: enough to build conducted
-Z103/Z203 experiments without locking the final PHY or shipped hardware.
+swarm-radio work. It is intentionally small: enough to build controlled
+authorized over-air Z103/Z203 experiments without locking the final PHY or
+shipped hardware.
 
 FieldMesh is "high-bandwidth LoRa" only in product role: private long-range
 coverage, infrastructure independence, and simple user mental model. It is not
@@ -16,7 +17,8 @@ LoRa modulation and should target video/data rates far above LoRa-class links.
 - Keep control and telemetry bounded under video/data load.
 - Run on SDR-Z103 as a constrained 1R1T endpoint and SDR-Z203 as a 2R2T
   hub/coordinator/relay lab node.
-- Start with conducted or shielded tests before open-air operation.
+- Start with controlled legal low-power over-air tests before range or power
+  claims.
 
 ## Non-Goals For The First Prototype
 
