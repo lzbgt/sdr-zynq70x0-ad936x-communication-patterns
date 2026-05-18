@@ -4685,6 +4685,25 @@ board-to-board iperf and host-PC-transparent iperf. Both must identify
 `host_originated_traffic=true` and `uses_ssh_launched_board_client=false`.
 The verifier rejects daemon RF-worker bridge metrics, host-IP-routed results,
 and host-PC reports that are actually SSH-launched board clients.
+`tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` is the paired
+operator wrapper for that requirement. It can consume two saved reports and
+emit `native_ip_iperf_evidence.json` plus
+`native_ip_app_real_rf_report.json`, or it can run both live layers with the
+same RF path evidence and approvals. `PREFLIGHT_ONLY=1` runs the two
+non-transmitting preflights without creating network interfaces, starting
+`iperf3`, opening IIO buffers, mutating daemon queues, or transmitting RF.
+The wrapper is verified with:
+
+```sh
+./tools/verify_fieldmesh_native_ip_iperf_production_sequence.sh
+```
+
+Result:
+
+```json
+{"board_to_board_real_rf_iperf": true, "event": "fieldmesh_native_ip_iperf_production_sequence_check", "host_pc_transparent_real_rf_iperf": true, "ok": true}
+```
+
 The real-RF production gate enforces the same requirement by tracing the
 normalized native-IP app report back to `fieldmesh_native_ip_iperf_evidence`;
 generic native-IP socket reports are still useful diagnostics, but they do not

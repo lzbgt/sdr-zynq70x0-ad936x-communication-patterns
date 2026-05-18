@@ -816,6 +816,16 @@ user and vendor configuration.
   metrics. Diagnostic daemon-bridge iperf, host-IP-routed traffic, and
   SSH-launched host-PC substitutes are rejected. The production gate traces
   native-IP app evidence back to this paired iperf classifier.
+- `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` - paired
+  native-IP iperf production wrapper. It can classify already-collected
+  board-to-board and host-PC-transparent reports, run non-transmitting
+  preflights for both layers, or run both live over-air iperf layers with the
+  same RF path evidence and approvals. It emits the paired native-IP iperf
+  evidence plus the normalized app real-RF report required by the production
+  gate.
+- `tools/verify_fieldmesh_native_ip_iperf_production_sequence.sh` - verifier
+  for the paired native-IP iperf wrapper, including rejection of one-sided
+  report input and SSH-launched host-PC substitutes.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
