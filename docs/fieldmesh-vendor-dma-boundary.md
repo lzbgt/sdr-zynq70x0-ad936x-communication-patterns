@@ -757,6 +757,9 @@ production evidence.
 `FIELDMESH_RF_TX_LEASE` into the guarded conducted-IIO IQ path. It is dry-run
 by default, and in live mode it must recover the exact leased frame, ingest that
 frame into the sink daemon, and ACK the source only after successful ingest.
+`tools/fieldmesh_app_real_rf_source_from_bridge.py` then combines a successful
+live bridge report with feature behavior to produce normalizer-compatible app
+evidence for messaging, topology, or native-IP.
 
 ## Variant Notes
 

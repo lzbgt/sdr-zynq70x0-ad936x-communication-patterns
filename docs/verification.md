@@ -3626,6 +3626,23 @@ from the IIO capture, send that frame to the sink daemon with
 `FIELDMESH_RF_RX_INGEST`, and only then ACK the source with
 `FIELDMESH_RF_TX_ACK`.
 
+Bridge-derived app evidence is normalized by:
+
+```sh
+./tools/verify_fieldmesh_app_real_rf_source_from_bridge.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_app_real_rf_source_from_bridge_check", "features": ["messaging", "topology", "native_ip"], "ok": true, "production_gate_ready_with_synthetic_bridge": true}
+```
+
+This gate combines a successful live RF-worker/IIO bridge report with feature
+behavior for messaging, topology, and native-IP, then feeds the normalized app
+reports into the production gate. It refuses dry-run bridge evidence and feature
+reports that use inter-board host-IP payload routing.
+
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and

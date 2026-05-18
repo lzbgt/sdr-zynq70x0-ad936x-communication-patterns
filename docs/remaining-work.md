@@ -619,6 +619,9 @@ below were later superseded by the current PHY-management two-board gates above:
   `tools/fieldmesh_iio_rf_worker_bridge.py` now provides the dry-run and live
   execution shape for moving a leased daemon RF frame through the conducted-IIO
   IQ path, then ingesting and ACKing only after exact frame recovery.
+  `tools/fieldmesh_app_real_rf_source_from_bridge.py` ties that live bridge
+  evidence to app messaging, topology, and native-IP behavior before producing
+  production-gate app reports.
 - Extend the new pure-C camera stream SDK API and C++
   `apps/fieldmesh-control-camera-demo` into a live two-host camera-stream demo
   once the board daemon and RF stream path are connected end to end. The SDK
