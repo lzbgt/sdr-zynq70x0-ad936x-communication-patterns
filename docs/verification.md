@@ -4540,6 +4540,14 @@ client must run on the host PC, not over SSH on a board. The gate writes
 is not a direct board-facing route. This deliberately rejects WSL/NAT paths and
 other indirect routes before any result can be mistaken for host-transparent RF
 evidence.
+`tools/fieldmesh_native_ip_iperf_evidence.py` validates the saved reports after
+the runs. A production native-IP MAC-link feature claim requires two reports:
+board-to-board iperf and host-PC-transparent iperf. Both must identify
+`transport=real_rf_phy`, `rf_phy_tx_rx_verified=true`, and
+`production_evidence=true`; the host-PC report must also prove
+`host_originated_traffic=true` and `uses_ssh_launched_board_client=false`.
+The verifier rejects daemon RF-worker bridge metrics, host-IP-routed results,
+and host-PC reports that are actually SSH-launched board clients.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

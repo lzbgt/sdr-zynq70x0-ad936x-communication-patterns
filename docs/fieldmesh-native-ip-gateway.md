@@ -203,6 +203,14 @@ Minimum production gates for native TCP/IP:
   `iperf3` on the host, route `10.77.2.0/24` through the local board, enable a
   return route from the remote board over `swarm0`, and still report real RF
   PHY verification before it can be production evidence;
+- `tools/fieldmesh_native_ip_iperf_evidence.py` classifies saved iperf reports.
+  Native-IP MAC-link feature evidence requires both layers: one board-to-board
+  report with `iperf_layer=board_to_board` and one host-originated report with
+  `iperf_layer=host_pc_transparent`. Both must report `transport=real_rf_phy`,
+  `rf_phy_tx_rx_verified=true`, `production_evidence=true`, and positive TCP
+  and UDP metrics. A daemon RF-worker bridge report is rejected even if TCP/UDP
+  iperf completed, because that path proves the kernel/socket bridge but not
+  over-air RF;
 - daemon RF queue pressure is handled as backpressure. The native-IP service must
   not close on a full RF TX/RX queue during TCP or UDP bursts; the live socket
   gate covers this by driving both protocols through the installed board

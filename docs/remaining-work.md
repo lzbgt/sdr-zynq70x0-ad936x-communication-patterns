@@ -135,6 +135,12 @@ the board as a transparent RF MAC/IP gateway. A passing host-PC result must
 start the `iperf3` client on the host namespace itself, install a real route
 through the local board, install the remote-board return route over `swarm0`,
 and still carry the traffic over verified over-air RF.
+`tools/fieldmesh_native_ip_iperf_evidence.py` is the acceptance classifier for
+saved iperf reports. It does not let a single passing run stand in for the whole
+transparent MAC/IP feature: board-to-board real-RF iperf and host-PC
+transparent real-RF iperf are separate required layers. Diagnostic bridge
+reports, SSH-launched board clients, inter-board host-IP routing, and any report
+without `transport=real_rf_phy` plus `rf_phy_tx_rx_verified=true` are rejected.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

@@ -785,6 +785,12 @@ user and vendor configuration.
   proves that the host has a direct board-facing route. It rejects WSL/NAT or
   SSH-launched-board traffic because those paths do not prove a normal host app
   can use the board pair as a transparent RF MAC/IP link.
+- `tools/fieldmesh_native_ip_iperf_evidence.py` - native-IP iperf evidence
+  classifier. A feature-complete transparent MAC/IP claim requires both a
+  board-to-board report and a host-PC-transparent report, both over
+  `transport=real_rf_phy` with `rf_phy_tx_rx_verified=true` and positive TCP/UDP
+  metrics. Diagnostic daemon-bridge iperf, host-IP-routed traffic, and
+  SSH-launched host-PC substitutes are rejected.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when

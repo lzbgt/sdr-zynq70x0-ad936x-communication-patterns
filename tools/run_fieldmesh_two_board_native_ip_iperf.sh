@@ -765,6 +765,10 @@ udp_bits = (
     udp_end.get("sum_sent", {}).get("bits_per_second") or 0
 )
 tcp_bytes = tcp_end.get("sum_sent", {}).get("bytes", 0)
+udp_bytes = (
+    udp_end.get("sum", {}).get("bytes") or
+    udp_end.get("sum_sent", {}).get("bytes") or 0
+)
 if tcp.get("error"):
     raise SystemExit(f"TCP iperf failed: {tcp.get('error')}")
 if udp.get("error"):
@@ -773,6 +777,8 @@ if tcp_bytes <= 0:
     raise SystemExit("TCP iperf reported no transmitted bytes")
 if udp_bits <= 0:
     raise SystemExit("UDP iperf reported no bitrate")
+if udp_bytes <= 0:
+    raise SystemExit("UDP iperf reported no transmitted bytes")
 if allow_bridge and (
     not bridge or
     bridge[-1].get("ok") is not True or
@@ -785,6 +791,7 @@ if len(statuses) < 2:
 host_tcp_bits = 0
 host_udp_bits = 0
 host_tcp_bytes = 0
+host_udp_bytes = 0
 if host_pc_case:
     host_tcp = load_json("host_iperf3_tcp_client.json")
     host_udp = load_json("host_iperf3_udp_client.json")
@@ -803,25 +810,40 @@ if host_pc_case:
         host_udp_end.get("sum_sent", {}).get("bits_per_second") or 0
     )
     host_tcp_bytes = host_tcp_end.get("sum_sent", {}).get("bytes", 0)
+    host_udp_bytes = (
+        host_udp_end.get("sum", {}).get("bytes") or
+        host_udp_end.get("sum_sent", {}).get("bytes") or 0
+    )
     if host_tcp_bytes <= 0:
         raise SystemExit("host TCP iperf reported no transmitted bytes")
     if host_udp_bits <= 0:
         raise SystemExit("host UDP iperf reported no bitrate")
+    if host_udp_bytes <= 0:
+        raise SystemExit("host UDP iperf reported no transmitted bytes")
 report = {
     "event": "fieldmesh_two_board_native_ip_iperf",
     "ok": True,
+    "feature": "native_ip",
+    "iperf_layer": "host_pc_transparent" if host_pc_case else "board_to_board",
     "board_to_board_iperf": True,
     "host_pc_case_requested": host_pc_case,
     "host_pc_iperf": bool(host_pc_case),
     "transport": "real_rf_phy" if preflight.get("real_rf_phy_ready") else "daemon_rf_driver_queue_bridge",
+    "diagnostic_bridge": bool(allow_bridge),
+    "uses_inter_board_ip_routing": False,
+    "uses_ssh_launched_board_client": not host_pc_case,
+    "host_originated_traffic": bool(host_pc_case),
     "rf_phy_tx_rx_verified": bool(preflight.get("real_rf_phy_ready")),
-    "production_evidence": bool(preflight.get("real_rf_phy_ready") and not allow_bridge and not host_pc_case),
+    "app_verified_real_rf": bool(preflight.get("real_rf_phy_ready") and not allow_bridge),
+    "production_evidence": bool(preflight.get("real_rf_phy_ready") and not allow_bridge),
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
     "udp_bits_per_second": udp_bits,
+    "udp_bytes": udp_bytes,
     "host_tcp_bits_per_second": host_tcp_bits,
     "host_tcp_bytes": host_tcp_bytes,
     "host_udp_bits_per_second": host_udp_bits,
+    "host_udp_bytes": host_udp_bytes,
     "swarm_mtu": swarm_mtu,
     "z203_packets_written": statuses[-2].get("packets_written"),
     "z103_packets_written": statuses[-1].get("packets_written"),
