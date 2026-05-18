@@ -94,18 +94,22 @@ for label, snap, eui, host, peer in (
         raise SystemExit(f"{label}: GUI safety defaults changed")
     if snap.get("topology_metrics_live") is not True:
         raise SystemExit(f"{label}: topology metrics did not refresh from daemon")
+    if snap.get("topology_range_production_ready") is not False:
+        raise SystemExit(f"{label}: unverified topology range claimed production readiness")
+    if snap.get("topology_range_evidence_source") != "none":
+        raise SystemExit(f"{label}: unverified topology range leaked into app evidence")
 
 z203_range = z203.get("topology_max_peer_range_m")
-if not isinstance(z203_range, (int, float)) or not (0.01 <= z203_range <= 5.0):
-    raise SystemExit(f"z203: expected near-field TDOA range, got {z203_range!r}")
-if z203.get("topology_timing_position_peers", 0) < 1:
-    raise SystemExit("z203: timing/TDOA position was not surfaced")
+if not isinstance(z203_range, (int, float)) or z203_range >= 0.0:
+    raise SystemExit(f"z203: unverified TDOA range must be pending, got {z203_range!r}")
+if z203.get("topology_timing_position_peers", 0) != 0:
+    raise SystemExit("z203: unverified timing/TDOA position was surfaced")
 
 z103_range = z103.get("topology_max_peer_range_m")
-if not isinstance(z103_range, (int, float)) or not (0.01 <= z103_range <= 5.0):
-    raise SystemExit(f"z103: expected near-field TDOA range, got {z103_range!r}")
-if z103.get("topology_timing_position_peers", 0) < 1:
-    raise SystemExit("z103: timing/TDOA position was not surfaced")
+if not isinstance(z103_range, (int, float)) or z103_range >= 0.0:
+    raise SystemExit(f"z103: unverified TDOA range must be pending, got {z103_range!r}")
+if z103.get("topology_timing_position_peers", 0) != 0:
+    raise SystemExit("z103: unverified timing/TDOA position was surfaced")
 
 print(json.dumps({
     "event": "fieldmesh_imgui_live_no_profile",
@@ -113,7 +117,7 @@ print(json.dumps({
     "detected_board_count": default.get("detected_board_count"),
     "z203_range_m": z203_range,
     "z103_range_m": z103_range,
-    "range_source": "preseeded_blr_mac_tdoa_reports",
+    "range_source": "pending_until_real_rf_phy",
 }, separators=(",", ":")))
 PY
 

@@ -3149,12 +3149,13 @@ ready after a `.frm` update.
 GUI gate. It builds the headless ImGui app, starts without a profile, discovers
 the installed Z203 and Z103 daemons from runtime candidates, verifies that the
 connection page does not auto-connect or preselect an AP, then explicitly
-selects each board and refreshes topology. The gate pre-seeds each installed
-daemon through `FIELDMESH_MAC_INGEST` using compact BLR/TDOA reports rather
-than a GUI profile, so both selected board views must surface the same
-near-field packet-timing range. This keeps the GUI no-profile path honest while
-the remaining RF work wires continuous over-air BLR declare/listen and message
-receive delivery into the daemon registries.
+selects each board and refreshes topology. The gate now proves that daemon or
+test-harness RTLS reports are not enough for a numeric user-facing range: both
+selected board views must keep range pending unless the daemon position report
+contains `rf_phy_tx_rx_verified=true`. This keeps normal app startup free of
+test-derived metrics while the remaining RF work wires continuous over-air BLR
+declare/listen, message receive delivery, and measured positioning into the
+daemon registries.
 
 The same gate now also verifies command-preset generation:
 

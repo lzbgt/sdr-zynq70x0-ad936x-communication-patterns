@@ -139,8 +139,13 @@ a synthetic distance. When no compatible position source exists, the topology
 lays peers out visually and labels numeric range as pending. This avoids
 turning a degraded near-field link into a false tens-of-meters distance, and
 also avoids showing a hardcoded lab value such as 1.61 m. The visible range
-text is drawn in a badge so it does not disappear into topology lines. The app
-snapshot exposes `topology_range_calculation`,
+text is drawn in a badge with provenance so daemon/test-derived values such as
+packet-timing TDOA are not presented as production over-air measurements. The
+runtime-discovery app path only turns daemon RTLS into a numeric position when
+the daemon marks that position with `rf_phy_tx_rx_verified=true`; otherwise the
+peer remains visible and range stays pending.
+The app snapshot exposes `topology_range_calculation`,
+`topology_range_evidence_source`, `topology_range_production_ready`,
 `topology_route_metrics_overwrite_position`, `topology_metrics_live`, and
 `topology_update_count` for automated tests and GUI supervisors.
 

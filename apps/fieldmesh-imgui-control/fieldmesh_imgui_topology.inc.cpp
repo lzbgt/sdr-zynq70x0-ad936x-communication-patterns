@@ -188,7 +188,9 @@ void render_topology_page(GuiState *state)
         draw->AddLine(local_point, points[i], IM_COL32(96, 125, 155, 145),
                       2.0f);
         if (range_m >= 0.0f) {
-            std::snprintf(label, sizeof(label), "%.2f m", static_cast<double>(range_m));
+            std::snprintf(label, sizeof(label), "%.2f m %s",
+                          static_cast<double>(range_m),
+                          peer_range_provenance_label(peer));
         } else {
             std::snprintf(label, sizeof(label), "%s", "range pending");
         }
@@ -323,6 +325,7 @@ void render_topology_page(GuiState *state)
                 state->topology_update_count,
                 state->topology_metrics_live ? "live daemon metrics" :
                                                "position source pending/test fixture");
-    ImGui::TextUnformatted("Local-to-peer range labels are always shown; hover a link for detail.");
+    ImGui::Text("Range evidence: %s", topology_range_evidence_source(*state));
+    ImGui::TextUnformatted("Local-to-peer range labels are shown with provenance; hover a link for detail.");
     end_panel();
 }

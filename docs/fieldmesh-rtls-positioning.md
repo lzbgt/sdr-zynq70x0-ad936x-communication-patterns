@@ -173,10 +173,13 @@ or harness-provided measurements; it validates compact device EUI and
 GNSS/PPS/TDOA fields, calls `fieldmesh_report_rtls_measurement()`, and returns
 the fused position.
 
-The current `fieldmesh-state-daemon-demo` still contains deterministic startup
-measurements for verification. Those measurements prove the app, SDK, daemon,
-and topology rendering path without pretending that board movement is already
-being sampled from live hardware.
+The current `fieldmesh-state-daemon-demo` can still ingest deterministic
+verification measurements through explicit test/control requests. Normal GUI
+runtime discovery does not treat those measurements as user-facing range unless
+the returned position also proves `rf_phy_tx_rx_verified=true`. Those
+measurements remain useful for app, SDK, daemon, and topology rendering tests
+without pretending that board movement is already being sampled from live
+hardware.
 
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The

@@ -985,10 +985,10 @@ user and vendor configuration.
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board
   ImGui gate. It starts the golden IM app without a profile, discovers Z203 and
-  Z103 daemons at runtime, verifies explicit board/AP selection, pre-seeds each
-  installed daemon through the same `FIELDMESH_MAC_INGEST`/TDOA path that live
-  RF RX will feed, and guards topology range handling without profiles or
-  host-side peer fixtures.
+  Z103 daemons at runtime, verifies explicit board/AP selection, and proves
+  unverified daemon/TDOA reports do not become displayed app range. Numeric
+  topology range stays pending until the daemon marks the position with
+  `rf_phy_tx_rx_verified=true`.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

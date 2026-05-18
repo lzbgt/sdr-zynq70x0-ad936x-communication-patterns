@@ -435,16 +435,20 @@ def main() -> int:
             topology = json.loads(topology_snapshot.read_text(encoding="utf-8"))
             if topology["topology_metrics_live"] is not True:
                 raise SystemExit("topology metrics refresh did not run")
+            if topology.get("topology_range_production_ready") is not False:
+                raise SystemExit("daemon RTLS topology must not claim production range readiness")
+            if topology.get("topology_range_evidence_source") != "none":
+                raise SystemExit("unverified daemon RTLS must not become app range evidence")
             if topology["topology_route_metrics_overwrite_position"] is not False:
                 raise SystemExit("route metrics must not overwrite topology coordinates")
-            if topology["topology_position_model_peers"] != 1:
-                raise SystemExit("RTLS refresh did not populate the radio peer position")
+            if topology["topology_position_model_peers"] != 0:
+                raise SystemExit("unverified RTLS refresh must not populate peer position")
             if topology["topology_gnss_position_peers"] != 0:
                 raise SystemExit("selected local board must not be injected as a radio peer")
-            if topology["topology_timing_position_peers"] < 1:
-                raise SystemExit("TOF/TDOA timing source was not surfaced")
-            if not (1.0 <= topology["topology_max_peer_range_m"] <= 2.5):
-                raise SystemExit("RTLS refresh did not produce the expected live peer range")
+            if topology["topology_timing_position_peers"] != 0:
+                raise SystemExit("unverified TOF/TDOA timing source must stay range-pending")
+            if topology["topology_max_peer_range_m"] >= 0:
+                raise SystemExit("unverified RTLS refresh must not produce a peer range")
 
             radio_snapshot = Path(tmp) / "radio_config.json"
             subprocess.run(

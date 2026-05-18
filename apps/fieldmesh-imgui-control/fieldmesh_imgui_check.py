@@ -80,7 +80,7 @@ def main() -> int:
         "Deny",
         "render_topology_page",
         "Network Topology",
-        "Local-to-peer range labels are always shown",
+        "Local-to-peer range labels are shown with provenance",
         "distance_from_local_meters",
         "topology_local_point",
         "distance_meters",
@@ -301,6 +301,12 @@ def main() -> int:
         raise SystemExit("topology range calculation must be documented in snapshot")
     if snapshot.get("topology_route_metrics_overwrite_position") is not False:
         raise SystemExit("route metrics must not overwrite RTLS/profile topology positions")
+    if snapshot.get("topology_range_production_ready") is not False:
+        raise SystemExit("test/demo topology ranges must not claim production readiness")
+    if snapshot.get("topology_range_display_requires_provenance") is not True:
+        raise SystemExit("topology range labels must expose provenance")
+    if snapshot.get("topology_range_evidence_source") in (None, "", "real_rf_phy"):
+        raise SystemExit("default topology snapshot must not claim real-RF range evidence")
     if snapshot.get("topology_max_peer_range_m", 999.0) > 2.5:
         raise SystemExit("test fixture topology range unexpectedly exceeds the lab-scale fixture")
     if snapshot.get("topology_position_model_peers", 0) < 2:

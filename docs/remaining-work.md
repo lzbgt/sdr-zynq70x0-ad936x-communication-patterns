@@ -436,12 +436,15 @@ Current concrete work:
   query it.
 - Treat `FIELDMESH_RTLS_POSITION` as the live topology API boundary, not proof
   that physical movement is already connected to the boards. The installed
-  daemon currently publishes deterministic verification measurements in a
-  consistent local frame; moving a board will update displayed range only after
-  live GNSS/BDS+GPS/PPS, TOF, or sidecar packet-timing TDOA measurements feed
-  the daemon peer registry. `FIELDMESH_RTLS_REPORT` is now the daemon-side
-  ingestion contract for that feed; the remaining production work is wiring it
-  to real GNSS/NMEA/PPS and RF timestamp producers instead of a test harness.
+  daemon can accept deterministic verification measurements through explicit
+  test/control APIs, but the runtime-discovery GUI now keeps numeric range
+  pending unless `FIELDMESH_RTLS_POSITION` reports
+  `rf_phy_tx_rx_verified=true`. Moving a board will update displayed range only
+  after live GNSS/BDS+GPS/PPS, TOF, or sidecar packet-timing TDOA measurements
+  feed the daemon peer registry with RF-verified evidence.
+  `FIELDMESH_RTLS_REPORT` is now the daemon-side ingestion contract for that
+  feed; the remaining production work is wiring it to real GNSS/NMEA/PPS and RF
+  timestamp producers instead of a test harness.
 - Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board
@@ -461,12 +464,10 @@ Current concrete work:
   32 daemon endpoints with the app discovery buffer sized for 256 boards, so
   the connection setup page is no longer tied to the old small lab cap. The
   live no-profile GUI gate now discovers both installed board daemons, keeps
-  board/AP selection explicit, pre-seeds each installed daemon through the
-  same `FIELDMESH_MAC_INGEST`/TDOA report path that live RF RX will feed, and
-  verifies both board views render the near-field packet-timing range without
-  profiles or host-side peer injection. The remaining product work is replacing
-  that verifier pre-seed with continuous over-air BLR declare/listen and RF
-  message receive delivery into the same daemon registries.
+  board/AP selection explicit, and verifies unverified daemon/TDOA reports do
+  not render as app range. The remaining product work is replacing verifier
+  injections with continuous over-air BLR declare/listen, RF message receive
+  delivery, and RF-verified position reports in the same daemon registries.
 - The next customer-facing performance gate is measurement, not more prose:
   collect real Mbps, concurrent video-lane capacity, range/error, jitter,
   packet loss, and power consumption per Z203/Z103 plan as described in

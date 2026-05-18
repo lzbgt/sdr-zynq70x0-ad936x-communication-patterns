@@ -2267,6 +2267,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"error_radius_cm\":%u,"
                  "\"confidence\":%u,"
                  "\"measured_age_ms\":%u,"
+                 "\"rf_phy_tx_rx_verified\":0,"
+                 "\"app_verified_real_rf\":0,"
                  "\"updates_peer_registry\":1,"
                  "\"radio_topology_only\":1,"
                  "\"host_eth_topology\":0,"
@@ -2386,6 +2388,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"usable_for_ap_election\":%u,"
                  "\"usable_for_routing\":%u,"
                  "\"measured_age_ms\":%u,"
+                 "\"rf_phy_tx_rx_verified\":0,"
+                 "\"app_verified_real_rf\":0,"
                  "\"radio_topology_only\":1,"
                  "\"host_eth_topology\":0}\n",
                  estimate.node_id,

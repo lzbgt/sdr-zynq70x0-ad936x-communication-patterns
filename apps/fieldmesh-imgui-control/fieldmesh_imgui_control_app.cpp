@@ -935,6 +935,8 @@ bool poll_message_bus(GuiState *state)
 
     if (board->rtls_position_capable) {
         bool rtls_updated = false;
+        bool rtls_seen = false;
+        bool rtls_pending_real_rf = false;
 
         for (GuiPeer &peer : state->peers) {
             char request[96];
@@ -945,6 +947,7 @@ bool poll_message_bus(GuiState *state)
             long error_cm = 0;
             long age = 0;
             std::string source;
+            bool rf_phy_tx_rx_verified = false;
 
             std::snprintf(request, sizeof(request),
                           "FIELDMESH_RTLS_POSITION v1 dst=%s",
@@ -963,6 +966,20 @@ bool poll_message_bus(GuiState *state)
                 continue;
             }
             (void)json_number_field(response, "measured_age_ms", &age);
+            (void)json_boolish_field(response, "rf_phy_tx_rx_verified",
+                                     &rf_phy_tx_rx_verified);
+            rtls_seen = true;
+            if (!rf_phy_tx_rx_verified &&
+                state->profile_source == "runtime_discovery") {
+                peer.x_cm = 0;
+                peer.y_cm = 0;
+                peer.error_radius_cm =
+                    static_cast<unsigned>(error_cm < 0 ? 0 : error_cm);
+                peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
+                peer.range_source = "real_rf_position_pending";
+                rtls_pending_real_rf = true;
+                continue;
+            }
             peer.x_cm = static_cast<int>(x_cm);
             peer.y_cm = static_cast<int>(y_cm);
             peer.error_radius_cm =
@@ -975,6 +992,13 @@ bool poll_message_bus(GuiState *state)
         }
         if (rtls_updated) {
             normalize_peer_positions_to_local(state, state->selected_board_eui);
+        }
+        if (rtls_seen && !rtls_updated) {
+            updated = true;
+            state->topology_metrics_live = true;
+            state->topology_update_count += 1u;
+            state->operation_status = rtls_pending_real_rf ?
+                "topology_waiting_for_real_rf_rtls" : "topology_rtls_pending";
         }
     }
 
@@ -1120,6 +1144,70 @@ unsigned count_timing_position_peers(const GuiState &state)
         }
     }
     return count;
+}
+
+[[maybe_unused]] const char *peer_range_provenance_label(const GuiPeer &peer)
+{
+    if (!peer_has_position_model(peer)) {
+        return "pending";
+    }
+    if (peer.range_source == "packet_timing_tdoa" ||
+        peer.range_source == "local_origin_packet_timing_tdoa") {
+        return "unverified TDOA";
+    }
+    if (peer.range_source == "time_sync_tof" ||
+        peer.range_source == "local_origin_time_sync_tof") {
+        return "unverified TOF";
+    }
+    if (peer.range_source == "gnss_bds_position" ||
+        peer.range_source == "local_origin_gnss_bds_position") {
+        return "GNSS/BDS";
+    }
+    if (peer.range_source == "test_fixture_position") {
+        return "test fixture";
+    }
+    if (peer.range_source == "relative_xy" ||
+        peer.range_source == "local_origin") {
+        return "profile XY";
+    }
+    return "unverified";
+}
+
+const char *topology_range_evidence_source(const GuiState &state)
+{
+    bool has_position = false;
+    bool has_test_fixture = false;
+    bool has_timing = false;
+    bool has_gnss = false;
+
+    for (const GuiPeer &peer : state.peers) {
+        if (!peer_has_position_model(peer)) {
+            continue;
+        }
+        has_position = true;
+        if (peer.range_source == "test_fixture_position") {
+            has_test_fixture = true;
+        }
+        if (peer_has_timing_position(peer)) {
+            has_timing = true;
+        }
+        if (peer_has_gnss_position(peer)) {
+            has_gnss = true;
+        }
+    }
+    if (!has_position) {
+        return "none";
+    }
+    if (has_test_fixture) {
+        return "test_fixture_not_rf_verified";
+    }
+    if (has_timing && state.topology_metrics_live) {
+        return "daemon_timing_rtls_not_rf_verified";
+    }
+    if (has_gnss && state.topology_metrics_live) {
+        return "daemon_gnss_rtls_not_rf_verified";
+    }
+    return "profile_position_not_rf_verified";
 }
 
 void populate_demo_state(GuiState *state)
@@ -1910,6 +1998,9 @@ bool write_snapshot(const GuiState &state, const char *path)
                  "  \"topology_range_label_style\": \"background_badge\",\n"
                  "  \"topology_range_calculation\": \"euclidean_xy_from_gnss_bds_tof_tdoa_or_test_fixture\",\n"
                  "  \"topology_route_metrics_overwrite_position\": false,\n"
+                 "  \"topology_range_evidence_source\": \"%s\",\n"
+                 "  \"topology_range_production_ready\": false,\n"
+                 "  \"topology_range_display_requires_provenance\": true,\n"
                  "  \"topology_max_peer_range_m\": %.2f,\n"
                  "  \"topology_position_model_peers\": %u,\n"
                  "  \"topology_gnss_position_peers\": %u,\n"
@@ -2016,6 +2107,7 @@ bool write_snapshot(const GuiState &state, const char *path)
                  escaped_python_output.c_str(),
                  escaped_python_log.c_str(),
                  state.provisioning.dry_run ? "true" : "false",
+                 topology_range_evidence_source(state),
                  max_topology_peer_range_m(state),
                  count_position_model_peers(state),
                  count_gnss_position_peers(state),
@@ -2540,8 +2632,9 @@ void render_topology_compact(GuiState *state)
         draw->AddText(ImVec2(x + 10.0f, y - 10.0f),
                       IM_COL32(22, 33, 31, 255), peer.device_eui.c_str());
         if (range_m >= 0.0f) {
-            std::snprintf(range_label, sizeof(range_label), "%.2f m",
-                          static_cast<double>(range_m));
+            std::snprintf(range_label, sizeof(range_label), "%.2f m %s",
+                          static_cast<double>(range_m),
+                          peer_range_provenance_label(peer));
         } else {
             std::snprintf(range_label, sizeof(range_label), "%s", "pending");
         }
@@ -2557,7 +2650,7 @@ void render_topology_compact(GuiState *state)
         draw->AddText(label_pos, IM_COL32(20, 96, 72, 255), range_label);
     }
     ImGui::Dummy(canvas);
-    ImGui::TextUnformatted("Topology is radio reachability, not host Ethernet.");
+    ImGui::TextUnformatted("Topology is radio reachability; unverified ranges are labeled.");
     end_panel();
 }
 

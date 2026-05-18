@@ -77,7 +77,7 @@ cat > "$work_dir/messaging_runtime_source.json" <<'JSON'
 {"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","messaging_transport":"daemon_rf_packet_engine","messages_received":1,"last_received_text":"hello over rf","uses_inter_board_ip_routing":false,"starts_rf_tx":false,"writes_hardware":false}
 JSON
 cat > "$work_dir/topology_runtime_source.json" <<'JSON'
-{"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"uses_inter_board_ip_routing":false}
+{"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"range_source":"packet_timing_tdoa","transport":"real_rf_phy","rf_phy_tx_rx_verified":true,"app_verified_real_rf":true,"uses_inter_board_ip_routing":false}
 JSON
 cat > "$work_dir/native_ip_runtime_source.json" <<'JSON'
 {"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"real_rf_phy","rf_phy_tx_rx":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}

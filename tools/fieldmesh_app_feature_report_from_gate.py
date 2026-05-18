@@ -91,6 +91,12 @@ def topology(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str,
         raise SystemExit("topology source must show at least one peer with live range")
     if source.get("topology_metrics_live") not in (True, 1):
         raise SystemExit("topology source must set topology_metrics_live")
+    if source.get("topology_range_production_ready") in (False, 0):
+        raise SystemExit("topology source explicitly says range is not production-ready")
+    if source.get("rf_phy_tx_rx_verified") not in (True, 1):
+        raise SystemExit("topology source must prove rf_phy_tx_rx_verified")
+    if source.get("app_verified_real_rf") not in (True, 1):
+        raise SystemExit("topology source must prove app_verified_real_rf")
     if source.get("uses_inter_board_ip_routing") not in (False, 0, None):
         raise SystemExit("topology source must not use inter-board host-IP routing")
     range_source = str(source.get("range_source", "packet_timing_tdoa"))
