@@ -11,6 +11,7 @@ mkdir -p "$out_dir"
 "$repo_root/tools/verify_fieldmesh_app_build.sh"
 "$repo_root/tools/verify_fieldmesh_state_daemon_forever.sh"
 "$repo_root/tools/verify_fieldmesh_gnss_nmea_reporter.sh"
+"$repo_root/tools/verify_fieldmesh_gnss_devicetree_binding.sh"
 
 cc="${CC:-cc}"
 sdk_object="$out_dir/fieldmesh_sdk.o"

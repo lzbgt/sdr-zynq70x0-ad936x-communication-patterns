@@ -2155,6 +2155,18 @@ checks found the expected sidecar control, packet DMA, and packet client nodes,
 and host `fieldmesh-udp-probe dt-scan` validated a synthetic live devicetree
 layout.
 
+The GNSS devicetree exposure boundary is checked separately:
+
+```sh
+./tools/verify_fieldmesh_gnss_devicetree_binding.sh
+```
+
+Result: normal sidecar DTB generation remains valid, while strict production
+GNSS mode fails on the current Z203/Z103 DTBs with
+`gnss_uart_not_exposed_in_devicetree` and
+`gnss_pps_not_exposed_in_devicetree`. This protects startup topology from using
+the Linux console UART or injected daemon positions as deployed GNSS evidence.
+
 Matched FieldMesh runtime packages were then assembled with the timing-clean
 FieldMesh bitstreams and generated sidecar DTBs:
 

@@ -1139,7 +1139,15 @@ user and vendor configuration.
   constants, RTL file list, and overlay insertion notes.
 - `tools/fieldmesh_devicetree_plan.py` - generates a FieldMesh sidecar
   devicetree fragment, merges it into copied Z203/Z103 Pluto DTS files, and
-  compiles/checks DTBs without mutating the vendor Linux trees.
+  compiles/checks DTBs without mutating the vendor Linux trees. Its strict
+  GNSS modes also fail early unless the DTB exposes a non-console NMEA UART and
+  optional PPS marker, so `/dev/ttyPS0` console cannot be mistaken for deployed
+  GNSS.
+- `tools/verify_fieldmesh_gnss_devicetree_binding.sh` - verifies the GNSS
+  devicetree exposure contract. Current Z203/Z103 DTBs are expected to pass
+  normal sidecar generation while strict GNSS mode fails with
+  `gnss_uart_not_exposed_in_devicetree` and
+  `gnss_pps_not_exposed_in_devicetree` until hardware exposure is added.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production

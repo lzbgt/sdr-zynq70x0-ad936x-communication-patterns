@@ -159,7 +159,11 @@ now captures the live installed-board state and rejects stale daemon GNSS
 positions as production startup evidence unless they are backed by a configured
 device and running reporter. Current installed boards still report
 `no_gnss_nmea_device_configured`; the open work is exposing/configuring the
-actual GNSS UART/PPS source on the boards.
+actual GNSS UART/PPS source on the boards. The devicetree planner now makes
+that hardware boundary explicit: normal FieldMesh sidecar DTB generation still
+passes, but strict GNSS production mode fails until the DTB exposes an enabled
+non-console NMEA UART and PPS marker. The current concrete blocker is therefore
+`gnss_uart_not_exposed_in_devicetree`, not an app rendering issue.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

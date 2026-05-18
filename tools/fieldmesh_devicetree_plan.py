@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -166,7 +167,100 @@ def check_decompiled(text: str) -> dict[str, Any]:
     return {"ok": all(checks.values()), "checks": checks}
 
 
-def build_variant(name: str, linux_root: Path, out_root: Path, compile_dt: bool) -> dict[str, Any]:
+def _node_blocks(text: str, node_prefix: str) -> list[tuple[str, str]]:
+    pattern = re.compile(rf"^\s*({re.escape(node_prefix)}@[0-9a-fA-F]+)\s*\{{(.*?)^\s*\}};", re.MULTILINE | re.DOTALL)
+    return [(match.group(1), match.group(2)) for match in pattern.finditer(text)]
+
+
+def _status_okay(body: str) -> bool:
+    status = re.search(r'status\s*=\s*"([^"]+)"', body)
+    return status is None or status.group(1) == "okay"
+
+
+def _console_serial_addresses(text: str) -> set[str]:
+    addresses: set[str] = set()
+    for match in re.finditer(r'stdout-path\s*=\s*"[^"]*[@/]([eE][0-9a-fA-F]+)', text):
+        addresses.add(match.group(1).lower())
+    for match in re.finditer(r'serial0\s*=\s*"[^"]*serial@([0-9a-fA-F]+)"', text):
+        addresses.add(match.group(1).lower())
+    for match in re.finditer(r"console=ttyPS0", text):
+        # Z203/Z103 images map ttyPS0 to PS UART1 at 0xe0001000.
+        addresses.add("e0001000")
+    return addresses
+
+
+def check_gnss_exposure(text: str | None, require_uart: bool, require_pps: bool) -> dict[str, Any]:
+    if text is None:
+        blockers = []
+        if require_uart:
+            blockers.append("gnss_uart_decompile_unavailable")
+        if require_pps:
+            blockers.append("gnss_pps_decompile_unavailable")
+        return {
+            "ok": not blockers,
+            "required": {"uart": require_uart, "pps": require_pps},
+            "checks": {
+                "non_console_uart_present": False,
+                "pps_present": False,
+                "decompiled_dtb_available": False,
+            },
+            "candidates": {"serial": [], "pps": []},
+            "blockers": blockers,
+        }
+
+    console_addresses = _console_serial_addresses(text)
+    serial_candidates = []
+    for node, body in _node_blocks(text, "serial"):
+        address = node.split("@", 1)[1].lower()
+        compatible = re.search(r'compatible\s*=\s*([^;]+);', body)
+        row = {
+            "node": node,
+            "address": address,
+            "status_okay": _status_okay(body),
+            "console": address in console_addresses,
+            "compatible": compatible.group(1).strip() if compatible else "",
+        }
+        row["gnss_candidate"] = (
+            row["status_okay"]
+            and not row["console"]
+            and any(token in row["compatible"] for token in ("xlnx,xuartps", "cdns,uart", "xlnx,xps-uartlite", "ns16550"))
+        )
+        serial_candidates.append(row)
+
+    pps_candidates = []
+    for node_prefix in ("pps", "fieldmesh-gnss-pps", "gnss-pps"):
+        for node, body in _node_blocks(text, node_prefix):
+            pps_candidates.append({"node": node, "status_okay": _status_okay(body)})
+    pps_marker_present = any(token in text for token in ('compatible = "pps-gpio"', "fieldmesh,gnss-pps", "GPS_PPS", "gps-pps"))
+    non_console_uart_present = any(row["gnss_candidate"] for row in serial_candidates)
+    pps_present = pps_marker_present or any(row["status_okay"] for row in pps_candidates)
+
+    blockers = []
+    if require_uart and not non_console_uart_present:
+        blockers.append("gnss_uart_not_exposed_in_devicetree")
+    if require_pps and not pps_present:
+        blockers.append("gnss_pps_not_exposed_in_devicetree")
+    return {
+        "ok": not blockers,
+        "required": {"uart": require_uart, "pps": require_pps},
+        "checks": {
+            "non_console_uart_present": non_console_uart_present,
+            "pps_present": pps_present,
+            "decompiled_dtb_available": True,
+        },
+        "candidates": {"serial": serial_candidates, "pps": pps_candidates},
+        "blockers": blockers,
+    }
+
+
+def build_variant(
+    name: str,
+    linux_root: Path,
+    out_root: Path,
+    compile_dt: bool,
+    require_gnss_uart: bool,
+    require_gnss_pps: bool,
+) -> dict[str, Any]:
     out_dir = out_root / name
     out_dir.mkdir(parents=True, exist_ok=True)
     fragment, merged = write_merged_dts(linux_root, out_dir, name)
@@ -177,12 +271,15 @@ def build_variant(name: str, linux_root: Path, out_root: Path, compile_dt: bool)
         "merged_dts": str(merged),
         "dtb": None,
         "check": {"ok": True, "checks": {}},
+        "gnss_exposure": check_gnss_exposure(None, require_gnss_uart, require_gnss_pps),
     }
     if compile_dt:
         dtb = out_dir / f"{name}-zynq-pluto-sdr-fieldmesh.dtb"
         compile_dts(linux_root, merged, dtb)
         row["dtb"] = str(dtb)
-        row["check"] = check_decompiled(decompile_dtb(dtb))
+        decompiled = decompile_dtb(dtb)
+        row["check"] = check_decompiled(decompiled)
+        row["gnss_exposure"] = check_gnss_exposure(decompiled, require_gnss_uart, require_gnss_pps)
     return row
 
 
@@ -198,15 +295,35 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--out-dir", type=Path, default=Path(".config/fieldmesh/devicetree-plan"))
     parser.add_argument("--no-compile", action="store_true", help="only write DTS/DTSI files")
+    parser.add_argument(
+        "--require-gnss-uart",
+        action="store_true",
+        help="fail unless the compiled DTB exposes an enabled non-console GNSS-capable UART",
+    )
+    parser.add_argument(
+        "--require-gnss-pps",
+        action="store_true",
+        help="fail unless the compiled DTB exposes a PPS node/marker for GNSS timing",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    rows = [build_variant(name, path, args.out_dir, not args.no_compile) for name, path in args.variant]
+    rows = [
+        build_variant(
+            name,
+            path,
+            args.out_dir,
+            not args.no_compile,
+            args.require_gnss_uart,
+            args.require_gnss_pps,
+        )
+        for name, path in args.variant
+    ]
     result = {
         "event": "fieldmesh_devicetree_plan",
-        "ok": all(row["check"]["ok"] for row in rows),
+        "ok": all(row["check"]["ok"] and row["gnss_exposure"]["ok"] for row in rows),
         "variants": rows,
     }
     print(json.dumps(result, indent=2, sort_keys=True))

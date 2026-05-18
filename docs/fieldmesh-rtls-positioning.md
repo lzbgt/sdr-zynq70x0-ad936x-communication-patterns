@@ -215,6 +215,16 @@ reporter process, and daemon RTLS position. A daemon position left over from a
 test/control injection is not accepted as live GNSS startup evidence unless it
 is backed by a configured NMEA device and a running reporter service.
 
+`tools/fieldmesh_devicetree_plan.py` now also records the GNSS hardware
+exposure boundary while generating the sidecar DTB. Normal runtime packaging
+continues to pass with GNSS absent, but strict production checks
+`--require-gnss-uart` and `--require-gnss-pps` fail unless the compiled DTB
+contains an enabled non-console GNSS-capable serial node and a PPS node/marker.
+On the current installed Z203/Z103 images, the only visible UART is the Linux
+console, so the GNSS live preflight correctly reports the deployed
+`gnss_uart_not_exposed_in_devicetree` / no-device blocker instead of showing a
+fabricated startup range.
+
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The
 required feed is one or more of:
