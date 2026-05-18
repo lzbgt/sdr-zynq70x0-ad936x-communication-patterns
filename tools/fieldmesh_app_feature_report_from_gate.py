@@ -17,6 +17,10 @@ KNOWN_SOURCE_EVENTS = {
     "fieldmesh_imgui_live_no_profile",
     "fieldmesh_two_board_native_ip_socket_assert",
 }
+RUNTIME_DISCOVERY_EVENTS = {
+    "fieldmesh_imgui_control_snapshot",
+    "fieldmesh_imgui_live_no_profile",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -57,6 +61,10 @@ def common(args: argparse.Namespace, bridge: dict[str, Any]) -> dict[str, Any]:
 
 
 def messaging(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str, Any]) -> dict[str, Any]:
+    if source.get("event") in RUNTIME_DISCOVERY_EVENTS and source.get("profile_source") != "runtime_discovery":
+        raise SystemExit("messaging app source must come from runtime discovery")
+    if source.get("messaging_transport") not in ("daemon_rf_packet_engine", None):
+        raise SystemExit("messaging app source must use daemon RF packet-engine transport")
     delivered = source.get("messages_received", source.get("messages_delivered", source.get("messages", 0)))
     if not isinstance(delivered, int) or delivered < 1:
         raise SystemExit("messaging source must show at least one delivered/received message")
@@ -76,6 +84,8 @@ def messaging(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str
 
 
 def topology(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str, Any]) -> dict[str, Any]:
+    if source.get("event") in RUNTIME_DISCOVERY_EVENTS and source.get("profile_source") != "runtime_discovery":
+        raise SystemExit("topology app source must come from runtime discovery")
     peers = source.get("peers_with_range", source.get("topology_timing_position_peers", 0))
     if not isinstance(peers, int) or peers < 1:
         raise SystemExit("topology source must show at least one peer with live range")
