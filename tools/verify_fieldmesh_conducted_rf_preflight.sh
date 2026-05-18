@@ -42,6 +42,8 @@ cat > "$work_dir/valid_over_air_path.json" <<'JSON'
   "site_authorization": true,
   "controlled_area": true,
   "site_id": "legal-range-A",
+  "production_evidence": true,
+  "evidence_origin": "operator_site_survey",
   "legal_frequency_profile": true,
   "legal_frequency_profile_id": "range-2g4-low-power",
   "tx_power_limit_dbm": 0.0,

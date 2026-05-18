@@ -21,6 +21,11 @@ VALID_EVENTS = {"fieldmesh_rf_fixture_evidence", "fieldmesh_rf_path_evidence"}
 LAB_RF_PATH_TYPES = {"conducted_coax", "shielded_chamber", "conducted_or_shielded"}
 OVER_AIR_RF_PATH_TYPES = {"authorized_over_air", "legal_open_air_range", "over_air_test_site"}
 VALID_RF_PATH_TYPES = LAB_RF_PATH_TYPES | OVER_AIR_RF_PATH_TYPES
+PRODUCTION_EVIDENCE_ORIGINS = {
+    "operator_site_survey",
+    "site_authorization_record",
+    "lab_calibration_record",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -48,6 +53,7 @@ def validate_fixture_evidence(
     fixture_id: str,
     fixture_attenuation_db: float,
     center_frequency_hz: int | None = None,
+    require_production_evidence: bool = False,
     today: dt.date | None = None,
 ) -> dict[str, Any]:
     today = today or dt.date.today()
@@ -65,6 +71,12 @@ def validate_fixture_evidence(
         raise SystemExit("RF path evidence must assert legal_frequency_profile=true")
     if not evidence.get("legal_frequency_profile_id"):
         raise SystemExit("RF path evidence requires legal_frequency_profile_id")
+    if require_production_evidence:
+        if evidence.get("production_evidence") is not True:
+            raise SystemExit("live RF path evidence must assert production_evidence=true")
+        origin = evidence.get("evidence_origin")
+        if origin not in PRODUCTION_EVIDENCE_ORIGINS:
+            raise SystemExit("live RF path evidence requires a supported evidence_origin")
 
     measured = None
     minimum = None
@@ -124,6 +136,8 @@ def validate_fixture_evidence(
         "authorized_until": authorized_until.isoformat() if authorized_until else None,
         "site_id": evidence.get("site_id"),
         "legal_frequency_profile_id": evidence.get("legal_frequency_profile_id"),
+        "production_evidence": bool(evidence.get("production_evidence") is True),
+        "evidence_origin": evidence.get("evidence_origin"),
         "frequency_hz_min": evidence.get("frequency_hz_min"),
         "frequency_hz_max": evidence.get("frequency_hz_max"),
         "validated_on": today.isoformat(),
@@ -138,6 +152,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-path-id", dest="fixture_id")
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--center-frequency-hz", type=int)
+    parser.add_argument("--require-production-evidence", action="store_true")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
@@ -154,6 +169,7 @@ def main() -> int:
         fixture_id=args.fixture_id,
         fixture_attenuation_db=args.fixture_attenuation_db,
         center_frequency_hz=args.center_frequency_hz,
+        require_production_evidence=args.require_production_evidence,
     )
     report = {
         "event": "fieldmesh_rf_fixture_evidence_check",

@@ -96,6 +96,7 @@ def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
             fixture_id=args.fixture_id,
             fixture_attenuation_db=args.fixture_attenuation_db,
             center_frequency_hz=plan_center_frequency_hz(plan),
+            require_production_evidence=True,
         )
         if not (args.tx_uri and args.rx_uri):
             raise SystemExit("--execute-live-rf requires --tx-uri and --rx-uri")

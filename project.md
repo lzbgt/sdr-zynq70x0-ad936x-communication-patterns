@@ -590,9 +590,9 @@ user and vendor configuration.
   it only writes a reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev`
   script from the verified live plan. A real authorized over-air RF run requires
   `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, a RF path ID,
-  machine-checkable RF path evidence, exact operator confirmation, bounded TX
-  duration, and the same legal-frequency, attenuation, TX-enable, and RX-first
-  guards.
+  machine-checkable RF path evidence with `production_evidence=true` and a
+  supported `evidence_origin`, exact operator confirmation, bounded TX duration,
+  and the same legal-frequency, attenuation, TX-enable, and RX-first guards.
 - `tools/verify_fieldmesh_iq_iio_live_run.sh` - gate for the guarded IIO
   runner dry-run and negative tests for missing legal-frequency profile,
   missing hardware-write approval, missing RF-TX approval, missing operator

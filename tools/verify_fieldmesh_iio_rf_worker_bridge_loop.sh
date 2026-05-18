@@ -122,3 +122,44 @@ if ! grep -q 'ALLOW_IIO_RF_BRIDGE=1 requires EXECUTE_LIVE_RF=1' \
   echo "native-IP iperf IIO refusal did not explain required approvals" >&2
   exit 1
 fi
+
+cat > "$work_dir/non_production_rf_path.json" <<'JSON'
+{
+  "event": "fieldmesh_rf_path_evidence",
+  "ok": true,
+  "rf_path_id": "authorized-open-air-A",
+  "rf_path_type": "authorized_over_air",
+  "authorized_over_air": true,
+  "site_authorization": true,
+  "controlled_area": true,
+  "site_id": "legal-range-A",
+  "legal_frequency_profile": true,
+  "legal_frequency_profile_id": "range-2g4-low-power",
+  "tx_power_limit_dbm": 0.0,
+  "frequency_hz_min": 2300000000,
+  "frequency_hz_max": 2500000000,
+  "authorized_until": "2099-12-31"
+}
+JSON
+
+if PREFLIGHT_ONLY=1 \
+   ALLOW_IIO_RF_BRIDGE=1 \
+   EXECUTE_LIVE_RF=1 \
+   ALLOW_HARDWARE_WRITES=1 \
+   ALLOW_RF_TX=1 \
+   ALLOW_DAEMON_QUEUE_MUTATION=1 \
+   RF_PATH_ID=authorized-open-air-A \
+   RF_PATH_EVIDENCE="$work_dir/non_production_rf_path.json" \
+   OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
+   OUT_DIR="$work_dir/iperf-iio-non-production-evidence" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_iio_non_production.out" \
+   2>"$work_dir/iperf_iio_non_production.err"; then
+  echo "native-IP iperf gate accepted non-production RF path evidence" >&2
+  exit 1
+fi
+
+if ! grep -q 'production_evidence=true' "$work_dir/iperf_iio_non_production.err"; then
+  echo "native-IP iperf non-production RF path refusal did not name production evidence" >&2
+  exit 1
+fi

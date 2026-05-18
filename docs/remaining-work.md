@@ -132,7 +132,10 @@ native-IP iperf gate now has two explicit bridge modes:
 `ALLOW_DAEMON_RF_BRIDGE=1` is diagnostic-only, while
 `ALLOW_IIO_RF_BRIDGE=1` starts the guarded continuous RF-worker/IIO bridge loop
 for live over-air traffic after all RF-path, hardware-write, RF-TX, daemon
-queue-mutation, and operator-confirmation approvals are present. The current
+queue-mutation, and operator-confirmation approvals are present. Live RF path
+evidence must also assert `production_evidence=true` and a supported
+`evidence_origin`, so verifier-generated RF path JSON is not sufficient for an
+actual over-air production run. The current
 `PREFLIGHT_ONLY=1` mode checks those inputs and route shape without creating
 network interfaces, starting iperf, opening IIO buffers, mutating daemon
 queues, or transmitting RF. The current

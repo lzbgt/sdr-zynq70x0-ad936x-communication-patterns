@@ -3633,8 +3633,11 @@ bounded `iio_writedev` TX IQ burst loading. The default report keeps
 `writes_hardware=false`. The verifier also rejects missing legal-frequency
 profile, insufficient fixture attenuation, excessive TX duration, and
 `--execute-live-rf` unless hardware writes, RF-TX authorization, exact operator
-confirmation, RF path identity, and RF path evidence are present. Actual
-authorized over-air RF execution is therefore explicit, bounded, and auditable.
+confirmation, RF path identity, and RF path evidence are present. Live RF also
+requires that evidence to carry `production_evidence=true` and a supported
+`evidence_origin`, so a verifier-generated JSON file cannot be reused as site
+authorization. Actual authorized over-air RF execution is therefore explicit,
+bounded, and auditable.
 
 RF path evidence is machine-checked before any live RF run:
 
@@ -3648,10 +3651,11 @@ Result:
 {"event": "fieldmesh_rf_fixture_evidence_check", "fixture_id": "conducted-fixture-A", "measured_attenuation_db": 60.0, "ok": true}
 ```
 
-The evidence manifest must identify the RF path and assert over-air authorization
-operation, prove TX/RX isolation, name the legal frequency profile, provide
-measured attenuation at or above the requested attenuation, and have a current
-calibration date.
+The evidence manifest must identify the RF path, name its evidence origin,
+assert production/site authorization for live over-air operation, name the legal
+frequency profile, and cover the requested frequency. Legacy lab-containment
+evidence must instead prove TX/RX isolation, measured attenuation at or above
+the requested attenuation, and a current calibration date.
 
 ## FieldMesh RF PHY Readiness Classifier
 
@@ -3839,9 +3843,10 @@ bridge, converts app/gate source outputs or raw feature reports into normalized
 messaging/topology/native-IP real-RF reports, and invokes the production gate.
 Dry-run is the default. Live RF still requires explicit hardware-write, RF-TX,
 daemon-queue mutation, RF path evidence, RF path ID, and operator-confirmation
-inputs. Production RF path evidence is authorized over-air evidence; legacy
-lab-containment fixture evidence is an optional lab-containment path only, not
-the production model for boards that may be miles apart. Raw app feature evidence supplied to the wrapper must be correlated to
+inputs. Production RF path evidence is authorized over-air evidence with
+`production_evidence=true`; legacy lab-containment fixture evidence is an
+optional lab-containment path only, not the production model for boards that may
+be miles apart. Raw app feature evidence supplied to the wrapper must be correlated to
 the same bridge and IQ live-run reports. The preferred wrapper also emits
 `fieldmesh_over_air_rf_production_sequence.json` and
 `fieldmesh_over_air_rf_evidence_manifest.json`, while preserving the legacy

@@ -70,6 +70,7 @@ def validate_fixture(args: argparse.Namespace, blockers: list[str]) -> dict[str,
             fixture_id=args.fixture_id,
             fixture_attenuation_db=args.fixture_attenuation_db,
             center_frequency_hz=args.center_frequency_hz,
+            require_production_evidence=args.execute_live_rf,
         )
     except (OSError, ValueError, SystemExit) as exc:
         blockers.append(f"rf_path_evidence_invalid:{exc}")

@@ -61,6 +61,8 @@ cat > "$work_dir/valid_over_air_path.json" <<'JSON'
   "site_authorization": true,
   "controlled_area": true,
   "site_id": "legal-range-A",
+  "production_evidence": true,
+  "evidence_origin": "operator_site_survey",
   "legal_frequency_profile": true,
   "legal_frequency_profile_id": "range-2g4-low-power",
   "tx_power_limit_dbm": 0.0,
@@ -88,7 +90,31 @@ if report.get("ok") is not True or report.get("authorized_over_air") is not True
     raise SystemExit(f"bad over-air RF path check: {report}")
 if report.get("rf_path_id") != "authorized-open-air-A":
     raise SystemExit("RF path id changed")
+if report.get("production_evidence") is not True:
+    raise SystemExit("production RF path evidence was not surfaced")
 PY
+
+python3 - "$work_dir/valid_over_air_path.json" "$work_dir/non_production_over_air_path.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report.pop("production_evidence", None)
+report.pop("evidence_origin", None)
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if "$repo_root/tools/fieldmesh_rf_fixture_evidence.py" \
+  --rf-path-evidence "$work_dir/non_production_over_air_path.json" \
+  --rf-path-id authorized-open-air-A \
+  --fixture-attenuation-db 0 \
+  --center-frequency-hz 2400000000 \
+  --require-production-evidence \
+  >/dev/null 2>&1; then
+  echo "RF path evidence accepted live use without production evidence markers" >&2
+  exit 1
+fi
 
 cat > "$work_dir/expired_fixture.json" <<'JSON'
 {

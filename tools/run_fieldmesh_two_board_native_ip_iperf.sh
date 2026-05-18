@@ -318,6 +318,7 @@ if [ "$allow_iio_rf_bridge" = "1" ]; then
         --rf-path-id "$rf_path_id" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --center-frequency-hz "$center_frequency_hz" \
+        --require-production-evidence \
         --output "$out_dir/rf_path_evidence_check.json" \
         >"$out_dir/rf_path_evidence_check_stdout.json"
 fi

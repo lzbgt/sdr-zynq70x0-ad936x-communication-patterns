@@ -203,7 +203,9 @@ Minimum production gates for native TCP/IP:
   over-air bridge, ingests the recovered frame into the peer daemon, and ACKs
   the source only after successful ingest. This mode requires `EXECUTE_LIVE_RF`,
   hardware-write/RF-TX/daemon-mutation approvals, RF path evidence, and the
-  exact over-air operator confirmation before it can run. `PREFLIGHT_ONLY=1`
+  exact over-air operator confirmation before it can run. That RF path evidence
+  must be production/site evidence, not a verifier fixture.
+  `PREFLIGHT_ONLY=1`
   checks the daemon RF fields, optional RF path evidence, and optional host
   route preflight without creating `swarm0`, launching `iperf3`, opening IIO
   buffers, mutating daemon queues, or starting RF TX;
