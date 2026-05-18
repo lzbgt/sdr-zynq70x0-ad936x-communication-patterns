@@ -214,7 +214,9 @@ is running but has no fix. Normal app startup now requires fresh daemon GNSS
 positions with `has_gnss_position=true` and `live_gnss_reporter=true`, and the
 synthetic GNSS topology gate clears injected RTLS positions after use. The
 remaining GNSS work is receiver antenna/sky-view/fix validation and PPS
-exposure, not UART exposure; an indoor
+exposure, not UART exposure; the live preflight now reports `/dev/pps*` and
+`/sys/class/pps` state separately and `REQUIRE_GNSS_PPS=1` refuses until a
+kernel PPS device and matching `gnss_pps_lock=1` config are present. An indoor
 bench location is a plausible cause for the current no-satellite/no-fix NMEA.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker

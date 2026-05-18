@@ -33,13 +33,23 @@ def latest_reporter_status(facts: dict[str, Any]) -> dict[str, Any] | None:
     return latest if isinstance(latest, dict) else None
 
 
-def classify(out_dir: Path, label: str) -> dict[str, Any]:
+def split_csv(value: Any) -> list[str]:
+    return [item for item in str(value or "").split(",") if item]
+
+
+def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any]:
     facts = read_json(out_dir / f"{label}_facts.txt.json")
     rtls = read_json(out_dir / f"{label}_rtls_position.json")
     blockers: list[str] = []
     configured_device = str(facts.get("gnss_nmea_device") or "")
     configured_baud = str(facts.get("gnss_nmea_baud") or "")
+    configured_pps_lock = str(facts.get("gnss_pps_lock") or "")
     reporter_status = latest_reporter_status(facts)
+    serial_devices = split_csv(facts.get("serial_devices"))
+    pps_devices = split_csv(facts.get("pps_devices"))
+    pps_sysfs_devices = split_csv(facts.get("pps_sysfs_devices"))
+    pps_device_present = bool(pps_devices or pps_sysfs_devices)
+    pps_lock_configured = configured_pps_lock in ("1", "true", "yes", "on")
 
     if not configured_device:
         blockers.append("no_gnss_nmea_device_configured")
@@ -84,6 +94,12 @@ def classify(out_dir: Path, label: str) -> dict[str, Any]:
     if daemon_gnss_position_present and not service_backed:
         blockers.append("gnss_position_not_backed_by_live_init_service")
 
+    if require_gnss_pps:
+        if not pps_device_present:
+            blockers.append("gnss_pps_device_missing")
+        elif not pps_lock_configured:
+            blockers.append("gnss_pps_lock_not_configured")
+
     blockers = sorted(set(blockers))
     return {
         "label": label,
@@ -92,10 +108,15 @@ def classify(out_dir: Path, label: str) -> dict[str, Any]:
         "device_eui": facts.get("device_eui"),
         "gnss_nmea_device": configured_device,
         "gnss_nmea_baud": configured_baud,
+        "gnss_pps_lock": configured_pps_lock,
         "gnss_nmea_device_exists": facts.get("gnss_nmea_device_exists") == "1",
+        "gnss_pps_device_present": pps_device_present,
+        "gnss_pps_ready": pps_device_present and pps_lock_configured,
         "gnss_reporter_running": bool(facts.get("gnss_pid")),
         "daemon_running": bool(facts.get("daemon_pid")),
-        "serial_devices": [item for item in str(facts.get("serial_devices") or "").split(",") if item],
+        "serial_devices": serial_devices,
+        "pps_devices": pps_devices,
+        "pps_sysfs_devices": pps_sysfs_devices,
         "position_source": rtls.get("position_source"),
         "has_gnss_position": rtls.get("has_gnss_position"),
         "live_gnss_reporter": rtls.get("live_gnss_reporter"),
@@ -114,15 +135,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--require-gnss-fix", action="store_true")
+    parser.add_argument("--require-gnss-pps", action="store_true")
     args = parser.parse_args()
 
-    boards = [classify(args.out_dir, "z203"), classify(args.out_dir, "z103")]
+    boards = [
+        classify(args.out_dir, "z203", args.require_gnss_pps),
+        classify(args.out_dir, "z103", args.require_gnss_pps),
+    ]
     ready = all(board["gnss_live_ready"] for board in boards)
+    required = args.require_gnss_fix or args.require_gnss_pps
     summary: dict[str, Any] = {
         "event": "fieldmesh_two_board_gnss_live_preflight",
-        "ok": ready or not args.require_gnss_fix,
+        "ok": ready or not required,
         "gnss_live_ready": ready,
         "require_gnss_fix": args.require_gnss_fix,
+        "require_gnss_pps": args.require_gnss_pps,
         "boards": boards,
         "capture_dir": str(args.out_dir),
     }

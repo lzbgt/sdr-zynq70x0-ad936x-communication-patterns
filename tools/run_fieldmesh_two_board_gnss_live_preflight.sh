@@ -10,6 +10,7 @@ port="${PORT:-55441}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 require_gnss_fix="${REQUIRE_GNSS_FIX:-0}"
+require_gnss_pps="${REQUIRE_GNSS_PPS:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-gnss-live-preflight-$(date +%Y%m%d-%H%M%S)-$$}"
 
 mkdir -p "$out_dir"
@@ -21,6 +22,10 @@ fi
 case "$require_gnss_fix" in
     0|1) ;;
     *) echo "REQUIRE_GNSS_FIX must be 0 or 1" >&2; exit 1 ;;
+esac
+case "$require_gnss_pps" in
+    0|1) ;;
+    *) echo "REQUIRE_GNSS_PPS must be 0 or 1" >&2; exit 1 ;;
 esac
 
 ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
@@ -104,6 +109,10 @@ else
 fi
 serials="$(ls /dev/ttyPS* /dev/ttyUSB* /dev/ttyACM* /dev/ttyS* 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
 printf 'serial_devices=%s\n' "$serials"
+pps_devices="$(ls /dev/pps* 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
+pps_sysfs="$(ls /sys/class/pps 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
+printf 'pps_devices=%s\n' "$pps_devices"
+printf 'pps_sysfs_devices=%s\n' "$pps_sysfs"
 printf 'gnss_log_exists=%s\n' "$([ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ] && echo 1 || echo 0)"
 if [ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ]; then
     tail -n 5 /tmp/fieldmesh-gnss-nmea-reporter.ndjson | sed 's/^/gnss_log_tail=/'
@@ -179,6 +188,9 @@ query_rtls_position z103 "$z103_ip" "$z103_eui" "$out_dir/z103_rtls_position.jso
 summary_args=(--out-dir "$out_dir")
 if [ "$require_gnss_fix" = "1" ]; then
     summary_args+=(--require-gnss-fix)
+fi
+if [ "$require_gnss_pps" = "1" ]; then
+    summary_args+=(--require-gnss-pps)
 fi
 "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" "${summary_args[@]}" \
     | tee "$out_dir/summary.json"

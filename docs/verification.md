@@ -3225,6 +3225,10 @@ configuration, visible serial nodes, reporter process state, and daemon
 `FIELDMESH_RTLS_POSITION` output. By default it exits successfully after
 inspection even when `gnss_live_ready=false`; set `REQUIRE_GNSS_FIX=1` to make
 missing live GNSS a hard production failure.
+Set `REQUIRE_GNSS_PPS=1` to also require a live kernel PPS device and matching
+`gnss_pps_lock=1` configuration. This does not make a GNSS position valid by
+itself; it exposes the separate PPS timing boundary needed for time-synced
+TOF/TDOA and scheduled RF modes.
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as

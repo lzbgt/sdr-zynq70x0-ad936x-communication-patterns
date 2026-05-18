@@ -18,8 +18,11 @@ cat > "$work_dir/z203_facts.txt.json" <<'JSON'
   "gnss_pid": "202",
   "gnss_nmea_device": "/dev/ttyPS1",
   "gnss_nmea_baud": "38400",
+  "gnss_pps_lock": "1",
   "gnss_nmea_device_exists": "1",
   "serial_devices": "/dev/ttyPS0,/dev/ttyPS1",
+  "pps_devices": "/dev/pps0",
+  "pps_sysfs_devices": "pps0",
   "gnss_log_tail": [
     "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_no_satellites_visible\",\"gnss_gga_quality_no_fix\"]}"
   ]
@@ -40,8 +43,11 @@ cat > "$work_dir/z103_facts.txt.json" <<'JSON'
   "gnss_pid": "",
   "gnss_nmea_device": "",
   "gnss_nmea_baud": "",
+  "gnss_pps_lock": "",
   "gnss_nmea_device_exists": "0",
   "serial_devices": "/dev/ttyPS0",
+  "pps_devices": "",
+  "pps_sysfs_devices": "",
   "gnss_log_tail": []
 }
 JSON
@@ -69,6 +75,8 @@ if "gnss_gga_quality_no_fix" not in z203.get("blockers", []):
     raise SystemExit(f"Z203 GGA no-fix blocker was not surfaced: {z203!r}")
 if z203.get("gnss_nmea_status", {}).get("fix_detected") is not False:
     raise SystemExit(f"Z203 status not retained: {z203!r}")
+if z203.get("gnss_pps_device_present") is not True or z203.get("gnss_pps_ready") is not True:
+    raise SystemExit(f"Z203 PPS device/config was not surfaced: {z203!r}")
 z103 = boards["z103"]
 if "no_gnss_nmea_device_configured" not in z103.get("blockers", []):
     raise SystemExit(f"Z103 missing-device blocker was not surfaced: {z103!r}")
@@ -81,5 +89,26 @@ if "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" \
   echo "GNSS live preflight summary accepted missing required fixes" >&2
   exit 1
 fi
+
+if "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" \
+  --out-dir "$work_dir" \
+  --require-gnss-pps \
+  > "$work_dir/summary-required-pps.json"; then
+  echo "GNSS live preflight summary accepted missing required PPS" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/summary-required-pps.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+summary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+boards = {row["label"]: row for row in summary["boards"]}
+if "gnss_pps_device_missing" not in boards["z103"].get("blockers", []):
+    raise SystemExit(f"Z103 missing PPS blocker was not surfaced: {boards['z103']!r}")
+if "gnss_pps_device_missing" in boards["z203"].get("blockers", []):
+    raise SystemExit(f"Z203 has synthetic PPS but was marked missing: {boards['z203']!r}")
+PY
 
 echo "fieldmesh_gnss_live_preflight_summary=pass"

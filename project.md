@@ -1210,6 +1210,11 @@ user and vendor configuration.
   `gnss_no_satellites_visible`, `gnss_gga_quality_no_fix`, `gnss_rmc_status_void`, and
   `gnss_gsa_fix_type_no_fix` instead of only reporting a generic receiver
   no-fix blocker.
+- `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` also reports live PPS
+  exposure through `/dev/pps*` and `/sys/class/pps`. `REQUIRE_GNSS_PPS=1`
+  makes a missing kernel PPS device or missing `gnss_pps_lock=1` configuration
+  a hard failure, keeping GNSS position evidence separate from PPS timing
+  evidence.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,
