@@ -118,3 +118,49 @@ if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
   echo "native-IP iperf production sequence accepted SSH-launched host-PC evidence" >&2
   exit 1
 fi
+
+cat >"$work_dir/fake_iperf_runner.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+out_dir="${OUT_DIR:?}"
+host_pc="${HOST_PC_CASE:-0}"
+mkdir -p "$out_dir"
+if [ "$host_pc" = "1" ]; then
+  cat >"$out_dir/iperf_gate.ndjson" <<'JSON'
+{"event":"fieldmesh_two_board_native_ip_iperf_preflight","ok":false,"blocker":"host_pc_board_route_not_direct","preflight_only":true}
+JSON
+  exit 44
+fi
+cat >"$out_dir/iperf_gate.ndjson" <<'JSON'
+{"event":"fieldmesh_two_board_native_ip_iperf_preflight","ok":true,"preflight_only":true,"allow_iio_rf_bridge":true}
+JSON
+SH
+chmod +x "$work_dir/fake_iperf_runner.sh"
+
+if FIELDMESH_IPERF_RUNNER="$work_dir/fake_iperf_runner.sh" \
+   PREFLIGHT_ONLY=1 \
+   OUT_DIR="$work_dir/preflight-failure-summary" \
+   "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
+   >"$work_dir/preflight-failure.stdout" 2>"$work_dir/preflight-failure.stderr"; then
+  echo "native-IP iperf production preflight accepted failed host-PC route" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/preflight-failure-summary/native_ip_iperf_production_sequence.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("ok") is not False:
+    raise SystemExit(f"failed preflight summary should be ok=false: {report}")
+if report.get("board_to_board_preflight_rc") != 0:
+    raise SystemExit(f"board preflight should have passed: {report}")
+if report.get("host_pc_preflight_rc") == 0:
+    raise SystemExit(f"host-PC preflight should have failed: {report}")
+if report.get("host_pc_preflight_report", {}).get("blocker") != "host_pc_board_route_not_direct":
+    raise SystemExit(f"host-PC blocker was not surfaced: {report}")
+if "host_pc_preflight_failed" not in report.get("production_blocker", ""):
+    raise SystemExit(f"missing host-PC production blocker: {report}")
+PY

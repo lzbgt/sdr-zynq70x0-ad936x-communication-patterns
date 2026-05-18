@@ -4692,6 +4692,9 @@ emit `native_ip_iperf_evidence.json` plus
 same RF path evidence and approvals. `PREFLIGHT_ONLY=1` runs the two
 non-transmitting preflights without creating network interfaces, starting
 `iperf3`, opening IIO buffers, mutating daemon queues, or transmitting RF.
+The wrapper records both sub-preflight return codes and the last JSON report
+from each layer, so a failed host-PC route check or missing RF readiness still
+produces a single paired summary with the exact production blocker.
 The wrapper is verified with:
 
 ```sh

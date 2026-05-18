@@ -822,7 +822,8 @@ user and vendor configuration.
   preflights for both layers, or run both live over-air iperf layers with the
   same RF path evidence and approvals. It emits the paired native-IP iperf
   evidence plus the normalized app real-RF report required by the production
-  gate.
+  gate. Its preflight mode always emits a paired summary with both sub-preflight
+  return codes and blockers, even when one layer fails.
 - `tools/verify_fieldmesh_native_ip_iperf_production_sequence.sh` - verifier
   for the paired native-IP iperf wrapper, including rejection of one-sided
   report input and SSH-launched host-PC substitutes.

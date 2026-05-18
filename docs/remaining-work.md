@@ -158,7 +158,10 @@ without `transport=real_rf_phy` plus `rf_phy_tx_rx_verified=true` are rejected.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` now wraps the two
 layers as one production sequence: it consumes paired saved reports or runs both
 live layers, emits paired native-IP iperf evidence, and emits the normalized app
-real-RF report consumed by the production gate.
+real-RF report consumed by the production gate. In `PREFLIGHT_ONLY=1` it now
+captures both sub-preflight return codes and reports a single structured
+blocker summary instead of hiding the second-layer state after the first
+failure.
 `run_fieldmesh_real_rf_production_gate.sh` also checks the normalized native-IP
 app report back to this paired iperf evidence, so callers cannot bypass the
 layered iperf requirement with a generic socket success report.

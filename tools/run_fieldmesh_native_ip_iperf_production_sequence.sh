@@ -9,6 +9,7 @@ host_report="${HOST_PC_REPORT:-}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
 preflight_only="${PREFLIGHT_ONLY:-0}"
 allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
+iperf_runner="${FIELDMESH_IPERF_RUNNER:-$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh}"
 
 usage() {
     cat >&2 <<'EOF'
@@ -57,6 +58,11 @@ done
 
 mkdir -p "$out_dir"
 
+if [ ! -x "$iperf_runner" ]; then
+    echo "FIELDMESH_IPERF_RUNNER is not executable: $iperf_runner" >&2
+    exit 1
+fi
+
 copy_report() {
     local source="$1"
     local dest="$2"
@@ -75,45 +81,78 @@ if [ -n "$board_report" ] || [ -n "$host_report" ]; then
     copy_report "$board_report" "$out_dir/board_to_board_iperf.json"
     copy_report "$host_report" "$out_dir/host_pc_transparent_iperf.json"
 elif [ "$preflight_only" = "1" ]; then
+    set +e
     PREFLIGHT_ONLY=1 HOST_PC_CASE=0 \
       OUT_DIR="$out_dir/board_to_board_preflight" \
-      "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+      "$iperf_runner" \
       >"$out_dir/board_to_board_preflight.stdout" \
       2>"$out_dir/board_to_board_preflight.stderr"
+    board_preflight_rc="$?"
 
     PREFLIGHT_ONLY=1 HOST_PC_CASE=1 ALLOW_HOST_PC_ROUTED_GATE="$allow_host_pc_routed_gate" \
       OUT_DIR="$out_dir/host_pc_preflight" \
-      "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+      "$iperf_runner" \
       >"$out_dir/host_pc_preflight.stdout" \
       2>"$out_dir/host_pc_preflight.stderr"
+    host_preflight_rc="$?"
+    set -e
 
-    python3 - "$out_dir" <<'PY' | tee "$out_dir/native_ip_iperf_production_sequence.json"
+    python3 - "$out_dir" "$board_preflight_rc" "$host_preflight_rc" <<'PY' | tee "$out_dir/native_ip_iperf_production_sequence.json"
 import json
 import sys
 from pathlib import Path
 
 out_dir = Path(sys.argv[1])
+board_rc = int(sys.argv[2])
+host_rc = int(sys.argv[3])
+board_gate = out_dir / "board_to_board_preflight" / "iperf_gate.ndjson"
+host_gate = out_dir / "host_pc_preflight" / "iperf_gate.ndjson"
+
+def last_json(path: Path):
+    if not path.is_file():
+        return None
+    last = None
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            last = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+    return last
+
+blockers = []
+if board_rc != 0:
+    blockers.append("board_to_board_preflight_failed")
+if host_rc != 0:
+    blockers.append("host_pc_preflight_failed")
 report = {
     "event": "fieldmesh_native_ip_iperf_production_sequence",
-    "ok": True,
+    "ok": not blockers,
     "preflight_only": True,
     "starts_iperf": False,
     "starts_rf_tx": False,
     "opens_iio_buffers": False,
     "mutates_daemon_queues": False,
+    "board_to_board_preflight_rc": board_rc,
+    "host_pc_preflight_rc": host_rc,
     "board_to_board_preflight": str(out_dir / "board_to_board_preflight"),
     "host_pc_preflight": str(out_dir / "host_pc_preflight"),
+    "board_to_board_preflight_report": last_json(board_gate),
+    "host_pc_preflight_report": last_json(host_gate),
     "production_ready": False,
-    "production_blocker": "preflight_only_no_iperf_evidence",
+    "production_blocker": ",".join(blockers) if blockers else "preflight_only_no_iperf_evidence",
 }
 print(json.dumps(report, sort_keys=True))
+raise SystemExit(0 if report["ok"] else 1)
 PY
     echo "Capture directory: $out_dir"
     exit 0
 elif [ "$execute_live_rf" = "1" ]; then
     HOST_PC_CASE=0 \
       OUT_DIR="$out_dir/board_to_board_run" \
-      "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+      "$iperf_runner" \
       >"$out_dir/board_to_board_run.stdout" \
       2>"$out_dir/board_to_board_run.stderr"
     copy_report \
@@ -122,7 +161,7 @@ elif [ "$execute_live_rf" = "1" ]; then
 
     HOST_PC_CASE=1 ALLOW_HOST_PC_ROUTED_GATE="$allow_host_pc_routed_gate" \
       OUT_DIR="$out_dir/host_pc_run" \
-      "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+      "$iperf_runner" \
       >"$out_dir/host_pc_run.stdout" \
       2>"$out_dir/host_pc_run.stderr"
     copy_report \
