@@ -1242,9 +1242,12 @@ user and vendor configuration.
   evidence. The refreshed Z203 bitstream/DTB has booted with
   `CONFIG_PPS_CLIENT_GPIO=y`; live preflight now sees `/dev/pps0` and
   `/sys/class/pps/pps0`, and dmesg registers `fieldmesh-gnss-pps` as the PPS
-  source. Z203 has passed the Linux PPS exposure gate. Z103 has a verified
-  schematic-backed A20/B19/B20 GNSS overlay contract, but still needs a
-  refreshed installed runtime before it can provide live GNSS/PPS evidence.
+  source. Z203 has passed the Linux PPS exposure gate. Z103 now has the
+  schematic-backed A20/B19/B20 GNSS overlay runtime installed too: live Linux
+  exposes `/dev/ttyPS1`, `/dev/pps0`, and `/sys/class/pps/pps0`; its init
+  service starts `fieldmesh-gnss-nmea-reporter` from persistent
+  `fieldmesh_gnss_*` U-Boot env config. Z103 still lacks a GNSS position fix,
+  so it is PPS/UART ready but not GNSS-position ready.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

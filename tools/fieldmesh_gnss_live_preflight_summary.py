@@ -143,11 +143,18 @@ def main() -> int:
         classify(args.out_dir, "z103", args.require_gnss_pps),
     ]
     ready = all(board["gnss_live_ready"] for board in boards)
-    required = args.require_gnss_fix or args.require_gnss_pps
+    pps_ready = all(board["gnss_pps_ready"] for board in boards)
+    if args.require_gnss_fix:
+        ok = ready
+    elif args.require_gnss_pps:
+        ok = pps_ready
+    else:
+        ok = True
     summary: dict[str, Any] = {
         "event": "fieldmesh_two_board_gnss_live_preflight",
-        "ok": ready or not required,
+        "ok": ok,
         "gnss_live_ready": ready,
+        "gnss_pps_ready": pps_ready,
         "require_gnss_fix": args.require_gnss_fix,
         "require_gnss_pps": args.require_gnss_pps,
         "boards": boards,

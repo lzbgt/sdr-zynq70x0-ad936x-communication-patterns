@@ -98,6 +98,7 @@ read_gnss_device() {
     read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_device && return 0
     read_first_line_file /etc/fieldmesh/gnss_nmea_device && return 0
     read_sd_boot_config gnss_nmea_device && return 0
+    read_fwenv fieldmesh_gnss_nmea_device && return 0
     return 1
 }
 
@@ -111,6 +112,7 @@ read_gnss_baud() {
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_sd_boot_config gnss_nmea_baud 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_fwenv fieldmesh_gnss_nmea_baud 2>/dev/null || true)"
     case "$value" in
         4800|9600|19200|38400|57600|115200)
             printf '%s\n' "$value"
@@ -130,6 +132,7 @@ read_gnss_pps_lock() {
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_pps_lock 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_pps_lock 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_sd_boot_config gnss_pps_lock 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_fwenv fieldmesh_gnss_pps_lock 2>/dev/null || true)"
     case "$value" in
         0|1)
             printf '%s\n' "$value"
@@ -153,6 +156,7 @@ read_gnss_max_reports() {
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_max_reports 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_max_reports 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_sd_boot_config gnss_nmea_max_reports 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_fwenv fieldmesh_gnss_nmea_max_reports 2>/dev/null || true)"
     case "$value" in
         ''|*[!0-9]*)
             printf '%s\n' "$GNSS_MAX_REPORTS"

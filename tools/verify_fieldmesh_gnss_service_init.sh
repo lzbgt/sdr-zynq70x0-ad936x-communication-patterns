@@ -8,6 +8,7 @@ init_script="$repo_root/runtime/fieldmesh-state-daemon/fieldmesh-state-daemon-in
 
 rm -rf "$work_dir"
 mkdir -p "$work_dir/bin" "$work_dir/run" "$skip_dir/run"
+mkdir -p "$work_dir/fwenv-bin" "$work_dir/fwenv-run"
 
 cat > "$work_dir/bin/fake-daemon" <<'SH'
 #!/bin/sh
@@ -24,6 +25,25 @@ SH
 chmod 0755 "$work_dir/bin/fake-gnss-reporter"
 
 printf '$GNGGA,123519,3742.1234,N,12205.4321,W,1,08,0.9,545.4,M,46.9,M,,*7A\n' > "$work_dir/gnss.nmea"
+printf '$GNRMC,123519.00,A,3742.1234,N,12205.4321,W,0.0,0.0,180526,,,A,V*36\n' > "$work_dir/fwenv-gnss.nmea"
+
+cat > "$work_dir/fwenv-bin/fw_printenv" <<SH
+#!/bin/sh
+if [ "\$1" = "-n" ]; then
+    key="\$2"
+else
+    key="\$1"
+fi
+case "\$key" in
+    fieldmesh_device_eui) printf '%s\\n' 020000000103 ;;
+    fieldmesh_gnss_nmea_device) printf '%s\\n' "$work_dir/fwenv-gnss.nmea" ;;
+    fieldmesh_gnss_nmea_baud) printf '%s\\n' 38400 ;;
+    fieldmesh_gnss_pps_lock) printf '%s\\n' 1 ;;
+    fieldmesh_gnss_nmea_max_reports) printf '%s\\n' 2 ;;
+    *) exit 1 ;;
+esac
+SH
+chmod 0755 "$work_dir/fwenv-bin/fw_printenv"
 
 cleanup() {
     set +e
@@ -38,6 +58,12 @@ cleanup() {
     fi
     if [ -f "$skip_dir/run/gnss.pid" ]; then
         kill "$(cat "$skip_dir/run/gnss.pid")" 2>/dev/null || true
+    fi
+    if [ -f "$work_dir/fwenv-run/daemon.pid" ]; then
+        kill "$(cat "$work_dir/fwenv-run/daemon.pid")" 2>/dev/null || true
+    fi
+    if [ -f "$work_dir/fwenv-run/gnss.pid" ]; then
+        kill "$(cat "$work_dir/fwenv-run/gnss.pid")" 2>/dev/null || true
     fi
 }
 trap cleanup EXIT
@@ -95,6 +121,49 @@ PY
 
 FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/run/daemon.pid" \
 FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/run/gnss.pid" \
+"$init_script" stop >/dev/null 2>&1 || true
+
+rm -f "$work_dir/gnss.ndjson"
+PATH="$work_dir/fwenv-bin:$PATH" \
+FIELDMESH_STATE_DAEMON_BIN="$work_dir/bin/fake-daemon" \
+FIELDMESH_GNSS_REPORTER_BIN="$work_dir/bin/fake-gnss-reporter" \
+FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/fwenv-run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/fwenv-run/gnss.pid" \
+FIELDMESH_STATE_DAEMON_LOGFILE="$work_dir/fwenv-daemon.ndjson" \
+FIELDMESH_GNSS_REPORTER_LOGFILE="$work_dir/gnss.ndjson" \
+"$init_script" start
+
+for _ in $(seq 1 20); do
+    [ -s "$work_dir/gnss.ndjson" ] && break
+    sleep 0.1
+done
+
+python3 - "$work_dir/gnss.ndjson" "$work_dir/fwenv-gnss.nmea" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+device = sys.argv[2]
+rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+invocations = [row for row in rows if row.get("event") == "fake_gnss_reporter_start"]
+if len(invocations) != 1:
+    raise SystemExit(f"expected one fwenv GNSS reporter invocation, saw {invocations!r}")
+row = invocations[0]
+if row.get("device") != device:
+    raise SystemExit(f"GNSS fwenv device config not applied: {row!r}")
+if row.get("eui") != "020000000103":
+    raise SystemExit(f"GNSS fwenv EUI config not applied: {row!r}")
+if row.get("baud") != "38400":
+    raise SystemExit(f"GNSS fwenv baud config not applied: {row!r}")
+if row.get("max_reports") != "2":
+    raise SystemExit(f"GNSS fwenv max report config not applied: {row!r}")
+if row.get("pps_lock") != "1":
+    raise SystemExit(f"GNSS fwenv PPS lock config not applied: {row!r}")
+PY
+
+FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/fwenv-run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/fwenv-run/gnss.pid" \
 "$init_script" stop >/dev/null 2>&1 || true
 
 rm -f "$work_dir/gnss.ndjson"

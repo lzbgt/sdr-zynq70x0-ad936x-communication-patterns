@@ -26,6 +26,10 @@ ENV_KEYS = (
     "fieldmesh_network_id",
     "fieldmesh_preferred_ap",
     "fieldmesh_ap_policy",
+    "fieldmesh_gnss_nmea_device",
+    "fieldmesh_gnss_nmea_baud",
+    "fieldmesh_gnss_pps_lock",
+    "fieldmesh_gnss_nmea_max_reports",
 )
 
 IDENTITY_STORE_PATHS = (
@@ -259,6 +263,13 @@ def fw_setenv_lines(profile: Profile) -> list[str]:
     if profile.phy_device_ip:
         lines.append(f"ipaddr_eth {profile.phy_device_ip}")
         lines.append(f"netmask_eth {netmask(profile.phy_prefix)}")
+    if profile.gnss_nmea_device:
+        lines.extend([
+            f"fieldmesh_gnss_nmea_device {profile.gnss_nmea_device}",
+            f"fieldmesh_gnss_nmea_baud {profile.gnss_nmea_baud}",
+            f"fieldmesh_gnss_pps_lock {profile.gnss_pps_lock}",
+            f"fieldmesh_gnss_nmea_max_reports {profile.gnss_nmea_max_reports}",
+        ])
     return lines
 
 
@@ -270,6 +281,10 @@ def gnss_store_lines(profile: Profile) -> list[str]:
     if not profile.gnss_nmea_device:
         return []
     return [
+        f"fieldmesh_gnss_nmea_device {profile.gnss_nmea_device}",
+        f"fieldmesh_gnss_nmea_baud {profile.gnss_nmea_baud}",
+        f"fieldmesh_gnss_pps_lock {profile.gnss_pps_lock}",
+        f"fieldmesh_gnss_nmea_max_reports {profile.gnss_nmea_max_reports}",
         f"/mnt/jffs2/fieldmesh/gnss_nmea_device {profile.gnss_nmea_device}",
         f"/mnt/jffs2/fieldmesh/gnss_nmea_baud {profile.gnss_nmea_baud}",
         f"/mnt/jffs2/fieldmesh/gnss_pps_lock {profile.gnss_pps_lock}",
@@ -334,6 +349,7 @@ def gnss_apply_commands(profile: Profile) -> str:
     commands = ["mkdir -p /mnt/jffs2/fieldmesh"]
     for key, value in gnss_values.items():
         quoted_value = shlex.quote(value)
+        commands.append(f"fw_setenv fieldmesh_{key} {quoted_value} 2>/dev/null || true")
         commands.extend([
             f"printf '%s\\n' {quoted_value} > /mnt/jffs2/fieldmesh/{key}.tmp",
             f"chmod 0644 /mnt/jffs2/fieldmesh/{key}.tmp",
@@ -384,8 +400,20 @@ for path in /mnt/jffs2/fieldmesh/gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea
     echo >> "$backup"
   fi
 done
+fw_printenv fieldmesh_device_eui >> "$backup" 2>/dev/null || true
+fw_setenv fieldmesh_device_eui {device_eui} 2>/dev/null || true
+mkdir -p /mnt/jffs2/fieldmesh
+printf '%s\\n' {device_eui} > /mnt/jffs2/fieldmesh/device_eui.tmp
+chmod 0644 /mnt/jffs2/fieldmesh/device_eui.tmp
+mv /mnt/jffs2/fieldmesh/device_eui.tmp /mnt/jffs2/fieldmesh/device_eui
+if mkdir -p /etc/fieldmesh 2>/dev/null; then
+  printf '%s\\n' {device_eui} > /etc/fieldmesh/device_eui.tmp
+  chmod 0644 /etc/fieldmesh/device_eui.tmp
+  mv /etc/fieldmesh/device_eui.tmp /etc/fieldmesh/device_eui
+fi
 {gnss_commands}
 printf 'backup_path=%s\\n' "$backup"
+printf 'fieldmesh_device_eui=%s\\n' {device_eui}
 for path in /mnt/jffs2/fieldmesh/gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_nmea_max_reports; do
   if [ -f "$path" ]; then
     printf '%s=' "$path"

@@ -197,8 +197,11 @@ UART pins and B20 PPS. Live Z203 boot now proves the DT node, kernel driver,
 and device exposure:
 `CONFIG_PPS_CLIENT_GPIO=y`, `/dev/pps0`, `/sys/class/pps/pps0`, and dmesg
 registration of the `fieldmesh-gnss-pps` source. Z203 PPS timing readiness is
-therefore past the Linux exposure gate; Z103 still needs the refreshed GNSS
-EMIO bitstream/runtime installed and live-probed.
+therefore past the Linux exposure gate. Z103 has now also booted the refreshed
+GNSS EMIO runtime: live Linux exposes `/dev/ttyPS1`, `/dev/pps0`, and
+`/sys/class/pps/pps0`, and the GNSS reporter starts from persistent
+`fieldmesh_gnss_*` U-Boot environment config because Z103's `/mnt/jffs2` is not
+mounted after the Pluto-style initramfs boot.
 
 Live Z203 bring-up now reaches the hardware/config boundary: the refreshed
 Z203 SD runtime boots with non-console `/dev/ttyPS1`, starts
@@ -218,10 +221,12 @@ synthetic GNSS topology gate clears injected RTLS positions after use. The
 remaining GNSS work is receiver antenna/sky-view/fix validation and PPS
 exposure, not UART exposure; the live preflight now reports `/dev/pps*` and
 `/sys/class/pps` state separately and `REQUIRE_GNSS_PPS=1` refuses until a
-kernel PPS device and matching `gnss_pps_lock=1` config are present. Z203 now
-passes that PPS exposure check. Z103 has a verified build contract but not an
-installed GNSS EMIO runtime yet. An indoor bench location is a plausible cause
-for the current Z203 no-satellite/no-fix NMEA.
+kernel PPS device and matching `gnss_pps_lock=1` config are present. Z203 and
+Z103 now pass that PPS exposure check. Z103 emits NMEA at `38400` baud and can
+report visible satellites, but still has no position fix (`GGA` quality `0`,
+`RMC` status `V`, `GSA` fix type `1`). An indoor bench location and the
+receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect
+before treating the missing fix as a software defect.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

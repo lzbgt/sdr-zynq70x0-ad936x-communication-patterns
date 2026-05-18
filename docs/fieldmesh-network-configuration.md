@@ -69,14 +69,16 @@ seen after either QSPI or SD boot.
 
 The same writer can persist the deployed GNSS service configuration consumed by
 `S55fieldmesh-state-daemon`: `gnss_nmea_device`, `gnss_nmea_baud`,
-`gnss_pps_lock`, and `gnss_nmea_max_reports` under both `/mnt/jffs2/fieldmesh`
-and writable `/etc/fieldmesh`. This is intentionally guarded. The GNSS device
-must be an absolute `/dev/...` path, must be visible on the board unless
-`--allow-missing-gnss-device` is explicitly used for staged bring-up, and must
-not be the active Linux console unless `--allow-console-gnss-device` is
-explicitly supplied. On the current Z203/Z103 runtimes only `/dev/ttyPS0` is
-visible and it is the console, so the writer refuses to persist it as GNSS
-input.
+`gnss_pps_lock`, and `gnss_nmea_max_reports`. It writes file mirrors under
+`/mnt/jffs2/fieldmesh` and writable `/etc/fieldmesh`, and also writes
+`fieldmesh_gnss_*` U-Boot environment keys so QSPI/initramfs boots that lack a
+mounted persistent filesystem can still start the GNSS reporter. This is
+intentionally guarded. The GNSS device must be an absolute `/dev/...` path,
+must be visible on the board unless `--allow-missing-gnss-device` is explicitly
+used for staged bring-up, and must not be the active Linux console unless
+`--allow-console-gnss-device` is explicitly supplied. The current GNSS-capable
+Z203 and Z103 runtimes expose `/dev/ttyPS1` as the non-console NMEA UART; the
+writer still refuses `/dev/ttyPS0` because it is the Linux console.
 
 Applications should use the SDK/daemon identity path instead of shelling out.
 The SDK exposes `fieldmesh_set_daemon_device_identity()`, which sends

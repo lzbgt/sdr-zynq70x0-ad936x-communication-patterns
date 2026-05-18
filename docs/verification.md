@@ -3233,8 +3233,10 @@ daemon and GNSS reporter binaries and confirms the configured NMEA device, baud,
 PPS lock, one-shot max-report bound, and EUI are passed into the init-launched
 reporter. Production deployments keep `gnss_nmea_max_reports=0` for continuous
 reporting; the bounded value is only for deterministic service verification.
-The same gate also verifies the no-device skip log, so a board without
-configured GNSS cannot fail silently.
+The same gate also verifies the U-Boot environment fallback path and the
+no-device skip log, so a board without configured GNSS cannot fail silently and
+a QSPI/initramfs boot without mounted `/mnt/jffs2` can still start the reporter
+from `fieldmesh_gnss_*` env keys.
 
 `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` is the live deployed
 GNSS preflight. It SSHes into Z203 and Z103, captures persistent GNSS
@@ -3246,6 +3248,9 @@ Set `REQUIRE_GNSS_PPS=1` to also require a live kernel PPS device and matching
 `gnss_pps_lock=1` configuration. This does not make a GNSS position valid by
 itself; it exposes the separate PPS timing boundary needed for time-synced
 TOF/TDOA and scheduled RF modes.
+The current live Z203/Z103 state passes this PPS boundary: both boards expose
+`/dev/pps0`/`/sys/class/pps/pps0` with `gnss_pps_lock=1`. Both still fail
+`REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes.
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as
