@@ -149,7 +149,11 @@ path separately: when both installed daemons receive explicit GNSS/BDS RTLS
 reports for Z203 and Z103, the runtime-discovery ImGui app computes a real
 GNSS-derived peer range and labels it `daemon_gnss_bds_position`. That does not
 complete over-air RF positioning, but it removes the app-side blocker for valid
-BDS/GPS topology once a deployed GNSS UART/PPS feed is configured.
+BDS/GPS topology once a deployed GNSS UART/PPS feed is configured. The init
+service contract now has a host verifier for that feed path: configured NMEA
+device, baud, PPS lock, max-report bound, and board EUI must be passed to the
+init-launched reporter. The open work is still capturing a real deployed
+UART/PPS source on the boards, not proving the init plumbing.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

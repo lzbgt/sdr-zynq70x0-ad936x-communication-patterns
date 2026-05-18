@@ -1,11 +1,11 @@
 #!/bin/sh
 
-DAEMON=/usr/bin/fieldmesh-state-daemon-demo
-GNSS_REPORTER=/usr/bin/fieldmesh-gnss-nmea-reporter
-PIDFILE=/var/run/fieldmesh-state-daemon.pid
-GNSS_PIDFILE=/var/run/fieldmesh-gnss-nmea-reporter.pid
-LOGFILE=/tmp/fieldmesh-state-daemon.ndjson
-GNSS_LOGFILE=/tmp/fieldmesh-gnss-nmea-reporter.ndjson
+DAEMON="${FIELDMESH_STATE_DAEMON_BIN:-/usr/bin/fieldmesh-state-daemon-demo}"
+GNSS_REPORTER="${FIELDMESH_GNSS_REPORTER_BIN:-/usr/bin/fieldmesh-gnss-nmea-reporter}"
+PIDFILE="${FIELDMESH_STATE_DAEMON_PIDFILE:-/var/run/fieldmesh-state-daemon.pid}"
+GNSS_PIDFILE="${FIELDMESH_GNSS_REPORTER_PIDFILE:-/var/run/fieldmesh-gnss-nmea-reporter.pid}"
+LOGFILE="${FIELDMESH_STATE_DAEMON_LOGFILE:-/tmp/fieldmesh-state-daemon.ndjson}"
+GNSS_LOGFILE="${FIELDMESH_GNSS_REPORTER_LOGFILE:-/tmp/fieldmesh-gnss-nmea-reporter.ndjson}"
 LOG_MAX_BYTES=262144
 LOG_BACKUPS=2
 PORT=55441
@@ -13,6 +13,7 @@ REQUESTS=0
 TIMEOUT_MS=5000
 GNSS_BAUD=9600
 GNSS_PPS_LOCK=0
+GNSS_MAX_REPORTS=0
 
 read_fwenv() {
     key="$1"
@@ -34,6 +35,12 @@ read_identity_file() {
 }
 
 read_device_eui() {
+    case "${FIELDMESH_DEVICE_EUI:-}" in
+        ????????????)
+            printf '%s\n' "$FIELDMESH_DEVICE_EUI"
+            return 0
+            ;;
+    esac
     read_identity_file /mnt/jffs2/fieldmesh/device_eui && return 0
     env_eui="$(read_fwenv fieldmesh_device_eui || true)"
     case "$env_eui" in
@@ -63,6 +70,12 @@ read_gnss_device() {
 }
 
 read_gnss_baud() {
+    case "${FIELDMESH_GNSS_NMEA_BAUD:-}" in
+        4800|9600|19200|38400|57600|115200)
+            printf '%s\n' "$FIELDMESH_GNSS_NMEA_BAUD"
+            return 0
+            ;;
+    esac
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
     case "$value" in
@@ -72,6 +85,52 @@ read_gnss_baud() {
             ;;
     esac
     printf '%s\n' "$GNSS_BAUD"
+}
+
+read_gnss_pps_lock() {
+    case "${FIELDMESH_GNSS_PPS_LOCK:-}" in
+        0|1)
+            printf '%s\n' "$FIELDMESH_GNSS_PPS_LOCK"
+            return 0
+            ;;
+    esac
+    value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_pps_lock 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_pps_lock 2>/dev/null || true)"
+    case "$value" in
+        0|1)
+            printf '%s\n' "$value"
+            return 0
+            ;;
+    esac
+    printf '%s\n' "$GNSS_PPS_LOCK"
+}
+
+read_gnss_max_reports() {
+    case "${FIELDMESH_GNSS_NMEA_MAX_REPORTS:-}" in
+        ''|*[!0-9]*)
+            ;;
+        *)
+            if [ "$FIELDMESH_GNSS_NMEA_MAX_REPORTS" -le 1024 ]; then
+                printf '%s\n' "$FIELDMESH_GNSS_NMEA_MAX_REPORTS"
+                return 0
+            fi
+            ;;
+    esac
+    value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_max_reports 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_max_reports 2>/dev/null || true)"
+    case "$value" in
+        ''|*[!0-9]*)
+            printf '%s\n' "$GNSS_MAX_REPORTS"
+            return 0
+            ;;
+        *)
+            if [ "$value" -le 1024 ]; then
+                printf '%s\n' "$value"
+                return 0
+            fi
+            ;;
+    esac
+    printf '%s\n' "$GNSS_MAX_REPORTS"
 }
 
 start_gnss_reporter() {
@@ -91,7 +150,9 @@ start_gnss_reporter() {
         return 0
     fi
     baud="$(read_gnss_baud)"
-    nohup "$GNSS_REPORTER" "$device" 127.0.0.1 "$PORT" "$eui" "$baud" 0 "$GNSS_PPS_LOCK" \
+    max_reports="$(read_gnss_max_reports)"
+    pps_lock="$(read_gnss_pps_lock)"
+    nohup "$GNSS_REPORTER" "$device" 127.0.0.1 "$PORT" "$eui" "$baud" "$max_reports" "$pps_lock" \
         >> "$GNSS_LOGFILE" 2>&1 &
     echo "$!" > "$GNSS_PIDFILE"
 }

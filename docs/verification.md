@@ -3166,6 +3166,13 @@ before it emits a successful report; the verifier also runs a no-ACK negative
 case and rejects success without daemon ingestion. The reporter is therefore a
 real local GNSS ingestion bridge, not an RF timing simulator.
 
+`tools/verify_fieldmesh_gnss_service_init.sh` verifies the board init service
+contract without hardware writes. It runs `S55fieldmesh-state-daemon` with fake
+daemon and GNSS reporter binaries and confirms the configured NMEA device, baud,
+PPS lock, one-shot max-report bound, and EUI are passed into the init-launched
+reporter. Production deployments keep `gnss_nmea_max_reports=0` for continuous
+reporting; the bounded value is only for deterministic service verification.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` is the installed-daemon
 GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects
 explicit GNSS/BDS RTLS reports for both boards into the same installed daemon

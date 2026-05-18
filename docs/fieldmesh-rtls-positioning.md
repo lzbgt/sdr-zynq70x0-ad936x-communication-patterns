@@ -192,6 +192,12 @@ before it emits a successful local report, and retries a bounded number of
 times to absorb daemon-start races. It does not invent RF timing evidence or
 start RF TX.
 
+The init script also accepts persistent or environment configuration for
+`gnss_nmea_baud`, `gnss_pps_lock`, and `gnss_nmea_max_reports`. Production
+deployments leave max reports at `0` for continuous reporting; verification can
+set it to `1` to prove the init-launched reporter path without leaving a test
+reader running.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon

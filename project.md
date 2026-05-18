@@ -1023,6 +1023,10 @@ user and vendor configuration.
   fixes and emits `FIELDMESH_RTLS_REPORT` for the local EUI without inventing RF
   timing calibration. It requires a daemon `ok:true` ACK before reporting
   success and verifies that no-ACK delivery is rejected.
+- `tools/verify_fieldmesh_gnss_service_init.sh` - host gate for the board init
+  GNSS service path. It runs `S55fieldmesh-state-daemon` with fake daemon and
+  reporter binaries, proves the configured device, baud, PPS lock, max-report
+  bound, and EUI are passed to the reporter, and does not touch hardware.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.
