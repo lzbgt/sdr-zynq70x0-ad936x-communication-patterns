@@ -111,6 +111,18 @@ def topology(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str,
 def native_ip(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str, Any]) -> dict[str, Any]:
     if source.get("uses_inter_board_ip_routing") not in (False, 0, None):
         raise SystemExit("native IP source must not use inter-board host-IP routing")
+    if source.get("transport") in ("daemon_rf_driver_queue_bridge", "driver_queue", "diagnostic_loopback"):
+        raise SystemExit("native IP source must not be a daemon RF-worker bridge")
+    if source.get("next_boundary") == "rf_phy_tx_rx":
+        raise SystemExit("native IP source must not stop at the RF PHY boundary")
+    if source.get("rf_phy_tx_rx") in (False, 0) or source.get("rf_phy_tx_rx_verified") in (False, 0):
+        raise SystemExit("native IP source must not report rf_phy_tx_rx=false")
+    if (
+        source.get("transport") != "real_rf_phy"
+        and source.get("rf_phy_tx_rx") not in (True, 1)
+        and source.get("rf_phy_tx_rx_verified") not in (True, 1)
+    ):
+        raise SystemExit("native IP source must positively identify real RF PHY transport")
     icmp_ok = source.get("icmp_ping_ok") in (True, 1)
     tcp_bytes = source.get("tcp_client_bytes", 0)
     udp_bytes = source.get("udp_client_bytes", 0)

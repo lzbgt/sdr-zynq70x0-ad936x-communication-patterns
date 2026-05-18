@@ -48,7 +48,7 @@ cat > "$work_dir/topology_source.json" <<'JSON'
 {"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"uses_inter_board_ip_routing":false}
 JSON
 cat > "$work_dir/native_ip_source.json" <<'JSON'
-{"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
+{"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"real_rf_phy","rf_phy_tx_rx":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
 JSON
 
 for feature in messaging topology native_ip; do
@@ -105,6 +105,19 @@ if "$repo_root/tools/fieldmesh_app_feature_report_from_gate.py" \
   --output "$work_dir/native_ip_bad_feature.json" \
   >/dev/null 2>&1; then
   echo "feature report builder accepted host-IP-routed native IP source" >&2
+  exit 1
+fi
+
+cat > "$work_dir/native_ip_driver_queue_source.json" <<'JSON'
+{"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"daemon_rf_driver_queue_bridge","rf_phy_tx_rx":0,"next_boundary":"rf_phy_tx_rx","tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
+JSON
+if "$repo_root/tools/fieldmesh_app_feature_report_from_gate.py" \
+  --feature native_ip \
+  --bridge-report "$work_dir/live_bridge.json" \
+  --source-report "$work_dir/native_ip_driver_queue_source.json" \
+  --output "$work_dir/native_ip_driver_queue_feature.json" \
+  >/dev/null 2>&1; then
+  echo "feature report builder accepted daemon RF-worker native IP source" >&2
   exit 1
 fi
 

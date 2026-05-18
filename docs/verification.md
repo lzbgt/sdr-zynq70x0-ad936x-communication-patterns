@@ -3639,7 +3639,9 @@ Result:
 The converter consumes messaging/topology/native-IP app outputs plus the
 successful live RF-worker/IIO bridge report, stamps the output with the exact
 bridge and IQ live-run paths, and rejects dry-run bridge or host-IP-routed
-source evidence.
+source evidence. Native-IP source evidence must also positively identify real
+RF PHY transport; daemon RF-worker bridge reports with `rf_phy_tx_rx=0` and
+`next_boundary=rf_phy_tx_rx` are rejected as infrastructure-only.
 
 The daemon RF-worker to conducted-IIO bridge has a dry-run gate:
 

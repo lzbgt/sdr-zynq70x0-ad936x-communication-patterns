@@ -640,7 +640,9 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_app_feature_report_from_gate.sh` - verifier for
   app/gate-output conversion. It proves messaging, topology, and native-IP gate
   outputs can feed the production gate and rejects dry-run bridge or
-  host-IP-routed source evidence.
+  host-IP-routed source evidence. It also rejects native-IP reports that stop
+  at the daemon RF-worker bridge boundary instead of proving real RF PHY
+  transport.
 - `tools/fieldmesh_iio_rf_worker_bridge.py` - guarded bridge from the daemon
   RF-worker lease/ACK queue into the conducted AD936x IIO IQ path. In dry-run
   mode it leases or consumes one non-destructive BLR frame, generates the IQ
