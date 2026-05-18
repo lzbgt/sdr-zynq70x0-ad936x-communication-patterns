@@ -12,6 +12,11 @@ import fieldmesh_app_real_rf_report as app_report
 
 
 FEATURES = ("messaging", "topology", "native_ip")
+KNOWN_SOURCE_EVENTS = {
+    "fieldmesh_imgui_control_snapshot",
+    "fieldmesh_imgui_live_no_profile",
+    "fieldmesh_two_board_native_ip_socket_assert",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -115,8 +120,10 @@ def native_ip(args: argparse.Namespace, source: dict[str, Any], bridge: dict[str
 def build(args: argparse.Namespace) -> dict[str, Any]:
     bridge = require_bridge(args.bridge_report)
     source = load_json(args.source_report)
-    if source.get("ok") is not True:
+    if source.get("ok") is False:
         raise SystemExit("source report is not ok")
+    if source.get("ok") is not True and source.get("event") not in KNOWN_SOURCE_EVENTS:
+        raise SystemExit("source report must be ok=true or a known app snapshot event")
     if args.feature == "messaging":
         return messaging(args, source, bridge)
     if args.feature == "topology":

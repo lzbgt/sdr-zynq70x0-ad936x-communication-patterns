@@ -42,10 +42,10 @@ Path(sys.argv[2]).write_text(json.dumps(live, indent=2, sort_keys=True) + "\n", 
 PY
 
 cat > "$work_dir/messaging_source.json" <<'JSON'
-{"event":"fieldmesh_imgui_control_snapshot","ok":true,"messages_received":1,"last_received_text":"hello over rf","uses_inter_board_ip_routing":false,"starts_rf_tx":false,"writes_hardware":false}
+{"event":"fieldmesh_imgui_control_snapshot","messages_received":1,"last_received_text":"hello over rf","uses_inter_board_ip_routing":false,"starts_rf_tx":false,"writes_hardware":false}
 JSON
 cat > "$work_dir/topology_source.json" <<'JSON'
-{"event":"fieldmesh_imgui_control_snapshot","ok":true,"topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"range_source":"packet_timing_tdoa","uses_inter_board_ip_routing":false}
+{"event":"fieldmesh_imgui_control_snapshot","topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"uses_inter_board_ip_routing":false}
 JSON
 cat > "$work_dir/native_ip_source.json" <<'JSON'
 {"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
@@ -115,5 +115,18 @@ if "$repo_root/tools/fieldmesh_app_feature_report_from_gate.py" \
   --output "$work_dir/messaging_dry_bridge_feature.json" \
   >/dev/null 2>&1; then
   echo "feature report builder accepted dry-run bridge evidence" >&2
+  exit 1
+fi
+
+cat > "$work_dir/messaging_failed_source.json" <<'JSON'
+{"event":"fieldmesh_imgui_control_snapshot","ok":false,"messages_received":1,"uses_inter_board_ip_routing":false}
+JSON
+if "$repo_root/tools/fieldmesh_app_feature_report_from_gate.py" \
+  --feature messaging \
+  --bridge-report "$work_dir/live_bridge.json" \
+  --source-report "$work_dir/messaging_failed_source.json" \
+  --output "$work_dir/messaging_failed_feature.json" \
+  >/dev/null 2>&1; then
+  echo "feature report builder accepted explicit failed app source" >&2
   exit 1
 fi
