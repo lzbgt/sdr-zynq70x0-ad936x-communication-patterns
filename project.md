@@ -830,6 +830,16 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_native_ip_iperf_production_sequence.sh` - verifier
   for the paired native-IP iperf wrapper, including rejection of one-sided
   report input and SSH-launched host-PC substitutes.
+- `tools/fieldmesh_system_production_readiness.py` - final production
+  readiness summarizer. It consumes the live GNSS preflight, paired native-IP
+  iperf sequence, and real-RF production gate reports, then emits one
+  machine-readable `production_ready` truth state with blockers. By default it
+  requires live GNSS fix, PPS timing exposure, paired real-RF native-IP iperf,
+  and real-RF app/PHY production evidence, so missing reports or preflight-only
+  reports cannot be mistaken for a feature-complete system.
+- `tools/verify_fieldmesh_system_production_readiness.sh` - verifies the
+  summarizer rejects blocked GNSS/PPS/native-IP/RF evidence, accepts complete
+  positive evidence, and refuses a missing real-RF production gate.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when

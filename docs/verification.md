@@ -4727,6 +4727,18 @@ The real-RF production gate enforces the same requirement by tracing the
 normalized native-IP app report back to `fieldmesh_native_ip_iperf_evidence`;
 generic native-IP socket reports are still useful diagnostics, but they do not
 complete production native-IP evidence.
+
+The final system-level readiness summary is checked with:
+
+```sh
+./tools/verify_fieldmesh_system_production_readiness.sh
+```
+
+It consumes the GNSS live preflight, paired native-IP iperf sequence, and
+real-RF production gate reports. By default it requires live GNSS fix, PPS
+timing exposure, paired native-IP real-RF iperf, and real-RF app/PHY production
+evidence. Missing reports, preflight-only reports, or blocked sub-gates keep
+`production_ready=false` and surface their blockers in one JSON object.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 
