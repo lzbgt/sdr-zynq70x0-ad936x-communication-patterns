@@ -33,6 +33,8 @@ IDENTITY_STORE_PATHS = (
     "/etc/fieldmesh/device_eui",
 )
 
+GNSS_BAUDS = (4800, 9600, 19200, 38400, 57600, 115200)
+
 
 @dataclass
 class Profile:
@@ -46,6 +48,10 @@ class Profile:
     preferred_ap_id: str
     phy_device_ip: str
     phy_prefix: int
+    gnss_nmea_device: str
+    gnss_nmea_baud: int
+    gnss_pps_lock: int
+    gnss_nmea_max_reports: int
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +74,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preferred-ap-id", default="020000000203")
     parser.add_argument("--phy-device-ip", default="")
     parser.add_argument("--phy-prefix", type=int, default=24)
+    parser.add_argument("--gnss-nmea-device", default="",
+                        help="Optional deployed GNSS NMEA device, for example /dev/ttyPS1")
+    parser.add_argument("--gnss-nmea-baud", type=int, default=9600,
+                        choices=GNSS_BAUDS)
+    parser.add_argument("--gnss-pps-lock", type=int, default=0, choices=(0, 1))
+    parser.add_argument("--gnss-nmea-max-reports", type=int, default=0,
+                        help="0 means continuous reporting; bounded values are for verification")
+    parser.add_argument("--allow-missing-gnss-device", action="store_true",
+                        help="Allow planning/apply before the configured GNSS device exists")
+    parser.add_argument("--allow-console-gnss-device", action="store_true",
+                        help="Allow using the active console tty as GNSS input")
     parser.add_argument("--mock-identity-file", default="")
     parser.add_argument("--allow-missing-fieldmeshctl", action="store_true")
     parser.add_argument("--allow-volatile-backup", action="store_true")
@@ -96,6 +113,14 @@ def validate_profile(args: argparse.Namespace) -> Profile:
         ipaddress.IPv4Address(args.phy_device_ip)
         if args.phy_prefix <= 0 or args.phy_prefix > 30:
             raise SystemExit("phy-prefix must be in 1..30 when phy-device-ip is set")
+    gnss_device = args.gnss_nmea_device.strip()
+    if gnss_device:
+        if not gnss_device.startswith("/dev/"):
+            raise SystemExit("gnss-nmea-device must be an absolute /dev path")
+        if any(ch.isspace() for ch in gnss_device):
+            raise SystemExit("gnss-nmea-device must not contain whitespace")
+    if args.gnss_nmea_max_reports < 0 or args.gnss_nmea_max_reports > 1024:
+        raise SystemExit("gnss-nmea-max-reports must be in 0..1024")
     return Profile(
         device_eui=device_eui,
         node_id=args.node_id,
@@ -107,6 +132,10 @@ def validate_profile(args: argparse.Namespace) -> Profile:
         preferred_ap_id=args.preferred_ap_id,
         phy_device_ip=args.phy_device_ip,
         phy_prefix=args.phy_prefix,
+        gnss_nmea_device=gnss_device,
+        gnss_nmea_baud=args.gnss_nmea_baud,
+        gnss_pps_lock=args.gnss_pps_lock,
+        gnss_nmea_max_reports=args.gnss_nmea_max_reports,
     )
 
 
@@ -155,6 +184,9 @@ set -eu
 echo "fieldmesh_identity_begin"
 echo "hostname=$(hostname 2>/dev/null || true)"
 echo "uname=$(uname -a 2>/dev/null || true)"
+printf 'cmdline='
+cat /proc/cmdline 2>/dev/null || true
+echo
 printf 'model='
 cat /proc/device-tree/model 2>/dev/null | tr '\\000' ' ' || true
 echo
@@ -166,6 +198,8 @@ for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui; do
     echo
   fi
 done
+serials="$(ls /dev/ttyPS* /dev/ttyUSB* /dev/ttyACM* /dev/ttyS* 2>/dev/null | tr '\\n' ',' | sed 's/,$//')"
+echo "serial_devices=$serials"
 if command -v fieldmeshctl >/dev/null 2>&1; then
   echo "fieldmeshctl=present"
 else
@@ -228,7 +262,22 @@ def identity_store_lines(profile: Profile) -> list[str]:
     return [f"{path} {profile.device_eui}" for path in IDENTITY_STORE_PATHS]
 
 
-def validate_identity(args: argparse.Namespace, identity_text: str) -> dict[str, object]:
+def gnss_store_lines(profile: Profile) -> list[str]:
+    if not profile.gnss_nmea_device:
+        return []
+    return [
+        f"/mnt/jffs2/fieldmesh/gnss_nmea_device {profile.gnss_nmea_device}",
+        f"/mnt/jffs2/fieldmesh/gnss_nmea_baud {profile.gnss_nmea_baud}",
+        f"/mnt/jffs2/fieldmesh/gnss_pps_lock {profile.gnss_pps_lock}",
+        f"/mnt/jffs2/fieldmesh/gnss_nmea_max_reports {profile.gnss_nmea_max_reports}",
+        f"/etc/fieldmesh/gnss_nmea_device {profile.gnss_nmea_device}",
+        f"/etc/fieldmesh/gnss_nmea_baud {profile.gnss_nmea_baud}",
+        f"/etc/fieldmesh/gnss_pps_lock {profile.gnss_pps_lock}",
+        f"/etc/fieldmesh/gnss_nmea_max_reports {profile.gnss_nmea_max_reports}",
+    ]
+
+
+def validate_identity(args: argparse.Namespace, identity_text: str, profile: Profile) -> dict[str, object]:
     identity = parse_kv_lines(identity_text)
     errors = []
     if not variant_matches(args.variant, identity_text, identity):
@@ -239,6 +288,25 @@ def validate_identity(args: argparse.Namespace, identity_text: str) -> dict[str,
         errors.append("fieldmeshctl is missing; refusing persistent profile writes")
     if identity.get("persistent_backup") != "writable" and not args.allow_volatile_backup:
         errors.append("/mnt/jffs2 is not writable for persistent rollback backup")
+    if profile.gnss_nmea_device:
+        serial_devices = {
+            item for item in identity.get("serial_devices", "").split(",") if item
+        }
+        cmdline = identity.get("cmdline", "")
+        if (
+            profile.gnss_nmea_device not in serial_devices
+            and not args.allow_missing_gnss_device
+        ):
+            errors.append(
+                f"gnss_nmea_device {profile.gnss_nmea_device} is not present on the board"
+            )
+        if (
+            f"console={profile.gnss_nmea_device.rsplit('/', 1)[-1]}" in cmdline
+            and not args.allow_console_gnss_device
+        ):
+            errors.append(
+                f"gnss_nmea_device {profile.gnss_nmea_device} is the active console"
+            )
     return {
         "identity": identity,
         "errors": errors,
@@ -256,6 +324,32 @@ def apply_script(profile: Profile, allow_volatile: bool, reboot: bool) -> str:
     keys = " ".join(shlex.quote(key) for key in ENV_KEYS)
     reboot_cmd = "reboot" if reboot else "true"
     device_eui = shlex.quote(profile.device_eui)
+    gnss_commands = ""
+    if profile.gnss_nmea_device:
+        gnss_values = {
+            "gnss_nmea_device": profile.gnss_nmea_device,
+            "gnss_nmea_baud": str(profile.gnss_nmea_baud),
+            "gnss_pps_lock": str(profile.gnss_pps_lock),
+            "gnss_nmea_max_reports": str(profile.gnss_nmea_max_reports),
+        }
+        commands = ["mkdir -p /mnt/jffs2/fieldmesh"]
+        for key, value in gnss_values.items():
+            quoted_value = shlex.quote(value)
+            commands.extend([
+                f"printf '%s\\n' {quoted_value} > /mnt/jffs2/fieldmesh/{key}.tmp",
+                f"chmod 0644 /mnt/jffs2/fieldmesh/{key}.tmp",
+                f"mv /mnt/jffs2/fieldmesh/{key}.tmp /mnt/jffs2/fieldmesh/{key}",
+            ])
+        commands.append("if mkdir -p /etc/fieldmesh 2>/dev/null; then")
+        for key, value in gnss_values.items():
+            quoted_value = shlex.quote(value)
+            commands.extend([
+                f"  printf '%s\\n' {quoted_value} > /etc/fieldmesh/{key}.tmp",
+                f"  chmod 0644 /etc/fieldmesh/{key}.tmp",
+                f"  mv /etc/fieldmesh/{key}.tmp /etc/fieldmesh/{key}",
+            ])
+        commands.append("fi")
+        gnss_commands = "\n".join(commands)
     return f"""set -eu
 backup_root={shlex.quote(backup_root)}
 if ! mkdir -p "$backup_root" 2>/dev/null; then
@@ -281,10 +375,11 @@ if mkdir -p /etc/fieldmesh 2>/dev/null; then
   chmod 0644 /etc/fieldmesh/device_eui.tmp
   mv /etc/fieldmesh/device_eui.tmp /etc/fieldmesh/device_eui
 fi
+{gnss_commands}
 printf 'backup_path=%s\\n' "$backup"
 printf 'identity_store_path=%s\\n' "$identity_root/device_eui"
 fw_printenv hostname ethaddr ipaddr ipaddr_host netmask ipaddr_eth netmask_eth fieldmesh_device_eui fieldmesh_node_id fieldmesh_network_id fieldmesh_preferred_ap fieldmesh_ap_policy 2>/dev/null || true
-for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui; do
+for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui /mnt/jffs2/fieldmesh/gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_nmea_max_reports; do
   if [ -f "$path" ]; then
     printf '%s=' "$path"
     sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t '
@@ -320,7 +415,7 @@ if [ -n "$restore_eui" ]; then
 fi
 printf 'rollback_backup_path=%s\\n' "$backup"
 fw_printenv {' '.join(shlex.quote(key) for key in ENV_KEYS)} 2>/dev/null || true
-for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui; do
+for path in /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui /mnt/jffs2/fieldmesh/gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_nmea_max_reports; do
   if [ -f "$path" ]; then
     printf '%s=' "$path"
     sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t '
@@ -336,7 +431,7 @@ def main() -> int:
     args = parse_args()
     profile = validate_profile(args)
     identity_text = collect_identity(args)
-    identity_result = validate_identity(args, identity_text)
+    identity_result = validate_identity(args, identity_text, profile)
     plan = {
         "event": "fieldmesh_network_profile_plan",
         "variant": args.variant,
@@ -352,9 +447,14 @@ def main() -> int:
             "preferred_ap_id": profile.preferred_ap_id,
             "phy_device_ip": profile.phy_device_ip,
             "phy_netmask": netmask(profile.phy_prefix) if profile.phy_device_ip else "",
+            "gnss_nmea_device": profile.gnss_nmea_device,
+            "gnss_nmea_baud": profile.gnss_nmea_baud if profile.gnss_nmea_device else 0,
+            "gnss_pps_lock": profile.gnss_pps_lock if profile.gnss_nmea_device else 0,
+            "gnss_nmea_max_reports": profile.gnss_nmea_max_reports if profile.gnss_nmea_device else 0,
         },
         "fw_setenv": fw_setenv_lines(profile),
         "identity_store": identity_store_lines(profile),
+        "gnss_store": gnss_store_lines(profile),
         **identity_result,
     }
 

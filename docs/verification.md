@@ -3221,8 +3221,12 @@ The first host-side persistent writer safety gate is:
 It uses synthetic Z103/Z203 SSH identity captures. The positive case verifies
 that a Z103 profile plans the U-Boot env batch for `ipaddr=192.168.3.1`,
 `ipaddr_host=192.168.3.10`, `netmask=255.255.255.0`, and FieldMesh profile
-keys. The negative case verifies the writer rejects a Z203 identity when
-`--variant z103` is requested. Live writes still require
+keys. It also verifies the GNSS service profile fields:
+`gnss_nmea_device`, `gnss_nmea_baud`, `gnss_pps_lock`, and
+`gnss_nmea_max_reports` are planned for both `/mnt/jffs2/fieldmesh` and
+`/etc/fieldmesh`. The negative cases verify the writer rejects a Z203 identity
+when `--variant z103` is requested and rejects `/dev/ttyPS0` as a GNSS input
+when that tty is the active Linux console. Live writes still require
 `--apply --allow-persistent-writes` and a reachable target that passes identity,
 `fieldmeshctl`, `fw_setenv`, and rollback-backup checks.
 

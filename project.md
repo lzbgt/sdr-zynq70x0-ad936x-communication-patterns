@@ -1033,6 +1033,10 @@ user and vendor configuration.
   visible serial devices, init reporter process state, and daemon RTLS position
   without injecting NMEA. It marks daemon GNSS positions as production startup
   evidence only when they are backed by a configured device and running reporter.
+- `tools/apply_fieldmesh_network_profile_ssh.py` - guarded persistent profile
+  writer. In addition to board identity and USB subnet state, it can now persist
+  GNSS NMEA device, baud, PPS-lock flag, and max-report bound. It refuses to
+  use the active console tty as GNSS input unless explicitly overridden.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

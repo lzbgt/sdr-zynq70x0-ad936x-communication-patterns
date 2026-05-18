@@ -654,7 +654,9 @@ below were later superseded by the current PHY-management two-board gates above:
   Z103 run installed the FieldMesh `pluto.frm`, applied
   `node-b@192.168.3.1` with `fieldmesh_device_eui=020000000103`, fixed the writer to avoid a BusyBox
   `fw_setenv -s` empty-value quirk, and verified split host-facing identities
-  with Z103 at `192.168.3.1`. A later 2026-05-14 check found that
+  with Z103 at `192.168.3.1`. The writer now also plans and persists GNSS
+  service fields once a real non-console NMEA device exists, and refuses the
+  current `/dev/ttyPS0` console as GNSS input by default. A later 2026-05-14 check found that
   `192.168.2.1` no longer answered from the host, so Z203 must be reattached or
   recovered before more two-board installed-runtime tests. These addresses are
   host-facing management/control paths only, not a board-to-board subnet. The

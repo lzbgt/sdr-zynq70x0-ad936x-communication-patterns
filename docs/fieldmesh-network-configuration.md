@@ -67,6 +67,17 @@ and only writes persistent state when both `--apply` and
 U-Boot environment key and the identity mirrors above, so the same board EUI is
 seen after either QSPI or SD boot.
 
+The same writer can persist the deployed GNSS service configuration consumed by
+`S55fieldmesh-state-daemon`: `gnss_nmea_device`, `gnss_nmea_baud`,
+`gnss_pps_lock`, and `gnss_nmea_max_reports` under both `/mnt/jffs2/fieldmesh`
+and writable `/etc/fieldmesh`. This is intentionally guarded. The GNSS device
+must be an absolute `/dev/...` path, must be visible on the board unless
+`--allow-missing-gnss-device` is explicitly used for staged bring-up, and must
+not be the active Linux console unless `--allow-console-gnss-device` is
+explicitly supplied. On the current Z203/Z103 runtimes only `/dev/ttyPS0` is
+visible and it is the console, so the writer refuses to persist it as GNSS
+input.
+
 Applications should use the SDK/daemon identity path instead of shelling out.
 The SDK exposes `fieldmesh_set_daemon_device_identity()`, which sends
 `FIELDMESH_DEVICE_IDENTITY_SET` to the selected board daemon. The request
@@ -120,6 +131,22 @@ tools/apply_fieldmesh_network_profile_ssh.py \
   --usb-device-ip 192.168.3.1 \
   --usb-host-ip 192.168.3.10 \
   --prefix 24
+```
+
+When a real non-console GNSS UART is exposed, the GNSS service can be staged in
+the same profile plan:
+
+```sh
+tools/apply_fieldmesh_network_profile_ssh.py \
+  --host 192.168.3.1 \
+  --variant z103 \
+  --device-eui 020000000103 \
+  --node-id z103-endpoint \
+  --usb-device-ip 192.168.3.1 \
+  --usb-host-ip 192.168.3.10 \
+  --gnss-nmea-device /dev/ttyPS1 \
+  --gnss-nmea-baud 115200 \
+  --gnss-pps-lock 1
 ```
 
 That command only prints a JSON plan. A real write requires:
