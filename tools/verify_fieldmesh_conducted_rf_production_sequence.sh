@@ -178,6 +178,41 @@ if report.get("production_blocker") is not None:
     raise SystemExit(f"complete sequence retained blocker: {report.get('production_blocker')}")
 PY
 
+BRIDGE_REPORT="$work_dir/live_bridge.json" \
+APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
+APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
+NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT="$work_dir/native_ip_board_iperf.json" \
+NATIVE_IP_HOST_PC_IPERF_REPORT="$work_dir/native_ip_host_iperf.json" \
+EXPECT_PRODUCTION_READY=1 \
+OUT_DIR="$work_dir/complete-sequence-from-paired-iperf" \
+"$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" \
+  > "$work_dir/complete_sequence_from_paired_iperf_stdout.txt"
+
+python3 - "$work_dir/complete-sequence-from-paired-iperf/fieldmesh_conducted_rf_production_sequence.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("production_ready") is not True or report.get("ok") is not True:
+    raise SystemExit(f"paired iperf production sequence did not pass: {report}")
+native_report = report.get("app_reports", {}).get("native_ip")
+if not native_report or not Path(native_report).is_file():
+    raise SystemExit(f"paired iperf sequence did not bundle native-IP app report: {report}")
+PY
+
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
+  NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT="$work_dir/native_ip_board_iperf.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
+  EXPECT_PRODUCTION_READY=1 \
+  OUT_DIR="$work_dir/ambiguous-native-ip-sequence" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF production sequence accepted ambiguous native-IP evidence inputs" >&2
+  exit 1
+fi
+
 "$repo_root/tools/fieldmesh_conducted_rf_evidence_manifest.py" \
   --sequence-report "$work_dir/complete-sequence/fieldmesh_conducted_rf_production_sequence.json" \
   --require-production-ready \

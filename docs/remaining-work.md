@@ -162,6 +162,10 @@ real-RF report consumed by the production gate. In `PREFLIGHT_ONLY=1` it now
 captures both sub-preflight return codes and reports a single structured
 blocker summary instead of hiding the second-layer state after the first
 failure.
+The top-level over-air RF production sequence now also accepts
+`NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT` plus
+`NATIVE_IP_HOST_PC_IPERF_REPORT` directly and derives the native-IP app report
+from that pair, refusing ambiguous `APP_NATIVE_IP_*` overrides.
 `run_fieldmesh_real_rf_production_gate.sh` also checks the normalized native-IP
 app report back to this paired iperf evidence, so callers cannot bypass the
 layered iperf requirement with a generic socket success report.

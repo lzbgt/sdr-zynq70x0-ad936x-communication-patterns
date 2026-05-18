@@ -824,6 +824,9 @@ user and vendor configuration.
   evidence plus the normalized app real-RF report required by the production
   gate. Its preflight mode always emits a paired summary with both sub-preflight
   return codes and blockers, even when one layer fails.
+  The top-level over-air RF production sequence can consume the paired
+  board/host iperf reports directly through `NATIVE_IP_*_IPERF_REPORT` inputs
+  and refuses ambiguous `APP_NATIVE_IP_*` overrides.
 - `tools/verify_fieldmesh_native_ip_iperf_production_sequence.sh` - verifier
   for the paired native-IP iperf wrapper, including rejection of one-sided
   report input and SSH-launched host-PC substitutes.

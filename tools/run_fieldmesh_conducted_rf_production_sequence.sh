@@ -68,6 +68,10 @@ feature reports:
   APP_TOPOLOGY_SOURCE_REPORT=/path/to/imgui_topology_snapshot.json
   APP_NATIVE_IP_SOURCE_REPORT=/path/to/native_ip_socket_assert.json
 
+For native-IP production evidence, prefer paired iperf reports:
+  NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT=/path/to/board_to_board_iperf.json
+  NATIVE_IP_HOST_PC_IPERF_REPORT=/path/to/host_pc_transparent_iperf.json
+
 Or as already-normalized app real-RF reports:
   APP_MESSAGING_REPORT=/path/to/app_messaging.json
   APP_TOPOLOGY_REPORT=/path/to/app_topology.json
@@ -105,6 +109,26 @@ source_native_ip="${APP_NATIVE_IP_SOURCE_REPORT:-}"
 app_messaging="${APP_MESSAGING_REPORT:-}"
 app_topology="${APP_TOPOLOGY_REPORT:-}"
 app_native_ip="${APP_NATIVE_IP_REPORT:-}"
+native_ip_board_iperf="${NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT:-${BOARD_TO_BOARD_IPERF_REPORT:-}}"
+native_ip_host_iperf="${NATIVE_IP_HOST_PC_IPERF_REPORT:-${HOST_PC_IPERF_REPORT:-}}"
+
+if [ -n "$native_ip_board_iperf" ] || [ -n "$native_ip_host_iperf" ]; then
+    if [ -z "$native_ip_board_iperf" ] || [ -z "$native_ip_host_iperf" ]; then
+        echo "NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT and NATIVE_IP_HOST_PC_IPERF_REPORT must be supplied together" >&2
+        exit 1
+    fi
+    if [ -n "$raw_native_ip" ] || [ -n "$source_native_ip" ] || [ -n "$app_native_ip" ]; then
+        echo "native-IP iperf report pair cannot be combined with APP_NATIVE_IP_* evidence overrides" >&2
+        exit 1
+    fi
+    native_ip_iperf_dir="$out_dir/native-ip-iperf-production"
+    BOARD_TO_BOARD_REPORT="$native_ip_board_iperf" \
+    HOST_PC_REPORT="$native_ip_host_iperf" \
+    OUT_DIR="$native_ip_iperf_dir" \
+        "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
+        > "$out_dir/native_ip_iperf_production_stdout.txt"
+    source_native_ip="$native_ip_iperf_dir/native_ip_iperf_evidence.json"
+fi
 
 preflight_args=(
     --rf-binding-plan "$binding"

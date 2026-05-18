@@ -4695,6 +4695,10 @@ non-transmitting preflights without creating network interfaces, starting
 The wrapper records both sub-preflight return codes and the last JSON report
 from each layer, so a failed host-PC route check or missing RF readiness still
 produces a single paired summary with the exact production blocker.
+The top-level over-air RF production sequence can consume paired native-IP
+iperf reports directly through `NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT` and
+`NATIVE_IP_HOST_PC_IPERF_REPORT`; it derives the native-IP app report from that
+pair and refuses ambiguous combinations with `APP_NATIVE_IP_*` overrides.
 The wrapper is verified with:
 
 ```sh
