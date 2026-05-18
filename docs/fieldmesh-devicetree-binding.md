@@ -61,6 +61,10 @@ device. `--enable-gnss-pps-emio` emits a `pps-gpio` node for the Z203
 fragments are not enabled by default because they are only valid with the
 matching Z203 EMIO bitstream and pin constraints.
 
+The Linux image must also include the GPIO PPS client driver. The product
+kernel recipes force `CONFIG_PPS_CLIENT_GPIO=y`; a DTB-only PPS node is not
+enough to create `/dev/pps*`.
+
 ## Runtime Preflight
 
 `fieldmesh-udp-probe dt-scan` checks a live or synthetic devicetree:
@@ -120,7 +124,9 @@ FieldMesh packages under `.config/fieldmesh/runtime-package-*/fit-work/`.
 ## Current Boundary
 
 This is a binding contract, offline validation gate, and package assembly path.
-The Z203 SD/QSPI FieldMesh runtime has booted this fragment with the matched
-overlay bitstream and passed the board-side sidecar preflight. Z103 remains
-gated on its runtime/JTAG boot boundary, and the fragment is still not installed
-into the default Z203/Z103 Yocto kernels.
+The Z203 SD/QSPI FieldMesh runtime has booted the UART/PPS EMIO fragment with
+the matched overlay bitstream and a kernel containing `CONFIG_PPS_CLIENT_GPIO`.
+Live preflight now sees `/dev/pps0` and `/sys/class/pps/pps0`, and dmesg shows
+the `fieldmesh-gnss-pps` source registered. Z103 remains gated on its
+runtime/JTAG boot boundary and does not currently have a configured GNSS
+UART/PPS path.

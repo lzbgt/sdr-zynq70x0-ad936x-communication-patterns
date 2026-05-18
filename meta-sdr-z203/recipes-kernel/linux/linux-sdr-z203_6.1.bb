@@ -21,5 +21,6 @@ do_configure:prepend() {
 
 do_configure:append() {
     ${S}/scripts/config --file ${B}/.config --enable TUN
+    ${S}/scripts/config --file ${B}/.config --enable PPS_CLIENT_GPIO
     oe_runmake -C ${S} O=${B} olddefconfig
 }

@@ -67,5 +67,14 @@ if not checks.get("non_console_uart_present") or not checks.get("pps_present"):
     raise SystemExit(f"GNSS UART/PPS devicetree exposure missing: {gnss!r}")
 PY
 
+for recipe in \
+  "$repo_root/meta-sdr-z203/recipes-kernel/linux/linux-sdr-z203_6.1.bb" \
+  "$repo_root/meta-sdr-z103/recipes-kernel/linux/linux-sdr-z103_6.1.bb"; do
+  if ! grep -q -- '--enable PPS_CLIENT_GPIO' "$recipe"; then
+    echo "Missing CONFIG_PPS_CLIENT_GPIO enable in kernel recipe: $recipe" >&2
+    exit 1
+  fi
+done
+
 printf 'fieldmesh_gnss_pps_emio_overlay=pass\n'
 printf 'out_dir=%s\n' "$out_dir"

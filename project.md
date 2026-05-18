@@ -1238,9 +1238,11 @@ user and vendor configuration.
   exposure through `/dev/pps*` and `/sys/class/pps`. `REQUIRE_GNSS_PPS=1`
   makes a missing kernel PPS device or missing `gnss_pps_lock=1` configuration
   a hard failure, keeping GNSS position evidence separate from PPS timing
-  evidence. The new PPS EMIO overlay is still only a build/staging path until a
-  refreshed bitstream/DTB is installed and live preflight sees the kernel PPS
-  device.
+  evidence. The refreshed Z203 bitstream/DTB has booted with
+  `CONFIG_PPS_CLIENT_GPIO=y`; live preflight now sees `/dev/pps0` and
+  `/sys/class/pps/pps0`, and dmesg registers `fieldmesh-gnss-pps` as the PPS
+  source. Z203 has passed the Linux PPS exposure gate; Z103 still has no
+  configured GNSS/PPS path.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

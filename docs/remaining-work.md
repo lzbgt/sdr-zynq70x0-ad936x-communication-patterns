@@ -191,10 +191,12 @@ K21/L21 EMIO evidence, and the guarded SD/initramfs path carries the matching
 `ENABLE_GNSS_UART_EMIO=1` DTB plus SD-resident FieldMesh config files. Z203 now
 also has a verified opt-in PPS EMIO build contract: `ENABLE_GNSS_PPS_EMIO=1`
 expands PS GPIO EMIO to 18 bits, routes schematic-evidenced `GPS_PPS` on M21 to
-top-level `gnss_pps`, and emits a `pps-gpio` DTB node on Linux GPIO 71. PPS
-production readiness remains blocked until that refreshed bitstream/DTB is
-installed and live preflight observes the kernel PPS device with
-`gnss_pps_lock=1`.
+top-level `gnss_pps`, and emits a `pps-gpio` DTB node on Linux GPIO 71. Live
+Z203 boot now proves the DT node, kernel driver, and device exposure:
+`CONFIG_PPS_CLIENT_GPIO=y`, `/dev/pps0`, `/sys/class/pps/pps0`, and dmesg
+registration of the `fieldmesh-gnss-pps` source. Z203 PPS timing readiness is
+therefore past the Linux exposure gate; Z103 still has no configured GNSS/PPS
+path.
 
 Live Z203 bring-up now reaches the hardware/config boundary: the refreshed
 Z203 SD runtime boots with non-console `/dev/ttyPS1`, starts
@@ -214,8 +216,9 @@ synthetic GNSS topology gate clears injected RTLS positions after use. The
 remaining GNSS work is receiver antenna/sky-view/fix validation and PPS
 exposure, not UART exposure; the live preflight now reports `/dev/pps*` and
 `/sys/class/pps` state separately and `REQUIRE_GNSS_PPS=1` refuses until a
-kernel PPS device and matching `gnss_pps_lock=1` config are present. An indoor
-bench location is a plausible cause for the current no-satellite/no-fix NMEA.
+kernel PPS device and matching `gnss_pps_lock=1` config are present. Z203 now
+passes that PPS exposure check. An indoor bench location is a plausible cause
+for the current no-satellite/no-fix NMEA.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level
