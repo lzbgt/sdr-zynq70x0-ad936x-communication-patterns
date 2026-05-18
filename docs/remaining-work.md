@@ -604,7 +604,8 @@ below were later superseded by the current PHY-management two-board gates above:
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
   and defaults to a no-hardware dry-run. The next live-safe step is running
   that runner on a conducted/shielded fixture with
-  `--execute-live-rf --allow-hardware-writes`, then running AP
+  `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, fixture identity,
+  exact operator confirmation, and bounded TX duration, then running AP
   browse/election/join as host commands whose peer payload traffic crosses RF.
 - Extend the new pure-C camera stream SDK API and C++
   `apps/fieldmesh-control-camera-demo` into a live two-host camera-stream demo

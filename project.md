@@ -589,11 +589,14 @@ user and vendor configuration.
 - `tools/fieldmesh_iq_iio_live_run.py` - guarded IIO burst runner. By default
   it only writes a reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev`
   script from the verified live plan. A real conducted/shielded RF run requires
-  `--execute-live-rf --allow-hardware-writes` plus the same legal-frequency,
-  attenuation, TX-enable, and RX-first guards.
+  `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, a fixture ID,
+  exact operator confirmation, bounded TX duration, and the same
+  legal-frequency, attenuation, TX-enable, and RX-first guards.
 - `tools/verify_fieldmesh_iq_iio_live_run.sh` - gate for the guarded IIO
   runner dry-run and negative tests for missing legal-frequency profile,
-  missing hardware-write approval, and insufficient fixture attenuation.
+  missing hardware-write approval, missing RF-TX approval, missing operator
+  confirmation, missing fixture identity, excessive TX duration, and
+  insufficient fixture attenuation.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

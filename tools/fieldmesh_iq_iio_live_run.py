@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import math
 import shlex
 import subprocess
 import time
@@ -16,6 +17,8 @@ import fieldmesh_iq_burst_smoke as iq_smoke
 
 
 MIN_FIXTURE_ATTENUATION_DB = 30.0
+MAX_LIVE_TX_DURATION_MS = 1000
+LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -60,10 +63,23 @@ def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
         raise SystemExit(
             f"--fixture-attenuation-db must be >= planned {plan_attenuation:g} dB"
         )
-    if args.execute_live_rf and not args.allow_hardware_writes:
-        raise SystemExit("--execute-live-rf also requires --allow-hardware-writes")
-    if args.execute_live_rf and not (args.tx_uri and args.rx_uri):
-        raise SystemExit("--execute-live-rf requires --tx-uri and --rx-uri")
+    if args.max_tx_duration_ms < 1 or args.max_tx_duration_ms > MAX_LIVE_TX_DURATION_MS:
+        raise SystemExit(
+            f"--max-tx-duration-ms must be between 1 and {MAX_LIVE_TX_DURATION_MS}"
+        )
+    if args.execute_live_rf:
+        if not args.allow_hardware_writes:
+            raise SystemExit("--execute-live-rf also requires --allow-hardware-writes")
+        if not args.allow_rf_tx:
+            raise SystemExit("--execute-live-rf also requires --allow-rf-tx")
+        if args.operator_confirmation != LIVE_RF_CONFIRMATION:
+            raise SystemExit(
+                f"--execute-live-rf requires --operator-confirmation {LIVE_RF_CONFIRMATION!r}"
+            )
+        if not args.fixture_id:
+            raise SystemExit("--execute-live-rf requires --fixture-id")
+        if not (args.tx_uri and args.rx_uri):
+            raise SystemExit("--execute-live-rf requires --tx-uri and --rx-uri")
 
 
 def shell_quote(args: list[str]) -> str:
@@ -132,7 +148,8 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     iq = plan["iq_burst"]
     tx_uri = args.tx_uri or f"ip:<{plan['tx_board']}-management-ip>"
     rx_uri = args.rx_uri or f"ip:<{plan['rx_board']}-management-ip>"
-    timeout_s = max(1, args.timeout_ms // 1000)
+    timeout_s = max(1, math.ceil(args.timeout_ms / 1000))
+    tx_timeout_s = max(1, math.ceil(args.max_tx_duration_ms / 1000))
     samples = int(iq["iq_samples"])
     buffer_size = args.buffer_size or samples
 
@@ -183,6 +200,8 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         command_row(
             "load_tx_iio_buffer",
             [
+                "timeout",
+                str(tx_timeout_s),
                 "iio_writedev",
                 "-u",
                 tx_uri,
@@ -320,9 +339,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     safety = {
         "conducted_or_shielded": True,
         "fixture_attenuation_db": args.fixture_attenuation_db,
+        "fixture_id": args.fixture_id or None,
         "legal_frequency_profile": True,
         "tx_enable_guard": True,
         "rx_first": True,
+        "allow_hardware_writes": bool(args.allow_hardware_writes),
+        "allow_rf_tx": bool(args.allow_rf_tx),
+        "operator_confirmation_ok": args.operator_confirmation == LIVE_RF_CONFIRMATION,
+        "max_tx_duration_ms": args.max_tx_duration_ms,
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -367,6 +391,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-first", action="store_true")
     parser.add_argument("--execute-live-rf", action="store_true")
     parser.add_argument("--allow-hardware-writes", action="store_true")
+    parser.add_argument("--allow-rf-tx", action="store_true")
+    parser.add_argument("--fixture-id")
+    parser.add_argument("--operator-confirmation")
+    parser.add_argument("--max-tx-duration-ms", type=int, default=MAX_LIVE_TX_DURATION_MS)
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

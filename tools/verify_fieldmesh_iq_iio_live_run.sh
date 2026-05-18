@@ -74,8 +74,13 @@ if names != expected_prefix:
     raise SystemExit(f"unexpected command order: {names}")
 if report["commands"][6]["argv"][2] != "iio_readdev":
     raise SystemExit("RX command must arm iio_readdev before TX")
-if report["commands"][7]["argv"][0] != "iio_writedev":
-    raise SystemExit("TX command must use iio_writedev")
+if report["commands"][7]["argv"][0] != "timeout" or report["commands"][7]["argv"][2] != "iio_writedev":
+    raise SystemExit("TX command must bound iio_writedev with timeout")
+for key in ("allow_hardware_writes", "allow_rf_tx", "operator_confirmation_ok"):
+    if report["safety"][key] is not False:
+        raise SystemExit(f"dry-run safety key {key} must be false")
+if report["safety"]["fixture_id"] is not None:
+    raise SystemExit("dry-run must not invent fixture identity")
 script = Path(report["generated_script"])
 if not script.exists():
     raise SystemExit(f"missing generated script {script}")
@@ -116,6 +121,82 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --execute-live-rf \
   >/dev/null 2>&1; then
   echo "live runner accepted --execute-live-rf without --allow-hardware-writes" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan.json" \
+  --out-dir "$work_dir/missing-rf-tx-allow" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --execute-live-rf \
+  --allow-hardware-writes \
+  >/dev/null 2>&1; then
+  echo "live runner accepted --execute-live-rf without --allow-rf-tx" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan.json" \
+  --out-dir "$work_dir/missing-confirmation" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --execute-live-rf \
+  --allow-hardware-writes \
+  --allow-rf-tx \
+  --fixture-id conducted-fixture-A \
+  >/dev/null 2>&1; then
+  echo "live runner accepted --execute-live-rf without operator confirmation" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan.json" \
+  --out-dir "$work_dir/missing-fixture-id" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --execute-live-rf \
+  --allow-hardware-writes \
+  --allow-rf-tx \
+  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  >/dev/null 2>&1; then
+  echo "live runner accepted --execute-live-rf without fixture identity" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan.json" \
+  --out-dir "$work_dir/too-long-tx" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --execute-live-rf \
+  --allow-hardware-writes \
+  --allow-rf-tx \
+  --fixture-id conducted-fixture-A \
+  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --max-tx-duration-ms 5000 \
+  >/dev/null 2>&1; then
+  echo "live runner accepted excessive TX duration" >&2
   exit 1
 fi
 

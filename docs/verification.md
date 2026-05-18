@@ -3544,12 +3544,13 @@ Result:
 
 The generated command script is RX-first: `iio_attr` RX PHY configuration,
 `iio_attr` TX PHY configuration, `iio_readdev` RX capture arming, then
-`iio_writedev` TX IQ burst loading. The default report keeps
+bounded `iio_writedev` TX IQ burst loading. The default report keeps
 `executes_commands=false`, `opens_iio_buffers=false`, `starts_rf_tx=false`, and
 `writes_hardware=false`. The verifier also rejects missing legal-frequency
-profile, insufficient fixture attenuation, and `--execute-live-rf` unless
-`--allow-hardware-writes` is present. Actual conducted/shielded RF execution is
-therefore explicit and auditable.
+profile, insufficient fixture attenuation, excessive TX duration, and
+`--execute-live-rf` unless hardware writes, RF-TX authorization, exact operator
+confirmation, and fixture identity are present. Actual conducted/shielded RF
+execution is therefore explicit, bounded, and auditable.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
