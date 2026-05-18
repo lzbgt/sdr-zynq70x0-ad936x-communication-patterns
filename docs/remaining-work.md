@@ -115,6 +115,11 @@ The production sequence wrapper now centralizes the remaining conducted or
 shielded proof: it validates fixture evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level
 messaging/topology/native-IP reports, and feeds the real-RF production gate.
+Before the wrapper can run any RF-capable step it now emits a structured
+`fieldmesh_conducted_rf_preflight.json` checklist. `PREFLIGHT_ONLY=1` validates
+the RF-binding plan path, fixture evidence, explicit live approvals, bounded TX
+duration, and all three app-evidence inputs without leasing daemon frames,
+mutating queues, opening IIO buffers, or starting RF TX.
 Until a real live bridge report and all three app feature reports pass that
 wrapper, the daemon readiness fields must remain `production_ready=0`. Those
 app feature reports must reference the same bridge and IQ live-run evidence so

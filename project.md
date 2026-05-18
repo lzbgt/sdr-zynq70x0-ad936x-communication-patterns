@@ -669,7 +669,20 @@ user and vendor configuration.
   outputs or feature reports into normalized messaging/topology/native-IP app
   reports, and then invokes the real-RF production gate. It is non-transmitting
   by default and live mode requires explicit hardware-write, RF-TX,
-  daemon-queue, fixture, and operator approvals.
+  daemon-queue, fixture, and operator approvals. It now also writes a
+  machine-readable preflight report before any RF-capable step, and supports
+  `PREFLIGHT_ONLY=1` for operator checklist validation without leasing frames,
+  mutating daemon queues, opening IIO buffers, or starting RF TX.
+- `tools/fieldmesh_conducted_rf_preflight.py` - non-transmitting preflight
+  checker for the conducted/shielded production sequence. It validates the
+  RF-binding plan path, live RF approvals, fixture evidence, bounded TX
+  duration, and messaging/topology/native-IP evidence inputs, then reports
+  whether live RF would be allowed and whether production readiness could be
+  proven after that run.
+- `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
+  production preflight checklist. It proves missing approvals, invalid fixture
+  evidence, and excessive TX duration block live RF while a complete approved
+  conducted fixture configuration passes preflight without transmitting.
 - `tools/verify_fieldmesh_conducted_rf_production_sequence.sh` - verifier for
   the sequence wrapper. It proves dry-run evidence stays non-production,
   missing fixture evidence blocks live RF, complete bridge-derived app evidence

@@ -3685,24 +3685,31 @@ separate measured RF decode.
 The full conducted/shielded production sequence is wrapped by:
 
 ```sh
+./tools/verify_fieldmesh_conducted_rf_preflight.sh
 ./tools/verify_fieldmesh_conducted_rf_production_sequence.sh
 ```
 
 Result:
 
 ```json
+{"event": "fieldmesh_conducted_rf_preflight_check", "fixture_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
 {"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "missing_fixture_refused": true, "ok": true}
 ```
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
-wrapper for the current real-RF readiness path. It validates fixture evidence,
-runs or consumes the RF-worker/IIO bridge, converts app/gate source outputs or
-raw feature reports into normalized messaging/topology/native-IP real-RF
-reports, and then invokes the production gate. Dry-run is the default. Live RF
-still requires explicit hardware-write, RF-TX, daemon-queue mutation, fixture
-evidence, fixture ID, and operator-confirmation inputs. Raw app feature
-evidence supplied to the wrapper must be correlated to the same bridge and IQ
-live-run reports.
+wrapper for the current real-RF readiness path. Before any RF-capable step it
+now writes `fieldmesh_conducted_rf_preflight.json`, which records missing live
+approvals, fixture-evidence status, bounded TX duration, available app evidence,
+and whether live RF would be allowed. `PREFLIGHT_ONLY=1` exits after that
+non-transmitting checklist, so operators can validate fixture and evidence
+readiness without leasing daemon frames, mutating queues, opening IIO buffers,
+or starting RF TX. The full sequence then validates fixture evidence, runs or
+consumes the RF-worker/IIO bridge, converts app/gate source outputs or raw
+feature reports into normalized messaging/topology/native-IP real-RF reports,
+and invokes the production gate. Dry-run is the default. Live RF still requires
+explicit hardware-write, RF-TX, daemon-queue mutation, fixture evidence, fixture
+ID, and operator-confirmation inputs. Raw app feature evidence supplied to the
+wrapper must be correlated to the same bridge and IQ live-run reports.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

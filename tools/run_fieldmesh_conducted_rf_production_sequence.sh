@@ -32,6 +32,7 @@ allow_hardware_writes="${ALLOW_HARDWARE_WRITES:-0}"
 allow_rf_tx="${ALLOW_RF_TX:-0}"
 allow_daemon_queue_mutation="${ALLOW_DAEMON_QUEUE_MUTATION:-0}"
 leased_frame_report="${LEASED_FRAME_REPORT:-}"
+preflight_only="${PREFLIGHT_ONLY:-0}"
 
 usage() {
     cat >&2 <<'EOF'
@@ -85,7 +86,7 @@ bool01() {
     esac
 }
 
-for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
+for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation" "$preflight_only"; do
     if ! bool01 "$item"; then
         echo "boolean flags must be 0 or 1" >&2
         usage
@@ -94,11 +95,6 @@ for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_d
 done
 
 mkdir -p "$out_dir"
-
-if [ ! -f "$binding" ]; then
-    echo "missing RF binding plan: $binding" >&2
-    exit 1
-fi
 
 raw_messaging="${APP_MESSAGING_FEATURE_REPORT:-}"
 raw_topology="${APP_TOPOLOGY_FEATURE_REPORT:-}"
@@ -109,6 +105,104 @@ source_native_ip="${APP_NATIVE_IP_SOURCE_REPORT:-}"
 app_messaging="${APP_MESSAGING_REPORT:-}"
 app_topology="${APP_TOPOLOGY_REPORT:-}"
 app_native_ip="${APP_NATIVE_IP_REPORT:-}"
+
+preflight_args=(
+    --rf-binding-plan "$binding"
+    --source-host "$source_host"
+    --sink-host "$sink_host"
+    --tx-uri "$tx_uri"
+    --rx-uri "$rx_uri"
+    --fixture-attenuation-db "$fixture_attenuation_db"
+    --center-frequency-hz "$center_frequency_hz"
+    --max-tx-duration-ms "$max_tx_duration_ms"
+    --output "$out_dir/fieldmesh_conducted_rf_preflight.json"
+)
+if [ -n "$bridge_report" ]; then
+    preflight_args+=(--bridge-report "$bridge_report")
+fi
+if [ -n "$fixture_id" ]; then
+    preflight_args+=(--fixture-id "$fixture_id")
+fi
+if [ -n "$fixture_evidence" ]; then
+    preflight_args+=(--fixture-evidence "$fixture_evidence")
+fi
+if [ -n "$operator_confirmation" ]; then
+    preflight_args+=(--operator-confirmation "$operator_confirmation")
+fi
+if [ "$execute_live_rf" = "1" ]; then
+    preflight_args+=(--execute-live-rf)
+fi
+if [ "$allow_hardware_writes" = "1" ]; then
+    preflight_args+=(--allow-hardware-writes)
+fi
+if [ "$allow_rf_tx" = "1" ]; then
+    preflight_args+=(--allow-rf-tx)
+fi
+if [ "$allow_daemon_queue_mutation" = "1" ]; then
+    preflight_args+=(--allow-daemon-queue-mutation)
+fi
+if [ "${EXPECT_PRODUCTION_READY:-0}" = "1" ]; then
+    preflight_args+=(--expect-production-ready)
+fi
+if [ -n "$raw_messaging" ]; then
+    preflight_args+=(--app-messaging-feature-report "$raw_messaging")
+fi
+if [ -n "$raw_topology" ]; then
+    preflight_args+=(--app-topology-feature-report "$raw_topology")
+fi
+if [ -n "$raw_native_ip" ]; then
+    preflight_args+=(--app-native-ip-feature-report "$raw_native_ip")
+fi
+if [ -n "$source_messaging" ]; then
+    preflight_args+=(--app-messaging-source-report "$source_messaging")
+fi
+if [ -n "$source_topology" ]; then
+    preflight_args+=(--app-topology-source-report "$source_topology")
+fi
+if [ -n "$source_native_ip" ]; then
+    preflight_args+=(--app-native-ip-source-report "$source_native_ip")
+fi
+if [ -n "$app_messaging" ]; then
+    preflight_args+=(--app-messaging-report "$app_messaging")
+fi
+if [ -n "$app_topology" ]; then
+    preflight_args+=(--app-topology-report "$app_topology")
+fi
+if [ -n "$app_native_ip" ]; then
+    preflight_args+=(--app-native-ip-report "$app_native_ip")
+fi
+"$repo_root/tools/fieldmesh_conducted_rf_preflight.py" "${preflight_args[@]}" \
+    > "$out_dir/conducted_rf_preflight_stdout.json"
+
+preflight_ok="$(python3 - "$out_dir/fieldmesh_conducted_rf_preflight.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+print("1" if report.get("ok") is True else "0")
+PY
+)"
+
+if [ "$preflight_only" = "1" ]; then
+    cat "$out_dir/fieldmesh_conducted_rf_preflight.json"
+    if [ -n "${EXPECT_PREFLIGHT_OK:-}" ] && [ "$preflight_ok" != "$EXPECT_PREFLIGHT_OK" ]; then
+        echo "preflight ok=$preflight_ok did not match EXPECT_PREFLIGHT_OK=$EXPECT_PREFLIGHT_OK" >&2
+        exit 1
+    fi
+    exit 0
+fi
+
+if [ "$preflight_ok" != "1" ]; then
+    echo "conducted RF production sequence preflight failed: $out_dir/fieldmesh_conducted_rf_preflight.json" >&2
+    usage
+    exit 1
+fi
+
+if [ ! -f "$binding" ]; then
+    echo "missing RF binding plan: $binding" >&2
+    exit 1
+fi
 
 if [ "$execute_live_rf" = "1" ]; then
     if [ "$allow_hardware_writes" != "1" ] || [ "$allow_rf_tx" != "1" ] ||
