@@ -1205,7 +1205,11 @@ user and vendor configuration.
   live UART probe found valid NMEA at `38400` baud, but the receiver currently
   reports GSV satellites-visible `0` and no GNSS fix, which is consistent with
   an indoor/no-sky-view bench setup. No production daemon position is emitted
-  until the receiver reports a valid fix.
+  until the receiver reports a valid fix. The reporter now emits throttled
+  no-fix NMEA status rows so live preflight can surface
+  `gnss_no_satellites_visible`, `gnss_gga_quality_no_fix`, `gnss_rmc_status_void`, and
+  `gnss_gsa_fix_type_no_fix` instead of only reporting a generic receiver
+  no-fix blocker.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

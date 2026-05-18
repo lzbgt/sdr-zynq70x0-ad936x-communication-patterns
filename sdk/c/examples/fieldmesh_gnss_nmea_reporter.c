@@ -28,11 +28,24 @@
 #define RESPONSE_MAX_BYTES 512
 #define REPORT_ACK_RETRIES 5u
 #define REPORT_ACK_TIMEOUT_US 200000u
+#define STATUS_SIGNATURE_MAX_BYTES 96
+#define STATUS_REPEAT_INTERVAL 32u
 
 struct gnss_fix {
     int lat_e7;
     int lon_e7;
     int pps_lock;
+};
+
+struct gnss_status {
+    int has_status;
+    int fix_detected;
+    int gga_quality;
+    int gga_satellites_used;
+    char rmc_status;
+    int gsa_fix_type;
+    int gsv_satellites_visible;
+    char kind[4];
 };
 
 static int valid_eui(const char *eui)
@@ -148,6 +161,15 @@ static int split_nmea(char *line, char **fields, size_t cap)
     return (int)count;
 }
 
+static int parse_int_field(char **fields, int count, int index, int *out)
+{
+    if (!fields || !out || index >= count || !fields[index] || fields[index][0] == '\0') {
+        return 0;
+    }
+    *out = atoi(fields[index]);
+    return 1;
+}
+
 static int parse_gga(char **fields, int count, struct gnss_fix *fix)
 {
     int quality;
@@ -207,6 +229,189 @@ static int parse_nmea_fix(const char *line_in, struct gnss_fix *fix)
         return parse_rmc(fields, count, fix);
     }
     return 0;
+}
+
+static int parse_nmea_status(const char *line_in, struct gnss_status *status)
+{
+    char line[LINE_MAX_BYTES];
+    char *fields[24];
+    int count;
+    const char *type;
+    size_t len;
+    int value;
+
+    if (!line_in || !status) {
+        return 0;
+    }
+    memset(status, 0, sizeof(*status));
+    status->gga_quality = -1;
+    status->gga_satellites_used = -1;
+    status->gsa_fix_type = -1;
+    status->gsv_satellites_visible = -1;
+    while (*line_in == '\r' || *line_in == '\n' || *line_in == ' ') {
+        ++line_in;
+    }
+    if (*line_in != '$') {
+        return 0;
+    }
+    len = strcspn(line_in, "\r\n");
+    if (len >= sizeof(line)) {
+        return 0;
+    }
+    memcpy(line, line_in, len);
+    line[len] = '\0';
+    count = split_nmea(line, fields, sizeof(fields) / sizeof(fields[0]));
+    if (count <= 0 || strlen(fields[0]) < 6u) {
+        return 0;
+    }
+    type = fields[0] + strlen(fields[0]) - 3u;
+    memcpy(status->kind, type, 3u);
+    status->kind[3] = '\0';
+
+    if (strcmp(type, "GGA") == 0) {
+        status->has_status = 1;
+        if (parse_int_field(fields, count, 6, &value)) {
+            status->gga_quality = value;
+            if (value > 0) {
+                status->fix_detected = 1;
+            }
+        }
+        if (parse_int_field(fields, count, 7, &value)) {
+            status->gga_satellites_used = value;
+        }
+        return 1;
+    }
+    if (strcmp(type, "RMC") == 0) {
+        status->has_status = 1;
+        if (count > 2 && fields[2][0] != '\0') {
+            status->rmc_status = fields[2][0];
+            if (status->rmc_status == 'A') {
+                status->fix_detected = 1;
+            }
+        }
+        return 1;
+    }
+    if (strcmp(type, "GSA") == 0) {
+        status->has_status = 1;
+        if (parse_int_field(fields, count, 2, &value)) {
+            status->gsa_fix_type = value;
+            if (value >= 2) {
+                status->fix_detected = 1;
+            }
+        }
+        return 1;
+    }
+    if (strcmp(type, "GSV") == 0) {
+        status->has_status = 1;
+        if (parse_int_field(fields, count, 3, &value)) {
+            status->gsv_satellites_visible = value;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+static void print_json_int_or_null(const char *key, int value)
+{
+    if (value >= 0) {
+        printf(",\"%s\":%d", key, value);
+    } else {
+        printf(",\"%s\":null", key);
+    }
+}
+
+static int nmea_status_signature(const struct gnss_status *status,
+                                 char *out,
+                                 size_t out_len)
+{
+    int written;
+
+    if (!status || !out || out_len == 0u) {
+        return -1;
+    }
+    written = snprintf(out, out_len, "%s:%d:%d:%c:%d:%d",
+                       status->kind,
+                       status->gga_quality,
+                       status->gga_satellites_used,
+                       status->rmc_status ? status->rmc_status : '-',
+                       status->gsa_fix_type,
+                       status->gsv_satellites_visible);
+    if (written <= 0 || (size_t)written >= out_len) {
+        return -1;
+    }
+    return 0;
+}
+
+static int should_emit_nmea_status(const struct gnss_status *status,
+                                   char *last_signature,
+                                   size_t last_signature_len,
+                                   unsigned *repeat_count)
+{
+    char signature[STATUS_SIGNATURE_MAX_BYTES];
+
+    if (!status || !last_signature || !repeat_count ||
+        !status->has_status || status->fix_detected) {
+        return 0;
+    }
+    if (nmea_status_signature(status, signature, sizeof(signature)) != 0) {
+        return 0;
+    }
+    if (strncmp(last_signature, signature, last_signature_len) != 0) {
+        snprintf(last_signature, last_signature_len, "%s", signature);
+        *repeat_count = 0u;
+        return 1;
+    }
+    ++(*repeat_count);
+    if (*repeat_count >= STATUS_REPEAT_INTERVAL) {
+        *repeat_count = 0u;
+        return 1;
+    }
+    return 0;
+}
+
+static void print_nmea_status(const char *eui, const struct gnss_status *status)
+{
+    int printed = 0;
+
+    if (!status || !status->has_status || status->fix_detected) {
+        return;
+    }
+    printf("{\"event\":\"fieldmesh_gnss_nmea_status\","
+           "\"ok\":false,\"device_eui\":\"%s\","
+           "\"nmea_detected\":true,\"fix_detected\":false,"
+           "\"sentence_kind\":\"%s\"",
+           eui, status->kind);
+    print_json_int_or_null("latest_gga_quality", status->gga_quality);
+    print_json_int_or_null("latest_gga_satellites_used", status->gga_satellites_used);
+    if (status->rmc_status) {
+        printf(",\"latest_rmc_status\":\"%c\"", status->rmc_status);
+    } else {
+        printf(",\"latest_rmc_status\":null");
+    }
+    print_json_int_or_null("latest_gsa_fix_type", status->gsa_fix_type);
+    print_json_int_or_null("max_gsv_satellites_visible", status->gsv_satellites_visible);
+    printf(",\"blockers\":[");
+    if (status->gsv_satellites_visible == 0) {
+        printf("\"gnss_no_satellites_visible\"");
+        printed = 1;
+    }
+    if (status->gga_quality == 0) {
+        printf("%s\"gnss_gga_quality_no_fix\"", printed ? "," : "");
+        printed = 1;
+    }
+    if (status->rmc_status == 'V') {
+        printf("%s\"gnss_rmc_status_void\"", printed ? "," : "");
+        printed = 1;
+    }
+    if (status->gsa_fix_type == 1) {
+        printf("%s\"gnss_gsa_fix_type_no_fix\"", printed ? "," : "");
+        printed = 1;
+    }
+    if (!printed) {
+        printf("\"gnss_receiver_no_fix\"");
+    }
+    printf("]}\n");
+    fflush(stdout);
 }
 
 static int send_rtls_report(const char *host,
@@ -303,6 +508,8 @@ int main(int argc, char **argv)
     char read_buf[256];
     char line[LINE_MAX_BYTES];
     size_t line_len = 0u;
+    char last_status_signature[STATUS_SIGNATURE_MAX_BYTES] = "";
+    unsigned status_repeat_count = 0u;
 
     if (argc < 5 || argc > 8) {
         usage(argv[0]);
@@ -364,6 +571,7 @@ int main(int argc, char **argv)
             char ch = read_buf[i];
             if (ch == '\n' || ch == '\r') {
                 struct gnss_fix fix;
+                struct gnss_status status;
 
                 if (line_len == 0u) {
                     continue;
@@ -385,6 +593,12 @@ int main(int argc, char **argv)
                         close(fd);
                         return 0;
                     }
+                } else if (parse_nmea_status(line, &status) &&
+                           should_emit_nmea_status(&status,
+                                                   last_status_signature,
+                                                   sizeof(last_status_signature),
+                                                   &status_repeat_count)) {
+                    print_nmea_status(eui, &status);
                 }
                 line_len = 0u;
                 continue;

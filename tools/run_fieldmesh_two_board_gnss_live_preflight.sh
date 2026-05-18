@@ -176,95 +176,12 @@ collect_board_facts z103 "$z103_ip" "$out_dir/z103_facts.txt"
 query_rtls_position z203 "$z203_ip" "$z203_eui" "$out_dir/z203_rtls_position.json"
 query_rtls_position z103 "$z103_ip" "$z103_eui" "$out_dir/z103_rtls_position.json"
 
-python3 - "$out_dir" "$require_gnss_fix" <<'PY' | tee "$out_dir/summary.json"
-import json
-import sys
-from pathlib import Path
-
-out_dir = Path(sys.argv[1])
-require_gnss_fix = sys.argv[2] == "1"
-
-def read_json(name: str) -> dict:
-    return json.loads((out_dir / name).read_text(encoding="utf-8"))
-
-def classify(label: str) -> dict:
-    facts = read_json(f"{label}_facts.txt.json")
-    rtls = read_json(f"{label}_rtls_position.json")
-    blockers: list[str] = []
-    configured_device = str(facts.get("gnss_nmea_device") or "")
-    configured_baud = str(facts.get("gnss_nmea_baud") or "")
-    if not configured_device:
-        blockers.append("no_gnss_nmea_device_configured")
-    elif facts.get("gnss_nmea_device_exists") != "1":
-        blockers.append("gnss_nmea_device_missing")
-    if not facts.get("daemon_pid"):
-        blockers.append("fieldmesh_daemon_not_running")
-    if configured_device and facts.get("gnss_nmea_device_exists") == "1" and not facts.get("gnss_pid"):
-        blockers.append("gnss_reporter_not_running")
-    daemon_gnss_position_present = (
-        rtls.get("ok") is True
-        and rtls.get("position_source") == "gps_pps_fused"
-    )
-    has_fix = (
-        rtls.get("ok") is True
-        and rtls.get("position_source") == "gps_pps_fused"
-        and rtls.get("has_gnss_position") in (1, True)
-        and rtls.get("live_gnss_reporter") in (1, True)
-        and isinstance(rtls.get("measured_age_ms"), int)
-        and rtls.get("measured_age_ms") <= 15000
-    )
-    if not has_fix:
-        if configured_device and facts.get("gnss_nmea_device_exists") == "1" and facts.get("gnss_pid"):
-            blockers.append("gnss_receiver_no_fix")
-        else:
-            blockers.append("no_live_gnss_position_in_daemon")
-    service_backed = (
-        has_fix
-        and bool(configured_device)
-        and facts.get("gnss_nmea_device_exists") == "1"
-        and bool(facts.get("gnss_pid"))
-    )
-    if daemon_gnss_position_present and not service_backed:
-        blockers.append("gnss_position_not_backed_by_live_init_service")
-    return {
-        "label": label,
-        "board_ip": facts.get("board_ip"),
-        "hostname": facts.get("hostname"),
-        "device_eui": facts.get("device_eui"),
-        "gnss_nmea_device": configured_device,
-        "gnss_nmea_baud": configured_baud,
-        "gnss_nmea_device_exists": facts.get("gnss_nmea_device_exists") == "1",
-        "gnss_reporter_running": bool(facts.get("gnss_pid")),
-        "daemon_running": bool(facts.get("daemon_pid")),
-        "serial_devices": [item for item in str(facts.get("serial_devices") or "").split(",") if item],
-        "position_source": rtls.get("position_source"),
-        "has_gnss_position": rtls.get("has_gnss_position"),
-        "live_gnss_reporter": rtls.get("live_gnss_reporter"),
-        "measured_age_ms": rtls.get("measured_age_ms"),
-        "daemon_gnss_position_present": daemon_gnss_position_present,
-        "gnss_position_backed_by_live_init_service": service_backed,
-        "gnss_live_ready": not blockers,
-        "blockers": blockers,
-        "facts_path": str(out_dir / f"{label}_facts.txt.json"),
-        "rtls_position_path": str(out_dir / f"{label}_rtls_position.json"),
-    }
-
-boards = [classify("z203"), classify("z103")]
-ready = all(board["gnss_live_ready"] for board in boards)
-summary = {
-    "event": "fieldmesh_two_board_gnss_live_preflight",
-    "ok": ready or not require_gnss_fix,
-    "gnss_live_ready": ready,
-    "require_gnss_fix": require_gnss_fix,
-    "boards": boards,
-    "capture_dir": str(out_dir),
-}
-if not ready:
-    summary["production_blocker"] = "deployed_gnss_uart_pps_not_verified"
-print(json.dumps(summary, indent=2, sort_keys=True))
-if require_gnss_fix and not ready:
-    raise SystemExit(1)
-PY
+summary_args=(--out-dir "$out_dir")
+if [ "$require_gnss_fix" = "1" ]; then
+    summary_args+=(--require-gnss-fix)
+fi
+"$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" "${summary_args[@]}" \
+    | tee "$out_dir/summary.json"
 
 echo "fieldmesh_two_board_gnss_live_preflight=pass"
 echo "Capture directory: $out_dir"

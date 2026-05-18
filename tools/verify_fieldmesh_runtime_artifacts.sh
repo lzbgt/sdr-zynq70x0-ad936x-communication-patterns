@@ -381,8 +381,10 @@ PY
     done
     for token in \
         fieldmesh_gnss_nmea_report \
+        fieldmesh_gnss_nmea_status \
         FIELDMESH_RTLS_REPORT \
         '"ok":true' \
+        gnss_no_satellites_visible \
         gps_lat_e7 \
         gps_lon_e7 \
         turnaround_calibrated=0 \

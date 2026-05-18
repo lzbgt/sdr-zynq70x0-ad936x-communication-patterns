@@ -207,7 +207,10 @@ port at `38400` baud, and the Z203 SD boot config now persists that baud. The
 captured receiver state is still no-fix (`GNGGA` quality `0` / `GNRMC` status
 `V` / `GNGSA` fix type `1` / `GPGSV` satellites visible `0`), so
 `REQUIRE_GNSS_FIX=1` correctly remains blocked at
-`gnss_no_satellites_visible` / `gnss_gga_quality_no_fix`. Normal app startup now requires fresh daemon GNSS
+`gnss_no_satellites_visible` / `gnss_gga_quality_no_fix`. The init-launched
+GNSS reporter now emits throttled no-fix NMEA status rows, and the two-board
+live preflight surfaces those specific blockers when the configured receiver
+is running but has no fix. Normal app startup now requires fresh daemon GNSS
 positions with `has_gnss_position=true` and `live_gnss_reporter=true`, and the
 synthetic GNSS topology gate clears injected RTLS positions after use. The
 remaining GNSS work is receiver antenna/sky-view/fix validation and PPS

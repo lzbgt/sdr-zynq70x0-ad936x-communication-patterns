@@ -3225,6 +3225,12 @@ configuration, visible serial nodes, reporter process state, and daemon
 `FIELDMESH_RTLS_POSITION` output. By default it exits successfully after
 inspection even when `gnss_live_ready=false`; set `REQUIRE_GNSS_FIX=1` to make
 missing live GNSS a hard production failure.
+The init-launched GNSS reporter also emits throttled
+`fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
+contain a fix. The preflight surfaces those blocker details, such as
+`gnss_no_satellites_visible`, `gnss_gga_quality_no_fix`,
+`gnss_rmc_status_void`, or `gnss_gsa_fix_type_no_fix`, instead of reducing
+every configured receiver case to a generic no-fix state.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` is the installed-daemon
 GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects

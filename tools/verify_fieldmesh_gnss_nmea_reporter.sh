@@ -86,14 +86,23 @@ rows = [
     for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
     if line.strip()
 ]
-if len(rows) != 1 or rows[0].get("event") != "fieldmesh_gnss_nmea_report":
-    raise SystemExit("reporter did not emit exactly one GNSS report event")
-if rows[0].get("ok") is not True or rows[0].get("device_eui") != "020000000203":
+statuses = [row for row in rows if row.get("event") == "fieldmesh_gnss_nmea_status"]
+reports = [row for row in rows if row.get("event") == "fieldmesh_gnss_nmea_report"]
+if len(statuses) != 1:
+    raise SystemExit(f"reporter did not emit one no-fix status event: {rows!r}")
+if statuses[0].get("ok") is not False or statuses[0].get("fix_detected") is not False:
+    raise SystemExit(f"bad no-fix status event: {statuses[0]!r}")
+if "gnss_gga_quality_no_fix" not in statuses[0].get("blockers", []):
+    raise SystemExit(f"no-fix status did not explain GGA quality: {statuses[0]!r}")
+if len(reports) != 1:
+    raise SystemExit(f"reporter did not emit exactly one GNSS report event: {rows!r}")
+if reports[0].get("ok") is not True or reports[0].get("device_eui") != "020000000203":
     raise SystemExit("reporter output did not identify the local EUI")
 print(json.dumps({
     "event": "fieldmesh_gnss_nmea_reporter_check",
     "ok": True,
-    "reports": len(rows),
+    "reports": len(reports),
+    "status_events": len(statuses),
 }, separators=(",", ":")))
 PY
 
@@ -129,6 +138,15 @@ if "$bin" "$work_dir/nmea.txt" 127.0.0.1 "$no_ack_port" 020000000203 9600 1 1 \
 fi
 wait "$no_ack_server_pid"
 if [ -s "$work_dir/reporter_no_ack.ndjson" ]; then
-    echo "GNSS reporter emitted a report without daemon ACK" >&2
-    exit 1
+    python3 - "$work_dir/reporter_no_ack.ndjson" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+rows = [json.loads(line) for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines() if line.strip()]
+if any(row.get("event") == "fieldmesh_gnss_nmea_report" for row in rows):
+    raise SystemExit("GNSS reporter emitted a report without daemon ACK")
+if not any(row.get("event") == "fieldmesh_gnss_nmea_status" for row in rows):
+    raise SystemExit("GNSS reporter no-ACK run did not preserve no-fix status diagnostics")
+PY
 fi
