@@ -616,6 +616,9 @@ below were later superseded by the current PHY-management two-board gates above:
   production decision point for those reports. `tools/fieldmesh_app_real_rf_report.py`
   normalizes named app evidence and refuses current daemon RF-worker bridge or
   preseeded topology reports as production evidence.
+  `tools/fieldmesh_iio_rf_worker_bridge.py` now provides the dry-run and live
+  execution shape for moving a leased daemon RF frame through the conducted-IIO
+  IQ path, then ingesting and ACKing only after exact frame recovery.
 - Extend the new pure-C camera stream SDK API and C++
   `apps/fieldmesh-control-camera-demo` into a live two-host camera-stream demo
   once the board daemon and RF stream path are connected end to end. The SDK

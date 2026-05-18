@@ -314,6 +314,8 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         "attempted": True,
         "ok": crc == plan["iq_burst"]["frame_crc"],
         "capture_bytes": len(iq),
+        "recovered_frame_hex": recovered.hex(),
+        "recovered_frame_bytes": len(recovered),
         "recovered_frame_crc": crc,
         "expected_frame_crc": plan["iq_burst"]["frame_crc"],
     }

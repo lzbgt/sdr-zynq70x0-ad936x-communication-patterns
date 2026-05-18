@@ -624,6 +624,16 @@ user and vendor configuration.
   evidence normalizer. It accepts strict synthetic real-RF feature evidence and
   rejects current daemon RF-worker bridge or preseeded topology reports as
   production evidence.
+- `tools/fieldmesh_iio_rf_worker_bridge.py` - guarded bridge from the daemon
+  RF-worker lease/ACK queue into the conducted AD936x IIO IQ path. In dry-run
+  mode it leases or consumes one non-destructive BLR frame, generates the IQ
+  burst and live IIO plan, and refuses to ingest/ACK. In execute mode it may
+  run the live IQ procedure and ACK the source only after the recovered frame
+  is accepted by the sink daemon.
+- `tools/verify_fieldmesh_iio_rf_worker_bridge.sh` - verifier for the
+  RF-worker-to-IIO bridge. It proves dry-run safety, nested live-run dry-run
+  behavior, ACK-after-ingest policy, and rejection of unsafe live execution or
+  destructive/no-ACK leases.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

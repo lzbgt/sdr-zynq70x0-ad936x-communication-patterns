@@ -753,6 +753,11 @@ It rejects malformed IQ evidence, blocks IQ-only evidence, and only allows
 it refuses current daemon RF-worker bridge and preseeded topology reports as
 production evidence.
 
+`tools/fieldmesh_iio_rf_worker_bridge.py` is the concrete bridge from
+`FIELDMESH_RF_TX_LEASE` into the guarded conducted-IIO IQ path. It is dry-run
+by default, and in live mode it must recover the exact leased frame, ingest that
+frame into the sink daemon, and ACK the source only after successful ingest.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.

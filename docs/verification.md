@@ -3607,6 +3607,25 @@ It accepts strict `messaging`, `topology`, and `native_ip` source reports with
 `uses_inter_board_ip_routing=false`. It rejects current daemon RF-worker bridge
 reports and preseeded topology/range reports as production evidence.
 
+The daemon RF-worker to conducted-IIO bridge has a dry-run gate:
+
+```sh
+./tools/verify_fieldmesh_iio_rf_worker_bridge.sh
+```
+
+Result:
+
+```json
+{"ack_after_successful_ingest_only": true, "event": "fieldmesh_iio_rf_worker_bridge_check", "leased_frame_bytes": 76, "mode": "dry-run", "ok": true}
+```
+
+The bridge consumes a non-destructive `FIELDMESH_RF_TX_LEASE` frame, generates
+the FieldMesh IQ burst and RX-first live IIO plan, and by default does not
+ingest or ACK. In live mode it is required to recover the exact leased frame
+from the IIO capture, send that frame to the sink daemon with
+`FIELDMESH_RF_RX_INGEST`, and only then ACK the source with
+`FIELDMESH_RF_TX_ACK`.
+
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and
