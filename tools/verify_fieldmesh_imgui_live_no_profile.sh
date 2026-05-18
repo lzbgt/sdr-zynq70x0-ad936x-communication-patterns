@@ -96,20 +96,31 @@ for label, snap, eui, host, peer in (
         raise SystemExit(f"{label}: topology metrics did not refresh from daemon")
     if snap.get("topology_range_production_ready") is not False:
         raise SystemExit(f"{label}: unverified topology range claimed production readiness")
-    if snap.get("topology_range_evidence_source") != "none":
-        raise SystemExit(f"{label}: unverified topology range leaked into app evidence")
+    evidence = snap.get("topology_range_evidence_source")
+    if evidence not in ("none", "daemon_gnss_bds_position"):
+        raise SystemExit(f"{label}: unexpected topology range evidence {evidence!r}")
+    if snap.get("topology_timing_position_peers", 0) != 0:
+        raise SystemExit(f"{label}: unverified timing/TDOA position was surfaced")
 
 z203_range = z203.get("topology_max_peer_range_m")
-if not isinstance(z203_range, (int, float)) or z203_range >= 0.0:
-    raise SystemExit(f"z203: unverified TDOA range must be pending, got {z203_range!r}")
-if z203.get("topology_timing_position_peers", 0) != 0:
-    raise SystemExit("z203: unverified timing/TDOA position was surfaced")
+if z203.get("topology_range_evidence_source") == "none":
+    if not isinstance(z203_range, (int, float)) or z203_range >= 0.0:
+        raise SystemExit(f"z203: range without GNSS/RF evidence must be pending, got {z203_range!r}")
+elif z203.get("topology_range_evidence_source") == "daemon_gnss_bds_position":
+    if not isinstance(z203_range, (int, float)) or z203_range <= 0.0:
+        raise SystemExit(f"z203: GNSS/BDS range must be positive, got {z203_range!r}")
+    if z203.get("topology_gnss_position_peers", 0) < 1:
+        raise SystemExit("z203: GNSS/BDS range did not expose a GNSS peer")
 
 z103_range = z103.get("topology_max_peer_range_m")
-if not isinstance(z103_range, (int, float)) or z103_range >= 0.0:
-    raise SystemExit(f"z103: unverified TDOA range must be pending, got {z103_range!r}")
-if z103.get("topology_timing_position_peers", 0) != 0:
-    raise SystemExit("z103: unverified timing/TDOA position was surfaced")
+if z103.get("topology_range_evidence_source") == "none":
+    if not isinstance(z103_range, (int, float)) or z103_range >= 0.0:
+        raise SystemExit(f"z103: range without GNSS/RF evidence must be pending, got {z103_range!r}")
+elif z103.get("topology_range_evidence_source") == "daemon_gnss_bds_position":
+    if not isinstance(z103_range, (int, float)) or z103_range <= 0.0:
+        raise SystemExit(f"z103: GNSS/BDS range must be positive, got {z103_range!r}")
+    if z103.get("topology_gnss_position_peers", 0) < 1:
+        raise SystemExit("z103: GNSS/BDS range did not expose a GNSS peer")
 
 print(json.dumps({
     "event": "fieldmesh_imgui_live_no_profile",
@@ -117,7 +128,8 @@ print(json.dumps({
     "detected_board_count": default.get("detected_board_count"),
     "z203_range_m": z203_range,
     "z103_range_m": z103_range,
-    "range_source": "pending_until_real_rf_phy_or_gnss_anchor",
+    "z203_range_source": z203.get("topology_range_evidence_source"),
+    "z103_range_source": z103.get("topology_range_evidence_source"),
 }, separators=(",", ":")))
 PY
 

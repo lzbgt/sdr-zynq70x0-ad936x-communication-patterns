@@ -192,6 +192,14 @@ before it emits a successful local report, and retries a bounded number of
 times to absorb daemon-start races. It does not invent RF timing evidence or
 start RF TX.
 
+`tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
+daemon/app side of this boundary. It seeds normal live peer discovery, injects
+fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon
+instances, and verifies the headless ImGui app computes a GNSS-derived peer
+range from those daemon positions. This is a GNSS topology-path proof, not
+real-RF timing evidence; unverified TOF/TDOA remains pending until
+`rf_phy_tx_rx_verified=true`.
+
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The
 required feed is one or more of:

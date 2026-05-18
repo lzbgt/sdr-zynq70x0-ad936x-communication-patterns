@@ -3166,6 +3166,14 @@ before it emits a successful report; the verifier also runs a no-ACK negative
 case and rejects success without daemon ingestion. The reporter is therefore a
 real local GNSS ingestion bridge, not an RF timing simulator.
 
+`tools/run_fieldmesh_two_board_gnss_topology_app.sh` is the installed-daemon
+GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects
+explicit GNSS/BDS RTLS reports for both boards into the same installed daemon
+instances that the app discovers, and verifies both selected-board app snapshots
+show a `22.0 m` range with `daemon_gnss_bds_position` provenance. This proves
+the app displays valid GNSS topology when the daemon has real fixes, while
+still rejecting unverified timing/TDOA as user-facing range.
+
 The same gate now also verifies command-preset generation:
 
 ```sh
@@ -4617,8 +4625,10 @@ actual PHY TX/RX and measuring ICMP/TCP/UDP over radio.
   FieldMesh package now boots from QSPI on hardware at `192.168.3.1` and
   passes ping, IIO, HTTP, sidecar preflight, and installed SDK daemon smoke.
 - GNSS/PPS/NMEA parser and daemon-ingestion reporter gates now pass on host and
-  with board-packaged binaries. A real board UART/PPS capture is still open
-  until the deployed GNSS device path is configured and observed live.
+  with board-packaged binaries. The installed-daemon GNSS topology app gate also
+  proves daemon-ingested GNSS positions become user-visible app range with
+  GNSS/BDS provenance. A real board UART/PPS capture is still open until the
+  deployed GNSS device path is configured and observed live.
 - No openwifi SD boot test has been performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
   project builds locally. OpenOCD JTAG probing and volatile PL bitstream loading

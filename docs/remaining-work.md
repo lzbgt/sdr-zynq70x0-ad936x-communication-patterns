@@ -144,6 +144,12 @@ without `transport=real_rf_phy` plus `rf_phy_tx_rx_verified=true` are rejected.
 `run_fieldmesh_real_rf_production_gate.sh` also checks the normalized native-IP
 app report back to this paired iperf evidence, so callers cannot bypass the
 layered iperf requirement with a generic socket success report.
+The installed-daemon GNSS topology app gate now proves the non-RF positioning
+path separately: when both installed daemons receive explicit GNSS/BDS RTLS
+reports for Z203 and Z103, the runtime-discovery ImGui app computes a real
+GNSS-derived peer range and labels it `daemon_gnss_bds_position`. That does not
+complete over-air RF positioning, but it removes the app-side blocker for valid
+BDS/GPS topology once a deployed GNSS UART/PPS feed is configured.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

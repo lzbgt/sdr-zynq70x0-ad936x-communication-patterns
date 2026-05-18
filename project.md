@@ -1012,6 +1012,12 @@ user and vendor configuration.
   topology range is allowed from compatible local+peer GNSS/BDS/GPS fixes, while
   TOF/TDOA-derived range stays pending until the daemon marks the position with
   `rf_phy_tx_rx_verified=true`.
+- `tools/run_fieldmesh_two_board_gnss_topology_app.sh` - live installed-board
+  GNSS topology gate. It seeds normal daemon peer discovery, injects explicit
+  GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon
+  instances, then verifies the headless ImGui app computes a `22.0 m`
+  selected-board range with `daemon_gnss_bds_position` provenance and no
+  unverified timing/TDOA leakage.
 - `tools/verify_fieldmesh_gnss_nmea_reporter.sh` - host gate for the optional
   board-packaged `fieldmesh-gnss-nmea-reporter`. It parses real NMEA GGA/RMC
   fixes and emits `FIELDMESH_RTLS_REPORT` for the local EUI without inventing RF

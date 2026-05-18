@@ -143,9 +143,13 @@ text is drawn in a badge with provenance so daemon/test-derived values such as
 packet-timing TDOA are not presented as production over-air measurements. The
 runtime-discovery app path accepts GNSS/BDS/GPS positions when both the selected
 local board and the remote peer have compatible fixes, and it reports that range
-with GNSS/BDS provenance. RF-timing sources such as TOF/TDOA still require the
-daemon to mark the position with `rf_phy_tx_rx_verified=true`; otherwise the
-peer remains visible and range stays pending.
+with GNSS/BDS provenance. `tools/run_fieldmesh_two_board_gnss_topology_app.sh`
+proves this against the installed Z203/Z103 daemons by injecting current GNSS
+RTLS reports into the daemon instances the app discovers, then verifying both
+selected-board views show a `daemon_gnss_bds_position` range. RF-timing sources
+such as TOF/TDOA still require the daemon to mark the position with
+`rf_phy_tx_rx_verified=true`; otherwise the peer remains visible and range stays
+pending.
 The app snapshot exposes `topology_range_calculation`,
 `topology_range_evidence_source`, `topology_range_production_ready`,
 `topology_route_metrics_overwrite_position`, `topology_metrics_live`, and
