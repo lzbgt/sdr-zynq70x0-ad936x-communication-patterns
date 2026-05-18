@@ -127,7 +127,8 @@ Already-normalized app reports are traced back through their `source_report`
 and must still correlate to that same bridge evidence. The wrapper now emits an
 evidence manifest with byte counts and SHA-256 hashes for the preflight,
 bridge, IQ live-run, app reports, and production gate, and the final summary
-hashes that manifest.
+hashes that manifest. A standalone archive checker verifies those hashes and
+can require `production_ready=true` without rerunning the RF sequence.
 Until a real live bridge report and all three app feature reports pass that
 wrapper, the daemon readiness fields must remain `production_ready=0`. Those
 app feature reports must reference the same bridge and IQ live-run evidence so

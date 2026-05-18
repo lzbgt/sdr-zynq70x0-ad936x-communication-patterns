@@ -3687,6 +3687,7 @@ The full conducted/shielded production sequence is wrapped by:
 ```sh
 ./tools/verify_fieldmesh_conducted_rf_preflight.sh
 ./tools/verify_fieldmesh_conducted_rf_production_sequence.sh
+./tools/verify_fieldmesh_conducted_rf_evidence_manifest.sh
 ```
 
 Result:
@@ -3694,6 +3695,7 @@ Result:
 ```json
 {"event": "fieldmesh_conducted_rf_preflight_check", "fixture_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
 {"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_fixture_refused": true, "ok": true}
+{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","topology_app_report"],"ok":true,"production_ready":true,"verified_files":7}
 ```
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
@@ -3720,7 +3722,10 @@ the same bridge and IQ live-run reports. The sequence also emits
 hashes for the preflight report, bridge report, IQ live-run, app reports, and
 production gate. The final sequence summary includes the manifest path and its
 SHA-256 so a production-readiness claim can be audited without relying on
-mutable path names alone.
+mutable path names alone. `tools/fieldmesh_conducted_rf_evidence_manifest.py`
+is the standalone archive checker; it verifies the summary hash and every file
+entry, and can require `production_ready=true` without rerunning the RF
+sequence.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
