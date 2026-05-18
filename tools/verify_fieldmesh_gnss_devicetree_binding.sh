@@ -30,7 +30,16 @@ uart_rc=0
   --enable-gnss-uart-emio \
   --require-gnss-uart >"$out_dir/uart-emio.json" || uart_rc=$?
 
-python3 - "$repo_root/tools/fieldmesh_devicetree_plan.py" "$out_dir/default.json" "$out_dir/strict.json" "$strict_rc" "$out_dir/uart-emio.json" "$uart_rc" <<'PY'
+pps_rc=0
+"$repo_root/tools/fieldmesh_devicetree_plan.py" \
+  --variant "z203=$z203_linux" \
+  --out-dir "$out_dir/uart-pps-emio" \
+  --enable-gnss-uart-emio \
+  --enable-gnss-pps-emio \
+  --require-gnss-uart \
+  --require-gnss-pps >"$out_dir/uart-pps-emio.json" || pps_rc=$?
+
+python3 - "$repo_root/tools/fieldmesh_devicetree_plan.py" "$out_dir/default.json" "$out_dir/strict.json" "$strict_rc" "$out_dir/uart-emio.json" "$uart_rc" "$out_dir/uart-pps-emio.json" "$pps_rc" <<'PY'
 import importlib.util
 import json
 import sys
@@ -42,6 +51,8 @@ strict = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
 strict_rc = int(sys.argv[4])
 uart = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
 uart_rc = int(sys.argv[6])
+pps = json.loads(Path(sys.argv[7]).read_text(encoding="utf-8"))
+pps_rc = int(sys.argv[8])
 
 if default.get("event") != "fieldmesh_devicetree_plan" or not default.get("ok"):
     raise SystemExit(f"default devicetree plan failed unexpectedly: {default!r}")
@@ -71,6 +82,16 @@ for row in uart.get("variants") or []:
         raise SystemExit(f"{row.get('variant')}: UART EMIO fragment did not expose non-console UART")
     if gnss.get("blockers"):
         raise SystemExit(f"{row.get('variant')}: UART EMIO fragment has unexpected blockers: {gnss!r}")
+
+if pps_rc != 0 or not pps.get("ok"):
+    raise SystemExit(f"GNSS UART+PPS EMIO devicetree mode should pass strict requirements: {pps!r}")
+for row in pps.get("variants") or []:
+    gnss = row.get("gnss_exposure") or {}
+    checks = gnss.get("checks", {})
+    if not checks.get("non_console_uart_present") or not checks.get("pps_present"):
+        raise SystemExit(f"{row.get('variant')}: UART+PPS EMIO fragment missing exposure: {gnss!r}")
+    if gnss.get("blockers"):
+        raise SystemExit(f"{row.get('variant')}: UART+PPS EMIO fragment has blockers: {gnss!r}")
 
 spec = importlib.util.spec_from_file_location("fieldmesh_devicetree_plan", module_path)
 if spec is None or spec.loader is None:

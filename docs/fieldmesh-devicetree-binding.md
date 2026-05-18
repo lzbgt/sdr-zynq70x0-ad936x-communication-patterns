@@ -42,6 +42,25 @@ The 16-bit stream width matches the current Vivado overlay gate. FieldMesh
 packet framing remains byte-oriented; `fieldmesh_axis16_byte_adapter` handles
 the width boundary in PL.
 
+## GNSS/PPS Options
+
+GNSS hardware exposure is opt-in and must be paired with a matching bitstream:
+
+```sh
+./tools/fieldmesh_devicetree_plan.py \
+  --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux \
+  --enable-gnss-uart-emio \
+  --enable-gnss-pps-emio \
+  --require-gnss-uart \
+  --require-gnss-pps
+```
+
+`--enable-gnss-uart-emio` exposes PS UART0 as the non-console GNSS NMEA
+device. `--enable-gnss-pps-emio` emits a `pps-gpio` node for the Z203
+`GPS_PPS` signal routed to PS GPIO EMIO bit 17, which is Linux GPIO 71. These
+fragments are not enabled by default because they are only valid with the
+matching Z203 EMIO bitstream and pin constraints.
+
 ## Runtime Preflight
 
 `fieldmesh-udp-probe dt-scan` checks a live or synthetic devicetree:

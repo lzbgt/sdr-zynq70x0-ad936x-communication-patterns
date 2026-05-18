@@ -188,8 +188,13 @@ GNSS production mode fails until the compiled DTB exposes the required
 non-console NMEA UART and PPS marker. Z203 now has a verified opt-in
 UART0-over-EMIO overlay/package/install path using the vendor `gps_transfer`
 K21/L21 EMIO evidence, and the guarded SD/initramfs path carries the matching
-`ENABLE_GNSS_UART_EMIO=1` DTB plus SD-resident FieldMesh config files. PPS
-remains blocked until a checked `GPS_PPS` pin or kernel PPS binding is added.
+`ENABLE_GNSS_UART_EMIO=1` DTB plus SD-resident FieldMesh config files. Z203 now
+also has a verified opt-in PPS EMIO build contract: `ENABLE_GNSS_PPS_EMIO=1`
+expands PS GPIO EMIO to 18 bits, routes schematic-evidenced `GPS_PPS` on M21 to
+top-level `gnss_pps`, and emits a `pps-gpio` DTB node on Linux GPIO 71. PPS
+production readiness remains blocked until that refreshed bitstream/DTB is
+installed and live preflight observes the kernel PPS device with
+`gnss_pps_lock=1`.
 
 Live Z203 bring-up now reaches the hardware/config boundary: the refreshed
 Z203 SD runtime boots with non-console `/dev/ttyPS1`, starts

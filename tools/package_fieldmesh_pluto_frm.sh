@@ -4,9 +4,14 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 variant="${1:-z203}"
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+enable_gnss_pps_emio="${ENABLE_GNSS_PPS_EMIO:-0}"
 case "$enable_gnss_uart_emio" in
   0|1) ;;
   *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$enable_gnss_pps_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_PPS_EMIO must be 0 or 1" >&2; exit 2 ;;
 esac
 
 case "$variant" in
@@ -52,6 +57,13 @@ if [[ "$enable_gnss_uart_emio" == "1" ]]; then
     exit 2
   fi
   dt_args+=(--enable-gnss-uart-emio --require-gnss-uart)
+fi
+if [[ "$enable_gnss_pps_emio" == "1" ]]; then
+  if [[ "$variant" != "z203" ]]; then
+    echo "ENABLE_GNSS_PPS_EMIO=1 currently has verified pins only for z203" >&2
+    exit 2
+  fi
+  dt_args+=(--enable-gnss-pps-emio --require-gnss-pps)
 fi
 "${dt_args[@]}" >"$out_dir/fieldmesh_devicetree_plan.json"
 
@@ -102,6 +114,7 @@ meta = {
     "devicetree": str(dtb),
     "devicetree_sha256": sha256(dtb),
     "gnss_uart_emio": bool(int(os.environ.get("ENABLE_GNSS_UART_EMIO", "0"))),
+    "gnss_pps_emio": bool(int(os.environ.get("ENABLE_GNSS_PPS_EMIO", "0"))),
 }
 out_dir.mkdir(parents=True, exist_ok=True)
 (out_dir / "fieldmesh_runtime_package_manifest.json").write_text(

@@ -21,9 +21,14 @@ case "$variant" in
 esac
 shift || true
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+enable_gnss_pps_emio="${ENABLE_GNSS_PPS_EMIO:-0}"
 case "$enable_gnss_uart_emio" in
   0|1) ;;
   *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$enable_gnss_pps_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_PPS_EMIO must be 0 or 1" >&2; exit 2 ;;
 esac
 
 src_hdl="$source_fw/hdl"
@@ -64,6 +69,13 @@ if [[ "$enable_gnss_uart_emio" == "1" ]]; then
     exit 2
   fi
   patch_args+=(--gnss-uart-emio)
+fi
+if [[ "$enable_gnss_pps_emio" == "1" ]]; then
+  if [[ "$variant" != "z203" ]]; then
+    echo "ENABLE_GNSS_PPS_EMIO=1 currently has verified pins only for z203" >&2
+    exit 2
+  fi
+  patch_args+=(--gnss-pps-emio)
 fi
 "${patch_args[@]}" >"$work_root/fieldmesh_rf_engine_overlay_patch.json"
 

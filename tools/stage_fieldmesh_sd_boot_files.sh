@@ -6,9 +6,14 @@ source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-z203}"
 out_dir="${OUT_DIR:-$repo_root/.config/sdcard-staging/fieldmesh-$variant}"
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+enable_gnss_pps_emio="${ENABLE_GNSS_PPS_EMIO:-0}"
 case "$enable_gnss_uart_emio" in
   0|1) ;;
   *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$enable_gnss_pps_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_PPS_EMIO must be 0 or 1" >&2; exit 2 ;;
 esac
 
 case "$variant" in
@@ -101,6 +106,12 @@ dt_args=(
 if [[ "$enable_gnss_uart_emio" == "1" ]]; then
   dt_args+=(--enable-gnss-uart-emio --require-gnss-uart)
 fi
+if [[ "$enable_gnss_pps_emio" == "1" ]]; then
+  dt_args+=(--enable-gnss-pps-emio --require-gnss-pps)
+  if [[ "$gnss_pps_lock" == "0" ]]; then
+    gnss_pps_lock="1"
+  fi
+fi
 "${dt_args[@]}" >"$tmp_dt/fieldmesh_devicetree_plan.json"
 
 devicetree="$(
@@ -171,5 +182,6 @@ find "$out_dir" -maxdepth 1 -type f -printf '%p %s bytes\n' | sort
 file "$out_dir"/BOOT.bin "$out_dir"/devicetree.dtb "$out_dir"/uImage "$out_dir"/uramdisk.image.gz
 sha256sum "$out_dir"/BOOT.bin "$out_dir"/devicetree.dtb "$out_dir"/uImage "$out_dir"/uramdisk.image.gz
 printf 'gnss_uart_emio=%s\n' "$enable_gnss_uart_emio"
+printf 'gnss_pps_emio=%s\n' "$enable_gnss_pps_emio"
 printf 'gnss_nmea_device=%s\n' "$gnss_nmea_device"
 printf 'gnss_nmea_baud=%s\n' "$gnss_nmea_baud"

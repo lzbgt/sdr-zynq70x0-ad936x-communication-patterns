@@ -234,8 +234,11 @@ as in the `gps_transfer` example. `ENABLE_GNSS_UART_EMIO=1` on the RF-engine
 overlay build and runtime packaging paths enables that Z203 UART contract and
 generates a DTB where UART0 is a non-console GNSS NMEA serial device. It remains
 off by default until a rebuilt bitstream is installed and the live board shows
-a real new serial node. PPS is still separately gated because the current
-vendor GPS UART example does not provide a checked PPS pin constraint.
+a real new serial node. Z203 now also has an opt-in PPS contract:
+`ENABLE_GNSS_PPS_EMIO=1` expands PS GPIO EMIO, routes schematic-evidenced
+`GPS_PPS` on M21 into top-level `gnss_pps`, and emits a `pps-gpio` node on
+Linux GPIO 71. PPS is still separately gated until that refreshed bitstream/DTB
+is installed and live preflight observes a kernel PPS device.
 
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The

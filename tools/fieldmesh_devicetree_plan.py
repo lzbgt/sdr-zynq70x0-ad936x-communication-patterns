@@ -104,6 +104,25 @@ GNSS_UART_EMIO_DTSI = """// SPDX-License-Identifier: GPL-2.0
 };
 """
 
+GNSS_PPS_EMIO_DTSI = """// SPDX-License-Identifier: GPL-2.0
+/*
+ * FieldMesh GNSS PPS devicetree fragment.
+ *
+ * Include this only with a bitstream/PS7 configuration that routes the board
+ * GPS_PPS signal into PS GPIO EMIO bit 17. Zynq GPIO numbering maps EMIO bit 17
+ * to Linux GPIO 71 because EMIO starts at GPIO 54.
+ */
+
+/ {
+	fieldmesh_gnss_pps: fieldmesh-gnss-pps {
+		compatible = "pps-gpio";
+		gpios = <&gpio0 71 0>;
+		status = "okay";
+		fieldmesh,gnss-pps;
+	};
+};
+"""
+
 
 def parse_variant(value: str) -> tuple[str, Path]:
     if "=" not in value:
@@ -118,7 +137,13 @@ def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[
     return subprocess.run(cmd, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-def write_merged_dts(linux_root: Path, out_dir: Path, variant: str, enable_gnss_uart_emio: bool) -> tuple[Path, Path]:
+def write_merged_dts(
+    linux_root: Path,
+    out_dir: Path,
+    variant: str,
+    enable_gnss_uart_emio: bool,
+    enable_gnss_pps_emio: bool,
+) -> tuple[Path, Path]:
     dts_dir = linux_root / "arch" / "arm" / "boot" / "dts"
     base_dts = dts_dir / "zynq-pluto-sdr.dts"
     if not base_dts.is_file():
@@ -126,10 +151,13 @@ def write_merged_dts(linux_root: Path, out_dir: Path, variant: str, enable_gnss_
 
     fragment = out_dir / "fieldmesh-sidecar.dtsi"
     gnss_fragment = out_dir / "fieldmesh-gnss-uart-emio.dtsi"
+    pps_fragment = out_dir / "fieldmesh-gnss-pps-emio.dtsi"
     merged = out_dir / f"{variant}-zynq-pluto-sdr-fieldmesh.dts"
     fragment.write_text(SIDECAR_DTSI)
     if enable_gnss_uart_emio:
         gnss_fragment.write_text(GNSS_UART_EMIO_DTSI)
+    if enable_gnss_pps_emio:
+        pps_fragment.write_text(GNSS_PPS_EMIO_DTSI)
 
     text = base_dts.read_text()
     include = '#include "zynq-pluto-sdr.dtsi"'
@@ -138,6 +166,8 @@ def write_merged_dts(linux_root: Path, out_dir: Path, variant: str, enable_gnss_
     extra_includes = ['#include "fieldmesh-sidecar.dtsi"']
     if enable_gnss_uart_emio:
         extra_includes.append('#include "fieldmesh-gnss-uart-emio.dtsi"')
+    if enable_gnss_pps_emio:
+        extra_includes.append('#include "fieldmesh-gnss-pps-emio.dtsi"')
     text = text.replace(include, include + "\n" + "\n".join(extra_includes), 1)
     merged.write_text(text)
     return fragment, merged
@@ -288,10 +318,17 @@ def build_variant(
     require_gnss_uart: bool,
     require_gnss_pps: bool,
     enable_gnss_uart_emio: bool,
+    enable_gnss_pps_emio: bool,
 ) -> dict[str, Any]:
     out_dir = out_root / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    fragment, merged = write_merged_dts(linux_root, out_dir, name, enable_gnss_uart_emio)
+    fragment, merged = write_merged_dts(
+        linux_root,
+        out_dir,
+        name,
+        enable_gnss_uart_emio,
+        enable_gnss_pps_emio,
+    )
     row: dict[str, Any] = {
         "variant": name,
         "linux_root": str(linux_root),
@@ -299,6 +336,7 @@ def build_variant(
         "merged_dts": str(merged),
         "dtb": None,
         "gnss_uart_emio_enabled": enable_gnss_uart_emio,
+        "gnss_pps_emio_enabled": enable_gnss_pps_emio,
         "check": {"ok": True, "checks": {}},
         "gnss_exposure": check_gnss_exposure(None, require_gnss_uart, require_gnss_pps),
     }
@@ -339,6 +377,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="include the PS UART0 EMIO GNSS fragment; use only with a matching bitstream/PS7 config",
     )
+    parser.add_argument(
+        "--enable-gnss-pps-emio",
+        action="store_true",
+        help="include the Z203 GPS_PPS-to-EMIO GPIO PPS fragment; use only with a matching bitstream/PS7 config",
+    )
     return parser.parse_args()
 
 
@@ -353,6 +396,7 @@ def main() -> int:
             args.require_gnss_uart,
             args.require_gnss_pps,
             args.enable_gnss_uart_emio,
+            args.enable_gnss_pps_emio,
         )
         for name, path in args.variant
     ]

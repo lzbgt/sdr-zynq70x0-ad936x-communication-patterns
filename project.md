@@ -1205,15 +1205,23 @@ user and vendor configuration.
   `gnss_uart_not_exposed_in_devicetree` and
   `gnss_pps_not_exposed_in_devicetree`; the opt-in Z203 GNSS UART EMIO path is
   verified separately and clears the UART half for the installed Z203 SD path.
+  The opt-in Z203 GNSS PPS EMIO path now clears the PPS half in devicetree
+  when the matching bitstream contract is requested.
 - `tools/verify_fieldmesh_gnss_uart_emio_overlay.sh` - verifies the opt-in
   Z203 GNSS UART overlay patch. It proves the copied HDL patch enables PS
   UART0 over EMIO, adds top-level `gnss_uart0_rxd`/`gnss_uart0_txd`, writes the
   vendor-evidenced K21/L21 XDC constraints, and pairs that bitstream contract
   with a DTB that exposes UART0 as non-console GNSS NMEA.
+- `tools/verify_fieldmesh_gnss_pps_emio_overlay.sh` - verifies the opt-in
+  Z203 GNSS PPS overlay patch. It expands PS GPIO EMIO to 18 bits, routes the
+  schematic-evidenced `GPS_PPS` M21 pin into top-level `gnss_pps`, writes the
+  M21/LVCMOS18 XDC constraint, and pairs that bitstream contract with a
+  `pps-gpio` DTB node on Linux GPIO 71.
 - `tools/stage_fieldmesh_sd_boot_files.sh` - the guarded Z203 SD/initramfs
   staging path used while Z203 QSPI remains unsafe. It accepts
-  `ENABLE_GNSS_UART_EMIO=1` and stages the matching GNSS-capable DTB plus its
-  `fieldmesh_devicetree_plan.json` evidence beside the boot files. It also
+  `ENABLE_GNSS_UART_EMIO=1` and `ENABLE_GNSS_PPS_EMIO=1` and stages the
+  matching GNSS-capable DTB plus its `fieldmesh_devicetree_plan.json` evidence
+  beside the boot files. It also
   stages `fieldmesh_device_eui` and `fieldmesh_gnss_*` config files so the
   initramfs GNSS service can read SD-resident config when `/mnt/jffs2` is not
   mounted. The live Z203 runtime now reaches this boundary: `/dev/ttyPS1` is
@@ -1230,7 +1238,9 @@ user and vendor configuration.
   exposure through `/dev/pps*` and `/sys/class/pps`. `REQUIRE_GNSS_PPS=1`
   makes a missing kernel PPS device or missing `gnss_pps_lock=1` configuration
   a hard failure, keeping GNSS position evidence separate from PPS timing
-  evidence.
+  evidence. The new PPS EMIO overlay is still only a build/staging path until a
+  refreshed bitstream/DTB is installed and live preflight sees the kernel PPS
+  device.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

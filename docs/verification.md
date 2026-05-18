@@ -2166,6 +2166,8 @@ GNSS mode fails on the default Z203/Z103 DTBs with
 `gnss_uart_not_exposed_in_devicetree` and
 `gnss_pps_not_exposed_in_devicetree`. The opt-in Z203 GNSS UART EMIO path is
 verified separately and clears the UART half of that boundary for Z203 only.
+The opt-in Z203 GNSS PPS EMIO path also clears the PPS half when the matching
+bitstream contract is requested.
 This protects startup topology from using the Linux console UART or injected
 daemon positions as deployed GNSS evidence.
 
@@ -2182,13 +2184,26 @@ enabled as a non-console serial device. This does not by itself prove live GNSS;
 the next live gate must rebuild/install that bitstream, persist the resulting
 `/dev/ttyPS*` path, and observe real NMEA ACKed into the daemon.
 
+The Z203 GNSS PPS EMIO overlay contract was checked with:
+
+```sh
+./tools/verify_fieldmesh_gnss_pps_emio_overlay.sh
+```
+
+Result: the opt-in patch expands PS GPIO EMIO to 18 bits, exports top-level
+`gnss_pps`, constrains schematic-evidenced `GPS_PPS` to M21/LVCMOS18, and pairs
+that hardware contract with a `pps-gpio` DTB node on Linux GPIO 71. This does
+not by itself prove live PPS; a rebuilt/installed bitstream and live
+`/dev/pps*` or `/sys/class/pps` observation are still required.
+
 For Z203 SD/initramfs installs, `tools/stage_fieldmesh_sd_boot_files.sh` accepts
-the same `ENABLE_GNSS_UART_EMIO=1` switch and records the generated
-`fieldmesh_devicetree_plan.json` beside the staged boot files. It also stages
-SD-resident `fieldmesh_device_eui` and `fieldmesh_gnss_*` config files; the
+the same `ENABLE_GNSS_UART_EMIO=1` and `ENABLE_GNSS_PPS_EMIO=1` switches and
+records the generated `fieldmesh_devicetree_plan.json` beside the staged boot
+files. It also stages SD-resident `fieldmesh_device_eui` and `fieldmesh_gnss_*` config files; the
 init service can read those from `/dev/mmcblk0p1` when the running initramfs has
 no persistent JFFS mount. This keeps the currently used SD install path aligned
-with the opt-in UART bitstream contract and avoids volatile-only GNSS config.
+with the opt-in UART/PPS bitstream contracts and avoids volatile-only GNSS
+config.
 
 The refreshed Z203 SD runtime was installed live with `ENABLE_GNSS_UART_EMIO=1`.
 After reboot, `/dev/ttyPS1` existed, the SD boot partition contained
