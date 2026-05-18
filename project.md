@@ -1185,10 +1185,11 @@ user and vendor configuration.
   optional PPS marker, so `/dev/ttyPS0` console cannot be mistaken for deployed
   GNSS.
 - `tools/verify_fieldmesh_gnss_devicetree_binding.sh` - verifies the GNSS
-  devicetree exposure contract. Current Z203/Z103 DTBs are expected to pass
+  devicetree exposure contract. Default Z203/Z103 DTBs are expected to pass
   normal sidecar generation while strict GNSS mode fails with
   `gnss_uart_not_exposed_in_devicetree` and
-  `gnss_pps_not_exposed_in_devicetree` until hardware exposure is added.
+  `gnss_pps_not_exposed_in_devicetree`; the opt-in Z203 GNSS UART EMIO path is
+  verified separately and clears the UART half for the installed Z203 SD path.
 - `tools/verify_fieldmesh_gnss_uart_emio_overlay.sh` - verifies the opt-in
   Z203 GNSS UART overlay patch. It proves the copied HDL patch enables PS
   UART0 over EMIO, adds top-level `gnss_uart0_rxd`/`gnss_uart0_txd`, writes the

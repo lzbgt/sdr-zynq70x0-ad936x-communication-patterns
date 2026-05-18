@@ -182,21 +182,14 @@ start/skip events, so a missing NMEA path is visible instead of silently
 producing pending app range. `tools/run_fieldmesh_two_board_gnss_live_preflight.sh`
 now captures the live installed-board state and rejects stale daemon GNSS
 positions as production startup evidence unless they are backed by a configured
-device and running reporter. Current installed boards still report
-`no_gnss_nmea_device_configured`; the open work is exposing/configuring the
-actual GNSS UART/PPS source on the boards. The devicetree planner now makes
-that hardware boundary explicit: normal FieldMesh sidecar DTB generation still
-passes, but strict GNSS production mode fails until the DTB exposes an enabled
-non-console NMEA UART and PPS marker. The current concrete blocker is therefore
-`gnss_uart_not_exposed_in_devicetree`, not an app rendering issue. The Z203
-UART half now has an opt-in overlay/package path using the vendor `gps_transfer`
-K21/L21 EMIO evidence, but it still needs a rebuilt/installed bitstream and
-live `/dev/ttyPS*` proof. The Z203 SD/initramfs staging path also carries the
-same `ENABLE_GNSS_UART_EMIO=1` DTB option and SD-resident FieldMesh config files
-for the selected device EUI and GNSS NMEA settings, so the current guarded SD
-install path cannot accidentally boot a GNSS-capable bitstream with a default
-DTB or volatile-only GNSS config. PPS remains blocked until a checked `GPS_PPS`
-pin or kernel PPS binding is added.
+device and running reporter. The devicetree planner still makes the hardware
+boundary explicit: normal FieldMesh sidecar DTB generation passes, while strict
+GNSS production mode fails until the compiled DTB exposes the required
+non-console NMEA UART and PPS marker. Z203 now has a verified opt-in
+UART0-over-EMIO overlay/package/install path using the vendor `gps_transfer`
+K21/L21 EMIO evidence, and the guarded SD/initramfs path carries the matching
+`ENABLE_GNSS_UART_EMIO=1` DTB plus SD-resident FieldMesh config files. PPS
+remains blocked until a checked `GPS_PPS` pin or kernel PPS binding is added.
 
 Live Z203 bring-up now reaches the hardware/config boundary: the refreshed
 Z203 SD runtime boots with non-console `/dev/ttyPS1`, starts

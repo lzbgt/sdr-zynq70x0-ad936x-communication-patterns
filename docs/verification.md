@@ -2162,10 +2162,12 @@ The GNSS devicetree exposure boundary is checked separately:
 ```
 
 Result: normal sidecar DTB generation remains valid, while strict production
-GNSS mode fails on the current Z203/Z103 DTBs with
+GNSS mode fails on the default Z203/Z103 DTBs with
 `gnss_uart_not_exposed_in_devicetree` and
-`gnss_pps_not_exposed_in_devicetree`. This protects startup topology from using
-the Linux console UART or injected daemon positions as deployed GNSS evidence.
+`gnss_pps_not_exposed_in_devicetree`. The opt-in Z203 GNSS UART EMIO path is
+verified separately and clears the UART half of that boundary for Z203 only.
+This protects startup topology from using the Linux console UART or injected
+daemon positions as deployed GNSS evidence.
 
 The Z203 GNSS UART EMIO overlay contract was checked with:
 
