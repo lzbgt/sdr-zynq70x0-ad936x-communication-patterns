@@ -3703,13 +3703,17 @@ approvals, fixture-evidence status, bounded TX duration, available app evidence,
 and whether live RF would be allowed. `PREFLIGHT_ONLY=1` exits after that
 non-transmitting checklist, so operators can validate fixture and evidence
 readiness without leasing daemon frames, mutating queues, opening IIO buffers,
-or starting RF TX. The full sequence then validates fixture evidence, runs or
-consumes the RF-worker/IIO bridge, converts app/gate source outputs or raw
-feature reports into normalized messaging/topology/native-IP real-RF reports,
-and invokes the production gate. Dry-run is the default. Live RF still requires
-explicit hardware-write, RF-TX, daemon-queue mutation, fixture evidence, fixture
-ID, and operator-confirmation inputs. Raw app feature evidence supplied to the
-wrapper must be correlated to the same bridge and IQ live-run reports.
+or starting RF TX. When a live bridge report already exists, preflight now also
+validates app source/feature evidence against the same bridge and IQ live-run;
+daemon RF-worker native-IP sources and uncorrelated feature reports are refused
+before the sequence can proceed. The full sequence then validates fixture
+evidence, runs or consumes the RF-worker/IIO bridge, converts app/gate source
+outputs or raw feature reports into normalized messaging/topology/native-IP
+real-RF reports, and invokes the production gate. Dry-run is the default. Live
+RF still requires explicit hardware-write, RF-TX, daemon-queue mutation,
+fixture evidence, fixture ID, and operator-confirmation inputs. Raw app feature
+evidence supplied to the wrapper must be correlated to the same bridge and IQ
+live-run reports.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

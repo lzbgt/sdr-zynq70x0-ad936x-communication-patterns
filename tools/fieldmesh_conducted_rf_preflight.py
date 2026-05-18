@@ -5,9 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import argparse as argparse_module
 from pathlib import Path
 from typing import Any
 
+import fieldmesh_app_feature_report_from_gate
+import fieldmesh_app_real_rf_report
+import fieldmesh_app_real_rf_source_from_bridge
 import fieldmesh_rf_fixture_evidence
 
 
@@ -70,6 +74,87 @@ def validate_fixture(args: argparse.Namespace, blockers: list[str]) -> dict[str,
         return None
 
 
+def validate_normalized_app_report(feature: str, path: Path) -> None:
+    report = read_json(path)
+    if report.get("event") != "fieldmesh_app_real_rf_report":
+        raise ValueError(f"{feature}: normalized app report event changed")
+    fieldmesh_app_real_rf_report.require_common(report, feature)
+    if feature == "messaging":
+        fieldmesh_app_real_rf_report.require_messaging(report)
+    elif feature == "topology":
+        fieldmesh_app_real_rf_report.require_topology(report)
+    elif feature == "native_ip":
+        fieldmesh_app_real_rf_report.require_native_ip(report)
+    else:
+        raise ValueError(f"unsupported feature {feature}")
+
+
+def validate_bridge_feature_report(feature: str, bridge_path: Path, feature_report: dict[str, Any]) -> None:
+    bridge_summary = fieldmesh_app_real_rf_source_from_bridge.require_bridge(read_json(bridge_path))
+    fieldmesh_app_real_rf_source_from_bridge.require_feature_correlation(
+        feature=feature_report,
+        feature_name=feature,
+        bridge_summary=bridge_summary,
+        bridge_report_path=bridge_path,
+    )
+    if feature_report.get("ok") is not True:
+        raise ValueError(f"{feature}: feature report is not ok")
+    if feature_report.get("uses_inter_board_ip_routing") not in (False, 0, None):
+        raise ValueError(f"{feature}: feature report uses inter-board host-IP routing")
+    if feature == "messaging":
+        fieldmesh_app_real_rf_source_from_bridge.messaging_details(feature_report)
+    elif feature == "topology":
+        fieldmesh_app_real_rf_source_from_bridge.topology_details(feature_report)
+    elif feature == "native_ip":
+        fieldmesh_app_real_rf_source_from_bridge.native_ip_details(feature_report)
+    else:
+        raise ValueError(f"unsupported feature {feature}")
+
+
+def validate_present_app_evidence(
+    args: argparse.Namespace,
+    app_inputs: dict[str, str],
+    blockers: list[str],
+) -> dict[str, bool]:
+    validated = {feature: False for feature in FEATURES}
+    bridge_path = Path(args.bridge_report) if args.bridge_report else None
+    if bridge_path is None or not bridge_path.is_file():
+        return validated
+
+    for feature in FEATURES:
+        try:
+            kind = app_inputs[feature]
+            if kind == "missing":
+                continue
+            if kind == "normalized_report":
+                validate_normalized_app_report(
+                    feature,
+                    Path(getattr(args, f"app_{feature}_report")),
+                )
+            elif kind == "source_report":
+                source_report = Path(getattr(args, f"app_{feature}_source_report"))
+                feature_report = fieldmesh_app_feature_report_from_gate.build(
+                    argparse_module.Namespace(
+                        feature=feature,
+                        bridge_report=bridge_path,
+                        source_report=source_report,
+                    )
+                )
+                validate_bridge_feature_report(feature, bridge_path, feature_report)
+            elif kind == "feature_report":
+                validate_bridge_feature_report(
+                    feature,
+                    bridge_path,
+                    read_json(Path(getattr(args, f"app_{feature}_feature_report"))),
+                )
+            else:
+                raise ValueError(f"{feature}: unknown app evidence kind {kind!r}")
+            validated[feature] = True
+        except (OSError, ValueError, SystemExit) as exc:
+            blockers.append(f"app_evidence_invalid:{feature}:{exc}")
+    return validated
+
+
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     missing: list[str] = []
     blockers: list[str] = []
@@ -98,6 +183,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 
     fixture_summary = validate_fixture(args, blockers)
     app_inputs = classify_app_inputs(args)
+    app_evidence_validated = validate_present_app_evidence(args, app_inputs, blockers)
     complete_app_evidence = all(value != "missing" for value in app_inputs.values())
 
     has_bridge_or_source = bool(args.bridge_report) or bool(args.source_host)
@@ -168,6 +254,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "fixture_evidence_ok": fixture_summary is not None,
         "fixture_evidence_summary": fixture_summary,
         "app_evidence_inputs": app_inputs,
+        "app_evidence_validated": app_evidence_validated,
         "max_tx_duration_ms": args.max_tx_duration_ms,
     }
     if not production_possible:

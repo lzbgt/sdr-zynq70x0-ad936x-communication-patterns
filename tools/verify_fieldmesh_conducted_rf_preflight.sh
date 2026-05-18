@@ -37,6 +37,33 @@ for feature in messaging topology native_ip; do
     > "$work_dir/${feature}_source.json"
 done
 
+cat > "$work_dir/live_bridge.json" <<JSON
+{
+  "event": "fieldmesh_iio_rf_worker_bridge",
+  "ok": true,
+  "mode": "execute-live-rf",
+  "transport": "real_rf_phy",
+  "rf_phy_tx_rx_verified": true,
+  "iq_recovered_frame_match": true,
+  "ack_after_successful_ingest_only": true,
+  "uses_inter_board_ip_routing": false,
+  "leased_frame_bytes": 64,
+  "iq_iio_live_run": "$work_dir/iq_live_run.json",
+  "sink_ingest": {"event": "sdk_daemon_rf_rx_ingest", "ok": true, "frames": 1},
+  "source_ack": {"event": "sdk_daemon_rf_tx_ack", "ok": true, "frames": 1}
+}
+JSON
+
+cat > "$work_dir/messaging_runtime_source.json" <<'JSON'
+{"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","messaging_transport":"daemon_rf_packet_engine","messages_received":1,"last_received_text":"hello over rf","uses_inter_board_ip_routing":false,"starts_rf_tx":false,"writes_hardware":false}
+JSON
+cat > "$work_dir/topology_runtime_source.json" <<'JSON'
+{"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"uses_inter_board_ip_routing":false}
+JSON
+cat > "$work_dir/native_ip_runtime_source.json" <<'JSON'
+{"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"real_rf_phy","rf_phy_tx_rx":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
+JSON
+
 EXECUTE_LIVE_RF=1 \
 PREFLIGHT_ONLY=1 \
 EXPECT_PREFLIGHT_OK=0 \
@@ -97,6 +124,64 @@ if report.get("live_rf_allowed") is not True:
 if report.get("production_ready_possible_after_run") is not True:
     raise SystemExit(f"complete app evidence should make production possible after run: {report}")
 PY
+
+BRIDGE_REPORT="$work_dir/live_bridge.json" \
+APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_runtime_source.json" \
+APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
+APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+PREFLIGHT_ONLY=1 \
+EXPECT_PREFLIGHT_OK=1 \
+EXPECT_PRODUCTION_READY=1 \
+RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+OUT_DIR="$work_dir/existing-bridge-validated" \
+"$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" \
+  > "$work_dir/existing_bridge_validated_stdout.json"
+
+cat > "$work_dir/native_ip_driver_queue_source.json" <<'JSON'
+{"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"daemon_rf_driver_queue_bridge","rf_phy_tx_rx":0,"next_boundary":"rf_phy_tx_rx","tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
+JSON
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_runtime_source.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_driver_queue_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/driver-queue-app-source" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "conducted RF preflight accepted driver-queue native-IP app source as real RF" >&2
+  exit 1
+fi
+
+cat > "$work_dir/messaging_uncorrelated_feature.json" <<JSON
+{
+  "event": "fieldmesh_messaging_feature_assert",
+  "ok": true,
+  "feature": "messaging",
+  "transport": "real_rf_phy",
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "bridge_report": "/tmp/not-the-live-bridge.json",
+  "iq_iio_live_run": "$work_dir/iq_live_run.json",
+  "uses_inter_board_ip_routing": false,
+  "messages_delivered": 1,
+  "uses_json_on_air": 0
+}
+JSON
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/uncorrelated-app-feature" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "conducted RF preflight accepted uncorrelated app feature evidence" >&2
+  exit 1
+fi
 
 if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \

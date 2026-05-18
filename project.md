@@ -678,10 +678,13 @@ user and vendor configuration.
   RF-binding plan path, live RF approvals, fixture evidence, bounded TX
   duration, and messaging/topology/native-IP evidence inputs, then reports
   whether live RF would be allowed and whether production readiness could be
-  proven after that run.
+  proven after that run. When an existing live bridge report is supplied, the
+  preflight also validates app source/feature evidence against that exact
+  bridge and IQ live-run before the wrapper leases frames or mutates queues.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
   production preflight checklist. It proves missing approvals, invalid fixture
-  evidence, and excessive TX duration block live RF while a complete approved
+  evidence, excessive TX duration, daemon-bridge native-IP app sources, and
+  uncorrelated feature reports block live RF while a complete approved
   conducted fixture configuration passes preflight without transmitting.
 - `tools/verify_fieldmesh_conducted_rf_production_sequence.sh` - verifier for
   the sequence wrapper. It proves dry-run evidence stays non-production,
