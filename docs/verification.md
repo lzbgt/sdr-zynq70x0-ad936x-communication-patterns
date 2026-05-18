@@ -3552,6 +3552,27 @@ profile, insufficient fixture attenuation, excessive TX duration, and
 confirmation, and fixture identity are present. Actual conducted/shielded RF
 execution is therefore explicit, bounded, and auditable.
 
+## FieldMesh RF PHY Readiness Classifier
+
+RF production readiness now has a no-write evidence classifier:
+
+```sh
+./tools/verify_fieldmesh_rf_phy_readiness_classifier.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_rf_phy_readiness_classifier_check", "ok": true, "production_blocker": "measured_rf_phy_tx_rx_not_verified", "production_ready": false, "rf_phy_tx_rx_verified": false}
+```
+
+The classifier consumes `fieldmesh_iq_iio_live_run.json` and optional app
+real-RF reports. Dry-run IQ evidence keeps `rf_phy_tx_rx_verified=false`.
+Executed guarded IQ evidence with successful decode may set
+`rf_phy_tx_rx_verified=true`, but still keeps `production_ready=false` until
+app messaging, topology/range, and native-IP reports prove payload behavior over
+real RF with no inter-board host-IP payload routing.
+
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and

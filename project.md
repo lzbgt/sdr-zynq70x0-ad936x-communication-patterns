@@ -597,6 +597,15 @@ user and vendor configuration.
   missing hardware-write approval, missing RF-TX approval, missing operator
   confirmation, missing fixture identity, excessive TX duration, and
   insufficient fixture attenuation.
+- `tools/classify_fieldmesh_rf_phy_readiness.py` - no-write RF PHY readiness
+  classifier. It refuses to treat dry-run, review-only, or infrastructure-only
+  evidence as production RF readiness. `rf_phy_tx_rx_verified` requires an
+  executed guarded IQ run with successful decode; `production_ready` also
+  requires app messaging/topology/native-IP evidence over real RF.
+- `tools/verify_fieldmesh_rf_phy_readiness_classifier.sh` - verifier for the
+  readiness classifier. It proves dry-run IQ evidence stays non-production and
+  executed IQ-only evidence still blocks production readiness until app-level
+  real-RF reports are supplied.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

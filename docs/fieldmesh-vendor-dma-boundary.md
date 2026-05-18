@@ -730,6 +730,16 @@ tool's `1000 ms` ceiling, in addition to the same legal-frequency,
 attenuation, TX-enable, and RX-first declarations. The generated TX command is
 also wrapped with `timeout` so an IIO writer cannot run unbounded.
 
+The readiness classifier is separate from the runner:
+
+```sh
+./tools/verify_fieldmesh_rf_phy_readiness_classifier.sh
+```
+
+It keeps dry-run and infrastructure-only evidence non-production. A successful
+executed IQ decode can only prove `rf_phy_tx_rx_verified`; production readiness
+also requires app messaging, topology/range, and native-IP reports over real RF.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.
