@@ -74,7 +74,7 @@ def validate_fixture(args: argparse.Namespace, blockers: list[str]) -> dict[str,
         return None
 
 
-def validate_normalized_app_report(feature: str, path: Path) -> None:
+def validate_normalized_app_report(feature: str, path: Path, bridge_path: Path | None) -> None:
     report = read_json(path)
     if report.get("event") != "fieldmesh_app_real_rf_report":
         raise ValueError(f"{feature}: normalized app report event changed")
@@ -87,6 +87,40 @@ def validate_normalized_app_report(feature: str, path: Path) -> None:
         fieldmesh_app_real_rf_report.require_native_ip(report)
     else:
         raise ValueError(f"unsupported feature {feature}")
+    if bridge_path is None:
+        return
+    source_report = report.get("source_report")
+    if not isinstance(source_report, str) or not source_report:
+        raise ValueError(f"{feature}: normalized report must name source_report for bridge correlation")
+    source_path = Path(source_report)
+    if not source_path.is_file() and not source_path.is_absolute():
+        source_path = path.parent / source_path
+    source = read_json(source_path)
+    validate_source_bridge_correlation(feature, bridge_path, source)
+
+
+def validate_source_bridge_correlation(feature: str, bridge_path: Path, source: dict[str, Any]) -> None:
+    bridge_summary = fieldmesh_app_real_rf_source_from_bridge.require_bridge(read_json(bridge_path))
+    if source.get("feature", source.get("app_feature")) != feature:
+        raise ValueError(f"{feature}: source report must name the expected feature")
+    if source.get("transport") != "real_rf_phy":
+        raise ValueError(f"{feature}: source report transport must be real_rf_phy")
+    if source.get("rf_phy_tx_rx_verified") not in (True, 1):
+        raise ValueError(f"{feature}: source report must prove rf_phy_tx_rx_verified")
+    if source.get("app_verified_real_rf") not in (True, 1):
+        raise ValueError(f"{feature}: source report must prove app_verified_real_rf")
+    if source.get("uses_inter_board_ip_routing") not in (False, 0):
+        raise ValueError(f"{feature}: source report uses inter-board host-IP routing")
+    expected_bridge = str(bridge_path.resolve(strict=False))
+    reported_bridge = source.get("bridge_report", source.get("rf_bridge_report"))
+    if not isinstance(reported_bridge, str) or str(Path(reported_bridge).resolve(strict=False)) != expected_bridge:
+        raise ValueError(f"{feature}: source report must reference the same RF bridge report")
+    expected_iq = bridge_summary.get("iq_iio_live_run")
+    reported_iq = source.get("iq_iio_live_run")
+    if not isinstance(expected_iq, str) or not isinstance(reported_iq, str):
+        raise ValueError(f"{feature}: source report must reference the same IQ live-run report")
+    if str(Path(reported_iq).resolve(strict=False)) != str(Path(expected_iq).resolve(strict=False)):
+        raise ValueError(f"{feature}: source report must reference the same IQ live-run report")
 
 
 def validate_bridge_feature_report(feature: str, bridge_path: Path, feature_report: dict[str, Any]) -> None:
@@ -130,6 +164,7 @@ def validate_present_app_evidence(
                 validate_normalized_app_report(
                     feature,
                     Path(getattr(args, f"app_{feature}_report")),
+                    bridge_path,
                 )
             elif kind == "source_report":
                 source_report = Path(getattr(args, f"app_{feature}_source_report"))

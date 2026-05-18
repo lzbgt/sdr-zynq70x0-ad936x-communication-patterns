@@ -123,6 +123,8 @@ mutating queues, opening IIO buffers, or starting RF TX. If the operator
 supplies an existing live bridge report, the same preflight validates
 app-source and feature reports against that exact bridge and IQ live-run, so
 daemon-bridge evidence or stale app output cannot advance the sequence.
+Already-normalized app reports are traced back through their `source_report`
+and must still correlate to that same bridge evidence.
 Until a real live bridge report and all three app feature reports pass that
 wrapper, the daemon readiness fields must remain `production_ready=0`. Those
 app feature reports must reference the same bridge and IQ live-run evidence so

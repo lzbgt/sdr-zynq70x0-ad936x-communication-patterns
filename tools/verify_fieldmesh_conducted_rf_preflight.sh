@@ -64,6 +64,38 @@ cat > "$work_dir/native_ip_runtime_source.json" <<'JSON'
 {"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"real_rf_phy","rf_phy_tx_rx":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
 JSON
 
+cat > "$work_dir/app_messaging_source_from_bridge.json" <<JSON
+{
+  "event": "fieldmesh_imgui_messaging_real_rf_assert",
+  "ok": true,
+  "feature": "messaging",
+  "transport": "real_rf_phy",
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "bridge_report": "$work_dir/live_bridge.json",
+  "feature_report": "$work_dir/messaging_runtime_source.json",
+  "leased_frame_bytes": 64,
+  "iq_iio_live_run": "$work_dir/iq_live_run.json",
+  "messages_delivered": 1,
+  "uses_json_on_air": false
+}
+JSON
+cat > "$work_dir/app_messaging_normalized.json" <<JSON
+{
+  "event": "fieldmesh_app_real_rf_report",
+  "ok": true,
+  "feature": "messaging",
+  "transport": "real_rf_phy",
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "source_report": "$work_dir/app_messaging_source_from_bridge.json",
+  "messages_delivered": 1,
+  "uses_json_on_air": false
+}
+JSON
+
 EXECUTE_LIVE_RF=1 \
 PREFLIGHT_ONLY=1 \
 EXPECT_PREFLIGHT_OK=0 \
@@ -180,6 +212,63 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   OUT_DIR="$work_dir/uncorrelated-app-feature" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
   echo "conducted RF preflight accepted uncorrelated app feature evidence" >&2
+  exit 1
+fi
+
+BRIDGE_REPORT="$work_dir/live_bridge.json" \
+APP_MESSAGING_REPORT="$work_dir/app_messaging_normalized.json" \
+APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
+APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+PREFLIGHT_ONLY=1 \
+EXPECT_PREFLIGHT_OK=1 \
+EXPECT_PRODUCTION_READY=1 \
+RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+OUT_DIR="$work_dir/normalized-report-validated" \
+"$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" \
+  > "$work_dir/normalized_report_validated_stdout.json"
+
+cat > "$work_dir/app_messaging_uncorrelated_source.json" <<JSON
+{
+  "event": "fieldmesh_imgui_messaging_real_rf_assert",
+  "ok": true,
+  "feature": "messaging",
+  "transport": "real_rf_phy",
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "bridge_report": "/tmp/not-the-live-bridge.json",
+  "feature_report": "$work_dir/messaging_runtime_source.json",
+  "leased_frame_bytes": 64,
+  "iq_iio_live_run": "$work_dir/iq_live_run.json",
+  "messages_delivered": 1,
+  "uses_json_on_air": false
+}
+JSON
+cat > "$work_dir/app_messaging_uncorrelated_normalized.json" <<JSON
+{
+  "event": "fieldmesh_app_real_rf_report",
+  "ok": true,
+  "feature": "messaging",
+  "transport": "real_rf_phy",
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "source_report": "$work_dir/app_messaging_uncorrelated_source.json",
+  "messages_delivered": 1,
+  "uses_json_on_air": false
+}
+JSON
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  APP_MESSAGING_REPORT="$work_dir/app_messaging_uncorrelated_normalized.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/uncorrelated-normalized-report" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "conducted RF preflight accepted uncorrelated normalized app evidence" >&2
   exit 1
 fi
 

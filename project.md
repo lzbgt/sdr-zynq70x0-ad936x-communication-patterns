@@ -681,11 +681,14 @@ user and vendor configuration.
   proven after that run. When an existing live bridge report is supplied, the
   preflight also validates app source/feature evidence against that exact
   bridge and IQ live-run before the wrapper leases frames or mutates queues.
+  Already-normalized app real-RF reports are traced back through their
+  `source_report` and must still correlate to the supplied bridge.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
   production preflight checklist. It proves missing approvals, invalid fixture
   evidence, excessive TX duration, daemon-bridge native-IP app sources, and
-  uncorrelated feature reports block live RF while a complete approved
-  conducted fixture configuration passes preflight without transmitting.
+  uncorrelated raw or normalized feature reports block live RF while a complete
+  approved conducted fixture configuration passes preflight without
+  transmitting.
 - `tools/verify_fieldmesh_conducted_rf_production_sequence.sh` - verifier for
   the sequence wrapper. It proves dry-run evidence stays non-production,
   missing fixture evidence blocks live RF, complete bridge-derived app evidence
