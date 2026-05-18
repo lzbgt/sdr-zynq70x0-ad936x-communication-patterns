@@ -133,6 +133,9 @@ native-IP iperf gate now has two explicit bridge modes:
 `ALLOW_IIO_RF_BRIDGE=1` starts the guarded continuous RF-worker/IIO bridge loop
 for live over-air traffic after all RF-path, hardware-write, RF-TX, daemon
 queue-mutation, and operator-confirmation approvals are present. The current
+`PREFLIGHT_ONLY=1` mode checks those inputs and route shape without creating
+network interfaces, starting iperf, opening IIO buffers, mutating daemon
+queues, or transmitting RF. The current
 host-PC gate now enforces that distinction: `HOST_PC_CASE=1` first captures the
 host route to the local board and refuses WSL/NAT-style paths, such as a route
 via `172.28.192.1`, because those do not prove that a normal host app can use

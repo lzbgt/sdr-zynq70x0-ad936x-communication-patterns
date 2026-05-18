@@ -3765,6 +3765,12 @@ rejects live RF without explicit approvals, and rejects daemon queue mutation
 outside live mode. `run_fieldmesh_two_board_native_ip_iperf.sh` selects this
 path with `ALLOW_IIO_RF_BRIDGE=1`; the older `ALLOW_DAEMON_RF_BRIDGE=1` path
 remains diagnostic-only.
+For operator readiness checks, `run_fieldmesh_two_board_native_ip_iperf.sh`
+also supports `PREFLIGHT_ONLY=1`. That mode emits
+`fieldmesh_two_board_native_ip_iperf_preflight` after checking daemon RF
+readiness, optional RF path evidence, and optional host route shape, but it
+does not create `swarm0`, start `iperf3`, open IIO buffers, mutate daemon
+queues, or start RF TX.
 
 Bridge-derived app evidence is normalized by:
 

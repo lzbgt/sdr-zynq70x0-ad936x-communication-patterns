@@ -787,6 +787,9 @@ user and vendor configuration.
   explicit over-air operator confirmation, it starts the guarded IIO RF-worker
   bridge loop below so iperf traffic is carried by leased daemon frames over
   the AD936x over-air path instead of by the host diagnostic bridge.
+  `PREFLIGHT_ONLY=1` validates the daemon RF readiness state, optional RF path
+  evidence, and optional host route shape without creating `swarm0`, starting
+  `iperf3`, opening IIO buffers, mutating daemon queues, or transmitting RF.
   `HOST_PC_CASE=1` is the host-transparent case: it starts `iperf3` on the host
   namespace and first proves that the host has a direct board-facing route. It
   rejects WSL/NAT or SSH-launched-board traffic because those paths do not

@@ -21,6 +21,7 @@ allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
 allow_iio_rf_bridge="${ALLOW_IIO_RF_BRIDGE:-0}"
 host_pc_case="${HOST_PC_CASE:-0}"
 allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
+preflight_only="${PREFLIGHT_ONLY:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)-$$}"
 swarm_mtu="${SWARM_MTU:-}"
 rf_binding_plan="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
@@ -31,6 +32,8 @@ allow_daemon_queue_mutation="${ALLOW_DAEMON_QUEUE_MUTATION:-0}"
 rf_path_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
 rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
+center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
+fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 
@@ -48,6 +51,7 @@ case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must b
 case "$allow_iio_rf_bridge" in 0|1) ;; *) echo "ALLOW_IIO_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE must be 0 or 1" >&2; exit 1 ;; esac
+case "$preflight_only" in 0|1) ;; *) echo "PREFLIGHT_ONLY must be 0 or 1" >&2; exit 1 ;; esac
 for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
     case "$item" in 0|1) ;; *) echo "live RF flags must be 0 or 1" >&2; exit 1 ;; esac
 done
@@ -76,6 +80,10 @@ if ! [[ "$iio_bridge_max_frames" =~ ^[0-9]+$ ]] || [ "$iio_bridge_max_frames" -l
     echo "IIO_BRIDGE_MAX_FRAMES must be a positive integer" >&2
     exit 1
 fi
+if ! [[ "$center_frequency_hz" =~ ^[0-9]+$ ]] || [ "$center_frequency_hz" -le 0 ]; then
+    echo "CENTER_FREQUENCY_HZ must be a positive integer" >&2
+    exit 1
+fi
 if [ -z "$swarm_mtu" ]; then
     if [ "$allow_daemon_rf_bridge" = "1" ] || [ "$allow_iio_rf_bridge" = "1" ]; then
         swarm_mtu=512
@@ -87,11 +95,6 @@ if ! [[ "$swarm_mtu" =~ ^[0-9]+$ ]] || [ "$swarm_mtu" -lt 296 ] || [ "$swarm_mtu
     echo "SWARM_MTU must be an integer from 296 to 1200" >&2
     exit 1
 fi
-if ! command -v sshpass >/dev/null 2>&1; then
-    echo "Missing required command: sshpass" >&2
-    exit 1
-fi
-
 ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 z203_remote="${ssh_user}@${z203_ip}"
 z103_remote="${ssh_user}@${z103_ip}"
@@ -309,6 +312,16 @@ PY
     exit 1
 fi
 
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    "$repo_root/tools/fieldmesh_rf_fixture_evidence.py" \
+        --rf-path-evidence "$rf_path_evidence" \
+        --rf-path-id "$rf_path_id" \
+        --fixture-attenuation-db "$fixture_attenuation_db" \
+        --center-frequency-hz "$center_frequency_hz" \
+        --output "$out_dir/rf_path_evidence_check.json" \
+        >"$out_dir/rf_path_evidence_check_stdout.json"
+fi
+
 if [ "$host_pc_case" = "1" ] && [ "$allow_host_pc_routed_gate" != "1" ]; then
     json_blocker "host_pc_transparent_route_not_configured" \
         "HOST_PC_CASE=1 requires a real host-to-board route or host-side virtual driver; SSH-launched board iperf is not host-PC transparent evidence." \
@@ -380,6 +393,56 @@ PY
         exit 1
     fi
 fi
+
+if [ "$preflight_only" = "1" ]; then
+    python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+out_dir = Path(sys.argv[1])
+allow_daemon = sys.argv[2] == "1"
+allow_iio = sys.argv[3] == "1"
+host_pc = sys.argv[4] == "1"
+rf_preflight = json.loads((out_dir / "rf_preflight.json").read_text(encoding="utf-8"))
+route = None
+if (out_dir / "host_pc_route_preflight.json").is_file():
+    route = json.loads((out_dir / "host_pc_route_preflight.json").read_text(encoding="utf-8"))
+rf_path = None
+if (out_dir / "rf_path_evidence_check.json").is_file():
+    rf_path = json.loads((out_dir / "rf_path_evidence_check.json").read_text(encoding="utf-8"))
+ok = rf_preflight.get("ok") is True
+if host_pc:
+    ok = ok and route is not None and route.get("ok") is True
+if allow_iio:
+    ok = ok and rf_path is not None and rf_path.get("ok") is True
+report = {
+    "event": "fieldmesh_two_board_native_ip_iperf_preflight",
+    "ok": ok,
+    "preflight_only": True,
+    "allow_daemon_rf_bridge": allow_daemon,
+    "allow_iio_rf_bridge": allow_iio,
+    "host_pc_case": host_pc,
+    "rf_preflight": str(out_dir / "rf_preflight.json"),
+    "host_pc_route_preflight": str(out_dir / "host_pc_route_preflight.json") if route is not None else None,
+    "rf_path_evidence_check": str(out_dir / "rf_path_evidence_check.json") if rf_path is not None else None,
+    "starts_iperf": False,
+    "starts_rf_tx": False,
+    "opens_iio_buffers": False,
+    "mutates_daemon_queues": False,
+}
+print(json.dumps(report, sort_keys=True))
+raise SystemExit(0 if ok else 1)
+PY
+    echo "Capture directory: $out_dir"
+    exit 0
+fi
+
+if ! command -v sshpass >/dev/null 2>&1; then
+    echo "Missing required command: sshpass" >&2
+    exit 1
+fi
+
 if [ "$host_pc_case" = "1" ] && ! command -v iperf3 >/dev/null 2>&1; then
     json_blocker "host_pc_iperf3_missing" "Install iperf3 on the host before running HOST_PC_CASE=1." \
         | tee -a "$out_dir/iperf_gate.ndjson"
@@ -551,6 +614,8 @@ start_iio_rf_bridge_loop() {
         --z103-port "$z103_port" \
         --z203-uri "ip:$z203_ip" \
         --z103-uri "ip:$z103_ip" \
+        --center-frequency-hz "$center_frequency_hz" \
+        --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
         --execute-live-rf \
         --allow-hardware-writes \
