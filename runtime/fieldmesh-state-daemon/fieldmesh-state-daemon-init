@@ -42,6 +42,13 @@ read_device_eui() {
             ;;
     esac
     read_identity_file /mnt/jffs2/fieldmesh/device_eui && return 0
+    sd_eui="$(read_sd_boot_config device_eui || true)"
+    case "$sd_eui" in
+        ????????????)
+            printf '%s\n' "$sd_eui"
+            return 0
+            ;;
+    esac
     env_eui="$(read_fwenv fieldmesh_device_eui || true)"
     case "$env_eui" in
         ????????????)
@@ -59,6 +66,30 @@ read_first_line_file() {
     sed -n '1p' "$path" 2>/dev/null | tr -d '\r\n\t '
 }
 
+read_sd_boot_config() {
+    key="$1"
+    [ -b /dev/mmcblk0p1 ] || return 1
+    mount_dir=/tmp/fieldmesh-sd-config
+    mounted_here=0
+    mkdir -p "$mount_dir" 2>/dev/null || return 1
+    if ! grep -q " $mount_dir " /proc/mounts; then
+        mount -o ro -t vfat /dev/mmcblk0p1 "$mount_dir" 2>/dev/null || return 1
+        mounted_here=1
+    fi
+    value=""
+    for path in "$mount_dir/fieldmesh_$key" "$mount_dir/$key"; do
+        if [ -f "$path" ]; then
+            value="$(sed -n '1p' "$path" 2>/dev/null | tr -d '\r\n\t ')"
+            [ -n "$value" ] && break
+        fi
+    done
+    if [ "$mounted_here" -eq 1 ]; then
+        umount "$mount_dir" 2>/dev/null || true
+    fi
+    [ -n "$value" ] || return 1
+    printf '%s\n' "$value"
+}
+
 read_gnss_device() {
     [ -n "${FIELDMESH_GNSS_NMEA_DEVICE:-}" ] && {
         printf '%s\n' "$FIELDMESH_GNSS_NMEA_DEVICE"
@@ -66,6 +97,7 @@ read_gnss_device() {
     }
     read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_device && return 0
     read_first_line_file /etc/fieldmesh/gnss_nmea_device && return 0
+    read_sd_boot_config gnss_nmea_device && return 0
     return 1
 }
 
@@ -78,6 +110,7 @@ read_gnss_baud() {
     esac
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_sd_boot_config gnss_nmea_baud 2>/dev/null || true)"
     case "$value" in
         4800|9600|19200|38400|57600|115200)
             printf '%s\n' "$value"
@@ -96,6 +129,7 @@ read_gnss_pps_lock() {
     esac
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_pps_lock 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_pps_lock 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_sd_boot_config gnss_pps_lock 2>/dev/null || true)"
     case "$value" in
         0|1)
             printf '%s\n' "$value"
@@ -118,6 +152,7 @@ read_gnss_max_reports() {
     esac
     value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_max_reports 2>/dev/null || true)"
     [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_max_reports 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_sd_boot_config gnss_nmea_max_reports 2>/dev/null || true)"
     case "$value" in
         ''|*[!0-9]*)
             printf '%s\n' "$GNSS_MAX_REPORTS"

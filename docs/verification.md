@@ -2180,6 +2180,21 @@ enabled as a non-console serial device. This does not by itself prove live GNSS;
 the next live gate must rebuild/install that bitstream, persist the resulting
 `/dev/ttyPS*` path, and observe real NMEA ACKed into the daemon.
 
+For Z203 SD/initramfs installs, `tools/stage_fieldmesh_sd_boot_files.sh` accepts
+the same `ENABLE_GNSS_UART_EMIO=1` switch and records the generated
+`fieldmesh_devicetree_plan.json` beside the staged boot files. It also stages
+SD-resident `fieldmesh_device_eui` and `fieldmesh_gnss_*` config files; the
+init service can read those from `/dev/mmcblk0p1` when the running initramfs has
+no persistent JFFS mount. This keeps the currently used SD install path aligned
+with the opt-in UART bitstream contract and avoids volatile-only GNSS config.
+
+The refreshed Z203 SD runtime was installed live with `ENABLE_GNSS_UART_EMIO=1`.
+After reboot, `/dev/ttyPS1` existed, the SD boot partition contained
+`fieldmesh_gnss_nmea_device=/dev/ttyPS1`, and the init service started
+`fieldmesh-gnss-nmea-reporter` against that UART. The live preflight without
+`REQUIRE_GNSS_FIX` passed as diagnostic evidence; `REQUIRE_GNSS_FIX=1` still
+failed because no live GNSS position reached the daemon.
+
 Matched FieldMesh runtime packages were then assembled with the timing-clean
 FieldMesh bitstreams and generated sidecar DTBs:
 

@@ -26,6 +26,18 @@ for file in "${required[@]}"; do
     exit 1
   fi
 done
+optional=()
+for file in \
+  fieldmesh_devicetree_plan.json \
+  fieldmesh_device_eui \
+  fieldmesh_gnss_nmea_device \
+  fieldmesh_gnss_nmea_baud \
+  fieldmesh_gnss_pps_lock \
+  fieldmesh_gnss_nmea_max_reports; do
+  if [[ -f "$stage_dir/$file" ]]; then
+    optional+=("$stage_dir/$file")
+  fi
+done
 
 if ! command -v sshpass >/dev/null 2>&1; then
   echo "Missing required command: sshpass" >&2
@@ -50,6 +62,7 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
   "$stage_dir/uImage" \
   "$stage_dir/uramdisk.image.gz" \
   "$stage_dir/SHA256SUMS" \
+  "${optional[@]}" \
   "$remote:$remote_stage/"
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "REMOTE_STAGE='$remote_stage' REMOTE_MOUNT='$remote_mount' sh -s" <<'REMOTE_SCRIPT'
@@ -71,6 +84,12 @@ rm -f \
   "${REMOTE_MOUNT}/uEnv.txt" \
   "${REMOTE_MOUNT}/uImage" \
   "${REMOTE_MOUNT}/uramdisk.image.gz" \
+  "${REMOTE_MOUNT}/fieldmesh_devicetree_plan.json" \
+  "${REMOTE_MOUNT}/fieldmesh_device_eui" \
+  "${REMOTE_MOUNT}/fieldmesh_gnss_nmea_device" \
+  "${REMOTE_MOUNT}/fieldmesh_gnss_nmea_baud" \
+  "${REMOTE_MOUNT}/fieldmesh_gnss_pps_lock" \
+  "${REMOTE_MOUNT}/fieldmesh_gnss_nmea_max_reports" \
   "${REMOTE_MOUNT}/SHA256SUMS"
 
 cp "${REMOTE_STAGE}/BOOT.bin" "${REMOTE_MOUNT}/BOOT.bin"
@@ -78,6 +97,14 @@ cp "${REMOTE_STAGE}/devicetree.dtb" "${REMOTE_MOUNT}/devicetree.dtb"
 cp "${REMOTE_STAGE}/uEnv.txt" "${REMOTE_MOUNT}/uEnv.txt"
 cp "${REMOTE_STAGE}/uImage" "${REMOTE_MOUNT}/uImage"
 cp "${REMOTE_STAGE}/uramdisk.image.gz" "${REMOTE_MOUNT}/uramdisk.image.gz"
+if [ -f "${REMOTE_STAGE}/fieldmesh_devicetree_plan.json" ]; then
+  cp "${REMOTE_STAGE}/fieldmesh_devicetree_plan.json" "${REMOTE_MOUNT}/fieldmesh_devicetree_plan.json"
+fi
+for file in fieldmesh_device_eui fieldmesh_gnss_nmea_device fieldmesh_gnss_nmea_baud fieldmesh_gnss_pps_lock fieldmesh_gnss_nmea_max_reports; do
+  if [ -f "${REMOTE_STAGE}/$file" ]; then
+    cp "${REMOTE_STAGE}/$file" "${REMOTE_MOUNT}/$file"
+  fi
+done
 cp "${REMOTE_STAGE}/SHA256SUMS" "${REMOTE_MOUNT}/SHA256SUMS"
 
 (

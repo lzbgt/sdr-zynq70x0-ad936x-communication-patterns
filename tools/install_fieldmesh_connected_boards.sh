@@ -9,6 +9,7 @@ apply="${APPLY:-0}"
 allow_flash="${ALLOW_FLASH_WRITES:-0}"
 reboot_after="${REBOOT_AFTER:-1}"
 z203_install_mode="${Z203_INSTALL_MODE:-auto}"
+enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/install-connected-$(date +%Y%m%d-%H%M%S)}"
@@ -18,6 +19,11 @@ stage_fieldmesh_sd_boot_files_sh="${STAGE_FIELDMESH_SD_BOOT_FILES_SH:-$repo_root
 install_sd_boot_files_over_ssh_sh="${INSTALL_SD_BOOT_FILES_OVER_SSH_SH:-$repo_root/tools/install_sd_boot_files_over_ssh.sh}"
 
 mkdir -p "$out_dir"
+
+case "$enable_gnss_uart_emio" in
+    0|1) ;;
+    *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
 
 wait_for_ping() {
     host="$1"
@@ -212,7 +218,7 @@ install_z203_qspi() {
 }
 
 cat > "$out_dir/plan.json" <<EOF_PLAN
-{"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode","z203_damaged_qspi_override_supported":false}
+{"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode","enable_gnss_uart_emio":$enable_gnss_uart_emio,"z203_damaged_qspi_override_supported":false}
 EOF_PLAN
 cat "$out_dir/plan.json"
 
@@ -261,7 +267,7 @@ case "$z203_install_mode" in
 esac
 
 cat > "$out_dir/resolved_plan.json" <<EOF_RESOLVED
-{"event":"fieldmesh_connected_board_install_resolved_plan","z203_requested_install_mode":"$z203_install_mode","z203_resolved_install_mode":"$z203_resolved_install_mode","z203_qspi_prechecked":$z203_qspi_prechecked,"starts_parallel_installs_after_resolution":true}
+{"event":"fieldmesh_connected_board_install_resolved_plan","z203_requested_install_mode":"$z203_install_mode","z203_resolved_install_mode":"$z203_resolved_install_mode","z203_qspi_prechecked":$z203_qspi_prechecked,"enable_gnss_uart_emio":$enable_gnss_uart_emio,"starts_parallel_installs_after_resolution":true}
 EOF_RESOLVED
 cat "$out_dir/resolved_plan.json"
 

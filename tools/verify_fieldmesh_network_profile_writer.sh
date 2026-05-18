@@ -7,7 +7,9 @@ mkdir -p "$out_dir"
 
 good_identity="$out_dir/z103-good-identity.txt"
 bad_identity="$out_dir/z203-bad-identity.txt"
+gnss_only_identity="$out_dir/z203-gnss-only-identity.txt"
 good_plan="$out_dir/z103-profile-plan.json"
+gnss_only_plan="$out_dir/z203-gnss-only-plan.json"
 bad_plan="$out_dir/z103-profile-bad-variant.json"
 bad_gnss_plan="$out_dir/z103-profile-bad-gnss-console.json"
 
@@ -47,6 +49,20 @@ serial_devices=/dev/ttyPS0
 fieldmesh_identity_end
 EOF_BAD
 
+cat > "$gnss_only_identity" <<'EOF_GNSS_ONLY'
+fieldmesh_identity_begin
+hostname=fm-z203
+uname=Linux fm-z203 6.1.0 armv7l
+cmdline=console=ttyPS0,115200n8 root=/dev/ram
+model=SDR-Z203 Z7020 2R2T
+mode=2r2t
+fieldmeshctl=missing
+fw_setenv=missing
+persistent_backup=writable
+serial_devices=/dev/ttyPS0,/dev/ttyPS1
+fieldmesh_identity_end
+EOF_GNSS_ONLY
+
 "$repo_root/tools/apply_fieldmesh_network_profile_ssh.py" \
     --mock-identity-file "$good_identity" \
     --variant z103 \
@@ -62,6 +78,18 @@ EOF_BAD
     --gnss-nmea-baud 115200 \
     --gnss-pps-lock 1 \
     > "$good_plan"
+
+"$repo_root/tools/apply_fieldmesh_network_profile_ssh.py" \
+    --mock-identity-file "$gnss_only_identity" \
+    --variant z203 \
+    --device-eui 020000000203 \
+    --node-id fm-z203 \
+    --usb-device-ip 192.168.1.10 \
+    --usb-host-ip 192.168.1.1 \
+    --gnss-nmea-device /dev/ttyPS1 \
+    --gnss-nmea-baud 9600 \
+    --gnss-only \
+    > "$gnss_only_plan"
 
 set +e
 "$repo_root/tools/apply_fieldmesh_network_profile_ssh.py" \
@@ -88,15 +116,16 @@ set +e
 bad_gnss_rc=$?
 set -e
 
-python3 - "$good_plan" "$bad_plan" "$bad_rc" "$bad_gnss_plan" "$bad_gnss_rc" <<'PY'
+python3 - "$good_plan" "$gnss_only_plan" "$bad_plan" "$bad_rc" "$bad_gnss_plan" "$bad_gnss_rc" <<'PY'
 import json
 import sys
 
 good = json.loads(open(sys.argv[1], encoding="utf-8").read())
-bad = json.loads(open(sys.argv[2], encoding="utf-8").read())
-bad_rc = int(sys.argv[3])
-bad_gnss = json.loads(open(sys.argv[4], encoding="utf-8").read())
-bad_gnss_rc = int(sys.argv[5])
+gnss_only = json.loads(open(sys.argv[2], encoding="utf-8").read())
+bad = json.loads(open(sys.argv[3], encoding="utf-8").read())
+bad_rc = int(sys.argv[4])
+bad_gnss = json.loads(open(sys.argv[5], encoding="utf-8").read())
+bad_gnss_rc = int(sys.argv[6])
 
 if good.get("event") != "fieldmesh_network_profile_plan":
     raise SystemExit("missing profile plan event")
@@ -134,6 +163,12 @@ for token in ("/mnt/jffs2/fieldmesh/gnss_nmea_device /dev/ttyPS1",
               "/etc/fieldmesh/gnss_nmea_device /dev/ttyPS1"):
     if token not in gnss_lines:
         raise SystemExit(f"missing GNSS-store token: {token}")
+if gnss_only.get("safe_to_apply") is not True:
+    raise SystemExit(f"GNSS-only plan should not require fw_setenv/fieldmeshctl: {gnss_only!r}")
+if gnss_only.get("gnss_only") is not True:
+    raise SystemExit("GNSS-only plan did not expose gnss_only=true")
+if gnss_only.get("profile", {}).get("gnss_nmea_device") != "/dev/ttyPS1":
+    raise SystemExit("GNSS-only plan GNSS device mismatch")
 if bad_rc == 0:
     raise SystemExit("bad variant identity unexpectedly passed")
 if bad.get("safe_to_apply") is not False:

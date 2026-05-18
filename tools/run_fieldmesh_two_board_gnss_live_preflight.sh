@@ -50,16 +50,53 @@ print_file_value() {
     done
     printf '%s=\n' "$key"
     printf '%s_path=\n' "$key"
+    return 1
+}
+print_sd_boot_value() {
+    key="$1"
+    file="$2"
+    mount_dir=/tmp/fieldmesh-sd-preflight-$$
+    if [ ! -b /dev/mmcblk0p1 ]; then
+        return 1
+    fi
+    mkdir -p "$mount_dir" 2>/dev/null || return 1
+    mounted_here=0
+    if ! grep -q " $mount_dir " /proc/mounts; then
+        mount -o ro -t vfat /dev/mmcblk0p1 "$mount_dir" 2>/dev/null || return 1
+        mounted_here=1
+    fi
+    path="$mount_dir/$file"
+    if [ -f "$path" ]; then
+        value="$(sed -n '1p' "$path" 2>/dev/null | tr -d '\r\n')"
+        printf '%s=%s\n' "$key" "$value"
+        printf '%s_path=/dev/mmcblk0p1:%s\n' "$key" "$file"
+        if [ "$mounted_here" -eq 1 ]; then
+            umount "$mount_dir" 2>/dev/null || true
+        fi
+        return 0
+    fi
+    if [ "$mounted_here" -eq 1 ]; then
+        umount "$mount_dir" 2>/dev/null || true
+    fi
+    return 1
 }
 printf 'hostname=%s\n' "$(hostname 2>/dev/null || true)"
 printf 'daemon_pid=%s\n' "$(pidof fieldmesh-state-daemon-demo 2>/dev/null | tr ' ' ',')"
 printf 'gnss_pid=%s\n' "$(pidof fieldmesh-gnss-nmea-reporter 2>/dev/null | tr ' ' ',')"
-print_file_value device_eui /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui
-print_file_value gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_device
-print_file_value gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_nmea_baud
-print_file_value gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_pps_lock
-print_file_value gnss_nmea_max_reports /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_max_reports
+print_file_value device_eui /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui || print_sd_boot_value device_eui fieldmesh_device_eui || true
+print_file_value gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_device || print_sd_boot_value gnss_nmea_device fieldmesh_gnss_nmea_device || true
+print_file_value gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_nmea_baud || print_sd_boot_value gnss_nmea_baud fieldmesh_gnss_nmea_baud || true
+print_file_value gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_pps_lock || print_sd_boot_value gnss_pps_lock fieldmesh_gnss_pps_lock || true
+print_file_value gnss_nmea_max_reports /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_max_reports || print_sd_boot_value gnss_nmea_max_reports fieldmesh_gnss_nmea_max_reports || true
 device="$(sed -n '1p' /mnt/jffs2/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_device 2>/dev/null | sed -n '1p' | tr -d '\r\n')"
+if [ -z "$device" ] && [ -b /dev/mmcblk0p1 ]; then
+    mount_dir=/tmp/fieldmesh-sd-preflight-device-$$
+    mkdir -p "$mount_dir" 2>/dev/null || true
+    if mount -o ro -t vfat /dev/mmcblk0p1 "$mount_dir" 2>/dev/null; then
+        device="$(sed -n '1p' "$mount_dir/fieldmesh_gnss_nmea_device" 2>/dev/null | tr -d '\r\n')"
+        umount "$mount_dir" 2>/dev/null || true
+    fi
+fi
 if [ -n "$device" ] && [ -e "$device" ]; then
     printf 'gnss_nmea_device_exists=1\n'
 else

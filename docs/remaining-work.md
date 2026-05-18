@@ -166,8 +166,20 @@ non-console NMEA UART and PPS marker. The current concrete blocker is therefore
 `gnss_uart_not_exposed_in_devicetree`, not an app rendering issue. The Z203
 UART half now has an opt-in overlay/package path using the vendor `gps_transfer`
 K21/L21 EMIO evidence, but it still needs a rebuilt/installed bitstream and
-live `/dev/ttyPS*` proof; PPS remains blocked until a checked `GPS_PPS` pin or
-kernel PPS binding is added.
+live `/dev/ttyPS*` proof. The Z203 SD/initramfs staging path also carries the
+same `ENABLE_GNSS_UART_EMIO=1` DTB option and SD-resident FieldMesh config files
+for the selected device EUI and GNSS NMEA settings, so the current guarded SD
+install path cannot accidentally boot a GNSS-capable bitstream with a default
+DTB or volatile-only GNSS config. PPS remains blocked until a checked `GPS_PPS`
+pin or kernel PPS binding is added.
+
+Live Z203 bring-up now reaches the hardware/config boundary: the refreshed
+Z203 SD runtime boots with non-console `/dev/ttyPS1`, starts
+`fieldmesh-gnss-nmea-reporter /dev/ttyPS1 ... 9600`, and the GNSS live
+preflight reports the configured device and running reporter from SD-resident
+config. It still correctly fails `REQUIRE_GNSS_FIX=1` with
+`no_live_gnss_position_in_daemon`, so the remaining blocker is receiver/NMEA
+signal proof or baud/pin direction debugging, plus PPS exposure.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

@@ -5,6 +5,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-z203}"
 out_dir="${OUT_DIR:-$repo_root/.config/sdcard-staging/fieldmesh-$variant}"
+enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+case "$enable_gnss_uart_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
 
 case "$variant" in
   z203)
@@ -23,6 +28,31 @@ case "$variant" in
     echo "Z103 has no verified SD-card wiring; FieldMesh SD staging is Z203-only." >&2
     exit 2
     ;;
+esac
+
+gnss_nmea_device="${GNSS_NMEA_DEVICE:-}"
+gnss_nmea_baud="${GNSS_NMEA_BAUD:-9600}"
+gnss_pps_lock="${GNSS_PPS_LOCK:-0}"
+gnss_nmea_max_reports="${GNSS_NMEA_MAX_REPORTS:-0}"
+device_eui="${FIELDMESH_DEVICE_EUI:-020000000203}"
+if [[ "$enable_gnss_uart_emio" == "1" && -z "$gnss_nmea_device" ]]; then
+  gnss_nmea_device="/dev/ttyPS1"
+fi
+case "$gnss_nmea_baud" in
+  4800|9600|19200|38400|57600|115200) ;;
+  *) echo "GNSS_NMEA_BAUD must be one of 4800,9600,19200,38400,57600,115200" >&2; exit 2 ;;
+esac
+case "$gnss_pps_lock" in
+  0|1) ;;
+  *) echo "GNSS_PPS_LOCK must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$gnss_nmea_max_reports" in
+  ''|*[!0-9]*) echo "GNSS_NMEA_MAX_REPORTS must be a non-negative integer" >&2; exit 2 ;;
+  *) ;;
+esac
+case "$device_eui" in
+  ????????????) ;;
+  *) echo "FIELDMESH_DEVICE_EUI must be 12 hex chars" >&2; exit 2 ;;
 esac
 
 require_file() {
@@ -57,9 +87,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"$repo_root/tools/fieldmesh_devicetree_plan.py" \
-  --variant "$variant=$linux_root" \
-  --out-dir "$tmp_dt" >"$tmp_dt/fieldmesh_devicetree_plan.json"
+dt_args=(
+  "$repo_root/tools/fieldmesh_devicetree_plan.py"
+  --variant "$variant=$linux_root"
+  --out-dir "$tmp_dt"
+)
+if [[ "$enable_gnss_uart_emio" == "1" ]]; then
+  dt_args+=(--enable-gnss-uart-emio --require-gnss-uart)
+fi
+"${dt_args[@]}" >"$tmp_dt/fieldmesh_devicetree_plan.json"
 
 devicetree="$(
   python3 - "$tmp_dt/fieldmesh_devicetree_plan.json" <<'PY'
@@ -83,6 +119,14 @@ mkdir -p "$out_dir"
 cp "$boot_out/boot/BOOT.BIN" "$out_dir/BOOT.bin"
 cp "$devicetree" "$out_dir/devicetree.dtb"
 cp "$uenv" "$out_dir/uEnv.txt"
+cp "$tmp_dt/fieldmesh_devicetree_plan.json" "$out_dir/fieldmesh_devicetree_plan.json"
+printf '%s\n' "$device_eui" > "$out_dir/fieldmesh_device_eui"
+if [[ -n "$gnss_nmea_device" ]]; then
+  printf '%s\n' "$gnss_nmea_device" > "$out_dir/fieldmesh_gnss_nmea_device"
+  printf '%s\n' "$gnss_nmea_baud" > "$out_dir/fieldmesh_gnss_nmea_baud"
+  printf '%s\n' "$gnss_pps_lock" > "$out_dir/fieldmesh_gnss_pps_lock"
+  printf '%s\n' "$gnss_nmea_max_reports" > "$out_dir/fieldmesh_gnss_nmea_max_reports"
+fi
 
 mkimage \
   -A arm \
@@ -108,10 +152,17 @@ mkimage \
 
 (
   cd "$out_dir"
-  sha256sum BOOT.bin devicetree.dtb uEnv.txt uImage uramdisk.image.gz > SHA256SUMS
+  sha_files=(BOOT.bin devicetree.dtb fieldmesh_devicetree_plan.json fieldmesh_device_eui)
+  if [[ -n "$gnss_nmea_device" ]]; then
+    sha_files+=(fieldmesh_gnss_nmea_device fieldmesh_gnss_nmea_baud fieldmesh_gnss_pps_lock fieldmesh_gnss_nmea_max_reports)
+  fi
+  sha_files+=(uEnv.txt uImage uramdisk.image.gz)
+  sha256sum "${sha_files[@]}" > SHA256SUMS
 )
 
 echo "Staged FieldMesh SD boot files: $out_dir"
 find "$out_dir" -maxdepth 1 -type f -printf '%p %s bytes\n' | sort
 file "$out_dir"/BOOT.bin "$out_dir"/devicetree.dtb "$out_dir"/uImage "$out_dir"/uramdisk.image.gz
 sha256sum "$out_dir"/BOOT.bin "$out_dir"/devicetree.dtb "$out_dir"/uImage "$out_dir"/uramdisk.image.gz
+printf 'gnss_uart_emio=%s\n' "$enable_gnss_uart_emio"
+printf 'gnss_nmea_device=%s\n' "$gnss_nmea_device"

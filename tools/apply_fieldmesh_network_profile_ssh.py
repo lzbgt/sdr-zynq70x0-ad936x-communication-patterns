@@ -81,6 +81,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gnss-pps-lock", type=int, default=0, choices=(0, 1))
     parser.add_argument("--gnss-nmea-max-reports", type=int, default=0,
                         help="0 means continuous reporting; bounded values are for verification")
+    parser.add_argument("--gnss-only", action="store_true",
+                        help="Only persist GNSS service files; do not modify U-Boot env or identity")
     parser.add_argument("--allow-missing-gnss-device", action="store_true",
                         help="Allow planning/apply before the configured GNSS device exists")
     parser.add_argument("--allow-console-gnss-device", action="store_true",
@@ -121,6 +123,8 @@ def validate_profile(args: argparse.Namespace) -> Profile:
             raise SystemExit("gnss-nmea-device must not contain whitespace")
     if args.gnss_nmea_max_reports < 0 or args.gnss_nmea_max_reports > 1024:
         raise SystemExit("gnss-nmea-max-reports must be in 0..1024")
+    if args.gnss_only and not gnss_device:
+        raise SystemExit("--gnss-only requires --gnss-nmea-device")
     return Profile(
         device_eui=device_eui,
         node_id=args.node_id,
@@ -282,9 +286,13 @@ def validate_identity(args: argparse.Namespace, identity_text: str, profile: Pro
     errors = []
     if not variant_matches(args.variant, identity_text, identity):
         errors.append(f"identity does not match expected variant {args.variant}")
-    if identity.get("fw_setenv") != "present":
+    if not args.gnss_only and identity.get("fw_setenv") != "present":
         errors.append("fw_setenv is missing")
-    if identity.get("fieldmeshctl") != "present" and not args.allow_missing_fieldmeshctl:
+    if (
+        not args.gnss_only
+        and identity.get("fieldmeshctl") != "present"
+        and not args.allow_missing_fieldmeshctl
+    ):
         errors.append("fieldmeshctl is missing; refusing persistent profile writes")
     if identity.get("persistent_backup") != "writable" and not args.allow_volatile_backup:
         errors.append("/mnt/jffs2 is not writable for persistent rollback backup")
@@ -314,7 +322,37 @@ def validate_identity(args: argparse.Namespace, identity_text: str, profile: Pro
     }
 
 
-def apply_script(profile: Profile, allow_volatile: bool, reboot: bool) -> str:
+def gnss_apply_commands(profile: Profile) -> str:
+    if not profile.gnss_nmea_device:
+        return ""
+    gnss_values = {
+        "gnss_nmea_device": profile.gnss_nmea_device,
+        "gnss_nmea_baud": str(profile.gnss_nmea_baud),
+        "gnss_pps_lock": str(profile.gnss_pps_lock),
+        "gnss_nmea_max_reports": str(profile.gnss_nmea_max_reports),
+    }
+    commands = ["mkdir -p /mnt/jffs2/fieldmesh"]
+    for key, value in gnss_values.items():
+        quoted_value = shlex.quote(value)
+        commands.extend([
+            f"printf '%s\\n' {quoted_value} > /mnt/jffs2/fieldmesh/{key}.tmp",
+            f"chmod 0644 /mnt/jffs2/fieldmesh/{key}.tmp",
+            f"mv /mnt/jffs2/fieldmesh/{key}.tmp /mnt/jffs2/fieldmesh/{key}",
+        ])
+    commands.append("if mkdir -p /etc/fieldmesh 2>/dev/null; then")
+    for key, value in gnss_values.items():
+        quoted_value = shlex.quote(value)
+        commands.extend([
+            f"  printf '%s\\n' {quoted_value} > /etc/fieldmesh/{key}.tmp",
+            f"  chmod 0644 /etc/fieldmesh/{key}.tmp",
+            f"  mv /etc/fieldmesh/{key}.tmp /etc/fieldmesh/{key}",
+        ])
+    commands.append("fi")
+    return "\n".join(commands)
+
+
+def apply_script(profile: Profile, allow_volatile: bool, reboot: bool,
+                 gnss_only: bool = False) -> str:
     backup_root = "/mnt/jffs2/fieldmesh-profile-backups"
     fallback_root = "/tmp/fieldmesh-profile-backups"
     set_commands = "\n".join(
@@ -324,32 +362,40 @@ def apply_script(profile: Profile, allow_volatile: bool, reboot: bool) -> str:
     keys = " ".join(shlex.quote(key) for key in ENV_KEYS)
     reboot_cmd = "reboot" if reboot else "true"
     device_eui = shlex.quote(profile.device_eui)
-    gnss_commands = ""
-    if profile.gnss_nmea_device:
-        gnss_values = {
-            "gnss_nmea_device": profile.gnss_nmea_device,
-            "gnss_nmea_baud": str(profile.gnss_nmea_baud),
-            "gnss_pps_lock": str(profile.gnss_pps_lock),
-            "gnss_nmea_max_reports": str(profile.gnss_nmea_max_reports),
-        }
-        commands = ["mkdir -p /mnt/jffs2/fieldmesh"]
-        for key, value in gnss_values.items():
-            quoted_value = shlex.quote(value)
-            commands.extend([
-                f"printf '%s\\n' {quoted_value} > /mnt/jffs2/fieldmesh/{key}.tmp",
-                f"chmod 0644 /mnt/jffs2/fieldmesh/{key}.tmp",
-                f"mv /mnt/jffs2/fieldmesh/{key}.tmp /mnt/jffs2/fieldmesh/{key}",
-            ])
-        commands.append("if mkdir -p /etc/fieldmesh 2>/dev/null; then")
-        for key, value in gnss_values.items():
-            quoted_value = shlex.quote(value)
-            commands.extend([
-                f"  printf '%s\\n' {quoted_value} > /etc/fieldmesh/{key}.tmp",
-                f"  chmod 0644 /etc/fieldmesh/{key}.tmp",
-                f"  mv /etc/fieldmesh/{key}.tmp /etc/fieldmesh/{key}",
-            ])
-        commands.append("fi")
-        gnss_commands = "\n".join(commands)
+    gnss_commands = gnss_apply_commands(profile)
+    if gnss_only:
+        return f"""set -eu
+backup_root={shlex.quote(backup_root)}
+if ! mkdir -p "$backup_root" 2>/dev/null; then
+  if [ {1 if allow_volatile else 0} -eq 1 ]; then
+    backup_root={shlex.quote(fallback_root)}
+    mkdir -p "$backup_root"
+  else
+    echo "persistent backup directory is not writable" >&2
+    exit 12
+  fi
+fi
+stamp="$(date +%Y%m%d-%H%M%S)"
+backup="$backup_root/gnss-profile-$stamp.env"
+for path in /mnt/jffs2/fieldmesh/gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_nmea_max_reports; do
+  if [ -f "$path" ]; then
+    printf '%s=' "$path" >> "$backup"
+    sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t ' >> "$backup"
+    echo >> "$backup"
+  fi
+done
+{gnss_commands}
+printf 'backup_path=%s\\n' "$backup"
+for path in /mnt/jffs2/fieldmesh/gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_nmea_max_reports; do
+  if [ -f "$path" ]; then
+    printf '%s=' "$path"
+    sed -n '1p' "$path" 2>/dev/null | tr -d '\\r\\n\\t '
+    echo
+  fi
+done
+sync
+{reboot_cmd}
+"""
     return f"""set -eu
 backup_root={shlex.quote(backup_root)}
 if ! mkdir -p "$backup_root" 2>/dev/null; then
@@ -455,6 +501,7 @@ def main() -> int:
         "fw_setenv": fw_setenv_lines(profile),
         "identity_store": identity_store_lines(profile),
         "gnss_store": gnss_store_lines(profile),
+        "gnss_only": bool(args.gnss_only),
         **identity_result,
     }
 
@@ -482,7 +529,10 @@ def main() -> int:
         print(json.dumps(plan, sort_keys=True))
         raise SystemExit("identity checks failed; refusing apply")
 
-    output = run_ssh(args, apply_script(profile, args.allow_volatile_backup, args.reboot))
+    output = run_ssh(
+        args,
+        apply_script(profile, args.allow_volatile_backup, args.reboot, args.gnss_only),
+    )
     print(json.dumps({**plan, "event": "fieldmesh_network_profile_apply",
                       "remote_output": output.splitlines()}, sort_keys=True))
     return 0

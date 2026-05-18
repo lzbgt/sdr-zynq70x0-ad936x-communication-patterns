@@ -1153,6 +1153,15 @@ user and vendor configuration.
   UART0 over EMIO, adds top-level `gnss_uart0_rxd`/`gnss_uart0_txd`, writes the
   vendor-evidenced K21/L21 XDC constraints, and pairs that bitstream contract
   with a DTB that exposes UART0 as non-console GNSS NMEA.
+- `tools/stage_fieldmesh_sd_boot_files.sh` - the guarded Z203 SD/initramfs
+  staging path used while Z203 QSPI remains unsafe. It accepts
+  `ENABLE_GNSS_UART_EMIO=1` and stages the matching GNSS-capable DTB plus its
+  `fieldmesh_devicetree_plan.json` evidence beside the boot files. It also
+  stages `fieldmesh_device_eui` and `fieldmesh_gnss_*` config files so the
+  initramfs GNSS service can read SD-resident config when `/mnt/jffs2` is not
+  mounted. The live Z203 runtime now reaches this boundary: `/dev/ttyPS1` is
+  exposed and the init service starts the GNSS reporter from SD config, but no
+  NMEA-backed daemon position has been observed yet.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production
