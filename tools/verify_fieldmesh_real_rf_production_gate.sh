@@ -57,7 +57,7 @@ if report.get("production_blocker") != "app_real_rf_verification_missing":
     raise SystemExit(f"unexpected IQ-only blocker: {report.get('production_blocker')}")
 PY
 
-for feature in messaging topology native_ip; do
+for feature in messaging topology; do
   cat > "$work_dir/app_${feature}.json" <<JSON
 {
   "event": "fieldmesh_app_real_rf_report",
@@ -70,6 +70,43 @@ for feature in messaging topology native_ip; do
 }
 JSON
 done
+
+cat > "$work_dir/native_ip_iperf_evidence.json" <<'JSON'
+{
+  "event": "fieldmesh_native_ip_iperf_evidence",
+  "ok": true,
+  "feature": "native_ip",
+  "feature_ok": true,
+  "transport": "real_rf_phy",
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "board_to_board_real_rf_iperf": true,
+  "host_pc_transparent_real_rf_iperf": true,
+  "requires_both_layers": true,
+  "tcp_client_bytes": 131072,
+  "udp_client_bytes": 98304,
+  "board_tcp_bytes": 262144,
+  "board_udp_bytes": 196608,
+  "host_tcp_bytes": 131072,
+  "host_udp_bytes": 98304
+}
+JSON
+
+cat > "$work_dir/app_native_ip.json" <<JSON
+{
+  "event": "fieldmesh_app_real_rf_report",
+  "feature": "native_ip",
+  "transport": "real_rf_phy",
+  "ok": true,
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true,
+  "source_report": "$work_dir/native_ip_iperf_evidence.json",
+  "tcp_client_bytes": 131072,
+  "udp_client_bytes": 98304
+}
+JSON
 
 IQ_LIVE_RUN="$executed_iq" \
 APP_MESSAGING_REPORT="$work_dir/app_messaging.json" \

@@ -97,10 +97,11 @@ if report.get("event") != "fieldmesh_iq_iio_live_run":
 PY
 
 app_reports=()
+native_ip_report="${APP_NATIVE_IP_REPORT:-}"
 for item in \
     "${APP_MESSAGING_REPORT:-}" \
     "${APP_TOPOLOGY_REPORT:-}" \
-    "${APP_NATIVE_IP_REPORT:-}"; do
+    "$native_ip_report"; do
     if [ -n "$item" ]; then
         if [ ! -f "$item" ]; then
             echo "missing app real-RF report: $item" >&2
@@ -109,6 +110,45 @@ for item in \
         app_reports+=(--app-real-rf-report "$item")
     fi
 done
+
+if [ "$expect_production_ready" = "1" ] && [ -n "$native_ip_report" ]; then
+    python3 - "$native_ip_report" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report_path = Path(sys.argv[1])
+report = json.loads(report_path.read_text(encoding="utf-8"))
+source_report = report.get("source_report")
+if not isinstance(source_report, str) or not source_report:
+    raise SystemExit("native-IP production app report must name source_report")
+source_path = Path(source_report)
+if not source_path.is_file() and not source_path.is_absolute():
+    source_path = report_path.parent / source_path
+source = json.loads(source_path.read_text(encoding="utf-8"))
+if source.get("event") != "fieldmesh_native_ip_iperf_evidence":
+    raise SystemExit("native-IP production evidence must come from fieldmesh_native_ip_iperf_evidence")
+required_true = (
+    "feature_ok",
+    "rf_phy_tx_rx_verified",
+    "app_verified_real_rf",
+    "board_to_board_real_rf_iperf",
+    "host_pc_transparent_real_rf_iperf",
+    "requires_both_layers",
+)
+for key in required_true:
+    if source.get(key) is not True:
+        raise SystemExit(f"native-IP iperf evidence must set {key}=true")
+if source.get("transport") != "real_rf_phy":
+    raise SystemExit("native-IP iperf evidence must use transport=real_rf_phy")
+if source.get("uses_inter_board_ip_routing") not in (False, 0):
+    raise SystemExit("native-IP iperf evidence must not use inter-board host-IP routing")
+for key in ("tcp_client_bytes", "udp_client_bytes", "board_tcp_bytes", "board_udp_bytes", "host_tcp_bytes", "host_udp_bytes"):
+    value = source.get(key)
+    if not isinstance(value, (int, float)) or value <= 0:
+        raise SystemExit(f"native-IP iperf evidence {key} must be > 0")
+PY
+fi
 
 "$repo_root/tools/classify_fieldmesh_rf_phy_readiness.py" \
     --iq-live-run "$iq_live_run" \

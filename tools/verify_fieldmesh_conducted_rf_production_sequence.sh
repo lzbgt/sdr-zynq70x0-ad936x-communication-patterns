@@ -107,12 +107,6 @@ reports = {
         "range_source": "packet_timing_tdoa",
         "topology_metrics_live": True,
     },
-    "native_ip": {
-        "event": "fieldmesh_native_ip_feature_assert",
-        "icmp_ping_ok": True,
-        "tcp_client_bytes": 30,
-        "udp_client_bytes": 30,
-    },
 }
 for feature, payload in reports.items():
     data = {**common, **payload, "feature": feature}
@@ -120,12 +114,52 @@ for feature, payload in reports.items():
         json.dumps(data, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+board = {
+    "event": "fieldmesh_two_board_native_ip_iperf",
+    "ok": True,
+    "feature": "native_ip",
+    "iperf_layer": "board_to_board",
+    "board_to_board_iperf": True,
+    "host_pc_case_requested": False,
+    "host_pc_iperf": False,
+    "transport": "real_rf_phy",
+    "diagnostic_bridge": False,
+    "uses_inter_board_ip_routing": False,
+    "uses_ssh_launched_board_client": True,
+    "host_originated_traffic": False,
+    "rf_phy_tx_rx_verified": True,
+    "app_verified_real_rf": True,
+    "production_evidence": True,
+    "tcp_bits_per_second": 1250000.0,
+    "tcp_bytes": 262144,
+    "udp_bits_per_second": 1100000.0,
+    "udp_bytes": 196608,
+}
+host = {
+    **board,
+    "iperf_layer": "host_pc_transparent",
+    "host_pc_case_requested": True,
+    "host_pc_iperf": True,
+    "uses_ssh_launched_board_client": False,
+    "host_originated_traffic": True,
+    "host_tcp_bits_per_second": 900000.0,
+    "host_tcp_bytes": 131072,
+    "host_udp_bits_per_second": 850000.0,
+    "host_udp_bytes": 98304,
+}
+(work / "native_ip_board_iperf.json").write_text(json.dumps(board, sort_keys=True) + "\n", encoding="utf-8")
+(work / "native_ip_host_iperf.json").write_text(json.dumps(host, sort_keys=True) + "\n", encoding="utf-8")
 PY
+
+"$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/native_ip_board_iperf.json" \
+  --host-pc-report "$work_dir/native_ip_host_iperf.json" \
+  --output "$work_dir/native_ip_iperf_evidence.json" >/dev/null
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
-APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_feature.json" \
+APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
 EXPECT_PRODUCTION_READY=1 \
 OUT_DIR="$work_dir/complete-sequence" \
 "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" \
@@ -168,7 +202,7 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
-python3 - "$work_dir/native_ip_feature.json" "$work_dir/native_ip_bad_feature.json" <<'PY'
+python3 - "$work_dir/native_ip_iperf_evidence.json" "$work_dir/native_ip_bad_feature.json" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -189,6 +223,21 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   exit 1
 fi
 
+cat > "$work_dir/native_ip_socket_feature_only.json" <<'JSON'
+{"event":"fieldmesh_native_ip_feature_assert","ok":true,"feature":"native_ip","transport":"real_rf_phy","rf_phy_tx_rx_verified":true,"app_verified_real_rf":true,"uses_inter_board_ip_routing":false,"icmp_ping_ok":true,"tcp_client_bytes":30,"udp_client_bytes":30}
+JSON
+
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_socket_feature_only.json" \
+  EXPECT_PRODUCTION_READY=1 \
+  OUT_DIR="$work_dir/native-ip-without-iperf-sequence" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF production sequence accepted native-IP evidence without paired iperf" >&2
+  exit 1
+fi
+
 python3 - "$work_dir/messaging_feature.json" "$work_dir/messaging_uncorrelated_feature.json" <<'PY'
 import json
 import sys
@@ -202,7 +251,7 @@ PY
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
   APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
-  APP_NATIVE_IP_FEATURE_REPORT="$work_dir/native_ip_feature.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
   EXPECT_PRODUCTION_READY=1 \
   OUT_DIR="$work_dir/uncorrelated-feature-sequence" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then

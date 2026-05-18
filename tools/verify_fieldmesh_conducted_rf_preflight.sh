@@ -80,7 +80,7 @@ cat > "$work_dir/topology_runtime_source.json" <<'JSON'
 {"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","topology_metrics_live":true,"topology_timing_position_peers":1,"topology_max_peer_range_m":2.33,"range_source":"packet_timing_tdoa","transport":"real_rf_phy","rf_phy_tx_rx_verified":true,"app_verified_real_rf":true,"uses_inter_board_ip_routing":false}
 JSON
 cat > "$work_dir/native_ip_runtime_source.json" <<'JSON'
-{"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"real_rf_phy","rf_phy_tx_rx":true,"tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
+{"event":"fieldmesh_native_ip_iperf_evidence","ok":true,"feature":"native_ip","feature_ok":true,"transport":"real_rf_phy","uses_inter_board_ip_routing":false,"rf_phy_tx_rx_verified":true,"app_verified_real_rf":true,"board_to_board_real_rf_iperf":true,"host_pc_transparent_real_rf_iperf":true,"requires_both_layers":true,"tcp_client_bytes":131072,"udp_client_bytes":98304,"board_tcp_bytes":262144,"board_udp_bytes":196608,"host_tcp_bytes":131072,"host_udp_bytes":98304,"board_tcp_bits_per_second":1250000.0,"board_udp_bits_per_second":1100000.0,"host_tcp_bits_per_second":900000.0,"host_udp_bits_per_second":850000.0}
 JSON
 
 cat > "$work_dir/app_messaging_source_from_bridge.json" <<JSON
@@ -153,7 +153,7 @@ RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
 OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_source.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_source.json" \
-APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_source.json" \
+APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
 PREFLIGHT_ONLY=1 \
 EXPECT_PREFLIGHT_OK=1 \
 EXPECT_PRODUCTION_READY=1 \

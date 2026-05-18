@@ -71,6 +71,15 @@ for feature in messaging topology native_ip; do
     > "$work_dir/app_${feature}_stdout.json"
 done
 
+cat > "$work_dir/native_ip_iperf_evidence.json" <<'JSON'
+{"event":"fieldmesh_native_ip_iperf_evidence","ok":true,"feature":"native_ip","feature_ok":true,"transport":"real_rf_phy","uses_inter_board_ip_routing":false,"rf_phy_tx_rx_verified":true,"app_verified_real_rf":true,"board_to_board_real_rf_iperf":true,"host_pc_transparent_real_rf_iperf":true,"requires_both_layers":true,"tcp_client_bytes":131072,"udp_client_bytes":98304,"board_tcp_bytes":262144,"board_udp_bytes":196608,"host_tcp_bytes":131072,"host_udp_bytes":98304}
+JSON
+"$repo_root/tools/fieldmesh_app_real_rf_report.py" \
+  --feature native_ip \
+  --source-report "$work_dir/native_ip_iperf_evidence.json" \
+  --output "$work_dir/app_native_ip.json" \
+  > "$work_dir/app_native_ip_iperf_stdout.json"
+
 IQ_LIVE_RUN="$repo_root/.config/fieldmesh/rf-phy-readiness-classifier/executed_iq_without_app.json" \
 APP_MESSAGING_REPORT="$work_dir/app_messaging.json" \
 APP_TOPOLOGY_REPORT="$work_dir/app_topology.json" \

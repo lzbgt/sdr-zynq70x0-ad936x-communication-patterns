@@ -40,16 +40,23 @@ JSON
 
 cat > "$work_dir/native_ip_source.json" <<'JSON'
 {
-  "event": "fieldmesh_native_ip_real_rf_assert",
+  "event": "fieldmesh_native_ip_iperf_evidence",
   "feature": "native_ip",
+  "feature_ok": true,
   "transport": "real_rf_phy",
   "ok": true,
   "uses_inter_board_ip_routing": false,
   "rf_phy_tx_rx_verified": true,
   "app_verified_real_rf": true,
-  "icmp_ping_ok": true,
-  "tcp_client_bytes": 30,
-  "udp_client_bytes": 30
+  "board_to_board_real_rf_iperf": true,
+  "host_pc_transparent_real_rf_iperf": true,
+  "requires_both_layers": true,
+  "tcp_client_bytes": 131072,
+  "udp_client_bytes": 98304,
+  "board_tcp_bytes": 262144,
+  "board_udp_bytes": 196608,
+  "host_tcp_bytes": 131072,
+  "host_udp_bytes": 98304
 }
 JSON
 

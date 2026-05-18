@@ -288,6 +288,23 @@ derive_app_report() {
             echo "missing $feature app source report: $source_report" >&2
             exit 1
         fi
+        if [ "$feature" = "native_ip" ] && python3 - "$source_report" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+raise SystemExit(0 if report.get("event") == "fieldmesh_native_ip_iperf_evidence" else 1)
+PY
+        then
+            "$repo_root/tools/fieldmesh_app_real_rf_report.py" \
+                --feature "$feature" \
+                --source-report "$source_report" \
+                --output "$normalized_out" \
+                > "$out_dir/app-${feature}-report_stdout.json"
+            printf '%s\n' "$normalized_out"
+            return
+        fi
         "$repo_root/tools/fieldmesh_app_feature_report_from_gate.py" \
             --feature "$feature" \
             --bridge-report "$bridge_report" \

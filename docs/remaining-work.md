@@ -141,6 +141,9 @@ transparent MAC/IP feature: board-to-board real-RF iperf and host-PC
 transparent real-RF iperf are separate required layers. Diagnostic bridge
 reports, SSH-launched board clients, inter-board host-IP routing, and any report
 without `transport=real_rf_phy` plus `rf_phy_tx_rx_verified=true` are rejected.
+`run_fieldmesh_real_rf_production_gate.sh` also checks the normalized native-IP
+app report back to this paired iperf evidence, so callers cannot bypass the
+layered iperf requirement with a generic socket success report.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

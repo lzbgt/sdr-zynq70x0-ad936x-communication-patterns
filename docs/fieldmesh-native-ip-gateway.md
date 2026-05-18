@@ -210,7 +210,9 @@ Minimum production gates for native TCP/IP:
   `rf_phy_tx_rx_verified=true`, `production_evidence=true`, and positive TCP
   and UDP metrics. A daemon RF-worker bridge report is rejected even if TCP/UDP
   iperf completed, because that path proves the kernel/socket bridge but not
-  over-air RF;
+  over-air RF. The real-RF production gate and over-air sequence now require
+  this paired iperf evidence for the native-IP app report; a tiny socket echo or
+  generic native-IP source report is not enough for production readiness;
 - daemon RF queue pressure is handled as backpressure. The native-IP service must
   not close on a full RF TX/RX queue during TCP or UDP bursts; the live socket
   gate covers this by driving both protocols through the installed board

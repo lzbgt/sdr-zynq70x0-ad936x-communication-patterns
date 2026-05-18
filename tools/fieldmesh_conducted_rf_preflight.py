@@ -98,6 +98,9 @@ def validate_normalized_app_report(feature: str, path: Path, bridge_path: Path |
     if not source_path.is_file() and not source_path.is_absolute():
         source_path = path.parent / source_path
     source = read_json(source_path)
+    if feature == "native_ip" and source.get("event") == "fieldmesh_native_ip_iperf_evidence":
+        validate_native_ip_iperf_evidence(source, "native_ip")
+        return
     validate_source_bridge_correlation(feature, bridge_path, source)
 
 
@@ -123,6 +126,29 @@ def validate_source_bridge_correlation(feature: str, bridge_path: Path, source: 
         raise ValueError(f"{feature}: source report must reference the same IQ live-run report")
     if str(Path(reported_iq).resolve(strict=False)) != str(Path(expected_iq).resolve(strict=False)):
         raise ValueError(f"{feature}: source report must reference the same IQ live-run report")
+
+
+def validate_native_ip_iperf_evidence(report: dict[str, Any], label: str) -> None:
+    if report.get("event") != "fieldmesh_native_ip_iperf_evidence":
+        raise ValueError(f"{label}: native-IP production evidence must be fieldmesh_native_ip_iperf_evidence")
+    if report.get("feature") != "native_ip" or report.get("feature_ok") is not True:
+        raise ValueError(f"{label}: native-IP iperf evidence must mark feature_ok=true")
+    if report.get("transport") != "real_rf_phy":
+        raise ValueError(f"{label}: native-IP iperf evidence transport must be real_rf_phy")
+    if report.get("rf_phy_tx_rx_verified") is not True or report.get("app_verified_real_rf") is not True:
+        raise ValueError(f"{label}: native-IP iperf evidence must prove real RF app verification")
+    if report.get("board_to_board_real_rf_iperf") is not True:
+        raise ValueError(f"{label}: native-IP iperf evidence must include board-to-board real-RF iperf")
+    if report.get("host_pc_transparent_real_rf_iperf") is not True:
+        raise ValueError(f"{label}: native-IP iperf evidence must include host-PC transparent real-RF iperf")
+    if report.get("requires_both_layers") is not True:
+        raise ValueError(f"{label}: native-IP iperf evidence must require both layers")
+    for key in ("tcp_client_bytes", "udp_client_bytes", "board_tcp_bytes", "board_udp_bytes", "host_tcp_bytes", "host_udp_bytes"):
+        value = report.get(key)
+        if not isinstance(value, (int, float)) or value <= 0:
+            raise ValueError(f"{label}: native-IP iperf evidence {key} must be > 0")
+    if report.get("uses_inter_board_ip_routing") not in (False, 0):
+        raise ValueError(f"{label}: native-IP iperf evidence must not use inter-board host-IP routing")
 
 
 def validate_bridge_feature_report(feature: str, bridge_path: Path, feature_report: dict[str, Any]) -> None:
@@ -163,13 +189,25 @@ def validate_present_app_evidence(
             if kind == "missing":
                 continue
             if kind == "normalized_report":
+                normalized_path = Path(getattr(args, f"app_{feature}_report"))
                 validate_normalized_app_report(
                     feature,
-                    Path(getattr(args, f"app_{feature}_report")),
+                    normalized_path,
                     bridge_path,
                 )
+                if args.expect_production_ready and feature == "native_ip":
+                    normalized = read_json(normalized_path)
+                    source_report = normalized.get("source_report")
+                    if not isinstance(source_report, str) or not source_report:
+                        raise ValueError("native_ip: normalized production report must name source_report")
+                    source_path = Path(source_report)
+                    if not source_path.is_file() and not source_path.is_absolute():
+                        source_path = normalized_path.parent / source_path
+                    validate_native_ip_iperf_evidence(read_json(source_path), "native_ip")
             elif kind == "source_report":
                 source_report = Path(getattr(args, f"app_{feature}_source_report"))
+                if args.expect_production_ready and feature == "native_ip":
+                    validate_native_ip_iperf_evidence(read_json(source_report), "native_ip")
                 feature_report = fieldmesh_app_feature_report_from_gate.build(
                     argparse_module.Namespace(
                         feature=feature,
@@ -179,6 +217,8 @@ def validate_present_app_evidence(
                 )
                 validate_bridge_feature_report(feature, bridge_path, feature_report)
             elif kind == "feature_report":
+                if args.expect_production_ready and feature == "native_ip":
+                    raise ValueError("native_ip: production evidence must use paired iperf source or normalized iperf report")
                 validate_bridge_feature_report(
                     feature,
                     bridge_path,

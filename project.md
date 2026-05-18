@@ -790,7 +790,8 @@ user and vendor configuration.
   board-to-board report and a host-PC-transparent report, both over
   `transport=real_rf_phy` with `rf_phy_tx_rx_verified=true` and positive TCP/UDP
   metrics. Diagnostic daemon-bridge iperf, host-IP-routed traffic, and
-  SSH-launched host-PC substitutes are rejected.
+  SSH-launched host-PC substitutes are rejected. The production gate traces
+  native-IP app evidence back to this paired iperf classifier.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
