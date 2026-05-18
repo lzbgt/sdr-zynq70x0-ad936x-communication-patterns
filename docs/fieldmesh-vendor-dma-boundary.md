@@ -724,7 +724,8 @@ The default report keeps `executes_commands=false`,
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 A real conducted/shielded fixture run requires
 `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, a non-empty
-`--fixture-id`, the exact operator confirmation
+`--fixture-id`, a `--fixture-evidence` manifest accepted by
+`tools/fieldmesh_rf_fixture_evidence.py`, the exact operator confirmation
 `I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE`, and a TX duration no longer than the
 tool's `1000 ms` ceiling, in addition to the same legal-frequency,
 attenuation, TX-enable, and RX-first declarations. The generated TX command is

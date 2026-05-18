@@ -14,11 +14,20 @@ from pathlib import Path
 from typing import Any
 
 import fieldmesh_iq_burst_smoke as iq_smoke
+import fieldmesh_rf_fixture_evidence as fixture_evidence
 
 
 MIN_FIXTURE_ATTENUATION_DB = 30.0
 MAX_LIVE_TX_DURATION_MS = 1000
 LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+
+
+def plan_center_frequency_hz(plan: dict[str, Any]) -> int | None:
+    for step in plan.get("command_plan", []):
+        if isinstance(step, dict) and step.get("name") == "configure_rx_phy":
+            value = step.get("center_frequency_hz")
+            return int(value) if value is not None else None
+    return None
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -78,6 +87,14 @@ def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
             )
         if not args.fixture_id:
             raise SystemExit("--execute-live-rf requires --fixture-id")
+        if not args.fixture_evidence:
+            raise SystemExit("--execute-live-rf requires --fixture-evidence")
+        fixture_evidence.validate_fixture_evidence(
+            fixture_evidence.load_json(args.fixture_evidence),
+            fixture_id=args.fixture_id,
+            fixture_attenuation_db=args.fixture_attenuation_db,
+            center_frequency_hz=plan_center_frequency_hz(plan),
+        )
         if not (args.tx_uri and args.rx_uri):
             raise SystemExit("--execute-live-rf requires --tx-uri and --rx-uri")
 
@@ -342,6 +359,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "conducted_or_shielded": True,
         "fixture_attenuation_db": args.fixture_attenuation_db,
         "fixture_id": args.fixture_id or None,
+        "fixture_evidence": str(args.fixture_evidence) if args.fixture_evidence else None,
         "legal_frequency_profile": True,
         "tx_enable_guard": True,
         "rx_first": True,
@@ -395,6 +413,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-hardware-writes", action="store_true")
     parser.add_argument("--allow-rf-tx", action="store_true")
     parser.add_argument("--fixture-id")
+    parser.add_argument("--fixture-evidence", type=Path)
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=MAX_LIVE_TX_DURATION_MS)
     parser.add_argument("--pretty", action="store_true")

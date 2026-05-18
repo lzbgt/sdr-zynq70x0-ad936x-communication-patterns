@@ -83,6 +83,22 @@ if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge.py" \
   exit 1
 fi
 
+if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge.py" \
+  --rf-binding-plan "$binding" \
+  --leased-frame-report "$work_dir/lease.json" \
+  --out-dir "$work_dir/missing-fixture-evidence" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --execute-live-rf \
+  --allow-hardware-writes \
+  --allow-rf-tx \
+  --fixture-id conducted-fixture-A \
+  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  >/dev/null 2>&1; then
+  echo "IIO RF worker bridge accepted live RF without fixture evidence" >&2
+  exit 1
+fi
+
 cat > "$work_dir/bad_lease.json" <<'JSON'
 {"event":"sdk_daemon_rf_tx_lease","ok":true,"frames":1,"frame0_hex":"00","non_destructive":0,"requires_ack":0}
 JSON

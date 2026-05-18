@@ -3549,8 +3549,25 @@ bounded `iio_writedev` TX IQ burst loading. The default report keeps
 `writes_hardware=false`. The verifier also rejects missing legal-frequency
 profile, insufficient fixture attenuation, excessive TX duration, and
 `--execute-live-rf` unless hardware writes, RF-TX authorization, exact operator
-confirmation, and fixture identity are present. Actual conducted/shielded RF
-execution is therefore explicit, bounded, and auditable.
+confirmation, fixture identity, and fixture evidence are present. Actual
+conducted/shielded RF execution is therefore explicit, bounded, and auditable.
+
+Fixture evidence is machine-checked before any live RF run:
+
+```sh
+./tools/verify_fieldmesh_rf_fixture_evidence.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_rf_fixture_evidence_check", "fixture_id": "conducted-fixture-A", "measured_attenuation_db": 60.0, "ok": true}
+```
+
+The evidence manifest must identify the fixture, assert conducted/shielded
+operation, prove TX/RX isolation, name the legal frequency profile, provide
+measured attenuation at or above the requested attenuation, and have a current
+calibration date.
 
 ## FieldMesh RF PHY Readiness Classifier
 

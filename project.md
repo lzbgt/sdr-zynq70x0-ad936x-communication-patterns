@@ -590,13 +590,21 @@ user and vendor configuration.
   it only writes a reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev`
   script from the verified live plan. A real conducted/shielded RF run requires
   `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, a fixture ID,
-  exact operator confirmation, bounded TX duration, and the same
-  legal-frequency, attenuation, TX-enable, and RX-first guards.
+  machine-checkable fixture evidence, exact operator confirmation, bounded TX
+  duration, and the same legal-frequency, attenuation, TX-enable, and RX-first
+  guards.
 - `tools/verify_fieldmesh_iq_iio_live_run.sh` - gate for the guarded IIO
   runner dry-run and negative tests for missing legal-frequency profile,
   missing hardware-write approval, missing RF-TX approval, missing operator
-  confirmation, missing fixture identity, excessive TX duration, and
+  confirmation, missing fixture identity/evidence, excessive TX duration, and
   insufficient fixture attenuation.
+- `tools/fieldmesh_rf_fixture_evidence.py` - validates conducted/shielded RF
+  fixture manifests before live RF is allowed. It checks fixture identity,
+  attenuation, legal frequency profile, TX/RX isolation, calibration date, and
+  frequency range.
+- `tools/verify_fieldmesh_rf_fixture_evidence.sh` - verifier for fixture
+  evidence. It accepts a valid conducted fixture manifest and rejects expired
+  calibration or insufficient measured attenuation.
 - `tools/classify_fieldmesh_rf_phy_readiness.py` - no-write RF PHY readiness
   classifier. It refuses to treat dry-run, review-only, or infrastructure-only
   evidence as production RF readiness. `rf_phy_tx_rx_verified` requires an

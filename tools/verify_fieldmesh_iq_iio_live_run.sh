@@ -181,6 +181,26 @@ fi
 
 if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --live-plan "$work_dir/iq_iio_live_plan.json" \
+  --out-dir "$work_dir/missing-fixture-evidence" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --execute-live-rf \
+  --allow-hardware-writes \
+  --allow-rf-tx \
+  --fixture-id conducted-fixture-A \
+  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  >/dev/null 2>&1; then
+  echo "live runner accepted --execute-live-rf without fixture evidence" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan.json" \
   --out-dir "$work_dir/too-long-tx" \
   --tx-uri ip:192.168.1.10 \
   --rx-uri ip:192.168.3.1 \

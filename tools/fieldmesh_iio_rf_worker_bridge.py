@@ -132,6 +132,7 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         allow_hardware_writes=args.allow_hardware_writes,
         allow_rf_tx=args.allow_rf_tx,
         fixture_id=args.fixture_id,
+        fixture_evidence=args.fixture_evidence,
         operator_confirmation=args.operator_confirmation,
         max_tx_duration_ms=args.max_tx_duration_ms,
         pretty=False,
@@ -174,6 +175,8 @@ def require_execute_args(args: argparse.Namespace) -> None:
         raise SystemExit(f"--execute-live-rf requires --operator-confirmation {LIVE_RF_CONFIRMATION!r}")
     if not args.fixture_id:
         raise SystemExit("--execute-live-rf requires --fixture-id")
+    if not args.fixture_evidence:
+        raise SystemExit("--execute-live-rf requires --fixture-evidence")
     if not args.tx_uri or not args.rx_uri:
         raise SystemExit("--execute-live-rf requires --tx-uri and --rx-uri")
 
@@ -266,6 +269,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-rf-tx", action="store_true")
     parser.add_argument("--allow-daemon-queue-mutation", action="store_true")
     parser.add_argument("--fixture-id")
+    parser.add_argument("--fixture-evidence", type=Path)
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=1000)
     parser.add_argument("--pretty", action="store_true")

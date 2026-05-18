@@ -892,8 +892,11 @@ below were later superseded by the current PHY-management two-board gates above:
   commands and starts no RF TX. `tools/fieldmesh_rf_tx_enable_run.py` now
   consumes that plan, generates a rollback-protected board script, and only
   invokes an explicit TX backend after the hardware-write, RF-TX, fixture,
-  attenuation, RX-first, and operator-confirmation gates are present. The next
-  live work is implementing the actual board backend for a real
+  attenuation, RX-first, operator-confirmation, and fixture-evidence gates are
+  present. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
+  manifests for attenuation, isolation, legal profile, calibration, and
+  frequency range before live RF. The next live work is implementing the actual
+  board backend for a real
   conducted/shielded fixture and running it with bounded duration plus
   rollback evidence.
   `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,

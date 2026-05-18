@@ -20,6 +20,7 @@ Inputs:
     TX_URI=ip:... RX_URI=ip:...
     FIXTURE_ATTENUATION_DB=...
     FIXTURE_ID=...
+    FIXTURE_EVIDENCE=/path/to/fixture_evidence.json
     OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE
 
 Required app evidence:
@@ -43,11 +44,12 @@ if [ "$run_iq_live" = "1" ]; then
     rx_uri="${RX_URI:-}"
     fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-}"
     fixture_id="${FIXTURE_ID:-}"
+    fixture_evidence="${FIXTURE_EVIDENCE:-}"
     operator_confirmation="${OPERATOR_CONFIRMATION:-}"
     max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
     if [ -z "$live_plan" ] || [ -z "$tx_uri" ] || [ -z "$rx_uri" ] ||
        [ -z "$fixture_attenuation_db" ] || [ -z "$fixture_id" ] ||
-       [ -z "$operator_confirmation" ]; then
+       [ -z "$fixture_evidence" ] || [ -z "$operator_confirmation" ]; then
         usage
         exit 1
     fi
@@ -65,6 +67,7 @@ if [ "$run_iq_live" = "1" ]; then
         --allow-hardware-writes \
         --allow-rf-tx \
         --fixture-id "$fixture_id" \
+        --fixture-evidence "$fixture_evidence" \
         --operator-confirmation "$operator_confirmation" \
         --max-tx-duration-ms "$max_tx_duration_ms" \
         > "$out_dir/iq_live_run_stdout.json"
