@@ -80,6 +80,32 @@ if "$repo_root/tools/fieldmesh_conducted_rf_evidence_manifest.py" \
   exit 1
 fi
 
+python3 - "$sequence_report" "$work_dir/wrong_label_manifest.json" "$work_dir/wrong_label_sequence.json" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+sequence = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+manifest = json.loads(Path(sequence["evidence_manifest"]).read_text(encoding="utf-8"))
+preflight = next(row for row in manifest["files"] if row["label"] == "preflight")
+for row in manifest["files"]:
+    if row["label"] == "production_gate":
+        row.update(preflight)
+        row["label"] = "production_gate"
+Path(sys.argv[2]).write_text(json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8")
+target = dict(sequence)
+target["evidence_manifest"] = str(Path(sys.argv[2]))
+target["evidence_manifest_sha256"] = hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest()
+Path(sys.argv[3]).write_text(json.dumps(target, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if "$repo_root/tools/fieldmesh_conducted_rf_evidence_manifest.py" \
+  --sequence-report "$work_dir/wrong_label_sequence.json" >/dev/null 2>&1; then
+  echo "evidence manifest verifier accepted wrong event under production_gate label" >&2
+  exit 1
+fi
+
 python3 - "$sequence_report" "$work_dir/nonproduction_manifest.json" <<'PY'
 import json
 import sys

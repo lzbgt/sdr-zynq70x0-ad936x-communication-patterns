@@ -128,7 +128,10 @@ and must still correlate to that same bridge evidence. The wrapper now emits an
 evidence manifest with byte counts and SHA-256 hashes for the preflight,
 bridge, IQ live-run, app reports, and production gate, and the final summary
 hashes that manifest. A standalone archive checker verifies those hashes and
-can require `production_ready=true` without rerunning the RF sequence.
+can require `production_ready=true` without rerunning the RF sequence. It also
+validates the expected report event/feature semantics for each required
+evidence label, so a correctly hashed file cannot be substituted under the
+wrong label.
 Until a real live bridge report and all three app feature reports pass that
 wrapper, the daemon readiness fields must remain `production_ready=0`. Those
 app feature reports must reference the same bridge and IQ live-run evidence so

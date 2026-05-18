@@ -111,6 +111,7 @@ def verify_manifest(args: argparse.Namespace) -> dict[str, Any]:
             }
         )
 
+    semantic = validate_semantics(labels, sequence)
     if args.require_production_ready and manifest.get("production_ready") is not True:
         raise SystemExit("manifest is not production_ready=true")
     if sequence and sequence.get("production_ready") != manifest.get("production_ready"):
@@ -125,6 +126,72 @@ def verify_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "expected_production_ready": manifest.get("expected_production_ready") is True,
         "verified_files": len(verified_files),
         "labels": [row["label"] for row in verified_files],
+        "semantic_checks": semantic,
+    }
+
+
+def require_event(data: dict[str, Any], label: str, expected: str) -> None:
+    if data.get("event") != expected:
+        raise SystemExit(f"{label}: expected event {expected}, got {data.get('event')!r}")
+
+
+def manifest_file_path(labels: dict[str, dict[str, Any]], label: str) -> Path:
+    row = labels.get(label)
+    if not isinstance(row, dict):
+        raise SystemExit(f"missing manifest label {label}")
+    value = row.get("path")
+    if not isinstance(value, str) or not value:
+        raise SystemExit(f"{label}: missing path")
+    return Path(value)
+
+
+def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, Any] | None) -> dict[str, Any]:
+    preflight = load_json(manifest_file_path(labels, "preflight"))
+    bridge = load_json(manifest_file_path(labels, "bridge"))
+    iq_live_run = load_json(manifest_file_path(labels, "iq_live_run"))
+    production_gate = load_json(manifest_file_path(labels, "production_gate"))
+
+    require_event(preflight, "preflight", "fieldmesh_conducted_rf_preflight")
+    require_event(bridge, "bridge", "fieldmesh_iio_rf_worker_bridge")
+    require_event(iq_live_run, "iq_live_run", "fieldmesh_iq_iio_live_run")
+    require_event(production_gate, "production_gate", "fieldmesh_real_rf_production_gate")
+
+    bridge_iq = bridge.get("iq_iio_live_run")
+    if isinstance(bridge_iq, str):
+        if str(Path(bridge_iq).resolve(strict=False)) != str(manifest_file_path(labels, "iq_live_run").resolve(strict=False)):
+            raise SystemExit("bridge iq_iio_live_run does not match manifest iq_live_run")
+    if sequence:
+        if str(Path(sequence.get("bridge_report", "")).resolve(strict=False)) != str(manifest_file_path(labels, "bridge").resolve(strict=False)):
+            raise SystemExit("sequence bridge_report does not match manifest bridge")
+        if str(Path(sequence.get("iq_live_run", "")).resolve(strict=False)) != str(manifest_file_path(labels, "iq_live_run").resolve(strict=False)):
+            raise SystemExit("sequence iq_live_run does not match manifest iq_live_run")
+        if str(Path(sequence.get("production_gate", "")).resolve(strict=False)) != str(manifest_file_path(labels, "production_gate").resolve(strict=False)):
+            raise SystemExit("sequence production_gate does not match manifest production_gate")
+
+    app_features: list[str] = []
+    for label, feature in (
+        ("messaging_app_report", "messaging"),
+        ("topology_app_report", "topology"),
+        ("native_ip_app_report", "native_ip"),
+    ):
+        if label not in labels:
+            continue
+        report = load_json(manifest_file_path(labels, label))
+        require_event(report, label, "fieldmesh_app_real_rf_report")
+        if report.get("feature") != feature:
+            raise SystemExit(f"{label}: feature must be {feature}")
+        if report.get("transport") != "real_rf_phy":
+            raise SystemExit(f"{label}: transport must be real_rf_phy")
+        if report.get("rf_phy_tx_rx_verified") is not True or report.get("app_verified_real_rf") is not True:
+            raise SystemExit(f"{label}: report must prove RF PHY and app real-RF verification")
+        app_features.append(feature)
+
+    return {
+        "preflight_event": True,
+        "bridge_event": True,
+        "iq_live_run_event": True,
+        "production_gate_event": True,
+        "app_features": sorted(app_features),
     }
 
 

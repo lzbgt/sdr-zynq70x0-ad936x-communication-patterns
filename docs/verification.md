@@ -3695,7 +3695,7 @@ Result:
 ```json
 {"event": "fieldmesh_conducted_rf_preflight_check", "fixture_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
 {"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_fixture_refused": true, "ok": true}
-{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","topology_app_report"],"ok":true,"production_ready":true,"verified_files":7}
+{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","topology_app_report"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true},"verified_files":7}
 ```
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
@@ -3724,8 +3724,10 @@ production gate. The final sequence summary includes the manifest path and its
 SHA-256 so a production-readiness claim can be audited without relying on
 mutable path names alone. `tools/fieldmesh_conducted_rf_evidence_manifest.py`
 is the standalone archive checker; it verifies the summary hash and every file
-entry, and can require `production_ready=true` without rerunning the RF
-sequence.
+entry, validates each required label has the expected report event and feature
+semantics, and can require `production_ready=true` without rerunning the RF
+sequence. The verifier rejects both byte/hash tampering and a valid file placed
+under the wrong evidence label.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

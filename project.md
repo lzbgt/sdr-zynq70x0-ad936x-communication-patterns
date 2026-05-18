@@ -699,14 +699,15 @@ user and vendor configuration.
   every required production input report.
 - `tools/fieldmesh_conducted_rf_evidence_manifest.py` - standalone verifier
   for archived conducted-RF evidence bundles. It checks the sequence summary
-  hash, verifies every manifest file byte count and SHA-256, can require
-  `production_ready=true`, and rejects tampered manifests without rerunning the
-  RF sequence.
+  hash, verifies every manifest file byte count and SHA-256, validates each
+  required label has the expected report event/feature/cross-reference, can
+  require `production_ready=true`, and rejects tampered manifests without
+  rerunning the RF sequence.
 - `tools/verify_fieldmesh_conducted_rf_evidence_manifest.sh` - verifier for
   archived evidence bundle validation. It proves the manifest checker accepts
   the complete synthetic production bundle and rejects tampered summary hashes,
-  tampered file hashes, and non-production manifests when production readiness
-  is required.
+  tampered file hashes, wrong-event files under required labels, and
+  non-production manifests when production readiness is required.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP
