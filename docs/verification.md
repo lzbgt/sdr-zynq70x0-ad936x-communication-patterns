@@ -3156,6 +3156,14 @@ This keeps normal app startup free of test-derived metrics while the remaining
 RF work wires continuous over-air BLR declare/listen, message receive delivery,
 and measured positioning into the daemon registries.
 
+`tools/verify_fieldmesh_gnss_nmea_reporter.sh` builds
+`fieldmesh-gnss-nmea-reporter`, feeds one invalid no-fix GGA sentence followed
+by one valid GNSS/BDS-style GGA fix, and verifies the reporter emits exactly one
+`FIELDMESH_RTLS_REPORT` for the local EUI. The report carries
+`gps_lock=1`, optional `pps_lock`, parsed `gps_lat_e7`/`gps_lon_e7`, and
+`turnaround_calibrated=0`; the reporter is therefore a real local GNSS
+ingestion bridge, not an RF timing simulator.
+
 The same gate now also verifies command-preset generation:
 
 ```sh
@@ -4521,6 +4529,11 @@ and UDP client/server transfers of 30 bytes each; the 2026-05-18 run moved
 sixteen Z203-to-Z103 frames and twelve Z103-to-Z203 frames while both board
 daemons used the RF worker lifecycle. The socket client/server do not link to
 the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
+`tools/run_fieldmesh_two_board_native_ip_iperf.sh` is the iperf acceptance gate
+for the transparent TCP/IP MAC-link feature. By default it refuses to certify
+unless both installed daemons report real RF PHY TX/RX verification. With
+`ALLOW_DAEMON_RF_BRIDGE=1`, it can run a non-production diagnostic through the
+daemon RF-worker bridge and record TCP/UDP `iperf3` metrics.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

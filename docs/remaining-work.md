@@ -111,6 +111,11 @@ after the refreshed installed daemons were redeployed. The remaining
 implementation work is to connect those driver queues to real RF packet
 ingress/egress, then prove ICMP/TCP/UDP over the RF path with measured
 throughput, RTT, retransmits, queue age, and route-failover behavior.
+The native-IP production acceptance test must include `iperf3` board-to-board
+throughput over the real over-air RF path. A host-PC transparent test is a
+separate gate: it must run host-originated iperf traffic through a real
+host-to-board route or host-side driver and then over board-to-board RF, not
+through SSH-launched board commands or daemon bridge forwarding.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level
@@ -444,8 +449,10 @@ Current concrete work:
   after live GNSS/BDS+GPS/PPS, TOF, or sidecar packet-timing TDOA measurements
   feed the daemon peer registry with measured evidence.
   `FIELDMESH_RTLS_REPORT` is now the daemon-side ingestion contract for that
-  feed; the remaining production work is wiring it to real GNSS/NMEA/PPS and RF
-  timestamp producers instead of a test harness.
+  feed. Board images include the optional `fieldmesh-gnss-nmea-reporter` NMEA
+  bridge, started only when a real GNSS device path is configured in persistent
+  storage. The remaining production work is exposing the actual board GNSS UART
+  and wiring RF timestamp producers instead of a test harness.
 - Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board

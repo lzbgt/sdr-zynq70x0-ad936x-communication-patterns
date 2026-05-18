@@ -191,8 +191,10 @@ Minimum production gates for native TCP/IP:
 - host route to a remote mesh peer works through the local board once the RF
   worker queues are connected to the actual PHY;
 - `ping`/ICMP succeeds through the radio path after `rf_phy_tx_rx` is wired;
-- TCP `iperf3` or an equivalent socket test passes with measured throughput,
-  RTT, retransmits, and drop counters;
+- TCP/UDP `iperf3` passes with measured throughput, RTT/loss where available,
+  and the report identifies `transport=real_rf_phy` with
+  `rf_phy_tx_rx_verified=true`. A daemon RF-worker bridge iperf result is useful
+  for kernel/socket diagnostics, but does not count as production RF evidence;
 - UDP video traffic and TCP bulk traffic together preserve C0/C1 latency;
 - AP relay and graph relay preserve TCP sessions across route changes within
   the specified disruption budget;

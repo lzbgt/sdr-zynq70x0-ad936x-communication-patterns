@@ -1,13 +1,18 @@
 #!/bin/sh
 
 DAEMON=/usr/bin/fieldmesh-state-daemon-demo
+GNSS_REPORTER=/usr/bin/fieldmesh-gnss-nmea-reporter
 PIDFILE=/var/run/fieldmesh-state-daemon.pid
+GNSS_PIDFILE=/var/run/fieldmesh-gnss-nmea-reporter.pid
 LOGFILE=/tmp/fieldmesh-state-daemon.ndjson
+GNSS_LOGFILE=/tmp/fieldmesh-gnss-nmea-reporter.ndjson
 LOG_MAX_BYTES=262144
 LOG_BACKUPS=2
 PORT=55441
 REQUESTS=0
 TIMEOUT_MS=5000
+GNSS_BAUD=9600
+GNSS_PPS_LOCK=0
 
 read_fwenv() {
     key="$1"
@@ -39,6 +44,56 @@ read_device_eui() {
     esac
     read_identity_file /etc/fieldmesh/device_eui && return 0
     return 1
+}
+
+read_first_line_file() {
+    path="$1"
+    [ -f "$path" ] || return 1
+    sed -n '1p' "$path" 2>/dev/null | tr -d '\r\n\t '
+}
+
+read_gnss_device() {
+    [ -n "${FIELDMESH_GNSS_NMEA_DEVICE:-}" ] && {
+        printf '%s\n' "$FIELDMESH_GNSS_NMEA_DEVICE"
+        return 0
+    }
+    read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_device && return 0
+    read_first_line_file /etc/fieldmesh/gnss_nmea_device && return 0
+    return 1
+}
+
+read_gnss_baud() {
+    value="$(read_first_line_file /mnt/jffs2/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
+    [ -n "$value" ] || value="$(read_first_line_file /etc/fieldmesh/gnss_nmea_baud 2>/dev/null || true)"
+    case "$value" in
+        4800|9600|19200|38400|57600|115200)
+            printf '%s\n' "$value"
+            return 0
+            ;;
+    esac
+    printf '%s\n' "$GNSS_BAUD"
+}
+
+start_gnss_reporter() {
+    device="$1"
+    eui="$2"
+    [ -x "$GNSS_REPORTER" ] || return 0
+    [ -n "$device" ] || return 0
+    [ -e "$device" ] || return 0
+    case "$eui" in
+        ????????????)
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+    if [ -f "$GNSS_PIDFILE" ] && kill -0 "$(cat "$GNSS_PIDFILE")" 2>/dev/null; then
+        return 0
+    fi
+    baud="$(read_gnss_baud)"
+    nohup "$GNSS_REPORTER" "$device" 127.0.0.1 "$PORT" "$eui" "$baud" 0 "$GNSS_PPS_LOCK" \
+        >> "$GNSS_LOGFILE" 2>&1 &
+    echo "$!" > "$GNSS_PIDFILE"
 }
 
 rotate_log_if_needed() {
@@ -91,12 +146,18 @@ case "$1" in
         mkdir -p /var/run
         nohup "$0" run > /dev/null 2>&1 &
         echo "$!" > "$PIDFILE"
+        gnss_device="$(read_gnss_device || true)"
+        start_gnss_reporter "$gnss_device" "$env_eui"
         ;;
     run)
         [ -x "$DAEMON" ] || exit 0
         run_with_rotating_log
         ;;
     stop)
+        if [ -f "$GNSS_PIDFILE" ]; then
+            kill "$(cat "$GNSS_PIDFILE")" 2>/dev/null || true
+            rm -f "$GNSS_PIDFILE"
+        fi
         if [ -f "$PIDFILE" ]; then
             kill "$(cat "$PIDFILE")" 2>/dev/null || true
             rm -f "$PIDFILE"

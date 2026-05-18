@@ -182,6 +182,13 @@ measurements remain useful for app, SDK, daemon, and topology rendering tests
 without pretending that board movement is already being sampled from live
 hardware.
 
+Board images now include `fieldmesh-gnss-nmea-reporter`, a disabled-by-default
+local NMEA ingestion bridge. When a real GNSS UART or file is configured through
+`/mnt/jffs2/fieldmesh/gnss_nmea_device` or `/etc/fieldmesh/gnss_nmea_device`,
+the init script starts the reporter, parses valid GGA/RMC fixes, and reports
+the local EUI to the daemon with `gps_lock=1` and `turnaround_calibrated=0`.
+It does not invent RF timing evidence or start RF TX.
+
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The
 required feed is one or more of:

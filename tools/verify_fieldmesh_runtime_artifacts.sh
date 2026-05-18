@@ -97,13 +97,14 @@ verify_variant() {
     tun_packetizer_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
     mac_frame_strings_out="$(mktemp)"
+    gnss_reporter_strings_out="$(mktemp)"
     rf_safe_tune_out="$(mktemp)"
     rf_tx_enable_out="$(mktemp)"
     rf_tx_disable_out="$(mktemp)"
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
     fit_info_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$mac_frame_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$fit_info_out"' RETURN
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$mac_frame_strings_out" "$gnss_reporter_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$fit_info_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
@@ -115,11 +116,16 @@ verify_variant() {
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-mac-frame-demo | strings > "$mac_frame_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-gnss-nmea-reporter | strings > "$gnss_reporter_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-safe-tune | strings > "$rf_safe_tune_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-enable | strings > "$rf_tx_enable_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-disable | strings > "$rf_tx_disable_out"
     tar -xOf "$rootfs_tar" ./usr/libexec/fieldmesh/fieldmesh-radio-common.sh | strings > "$rf_common_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-ctrl-write | strings > "$rf_ctrl_write_out"
+    if ! tar -tf "$rootfs_tar" | awk '$0 == "./usr/bin/iperf3" { found = 1 } END { exit found ? 0 : 1 }'; then
+        echo "Missing iperf3 in $name rootfs" >&2
+        exit 1
+    fi
 
     for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke rf-guard-scan rf-guard-apply rf-source-apply iio-scan iio-plan pl-replay; do
         if ! grep -qxF "$token" "$strings_out"; then
@@ -356,9 +362,21 @@ PY
         fi
     done
     for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" \
-            REQUESTS=0 fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed; do
+            REQUESTS=0 fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed \
+            fieldmesh-gnss-nmea-reporter gnss_nmea_device; do
         if ! grep -qF "$token" "$daemon_init_out"; then
             echo "Missing FieldMesh daemon init token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        fieldmesh_gnss_nmea_report \
+        FIELDMESH_RTLS_REPORT \
+        gps_lat_e7 \
+        gps_lon_e7 \
+        turnaround_calibrated=0; do
+        if ! grep -qF "$token" "$gnss_reporter_strings_out"; then
+            echo "Missing fieldmesh-gnss-nmea-reporter token in $name rootfs: $token" >&2
             exit 1
         fi
     done

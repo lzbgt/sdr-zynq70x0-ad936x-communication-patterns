@@ -770,6 +770,11 @@ user and vendor configuration.
   UDP echo processes that use ordinary Linux sockets on `swarm0`, and verifies
   both protocols over the same daemon RF-worker bridge with no FieldMesh SDK
   calls in the socket app.
+- `tools/run_fieldmesh_two_board_native_ip_iperf.sh` - iperf acceptance gate for
+  the transparent TCP/IP MAC-link feature. The default path refuses production
+  certification until both installed daemons report real RF PHY TX/RX. With
+  `ALLOW_DAEMON_RF_BRIDGE=1`, it records a labeled non-production iperf
+  diagnostic through the daemon RF-worker bridge.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
@@ -990,6 +995,10 @@ user and vendor configuration.
   topology range is allowed from compatible local+peer GNSS/BDS/GPS fixes, while
   TOF/TDOA-derived range stays pending until the daemon marks the position with
   `rf_phy_tx_rx_verified=true`.
+- `tools/verify_fieldmesh_gnss_nmea_reporter.sh` - host gate for the optional
+  board-packaged `fieldmesh-gnss-nmea-reporter`. It parses real NMEA GGA/RMC
+  fixes and emits `FIELDMESH_RTLS_REPORT` for the local EUI without inventing RF
+  timing calibration.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

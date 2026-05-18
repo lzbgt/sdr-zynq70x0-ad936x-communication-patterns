@@ -8,6 +8,7 @@ IMAGE_FEATURES += "ssh-server-dropbear"
 IMAGE_INSTALL:append = " \
     ethtool \
     i2c-tools \
+    iperf3 \
     iproute2 \
     libiio \
     libiio-iiod \

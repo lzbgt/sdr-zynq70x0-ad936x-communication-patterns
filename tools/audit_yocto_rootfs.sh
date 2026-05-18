@@ -45,9 +45,11 @@ required_paths=(
     /usr/sbin/pluto_reboot
     /usr/sbin/iiod
     /usr/bin/iio_info
+    /usr/bin/iperf3
     /usr/bin/fieldmesh-camera-stream-demo
     /usr/bin/fieldmesh-device-iio-demo
     /usr/bin/fieldmesh-mac-frame-demo
+    /usr/bin/fieldmesh-gnss-nmea-reporter
     /usr/bin/fieldmesh-native-ip-socket-demo
     /usr/bin/fieldmeshctl
     /usr/bin/fieldmesh-state-daemon-demo
@@ -132,8 +134,12 @@ check_contains /etc/init.d/S55fieldmesh-state-daemon '55441'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'REQUESTS=0'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'LOG_MAX_BYTES'
 check_contains /etc/init.d/S55fieldmesh-state-daemon 'rotate_log_if_needed'
+check_contains /etc/init.d/S55fieldmesh-state-daemon 'fieldmesh-gnss-nmea-reporter'
+check_contains /etc/init.d/S55fieldmesh-state-daemon 'gnss_nmea_device'
 check_contains /usr/bin/fieldmesh-mac-frame-demo 'sdk_mac_frame'
 check_contains /usr/bin/fieldmesh-mac-frame-demo 'BLR'
+check_contains /usr/bin/fieldmesh-gnss-nmea-reporter 'fieldmesh_gnss_nmea_report'
+check_contains /usr/bin/fieldmesh-gnss-nmea-reporter 'FIELDMESH_RTLS_REPORT'
 check_contains /usr/bin/fieldmesh-native-ip-socket-demo 'uses_normal_tcp_udp_sockets'
 check_contains /usr/bin/fieldmesh-state-daemon-demo 'mac_magic'
 check_contains /usr/bin/fieldmesh-state-daemon-demo 'uses_json_on_air'

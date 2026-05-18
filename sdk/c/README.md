@@ -223,7 +223,8 @@ camera stream contract, `/usr/bin/fieldmesh-swarm-adapter-demo` for the first
 for the first routed TUN gateway plan, `/usr/bin/fieldmesh-tun-packetizer-demo`
 for TUN IP packet classification into FieldMesh classes,
 `/usr/bin/fieldmesh-native-ip-socket-demo` for transparent TCP/UDP socket
-proofs above `swarm0`,
+proofs above `swarm0`, `/usr/bin/fieldmesh-gnss-nmea-reporter` for optional
+local GNSS/BDS/GPS NMEA ingestion into `FIELDMESH_RTLS_REPORT`,
 `/usr/bin/fieldmesh-two-pc-flow-demo` for the first board-attached AP
 browse/election/audit-join/scheduled-stream smoke, and `/usr/bin/fieldmeshctl`
 for split-subnet profile validation before persistent network writes are

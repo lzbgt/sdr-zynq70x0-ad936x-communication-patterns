@@ -10,6 +10,7 @@ mkdir -p "$out_dir"
 "$repo_root/tools/verify_fieldmesh_imgui_windows_build_contract.sh"
 "$repo_root/tools/verify_fieldmesh_app_build.sh"
 "$repo_root/tools/verify_fieldmesh_state_daemon_forever.sh"
+"$repo_root/tools/verify_fieldmesh_gnss_nmea_reporter.sh"
 
 cc="${CC:-cc}"
 sdk_object="$out_dir/fieldmesh_sdk.o"
@@ -28,7 +29,7 @@ for source in "$repo_root"/sdk/c/examples/*.c; do
         -c -o "$object"
     "$cc" "$object" "$sdk_object" -o "$binary"
     case "$name" in
-        fieldmesh_state_daemon_demo|fieldmesh_two_pc_flow_demo|fieldmesh_udp_discovery_demo)
+        fieldmesh_state_daemon_demo|fieldmesh_two_pc_flow_demo|fieldmesh_udp_discovery_demo|fieldmesh_gnss_nmea_reporter)
             : >"$out_dir/$name.ndjson"
             : >"$out_dir/$name.stderr"
             ;;
