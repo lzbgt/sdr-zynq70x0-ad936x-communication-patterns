@@ -604,10 +604,17 @@ user and vendor configuration.
   containment-test option. The over-air path check requires RF path identity,
   legal frequency profile, site authorization, controlled-area evidence,
   bounded TX policy, and frequency range.
+- `tools/fieldmesh_rf_path_evidence_author.py` - authors an authorized over-air
+  RF path evidence JSON from explicit operator/site inputs, requires exact
+  `I_HAVE_OPERATOR_SITE_AUTHORIZATION` confirmation, then revalidates the
+  output against the same production RF-path rules used by live RF gates.
 - `tools/verify_fieldmesh_rf_fixture_evidence.sh` - verifier for RF path
   evidence. It accepts authorized over-air path evidence, keeps legacy lab
   lab fixture evidence compatible, and rejects expired or under-specified RF-path
   manifests.
+- `tools/verify_fieldmesh_rf_path_evidence_author.sh` - verifier for the
+  operator/site RF path evidence author, including rejection of incorrect
+  operator confirmation and invalid frequency ranges.
 - `tools/classify_fieldmesh_rf_phy_readiness.py` - no-write RF PHY readiness
   classifier. It refuses to treat dry-run, review-only, or infrastructure-only
   evidence as production RF readiness. `rf_phy_tx_rx_verified` requires an

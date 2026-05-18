@@ -3657,6 +3657,33 @@ frequency profile, and cover the requested frequency. Legacy lab-containment
 evidence must instead prove TX/RX isolation, measured attenuation at or above
 the requested attenuation, and a current calibration date.
 
+Authorized over-air evidence can be authored reproducibly from explicit
+operator/site inputs:
+
+```sh
+./tools/fieldmesh_rf_path_evidence_author.py \
+  --rf-path-id authorized-open-air-A \
+  --site-id legal-range-A \
+  --legal-frequency-profile-id range-2g4-low-power \
+  --frequency-hz-min 2300000000 \
+  --frequency-hz-max 2500000000 \
+  --authorized-until 2099-12-31 \
+  --evidence-origin operator_site_survey \
+  --tx-power-limit-dbm 0 \
+  --operator-confirmation I_HAVE_OPERATOR_SITE_AUTHORIZATION \
+  --output /tmp/fieldmesh_rf_path_evidence.json
+```
+
+The author refuses to emit evidence without the exact operator confirmation,
+a supported evidence origin, a non-expired authorization date, a valid frequency
+range, and either TX-power or EIRP limit. It then validates the generated JSON
+with the same production-evidence rules used by live RF execution. The verifier
+is:
+
+```sh
+./tools/verify_fieldmesh_rf_path_evidence_author.sh
+```
+
 ## FieldMesh RF PHY Readiness Classifier
 
 RF production readiness now has a no-write evidence classifier:

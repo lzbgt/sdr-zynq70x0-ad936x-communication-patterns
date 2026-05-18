@@ -15,6 +15,7 @@ mkdir -p "$out_dir"
 "$repo_root/tools/verify_fieldmesh_gnss_devicetree_binding.sh"
 "$repo_root/tools/verify_fieldmesh_gnss_uart_emio_overlay.sh"
 "$repo_root/tools/verify_fieldmesh_iio_rf_worker_bridge_loop.sh"
+"$repo_root/tools/verify_fieldmesh_rf_path_evidence_author.sh"
 
 cc="${CC:-cc}"
 sdk_object="$out_dir/fieldmesh_sdk.o"

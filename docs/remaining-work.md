@@ -139,6 +139,9 @@ actual over-air production run. The current
 `PREFLIGHT_ONLY=1` mode checks those inputs and route shape without creating
 network interfaces, starting iperf, opening IIO buffers, mutating daemon
 queues, or transmitting RF. The current
+`tools/fieldmesh_rf_path_evidence_author.py` path can author the required
+operator/site JSON from explicit site authorization inputs, but it still does
+not replace the real-world authorization itself.
 host-PC gate now enforces that distinction: `HOST_PC_CASE=1` first captures the
 host route to the local board and refuses WSL/NAT-style paths, such as a route
 via `172.28.192.1`, because those do not prove that a normal host app can use
