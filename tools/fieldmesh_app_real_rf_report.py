@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""Normalize one FieldMesh app feature report into real-RF readiness evidence."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+
+FEATURES = ("messaging", "topology", "native_ip")
+REAL_RF_RANGE_SOURCES = {
+    "packet_timing_tdoa",
+    "time_sync_tof",
+    "gnss_bds_position",
+    "local_origin_packet_timing_tdoa",
+    "local_origin_time_sync_tof",
+    "local_origin_gnss_bds_position",
+}
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise SystemExit(f"{path}: expected JSON object")
+    return data
+
+
+def require_common(source: dict[str, Any], feature: str) -> None:
+    if source.get("ok") is not True:
+        raise SystemExit(f"{feature}: source report is not ok")
+    if source.get("feature") != feature and source.get("app_feature") != feature:
+        raise SystemExit(f"{feature}: source report does not name the expected feature")
+    if source.get("transport") != "real_rf_phy":
+        raise SystemExit(f"{feature}: source report transport must be real_rf_phy")
+    if source.get("uses_inter_board_ip_routing") not in (False, 0):
+        raise SystemExit(f"{feature}: source report must not use inter-board host IP routing")
+    if source.get("rf_phy_tx_rx_verified") not in (True, 1):
+        raise SystemExit(f"{feature}: source report must prove rf_phy_tx_rx_verified")
+    if source.get("app_verified_real_rf") not in (True, 1):
+        raise SystemExit(f"{feature}: source report must prove app_verified_real_rf")
+
+
+def require_messaging(source: dict[str, Any]) -> dict[str, Any]:
+    delivered = source.get("messages_delivered", source.get("delivered_messages", 0))
+    if not isinstance(delivered, int) or delivered < 1:
+        raise SystemExit("messaging: messages_delivered must be >= 1")
+    if source.get("uses_json_on_air") not in (False, 0):
+        raise SystemExit("messaging: on-air payload must not be JSON")
+    return {"messages_delivered": delivered}
+
+
+def require_topology(source: dict[str, Any]) -> dict[str, Any]:
+    peers = source.get("peers_with_range", source.get("topology_timing_position_peers", 0))
+    if not isinstance(peers, int) or peers < 1:
+        raise SystemExit("topology: peers_with_range must be >= 1")
+    range_source = source.get("range_source")
+    if range_source not in REAL_RF_RANGE_SOURCES:
+        raise SystemExit(f"topology: unsupported real-RF range source {range_source!r}")
+    if source.get("topology_metrics_live") not in (True, 1):
+        raise SystemExit("topology: topology_metrics_live must be true")
+    return {"peers_with_range": peers, "range_source": range_source}
+
+
+def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
+    icmp_ok = source.get("icmp_ping_ok") in (True, 1)
+    tcp_bytes = source.get("tcp_client_bytes", 0)
+    udp_bytes = source.get("udp_client_bytes", 0)
+    tcp_ok = isinstance(tcp_bytes, int) and tcp_bytes > 0
+    udp_ok = isinstance(udp_bytes, int) and udp_bytes > 0
+    if not (icmp_ok or (tcp_ok and udp_ok)):
+        raise SystemExit("native_ip: requires ICMP success or TCP+UDP byte evidence")
+    return {
+        "icmp_ping_ok": icmp_ok,
+        "tcp_client_bytes": tcp_bytes if isinstance(tcp_bytes, int) else 0,
+        "udp_client_bytes": udp_bytes if isinstance(udp_bytes, int) else 0,
+    }
+
+
+def build_report(args: argparse.Namespace) -> dict[str, Any]:
+    source = load_json(args.source_report)
+    require_common(source, args.feature)
+    if args.feature == "messaging":
+        details = require_messaging(source)
+    elif args.feature == "topology":
+        details = require_topology(source)
+    elif args.feature == "native_ip":
+        details = require_native_ip(source)
+    else:
+        raise SystemExit(f"unsupported feature {args.feature}")
+
+    return {
+        "event": "fieldmesh_app_real_rf_report",
+        "ok": True,
+        "feature": args.feature,
+        "transport": "real_rf_phy",
+        "uses_inter_board_ip_routing": False,
+        "rf_phy_tx_rx_verified": True,
+        "app_verified_real_rf": True,
+        "source_report": str(args.source_report),
+        **details,
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--feature", choices=FEATURES, required=True)
+    parser.add_argument("--source-report", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--pretty", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    report = build_report(args)
+    text = json.dumps(
+        report,
+        indent=2 if args.pretty else None,
+        sort_keys=True,
+        separators=None if args.pretty else (",", ":"),
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

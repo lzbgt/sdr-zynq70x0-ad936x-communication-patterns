@@ -616,6 +616,14 @@ user and vendor configuration.
   top-level gate. It proves malformed IQ evidence is rejected, dry-run IQ
   evidence is blocked, IQ-only measured evidence is blocked, and complete named
   app evidence is accepted.
+- `tools/fieldmesh_app_real_rf_report.py` - strict normalizer for app-level
+  real-RF evidence. It emits classifier-compatible reports only from named
+  messaging, topology, or native-IP source reports with `transport=real_rf_phy`,
+  `rf_phy_tx_rx_verified=true`, and no inter-board host-IP payload routing.
+- `tools/verify_fieldmesh_app_real_rf_report.sh` - verifier for the app
+  evidence normalizer. It accepts strict synthetic real-RF feature evidence and
+  rejects current daemon RF-worker bridge or preseeded topology reports as
+  production evidence.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

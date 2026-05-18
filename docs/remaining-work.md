@@ -613,7 +613,9 @@ below were later superseded by the current PHY-management two-board gates above:
   `production_ready=0` until named app messaging, topology, and native-IP
   reports prove payload behavior over real RF. The top-level
   `tools/run_fieldmesh_real_rf_production_gate.sh` wrapper is now the
-  production decision point for those reports.
+  production decision point for those reports. `tools/fieldmesh_app_real_rf_report.py`
+  normalizes named app evidence and refuses current daemon RF-worker bridge or
+  preseeded topology reports as production evidence.
 - Extend the new pure-C camera stream SDK API and C++
   `apps/fieldmesh-control-camera-demo` into a live two-host camera-stream demo
   once the board daemon and RF stream path are connected end to end. The SDK

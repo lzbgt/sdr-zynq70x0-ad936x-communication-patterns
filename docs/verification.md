@@ -3590,6 +3590,23 @@ The wrapper rejects wrong-shaped IQ evidence, blocks dry-run IQ evidence,
 blocks executed IQ-only evidence, and only allows production readiness when the
 IQ report and all named app reports satisfy the classifier.
 
+The app evidence normalizer has its own gate:
+
+```sh
+./tools/verify_fieldmesh_app_real_rf_report.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_app_real_rf_report_check", "ok": true, "production_gate_ready_with_synthetic_measured_rf": true, "reports": 3}
+```
+
+It accepts strict `messaging`, `topology`, and `native_ip` source reports with
+`transport=real_rf_phy`, `rf_phy_tx_rx_verified=true`, and
+`uses_inter_board_ip_routing=false`. It rejects current daemon RF-worker bridge
+reports and preseeded topology/range reports as production evidence.
+
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and

@@ -749,6 +749,9 @@ Use the top-level wrapper for the production decision:
 
 It rejects malformed IQ evidence, blocks IQ-only evidence, and only allows
 `production_ready=true` when all named app reports are present and real-RF.
+`tools/fieldmesh_app_real_rf_report.py` is the normalizer for those app reports;
+it refuses current daemon RF-worker bridge and preseeded topology reports as
+production evidence.
 
 ## Variant Notes
 
