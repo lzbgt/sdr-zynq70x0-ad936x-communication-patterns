@@ -56,6 +56,10 @@ if report.get("ok") is not True:
     raise SystemExit(f"GNSS reporter did not populate RTLS position: {text}")
 if report.get("position_source") != "gps_pps_fused":
     raise SystemExit(f"expected gps_pps_fused, got {report.get('position_source')!r}")
+if report.get("has_gnss_position") not in (1, True):
+    raise SystemExit("RTLS position did not preserve GNSS fix validity")
+if report.get("live_gnss_reporter") not in (1, True):
+    raise SystemExit("RTLS position was not marked as GNSS reporter-backed")
 if report.get("dst_device_eui") != eui:
     raise SystemExit("RTLS position returned wrong EUI")
 print(json.dumps({

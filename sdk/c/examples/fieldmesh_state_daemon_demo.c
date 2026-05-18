@@ -2187,6 +2187,7 @@ static int build_response(fieldmesh_context_t *context,
         unsigned response_delay_us = 0u;
         unsigned rx_timestamp_ns = 0u;
         unsigned measured_age_ms = 0u;
+        char report_origin[64] = {0};
         int gps_lat_e7 = 0;
         int gps_lon_e7 = 0;
         int rssi_dbm = 0;
@@ -2237,6 +2238,11 @@ static int build_response(fieldmesh_context_t *context,
         measurement.turnaround_calibrated = (uint8_t)turnaround_calibrated;
         measurement.gps_lat_e7 = gps_lat_e7;
         measurement.gps_lon_e7 = gps_lon_e7;
+        if (copy_request_field(request, "report_origin=", report_origin,
+                               sizeof(report_origin)) > 0 &&
+            strcmp(report_origin, "gnss_nmea_reporter") == 0) {
+            measurement.live_gnss_reporter = 1u;
+        }
         measurement.rssi_dbm = (int8_t)rssi_dbm;
         measurement.snr_db = (int8_t)snr_db;
         measurement.tdoa_ab_ns = tdoa_ab_ns;
@@ -2269,6 +2275,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"y_cm\":%d,"
                  "\"error_radius_cm\":%u,"
                  "\"confidence\":%u,"
+                 "\"has_gnss_position\":%u,"
+                 "\"live_gnss_reporter\":%u,"
                  "\"measured_age_ms\":%u,"
                  "\"rf_phy_tx_rx_verified\":0,"
                  "\"app_verified_real_rf\":0,"
@@ -2285,7 +2293,46 @@ static int build_response(fieldmesh_context_t *context,
                  estimate.y_cm,
                  estimate.error_radius_cm,
                  estimate.confidence,
+                 (unsigned)estimate.has_gnss_position,
+                 (unsigned)estimate.live_gnss_reporter,
                  estimate.measured_age_ms);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RTLS_CLEAR")) {
+        char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
+        fieldmesh_status_t clear_status;
+
+        if (copy_request_field(request, "dst=", dst_device_eui,
+                               sizeof(dst_device_eui)) <= 0 ||
+            !valid_compact_eui(dst_device_eui)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rtls_clear\","
+                     "\"ok\":false,"
+                     "\"error\":\"missing_or_invalid_dst_eui\"}\n");
+            return 0;
+        }
+        clear_status = fieldmesh_clear_peer_position(context, dst_device_eui);
+        if (clear_status != FIELDMESH_OK &&
+            clear_status != FIELDMESH_ERR_NOT_FOUND) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rtls_clear\","
+                     "\"ok\":false,"
+                     "\"dst_device_eui\":\"%s\","
+                     "\"error\":\"%s\"}\n",
+                     dst_device_eui, fieldmesh_status_string(clear_status));
+            return 0;
+        }
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rtls_clear\","
+                 "\"ok\":true,"
+                 "\"dst_device_eui\":\"%s\","
+                 "\"cleared\":%u,"
+                 "\"writes_hardware\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_inter_board_ip_routing\":0}\n",
+                 dst_device_eui,
+                 clear_status == FIELDMESH_OK ? 1u : 0u);
         return 0;
     }
     if (strstr(request, "FIELDMESH_STATE_PEERS")) {
@@ -2390,6 +2437,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"confidence\":%u,"
                  "\"usable_for_ap_election\":%u,"
                  "\"usable_for_routing\":%u,"
+                 "\"has_gnss_position\":%u,"
+                 "\"live_gnss_reporter\":%u,"
                  "\"measured_age_ms\":%u,"
                  "\"rf_phy_tx_rx_verified\":0,"
                  "\"app_verified_real_rf\":0,"
@@ -2403,6 +2452,8 @@ static int build_response(fieldmesh_context_t *context,
                  estimate.confidence,
                  estimate.usable_for_ap_election,
                  estimate.usable_for_routing,
+                 (unsigned)estimate.has_gnss_position,
+                 (unsigned)estimate.live_gnss_reporter,
                  estimate.measured_age_ms);
         return 0;
     }

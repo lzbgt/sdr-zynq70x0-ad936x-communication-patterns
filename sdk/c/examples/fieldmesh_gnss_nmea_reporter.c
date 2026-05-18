@@ -239,7 +239,8 @@ static int send_rtls_report(const char *host,
                        "FIELDMESH_RTLS_REPORT v1 node=%s gps_lock=1 "
                        "pps_lock=%u turnaround_calibrated=0 "
                        "gps_lat_e7=%d gps_lon_e7=%d "
-                       "rssi_dbm=0 snr_db=0 measured_age_ms=0",
+                       "rssi_dbm=0 snr_db=0 measured_age_ms=0 "
+                       "report_origin=gnss_nmea_reporter",
                        eui, fix->pps_lock ? 1u : 0u,
                        fix->lat_e7, fix->lon_e7);
     if (written <= 0 || (size_t)written >= sizeof(request)) {

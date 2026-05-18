@@ -512,8 +512,12 @@ struct RtlsPositionSample {
     long measured_age_ms = 0;
     std::string source;
     std::string gui_source;
+    bool has_gnss_position = false;
+    bool live_gnss_reporter = false;
     bool rf_phy_tx_rx_verified = false;
 };
+
+constexpr long kRuntimeGnssPositionMaxAgeMs = 15000;
 
 bool query_daemon_rtls_position(const fieldmesh_daemon_client_config_t &config,
                                 const std::string &device_eui,
@@ -546,6 +550,10 @@ bool query_daemon_rtls_position(const fieldmesh_daemon_client_config_t &config,
     }
     (void)json_number_field(response, "measured_age_ms",
                             &sample->measured_age_ms);
+    (void)json_boolish_field(response, "has_gnss_position",
+                             &sample->has_gnss_position);
+    (void)json_boolish_field(response, "live_gnss_reporter",
+                             &sample->live_gnss_reporter);
     (void)json_boolish_field(response, "rf_phy_tx_rx_verified",
                              &sample->rf_phy_tx_rx_verified);
     sample->gui_source = rtls_source_for_gui(sample->source);
@@ -555,7 +563,10 @@ bool query_daemon_rtls_position(const fieldmesh_daemon_client_config_t &config,
 bool rtls_sample_allowed_for_runtime_range(const RtlsPositionSample &sample)
 {
     if (rtls_source_is_gnss_absolute(sample.gui_source)) {
-        return true;
+        return sample.has_gnss_position &&
+               sample.live_gnss_reporter &&
+               sample.measured_age_ms >= 0 &&
+               sample.measured_age_ms <= kRuntimeGnssPositionMaxAgeMs;
     }
     if (rtls_source_is_rf_timing(sample.gui_source)) {
         return sample.rf_phy_tx_rx_verified;
@@ -1015,7 +1026,8 @@ bool poll_message_bus(GuiState *state)
         if (!state->selected_board_eui.empty() &&
             query_daemon_rtls_position(config, state->selected_board_eui,
                                        &local_anchor) &&
-            rtls_source_is_gnss_absolute(local_anchor.gui_source)) {
+            rtls_source_is_gnss_absolute(local_anchor.gui_source) &&
+            rtls_sample_allowed_for_runtime_range(local_anchor)) {
             local_gnss_anchor_valid = true;
         }
 

@@ -353,6 +353,9 @@ PY
         sdk_daemon_tun_apply \
         sdk_daemon_tun_apply_rejected \
         sdk_daemon_iio_bridge_plan \
+        sdk_daemon_rtls_clear \
+        has_gnss_position \
+        live_gnss_reporter \
         selection_mode \
         user_explicit \
         auto_election \
@@ -382,7 +385,8 @@ PY
         '"ok":true' \
         gps_lat_e7 \
         gps_lon_e7 \
-        turnaround_calibrated=0; do
+        turnaround_calibrated=0 \
+        report_origin=gnss_nmea_reporter; do
         if ! grep -qF "$token" "$gnss_reporter_strings_out"; then
             echo "Missing fieldmesh-gnss-nmea-reporter token in $name rootfs: $token" >&2
             exit 1

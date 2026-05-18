@@ -181,8 +181,11 @@ reports the configured device and running reporter from SD-resident config.
 port at `38400` baud, and the Z203 SD boot config now persists that baud. The
 captured receiver state is still no-fix (`GNGGA` quality `0` / `GNRMC` status
 `V`), so `REQUIRE_GNSS_FIX=1` correctly remains blocked at
-`gnss_receiver_no_fix`. The remaining GNSS work is receiver
-antenna/sky-view/fix validation and PPS exposure, not UART exposure; an indoor
+`gnss_receiver_no_fix`. Normal app startup now requires fresh daemon GNSS
+positions with `has_gnss_position=true` and `live_gnss_reporter=true`, and the
+synthetic GNSS topology gate clears injected RTLS positions after use. The
+remaining GNSS work is receiver antenna/sky-view/fix validation and PPS
+exposure, not UART exposure; an indoor
 bench location is a plausible cause for the current no-satellite/no-fix NMEA.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker

@@ -15,6 +15,48 @@ candidates="${FIELDMESH_DISCOVERY_CANDIDATES:-$z203_ip:$z203_port,$z103_ip:$z103
 
 mkdir -p "$out_dir"
 
+clear_rtls_positions() {
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" \
+        "$z203_eui" "$z103_eui" "$out_dir/gnss_rtls_clear.ndjson" <<'PY' || true
+import json
+import socket
+import sys
+from pathlib import Path
+
+z203_ip, z203_port = sys.argv[1], int(sys.argv[2])
+z103_ip, z103_port = sys.argv[3], int(sys.argv[4])
+z203_eui, z103_eui = sys.argv[5], sys.argv[6]
+output = Path(sys.argv[7])
+daemons = [("z203", z203_ip, z203_port), ("z103", z103_ip, z103_port)]
+nodes = [z203_eui, z103_eui]
+
+
+def request(host: str, port: int, text: str) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(0.5)
+    try:
+        sock.sendto((text + "\n").encode("ascii"), (host, port))
+        payload, _addr = sock.recvfrom(4096)
+        return json.loads(payload.decode("utf-8", errors="strict"))
+    except Exception as exc:  # noqa: BLE001 - cleanup must be best effort.
+        return {"ok": False, "error": str(exc)}
+    finally:
+        sock.close()
+
+
+with output.open("a", encoding="utf-8") as out:
+    for daemon_label, host, port in daemons:
+        for eui in nodes:
+            report = request(host, port, f"FIELDMESH_RTLS_CLEAR v1 dst={eui}")
+            report["daemon_label"] = daemon_label
+            report["cleanup_eui"] = eui
+            out.write(json.dumps(report, sort_keys=True) + "\n")
+PY
+}
+
+clear_rtls_positions
+trap clear_rtls_positions EXIT
+
 make -C "$app_dir" BUILD_DIR="$build_dir" all >/dev/null
 cc -std=c99 -Wall -Wextra -Werror \
     -I"$repo_root/sdk/c/include" \
@@ -87,7 +129,7 @@ with output.open("w", encoding="utf-8") as out:
                 f"node={eui} gps_lock=1 pps_lock=1 "
                 "turnaround_calibrated=0 measured_age_ms=35 "
                 f"gps_lat_e7={fix['lat_e7']} gps_lon_e7={fix['lon_e7']} "
-                "rssi_dbm=-58 snr_db=24"
+                "rssi_dbm=-58 snr_db=24 report_origin=gnss_nmea_reporter"
             )
             report = request(host, port, line)
             report["daemon_label"] = daemon_label

@@ -123,6 +123,8 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                     "confidence": position["confidence"],
                     "usable_for_ap_election": 1,
                     "usable_for_routing": 1,
+                    "has_gnss_position": 1,
+                    "live_gnss_reporter": 1,
                     "measured_age_ms": 60,
                     "radio_topology_only": 1,
                     "host_eth_topology": 0,

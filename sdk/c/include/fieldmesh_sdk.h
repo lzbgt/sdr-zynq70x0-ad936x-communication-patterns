@@ -422,6 +422,7 @@ typedef struct fieldmesh_rtls_measurement {
     uint8_t gps_lock;
     uint8_t pps_lock;
     uint8_t turnaround_calibrated;
+    uint8_t live_gnss_reporter;
     int32_t gps_lat_e7;
     int32_t gps_lon_e7;
     int8_t rssi_dbm;
@@ -442,8 +443,11 @@ typedef struct fieldmesh_position_estimate {
     uint8_t confidence;
     uint8_t usable_for_ap_election;
     uint8_t usable_for_routing;
+    uint8_t has_gnss_position;
+    uint8_t live_gnss_reporter;
     uint16_t estimated_geo_centrality;
     uint32_t measured_age_ms;
+    uint32_t observed_monotonic_ms;
 } fieldmesh_position_estimate_t;
 
 typedef struct fieldmesh_stream_config {
@@ -938,6 +942,8 @@ fieldmesh_status_t fieldmesh_report_rtls_measurement(fieldmesh_context_t *contex
 fieldmesh_status_t fieldmesh_get_peer_position(fieldmesh_context_t *context,
                                                const char *node_id,
                                                fieldmesh_position_estimate_t *out_estimate);
+fieldmesh_status_t fieldmesh_clear_peer_position(fieldmesh_context_t *context,
+                                                 const char *node_id);
 fieldmesh_status_t fieldmesh_list_peer_positions(fieldmesh_context_t *context,
                                                  fieldmesh_position_callback_t callback,
                                                  void *user);

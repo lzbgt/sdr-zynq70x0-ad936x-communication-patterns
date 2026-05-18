@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 #ifdef _WIN32
 typedef SOCKET fieldmesh_sdk_socket_t;
@@ -36,6 +37,33 @@ typedef socklen_t fieldmesh_sdk_socklen_t;
 
 #define FIELDMESH_LAB_EUI_A "020000000203"
 #define FIELDMESH_LAB_EUI_B "020000000103"
+
+static uint32_t fieldmesh_sdk_now_ms(void)
+{
+    time_t now = time(NULL);
+
+    if (now <= (time_t)0) {
+        return 0u;
+    }
+    return (uint32_t)((uint64_t)now * 1000u);
+}
+
+static uint32_t fieldmesh_age_with_elapsed(uint32_t measured_age_ms,
+                                           uint32_t observed_monotonic_ms)
+{
+    uint32_t now;
+    uint32_t elapsed;
+
+    if (observed_monotonic_ms == 0u) {
+        return measured_age_ms;
+    }
+    now = fieldmesh_sdk_now_ms();
+    elapsed = now - observed_monotonic_ms;
+    if (UINT32_MAX - measured_age_ms < elapsed) {
+        return UINT32_MAX;
+    }
+    return measured_age_ms + elapsed;
+}
 
 struct fieldmesh_context {
     fieldmesh_config_t config;
@@ -993,6 +1021,8 @@ static fieldmesh_position_estimate_t estimate_position(
 
     if (measurement->gps_lock) {
         estimate.source = FIELDMESH_POSITION_GPS_PPS_FUSED;
+        estimate.has_gnss_position = 1u;
+        estimate.live_gnss_reporter = measurement->live_gnss_reporter ? 1u : 0u;
         estimate.x_cm = (measurement->gps_lon_e7 % 100000) * 11;
         estimate.y_cm = (measurement->gps_lat_e7 % 100000) * 11;
         estimate.error_radius_cm =
@@ -1021,6 +1051,7 @@ static fieldmesh_position_estimate_t estimate_position(
         estimate.confidence = clamp_u8(20u + rssi_score / 3u, 55u);
         estimate.estimated_geo_centrality = (uint16_t)clamp_u8(30u + rssi_score / 4u, 60u);
     }
+    estimate.observed_monotonic_ms = fieldmesh_sdk_now_ms();
 
     if (measurement->measured_age_ms > 3000u && estimate.confidence > 20u) {
         estimate.confidence = (uint8_t)(estimate.confidence - 20u);
@@ -1823,6 +1854,32 @@ fieldmesh_status_t fieldmesh_get_peer_position(fieldmesh_context_t *context,
     for (i = 0; i < context->position_count; ++i) {
         if (strcmp(context->positions[i].node_id, node_id) == 0) {
             *out_estimate = context->positions[i];
+            out_estimate->measured_age_ms =
+                fieldmesh_age_with_elapsed(out_estimate->measured_age_ms,
+                                           out_estimate->observed_monotonic_ms);
+            return FIELDMESH_OK;
+        }
+    }
+    return FIELDMESH_ERR_NOT_FOUND;
+}
+
+fieldmesh_status_t fieldmesh_clear_peer_position(fieldmesh_context_t *context,
+                                                 const char *node_id)
+{
+    size_t i;
+
+    if (!context || !node_id || !valid_device_eui(node_id)) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+    for (i = 0; i < context->position_count; ++i) {
+        if (strcmp(context->positions[i].node_id, node_id) == 0) {
+            if (i + 1u < context->position_count) {
+                memmove(&context->positions[i],
+                        &context->positions[i + 1u],
+                        (context->position_count - i - 1u) *
+                            sizeof(context->positions[0]));
+            }
+            context->position_count--;
             return FIELDMESH_OK;
         }
     }

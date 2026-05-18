@@ -1017,12 +1017,15 @@ user and vendor configuration.
   GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon
   instances, then verifies the headless ImGui app computes a `22.0 m`
   selected-board range with `daemon_gnss_bds_position` provenance and no
-  unverified timing/TDOA leakage.
+  unverified timing/TDOA leakage. The gate now clears those injected RTLS
+  positions on exit, and normal app startup only accepts GNSS ranges from
+  fresh `live_gnss_reporter` daemon samples.
 - `tools/verify_fieldmesh_gnss_nmea_reporter.sh` - host gate for the optional
   board-packaged `fieldmesh-gnss-nmea-reporter`. It parses real NMEA GGA/RMC
   fixes and emits `FIELDMESH_RTLS_REPORT` for the local EUI without inventing RF
   timing calibration. It requires a daemon `ok:true` ACK before reporting
-  success and verifies that no-ACK delivery is rejected.
+  success, marks reports with `report_origin=gnss_nmea_reporter`, and verifies
+  that no-ACK delivery is rejected.
 - `tools/verify_fieldmesh_gnss_service_init.sh` - host gate for the board init
   GNSS service path. It runs `S55fieldmesh-state-daemon` with fake daemon and
   reporter binaries, proves the configured device, baud, PPS lock, max-report

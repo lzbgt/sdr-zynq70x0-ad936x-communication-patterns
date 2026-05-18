@@ -190,7 +190,10 @@ the local EUI to the daemon with `gps_lock=1` and `turnaround_calibrated=0`.
 The reporter requires an `ok:true` daemon ACK for each `FIELDMESH_RTLS_REPORT`
 before it emits a successful local report, and retries a bounded number of
 times to absorb daemon-start races. It does not invent RF timing evidence or
-start RF TX.
+start RF TX. Reporter-origin reports carry `report_origin=gnss_nmea_reporter`;
+daemon `FIELDMESH_RTLS_POSITION` replies expose `has_gnss_position`,
+`live_gnss_reporter`, and the aged `measured_age_ms` so the app can reject
+stale or directly injected GNSS test samples during normal startup.
 
 The init script also accepts persistent or environment configuration for
 `gnss_nmea_baud`, `gnss_pps_lock`, and `gnss_nmea_max_reports`. Production
@@ -203,10 +206,10 @@ events to `/tmp/fieldmesh-gnss-nmea-reporter.ndjson`, including the
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon
-instances, and verifies the headless ImGui app computes a GNSS-derived peer
-range from those daemon positions. This is a GNSS topology-path proof, not
-real-RF timing evidence; unverified TOF/TDOA remains pending until
-`rf_phy_tx_rx_verified=true`.
+instances with reporter-origin provenance, verifies the headless ImGui app
+computes a GNSS-derived peer range from those daemon positions, then clears the
+injected RTLS positions. This is a GNSS topology-path proof, not real-RF timing
+evidence; unverified TOF/TDOA remains pending until `rf_phy_tx_rx_verified=true`.
 
 `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` is the deployed-service
 preflight. It does not inject NMEA. It inspects both installed boards for the

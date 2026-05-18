@@ -209,6 +209,9 @@ def classify(label: str) -> dict:
         rtls.get("ok") is True
         and rtls.get("position_source") == "gps_pps_fused"
         and rtls.get("has_gnss_position") in (1, True)
+        and rtls.get("live_gnss_reporter") in (1, True)
+        and isinstance(rtls.get("measured_age_ms"), int)
+        and rtls.get("measured_age_ms") <= 15000
     )
     if not has_fix:
         if configured_device and facts.get("gnss_nmea_device_exists") == "1" and facts.get("gnss_pid"):
@@ -236,6 +239,8 @@ def classify(label: str) -> dict:
         "serial_devices": [item for item in str(facts.get("serial_devices") or "").split(",") if item],
         "position_source": rtls.get("position_source"),
         "has_gnss_position": rtls.get("has_gnss_position"),
+        "live_gnss_reporter": rtls.get("live_gnss_reporter"),
+        "measured_age_ms": rtls.get("measured_age_ms"),
         "daemon_gnss_position_present": daemon_gnss_position_present,
         "gnss_position_backed_by_live_init_service": service_backed,
         "gnss_live_ready": not blockers,

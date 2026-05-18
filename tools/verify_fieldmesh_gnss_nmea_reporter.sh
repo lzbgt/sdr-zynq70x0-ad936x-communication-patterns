@@ -47,6 +47,8 @@ if fields.get("gps_lock") != "1" or fields.get("pps_lock") != "1":
     raise SystemExit("reporter did not preserve GNSS/PPS lock")
 if fields.get("turnaround_calibrated") != "0":
     raise SystemExit("GNSS reporter must not invent RF timing calibration")
+if fields.get("report_origin") != "gnss_nmea_reporter":
+    raise SystemExit("GNSS reporter did not identify the live reporter origin")
 if not (377020560 <= lat <= 377020575):
     raise SystemExit(f"unexpected latitude e7 {lat}")
 if not (-1220905360 <= lon <= -1220905340):

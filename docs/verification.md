@@ -3201,10 +3201,11 @@ and measured positioning into the daemon registries.
 by one valid GNSS/BDS-style GGA fix, and verifies the reporter emits exactly one
 `FIELDMESH_RTLS_REPORT` for the local EUI. The report carries
 `gps_lock=1`, optional `pps_lock`, parsed `gps_lat_e7`/`gps_lon_e7`, and
-`turnaround_calibrated=0`. The reporter now requires an `ok:true` daemon ACK
-before it emits a successful report; the verifier also runs a no-ACK negative
-case and rejects success without daemon ingestion. The reporter is therefore a
-real local GNSS ingestion bridge, not an RF timing simulator.
+`turnaround_calibrated=0`, plus `report_origin=gnss_nmea_reporter`. The
+reporter now requires an `ok:true` daemon ACK before it emits a successful
+report; the verifier also runs a no-ACK negative case and rejects success
+without daemon ingestion. The reporter is therefore a real local GNSS ingestion
+bridge, not an RF timing simulator.
 
 `tools/verify_fieldmesh_gnss_service_init.sh` verifies the board init service
 contract without hardware writes. It runs `S55fieldmesh-state-daemon` with fake
@@ -3226,9 +3227,11 @@ missing live GNSS a hard production failure.
 GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects
 explicit GNSS/BDS RTLS reports for both boards into the same installed daemon
 instances that the app discovers, and verifies both selected-board app snapshots
-show a `22.0 m` range with `daemon_gnss_bds_position` provenance. This proves
-the app displays valid GNSS topology when the daemon has real fixes, while
-still rejecting unverified timing/TDOA as user-facing range.
+show a `22.0 m` range with `daemon_gnss_bds_position` provenance. The gate
+clears those injected RTLS positions on exit. Normal app startup requires fresh
+daemon samples carrying both `has_gnss_position=true` and
+`live_gnss_reporter=true`, while still rejecting unverified timing/TDOA as
+user-facing range.
 
 The same gate now also verifies command-preset generation:
 
