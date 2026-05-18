@@ -101,17 +101,21 @@ SH
 
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dir/"'*' "$out_dir/remote/" >/dev/null 2>&1 || true
 
-python3 - "$out_dir" "$require_nmea" "$require_fix" "$board_ip" "$device" <<'PY' | tee "$out_dir/summary.json"
+python3 - "$repo_root" "$out_dir" "$require_nmea" "$require_fix" "$board_ip" "$device" <<'PY' | tee "$out_dir/summary.json"
 import json
 import re
 import sys
 from pathlib import Path
 
-out_dir = Path(sys.argv[1])
-require_nmea = sys.argv[2] == "1"
-require_fix = sys.argv[3] == "1"
-board_ip = sys.argv[4]
-device = sys.argv[5]
+repo_root = Path(sys.argv[1])
+sys.path.insert(0, str(repo_root / "tools"))
+from fieldmesh_gnss_nmea_status import summarize_sentences  # noqa: E402
+
+out_dir = Path(sys.argv[2])
+require_nmea = sys.argv[3] == "1"
+require_fix = sys.argv[4] == "1"
+board_ip = sys.argv[5]
+device = sys.argv[6]
 stdout = (out_dir / "remote_stdout.txt").read_text(encoding="utf-8", errors="replace")
 
 baud_rows: dict[str, dict[str, object]] = {}
@@ -124,47 +128,29 @@ for line in stdout.splitlines():
     if m:
         baud_rows.setdefault(m.group(1), {}).setdefault("sentences", []).append(m.group(2))
 
-def sentence_kind(sentence: str) -> str:
-    head = sentence.split(",", 1)[0]
-    return head[-3:] if len(head) >= 3 else ""
-
-def valid_nmea_checksum(sentence: str) -> bool:
-    if not sentence.startswith("$") or "*" not in sentence:
-        return False
-    body, checksum = sentence[1:].split("*", 1)
-    checksum = checksum[:2]
-    if len(checksum) != 2 or any(ch not in "0123456789abcdefABCDEF" for ch in checksum):
-        return False
-    value = 0
-    for ch in body:
-        value ^= ord(ch)
-    return value == int(checksum, 16)
-
-def has_fix(sentence: str) -> bool:
-    fields = sentence.split("*", 1)[0].split(",")
-    kind = sentence_kind(sentence)
-    if kind == "GGA" and len(fields) > 6:
-        return fields[6] not in ("", "0")
-    if kind == "RMC" and len(fields) > 2:
-        return fields[2] == "A"
-    return False
-
 best_baud = None
 best_count = -1
 fix_baud = None
+best_status: dict[str, object] | None = None
 for baud, row in baud_rows.items():
     raw_sentences = [s for s in row.get("sentences", []) if s.startswith("$")]
-    sentences = [s for s in raw_sentences if valid_nmea_checksum(s)]
+    status = summarize_sentences(raw_sentences)
     row["raw_nmea_sentence_count"] = len(raw_sentences)
-    row["sentences"] = sentences
-    row["nmea_sentence_count"] = len(sentences)
-    row["gnss_fix_valid"] = any(has_fix(s) for s in sentences)
-    kinds = sorted({sentence_kind(s) for s in sentences if sentence_kind(s)})
-    row["sentence_kinds"] = kinds
-    if len(sentences) > best_count:
+    row["sentences"] = raw_sentences if status["nmea_detected"] else []
+    row["nmea_sentence_count"] = int(status["nmea_sentence_count"])
+    row["gnss_fix_valid"] = bool(status["fix_detected"])
+    row["sentence_kinds"] = status["sentence_kinds"]
+    row["latest_gga_quality"] = status["latest_gga_quality"]
+    row["latest_gga_satellites_used"] = status["latest_gga_satellites_used"]
+    row["latest_rmc_status"] = status["latest_rmc_status"]
+    row["latest_gsa_fix_type"] = status["latest_gsa_fix_type"]
+    row["max_gsv_satellites_visible"] = status["max_gsv_satellites_visible"]
+    row["gnss_status_blockers"] = status["blockers"]
+    if int(status["nmea_sentence_count"]) > best_count:
         best_baud = baud
-        best_count = len(sentences)
-    if row["gnss_fix_valid"] and fix_baud is None:
+        best_count = int(status["nmea_sentence_count"])
+        best_status = status
+    if status["fix_detected"] and fix_baud is None:
         fix_baud = baud
 
 nmea_detected = any(int(row.get("nmea_sentence_count", 0)) > 0 for row in baud_rows.values())
@@ -173,7 +159,9 @@ blockers: list[str] = []
 if not nmea_detected:
     blockers.append("gnss_uart_no_nmea_sentences")
 elif not fix_detected:
-    blockers.append("gnss_receiver_no_fix")
+    blockers.extend(best_status.get("blockers", []) if best_status else ["gnss_receiver_no_fix"])
+    if not blockers:
+        blockers.append("gnss_receiver_no_fix")
 if require_nmea and not nmea_detected:
     ok = False
 elif require_fix and not fix_detected:
@@ -191,6 +179,7 @@ summary = {
     "fix_detected": fix_detected,
     "fix_baud": fix_baud,
     "blockers": blockers,
+    "best_baud_status": best_status or {},
     "bauds": baud_rows,
     "capture_dir": str(out_dir),
 }

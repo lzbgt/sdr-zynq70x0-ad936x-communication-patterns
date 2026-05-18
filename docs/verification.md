@@ -2193,7 +2193,10 @@ After reboot, `/dev/ttyPS1` existed, the SD boot partition contained
 `fieldmesh_gnss_nmea_device=/dev/ttyPS1`, and the init service started
 `fieldmesh-gnss-nmea-reporter` against that UART. The live preflight without
 `REQUIRE_GNSS_FIX` passed as diagnostic evidence; `REQUIRE_GNSS_FIX=1` still
-failed because no live GNSS position reached the daemon.
+failed because no live GNSS position reached the daemon. The dedicated UART
+probe now parses GGA/RMC/GSA/GSV status and shows the exact live no-fix reason:
+valid NMEA at `38400` baud, GGA quality `0`, RMC status `V`, GSA fix type `1`,
+and GSV satellites-visible `0`.
 
 Matched FieldMesh runtime packages were then assembled with the timing-clean
 FieldMesh bitstreams and generated sidecar DTBs:

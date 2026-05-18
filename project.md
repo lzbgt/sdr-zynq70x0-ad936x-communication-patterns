@@ -1165,14 +1165,16 @@ user and vendor configuration.
   mounted. The live Z203 runtime now reaches this boundary: `/dev/ttyPS1` is
   exposed and the init service starts the GNSS reporter from SD config. The
   live UART probe found valid NMEA at `38400` baud, but the receiver currently
-  reports no GNSS fix, which is consistent with an indoor/no-sky-view bench
-  setup. No production daemon position is emitted until the receiver reports a
-  valid fix.
+  reports GSV satellites-visible `0` and no GNSS fix, which is consistent with
+  an indoor/no-sky-view bench setup. No production daemon position is emitted
+  until the receiver reports a valid fix.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,
-  restarts the reporter, and classifies the result as UART/no-NMEA/no-fix/fix
-  evidence.
+  parses GGA/RMC/GSA/GSV fix state, restarts the reporter, and classifies the
+  result as UART/no-NMEA/no-fix/fix evidence. The current live blocker is now
+  explicit: best baud `38400`, GGA quality `0`, RMC status `V`, GSA fix type
+  `1`, and GSV satellites-visible `0`.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production
