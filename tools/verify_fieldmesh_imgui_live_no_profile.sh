@@ -117,7 +117,7 @@ print(json.dumps({
     "detected_board_count": default.get("detected_board_count"),
     "z203_range_m": z203_range,
     "z103_range_m": z103_range,
-    "range_source": "pending_until_real_rf_phy",
+    "range_source": "pending_until_real_rf_phy_or_gnss_anchor",
 }, separators=(",", ":")))
 PY
 

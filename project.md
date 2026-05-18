@@ -987,7 +987,8 @@ user and vendor configuration.
   ImGui gate. It starts the golden IM app without a profile, discovers Z203 and
   Z103 daemons at runtime, verifies explicit board/AP selection, and proves
   unverified daemon/TDOA reports do not become displayed app range. Numeric
-  topology range stays pending until the daemon marks the position with
+  topology range is allowed from compatible local+peer GNSS/BDS/GPS fixes, while
+  TOF/TDOA-derived range stays pending until the daemon marks the position with
   `rf_phy_tx_rx_verified=true`.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to

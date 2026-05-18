@@ -175,8 +175,9 @@ the fused position.
 
 The current `fieldmesh-state-daemon-demo` can still ingest deterministic
 verification measurements through explicit test/control requests. Normal GUI
-runtime discovery does not treat those measurements as user-facing range unless
-the returned position also proves `rf_phy_tx_rx_verified=true`. Those
+runtime discovery accepts GNSS/BDS/GPS-derived range only when both the selected
+local board and remote peer have compatible position fixes. RF timing-derived
+TOF/TDOA range still requires `rf_phy_tx_rx_verified=true`. Deterministic
 measurements remain useful for app, SDK, daemon, and topology rendering tests
 without pretending that board movement is already being sampled from live
 hardware.
@@ -185,7 +186,8 @@ That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The
 required feed is one or more of:
 
-- fresh GNSS/BDS+GPS fixes with known local coordinate conversion;
+- fresh GNSS/BDS+GPS fixes for the selected local board and remote peer, with
+  known local coordinate conversion;
 - PPS-disciplined TOF using calibrated RF, packet, and FPGA latency;
 - packet-timing TDOA from sidecar RX timestamps and calibrated response slots;
 - coordinator/AP fused reports from three or more useful timing anchors.

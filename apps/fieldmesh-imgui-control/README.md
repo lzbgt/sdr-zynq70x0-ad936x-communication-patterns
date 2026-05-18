@@ -131,7 +131,7 @@ remote absolute GNSS/BDS coordinate is not enough to display range unless the
 selected local board also has a compatible local-origin coordinate. Without
 that anchor the topology keeps the peer visually discoverable but reports
 numeric range as pending; TDOA/TOF relative reports can still produce range
-without a GNSS local origin.
+without a GNSS local origin after the daemon marks them RF-verified.
 
 Live route metrics update link health, route recommendation, freshness, and
 confidence, but they must not overwrite known co-location coordinates or create
@@ -141,8 +141,10 @@ turning a degraded near-field link into a false tens-of-meters distance, and
 also avoids showing a hardcoded lab value such as 1.61 m. The visible range
 text is drawn in a badge with provenance so daemon/test-derived values such as
 packet-timing TDOA are not presented as production over-air measurements. The
-runtime-discovery app path only turns daemon RTLS into a numeric position when
-the daemon marks that position with `rf_phy_tx_rx_verified=true`; otherwise the
+runtime-discovery app path accepts GNSS/BDS/GPS positions when both the selected
+local board and the remote peer have compatible fixes, and it reports that range
+with GNSS/BDS provenance. RF-timing sources such as TOF/TDOA still require the
+daemon to mark the position with `rf_phy_tx_rx_verified=true`; otherwise the
 peer remains visible and range stays pending.
 The app snapshot exposes `topology_range_calculation`,
 `topology_range_evidence_source`, `topology_range_production_ready`,

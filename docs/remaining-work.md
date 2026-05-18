@@ -437,11 +437,12 @@ Current concrete work:
 - Treat `FIELDMESH_RTLS_POSITION` as the live topology API boundary, not proof
   that physical movement is already connected to the boards. The installed
   daemon can accept deterministic verification measurements through explicit
-  test/control APIs, but the runtime-discovery GUI now keeps numeric range
-  pending unless `FIELDMESH_RTLS_POSITION` reports
+  test/control APIs, but the runtime-discovery GUI only turns them into numeric
+  range when the source is real positioning evidence: GNSS/BDS/GPS fixes for
+  both the selected local board and the peer, or RF timing-derived TOF/TDOA with
   `rf_phy_tx_rx_verified=true`. Moving a board will update displayed range only
   after live GNSS/BDS+GPS/PPS, TOF, or sidecar packet-timing TDOA measurements
-  feed the daemon peer registry with RF-verified evidence.
+  feed the daemon peer registry with measured evidence.
   `FIELDMESH_RTLS_REPORT` is now the daemon-side ingestion contract for that
   feed; the remaining production work is wiring it to real GNSS/NMEA/PPS and RF
   timestamp producers instead of a test harness.

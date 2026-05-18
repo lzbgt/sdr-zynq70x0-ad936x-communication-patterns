@@ -96,11 +96,11 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                     "confidence": 95,
                 },
                 "02aabb000002": {
-                    "source": "packet_timing_tdoa",
+                    "source": "gps_pps_fused",
                     "x_cm": 160,
                     "y_cm": 80,
-                    "error_radius_cm": 420,
-                    "confidence": 76,
+                    "error_radius_cm": 160,
+                    "confidence": 92,
                 },
             }
             position = positions.get(dst)
@@ -126,6 +126,8 @@ def serve_until_closed(sock: socket.socket, payload: dict) -> None:
                     "measured_age_ms": 60,
                     "radio_topology_only": 1,
                     "host_eth_topology": 0,
+                    "rf_phy_tx_rx_verified": 0,
+                    "app_verified_real_rf": 0,
                 }
             sock.sendto((json.dumps(rtls, separators=(",", ":")) + "\n").encode("utf-8"), addr)
         elif b"FIELDMESH_RADIO_CONFIG_PLAN" in data:
@@ -436,19 +438,20 @@ def main() -> int:
             if topology["topology_metrics_live"] is not True:
                 raise SystemExit("topology metrics refresh did not run")
             if topology.get("topology_range_production_ready") is not False:
-                raise SystemExit("daemon RTLS topology must not claim production range readiness")
-            if topology.get("topology_range_evidence_source") != "none":
-                raise SystemExit("unverified daemon RTLS must not become app range evidence")
+                raise SystemExit("daemon GNSS/BDS topology must not claim production RF readiness")
+            if topology.get("topology_range_evidence_source") != "daemon_gnss_bds_position":
+                raise SystemExit("GNSS/BDS topology range evidence was not surfaced with provenance")
             if topology["topology_route_metrics_overwrite_position"] is not False:
                 raise SystemExit("route metrics must not overwrite topology coordinates")
-            if topology["topology_position_model_peers"] != 0:
-                raise SystemExit("unverified RTLS refresh must not populate peer position")
-            if topology["topology_gnss_position_peers"] != 0:
-                raise SystemExit("selected local board must not be injected as a radio peer")
+            if topology["topology_position_model_peers"] != 1:
+                raise SystemExit("GNSS/BDS RTLS refresh did not populate the remote peer position")
+            if topology["topology_gnss_position_peers"] != 1:
+                raise SystemExit("GNSS/BDS peer position was not counted")
             if topology["topology_timing_position_peers"] != 0:
                 raise SystemExit("unverified TOF/TDOA timing source must stay range-pending")
-            if topology["topology_max_peer_range_m"] >= 0:
-                raise SystemExit("unverified RTLS refresh must not produce a peer range")
+            topology_range = topology["topology_max_peer_range_m"]
+            if not isinstance(topology_range, (int, float)) or not (1.7 <= topology_range <= 1.9):
+                raise SystemExit(f"GNSS/BDS peer range was not computed from local+peer fixes: {topology_range!r}")
 
             radio_snapshot = Path(tmp) / "radio_config.json"
             subprocess.run(

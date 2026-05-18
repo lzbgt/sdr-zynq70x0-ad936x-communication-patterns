@@ -491,6 +491,78 @@ std::string rtls_source_for_gui(const std::string &source)
     return "position_pending";
 }
 
+bool rtls_source_is_gnss_absolute(const std::string &source)
+{
+    return source == "gnss_bds_position" ||
+           source == "local_origin_gnss_bds_position";
+}
+
+bool rtls_source_is_rf_timing(const std::string &source)
+{
+    return source == "time_sync_tof" ||
+           source == "local_origin_time_sync_tof" ||
+           source == "packet_timing_tdoa" ||
+           source == "local_origin_packet_timing_tdoa";
+}
+
+struct RtlsPositionSample {
+    long x_cm = 0;
+    long y_cm = 0;
+    long error_radius_cm = 0;
+    long measured_age_ms = 0;
+    std::string source;
+    std::string gui_source;
+    bool rf_phy_tx_rx_verified = false;
+};
+
+bool query_daemon_rtls_position(const fieldmesh_daemon_client_config_t &config,
+                                const std::string &device_eui,
+                                RtlsPositionSample *sample)
+{
+    char request[96];
+    char response[2048];
+    size_t response_len = 0u;
+
+    if (!sample || device_eui.empty()) {
+        return false;
+    }
+    std::snprintf(request, sizeof(request),
+                  "FIELDMESH_RTLS_POSITION v1 dst=%s",
+                  device_eui.c_str());
+    if (fieldmesh_daemon_request(&config, request, response,
+                                 sizeof(response), &response_len) !=
+            FIELDMESH_OK ||
+        response_len == 0u ||
+        !std::strstr(response, "\"ok\":true")) {
+        return false;
+    }
+    *sample = RtlsPositionSample();
+    if (!json_number_field(response, "x_cm", &sample->x_cm) ||
+        !json_number_field(response, "y_cm", &sample->y_cm) ||
+        !json_number_field(response, "error_radius_cm",
+                           &sample->error_radius_cm) ||
+        !json_string_field(response, "position_source", &sample->source)) {
+        return false;
+    }
+    (void)json_number_field(response, "measured_age_ms",
+                            &sample->measured_age_ms);
+    (void)json_boolish_field(response, "rf_phy_tx_rx_verified",
+                             &sample->rf_phy_tx_rx_verified);
+    sample->gui_source = rtls_source_for_gui(sample->source);
+    return true;
+}
+
+bool rtls_sample_allowed_for_runtime_range(const RtlsPositionSample &sample)
+{
+    if (rtls_source_is_gnss_absolute(sample.gui_source)) {
+        return true;
+    }
+    if (rtls_source_is_rf_timing(sample.gui_source)) {
+        return sample.rf_phy_tx_rx_verified;
+    }
+    return false;
+}
+
 bool request_radio_config_plan(GuiState *state)
 {
     const GuiBoard *board = selected_board(*state);
@@ -937,60 +1009,64 @@ bool poll_message_bus(GuiState *state)
         bool rtls_updated = false;
         bool rtls_seen = false;
         bool rtls_pending_real_rf = false;
+        bool local_gnss_anchor_valid = false;
+        RtlsPositionSample local_anchor;
+
+        if (!state->selected_board_eui.empty() &&
+            query_daemon_rtls_position(config, state->selected_board_eui,
+                                       &local_anchor) &&
+            rtls_source_is_gnss_absolute(local_anchor.gui_source)) {
+            local_gnss_anchor_valid = true;
+        }
 
         for (GuiPeer &peer : state->peers) {
-            char request[96];
-            char response[2048];
-            size_t response_len = 0u;
-            long x_cm = 0;
-            long y_cm = 0;
-            long error_cm = 0;
-            long age = 0;
-            std::string source;
-            bool rf_phy_tx_rx_verified = false;
+            RtlsPositionSample sample;
 
-            std::snprintf(request, sizeof(request),
-                          "FIELDMESH_RTLS_POSITION v1 dst=%s",
-                          peer.device_eui.c_str());
-            if (fieldmesh_daemon_request(&config, request, response,
-                                         sizeof(response), &response_len) !=
-                    FIELDMESH_OK ||
-                response_len == 0u ||
-                !std::strstr(response, "\"ok\":true")) {
+            if (!query_daemon_rtls_position(config, peer.device_eui,
+                                            &sample)) {
                 continue;
             }
-            if (!json_number_field(response, "x_cm", &x_cm) ||
-                !json_number_field(response, "y_cm", &y_cm) ||
-                !json_number_field(response, "error_radius_cm", &error_cm) ||
-                !json_string_field(response, "position_source", &source)) {
-                continue;
-            }
-            (void)json_number_field(response, "measured_age_ms", &age);
-            (void)json_boolish_field(response, "rf_phy_tx_rx_verified",
-                                     &rf_phy_tx_rx_verified);
             rtls_seen = true;
-            if (!rf_phy_tx_rx_verified &&
-                state->profile_source == "runtime_discovery") {
+            if (state->profile_source == "runtime_discovery" &&
+                !rtls_sample_allowed_for_runtime_range(sample)) {
                 peer.x_cm = 0;
                 peer.y_cm = 0;
                 peer.error_radius_cm =
-                    static_cast<unsigned>(error_cm < 0 ? 0 : error_cm);
-                peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
+                    static_cast<unsigned>(sample.error_radius_cm < 0 ?
+                                          0 : sample.error_radius_cm);
+                peer.metrics_age_ms =
+                    static_cast<unsigned>(sample.measured_age_ms < 0 ?
+                                          0 : sample.measured_age_ms);
                 peer.range_source = "real_rf_position_pending";
                 rtls_pending_real_rf = true;
                 continue;
             }
-            peer.x_cm = static_cast<int>(x_cm);
-            peer.y_cm = static_cast<int>(y_cm);
+            peer.x_cm = static_cast<int>(sample.x_cm);
+            peer.y_cm = static_cast<int>(sample.y_cm);
             peer.error_radius_cm =
-                static_cast<unsigned>(error_cm < 0 ? 0 : error_cm);
-            peer.metrics_age_ms = static_cast<unsigned>(age < 0 ? 0 : age);
-            peer.range_source = rtls_source_for_gui(source);
+                static_cast<unsigned>(sample.error_radius_cm < 0 ?
+                                      0 : sample.error_radius_cm);
+            peer.metrics_age_ms =
+                static_cast<unsigned>(sample.measured_age_ms < 0 ?
+                                      0 : sample.measured_age_ms);
+            peer.range_source = sample.gui_source;
+            if (state->profile_source == "runtime_discovery" &&
+                rtls_source_is_gnss_absolute(sample.gui_source)) {
+                if (!local_gnss_anchor_valid) {
+                    peer.x_cm = 0;
+                    peer.y_cm = 0;
+                    peer.range_source = "gnss_bds_position_pending_local_origin";
+                    continue;
+                }
+                peer.x_cm -= static_cast<int>(local_anchor.x_cm);
+                peer.y_cm -= static_cast<int>(local_anchor.y_cm);
+                peer.range_source = "local_origin_gnss_bds_position";
+            }
             peer.range_update_count += 1u;
             rtls_updated = true;
             updated = true;
         }
-        if (rtls_updated) {
+        if (rtls_updated && !local_gnss_anchor_valid) {
             normalize_peer_positions_to_local(state, state->selected_board_eui);
         }
         if (rtls_seen && !rtls_updated) {
@@ -1205,7 +1281,7 @@ const char *topology_range_evidence_source(const GuiState &state)
         return "daemon_timing_rtls_not_rf_verified";
     }
     if (has_gnss && state.topology_metrics_live) {
-        return "daemon_gnss_rtls_not_rf_verified";
+        return "daemon_gnss_bds_position";
     }
     return "profile_position_not_rf_verified";
 }
