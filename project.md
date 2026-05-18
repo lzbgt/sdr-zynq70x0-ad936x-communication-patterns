@@ -774,7 +774,11 @@ user and vendor configuration.
   the transparent TCP/IP MAC-link feature. The default path refuses production
   certification until both installed daemons report real RF PHY TX/RX. With
   `ALLOW_DAEMON_RF_BRIDGE=1`, it records a labeled non-production iperf
-  diagnostic through the daemon RF-worker bridge.
+  diagnostic through the daemon RF-worker bridge. `HOST_PC_CASE=1` is the
+  host-transparent case: it starts `iperf3` on the host namespace and first
+  proves that the host has a direct board-facing route. It rejects WSL/NAT or
+  SSH-launched-board traffic because those paths do not prove a normal host app
+  can use the board pair as a transparent RF MAC/IP link.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when
@@ -1479,6 +1483,10 @@ Expected result in the current Pluto-compatible firmware state:
    production evidence because it still reports
    `transport=daemon_rf_driver_queue_bridge` and
    `rf_phy_tx_rx_verified=false`.
+   The host-PC iperf path is now explicitly separate: `HOST_PC_CASE=1` requires
+   packets to originate from the host namespace and rejects this WSL/NAT
+   environment because the route to Z203 goes through the WSL gateway rather
+   than a direct board-facing interface.
    The daemon now treats full RF TX/RX queues as backpressure instead of a
    fatal service error, so TCP bursts no longer close the native-IP service
    before UDP echo traffic can complete.

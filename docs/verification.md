@@ -4534,6 +4534,12 @@ for the transparent TCP/IP MAC-link feature. By default it refuses to certify
 unless both installed daemons report real RF PHY TX/RX verification. With
 `ALLOW_DAEMON_RF_BRIDGE=1`, it can run a non-production diagnostic through the
 daemon RF-worker bridge and record TCP/UDP `iperf3` metrics.
+`HOST_PC_CASE=1` adds the transparent host-client requirement: the `iperf3`
+client must run on the host PC, not over SSH on a board. The gate writes
+`host_pc_route_preflight.json` and refuses if the host route to the local board
+is not a direct board-facing route. This deliberately rejects WSL/NAT paths and
+other indirect routes before any result can be mistaken for host-transparent RF
+evidence.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 

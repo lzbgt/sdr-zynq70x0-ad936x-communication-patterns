@@ -120,7 +120,14 @@ The native-IP production acceptance test must include `iperf3` board-to-board
 throughput over the real over-air RF path. A host-PC transparent test is a
 separate gate: it must run host-originated iperf traffic through a real
 host-to-board route or host-side driver and then over board-to-board RF, not
-through SSH-launched board commands or daemon bridge forwarding.
+through SSH-launched board commands or daemon bridge forwarding. The current
+host-PC gate now enforces that distinction: `HOST_PC_CASE=1` first captures the
+host route to the local board and refuses WSL/NAT-style paths, such as a route
+via `172.28.192.1`, because those do not prove that a normal host app can use
+the board as a transparent RF MAC/IP gateway. A passing host-PC result must
+start the `iperf3` client on the host namespace itself, install a real route
+through the local board, install the remote-board return route over `swarm0`,
+and still carry the traffic over verified over-air RF.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

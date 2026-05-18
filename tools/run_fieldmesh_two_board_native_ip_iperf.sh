@@ -90,6 +90,27 @@ PY
 
 cleanup() {
     set +e
+    if [ -f "$out_dir/host_pc_route_added" ]; then
+        if [ -s "$out_dir/host_pc_route_old" ]; then
+            while IFS= read -r old_route; do
+                [ -n "$old_route" ] || continue
+                ip route replace $old_route 2>/dev/null || true
+            done <"$out_dir/host_pc_route_old"
+        else
+            ip route del 10.77.2.0/24 via "$z203_ip" 2>/dev/null || true
+        fi
+        rm -f "$out_dir/host_pc_route_added"
+    fi
+    if [ -s "$out_dir/z203_ip_forward_old" ]; then
+        old_forward="$(cat "$out_dir/z203_ip_forward_old" 2>/dev/null || true)"
+        case "$old_forward" in
+            0|1)
+                sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
+                    "printf '%s\n' '$old_forward' > /proc/sys/net/ipv4/ip_forward" \
+                    >/dev/null 2>&1 || true
+                ;;
+        esac
+    fi
     request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_STOP v1 >/dev/null 2>&1
     request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_STOP v1 >/dev/null 2>&1
     request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STOP v1 >/dev/null 2>&1
@@ -248,6 +269,70 @@ if [ "$host_pc_case" = "1" ] && [ "$allow_host_pc_routed_gate" != "1" ]; then
         | tee -a "$out_dir/iperf_gate.ndjson"
     echo "Capture directory: $out_dir"
     exit 1
+fi
+if [ "$host_pc_case" = "1" ]; then
+    if ! python3 - "$z203_ip" "$out_dir/host_pc_route_preflight.json" <<'PY' >>"$out_dir/iperf_gate.ndjson"; then
+import ipaddress
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+board_ip = sys.argv[1]
+output = Path(sys.argv[2])
+try:
+    route_json = subprocess.check_output(
+        ["ip", "-json", "route", "get", board_ip],
+        text=True,
+        stderr=subprocess.STDOUT,
+    )
+    routes = json.loads(route_json)
+except Exception as exc:
+    report = {
+        "event": "fieldmesh_host_pc_route_preflight",
+        "ok": False,
+        "blocker": "host_pc_route_probe_failed",
+        "board_gateway_ip": board_ip,
+        "error": str(exc),
+    }
+else:
+    route = routes[0] if routes else {}
+    gateway = route.get("gateway") or ""
+    dev = route.get("dev") or ""
+    source = route.get("prefsrc") or route.get("src") or ""
+    blocker = ""
+    if not dev or not source:
+        blocker = "host_pc_route_missing_source"
+    elif gateway:
+        blocker = "host_pc_board_route_not_direct"
+    else:
+        try:
+            ipaddress.ip_address(source)
+        except ValueError:
+            blocker = "host_pc_route_invalid_source"
+    report = {
+        "event": "fieldmesh_host_pc_route_preflight",
+        "ok": blocker == "",
+        "blocker": blocker,
+        "board_gateway_ip": board_ip,
+        "host_route_dev": dev,
+        "host_route_source_ip": source,
+        "host_route_gateway": gateway,
+        "route": route,
+        "requires_direct_board_facing_route": True,
+        "host_originated_traffic": True,
+        "uses_ssh_launched_board_client": False,
+    }
+output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+raise SystemExit(0 if report.get("ok") is True else 44)
+PY
+        json_blocker "host_pc_board_route_not_direct" \
+            "HOST_PC_CASE=1 needs this host namespace directly routed to the local board gateway. See host_pc_route_preflight.json; WSL/NAT or SSH-launched board traffic is not transparent host-PC evidence." \
+            | tee -a "$out_dir/iperf_gate.ndjson"
+        echo "Capture directory: $out_dir"
+        exit 1
+    fi
 fi
 if [ "$host_pc_case" = "1" ] && ! command -v iperf3 >/dev/null 2>&1; then
     json_blocker "host_pc_iperf3_missing" "Install iperf3 on the host before running HOST_PC_CASE=1." \
@@ -479,6 +564,62 @@ run_remote_iperf_json() {
 
 setup_board "$z203_remote" "10.77.1.1" "10.77.2.0/24" "$out_dir/z203_setup.log"
 setup_board "$z103_remote" "10.77.2.20" "10.77.1.0/24" "$out_dir/z103_setup.log"
+
+setup_host_pc_route() {
+    local host_dev
+    local host_source_cidr
+    if [ "$host_pc_case" != "1" ]; then
+        return 0
+    fi
+    host_dev="$(python3 - "$out_dir/host_pc_route_preflight.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+print(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("host_route_dev", ""))
+PY
+)"
+    host_source_cidr="$(python3 - "$out_dir/host_pc_route_preflight.json" <<'PY'
+import ipaddress
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+dev = report.get("host_route_dev")
+source = report.get("host_route_source_ip")
+addr_json = subprocess.check_output(["ip", "-json", "addr", "show", "dev", dev], text=True)
+for iface in json.loads(addr_json):
+    for addr in iface.get("addr_info", []):
+        if addr.get("family") == "inet" and addr.get("local") == source:
+            net = ipaddress.ip_network(f"{source}/{addr.get('prefixlen')}", strict=False)
+            print(str(net))
+            raise SystemExit(0)
+raise SystemExit(f"could not derive host source CIDR for {source} on {dev}")
+PY
+)"
+    printf '%s\n' "$host_source_cidr" >"$out_dir/host_pc_source_cidr.txt"
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
+        "cat /proc/sys/net/ipv4/ip_forward" >"$out_dir/z203_ip_forward_old" 2>/dev/null || true
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
+        "printf '1\n' > /proc/sys/net/ipv4/ip_forward"
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
+        "ip route replace '$host_source_cidr' dev swarm0; ip route show '$host_source_cidr'" \
+        >"$out_dir/z103_host_return_route.log" 2>&1
+    ip route show 10.77.2.0/24 >"$out_dir/host_pc_route_old" 2>/dev/null || true
+    ip route replace 10.77.2.0/24 via "$z203_ip" dev "$host_dev"
+    : >"$out_dir/host_pc_route_added"
+    ip route get 10.77.2.20 >"$out_dir/host_pc_route_to_peer.log" 2>&1
+}
+
+run_host_iperf_json() {
+    local stdout_path="$1"
+    local stderr_path="$2"
+    shift 2
+    "$@" >"$stdout_path" 2>"$stderr_path"
+}
+
+setup_host_pc_route
 start_tun_services
 bridge_pid=""
 if [ "$allow_daemon_rf_bridge" = "1" ]; then
@@ -527,6 +668,53 @@ if ! parse_iperf_success "$out_dir/z203_iperf3_udp_client.json"; then
 fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_udp_server.json" "$out_dir/z103_iperf3_udp_server.json" >/dev/null || true
+
+if [ "$host_pc_case" = "1" ]; then
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
+        "rm -f /tmp/fieldmesh_iperf3_host_tcp_server.json /tmp/fieldmesh_iperf3_host_udp_server.json; \
+         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
+        >"$out_dir/z103_iperf3_host_tcp_server.pid"
+    wait_remote_tcp_listen "$z103_remote" "$iperf_port"
+    set +e
+    run_host_iperf_json \
+        "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
+        iperf3 -c 10.77.2.20 -p "$iperf_port" -n "$tcp_bytes" -l 256 --json
+    host_tcp_rc=$?
+    set -e
+    if [ "$host_tcp_rc" -ne 0 ]; then
+        fail_bounded "host_pc_tcp_iperf_incomplete" \
+            "Host-originated TCP iperf did not complete; see host_iperf3_tcp_client.json and .err."
+    fi
+    if ! parse_iperf_success "$out_dir/host_iperf3_tcp_client.json"; then
+        fail_bounded "host_pc_tcp_iperf_failed" \
+            "Host-originated TCP iperf returned JSON but did not report a successful byte transfer."
+    fi
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+        "$z103_remote:/tmp/fieldmesh_iperf3_host_tcp_server.json" \
+        "$out_dir/z103_iperf3_host_tcp_server.json" >/dev/null || true
+
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
+        "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --json > /tmp/fieldmesh_iperf3_host_udp_server.json 2>&1 & echo \$!" \
+        >"$out_dir/z103_iperf3_host_udp_server.pid"
+    wait_remote_tcp_listen "$z103_remote" "$iperf_port"
+    set +e
+    run_host_iperf_json \
+        "$out_dir/host_iperf3_udp_client.json" "$out_dir/host_iperf3_udp_client.err" \
+        iperf3 -u -c 10.77.2.20 -p "$iperf_port" -b "$udp_bitrate" -t "$udp_time_s" -l 256 --json
+    host_udp_rc=$?
+    set -e
+    if [ "$host_udp_rc" -ne 0 ]; then
+        fail_bounded "host_pc_udp_iperf_incomplete" \
+            "Host-originated UDP iperf did not complete; see host_iperf3_udp_client.json and .err."
+    fi
+    if ! parse_iperf_success "$out_dir/host_iperf3_udp_client.json"; then
+        fail_bounded "host_pc_udp_iperf_failed" \
+            "Host-originated UDP iperf returned JSON but did not report a successful byte transfer."
+    fi
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+        "$z103_remote:/tmp/fieldmesh_iperf3_host_udp_server.json" \
+        "$out_dir/z103_iperf3_host_udp_server.json" >/dev/null || true
+fi
 
 stop_bridge_loop
 
@@ -594,18 +782,46 @@ if allow_bridge and (
     raise SystemExit(f"daemon bridge did not run cleanly: {bridge[-1] if bridge else None}")
 if len(statuses) < 2:
     raise SystemExit("missing final daemon TUN service statuses")
+host_tcp_bits = 0
+host_udp_bits = 0
+host_tcp_bytes = 0
+if host_pc_case:
+    host_tcp = load_json("host_iperf3_tcp_client.json")
+    host_udp = load_json("host_iperf3_udp_client.json")
+    if host_tcp.get("error"):
+        raise SystemExit(f"host TCP iperf failed: {host_tcp.get('error')}")
+    if host_udp.get("error"):
+        raise SystemExit(f"host UDP iperf failed: {host_udp.get('error')}")
+    host_tcp_end = host_tcp.get("end", {})
+    host_udp_end = host_udp.get("end", {})
+    host_tcp_bits = (
+        host_tcp_end.get("sum_sent", {}).get("bits_per_second") or
+        host_tcp_end.get("sum", {}).get("bits_per_second") or 0
+    )
+    host_udp_bits = (
+        host_udp_end.get("sum", {}).get("bits_per_second") or
+        host_udp_end.get("sum_sent", {}).get("bits_per_second") or 0
+    )
+    host_tcp_bytes = host_tcp_end.get("sum_sent", {}).get("bytes", 0)
+    if host_tcp_bytes <= 0:
+        raise SystemExit("host TCP iperf reported no transmitted bytes")
+    if host_udp_bits <= 0:
+        raise SystemExit("host UDP iperf reported no bitrate")
 report = {
     "event": "fieldmesh_two_board_native_ip_iperf",
     "ok": True,
     "board_to_board_iperf": True,
     "host_pc_case_requested": host_pc_case,
-    "host_pc_iperf": False,
+    "host_pc_iperf": bool(host_pc_case),
     "transport": "real_rf_phy" if preflight.get("real_rf_phy_ready") else "daemon_rf_driver_queue_bridge",
     "rf_phy_tx_rx_verified": bool(preflight.get("real_rf_phy_ready")),
     "production_evidence": bool(preflight.get("real_rf_phy_ready") and not allow_bridge and not host_pc_case),
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
     "udp_bits_per_second": udp_bits,
+    "host_tcp_bits_per_second": host_tcp_bits,
+    "host_tcp_bytes": host_tcp_bytes,
+    "host_udp_bits_per_second": host_udp_bits,
     "swarm_mtu": swarm_mtu,
     "z203_packets_written": statuses[-2].get("packets_written"),
     "z103_packets_written": statuses[-1].get("packets_written"),

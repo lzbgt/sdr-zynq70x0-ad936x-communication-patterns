@@ -189,6 +189,13 @@ Minimum production gates for native TCP/IP:
   `swarm0` MTU by default because RF-worker lease frames are serialized as hex
   in UDP JSON control replies; the production RF path must carry binary frames
   and must not rely on this diagnostic MTU workaround;
+- host-PC `iperf3` is a separate transparent-client gate, not another
+  SSH-launched board test. `HOST_PC_CASE=1` now probes the host namespace route
+  to the local board and refuses when the path is not direct, for example a
+  WSL/NAT route through `172.28.192.1`. A passing host-PC run must originate
+  `iperf3` on the host, route `10.77.2.0/24` through the local board, enable a
+  return route from the remote board over `swarm0`, and still report real RF
+  PHY verification before it can be production evidence;
 - daemon RF queue pressure is handled as backpressure. The native-IP service must
   not close on a full RF TX/RX queue during TCP or UDP bursts; the live socket
   gate covers this by driving both protocols through the installed board
