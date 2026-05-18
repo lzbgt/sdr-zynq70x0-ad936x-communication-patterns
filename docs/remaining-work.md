@@ -104,7 +104,12 @@ Z103 through source `swarm0` -> BLR `APP_DATA` TX lease -> peer RX ingest ->
 peer `swarm0`, and the kernel echo reply returns through the reverse worker
 queue. A separate socket gate now proves normal TCP and UDP echo clients over
 the same path with no FieldMesh SDK dependency in the client process. The
-2026-05-17 socket regression also verified that RF queue pressure is now treated
+2026-05-18 iperf diagnostic gate now proves board-to-board TCP and UDP `iperf3`
+over the daemon RF-worker bridge after lowering the diagnostic `swarm0` MTU to
+keep hex-encoded lease responses under the UDP control-plane MTU. That result is
+useful kernel/socket evidence, but it remains non-production because
+`transport=daemon_rf_driver_queue_bridge` and `rf_phy_tx_rx_verified=false`.
+The 2026-05-17 socket regression also verified that RF queue pressure is now treated
 as backpressure, not a fatal service error: a full TX/RX RF queue no longer
 closes the daemon-owned TUN service, and ordinary TCP/UDP echo traffic completed
 after the refreshed installed daemons were redeployed. The remaining

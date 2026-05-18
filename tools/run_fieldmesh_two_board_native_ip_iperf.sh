@@ -21,6 +21,7 @@ allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
 host_pc_case="${HOST_PC_CASE:-0}"
 allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)}"
+swarm_mtu="${SWARM_MTU:-}"
 
 mkdir -p "$out_dir"
 
@@ -39,6 +40,17 @@ fi
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE must be 0 or 1" >&2; exit 1 ;; esac
+if [ -z "$swarm_mtu" ]; then
+    if [ "$allow_daemon_rf_bridge" = "1" ]; then
+        swarm_mtu=512
+    else
+        swarm_mtu=1200
+    fi
+fi
+if ! [[ "$swarm_mtu" =~ ^[0-9]+$ ]] || [ "$swarm_mtu" -lt 296 ] || [ "$swarm_mtu" -gt 1200 ]; then
+    echo "SWARM_MTU must be an integer from 296 to 1200" >&2
+    exit 1
+fi
 
 ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 z203_remote="${ssh_user}@${z203_ip}"
@@ -83,9 +95,9 @@ cleanup() {
     request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STOP v1 >/dev/null 2>&1
     request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STOP v1 >/dev/null 2>&1
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
-        "ip link delete swarm0 2>/dev/null || true; pkill -x iperf3 2>/dev/null || true" >/dev/null 2>&1 || true
+        "ip link delete swarm0 2>/dev/null || true; killall iperf3 2>/dev/null || true; for pid in \$(pidof iperf3 2>/dev/null); do kill \"\$pid\" 2>/dev/null || true; done" >/dev/null 2>&1 || true
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-        "ip link delete swarm0 2>/dev/null || true; pkill -x iperf3 2>/dev/null || true" >/dev/null 2>&1 || true
+        "ip link delete swarm0 2>/dev/null || true; killall iperf3 2>/dev/null || true; for pid in \$(pidof iperf3 2>/dev/null); do kill \"\$pid\" 2>/dev/null || true; done" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -104,6 +116,67 @@ print(json.dumps({
 PY
 }
 
+capture_failure_state() {
+    local blocker="$1"
+    local port_hex
+    port_hex="$(printf '%04X' "$iperf_port")"
+
+    set +e
+    {
+        request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1
+        request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1
+        request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_STATUS v1
+        request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_STATUS v1
+    } >>"$out_dir/iperf_gate.ndjson" 2>"$out_dir/failure_daemon_status.err" || true
+
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
+        "printf 'board=z203 blocker=%s\n' '$blocker'; \
+         date '+%Y-%m-%dT%H:%M:%S%z'; \
+         printf 'swarm0_link\n'; ip -s link show dev swarm0 2>&1 || true; \
+         printf 'swarm0_addr\n'; ip addr show dev swarm0 2>&1 || true; \
+         printf 'mesh_routes\n'; ip route show 10.77.0.0/16 2>&1 || true; \
+         printf 'tcp_%s\n' '$port_hex'; awk -v p='$port_hex' 'NR == 1 || index(\$2, \":\" p) || index(\$3, \":\" p)' /proc/net/tcp 2>&1 || true; \
+         printf 'iperf3_processes\n'; ps w | awk '/[i]perf3/ { print }' 2>&1 || true" \
+        >"$out_dir/z203_failure_state.txt" 2>&1 || true
+
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
+        "printf 'board=z103 blocker=%s\n' '$blocker'; \
+         date '+%Y-%m-%dT%H:%M:%S%z'; \
+         printf 'swarm0_link\n'; ip -s link show dev swarm0 2>&1 || true; \
+         printf 'swarm0_addr\n'; ip addr show dev swarm0 2>&1 || true; \
+         printf 'mesh_routes\n'; ip route show 10.77.0.0/16 2>&1 || true; \
+         printf 'tcp_%s\n' '$port_hex'; awk -v p='$port_hex' 'NR == 1 || index(\$2, \":\" p) || index(\$3, \":\" p)' /proc/net/tcp 2>&1 || true; \
+         printf 'iperf3_processes\n'; ps w | awk '/[i]perf3/ { print }' 2>&1 || true" \
+        >"$out_dir/z103_failure_state.txt" 2>&1 || true
+
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+        "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" \
+        "$out_dir/z103_iperf3_tcp_server_failure.json" >/dev/null 2>&1 || true
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+        "$z103_remote:/tmp/fieldmesh_iperf3_udp_server.json" \
+        "$out_dir/z103_iperf3_udp_server_failure.json" >/dev/null 2>&1 || true
+
+    python3 - "$out_dir" "$blocker" <<'PY' >>"$out_dir/iperf_gate.ndjson" || true
+import json
+import sys
+from pathlib import Path
+
+out_dir = Path(sys.argv[1])
+blocker = sys.argv[2]
+print(json.dumps({
+    "event": "fieldmesh_two_board_native_ip_iperf_failure_capture",
+    "ok": True,
+    "blocker": blocker,
+    "daemon_status_error_path": str(out_dir / "failure_daemon_status.err"),
+    "z203_state_path": str(out_dir / "z203_failure_state.txt"),
+    "z103_state_path": str(out_dir / "z103_failure_state.txt"),
+    "z103_tcp_server_failure_path": str(out_dir / "z103_iperf3_tcp_server_failure.json"),
+    "z103_udp_server_failure_path": str(out_dir / "z103_iperf3_udp_server_failure.json"),
+}, sort_keys=True))
+PY
+    set -e
+}
+
 fail_bounded() {
     local blocker="$1"
     local detail="$2"
@@ -112,6 +185,7 @@ fail_bounded() {
         kill "$bridge_pid" 2>/dev/null || true
         wait "$bridge_pid" 2>/dev/null || true
     fi
+    capture_failure_state "$blocker"
     cleanup >/dev/null 2>&1 || true
     if [ -s "$out_dir/iperf_bridge_progress.json" ]; then
         bridge_report="$(tr -d '\n' < "$out_dir/iperf_bridge_progress.json")"
@@ -199,11 +273,13 @@ setup_board() {
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
         "{ \
           ip link delete swarm0 2>/dev/null || true; \
+          killall iperf3 2>/dev/null || true; \
+          for pid in \$(pidof iperf3 2>/dev/null); do kill \"\$pid\" 2>/dev/null || true; done; \
           mkdir -p /dev/net; \
           [ -c /dev/net/tun ] || mknod /dev/net/tun c 10 200; \
           ip tuntap add dev swarm0 mode tun; \
           ip addr add '$ip_addr'/16 dev swarm0; \
-          ip link set dev swarm0 mtu 1200 up; \
+          ip link set dev swarm0 mtu '$swarm_mtu' up; \
           ip route replace '$peer_subnet' dev swarm0; \
           ip -json addr show dev swarm0; \
           ip route show '$peer_subnet'; \
@@ -256,11 +332,13 @@ class Endpoint:
         payload, _ = self.sock.recvfrom(8192)
         return json.loads(payload.decode("utf-8", errors="replace"))
 
-def write_progress(counts: dict) -> None:
+def write_progress(counts: dict, last_error: str = "") -> None:
     progress_path.write_text(json.dumps({
         "event": "fieldmesh_two_board_native_ip_iperf_bridge_progress",
+        "ok": counts.get("z203_to_z103", 0) > 0 or counts.get("z103_to_z203", 0) > 0,
         "transport": "daemon_rf_driver_queue_bridge",
         "rf_phy_tx_rx": 0,
+        "last_error": last_error,
         **counts,
     }, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -271,16 +349,26 @@ z203 = Endpoint(z203_ip, z203_port)
 z103 = Endpoint(z103_ip, z103_port)
 try:
     deadline = time.monotonic() + duration_s
-    counts = {"z203_to_z103": 0, "z103_to_z203": 0, "empty": 0, "errors": 0}
+    counts = {
+        "z203_to_z103": 0,
+        "z103_to_z203": 0,
+        "empty": 0,
+        "errors": 0,
+        "lease_errors": 0,
+        "ingest_errors": 0,
+        "ack_errors": 0,
+    }
     pairs = (
         (z203, z103, "z203_to_z103"),
         (z103, z203, "z103_to_z203"),
     )
     write_progress(counts)
+    last_error_text = ""
     while time.monotonic() < deadline:
         moved = False
         for src, dst, key in pairs:
             try:
+                op = "lease"
                 polled = request(src, "FIELDMESH_RF_TX_LEASE v1")
                 if polled.get("frames") != 1:
                     counts["empty"] += 1
@@ -288,17 +376,21 @@ try:
                 frame = polled.get("frame0_hex")
                 if not frame:
                     raise RuntimeError("lease returned no frame")
+                op = "ingest"
                 ingested = request(dst, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
                 if ingested.get("ok") is not True:
                     raise RuntimeError(f"ingest failed: {ingested}")
+                op = "ack"
                 acked = request(src, "FIELDMESH_RF_TX_ACK v1 " + str(frame))
                 if acked.get("ok") is not True:
                     raise RuntimeError(f"ack failed: {acked}")
                 counts[key] += 1
                 moved = True
-            except Exception:
+            except Exception as exc:
                 counts["errors"] += 1
-        write_progress(counts)
+                counts[f"{op}_errors"] += 1
+                last_error_text = f"{key}:{op}:{type(exc).__name__}:{exc}"
+        write_progress(counts, last_error_text)
         if not moved:
             time.sleep(0.005)
 finally:
@@ -441,7 +533,7 @@ stop_bridge_loop
 request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 
-python3 - "$out_dir" "$allow_daemon_rf_bridge" "$host_pc_case" <<'PY'
+python3 - "$out_dir" "$allow_daemon_rf_bridge" "$host_pc_case" "$swarm_mtu" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -449,6 +541,7 @@ from pathlib import Path
 out_dir = Path(sys.argv[1])
 allow_bridge = sys.argv[2] == "1"
 host_pc_case = sys.argv[3] == "1"
+swarm_mtu = int(sys.argv[4])
 
 def load_json(path: str) -> dict:
     text = (out_dir / path).read_text(encoding="utf-8", errors="replace")
@@ -513,6 +606,7 @@ report = {
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
     "udp_bits_per_second": udp_bits,
+    "swarm_mtu": swarm_mtu,
     "z203_packets_written": statuses[-2].get("packets_written"),
     "z103_packets_written": statuses[-1].get("packets_written"),
     "capture_dir": str(out_dir),

@@ -1472,6 +1472,13 @@ Expected result in the current Pluto-compatible firmware state:
    also proves an actual Z203-to-Z103 ICMP ping over the simultaneous daemon bridge.
    A follow-on socket gate proves normal TCP and UDP echo traffic over that
    same bridge using a tiny client/server app that does not link to FieldMesh.
+   The two-board iperf diagnostic gate now also completes TCP and UDP `iperf3`
+   over the daemon RF-worker bridge with `ALLOW_DAEMON_RF_BRIDGE=1`; the gate
+   defaults that diagnostic bridge to a smaller `swarm0` MTU so the current
+   hex-in-JSON lease API stays below the control-plane MTU. This is not
+   production evidence because it still reports
+   `transport=daemon_rf_driver_queue_bridge` and
+   `rf_phy_tx_rx_verified=false`.
    The daemon now treats full RF TX/RX queues as backpressure instead of a
    fatal service error, so TCP bursts no longer close the native-IP service
    before UDP echo traffic can complete.

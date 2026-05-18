@@ -5817,6 +5817,8 @@ static int serve_state(const char *bind_ip,
         if (tun_service.running && tun_service.fd >= 0) {
             struct pollfd fds[2];
             int poll_timeout_ms = timeout_ms > 100 ? 100 : (int)timeout_ms;
+            int tun_read_enabled =
+                !tun_service_rf_queue_full(&tun_service.rf_tx_queue);
             int polled;
 
             if (poll_timeout_ms <= 0) {
@@ -5825,8 +5827,8 @@ static int serve_state(const char *bind_ip,
             memset(fds, 0, sizeof(fds));
             fds[0].fd = sockfd;
             fds[0].events = POLLIN;
-            fds[1].fd = tun_service.fd;
-            fds[1].events = POLLIN;
+            fds[1].fd = tun_read_enabled ? tun_service.fd : -1;
+            fds[1].events = tun_read_enabled ? POLLIN : 0;
             polled = poll(fds, 2u, poll_timeout_ms);
             if (polled < 0) {
                 if (errno == EINTR) {
@@ -5843,12 +5845,13 @@ static int serve_state(const char *bind_ip,
                 }
                 continue;
             }
-            if ((fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+            if (tun_read_enabled &&
+                (fds[1].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
                 tun_service.errors++;
                 tun_service.last_status = FIELDMESH_ERR_TRANSPORT;
                 tun_service_close(&tun_service);
                 rf_worker_stop(&rf_worker);
-            } else if ((fds[1].revents & POLLIN) != 0) {
+            } else if (tun_read_enabled && (fds[1].revents & POLLIN) != 0) {
                 tun_service.poll_wakeups++;
                 if (rf_worker.running) {
                     rf_worker_tick(&rf_worker, &tun_service);

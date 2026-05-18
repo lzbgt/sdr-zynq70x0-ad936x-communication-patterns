@@ -184,6 +184,11 @@ Minimum production gates for native TCP/IP:
 - normal TCP and UDP client applications succeed through the same daemon bridge
   using ordinary sockets. The live socket gate runs a tiny TCP echo and UDP
   echo process on top of `swarm0`; neither process links to the FieldMesh SDK;
+- diagnostic board-to-board `iperf3` succeeds through the daemon RF-worker
+  bridge with `ALLOW_DAEMON_RF_BRIDGE=1`. This path uses a reduced diagnostic
+  `swarm0` MTU by default because RF-worker lease frames are serialized as hex
+  in UDP JSON control replies; the production RF path must carry binary frames
+  and must not rely on this diagnostic MTU workaround;
 - daemon RF queue pressure is handled as backpressure. The native-IP service must
   not close on a full RF TX/RX queue during TCP or UDP bursts; the live socket
   gate covers this by driving both protocols through the installed board
