@@ -768,8 +768,9 @@ different run from satisfying the production gate.
 operator wrapper around those pieces. It remains dry-run unless live RF,
 hardware writes, RF TX, daemon queue mutation, fixture evidence, fixture ID, and
 the exact operator confirmation are all provided. With a successful live bridge
-and named app feature reports, it derives app evidence and calls the production
-gate; with dry-run or incomplete evidence it leaves `production_ready=false`.
+and named app/gate source reports or feature reports, it derives app evidence
+and calls the production gate; with dry-run or incomplete evidence it leaves
+`production_ready=false`.
 Uncorrelated feature reports are rejected before the production gate is invoked.
 
 ## Variant Notes

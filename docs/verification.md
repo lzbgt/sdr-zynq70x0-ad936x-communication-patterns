@@ -3624,6 +3624,23 @@ It accepts strict `messaging`, `topology`, and `native_ip` source reports with
 `uses_inter_board_ip_routing=false`. It rejects current daemon RF-worker bridge
 reports and preseeded topology/range reports as production evidence.
 
+Real app/gate outputs can be converted into those feature reports by:
+
+```sh
+./tools/verify_fieldmesh_app_feature_report_from_gate.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_app_feature_report_from_gate_check", "features": ["messaging", "topology", "native_ip"], "ok": true, "production_gate_ready_with_synthetic_bridge": true}
+```
+
+The converter consumes messaging/topology/native-IP app outputs plus the
+successful live RF-worker/IIO bridge report, stamps the output with the exact
+bridge and IQ live-run paths, and rejects dry-run bridge or host-IP-routed
+source evidence.
+
 The daemon RF-worker to conducted-IIO bridge has a dry-run gate:
 
 ```sh
@@ -3677,12 +3694,13 @@ Result:
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
 wrapper for the current real-RF readiness path. It validates fixture evidence,
-runs or consumes the RF-worker/IIO bridge, derives normalized app real-RF
-reports from messaging/topology/native-IP feature evidence, and then invokes
-the production gate. Dry-run is the default. Live RF still requires explicit
-hardware-write, RF-TX, daemon-queue mutation, fixture evidence, fixture ID, and
-operator-confirmation inputs. Raw app feature evidence supplied to the wrapper
-must be correlated to the same bridge and IQ live-run reports.
+runs or consumes the RF-worker/IIO bridge, converts app/gate source outputs or
+raw feature reports into normalized messaging/topology/native-IP real-RF
+reports, and then invokes the production gate. Dry-run is the default. Live RF
+still requires explicit hardware-write, RF-TX, daemon-queue mutation, fixture
+evidence, fixture ID, and operator-confirmation inputs. Raw app feature
+evidence supplied to the wrapper must be correlated to the same bridge and IQ
+live-run reports.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

@@ -123,9 +123,9 @@ for feature, payload in reports.items():
 PY
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
-APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_feature.json" \
-APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
-APP_NATIVE_IP_FEATURE_REPORT="$work_dir/native_ip_feature.json" \
+APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
+APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
+APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_feature.json" \
 EXPECT_PRODUCTION_READY=1 \
 OUT_DIR="$work_dir/complete-sequence" \
 "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" \

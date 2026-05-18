@@ -632,6 +632,15 @@ user and vendor configuration.
   evidence normalizer. It accepts strict synthetic real-RF feature evidence and
   rejects current daemon RF-worker bridge or preseeded topology reports as
   production evidence.
+- `tools/fieldmesh_app_feature_report_from_gate.py` - converts real app/gate
+  outputs into correlated feature reports for messaging, topology, or native
+  TCP/IP. It requires a successful live RF-worker/IIO bridge report and stamps
+  the feature evidence with the exact bridge and IQ live-run paths before the
+  app real-RF normalizer can consume it.
+- `tools/verify_fieldmesh_app_feature_report_from_gate.sh` - verifier for
+  app/gate-output conversion. It proves messaging, topology, and native-IP gate
+  outputs can feed the production gate and rejects dry-run bridge or
+  host-IP-routed source evidence.
 - `tools/fieldmesh_iio_rf_worker_bridge.py` - guarded bridge from the daemon
   RF-worker lease/ACK queue into the conducted AD936x IIO IQ path. In dry-run
   mode it leases or consumes one non-destructive BLR frame, generates the IQ
@@ -654,11 +663,11 @@ user and vendor configuration.
   inter-board host-IP or uncorrelated feature evidence are refused.
 - `tools/run_fieldmesh_conducted_rf_production_sequence.sh` - one-command
   conducted/shielded RF production sequence wrapper. It validates fixture
-  evidence, runs or consumes the RF-worker/IIO bridge, derives normalized app
-  reports from messaging/topology/native-IP feature evidence, and then invokes
-  the real-RF production gate. It is non-transmitting by default and live mode
-  requires explicit hardware-write, RF-TX, daemon-queue, fixture, and operator
-  approvals.
+  evidence, runs or consumes the RF-worker/IIO bridge, converts app/gate
+  outputs or feature reports into normalized messaging/topology/native-IP app
+  reports, and then invokes the real-RF production gate. It is non-transmitting
+  by default and live mode requires explicit hardware-write, RF-TX,
+  daemon-queue, fixture, and operator approvals.
 - `tools/verify_fieldmesh_conducted_rf_production_sequence.sh` - verifier for
   the sequence wrapper. It proves dry-run evidence stays non-production,
   missing fixture evidence blocks live RF, complete bridge-derived app evidence

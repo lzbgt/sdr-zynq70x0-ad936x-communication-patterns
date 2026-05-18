@@ -61,6 +61,12 @@ App feature evidence may be supplied either as raw feature reports:
   APP_TOPOLOGY_FEATURE_REPORT=/path/to/topology_feature.json
   APP_NATIVE_IP_FEATURE_REPORT=/path/to/native_ip_feature.json
 
+Or as app/gate source reports that this wrapper converts into correlated
+feature reports:
+  APP_MESSAGING_SOURCE_REPORT=/path/to/imgui_messaging_snapshot.json
+  APP_TOPOLOGY_SOURCE_REPORT=/path/to/imgui_topology_snapshot.json
+  APP_NATIVE_IP_SOURCE_REPORT=/path/to/native_ip_socket_assert.json
+
 Or as already-normalized app real-RF reports:
   APP_MESSAGING_REPORT=/path/to/app_messaging.json
   APP_TOPOLOGY_REPORT=/path/to/app_topology.json
@@ -97,6 +103,9 @@ fi
 raw_messaging="${APP_MESSAGING_FEATURE_REPORT:-}"
 raw_topology="${APP_TOPOLOGY_FEATURE_REPORT:-}"
 raw_native_ip="${APP_NATIVE_IP_FEATURE_REPORT:-}"
+source_messaging="${APP_MESSAGING_SOURCE_REPORT:-}"
+source_topology="${APP_TOPOLOGY_SOURCE_REPORT:-}"
+source_native_ip="${APP_NATIVE_IP_SOURCE_REPORT:-}"
 app_messaging="${APP_MESSAGING_REPORT:-}"
 app_topology="${APP_TOPOLOGY_REPORT:-}"
 app_native_ip="${APP_NATIVE_IP_REPORT:-}"
@@ -166,9 +175,11 @@ fi
 derive_app_report() {
     local feature="$1"
     local raw_report="$2"
-    local normalized_report="$3"
+    local source_report="$3"
+    local normalized_report="$4"
     local source_out="$out_dir/app-${feature}-source.json"
     local normalized_out="$out_dir/app-${feature}-real-rf.json"
+    local generated_feature="$out_dir/app-${feature}-feature.json"
 
     if [ -n "$normalized_report" ]; then
         if [ ! -f "$normalized_report" ]; then
@@ -177,6 +188,19 @@ derive_app_report() {
         fi
         printf '%s\n' "$normalized_report"
         return
+    fi
+    if [ -n "$source_report" ]; then
+        if [ ! -f "$source_report" ]; then
+            echo "missing $feature app source report: $source_report" >&2
+            exit 1
+        fi
+        "$repo_root/tools/fieldmesh_app_feature_report_from_gate.py" \
+            --feature "$feature" \
+            --bridge-report "$bridge_report" \
+            --source-report "$source_report" \
+            --output "$generated_feature" \
+            > "$out_dir/app-${feature}-feature_stdout.json"
+        raw_report="$generated_feature"
     fi
     if [ -z "$raw_report" ]; then
         return
@@ -199,9 +223,9 @@ derive_app_report() {
     printf '%s\n' "$normalized_out"
 }
 
-messaging_report="$(derive_app_report messaging "$raw_messaging" "$app_messaging")"
-topology_report="$(derive_app_report topology "$raw_topology" "$app_topology")"
-native_ip_report="$(derive_app_report native_ip "$raw_native_ip" "$app_native_ip")"
+messaging_report="$(derive_app_report messaging "$raw_messaging" "$source_messaging" "$app_messaging")"
+topology_report="$(derive_app_report topology "$raw_topology" "$source_topology" "$app_topology")"
+native_ip_report="$(derive_app_report native_ip "$raw_native_ip" "$source_native_ip" "$app_native_ip")"
 
 iq_live_run="$(python3 - "$bridge_report" <<'PY'
 import json
