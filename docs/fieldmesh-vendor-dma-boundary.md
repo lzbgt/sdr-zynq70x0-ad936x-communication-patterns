@@ -764,13 +764,15 @@ evidence for messaging, topology, or native-IP. The feature report must name the
 same bridge report and IQ live-run report, preventing an app result from a
 different run from satisfying the production gate.
 
-`tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the top-level
-operator wrapper around those pieces. It remains dry-run unless live RF,
-hardware writes, RF TX, daemon queue mutation, RF path evidence, RF path ID, and
-the exact operator confirmation are all provided. With a successful live bridge
-and named app/gate source reports or feature reports, it derives app evidence
-and calls the production gate; with dry-run or incomplete evidence it leaves
-`production_ready=false`.
+`tools/run_fieldmesh_over_air_rf_production_sequence.sh` is the preferred
+top-level operator wrapper around those pieces. The older
+`run_fieldmesh_conducted_rf_production_sequence.sh` name is retained only for
+compatibility with existing evidence report names. The wrapper remains dry-run
+unless live RF, hardware writes, RF TX, daemon queue mutation, RF path evidence,
+RF path ID, and the exact operator confirmation are all provided. With a
+successful live bridge and named app/gate source reports or feature reports, it
+derives app evidence and calls the production gate; with dry-run or incomplete
+evidence it leaves `production_ready=false`.
 Uncorrelated feature reports are rejected before the production gate is invoked.
 
 ## Variant Notes

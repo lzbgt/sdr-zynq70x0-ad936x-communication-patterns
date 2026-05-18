@@ -689,18 +689,31 @@ user and vendor configuration.
   sequence output also includes a self-contained hashed evidence bundle under
   the sequence output directory, covering preflight, bridge, IQ live-run, app
   reports, and production-gate evidence.
+- `tools/fieldmesh_over_air_rf_preflight.py` - preferred compatibility
+  entrypoint for the same authorized over-air preflight contract. It preserves
+  the current report schema while removing conducted/shielded wording from the
+  operator-facing command name.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
   production preflight checklist. It proves missing approvals, invalid fixture
   evidence, excessive TX duration, daemon-bridge native-IP app sources, and
   uncorrelated raw or normalized feature reports block live RF while a complete
   approved over-air RF-path configuration passes preflight without
   transmitting.
+- `tools/verify_fieldmesh_over_air_rf_preflight.sh` - verifier for the
+  preferred over-air preflight entrypoint and `RF_PATH_ID` /
+  `RF_PATH_EVIDENCE` environment.
 - `tools/verify_fieldmesh_conducted_rf_production_sequence.sh` - verifier for
   the sequence wrapper. It proves dry-run evidence stays non-production,
   missing RF path evidence blocks live RF, complete bridge-derived app evidence
   passes the production gate, and host-IP-routed or uncorrelated feature
   evidence is rejected. It also verifies that the evidence manifest hashes
   every required production input report.
+- `tools/run_fieldmesh_over_air_rf_production_sequence.sh` - preferred
+  operator-facing wrapper for the authorized over-air production sequence. It
+  delegates to the compatibility implementation while keeping the command name
+  aligned with production reality: boards communicate over the air.
+- `tools/verify_fieldmesh_over_air_rf_production_sequence.sh` - verifier for
+  the over-air sequence wrapper.
 - `tools/fieldmesh_conducted_rf_evidence_manifest.py` - standalone verifier
   for archived real-RF evidence bundles. It checks the sequence summary
   hash, verifies every manifest file byte count and SHA-256, validates each
@@ -709,11 +722,15 @@ user and vendor configuration.
   rerunning the RF sequence. Manifest entries preserve both bundled `path` and
   original `source_path` so archives are self-contained while cross-references
   to source reports remain auditable.
+- `tools/fieldmesh_over_air_rf_evidence_manifest.py` - preferred compatibility
+  entrypoint for real-RF evidence-bundle verification.
 - `tools/verify_fieldmesh_conducted_rf_evidence_manifest.sh` - verifier for
   archived evidence bundle validation. It proves the manifest checker accepts
   the complete synthetic production bundle and rejects tampered summary hashes,
   tampered file hashes, wrong-event files under required labels, and
   non-production manifests when production readiness is required.
+- `tools/verify_fieldmesh_over_air_rf_evidence_manifest.sh` - verifier for the
+  over-air evidence-manifest entrypoint.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

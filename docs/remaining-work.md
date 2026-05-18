@@ -115,6 +115,10 @@ The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level
 messaging/topology/native-IP reports, and feeds the real-RF production gate.
+The preferred operator entrypoint is now
+`tools/run_fieldmesh_over_air_rf_production_sequence.sh`; the older
+`conducted_rf` filenames remain compatibility wrappers around the same report
+schema and should not be treated as the production RF model.
 Before the wrapper can run any RF-capable step it now emits a structured
 `fieldmesh_conducted_rf_preflight.json` checklist. `PREFLIGHT_ONLY=1` validates
 the RF-binding plan path, RF path evidence, explicit live approvals, bounded TX

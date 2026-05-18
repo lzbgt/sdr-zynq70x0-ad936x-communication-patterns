@@ -3685,6 +3685,15 @@ separate measured RF decode.
 The full authorized over-air production sequence is wrapped by:
 
 ```sh
+./tools/verify_fieldmesh_over_air_rf_preflight.sh
+./tools/verify_fieldmesh_over_air_rf_production_sequence.sh
+./tools/verify_fieldmesh_over_air_rf_evidence_manifest.sh
+```
+
+The older `conducted_rf` entrypoints remain compatibility aliases for the
+current report schema:
+
+```sh
 ./tools/verify_fieldmesh_conducted_rf_preflight.sh
 ./tools/verify_fieldmesh_conducted_rf_production_sequence.sh
 ./tools/verify_fieldmesh_conducted_rf_evidence_manifest.sh
@@ -3696,10 +3705,13 @@ Result:
 {"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
 {"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_rf_path_refused": true, "ok": true}
 {"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","topology_app_report"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true},"verified_files":7}
+{"event":"fieldmesh_over_air_rf_production_sequence_check","live_rf_allowed":true,"ok":true,"preflight_alias":true}
 ```
 
-`tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
-wrapper for the current real-RF readiness path. Before any RF-capable step it
+`tools/run_fieldmesh_over_air_rf_production_sequence.sh` is the preferred
+operator-facing wrapper for the current real-RF readiness path. The legacy
+`tools/run_fieldmesh_conducted_rf_production_sequence.sh` name is retained as a
+compatibility implementation. Before any RF-capable step the wrapper
 now writes `fieldmesh_conducted_rf_preflight.json`, which records missing live
 approvals, RF-path evidence status, bounded TX duration, available app
 evidence, and whether live RF would be allowed. `PREFLIGHT_ONLY=1` exits after
