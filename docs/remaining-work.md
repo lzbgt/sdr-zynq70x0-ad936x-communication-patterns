@@ -60,7 +60,7 @@ has first-class RF worker lifecycle controls:
 boundary inside the daemon, but still reports `rf_phy_tx_rx=0`; it is not a
 fake radio. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
-engine, TX guard, proven DAC source-select readback, conducted/shielded setup,
+engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
 legal frequency profile, RX-first validation, and measured link evidence are
 all required. The plan always keeps `live_rf_allowed=0`, `rf_phy_tx_rx=0`, and
 `production_ready=0`; while DAC source-select readback is missing it reports
@@ -111,13 +111,13 @@ after the refreshed installed daemons were redeployed. The remaining
 implementation work is to connect those driver queues to real RF packet
 ingress/egress, then prove ICMP/TCP/UDP over the RF path with measured
 throughput, RTT, retransmits, queue age, and route-failover behavior.
-The production sequence wrapper now centralizes the remaining conducted or
-shielded proof: it validates fixture evidence, runs or consumes the RF-worker
+The production sequence wrapper now centralizes the remaining authorized
+over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level
 messaging/topology/native-IP reports, and feeds the real-RF production gate.
 Before the wrapper can run any RF-capable step it now emits a structured
 `fieldmesh_conducted_rf_preflight.json` checklist. `PREFLIGHT_ONLY=1` validates
-the RF-binding plan path, fixture evidence, explicit live approvals, bounded TX
+the RF-binding plan path, RF path evidence, explicit live approvals, bounded TX
 duration, and all three app-evidence inputs without leasing daemon frames,
 mutating queues, opening IIO buffers, or starting RF TX. If the operator
 supplies an existing live bridge report, the same preflight validates
@@ -442,10 +442,10 @@ Current concrete work:
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board
   IP routing.
-- The next RF data-plane gate is conducted/shielded only: use the RF
+- The next RF data-plane gate is authorized over-air only: use the RF
   packet-engine handoff, BPSK symbolizer, IQ TX guard, DAC clock bridge, and DAC
   source-select path to run a bounded TX/RX measurement with explicit legal
-  frequency, attenuation, RX-first capture, TX enable, rollback, and evidence.
+  frequency, RF path authorization, RX-first capture, TX enable, rollback, and evidence.
   Until that passes, all board/app capacity tables remain planning envelopes,
   not measured RF throughput claims.
 - The next app/product gate is a packaged GUI validation cycle: two symmetric
@@ -628,8 +628,8 @@ below were later superseded by the current PHY-management two-board gates above:
   `tools/fieldmesh_iq_iio_live_run.py` turns the plan into a
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
   and defaults to a no-hardware dry-run. The next live-safe step is running
-  that runner on a conducted/shielded fixture with
-  `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, fixture identity,
+  that runner on an authorized over-air RF path with
+  `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, RF path identity,
   exact operator confirmation, and bounded TX duration, then running AP
   browse/election/join as host commands whose peer payload traffic crosses RF.
   `tools/classify_fieldmesh_rf_phy_readiness.py` is the no-write classifier for
@@ -642,7 +642,7 @@ below were later superseded by the current PHY-management two-board gates above:
   normalizes named app evidence and refuses current daemon RF-worker bridge or
   preseeded topology reports as production evidence.
   `tools/fieldmesh_iio_rf_worker_bridge.py` now provides the dry-run and live
-  execution shape for moving a leased daemon RF frame through the conducted-IIO
+  execution shape for moving a leased daemon RF frame through the over-air IIO
   IQ path, then ingesting and ACKing only after exact frame recovery.
   `tools/fieldmesh_app_real_rf_source_from_bridge.py` ties that live bridge
   evidence to app messaging, topology, and native-IP behavior before producing
@@ -719,7 +719,7 @@ below were later superseded by the current PHY-management two-board gates above:
   manager. The remaining app work is wiring the ImGui panels to live daemon
   calls and platform capture/preview backends, packaged desktop launchers,
   deeper platform codec supervision, and the
-  conducted/shielded RF TX/RX data-plane gate.
+  authorized over-air RF TX/RX data-plane gate.
   The intended live
   product flow is still one app that can source or preview camera data: Host A
   camera -> local board over USB/physical Ethernet SDK data ingress ->
@@ -780,7 +780,7 @@ below were later superseded by the current PHY-management two-board gates above:
   and still execute no commands, write no hardware, start no RF TX, use no IIO,
   and do no inter-board IP routing. `tools/fieldmesh_rf_tx_guard_run.py` now
   turns that daemon report into a board-local read-only preflight script for
-  the guard boundary and refuses live preflight unless the conducted/shielded,
+  the guard boundary and refuses live preflight unless the authorized RF-path,
   legal-frequency, RX-first, sidecar-preflight, RF-engine-ready, and
   Zynq-target declarations are explicit. Z103 has passed that read-only live
   preflight. The next step is replacing that preflight with a real board-local
@@ -912,17 +912,17 @@ below were later superseded by the current PHY-management two-board gates above:
   apply path now rejects that case. After installing the refreshed RF-engine
   package, Z103 passed with source-select readback asserted and rolled back.
 - `tools/fieldmesh_rf_tx_enable_plan.py` now joins green sidecar preflight,
-  guard-write, and source-select evidence into a review-only conducted/shielded
-  TX-enable sequence with bounded duration and rollback. It still executes no
+  guard-write, and source-select evidence into a review-only authorized
+  over-air TX-enable sequence with bounded duration and rollback. It still executes no
   commands and starts no RF TX. `tools/fieldmesh_rf_tx_enable_run.py` now
   consumes that plan, generates a rollback-protected board script, and only
-  invokes an explicit TX backend after the hardware-write, RF-TX, fixture,
-  attenuation, RX-first, operator-confirmation, and fixture-evidence gates are
+  invokes an explicit TX backend after the hardware-write, RF-TX,
+  authorized RF-path, RX-first, operator-confirmation, and RF-path evidence gates are
   present. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
   manifests for attenuation, isolation, legal profile, calibration, and
   frequency range before live RF. The next live work is implementing the actual
   board backend for a real
-  conducted/shielded fixture and running it with bounded duration plus
+  authorized over-air RF path and running it with bounded duration plus
   rollback evidence.
   `tools/verify_fieldmesh_runtime_artifacts.sh` now checks rootfs probe roles,
   packaged SDK demos including `fieldmesh-camera-stream-demo`, package

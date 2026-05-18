@@ -92,10 +92,10 @@ if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge.py" \
   --execute-live-rf \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --fixture-id conducted-fixture-A \
-  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --fixture-id authorized-open-air-A \
+  --operator-confirmation I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   >/dev/null 2>&1; then
-  echo "IIO RF worker bridge accepted live RF without fixture evidence" >&2
+  echo "IIO RF worker bridge accepted live RF without RF path evidence" >&2
   exit 1
 fi
 

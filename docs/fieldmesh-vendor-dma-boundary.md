@@ -581,10 +581,10 @@ Default mode is dry-run: it writes `fieldmesh_rf_tx_enable_execute.sh` with a
 rollback trap but executes no commands, writes no hardware, starts no RF TX,
 and opens no IIO buffers. Live execution additionally requires
 `--execute-live-tx --allow-hardware-writes --allow-rf-tx`, the exact operator
-confirmation string, a fixture ID, and an executable TX backend. The wrapper
+confirmation string, a RF path ID, and an executable TX backend. The wrapper
 validates the plan and safety declarations, then invokes only that explicit
 backend; the generated board script remains the review/deployment artifact for
-the later conducted/shielded fixture runner.
+the later authorized over-air RF path runner.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:
@@ -673,14 +673,14 @@ sidecar-DMA smoke evidence:
 ```
 
 It validates one path shape across daemon handoff, board sidecar DMA loopback,
-and packet-engine IQ recovery before any conducted/shielded RF TX runner is
+and packet-engine IQ recovery before any authorized over-air RF TX runner is
 allowed.
 
 The next software boundary is now represented in the pure-C SDK and daemon as
 a dry-run TX guard plan. `fieldmesh_plan_rf_tx_guard()` derives a
 `fieldmesh_iq_tx_guard` arming plan from an RF packet-engine packet plan:
 adapter, destination EUI, traffic class, selected direct/relay route, slot
-epoch/index, arm window, and the required conducted/shielded, legal-frequency,
+epoch/index, arm window, and the required authorized RF-path, legal-frequency,
 RX-first, sidecar-preflight, RF-engine, and TX-enable guard prerequisites.
 `fieldmesh_apply_rf_tx_guard()` currently reports validation/rollback metadata
 but executes no commands, writes no hardware, starts no RF TX, and does not use
@@ -688,7 +688,7 @@ IIO or inter-board IP routing. The daemon exposes this as
 `FIELDMESH_RF_TX_GUARD_PLAN`. `tools/fieldmesh_rf_tx_guard_run.py` consumes
 that daemon report and generates the first board-local read-only preflight
 script for the guard boundary. Even its live-preflight mode only runs pre-state
-checks after explicit conducted/shielded, legal-frequency, RX-first,
+checks after explicit authorized RF-path, legal-frequency, RX-first,
 sidecar-preflight, RF-engine-ready, and Zynq-target declarations; it still does
 not set TX enable, arm the guard, write hardware, or start RF TX. Real live
 arming still belongs to a later guarded register runner after the
@@ -703,7 +703,7 @@ The next gate plans the live AD936x IIO procedure but still executes nothing:
 It combines the committed two-board `rf_binding_plan.json` with the generated
 IQ burst smoke report. The resulting `fieldmesh_iq_iio_live_plan` keeps
 `uses_inter_board_ip_routing=false` and requires all live RF declarations:
-conducted/shielded fixture, legal frequency profile, attenuation evidence,
+authorized over-air RF path, legal frequency profile, attenuation evidence,
 explicit TX-enable guard, and RX-first ordering. The command plan is RX-first:
 configure RX PHY, configure TX PHY, arm RX buffer, load TX buffer, then require
 explicit TX enable before capture. The tool still reports
@@ -722,13 +722,13 @@ The generated script configures RX PHY first, configures TX PHY second, starts
 `iio_readdev` for RX capture, then runs `iio_writedev` for the TX IQ burst.
 The default report keeps `executes_commands=false`,
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
-A real conducted/shielded fixture run requires
+A real authorized over-air RF path run requires
 `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, a non-empty
-`--fixture-id`, a `--fixture-evidence` manifest accepted by
+`--rf-path-id`, a `--rf-path-evidence` manifest accepted by
 `tools/fieldmesh_rf_fixture_evidence.py`, the exact operator confirmation
-`I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE`, and a TX duration no longer than the
+`I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH`, and a TX duration no longer than the
 tool's `1000 ms` ceiling, in addition to the same legal-frequency,
-attenuation, TX-enable, and RX-first declarations. The generated TX command is
+authorized RF-path, TX-enable, and RX-first declarations. The generated TX command is
 also wrapped with `timeout` so an IIO writer cannot run unbounded.
 
 The readiness classifier is separate from the runner:
@@ -755,7 +755,7 @@ it refuses current daemon RF-worker bridge and preseeded topology reports as
 production evidence.
 
 `tools/fieldmesh_iio_rf_worker_bridge.py` is the concrete bridge from
-`FIELDMESH_RF_TX_LEASE` into the guarded conducted-IIO IQ path. It is dry-run
+`FIELDMESH_RF_TX_LEASE` into the guarded over-air IIO IQ path. It is dry-run
 by default, and in live mode it must recover the exact leased frame, ingest that
 frame into the sink daemon, and ACK the source only after successful ingest.
 `tools/fieldmesh_app_real_rf_source_from_bridge.py` then combines a successful
@@ -766,7 +766,7 @@ different run from satisfying the production gate.
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the top-level
 operator wrapper around those pieces. It remains dry-run unless live RF,
-hardware writes, RF TX, daemon queue mutation, fixture evidence, fixture ID, and
+hardware writes, RF TX, daemon queue mutation, RF path evidence, RF path ID, and
 the exact operator confirmation are all provided. With a successful live bridge
 and named app/gate source reports or feature reports, it derives app evidence
 and calls the production gate; with dry-run or incomplete evidence it leaves

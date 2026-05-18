@@ -39,13 +39,13 @@ if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
   ALLOW_RF_TX=1 \
   ALLOW_DAEMON_QUEUE_MUTATION=1 \
-  FIXTURE_ID=conducted-fixture-A \
-  OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  RF_PATH_ID=authorized-open-air-A \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   LEASED_FRAME_REPORT="$repo_root/.config/fieldmesh/iio-rf-worker-bridge-verify/lease.json" \
   RF_BINDING_PLAN="$binding" \
   OUT_DIR="$work_dir/missing-fixture-evidence" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF production sequence accepted live RF without fixture evidence" >&2
+  echo "over-air RF production sequence accepted live RF without RF path evidence" >&2
   exit 1
 fi
 
@@ -162,7 +162,7 @@ print(json.dumps({
     "event": "fieldmesh_conducted_rf_production_sequence_check",
     "ok": True,
     "dry_run_blocked": True,
-    "missing_fixture_refused": True,
+    "missing_rf_path_refused": True,
     "complete_evidence_passed": True,
     "evidence_manifest_hashed": True,
 }, sort_keys=True))
@@ -185,7 +185,7 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   EXPECT_PRODUCTION_READY=1 \
   OUT_DIR="$work_dir/bad-native-ip-sequence" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF production sequence accepted host-IP-routed native-IP feature evidence" >&2
+  echo "over-air RF production sequence accepted host-IP-routed native-IP feature evidence" >&2
   exit 1
 fi
 
@@ -206,6 +206,6 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   EXPECT_PRODUCTION_READY=1 \
   OUT_DIR="$work_dir/uncorrelated-feature-sequence" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF production sequence accepted uncorrelated feature evidence" >&2
+  echo "over-air RF production sequence accepted uncorrelated feature evidence" >&2
   exit 1
 fi

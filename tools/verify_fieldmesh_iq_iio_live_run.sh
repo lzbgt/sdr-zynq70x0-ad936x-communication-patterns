@@ -80,7 +80,7 @@ for key in ("allow_hardware_writes", "allow_rf_tx", "operator_confirmation_ok"):
     if report["safety"][key] is not False:
         raise SystemExit(f"dry-run safety key {key} must be false")
 if report["safety"]["fixture_id"] is not None:
-    raise SystemExit("dry-run must not invent fixture identity")
+    raise SystemExit("dry-run must not invent RF path identity")
 script = Path(report["generated_script"])
 if not script.exists():
     raise SystemExit(f"missing generated script {script}")
@@ -154,7 +154,7 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --execute-live-rf \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --fixture-id conducted-fixture-A \
+  --fixture-id authorized-open-air-A \
   >/dev/null 2>&1; then
   echo "live runner accepted --execute-live-rf without operator confirmation" >&2
   exit 1
@@ -173,9 +173,9 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --execute-live-rf \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --operator-confirmation I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   >/dev/null 2>&1; then
-  echo "live runner accepted --execute-live-rf without fixture identity" >&2
+  echo "live runner accepted --execute-live-rf without RF path identity" >&2
   exit 1
 fi
 
@@ -192,10 +192,10 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --execute-live-rf \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --fixture-id conducted-fixture-A \
-  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --fixture-id authorized-open-air-A \
+  --operator-confirmation I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   >/dev/null 2>&1; then
-  echo "live runner accepted --execute-live-rf without fixture evidence" >&2
+  echo "live runner accepted --execute-live-rf without RF path evidence" >&2
   exit 1
 fi
 
@@ -212,8 +212,8 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --execute-live-rf \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --fixture-id conducted-fixture-A \
-  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --fixture-id authorized-open-air-A \
+  --operator-confirmation I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   --max-tx-duration-ms 5000 \
   >/dev/null 2>&1; then
   echo "live runner accepted excessive TX duration" >&2
@@ -231,6 +231,6 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --tx-enable-guard \
   --rx-first \
   >/dev/null 2>&1; then
-  echo "live runner accepted too little fixture attenuation" >&2
+  echo "live runner accepted too little lab attenuation" >&2
   exit 1
 fi

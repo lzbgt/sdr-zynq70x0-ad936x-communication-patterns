@@ -2339,7 +2339,7 @@ The same SDK gate now also checks `fieldmesh_plan_rf_tx_guard()` /
 `fieldmesh_apply_rf_tx_guard()` and daemon `FIELDMESH_RF_TX_GUARD_PLAN`: the
 daemon derives a dry-run `fieldmesh_iq_tx_guard` arming plan from the RF packet
 plan, preserves the direct scheduled route metadata, reports slot epoch/index
-and the conducted/shielded, legal-frequency, RX-first, sidecar-preflight,
+and the authorized RF-path, legal-frequency, RX-first, sidecar-preflight,
 RF-engine, and TX-enable guard prerequisites, and still reports
 `sets_tx_enable=0`, `sets_tx_armed=0`, `writes_hardware=0`, `starts_rf_tx=0`,
 `commands_executed=0`, `uses_iio=0`, and `uses_inter_board_ip_routing=0`.
@@ -2354,8 +2354,8 @@ The board-runtime register writer was then added behind the same safety model:
 `fieldmesh-udp-probe rf-guard-scan` reads the `0x100+` guard registers plus the
 DAC source-select/status registers through `0x13c`, and
 `fieldmesh-udp-probe rf-guard-apply` refuses to run without
-`--allow-live-writes`, a green sidecar preflight assertion, conducted/shielded
-and legal-frequency declarations, RX-first ordering, TX-enable-guard,
+`--allow-live-writes`, a green sidecar preflight assertion, authorized
+RF-path and legal-frequency declarations, RX-first ordering, TX-enable-guard,
 RF-engine-ready, sidecar-preflight, and Zynq-target confirmations.
 `./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
 memory to verify the writer arms only the guard registers, reports
@@ -2386,7 +2386,7 @@ and
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_rf_source_select_blocked_20260518-121711/`.
 `./tools/verify_fieldmesh_rf_tx_enable_plan.sh` then added the review-only
 TX-enable gate: it consumes live guard/source/preflight evidence, requires
-conducted/shielded fixture attenuation, legal frequency profile, RX-first,
+authorized over-air RF path, legal frequency profile, RX-first,
 TX-enable guard, sidecar preflight, RF-engine, and Zynq target declarations,
 and emits a future bounded TX-enable plus rollback sequence while still
 reporting `executes_commands=false`, `writes_hardware=false`, and
@@ -3395,13 +3395,13 @@ Result:
   `cf-ad9361-dds-core-lpc` for RF TX on both Z203 and Z103;
 - the saved assertion keeps `uses_inter_board_ip_routing=false`,
   `opens_iio_buffers=false`, and `starts_rf_tx=false`;
-- the next gate is a conducted or shielded AD936x IQ burst encoder/decoder
+- the next gate is an authorized over-air AD936x IQ burst encoder/decoder
   smoke with explicit frequency, attenuation, and TX enable guard.
 
 The saved assertion is:
 
 ```json
-{"event":"fieldmesh_two_board_radio_gate","management_plane":{"host_facing_only":true,"z103_host_ip":"192.168.3.1","z203_host_ip":"192.168.2.1"},"ok":true,"radio_data_plane":{"current_gate":"per-board sidecar DMA plus read-only AD936x IIO RF binding readiness","expected_between_boards":true,"next_gate":"conducted AD936x IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX enable guard","opens_iio_buffers":false,"starts_rf_tx":false,"uses_inter_board_ip_routing":false},"rf_binding_plan":"resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_rf_binding_plan_20260514-004950/rf_binding_plan.json","z103_sidecar_dma_smoke":true,"z203_sidecar_dma_smoke":true}
+{"event":"fieldmesh_two_board_radio_gate","management_plane":{"host_facing_only":true,"z103_host_ip":"192.168.3.1","z203_host_ip":"192.168.2.1"},"ok":true,"radio_data_plane":{"current_gate":"per-board sidecar DMA plus read-only AD936x IIO RF binding readiness","expected_between_boards":true,"next_gate":"authorized over-air AD936x IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX enable guard","opens_iio_buffers":false,"starts_rf_tx":false,"uses_inter_board_ip_routing":false},"rf_binding_plan":"resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_z203_rf_binding_plan_20260514-004950/rf_binding_plan.json","z103_sidecar_dma_smoke":true,"z203_sidecar_dma_smoke":true}
 ```
 
 Note: a later same-directory rerun was interrupted while recapturing Z203
@@ -3435,7 +3435,7 @@ Result:
 The generated `fieldmesh_iq_burst_smoke.json` reports
 `opens_iio_buffers=false`, `starts_rf_tx=false`, `writes_hardware=false`, and
 `recovered_frame_match=true`. The same verifier also checks that the tool
-refuses a burst plan when the conducted/shielded guard is missing.
+refuses a burst plan when the authorized RF-path guard is missing.
 
 ## FieldMesh RF Packet Engine Transport
 
@@ -3549,10 +3549,10 @@ bounded `iio_writedev` TX IQ burst loading. The default report keeps
 `writes_hardware=false`. The verifier also rejects missing legal-frequency
 profile, insufficient fixture attenuation, excessive TX duration, and
 `--execute-live-rf` unless hardware writes, RF-TX authorization, exact operator
-confirmation, fixture identity, and fixture evidence are present. Actual
-conducted/shielded RF execution is therefore explicit, bounded, and auditable.
+confirmation, RF path identity, and RF path evidence are present. Actual
+authorized over-air RF execution is therefore explicit, bounded, and auditable.
 
-Fixture evidence is machine-checked before any live RF run:
+RF path evidence is machine-checked before any live RF run:
 
 ```sh
 ./tools/verify_fieldmesh_rf_fixture_evidence.sh
@@ -3564,7 +3564,7 @@ Result:
 {"event": "fieldmesh_rf_fixture_evidence_check", "fixture_id": "conducted-fixture-A", "measured_attenuation_db": 60.0, "ok": true}
 ```
 
-The evidence manifest must identify the fixture, assert conducted/shielded
+The evidence manifest must identify the RF path and assert over-air authorization
 operation, prove TX/RX isolation, name the legal frequency profile, provide
 measured attenuation at or above the requested attenuation, and have a current
 calibration date.
@@ -3643,7 +3643,7 @@ source evidence. Native-IP source evidence must also positively identify real
 RF PHY transport; daemon RF-worker bridge reports with `rf_phy_tx_rx=0` and
 `next_boundary=rf_phy_tx_rx` are rejected as infrastructure-only.
 
-The daemon RF-worker to conducted-IIO bridge has a dry-run gate:
+The daemon RF-worker to over-air IIO bridge has a dry-run gate:
 
 ```sh
 ./tools/verify_fieldmesh_iio_rf_worker_bridge.sh
@@ -3682,7 +3682,7 @@ also name the exact RF-worker/IIO bridge report and nested IQ live-run report
 they validate, so a stale or uncorrelated app result cannot be combined with a
 separate measured RF decode.
 
-The full conducted/shielded production sequence is wrapped by:
+The full authorized over-air production sequence is wrapped by:
 
 ```sh
 ./tools/verify_fieldmesh_conducted_rf_preflight.sh
@@ -3693,30 +3693,32 @@ The full conducted/shielded production sequence is wrapped by:
 Result:
 
 ```json
-{"event": "fieldmesh_conducted_rf_preflight_check", "fixture_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
-{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_fixture_refused": true, "ok": true}
+{"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
+{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_rf_path_refused": true, "ok": true}
 {"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","topology_app_report"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true},"verified_files":7}
 ```
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
 wrapper for the current real-RF readiness path. Before any RF-capable step it
 now writes `fieldmesh_conducted_rf_preflight.json`, which records missing live
-approvals, fixture-evidence status, bounded TX duration, available app evidence,
-and whether live RF would be allowed. `PREFLIGHT_ONLY=1` exits after that
-non-transmitting checklist, so operators can validate fixture and evidence
-readiness without leasing daemon frames, mutating queues, opening IIO buffers,
-or starting RF TX. When a live bridge report already exists, preflight now also
+approvals, RF-path evidence status, bounded TX duration, available app
+evidence, and whether live RF would be allowed. `PREFLIGHT_ONLY=1` exits after
+that non-transmitting checklist, so operators can validate over-air RF path and
+evidence readiness without leasing daemon frames, mutating queues, opening IIO
+buffers, or starting RF TX. When a live bridge report already exists, preflight now also
 validates app source/feature evidence against the same bridge and IQ live-run;
 daemon RF-worker native-IP sources and uncorrelated feature reports are refused
 before the sequence can proceed. Already-normalized app reports are not trusted
 as standalone production evidence; preflight follows their `source_report` and
 requires that source to reference the same bridge and IQ live-run. The full
-sequence then validates fixture evidence, runs or consumes the RF-worker/IIO
+sequence then validates RF path evidence, runs or consumes the RF-worker/IIO
 bridge, converts app/gate source outputs or raw feature reports into normalized
 messaging/topology/native-IP real-RF reports, and invokes the production gate.
 Dry-run is the default. Live RF still requires explicit hardware-write, RF-TX,
-daemon-queue mutation, fixture evidence, fixture ID, and operator-confirmation
-inputs. Raw app feature evidence supplied to the wrapper must be correlated to
+daemon-queue mutation, RF path evidence, RF path ID, and operator-confirmation
+inputs. Production RF path evidence is authorized over-air evidence; legacy
+lab-containment fixture evidence is an optional lab-containment path only, not
+the production model for boards that may be miles apart. Raw app feature evidence supplied to the wrapper must be correlated to
 the same bridge and IQ live-run reports. The sequence also emits
 `fieldmesh_conducted_rf_evidence_manifest.json`, with byte counts and SHA-256
 hashes for the preflight report, bridge report, IQ live-run, app reports, and
@@ -3803,7 +3805,7 @@ preview status, and RF packet-engine handoff. The paired radio-readiness gate
 also passed with
 `uses_inter_board_ip_routing=false`, `uses_iio=false`, `starts_rf_tx=false`,
 and `writes_hardware=false`; the remaining live gap is still the
-conducted/shielded over-air RF TX/RX procedure. The evidence was archived under
+authorized over-air RF TX/RX procedure. The evidence was archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z203_phy_z103_usb_two_board_camera_flow_20260514-1530/`.
 
 After adding `FIELDMESH_ROUTE_METRICS`, the same two-board gate was rerun with
@@ -4515,8 +4517,8 @@ The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `FIELDMESH_RF_WORKER_PHY_PLAN` was added to the daemon contract and verified on
 both installed boards. The gate reports the required evidence before any real
 PHY driver binding is allowed: sidecar preflight, sidecar DMA, RF
-packet-engine proof, TX guard, DAC source-select readback, conducted/shielded
-setup, legal frequency profile, RX-first validation, and measured link
+packet-engine proof, TX guard, DAC source-select readback, authorized RF path,
+legal frequency profile, RX-first validation, and measured link
 evidence. It deliberately keeps `live_rf_allowed=0`, `rf_phy_tx_rx=0`, and
 `production_ready=0`. If DAC source-select readback is not proven, it reports
 `production_blocker=rf_dac_source_select_not_verified`; after that passes, the

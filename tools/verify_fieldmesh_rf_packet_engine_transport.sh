@@ -66,6 +66,6 @@ if "$repo_root/tools/fieldmesh_rf_packet_engine_transport.py" \
   --rf-bandwidth-hz 1000000 \
   --fixture-attenuation-db 60 \
   >/dev/null 2>&1; then
-  echo "RF packet-engine accepted missing conducted/shielded guard" >&2
+  echo "RF packet-engine accepted missing authorized RF-path guard" >&2
   exit 1
 fi

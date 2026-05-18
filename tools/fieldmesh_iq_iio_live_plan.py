@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan a guarded conducted AD936x IIO IQ burst test without executing it."""
+"""Plan a guarded over-air AD936x IIO IQ burst test without executing it."""
 
 from __future__ import annotations
 
@@ -23,23 +23,23 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def require_guard(args: argparse.Namespace, iq_report: dict[str, Any]) -> None:
-    if not args.conducted_or_shielded:
-        raise SystemExit("--conducted-or-shielded is required")
+    if not args.authorized_rf_path and not args.conducted_or_shielded:
+        raise SystemExit("--authorized-rf-path is required")
     if not args.legal_frequency_profile:
         raise SystemExit("--legal-frequency-profile is required")
     if not args.tx_enable_guard:
         raise SystemExit("--tx-enable-guard is required")
     if not args.rx_first:
         raise SystemExit("--rx-first is required")
-    if args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
+    if args.conducted_or_shielded and args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
         raise SystemExit(
             f"--fixture-attenuation-db must be >= {MIN_FIXTURE_ATTENUATION_DB:g} dB"
         )
     fixture = iq_report.get("rf_fixture", {})
-    if fixture.get("conducted_or_shielded") is not True:
-        raise SystemExit("IQ burst smoke report is not marked conducted/shielded")
-    if float(fixture.get("fixture_attenuation_db", 0.0)) < MIN_FIXTURE_ATTENUATION_DB:
-        raise SystemExit("IQ burst smoke report fixture attenuation is too low")
+    if fixture.get("authorized_rf_path") is not True and fixture.get("conducted_or_shielded") is not True:
+        raise SystemExit("IQ burst smoke report is not marked for an authorized RF path")
+    if fixture.get("conducted_or_shielded") is True and float(fixture.get("fixture_attenuation_db", 0.0)) < MIN_FIXTURE_ATTENUATION_DB:
+        raise SystemExit("IQ burst smoke report lab attenuation is too low")
 
 
 def require_rf_binding(binding: dict[str, Any]) -> None:
@@ -117,9 +117,8 @@ def command_plan(
             "name": "explicit_tx_enable_then_capture",
             "board": tx_board,
             "requires": [
-                "conducted_or_shielded_fixture",
+                "authorized_rf_path_evidence",
                 "legal_frequency_profile",
-                "attenuation_evidence",
                 "operator_tx_enable_guard",
                 "rx_first",
             ],
@@ -146,7 +145,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
     rx_iio = board_iio(binding, args.rx_board)
 
     safety = {
-        "conducted_or_shielded": True,
+        "authorized_rf_path": True,
+        "conducted_or_shielded": bool(args.conducted_or_shielded),
         "fixture_attenuation_db": args.fixture_attenuation_db,
         "legal_frequency_profile": True,
         "tx_enable_guard": True,
@@ -165,7 +165,7 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
         "management_plane": binding["management_plane"],
         "radio_data_plane": {
             "uses_inter_board_ip_routing": False,
-            "path": "FieldMesh IQ burst -> TX AD936x IIO buffer -> conducted RF fixture -> RX AD936x IIO buffer -> FieldMesh decoder",
+            "path": "FieldMesh IQ burst -> TX AD936x IIO buffer -> authorized over-air RF path -> RX AD936x IIO buffer -> FieldMesh decoder",
             "tx_iio": tx_iio,
             "rx_iio": rx_iio,
         },
@@ -190,6 +190,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tx-board", choices=("z203", "z103"), default="z203")
     parser.add_argument("--rx-board", choices=("z203", "z103"), default="z103")
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
+    parser.add_argument("--authorized-rf-path", action="store_true")
     parser.add_argument("--conducted-or-shielded", action="store_true")
     parser.add_argument("--legal-frequency-profile", action="store_true")
     parser.add_argument("--tx-enable-guard", action="store_true")

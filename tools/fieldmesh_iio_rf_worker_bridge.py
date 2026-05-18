@@ -20,7 +20,9 @@ import fieldmesh_iq_iio_live_plan as live_plan
 import fieldmesh_iq_iio_live_run as live_run
 
 
-LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+LIVE_RF_CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
+LEGACY_LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+VALID_LIVE_RF_CONFIRMATIONS = {LIVE_RF_CONFIRMATION, LEGACY_LIVE_RF_CONFIRMATION}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -90,7 +92,8 @@ def write_iq_burst(args: argparse.Namespace, frame: bytes, frame_path: Path) -> 
         rf_bandwidth_hz=args.rf_bandwidth_hz,
         fixture_attenuation_db=args.fixture_attenuation_db,
         samples_per_symbol=args.samples_per_symbol,
-        conducted_or_shielded=True,
+        authorized_rf_path=True,
+        conducted_or_shielded=False,
         pretty=False,
     )
     return iq_smoke.run(smoke_args)
@@ -103,7 +106,8 @@ def write_live_plan(args: argparse.Namespace, iq_report_path: Path) -> dict[str,
         tx_board=args.tx_board,
         rx_board=args.rx_board,
         fixture_attenuation_db=args.fixture_attenuation_db,
-        conducted_or_shielded=True,
+        authorized_rf_path=True,
+        conducted_or_shielded=False,
         legal_frequency_profile=True,
         tx_enable_guard=True,
         rx_first=True,
@@ -124,7 +128,8 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         buffer_size=args.buffer_size,
         timeout_ms=args.timeout_ms,
         fixture_attenuation_db=args.fixture_attenuation_db,
-        conducted_or_shielded=True,
+        authorized_rf_path=True,
+        conducted_or_shielded=False,
         legal_frequency_profile=True,
         tx_enable_guard=True,
         rx_first=True,
@@ -171,7 +176,7 @@ def require_execute_args(args: argparse.Namespace) -> None:
         raise SystemExit("--execute-live-rf requires --allow-hardware-writes")
     if not args.allow_rf_tx:
         raise SystemExit("--execute-live-rf requires --allow-rf-tx")
-    if args.operator_confirmation != LIVE_RF_CONFIRMATION:
+    if args.operator_confirmation not in VALID_LIVE_RF_CONFIRMATIONS:
         raise SystemExit(f"--execute-live-rf requires --operator-confirmation {LIVE_RF_CONFIRMATION!r}")
     if not args.fixture_id:
         raise SystemExit("--execute-live-rf requires --fixture-id")
@@ -226,7 +231,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "production_ready": False,
         "production_blocker": "app_real_rf_verification_missing" if args.execute_live_rf else "measured_rf_phy_tx_rx_not_verified",
         "safety": {
-            "conducted_or_shielded": True,
+            "authorized_rf_path": True,
+            "conducted_or_shielded": False,
             "legal_frequency_profile": True,
             "tx_enable_guard": True,
             "rx_first": True,
@@ -270,6 +276,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-daemon-queue-mutation", action="store_true")
     parser.add_argument("--fixture-id")
     parser.add_argument("--fixture-evidence", type=Path)
+    parser.add_argument("--rf-path-id", dest="fixture_id")
+    parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=1000)
     parser.add_argument("--pretty", action="store_true")

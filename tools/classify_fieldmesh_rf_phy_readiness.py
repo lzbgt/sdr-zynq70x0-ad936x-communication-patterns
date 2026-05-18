@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 
-LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+LIVE_RF_CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
 DEFAULT_REQUIRED_APP_FEATURES = ("messaging", "topology", "native_ip")
 
 
@@ -37,7 +37,7 @@ def live_iq_status(report: dict[str, Any]) -> dict[str, Any]:
         decode = {}
 
     required_true = (
-        "conducted_or_shielded",
+        "authorized_rf_path",
         "legal_frequency_profile",
         "tx_enable_guard",
         "rx_first",
@@ -164,7 +164,7 @@ def classify(args: argparse.Namespace) -> dict[str, Any]:
         "production_blocker": production_blocker,
         "planned_features_production_level": production_ready,
         "requires_before_production_ready": [] if production_ready else [
-            "executed guarded conducted/shielded IQ run with successful decode",
+            "executed guarded authorized over-air IQ run with successful decode",
             "app messaging/topology/native-IP evidence over real RF PHY TX/RX",
             "no inter-board host-IP payload routing in app evidence",
         ],

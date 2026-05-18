@@ -426,7 +426,7 @@ result = {
         "starts_rf_tx": False,
         "writes_hardware": False,
         "current_gate": "daemon SDK socket plus per-board RF packet-engine handoff readiness",
-        "remaining_live_gap": "conducted_or_shielded_over_air_RF_TX_RX",
+        "remaining_live_gap": "authorized_over_air_RF_TX_RX",
     },
     "source": source,
     "sink": sink,

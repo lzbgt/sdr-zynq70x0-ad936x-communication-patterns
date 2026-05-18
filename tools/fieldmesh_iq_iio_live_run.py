@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run or dry-run a guarded conducted AD936x IIO IQ burst procedure."""
+"""Run or dry-run a guarded over-air AD936x IIO IQ burst procedure."""
 
 from __future__ import annotations
 
@@ -19,7 +19,9 @@ import fieldmesh_rf_fixture_evidence as fixture_evidence
 
 MIN_FIXTURE_ATTENUATION_DB = 30.0
 MAX_LIVE_TX_DURATION_MS = 1000
-LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+LIVE_RF_CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
+LEGACY_LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+VALID_LIVE_RF_CONFIRMATIONS = {LIVE_RF_CONFIRMATION, LEGACY_LIVE_RF_CONFIRMATION}
 
 
 def plan_center_frequency_hz(plan: dict[str, Any]) -> int | None:
@@ -55,15 +57,15 @@ def require_plan(plan: dict[str, Any]) -> None:
 
 
 def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
-    if not args.conducted_or_shielded:
-        raise SystemExit("--conducted-or-shielded is required")
+    if not args.authorized_rf_path and not args.conducted_or_shielded:
+        raise SystemExit("--authorized-rf-path is required")
     if not args.legal_frequency_profile:
         raise SystemExit("--legal-frequency-profile is required")
     if not args.tx_enable_guard:
         raise SystemExit("--tx-enable-guard is required")
     if not args.rx_first:
         raise SystemExit("--rx-first is required")
-    if args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
+    if args.conducted_or_shielded and args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
         raise SystemExit(
             f"--fixture-attenuation-db must be >= {MIN_FIXTURE_ATTENUATION_DB:g} dB"
         )
@@ -81,7 +83,7 @@ def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
             raise SystemExit("--execute-live-rf also requires --allow-hardware-writes")
         if not args.allow_rf_tx:
             raise SystemExit("--execute-live-rf also requires --allow-rf-tx")
-        if args.operator_confirmation != LIVE_RF_CONFIRMATION:
+        if args.operator_confirmation not in VALID_LIVE_RF_CONFIRMATIONS:
             raise SystemExit(
                 f"--execute-live-rf requires --operator-confirmation {LIVE_RF_CONFIRMATION!r}"
             )
@@ -356,7 +358,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         decode = decode_capture(plan, args, capture_path)
 
     safety = {
-        "conducted_or_shielded": True,
+        "authorized_rf_path": True,
+        "conducted_or_shielded": bool(args.conducted_or_shielded),
         "fixture_attenuation_db": args.fixture_attenuation_db,
         "fixture_id": args.fixture_id or None,
         "fixture_evidence": str(args.fixture_evidence) if args.fixture_evidence else None,
@@ -365,7 +368,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "rx_first": True,
         "allow_hardware_writes": bool(args.allow_hardware_writes),
         "allow_rf_tx": bool(args.allow_rf_tx),
-        "operator_confirmation_ok": args.operator_confirmation == LIVE_RF_CONFIRMATION,
+        "operator_confirmation_ok": args.operator_confirmation in VALID_LIVE_RF_CONFIRMATIONS,
         "max_tx_duration_ms": args.max_tx_duration_ms,
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
@@ -405,6 +408,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
+    parser.add_argument("--authorized-rf-path", action="store_true")
     parser.add_argument("--conducted-or-shielded", action="store_true")
     parser.add_argument("--legal-frequency-profile", action="store_true")
     parser.add_argument("--tx-enable-guard", action="store_true")
@@ -414,6 +418,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-rf-tx", action="store_true")
     parser.add_argument("--fixture-id")
     parser.add_argument("--fixture-evidence", type=Path)
+    parser.add_argument("--rf-path-id", dest="fixture_id")
+    parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=MAX_LIVE_TX_DURATION_MS)
     parser.add_argument("--pretty", action="store_true")

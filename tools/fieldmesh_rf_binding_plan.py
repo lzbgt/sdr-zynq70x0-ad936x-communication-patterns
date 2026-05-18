@@ -190,12 +190,13 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "planned_rf_path": "FieldMesh frame -> sidecar packet DMA -> byte stream -> AD936x IQ waveform -> RF -> AD936x IQ capture -> byte stream -> FieldMesh frame",
             "opens_iio_buffers": False,
             "starts_rf_tx": False,
-            "requires_conducted_or_shielded_setup": True,
+            "requires_authorized_over_air_rf_path": True,
+            "requires_conducted_or_shielded_setup": False,
             "dma_validation_modes": {
                 "z203": z203_dma["validation_mode"],
                 "z103": z103_dma["validation_mode"],
             },
-            "next_gate": "conducted AD936x IQ burst encoder/decoder smoke with explicit frequency, attenuation, and TX enable guard",
+            "next_gate": "authorized over-air AD936x IQ burst encoder/decoder smoke with explicit frequency and TX enable guard",
         },
         "frame": frame,
         "z203": {

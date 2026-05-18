@@ -49,9 +49,10 @@ cat > "$work_dir/executed_iq_without_app.json" <<'JSON'
   "mode": "execute-live-rf",
   "ok": true,
   "safety": {
-    "conducted_or_shielded": true,
+    "authorized_rf_path": true,
+    "conducted_or_shielded": false,
     "fixture_attenuation_db": 60.0,
-    "fixture_id": "conducted-fixture-A",
+    "fixture_id": "authorized-open-air-A",
     "legal_frequency_profile": true,
     "tx_enable_guard": true,
     "rx_first": true,

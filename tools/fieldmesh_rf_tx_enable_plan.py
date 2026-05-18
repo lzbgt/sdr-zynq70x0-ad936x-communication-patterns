@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Plan a guarded conducted/shielded FieldMesh RF TX-enable sequence.
+"""Plan a guarded authorized over-air FieldMesh RF TX-enable sequence.
 
 This tool deliberately does not execute RF commands. It joins the already
 verified guard-register and DAC-source-select evidence into a reviewable
-enable/rollback sequence for a later conducted or shielded run.
+enable/rollback sequence for a later authorized over-air run.
 """
 
 from __future__ import annotations
@@ -100,8 +100,8 @@ def require_preflight(path: Path) -> dict[str, Any]:
 
 
 def require_safety(args: argparse.Namespace) -> None:
-    if not args.conducted_or_shielded:
-        raise SystemExit("--conducted-or-shielded is required")
+    if not args.authorized_rf_path and not args.conducted_or_shielded:
+        raise SystemExit("--authorized-rf-path is required")
     if not args.legal_frequency_profile:
         raise SystemExit("--legal-frequency-profile is required")
     if not args.rx_first:
@@ -114,7 +114,7 @@ def require_safety(args: argparse.Namespace) -> None:
         raise SystemExit("--rf-engine-ready is required")
     if not args.target_is_zynq_board:
         raise SystemExit("--target-is-zynq-board is required")
-    if args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
+    if args.conducted_or_shielded and args.fixture_attenuation_db < MIN_FIXTURE_ATTENUATION_DB:
         raise SystemExit(f"--fixture-attenuation-db must be >= {MIN_FIXTURE_ATTENUATION_DB:g}")
     if args.max_tx_duration_ms < 1 or args.max_tx_duration_ms > MAX_TX_DURATION_MS:
         raise SystemExit(f"--max-tx-duration-ms must be 1..{MAX_TX_DURATION_MS}")
@@ -240,7 +240,7 @@ def write_review_script(path: Path, sequence: list[dict[str, Any]]) -> None:
         "#!/bin/sh",
         "set -eu",
         "",
-        "# Generated review script for a future conducted/shielded TX-enable run.",
+        "# Generated review script for a future authorized over-air TX-enable run.",
         "# It is not executed by fieldmesh_rf_tx_enable_plan.py.",
     ]
     for item in sequence:
@@ -266,6 +266,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tx-attenuation-db", type=float, default=89.75)
     parser.add_argument("--max-tx-duration-ms", type=int, default=100)
     parser.add_argument("--arm-window-us", type=int, default=5000)
+    parser.add_argument("--authorized-rf-path", action="store_true")
     parser.add_argument("--conducted-or-shielded", action="store_true")
     parser.add_argument("--legal-frequency-profile", action="store_true")
     parser.add_argument("--rx-first", action="store_true")
@@ -295,7 +296,8 @@ def main() -> int:
         "event": "fieldmesh_rf_tx_enable_plan",
         "ok": True,
         "mode": "review-plan",
-        "conducted_or_shielded": True,
+        "authorized_rf_path": True,
+        "conducted_or_shielded": bool(args.conducted_or_shielded),
         "legal_frequency_profile": True,
         "rx_first": True,
         "fixture_attenuation_db": args.fixture_attenuation_db,
@@ -319,7 +321,8 @@ def main() -> int:
             "opens_iio_buffers": False,
             "uses_inter_board_ip_routing": False,
             "live_tx_enable_authorized": False,
-            "requires_manual_fixture_review": True,
+            "requires_manual_rf_path_review": True,
+            "requires_manual_fixture_review": bool(args.conducted_or_shielded),
         },
     }
     text = json.dumps(report, indent=2, sort_keys=True) if args.pretty else json.dumps(report, sort_keys=True)

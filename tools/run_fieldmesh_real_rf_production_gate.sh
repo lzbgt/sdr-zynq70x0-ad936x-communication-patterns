@@ -19,9 +19,9 @@ Inputs:
     RUN_IQ_LIVE=1 LIVE_PLAN=/path/to/fieldmesh_iq_iio_live_plan.json
     TX_URI=ip:... RX_URI=ip:...
     FIXTURE_ATTENUATION_DB=...
-    FIXTURE_ID=...
-    FIXTURE_EVIDENCE=/path/to/fixture_evidence.json
-    OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE
+    RF_PATH_ID=...
+    RF_PATH_EVIDENCE=/path/to/rf_path_evidence.json
+    OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH
 
 Required app evidence:
   APP_MESSAGING_REPORT=/path/to/messaging.json
@@ -43,8 +43,8 @@ if [ "$run_iq_live" = "1" ]; then
     tx_uri="${TX_URI:-}"
     rx_uri="${RX_URI:-}"
     fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-}"
-    fixture_id="${FIXTURE_ID:-}"
-    fixture_evidence="${FIXTURE_EVIDENCE:-}"
+    fixture_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
+    fixture_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
     operator_confirmation="${OPERATOR_CONFIRMATION:-}"
     max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
     if [ -z "$live_plan" ] || [ -z "$tx_uri" ] || [ -z "$rx_uri" ] ||
@@ -59,15 +59,15 @@ if [ "$run_iq_live" = "1" ]; then
         --tx-uri "$tx_uri" \
         --rx-uri "$rx_uri" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
-        --conducted-or-shielded \
+        --authorized-rf-path \
         --legal-frequency-profile \
         --tx-enable-guard \
         --rx-first \
         --execute-live-rf \
         --allow-hardware-writes \
         --allow-rf-tx \
-        --fixture-id "$fixture_id" \
-        --fixture-evidence "$fixture_evidence" \
+        --rf-path-id "$fixture_id" \
+        --rf-path-evidence "$fixture_evidence" \
         --operator-confirmation "$operator_confirmation" \
         --max-tx-duration-ms "$max_tx_duration_ms" \
         > "$out_dir/iq_live_run_stdout.json"

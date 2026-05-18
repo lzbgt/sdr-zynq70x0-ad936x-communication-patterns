@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify a FieldMesh conducted RF production-sequence evidence manifest."""
+"""Verify a FieldMesh real-RF production-sequence evidence manifest."""
 
 from __future__ import annotations
 

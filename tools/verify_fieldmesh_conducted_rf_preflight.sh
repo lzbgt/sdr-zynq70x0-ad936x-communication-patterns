@@ -32,6 +32,25 @@ cat > "$work_dir/valid_fixture.json" <<'JSON'
 }
 JSON
 
+cat > "$work_dir/valid_over_air_path.json" <<'JSON'
+{
+  "event": "fieldmesh_rf_path_evidence",
+  "ok": true,
+  "rf_path_id": "authorized-open-air-A",
+  "rf_path_type": "authorized_over_air",
+  "authorized_over_air": true,
+  "site_authorization": true,
+  "controlled_area": true,
+  "site_id": "legal-range-A",
+  "legal_frequency_profile": true,
+  "legal_frequency_profile_id": "range-2g4-low-power",
+  "tx_power_limit_dbm": 0.0,
+  "frequency_hz_min": 2300000000,
+  "frequency_hz_max": 2500000000,
+  "authorized_until": "2099-12-31"
+}
+JSON
+
 for feature in messaging topology native_ip; do
   printf '{"event":"fieldmesh_%s_source","ok":true}\n' "$feature" \
     > "$work_dir/${feature}_source.json"
@@ -129,9 +148,9 @@ EXECUTE_LIVE_RF=1 \
 ALLOW_HARDWARE_WRITES=1 \
 ALLOW_RF_TX=1 \
 ALLOW_DAEMON_QUEUE_MUTATION=1 \
-FIXTURE_ID=conducted-fixture-A \
-FIXTURE_EVIDENCE="$work_dir/valid_fixture.json" \
-OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+RF_PATH_ID=authorized-open-air-A \
+RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
+OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_source.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_source.json" \
 APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_source.json" \
@@ -182,7 +201,7 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
   OUT_DIR="$work_dir/driver-queue-app-source" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF preflight accepted driver-queue native-IP app source as real RF" >&2
+  echo "over-air RF preflight accepted driver-queue native-IP app source as real RF" >&2
   exit 1
 fi
 
@@ -211,7 +230,7 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
   OUT_DIR="$work_dir/uncorrelated-app-feature" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF preflight accepted uncorrelated app feature evidence" >&2
+  echo "over-air RF preflight accepted uncorrelated app feature evidence" >&2
   exit 1
 fi
 
@@ -268,7 +287,7 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
   OUT_DIR="$work_dir/uncorrelated-normalized-report" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF preflight accepted uncorrelated normalized app evidence" >&2
+  echo "over-air RF preflight accepted uncorrelated normalized app evidence" >&2
   exit 1
 fi
 
@@ -276,34 +295,35 @@ if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
   ALLOW_RF_TX=1 \
   ALLOW_DAEMON_QUEUE_MUTATION=1 \
-  FIXTURE_ID=conducted-fixture-A \
-  FIXTURE_EVIDENCE="$work_dir/valid_fixture.json" \
-  OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  RF_PATH_ID=authorized-open-air-A \
+  RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   MAX_TX_DURATION_MS=5000 \
   PREFLIGHT_ONLY=1 \
   EXPECT_PREFLIGHT_OK=1 \
   RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
   OUT_DIR="$work_dir/too-long" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF preflight accepted excessive TX duration as ok" >&2
+  echo "over-air RF preflight accepted excessive TX duration as ok" >&2
   exit 1
 fi
 
-cat > "$work_dir/bad_fixture.json" <<'JSON'
+cat > "$work_dir/bad_rf_path.json" <<'JSON'
 {
-  "event": "fieldmesh_rf_fixture_evidence",
+  "event": "fieldmesh_rf_path_evidence",
   "ok": true,
-  "fixture_id": "conducted-fixture-A",
-  "fixture_type": "conducted_coax",
-  "conducted_or_shielded": true,
-  "tx_rx_isolated": true,
+  "rf_path_id": "authorized-open-air-A",
+  "rf_path_type": "authorized_over_air",
+  "authorized_over_air": true,
+  "site_authorization": false,
+  "controlled_area": true,
+  "site_id": "legal-range-A",
   "legal_frequency_profile": true,
-  "legal_frequency_profile_id": "lab-2g4-conducted",
-  "minimum_attenuation_db": 50.0,
-  "measured_attenuation_db": 20.0,
+  "legal_frequency_profile_id": "range-2g4-low-power",
+  "tx_power_limit_dbm": 0.0,
   "frequency_hz_min": 2300000000,
   "frequency_hz_max": 2500000000,
-  "calibrated_until": "2099-12-31"
+  "authorized_until": "2099-12-31"
 }
 JSON
 
@@ -311,15 +331,15 @@ if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
   ALLOW_RF_TX=1 \
   ALLOW_DAEMON_QUEUE_MUTATION=1 \
-  FIXTURE_ID=conducted-fixture-A \
-  FIXTURE_EVIDENCE="$work_dir/bad_fixture.json" \
-  OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  RF_PATH_ID=authorized-open-air-A \
+  RF_PATH_EVIDENCE="$work_dir/bad_rf_path.json" \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   PREFLIGHT_ONLY=1 \
   EXPECT_PREFLIGHT_OK=1 \
   RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
   OUT_DIR="$work_dir/bad-fixture" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
-  echo "conducted RF preflight accepted invalid fixture evidence as ok" >&2
+  echo "over-air RF preflight accepted invalid RF path evidence as ok" >&2
   exit 1
 fi
 
@@ -333,7 +353,7 @@ print(json.dumps({
     "event": "fieldmesh_conducted_rf_preflight_check",
     "ok": True,
     "live_rf_allowed": report["live_rf_allowed"],
-    "fixture_evidence_ok": report["fixture_evidence_ok"],
+    "rf_path_evidence_ok": report["rf_path_evidence_ok"],
     "production_ready_possible_after_run": report["production_ready_possible_after_run"],
 }, sort_keys=True))
 PY

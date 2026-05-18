@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preflight a FieldMesh conducted/shielded real-RF production sequence."""
+"""Preflight a FieldMesh authorized over-air real-RF production sequence."""
 
 from __future__ import annotations
 
@@ -16,7 +16,9 @@ import fieldmesh_rf_fixture_evidence
 
 
 FEATURES = ("messaging", "topology", "native_ip")
-CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
+LEGACY_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+VALID_CONFIRMATIONS = {CONFIRMATION, LEGACY_CONFIRMATION}
 MAX_TX_DURATION_MS_LIMIT = 1000
 
 
@@ -237,7 +239,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         existing_file(args.fixture_evidence, "fixture_evidence", missing, blockers)
         if not args.operator_confirmation:
             missing.append("operator_confirmation")
-        elif args.operator_confirmation != CONFIRMATION:
+        elif args.operator_confirmation not in VALID_CONFIRMATIONS:
             blockers.append("operator_confirmation_mismatch")
         if not args.tx_uri:
             missing.append("tx_uri")
@@ -264,7 +266,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         and args.allow_rf_tx
         and args.allow_daemon_queue_mutation
         and fixture_summary is not None
-        and args.operator_confirmation == CONFIRMATION
+        and args.operator_confirmation in VALID_CONFIRMATIONS
     )
     production_possible = bool((live_rf_allowed or using_existing_bridge) and complete_app_evidence)
 
@@ -286,7 +288,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "rx_uri": args.rx_uri or None,
         "fixture_id": args.fixture_id or None,
         "fixture_evidence": str(Path(args.fixture_evidence).resolve(strict=False)) if args.fixture_evidence else None,
+        "rf_path_id": args.fixture_id or None,
+        "rf_path_evidence": str(Path(args.fixture_evidence).resolve(strict=False)) if args.fixture_evidence else None,
         "fixture_evidence_ok": fixture_summary is not None,
+        "rf_path_evidence_ok": fixture_summary is not None,
         "fixture_evidence_summary": fixture_summary,
         "app_evidence_inputs": app_inputs,
         "app_evidence_validated": app_evidence_validated,
@@ -314,6 +319,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-uri", default="")
     parser.add_argument("--fixture-id", default="")
     parser.add_argument("--fixture-evidence", default="")
+    parser.add_argument("--rf-path-id", dest="fixture_id", default="")
+    parser.add_argument("--rf-path-evidence", dest="fixture_evidence", default="")
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--center-frequency-hz", type=int, default=2_400_000_000)
     parser.add_argument("--max-tx-duration-ms", type=int, default=1000)

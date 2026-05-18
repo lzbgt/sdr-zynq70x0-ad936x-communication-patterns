@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Validate FieldMesh conducted/shielded RF fixture evidence."""
+"""Validate FieldMesh RF path evidence before live RF is allowed.
+
+The historical event name is kept for compatibility, but production live RF is
+not restricted to conducted/shielded paths. FieldMesh boards transmit over the
+air; live execution therefore requires explicit evidence for an authorized
+over-air RF path or a legacy lab containment fixture.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +17,10 @@ from typing import Any
 
 
 MIN_FIXTURE_ATTENUATION_DB = 30.0
-VALID_FIXTURE_TYPES = {"conducted_coax", "shielded_chamber", "conducted_or_shielded"}
+VALID_EVENTS = {"fieldmesh_rf_fixture_evidence", "fieldmesh_rf_path_evidence"}
+LAB_RF_PATH_TYPES = {"conducted_coax", "shielded_chamber", "conducted_or_shielded"}
+OVER_AIR_RF_PATH_TYPES = {"authorized_over_air", "legal_open_air_range", "over_air_test_site"}
+VALID_RF_PATH_TYPES = LAB_RF_PATH_TYPES | OVER_AIR_RF_PATH_TYPES
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -42,50 +51,78 @@ def validate_fixture_evidence(
     today: dt.date | None = None,
 ) -> dict[str, Any]:
     today = today or dt.date.today()
-    if evidence.get("event") != "fieldmesh_rf_fixture_evidence":
-        raise SystemExit("fixture evidence event must be fieldmesh_rf_fixture_evidence")
+    if evidence.get("event") not in VALID_EVENTS:
+        raise SystemExit("RF path evidence event must be fieldmesh_rf_fixture_evidence or fieldmesh_rf_path_evidence")
     if evidence.get("ok") is not True:
-        raise SystemExit("fixture evidence must be ok=true")
-    if evidence.get("fixture_id") != fixture_id:
-        raise SystemExit("fixture evidence fixture_id does not match requested fixture")
-    if evidence.get("fixture_type") not in VALID_FIXTURE_TYPES:
-        raise SystemExit("fixture evidence fixture_type is not conducted/shielded")
-    if evidence.get("conducted_or_shielded") is not True:
-        raise SystemExit("fixture evidence must assert conducted_or_shielded=true")
-    if evidence.get("tx_rx_isolated") is not True:
-        raise SystemExit("fixture evidence must assert tx_rx_isolated=true")
+        raise SystemExit("RF path evidence must be ok=true")
+    evidence_id = evidence.get("rf_path_id", evidence.get("fixture_id"))
+    if evidence_id != fixture_id:
+        raise SystemExit("RF path evidence id does not match requested path")
+    rf_path_type = evidence.get("rf_path_type", evidence.get("fixture_type"))
+    if rf_path_type not in VALID_RF_PATH_TYPES:
+        raise SystemExit("RF path evidence type is not supported")
     if evidence.get("legal_frequency_profile") is not True:
-        raise SystemExit("fixture evidence must assert legal_frequency_profile=true")
+        raise SystemExit("RF path evidence must assert legal_frequency_profile=true")
     if not evidence.get("legal_frequency_profile_id"):
-        raise SystemExit("fixture evidence requires legal_frequency_profile_id")
+        raise SystemExit("RF path evidence requires legal_frequency_profile_id")
 
-    measured = float(evidence.get("measured_attenuation_db", -1.0))
-    minimum = float(evidence.get("minimum_attenuation_db", MIN_FIXTURE_ATTENUATION_DB))
-    if minimum < MIN_FIXTURE_ATTENUATION_DB:
-        raise SystemExit("fixture evidence minimum attenuation is too low")
-    if fixture_attenuation_db < minimum:
-        raise SystemExit("requested fixture attenuation is below evidence minimum")
-    if measured < fixture_attenuation_db:
-        raise SystemExit("measured fixture attenuation is below requested attenuation")
+    measured = None
+    minimum = None
+    calibrated_until = None
+    authorized_until = None
+    over_air = rf_path_type in OVER_AIR_RF_PATH_TYPES
+    if over_air:
+        if evidence.get("authorized_over_air") is not True:
+            raise SystemExit("over-air RF path evidence must assert authorized_over_air=true")
+        if evidence.get("site_authorization") is not True:
+            raise SystemExit("over-air RF path evidence must assert site_authorization=true")
+        if evidence.get("controlled_area") is not True:
+            raise SystemExit("over-air RF path evidence must assert controlled_area=true")
+        if not evidence.get("site_id"):
+            raise SystemExit("over-air RF path evidence requires site_id")
+        if "tx_power_limit_dbm" not in evidence and "eirp_limit_dbm" not in evidence:
+            raise SystemExit("over-air RF path evidence requires tx_power_limit_dbm or eirp_limit_dbm")
+        authorized_until = parse_date(evidence.get("authorized_until"), "authorized_until")
+        if authorized_until < today:
+            raise SystemExit("over-air RF path authorization is expired")
+    else:
+        if evidence.get("conducted_or_shielded") is not True:
+            raise SystemExit("lab RF path evidence must assert conducted_or_shielded=true")
+        if evidence.get("tx_rx_isolated") is not True:
+            raise SystemExit("lab RF path evidence must assert tx_rx_isolated=true")
+        measured = float(evidence.get("measured_attenuation_db", -1.0))
+        minimum = float(evidence.get("minimum_attenuation_db", MIN_FIXTURE_ATTENUATION_DB))
+        if minimum < MIN_FIXTURE_ATTENUATION_DB:
+            raise SystemExit("lab RF path minimum attenuation is too low")
+        if fixture_attenuation_db < minimum:
+            raise SystemExit("requested attenuation is below evidence minimum")
+        if measured < fixture_attenuation_db:
+            raise SystemExit("measured attenuation is below requested attenuation")
 
-    calibrated_until = parse_date(evidence.get("calibrated_until"), "calibrated_until")
-    if calibrated_until < today:
-        raise SystemExit("fixture evidence calibration is expired")
+        calibrated_until = parse_date(evidence.get("calibrated_until"), "calibrated_until")
+        if calibrated_until < today:
+            raise SystemExit("lab RF path calibration is expired")
 
     if center_frequency_hz is not None:
         freq_min = int(evidence.get("frequency_hz_min", 0))
         freq_max = int(evidence.get("frequency_hz_max", 0))
         if freq_min <= 0 or freq_max <= 0 or freq_min > freq_max:
-            raise SystemExit("fixture evidence frequency range is invalid")
+            raise SystemExit("RF path evidence frequency range is invalid")
         if not (freq_min <= center_frequency_hz <= freq_max):
-            raise SystemExit("requested center frequency is outside fixture evidence range")
+            raise SystemExit("requested center frequency is outside RF path evidence range")
 
     return {
         "fixture_id": fixture_id,
-        "fixture_type": evidence.get("fixture_type"),
+        "fixture_type": evidence.get("fixture_type", rf_path_type),
+        "rf_path_id": fixture_id,
+        "rf_path_type": rf_path_type,
+        "authorized_over_air": bool(over_air),
+        "conducted_or_shielded": not over_air,
         "measured_attenuation_db": measured,
         "minimum_attenuation_db": minimum,
-        "calibrated_until": calibrated_until.isoformat(),
+        "calibrated_until": calibrated_until.isoformat() if calibrated_until else None,
+        "authorized_until": authorized_until.isoformat() if authorized_until else None,
+        "site_id": evidence.get("site_id"),
         "legal_frequency_profile_id": evidence.get("legal_frequency_profile_id"),
         "frequency_hz_min": evidence.get("frequency_hz_min"),
         "frequency_hz_max": evidence.get("frequency_hz_max"),
@@ -95,8 +132,10 @@ def validate_fixture_evidence(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fixture-evidence", type=Path, required=True)
-    parser.add_argument("--fixture-id", required=True)
+    parser.add_argument("--fixture-evidence", type=Path)
+    parser.add_argument("--fixture-id")
+    parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
+    parser.add_argument("--rf-path-id", dest="fixture_id")
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--center-frequency-hz", type=int)
     parser.add_argument("--output", type=Path)
@@ -106,6 +145,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if not args.fixture_evidence:
+        raise SystemExit("--fixture-evidence or --rf-path-evidence is required")
+    if not args.fixture_id:
+        raise SystemExit("--fixture-id or --rf-path-id is required")
     summary = validate_fixture_evidence(
         load_json(args.fixture_evidence),
         fixture_id=args.fixture_id,

@@ -25,8 +25,8 @@ fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 samples_per_symbol="${SAMPLES_PER_SYMBOL:-8}"
 timeout_ms="${TIMEOUT_MS:-5000}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
-fixture_id="${FIXTURE_ID:-}"
-fixture_evidence="${FIXTURE_EVIDENCE:-}"
+fixture_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
+fixture_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 allow_hardware_writes="${ALLOW_HARDWARE_WRITES:-0}"
 allow_rf_tx="${ALLOW_RF_TX:-0}"
@@ -36,19 +36,19 @@ preflight_only="${PREFLIGHT_ONLY:-0}"
 
 usage() {
     cat >&2 <<'EOF'
-FieldMesh conducted/shielded real-RF production sequence.
+FieldMesh authorized over-air real-RF production sequence.
 
 Default mode is a dry-run evidence sequence. It does not execute RF, write IIO,
 ingest daemon RX, or ACK leased frames.
 
-To run live conducted/shielded RF, all of these are required:
+To run live over-air RF, all of these are required:
   EXECUTE_LIVE_RF=1
   ALLOW_HARDWARE_WRITES=1
   ALLOW_RF_TX=1
   ALLOW_DAEMON_QUEUE_MUTATION=1
-  FIXTURE_ID=<fixture-id>
-  FIXTURE_EVIDENCE=/path/to/fieldmesh_rf_fixture_evidence.json
-  OPERATOR_CONFIRMATION=I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE
+  RF_PATH_ID=<authorized-rf-path-id>
+  RF_PATH_EVIDENCE=/path/to/fieldmesh_rf_path_evidence.json
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH
   TX_URI=ip:<tx-board-ip>
   RX_URI=ip:<rx-board-ip>
 
@@ -121,10 +121,10 @@ if [ -n "$bridge_report" ]; then
     preflight_args+=(--bridge-report "$bridge_report")
 fi
 if [ -n "$fixture_id" ]; then
-    preflight_args+=(--fixture-id "$fixture_id")
+    preflight_args+=(--rf-path-id "$fixture_id")
 fi
 if [ -n "$fixture_evidence" ]; then
-    preflight_args+=(--fixture-evidence "$fixture_evidence")
+    preflight_args+=(--rf-path-evidence "$fixture_evidence")
 fi
 if [ -n "$operator_confirmation" ]; then
     preflight_args+=(--operator-confirmation "$operator_confirmation")
@@ -194,7 +194,7 @@ if [ "$preflight_only" = "1" ]; then
 fi
 
 if [ "$preflight_ok" != "1" ]; then
-    echo "conducted RF production sequence preflight failed: $out_dir/fieldmesh_conducted_rf_preflight.json" >&2
+    echo "authorized over-air RF production sequence preflight failed: $out_dir/fieldmesh_conducted_rf_preflight.json" >&2
     usage
     exit 1
 fi
@@ -213,8 +213,8 @@ if [ "$execute_live_rf" = "1" ]; then
         exit 1
     fi
     "$repo_root/tools/fieldmesh_rf_fixture_evidence.py" \
-        --fixture-evidence "$fixture_evidence" \
-        --fixture-id "$fixture_id" \
+        --rf-path-evidence "$fixture_evidence" \
+        --rf-path-id "$fixture_id" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --center-frequency-hz "$center_frequency_hz" \
         --output "$out_dir/fixture_evidence_check.json" \
@@ -256,8 +256,8 @@ else
             --allow-hardware-writes
             --allow-rf-tx
             --allow-daemon-queue-mutation
-            --fixture-id "$fixture_id"
-            --fixture-evidence "$fixture_evidence"
+            --rf-path-id "$fixture_id"
+            --rf-path-evidence "$fixture_evidence"
             --operator-confirmation "$operator_confirmation"
         )
     fi

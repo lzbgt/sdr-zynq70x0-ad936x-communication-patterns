@@ -95,7 +95,7 @@ if "$repo_root/tools/fieldmesh_rf_tx_enable_run.py" \
   --execute-live-tx \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --operator-confirmation I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   --fixture-id fixture-001 >/dev/null 2>&1; then
   echo "TX-enable run accepted live execution without backend" >&2
   exit 1
@@ -127,7 +127,7 @@ chmod 0755 "$backend"
   --execute-live-tx \
   --allow-hardware-writes \
   --allow-rf-tx \
-  --operator-confirmation I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE \
+  --operator-confirmation I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   --fixture-id fixture-001 \
   --tx-enable-backend "$backend" \
   >"$work_dir/mock_live.stdout.json"

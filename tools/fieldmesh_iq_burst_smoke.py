@@ -88,10 +88,10 @@ def recover_frame(decoded: bytes) -> bytes:
 
 
 def require_rf_guard(args: argparse.Namespace) -> None:
-    if not args.conducted_or_shielded:
-        raise SystemExit("--conducted-or-shielded is required before planning an RF burst")
-    if args.fixture_attenuation_db < 30.0:
-        raise SystemExit("--fixture-attenuation-db must be >= 30 dB for this smoke gate")
+    if not args.authorized_rf_path and not args.conducted_or_shielded:
+        raise SystemExit("--authorized-rf-path is required before planning an RF burst")
+    if args.conducted_or_shielded and args.fixture_attenuation_db < 30.0:
+        raise SystemExit("--fixture-attenuation-db must be >= 30 dB for lab-contained smoke gates")
     if args.center_frequency_hz <= 0 or args.sample_rate_hz <= 0 or args.rf_bandwidth_hz <= 0:
         raise SystemExit("frequency, sample rate, and RF bandwidth must be positive")
     if args.samples_per_symbol < 2:
@@ -146,14 +146,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "sample_rate_hz": args.sample_rate_hz,
             "rf_bandwidth_hz": args.rf_bandwidth_hz,
             "fixture_attenuation_db": args.fixture_attenuation_db,
-            "conducted_or_shielded": True,
+            "authorized_rf_path": bool(args.authorized_rf_path or args.conducted_or_shielded),
+            "conducted_or_shielded": bool(args.conducted_or_shielded),
         },
         "safety": {
             "opens_iio_buffers": False,
             "starts_rf_tx": False,
             "writes_hardware": False,
             "live_rf_allowed": False,
-            "next_live_guard": "explicit TX enable, legal frequency profile, conducted/shielded fixture, attenuation evidence",
+            "next_live_guard": "explicit TX enable, legal frequency profile, authorized over-air RF path evidence",
         },
         "decode": {
             "recovered_frame_match": True,
@@ -175,6 +176,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-bandwidth-hz", type=int, required=True)
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--samples-per-symbol", type=int, default=8)
+    parser.add_argument("--authorized-rf-path", action="store_true")
     parser.add_argument("--conducted-or-shielded", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
