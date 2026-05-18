@@ -50,6 +50,7 @@ def require_ones(row: dict[str, Any], keys: tuple[str, ...], label: str) -> None
 
 def validate(args: argparse.Namespace) -> dict[str, Any]:
     handoff = one_event(args.handoff, "sdk_daemon_rf_packet_engine")
+    dma_poll = one_event(args.dma_smoke, "dma_smoke_poll")
     dma = one_event(args.dma_smoke, "dma_smoke_end")
     transport = load_report(args.transport_report, "fieldmesh_rf_packet_engine_transport")
 
@@ -80,10 +81,18 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
     if handoff.get("rf_engine") != "fieldmesh_rf_packet_engine":
         raise SystemExit("handoff did not target fieldmesh_rf_packet_engine")
 
-    if dma.get("ok") is not True or dma.get("rx_match") is not True:
-        raise SystemExit(f"sidecar DMA smoke failed: {dma}")
-    if int(dma.get("expected_crc", -1)) != int(dma.get("rx_crc", -2)):
-        raise SystemExit("sidecar DMA smoke CRC mismatch")
+    if args.allow_tx_only_dma:
+        if dma_poll.get("tx_done") is not True:
+            raise SystemExit(f"sidecar DMA TX submit did not complete: {dma_poll}")
+        dma_frame_crc = int(dma.get("expected_crc", -1))
+        dma_mode = "tx_submit"
+    else:
+        if dma.get("ok") is not True or dma.get("rx_match") is not True:
+            raise SystemExit(f"sidecar DMA smoke failed: {dma}")
+        if int(dma.get("expected_crc", -1)) != int(dma.get("rx_crc", -2)):
+            raise SystemExit("sidecar DMA smoke CRC mismatch")
+        dma_frame_crc = int(dma.get("rx_crc", -1))
+        dma_mode = "tx_rx_loopback"
 
     if transport.get("ok") is not True:
         raise SystemExit("RF packet-engine transport report is not ok")
@@ -110,9 +119,9 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     frame_crc = int(frame.get("frame_crc", -1))
-    if frame_crc != int(dma.get("rx_crc", -2)):
+    if frame_crc != dma_frame_crc:
         raise SystemExit(
-            f"transport frame CRC {frame_crc} does not match sidecar DMA RX CRC {dma.get('rx_crc')}"
+            f"transport frame CRC {frame_crc} does not match sidecar DMA frame CRC {dma_frame_crc}"
         )
     if int(frame.get("packet_len", -1)) != int(dma.get("packet_len", -2)):
         raise SystemExit(
@@ -132,6 +141,9 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         "queued_to_rf_engine": True,
         "uses_sidecar_dma": True,
         "uses_rf_packet_engine": True,
+        "dma_validation_mode": dma_mode,
+        "dma_tx_done": dma_poll.get("tx_done") is True,
+        "dma_rx_match": dma.get("rx_match") is True,
         "uses_iio": False,
         "uses_inter_board_ip_routing": False,
         "starts_rf_tx": False,
@@ -159,6 +171,11 @@ def parse_args() -> argparse.Namespace:
         "--out",
         type=Path,
         default=Path(".config/fieldmesh/rf-packet-engine-binding/fieldmesh_rf_packet_engine_binding_assert.json"),
+    )
+    parser.add_argument(
+        "--allow-tx-only-dma",
+        action="store_true",
+        help="Accept TX DMA completion without local RX loopback; used by RF-engine product overlays before live RF RX is measured.",
     )
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()

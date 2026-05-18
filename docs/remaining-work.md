@@ -72,15 +72,24 @@ and measured. The daemon now also exposes
 interface is testable without opening IIO buffers, starting RF TX, writing
 hardware, running commands, using host IP as the data path, or putting JSON on
 air. `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` proves the binding
-contract on an installed board after real sidecar preflight, sidecar DMA smoke,
-RF packet-engine transport recovery, and RF TX guard planning, but it still
-keeps measured-link and live-RF prerequisites false until actual radio TX/RX is
-measured. The 2026-05-18 installed-probe-first guard/source run tightened this:
-Z203 and Z103 both passed guard register write/rollback, but both failed DAC
-source-select readback with `source_control=0x00000000`. The daemon contract
-therefore now blocks PHY binding at
-`rf_dac_source_select_not_verified` until that source path is proven on the
-installed product runtime. TX lease is non-destructive, so frames are
+contract on an installed board after real sidecar preflight, RF-engine sidecar
+DMA TX-submit proof, RF packet-engine transport recovery, RF TX guard planning,
+and installed DAC source-select readback, but it still keeps measured-link and
+live-RF prerequisites false until actual radio TX/RX is measured. The
+2026-05-18 installed-probe-first guard/source run tightened this:
+Z203 and Z103 exposed an installed product/runtime mismatch: the normal runtime
+package still used the sidecar-DMA overlay, so the RF register page aliased
+back to the low control page and DAC source-select did not read back. The probe
+now rejects that condition with `rf_page_addressable=false` or
+`readback_ok=false`; a rollback alone is no longer enough to report success.
+Production runtime packaging, SD staging, and JTAG RAM staging now default to
+the non-transmitting RF-engine overlay so the RF guard/DAC-source registers are
+present in the installed product path. The refreshed installed Z203/Z103 gates
+now prove `rf_dac_source_select_passed=1` and `binding_ready=1`; the remaining
+blocker is `real_rf_phy_tx_rx_not_verified`. The RF-engine overlay has no local
+DMA RX loopback before live PHY ingress, so the binding gate treats TX DMA
+submit completion as the sidecar-DMA proof and leaves RX completion for the
+measured radio link gate. TX lease is non-destructive, so frames are
 removed only after ACK instead of being lost on delivery timeout. The older
 `FIELDMESH_RF_TX_POLL` remains a legacy destructive diagnostic. RX ingest now
 validates BLR `APP_DATA` type and destination EUI before the frame can reach

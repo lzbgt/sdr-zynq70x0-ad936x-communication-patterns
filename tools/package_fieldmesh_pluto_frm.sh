@@ -7,13 +7,13 @@ variant="${1:-z203}"
 case "$variant" in
   z203)
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux}"
-    bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
+    bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
     package_script="$repo_root/tools/package_yocto_pluto_frm.sh"
     out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/runtime-package-z203}"
     ;;
   z103)
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux}"
-    bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/dma-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
+    bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/rf-engine-overlay-build-z103/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
     package_script="$repo_root/tools/package_z103_yocto_pluto_frm.sh"
     out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/runtime-package-z103}"
     ;;
@@ -58,6 +58,40 @@ PY
 require_file "$dtb"
 
 BITSTREAM="$bitstream" DTB="$dtb" OUT_DIR="$out_dir/fit-work" "$package_script"
+
+python3 - "$variant" "$bitstream" "$dtb" "$out_dir" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+variant = sys.argv[1]
+bitstream = Path(sys.argv[2]).resolve()
+dtb = Path(sys.argv[3]).resolve()
+out_dir = Path(sys.argv[4])
+
+def sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+meta = {
+    "event": "fieldmesh_runtime_package_manifest",
+    "variant": variant,
+    "overlay": "rf_engine" if "rf-engine-overlay-build" in str(bitstream) else "custom",
+    "bitstream": str(bitstream),
+    "bitstream_sha256": sha256(bitstream),
+    "devicetree": str(dtb),
+    "devicetree_sha256": sha256(dtb),
+}
+out_dir.mkdir(parents=True, exist_ok=True)
+(out_dir / "fieldmesh_runtime_package_manifest.json").write_text(
+    json.dumps(meta, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
 
 printf 'fieldmesh_runtime_package=%s\n' "$variant"
 printf 'bitstream=%s\n' "$bitstream"

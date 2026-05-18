@@ -42,6 +42,7 @@ verify_variant() {
     local rf_common_out
     local rf_ctrl_write_out
     local fit_info_out
+    local runtime_manifest
     local rootfs_md5
     local fit_ramdisk_md5
 
@@ -77,6 +78,8 @@ verify_variant() {
     require_file "$rootfs_cpio"
     require_file "$package_dir/fit-work/build/pluto.frm"
     require_file "$package_dir/fit-work/build/pluto.itb"
+    runtime_manifest="$package_dir/fieldmesh_runtime_package_manifest.json"
+    require_file "$runtime_manifest"
     require_file "$dtb"
     require_file "$jtag_dir/SHA256SUMS"
     require_file "$jtag_dir/boot/uImage"
@@ -124,7 +127,29 @@ verify_variant() {
             exit 1
         fi
     done
-    for token in sets_ad936x_tx_enable rf_guard_apply_rollback rf_guard_scan_start rf_source_apply_rollback allow-rf-source-select; do
+    python3 - "$runtime_manifest" "$name" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+name = sys.argv[2]
+if manifest.get("event") != "fieldmesh_runtime_package_manifest":
+    raise SystemExit(f"{name}: invalid runtime package manifest: {manifest!r}")
+if manifest.get("variant") != name:
+    raise SystemExit(f"{name}: runtime package manifest variant mismatch: {manifest!r}")
+if manifest.get("overlay") != "rf_engine":
+    raise SystemExit(f"{name}: production runtime must use RF-engine overlay, not {manifest.get('overlay')!r}")
+bitstream = manifest.get("bitstream") or ""
+if "rf-engine-overlay-build" not in bitstream:
+    raise SystemExit(f"{name}: production runtime bitstream is not from RF-engine overlay: {bitstream!r}")
+for key in ("bitstream_sha256", "devicetree_sha256"):
+    value = manifest.get(key)
+    if not isinstance(value, str) or len(value) != 64:
+        raise SystemExit(f"{name}: missing {key} in runtime package manifest: {manifest!r}")
+PY
+
+    for token in sets_ad936x_tx_enable rf_guard_apply_rollback rf_guard_scan_start rf_source_apply_rollback allow-rf-source-select readback_ok rf_page_addressable; do
         if ! grep -qF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe RF guard token in $name rootfs: $token" >&2
             exit 1

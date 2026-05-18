@@ -146,9 +146,13 @@ if preflight.get("event") != "fieldmesh_sidecar_preflight_assert" or preflight.g
 
 before = load("rf_guard_scan_before.ndjson")
 after = load("rf_guard_scan_after.ndjson")
-if not before or before[-1].get("event") != "rf_guard_scan_end" or before[-1].get("ok") is not True:
+if (not before or before[-1].get("event") != "rf_guard_scan_end" or
+        before[-1].get("ok") is not True or
+        before[-1].get("rf_page_addressable") is not True):
     raise SystemExit("initial RF guard scan failed")
-if not after or after[-1].get("event") != "rf_guard_scan_end" or after[-1].get("ok") is not True:
+if (not after or after[-1].get("event") != "rf_guard_scan_end" or
+        after[-1].get("ok") is not True or
+        after[-1].get("rf_page_addressable") is not True):
     raise SystemExit("post RF guard scan failed")
 
 apply_rows = load("rf_guard_apply.ndjson")
@@ -158,9 +162,11 @@ end = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_end
 if applied:
     if not write or write.get("sets_ad936x_tx_enable") is not False or write.get("starts_rf_tx") is not False:
         raise SystemExit("RF guard apply crossed the AD936x/RF TX safety boundary")
+    if write.get("readback_ok") is not True:
+        raise SystemExit(f"RF guard apply did not verify applied register readback: {write}")
     if not rollback or rollback.get("ok") is not True:
         raise SystemExit("RF guard apply did not roll back")
-    if not end or end.get("ok") is not True or end.get("rolled_back") is not True:
+    if not end or end.get("ok") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
         raise SystemExit("RF guard apply did not end cleanly")
 else:
     skipped = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_skipped"), None)

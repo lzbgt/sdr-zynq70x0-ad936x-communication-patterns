@@ -4414,6 +4414,10 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_PHY_DRIVER_BIND_APPLY")) {
+        unsigned rf_dac_source_select = 0u;
+
+        (void)request_uint_or_default(request, "rf_dac_source_select=", 0u,
+                                      0u, 1u, &rf_dac_source_select);
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_phy_driver_bind_apply\","
                  "\"ok\":false,"
@@ -4422,6 +4426,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"driver_queue_worker\":1,"
                  "\"requires_bind_validate\":1,"
                  "\"requires_rf_dac_source_select\":1,"
+                 "\"rf_dac_source_select_passed\":%u,"
                  "\"requires_conducted_or_shielded\":1,"
                  "\"requires_legal_frequency_profile\":1,"
                  "\"requires_rx_first\":1,"
@@ -4431,14 +4436,18 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_phy_tx_rx_verified\":0,"
                  "\"app_verified_real_rf\":0,"
                  "\"production_ready\":0,"
-                 "\"production_blocker\":\"rf_dac_source_select_not_verified\","
+                 "\"production_blocker\":\"%s\","
                  "\"uses_json_on_air\":0,"
                  "\"opens_iio_buffers\":0,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
-                 "\"next_boundary\":\"rf_phy_driver_tx_rx\"}\n");
+                 "\"next_boundary\":\"rf_phy_driver_tx_rx\"}\n",
+                 rf_dac_source_select,
+                 rf_dac_source_select ?
+                    "real_rf_phy_tx_rx_not_verified" :
+                    "rf_dac_source_select_not_verified");
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_WORKER_STOP")) {

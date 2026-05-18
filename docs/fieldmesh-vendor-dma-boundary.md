@@ -426,6 +426,13 @@ the required order: arm RX before TX, start RX before TX, then verify the RX
 packet CRC. It is intentionally non-destructive: it does not open `/dev/mem`,
 write DMA registers, or start a transfer.
 
+The RF-engine production overlay does not provide a local TX-to-RX DMA loopback
+before live PHY ingress. For the RF PHY binding gate, sidecar-DMA readiness is
+therefore the bounded TX-submit proof plus register/magic preflight; RX
+completion and payload CRC match are reserved for the measured live RF TX/RX
+gate. The probe clears the AXI-DMAC transfer-done bitmask before and after each
+smoke transaction so repeated runs do not inherit stale completion bits.
+
 The transfer-starting smoke is deliberately guarded:
 
 ```sh
@@ -493,8 +500,10 @@ rolls source select back to the vendor DAC path. It still does not enable
 AD936x TX, start RF TX, open IIO buffers, or write outside the FieldMesh control
 window.
 
-The matching RF-engine runtime package is intentionally separate from the
-default sidecar-DMA package:
+The production runtime package now uses the matching non-transmitting
+RF-engine overlay by default. That keeps the sidecar DMA path and exposes the
+RF guard/DAC-source register page required by the PHY binding gates. A
+separate RF-engine package wrapper remains available for diagnostic payloads:
 
 ```sh
 ./tools/package_fieldmesh_rf_engine_pluto_frm.sh z103
@@ -517,8 +526,10 @@ VARIANT=z103 APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1 \
 
 It requires the refreshed RF-engine runtime where `0x12c` reads back bit 0
 asserted while selected and `0x130` reports the synchronized DAC source status.
-Older RF-engine packages that do not expose the source-select register are now
-rejected by readback.
+Runtime packages that do not expose the RF register page are now rejected:
+`rf-guard-scan` marks the page non-addressable when the `0x100` guard register
+aliases the low ID register, and `rf-source-apply` fails unless source-select
+readback is asserted before rollback.
 
 The next TX-enable boundary is review-only:
 

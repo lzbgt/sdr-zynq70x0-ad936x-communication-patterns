@@ -90,6 +90,20 @@ foreach cell {
   }
 }
 
+set ctrl_synth_light [get_property CONFIG.SYNTH_LIGHT [get_bd_cells fieldmesh_ctrl]]
+if {"\$ctrl_synth_light" ne "1"} {
+  error "fieldmesh_ctrl must instantiate SYNTH_LIGHT=1 for RF guard/DAC registers"
+}
+
+set ctrl_addr_width ""
+set ctrl_s_axi [get_bd_intf_pins fieldmesh_ctrl/s_axi]
+if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
+  set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
+}
+if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
+  error "fieldmesh_ctrl/s_axi address width must cover RF register page through 0x13c"
+}
+
 foreach pin {
   fieldmesh_bpsk_symbolizer/clk
   fieldmesh_bpsk_symbolizer/rst

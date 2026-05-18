@@ -112,7 +112,9 @@ apply = rows("rf_source_apply.ndjson")
 after = rows("rf_guard_scan_after.ndjson")
 z103 = rows("rf_guard_scan_z103.ndjson")
 
-if before[-1].get("event") != "rf_guard_scan_end" or before[-1].get("ok") is not True:
+if (before[-1].get("event") != "rf_guard_scan_end" or
+        before[-1].get("ok") is not True or
+        before[-1].get("rf_page_addressable") is not True):
     raise SystemExit("initial RF guard scan failed")
 
 write = next((row for row in apply if row.get("event") == "rf_source_apply_write"), None)
@@ -120,13 +122,15 @@ rollback = next((row for row in apply if row.get("event") == "rf_source_apply_ro
 end = next((row for row in apply if row.get("event") == "rf_source_apply_end"), None)
 if not write or write.get("source_control") != "0x00000001":
     raise SystemExit("RF source apply did not select FieldMesh DAC source")
+if write.get("readback_ok") is not True:
+    raise SystemExit(f"RF source apply did not verify source-select readback: {write}")
 if write.get("selects_fieldmesh_dac_source") is not True:
     raise SystemExit("RF source apply did not report source selection")
 if write.get("sets_ad936x_tx_enable") is not False or write.get("starts_rf_tx") is not False:
     raise SystemExit("RF source apply crossed the AD936x/RF TX safety boundary")
 if not rollback or rollback.get("ok") is not True or rollback.get("source_control") != "0x00000000":
     raise SystemExit("RF source apply did not roll back source control")
-if not end or end.get("ok") is not True or end.get("rolled_back") is not True:
+if not end or end.get("ok") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
     raise SystemExit("RF source apply did not end cleanly")
 
 after_regs = {
@@ -144,7 +148,9 @@ for name in (
 ):
     if after_regs.get(name) != "0x00000000":
         raise SystemExit(f"RF/DAC register {name} was not rolled back")
-if z103[-1].get("event") != "rf_guard_scan_end" or z103[-1].get("ok") is not True:
+if (z103[-1].get("event") != "rf_guard_scan_end" or
+        z103[-1].get("ok") is not True or
+        z103[-1].get("rf_page_addressable") is not True):
     raise SystemExit("Z103 mirrored probe failed RF guard scan")
 
 print(json.dumps({

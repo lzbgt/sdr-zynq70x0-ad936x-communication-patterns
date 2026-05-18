@@ -13,8 +13,8 @@ case "$variant" in
     image="sdr-z203-arm-image"
     deploy_dir="${DEPLOY_DIR:-$FIELDMESH_DEPLOY_DIR}"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux}"
-    xsa="${XSA:-$repo_root/.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa}"
-    bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/dma-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
+    xsa="${XSA:-$repo_root/.config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.sdk/system_top.xsa}"
+    bitstream="${BITSTREAM:-$repo_root/.config/fieldmesh/rf-engine-overlay-build-z203/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
     boot_out="${BOOT_ARTIFACTS_DIR:-$repo_root/.config/fieldmesh/sd-boot-artifacts-z203}"
     uenv="${UENV_TXT:-$repo_root/resources/firmware/sdcard-2r2t/uEnv.txt}"
     ;;

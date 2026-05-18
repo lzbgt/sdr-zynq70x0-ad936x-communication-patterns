@@ -2722,6 +2722,7 @@ static int run_rf_guard_scan(const struct config *cfg)
     const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
     bool file_backed = cfg->ctrl_mem_file != NULL;
     bool ok = true;
+    bool rf_page_addressable = true;
     uint32_t id_value = 0;
     int fd;
 
@@ -2750,6 +2751,10 @@ static int run_rf_guard_scan(const struct config *cfg)
             if (read_ok && value != FIELDMESH_CTRL_ID_VALUE) {
                 ok = false;
             }
+        } else if (!strcmp(regs[i].name, "rf_guard_control") && read_ok &&
+                   value == FIELDMESH_CTRL_ID_VALUE) {
+            rf_page_addressable = false;
+            ok = false;
         }
         printf("{\"event\":\"rf_guard_reg\",\"transport\":\"rf-guard-scan\","
                "\"name\":\"%s\",\"offset\":\"0x%03x\",\"read_ok\":%s,"
@@ -2759,9 +2764,9 @@ static int run_rf_guard_scan(const struct config *cfg)
 
     close(fd);
     printf("{\"event\":\"rf_guard_scan_end\",\"transport\":\"rf-guard-scan\","
-           "\"ok\":%s,\"id_ok\":%s,\"id\":\"0x%08x\"}\n",
+           "\"ok\":%s,\"id_ok\":%s,\"rf_page_addressable\":%s,\"id\":\"0x%08x\"}\n",
            ok ? "true" : "false", id_value == FIELDMESH_CTRL_ID_VALUE ? "true" : "false",
-           id_value);
+           rf_page_addressable ? "true" : "false", id_value);
     return ok ? 0 : 1;
 }
 
@@ -2776,8 +2781,14 @@ static int run_rf_guard_apply(const struct config *cfg)
     uint32_t old_tx_slot = 0;
     uint32_t id_value = 0;
     uint32_t status_value = 0;
+    uint32_t applied_control = 0;
+    uint32_t applied_current_epoch = 0;
+    uint32_t applied_current_slot = 0;
+    uint32_t applied_tx_epoch = 0;
+    uint32_t applied_tx_slot = 0;
     bool ok = false;
     bool wrote = false;
+    bool readback_ok = false;
     bool rolled_back = false;
     int fd = -1;
     char err[160] = {0};
@@ -2822,16 +2833,40 @@ static int run_rf_guard_apply(const struct config *cfg)
     }
     wrote = true;
 
-    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_STATUS, &status_value);
+    readback_ok =
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, &applied_control) &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH,
+                      &applied_current_epoch) &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT,
+                      &applied_current_slot) &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH,
+                      &applied_tx_epoch) &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT,
+                      &applied_tx_slot) &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_STATUS, &status_value) &&
+        applied_control == RF_GUARD_CONTROL_ARMED &&
+        applied_current_epoch == cfg->rf_slot_epoch &&
+        (applied_current_slot & 0xffffU) == (cfg->rf_slot_index & 0xffffU) &&
+        applied_tx_epoch == cfg->rf_slot_epoch &&
+        (applied_tx_slot & 0xffffU) == (cfg->rf_slot_index & 0xffffU);
     printf("{\"event\":\"rf_guard_apply_write\",\"transport\":\"rf-guard-apply\","
            "\"control\":\"0x%08x\",\"current_epoch\":%u,\"current_slot\":%u,"
            "\"tx_epoch\":%u,\"tx_slot\":%u,\"sets_guard_tx_enable\":true,"
            "\"sets_guard_tx_armed\":true,\"sets_ad936x_tx_enable\":false,"
-           "\"starts_rf_tx\":false}\n",
+           "\"starts_rf_tx\":false,\"readback_ok\":%s,"
+           "\"readback_control\":\"0x%08x\",\"readback_current_epoch\":%u,"
+           "\"readback_current_slot\":%u,\"readback_tx_epoch\":%u,"
+           "\"readback_tx_slot\":%u}\n",
            RF_GUARD_CONTROL_ARMED, cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU,
-           cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU);
+           cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU,
+           readback_ok ? "true" : "false", applied_control, applied_current_epoch,
+           applied_current_slot & 0xffffU, applied_tx_epoch, applied_tx_slot & 0xffffU);
     printf("{\"event\":\"rf_guard_apply_status\",\"transport\":\"rf-guard-apply\","
            "\"status\":\"0x%08x\"}\n", status_value);
+    if (!readback_ok) {
+        snprintf(err, sizeof(err), "RF guard registers did not read back applied values");
+        goto out;
+    }
 
 out:
     if (fd >= 0 && wrote) {
@@ -2842,6 +2877,29 @@ out:
             write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, old_current_slot) &&
             write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, old_current_epoch) &&
             write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, old_control);
+        if (rb_ok) {
+            uint32_t rollback_control = 0;
+            uint32_t rollback_current_epoch = 0;
+            uint32_t rollback_current_slot = 0;
+            uint32_t rollback_tx_epoch = 0;
+            uint32_t rollback_tx_slot = 0;
+            rb_ok =
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL,
+                              &rollback_control) &&
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH,
+                              &rollback_current_epoch) &&
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT,
+                              &rollback_current_slot) &&
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH,
+                              &rollback_tx_epoch) &&
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT,
+                              &rollback_tx_slot) &&
+                rollback_control == old_control &&
+                rollback_current_epoch == old_current_epoch &&
+                (rollback_current_slot & 0xffffU) == (old_current_slot & 0xffffU) &&
+                rollback_tx_epoch == old_tx_epoch &&
+                (rollback_tx_slot & 0xffffU) == (old_tx_slot & 0xffffU);
+        }
         rolled_back = rb_ok;
         printf("{\"event\":\"rf_guard_apply_rollback\",\"transport\":\"rf-guard-apply\","
                "\"ok\":%s,\"control\":\"0x%08x\",\"current_epoch\":%u,"
@@ -2849,12 +2907,13 @@ out:
                rb_ok ? "true" : "false", old_control, old_current_epoch,
                old_current_slot & 0xffffU, old_tx_epoch, old_tx_slot & 0xffffU);
     }
-    ok = wrote && rolled_back;
+    ok = wrote && readback_ok && rolled_back;
     printf("{\"event\":\"rf_guard_apply_end\",\"transport\":\"rf-guard-apply\","
            "\"ok\":%s,\"id\":\"0x%08x\",\"wrote_registers\":%s,"
-           "\"rolled_back\":%s,\"starts_rf_tx\":false,\"error\":%s}\n",
+           "\"readback_ok\":%s,\"rolled_back\":%s,\"starts_rf_tx\":false,\"error\":%s}\n",
            ok ? "true" : "false", id_value, wrote ? "true" : "false",
-           rolled_back ? "true" : "false", ok ? "null" : "\"rf guard apply failed\"");
+           readback_ok ? "true" : "false", rolled_back ? "true" : "false",
+           ok ? "null" : "\"rf guard apply failed\"");
     if (fd >= 0) {
         close(fd);
     }
@@ -2874,6 +2933,7 @@ static int run_rf_source_apply(const struct config *cfg)
     uint32_t source_status = 0;
     bool ok = false;
     bool wrote = false;
+    bool readback_ok = false;
     bool rolled_back = false;
     int fd = -1;
     char err[160] = {0};
@@ -2915,9 +2975,11 @@ static int run_rf_source_apply(const struct config *cfg)
     printf("{\"event\":\"rf_source_apply_write\",\"transport\":\"rf-source-apply\","
            "\"source_control\":\"0x%08x\",\"source_status\":\"0x%08x\","
            "\"selects_fieldmesh_dac_source\":true,"
-           "\"sets_ad936x_tx_enable\":false,\"starts_rf_tx\":false}\n",
-           source_control, source_status);
-    if ((source_control & 0x1U) == 0U) {
+           "\"sets_ad936x_tx_enable\":false,\"starts_rf_tx\":false,"
+           "\"readback_ok\":%s}\n",
+           source_control, source_status, (source_control & 0x1U) ? "true" : "false");
+    readback_ok = (source_control & 0x1U) != 0U;
+    if (!readback_ok) {
         snprintf(err, sizeof(err), "RF DAC source select did not read back asserted");
         goto out;
     }
@@ -2935,13 +2997,14 @@ out:
                "\"ok\":%s,\"source_control\":\"0x%08x\"}\n",
                rolled_back ? "true" : "false", rollback_source_control);
     }
-    ok = wrote && rolled_back;
+    ok = wrote && readback_ok && rolled_back;
     printf("{\"event\":\"rf_source_apply_end\",\"transport\":\"rf-source-apply\","
            "\"ok\":%s,\"id\":\"0x%08x\",\"wrote_registers\":%s,"
-           "\"rolled_back\":%s,\"sets_ad936x_tx_enable\":false,"
+           "\"readback_ok\":%s,\"rolled_back\":%s,\"sets_ad936x_tx_enable\":false,"
            "\"starts_rf_tx\":false,\"error\":%s}\n",
            ok ? "true" : "false", id_value, wrote ? "true" : "false",
-           rolled_back ? "true" : "false", ok ? "null" : "\"RF DAC source apply failed\"");
+           readback_ok ? "true" : "false", rolled_back ? "true" : "false",
+           ok ? "null" : "\"RF DAC source apply failed\"");
     if (fd >= 0) {
         close(fd);
     }
@@ -3348,6 +3411,8 @@ static int run_dma_smoke(const struct config *cfg)
 
     dma_reg_write(&tx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
     dma_reg_write(&rx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+    dma_reg_write(&tx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
+    dma_reg_write(&rx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
     dma_reg_write(&tx_regs, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
     dma_reg_write(&rx_regs, AXI_DMAC_REG_CTRL, AXI_DMAC_CTRL_ENABLE);
 
@@ -3397,9 +3462,11 @@ static int run_dma_smoke(const struct config *cfg)
 out:
     if (tx_regs.map) {
         dma_reg_write(&tx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+        dma_reg_write(&tx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
     }
     if (rx_regs.map) {
         dma_reg_write(&rx_regs, AXI_DMAC_REG_IRQ_PENDING, 0xffffffffU);
+        dma_reg_write(&rx_regs, AXI_DMAC_REG_TRANSFER_DONE, 0xffffffffU);
     }
     printf("{\"event\":\"dma_smoke_end\",\"transport\":\"dma-smoke\","
            "\"ok\":%s,\"packet_len\":%u,\"aligned_bytes\":%u,"

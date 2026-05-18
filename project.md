@@ -836,12 +836,14 @@ user and vendor configuration.
   `rf_phy_tx_rx=0` and `production_ready=0`.
 - `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` - live installed-board gate
   for the RF worker to PHY-driver binding contract. It combines real sidecar
-  preflight, sidecar DMA smoke, RF packet-engine transport recovery, RF TX
-  guard planning, daemon native-IP service start, RF worker start, bind
-  validation, and refused bind apply. The expected pass state is
-  `rf_dac_source_select_passed=0`, `binding_ready=0`,
-  `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and `production_ready=0`
-  until the installed runtime proves DAC source-select readback.
+  preflight, RF-engine sidecar DMA TX-submit proof, RF packet-engine transport
+  recovery, RF TX guard planning, installed DAC source-select readback,
+  daemon native-IP service start, RF worker start, bind validation, and refused
+  bind apply. The expected pass state is now
+  `rf_dac_source_select_passed=1`, `binding_ready=1`,
+  `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and
+  `production_ready=0`. Full RX DMA/PHY ingress remains part of the measured
+  live RF TX/RX gate, not this non-transmitting binding gate.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board
@@ -955,14 +957,17 @@ user and vendor configuration.
   compiles/checks DTBs without mutating the vendor Linux trees.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
-  the timing-clean FieldMesh DMA overlay bitstream.
-- `tools/package_fieldmesh_rf_engine_pluto_frm.sh` - packages the
-  non-transmitting RF-engine overlay bitstream into a separate FieldMesh
-  Pluto-style payload under `.config/fieldmesh/rf-engine-runtime-package-*`,
-  leaving the default DMA runtime package untouched.
+  the non-transmitting RF-engine overlay bitstream. This is now the production
+  default because the RF guard/DAC-source register page must be present in the
+  installed runtime; the older DMA-only bitstream remains available through an
+  explicit `BITSTREAM=` override.
+- `tools/package_fieldmesh_rf_engine_pluto_frm.sh` - compatibility wrapper for
+  packaging the same RF-engine overlay under
+  `.config/fieldmesh/rf-engine-runtime-package-*` when a separate diagnostic
+  payload is useful.
 - `tools/run_fieldmesh_jtag_yocto_ram.sh` - prepares a non-flashing FieldMesh
   RAM-boot payload for Z203 or Z103 from the Yocto kernel/rootfs, matching
-  sidecar DTB, and timing-clean FieldMesh bitstream, then delegates to the
+  sidecar DTB, and RF-engine FieldMesh bitstream, then delegates to the
   OpenOCD/U-Boot RAM loader.
 - `tools/run_fieldmesh_live_gate.sh` - one-shot non-flashing live gate runner
   that verifies FieldMesh artifacts, refreshes RAM-boot staging, captures USB

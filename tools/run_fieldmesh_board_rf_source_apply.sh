@@ -143,9 +143,13 @@ if preflight.get("event") != "fieldmesh_sidecar_preflight_assert" or preflight.g
 
 before = load("rf_guard_scan_before.ndjson")
 after = load("rf_guard_scan_after.ndjson")
-if not before or before[-1].get("event") != "rf_guard_scan_end" or before[-1].get("ok") is not True:
+if (not before or before[-1].get("event") != "rf_guard_scan_end" or
+        before[-1].get("ok") is not True or
+        before[-1].get("rf_page_addressable") is not True):
     raise SystemExit("initial RF guard scan failed")
-if not after or after[-1].get("event") != "rf_guard_scan_end" or after[-1].get("ok") is not True:
+if (not after or after[-1].get("event") != "rf_guard_scan_end" or
+        after[-1].get("ok") is not True or
+        after[-1].get("rf_page_addressable") is not True):
     raise SystemExit("post RF guard scan failed")
 
 after_regs = {
@@ -165,11 +169,13 @@ if applied:
         raise SystemExit("RF source apply did not select FieldMesh DAC source")
     if write.get("source_control") != "0x00000001":
         raise SystemExit(f"RF source-select readback was not asserted: {write}")
+    if write.get("readback_ok") is not True:
+        raise SystemExit(f"RF source-select readback was not verified: {write}")
     if write.get("sets_ad936x_tx_enable") is not False or write.get("starts_rf_tx") is not False:
         raise SystemExit("RF source apply crossed the AD936x/RF TX safety boundary")
     if not rollback or rollback.get("ok") is not True:
         raise SystemExit("RF source apply did not roll back")
-    if not end or end.get("ok") is not True or end.get("rolled_back") is not True:
+    if not end or end.get("ok") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
         raise SystemExit("RF source apply did not end cleanly")
 else:
     skipped = next((row for row in apply_rows if row.get("event") == "rf_source_apply_skipped"), None)
@@ -185,9 +191,14 @@ summary = {
     "preflight_ok": True,
     "scan_before_ok": True,
     "scan_after_ok": True,
+    "rf_page_addressable": True,
+    "readback_ok": bool(applied),
     "writes_source_register": bool(applied),
+    "opens_iio_buffers": False,
     "sets_ad936x_tx_enable": False,
     "starts_rf_tx": False,
+    "commands_executed": False,
+    "uses_inter_board_ip_routing": False,
     "rolled_back": bool(applied),
 }
 print(json.dumps(summary, sort_keys=True))
