@@ -762,6 +762,13 @@ frame into the sink daemon, and ACK the source only after successful ingest.
 live bridge report with feature behavior to produce normalizer-compatible app
 evidence for messaging, topology, or native-IP.
 
+`tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the top-level
+operator wrapper around those pieces. It remains dry-run unless live RF,
+hardware writes, RF TX, daemon queue mutation, fixture evidence, fixture ID, and
+the exact operator confirmation are all provided. With a successful live bridge
+and named app feature reports, it derives app evidence and calls the production
+gate; with dry-run or incomplete evidence it leaves `production_ready=false`.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.

@@ -3660,6 +3660,26 @@ behavior for messaging, topology, and native-IP, then feeds the normalized app
 reports into the production gate. It refuses dry-run bridge evidence and feature
 reports that use inter-board host-IP payload routing.
 
+The full conducted/shielded production sequence is wrapped by:
+
+```sh
+./tools/verify_fieldmesh_conducted_rf_production_sequence.sh
+```
+
+Result:
+
+```json
+{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "missing_fixture_refused": true, "ok": true}
+```
+
+`tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
+wrapper for the current real-RF readiness path. It validates fixture evidence,
+runs or consumes the RF-worker/IIO bridge, derives normalized app real-RF
+reports from messaging/topology/native-IP feature evidence, and then invokes
+the production gate. Dry-run is the default. Live RF still requires explicit
+hardware-write, RF-TX, daemon-queue mutation, fixture evidence, fixture ID, and
+operator-confirmation inputs.
+
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and

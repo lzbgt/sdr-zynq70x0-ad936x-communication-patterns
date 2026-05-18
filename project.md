@@ -651,6 +651,17 @@ user and vendor configuration.
   bridge-derived app evidence. It proves the generated feature reports pass the
   production gate with synthetic measured RF evidence, while dry-run bridge and
   inter-board host-IP feature evidence are refused.
+- `tools/run_fieldmesh_conducted_rf_production_sequence.sh` - one-command
+  conducted/shielded RF production sequence wrapper. It validates fixture
+  evidence, runs or consumes the RF-worker/IIO bridge, derives normalized app
+  reports from messaging/topology/native-IP feature evidence, and then invokes
+  the real-RF production gate. It is non-transmitting by default and live mode
+  requires explicit hardware-write, RF-TX, daemon-queue, fixture, and operator
+  approvals.
+- `tools/verify_fieldmesh_conducted_rf_production_sequence.sh` - verifier for
+  the sequence wrapper. It proves dry-run evidence stays non-production,
+  missing fixture evidence blocks live RF, complete bridge-derived app evidence
+  passes the production gate, and host-IP-routed feature evidence is rejected.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

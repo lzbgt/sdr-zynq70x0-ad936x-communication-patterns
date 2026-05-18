@@ -111,6 +111,12 @@ after the refreshed installed daemons were redeployed. The remaining
 implementation work is to connect those driver queues to real RF packet
 ingress/egress, then prove ICMP/TCP/UDP over the RF path with measured
 throughput, RTT, retransmits, queue age, and route-failover behavior.
+The production sequence wrapper now centralizes the remaining conducted or
+shielded proof: it validates fixture evidence, runs or consumes the RF-worker
+to IIO bridge, derives app-level messaging/topology/native-IP reports, and
+feeds the real-RF production gate. Until a real live bridge report and all
+three app feature reports pass that wrapper, the daemon readiness fields must
+remain `production_ready=0`.
 
 The SDK exposes `fieldmesh_ingest_mac_frame()` and the daemon exposes
 `FIELDMESH_MAC_INGEST` for debug/test injection of the exact same `BLR` binary
