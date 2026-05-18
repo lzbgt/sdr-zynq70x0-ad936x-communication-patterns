@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+z203_ip="${Z203_IP:-192.168.1.10}"
+z103_ip="${Z103_IP:-192.168.3.1}"
+z203_eui="${Z203_EUI:-020000000203}"
+z103_eui="${Z103_EUI:-020000000103}"
+port="${PORT:-55441}"
+ssh_user="${SSH_USER:-root}"
+ssh_pass="${SSH_PASS:-analog}"
+require_gnss_fix="${REQUIRE_GNSS_FIX:-0}"
+out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-gnss-live-preflight-$(date +%Y%m%d-%H%M%S)-$$}"
+
+mkdir -p "$out_dir"
+
+if ! command -v sshpass >/dev/null 2>&1; then
+    echo "Missing required command: sshpass" >&2
+    exit 1
+fi
+case "$require_gnss_fix" in
+    0|1) ;;
+    *) echo "REQUIRE_GNSS_FIX must be 0 or 1" >&2; exit 1 ;;
+esac
+
+ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
+
+ssh_board() {
+    local host="$1"
+    shift
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$ssh_user@$host" "$@"
+}
+
+collect_board_facts() {
+    local label="$1"
+    local host="$2"
+    local output="$3"
+    ssh_board "$host" 'sh -s' >"$output" <<'SH'
+set +e
+print_file_value() {
+    key="$1"
+    shift
+    for path in "$@"; do
+        if [ -f "$path" ]; then
+            value="$(sed -n '1p' "$path" 2>/dev/null | tr -d '\r\n')"
+            printf '%s=%s\n' "$key" "$value"
+            printf '%s_path=%s\n' "$key" "$path"
+            return 0
+        fi
+    done
+    printf '%s=\n' "$key"
+    printf '%s_path=\n' "$key"
+}
+printf 'hostname=%s\n' "$(hostname 2>/dev/null || true)"
+printf 'daemon_pid=%s\n' "$(pidof fieldmesh-state-daemon-demo 2>/dev/null | tr ' ' ',')"
+printf 'gnss_pid=%s\n' "$(pidof fieldmesh-gnss-nmea-reporter 2>/dev/null | tr ' ' ',')"
+print_file_value device_eui /mnt/jffs2/fieldmesh/device_eui /etc/fieldmesh/device_eui
+print_file_value gnss_nmea_device /mnt/jffs2/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_device
+print_file_value gnss_nmea_baud /mnt/jffs2/fieldmesh/gnss_nmea_baud /etc/fieldmesh/gnss_nmea_baud
+print_file_value gnss_pps_lock /mnt/jffs2/fieldmesh/gnss_pps_lock /etc/fieldmesh/gnss_pps_lock
+print_file_value gnss_nmea_max_reports /mnt/jffs2/fieldmesh/gnss_nmea_max_reports /etc/fieldmesh/gnss_nmea_max_reports
+device="$(sed -n '1p' /mnt/jffs2/fieldmesh/gnss_nmea_device /etc/fieldmesh/gnss_nmea_device 2>/dev/null | sed -n '1p' | tr -d '\r\n')"
+if [ -n "$device" ] && [ -e "$device" ]; then
+    printf 'gnss_nmea_device_exists=1\n'
+else
+    printf 'gnss_nmea_device_exists=0\n'
+fi
+serials="$(ls /dev/ttyPS* /dev/ttyUSB* /dev/ttyACM* /dev/ttyS* 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
+printf 'serial_devices=%s\n' "$serials"
+printf 'gnss_log_exists=%s\n' "$([ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ] && echo 1 || echo 0)"
+if [ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ]; then
+    tail -n 5 /tmp/fieldmesh-gnss-nmea-reporter.ndjson | sed 's/^/gnss_log_tail=/'
+fi
+SH
+    python3 - "$label" "$host" "$output" "$output.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+label, host, text_path, json_path = sys.argv[1:5]
+facts: dict[str, object] = {}
+tails: list[str] = []
+for line in Path(text_path).read_text(encoding="utf-8", errors="replace").splitlines():
+    if line.startswith("gnss_log_tail="):
+        tails.append(line.split("=", 1)[1])
+        continue
+    if "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    facts[key] = value
+facts["event"] = "fieldmesh_board_gnss_live_facts"
+facts["label"] = label
+facts["board_ip"] = host
+facts["gnss_log_tail"] = tails
+Path(json_path).write_text(json.dumps(facts, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
+query_rtls_position() {
+    local label="$1"
+    local host="$2"
+    local eui="$3"
+    local output="$4"
+    python3 - "$label" "$host" "$port" "$eui" "$output" <<'PY'
+import json
+import socket
+import sys
+from pathlib import Path
+
+label, host, port_s, eui, output = sys.argv[1:6]
+port = int(port_s)
+request = f"FIELDMESH_RTLS_POSITION v1 dst={eui}\n".encode("ascii")
+report = {
+    "event": "fieldmesh_board_gnss_live_rtls_position",
+    "label": label,
+    "board_ip": host,
+    "device_eui": eui,
+    "ok": False,
+}
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.settimeout(3.0)
+try:
+    sock.sendto(request, (host, port))
+    payload, _ = sock.recvfrom(4096)
+    text = payload.decode("utf-8", errors="strict").strip()
+    decoded = json.loads(text)
+    report.update(decoded)
+    report["daemon_response_ok"] = decoded.get("ok") is True
+except Exception as exc:  # noqa: BLE001 - diagnostic JSON should preserve any failure.
+    report["error"] = str(exc)
+finally:
+    sock.close()
+Path(output).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
+collect_board_facts z203 "$z203_ip" "$out_dir/z203_facts.txt"
+collect_board_facts z103 "$z103_ip" "$out_dir/z103_facts.txt"
+query_rtls_position z203 "$z203_ip" "$z203_eui" "$out_dir/z203_rtls_position.json"
+query_rtls_position z103 "$z103_ip" "$z103_eui" "$out_dir/z103_rtls_position.json"
+
+python3 - "$out_dir" "$require_gnss_fix" <<'PY' | tee "$out_dir/summary.json"
+import json
+import sys
+from pathlib import Path
+
+out_dir = Path(sys.argv[1])
+require_gnss_fix = sys.argv[2] == "1"
+
+def read_json(name: str) -> dict:
+    return json.loads((out_dir / name).read_text(encoding="utf-8"))
+
+def classify(label: str) -> dict:
+    facts = read_json(f"{label}_facts.txt.json")
+    rtls = read_json(f"{label}_rtls_position.json")
+    blockers: list[str] = []
+    configured_device = str(facts.get("gnss_nmea_device") or "")
+    if not configured_device:
+        blockers.append("no_gnss_nmea_device_configured")
+    elif facts.get("gnss_nmea_device_exists") != "1":
+        blockers.append("gnss_nmea_device_missing")
+    if not facts.get("daemon_pid"):
+        blockers.append("fieldmesh_daemon_not_running")
+    if configured_device and facts.get("gnss_nmea_device_exists") == "1" and not facts.get("gnss_pid"):
+        blockers.append("gnss_reporter_not_running")
+    daemon_gnss_position_present = (
+        rtls.get("ok") is True
+        and rtls.get("position_source") == "gps_pps_fused"
+    )
+    has_fix = (
+        rtls.get("ok") is True
+        and rtls.get("position_source") == "gps_pps_fused"
+        and rtls.get("has_gnss_position") in (1, True)
+    )
+    if not has_fix:
+        blockers.append("no_live_gnss_position_in_daemon")
+    service_backed = (
+        has_fix
+        and bool(configured_device)
+        and facts.get("gnss_nmea_device_exists") == "1"
+        and bool(facts.get("gnss_pid"))
+    )
+    if daemon_gnss_position_present and not service_backed:
+        blockers.append("gnss_position_not_backed_by_live_init_service")
+    return {
+        "label": label,
+        "board_ip": facts.get("board_ip"),
+        "hostname": facts.get("hostname"),
+        "device_eui": facts.get("device_eui"),
+        "gnss_nmea_device": configured_device,
+        "gnss_nmea_device_exists": facts.get("gnss_nmea_device_exists") == "1",
+        "gnss_reporter_running": bool(facts.get("gnss_pid")),
+        "daemon_running": bool(facts.get("daemon_pid")),
+        "serial_devices": [item for item in str(facts.get("serial_devices") or "").split(",") if item],
+        "position_source": rtls.get("position_source"),
+        "has_gnss_position": rtls.get("has_gnss_position"),
+        "daemon_gnss_position_present": daemon_gnss_position_present,
+        "gnss_position_backed_by_live_init_service": service_backed,
+        "gnss_live_ready": not blockers,
+        "blockers": blockers,
+        "facts_path": str(out_dir / f"{label}_facts.txt.json"),
+        "rtls_position_path": str(out_dir / f"{label}_rtls_position.json"),
+    }
+
+boards = [classify("z203"), classify("z103")]
+ready = all(board["gnss_live_ready"] for board in boards)
+summary = {
+    "event": "fieldmesh_two_board_gnss_live_preflight",
+    "ok": ready or not require_gnss_fix,
+    "gnss_live_ready": ready,
+    "require_gnss_fix": require_gnss_fix,
+    "boards": boards,
+    "capture_dir": str(out_dir),
+}
+if not ready:
+    summary["production_blocker"] = "deployed_gnss_uart_pps_not_verified"
+print(json.dumps(summary, indent=2, sort_keys=True))
+if require_gnss_fix and not ready:
+    raise SystemExit(1)
+PY
+
+echo "fieldmesh_two_board_gnss_live_preflight=pass"
+echo "Capture directory: $out_dir"

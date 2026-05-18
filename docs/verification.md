@@ -3172,6 +3172,15 @@ daemon and GNSS reporter binaries and confirms the configured NMEA device, baud,
 PPS lock, one-shot max-report bound, and EUI are passed into the init-launched
 reporter. Production deployments keep `gnss_nmea_max_reports=0` for continuous
 reporting; the bounded value is only for deterministic service verification.
+The same gate also verifies the no-device skip log, so a board without
+configured GNSS cannot fail silently.
+
+`tools/run_fieldmesh_two_board_gnss_live_preflight.sh` is the live deployed
+GNSS preflight. It SSHes into Z203 and Z103, captures persistent GNSS
+configuration, visible serial nodes, reporter process state, and daemon
+`FIELDMESH_RTLS_POSITION` output. By default it exits successfully after
+inspection even when `gnss_live_ready=false`; set `REQUIRE_GNSS_FIX=1` to make
+missing live GNSS a hard production failure.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` is the installed-daemon
 GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects

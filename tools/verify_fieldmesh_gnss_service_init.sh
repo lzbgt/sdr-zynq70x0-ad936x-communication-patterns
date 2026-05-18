@@ -3,10 +3,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work_dir="${WORK_DIR:-$repo_root/.config/fieldmesh/gnss-service-init-check}"
+skip_dir="$work_dir/skip"
 init_script="$repo_root/runtime/fieldmesh-state-daemon/fieldmesh-state-daemon-init"
 
 rm -rf "$work_dir"
-mkdir -p "$work_dir/bin" "$work_dir/run"
+mkdir -p "$work_dir/bin" "$work_dir/run" "$skip_dir/run"
 
 cat > "$work_dir/bin/fake-daemon" <<'SH'
 #!/bin/sh
@@ -31,6 +32,12 @@ cleanup() {
     fi
     if [ -f "$work_dir/run/gnss.pid" ]; then
         kill "$(cat "$work_dir/run/gnss.pid")" 2>/dev/null || true
+    fi
+    if [ -f "$skip_dir/run/daemon.pid" ]; then
+        kill "$(cat "$skip_dir/run/daemon.pid")" 2>/dev/null || true
+    fi
+    if [ -f "$skip_dir/run/gnss.pid" ]; then
+        kill "$(cat "$skip_dir/run/gnss.pid")" 2>/dev/null || true
     fi
 }
 trap cleanup EXIT
@@ -60,9 +67,13 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-if len(rows) != 1:
-    raise SystemExit(f"expected one GNSS reporter invocation, saw {len(rows)}")
-row = rows[0]
+starts = [row for row in rows if row.get("event") == "fieldmesh_gnss_reporter_start"]
+if len(starts) != 1 or starts[0].get("ok") is not True:
+    raise SystemExit(f"expected one init GNSS start event, saw {starts!r}")
+invocations = [row for row in rows if row.get("event") == "fake_gnss_reporter_start"]
+if len(invocations) != 1:
+    raise SystemExit(f"expected one GNSS reporter invocation, saw {invocations!r}")
+row = invocations[0]
 if row.get("event") != "fake_gnss_reporter_start":
     raise SystemExit(f"unexpected event: {row!r}")
 if row.get("eui") != "020000000203":
@@ -82,5 +93,43 @@ print(json.dumps({
 }, separators=(",", ":")))
 PY
 
+FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/run/gnss.pid" \
+"$init_script" stop >/dev/null 2>&1 || true
+
+rm -f "$work_dir/gnss.ndjson"
+FIELDMESH_STATE_DAEMON_BIN="$work_dir/bin/fake-daemon" \
+FIELDMESH_GNSS_REPORTER_BIN="$work_dir/bin/fake-gnss-reporter" \
+FIELDMESH_STATE_DAEMON_PIDFILE="$skip_dir/run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$skip_dir/run/gnss.pid" \
+FIELDMESH_STATE_DAEMON_LOGFILE="$skip_dir/daemon.ndjson" \
+FIELDMESH_GNSS_REPORTER_LOGFILE="$skip_dir/gnss.ndjson" \
+FIELDMESH_DEVICE_EUI=020000000203 \
+"$init_script" start
+
+for _ in $(seq 1 20); do
+    [ -s "$skip_dir/gnss.ndjson" ] && break
+    sleep 0.1
+done
+
+python3 - "$skip_dir/gnss.ndjson" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+skips = [row for row in rows if row.get("event") == "fieldmesh_gnss_reporter_skip"]
+if len(skips) != 1:
+    raise SystemExit(f"expected one GNSS skip event, saw {skips!r}")
+skip = skips[0]
+if skip.get("reason") != "no_gnss_nmea_device_configured":
+    raise SystemExit(f"wrong GNSS skip reason: {skip!r}")
+if any(row.get("event") == "fake_gnss_reporter_start" for row in rows):
+    raise SystemExit(f"GNSS reporter should not start without configured device: {rows!r}")
+PY
+
+FIELDMESH_STATE_DAEMON_PIDFILE="$skip_dir/run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$skip_dir/run/gnss.pid" \
 "$init_script" stop >/dev/null 2>&1 || true
 echo "fieldmesh_gnss_service_init_check=pass"

@@ -152,8 +152,14 @@ complete over-air RF positioning, but it removes the app-side blocker for valid
 BDS/GPS topology once a deployed GNSS UART/PPS feed is configured. The init
 service contract now has a host verifier for that feed path: configured NMEA
 device, baud, PPS lock, max-report bound, and board EUI must be passed to the
-init-launched reporter. The open work is still capturing a real deployed
-UART/PPS source on the boards, not proving the init plumbing.
+init-launched reporter. The init script also logs explicit GNSS reporter
+start/skip events, so a missing NMEA path is visible instead of silently
+producing pending app range. `tools/run_fieldmesh_two_board_gnss_live_preflight.sh`
+now captures the live installed-board state and rejects stale daemon GNSS
+positions as production startup evidence unless they are backed by a configured
+device and running reporter. Current installed boards still report
+`no_gnss_nmea_device_configured`; the open work is exposing/configuring the
+actual GNSS UART/PPS source on the boards.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

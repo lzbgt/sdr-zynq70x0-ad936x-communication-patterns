@@ -367,7 +367,9 @@ PY
     for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" \
             REQUESTS=0 fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed \
             fieldmesh-gnss-nmea-reporter gnss_nmea_device gnss_nmea_max_reports \
-            gnss_pps_lock FIELDMESH_GNSS_NMEA_MAX_REPORTS; do
+            gnss_pps_lock FIELDMESH_GNSS_NMEA_MAX_REPORTS \
+            fieldmesh_gnss_reporter_skip no_gnss_nmea_device_configured \
+            fieldmesh_gnss_reporter_start; do
         if ! grep -qF "$token" "$daemon_init_out"; then
             echo "Missing FieldMesh daemon init token in $name rootfs: $token" >&2
             exit 1

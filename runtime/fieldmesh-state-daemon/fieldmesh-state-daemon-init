@@ -133,25 +133,44 @@ read_gnss_max_reports() {
     printf '%s\n' "$GNSS_MAX_REPORTS"
 }
 
+log_gnss_event() {
+    event="$1"
+    ok="$2"
+    reason="$3"
+    printf '{"event":"%s","ok":%s,"reason":"%s"}\n' "$event" "$ok" "$reason" >> "$GNSS_LOGFILE"
+}
+
 start_gnss_reporter() {
     device="$1"
     eui="$2"
-    [ -x "$GNSS_REPORTER" ] || return 0
-    [ -n "$device" ] || return 0
-    [ -e "$device" ] || return 0
+    if [ ! -x "$GNSS_REPORTER" ]; then
+        log_gnss_event fieldmesh_gnss_reporter_skip false reporter_missing
+        return 0
+    fi
+    if [ -z "$device" ]; then
+        log_gnss_event fieldmesh_gnss_reporter_skip false no_gnss_nmea_device_configured
+        return 0
+    fi
+    if [ ! -e "$device" ]; then
+        log_gnss_event fieldmesh_gnss_reporter_skip false gnss_nmea_device_missing
+        return 0
+    fi
     case "$eui" in
         ????????????)
             ;;
         *)
+            log_gnss_event fieldmesh_gnss_reporter_skip false invalid_device_eui
             return 0
             ;;
     esac
     if [ -f "$GNSS_PIDFILE" ] && kill -0 "$(cat "$GNSS_PIDFILE")" 2>/dev/null; then
+        log_gnss_event fieldmesh_gnss_reporter_status true already_running
         return 0
     fi
     baud="$(read_gnss_baud)"
     max_reports="$(read_gnss_max_reports)"
     pps_lock="$(read_gnss_pps_lock)"
+    log_gnss_event fieldmesh_gnss_reporter_start true starting
     nohup "$GNSS_REPORTER" "$device" 127.0.0.1 "$PORT" "$eui" "$baud" "$max_reports" "$pps_lock" \
         >> "$GNSS_LOGFILE" 2>&1 &
     echo "$!" > "$GNSS_PIDFILE"

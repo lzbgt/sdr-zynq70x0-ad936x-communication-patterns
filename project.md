@@ -1026,7 +1026,13 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_gnss_service_init.sh` - host gate for the board init
   GNSS service path. It runs `S55fieldmesh-state-daemon` with fake daemon and
   reporter binaries, proves the configured device, baud, PPS lock, max-report
-  bound, and EUI are passed to the reporter, and does not touch hardware.
+  bound, and EUI are passed to the reporter, verifies the no-device skip log,
+  and does not touch hardware.
+- `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` - live installed-board
+  GNSS startup preflight. It inspects Z203/Z103 persistent GNSS device config,
+  visible serial devices, init reporter process state, and daemon RTLS position
+  without injecting NMEA. It marks daemon GNSS positions as production startup
+  evidence only when they are backed by a configured device and running reporter.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

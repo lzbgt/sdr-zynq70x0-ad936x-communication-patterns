@@ -196,7 +196,9 @@ The init script also accepts persistent or environment configuration for
 `gnss_nmea_baud`, `gnss_pps_lock`, and `gnss_nmea_max_reports`. Production
 deployments leave max reports at `0` for continuous reporting; verification can
 set it to `1` to prove the init-launched reporter path without leaving a test
-reader running.
+reader running. The init service writes explicit GNSS reporter start/skip
+events to `/tmp/fieldmesh-gnss-nmea-reporter.ndjson`, including the
+`no_gnss_nmea_device_configured` blocker when a board has no deployed NMEA path.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
@@ -205,6 +207,13 @@ instances, and verifies the headless ImGui app computes a GNSS-derived peer
 range from those daemon positions. This is a GNSS topology-path proof, not
 real-RF timing evidence; unverified TOF/TDOA remains pending until
 `rf_phy_tx_rx_verified=true`.
+
+`tools/run_fieldmesh_two_board_gnss_live_preflight.sh` is the deployed-service
+preflight. It does not inject NMEA. It inspects both installed boards for the
+persistent GNSS device configuration, visible serial nodes, init-launched
+reporter process, and daemon RTLS position. A daemon position left over from a
+test/control injection is not accepted as live GNSS startup evidence unless it
+is backed by a configured NMEA device and a running reporter service.
 
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The
