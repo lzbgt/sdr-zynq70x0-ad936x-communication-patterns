@@ -840,6 +840,11 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_system_production_readiness.sh` - verifies the
   summarizer rejects blocked GNSS/PPS/native-IP/RF evidence, accepts complete
   positive evidence, and refuses a missing real-RF production gate.
+- `tools/run_fieldmesh_system_production_readiness.sh` - operator wrapper for
+  the same summary. By default it runs the live GNSS inspection and the
+  non-transmitting native-IP paired iperf preflight, then emits
+  `system_readiness.json`. It does not transmit RF; a real-RF production gate
+  report must be supplied separately through `REAL_RF_PRODUCTION_GATE_REPORT`.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when

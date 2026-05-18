@@ -141,4 +141,67 @@ if "$repo_root/tools/fieldmesh_system_production_readiness.py" \
   exit 1
 fi
 
+cat >"$work_dir/fake-gnss-runner.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+out_dir="${OUT_DIR:?}"
+mkdir -p "$out_dir"
+cp "$(dirname "$0")/gnss-blocked.json" "$out_dir/summary.json"
+echo "fake_gnss_preflight=pass"
+SH
+chmod +x "$work_dir/fake-gnss-runner.sh"
+
+cat >"$work_dir/fake-native-ip-runner.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+out_dir="${OUT_DIR:?}"
+mkdir -p "$out_dir"
+cp "$(dirname "$0")/native-ip-preflight.json" "$out_dir/native_ip_iperf_production_sequence.json"
+exit 1
+SH
+chmod +x "$work_dir/fake-native-ip-runner.sh"
+
+if FIELDMESH_GNSS_PREFLIGHT_RUNNER="$work_dir/fake-gnss-runner.sh" \
+   FIELDMESH_NATIVE_IP_PREFLIGHT_RUNNER="$work_dir/fake-native-ip-runner.sh" \
+   OUT_DIR="$work_dir/current-wrapper" \
+   "$repo_root/tools/run_fieldmesh_system_production_readiness.sh" \
+   >"$work_dir/current-wrapper.stdout" \
+   2>"$work_dir/current-wrapper.stderr"; then
+  echo "system readiness wrapper accepted blocked current preflights" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/current-wrapper/system_readiness.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("production_ready") is not False:
+    raise SystemExit(f"wrapper report claimed production ready: {report}")
+for blocker in ("gnss_live_fix_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_gate_missing"):
+    if blocker not in report.get("blockers", []):
+        raise SystemExit(f"wrapper report missing blocker {blocker}: {report}")
+PY
+
+GNSS_PREFLIGHT_REPORT="$work_dir/gnss-ready.json" \
+NATIVE_IP_IPERF_SEQUENCE_REPORT="$work_dir/native-ip-ready.json" \
+REAL_RF_PRODUCTION_GATE_REPORT="$work_dir/rf-ready.json" \
+RUN_GNSS_PREFLIGHT=0 \
+RUN_NATIVE_IP_PREFLIGHT=0 \
+OUT_DIR="$work_dir/ready-wrapper" \
+"$repo_root/tools/run_fieldmesh_system_production_readiness.sh" \
+  >"$work_dir/ready-wrapper.stdout" \
+  2>"$work_dir/ready-wrapper.stderr"
+
+python3 - "$work_dir/ready-wrapper/system_readiness.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("production_ready") is not True or report.get("blockers") != []:
+    raise SystemExit(f"ready wrapper report did not pass: {report}")
+PY
+
 echo "fieldmesh_system_production_readiness=pass"

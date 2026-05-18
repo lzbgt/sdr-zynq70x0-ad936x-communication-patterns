@@ -4739,6 +4739,16 @@ real-RF production gate reports. By default it requires live GNSS fix, PPS
 timing exposure, paired native-IP real-RF iperf, and real-RF app/PHY production
 evidence. Missing reports, preflight-only reports, or blocked sub-gates keep
 `production_ready=false` and surface their blockers in one JSON object.
+The operator wrapper is:
+
+```sh
+./tools/run_fieldmesh_system_production_readiness.sh
+```
+
+By default it runs the live GNSS inspection and non-transmitting native-IP
+paired iperf preflight before calling the summarizer. It does not transmit RF;
+pass `REAL_RF_PRODUCTION_GATE_REPORT=/path/to/real_rf_production_gate.json`
+after an authorized over-air run to include real-RF production evidence.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 
