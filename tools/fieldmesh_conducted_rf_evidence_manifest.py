@@ -145,6 +145,27 @@ def manifest_file_path(labels: dict[str, dict[str, Any]], label: str) -> Path:
     return Path(value)
 
 
+def manifest_source_path(labels: dict[str, dict[str, Any]], label: str) -> Path | None:
+    row = labels.get(label)
+    if not isinstance(row, dict):
+        return None
+    value = row.get("source_path")
+    if not isinstance(value, str) or not value:
+        return None
+    return Path(value)
+
+
+def same_or_source_path(candidate: Any, labels: dict[str, dict[str, Any]], label: str) -> bool:
+    if not isinstance(candidate, str) or not candidate:
+        return False
+    resolved = str(Path(candidate).resolve(strict=False))
+    valid = {str(manifest_file_path(labels, label).resolve(strict=False))}
+    source = manifest_source_path(labels, label)
+    if source is not None:
+        valid.add(str(source.resolve(strict=False)))
+    return resolved in valid
+
+
 def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, Any] | None) -> dict[str, Any]:
     preflight = load_json(manifest_file_path(labels, "preflight"))
     bridge = load_json(manifest_file_path(labels, "bridge"))
@@ -158,14 +179,14 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
 
     bridge_iq = bridge.get("iq_iio_live_run")
     if isinstance(bridge_iq, str):
-        if str(Path(bridge_iq).resolve(strict=False)) != str(manifest_file_path(labels, "iq_live_run").resolve(strict=False)):
+        if not same_or_source_path(bridge_iq, labels, "iq_live_run"):
             raise SystemExit("bridge iq_iio_live_run does not match manifest iq_live_run")
     if sequence:
-        if str(Path(sequence.get("bridge_report", "")).resolve(strict=False)) != str(manifest_file_path(labels, "bridge").resolve(strict=False)):
+        if not same_or_source_path(sequence.get("bridge_report"), labels, "bridge"):
             raise SystemExit("sequence bridge_report does not match manifest bridge")
-        if str(Path(sequence.get("iq_live_run", "")).resolve(strict=False)) != str(manifest_file_path(labels, "iq_live_run").resolve(strict=False)):
+        if not same_or_source_path(sequence.get("iq_live_run"), labels, "iq_live_run"):
             raise SystemExit("sequence iq_live_run does not match manifest iq_live_run")
-        if str(Path(sequence.get("production_gate", "")).resolve(strict=False)) != str(manifest_file_path(labels, "production_gate").resolve(strict=False)):
+        if not same_or_source_path(sequence.get("production_gate"), labels, "production_gate"):
             raise SystemExit("sequence production_gate does not match manifest production_gate")
 
     app_features: list[str] = []

@@ -41,6 +41,13 @@ required = {
 }
 if not required.issubset(labels):
     raise SystemExit(f"manifest check omitted labels: {sorted(required - labels)}")
+manifest = json.loads(Path(report["manifest"]).read_text(encoding="utf-8"))
+for row in manifest.get("files", []):
+    path = Path(row.get("path", ""))
+    if "evidence" not in path.parts:
+        raise SystemExit(f"manifest evidence path is not bundled: {path}")
+    if "source_path" not in row:
+        raise SystemExit(f"manifest row missing source_path: {row}")
 PY
 
 python3 - "$sequence_report" "$work_dir/tampered_sequence.json" <<'PY'

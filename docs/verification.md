@@ -3720,14 +3720,16 @@ inputs. Raw app feature evidence supplied to the wrapper must be correlated to
 the same bridge and IQ live-run reports. The sequence also emits
 `fieldmesh_conducted_rf_evidence_manifest.json`, with byte counts and SHA-256
 hashes for the preflight report, bridge report, IQ live-run, app reports, and
-production gate. The final sequence summary includes the manifest path and its
-SHA-256 so a production-readiness claim can be audited without relying on
-mutable path names alone. `tools/fieldmesh_conducted_rf_evidence_manifest.py`
-is the standalone archive checker; it verifies the summary hash and every file
-entry, validates each required label has the expected report event and feature
-semantics, and can require `production_ready=true` without rerunning the RF
-sequence. The verifier rejects both byte/hash tampering and a valid file placed
-under the wrong evidence label.
+production gate. Each entry is copied into a local `evidence/` directory under
+the sequence output and records both bundled `path` and original `source_path`.
+The final sequence summary includes the manifest path and its SHA-256 so a
+production-readiness claim can be audited without relying on mutable path names
+alone. `tools/fieldmesh_conducted_rf_evidence_manifest.py` is the standalone
+archive checker; it verifies the summary hash and every file entry, validates
+each required label has the expected report event and feature semantics, and can
+require `production_ready=true` without rerunning the RF sequence. The verifier
+rejects both byte/hash tampering and a valid file placed under the wrong
+evidence label.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

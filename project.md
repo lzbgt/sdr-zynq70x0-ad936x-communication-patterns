@@ -683,8 +683,9 @@ user and vendor configuration.
   bridge and IQ live-run before the wrapper leases frames or mutates queues.
   Already-normalized app real-RF reports are traced back through their
   `source_report` and must still correlate to the supplied bridge. The final
-  sequence output also includes a hashed evidence manifest covering preflight,
-  bridge, IQ live-run, app reports, and production-gate evidence.
+  sequence output also includes a self-contained hashed evidence bundle under
+  the sequence output directory, covering preflight, bridge, IQ live-run, app
+  reports, and production-gate evidence.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
   production preflight checklist. It proves missing approvals, invalid fixture
   evidence, excessive TX duration, daemon-bridge native-IP app sources, and
@@ -702,7 +703,9 @@ user and vendor configuration.
   hash, verifies every manifest file byte count and SHA-256, validates each
   required label has the expected report event/feature/cross-reference, can
   require `production_ready=true`, and rejects tampered manifests without
-  rerunning the RF sequence.
+  rerunning the RF sequence. Manifest entries preserve both bundled `path` and
+  original `source_path` so archives are self-contained while cross-references
+  to source reports remain auditable.
 - `tools/verify_fieldmesh_conducted_rf_evidence_manifest.sh` - verifier for
   archived evidence bundle validation. It proves the manifest checker accepts
   the complete synthetic production bundle and rejects tampered summary hashes,

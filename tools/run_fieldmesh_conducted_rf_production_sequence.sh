@@ -395,15 +395,21 @@ reports = {
 expect_ready = sys.argv[7] == "1"
 gate_path = out_dir / "real-rf-production-gate" / "real_rf_production_gate.json"
 gate = json.loads(gate_path.read_text(encoding="utf-8"))
+evidence_dir = out_dir / "evidence"
+evidence_dir.mkdir(parents=True, exist_ok=True)
 
 def file_entry(label, path):
     if path is None:
         return None
-    file_path = Path(path)
-    data = file_path.read_bytes()
+    source_path = Path(path)
+    data = source_path.read_bytes()
+    suffix = source_path.suffix or ".bin"
+    bundled_path = evidence_dir / f"{label}{suffix}"
+    bundled_path.write_bytes(data)
     return {
         "label": label,
-        "path": str(file_path),
+        "path": str(bundled_path),
+        "source_path": str(source_path),
         "bytes": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
@@ -435,10 +441,17 @@ summary = {
     "production_ready": gate.get("production_ready") is True,
     "expected_production_ready": expect_ready,
     "production_blocker": gate.get("production_blocker"),
-    "bridge_report": str(bridge_report),
-    "iq_live_run": str(iq_live_run),
-    "app_reports": reports,
-    "production_gate": str(gate_path),
+    "bridge_report": str(evidence_dir / f"bridge{Path(bridge_report).suffix or '.bin'}"),
+    "iq_live_run": str(evidence_dir / f"iq_live_run{Path(iq_live_run).suffix or '.bin'}"),
+    "app_reports": {
+        key: str(evidence_dir / f"{label}{Path(value).suffix or '.bin'}") if value else None
+        for key, label, value in (
+            ("messaging", "messaging_app_report", reports["messaging"]),
+            ("topology", "topology_app_report", reports["topology"]),
+            ("native_ip", "native_ip_app_report", reports["native_ip"]),
+        )
+    },
+    "production_gate": str(evidence_dir / f"production_gate{gate_path.suffix or '.bin'}"),
     "evidence_manifest": str(manifest_path),
     "evidence_manifest_sha256": manifest_hash,
 }
