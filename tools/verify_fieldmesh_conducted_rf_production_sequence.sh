@@ -132,21 +132,54 @@ OUT_DIR="$work_dir/complete-sequence" \
   > "$work_dir/complete_sequence_stdout.txt"
 
 python3 - "$work_dir/complete-sequence/fieldmesh_conducted_rf_production_sequence.json" <<'PY'
+import hashlib
 import json
 import sys
 from pathlib import Path
 
-report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report_path = Path(sys.argv[1])
+report = json.loads(report_path.read_text(encoding="utf-8"))
 if report.get("production_ready") is not True or report.get("ok") is not True:
     raise SystemExit(f"complete sequence did not pass: {report}")
 if report.get("production_blocker") is not None:
     raise SystemExit(f"complete sequence retained blocker: {report.get('production_blocker')}")
+manifest_path = Path(report.get("evidence_manifest", ""))
+if not manifest_path.is_file():
+    raise SystemExit(f"missing evidence manifest: {report}")
+manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+if report.get("evidence_manifest_sha256") != manifest_hash:
+    raise SystemExit("sequence summary evidence manifest hash mismatch")
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+if manifest.get("event") != "fieldmesh_conducted_rf_evidence_manifest" or manifest.get("ok") is not True:
+    raise SystemExit(f"bad evidence manifest: {manifest}")
+labels = {row.get("label"): row for row in manifest.get("files", []) if isinstance(row, dict)}
+required = {
+    "preflight",
+    "bridge",
+    "iq_live_run",
+    "messaging_app_report",
+    "topology_app_report",
+    "native_ip_app_report",
+    "production_gate",
+}
+if not required.issubset(labels):
+    raise SystemExit(f"evidence manifest missing labels: {sorted(required - set(labels))}")
+for label, row in labels.items():
+    path = Path(row.get("path", ""))
+    if not path.is_file():
+        raise SystemExit(f"evidence manifest path missing for {label}: {path}")
+    data = path.read_bytes()
+    if row.get("bytes") != len(data):
+        raise SystemExit(f"evidence manifest byte count mismatch for {label}")
+    if row.get("sha256") != hashlib.sha256(data).hexdigest():
+        raise SystemExit(f"evidence manifest sha mismatch for {label}")
 print(json.dumps({
     "event": "fieldmesh_conducted_rf_production_sequence_check",
     "ok": True,
     "dry_run_blocked": True,
     "missing_fixture_refused": True,
     "complete_evidence_passed": True,
+    "evidence_manifest_hashed": True,
 }, sort_keys=True))
 PY
 

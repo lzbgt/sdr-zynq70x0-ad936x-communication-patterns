@@ -124,7 +124,10 @@ supplies an existing live bridge report, the same preflight validates
 app-source and feature reports against that exact bridge and IQ live-run, so
 daemon-bridge evidence or stale app output cannot advance the sequence.
 Already-normalized app reports are traced back through their `source_report`
-and must still correlate to that same bridge evidence.
+and must still correlate to that same bridge evidence. The wrapper now emits an
+evidence manifest with byte counts and SHA-256 hashes for the preflight,
+bridge, IQ live-run, app reports, and production gate, and the final summary
+hashes that manifest.
 Until a real live bridge report and all three app feature reports pass that
 wrapper, the daemon readiness fields must remain `production_ready=0`. Those
 app feature reports must reference the same bridge and IQ live-run evidence so

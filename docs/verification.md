@@ -3693,7 +3693,7 @@ Result:
 
 ```json
 {"event": "fieldmesh_conducted_rf_preflight_check", "fixture_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
-{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "missing_fixture_refused": true, "ok": true}
+{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_fixture_refused": true, "ok": true}
 ```
 
 `tools/run_fieldmesh_conducted_rf_production_sequence.sh` is the operator-facing
@@ -3715,7 +3715,12 @@ messaging/topology/native-IP real-RF reports, and invokes the production gate.
 Dry-run is the default. Live RF still requires explicit hardware-write, RF-TX,
 daemon-queue mutation, fixture evidence, fixture ID, and operator-confirmation
 inputs. Raw app feature evidence supplied to the wrapper must be correlated to
-the same bridge and IQ live-run reports.
+the same bridge and IQ live-run reports. The sequence also emits
+`fieldmesh_conducted_rf_evidence_manifest.json`, with byte counts and SHA-256
+hashes for the preflight report, bridge report, IQ live-run, app reports, and
+production gate. The final sequence summary includes the manifest path and its
+SHA-256 so a production-readiness claim can be audited without relying on
+mutable path names alone.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

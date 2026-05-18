@@ -682,7 +682,9 @@ user and vendor configuration.
   preflight also validates app source/feature evidence against that exact
   bridge and IQ live-run before the wrapper leases frames or mutates queues.
   Already-normalized app real-RF reports are traced back through their
-  `source_report` and must still correlate to the supplied bridge.
+  `source_report` and must still correlate to the supplied bridge. The final
+  sequence output also includes a hashed evidence manifest covering preflight,
+  bridge, IQ live-run, app reports, and production-gate evidence.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
   production preflight checklist. It proves missing approvals, invalid fixture
   evidence, excessive TX duration, daemon-bridge native-IP app sources, and
@@ -693,7 +695,8 @@ user and vendor configuration.
   the sequence wrapper. It proves dry-run evidence stays non-production,
   missing fixture evidence blocks live RF, complete bridge-derived app evidence
   passes the production gate, and host-IP-routed or uncorrelated feature
-  evidence is rejected.
+  evidence is rejected. It also verifies that the evidence manifest hashes
+  every required production input report.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

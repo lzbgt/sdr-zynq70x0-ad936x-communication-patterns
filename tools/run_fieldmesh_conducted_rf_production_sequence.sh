@@ -379,6 +379,7 @@ env "${gate_env[@]}" "$repo_root/tools/run_fieldmesh_real_rf_production_gate.sh"
     > "$out_dir/real_rf_production_gate_stdout.txt"
 
 python3 - "$out_dir" "$bridge_report" "$iq_live_run" "$messaging_report" "$topology_report" "$native_ip_report" "$expect_ready" <<'PY'
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -394,6 +395,40 @@ reports = {
 expect_ready = sys.argv[7] == "1"
 gate_path = out_dir / "real-rf-production-gate" / "real_rf_production_gate.json"
 gate = json.loads(gate_path.read_text(encoding="utf-8"))
+
+def file_entry(label, path):
+    if path is None:
+        return None
+    file_path = Path(path)
+    data = file_path.read_bytes()
+    return {
+        "label": label,
+        "path": str(file_path),
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+evidence_files = [
+    file_entry("preflight", out_dir / "fieldmesh_conducted_rf_preflight.json"),
+    file_entry("bridge", bridge_report),
+    file_entry("iq_live_run", iq_live_run),
+    file_entry("messaging_app_report", reports["messaging"]),
+    file_entry("topology_app_report", reports["topology"]),
+    file_entry("native_ip_app_report", reports["native_ip"]),
+    file_entry("production_gate", gate_path),
+]
+evidence_files = [row for row in evidence_files if row is not None]
+manifest = {
+    "event": "fieldmesh_conducted_rf_evidence_manifest",
+    "ok": True,
+    "production_ready": gate.get("production_ready") is True,
+    "expected_production_ready": expect_ready,
+    "files": evidence_files,
+}
+manifest_path = out_dir / "fieldmesh_conducted_rf_evidence_manifest.json"
+manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+manifest_bytes = manifest_path.read_bytes()
+manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
 summary = {
     "event": "fieldmesh_conducted_rf_production_sequence",
     "ok": gate.get("ok") is True,
@@ -404,6 +439,8 @@ summary = {
     "iq_live_run": str(iq_live_run),
     "app_reports": reports,
     "production_gate": str(gate_path),
+    "evidence_manifest": str(manifest_path),
+    "evidence_manifest_sha256": manifest_hash,
 }
 path = out_dir / "fieldmesh_conducted_rf_production_sequence.json"
 path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
