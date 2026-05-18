@@ -1160,8 +1160,16 @@ user and vendor configuration.
   stages `fieldmesh_device_eui` and `fieldmesh_gnss_*` config files so the
   initramfs GNSS service can read SD-resident config when `/mnt/jffs2` is not
   mounted. The live Z203 runtime now reaches this boundary: `/dev/ttyPS1` is
-  exposed and the init service starts the GNSS reporter from SD config, but no
-  NMEA-backed daemon position has been observed yet.
+  exposed and the init service starts the GNSS reporter from SD config. The
+  live UART probe found valid NMEA at `38400` baud, but the receiver currently
+  reports no GNSS fix, which is consistent with an indoor/no-sky-view bench
+  setup. No production daemon position is emitted until the receiver reports a
+  valid fix.
+- `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
+  diagnostic. It temporarily pauses the init-launched reporter, probes the
+  non-console UART across supported NMEA baud rates, validates NMEA checksums,
+  restarts the reporter, and classifies the result as UART/no-NMEA/no-fix/fix
+  evidence.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production

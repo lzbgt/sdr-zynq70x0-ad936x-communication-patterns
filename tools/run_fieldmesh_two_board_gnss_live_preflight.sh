@@ -192,6 +192,7 @@ def classify(label: str) -> dict:
     rtls = read_json(f"{label}_rtls_position.json")
     blockers: list[str] = []
     configured_device = str(facts.get("gnss_nmea_device") or "")
+    configured_baud = str(facts.get("gnss_nmea_baud") or "")
     if not configured_device:
         blockers.append("no_gnss_nmea_device_configured")
     elif facts.get("gnss_nmea_device_exists") != "1":
@@ -210,7 +211,10 @@ def classify(label: str) -> dict:
         and rtls.get("has_gnss_position") in (1, True)
     )
     if not has_fix:
-        blockers.append("no_live_gnss_position_in_daemon")
+        if configured_device and facts.get("gnss_nmea_device_exists") == "1" and facts.get("gnss_pid"):
+            blockers.append("gnss_receiver_no_fix")
+        else:
+            blockers.append("no_live_gnss_position_in_daemon")
     service_backed = (
         has_fix
         and bool(configured_device)
@@ -225,6 +229,7 @@ def classify(label: str) -> dict:
         "hostname": facts.get("hostname"),
         "device_eui": facts.get("device_eui"),
         "gnss_nmea_device": configured_device,
+        "gnss_nmea_baud": configured_baud,
         "gnss_nmea_device_exists": facts.get("gnss_nmea_device_exists") == "1",
         "gnss_reporter_running": bool(facts.get("gnss_pid")),
         "daemon_running": bool(facts.get("daemon_pid")),

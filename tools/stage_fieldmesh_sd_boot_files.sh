@@ -31,12 +31,18 @@ case "$variant" in
 esac
 
 gnss_nmea_device="${GNSS_NMEA_DEVICE:-}"
-gnss_nmea_baud="${GNSS_NMEA_BAUD:-9600}"
+gnss_nmea_baud="${GNSS_NMEA_BAUD:-}"
 gnss_pps_lock="${GNSS_PPS_LOCK:-0}"
 gnss_nmea_max_reports="${GNSS_NMEA_MAX_REPORTS:-0}"
 device_eui="${FIELDMESH_DEVICE_EUI:-020000000203}"
 if [[ "$enable_gnss_uart_emio" == "1" && -z "$gnss_nmea_device" ]]; then
   gnss_nmea_device="/dev/ttyPS1"
+fi
+if [[ "$enable_gnss_uart_emio" == "1" && -z "$gnss_nmea_baud" ]]; then
+  gnss_nmea_baud="38400"
+fi
+if [[ -z "$gnss_nmea_baud" ]]; then
+  gnss_nmea_baud="9600"
 fi
 case "$gnss_nmea_baud" in
   4800|9600|19200|38400|57600|115200) ;;
@@ -166,3 +172,4 @@ file "$out_dir"/BOOT.bin "$out_dir"/devicetree.dtb "$out_dir"/uImage "$out_dir"/
 sha256sum "$out_dir"/BOOT.bin "$out_dir"/devicetree.dtb "$out_dir"/uImage "$out_dir"/uramdisk.image.gz
 printf 'gnss_uart_emio=%s\n' "$enable_gnss_uart_emio"
 printf 'gnss_nmea_device=%s\n' "$gnss_nmea_device"
+printf 'gnss_nmea_baud=%s\n' "$gnss_nmea_baud"

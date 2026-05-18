@@ -175,11 +175,15 @@ pin or kernel PPS binding is added.
 
 Live Z203 bring-up now reaches the hardware/config boundary: the refreshed
 Z203 SD runtime boots with non-console `/dev/ttyPS1`, starts
-`fieldmesh-gnss-nmea-reporter /dev/ttyPS1 ... 9600`, and the GNSS live
-preflight reports the configured device and running reporter from SD-resident
-config. It still correctly fails `REQUIRE_GNSS_FIX=1` with
-`no_live_gnss_position_in_daemon`, so the remaining blocker is receiver/NMEA
-signal proof or baud/pin direction debugging, plus PPS exposure.
+`fieldmesh-gnss-nmea-reporter /dev/ttyPS1`, and the GNSS live preflight
+reports the configured device and running reporter from SD-resident config.
+`tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` found valid NMEA on that
+port at `38400` baud, and the Z203 SD boot config now persists that baud. The
+captured receiver state is still no-fix (`GNGGA` quality `0` / `GNRMC` status
+`V`), so `REQUIRE_GNSS_FIX=1` correctly remains blocked at
+`gnss_receiver_no_fix`. The remaining GNSS work is receiver
+antenna/sky-view/fix validation and PPS exposure, not UART exposure; an indoor
+bench location is a plausible cause for the current no-satellite/no-fix NMEA.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level
