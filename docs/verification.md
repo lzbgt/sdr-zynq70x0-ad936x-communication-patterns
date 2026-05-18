@@ -3574,6 +3574,22 @@ named messaging, topology/range, and native-IP reports prove payload behavior
 over real RF with no inter-board host-IP payload routing. Generic optimistic
 reports without one of those feature names are rejected.
 
+The top-level real-RF production gate wraps that classifier:
+
+```sh
+./tools/verify_fieldmesh_real_rf_production_gate.sh
+```
+
+Result:
+
+```json
+{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_real_rf_production_gate_check", "iq_only_blocked": true, "ok": true}
+```
+
+The wrapper rejects wrong-shaped IQ evidence, blocks dry-run IQ evidence,
+blocks executed IQ-only evidence, and only allows production readiness when the
+IQ report and all named app reports satisfy the classifier.
+
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,
 `FIELDMESH_CAMERA_ADAPTATION_FEEDBACK`, and

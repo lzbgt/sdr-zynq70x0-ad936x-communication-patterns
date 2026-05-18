@@ -607,6 +607,15 @@ user and vendor configuration.
   readiness classifier. It proves dry-run IQ evidence stays non-production and
   executed IQ-only evidence still blocks production readiness until app-level
   real-RF reports are supplied.
+- `tools/run_fieldmesh_real_rf_production_gate.sh` - top-level production gate
+  for the real RF data plane. It consumes an existing live IQ report or, when
+  `RUN_IQ_LIVE=1` is explicitly set, runs the guarded IQ procedure, then
+  requires named messaging, topology, and native-IP app evidence before
+  allowing `production_ready=true`.
+- `tools/verify_fieldmesh_real_rf_production_gate.sh` - verifier for the
+  top-level gate. It proves malformed IQ evidence is rejected, dry-run IQ
+  evidence is blocked, IQ-only measured evidence is blocked, and complete named
+  app evidence is accepted.
 - `tools/run_fieldmesh_board_sdk_daemon.sh` - SSH-driven SDK state-daemon smoke
   runner. It uses an installed board daemon when present, or can transiently
   upload the matching rootfs daemon to `/tmp`, then verifies AP browse, AP

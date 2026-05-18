@@ -741,6 +741,15 @@ executed IQ decode can only prove `rf_phy_tx_rx_verified`; production readiness
 also requires named app messaging, topology/range, and native-IP reports over
 real RF.
 
+Use the top-level wrapper for the production decision:
+
+```sh
+./tools/run_fieldmesh_real_rf_production_gate.sh
+```
+
+It rejects malformed IQ evidence, blocks IQ-only evidence, and only allows
+`production_ready=true` when all named app reports are present and real-RF.
+
 ## Variant Notes
 
 Z203 and Z103 share the same source-level ADI DMA topology for this boundary.
