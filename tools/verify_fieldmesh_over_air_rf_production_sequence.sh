@@ -23,12 +23,14 @@ OUT_DIR="$work_dir/preflight-only" \
 "$repo_root/tools/run_fieldmesh_over_air_rf_production_sequence.sh" \
   > "$work_dir/preflight_only_stdout.json"
 
-python3 - "$work_dir/preflight-only/fieldmesh_conducted_rf_preflight.json" <<'PY'
+python3 - "$work_dir/preflight-only/fieldmesh_over_air_rf_preflight.json" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("event") != "fieldmesh_over_air_rf_preflight":
+    raise SystemExit(f"over-air preflight event not normalized: {report}")
 if report.get("ok") is not True or report.get("live_rf_allowed") is not True:
     raise SystemExit(f"over-air sequence alias preflight failed: {report}")
 print(json.dumps({

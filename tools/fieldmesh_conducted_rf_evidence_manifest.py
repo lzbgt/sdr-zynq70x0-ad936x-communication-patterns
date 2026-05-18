@@ -21,6 +21,18 @@ PRODUCTION_APP_LABELS = {
     "topology_app_report",
     "native_ip_app_report",
 }
+SEQUENCE_EVENTS = {
+    "fieldmesh_conducted_rf_production_sequence",
+    "fieldmesh_over_air_rf_production_sequence",
+}
+MANIFEST_EVENTS = {
+    "fieldmesh_conducted_rf_evidence_manifest",
+    "fieldmesh_over_air_rf_evidence_manifest",
+}
+PREFLIGHT_EVENTS = {
+    "fieldmesh_conducted_rf_preflight",
+    "fieldmesh_over_air_rf_preflight",
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -40,8 +52,10 @@ def sha256_file(path: Path) -> str:
 def resolve_manifest_path(args: argparse.Namespace) -> tuple[Path, dict[str, Any] | None]:
     if args.sequence_report:
         sequence = load_json(args.sequence_report)
-        if sequence.get("event") != "fieldmesh_conducted_rf_production_sequence":
-            raise SystemExit("sequence report event must be fieldmesh_conducted_rf_production_sequence")
+        if sequence.get("event") not in SEQUENCE_EVENTS:
+            raise SystemExit(
+                "sequence report event must be a FieldMesh real-RF production sequence"
+            )
         manifest = sequence.get("evidence_manifest")
         if not isinstance(manifest, str) or not manifest:
             raise SystemExit("sequence report missing evidence_manifest")
@@ -63,8 +77,8 @@ def verify_manifest(args: argparse.Namespace) -> dict[str, Any]:
     if not manifest_path.is_file():
         raise SystemExit(f"missing evidence manifest: {manifest_path}")
     manifest = load_json(manifest_path)
-    if manifest.get("event") != "fieldmesh_conducted_rf_evidence_manifest":
-        raise SystemExit("manifest event must be fieldmesh_conducted_rf_evidence_manifest")
+    if manifest.get("event") not in MANIFEST_EVENTS:
+        raise SystemExit("manifest event must be a FieldMesh real-RF evidence manifest")
     if manifest.get("ok") is not True:
         raise SystemExit("manifest must be ok=true")
 
@@ -172,7 +186,10 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
     iq_live_run = load_json(manifest_file_path(labels, "iq_live_run"))
     production_gate = load_json(manifest_file_path(labels, "production_gate"))
 
-    require_event(preflight, "preflight", "fieldmesh_conducted_rf_preflight")
+    if preflight.get("event") not in PREFLIGHT_EVENTS:
+        raise SystemExit(
+            f"preflight: expected real-RF preflight event, got {preflight.get('event')!r}"
+        )
     require_event(bridge, "bridge", "fieldmesh_iio_rf_worker_bridge")
     require_event(iq_live_run, "iq_live_run", "fieldmesh_iq_iio_live_run")
     require_event(production_gate, "production_gate", "fieldmesh_real_rf_production_gate")

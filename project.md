@@ -710,8 +710,10 @@ user and vendor configuration.
   every required production input report.
 - `tools/run_fieldmesh_over_air_rf_production_sequence.sh` - preferred
   operator-facing wrapper for the authorized over-air production sequence. It
-  delegates to the compatibility implementation while keeping the command name
-  aligned with production reality: boards communicate over the air.
+  now emits over-air-named preflight, sequence, and evidence-manifest reports
+  while retaining the conducted-named compatibility files for older archive
+  tools. This keeps operator evidence aligned with production reality: boards
+  communicate over the air.
 - `tools/verify_fieldmesh_over_air_rf_production_sequence.sh` - verifier for
   the over-air sequence wrapper.
 - `tools/fieldmesh_conducted_rf_evidence_manifest.py` - standalone verifier

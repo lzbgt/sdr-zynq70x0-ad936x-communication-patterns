@@ -767,12 +767,14 @@ different run from satisfying the production gate.
 `tools/run_fieldmesh_over_air_rf_production_sequence.sh` is the preferred
 top-level operator wrapper around those pieces. The older
 `run_fieldmesh_conducted_rf_production_sequence.sh` name is retained only for
-compatibility with existing evidence report names. The wrapper remains dry-run
-unless live RF, hardware writes, RF TX, daemon queue mutation, RF path evidence,
-RF path ID, and the exact operator confirmation are all provided. With a
-successful live bridge and named app/gate source reports or feature reports, it
-derives app evidence and calls the production gate; with dry-run or incomplete
-evidence it leaves `production_ready=false`.
+compatibility with existing evidence report names. The preferred wrapper emits
+over-air-named preflight, sequence, and evidence-manifest files while keeping
+legacy conducted-named files for existing archive verifiers. The wrapper remains
+dry-run unless live RF, hardware writes, RF TX, daemon queue mutation, RF path
+evidence, RF path ID, and the exact operator confirmation are all provided.
+With a successful live bridge and named app/gate source reports or feature
+reports, it derives app evidence and calls the production gate; with dry-run or
+incomplete evidence it leaves `production_ready=false`.
 Uncorrelated feature reports are rejected before the production gate is invoked.
 
 ## Variant Notes
