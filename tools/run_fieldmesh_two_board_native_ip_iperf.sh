@@ -107,11 +107,16 @@ PY
 fail_bounded() {
     local blocker="$1"
     local detail="$2"
+    local bridge_report=""
     if [ -n "${bridge_pid:-}" ]; then
         kill "$bridge_pid" 2>/dev/null || true
         wait "$bridge_pid" 2>/dev/null || true
     fi
     cleanup >/dev/null 2>&1 || true
+    if [ -s "$out_dir/iperf_bridge_progress.json" ]; then
+        bridge_report="$(tr -d '\n' < "$out_dir/iperf_bridge_progress.json")"
+        detail="$detail bridge_progress=$bridge_report"
+    fi
     json_blocker "$blocker" "$detail" | tee -a "$out_dir/iperf_gate.ndjson"
     echo "Capture directory: $out_dir"
     exit 1
@@ -220,11 +225,13 @@ start_tun_services() {
 
 start_bridge_loop() {
     python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" \
-        "$bridge_request_timeout_ms" "$bridge_duration_s" >>"$out_dir/iperf_gate.ndjson" <<'PY' &
+        "$bridge_request_timeout_ms" "$bridge_duration_s" \
+        "$out_dir/iperf_bridge_progress.json" >>"$out_dir/iperf_gate.ndjson" <<'PY' &
 import json
 import socket
 import sys
 import time
+from pathlib import Path
 
 z203_ip = sys.argv[1]
 z203_port = int(sys.argv[2])
@@ -232,47 +239,71 @@ z103_ip = sys.argv[3]
 z103_port = int(sys.argv[4])
 timeout_ms = int(sys.argv[5])
 duration_s = float(sys.argv[6])
+progress_path = Path(sys.argv[7])
 
-def request(host: str, port: int, text: str) -> dict:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(timeout_ms / 1000.0)
-    try:
-        sock.sendto(text.encode("ascii"), (host, port))
-        payload, _ = sock.recvfrom(8192)
-    finally:
-        sock.close()
-    return json.loads(payload.decode("utf-8", errors="replace"))
+class Endpoint:
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.settimeout(timeout_ms / 1000.0)
 
-deadline = time.monotonic() + duration_s
-counts = {"z203_to_z103": 0, "z103_to_z203": 0, "empty": 0, "errors": 0}
-pairs = (
-    (z203_ip, z203_port, z103_ip, z103_port, "z203_to_z103"),
-    (z103_ip, z103_port, z203_ip, z203_port, "z103_to_z203"),
-)
-while time.monotonic() < deadline:
-    moved = False
-    for src_ip, src_port, dst_ip, dst_port, key in pairs:
-        try:
-            polled = request(src_ip, src_port, "FIELDMESH_RF_TX_LEASE v1")
-            if polled.get("frames") != 1:
-                counts["empty"] += 1
-                continue
-            frame = polled.get("frame0_hex")
-            if not frame:
-                raise RuntimeError("lease returned no frame")
-            ingested = request(dst_ip, dst_port, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
-            if ingested.get("ok") is not True:
-                raise RuntimeError(f"ingest failed: {ingested}")
-            acked = request(src_ip, src_port, "FIELDMESH_RF_TX_ACK v1 " + str(frame))
-            if acked.get("ok") is not True:
-                raise RuntimeError(f"ack failed: {acked}")
-            counts[key] += 1
-            moved = True
-        except Exception:
-            counts["errors"] += 1
-            time.sleep(0.05)
-    if not moved:
-        time.sleep(0.02)
+    def close(self) -> None:
+        self.sock.close()
+
+    def request(self, text: str) -> dict:
+        self.sock.sendto(text.encode("ascii"), (self.host, self.port))
+        payload, _ = self.sock.recvfrom(8192)
+        return json.loads(payload.decode("utf-8", errors="replace"))
+
+def write_progress(counts: dict) -> None:
+    progress_path.write_text(json.dumps({
+        "event": "fieldmesh_two_board_native_ip_iperf_bridge_progress",
+        "transport": "daemon_rf_driver_queue_bridge",
+        "rf_phy_tx_rx": 0,
+        **counts,
+    }, sort_keys=True) + "\n", encoding="utf-8")
+
+def request(endpoint: Endpoint, text: str) -> dict:
+    return endpoint.request(text)
+
+z203 = Endpoint(z203_ip, z203_port)
+z103 = Endpoint(z103_ip, z103_port)
+try:
+    deadline = time.monotonic() + duration_s
+    counts = {"z203_to_z103": 0, "z103_to_z203": 0, "empty": 0, "errors": 0}
+    pairs = (
+        (z203, z103, "z203_to_z103"),
+        (z103, z203, "z103_to_z203"),
+    )
+    write_progress(counts)
+    while time.monotonic() < deadline:
+        moved = False
+        for src, dst, key in pairs:
+            try:
+                polled = request(src, "FIELDMESH_RF_TX_LEASE v1")
+                if polled.get("frames") != 1:
+                    counts["empty"] += 1
+                    continue
+                frame = polled.get("frame0_hex")
+                if not frame:
+                    raise RuntimeError("lease returned no frame")
+                ingested = request(dst, "FIELDMESH_RF_RX_INGEST v1 " + str(frame))
+                if ingested.get("ok") is not True:
+                    raise RuntimeError(f"ingest failed: {ingested}")
+                acked = request(src, "FIELDMESH_RF_TX_ACK v1 " + str(frame))
+                if acked.get("ok") is not True:
+                    raise RuntimeError(f"ack failed: {acked}")
+                counts[key] += 1
+                moved = True
+            except Exception:
+                counts["errors"] += 1
+        write_progress(counts)
+        if not moved:
+            time.sleep(0.005)
+finally:
+    z203.close()
+    z103.close()
 print(json.dumps({
     "event": "fieldmesh_two_board_native_ip_iperf_bridge_loop",
     "ok": counts["z203_to_z103"] > 0 or counts["z103_to_z203"] > 0,
@@ -282,6 +313,38 @@ print(json.dumps({
 }, sort_keys=True))
 PY
     echo "$!"
+}
+
+stop_bridge_loop() {
+    if [ -n "${bridge_pid:-}" ]; then
+        kill "$bridge_pid" 2>/dev/null || true
+        wait "$bridge_pid" 2>/dev/null || true
+        bridge_pid=""
+    fi
+    if [ -s "$out_dir/iperf_bridge_progress.json" ]; then
+        cat "$out_dir/iperf_bridge_progress.json" >>"$out_dir/iperf_gate.ndjson"
+    fi
+}
+
+parse_iperf_success() {
+    local report_path="$1"
+    python3 - "$report_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+start = text.find("{")
+if start < 0:
+    raise SystemExit(1)
+report = json.loads(text[start:])
+if report.get("error"):
+    raise SystemExit(1)
+end = report.get("end") or {}
+sent = end.get("sum_sent") or end.get("sum") or {}
+if int(sent.get("bytes") or 0) <= 0:
+    raise SystemExit(1)
+PY
 }
 
 wait_remote_tcp_listen() {
@@ -345,6 +408,10 @@ if [ "$tcp_rc" -ne 0 ]; then
     fail_bounded "board_to_board_tcp_iperf_incomplete" \
         "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s; see z203_iperf3_tcp_client.json and .err."
 fi
+if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
+    fail_bounded "board_to_board_tcp_iperf_failed" \
+        "TCP iperf returned JSON but did not report a successful byte transfer."
+fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
 
@@ -362,12 +429,14 @@ if [ "$udp_rc" -ne 0 ]; then
     fail_bounded "board_to_board_udp_iperf_incomplete" \
         "UDP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s; see z203_iperf3_udp_client.json and .err."
 fi
+if ! parse_iperf_success "$out_dir/z203_iperf3_udp_client.json"; then
+    fail_bounded "board_to_board_udp_iperf_failed" \
+        "UDP iperf returned JSON but did not report a successful byte transfer."
+fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_udp_server.json" "$out_dir/z103_iperf3_udp_server.json" >/dev/null || true
 
-if [ -n "$bridge_pid" ]; then
-    wait "$bridge_pid"
-fi
+stop_bridge_loop
 
 request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
@@ -396,7 +465,13 @@ for line in (out_dir / "iperf_gate.ndjson").read_text(encoding="utf-8", errors="
     if line.startswith("{"):
         rows.append(json.loads(line))
 preflight = [row for row in rows if row.get("event") == "fieldmesh_native_ip_iperf_rf_preflight"][-1]
-bridge = [row for row in rows if row.get("event") == "fieldmesh_two_board_native_ip_iperf_bridge_loop"]
+bridge = [
+    row for row in rows
+    if row.get("event") in (
+        "fieldmesh_two_board_native_ip_iperf_bridge_loop",
+        "fieldmesh_two_board_native_ip_iperf_bridge_progress",
+    )
+]
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 tcp_end = tcp.get("end", {})
 udp_end = udp.get("end", {})
