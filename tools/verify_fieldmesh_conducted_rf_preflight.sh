@@ -136,8 +136,8 @@ required = {
     "allow_hardware_writes",
     "allow_rf_tx",
     "allow_daemon_queue_mutation",
-    "fixture_id",
-    "fixture_evidence",
+    "rf_path_id",
+    "rf_path_evidence",
     "operator_confirmation",
 }
 if not required.issubset(missing):

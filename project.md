@@ -694,7 +694,7 @@ user and vendor configuration.
   the current report schema while removing conducted/shielded wording from the
   operator-facing command name.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
-  production preflight checklist. It proves missing approvals, invalid fixture
+  production preflight checklist. It proves missing approvals, invalid RF path
   evidence, excessive TX duration, daemon-bridge native-IP app sources, and
   uncorrelated raw or normalized feature reports block live RF while a complete
   approved over-air RF-path configuration passes preflight without

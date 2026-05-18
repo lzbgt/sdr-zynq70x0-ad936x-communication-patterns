@@ -72,7 +72,7 @@ def validate_fixture(args: argparse.Namespace, blockers: list[str]) -> dict[str,
             center_frequency_hz=args.center_frequency_hz,
         )
     except (OSError, ValueError, SystemExit) as exc:
-        blockers.append(f"fixture_evidence_invalid:{exc}")
+        blockers.append(f"rf_path_evidence_invalid:{exc}")
         return None
 
 
@@ -235,8 +235,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         if not args.allow_daemon_queue_mutation:
             missing.append("allow_daemon_queue_mutation")
         if not args.fixture_id:
-            missing.append("fixture_id")
-        existing_file(args.fixture_evidence, "fixture_evidence", missing, blockers)
+            missing.append("rf_path_id")
+        existing_file(args.fixture_evidence, "rf_path_evidence", missing, blockers)
         if not args.operator_confirmation:
             missing.append("operator_confirmation")
         elif args.operator_confirmation not in VALID_CONFIRMATIONS:
@@ -246,7 +246,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         if not args.rx_uri:
             missing.append("rx_uri")
         if fixture_summary is None and args.fixture_evidence and args.fixture_id:
-            blockers.append("fixture_evidence_not_validated")
+            blockers.append("rf_path_evidence_not_validated")
     else:
         warnings.append("dry_run_only_no_rf_tx")
 

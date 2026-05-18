@@ -217,8 +217,8 @@ if [ "$execute_live_rf" = "1" ]; then
         --rf-path-id "$fixture_id" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --center-frequency-hz "$center_frequency_hz" \
-        --output "$out_dir/fixture_evidence_check.json" \
-        > "$out_dir/fixture_evidence_stdout.json"
+        --output "$out_dir/rf_path_evidence_check.json" \
+        > "$out_dir/rf_path_evidence_stdout.json"
 fi
 
 if [ -n "$bridge_report" ]; then
