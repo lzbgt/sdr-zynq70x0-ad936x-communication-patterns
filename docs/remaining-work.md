@@ -128,6 +128,11 @@ throughput over the real over-air RF path. A host-PC transparent test is a
 separate gate: it must run host-originated iperf traffic through a real
 host-to-board route or host-side driver and then over board-to-board RF, not
 through SSH-launched board commands or daemon bridge forwarding. The current
+native-IP iperf gate now has two explicit bridge modes:
+`ALLOW_DAEMON_RF_BRIDGE=1` is diagnostic-only, while
+`ALLOW_IIO_RF_BRIDGE=1` starts the guarded continuous RF-worker/IIO bridge loop
+for live over-air traffic after all RF-path, hardware-write, RF-TX, daemon
+queue-mutation, and operator-confirmation approvals are present. The current
 host-PC gate now enforces that distinction: `HOST_PC_CASE=1` first captures the
 host route to the local board and refuses WSL/NAT-style paths, such as a route
 via `172.28.192.1`, because those do not prove that a normal host app can use
@@ -735,6 +740,9 @@ below were later superseded by the current PHY-management two-board gates above:
   `tools/fieldmesh_iio_rf_worker_bridge.py` now provides the dry-run and live
   execution shape for moving a leased daemon RF frame through the over-air IIO
   IQ path, then ingesting and ACKing only after exact frame recovery.
+  `tools/fieldmesh_iio_rf_worker_bridge_loop.py` is the continuous version used
+  by the real-RF iperf path; it repeats the same lease, over-air decode, peer
+  ingest, and ACK-after-ingest policy for app traffic.
   `tools/fieldmesh_app_real_rf_source_from_bridge.py` ties that live bridge
   evidence to app messaging, topology, and native-IP behavior before producing
   production-gate app reports.

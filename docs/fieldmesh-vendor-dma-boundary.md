@@ -731,6 +731,14 @@ tool's `1000 ms` ceiling, in addition to the same legal-frequency,
 authorized RF-path, TX-enable, and RX-first declarations. The generated TX command is
 also wrapped with `timeout` so an IIO writer cannot run unbounded.
 
+`tools/fieldmesh_iio_rf_worker_bridge_loop.py` is the continuous form of this
+same boundary. It is intended for app traffic and iperf: each iteration leases
+one daemon RF-worker frame, runs the guarded IIO over-air bridge, ingests the
+recovered frame into the peer daemon, and ACKs the source only after that
+ingest succeeds. Its default mode is a dry-run; live mode uses the same
+authorization bundle as the single-frame bridge and is now the over-air bridge
+mechanism selected by the native-IP iperf gate with `ALLOW_IIO_RF_BRIDGE=1`.
+
 The readiness classifier is separate from the runner:
 
 ```sh

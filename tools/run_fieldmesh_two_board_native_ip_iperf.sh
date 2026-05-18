@@ -18,17 +18,24 @@ udp_time_s="${UDP_TIME_S:-3}"
 bridge_duration_s="${BRIDGE_DURATION_S:-120}"
 iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
 allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
+allow_iio_rf_bridge="${ALLOW_IIO_RF_BRIDGE:-0}"
 host_pc_case="${HOST_PC_CASE:-0}"
 allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)-$$}"
 swarm_mtu="${SWARM_MTU:-}"
+rf_binding_plan="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
+execute_live_rf="${EXECUTE_LIVE_RF:-0}"
+allow_hardware_writes="${ALLOW_HARDWARE_WRITES:-0}"
+allow_rf_tx="${ALLOW_RF_TX:-0}"
+allow_daemon_queue_mutation="${ALLOW_DAEMON_QUEUE_MUTATION:-0}"
+rf_path_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
+rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
+operator_confirmation="${OPERATOR_CONFIRMATION:-}"
+max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
+iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 
 mkdir -p "$out_dir"
 
-if ! command -v sshpass >/dev/null 2>&1; then
-    echo "Missing required command: sshpass" >&2
-    exit 1
-fi
 if ! [[ "$iperf_port" =~ ^[0-9]+$ ]] || [ "$iperf_port" -lt 1 ] || [ "$iperf_port" -gt 65535 ]; then
     echo "IPERF_PORT must be 1..65535" >&2
     exit 1
@@ -38,10 +45,39 @@ if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 1024 ]; then
     exit 1
 fi
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
+case "$allow_iio_rf_bridge" in 0|1) ;; *) echo "ALLOW_IIO_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE must be 0 or 1" >&2; exit 1 ;; esac
+for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
+    case "$item" in 0|1) ;; *) echo "live RF flags must be 0 or 1" >&2; exit 1 ;; esac
+done
+if [ "$allow_daemon_rf_bridge" = "1" ] && [ "$allow_iio_rf_bridge" = "1" ]; then
+    echo "ALLOW_DAEMON_RF_BRIDGE and ALLOW_IIO_RF_BRIDGE are mutually exclusive" >&2
+    exit 1
+fi
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    if [ "$execute_live_rf" != "1" ] || [ "$allow_hardware_writes" != "1" ] ||
+       [ "$allow_rf_tx" != "1" ] || [ "$allow_daemon_queue_mutation" != "1" ] ||
+       [ -z "$rf_path_id" ] || [ -z "$rf_path_evidence" ] ||
+       [ "$operator_confirmation" != "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH" ]; then
+        echo "ALLOW_IIO_RF_BRIDGE=1 requires EXECUTE_LIVE_RF=1, ALLOW_HARDWARE_WRITES=1, ALLOW_RF_TX=1, ALLOW_DAEMON_QUEUE_MUTATION=1, RF_PATH_ID, RF_PATH_EVIDENCE, and OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH" >&2
+        exit 1
+    fi
+    if [ ! -f "$rf_binding_plan" ]; then
+        echo "RF_BINDING_PLAN does not exist: $rf_binding_plan" >&2
+        exit 1
+    fi
+    if [ ! -f "$rf_path_evidence" ]; then
+        echo "RF_PATH_EVIDENCE does not exist: $rf_path_evidence" >&2
+        exit 1
+    fi
+fi
+if ! [[ "$iio_bridge_max_frames" =~ ^[0-9]+$ ]] || [ "$iio_bridge_max_frames" -lt 1 ]; then
+    echo "IIO_BRIDGE_MAX_FRAMES must be a positive integer" >&2
+    exit 1
+fi
 if [ -z "$swarm_mtu" ]; then
-    if [ "$allow_daemon_rf_bridge" = "1" ]; then
+    if [ "$allow_daemon_rf_bridge" = "1" ] || [ "$allow_iio_rf_bridge" = "1" ]; then
         swarm_mtu=512
     else
         swarm_mtu=1200
@@ -49,6 +85,10 @@ if [ -z "$swarm_mtu" ]; then
 fi
 if ! [[ "$swarm_mtu" =~ ^[0-9]+$ ]] || [ "$swarm_mtu" -lt 296 ] || [ "$swarm_mtu" -gt 1200 ]; then
     echo "SWARM_MTU must be an integer from 296 to 1200" >&2
+    exit 1
+fi
+if ! command -v sshpass >/dev/null 2>&1; then
+    echo "Missing required command: sshpass" >&2
     exit 1
 fi
 
@@ -212,6 +252,10 @@ fail_bounded() {
         bridge_report="$(tr -d '\n' < "$out_dir/iperf_bridge_progress.json")"
         detail="$detail bridge_progress=$bridge_report"
     fi
+    if [ -s "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" ]; then
+        bridge_report="$(tr -d '\n' < "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json")"
+        detail="$detail iio_bridge_progress=$bridge_report"
+    fi
     json_blocker "$blocker" "$detail" | tee -a "$out_dir/iperf_gate.ndjson"
     echo "Capture directory: $out_dir"
     exit 1
@@ -227,7 +271,7 @@ query_hello() {
 if ! {
     query_hello "$z203_ip" "$z203_port" 020000000203 >"$out_dir/z203_hello.json"
     query_hello "$z103_ip" "$z103_port" 020000000103 >"$out_dir/z103_hello.json"
-    python3 - "$out_dir/z203_hello.json" "$out_dir/z103_hello.json" "$allow_daemon_rf_bridge" "$out_dir/rf_preflight.json" <<'PY'
+    python3 - "$out_dir/z203_hello.json" "$out_dir/z103_hello.json" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$out_dir/rf_preflight.json" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -235,16 +279,18 @@ from pathlib import Path
 z203 = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 z103 = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 allow_bridge = sys.argv[3] == "1"
-output = Path(sys.argv[4])
+allow_iio = sys.argv[4] == "1"
+output = Path(sys.argv[5])
 ready = (
     z203.get("rf_phy_tx_rx_verified") in (1, True, "1", "true") and
     z103.get("rf_phy_tx_rx_verified") in (1, True, "1", "true")
 )
 report = {
     "event": "fieldmesh_native_ip_iperf_rf_preflight",
-    "ok": ready or allow_bridge,
+    "ok": ready or allow_bridge or allow_iio,
     "real_rf_phy_ready": ready,
     "allow_daemon_rf_bridge": allow_bridge,
+    "allow_iio_rf_bridge": allow_iio,
     "z203_rf_phy_tx_rx_verified": z203.get("rf_phy_tx_rx_verified"),
     "z103_rf_phy_tx_rx_verified": z103.get("rf_phy_tx_rx_verified"),
     "z203_production_blocker": z203.get("production_blocker"),
@@ -252,7 +298,7 @@ report = {
 }
 output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 print(json.dumps(report, sort_keys=True))
-if not ready and not allow_bridge:
+if not ready and not allow_bridge and not allow_iio:
     raise SystemExit(42)
 PY
 } >>"$out_dir/iperf_gate.ndjson"; then
@@ -492,6 +538,33 @@ PY
     echo "$!"
 }
 
+start_iio_rf_bridge_loop() {
+    "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
+        --rf-binding-plan "$rf_binding_plan" \
+        --out-dir "$out_dir/iio_rf_worker_bridge_loop" \
+        --directions both \
+        --duration-s "$bridge_duration_s" \
+        --max-frames "$iio_bridge_max_frames" \
+        --z203-host "$z203_ip" \
+        --z103-host "$z103_ip" \
+        --z203-port "$z203_port" \
+        --z103-port "$z103_port" \
+        --z203-uri "ip:$z203_ip" \
+        --z103-uri "ip:$z103_ip" \
+        --timeout-ms "$timeout_ms" \
+        --execute-live-rf \
+        --allow-hardware-writes \
+        --allow-rf-tx \
+        --allow-daemon-queue-mutation \
+        --rf-path-id "$rf_path_id" \
+        --rf-path-evidence "$rf_path_evidence" \
+        --operator-confirmation "$operator_confirmation" \
+        --max-tx-duration-ms "$max_tx_duration_ms" \
+        >"$out_dir/iio_rf_worker_bridge_loop_stdout.json" \
+        2>"$out_dir/iio_rf_worker_bridge_loop.err" &
+    echo "$!"
+}
+
 stop_bridge_loop() {
     if [ -n "${bridge_pid:-}" ]; then
         kill "$bridge_pid" 2>/dev/null || true
@@ -500,6 +573,15 @@ stop_bridge_loop() {
     fi
     if [ -s "$out_dir/iperf_bridge_progress.json" ]; then
         cat "$out_dir/iperf_bridge_progress.json" >>"$out_dir/iperf_gate.ndjson"
+    fi
+    if [ -s "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" ]; then
+        python3 - "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" <<'PY' >>"$out_dir/iperf_gate.ndjson" || true
+import json
+import sys
+from pathlib import Path
+
+print(json.dumps(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")), sort_keys=True))
+PY
     fi
 }
 
@@ -624,6 +706,8 @@ start_tun_services
 bridge_pid=""
 if [ "$allow_daemon_rf_bridge" = "1" ]; then
     bridge_pid="$(start_bridge_loop)"
+elif [ "$allow_iio_rf_bridge" = "1" ]; then
+    bridge_pid="$(start_iio_rf_bridge_loop)"
 fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
@@ -721,15 +805,16 @@ stop_bridge_loop
 request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 
-python3 - "$out_dir" "$allow_daemon_rf_bridge" "$host_pc_case" "$swarm_mtu" <<'PY'
+python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 out_dir = Path(sys.argv[1])
 allow_bridge = sys.argv[2] == "1"
-host_pc_case = sys.argv[3] == "1"
-swarm_mtu = int(sys.argv[4])
+allow_iio = sys.argv[3] == "1"
+host_pc_case = sys.argv[4] == "1"
+swarm_mtu = int(sys.argv[5])
 
 def load_json(path: str) -> dict:
     text = (out_dir / path).read_text(encoding="utf-8", errors="replace")
@@ -753,6 +838,7 @@ bridge = [
         "fieldmesh_two_board_native_ip_iperf_bridge_progress",
     )
 ]
+iio_bridge = [row for row in rows if row.get("event") == "fieldmesh_iio_rf_worker_bridge_loop"]
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 tcp_end = tcp.get("end", {})
 udp_end = udp.get("end", {})
@@ -786,6 +872,14 @@ if allow_bridge and (
     bridge[-1].get("z103_to_z203", 0) < 1
 ):
     raise SystemExit(f"daemon bridge did not run cleanly: {bridge[-1] if bridge else None}")
+if allow_iio and (
+    not iio_bridge or
+    iio_bridge[-1].get("ok") is not True or
+    iio_bridge[-1].get("rf_phy_tx_rx_verified") is not True or
+    iio_bridge[-1].get("z203_to_z103", 0) < 1 or
+    iio_bridge[-1].get("z103_to_z203", 0) < 1
+):
+    raise SystemExit(f"IIO RF bridge loop did not prove both directions: {iio_bridge[-1] if iio_bridge else None}")
 if len(statuses) < 2:
     raise SystemExit("missing final daemon TUN service statuses")
 host_tcp_bits = 0
@@ -820,6 +914,9 @@ if host_pc_case:
         raise SystemExit("host UDP iperf reported no bitrate")
     if host_udp_bytes <= 0:
         raise SystemExit("host UDP iperf reported no transmitted bytes")
+real_rf_ready = bool(preflight.get("real_rf_phy_ready")) or (
+    bool(iio_bridge) and iio_bridge[-1].get("rf_phy_tx_rx_verified") is True
+)
 report = {
     "event": "fieldmesh_two_board_native_ip_iperf",
     "ok": True,
@@ -828,14 +925,15 @@ report = {
     "board_to_board_iperf": True,
     "host_pc_case_requested": host_pc_case,
     "host_pc_iperf": bool(host_pc_case),
-    "transport": "real_rf_phy" if preflight.get("real_rf_phy_ready") else "daemon_rf_driver_queue_bridge",
+    "transport": "real_rf_phy" if real_rf_ready else "daemon_rf_driver_queue_bridge",
     "diagnostic_bridge": bool(allow_bridge),
+    "iio_rf_bridge": bool(allow_iio),
     "uses_inter_board_ip_routing": False,
     "uses_ssh_launched_board_client": not host_pc_case,
     "host_originated_traffic": bool(host_pc_case),
-    "rf_phy_tx_rx_verified": bool(preflight.get("real_rf_phy_ready")),
-    "app_verified_real_rf": bool(preflight.get("real_rf_phy_ready") and not allow_bridge),
-    "production_evidence": bool(preflight.get("real_rf_phy_ready") and not allow_bridge),
+    "rf_phy_tx_rx_verified": real_rf_ready,
+    "app_verified_real_rf": bool(real_rf_ready and not allow_bridge),
+    "production_evidence": bool(real_rf_ready and not allow_bridge),
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
     "udp_bits_per_second": udp_bits,

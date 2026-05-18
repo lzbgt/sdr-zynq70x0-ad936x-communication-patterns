@@ -3746,6 +3746,26 @@ from the IIO capture, send that frame to the sink daemon with
 `FIELDMESH_RF_RX_INGEST`, and only then ACK the source with
 `FIELDMESH_RF_TX_ACK`.
 
+The continuous form used for app traffic and iperf is gated separately:
+
+```sh
+./tools/verify_fieldmesh_iio_rf_worker_bridge_loop.sh
+```
+
+Result:
+
+```json
+{"event": "fieldmesh_iio_rf_worker_bridge_loop_check", "frames_moved": 1, "mode": "dry-run", "ok": true}
+```
+
+The loop repeatedly leases daemon RF-worker frames, runs the guarded IIO
+over-air bridge for each frame, ingests into the peer daemon, and ACKs only
+after successful ingest. Its verifier proves the default path is dry-run,
+rejects live RF without explicit approvals, and rejects daemon queue mutation
+outside live mode. `run_fieldmesh_two_board_native_ip_iperf.sh` selects this
+path with `ALLOW_IIO_RF_BRIDGE=1`; the older `ALLOW_DAEMON_RF_BRIDGE=1` path
+remains diagnostic-only.
+
 Bridge-derived app evidence is normalized by:
 
 ```sh

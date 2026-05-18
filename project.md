@@ -782,11 +782,23 @@ user and vendor configuration.
   the transparent TCP/IP MAC-link feature. The default path refuses production
   certification until both installed daemons report real RF PHY TX/RX. With
   `ALLOW_DAEMON_RF_BRIDGE=1`, it records a labeled non-production iperf
-  diagnostic through the daemon RF-worker bridge. `HOST_PC_CASE=1` is the
-  host-transparent case: it starts `iperf3` on the host namespace and first
-  proves that the host has a direct board-facing route. It rejects WSL/NAT or
-  SSH-launched-board traffic because those paths do not prove a normal host app
-  can use the board pair as a transparent RF MAC/IP link.
+  diagnostic through the daemon RF-worker bridge. With
+  `ALLOW_IIO_RF_BRIDGE=1`, `EXECUTE_LIVE_RF=1`, RF path evidence, and the
+  explicit over-air operator confirmation, it starts the guarded IIO RF-worker
+  bridge loop below so iperf traffic is carried by leased daemon frames over
+  the AD936x over-air path instead of by the host diagnostic bridge.
+  `HOST_PC_CASE=1` is the host-transparent case: it starts `iperf3` on the host
+  namespace and first proves that the host has a direct board-facing route. It
+  rejects WSL/NAT or SSH-launched-board traffic because those paths do not
+  prove a normal host app can use the board pair as a transparent RF MAC/IP
+  link.
+- `tools/fieldmesh_iio_rf_worker_bridge_loop.py` - continuous RF-worker to IIO
+  bridge loop for real over-air app traffic. It repeatedly leases source daemon
+  RF frames, sends each frame through the guarded single-frame IIO bridge,
+  ingests the recovered frame into the peer daemon, and ACKs only after
+  successful ingest. The default is a dry-run with no RF TX, no hardware writes,
+  and no daemon queue mutation; live mode requires the same over-air approval
+  bundle as the single-frame bridge.
 - `tools/fieldmesh_native_ip_iperf_evidence.py` - native-IP iperf evidence
   classifier. A feature-complete transparent MAC/IP claim requires both a
   board-to-board report and a host-PC-transparent report, both over

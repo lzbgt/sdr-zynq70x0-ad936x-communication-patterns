@@ -196,6 +196,14 @@ Minimum production gates for native TCP/IP:
   `swarm0` MTU by default because RF-worker lease frames are serialized as hex
   in UDP JSON control replies; the production RF path must carry binary frames
   and must not rely on this diagnostic MTU workaround;
+- live over-air board-to-board `iperf3` has a separate bridge mechanism:
+  `ALLOW_IIO_RF_BRIDGE=1` makes the iperf gate run
+  `tools/fieldmesh_iio_rf_worker_bridge_loop.py`. That loop repeatedly leases
+  daemon RF-worker frames, sends each one through the guarded AD936x IIO
+  over-air bridge, ingests the recovered frame into the peer daemon, and ACKs
+  the source only after successful ingest. This mode requires `EXECUTE_LIVE_RF`,
+  hardware-write/RF-TX/daemon-mutation approvals, RF path evidence, and the
+  exact over-air operator confirmation before it can run;
 - host-PC `iperf3` is a separate transparent-client gate, not another
   SSH-launched board test. `HOST_PC_CASE=1` now probes the host namespace route
   to the local board and refuses when the path is not direct, for example a
