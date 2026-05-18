@@ -5,6 +5,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-z203}"
 prepare_only="${PREPARE_ONLY:-0}"
+enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+case "$enable_gnss_uart_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
 
 case "$variant" in
   z203)
@@ -58,9 +63,19 @@ export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 rm -rf "$out_dir"
 mkdir -p "$out_dir/devicetree" "$out_dir/boot"
 
-"$repo_root/tools/fieldmesh_devicetree_plan.py" \
+dt_args=(
+  "$repo_root/tools/fieldmesh_devicetree_plan.py"
   --variant "$variant=$linux_root" \
-  --out-dir "$out_dir/devicetree" >"$out_dir/fieldmesh_devicetree_plan.json"
+  --out-dir "$out_dir/devicetree"
+)
+if [[ "$enable_gnss_uart_emio" == "1" ]]; then
+  if [[ "$variant" != "z203" ]]; then
+    echo "ENABLE_GNSS_UART_EMIO=1 currently has verified pins only for z203" >&2
+    exit 2
+  fi
+  dt_args+=(--enable-gnss-uart-emio --require-gnss-uart)
+fi
+"${dt_args[@]}" >"$out_dir/fieldmesh_devicetree_plan.json"
 
 devicetree="$(
   python3 - "$out_dir/fieldmesh_devicetree_plan.json" <<'PY'

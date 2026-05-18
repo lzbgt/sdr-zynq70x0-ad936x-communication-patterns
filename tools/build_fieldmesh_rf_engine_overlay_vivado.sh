@@ -20,6 +20,11 @@ case "$variant" in
     ;;
 esac
 shift || true
+enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+case "$enable_gnss_uart_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
 
 src_hdl="$source_fw/hdl"
 project_dir="$src_hdl/projects/pluto"
@@ -45,12 +50,22 @@ if [[ "${REFRESH:-1}" == "1" ]]; then
     "$src_hdl/" "$work_hdl/"
 fi
 
-"$repo_root/tools/fieldmesh_vivado_overlay_patch.py" \
+patch_args=(
+  "$repo_root/tools/fieldmesh_vivado_overlay_patch.py"
   --repo-root "$repo_root" \
   --hdl-tree "$work_hdl" \
   --variant-name "$variant" \
   --rf-engine-overlay \
-  --apply >"$work_root/fieldmesh_rf_engine_overlay_patch.json"
+  --apply
+)
+if [[ "$enable_gnss_uart_emio" == "1" ]]; then
+  if [[ "$variant" != "z203" ]]; then
+    echo "ENABLE_GNSS_UART_EMIO=1 currently has verified pins only for z203" >&2
+    exit 2
+  fi
+  patch_args+=(--gnss-uart-emio)
+fi
+"${patch_args[@]}" >"$work_root/fieldmesh_rf_engine_overlay_patch.json"
 
 export XILINXD_LICENSE_FILE="$license_path"
 export ADI_IGNORE_VERSION_CHECK="${ADI_IGNORE_VERSION_CHECK:-1}"

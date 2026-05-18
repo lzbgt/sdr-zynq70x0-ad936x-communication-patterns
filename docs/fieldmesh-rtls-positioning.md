@@ -225,6 +225,15 @@ console, so the GNSS live preflight correctly reports the deployed
 `gnss_uart_not_exposed_in_devicetree` / no-device blocker instead of showing a
 fabricated startup range.
 
+The Z203 path now has an opt-in hardware overlay contract for the known vendor
+route: PS UART0 over EMIO to `UART_0_rxd`/`UART_0_txd`, constrained to K21/L21
+as in the `gps_transfer` example. `ENABLE_GNSS_UART_EMIO=1` on the RF-engine
+overlay build and runtime packaging paths enables that Z203 UART contract and
+generates a DTB where UART0 is a non-console GNSS NMEA serial device. It remains
+off by default until a rebuilt bitstream is installed and the live board shows
+a real new serial node. PPS is still separately gated because the current
+vendor GPS UART example does not provide a checked PPS pin constraint.
+
 That means physically moving a Z203 or Z103 will not change displayed range
 until a production measurement feed updates the daemon peer registry. The
 required feed is one or more of:

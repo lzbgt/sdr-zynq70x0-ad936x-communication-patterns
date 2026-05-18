@@ -1148,6 +1148,11 @@ user and vendor configuration.
   normal sidecar generation while strict GNSS mode fails with
   `gnss_uart_not_exposed_in_devicetree` and
   `gnss_pps_not_exposed_in_devicetree` until hardware exposure is added.
+- `tools/verify_fieldmesh_gnss_uart_emio_overlay.sh` - verifies the opt-in
+  Z203 GNSS UART overlay patch. It proves the copied HDL patch enables PS
+  UART0 over EMIO, adds top-level `gnss_uart0_rxd`/`gnss_uart0_txd`, writes the
+  vendor-evidenced K21/L21 XDC constraints, and pairs that bitstream contract
+  with a DTB that exposes UART0 as non-console GNSS NMEA.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production

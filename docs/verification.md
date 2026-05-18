@@ -2167,6 +2167,19 @@ GNSS mode fails on the current Z203/Z103 DTBs with
 `gnss_pps_not_exposed_in_devicetree`. This protects startup topology from using
 the Linux console UART or injected daemon positions as deployed GNSS evidence.
 
+The Z203 GNSS UART EMIO overlay contract was checked with:
+
+```sh
+./tools/verify_fieldmesh_gnss_uart_emio_overlay.sh
+```
+
+Result: the opt-in patch enables PS UART0 over EMIO, exports
+`gnss_uart0_rxd`/`gnss_uart0_txd` at the top level, emits the vendor-evidenced
+K21/L21 constraints, and pairs that hardware contract with a DTB where UART0 is
+enabled as a non-console serial device. This does not by itself prove live GNSS;
+the next live gate must rebuild/install that bitstream, persist the resulting
+`/dev/ttyPS*` path, and observe real NMEA ACKed into the daemon.
+
 Matched FieldMesh runtime packages were then assembled with the timing-clean
 FieldMesh bitstreams and generated sidecar DTBs:
 

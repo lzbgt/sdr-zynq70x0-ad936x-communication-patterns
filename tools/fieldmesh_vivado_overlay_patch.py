@@ -23,7 +23,16 @@ BD_DMA_BEGIN = "# FieldMesh sidecar DMA overlay: begin"
 BD_DMA_END = "# FieldMesh sidecar DMA overlay: end"
 BD_RF_ENGINE_BEGIN = "# FieldMesh RF packet engine overlay: begin"
 BD_RF_ENGINE_END = "# FieldMesh RF packet engine overlay: end"
+BD_GNSS_UART_BEGIN = "# FieldMesh GNSS UART EMIO overlay: begin"
+BD_GNSS_UART_END = "# FieldMesh GNSS UART EMIO overlay: end"
 RF_ENGINE_XDC = "constraints/fieldmesh_axis_async_fifo_cdc.xdc"
+GNSS_UART_XDC_REL = "fieldmesh/fieldmesh_gnss_uart_z203.xdc"
+GNSS_UART_XDC = """# FieldMesh GNSS UART EMIO constraints for SDR-Z203.
+# Source evidence: vendor gps_transfer example routes UART_0_rxd/UART_0_txd
+# to K21/L21 with LVCMOS18. Use only on matching Z203 hardware.
+set_property -dict {PACKAGE_PIN K21 IOSTANDARD LVCMOS18} [get_ports gnss_uart0_rxd]
+set_property -dict {PACKAGE_PIN L21 IOSTANDARD LVCMOS18} [get_ports gnss_uart0_txd]
+"""
 
 
 def rel_rtl_name(rtl_path: str) -> str:
@@ -330,14 +339,30 @@ ad_connect fieldmesh_iq_dac_driver/upack_enable_q tx_upack/enable_1
 """
 
 
+def render_gnss_uart_overlay() -> str:
+    return f"""
+{BD_GNSS_UART_BEGIN}
+create_bd_intf_port -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART_0
+ad_ip_parameter sys_ps7 CONFIG.PCW_UART0_PERIPHERAL_ENABLE 1
+ad_ip_parameter sys_ps7 CONFIG.PCW_UART0_UART0_IO {{EMIO}}
+ad_ip_parameter sys_ps7 CONFIG.PCW_UART0_GRP_FULL_ENABLE 0
+ad_ip_parameter sys_ps7 CONFIG.PCW_UART0_BAUD_RATE {{9600}}
+ad_ip_parameter sys_ps7 CONFIG.PCW_UART_PERIPHERAL_VALID 1
+ad_ip_parameter sys_ps7 CONFIG.PCW_UART_PERIPHERAL_FREQMHZ {{100}}
+ad_connect sys_ps7/UART_0 UART_0
+{BD_GNSS_UART_END}
+"""
+
+
 def patch_system_bd(
     text: str,
     control_overlay: bool,
     bridge_overlay: bool,
     dma_overlay: bool,
     rf_engine_overlay: bool,
+    gnss_uart_emio: bool,
 ) -> tuple[str, bool]:
-    if not control_overlay and not bridge_overlay and not dma_overlay and not rf_engine_overlay:
+    if not control_overlay and not bridge_overlay and not dma_overlay and not rf_engine_overlay and not gnss_uart_emio:
         return text, False
     if rf_engine_overlay:
         dma_overlay = True
@@ -362,6 +387,8 @@ def patch_system_bd(
         or "fieldmesh_iq_tx_guard" in text
     ) and BD_RF_ENGINE_BEGIN not in text:
         raise SystemExit("system_bd.tcl: FieldMesh RF packet engine overlay appears partially present")
+    if "sys_ps7/UART_0" in text and BD_GNSS_UART_BEGIN not in text:
+        raise SystemExit("system_bd.tcl: GNSS UART overlay appears partially present")
     if control_overlay and BD_CTRL_BEGIN not in text:
         if "ad_cpu_interconnect 0x7C420000 axi_ad9361_dac_dma" not in text:
             raise SystemExit("system_bd.tcl: expected ADI DMA interconnect anchor not found")
@@ -374,9 +401,40 @@ def patch_system_bd(
         blocks.append(render_dma_overlay())
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
         blocks.append(render_rf_engine_overlay())
+    if gnss_uart_emio and BD_GNSS_UART_BEGIN not in text:
+        blocks.append(render_gnss_uart_overlay())
     if not blocks:
         return text, False
     return text.rstrip() + "".join(blocks) + "\n", True
+
+
+def patch_system_top(text: str, gnss_uart_emio: bool) -> tuple[str, bool]:
+    if not gnss_uart_emio:
+        return text, False
+    if "gnss_uart0_rxd" in text or "gnss_uart0_txd" in text:
+        return text, False
+    port_marker = "  input           spi_miso\n  );"
+    if port_marker not in text:
+        raise SystemExit("system_top.v: expected spi_miso port anchor not found")
+    text = text.replace(
+        port_marker,
+        "  input           spi_miso,\n"
+        "  input           gnss_uart0_rxd,\n"
+        "  output          gnss_uart0_txd\n"
+        "  );",
+        1,
+    )
+    inst_marker = "    .gpio_t (gpio_t),\n"
+    if inst_marker not in text:
+        raise SystemExit("system_top.v: expected system_wrapper gpio_t anchor not found")
+    text = text.replace(
+        inst_marker,
+        "    .gpio_t (gpio_t),\n"
+        "    .UART_0_rxd (gnss_uart0_rxd),\n"
+        "    .UART_0_txd (gnss_uart0_txd),\n",
+        1,
+    )
+    return text, True
 
 
 def load_plan(repo_root: Path, variant_name: str, system_bd: Path) -> dict:
@@ -398,6 +456,7 @@ def apply_patch(
     bridge_overlay: bool,
     dma_overlay: bool,
     rf_engine_overlay: bool,
+    gnss_uart_emio: bool,
 ) -> dict:
     if rf_engine_overlay:
         dma_overlay = True
@@ -408,9 +467,10 @@ def apply_patch(
     project_dir = hdl_tree / "projects" / "pluto"
     system_bd = project_dir / "system_bd.tcl"
     system_project = project_dir / "system_project.tcl"
+    system_top = project_dir / "system_top.v"
     makefile = project_dir / "Makefile"
 
-    for required in (system_bd, system_project, makefile):
+    for required in (system_bd, system_project, system_top, makefile):
         if not required.is_file():
             raise SystemExit(f"{required}: not found")
 
@@ -434,11 +494,20 @@ def apply_patch(
         if apply:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
+    if gnss_uart_emio:
+        copied_xdc_files.append(str(project_dir / GNSS_UART_XDC_REL))
+        if apply:
+            gnss_xdc = project_dir / GNSS_UART_XDC_REL
+            gnss_xdc.parent.mkdir(parents=True, exist_ok=True)
+            gnss_xdc.write_text(GNSS_UART_XDC)
+        rel_xdc_files.append(GNSS_UART_XDC_REL)
 
     project_text = system_project.read_text()
     patched_project, project_changed = patch_system_project(project_text, rel_files, rel_xdc_files)
     make_text = makefile.read_text()
     patched_make, make_changed = patch_makefile(make_text, rel_files)
+    system_top_text = system_top.read_text()
+    patched_system_top, system_top_changed = patch_system_top(system_top_text, gnss_uart_emio)
     system_bd_text = system_bd.read_text()
     patched_system_bd, system_bd_changed = patch_system_bd(
         system_bd_text,
@@ -446,6 +515,7 @@ def apply_patch(
         bridge_overlay,
         dma_overlay,
         rf_engine_overlay,
+        gnss_uart_emio,
     )
 
     if apply:
@@ -453,6 +523,8 @@ def apply_patch(
             system_project.write_text(patched_project)
         if make_changed:
             makefile.write_text(patched_make)
+        if system_top_changed:
+            system_top.write_text(patched_system_top)
         if system_bd_changed:
             system_bd.write_text(patched_system_bd)
 
@@ -469,11 +541,13 @@ def apply_patch(
         "control_overlay": control_overlay,
         "dma_overlay": dma_overlay,
         "rf_engine_overlay": rf_engine_overlay,
+        "gnss_uart_emio": gnss_uart_emio,
         "variant": variant_name,
         "hdl_tree": str(hdl_tree),
         "system_bd": str(system_bd),
         "system_bd_changed": system_bd_changed,
         "system_project_changed": project_changed,
+        "system_top_changed": system_top_changed,
         "makefile_changed": make_changed,
         "copied_rtl_files": copied_files,
         "copied_xdc_files": copied_xdc_files,
@@ -508,6 +582,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="also add non-transmitting fieldmesh_bpsk_symbolizer and IQ TX guard cells behind the sidecar DMA/bridge TX packet path",
     )
+    parser.add_argument(
+        "--gnss-uart-emio",
+        action="store_true",
+        help="also expose PS UART0 over EMIO as GNSS NMEA using Z203 K21/L21 constraints",
+    )
     return parser.parse_args()
 
 
@@ -522,6 +601,7 @@ def main() -> int:
         args.bridge_overlay,
         args.dma_overlay,
         args.rf_engine_overlay,
+        args.gnss_uart_emio,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

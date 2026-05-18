@@ -22,7 +22,15 @@ strict_rc=0
   --require-gnss-uart \
   --require-gnss-pps >"$out_dir/strict.json" || strict_rc=$?
 
-python3 - "$repo_root/tools/fieldmesh_devicetree_plan.py" "$out_dir/default.json" "$out_dir/strict.json" "$strict_rc" <<'PY'
+uart_rc=0
+"$repo_root/tools/fieldmesh_devicetree_plan.py" \
+  --variant "z203=$z203_linux" \
+  --variant "z103=$z103_linux" \
+  --out-dir "$out_dir/uart-emio" \
+  --enable-gnss-uart-emio \
+  --require-gnss-uart >"$out_dir/uart-emio.json" || uart_rc=$?
+
+python3 - "$repo_root/tools/fieldmesh_devicetree_plan.py" "$out_dir/default.json" "$out_dir/strict.json" "$strict_rc" "$out_dir/uart-emio.json" "$uart_rc" <<'PY'
 import importlib.util
 import json
 import sys
@@ -32,6 +40,8 @@ module_path = Path(sys.argv[1])
 default = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 strict = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
 strict_rc = int(sys.argv[4])
+uart = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
+uart_rc = int(sys.argv[6])
 
 if default.get("event") != "fieldmesh_devicetree_plan" or not default.get("ok"):
     raise SystemExit(f"default devicetree plan failed unexpectedly: {default!r}")
@@ -52,6 +62,15 @@ for row in strict.get("variants") or []:
     for expected in ("gnss_uart_not_exposed_in_devicetree", "gnss_pps_not_exposed_in_devicetree"):
         if expected not in blockers:
             raise SystemExit(f"{row.get('variant')}: missing strict blocker {expected}: {blockers}")
+
+if uart_rc != 0 or not uart.get("ok"):
+    raise SystemExit(f"GNSS UART EMIO devicetree mode should pass UART requirement: {uart!r}")
+for row in uart.get("variants") or []:
+    gnss = row.get("gnss_exposure") or {}
+    if not gnss.get("checks", {}).get("non_console_uart_present"):
+        raise SystemExit(f"{row.get('variant')}: UART EMIO fragment did not expose non-console UART")
+    if gnss.get("blockers"):
+        raise SystemExit(f"{row.get('variant')}: UART EMIO fragment has unexpected blockers: {gnss!r}")
 
 spec = importlib.util.spec_from_file_location("fieldmesh_devicetree_plan", module_path)
 if spec is None or spec.loader is None:

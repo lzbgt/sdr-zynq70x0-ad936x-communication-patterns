@@ -3,6 +3,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 variant="${1:-z203}"
+enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
+case "$enable_gnss_uart_emio" in
+  0|1) ;;
+  *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
 
 case "$variant" in
   z203)
@@ -36,9 +41,19 @@ require_file "$package_script"
 dt_plan_dir="$out_dir/devicetree"
 mkdir -p "$dt_plan_dir"
 
-"$repo_root/tools/fieldmesh_devicetree_plan.py" \
+dt_args=(
+  "$repo_root/tools/fieldmesh_devicetree_plan.py"
   --variant "$variant=$linux_root" \
-  --out-dir "$dt_plan_dir" >"$out_dir/fieldmesh_devicetree_plan.json"
+  --out-dir "$dt_plan_dir"
+)
+if [[ "$enable_gnss_uart_emio" == "1" ]]; then
+  if [[ "$variant" != "z203" ]]; then
+    echo "ENABLE_GNSS_UART_EMIO=1 currently has verified pins only for z203" >&2
+    exit 2
+  fi
+  dt_args+=(--enable-gnss-uart-emio --require-gnss-uart)
+fi
+"${dt_args[@]}" >"$out_dir/fieldmesh_devicetree_plan.json"
 
 dtb="$(
   python3 - "$out_dir/fieldmesh_devicetree_plan.json" <<'PY'
@@ -62,6 +77,7 @@ BITSTREAM="$bitstream" DTB="$dtb" OUT_DIR="$out_dir/fit-work" "$package_script"
 python3 - "$variant" "$bitstream" "$dtb" "$out_dir" <<'PY'
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -85,6 +101,7 @@ meta = {
     "bitstream_sha256": sha256(bitstream),
     "devicetree": str(dtb),
     "devicetree_sha256": sha256(dtb),
+    "gnss_uart_emio": bool(int(os.environ.get("ENABLE_GNSS_UART_EMIO", "0"))),
 }
 out_dir.mkdir(parents=True, exist_ok=True)
 (out_dir / "fieldmesh_runtime_package_manifest.json").write_text(

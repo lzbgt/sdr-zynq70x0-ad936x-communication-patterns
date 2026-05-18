@@ -83,6 +83,27 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 };
 """
 
+GNSS_UART_EMIO_DTSI = """// SPDX-License-Identifier: GPL-2.0
+/*
+ * FieldMesh GNSS UART devicetree fragment.
+ *
+ * Include this only with a bitstream/PS7 configuration that routes PS UART0
+ * through EMIO to the board GNSS NMEA pins. UART1 remains the Linux console.
+ */
+
+/ {
+	aliases {
+		serial1 = &uart0;
+	};
+};
+
+&uart0 {
+	status = "okay";
+	current-speed = <9600>;
+	fieldmesh,gnss-nmea;
+};
+"""
+
 
 def parse_variant(value: str) -> tuple[str, Path]:
     if "=" not in value:
@@ -97,21 +118,27 @@ def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[
     return subprocess.run(cmd, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-def write_merged_dts(linux_root: Path, out_dir: Path, variant: str) -> tuple[Path, Path]:
+def write_merged_dts(linux_root: Path, out_dir: Path, variant: str, enable_gnss_uart_emio: bool) -> tuple[Path, Path]:
     dts_dir = linux_root / "arch" / "arm" / "boot" / "dts"
     base_dts = dts_dir / "zynq-pluto-sdr.dts"
     if not base_dts.is_file():
         raise SystemExit(f"{base_dts}: not found")
 
     fragment = out_dir / "fieldmesh-sidecar.dtsi"
+    gnss_fragment = out_dir / "fieldmesh-gnss-uart-emio.dtsi"
     merged = out_dir / f"{variant}-zynq-pluto-sdr-fieldmesh.dts"
     fragment.write_text(SIDECAR_DTSI)
+    if enable_gnss_uart_emio:
+        gnss_fragment.write_text(GNSS_UART_EMIO_DTSI)
 
     text = base_dts.read_text()
     include = '#include "zynq-pluto-sdr.dtsi"'
     if include not in text:
         raise SystemExit(f"{base_dts}: expected {include!r} not found")
-    text = text.replace(include, include + '\n#include "fieldmesh-sidecar.dtsi"', 1)
+    extra_includes = ['#include "fieldmesh-sidecar.dtsi"']
+    if enable_gnss_uart_emio:
+        extra_includes.append('#include "fieldmesh-gnss-uart-emio.dtsi"')
+    text = text.replace(include, include + "\n" + "\n".join(extra_includes), 1)
     merged.write_text(text)
     return fragment, merged
 
@@ -260,16 +287,18 @@ def build_variant(
     compile_dt: bool,
     require_gnss_uart: bool,
     require_gnss_pps: bool,
+    enable_gnss_uart_emio: bool,
 ) -> dict[str, Any]:
     out_dir = out_root / name
     out_dir.mkdir(parents=True, exist_ok=True)
-    fragment, merged = write_merged_dts(linux_root, out_dir, name)
+    fragment, merged = write_merged_dts(linux_root, out_dir, name, enable_gnss_uart_emio)
     row: dict[str, Any] = {
         "variant": name,
         "linux_root": str(linux_root),
         "fragment": str(fragment),
         "merged_dts": str(merged),
         "dtb": None,
+        "gnss_uart_emio_enabled": enable_gnss_uart_emio,
         "check": {"ok": True, "checks": {}},
         "gnss_exposure": check_gnss_exposure(None, require_gnss_uart, require_gnss_pps),
     }
@@ -305,6 +334,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="fail unless the compiled DTB exposes a PPS node/marker for GNSS timing",
     )
+    parser.add_argument(
+        "--enable-gnss-uart-emio",
+        action="store_true",
+        help="include the PS UART0 EMIO GNSS fragment; use only with a matching bitstream/PS7 config",
+    )
     return parser.parse_args()
 
 
@@ -318,6 +352,7 @@ def main() -> int:
             not args.no_compile,
             args.require_gnss_uart,
             args.require_gnss_pps,
+            args.enable_gnss_uart_emio,
         )
         for name, path in args.variant
     ]
