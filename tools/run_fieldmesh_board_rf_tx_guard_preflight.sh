@@ -31,7 +31,7 @@ remote_log="/tmp/fieldmesh_rf_tx_guard_preflight.log"
 VARIANT="$variant" \
 FORCE_UPLOAD="$force_upload" \
 UPLOAD_IF_MISSING="$upload_if_missing" \
-REQUESTS=14 \
+REQUESTS=45 \
 OUT_DIR="$out_dir/sdk_daemon" \
     "$repo_root/tools/run_fieldmesh_board_sdk_daemon.sh" "$board_ip"
 

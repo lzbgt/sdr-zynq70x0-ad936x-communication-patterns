@@ -4300,7 +4300,8 @@ static int build_response(fieldmesh_context_t *context,
         unsigned rx_first = 0u;
         unsigned measured_link = 0u;
         unsigned allow_live_rf = 0u;
-        unsigned prerequisites_ready;
+        unsigned driver_prerequisites_ready;
+        unsigned live_rf_prerequisites_ready;
         unsigned driver_queue_ready;
         unsigned bind_ready;
 
@@ -4322,13 +4323,15 @@ static int build_response(fieldmesh_context_t *context,
                                       &measured_link);
         (void)request_uint_or_default(request, "allow_live_rf=", 0u, 0u, 1u,
                                       &allow_live_rf);
-        prerequisites_ready = sidecar_preflight && sidecar_dma &&
-            rf_packet_engine && rf_tx_guard && conducted_or_shielded &&
-            legal_frequency_profile && rx_first && measured_link;
+        driver_prerequisites_ready = sidecar_preflight && sidecar_dma &&
+            rf_packet_engine && rf_tx_guard;
+        live_rf_prerequisites_ready = driver_prerequisites_ready &&
+            conducted_or_shielded && legal_frequency_profile && rx_first &&
+            measured_link;
         driver_queue_ready = tun_service && tun_service->running &&
             tun_service->rf_transport_mode == TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE &&
             rf_worker && rf_worker->running;
-        bind_ready = driver_queue_ready && prerequisites_ready;
+        bind_ready = driver_queue_ready && driver_prerequisites_ready;
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_phy_driver_bind_validate\","
@@ -4356,6 +4359,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"legal_frequency_profile\":%u,"
                  "\"rx_first\":%u,"
                  "\"measured_link\":%u,"
+                 "\"driver_prerequisites_ready\":%u,"
+                 "\"live_rf_prerequisites_ready\":%u,"
                  "\"prerequisites_ready\":%u,"
                  "\"binding_ready\":%u,"
                  "\"live_rf_requested\":%u,"
@@ -4383,7 +4388,9 @@ static int build_response(fieldmesh_context_t *context,
                  legal_frequency_profile,
                  rx_first,
                  measured_link,
-                 prerequisites_ready ? 1u : 0u,
+                 driver_prerequisites_ready ? 1u : 0u,
+                 live_rf_prerequisites_ready ? 1u : 0u,
+                 live_rf_prerequisites_ready ? 1u : 0u,
                  bind_ready ? 1u : 0u,
                  allow_live_rf);
         return 0;

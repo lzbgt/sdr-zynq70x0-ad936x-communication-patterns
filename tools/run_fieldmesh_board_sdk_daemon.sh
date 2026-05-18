@@ -616,6 +616,10 @@ if rf_phy_bind_validate[0].get("rf_packet_engine_passed") != 1:
     raise SystemExit("board SDK daemon RF PHY bind validation packet-engine flag changed")
 if rf_phy_bind_validate[0].get("rf_tx_guard_passed") != 1:
     raise SystemExit("board SDK daemon RF PHY bind validation TX guard flag changed")
+if rf_phy_bind_validate[0].get("driver_prerequisites_ready") != 1:
+    raise SystemExit("board SDK daemon RF PHY bind validation driver prerequisites changed")
+if rf_phy_bind_validate[0].get("live_rf_prerequisites_ready") != 0:
+    raise SystemExit("board SDK daemon RF PHY bind validation must not mark live RF prerequisites ready")
 if rf_phy_bind_validate[0].get("next_boundary") != "rf_phy_driver_tx_rx":
     raise SystemExit("board SDK daemon RF PHY bind validation next boundary changed")
 if rf_phy_bind_validate[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
