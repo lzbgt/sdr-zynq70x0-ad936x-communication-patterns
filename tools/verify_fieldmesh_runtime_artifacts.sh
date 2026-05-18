@@ -290,9 +290,15 @@ verify_variant() {
         diagnostic_loopback \
         supports_rf_transport_driver_queue \
         supports_rf_worker \
+        supports_rf_worker_phy_plan \
         sdk_daemon_rf_worker_start \
         sdk_daemon_rf_worker_status \
+        sdk_daemon_rf_worker_phy_plan \
         sdk_daemon_rf_worker_stop \
+        requires_sidecar_preflight \
+        requires_sidecar_dma \
+        requires_rf_tx_guard \
+        rf_phy_driver_tx_rx \
         daemon_owned_worker \
         driver_queue_worker \
         sdk_daemon_rf_tx_poll \

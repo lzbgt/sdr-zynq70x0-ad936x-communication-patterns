@@ -1823,15 +1823,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"ok\":true,"
                  "\"protocol\":\"fieldmesh-eth-sdk\","
                  "\"protocol_version\":1,"
-                 "\"daemon\":\"fieldmesh-state-daemon-demo\","
                  "\"sdk_abi\":\"pure_c\","
-                 "\"network_id\":\"fieldmesh-lab\","
                  "\"device_eui\":\"%s\","
                  "\"hostname\":\"%s\","
                  "\"device_type\":\"%s\","
                  "\"auth_model\":\"root_ca_derived_certs\","
-                 "\"security_state\":\"demo_unprovisioned\","
-                 "\"authorization\":\"scoped_operations\","
                  "\"requires_mutual_auth_for_production\":1,"
                  "\"production_ready\":0,"
                  "\"production_readiness\":\"infrastructure_verified_rf_phy_pending\","
@@ -1844,7 +1840,6 @@ static int build_response(fieldmesh_context_t *context,
                  "\"supports_app_message_ingest\":1,"
                  "\"supports_app_message_poll\":1,"
                  "\"supports_device_identity_set\":1,"
-                 "\"supports_camera_session_plan\":1,"
                  "\"supports_route_metrics\":1,"
                  "\"supports_route_metrics_report\":1,"
                  "\"supports_mac_ingest\":1,"
@@ -1858,6 +1853,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_client_ip_interface\":\"swarm0\","
                  "\"supports_rf_transport_driver_queue\":1,"
                  "\"supports_rf_worker\":1,"
+                 "\"supports_rf_worker_phy_plan\":1,"
                  "\"supports_rf_tx_poll\":1,"
                  "\"supports_rf_tx_lease_ack\":1,"
                  "\"supports_rf_rx_ingest\":1,"
@@ -4208,6 +4204,91 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_WORKER_PHY_PLAN")) {
+        unsigned sidecar_preflight = 0u;
+        unsigned sidecar_dma = 0u;
+        unsigned rf_packet_engine = 0u;
+        unsigned rf_tx_guard = 0u;
+        unsigned conducted_or_shielded = 0u;
+        unsigned legal_frequency_profile = 0u;
+        unsigned rx_first = 0u;
+        unsigned measured_link = 0u;
+        unsigned allow_live_rf = 0u;
+        unsigned prerequisites_ready;
+
+        (void)request_uint_or_default(request, "sidecar_preflight=", 0u, 0u,
+                                      1u, &sidecar_preflight);
+        (void)request_uint_or_default(request, "sidecar_dma=", 0u, 0u, 1u,
+                                      &sidecar_dma);
+        (void)request_uint_or_default(request, "rf_packet_engine=", 0u, 0u,
+                                      1u, &rf_packet_engine);
+        (void)request_uint_or_default(request, "rf_tx_guard=", 0u, 0u, 1u,
+                                      &rf_tx_guard);
+        (void)request_uint_or_default(request, "conducted_or_shielded=", 0u,
+                                      0u, 1u, &conducted_or_shielded);
+        (void)request_uint_or_default(request, "legal_frequency_profile=", 0u,
+                                      0u, 1u, &legal_frequency_profile);
+        (void)request_uint_or_default(request, "rx_first=", 0u, 0u, 1u,
+                                      &rx_first);
+        (void)request_uint_or_default(request, "measured_link=", 0u, 0u, 1u,
+                                      &measured_link);
+        (void)request_uint_or_default(request, "allow_live_rf=", 0u, 0u, 1u,
+                                      &allow_live_rf);
+        prerequisites_ready = sidecar_preflight && sidecar_dma &&
+            rf_packet_engine && rf_tx_guard && conducted_or_shielded &&
+            legal_frequency_profile && rx_first;
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_worker_phy_plan\","
+                 "\"ok\":true,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"tun_service_running\":%u,"
+                 "\"rf_worker_running\":%u,"
+                 "\"requires_sidecar_preflight\":1,"
+                 "\"requires_sidecar_dma\":1,"
+                 "\"requires_rf_packet_engine\":1,"
+                 "\"requires_rf_tx_guard\":1,"
+                 "\"requires_conducted_or_shielded\":1,"
+                 "\"requires_legal_frequency_profile\":1,"
+                 "\"requires_rx_first\":1,"
+                 "\"requires_measured_link\":1,"
+                 "\"sidecar_preflight_passed\":%u,"
+                 "\"sidecar_dma_passed\":%u,"
+                 "\"rf_packet_engine_passed\":%u,"
+                 "\"rf_tx_guard_passed\":%u,"
+                 "\"conducted_or_shielded\":%u,"
+                 "\"legal_frequency_profile\":%u,"
+                 "\"rx_first\":%u,"
+                 "\"measured_link\":%u,"
+                 "\"prerequisites_ready\":%u,"
+                 "\"live_rf_requested\":%u,"
+                 "\"live_rf_allowed\":0,"
+                 "\"rf_phy_binding_ready\":%u,"
+                 "\"rf_phy_tx_rx\":0,"
+                 "\"rf_phy_tx_rx_verified\":0,"
+                 "\"app_verified_real_rf\":0,"
+                 "\"production_ready\":0,"
+                 "\"production_blocker\":\"real_rf_phy_tx_rx_not_verified\","
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"rf_phy_driver_tx_rx\"}\n",
+                 tun_service && tun_service->running ? 1u : 0u,
+                 rf_worker && rf_worker->running ? 1u : 0u,
+                 sidecar_preflight,
+                 sidecar_dma,
+                 rf_packet_engine,
+                 rf_tx_guard,
+                 conducted_or_shielded,
+                 legal_frequency_profile,
+                 rx_first,
+                 measured_link,
+                 prerequisites_ready ? 1u : 0u,
+                 allow_live_rf,
+                 prerequisites_ready ? 1u : 0u);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_WORKER_STOP")) {
         uint32_t was_running = rf_worker && rf_worker->running ? 1u : 0u;
         uint32_t ticks = rf_worker ? rf_worker->ticks : 0u;
@@ -5729,6 +5810,7 @@ static int query_state(const char *host,
     char tun_service_status_request[96];
     char rf_worker_start_request[96];
     char rf_worker_status_request[96];
+    char rf_worker_phy_plan_request[192];
     char rf_worker_stop_request[96];
     char rf_tx_lease_request[96];
     char rf_tx_ack_request[128];
@@ -5820,6 +5902,8 @@ static int query_state(const char *host,
              "%s", "FIELDMESH_RF_WORKER_START v1");
     snprintf(rf_worker_status_request, sizeof(rf_worker_status_request),
              "%s", "FIELDMESH_RF_WORKER_STATUS v1");
+    snprintf(rf_worker_phy_plan_request, sizeof(rf_worker_phy_plan_request),
+             "%s", "FIELDMESH_RF_WORKER_PHY_PLAN v1");
     snprintf(rf_worker_stop_request, sizeof(rf_worker_stop_request),
              "%s", "FIELDMESH_RF_WORKER_STOP v1");
     snprintf(rf_tx_lease_request, sizeof(rf_tx_lease_request),
@@ -5885,6 +5969,7 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, tun_service_status_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_start_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_status_request) == 0 &&
+        query_once(sockfd, &dst, rf_worker_phy_plan_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_stop_request) == 0 &&
         query_once(sockfd, &dst, rf_tx_lease_request) == 0 &&
         query_once(sockfd, &dst, rf_tx_ack_request) == 0 &&

@@ -620,8 +620,11 @@ user and vendor configuration.
   the source board, leases BLR `APP_DATA` frames from that source, ingests those
   exact frames into the peer daemon, ACKs them after successful ingest, and
   requires the peer to write them into its own `swarm0`. The daemon worker still
-  reports `rf_phy_tx_rx=0`; actual PHY TX/RX remains the production blocker. The
-  default gate also
+  reports `rf_phy_tx_rx=0`; actual PHY TX/RX remains the production blocker.
+  `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the prerequisites for the real PHY
+  binding and refuses to claim live RF or production readiness before sidecar,
+  packet-engine, TX-guard, conducted/legal, RX-first, and measured-link evidence
+  exist. The default gate also
   runs ICMP over the same daemon bridge: Z203 pings Z103 through `swarm0`, BLR
   `APP_DATA` TX lease, peer RX ingest, peer `swarm0`, and the kernel echo reply
   returns through the reverse queue.
@@ -1303,6 +1306,9 @@ Expected result in the current Pluto-compatible firmware state:
    The daemon now treats full RF TX/RX queues as backpressure instead of a
    fatal service error, so TCP bursts no longer close the native-IP service
    before UDP echo traffic can complete.
+   The daemon also exposes `FIELDMESH_RF_WORKER_PHY_PLAN` as the explicit live
+   PHY binding guard and keeps `production_ready=0` until the real RF PHY
+   driver path is wired and measured.
    The remaining production boundary is connecting those queues to real RF
    packet ingress/egress.
    The SDK and state daemon now also bind that adapter output

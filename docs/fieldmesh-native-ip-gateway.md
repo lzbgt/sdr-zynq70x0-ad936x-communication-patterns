@@ -144,6 +144,12 @@ Minimum production gates for native TCP/IP:
   host test script. The worker advances the driver queue and reports queue
   observations, but still reports `rf_phy_tx_rx=0` until actual PHY TX/RX is
   integrated;
+- daemon exposes `FIELDMESH_RF_WORKER_PHY_PLAN`, which is the guard contract
+  for binding the worker queue to a live PHY driver. It reports the required
+  sidecar preflight, sidecar DMA, RF packet-engine proof, TX guard,
+  conducted/shielded setup, legal frequency profile, RX-first validation, and
+  measured link evidence. It does not start RF TX and keeps production
+  readiness false until the real PHY driver path is wired and verified;
 - `driver_queue` is the default service transport, while
   `diagnostic_loopback` is an explicit test-only mode. RX ingest rejects
   malformed BLR frames, non-`APP_DATA` frames, and frames whose destination EUI

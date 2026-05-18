@@ -4322,6 +4322,51 @@ the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 
+## 2026-05-18 RF Worker PHY Plan Gate
+
+`FIELDMESH_RF_WORKER_PHY_PLAN` was added to the daemon contract and verified on
+both installed boards. The gate reports the required evidence before any real
+PHY driver binding is allowed: sidecar preflight, sidecar DMA, RF
+packet-engine proof, TX guard, conducted/shielded setup, legal frequency
+profile, RX-first validation, and measured link evidence. It deliberately keeps
+`live_rf_allowed=0`, `rf_phy_tx_rx=0`, `production_ready=0`, and
+`production_blocker=real_rf_phy_tx_rx_not_verified`.
+
+The first live board SDK gate exposed a practical transport bug: adding one
+more verbose HELLO capability pushed the JSON HELLO response to 1492 bytes,
+which crossed the UDP/USB path boundary and caused host-side query timeouts
+even though the board received the request. The HELLO response was made concise
+again and both SDK gates now enforce a 1400-byte maximum response size.
+
+Verified commands:
+
+```sh
+./tools/verify_fieldmesh_sdk.sh
+./tools/verify_fieldmesh_runtime_artifacts.sh all
+APPLY=1 ALLOW_FLASH_WRITES=1 ./tools/install_fieldmesh_connected_boards.sh
+
+OUT_DIR=.config/fieldmesh/board-sdk-daemon-z203-phyplan-size-20260518-114344 \
+  VARIANT=z203 UPLOAD_IF_MISSING=0 BOARD_IP=192.168.1.10 \
+  EXPECTED_AP_EUI=020000000203 ROUTE_DST_EUI=020000000103 \
+  EXPLICIT_AP_EUI=020000000103 EXPLICIT_DST_EUI=020000000103 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh
+
+OUT_DIR=.config/fieldmesh/board-sdk-daemon-z103-phyplan-size-20260518-114344 \
+  VARIANT=z103 UPLOAD_IF_MISSING=0 BOARD_IP=192.168.3.1 \
+  EXPECTED_AP_EUI=020000000103 ROUTE_DST_EUI=020000000203 \
+  EXPLICIT_AP_EUI=020000000203 EXPLICIT_DST_EUI=020000000203 \
+  ./tools/run_fieldmesh_board_sdk_daemon.sh
+
+PACKETS=3 DIRECTIONS=both VERIFY_ICMP=1 \
+  ./tools/run_fieldmesh_two_board_native_ip_bridge.sh
+
+./tools/run_fieldmesh_two_board_native_ip_sockets.sh
+```
+
+The bridge and socket gates still prove the daemon RF-worker boundary, not
+over-air RF. The next production gate remains wiring the daemon RF worker to
+actual PHY TX/RX and measuring ICMP/TCP/UDP over radio.
+
 ## Verification Gaps
 
 - `qspi-nvmfs` / `mtd2` is not mounted. Recovery path is known

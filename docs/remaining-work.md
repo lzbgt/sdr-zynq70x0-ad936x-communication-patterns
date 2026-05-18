@@ -58,10 +58,17 @@ has first-class RF worker lifecycle controls:
 `FIELDMESH_RF_WORKER_START`, `FIELDMESH_RF_WORKER_STATUS`, and
 `FIELDMESH_RF_WORKER_STOP`. That worker observes and advances the driver-queue
 boundary inside the daemon, but still reports `rf_phy_tx_rx=0`; it is not a
-fake radio. TX lease is non-destructive, so frames are removed only after ACK
-instead of being lost on delivery timeout. The older `FIELDMESH_RF_TX_POLL`
-remains a legacy destructive diagnostic. RX ingest now validates BLR `APP_DATA`
-type and destination EUI before the frame can reach `swarm0`.
+fake radio. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
+gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
+engine, TX guard, conducted/shielded setup, legal frequency profile, RX-first
+validation, and measured link evidence are all required. The plan always keeps
+`live_rf_allowed=0`, `rf_phy_tx_rx=0`, `production_ready=0`, and
+`production_blocker=real_rf_phy_tx_rx_not_verified` until the real PHY driver
+entrypoint is wired and measured. TX lease is non-destructive, so frames are
+removed only after ACK instead of being lost on delivery timeout. The older
+`FIELDMESH_RF_TX_POLL` remains a legacy destructive diagnostic. RX ingest now
+validates BLR `APP_DATA` type and destination EUI before the frame can reach
+`swarm0`.
 `diagnostic_loopback` remains explicit test-only. A two-board host RF-worker
 bridge now verifies the contract across installed daemons in both directions:
 Z203-to-Z103 and Z103-to-Z203 each lease BLR frames from the source TX queue,

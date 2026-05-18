@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-42}"
+requests="${REQUESTS:-43}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -152,6 +152,8 @@ def load(path):
 
 serve = load(serve_path)
 query = load(query_path)
+hello_wire = next((line for line in query_path.read_text(encoding="utf-8").splitlines()
+                   if '"event":"sdk_daemon_hello"' in line), "")
 hello = [row for row in query if row.get("event") == "sdk_daemon_hello"]
 identity_set = [row for row in query if row.get("event") == "sdk_daemon_device_identity_set"]
 peer = [row for row in query if row.get("event") == "sdk_daemon_peer_state"]
@@ -184,6 +186,7 @@ tun_service_start_guard = [row for row in query if row.get("event") == "sdk_daem
 tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tun_service_status"]
 rf_worker_start = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_start"]
 rf_worker_status = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_status"]
+rf_worker_phy_plan = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_phy_plan"]
 rf_worker_stop = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_stop"]
 rf_tx_poll = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_poll"]
 rf_tx_lease = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_lease"]
@@ -194,10 +197,12 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 42:
+if not end or end[-1].get("handled") != 43:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
+if len(hello_wire.encode("utf-8")) > 1400:
+    raise SystemExit("board SDK daemon HELLO response must stay below 1400 bytes")
 if hello[0].get("protocol") != "fieldmesh-eth-sdk" or hello[0].get("protocol_version") != 1:
     raise SystemExit("board SDK daemon HELLO protocol changed")
 if hello[0].get("sdk_abi") != "pure_c":
@@ -222,7 +227,7 @@ for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_tun_gateway", "supports_native_ip_gateway",
             "supports_tcp_ip_client_apps",
             "supports_rf_transport_driver_queue",
-            "supports_rf_worker",
+            "supports_rf_worker", "supports_rf_worker_phy_plan",
             "supports_rf_tx_poll", "supports_rf_tx_lease_ack",
             "supports_rf_rx_ingest",
             "supports_camera_stream_chunk",
@@ -558,6 +563,27 @@ if not rf_worker_status or rf_worker_status[0].get("driver_queue_worker") != 1:
     raise SystemExit("board SDK daemon RF worker status response failed")
 if rf_worker_status[0].get("running") != 0 or rf_worker_status[0].get("rf_phy_tx_rx") != 0:
     raise SystemExit("board SDK daemon RF worker status must remain RF-PHY-pending")
+if not rf_worker_phy_plan or rf_worker_phy_plan[0].get("ok") is not True:
+    raise SystemExit("board SDK daemon RF worker PHY plan response failed")
+for key in ("requires_sidecar_preflight", "requires_sidecar_dma",
+            "requires_rf_packet_engine", "requires_rf_tx_guard",
+            "requires_conducted_or_shielded", "requires_legal_frequency_profile",
+            "requires_rx_first", "requires_measured_link"):
+    if rf_worker_phy_plan[0].get(key) != 1:
+        raise SystemExit(f"board SDK daemon RF worker PHY plan key {key} must be 1")
+for key in ("sidecar_preflight_passed", "sidecar_dma_passed",
+            "rf_packet_engine_passed", "rf_tx_guard_passed",
+            "conducted_or_shielded", "legal_frequency_profile", "rx_first",
+            "measured_link", "live_rf_allowed", "rf_phy_tx_rx",
+            "rf_phy_tx_rx_verified", "app_verified_real_rf",
+            "production_ready", "starts_rf_tx", "writes_hardware",
+            "commands_executed"):
+    if rf_worker_phy_plan[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon RF worker PHY plan key {key} must be 0")
+if rf_worker_phy_plan[0].get("next_boundary") != "rf_phy_driver_tx_rx":
+    raise SystemExit("board SDK daemon RF worker PHY plan next boundary changed")
+if rf_worker_phy_plan[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+    raise SystemExit("board SDK daemon RF worker PHY plan production blocker changed")
 if not rf_worker_stop or rf_worker_stop[0].get("ok") is not True:
     raise SystemExit("board SDK daemon RF worker stop response failed")
 if not rf_tx_lease or rf_tx_lease[0].get("error") != "tun_service_not_running":
@@ -620,6 +646,7 @@ print(json.dumps({
     "tun_event_loop_guard_events": len(tun_event_loop_guard),
     "tun_service_start_guard_events": len(tun_service_start_guard),
     "tun_service_status_events": len(tun_service_status),
+    "rf_worker_phy_plan_events": len(rf_worker_phy_plan),
     "rf_tx_poll_events": len(rf_tx_poll),
     "rf_tx_lease_events": len(rf_tx_lease),
     "rf_tx_ack_events": len(rf_tx_ack),
