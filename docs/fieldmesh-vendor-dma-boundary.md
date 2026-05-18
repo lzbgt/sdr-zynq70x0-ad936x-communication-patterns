@@ -738,7 +738,8 @@ The readiness classifier is separate from the runner:
 
 It keeps dry-run and infrastructure-only evidence non-production. A successful
 executed IQ decode can only prove `rf_phy_tx_rx_verified`; production readiness
-also requires app messaging, topology/range, and native-IP reports over real RF.
+also requires named app messaging, topology/range, and native-IP reports over
+real RF.
 
 ## Variant Notes
 

@@ -3570,8 +3570,9 @@ The classifier consumes `fieldmesh_iq_iio_live_run.json` and optional app
 real-RF reports. Dry-run IQ evidence keeps `rf_phy_tx_rx_verified=false`.
 Executed guarded IQ evidence with successful decode may set
 `rf_phy_tx_rx_verified=true`, but still keeps `production_ready=false` until
-app messaging, topology/range, and native-IP reports prove payload behavior over
-real RF with no inter-board host-IP payload routing.
+named messaging, topology/range, and native-IP reports prove payload behavior
+over real RF with no inter-board host-IP payload routing. Generic optimistic
+reports without one of those feature names are rejected.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

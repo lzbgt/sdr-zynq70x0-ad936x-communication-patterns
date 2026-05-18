@@ -15,6 +15,7 @@ from typing import Any
 
 
 LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
+DEFAULT_REQUIRED_APP_FEATURES = ("messaging", "topology", "native_ip")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -82,10 +83,11 @@ def live_iq_status(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def app_evidence_status(paths: list[Path]) -> dict[str, Any]:
+def app_evidence_status(paths: list[Path], required_features: list[str]) -> dict[str, Any]:
+    required = sorted(set(required_features))
     if not paths:
         return {
-            "required": True,
+            "required_features": required,
             "reports": [],
             "app_verified_real_rf": False,
             "blocker": "app_real_rf_verification_missing",
@@ -93,37 +95,55 @@ def app_evidence_status(paths: list[Path]) -> dict[str, Any]:
 
     reports: list[dict[str, Any]] = []
     failed: list[str] = []
+    covered: set[str] = set()
     for path in paths:
         data = load_json(path)
+        feature = data.get("feature") or data.get("app_feature")
         ok = (
-            data.get("ok") is True
-            and data.get("uses_inter_board_ip_routing") in (False, 0, None)
+            feature in required
+            and data.get("ok") is True
+            and data.get("transport") == "real_rf_phy"
+            and data.get("uses_inter_board_ip_routing") in (False, 0)
             and data.get("rf_phy_tx_rx_verified") in (True, 1)
             and data.get("app_verified_real_rf") in (True, 1)
         )
+        if ok:
+            covered.add(str(feature))
         reports.append(
             {
                 "path": str(path),
                 "event": data.get("event"),
+                "feature": feature,
                 "ok": ok,
+                "transport": data.get("transport"),
+                "uses_inter_board_ip_routing": data.get("uses_inter_board_ip_routing"),
                 "rf_phy_tx_rx_verified": data.get("rf_phy_tx_rx_verified"),
                 "app_verified_real_rf": data.get("app_verified_real_rf"),
             }
         )
         if not ok:
             failed.append(str(path))
+    missing = [feature for feature in required if feature not in covered]
     return {
-        "required": True,
+        "required_features": required,
         "reports": reports,
-        "app_verified_real_rf": not failed,
+        "covered_features": sorted(covered),
+        "missing_features": missing,
+        "app_verified_real_rf": not failed and not missing,
         "failed_reports": failed,
-        "blocker": None if not failed else "app_real_rf_verification_failed",
+        "blocker": (
+            None
+            if not failed and not missing
+            else "app_real_rf_verification_missing"
+            if missing
+            else "app_real_rf_verification_failed"
+        ),
     }
 
 
 def classify(args: argparse.Namespace) -> dict[str, Any]:
     iq = live_iq_status(load_json(args.iq_live_run))
-    app = app_evidence_status(args.app_real_rf_report)
+    app = app_evidence_status(args.app_real_rf_report, args.required_app_feature)
 
     if not iq["rf_phy_tx_rx_verified"]:
         production_blocker = "measured_rf_phy_tx_rx_not_verified"
@@ -160,6 +180,12 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=[],
         help="JSON report proving an app feature over real RF; may be repeated.",
+    )
+    parser.add_argument(
+        "--required-app-feature",
+        action="append",
+        default=list(DEFAULT_REQUIRED_APP_FEATURES),
+        help="Required app feature name for production readiness; may be repeated.",
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument("--pretty", action="store_true")

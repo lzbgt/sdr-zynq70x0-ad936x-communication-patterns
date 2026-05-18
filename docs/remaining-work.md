@@ -610,8 +610,8 @@ below were later superseded by the current PHY-management two-board gates above:
   `tools/classify_fieldmesh_rf_phy_readiness.py` is the no-write classifier for
   that evidence: dry-runs and infrastructure-only gates keep
   `rf_phy_tx_rx_verified=0`; even a successful executed IQ decode keeps
-  `production_ready=0` until app messaging/topology/native-IP reports prove
-  payload behavior over real RF.
+  `production_ready=0` until named app messaging, topology, and native-IP
+  reports prove payload behavior over real RF.
 - Extend the new pure-C camera stream SDK API and C++
   `apps/fieldmesh-control-camera-demo` into a live two-host camera-stream demo
   once the board daemon and RF stream path are connected end to end. The SDK

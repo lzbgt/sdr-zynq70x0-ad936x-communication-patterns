@@ -93,3 +93,69 @@ if report.get("app_verified_real_rf") is not False or report.get("production_rea
 if report.get("production_blocker") != "app_real_rf_verification_missing":
     raise SystemExit(f"unexpected IQ-only blocker: {report.get('production_blocker')}")
 PY
+
+for feature in messaging topology native_ip; do
+  cat > "$work_dir/app_${feature}.json" <<JSON
+{
+  "event": "fieldmesh_app_real_rf_report",
+  "feature": "$feature",
+  "transport": "real_rf_phy",
+  "ok": true,
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true
+}
+JSON
+done
+
+"$repo_root/tools/classify_fieldmesh_rf_phy_readiness.py" \
+  --iq-live-run "$work_dir/executed_iq_without_app.json" \
+  --app-real-rf-report "$work_dir/app_messaging.json" \
+  --app-real-rf-report "$work_dir/app_topology.json" \
+  --app-real-rf-report "$work_dir/app_native_ip.json" \
+  --output "$work_dir/complete_classification.json" \
+  > "$work_dir/complete_stdout.json"
+
+python3 - "$work_dir/complete_classification.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for key in ("rf_phy_tx_rx_verified", "app_verified_real_rf", "production_ready", "planned_features_production_level"):
+    if report.get(key) is not True:
+        raise SystemExit(f"{key} should be true with complete measured RF evidence")
+if report.get("production_blocker") is not None:
+    raise SystemExit(f"complete evidence should clear blocker: {report.get('production_blocker')}")
+if report["app_evidence"].get("covered_features") != ["messaging", "native_ip", "topology"]:
+    raise SystemExit(f"unexpected feature coverage: {report['app_evidence']}")
+PY
+
+cat > "$work_dir/app_optimistic_missing_feature.json" <<'JSON'
+{
+  "event": "fieldmesh_app_real_rf_report",
+  "transport": "real_rf_phy",
+  "ok": true,
+  "uses_inter_board_ip_routing": false,
+  "rf_phy_tx_rx_verified": true,
+  "app_verified_real_rf": true
+}
+JSON
+
+"$repo_root/tools/classify_fieldmesh_rf_phy_readiness.py" \
+  --iq-live-run "$work_dir/executed_iq_without_app.json" \
+  --app-real-rf-report "$work_dir/app_optimistic_missing_feature.json" \
+  --output "$work_dir/optimistic_missing_feature_classification.json" \
+  > "$work_dir/optimistic_stdout.json"
+
+python3 - "$work_dir/optimistic_missing_feature_classification.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("production_ready") is not False:
+    raise SystemExit("optimistic unnamed app report must not mark production ready")
+if report["app_evidence"].get("failed_reports") == []:
+    raise SystemExit("optimistic unnamed app report should be rejected")
+PY

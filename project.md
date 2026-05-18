@@ -601,7 +601,8 @@ user and vendor configuration.
   classifier. It refuses to treat dry-run, review-only, or infrastructure-only
   evidence as production RF readiness. `rf_phy_tx_rx_verified` requires an
   executed guarded IQ run with successful decode; `production_ready` also
-  requires app messaging/topology/native-IP evidence over real RF.
+  requires named app reports for messaging, topology, and native-IP over real
+  RF.
 - `tools/verify_fieldmesh_rf_phy_readiness_classifier.sh` - verifier for the
   readiness classifier. It proves dry-run IQ evidence stays non-production and
   executed IQ-only evidence still blocks production readiness until app-level
