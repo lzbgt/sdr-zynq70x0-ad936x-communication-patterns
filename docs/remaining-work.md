@@ -479,8 +479,10 @@ Current concrete work:
   `FIELDMESH_RTLS_REPORT` is now the daemon-side ingestion contract for that
   feed. Board images include the optional `fieldmesh-gnss-nmea-reporter` NMEA
   bridge, started only when a real GNSS device path is configured in persistent
-  storage. The remaining production work is exposing the actual board GNSS UART
-  and wiring RF timestamp producers instead of a test harness.
+  storage. The reporter requires a daemon ACK before it claims a fix was
+  reported, so init-time daemon/reporter races cannot create false topology
+  evidence. The remaining production work is exposing the actual board GNSS
+  UART and wiring RF timestamp producers instead of a test harness.
 - Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board

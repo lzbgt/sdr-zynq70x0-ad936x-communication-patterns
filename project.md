@@ -1015,7 +1015,8 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_gnss_nmea_reporter.sh` - host gate for the optional
   board-packaged `fieldmesh-gnss-nmea-reporter`. It parses real NMEA GGA/RMC
   fixes and emits `FIELDMESH_RTLS_REPORT` for the local EUI without inventing RF
-  timing calibration.
+  timing calibration. It requires a daemon `ok:true` ACK before reporting
+  success and verifies that no-ACK delivery is rejected.
 - `tools/fieldmesh_iio_preflight_assert.py` - offline validator for the
   `iio-scan` and `iio-plan` NDJSON captures, also used by the SSH helper to
   emit a reusable `preflight_assert.json` summary.

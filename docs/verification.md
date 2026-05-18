@@ -3161,8 +3161,10 @@ and measured positioning into the daemon registries.
 by one valid GNSS/BDS-style GGA fix, and verifies the reporter emits exactly one
 `FIELDMESH_RTLS_REPORT` for the local EUI. The report carries
 `gps_lock=1`, optional `pps_lock`, parsed `gps_lat_e7`/`gps_lon_e7`, and
-`turnaround_calibrated=0`; the reporter is therefore a real local GNSS
-ingestion bridge, not an RF timing simulator.
+`turnaround_calibrated=0`. The reporter now requires an `ok:true` daemon ACK
+before it emits a successful report; the verifier also runs a no-ACK negative
+case and rejects success without daemon ingestion. The reporter is therefore a
+real local GNSS ingestion bridge, not an RF timing simulator.
 
 The same gate now also verifies command-preset generation:
 
@@ -4614,7 +4616,9 @@ actual PHY TX/RX and measuring ICMP/TCP/UDP over radio.
   `pluto.frm` packaging now complete locally on WSL Arch. The rebuilt Z103
   FieldMesh package now boots from QSPI on hardware at `192.168.3.1` and
   passes ping, IIO, HTTP, sidecar preflight, and installed SDK daemon smoke.
-- No GPS PPS/NMEA test has been performed yet.
+- GNSS/PPS/NMEA parser and daemon-ingestion reporter gates now pass on host and
+  with board-packaged binaries. A real board UART/PPS capture is still open
+  until the deployed GNSS device path is configured and observed live.
 - No openwifi SD boot test has been performed yet.
 - Vivado 2025.1 and Bootgen run locally under WSL Arch, and the Pluto FPGA
   project builds locally. OpenOCD JTAG probing and volatile PL bitstream loading

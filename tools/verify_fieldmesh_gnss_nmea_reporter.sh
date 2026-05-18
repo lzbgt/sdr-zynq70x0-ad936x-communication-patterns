@@ -30,6 +30,7 @@ sock.settimeout(5.0)
 (work / "port").write_text(str(sock.getsockname()[1]), encoding="utf-8")
 data, _addr = sock.recvfrom(2048)
 request = data.decode("ascii", errors="strict")
+sock.sendto(b'{"ok":true,"event":"sdk_daemon_rtls_report"}', _addr)
 (work / "request.txt").write_text(request, encoding="utf-8")
 fields = {}
 for part in request.split():
@@ -93,3 +94,39 @@ print(json.dumps({
     "reports": len(rows),
 }, separators=(",", ":")))
 PY
+
+python3 - "$work_dir" <<'PY' &
+import socket
+import sys
+from pathlib import Path
+
+work = Path(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind(("127.0.0.1", 0))
+sock.settimeout(5.0)
+(work / "no_ack_port").write_text(str(sock.getsockname()[1]), encoding="utf-8")
+sock.recvfrom(2048)
+PY
+no_ack_server_pid="$!"
+
+for _ in $(seq 1 50); do
+    [ -s "$work_dir/no_ack_port" ] && break
+    sleep 0.1
+done
+if [ ! -s "$work_dir/no_ack_port" ]; then
+    echo "GNSS no-ack test server did not publish a port" >&2
+    kill "$no_ack_server_pid" 2>/dev/null || true
+    exit 1
+fi
+no_ack_port="$(cat "$work_dir/no_ack_port")"
+if "$bin" "$work_dir/nmea.txt" 127.0.0.1 "$no_ack_port" 020000000203 9600 1 1 \
+    > "$work_dir/reporter_no_ack.ndjson" 2>"$work_dir/reporter_no_ack.err"; then
+    echo "GNSS reporter claimed success without daemon ACK" >&2
+    kill "$no_ack_server_pid" 2>/dev/null || true
+    exit 1
+fi
+wait "$no_ack_server_pid"
+if [ -s "$work_dir/reporter_no_ack.ndjson" ]; then
+    echo "GNSS reporter emitted a report without daemon ACK" >&2
+    exit 1
+fi

@@ -375,6 +375,7 @@ PY
     for token in \
         fieldmesh_gnss_nmea_report \
         FIELDMESH_RTLS_REPORT \
+        '"ok":true' \
         gps_lat_e7 \
         gps_lon_e7 \
         turnaround_calibrated=0; do

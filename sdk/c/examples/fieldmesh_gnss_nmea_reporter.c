@@ -25,6 +25,9 @@
 #define EUI_TEXT_LEN 13
 #define LINE_MAX_BYTES 192
 #define REQUEST_MAX_BYTES 384
+#define RESPONSE_MAX_BYTES 512
+#define REPORT_ACK_RETRIES 5u
+#define REPORT_ACK_TIMEOUT_US 200000u
 
 struct gnss_fix {
     int lat_e7;
@@ -214,7 +217,9 @@ static int send_rtls_report(const char *host,
     int sock;
     struct sockaddr_in dst;
     char request[REQUEST_MAX_BYTES];
+    char response[RESPONSE_MAX_BYTES];
     int written;
+    unsigned attempt;
 
     if (!host || !eui || !fix || port == 0u || port > 65535u) {
         return -1;
@@ -241,13 +246,39 @@ static int send_rtls_report(const char *host,
         close(sock);
         return -1;
     }
-    if (sendto(sock, request, (size_t)written, 0,
-               (const struct sockaddr *)&dst, sizeof(dst)) < 0) {
-        close(sock);
-        return -1;
+    for (attempt = 0u; attempt < REPORT_ACK_RETRIES; ++attempt) {
+        fd_set readfds;
+        struct timeval timeout;
+        ssize_t got;
+
+        if (sendto(sock, request, (size_t)written, 0,
+                   (const struct sockaddr *)&dst, sizeof(dst)) < 0) {
+            close(sock);
+            return -1;
+        }
+        FD_ZERO(&readfds);
+        FD_SET(sock, &readfds);
+        timeout.tv_sec = 0;
+        timeout.tv_usec = REPORT_ACK_TIMEOUT_US;
+        if (select(sock + 1, &readfds, NULL, NULL, &timeout) <= 0) {
+            continue;
+        }
+        got = recv(sock, response, sizeof(response) - 1u, 0);
+        if (got < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            close(sock);
+            return -1;
+        }
+        response[got] = '\0';
+        if (strstr(response, "\"ok\":true") || strstr(response, "\"ok\": true")) {
+            close(sock);
+            return 0;
+        }
     }
     close(sock);
-    return 0;
+    return -1;
 }
 
 static void usage(const char *argv0)
