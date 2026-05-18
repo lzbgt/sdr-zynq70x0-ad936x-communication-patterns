@@ -60,11 +60,13 @@ has first-class RF worker lifecycle controls:
 boundary inside the daemon, but still reports `rf_phy_tx_rx=0`; it is not a
 fake radio. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
-engine, TX guard, conducted/shielded setup, legal frequency profile, RX-first
-validation, and measured link evidence are all required. The plan always keeps
-`live_rf_allowed=0`, `rf_phy_tx_rx=0`, `production_ready=0`, and
-`production_blocker=real_rf_phy_tx_rx_not_verified` until the real PHY driver
-entrypoint is wired and measured. The daemon now also exposes
+engine, TX guard, proven DAC source-select readback, conducted/shielded setup,
+legal frequency profile, RX-first validation, and measured link evidence are
+all required. The plan always keeps `live_rf_allowed=0`, `rf_phy_tx_rx=0`, and
+`production_ready=0`; while DAC source-select readback is missing it reports
+`production_blocker=rf_dac_source_select_not_verified`, then
+`real_rf_phy_tx_rx_not_verified` until the real PHY driver entrypoint is wired
+and measured. The daemon now also exposes
 `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE` and guarded
 `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY` refusal, so the worker-to-PHY binding
 interface is testable without opening IIO buffers, starting RF TX, writing
@@ -73,7 +75,12 @@ air. `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` proves the binding
 contract on an installed board after real sidecar preflight, sidecar DMA smoke,
 RF packet-engine transport recovery, and RF TX guard planning, but it still
 keeps measured-link and live-RF prerequisites false until actual radio TX/RX is
-measured. TX lease is non-destructive, so frames are
+measured. The 2026-05-18 installed-probe-first guard/source run tightened this:
+Z203 and Z103 both passed guard register write/rollback, but both failed DAC
+source-select readback with `source_control=0x00000000`. The daemon contract
+therefore now blocks PHY binding at
+`rf_dac_source_select_not_verified` until that source path is proven on the
+installed product runtime. TX lease is non-destructive, so frames are
 removed only after ACK instead of being lost on delivery timeout. The older
 `FIELDMESH_RF_TX_POLL` remains a legacy destructive diagnostic. RX ingest now
 validates BLR `APP_DATA` type and destination EUI before the frame can reach

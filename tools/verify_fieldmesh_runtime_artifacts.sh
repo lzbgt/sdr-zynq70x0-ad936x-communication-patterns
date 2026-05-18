@@ -301,6 +301,8 @@ verify_variant() {
         requires_sidecar_preflight \
         requires_sidecar_dma \
         requires_rf_tx_guard \
+        requires_rf_dac_source_select \
+        rf_dac_source_select_passed \
         driver_prerequisites_ready \
         live_rf_prerequisites_ready \
         rf_phy_driver_tx_rx \

@@ -1,0 +1,3 @@
+Linux fm-z203 6.1.0 #1 SMP PREEMPT Sun May 10 18:17:23 UTC 2026 armv7l GNU/Linux
+/usr/bin/fieldmesh-udp-probe
+rf_source_apply=present

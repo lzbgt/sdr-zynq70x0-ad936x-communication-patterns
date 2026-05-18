@@ -146,9 +146,9 @@ Minimum production gates for native TCP/IP:
   integrated;
 - daemon exposes `FIELDMESH_RF_WORKER_PHY_PLAN`, which is the guard contract
   for binding the worker queue to a live PHY driver. It reports the required
-  sidecar preflight, sidecar DMA, RF packet-engine proof, TX guard,
-  conducted/shielded setup, legal frequency profile, RX-first validation, and
-  measured link evidence. It does not start RF TX and keeps production
+  sidecar preflight, sidecar DMA, RF packet-engine proof, TX guard, proven DAC
+  source-select readback, conducted/shielded setup, legal frequency profile,
+  RX-first validation, and measured link evidence. It does not start RF TX and keeps production
   readiness false until the real PHY driver path is wired and verified;
 - daemon exposes `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE` and
   `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY`. `VALIDATE` checks the board daemon's
@@ -161,8 +161,9 @@ Minimum production gates for native TCP/IP:
 - `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` proves that boundary on an
   installed board. It runs real sidecar preflight, sidecar DMA smoke,
   RF packet-engine transport recovery, and RF TX guard planning, then starts
-  the board daemon's native-IP service plus RF worker and requires
-  `driver_prerequisites_ready=1` and `binding_ready=1`. It still requires
+  the board daemon's native-IP service plus RF worker and requires the daemon
+  to keep `driver_prerequisites_ready=0` and `binding_ready=0` unless DAC
+  source-select readback has passed. It still requires
   `measured_link=0`, `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and
   refused `APPLY`, so this is not a fake over-air pass;
 - `driver_queue` is the default service transport, while

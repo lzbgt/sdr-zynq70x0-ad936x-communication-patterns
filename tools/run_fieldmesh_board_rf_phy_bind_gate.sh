@@ -149,7 +149,7 @@ requests = (
     "FIELDMESH_RF_WORKER_START v1",
     "FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE v1 "
     "sidecar_preflight=1 sidecar_dma=1 rf_packet_engine=1 "
-    "rf_tx_guard=1 conducted_or_shielded=1 "
+    "rf_tx_guard=1 rf_dac_source_select=0 conducted_or_shielded=1 "
     "legal_frequency_profile=1 rx_first=1 measured_link=0",
     "FIELDMESH_RF_PHY_DRIVER_BIND_APPLY v1",
     "FIELDMESH_RF_WORKER_STOP v1",
@@ -203,8 +203,7 @@ if len(apply) != 1:
 validate = validate[0]
 apply = apply[0]
 
-for key in ("tun_service_running", "rf_worker_running", "driver_queue_ready",
-            "driver_prerequisites_ready", "binding_ready"):
+for key in ("tun_service_running", "rf_worker_running", "driver_queue_ready"):
     if validate.get(key) != 1:
         raise SystemExit(f"bind validate key {key} must be 1")
 for key in ("sidecar_preflight_passed", "sidecar_dma_passed",
@@ -212,7 +211,8 @@ for key in ("sidecar_preflight_passed", "sidecar_dma_passed",
             "conducted_or_shielded", "legal_frequency_profile", "rx_first"):
     if validate.get(key) != 1:
         raise SystemExit(f"bind evidence key {key} must be 1")
-for key in ("measured_link", "live_rf_prerequisites_ready",
+for key in ("rf_dac_source_select_passed", "driver_prerequisites_ready",
+            "binding_ready", "measured_link", "live_rf_prerequisites_ready",
             "prerequisites_ready", "live_rf_allowed", "rf_phy_tx_rx",
             "rf_phy_tx_rx_verified", "app_verified_real_rf",
             "production_ready", "opens_iio_buffers", "starts_rf_tx",
@@ -220,7 +220,9 @@ for key in ("measured_link", "live_rf_prerequisites_ready",
             "uses_inter_board_ip_routing", "uses_json_on_air"):
     if validate.get(key) != 0:
         raise SystemExit(f"bind validate key {key} must be 0")
-if validate.get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+if validate.get("requires_rf_dac_source_select") != 1:
+    raise SystemExit("bind validate must require DAC source-select evidence")
+if validate.get("production_blocker") != "rf_dac_source_select_not_verified":
     raise SystemExit("bind validate production blocker changed")
 if apply.get("ok") is not False or apply.get("error") != "live_rf_phy_not_authorized":
     raise SystemExit(f"bind apply must remain refused: {apply}")
@@ -240,6 +242,7 @@ summary = {
     "adapter_name": validate.get("adapter_name"),
     "driver_queue_ready": validate.get("driver_queue_ready"),
     "driver_prerequisites_ready": validate.get("driver_prerequisites_ready"),
+    "rf_dac_source_select_passed": validate.get("rf_dac_source_select_passed"),
     "binding_ready": validate.get("binding_ready"),
     "live_rf_prerequisites_ready": validate.get("live_rf_prerequisites_ready"),
     "rf_phy_tx_rx": validate.get("rf_phy_tx_rx"),

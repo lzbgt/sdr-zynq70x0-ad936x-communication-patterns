@@ -2,22 +2,23 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_image_paths.sh"
 
 variant="${VARIANT:-z103}"
 case "$variant" in
   z203)
-    default_ip="192.168.2.1"
-    rootfs_tar="$repo_root/yocto/builds/sdr-z203-arm/tmp/deploy/images/sdr-z203-zynq7/sdr-z203-arm-image-sdr-z203-zynq7.rootfs.tar.gz"
+    default_ip="192.168.1.10"
     ;;
   z103)
     default_ip="192.168.3.1"
-    rootfs_tar="$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7/sdr-z103-arm-image-sdr-z103-zynq7.rootfs.tar.gz"
     ;;
   *)
     echo "Unsupported VARIANT: $variant" >&2
     exit 2
     ;;
 esac
+fieldmesh_resolve_image_paths "$variant" "$repo_root"
+rootfs_tar="${ROOTFS_TAR:-$FIELDMESH_ROOTFS_TAR}"
 
 board_ip="${BOARD_IP:-${1:-$default_ip}}"
 ssh_user="${SSH_USER:-root}"
@@ -32,7 +33,7 @@ slot_index="${SLOT_INDEX:-3}"
 arm_window_us="${ARM_WINDOW_US:-5000}"
 apply_guard="${APPLY_GUARD:-0}"
 allow_guard_writes="${ALLOW_RF_GUARD_WRITES:-0}"
-force_upload="${FORCE_UPLOAD:-1}"
+force_upload="${FORCE_UPLOAD:-0}"
 upload_if_missing="${UPLOAD_IF_MISSING:-1}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-rf-tx-guard-apply-$variant-$(date +%Y%m%d-%H%M%S)}"
 

@@ -4210,6 +4210,7 @@ static int build_response(fieldmesh_context_t *context,
         unsigned sidecar_dma = 0u;
         unsigned rf_packet_engine = 0u;
         unsigned rf_tx_guard = 0u;
+        unsigned rf_dac_source_select = 0u;
         unsigned conducted_or_shielded = 0u;
         unsigned legal_frequency_profile = 0u;
         unsigned rx_first = 0u;
@@ -4225,6 +4226,8 @@ static int build_response(fieldmesh_context_t *context,
                                       1u, &rf_packet_engine);
         (void)request_uint_or_default(request, "rf_tx_guard=", 0u, 0u, 1u,
                                       &rf_tx_guard);
+        (void)request_uint_or_default(request, "rf_dac_source_select=", 0u,
+                                      0u, 1u, &rf_dac_source_select);
         (void)request_uint_or_default(request, "conducted_or_shielded=", 0u,
                                       0u, 1u, &conducted_or_shielded);
         (void)request_uint_or_default(request, "legal_frequency_profile=", 0u,
@@ -4236,8 +4239,8 @@ static int build_response(fieldmesh_context_t *context,
         (void)request_uint_or_default(request, "allow_live_rf=", 0u, 0u, 1u,
                                       &allow_live_rf);
         prerequisites_ready = sidecar_preflight && sidecar_dma &&
-            rf_packet_engine && rf_tx_guard && conducted_or_shielded &&
-            legal_frequency_profile && rx_first;
+            rf_packet_engine && rf_tx_guard && rf_dac_source_select &&
+            conducted_or_shielded && legal_frequency_profile && rx_first;
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_worker_phy_plan\","
@@ -4250,6 +4253,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"requires_sidecar_dma\":1,"
                  "\"requires_rf_packet_engine\":1,"
                  "\"requires_rf_tx_guard\":1,"
+                 "\"requires_rf_dac_source_select\":1,"
                  "\"requires_conducted_or_shielded\":1,"
                  "\"requires_legal_frequency_profile\":1,"
                  "\"requires_rx_first\":1,"
@@ -4258,6 +4262,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"sidecar_dma_passed\":%u,"
                  "\"rf_packet_engine_passed\":%u,"
                  "\"rf_tx_guard_passed\":%u,"
+                 "\"rf_dac_source_select_passed\":%u,"
                  "\"conducted_or_shielded\":%u,"
                  "\"legal_frequency_profile\":%u,"
                  "\"rx_first\":%u,"
@@ -4270,7 +4275,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_phy_tx_rx_verified\":0,"
                  "\"app_verified_real_rf\":0,"
                  "\"production_ready\":0,"
-                 "\"production_blocker\":\"real_rf_phy_tx_rx_not_verified\","
+                 "\"production_blocker\":\"%s\","
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
@@ -4281,13 +4286,17 @@ static int build_response(fieldmesh_context_t *context,
                  sidecar_dma,
                  rf_packet_engine,
                  rf_tx_guard,
+                 rf_dac_source_select,
                  conducted_or_shielded,
                  legal_frequency_profile,
                  rx_first,
                  measured_link,
                  prerequisites_ready ? 1u : 0u,
                  allow_live_rf,
-                 prerequisites_ready ? 1u : 0u);
+                 prerequisites_ready ? 1u : 0u,
+                 rf_dac_source_select ?
+                    "real_rf_phy_tx_rx_not_verified" :
+                    "rf_dac_source_select_not_verified");
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE")) {
@@ -4295,6 +4304,7 @@ static int build_response(fieldmesh_context_t *context,
         unsigned sidecar_dma = 0u;
         unsigned rf_packet_engine = 0u;
         unsigned rf_tx_guard = 0u;
+        unsigned rf_dac_source_select = 0u;
         unsigned conducted_or_shielded = 0u;
         unsigned legal_frequency_profile = 0u;
         unsigned rx_first = 0u;
@@ -4313,6 +4323,8 @@ static int build_response(fieldmesh_context_t *context,
                                       1u, &rf_packet_engine);
         (void)request_uint_or_default(request, "rf_tx_guard=", 0u, 0u, 1u,
                                       &rf_tx_guard);
+        (void)request_uint_or_default(request, "rf_dac_source_select=", 0u,
+                                      0u, 1u, &rf_dac_source_select);
         (void)request_uint_or_default(request, "conducted_or_shielded=", 0u,
                                       0u, 1u, &conducted_or_shielded);
         (void)request_uint_or_default(request, "legal_frequency_profile=", 0u,
@@ -4324,7 +4336,7 @@ static int build_response(fieldmesh_context_t *context,
         (void)request_uint_or_default(request, "allow_live_rf=", 0u, 0u, 1u,
                                       &allow_live_rf);
         driver_prerequisites_ready = sidecar_preflight && sidecar_dma &&
-            rf_packet_engine && rf_tx_guard;
+            rf_packet_engine && rf_tx_guard && rf_dac_source_select;
         live_rf_prerequisites_ready = driver_prerequisites_ready &&
             conducted_or_shielded && legal_frequency_profile && rx_first &&
             measured_link;
@@ -4347,6 +4359,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"requires_sidecar_dma\":1,"
                  "\"requires_rf_packet_engine\":1,"
                  "\"requires_rf_tx_guard\":1,"
+                 "\"requires_rf_dac_source_select\":1,"
                  "\"requires_conducted_or_shielded\":1,"
                  "\"requires_legal_frequency_profile\":1,"
                  "\"requires_rx_first\":1,"
@@ -4355,6 +4368,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"sidecar_dma_passed\":%u,"
                  "\"rf_packet_engine_passed\":%u,"
                  "\"rf_tx_guard_passed\":%u,"
+                 "\"rf_dac_source_select_passed\":%u,"
                  "\"conducted_or_shielded\":%u,"
                  "\"legal_frequency_profile\":%u,"
                  "\"rx_first\":%u,"
@@ -4369,7 +4383,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_phy_tx_rx_verified\":0,"
                  "\"app_verified_real_rf\":0,"
                  "\"production_ready\":0,"
-                 "\"production_blocker\":\"real_rf_phy_tx_rx_not_verified\","
+                 "\"production_blocker\":\"%s\","
                  "\"uses_json_on_air\":0,"
                  "\"opens_iio_buffers\":0,"
                  "\"starts_rf_tx\":0,"
@@ -4384,6 +4398,7 @@ static int build_response(fieldmesh_context_t *context,
                  sidecar_dma,
                  rf_packet_engine,
                  rf_tx_guard,
+                 rf_dac_source_select,
                  conducted_or_shielded,
                  legal_frequency_profile,
                  rx_first,
@@ -4392,7 +4407,10 @@ static int build_response(fieldmesh_context_t *context,
                  live_rf_prerequisites_ready ? 1u : 0u,
                  live_rf_prerequisites_ready ? 1u : 0u,
                  bind_ready ? 1u : 0u,
-                 allow_live_rf);
+                 allow_live_rf,
+                 rf_dac_source_select ?
+                    "real_rf_phy_tx_rx_not_verified" :
+                    "rf_dac_source_select_not_verified");
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_PHY_DRIVER_BIND_APPLY")) {
@@ -4403,6 +4421,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"daemon_owned_worker\":1,"
                  "\"driver_queue_worker\":1,"
                  "\"requires_bind_validate\":1,"
+                 "\"requires_rf_dac_source_select\":1,"
                  "\"requires_conducted_or_shielded\":1,"
                  "\"requires_legal_frequency_profile\":1,"
                  "\"requires_rx_first\":1,"
@@ -4412,7 +4431,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_phy_tx_rx_verified\":0,"
                  "\"app_verified_real_rf\":0,"
                  "\"production_ready\":0,"
-                 "\"production_blocker\":\"real_rf_phy_tx_rx_not_verified\","
+                 "\"production_blocker\":\"rf_dac_source_select_not_verified\","
                  "\"uses_json_on_air\":0,"
                  "\"opens_iio_buffers\":0,"
                  "\"starts_rf_tx\":0,"
@@ -6043,7 +6062,7 @@ static int query_state(const char *host,
              "%s",
              "FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE v1 "
              "sidecar_preflight=1 sidecar_dma=1 rf_packet_engine=1 "
-             "rf_tx_guard=1 conducted_or_shielded=0 "
+             "rf_tx_guard=1 rf_dac_source_select=0 conducted_or_shielded=0 "
              "legal_frequency_profile=0 rx_first=0 measured_link=0");
     snprintf(rf_phy_bind_apply_request, sizeof(rf_phy_bind_apply_request),
              "%s", "FIELDMESH_RF_PHY_DRIVER_BIND_APPLY v1");

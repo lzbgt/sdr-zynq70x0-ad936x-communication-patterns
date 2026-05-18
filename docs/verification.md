@@ -2371,11 +2371,19 @@ The first Z103 source-select run exposed a useful mismatch: the old installed
 RF-engine runtime did not read back `FM_RF_DAC_SOURCE_CONTROL[0]`. The apply
 path now fails unless source-select reads back asserted. After installing the
 refreshed RF-engine package, `APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1
-FORCE_UPLOAD=1 VARIANT=z103 ./tools/run_fieldmesh_board_rf_source_apply.sh
+UPLOAD_IF_MISSING=0 VARIANT=z103 ./tools/run_fieldmesh_board_rf_source_apply.sh
 192.168.3.1` passed with `source_control=0x00000001`,
 `source_status=0x00000003`, rollback to zero, and AD936x TX/RF TX still
 disabled. Evidence is archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_source_apply_readback_20260514-1301/`.
+On the current installed product runtime, the installed-probe-first gate found
+the opposite result on both boards: guard register write/rollback still passed,
+but DAC source-select readback stayed `0x00000000` on Z103 and Z203, so PHY
+driver binding must remain blocked at
+`rf_dac_source_select_not_verified`. Evidence is archived under
+`resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_source_select_blocked_20260518-121711/`
+and
+`resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_rf_source_select_blocked_20260518-121711/`.
 `./tools/verify_fieldmesh_rf_tx_enable_plan.sh` then added the review-only
 TX-enable gate: it consumes live guard/source/preflight evidence, requires
 conducted/shielded fixture attenuation, legal frequency profile, RX-first,
@@ -4327,10 +4335,12 @@ The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `FIELDMESH_RF_WORKER_PHY_PLAN` was added to the daemon contract and verified on
 both installed boards. The gate reports the required evidence before any real
 PHY driver binding is allowed: sidecar preflight, sidecar DMA, RF
-packet-engine proof, TX guard, conducted/shielded setup, legal frequency
-profile, RX-first validation, and measured link evidence. It deliberately keeps
-`live_rf_allowed=0`, `rf_phy_tx_rx=0`, `production_ready=0`, and
-`production_blocker=real_rf_phy_tx_rx_not_verified`.
+packet-engine proof, TX guard, DAC source-select readback, conducted/shielded
+setup, legal frequency profile, RX-first validation, and measured link
+evidence. It deliberately keeps `live_rf_allowed=0`, `rf_phy_tx_rx=0`, and
+`production_ready=0`. If DAC source-select readback is not proven, it reports
+`production_blocker=rf_dac_source_select_not_verified`; after that passes, the
+remaining blocker is `real_rf_phy_tx_rx_not_verified`.
 
 The first live board SDK gate exposed a practical transport bug: adding one
 more verbose HELLO capability pushed the JSON HELLO response to 1492 bytes,

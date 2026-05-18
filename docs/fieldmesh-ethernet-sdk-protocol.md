@@ -332,9 +332,9 @@ over-air RF PHY TX/RX is connected and app-verified, `production_ready` and
 
 `FIELDMESH_RF_WORKER_PHY_PLAN v1` reports the live-RF prerequisites required
 before the daemon RF worker can drive an actual PHY path: sidecar preflight,
-sidecar DMA, RF packet-engine proof, TX guard, conducted/shielded setup, legal
-frequency profile, RX-first validation, and measured-link evidence. It is a
-planning response only.
+sidecar DMA, RF packet-engine proof, TX guard, proven DAC source-select
+readback, conducted/shielded setup, legal frequency profile, RX-first
+validation, and measured-link evidence. It is a planning response only.
 
 `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE v1 ...` validates the daemon-owned RF
 worker to PHY-driver binding contract using explicit evidence flags supplied
@@ -343,9 +343,12 @@ write hardware, execute commands, use inter-board host IP routing, or put JSON
 on air. `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY v1` remains refused with
 `live_rf_allowed=0` until the live conducted/shielded RF evidence path exists.
 `driver_prerequisites_ready=1` and `binding_ready=1` mean only that the daemon
-worker, driver queue, sidecar DMA, RF packet engine, and TX guard contract are
-present. `live_rf_prerequisites_ready=1` additionally requires conducted or
-shielded setup, legal frequency profile, RX-first validation, and measured-link
+worker, driver queue, sidecar DMA, RF packet engine, TX guard contract, and DAC
+source-select readback are present. If `rf_dac_source_select_passed=0`, the
+response must keep `driver_prerequisites_ready=0`, `binding_ready=0`, and
+`production_blocker=rf_dac_source_select_not_verified`.
+`live_rf_prerequisites_ready=1` additionally requires conducted or shielded
+setup, legal frequency profile, RX-first validation, and measured-link
 evidence. Both responses keep `rf_phy_tx_rx=0`, `app_verified_real_rf=0`, and
 `production_ready=0` until measured radio TX/RX passes.
 

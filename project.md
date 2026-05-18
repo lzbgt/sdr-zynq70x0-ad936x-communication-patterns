@@ -830,17 +830,18 @@ user and vendor configuration.
   `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE`, and guarded
   `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY` refusal. These requests make the next
   live-RF boundary explicit: sidecar preflight, sidecar DMA, packet-engine
-  proof, TX guard, conducted/shielded setup, legal frequency profile, RX-first
-  validation, and measured link evidence are required before a real PHY driver
-  can be applied. The current installed daemon still reports
+  proof, TX guard, DAC source-select readback, conducted/shielded setup, legal
+  frequency profile, RX-first validation, and measured link evidence are
+  required before a real PHY driver can be applied. The current installed daemon still reports
   `rf_phy_tx_rx=0` and `production_ready=0`.
 - `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` - live installed-board gate
   for the RF worker to PHY-driver binding contract. It combines real sidecar
   preflight, sidecar DMA smoke, RF packet-engine transport recovery, RF TX
   guard planning, daemon native-IP service start, RF worker start, bind
   validation, and refused bind apply. The expected pass state is
-  `binding_ready=1` but `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and
-  `production_ready=0`.
+  `rf_dac_source_select_passed=0`, `binding_ready=0`,
+  `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and `production_ready=0`
+  until the installed runtime proves DAC source-select readback.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board

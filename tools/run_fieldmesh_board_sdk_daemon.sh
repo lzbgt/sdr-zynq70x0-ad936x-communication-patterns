@@ -570,12 +570,14 @@ if not rf_worker_phy_plan or rf_worker_phy_plan[0].get("ok") is not True:
     raise SystemExit("board SDK daemon RF worker PHY plan response failed")
 for key in ("requires_sidecar_preflight", "requires_sidecar_dma",
             "requires_rf_packet_engine", "requires_rf_tx_guard",
+            "requires_rf_dac_source_select",
             "requires_conducted_or_shielded", "requires_legal_frequency_profile",
             "requires_rx_first", "requires_measured_link"):
     if rf_worker_phy_plan[0].get(key) != 1:
         raise SystemExit(f"board SDK daemon RF worker PHY plan key {key} must be 1")
 for key in ("sidecar_preflight_passed", "sidecar_dma_passed",
             "rf_packet_engine_passed", "rf_tx_guard_passed",
+            "rf_dac_source_select_passed",
             "conducted_or_shielded", "legal_frequency_profile", "rx_first",
             "measured_link", "live_rf_allowed", "rf_phy_tx_rx",
             "rf_phy_tx_rx_verified", "app_verified_real_rf",
@@ -585,7 +587,7 @@ for key in ("sidecar_preflight_passed", "sidecar_dma_passed",
         raise SystemExit(f"board SDK daemon RF worker PHY plan key {key} must be 0")
 if rf_worker_phy_plan[0].get("next_boundary") != "rf_phy_driver_tx_rx":
     raise SystemExit("board SDK daemon RF worker PHY plan next boundary changed")
-if rf_worker_phy_plan[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+if rf_worker_phy_plan[0].get("production_blocker") != "rf_dac_source_select_not_verified":
     raise SystemExit("board SDK daemon RF worker PHY plan production blocker changed")
 if not rf_phy_bind_validate or rf_phy_bind_validate[0].get("ok") is not True:
     raise SystemExit("board SDK daemon RF PHY driver bind validation response failed")
@@ -595,6 +597,7 @@ if rf_phy_bind_validate[0].get("adapter_name") != "swarm0":
     raise SystemExit("board SDK daemon RF PHY bind validation adapter changed")
 for key in ("requires_sidecar_preflight", "requires_sidecar_dma",
             "requires_rf_packet_engine", "requires_rf_tx_guard",
+            "requires_rf_dac_source_select",
             "requires_conducted_or_shielded", "requires_legal_frequency_profile",
             "requires_rx_first", "requires_measured_link",
             "daemon_owned_worker", "driver_queue_worker"):
@@ -616,18 +619,22 @@ if rf_phy_bind_validate[0].get("rf_packet_engine_passed") != 1:
     raise SystemExit("board SDK daemon RF PHY bind validation packet-engine flag changed")
 if rf_phy_bind_validate[0].get("rf_tx_guard_passed") != 1:
     raise SystemExit("board SDK daemon RF PHY bind validation TX guard flag changed")
-if rf_phy_bind_validate[0].get("driver_prerequisites_ready") != 1:
-    raise SystemExit("board SDK daemon RF PHY bind validation driver prerequisites changed")
+if rf_phy_bind_validate[0].get("rf_dac_source_select_passed") != 0:
+    raise SystemExit("board SDK daemon RF PHY bind validation must not fake DAC source-select evidence")
+if rf_phy_bind_validate[0].get("driver_prerequisites_ready") != 0:
+    raise SystemExit("board SDK daemon RF PHY bind validation must require DAC source-select evidence")
 if rf_phy_bind_validate[0].get("live_rf_prerequisites_ready") != 0:
     raise SystemExit("board SDK daemon RF PHY bind validation must not mark live RF prerequisites ready")
 if rf_phy_bind_validate[0].get("next_boundary") != "rf_phy_driver_tx_rx":
     raise SystemExit("board SDK daemon RF PHY bind validation next boundary changed")
-if rf_phy_bind_validate[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+if rf_phy_bind_validate[0].get("production_blocker") != "rf_dac_source_select_not_verified":
     raise SystemExit("board SDK daemon RF PHY bind validation production blocker changed")
 if not rf_phy_bind_apply or rf_phy_bind_apply[0].get("ok") is not False:
     raise SystemExit("board SDK daemon RF PHY bind apply guard failed")
 if rf_phy_bind_apply[0].get("error") != "live_rf_phy_not_authorized":
     raise SystemExit("board SDK daemon RF PHY bind apply error changed")
+if rf_phy_bind_apply[0].get("requires_rf_dac_source_select") != 1:
+    raise SystemExit("board SDK daemon RF PHY bind apply must require DAC source-select evidence")
 for key in ("live_rf_allowed", "rf_phy_tx_rx", "rf_phy_tx_rx_verified",
             "app_verified_real_rf", "production_ready", "opens_iio_buffers",
             "starts_rf_tx", "writes_hardware", "commands_executed",
