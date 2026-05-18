@@ -142,7 +142,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 43 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 45 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -358,6 +358,8 @@ tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tu
 rf_worker_start = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_start"]
 rf_worker_status = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_status"]
 rf_worker_phy_plan = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_phy_plan"]
+rf_phy_bind_validate = [row for row in query if row.get("event") == "sdk_daemon_rf_phy_driver_bind_validate"]
+rf_phy_bind_apply = [row for row in query if row.get("event") == "sdk_daemon_rf_phy_driver_bind_apply"]
 rf_worker_stop = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_stop"]
 rf_tx_poll = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_poll"]
 rf_tx_lease = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_lease"]
@@ -367,7 +369,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 43 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 45 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -398,6 +400,7 @@ for key in ("supports_app_control_camera", "supports_app_message_send",
             "supports_tcp_ip_client_apps",
             "supports_rf_transport_driver_queue",
             "supports_rf_worker", "supports_rf_worker_phy_plan",
+            "supports_rf_phy_driver_bind",
             "supports_rf_tx_poll", "supports_rf_tx_lease_ack",
             "supports_rf_rx_ingest",
             "supports_camera_stream_chunk",
@@ -846,6 +849,49 @@ if rf_worker_phy_plan[0].get("next_boundary") != "rf_phy_driver_tx_rx":
     raise SystemExit("SDK daemon RF worker PHY plan next boundary changed")
 if rf_worker_phy_plan[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
     raise SystemExit("SDK daemon RF worker PHY plan production blocker changed")
+if not rf_phy_bind_validate or rf_phy_bind_validate[0].get("ok") is not True:
+    raise SystemExit("SDK daemon RF PHY driver bind validation query failed")
+if rf_phy_bind_validate[0].get("driver") != "fieldmesh_rf_packet_engine":
+    raise SystemExit("SDK daemon RF PHY bind validation driver changed")
+if rf_phy_bind_validate[0].get("adapter_name") != "swarm0":
+    raise SystemExit("SDK daemon RF PHY bind validation adapter changed")
+for key in ("requires_sidecar_preflight", "requires_sidecar_dma",
+            "requires_rf_packet_engine", "requires_rf_tx_guard",
+            "requires_conducted_or_shielded", "requires_legal_frequency_profile",
+            "requires_rx_first", "requires_measured_link",
+            "daemon_owned_worker", "driver_queue_worker"):
+    if rf_phy_bind_validate[0].get(key) != 1:
+        raise SystemExit(f"SDK daemon RF PHY bind validation key {key} must be 1")
+for key in ("conducted_or_shielded", "legal_frequency_profile", "rx_first",
+            "measured_link", "prerequisites_ready", "binding_ready",
+            "live_rf_allowed", "rf_phy_tx_rx", "rf_phy_tx_rx_verified",
+            "app_verified_real_rf", "production_ready", "opens_iio_buffers",
+            "starts_rf_tx", "writes_hardware", "commands_executed",
+            "uses_inter_board_ip_routing", "uses_json_on_air"):
+    if rf_phy_bind_validate[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon RF PHY bind validation key {key} must be 0")
+if rf_phy_bind_validate[0].get("sidecar_preflight_passed") != 1:
+    raise SystemExit("SDK daemon RF PHY bind validation did not preserve sidecar preflight evidence flag")
+if rf_phy_bind_validate[0].get("sidecar_dma_passed") != 1:
+    raise SystemExit("SDK daemon RF PHY bind validation did not preserve sidecar DMA evidence flag")
+if rf_phy_bind_validate[0].get("rf_packet_engine_passed") != 1:
+    raise SystemExit("SDK daemon RF PHY bind validation did not preserve packet-engine evidence flag")
+if rf_phy_bind_validate[0].get("rf_tx_guard_passed") != 1:
+    raise SystemExit("SDK daemon RF PHY bind validation did not preserve TX guard evidence flag")
+if rf_phy_bind_validate[0].get("next_boundary") != "rf_phy_driver_tx_rx":
+    raise SystemExit("SDK daemon RF PHY bind validation next boundary changed")
+if rf_phy_bind_validate[0].get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+    raise SystemExit("SDK daemon RF PHY bind validation production blocker changed")
+if not rf_phy_bind_apply or rf_phy_bind_apply[0].get("ok") is not False:
+    raise SystemExit("SDK daemon RF PHY bind apply guard failed")
+if rf_phy_bind_apply[0].get("error") != "live_rf_phy_not_authorized":
+    raise SystemExit("SDK daemon RF PHY bind apply error changed")
+for key in ("live_rf_allowed", "rf_phy_tx_rx", "rf_phy_tx_rx_verified",
+            "app_verified_real_rf", "production_ready", "opens_iio_buffers",
+            "starts_rf_tx", "writes_hardware", "commands_executed",
+            "uses_inter_board_ip_routing", "uses_json_on_air"):
+    if rf_phy_bind_apply[0].get(key) != 0:
+        raise SystemExit(f"SDK daemon RF PHY bind apply key {key} must be 0")
 if not rf_worker_stop or rf_worker_stop[0].get("ok") is not True:
     raise SystemExit("SDK daemon RF worker stop query failed")
 if rf_worker_stop[0].get("running") != 0 or rf_worker_stop[0].get("rf_phy_tx_rx") != 0:

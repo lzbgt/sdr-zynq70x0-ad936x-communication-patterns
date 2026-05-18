@@ -291,9 +291,12 @@ verify_variant() {
         supports_rf_transport_driver_queue \
         supports_rf_worker \
         supports_rf_worker_phy_plan \
+        supports_rf_phy_driver_bind \
         sdk_daemon_rf_worker_start \
         sdk_daemon_rf_worker_status \
         sdk_daemon_rf_worker_phy_plan \
+        sdk_daemon_rf_phy_driver_bind_validate \
+        sdk_daemon_rf_phy_driver_bind_apply \
         sdk_daemon_rf_worker_stop \
         requires_sidecar_preflight \
         requires_sidecar_dma \

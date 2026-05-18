@@ -64,7 +64,12 @@ engine, TX guard, conducted/shielded setup, legal frequency profile, RX-first
 validation, and measured link evidence are all required. The plan always keeps
 `live_rf_allowed=0`, `rf_phy_tx_rx=0`, `production_ready=0`, and
 `production_blocker=real_rf_phy_tx_rx_not_verified` until the real PHY driver
-entrypoint is wired and measured. TX lease is non-destructive, so frames are
+entrypoint is wired and measured. The daemon now also exposes
+`FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE` and guarded
+`FIELDMESH_RF_PHY_DRIVER_BIND_APPLY` refusal, so the worker-to-PHY binding
+interface is testable without opening IIO buffers, starting RF TX, writing
+hardware, running commands, using host IP as the data path, or putting JSON on
+air. TX lease is non-destructive, so frames are
 removed only after ACK instead of being lost on delivery timeout. The older
 `FIELDMESH_RF_TX_POLL` remains a legacy destructive diagnostic. RX ingest now
 validates BLR `APP_DATA` type and destination EUI before the frame can reach

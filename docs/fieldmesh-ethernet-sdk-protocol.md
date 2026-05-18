@@ -330,6 +330,21 @@ over-air RF PHY TX/RX is connected and app-verified, `production_ready` and
 `planned_features_production_level` must remain false and
 `production_blocker` must name the missing RF PHY verification boundary.
 
+`FIELDMESH_RF_WORKER_PHY_PLAN v1` reports the live-RF prerequisites required
+before the daemon RF worker can drive an actual PHY path: sidecar preflight,
+sidecar DMA, RF packet-engine proof, TX guard, conducted/shielded setup, legal
+frequency profile, RX-first validation, and measured-link evidence. It is a
+planning response only.
+
+`FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE v1 ...` validates the daemon-owned RF
+worker to PHY-driver binding contract using explicit evidence flags supplied
+by the guarded live-test harness. It must not open IIO buffers, start RF TX,
+write hardware, execute commands, use inter-board host IP routing, or put JSON
+on air. `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY v1` remains refused with
+`live_rf_allowed=0` until the live conducted/shielded RF evidence path exists.
+Both responses keep `rf_phy_tx_rx=0`, `app_verified_real_rf=0`, and
+`production_ready=0` until measured radio TX/RX passes.
+
 `FIELDMESH_APP_MESSAGE_SEND v1 dst=<12-hex-eui> payload_hex=<hex>` is the
 host-debug daemon request used by the golden IM app to queue a text/message
 payload into the local board data plane. `dst` is mandatory; the daemon must not

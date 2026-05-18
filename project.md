@@ -825,6 +825,15 @@ user and vendor configuration.
   post-reboot init/process state in addition to daemon HELLO capabilities. The
   post-reboot process check now retries SSH because Z103 can answer ping and
   daemon UDP before SSH has finished restarting after a `.frm` update.
+  The daemon also exposes the RF-worker PHY binding contract through
+  `FIELDMESH_RF_WORKER_PHY_PLAN`,
+  `FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE`, and guarded
+  `FIELDMESH_RF_PHY_DRIVER_BIND_APPLY` refusal. These requests make the next
+  live-RF boundary explicit: sidecar preflight, sidecar DMA, packet-engine
+  proof, TX guard, conducted/shielded setup, legal frequency profile, RX-first
+  validation, and measured link evidence are required before a real PHY driver
+  can be applied. The current installed daemon still reports
+  `rf_phy_tx_rx=0` and `production_ready=0`.
 - `tools/verify_fieldmesh_sdk.sh` - C99 SDK build and execution gate for the
   SDK implementation, demos, and loopback UDP AP discovery.
 - `tools/verify_fieldmesh_imgui_live_no_profile.sh` - live installed-board
