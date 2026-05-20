@@ -44,6 +44,8 @@ rf_bit_repeat="${RF_BIT_REPEAT:-4}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
+iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
+allow_destructive_rf_batch="${ALLOW_DESTRUCTIVE_RF_BATCH:-0}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
 mkdir -p "$out_dir"
@@ -101,6 +103,14 @@ if [ "$allow_iio_rf_bridge" = "1" ]; then
 fi
 if ! [[ "$iio_bridge_max_frames" =~ ^[0-9]+$ ]] || [ "$iio_bridge_max_frames" -lt 1 ]; then
     echo "IIO_BRIDGE_MAX_FRAMES must be a positive integer" >&2
+    exit 1
+fi
+if ! [[ "$iio_bridge_batch_size" =~ ^[0-9]+$ ]] || [ "$iio_bridge_batch_size" -lt 1 ]; then
+    echo "IIO_BRIDGE_BATCH_SIZE must be a positive integer" >&2
+    exit 1
+fi
+if [ "$allow_destructive_rf_batch" = "1" ] && [ "$iio_bridge_batch_size" -lt 2 ]; then
+    echo "ALLOW_DESTRUCTIVE_RF_BATCH=1 requires IIO_BRIDGE_BATCH_SIZE >= 2" >&2
     exit 1
 fi
 if ! [[ "$min_board_tmp_free_kb" =~ ^[0-9]+$ ]] || [ "$min_board_tmp_free_kb" -lt 64 ]; then
@@ -715,12 +725,18 @@ PY
 }
 
 start_iio_rf_bridge_loop() {
+    local batch_args=()
+    if [ "$allow_destructive_rf_batch" = "1" ]; then
+        batch_args=(--destructive-poll-batch)
+    fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
         --out-dir "$out_dir/iio_rf_worker_bridge_loop" \
         --directions both \
         --duration-s "$bridge_duration_s" \
         --max-frames "$iio_bridge_max_frames" \
+        --batch-size "$iio_bridge_batch_size" \
+        "${batch_args[@]}" \
         --z203-host "$z203_ip" \
         --z103-host "$z103_ip" \
         --z203-port "$z203_port" \

@@ -818,7 +818,11 @@ user and vendor configuration.
   ingests the recovered frame into the peer daemon, and ACKs only after
   successful ingest. The default is a dry-run with no RF TX, no hardware writes,
   and no daemon queue mutation; live mode requires the same over-air approval
-  bundle as the single-frame bridge.
+  bundle as the single-frame bridge. `--destructive-poll-batch` is an explicit
+  HIL diagnostic mode that consumes several queued source frames with
+  `FIELDMESH_RF_TX_POLL`, sends them in one IQ burst, and relies on upper-layer
+  retransmission if the burst fails; it is not production evidence because it
+  cannot preserve ACK-after-ingest semantics.
 - `tools/fieldmesh_native_ip_iperf_evidence.py` - native-IP iperf evidence
   classifier. A feature-complete transparent MAC/IP claim requires both a
   board-to-board report and a host-PC-transparent report, both over
@@ -1198,10 +1202,11 @@ user and vendor configuration.
   `bit_repeat=8` to `samples_per_symbol=64` / `bit_repeat=4` and the cyclic
   TX window to 250 ms, preserving decode margin while avoiding a one-second
   RF transmit timeout per leased frame. Normal TCP and UDP socket echo traffic
-  now passes over the real over-air IIO bridge; `iperf3` still does not
-  complete because the current per-frame IIO setup/decode loop is a
-  stop-and-wait bring-up bridge, not the production streaming data plane. The
-  earlier BPSK mode is retained for the RTL primitive,
+  now passes over the real over-air IIO bridge. A destructive-poll batch HIL
+  experiment moved 10 queued native-IP frames over real RF in three IQ bursts,
+  but `iperf3` still does not complete because the current IIO bridge remains a
+  bring-up loop, not the production streaming data plane. The earlier BPSK mode
+  is retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary

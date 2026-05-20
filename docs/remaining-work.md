@@ -75,11 +75,12 @@ default from `samples_per_symbol=64` / `bit_repeat=8` to
 `samples_per_symbol=64` / `bit_repeat=4` and cut the cyclic TX window to
 250 ms, preserving decode margin while avoiding a one-second RF transmit
 timeout per leased frame. Normal TCP and UDP socket echo traffic now passes
-over the real over-air IIO bridge. The remaining native-IP blocker is therefore
+over the real over-air IIO bridge. A destructive-poll batch HIL experiment moved
+10 queued native-IP frames over real RF in three IQ bursts, but `iperf3` still
+fails during its control exchange. The remaining native-IP blocker is therefore
 not antenna installation, basic RF decode, or ordinary socket transport; it is
-completing `iperf3` over the current slow stop-and-wait RF-worker/IIO bridge,
-then replacing that bring-up bridge with the production streaming data-plane
-implementation. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
+replacing the current bring-up RF-worker/IIO bridge with a production streaming
+data-plane implementation that can sustain iperf. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
 legal frequency profile, RX-first validation, and measured link evidence are

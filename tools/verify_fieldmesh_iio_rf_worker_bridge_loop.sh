@@ -108,6 +108,28 @@ if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   exit 1
 fi
 
+if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
+  --rf-binding-plan "$binding" \
+  --out-dir "$work_dir/bad-batch-size" \
+  --destructive-poll-batch \
+  --batch-size 1 \
+  >/dev/null 2>&1; then
+  echo "bridge loop accepted destructive batching with batch-size 1" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
+  --rf-binding-plan "$binding" \
+  --leased-frame-report "$work_dir/lease.json" \
+  --out-dir "$work_dir/batch-static-lease" \
+  --directions z203-to-z103 \
+  --destructive-poll-batch \
+  --batch-size 2 \
+  >/dev/null 2>&1; then
+  echo "bridge loop accepted destructive batching with a static lease" >&2
+  exit 1
+fi
+
 if ALLOW_IIO_RF_BRIDGE=1 \
    OUT_DIR="$work_dir/iperf-iio-missing-approval" \
    "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
