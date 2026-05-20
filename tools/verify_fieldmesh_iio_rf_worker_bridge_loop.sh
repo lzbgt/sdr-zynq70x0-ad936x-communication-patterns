@@ -87,6 +87,7 @@ import json
 import struct
 
 import fieldmesh_iio_rf_worker_bridge_loop as loop
+import fieldmesh_iio_rf_worker_bridge as bridge
 
 
 def tcp_frame(src_port: int, dst_port: int) -> bytes:
@@ -111,6 +112,20 @@ send, drop = loop.split_port_filter_prefix([wanted, stale], {55251})
 if send != [wanted] or drop:
     raise SystemExit("port filter must send only the wanted prefix before stale frames")
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
+
+
+def timeout_request(*args, **kwargs):
+    raise TimeoutError("synthetic empty destructive poll timeout")
+
+
+original_request = bridge.request_daemon
+bridge.request_daemon = timeout_request
+try:
+    if loop.poll_from_daemon("127.0.0.1", 55441, 1) is not None:
+        raise SystemExit("destructive RF poll timeout must behave like an empty poll")
+finally:
+    bridge.request_daemon = original_request
+print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_empty_poll_timeout_check", "ok": True}, sort_keys=True))
 PY
 
 "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \

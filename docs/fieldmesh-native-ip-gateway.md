@@ -221,7 +221,17 @@ Minimum production gates for native TCP/IP:
   polling on a short timeout so an idle direction does not stall the active
   direction, retries daemon ingest/ACK control requests, drains pre-test RF TX
   queues before launching `iperf3`, and can filter stale TCP/UDP frames from
-  old `iperf3` ports before they consume RF airtime;
+  old `iperf3` ports before they consume RF airtime. The live path can set
+  `FIELDMESH_IIO_BURST_HELPER` to a compiled
+  `tools/fieldmesh_iio_burst_xfer.c` helper, which opens libiio RX/TX buffers
+  in one process instead of shelling out to separate `iio_readdev` and
+  `iio_writedev` processes for every batch. Current HIL with this helper moved
+  more real-RF batches and completed one TCP `iperf3` client run at 1024 bytes,
+  then exposed and fixed an iperf runner bug where the UDP phase could reuse
+  the port before the TCP one-shot server released it. Follow-up runs still show
+  intermittent Z103-to-Z203 BFSK CRC failures under `iperf3` load, so the
+  remaining native-IP blocker is reverse-link modem/AGC robustness or a true
+  streaming/pipelined bridge, not RF installation;
   the RF path evidence must be production/site evidence, not a verifier
   fixture. `PREFLIGHT_ONLY=1`
   checks the daemon RF fields, optional RF path evidence, and optional host

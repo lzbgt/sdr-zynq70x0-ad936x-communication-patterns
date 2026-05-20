@@ -104,7 +104,10 @@ def lease_from_daemon(host: str, port: int, timeout_ms: int) -> dict[str, Any] |
 
 
 def poll_from_daemon(host: str, port: int, timeout_ms: int) -> bytes | None:
-    report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_POLL v1", timeout_ms)
+    try:
+        report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_POLL v1", timeout_ms)
+    except TimeoutError:
+        return None
     if report.get("event") != "sdk_daemon_rf_tx_poll":
         raise SystemExit(f"expected sdk_daemon_rf_tx_poll, got {report.get('event')!r}")
     frames = report.get("frames")
@@ -299,6 +302,7 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         rx_hardwaregain_db=args.rx_hardwaregain_db,
         tx_hardwaregain_db=args.tx_hardwaregain_db,
         skip_rf_config=getattr(args, "skip_rf_config", False),
+        burst_helper=args.burst_helper,
         pretty=False,
     )
     return bridge.run(bridge_args)
@@ -398,6 +402,7 @@ def run_batch(
         "rx_hardwaregain_db": args.rx_hardwaregain_db,
         "tx_hardwaregain_db": args.tx_hardwaregain_db,
         "skip_rf_config": skip_rf_config,
+        "burst_helper": args.burst_helper,
         "pretty": False,
     }
     run_args = argparse.Namespace(
@@ -633,6 +638,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "ip_port_filter": sorted(args.ip_port_filter),
             "daemon_request_attempts": args.daemon_request_attempts,
             "destructive_poll_batch": bool(args.destructive_poll_batch),
+            "burst_helper": str(args.burst_helper) if args.burst_helper else None,
             "rf_phy_tx_rx_verified": verified,
             "app_verified_real_rf": False,
             "production_ready": False,
@@ -971,6 +977,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-gain-control-mode", default="slow_attack")
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
+    parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--skip-rf-config-after-first", action="store_true")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--pretty", action="store_true")

@@ -498,6 +498,95 @@ def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], captu
     return results
 
 
+def option_after(argv: list[str], flag: str) -> str:
+    try:
+        return argv[argv.index(flag) + 1]
+    except (ValueError, IndexError) as exc:
+        raise SystemExit(f"generated command is missing {flag}: {argv}") from exc
+
+
+def execute_live_with_helper(
+    args: argparse.Namespace,
+    commands: list[dict[str, Any]],
+    capture_path: Path,
+) -> list[dict[str, Any]]:
+    started = time.monotonic()
+    results: list[dict[str, Any]] = []
+    rx_index = next(index for index, row in enumerate(commands) if row["name"] == "arm_rx_iio_buffer")
+    tx_index = next(index for index, row in enumerate(commands) if row["name"] == "load_tx_iio_buffer")
+    for row in commands[:rx_index]:
+        result = run_command(row)
+        results.append(result)
+        if result["returncode"] != 0:
+            raise SystemExit(f"{row['name']} failed: {result['stderr'].strip()}")
+
+    rx_row = commands[rx_index]
+    tx_row = commands[tx_index]
+    rx_argv = rx_row["argv"]
+    tx_argv = tx_row["argv"]
+    rx_device_index = rx_argv.index("-s") + 2
+    tx_device_index = tx_argv.index("-s") + 2
+    channels = tx_argv[tx_device_index + 1 :]
+    if channels != rx_argv[rx_device_index + 1 :]:
+        raise SystemExit("RX/TX IIO helper requires matching stream channel lists")
+
+    helper_argv = [
+        str(args.burst_helper),
+        "--rx-uri",
+        option_after(rx_argv, "-u"),
+        "--tx-uri",
+        option_after(tx_argv, "-u"),
+        "--rx-device",
+        rx_argv[rx_device_index],
+        "--tx-device",
+        tx_argv[tx_device_index],
+        "--rx-file",
+        str(capture_path),
+        "--tx-file",
+        tx_row["stdin_file"],
+        "--rx-samples",
+        option_after(rx_argv, "-s"),
+        "--tx-samples",
+        option_after(tx_argv, "-s"),
+        "--buffer-size",
+        option_after(rx_argv, "-b"),
+        "--rx-timeout-ms",
+        str(max(args.timeout_ms, 1)),
+        "--rx-arm-delay-ms",
+        str(args.rx_arm_delay_ms),
+        "--tx-duration-ms",
+        str(args.max_tx_duration_ms),
+    ]
+    if args.cyclic_tx:
+        helper_argv.append("--cyclic")
+    for channel in channels:
+        helper_argv += ["--channel", channel]
+
+    helper_row = command_row("iio_burst_helper", helper_argv)
+    helper_started = time.monotonic()
+    proc = subprocess.run(helper_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    helper_result = {
+        "name": "iio_burst_helper",
+        "returncode": proc.returncode,
+        "stdout": proc.stdout.decode("utf-8", errors="replace"),
+        "stderr": proc.stderr.decode("utf-8", errors="replace"),
+        "elapsed_ms": int((time.monotonic() - helper_started) * 1000),
+        "argv": helper_row["argv"],
+    }
+    results.append(helper_result)
+    if proc.returncode != 0:
+        raise SystemExit(f"iio_burst_helper failed: {helper_result['stderr'].strip()}")
+    results.append(
+        {
+            "name": "execute_live_total",
+            "returncode": 0,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+            "burst_helper": str(args.burst_helper),
+        }
+    )
+    return results
+
+
 def recovered_crc(frame: bytes) -> int:
     return iq_smoke.frame_crc32(frame)
 
@@ -661,7 +750,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     command_results: list[dict[str, Any]] = []
     decode: dict[str, Any] = {"attempted": False, "reason": "dry-run"}
     if args.execute_live_rf:
-        command_results = execute_live(args, commands, capture_path)
+        command_results = (
+            execute_live_with_helper(args, commands, capture_path)
+            if args.burst_helper
+            else execute_live(args, commands, capture_path)
+        )
         decode = decode_capture(plan, args, capture_path)
 
     safety = {
@@ -683,6 +776,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "rx_hardwaregain_db": args.rx_hardwaregain_db,
         "tx_hardwaregain_db": args.tx_hardwaregain_db,
         "skip_rf_config": bool(args.skip_rf_config),
+        "burst_helper": str(args.burst_helper) if args.burst_helper else None,
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -744,6 +838,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float)
     parser.add_argument("--skip-rf-config", action="store_true")
+    parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

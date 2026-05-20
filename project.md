@@ -599,6 +599,17 @@ user and vendor configuration.
   machine-checkable RF path evidence with `production_evidence=true` and a
   supported `evidence_origin`, exact operator confirmation, bounded TX duration,
   and the same legal-frequency, attenuation, TX-enable, and RX-first guards.
+  It can also use `--burst-helper tools/fieldmesh_iio_burst_xfer` so one
+  compiled libiio process arms RX and pushes TX for a burst instead of launching
+  separate `iio_readdev` and `iio_writedev` processes for every RF batch.
+- `tools/fieldmesh_iio_burst_xfer.c` - single-process libiio RX/TX burst
+  helper for the HIL RF bridge. It opens the TX/RX IIO contexts, enables the
+  requested stream channels, starts RX capture in a pthread, pushes the TX IQ
+  buffer, writes captured IQ samples to disk, and reports byte counts. RF safety
+  policy and AD936x attribute configuration remain in the guarded Python runner.
+- `tools/verify_fieldmesh_iio_burst_xfer.sh` - compiles the helper with
+  `-Wall -Wextra -Werror`, checks the CLI contract, and verifies that the helper
+  fails closed when no live IIO context exists.
 - `tools/verify_fieldmesh_iq_iio_live_run.sh` - gate for the guarded IIO
   runner dry-run and negative tests for missing legal-frequency profile,
   missing hardware-write approval, missing RF-TX approval, missing operator
@@ -826,8 +837,10 @@ user and vendor configuration.
   The current HIL bridge configures each RF direction once, skips repeated RF
   attribute writes for later batches, uses fast exact-sync BFSK decode before
   fuzzy fallback, separates daemon-control timeout from IIO capture timeout,
-  and drains pre-test RF TX queues before launching iperf so stale TCP teardown
-  frames from earlier failed runs do not enter the new measurement.
+  drains pre-test RF TX queues before launching iperf so stale TCP teardown
+  frames from earlier failed runs do not enter the new measurement, treats
+  destructive empty-poll timeouts as empty polls rather than bridge errors, and
+  can delegate the live IQ transfer to the compiled libiio burst helper.
   `--destructive-poll-batch` is an explicit HIL diagnostic mode that consumes
   several queued source frames with
   `FIELDMESH_RF_TX_POLL`, sends them in one IQ burst, and relies on upper-layer
@@ -1233,10 +1246,15 @@ user and vendor configuration.
   each moved batch, and can filter stale TCP/UDP frames from old `iperf3` ports
   before they consume RF airtime. A later destructive HIL run moved the actual
   244-byte TCP data segments and `iperf3` result JSON over RF, but it lost a
-  reverse server-result batch; that confirms the remaining issue is still the
-  software bridge/modem data plane, not RF installation. The next `iperf3` work
-  is replacing the per-batch IIO process loop with a streaming or pipelined RF
-  bridge. The earlier BPSK mode is
+  reverse server-result batch; that confirmed the remaining issue was still the
+  software bridge/modem data plane, not RF installation. The bridge now has a
+  compiled libiio burst helper path. With that helper, one live run completed
+  TCP `iperf3` at 1024 bytes over real RF, but exposed a script bug where the
+  UDP phase reused the port before the TCP server process exited. The runner now
+  waits for remote one-shot `iperf3` server PIDs before reusing the port.
+  Subsequent helper runs still show intermittent Z103-to-Z203 BFSK CRC failures
+  under `iperf3` load, so the next material work is asymmetric reverse-link
+  modem/AGC tuning or a true streaming/pipelined RF loop. The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.

@@ -153,6 +153,7 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         rx_hardwaregain_db=args.rx_hardwaregain_db,
         tx_hardwaregain_db=args.tx_hardwaregain_db,
         skip_rf_config=getattr(args, "skip_rf_config", False),
+        burst_helper=getattr(args, "burst_helper", None),
         pretty=False,
     )
     return live_run.build_report(run_args)
@@ -305,6 +306,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--skip-rf-config", action="store_true")
+    parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

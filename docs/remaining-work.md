@@ -97,10 +97,17 @@ capture after decode misses, per-batch progress writes, and an optional current
 `iperf3` port filter to prevent stale old-port TCP/UDP frames from spending RF
 airtime. A destructive diagnostic run moved the actual 244-byte TCP data
 segments plus `iperf3` result JSON over RF, then failed on a reverse result
-batch decode. The remaining native-IP blocker is therefore not
-antenna installation, basic RF decode, daemon queueing, or ordinary socket
-transport; it is the RF bridge data-plane software. The next HIL step is a true
-streaming or pipelined RF loop rather than another per-batch IIO process loop.
+batch decode. The bridge now has a compiled libiio burst helper, so one process
+arms RX and pushes TX instead of launching separate IIO tools for every RF
+batch. That helper improved batch latency enough for one live run to complete
+TCP `iperf3` at 1024 bytes over real RF; the next failure was a software runner
+bug where the UDP phase reused the same port before the TCP one-shot server
+released it, now fixed by waiting for remote server PIDs to exit. Follow-up
+runs still show intermittent Z103-to-Z203 BFSK CRC failures under `iperf3`
+load. The remaining native-IP blocker is therefore not antenna installation,
+basic RF decode, daemon queueing, ordinary socket transport, or shell process
+startup alone; it is reverse-link modem/AGC robustness and the need for a true
+streaming or pipelined RF loop.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

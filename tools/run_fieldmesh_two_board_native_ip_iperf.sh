@@ -22,6 +22,7 @@ iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
 iperf_connect_timeout_ms="${IPERF_CONNECT_TIMEOUT_MS:-600000}"
 iperf_tcp_mss="${IPERF_TCP_MSS:-256}"
 iperf_tcp_window="${IPERF_TCP_WINDOW:-4K}"
+iperf_block_size="${IPERF_BLOCK_SIZE:-256}"
 allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
 allow_iio_rf_bridge="${ALLOW_IIO_RF_BRIDGE:-0}"
 host_pc_case="${HOST_PC_CASE:-0}"
@@ -29,6 +30,7 @@ allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
 preflight_only="${PREFLIGHT_ONLY:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)-$$}"
 swarm_mtu="${SWARM_MTU:-}"
+fieldmesh_iio_burst_helper="${FIELDMESH_IIO_BURST_HELPER:-}"
 rf_binding_plan="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
 allow_hardware_writes="${ALLOW_HARDWARE_WRITES:-0}"
@@ -41,6 +43,9 @@ center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
 rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-64}"
 rf_bit_repeat="${RF_BIT_REPEAT:-4}"
+rf_rx_gain_control_mode="${RF_RX_GAIN_CONTROL_MODE:-slow_attack}"
+rf_rx_hardwaregain_db="${RF_RX_HARDWAREGAIN_DB:-}"
+rf_tx_hardwaregain_db="${RF_TX_HARDWAREGAIN_DB:-0.0}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
@@ -73,6 +78,10 @@ if ! [[ "$iperf_tcp_mss" =~ ^[0-9]+$ ]] || [ "$iperf_tcp_mss" -lt 64 ] || [ "$ip
 fi
 if ! [[ "$iperf_tcp_window" =~ ^[0-9]+[KMG]?$ ]]; then
     echo "IPERF_TCP_WINDOW must be an iperf size value such as 4K" >&2
+    exit 1
+fi
+if ! [[ "$iperf_block_size" =~ ^[0-9]+$ ]] || [ "$iperf_block_size" -lt 16 ] || [ "$iperf_block_size" -gt 1400 ]; then
+    echo "IPERF_BLOCK_SIZE must be an integer from 16 to 1400" >&2
     exit 1
 fi
 if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 1024 ]; then
@@ -175,6 +184,18 @@ if ! [[ "$rf_samples_per_symbol" =~ ^[0-9]+$ ]] || [ "$rf_samples_per_symbol" -l
 fi
 if ! [[ "$rf_bit_repeat" =~ ^[0-9]+$ ]] || [ "$rf_bit_repeat" -lt 1 ]; then
     echo "RF_BIT_REPEAT must be an integer >= 1" >&2
+    exit 1
+fi
+if [ -n "$rf_rx_hardwaregain_db" ] && ! [[ "$rf_rx_hardwaregain_db" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+    echo "RF_RX_HARDWAREGAIN_DB must be a number when set" >&2
+    exit 1
+fi
+if [ -n "$rf_tx_hardwaregain_db" ] && ! [[ "$rf_tx_hardwaregain_db" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+    echo "RF_TX_HARDWAREGAIN_DB must be a number when set" >&2
+    exit 1
+fi
+if [ -n "$fieldmesh_iio_burst_helper" ] && [ ! -x "$fieldmesh_iio_burst_helper" ]; then
+    echo "FIELDMESH_IIO_BURST_HELPER must point to an executable helper" >&2
     exit 1
 fi
 if [ -z "$swarm_mtu" ]; then
@@ -862,6 +883,8 @@ PY
 start_iio_rf_bridge_loop() {
     local batch_args=()
     local port_filter_args=()
+    local gain_args=()
+    local helper_args=()
     if [ "$allow_destructive_rf_batch" = "1" ]; then
         batch_args=(--destructive-poll-batch)
     fi
@@ -870,6 +893,18 @@ start_iio_rf_bridge_loop() {
     fi
     if [ -n "$iio_bridge_ip_port_filter" ]; then
         port_filter_args=(--ip-port-filter "$iio_bridge_ip_port_filter")
+    fi
+    if [ -n "$rf_rx_gain_control_mode" ]; then
+        gain_args+=(--rx-gain-control-mode "$rf_rx_gain_control_mode")
+    fi
+    if [ -n "$rf_rx_hardwaregain_db" ]; then
+        gain_args+=(--rx-hardwaregain-db "$rf_rx_hardwaregain_db")
+    fi
+    if [ -n "$rf_tx_hardwaregain_db" ]; then
+        gain_args+=(--tx-hardwaregain-db "$rf_tx_hardwaregain_db")
+    fi
+    if [ -n "$fieldmesh_iio_burst_helper" ]; then
+        helper_args=(--burst-helper "$fieldmesh_iio_burst_helper")
     fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
@@ -897,6 +932,8 @@ start_iio_rf_bridge_loop() {
         "${port_filter_args[@]}" \
         --cyclic-capture-periods "$iio_bridge_cyclic_capture_periods" \
         --cyclic-capture-retry-periods "$iio_bridge_cyclic_capture_retry_periods" \
+        "${gain_args[@]}" \
+        "${helper_args[@]}" \
         --execute-live-rf \
         --allow-hardware-writes \
         --allow-rf-tx \
@@ -1042,6 +1079,22 @@ wait_remote_tcp_listen() {
          done; exit 1"
 }
 
+wait_remote_pid_exit() {
+    local remote="$1"
+    local pid_file="$2"
+    local timeout_s="$3"
+    local pid
+    pid="$(tr -cd '0-9' <"$pid_file")"
+    if [ -z "$pid" ]; then
+        return 1
+    fi
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "for _i in \$(seq 1 '$timeout_s'); do \
+             if ! kill -0 '$pid' 2>/dev/null; then exit 0; fi; \
+             sleep 1; \
+         done; exit 1"
+}
+
 run_remote_iperf_json() {
     local remote="$1"
     local stdout_path="$2"
@@ -1149,7 +1202,7 @@ wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" -n "'$tcp_bytes'" -l 256 --json
+    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" -n "'$tcp_bytes'" -l "'$iperf_block_size'" --json
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
@@ -1159,6 +1212,10 @@ fi
 if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
     fail_bounded "board_to_board_tcp_iperf_failed" \
         "TCP iperf returned JSON but did not report a successful byte transfer."
+fi
+if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 30; then
+    fail_bounded "board_to_board_tcp_server_still_running" \
+        "TCP iperf client completed, but the Z103 server process did not exit and still owns the test port."
 fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
@@ -1170,7 +1227,7 @@ wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_udp_client.json" "$out_dir/z203_iperf3_udp_client.err" \
-    iperf3 -u -c 10.77.2.20 -p "'$iperf_port'" -b "'$udp_bitrate'" -t "'$udp_time_s'" -l 256 --json
+    iperf3 -u -c 10.77.2.20 -p "'$iperf_port'" -b "'$udp_bitrate'" -t "'$udp_time_s'" -l "'$iperf_block_size'" --json
 udp_rc=$?
 set -e
 if [ "$udp_rc" -ne 0 ]; then
@@ -1180,6 +1237,10 @@ fi
 if ! parse_iperf_success "$out_dir/z203_iperf3_udp_client.json"; then
     fail_bounded "board_to_board_udp_iperf_failed" \
         "UDP iperf returned JSON but did not report a successful byte transfer."
+fi
+if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_udp_server.pid" 30; then
+    fail_bounded "board_to_board_udp_server_still_running" \
+        "UDP iperf client completed, but the Z103 server process did not exit and still owns the test port."
 fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_udp_server.json" "$out_dir/z103_iperf3_udp_server.json" >/dev/null || true
@@ -1193,7 +1254,7 @@ if [ "$host_pc_case" = "1" ]; then
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
-        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" -n "$tcp_bytes" -l 256 --json
+        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" -n "$tcp_bytes" -l "$iperf_block_size" --json
     host_tcp_rc=$?
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then
@@ -1203,6 +1264,10 @@ if [ "$host_pc_case" = "1" ]; then
     if ! parse_iperf_success "$out_dir/host_iperf3_tcp_client.json"; then
         fail_bounded "host_pc_tcp_iperf_failed" \
             "Host-originated TCP iperf returned JSON but did not report a successful byte transfer."
+    fi
+    if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_host_tcp_server.pid" 30; then
+        fail_bounded "host_pc_tcp_server_still_running" \
+            "Host-originated TCP iperf client completed, but the Z103 server process did not exit."
     fi
     sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
         "$z103_remote:/tmp/fieldmesh_iperf3_host_tcp_server.json" \
@@ -1215,7 +1280,7 @@ if [ "$host_pc_case" = "1" ]; then
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_udp_client.json" "$out_dir/host_iperf3_udp_client.err" \
-        iperf3 -u -c 10.77.2.20 -p "$iperf_port" -b "$udp_bitrate" -t "$udp_time_s" -l 256 --json
+        iperf3 -u -c 10.77.2.20 -p "$iperf_port" -b "$udp_bitrate" -t "$udp_time_s" -l "$iperf_block_size" --json
     host_udp_rc=$?
     set -e
     if [ "$host_udp_rc" -ne 0 ]; then
@@ -1225,6 +1290,10 @@ if [ "$host_pc_case" = "1" ]; then
     if ! parse_iperf_success "$out_dir/host_iperf3_udp_client.json"; then
         fail_bounded "host_pc_udp_iperf_failed" \
             "Host-originated UDP iperf returned JSON but did not report a successful byte transfer."
+    fi
+    if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_host_udp_server.pid" 30; then
+        fail_bounded "host_pc_udp_server_still_running" \
+            "Host-originated UDP iperf client completed, but the Z103 server process did not exit."
     fi
     sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
         "$z103_remote:/tmp/fieldmesh_iperf3_host_udp_server.json" \
