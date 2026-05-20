@@ -3260,6 +3260,20 @@ IRQ-backed input held low, so `REQUIRE_GNSS_PPS=1` surfaces
 `gnss_pps_gpio_low_no_activity` alongside `gnss_pps_no_assert_activity`. Both
 still fail `REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes,
 and Z103 fails receiver-health readiness while it reports `V_IO ovrvlt`.
+
+The receiver-side TIMEPULSE command plan is checked with:
+
+```sh
+./tools/verify_fieldmesh_gnss_timepulse_plan.sh
+```
+
+Result: generated UBX-CFG-VALGET and UBX-CFG-VALSET frames have valid UBX
+checksums, default to RAM-only receiver writes, set the MAX-M10S/M10
+`CFG-TP-*` group for a 1 Hz rising-edge TP1 pulse with 100 ms width, and parse
+a synthetic UBX-CFG-VALGET response back into named configuration items. This
+does not write a live receiver; it proves the binary command artifact needed
+for the next authorized PPS diagnostic.
+
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as

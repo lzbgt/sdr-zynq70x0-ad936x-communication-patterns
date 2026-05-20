@@ -216,6 +216,16 @@ When debugfs GPIO state is available, the same report includes the
 IRQ-backed. A non-incrementing assert counter with the line observed low is
 reported as `gnss_pps_gpio_low_no_activity`.
 
+`tools/fieldmesh_gnss_timepulse_plan.py` prepares the next PPS diagnostic step
+without touching hardware. It builds checksum-verified UBX-CFG-VALGET and
+UBX-CFG-VALSET frames for the u-blox M10/MAX-M10S `CFG-TP-*` TIMEPULSE group:
+TP1 enabled, 1 s period, 100 ms pulse length, rising edge, GPS time grid, and
+RAM-only write layer by default. It can also parse captured UBX-CFG-VALGET
+responses so the current receiver TIMEPULSE state can be archived before any
+change. Live receiver writes are intentionally outside this planner and still
+need a separate operator-approved runner; persistent BBR/flash layers are
+flagged in the emitted safety block.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon

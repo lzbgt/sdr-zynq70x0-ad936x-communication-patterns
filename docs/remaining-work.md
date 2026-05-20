@@ -232,7 +232,12 @@ kernel PPS assert sequence remains at `0`. Debugfs also shows the
 `fieldmesh-gnss-pps` GPIO line as IRQ-backed but low on both boards, so the
 next PPS investigation is receiver TIMEPULSE configuration/output level,
 receiver power/health, board pin direction, or the EMIO input path rather than
-Linux PPS device registration. Z103 emits NMEA at `38400` baud and can report
+Linux PPS device registration. `tools/fieldmesh_gnss_timepulse_plan.py` now
+builds and verifies the exact RAM-only UBX-CFG-VALGET/VALSET frame set for a
+u-blox M10/MAX-M10S 1PPS TIMEPULSE configuration. The next live action is to
+poll each receiver's current `CFG-TP-*` state, archive it, and only then apply
+the RAM-only TP1 enable under explicit operator approval. Z103 emits NMEA at
+`38400` baud and can report
 visible satellites, but still has no position fix (`GGA` quality `0`, `RMC`
 status `V`, `GSA` fix type `1`). An indoor bench location and the
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect

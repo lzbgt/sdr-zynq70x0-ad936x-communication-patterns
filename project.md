@@ -1252,8 +1252,11 @@ user and vendor configuration.
   PPS source. The current live blocker is PPS activity: both boards still show
   assert sequence `0`, and debugfs shows the IRQ-backed
   `fieldmesh-gnss-pps` GPIO input low, so they are PPS-exposed but not
-  PPS-timing ready. Z103 still lacks a GNSS position fix and reports
-  receiver-health warnings.
+  PPS-timing ready. `tools/fieldmesh_gnss_timepulse_plan.py` now builds and
+  verifies the UBX TIMEPULSE poll/config frames for a RAM-only u-blox
+  M10/MAX-M10S 1PPS TP1 setup, giving the next receiver-side diagnostic an
+  auditable binary command artifact before any live write is authorized. Z103
+  still lacks a GNSS position fix and reports receiver-health warnings.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,
