@@ -12,6 +12,7 @@ ssh_pass="${SSH_PASS:-analog}"
 require_gnss_fix="${REQUIRE_GNSS_FIX:-0}"
 require_gnss_pps="${REQUIRE_GNSS_PPS:-0}"
 require_gnss_receiver_health="${REQUIRE_GNSS_RECEIVER_HEALTH:-0}"
+gnss_log_tail_lines="${GNSS_LOG_TAIL_LINES:-64}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-gnss-live-preflight-$(date +%Y%m%d-%H%M%S)-$$}"
 
 mkdir -p "$out_dir"
@@ -32,6 +33,10 @@ case "$require_gnss_receiver_health" in
     0|1) ;;
     *) echo "REQUIRE_GNSS_RECEIVER_HEALTH must be 0 or 1" >&2; exit 1 ;;
 esac
+if ! [[ "$gnss_log_tail_lines" =~ ^[0-9]+$ ]] || [ "$gnss_log_tail_lines" -lt 5 ]; then
+    echo "GNSS_LOG_TAIL_LINES must be an integer >= 5" >&2
+    exit 1
+fi
 
 ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
 
@@ -45,7 +50,7 @@ collect_board_facts() {
     local label="$1"
     local host="$2"
     local output="$3"
-    ssh_board "$host" 'sh -s' >"$output" <<'SH'
+    ssh_board "$host" "GNSS_LOG_TAIL_LINES='$gnss_log_tail_lines' sh -s" >"$output" <<'SH'
 set +e
 print_file_value() {
     key="$1"
@@ -136,7 +141,7 @@ printf 'pps_devices=%s\n' "$pps_devices"
 printf 'pps_sysfs_devices=%s\n' "$pps_sysfs"
 printf 'gnss_log_exists=%s\n' "$([ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ] && echo 1 || echo 0)"
 if [ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ]; then
-    tail -n 5 /tmp/fieldmesh-gnss-nmea-reporter.ndjson | sed 's/^/gnss_log_tail=/'
+    tail -n "$GNSS_LOG_TAIL_LINES" /tmp/fieldmesh-gnss-nmea-reporter.ndjson | sed 's/^/gnss_log_tail=/'
 fi
 SH
     python3 - "$label" "$host" "$output" "$output.json" <<'PY'

@@ -24,7 +24,8 @@ cat > "$work_dir/z203_facts.txt.json" <<'JSON'
   "pps_devices": "/dev/pps0",
   "pps_sysfs_devices": "pps0",
   "gnss_log_tail": [
-    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_no_satellites_visible\",\"gnss_gga_quality_no_fix\"]}"
+    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_no_satellites_visible\"]}",
+    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_gga_quality_no_fix\"]}"
   ]
 }
 JSON
@@ -49,7 +50,8 @@ cat > "$work_dir/z103_facts.txt.json" <<'JSON'
   "pps_devices": "",
   "pps_sysfs_devices": "",
   "gnss_log_tail": [
-    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"receiver_warning\":\"V_IO ovrvlt\",\"blockers\":[\"gnss_receiver_io_overvoltage\"]}"
+    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"receiver_warning\":\"V_IO ovrvlt\",\"blockers\":[\"gnss_receiver_io_overvoltage\"]}",
+    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_receiver_no_fix\"]}"
   ]
 }
 JSON
@@ -77,6 +79,8 @@ if "gnss_gga_quality_no_fix" not in z203.get("blockers", []):
     raise SystemExit(f"Z203 GGA no-fix blocker was not surfaced: {z203!r}")
 if z203.get("gnss_nmea_status", {}).get("fix_detected") is not False:
     raise SystemExit(f"Z203 status not retained: {z203!r}")
+if z203.get("gnss_nmea_status", {}).get("blockers") != ["gnss_gga_quality_no_fix"]:
+    raise SystemExit(f"Z203 latest status should remain the latest row: {z203!r}")
 if z203.get("gnss_pps_device_present") is not True or z203.get("gnss_pps_ready") is not True:
     raise SystemExit(f"Z203 PPS device/config was not surfaced: {z203!r}")
 z103 = boards["z103"]
@@ -84,6 +88,12 @@ if "gnss_receiver_io_overvoltage" not in z103.get("blockers", []):
     raise SystemExit(f"Z103 receiver warning blocker was not surfaced: {z103!r}")
 if z103.get("gnss_receiver_health_ready") is not False:
     raise SystemExit(f"Z103 receiver health was not marked blocked: {z103!r}")
+if z103.get("gnss_nmea_recent_status_count") != 2:
+    raise SystemExit(f"Z103 recent status count was not retained: {z103!r}")
+if "V_IO ovrvlt" not in z103.get("gnss_receiver_recent_warnings", []):
+    raise SystemExit(f"Z103 recent receiver warning was not retained: {z103!r}")
+if z103.get("gnss_nmea_status", {}).get("blockers") != ["gnss_receiver_no_fix"]:
+    raise SystemExit(f"Z103 latest GNSS fix status should remain latest row: {z103!r}")
 if summary.get("gnss_receiver_health_ready") is not False:
     raise SystemExit(f"summary receiver health did not fail: {summary!r}")
 PY

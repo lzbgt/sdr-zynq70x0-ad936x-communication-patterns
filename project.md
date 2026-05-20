@@ -1264,8 +1264,10 @@ user and vendor configuration.
   `1`, and GSV satellites-visible `0`. Receiver `TXT` warnings are also
   preserved; `V_IO ovrvlt` is classified as `gnss_receiver_io_overvoltage`
   instead of being folded into a generic no-fix state. The two-board live GNSS
-  preflight now emits `gnss_receiver_health_ready`, and the system readiness
-  runner requires that receiver-health boundary by default.
+  preflight aggregates recent GNSS status rows, emits
+  `gnss_receiver_health_ready`, preserves `gnss_receiver_recent_warnings`, and
+  keeps the latest status row for inspection. The system readiness runner
+  requires that receiver-health boundary by default.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production

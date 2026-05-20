@@ -234,9 +234,12 @@ before treating the missing fix as a software defect. The GNSS reporter now
 preserves that receiver `TXT` warning as `receiver_warning="V_IO ovrvlt"` and
 classifies it as `gnss_receiver_io_overvoltage`; the live preflight and system
 readiness summary expose this as a separate GNSS receiver-health failure rather
-than only as a position-fix failure. The reporter log is now rotated by the
-init service; continuous no-fix or receiver-warning output should no longer
-fill `/tmp` and mask later native-IP or iperf diagnostics.
+than only as a position-fix failure. The live preflight aggregates recent GNSS
+status rows so an electrical `TXT` warning cannot be hidden by a later
+GSV/GSA/RMC no-fix row, while still reporting the latest row for inspection.
+The reporter log is now rotated by the init service; continuous no-fix or
+receiver-warning output should no longer fill `/tmp` and mask later native-IP
+or iperf diagnostics.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

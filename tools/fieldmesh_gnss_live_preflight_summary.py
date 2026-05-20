@@ -19,8 +19,8 @@ def read_json(path: Path) -> dict[str, Any]:
     return data
 
 
-def latest_reporter_status(facts: dict[str, Any]) -> dict[str, Any] | None:
-    latest = None
+def recent_reporter_statuses(facts: dict[str, Any]) -> list[dict[str, Any]]:
+    statuses: list[dict[str, Any]] = []
     for line in facts.get("gnss_log_tail") or []:
         if not isinstance(line, str) or not line.strip().startswith("{"):
             continue
@@ -29,8 +29,13 @@ def latest_reporter_status(facts: dict[str, Any]) -> dict[str, Any] | None:
         except json.JSONDecodeError:
             continue
         if row.get("event") == "fieldmesh_gnss_nmea_status":
-            latest = row
-    return latest if isinstance(latest, dict) else None
+            statuses.append(row)
+    return statuses
+
+
+def latest_reporter_status(facts: dict[str, Any]) -> dict[str, Any] | None:
+    statuses = recent_reporter_statuses(facts)
+    return statuses[-1] if statuses else None
 
 
 def split_csv(value: Any) -> list[str]:
@@ -43,6 +48,38 @@ RECEIVER_HEALTH_BLOCKERS = {
 }
 
 
+def receiver_health_blockers_from_statuses(
+    statuses: list[dict[str, Any]],
+) -> list[str]:
+    blockers: list[str] = []
+    for status in statuses:
+        for blocker in status.get("blockers", []):
+            if blocker in RECEIVER_HEALTH_BLOCKERS and blocker not in blockers:
+                blockers.append(blocker)
+    return blockers
+
+
+def blockers_from_statuses(statuses: list[dict[str, Any]]) -> list[str]:
+    blockers: list[str] = []
+    for status in statuses:
+        for blocker in status.get("blockers", []):
+            if isinstance(blocker, str) and blocker and blocker not in blockers:
+                blockers.append(blocker)
+    return blockers
+
+
+def receiver_warnings_from_statuses(statuses: list[dict[str, Any]]) -> list[str]:
+    warnings: list[str] = []
+    for status in statuses:
+        warning = status.get("receiver_warning")
+        if isinstance(warning, str) and warning and warning not in warnings:
+            warnings.append(warning)
+        for item in status.get("receiver_warnings", []):
+            if isinstance(item, str) and item and item not in warnings:
+                warnings.append(item)
+    return warnings
+
+
 def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any]:
     facts = read_json(out_dir / f"{label}_facts.txt.json")
     rtls = read_json(out_dir / f"{label}_rtls_position.json")
@@ -50,7 +87,8 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
     configured_device = str(facts.get("gnss_nmea_device") or "")
     configured_baud = str(facts.get("gnss_nmea_baud") or "")
     configured_pps_lock = str(facts.get("gnss_pps_lock") or "")
-    reporter_status = latest_reporter_status(facts)
+    reporter_statuses = recent_reporter_statuses(facts)
+    reporter_status = reporter_statuses[-1] if reporter_statuses else None
     serial_devices = split_csv(facts.get("serial_devices"))
     pps_devices = split_csv(facts.get("pps_devices"))
     pps_sysfs_devices = split_csv(facts.get("pps_sysfs_devices"))
@@ -80,13 +118,7 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
     )
     if not has_fix:
         if configured_device and facts.get("gnss_nmea_device_exists") == "1" and facts.get("gnss_pid"):
-            status_blockers = []
-            if reporter_status is not None:
-                status_blockers = [
-                    str(item)
-                    for item in reporter_status.get("blockers", [])
-                    if isinstance(item, str) and item
-                ]
+            status_blockers = blockers_from_statuses(reporter_statuses)
             blockers.extend(status_blockers or ["gnss_receiver_no_fix"])
         else:
             blockers.append("no_live_gnss_position_in_daemon")
@@ -106,10 +138,8 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
         elif not pps_lock_configured:
             blockers.append("gnss_pps_lock_not_configured")
 
-    blockers = sorted(set(blockers))
-    receiver_health_blockers = [
-        blocker for blocker in blockers if blocker in RECEIVER_HEALTH_BLOCKERS
-    ]
+    receiver_health_blockers = receiver_health_blockers_from_statuses(reporter_statuses)
+    blockers = sorted(set(blockers + receiver_health_blockers))
     return {
         "label": label,
         "board_ip": facts.get("board_ip"),
@@ -131,6 +161,10 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
         "live_gnss_reporter": rtls.get("live_gnss_reporter"),
         "measured_age_ms": rtls.get("measured_age_ms"),
         "gnss_nmea_status": reporter_status,
+        "gnss_nmea_recent_status_count": len(reporter_statuses),
+        "gnss_receiver_recent_warnings": receiver_warnings_from_statuses(
+            reporter_statuses
+        ),
         "daemon_gnss_position_present": daemon_gnss_position_present,
         "gnss_position_backed_by_live_init_service": service_backed,
         "gnss_receiver_health_ready": not receiver_health_blockers,

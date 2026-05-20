@@ -3261,8 +3261,12 @@ The init-launched GNSS reporter also emits throttled
 contain a fix. The preflight surfaces those blocker details, such as
 `gnss_no_satellites_visible`, `gnss_gga_quality_no_fix`,
 `gnss_rmc_status_void`, or `gnss_gsa_fix_type_no_fix`, instead of reducing
-every configured receiver case to a generic no-fix state. Receiver `TXT`
-warnings are preserved too; for example `V_IO ovrvlt` is surfaced as
+every configured receiver case to a generic no-fix state. It aggregates a
+recent status window because NMEA sentence families arrive as separate
+GSV/GSA/GGA/RMC/TXT rows; the latest row remains in the report for inspection,
+but recent fix and receiver-health blockers are not lost when another sentence
+arrives afterward. Receiver `TXT` warnings are preserved too; for example
+`V_IO ovrvlt` is surfaced as
 `receiver_warning="V_IO ovrvlt"` with blocker
 `gnss_receiver_io_overvoltage`, so a power/IO fault is not mistaken for only an
 indoor sky-view problem. The top-level system readiness runner requires this
