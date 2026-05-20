@@ -134,7 +134,7 @@ This is a binding contract, offline validation gate, and package assembly path.
 The Z203 SD/QSPI FieldMesh runtime has booted the UART/PPS EMIO fragment with
 the matched overlay bitstream and a kernel containing `CONFIG_PPS_CLIENT_GPIO`.
 Live preflight now sees `/dev/pps0` and `/sys/class/pps/pps0`, and dmesg shows
-the `fieldmesh-gnss-pps` source registered. Z103 now has a verified
-schematic-backed overlay contract for A20/B19/B20, but still needs a refreshed
-GNSS EMIO bitstream/runtime installed before it can provide live GNSS/PPS
-evidence.
+the `fieldmesh-gnss-pps` source registered. Z103 now has the same live
+installed GNSS EMIO runtime for schematic-backed A20/B19/B20. Both boards are
+PPS-exposed, but neither is PPS-timing-ready yet because the kernel PPS assert
+counter remains at sequence `0`.

@@ -206,6 +206,12 @@ That reporter log is rotated independently from the daemon log, so continuous
 no-fix/status output cannot consume the volatile filesystem and interfere with
 later diagnostics.
 
+The live preflight distinguishes PPS exposure from PPS timing readiness. A
+board is PPS-exposed when `/dev/pps0` or `/sys/class/pps/pps0` exists and
+`gnss_pps_lock=1` is configured. It is PPS-ready only when the kernel PPS
+assert sequence increments across the preflight sampling window; a stuck
+`0.000000000#0` assert value is reported as `gnss_pps_no_assert_activity`.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon

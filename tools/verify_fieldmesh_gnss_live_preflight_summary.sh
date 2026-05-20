@@ -23,6 +23,8 @@ cat > "$work_dir/z203_facts.txt.json" <<'JSON'
   "serial_devices": "/dev/ttyPS0,/dev/ttyPS1",
   "pps_devices": "/dev/pps0",
   "pps_sysfs_devices": "pps0",
+  "pps_assert_before": "100.000000000#41",
+  "pps_assert_after": "102.000000000#43",
   "gnss_log_tail": [
     "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_no_satellites_visible\"]}",
     "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_gga_quality_no_fix\"]}"
@@ -83,6 +85,10 @@ if z203.get("gnss_nmea_status", {}).get("blockers") != ["gnss_gga_quality_no_fix
     raise SystemExit(f"Z203 latest status should remain the latest row: {z203!r}")
 if z203.get("gnss_pps_device_present") is not True or z203.get("gnss_pps_ready") is not True:
     raise SystemExit(f"Z203 PPS device/config was not surfaced: {z203!r}")
+if z203.get("gnss_pps_activity_detected") is not True:
+    raise SystemExit(f"Z203 PPS activity was not detected: {z203!r}")
+if z203.get("gnss_pps_assert_sequence_delta") != 2:
+    raise SystemExit(f"Z203 PPS sequence delta was not retained: {z203!r}")
 z103 = boards["z103"]
 if "gnss_receiver_io_overvoltage" not in z103.get("blockers", []):
     raise SystemExit(f"Z103 receiver warning blocker was not surfaced: {z103!r}")
@@ -133,6 +139,42 @@ if "gnss_pps_device_missing" not in boards["z103"].get("blockers", []):
     raise SystemExit(f"Z103 missing PPS blocker was not surfaced: {boards['z103']!r}")
 if "gnss_pps_device_missing" in boards["z203"].get("blockers", []):
     raise SystemExit(f"Z203 has synthetic PPS but was marked missing: {boards['z203']!r}")
+PY
+
+python3 - "$work_dir/z103_facts.txt.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+facts = json.loads(path.read_text(encoding="utf-8"))
+facts["pps_devices"] = "/dev/pps0"
+facts["pps_sysfs_devices"] = "pps0"
+facts["pps_assert_before"] = "200.000000000#7"
+facts["pps_assert_after"] = "202.000000000#7"
+path.write_text(json.dumps(facts, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" \
+  --out-dir "$work_dir" \
+  --require-gnss-pps \
+  > "$work_dir/summary-required-pps-no-activity.json"; then
+  echo "GNSS live preflight summary accepted inactive PPS assertions" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/summary-required-pps-no-activity.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+summary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+boards = {row["label"]: row for row in summary["boards"]}
+z103 = boards["z103"]
+if "gnss_pps_no_assert_activity" not in z103.get("blockers", []):
+    raise SystemExit(f"Z103 inactive PPS blocker was not surfaced: {z103!r}")
+if z103.get("gnss_pps_activity_detected") is not False:
+    raise SystemExit(f"Z103 inactive PPS should be activity_detected=false: {z103!r}")
 PY
 
 echo "fieldmesh_gnss_live_preflight_summary=pass"

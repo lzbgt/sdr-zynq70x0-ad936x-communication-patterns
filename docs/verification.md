@@ -3245,15 +3245,16 @@ configuration, visible serial nodes, reporter process state, and daemon
 `FIELDMESH_RTLS_POSITION` output. By default it exits successfully after
 inspection even when `gnss_live_ready=false`; set `REQUIRE_GNSS_FIX=1` to make
 missing live GNSS a hard production failure.
-Set `REQUIRE_GNSS_PPS=1` to also require a live kernel PPS device and matching
-`gnss_pps_lock=1` configuration. This does not make a GNSS position valid by
-itself; it exposes the separate PPS timing boundary needed for time-synced
-TOF/TDOA and scheduled RF modes.
+Set `REQUIRE_GNSS_PPS=1` to also require a live kernel PPS device, matching
+`gnss_pps_lock=1` configuration, and observed PPS assert counter activity.
+This does not make a GNSS position valid by itself; it exposes the separate
+PPS timing boundary needed for time-synced TOF/TDOA and scheduled RF modes.
 Set `REQUIRE_GNSS_RECEIVER_HEALTH=1` to fail on receiver self-reported
 electrical/status warnings even when no position fix is required. This keeps an
 indoor/no-satellites condition separate from a receiver hardware or I/O fault.
-The current live Z203/Z103 state passes this PPS boundary: both boards expose
-`/dev/pps0`/`/sys/class/pps/pps0` with `gnss_pps_lock=1`. Both still fail
+The current live Z203/Z103 state passes PPS exposure but fails PPS activity:
+both boards expose `/dev/pps0`/`/sys/class/pps/pps0` with `gnss_pps_lock=1`,
+but `/sys/class/pps/pps0/assert` remains at sequence `0`. Both still fail
 `REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes, and Z103
 fails receiver-health readiness while it reports `V_IO ovrvlt`.
 The init-launched GNSS reporter also emits throttled

@@ -42,6 +42,17 @@ def split_csv(value: Any) -> list[str]:
     return [item for item in str(value or "").split(",") if item]
 
 
+def pps_assert_sequence(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if "#" not in text:
+        return None
+    seq_text = text.rsplit("#", 1)[1].strip()
+    try:
+        return int(seq_text)
+    except ValueError:
+        return None
+
+
 RECEIVER_HEALTH_BLOCKERS = {
     "gnss_receiver_io_overvoltage",
     "gnss_receiver_warning",
@@ -94,6 +105,16 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
     pps_sysfs_devices = split_csv(facts.get("pps_sysfs_devices"))
     pps_device_present = bool(pps_devices or pps_sysfs_devices)
     pps_lock_configured = configured_pps_lock in ("1", "true", "yes", "on")
+    pps_assert_before = str(facts.get("pps_assert_before") or "")
+    pps_assert_after = str(facts.get("pps_assert_after") or "")
+    pps_seq_before = pps_assert_sequence(pps_assert_before)
+    pps_seq_after = pps_assert_sequence(pps_assert_after)
+    pps_seq_delta = (
+        pps_seq_after - pps_seq_before
+        if pps_seq_before is not None and pps_seq_after is not None
+        else None
+    )
+    pps_activity_detected = pps_seq_delta is not None and pps_seq_delta > 0
 
     if not configured_device:
         blockers.append("no_gnss_nmea_device_configured")
@@ -137,6 +158,10 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
             blockers.append("gnss_pps_device_missing")
         elif not pps_lock_configured:
             blockers.append("gnss_pps_lock_not_configured")
+        elif pps_seq_delta is None:
+            blockers.append("gnss_pps_assert_unreadable")
+        elif not pps_activity_detected:
+            blockers.append("gnss_pps_no_assert_activity")
 
     receiver_health_blockers = receiver_health_blockers_from_statuses(reporter_statuses)
     blockers = sorted(set(blockers + receiver_health_blockers))
@@ -150,7 +175,14 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
         "gnss_pps_lock": configured_pps_lock,
         "gnss_nmea_device_exists": facts.get("gnss_nmea_device_exists") == "1",
         "gnss_pps_device_present": pps_device_present,
-        "gnss_pps_ready": pps_device_present and pps_lock_configured,
+        "gnss_pps_lock_configured": pps_lock_configured,
+        "gnss_pps_activity_detected": pps_activity_detected,
+        "gnss_pps_assert_before": pps_assert_before,
+        "gnss_pps_assert_after": pps_assert_after,
+        "gnss_pps_assert_sequence_delta": pps_seq_delta,
+        "gnss_pps_ready": (
+            pps_device_present and pps_lock_configured and pps_activity_detected
+        ),
         "gnss_reporter_running": bool(facts.get("gnss_pid")),
         "daemon_running": bool(facts.get("daemon_pid")),
         "serial_devices": serial_devices,

@@ -157,6 +157,9 @@ cat >"$work_dir/fake-gnss-runner.sh" <<'SH'
 set -euo pipefail
 out_dir="${OUT_DIR:?}"
 mkdir -p "$out_dir"
+printf 'REQUIRE_GNSS_FIX=%s\n' "${REQUIRE_GNSS_FIX:-}" >"$out_dir/required_env.txt"
+printf 'REQUIRE_GNSS_PPS=%s\n' "${REQUIRE_GNSS_PPS:-}" >>"$out_dir/required_env.txt"
+printf 'REQUIRE_GNSS_RECEIVER_HEALTH=%s\n' "${REQUIRE_GNSS_RECEIVER_HEALTH:-}" >>"$out_dir/required_env.txt"
 cp "$(dirname "$0")/gnss-blocked.json" "$out_dir/summary.json"
 echo "fake_gnss_preflight=pass"
 SH
@@ -193,6 +196,24 @@ if report.get("production_ready") is not False:
 for blocker in ("gnss_live_fix_not_ready", "gnss_receiver_health_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_gate_missing"):
     if blocker not in report.get("blockers", []):
         raise SystemExit(f"wrapper report missing blocker {blocker}: {report}")
+PY
+
+python3 - "$work_dir/current-wrapper/gnss_preflight/required_env.txt" <<'PY'
+import sys
+from pathlib import Path
+
+env = dict(
+    line.split("=", 1)
+    for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+    if "=" in line
+)
+expected = {
+    "REQUIRE_GNSS_FIX": "1",
+    "REQUIRE_GNSS_PPS": "1",
+    "REQUIRE_GNSS_RECEIVER_HEALTH": "1",
+}
+if env != expected:
+    raise SystemExit(f"system readiness wrapper did not forward GNSS requirements: {env!r}")
 PY
 
 GNSS_PREFLIGHT_REPORT="$work_dir/gnss-ready.json" \

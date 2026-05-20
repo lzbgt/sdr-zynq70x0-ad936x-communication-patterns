@@ -1243,18 +1243,15 @@ user and vendor configuration.
   the daemon log so continuous no-fix/status reporting cannot consume the
   board tmpfs and break later diagnostics such as `iperf3` capture.
 - `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` also reports live PPS
-  exposure through `/dev/pps*` and `/sys/class/pps`. `REQUIRE_GNSS_PPS=1`
-  makes a missing kernel PPS device or missing `gnss_pps_lock=1` configuration
-  a hard failure, keeping GNSS position evidence separate from PPS timing
-  evidence. The refreshed Z203 bitstream/DTB has booted with
-  `CONFIG_PPS_CLIENT_GPIO=y`; live preflight now sees `/dev/pps0` and
-  `/sys/class/pps/pps0`, and dmesg registers `fieldmesh-gnss-pps` as the PPS
-  source. Z203 has passed the Linux PPS exposure gate. Z103 now has the
-  schematic-backed A20/B19/B20 GNSS overlay runtime installed too: live Linux
-  exposes `/dev/ttyPS1`, `/dev/pps0`, and `/sys/class/pps/pps0`; its init
-  service starts `fieldmesh-gnss-nmea-reporter` from persistent
-  `fieldmesh_gnss_*` U-Boot env config. Z103 still lacks a GNSS position fix,
-  so it is PPS/UART ready but not GNSS-position ready.
+  exposure and activity through `/dev/pps*`, `/sys/class/pps`, and
+  `/sys/class/pps/pps0/assert`. `REQUIRE_GNSS_PPS=1` makes a missing kernel
+  PPS device, missing `gnss_pps_lock=1` configuration, or non-incrementing PPS
+  assert sequence a hard failure, keeping GNSS position evidence separate from
+  PPS timing evidence. The refreshed Z203 and Z103 runtimes expose `/dev/pps0`
+  and `/sys/class/pps/pps0`, and dmesg registers `fieldmesh-gnss-pps` as the
+  PPS source. The current live blocker is PPS activity: both boards still show
+  assert sequence `0`, so they are PPS-exposed but not PPS-timing ready.
+  Z103 still lacks a GNSS position fix and reports receiver-health warnings.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

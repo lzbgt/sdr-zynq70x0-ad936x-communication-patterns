@@ -13,6 +13,7 @@ require_gnss_fix="${REQUIRE_GNSS_FIX:-0}"
 require_gnss_pps="${REQUIRE_GNSS_PPS:-0}"
 require_gnss_receiver_health="${REQUIRE_GNSS_RECEIVER_HEALTH:-0}"
 gnss_log_tail_lines="${GNSS_LOG_TAIL_LINES:-64}"
+gnss_pps_activity_wait_s="${GNSS_PPS_ACTIVITY_WAIT_S:-2}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-gnss-live-preflight-$(date +%Y%m%d-%H%M%S)-$$}"
 
 mkdir -p "$out_dir"
@@ -37,6 +38,10 @@ if ! [[ "$gnss_log_tail_lines" =~ ^[0-9]+$ ]] || [ "$gnss_log_tail_lines" -lt 5 
     echo "GNSS_LOG_TAIL_LINES must be an integer >= 5" >&2
     exit 1
 fi
+if ! [[ "$gnss_pps_activity_wait_s" =~ ^[0-9]+$ ]] || [ "$gnss_pps_activity_wait_s" -lt 1 ]; then
+    echo "GNSS_PPS_ACTIVITY_WAIT_S must be an integer >= 1" >&2
+    exit 1
+fi
 
 ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
 
@@ -50,7 +55,7 @@ collect_board_facts() {
     local label="$1"
     local host="$2"
     local output="$3"
-    ssh_board "$host" "GNSS_LOG_TAIL_LINES='$gnss_log_tail_lines' sh -s" >"$output" <<'SH'
+    ssh_board "$host" "GNSS_LOG_TAIL_LINES='$gnss_log_tail_lines' GNSS_PPS_ACTIVITY_WAIT_S='$gnss_pps_activity_wait_s' sh -s" >"$output" <<'SH'
 set +e
 print_file_value() {
     key="$1"
@@ -139,6 +144,17 @@ pps_devices="$(ls /dev/pps* 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
 pps_sysfs="$(ls /sys/class/pps 2>/dev/null | tr '\n' ',' | sed 's/,$//')"
 printf 'pps_devices=%s\n' "$pps_devices"
 printf 'pps_sysfs_devices=%s\n' "$pps_sysfs"
+printf 'pps_activity_wait_s=%s\n' "$GNSS_PPS_ACTIVITY_WAIT_S"
+if [ -f /sys/class/pps/pps0/assert ]; then
+    pps_assert_before="$(cat /sys/class/pps/pps0/assert 2>/dev/null || true)"
+    sleep "$GNSS_PPS_ACTIVITY_WAIT_S"
+    pps_assert_after="$(cat /sys/class/pps/pps0/assert 2>/dev/null || true)"
+    printf 'pps_assert_before=%s\n' "$pps_assert_before"
+    printf 'pps_assert_after=%s\n' "$pps_assert_after"
+else
+    printf 'pps_assert_before=\n'
+    printf 'pps_assert_after=\n'
+fi
 printf 'gnss_log_exists=%s\n' "$([ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ] && echo 1 || echo 0)"
 if [ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ]; then
     tail -n "$GNSS_LOG_TAIL_LINES" /tmp/fieldmesh-gnss-nmea-reporter.ndjson | sed 's/^/gnss_log_tail=/'

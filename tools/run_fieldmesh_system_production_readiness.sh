@@ -45,7 +45,10 @@ mkdir -p "$out_dir"
 
 if [ -z "$gnss_report" ] && [ "$run_gnss_preflight" = "1" ]; then
     set +e
-    OUT_DIR="$out_dir/gnss_preflight" \
+    REQUIRE_GNSS_FIX="$require_gnss_fix" \
+      REQUIRE_GNSS_PPS="$require_gnss_pps" \
+      REQUIRE_GNSS_RECEIVER_HEALTH="$require_gnss_receiver_health" \
+      OUT_DIR="$out_dir/gnss_preflight" \
       "$gnss_runner" \
       >"$out_dir/gnss_preflight.stdout" \
       2>"$out_dir/gnss_preflight.stderr"
