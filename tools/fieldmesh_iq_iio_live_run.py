@@ -232,7 +232,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     tx_gain_channels = tx_hardwaregain_channels(plan["tx_board"])
 
     rows: list[dict[str, Any]] = []
-    if args.rx_gain_control_mode:
+    if not args.skip_rf_config and args.rx_gain_control_mode:
         rows.append(
             command_row(
                 "configure_rx_gain_control_mode",
@@ -246,7 +246,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 ),
             )
         )
-    if args.rx_hardwaregain_db is not None:
+    if not args.skip_rf_config and args.rx_hardwaregain_db is not None:
         rows.append(
             command_row(
                 "configure_rx_hardwaregain",
@@ -260,7 +260,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 ),
             )
         )
-    if args.tx_hardwaregain_db is not None:
+    if not args.skip_rf_config and args.tx_hardwaregain_db is not None:
         for channel in tx_gain_channels:
             rows.append(
                 command_row(
@@ -293,73 +293,77 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         tx_iio["tx_name"],
     ] + tx_channels
 
+    if not args.skip_rf_config:
+        rows += [
+            command_row(
+                "configure_rx_sampling_frequency",
+                iio_attr_channel(
+                    rx_uri,
+                    "ad9361-phy",
+                    "voltage0",
+                    "sampling_frequency",
+                    fixture["sample_rate_hz"],
+                    direction="input",
+                ),
+            ),
+            command_row(
+                "configure_rx_rf_bandwidth",
+                iio_attr_channel(
+                    rx_uri,
+                    "ad9361-phy",
+                    "voltage0",
+                    "rf_bandwidth",
+                    fixture["rf_bandwidth_hz"],
+                    direction="input",
+                ),
+            ),
+            command_row(
+                "configure_rx_lo",
+                iio_attr_channel(
+                    rx_uri,
+                    "ad9361-phy",
+                    "altvoltage0",
+                    "frequency",
+                    fixture["center_frequency_hz"],
+                    direction="output",
+                ),
+            ),
+            command_row(
+                "configure_tx_sampling_frequency",
+                iio_attr_channel(
+                    tx_uri,
+                    "ad9361-phy",
+                    "voltage0",
+                    "sampling_frequency",
+                    fixture["sample_rate_hz"],
+                    direction="output",
+                ),
+            ),
+            command_row(
+                "configure_tx_rf_bandwidth",
+                iio_attr_channel(
+                    tx_uri,
+                    "ad9361-phy",
+                    "voltage0",
+                    "rf_bandwidth",
+                    fixture["rf_bandwidth_hz"],
+                    direction="output",
+                ),
+            ),
+            command_row(
+                "configure_tx_lo",
+                iio_attr_channel(
+                    tx_uri,
+                    "ad9361-phy",
+                    "altvoltage1",
+                    "frequency",
+                    fixture["center_frequency_hz"],
+                    direction="output",
+                ),
+            ),
+        ]
+
     rows += [
-        command_row(
-            "configure_rx_sampling_frequency",
-            iio_attr_channel(
-                rx_uri,
-                "ad9361-phy",
-                "voltage0",
-                "sampling_frequency",
-                fixture["sample_rate_hz"],
-                direction="input",
-            ),
-        ),
-        command_row(
-            "configure_rx_rf_bandwidth",
-            iio_attr_channel(
-                rx_uri,
-                "ad9361-phy",
-                "voltage0",
-                "rf_bandwidth",
-                fixture["rf_bandwidth_hz"],
-                direction="input",
-            ),
-        ),
-        command_row(
-            "configure_rx_lo",
-            iio_attr_channel(
-                rx_uri,
-                "ad9361-phy",
-                "altvoltage0",
-                "frequency",
-                fixture["center_frequency_hz"],
-                direction="output",
-            ),
-        ),
-        command_row(
-            "configure_tx_sampling_frequency",
-            iio_attr_channel(
-                tx_uri,
-                "ad9361-phy",
-                "voltage0",
-                "sampling_frequency",
-                fixture["sample_rate_hz"],
-                direction="output",
-            ),
-        ),
-        command_row(
-            "configure_tx_rf_bandwidth",
-            iio_attr_channel(
-                tx_uri,
-                "ad9361-phy",
-                "voltage0",
-                "rf_bandwidth",
-                fixture["rf_bandwidth_hz"],
-                direction="output",
-            ),
-        ),
-        command_row(
-            "configure_tx_lo",
-            iio_attr_channel(
-                tx_uri,
-                "ad9361-phy",
-                "altvoltage1",
-                "frequency",
-                fixture["center_frequency_hz"],
-                direction="output",
-            ),
-        ),
         command_row(
             "arm_rx_iio_buffer",
             [
@@ -422,6 +426,7 @@ def run_command(row: dict[str, Any], *, stdin_file: str | None = None, stdout_fi
 
 
 def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], capture_path: Path) -> list[dict[str, Any]]:
+    started = time.monotonic()
     results: list[dict[str, Any]] = []
     rx_index = next(index for index, row in enumerate(commands) if row["name"] == "arm_rx_iio_buffer")
     tx_index = next(index for index, row in enumerate(commands) if row["name"] == "load_tx_iio_buffer")
@@ -435,6 +440,7 @@ def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], captu
     tx_row = commands[tx_index]
     rx_stdout = open(capture_path, "wb")
     try:
+        rx_started = time.monotonic()
         rx_proc = subprocess.Popen(
             rx_row["argv"],
             stdin=subprocess.DEVNULL,
@@ -462,6 +468,7 @@ def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], captu
                 "returncode": rx_proc.returncode,
                 "stderr": rx_stderr.decode("utf-8", errors="replace"),
                 "timed_out": rx_timed_out,
+                "elapsed_ms": int((time.monotonic() - rx_started) * 1000),
             }
         )
     finally:
@@ -479,6 +486,13 @@ def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], captu
         )
         if result["returncode"] != 0 and not allowed_timeout:
             raise SystemExit(f"{result['name']} failed: {result.get('stderr', '').strip()}")
+    results.append(
+        {
+            "name": "execute_live_total",
+            "returncode": 0,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
+    )
     return results
 
 
@@ -487,6 +501,7 @@ def recovered_crc(frame: bytes) -> int:
 
 
 def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> dict[str, Any]:
+    started = time.monotonic()
     if not capture_path.exists():
         return {"attempted": False, "reason": "capture file missing"}
     iq = capture_path.read_bytes()
@@ -524,6 +539,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 "sync_errors": decoded["sync_errors"],
                 "wrapped": decoded.get("wrapped"),
                 "decoder": "noncoherent_complex_bfsk_v1",
+                "elapsed_ms": int((time.monotonic() - started) * 1000),
             }
         return {
             "attempted": True,
@@ -536,6 +552,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
             "best_bit_start": decoded.get("bit_start"),
             "best_wrapped": decoded.get("wrapped"),
             "decoder": "noncoherent_complex_bfsk_v1",
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
         }
 
     carrier_candidates = [baseband_carrier_hz]
@@ -579,6 +596,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
             "sync_score": coherent["score"],
             "decoder": "coherent_complex_bpsk_v1",
             "baseband_carrier_hz": coherent["baseband_carrier_hz"],
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
         }
     last_error = "missing IQ burst preamble/sync"
     for sample_offset in range(samples_per_symbol):
@@ -621,10 +639,12 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         "best_coherent_phase_q": coherent.get("phase_q"),
         "best_coherent_carrier_hz": coherent.get("baseband_carrier_hz"),
         "decoder": "coherent_complex_bpsk_v1",
+        "elapsed_ms": int((time.monotonic() - started) * 1000),
     }
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
+    started = time.monotonic()
     plan = load_json(args.live_plan)
     require_plan(plan)
     require_guard(args, plan)
@@ -658,6 +678,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "rx_gain_control_mode": args.rx_gain_control_mode,
         "rx_hardwaregain_db": args.rx_hardwaregain_db,
         "tx_hardwaregain_db": args.tx_hardwaregain_db,
+        "skip_rf_config": bool(args.skip_rf_config),
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -681,6 +702,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "commands": commands,
         "command_results": command_results,
         "decode": decode,
+        "elapsed_ms": int((time.monotonic() - started) * 1000),
     }
     out_path = args.out_dir / "fieldmesh_iq_iio_live_run.json"
     out_path.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
@@ -716,6 +738,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-gain-control-mode")
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float)
+    parser.add_argument("--skip-rf-config", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

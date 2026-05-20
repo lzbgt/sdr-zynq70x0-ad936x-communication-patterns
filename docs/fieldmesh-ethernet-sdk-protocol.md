@@ -605,7 +605,11 @@ duplicate queued TCP retransmission signatures before RF leasing, because the
 over-air bridge is bandwidth-limited and stale SYN/SYN-ACK retransmissions can
 otherwise delay current stream-control packets. It also remembers a short ring
 of recently ACKed TCP signatures so retransmissions that arrive after confirmed
-peer ingest do not consume new RF bursts. `FIELDMESH_RF_TX_POLL`
+peer ingest do not consume new RF bursts. The live IIO bridge now also skips
+repeated RF attribute configuration after the first successful batch in a
+direction, drains stale pre-test TX frames, and records per-batch decode/control
+timing so HIL runs expose data-plane latency instead of hiding it behind a
+generic iperf failure. `FIELDMESH_RF_TX_POLL`
 remains as a legacy destructive diagnostic and must not be used by the
 production RF worker because a timeout after poll loses the frame before
 delivery is known.

@@ -62,6 +62,10 @@ def collapse_repeated_bits(bits: list[int], bit_repeat: int) -> list[int]:
     return out
 
 
+def bits_to_text(bits: list[int]) -> str:
+    return "".join("1" if bit else "0" for bit in bits)
+
+
 def burst_payload(frame: bytes) -> bytes:
     return PREAMBLE + SYNC + struct.pack(">H", len(frame)) + frame + struct.pack(">I", zlib.crc32(frame) & 0xFFFFFFFF)
 
@@ -304,12 +308,14 @@ def decode_bfsk_iq(
         required_bits += expected_frame_len * 8
     candidates: list[dict[str, Any]] = []
     last_error = "missing IQ burst preamble/sync"
+    sync_text = bits_to_text(sync_bits)
     space_prefix, mark_prefix = bfsk_tone_prefixes(
         iq,
         sample_rate_hz=sample_rate_hz,
         space_hz=space_hz,
         mark_hz=mark_hz,
     )
+    decoded_bit_sets: list[dict[str, Any]] = []
     for sample_offset in range(samples_per_symbol):
         chip_bits = decode_bfsk_iq_bits_from_prefixes(
             space_prefix,
@@ -325,6 +331,33 @@ def decode_bfsk_iq(
             # Append one frame's worth of leading bits so a valid sync near the
             # end can still recover the wrapped length/frame/CRC tail.
             decode_bits = bits + bits[:required_bits]
+            decode_text = bits_to_text(decode_bits)
+            bit_start = decode_text.find(sync_text)
+            while bit_start >= 0 and bit_start < len(bits):
+                candidates.append(
+                    {
+                        "sync_errors": 0,
+                        "sample_offset": sample_offset,
+                        "chip_phase": chip_phase,
+                        "bit_start": bit_start,
+                        "bits": decode_bits,
+                        "wrapped": bit_start + required_bits > len(bits),
+                    }
+                )
+                bit_start = decode_text.find(sync_text, bit_start + 1)
+            decoded_bit_sets.append(
+                {
+                    "sample_offset": sample_offset,
+                    "chip_phase": chip_phase,
+                    "bits": bits,
+                    "decode_bits": decode_bits,
+                }
+            )
+
+    if not candidates:
+        for decoded in decoded_bit_sets:
+            bits = decoded["bits"]
+            decode_bits = decoded["decode_bits"]
             for bit_start in range(0, len(bits)):
                 sync_errors = sum(
                     expected_bit != hard_bit
@@ -334,18 +367,17 @@ def decode_bfsk_iq(
                         strict=True,
                     )
                 )
-                if sync_errors > min(8, len(sync_bits) // 16):
-                    continue
-                candidates.append(
-                    {
-                        "sync_errors": sync_errors,
-                        "sample_offset": sample_offset,
-                        "chip_phase": chip_phase,
-                        "bit_start": bit_start,
-                        "bits": decode_bits,
-                        "wrapped": bit_start + required_bits > len(bits),
-                    }
-                )
+                if sync_errors <= min(8, len(sync_bits) // 16):
+                    candidates.append(
+                        {
+                            "sync_errors": sync_errors,
+                            "sample_offset": decoded["sample_offset"],
+                            "chip_phase": decoded["chip_phase"],
+                            "bit_start": bit_start,
+                            "bits": decode_bits,
+                            "wrapped": bit_start + required_bits > len(bits),
+                        }
+                    )
 
     for candidate in sorted(candidates, key=lambda row: (row["sync_errors"], row["wrapped"], row["bit_start"])):
         try:

@@ -78,16 +78,20 @@ default from `samples_per_symbol=64` / `bit_repeat=8` to
 timeout per leased frame. Normal TCP and UDP socket echo traffic now passes
 over the real over-air IIO bridge. A destructive-poll batch HIL experiment moved
 10 queued native-IP frames over real RF in three IQ bursts. The daemon and
-bridge now have a non-destructive batch lease/ACK contract. A live
-installed-board run moved 20 native-IP frames over real RF with
-ACK-after-peer-ingest preserved, then `iperf3` failed because queued duplicate
-TCP retransmissions consumed RF batches and delayed the server parameter
-exchange past its timeout. The daemon RF TX queue now suppresses duplicate
-queued TCP retransmission frames and recent already-ACKed TCP signatures before
-RF leasing. The remaining native-IP blocker is therefore not antenna
-installation, basic RF decode, or ordinary socket transport; it is the RF
-bridge data-plane software, with the next HIL step being the same batched
-over-air `iperf3` run after duplicate suppression.
+bridge now have a non-destructive batch lease/ACK contract. Live installed-board
+runs moved native-IP frames over real RF with ACK-after-peer-ingest preserved.
+The RF bridge now configures each direction once, skips repeated AD936x
+attribute writes for later batches, uses a fast exact-sync BFSK decode path
+before falling back to fuzzy sync, separates IIO capture timeout from daemon
+control timeout, and drains pre-test RF TX queues so old TCP teardown frames do
+not poison a fresh `iperf3` attempt. A live run then moved 22 native-IP frames
+over real RF with zero bridge errors, and the `iperf3` client entered test
+phase and sent 1024 TCP bytes. It still did not complete because the slow
+bring-up bridge did not return the server-side result/control traffic before
+the client was terminated. The remaining native-IP blocker is therefore not
+antenna installation, basic RF decode, daemon queueing, or ordinary socket
+transport; it is the RF bridge data-plane software. The next HIL step is a true
+streaming or pipelined RF loop rather than another per-batch IIO process loop.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

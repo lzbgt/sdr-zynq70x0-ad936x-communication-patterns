@@ -194,6 +194,7 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         rx_gain_control_mode=args.rx_gain_control_mode,
         rx_hardwaregain_db=args.rx_hardwaregain_db,
         tx_hardwaregain_db=args.tx_hardwaregain_db,
+        skip_rf_config=getattr(args, "skip_rf_config", False),
         pretty=False,
     )
     return bridge.run(bridge_args)
@@ -206,7 +207,9 @@ def run_batch(
     index: int,
     *,
     destructive_source_poll: bool,
+    skip_rf_config: bool,
 ) -> dict[str, Any]:
+    started = time.monotonic()
     frame_dir = args.out_dir / f"batch-{index:04d}-{direction['name']}"
     frame_dir.mkdir(parents=True, exist_ok=True)
     batch_payload = encode_batch(batch_frames)
@@ -290,9 +293,12 @@ def run_batch(
         rx_gain_control_mode=args.rx_gain_control_mode,
         rx_hardwaregain_db=args.rx_hardwaregain_db,
         tx_hardwaregain_db=args.tx_hardwaregain_db,
+        skip_rf_config=skip_rf_config,
         pretty=False,
     )
+    live_run_started = time.monotonic()
     run_report = bridge.live_run.build_report(run_args)
+    live_run_elapsed_ms = int((time.monotonic() - live_run_started) * 1000)
     recovered_frames: list[bytes] = []
     ingests: list[dict[str, Any]] = []
     source_ack: dict[str, Any] = (
@@ -315,18 +321,20 @@ def run_batch(
                 direction["sink_host"],
                 direction["sink_port"],
                 "FIELDMESH_RF_RX_INGEST v1 " + recovered.hex(),
-                args.timeout_ms,
+                args.daemon_timeout_ms,
             )
             if ingest.get("ok") is not True:
                 raise SystemExit(f"sink RF_RX_INGEST failed for batch frame: {ingest}")
             ingests.append(ingest)
         if not destructive_source_poll:
+            ack_started = time.monotonic()
             source_ack = ack_batch_to_daemon(
                 direction["source_host"],
                 direction["source_port"],
-                args.timeout_ms,
+                args.daemon_timeout_ms,
                 batch_frames,
             )
+            source_ack["elapsed_ms"] = int((time.monotonic() - ack_started) * 1000)
 
     report = {
         "event": "fieldmesh_iio_rf_worker_bridge_batch",
@@ -344,6 +352,11 @@ def run_batch(
         "source_ack": source_ack,
         "ack_after_successful_ingest_only": not destructive_source_poll,
         "destructive_source_poll": destructive_source_poll,
+        "skip_rf_config": skip_rf_config,
+        "elapsed_ms": int((time.monotonic() - started) * 1000),
+        "live_run_elapsed_ms": live_run_elapsed_ms,
+        "live_run_reported_elapsed_ms": run_report.get("elapsed_ms"),
+        "decode_elapsed_ms": run_report.get("decode", {}).get("elapsed_ms"),
         "uses_inter_board_ip_routing": False,
         "transport": "real_rf_phy" if args.execute_live_rf else "guarded_iio_rf_dry_run",
         "rf_phy_tx_rx_verified": bool(args.execute_live_rf),
@@ -452,6 +465,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "max_frames": args.max_frames,
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
+            "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "rf_phy_tx_rx_verified": verified,
             "app_verified_real_rf": False,
@@ -473,6 +487,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     write_progress()
     preloaded_lease = load_json(args.leased_frame_report) if args.leased_frame_report else None
+    configured_directions: set[str] = set()
     while time.monotonic() < deadline and next_index < args.max_frames:
         moved = False
         for direction in directions:
@@ -488,7 +503,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         polled_frame = poll_from_daemon(
                             direction["source_host"],
                             direction["source_port"],
-                            args.timeout_ms,
+                            args.daemon_timeout_ms,
                         )
                         if polled_frame is None:
                             break
@@ -502,7 +517,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         batch_frames,
                         next_index,
                         destructive_source_poll=True,
+                        skip_rf_config=args.skip_rf_config_after_first
+                        and direction["name"] in configured_directions,
                     )
+                    configured_directions.add(direction["name"])
                     frames.append(
                         {
                             "index": next_index,
@@ -520,6 +538,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             ),
                             "source_ack_ok": None,
                             "destructive_source_poll": True,
+                            "skip_rf_config": report.get("skip_rf_config"),
+                            "elapsed_ms": report.get("elapsed_ms"),
+                            "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
                         }
                     )
                     counts[direction["name"].replace("-", "_")] += len(batch_frames)
@@ -531,7 +552,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     batch_frames = lease_batch_from_daemon(
                         direction["source_host"],
                         direction["source_port"],
-                        args.timeout_ms,
+                        args.daemon_timeout_ms,
                         args.batch_size,
                     )
                     if not batch_frames:
@@ -543,7 +564,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         batch_frames,
                         next_index,
                         destructive_source_poll=False,
+                        skip_rf_config=args.skip_rf_config_after_first
+                        and direction["name"] in configured_directions,
                     )
+                    configured_directions.add(direction["name"])
                     frames.append(
                         {
                             "index": next_index,
@@ -561,6 +585,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             ),
                             "source_ack_ok": report.get("source_ack", {}).get("ok"),
                             "destructive_source_poll": False,
+                            "skip_rf_config": report.get("skip_rf_config"),
+                            "elapsed_ms": report.get("elapsed_ms"),
+                            "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
                         }
                     )
                     counts[direction["name"].replace("-", "_")] += len(batch_frames)
@@ -569,7 +596,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     moved = True
                     continue
                 else:
-                    lease = lease_from_daemon(direction["source_host"], direction["source_port"], args.timeout_ms)
+                    lease = lease_from_daemon(
+                        direction["source_host"],
+                        direction["source_port"],
+                        args.daemon_timeout_ms,
+                    )
                     if lease is None:
                         counts["empty_polls"] += 1
                         continue
@@ -597,6 +628,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         "error": error_text(exc),
                     }
                 )
+                next_index += 1
                 if args.stop_on_error:
                     raise
             except Exception as exc:  # noqa: BLE001 - preserve loop diagnostics.
@@ -608,6 +640,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         "error": error_text(exc),
                     }
                 )
+                next_index += 1
                 if args.stop_on_error:
                     raise
             write_progress()
@@ -647,6 +680,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bit-repeat", type=int, default=4)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
+    parser.add_argument("--daemon-timeout-ms", type=int)
     parser.add_argument("--execute-live-rf", action="store_true")
     parser.add_argument("--allow-hardware-writes", action="store_true")
     parser.add_argument("--allow-rf-tx", action="store_true")
@@ -662,6 +696,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-gain-control-mode", default="slow_attack")
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
+    parser.add_argument("--skip-rf-config-after-first", action="store_true")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
@@ -669,6 +704,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.daemon_timeout_ms is None:
+        args.daemon_timeout_ms = args.timeout_ms
     report = run(args)
     print(json.dumps(report, indent=2 if args.pretty else None, sort_keys=True))
     return 0 if report.get("ok") is True else 1

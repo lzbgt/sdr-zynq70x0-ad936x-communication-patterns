@@ -45,6 +45,8 @@ fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
+iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
+iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
 allow_destructive_rf_batch="${ALLOW_DESTRUCTIVE_RF_BATCH:-0}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
@@ -77,6 +79,7 @@ case "$allow_iio_rf_bridge" in 0|1) ;; *) echo "ALLOW_IIO_RF_BRIDGE must be 0 or
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE must be 0 or 1" >&2; exit 1 ;; esac
 case "$preflight_only" in 0|1) ;; *) echo "PREFLIGHT_ONLY must be 0 or 1" >&2; exit 1 ;; esac
+case "$iio_bridge_skip_rf_config_after_first" in 0|1) ;; *) echo "IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST must be 0 or 1" >&2; exit 1 ;; esac
 for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
     case "$item" in 0|1) ;; *) echo "live RF flags must be 0 or 1" >&2; exit 1 ;; esac
 done
@@ -107,6 +110,10 @@ if ! [[ "$iio_bridge_max_frames" =~ ^[0-9]+$ ]] || [ "$iio_bridge_max_frames" -l
 fi
 if ! [[ "$iio_bridge_batch_size" =~ ^[0-9]+$ ]] || [ "$iio_bridge_batch_size" -lt 1 ]; then
     echo "IIO_BRIDGE_BATCH_SIZE must be a positive integer" >&2
+    exit 1
+fi
+if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
+    echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
     exit 1
 fi
 if [ "$iio_bridge_batch_size" -gt 4 ]; then
@@ -824,6 +831,9 @@ start_iio_rf_bridge_loop() {
     if [ "$allow_destructive_rf_batch" = "1" ]; then
         batch_args=(--destructive-poll-batch)
     fi
+    if [ "$iio_bridge_skip_rf_config_after_first" = "1" ]; then
+        batch_args+=(--skip-rf-config-after-first)
+    fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
         --out-dir "$out_dir/iio_rf_worker_bridge_loop" \
@@ -844,6 +854,7 @@ start_iio_rf_bridge_loop() {
         --bit-repeat "$rf_bit_repeat" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
+        --daemon-timeout-ms "$iio_bridge_daemon_timeout_ms" \
         --execute-live-rf \
         --allow-hardware-writes \
         --allow-rf-tx \
@@ -855,6 +866,84 @@ start_iio_rf_bridge_loop() {
         >"$out_dir/iio_rf_worker_bridge_loop_stdout.json" \
         2>"$out_dir/iio_rf_worker_bridge_loop.err" &
     echo "$!"
+}
+
+drain_daemon_rf_tx_queues() {
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" \
+        "$iio_bridge_daemon_timeout_ms" <<'PY' >>"$out_dir/iperf_gate.ndjson"
+import json
+import socket
+import sys
+import time
+
+endpoints = (
+    ("z203", sys.argv[1], int(sys.argv[2])),
+    ("z103", sys.argv[3], int(sys.argv[4])),
+)
+timeout_s = int(sys.argv[5]) / 1000.0
+
+def request(host: str, port: int, text: str) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_s)
+    try:
+        sock.sendto(text.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(65535)
+        return json.loads(payload.decode("utf-8", errors="replace"))
+    finally:
+        sock.close()
+
+summary = {
+    "event": "fieldmesh_native_ip_iperf_pretest_rf_tx_drain",
+    "ok": True,
+    "dropped_frames": 0,
+    "endpoints": [],
+}
+for label, host, port in endpoints:
+    dropped = 0
+    errors = []
+    for _ in range(8):
+        try:
+            lease = request(host, port, "FIELDMESH_RF_TX_LEASE_BATCH v1 max=4")
+        except Exception as exc:  # noqa: BLE001 - preserve drain diagnostics.
+            errors.append(f"lease:{type(exc).__name__}:{exc}")
+            break
+        frames = lease.get("frames")
+        if not isinstance(frames, int) or frames < 1:
+            time.sleep(0.05)
+            continue
+        fields = [f"FIELDMESH_RF_TX_ACK_BATCH v1 frames={frames}"]
+        valid = True
+        for index in range(frames):
+            frame_hex = lease.get(f"frame{index}_hex")
+            if not isinstance(frame_hex, str) or not frame_hex:
+                valid = False
+                errors.append(f"missing_frame{index}_hex")
+                break
+            fields.append(f"frame{index}_hex={frame_hex}")
+        if not valid:
+            break
+        try:
+            ack = request(host, port, " ".join(fields))
+        except Exception as exc:  # noqa: BLE001 - preserve drain diagnostics.
+            errors.append(f"ack:{type(exc).__name__}:{exc}")
+            break
+        if ack.get("ok") is not True:
+            errors.append(f"ack_failed:{ack}")
+            break
+        dropped += frames
+    summary["dropped_frames"] += dropped
+    summary["endpoints"].append({
+        "label": label,
+        "dropped_frames": dropped,
+        "errors": errors,
+        "ok": not errors,
+    })
+    if errors:
+        summary["ok"] = False
+print(json.dumps(summary, sort_keys=True))
+if not summary["ok"]:
+    raise SystemExit(1)
+PY
 }
 
 stop_bridge_loop() {
@@ -998,6 +1087,10 @@ setup_host_pc_route
 if ! start_tun_services >"$out_dir/start_tun_services.stdout" 2>"$out_dir/start_tun_services.stderr"; then
     fail_bounded "tun_or_rf_worker_start_failed" \
         "TUN service or RF worker did not start cleanly; see start_tun_services.stderr and iperf_gate.ndjson."
+fi
+if ! drain_daemon_rf_tx_queues; then
+    fail_bounded "pretest_rf_tx_drain_failed" \
+        "Failed to drain stale RF TX frames before starting iperf; see iperf_gate.ndjson."
 fi
 bridge_pid=""
 if [ "$allow_daemon_rf_bridge" = "1" ]; then

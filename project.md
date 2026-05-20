@@ -823,6 +823,11 @@ user and vendor configuration.
   `FIELDMESH_RF_TX_ACK_BATCH` contract, so the source queue is dropped only
   after every recovered batch frame is ingested by the peer. This is the
   production-shaped batching path for replacing the slow stop-and-wait loop.
+  The current HIL bridge configures each RF direction once, skips repeated RF
+  attribute writes for later batches, uses fast exact-sync BFSK decode before
+  fuzzy fallback, separates daemon-control timeout from IIO capture timeout,
+  and drains pre-test RF TX queues before launching iperf so stale TCP teardown
+  frames from earlier failed runs do not enter the new measurement.
   `--destructive-poll-batch` is an explicit HIL diagnostic mode that consumes
   several queued source frames with
   `FIELDMESH_RF_TX_POLL`, sends them in one IQ burst, and relies on upper-layer

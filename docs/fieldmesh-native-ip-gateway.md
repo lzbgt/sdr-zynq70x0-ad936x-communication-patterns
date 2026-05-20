@@ -213,7 +213,11 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_RF_TX_ACK_BATCH`; the daemon suppresses duplicate queued TCP
   retransmission frames and recent already-ACKed TCP signatures before RF
   leasing so slow bring-up loops do not spend scarce RF bursts on stale
-  SYN/SYN-ACK retransmissions;
+  SYN/SYN-ACK retransmissions. The live IIO bridge configures RF attributes on
+  the first batch in each direction and skips repeated configuration for later
+  batches by default, uses fast exact-sync BFSK decode before fuzzy fallback,
+  keeps daemon control timeout separate from IIO capture timeout, and drains
+  pre-test RF TX queues before launching `iperf3`;
   the RF path evidence must be production/site evidence, not a verifier
   fixture. `PREFLIGHT_ONLY=1`
   checks the daemon RF fields, optional RF path evidence, and optional host

@@ -76,6 +76,37 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+"$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/dry-run-loop/frame-0000-z203-to-z103/iq-iio-live-plan.json" \
+  --out-dir "$work_dir/dry-run-skip-rf-config" \
+  --fixture-attenuation-db 60 \
+  --authorized-rf-path \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --skip-rf-config \
+  > "$work_dir/dry_run_skip_rf_config_stdout.json"
+
+python3 - "$work_dir/dry-run-skip-rf-config/fieldmesh_iq_iio_live_run.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+names = [row.get("name") for row in report.get("commands", [])]
+if any(str(name).startswith("configure_") for name in names):
+    raise SystemExit(f"skip-rf-config left configure commands in run script: {names}")
+if names != ["arm_rx_iio_buffer", "load_tx_iio_buffer"]:
+    raise SystemExit(f"skip-rf-config command list changed: {names}")
+if report.get("safety", {}).get("skip_rf_config") is not True:
+    raise SystemExit("skip-rf-config was not recorded in safety block")
+print(json.dumps({
+    "event": "fieldmesh_iio_live_run_skip_rf_config_check",
+    "ok": True,
+    "commands": names,
+}, sort_keys=True))
+PY
+
 if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --rf-binding-plan "$binding" \
   --leased-frame-report "$work_dir/lease.json" \
