@@ -22,6 +22,7 @@ iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
 iperf_connect_timeout_ms="${IPERF_CONNECT_TIMEOUT_MS:-600000}"
 iperf_tcp_mss="${IPERF_TCP_MSS:-256}"
 iperf_tcp_window="${IPERF_TCP_WINDOW:-4K}"
+iperf_tcp_bitrate="${IPERF_TCP_BITRATE:-}"
 iperf_block_size="${IPERF_BLOCK_SIZE:-256}"
 allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
 allow_iio_rf_bridge="${ALLOW_IIO_RF_BRIDGE:-0}"
@@ -43,6 +44,14 @@ center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
 rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-64}"
 rf_bit_repeat="${RF_BIT_REPEAT:-4}"
+rf_z203_to_z103_samples_per_symbol="${RF_Z203_TO_Z103_SAMPLES_PER_SYMBOL:-}"
+rf_z203_to_z103_bit_repeat="${RF_Z203_TO_Z103_BIT_REPEAT:-}"
+rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-}"
+rf_z103_to_z203_bit_repeat="${RF_Z103_TO_Z203_BIT_REPEAT:-}"
+rf_z203_to_z103_retry_samples_per_symbol="${RF_Z203_TO_Z103_RETRY_SAMPLES_PER_SYMBOL:-}"
+rf_z203_to_z103_retry_bit_repeat="${RF_Z203_TO_Z103_RETRY_BIT_REPEAT:-}"
+rf_z103_to_z203_retry_samples_per_symbol="${RF_Z103_TO_Z203_RETRY_SAMPLES_PER_SYMBOL:-}"
+rf_z103_to_z203_retry_bit_repeat="${RF_Z103_TO_Z203_RETRY_BIT_REPEAT:-}"
 rf_rx_gain_control_mode="${RF_RX_GAIN_CONTROL_MODE:-slow_attack}"
 rf_rx_hardwaregain_db="${RF_RX_HARDWAREGAIN_DB:-}"
 rf_tx_hardwaregain_db="${RF_TX_HARDWAREGAIN_DB:-0.0}"
@@ -57,6 +66,7 @@ iio_bridge_daemon_request_attempts="${IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS:-2}"
 iio_bridge_cyclic_capture_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS:-1}"
 iio_bridge_cyclic_capture_retry_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_RETRY_PERIODS:-2}"
 iio_bridge_ip_port_filter="${IIO_BRIDGE_IP_PORT_FILTER:-$iperf_port}"
+iio_bridge_cyclic_tx="${IIO_BRIDGE_CYCLIC_TX:-1}"
 allow_destructive_rf_batch="${ALLOW_DESTRUCTIVE_RF_BATCH:-0}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
@@ -64,6 +74,10 @@ mkdir -p "$out_dir"
 
 if ! [[ "$iperf_port" =~ ^[0-9]+$ ]] || [ "$iperf_port" -lt 1 ] || [ "$iperf_port" -gt 65535 ]; then
     echo "IPERF_PORT must be 1..65535" >&2
+    exit 1
+fi
+if [ -n "$iperf_tcp_bitrate" ] && ! [[ "$iperf_tcp_bitrate" =~ ^[0-9]+([KMG])?$ ]]; then
+    echo "IPERF_TCP_BITRATE must be empty or an iperf bitrate like 512, 1K, 1M" >&2
     exit 1
 fi
 for item in "$iperf_rcv_timeout_ms" "$iperf_snd_timeout_ms" "$iperf_connect_timeout_ms"; do
@@ -186,6 +200,26 @@ if ! [[ "$rf_bit_repeat" =~ ^[0-9]+$ ]] || [ "$rf_bit_repeat" -lt 1 ]; then
     echo "RF_BIT_REPEAT must be an integer >= 1" >&2
     exit 1
 fi
+for item in \
+    "$rf_z203_to_z103_samples_per_symbol" \
+    "$rf_z103_to_z203_samples_per_symbol" \
+    "$rf_z203_to_z103_retry_samples_per_symbol" \
+    "$rf_z103_to_z203_retry_samples_per_symbol"; do
+    if [ -n "$item" ] && { ! [[ "$item" =~ ^[0-9]+$ ]] || [ "$item" -lt 2 ]; }; then
+        echo "direction-specific RF *_SAMPLES_PER_SYMBOL values must be integers >= 2" >&2
+        exit 1
+    fi
+done
+for item in \
+    "$rf_z203_to_z103_bit_repeat" \
+    "$rf_z103_to_z203_bit_repeat" \
+    "$rf_z203_to_z103_retry_bit_repeat" \
+    "$rf_z103_to_z203_retry_bit_repeat"; do
+    if [ -n "$item" ] && { ! [[ "$item" =~ ^[0-9]+$ ]] || [ "$item" -lt 1 ]; }; then
+        echo "direction-specific RF *_BIT_REPEAT values must be integers >= 1" >&2
+        exit 1
+    fi
+done
 if [ -n "$rf_rx_hardwaregain_db" ] && ! [[ "$rf_rx_hardwaregain_db" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
     echo "RF_RX_HARDWAREGAIN_DB must be a number when set" >&2
     exit 1
@@ -196,6 +230,10 @@ if [ -n "$rf_tx_hardwaregain_db" ] && ! [[ "$rf_tx_hardwaregain_db" =~ ^-?[0-9]+
 fi
 if [ -n "$fieldmesh_iio_burst_helper" ] && [ ! -x "$fieldmesh_iio_burst_helper" ]; then
     echo "FIELDMESH_IIO_BURST_HELPER must point to an executable helper" >&2
+    exit 1
+fi
+if [ "$iio_bridge_cyclic_tx" != "0" ] && [ "$iio_bridge_cyclic_tx" != "1" ]; then
+    echo "IIO_BRIDGE_CYCLIC_TX must be 0 or 1" >&2
     exit 1
 fi
 if [ -z "$swarm_mtu" ]; then
@@ -885,6 +923,8 @@ start_iio_rf_bridge_loop() {
     local port_filter_args=()
     local gain_args=()
     local helper_args=()
+    local direction_modem_args=()
+    local cyclic_tx_args=()
     if [ "$allow_destructive_rf_batch" = "1" ]; then
         batch_args=(--destructive-poll-batch)
     fi
@@ -905,6 +945,33 @@ start_iio_rf_bridge_loop() {
     fi
     if [ -n "$fieldmesh_iio_burst_helper" ]; then
         helper_args=(--burst-helper "$fieldmesh_iio_burst_helper")
+    fi
+    if [ -n "$rf_z203_to_z103_samples_per_symbol" ]; then
+        direction_modem_args+=(--z203-to-z103-samples-per-symbol "$rf_z203_to_z103_samples_per_symbol")
+    fi
+    if [ -n "$rf_z203_to_z103_bit_repeat" ]; then
+        direction_modem_args+=(--z203-to-z103-bit-repeat "$rf_z203_to_z103_bit_repeat")
+    fi
+    if [ -n "$rf_z103_to_z203_samples_per_symbol" ]; then
+        direction_modem_args+=(--z103-to-z203-samples-per-symbol "$rf_z103_to_z203_samples_per_symbol")
+    fi
+    if [ -n "$rf_z103_to_z203_bit_repeat" ]; then
+        direction_modem_args+=(--z103-to-z203-bit-repeat "$rf_z103_to_z203_bit_repeat")
+    fi
+    if [ -n "$rf_z203_to_z103_retry_samples_per_symbol" ]; then
+        direction_modem_args+=(--z203-to-z103-retry-samples-per-symbol "$rf_z203_to_z103_retry_samples_per_symbol")
+    fi
+    if [ -n "$rf_z203_to_z103_retry_bit_repeat" ]; then
+        direction_modem_args+=(--z203-to-z103-retry-bit-repeat "$rf_z203_to_z103_retry_bit_repeat")
+    fi
+    if [ -n "$rf_z103_to_z203_retry_samples_per_symbol" ]; then
+        direction_modem_args+=(--z103-to-z203-retry-samples-per-symbol "$rf_z103_to_z203_retry_samples_per_symbol")
+    fi
+    if [ -n "$rf_z103_to_z203_retry_bit_repeat" ]; then
+        direction_modem_args+=(--z103-to-z203-retry-bit-repeat "$rf_z103_to_z203_retry_bit_repeat")
+    fi
+    if [ "$iio_bridge_cyclic_tx" = "0" ]; then
+        cyclic_tx_args=(--no-cyclic-tx)
     fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
@@ -930,10 +997,12 @@ start_iio_rf_bridge_loop() {
         --lease-timeout-ms "$iio_bridge_lease_timeout_ms" \
         --daemon-request-attempts "$iio_bridge_daemon_request_attempts" \
         "${port_filter_args[@]}" \
+        "${cyclic_tx_args[@]}" \
         --cyclic-capture-periods "$iio_bridge_cyclic_capture_periods" \
         --cyclic-capture-retry-periods "$iio_bridge_cyclic_capture_retry_periods" \
         "${gain_args[@]}" \
         "${helper_args[@]}" \
+        "${direction_modem_args[@]}" \
         --execute-live-rf \
         --allow-hardware-writes \
         --allow-rf-tx \
@@ -1121,6 +1190,13 @@ run_remote_iperf_json() {
          exit 124" >"$stdout_path" 2>"$stderr_path"
 }
 
+board_tcp_bitrate_args=()
+host_tcp_bitrate_args=()
+if [ -n "$iperf_tcp_bitrate" ]; then
+    board_tcp_bitrate_args=(-b "'$iperf_tcp_bitrate'")
+    host_tcp_bitrate_args=(-b "$iperf_tcp_bitrate")
+fi
+
 setup_board "$z203_remote" "10.77.1.1" "10.77.2.0/24" "$out_dir/z203_setup.log"
 setup_board "$z103_remote" "10.77.2.20" "10.77.1.0/24" "$out_dir/z103_setup.log"
 
@@ -1202,7 +1278,7 @@ wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" -n "'$tcp_bytes'" -l "'$iperf_block_size'" --json
+    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" -n "'$tcp_bytes'" -l "'$iperf_block_size'" --json
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
@@ -1254,7 +1330,7 @@ if [ "$host_pc_case" = "1" ]; then
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
-        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" -n "$tcp_bytes" -l "$iperf_block_size" --json
+        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_bitrate_args[@]}" -n "$tcp_bytes" -l "$iperf_block_size" --json
     host_tcp_rc=$?
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then

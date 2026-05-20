@@ -103,10 +103,12 @@ batch. That helper improved batch latency enough for one live run to complete
 TCP `iperf3` at 1024 bytes over real RF; the next failure was a software runner
 bug where the UDP phase reused the same port before the TCP one-shot server
 released it, now fixed by waiting for remote server PIDs to exit. Follow-up
-runs still show intermittent Z103-to-Z203 BFSK CRC failures under `iperf3`
-load. The remaining native-IP blocker is therefore not antenna installation,
-basic RF decode, daemon queueing, ordinary socket transport, or shell process
-startup alone; it is reverse-link modem/AGC robustness and the need for a true
+runs preserve TCP payload retransmissions, expose `IPERF_TCP_BITRATE`, and add
+per-direction primary/retry modem settings for HIL tuning. They still move TCP
+data over real RF but do not complete `iperf3` reliably because the batch loop
+cannot drain the TCP queue fast enough. The remaining native-IP blocker is
+therefore not antenna installation, basic RF decode, daemon queueing, ordinary
+socket transport, or shell process startup alone; it is the need for a true
 streaming or pipelined RF loop.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet

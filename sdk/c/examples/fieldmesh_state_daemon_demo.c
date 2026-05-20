@@ -359,7 +359,8 @@ static int ipv4_tcp_duplicate_signature_equal(const unsigned char *lhs,
 
 static int ipv4_tcp_signature_hash(const unsigned char *packet,
                                    size_t packet_len,
-                                   uint64_t *out_hash)
+                                   uint64_t *out_hash,
+                                   size_t *out_tcp_payload_len)
 {
     size_t ihl;
     size_t tcp_len;
@@ -399,12 +400,16 @@ static int ipv4_tcp_signature_hash(const unsigned char *packet,
         hash = 1u;
     }
     *out_hash = hash;
+    if (out_tcp_payload_len) {
+        *out_tcp_payload_len = tcp_payload_len;
+    }
     return 1;
 }
 
 static int blr_app_data_tcp_signature_hash(const unsigned char *frame,
                                            size_t frame_len,
-                                           uint64_t *out_hash)
+                                           uint64_t *out_hash,
+                                           size_t *out_tcp_payload_len)
 {
     unsigned char payload[1536];
     fieldmesh_mac_frame_header_t header;
@@ -417,7 +422,8 @@ static int blr_app_data_tcp_signature_hash(const unsigned char *frame,
         header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA) {
         return 0;
     }
-    return ipv4_tcp_signature_hash(payload, payload_len, out_hash);
+    return ipv4_tcp_signature_hash(payload, payload_len, out_hash,
+                                   out_tcp_payload_len);
 }
 
 static int tun_service_recent_tcp_signature_contains(
@@ -445,7 +451,7 @@ static void tun_service_record_recent_tcp_signature(
     uint64_t hash = 0u;
 
     if (!service ||
-        !blr_app_data_tcp_signature_hash(frame, frame_len, &hash)) {
+        !blr_app_data_tcp_signature_hash(frame, frame_len, &hash, NULL)) {
         return;
     }
     service->recent_acked_tcp_signatures[
@@ -508,11 +514,14 @@ static int tun_service_rf_tx_queue_push(struct tun_service_state *service,
                                         size_t frame_len)
 {
     uint64_t tcp_hash = 0u;
+    size_t tcp_payload_len = 0u;
 
     if (!service) {
         return 0;
     }
-    if (blr_app_data_tcp_signature_hash(frame, frame_len, &tcp_hash) &&
+    if (blr_app_data_tcp_signature_hash(frame, frame_len, &tcp_hash,
+                                        &tcp_payload_len) &&
+        tcp_payload_len == 0u &&
         tun_service_recent_tcp_signature_contains(service, tcp_hash)) {
         service->rf_tx_queue_duplicate_drops++;
         return 1;

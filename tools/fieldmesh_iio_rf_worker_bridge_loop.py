@@ -260,6 +260,51 @@ def decode_batch(payload: bytes) -> list[bytes]:
     return frames
 
 
+def direction_samples_per_symbol(args: argparse.Namespace, direction_name: str) -> int:
+    if direction_name == "z203-to-z103" and args.z203_to_z103_samples_per_symbol:
+        return args.z203_to_z103_samples_per_symbol
+    if direction_name == "z103-to-z203" and args.z103_to_z203_samples_per_symbol:
+        return args.z103_to_z203_samples_per_symbol
+    return args.samples_per_symbol
+
+
+def direction_bit_repeat(args: argparse.Namespace, direction_name: str) -> int:
+    if direction_name == "z203-to-z103" and args.z203_to_z103_bit_repeat:
+        return args.z203_to_z103_bit_repeat
+    if direction_name == "z103-to-z203" and args.z103_to_z203_bit_repeat:
+        return args.z103_to_z203_bit_repeat
+    return args.bit_repeat
+
+
+def direction_retry_samples_per_symbol(args: argparse.Namespace, direction_name: str) -> int | None:
+    if direction_name == "z203-to-z103":
+        return args.z203_to_z103_retry_samples_per_symbol
+    if direction_name == "z103-to-z203":
+        return args.z103_to_z203_retry_samples_per_symbol
+    return None
+
+
+def direction_retry_bit_repeat(args: argparse.Namespace, direction_name: str) -> int | None:
+    if direction_name == "z203-to-z103":
+        return args.z203_to_z103_retry_bit_repeat
+    if direction_name == "z103-to-z203":
+        return args.z103_to_z203_retry_bit_repeat
+    return None
+
+
+def modem_retry_configured(args: argparse.Namespace, direction_name: str) -> bool:
+    retry_sps = direction_retry_samples_per_symbol(args, direction_name)
+    retry_repeat = direction_retry_bit_repeat(args, direction_name)
+    if retry_sps is None and retry_repeat is None:
+        return False
+    return (
+        (retry_sps or direction_samples_per_symbol(args, direction_name))
+        != direction_samples_per_symbol(args, direction_name)
+        or (retry_repeat or direction_bit_repeat(args, direction_name))
+        != direction_bit_repeat(args, direction_name)
+    )
+
+
 def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: dict[str, Any], index: int) -> dict[str, Any]:
     frame_dir = args.out_dir / f"frame-{index:04d}-{direction['name']}"
     lease_path = frame_dir / "lease.json"
@@ -280,12 +325,12 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         sample_rate_hz=args.sample_rate_hz,
         rf_bandwidth_hz=args.rf_bandwidth_hz,
         fixture_attenuation_db=args.fixture_attenuation_db,
-        samples_per_symbol=args.samples_per_symbol,
+        samples_per_symbol=direction_samples_per_symbol(args, direction["name"]),
         modulation=args.modulation,
         baseband_carrier_hz=args.baseband_carrier_hz,
         bfsk_space_hz=args.bfsk_space_hz,
         bfsk_mark_hz=args.bfsk_mark_hz,
-        bit_repeat=args.bit_repeat,
+        bit_repeat=direction_bit_repeat(args, direction["name"]),
         buffer_size=args.buffer_size,
         timeout_ms=args.timeout_ms,
         execute_live_rf=args.execute_live_rf,
@@ -339,81 +384,105 @@ def run_batch(
     }
     write_json(frame_dir / "rf_worker_batch.json", batch_json)
 
-    smoke_args = argparse.Namespace(
-        frame=batch_path,
-        out_dir=frame_dir / "iq-burst",
-        center_frequency_hz=args.center_frequency_hz,
-        sample_rate_hz=args.sample_rate_hz,
-        rf_bandwidth_hz=args.rf_bandwidth_hz,
-        fixture_attenuation_db=args.fixture_attenuation_db,
-        samples_per_symbol=args.samples_per_symbol,
-        modulation=args.modulation,
-        baseband_carrier_hz=args.baseband_carrier_hz,
-        bfsk_space_hz=args.bfsk_space_hz,
-        bfsk_mark_hz=args.bfsk_mark_hz,
-        bit_repeat=args.bit_repeat,
-        authorized_rf_path=True,
-        conducted_or_shielded=False,
-        pretty=False,
-    )
-    iq_report = bridge.iq_smoke.run(smoke_args)
-    iq_report_path = frame_dir / "iq-burst" / "fieldmesh_iq_burst_smoke.json"
-
-    plan_args = argparse.Namespace(
-        rf_binding_plan=args.rf_binding_plan,
-        iq_burst_report=iq_report_path,
-        tx_board=direction["tx_board"],
-        rx_board=direction["rx_board"],
-        fixture_attenuation_db=args.fixture_attenuation_db,
-        authorized_rf_path=True,
-        conducted_or_shielded=False,
-        legal_frequency_profile=True,
-        tx_enable_guard=True,
-        rx_first=True,
-        out=frame_dir / "iq-iio-live-plan.json",
-        pretty=False,
-    )
-    plan = bridge.live_plan.build_plan(plan_args)
-    plan_args.out.write_text(json.dumps(plan, sort_keys=True) + "\n", encoding="utf-8")
-
-    run_args_base = {
-        "live_plan": plan_args.out,
-        "tx_uri": direction["tx_uri"],
-        "rx_uri": direction["rx_uri"],
-        "buffer_size": args.buffer_size,
-        "timeout_ms": args.timeout_ms,
-        "rx_arm_delay_ms": bridge.live_run.DEFAULT_RX_ARM_DELAY_MS,
-        "rx_capture_margin_ms": bridge.live_run.DEFAULT_RX_CAPTURE_MARGIN_MS,
-        "fixture_attenuation_db": args.fixture_attenuation_db,
-        "authorized_rf_path": True,
-        "conducted_or_shielded": False,
-        "legal_frequency_profile": True,
-        "tx_enable_guard": True,
-        "rx_first": True,
-        "execute_live_rf": args.execute_live_rf,
-        "allow_hardware_writes": args.allow_hardware_writes,
-        "allow_rf_tx": args.allow_rf_tx,
-        "fixture_id": args.fixture_id,
-        "fixture_evidence": args.fixture_evidence,
-        "operator_confirmation": args.operator_confirmation,
-        "max_tx_duration_ms": args.max_tx_duration_ms,
-        "cyclic_tx": args.cyclic_tx,
-        "rx_gain_control_mode": args.rx_gain_control_mode,
-        "rx_hardwaregain_db": args.rx_hardwaregain_db,
-        "tx_hardwaregain_db": args.tx_hardwaregain_db,
-        "skip_rf_config": skip_rf_config,
-        "burst_helper": args.burst_helper,
-        "pretty": False,
-    }
-    run_args = argparse.Namespace(
-        **run_args_base,
-        out_dir=frame_dir / "iq-iio-live-run",
-        cyclic_capture_periods=cyclic_capture_periods,
-    )
     live_run_started = time.monotonic()
-    run_report = bridge.live_run.build_report(run_args)
+
+    def execute_iq_attempt(
+        label: str,
+        samples_per_symbol: int,
+        bit_repeat: int,
+        capture_periods: int,
+    ) -> tuple[dict[str, Any], Path, dict[str, Any], Path, dict[str, Any], argparse.Namespace]:
+        suffix = "" if label == "primary" else f"-{label}"
+        smoke_args = argparse.Namespace(
+            frame=batch_path,
+            out_dir=frame_dir / f"iq-burst{suffix}",
+            center_frequency_hz=args.center_frequency_hz,
+            sample_rate_hz=args.sample_rate_hz,
+            rf_bandwidth_hz=args.rf_bandwidth_hz,
+            fixture_attenuation_db=args.fixture_attenuation_db,
+            samples_per_symbol=samples_per_symbol,
+            modulation=args.modulation,
+            baseband_carrier_hz=args.baseband_carrier_hz,
+            bfsk_space_hz=args.bfsk_space_hz,
+            bfsk_mark_hz=args.bfsk_mark_hz,
+            bit_repeat=bit_repeat,
+            authorized_rf_path=True,
+            conducted_or_shielded=False,
+            pretty=False,
+        )
+        attempt_iq_report = bridge.iq_smoke.run(smoke_args)
+        attempt_iq_report_path = smoke_args.out_dir / "fieldmesh_iq_burst_smoke.json"
+        attempt_plan_path = frame_dir / f"iq-iio-live-plan{suffix}.json"
+        plan_args = argparse.Namespace(
+            rf_binding_plan=args.rf_binding_plan,
+            iq_burst_report=attempt_iq_report_path,
+            tx_board=direction["tx_board"],
+            rx_board=direction["rx_board"],
+            fixture_attenuation_db=args.fixture_attenuation_db,
+            authorized_rf_path=True,
+            conducted_or_shielded=False,
+            legal_frequency_profile=True,
+            tx_enable_guard=True,
+            rx_first=True,
+            out=attempt_plan_path,
+            pretty=False,
+        )
+        attempt_plan = bridge.live_plan.build_plan(plan_args)
+        attempt_plan_path.write_text(json.dumps(attempt_plan, sort_keys=True) + "\n", encoding="utf-8")
+        run_args = argparse.Namespace(
+            live_plan=attempt_plan_path,
+            tx_uri=direction["tx_uri"],
+            rx_uri=direction["rx_uri"],
+            buffer_size=args.buffer_size,
+            timeout_ms=args.timeout_ms,
+            rx_arm_delay_ms=bridge.live_run.DEFAULT_RX_ARM_DELAY_MS,
+            rx_capture_margin_ms=bridge.live_run.DEFAULT_RX_CAPTURE_MARGIN_MS,
+            fixture_attenuation_db=args.fixture_attenuation_db,
+            authorized_rf_path=True,
+            conducted_or_shielded=False,
+            legal_frequency_profile=True,
+            tx_enable_guard=True,
+            rx_first=True,
+            execute_live_rf=args.execute_live_rf,
+            allow_hardware_writes=args.allow_hardware_writes,
+            allow_rf_tx=args.allow_rf_tx,
+            fixture_id=args.fixture_id,
+            fixture_evidence=args.fixture_evidence,
+            operator_confirmation=args.operator_confirmation,
+            max_tx_duration_ms=args.max_tx_duration_ms,
+            cyclic_tx=args.cyclic_tx,
+            rx_gain_control_mode=args.rx_gain_control_mode,
+            rx_hardwaregain_db=args.rx_hardwaregain_db,
+            tx_hardwaregain_db=args.tx_hardwaregain_db,
+            skip_rf_config=skip_rf_config,
+            burst_helper=args.burst_helper,
+            pretty=False,
+            out_dir=frame_dir / f"iq-iio-live-run{suffix}",
+            cyclic_capture_periods=capture_periods,
+        )
+        attempt_run_report = bridge.live_run.build_report(run_args)
+        return (
+            attempt_iq_report,
+            attempt_iq_report_path,
+            attempt_plan,
+            attempt_plan_path,
+            attempt_run_report,
+            run_args,
+        )
+
+    effective_samples_per_symbol = direction_samples_per_symbol(args, direction["name"])
+    effective_bit_repeat = direction_bit_repeat(args, direction["name"])
+    iq_report, iq_report_path, plan, plan_path, run_report, run_args = execute_iq_attempt(
+        "primary",
+        effective_samples_per_symbol,
+        effective_bit_repeat,
+        cyclic_capture_periods,
+    )
     run_attempts = [
         {
+            "label": "primary",
+            "samples_per_symbol": effective_samples_per_symbol,
+            "bit_repeat": effective_bit_repeat,
             "cyclic_capture_periods": cyclic_capture_periods,
             "ok": (run_report.get("decode", {}).get("ok") is True) if args.execute_live_rf else None,
             "report": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
@@ -426,19 +495,53 @@ def run_batch(
         and run_report.get("decode", {}).get("ok") is not True
         and args.cyclic_capture_retry_periods > cyclic_capture_periods
     ):
-        retry_args = argparse.Namespace(
-            **run_args_base,
-            out_dir=frame_dir / f"iq-iio-live-run-retry-p{args.cyclic_capture_retry_periods}",
-            cyclic_capture_periods=args.cyclic_capture_retry_periods,
+        iq_report, iq_report_path, plan, plan_path, run_report, run_args = execute_iq_attempt(
+            f"retry-p{args.cyclic_capture_retry_periods}",
+            effective_samples_per_symbol,
+            effective_bit_repeat,
+            args.cyclic_capture_retry_periods,
         )
-        run_report = bridge.live_run.build_report(retry_args)
         effective_cyclic_capture_periods = args.cyclic_capture_retry_periods
-        run_args = retry_args
         run_attempts.append(
             {
+                "label": f"retry-p{args.cyclic_capture_retry_periods}",
+                "samples_per_symbol": effective_samples_per_symbol,
+                "bit_repeat": effective_bit_repeat,
                 "cyclic_capture_periods": args.cyclic_capture_retry_periods,
                 "ok": run_report.get("decode", {}).get("ok") is True,
-                "report": str(retry_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
+                "report": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
+                "decode": run_report.get("decode", {}),
+            }
+        )
+    if (
+        args.execute_live_rf
+        and run_report.get("decode", {}).get("ok") is not True
+        and modem_retry_configured(args, direction["name"])
+    ):
+        effective_samples_per_symbol = (
+            direction_retry_samples_per_symbol(args, direction["name"])
+            or effective_samples_per_symbol
+        )
+        effective_bit_repeat = (
+            direction_retry_bit_repeat(args, direction["name"])
+            or effective_bit_repeat
+        )
+        retry_capture_periods = max(effective_cyclic_capture_periods, args.cyclic_capture_retry_periods)
+        iq_report, iq_report_path, plan, plan_path, run_report, run_args = execute_iq_attempt(
+            f"retry-modem-sp{effective_samples_per_symbol}-br{effective_bit_repeat}",
+            effective_samples_per_symbol,
+            effective_bit_repeat,
+            retry_capture_periods,
+        )
+        effective_cyclic_capture_periods = retry_capture_periods
+        run_attempts.append(
+            {
+                "label": "retry-modem",
+                "samples_per_symbol": effective_samples_per_symbol,
+                "bit_repeat": effective_bit_repeat,
+                "cyclic_capture_periods": retry_capture_periods,
+                "ok": run_report.get("decode", {}).get("ok") is True,
+                "report": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
                 "decode": run_report.get("decode", {}),
             }
         )
@@ -491,8 +594,10 @@ def run_batch(
         "rx_board": direction["rx_board"],
         "frames": len(batch_frames),
         "batch_bytes": len(batch_payload),
+        "samples_per_symbol": effective_samples_per_symbol,
+        "bit_repeat": effective_bit_repeat,
         "iq_burst_report": str(iq_report_path),
-        "iq_iio_live_plan": str(plan_args.out),
+        "iq_iio_live_plan": str(plan_path),
         "iq_iio_live_run": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
         "iq_iio_live_run_attempts": run_attempts,
         "iq_recovered_frame_match": recovered_frames == batch_frames if args.execute_live_rf else False,
@@ -580,6 +685,24 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--cyclic-capture-periods must be between 1 and 4")
     if args.cyclic_capture_retry_periods < 1 or args.cyclic_capture_retry_periods > 4:
         raise SystemExit("--cyclic-capture-retry-periods must be between 1 and 4")
+    for label, value in (
+        ("--samples-per-symbol", args.samples_per_symbol),
+        ("--z203-to-z103-samples-per-symbol", args.z203_to_z103_samples_per_symbol or args.samples_per_symbol),
+        ("--z103-to-z203-samples-per-symbol", args.z103_to_z203_samples_per_symbol or args.samples_per_symbol),
+        ("--z203-to-z103-retry-samples-per-symbol", args.z203_to_z103_retry_samples_per_symbol or args.samples_per_symbol),
+        ("--z103-to-z203-retry-samples-per-symbol", args.z103_to_z203_retry_samples_per_symbol or args.samples_per_symbol),
+    ):
+        if value < 2:
+            raise SystemExit(f"{label} must be >= 2")
+    for label, value in (
+        ("--bit-repeat", args.bit_repeat),
+        ("--z203-to-z103-bit-repeat", args.z203_to_z103_bit_repeat or args.bit_repeat),
+        ("--z103-to-z203-bit-repeat", args.z103_to_z203_bit_repeat or args.bit_repeat),
+        ("--z203-to-z103-retry-bit-repeat", args.z203_to_z103_retry_bit_repeat or args.bit_repeat),
+        ("--z103-to-z203-retry-bit-repeat", args.z103_to_z203_retry_bit_repeat or args.bit_repeat),
+    ):
+        if value < 1:
+            raise SystemExit(f"{label} must be >= 1")
     if args.leased_frame_report and args.directions != "z203-to-z103":
         raise SystemExit("--leased-frame-report is only valid with --directions z203-to-z103")
     if args.leased_frame_report and args.destructive_poll_batch:
@@ -634,6 +757,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
+            "modem": {
+                "default_samples_per_symbol": args.samples_per_symbol,
+                "default_bit_repeat": args.bit_repeat,
+                "z203_to_z103_samples_per_symbol": direction_samples_per_symbol(args, "z203-to-z103"),
+                "z203_to_z103_bit_repeat": direction_bit_repeat(args, "z203-to-z103"),
+                "z103_to_z203_samples_per_symbol": direction_samples_per_symbol(args, "z103-to-z203"),
+                "z103_to_z203_bit_repeat": direction_bit_repeat(args, "z103-to-z203"),
+                "z203_to_z103_retry_samples_per_symbol": direction_retry_samples_per_symbol(args, "z203-to-z103"),
+                "z203_to_z103_retry_bit_repeat": direction_retry_bit_repeat(args, "z203-to-z103"),
+                "z103_to_z203_retry_samples_per_symbol": direction_retry_samples_per_symbol(args, "z103-to-z203"),
+                "z103_to_z203_retry_bit_repeat": direction_retry_bit_repeat(args, "z103-to-z203"),
+            },
             "lease_timeout_ms": args.lease_timeout_ms,
             "ip_port_filter": sorted(args.ip_port_filter),
             "daemon_request_attempts": args.daemon_request_attempts,
@@ -729,6 +864,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 / "fieldmesh_iio_rf_worker_bridge_batch.json"
                             ),
                             "batch_frames": len(batch_frames),
+                            "samples_per_symbol": report.get("samples_per_symbol"),
+                            "bit_repeat": report.get("bit_repeat"),
                             "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
                             "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
                             "sink_ingest_ok": all(
@@ -816,6 +953,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 / "fieldmesh_iio_rf_worker_bridge_batch.json"
                             ),
                             "batch_frames": len(batch_frames),
+                            "samples_per_symbol": report.get("samples_per_symbol"),
+                            "bit_repeat": report.get("bit_repeat"),
                             "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
                             "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
                             "sink_ingest_ok": all(
@@ -954,6 +1093,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)
     parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
     parser.add_argument("--bit-repeat", type=int, default=4)
+    parser.add_argument("--z203-to-z103-samples-per-symbol", type=int)
+    parser.add_argument("--z203-to-z103-bit-repeat", type=int)
+    parser.add_argument("--z103-to-z203-samples-per-symbol", type=int)
+    parser.add_argument("--z103-to-z203-bit-repeat", type=int)
+    parser.add_argument("--z203-to-z103-retry-samples-per-symbol", type=int)
+    parser.add_argument("--z203-to-z103-retry-bit-repeat", type=int)
+    parser.add_argument("--z103-to-z203-retry-samples-per-symbol", type=int)
+    parser.add_argument("--z103-to-z203-retry-bit-repeat", type=int)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--daemon-timeout-ms", type=int)

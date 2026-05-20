@@ -1232,9 +1232,9 @@ user and vendor configuration.
   ACK-after-peer-ingest preserved. That run exposed the next software blocker:
   early TCP retransmission duplicates consumed RF batches, delaying the
   `iperf3` parameter-exchange byte until the server had already closed. The
-  daemon RF TX queue now suppresses both duplicate queued TCP retransmission
-  frames and recent already-ACKed TCP signatures before RF leasing, so the
-  bridge spends airtime on current stream state. The BFSK decoder now rejects
+  daemon RF TX queue suppresses duplicate payload-free TCP control frames, but
+  no longer drops TCP payload retransmissions after HIL showed `iperf3` depends
+  on those retransmissions over the slow RF bridge. The BFSK decoder now rejects
   CRC-wrong sync candidates instead of returning the first structurally valid
   frame, and the live bridge retries daemon ingest/ACK control requests with
   idempotent ACK handling after a timeout. A fresh-port live run moved 22
@@ -1251,10 +1251,12 @@ user and vendor configuration.
   compiled libiio burst helper path. With that helper, one live run completed
   TCP `iperf3` at 1024 bytes over real RF, but exposed a script bug where the
   UDP phase reused the port before the TCP server process exited. The runner now
-  waits for remote one-shot `iperf3` server PIDs before reusing the port.
-  Subsequent helper runs still show intermittent Z103-to-Z203 BFSK CRC failures
-  under `iperf3` load, so the next material work is asymmetric reverse-link
-  modem/AGC tuning or a true streaming/pipelined RF loop. The earlier BPSK mode is
+  waits for remote one-shot `iperf3` server PIDs before reusing the port. The
+  runner also exposes `IPERF_TCP_BITRATE` and per-direction modem retry knobs
+  for HIL tuning. Subsequent helper runs still move real-RF TCP data and ACKs,
+  but the batch loop remains too slow and leaves frames queued or server-side
+  metrics incomplete under `iperf3`; the next material work is a true streaming
+  or pipelined RF loop. The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.

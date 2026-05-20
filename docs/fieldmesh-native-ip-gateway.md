@@ -210,10 +210,10 @@ Minimum production gates for native TCP/IP:
   hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
   and the exact over-air operator confirmation. Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and
-  `FIELDMESH_RF_TX_ACK_BATCH`; the daemon suppresses duplicate queued TCP
-  retransmission frames and recent already-ACKed TCP signatures before RF
-  leasing so slow bring-up loops do not spend scarce RF bursts on stale
-  SYN/SYN-ACK retransmissions. The live IIO bridge configures RF attributes on
+  `FIELDMESH_RF_TX_ACK_BATCH`; the daemon suppresses duplicate payload-free TCP
+  control frames but preserves TCP payload retransmissions, because the live
+  RF bridge needs normal TCP recovery while the bring-up data plane is slow.
+  The live IIO bridge configures RF attributes on
   the first batch in each direction and skips repeated configuration for later
   batches by default, uses fast exact-sync BFSK decode before fuzzy fallback,
   skips CRC-wrong sync candidates when an expected burst CRC is known, keeps
@@ -228,10 +228,11 @@ Minimum production gates for native TCP/IP:
   `iio_writedev` processes for every batch. Current HIL with this helper moved
   more real-RF batches and completed one TCP `iperf3` client run at 1024 bytes,
   then exposed and fixed an iperf runner bug where the UDP phase could reuse
-  the port before the TCP one-shot server released it. Follow-up runs still show
-  intermittent Z103-to-Z203 BFSK CRC failures under `iperf3` load, so the
-  remaining native-IP blocker is reverse-link modem/AGC robustness or a true
-  streaming/pipelined bridge, not RF installation;
+  the port before the TCP one-shot server released it. The runner also exposes
+  `IPERF_TCP_BITRATE` and per-direction primary/retry modem settings for HIL
+  tuning. Follow-up runs still move TCP data over real RF but do not complete
+  `iperf3` reliably; the remaining native-IP blocker is a true streaming or
+  pipelined RF data plane, not RF installation;
   the RF path evidence must be production/site evidence, not a verifier
   fixture. `PREFLIGHT_ONLY=1`
   checks the daemon RF fields, optional RF path evidence, and optional host
