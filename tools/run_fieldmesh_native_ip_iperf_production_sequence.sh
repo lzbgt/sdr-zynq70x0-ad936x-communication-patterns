@@ -97,6 +97,7 @@ elif [ "$preflight_only" = "1" ]; then
     host_preflight_rc="$?"
     set -e
 
+    set +e
     python3 - "$out_dir" "$board_preflight_rc" "$host_preflight_rc" <<'PY' | tee "$out_dir/native_ip_iperf_production_sequence.json"
 import json
 import sys
@@ -147,8 +148,16 @@ report = {
 print(json.dumps(report, sort_keys=True))
 raise SystemExit(0 if report["ok"] else 1)
 PY
+    sequence_rc="${PIPESTATUS[0]}"
+    set -e
+    set +e
+    "$repo_root/tools/fieldmesh_native_ip_feature_readiness.py" \
+      --native-ip-iperf-sequence "$out_dir/native_ip_iperf_production_sequence.json" \
+      --output "$out_dir/native_ip_feature_readiness.json" \
+      >"$out_dir/native_ip_feature_readiness.stdout.json"
+    set -e
     echo "Capture directory: $out_dir"
-    exit 0
+    exit "$sequence_rc"
 elif [ "$execute_live_rf" = "1" ]; then
     HOST_PC_CASE=0 \
       OUT_DIR="$out_dir/board_to_board_run" \
@@ -185,6 +194,7 @@ fi
   --output "$out_dir/native_ip_app_real_rf_report.json" \
   >"$out_dir/native_ip_app_real_rf_report.stdout.json"
 
+set +e
 python3 - "$out_dir" <<'PY' | tee "$out_dir/native_ip_iperf_production_sequence.json"
 import hashlib
 import json
@@ -218,5 +228,13 @@ report = {
 print(json.dumps(report, sort_keys=True))
 raise SystemExit(0 if report["ok"] else 1)
 PY
-
+sequence_rc="${PIPESTATUS[0]}"
+set -e
+set +e
+"$repo_root/tools/fieldmesh_native_ip_feature_readiness.py" \
+  --native-ip-iperf-sequence "$out_dir/native_ip_iperf_production_sequence.json" \
+  --output "$out_dir/native_ip_feature_readiness.json" \
+  >"$out_dir/native_ip_feature_readiness.stdout.json"
+set -e
 echo "Capture directory: $out_dir"
+exit "$sequence_rc"

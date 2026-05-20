@@ -211,6 +211,14 @@ Minimum production gates for native TCP/IP:
   checks the daemon RF fields, optional RF path evidence, and optional host
   route preflight without creating `swarm0`, launching `iperf3`, opening IIO
   buffers, mutating daemon queues, or starting RF TX;
+- current live native-IP production preflight behavior is therefore a refusal,
+  not a failed throughput run: when the installed daemons report
+  `rf_phy_tx_rx_verified=0`, both board-to-board and host-PC layers stop at
+  `real_rf_phy_tx_rx_not_verified` before `iperf3` starts. Read-only SDR/IIO
+  inspection on the same boards confirms AD936x devices are visible. The IIO
+  planner must select `cf-ad9361-lpc` for RF RX and
+  `cf-ad9361-dds-core-lpc` for RF TX; selecting `xadc` as RX is a planning bug,
+  because `xadc` is not the RF sample capture path;
 - host-PC `iperf3` is a separate transparent-client gate, not another
   SSH-launched board test. `HOST_PC_CASE=1` now probes the host namespace route
   to the local board and refuses when the path is not direct, for example a
@@ -243,6 +251,12 @@ Minimum production gates for native TCP/IP:
   `transport=real_rf_phy` with `rf_phy_tx_rx_verified=true`. A daemon RF-worker
   bridge iperf result is useful for kernel/socket diagnostics, but does not
   count as production RF evidence;
+- `tools/fieldmesh_native_ip_feature_readiness.py` is the feature-scoped summary
+  for the transparent TCP/IP MAC-link. It intentionally does not require GNSS
+  fixes, PPS activity, or GNSS receiver health. A pass means the native-IP RF
+  link feature has both required `iperf` layers over verified real RF with
+  complete TCP/UDP metrics; it is separate from whole-system production
+  readiness;
 - UDP video traffic and TCP bulk traffic together preserve C0/C1 latency;
 - AP relay and graph relay preserve TCP sessions across route changes within
   the specified disruption budget;

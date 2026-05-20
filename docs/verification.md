@@ -4823,14 +4823,29 @@ summaries, host-IP-routed results, and host-PC reports that are actually
 SSH-launched board clients.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` is the paired
 operator wrapper for that requirement. It can consume two saved reports and
-emit `native_ip_iperf_evidence.json` plus
-`native_ip_app_real_rf_report.json`, or it can run both live layers with the
-same RF path evidence and approvals. `PREFLIGHT_ONLY=1` runs the two
+emit `native_ip_iperf_evidence.json`,
+`native_ip_feature_readiness.json`, plus `native_ip_app_real_rf_report.json`,
+or it can run both live layers with the same RF path evidence and approvals.
+`PREFLIGHT_ONLY=1` runs the two
 non-transmitting preflights without creating network interfaces, starting
 `iperf3`, opening IIO buffers, mutating daemon queues, or transmitting RF.
 The wrapper records both sub-preflight return codes and the last JSON report
 from each layer, so a failed host-PC route check or missing RF readiness still
 produces a single paired summary with the exact production blocker.
+The current live preflight refusal is not a failed production throughput run:
+both layers stop before `iperf3` when the installed daemons still report
+`real_rf_phy_tx_rx_not_verified`.
+`tools/fieldmesh_native_ip_feature_readiness.py` is intentionally scoped only to
+the transparent TCP/IP MAC-link feature: it requires both real-RF `iperf`
+layers and complete metrics, but it does not require GNSS fix, PPS activity, or
+GNSS receiver health. Those remain whole-system production-readiness items.
+
+Read-only SDR/IIO inspection on Z203 and Z103 confirms the board-local IIO
+contexts expose AD936x devices. That same scan found a planner bug: the old
+score could choose `xadc` as RX because it had input channels. The corrected
+contract requires RF RX to be `cf-ad9361-lpc` and RF TX to be
+`cf-ad9361-dds-core-lpc`; `tools/fieldmesh_iio_preflight_assert.py` rejects
+saved plans that select `xadc` for RF packet capture.
 The top-level over-air RF production sequence can consume paired native-IP
 iperf reports directly through `NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT` and
 `NATIVE_IP_HOST_PC_IPERF_REPORT`; it derives the native-IP app report from that

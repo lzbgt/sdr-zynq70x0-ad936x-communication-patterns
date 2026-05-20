@@ -41,6 +41,20 @@ def score(row: dict[str, Any], key: str, path: Path) -> int:
         raise SystemExit(f"{path}: {key} must be an integer: {row}") from exc
 
 
+def selected_candidate(
+    candidates: list[dict[str, Any]], device_id: Any, path: Path, role: str
+) -> dict[str, Any]:
+    for row in candidates:
+        if row.get("id") == device_id:
+            return row
+    raise SystemExit(f"{path}: selected {role} device {device_id!r} not in candidates")
+
+
+def candidate_name(row: dict[str, Any]) -> str:
+    value = row.get("name")
+    return value if isinstance(value, str) else ""
+
+
 def validate(scan_path: Path, plan_path: Path) -> dict[str, Any]:
     scan_rows = load_ndjson(scan_path)
     plan_rows = load_ndjson(plan_path)
@@ -65,6 +79,16 @@ def validate(scan_path: Path, plan_path: Path) -> dict[str, Any]:
     tx_score = score(plan_end, "tx_score", plan_path)
     if rx_score <= 0 or tx_score <= 0:
         raise SystemExit(f"{plan_path}: iio plan scores must be positive: {plan_end}")
+    rx_candidate = selected_candidate(candidates, plan_end.get("rx_device"), plan_path, "rx")
+    tx_candidate = selected_candidate(candidates, plan_end.get("tx_device"), plan_path, "tx")
+    if candidate_name(rx_candidate) != "cf-ad9361-lpc":
+        raise SystemExit(
+            f"{plan_path}: RF RX must select cf-ad9361-lpc, got {rx_candidate}"
+        )
+    if candidate_name(tx_candidate) != "cf-ad9361-dds-core-lpc":
+        raise SystemExit(
+            f"{plan_path}: RF TX must select cf-ad9361-dds-core-lpc, got {tx_candidate}"
+        )
 
     return {
         "event": "fieldmesh_iio_preflight_assert",
@@ -74,8 +98,10 @@ def validate(scan_path: Path, plan_path: Path) -> dict[str, Any]:
         "devices": len(devices),
         "candidates": len(candidates),
         "rx_device": plan_end.get("rx_device"),
+        "rx_name": candidate_name(rx_candidate),
         "rx_score": rx_score,
         "tx_device": plan_end.get("tx_device"),
+        "tx_name": candidate_name(tx_candidate),
         "tx_score": tx_score,
     }
 

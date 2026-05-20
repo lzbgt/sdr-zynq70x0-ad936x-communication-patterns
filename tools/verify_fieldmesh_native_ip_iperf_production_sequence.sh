@@ -109,6 +109,20 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+python3 - "$work_dir/sequence/native_ip_feature_readiness.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("event") != "fieldmesh_native_ip_feature_readiness":
+    raise SystemExit(f"wrong feature readiness event: {report}")
+if report.get("feature_ready") is not True:
+    raise SystemExit(f"paired real-RF iperf should make native-IP feature ready: {report}")
+if report.get("requires_gnss_fix") is not False or report.get("requires_gnss_pps") is not False:
+    raise SystemExit(f"native-IP feature readiness must not require GNSS/PPS: {report}")
+PY
+
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
    OUT_DIR="$work_dir/missing-host" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
@@ -181,4 +195,16 @@ if report.get("host_pc_preflight_report", {}).get("blocker") != "host_pc_board_r
     raise SystemExit(f"host-PC blocker was not surfaced: {report}")
 if "host_pc_preflight_failed" not in report.get("production_blocker", ""):
     raise SystemExit(f"missing host-PC production blocker: {report}")
+PY
+
+python3 - "$work_dir/preflight-failure-summary/native_ip_feature_readiness.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("feature_ready") is not False:
+    raise SystemExit(f"preflight-only native-IP feature should not be ready: {report}")
+if "native_ip_iperf_preflight_only" not in report.get("blockers", []):
+    raise SystemExit(f"preflight-only blocker was not preserved: {report}")
 PY

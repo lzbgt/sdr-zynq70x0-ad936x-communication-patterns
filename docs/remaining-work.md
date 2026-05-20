@@ -166,6 +166,12 @@ real-RF report consumed by the production gate. In `PREFLIGHT_ONLY=1` it now
 captures both sub-preflight return codes and reports a single structured
 blocker summary instead of hiding the second-layer state after the first
 failure.
+Current live preflight failures are pre-start refusals, not failed over-air
+throughput runs: both layers stop at `real_rf_phy_tx_rx_not_verified` before
+`iperf3`, RF TX, IIO buffers, or daemon queue mutation starts. A follow-up
+read-only SDR scan confirmed both boards expose AD936x IIO devices and found a
+planner bug where `xadc` could be chosen as RX. The planner/assertion contract
+now requires `cf-ad9361-lpc` for RF RX and `cf-ad9361-dds-core-lpc` for RF TX.
 The top-level over-air RF production sequence now also accepts
 `NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT` plus
 `NATIVE_IP_HOST_PC_IPERF_REPORT` directly and derives the native-IP app report

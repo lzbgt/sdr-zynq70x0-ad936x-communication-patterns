@@ -481,6 +481,10 @@ user and vendor configuration.
   that runs `fieldmesh-udp-probe iio-scan` and `iio-plan` on a reachable
   rebuilt board image, verifies that at least one IIO device is visible
   locally, and records read-only RX/TX packet-pipe candidate selection.
+- `tools/verify_fieldmesh_iio_preflight_assert.sh` - regression gate for the
+  read-only IIO scan/plan contract. It requires RF RX to select
+  `cf-ad9361-lpc` and RF TX to select `cf-ad9361-dds-core-lpc`, and rejects
+  plans that accidentally use non-RF devices such as `xadc` for packet capture.
 - `tools/run_fieldmesh_board_sidecar_preflight.sh` - SSH-driven FieldMesh
   sidecar preflight that runs board-local `dt-scan`, read-only `ctrl-scan`,
   and read-only `dma-scan`, then emits a single assertion summary before any
@@ -821,14 +825,21 @@ user and vendor configuration.
   reports, host-IP-routed traffic, and SSH-launched host-PC substitutes are
   rejected. The production gate traces native-IP app evidence back to this
   paired iperf classifier.
+- `tools/fieldmesh_native_ip_feature_readiness.py` - feature-scoped native-IP
+  readiness summary. It consumes the paired iperf production sequence and
+  reports whether the transparent TCP/IP MAC-link feature is ready without
+  requiring GNSS fix, PPS activity, or GNSS receiver health. It still requires
+  both `iperf` layers, real RF PHY transport, RF TX/RX verification, and
+  complete metrics.
 - `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` - paired
   native-IP iperf production wrapper. It can classify already-collected
   board-to-board and host-PC-transparent reports, run non-transmitting
   preflights for both layers, or run both live over-air iperf layers with the
   same RF path evidence and approvals. It emits the paired native-IP iperf
-  evidence plus the normalized app real-RF report required by the production
-  gate. Its preflight mode always emits a paired summary with both sub-preflight
-  return codes and blockers, even when one layer fails.
+  evidence, a feature-scoped native-IP readiness report, plus the normalized app
+  real-RF report required by the production gate. Its preflight mode always
+  emits a paired summary with both sub-preflight return codes and blockers, even
+  when one layer fails.
   The top-level over-air RF production sequence can consume the paired
   board/host iperf reports directly through `NATIVE_IP_*_IPERF_REPORT` inputs
   and refuses ambiguous `APP_NATIVE_IP_*` overrides.

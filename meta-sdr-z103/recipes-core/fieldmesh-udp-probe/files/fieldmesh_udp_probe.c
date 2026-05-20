@@ -2361,6 +2361,8 @@ static int run_iio_plan(const struct config *cfg)
     int best_tx_score = -1;
     const char *best_rx_id = "";
     const char *best_tx_id = "";
+    const char *best_rx_name = "";
+    const char *best_tx_name = "";
 
     printf("{\"event\":\"iio_plan_start\",\"transport\":\"iio-plan\",\"iio_uri\":\"%s\"}\n", cfg->iio_uri);
     if (!ctx) {
@@ -2399,6 +2401,18 @@ static int run_iio_plan(const struct config *cfg)
             rx_score += 20;
             tx_score += 20;
         }
+        if (name && !strcmp(name, "cf-ad9361-lpc")) {
+            rx_score += 100;
+            tx_score -= 20;
+        }
+        if (name && !strcmp(name, "cf-ad9361-dds-core-lpc")) {
+            tx_score += 100;
+            rx_score -= 20;
+        }
+        if (name && !strcmp(name, "xadc")) {
+            rx_score -= 100;
+            tx_score -= 100;
+        }
         if (id && strstr(id, "lpc")) {
             rx_score += 10;
             tx_score += 10;
@@ -2427,18 +2441,22 @@ static int run_iio_plan(const struct config *cfg)
         if (rx_score > best_rx_score) {
             best_rx_score = rx_score;
             best_rx_id = id ? id : "";
+            best_rx_name = name ? name : "";
         }
         if (tx_score > best_tx_score) {
             best_tx_score = tx_score;
             best_tx_id = id ? id : "";
+            best_tx_name = name ? name : "";
         }
     }
 
     printf("{\"event\":\"iio_plan_end\",\"transport\":\"iio-plan\",\"iio_uri\":\"%s\","
-           "\"ok\":%s,\"devices\":%u,\"rx_device\":\"%s\",\"rx_score\":%d,"
-           "\"tx_device\":\"%s\",\"tx_score\":%d,\"opens_buffers\":false}\n",
+           "\"ok\":%s,\"devices\":%u,\"rx_device\":\"%s\",\"rx_name\":\"%s\","
+           "\"rx_score\":%d,\"tx_device\":\"%s\",\"tx_name\":\"%s\","
+           "\"tx_score\":%d,\"opens_buffers\":false}\n",
            cfg->iio_uri, (best_rx_score > 0 && best_tx_score > 0) ? "true" : "false",
-           devices, best_rx_id, best_rx_score, best_tx_id, best_tx_score);
+           devices, best_rx_id, best_rx_name, best_rx_score,
+           best_tx_id, best_tx_name, best_tx_score);
     iio_context_destroy(ctx);
     return (best_rx_score > 0 && best_tx_score > 0) ? 0 : 1;
 #else
