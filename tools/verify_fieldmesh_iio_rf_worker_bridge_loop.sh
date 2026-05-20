@@ -58,6 +58,8 @@ for key in ("rf_phy_tx_rx_verified", "app_verified_real_rf", "production_ready")
         raise SystemExit(f"dry-run key {key} must remain false")
 if report.get("ack_after_successful_ingest_only") is not True:
     raise SystemExit("bridge loop must preserve ACK-after-ingest policy")
+if report.get("daemon_request_attempts") != 2:
+    raise SystemExit(f"unexpected daemon request retry default: {report.get('daemon_request_attempts')}")
 frame_report = Path(report["frames"][0]["report"])
 if not frame_report.is_file():
     raise SystemExit(f"missing nested frame report: {frame_report}")

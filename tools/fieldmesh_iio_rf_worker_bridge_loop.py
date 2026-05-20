@@ -105,15 +105,76 @@ def lease_batch_from_daemon(host: str, port: int, timeout_ms: int, max_frames: i
     return frames
 
 
-def ack_batch_to_daemon(host: str, port: int, timeout_ms: int, frames: list[bytes]) -> dict[str, Any]:
+def request_daemon_with_retries(
+    host: str,
+    port: int,
+    request: str,
+    timeout_ms: int,
+    *,
+    attempts: int,
+    expected_event: str,
+) -> dict[str, Any]:
+    last_timeout = False
+    last_error: BaseException | None = None
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            report = bridge.request_daemon(host, port, request, timeout_ms)
+        except TimeoutError as exc:
+            last_timeout = True
+            last_error = exc
+            continue
+        report["attempt"] = attempt
+        report["attempts_allowed"] = max(1, attempts)
+        if report.get("event") != expected_event:
+            raise SystemExit(f"expected {expected_event}, got {report.get('event')!r}")
+        if report.get("ok") is True:
+            report["recovered_after_timeout"] = bool(last_timeout and attempt > 1)
+            return report
+        raise SystemExit(f"{expected_event} failed: {report}")
+    raise TimeoutError(str(last_error) if last_error else "daemon request timed out")
+
+
+def ack_batch_to_daemon_reliable(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    frames: list[bytes],
+    *,
+    attempts: int,
+) -> dict[str, Any]:
     fields = [f"FIELDMESH_RF_TX_ACK_BATCH v1 frames={len(frames)}"]
     fields.extend(f"frame{index}_hex={frame.hex()}" for index, frame in enumerate(frames))
-    report = bridge.request_daemon(host, port, " ".join(fields), timeout_ms)
-    if report.get("event") != "sdk_daemon_rf_tx_ack_batch":
-        raise SystemExit(f"expected sdk_daemon_rf_tx_ack_batch, got {report.get('event')!r}")
-    if report.get("ok") is not True:
+    request = " ".join(fields)
+    saw_timeout = False
+    last_error: BaseException | None = None
+    retry_ok_errors = {
+        "rf_tx_queue_empty",
+        "rf_tx_queue_short",
+        "rf_tx_ack_frame_mismatch",
+        "rf_tx_queue_peek_failed",
+    }
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            report = bridge.request_daemon(host, port, request, timeout_ms)
+        except TimeoutError as exc:
+            saw_timeout = True
+            last_error = exc
+            continue
+        report["attempt"] = attempt
+        report["attempts_allowed"] = max(1, attempts)
+        if report.get("event") != "sdk_daemon_rf_tx_ack_batch":
+            raise SystemExit(f"expected sdk_daemon_rf_tx_ack_batch, got {report.get('event')!r}")
+        if report.get("ok") is True:
+            report["recovered_after_timeout"] = bool(saw_timeout and attempt > 1)
+            return report
+        if saw_timeout and report.get("error") in retry_ok_errors:
+            report["ok"] = True
+            report["idempotent_after_timeout"] = True
+            report["original_error"] = report.get("error")
+            report["error"] = None
+            return report
         raise SystemExit(f"RF_TX_ACK_BATCH failed: {report}")
-    return report
+    raise TimeoutError(str(last_error) if last_error else "RF_TX_ACK_BATCH timed out")
 
 
 def encode_batch(frames: list[bytes]) -> bytes:
@@ -317,22 +378,25 @@ def run_batch(
         if recovered_frames != batch_frames:
             raise SystemExit("recovered RF batch does not match destructive-polled source frames")
         for recovered in recovered_frames:
-            ingest = bridge.request_daemon(
+            ingest = request_daemon_with_retries(
                 direction["sink_host"],
                 direction["sink_port"],
                 "FIELDMESH_RF_RX_INGEST v1 " + recovered.hex(),
                 args.daemon_timeout_ms,
+                attempts=args.daemon_request_attempts,
+                expected_event="sdk_daemon_rf_rx_ingest",
             )
             if ingest.get("ok") is not True:
                 raise SystemExit(f"sink RF_RX_INGEST failed for batch frame: {ingest}")
             ingests.append(ingest)
         if not destructive_source_poll:
             ack_started = time.monotonic()
-            source_ack = ack_batch_to_daemon(
+            source_ack = ack_batch_to_daemon_reliable(
                 direction["source_host"],
                 direction["source_port"],
                 args.daemon_timeout_ms,
                 batch_frames,
+                attempts=args.daemon_request_attempts,
             )
             source_ack["elapsed_ms"] = int((time.monotonic() - ack_started) * 1000)
 
@@ -353,6 +417,7 @@ def run_batch(
         "ack_after_successful_ingest_only": not destructive_source_poll,
         "destructive_source_poll": destructive_source_poll,
         "skip_rf_config": skip_rf_config,
+        "daemon_request_attempts": args.daemon_request_attempts,
         "elapsed_ms": int((time.monotonic() - started) * 1000),
         "live_run_elapsed_ms": live_run_elapsed_ms,
         "live_run_reported_elapsed_ms": run_report.get("elapsed_ms"),
@@ -417,6 +482,8 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--destructive-poll-batch requires --batch-size >= 2")
     if args.poll_interval_ms < 1:
         raise SystemExit("--poll-interval-ms must be >= 1")
+    if args.daemon_request_attempts < 1:
+        raise SystemExit("--daemon-request-attempts must be >= 1")
     if args.leased_frame_report and args.directions != "z203-to-z103":
         raise SystemExit("--leased-frame-report is only valid with --directions z203-to-z103")
     if args.leased_frame_report and args.destructive_poll_batch:
@@ -466,6 +533,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
+            "daemon_request_attempts": args.daemon_request_attempts,
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "rf_phy_tx_rx_verified": verified,
             "app_verified_real_rf": False,
@@ -681,6 +749,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--daemon-timeout-ms", type=int)
+    parser.add_argument("--daemon-request-attempts", type=int, default=2)
     parser.add_argument("--execute-live-rf", action="store_true")
     parser.add_argument("--allow-hardware-writes", action="store_true")
     parser.add_argument("--allow-rf-tx", action="store_true")

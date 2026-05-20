@@ -520,6 +520,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
             space_hz=int(smoke_report["encoding"].get("bfsk_space_hz", iq_smoke.DEFAULT_BFSK_SPACE_HZ)),
             mark_hz=int(smoke_report["encoding"].get("bfsk_mark_hz", iq_smoke.DEFAULT_BFSK_MARK_HZ)),
             expected_frame_len=int(smoke_report["frame"]["bytes"]),
+            expected_frame_crc=int(smoke_report["frame"]["frame_crc"]),
             bit_repeat=bit_repeat,
         )
         if decoded.get("ok") is True:

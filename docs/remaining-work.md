@@ -84,11 +84,15 @@ The RF bridge now configures each direction once, skips repeated AD936x
 attribute writes for later batches, uses a fast exact-sync BFSK decode path
 before falling back to fuzzy sync, separates IIO capture timeout from daemon
 control timeout, and drains pre-test RF TX queues so old TCP teardown frames do
-not poison a fresh `iperf3` attempt. A live run then moved 22 native-IP frames
-over real RF with zero bridge errors, and the `iperf3` client entered test
-phase and sent 1024 TCP bytes. It still did not complete because the slow
-bring-up bridge did not return the server-side result/control traffic before
-the client was terminated. The remaining native-IP blocker is therefore not
+not poison a fresh `iperf3` attempt. The BFSK decoder now continues past
+zero-sync-error candidates whose recovered frame CRC does not match the expected
+burst CRC, and the live bridge retries daemon ingest/ACK control requests so a
+late UDP control reply does not discard an already decoded RF batch. With those
+fixes, a live installed-board run on a fresh `iperf3` port moved 22 native-IP
+frames over real RF with zero bridge errors, and the `iperf3` client entered
+test phase and sent 1024 TCP bytes. It still did not complete because the slow
+bring-up bridge did not drain the client test-data TCP queue before the client
+was terminated. The remaining native-IP blocker is therefore not
 antenna installation, basic RF decode, daemon queueing, or ordinary socket
 transport; it is the RF bridge data-plane software. The next HIL step is a true
 streaming or pipelined RF loop rather than another per-batch IIO process loop.

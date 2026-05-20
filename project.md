@@ -1221,10 +1221,15 @@ user and vendor configuration.
   `iperf3` parameter-exchange byte until the server had already closed. The
   daemon RF TX queue now suppresses both duplicate queued TCP retransmission
   frames and recent already-ACKed TCP signatures before RF leasing, so the
-  bridge spends airtime on current stream state. The remaining `iperf3` work
-  is to rerun the live batched bridge with this suppression and continue
-  reducing bridge-loop latency toward the production streaming data-plane
-  target. The earlier BPSK mode is
+  bridge spends airtime on current stream state. The BFSK decoder now rejects
+  CRC-wrong sync candidates instead of returning the first structurally valid
+  frame, and the live bridge retries daemon ingest/ACK control requests with
+  idempotent ACK handling after a timeout. A fresh-port live run moved 22
+  native-IP frames over real RF with zero bridge errors and got `iperf3` into
+  the TCP test phase, but the per-batch IIO loop still did not drain the client
+  test-data queue before timeout. The remaining `iperf3` work is reducing
+  bridge-loop latency toward the production streaming data-plane target. The
+  earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.

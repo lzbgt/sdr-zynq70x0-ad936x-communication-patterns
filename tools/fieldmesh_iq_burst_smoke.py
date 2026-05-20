@@ -300,6 +300,7 @@ def decode_bfsk_iq(
     space_hz: int | float,
     mark_hz: int | float,
     expected_frame_len: int | None = None,
+    expected_frame_crc: int | None = None,
     bit_repeat: int = 1,
 ) -> dict[str, Any]:
     sync_bits = bytes_to_bits(PREAMBLE + SYNC)
@@ -379,6 +380,7 @@ def decode_bfsk_iq(
                         }
                     )
 
+    crc_mismatches: list[dict[str, Any]] = []
     for candidate in sorted(candidates, key=lambda row: (row["sync_errors"], row["wrapped"], row["bit_start"])):
         try:
             recovered = recover_frame_after_sync_bits(
@@ -389,6 +391,18 @@ def decode_bfsk_iq(
         except Exception as exc:  # noqa: BLE001 - keep searching candidate alignments.
             last_error = str(exc)
             candidate["error"] = last_error
+            continue
+        recovered_crc = frame_crc32(recovered)
+        if expected_frame_crc is not None and recovered_crc != expected_frame_crc:
+            crc_mismatch = dict(candidate)
+            crc_mismatch["recovered_frame_crc"] = recovered_crc
+            crc_mismatch["expected_frame_crc"] = expected_frame_crc
+            crc_mismatch.pop("bits", None)
+            crc_mismatches.append(crc_mismatch)
+            last_error = (
+                f"bad IQ burst frame CRC 0x{recovered_crc:08x} "
+                f"expected 0x{expected_frame_crc:08x}"
+            )
             continue
         return {
             "ok": True,
@@ -401,6 +415,20 @@ def decode_bfsk_iq(
         }
     if candidates:
         best = min(candidates, key=lambda row: (row["sync_errors"], row["wrapped"], row["bit_start"]))
+        if crc_mismatches:
+            best_crc = min(crc_mismatches, key=lambda row: (row["sync_errors"], row["wrapped"], row["bit_start"]))
+            return {
+                "ok": False,
+                "sync_errors": best_crc["sync_errors"],
+                "sample_offset": best_crc["sample_offset"],
+                "chip_phase": best_crc["chip_phase"],
+                "bit_start": best_crc["bit_start"],
+                "wrapped": best_crc["wrapped"],
+                "recovered_frame_crc": best_crc["recovered_frame_crc"],
+                "expected_frame_crc": best_crc["expected_frame_crc"],
+                "crc_mismatch_candidates": len(crc_mismatches),
+                "error": last_error,
+            }
         return {
             "ok": False,
             "sync_errors": best["sync_errors"],

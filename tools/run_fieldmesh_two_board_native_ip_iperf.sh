@@ -47,6 +47,7 @@ iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
+iio_bridge_daemon_request_attempts="${IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS:-2}"
 allow_destructive_rf_batch="${ALLOW_DESTRUCTIVE_RF_BATCH:-0}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
@@ -114,6 +115,10 @@ if ! [[ "$iio_bridge_batch_size" =~ ^[0-9]+$ ]] || [ "$iio_bridge_batch_size" -l
 fi
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
+    exit 1
+fi
+if ! [[ "$iio_bridge_daemon_request_attempts" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_request_attempts" -lt 1 ]; then
+    echo "IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS must be an integer >= 1" >&2
     exit 1
 fi
 if [ "$iio_bridge_batch_size" -gt 4 ]; then
@@ -855,6 +860,7 @@ start_iio_rf_bridge_loop() {
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
         --daemon-timeout-ms "$iio_bridge_daemon_timeout_ms" \
+        --daemon-request-attempts "$iio_bridge_daemon_request_attempts" \
         --execute-live-rf \
         --allow-hardware-writes \
         --allow-rf-tx \

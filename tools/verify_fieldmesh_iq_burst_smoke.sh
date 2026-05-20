@@ -45,6 +45,51 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+python3 - "$repo_root" "$repo_root/resources/fieldmesh/vectors/frame_000.bin" <<'PY'
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+sys.path.insert(0, str(repo_root / "tools"))
+import fieldmesh_iq_burst_smoke as iq  # noqa: E402
+
+frame = Path(sys.argv[2]).read_bytes()
+bad_frame = bytearray(frame)
+bad_frame[-1] ^= 0x01
+sample_rate_hz = 1_000_000
+samples_per_symbol = 8
+bit_repeat = 2
+bad_iq = iq.encode_bfsk_iq(
+    iq.burst_payload(bytes(bad_frame)),
+    samples_per_symbol,
+    sample_rate_hz=sample_rate_hz,
+    space_hz=iq.DEFAULT_BFSK_SPACE_HZ,
+    mark_hz=iq.DEFAULT_BFSK_MARK_HZ,
+    bit_repeat=bit_repeat,
+)
+good_iq = iq.encode_bfsk_iq(
+    iq.burst_payload(frame),
+    samples_per_symbol,
+    sample_rate_hz=sample_rate_hz,
+    space_hz=iq.DEFAULT_BFSK_SPACE_HZ,
+    mark_hz=iq.DEFAULT_BFSK_MARK_HZ,
+    bit_repeat=bit_repeat,
+)
+decoded = iq.decode_bfsk_iq(
+    bad_iq + good_iq,
+    samples_per_symbol,
+    sample_rate_hz=sample_rate_hz,
+    space_hz=iq.DEFAULT_BFSK_SPACE_HZ,
+    mark_hz=iq.DEFAULT_BFSK_MARK_HZ,
+    expected_frame_len=len(frame),
+    expected_frame_crc=iq.frame_crc32(frame),
+    bit_repeat=bit_repeat,
+)
+if decoded.get("ok") is not True or decoded.get("recovered") != frame:
+    raise SystemExit(f"BFSK decoder did not skip CRC-wrong sync candidate: {decoded}")
+print('{"event":"fieldmesh_bfsk_crc_candidate_check","ok":true}')
+PY
+
 if "$repo_root/tools/fieldmesh_iq_burst_smoke.py" \
   --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
   --out-dir "$out_dir/negative" \
