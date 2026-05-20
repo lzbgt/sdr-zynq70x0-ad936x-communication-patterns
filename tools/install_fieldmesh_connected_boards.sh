@@ -146,7 +146,9 @@ verify_powerup_daemon() {
             "set -e
              grep -q '^REQUESTS=0$' /etc/init.d/S55fieldmesh-state-daemon
              grep -q '^TIMEOUT_MS=5000$' /etc/init.d/S55fieldmesh-state-daemon
-             grep -q '^LOG_MAX_BYTES=262144$' /etc/init.d/S55fieldmesh-state-daemon
+             grep -q 'FIELDMESH_STATE_DAEMON_LOG_MAX_BYTES:-262144' /etc/init.d/S55fieldmesh-state-daemon
+             grep -q 'FIELDMESH_GNSS_REPORTER_LOG_MAX_BYTES:-262144' /etc/init.d/S55fieldmesh-state-daemon
+             grep -q 'run-gnss' /etc/init.d/S55fieldmesh-state-daemon
              ps w | grep -F 'fieldmesh-state-daemon-demo serve 0.0.0.0 $port 0 5000' | grep -v grep" \
             >"$log" 2>&1; then
             rc=0

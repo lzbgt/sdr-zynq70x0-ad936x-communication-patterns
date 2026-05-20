@@ -3236,7 +3236,8 @@ reporting; the bounded value is only for deterministic service verification.
 The same gate also verifies the U-Boot environment fallback path and the
 no-device skip log, so a board without configured GNSS cannot fail silently and
 a QSPI/initramfs boot without mounted `/mnt/jffs2` can still start the reporter
-from `fieldmesh_gnss_*` env keys.
+from `fieldmesh_gnss_*` env keys. The init gate also verifies independent GNSS
+reporter log rotation so long-running no-fix/status rows cannot fill tmpfs.
 
 `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` is the live deployed
 GNSS preflight. It SSHes into Z203 and Z103, captures persistent GNSS
@@ -4711,7 +4712,11 @@ the FieldMesh SDK; they use normal Linux TCP/UDP sockets.
 for the transparent TCP/IP MAC-link feature. By default it refuses to certify
 unless both installed daemons report real RF PHY TX/RX verification. With
 `ALLOW_DAEMON_RF_BRIDGE=1`, it can run a non-production diagnostic through the
-daemon RF-worker bridge and record TCP/UDP `iperf3` metrics.
+daemon RF-worker bridge and record TCP/UDP `iperf3` metrics. Before starting
+board iperf servers, the gate removes stale iperf temp files and checks board
+`/tmp` free space. If tmpfs is exhausted, it emits `board_tmp_space_low`
+instead of misclassifying an empty server JSON or closed control socket as RF
+transport evidence.
 `HOST_PC_CASE=1` adds the transparent host-client requirement: the `iperf3`
 client must run on the host PC, not over SSH on a board. The gate writes
 `host_pc_route_preflight.json` and refuses if the host route to the local board

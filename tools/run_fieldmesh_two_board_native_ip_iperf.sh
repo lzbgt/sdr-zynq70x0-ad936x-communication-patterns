@@ -36,6 +36,7 @@ center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
+min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
 mkdir -p "$out_dir"
 
@@ -78,6 +79,10 @@ if [ "$allow_iio_rf_bridge" = "1" ]; then
 fi
 if ! [[ "$iio_bridge_max_frames" =~ ^[0-9]+$ ]] || [ "$iio_bridge_max_frames" -lt 1 ]; then
     echo "IIO_BRIDGE_MAX_FRAMES must be a positive integer" >&2
+    exit 1
+fi
+if ! [[ "$min_board_tmp_free_kb" =~ ^[0-9]+$ ]] || [ "$min_board_tmp_free_kb" -lt 64 ]; then
+    echo "MIN_BOARD_TMP_FREE_KB must be an integer >= 64" >&2
     exit 1
 fi
 if ! [[ "$center_frequency_hz" =~ ^[0-9]+$ ]] || [ "$center_frequency_hz" -le 0 ]; then
@@ -477,6 +482,61 @@ for remote in "$z203_remote" "$z103_remote"; do
         exit 1
     fi
 done
+
+check_board_tmp_space() {
+    local label="$1"
+    local remote="$2"
+    local report_path="$out_dir/${label}_tmp_space.json"
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "rm -f /tmp/fieldmesh_iperf_client.json /tmp/fieldmesh_iperf_client.err \
+              /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json \
+              /tmp/fieldmesh_iperf3_host_tcp_server.json /tmp/fieldmesh_iperf3_host_udp_server.json; \
+         df -Pk /tmp | awk 'NR == 2 { print \$4 }'" >"$out_dir/${label}_tmp_free_kb.txt"
+    python3 - "$label" "$remote" "$min_board_tmp_free_kb" \
+        "$out_dir/${label}_tmp_free_kb.txt" "$report_path" <<'PY' >>"$out_dir/iperf_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+label, remote, minimum_s, free_path, report_path = sys.argv[1:6]
+minimum = int(minimum_s)
+text = Path(free_path).read_text(encoding="utf-8", errors="replace").strip()
+try:
+    free_kb = int(text)
+except ValueError:
+    free_kb = -1
+ok = free_kb >= minimum
+report = {
+    "event": "fieldmesh_board_tmp_space_preflight",
+    "ok": ok,
+    "label": label,
+    "remote": remote,
+    "tmp_free_kb": free_kb,
+    "min_tmp_free_kb": minimum,
+    "removes_stale_iperf_tmp_files": True,
+}
+if not ok:
+    report["blocker"] = "board_tmp_space_low"
+Path(report_path).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+raise SystemExit(0 if ok else 1)
+PY
+}
+
+if ! check_board_tmp_space z203 "$z203_remote"; then
+    json_blocker "board_tmp_space_low" \
+        "Z203 /tmp does not have MIN_BOARD_TMP_FREE_KB=$min_board_tmp_free_kb available; see z203_tmp_space.json." \
+        | tee -a "$out_dir/iperf_gate.ndjson"
+    echo "Capture directory: $out_dir"
+    exit 1
+fi
+if ! check_board_tmp_space z103 "$z103_remote"; then
+    json_blocker "board_tmp_space_low" \
+        "Z103 /tmp does not have MIN_BOARD_TMP_FREE_KB=$min_board_tmp_free_kb available; see z103_tmp_space.json. Long-running GNSS reporter logs must be rotated or cleared before iperf." \
+        | tee -a "$out_dir/iperf_gate.ndjson"
+    echo "Capture directory: $out_dir"
+    exit 1
+fi
 
 setup_board() {
     local remote="$1"

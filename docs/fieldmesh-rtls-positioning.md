@@ -202,6 +202,9 @@ set it to `1` to prove the init-launched reporter path without leaving a test
 reader running. The init service writes explicit GNSS reporter start/skip
 events to `/tmp/fieldmesh-gnss-nmea-reporter.ndjson`, including the
 `no_gnss_nmea_device_configured` blocker when a board has no deployed NMEA path.
+That reporter log is rotated independently from the daemon log, so continuous
+no-fix/status output cannot consume the volatile filesystem and interfere with
+later diagnostics.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects

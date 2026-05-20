@@ -6,8 +6,10 @@ PIDFILE="${FIELDMESH_STATE_DAEMON_PIDFILE:-/var/run/fieldmesh-state-daemon.pid}"
 GNSS_PIDFILE="${FIELDMESH_GNSS_REPORTER_PIDFILE:-/var/run/fieldmesh-gnss-nmea-reporter.pid}"
 LOGFILE="${FIELDMESH_STATE_DAEMON_LOGFILE:-/tmp/fieldmesh-state-daemon.ndjson}"
 GNSS_LOGFILE="${FIELDMESH_GNSS_REPORTER_LOGFILE:-/tmp/fieldmesh-gnss-nmea-reporter.ndjson}"
-LOG_MAX_BYTES=262144
-LOG_BACKUPS=2
+LOG_MAX_BYTES="${FIELDMESH_STATE_DAEMON_LOG_MAX_BYTES:-262144}"
+GNSS_LOG_MAX_BYTES="${FIELDMESH_GNSS_REPORTER_LOG_MAX_BYTES:-262144}"
+LOG_BACKUPS="${FIELDMESH_STATE_DAEMON_LOG_BACKUPS:-2}"
+GNSS_LOG_BACKUPS="${FIELDMESH_GNSS_REPORTER_LOG_BACKUPS:-2}"
 PORT=55441
 REQUESTS=0
 TIMEOUT_MS=5000
@@ -176,6 +178,7 @@ log_gnss_event() {
     event="$1"
     ok="$2"
     reason="$3"
+    rotate_named_log_if_needed "$GNSS_LOGFILE" "$GNSS_LOG_MAX_BYTES" "$GNSS_LOG_BACKUPS"
     printf '{"event":"%s","ok":%s,"reason":"%s"}\n' "$event" "$ok" "$reason" >> "$GNSS_LOGFILE"
 }
 
@@ -210,28 +213,44 @@ start_gnss_reporter() {
     max_reports="$(read_gnss_max_reports)"
     pps_lock="$(read_gnss_pps_lock)"
     log_gnss_event fieldmesh_gnss_reporter_start true starting
-    nohup "$GNSS_REPORTER" "$device" 127.0.0.1 "$PORT" "$eui" "$baud" "$max_reports" "$pps_lock" \
-        >> "$GNSS_LOGFILE" 2>&1 &
+    nohup "$0" run-gnss "$device" "$eui" "$baud" "$max_reports" "$pps_lock" > /dev/null 2>&1 &
     echo "$!" > "$GNSS_PIDFILE"
 }
 
-rotate_log_if_needed() {
-    [ -f "$LOGFILE" ] || return 0
-    size="$(wc -c < "$LOGFILE" 2>/dev/null || echo 0)"
+rotate_named_log_if_needed() {
+    log_file="$1"
+    max_bytes="$2"
+    backups="$3"
+    [ -f "$log_file" ] || return 0
+    size="$(wc -c < "$log_file" 2>/dev/null || echo 0)"
     case "$size" in
         ''|*[!0-9]*)
             return 0
             ;;
     esac
-    [ "$size" -lt "$LOG_MAX_BYTES" ] && return 0
-    index="$LOG_BACKUPS"
+    case "$max_bytes" in
+        ''|*[!0-9]*)
+            max_bytes=262144
+            ;;
+    esac
+    case "$backups" in
+        ''|*[!0-9]*)
+            backups=2
+            ;;
+    esac
+    [ "$size" -lt "$max_bytes" ] && return 0
+    index="$backups"
     while [ "$index" -gt 1 ]; do
         prev=$((index - 1))
-        [ -f "$LOGFILE.$prev" ] && mv "$LOGFILE.$prev" "$LOGFILE.$index"
+        [ -f "$log_file.$prev" ] && mv "$log_file.$prev" "$log_file.$index"
         index="$prev"
     done
-    [ -f "$LOGFILE" ] && mv "$LOGFILE" "$LOGFILE.1"
-    : > "$LOGFILE"
+    [ -f "$log_file" ] && mv "$log_file" "$log_file.1"
+    : > "$log_file"
+}
+
+rotate_log_if_needed() {
+    rotate_named_log_if_needed "$LOGFILE" "$LOG_MAX_BYTES" "$LOG_BACKUPS"
 }
 
 run_with_rotating_log() {
@@ -239,6 +258,19 @@ run_with_rotating_log() {
     while IFS= read -r line; do
         rotate_log_if_needed
         printf '%s\n' "$line" >> "$LOGFILE"
+    done
+}
+
+run_gnss_with_rotating_log() {
+    device="$1"
+    eui="$2"
+    baud="$3"
+    max_reports="$4"
+    pps_lock="$5"
+    "$GNSS_REPORTER" "$device" 127.0.0.1 "$PORT" "$eui" "$baud" "$max_reports" "$pps_lock" 2>&1 |
+    while IFS= read -r line; do
+        rotate_named_log_if_needed "$GNSS_LOGFILE" "$GNSS_LOG_MAX_BYTES" "$GNSS_LOG_BACKUPS"
+        printf '%s\n' "$line" >> "$GNSS_LOGFILE"
     done
 }
 
@@ -271,6 +303,10 @@ case "$1" in
     run)
         [ -x "$DAEMON" ] || exit 0
         run_with_rotating_log
+        ;;
+    run-gnss)
+        [ -x "$GNSS_REPORTER" ] || exit 0
+        run_gnss_with_rotating_log "$2" "$3" "$4" "$5" "$6"
         ;;
     stop)
         if [ -f "$GNSS_PIDFILE" ]; then

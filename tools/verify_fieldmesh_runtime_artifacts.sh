@@ -369,6 +369,7 @@ PY
     done
     for token in fieldmesh-state-daemon-demo "serve 0.0.0.0" "55441" \
             REQUESTS=0 fieldmesh_daemon_port LOG_MAX_BYTES rotate_log_if_needed \
+            GNSS_LOG_MAX_BYTES rotate_named_log_if_needed run-gnss \
             fieldmesh-gnss-nmea-reporter gnss_nmea_device gnss_nmea_max_reports \
             read_sd_boot_config read_fwenv /dev/mmcblk0p1 fieldmesh_ \
             fieldmesh_gnss_nmea_device fieldmesh_gnss_nmea_baud \

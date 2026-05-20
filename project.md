@@ -797,6 +797,9 @@ user and vendor configuration.
   `PREFLIGHT_ONLY=1` validates the daemon RF readiness state, optional RF path
   evidence, and optional host route shape without creating `swarm0`, starting
   `iperf3`, opening IIO buffers, mutating daemon queues, or transmitting RF.
+  Before any live iperf step, it also removes stale iperf temp files and checks
+  board `/tmp` free space; low tmpfs is reported as `board_tmp_space_low`
+  instead of being misclassified as an RF/native-IP transport failure.
   `HOST_PC_CASE=1` is the host-transparent case: it starts `iperf3` on the host
   namespace and first proves that the host has a direct board-facing route. It
   rejects WSL/NAT or SSH-launched-board traffic because those paths do not
@@ -1236,7 +1239,9 @@ user and vendor configuration.
   no-fix NMEA status rows so live preflight can surface
   `gnss_no_satellites_visible`, `gnss_gga_quality_no_fix`, `gnss_rmc_status_void`, and
   `gnss_gsa_fix_type_no_fix` instead of only reporting a generic receiver
-  no-fix blocker.
+  no-fix blocker. The init service rotates the reporter log separately from
+  the daemon log so continuous no-fix/status reporting cannot consume the
+  board tmpfs and break later diagnostics such as `iperf3` capture.
 - `tools/run_fieldmesh_two_board_gnss_live_preflight.sh` also reports live PPS
   exposure through `/dev/pps*` and `/sys/class/pps`. `REQUIRE_GNSS_PPS=1`
   makes a missing kernel PPS device or missing `gnss_pps_lock=1` configuration

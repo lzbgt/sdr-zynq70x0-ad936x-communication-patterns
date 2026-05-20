@@ -9,6 +9,7 @@ init_script="$repo_root/runtime/fieldmesh-state-daemon/fieldmesh-state-daemon-in
 rm -rf "$work_dir"
 mkdir -p "$work_dir/bin" "$work_dir/run" "$skip_dir/run"
 mkdir -p "$work_dir/fwenv-bin" "$work_dir/fwenv-run"
+mkdir -p "$work_dir/rotation-run"
 
 cat > "$work_dir/bin/fake-daemon" <<'SH'
 #!/bin/sh
@@ -23,6 +24,17 @@ printf '{"event":"fake_gnss_reporter_start","device":"%s","host":"%s","port":"%s
 exit 0
 SH
 chmod 0755 "$work_dir/bin/fake-gnss-reporter"
+
+cat > "$work_dir/bin/fake-gnss-spam-reporter" <<'SH'
+#!/bin/sh
+i=0
+while [ "$i" -lt 40 ]; do
+    printf '{"event":"fake_gnss_status","sequence":%s,"padding":"abcdefghijklmnopqrstuvwxyz"}\n' "$i"
+    i=$((i + 1))
+done
+exit 0
+SH
+chmod 0755 "$work_dir/bin/fake-gnss-spam-reporter"
 
 printf '$GNGGA,123519,3742.1234,N,12205.4321,W,1,08,0.9,545.4,M,46.9,M,,*7A\n' > "$work_dir/gnss.nmea"
 printf '$GNRMC,123519.00,A,3742.1234,N,12205.4321,W,0.0,0.0,180526,,,A,V*36\n' > "$work_dir/fwenv-gnss.nmea"
@@ -64,6 +76,12 @@ cleanup() {
     fi
     if [ -f "$work_dir/fwenv-run/gnss.pid" ]; then
         kill "$(cat "$work_dir/fwenv-run/gnss.pid")" 2>/dev/null || true
+    fi
+    if [ -f "$work_dir/rotation-run/daemon.pid" ]; then
+        kill "$(cat "$work_dir/rotation-run/daemon.pid")" 2>/dev/null || true
+    fi
+    if [ -f "$work_dir/rotation-run/gnss.pid" ]; then
+        kill "$(cat "$work_dir/rotation-run/gnss.pid")" 2>/dev/null || true
     fi
 }
 trap cleanup EXIT
@@ -121,6 +139,43 @@ PY
 
 FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/run/daemon.pid" \
 FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/run/gnss.pid" \
+"$init_script" stop >/dev/null 2>&1 || true
+
+rm -f "$work_dir/gnss.ndjson" "$work_dir/gnss.ndjson.1"
+FIELDMESH_STATE_DAEMON_BIN="$work_dir/bin/fake-daemon" \
+FIELDMESH_GNSS_REPORTER_BIN="$work_dir/bin/fake-gnss-spam-reporter" \
+FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/rotation-run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/rotation-run/gnss.pid" \
+FIELDMESH_STATE_DAEMON_LOGFILE="$work_dir/rotation-daemon.ndjson" \
+FIELDMESH_GNSS_REPORTER_LOGFILE="$work_dir/gnss.ndjson" \
+FIELDMESH_GNSS_REPORTER_LOG_MAX_BYTES=384 \
+FIELDMESH_GNSS_REPORTER_LOG_BACKUPS=1 \
+FIELDMESH_DEVICE_EUI=020000000203 \
+FIELDMESH_GNSS_NMEA_DEVICE="$work_dir/gnss.nmea" \
+"$init_script" start
+
+for _ in $(seq 1 50); do
+    [ -s "$work_dir/gnss.ndjson.1" ] && [ -s "$work_dir/gnss.ndjson" ] && break
+    sleep 0.1
+done
+
+python3 - "$work_dir/gnss.ndjson" "$work_dir/gnss.ndjson.1" <<'PY'
+import sys
+from pathlib import Path
+
+current = Path(sys.argv[1])
+rotated = Path(sys.argv[2])
+if not current.is_file() or not rotated.is_file():
+    raise SystemExit("GNSS reporter log did not rotate")
+if current.stat().st_size > 512 or rotated.stat().st_size > 1024:
+    raise SystemExit(
+        f"GNSS reporter log rotation did not bound files: "
+        f"current={current.stat().st_size} rotated={rotated.stat().st_size}"
+    )
+PY
+
+FIELDMESH_STATE_DAEMON_PIDFILE="$work_dir/rotation-run/daemon.pid" \
+FIELDMESH_GNSS_REPORTER_PIDFILE="$work_dir/rotation-run/gnss.pid" \
 "$init_script" stop >/dev/null 2>&1 || true
 
 rm -f "$work_dir/gnss.ndjson"

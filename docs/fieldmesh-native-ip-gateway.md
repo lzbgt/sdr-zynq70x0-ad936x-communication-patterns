@@ -194,8 +194,10 @@ Minimum production gates for native TCP/IP:
 - diagnostic board-to-board `iperf3` succeeds through the daemon RF-worker
   bridge with `ALLOW_DAEMON_RF_BRIDGE=1`. This path uses a reduced diagnostic
   `swarm0` MTU by default because RF-worker lease frames are serialized as hex
-  in UDP JSON control replies; the production RF path must carry binary frames
-  and must not rely on this diagnostic MTU workaround;
+  in UDP JSON control replies. The gate also preflights board `/tmp` capacity
+  before launching `iperf3`, so tmpfs exhaustion from unrelated logs is reported
+  as `board_tmp_space_low`; the production RF path must carry binary frames and
+  must not rely on this diagnostic MTU workaround;
 - live over-air board-to-board `iperf3` has a separate bridge mechanism:
   `ALLOW_IIO_RF_BRIDGE=1` makes the iperf gate run
   `tools/fieldmesh_iio_rf_worker_bridge_loop.py`. That loop repeatedly leases
