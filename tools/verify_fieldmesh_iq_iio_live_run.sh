@@ -76,6 +76,10 @@ if report["commands"][6]["argv"][2] != "iio_readdev":
     raise SystemExit("RX command must arm iio_readdev before TX")
 if report["commands"][7]["argv"][0] != "timeout" or report["commands"][7]["argv"][2] != "iio_writedev":
     raise SystemExit("TX command must bound iio_writedev with timeout")
+if report["commands"][6]["argv"][-1:] != ["voltage0"]:
+    raise SystemExit(f"Z103 1R1T RX must only arm voltage0: {report['commands'][6]['argv']}")
+if report["commands"][7]["argv"][-2:] != ["voltage0", "voltage1"]:
+    raise SystemExit(f"Z203 2R2T TX must arm voltage0/voltage1: {report['commands'][7]['argv']}")
 for key in ("allow_hardware_writes", "allow_rf_tx", "operator_confirmation_ok"):
     if report["safety"][key] is not False:
         raise SystemExit(f"dry-run safety key {key} must be false")
@@ -92,6 +96,43 @@ print(json.dumps({
     "tx_board": report["tx_board"],
     "commands": len(report["commands"]),
 }, sort_keys=True))
+PY
+
+"$repo_root/tools/fieldmesh_iq_iio_live_plan.py" \
+  --rf-binding-plan "$binding" \
+  --iq-burst-report "$work_dir/iq/fieldmesh_iq_burst_smoke.json" \
+  --tx-board z103 \
+  --rx-board z203 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --out "$work_dir/iq_iio_live_plan_reverse.json" \
+  > "$work_dir/plan_reverse_stdout.json"
+
+"$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan_reverse.json" \
+  --out-dir "$work_dir/run-reverse" \
+  --tx-uri ip:192.168.3.1 \
+  --rx-uri ip:192.168.1.10 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  > "$work_dir/run_reverse_stdout.json"
+
+python3 - "$work_dir/run-reverse/fieldmesh_iq_iio_live_run.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report["commands"][6]["argv"][-2:] != ["voltage0", "voltage1"]:
+    raise SystemExit(f"Z203 2R2T RX must arm voltage0/voltage1: {report['commands'][6]['argv']}")
+if report["commands"][7]["argv"][-1:] != ["voltage0"]:
+    raise SystemExit(f"Z103 1R1T TX must only arm voltage0: {report['commands'][7]['argv']}")
 PY
 
 if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \

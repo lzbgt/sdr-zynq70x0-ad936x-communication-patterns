@@ -144,6 +144,15 @@ def iio_attr_channel(uri: str, device: str, channel: str, attr: str, value: int 
     ]
 
 
+def stream_voltage_channels(board: str) -> list[str]:
+    """Return enabled IIO stream voltage channels for the known board variant."""
+    if board == "z103":
+        return ["voltage0"]
+    if board == "z203":
+        return ["voltage0", "voltage1"]
+    raise SystemExit(f"unsupported board for IIO stream channel selection: {board!r}")
+
+
 def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> list[dict[str, Any]]:
     fixture = {
         "center_frequency_hz": None,
@@ -172,6 +181,8 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     tx_timeout_s = max(1, math.ceil(args.max_tx_duration_ms / 1000))
     samples = int(iq["iq_samples"])
     buffer_size = args.buffer_size or samples
+    rx_channels = stream_voltage_channels(plan["rx_board"])
+    tx_channels = stream_voltage_channels(plan["tx_board"])
 
     rows = [
         command_row(
@@ -211,9 +222,8 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 "-s",
                 str(samples),
                 rx_iio["rx_name"],
-                "voltage0",
-                "voltage1",
-            ],
+            ]
+            + rx_channels,
             stdout_file=str(capture_path),
             background=True,
         ),
@@ -230,9 +240,8 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 "-s",
                 str(samples),
                 tx_iio["tx_name"],
-                "voltage0",
-                "voltage1",
-            ],
+            ]
+            + tx_channels,
             stdin_file=iq["iq_file"],
         ),
     ]
