@@ -65,7 +65,12 @@ antenna-to-air path, and `rf_queue=1` means the daemon RF queue
 boundary is ready. Those fields are not enough to mark the system production
 ready. `rf_phy_tx_rx_verified=1` is reserved for measured over-air decode of the
 actual FieldMesh `APP_DATA` path plus same-path app evidence such as messaging,
-topology, and native-IP iperf. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
+topology, and native-IP iperf. Live HIL has now narrowed the RF issue to the
+software modem/bridge layer: DDS and cyclic IQ buffer TX both move remote RSSI,
+Z203 local RX decodes the cyclic packet, and Z103 over-air RX decodes the new
+noncoherent BFSK burst with zero sync errors. The remaining native-IP blocker
+is therefore the RF-worker bridge/iperf integration over that decoded burst
+path, not antenna installation. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
 legal frequency profile, RX-first validation, and measured link evidence are

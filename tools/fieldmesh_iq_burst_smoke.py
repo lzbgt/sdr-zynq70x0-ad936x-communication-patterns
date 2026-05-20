@@ -17,6 +17,8 @@ import fieldmesh_trace_harness as harness
 SYNC = b"FM-IQ1"
 PREAMBLE = b"\x55" * 16
 IQ_AMPLITUDE = 12000
+DEFAULT_BFSK_SPACE_HZ = 50000
+DEFAULT_BFSK_MARK_HZ = 150000
 
 
 def bytes_to_bits(data: bytes) -> list[int]:
@@ -37,6 +39,29 @@ def bits_to_bytes(bits: list[int]) -> bytes:
     return bytes(out)
 
 
+def repeat_bits(bits: list[int], bit_repeat: int) -> list[int]:
+    if bit_repeat < 1:
+        raise ValueError("bit_repeat must be >= 1")
+    if bit_repeat == 1:
+        return list(bits)
+    out: list[int] = []
+    for bit in bits:
+        out.extend([bit] * bit_repeat)
+    return out
+
+
+def collapse_repeated_bits(bits: list[int], bit_repeat: int) -> list[int]:
+    if bit_repeat < 1:
+        raise ValueError("bit_repeat must be >= 1")
+    if bit_repeat == 1:
+        return list(bits)
+    out: list[int] = []
+    for index in range(0, len(bits) - bit_repeat + 1, bit_repeat):
+        chunk = bits[index : index + bit_repeat]
+        out.append(1 if sum(chunk) * 2 >= bit_repeat else 0)
+    return out
+
+
 def burst_payload(frame: bytes) -> bytes:
     return PREAMBLE + SYNC + struct.pack(">H", len(frame)) + frame + struct.pack(">I", zlib.crc32(frame) & 0xFFFFFFFF)
 
@@ -47,10 +72,11 @@ def encode_bpsk_iq(
     *,
     sample_rate_hz: int | float = 1.0,
     baseband_carrier_hz: int | float = 0.0,
+    bit_repeat: int = 1,
 ) -> bytes:
     samples = bytearray()
     sample_index = 0
-    for bit in bytes_to_bits(payload):
+    for bit in repeat_bits(bytes_to_bits(payload), bit_repeat):
         symbol = IQ_AMPLITUDE if bit else -IQ_AMPLITUDE
         for _ in range(samples_per_symbol):
             if baseband_carrier_hz:
@@ -64,6 +90,28 @@ def encode_bpsk_iq(
             if baseband_carrier_hz:
                 samples[-2:] = struct.pack("<h", q_value)
             sample_index += 1
+    return bytes(samples)
+
+
+def encode_bfsk_iq(
+    payload: bytes,
+    samples_per_symbol: int,
+    *,
+    sample_rate_hz: int | float,
+    space_hz: int | float,
+    mark_hz: int | float,
+    bit_repeat: int = 1,
+) -> bytes:
+    samples = bytearray()
+    phase = 0.0
+    for bit in repeat_bits(bytes_to_bits(payload), bit_repeat):
+        frequency = float(mark_hz if bit else space_hz)
+        phase_step = 2.0 * math.pi * frequency / float(sample_rate_hz)
+        for _ in range(samples_per_symbol):
+            i_value = int(round(IQ_AMPLITUDE * math.cos(phase)))
+            q_value = int(round(IQ_AMPLITUDE * math.sin(phase)))
+            samples.extend(struct.pack("<hh", i_value, q_value))
+            phase = (phase + phase_step) % (2.0 * math.pi)
     return bytes(samples)
 
 
@@ -112,6 +160,119 @@ def decode_bpsk_iq(iq: bytes, samples_per_symbol: int) -> bytes:
     return bits_to_bytes(bits)
 
 
+def decode_bfsk_iq_bits(
+    iq: bytes,
+    samples_per_symbol: int,
+    *,
+    sample_rate_hz: int | float,
+    space_hz: int | float,
+    mark_hz: int | float,
+    sample_offset: int = 0,
+) -> list[int]:
+    if len(iq) % 4:
+        raise ValueError("IQ data length is not an int16 I/Q multiple")
+    total_samples = len(iq) // 4
+    if total_samples < samples_per_symbol:
+        raise ValueError("IQ data is shorter than one symbol")
+    if sample_offset < 0 or sample_offset >= samples_per_symbol:
+        raise ValueError("sample offset must be within one symbol")
+
+    bits: list[int] = []
+    usable_samples = total_samples - ((total_samples - sample_offset) % samples_per_symbol)
+    for sample_index in range(sample_offset, usable_samples, samples_per_symbol):
+        space_acc = 0j
+        mark_acc = 0j
+        for offset in range(samples_per_symbol):
+            absolute_index = sample_index + offset
+            i_value, q_value = struct.unpack_from("<hh", iq, absolute_index * 4)
+            sample = complex(i_value, q_value)
+            space_angle = -2.0 * math.pi * float(space_hz) * absolute_index / float(sample_rate_hz)
+            mark_angle = -2.0 * math.pi * float(mark_hz) * absolute_index / float(sample_rate_hz)
+            space_acc += sample * complex(math.cos(space_angle), math.sin(space_angle))
+            mark_acc += sample * complex(math.cos(mark_angle), math.sin(mark_angle))
+        bits.append(1 if abs(mark_acc) >= abs(space_acc) else 0)
+    return bits
+
+
+def decode_bfsk_iq(
+    iq: bytes,
+    samples_per_symbol: int,
+    *,
+    sample_rate_hz: int | float,
+    space_hz: int | float,
+    mark_hz: int | float,
+    expected_frame_len: int | None = None,
+    bit_repeat: int = 1,
+) -> dict[str, Any]:
+    sync_bits = bytes_to_bits(PREAMBLE + SYNC)
+    candidates: list[dict[str, Any]] = []
+    last_error = "missing IQ burst preamble/sync"
+    for sample_offset in range(samples_per_symbol):
+        chip_bits = decode_bfsk_iq_bits(
+            iq,
+            samples_per_symbol,
+            sample_rate_hz=sample_rate_hz,
+            space_hz=space_hz,
+            mark_hz=mark_hz,
+            sample_offset=sample_offset,
+        )
+        for chip_phase in range(bit_repeat):
+            bits = collapse_repeated_bits(chip_bits[chip_phase:], bit_repeat)
+            if len(bits) < len(sync_bits) + 16 + 32:
+                continue
+            for bit_start in range(0, len(bits) - len(sync_bits) + 1):
+                sync_errors = sum(
+                    expected_bit != hard_bit
+                    for expected_bit, hard_bit in zip(
+                        sync_bits,
+                        bits[bit_start : bit_start + len(sync_bits)],
+                        strict=True,
+                    )
+                )
+                if sync_errors > min(8, len(sync_bits) // 16):
+                    continue
+                candidates.append(
+                    {
+                        "sync_errors": sync_errors,
+                        "sample_offset": sample_offset,
+                        "chip_phase": chip_phase,
+                        "bit_start": bit_start,
+                        "bits": bits,
+                    }
+                )
+
+    for candidate in sorted(candidates, key=lambda row: row["sync_errors"]):
+        try:
+            recovered = recover_frame_after_sync_bits(
+                candidate["bits"][candidate["bit_start"] :],
+                len(sync_bits),
+                expected_frame_len=expected_frame_len,
+            )
+        except Exception as exc:  # noqa: BLE001 - keep searching candidate alignments.
+            last_error = str(exc)
+            candidate["error"] = last_error
+            continue
+        return {
+            "ok": True,
+            "recovered": recovered,
+            "sync_errors": candidate["sync_errors"],
+            "sample_offset": candidate["sample_offset"],
+            "chip_phase": candidate["chip_phase"],
+            "bit_start": candidate["bit_start"],
+        }
+    if candidates:
+        best = min(candidates, key=lambda row: row["sync_errors"])
+        return {
+            "ok": False,
+            "sync_errors": best["sync_errors"],
+            "sample_offset": best["sample_offset"],
+            "chip_phase": best["chip_phase"],
+            "bit_start": best["bit_start"],
+            "error": last_error,
+        }
+    return {"ok": False, "error": last_error, "sync_errors": None}
+
+
 def complex_symbol_averages(iq: bytes, samples_per_symbol: int, sample_offset: int = 0) -> list[complex]:
     if len(iq) % 4:
         raise ValueError("IQ data length is not an int16 I/Q multiple")
@@ -131,45 +292,103 @@ def complex_symbol_averages(iq: bytes, samples_per_symbol: int, sample_offset: i
     return symbols
 
 
-def decode_bpsk_iq_coherent(iq: bytes, samples_per_symbol: int) -> dict[str, Any]:
+def average_repeated_symbols(symbols: list[complex], bit_repeat: int, chip_phase: int) -> list[complex]:
+    if bit_repeat < 1:
+        raise ValueError("bit_repeat must be >= 1")
+    if chip_phase < 0 or chip_phase >= bit_repeat:
+        raise ValueError("chip_phase must be within one repeated bit group")
+    if bit_repeat == 1:
+        return list(symbols)
+    averaged: list[complex] = []
+    for index in range(chip_phase, len(symbols) - bit_repeat + 1, bit_repeat):
+        acc = 0j
+        for symbol in symbols[index : index + bit_repeat]:
+            acc += symbol
+        averaged.append(acc / bit_repeat)
+    return averaged
+
+
+def decode_bpsk_iq_coherent(
+    iq: bytes,
+    samples_per_symbol: int,
+    *,
+    expected_frame_len: int | None = None,
+    bit_repeat: int = 1,
+) -> dict[str, Any]:
     """Recover a burst with symbol timing and arbitrary I/Q phase search."""
     sync_bits = bytes_to_bits(PREAMBLE + SYNC)
+    preamble_bits = bytes_to_bits(PREAMBLE)
     expected = [1.0 if bit else -1.0 for bit in sync_bits]
+    required_bits = len(expected) + 16 + 32
+    if expected_frame_len is not None:
+        required_bits += expected_frame_len * 8
     candidates: list[dict[str, Any]] = []
     last_error = "missing IQ burst preamble/sync"
 
     for sample_offset in range(samples_per_symbol):
         symbols = complex_symbol_averages(iq, samples_per_symbol, sample_offset)
-        if len(symbols) < len(expected):
-            continue
-        for symbol_start in range(0, len(symbols) - len(expected) + 1):
-            window = symbols[symbol_start : symbol_start + len(expected)]
-            corr = sum(sample * sign for sample, sign in zip(window, expected, strict=True))
-            score = abs(corr) / len(expected)
-            if score <= 0.0:
+        for chip_phase in range(bit_repeat):
+            averaged_symbols = average_repeated_symbols(symbols, bit_repeat, chip_phase)
+            if len(averaged_symbols) < required_bits:
                 continue
-            phase = corr / abs(corr)
-            candidate = {
-                "score": score,
-                "sample_offset": sample_offset,
-                "symbol_start": symbol_start,
-                "phase_i": phase.real,
-                "phase_q": phase.imag,
-                "symbols": symbols,
-                "phase": phase,
-            }
-            candidates.append(candidate)
-            if len(candidates) > 64:
-                candidates.sort(key=lambda row: row["score"], reverse=True)
-                del candidates[64:]
+            latest_bit_start = len(averaged_symbols) - required_bits
+            alternating_prefix = [0j]
+            for index, symbol in enumerate(averaged_symbols):
+                alternating_prefix.append(
+                    alternating_prefix[-1] + symbol * (-1.0 if index % 2 == 0 else 1.0)
+                )
+            preamble_candidates: list[dict[str, Any]] = []
+            for bit_start in range(0, latest_bit_start + 1):
+                # PREAMBLE is 0x55, so this alternating-sum matched filter cheaply
+                # finds likely bit-aligned starts before the full sync/CRC check.
+                corr = alternating_prefix[bit_start + len(preamble_bits)] - alternating_prefix[bit_start]
+                score = abs(corr) / len(preamble_bits)
+                preamble_candidates.append({"bit_start": bit_start, "preamble_score": score})
+            for preamble_candidate in sorted(
+                preamble_candidates,
+                key=lambda row: row["preamble_score"],
+                reverse=True,
+            )[:64]:
+                bit_start = int(preamble_candidate["bit_start"])
+                window = averaged_symbols[bit_start : bit_start + len(expected)]
+                corr = sum(sample * sign for sample, sign in zip(window, expected, strict=True))
+                score = abs(corr) / len(expected)
+                if score <= 0.0:
+                    continue
+                phase = corr / abs(corr)
+                sync_hard_bits = [
+                    1 if ((sample * phase.conjugate()).real >= 0.0) else 0 for sample in window
+                ]
+                sync_errors = sum(
+                    expected_bit != hard_bit
+                    for expected_bit, hard_bit in zip(sync_bits, sync_hard_bits, strict=True)
+                )
+                candidate = {
+                    "score": score,
+                    "sync_errors": sync_errors,
+                    "sample_offset": sample_offset,
+                    "chip_phase": chip_phase,
+                    "bit_start": bit_start,
+                    "symbol_start": chip_phase + bit_start * bit_repeat,
+                    "phase_i": phase.real,
+                    "phase_q": phase.imag,
+                    "symbols": averaged_symbols,
+                    "phase": phase,
+                    "preamble_score": preamble_candidate["preamble_score"],
+                }
+                candidates.append(candidate)
 
-    for candidate in sorted(candidates, key=lambda row: row["score"], reverse=True):
+    candidate_order = sorted(candidates, key=lambda row: (row["sync_errors"], -row["score"]))
+    for candidate in candidate_order:
         phase = candidate["phase"]
-        symbols = candidate["symbols"][candidate["symbol_start"] :]
+        symbols = candidate["symbols"][candidate["bit_start"] :]
         bits = [1 if ((sample * phase.conjugate()).real >= 0.0) else 0 for sample in symbols]
-        decoded = bits_to_bytes(bits)
         try:
-            recovered = recover_frame(decoded)
+            recovered = recover_frame_after_sync_bits(
+                bits,
+                len(sync_bits),
+                expected_frame_len=expected_frame_len,
+            )
         except Exception as exc:  # noqa: BLE001 - keep searching candidate alignments.
             last_error = str(exc)
             candidate["error"] = last_error
@@ -178,17 +397,23 @@ def decode_bpsk_iq_coherent(iq: bytes, samples_per_symbol: int) -> dict[str, Any
             "ok": True,
             "recovered": recovered,
             "score": candidate["score"],
+            "sync_errors": candidate["sync_errors"],
             "sample_offset": candidate["sample_offset"],
+            "chip_phase": candidate["chip_phase"],
+            "bit_start": candidate["bit_start"],
             "symbol_start": candidate["symbol_start"],
             "phase_i": candidate["phase_i"],
             "phase_q": candidate["phase_q"],
         }
     if candidates:
-        best = max(candidates, key=lambda row: row["score"])
+        best = candidate_order[0]
         return {
             "ok": False,
             "score": best["score"],
+            "sync_errors": best["sync_errors"],
             "sample_offset": best["sample_offset"],
+            "chip_phase": best["chip_phase"],
+            "bit_start": best["bit_start"],
             "symbol_start": best["symbol_start"],
             "phase_i": best["phase_i"],
             "phase_q": best["phase_q"],
@@ -217,6 +442,36 @@ def recover_frame(decoded: bytes) -> bytes:
     return frame
 
 
+def recover_frame_after_sync_bits(
+    bits: list[int],
+    sync_bits: int,
+    *,
+    expected_frame_len: int | None = None,
+) -> bytes:
+    cursor = sync_bits
+    if expected_frame_len is None:
+        if len(bits) < sync_bits + 16:
+            raise ValueError("missing IQ burst length")
+        length_bytes = bits_to_bytes(bits[cursor : cursor + 16])
+        frame_len = struct.unpack(">H", length_bytes)[0]
+    else:
+        if expected_frame_len <= 0:
+            raise ValueError("expected frame length must be positive")
+        frame_len = expected_frame_len
+    cursor += 16
+    frame_bits = frame_len * 8
+    crc_bits = 32
+    if len(bits) < cursor + frame_bits + crc_bits:
+        raise ValueError("truncated IQ burst frame")
+    frame = bits_to_bytes(bits[cursor : cursor + frame_bits])
+    cursor += frame_bits
+    crc = struct.unpack(">I", bits_to_bytes(bits[cursor : cursor + crc_bits]))[0]
+    expected_crc = zlib.crc32(frame) & 0xFFFFFFFF
+    if crc != expected_crc:
+        raise ValueError(f"bad IQ burst frame CRC 0x{crc:08x} expected 0x{expected_crc:08x}")
+    return frame
+
+
 def require_rf_guard(args: argparse.Namespace) -> None:
     if not args.authorized_rf_path and not args.conducted_or_shielded:
         raise SystemExit("--authorized-rf-path is required before planning an RF burst")
@@ -226,6 +481,8 @@ def require_rf_guard(args: argparse.Namespace) -> None:
         raise SystemExit("frequency, sample rate, and RF bandwidth must be positive")
     if args.samples_per_symbol < 2:
         raise SystemExit("--samples-per-symbol must be >= 2")
+    if args.bit_repeat < 1:
+        raise SystemExit("--bit-repeat must be >= 1")
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -233,14 +490,46 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     frame = args.frame.read_bytes()
     parsed = harness.unpack_memory_frame(frame)
     payload = burst_payload(frame)
-    iq = encode_bpsk_iq(
-        payload,
-        args.samples_per_symbol,
-        sample_rate_hz=args.sample_rate_hz,
-        baseband_carrier_hz=args.baseband_carrier_hz,
-    )
-    decode_iq = mix_iq(iq, args.sample_rate_hz, args.baseband_carrier_hz) if args.baseband_carrier_hz else iq
-    recovered = recover_frame(decode_bpsk_iq(decode_iq, args.samples_per_symbol))
+    if args.modulation == "bfsk":
+        iq = encode_bfsk_iq(
+            payload,
+            args.samples_per_symbol,
+            sample_rate_hz=args.sample_rate_hz,
+            space_hz=args.bfsk_space_hz,
+            mark_hz=args.bfsk_mark_hz,
+            bit_repeat=args.bit_repeat,
+        )
+        decoded = decode_bfsk_iq(
+            iq,
+            args.samples_per_symbol,
+            sample_rate_hz=args.sample_rate_hz,
+            space_hz=args.bfsk_space_hz,
+            mark_hz=args.bfsk_mark_hz,
+            expected_frame_len=len(frame),
+            bit_repeat=args.bit_repeat,
+        )
+        if decoded.get("ok") is not True:
+            raise SystemExit(f"local BFSK decode failed: {decoded}")
+        recovered = decoded["recovered"]
+        encoding_name = "fieldmesh_bfsk_i16le_v1"
+    else:
+        iq = encode_bpsk_iq(
+            payload,
+            args.samples_per_symbol,
+            sample_rate_hz=args.sample_rate_hz,
+            baseband_carrier_hz=args.baseband_carrier_hz,
+            bit_repeat=args.bit_repeat,
+        )
+        decode_iq = mix_iq(iq, args.sample_rate_hz, args.baseband_carrier_hz) if args.baseband_carrier_hz else iq
+        recovered = recover_frame(
+            bits_to_bytes(
+                collapse_repeated_bits(
+                    decode_bpsk_iq_bits(decode_iq, args.samples_per_symbol),
+                    args.bit_repeat,
+                )
+            )
+        )
+        encoding_name = "fieldmesh_bpsk_nrz_i16le_v1"
     recovered_parsed = harness.unpack_memory_frame(recovered)
     if recovered != frame:
         raise SystemExit("decoded IQ burst did not reproduce the input FieldMesh frame")
@@ -268,12 +557,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "sequence": parsed.get("sequence"),
         },
         "encoding": {
-            "name": "fieldmesh_bpsk_nrz_i16le_v1",
+            "name": encoding_name,
+            "modulation": args.modulation,
             "preamble_bytes": len(PREAMBLE),
             "sync": SYNC.decode("ascii"),
             "samples_per_symbol": args.samples_per_symbol,
             "iq_sample_format": "interleaved int16 little-endian IQ",
             "baseband_carrier_hz": args.baseband_carrier_hz,
+            "bfsk_space_hz": args.bfsk_space_hz if args.modulation == "bfsk" else None,
+            "bfsk_mark_hz": args.bfsk_mark_hz if args.modulation == "bfsk" else None,
+            "bit_repeat": args.bit_repeat,
             "burst_payload_bytes": len(payload),
             "iq_samples": len(iq) // 4,
             "iq_file": str(iq_path),
@@ -313,7 +606,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-bandwidth-hz", type=int, required=True)
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--samples-per-symbol", type=int, default=8)
+    parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bpsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=0)
+    parser.add_argument("--bfsk-space-hz", type=int, default=DEFAULT_BFSK_SPACE_HZ)
+    parser.add_argument("--bfsk-mark-hz", type=int, default=DEFAULT_BFSK_MARK_HZ)
+    parser.add_argument("--bit-repeat", type=int, default=1)
     parser.add_argument("--authorized-rf-path", action="store_true")
     parser.add_argument("--conducted-or-shielded", action="store_true")
     parser.add_argument("--pretty", action="store_true")

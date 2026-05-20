@@ -408,7 +408,48 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         return {"attempted": False, "reason": "capture file empty"}
     smoke_report = load_json(Path(plan["iq_burst"]["report"]))
     samples_per_symbol = int(smoke_report["encoding"]["samples_per_symbol"])
+    modulation = str(smoke_report["encoding"].get("modulation", "bpsk"))
+    bit_repeat = int(smoke_report["encoding"].get("bit_repeat", 1))
     baseband_carrier_hz = int(smoke_report["encoding"].get("baseband_carrier_hz", 0))
+    if modulation == "bfsk":
+        decoded = iq_smoke.decode_bfsk_iq(
+            iq,
+            samples_per_symbol,
+            sample_rate_hz=smoke_report["rf_fixture"]["sample_rate_hz"],
+            space_hz=int(smoke_report["encoding"].get("bfsk_space_hz", iq_smoke.DEFAULT_BFSK_SPACE_HZ)),
+            mark_hz=int(smoke_report["encoding"].get("bfsk_mark_hz", iq_smoke.DEFAULT_BFSK_MARK_HZ)),
+            expected_frame_len=int(smoke_report["frame"]["bytes"]),
+            bit_repeat=bit_repeat,
+        )
+        if decoded.get("ok") is True:
+            recovered = decoded["recovered"]
+            crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+            return {
+                "attempted": True,
+                "ok": crc == plan["iq_burst"]["frame_crc"],
+                "capture_bytes": len(iq),
+                "recovered_frame_hex": recovered.hex(),
+                "recovered_frame_bytes": len(recovered),
+                "recovered_frame_crc": crc,
+                "expected_frame_crc": plan["iq_burst"]["frame_crc"],
+                "sample_offset": decoded["sample_offset"],
+                "chip_phase": decoded["chip_phase"],
+                "bit_start": decoded["bit_start"],
+                "sync_errors": decoded["sync_errors"],
+                "decoder": "noncoherent_complex_bfsk_v1",
+            }
+        return {
+            "attempted": True,
+            "ok": False,
+            "error": decoded.get("error", "missing IQ burst preamble/sync"),
+            "capture_bytes": len(iq),
+            "sync_errors": decoded.get("sync_errors"),
+            "best_sample_offset": decoded.get("sample_offset"),
+            "best_chip_phase": decoded.get("chip_phase"),
+            "best_bit_start": decoded.get("bit_start"),
+            "decoder": "noncoherent_complex_bfsk_v1",
+        }
+
     carrier_candidates = [baseband_carrier_hz]
     if baseband_carrier_hz:
         carrier_candidates += [
@@ -420,7 +461,12 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     coherent: dict[str, Any] = {"ok": False, "score": 0.0}
     for carrier_hz in carrier_candidates:
         candidate_iq = iq_smoke.mix_iq(iq, smoke_report["rf_fixture"]["sample_rate_hz"], carrier_hz) if carrier_hz else iq
-        candidate = iq_smoke.decode_bpsk_iq_coherent(candidate_iq, samples_per_symbol)
+        candidate = iq_smoke.decode_bpsk_iq_coherent(
+            candidate_iq,
+            samples_per_symbol,
+            expected_frame_len=int(smoke_report["frame"]["bytes"]),
+            bit_repeat=bit_repeat,
+        )
         candidate["baseband_carrier_hz"] = carrier_hz
         if candidate.get("ok") is True:
             coherent = candidate

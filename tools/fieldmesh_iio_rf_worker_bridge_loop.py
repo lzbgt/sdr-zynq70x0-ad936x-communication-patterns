@@ -70,7 +70,11 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         rf_bandwidth_hz=args.rf_bandwidth_hz,
         fixture_attenuation_db=args.fixture_attenuation_db,
         samples_per_symbol=args.samples_per_symbol,
+        modulation=args.modulation,
         baseband_carrier_hz=args.baseband_carrier_hz,
+        bfsk_space_hz=args.bfsk_space_hz,
+        bfsk_mark_hz=args.bfsk_mark_hz,
+        bit_repeat=args.bit_repeat,
         buffer_size=args.buffer_size,
         timeout_ms=args.timeout_ms,
         execute_live_rf=args.execute_live_rf,
@@ -239,8 +243,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
     parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
-    parser.add_argument("--samples-per-symbol", type=int, default=8)
+    parser.add_argument("--samples-per-symbol", type=int, default=64)
+    parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bfsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
+    parser.add_argument("--bfsk-space-hz", type=int, default=50000)
+    parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
+    parser.add_argument("--bit-repeat", type=int, default=4)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--execute-live-rf", action="store_true")

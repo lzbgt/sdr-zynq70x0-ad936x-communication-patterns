@@ -507,12 +507,14 @@ user and vendor configuration.
   planner. It combines sidecar DMA smoke captures with AD936x IIO scan/plan
   captures, selects RF RX/TX IIO endpoints, and asserts that host-facing IP
   remains management only while no IIO buffers or RF TX are started.
-- `tools/fieldmesh_iq_burst_smoke.py` - offline conducted-test IQ burst smoke.
-  It wraps a committed FieldMesh frame with a preamble/length/CRC, synthesizes
-  interleaved int16 BPSK IQ samples, decodes them back to the same frame, and
-  requires explicit frequency, sample-rate, bandwidth, attenuation, and
-  authorized over-air RF path arguments while still opening no IIO buffers and
-  starting no RF TX.
+- `tools/fieldmesh_iq_burst_smoke.py` - offline IQ burst smoke for the AD936x
+  path. It wraps a committed FieldMesh frame with a preamble/length/CRC,
+  synthesizes interleaved int16 IQ samples, decodes them back to the same
+  frame, and requires explicit frequency, sample-rate, bandwidth, attenuation,
+  and authorized over-air RF path arguments while still opening no IIO buffers
+  and starting no RF TX. It supports the original BPSK burst plus a
+  noncoherent BFSK burst used by live over-air bring-up after HIL showed the
+  BPSK hard-decision path was too fragile between Z203 and Z103.
 - `tools/verify_fieldmesh_iq_burst_smoke.sh` - gate for the IQ burst smoke,
   including a negative test that refuses to plan a burst without the
   authorized RF-path guard.
@@ -1185,6 +1187,12 @@ user and vendor configuration.
   packet-engine TX primitive. It maps byte-stream packet bits, MSB first, into
   repeated signed I/Q BPSK symbols while leaving RF tuning, filtering, TX
   enable, and scheduling as outer guarded blocks.
+- Live AD936x HIL now proves the software buffer path is material, not just a
+  gate artifact: Z203 cyclic IQ buffer TX changes Z103 RSSI by roughly 35 dB,
+  Z203 local RX decodes the same cyclic packet, and Z103 over-air RX decodes
+  the noncoherent BFSK packet with zero sync errors. The earlier BPSK mode is
+  retained for the RTL primitive, but the IIO RF-worker bridge defaults to BFSK
+  until the hardware BPSK path has a stronger synchronizer/equalizer.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary
   that only admits IQ samples when TX is enabled, armed, and in the allowed
   schedule slot; the copied RF-engine overlay wires its control/status pins to
