@@ -147,6 +147,10 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         fixture_evidence=args.fixture_evidence,
         operator_confirmation=args.operator_confirmation,
         max_tx_duration_ms=args.max_tx_duration_ms,
+        cyclic_tx=args.cyclic_tx,
+        rx_gain_control_mode=args.rx_gain_control_mode,
+        rx_hardwaregain_db=args.rx_hardwaregain_db,
+        tx_hardwaregain_db=args.tx_hardwaregain_db,
         pretty=False,
     )
     return live_run.build_report(run_args)
@@ -272,14 +276,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=Path(".config/fieldmesh/iio-rf-worker-bridge"))
     parser.add_argument("--center-frequency-hz", type=int, default=2400000000)
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
-    parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
+    parser.add_argument("--rf-bandwidth-hz", type=int, default=300000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=64)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bfsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)
     parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
-    parser.add_argument("--bit-repeat", type=int, default=4)
+    parser.add_argument("--bit-repeat", type=int, default=8)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--execute-live-rf", action="store_true")
@@ -292,6 +296,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=1000)
+    parser.add_argument("--cyclic-tx", dest="cyclic_tx", action="store_true", default=True)
+    parser.add_argument("--no-cyclic-tx", dest="cyclic_tx", action="store_false")
+    parser.add_argument("--rx-gain-control-mode", default="slow_attack")
+    parser.add_argument("--rx-hardwaregain-db", type=float)
+    parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

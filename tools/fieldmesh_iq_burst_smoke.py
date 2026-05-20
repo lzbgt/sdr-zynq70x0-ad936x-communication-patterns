@@ -66,6 +66,46 @@ def burst_payload(frame: bytes) -> bytes:
     return PREAMBLE + SYNC + struct.pack(">H", len(frame)) + frame + struct.pack(">I", zlib.crc32(frame) & 0xFFFFFFFF)
 
 
+def frame_crc32(frame: bytes) -> int:
+    return zlib.crc32(frame) & 0xFFFFFFFF
+
+
+def frame_metadata(frame: bytes) -> dict[str, Any]:
+    try:
+        parsed = harness.unpack_memory_frame(frame)
+    except Exception:
+        return {
+            "format": "raw_binary_rf_frame",
+            "bytes": len(frame),
+            "packet_len": len(frame),
+            "frame_crc": frame_crc32(frame),
+            "transport_seq": None,
+            "src_node": None,
+            "dst_node": None,
+            "stream_id": None,
+            "traffic_class": None,
+            "mode": None,
+            "epoch": None,
+            "slot": None,
+            "sequence": None,
+        }
+    return {
+        "format": "fieldmesh_memory_frame",
+        "bytes": len(frame),
+        "packet_len": parsed.get("frame_len"),
+        "frame_crc": parsed.get("frame_crc"),
+        "transport_seq": parsed.get("transport_seq"),
+        "src_node": parsed.get("src_node"),
+        "dst_node": parsed.get("dst_node"),
+        "stream_id": parsed.get("stream_id"),
+        "traffic_class": parsed.get("traffic_class"),
+        "mode": parsed.get("mode"),
+        "epoch": parsed.get("epoch"),
+        "slot": parsed.get("slot"),
+        "sequence": parsed.get("sequence"),
+    }
+
+
 def encode_bpsk_iq(
     payload: bytes,
     samples_per_symbol: int,
@@ -169,9 +209,70 @@ def decode_bfsk_iq_bits(
     mark_hz: int | float,
     sample_offset: int = 0,
 ) -> list[int]:
+    space_prefix, mark_prefix = bfsk_tone_prefixes(
+        iq,
+        sample_rate_hz=sample_rate_hz,
+        space_hz=space_hz,
+        mark_hz=mark_hz,
+    )
+    return decode_bfsk_iq_bits_from_prefixes(
+        space_prefix,
+        mark_prefix,
+        samples_per_symbol,
+        sample_offset=sample_offset,
+    )
+
+
+def bfsk_tone_prefixes(
+    iq: bytes,
+    *,
+    sample_rate_hz: int | float,
+    space_hz: int | float,
+    mark_hz: int | float,
+) -> tuple[list[complex], list[complex]]:
     if len(iq) % 4:
         raise ValueError("IQ data length is not an int16 I/Q multiple")
     total_samples = len(iq) // 4
+    sample_rate = float(sample_rate_hz)
+    if sample_rate <= 0.0:
+        raise ValueError("sample rate must be positive")
+
+    space_step = complex(
+        math.cos(-2.0 * math.pi * float(space_hz) / sample_rate),
+        math.sin(-2.0 * math.pi * float(space_hz) / sample_rate),
+    )
+    mark_step = complex(
+        math.cos(-2.0 * math.pi * float(mark_hz) / sample_rate),
+        math.sin(-2.0 * math.pi * float(mark_hz) / sample_rate),
+    )
+    space_phase = 1.0 + 0.0j
+    mark_phase = 1.0 + 0.0j
+    space_prefix: list[complex] = [0j]
+    mark_prefix: list[complex] = [0j]
+    space_acc = 0j
+    mark_acc = 0j
+    for sample_index in range(total_samples):
+        i_value, q_value = struct.unpack_from("<hh", iq, sample_index * 4)
+        sample = complex(i_value, q_value)
+        space_acc += sample * space_phase
+        mark_acc += sample * mark_phase
+        space_prefix.append(space_acc)
+        mark_prefix.append(mark_acc)
+        space_phase *= space_step
+        mark_phase *= mark_step
+    return space_prefix, mark_prefix
+
+
+def decode_bfsk_iq_bits_from_prefixes(
+    space_prefix: list[complex],
+    mark_prefix: list[complex],
+    samples_per_symbol: int,
+    *,
+    sample_offset: int = 0,
+) -> list[int]:
+    if len(space_prefix) != len(mark_prefix):
+        raise ValueError("BFSK prefix lengths differ")
+    total_samples = len(space_prefix) - 1
     if total_samples < samples_per_symbol:
         raise ValueError("IQ data is shorter than one symbol")
     if sample_offset < 0 or sample_offset >= samples_per_symbol:
@@ -180,16 +281,9 @@ def decode_bfsk_iq_bits(
     bits: list[int] = []
     usable_samples = total_samples - ((total_samples - sample_offset) % samples_per_symbol)
     for sample_index in range(sample_offset, usable_samples, samples_per_symbol):
-        space_acc = 0j
-        mark_acc = 0j
-        for offset in range(samples_per_symbol):
-            absolute_index = sample_index + offset
-            i_value, q_value = struct.unpack_from("<hh", iq, absolute_index * 4)
-            sample = complex(i_value, q_value)
-            space_angle = -2.0 * math.pi * float(space_hz) * absolute_index / float(sample_rate_hz)
-            mark_angle = -2.0 * math.pi * float(mark_hz) * absolute_index / float(sample_rate_hz)
-            space_acc += sample * complex(math.cos(space_angle), math.sin(space_angle))
-            mark_acc += sample * complex(math.cos(mark_angle), math.sin(mark_angle))
+        symbol_end = sample_index + samples_per_symbol
+        space_acc = space_prefix[symbol_end] - space_prefix[sample_index]
+        mark_acc = mark_prefix[symbol_end] - mark_prefix[sample_index]
         bits.append(1 if abs(mark_acc) >= abs(space_acc) else 0)
     return bits
 
@@ -205,27 +299,38 @@ def decode_bfsk_iq(
     bit_repeat: int = 1,
 ) -> dict[str, Any]:
     sync_bits = bytes_to_bits(PREAMBLE + SYNC)
+    required_bits = len(sync_bits) + 16 + 32
+    if expected_frame_len is not None:
+        required_bits += expected_frame_len * 8
     candidates: list[dict[str, Any]] = []
     last_error = "missing IQ burst preamble/sync"
+    space_prefix, mark_prefix = bfsk_tone_prefixes(
+        iq,
+        sample_rate_hz=sample_rate_hz,
+        space_hz=space_hz,
+        mark_hz=mark_hz,
+    )
     for sample_offset in range(samples_per_symbol):
-        chip_bits = decode_bfsk_iq_bits(
-            iq,
+        chip_bits = decode_bfsk_iq_bits_from_prefixes(
+            space_prefix,
+            mark_prefix,
             samples_per_symbol,
-            sample_rate_hz=sample_rate_hz,
-            space_hz=space_hz,
-            mark_hz=mark_hz,
             sample_offset=sample_offset,
         )
         for chip_phase in range(bit_repeat):
             bits = collapse_repeated_bits(chip_bits[chip_phase:], bit_repeat)
-            if len(bits) < len(sync_bits) + 16 + 32:
+            if len(bits) < required_bits:
                 continue
-            for bit_start in range(0, len(bits) - len(sync_bits) + 1):
+            # Cyclic TX captures can begin in the middle of a repeated frame.
+            # Append one frame's worth of leading bits so a valid sync near the
+            # end can still recover the wrapped length/frame/CRC tail.
+            decode_bits = bits + bits[:required_bits]
+            for bit_start in range(0, len(bits)):
                 sync_errors = sum(
                     expected_bit != hard_bit
                     for expected_bit, hard_bit in zip(
                         sync_bits,
-                        bits[bit_start : bit_start + len(sync_bits)],
+                        decode_bits[bit_start : bit_start + len(sync_bits)],
                         strict=True,
                     )
                 )
@@ -237,11 +342,12 @@ def decode_bfsk_iq(
                         "sample_offset": sample_offset,
                         "chip_phase": chip_phase,
                         "bit_start": bit_start,
-                        "bits": bits,
+                        "bits": decode_bits,
+                        "wrapped": bit_start + required_bits > len(bits),
                     }
                 )
 
-    for candidate in sorted(candidates, key=lambda row: row["sync_errors"]):
+    for candidate in sorted(candidates, key=lambda row: (row["sync_errors"], row["wrapped"], row["bit_start"])):
         try:
             recovered = recover_frame_after_sync_bits(
                 candidate["bits"][candidate["bit_start"] :],
@@ -259,15 +365,17 @@ def decode_bfsk_iq(
             "sample_offset": candidate["sample_offset"],
             "chip_phase": candidate["chip_phase"],
             "bit_start": candidate["bit_start"],
+            "wrapped": candidate["wrapped"],
         }
     if candidates:
-        best = min(candidates, key=lambda row: row["sync_errors"])
+        best = min(candidates, key=lambda row: (row["sync_errors"], row["wrapped"], row["bit_start"]))
         return {
             "ok": False,
             "sync_errors": best["sync_errors"],
             "sample_offset": best["sample_offset"],
             "chip_phase": best["chip_phase"],
             "bit_start": best["bit_start"],
+            "wrapped": best["wrapped"],
             "error": last_error,
         }
     return {"ok": False, "error": last_error, "sync_errors": None}
@@ -488,7 +596,7 @@ def require_rf_guard(args: argparse.Namespace) -> None:
 def run(args: argparse.Namespace) -> dict[str, Any]:
     require_rf_guard(args)
     frame = args.frame.read_bytes()
-    parsed = harness.unpack_memory_frame(frame)
+    parsed = frame_metadata(frame)
     payload = burst_payload(frame)
     if args.modulation == "bfsk":
         iq = encode_bfsk_iq(
@@ -530,7 +638,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
         encoding_name = "fieldmesh_bpsk_nrz_i16le_v1"
-    recovered_parsed = harness.unpack_memory_frame(recovered)
+    recovered_parsed = frame_metadata(recovered)
     if recovered != frame:
         raise SystemExit("decoded IQ burst did not reproduce the input FieldMesh frame")
 
@@ -543,9 +651,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "ok": True,
         "frame": {
             "path": str(args.frame),
-            "bytes": len(frame),
+            "format": parsed.get("format"),
+            "bytes": parsed.get("bytes"),
             "transport_seq": parsed.get("transport_seq"),
-            "packet_len": parsed.get("frame_len"),
+            "packet_len": parsed.get("packet_len"),
             "frame_crc": parsed.get("frame_crc"),
             "src_node": parsed.get("src_node"),
             "dst_node": parsed.get("dst_node"),

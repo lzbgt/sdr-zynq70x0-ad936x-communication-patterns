@@ -1190,9 +1190,14 @@ user and vendor configuration.
 - Live AD936x HIL now proves the software buffer path is material, not just a
   gate artifact: Z203 cyclic IQ buffer TX changes Z103 RSSI by roughly 35 dB,
   Z203 local RX decodes the same cyclic packet, and Z103 over-air RX decodes
-  the noncoherent BFSK packet with zero sync errors. The earlier BPSK mode is
-  retained for the RTL primitive, but the IIO RF-worker bridge defaults to BFSK
-  until the hardware BPSK path has a stronger synchronizer/equalizer.
+  the noncoherent BFSK packet with zero sync errors. The guarded IIO
+  RF-worker bridge now also moves BLR native-IP frames over the air in both
+  directions with peer ingest and source ACK. TCP `iperf3` still does not
+  complete over that bring-up bridge because the current per-frame IIO
+  setup/decode loop is stop-and-wait and too slow for the TCP exchange. The
+  earlier BPSK mode is retained for the RTL primitive, but the IIO RF-worker
+  bridge defaults to BFSK until the hardware BPSK path has a stronger
+  synchronizer/equalizer.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary
   that only admits IQ samples when TX is enabled, armed, and in the allowed
   schedule slot; the copied RF-engine overlay wires its control/status pins to

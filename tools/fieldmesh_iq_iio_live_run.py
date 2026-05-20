@@ -182,6 +182,15 @@ def stream_voltage_channels(board: str) -> list[str]:
     raise SystemExit(f"unsupported board for IIO stream channel selection: {board!r}")
 
 
+def tx_hardwaregain_channels(board: str) -> list[str]:
+    """Return AD9361 PHY TX gain channels, which are not the same as I/Q lanes."""
+    if board == "z203":
+        return ["voltage0", "voltage1"]
+    if board == "z103":
+        return ["voltage0"]
+    raise SystemExit(f"unsupported board for TX gain channel selection: {board!r}")
+
+
 def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> list[dict[str, Any]]:
     fixture = {
         "center_frequency_hz": None,
@@ -209,14 +218,82 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     timeout_s = max(1, math.ceil(args.timeout_ms / 1000))
     tx_timeout_s = max(1, math.ceil(args.max_tx_duration_ms / 1000))
     samples = int(iq["iq_samples"])
-    rx_samples = samples + math.ceil(
+    rx_margin_samples = math.ceil(
         int(fixture["sample_rate_hz"]) * (args.rx_arm_delay_ms + args.rx_capture_margin_ms) / 1000.0
     )
+    # Cyclic TX repeats the same IQ buffer until timeout. Capturing only one
+    # buffer plus margin can lock sync near the capture tail and then splice
+    # the wrong earlier samples as the payload. Capture two full periods so
+    # the decoder can prefer a complete non-wrapped frame.
+    rx_samples = samples * (2 if args.cyclic_tx else 1) + rx_margin_samples
     buffer_size = args.buffer_size or samples
     rx_channels = stream_voltage_channels(plan["rx_board"])
     tx_channels = stream_voltage_channels(plan["tx_board"])
+    tx_gain_channels = tx_hardwaregain_channels(plan["tx_board"])
 
-    rows = [
+    rows: list[dict[str, Any]] = []
+    if args.rx_gain_control_mode:
+        rows.append(
+            command_row(
+                "configure_rx_gain_control_mode",
+                iio_attr_channel(
+                    rx_uri,
+                    "ad9361-phy",
+                    "voltage0",
+                    "gain_control_mode",
+                    args.rx_gain_control_mode,
+                    direction="input",
+                ),
+            )
+        )
+    if args.rx_hardwaregain_db is not None:
+        rows.append(
+            command_row(
+                "configure_rx_hardwaregain",
+                iio_attr_channel(
+                    rx_uri,
+                    "ad9361-phy",
+                    "voltage0",
+                    "hardwaregain",
+                    args.rx_hardwaregain_db,
+                    direction="input",
+                ),
+            )
+        )
+    if args.tx_hardwaregain_db is not None:
+        for channel in tx_gain_channels:
+            rows.append(
+                command_row(
+                    f"configure_tx_{channel}_hardwaregain",
+                    iio_attr_channel(
+                        tx_uri,
+                        "ad9361-phy",
+                        channel,
+                        "hardwaregain",
+                        args.tx_hardwaregain_db,
+                        direction="output",
+                    ),
+                )
+            )
+
+    tx_write_argv = [
+        "timeout",
+        str(tx_timeout_s),
+        "iio_writedev",
+        "-u",
+        tx_uri,
+    ]
+    if args.cyclic_tx:
+        tx_write_argv.append("-c")
+    tx_write_argv += [
+        "-b",
+        str(buffer_size),
+        "-s",
+        str(samples),
+        tx_iio["tx_name"],
+    ] + tx_channels
+
+    rows += [
         command_row(
             "configure_rx_sampling_frequency",
             iio_attr_channel(
@@ -303,19 +380,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         ),
         command_row(
             "load_tx_iio_buffer",
-            [
-                "timeout",
-                str(tx_timeout_s),
-                "iio_writedev",
-                "-u",
-                tx_uri,
-                "-b",
-                str(buffer_size),
-                "-s",
-                str(samples),
-                tx_iio["tx_name"],
-            ]
-            + tx_channels,
+            tx_write_argv,
             stdin_file=iq["iq_file"],
         ),
     ]
@@ -358,14 +423,16 @@ def run_command(row: dict[str, Any], *, stdin_file: str | None = None, stdout_fi
 
 def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], capture_path: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
-    for row in commands[:6]:
+    rx_index = next(index for index, row in enumerate(commands) if row["name"] == "arm_rx_iio_buffer")
+    tx_index = next(index for index, row in enumerate(commands) if row["name"] == "load_tx_iio_buffer")
+    for row in commands[:rx_index]:
         result = run_command(row)
         results.append(result)
         if result["returncode"] != 0:
             raise SystemExit(f"{row['name']} failed: {result['stderr'].strip()}")
 
-    rx_row = commands[6]
-    tx_row = commands[7]
+    rx_row = commands[rx_index]
+    tx_row = commands[tx_index]
     rx_stdout = open(capture_path, "wb")
     try:
         rx_proc = subprocess.Popen(
@@ -378,12 +445,23 @@ def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], captu
         tx_result = run_command(tx_row, stdin_file=tx_row["stdin_file"])
         results.append(tx_result)
         rx_timeout_s = int(rx_row["argv"][1]) + 2
-        rx_stderr = rx_proc.communicate(timeout=rx_timeout_s)[1]
+        rx_timed_out = False
+        try:
+            rx_stderr = rx_proc.communicate(timeout=rx_timeout_s)[1]
+        except subprocess.TimeoutExpired:
+            rx_timed_out = True
+            rx_proc.terminate()
+            try:
+                rx_stderr = rx_proc.communicate(timeout=2)[1]
+            except subprocess.TimeoutExpired:
+                rx_proc.kill()
+                rx_stderr = rx_proc.communicate()[1]
         results.append(
             {
                 "name": rx_row["name"],
                 "returncode": rx_proc.returncode,
                 "stderr": rx_stderr.decode("utf-8", errors="replace"),
+                "timed_out": rx_timed_out,
             }
         )
     finally:
@@ -394,10 +472,18 @@ def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], captu
                 rx_proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 rx_proc.kill()
-    for result in results[6:]:
-        if result["returncode"] != 0:
+    for result in results[rx_index:]:
+        allowed_timeout = (
+            (args.cyclic_tx and result["name"] == "load_tx_iio_buffer" and result["returncode"] == 124)
+            or (result["name"] == "arm_rx_iio_buffer" and result.get("timed_out") is True and capture_path.exists())
+        )
+        if result["returncode"] != 0 and not allowed_timeout:
             raise SystemExit(f"{result['name']} failed: {result.get('stderr', '').strip()}")
     return results
+
+
+def recovered_crc(frame: bytes) -> int:
+    return iq_smoke.frame_crc32(frame)
 
 
 def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> dict[str, Any]:
@@ -423,7 +509,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         )
         if decoded.get("ok") is True:
             recovered = decoded["recovered"]
-            crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+            crc = recovered_crc(recovered)
             return {
                 "attempted": True,
                 "ok": crc == plan["iq_burst"]["frame_crc"],
@@ -436,6 +522,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 "chip_phase": decoded["chip_phase"],
                 "bit_start": decoded["bit_start"],
                 "sync_errors": decoded["sync_errors"],
+                "wrapped": decoded.get("wrapped"),
                 "decoder": "noncoherent_complex_bfsk_v1",
             }
         return {
@@ -447,6 +534,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
             "best_sample_offset": decoded.get("sample_offset"),
             "best_chip_phase": decoded.get("chip_phase"),
             "best_bit_start": decoded.get("bit_start"),
+            "best_wrapped": decoded.get("wrapped"),
             "decoder": "noncoherent_complex_bfsk_v1",
         }
 
@@ -475,7 +563,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
             coherent = candidate
     if coherent.get("ok") is True:
         recovered = coherent["recovered"]
-        crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+        crc = recovered_crc(recovered)
         return {
             "attempted": True,
             "ok": crc == plan["iq_burst"]["frame_crc"],
@@ -508,7 +596,7 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 except Exception as exc:  # noqa: BLE001 - keep searching other alignments.
                     last_error = str(exc)
                     continue
-                crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+                crc = recovered_crc(recovered)
                 return {
                     "attempted": True,
                     "ok": crc == plan["iq_burst"]["frame_crc"],
@@ -566,6 +654,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "allow_rf_tx": bool(args.allow_rf_tx),
         "operator_confirmation_ok": args.operator_confirmation in VALID_LIVE_RF_CONFIRMATIONS,
         "max_tx_duration_ms": args.max_tx_duration_ms,
+        "cyclic_tx": bool(args.cyclic_tx),
+        "rx_gain_control_mode": args.rx_gain_control_mode,
+        "rx_hardwaregain_db": args.rx_hardwaregain_db,
+        "tx_hardwaregain_db": args.tx_hardwaregain_db,
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -620,6 +712,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=MAX_LIVE_TX_DURATION_MS)
+    parser.add_argument("--cyclic-tx", action="store_true")
+    parser.add_argument("--rx-gain-control-mode")
+    parser.add_argument("--rx-hardwaregain-db", type=float)
+    parser.add_argument("--tx-hardwaregain-db", type=float)
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

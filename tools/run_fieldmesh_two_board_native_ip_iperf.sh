@@ -33,6 +33,7 @@ rf_path_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
 rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
+rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
@@ -87,6 +88,10 @@ if ! [[ "$min_board_tmp_free_kb" =~ ^[0-9]+$ ]] || [ "$min_board_tmp_free_kb" -l
 fi
 if ! [[ "$center_frequency_hz" =~ ^[0-9]+$ ]] || [ "$center_frequency_hz" -le 0 ]; then
     echo "CENTER_FREQUENCY_HZ must be a positive integer" >&2
+    exit 1
+fi
+if ! [[ "$rf_bandwidth_hz" =~ ^[0-9]+$ ]] || [ "$rf_bandwidth_hz" -le 0 ]; then
+    echo "RF_BANDWIDTH_HZ must be a positive integer" >&2
     exit 1
 fi
 if [ -z "$swarm_mtu" ]; then
@@ -694,6 +699,7 @@ start_iio_rf_bridge_loop() {
         --z203-uri "ip:$z203_ip" \
         --z103-uri "ip:$z103_ip" \
         --center-frequency-hz "$center_frequency_hz" \
+        --rf-bandwidth-hz "$rf_bandwidth_hz" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
         --execute-live-rf \

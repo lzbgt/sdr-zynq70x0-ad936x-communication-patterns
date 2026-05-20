@@ -85,6 +85,10 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         fixture_evidence=args.fixture_evidence,
         operator_confirmation=args.operator_confirmation,
         max_tx_duration_ms=args.max_tx_duration_ms,
+        cyclic_tx=args.cyclic_tx,
+        rx_gain_control_mode=args.rx_gain_control_mode,
+        rx_hardwaregain_db=args.rx_hardwaregain_db,
+        tx_hardwaregain_db=args.tx_hardwaregain_db,
         pretty=False,
     )
     return bridge.run(bridge_args)
@@ -130,7 +134,13 @@ def require_args(args: argparse.Namespace) -> None:
     if args.leased_frame_report and args.directions != "z203-to-z103":
         raise SystemExit("--leased-frame-report is only valid with --directions z203-to-z103")
     if args.execute_live_rf:
-        bridge.require_execute_args(args)
+        for label, value in (("z203_uri", args.z203_uri), ("z103_uri", args.z103_uri)):
+            if not value:
+                raise SystemExit(f"--execute-live-rf requires --{label.replace('_', '-')}")
+        probe_args = argparse.Namespace(**vars(args))
+        probe_args.tx_uri = args.z203_uri
+        probe_args.rx_uri = args.z103_uri
+        bridge.require_execute_args(probe_args)
     elif args.allow_daemon_queue_mutation:
         raise SystemExit("--allow-daemon-queue-mutation is only valid with --execute-live-rf")
 
@@ -241,14 +251,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--z103-uri", default="ip:192.168.3.1")
     parser.add_argument("--center-frequency-hz", type=int, default=2400000000)
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
-    parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
+    parser.add_argument("--rf-bandwidth-hz", type=int, default=300000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=64)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bfsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)
     parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
-    parser.add_argument("--bit-repeat", type=int, default=4)
+    parser.add_argument("--bit-repeat", type=int, default=8)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--execute-live-rf", action="store_true")
@@ -261,6 +271,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=1000)
+    parser.add_argument("--cyclic-tx", dest="cyclic_tx", action="store_true", default=True)
+    parser.add_argument("--no-cyclic-tx", dest="cyclic_tx", action="store_false")
+    parser.add_argument("--rx-gain-control-mode", default="slow_attack")
+    parser.add_argument("--rx-hardwaregain-db", type=float)
+    parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()

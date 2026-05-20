@@ -128,7 +128,7 @@ def command_plan(
             "name": "decode_rx_capture",
             "board": rx_board,
             "expected_frame_crc": iq_report["frame"]["frame_crc"],
-            "expected_transport_seq": iq_report["frame"]["transport_seq"],
+            "expected_transport_seq": iq_report["frame"].get("transport_seq"),
         },
     ]
 
@@ -175,8 +175,9 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "iq_samples": iq_report["encoding"]["iq_samples"],
             "encoding": iq_report["encoding"]["name"],
             "frame_crc": iq_report["frame"]["frame_crc"],
-            "traffic_class": iq_report["frame"]["traffic_class"],
-            "mode": iq_report["frame"]["mode"],
+            "frame_format": iq_report["frame"].get("format"),
+            "traffic_class": iq_report["frame"].get("traffic_class"),
+            "mode": iq_report["frame"].get("mode"),
         },
         "safety": safety,
         "command_plan": command_plan(args.tx_board, args.rx_board, tx_iio, rx_iio, iq_report),
