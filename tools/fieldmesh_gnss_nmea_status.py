@@ -38,6 +38,13 @@ def _int_field(fields: list[str], index: int) -> int | None:
         return None
 
 
+def _receiver_warning_blocker(message: str) -> str:
+    lowered = message.lower()
+    if "ovrvlt" in lowered or "overvoltage" in lowered or "over-voltage" in lowered:
+        return "gnss_receiver_io_overvoltage"
+    return "gnss_receiver_warning"
+
+
 def summarize_sentences(sentences: Iterable[str]) -> dict[str, object]:
     valid: list[str] = []
     kinds: set[str] = set()
@@ -46,6 +53,7 @@ def summarize_sentences(sentences: Iterable[str]) -> dict[str, object]:
     latest_rmc_status: str | None = None
     latest_gsa_fix_type: int | None = None
     max_gsv_satellites_visible = 0
+    receiver_warnings: list[str] = []
 
     for raw in sentences:
         sentence = raw.strip()
@@ -75,6 +83,8 @@ def summarize_sentences(sentences: Iterable[str]) -> dict[str, object]:
                 max_gsv_satellites_visible = max(
                     max_gsv_satellites_visible, satellites_visible
                 )
+        elif kind == "TXT" and len(fields) > 4 and fields[4]:
+            receiver_warnings.append(fields[4])
 
     fix_detected = (
         (latest_gga_quality is not None and latest_gga_quality > 0)
@@ -93,6 +103,10 @@ def summarize_sentences(sentences: Iterable[str]) -> dict[str, object]:
             blockers.append("gnss_rmc_status_void")
         if latest_gsa_fix_type == 1:
             blockers.append("gnss_gsa_fix_type_no_fix")
+        for warning in receiver_warnings:
+            blocker = _receiver_warning_blocker(warning)
+            if blocker not in blockers:
+                blockers.append(blocker)
         if not blockers:
             blockers.append("gnss_receiver_no_fix")
 
@@ -108,6 +122,7 @@ def summarize_sentences(sentences: Iterable[str]) -> dict[str, object]:
         "latest_rmc_status": latest_rmc_status,
         "latest_gsa_fix_type": latest_gsa_fix_type,
         "max_gsv_satellites_visible": max_gsv_satellites_visible,
+        "receiver_warnings": receiver_warnings,
         "blockers": blockers,
     }
 

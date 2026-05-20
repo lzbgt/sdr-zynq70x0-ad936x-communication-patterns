@@ -46,6 +46,7 @@ struct gnss_status {
     int gsa_fix_type;
     int gsv_satellites_visible;
     char kind[4];
+    char receiver_warning[48];
 };
 
 static int valid_eui(const char *eui)
@@ -168,6 +169,56 @@ static int parse_int_field(char **fields, int count, int index, int *out)
     }
     *out = atoi(fields[index]);
     return 1;
+}
+
+static int contains_casefold(const char *haystack, const char *needle)
+{
+    size_t needle_len;
+    size_t i;
+
+    if (!haystack || !needle) {
+        return 0;
+    }
+    needle_len = strlen(needle);
+    if (needle_len == 0u) {
+        return 1;
+    }
+    for (i = 0u; haystack[i] != '\0'; ++i) {
+        size_t j;
+        for (j = 0u; j < needle_len; ++j) {
+            unsigned char a = (unsigned char)haystack[i + j];
+            unsigned char b = (unsigned char)needle[j];
+            if (a == '\0' || (char)tolower(a) != (char)tolower(b)) {
+                break;
+            }
+        }
+        if (j == needle_len) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void copy_json_safe_text(char *dst, size_t dst_len, const char *src)
+{
+    size_t i = 0u;
+
+    if (!dst || dst_len == 0u) {
+        return;
+    }
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+    while (*src && i + 1u < dst_len) {
+        unsigned char ch = (unsigned char)*src++;
+        if (ch < 0x20u || ch == '"' || ch == '\\') {
+            dst[i++] = '_';
+        } else {
+            dst[i++] = (char)ch;
+        }
+    }
+    dst[i] = '\0';
 }
 
 static int parse_gga(char **fields, int count, struct gnss_fix *fix)
@@ -308,6 +359,15 @@ static int parse_nmea_status(const char *line_in, struct gnss_status *status)
         }
         return 1;
     }
+    if (strcmp(type, "TXT") == 0) {
+        status->has_status = 1;
+        if (count > 4 && fields[4][0] != '\0') {
+            copy_json_safe_text(status->receiver_warning,
+                                sizeof(status->receiver_warning),
+                                fields[4]);
+        }
+        return 1;
+    }
     return 0;
 }
 
@@ -329,13 +389,14 @@ static int nmea_status_signature(const struct gnss_status *status,
     if (!status || !out || out_len == 0u) {
         return -1;
     }
-    written = snprintf(out, out_len, "%s:%d:%d:%c:%d:%d",
+    written = snprintf(out, out_len, "%s:%d:%d:%c:%d:%d:%s",
                        status->kind,
                        status->gga_quality,
                        status->gga_satellites_used,
                        status->rmc_status ? status->rmc_status : '-',
                        status->gsa_fix_type,
-                       status->gsv_satellites_visible);
+                       status->gsv_satellites_visible,
+                       status->receiver_warning);
     if (written <= 0 || (size_t)written >= out_len) {
         return -1;
     }
@@ -390,6 +451,11 @@ static void print_nmea_status(const char *eui, const struct gnss_status *status)
     }
     print_json_int_or_null("latest_gsa_fix_type", status->gsa_fix_type);
     print_json_int_or_null("max_gsv_satellites_visible", status->gsv_satellites_visible);
+    if (status->receiver_warning[0] != '\0') {
+        printf(",\"receiver_warning\":\"%s\"", status->receiver_warning);
+    } else {
+        printf(",\"receiver_warning\":null");
+    }
     printf(",\"blockers\":[");
     if (status->gsv_satellites_visible == 0) {
         printf("\"gnss_no_satellites_visible\"");
@@ -405,6 +471,16 @@ static void print_nmea_status(const char *eui, const struct gnss_status *status)
     }
     if (status->gsa_fix_type == 1) {
         printf("%s\"gnss_gsa_fix_type_no_fix\"", printed ? "," : "");
+        printed = 1;
+    }
+    if (status->receiver_warning[0] != '\0') {
+        if (contains_casefold(status->receiver_warning, "ovrvlt") ||
+            contains_casefold(status->receiver_warning, "overvoltage") ||
+            contains_casefold(status->receiver_warning, "over-voltage")) {
+            printf("%s\"gnss_receiver_io_overvoltage\"", printed ? "," : "");
+        } else {
+            printf("%s\"gnss_receiver_warning\"", printed ? "," : "");
+        }
         printed = 1;
     }
     if (!printed) {

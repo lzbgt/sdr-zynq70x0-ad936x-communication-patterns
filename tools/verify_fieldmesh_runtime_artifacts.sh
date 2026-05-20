@@ -383,6 +383,8 @@ PY
     for token in \
         fieldmesh_gnss_nmea_report \
         fieldmesh_gnss_nmea_status \
+        receiver_warning \
+        gnss_receiver_io_overvoltage \
         FIELDMESH_RTLS_REPORT \
         '"ok":true' \
         gnss_no_satellites_visible \

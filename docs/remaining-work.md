@@ -226,7 +226,9 @@ Z103 now pass that PPS exposure check. Z103 emits NMEA at `38400` baud and can
 report visible satellites, but still has no position fix (`GGA` quality `0`,
 `RMC` status `V`, `GSA` fix type `1`). An indoor bench location and the
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect
-before treating the missing fix as a software defect.
+before treating the missing fix as a software defect. The GNSS reporter now
+preserves that receiver `TXT` warning as `receiver_warning="V_IO ovrvlt"` and
+classifies it as `gnss_receiver_io_overvoltage`.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

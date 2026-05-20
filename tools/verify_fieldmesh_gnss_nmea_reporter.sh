@@ -13,6 +13,7 @@ cc -std=c99 -Wall -Wextra -Werror \
     -o "$bin"
 
 cat > "$work_dir/nmea.txt" <<'NMEA'
+$GNTXT,01,01,01,V_IO ovrvlt*7A
 $GNGGA,123518,,,,,0,00,99.9,,,,,,*48
 $GNGGA,123519,3742.1234,N,12205.4321,W,1,08,0.9,545.4,M,46.9,M,,*7A
 NMEA
@@ -88,12 +89,18 @@ rows = [
 ]
 statuses = [row for row in rows if row.get("event") == "fieldmesh_gnss_nmea_status"]
 reports = [row for row in rows if row.get("event") == "fieldmesh_gnss_nmea_report"]
-if len(statuses) != 1:
-    raise SystemExit(f"reporter did not emit one no-fix status event: {rows!r}")
-if statuses[0].get("ok") is not False or statuses[0].get("fix_detected") is not False:
-    raise SystemExit(f"bad no-fix status event: {statuses[0]!r}")
-if "gnss_gga_quality_no_fix" not in statuses[0].get("blockers", []):
-    raise SystemExit(f"no-fix status did not explain GGA quality: {statuses[0]!r}")
+if len(statuses) < 2:
+    raise SystemExit(f"reporter did not emit no-fix status events: {rows!r}")
+if any(row.get("ok") is not False or row.get("fix_detected") is not False for row in statuses):
+    raise SystemExit(f"bad no-fix status event: {statuses!r}")
+if not any("gnss_gga_quality_no_fix" in row.get("blockers", []) for row in statuses):
+    raise SystemExit(f"no-fix status did not explain GGA quality: {statuses!r}")
+if not any(
+    row.get("receiver_warning") == "V_IO ovrvlt"
+    and "gnss_receiver_io_overvoltage" in row.get("blockers", [])
+    for row in statuses
+):
+    raise SystemExit(f"receiver warning status not preserved: {statuses!r}")
 if len(reports) != 1:
     raise SystemExit(f"reporter did not emit exactly one GNSS report event: {rows!r}")
 if reports[0].get("ok") is not True or reports[0].get("device_eui") != "020000000203":

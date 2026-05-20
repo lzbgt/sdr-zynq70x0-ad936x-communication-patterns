@@ -1254,7 +1254,9 @@ user and vendor configuration.
   parses GGA/RMC/GSA/GSV fix state, restarts the reporter, and classifies the
   result as UART/no-NMEA/no-fix/fix evidence. The current live blocker is now
   explicit: best baud `38400`, GGA quality `0`, RMC status `V`, GSA fix type
-  `1`, and GSV satellites-visible `0`.
+  `1`, and GSV satellites-visible `0`. Receiver `TXT` warnings are also
+  preserved; `V_IO ovrvlt` is classified as `gnss_receiver_io_overvoltage`
+  instead of being folded into a generic no-fix state.
 - `tools/package_fieldmesh_pluto_frm.sh` - packages a Z203 or Z103 FieldMesh
   runtime payload by generating the matching sidecar DTB and pairing it with
   the non-transmitting RF-engine overlay bitstream. This is now the production

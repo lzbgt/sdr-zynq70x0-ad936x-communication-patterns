@@ -3256,7 +3256,11 @@ The init-launched GNSS reporter also emits throttled
 contain a fix. The preflight surfaces those blocker details, such as
 `gnss_no_satellites_visible`, `gnss_gga_quality_no_fix`,
 `gnss_rmc_status_void`, or `gnss_gsa_fix_type_no_fix`, instead of reducing
-every configured receiver case to a generic no-fix state.
+every configured receiver case to a generic no-fix state. Receiver `TXT`
+warnings are preserved too; for example `V_IO ovrvlt` is surfaced as
+`receiver_warning="V_IO ovrvlt"` with blocker
+`gnss_receiver_io_overvoltage`, so a power/IO fault is not mistaken for only an
+indoor sky-view problem.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` is the installed-daemon
 GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects

@@ -8,6 +8,7 @@ trap 'rm -rf "$work_dir"' EXIT
 
 cat > "$work_dir/no_fix.nmea" <<'NMEA'
 $GNRMC,151539.00,V,,,,,,,180526,,,N,V*1B
+$GNTXT,01,01,01,V_IO ovrvlt*7A
 $GNGGA,151539.00,,,,,0,00,99.99,,,,,,*72
 $GNGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99,1*33
 $GPGSV,1,1,00,0*65
@@ -47,9 +48,12 @@ for blocker in (
     "gnss_gga_quality_no_fix",
     "gnss_rmc_status_void",
     "gnss_gsa_fix_type_no_fix",
+    "gnss_receiver_io_overvoltage",
 ):
     if blocker not in no_fix.get("blockers", []):
         raise SystemExit(f"missing blocker {blocker}: {no_fix!r}")
+if no_fix.get("receiver_warnings") != ["V_IO ovrvlt"]:
+    raise SystemExit(f"receiver warning not preserved: {no_fix!r}")
 
 if fix.get("fix_detected") is not True or fix.get("latest_gga_quality") != 1:
     raise SystemExit(f"valid GGA fix was not accepted: {fix!r}")
