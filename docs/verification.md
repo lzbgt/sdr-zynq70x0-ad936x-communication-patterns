@@ -4724,8 +4724,12 @@ board-to-board iperf and host-PC-transparent iperf. Both must identify
 `transport=real_rf_phy`, `rf_phy_tx_rx_verified=true`, and
 `production_evidence=true`; the host-PC report must also prove
 `host_originated_traffic=true` and `uses_ssh_launched_board_client=false`.
-The verifier rejects daemon RF-worker bridge metrics, host-IP-routed results,
-and host-PC reports that are actually SSH-launched board clients.
+The verifier now also requires `iperf_metric_quality_ready=true`, backed by
+TCP/UDP bytes, bitrate, and duration plus UDP jitter, packet count, lost packet
+count, and loss percent for both the board-to-board and host-PC-transparent
+layers. The verifier rejects daemon RF-worker bridge metrics, byte-only iperf
+summaries, host-IP-routed results, and host-PC reports that are actually
+SSH-launched board clients.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` is the paired
 operator wrapper for that requirement. It can consume two saved reports and
 emit `native_ip_iperf_evidence.json` plus

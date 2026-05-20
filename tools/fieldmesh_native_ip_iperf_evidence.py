@@ -35,6 +35,40 @@ def _positive_number(report: dict[str, Any], key: str) -> bool:
     return isinstance(value, (int, float)) and value > 0
 
 
+def _non_negative_number(report: dict[str, Any], key: str) -> bool:
+    value = report.get(key)
+    return isinstance(value, (int, float)) and value >= 0
+
+
+def _percent(report: dict[str, Any], key: str) -> bool:
+    value = report.get(key)
+    return isinstance(value, (int, float)) and 0 <= value <= 100
+
+
+def _require_iperf_quality(
+    report: dict[str, Any],
+    label: str,
+    *,
+    tcp_prefix: str = "",
+    udp_prefix: str = "",
+) -> list[str]:
+    errors: list[str] = []
+    required_positive = (
+        f"{tcp_prefix}tcp_duration_s",
+        f"{udp_prefix}udp_duration_s",
+        f"{udp_prefix}udp_packets",
+    )
+    for key in required_positive:
+        if not _positive_number(report, key):
+            errors.append(f"{label}: {key} must be > 0")
+    for key in (f"{udp_prefix}udp_jitter_ms", f"{udp_prefix}udp_lost_packets"):
+        if not _non_negative_number(report, key):
+            errors.append(f"{label}: {key} must be >= 0")
+    if not _percent(report, f"{udp_prefix}udp_lost_percent"):
+        errors.append(f"{label}: {udp_prefix}udp_lost_percent must be 0..100")
+    return errors
+
+
 def _reject_common(report: dict[str, Any], label: str) -> list[str]:
     errors: list[str] = []
     if report.get("event") != "fieldmesh_two_board_native_ip_iperf":
@@ -78,6 +112,7 @@ def _validate_board(report: dict[str, Any]) -> list[str]:
         errors.append("board_to_board: udp_bits_per_second must be > 0")
     if not _positive_number(report, "udp_bytes"):
         errors.append("board_to_board: udp_bytes must be > 0")
+    errors.extend(_require_iperf_quality(report, "board_to_board"))
     return errors
 
 
@@ -101,6 +136,14 @@ def _validate_host(report: dict[str, Any]) -> list[str]:
         errors.append("host_pc_transparent: host_udp_bits_per_second must be > 0")
     if not _positive_number(report, "host_udp_bytes"):
         errors.append("host_pc_transparent: host_udp_bytes must be > 0")
+    errors.extend(
+        _require_iperf_quality(
+            report,
+            "host_pc_transparent",
+            tcp_prefix="host_",
+            udp_prefix="host_",
+        )
+    )
     return errors
 
 
@@ -135,10 +178,23 @@ def main() -> int:
         "board_tcp_bytes": board.get("tcp_bytes"),
         "board_udp_bits_per_second": board.get("udp_bits_per_second"),
         "board_udp_bytes": board.get("udp_bytes"),
+        "board_tcp_duration_s": board.get("tcp_duration_s"),
+        "board_udp_duration_s": board.get("udp_duration_s"),
+        "board_udp_jitter_ms": board.get("udp_jitter_ms"),
+        "board_udp_lost_packets": board.get("udp_lost_packets"),
+        "board_udp_packets": board.get("udp_packets"),
+        "board_udp_lost_percent": board.get("udp_lost_percent"),
         "host_tcp_bits_per_second": host.get("host_tcp_bits_per_second"),
         "host_tcp_bytes": host.get("host_tcp_bytes"),
         "host_udp_bits_per_second": host.get("host_udp_bits_per_second"),
         "host_udp_bytes": host.get("host_udp_bytes"),
+        "host_tcp_duration_s": host.get("host_tcp_duration_s"),
+        "host_udp_duration_s": host.get("host_udp_duration_s"),
+        "host_udp_jitter_ms": host.get("host_udp_jitter_ms"),
+        "host_udp_lost_packets": host.get("host_udp_lost_packets"),
+        "host_udp_packets": host.get("host_udp_packets"),
+        "host_udp_lost_percent": host.get("host_udp_lost_percent"),
+        "iperf_metric_quality_ready": not errors,
         "tcp_client_bytes": host.get("host_tcp_bytes"),
         "udp_client_bytes": host.get("host_udp_bytes"),
         "errors": errors,

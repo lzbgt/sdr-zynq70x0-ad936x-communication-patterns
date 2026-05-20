@@ -74,11 +74,39 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
     udp_ok = isinstance(udp_bytes, int) and udp_bytes > 0
     if not (icmp_ok or (tcp_ok and udp_ok)):
         raise SystemExit("native_ip: requires ICMP success or TCP+UDP byte evidence")
-    return {
+    if source.get("requires_both_layers") is True and source.get("iperf_metric_quality_ready") is not True:
+        raise SystemExit("native_ip: paired iperf evidence must include metric quality fields")
+    details: dict[str, Any] = {
         "icmp_ping_ok": icmp_ok,
         "tcp_client_bytes": tcp_bytes if isinstance(tcp_bytes, int) else 0,
         "udp_client_bytes": udp_bytes if isinstance(udp_bytes, int) else 0,
     }
+    for key in (
+        "iperf_metric_quality_ready",
+        "board_tcp_bits_per_second",
+        "board_tcp_duration_s",
+        "board_tcp_bytes",
+        "board_udp_bits_per_second",
+        "board_udp_duration_s",
+        "board_udp_bytes",
+        "board_udp_jitter_ms",
+        "board_udp_lost_packets",
+        "board_udp_packets",
+        "board_udp_lost_percent",
+        "host_tcp_bits_per_second",
+        "host_tcp_duration_s",
+        "host_tcp_bytes",
+        "host_udp_bits_per_second",
+        "host_udp_duration_s",
+        "host_udp_bytes",
+        "host_udp_jitter_ms",
+        "host_udp_lost_packets",
+        "host_udp_packets",
+        "host_udp_lost_percent",
+    ):
+        if key in source:
+            details[key] = source[key]
+    return details
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:

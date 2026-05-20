@@ -144,10 +144,36 @@ def validate_native_ip_iperf_evidence(report: dict[str, Any], label: str) -> Non
         raise ValueError(f"{label}: native-IP iperf evidence must include host-PC transparent real-RF iperf")
     if report.get("requires_both_layers") is not True:
         raise ValueError(f"{label}: native-IP iperf evidence must require both layers")
+    if report.get("iperf_metric_quality_ready") is not True:
+        raise ValueError(f"{label}: native-IP iperf evidence must include iperf metric quality")
     for key in ("tcp_client_bytes", "udp_client_bytes", "board_tcp_bytes", "board_udp_bytes", "host_tcp_bytes", "host_udp_bytes"):
         value = report.get(key)
         if not isinstance(value, (int, float)) or value <= 0:
             raise ValueError(f"{label}: native-IP iperf evidence {key} must be > 0")
+    for key in (
+        "board_tcp_duration_s",
+        "board_udp_duration_s",
+        "board_udp_packets",
+        "host_tcp_duration_s",
+        "host_udp_duration_s",
+        "host_udp_packets",
+    ):
+        value = report.get(key)
+        if not isinstance(value, (int, float)) or value <= 0:
+            raise ValueError(f"{label}: native-IP iperf evidence {key} must be > 0")
+    for key in (
+        "board_udp_jitter_ms",
+        "board_udp_lost_packets",
+        "host_udp_jitter_ms",
+        "host_udp_lost_packets",
+    ):
+        value = report.get(key)
+        if not isinstance(value, (int, float)) or value < 0:
+            raise ValueError(f"{label}: native-IP iperf evidence {key} must be >= 0")
+    for key in ("board_udp_lost_percent", "host_udp_lost_percent"):
+        value = report.get(key)
+        if not isinstance(value, (int, float)) or value < 0 or value > 100:
+            raise ValueError(f"{label}: native-IP iperf evidence {key} must be 0..100")
     if report.get("uses_inter_board_ip_routing") not in (False, 0):
         raise ValueError(f"{label}: native-IP iperf evidence must not use inter-board host-IP routing")
 

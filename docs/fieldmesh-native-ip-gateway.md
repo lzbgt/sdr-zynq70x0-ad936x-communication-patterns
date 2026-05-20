@@ -220,12 +220,15 @@ Minimum production gates for native TCP/IP:
   Native-IP MAC-link feature evidence requires both layers: one board-to-board
   report with `iperf_layer=board_to_board` and one host-originated report with
   `iperf_layer=host_pc_transparent`. Both must report `transport=real_rf_phy`,
-  `rf_phy_tx_rx_verified=true`, `production_evidence=true`, and positive TCP
-  and UDP metrics. A daemon RF-worker bridge report is rejected even if TCP/UDP
-  iperf completed, because that path proves the kernel/socket bridge but not
-  over-air RF. The real-RF production gate and over-air sequence now require
-  this paired iperf evidence for the native-IP app report; a tiny socket echo or
-  generic native-IP source report is not enough for production readiness;
+  `rf_phy_tx_rx_verified=true`, `production_evidence=true`, and complete iperf
+  metric quality fields. Required metrics include TCP/UDP bytes, bitrate and
+  duration plus UDP jitter, packets, lost packets, and loss percent for both
+  layers. A daemon RF-worker bridge report is rejected even if TCP/UDP iperf
+  completed, because that path proves the kernel/socket bridge but not over-air
+  RF. The real-RF production gate and over-air sequence now require this paired
+  iperf evidence for the native-IP app report; a tiny socket echo, byte-only
+  iperf summary, or generic native-IP source report is not enough for
+  production readiness;
 - daemon RF queue pressure is handled as backpressure. The native-IP service must
   not close on a full RF TX/RX queue during TCP or UDP bursts; the live socket
   gate covers this by driving both protocols through the installed board
@@ -233,10 +236,11 @@ Minimum production gates for native TCP/IP:
 - host route to a remote mesh peer works through the local board once the RF
   worker queues are connected to the actual PHY;
 - `ping`/ICMP succeeds through the radio path after `rf_phy_tx_rx` is wired;
-- TCP/UDP `iperf3` passes with measured throughput, RTT/loss where available,
-  and the report identifies `transport=real_rf_phy` with
-  `rf_phy_tx_rx_verified=true`. A daemon RF-worker bridge iperf result is useful
-  for kernel/socket diagnostics, but does not count as production RF evidence;
+- TCP/UDP `iperf3` passes with measured throughput, duration, UDP jitter, packet
+  count, lost packets, and loss percent, and the report identifies
+  `transport=real_rf_phy` with `rf_phy_tx_rx_verified=true`. A daemon RF-worker
+  bridge iperf result is useful for kernel/socket diagnostics, but does not
+  count as production RF evidence;
 - UDP video traffic and TCP bulk traffic together preserve C0/C1 latency;
 - AP relay and graph relay preserve TCP sessions across route changes within
   the specified disruption budget;

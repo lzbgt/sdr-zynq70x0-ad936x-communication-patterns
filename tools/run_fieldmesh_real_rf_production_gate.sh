@@ -135,6 +135,7 @@ required_true = (
     "board_to_board_real_rf_iperf",
     "host_pc_transparent_real_rf_iperf",
     "requires_both_layers",
+    "iperf_metric_quality_ready",
 )
 for key in required_true:
     if source.get(key) is not True:
@@ -147,6 +148,30 @@ for key in ("tcp_client_bytes", "udp_client_bytes", "board_tcp_bytes", "board_ud
     value = source.get(key)
     if not isinstance(value, (int, float)) or value <= 0:
         raise SystemExit(f"native-IP iperf evidence {key} must be > 0")
+for key in (
+    "board_tcp_duration_s",
+    "board_udp_duration_s",
+    "board_udp_packets",
+    "host_tcp_duration_s",
+    "host_udp_duration_s",
+    "host_udp_packets",
+):
+    value = source.get(key)
+    if not isinstance(value, (int, float)) or value <= 0:
+        raise SystemExit(f"native-IP iperf evidence {key} must be > 0")
+for key in (
+    "board_udp_jitter_ms",
+    "board_udp_lost_packets",
+    "host_udp_jitter_ms",
+    "host_udp_lost_packets",
+):
+    value = source.get(key)
+    if not isinstance(value, (int, float)) or value < 0:
+        raise SystemExit(f"native-IP iperf evidence {key} must be >= 0")
+for key in ("board_udp_lost_percent", "host_udp_lost_percent"):
+    value = source.get(key)
+    if not isinstance(value, (int, float)) or value < 0 or value > 100:
+        raise SystemExit(f"native-IP iperf evidence {key} must be 0..100")
 PY
 fi
 

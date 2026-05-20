@@ -812,10 +812,12 @@ user and vendor configuration.
 - `tools/fieldmesh_native_ip_iperf_evidence.py` - native-IP iperf evidence
   classifier. A feature-complete transparent MAC/IP claim requires both a
   board-to-board report and a host-PC-transparent report, both over
-  `transport=real_rf_phy` with `rf_phy_tx_rx_verified=true` and positive TCP/UDP
-  metrics. Diagnostic daemon-bridge iperf, host-IP-routed traffic, and
-  SSH-launched host-PC substitutes are rejected. The production gate traces
-  native-IP app evidence back to this paired iperf classifier.
+  `transport=real_rf_phy` with `rf_phy_tx_rx_verified=true` and complete iperf
+  metric quality: TCP/UDP bytes, bitrate, duration, UDP jitter, packet count,
+  lost packets, and loss percent. Diagnostic daemon-bridge iperf, byte-only
+  reports, host-IP-routed traffic, and SSH-launched host-PC substitutes are
+  rejected. The production gate traces native-IP app evidence back to this
+  paired iperf classifier.
 - `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` - paired
   native-IP iperf production wrapper. It can classify already-collected
   board-to-board and host-PC-transparent reports, run non-transmitting

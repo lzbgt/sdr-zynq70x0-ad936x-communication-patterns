@@ -84,12 +84,29 @@ cat > "$work_dir/native_ip_iperf_evidence.json" <<'JSON'
   "board_to_board_real_rf_iperf": true,
   "host_pc_transparent_real_rf_iperf": true,
   "requires_both_layers": true,
+  "iperf_metric_quality_ready": true,
   "tcp_client_bytes": 131072,
   "udp_client_bytes": 98304,
   "board_tcp_bytes": 262144,
+  "board_tcp_bits_per_second": 1250000.0,
+  "board_tcp_duration_s": 1.2,
   "board_udp_bytes": 196608,
+  "board_udp_bits_per_second": 1100000.0,
+  "board_udp_duration_s": 3.0,
+  "board_udp_jitter_ms": 1.7,
+  "board_udp_lost_packets": 0,
+  "board_udp_packets": 192,
+  "board_udp_lost_percent": 0.0,
   "host_tcp_bytes": 131072,
-  "host_udp_bytes": 98304
+  "host_tcp_bits_per_second": 900000.0,
+  "host_tcp_duration_s": 1.4,
+  "host_udp_bytes": 98304,
+  "host_udp_bits_per_second": 850000.0,
+  "host_udp_duration_s": 3.0,
+  "host_udp_jitter_ms": 2.4,
+  "host_udp_lost_packets": 2,
+  "host_udp_packets": 194,
+  "host_udp_lost_percent": 1.03
 }
 JSON
 

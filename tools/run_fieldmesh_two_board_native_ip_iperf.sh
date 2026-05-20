@@ -131,6 +131,24 @@ raise last_error if last_error is not None else TimeoutError(request)
 PY
 }
 
+request_daemon_ok() {
+    local label="$1"
+    shift
+    local tmp="$out_dir/${label}.json"
+    request_daemon "$@" >"$tmp"
+    cat "$tmp" >>"$out_dir/iperf_gate.ndjson"
+    python3 - "$tmp" "$label" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+ok = report.get("ok")
+if ok not in (True, 1):
+    raise SystemExit(f"{sys.argv[2]} refused: {report}")
+PY
+}
+
 cleanup() {
     set +e
     if [ -f "$out_dir/host_pc_route_added" ]; then
@@ -484,14 +502,14 @@ setup_board() {
 start_tun_services() {
     request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STOP v1 >>"$out_dir/iperf_gate.ndjson" || true
     request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STOP v1 >>"$out_dir/iperf_gate.ndjson" || true
-    request_daemon "$z203_ip" "$z203_port" \
+    request_daemon_ok z203_tun_service_start "$z203_ip" "$z203_port" \
         FIELDMESH_TUN_SERVICE_START v1 dst=020000000103 max=8 \
-        rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE >>"$out_dir/iperf_gate.ndjson"
-    request_daemon "$z103_ip" "$z103_port" \
+        rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE
+    request_daemon_ok z103_tun_service_start "$z103_ip" "$z103_port" \
         FIELDMESH_TUN_SERVICE_START v1 dst=020000000203 max=8 \
-        rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE >>"$out_dir/iperf_gate.ndjson"
-    request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_START v1 >>"$out_dir/iperf_gate.ndjson"
-    request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_START v1 >>"$out_dir/iperf_gate.ndjson"
+        rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE
+    request_daemon_ok z203_rf_worker_start "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_START v1
+    request_daemon_ok z103_rf_worker_start "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_START v1
 }
 
 start_bridge_loop() {
@@ -768,7 +786,10 @@ run_host_iperf_json() {
 }
 
 setup_host_pc_route
-start_tun_services
+if ! start_tun_services >"$out_dir/start_tun_services.stdout" 2>"$out_dir/start_tun_services.stderr"; then
+    fail_bounded "tun_or_rf_worker_start_failed" \
+        "TUN service or RF worker did not start cleanly; see start_tun_services.stderr and iperf_gate.ndjson."
+fi
 bridge_pid=""
 if [ "$allow_daemon_rf_bridge" = "1" ]; then
     bridge_pid="$(start_bridge_loop)"
@@ -921,6 +942,16 @@ udp_bytes = (
     udp_end.get("sum", {}).get("bytes") or
     udp_end.get("sum_sent", {}).get("bytes") or 0
 )
+tcp_duration_s = (
+    tcp_end.get("sum_sent", {}).get("seconds") or
+    tcp_end.get("sum", {}).get("seconds") or 0
+)
+udp_summary = udp_end.get("sum", {}) or udp_end.get("sum_sent", {}) or {}
+udp_duration_s = udp_summary.get("seconds") or 0
+udp_jitter_ms = udp_summary.get("jitter_ms")
+udp_lost_packets = udp_summary.get("lost_packets")
+udp_packets = udp_summary.get("packets")
+udp_lost_percent = udp_summary.get("lost_percent")
 if tcp.get("error"):
     raise SystemExit(f"TCP iperf failed: {tcp.get('error')}")
 if udp.get("error"):
@@ -931,6 +962,12 @@ if udp_bits <= 0:
     raise SystemExit("UDP iperf reported no bitrate")
 if udp_bytes <= 0:
     raise SystemExit("UDP iperf reported no transmitted bytes")
+if tcp_duration_s <= 0:
+    raise SystemExit("TCP iperf reported no duration")
+if udp_duration_s <= 0:
+    raise SystemExit("UDP iperf reported no duration")
+if udp_jitter_ms is None or udp_lost_packets is None or udp_packets is None or udp_lost_percent is None:
+    raise SystemExit("UDP iperf did not report jitter/loss packet metrics")
 if allow_bridge and (
     not bridge or
     bridge[-1].get("ok") is not True or
@@ -974,12 +1011,35 @@ if host_pc_case:
         host_udp_end.get("sum", {}).get("bytes") or
         host_udp_end.get("sum_sent", {}).get("bytes") or 0
     )
+    host_tcp_duration_s = (
+        host_tcp_end.get("sum_sent", {}).get("seconds") or
+        host_tcp_end.get("sum", {}).get("seconds") or 0
+    )
+    host_udp_summary = host_udp_end.get("sum", {}) or host_udp_end.get("sum_sent", {}) or {}
+    host_udp_duration_s = host_udp_summary.get("seconds") or 0
+    host_udp_jitter_ms = host_udp_summary.get("jitter_ms")
+    host_udp_lost_packets = host_udp_summary.get("lost_packets")
+    host_udp_packets = host_udp_summary.get("packets")
+    host_udp_lost_percent = host_udp_summary.get("lost_percent")
     if host_tcp_bytes <= 0:
         raise SystemExit("host TCP iperf reported no transmitted bytes")
     if host_udp_bits <= 0:
         raise SystemExit("host UDP iperf reported no bitrate")
     if host_udp_bytes <= 0:
         raise SystemExit("host UDP iperf reported no transmitted bytes")
+    if host_tcp_duration_s <= 0:
+        raise SystemExit("host TCP iperf reported no duration")
+    if host_udp_duration_s <= 0:
+        raise SystemExit("host UDP iperf reported no duration")
+    if host_udp_jitter_ms is None or host_udp_lost_packets is None or host_udp_packets is None or host_udp_lost_percent is None:
+        raise SystemExit("host UDP iperf did not report jitter/loss packet metrics")
+else:
+    host_tcp_duration_s = 0
+    host_udp_duration_s = 0
+    host_udp_jitter_ms = 0
+    host_udp_lost_packets = 0
+    host_udp_packets = 0
+    host_udp_lost_percent = 0
 real_rf_ready = bool(preflight.get("real_rf_phy_ready")) or (
     bool(iio_bridge) and iio_bridge[-1].get("rf_phy_tx_rx_verified") is True
 )
@@ -1002,12 +1062,24 @@ report = {
     "production_evidence": bool(real_rf_ready and not allow_bridge),
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
+    "tcp_duration_s": tcp_duration_s,
     "udp_bits_per_second": udp_bits,
     "udp_bytes": udp_bytes,
+    "udp_duration_s": udp_duration_s,
+    "udp_jitter_ms": udp_jitter_ms,
+    "udp_lost_packets": udp_lost_packets,
+    "udp_packets": udp_packets,
+    "udp_lost_percent": udp_lost_percent,
     "host_tcp_bits_per_second": host_tcp_bits,
     "host_tcp_bytes": host_tcp_bytes,
+    "host_tcp_duration_s": host_tcp_duration_s,
     "host_udp_bits_per_second": host_udp_bits,
     "host_udp_bytes": host_udp_bytes,
+    "host_udp_duration_s": host_udp_duration_s,
+    "host_udp_jitter_ms": host_udp_jitter_ms,
+    "host_udp_lost_packets": host_udp_lost_packets,
+    "host_udp_packets": host_udp_packets,
+    "host_udp_lost_percent": host_udp_lost_percent,
     "swarm_mtu": swarm_mtu,
     "z203_packets_written": statuses[-2].get("packets_written"),
     "z103_packets_written": statuses[-1].get("packets_written"),

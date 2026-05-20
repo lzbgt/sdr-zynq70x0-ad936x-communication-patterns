@@ -26,8 +26,14 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "production_evidence": true,
   "tcp_bits_per_second": 1250000.0,
   "tcp_bytes": 262144,
+  "tcp_duration_s": 1.2,
   "udp_bits_per_second": 1100000.0,
-  "udp_bytes": 196608
+  "udp_bytes": 196608,
+  "udp_duration_s": 3.0,
+  "udp_jitter_ms": 1.7,
+  "udp_lost_packets": 0,
+  "udp_packets": 192,
+  "udp_lost_percent": 0.0
 }
 JSON
 
@@ -50,12 +56,24 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "production_evidence": true,
   "tcp_bits_per_second": 1200000.0,
   "tcp_bytes": 262144,
+  "tcp_duration_s": 1.3,
   "udp_bits_per_second": 1050000.0,
   "udp_bytes": 196608,
+  "udp_duration_s": 3.0,
+  "udp_jitter_ms": 2.1,
+  "udp_lost_packets": 1,
+  "udp_packets": 193,
+  "udp_lost_percent": 0.52,
   "host_tcp_bits_per_second": 900000.0,
   "host_tcp_bytes": 131072,
+  "host_tcp_duration_s": 1.4,
   "host_udp_bits_per_second": 850000.0,
-  "host_udp_bytes": 98304
+  "host_udp_bytes": 98304,
+  "host_udp_duration_s": 3.0,
+  "host_udp_jitter_ms": 2.4,
+  "host_udp_lost_packets": 2,
+  "host_udp_packets": 194,
+  "host_udp_lost_percent": 1.03
 }
 JSON
 

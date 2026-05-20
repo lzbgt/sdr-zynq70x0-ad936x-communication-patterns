@@ -155,6 +155,10 @@ transparent MAC/IP feature: board-to-board real-RF iperf and host-PC
 transparent real-RF iperf are separate required layers. Diagnostic bridge
 reports, SSH-launched board clients, inter-board host-IP routing, and any report
 without `transport=real_rf_phy` plus `rf_phy_tx_rx_verified=true` are rejected.
+The classifier also requires complete iperf metric quality fields for both
+layers: TCP/UDP bytes, bitrate, duration, UDP jitter, packet count, lost packet
+count, and loss percent. Byte-only reports cannot satisfy production native-IP
+evidence.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` now wraps the two
 layers as one production sequence: it consumes paired saved reports or runs both
 live layers, emits paired native-IP iperf evidence, and emits the normalized app

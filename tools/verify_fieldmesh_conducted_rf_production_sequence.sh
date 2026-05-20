@@ -132,8 +132,14 @@ board = {
     "production_evidence": True,
     "tcp_bits_per_second": 1250000.0,
     "tcp_bytes": 262144,
+    "tcp_duration_s": 1.2,
     "udp_bits_per_second": 1100000.0,
     "udp_bytes": 196608,
+    "udp_duration_s": 3.0,
+    "udp_jitter_ms": 1.7,
+    "udp_lost_packets": 0,
+    "udp_packets": 192,
+    "udp_lost_percent": 0.0,
 }
 host = {
     **board,
@@ -144,8 +150,14 @@ host = {
     "host_originated_traffic": True,
     "host_tcp_bits_per_second": 900000.0,
     "host_tcp_bytes": 131072,
+    "host_tcp_duration_s": 1.4,
     "host_udp_bits_per_second": 850000.0,
     "host_udp_bytes": 98304,
+    "host_udp_duration_s": 3.0,
+    "host_udp_jitter_ms": 2.4,
+    "host_udp_lost_packets": 2,
+    "host_udp_packets": 194,
+    "host_udp_lost_percent": 1.03,
 }
 (work / "native_ip_board_iperf.json").write_text(json.dumps(board, sort_keys=True) + "\n", encoding="utf-8")
 (work / "native_ip_host_iperf.json").write_text(json.dumps(host, sort_keys=True) + "\n", encoding="utf-8")
