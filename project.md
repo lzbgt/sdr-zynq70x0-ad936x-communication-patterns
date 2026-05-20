@@ -818,8 +818,13 @@ user and vendor configuration.
   ingests the recovered frame into the peer daemon, and ACKs only after
   successful ingest. The default is a dry-run with no RF TX, no hardware writes,
   and no daemon queue mutation; live mode requires the same over-air approval
-  bundle as the single-frame bridge. `--destructive-poll-batch` is an explicit
-  HIL diagnostic mode that consumes several queued source frames with
+  bundle as the single-frame bridge. `--batch-size N` uses the daemon's
+  non-destructive `FIELDMESH_RF_TX_LEASE_BATCH` /
+  `FIELDMESH_RF_TX_ACK_BATCH` contract, so the source queue is dropped only
+  after every recovered batch frame is ingested by the peer. This is the
+  production-shaped batching path for replacing the slow stop-and-wait loop.
+  `--destructive-poll-batch` is an explicit HIL diagnostic mode that consumes
+  several queued source frames with
   `FIELDMESH_RF_TX_POLL`, sends them in one IQ burst, and relies on upper-layer
   retransmission if the burst fails; it is not production evidence because it
   cannot preserve ACK-after-ingest semantics.
@@ -1203,10 +1208,19 @@ user and vendor configuration.
   TX window to 250 ms, preserving decode margin while avoiding a one-second
   RF transmit timeout per leased frame. Normal TCP and UDP socket echo traffic
   now passes over the real over-air IIO bridge. A destructive-poll batch HIL
-  experiment moved 10 queued native-IP frames over real RF in three IQ bursts,
-  but `iperf3` still does not complete because the current IIO bridge remains a
-  bring-up loop, not the production streaming data plane. The earlier BPSK mode
-  is retained for the RTL primitive,
+  experiment moved 10 queued native-IP frames over real RF in three IQ bursts.
+  The daemon and bridge now also have non-destructive batch lease/ACK APIs. A
+  live installed-board run moved 20 native-IP frames over real RF with batch
+  ACK-after-peer-ingest preserved. That run exposed the next software blocker:
+  early TCP retransmission duplicates consumed RF batches, delaying the
+  `iperf3` parameter-exchange byte until the server had already closed. The
+  daemon RF TX queue now suppresses both duplicate queued TCP retransmission
+  frames and recent already-ACKed TCP signatures before RF leasing, so the
+  bridge spends airtime on current stream state. The remaining `iperf3` work
+  is to rerun the live batched bridge with this suppression and continue
+  reducing bridge-loop latency toward the production streaming data-plane
+  target. The earlier BPSK mode is
+  retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary

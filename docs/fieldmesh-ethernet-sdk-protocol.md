@@ -590,16 +590,25 @@ poll wakeups, idle ticks, and RF-facing BLR `APP_DATA` frame counters. Native
 IP packets now cross a binary MAC frame encode/decode boundary before they are
 drained back to `swarm0`; the service now uses explicit TX/RX RF transport
 queues. `driver_queue` is the default service transport and exposes
-`FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` plus
+`FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK`,
+`FIELDMESH_RF_TX_LEASE_BATCH` / `FIELDMESH_RF_TX_ACK_BATCH`, plus
 `FIELDMESH_RF_RX_INGEST` for the RF worker. The daemon also exposes
 `FIELDMESH_RF_WORKER_START`, `FIELDMESH_RF_WORKER_STATUS`, and
 `FIELDMESH_RF_WORKER_STOP` so the RF-driver queue lifecycle is daemon-owned.
 This worker boundary does not start hardware RF TX/RX yet; status must keep
 `rf_phy_tx_rx=0` until an actual PHY driver path is connected and verified.
 TX lease is non-destructive: the frame stays queued until the worker reports
-successful peer delivery with TX ACK. `FIELDMESH_RF_TX_POLL` remains as a
-legacy destructive diagnostic and must not be used by the production RF worker
-because a timeout after poll loses the frame before delivery is known.
+successful peer delivery with TX ACK. Batch lease/ACK preserves the same rule
+for a queued prefix of up to four frames, reducing IIO bridge overhead without
+dropping source frames before peer ingest succeeds. The TX queue suppresses
+duplicate queued TCP retransmission signatures before RF leasing, because the
+over-air bridge is bandwidth-limited and stale SYN/SYN-ACK retransmissions can
+otherwise delay current stream-control packets. It also remembers a short ring
+of recently ACKed TCP signatures so retransmissions that arrive after confirmed
+peer ingest do not consume new RF bursts. `FIELDMESH_RF_TX_POLL`
+remains as a legacy destructive diagnostic and must not be used by the
+production RF worker because a timeout after poll loses the frame before
+delivery is known.
 `FIELDMESH_RF_RX_INGEST` decodes the BLR frame before queueing it and accepts
 only `APP_DATA` frames addressed to the daemon's local EUI; other frames are
 rejected instead of being written to `swarm0`. `diagnostic_loopback` is

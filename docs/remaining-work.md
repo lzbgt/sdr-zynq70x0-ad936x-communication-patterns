@@ -53,6 +53,7 @@ IP packets now also cross a binary BLR `APP_DATA` MAC-frame egress/ingress
 boundary through explicit TX/RX RF transport queues before drain-back to
 `swarm0`; the default transport mode is now `driver_queue`, with
 `FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK` and
+`FIELDMESH_RF_TX_LEASE_BATCH` / `FIELDMESH_RF_TX_ACK_BATCH` plus
 `FIELDMESH_RF_RX_INGEST` as the daemon/RF-worker boundary. The daemon now also
 has first-class RF worker lifecycle controls:
 `FIELDMESH_RF_WORKER_START`, `FIELDMESH_RF_WORKER_STATUS`, and
@@ -76,11 +77,18 @@ default from `samples_per_symbol=64` / `bit_repeat=8` to
 250 ms, preserving decode margin while avoiding a one-second RF transmit
 timeout per leased frame. Normal TCP and UDP socket echo traffic now passes
 over the real over-air IIO bridge. A destructive-poll batch HIL experiment moved
-10 queued native-IP frames over real RF in three IQ bursts, but `iperf3` still
-fails during its control exchange. The remaining native-IP blocker is therefore
-not antenna installation, basic RF decode, or ordinary socket transport; it is
-replacing the current bring-up RF-worker/IIO bridge with a production streaming
-data-plane implementation that can sustain iperf. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
+10 queued native-IP frames over real RF in three IQ bursts. The daemon and
+bridge now have a non-destructive batch lease/ACK contract. A live
+installed-board run moved 20 native-IP frames over real RF with
+ACK-after-peer-ingest preserved, then `iperf3` failed because queued duplicate
+TCP retransmissions consumed RF batches and delayed the server parameter
+exchange past its timeout. The daemon RF TX queue now suppresses duplicate
+queued TCP retransmission frames and recent already-ACKed TCP signatures before
+RF leasing. The remaining native-IP blocker is therefore not antenna
+installation, basic RF decode, or ordinary socket transport; it is the RF
+bridge data-plane software, with the next HIL step being the same batched
+over-air `iperf3` run after duplicate suppression.
+`FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
 legal frequency profile, RX-first validation, and measured link evidence are

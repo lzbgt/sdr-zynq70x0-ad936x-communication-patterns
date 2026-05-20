@@ -344,7 +344,10 @@ PY
         driver_queue_worker \
         sdk_daemon_rf_tx_poll \
         sdk_daemon_rf_tx_lease \
+        sdk_daemon_rf_tx_lease_batch \
         sdk_daemon_rf_tx_ack \
+        sdk_daemon_rf_tx_ack_batch \
+        rf_tx_queue_duplicate_drops \
         sdk_daemon_rf_rx_ingest \
         fieldmesh_rf_packet_engine \
         queued_to_rf_engine \

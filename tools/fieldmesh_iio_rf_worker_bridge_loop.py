@@ -47,7 +47,10 @@ def error_text(exc: BaseException) -> str:
 
 
 def lease_from_daemon(host: str, port: int, timeout_ms: int) -> dict[str, Any] | None:
-    report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_LEASE v1", timeout_ms)
+    try:
+        report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_LEASE v1", timeout_ms)
+    except TimeoutError:
+        return None
     if report.get("event") != "sdk_daemon_rf_tx_lease":
         raise SystemExit(f"expected sdk_daemon_rf_tx_lease, got {report.get('event')!r}")
     frames = report.get("frames")
@@ -74,6 +77,43 @@ def poll_from_daemon(host: str, port: int, timeout_ms: int) -> bytes | None:
         return bytes.fromhex(frame_hex)
     except ValueError as exc:
         raise SystemExit("polled frame report contains invalid frame0_hex") from exc
+
+
+def lease_batch_from_daemon(host: str, port: int, timeout_ms: int, max_frames: int) -> list[bytes]:
+    try:
+        report = bridge.request_daemon(host, port, f"FIELDMESH_RF_TX_LEASE_BATCH v1 max={max_frames}", timeout_ms)
+    except TimeoutError:
+        return []
+    if report.get("event") != "sdk_daemon_rf_tx_lease_batch":
+        raise SystemExit(f"expected sdk_daemon_rf_tx_lease_batch, got {report.get('event')!r}")
+    if report.get("ok") is not True:
+        raise SystemExit(f"RF_TX_LEASE_BATCH failed: {report}")
+    count = report.get("frames")
+    if count in (0, "0", None):
+        return []
+    if not isinstance(count, int) or count < 1 or count > max_frames:
+        raise SystemExit(f"invalid batch frame count {count!r}: {report}")
+    frames: list[bytes] = []
+    for index in range(count):
+        frame_hex = report.get(f"frame{index}_hex")
+        if not isinstance(frame_hex, str) or not frame_hex:
+            raise SystemExit(f"batch lease missing frame{index}_hex: {report}")
+        try:
+            frames.append(bytes.fromhex(frame_hex))
+        except ValueError as exc:
+            raise SystemExit(f"batch lease frame{index}_hex is invalid") from exc
+    return frames
+
+
+def ack_batch_to_daemon(host: str, port: int, timeout_ms: int, frames: list[bytes]) -> dict[str, Any]:
+    fields = [f"FIELDMESH_RF_TX_ACK_BATCH v1 frames={len(frames)}"]
+    fields.extend(f"frame{index}_hex={frame.hex()}" for index, frame in enumerate(frames))
+    report = bridge.request_daemon(host, port, " ".join(fields), timeout_ms)
+    if report.get("event") != "sdk_daemon_rf_tx_ack_batch":
+        raise SystemExit(f"expected sdk_daemon_rf_tx_ack_batch, got {report.get('event')!r}")
+    if report.get("ok") is not True:
+        raise SystemExit(f"RF_TX_ACK_BATCH failed: {report}")
+    return report
 
 
 def encode_batch(frames: list[bytes]) -> bytes:
@@ -159,21 +199,33 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
     return bridge.run(bridge_args)
 
 
-def run_batch(args: argparse.Namespace, direction: dict[str, Any], batch_frames: list[bytes], index: int) -> dict[str, Any]:
+def run_batch(
+    args: argparse.Namespace,
+    direction: dict[str, Any],
+    batch_frames: list[bytes],
+    index: int,
+    *,
+    destructive_source_poll: bool,
+) -> dict[str, Any]:
     frame_dir = args.out_dir / f"batch-{index:04d}-{direction['name']}"
     frame_dir.mkdir(parents=True, exist_ok=True)
     batch_payload = encode_batch(batch_frames)
-    batch_path = frame_dir / "destructive_polled_batch.bin"
+    batch_path = frame_dir / "rf_worker_batch.bin"
     batch_path.write_bytes(batch_payload)
     batch_json = {
-        "event": "fieldmesh_iio_rf_worker_destructive_batch",
+        "event": "fieldmesh_iio_rf_worker_batch",
         "ok": True,
         "frames": len(batch_frames),
         "frame_bytes": [len(frame) for frame in batch_frames],
         "batch_bytes": len(batch_payload),
-        "source_ack": {"attempted": False, "reason": "destructive_poll_batch"},
+        "source_ack": (
+            {"attempted": False, "reason": "destructive_poll_batch"}
+            if destructive_source_poll
+            else {"attempted": bool(args.execute_live_rf), "api": "FIELDMESH_RF_TX_ACK_BATCH"}
+        ),
+        "destructive_source_poll": destructive_source_poll,
     }
-    write_json(frame_dir / "destructive_polled_batch.json", batch_json)
+    write_json(frame_dir / "rf_worker_batch.json", batch_json)
 
     smoke_args = argparse.Namespace(
         frame=batch_path,
@@ -243,6 +295,11 @@ def run_batch(args: argparse.Namespace, direction: dict[str, Any], batch_frames:
     run_report = bridge.live_run.build_report(run_args)
     recovered_frames: list[bytes] = []
     ingests: list[dict[str, Any]] = []
+    source_ack: dict[str, Any] = (
+        {"attempted": False, "reason": "dry_run"}
+        if not args.execute_live_rf
+        else {"attempted": False, "reason": "destructive_poll_batch"}
+    )
     if args.execute_live_rf:
         decode = run_report.get("decode", {})
         if decode.get("ok") is not True:
@@ -263,6 +320,13 @@ def run_batch(args: argparse.Namespace, direction: dict[str, Any], batch_frames:
             if ingest.get("ok") is not True:
                 raise SystemExit(f"sink RF_RX_INGEST failed for batch frame: {ingest}")
             ingests.append(ingest)
+        if not destructive_source_poll:
+            source_ack = ack_batch_to_daemon(
+                direction["source_host"],
+                direction["source_port"],
+                args.timeout_ms,
+                batch_frames,
+            )
 
     report = {
         "event": "fieldmesh_iio_rf_worker_bridge_batch",
@@ -277,15 +341,19 @@ def run_batch(args: argparse.Namespace, direction: dict[str, Any], batch_frames:
         "iq_iio_live_run": str(frame_dir / "iq-iio-live-run" / "fieldmesh_iq_iio_live_run.json"),
         "iq_recovered_frame_match": recovered_frames == batch_frames if args.execute_live_rf else False,
         "sink_ingests": ingests,
-        "source_ack": {"attempted": False, "reason": "destructive_poll_batch"},
-        "ack_after_successful_ingest_only": False,
-        "destructive_source_poll": True,
+        "source_ack": source_ack,
+        "ack_after_successful_ingest_only": not destructive_source_poll,
+        "destructive_source_poll": destructive_source_poll,
         "uses_inter_board_ip_routing": False,
         "transport": "real_rf_phy" if args.execute_live_rf else "guarded_iio_rf_dry_run",
         "rf_phy_tx_rx_verified": bool(args.execute_live_rf),
         "app_verified_real_rf": False,
         "production_ready": False,
-        "production_blocker": "destructive_poll_batch_is_hil_diagnostic",
+        "production_blocker": (
+            "destructive_poll_batch_is_hil_diagnostic"
+            if destructive_source_poll
+            else "app_real_rf_verification_missing"
+        ),
         "iq_frame_crc": iq_report["frame"]["frame_crc"],
         "plan_command_steps": len(plan["command_plan"]),
     }
@@ -330,6 +398,8 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--max-frames must be >= 1")
     if args.batch_size < 1:
         raise SystemExit("--batch-size must be >= 1")
+    if args.batch_size > 4:
+        raise SystemExit("--batch-size must be <= 4")
     if args.destructive_poll_batch and args.batch_size < 2:
         raise SystemExit("--destructive-poll-batch requires --batch-size >= 2")
     if args.poll_interval_ms < 1:
@@ -426,7 +496,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     if not batch_frames:
                         counts["empty_polls"] += 1
                         continue
-                    report = run_batch(args, direction, batch_frames, next_index)
+                    report = run_batch(
+                        args,
+                        direction,
+                        batch_frames,
+                        next_index,
+                        destructive_source_poll=True,
+                    )
                     frames.append(
                         {
                             "index": next_index,
@@ -444,6 +520,47 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             ),
                             "source_ack_ok": None,
                             "destructive_source_poll": True,
+                        }
+                    )
+                    counts[direction["name"].replace("-", "_")] += len(batch_frames)
+                    counts["batches_moved"] += 1
+                    next_index += 1
+                    moved = True
+                    continue
+                elif args.batch_size > 1:
+                    batch_frames = lease_batch_from_daemon(
+                        direction["source_host"],
+                        direction["source_port"],
+                        args.timeout_ms,
+                        args.batch_size,
+                    )
+                    if not batch_frames:
+                        counts["empty_polls"] += 1
+                        continue
+                    report = run_batch(
+                        args,
+                        direction,
+                        batch_frames,
+                        next_index,
+                        destructive_source_poll=False,
+                    )
+                    frames.append(
+                        {
+                            "index": next_index,
+                            "direction": direction["name"],
+                            "report": str(
+                                args.out_dir
+                                / f"batch-{next_index:04d}-{direction['name']}"
+                                / "fieldmesh_iio_rf_worker_bridge_batch.json"
+                            ),
+                            "batch_frames": len(batch_frames),
+                            "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
+                            "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
+                            "sink_ingest_ok": all(
+                                item.get("ok") is True for item in report.get("sink_ingests", [])
+                            ),
+                            "source_ack_ok": report.get("source_ack", {}).get("ok"),
+                            "destructive_source_poll": False,
                         }
                     )
                     counts[direction["name"].replace("-", "_")] += len(batch_frames)

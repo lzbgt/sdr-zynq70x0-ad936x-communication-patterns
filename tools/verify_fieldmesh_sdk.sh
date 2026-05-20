@@ -159,7 +159,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 45 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 47 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -380,13 +380,15 @@ rf_phy_bind_apply = [row for row in query if row.get("event") == "sdk_daemon_rf_
 rf_worker_stop = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_stop"]
 rf_tx_poll = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_poll"]
 rf_tx_lease = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_lease"]
+rf_tx_lease_batch = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_lease_batch"]
 rf_tx_ack = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_ack"]
+rf_tx_ack_batch = [row for row in query if row.get("event") == "sdk_daemon_rf_tx_ack_batch"]
 rf_rx_ingest = [row for row in query if row.get("event") == "sdk_daemon_rf_rx_ingest"]
 tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 45 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 47 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -934,8 +936,12 @@ if not rf_tx_poll or rf_tx_poll[0].get("error") != "tun_service_not_running":
     raise SystemExit("SDK daemon RF TX poll guard failed")
 if not rf_tx_lease or rf_tx_lease[0].get("error") != "tun_service_not_running":
     raise SystemExit("SDK daemon RF TX lease guard failed")
+if not rf_tx_lease_batch or rf_tx_lease_batch[0].get("error") != "tun_service_not_running":
+    raise SystemExit("SDK daemon RF TX batch lease guard failed")
 if not rf_tx_ack or rf_tx_ack[0].get("error") != "tun_service_not_running":
     raise SystemExit("SDK daemon RF TX ACK guard failed")
+if not rf_tx_ack_batch or rf_tx_ack_batch[0].get("error") != "tun_service_not_running":
+    raise SystemExit("SDK daemon RF TX batch ACK guard failed")
 if not rf_rx_ingest or rf_rx_ingest[0].get("error") != "tun_service_not_running":
     raise SystemExit("SDK daemon RF RX ingest guard failed")
 if not tun_plan or tun_plan[0].get("adapter_name") != "swarm0":

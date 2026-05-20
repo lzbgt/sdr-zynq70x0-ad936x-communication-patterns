@@ -109,6 +109,10 @@ if ! [[ "$iio_bridge_batch_size" =~ ^[0-9]+$ ]] || [ "$iio_bridge_batch_size" -l
     echo "IIO_BRIDGE_BATCH_SIZE must be a positive integer" >&2
     exit 1
 fi
+if [ "$iio_bridge_batch_size" -gt 4 ]; then
+    echo "IIO_BRIDGE_BATCH_SIZE must be <= 4" >&2
+    exit 1
+fi
 if [ "$allow_destructive_rf_batch" = "1" ] && [ "$iio_bridge_batch_size" -lt 2 ]; then
     echo "ALLOW_DESTRUCTIVE_RF_BATCH=1 requires IIO_BRIDGE_BATCH_SIZE >= 2" >&2
     exit 1
@@ -308,6 +312,93 @@ PY
     set -e
 }
 
+summarize_iio_bridge_progress() {
+    local loop_dir="$out_dir/iio_rf_worker_bridge_loop"
+    local summary_path="$out_dir/iio_rf_worker_bridge_progress.json"
+    if [ ! -d "$loop_dir" ]; then
+        return 0
+    fi
+    python3 - "$loop_dir" "$summary_path" <<'PY' || true
+import json
+import re
+import sys
+from pathlib import Path
+
+loop_dir = Path(sys.argv[1])
+summary_path = Path(sys.argv[2])
+loop_path = loop_dir / "fieldmesh_iio_rf_worker_bridge_loop.json"
+
+report = {}
+if loop_path.is_file():
+    try:
+        report = json.loads(loop_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        report = {}
+
+batches = []
+z203_to_z103 = 0
+z103_to_z203 = 0
+pattern = re.compile(r"batch-(\d+)-(z203-to-z103|z103-to-z203)$")
+for path in sorted(loop_dir.glob("batch-*/fieldmesh_iio_rf_worker_bridge_batch.json")):
+    try:
+        batch = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        continue
+    if batch.get("ok") is not True:
+        continue
+    frames = batch.get("frames")
+    if not isinstance(frames, int) or frames < 1:
+        continue
+    direction = None
+    match = pattern.search(path.parent.name)
+    if match:
+        direction = match.group(2)
+    elif batch.get("tx_board") == "z203" and batch.get("rx_board") == "z103":
+        direction = "z203-to-z103"
+    elif batch.get("tx_board") == "z103" and batch.get("rx_board") == "z203":
+        direction = "z103-to-z203"
+    if direction == "z203-to-z103":
+        z203_to_z103 += frames
+    elif direction == "z103-to-z203":
+        z103_to_z203 += frames
+    else:
+        continue
+    batches.append({
+        "direction": direction,
+        "report": str(path),
+        "batch_frames": frames,
+        "rf_phy_tx_rx_verified": batch.get("rf_phy_tx_rx_verified"),
+        "iq_recovered_frame_match": batch.get("iq_recovered_frame_match"),
+        "source_ack_ok": batch.get("source_ack", {}).get("ok"),
+        "sink_ingest_count": len(batch.get("sink_ingests", [])),
+    })
+
+batch_moved = z203_to_z103 + z103_to_z203
+reported_moved = int(report.get("frames_moved") or 0)
+if not report and batch_moved == 0:
+    raise SystemExit(0)
+
+if batch_moved > reported_moved:
+    report.setdefault("event", "fieldmesh_iio_rf_worker_bridge_loop")
+    report.setdefault("mode", "execute-live-rf")
+    report.setdefault("transport", "real_rf_phy")
+    report["ok"] = True
+    report["frames_moved"] = batch_moved
+    report["z203_to_z103"] = z203_to_z103
+    report["z103_to_z203"] = z103_to_z203
+    report["batches_moved"] = len(batches)
+    report["frames"] = batches
+    report["recovered_from_batch_reports"] = True
+    report["rf_phy_tx_rx_verified"] = bool(z203_to_z103 > 0 and z103_to_z203 > 0)
+    if report["rf_phy_tx_rx_verified"] and report.get("production_blocker") == "measured_rf_phy_tx_rx_not_verified":
+        report["production_blocker"] = "app_real_rf_verification_missing"
+else:
+    report.setdefault("recovered_from_batch_reports", False)
+
+summary_path.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
 fail_bounded() {
     local blocker="$1"
     local detail="$2"
@@ -316,13 +407,17 @@ fail_bounded() {
         kill "$bridge_pid" 2>/dev/null || true
         wait "$bridge_pid" 2>/dev/null || true
     fi
+    summarize_iio_bridge_progress
     capture_failure_state "$blocker"
     cleanup >/dev/null 2>&1 || true
     if [ -s "$out_dir/iperf_bridge_progress.json" ]; then
         bridge_report="$(tr -d '\n' < "$out_dir/iperf_bridge_progress.json")"
         detail="$detail bridge_progress=$bridge_report"
     fi
-    if [ -s "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" ]; then
+    if [ -s "$out_dir/iio_rf_worker_bridge_progress.json" ]; then
+        bridge_report="$(tr -d '\n' < "$out_dir/iio_rf_worker_bridge_progress.json")"
+        detail="$detail iio_bridge_progress=$bridge_report"
+    elif [ -s "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" ]; then
         bridge_report="$(tr -d '\n' < "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json")"
         detail="$detail iio_bridge_progress=$bridge_report"
     fi
@@ -768,11 +863,12 @@ stop_bridge_loop() {
         wait "$bridge_pid" 2>/dev/null || true
         bridge_pid=""
     fi
+    summarize_iio_bridge_progress
     if [ -s "$out_dir/iperf_bridge_progress.json" ]; then
         cat "$out_dir/iperf_bridge_progress.json" >>"$out_dir/iperf_gate.ndjson"
     fi
-    if [ -s "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" ]; then
-        python3 - "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" <<'PY' >>"$out_dir/iperf_gate.ndjson" || true
+    if [ -s "$out_dir/iio_rf_worker_bridge_progress.json" ]; then
+        python3 - "$out_dir/iio_rf_worker_bridge_progress.json" <<'PY' >>"$out_dir/iperf_gate.ndjson" || true
 import json
 import sys
 from pathlib import Path

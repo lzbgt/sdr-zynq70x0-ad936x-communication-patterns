@@ -182,7 +182,10 @@ Minimum production gates for native TCP/IP:
   `APP_DATA` frames from `FIELDMESH_RF_TX_LEASE`, send those exact frames to the
   peer `FIELDMESH_RF_RX_INGEST`, ACK them with `FIELDMESH_RF_TX_ACK` only after
   ingest succeeds, and write them into the peer `swarm0` without host-side
-  inter-board IP routing or diagnostic loopback;
+  inter-board IP routing or diagnostic loopback. The same ACK-after-ingest rule
+  now exists for queued prefixes through `FIELDMESH_RF_TX_LEASE_BATCH` /
+  `FIELDMESH_RF_TX_ACK_BATCH`, which is the bridge path intended for live
+  over-air iperf bring-up;
 - ICMP ping succeeds through the daemon RF-worker bridge: request packets leave
   the source `swarm0`, cross the BLR `APP_DATA` worker queue, enter the peer
   `swarm0`, trigger the peer kernel echo reply, and return through the opposite
@@ -204,10 +207,15 @@ Minimum production gates for native TCP/IP:
   daemon RF-worker frames, sends each one through the guarded AD936x IIO
   over-air bridge, ingests the recovered frame into the peer daemon, and ACKs
   the source only after successful ingest. This mode requires `EXECUTE_LIVE_RF`,
-  hardware-write/RF-TX/daemon-mutation approvals, RF path evidence, and the
-  exact over-air operator confirmation before it can run. That RF path evidence
-  must be production/site evidence, not a verifier fixture.
-  `PREFLIGHT_ONLY=1`
+  hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
+  and the exact over-air operator confirmation. Batch mode uses
+  `FIELDMESH_RF_TX_LEASE_BATCH` and
+  `FIELDMESH_RF_TX_ACK_BATCH`; the daemon suppresses duplicate queued TCP
+  retransmission frames and recent already-ACKed TCP signatures before RF
+  leasing so slow bring-up loops do not spend scarce RF bursts on stale
+  SYN/SYN-ACK retransmissions;
+  the RF path evidence must be production/site evidence, not a verifier
+  fixture. `PREFLIGHT_ONLY=1`
   checks the daemon RF fields, optional RF path evidence, and optional host
   route preflight without creating `swarm0`, launching `iperf3`, opening IIO
   buffers, mutating daemon queues, or starting RF TX;

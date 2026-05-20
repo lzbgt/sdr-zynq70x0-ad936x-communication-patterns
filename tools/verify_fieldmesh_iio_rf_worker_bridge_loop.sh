@@ -120,6 +120,15 @@ fi
 
 if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --rf-binding-plan "$binding" \
+  --out-dir "$work_dir/bad-large-batch-size" \
+  --batch-size 5 \
+  >/dev/null 2>&1; then
+  echo "bridge loop accepted batch-size > 4" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
+  --rf-binding-plan "$binding" \
   --leased-frame-report "$work_dir/lease.json" \
   --out-dir "$work_dir/batch-static-lease" \
   --directions z203-to-z103 \
