@@ -25,6 +25,7 @@ cat > "$work_dir/z203_facts.txt.json" <<'JSON'
   "pps_sysfs_devices": "pps0",
   "pps_assert_before": "100.000000000#41",
   "pps_assert_after": "102.000000000#43",
+  "pps_debug_gpio_line": " gpio-977 (                    |fieldmesh-gnss-pps  ) in  hi IRQ ",
   "gnss_log_tail": [
     "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_no_satellites_visible\"]}",
     "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"blockers\":[\"gnss_gga_quality_no_fix\"]}"
@@ -152,6 +153,7 @@ facts["pps_devices"] = "/dev/pps0"
 facts["pps_sysfs_devices"] = "pps0"
 facts["pps_assert_before"] = "200.000000000#7"
 facts["pps_assert_after"] = "202.000000000#7"
+facts["pps_debug_gpio_line"] = " gpio-977 (                    |fieldmesh-gnss-pps  ) in  lo IRQ "
 path.write_text(json.dumps(facts, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
 
@@ -173,8 +175,14 @@ boards = {row["label"]: row for row in summary["boards"]}
 z103 = boards["z103"]
 if "gnss_pps_no_assert_activity" not in z103.get("blockers", []):
     raise SystemExit(f"Z103 inactive PPS blocker was not surfaced: {z103!r}")
+if "gnss_pps_gpio_low_no_activity" not in z103.get("blockers", []):
+    raise SystemExit(f"Z103 low GPIO PPS blocker was not surfaced: {z103!r}")
 if z103.get("gnss_pps_activity_detected") is not False:
     raise SystemExit(f"Z103 inactive PPS should be activity_detected=false: {z103!r}")
+if z103.get("gnss_pps_debug_gpio_level") != "lo":
+    raise SystemExit(f"Z103 PPS GPIO level was not parsed: {z103!r}")
+if z103.get("gnss_pps_debug_gpio_irq_registered") is not True:
+    raise SystemExit(f"Z103 PPS GPIO IRQ registration was not parsed: {z103!r}")
 PY
 
 echo "fieldmesh_gnss_live_preflight_summary=pass"

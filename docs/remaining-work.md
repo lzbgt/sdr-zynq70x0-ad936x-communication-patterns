@@ -228,9 +228,13 @@ exposure, not UART exposure; the live preflight now reports `/dev/pps*` and
 kernel PPS device, matching `gnss_pps_lock=1` config, and observed PPS assert
 counter activity are present. Z203 and Z103 now pass PPS device/config
 exposure, but both currently report `gnss_pps_no_assert_activity` because the
-kernel PPS assert sequence remains at `0`. Z103 emits NMEA at `38400` baud and
-can report visible satellites, but still has no position fix (`GGA` quality
-`0`, `RMC` status `V`, `GSA` fix type `1`). An indoor bench location and the
+kernel PPS assert sequence remains at `0`. Debugfs also shows the
+`fieldmesh-gnss-pps` GPIO line as IRQ-backed but low on both boards, so the
+next PPS investigation is receiver TIMEPULSE configuration/output level,
+receiver power/health, board pin direction, or the EMIO input path rather than
+Linux PPS device registration. Z103 emits NMEA at `38400` baud and can report
+visible satellites, but still has no position fix (`GGA` quality `0`, `RMC`
+status `V`, `GSA` fix type `1`). An indoor bench location and the
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect
 before treating the missing fix as a software defect. The GNSS reporter now
 preserves that receiver `TXT` warning as `receiver_warning="V_IO ovrvlt"` and

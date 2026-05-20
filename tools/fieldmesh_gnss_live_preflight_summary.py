@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,11 @@ def pps_assert_sequence(value: Any) -> int | None:
         return int(seq_text)
     except ValueError:
         return None
+
+
+def pps_gpio_level(debug_line: Any) -> str | None:
+    match = re.search(r"\bin\s+(hi|lo)\b", str(debug_line or ""))
+    return match.group(1) if match else None
 
 
 RECEIVER_HEALTH_BLOCKERS = {
@@ -107,6 +113,9 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
     pps_lock_configured = configured_pps_lock in ("1", "true", "yes", "on")
     pps_assert_before = str(facts.get("pps_assert_before") or "")
     pps_assert_after = str(facts.get("pps_assert_after") or "")
+    pps_debug_gpio_line = str(facts.get("pps_debug_gpio_line") or "")
+    pps_debug_gpio_level = pps_gpio_level(pps_debug_gpio_line)
+    pps_debug_gpio_irq = "IRQ" in pps_debug_gpio_line
     pps_seq_before = pps_assert_sequence(pps_assert_before)
     pps_seq_after = pps_assert_sequence(pps_assert_after)
     pps_seq_delta = (
@@ -162,6 +171,10 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
             blockers.append("gnss_pps_assert_unreadable")
         elif not pps_activity_detected:
             blockers.append("gnss_pps_no_assert_activity")
+            if pps_debug_gpio_level == "lo":
+                blockers.append("gnss_pps_gpio_low_no_activity")
+            elif pps_debug_gpio_level == "hi":
+                blockers.append("gnss_pps_gpio_high_no_activity")
 
     receiver_health_blockers = receiver_health_blockers_from_statuses(reporter_statuses)
     blockers = sorted(set(blockers + receiver_health_blockers))
@@ -180,6 +193,9 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
         "gnss_pps_assert_before": pps_assert_before,
         "gnss_pps_assert_after": pps_assert_after,
         "gnss_pps_assert_sequence_delta": pps_seq_delta,
+        "gnss_pps_debug_gpio_line": pps_debug_gpio_line,
+        "gnss_pps_debug_gpio_level": pps_debug_gpio_level,
+        "gnss_pps_debug_gpio_irq_registered": pps_debug_gpio_irq,
         "gnss_pps_ready": (
             pps_device_present and pps_lock_configured and pps_activity_detected
         ),

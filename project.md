@@ -1250,8 +1250,10 @@ user and vendor configuration.
   PPS timing evidence. The refreshed Z203 and Z103 runtimes expose `/dev/pps0`
   and `/sys/class/pps/pps0`, and dmesg registers `fieldmesh-gnss-pps` as the
   PPS source. The current live blocker is PPS activity: both boards still show
-  assert sequence `0`, so they are PPS-exposed but not PPS-timing ready.
-  Z103 still lacks a GNSS position fix and reports receiver-health warnings.
+  assert sequence `0`, and debugfs shows the IRQ-backed
+  `fieldmesh-gnss-pps` GPIO input low, so they are PPS-exposed but not
+  PPS-timing ready. Z103 still lacks a GNSS position fix and reports
+  receiver-health warnings.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

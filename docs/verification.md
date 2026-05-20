@@ -3254,9 +3254,12 @@ electrical/status warnings even when no position fix is required. This keeps an
 indoor/no-satellites condition separate from a receiver hardware or I/O fault.
 The current live Z203/Z103 state passes PPS exposure but fails PPS activity:
 both boards expose `/dev/pps0`/`/sys/class/pps/pps0` with `gnss_pps_lock=1`,
-but `/sys/class/pps/pps0/assert` remains at sequence `0`. Both still fail
-`REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes, and Z103
-fails receiver-health readiness while it reports `V_IO ovrvlt`.
+but `/sys/class/pps/pps0/assert` remains at sequence `0`. The preflight also
+captures the debugfs GPIO line; current boards show `fieldmesh-gnss-pps` as an
+IRQ-backed input held low, so `REQUIRE_GNSS_PPS=1` surfaces
+`gnss_pps_gpio_low_no_activity` alongside `gnss_pps_no_assert_activity`. Both
+still fail `REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes,
+and Z103 fails receiver-health readiness while it reports `V_IO ovrvlt`.
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as

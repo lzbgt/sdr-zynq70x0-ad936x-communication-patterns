@@ -155,6 +155,8 @@ else
     printf 'pps_assert_before=\n'
     printf 'pps_assert_after=\n'
 fi
+pps_debug_gpio_line="$(grep -F 'fieldmesh-gnss-pps' /sys/kernel/debug/gpio 2>/dev/null | sed -n '1p')"
+printf 'pps_debug_gpio_line=%s\n' "$pps_debug_gpio_line"
 printf 'gnss_log_exists=%s\n' "$([ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ] && echo 1 || echo 0)"
 if [ -f /tmp/fieldmesh-gnss-nmea-reporter.ndjson ]; then
     tail -n "$GNSS_LOG_TAIL_LINES" /tmp/fieldmesh-gnss-nmea-reporter.ndjson | sed 's/^/gnss_log_tail=/'

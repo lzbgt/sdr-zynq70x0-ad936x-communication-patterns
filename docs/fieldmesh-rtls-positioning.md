@@ -211,6 +211,10 @@ board is PPS-exposed when `/dev/pps0` or `/sys/class/pps/pps0` exists and
 `gnss_pps_lock=1` is configured. It is PPS-ready only when the kernel PPS
 assert sequence increments across the preflight sampling window; a stuck
 `0.000000000#0` assert value is reported as `gnss_pps_no_assert_activity`.
+When debugfs GPIO state is available, the same report includes the
+`fieldmesh-gnss-pps` GPIO line, its `hi`/`lo` level, and whether the line is
+IRQ-backed. A non-incrementing assert counter with the line observed low is
+reported as `gnss_pps_gpio_low_no_activity`.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
