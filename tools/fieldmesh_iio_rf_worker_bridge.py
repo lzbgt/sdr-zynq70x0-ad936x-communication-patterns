@@ -92,6 +92,7 @@ def write_iq_burst(args: argparse.Namespace, frame: bytes, frame_path: Path) -> 
         rf_bandwidth_hz=args.rf_bandwidth_hz,
         fixture_attenuation_db=args.fixture_attenuation_db,
         samples_per_symbol=args.samples_per_symbol,
+        baseband_carrier_hz=args.baseband_carrier_hz,
         authorized_rf_path=True,
         conducted_or_shielded=False,
         pretty=False,
@@ -127,6 +128,8 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         rx_uri=args.rx_uri,
         buffer_size=args.buffer_size,
         timeout_ms=args.timeout_ms,
+        rx_arm_delay_ms=live_run.DEFAULT_RX_ARM_DELAY_MS,
+        rx_capture_margin_ms=live_run.DEFAULT_RX_CAPTURE_MARGIN_MS,
         fixture_attenuation_db=args.fixture_attenuation_db,
         authorized_rf_path=True,
         conducted_or_shielded=False,
@@ -264,10 +267,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-uri")
     parser.add_argument("--out-dir", type=Path, default=Path(".config/fieldmesh/iio-rf-worker-bridge"))
     parser.add_argument("--center-frequency-hz", type=int, default=2400000000)
-    parser.add_argument("--sample-rate-hz", type=int, default=1000000)
+    parser.add_argument("--sample-rate-hz", type=int, default=3072000)
     parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=8)
+    parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--execute-live-rf", action="store_true")

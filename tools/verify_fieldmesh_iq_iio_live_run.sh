@@ -12,7 +12,7 @@ mkdir -p "$work_dir"
   --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
   --out-dir "$work_dir/iq" \
   --center-frequency-hz 2400000000 \
-  --sample-rate-hz 1000000 \
+  --sample-rate-hz 3072000 \
   --rf-bandwidth-hz 1000000 \
   --fixture-attenuation-db 60 \
   --samples-per-symbol 8 \
@@ -76,10 +76,18 @@ if report["commands"][6]["argv"][2] != "iio_readdev":
     raise SystemExit("RX command must arm iio_readdev before TX")
 if report["commands"][7]["argv"][0] != "timeout" or report["commands"][7]["argv"][2] != "iio_writedev":
     raise SystemExit("TX command must bound iio_writedev with timeout")
-if report["commands"][6]["argv"][-1:] != ["voltage0"]:
-    raise SystemExit(f"Z103 1R1T RX must only arm voltage0: {report['commands'][6]['argv']}")
+if "-i" not in report["commands"][0]["argv"] or "-i" not in report["commands"][1]["argv"]:
+    raise SystemExit(f"RX configuration must target input channels: {report['commands'][:2]}")
+if "-o" not in report["commands"][2]["argv"] or "-o" not in report["commands"][3]["argv"]:
+    raise SystemExit(f"LO/TX configuration must target output channels: {report['commands'][2:4]}")
+if report["commands"][6]["argv"][-2:] != ["voltage0", "voltage1"]:
+    raise SystemExit(f"Z103 RX must arm one complex I/Q lane: {report['commands'][6]['argv']}")
 if report["commands"][7]["argv"][-2:] != ["voltage0", "voltage1"]:
-    raise SystemExit(f"Z203 2R2T TX must arm voltage0/voltage1: {report['commands'][7]['argv']}")
+    raise SystemExit(f"Z203 TX must arm one complex I/Q lane: {report['commands'][7]['argv']}")
+rx_samples = int(report["commands"][6]["argv"][report["commands"][6]["argv"].index("-s") + 1])
+tx_samples = int(report["commands"][7]["argv"][report["commands"][7]["argv"].index("-s") + 1])
+if rx_samples <= tx_samples:
+    raise SystemExit(f"RX capture must include arm delay and margin: rx={rx_samples} tx={tx_samples}")
 for key in ("allow_hardware_writes", "allow_rf_tx", "operator_confirmation_ok"):
     if report["safety"][key] is not False:
         raise SystemExit(f"dry-run safety key {key} must be false")
@@ -130,9 +138,9 @@ from pathlib import Path
 
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if report["commands"][6]["argv"][-2:] != ["voltage0", "voltage1"]:
-    raise SystemExit(f"Z203 2R2T RX must arm voltage0/voltage1: {report['commands'][6]['argv']}")
-if report["commands"][7]["argv"][-1:] != ["voltage0"]:
-    raise SystemExit(f"Z103 1R1T TX must only arm voltage0: {report['commands'][7]['argv']}")
+    raise SystemExit(f"Z203 RX must arm one complex I/Q lane: {report['commands'][6]['argv']}")
+if report["commands"][7]["argv"][-2:] != ["voltage0", "voltage1"]:
+    raise SystemExit(f"Z103 TX must arm one complex I/Q lane: {report['commands'][7]['argv']}")
 PY
 
 if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
@@ -273,5 +281,44 @@ if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --rx-first \
   >/dev/null 2>&1; then
   echo "live runner accepted too little lab attenuation" >&2
+  exit 1
+fi
+
+"$repo_root/tools/fieldmesh_iq_burst_smoke.py" \
+  --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
+  --out-dir "$work_dir/iq-bad-rate" \
+  --center-frequency-hz 2400000000 \
+  --sample-rate-hz 1000000 \
+  --rf-bandwidth-hz 1000000 \
+  --fixture-attenuation-db 60 \
+  --samples-per-symbol 8 \
+  --conducted-or-shielded \
+  > "$work_dir/iq_bad_rate_stdout.json"
+
+"$repo_root/tools/fieldmesh_iq_iio_live_plan.py" \
+  --rf-binding-plan "$binding" \
+  --iq-burst-report "$work_dir/iq-bad-rate/fieldmesh_iq_burst_smoke.json" \
+  --tx-board z203 \
+  --rx-board z103 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  --out "$work_dir/iq_iio_live_plan_bad_rate.json" \
+  > "$work_dir/plan_bad_rate_stdout.json"
+
+if "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
+  --live-plan "$work_dir/iq_iio_live_plan_bad_rate.json" \
+  --out-dir "$work_dir/bad-sample-rate" \
+  --tx-uri ip:192.168.1.10 \
+  --rx-uri ip:192.168.3.1 \
+  --fixture-attenuation-db 60 \
+  --conducted-or-shielded \
+  --legal-frequency-profile \
+  --tx-enable-guard \
+  --rx-first \
+  >/dev/null 2>&1; then
+  echo "live runner accepted an AD936x-invalid sample rate" >&2
   exit 1
 fi

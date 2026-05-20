@@ -18,7 +18,10 @@ import fieldmesh_rf_fixture_evidence as fixture_evidence
 
 
 MIN_FIXTURE_ATTENUATION_DB = 30.0
+MIN_AD936X_LIVE_SAMPLE_RATE_HZ = 2_083_333
 MAX_LIVE_TX_DURATION_MS = 1000
+DEFAULT_RX_ARM_DELAY_MS = 10
+DEFAULT_RX_CAPTURE_MARGIN_MS = 10
 LIVE_RF_CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
 LEGACY_LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
 VALID_LIVE_RF_CONFIRMATIONS = {LIVE_RF_CONFIRMATION, LEGACY_LIVE_RF_CONFIRMATION}
@@ -54,6 +57,13 @@ def require_plan(plan: dict[str, Any]) -> None:
             raise SystemExit(f"live run must start from a non-executing plan: {key}={safety.get(key)!r}")
     if plan.get("tx_board") == plan.get("rx_board"):
         raise SystemExit("live run requires distinct TX and RX boards")
+    for step in plan.get("command_plan", []):
+        if isinstance(step, dict) and step.get("name") in {"configure_rx_phy", "configure_tx_phy"}:
+            rate = int(step.get("sample_rate_hz", 0))
+            if rate < MIN_AD936X_LIVE_SAMPLE_RATE_HZ:
+                raise SystemExit(
+                    f"AD936x live sample rate must be >= {MIN_AD936X_LIVE_SAMPLE_RATE_HZ}; got {rate}"
+                )
 
 
 def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
@@ -78,6 +88,10 @@ def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
         raise SystemExit(
             f"--max-tx-duration-ms must be between 1 and {MAX_LIVE_TX_DURATION_MS}"
         )
+    if args.rx_arm_delay_ms < 0:
+        raise SystemExit("--rx-arm-delay-ms must be >= 0")
+    if args.rx_capture_margin_ms < 0:
+        raise SystemExit("--rx-capture-margin-ms must be >= 0")
     if args.execute_live_rf:
         if not args.allow_hardware_writes:
             raise SystemExit("--execute-live-rf also requires --allow-hardware-writes")
@@ -131,24 +145,39 @@ def command_row(
     }
 
 
-def iio_attr_channel(uri: str, device: str, channel: str, attr: str, value: int | float | str) -> list[str]:
-    return [
+def iio_attr_channel(
+    uri: str,
+    device: str,
+    channel: str,
+    attr: str,
+    value: int | float | str,
+    *,
+    direction: str | None = None,
+) -> list[str]:
+    args = [
         "iio_attr",
         "-u",
         uri,
+    ]
+    if direction == "input":
+        args.append("-i")
+    elif direction == "output":
+        args.append("-o")
+    elif direction is not None:
+        raise SystemExit(f"unsupported IIO channel direction: {direction!r}")
+    args += [
         "-c",
         device,
         channel,
         attr,
         str(value),
     ]
+    return args
 
 
 def stream_voltage_channels(board: str) -> list[str]:
-    """Return enabled IIO stream voltage channels for the known board variant."""
-    if board == "z103":
-        return ["voltage0"]
-    if board == "z203":
+    """Return one complex I/Q stream lane for the known board variant."""
+    if board in {"z103", "z203"}:
         return ["voltage0", "voltage1"]
     raise SystemExit(f"unsupported board for IIO stream channel selection: {board!r}")
 
@@ -180,6 +209,9 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     timeout_s = max(1, math.ceil(args.timeout_ms / 1000))
     tx_timeout_s = max(1, math.ceil(args.max_tx_duration_ms / 1000))
     samples = int(iq["iq_samples"])
+    rx_samples = samples + math.ceil(
+        int(fixture["sample_rate_hz"]) * (args.rx_arm_delay_ms + args.rx_capture_margin_ms) / 1000.0
+    )
     buffer_size = args.buffer_size or samples
     rx_channels = stream_voltage_channels(plan["rx_board"])
     tx_channels = stream_voltage_channels(plan["tx_board"])
@@ -187,27 +219,69 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     rows = [
         command_row(
             "configure_rx_sampling_frequency",
-            iio_attr_channel(rx_uri, "ad9361-phy", "voltage0", "sampling_frequency", fixture["sample_rate_hz"]),
+            iio_attr_channel(
+                rx_uri,
+                "ad9361-phy",
+                "voltage0",
+                "sampling_frequency",
+                fixture["sample_rate_hz"],
+                direction="input",
+            ),
         ),
         command_row(
             "configure_rx_rf_bandwidth",
-            iio_attr_channel(rx_uri, "ad9361-phy", "voltage0", "rf_bandwidth", fixture["rf_bandwidth_hz"]),
+            iio_attr_channel(
+                rx_uri,
+                "ad9361-phy",
+                "voltage0",
+                "rf_bandwidth",
+                fixture["rf_bandwidth_hz"],
+                direction="input",
+            ),
         ),
         command_row(
             "configure_rx_lo",
-            iio_attr_channel(rx_uri, "ad9361-phy", "altvoltage0", "frequency", fixture["center_frequency_hz"]),
+            iio_attr_channel(
+                rx_uri,
+                "ad9361-phy",
+                "altvoltage0",
+                "frequency",
+                fixture["center_frequency_hz"],
+                direction="output",
+            ),
         ),
         command_row(
             "configure_tx_sampling_frequency",
-            iio_attr_channel(tx_uri, "ad9361-phy", "voltage0", "sampling_frequency", fixture["sample_rate_hz"]),
+            iio_attr_channel(
+                tx_uri,
+                "ad9361-phy",
+                "voltage0",
+                "sampling_frequency",
+                fixture["sample_rate_hz"],
+                direction="output",
+            ),
         ),
         command_row(
             "configure_tx_rf_bandwidth",
-            iio_attr_channel(tx_uri, "ad9361-phy", "voltage0", "rf_bandwidth", fixture["rf_bandwidth_hz"]),
+            iio_attr_channel(
+                tx_uri,
+                "ad9361-phy",
+                "voltage0",
+                "rf_bandwidth",
+                fixture["rf_bandwidth_hz"],
+                direction="output",
+            ),
         ),
         command_row(
             "configure_tx_lo",
-            iio_attr_channel(tx_uri, "ad9361-phy", "altvoltage1", "frequency", fixture["center_frequency_hz"]),
+            iio_attr_channel(
+                tx_uri,
+                "ad9361-phy",
+                "altvoltage1",
+                "frequency",
+                fixture["center_frequency_hz"],
+                direction="output",
+            ),
         ),
         command_row(
             "arm_rx_iio_buffer",
@@ -220,7 +294,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
                 "-b",
                 str(buffer_size),
                 "-s",
-                str(samples),
+                str(rx_samples),
                 rx_iio["rx_name"],
             ]
             + rx_channels,
@@ -282,7 +356,7 @@ def run_command(row: dict[str, Any], *, stdin_file: str | None = None, stdout_fi
     }
 
 
-def execute_live(commands: list[dict[str, Any]], capture_path: Path) -> list[dict[str, Any]]:
+def execute_live(args: argparse.Namespace, commands: list[dict[str, Any]], capture_path: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for row in commands[:6]:
         result = run_command(row)
@@ -300,7 +374,7 @@ def execute_live(commands: list[dict[str, Any]], capture_path: Path) -> list[dic
             stdout=rx_stdout,
             stderr=subprocess.PIPE,
         )
-        time.sleep(0.25)
+        time.sleep(args.rx_arm_delay_ms / 1000.0)
         tx_result = run_command(tx_row, stdin_file=tx_row["stdin_file"])
         results.append(tx_result)
         rx_timeout_s = int(rx_row["argv"][1]) + 2
@@ -334,19 +408,85 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
         return {"attempted": False, "reason": "capture file empty"}
     smoke_report = load_json(Path(plan["iq_burst"]["report"]))
     samples_per_symbol = int(smoke_report["encoding"]["samples_per_symbol"])
-    try:
-        recovered = iq_smoke.recover_frame(iq_smoke.decode_bpsk_iq(iq, samples_per_symbol))
-    except Exception as exc:  # noqa: BLE001 - report decode failures in JSON.
-        return {"attempted": True, "ok": False, "error": str(exc), "capture_bytes": len(iq)}
-    crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+    baseband_carrier_hz = int(smoke_report["encoding"].get("baseband_carrier_hz", 0))
+    carrier_candidates = [baseband_carrier_hz]
+    if baseband_carrier_hz:
+        carrier_candidates += [
+            baseband_carrier_hz - 20000,
+            baseband_carrier_hz + 20000,
+            baseband_carrier_hz - 50000,
+            baseband_carrier_hz + 50000,
+        ]
+    coherent: dict[str, Any] = {"ok": False, "score": 0.0}
+    for carrier_hz in carrier_candidates:
+        candidate_iq = iq_smoke.mix_iq(iq, smoke_report["rf_fixture"]["sample_rate_hz"], carrier_hz) if carrier_hz else iq
+        candidate = iq_smoke.decode_bpsk_iq_coherent(candidate_iq, samples_per_symbol)
+        candidate["baseband_carrier_hz"] = carrier_hz
+        if candidate.get("ok") is True:
+            coherent = candidate
+            break
+        if float(candidate.get("score", 0.0)) > float(coherent.get("score", 0.0)):
+            coherent = candidate
+    if coherent.get("ok") is True:
+        recovered = coherent["recovered"]
+        crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+        return {
+            "attempted": True,
+            "ok": crc == plan["iq_burst"]["frame_crc"],
+            "capture_bytes": len(iq),
+            "recovered_frame_hex": recovered.hex(),
+            "recovered_frame_bytes": len(recovered),
+            "recovered_frame_crc": crc,
+            "expected_frame_crc": plan["iq_burst"]["frame_crc"],
+            "sample_offset": coherent["sample_offset"],
+            "symbol_start": coherent["symbol_start"],
+            "phase_i": coherent["phase_i"],
+            "phase_q": coherent["phase_q"],
+            "sync_score": coherent["score"],
+            "decoder": "coherent_complex_bpsk_v1",
+            "baseband_carrier_hz": coherent["baseband_carrier_hz"],
+        }
+    last_error = "missing IQ burst preamble/sync"
+    for sample_offset in range(samples_per_symbol):
+        try:
+            bits = iq_smoke.decode_bpsk_iq_bits(iq, samples_per_symbol, sample_offset)
+        except Exception as exc:  # noqa: BLE001 - preserve decode diagnostic.
+            last_error = str(exc)
+            continue
+        for bit_shift in range(8):
+            shifted = bits[bit_shift:]
+            for inverted in (False, True):
+                candidate_bits = [1 - bit for bit in shifted] if inverted else shifted
+                try:
+                    recovered = iq_smoke.recover_frame(iq_smoke.bits_to_bytes(candidate_bits))
+                except Exception as exc:  # noqa: BLE001 - keep searching other alignments.
+                    last_error = str(exc)
+                    continue
+                crc = iq_smoke.harness.unpack_memory_frame(recovered).get("frame_crc")
+                return {
+                    "attempted": True,
+                    "ok": crc == plan["iq_burst"]["frame_crc"],
+                    "capture_bytes": len(iq),
+                    "recovered_frame_hex": recovered.hex(),
+                    "recovered_frame_bytes": len(recovered),
+                    "recovered_frame_crc": crc,
+                    "expected_frame_crc": plan["iq_burst"]["frame_crc"],
+                    "sample_offset": sample_offset,
+                    "bit_shift": bit_shift,
+                    "inverted": inverted,
+                }
     return {
         "attempted": True,
-        "ok": crc == plan["iq_burst"]["frame_crc"],
+        "ok": False,
+        "error": last_error,
         "capture_bytes": len(iq),
-        "recovered_frame_hex": recovered.hex(),
-        "recovered_frame_bytes": len(recovered),
-        "recovered_frame_crc": crc,
-        "expected_frame_crc": plan["iq_burst"]["frame_crc"],
+        "best_coherent_score": coherent.get("score"),
+        "best_coherent_sample_offset": coherent.get("sample_offset"),
+        "best_coherent_symbol_start": coherent.get("symbol_start"),
+        "best_coherent_phase_i": coherent.get("phase_i"),
+        "best_coherent_phase_q": coherent.get("phase_q"),
+        "best_coherent_carrier_hz": coherent.get("baseband_carrier_hz"),
+        "decoder": "coherent_complex_bpsk_v1",
     }
 
 
@@ -364,7 +504,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     command_results: list[dict[str, Any]] = []
     decode: dict[str, Any] = {"attempted": False, "reason": "dry-run"}
     if args.execute_live_rf:
-        command_results = execute_live(commands, capture_path)
+        command_results = execute_live(args, commands, capture_path)
         decode = decode_capture(plan, args, capture_path)
 
     safety = {
@@ -417,6 +557,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-uri")
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
+    parser.add_argument("--rx-arm-delay-ms", type=int, default=DEFAULT_RX_ARM_DELAY_MS)
+    parser.add_argument("--rx-capture-margin-ms", type=int, default=DEFAULT_RX_CAPTURE_MARGIN_MS)
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--authorized-rf-path", action="store_true")
     parser.add_argument("--conducted-or-shielded", action="store_true")
@@ -440,7 +582,7 @@ def main() -> int:
     args = parse_args()
     report = build_report(args)
     print(json.dumps(report, indent=2 if args.pretty else None, sort_keys=True))
-    return 0
+    return 0 if report.get("ok") is True else 1
 
 
 if __name__ == "__main__":
