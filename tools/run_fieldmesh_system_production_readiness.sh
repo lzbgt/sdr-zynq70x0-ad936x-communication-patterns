@@ -5,10 +5,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/system-production-readiness-$(date +%Y%m%d-%H%M%S)-$$}"
 
 gnss_report="${GNSS_PREFLIGHT_REPORT:-}"
+timepulse_report="${GNSS_TIMEPULSE_POLL_REPORT:-}"
 native_ip_report="${NATIVE_IP_IPERF_SEQUENCE_REPORT:-}"
 real_rf_report="${REAL_RF_PRODUCTION_GATE_REPORT:-}"
 
 run_gnss_preflight="${RUN_GNSS_PREFLIGHT:-1}"
+run_gnss_timepulse_poll="${RUN_GNSS_TIMEPULSE_POLL:-1}"
 run_native_ip_preflight="${RUN_NATIVE_IP_PREFLIGHT:-1}"
 
 require_gnss_fix="${REQUIRE_GNSS_FIX:-1}"
@@ -18,6 +20,7 @@ require_native_ip_iperf="${REQUIRE_NATIVE_IP_IPERF:-1}"
 require_real_rf="${REQUIRE_REAL_RF:-1}"
 
 gnss_runner="${FIELDMESH_GNSS_PREFLIGHT_RUNNER:-$repo_root/tools/run_fieldmesh_two_board_gnss_live_preflight.sh}"
+timepulse_runner="${FIELDMESH_GNSS_TIMEPULSE_POLL_RUNNER:-$repo_root/tools/run_fieldmesh_two_board_gnss_timepulse_poll.sh}"
 native_ip_runner="${FIELDMESH_NATIVE_IP_PREFLIGHT_RUNNER:-$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh}"
 
 bool01() {
@@ -29,6 +32,7 @@ bool01() {
 
 for value in \
     "$run_gnss_preflight" \
+    "$run_gnss_timepulse_poll" \
     "$run_native_ip_preflight" \
     "$require_gnss_fix" \
     "$require_gnss_pps" \
@@ -58,6 +62,18 @@ if [ -z "$gnss_report" ] && [ "$run_gnss_preflight" = "1" ]; then
     gnss_report="$out_dir/gnss_preflight/summary.json"
 fi
 
+if [ -z "$timepulse_report" ] && [ "$run_gnss_timepulse_poll" = "1" ]; then
+    set +e
+    OUT_DIR="$out_dir/gnss_timepulse_poll" \
+      "$timepulse_runner" \
+      >"$out_dir/gnss_timepulse_poll.stdout" \
+      2>"$out_dir/gnss_timepulse_poll.stderr"
+    timepulse_rc="$?"
+    set -e
+    printf '%s\n' "$timepulse_rc" >"$out_dir/gnss_timepulse_poll.rc"
+    timepulse_report="$out_dir/gnss_timepulse_poll/summary.json"
+fi
+
 if [ -z "$native_ip_report" ] && [ "$run_native_ip_preflight" = "1" ]; then
     set +e
     PREFLIGHT_ONLY=1 \
@@ -74,6 +90,9 @@ fi
 args=(--output "$out_dir/system_readiness.json")
 if [ -n "$gnss_report" ] && [ -f "$gnss_report" ]; then
     args+=(--gnss-preflight "$gnss_report")
+fi
+if [ -n "$timepulse_report" ] && [ -f "$timepulse_report" ]; then
+    args+=(--gnss-timepulse-poll "$timepulse_report")
 fi
 if [ -n "$native_ip_report" ] && [ -f "$native_ip_report" ]; then
     args+=(--native-ip-iperf-sequence "$native_ip_report")

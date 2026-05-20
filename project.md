@@ -1262,8 +1262,9 @@ user and vendor configuration.
   poll succeeds on both boards and shows `CFG-TP-LEN_TP1=0`,
   `CFG-TP-USE_LOCKED_TP1=true`, and `CFG-TP-LEN_LOCK_TP1=100000`; therefore
   the low PPS GPIO is expected until GNSS time lock, unless an operator applies
-  the RAM-only unlocked-pulse diagnostic config. Z103 still lacks a GNSS
-  position fix and reports receiver-health warnings.
+  the RAM-only unlocked-pulse diagnostic config. The system readiness runner
+  now includes this poll-only receiver-state evidence at the top level. Z103
+  still lacks a GNSS position fix and reports receiver-health warnings.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

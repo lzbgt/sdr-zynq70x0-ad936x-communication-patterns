@@ -3290,6 +3290,13 @@ The current Z203/Z103 poll succeeds on both receivers and reports
 `CFG-TP-LEN_LOCK_TP1=100000`, so no unlocked PPS pulse is expected while the
 receivers have no GNSS time lock.
 
+The top-level system readiness runner now invokes that poll-only path by
+default and includes the receiver-state blockers in `system_readiness.json`.
+Current live readiness therefore reports both the Linux/PPS symptom
+(`gnss_pps_gpio_low_no_activity`) and the receiver configuration reason
+(`gnss_timepulse_unlocked_pulse_length_zero`) without writing receiver config
+or transmitting RF.
+
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as

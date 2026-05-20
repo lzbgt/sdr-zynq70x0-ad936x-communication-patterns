@@ -41,6 +41,24 @@ cat >"$work_dir/native-ip-preflight.json" <<'JSON'
 }
 JSON
 
+cat >"$work_dir/timepulse-blocked.json" <<'JSON'
+{
+  "event": "fieldmesh_two_board_gnss_timepulse_poll",
+  "ok": true,
+  "writes_hardware_config": false,
+  "boards": [
+    {
+      "label": "z203",
+      "timepulse_readiness_blockers": ["gnss_timepulse_unlocked_pulse_length_zero"]
+    },
+    {
+      "label": "z103",
+      "timepulse_readiness_blockers": ["gnss_timepulse_unlocked_pulse_length_zero"]
+    }
+  ]
+}
+JSON
+
 cat >"$work_dir/rf-blocked.json" <<'JSON'
 {
   "event": "fieldmesh_real_rf_production_gate",
@@ -52,6 +70,7 @@ JSON
 
 if "$repo_root/tools/fieldmesh_system_production_readiness.py" \
   --gnss-preflight "$work_dir/gnss-blocked.json" \
+  --gnss-timepulse-poll "$work_dir/timepulse-blocked.json" \
   --native-ip-iperf-sequence "$work_dir/native-ip-preflight.json" \
   --real-rf-production-gate "$work_dir/rf-blocked.json" \
   --output "$work_dir/blocked-summary.json" \
@@ -81,6 +100,8 @@ if "z203:gnss_no_satellites_visible" not in report.get("blockers", []):
     raise SystemExit(f"GNSS board blocker not propagated: {report}")
 if "z103:gnss_receiver_io_overvoltage" not in report.get("blockers", []):
     raise SystemExit(f"GNSS receiver health blocker not propagated: {report}")
+if "z203:gnss_timepulse_unlocked_pulse_length_zero" not in report.get("blockers", []):
+    raise SystemExit(f"GNSS TIMEPULSE blocker not propagated: {report}")
 PY
 
 cat >"$work_dir/gnss-ready.json" <<'JSON'
@@ -117,6 +138,24 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
 }
 JSON
 
+cat >"$work_dir/timepulse-ready.json" <<'JSON'
+{
+  "event": "fieldmesh_two_board_gnss_timepulse_poll",
+  "ok": true,
+  "writes_hardware_config": false,
+  "boards": [
+    {
+      "label": "z203",
+      "timepulse_readiness_blockers": []
+    },
+    {
+      "label": "z103",
+      "timepulse_readiness_blockers": []
+    }
+  ]
+}
+JSON
+
 cat >"$work_dir/rf-ready.json" <<'JSON'
 {
   "event": "fieldmesh_real_rf_production_gate",
@@ -128,6 +167,7 @@ JSON
 
 "$repo_root/tools/fieldmesh_system_production_readiness.py" \
   --gnss-preflight "$work_dir/gnss-ready.json" \
+  --gnss-timepulse-poll "$work_dir/timepulse-ready.json" \
   --native-ip-iperf-sequence "$work_dir/native-ip-ready.json" \
   --real-rf-production-gate "$work_dir/rf-ready.json" \
   --output "$work_dir/ready-summary.json" \
@@ -175,7 +215,18 @@ exit 1
 SH
 chmod +x "$work_dir/fake-native-ip-runner.sh"
 
+cat >"$work_dir/fake-timepulse-runner.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+out_dir="${OUT_DIR:?}"
+mkdir -p "$out_dir"
+cp "$(dirname "$0")/timepulse-blocked.json" "$out_dir/summary.json"
+echo "fake_timepulse_poll=pass"
+SH
+chmod +x "$work_dir/fake-timepulse-runner.sh"
+
 if FIELDMESH_GNSS_PREFLIGHT_RUNNER="$work_dir/fake-gnss-runner.sh" \
+   FIELDMESH_GNSS_TIMEPULSE_POLL_RUNNER="$work_dir/fake-timepulse-runner.sh" \
    FIELDMESH_NATIVE_IP_PREFLIGHT_RUNNER="$work_dir/fake-native-ip-runner.sh" \
    OUT_DIR="$work_dir/current-wrapper" \
    "$repo_root/tools/run_fieldmesh_system_production_readiness.sh" \
@@ -196,6 +247,8 @@ if report.get("production_ready") is not False:
 for blocker in ("gnss_live_fix_not_ready", "gnss_receiver_health_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_gate_missing"):
     if blocker not in report.get("blockers", []):
         raise SystemExit(f"wrapper report missing blocker {blocker}: {report}")
+if "z103:gnss_timepulse_unlocked_pulse_length_zero" not in report.get("blockers", []):
+    raise SystemExit(f"wrapper report missing TIMEPULSE blocker: {report}")
 PY
 
 python3 - "$work_dir/current-wrapper/gnss_preflight/required_env.txt" <<'PY'
@@ -217,9 +270,11 @@ if env != expected:
 PY
 
 GNSS_PREFLIGHT_REPORT="$work_dir/gnss-ready.json" \
+GNSS_TIMEPULSE_POLL_REPORT="$work_dir/timepulse-ready.json" \
 NATIVE_IP_IPERF_SEQUENCE_REPORT="$work_dir/native-ip-ready.json" \
 REAL_RF_PRODUCTION_GATE_REPORT="$work_dir/rf-ready.json" \
 RUN_GNSS_PREFLIGHT=0 \
+RUN_GNSS_TIMEPULSE_POLL=0 \
 RUN_NATIVE_IP_PREFLIGHT=0 \
 OUT_DIR="$work_dir/ready-wrapper" \
 "$repo_root/tools/run_fieldmesh_system_production_readiness.sh" \

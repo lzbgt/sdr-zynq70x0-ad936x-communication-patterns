@@ -22,6 +22,10 @@ if ! grep -q 'writes_hardware_config": False' "$script"; then
     echo "TIMEPULSE poll summary must explicitly mark no hardware config writes" >&2
     exit 1
 fi
+if ! grep -q 'len(tp_items) < expected_tp_item_count' "$script"; then
+    echo "TIMEPULSE poll runner must require the complete CFG-TP key set" >&2
+    exit 1
+fi
 if ! grep -q 'reporter_restarted_pid' "$script"; then
     echo "TIMEPULSE poll runner must restart the GNSS reporter after serial capture" >&2
     exit 1

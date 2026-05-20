@@ -242,7 +242,10 @@ poll now succeeds and explains the low PPS line: both receivers have
 `CFG-TP-LEN_TP1=0`, `CFG-TP-USE_LOCKED_TP1=true`, and
 `CFG-TP-LEN_LOCK_TP1=100000`, so PPS output is only expected after GNSS time
 lock unless an operator explicitly applies a RAM-only unlocked pulse
-configuration. Z103 emits NMEA at `38400` baud and can report
+configuration. The system readiness runner now includes that poll-only
+receiver-state evidence, so the top-level blocker list explains PPS inactivity
+instead of stopping at Linux GPIO/PPS symptoms. Z103 emits NMEA at `38400` baud
+and can report
 visible satellites, but still has no position fix (`GGA` quality `0`, `RMC`
 status `V`, `GSA` fix type `1`). An indoor bench location and the
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect

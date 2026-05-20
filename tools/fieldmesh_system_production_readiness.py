@@ -49,6 +49,21 @@ def receiver_health_ready(report: dict[str, Any]) -> bool:
     )
 
 
+def timepulse_blockers(report: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    for board in report.get("boards", []):
+        if not isinstance(board, dict):
+            continue
+        label = str(board.get("label") or "board")
+        for blocker in board.get("blockers", []):
+            if isinstance(blocker, str) and blocker:
+                blockers.append(f"{label}:{blocker}")
+        for blocker in board.get("timepulse_readiness_blockers", []):
+            if isinstance(blocker, str) and blocker:
+                blockers.append(f"{label}:{blocker}")
+    return blockers
+
+
 def summarize(args: argparse.Namespace) -> dict[str, Any]:
     blockers: list[str] = []
     detail: dict[str, Any] = {}
@@ -88,6 +103,22 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 for blocker in board.get("gnss_receiver_health_blockers", []):
                     if isinstance(blocker, str) and blocker:
                         blockers.append(f"{label}:{blocker}")
+
+    timepulse = None
+    if args.gnss_timepulse_poll:
+        timepulse = load_json(
+            args.gnss_timepulse_poll,
+            "fieldmesh_two_board_gnss_timepulse_poll",
+        )
+        detail["gnss_timepulse_poll"] = str(args.gnss_timepulse_poll)
+        detail["gnss_timepulse_poll_ok"] = timepulse.get("ok") is True
+        detail["gnss_timepulse_writes_hardware_config"] = (
+            timepulse.get("writes_hardware_config") is True
+        )
+        detail["gnss_timepulse_blockers"] = timepulse_blockers(timepulse)
+        if timepulse.get("writes_hardware_config") is True:
+            blockers.append("gnss_timepulse_poll_wrote_hardware_config")
+        blockers.extend(detail["gnss_timepulse_blockers"])
 
     native_ip = None
     if args.native_ip_iperf_sequence:
@@ -143,6 +174,7 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gnss-preflight", type=Path)
+    parser.add_argument("--gnss-timepulse-poll", type=Path)
     parser.add_argument("--native-ip-iperf-sequence", type=Path)
     parser.add_argument("--real-rf-production-gate", type=Path)
     parser.add_argument("--output", type=Path)

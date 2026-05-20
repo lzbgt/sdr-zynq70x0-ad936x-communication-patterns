@@ -232,6 +232,10 @@ def extract_ubx_frames(data: bytes) -> list[dict[str, Any]]:
 def parse_frame(frame: dict[str, Any]) -> dict[str, Any]:
     payload = frame.pop("payload")
     row = dict(frame)
+    if row.get("checksum_valid") is not True:
+        row["message"] = f"UBX-0x{row['class']:02x}-0x{row['id']:02x}"
+        row["parse_error"] = "checksum_invalid"
+        return row
     if row["class"] == UBX_ACK and row["id"] in (UBX_ACK_ACK, UBX_ACK_NAK):
         row["message"] = "UBX-ACK-ACK" if row["id"] == UBX_ACK_ACK else "UBX-ACK-NAK"
         if len(payload) >= 2:
@@ -287,6 +291,8 @@ def analyze_timepulse_items(items: list[dict[str, Any]]) -> dict[str, Any]:
         if isinstance(item, dict)
     }
     blockers: list[str] = []
+    if not items:
+        blockers.append("gnss_timepulse_cfg_tp_not_observed")
     tp1_enabled = values.get("CFG-TP-TP1_ENA") is True
     unlocked_len_us = values.get("CFG-TP-LEN_TP1")
     locked_len_us = values.get("CFG-TP-LEN_LOCK_TP1")
@@ -396,7 +402,9 @@ def parse_capture(args: argparse.Namespace) -> dict[str, Any]:
         item
         for frame in frames
         for item in frame.get("items", [])
-        if isinstance(item, dict) and item.get("name", "").startswith("CFG-TP-")
+        if frame.get("checksum_valid") is True
+        and isinstance(item, dict)
+        and item.get("name", "").startswith("CFG-TP-")
     ]
     return {
         "event": "fieldmesh_gnss_timepulse_parse",

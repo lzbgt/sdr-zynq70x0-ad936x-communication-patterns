@@ -194,7 +194,8 @@ for label in ("z203", "z103"):
     blockers = []
     if facts.get("ok") != "1":
         blockers.append(facts.get("blocker") or "gnss_timepulse_poll_failed")
-    if not tp_items:
+    expected_tp_item_count = 12
+    if len(tp_items) < expected_tp_item_count:
         blockers.append("gnss_timepulse_cfg_tp_not_observed")
     boards.append(
         {

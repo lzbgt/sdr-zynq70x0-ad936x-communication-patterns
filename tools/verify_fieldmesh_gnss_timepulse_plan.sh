@@ -156,6 +156,33 @@ if "gnss_timepulse_unlocked_pulse_length_zero" not in analysis.get("blockers", [
     raise SystemExit(f"zero unlocked length blocker was not surfaced: {analysis!r}")
 PY
 
+python3 - "$out_dir/capture.bin" "$out_dir/capture-bad-checksum.bin" <<'PY'
+import sys
+from pathlib import Path
+
+data = bytearray(Path(sys.argv[1]).read_bytes())
+data[-1] ^= 0x01
+Path(sys.argv[2]).write_bytes(data)
+PY
+
+"$repo_root/tools/fieldmesh_gnss_timepulse_plan.py" parse \
+  --capture "$out_dir/capture-bad-checksum.bin" > "$out_dir/parsed-bad-checksum.json"
+
+python3 - "$out_dir/parsed-bad-checksum.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+parsed = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if parsed.get("tp_item_count") != 0:
+    raise SystemExit(f"checksum-invalid frame produced TP items: {parsed!r}")
+analysis = parsed.get("timepulse_analysis", {})
+if "gnss_timepulse_cfg_tp_not_observed" not in analysis.get("blockers", []):
+    raise SystemExit(f"missing no-valid-TP-frame blocker: {analysis!r}")
+if parsed.get("frames", [{}])[0].get("parse_error") != "checksum_invalid":
+    raise SystemExit(f"checksum error was not retained: {parsed!r}")
+PY
+
 if "$repo_root/tools/fieldmesh_gnss_timepulse_plan.py" plan \
   --set-layers ram,bbr > "$out_dir/persistent.json"; then
   python3 - "$out_dir/persistent.json" <<'PY'
