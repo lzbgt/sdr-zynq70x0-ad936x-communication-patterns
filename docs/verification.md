@@ -3297,6 +3297,19 @@ Current live readiness therefore reports both the Linux/PPS symptom
 (`gnss_timepulse_unlocked_pulse_length_zero`) without writing receiver config
 or transmitting RF.
 
+The readiness action classifier is checked with:
+
+```sh
+./tools/verify_fieldmesh_system_readiness_actions.sh
+```
+
+Result: readiness blockers are converted into a priority-ordered action queue
+with explicit physical-access, RF-TX, and receiver-config-write flags. Current
+blocker classes produce separate actions for GNSS receiver I/O overvoltage,
+live GNSS fix acquisition, PPS activity proof, paired real-RF iperf, and the
+real-RF production gate. Unknown future blockers are preserved under an
+inspection action rather than being silently dropped.
+
 The guarded TIMEPULSE apply path is checked with:
 
 ```sh

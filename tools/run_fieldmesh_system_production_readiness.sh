@@ -123,5 +123,12 @@ set +e
 summary_rc="${PIPESTATUS[0]}"
 set -e
 
+if [ -f "$out_dir/system_readiness.json" ]; then
+    "$repo_root/tools/fieldmesh_system_readiness_actions.py" \
+      "$out_dir/system_readiness.json" \
+      --output "$out_dir/system_readiness_actions.json" \
+      >"$out_dir/system_readiness_actions.stdout"
+fi
+
 echo "Capture directory: $out_dir"
 exit "$summary_rc"

@@ -251,6 +251,26 @@ if "z103:gnss_timepulse_unlocked_pulse_length_zero" not in report.get("blockers"
     raise SystemExit(f"wrapper report missing TIMEPULSE blocker: {report}")
 PY
 
+python3 - "$work_dir/current-wrapper/system_readiness_actions.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("event") != "fieldmesh_system_readiness_actions":
+    raise SystemExit(f"wrapper did not emit action plan: {report}")
+actions = {row.get("action_id") for row in report.get("actions", [])}
+for action_id in (
+    "fix_gnss_receiver_io_overvoltage",
+    "obtain_live_gnss_fix",
+    "prove_gnss_pps_activity",
+    "collect_paired_real_rf_iperf",
+    "collect_real_rf_production_gate",
+):
+    if action_id not in actions:
+        raise SystemExit(f"wrapper action plan missing {action_id}: {report}")
+PY
+
 python3 - "$work_dir/current-wrapper/gnss_preflight/required_env.txt" <<'PY'
 import sys
 from pathlib import Path
@@ -289,6 +309,16 @@ from pathlib import Path
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if report.get("production_ready") is not True or report.get("blockers") != []:
     raise SystemExit(f"ready wrapper report did not pass: {report}")
+PY
+
+python3 - "$work_dir/ready-wrapper/system_readiness_actions.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("action_required") is not False or report.get("actions") != []:
+    raise SystemExit(f"ready wrapper should emit an empty action plan: {report}")
 PY
 
 echo "fieldmesh_system_production_readiness=pass"
