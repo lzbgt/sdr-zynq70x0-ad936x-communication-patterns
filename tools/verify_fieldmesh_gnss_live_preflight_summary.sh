@@ -40,15 +40,17 @@ cat > "$work_dir/z103_facts.txt.json" <<'JSON'
   "hostname": "z103",
   "device_eui": "020000000103",
   "daemon_pid": "301",
-  "gnss_pid": "",
-  "gnss_nmea_device": "",
-  "gnss_nmea_baud": "",
-  "gnss_pps_lock": "",
-  "gnss_nmea_device_exists": "0",
-  "serial_devices": "/dev/ttyPS0",
+  "gnss_pid": "302",
+  "gnss_nmea_device": "/dev/ttyPS1",
+  "gnss_nmea_baud": "38400",
+  "gnss_pps_lock": "1",
+  "gnss_nmea_device_exists": "1",
+  "serial_devices": "/dev/ttyPS0,/dev/ttyPS1",
   "pps_devices": "",
   "pps_sysfs_devices": "",
-  "gnss_log_tail": []
+  "gnss_log_tail": [
+    "{\"event\":\"fieldmesh_gnss_nmea_status\",\"ok\":false,\"nmea_detected\":true,\"fix_detected\":false,\"receiver_warning\":\"V_IO ovrvlt\",\"blockers\":[\"gnss_receiver_io_overvoltage\"]}"
+  ]
 }
 JSON
 cat > "$work_dir/z103_rtls_position.json" <<'JSON'
@@ -78,8 +80,12 @@ if z203.get("gnss_nmea_status", {}).get("fix_detected") is not False:
 if z203.get("gnss_pps_device_present") is not True or z203.get("gnss_pps_ready") is not True:
     raise SystemExit(f"Z203 PPS device/config was not surfaced: {z203!r}")
 z103 = boards["z103"]
-if "no_gnss_nmea_device_configured" not in z103.get("blockers", []):
-    raise SystemExit(f"Z103 missing-device blocker was not surfaced: {z103!r}")
+if "gnss_receiver_io_overvoltage" not in z103.get("blockers", []):
+    raise SystemExit(f"Z103 receiver warning blocker was not surfaced: {z103!r}")
+if z103.get("gnss_receiver_health_ready") is not False:
+    raise SystemExit(f"Z103 receiver health was not marked blocked: {z103!r}")
+if summary.get("gnss_receiver_health_ready") is not False:
+    raise SystemExit(f"summary receiver health did not fail: {summary!r}")
 PY
 
 if "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" \
@@ -95,6 +101,14 @@ if "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" \
   --require-gnss-pps \
   > "$work_dir/summary-required-pps.json"; then
   echo "GNSS live preflight summary accepted missing required PPS" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" \
+  --out-dir "$work_dir" \
+  --require-gnss-receiver-health \
+  > "$work_dir/summary-required-receiver-health.json"; then
+  echo "GNSS live preflight summary accepted receiver warning as healthy" >&2
   exit 1
 fi
 

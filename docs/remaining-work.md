@@ -228,7 +228,9 @@ report visible satellites, but still has no position fix (`GGA` quality `0`,
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect
 before treating the missing fix as a software defect. The GNSS reporter now
 preserves that receiver `TXT` warning as `receiver_warning="V_IO ovrvlt"` and
-classifies it as `gnss_receiver_io_overvoltage`.
+classifies it as `gnss_receiver_io_overvoltage`; the live preflight and system
+readiness summary expose this as a separate GNSS receiver-health failure rather
+than only as a position-fix failure.
 The production sequence wrapper now centralizes the remaining authorized
 over-air proof: it validates RF path evidence, runs or consumes the RF-worker
 to IIO bridge, converts app/gate outputs into app-level

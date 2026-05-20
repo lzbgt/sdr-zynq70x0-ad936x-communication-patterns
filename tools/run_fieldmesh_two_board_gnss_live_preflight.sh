@@ -11,6 +11,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 require_gnss_fix="${REQUIRE_GNSS_FIX:-0}"
 require_gnss_pps="${REQUIRE_GNSS_PPS:-0}"
+require_gnss_receiver_health="${REQUIRE_GNSS_RECEIVER_HEALTH:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-gnss-live-preflight-$(date +%Y%m%d-%H%M%S)-$$}"
 
 mkdir -p "$out_dir"
@@ -26,6 +27,10 @@ esac
 case "$require_gnss_pps" in
     0|1) ;;
     *) echo "REQUIRE_GNSS_PPS must be 0 or 1" >&2; exit 1 ;;
+esac
+case "$require_gnss_receiver_health" in
+    0|1) ;;
+    *) echo "REQUIRE_GNSS_RECEIVER_HEALTH must be 0 or 1" >&2; exit 1 ;;
 esac
 
 ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5)
@@ -207,6 +212,9 @@ if [ "$require_gnss_fix" = "1" ]; then
 fi
 if [ "$require_gnss_pps" = "1" ]; then
     summary_args+=(--require-gnss-pps)
+fi
+if [ "$require_gnss_receiver_health" = "1" ]; then
+    summary_args+=(--require-gnss-receiver-health)
 fi
 "$repo_root/tools/fieldmesh_gnss_live_preflight_summary.py" "${summary_args[@]}" \
     | tee "$out_dir/summary.json"

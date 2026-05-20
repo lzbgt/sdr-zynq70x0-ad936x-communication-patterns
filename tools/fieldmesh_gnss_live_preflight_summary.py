@@ -37,6 +37,12 @@ def split_csv(value: Any) -> list[str]:
     return [item for item in str(value or "").split(",") if item]
 
 
+RECEIVER_HEALTH_BLOCKERS = {
+    "gnss_receiver_io_overvoltage",
+    "gnss_receiver_warning",
+}
+
+
 def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any]:
     facts = read_json(out_dir / f"{label}_facts.txt.json")
     rtls = read_json(out_dir / f"{label}_rtls_position.json")
@@ -101,6 +107,9 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
             blockers.append("gnss_pps_lock_not_configured")
 
     blockers = sorted(set(blockers))
+    receiver_health_blockers = [
+        blocker for blocker in blockers if blocker in RECEIVER_HEALTH_BLOCKERS
+    ]
     return {
         "label": label,
         "board_ip": facts.get("board_ip"),
@@ -124,6 +133,8 @@ def classify(out_dir: Path, label: str, require_gnss_pps: bool) -> dict[str, Any
         "gnss_nmea_status": reporter_status,
         "daemon_gnss_position_present": daemon_gnss_position_present,
         "gnss_position_backed_by_live_init_service": service_backed,
+        "gnss_receiver_health_ready": not receiver_health_blockers,
+        "gnss_receiver_health_blockers": receiver_health_blockers,
         "gnss_live_ready": not blockers,
         "blockers": blockers,
         "facts_path": str(out_dir / f"{label}_facts.txt.json"),
@@ -136,6 +147,7 @@ def main() -> int:
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--require-gnss-fix", action="store_true")
     parser.add_argument("--require-gnss-pps", action="store_true")
+    parser.add_argument("--require-gnss-receiver-health", action="store_true")
     args = parser.parse_args()
 
     boards = [
@@ -144,24 +156,37 @@ def main() -> int:
     ]
     ready = all(board["gnss_live_ready"] for board in boards)
     pps_ready = all(board["gnss_pps_ready"] for board in boards)
+    receiver_health_ready = all(
+        board["gnss_receiver_health_ready"] for board in boards
+    )
+    ok = True
     if args.require_gnss_fix:
-        ok = ready
-    elif args.require_gnss_pps:
-        ok = pps_ready
-    else:
-        ok = True
+        ok = ok and ready
+    if args.require_gnss_pps:
+        ok = ok and pps_ready
+    if args.require_gnss_receiver_health:
+        ok = ok and receiver_health_ready
     summary: dict[str, Any] = {
         "event": "fieldmesh_two_board_gnss_live_preflight",
         "ok": ok,
         "gnss_live_ready": ready,
         "gnss_pps_ready": pps_ready,
+        "gnss_receiver_health_ready": receiver_health_ready,
         "require_gnss_fix": args.require_gnss_fix,
         "require_gnss_pps": args.require_gnss_pps,
+        "require_gnss_receiver_health": args.require_gnss_receiver_health,
         "boards": boards,
         "capture_dir": str(args.out_dir),
     }
+    production_blockers: list[str] = []
     if not ready:
-        summary["production_blocker"] = "deployed_gnss_uart_pps_not_verified"
+        production_blockers.append("gnss_live_fix_not_ready")
+    if not pps_ready:
+        production_blockers.append("gnss_pps_not_ready")
+    if not receiver_health_ready:
+        production_blockers.append("gnss_receiver_health_not_ready")
+    if production_blockers:
+        summary["production_blocker"] = ",".join(production_blockers)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0 if summary["ok"] else 1
 

@@ -16,12 +16,16 @@ cat >"$work_dir/gnss-blocked.json" <<'JSON'
     {
       "label": "z203",
       "gnss_pps_ready": false,
+      "gnss_receiver_health_ready": true,
+      "gnss_receiver_health_blockers": [],
       "blockers": ["gnss_no_satellites_visible"]
     },
     {
       "label": "z103",
       "gnss_pps_ready": false,
-      "blockers": ["no_gnss_nmea_device_configured"]
+      "gnss_receiver_health_ready": false,
+      "gnss_receiver_health_blockers": ["gnss_receiver_io_overvoltage"],
+      "blockers": ["gnss_receiver_io_overvoltage"]
     }
   ]
 }
@@ -67,6 +71,7 @@ if report.get("production_ready") is not False:
 for blocker in (
     "gnss_live_fix_not_ready",
     "gnss_pps_not_ready",
+    "gnss_receiver_health_not_ready",
     "native_ip_iperf_not_production_ready",
     "real_rf_not_production_ready",
 ):
@@ -74,6 +79,8 @@ for blocker in (
         raise SystemExit(f"missing blocker {blocker}: {report}")
 if "z203:gnss_no_satellites_visible" not in report.get("blockers", []):
     raise SystemExit(f"GNSS board blocker not propagated: {report}")
+if "z103:gnss_receiver_io_overvoltage" not in report.get("blockers", []):
+    raise SystemExit(f"GNSS receiver health blocker not propagated: {report}")
 PY
 
 cat >"$work_dir/gnss-ready.json" <<'JSON'
@@ -85,11 +92,15 @@ cat >"$work_dir/gnss-ready.json" <<'JSON'
     {
       "label": "z203",
       "gnss_pps_ready": true,
+      "gnss_receiver_health_ready": true,
+      "gnss_receiver_health_blockers": [],
       "blockers": []
     },
     {
       "label": "z103",
       "gnss_pps_ready": true,
+      "gnss_receiver_health_ready": true,
+      "gnss_receiver_health_blockers": [],
       "blockers": []
     }
   ]
@@ -179,7 +190,7 @@ from pathlib import Path
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if report.get("production_ready") is not False:
     raise SystemExit(f"wrapper report claimed production ready: {report}")
-for blocker in ("gnss_live_fix_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_gate_missing"):
+for blocker in ("gnss_live_fix_not_ready", "gnss_receiver_health_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_gate_missing"):
     if blocker not in report.get("blockers", []):
         raise SystemExit(f"wrapper report missing blocker {blocker}: {report}")
 PY

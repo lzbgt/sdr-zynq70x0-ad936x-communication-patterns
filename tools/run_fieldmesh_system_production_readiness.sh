@@ -13,6 +13,7 @@ run_native_ip_preflight="${RUN_NATIVE_IP_PREFLIGHT:-1}"
 
 require_gnss_fix="${REQUIRE_GNSS_FIX:-1}"
 require_gnss_pps="${REQUIRE_GNSS_PPS:-1}"
+require_gnss_receiver_health="${REQUIRE_GNSS_RECEIVER_HEALTH:-1}"
 require_native_ip_iperf="${REQUIRE_NATIVE_IP_IPERF:-1}"
 require_real_rf="${REQUIRE_REAL_RF:-1}"
 
@@ -31,6 +32,7 @@ for value in \
     "$run_native_ip_preflight" \
     "$require_gnss_fix" \
     "$require_gnss_pps" \
+    "$require_gnss_receiver_health" \
     "$require_native_ip_iperf" \
     "$require_real_rf"; do
     if ! bool01 "$value"; then
@@ -82,6 +84,9 @@ if [ "$require_gnss_fix" = "0" ]; then
 fi
 if [ "$require_gnss_pps" = "0" ]; then
     args+=(--no-require-gnss-pps)
+fi
+if [ "$require_gnss_receiver_health" = "0" ]; then
+    args+=(--no-require-gnss-receiver-health)
 fi
 if [ "$require_native_ip_iperf" = "0" ]; then
     args+=(--no-require-native-ip-iperf)

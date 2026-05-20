@@ -3248,9 +3248,13 @@ Set `REQUIRE_GNSS_PPS=1` to also require a live kernel PPS device and matching
 `gnss_pps_lock=1` configuration. This does not make a GNSS position valid by
 itself; it exposes the separate PPS timing boundary needed for time-synced
 TOF/TDOA and scheduled RF modes.
+Set `REQUIRE_GNSS_RECEIVER_HEALTH=1` to fail on receiver self-reported
+electrical/status warnings even when no position fix is required. This keeps an
+indoor/no-satellites condition separate from a receiver hardware or I/O fault.
 The current live Z203/Z103 state passes this PPS boundary: both boards expose
 `/dev/pps0`/`/sys/class/pps/pps0` with `gnss_pps_lock=1`. Both still fail
-`REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes.
+`REQUIRE_GNSS_FIX=1` until the receivers report valid NMEA fixes, and Z103
+fails receiver-health readiness while it reports `V_IO ovrvlt`.
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as
@@ -3260,7 +3264,8 @@ every configured receiver case to a generic no-fix state. Receiver `TXT`
 warnings are preserved too; for example `V_IO ovrvlt` is surfaced as
 `receiver_warning="V_IO ovrvlt"` with blocker
 `gnss_receiver_io_overvoltage`, so a power/IO fault is not mistaken for only an
-indoor sky-view problem.
+indoor sky-view problem. The top-level system readiness runner requires this
+receiver-health boundary by default.
 
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` is the installed-daemon
 GNSS topology app gate. It seeds normal Z203/Z103 peer discovery, injects

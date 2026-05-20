@@ -41,6 +41,14 @@ def pps_ready(report: dict[str, Any]) -> bool:
     )
 
 
+def receiver_health_ready(report: dict[str, Any]) -> bool:
+    boards = report.get("boards", [])
+    return bool(boards) and all(
+        isinstance(board, dict) and board.get("gnss_receiver_health_ready") is True
+        for board in boards
+    )
+
+
 def summarize(args: argparse.Namespace) -> dict[str, Any]:
     blockers: list[str] = []
     detail: dict[str, Any] = {}
@@ -50,6 +58,7 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         gnss = load_json(args.gnss_preflight, "fieldmesh_two_board_gnss_live_preflight")
         detail["gnss_preflight"] = str(args.gnss_preflight)
         detail["gnss_live_ready"] = gnss.get("gnss_live_ready") is True
+        detail["gnss_receiver_health_ready"] = receiver_health_ready(gnss)
         detail["gnss_board_blockers"] = board_blockers(gnss)
     if args.require_gnss_fix:
         if gnss is None:
@@ -66,6 +75,19 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             for board in gnss.get("boards", []):
                 if isinstance(board, dict) and board.get("gnss_pps_ready") is not True:
                     blockers.append(f"{board.get('label', 'board')}:gnss_pps_not_ready")
+    if args.require_gnss_receiver_health:
+        if gnss is None:
+            if "gnss_preflight_missing" not in blockers:
+                blockers.append("gnss_preflight_missing")
+        elif not receiver_health_ready(gnss):
+            blockers.append("gnss_receiver_health_not_ready")
+            for board in gnss.get("boards", []):
+                if not isinstance(board, dict):
+                    continue
+                label = str(board.get("label") or "board")
+                for blocker in board.get("gnss_receiver_health_blockers", []):
+                    if isinstance(blocker, str) and blocker:
+                        blockers.append(f"{label}:{blocker}")
 
     native_ip = None
     if args.native_ip_iperf_sequence:
@@ -108,6 +130,7 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         "requirements": {
             "gnss_fix": args.require_gnss_fix,
             "gnss_pps": args.require_gnss_pps,
+            "gnss_receiver_health": args.require_gnss_receiver_health,
             "native_ip_iperf": args.require_native_ip_iperf,
             "real_rf": args.require_real_rf,
         },
@@ -125,6 +148,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--require-gnss-fix", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--require-gnss-pps", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--require-gnss-receiver-health", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--require-native-ip-iperf", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--require-real-rf", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
