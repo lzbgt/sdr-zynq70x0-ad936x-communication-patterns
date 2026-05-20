@@ -242,6 +242,15 @@ after the receiver has a GNSS time lock. While the indoor/no-fix state
 continues, the PPS GPIO being IRQ-backed but low is expected and is classified
 as `gnss_timepulse_unlocked_pulse_length_zero`.
 
+`tools/run_fieldmesh_two_board_gnss_timepulse_apply.sh` is the guarded
+receiver-write path for that diagnostic. It is dry-run by default and only
+emits the RAM-layer UBX-CFG-VALSET frame. Live use requires `APPLY=1`,
+`ALLOW_GNSS_RECEIVER_CONFIG=1`, and
+`OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_GNSS_TIMEPULSE_RAM_CONFIG`; it then
+requires UBX-CFG-VALSET ACK evidence from each receiver and restarts the
+init-launched reporter. The command intentionally writes RAM only, so a reboot
+returns the receiver to persistent configuration.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon

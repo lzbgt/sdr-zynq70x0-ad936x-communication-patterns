@@ -244,8 +244,12 @@ poll now succeeds and explains the low PPS line: both receivers have
 lock unless an operator explicitly applies a RAM-only unlocked pulse
 configuration. The system readiness runner now includes that poll-only
 receiver-state evidence, so the top-level blocker list explains PPS inactivity
-instead of stopping at Linux GPIO/PPS symptoms. Z103 emits NMEA at `38400` baud
-and can report
+instead of stopping at Linux GPIO/PPS symptoms.
+`tools/run_fieldmesh_two_board_gnss_timepulse_apply.sh` now provides the
+guarded RAM-only apply path for this diagnostic; do not use it as silent
+startup policy. Live use requires explicit receiver-config authorization and
+ACK evidence from both receivers, and a reboot clears the RAM-layer change.
+Z103 emits NMEA at `38400` baud and can report
 visible satellites, but still has no position fix (`GGA` quality `0`, `RMC`
 status `V`, `GSA` fix type `1`). An indoor bench location and the
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect

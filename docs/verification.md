@@ -3297,6 +3297,20 @@ Current live readiness therefore reports both the Linux/PPS symptom
 (`gnss_timepulse_unlocked_pulse_length_zero`) without writing receiver config
 or transmitting RF.
 
+The guarded TIMEPULSE apply path is checked with:
+
+```sh
+./tools/verify_fieldmesh_gnss_timepulse_apply.sh
+```
+
+Result: dry-run emits the RAM-only 1PPS UBX-CFG-VALSET plan with
+`writes_hardware_config=false`; live mode refuses unless `APPLY=1`,
+`ALLOW_GNSS_RECEIVER_CONFIG=1`, and
+`OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_GNSS_TIMEPULSE_RAM_CONFIG` are set.
+The live path requires UBX-CFG-VALSET ACK evidence and reports
+`writes_hardware_config=true` only when the guarded receiver RAM write is
+actually attempted.
+
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as
