@@ -46,6 +46,48 @@ def error_text(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
 
 
+def mac_payload(frame: bytes) -> bytes:
+    marker = b"\x45\x00"
+    offset = frame.find(marker)
+    if offset < 0:
+        return b""
+    return frame[offset:]
+
+
+def frame_matches_ip_port_filter(frame: bytes, ports: set[int]) -> bool:
+    if not ports:
+        return True
+    payload = mac_payload(frame)
+    if len(payload) < 20:
+        return True
+    version = payload[0] >> 4
+    ihl = (payload[0] & 0x0F) * 4
+    if version != 4 or ihl < 20 or len(payload) < ihl + 4:
+        return True
+    total_len = struct.unpack(">H", payload[2:4])[0]
+    if total_len < ihl + 4 or total_len > len(payload):
+        return True
+    proto = payload[9]
+    if proto not in (6, 17):
+        return True
+    src_port, dst_port = struct.unpack(">HH", payload[ihl : ihl + 4])
+    return src_port in ports or dst_port in ports
+
+
+def split_port_filter_prefix(frames: list[bytes], ports: set[int]) -> tuple[list[bytes], list[bytes]]:
+    if not frames or not ports:
+        return frames, []
+    first_is_allowed = frame_matches_ip_port_filter(frames[0], ports)
+    prefix: list[bytes] = []
+    for frame in frames:
+        if frame_matches_ip_port_filter(frame, ports) != first_is_allowed:
+            break
+        prefix.append(frame)
+    if first_is_allowed:
+        return prefix, []
+    return [], prefix
+
+
 def lease_from_daemon(host: str, port: int, timeout_ms: int) -> dict[str, Any] | None:
     try:
         report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_LEASE v1", timeout_ms)
@@ -252,6 +294,7 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         operator_confirmation=args.operator_confirmation,
         max_tx_duration_ms=args.max_tx_duration_ms,
         cyclic_tx=args.cyclic_tx,
+        cyclic_capture_periods=args.cyclic_capture_periods,
         rx_gain_control_mode=args.rx_gain_control_mode,
         rx_hardwaregain_db=args.rx_hardwaregain_db,
         tx_hardwaregain_db=args.tx_hardwaregain_db,
@@ -269,6 +312,7 @@ def run_batch(
     *,
     destructive_source_poll: bool,
     skip_rf_config: bool,
+    cyclic_capture_periods: int,
 ) -> dict[str, Any]:
     started = time.monotonic()
     frame_dir = args.out_dir / f"batch-{index:04d}-{direction['name']}"
@@ -328,37 +372,71 @@ def run_batch(
     plan = bridge.live_plan.build_plan(plan_args)
     plan_args.out.write_text(json.dumps(plan, sort_keys=True) + "\n", encoding="utf-8")
 
+    run_args_base = {
+        "live_plan": plan_args.out,
+        "tx_uri": direction["tx_uri"],
+        "rx_uri": direction["rx_uri"],
+        "buffer_size": args.buffer_size,
+        "timeout_ms": args.timeout_ms,
+        "rx_arm_delay_ms": bridge.live_run.DEFAULT_RX_ARM_DELAY_MS,
+        "rx_capture_margin_ms": bridge.live_run.DEFAULT_RX_CAPTURE_MARGIN_MS,
+        "fixture_attenuation_db": args.fixture_attenuation_db,
+        "authorized_rf_path": True,
+        "conducted_or_shielded": False,
+        "legal_frequency_profile": True,
+        "tx_enable_guard": True,
+        "rx_first": True,
+        "execute_live_rf": args.execute_live_rf,
+        "allow_hardware_writes": args.allow_hardware_writes,
+        "allow_rf_tx": args.allow_rf_tx,
+        "fixture_id": args.fixture_id,
+        "fixture_evidence": args.fixture_evidence,
+        "operator_confirmation": args.operator_confirmation,
+        "max_tx_duration_ms": args.max_tx_duration_ms,
+        "cyclic_tx": args.cyclic_tx,
+        "rx_gain_control_mode": args.rx_gain_control_mode,
+        "rx_hardwaregain_db": args.rx_hardwaregain_db,
+        "tx_hardwaregain_db": args.tx_hardwaregain_db,
+        "skip_rf_config": skip_rf_config,
+        "pretty": False,
+    }
     run_args = argparse.Namespace(
-        live_plan=plan_args.out,
+        **run_args_base,
         out_dir=frame_dir / "iq-iio-live-run",
-        tx_uri=direction["tx_uri"],
-        rx_uri=direction["rx_uri"],
-        buffer_size=args.buffer_size,
-        timeout_ms=args.timeout_ms,
-        rx_arm_delay_ms=bridge.live_run.DEFAULT_RX_ARM_DELAY_MS,
-        rx_capture_margin_ms=bridge.live_run.DEFAULT_RX_CAPTURE_MARGIN_MS,
-        fixture_attenuation_db=args.fixture_attenuation_db,
-        authorized_rf_path=True,
-        conducted_or_shielded=False,
-        legal_frequency_profile=True,
-        tx_enable_guard=True,
-        rx_first=True,
-        execute_live_rf=args.execute_live_rf,
-        allow_hardware_writes=args.allow_hardware_writes,
-        allow_rf_tx=args.allow_rf_tx,
-        fixture_id=args.fixture_id,
-        fixture_evidence=args.fixture_evidence,
-        operator_confirmation=args.operator_confirmation,
-        max_tx_duration_ms=args.max_tx_duration_ms,
-        cyclic_tx=args.cyclic_tx,
-        rx_gain_control_mode=args.rx_gain_control_mode,
-        rx_hardwaregain_db=args.rx_hardwaregain_db,
-        tx_hardwaregain_db=args.tx_hardwaregain_db,
-        skip_rf_config=skip_rf_config,
-        pretty=False,
+        cyclic_capture_periods=cyclic_capture_periods,
     )
     live_run_started = time.monotonic()
     run_report = bridge.live_run.build_report(run_args)
+    run_attempts = [
+        {
+            "cyclic_capture_periods": cyclic_capture_periods,
+            "ok": (run_report.get("decode", {}).get("ok") is True) if args.execute_live_rf else None,
+            "report": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
+            "decode": run_report.get("decode", {}),
+        }
+    ]
+    effective_cyclic_capture_periods = cyclic_capture_periods
+    if (
+        args.execute_live_rf
+        and run_report.get("decode", {}).get("ok") is not True
+        and args.cyclic_capture_retry_periods > cyclic_capture_periods
+    ):
+        retry_args = argparse.Namespace(
+            **run_args_base,
+            out_dir=frame_dir / f"iq-iio-live-run-retry-p{args.cyclic_capture_retry_periods}",
+            cyclic_capture_periods=args.cyclic_capture_retry_periods,
+        )
+        run_report = bridge.live_run.build_report(retry_args)
+        effective_cyclic_capture_periods = args.cyclic_capture_retry_periods
+        run_args = retry_args
+        run_attempts.append(
+            {
+                "cyclic_capture_periods": args.cyclic_capture_retry_periods,
+                "ok": run_report.get("decode", {}).get("ok") is True,
+                "report": str(retry_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
+                "decode": run_report.get("decode", {}),
+            }
+        )
     live_run_elapsed_ms = int((time.monotonic() - live_run_started) * 1000)
     recovered_frames: list[bytes] = []
     ingests: list[dict[str, Any]] = []
@@ -410,13 +488,17 @@ def run_batch(
         "batch_bytes": len(batch_payload),
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_args.out),
-        "iq_iio_live_run": str(frame_dir / "iq-iio-live-run" / "fieldmesh_iq_iio_live_run.json"),
+        "iq_iio_live_run": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
+        "iq_iio_live_run_attempts": run_attempts,
         "iq_recovered_frame_match": recovered_frames == batch_frames if args.execute_live_rf else False,
         "sink_ingests": ingests,
         "source_ack": source_ack,
         "ack_after_successful_ingest_only": not destructive_source_poll,
         "destructive_source_poll": destructive_source_poll,
         "skip_rf_config": skip_rf_config,
+        "cyclic_capture_periods": cyclic_capture_periods,
+        "effective_cyclic_capture_periods": effective_cyclic_capture_periods,
+        "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
         "daemon_request_attempts": args.daemon_request_attempts,
         "elapsed_ms": int((time.monotonic() - started) * 1000),
         "live_run_elapsed_ms": live_run_elapsed_ms,
@@ -484,6 +566,15 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--poll-interval-ms must be >= 1")
     if args.daemon_request_attempts < 1:
         raise SystemExit("--daemon-request-attempts must be >= 1")
+    if args.lease_timeout_ms < 1:
+        raise SystemExit("--lease-timeout-ms must be >= 1")
+    for port in args.ip_port_filter:
+        if port < 1 or port > 65535:
+            raise SystemExit("--ip-port-filter entries must be 1..65535")
+    if args.cyclic_capture_periods < 1 or args.cyclic_capture_periods > 4:
+        raise SystemExit("--cyclic-capture-periods must be between 1 and 4")
+    if args.cyclic_capture_retry_periods < 1 or args.cyclic_capture_retry_periods > 4:
+        raise SystemExit("--cyclic-capture-retry-periods must be between 1 and 4")
     if args.leased_frame_report and args.directions != "z203-to-z103":
         raise SystemExit("--leased-frame-report is only valid with --directions z203-to-z103")
     if args.leased_frame_report and args.destructive_poll_batch:
@@ -511,9 +602,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "empty_polls": 0,
         "bridge_errors": 0,
         "batches_moved": 0,
+        "filtered_frames": 0,
+        "filtered_batches": 0,
     }
     frames: list[dict[str, Any]] = []
     next_index = 0
+    direction_capture_periods = {direction["name"]: args.cyclic_capture_periods for direction in directions}
 
     def current_report() -> dict[str, Any]:
         moved_frames = counts["z203_to_z103"] + counts["z103_to_z203"]
@@ -533,6 +627,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
+            "cyclic_capture_periods": args.cyclic_capture_periods,
+            "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
+            "lease_timeout_ms": args.lease_timeout_ms,
+            "ip_port_filter": sorted(args.ip_port_filter),
             "daemon_request_attempts": args.daemon_request_attempts,
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "rf_phy_tx_rx_verified": verified,
@@ -571,11 +669,32 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         polled_frame = poll_from_daemon(
                             direction["source_host"],
                             direction["source_port"],
-                            args.daemon_timeout_ms,
+                            args.lease_timeout_ms,
                         )
                         if polled_frame is None:
                             break
                         batch_frames.append(polled_frame)
+                    if not batch_frames:
+                        counts["empty_polls"] += 1
+                        continue
+                    batch_frames, filtered_frames = split_port_filter_prefix(
+                        batch_frames, args.ip_port_filter
+                    )
+                    if filtered_frames:
+                        counts["filtered_frames"] += len(filtered_frames)
+                        counts["filtered_batches"] += 1
+                        frames.append(
+                            {
+                                "index": next_index,
+                                "direction": direction["name"],
+                                "filtered_frames": len(filtered_frames),
+                                "filter": "ip_port",
+                                "destructive_source_poll": True,
+                            }
+                        )
+                        next_index += 1
+                        write_progress()
+                        continue
                     if not batch_frames:
                         counts["empty_polls"] += 1
                         continue
@@ -587,6 +706,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         destructive_source_poll=True,
                         skip_rf_config=args.skip_rf_config_after_first
                         and direction["name"] in configured_directions,
+                        cyclic_capture_periods=direction_capture_periods[direction["name"]],
+                    )
+                    direction_capture_periods[direction["name"]] = max(
+                        direction_capture_periods[direction["name"]],
+                        int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
                     )
                     configured_directions.add(direction["name"])
                     frames.append(
@@ -607,6 +731,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "source_ack_ok": None,
                             "destructive_source_poll": True,
                             "skip_rf_config": report.get("skip_rf_config"),
+                            "cyclic_capture_periods": report.get("cyclic_capture_periods"),
+                            "effective_cyclic_capture_periods": report.get("effective_cyclic_capture_periods"),
                             "elapsed_ms": report.get("elapsed_ms"),
                             "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
                         }
@@ -615,14 +741,47 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     counts["batches_moved"] += 1
                     next_index += 1
                     moved = True
+                    write_progress()
                     continue
                 elif args.batch_size > 1:
                     batch_frames = lease_batch_from_daemon(
                         direction["source_host"],
                         direction["source_port"],
-                        args.daemon_timeout_ms,
+                        args.lease_timeout_ms,
                         args.batch_size,
                     )
+                    if not batch_frames:
+                        counts["empty_polls"] += 1
+                        continue
+                    batch_frames, filtered_frames = split_port_filter_prefix(
+                        batch_frames, args.ip_port_filter
+                    )
+                    if filtered_frames:
+                        ack_started = time.monotonic()
+                        source_ack = ack_batch_to_daemon_reliable(
+                            direction["source_host"],
+                            direction["source_port"],
+                            args.daemon_timeout_ms,
+                            filtered_frames,
+                            attempts=args.daemon_request_attempts,
+                        )
+                        source_ack["elapsed_ms"] = int((time.monotonic() - ack_started) * 1000)
+                        counts["filtered_frames"] += len(filtered_frames)
+                        counts["filtered_batches"] += 1
+                        frames.append(
+                            {
+                                "index": next_index,
+                                "direction": direction["name"],
+                                "filtered_frames": len(filtered_frames),
+                                "filter": "ip_port",
+                                "source_ack_ok": source_ack.get("ok"),
+                                "source_ack": source_ack,
+                                "destructive_source_poll": False,
+                            }
+                        )
+                        next_index += 1
+                        write_progress()
+                        continue
                     if not batch_frames:
                         counts["empty_polls"] += 1
                         continue
@@ -634,6 +793,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         destructive_source_poll=False,
                         skip_rf_config=args.skip_rf_config_after_first
                         and direction["name"] in configured_directions,
+                        cyclic_capture_periods=direction_capture_periods[direction["name"]],
+                    )
+                    direction_capture_periods[direction["name"]] = max(
+                        direction_capture_periods[direction["name"]],
+                        int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
                     )
                     configured_directions.add(direction["name"])
                     frames.append(
@@ -654,6 +818,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "source_ack_ok": report.get("source_ack", {}).get("ok"),
                             "destructive_source_poll": False,
                             "skip_rf_config": report.get("skip_rf_config"),
+                            "cyclic_capture_periods": report.get("cyclic_capture_periods"),
+                            "effective_cyclic_capture_periods": report.get("effective_cyclic_capture_periods"),
                             "elapsed_ms": report.get("elapsed_ms"),
                             "live_run_elapsed_ms": report.get("live_run_elapsed_ms"),
                         }
@@ -662,16 +828,51 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     counts["batches_moved"] += 1
                     next_index += 1
                     moved = True
+                    write_progress()
                     continue
                 else:
                     lease = lease_from_daemon(
                         direction["source_host"],
                         direction["source_port"],
-                        args.daemon_timeout_ms,
+                        args.lease_timeout_ms,
                     )
                     if lease is None:
                         counts["empty_polls"] += 1
                         continue
+                    frame_hex = lease.get("frame0_hex")
+                    if isinstance(frame_hex, str):
+                        try:
+                            leased_frame = bytes.fromhex(frame_hex)
+                        except ValueError:
+                            leased_frame = b""
+                        if leased_frame and not frame_matches_ip_port_filter(
+                            leased_frame, args.ip_port_filter
+                        ):
+                            ack_started = time.monotonic()
+                            source_ack = ack_batch_to_daemon_reliable(
+                                direction["source_host"],
+                                direction["source_port"],
+                                args.daemon_timeout_ms,
+                                [leased_frame],
+                                attempts=args.daemon_request_attempts,
+                            )
+                            source_ack["elapsed_ms"] = int((time.monotonic() - ack_started) * 1000)
+                            counts["filtered_frames"] += 1
+                            counts["filtered_batches"] += 1
+                            frames.append(
+                                {
+                                    "index": next_index,
+                                    "direction": direction["name"],
+                                    "filtered_frames": 1,
+                                    "filter": "ip_port",
+                                    "source_ack_ok": source_ack.get("ok"),
+                                    "source_ack": source_ack,
+                                    "destructive_source_poll": False,
+                                }
+                            )
+                            next_index += 1
+                            write_progress()
+                            continue
                 report = run_one(args, direction, lease, next_index)
                 frames.append(
                     {
@@ -687,6 +888,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 counts[direction["name"].replace("-", "_")] += 1
                 next_index += 1
                 moved = True
+                write_progress()
             except SystemExit as exc:
                 counts["bridge_errors"] += 1
                 frames.append(
@@ -749,7 +951,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--daemon-timeout-ms", type=int)
+    parser.add_argument("--lease-timeout-ms", type=int, default=250)
     parser.add_argument("--daemon-request-attempts", type=int, default=2)
+    parser.add_argument("--ip-port-filter", type=int, action="append", default=[])
     parser.add_argument("--execute-live-rf", action="store_true")
     parser.add_argument("--allow-hardware-writes", action="store_true")
     parser.add_argument("--allow-rf-tx", action="store_true")
@@ -762,6 +966,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tx-duration-ms", type=int, default=250)
     parser.add_argument("--cyclic-tx", dest="cyclic_tx", action="store_true", default=True)
     parser.add_argument("--no-cyclic-tx", dest="cyclic_tx", action="store_false")
+    parser.add_argument("--cyclic-capture-periods", type=int, default=1)
+    parser.add_argument("--cyclic-capture-retry-periods", type=int, default=2)
     parser.add_argument("--rx-gain-control-mode", default="slow_attack")
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)

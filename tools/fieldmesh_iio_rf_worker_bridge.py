@@ -148,6 +148,7 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         operator_confirmation=args.operator_confirmation,
         max_tx_duration_ms=args.max_tx_duration_ms,
         cyclic_tx=args.cyclic_tx,
+        cyclic_capture_periods=args.cyclic_capture_periods,
         rx_gain_control_mode=args.rx_gain_control_mode,
         rx_hardwaregain_db=args.rx_hardwaregain_db,
         tx_hardwaregain_db=args.tx_hardwaregain_db,
@@ -299,6 +300,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tx-duration-ms", type=int, default=250)
     parser.add_argument("--cyclic-tx", dest="cyclic_tx", action="store_true", default=True)
     parser.add_argument("--no-cyclic-tx", dest="cyclic_tx", action="store_false")
+    parser.add_argument("--cyclic-capture-periods", type=int, default=1)
     parser.add_argument("--rx-gain-control-mode", default="slow_attack")
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)

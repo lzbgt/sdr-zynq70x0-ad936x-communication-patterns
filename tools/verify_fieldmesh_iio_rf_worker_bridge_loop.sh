@@ -60,6 +60,10 @@ if report.get("ack_after_successful_ingest_only") is not True:
     raise SystemExit("bridge loop must preserve ACK-after-ingest policy")
 if report.get("daemon_request_attempts") != 2:
     raise SystemExit(f"unexpected daemon request retry default: {report.get('daemon_request_attempts')}")
+if report.get("lease_timeout_ms") != 250:
+    raise SystemExit(f"unexpected lease timeout default: {report.get('lease_timeout_ms')}")
+if report.get("cyclic_capture_periods") != 1:
+    raise SystemExit(f"unexpected bridge capture periods: {report.get('cyclic_capture_periods')}")
 frame_report = Path(report["frames"][0]["report"])
 if not frame_report.is_file():
     raise SystemExit(f"missing nested frame report: {frame_report}")
@@ -76,6 +80,37 @@ print(json.dumps({
     "mode": report["mode"],
     "frames_moved": report["frames_moved"],
 }, sort_keys=True))
+PY
+
+PYTHONPATH="$repo_root/tools${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PY'
+import json
+import struct
+
+import fieldmesh_iio_rf_worker_bridge_loop as loop
+
+
+def tcp_frame(src_port: int, dst_port: int) -> bytes:
+    ip = bytearray(40)
+    ip[0] = 0x45
+    ip[2:4] = struct.pack(">H", len(ip))
+    ip[9] = 6
+    ip[20:24] = struct.pack(">HH", src_port, dst_port)
+    return b"FIELDMESH" + bytes(ip)
+
+
+stale = tcp_frame(1111, 2222)
+wanted = tcp_frame(3333, 55251)
+if loop.frame_matches_ip_port_filter(stale, {55251}):
+    raise SystemExit("stale TCP frame matched iperf port filter")
+if not loop.frame_matches_ip_port_filter(wanted, {55251}):
+    raise SystemExit("wanted TCP frame did not match iperf port filter")
+send, drop = loop.split_port_filter_prefix([stale, wanted], {55251})
+if send or drop != [stale]:
+    raise SystemExit("port filter must drop only the stale prefix before leasing again")
+send, drop = loop.split_port_filter_prefix([wanted, stale], {55251})
+if send != [wanted] or drop:
+    raise SystemExit("port filter must send only the wanted prefix before stale frames")
+print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 PY
 
 "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
@@ -102,6 +137,8 @@ if names != ["arm_rx_iio_buffer", "load_tx_iio_buffer"]:
     raise SystemExit(f"skip-rf-config command list changed: {names}")
 if report.get("safety", {}).get("skip_rf_config") is not True:
     raise SystemExit("skip-rf-config was not recorded in safety block")
+if report.get("safety", {}).get("cyclic_capture_periods") != 2:
+    raise SystemExit("standalone live-run default capture periods changed")
 print(json.dumps({
     "event": "fieldmesh_iio_live_run_skip_rf_config_check",
     "ok": True,

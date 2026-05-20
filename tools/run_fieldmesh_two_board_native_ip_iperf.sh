@@ -47,7 +47,11 @@ iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
+iio_bridge_lease_timeout_ms="${IIO_BRIDGE_LEASE_TIMEOUT_MS:-250}"
 iio_bridge_daemon_request_attempts="${IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS:-2}"
+iio_bridge_cyclic_capture_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS:-1}"
+iio_bridge_cyclic_capture_retry_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_RETRY_PERIODS:-2}"
+iio_bridge_ip_port_filter="${IIO_BRIDGE_IP_PORT_FILTER:-$iperf_port}"
 allow_destructive_rf_batch="${ALLOW_DESTRUCTIVE_RF_BATCH:-0}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
@@ -117,8 +121,32 @@ if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
     exit 1
 fi
+if ! [[ "$iio_bridge_lease_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_lease_timeout_ms" -lt 1 ]; then
+    echo "IIO_BRIDGE_LEASE_TIMEOUT_MS must be an integer >= 1" >&2
+    exit 1
+fi
 if ! [[ "$iio_bridge_daemon_request_attempts" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_request_attempts" -lt 1 ]; then
     echo "IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS must be an integer >= 1" >&2
+    exit 1
+fi
+if [ -n "$iio_bridge_ip_port_filter" ]; then
+    if ! [[ "$iio_bridge_ip_port_filter" =~ ^[0-9]+$ ]] ||
+       [ "$iio_bridge_ip_port_filter" -lt 1 ] ||
+       [ "$iio_bridge_ip_port_filter" -gt 65535 ]; then
+        echo "IIO_BRIDGE_IP_PORT_FILTER must be empty or a TCP/UDP port from 1 to 65535" >&2
+        exit 1
+    fi
+fi
+if ! [[ "$iio_bridge_cyclic_capture_periods" =~ ^[0-9]+$ ]] ||
+   [ "$iio_bridge_cyclic_capture_periods" -lt 1 ] ||
+   [ "$iio_bridge_cyclic_capture_periods" -gt 4 ]; then
+    echo "IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS must be an integer from 1 to 4" >&2
+    exit 1
+fi
+if ! [[ "$iio_bridge_cyclic_capture_retry_periods" =~ ^[0-9]+$ ]] ||
+   [ "$iio_bridge_cyclic_capture_retry_periods" -lt 1 ] ||
+   [ "$iio_bridge_cyclic_capture_retry_periods" -gt 4 ]; then
+    echo "IIO_BRIDGE_CYCLIC_CAPTURE_RETRY_PERIODS must be an integer from 1 to 4" >&2
     exit 1
 fi
 if [ "$iio_bridge_batch_size" -gt 4 ]; then
@@ -833,11 +861,15 @@ PY
 
 start_iio_rf_bridge_loop() {
     local batch_args=()
+    local port_filter_args=()
     if [ "$allow_destructive_rf_batch" = "1" ]; then
         batch_args=(--destructive-poll-batch)
     fi
     if [ "$iio_bridge_skip_rf_config_after_first" = "1" ]; then
         batch_args+=(--skip-rf-config-after-first)
+    fi
+    if [ -n "$iio_bridge_ip_port_filter" ]; then
+        port_filter_args=(--ip-port-filter "$iio_bridge_ip_port_filter")
     fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
@@ -860,7 +892,11 @@ start_iio_rf_bridge_loop() {
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
         --daemon-timeout-ms "$iio_bridge_daemon_timeout_ms" \
+        --lease-timeout-ms "$iio_bridge_lease_timeout_ms" \
         --daemon-request-attempts "$iio_bridge_daemon_request_attempts" \
+        "${port_filter_args[@]}" \
+        --cyclic-capture-periods "$iio_bridge_cyclic_capture_periods" \
+        --cyclic-capture-retry-periods "$iio_bridge_cyclic_capture_retry_periods" \
         --execute-live-rf \
         --allow-hardware-writes \
         --allow-rf-tx \

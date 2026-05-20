@@ -92,7 +92,12 @@ fixes, a live installed-board run on a fresh `iperf3` port moved 22 native-IP
 frames over real RF with zero bridge errors, and the `iperf3` client entered
 test phase and sent 1024 TCP bytes. It still did not complete because the slow
 bring-up bridge did not drain the client test-data TCP queue before the client
-was terminated. The remaining native-IP blocker is therefore not
+was terminated. The bridge now uses short lease polling, adaptive two-period RX
+capture after decode misses, per-batch progress writes, and an optional current
+`iperf3` port filter to prevent stale old-port TCP/UDP frames from spending RF
+airtime. A destructive diagnostic run moved the actual 244-byte TCP data
+segments plus `iperf3` result JSON over RF, then failed on a reverse result
+batch decode. The remaining native-IP blocker is therefore not
 antenna installation, basic RF decode, daemon queueing, or ordinary socket
 transport; it is the RF bridge data-plane software. The next HIL step is a true
 streaming or pipelined RF loop rather than another per-batch IIO process loop.

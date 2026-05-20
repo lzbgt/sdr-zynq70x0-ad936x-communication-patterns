@@ -88,6 +88,8 @@ rx_samples = int(report["commands"][6]["argv"][report["commands"][6]["argv"].ind
 tx_samples = int(report["commands"][7]["argv"][report["commands"][7]["argv"].index("-s") + 1])
 if rx_samples <= tx_samples:
     raise SystemExit(f"RX capture must include arm delay and margin: rx={rx_samples} tx={tx_samples}")
+if report["safety"].get("cyclic_capture_periods") != 2:
+    raise SystemExit(f"unexpected standalone capture periods: {report['safety'].get('cyclic_capture_periods')}")
 for key in ("allow_hardware_writes", "allow_rf_tx", "operator_confirmation_ok"):
     if report["safety"][key] is not False:
         raise SystemExit(f"dry-run safety key {key} must be false")

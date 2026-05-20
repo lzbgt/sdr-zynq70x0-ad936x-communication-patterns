@@ -92,6 +92,8 @@ def require_guard(args: argparse.Namespace, plan: dict[str, Any]) -> None:
         raise SystemExit("--rx-arm-delay-ms must be >= 0")
     if args.rx_capture_margin_ms < 0:
         raise SystemExit("--rx-capture-margin-ms must be >= 0")
+    if args.cyclic_capture_periods < 1 or args.cyclic_capture_periods > 4:
+        raise SystemExit("--cyclic-capture-periods must be between 1 and 4")
     if args.execute_live_rf:
         if not args.allow_hardware_writes:
             raise SystemExit("--execute-live-rf also requires --allow-hardware-writes")
@@ -221,11 +223,11 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     rx_margin_samples = math.ceil(
         int(fixture["sample_rate_hz"]) * (args.rx_arm_delay_ms + args.rx_capture_margin_ms) / 1000.0
     )
-    # Cyclic TX repeats the same IQ buffer until timeout. Capturing only one
-    # buffer plus margin can lock sync near the capture tail and then splice
-    # the wrong earlier samples as the payload. Capture two full periods so
-    # the decoder can prefer a complete non-wrapped frame.
-    rx_samples = samples * (2 if args.cyclic_tx else 1) + rx_margin_samples
+    capture_periods = args.cyclic_capture_periods if args.cyclic_tx else 1
+    # Cyclic TX repeats the same IQ buffer until timeout. Two periods are the
+    # conservative default for standalone live runs. The RF bridge can request
+    # one period because the decoder now rejects CRC-wrong wrapped candidates.
+    rx_samples = samples * capture_periods + rx_margin_samples
     buffer_size = args.buffer_size or samples
     rx_channels = stream_voltage_channels(plan["rx_board"])
     tx_channels = stream_voltage_channels(plan["tx_board"])
@@ -676,6 +678,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "operator_confirmation_ok": args.operator_confirmation in VALID_LIVE_RF_CONFIRMATIONS,
         "max_tx_duration_ms": args.max_tx_duration_ms,
         "cyclic_tx": bool(args.cyclic_tx),
+        "cyclic_capture_periods": args.cyclic_capture_periods,
         "rx_gain_control_mode": args.rx_gain_control_mode,
         "rx_hardwaregain_db": args.rx_hardwaregain_db,
         "tx_hardwaregain_db": args.tx_hardwaregain_db,
@@ -736,6 +739,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--operator-confirmation")
     parser.add_argument("--max-tx-duration-ms", type=int, default=MAX_LIVE_TX_DURATION_MS)
     parser.add_argument("--cyclic-tx", action="store_true")
+    parser.add_argument("--cyclic-capture-periods", type=int, default=2)
     parser.add_argument("--rx-gain-control-mode")
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float)

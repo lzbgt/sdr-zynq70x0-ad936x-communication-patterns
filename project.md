@@ -1227,9 +1227,16 @@ user and vendor configuration.
   idempotent ACK handling after a timeout. A fresh-port live run moved 22
   native-IP frames over real RF with zero bridge errors and got `iperf3` into
   the TCP test phase, but the per-batch IIO loop still did not drain the client
-  test-data queue before timeout. The remaining `iperf3` work is reducing
-  bridge-loop latency toward the production streaming data-plane target. The
-  earlier BPSK mode is
+  test-data queue before timeout. The bridge now keeps lease polling on a short
+  timeout separate from longer ingest/ACK control timeouts, adapts cyclic RX
+  capture from one to two TX periods after a decode miss, writes progress after
+  each moved batch, and can filter stale TCP/UDP frames from old `iperf3` ports
+  before they consume RF airtime. A later destructive HIL run moved the actual
+  244-byte TCP data segments and `iperf3` result JSON over RF, but it lost a
+  reverse server-result batch; that confirms the remaining issue is still the
+  software bridge/modem data plane, not RF installation. The next `iperf3` work
+  is replacing the per-batch IIO process loop with a streaming or pipelined RF
+  bridge. The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.
