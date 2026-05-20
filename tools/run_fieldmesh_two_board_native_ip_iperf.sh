@@ -17,6 +17,11 @@ udp_bitrate="${UDP_BITRATE:-64K}"
 udp_time_s="${UDP_TIME_S:-3}"
 bridge_duration_s="${BRIDGE_DURATION_S:-120}"
 iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
+iperf_rcv_timeout_ms="${IPERF_RCV_TIMEOUT_MS:-600000}"
+iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
+iperf_connect_timeout_ms="${IPERF_CONNECT_TIMEOUT_MS:-600000}"
+iperf_tcp_mss="${IPERF_TCP_MSS:-256}"
+iperf_tcp_window="${IPERF_TCP_WINDOW:-4K}"
 allow_daemon_rf_bridge="${ALLOW_DAEMON_RF_BRIDGE:-0}"
 allow_iio_rf_bridge="${ALLOW_IIO_RF_BRIDGE:-0}"
 host_pc_case="${HOST_PC_CASE:-0}"
@@ -34,8 +39,10 @@ rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
+rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-64}"
+rf_bit_repeat="${RF_BIT_REPEAT:-4}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
-max_tx_duration_ms="${MAX_TX_DURATION_MS:-1000}"
+max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 
@@ -43,6 +50,20 @@ mkdir -p "$out_dir"
 
 if ! [[ "$iperf_port" =~ ^[0-9]+$ ]] || [ "$iperf_port" -lt 1 ] || [ "$iperf_port" -gt 65535 ]; then
     echo "IPERF_PORT must be 1..65535" >&2
+    exit 1
+fi
+for item in "$iperf_rcv_timeout_ms" "$iperf_snd_timeout_ms" "$iperf_connect_timeout_ms"; do
+    if ! [[ "$item" =~ ^[0-9]+$ ]] || [ "$item" -lt 1000 ]; then
+        echo "IPERF timeout values must be integer milliseconds >= 1000" >&2
+        exit 1
+    fi
+done
+if ! [[ "$iperf_tcp_mss" =~ ^[0-9]+$ ]] || [ "$iperf_tcp_mss" -lt 64 ] || [ "$iperf_tcp_mss" -gt 1460 ]; then
+    echo "IPERF_TCP_MSS must be an integer from 64 to 1460" >&2
+    exit 1
+fi
+if ! [[ "$iperf_tcp_window" =~ ^[0-9]+[KMG]?$ ]]; then
+    echo "IPERF_TCP_WINDOW must be an iperf size value such as 4K" >&2
     exit 1
 fi
 if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 1024 ]; then
@@ -92,6 +113,14 @@ if ! [[ "$center_frequency_hz" =~ ^[0-9]+$ ]] || [ "$center_frequency_hz" -le 0 
 fi
 if ! [[ "$rf_bandwidth_hz" =~ ^[0-9]+$ ]] || [ "$rf_bandwidth_hz" -le 0 ]; then
     echo "RF_BANDWIDTH_HZ must be a positive integer" >&2
+    exit 1
+fi
+if ! [[ "$rf_samples_per_symbol" =~ ^[0-9]+$ ]] || [ "$rf_samples_per_symbol" -lt 2 ]; then
+    echo "RF_SAMPLES_PER_SYMBOL must be an integer >= 2" >&2
+    exit 1
+fi
+if ! [[ "$rf_bit_repeat" =~ ^[0-9]+$ ]] || [ "$rf_bit_repeat" -lt 1 ]; then
+    echo "RF_BIT_REPEAT must be an integer >= 1" >&2
     exit 1
 fi
 if [ -z "$swarm_mtu" ]; then
@@ -700,6 +729,8 @@ start_iio_rf_bridge_loop() {
         --z103-uri "ip:$z103_ip" \
         --center-frequency-hz "$center_frequency_hz" \
         --rf-bandwidth-hz "$rf_bandwidth_hz" \
+        --samples-per-symbol "$rf_samples_per_symbol" \
+        --bit-repeat "$rf_bit_repeat" \
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
         --execute-live-rf \
@@ -865,13 +896,13 @@ fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "rm -f /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json; \
-     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
+     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
     >"$out_dir/z103_iperf3_tcp_server.pid"
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" -n "'$tcp_bytes'" -l 256 --json
+    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" -n "'$tcp_bytes'" -l 256 --json
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
@@ -886,7 +917,7 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-    "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --json > /tmp/fieldmesh_iperf3_udp_server.json 2>&1 & echo \$!" \
+    "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_udp_server.json 2>&1 & echo \$!" \
     >"$out_dir/z103_iperf3_udp_server.pid"
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
@@ -909,13 +940,13 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
 if [ "$host_pc_case" = "1" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
         "rm -f /tmp/fieldmesh_iperf3_host_tcp_server.json /tmp/fieldmesh_iperf3_host_udp_server.json; \
-         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
+         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
         >"$out_dir/z103_iperf3_host_tcp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
-        iperf3 -c 10.77.2.20 -p "$iperf_port" -n "$tcp_bytes" -l 256 --json
+        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" -n "$tcp_bytes" -l 256 --json
     host_tcp_rc=$?
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then
@@ -931,7 +962,7 @@ if [ "$host_pc_case" = "1" ]; then
         "$out_dir/z103_iperf3_host_tcp_server.json" >/dev/null || true
 
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-        "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --json > /tmp/fieldmesh_iperf3_host_udp_server.json 2>&1 & echo \$!" \
+        "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_udp_server.json 2>&1 & echo \$!" \
         >"$out_dir/z103_iperf3_host_udp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e

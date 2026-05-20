@@ -789,8 +789,9 @@ user and vendor configuration.
 - `tools/run_fieldmesh_two_board_native_ip_sockets.sh` - live transparent
   client-app gate. It stages `fieldmesh-native-ip-socket-demo`, starts TCP and
   UDP echo processes that use ordinary Linux sockets on `swarm0`, and verifies
-  both protocols over the same daemon RF-worker bridge with no FieldMesh SDK
-  calls in the socket app.
+  both protocols with no FieldMesh SDK calls in the socket app. The default
+  daemon RF-worker bridge remains diagnostic; `ALLOW_IIO_RF_BRIDGE=1` runs the
+  same socket workload over the guarded real over-air AD936x bridge.
 - `tools/run_fieldmesh_two_board_native_ip_iperf.sh` - iperf acceptance gate for
   the transparent TCP/IP MAC-link feature. The default path refuses production
   certification until both installed daemons report real RF PHY TX/RX. With
@@ -1192,12 +1193,17 @@ user and vendor configuration.
   Z203 local RX decodes the same cyclic packet, and Z103 over-air RX decodes
   the noncoherent BFSK packet with zero sync errors. The guarded IIO
   RF-worker bridge now also moves BLR native-IP frames over the air in both
-  directions with peer ingest and source ACK. TCP `iperf3` still does not
-  complete over that bring-up bridge because the current per-frame IIO
-  setup/decode loop is stop-and-wait and too slow for the TCP exchange. The
-  earlier BPSK mode is retained for the RTL primitive, but the IIO RF-worker
-  bridge defaults to BFSK until the hardware BPSK path has a stronger
-  synchronizer/equalizer.
+  directions with peer ingest and source ACK. A live parameter sweep reduced
+  the bidirectional BFSK bridge default from `samples_per_symbol=64` /
+  `bit_repeat=8` to `samples_per_symbol=64` / `bit_repeat=4` and the cyclic
+  TX window to 250 ms, preserving decode margin while avoiding a one-second
+  RF transmit timeout per leased frame. Normal TCP and UDP socket echo traffic
+  now passes over the real over-air IIO bridge; `iperf3` still does not
+  complete because the current per-frame IIO setup/decode loop is a
+  stop-and-wait bring-up bridge, not the production streaming data plane. The
+  earlier BPSK mode is retained for the RTL primitive,
+  but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
+  has a stronger synchronizer/equalizer.
 - `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` - post-symbolizer RF TX boundary
   that only admits IQ samples when TX is enabled, armed, and in the allowed
   schedule slot; the copied RF-engine overlay wires its control/status pins to

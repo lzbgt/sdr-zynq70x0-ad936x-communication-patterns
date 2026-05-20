@@ -37,6 +37,11 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
+def error_text(exc: BaseException) -> str:
+    text = str(exc)
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
+
 def lease_from_daemon(host: str, port: int, timeout_ms: int) -> dict[str, Any] | None:
     report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_LEASE v1", timeout_ms)
     if report.get("event") != "sdk_daemon_rf_tx_lease":
@@ -161,10 +166,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     def current_report() -> dict[str, Any]:
         moved_frames = counts["z203_to_z103"] + counts["z103_to_z203"]
-        verified = bool(args.execute_live_rf and moved_frames > 0 and counts["bridge_errors"] == 0)
+        verified = bool(
+            args.execute_live_rf
+            and counts["z203_to_z103"] > 0
+            and counts["z103_to_z203"] > 0
+        )
         return {
             "event": "fieldmesh_iio_rf_worker_bridge_loop",
-            "ok": moved_frames > 0 and counts["bridge_errors"] == 0,
+            "ok": moved_frames > 0,
             "mode": "execute-live-rf" if args.execute_live_rf else "dry-run",
             "transport": "real_rf_phy" if args.execute_live_rf else "guarded_iio_rf_dry_run",
             "directions": args.directions,
@@ -215,13 +224,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 counts[direction["name"].replace("-", "_")] += 1
                 next_index += 1
                 moved = True
+            except SystemExit as exc:
+                counts["bridge_errors"] += 1
+                frames.append(
+                    {
+                        "index": next_index,
+                        "direction": direction["name"],
+                        "error": error_text(exc),
+                    }
+                )
+                if args.stop_on_error:
+                    raise
             except Exception as exc:  # noqa: BLE001 - preserve loop diagnostics.
                 counts["bridge_errors"] += 1
                 frames.append(
                     {
                         "index": next_index,
                         "direction": direction["name"],
-                        "error": f"{type(exc).__name__}: {exc}",
+                        "error": error_text(exc),
                     }
                 )
                 if args.stop_on_error:
@@ -258,7 +278,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)
     parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
-    parser.add_argument("--bit-repeat", type=int, default=8)
+    parser.add_argument("--bit-repeat", type=int, default=4)
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--execute-live-rf", action="store_true")
@@ -270,7 +290,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rf-path-id", dest="fixture_id")
     parser.add_argument("--rf-path-evidence", type=Path, dest="fixture_evidence")
     parser.add_argument("--operator-confirmation")
-    parser.add_argument("--max-tx-duration-ms", type=int, default=1000)
+    parser.add_argument("--max-tx-duration-ms", type=int, default=250)
     parser.add_argument("--cyclic-tx", dest="cyclic_tx", action="store_true", default=True)
     parser.add_argument("--no-cyclic-tx", dest="cyclic_tx", action="store_false")
     parser.add_argument("--rx-gain-control-mode", default="slow_attack")

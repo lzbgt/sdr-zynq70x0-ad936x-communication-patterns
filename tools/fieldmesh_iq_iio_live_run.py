@@ -216,7 +216,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     tx_uri = args.tx_uri or f"ip:<{plan['tx_board']}-management-ip>"
     rx_uri = args.rx_uri or f"ip:<{plan['rx_board']}-management-ip>"
     timeout_s = max(1, math.ceil(args.timeout_ms / 1000))
-    tx_timeout_s = max(1, math.ceil(args.max_tx_duration_ms / 1000))
+    tx_timeout_s = max(0.05, args.max_tx_duration_ms / 1000.0)
     samples = int(iq["iq_samples"])
     rx_margin_samples = math.ceil(
         int(fixture["sample_rate_hz"]) * (args.rx_arm_delay_ms + args.rx_capture_margin_ms) / 1000.0
@@ -278,7 +278,7 @@ def command_script(plan: dict[str, Any], args: argparse.Namespace, capture_path:
 
     tx_write_argv = [
         "timeout",
-        str(tx_timeout_s),
+        f"{tx_timeout_s:.3f}".rstrip("0").rstrip("."),
         "iio_writedev",
         "-u",
         tx_uri,

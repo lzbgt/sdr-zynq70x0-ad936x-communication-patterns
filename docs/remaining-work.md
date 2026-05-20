@@ -70,10 +70,16 @@ software modem/bridge layer: DDS and cyclic IQ buffer TX both move remote RSSI,
 Z203 local RX decodes the cyclic packet, Z103 over-air RX decodes the new
 noncoherent BFSK burst with zero sync errors, and the guarded IIO bridge has
 now moved BLR native-IP frames over the air in both directions with successful
-peer ingest and source ACK. The remaining native-IP blocker is therefore not
-antenna installation or basic RF decode; it is completing TCP/iperf over the
-current slow stop-and-wait RF-worker/IIO bridge, then replacing that bring-up
-bridge with the production data-plane implementation. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
+peer ingest and source ACK. A live BFSK sweep lowered the bidirectional bridge
+default from `samples_per_symbol=64` / `bit_repeat=8` to
+`samples_per_symbol=64` / `bit_repeat=4` and cut the cyclic TX window to
+250 ms, preserving decode margin while avoiding a one-second RF transmit
+timeout per leased frame. Normal TCP and UDP socket echo traffic now passes
+over the real over-air IIO bridge. The remaining native-IP blocker is therefore
+not antenna installation, basic RF decode, or ordinary socket transport; it is
+completing `iperf3` over the current slow stop-and-wait RF-worker/IIO bridge,
+then replacing that bring-up bridge with the production streaming data-plane
+implementation. `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
 legal frequency profile, RX-first validation, and measured link evidence are

@@ -17,6 +17,21 @@ bridge_duration_s="${BRIDGE_DURATION_S:-75}"
 socket_timeout_ms="${SOCKET_TIMEOUT_MS:-30000}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-sockets-$(date +%Y%m%d-%H%M%S)}"
 demo_bin="${SOCKET_DEMO_BIN:-$repo_root/.config/fieldmesh-native-ip-socket-demo.arm}"
+allow_iio_rf_bridge="${ALLOW_IIO_RF_BRIDGE:-0}"
+rf_binding_plan="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
+rf_path_id="${RF_PATH_ID:-}"
+rf_path_evidence="${RF_PATH_EVIDENCE:-}"
+operator_confirmation="${OPERATOR_CONFIRMATION:-}"
+center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
+rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
+rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-64}"
+rf_bit_repeat="${RF_BIT_REPEAT:-4}"
+max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    swarm_mtu="${SWARM_MTU:-296}"
+else
+    swarm_mtu="${SWARM_MTU:-1200}"
+fi
 
 mkdir -p "$out_dir"
 
@@ -31,6 +46,22 @@ fi
 if ! [[ "$udp_port" =~ ^[0-9]+$ ]] || [ "$udp_port" -lt 1 ] || [ "$udp_port" -gt 65535 ]; then
     echo "UDP_PORT must be 1..65535" >&2
     exit 1
+fi
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    if [ ! -f "$rf_binding_plan" ]; then
+        echo "RF_BINDING_PLAN does not exist: $rf_binding_plan" >&2
+        exit 1
+    fi
+    if [ -z "$rf_path_id" ] || [ -z "$rf_path_evidence" ] || [ -z "$operator_confirmation" ]; then
+        echo "ALLOW_IIO_RF_BRIDGE=1 requires RF_PATH_ID, RF_PATH_EVIDENCE, and OPERATOR_CONFIRMATION" >&2
+        exit 1
+    fi
+    for item in "$center_frequency_hz" "$rf_bandwidth_hz" "$rf_samples_per_symbol" "$rf_bit_repeat" "$max_tx_duration_ms"; do
+        if ! [[ "$item" =~ ^[0-9]+$ ]] || [ "$item" -lt 1 ]; then
+            echo "RF bridge numeric settings must be positive integers" >&2
+            exit 1
+        fi
+    done
 fi
 
 ssh_args=(
@@ -124,7 +155,7 @@ setup_board() {
           [ -c /dev/net/tun ] || mknod /dev/net/tun c 10 200; \
           ip tuntap add dev swarm0 mode tun; \
           ip addr add '$ip_addr'/16 dev swarm0; \
-          ip link set dev swarm0 mtu 1200 up; \
+          ip link set dev swarm0 mtu '$swarm_mtu' up; \
           ip route replace '$peer_subnet' dev swarm0; \
           ip -json addr show dev swarm0; \
           ip route show '$peer_subnet'; \
@@ -197,8 +228,38 @@ request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_START v1 \
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_START v1 \
     >>"$out_dir/socket_gate.ndjson"
 
-python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$bridge_duration_s" \
-    >>"$out_dir/socket_gate.ndjson" <<'PY' &
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
+        --rf-binding-plan "$rf_binding_plan" \
+        --out-dir "$out_dir/iio_rf_worker_bridge_loop" \
+        --directions both \
+        --duration-s "$bridge_duration_s" \
+        --max-frames 128 \
+        --z203-host "$z203_ip" \
+        --z103-host "$z103_ip" \
+        --z203-port "$z203_port" \
+        --z103-port "$z103_port" \
+        --z203-uri "ip:$z203_ip" \
+        --z103-uri "ip:$z103_ip" \
+        --center-frequency-hz "$center_frequency_hz" \
+        --rf-bandwidth-hz "$rf_bandwidth_hz" \
+        --samples-per-symbol "$rf_samples_per_symbol" \
+        --bit-repeat "$rf_bit_repeat" \
+        --timeout-ms "$timeout_ms" \
+        --execute-live-rf \
+        --allow-hardware-writes \
+        --allow-rf-tx \
+        --allow-daemon-queue-mutation \
+        --rf-path-id "$rf_path_id" \
+        --rf-path-evidence "$rf_path_evidence" \
+        --operator-confirmation "$operator_confirmation" \
+        --max-tx-duration-ms "$max_tx_duration_ms" \
+        >"$out_dir/iio_rf_worker_bridge_loop_stdout.json" \
+        2>"$out_dir/iio_rf_worker_bridge_loop.err" &
+    bridge_pid=$!
+else
+    python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" "$timeout_ms" "$bridge_duration_s" \
+        >>"$out_dir/socket_gate.ndjson" <<'PY' &
 import json
 import socket
 import sys
@@ -287,7 +348,8 @@ print(json.dumps({
     "next_boundary": "rf_phy_tx_rx",
 }, sort_keys=True))
 PY
-bridge_pid=$!
+    bridge_pid=$!
+fi
 sleep 1
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
@@ -307,6 +369,15 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z203_remote" \
     >"$out_dir/z203_udp_client.ndjson" 2>&1
 
 wait "$bridge_pid"
+if [ "$allow_iio_rf_bridge" = "1" ] && [ -s "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" ]; then
+    python3 - "$out_dir/iio_rf_worker_bridge_loop/fieldmesh_iio_rf_worker_bridge_loop.json" <<'PY' >>"$out_dir/socket_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+print(json.dumps(json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")), sort_keys=True))
+PY
+fi
 
 request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/socket_gate.ndjson"
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/socket_gate.ndjson"
@@ -347,8 +418,19 @@ for line in (out_dir / "socket_gate.ndjson").read_text(encoding="utf-8").splitli
     line = line.strip()
     if line.startswith("{"):
         rows.append(json.loads(line))
-bridge = [row for row in rows if row.get("event") == "fieldmesh_two_board_native_ip_socket_bridge"]
-if not bridge or bridge[-1].get("z203_to_z103_frames", 0) < 2 or bridge[-1].get("z103_to_z203_frames", 0) < 2:
+bridge = [
+    row for row in rows
+    if row.get("event") in {
+        "fieldmesh_two_board_native_ip_socket_bridge",
+        "fieldmesh_iio_rf_worker_bridge_loop",
+    }
+]
+if not bridge:
+    raise SystemExit("missing native-IP socket bridge report")
+last_bridge = bridge[-1]
+z203_to_z103 = last_bridge.get("z203_to_z103_frames", last_bridge.get("z203_to_z103", 0))
+z103_to_z203 = last_bridge.get("z103_to_z203_frames", last_bridge.get("z103_to_z203", 0))
+if z203_to_z103 < 2 or z103_to_z203 < 2:
     raise SystemExit(f"socket bridge did not move bidirectional frames: {bridge}")
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 if len(statuses) < 2:
@@ -362,11 +444,12 @@ report = {
     "tcp_server_bytes": tcp_server.get("bytes_received"),
     "udp_client_bytes": udp_client.get("bytes_received"),
     "udp_server_bytes": udp_server.get("bytes_received"),
-    "z203_to_z103_frames": bridge[-1].get("z203_to_z103_frames"),
-    "z103_to_z203_frames": bridge[-1].get("z103_to_z203_frames"),
+    "z203_to_z103_frames": z203_to_z103,
+    "z103_to_z203_frames": z103_to_z203,
     "uses_normal_tcp_udp_sockets": 1,
-    "rf_phy_tx_rx": 0,
-    "next_boundary": "rf_phy_tx_rx",
+    "transport": last_bridge.get("transport", "daemon_rf_driver_queue_bridge"),
+    "rf_phy_tx_rx": 1 if last_bridge.get("rf_phy_tx_rx_verified") is True else 0,
+    "next_boundary": "" if last_bridge.get("rf_phy_tx_rx_verified") is True else "rf_phy_tx_rx",
 }
 print(json.dumps(report, sort_keys=True))
 (out_dir / "two_board_native_ip_socket_assert.json").write_text(

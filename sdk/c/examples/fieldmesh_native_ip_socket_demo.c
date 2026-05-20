@@ -254,8 +254,12 @@ static int udp_server(const char *bind_ip, int port, unsigned timeout_ms)
     unsigned char payload[SOCKET_DEMO_MAX_PAYLOAD];
     ssize_t got;
     ssize_t sent;
+    ssize_t total_got = 0;
+    ssize_t total_sent = 0;
     char peer_text[INET_ADDRSTRLEN];
     int err;
+    unsigned idle_timeout_ms;
+    int replied = 0;
 
     err = make_addr(bind_ip, port, &addr);
     if (err != 0) {
@@ -275,28 +279,47 @@ static int udp_server(const char *bind_ip, int port, unsigned timeout_ms)
         print_report("udp-server", 0, bind_ip, NULL, port, 0, 0, err);
         return 1;
     }
-    err = wait_fd(fd, 0, timeout_ms);
-    if (err != 0) {
-        close(fd);
-        print_report("udp-server", 0, bind_ip, NULL, port, 0, 0, err);
-        return 1;
+    idle_timeout_ms = timeout_ms < 3000u ? timeout_ms : 3000u;
+    peer_text[0] = '\0';
+    for (;;) {
+        err = wait_fd(fd, 0, replied ? idle_timeout_ms : timeout_ms);
+        if (err != 0) {
+            if (replied) {
+                err = 0;
+                break;
+            }
+            close(fd);
+            print_report("udp-server", 0, bind_ip, NULL, port, 0, 0, err);
+            return 1;
+        }
+        peer_len = sizeof(peer);
+        got = recvfrom(fd, payload, sizeof(payload), 0,
+                       (struct sockaddr *)&peer, &peer_len);
+        if (got <= 0) {
+            err = got == 0 ? EPROTO : errno;
+            close(fd);
+            print_report("udp-server", 0, bind_ip, NULL, port, total_sent,
+                         total_got, err);
+            return 1;
+        }
+        sent = sendto(fd, payload, (size_t)got, 0,
+                      (const struct sockaddr *)&peer, peer_len);
+        if (sent != got) {
+            err = errno;
+            close(fd);
+            print_report("udp-server", 0, bind_ip, NULL, port, total_sent,
+                         total_got, err);
+            return 1;
+        }
+        replied = 1;
+        total_got += got;
+        total_sent += sent;
+        inet_ntop(AF_INET, &peer.sin_addr, peer_text, sizeof(peer_text));
     }
-    got = recvfrom(fd, payload, sizeof(payload), 0,
-                   (struct sockaddr *)&peer, &peer_len);
-    if (got <= 0) {
-        err = got == 0 ? EPROTO : errno;
-        close(fd);
-        print_report("udp-server", 0, bind_ip, NULL, port, 0, got, err);
-        return 1;
-    }
-    sent = sendto(fd, payload, (size_t)got, 0,
-                  (const struct sockaddr *)&peer, peer_len);
-    err = sent == got ? 0 : errno;
-    inet_ntop(AF_INET, &peer.sin_addr, peer_text, sizeof(peer_text));
     close(fd);
-    print_report("udp-server", sent == got, bind_ip, peer_text, port, sent, got,
-                 err);
-    return sent == got ? 0 : 1;
+    print_report("udp-server", 1, bind_ip, peer_text, port, total_sent,
+                 total_got, err);
+    return 0;
 }
 
 static int udp_client(const char *peer_ip, int port, const char *message,
