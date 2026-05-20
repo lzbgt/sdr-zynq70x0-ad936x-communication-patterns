@@ -235,9 +235,14 @@ receiver power/health, board pin direction, or the EMIO input path rather than
 Linux PPS device registration. `tools/fieldmesh_gnss_timepulse_plan.py` now
 builds and verifies the exact RAM-only UBX-CFG-VALGET/VALSET frame set for a
 u-blox M10/MAX-M10S 1PPS TIMEPULSE configuration. The next live action is to
-poll each receiver's current `CFG-TP-*` state, archive it, and only then apply
-the RAM-only TP1 enable under explicit operator approval. Z103 emits NMEA at
-`38400` baud and can report
+poll each receiver's current `CFG-TP-*` state with
+`tools/run_fieldmesh_two_board_gnss_timepulse_poll.sh`, archive it, and only
+then apply the RAM-only TP1 enable under explicit operator approval. The live
+poll now succeeds and explains the low PPS line: both receivers have
+`CFG-TP-LEN_TP1=0`, `CFG-TP-USE_LOCKED_TP1=true`, and
+`CFG-TP-LEN_LOCK_TP1=100000`, so PPS output is only expected after GNSS time
+lock unless an operator explicitly applies a RAM-only unlocked pulse
+configuration. Z103 emits NMEA at `38400` baud and can report
 visible satellites, but still has no position fix (`GGA` quality `0`, `RMC`
 status `V`, `GSA` fix type `1`). An indoor bench location and the
 receiver-side `V_IO ovrvlt` NMEA text are plausible current blockers to inspect

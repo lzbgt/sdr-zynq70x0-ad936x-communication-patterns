@@ -280,6 +280,48 @@ def parse_frame(frame: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def analyze_timepulse_items(items: list[dict[str, Any]]) -> dict[str, Any]:
+    values = {
+        str(item.get("name")): item.get("value")
+        for item in items
+        if isinstance(item, dict)
+    }
+    blockers: list[str] = []
+    tp1_enabled = values.get("CFG-TP-TP1_ENA") is True
+    unlocked_len_us = values.get("CFG-TP-LEN_TP1")
+    locked_len_us = values.get("CFG-TP-LEN_LOCK_TP1")
+    use_locked = values.get("CFG-TP-USE_LOCKED_TP1") is True
+    if not tp1_enabled:
+        blockers.append("gnss_timepulse_tp1_disabled")
+    if unlocked_len_us == 0 and use_locked:
+        blockers.append("gnss_timepulse_unlocked_pulse_length_zero")
+    return {
+        "tp1_enabled": tp1_enabled,
+        "period_us": values.get("CFG-TP-PERIOD_TP1"),
+        "period_lock_us": values.get("CFG-TP-PERIOD_LOCK_TP1"),
+        "length_us": unlocked_len_us,
+        "length_lock_us": locked_len_us,
+        "use_locked_parameters_when_valid": use_locked,
+        "sync_to_gnss_when_valid": values.get("CFG-TP-SYNC_GNSS_TP1") is True,
+        "align_to_tow": values.get("CFG-TP-ALIGN_TO_TOW_TP1") is True,
+        "rising_edge": values.get("CFG-TP-POL_TP1") is True,
+        "timegrid": values.get("CFG-TP-TIMEGRID_TP1"),
+        "pps_possible_without_gnss_lock": (
+            tp1_enabled
+            and isinstance(unlocked_len_us, int)
+            and isinstance(values.get("CFG-TP-PERIOD_TP1"), int)
+            and 0 < unlocked_len_us < values["CFG-TP-PERIOD_TP1"]
+        ),
+        "pps_possible_with_gnss_lock": (
+            tp1_enabled
+            and isinstance(locked_len_us, int)
+            and isinstance(values.get("CFG-TP-PERIOD_LOCK_TP1"), int)
+            and 0 < locked_len_us < values["CFG-TP-PERIOD_LOCK_TP1"]
+        ),
+        "blockers": blockers,
+    }
+
+
 def json_setting(key: ConfigKey, value: int | bool) -> dict[str, Any]:
     return {
         "name": key.name,
@@ -363,6 +405,7 @@ def parse_capture(args: argparse.Namespace) -> dict[str, Any]:
         "frame_count": len(frames),
         "tp_item_count": len(tp_items),
         "tp_items": tp_items,
+        "timepulse_analysis": analyze_timepulse_items(tp_items),
         "frames": frames,
     }
 

@@ -3274,6 +3274,22 @@ a synthetic UBX-CFG-VALGET response back into named configuration items. This
 does not write a live receiver; it proves the binary command artifact needed
 for the next authorized PPS diagnostic.
 
+The live poll-only TIMEPULSE path is checked with:
+
+```sh
+./tools/verify_fieldmesh_gnss_timepulse_poll.sh
+```
+
+Result: the runner is constrained to the planner-generated UBX-CFG-VALGET
+frame, does not include a VALSET/config-write path, marks
+`writes_hardware_config=false`, and preserves the init-launched GNSS reporter
+by restarting it after serial capture. Live use captures current receiver
+`CFG-TP-*` state before any operator-approved configuration write is attempted.
+The current Z203/Z103 poll succeeds on both receivers and reports
+`CFG-TP-LEN_TP1=0` with `CFG-TP-USE_LOCKED_TP1=true` and
+`CFG-TP-LEN_LOCK_TP1=100000`, so no unlocked PPS pulse is expected while the
+receivers have no GNSS time lock.
+
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as

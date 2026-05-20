@@ -1255,8 +1255,15 @@ user and vendor configuration.
   PPS-timing ready. `tools/fieldmesh_gnss_timepulse_plan.py` now builds and
   verifies the UBX TIMEPULSE poll/config frames for a RAM-only u-blox
   M10/MAX-M10S 1PPS TP1 setup, giving the next receiver-side diagnostic an
-  auditable binary command artifact before any live write is authorized. Z103
-  still lacks a GNSS position fix and reports receiver-health warnings.
+  auditable binary command artifact before any live write is authorized.
+  `tools/run_fieldmesh_two_board_gnss_timepulse_poll.sh` is the poll-only live
+  runner for archiving current receiver `CFG-TP-*` state; it sends no
+  UBX-CFG-VALSET and reports `writes_hardware_config=false`. The current live
+  poll succeeds on both boards and shows `CFG-TP-LEN_TP1=0`,
+  `CFG-TP-USE_LOCKED_TP1=true`, and `CFG-TP-LEN_LOCK_TP1=100000`; therefore
+  the low PPS GPIO is expected until GNSS time lock, unless an operator applies
+  the RAM-only unlocked-pulse diagnostic config. Z103 still lacks a GNSS
+  position fix and reports receiver-health warnings.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
   non-console UART across supported NMEA baud rates, validates NMEA checksums,

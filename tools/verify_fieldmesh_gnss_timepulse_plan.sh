@@ -95,6 +95,65 @@ if items.get("CFG-TP-TIMEGRID_TP1") != 1:
 frame = parsed["frames"][0]
 if frame.get("checksum_valid") is not True:
     raise SystemExit(f"valid synthetic frame was not accepted: {frame!r}")
+analysis = parsed.get("timepulse_analysis", {})
+if analysis.get("pps_possible_without_gnss_lock") is not True:
+    raise SystemExit(f"synthetic unlocked PPS should be possible: {analysis!r}")
+if analysis.get("blockers"):
+    raise SystemExit(f"synthetic TIMEPULSE should have no readiness blockers: {analysis!r}")
+PY
+
+python3 - "$repo_root" "$out_dir/capture-unlocked-zero.bin" <<'PY'
+import struct
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+sys.path.insert(0, str(repo_root / "tools"))
+from fieldmesh_gnss_timepulse_plan import TP_KEYS, ubx_frame  # noqa: E402
+
+values = {
+    "CFG-TP-PULSE_DEF": 0,
+    "CFG-TP-PULSE_LENGTH_DEF": 1,
+    "CFG-TP-PERIOD_TP1": 1_000_000,
+    "CFG-TP-PERIOD_LOCK_TP1": 1_000_000,
+    "CFG-TP-LEN_TP1": 0,
+    "CFG-TP-LEN_LOCK_TP1": 100_000,
+    "CFG-TP-TP1_ENA": True,
+    "CFG-TP-SYNC_GNSS_TP1": True,
+    "CFG-TP-USE_LOCKED_TP1": True,
+    "CFG-TP-ALIGN_TO_TOW_TP1": True,
+    "CFG-TP-POL_TP1": True,
+    "CFG-TP-TIMEGRID_TP1": 0,
+}
+payload = struct.pack("<BBH", 1, 0, 0)
+for name, value in values.items():
+    key = TP_KEYS[name]
+    payload += struct.pack("<I", key.key_id)
+    if isinstance(value, bool):
+        payload += bytes((1 if value else 0,))
+    elif key.value_type == "U4":
+        payload += struct.pack("<I", value)
+    else:
+        payload += bytes((value,))
+Path(sys.argv[2]).write_bytes(ubx_frame(0x06, 0x8B, payload))
+PY
+
+"$repo_root/tools/fieldmesh_gnss_timepulse_plan.py" parse \
+  --capture "$out_dir/capture-unlocked-zero.bin" > "$out_dir/parsed-unlocked-zero.json"
+
+python3 - "$out_dir/parsed-unlocked-zero.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+parsed = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+analysis = parsed.get("timepulse_analysis", {})
+if analysis.get("pps_possible_without_gnss_lock") is not False:
+    raise SystemExit(f"zero unlocked length should block no-lock PPS: {analysis!r}")
+if analysis.get("pps_possible_with_gnss_lock") is not True:
+    raise SystemExit(f"locked PPS should remain possible: {analysis!r}")
+if "gnss_timepulse_unlocked_pulse_length_zero" not in analysis.get("blockers", []):
+    raise SystemExit(f"zero unlocked length blocker was not surfaced: {analysis!r}")
 PY
 
 if "$repo_root/tools/fieldmesh_gnss_timepulse_plan.py" plan \

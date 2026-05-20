@@ -226,6 +226,22 @@ change. Live receiver writes are intentionally outside this planner and still
 need a separate operator-approved runner; persistent BBR/flash layers are
 flagged in the emitted safety block.
 
+`tools/run_fieldmesh_two_board_gnss_timepulse_poll.sh` is the live poll-only
+companion. It SSHes into both boards, pauses the init-launched GNSS reporter so
+it cannot consume the UBX reply, sends only the audited UBX-CFG-VALGET frame,
+captures mixed UART output, parses UBX-CFG-VALGET locally, and restarts the
+reporter with the board's configured device, baud, PPS-lock flag, and EUI. The
+summary sets `writes_hardware_config=false`; it is evidence about current
+receiver state, not a live configuration change.
+
+The current Z203/Z103 live TIMEPULSE poll returns the same relevant state on
+both receivers: `CFG-TP-TP1_ENA=true`, `CFG-TP-PERIOD_TP1=1000000`,
+`CFG-TP-LEN_TP1=0`, `CFG-TP-USE_LOCKED_TP1=true`, and
+`CFG-TP-LEN_LOCK_TP1=100000`. That means PPS is configured to be present only
+after the receiver has a GNSS time lock. While the indoor/no-fix state
+continues, the PPS GPIO being IRQ-backed but low is expected and is classified
+as `gnss_timepulse_unlocked_pulse_length_zero`.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon
