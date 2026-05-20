@@ -3311,6 +3311,20 @@ The live path requires UBX-CFG-VALSET ACK evidence and reports
 `writes_hardware_config=true` only when the guarded receiver RAM write is
 actually attempted.
 
+The PPS diagnostic sequence wrapper is checked with:
+
+```sh
+./tools/verify_fieldmesh_gnss_pps_diagnostic_sequence.sh
+```
+
+Result: the sequence is dry-run by default, captures the pre-apply TIMEPULSE
+poll, invokes the guarded apply runner without writing receiver config, and
+skips post-apply PPS validation unless a live authorized RAM-only apply
+actually succeeded. The live simulation path requires the same
+`I_HAVE_AUTHORIZED_GNSS_TIMEPULSE_RAM_CONFIG` authorization contract and then
+checks that post-apply poll and PPS preflight evidence are preserved in the
+sequence summary.
+
 The init-launched GNSS reporter also emits throttled
 `fieldmesh_gnss_nmea_status` rows for real NMEA sentences that do not yet
 contain a fix. The preflight surfaces those blocker details, such as

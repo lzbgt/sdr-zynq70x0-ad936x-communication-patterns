@@ -249,6 +249,11 @@ instead of stopping at Linux GPIO/PPS symptoms.
 guarded RAM-only apply path for this diagnostic; do not use it as silent
 startup policy. Live use requires explicit receiver-config authorization and
 ACK evidence from both receivers, and a reboot clears the RAM-layer change.
+`tools/run_fieldmesh_gnss_pps_diagnostic_sequence.sh` wraps the safe diagnostic
+order: poll current TIMEPULSE state, run the guarded apply path, then re-poll
+and require PPS activity only after an authorized live RAM-only apply succeeds.
+It is dry-run by default and must not replace the normal production path of
+getting GNSS lock or fixing receiver-health issues.
 Z103 emits NMEA at `38400` baud and can report
 visible satellites, but still has no position fix (`GGA` quality `0`, `RMC`
 status `V`, `GSA` fix type `1`). An indoor bench location and the

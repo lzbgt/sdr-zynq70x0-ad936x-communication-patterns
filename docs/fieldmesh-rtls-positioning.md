@@ -251,6 +251,15 @@ requires UBX-CFG-VALSET ACK evidence from each receiver and restarts the
 init-launched reporter. The command intentionally writes RAM only, so a reboot
 returns the receiver to persistent configuration.
 
+`tools/run_fieldmesh_gnss_pps_diagnostic_sequence.sh` is the auditable
+operator sequence around that boundary. In default dry-run mode it archives the
+current TIMEPULSE poll, runs the guarded apply runner in dry-run mode, and
+skips the post-apply PPS preflight because no receiver state was changed. With
+the same explicit live authorization as the apply runner, it performs the
+RAM-only write, polls TIMEPULSE again, then requires deployed PPS activity via
+the live GNSS preflight. This keeps the unlocked-pulse diagnostic a deliberate
+service action instead of silent startup policy.
+
 `tools/run_fieldmesh_two_board_gnss_topology_app.sh` proves the installed
 daemon/app side of this boundary. It seeds normal live peer discovery, injects
 fresh GNSS/BDS RTLS reports for both Z203 and Z103 into the installed daemon

@@ -1267,7 +1267,12 @@ user and vendor configuration.
   `tools/run_fieldmesh_two_board_gnss_timepulse_apply.sh` is the guarded
   RAM-only apply path for that diagnostic and requires explicit
   `I_HAVE_AUTHORIZED_GNSS_TIMEPULSE_RAM_CONFIG` confirmation plus ACK evidence
-  before it can write receiver config. Z103 still lacks a GNSS position fix and
+  before it can write receiver config.
+  `tools/run_fieldmesh_gnss_pps_diagnostic_sequence.sh` now wraps the
+  operator-safe order around that boundary: pre-apply TIMEPULSE poll, guarded
+  RAM-only apply, post-apply poll, and post-apply PPS preflight. It is dry-run
+  by default and only performs the receiver RAM write under the same explicit
+  authorization as the apply runner. Z103 still lacks a GNSS position fix and
   reports receiver-health warnings.
 - `tools/run_fieldmesh_z203_gnss_uart_live_probe.sh` - live Z203 GNSS UART
   diagnostic. It temporarily pauses the init-launched reporter, probes the
