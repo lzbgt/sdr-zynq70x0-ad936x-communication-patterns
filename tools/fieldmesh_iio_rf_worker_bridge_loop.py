@@ -629,7 +629,7 @@ def run_batch(
                 direction["sink_host"],
                 direction["sink_port"],
                 "FIELDMESH_RF_RX_INGEST v1 " + recovered.hex(),
-                args.daemon_timeout_ms,
+                args.ingest_timeout_ms,
                 attempts=args.daemon_request_attempts,
                 expected_event="sdk_daemon_rf_rx_ingest",
             )
@@ -641,7 +641,7 @@ def run_batch(
             source_ack = ack_batch_to_daemon_reliable(
                 direction["source_host"],
                 direction["source_port"],
-                args.daemon_timeout_ms,
+                args.ack_timeout_ms,
                 batch_frames,
                 attempts=args.daemon_request_attempts,
             )
@@ -739,6 +739,10 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--poll-interval-ms must be >= 1")
     if args.daemon_request_attempts < 1:
         raise SystemExit("--daemon-request-attempts must be >= 1")
+    if args.ingest_timeout_ms < 1:
+        raise SystemExit("--ingest-timeout-ms must be >= 1")
+    if args.ack_timeout_ms < 1:
+        raise SystemExit("--ack-timeout-ms must be >= 1")
     for label, value in (
         ("--z203-to-z103-burst-batches", args.z203_to_z103_burst_batches),
         ("--z103-to-z203-burst-batches", args.z103_to_z203_burst_batches),
@@ -857,6 +861,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "z103_to_z203_retry_bit_repeat": direction_retry_bit_repeat(args, "z103-to-z203"),
             },
             "lease_timeout_ms": args.lease_timeout_ms,
+            "ingest_timeout_ms": args.ingest_timeout_ms,
+            "ack_timeout_ms": args.ack_timeout_ms,
             "ip_port_filter": sorted(args.ip_port_filter),
             "daemon_request_attempts": args.daemon_request_attempts,
             "destructive_poll_batch": bool(args.destructive_poll_batch),
@@ -1037,7 +1043,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         source_ack = ack_batch_to_daemon_reliable(
                             direction["source_host"],
                             direction["source_port"],
-                            args.daemon_timeout_ms,
+                            args.ack_timeout_ms,
                             filtered_frames,
                             attempts=args.daemon_request_attempts,
                         )
@@ -1132,7 +1138,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             source_ack = ack_batch_to_daemon_reliable(
                                 direction["source_host"],
                                 direction["source_port"],
-                                args.daemon_timeout_ms,
+                                args.ack_timeout_ms,
                                 [leased_frame],
                                 attempts=args.daemon_request_attempts,
                             )
@@ -1256,6 +1262,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--buffer-size", type=int)
     parser.add_argument("--timeout-ms", type=int, default=5000)
     parser.add_argument("--daemon-timeout-ms", type=int)
+    parser.add_argument("--ingest-timeout-ms", type=int)
+    parser.add_argument("--ack-timeout-ms", type=int)
     parser.add_argument("--lease-timeout-ms", type=int, default=250)
     parser.add_argument("--daemon-request-attempts", type=int, default=2)
     parser.add_argument("--ip-port-filter", type=int, action="append", default=[])
@@ -1287,6 +1295,10 @@ def main() -> int:
     args = parse_args()
     if args.daemon_timeout_ms is None:
         args.daemon_timeout_ms = args.timeout_ms
+    if args.ingest_timeout_ms is None:
+        args.ingest_timeout_ms = min(args.daemon_timeout_ms, 1000)
+    if args.ack_timeout_ms is None:
+        args.ack_timeout_ms = min(args.daemon_timeout_ms, 1000)
     report = run(args)
     print(json.dumps(report, indent=2 if args.pretty else None, sort_keys=True))
     return 0 if report.get("ok") is True else 1

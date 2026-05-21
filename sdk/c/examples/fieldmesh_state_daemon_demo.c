@@ -385,16 +385,19 @@ static unsigned ipv4_tcp_priority_score(const unsigned char *packet,
     }
     tcp_payload_len = tcp_len - tcp_data_offset;
     flags = tcp[13];
-    if ((flags & 0x06u) != 0u) {
-        return 5u;
+    if ((flags & 0x04u) != 0u) {
+        return 7u;
+    }
+    if ((flags & 0x03u) != 0u) {
+        return 6u;
     }
     if (tcp_payload_len > 0u) {
-        return 4u;
+        return 5u;
     }
-    if ((flags & 0x01u) != 0u) {
-        return 2u;
+    if ((flags & 0x10u) != 0u) {
+        return 3u;
     }
-    return 0u;
+    return 1u;
 }
 
 static unsigned blr_app_data_priority_score(const unsigned char *frame,
@@ -778,7 +781,7 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                 if (score > best_score) {
                     best_score = score;
                     source_offset = i;
-                    if (score >= 5u) {
+                    if (score >= 7u) {
                         break;
                     }
                 }

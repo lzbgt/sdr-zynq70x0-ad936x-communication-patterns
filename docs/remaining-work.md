@@ -128,13 +128,16 @@ Z103 `iperf3` server received the requested TCP test bytes. `iperf3` still does
 not exit cleanly because its final result/shutdown exchange is too slow for the
 current per-batch loop. Follow-up HIL exposed a software ordering bug in
 TCP-payload-priority leasing: TCP payload could overtake SYN/RST frames. The RF
-lease priority scan now waits for the true SYN/RST top priority before breaking
-out of the scan, so ordinary payload cannot hide a later connection-control
-frame. The post-fix bridge again reaches the `iperf3` test phase and sends
-requested bytes over real RF; the latest 256-byte smoke run moved 34 frames
-with zero bridge errors, but the server remains established and the client
-times out waiting for the result/shutdown exchange. This keeps the blocker in
-the RF data-plane scheduler and streaming/MAC service layer.
+lease priority scan now prioritizes RST, SYN, FIN, payload, and ACK-only traffic
+in that order, and only short-circuits on RST, so ordinary payload cannot hide
+later connection-control frames. The live bridge also has separate hot-path
+ingest/ACK timeouts so a lost daemon UDP response costs about one second rather
+than the full setup timeout. The post-fix bridge again reaches the `iperf3`
+test phase and sends requested bytes over real RF; 256-byte smoke runs moved 34
+frames with zero bridge errors, and batch size 4 decoded reliably. The server
+still remains established and the client times out waiting for the
+result/shutdown exchange. This keeps the blocker in the RF data-plane scheduler
+and streaming/MAC service layer.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

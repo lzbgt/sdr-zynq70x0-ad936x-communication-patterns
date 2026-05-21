@@ -68,6 +68,8 @@ iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-0}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
+iio_bridge_ingest_timeout_ms="${IIO_BRIDGE_INGEST_TIMEOUT_MS:-1000}"
+iio_bridge_ack_timeout_ms="${IIO_BRIDGE_ACK_TIMEOUT_MS:-1000}"
 iio_bridge_lease_timeout_ms="${IIO_BRIDGE_LEASE_TIMEOUT_MS:-250}"
 iio_bridge_daemon_request_attempts="${IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS:-2}"
 iio_bridge_cyclic_capture_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS:-1}"
@@ -174,6 +176,14 @@ case "$iio_bridge_lease_priority" in
 esac
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
+    exit 1
+fi
+if ! [[ "$iio_bridge_ingest_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_ingest_timeout_ms" -lt 1 ]; then
+    echo "IIO_BRIDGE_INGEST_TIMEOUT_MS must be an integer >= 1" >&2
+    exit 1
+fi
+if ! [[ "$iio_bridge_ack_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_ack_timeout_ms" -lt 1 ]; then
+    echo "IIO_BRIDGE_ACK_TIMEOUT_MS must be an integer >= 1" >&2
     exit 1
 fi
 if ! [[ "$iio_bridge_lease_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_lease_timeout_ms" -lt 1 ]; then
@@ -1066,6 +1076,8 @@ start_iio_rf_bridge_loop() {
         --fixture-attenuation-db "$fixture_attenuation_db" \
         --timeout-ms "$timeout_ms" \
         --daemon-timeout-ms "$iio_bridge_daemon_timeout_ms" \
+        --ingest-timeout-ms "$iio_bridge_ingest_timeout_ms" \
+        --ack-timeout-ms "$iio_bridge_ack_timeout_ms" \
         --lease-timeout-ms "$iio_bridge_lease_timeout_ms" \
         --daemon-request-attempts "$iio_bridge_daemon_request_attempts" \
         "${port_filter_args[@]}" \

@@ -1260,12 +1260,16 @@ user and vendor configuration.
   incomplete under `iperf3`. The daemon now separates leased RF frames
   from the live TUN TX queue so the TUN reader can keep accepting TCP while RF
   batches are in flight, and the live runner can bound batch bytes, tune route
-  TCP parameters, cap TUN pump rate, disable stale-port filtering explicitly,
-  and run timed TCP tests. The RF lease priority scan now only short-circuits on
-  the highest-priority SYN/RST class, preventing ordinary TCP payload from
-  overtaking later setup/teardown control frames. Live HIL after those changes
-  moved real-RF batches with zero bridge errors on a 256-byte TCP smoke, but
-  `iperf3` still timed out waiting for the final result/shutdown exchange. Live
+  TCP parameters, cap TUN pump rate, split hot-path ingest/ACK timeouts from
+  the longer daemon setup timeout, disable stale-port filtering explicitly, and
+  run timed TCP tests. The RF lease priority scan now prioritizes RST, SYN, FIN,
+  payload, and ACK-only traffic in that order, and only short-circuits on RST,
+  preventing ordinary TCP payload from overtaking later setup/teardown control
+  frames. Live HIL after those changes moved real-RF batches with zero bridge
+  errors on 256-byte TCP smoke runs; batch size 4 also decoded reliably. The
+  `iperf3` client still timed out waiting for the final result/shutdown
+  exchange, so the remaining blocker is still a streaming/pipelined RF loop
+  rather than RF installation or basic modem decode. Live
   HIL after the earlier lease-queue changes moved up to 73
   native-IP frames over real RF with zero bridge errors; the best failure
   signature is now the `iperf3` server holding result bytes queued back toward

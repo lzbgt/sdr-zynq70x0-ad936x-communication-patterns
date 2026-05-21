@@ -62,6 +62,10 @@ if report.get("daemon_request_attempts") != 2:
     raise SystemExit(f"unexpected daemon request retry default: {report.get('daemon_request_attempts')}")
 if report.get("lease_timeout_ms") != 250:
     raise SystemExit(f"unexpected lease timeout default: {report.get('lease_timeout_ms')}")
+if report.get("ingest_timeout_ms") != 1000:
+    raise SystemExit(f"unexpected ingest timeout default: {report.get('ingest_timeout_ms')}")
+if report.get("ack_timeout_ms") != 1000:
+    raise SystemExit(f"unexpected ACK timeout default: {report.get('ack_timeout_ms')}")
 if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
 if report.get("lease_priority") != "tcp-payload":
@@ -307,6 +311,36 @@ fi
 if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_ACK_TIMEOUT_MS=0 \
+   OUT_DIR="$work_dir/iperf-bad-ack-timeout" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_ack_timeout.out" \
+   2>"$work_dir/iperf_bad_ack_timeout.err"; then
+  echo "native-IP iperf gate accepted invalid IIO bridge ACK timeout" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_ACK_TIMEOUT_MS must be an integer >= 1' \
+     "$work_dir/iperf_bad_ack_timeout.err"; then
+  echo "native-IP iperf invalid IIO bridge ACK timeout refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_INGEST_TIMEOUT_MS=0 \
+   OUT_DIR="$work_dir/iperf-bad-ingest-timeout" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_ingest_timeout.out" \
+   2>"$work_dir/iperf_bad_ingest_timeout.err"; then
+  echo "native-IP iperf gate accepted invalid IIO bridge ingest timeout" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_INGEST_TIMEOUT_MS must be an integer >= 1' \
+     "$work_dir/iperf_bad_ingest_timeout.err"; then
+  echo "native-IP iperf invalid IIO bridge ingest timeout refusal changed" >&2
   exit 1
 fi
 

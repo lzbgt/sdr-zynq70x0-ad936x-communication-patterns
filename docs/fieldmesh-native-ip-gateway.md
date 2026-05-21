@@ -247,11 +247,13 @@ Minimum production gates for native TCP/IP:
   with zero bridge errors and delivered the requested TCP test bytes to the
   Z103 `iperf3` server, but `iperf3` still times out during final
   result/shutdown exchange. Follow-up HIL fixed TCP-priority ordering so payload
-  cannot overtake SYN/RST frames; after reinstall, the bridge again reaches the
-  `iperf3` test phase and sends requested bytes over real RF. The latest
-  256-byte smoke moved 34 frames with zero bridge errors, but still leaves the
-  server established and the client waiting on result/shutdown exchange. The
-  remaining native-IP blocker is a true
+  cannot overtake RST/SYN/FIN control frames, and the bridge now uses shorter
+  hot-path ingest/ACK timeouts than the longer daemon setup timeout. After
+  reinstall, the bridge again reaches the `iperf3` test phase and sends
+  requested bytes over real RF. The latest 256-byte smoke runs moved 34 frames
+  with zero bridge errors, and batch size 4 decoded reliably, but the server
+  still stays established while the client waits on result/shutdown exchange.
+  The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;
   the RF path evidence must be production/site evidence, not a verifier
