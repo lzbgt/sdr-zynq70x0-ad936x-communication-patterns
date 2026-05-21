@@ -31,11 +31,48 @@ typedef struct fieldmesh_fw_ring_view {
     fieldmesh_fw_ring_stats_t *stats;
 } fieldmesh_fw_ring_view_t;
 
+typedef struct fieldmesh_fw_ring_linear_layout {
+    uint32_t tx_desc_offset;
+    uint32_t rx_desc_offset;
+    uint32_t ack_offset;
+    uint32_t tx_packet_offset;
+    uint32_t rx_packet_offset;
+    uint32_t stats_offset;
+    uint32_t total_bytes;
+} fieldmesh_fw_ring_linear_layout_t;
+
 static inline int fieldmesh_fw_ring_range_valid(uint32_t arena_bytes,
                                                 uint32_t offset,
                                                 uint32_t len)
 {
     return offset <= arena_bytes && len <= arena_bytes - offset;
+}
+
+static inline int fieldmesh_fw_ring_u32_mul(uint32_t a, uint32_t b, uint32_t *out)
+{
+    if (!out || (a != 0u && b > UINT32_MAX / a)) {
+        return 0;
+    }
+    *out = a * b;
+    return 1;
+}
+
+static inline int fieldmesh_fw_ring_u32_add(uint32_t a, uint32_t b, uint32_t *out)
+{
+    if (!out || b > UINT32_MAX - a) {
+        return 0;
+    }
+    *out = a + b;
+    return 1;
+}
+
+static inline int fieldmesh_fw_ring_u32_align4(uint32_t value, uint32_t *out)
+{
+    if (!out || value > UINT32_MAX - 3u) {
+        return 0;
+    }
+    *out = (value + 3u) & ~3u;
+    return 1;
 }
 
 static inline int fieldmesh_fw_ring_config_valid(const fieldmesh_fw_ring_view_t *ring)
@@ -46,6 +83,101 @@ static inline int fieldmesh_fw_ring_config_valid(const fieldmesh_fw_ring_view_t 
            ring->packet_stride <= 65535u &&
            ring->slots <= UINT32_MAX / ring->packet_stride &&
            ring->packet_arena_bytes >= ring->slots * ring->packet_stride;
+}
+
+static inline int fieldmesh_fw_ring_linear_layout_init(
+    fieldmesh_fw_ring_linear_layout_t *layout,
+    uint32_t slots,
+    uint32_t packet_arena_bytes,
+    uint32_t packet_stride)
+{
+    if (!layout || slots == 0u || packet_stride == 0u || packet_stride > 65535u ||
+        slots > UINT32_MAX / packet_stride ||
+        packet_arena_bytes < slots * packet_stride) {
+        return 0;
+    }
+
+    uint32_t cursor = 0u;
+    uint32_t len = 0u;
+    if (!fieldmesh_fw_ring_u32_align4(cursor, &cursor)) {
+        return 0;
+    }
+    layout->tx_desc_offset = cursor;
+    if (!fieldmesh_fw_ring_u32_mul(slots, (uint32_t)sizeof(fieldmesh_fw_tx_desc_v1_t), &len) ||
+        !fieldmesh_fw_ring_u32_add(cursor, len, &cursor)) {
+        return 0;
+    }
+    if (!fieldmesh_fw_ring_u32_align4(cursor, &cursor)) {
+        return 0;
+    }
+    layout->rx_desc_offset = cursor;
+    if (!fieldmesh_fw_ring_u32_mul(slots, (uint32_t)sizeof(fieldmesh_fw_rx_desc_v1_t), &len) ||
+        !fieldmesh_fw_ring_u32_add(cursor, len, &cursor)) {
+        return 0;
+    }
+    if (!fieldmesh_fw_ring_u32_align4(cursor, &cursor)) {
+        return 0;
+    }
+    layout->ack_offset = cursor;
+    if (!fieldmesh_fw_ring_u32_mul(slots, (uint32_t)sizeof(fieldmesh_fw_ack_v1_t), &len) ||
+        !fieldmesh_fw_ring_u32_add(cursor, len, &cursor)) {
+        return 0;
+    }
+    if (!fieldmesh_fw_ring_u32_align4(cursor, &cursor)) {
+        return 0;
+    }
+    layout->tx_packet_offset = cursor;
+    if (!fieldmesh_fw_ring_u32_add(cursor, packet_arena_bytes, &cursor)) {
+        return 0;
+    }
+    if (!fieldmesh_fw_ring_u32_align4(cursor, &cursor)) {
+        return 0;
+    }
+    layout->rx_packet_offset = cursor;
+    if (!fieldmesh_fw_ring_u32_add(cursor, packet_arena_bytes, &cursor)) {
+        return 0;
+    }
+    if (!fieldmesh_fw_ring_u32_align4(cursor, &cursor)) {
+        return 0;
+    }
+    layout->stats_offset = cursor;
+    if (!fieldmesh_fw_ring_u32_add(cursor, (uint32_t)sizeof(fieldmesh_fw_ring_stats_t),
+                                   &layout->total_bytes)) {
+        return 0;
+    }
+    return 1;
+}
+
+static inline int fieldmesh_fw_ring_bind_linear(
+    fieldmesh_fw_ring_view_t *ring,
+    void *base,
+    uint32_t bytes,
+    uint32_t slots,
+    uint32_t packet_arena_bytes,
+    uint32_t packet_stride,
+    fieldmesh_fw_ring_linear_layout_t *layout_out)
+{
+    fieldmesh_fw_ring_linear_layout_t layout;
+    if (!ring || !base ||
+        !fieldmesh_fw_ring_linear_layout_init(&layout, slots, packet_arena_bytes,
+                                              packet_stride) ||
+        bytes < layout.total_bytes) {
+        return 0;
+    }
+    uint8_t *mem = (uint8_t *)base;
+    ring->tx = (fieldmesh_fw_tx_desc_v1_t *)(void *)(mem + layout.tx_desc_offset);
+    ring->rx = (fieldmesh_fw_rx_desc_v1_t *)(void *)(mem + layout.rx_desc_offset);
+    ring->ack = (fieldmesh_fw_ack_v1_t *)(void *)(mem + layout.ack_offset);
+    ring->tx_packets = mem + layout.tx_packet_offset;
+    ring->rx_packets = mem + layout.rx_packet_offset;
+    ring->slots = slots;
+    ring->packet_arena_bytes = packet_arena_bytes;
+    ring->packet_stride = packet_stride;
+    ring->stats = (fieldmesh_fw_ring_stats_t *)(void *)(mem + layout.stats_offset);
+    if (layout_out) {
+        *layout_out = layout;
+    }
+    return fieldmesh_fw_ring_config_valid(ring);
 }
 
 static inline void fieldmesh_fw_ring_reset(fieldmesh_fw_ring_view_t *ring)

@@ -6,7 +6,7 @@ are kept briefly when they affect the remaining recovery decisions.
 
 ## Planned Production Refactor
 
-Status: active architecture pivot.
+Status: active first-party firmware implementation.
 
 The production firmware direction is now captured in
 `docs/fieldmesh-production-firmware-architecture.md`: the vendor source tree is
@@ -16,7 +16,7 @@ binary FieldMesh/BLR frames as the stable interface. The current IIO/Python HIL
 bridge remains useful for evidence and diagnostics, but it is not the target
 data plane.
 
-The next architecture cleanup is captured in
+The broader application/platform cleanup is captured in
 `docs/fieldmesh-production-refactor-roadmap.md`. It records the planned split
 between the golden IM app shell, portable app core, platform driver layer,
 pure-C SDK, board daemon, and RF packet path. It also captures the intended SDK
@@ -25,10 +25,14 @@ including ZMQ, and the mandatory command-CA/cloud licensing model for derived
 certificates, mutual authentication, authorization, revocation, and signed
 entitlements.
 
-Do not start this refactor until the current manual GUI validation and RF gates
-are stable enough to protect behavior. Profiles remain test/provisioning
-fixtures only; normal apps must discover devices and capabilities at runtime,
-with no hardcoded app EUI, board EUI, hostname, endpoint, or fixed AP role.
+The RF data-plane refactor has started in the production firmware ABI path:
+`fieldmesh_firmware_abi.h`, `fieldmesh_firmware_ring.h`,
+`fieldmesh_firmware_ring_probe`, and `fieldmesh_firmware_mmap_ring_probe`
+define and exercise the first-party C/binary descriptor-ring boundary. The
+remaining app/GUI refactor should still wait until the RF firmware boundary is
+stable enough to protect behavior. Profiles remain test/provisioning fixtures
+only; normal apps must discover devices and capabilities at runtime, with no
+hardcoded app EUI, board EUI, hostname, endpoint, or fixed AP role.
 
 ## Current FieldMesh Discovery/Firmware Status
 

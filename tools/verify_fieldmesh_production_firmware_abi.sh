@@ -18,12 +18,26 @@ mkdir -p "$work_dir/vectors"
   -o "$work_dir/fieldmesh-firmware-ring-probe"
 "$cc" -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
+  "$repo_root/sdk/c/examples/fieldmesh_firmware_mmap_ring_probe.c" \
+  -o "$work_dir/fieldmesh-firmware-mmap-ring-probe"
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
   -xc - \
   -o "$work_dir/fieldmesh-firmware-ring-header-smoke" <<'EOF_C'
 #include "fieldmesh_firmware_ring.h"
 int main(void) {
     fieldmesh_fw_ring_view_t view = {0};
-    return fieldmesh_fw_ring_config_valid(&view) ? 1 : 0;
+    fieldmesh_fw_ring_linear_layout_t layout = {0};
+    if (fieldmesh_fw_ring_config_valid(&view)) {
+        return 1;
+    }
+    if (!fieldmesh_fw_ring_linear_layout_init(&layout, 3u, 64u, 17u)) {
+        return 2;
+    }
+    if ((layout.rx_packet_offset & 3u) != 0u || (layout.stats_offset & 3u) != 0u) {
+        return 3;
+    }
+    return 0;
 }
 EOF_C
 
@@ -33,9 +47,14 @@ EOF_C
 "$work_dir/fieldmesh-firmware-ring-probe" >"$work_dir/ring-probe.json"
 "$work_dir/fieldmesh-firmware-ring-probe" --write-vectors "$work_dir/vectors" \
   >"$work_dir/ring-probe-vectors.json"
+"$work_dir/fieldmesh-firmware-mmap-ring-probe" >"$work_dir/mmap-ring-probe.json"
+"$work_dir/fieldmesh-firmware-mmap-ring-probe" --image "$work_dir/vectors/mmap-ring-image.bin" \
+  >"$work_dir/mmap-ring-probe-image.json"
 
 python3 - "$work_dir/probe.json" "$work_dir/probe-vectors.json" \
-  "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" "$work_dir/vectors" <<'PY'
+  "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" \
+  "$work_dir/mmap-ring-probe.json" "$work_dir/mmap-ring-probe-image.json" \
+  "$work_dir/vectors" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -44,7 +63,9 @@ probe = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 probe_vectors = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 ring_probe = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
 ring_probe_vectors = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
-vector_dir = Path(sys.argv[5])
+mmap_ring_probe = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
+mmap_ring_probe_image = json.loads(Path(sys.argv[6]).read_text(encoding="utf-8"))
+vector_dir = Path(sys.argv[7])
 
 for report in (probe, probe_vectors):
     if report.get("event") != "fieldmesh_firmware_abi_probe":
@@ -76,6 +97,24 @@ for report in (ring_probe, ring_probe_vectors):
     if report.get("vendor_runtime_dependency") is not False:
         raise SystemExit(f"firmware ring probe must be first-party: {report!r}")
 
+for report in (mmap_ring_probe, mmap_ring_probe_image):
+    if report.get("event") != "fieldmesh_firmware_mmap_ring_probe":
+        raise SystemExit(f"bad mmap ring event: {report!r}")
+    if report.get("ok") is not True:
+        raise SystemExit(f"firmware mmap ring probe failed: {report!r}")
+    if report.get("mapped_memory") is not True or report.get("linear_layout") is not True:
+        raise SystemExit(f"firmware mmap ring did not use mapped linear memory: {report!r}")
+    if report.get("control_before_bulk") is not True:
+        raise SystemExit(f"firmware mmap ring did not prioritize C0 before bulk: {report!r}")
+    if report.get("served") != 3 or report.get("acked") != 3 or report.get("drops") != 0:
+        raise SystemExit(f"firmware mmap ring counters changed: {report!r}")
+    if report.get("uses_json_on_air") is not False:
+        raise SystemExit(f"firmware mmap ring probe must not use JSON on air: {report!r}")
+    if report.get("hot_path_language") != "c":
+        raise SystemExit(f"firmware mmap ring hot path must be C: {report!r}")
+    if report.get("vendor_runtime_dependency") is not False:
+        raise SystemExit(f"firmware mmap ring probe must be first-party: {report!r}")
+
 expected = {
     "fieldmesh_fw_tx_desc_v1.bin": probe["tx_desc_bytes"],
     "fieldmesh_fw_rx_desc_v1.bin": probe["rx_desc_bytes"],
@@ -84,6 +123,7 @@ expected = {
     "ring_rx_desc_slot0.bin": probe["rx_desc_bytes"],
     "ring_ack_slot0.bin": probe["ack_frame_bytes"],
     "ring_rx_payload_slot0.bin": 32,
+    "mmap-ring-image.bin": mmap_ring_probe_image["image_bytes"],
 }
 for name, size in expected.items():
     path = vector_dir / name
@@ -146,10 +186,31 @@ required = [
     "fieldmesh_fw_ring_pick_next",
     "fieldmesh_fw_ring_service_one",
     "fieldmesh_fw_ring_payload_matches",
+    "fieldmesh_fw_ring_linear_layout_t",
+    "fieldmesh_fw_ring_bind_linear",
+    "fieldmesh_fw_ring_u32_align4",
 ]
 missing = [token for token in required if token not in source]
 if missing:
     raise SystemExit(f"missing firmware ring header tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/examples/fieldmesh_firmware_mmap_ring_probe.c" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_firmware_mmap_ring_probe",
+    "fieldmesh_fw_ring_bind_linear",
+    "mmap(",
+    "msync(",
+    "pread(",
+    "uses_json_on_air",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware mmap ring tokens: {missing}")
 PY
 
 echo "fieldmesh_production_firmware_abi=pass"
