@@ -168,6 +168,14 @@ with Z103 sending and Z203 receiving; the runner uses receive-side client
 timeouts and reverse byte accounting instead of pretending forward-mode metrics.
 For real-IIO RF runs, `SWARM_ROUTE_QUICKACK=auto` now installs `quickack 1` on
 the board `swarm0` routes to reduce delayed-ACK contribution to tiny iperf
+smokes. `IPERF_CONTINUE_AFTER_TCP_FAILURE=1` is a HIL diagnosis mode: TCP
+failure still makes the run non-production, but the runner continues to the UDP
+`iperf3` layer after a bounded TCP drain so the same real-RF setup can separate
+TCP final-control issues from UDP data-plane behavior.
+The first live continuation run moved 95 real-RF frames and proved the UDP
+phase reaches the RF bridge, but UDP `iperf3` also failed because the low-rate
+burst bridge let UDP data backlog the Z203 RF TX queue while iperf's TCP
+control/result channel remained undrained.
 control exchanges on the current high-RTT burst bridge.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet

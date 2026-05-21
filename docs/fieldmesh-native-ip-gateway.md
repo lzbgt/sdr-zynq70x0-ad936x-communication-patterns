@@ -324,6 +324,13 @@ Minimum production gates for native TCP/IP:
   `SWARM_ROUTE_QUICKACK=auto` enables Linux route `quickack 1` for the real-IIO
   RF bridge so delayed ACK behavior does not dominate tiny high-RTT iperf
   control exchanges.
+  `IPERF_CONTINUE_AFTER_TCP_FAILURE=1` is a HIL-only diagnostic mode: a TCP
+  `iperf3` failure still fails the production run, but the script continues to
+  the UDP `iperf3` layer after bounded TCP drain so the same over-air setup can
+  distinguish TCP final-control failure from UDP data-plane failure.
+  The first live continuation run moved 95 real-RF frames, then showed UDP
+  `iperf3` also incomplete: UDP data filled the low-rate Z203 transmit queue
+  while iperf's TCP control/result channel remained undrained.
   Live HIL now shows the 128-byte board-to-board TCP payload reaches Z103 and
   the Z103 server exits over real RF; the remaining failure is the Z203
   client's `iperf3` final result/control completion on the burst bridge.

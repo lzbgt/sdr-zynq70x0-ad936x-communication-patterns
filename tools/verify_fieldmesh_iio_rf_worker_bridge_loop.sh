@@ -557,6 +557,21 @@ if ! grep -q 'TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION must be 0 or 1' \
   exit 1
 fi
 
+if IPERF_CONTINUE_AFTER_TCP_FAILURE=bad \
+   OUT_DIR="$work_dir/iperf-bad-continue-after-tcp" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_continue_after_tcp.out" \
+   2>"$work_dir/iperf_bad_continue_after_tcp.err"; then
+  echo "native-IP iperf gate accepted invalid continue-after-TCP flag" >&2
+  exit 1
+fi
+
+if ! grep -q 'IPERF_CONTINUE_AFTER_TCP_FAILURE must be 0 or 1' \
+     "$work_dir/iperf_bad_continue_after_tcp.err"; then
+  echo "native-IP iperf invalid continue-after-TCP refusal changed" >&2
+  exit 1
+fi
+
 if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --rf-binding-plan "$binding" \
   --leased-frame-report "$work_dir/lease.json" \

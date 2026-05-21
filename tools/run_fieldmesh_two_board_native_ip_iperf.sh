@@ -24,6 +24,7 @@ iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
 iperf_tcp_final_exchange_grace_s="${IPERF_TCP_FINAL_EXCHANGE_GRACE_S:-60}"
 iperf_tcp_queue_quiet_grace_s="${IPERF_TCP_QUEUE_QUIET_GRACE_S:-120}"
 iperf_tcp_control_drain_s="${IPERF_TCP_CONTROL_DRAIN_S:-45}"
+iperf_continue_after_tcp_failure="${IPERF_CONTINUE_AFTER_TCP_FAILURE:-0}"
 iperf_rcv_timeout_ms="${IPERF_RCV_TIMEOUT_MS:-600000}"
 iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
 iperf_connect_timeout_ms="${IPERF_CONNECT_TIMEOUT_MS:-600000}"
@@ -174,6 +175,7 @@ if ! [[ "$iperf_tcp_control_drain_s" =~ ^[0-9]+$ ]] || [ "$iperf_tcp_control_dra
     echo "IPERF_TCP_CONTROL_DRAIN_S must be an integer from 0 to 600" >&2
     exit 1
 fi
+case "$iperf_continue_after_tcp_failure" in 0|1) ;; *) echo "IPERF_CONTINUE_AFTER_TCP_FAILURE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_iio_rf_bridge" in 0|1) ;; *) echo "ALLOW_IIO_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
@@ -1856,6 +1858,7 @@ if ! drain_daemon_rf_tx_queues; then
         "Failed to drain stale RF TX frames before starting iperf; see iperf_gate.ndjson."
 fi
 bridge_pid=""
+board_tcp_incomplete=0
 if [ "$allow_daemon_rf_bridge" = "1" ]; then
     bridge_pid="$(start_bridge_loop)"
 elif [ "$allow_iio_rf_bridge" = "1" ]; then
@@ -1891,16 +1894,39 @@ if [ "$tcp_rc" -ne 0 ]; then
     fi
 fi
 if [ "$tcp_rc" -ne 0 ]; then
-    fail_bounded "board_to_board_tcp_iperf_incomplete" \
-        "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
-fi
-if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
-    fail_bounded "board_to_board_tcp_iperf_failed" \
-        "TCP iperf returned JSON but did not report a successful byte transfer."
-fi
-if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 30; then
-    fail_bounded "board_to_board_tcp_server_still_running" \
-        "TCP iperf client completed, but the Z103 server process did not exit and still owns the test port."
+    if [ "$iperf_continue_after_tcp_failure" != "1" ]; then
+        fail_bounded "board_to_board_tcp_iperf_incomplete" \
+            "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
+    fi
+    board_tcp_incomplete=1
+    python3 - "$out_dir/board_to_board_tcp_continue_after_failure.json" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+report = {
+    "event": "fieldmesh_native_ip_iperf_tcp_continue_after_failure",
+    "ok": True,
+    "continues_to_udp_probe": True,
+    "production_ready": False,
+    "blocker": "board_to_board_tcp_iperf_incomplete",
+}
+Path(sys.argv[1]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+PY
+    if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 5; then
+        fail_bounded "board_to_board_tcp_server_still_running" \
+            "TCP iperf did not complete and the Z103 server still owns the test port; cannot safely continue to UDP on the same port."
+    fi
+else
+    if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
+        fail_bounded "board_to_board_tcp_iperf_failed" \
+            "TCP iperf returned JSON but did not report a successful byte transfer."
+    fi
+    if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 30; then
+        fail_bounded "board_to_board_tcp_server_still_running" \
+            "TCP iperf client completed, but the Z103 server process did not exit and still owns the test port."
+    fi
 fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
@@ -1929,6 +1955,11 @@ if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_udp_server.pid" 3
 fi
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_udp_server.json" "$out_dir/z103_iperf3_udp_server.json" >/dev/null || true
+
+if [ "$board_tcp_incomplete" = "1" ]; then
+    fail_bounded "board_to_board_tcp_iperf_incomplete_after_udp_probe" \
+        "TCP iperf remained incomplete, but IPERF_CONTINUE_AFTER_TCP_FAILURE=1 allowed the real-RF UDP iperf layer to run; inspect z203_iperf3_udp_client.json and z103_iperf3_udp_server.json."
+fi
 
 if [ "$host_pc_case" = "1" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
