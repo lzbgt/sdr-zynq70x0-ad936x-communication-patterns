@@ -203,6 +203,24 @@ struct rf_worker_state {
     fieldmesh_status_t last_status;
 };
 
+static int tun_service_tcp_flow_matches(const struct tun_service_tcp_flow *known,
+                                        const struct tun_service_tcp_flow *flow)
+{
+    if (!known || !flow || !known->valid || !flow->valid) {
+        return 0;
+    }
+    if (known->src_ip == flow->src_ip &&
+        known->dst_ip == flow->dst_ip &&
+        known->src_port == flow->src_port &&
+        known->dst_port == flow->dst_port) {
+        return 1;
+    }
+    return known->src_ip == flow->dst_ip &&
+        known->dst_ip == flow->src_ip &&
+        known->src_port == flow->dst_port &&
+        known->dst_port == flow->src_port;
+}
+
 static int tun_service_rf_queue_peek_at(const struct tun_service_rf_queue *queue,
                                         size_t offset,
                                         unsigned char *frame,
@@ -428,12 +446,7 @@ static unsigned ipv4_tcp_priority_score(
     flow.dst_ip = read_be32_local(&packet[16]);
     flow.src_port = read_be16_local(tcp);
     flow.dst_port = read_be16_local(&tcp[2]);
-    is_control_flow =
-        control_flow && control_flow->valid &&
-        control_flow->src_ip == flow.src_ip &&
-        control_flow->dst_ip == flow.dst_ip &&
-        control_flow->src_port == flow.src_port &&
-        control_flow->dst_port == flow.dst_port;
+    is_control_flow = tun_service_tcp_flow_matches(control_flow, &flow);
     if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_FIFO) {
         return 1u;
     }
@@ -719,10 +732,11 @@ static int tun_service_rf_tx_queue_push(struct tun_service_state *service,
     if (!service) {
         return 0;
     }
-    if (!service->rf_tx_control_flow.valid &&
-        blr_app_data_tcp_flow(frame, frame_len, &tcp_flow, &tcp_flags,
+    if (blr_app_data_tcp_flow(frame, frame_len, &tcp_flow, &tcp_flags,
                               &tcp_payload_len) &&
-        (tcp_flags & 0x02u) != 0u) {
+        (tcp_flags & 0x02u) != 0u &&
+        !tun_service_tcp_flow_matches(&service->rf_tx_control_flow,
+                                      &tcp_flow)) {
         service->rf_tx_control_flow = tcp_flow;
         service->rf_tx_control_flow_learned++;
     }

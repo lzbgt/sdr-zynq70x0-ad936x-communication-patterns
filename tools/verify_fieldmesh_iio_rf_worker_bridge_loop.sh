@@ -213,6 +213,8 @@ required = [
     "rf_tx_queue_priority_drops",
     "rf_tx_queue_pressure_drops",
     "rf_tx_control_flow_learned",
+    "tun_service_tcp_flow_matches",
+    "!tun_service_tcp_flow_matches(&service->rf_tx_control_flow",
     "candidate_score > lowest_score",
     "TUN_SERVICE_RF_QUEUE_PRESSURE_DEPTH",
     "tun_service_rf_queue_drop_at(&service->rf_tx_queue",
@@ -469,6 +471,21 @@ fi
 if ! grep -q 'IPERF_TCP_CONTROL_DRAIN_S must be an integer from 0 to 600' \
      "$work_dir/iperf_bad_control_drain.err"; then
   echo "native-IP iperf invalid TCP control drain refusal changed" >&2
+  exit 1
+fi
+
+if IPERF_UDP_SERVER_DRAIN_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-udp-server-drain" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_udp_server_drain.out" \
+   2>"$work_dir/iperf_bad_udp_server_drain.err"; then
+  echo "native-IP iperf gate accepted invalid IPERF_UDP_SERVER_DRAIN_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'IPERF_UDP_SERVER_DRAIN_S must be an integer from 0 to 600' \
+     "$work_dir/iperf_bad_udp_server_drain.err"; then
+  echo "native-IP iperf invalid UDP server drain refusal changed" >&2
   exit 1
 fi
 

@@ -189,7 +189,23 @@ data plane. The first pressure-drop HIL run exercised that path on Z203
 (`rf_tx_queue_pressure_drops=20`) and capped the observed Z203 RF TX queue at
 12 instead of 16. It moved 93 real-RF frames and the UDP client completed, but
 the Z103 UDP server stayed alive on the test port; the next software target is
-the reverse/result drain and async-ACK failure path, not RF installation.
+the reverse/result drain and async-ACK failure path, not RF installation. The
+native-IP HIL runner now gives the UDP one-shot server its own
+`IPERF_UDP_SERVER_DRAIN_S` window and extends the live RF bridge lifetime to
+cover that drain, so a completed UDP client is not misclassified by the old
+fixed 30 second server wait on this high-RTT burst bridge. Follow-up HIL with
+that longer budget showed the UDP phase can still fail before server drain
+because `iperf3 -u` depends on a second TCP control connection for result
+exchange. The daemon now treats a learned TCP control flow as bidirectional and
+refreshes it when a later TCP SYN starts a new control connection, so the UDP
+phase is not stuck behind the stale TCP-phase control-flow identity. After
+rebuilding/reinstalling both boards, live HIL showed that this removed async ACK
+failures and that `UDP_BITRATE=1K` completes over real RF with the Z103 UDP
+one-shot server exiting cleanly. The runner now defaults the current burst
+bridge to that proven UDP smoke rate plus the observed-stable daemon ACK retry
+budget. TCP `iperf3` still fails final client result completion, so the next
+material data-plane target remains TCP final control/result completion or a
+streaming MAC data plane.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
