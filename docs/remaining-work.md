@@ -160,6 +160,9 @@ the remote TCP client through the bounded control-drain window once it has sent
 test bytes, so the final server result can return instead of being cut off by
 host-side timeout cleanup, and the remote client wrapper now ignores SSH session
 hangup plus inherited interrupt signals during long RF drains.
+`IPERF_TCP_REVERSE=1` is now a guarded HIL knob for the same real-RF TCP path
+with Z103 sending and Z203 receiving; the runner uses receive-side client
+timeouts and reverse byte accounting instead of pretending forward-mode metrics.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

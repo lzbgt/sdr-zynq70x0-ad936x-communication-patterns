@@ -316,6 +316,9 @@ Minimum production gates for native TCP/IP:
   the server's final result/shutdown traffic can return. The SSH-launched
   remote client wrapper also ignores SSH session hangup and inherited interrupt
   signals so a long RF drain is not mistaken for an operator interrupt.
+  `IPERF_TCP_REVERSE=1` is available for HIL diagnosis of the same board-to-board
+  TCP path with the server as sender; the runner switches iperf timeout flags
+  and byte accounting to match the reversed data direction.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

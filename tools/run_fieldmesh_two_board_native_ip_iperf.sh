@@ -15,6 +15,7 @@ bridge_request_timeout_ms="${BRIDGE_REQUEST_TIMEOUT_MS:-1000}"
 iperf_port="${IPERF_PORT:-5201}"
 tcp_bytes="${TCP_BYTES:-8192}"
 tcp_time_s="${TCP_TIME_S:-0}"
+iperf_tcp_reverse="${IPERF_TCP_REVERSE:-0}"
 udp_bitrate="${UDP_BITRATE:-64K}"
 udp_time_s="${UDP_TIME_S:-3}"
 iperf_interval_s="${IPERF_INTERVAL_S:-0}"
@@ -144,6 +145,10 @@ if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 128 ]; then
 fi
 if ! [[ "$tcp_time_s" =~ ^[0-9]+$ ]]; then
     echo "TCP_TIME_S must be an integer >= 0" >&2
+    exit 1
+fi
+if [ "$iperf_tcp_reverse" != "0" ] && [ "$iperf_tcp_reverse" != "1" ]; then
+    echo "IPERF_TCP_REVERSE must be 0 or 1" >&2
     exit 1
 fi
 if ! [[ "$iperf_interval_s" =~ ^[0-9]+$ ]]; then
@@ -1359,7 +1364,8 @@ if report.get("error"):
     raise SystemExit(1)
 end = report.get("end") or {}
 sent = end.get("sum_sent") or end.get("sum") or {}
-if int(sent.get("bytes") or 0) <= 0:
+received = end.get("sum_received") or {}
+if max(int(sent.get("bytes") or 0), int(received.get("bytes") or 0)) <= 0:
     raise SystemExit(1)
 PY
 }
@@ -1387,7 +1393,8 @@ except json.JSONDecodeError:
     raise SystemExit(0)
 end = report.get("end") or {}
 sent = end.get("sum_sent") or end.get("sum") or {}
-bytes_sent = int(sent.get("bytes") or 0)
+received = end.get("sum_received") or {}
+bytes_sent = max(int(sent.get("bytes") or 0), int(received.get("bytes") or 0))
 if bytes_sent <= 0:
     for interval in report.get("intervals") or []:
         summary = interval.get("sum") or {}
@@ -1713,6 +1720,11 @@ board_tcp_bitrate_args=()
 host_tcp_bitrate_args=()
 board_tcp_length_args=(-n "'$tcp_bytes'")
 host_tcp_length_args=(-n "$tcp_bytes")
+board_tcp_direction_args=()
+host_tcp_direction_args=()
+board_tcp_client_timeout_args=(--snd-timeout "'$iperf_snd_timeout_ms'")
+host_tcp_client_timeout_args=(--snd-timeout "$iperf_snd_timeout_ms")
+tcp_server_timeout_arg="--rcv-timeout '$iperf_rcv_timeout_ms'"
 tcp_server_idle_timeout_s=$((iperf_timeout_s + iperf_tcp_final_exchange_grace_s + iperf_tcp_queue_quiet_grace_s + iperf_tcp_control_drain_s))
 if [ "$tcp_server_idle_timeout_s" -lt "$iperf_timeout_s" ]; then
     tcp_server_idle_timeout_s="$iperf_timeout_s"
@@ -1754,6 +1766,13 @@ fi
 if [ "$tcp_time_s" -gt 0 ]; then
     board_tcp_length_args=(-t "'$tcp_time_s'")
     host_tcp_length_args=(-t "$tcp_time_s")
+fi
+if [ "$iperf_tcp_reverse" = "1" ]; then
+    board_tcp_direction_args=(-R)
+    host_tcp_direction_args=(-R)
+    board_tcp_client_timeout_args=(--rcv-timeout "'$iperf_rcv_timeout_ms'")
+    host_tcp_client_timeout_args=(--rcv-timeout "$iperf_rcv_timeout_ms")
+    tcp_server_timeout_arg="--snd-timeout '$iperf_snd_timeout_ms'"
 fi
 
 setup_board "$z203_remote" "10.77.1.1" "10.77.2.0/24" "$out_dir/z203_setup.log"
@@ -1831,14 +1850,14 @@ fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "rm -f /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json; \
-     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
+     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' $tcp_server_timeout_arg --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
     >"$out_dir/z103_iperf3_tcp_server.pid"
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json_async "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
     "$iperf_tcp_final_exchange_grace_s" "$iperf_tcp_queue_quiet_grace_s" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
+    iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" "${board_tcp_client_timeout_args[@]}" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_direction_args[@]}" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
@@ -1900,13 +1919,13 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
 if [ "$host_pc_case" = "1" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
         "rm -f /tmp/fieldmesh_iperf3_host_tcp_server.json /tmp/fieldmesh_iperf3_host_udp_server.json; \
-         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
+         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' $tcp_server_timeout_arg --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
         >"$out_dir/z103_iperf3_host_tcp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
-        iperf3 -c 10.77.2.20 -p "$iperf_port" -i "$iperf_interval_s" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_bitrate_args[@]}" "${host_tcp_length_args[@]}" -l "$iperf_block_size" --json
+        iperf3 -c 10.77.2.20 -p "$iperf_port" -i "$iperf_interval_s" --connect-timeout "$iperf_connect_timeout_ms" "${host_tcp_client_timeout_args[@]}" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_direction_args[@]}" "${host_tcp_bitrate_args[@]}" "${host_tcp_length_args[@]}" -l "$iperf_block_size" --json
     host_tcp_rc=$?
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then
@@ -1957,7 +1976,7 @@ stop_bridge_loop
 request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 
-python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" "$tcp_time_s" <<'PY'
+python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" "$tcp_time_s" "$iperf_tcp_reverse" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -1968,6 +1987,7 @@ allow_iio = sys.argv[3] == "1"
 host_pc_case = sys.argv[4] == "1"
 swarm_mtu = int(sys.argv[5])
 tcp_time_s_requested = int(sys.argv[6])
+tcp_reverse = sys.argv[7] == "1"
 
 def load_json(path: str) -> dict:
     text = (out_dir / path).read_text(encoding="utf-8", errors="replace")
@@ -1995,22 +2015,25 @@ iio_bridge = [row for row in rows if row.get("event") == "fieldmesh_iio_rf_worke
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 tcp_end = tcp.get("end", {})
 udp_end = udp.get("end", {})
+tcp_summary = (
+    tcp_end.get("sum_received", {})
+    if tcp_reverse
+    else tcp_end.get("sum_sent", {}) or tcp_end.get("sum", {})
+)
 tcp_bits = (
-    tcp_end.get("sum_sent", {}).get("bits_per_second") or
-    tcp_end.get("sum", {}).get("bits_per_second") or 0
+    tcp_summary.get("bits_per_second") or 0
 )
 udp_bits = (
     udp_end.get("sum", {}).get("bits_per_second") or
     udp_end.get("sum_sent", {}).get("bits_per_second") or 0
 )
-tcp_bytes = tcp_end.get("sum_sent", {}).get("bytes", 0)
+tcp_bytes = tcp_summary.get("bytes", 0)
 udp_bytes = (
     udp_end.get("sum", {}).get("bytes") or
     udp_end.get("sum_sent", {}).get("bytes") or 0
 )
 tcp_duration_s = (
-    tcp_end.get("sum_sent", {}).get("seconds") or
-    tcp_end.get("sum", {}).get("seconds") or 0
+    tcp_summary.get("seconds") or 0
 )
 udp_summary = udp_end.get("sum", {}) or udp_end.get("sum_sent", {}) or {}
 udp_duration_s = udp_summary.get("seconds") or 0
@@ -2064,22 +2087,25 @@ if host_pc_case:
         raise SystemExit(f"host UDP iperf failed: {host_udp.get('error')}")
     host_tcp_end = host_tcp.get("end", {})
     host_udp_end = host_udp.get("end", {})
+    host_tcp_summary = (
+        host_tcp_end.get("sum_received", {})
+        if tcp_reverse
+        else host_tcp_end.get("sum_sent", {}) or host_tcp_end.get("sum", {})
+    )
     host_tcp_bits = (
-        host_tcp_end.get("sum_sent", {}).get("bits_per_second") or
-        host_tcp_end.get("sum", {}).get("bits_per_second") or 0
+        host_tcp_summary.get("bits_per_second") or 0
     )
     host_udp_bits = (
         host_udp_end.get("sum", {}).get("bits_per_second") or
         host_udp_end.get("sum_sent", {}).get("bits_per_second") or 0
     )
-    host_tcp_bytes = host_tcp_end.get("sum_sent", {}).get("bytes", 0)
+    host_tcp_bytes = host_tcp_summary.get("bytes", 0)
     host_udp_bytes = (
         host_udp_end.get("sum", {}).get("bytes") or
         host_udp_end.get("sum_sent", {}).get("bytes") or 0
     )
     host_tcp_duration_s = (
-        host_tcp_end.get("sum_sent", {}).get("seconds") or
-        host_tcp_end.get("sum", {}).get("seconds") or 0
+        host_tcp_summary.get("seconds") or 0
     )
     host_udp_summary = host_udp_end.get("sum", {}) or host_udp_end.get("sum_sent", {}) or {}
     host_udp_duration_s = host_udp_summary.get("seconds") or 0
@@ -2127,6 +2153,7 @@ report = {
     "app_verified_real_rf": bool(real_rf_ready and not allow_bridge),
     "production_evidence": bool(real_rf_ready and not allow_bridge),
     "tcp_time_s_requested": tcp_time_s_requested,
+    "tcp_reverse": tcp_reverse,
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
     "tcp_duration_s": tcp_duration_s,
