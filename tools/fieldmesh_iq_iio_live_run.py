@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import contextlib
 import json
 import math
+import select
 import shlex
 import subprocess
 import time
@@ -25,6 +27,7 @@ DEFAULT_RX_CAPTURE_MARGIN_MS = 10
 LIVE_RF_CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
 LEGACY_LIVE_RF_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
 VALID_LIVE_RF_CONFIRMATIONS = {LIVE_RF_CONFIRMATION, LEGACY_LIVE_RF_CONFIRMATION}
+_HELPER_SERVERS: dict[tuple[str, ...], "BurstHelperServer"] = {}
 
 
 def plan_center_frequency_hz(plan: dict[str, Any]) -> int | None:
@@ -145,6 +148,96 @@ def command_row(
         "background": background,
         "shell": rendered,
     }
+
+
+class BurstHelperServer:
+    def __init__(self, argv: list[str], timeout_s: float) -> None:
+        self.argv = argv
+        self.timeout_s = timeout_s
+        self.proc = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        ready = self._read_json_line(timeout_s, "helper_ready")
+        if ready.get("event") != "fieldmesh_iio_burst_xfer_server" or ready.get("ok") is not True:
+            self.close(kill=True)
+            raise SystemExit(f"iio_burst_helper server did not become ready: {ready}")
+
+    def _stderr_after_exit(self) -> str:
+        if self.proc.stderr is None:
+            return ""
+        if self.proc.poll() is None:
+            return ""
+        return self.proc.stderr.read()
+
+    def _read_json_line(self, timeout_s: float, phase: str) -> dict[str, Any]:
+        if self.proc.stdout is None:
+            raise SystemExit("iio_burst_helper server stdout is unavailable")
+        deadline = time.monotonic() + timeout_s
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self.close(kill=True)
+                raise SystemExit(f"iio_burst_helper server timed out during {phase}")
+            ready, _, _ = select.select([self.proc.stdout], [], [], remaining)
+            if not ready:
+                continue
+            line = self.proc.stdout.readline()
+            if line:
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    self.close(kill=True)
+                    raise SystemExit(f"iio_burst_helper server emitted invalid JSON: {line.strip()}") from exc
+                if not isinstance(data, dict):
+                    self.close(kill=True)
+                    raise SystemExit(f"iio_burst_helper server emitted non-object JSON: {line.strip()}")
+                return data
+            rc = self.proc.poll()
+            if rc is not None:
+                stderr = self._stderr_after_exit().strip()
+                raise SystemExit(f"iio_burst_helper server exited during {phase}: rc={rc} stderr={stderr}")
+
+    def xfer(self, fields: dict[str, str], timeout_s: float) -> dict[str, Any]:
+        if self.proc.stdin is None:
+            raise SystemExit("iio_burst_helper server stdin is unavailable")
+        if self.proc.poll() is not None:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server is not running: stderr={stderr}")
+        line = "XFER " + " ".join(f"{key}={value}" for key, value in fields.items()) + "\n"
+        try:
+            self.proc.stdin.write(line)
+            self.proc.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
+        return self._read_json_line(timeout_s, "xfer")
+
+    def close(self, *, kill: bool = False) -> None:
+        if self.proc.poll() is None and not kill and self.proc.stdin is not None:
+            with contextlib.suppress(Exception):
+                self.proc.stdin.write("QUIT\n")
+                self.proc.stdin.flush()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                self.proc.wait(timeout=1)
+        if self.proc.poll() is None:
+            with contextlib.suppress(Exception):
+                self.proc.kill()
+            with contextlib.suppress(Exception):
+                self.proc.wait(timeout=1)
+
+
+def close_helper_servers() -> None:
+    for server in list(_HELPER_SERVERS.values()):
+        server.close()
+    _HELPER_SERVERS.clear()
+
+
+atexit.register(close_helper_servers)
 
 
 def iio_attr_channel(
@@ -505,6 +598,31 @@ def option_after(argv: list[str], flag: str) -> str:
         raise SystemExit(f"generated command is missing {flag}: {argv}") from exc
 
 
+def helper_server_for(args: argparse.Namespace, helper_argv: list[str], channels: list[str]) -> BurstHelperServer:
+    server_argv = [
+        str(args.burst_helper),
+        "--rx-uri",
+        option_after(helper_argv, "--rx-uri"),
+        "--tx-uri",
+        option_after(helper_argv, "--tx-uri"),
+        "--rx-device",
+        option_after(helper_argv, "--rx-device"),
+        "--tx-device",
+        option_after(helper_argv, "--tx-device"),
+        "--rx-timeout-ms",
+        option_after(helper_argv, "--rx-timeout-ms"),
+        "--server",
+    ]
+    for channel in channels:
+        server_argv += ["--channel", channel]
+    key = tuple(server_argv)
+    server = _HELPER_SERVERS.get(key)
+    if server is None or server.proc.poll() is not None:
+        server = BurstHelperServer(server_argv, max(args.timeout_ms / 1000.0, 1.0))
+        _HELPER_SERVERS[key] = server
+    return server
+
+
 def execute_live_with_helper(
     args: argparse.Namespace,
     commands: list[dict[str, Any]],
@@ -564,24 +682,47 @@ def execute_live_with_helper(
 
     helper_row = command_row("iio_burst_helper", helper_argv)
     helper_started = time.monotonic()
-    proc = subprocess.run(helper_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if getattr(args, "persistent_burst_helper", False):
+        server = helper_server_for(args, helper_argv, channels)
+        xfer_fields = {
+            "tx_file": str(tx_row["stdin_file"]),
+            "rx_file": str(capture_path),
+            "tx_samples": option_after(tx_argv, "-s"),
+            "rx_samples": option_after(rx_argv, "-s"),
+            "buffer_size": option_after(rx_argv, "-b"),
+            "tx_duration_ms": str(args.max_tx_duration_ms),
+            "rx_arm_delay_ms": str(args.rx_arm_delay_ms),
+            "cyclic": "1" if args.cyclic_tx else "0",
+        }
+        helper_report = server.xfer(xfer_fields, max(args.timeout_ms / 1000.0 + 2.0, 3.0))
+        stdout = json.dumps(helper_report, sort_keys=True) + "\n"
+        returncode = 0 if helper_report.get("ok") is True else 1
+        stderr = ""
+    else:
+        proc = subprocess.run(helper_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        stdout = proc.stdout.decode("utf-8", errors="replace")
+        stderr = proc.stderr.decode("utf-8", errors="replace")
+        returncode = proc.returncode
     helper_result = {
         "name": "iio_burst_helper",
-        "returncode": proc.returncode,
-        "stdout": proc.stdout.decode("utf-8", errors="replace"),
-        "stderr": proc.stderr.decode("utf-8", errors="replace"),
+        "returncode": returncode,
+        "stdout": stdout,
+        "stderr": stderr,
         "elapsed_ms": int((time.monotonic() - helper_started) * 1000),
         "argv": helper_row["argv"],
+        "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
     }
     results.append(helper_result)
-    if proc.returncode != 0:
-        raise SystemExit(f"iio_burst_helper failed: {helper_result['stderr'].strip()}")
+    if returncode != 0:
+        detail = helper_result["stderr"].strip() or helper_result["stdout"].strip()
+        raise SystemExit(f"iio_burst_helper failed: {detail}")
     results.append(
         {
             "name": "execute_live_total",
             "returncode": 0,
             "elapsed_ms": int((time.monotonic() - started) * 1000),
             "burst_helper": str(args.burst_helper),
+            "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
         }
     )
     return results
@@ -777,6 +918,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "tx_hardwaregain_db": args.tx_hardwaregain_db,
         "skip_rf_config": bool(args.skip_rf_config),
         "burst_helper": str(args.burst_helper) if args.burst_helper else None,
+        "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -839,6 +981,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tx-hardwaregain-db", type=float)
     parser.add_argument("--skip-rf-config", action="store_true")
     parser.add_argument("--burst-helper", type=Path)
+    parser.add_argument("--persistent-burst-helper", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

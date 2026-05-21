@@ -34,6 +34,7 @@ preflight_only="${PREFLIGHT_ONLY:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)-$$}"
 swarm_mtu="${SWARM_MTU:-}"
 fieldmesh_iio_burst_helper="${FIELDMESH_IIO_BURST_HELPER:-}"
+iio_bridge_persistent_burst_helper="${IIO_BRIDGE_PERSISTENT_BURST_HELPER:-1}"
 rf_binding_plan="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
 allow_hardware_writes="${ALLOW_HARDWARE_WRITES:-0}"
@@ -86,6 +87,7 @@ swarm_route_rto_min_ms="${SWARM_ROUTE_RTO_MIN_MS:-0}"
 swarm_route_initcwnd="${SWARM_ROUTE_INITCWND:-0}"
 swarm_route_initrwnd="${SWARM_ROUTE_INITRWND:-0}"
 tun_service_max_packets_per_tick="${TUN_SERVICE_MAX_PACKETS_PER_TICK:-8}"
+tun_service_tcp_duplicate_suppression="${TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION:-0}"
 
 mkdir -p "$out_dir"
 
@@ -134,6 +136,8 @@ case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE 
 case "$preflight_only" in 0|1) ;; *) echo "PREFLIGHT_ONLY must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_skip_rf_config_after_first" in 0|1) ;; *) echo "IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_adaptive_direction_scheduler" in 0|1) ;; *) echo "IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER must be 0 or 1" >&2; exit 1 ;; esac
+case "$iio_bridge_persistent_burst_helper" in 0|1) ;; *) echo "IIO_BRIDGE_PERSISTENT_BURST_HELPER must be 0 or 1" >&2; exit 1 ;; esac
+case "$tun_service_tcp_duplicate_suppression" in 0|1) ;; *) echo "TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION must be 0 or 1" >&2; exit 1 ;; esac
 for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
     case "$item" in 0|1) ;; *) echo "live RF flags must be 0 or 1" >&2; exit 1 ;; esac
 done
@@ -875,9 +879,11 @@ start_tun_services() {
     request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STOP v1 >>"$out_dir/iperf_gate.ndjson" || true
     request_daemon_ok z203_tun_service_start "$z203_ip" "$z203_port" \
         FIELDMESH_TUN_SERVICE_START v1 dst=020000000103 max="$tun_service_max_packets_per_tick" \
+        tcp_duplicate_suppression="$tun_service_tcp_duplicate_suppression" \
         rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE
     request_daemon_ok z103_tun_service_start "$z103_ip" "$z103_port" \
         FIELDMESH_TUN_SERVICE_START v1 dst=020000000203 max="$tun_service_max_packets_per_tick" \
+        tcp_duplicate_suppression="$tun_service_tcp_duplicate_suppression" \
         rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE
     request_daemon_ok z203_rf_worker_start "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_START v1
     request_daemon_ok z103_rf_worker_start "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_START v1
@@ -1023,6 +1029,9 @@ start_iio_rf_bridge_loop() {
     fi
     if [ -n "$fieldmesh_iio_burst_helper" ]; then
         helper_args=(--burst-helper "$fieldmesh_iio_burst_helper")
+        if [ "$iio_bridge_persistent_burst_helper" = "1" ]; then
+            helper_args+=(--persistent-burst-helper)
+        fi
     fi
     if [ -n "$rf_z203_to_z103_samples_per_symbol" ]; then
         direction_modem_args+=(--z203-to-z103-samples-per-symbol "$rf_z203_to_z103_samples_per_symbol")

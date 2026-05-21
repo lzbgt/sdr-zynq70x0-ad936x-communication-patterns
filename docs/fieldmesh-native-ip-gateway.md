@@ -248,11 +248,22 @@ Minimum production gates for native TCP/IP:
   Z103 `iperf3` server, but `iperf3` still times out during final
   result/shutdown exchange. Follow-up HIL fixed TCP-priority ordering so payload
   cannot overtake RST/SYN/FIN control frames, and the bridge now uses shorter
-  hot-path ingest/ACK timeouts than the longer daemon setup timeout. After
-  reinstall, the bridge again reaches the `iperf3` test phase and sends
-  requested bytes over real RF. The latest 256-byte smoke runs moved 34 frames
-  with zero bridge errors, and batch size 4 decoded reliably, but the server
-  still stays established while the client waits on result/shutdown exchange.
+  hot-path ingest/ACK timeouts than the longer daemon setup timeout. The
+  compiled helper also has a persistent `--server` mode and the live runner can
+  enable it with `IIO_BRIDGE_PERSISTENT_BURST_HELPER=1`; this keeps the two
+  libiio RX/TX contexts open across batches instead of recreating them for each
+  burst. The daemon's TCP duplicate suppression is now explicitly configurable
+  through `tcp_duplicate_suppression=` on `FIELDMESH_TUN_SERVICE_START`; the
+  real-RF iperf runner defaults `TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION=0` so
+  Linux retransmissions are not silently discarded during low-rate RF tests.
+  After reinstall, persistent-helper HIL moved real TCP control/data over RF
+  with zero duplicate drops. The best 256-byte smoke delivered the TCP data
+  payload and ACKs on the data connection, but still timed out because the
+  `iperf3` data/control sockets stayed established and the final
+  result/shutdown exchange did not complete before timeout. A faster
+  48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
+  seconds but produced an intermittent reverse-path CRC miss under load and
+  still did not complete `iperf3`.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

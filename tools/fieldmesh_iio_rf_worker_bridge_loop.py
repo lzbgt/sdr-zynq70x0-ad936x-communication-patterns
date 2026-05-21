@@ -409,6 +409,7 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         tx_hardwaregain_db=args.tx_hardwaregain_db,
         skip_rf_config=getattr(args, "skip_rf_config", False),
         burst_helper=args.burst_helper,
+        persistent_burst_helper=args.persistent_burst_helper,
         pretty=False,
     )
     return bridge.run(bridge_args)
@@ -517,6 +518,7 @@ def run_batch(
             tx_hardwaregain_db=args.tx_hardwaregain_db,
             skip_rf_config=skip_rf_config,
             burst_helper=args.burst_helper,
+            persistent_burst_helper=args.persistent_burst_helper,
             pretty=False,
             out_dir=frame_dir / f"iq-iio-live-run{suffix}",
             cyclic_capture_periods=capture_periods,
@@ -675,6 +677,7 @@ def run_batch(
         "live_run_elapsed_ms": live_run_elapsed_ms,
         "live_run_reported_elapsed_ms": run_report.get("elapsed_ms"),
         "decode_elapsed_ms": run_report.get("decode", {}).get("elapsed_ms"),
+        "persistent_burst_helper": bool(args.persistent_burst_helper),
         "uses_inter_board_ip_routing": False,
         "transport": "real_rf_phy" if args.execute_live_rf else "guarded_iio_rf_dry_run",
         "rf_phy_tx_rx_verified": bool(args.execute_live_rf),
@@ -867,6 +870,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "daemon_request_attempts": args.daemon_request_attempts,
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "burst_helper": str(args.burst_helper) if args.burst_helper else None,
+            "persistent_burst_helper": bool(args.persistent_burst_helper),
             "rf_phy_tx_rx_verified": verified,
             "app_verified_real_rf": False,
             "production_ready": False,
@@ -1285,6 +1289,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rx-hardwaregain-db", type=float)
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--burst-helper", type=Path)
+    parser.add_argument("--persistent-burst-helper", action="store_true")
     parser.add_argument("--skip-rf-config-after-first", action="store_true")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--pretty", action="store_true")

@@ -359,6 +359,36 @@ if ! grep -q 'IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER must be 0 or 1' \
   exit 1
 fi
 
+if IIO_BRIDGE_PERSISTENT_BURST_HELPER=bad \
+   OUT_DIR="$work_dir/iperf-bad-persistent-helper" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_persistent_helper.out" \
+   2>"$work_dir/iperf_bad_persistent_helper.err"; then
+  echo "native-IP iperf gate accepted invalid persistent helper flag" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_PERSISTENT_BURST_HELPER must be 0 or 1' \
+     "$work_dir/iperf_bad_persistent_helper.err"; then
+  echo "native-IP iperf invalid persistent helper refusal changed" >&2
+  exit 1
+fi
+
+if TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION=bad \
+   OUT_DIR="$work_dir/iperf-bad-tcp-dup-suppression" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_tcp_dup_suppression.out" \
+   2>"$work_dir/iperf_bad_tcp_dup_suppression.err"; then
+  echo "native-IP iperf gate accepted invalid TCP duplicate suppression flag" >&2
+  exit 1
+fi
+
+if ! grep -q 'TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION must be 0 or 1' \
+     "$work_dir/iperf_bad_tcp_dup_suppression.err"; then
+  echo "native-IP iperf invalid TCP duplicate suppression refusal changed" >&2
+  exit 1
+fi
+
 if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --rf-binding-plan "$binding" \
   --leased-frame-report "$work_dir/lease.json" \

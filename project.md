@@ -1286,8 +1286,15 @@ user and vendor configuration.
   sends the requested TCP bytes over real RF, but the Z103 server remains
   established and the client times out waiting for final result/shutdown
   exchange. A 256-byte smoke size has the same failure signature, so the next
-  material work is a true streaming or pipelined RF loop/control exchange
-  service path, not another physical RF installation check.
+  slice added a persistent compiled libiio helper server and disabled daemon
+  TCP duplicate suppression for real-RF iperf. Live HIL then moved 55
+  native-IP frames with zero duplicate drops, and the captured TCP trace shows
+  the 256-byte test payload crossed RF and was ACKed, but `iperf3` still timed
+  out with both sockets established before result/shutdown completed. A faster
+  48-sample/repeat-3 BFSK run lowered batch latency but hit an intermittent
+  reverse-path CRC miss and still timed out. The next material work is a true
+  streaming or pipelined RF loop/control exchange service path, not another
+  physical RF installation check.
   The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path

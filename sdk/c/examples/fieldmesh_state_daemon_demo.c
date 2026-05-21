@@ -156,6 +156,7 @@ struct tun_service_state {
     uint32_t rf_tx_queue_drops;
     uint32_t rf_rx_queue_drops;
     uint32_t rf_tx_queue_duplicate_drops;
+    uint32_t rf_tx_tcp_duplicate_suppression;
     uint64_t recent_acked_tcp_signatures[TUN_SERVICE_RECENT_TCP_SIGNATURES];
     size_t recent_acked_tcp_signature_next;
     uint32_t poll_wakeups;
@@ -579,14 +580,16 @@ static int tun_service_rf_tx_queue_push(struct tun_service_state *service,
     if (!service) {
         return 0;
     }
-    if (blr_app_data_tcp_signature_hash(frame, frame_len, &tcp_hash,
+    if (service->rf_tx_tcp_duplicate_suppression != 0u &&
+        blr_app_data_tcp_signature_hash(frame, frame_len, &tcp_hash,
                                         &tcp_payload_len) &&
         tcp_payload_len == 0u &&
         tun_service_recent_tcp_signature_contains(service, tcp_hash)) {
         service->rf_tx_queue_duplicate_drops++;
         return 1;
     }
-    if (tun_service_rf_queue_contains_duplicate_tcp(&service->rf_tx_queue,
+    if (service->rf_tx_tcp_duplicate_suppression != 0u &&
+        tun_service_rf_queue_contains_duplicate_tcp(&service->rf_tx_queue,
                                                     frame, frame_len)) {
         service->rf_tx_queue_duplicate_drops++;
         return 1;
@@ -1624,6 +1627,7 @@ static int tun_service_open(fieldmesh_session_t *session,
                             const char *dst_device_eui,
                             enum tun_service_rf_transport_mode rf_transport_mode,
                             uint32_t max_packets_per_tick,
+                            uint32_t tcp_duplicate_suppression,
                             int *out_errno)
 {
     fieldmesh_adapter_config_t adapter_config = {
@@ -1700,6 +1704,8 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->rf_tx_queue_drops = 0u;
     service->rf_rx_queue_drops = 0u;
     service->rf_tx_queue_duplicate_drops = 0u;
+    service->rf_tx_tcp_duplicate_suppression =
+        tcp_duplicate_suppression != 0u ? 1u : 0u;
     memset(service->recent_acked_tcp_signatures, 0,
            sizeof(service->recent_acked_tcp_signatures));
     service->recent_acked_tcp_signature_next = 0u;
@@ -4411,6 +4417,7 @@ static int build_response(fieldmesh_context_t *context,
         int allow_diagnostic_loopback =
             strstr(request, "ALLOW_DIAGNOSTIC_RF_LOOPBACK") != NULL;
         unsigned max_packets = 4u;
+        unsigned tcp_duplicate_suppression = 1u;
         int tun_errno = 0;
         char hostname[FIELDMESH_NAME_TEXT_MAX];
         char local_device_eui[FIELDMESH_ID_TEXT_MAX];
@@ -4424,6 +4431,9 @@ static int build_response(fieldmesh_context_t *context,
                                            sizeof(dst_device_eui)) ||
             !request_uint_or_default(request, "max=", 4u, 1u, 32u,
                                      &max_packets) ||
+            !request_uint_or_default(request, "tcp_duplicate_suppression=",
+                                     1u, 0u, 1u,
+                                     &tcp_duplicate_suppression) ||
             !request_text_or_default(request, "rf_transport=", "driver_queue",
                                      rf_transport, sizeof(rf_transport)) ||
             !text_in_set(rf_transport, "driver_queue", "diagnostic_loopback",
@@ -4493,7 +4503,8 @@ static int build_response(fieldmesh_context_t *context,
         runtime_hostname(hostname, sizeof(hostname));
         runtime_device_eui(hostname, local_device_eui, sizeof(local_device_eui));
         if (tun_service_open(session, tun_service, local_device_eui, dst_device_eui,
-                             rf_transport_mode, max_packets, &tun_errno) != 0) {
+                             rf_transport_mode, max_packets,
+                             tcp_duplicate_suppression, &tun_errno) != 0) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_tun_service_started\","
                      "\"ok\":0,"
@@ -4526,6 +4537,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"local_device_eui\":\"%s\","
                  "\"dst_device_eui\":\"%s\","
                  "\"max_packets_per_tick\":%u,"
+                 "\"tcp_duplicate_suppression\":%u,"
                  "\"running\":1,"
                  "\"opens_dev_net_tun\":1,"
                  "\"attaches_tun_if\":1,"
@@ -4549,6 +4561,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"uses_inter_board_ip_routing\":0,"
                  "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
                  local_device_eui, dst_device_eui, max_packets,
+                 tcp_duplicate_suppression,
                  rf_transport_mode ==
                      TUN_SERVICE_RF_TRANSPORT_DIAGNOSTIC_LOOPBACK ? 1u : 0u,
                  tun_service_rf_transport_mode_name(rf_transport_mode),
@@ -4592,6 +4605,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_tx_queue_drops\":%u,"
                  "\"rf_rx_queue_drops\":%u,"
                  "\"rf_tx_queue_duplicate_drops\":%u,"
+                 "\"rf_tx_tcp_duplicate_suppression\":%u,"
                  "\"poll_wakeups\":%u,"
                  "\"idle_ticks\":%u,"
                  "\"recoverable_timeouts\":%u,"
@@ -4648,6 +4662,7 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_tx_queue_drops : 0u,
                  tun_service ? tun_service->rf_rx_queue_drops : 0u,
                  tun_service ? tun_service->rf_tx_queue_duplicate_drops : 0u,
+                 tun_service ? tun_service->rf_tx_tcp_duplicate_suppression : 1u,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,
@@ -5712,6 +5727,8 @@ static int build_response(fieldmesh_context_t *context,
             tun_service ? (uint32_t)tun_service->rf_tx_lease_queue.count : 0u;
         uint32_t rf_tx_queue_duplicate_drops =
             tun_service ? tun_service->rf_tx_queue_duplicate_drops : 0u;
+        uint32_t rf_tx_tcp_duplicate_suppression =
+            tun_service ? tun_service->rf_tx_tcp_duplicate_suppression : 1u;
         uint32_t ticks = tun_service ? tun_service->ticks : 0u;
         uint32_t rf_worker_was_running =
             rf_worker && rf_worker->running ? 1u : 0u;
@@ -5735,6 +5752,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_tx_queue_drops\":%u,"
                  "\"rf_rx_queue_drops\":%u,"
                  "\"rf_tx_queue_duplicate_drops\":%u,"
+                 "\"rf_tx_tcp_duplicate_suppression\":%u,"
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"poll_loop_active\":0,"
@@ -5753,7 +5771,8 @@ static int build_response(fieldmesh_context_t *context,
                  rf_frames_egressed, rf_frames_ingressed,
                  rf_tx_queue_depth, rf_tx_lease_queue_depth,
                  rf_tx_queue_drops, rf_rx_queue_drops,
-                 rf_tx_queue_duplicate_drops, rf_worker_was_running,
+                 rf_tx_queue_duplicate_drops,
+                 rf_tx_tcp_duplicate_suppression, rf_worker_was_running,
                  tun_service ?
                      tun_service_rf_transport_mode_name(
                          tun_service->rf_transport_mode) :

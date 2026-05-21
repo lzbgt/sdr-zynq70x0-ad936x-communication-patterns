@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+#include <unistd.h>
 
 #define MAX_CHANNELS 8
 
@@ -38,6 +39,7 @@ struct options {
     unsigned int rx_timeout_ms;
     unsigned int rx_arm_delay_ms;
     bool cyclic;
+    bool server;
 };
 
 struct rx_job {
@@ -57,7 +59,7 @@ static void usage(FILE *stream)
             "--tx-samples N --rx-samples N [--buffer-size N] "
             "[--tx-duration-ms N] [--rx-timeout-ms N] "
             "[--rx-arm-delay-ms N] [--cyclic] "
-            "[--channel voltage0 --channel voltage1]\n");
+            "[--channel voltage0 --channel voltage1] [--server]\n");
 }
 
 static unsigned long long parse_ull(const char *text, const char *name)
@@ -127,6 +129,8 @@ static void parse_args(int argc, char **argv, struct options *opt)
             opt->channels[opt->channel_count++] = argv[++i];
         } else if (strcmp(arg, "--cyclic") == 0) {
             opt->cyclic = true;
+        } else if (strcmp(arg, "--server") == 0) {
+            opt->server = true;
         } else {
             fprintf(stderr, "unknown or incomplete argument: %s\n", arg);
             usage(stderr);
@@ -135,8 +139,8 @@ static void parse_args(int argc, char **argv, struct options *opt)
     }
 
     if (!opt->tx_uri || !opt->rx_uri || !opt->tx_device || !opt->rx_device ||
-        !opt->tx_file || !opt->rx_file || opt->tx_samples == 0 ||
-        opt->rx_samples == 0) {
+        (!opt->server && (!opt->tx_file || !opt->rx_file ||
+                          opt->tx_samples == 0 || opt->rx_samples == 0))) {
         usage(stderr);
         exit(2);
     }
@@ -261,37 +265,35 @@ static void *rx_thread_main(void *opaque)
     return NULL;
 }
 
-int main(int argc, char **argv)
+static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
+                    const struct options *opt, FILE *json_out)
 {
-    struct options opt;
-    parse_args(argc, argv, &opt);
-
-    struct iio_context *rx_ctx = open_context(opt.rx_uri, opt.rx_timeout_ms);
-    struct iio_context *tx_ctx = open_context(opt.tx_uri, opt.rx_timeout_ms);
-    struct iio_device *rx_dev = find_device(rx_ctx, opt.rx_device);
-    struct iio_device *tx_dev = find_device(tx_ctx, opt.tx_device);
-
-    enable_channels(rx_dev, &opt, false);
-    enable_channels(tx_dev, &opt, true);
+    struct timespec started;
+    clock_gettime(CLOCK_MONOTONIC, &started);
 
     ssize_t rx_sample_size = iio_device_get_sample_size(rx_dev);
     ssize_t tx_sample_size = iio_device_get_sample_size(tx_dev);
     if (rx_sample_size <= 0 || tx_sample_size <= 0) {
-        fprintf(stderr, "invalid IIO sample sizes: rx=%zd tx=%zd\n", rx_sample_size, tx_sample_size);
+        fprintf(stderr, "invalid IIO sample sizes: rx=%zd tx=%zd\n",
+                rx_sample_size, tx_sample_size);
         return 1;
     }
 
-    size_t tx_bytes = opt.tx_samples * (size_t)tx_sample_size;
-    size_t rx_bytes = opt.rx_samples * (size_t)rx_sample_size;
-    unsigned char *tx_data = read_file_exact(opt.tx_file, tx_bytes);
+    size_t tx_bytes = opt->tx_samples * (size_t)tx_sample_size;
+    size_t rx_bytes = opt->rx_samples * (size_t)rx_sample_size;
+    size_t buffer_size = opt->buffer_size;
+    if (buffer_size == 0) {
+        buffer_size = opt->tx_samples > opt->rx_samples ? opt->tx_samples : opt->rx_samples;
+    }
+    unsigned char *tx_data = read_file_exact(opt->tx_file, tx_bytes);
 
-    struct iio_buffer *rx_buffer = iio_device_create_buffer(rx_dev, opt.buffer_size, false);
+    struct iio_buffer *rx_buffer = iio_device_create_buffer(rx_dev, buffer_size, false);
     if (!rx_buffer) {
         fprintf(stderr, "create RX buffer failed: %s\n", strerror(errno));
         free(tx_data);
         return 1;
     }
-    struct iio_buffer *tx_buffer = iio_device_create_buffer(tx_dev, opt.tx_samples, opt.cyclic);
+    struct iio_buffer *tx_buffer = iio_device_create_buffer(tx_dev, opt->tx_samples, opt->cyclic);
     if (!tx_buffer) {
         fprintf(stderr, "create TX buffer failed: %s\n", strerror(errno));
         iio_buffer_destroy(rx_buffer);
@@ -305,7 +307,7 @@ int main(int argc, char **argv)
     struct rx_job job = {
         .buffer = rx_buffer,
         .device = rx_dev,
-        .path = opt.rx_file,
+        .path = opt->rx_file,
         .target_bytes = rx_bytes,
         .bytes_written = 0,
         .rc = 0,
@@ -319,14 +321,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    nsleep_ms(opt.rx_arm_delay_ms);
-    ssize_t pushed = opt.cyclic ? iio_buffer_push(tx_buffer) : iio_buffer_push_partial(tx_buffer, opt.tx_samples);
+    nsleep_ms(opt->rx_arm_delay_ms);
+    ssize_t pushed = opt->cyclic ? iio_buffer_push(tx_buffer) :
+                                   iio_buffer_push_partial(tx_buffer, opt->tx_samples);
     if (pushed < 0) {
         fprintf(stderr, "TX push failed: %s\n", strerror((int)-pushed));
         iio_buffer_cancel(rx_buffer);
     }
-    if (opt.cyclic) {
-        nsleep_ms(opt.tx_duration_ms);
+    if (opt->cyclic) {
+        nsleep_ms(opt->tx_duration_ms);
     }
     iio_buffer_cancel(tx_buffer);
 
@@ -337,16 +340,109 @@ int main(int argc, char **argv)
 
     iio_buffer_destroy(tx_buffer);
     iio_buffer_destroy(rx_buffer);
+
+    struct timespec ended;
+    clock_gettime(CLOCK_MONOTONIC, &ended);
+    long elapsed_ms = (long)((ended.tv_sec - started.tv_sec) * 1000L +
+                             (ended.tv_nsec - started.tv_nsec) / 1000000L);
+
+    bool ok = pushed >= 0 && job.rc == 0;
+    fprintf(json_out,
+            "{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":%s,"
+            "\"tx_bytes\":%zu,\"rx_bytes\":%zd,\"rx_target_bytes\":%zu,"
+            "\"cyclic\":%s,\"elapsed_ms\":%ld}\n",
+            ok ? "true" : "false",
+            tx_bytes, job.bytes_written, rx_bytes, opt->cyclic ? "true" : "false",
+            elapsed_ms);
+    fflush(json_out);
+    return ok ? 0 : 1;
+}
+
+static const char *value_after(char *token, const char *prefix)
+{
+    size_t len = strlen(prefix);
+    return strncmp(token, prefix, len) == 0 ? token + len : NULL;
+}
+
+static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
+                      const struct options *base)
+{
+    char line[4096];
+
+    printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true}\n");
+    fflush(stdout);
+
+    while (fgets(line, sizeof(line), stdin)) {
+        line[strcspn(line, "\r\n")] = '\0';
+        if (strcmp(line, "QUIT") == 0) {
+            printf("{\"event\":\"fieldmesh_iio_burst_xfer_server_quit\",\"ok\":true}\n");
+            fflush(stdout);
+            return 0;
+        }
+        if (strncmp(line, "XFER ", 5) != 0) {
+            printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
+                   "\"error\":\"expected_XFER_or_QUIT\"}\n");
+            fflush(stdout);
+            continue;
+        }
+
+        struct options req = *base;
+        req.tx_file = NULL;
+        req.rx_file = NULL;
+        req.tx_samples = 0;
+        req.rx_samples = 0;
+
+        char *save = NULL;
+        for (char *token = strtok_r(line + 5, " ", &save);
+             token;
+             token = strtok_r(NULL, " ", &save)) {
+            const char *value;
+            if ((value = value_after(token, "tx_file="))) {
+                req.tx_file = value;
+            } else if ((value = value_after(token, "rx_file="))) {
+                req.rx_file = value;
+            } else if ((value = value_after(token, "tx_samples="))) {
+                req.tx_samples = (size_t)parse_ull(value, "tx_samples");
+            } else if ((value = value_after(token, "rx_samples="))) {
+                req.rx_samples = (size_t)parse_ull(value, "rx_samples");
+            } else if ((value = value_after(token, "buffer_size="))) {
+                req.buffer_size = (size_t)parse_ull(value, "buffer_size");
+            } else if ((value = value_after(token, "tx_duration_ms="))) {
+                req.tx_duration_ms = (unsigned int)parse_ull(value, "tx_duration_ms");
+            } else if ((value = value_after(token, "rx_arm_delay_ms="))) {
+                req.rx_arm_delay_ms = (unsigned int)parse_ull(value, "rx_arm_delay_ms");
+            } else if ((value = value_after(token, "cyclic="))) {
+                req.cyclic = strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
+            }
+        }
+
+        if (!req.tx_file || !req.rx_file || req.tx_samples == 0 || req.rx_samples == 0) {
+            printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
+                   "\"error\":\"missing_XFER_fields\"}\n");
+            fflush(stdout);
+            continue;
+        }
+        (void)run_xfer(rx_dev, tx_dev, &req, stdout);
+    }
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    struct options opt;
+    parse_args(argc, argv, &opt);
+
+    struct iio_context *rx_ctx = open_context(opt.rx_uri, opt.rx_timeout_ms);
+    struct iio_context *tx_ctx = open_context(opt.tx_uri, opt.rx_timeout_ms);
+    struct iio_device *rx_dev = find_device(rx_ctx, opt.rx_device);
+    struct iio_device *tx_dev = find_device(tx_ctx, opt.tx_device);
+
+    enable_channels(rx_dev, &opt, false);
+    enable_channels(tx_dev, &opt, true);
+
+    int rc = opt.server ? run_server(rx_dev, tx_dev, &opt) :
+                          run_xfer(rx_dev, tx_dev, &opt, stdout);
     iio_context_destroy(tx_ctx);
     iio_context_destroy(rx_ctx);
-
-    if (pushed < 0 || job.rc != 0) {
-        return 1;
-    }
-
-    printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":true,"
-           "\"tx_bytes\":%zu,\"rx_bytes\":%zd,\"rx_target_bytes\":%zu,"
-           "\"cyclic\":%s}\n",
-           tx_bytes, job.bytes_written, rx_bytes, opt.cyclic ? "true" : "false");
-    return 0;
+    return rc;
 }
