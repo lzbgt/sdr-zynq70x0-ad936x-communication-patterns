@@ -286,7 +286,9 @@ Minimum production gates for native TCP/IP:
   traffic. The TCP client is now supervised from the host instead of hidden
   behind a blocking SSH wrapper, so after that grace it can also stay alive for
   `IPERF_TCP_QUEUE_QUIET_GRACE_S` while the host watches both daemon RF TX/lease
-  queues. If the client still times out, the runner keeps the RF bridge alive
+  queues. Empty queue snapshots are diagnostic only; they do not terminate the
+  grace early because Linux TCP may be waiting to generate the next
+  retransmit/control segment. If the client still times out, the runner keeps the RF bridge alive
   for a bounded `IPERF_TCP_CONTROL_DRAIN_S` window when the client report proves
   data bytes already crossed. This does not certify the run; it captures
   whether final result/shutdown traffic drains when the bridge is not cut off

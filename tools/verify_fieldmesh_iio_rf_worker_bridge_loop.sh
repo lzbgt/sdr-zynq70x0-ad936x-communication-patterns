@@ -245,6 +245,7 @@ required = [
     "fieldmesh_iperf_final_exchange_grace_s",
     "IPERF_TCP_QUEUE_QUIET_GRACE_S",
     "fieldmesh_iperf_queue_quiet_grace_s",
+    "fieldmesh_iperf_queue_quiet_max_consecutive_s",
     "run_remote_iperf_json_async",
     '"$cc" -std=c99 -Wall -Wextra -Werror',
     '-liio -lpthread',

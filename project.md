@@ -1308,8 +1308,10 @@ user and vendor configuration.
   bridge. The TCP client is now host-supervised rather than hidden behind a
   blocking SSH wrapper; after the fixed grace, it can also remain alive for
   `IPERF_TCP_QUEUE_QUIET_GRACE_S` while the host watches both daemon RF TX/lease
-  queues. If the client still times out after sending TCP bytes, a bounded
-  `IPERF_TCP_CONTROL_DRAIN_S` phase leaves the RF bridge running briefly, waits
+  queues. Empty queue snapshots are now treated as diagnostics only, not an
+  early-kill condition, because Linux TCP may be waiting to generate the next
+  retransmit/control segment. If the client still times out after sending TCP
+  bytes, a bounded `IPERF_TCP_CONTROL_DRAIN_S` phase leaves the RF bridge running briefly, waits
   for the server process to exit, captures the server JSON if available, and
   records whether the final control path drained. Live HIL with the rebuilt
   persistent helper moved 55 real-RF frames with zero bridge errors; the Z203

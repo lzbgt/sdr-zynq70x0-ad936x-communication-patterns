@@ -1504,6 +1504,7 @@ run_remote_iperf_json_async() {
     local elapsed=0
     local quiet_elapsed=0
     local quiet_consecutive=0
+    local max_quiet_consecutive=0
     local snapshot
 
     : >"$stderr_path"
@@ -1569,12 +1570,13 @@ run_remote_iperf_json_async() {
             else
                 quiet_consecutive=0
             fi
-            if [ "$quiet_consecutive" -ge 2 ]; then
-                break
+            if [ "$quiet_consecutive" -gt "$max_quiet_consecutive" ]; then
+                max_quiet_consecutive="$quiet_consecutive"
             fi
             sleep 1
             quiet_elapsed=$((quiet_elapsed + 1))
         done
+        printf 'fieldmesh_iperf_queue_quiet_max_consecutive_s=%s\n' "$max_quiet_consecutive" >>"$stderr_path"
     fi
 
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
