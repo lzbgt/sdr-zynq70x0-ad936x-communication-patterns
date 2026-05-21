@@ -48,7 +48,9 @@ the C ARM/FPGA boundary. It is not an AD936x sample DMA window and it is not an
 IIO transport. The node binds through `generic-uio` when the Linux image has
 `CONFIG_UIO=y` and `CONFIG_UIO_PDRV_GENIRQ=y`, exposing a `/dev/uioN` device
 for fixed binary descriptor rings, packet memory, counters, and future PL
-packet-memory handoff.
+packet-memory handoff. The product kernel recipe makes `uio_pdrv_genirq` match
+`generic-uio` directly, so this binding does not depend on mutable U-Boot
+`uio_pdrv_genirq.of_id=...` bootargs.
 
 Default board-side inspection is read-only:
 
@@ -56,11 +58,24 @@ Default board-side inspection is read-only:
 fieldmesh-firmware-uio-ring-probe --device /dev/uioN
 ```
 
-Mapped packet-memory loopback is intentionally guarded:
+That default path checks `/sys/class/uio/uioN/name` and `map0` address/size
+only. It does not `mmap()` the aperture, so it remains safe while the Linux
+binding exists before the matching PL address-decode/register window has been
+implemented.
+
+Mapped packet-memory reads and loopback are intentionally guarded:
+
+```sh
+fieldmesh-firmware-uio-ring-probe --device /dev/uioN --mmap-read
+```
 
 ```sh
 fieldmesh-firmware-uio-ring-probe --device /dev/uioN --loopback --allow-writes
 ```
+
+Use the mapped modes only after the FPGA bitstream implements the
+`0x43C30000/0x10000` packet-ring window; an unimplemented PL address can raise
+an ARM external abort on access.
 
 ## GNSS/PPS Options
 

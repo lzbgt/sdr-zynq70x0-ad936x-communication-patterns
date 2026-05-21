@@ -148,6 +148,7 @@ require_tokens(
         'compatible = "fieldmesh,firmware-ring-1.0", "generic-uio";',
         "reg = <0x43c30000 0x10000>;",
         "interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;",
+        'linux,uio-name = "fieldmesh-ring";',
         "fieldmesh,ring-slots",
         "fieldmesh,packet-arena-bytes",
         "fieldmesh,packet-stride",
@@ -164,6 +165,7 @@ for recipe in (
         [
             "--enable UIO",
             "--enable UIO_PDRV_GENIRQ",
+            '{ .compatible = "generic-uio" }',
             "--enable PPS_CLIENT_GPIO",
         ],
     )

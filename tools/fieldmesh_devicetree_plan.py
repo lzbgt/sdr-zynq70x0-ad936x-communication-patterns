@@ -79,6 +79,7 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 		reg = <0x43c30000 0x10000>;
 		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
+		linux,uio-name = "fieldmesh-ring";
 		fieldmesh,ring-slots = <8>;
 		fieldmesh,packet-arena-bytes = <4096>;
 		fieldmesh,packet-stride = <256>;

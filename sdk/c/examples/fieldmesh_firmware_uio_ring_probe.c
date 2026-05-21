@@ -19,6 +19,7 @@
 typedef struct probe_config {
     const char *device_path;
     const char *image_path;
+    int mmap_read;
     int loopback;
     int allow_writes;
     int unlink_image;
@@ -28,7 +29,7 @@ typedef struct probe_config {
 static int usage(const char *argv0)
 {
     fprintf(stderr,
-            "usage: %s (--device /dev/uioN | --image PATH) [--loopback --allow-writes]\n",
+            "usage: %s (--device /dev/uioN [--mmap-read] | --image PATH) [--loopback --allow-writes]\n",
             argv0);
     return 2;
 }
@@ -58,6 +59,8 @@ static int parse_args(int argc, char **argv, probe_config_t *cfg)
             cfg->device_path = argv[++i];
         } else if (strcmp(argv[i], "--image") == 0 && i + 1 < argc) {
             cfg->image_path = argv[++i];
+        } else if (strcmp(argv[i], "--mmap-read") == 0) {
+            cfg->mmap_read = 1;
         } else if (strcmp(argv[i], "--loopback") == 0) {
             cfg->loopback = 1;
         } else if (strcmp(argv[i], "--allow-writes") == 0) {
@@ -69,6 +72,9 @@ static int parse_args(int argc, char **argv, probe_config_t *cfg)
     if ((cfg->device_path && cfg->image_path) || (!cfg->device_path && !cfg->image_path)) {
         return 0;
     }
+    if (cfg->mmap_read && cfg->image_path) {
+        return 0;
+    }
     if (cfg->allow_writes && !cfg->loopback) {
         return 0;
     }
@@ -76,6 +82,89 @@ static int parse_args(int argc, char **argv, probe_config_t *cfg)
         return 0;
     }
     return 1;
+}
+
+static int uio_index_from_device(const char *path)
+{
+    const char *base = strrchr(path, '/');
+    base = base ? base + 1 : path;
+    if (strncmp(base, "uio", 3) != 0 || base[3] == '\0') {
+        return -1;
+    }
+    char *end = NULL;
+    long value = strtol(base + 3, &end, 10);
+    if (!end || *end != '\0' || value < 0 || value > 1024) {
+        return -1;
+    }
+    return (int)value;
+}
+
+static int read_trimmed_file(const char *path, char *buf, size_t bytes)
+{
+    if (!buf || bytes == 0u) {
+        return 0;
+    }
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        return 0;
+    }
+    if (!fgets(buf, (int)bytes, f)) {
+        fclose(f);
+        return 0;
+    }
+    fclose(f);
+    buf[bytes - 1u] = '\0';
+    size_t n = strlen(buf);
+    while (n > 0u && (buf[n - 1u] == '\n' || buf[n - 1u] == '\r' ||
+                      buf[n - 1u] == ' ' || buf[n - 1u] == '\t')) {
+        buf[--n] = '\0';
+    }
+    return 1;
+}
+
+static int inspect_uio_sysfs(const char *device_path)
+{
+    int index = uio_index_from_device(device_path);
+    if (index < 0) {
+        fprintf(stderr, "invalid UIO device path: %s\n", device_path);
+        return 1;
+    }
+
+    char name_path[128];
+    char addr_path[160];
+    char size_path[160];
+    snprintf(name_path, sizeof(name_path), "/sys/class/uio/uio%d/name", index);
+    snprintf(addr_path, sizeof(addr_path), "/sys/class/uio/uio%d/maps/map0/addr", index);
+    snprintf(size_path, sizeof(size_path), "/sys/class/uio/uio%d/maps/map0/size", index);
+
+    char name[96] = {0};
+    char addr[32] = {0};
+    char size[32] = {0};
+    int name_ok = read_trimmed_file(name_path, name, sizeof(name));
+    int addr_ok = read_trimmed_file(addr_path, addr, sizeof(addr));
+    int size_ok = read_trimmed_file(size_path, size, sizeof(size));
+    int ok = name_ok && addr_ok && size_ok && strcmp(name, "fieldmesh-ring") == 0 &&
+             strcmp(addr, "0x43c30000") == 0 && strcmp(size, "0x00010000") == 0;
+
+    printf("{\"event\":\"fieldmesh_firmware_uio_ring_probe\","
+           "\"ok\":%s,"
+           "\"backend\":\"uio\","
+           "\"mapped_memory\":false,"
+           "\"sysfs_only\":true,"
+           "\"uio_index\":%d,"
+           "\"uio_name\":\"%s\","
+           "\"uio_addr\":\"%s\","
+           "\"uio_size\":\"%s\","
+           "\"writes_packet_memory\":false,"
+           "\"uses_json_on_air\":false,"
+           "\"hot_path_language\":\"c\","
+           "\"vendor_runtime_dependency\":false}\n",
+           ok ? "true" : "false",
+           index,
+           name_ok ? name : "",
+           addr_ok ? addr : "",
+           size_ok ? size : "");
+    return ok ? 0 : 1;
 }
 
 static int open_aperture(const probe_config_t *cfg, uint32_t bytes)
@@ -145,6 +234,10 @@ int main(int argc, char **argv)
     probe_config_t cfg;
     if (!parse_args(argc, argv, &cfg)) {
         return usage(argv[0]);
+    }
+
+    if (cfg.device_path && !cfg.mmap_read && !cfg.loopback) {
+        return inspect_uio_sysfs(cfg.device_path);
     }
 
     fieldmesh_fw_ring_linear_layout_t layout;

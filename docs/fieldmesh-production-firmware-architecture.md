@@ -250,12 +250,17 @@ class priority, and ACK generation. `sdk/c/examples/fieldmesh_firmware_mmap_ring
 then exercises the same boundary through file-backed `mmap()` memory as the
 host-side stand-in for `/dev/uio` or kernel-mapped FPGA packet memory.
 `sdk/c/examples/fieldmesh_firmware_uio_ring_probe.c` is the board-facing probe:
-it can inspect a real `/dev/uioN` aperture read-only, and it requires the
-explicit `--loopback --allow-writes` pair before resetting or writing mapped
+its default `--device /dev/uioN` path is sysfs-only and does not `mmap()` the
+aperture. `--mmap-read` is the first PL-window access check, and the explicit
+`--loopback --allow-writes` pair is required before resetting or writing mapped
 packet memory. The matching devicetree contract is
 `fieldmesh-ring@43c30000`, compatible with `fieldmesh,firmware-ring-1.0` and
 `generic-uio`, at `0x43C30000`; it is the production firmware packet-memory
 aperture, not an AD936x sample-DMA or IIO data path.
+
+Live Z203/Z103 images now bind that node as `/dev/uio0`. Safe sysfs inspection
+is the Linux-side proof. Mapped reads are expected to fail until the first-party
+PL register/packet-memory aperture is implemented behind `0x43C30000`.
 
 ## MAC Design
 

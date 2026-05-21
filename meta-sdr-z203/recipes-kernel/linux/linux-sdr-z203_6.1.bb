@@ -16,6 +16,18 @@ KERNEL_DEVICETREE = "zynq-pluto-sdr.dtb"
 PV = "6.1+vendor"
 
 do_configure:prepend() {
+    python3 - <<'PY'
+from pathlib import Path
+
+path = Path("${S}") / "drivers/uio/uio_pdrv_genirq.c"
+text = path.read_text(encoding="utf-8")
+old = 'static struct of_device_id uio_of_genirq_match[] = {\n\t{ /* This is filled with module_parm */ },'
+new = 'static struct of_device_id uio_of_genirq_match[] = {\n\t{ .compatible = "generic-uio" },'
+if old in text:
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+elif new not in text:
+    raise SystemExit("uio_pdrv_genirq generic-uio default hook not found")
+PY
     install -m 0644 ${S}/arch/arm/configs/zynq_pluto_defconfig ${B}/.config
 }
 
