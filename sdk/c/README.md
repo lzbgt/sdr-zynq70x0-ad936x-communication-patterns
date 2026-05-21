@@ -55,6 +55,12 @@ in `src/fieldmesh_sdk.c`:
   The shared ABI/ring helpers use explicit byte-wise descriptor and packet
   access so ARM Device/UIO mappings do not depend on libc bulk-memory behavior
   or unaligned word stores.
+- `include/fieldmesh_firmware_packet_bridge.h` is the next C data-plane
+  boundary: raw IPv4 packets from a TUN-like source are classified into compact
+  traffic classes, enqueued as binary firmware descriptors, and drained from
+  READY RX descriptors through a callback. `examples/fieldmesh_firmware_packet_bridge_probe.c`
+  proves TCP control can be serviced ahead of UDP payload without Python, JSON
+  on the packet path, or vendor runtime code.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

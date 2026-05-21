@@ -36,6 +36,7 @@ verify_variant() {
     local swarm_adapter_strings_out
     local tun_gateway_strings_out
     local two_pc_strings_out
+    local packet_bridge_strings_out
     local rf_safe_tune_out
     local rf_tx_enable_out
     local rf_tx_disable_out
@@ -96,6 +97,7 @@ verify_variant() {
     tun_gateway_strings_out="$(mktemp)"
     tun_packetizer_strings_out="$(mktemp)"
     two_pc_strings_out="$(mktemp)"
+    packet_bridge_strings_out="$(mktemp)"
     mac_frame_strings_out="$(mktemp)"
     gnss_reporter_strings_out="$(mktemp)"
     rf_safe_tune_out="$(mktemp)"
@@ -104,7 +106,7 @@ verify_variant() {
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
     fit_info_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$mac_frame_strings_out" "$gnss_reporter_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$fit_info_out"' RETURN
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$packet_bridge_strings_out" "$mac_frame_strings_out" "$gnss_reporter_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$fit_info_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
@@ -115,6 +117,7 @@ verify_variant() {
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-gateway-demo | strings > "$tun_gateway_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-tun-packetizer-demo | strings > "$tun_packetizer_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-two-pc-flow-demo | strings > "$two_pc_strings_out"
+    tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-firmware-packet-bridge-probe | strings > "$packet_bridge_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-mac-frame-demo | strings > "$mac_frame_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-gnss-nmea-reporter | strings > "$gnss_reporter_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-safe-tune | strings > "$rf_safe_tune_out"
@@ -191,6 +194,12 @@ PY
     for token in sdk_mac_frame BLR carries_peer_name_per_frame tlv_dtype dtype_2r2t fieldmesh_ingest_mac_frame; do
         if ! grep -qF "$token" "$mac_frame_strings_out"; then
             echo "Missing fieldmesh-mac-frame-demo token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in fieldmesh_firmware_packet_bridge_probe ipv4_to_firmware_ring binary_descriptors uses_json_on_air hot_path_language; do
+        if ! grep -qF "$token" "$packet_bridge_strings_out"; then
+            echo "Missing fieldmesh-firmware-packet-bridge-probe token in $name rootfs: $token" >&2
             exit 1
         fi
     done

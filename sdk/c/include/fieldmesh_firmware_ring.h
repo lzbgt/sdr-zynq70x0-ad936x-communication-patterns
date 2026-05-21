@@ -367,6 +367,38 @@ static inline int fieldmesh_fw_ring_payload_matches(
     return fieldmesh_fw_ring_bytes_equal(ring->rx_packets + offset, payload, payload_len);
 }
 
+static inline int fieldmesh_fw_ring_release_tx(fieldmesh_fw_ring_view_t *ring,
+                                               uint32_t slot)
+{
+    if (!fieldmesh_fw_ring_config_valid(ring) || slot >= ring->slots) {
+        return 0;
+    }
+    fieldmesh_fw_ring_zero_bytes(&ring->tx[slot], (uint32_t)sizeof(ring->tx[slot]));
+    fieldmesh_fw_ring_zero_bytes(&ring->ack[slot], (uint32_t)sizeof(ring->ack[slot]));
+    fieldmesh_fw_ring_zero_bytes(ring->tx_packets + slot * ring->packet_stride,
+                                 ring->packet_stride);
+    return 1;
+}
+
+static inline int fieldmesh_fw_ring_release_rx(fieldmesh_fw_ring_view_t *ring,
+                                               uint32_t slot)
+{
+    if (!fieldmesh_fw_ring_config_valid(ring) || slot >= ring->slots) {
+        return 0;
+    }
+    fieldmesh_fw_ring_zero_bytes(&ring->rx[slot], (uint32_t)sizeof(ring->rx[slot]));
+    fieldmesh_fw_ring_zero_bytes(ring->rx_packets + slot * ring->packet_stride,
+                                 ring->packet_stride);
+    return 1;
+}
+
+static inline int fieldmesh_fw_ring_reclaim_slot(fieldmesh_fw_ring_view_t *ring,
+                                                 uint32_t slot)
+{
+    return fieldmesh_fw_ring_release_tx(ring, slot) &&
+           fieldmesh_fw_ring_release_rx(ring, slot);
+}
+
 #ifdef __cplusplus
 }
 #endif

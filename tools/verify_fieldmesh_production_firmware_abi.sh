@@ -26,6 +26,10 @@ mkdir -p "$work_dir/vectors"
   -o "$work_dir/fieldmesh-firmware-uio-ring-probe"
 "$cc" -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
+  "$repo_root/sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c" \
+  -o "$work_dir/fieldmesh-firmware-packet-bridge-probe"
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
   -xc - \
   -o "$work_dir/fieldmesh-firmware-ring-header-smoke" <<'EOF_C'
 #include "fieldmesh_firmware_ring.h"
@@ -60,12 +64,14 @@ EOF_C
 "$work_dir/fieldmesh-firmware-uio-ring-probe" \
   --image "$work_dir/vectors/uio-ring-image.bin" \
   >"$work_dir/uio-ring-probe-inspect.json"
+"$work_dir/fieldmesh-firmware-packet-bridge-probe" \
+  >"$work_dir/packet-bridge-probe.json"
 
 python3 - "$work_dir/probe.json" "$work_dir/probe-vectors.json" \
   "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" \
   "$work_dir/mmap-ring-probe.json" "$work_dir/mmap-ring-probe-image.json" \
   "$work_dir/uio-ring-probe-loopback.json" "$work_dir/uio-ring-probe-inspect.json" \
-  "$work_dir/vectors" <<'PY'
+  "$work_dir/packet-bridge-probe.json" "$work_dir/vectors" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -78,7 +84,8 @@ mmap_ring_probe = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
 mmap_ring_probe_image = json.loads(Path(sys.argv[6]).read_text(encoding="utf-8"))
 uio_ring_probe_loopback = json.loads(Path(sys.argv[7]).read_text(encoding="utf-8"))
 uio_ring_probe_inspect = json.loads(Path(sys.argv[8]).read_text(encoding="utf-8"))
-vector_dir = Path(sys.argv[9])
+packet_bridge_probe = json.loads(Path(sys.argv[9]).read_text(encoding="utf-8"))
+vector_dir = Path(sys.argv[10])
 
 for report in (probe, probe_vectors):
     if report.get("event") != "fieldmesh_firmware_abi_probe":
@@ -149,6 +156,29 @@ if uio_ring_probe_loopback.get("served") != 2 or uio_ring_probe_loopback.get("ac
     raise SystemExit(f"firmware UIO loopback counters changed: {uio_ring_probe_loopback!r}")
 if uio_ring_probe_inspect.get("writes_packet_memory") is not False:
     raise SystemExit(f"firmware UIO inspect mode must not write: {uio_ring_probe_inspect!r}")
+
+if packet_bridge_probe.get("event") != "fieldmesh_firmware_packet_bridge_probe":
+    raise SystemExit(f"bad packet bridge event: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("ok") is not True:
+    raise SystemExit(f"firmware packet bridge probe failed: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("hot_path_language") != "c":
+    raise SystemExit(f"firmware packet bridge hot path must be C: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("uses_json_on_air") is not False:
+    raise SystemExit(f"firmware packet bridge must not use JSON on air: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("vendor_runtime_dependency") is not False:
+    raise SystemExit(f"firmware packet bridge must be first-party: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("binary_descriptors") is not True:
+    raise SystemExit(f"firmware packet bridge must use binary descriptors: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("first_pick") != packet_bridge_probe.get("tcp_slot"):
+    raise SystemExit(f"TCP control frame was not serviced first: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("second_pick") != packet_bridge_probe.get("udp_slot"):
+    raise SystemExit(f"UDP payload frame was not serviced after control: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("tcp_traffic_class") != 0 or packet_bridge_probe.get("udp_traffic_class") != 2:
+    raise SystemExit(f"packet bridge traffic classes changed: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("enqueued_packets") != 2 or packet_bridge_probe.get("drained_packets") != 2:
+    raise SystemExit(f"packet bridge counters changed: {packet_bridge_probe!r}")
+if packet_bridge_probe.get("classify_errors") != 0 or packet_bridge_probe.get("enqueue_drops") != 0 or packet_bridge_probe.get("drain_errors") != 0:
+    raise SystemExit(f"packet bridge errors changed: {packet_bridge_probe!r}")
 
 expected = {
     "fieldmesh_fw_tx_desc_v1.bin": probe["tx_desc_bytes"],
@@ -225,10 +255,53 @@ required = [
     "fieldmesh_fw_ring_linear_layout_t",
     "fieldmesh_fw_ring_bind_linear",
     "fieldmesh_fw_ring_u32_align4",
+    "fieldmesh_fw_ring_release_tx",
+    "fieldmesh_fw_ring_release_rx",
+    "fieldmesh_fw_ring_reclaim_slot",
 ]
 missing = [token for token in required if token not in source]
 if missing:
     raise SystemExit(f"missing firmware ring header tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/include/fieldmesh_firmware_packet_bridge.h" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_fw_packet_bridge_t",
+    "fieldmesh_fw_packet_bridge_config_t",
+    "fieldmesh_fw_packet_bridge_classify_ipv4",
+    "fieldmesh_fw_packet_bridge_enqueue_ipv4",
+    "fieldmesh_fw_packet_bridge_drain_ready",
+    "FIELDMESH_FW_PACKET_TC_CONTROL",
+    "FIELDMESH_FW_PACKET_TC_INTERACTIVE",
+    "fieldmesh_fw_ring_enqueue",
+    "fieldmesh_fw_ring_release_rx",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware packet bridge tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_firmware_packet_bridge_probe",
+    "fieldmesh_fw_packet_bridge_enqueue_ipv4",
+    "fieldmesh_fw_packet_bridge_drain_ready",
+    "tcp_fin_packet",
+    "udp_packet",
+    "binary_descriptors",
+    "uses_json_on_air",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware packet bridge probe tokens: {missing}")
 PY
 
 python3 - "$repo_root/sdk/c/examples/fieldmesh_firmware_mmap_ring_probe.c" <<'PY'
@@ -285,13 +358,16 @@ from pathlib import Path
 required = [
     "fieldmesh_firmware_abi.h",
     "fieldmesh_firmware_ring.h",
+    "fieldmesh_firmware_packet_bridge.h",
     "fieldmesh_firmware_abi_probe.c",
     "fieldmesh_firmware_ring_probe.c",
     "fieldmesh_firmware_mmap_ring_probe.c",
+    "fieldmesh_firmware_packet_bridge_probe.c",
     "fieldmesh_firmware_uio_ring_probe.c",
     "fieldmesh-firmware-abi-probe",
     "fieldmesh-firmware-ring-probe",
     "fieldmesh-firmware-mmap-ring-probe",
+    "fieldmesh-firmware-packet-bridge-probe",
     "fieldmesh-firmware-uio-ring-probe",
 ]
 for recipe_path in map(Path, sys.argv[1:]):

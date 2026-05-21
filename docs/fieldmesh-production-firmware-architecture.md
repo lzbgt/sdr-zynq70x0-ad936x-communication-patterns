@@ -265,6 +265,17 @@ write-loopback all pass on both boards. The C ring helper uses explicit
 byte-wise MMIO access for descriptor and packet-memory bytes so ARM Device
 mappings do not fault on compiler-generated unaligned word stores.
 
+`sdk/c/include/fieldmesh_firmware_packet_bridge.h` is the first C packet-service
+boundary above that ring. It accepts raw IPv4 packets from a TUN-style source,
+classifies TCP control, TCP data, UDP payload, DSCP-priority traffic, and ICMP
+without parsing JSON, enqueues binary TX descriptors into the firmware ring,
+and drains READY RX descriptors through a caller-owned packet write callback.
+`sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c` proves the intended
+hot-path behavior with fixed memory: TCP FIN/control is serviced ahead of UDP
+payload, the RX side drains packet bytes, and the slot is reclaimed for reuse.
+This is the replacement direction for the Python lease/ACK bridge, before the
+same boundary is connected to live `swarm0` and then to PL-owned packet DMA.
+
 ## MAC Design
 
 The production MAC is not stop-and-wait. It uses pipelined windows:
@@ -343,8 +354,9 @@ packet pipeline.
    persistent buffers and binary batch queues.
 5. Trim vendor experiment services and unused runtime tools from production
    images as first-party probes cover their verification role.
-6. Bind the live UIO descriptor ring to the C MAC queue and remove Python from
-   the packet hot path.
+6. Bind the C firmware packet bridge to the live UIO descriptor ring and the
+   board-local `swarm0` TUN service, then remove Python from the packet hot
+   path.
 7. Move timestamping, preamble/sync, packet CRC, and scheduled TX/RX into PL.
 8. Add selective ACK, sliding windows, and traffic-class airtime budgets.
 9. Integrate routed `swarm0` with the C MAC queue.
