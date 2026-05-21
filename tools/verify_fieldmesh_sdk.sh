@@ -28,6 +28,7 @@ mkdir -p "$out_dir"
 "$repo_root/tools/verify_fieldmesh_native_ip_iperf_production_sequence.sh"
 "$repo_root/tools/verify_fieldmesh_system_production_readiness.sh"
 "$repo_root/tools/verify_fieldmesh_system_readiness_actions.sh"
+"$repo_root/tools/verify_fieldmesh_production_firmware_abi.sh"
 
 cc="${CC:-cc}"
 sdk_object="$out_dir/fieldmesh_sdk.o"

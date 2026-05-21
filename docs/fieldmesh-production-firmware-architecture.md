@@ -234,8 +234,10 @@ Offset | Field              | Type      | Notes
 32     | descriptor_crc32c  | u32 LE    | descriptor integrity
 ```
 
-All descriptor structs need C `static_assert` size checks and vector fixtures.
-The Python vector tools can remain, but C verification is authoritative for
+The concrete C contract is `sdk/c/include/fieldmesh_firmware_abi.h`, with
+`sdk/c/examples/fieldmesh_firmware_abi_probe.c` generating first-party binary
+TX descriptor, RX descriptor, and ACK vectors. The Python vector tools can
+remain for host-side inspection, but C verification is authoritative for
 firmware interfaces.
 
 ## MAC Design

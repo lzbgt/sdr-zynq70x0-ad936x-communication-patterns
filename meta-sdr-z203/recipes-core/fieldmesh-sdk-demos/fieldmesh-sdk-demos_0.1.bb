@@ -8,8 +8,10 @@ FIELDMESH_REPO_ROOT = "${@os.path.abspath(os.path.join(d.getVar('THISDIR'), '..'
 SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/src/fieldmesh_sdk.c;subdir=fieldmesh-sdk/src \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_sdk.h;subdir=fieldmesh-sdk/include \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_abi.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_camera_stream_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_device_iio_demo.c;subdir=fieldmesh-sdk/examples \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_abi_probe.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_mac_frame_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_gnss_nmea_reporter.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_native_ip_socket_demo.c;subdir=fieldmesh-sdk/examples \
@@ -37,6 +39,11 @@ do_compile() {
         ${S}/src${FIELDMESH_REPO_ROOT}/sdk/c/src/fieldmesh_sdk.c \
         ${LDFLAGS} \
         -o fieldmesh-device-iio-demo
+    ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
+        -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
+        ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_abi_probe.c \
+        ${LDFLAGS} \
+        -o fieldmesh-firmware-abi-probe
     ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
         -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
         ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_mac_frame_demo.c \
@@ -93,6 +100,7 @@ do_install() {
     install -d ${D}${bindir} ${D}${sysconfdir}/init.d ${D}${sysconfdir}/rcS.d
     install -m 0755 ${B}/fieldmesh-camera-stream-demo ${D}${bindir}/fieldmesh-camera-stream-demo
     install -m 0755 ${B}/fieldmesh-device-iio-demo ${D}${bindir}/fieldmesh-device-iio-demo
+    install -m 0755 ${B}/fieldmesh-firmware-abi-probe ${D}${bindir}/fieldmesh-firmware-abi-probe
     install -m 0755 ${B}/fieldmesh-mac-frame-demo ${D}${bindir}/fieldmesh-mac-frame-demo
     install -m 0755 ${B}/fieldmesh-gnss-nmea-reporter ${D}${bindir}/fieldmesh-gnss-nmea-reporter
     install -m 0755 ${B}/fieldmesh-native-ip-socket-demo ${D}${bindir}/fieldmesh-native-ip-socket-demo

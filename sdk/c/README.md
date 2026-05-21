@@ -28,6 +28,12 @@ in `src/fieldmesh_sdk.c`:
 - `examples/fieldmesh_endpoint_demo.c` shows AP browse, audit join, stream open,
   and payload send.
 - `examples/fieldmesh_sdk_header_smoke.c` keeps the header ABI compile-checked.
+- `examples/fieldmesh_firmware_abi_probe.c` is the first first-party
+  ARM/FPGA firmware ABI probe. It includes `fieldmesh_firmware_abi.h`,
+  validates fixed-size TX/RX descriptor and ACK binary records, self-checks
+  CRC32C/CRC16, and can write binary descriptor vectors for FPGA/driver tests.
+  Its JSON output is host inspection only; the board-side contract is compact
+  binary structs and counters.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.
