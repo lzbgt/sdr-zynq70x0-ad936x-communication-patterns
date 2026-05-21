@@ -778,7 +778,7 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                 if (score > best_score) {
                     best_score = score;
                     source_offset = i;
-                    if (score >= 4u) {
+                    if (score >= 5u) {
                         break;
                     }
                 }

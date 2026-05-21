@@ -1253,13 +1253,20 @@ user and vendor configuration.
   UDP phase reused the port before the TCP server process exited. The runner now
   waits for remote one-shot `iperf3` server PIDs before reusing the port. The
   runner also exposes `IPERF_TCP_BITRATE` and per-direction modem retry knobs
-  for HIL tuning. Subsequent helper runs still move real-RF TCP data and ACKs,
-  but the batch loop remains too slow and leaves frames queued or server-side
-  metrics incomplete under `iperf3`. The daemon now separates leased RF frames
+  for HIL tuning. The Z103-to-Z203 retry path now defaults to a stronger BFSK
+  repeat because live HIL showed this is the weaker reverse direction.
+  Subsequent helper runs still move real-RF TCP data and ACKs, but the batch
+  loop remains too slow and leaves frames queued or server-side metrics
+  incomplete under `iperf3`. The daemon now separates leased RF frames
   from the live TUN TX queue so the TUN reader can keep accepting TCP while RF
   batches are in flight, and the live runner can bound batch bytes, tune route
   TCP parameters, cap TUN pump rate, disable stale-port filtering explicitly,
-  and run timed TCP tests. Live HIL after those changes moved up to 73
+  and run timed TCP tests. The RF lease priority scan now only short-circuits on
+  the highest-priority SYN/RST class, preventing ordinary TCP payload from
+  overtaking later setup/teardown control frames. Live HIL after those changes
+  moved real-RF batches with zero bridge errors on a 256-byte TCP smoke, but
+  `iperf3` still timed out waiting for the final result/shutdown exchange. Live
+  HIL after the earlier lease-queue changes moved up to 73
   native-IP frames over real RF with zero bridge errors; the best failure
   signature is now the `iperf3` server holding result bytes queued back toward
   Z203 after the client exits. Fast Z103-to-Z203 BFSK settings are not stable

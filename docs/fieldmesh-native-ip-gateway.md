@@ -230,8 +230,10 @@ Minimum production gates for native TCP/IP:
   then exposed and fixed an iperf runner bug where the UDP phase could reuse
   the port before the TCP one-shot server released it. The runner also exposes
   `IPERF_TCP_BITRATE` and per-direction primary/retry modem settings for HIL
-  tuning. Follow-up runs still move TCP data over real RF but do not complete
-  `iperf3` reliably. The daemon now has a separate in-flight RF lease queue so
+  tuning; the default Z103-to-Z203 retry uses a stronger BFSK repeat because
+  that reverse path is the weaker live decode direction. Follow-up runs still
+  move TCP data over real RF but do not complete `iperf3` reliably. The daemon
+  now has a separate in-flight RF lease queue so
   leased-but-unacked frames do not block fresh TUN reads, and the HIL runner can
   bound RF batch bytes, tune route TCP parameters, cap the TUN pump rate,
   disable stale-port filtering explicitly, and run timed TCP tests. Live HIL
@@ -246,9 +248,10 @@ Minimum production gates for native TCP/IP:
   Z103 `iperf3` server, but `iperf3` still times out during final
   result/shutdown exchange. Follow-up HIL fixed TCP-priority ordering so payload
   cannot overtake SYN/RST frames; after reinstall, the bridge again reaches the
-  `iperf3` test phase and sends requested bytes over real RF, but even a
-  256-byte smoke run still leaves the server established and the client waiting
-  on result/shutdown exchange. The remaining native-IP blocker is a true
+  `iperf3` test phase and sends requested bytes over real RF. The latest
+  256-byte smoke moved 34 frames with zero bridge errors, but still leaves the
+  server established and the client waiting on result/shutdown exchange. The
+  remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;
   the RF path evidence must be production/site evidence, not a verifier

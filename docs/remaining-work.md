@@ -104,9 +104,11 @@ TCP `iperf3` at 1024 bytes over real RF; the next failure was a software runner
 bug where the UDP phase reused the same port before the TCP one-shot server
 released it, now fixed by waiting for remote server PIDs to exit. Follow-up
 runs preserve TCP payload retransmissions, expose `IPERF_TCP_BITRATE`, and add
-per-direction primary/retry modem settings for HIL tuning. They still move TCP
-data over real RF but do not complete `iperf3` reliably because the batch loop
-cannot drain the TCP queue fast enough. The daemon now keeps in-flight leased
+per-direction primary/retry modem settings for HIL tuning. The Z103-to-Z203
+retry now defaults to a stronger BFSK repeat because live HIL showed that
+reverse direction is the weaker decode path. They still move TCP data over real
+RF but do not complete `iperf3` reliably because the batch loop cannot drain
+the TCP queue fast enough. The daemon now keeps in-flight leased
 RF frames in a separate lease queue so the TUN reader can keep accepting TCP
 while ACK-after-peer-ingest is pending, and the HIL runner can bound RF batch
 bytes, tune route TCP parameters, cap TUN pump rate, disable stale-port
@@ -125,12 +127,14 @@ that change moved up to 96 native-IP frames with zero bridge errors, and the
 Z103 `iperf3` server received the requested TCP test bytes. `iperf3` still does
 not exit cleanly because its final result/shutdown exchange is too slow for the
 current per-batch loop. Follow-up HIL exposed a software ordering bug in
-TCP-payload-priority leasing: TCP payload could overtake SYN/RST frames. That is
-now fixed and installed. The post-fix bridge again reaches the `iperf3` test
-phase and sends requested bytes over real RF, including a 256-byte smoke run,
-but the server remains established and the client times out waiting for the
-result/shutdown exchange. This keeps the blocker in the RF data-plane scheduler
-and streaming/MAC service layer.
+TCP-payload-priority leasing: TCP payload could overtake SYN/RST frames. The RF
+lease priority scan now waits for the true SYN/RST top priority before breaking
+out of the scan, so ordinary payload cannot hide a later connection-control
+frame. The post-fix bridge again reaches the `iperf3` test phase and sends
+requested bytes over real RF; the latest 256-byte smoke run moved 34 frames
+with zero bridge errors, but the server remains established and the client
+times out waiting for the result/shutdown exchange. This keeps the blocker in
+the RF data-plane scheduler and streaming/MAC service layer.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
