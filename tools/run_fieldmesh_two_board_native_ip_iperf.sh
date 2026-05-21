@@ -16,6 +16,7 @@ tcp_bytes="${TCP_BYTES:-8192}"
 tcp_time_s="${TCP_TIME_S:-0}"
 udp_bitrate="${UDP_BITRATE:-64K}"
 udp_time_s="${UDP_TIME_S:-3}"
+iperf_interval_s="${IPERF_INTERVAL_S:-0}"
 bridge_duration_s="${BRIDGE_DURATION_S:-120}"
 iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
 iperf_rcv_timeout_ms="${IPERF_RCV_TIMEOUT_MS:-600000}"
@@ -61,6 +62,7 @@ max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
+iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-payload}"
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
@@ -118,6 +120,10 @@ if ! [[ "$tcp_time_s" =~ ^[0-9]+$ ]]; then
     echo "TCP_TIME_S must be an integer >= 0" >&2
     exit 1
 fi
+if ! [[ "$iperf_interval_s" =~ ^[0-9]+$ ]]; then
+    echo "IPERF_INTERVAL_S must be an integer >= 0" >&2
+    exit 1
+fi
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_iio_rf_bridge" in 0|1) ;; *) echo "ALLOW_IIO_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
@@ -160,6 +166,10 @@ if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
     echo "IIO_BRIDGE_BATCH_BYTE_LIMIT must be an integer >= 0" >&2
     exit 1
 fi
+case "$iio_bridge_lease_priority" in
+    tcp-payload|fifo) ;;
+    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload or fifo" >&2; exit 1 ;;
+esac
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
     exit 1
@@ -1032,6 +1042,7 @@ start_iio_rf_bridge_loop() {
         --max-frames "$iio_bridge_max_frames" \
         --batch-size "$iio_bridge_batch_size" \
         --batch-byte-limit "$iio_bridge_batch_byte_limit" \
+        --lease-priority "$iio_bridge_lease_priority" \
         --z203-to-z103-burst-batches "$iio_bridge_z203_to_z103_burst_batches" \
         --z103-to-z203-burst-batches "$iio_bridge_z103_to_z203_burst_batches" \
         "${batch_args[@]}" \
@@ -1332,13 +1343,13 @@ fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "rm -f /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json; \
-     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
+     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
     >"$out_dir/z103_iperf3_tcp_server.pid"
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
+    iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
@@ -1357,13 +1368,13 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-    "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_udp_server.json 2>&1 & echo \$!" \
+    "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_udp_server.json 2>&1 & echo \$!" \
     >"$out_dir/z103_iperf3_udp_server.pid"
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_udp_client.json" "$out_dir/z203_iperf3_udp_client.err" \
-    iperf3 -u -c 10.77.2.20 -p "'$iperf_port'" -b "'$udp_bitrate'" -t "'$udp_time_s'" -l "'$iperf_block_size'" --json
+    iperf3 -u -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" -b "'$udp_bitrate'" -t "'$udp_time_s'" -l "'$iperf_block_size'" --json
 udp_rc=$?
 set -e
 if [ "$udp_rc" -ne 0 ]; then
@@ -1384,13 +1395,13 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
 if [ "$host_pc_case" = "1" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
         "rm -f /tmp/fieldmesh_iperf3_host_tcp_server.json /tmp/fieldmesh_iperf3_host_udp_server.json; \
-         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
+         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
         >"$out_dir/z103_iperf3_host_tcp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
-        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_bitrate_args[@]}" "${host_tcp_length_args[@]}" -l "$iperf_block_size" --json
+        iperf3 -c 10.77.2.20 -p "$iperf_port" -i "$iperf_interval_s" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_bitrate_args[@]}" "${host_tcp_length_args[@]}" -l "$iperf_block_size" --json
     host_tcp_rc=$?
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then
@@ -1410,13 +1421,13 @@ if [ "$host_pc_case" = "1" ]; then
         "$out_dir/z103_iperf3_host_tcp_server.json" >/dev/null || true
 
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-        "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_udp_server.json 2>&1 & echo \$!" \
+        "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_udp_server.json 2>&1 & echo \$!" \
         >"$out_dir/z103_iperf3_host_udp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_udp_client.json" "$out_dir/host_iperf3_udp_client.err" \
-        iperf3 -u -c 10.77.2.20 -p "$iperf_port" -b "$udp_bitrate" -t "$udp_time_s" -l "$iperf_block_size" --json
+        iperf3 -u -c 10.77.2.20 -p "$iperf_port" -i "$iperf_interval_s" -b "$udp_bitrate" -t "$udp_time_s" -l "$iperf_block_size" --json
     host_udp_rc=$?
     set -e
     if [ "$host_udp_rc" -ne 0 ]; then

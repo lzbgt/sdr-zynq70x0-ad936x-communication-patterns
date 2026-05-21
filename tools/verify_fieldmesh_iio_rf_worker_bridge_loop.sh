@@ -64,6 +64,8 @@ if report.get("lease_timeout_ms") != 250:
     raise SystemExit(f"unexpected lease timeout default: {report.get('lease_timeout_ms')}")
 if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
+if report.get("lease_priority") != "tcp-payload":
+    raise SystemExit(f"unexpected lease priority default: {report.get('lease_priority')}")
 if report.get("cyclic_capture_periods") != 1:
     raise SystemExit(f"unexpected bridge capture periods: {report.get('cyclic_capture_periods')}")
 frame_report = Path(report["frames"][0]["report"])
@@ -269,6 +271,36 @@ fi
 if ! grep -q 'TCP_TIME_S must be an integer >= 0' \
      "$work_dir/iperf_bad_tcp_time.err"; then
   echo "native-IP iperf invalid TCP_TIME_S refusal changed" >&2
+  exit 1
+fi
+
+if IPERF_INTERVAL_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-interval" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_interval.out" \
+   2>"$work_dir/iperf_bad_interval.err"; then
+  echo "native-IP iperf gate accepted invalid IPERF_INTERVAL_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'IPERF_INTERVAL_S must be an integer >= 0' \
+     "$work_dir/iperf_bad_interval.err"; then
+  echo "native-IP iperf invalid IPERF_INTERVAL_S refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_LEASE_PRIORITY=bad \
+   OUT_DIR="$work_dir/iperf-bad-lease-priority" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_lease_priority.out" \
+   2>"$work_dir/iperf_bad_lease_priority.err"; then
+  echo "native-IP iperf gate accepted invalid IIO bridge lease priority" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload or fifo' \
+     "$work_dir/iperf_bad_lease_priority.err"; then
+  echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
   exit 1
 fi
 

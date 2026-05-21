@@ -96,9 +96,27 @@ def split_port_filter_prefix(frames: list[bytes], ports: set[int]) -> tuple[list
     return [], prefix
 
 
-def lease_from_daemon(host: str, port: int, timeout_ms: int) -> dict[str, Any] | None:
+def lease_priority_request_suffix(priority: str) -> str:
+    if priority == "tcp-payload":
+        return " priority=tcp_payload"
+    if priority == "fifo":
+        return ""
+    raise SystemExit(f"unsupported lease priority: {priority!r}")
+
+
+def lease_from_daemon(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    priority: str,
+) -> dict[str, Any] | None:
     try:
-        report = bridge.request_daemon(host, port, "FIELDMESH_RF_TX_LEASE v1", timeout_ms)
+        report = bridge.request_daemon(
+            host,
+            port,
+            "FIELDMESH_RF_TX_LEASE v1" + lease_priority_request_suffix(priority),
+            timeout_ms,
+        )
     except TimeoutError:
         return None
     if report.get("event") != "sdk_daemon_rf_tx_lease":
@@ -138,10 +156,12 @@ def lease_batch_from_daemon(
     timeout_ms: int,
     max_frames: int,
     max_bytes: int,
+    priority: str,
 ) -> list[bytes]:
     request = f"FIELDMESH_RF_TX_LEASE_BATCH v1 max={max_frames}"
     if max_bytes > 0:
         request += f" max_bytes={max_bytes}"
+    request += lease_priority_request_suffix(priority)
     try:
         report = bridge.request_daemon(host, port, request, timeout_ms)
     except TimeoutError:
@@ -791,6 +811,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
             "batch_byte_limit": args.batch_byte_limit,
+            "lease_priority": args.lease_priority,
             "direction_burst_batches": {
                 "z203_to_z103": args.z203_to_z103_burst_batches,
                 "z103_to_z203": args.z103_to_z203_burst_batches,
@@ -934,6 +955,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         args.lease_timeout_ms,
                         args.batch_size,
                         args.batch_byte_limit,
+                        args.lease_priority,
                     )
                     if not batch_frames:
                         counts["empty_polls"] += 1
@@ -1022,6 +1044,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         direction["source_host"],
                         direction["source_port"],
                         args.lease_timeout_ms,
+                        args.lease_priority,
                     )
                     if lease is None:
                         counts["empty_polls"] += 1
@@ -1117,6 +1140,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--batch-byte-limit", type=int, default=0)
+    parser.add_argument("--lease-priority", choices=("tcp-payload", "fifo"), default="tcp-payload")
     parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
     parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
     parser.add_argument("--destructive-poll-batch", action="store_true")

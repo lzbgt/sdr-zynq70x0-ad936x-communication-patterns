@@ -118,7 +118,13 @@ route RTO, and low TUN pump bounds all regress earlier phases. The remaining
 native-IP blocker is therefore not antenna installation, basic RF decode,
 daemon queueing, ordinary socket transport, or shell process startup alone; it
 is the need for a true streaming or pipelined RF loop with enough reverse-path
-service for the result exchange.
+service for the result exchange. The daemon now adds TCP-payload-priority RF
+leasing, and the iperf runner defaults to compact `-i 0` JSON so the final
+result exchange does not include one interval object per second. Live HIL after
+that change moved up to 96 native-IP frames with zero bridge errors, and the
+Z103 `iperf3` server received the requested TCP test bytes. `iperf3` still does
+not exit cleanly because its final result/shutdown exchange is too slow for the
+current per-batch loop.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

@@ -238,8 +238,14 @@ Minimum production gates for native TCP/IP:
   moved up to 73 native-IP frames over real RF with zero bridge errors, but the
   best failure still leaves `iperf3` server-result bytes queued on Z103 after
   the client exits. Fast Z103-to-Z203 BFSK settings, high route RTO, and low
-  TUN pump bounds regress the exchange. The remaining native-IP blocker is a
-  true streaming or pipelined RF data plane with enough reverse-path service,
+  TUN pump bounds regress the exchange. The daemon now supports
+  TCP-payload-priority leasing, and the runner defaults to `iperf3 -i 0` so
+  compact final reports cross the slow RF path instead of large per-second
+  interval JSON. Live HIL with those changes moved up to 96 native-IP frames
+  with zero bridge errors and delivered the requested TCP test bytes to the
+  Z103 `iperf3` server, but `iperf3` still times out during final
+  result/shutdown exchange. The remaining native-IP blocker is a true streaming
+  or pipelined RF data plane with enough reverse-path service,
   not RF installation;
   the RF path evidence must be production/site evidence, not a verifier
   fixture. `PREFLIGHT_ONLY=1`

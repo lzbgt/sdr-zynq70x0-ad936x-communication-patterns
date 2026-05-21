@@ -1264,8 +1264,16 @@ user and vendor configuration.
   signature is now the `iperf3` server holding result bytes queued back toward
   Z203 after the client exits. Fast Z103-to-Z203 BFSK settings are not stable
   under load, and high route RTO / low TUN pump rates regress the parameter
-  exchange. The next material work is a true streaming or pipelined RF loop
-  with enough reverse-path service to deliver the `iperf3` result exchange.
+  exchange. The daemon now supports TCP-payload-priority RF leasing so payload
+  and SYN/FIN/RST frames can be moved ahead of payload-free ACKs, and the
+  runner defaults `iperf3` to `-i 0` so interval JSON does not create tens of
+  kilobytes of final control traffic on a very slow link. Live HIL with those
+  changes moved up to 96 native-IP frames with zero bridge errors. The TCP
+  server received all requested test bytes in compact-report runs, but the
+  `iperf3` processes still timed out during final result/shutdown exchange.
+  The next material work is a true streaming or pipelined RF loop with enough
+  reverse-path service to finish the `iperf3` control exchange, not another
+  physical RF installation check.
   The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path

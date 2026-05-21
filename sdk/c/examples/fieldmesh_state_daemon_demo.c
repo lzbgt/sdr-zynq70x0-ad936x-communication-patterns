@@ -358,6 +358,59 @@ static int ipv4_tcp_duplicate_signature_equal(const unsigned char *lhs,
                   &rhs_tcp[rhs_tcp_data_offset], lhs_payload_len) == 0;
 }
 
+static unsigned ipv4_tcp_priority_score(const unsigned char *packet,
+                                        size_t packet_len)
+{
+    size_t ihl;
+    size_t tcp_len;
+    size_t tcp_data_offset;
+    size_t tcp_payload_len;
+    const unsigned char *tcp;
+    unsigned char flags;
+
+    if (!packet || packet_len < 40u || (packet[0] >> 4) != 4u ||
+        packet[9] != 6u) {
+        return 1u;
+    }
+    ihl = (size_t)(packet[0] & 0x0fu) * 4u;
+    if (ihl < 20u || read_be16_local(&packet[2]) > packet_len ||
+        read_be16_local(&packet[2]) < ihl + 20u) {
+        return 1u;
+    }
+    tcp = &packet[ihl];
+    tcp_len = (size_t)read_be16_local(&packet[2]) - ihl;
+    tcp_data_offset = (size_t)(tcp[12] >> 4) * 4u;
+    if (tcp_data_offset < 20u || tcp_data_offset > tcp_len) {
+        return 1u;
+    }
+    tcp_payload_len = tcp_len - tcp_data_offset;
+    if (tcp_payload_len > 0u) {
+        return 4u;
+    }
+    flags = tcp[13];
+    if ((flags & 0x07u) != 0u) {
+        return 3u;
+    }
+    return 0u;
+}
+
+static unsigned blr_app_data_priority_score(const unsigned char *frame,
+                                            size_t frame_len)
+{
+    unsigned char payload[1536];
+    fieldmesh_mac_frame_header_t header;
+    size_t payload_len = 0u;
+
+    if (!frame ||
+        fieldmesh_decode_mac_frame(frame, frame_len, &header, payload,
+                                   sizeof(payload), &payload_len) !=
+            FIELDMESH_OK ||
+        header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA) {
+        return 1u;
+    }
+    return ipv4_tcp_priority_score(payload, payload_len);
+}
+
 static int ipv4_tcp_signature_hash(const unsigned char *packet,
                                    size_t packet_len,
                                    uint64_t *out_hash,
@@ -557,6 +610,45 @@ static int tun_service_rf_queue_pop(struct tun_service_rf_queue *queue,
     return 1;
 }
 
+static int tun_service_rf_queue_pop_at(struct tun_service_rf_queue *queue,
+                                       size_t offset,
+                                       unsigned char *frame,
+                                       size_t frame_capacity,
+                                       size_t *out_frame_len)
+{
+    size_t i;
+    size_t index;
+    size_t frame_len;
+
+    if (!queue || !frame || !out_frame_len || offset >= queue->count) {
+        return 0;
+    }
+    if (offset == 0u) {
+        return tun_service_rf_queue_pop(queue, frame, frame_capacity,
+                                        out_frame_len);
+    }
+    index = (queue->head + offset) % TUN_SERVICE_RF_QUEUE_DEPTH;
+    frame_len = queue->frame_lens[index];
+    if (frame_len == 0u || frame_len > frame_capacity) {
+        return 0;
+    }
+    memcpy(frame, queue->frames[index], frame_len);
+    for (i = offset; i + 1u < queue->count; ++i) {
+        size_t dst = (queue->head + i) % TUN_SERVICE_RF_QUEUE_DEPTH;
+        size_t src = (queue->head + i + 1u) % TUN_SERVICE_RF_QUEUE_DEPTH;
+        queue->frame_lens[dst] = queue->frame_lens[src];
+        if (queue->frame_lens[src] > 0u) {
+            memcpy(queue->frames[dst], queue->frames[src],
+                   queue->frame_lens[src]);
+        }
+    }
+    index = (queue->head + queue->count - 1u) % TUN_SERVICE_RF_QUEUE_DEPTH;
+    queue->frame_lens[index] = 0u;
+    queue->count--;
+    *out_frame_len = frame_len;
+    return 1;
+}
+
 static int tun_service_rf_queue_peek(const struct tun_service_rf_queue *queue,
                                      unsigned char *frame,
                                      size_t frame_capacity,
@@ -649,6 +741,7 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                                           struct tun_service_rf_queue *dst,
                                           size_t max_count,
                                           size_t max_bytes,
+                                          int prioritize_tcp_payload,
                                           size_t *out_moved,
                                           uint32_t *out_bytes)
 {
@@ -662,15 +755,41 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
            dst->count < TUN_SERVICE_RF_QUEUE_DEPTH) {
         unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
         size_t frame_len = 0u;
+        size_t source_offset = 0u;
 
-        if (!tun_service_rf_queue_peek_len(src, 0u, &frame_len)) {
+        if (prioritize_tcp_payload) {
+            unsigned best_score = 0u;
+            size_t i;
+
+            for (i = 0u; i < src->count; ++i) {
+                unsigned char candidate[TUN_SERVICE_RF_FRAME_MAX];
+                size_t candidate_len = 0u;
+                unsigned score;
+
+                if (!tun_service_rf_queue_peek_at(src, i, candidate,
+                                                   sizeof(candidate),
+                                                   &candidate_len)) {
+                    continue;
+                }
+                score = blr_app_data_priority_score(candidate, candidate_len);
+                if (score > best_score) {
+                    best_score = score;
+                    source_offset = i;
+                    if (score >= 4u) {
+                        break;
+                    }
+                }
+            }
+        }
+        if (!tun_service_rf_queue_peek_len(src, source_offset, &frame_len)) {
             return 0;
         }
         if (max_bytes > 0u && moved > 0u &&
             (size_t)bytes + frame_len > max_bytes) {
             break;
         }
-        if (!tun_service_rf_queue_pop(src, frame, sizeof(frame), &frame_len)) {
+        if (!tun_service_rf_queue_pop_at(src, source_offset, frame,
+                                         sizeof(frame), &frame_len)) {
             return 0;
         }
         if (!tun_service_rf_queue_push(dst, frame, frame_len)) {
@@ -4926,6 +5045,8 @@ static int build_response(fieldmesh_context_t *context,
         size_t moved = 0u;
         uint32_t moved_bytes = 0u;
         uint32_t replayed_lease = 0u;
+        uint32_t priority_tcp_payload =
+            strstr(request, "priority=tcp_payload") ? 1u : 0u;
 
         if (!tun_service || !tun_service->running) {
             snprintf(response, response_len,
@@ -4942,7 +5063,9 @@ static int build_response(fieldmesh_context_t *context,
         if (tun_service->rf_tx_lease_queue.count == 0u &&
             !tun_service_rf_queue_move_head(&tun_service->rf_tx_queue,
                                             &tun_service->rf_tx_lease_queue,
-                                            1u, 0u, &moved, &moved_bytes)) {
+                                            1u, 0u,
+                                            priority_tcp_payload ? 1 : 0,
+                                            &moved, &moved_bytes)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_lease\","
                      "\"ok\":false,"
@@ -4989,6 +5112,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"non_destructive\":1,"
                  "\"requires_ack\":1,"
                  "\"replayed_lease\":%u,"
+                 "\"lease_priority\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
                  "\"rf_tx_lease_queue_depth\":%u,"
@@ -4999,6 +5123,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0}\n",
                  frame_hex, (unsigned long)frame_len, replayed_lease,
+                 priority_tcp_payload ? "tcp_payload" : "fifo",
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_tx_queue.count,
@@ -5015,6 +5140,8 @@ static int build_response(fieldmesh_context_t *context,
         size_t moved = 0u;
         uint32_t bytes_leased = 0u;
         uint32_t replayed_lease = 0u;
+        uint32_t priority_tcp_payload =
+            strstr(request, "priority=tcp_payload") ? 1u : 0u;
         char frames_json[6400];
         size_t used = 0u;
 
@@ -5051,6 +5178,7 @@ static int build_response(fieldmesh_context_t *context,
             !tun_service_rf_queue_move_head(&tun_service->rf_tx_queue,
                                             &tun_service->rf_tx_lease_queue,
                                             max_frames, (size_t)max_bytes,
+                                            priority_tcp_payload ? 1 : 0,
                                             &moved,
                                             &bytes_leased)) {
             snprintf(response, response_len,
@@ -5115,6 +5243,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"requires_ack\":1,"
                  "\"replayed_lease\":%u,"
                  "\"max_bytes\":%u,"
+                 "\"lease_priority\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
                  "\"rf_tx_lease_queue_depth\":%u,"
@@ -5128,6 +5257,7 @@ static int build_response(fieldmesh_context_t *context,
                  frames_json,
                  replayed_lease,
                  max_bytes,
+                 priority_tcp_payload ? "tcp_payload" : "fifo",
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_tx_queue.count,
