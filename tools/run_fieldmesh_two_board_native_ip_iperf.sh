@@ -69,7 +69,7 @@ max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-2}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
-iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-control}"
+iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-control-flow}"
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-0}"
@@ -93,6 +93,7 @@ min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
 swarm_route_rto_min_ms="${SWARM_ROUTE_RTO_MIN_MS:-0}"
 swarm_route_initcwnd="${SWARM_ROUTE_INITCWND:-0}"
 swarm_route_initrwnd="${SWARM_ROUTE_INITRWND:-0}"
+swarm_route_quickack="${SWARM_ROUTE_QUICKACK:-auto}"
 tun_service_max_packets_per_tick="${TUN_SERVICE_MAX_PACKETS_PER_TICK:-8}"
 tun_service_tcp_duplicate_suppression="${TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION:-0}"
 
@@ -220,8 +221,8 @@ if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 case "$iio_bridge_lease_priority" in
-    tcp-payload|tcp-control|fifo) ;;
-    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, or fifo" >&2; exit 1 ;;
+    tcp-payload|tcp-control|tcp-control-flow|fifo) ;;
+    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, or fifo" >&2; exit 1 ;;
 esac
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
@@ -374,6 +375,13 @@ if [ -z "$swarm_mtu" ]; then
         swarm_mtu=1200
     fi
 fi
+if [ "$swarm_route_quickack" = "auto" ]; then
+    if [ "$allow_iio_rf_bridge" = "1" ]; then
+        swarm_route_quickack=1
+    else
+        swarm_route_quickack=0
+    fi
+fi
 swarm_route_args=""
 if [ "$swarm_route_rto_min_ms" -gt 0 ]; then
     swarm_route_args="$swarm_route_args rto_min ${swarm_route_rto_min_ms}ms"
@@ -383,6 +391,12 @@ if [ "$swarm_route_initcwnd" -gt 0 ]; then
 fi
 if [ "$swarm_route_initrwnd" -gt 0 ]; then
     swarm_route_args="$swarm_route_args initrwnd ${swarm_route_initrwnd}"
+fi
+if [ "$swarm_route_quickack" = "1" ]; then
+    swarm_route_args="$swarm_route_args quickack 1"
+elif [ "$swarm_route_quickack" != "0" ]; then
+    echo "SWARM_ROUTE_QUICKACK must be 0, 1, or auto" >&2
+    exit 1
 fi
 if ! [[ "$swarm_mtu" =~ ^[0-9]+$ ]] || [ "$swarm_mtu" -lt 296 ] || [ "$swarm_mtu" -gt 1200 ]; then
     echo "SWARM_MTU must be an integer from 296 to 1200" >&2

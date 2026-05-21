@@ -308,9 +308,11 @@ Minimum production gates for native TCP/IP:
   The same timeout supervision is wall-clock based, not iteration-count based,
   so SSH/daemon polling overhead cannot silently stretch the client lifetime
   past the RF bridge budget. The lease scheduler now also exposes
-  `IIO_BRIDGE_LEASE_PRIORITY=tcp-control`, now the native-IP iperf default,
-  which biases the low-rate RF bridge toward RST/SYN/FIN and ACK-only control
-  before bulk payload when debugging high-RTT `iperf3` result/shutdown drain.
+  `IIO_BRIDGE_LEASE_PRIORITY=tcp-control-flow`, now the native-IP iperf
+  default. The daemon learns the first TCP flow after TUN service start as the
+  `iperf3` control channel and keeps that control-flow payload and ACK traffic
+  ahead of handshake retransmits and the separate test-data stream on the
+  low-rate RF bridge.
   When the client has already sent TCP bytes, the runner now preserves the
   remote client through the control-drain window instead of killing it before
   the server's final result/shutdown traffic can return. The SSH-launched
@@ -319,6 +321,12 @@ Minimum production gates for native TCP/IP:
   `IPERF_TCP_REVERSE=1` is available for HIL diagnosis of the same board-to-board
   TCP path with the server as sender; the runner switches iperf timeout flags
   and byte accounting to match the reversed data direction.
+  `SWARM_ROUTE_QUICKACK=auto` enables Linux route `quickack 1` for the real-IIO
+  RF bridge so delayed ACK behavior does not dominate tiny high-RTT iperf
+  control exchanges.
+  Live HIL now shows the 128-byte board-to-board TCP payload reaches Z103 and
+  the Z103 server exits over real RF; the remaining failure is the Z203
+  client's `iperf3` final result/control completion on the burst bridge.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

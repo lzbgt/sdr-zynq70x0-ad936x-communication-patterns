@@ -125,6 +125,15 @@ enum tun_service_rf_lease_priority {
     TUN_SERVICE_RF_LEASE_PRIORITY_FIFO = 0,
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_PAYLOAD = 1,
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL = 2,
+    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW = 3,
+};
+
+struct tun_service_tcp_flow {
+    int valid;
+    uint32_t src_ip;
+    uint32_t dst_ip;
+    uint16_t src_port;
+    uint16_t dst_port;
 };
 
 struct tun_service_state {
@@ -163,6 +172,8 @@ struct tun_service_state {
     uint32_t rf_rx_queue_drops;
     uint32_t rf_tx_queue_duplicate_drops;
     uint32_t rf_tx_tcp_duplicate_suppression;
+    struct tun_service_tcp_flow rf_tx_control_flow;
+    uint32_t rf_tx_control_flow_learned;
     uint64_t recent_acked_tcp_signatures[TUN_SERVICE_RECENT_TCP_SIGNATURES];
     size_t recent_acked_tcp_signature_next;
     uint32_t poll_wakeups;
@@ -368,7 +379,8 @@ static int ipv4_tcp_duplicate_signature_equal(const unsigned char *lhs,
 static unsigned ipv4_tcp_priority_score(
     const unsigned char *packet,
     size_t packet_len,
-    enum tun_service_rf_lease_priority priority)
+    enum tun_service_rf_lease_priority priority,
+    const struct tun_service_tcp_flow *control_flow)
 {
     size_t ihl;
     size_t tcp_len;
@@ -376,6 +388,8 @@ static unsigned ipv4_tcp_priority_score(
     size_t tcp_payload_len;
     const unsigned char *tcp;
     unsigned char flags;
+    struct tun_service_tcp_flow flow = {0};
+    int is_control_flow = 0;
 
     if (!packet || packet_len < 40u || (packet[0] >> 4) != 4u ||
         packet[9] != 6u) {
@@ -394,8 +408,35 @@ static unsigned ipv4_tcp_priority_score(
     }
     tcp_payload_len = tcp_len - tcp_data_offset;
     flags = tcp[13];
+    flow.valid = 1;
+    flow.src_ip = read_be32_local(&packet[12]);
+    flow.dst_ip = read_be32_local(&packet[16]);
+    flow.src_port = read_be16_local(tcp);
+    flow.dst_port = read_be16_local(&tcp[2]);
+    is_control_flow =
+        control_flow && control_flow->valid &&
+        control_flow->src_ip == flow.src_ip &&
+        control_flow->dst_ip == flow.dst_ip &&
+        control_flow->src_port == flow.src_port &&
+        control_flow->dst_port == flow.dst_port;
     if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_FIFO) {
         return 1u;
+    }
+    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW &&
+        is_control_flow) {
+        if ((flags & 0x04u) != 0u) {
+            return 9u;
+        }
+        if (tcp_payload_len > 0u) {
+            return 8u;
+        }
+        if ((flags & 0x10u) != 0u) {
+            return 7u;
+        }
+        if ((flags & 0x03u) != 0u) {
+            return 6u;
+        }
+        return 5u;
     }
     if ((flags & 0x04u) != 0u) {
         return 7u;
@@ -419,7 +460,8 @@ static unsigned ipv4_tcp_priority_score(
 static unsigned blr_app_data_priority_score(
     const unsigned char *frame,
     size_t frame_len,
-    enum tun_service_rf_lease_priority priority)
+    enum tun_service_rf_lease_priority priority,
+    const struct tun_service_tcp_flow *control_flow)
 {
     unsigned char payload[1536];
     fieldmesh_mac_frame_header_t header;
@@ -432,7 +474,69 @@ static unsigned blr_app_data_priority_score(
         header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA) {
         return 1u;
     }
-    return ipv4_tcp_priority_score(payload, payload_len, priority);
+    return ipv4_tcp_priority_score(payload, payload_len, priority,
+                                   control_flow);
+}
+
+static int ipv4_tcp_flow(const unsigned char *packet,
+                         size_t packet_len,
+                         struct tun_service_tcp_flow *out_flow,
+                         unsigned char *out_flags,
+                         size_t *out_tcp_payload_len)
+{
+    size_t ihl;
+    size_t tcp_len;
+    size_t tcp_data_offset;
+    const unsigned char *tcp;
+
+    if (!packet || !out_flow || packet_len < 40u ||
+        (packet[0] >> 4) != 4u || packet[9] != 6u) {
+        return 0;
+    }
+    ihl = (size_t)(packet[0] & 0x0fu) * 4u;
+    if (ihl < 20u || read_be16_local(&packet[2]) > packet_len ||
+        read_be16_local(&packet[2]) < ihl + 20u) {
+        return 0;
+    }
+    tcp = &packet[ihl];
+    tcp_len = (size_t)read_be16_local(&packet[2]) - ihl;
+    tcp_data_offset = (size_t)(tcp[12] >> 4) * 4u;
+    if (tcp_data_offset < 20u || tcp_data_offset > tcp_len) {
+        return 0;
+    }
+    out_flow->valid = 1;
+    out_flow->src_ip = read_be32_local(&packet[12]);
+    out_flow->dst_ip = read_be32_local(&packet[16]);
+    out_flow->src_port = read_be16_local(tcp);
+    out_flow->dst_port = read_be16_local(&tcp[2]);
+    if (out_flags) {
+        *out_flags = tcp[13];
+    }
+    if (out_tcp_payload_len) {
+        *out_tcp_payload_len = tcp_len - tcp_data_offset;
+    }
+    return 1;
+}
+
+static int blr_app_data_tcp_flow(const unsigned char *frame,
+                                 size_t frame_len,
+                                 struct tun_service_tcp_flow *out_flow,
+                                 unsigned char *out_flags,
+                                 size_t *out_tcp_payload_len)
+{
+    unsigned char payload[1536];
+    fieldmesh_mac_frame_header_t header;
+    size_t payload_len = 0u;
+
+    if (!frame || !out_flow ||
+        fieldmesh_decode_mac_frame(frame, frame_len, &header, payload,
+                                   sizeof(payload), &payload_len) !=
+            FIELDMESH_OK ||
+        header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA) {
+        return 0;
+    }
+    return ipv4_tcp_flow(payload, payload_len, out_flow, out_flags,
+                         out_tcp_payload_len);
 }
 
 static int ipv4_tcp_signature_hash(const unsigned char *packet,
@@ -593,9 +697,18 @@ static int tun_service_rf_tx_queue_push(struct tun_service_state *service,
 {
     uint64_t tcp_hash = 0u;
     size_t tcp_payload_len = 0u;
+    struct tun_service_tcp_flow tcp_flow = {0};
+    unsigned char tcp_flags = 0u;
 
     if (!service) {
         return 0;
+    }
+    if (!service->rf_tx_control_flow.valid &&
+        blr_app_data_tcp_flow(frame, frame_len, &tcp_flow, &tcp_flags,
+                              &tcp_payload_len) &&
+        (tcp_flags & 0x02u) != 0u) {
+        service->rf_tx_control_flow = tcp_flow;
+        service->rf_tx_control_flow_learned++;
     }
     if (service->rf_tx_tcp_duplicate_suppression != 0u &&
         blr_app_data_tcp_signature_hash(frame, frame_len, &tcp_hash,
@@ -768,6 +881,7 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                                           size_t max_count,
                                           size_t max_bytes,
                                           enum tun_service_rf_lease_priority priority,
+                                          const struct tun_service_state *service,
                                           size_t *out_moved,
                                           uint32_t *out_bytes)
 {
@@ -798,11 +912,14 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                     continue;
                 }
                 score = blr_app_data_priority_score(candidate, candidate_len,
-                                                    priority);
+                                                    priority,
+                                                    service ?
+                                                        &service->rf_tx_control_flow :
+                                                        NULL);
                 if (score > best_score) {
                     best_score = score;
                     source_offset = i;
-                    if (score >= 7u) {
+                    if (score >= 9u) {
                         break;
                     }
                 }
@@ -849,6 +966,9 @@ static const char *tun_service_rf_transport_mode_name(
 static enum tun_service_rf_lease_priority tun_service_rf_lease_priority_from_request(
     const char *request)
 {
+    if (request && strstr(request, "priority=tcp_control_flow")) {
+        return TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW;
+    }
     if (request && strstr(request, "priority=tcp_control")) {
         return TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL;
     }
@@ -866,6 +986,8 @@ static const char *tun_service_rf_lease_priority_name(
         return "tcp_payload";
     case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL:
         return "tcp_control";
+    case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW:
+        return "tcp_control_flow";
     case TUN_SERVICE_RF_LEASE_PRIORITY_FIFO:
     default:
         return "fifo";
@@ -5130,6 +5252,7 @@ static int build_response(fieldmesh_context_t *context,
                                             &tun_service->rf_tx_lease_queue,
                                             1u, 0u,
                                             lease_priority,
+                                            tun_service,
                                             &moved, &moved_bytes)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_lease\","
@@ -5244,6 +5367,7 @@ static int build_response(fieldmesh_context_t *context,
                                             &tun_service->rf_tx_lease_queue,
                                             max_frames, (size_t)max_bytes,
                                             lease_priority,
+                                            tun_service,
                                             &moved,
                                             &bytes_leased)) {
             snprintf(response, response_len,
