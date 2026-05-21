@@ -58,11 +58,15 @@ in `src/fieldmesh_sdk.c`:
 - `include/fieldmesh_firmware_packet_bridge.h` is the next C data-plane
   boundary: raw IPv4 packets from a TUN-like source are classified into compact
   traffic classes, enqueued as binary firmware descriptors, and drained from
-  READY RX descriptors through a callback. `examples/fieldmesh_firmware_packet_bridge_probe.c`
-  proves TCP control can be serviced ahead of UDP payload without Python, JSON
-  on the packet path, or vendor runtime code. Its default mode is heap-backed
-  for CI; `--device /dev/uioN --loopback --allow-writes` binds the same packet
-  bridge to the live PL packet-ring aperture.
+  READY RX descriptors through callbacks. The packet intake side is
+  `fieldmesh_fw_packet_bridge_pump_many()`, a caller-owned read callback plus a
+  caller-owned packet buffer, so the next integration can attach `/dev/net/tun`
+  without putting POSIX fd ownership into the firmware-ring ABI.
+  `examples/fieldmesh_firmware_packet_bridge_probe.c` proves TCP control can be
+  serviced ahead of UDP payload without Python, JSON on the packet path, or
+  vendor runtime code. Its default mode is heap-backed for CI; `--device
+  /dev/uioN --loopback --allow-writes` binds the same packet bridge to the live
+  PL packet-ring aperture.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

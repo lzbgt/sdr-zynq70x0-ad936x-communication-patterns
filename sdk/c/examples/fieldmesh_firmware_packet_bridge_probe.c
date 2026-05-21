@@ -29,6 +29,13 @@ typedef struct packet_sink {
     uint32_t count;
 } packet_sink_t;
 
+typedef struct packet_source {
+    const uint8_t *packets[2];
+    uint16_t lens[2];
+    uint32_t count;
+    uint32_t index;
+} packet_source_t;
+
 static int usage(const char *argv0)
 {
     fprintf(stderr,
@@ -94,6 +101,29 @@ static int sink_write(void *user, const uint8_t *packet, uint16_t packet_len)
     return 1;
 }
 
+static int source_read(void *user,
+                       uint8_t *packet,
+                       uint16_t packet_capacity,
+                       uint16_t *out_packet_len)
+{
+    packet_source_t *source = (packet_source_t *)user;
+    if (!source || !packet || !out_packet_len) {
+        return -1;
+    }
+    if (source->index >= source->count) {
+        *out_packet_len = 0u;
+        return 0;
+    }
+    uint16_t len = source->lens[source->index];
+    if (!source->packets[source->index] || len == 0u || len > packet_capacity) {
+        return -1;
+    }
+    fieldmesh_fw_ring_copy_bytes(packet, source->packets[source->index], len);
+    *out_packet_len = len;
+    source->index++;
+    return 1;
+}
+
 static int bytes_equal(const uint8_t *a, const uint8_t *b, uint16_t len)
 {
     for (uint16_t i = 0u; i < len; ++i) {
@@ -138,6 +168,13 @@ static int run_packet_bridge(fieldmesh_fw_ring_view_t *ring,
         .retry_budget = 3u,
         .deadline_ticks = 1000000ull,
     };
+    packet_source_t source = {
+        .packets = {udp_packet, tcp_fin_packet},
+        .lens = {(uint16_t)sizeof(udp_packet), (uint16_t)sizeof(tcp_fin_packet)},
+        .count = 2u,
+        .index = 0u,
+    };
+    uint8_t packet_buffer[PACKET_STRIDE];
 
     *sync_ok = 1;
     fieldmesh_fw_ring_reset(ring);
@@ -145,10 +182,16 @@ static int run_packet_bridge(fieldmesh_fw_ring_view_t *ring,
         return 0;
     }
 
-    *udp_slot = fieldmesh_fw_packet_bridge_enqueue_ipv4(
-        bridge, udp_packet, (uint16_t)sizeof(udp_packet), 0u, udp_report);
-    *tcp_slot = fieldmesh_fw_packet_bridge_enqueue_ipv4(
-        bridge, tcp_fin_packet, (uint16_t)sizeof(tcp_fin_packet), 0u, tcp_report);
+    int pumped = fieldmesh_fw_packet_bridge_pump_many(
+        bridge, source_read, &source, packet_buffer, (uint16_t)sizeof(packet_buffer), 2u);
+    *udp_slot = 0;
+    *tcp_slot = 1;
+    if (!fieldmesh_fw_packet_bridge_classify_ipv4(
+            udp_packet, (uint16_t)sizeof(udp_packet), udp_report) ||
+        !fieldmesh_fw_packet_bridge_classify_ipv4(
+            tcp_fin_packet, (uint16_t)sizeof(tcp_fin_packet), tcp_report)) {
+        return 0;
+    }
     *first_pick = fieldmesh_fw_ring_pick_next(ring);
     int first_service = fieldmesh_fw_ring_service_one(ring, (int16_t)(-40 * 256),
                                                       (int16_t)(27 * 256), -50,
@@ -162,7 +205,8 @@ static int run_packet_bridge(fieldmesh_fw_ring_view_t *ring,
         *sync_ok = 0;
     }
 
-    return *udp_slot == 0 && *tcp_slot == 1 &&
+    return pumped == 2 && source.index == 2u &&
+           *udp_slot == 0 && *tcp_slot == 1 &&
            tcp_report->traffic_class == FIELDMESH_FW_PACKET_TC_CONTROL &&
            udp_report->traffic_class == FIELDMESH_FW_PACKET_TC_INTERACTIVE &&
            *first_pick == *tcp_slot && *second_pick == *udp_slot &&
@@ -176,8 +220,8 @@ static int run_packet_bridge(fieldmesh_fw_ring_view_t *ring,
            bridge->enqueued_packets == 2u && bridge->drained_packets == 2u &&
            bridge->bytes_enqueued == sizeof(tcp_fin_packet) + sizeof(udp_packet) &&
            bridge->bytes_drained == bridge->bytes_enqueued &&
-           bridge->classify_errors == 0u && bridge->enqueue_drops == 0u &&
-           bridge->drain_errors == 0u &&
+           bridge->classify_errors == 0u && bridge->read_errors == 0u &&
+           bridge->enqueue_drops == 0u && bridge->drain_errors == 0u &&
            fieldmesh_fw_tx_desc_v1_state(&ring->tx[0]) == FIELDMESH_FW_STATE_FREE &&
            fieldmesh_fw_tx_desc_v1_state(&ring->tx[1]) == FIELDMESH_FW_STATE_FREE &&
            fieldmesh_fw_rx_desc_v1_state(&ring->rx[0]) == FIELDMESH_FW_STATE_FREE &&
@@ -253,6 +297,8 @@ int main(int argc, char **argv)
            "\"vendor_runtime_dependency\":false,"
            "\"binary_descriptors\":true,"
            "\"packet_bridge\":\"ipv4_to_firmware_ring\","
+           "\"packet_bridge_ingress\":\"read_callback_pump\","
+           "\"packet_bridge_egress\":\"write_callback_drain\","
            "\"writes_packet_memory\":%s,"
            "\"sync_required\":%s,"
            "\"sync_ok\":%s,"
@@ -268,6 +314,7 @@ int main(int argc, char **argv)
            "\"bytes_enqueued\":%u,"
            "\"bytes_drained\":%u,"
            "\"classify_errors\":%u,"
+           "\"read_errors\":%u,"
            "\"enqueue_drops\":%u,"
            "\"drain_errors\":%u}\n",
            ok ? "true" : "false",
@@ -289,6 +336,7 @@ int main(int argc, char **argv)
            bound ? bridge.bytes_enqueued : 0u,
            bound ? bridge.bytes_drained : 0u,
            bound ? bridge.classify_errors : 0u,
+           bound ? bridge.read_errors : 0u,
            bound ? bridge.enqueue_drops : 0u,
            bound ? bridge.drain_errors : 0u);
 

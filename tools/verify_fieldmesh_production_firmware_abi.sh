@@ -175,6 +175,10 @@ for report in (packet_bridge_probe, packet_bridge_probe_image):
         raise SystemExit(f"firmware packet bridge must be first-party: {report!r}")
     if report.get("binary_descriptors") is not True:
         raise SystemExit(f"firmware packet bridge must use binary descriptors: {report!r}")
+    if report.get("packet_bridge_ingress") != "read_callback_pump":
+        raise SystemExit(f"firmware packet bridge ingress must use the C read callback pump: {report!r}")
+    if report.get("packet_bridge_egress") != "write_callback_drain":
+        raise SystemExit(f"firmware packet bridge egress must use the C write callback drain: {report!r}")
     if report.get("first_pick") != report.get("tcp_slot"):
         raise SystemExit(f"TCP control frame was not serviced first: {report!r}")
     if report.get("second_pick") != report.get("udp_slot"):
@@ -183,7 +187,12 @@ for report in (packet_bridge_probe, packet_bridge_probe_image):
         raise SystemExit(f"packet bridge traffic classes changed: {report!r}")
     if report.get("enqueued_packets") != 2 or report.get("drained_packets") != 2:
         raise SystemExit(f"packet bridge counters changed: {report!r}")
-    if report.get("classify_errors") != 0 or report.get("enqueue_drops") != 0 or report.get("drain_errors") != 0:
+    if (
+        report.get("classify_errors") != 0
+        or report.get("read_errors") != 0
+        or report.get("enqueue_drops") != 0
+        or report.get("drain_errors") != 0
+    ):
         raise SystemExit(f"packet bridge errors changed: {report!r}")
 if packet_bridge_probe.get("backend") != "heap" or packet_bridge_probe.get("mapped_memory") is not False:
     raise SystemExit(f"packet bridge default probe must stay heap-backed: {packet_bridge_probe!r}")
@@ -287,6 +296,8 @@ required = [
     "fieldmesh_fw_packet_bridge_config_t",
     "fieldmesh_fw_packet_bridge_classify_ipv4",
     "fieldmesh_fw_packet_bridge_enqueue_ipv4",
+    "fieldmesh_fw_packet_bridge_read_cb_t",
+    "fieldmesh_fw_packet_bridge_pump_many",
     "fieldmesh_fw_packet_bridge_drain_ready",
     "FIELDMESH_FW_PACKET_TC_CONTROL",
     "FIELDMESH_FW_PACKET_TC_INTERACTIVE",
@@ -309,7 +320,9 @@ required = [
     "--image PATH",
     "--loopback",
     "--allow-writes",
-    "fieldmesh_fw_packet_bridge_enqueue_ipv4",
+    "source_read",
+    "sink_write",
+    "fieldmesh_fw_packet_bridge_pump_many",
     "fieldmesh_fw_packet_bridge_drain_ready",
     "tcp_fin_packet",
     "udp_packet",

@@ -33,6 +33,7 @@ typedef struct fieldmesh_fw_packet_bridge {
     uint32_t bytes_enqueued;
     uint32_t bytes_drained;
     uint32_t classify_errors;
+    uint32_t read_errors;
     uint32_t enqueue_drops;
     uint32_t drain_errors;
 } fieldmesh_fw_packet_bridge_t;
@@ -52,6 +53,11 @@ typedef struct fieldmesh_fw_packet_bridge_report {
 typedef int (*fieldmesh_fw_packet_bridge_write_cb_t)(void *user,
                                                      const uint8_t *packet,
                                                      uint16_t packet_len);
+
+typedef int (*fieldmesh_fw_packet_bridge_read_cb_t)(void *user,
+                                                    uint8_t *packet,
+                                                    uint16_t packet_capacity,
+                                                    uint16_t *out_packet_len);
 
 static inline uint16_t fieldmesh_fw_packet_bridge_be16(const uint8_t *p)
 {
@@ -176,6 +182,41 @@ static inline int fieldmesh_fw_packet_bridge_enqueue_ipv4(
         *report = local_report;
     }
     return slot;
+}
+
+static inline int fieldmesh_fw_packet_bridge_pump_many(
+    fieldmesh_fw_packet_bridge_t *bridge,
+    fieldmesh_fw_packet_bridge_read_cb_t read_packet,
+    void *read_user,
+    uint8_t *packet_buffer,
+    uint16_t packet_capacity,
+    uint32_t max_packets)
+{
+    if (!bridge || !fieldmesh_fw_ring_config_valid(bridge->ring) || !read_packet ||
+        !packet_buffer || packet_capacity == 0u || max_packets == 0u) {
+        if (bridge) {
+            bridge->read_errors++;
+        }
+        return -1;
+    }
+
+    uint32_t pumped = 0u;
+    for (; pumped < max_packets; ++pumped) {
+        uint16_t packet_len = 0u;
+        int read_rc = read_packet(read_user, packet_buffer, packet_capacity, &packet_len);
+        if (read_rc == 0) {
+            break;
+        }
+        if (read_rc < 0 || packet_len == 0u || packet_len > packet_capacity) {
+            bridge->read_errors++;
+            return -1;
+        }
+        if (fieldmesh_fw_packet_bridge_enqueue_ipv4(bridge, packet_buffer, packet_len,
+                                                    0u, NULL) < 0) {
+            return -1;
+        }
+    }
+    return (int)pumped;
 }
 
 static inline int fieldmesh_fw_packet_bridge_drain_ready(
