@@ -48,6 +48,10 @@ in `src/fieldmesh_sdk.c`:
   through a file-backed `mmap()` region. This is the host-side stand-in for a
   `/dev/uio` or kernel-mapped packet memory aperture: descriptors, packet
   memory, ACKs, and counters are all C/binary in mapped memory.
+- `examples/fieldmesh_firmware_uio_ring_probe.c` binds the same linear layout
+  to an explicit aperture path. `--device /dev/uioN` is the production-facing
+  probe path; `--image PATH` is the CI stand-in. Read-only inspect mode is the
+  default, and packet-memory loopback requires `--loopback --allow-writes`.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

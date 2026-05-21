@@ -22,6 +22,10 @@ mkdir -p "$work_dir/vectors"
   -o "$work_dir/fieldmesh-firmware-mmap-ring-probe"
 "$cc" -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
+  "$repo_root/sdk/c/examples/fieldmesh_firmware_uio_ring_probe.c" \
+  -o "$work_dir/fieldmesh-firmware-uio-ring-probe"
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
   -xc - \
   -o "$work_dir/fieldmesh-firmware-ring-header-smoke" <<'EOF_C'
 #include "fieldmesh_firmware_ring.h"
@@ -50,10 +54,17 @@ EOF_C
 "$work_dir/fieldmesh-firmware-mmap-ring-probe" >"$work_dir/mmap-ring-probe.json"
 "$work_dir/fieldmesh-firmware-mmap-ring-probe" --image "$work_dir/vectors/mmap-ring-image.bin" \
   >"$work_dir/mmap-ring-probe-image.json"
+"$work_dir/fieldmesh-firmware-uio-ring-probe" \
+  --image "$work_dir/vectors/uio-ring-image.bin" --loopback --allow-writes \
+  >"$work_dir/uio-ring-probe-loopback.json"
+"$work_dir/fieldmesh-firmware-uio-ring-probe" \
+  --image "$work_dir/vectors/uio-ring-image.bin" \
+  >"$work_dir/uio-ring-probe-inspect.json"
 
 python3 - "$work_dir/probe.json" "$work_dir/probe-vectors.json" \
   "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" \
   "$work_dir/mmap-ring-probe.json" "$work_dir/mmap-ring-probe-image.json" \
+  "$work_dir/uio-ring-probe-loopback.json" "$work_dir/uio-ring-probe-inspect.json" \
   "$work_dir/vectors" <<'PY'
 import json
 import sys
@@ -65,7 +76,9 @@ ring_probe = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
 ring_probe_vectors = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
 mmap_ring_probe = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
 mmap_ring_probe_image = json.loads(Path(sys.argv[6]).read_text(encoding="utf-8"))
-vector_dir = Path(sys.argv[7])
+uio_ring_probe_loopback = json.loads(Path(sys.argv[7]).read_text(encoding="utf-8"))
+uio_ring_probe_inspect = json.loads(Path(sys.argv[8]).read_text(encoding="utf-8"))
+vector_dir = Path(sys.argv[9])
 
 for report in (probe, probe_vectors):
     if report.get("event") != "fieldmesh_firmware_abi_probe":
@@ -115,6 +128,28 @@ for report in (mmap_ring_probe, mmap_ring_probe_image):
     if report.get("vendor_runtime_dependency") is not False:
         raise SystemExit(f"firmware mmap ring probe must be first-party: {report!r}")
 
+for report in (uio_ring_probe_loopback, uio_ring_probe_inspect):
+    if report.get("event") != "fieldmesh_firmware_uio_ring_probe":
+        raise SystemExit(f"bad UIO ring event: {report!r}")
+    if report.get("ok") is not True:
+        raise SystemExit(f"firmware UIO ring probe failed: {report!r}")
+    if report.get("mapped_memory") is not True or report.get("linear_layout") is not True:
+        raise SystemExit(f"firmware UIO ring did not use mapped linear memory: {report!r}")
+    if report.get("uses_json_on_air") is not False:
+        raise SystemExit(f"firmware UIO ring probe must not use JSON on air: {report!r}")
+    if report.get("hot_path_language") != "c":
+        raise SystemExit(f"firmware UIO ring hot path must be C: {report!r}")
+    if report.get("vendor_runtime_dependency") is not False:
+        raise SystemExit(f"firmware UIO ring probe must be first-party: {report!r}")
+if uio_ring_probe_loopback.get("writes_packet_memory") is not True:
+    raise SystemExit(f"firmware UIO loopback did not write packet memory: {uio_ring_probe_loopback!r}")
+if uio_ring_probe_loopback.get("loopback_ok") is not True:
+    raise SystemExit(f"firmware UIO loopback failed: {uio_ring_probe_loopback!r}")
+if uio_ring_probe_loopback.get("served") != 2 or uio_ring_probe_loopback.get("acked") != 2:
+    raise SystemExit(f"firmware UIO loopback counters changed: {uio_ring_probe_loopback!r}")
+if uio_ring_probe_inspect.get("writes_packet_memory") is not False:
+    raise SystemExit(f"firmware UIO inspect mode must not write: {uio_ring_probe_inspect!r}")
+
 expected = {
     "fieldmesh_fw_tx_desc_v1.bin": probe["tx_desc_bytes"],
     "fieldmesh_fw_rx_desc_v1.bin": probe["rx_desc_bytes"],
@@ -124,6 +159,7 @@ expected = {
     "ring_ack_slot0.bin": probe["ack_frame_bytes"],
     "ring_rx_payload_slot0.bin": 32,
     "mmap-ring-image.bin": mmap_ring_probe_image["image_bytes"],
+    "uio-ring-image.bin": uio_ring_probe_loopback["image_bytes"],
 }
 for name, size in expected.items():
     path = vector_dir / name
@@ -211,6 +247,51 @@ required = [
 missing = [token for token in required if token not in source]
 if missing:
     raise SystemExit(f"missing firmware mmap ring tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/examples/fieldmesh_firmware_uio_ring_probe.c" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_firmware_uio_ring_probe",
+    "--device /dev/uioN",
+    "--loopback --allow-writes",
+    "fieldmesh_fw_ring_bind_linear",
+    "mmap(",
+    "msync(",
+    "writes_packet_memory",
+    "uses_json_on_air",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware UIO ring tokens: {missing}")
+PY
+
+python3 - \
+  "$repo_root/meta-sdr-z203/recipes-core/fieldmesh-sdk-demos/fieldmesh-sdk-demos_0.1.bb" \
+  "$repo_root/meta-sdr-z103/recipes-core/fieldmesh-sdk-demos/fieldmesh-sdk-demos_0.1.bb" <<'PY'
+import sys
+from pathlib import Path
+
+required = [
+    "fieldmesh_firmware_abi.h",
+    "fieldmesh_firmware_ring.h",
+    "fieldmesh_firmware_abi_probe.c",
+    "fieldmesh_firmware_ring_probe.c",
+    "fieldmesh_firmware_mmap_ring_probe.c",
+    "fieldmesh_firmware_uio_ring_probe.c",
+    "fieldmesh-firmware-abi-probe",
+    "fieldmesh-firmware-ring-probe",
+    "fieldmesh-firmware-mmap-ring-probe",
+    "fieldmesh-firmware-uio-ring-probe",
+]
+for recipe_path in map(Path, sys.argv[1:]):
+    source = recipe_path.read_text(encoding="utf-8")
+    missing = [token for token in required if token not in source]
+    if missing:
+        raise SystemExit(f"{recipe_path} missing firmware probe packaging tokens: {missing}")
 PY
 
 echo "fieldmesh_production_firmware_abi=pass"
