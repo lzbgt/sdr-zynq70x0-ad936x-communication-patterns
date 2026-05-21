@@ -256,6 +256,12 @@ Minimum production gates for native TCP/IP:
   through `tcp_duplicate_suppression=` on `FIELDMESH_TUN_SERVICE_START`; the
   real-RF iperf runner defaults `TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION=0` so
   Linux retransmissions are not silently discarded during low-rate RF tests.
+  The bridge now defaults to batch leasing and asynchronous source ACKs
+  (`IIO_BRIDGE_ASYNC_SOURCE_ACK=1`): after a decoded burst is ingested by the
+  peer daemon, the source ACK runs in parallel while the opposite RF direction
+  can start. The loop still waits for any pending ACK before leasing from that
+  same source again, preserving ACK-after-ingest ordering without starving
+  reverse result/control traffic.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the
@@ -263,7 +269,13 @@ Minimum production gates for native TCP/IP:
   result/shutdown exchange did not complete before timeout. A faster
   48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
   seconds but produced an intermittent reverse-path CRC miss under load and
-  still did not complete `iperf3`.
+  still did not complete `iperf3`. Follow-up HIL with batch-size 2 and async
+  source ACKs moved 54 real-RF frames with zero bridge errors at 256 bytes; a
+  true 128-byte test using `IPERF_BLOCK_SIZE=64` moved 54 more real-RF frames
+  and completed all async ACKs, but still timed out with the client in
+  `FIN_WAIT1` and one or two FIN/control bytes queued. That narrows the
+  remaining issue away from daemon ACK latency and toward a real streaming MAC
+  service path with lower RTT and continuous reverse/control service.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

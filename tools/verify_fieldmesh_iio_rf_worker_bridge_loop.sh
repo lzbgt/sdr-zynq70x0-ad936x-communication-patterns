@@ -95,6 +95,7 @@ PY
 PYTHONPATH="$repo_root/tools${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PY'
 import json
 import struct
+from pathlib import Path
 
 import fieldmesh_iio_rf_worker_bridge_loop as loop
 import fieldmesh_iio_rf_worker_bridge as bridge
@@ -144,6 +145,59 @@ try:
 finally:
     bridge.request_daemon = original_request
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_empty_poll_timeout_check", "ok": True}, sort_keys=True))
+
+
+def fake_ack(host, port, timeout_ms, frames, *, attempts):
+    return {
+        "event": "sdk_daemon_rf_tx_ack_batch",
+        "ok": True,
+        "host": host,
+        "port": port,
+        "frames": len(frames),
+        "timeout_ms": timeout_ms,
+        "attempts": attempts,
+    }
+
+
+original_ack = loop.ack_batch_to_daemon_reliable
+loop.ack_batch_to_daemon_reliable = fake_ack
+try:
+    counts = {
+        "bridge_errors": 0,
+        "async_source_acks_submitted": 0,
+        "async_source_acks_completed": 0,
+        "async_source_ack_failures": 0,
+    }
+    acker = loop.AsyncSourceAcker(
+        enabled=True,
+        ack_timeout_ms=123,
+        attempts=2,
+        counts=counts,
+    )
+    summary = {"source_ack_ok": None}
+    pending = acker.submit(
+        {
+            "name": "z203-to-z103",
+            "source_host": "192.0.2.1",
+            "source_port": 55441,
+        },
+        [b"abc"],
+        summary,
+        Path("/tmp/fieldmesh-nonexistent-async-ack-report.json"),
+    )
+    if pending.get("pending") is not True or pending.get("async") is not True:
+        raise SystemExit(f"async ACK submit did not return a pending report: {pending}")
+    if counts["async_source_acks_submitted"] != 1:
+        raise SystemExit("async ACK submit counter did not increment")
+    acker.wait_direction("z203-to-z103")
+    acker.wait_all()
+    if summary.get("source_ack_ok") is not True:
+        raise SystemExit(f"async ACK did not update frame summary: {summary}")
+    if counts["async_source_acks_completed"] != 1 or counts["async_source_ack_failures"] != 0:
+        raise SystemExit(f"async ACK counters wrong: {counts}")
+finally:
+    loop.ack_batch_to_daemon_reliable = original_ack
+print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_async_ack_check", "ok": True}, sort_keys=True))
 PY
 
 "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
@@ -356,6 +410,21 @@ fi
 if ! grep -q 'IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER must be 0 or 1' \
      "$work_dir/iperf_bad_adaptive_scheduler.err"; then
   echo "native-IP iperf invalid adaptive scheduler refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_ASYNC_SOURCE_ACK=bad \
+   OUT_DIR="$work_dir/iperf-bad-async-source-ack" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_async_source_ack.out" \
+   2>"$work_dir/iperf_bad_async_source_ack.err"; then
+  echo "native-IP iperf gate accepted invalid async source ACK flag" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_ASYNC_SOURCE_ACK must be 0 or 1' \
+     "$work_dir/iperf_bad_async_source_ack.err"; then
+  echo "native-IP iperf invalid async source ACK refusal changed" >&2
   exit 1
 fi
 

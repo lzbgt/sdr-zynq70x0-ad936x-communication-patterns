@@ -1292,9 +1292,15 @@ user and vendor configuration.
   the 256-byte test payload crossed RF and was ACKed, but `iperf3` still timed
   out with both sockets established before result/shutdown completed. A faster
   48-sample/repeat-3 BFSK run lowered batch latency but hit an intermittent
-  reverse-path CRC miss and still timed out. The next material work is a true
-  streaming or pipelined RF loop/control exchange service path, not another
-  physical RF installation check.
+  reverse-path CRC miss and still timed out. The bridge now defaults to batch
+  leasing and asynchronous source ACKs so ACK-after-ingest daemon control work
+  can overlap the next opposite-direction RF burst, with a fence before leasing
+  from the same source again. Live HIL with that path moved 54 frames with zero
+  bridge errors at 256 bytes, and a true 128-byte run using
+  `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but
+  `iperf3` still timed out in `FIN_WAIT1` with final TCP control bytes queued.
+  The next material work remains a true streaming or pipelined RF loop/control
+  exchange service path, not another physical RF installation check.
   The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path

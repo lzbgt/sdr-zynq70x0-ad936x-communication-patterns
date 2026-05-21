@@ -134,15 +134,24 @@ later connection-control frames. The live bridge also has separate hot-path
 ingest/ACK timeouts so a lost daemon UDP response costs about one second rather
 than the full setup timeout. The bridge now also supports a persistent compiled
 libiio helper server so RX/TX contexts stay open across batches, and the daemon
-can disable TCP duplicate suppression for real-RF iperf runs. With that
-installed, live HIL moved 55 native-IP frames with zero duplicate drops; the
-captured TCP sequence shows the 256-byte data payload crossed RF and was ACKed,
+can disable TCP duplicate suppression for real-RF iperf runs. The bridge now
+defaults to batch leasing and asynchronous source ACKs: after peer ingest
+succeeds, the source ACK runs in parallel while the opposite RF direction can
+start, and the loop fences before leasing from that same source again. With the
+previous persistent-helper runtime installed, live HIL moved 55 native-IP
+frames with zero duplicate drops; the captured TCP sequence shows the
+256-byte data payload crossed RF and was ACKed,
 but `iperf3` still timed out with its data/control sockets established before
 the final result/shutdown exchange completed. A faster 48-sample/repeat-3 BFSK
 profile lowered many batch times to about 0.8-1.3 seconds but introduced an
 intermittent reverse-path CRC miss under load and still did not complete
-`iperf3`. This keeps the blocker in the RF data-plane scheduler and
-streaming/MAC service layer.
+`iperf3`. Follow-up HIL with async source ACK and batch-size 2 moved 54
+real-RF frames with zero bridge errors for the 256-byte smoke. A true 128-byte
+smoke using `IPERF_BLOCK_SIZE=64` also moved 54 real-RF frames and completed
+all async ACKs, but still timed out with the client in `FIN_WAIT1` and one or
+two final TCP control bytes queued. This keeps the blocker in the RF
+data-plane scheduler and streaming/MAC service layer, not in RF installation,
+daemon duplicate suppression, or daemon source-ACK latency.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

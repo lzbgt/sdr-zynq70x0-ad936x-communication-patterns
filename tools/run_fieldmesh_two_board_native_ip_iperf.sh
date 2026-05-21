@@ -61,12 +61,13 @@ rf_tx_hardwaregain_db="${RF_TX_HARDWAREGAIN_DB:-0.0}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
-iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
+iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-2}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
 iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-payload}"
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-0}"
+iio_bridge_async_source_ack="${IIO_BRIDGE_ASYNC_SOURCE_ACK:-1}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
 iio_bridge_ingest_timeout_ms="${IIO_BRIDGE_INGEST_TIMEOUT_MS:-1000}"
@@ -136,6 +137,7 @@ case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE 
 case "$preflight_only" in 0|1) ;; *) echo "PREFLIGHT_ONLY must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_skip_rf_config_after_first" in 0|1) ;; *) echo "IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_adaptive_direction_scheduler" in 0|1) ;; *) echo "IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER must be 0 or 1" >&2; exit 1 ;; esac
+case "$iio_bridge_async_source_ack" in 0|1) ;; *) echo "IIO_BRIDGE_ASYNC_SOURCE_ACK must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_persistent_burst_helper" in 0|1) ;; *) echo "IIO_BRIDGE_PERSISTENT_BURST_HELPER must be 0 or 1" >&2; exit 1 ;; esac
 case "$tun_service_tcp_duplicate_suppression" in 0|1) ;; *) echo "TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION must be 0 or 1" >&2; exit 1 ;; esac
 for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
@@ -1014,6 +1016,11 @@ start_iio_rf_bridge_loop() {
         batch_args+=(--adaptive-direction-scheduler)
     else
         batch_args+=(--no-adaptive-direction-scheduler)
+    fi
+    if [ "$iio_bridge_async_source_ack" = "1" ]; then
+        batch_args+=(--async-source-ack)
+    else
+        batch_args+=(--no-async-source-ack)
     fi
     if [ -n "$iio_bridge_ip_port_filter" ]; then
         port_filter_args=(--ip-port-filter "$iio_bridge_ip_port_filter")
