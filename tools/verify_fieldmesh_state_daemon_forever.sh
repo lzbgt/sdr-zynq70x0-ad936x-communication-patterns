@@ -22,12 +22,15 @@ trap 'kill "$daemon_pid" 2>/dev/null || true; wait "$daemon_pid" 2>/dev/null || 
 
 sleep 0.3
 
-python3 - "$port" <<'PY'
+python3 - "$port" "$out_dir/replies.ndjson" <<'PY'
+import json
 import socket
 import sys
 import time
 
 port = int(sys.argv[1])
+out_path = sys.argv[2]
+replies = []
 
 def query_once():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -39,10 +42,14 @@ def query_once():
         sock.close()
     if b'"event":"sdk_daemon_hello"' not in data:
         raise SystemExit("daemon did not answer HELLO")
+    replies.append(json.loads(data.decode("utf-8")))
 
 query_once()
 time.sleep(0.6)
 query_once()
+with open(out_path, "w", encoding="utf-8") as handle:
+    for reply in replies:
+        handle.write(json.dumps(reply, sort_keys=True) + "\n")
 PY
 
 if ! kill -0 "$daemon_pid" 2>/dev/null; then
@@ -54,7 +61,7 @@ kill "$daemon_pid" 2>/dev/null || true
 wait "$daemon_pid" 2>/dev/null || true
 trap - EXIT
 
-python3 - "$out_dir/daemon.ndjson" <<'PY'
+python3 - "$out_dir/daemon.ndjson" "$out_dir/replies.ndjson" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -67,12 +74,19 @@ for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
 
 starts = [row for row in rows if row.get("event") == "sdk_daemon_start"]
 requests = [row for row in rows if row.get("event") == "sdk_daemon_request"]
+replies = [
+    json.loads(line)
+    for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
 if not starts or starts[0].get("requests") != 0:
     raise SystemExit("daemon did not start in explicit forever mode")
 if starts[0].get("serve_forever") is not True:
     raise SystemExit("daemon did not report serve_forever=true")
-if len(requests) < 2:
-    raise SystemExit("daemon did not handle repeated requests in forever mode")
+if requests:
+    raise SystemExit("forever-mode daemon should not log per-request stdout rows")
+if len(replies) != 2 or any(row.get("event") != "sdk_daemon_hello" for row in replies):
+    raise SystemExit("daemon did not answer repeated requests in forever mode")
 PY
 
 echo "fieldmesh_state_daemon_forever_check=pass"

@@ -219,6 +219,12 @@ required = [
     "TUN_SERVICE_RF_QUEUE_PRESSURE_DEPTH",
     "tun_service_rf_queue_drop_at(&service->rf_tx_queue",
     "fieldmesh_tun_packetizer_pump_many(",
+    "tun_service_step_data_plane(&rf_worker, &tun_service);",
+    "sendto(sockfd, response",
+    "ipv4_udp_priority_score",
+    "payload[9] == 17u",
+    "return 6u;",
+    "if (!serve_forever)",
 ]
 missing = [token for token in required if token not in source]
 if missing:

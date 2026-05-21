@@ -205,7 +205,28 @@ one-shot server exiting cleanly. The runner now defaults the current burst
 bridge to that proven UDP smoke rate plus the observed-stable daemon ACK retry
 budget. TCP `iperf3` still fails final client result completion, so the next
 material data-plane target remains TCP final control/result completion or a
-streaming MAC data plane.
+streaming MAC data plane. The daemon serving loop also had a concrete
+throughput bug: under a busy HIL bridge the UDP control socket can remain
+readable for `LEASE`, `ACK`, `STATUS`, and ingest requests, which let the
+daemon answer control-plane traffic without stepping the TUN/RF data plane
+until a TUN poll event or poll timeout. The daemon now steps the active
+RF-worker/TUN data plane after every handled control request, so bridge control
+traffic can no longer starve packet pump/drain work.
+The clean post-fix 16K UDP HIL run showed another software data-plane bug:
+the bridge kept using `tcp-control-flow` priority while continuing from the
+failed TCP phase into UDP on the same iperf port. Non-TCP IPv4 payload was
+scored as generic low-priority traffic, while stale TCP ACK-only control-flow
+frames could stay ahead of actual UDP payload. The daemon priority policy now
+scores UDP payload as real data-plane work and demotes ACK-only TCP below
+payload and SYN/FIN/RST control, so higher-rate UDP probes exercise the RF
+payload path instead of burning airtime on stale TCP drain.
+That same HIL run exposed a daemon liveness bug after the traffic finished:
+the long-running init daemon wrote one stdout JSON row for every control
+request. The RF bridge can issue thousands of UDP control requests during one
+iperf run, so an unattended stdout pipe can fill and block the daemon even
+though the daemon process remains alive. The per-request stdout log is now
+disabled for `serve_forever` daemon mode and kept only for bounded foreground
+test runs.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

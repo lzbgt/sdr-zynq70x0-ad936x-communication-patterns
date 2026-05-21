@@ -455,22 +455,22 @@ static unsigned ipv4_tcp_priority_score(
         if ((flags & 0x04u) != 0u) {
             return 9u;
         }
-        if (tcp_payload_len > 0u) {
+        if ((flags & 0x03u) != 0u) {
             return 8u;
         }
-        if ((flags & 0x10u) != 0u) {
+        if (tcp_payload_len > 0u) {
             return 7u;
         }
-        if ((flags & 0x03u) != 0u) {
-            return 6u;
+        if ((flags & 0x10u) != 0u) {
+            return 4u;
         }
-        return 5u;
+        return 3u;
     }
     if ((flags & 0x04u) != 0u) {
-        return 7u;
+        return 9u;
     }
     if ((flags & 0x03u) != 0u) {
-        return 6u;
+        return 8u;
     }
     if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL &&
         (flags & 0x10u) != 0u && tcp_payload_len == 0u) {
@@ -483,6 +483,43 @@ static unsigned ipv4_tcp_priority_score(
         return 3u;
     }
     return 1u;
+}
+
+static unsigned ipv4_udp_priority_score(
+    const unsigned char *packet,
+    size_t packet_len,
+    enum tun_service_rf_lease_priority priority)
+{
+    size_t ihl;
+    uint16_t total_len;
+    uint16_t udp_len;
+
+    if (!packet || packet_len < 28u || (packet[0] >> 4) != 4u ||
+        packet[9] != 17u) {
+        return 1u;
+    }
+    ihl = (size_t)(packet[0] & 0x0fu) * 4u;
+    if (ihl < 20u || packet_len < ihl + 8u) {
+        return 1u;
+    }
+    total_len = read_be16_local(&packet[2]);
+    if (total_len < ihl + 8u || total_len > packet_len) {
+        return 1u;
+    }
+    udp_len = read_be16_local(&packet[ihl + 4u]);
+    if (udp_len < 8u || (size_t)udp_len > (size_t)total_len - ihl) {
+        return 1u;
+    }
+    if (udp_len == 8u) {
+        return 2u;
+    }
+    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL) {
+        return 4u;
+    }
+    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_FIFO) {
+        return 1u;
+    }
+    return 6u;
 }
 
 static unsigned blr_app_data_priority_score(
@@ -501,6 +538,10 @@ static unsigned blr_app_data_priority_score(
             FIELDMESH_OK ||
         header.frame_type != FIELDMESH_MAC_FRAME_APP_DATA) {
         return 1u;
+    }
+    if (payload_len >= 20u && (payload[0] >> 4) == 4u &&
+        payload[9] == 17u) {
+        return ipv4_udp_priority_score(payload, payload_len, priority);
     }
     return ipv4_tcp_priority_score(payload, payload_len, priority,
                                    control_flow);
@@ -2272,6 +2313,19 @@ static void rf_worker_tick(struct rf_worker_state *worker,
     }
     worker->ticks++;
     worker->last_status = FIELDMESH_OK;
+}
+
+static void tun_service_step_data_plane(struct rf_worker_state *worker,
+                                        struct tun_service_state *service)
+{
+    if (!service || !service->running) {
+        return;
+    }
+    if (worker && worker->running) {
+        rf_worker_tick(worker, service);
+    } else {
+        tun_service_tick(service);
+    }
 }
 
 static int socket_startup(void)
@@ -7033,11 +7087,7 @@ static int serve_state(const char *bind_ip,
             }
             if (polled == 0) {
                 tun_service.idle_ticks++;
-                if (rf_worker.running) {
-                    rf_worker_tick(&rf_worker, &tun_service);
-                } else {
-                    tun_service_tick(&tun_service);
-                }
+                tun_service_step_data_plane(&rf_worker, &tun_service);
                 continue;
             }
             if (tun_read_enabled &&
@@ -7048,11 +7098,7 @@ static int serve_state(const char *bind_ip,
                 rf_worker_stop(&rf_worker);
             } else if (tun_read_enabled && (fds[1].revents & POLLIN) != 0) {
                 tun_service.poll_wakeups++;
-                if (rf_worker.running) {
-                    rf_worker_tick(&rf_worker, &tun_service);
-                } else {
-                    tun_service_tick(&tun_service);
-                }
+                tun_service_step_data_plane(&rf_worker, &tun_service);
             }
             if ((fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
                 break;
@@ -7090,10 +7136,13 @@ static int serve_state(const char *bind_ip,
         }
         (void)sendto(sockfd, response, (int)strlen(response), 0,
                      (const struct sockaddr *)&src_addr, src_len);
-        printf("{\"event\":\"sdk_daemon_request\",\"bytes\":%d,"
-               "\"src\":\"%s\"}\n",
-               received, inet_ntoa(src_addr.sin_addr));
-        fflush(stdout);
+        tun_service_step_data_plane(&rf_worker, &tun_service);
+        if (!serve_forever) {
+            printf("{\"event\":\"sdk_daemon_request\",\"bytes\":%d,"
+                   "\"src\":\"%s\"}\n",
+                   received, inet_ntoa(src_addr.sin_addr));
+            fflush(stdout);
+        }
         handled++;
     }
     printf("{\"event\":\"sdk_daemon_end\",\"handled\":%ld}\n", handled);
