@@ -14,6 +14,7 @@ EXPECTED_DT_NODES = {
     "fieldmesh_ctrl": (0x43C00000, 0x00010000, True),
     "fieldmesh_tx_dma": (0x43C10000, 0x00010000, True),
     "fieldmesh_rx_dma": (0x43C20000, 0x00010000, True),
+    "fieldmesh_ring": (0x43C30000, 0x00010000, True),
     "fieldmesh_packet": (0, 0, False),
 }
 EXPECTED_CTRL_REGS = {"id", "control", "status", "irq_status", "irq_mask"}

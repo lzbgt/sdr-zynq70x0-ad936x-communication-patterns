@@ -252,7 +252,10 @@ host-side stand-in for `/dev/uio` or kernel-mapped FPGA packet memory.
 `sdk/c/examples/fieldmesh_firmware_uio_ring_probe.c` is the board-facing probe:
 it can inspect a real `/dev/uioN` aperture read-only, and it requires the
 explicit `--loopback --allow-writes` pair before resetting or writing mapped
-packet memory.
+packet memory. The matching devicetree contract is
+`fieldmesh-ring@43c30000`, compatible with `fieldmesh,firmware-ring-1.0` and
+`generic-uio`, at `0x43C30000`; it is the production firmware packet-memory
+aperture, not an AD936x sample-DMA or IIO data path.
 
 ## MAC Design
 

@@ -2560,6 +2560,7 @@ static int run_dt_scan(const struct config *cfg)
         {"fieldmesh_ctrl", "fieldmesh-ctrl@43c00000", "fieldmesh,sidecar-ctrl-1.0", 0x43c00000U, 0x10000U, true},
         {"fieldmesh_tx_dma", "dma@43c10000", "adi,axi-dmac-1.00.a", 0x43c10000U, 0x10000U, true},
         {"fieldmesh_rx_dma", "dma@43c20000", "adi,axi-dmac-1.00.a", 0x43c20000U, 0x10000U, true},
+        {"fieldmesh_ring", "fieldmesh-ring@43c30000", "fieldmesh,firmware-ring-1.0", 0x43c30000U, 0x10000U, true},
         {"fieldmesh_packet", "fieldmesh-packet", "fieldmesh,packet-sidecar-1.0", 0U, 0U, false},
     };
     bool ok = true;

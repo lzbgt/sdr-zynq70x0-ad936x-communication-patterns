@@ -18,11 +18,13 @@ SIDECAR_WINDOWS = (
     ("fieldmesh_ctrl", 0x43C00000, DEFAULT_WINDOW_SIZE),
     ("fieldmesh_tx_dma", 0x43C10000, DEFAULT_WINDOW_SIZE),
     ("fieldmesh_rx_dma", 0x43C20000, DEFAULT_WINDOW_SIZE),
+    ("fieldmesh_ring", 0x43C30000, DEFAULT_WINDOW_SIZE),
 )
 SIDECAR_IRQS = {
     "fieldmesh_ctrl": "ps-11 mb-11",
     "fieldmesh_rx_dma": "ps-10 mb-10",
     "fieldmesh_tx_dma": "ps-9 mb-9",
+    "fieldmesh_ring": "ps-8 mb-8",
 }
 
 

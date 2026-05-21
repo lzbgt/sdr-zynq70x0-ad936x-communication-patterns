@@ -274,8 +274,11 @@ hardware integration should add a FieldMesh sidecar packet transport with its
 own AXI-lite/DMA register namespace. Do not reuse or replace the ADI sample-DMA
 windows for the first packet-pipe binding. The provisional sidecar namespace is
 `fieldmesh_ctrl` at `0x43C00000`, `fieldmesh_tx_dma` at `0x43C10000`, and
-`fieldmesh_rx_dma` at `0x43C20000`; `--check-sidecar` verifies those windows
-remain unused in the imported source Tcl. `tools/fieldmesh_sidecar_plan.py`
+`fieldmesh_rx_dma` at `0x43C20000`; the first-party firmware ring aperture is
+`fieldmesh_ring` at `0x43C30000` and binds as
+`fieldmesh-ring@43c30000` with `compatible = "fieldmesh,firmware-ring-1.0",
+"generic-uio"`. `--check-sidecar` verifies those windows remain unused in the
+imported source Tcl. `tools/fieldmesh_sidecar_plan.py`
 turns the same checked contract into JSON, Markdown, or Tcl constants for the
 later Vivado overlay patch, and `--check-rtl` verifies the FieldMesh packet
 pipe RTL files and module declarations before that overlay is attempted.

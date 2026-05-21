@@ -39,9 +39,11 @@ Current sidecar result:
 | z203 | `fieldmesh_ctrl` | `0x43C00000` | `0x10000` | `ps-11 mb-11` | free |
 | z203 | `fieldmesh_tx_dma` | `0x43C10000` | `0x10000` | `ps-9 mb-9` | free |
 | z203 | `fieldmesh_rx_dma` | `0x43C20000` | `0x10000` | `ps-10 mb-10` | free |
+| z203 | `fieldmesh_ring` | `0x43C30000` | `0x10000` | `ps-8 mb-8` | free |
 | z103 | `fieldmesh_ctrl` | `0x43C00000` | `0x10000` | `ps-11 mb-11` | free |
 | z103 | `fieldmesh_tx_dma` | `0x43C10000` | `0x10000` | `ps-9 mb-9` | free |
 | z103 | `fieldmesh_rx_dma` | `0x43C20000` | `0x10000` | `ps-10 mb-10` | free |
+| z103 | `fieldmesh_ring` | `0x43C30000` | `0x10000` | `ps-8 mb-8` | free |
 
 Both paths are clocked from `axi_ad9361/l_clk` at the stream boundary. The
 RX DMA writes samples to DDR through PS HP1. The TX DMA reads samples from DDR
@@ -82,6 +84,7 @@ inventory proves a conflict:
 | `fieldmesh_ctrl` | `0x43C00000` | FieldMesh packet-memory, descriptor, queue, status, and debug registers |
 | `fieldmesh_tx_dma` | `0x43C10000` | Optional PS DDR to PL FieldMesh packet ingress DMA control |
 | `fieldmesh_rx_dma` | `0x43C20000` | Optional PL FieldMesh packet egress to PS DDR DMA control |
+| `fieldmesh_ring` | `0x43C30000` | First-party firmware descriptor ring, packet arena, counters, and UIO probe aperture |
 
 Provisional interrupt allocation:
 
@@ -90,6 +93,7 @@ Provisional interrupt allocation:
 | `fieldmesh_ctrl` | `ps-11 mb-11` | descriptor completion, drop/fault, and scheduler debug event |
 | `fieldmesh_rx_dma` | `ps-10 mb-10` | packet egress DMA completion or error |
 | `fieldmesh_tx_dma` | `ps-9 mb-9` | packet ingress DMA completion or error |
+| `fieldmesh_ring` | `ps-8 mb-8` | firmware ring completion, packet-memory event, and UIO probe interrupt |
 
 Provisional memory ports:
 

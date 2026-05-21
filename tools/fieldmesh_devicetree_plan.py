@@ -17,7 +17,8 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
  * FieldMesh sidecar packet-DMA devicetree fragment.
  *
  * Include this only with a bitstream that contains fieldmesh_ctrl,
- * fieldmesh_tx_dma, fieldmesh_rx_dma, and the sidecar byte-pipe bridge.
+ * fieldmesh_tx_dma, fieldmesh_rx_dma, the sidecar byte-pipe bridge, and the
+ * first-party firmware ring aperture.
  */
 
 &fpga_axi {
@@ -73,9 +74,22 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 		};
 	};
 
+	fieldmesh_ring: fieldmesh-ring@43c30000 {
+		compatible = "fieldmesh,firmware-ring-1.0", "generic-uio";
+		reg = <0x43c30000 0x10000>;
+		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+		fieldmesh,ring-slots = <8>;
+		fieldmesh,packet-arena-bytes = <4096>;
+		fieldmesh,packet-stride = <256>;
+		fieldmesh,layout-version = <1>;
+		status = "okay";
+	};
+
 	fieldmesh_packet: fieldmesh-packet {
 		compatible = "fieldmesh,packet-sidecar-1.0";
 		fieldmesh-ctrl = <&fieldmesh_ctrl>;
+		fieldmesh-ring = <&fieldmesh_ring>;
 		dmas = <&fieldmesh_tx_dma 0>, <&fieldmesh_rx_dma 0>;
 		dma-names = "tx", "rx";
 		status = "okay";
@@ -210,15 +224,22 @@ def check_decompiled(text: str) -> dict[str, Any]:
         "fieldmesh_ctrl_node": "fieldmesh-ctrl@43c00000",
         "fieldmesh_tx_dma_node": "dma@43c10000",
         "fieldmesh_rx_dma_node": "dma@43c20000",
+        "fieldmesh_ring_node": "fieldmesh-ring@43c30000",
         "fieldmesh_packet_node": "fieldmesh-packet",
         "fieldmesh_ctrl_compatible": 'compatible = "fieldmesh,sidecar-ctrl-1.0"',
+        "fieldmesh_ring_compatible": 'compatible = "fieldmesh,firmware-ring-1.0", "generic-uio"',
         "fieldmesh_packet_compatible": 'compatible = "fieldmesh,packet-sidecar-1.0"',
         "axi_dmac_compatible": 'compatible = "adi,axi-dmac-1.00.a"',
         "tx_dma_reg": "reg = <0x43c10000 0x10000>",
         "rx_dma_reg": "reg = <0x43c20000 0x10000>",
+        "ring_reg": "reg = <0x43c30000 0x10000>",
         "ctrl_irq": "interrupts = <0x00 0x37 0x04>",
         "tx_irq": "interrupts = <0x00 0x35 0x04>",
         "rx_irq": "interrupts = <0x00 0x36 0x04>",
+        "ring_irq": "interrupts = <0x00 0x34 0x04>",
+        "ring_slots": "fieldmesh,ring-slots = <0x08>",
+        "ring_packet_arena": "fieldmesh,packet-arena-bytes = <0x1000>",
+        "ring_packet_stride": "fieldmesh,packet-stride = <0x100>",
         "stream_width": "adi,destination-bus-width = <0x10>",
     }
     checks = {name: needle in text for name, needle in required.items()}

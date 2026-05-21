@@ -22,6 +22,7 @@ It appends nodes under `&fpga_axi`:
 | `fieldmesh-ctrl@43c00000` | `fieldmesh,sidecar-ctrl-1.0` | `0x43C00000` | `55` |
 | `dma@43c10000` | `adi,axi-dmac-1.00.a` | `0x43C10000` | `53` |
 | `dma@43c20000` | `adi,axi-dmac-1.00.a` | `0x43C20000` | `54` |
+| `fieldmesh-ring@43c30000` | `fieldmesh,firmware-ring-1.0`, `generic-uio` | `0x43C30000` | `52` |
 | `fieldmesh-packet` | `fieldmesh,packet-sidecar-1.0` | none | none |
 
 The TX packet DMA is DDR-to-stream:
@@ -41,6 +42,25 @@ The RX packet DMA is stream-to-DDR:
 The 16-bit stream width matches the current Vivado overlay gate. FieldMesh
 packet framing remains byte-oriented; `fieldmesh_axis16_byte_adapter` handles
 the width boundary in PL.
+
+`fieldmesh-ring@43c30000` is the first-party firmware packet-ring aperture for
+the C ARM/FPGA boundary. It is not an AD936x sample DMA window and it is not an
+IIO transport. The node binds through `generic-uio` when the Linux image has
+`CONFIG_UIO=y` and `CONFIG_UIO_PDRV_GENIRQ=y`, exposing a `/dev/uioN` device
+for fixed binary descriptor rings, packet memory, counters, and future PL
+packet-memory handoff.
+
+Default board-side inspection is read-only:
+
+```sh
+fieldmesh-firmware-uio-ring-probe --device /dev/uioN
+```
+
+Mapped packet-memory loopback is intentionally guarded:
+
+```sh
+fieldmesh-firmware-uio-ring-probe --device /dev/uioN --loopback --allow-writes
+```
 
 ## GNSS/PPS Options
 
@@ -80,9 +100,9 @@ enough to create `/dev/pps*`.
 fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree
 ```
 
-It emits NDJSON rows for the control node, TX DMA, RX DMA, and packet node. A
-future board-side DMA smoke test should run this before touching any FieldMesh
-register or DMA window.
+It emits NDJSON rows for the control node, TX DMA, RX DMA, firmware ring, and
+packet node. A future board-side DMA or UIO smoke test should run this before
+touching any FieldMesh register, DMA window, or packet-ring aperture.
 
 After `dt-scan` passes, `fieldmesh-udp-probe ctrl-scan` performs the first
 read-only control-window check:
@@ -110,7 +130,9 @@ read-only, maps the target physical register pages with read-only `mmap()`, and
 samples the first few TX/RX sidecar DMA registers without writing registers or
 starting transfers. A packet-DMA smoke test should only run after the assertion
 summary confirms a matching FieldMesh DTB, a live control-window ID, and
-readable sidecar DMA windows.
+readable sidecar DMA windows. The production firmware UIO probe adds the next
+read-only check for the `fieldmesh-ring@43c30000` aperture once the matching PL
+packet-memory window is present.
 
 ## Matched Package
 

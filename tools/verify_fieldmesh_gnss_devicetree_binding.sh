@@ -127,5 +127,77 @@ if not positive.get("checks", {}).get("pps_present"):
     raise SystemExit(f"synthetic GNSS PPS not detected: {positive!r}")
 PY
 
+python3 - "$repo_root" <<'PY'
+import sys
+from pathlib import Path
+
+repo_root = Path(sys.argv[1])
+
+
+def require_tokens(path: Path, tokens: list[str]) -> None:
+    text = path.read_text(encoding="utf-8")
+    missing = [token for token in tokens if token not in text]
+    if missing:
+        raise SystemExit(f"{path.relative_to(repo_root)} missing tokens: {missing}")
+
+
+require_tokens(
+    repo_root / "tools/fieldmesh_devicetree_plan.py",
+    [
+        "fieldmesh-ring@43c30000",
+        'compatible = "fieldmesh,firmware-ring-1.0", "generic-uio";',
+        "reg = <0x43c30000 0x10000>;",
+        "interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;",
+        "fieldmesh,ring-slots",
+        "fieldmesh,packet-arena-bytes",
+        "fieldmesh,packet-stride",
+        "fieldmesh-ring = <&fieldmesh_ring>;",
+    ],
+)
+
+for recipe in (
+    repo_root / "meta-sdr-z203/recipes-kernel/linux/linux-sdr-z203_6.1.bb",
+    repo_root / "meta-sdr-z103/recipes-kernel/linux/linux-sdr-z103_6.1.bb",
+):
+    require_tokens(
+        recipe,
+        [
+            "--enable UIO",
+            "--enable UIO_PDRV_GENIRQ",
+            "--enable PPS_CLIENT_GPIO",
+        ],
+    )
+
+for probe in (
+    repo_root / "meta-sdr-z203/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c",
+    repo_root / "meta-sdr-z103/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c",
+):
+    require_tokens(
+        probe,
+        [
+            '"fieldmesh_ring"',
+            '"fieldmesh-ring@43c30000"',
+            '"fieldmesh,firmware-ring-1.0"',
+            "0x43c30000U",
+            "0x10000U",
+        ],
+    )
+
+require_tokens(
+    repo_root / "tools/fieldmesh_sidecar_preflight_assert.py",
+    [
+        '"fieldmesh_ring": (0x43C30000, 0x00010000, True)',
+    ],
+)
+
+require_tokens(
+    repo_root / "tools/fieldmesh_vendor_dma_inventory.py",
+    [
+        '("fieldmesh_ring", 0x43C30000, DEFAULT_WINDOW_SIZE)',
+        '"fieldmesh_ring": "ps-8 mb-8"',
+    ],
+)
+PY
+
 printf 'fieldmesh_gnss_devicetree_binding=pass\n'
 printf 'out_dir=%s\n' "$out_dir"
