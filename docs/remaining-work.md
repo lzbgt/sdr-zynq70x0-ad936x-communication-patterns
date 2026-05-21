@@ -33,7 +33,10 @@ C/binary descriptor-ring boundary. `fieldmesh_firmware_packet_bridge_probe`
 adds the next hot-path boundary: raw IPv4 packets are classified, enqueued into
 binary firmware descriptors, drained from READY RX descriptors, and reclaimed
 without Python or JSON on the packet path. It now has a guarded UIO mode for
-the same packet bridge on `/dev/uioN`. The live Z203/Z103 runtimes now expose
+the same packet bridge on `/dev/uioN`. `fieldmesh_firmware_tun_bridge_probe`
+adds the next C-only boundary by adapting `fieldmesh_tun_read_callback_t` and
+`fieldmesh_tun_write_callback_t` into the firmware packet bridge without
+letting the firmware ABI own POSIX fd state. The live Z203/Z103 runtimes now expose
 `fieldmesh-ring` as `/dev/uio0` at `0x43C30000/0x10000`, backed by a first-party
 PL AXI-lite RAM aperture; sysfs inspection, read-only `mmap`, and guarded
 write-loopback pass on both boards. The remaining app/GUI refactor

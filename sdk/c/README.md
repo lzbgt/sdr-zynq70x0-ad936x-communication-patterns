@@ -67,6 +67,13 @@ in `src/fieldmesh_sdk.c`:
   vendor runtime code. Its default mode is heap-backed for CI; `--device
   /dev/uioN --loopback --allow-writes` binds the same packet bridge to the live
   PL packet-ring aperture.
+- `include/fieldmesh_firmware_tun_bridge.h` is the C glue between the existing
+  SDK TUN callback contract and the firmware packet bridge callback contract.
+  It adapts `fieldmesh_tun_read_callback_t` and
+  `fieldmesh_tun_write_callback_t` to the firmware bridge without owning POSIX
+  fds. `examples/fieldmesh_firmware_tun_bridge_probe.c` verifies the
+  `swarm0`-ready boundary with memory callbacks, binary descriptors, TCP
+  control priority, and packet drain back to a TUN-style writer.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

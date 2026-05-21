@@ -285,6 +285,15 @@ operator has authorized mapped writes. This is the replacement direction for
 the Python lease/ACK bridge, before the same boundary is connected to live
 `swarm0` and then to PL-owned packet DMA.
 
+`sdk/c/include/fieldmesh_firmware_tun_bridge.h` connects that packet boundary
+to the existing SDK TUN callback contract. It adapts
+`fieldmesh_tun_read_callback_t` and `fieldmesh_tun_write_callback_t` to the
+firmware bridge callbacks while keeping POSIX fd ownership in the daemon,
+userspace MAC service, or future kernel driver. The firmware side sees only a
+bounded packet buffer, binary descriptors, and packet bytes. The matching
+`fieldmesh_firmware_tun_bridge_probe` verifies this `swarm0`-ready callback
+path without IIO, JSON-on-air, inter-board IP routing, or vendor runtime code.
+
 ## MAC Design
 
 The production MAC is not stop-and-wait. It uses pipelined windows:
@@ -363,8 +372,8 @@ packet pipeline.
    persistent buffers and binary batch queues.
 5. Trim vendor experiment services and unused runtime tools from production
    images as first-party probes cover their verification role.
-6. Bind the C firmware packet bridge read/write callbacks to the board-local
-   `swarm0` TUN service, then remove Python from the packet hot path.
+6. Bind the C firmware TUN bridge callbacks to the board-local `swarm0` TUN
+   service, then remove Python from the packet hot path.
 7. Move timestamping, preamble/sync, packet CRC, and scheduled TX/RX into PL.
 8. Add selective ACK, sliding windows, and traffic-class airtime budgets.
 9. Integrate routed `swarm0` with the C MAC queue.

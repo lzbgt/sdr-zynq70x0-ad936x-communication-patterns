@@ -11,12 +11,14 @@ SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_abi.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_ring.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_packet_bridge.h;subdir=fieldmesh-sdk/include \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_tun_bridge.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_camera_stream_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_device_iio_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_abi_probe.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_ring_probe.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_mmap_ring_probe.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c;subdir=fieldmesh-sdk/examples \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_tun_bridge_probe.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_uio_ring_probe.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_mac_frame_demo.c;subdir=fieldmesh-sdk/examples \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_gnss_nmea_reporter.c;subdir=fieldmesh-sdk/examples \
@@ -65,6 +67,12 @@ do_compile() {
         ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c \
         ${LDFLAGS} \
         -o fieldmesh-firmware-packet-bridge-probe
+    ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
+        -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
+        ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_tun_bridge_probe.c \
+        ${S}/src${FIELDMESH_REPO_ROOT}/sdk/c/src/fieldmesh_sdk.c \
+        ${LDFLAGS} \
+        -o fieldmesh-firmware-tun-bridge-probe
     ${CC} ${CFLAGS} -std=c99 -Wall -Wextra \
         -I${S}/include${FIELDMESH_REPO_ROOT}/sdk/c/include \
         ${S}/examples${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_firmware_uio_ring_probe.c \
@@ -130,6 +138,7 @@ do_install() {
     install -m 0755 ${B}/fieldmesh-firmware-ring-probe ${D}${bindir}/fieldmesh-firmware-ring-probe
     install -m 0755 ${B}/fieldmesh-firmware-mmap-ring-probe ${D}${bindir}/fieldmesh-firmware-mmap-ring-probe
     install -m 0755 ${B}/fieldmesh-firmware-packet-bridge-probe ${D}${bindir}/fieldmesh-firmware-packet-bridge-probe
+    install -m 0755 ${B}/fieldmesh-firmware-tun-bridge-probe ${D}${bindir}/fieldmesh-firmware-tun-bridge-probe
     install -m 0755 ${B}/fieldmesh-firmware-uio-ring-probe ${D}${bindir}/fieldmesh-firmware-uio-ring-probe
     install -m 0755 ${B}/fieldmesh-mac-frame-demo ${D}${bindir}/fieldmesh-mac-frame-demo
     install -m 0755 ${B}/fieldmesh-gnss-nmea-reporter ${D}${bindir}/fieldmesh-gnss-nmea-reporter

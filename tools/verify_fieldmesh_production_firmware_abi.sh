@@ -30,6 +30,11 @@ mkdir -p "$work_dir/vectors"
   -o "$work_dir/fieldmesh-firmware-packet-bridge-probe"
 "$cc" -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
+  "$repo_root/sdk/c/examples/fieldmesh_firmware_tun_bridge_probe.c" \
+  "$repo_root/sdk/c/src/fieldmesh_sdk.c" \
+  -o "$work_dir/fieldmesh-firmware-tun-bridge-probe"
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
   -xc - \
   -o "$work_dir/fieldmesh-firmware-ring-header-smoke" <<'EOF_C'
 #include "fieldmesh_firmware_ring.h"
@@ -69,13 +74,15 @@ EOF_C
 "$work_dir/fieldmesh-firmware-packet-bridge-probe" \
   --image "$work_dir/vectors/packet-bridge-image.bin" --loopback --allow-writes \
   >"$work_dir/packet-bridge-probe-image.json"
+"$work_dir/fieldmesh-firmware-tun-bridge-probe" \
+  >"$work_dir/tun-bridge-probe.json"
 
 python3 - "$work_dir/probe.json" "$work_dir/probe-vectors.json" \
   "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" \
   "$work_dir/mmap-ring-probe.json" "$work_dir/mmap-ring-probe-image.json" \
   "$work_dir/uio-ring-probe-loopback.json" "$work_dir/uio-ring-probe-inspect.json" \
   "$work_dir/packet-bridge-probe.json" "$work_dir/packet-bridge-probe-image.json" \
-  "$work_dir/vectors" <<'PY'
+  "$work_dir/tun-bridge-probe.json" "$work_dir/vectors" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -90,7 +97,8 @@ uio_ring_probe_loopback = json.loads(Path(sys.argv[7]).read_text(encoding="utf-8
 uio_ring_probe_inspect = json.loads(Path(sys.argv[8]).read_text(encoding="utf-8"))
 packet_bridge_probe = json.loads(Path(sys.argv[9]).read_text(encoding="utf-8"))
 packet_bridge_probe_image = json.loads(Path(sys.argv[10]).read_text(encoding="utf-8"))
-vector_dir = Path(sys.argv[11])
+tun_bridge_probe = json.loads(Path(sys.argv[11]).read_text(encoding="utf-8"))
+vector_dir = Path(sys.argv[12])
 
 for report in (probe, probe_vectors):
     if report.get("event") != "fieldmesh_firmware_abi_probe":
@@ -201,6 +209,36 @@ if packet_bridge_probe_image.get("backend") != "file" or packet_bridge_probe_ima
 if packet_bridge_probe_image.get("sync_required") is not True or packet_bridge_probe_image.get("sync_ok") is not True:
     raise SystemExit(f"packet bridge image probe did not sync mapped memory: {packet_bridge_probe_image!r}")
 
+if tun_bridge_probe.get("event") != "fieldmesh_firmware_tun_bridge_probe":
+    raise SystemExit(f"bad firmware TUN bridge event: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("ok") is not True:
+    raise SystemExit(f"firmware TUN bridge probe failed: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("hot_path_language") != "c":
+    raise SystemExit(f"firmware TUN bridge hot path must be C: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("uses_json_on_air") is not False:
+    raise SystemExit(f"firmware TUN bridge must not use JSON on air: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("binary_descriptors") is not True:
+    raise SystemExit(f"firmware TUN bridge must use binary descriptors: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("tun_ingress") != "fieldmesh_tun_read_callback_t":
+    raise SystemExit(f"firmware TUN bridge ingress callback changed: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("tun_egress") != "fieldmesh_tun_write_callback_t":
+    raise SystemExit(f"firmware TUN bridge egress callback changed: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("firmware_owns_posix_fd") is not False:
+    raise SystemExit(f"firmware TUN bridge must not own POSIX fd state: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("swarm0_ready_boundary") is not True:
+    raise SystemExit(f"firmware TUN bridge did not expose swarm0 boundary: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("first_pick") != 1 or tun_bridge_probe.get("second_pick") != 0:
+    raise SystemExit(f"firmware TUN bridge priority order changed: {tun_bridge_probe!r}")
+if tun_bridge_probe.get("pumped") != 2 or tun_bridge_probe.get("drained") != 2:
+    raise SystemExit(f"firmware TUN bridge pump/drain counts changed: {tun_bridge_probe!r}")
+if (
+    tun_bridge_probe.get("classify_errors") != 0
+    or tun_bridge_probe.get("read_errors") != 0
+    or tun_bridge_probe.get("enqueue_drops") != 0
+    or tun_bridge_probe.get("drain_errors") != 0
+):
+    raise SystemExit(f"firmware TUN bridge errors changed: {tun_bridge_probe!r}")
+
 expected = {
     "fieldmesh_fw_tx_desc_v1.bin": probe["tx_desc_bytes"],
     "fieldmesh_fw_rx_desc_v1.bin": probe["rx_desc_bytes"],
@@ -309,6 +347,50 @@ if missing:
     raise SystemExit(f"missing firmware packet bridge tokens: {missing}")
 PY
 
+python3 - "$repo_root/sdk/c/include/fieldmesh_firmware_tun_bridge.h" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_fw_tun_reader_t",
+    "fieldmesh_fw_tun_writer_t",
+    "fieldmesh_fw_tun_read_packet",
+    "fieldmesh_fw_tun_write_packet",
+    "fieldmesh_tun_read_callback_t",
+    "fieldmesh_tun_write_callback_t",
+    "FIELDMESH_ERR_TIMEOUT",
+    "fieldmesh_fw_packet_bridge_read_cb_t",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware TUN bridge header tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/examples/fieldmesh_firmware_tun_bridge_probe.c" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_firmware_tun_bridge_probe",
+    "memory_tun_read",
+    "memory_tun_write",
+    "fieldmesh_fw_tun_read_packet",
+    "fieldmesh_fw_tun_write_packet",
+    "fieldmesh_fw_packet_bridge_pump_many",
+    "fieldmesh_fw_packet_bridge_drain_ready",
+    "fieldmesh_tun_read_callback_t",
+    "fieldmesh_tun_write_callback_t",
+    "firmware_owns_posix_fd",
+    "swarm0_ready_boundary",
+    "uses_json_on_air",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware TUN bridge probe tokens: {missing}")
+PY
+
 python3 - "$repo_root/sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c" <<'PY'
 import sys
 from pathlib import Path
@@ -389,15 +471,18 @@ required = [
     "fieldmesh_firmware_abi.h",
     "fieldmesh_firmware_ring.h",
     "fieldmesh_firmware_packet_bridge.h",
+    "fieldmesh_firmware_tun_bridge.h",
     "fieldmesh_firmware_abi_probe.c",
     "fieldmesh_firmware_ring_probe.c",
     "fieldmesh_firmware_mmap_ring_probe.c",
     "fieldmesh_firmware_packet_bridge_probe.c",
+    "fieldmesh_firmware_tun_bridge_probe.c",
     "fieldmesh_firmware_uio_ring_probe.c",
     "fieldmesh-firmware-abi-probe",
     "fieldmesh-firmware-ring-probe",
     "fieldmesh-firmware-mmap-ring-probe",
     "fieldmesh-firmware-packet-bridge-probe",
+    "fieldmesh-firmware-tun-bridge-probe",
     "fieldmesh-firmware-uio-ring-probe",
 ]
 for recipe_path in map(Path, sys.argv[1:]):
