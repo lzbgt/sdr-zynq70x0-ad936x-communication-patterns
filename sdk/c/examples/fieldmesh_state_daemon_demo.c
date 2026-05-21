@@ -132,6 +132,7 @@ enum tun_service_rf_lease_priority {
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL = 2,
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW = 3,
     TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD = 4,
+    TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL = 5,
 };
 
 struct tun_service_tcp_flow {
@@ -489,7 +490,8 @@ static unsigned ipv4_tcp_priority_score(
 static unsigned ipv4_udp_priority_score(
     const unsigned char *packet,
     size_t packet_len,
-    enum tun_service_rf_lease_priority priority)
+    enum tun_service_rf_lease_priority priority,
+    const struct tun_service_tcp_flow *control_flow)
 {
     size_t ihl;
     uint16_t total_len;
@@ -513,6 +515,10 @@ static unsigned ipv4_udp_priority_score(
     }
     if (udp_len == 8u) {
         return 2u;
+    }
+    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL &&
+        control_flow && control_flow->valid && udp_len >= 24u) {
+        return 8u;
     }
     if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD) {
         return 8u;
@@ -545,7 +551,8 @@ static unsigned blr_app_data_priority_score(
     }
     if (payload_len >= 20u && (payload[0] >> 4) == 4u &&
         payload[9] == 17u) {
-        return ipv4_udp_priority_score(payload, payload_len, priority);
+        return ipv4_udp_priority_score(payload, payload_len, priority,
+                                       control_flow);
     }
     return ipv4_tcp_priority_score(payload, payload_len, priority,
                                    control_flow);
@@ -1114,6 +1121,9 @@ static enum tun_service_rf_lease_priority tun_service_rf_lease_priority_from_req
     if (request && strstr(request, "priority=udp_payload")) {
         return TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD;
     }
+    if (request && strstr(request, "priority=udp_after_control")) {
+        return TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL;
+    }
     return TUN_SERVICE_RF_LEASE_PRIORITY_FIFO;
 }
 
@@ -1129,6 +1139,8 @@ static const char *tun_service_rf_lease_priority_name(
         return "tcp_control_flow";
     case TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD:
         return "udp_payload";
+    case TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL:
+        return "udp_after_control";
     case TUN_SERVICE_RF_LEASE_PRIORITY_FIFO:
     default:
         return "fifo";

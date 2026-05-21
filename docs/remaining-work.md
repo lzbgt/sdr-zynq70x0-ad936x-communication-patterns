@@ -220,6 +220,16 @@ frames could stay ahead of actual UDP payload. The daemon priority policy now
 scores UDP payload as real data-plane work and demotes ACK-only TCP below
 payload and SYN/FIN/RST control, so higher-rate UDP probes exercise the RF
 payload path instead of burning airtime on stale TCP drain.
+The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
+priority delayed iperf control setup and produced zero UDP sender bytes, while
+the first learned-control variant promoted tiny UDP setup probes too early and
+also failed before useful UDP data transfer on the current burst bridge. The
+diagnostic `udp-after-control` mode now promotes only nontrivial UDP payload
+datagrams after the TCP control flow is learned, but live HIL still failed
+before UDP data transfer because it exposed Z103-to-Z203 reverse-path CRC and
+control setup regressions. The runner keeps `tcp-control-flow` as the default
+and starts cyclic captures at two periods so fresh runs do not waste the first
+batch per direction on a one-period decode miss.
 That same HIL run exposed a daemon liveness bug after the traffic finished:
 the long-running init daemon wrote one stdout JSON row for every control
 request. The RF bridge can issue thousands of UDP control requests during one
@@ -800,10 +810,11 @@ Current concrete work:
   IP routing.
 - Current over-air HIL is a software service-rate problem, not an antenna
   installation problem. The daemon now keeps a 64-frame RF queue window and the
-  native-IP runner defaults to compact queue-aware direction scheduling, so
-  short UDP/TCP bursts are retained while the SDR bridge drains. Remaining work
-  is to reduce RF batch/bridge latency and raise delivered `iperf3` throughput,
-  then return to full TCP+UDP production reports.
+  native-IP runner defaults to compact queue-aware direction scheduling and
+  two-period cyclic captures, so short UDP/TCP bursts are retained and fresh
+  RF runs skip the known one-period decode miss. Remaining work is to reduce RF
+  batch/bridge latency and raise delivered `iperf3` throughput, then return to
+  full TCP+UDP production reports.
 - The next RF data-plane gate is authorized over-air only: use the RF
   packet-engine handoff, BPSK symbolizer, IQ TX guard, DAC clock bridge, and DAC
   source-select path to run a bounded TX/RX measurement with explicit legal

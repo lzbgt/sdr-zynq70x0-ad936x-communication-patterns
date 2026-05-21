@@ -72,7 +72,11 @@ max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-2}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
-iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-control-flow}"
+if [ -n "${IIO_BRIDGE_LEASE_PRIORITY+x}" ]; then
+    iio_bridge_lease_priority="$IIO_BRIDGE_LEASE_PRIORITY"
+else
+    iio_bridge_lease_priority="tcp-control-flow"
+fi
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-1}"
@@ -83,7 +87,7 @@ iio_bridge_ingest_timeout_ms="${IIO_BRIDGE_INGEST_TIMEOUT_MS:-1000}"
 iio_bridge_ack_timeout_ms="${IIO_BRIDGE_ACK_TIMEOUT_MS:-2000}"
 iio_bridge_lease_timeout_ms="${IIO_BRIDGE_LEASE_TIMEOUT_MS:-250}"
 iio_bridge_daemon_request_attempts="${IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS:-3}"
-iio_bridge_cyclic_capture_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS:-1}"
+iio_bridge_cyclic_capture_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS:-2}"
 iio_bridge_cyclic_capture_retry_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_RETRY_PERIODS:-2}"
 if [ "${IIO_BRIDGE_IP_PORT_FILTER+x}" = "x" ]; then
     iio_bridge_ip_port_filter="$IIO_BRIDGE_IP_PORT_FILTER"
@@ -238,8 +242,8 @@ if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 case "$iio_bridge_lease_priority" in
-    tcp-payload|tcp-control|tcp-control-flow|udp-payload|fifo) ;;
-    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, or fifo" >&2; exit 1 ;;
+    tcp-payload|tcp-control|tcp-control-flow|udp-payload|udp-after-control|fifo) ;;
+    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, or fifo" >&2; exit 1 ;;
 esac
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2

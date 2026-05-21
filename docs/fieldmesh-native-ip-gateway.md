@@ -87,11 +87,14 @@ to be Ethernet or Wi-Fi. The gateway is responsible for:
   smaller than the IP packet;
 - ACK and small-control-packet prioritization so TCP does not self-collapse
   under asymmetric load;
-- UDP HIL can opt into the diagnostic `udp-payload` lease priority to test
-  whether queued UDP payload is sitting behind iperf's TCP result/control
-  payload. It is not the default because live HIL showed static UDP-first
-  priority can delay iperf control setup enough that the sender emits no UDP
-  packets. SYN/FIN/RST still remain protected for setup and teardown;
+- UDP HIL can opt into diagnostic `udp-payload` or `udp-after-control` lease
+  priorities to test whether queued UDP payload is sitting behind iperf TCP
+  result/control payload. They are not defaults: live HIL showed static
+  UDP-first can delay iperf control setup enough that the sender emits no UDP
+  packets. The learned-control variant promotes only nontrivial UDP payload
+  datagrams, not the tiny UDP setup probes, but it is still diagnostic because
+  live HIL exposed reverse-path CRC/control setup regressions before useful UDP
+  data transfer;
 - RF queue pressure must not stop the daemon from reading `swarm0`. The daemon
   uses a 64-frame RF TX/lease/RX queue window so short TCP/UDP bursts are not
   discarded before the current SDR HIL bridge can drain them. When the RF TX

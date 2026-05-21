@@ -136,6 +136,8 @@ if loop.lease_priority_request_suffix("tcp-control-flow") != " priority=tcp_cont
     raise SystemExit("tcp-control-flow lease priority did not map to daemon request suffix")
 if loop.lease_priority_request_suffix("udp-payload") != " priority=udp_payload":
     raise SystemExit("udp-payload lease priority did not map to daemon request suffix")
+if loop.lease_priority_request_suffix("udp-after-control") != " priority=udp_after_control":
+    raise SystemExit("udp-after-control lease priority did not map to daemon request suffix")
 captured = {}
 def compact_status_request(host, port, text, timeout_ms):
     captured["text"] = text
@@ -247,8 +249,11 @@ required = [
     "ipv4_udp_priority_score",
     "payload[9] == 17u",
     "TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD",
+    "TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL",
     "priority=udp_payload",
+    "priority=udp_after_control",
     "return \"udp_payload\";",
+    "return \"udp_after_control\";",
     "return 6u;",
     "status_compact",
     "compact=1",
@@ -560,7 +565,7 @@ if IIO_BRIDGE_LEASE_PRIORITY=bad \
   exit 1
 fi
 
-if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, or fifo' \
+if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
   exit 1

@@ -107,6 +107,8 @@ def lease_priority_request_suffix(priority: str) -> str:
         return " priority=tcp_control_flow"
     if priority == "udp-payload":
         return " priority=udp_payload"
+    if priority == "udp-after-control":
+        return " priority=udp_after_control"
     if priority == "fifo":
         return ""
     raise SystemExit(f"unsupported lease priority: {priority!r}")
@@ -1383,7 +1385,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--batch-byte-limit", type=int, default=0)
-    parser.add_argument("--lease-priority", choices=("tcp-payload", "tcp-control", "tcp-control-flow", "udp-payload", "fifo"), default="tcp-payload")
+    parser.add_argument(
+        "--lease-priority",
+        choices=(
+            "tcp-payload",
+            "tcp-control",
+            "tcp-control-flow",
+            "udp-payload",
+            "udp-after-control",
+            "fifo",
+        ),
+        default="tcp-payload",
+    )
     parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
     parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
     parser.add_argument(
