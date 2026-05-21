@@ -224,6 +224,9 @@ required = [
     "ipv4_udp_priority_score",
     "payload[9] == 17u",
     "return 6u;",
+    "status_compact",
+    "compact=1",
+    "tun_service_rf_queue_reset(&service->rf_tx_lease_queue);",
     "if (!serve_forever)",
 ]
 missing = [token for token in required if token not in source]
@@ -277,6 +280,11 @@ required = [
     "fieldmesh_iperf_final_exchange_grace_s",
     "IPERF_TCP_QUEUE_QUIET_GRACE_S",
     "IPERF_TCP_REVERSE",
+    "IPERF_UDP_ONLY",
+    "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1",
+    "fieldmesh_native_ip_iperf_udp_only_probe",
+    "diagnostic_udp_only_probe",
+    '"production_evidence": bool(real_rf_ready and not allow_bridge and not udp_only)',
     "SWARM_ROUTE_QUICKACK",
     "quickack 1",
     "fieldmesh_iperf_queue_quiet_grace_s",
@@ -299,6 +307,17 @@ if missing:
     raise SystemExit(f"native-IP iperf runner no longer auto-builds the IIO burst helper: {missing}")
 print('{"event":"fieldmesh_native_ip_iperf_burst_helper_autobuild_check","ok":true}')
 PY
+
+if IPERF_UDP_ONLY=bad "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+  >/dev/null 2>"$work_dir/bad-udp-only.err"; then
+  echo "native-IP iperf runner accepted invalid IPERF_UDP_ONLY" >&2
+  exit 1
+fi
+if ! grep -q "IPERF_UDP_ONLY must be 0 or 1" "$work_dir/bad-udp-only.err"; then
+  echo "native-IP iperf runner did not report invalid IPERF_UDP_ONLY clearly" >&2
+  cat "$work_dir/bad-udp-only.err" >&2
+  exit 1
+fi
 
 if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --rf-binding-plan "$binding" \

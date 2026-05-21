@@ -26,6 +26,7 @@ iperf_tcp_queue_quiet_grace_s="${IPERF_TCP_QUEUE_QUIET_GRACE_S:-120}"
 iperf_tcp_control_drain_s="${IPERF_TCP_CONTROL_DRAIN_S:-45}"
 iperf_udp_server_drain_s="${IPERF_UDP_SERVER_DRAIN_S:-120}"
 iperf_continue_after_tcp_failure="${IPERF_CONTINUE_AFTER_TCP_FAILURE:-0}"
+iperf_udp_only="${IPERF_UDP_ONLY:-0}"
 iperf_rcv_timeout_ms="${IPERF_RCV_TIMEOUT_MS:-600000}"
 iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
 iperf_connect_timeout_ms="${IPERF_CONNECT_TIMEOUT_MS:-600000}"
@@ -181,6 +182,7 @@ if ! [[ "$iperf_udp_server_drain_s" =~ ^[0-9]+$ ]] || [ "$iperf_udp_server_drain
     exit 1
 fi
 case "$iperf_continue_after_tcp_failure" in 0|1) ;; *) echo "IPERF_CONTINUE_AFTER_TCP_FAILURE must be 0 or 1" >&2; exit 1 ;; esac
+case "$iperf_udp_only" in 0|1) ;; *) echo "IPERF_UDP_ONLY must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$allow_iio_rf_bridge" in 0|1) ;; *) echo "ALLOW_IIO_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
 case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 1 ;; esac
@@ -196,6 +198,14 @@ for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_d
 done
 if [ "$allow_daemon_rf_bridge" = "1" ] && [ "$allow_iio_rf_bridge" = "1" ]; then
     echo "ALLOW_DAEMON_RF_BRIDGE and ALLOW_IIO_RF_BRIDGE are mutually exclusive" >&2
+    exit 1
+fi
+if [ "$iperf_udp_only" = "1" ] && [ "$host_pc_case" = "1" ]; then
+    echo "IPERF_UDP_ONLY=1 is only supported for the board-to-board HIL probe" >&2
+    exit 1
+fi
+if [ "$iperf_udp_only" = "1" ] && [ "$iperf_tcp_reverse" = "1" ]; then
+    echo "IPERF_UDP_ONLY=1 cannot be combined with IPERF_TCP_REVERSE=1" >&2
     exit 1
 fi
 if [ "$allow_iio_rf_bridge" = "1" ]; then
@@ -500,7 +510,7 @@ for label, host, port in endpoints:
         "total_depth": None,
     }
     try:
-        status = request(host, port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+        status = request(host, port, "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1")
         tx_depth = int(status.get("rf_tx_queue_depth") or 0)
         lease_depth = int(status.get("rf_tx_lease_queue_depth") or 0)
         item.update({
@@ -576,8 +586,8 @@ capture_failure_state() {
 
     set +e
     {
-        request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1
-        request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1
+        request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 compact=1
+        request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 compact=1
         request_daemon "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_STATUS v1
         request_daemon "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_STATUS v1
     } >>"$out_dir/iperf_gate.ndjson" 2>"$out_dir/failure_daemon_status.err" || true
@@ -1282,7 +1292,7 @@ def request(host: str, port: int, text: str) -> dict:
 
 def queue_depth(host: str, port: int) -> int:
     try:
-        status = request(host, port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+        status = request(host, port, "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1")
     except Exception:
         return -1
     try:
@@ -1817,7 +1827,11 @@ fi
 if [ "$udp_server_idle_timeout_s" -lt "$iperf_timeout_s" ]; then
     udp_server_idle_timeout_s="$iperf_timeout_s"
 fi
-min_bridge_duration_s=$((tcp_server_idle_timeout_s + udp_time_s + iperf_udp_server_drain_s + 60))
+if [ "$iperf_udp_only" = "1" ]; then
+    min_bridge_duration_s=$((udp_server_idle_timeout_s + udp_time_s + iperf_udp_server_drain_s + 60))
+else
+    min_bridge_duration_s=$((tcp_server_idle_timeout_s + udp_time_s + iperf_udp_server_drain_s + 60))
+fi
 effective_bridge_duration_s="$bridge_duration_s"
 if [ "$allow_iio_rf_bridge" = "1" ] || [ "$allow_daemon_rf_bridge" = "1" ]; then
     if [ "$effective_bridge_duration_s" -lt "$min_bridge_duration_s" ]; then
@@ -1940,41 +1954,42 @@ elif [ "$allow_iio_rf_bridge" = "1" ]; then
     bridge_pid="$(start_iio_rf_bridge_loop)"
 fi
 
-sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
-    "rm -f /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json; \
-     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' $tcp_server_timeout_arg --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
-    >"$out_dir/z103_iperf3_tcp_server.pid"
-wait_remote_tcp_listen "$z103_remote" "$iperf_port"
-set +e
-run_remote_iperf_json_async "$z203_remote" \
-    "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
-    "$iperf_tcp_final_exchange_grace_s" "$iperf_tcp_queue_quiet_grace_s" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" "${board_tcp_client_timeout_args[@]}" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_direction_args[@]}" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
-tcp_rc=$?
-set -e
-if [ "$tcp_rc" -ne 0 ]; then
-    drain_tcp_control_after_timeout \
-        "board_to_board" \
-        "$out_dir/z203_iperf3_tcp_client.json" \
-        "$z103_remote" \
-        "$out_dir/z103_iperf3_tcp_server.pid" \
-        "/tmp/fieldmesh_iperf3_tcp_server.json" \
-        "$out_dir/z103_iperf3_tcp_server_after_control_drain.json"
-    if finish_remote_iperf_client_after_control_drain \
-        "$z203_remote" \
-        "$out_dir/z203_iperf3_tcp_client.json" \
-        "$out_dir/z203_iperf3_tcp_client.err" \
-        "$iperf_tcp_control_drain_s"; then
-        tcp_rc=0
+if [ "$iperf_udp_only" != "1" ]; then
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
+        "rm -f /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json; \
+         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' $tcp_server_timeout_arg --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
+        >"$out_dir/z103_iperf3_tcp_server.pid"
+    wait_remote_tcp_listen "$z103_remote" "$iperf_port"
+    set +e
+    run_remote_iperf_json_async "$z203_remote" \
+        "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
+        "$iperf_tcp_final_exchange_grace_s" "$iperf_tcp_queue_quiet_grace_s" \
+        iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" "${board_tcp_client_timeout_args[@]}" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_direction_args[@]}" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
+    tcp_rc=$?
+    set -e
+    if [ "$tcp_rc" -ne 0 ]; then
+        drain_tcp_control_after_timeout \
+            "board_to_board" \
+            "$out_dir/z203_iperf3_tcp_client.json" \
+            "$z103_remote" \
+            "$out_dir/z103_iperf3_tcp_server.pid" \
+            "/tmp/fieldmesh_iperf3_tcp_server.json" \
+            "$out_dir/z103_iperf3_tcp_server_after_control_drain.json"
+        if finish_remote_iperf_client_after_control_drain \
+            "$z203_remote" \
+            "$out_dir/z203_iperf3_tcp_client.json" \
+            "$out_dir/z203_iperf3_tcp_client.err" \
+            "$iperf_tcp_control_drain_s"; then
+            tcp_rc=0
+        fi
     fi
-fi
-if [ "$tcp_rc" -ne 0 ]; then
-    if [ "$iperf_continue_after_tcp_failure" != "1" ]; then
-        fail_bounded "board_to_board_tcp_iperf_incomplete" \
-            "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
-    fi
-    board_tcp_incomplete=1
-    python3 - "$out_dir/board_to_board_tcp_continue_after_failure.json" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+    if [ "$tcp_rc" -ne 0 ]; then
+        if [ "$iperf_continue_after_tcp_failure" != "1" ]; then
+            fail_bounded "board_to_board_tcp_iperf_incomplete" \
+                "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
+        fi
+        board_tcp_incomplete=1
+        python3 - "$out_dir/board_to_board_tcp_continue_after_failure.json" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
 import json
 import sys
 from pathlib import Path
@@ -1989,22 +2004,39 @@ report = {
 Path(sys.argv[1]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 print(json.dumps(report, sort_keys=True))
 PY
-    if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 5; then
-        fail_bounded "board_to_board_tcp_server_still_running" \
-            "TCP iperf did not complete and the Z103 server still owns the test port; cannot safely continue to UDP on the same port."
+        if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 5; then
+            fail_bounded "board_to_board_tcp_server_still_running" \
+                "TCP iperf did not complete and the Z103 server still owns the test port; cannot safely continue to UDP on the same port."
+        fi
+    else
+        if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
+            fail_bounded "board_to_board_tcp_iperf_failed" \
+                "TCP iperf returned JSON but did not report a successful byte transfer."
+        fi
+        if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 30; then
+            fail_bounded "board_to_board_tcp_server_still_running" \
+                "TCP iperf client completed, but the Z103 server process did not exit and still owns the test port."
+        fi
     fi
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+        "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
 else
-    if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
-        fail_bounded "board_to_board_tcp_iperf_failed" \
-            "TCP iperf returned JSON but did not report a successful byte transfer."
-    fi
-    if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_tcp_server.pid" 30; then
-        fail_bounded "board_to_board_tcp_server_still_running" \
-            "TCP iperf client completed, but the Z103 server process did not exit and still owns the test port."
-    fi
+    python3 - "$out_dir/board_to_board_udp_only_probe.json" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+report = {
+    "event": "fieldmesh_native_ip_iperf_udp_only_probe",
+    "ok": True,
+    "diagnostic_udp_only_probe": True,
+    "production_ready": False,
+    "skips_tcp_layer": True,
+}
+Path(sys.argv[1]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+PY
 fi
-sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
-    "$z103_remote:/tmp/fieldmesh_iperf3_tcp_server.json" "$out_dir/z103_iperf3_tcp_server.json" >/dev/null || true
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$udp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_udp_server.json 2>&1 & echo \$!" \
@@ -2116,10 +2148,10 @@ fi
 
 stop_bridge_loop
 
-request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
-request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
+request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 compact=1 >>"$out_dir/iperf_gate.ndjson"
+request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 compact=1 >>"$out_dir/iperf_gate.ndjson"
 
-python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" "$tcp_time_s" "$iperf_tcp_reverse" <<'PY'
+python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" "$tcp_time_s" "$iperf_tcp_reverse" "$iperf_udp_only" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -2131,6 +2163,7 @@ host_pc_case = sys.argv[4] == "1"
 swarm_mtu = int(sys.argv[5])
 tcp_time_s_requested = int(sys.argv[6])
 tcp_reverse = sys.argv[7] == "1"
+udp_only = sys.argv[8] == "1"
 
 def load_json(path: str) -> dict:
     text = (out_dir / path).read_text(encoding="utf-8", errors="replace")
@@ -2139,7 +2172,7 @@ def load_json(path: str) -> dict:
         raise SystemExit(f"missing JSON in {path}: {text[:200]}")
     return json.loads(text[start:])
 
-tcp = load_json("z203_iperf3_tcp_client.json")
+tcp = {} if udp_only else load_json("z203_iperf3_tcp_client.json")
 udp = load_json("z203_iperf3_udp_client.json")
 rows = []
 for line in (out_dir / "iperf_gate.ndjson").read_text(encoding="utf-8", errors="replace").splitlines():
@@ -2158,14 +2191,14 @@ iio_bridge = [row for row in rows if row.get("event") == "fieldmesh_iio_rf_worke
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 tcp_end = tcp.get("end", {})
 udp_end = udp.get("end", {})
-tcp_summary = (
-    tcp_end.get("sum_received", {})
-    if tcp_reverse
-    else tcp_end.get("sum_sent", {}) or tcp_end.get("sum", {})
-)
-tcp_bits = (
-    tcp_summary.get("bits_per_second") or 0
-)
+tcp_summary = {}
+if not udp_only:
+    tcp_summary = (
+        tcp_end.get("sum_received", {})
+        if tcp_reverse
+        else tcp_end.get("sum_sent", {}) or tcp_end.get("sum", {})
+    )
+tcp_bits = tcp_summary.get("bits_per_second") or 0
 udp_bits = (
     udp_end.get("sum", {}).get("bits_per_second") or
     udp_end.get("sum_sent", {}).get("bits_per_second") or 0
@@ -2184,17 +2217,17 @@ udp_jitter_ms = udp_summary.get("jitter_ms")
 udp_lost_packets = udp_summary.get("lost_packets")
 udp_packets = udp_summary.get("packets")
 udp_lost_percent = udp_summary.get("lost_percent")
-if tcp.get("error"):
+if not udp_only and tcp.get("error"):
     raise SystemExit(f"TCP iperf failed: {tcp.get('error')}")
 if udp.get("error"):
     raise SystemExit(f"UDP iperf failed: {udp.get('error')}")
-if tcp_bytes <= 0:
+if not udp_only and tcp_bytes <= 0:
     raise SystemExit("TCP iperf reported no transmitted bytes")
 if udp_bits <= 0:
     raise SystemExit("UDP iperf reported no bitrate")
 if udp_bytes <= 0:
     raise SystemExit("UDP iperf reported no transmitted bytes")
-if tcp_duration_s <= 0:
+if not udp_only and tcp_duration_s <= 0:
     raise SystemExit("TCP iperf reported no duration")
 if udp_duration_s <= 0:
     raise SystemExit("UDP iperf reported no duration")
@@ -2284,6 +2317,7 @@ report = {
     "feature": "native_ip",
     "iperf_layer": "host_pc_transparent" if host_pc_case else "board_to_board",
     "board_to_board_iperf": True,
+    "diagnostic_udp_only_probe": udp_only,
     "host_pc_case_requested": host_pc_case,
     "host_pc_iperf": bool(host_pc_case),
     "transport": "real_rf_phy" if real_rf_ready else "daemon_rf_driver_queue_bridge",
@@ -2294,7 +2328,7 @@ report = {
     "host_originated_traffic": bool(host_pc_case),
     "rf_phy_tx_rx_verified": real_rf_ready,
     "app_verified_real_rf": bool(real_rf_ready and not allow_bridge),
-    "production_evidence": bool(real_rf_ready and not allow_bridge),
+    "production_evidence": bool(real_rf_ready and not allow_bridge and not udp_only),
     "tcp_time_s_requested": tcp_time_s_requested,
     "tcp_reverse": tcp_reverse,
     "tcp_bits_per_second": tcp_bits,

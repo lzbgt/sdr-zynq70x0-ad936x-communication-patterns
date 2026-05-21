@@ -1917,6 +1917,15 @@ static void tun_service_close(struct tun_service_state *service)
 #endif
     service->fd = -1;
     service->running = 0;
+    tun_service_rf_queue_reset(&service->rf_tx_queue);
+    tun_service_rf_queue_reset(&service->rf_tx_lease_queue);
+    tun_service_rf_queue_reset(&service->rf_rx_queue);
+    memset(&service->rf_tx_control_flow, 0,
+           sizeof(service->rf_tx_control_flow));
+    service->rf_tx_control_flow_learned = 0u;
+    memset(service->recent_acked_tcp_signatures, 0,
+           sizeof(service->recent_acked_tcp_signatures));
+    service->recent_acked_tcp_signature_next = 0u;
 }
 
 static int tun_service_open(fieldmesh_session_t *session,
@@ -4880,6 +4889,46 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STATUS")) {
+        if (strstr(request, "compact=1")) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_status\","
+                     "\"ok\":1,"
+                     "\"status_compact\":1,"
+                     "\"running\":%u,"
+                     "\"packets_written\":%u,"
+                     "\"packets_pumped\":%u,"
+                     "\"rf_tx_queue_depth\":%u,"
+                     "\"rf_tx_lease_queue_depth\":%u,"
+                     "\"rf_rx_queue_depth\":%u,"
+                     "\"rf_tx_queue_drops\":%u,"
+                     "\"rf_tx_queue_priority_drops\":%u,"
+                     "\"rf_tx_queue_pressure_drops\":%u,"
+                     "\"rf_driver_frames_leased\":%u,"
+                     "\"rf_driver_frames_acked\":%u,"
+                     "\"rf_driver_frames_ingested\":%u,"
+                     "\"rf_transport_mode\":\"%s\"}\n",
+                     tun_service && tun_service->running ? 1u : 0u,
+                     tun_service ? tun_service->packets_written : 0u,
+                     tun_service ? tun_service->packets_pumped : 0u,
+                     tun_service ?
+                         (unsigned)tun_service->rf_tx_queue.count : 0u,
+                     tun_service ?
+                         (unsigned)tun_service->rf_tx_lease_queue.count : 0u,
+                     tun_service ?
+                         (unsigned)tun_service->rf_rx_queue.count : 0u,
+                     tun_service ? tun_service->rf_tx_queue_drops : 0u,
+                     tun_service ? tun_service->rf_tx_queue_priority_drops : 0u,
+                     tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,
+                     tun_service ? tun_service->rf_driver_frames_leased : 0u,
+                     tun_service ? tun_service->rf_driver_frames_acked : 0u,
+                     tun_service ? tun_service->rf_driver_frames_ingested : 0u,
+                     tun_service ?
+                         tun_service_rf_transport_mode_name(
+                             tun_service->rf_transport_mode) :
+                         tun_service_rf_transport_mode_name(
+                             TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
+            return 0;
+        }
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_tun_service_status\","
                  "\"ok\":1,"

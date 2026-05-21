@@ -336,6 +336,16 @@ Minimum production gates for native TCP/IP:
   `iperf3` failure still fails the production run, but the script continues to
   the UDP `iperf3` layer after bounded TCP drain so the same over-air setup can
   distinguish TCP final-control failure from UDP data-plane failure.
+  `IPERF_UDP_ONLY=1` is a board-to-board HIL probe that skips the TCP layer
+  entirely and marks the saved report as diagnostic, not production evidence.
+  Use it to measure UDP RF data-plane capacity from clean queues, without stale
+  TCP final-control traffic from a preceding failed TCP run consuming airtime.
+  The daemon also supports `FIELDMESH_TUN_SERVICE_STATUS v1 compact=1` for hot
+  HIL queue polling. The compact reply stays below MTU even after counters grow,
+  while full status remains available for offline inspection.
+  `FIELDMESH_TUN_SERVICE_STOP` now clears RF TX, lease, RX, duplicate, and
+  learned-control-flow state so a failed HIL run cannot contaminate the next
+  run with stale frames.
   The first live continuation run moved 95 real-RF frames, then showed UDP
   `iperf3` also incomplete: UDP data filled the low-rate Z203 transmit queue
   while iperf's TCP control/result channel remained undrained.

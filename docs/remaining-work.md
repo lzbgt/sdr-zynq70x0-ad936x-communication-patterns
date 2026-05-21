@@ -227,6 +227,19 @@ iperf run, so an unattended stdout pipe can fill and block the daemon even
 though the daemon process remains alive. The per-request stdout log is now
 disabled for `serve_forever` daemon mode and kept only for bounded foreground
 test runs.
+The native-IP HIL runner now also exposes `IPERF_UDP_ONLY=1` for a clean
+board-to-board UDP RF capacity probe. This skips the failing TCP control/result
+phase and marks the report as diagnostic-only, so higher UDP rates can be
+measured without stale TCP teardown/control frames occupying the RF queues.
+The first clean 16K UDP-only probes confirmed the remaining issue is still
+software data-plane throughput: real RF decode and ACKs succeeded, but the
+burst bridge moved only tens of frames over tens of seconds, so `iperf3` UDP
+control/data could not drain at the expected SDR rate. A separate daemon bug was
+fixed at the same time: full TUN status responses can grow near the UDP/MTU
+boundary after HIL counters accumulate, so the runner now uses compact status
+for hot queue polling. `TUN_SERVICE_STOP` also clears RF TX, lease, RX,
+duplicate, and learned-control-flow state; failed HIL runs now leave both boards
+with empty RF queues instead of stale leased frames.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,
