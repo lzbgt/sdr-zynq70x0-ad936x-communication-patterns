@@ -280,16 +280,25 @@ Minimum production gates for native TCP/IP:
   `FIN_WAIT1` and one or two FIN/control bytes queued. That narrows the
   remaining issue away from daemon ACK latency and toward a real streaming MAC
   service path with lower RTT and continuous reverse/control service. The
-  native-IP runner now keeps the RF bridge alive for a bounded
-  `IPERF_TCP_CONTROL_DRAIN_S` window after a TCP timeout if the client report
-  proves data bytes already crossed. This does not certify the run; it captures
+  native-IP runner now gives TCP a separate
+  `IPERF_TCP_FINAL_EXCHANGE_GRACE_S` after the primary timeout so the client is
+  not killed while the RF bridge is still draining final result/FIN/control
+  traffic. The TCP client is now supervised from the host instead of hidden
+  behind a blocking SSH wrapper, so after that grace it can also stay alive for
+  `IPERF_TCP_QUEUE_QUIET_GRACE_S` while the host watches both daemon RF TX/lease
+  queues. If the client still times out, the runner keeps the RF bridge alive
+  for a bounded `IPERF_TCP_CONTROL_DRAIN_S` window when the client report proves
+  data bytes already crossed. This does not certify the run; it captures
   whether final result/shutdown traffic drains when the bridge is not cut off
   immediately. Live HIL with the rebuilt persistent helper moved 55 real-RF
   frames with zero bridge errors; the Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
-  was still already interrupted by the wrapper, so production `iperf3` evidence
-  remains incomplete, but the failure is now specifically the client-side
-  control/result timeout policy over this high-RTT RF bridge.
+  was still already interrupted by the wrapper in that run, so production
+  `iperf3` evidence remains incomplete, but the failure is now specifically the
+  client-side control/result timeout policy over this high-RTT RF bridge.
+  The client runner now tracks the actual remote `iperf3` PID rather than the
+  wrapper shell, so timeout cleanup preserves the board JSON and does not hide
+  the final-control failure behind missing reports.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

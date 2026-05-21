@@ -1302,17 +1302,30 @@ user and vendor configuration.
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but
   `iperf3` still timed out in `FIN_WAIT1` with final TCP control bytes queued.
-  The native-IP runner now adds a bounded `IPERF_TCP_CONTROL_DRAIN_S` phase for
-  this exact HIL failure: when the client times out after sending TCP bytes, it
-  leaves the RF bridge running briefly, waits for the server process to exit,
-  captures the server JSON if available, and records whether the final control
-  path drained. Live HIL with the rebuilt persistent helper moved 55 real-RF
-  frames with zero bridge errors; the Z203 client had sent 128 bytes, and Z103
-  captured 128 received bytes plus server exit during the 30 s drain window.
-  Because the client was already interrupted by the wrapper timeout, this is
-  not production `iperf3` success yet; it shows the next software fix should
-  keep the client alive through the final result/control exchange or replace
-  the current high-RTT bridge with a continuous streaming data plane.
+  The native-IP runner now gives TCP a bounded
+  `IPERF_TCP_FINAL_EXCHANGE_GRACE_S` after the primary timeout so the client can
+  stay alive while final result/FIN/control traffic drains over the high-RTT RF
+  bridge. The TCP client is now host-supervised rather than hidden behind a
+  blocking SSH wrapper; after the fixed grace, it can also remain alive for
+  `IPERF_TCP_QUEUE_QUIET_GRACE_S` while the host watches both daemon RF TX/lease
+  queues. If the client still times out after sending TCP bytes, a bounded
+  `IPERF_TCP_CONTROL_DRAIN_S` phase leaves the RF bridge running briefly, waits
+  for the server process to exit, captures the server JSON if available, and
+  records whether the final control path drained. Live HIL with the rebuilt
+  persistent helper moved 55 real-RF frames with zero bridge errors; the Z203
+  client had sent 128 bytes, and Z103 captured 128 received bytes plus server
+  exit during the 30 s drain window. Because the client was already interrupted
+  by the wrapper timeout, this is not production `iperf3` success yet; it shows
+  the next software fix should keep the client alive through the final
+  result/control exchange or replace the current high-RTT bridge with a
+  continuous streaming data plane.
+  A follow-up host-supervised HIL run kept the client alive for the final
+  exchange plus queue-quiet grace and recovered the board JSON after timeout:
+  Z203 still sent 128 bytes and Z103 still received 128 bytes over real RF with
+  no bridge error recorded before the outer run timeout, but the iperf client
+  still ended with `interrupt - the client has terminated`. The runner now
+  tracks the real remote `iperf3` PID rather than the wrapper shell so failed
+  HIL attempts preserve client/server JSON for the next data-plane fix.
   The next material work remains a true streaming or pipelined RF loop/control
   exchange service path, not another physical RF installation check.
   The earlier BPSK mode is

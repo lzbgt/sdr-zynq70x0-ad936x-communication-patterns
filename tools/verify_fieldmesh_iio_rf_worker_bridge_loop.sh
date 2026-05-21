@@ -241,6 +241,11 @@ source = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
     'default_iio_burst_helper="$repo_root/.config/fieldmesh/bin/fieldmesh_iio_burst_xfer"',
     "helper_supports_persistent_server()",
+    "IPERF_TCP_FINAL_EXCHANGE_GRACE_S",
+    "fieldmesh_iperf_final_exchange_grace_s",
+    "IPERF_TCP_QUEUE_QUIET_GRACE_S",
+    "fieldmesh_iperf_queue_quiet_grace_s",
+    "run_remote_iperf_json_async",
     '"$cc" -std=c99 -Wall -Wextra -Werror',
     '-liio -lpthread',
     'fieldmesh_iio_burst_xfer_build.err',
@@ -369,6 +374,36 @@ fi
 if ! grep -q 'IPERF_INTERVAL_S must be an integer >= 0' \
      "$work_dir/iperf_bad_interval.err"; then
   echo "native-IP iperf invalid IPERF_INTERVAL_S refusal changed" >&2
+  exit 1
+fi
+
+if IPERF_TCP_FINAL_EXCHANGE_GRACE_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-final-grace" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_final_grace.out" \
+   2>"$work_dir/iperf_bad_final_grace.err"; then
+  echo "native-IP iperf gate accepted invalid IPERF_TCP_FINAL_EXCHANGE_GRACE_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'IPERF_TCP_FINAL_EXCHANGE_GRACE_S must be an integer from 0 to 900' \
+     "$work_dir/iperf_bad_final_grace.err"; then
+  echo "native-IP iperf invalid TCP final exchange grace refusal changed" >&2
+  exit 1
+fi
+
+if IPERF_TCP_QUEUE_QUIET_GRACE_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-queue-quiet-grace" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_queue_quiet_grace.out" \
+   2>"$work_dir/iperf_bad_queue_quiet_grace.err"; then
+  echo "native-IP iperf gate accepted invalid IPERF_TCP_QUEUE_QUIET_GRACE_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'IPERF_TCP_QUEUE_QUIET_GRACE_S must be an integer from 0 to 900' \
+     "$work_dir/iperf_bad_queue_quiet_grace.err"; then
+  echo "native-IP iperf invalid TCP queue quiet grace refusal changed" >&2
   exit 1
 fi
 

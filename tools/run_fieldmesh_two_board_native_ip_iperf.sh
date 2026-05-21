@@ -20,6 +20,8 @@ udp_time_s="${UDP_TIME_S:-3}"
 iperf_interval_s="${IPERF_INTERVAL_S:-0}"
 bridge_duration_s="${BRIDGE_DURATION_S:-120}"
 iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
+iperf_tcp_final_exchange_grace_s="${IPERF_TCP_FINAL_EXCHANGE_GRACE_S:-60}"
+iperf_tcp_queue_quiet_grace_s="${IPERF_TCP_QUEUE_QUIET_GRACE_S:-120}"
 iperf_tcp_control_drain_s="${IPERF_TCP_CONTROL_DRAIN_S:-45}"
 iperf_rcv_timeout_ms="${IPERF_RCV_TIMEOUT_MS:-600000}"
 iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
@@ -146,6 +148,16 @@ if ! [[ "$tcp_time_s" =~ ^[0-9]+$ ]]; then
 fi
 if ! [[ "$iperf_interval_s" =~ ^[0-9]+$ ]]; then
     echo "IPERF_INTERVAL_S must be an integer >= 0" >&2
+    exit 1
+fi
+if ! [[ "$iperf_tcp_final_exchange_grace_s" =~ ^[0-9]+$ ]] ||
+   [ "$iperf_tcp_final_exchange_grace_s" -gt 900 ]; then
+    echo "IPERF_TCP_FINAL_EXCHANGE_GRACE_S must be an integer from 0 to 900" >&2
+    exit 1
+fi
+if ! [[ "$iperf_tcp_queue_quiet_grace_s" =~ ^[0-9]+$ ]] ||
+   [ "$iperf_tcp_queue_quiet_grace_s" -gt 900 ]; then
+    echo "IPERF_TCP_QUEUE_QUIET_GRACE_S must be an integer from 0 to 900" >&2
     exit 1
 fi
 if ! [[ "$iperf_tcp_control_drain_s" =~ ^[0-9]+$ ]] || [ "$iperf_tcp_control_drain_s" -gt 600 ]; then
@@ -418,6 +430,63 @@ report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 ok = report.get("ok")
 if ok not in (True, 1):
     raise SystemExit(f"{sys.argv[2]} refused: {report}")
+PY
+}
+
+rf_queue_snapshot() {
+    python3 - "$timeout_ms" "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" <<'PY'
+import json
+import socket
+import sys
+
+timeout_ms = int(sys.argv[1])
+endpoints = (
+    ("z203", sys.argv[2], int(sys.argv[3])),
+    ("z103", sys.argv[4], int(sys.argv[5])),
+)
+
+def request(host: str, port: int, text: str) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_ms / 1000.0)
+    try:
+        sock.sendto(text.encode("ascii"), (host, port))
+        payload, _ = sock.recvfrom(8192)
+    finally:
+        sock.close()
+    return json.loads(payload.decode("utf-8", errors="replace"))
+
+summary = {
+    "event": "fieldmesh_native_ip_iperf_rf_queue_snapshot",
+    "ok": True,
+    "total_depth": 0,
+    "endpoints": [],
+}
+for label, host, port in endpoints:
+    item = {
+        "label": label,
+        "ok": False,
+        "rf_tx_queue_depth": None,
+        "rf_tx_lease_queue_depth": None,
+        "total_depth": None,
+    }
+    try:
+        status = request(host, port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+        tx_depth = int(status.get("rf_tx_queue_depth") or 0)
+        lease_depth = int(status.get("rf_tx_lease_queue_depth") or 0)
+        item.update({
+            "ok": True,
+            "rf_tx_queue_depth": max(0, tx_depth),
+            "rf_tx_lease_queue_depth": max(0, lease_depth),
+            "total_depth": max(0, tx_depth) + max(0, lease_depth),
+        })
+        summary["total_depth"] += item["total_depth"]
+    except Exception as exc:  # noqa: BLE001 - preserve HIL queue diagnostics.
+        item["error"] = f"{type(exc).__name__}: {exc}"
+        summary["ok"] = False
+    summary["endpoints"].append(item)
+summary["queues_empty"] = bool(summary["ok"] and summary["total_depth"] == 0)
+print(json.dumps(summary, sort_keys=True))
+raise SystemExit(0 if summary["queues_empty"] else 1)
 PY
 }
 
@@ -1385,6 +1454,136 @@ print(json.dumps(report, sort_keys=True))
 PY
 }
 
+fetch_remote_iperf_json() {
+    local remote="$1"
+    local stdout_path="$2"
+    local stderr_path="$3"
+    local remote_json="$4"
+    local remote_err="$5"
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "cat '$remote_json' 2>/dev/null || true" >"$stdout_path" || true
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "cat '$remote_err' 2>/dev/null || true" >>"$stderr_path" || true
+}
+
+remote_iperf_rc() {
+    local remote="$1"
+    local remote_rc="$2"
+    local rc
+    for _i in $(seq 1 5); do
+        rc="$(sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+            "cat '$remote_rc' 2>/dev/null || true" 2>/dev/null | tr -cd '0-9' | head -c 3)"
+        if [ -n "$rc" ]; then
+            break
+        fi
+        sleep 1
+    done
+    if [ -z "$rc" ]; then
+        rc=124
+    fi
+    if [ "$rc" -gt 255 ]; then
+        rc=124
+    fi
+    printf '%s\n' "$rc"
+}
+
+run_remote_iperf_json_async() {
+    local remote="$1"
+    local stdout_path="$2"
+    local stderr_path="$3"
+    local final_exchange_grace_s="$4"
+    local queue_quiet_grace_s="$5"
+    shift 5
+    local remote_cmd="$*"
+    local remote_json="/tmp/fieldmesh_iperf_client.json"
+    local remote_err="/tmp/fieldmesh_iperf_client.err"
+    local remote_rc="/tmp/fieldmesh_iperf_client.rc"
+    local remote_pid_file="/tmp/fieldmesh_iperf_client.pid"
+    local pid
+    local rc
+    local elapsed=0
+    local quiet_elapsed=0
+    local quiet_consecutive=0
+    local snapshot
+
+    : >"$stderr_path"
+    pid="$(sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "rm -f '$remote_json' '$remote_err' '$remote_rc' '$remote_pid_file'; \
+         ( $remote_cmd > '$remote_json' 2>'$remote_err' & \
+           client_pid=\$!; \
+           printf '%s\n' \$client_pid > '$remote_pid_file'; \
+           wait \$client_pid; \
+           printf '%s\n' \$? > '$remote_rc' ) >/tmp/fieldmesh_iperf_client.wait.log 2>&1 & \
+         for _i in \$(seq 1 5); do \
+             if [ -s '$remote_pid_file' ]; then cat '$remote_pid_file'; exit 0; fi; \
+             sleep 1; \
+         done; \
+         exit 1")"
+    pid="$(printf '%s' "$pid" | tr -cd '0-9')"
+    if [ -z "$pid" ]; then
+        echo "failed_to_start_remote_iperf_client" >>"$stderr_path"
+        return 124
+    fi
+
+    while [ "$elapsed" -lt "$iperf_timeout_s" ]; do
+        if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+             "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
+            fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+            rc="$(remote_iperf_rc "$remote" "$remote_rc")"
+            return "$rc"
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    if [ "$final_exchange_grace_s" -gt 0 ]; then
+        printf 'fieldmesh_iperf_final_exchange_grace_s=%s\n' "$final_exchange_grace_s" >>"$stderr_path"
+        for _i in $(seq 1 "$final_exchange_grace_s"); do
+            if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+                 "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
+                fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+                rc="$(remote_iperf_rc "$remote" "$remote_rc")"
+                return "$rc"
+            fi
+            sleep 1
+        done
+    fi
+
+    if [ "$queue_quiet_grace_s" -gt 0 ]; then
+        printf 'fieldmesh_iperf_queue_quiet_grace_s=%s\n' "$queue_quiet_grace_s" >>"$stderr_path"
+        while [ "$quiet_elapsed" -lt "$queue_quiet_grace_s" ]; do
+            if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+                 "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
+                fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+                rc="$(remote_iperf_rc "$remote" "$remote_rc")"
+                return "$rc"
+            fi
+            if snapshot="$(rf_queue_snapshot)"; then
+                snap_rc=0
+            else
+                snap_rc=$?
+            fi
+            printf '%s\n' "$snapshot" >"$out_dir/iperf_tcp_queue_quiet_snapshot.json"
+            if [ "$snap_rc" -eq 0 ]; then
+                quiet_consecutive=$((quiet_consecutive + 1))
+            else
+                quiet_consecutive=0
+            fi
+            if [ "$quiet_consecutive" -ge 2 ]; then
+                break
+            fi
+            sleep 1
+            quiet_elapsed=$((quiet_elapsed + 1))
+        done
+    fi
+
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "kill '$pid' 2>/dev/null || true; wait '$pid' 2>/dev/null || true" >/dev/null 2>&1 || true
+    sleep 1
+    fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+    return 124
+}
+
 wait_remote_tcp_listen() {
     local remote="$1"
     local port="$2"
@@ -1417,7 +1616,8 @@ run_remote_iperf_json() {
     local remote="$1"
     local stdout_path="$2"
     local stderr_path="$3"
-    shift 3
+    local final_exchange_grace_s="$4"
+    shift 4
     local remote_cmd="$*"
 
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
@@ -1432,6 +1632,18 @@ run_remote_iperf_json() {
              fi; \
              sleep 1; \
          done; \
+         if [ '$final_exchange_grace_s' -gt 0 ]; then \
+             printf 'fieldmesh_iperf_final_exchange_grace_s=%s\n' '$final_exchange_grace_s' >&2; \
+             for _i in \$(seq 1 '$final_exchange_grace_s'); do \
+                 if ! kill -0 \$pid 2>/dev/null; then \
+                     wait \$pid; rc=\$?; \
+                     cat /tmp/fieldmesh_iperf_client.json; \
+                     cat /tmp/fieldmesh_iperf_client.err >&2; \
+                     exit \$rc; \
+                 fi; \
+                 sleep 1; \
+             done; \
+         fi; \
          kill \$pid 2>/dev/null || true; \
          wait \$pid 2>/dev/null || true; \
          cat /tmp/fieldmesh_iperf_client.json; \
@@ -1443,6 +1655,10 @@ board_tcp_bitrate_args=()
 host_tcp_bitrate_args=()
 board_tcp_length_args=(-n "'$tcp_bytes'")
 host_tcp_length_args=(-n "$tcp_bytes")
+tcp_server_idle_timeout_s=$((iperf_timeout_s + iperf_tcp_final_exchange_grace_s + iperf_tcp_queue_quiet_grace_s + iperf_tcp_control_drain_s))
+if [ "$tcp_server_idle_timeout_s" -lt "$iperf_timeout_s" ]; then
+    tcp_server_idle_timeout_s="$iperf_timeout_s"
+fi
 if [ -n "$iperf_tcp_bitrate" ]; then
     board_tcp_bitrate_args=(-b "'$iperf_tcp_bitrate'")
     host_tcp_bitrate_args=(-b "$iperf_tcp_bitrate")
@@ -1527,12 +1743,13 @@ fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
     "rm -f /tmp/fieldmesh_iperf3_tcp_server.json /tmp/fieldmesh_iperf3_udp_server.json; \
-     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
+     iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_tcp_server.json 2>&1 & echo \$!" \
     >"$out_dir/z103_iperf3_tcp_server.pid"
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
-run_remote_iperf_json "$z203_remote" \
+run_remote_iperf_json_async "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
+    "$iperf_tcp_final_exchange_grace_s" "$iperf_tcp_queue_quiet_grace_s" \
     iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
 tcp_rc=$?
 set -e
@@ -1545,7 +1762,7 @@ if [ "$tcp_rc" -ne 0 ]; then
         "/tmp/fieldmesh_iperf3_tcp_server.json" \
         "$out_dir/z103_iperf3_tcp_server_after_control_drain.json"
     fail_bounded "board_to_board_tcp_iperf_incomplete" \
-        "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
+        "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
 fi
 if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
     fail_bounded "board_to_board_tcp_iperf_failed" \
@@ -1564,7 +1781,7 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
 wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
-    "$out_dir/z203_iperf3_udp_client.json" "$out_dir/z203_iperf3_udp_client.err" \
+    "$out_dir/z203_iperf3_udp_client.json" "$out_dir/z203_iperf3_udp_client.err" 0 \
     iperf3 -u -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" -b "'$udp_bitrate'" -t "'$udp_time_s'" -l "'$iperf_block_size'" --json
 udp_rc=$?
 set -e
@@ -1586,7 +1803,7 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
 if [ "$host_pc_case" = "1" ]; then
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$z103_remote" \
         "rm -f /tmp/fieldmesh_iperf3_host_tcp_server.json /tmp/fieldmesh_iperf3_host_udp_server.json; \
-         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$iperf_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
+         iperf3 -s -1 -B 10.77.2.20 -p '$iperf_port' -i '$iperf_interval_s' --rcv-timeout '$iperf_rcv_timeout_ms' --idle-timeout '$tcp_server_idle_timeout_s' --json > /tmp/fieldmesh_iperf3_host_tcp_server.json 2>&1 & echo \$!" \
         >"$out_dir/z103_iperf3_host_tcp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e
