@@ -246,7 +246,11 @@ required = [
     "IPERF_TCP_QUEUE_QUIET_GRACE_S",
     "fieldmesh_iperf_queue_quiet_grace_s",
     "fieldmesh_iperf_queue_quiet_max_consecutive_s",
+    "fieldmesh_native_ip_iperf_timing_budget",
+    "bridge_extended_to_cover_tcp_control_budget",
     "run_remote_iperf_json_async",
+    "primary_deadline=$((SECONDS + iperf_timeout_s))",
+    "quiet_deadline=$((SECONDS + queue_quiet_grace_s))",
     '"$cc" -std=c99 -Wall -Wextra -Werror',
     '-liio -lpthread',
     'fieldmesh_iio_burst_xfer_build.err',
@@ -375,6 +379,21 @@ fi
 if ! grep -q 'IPERF_INTERVAL_S must be an integer >= 0' \
      "$work_dir/iperf_bad_interval.err"; then
   echo "native-IP iperf invalid IPERF_INTERVAL_S refusal changed" >&2
+  exit 1
+fi
+
+if BRIDGE_DURATION_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-bridge-duration" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_bridge_duration.out" \
+   2>"$work_dir/iperf_bad_bridge_duration.err"; then
+  echo "native-IP iperf gate accepted invalid BRIDGE_DURATION_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'BRIDGE_DURATION_S must be a positive integer' \
+     "$work_dir/iperf_bad_bridge_duration.err"; then
+  echo "native-IP iperf invalid bridge duration refusal changed" >&2
   exit 1
 fi
 

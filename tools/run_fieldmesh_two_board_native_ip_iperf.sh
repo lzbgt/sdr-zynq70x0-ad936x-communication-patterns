@@ -150,6 +150,10 @@ if ! [[ "$iperf_interval_s" =~ ^[0-9]+$ ]]; then
     echo "IPERF_INTERVAL_S must be an integer >= 0" >&2
     exit 1
 fi
+if ! [[ "$bridge_duration_s" =~ ^[0-9]+$ ]] || [ "$bridge_duration_s" -lt 1 ]; then
+    echo "BRIDGE_DURATION_S must be a positive integer" >&2
+    exit 1
+fi
 if ! [[ "$iperf_tcp_final_exchange_grace_s" =~ ^[0-9]+$ ]] ||
    [ "$iperf_tcp_final_exchange_grace_s" -gt 900 ]; then
     echo "IPERF_TCP_FINAL_EXCHANGE_GRACE_S must be an integer from 0 to 900" >&2
@@ -1003,7 +1007,7 @@ start_tun_services() {
 
 start_bridge_loop() {
     python3 - "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" \
-        "$bridge_request_timeout_ms" "$bridge_duration_s" \
+        "$bridge_request_timeout_ms" "$effective_bridge_duration_s" \
         "$out_dir/iperf_bridge_progress.json" >>"$out_dir/iperf_gate.ndjson" <<'PY' &
 import json
 import socket
@@ -1181,7 +1185,7 @@ start_iio_rf_bridge_loop() {
         --rf-binding-plan "$rf_binding_plan" \
         --out-dir "$out_dir/iio_rf_worker_bridge_loop" \
         --directions both \
-        --duration-s "$bridge_duration_s" \
+        --duration-s "$effective_bridge_duration_s" \
         --max-frames "$iio_bridge_max_frames" \
         --batch-size "$iio_bridge_batch_size" \
         --batch-byte-limit "$iio_bridge_batch_byte_limit" \
@@ -1501,8 +1505,9 @@ run_remote_iperf_json_async() {
     local remote_pid_file="/tmp/fieldmesh_iperf_client.pid"
     local pid
     local rc
-    local elapsed=0
-    local quiet_elapsed=0
+    local primary_deadline
+    local final_deadline
+    local quiet_deadline
     local quiet_consecutive=0
     local max_quiet_consecutive=0
     local snapshot
@@ -1526,7 +1531,8 @@ run_remote_iperf_json_async() {
         return 124
     fi
 
-    while [ "$elapsed" -lt "$iperf_timeout_s" ]; do
+    primary_deadline=$((SECONDS + iperf_timeout_s))
+    while [ "$SECONDS" -lt "$primary_deadline" ]; do
         if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
              "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
             fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
@@ -1534,12 +1540,12 @@ run_remote_iperf_json_async() {
             return "$rc"
         fi
         sleep 1
-        elapsed=$((elapsed + 1))
     done
 
     if [ "$final_exchange_grace_s" -gt 0 ]; then
         printf 'fieldmesh_iperf_final_exchange_grace_s=%s\n' "$final_exchange_grace_s" >>"$stderr_path"
-        for _i in $(seq 1 "$final_exchange_grace_s"); do
+        final_deadline=$((SECONDS + final_exchange_grace_s))
+        while [ "$SECONDS" -lt "$final_deadline" ]; do
             if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
                  "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
                 fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
@@ -1552,7 +1558,8 @@ run_remote_iperf_json_async() {
 
     if [ "$queue_quiet_grace_s" -gt 0 ]; then
         printf 'fieldmesh_iperf_queue_quiet_grace_s=%s\n' "$queue_quiet_grace_s" >>"$stderr_path"
-        while [ "$quiet_elapsed" -lt "$queue_quiet_grace_s" ]; do
+        quiet_deadline=$((SECONDS + queue_quiet_grace_s))
+        while [ "$SECONDS" -lt "$quiet_deadline" ]; do
             if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
                  "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
                 fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
@@ -1574,7 +1581,6 @@ run_remote_iperf_json_async() {
                 max_quiet_consecutive="$quiet_consecutive"
             fi
             sleep 1
-            quiet_elapsed=$((quiet_elapsed + 1))
         done
         printf 'fieldmesh_iperf_queue_quiet_max_consecutive_s=%s\n' "$max_quiet_consecutive" >>"$stderr_path"
     fi
@@ -1661,6 +1667,36 @@ tcp_server_idle_timeout_s=$((iperf_timeout_s + iperf_tcp_final_exchange_grace_s 
 if [ "$tcp_server_idle_timeout_s" -lt "$iperf_timeout_s" ]; then
     tcp_server_idle_timeout_s="$iperf_timeout_s"
 fi
+min_bridge_duration_s=$((tcp_server_idle_timeout_s + 60))
+effective_bridge_duration_s="$bridge_duration_s"
+if [ "$allow_iio_rf_bridge" = "1" ] || [ "$allow_daemon_rf_bridge" = "1" ]; then
+    if [ "$effective_bridge_duration_s" -lt "$min_bridge_duration_s" ]; then
+        effective_bridge_duration_s="$min_bridge_duration_s"
+    fi
+fi
+python3 - "$out_dir/iperf_timing_budget.json" "$bridge_duration_s" "$effective_bridge_duration_s" \
+    "$tcp_server_idle_timeout_s" "$iperf_timeout_s" "$iperf_tcp_final_exchange_grace_s" \
+    "$iperf_tcp_queue_quiet_grace_s" "$iperf_tcp_control_drain_s" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = {
+    "event": "fieldmesh_native_ip_iperf_timing_budget",
+    "ok": True,
+    "configured_bridge_duration_s": int(sys.argv[2]),
+    "effective_bridge_duration_s": int(sys.argv[3]),
+    "tcp_server_idle_timeout_s": int(sys.argv[4]),
+    "iperf_timeout_s": int(sys.argv[5]),
+    "tcp_final_exchange_grace_s": int(sys.argv[6]),
+    "tcp_queue_quiet_grace_s": int(sys.argv[7]),
+    "tcp_control_drain_s": int(sys.argv[8]),
+    "bridge_extended_to_cover_tcp_control_budget": int(sys.argv[3]) > int(sys.argv[2]),
+}
+Path(sys.argv[1]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+PY
+cat "$out_dir/iperf_timing_budget.json" >>"$out_dir/iperf_gate.ndjson"
 if [ -n "$iperf_tcp_bitrate" ]; then
     board_tcp_bitrate_args=(-b "'$iperf_tcp_bitrate'")
     host_tcp_bitrate_args=(-b "$iperf_tcp_bitrate")

@@ -301,6 +301,13 @@ Minimum production gates for native TCP/IP:
   The client runner now tracks the actual remote `iperf3` PID rather than the
   wrapper shell, so timeout cleanup preserves the board JSON and does not hide
   the final-control failure behind missing reports.
+  The RF bridge lifetime is now extended automatically when `BRIDGE_DURATION_S`
+  is shorter than the TCP timeout/final-grace/queue-grace/control-drain budget;
+  otherwise the data plane can expire while both iperf endpoints are still
+  waiting for final control traffic.
+  The same timeout supervision is wall-clock based, not iteration-count based,
+  so SSH/daemon polling overhead cannot silently stretch the client lifetime
+  past the RF bridge budget.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

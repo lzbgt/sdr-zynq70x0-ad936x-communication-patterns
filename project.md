@@ -1328,6 +1328,13 @@ user and vendor configuration.
   still ended with `interrupt - the client has terminated`. The runner now
   tracks the real remote `iperf3` PID rather than the wrapper shell so failed
   HIL attempts preserve client/server JSON for the next data-plane fix.
+  That run also exposed a timing-budget bug: `BRIDGE_DURATION_S=300` could end
+  the RF data plane while both iperf endpoints were still alive. The native-IP
+  runner now computes an effective bridge duration that covers the TCP timeout,
+  final-exchange grace, queue-observation grace, and control-drain window.
+  The client supervision loops are now wall-clock bounded as well, so expensive
+  SSH/daemon polling cannot stretch the nominal timeout past the RF bridge
+  lifetime.
   The next material work remains a true streaming or pipelined RF loop/control
   exchange service path, not another physical RF installation check.
   The earlier BPSK mode is
