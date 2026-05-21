@@ -16,6 +16,16 @@ mkdir -p "$work_dir/vectors"
   -I"$repo_root/sdk/c/include" \
   "$repo_root/sdk/c/examples/fieldmesh_firmware_ring_probe.c" \
   -o "$work_dir/fieldmesh-firmware-ring-probe"
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
+  -xc - \
+  -o "$work_dir/fieldmesh-firmware-ring-header-smoke" <<'EOF_C'
+#include "fieldmesh_firmware_ring.h"
+int main(void) {
+    fieldmesh_fw_ring_view_t view = {0};
+    return fieldmesh_fw_ring_config_valid(&view) ? 1 : 0;
+}
+EOF_C
 
 "$work_dir/fieldmesh-firmware-abi-probe" >"$work_dir/probe.json"
 "$work_dir/fieldmesh-firmware-abi-probe" --write-vectors "$work_dir/vectors" \
@@ -122,6 +132,24 @@ required = [
 missing = [token for token in required if token not in source]
 if missing:
     raise SystemExit(f"missing firmware ring tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/include/fieldmesh_firmware_ring.h" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "fieldmesh_fw_ring_view_t",
+    "fieldmesh_fw_ring_stats_t",
+    "fieldmesh_fw_ring_enqueue",
+    "fieldmesh_fw_ring_pick_next",
+    "fieldmesh_fw_ring_service_one",
+    "fieldmesh_fw_ring_payload_matches",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware ring header tokens: {missing}")
 PY
 
 echo "fieldmesh_production_firmware_abi=pass"

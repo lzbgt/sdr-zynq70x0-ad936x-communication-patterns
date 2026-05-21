@@ -34,11 +34,15 @@ in `src/fieldmesh_sdk.c`:
   CRC32C/CRC16, and can write binary descriptor vectors for FPGA/driver tests.
   Its JSON output is host inspection only; the board-side contract is compact
   binary structs and counters.
-- `examples/fieldmesh_firmware_ring_probe.c` is the first first-party packet
-  ring probe over that ABI. It queues binary packet payloads into a fixed TX
-  ring, services C0 control before C3 bulk, copies payload bytes into RX packet
-  memory, emits ACK frames, and can write binary ring artifacts for FPGA/driver
-  tests. It has no vendor runtime dependency and no Python hot path.
+- `include/fieldmesh_firmware_ring.h` is the reusable first-party packet
+  ring/driver boundary over that ABI. It operates on caller-provided descriptor
+  and packet-memory views, so the same C logic can point at heap storage,
+  UIO-mapped memory, or a future kernel/FPGA ring.
+- `examples/fieldmesh_firmware_ring_probe.c` exercises that ring boundary. It
+  queues binary packet payloads into a fixed TX ring, services C0 control before
+  C3 bulk, copies payload bytes into RX packet memory, emits ACK frames, and can
+  write binary ring artifacts for FPGA/driver tests. It has no vendor runtime
+  dependency and no Python hot path.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.
