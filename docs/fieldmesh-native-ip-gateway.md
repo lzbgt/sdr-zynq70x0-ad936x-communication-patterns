@@ -307,7 +307,15 @@ Minimum production gates for native TCP/IP:
   waiting for final control traffic.
   The same timeout supervision is wall-clock based, not iteration-count based,
   so SSH/daemon polling overhead cannot silently stretch the client lifetime
-  past the RF bridge budget.
+  past the RF bridge budget. The lease scheduler now also exposes
+  `IIO_BRIDGE_LEASE_PRIORITY=tcp-control`, now the native-IP iperf default,
+  which biases the low-rate RF bridge toward RST/SYN/FIN and ACK-only control
+  before bulk payload when debugging high-RTT `iperf3` result/shutdown drain.
+  When the client has already sent TCP bytes, the runner now preserves the
+  remote client through the control-drain window instead of killing it before
+  the server's final result/shutdown traffic can return. The SSH-launched
+  remote client wrapper also ignores SSH session hangup and inherited interrupt
+  signals so a long RF drain is not mistaken for an operator interrupt.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

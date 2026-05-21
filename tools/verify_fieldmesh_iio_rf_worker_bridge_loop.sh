@@ -130,6 +130,8 @@ if loop.queued_rf_work_score({"rf_tx_queue_depth": 3, "rf_tx_lease_queue_depth":
     raise SystemExit("queued RF work score ignored pending TX queue depth")
 if loop.queued_rf_work_score({"rf_tx_queue_depth": 0, "rf_tx_lease_queue_depth": 1}) <= 3:
     raise SystemExit("queued RF work score must prioritize replaying leased frames")
+if loop.lease_priority_request_suffix("tcp-control") != " priority=tcp_control":
+    raise SystemExit("tcp-control lease priority did not map to daemon request suffix")
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -251,6 +253,7 @@ required = [
     "run_remote_iperf_json_async",
     "primary_deadline=$((SECONDS + iperf_timeout_s))",
     "quiet_deadline=$((SECONDS + queue_quiet_grace_s))",
+    "trap '' HUP INT",
     '"$cc" -std=c99 -Wall -Wextra -Werror',
     '-liio -lpthread',
     'fieldmesh_iio_burst_xfer_build.err',
@@ -451,7 +454,7 @@ if IIO_BRIDGE_LEASE_PRIORITY=bad \
   exit 1
 fi
 
-if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload or fifo' \
+if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
   exit 1

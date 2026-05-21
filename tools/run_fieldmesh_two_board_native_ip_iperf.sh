@@ -68,7 +68,7 @@ max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-2}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
-iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-payload}"
+iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-control}"
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-0}"
@@ -215,8 +215,8 @@ if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 case "$iio_bridge_lease_priority" in
-    tcp-payload|fifo) ;;
-    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload or fifo" >&2; exit 1 ;;
+    tcp-payload|tcp-control|fifo) ;;
+    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, or fifo" >&2; exit 1 ;;
 esac
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
@@ -1515,7 +1515,9 @@ run_remote_iperf_json_async() {
     : >"$stderr_path"
     pid="$(sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
         "rm -f '$remote_json' '$remote_err' '$remote_rc' '$remote_pid_file'; \
-         ( $remote_cmd > '$remote_json' 2>'$remote_err' & \
+         trap '' HUP INT; \
+         ( trap '' HUP INT; \
+           $remote_cmd > '$remote_json' 2>'$remote_err' & \
            client_pid=\$!; \
            printf '%s\n' \$client_pid > '$remote_pid_file'; \
            wait \$client_pid; \
@@ -1585,6 +1587,54 @@ run_remote_iperf_json_async() {
         printf 'fieldmesh_iperf_queue_quiet_max_consecutive_s=%s\n' "$max_quiet_consecutive" >>"$stderr_path"
     fi
 
+    fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+    if [ "$iperf_tcp_control_drain_s" -gt 0 ]; then
+        local sent_bytes
+        sent_bytes="$(iperf_report_sent_bytes "$stdout_path")"
+        if [[ "$sent_bytes" =~ ^[0-9]+$ ]] && [ "$sent_bytes" -gt 0 ]; then
+            printf 'fieldmesh_iperf_client_preserved_for_control_drain=1\n' >>"$stderr_path"
+            return 124
+        fi
+    fi
+
+    sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "kill '$pid' 2>/dev/null || true; wait '$pid' 2>/dev/null || true" >/dev/null 2>&1 || true
+    sleep 1
+    fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+    return 124
+}
+
+finish_remote_iperf_client_after_control_drain() {
+    local remote="$1"
+    local stdout_path="$2"
+    local stderr_path="$3"
+    local timeout_s="$4"
+    local remote_json="/tmp/fieldmesh_iperf_client.json"
+    local remote_err="/tmp/fieldmesh_iperf_client.err"
+    local remote_rc="/tmp/fieldmesh_iperf_client.rc"
+    local remote_pid_file="/tmp/fieldmesh_iperf_client.pid"
+    local pid
+    local deadline
+    local rc
+
+    pid="$(sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "cat '$remote_pid_file' 2>/dev/null || true" | tr -cd '0-9')"
+    if [ -z "$pid" ]; then
+        fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+        rc="$(remote_iperf_rc "$remote" "$remote_rc")"
+        return "$rc"
+    fi
+    deadline=$((SECONDS + timeout_s))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+             "kill -0 '$pid' 2>/dev/null" >/dev/null 2>&1; then
+            fetch_remote_iperf_json "$remote" "$stdout_path" "$stderr_path" "$remote_json" "$remote_err"
+            rc="$(remote_iperf_rc "$remote" "$remote_rc")"
+            return "$rc"
+        fi
+        sleep 1
+    done
+    printf 'fieldmesh_iperf_client_killed_after_control_drain=1\n' >>"$stderr_path"
     sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
         "kill '$pid' 2>/dev/null || true; wait '$pid' 2>/dev/null || true" >/dev/null 2>&1 || true
     sleep 1
@@ -1799,6 +1849,15 @@ if [ "$tcp_rc" -ne 0 ]; then
         "$out_dir/z103_iperf3_tcp_server.pid" \
         "/tmp/fieldmesh_iperf3_tcp_server.json" \
         "$out_dir/z103_iperf3_tcp_server_after_control_drain.json"
+    if finish_remote_iperf_client_after_control_drain \
+        "$z203_remote" \
+        "$out_dir/z203_iperf3_tcp_client.json" \
+        "$out_dir/z203_iperf3_tcp_client.err" \
+        "$iperf_tcp_control_drain_s"; then
+        tcp_rc=0
+    fi
+fi
+if [ "$tcp_rc" -ne 0 ]; then
     fail_bounded "board_to_board_tcp_iperf_incomplete" \
         "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
 fi

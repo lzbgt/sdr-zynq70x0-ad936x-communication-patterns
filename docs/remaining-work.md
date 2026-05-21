@@ -151,7 +151,15 @@ smoke using `IPERF_BLOCK_SIZE=64` also moved 54 real-RF frames and completed
 all async ACKs, but still timed out with the client in `FIN_WAIT1` and one or
 two final TCP control bytes queued. This keeps the blocker in the RF
 data-plane scheduler and streaming/MAC service layer, not in RF installation,
-daemon duplicate suppression, or daemon source-ACK latency.
+daemon duplicate suppression, or daemon source-ACK latency. The RF lease path
+now has an explicit `tcp-control` priority mode for HIL runs that need final
+RST/SYN/FIN and ACK-only traffic serviced ahead of payload while isolating
+`iperf3` teardown/result-drain behavior on the current low-rate bridge; the
+native-IP iperf runner now uses that mode by default. The runner also preserves
+the remote TCP client through the bounded control-drain window once it has sent
+test bytes, so the final server result can return instead of being cut off by
+host-side timeout cleanup, and the remote client wrapper now ignores SSH session
+hangup plus inherited interrupt signals during long RF drains.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

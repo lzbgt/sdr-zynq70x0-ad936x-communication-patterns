@@ -101,6 +101,8 @@ def split_port_filter_prefix(frames: list[bytes], ports: set[int]) -> tuple[list
 def lease_priority_request_suffix(priority: str) -> str:
     if priority == "tcp-payload":
         return " priority=tcp_payload"
+    if priority == "tcp-control":
+        return " priority=tcp_control"
     if priority == "fifo":
         return ""
     raise SystemExit(f"unsupported lease priority: {priority!r}")
@@ -1377,7 +1379,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--batch-byte-limit", type=int, default=0)
-    parser.add_argument("--lease-priority", choices=("tcp-payload", "fifo"), default="tcp-payload")
+    parser.add_argument("--lease-priority", choices=("tcp-payload", "tcp-control", "fifo"), default="tcp-payload")
     parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
     parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
     parser.add_argument(
