@@ -77,6 +77,9 @@ open_bd_design [get_files pluto.srcs/sources_1/bd/system/system.bd]
 if {[llength [get_bd_cells -quiet fieldmesh_ctrl]] != 1} {
   error "fieldmesh_ctrl cell missing"
 }
+if {[llength [get_bd_cells -quiet fieldmesh_ring]] != 1} {
+  error "fieldmesh_ring cell missing"
+}
 if {[llength [get_bd_intf_pins -quiet fieldmesh_ctrl/s_axi]] != 1} {
   error "fieldmesh_ctrl/s_axi interface missing"
 }
@@ -86,8 +89,14 @@ if {[llength [get_bd_pins -quiet fieldmesh_ctrl/irq]] != 1} {
 if {[llength [get_bd_addr_segs -quiet sys_ps7/Data/SEG_data_fieldmesh_ctrl]] != 1} {
   error "fieldmesh_ctrl address segment missing"
 }
+if {[llength [get_bd_addr_segs -quiet sys_ps7/Data/SEG_data_fieldmesh_ring]] != 1} {
+  error "fieldmesh_ring address segment missing"
+}
 if {[llength [get_bd_pins -quiet sys_concat_intc/In11]] != 1} {
   error "sys_concat_intc/In11 pin missing"
+}
+if {[llength [get_bd_pins -quiet sys_concat_intc/In8]] != 1} {
+  error "sys_concat_intc/In8 pin missing"
 }
 
 validate_bd_design

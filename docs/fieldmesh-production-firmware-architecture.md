@@ -258,9 +258,12 @@ packet memory. The matching devicetree contract is
 `generic-uio`, at `0x43C30000`; it is the production firmware packet-memory
 aperture, not an AD936x sample-DMA or IIO data path.
 
-Live Z203/Z103 images now bind that node as `/dev/uio0`. Safe sysfs inspection
-is the Linux-side proof. Mapped reads are expected to fail until the first-party
-PL register/packet-memory aperture is implemented behind `0x43C30000`.
+Live Z203/Z103 images now bind that node as `/dev/uio0`, and the FPGA includes
+the first-party `fieldmesh_firmware_ring_axi_lite` AXI-lite RAM aperture behind
+`0x43C30000/0x10000`. Safe sysfs inspection, read-only `mmap`, and guarded
+write-loopback all pass on both boards. The C ring helper uses explicit
+byte-wise MMIO access for descriptor and packet-memory bytes so ARM Device
+mappings do not fault on compiler-generated unaligned word stores.
 
 ## MAC Design
 
@@ -340,7 +343,8 @@ packet pipeline.
    persistent buffers and binary batch queues.
 5. Trim vendor experiment services and unused runtime tools from production
    images as first-party probes cover their verification role.
-6. Add UIO descriptor rings that can run without IIO in the hot path.
+6. Bind the live UIO descriptor ring to the C MAC queue and remove Python from
+   the packet hot path.
 7. Move timestamping, preamble/sync, packet CRC, and scheduled TX/RX into PL.
 8. Add selective ACK, sliding windows, and traffic-class airtime budgets.
 9. Integrate routed `swarm0` with the C MAC queue.

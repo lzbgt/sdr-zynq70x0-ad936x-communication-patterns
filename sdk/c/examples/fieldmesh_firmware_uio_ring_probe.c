@@ -270,7 +270,7 @@ int main(int argc, char **argv)
     int sync_ok = 1;
     if (bound && cfg.loopback) {
         loopback_ok = service_loopback(&view, &first_seq, &second_seq);
-        sync_ok = msync(map, layout.total_bytes, MS_SYNC) == 0;
+        sync_ok = cfg.image_path ? (msync(map, layout.total_bytes, MS_SYNC) == 0) : 1;
     }
 
     int ok = bound && (!cfg.loopback || (loopback_ok && sync_ok));
@@ -286,6 +286,8 @@ int main(int argc, char **argv)
            "\"writes_packet_memory\":%s,"
            "\"loopback\":%s,"
            "\"loopback_ok\":%s,"
+           "\"sync_required\":%s,"
+           "\"sync_ok\":%s,"
            "\"enqueued\":%u,"
            "\"served\":%u,"
            "\"acked\":%u,"
@@ -305,6 +307,8 @@ int main(int argc, char **argv)
            cfg.allow_writes ? "true" : "false",
            cfg.loopback ? "true" : "false",
            loopback_ok ? "true" : "false",
+           (cfg.loopback && cfg.image_path) ? "true" : "false",
+           sync_ok ? "true" : "false",
            bound ? view.stats->enqueued : 0u,
            bound ? view.stats->served : 0u,
            bound ? view.stats->acked : 0u,

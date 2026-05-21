@@ -70,20 +70,20 @@ FIELDMESH_FW_STATIC_ASSERT(FIELDMESH_FW_RX_DESC_CRC_OFFSET + 4u == FIELDMESH_FW_
 FIELDMESH_FW_STATIC_ASSERT(FIELDMESH_FW_ACK_CRC_OFFSET + 2u == FIELDMESH_FW_ACK_V1_BYTES,
                           ack_crc_tail);
 
-static inline void fieldmesh_fw_zero(uint8_t *dst, size_t len)
+static inline void fieldmesh_fw_zero(volatile uint8_t *dst, size_t len)
 {
     for (size_t i = 0; i < len; ++i) {
         dst[i] = 0u;
     }
 }
 
-static inline void fieldmesh_fw_put_le16(uint8_t *dst, uint16_t value)
+static inline void fieldmesh_fw_put_le16(volatile uint8_t *dst, uint16_t value)
 {
     dst[0] = (uint8_t)value;
     dst[1] = (uint8_t)(value >> 8);
 }
 
-static inline void fieldmesh_fw_put_le32(uint8_t *dst, uint32_t value)
+static inline void fieldmesh_fw_put_le32(volatile uint8_t *dst, uint32_t value)
 {
     dst[0] = (uint8_t)value;
     dst[1] = (uint8_t)(value >> 8);
@@ -91,30 +91,30 @@ static inline void fieldmesh_fw_put_le32(uint8_t *dst, uint32_t value)
     dst[3] = (uint8_t)(value >> 24);
 }
 
-static inline void fieldmesh_fw_put_le64(uint8_t *dst, uint64_t value)
+static inline void fieldmesh_fw_put_le64(volatile uint8_t *dst, uint64_t value)
 {
     fieldmesh_fw_put_le32(dst, (uint32_t)value);
     fieldmesh_fw_put_le32(dst + 4u, (uint32_t)(value >> 32));
 }
 
-static inline uint16_t fieldmesh_fw_get_le16(const uint8_t *src)
+static inline uint16_t fieldmesh_fw_get_le16(const volatile uint8_t *src)
 {
     return (uint16_t)((uint16_t)src[0] | ((uint16_t)src[1] << 8));
 }
 
-static inline uint32_t fieldmesh_fw_get_le32(const uint8_t *src)
+static inline uint32_t fieldmesh_fw_get_le32(const volatile uint8_t *src)
 {
     return (uint32_t)src[0] | ((uint32_t)src[1] << 8) |
            ((uint32_t)src[2] << 16) | ((uint32_t)src[3] << 24);
 }
 
-static inline uint64_t fieldmesh_fw_get_le64(const uint8_t *src)
+static inline uint64_t fieldmesh_fw_get_le64(const volatile uint8_t *src)
 {
     return (uint64_t)fieldmesh_fw_get_le32(src) |
            ((uint64_t)fieldmesh_fw_get_le32(src + 4u) << 32);
 }
 
-static inline uint32_t fieldmesh_fw_crc32c(const uint8_t *data, size_t len)
+static inline uint32_t fieldmesh_fw_crc32c(const volatile uint8_t *data, size_t len)
 {
     uint32_t crc = 0xffffffffu;
     for (size_t i = 0; i < len; ++i) {
@@ -127,7 +127,7 @@ static inline uint32_t fieldmesh_fw_crc32c(const uint8_t *data, size_t len)
     return ~crc;
 }
 
-static inline uint16_t fieldmesh_fw_crc16_ccitt_false(const uint8_t *data, size_t len)
+static inline uint16_t fieldmesh_fw_crc16_ccitt_false(const volatile uint8_t *data, size_t len)
 {
     uint16_t crc = 0xffffu;
     for (size_t i = 0; i < len; ++i) {

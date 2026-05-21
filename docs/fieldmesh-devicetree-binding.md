@@ -59,9 +59,9 @@ fieldmesh-firmware-uio-ring-probe --device /dev/uioN
 ```
 
 That default path checks `/sys/class/uio/uioN/name` and `map0` address/size
-only. It does not `mmap()` the aperture, so it remains safe while the Linux
-binding exists before the matching PL address-decode/register window has been
-implemented.
+only. It does not `mmap()` the aperture, so it remains safe on older images
+where Linux exposes the binding before a matching PL address-decode/register
+window has been installed.
 
 Mapped packet-memory reads and loopback are intentionally guarded:
 
@@ -73,9 +73,12 @@ fieldmesh-firmware-uio-ring-probe --device /dev/uioN --mmap-read
 fieldmesh-firmware-uio-ring-probe --device /dev/uioN --loopback --allow-writes
 ```
 
-Use the mapped modes only after the FPGA bitstream implements the
+Use the mapped modes only with a bitstream that implements the
 `0x43C30000/0x10000` packet-ring window; an unimplemented PL address can raise
-an ARM external abort on access.
+an ARM external abort on access. Current Z203/Z103 FieldMesh runtimes include
+the first-party `fieldmesh_firmware_ring_axi_lite` PL window. Live
+`/dev/uio0` sysfs inspection, read-only `mmap`, and guarded
+`--loopback --allow-writes` pass on both boards.
 
 ## GNSS/PPS Options
 

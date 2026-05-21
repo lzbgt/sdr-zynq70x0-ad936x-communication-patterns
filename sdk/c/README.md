@@ -52,6 +52,9 @@ in `src/fieldmesh_sdk.c`:
   to an explicit aperture path. `--device /dev/uioN` is the production-facing
   probe path; `--image PATH` is the CI stand-in. Read-only inspect mode is the
   default, and packet-memory loopback requires `--loopback --allow-writes`.
+  The shared ABI/ring helpers use explicit byte-wise descriptor and packet
+  access so ARM Device/UIO mappings do not depend on libc bulk-memory behavior
+  or unaligned word stores.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

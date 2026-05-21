@@ -29,8 +29,11 @@ The RF data-plane refactor has started in the production firmware ABI path:
 `fieldmesh_firmware_abi.h`, `fieldmesh_firmware_ring.h`,
 `fieldmesh_firmware_ring_probe`, `fieldmesh_firmware_mmap_ring_probe`, and
 `fieldmesh_firmware_uio_ring_probe` define and exercise the first-party
-C/binary descriptor-ring boundary. The remaining app/GUI refactor should still
-wait until the RF firmware boundary is stable enough to protect behavior.
+C/binary descriptor-ring boundary. The live Z203/Z103 runtimes now expose
+`fieldmesh-ring` as `/dev/uio0` at `0x43C30000/0x10000`, backed by a
+first-party PL AXI-lite RAM aperture; sysfs inspection, read-only `mmap`, and
+guarded write-loopback pass on both boards. The remaining app/GUI refactor
+should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover
 devices and capabilities at runtime, with no hardcoded app EUI, board EUI,
 hostname, endpoint, or fixed AP role.

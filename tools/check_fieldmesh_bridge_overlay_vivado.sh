@@ -81,6 +81,9 @@ if {[llength [get_bd_cells -quiet fieldmesh_ctrl]] != 1} {
 if {[llength [get_bd_cells -quiet fieldmesh_axis_bridge]] != 1} {
   error "fieldmesh_axis_bridge cell missing"
 }
+if {[llength [get_bd_cells -quiet fieldmesh_ring]] != 1} {
+  error "fieldmesh_ring cell missing"
+}
 foreach pin {
   clk rst enable
   s_tx_axis_tvalid s_tx_axis_tready s_tx_axis_tdata s_tx_axis_tlast
@@ -96,6 +99,9 @@ foreach pin {
 }
 if {[llength [get_bd_addr_segs -quiet sys_ps7/Data/SEG_data_fieldmesh_ctrl]] != 1} {
   error "fieldmesh_ctrl address segment missing"
+}
+if {[llength [get_bd_addr_segs -quiet sys_ps7/Data/SEG_data_fieldmesh_ring]] != 1} {
+  error "fieldmesh_ring address segment missing"
 }
 
 validate_bd_design

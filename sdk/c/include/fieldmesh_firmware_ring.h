@@ -4,7 +4,6 @@
 #include "fieldmesh_firmware_abi.h"
 
 #include <stdint.h>
-#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +39,35 @@ typedef struct fieldmesh_fw_ring_linear_layout {
     uint32_t stats_offset;
     uint32_t total_bytes;
 } fieldmesh_fw_ring_linear_layout_t;
+
+static inline void fieldmesh_fw_ring_zero_bytes(void *dst, uint32_t len)
+{
+    volatile uint8_t *p = (volatile uint8_t *)dst;
+    for (uint32_t i = 0; i < len; ++i) {
+        p[i] = 0u;
+    }
+}
+
+static inline void fieldmesh_fw_ring_copy_bytes(void *dst, const void *src, uint32_t len)
+{
+    volatile uint8_t *d = (volatile uint8_t *)dst;
+    const volatile uint8_t *s = (const volatile uint8_t *)src;
+    for (uint32_t i = 0; i < len; ++i) {
+        d[i] = s[i];
+    }
+}
+
+static inline int fieldmesh_fw_ring_bytes_equal(const void *a, const void *b, uint32_t len)
+{
+    const volatile uint8_t *pa = (const volatile uint8_t *)a;
+    const volatile uint8_t *pb = (const volatile uint8_t *)b;
+    for (uint32_t i = 0; i < len; ++i) {
+        if (pa[i] != pb[i]) {
+            return 0;
+        }
+    }
+    return 1;
+}
 
 static inline int fieldmesh_fw_ring_range_valid(uint32_t arena_bytes,
                                                 uint32_t offset,
@@ -185,12 +213,12 @@ static inline void fieldmesh_fw_ring_reset(fieldmesh_fw_ring_view_t *ring)
     if (!fieldmesh_fw_ring_config_valid(ring)) {
         return;
     }
-    memset(ring->tx, 0, sizeof(ring->tx[0]) * ring->slots);
-    memset(ring->rx, 0, sizeof(ring->rx[0]) * ring->slots);
-    memset(ring->ack, 0, sizeof(ring->ack[0]) * ring->slots);
-    memset(ring->tx_packets, 0, ring->packet_arena_bytes);
-    memset(ring->rx_packets, 0, ring->packet_arena_bytes);
-    memset(ring->stats, 0, sizeof(*ring->stats));
+    fieldmesh_fw_ring_zero_bytes(ring->tx, (uint32_t)sizeof(ring->tx[0]) * ring->slots);
+    fieldmesh_fw_ring_zero_bytes(ring->rx, (uint32_t)sizeof(ring->rx[0]) * ring->slots);
+    fieldmesh_fw_ring_zero_bytes(ring->ack, (uint32_t)sizeof(ring->ack[0]) * ring->slots);
+    fieldmesh_fw_ring_zero_bytes(ring->tx_packets, ring->packet_arena_bytes);
+    fieldmesh_fw_ring_zero_bytes(ring->rx_packets, ring->packet_arena_bytes);
+    fieldmesh_fw_ring_zero_bytes(ring->stats, (uint32_t)sizeof(*ring->stats));
 }
 
 static inline int fieldmesh_fw_ring_enqueue(
@@ -218,7 +246,7 @@ static inline int fieldmesh_fw_ring_enqueue(
             continue;
         }
         uint32_t offset = slot * ring->packet_stride;
-        memcpy(ring->tx_packets + offset, payload, payload_len);
+        fieldmesh_fw_ring_copy_bytes(ring->tx_packets + offset, payload, payload_len);
         fieldmesh_fw_tx_desc_v1_init(
             &ring->tx[slot],
             FIELDMESH_FW_STATE_QUEUED,
@@ -287,7 +315,9 @@ static inline int fieldmesh_fw_ring_service_one(
         return -1;
     }
 
-    memcpy(ring->rx_packets + rx_offset, ring->tx_packets + payload_offset, payload_len);
+    fieldmesh_fw_ring_copy_bytes(ring->rx_packets + rx_offset,
+                                 ring->tx_packets + payload_offset,
+                                 payload_len);
     fieldmesh_fw_rx_desc_v1_init(
         &ring->rx[(uint32_t)slot],
         FIELDMESH_FW_STATE_READY,
@@ -334,7 +364,7 @@ static inline int fieldmesh_fw_ring_payload_matches(
     if (!fieldmesh_fw_ring_range_valid(ring->packet_arena_bytes, offset, payload_len)) {
         return 0;
     }
-    return memcmp(ring->rx_packets + offset, payload, payload_len) == 0;
+    return fieldmesh_fw_ring_bytes_equal(ring->rx_packets + offset, payload, payload_len);
 }
 
 #ifdef __cplusplus

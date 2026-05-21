@@ -76,6 +76,7 @@ open_bd_design [get_files pluto.srcs/sources_1/bd/system/system.bd]
 
 foreach cell {
   fieldmesh_ctrl
+  fieldmesh_ring
   fieldmesh_axis_bridge
   fieldmesh_axis16_adapter
   fieldmesh_tx_dma
@@ -88,6 +89,7 @@ foreach cell {
 
 foreach seg {
   SEG_data_fieldmesh_ctrl
+  SEG_data_fieldmesh_ring
   SEG_data_fieldmesh_tx_dma
   SEG_data_fieldmesh_rx_dma
 } {

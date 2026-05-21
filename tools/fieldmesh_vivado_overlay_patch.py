@@ -19,6 +19,8 @@ BD_CTRL_BEGIN = "# FieldMesh sidecar control overlay: begin"
 BD_CTRL_END = "# FieldMesh sidecar control overlay: end"
 BD_BRIDGE_BEGIN = "# FieldMesh sidecar bridge overlay: begin"
 BD_BRIDGE_END = "# FieldMesh sidecar bridge overlay: end"
+BD_RING_BEGIN = "# FieldMesh firmware ring overlay: begin"
+BD_RING_END = "# FieldMesh firmware ring overlay: end"
 BD_DMA_BEGIN = "# FieldMesh sidecar DMA overlay: begin"
 BD_DMA_END = "# FieldMesh sidecar DMA overlay: end"
 BD_RF_ENGINE_BEGIN = "# FieldMesh RF packet engine overlay: begin"
@@ -214,6 +216,18 @@ ad_connect VCC fieldmesh_axis_bridge/enable
 {byte_parking.rstrip()}
 {packet_loopback.rstrip()}
 {BD_BRIDGE_END}
+"""
+
+
+def render_ring_overlay() -> str:
+    return f"""
+{BD_RING_BEGIN}
+create_bd_cell -type module -reference fieldmesh_firmware_ring_axi_lite fieldmesh_ring
+ad_connect sys_cpu_clk fieldmesh_ring/s_axi_aclk
+ad_connect sys_cpu_resetn fieldmesh_ring/s_axi_aresetn
+ad_cpu_interconnect 0x43C30000 fieldmesh_ring
+ad_cpu_interrupt ps-8 mb-8 fieldmesh_ring/irq
+{BD_RING_END}
 """
 
 
@@ -424,6 +438,7 @@ def patch_system_bd(
     if dma_overlay:
         control_overlay = True
         bridge_overlay = True
+    ring_overlay = control_overlay
     blocks = []
     if BD_FILES_BEGIN not in text:
         blocks.append(render_bd_files_overlay())
@@ -435,6 +450,9 @@ def patch_system_bd(
             raise SystemExit("system_bd.tcl: FieldMesh bridge overlay appears partially present")
         if dma_overlay and BD_DMA_BEGIN not in text:
             raise SystemExit("system_bd.tcl: FieldMesh bridge overlay is already parked; start from a clean copied HDL tree for --dma-overlay")
+    if "fieldmesh_ring" in text:
+        if BD_RING_BEGIN not in text:
+            raise SystemExit("system_bd.tcl: FieldMesh firmware ring overlay appears partially present")
     if ("fieldmesh_tx_dma" in text or "fieldmesh_rx_dma" in text) and BD_DMA_BEGIN not in text:
         raise SystemExit("system_bd.tcl: FieldMesh DMA overlay appears partially present")
     if (
@@ -454,6 +472,8 @@ def patch_system_bd(
         blocks.append(render_control_overlay(rf_guard_defaults=not rf_engine_overlay))
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
         blocks.append(render_bridge_overlay(park_byte_ports=not dma_overlay, rf_engine_overlay=rf_engine_overlay))
+    if ring_overlay and BD_RING_BEGIN not in text:
+        blocks.append(render_ring_overlay())
     if dma_overlay and BD_DMA_BEGIN not in text:
         blocks.append(render_dma_overlay())
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
