@@ -1,7 +1,16 @@
+#define _XOPEN_SOURCE 700
+
 #include "fieldmesh_firmware_tun_bridge.h"
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define RING_SLOTS 4u
 #define PACKET_ARENA_BYTES 1024u
@@ -19,6 +28,66 @@ typedef struct memory_tun_sink {
     size_t lens[2];
     uint32_t count;
 } memory_tun_sink_t;
+
+typedef struct probe_config {
+    const char *device_path;
+    const char *image_path;
+    int loopback;
+    int allow_writes;
+} probe_config_t;
+
+static int usage(const char *argv0)
+{
+    fprintf(stderr,
+            "usage: %s [--device /dev/uioN --loopback --allow-writes | "
+            "--image PATH --loopback --allow-writes]\n",
+            argv0);
+    return 2;
+}
+
+static int parse_args(int argc, char **argv, probe_config_t *cfg)
+{
+    memset(cfg, 0, sizeof(*cfg));
+    if (argc == 1) {
+        cfg->loopback = 1;
+        cfg->allow_writes = 1;
+        return 1;
+    }
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--device") == 0 && i + 1 < argc) {
+            cfg->device_path = argv[++i];
+        } else if (strcmp(argv[i], "--image") == 0 && i + 1 < argc) {
+            cfg->image_path = argv[++i];
+        } else if (strcmp(argv[i], "--loopback") == 0) {
+            cfg->loopback = 1;
+        } else if (strcmp(argv[i], "--allow-writes") == 0) {
+            cfg->allow_writes = 1;
+        } else {
+            return 0;
+        }
+    }
+    if ((cfg->device_path && cfg->image_path) ||
+        (!cfg->device_path && !cfg->image_path)) {
+        return 0;
+    }
+    return cfg->loopback && cfg->allow_writes;
+}
+
+static int open_aperture(const probe_config_t *cfg, uint32_t bytes)
+{
+    if (cfg->image_path) {
+        int fd = open(cfg->image_path, O_RDWR | O_CREAT, 0600);
+        if (fd < 0) {
+            return -1;
+        }
+        if (ftruncate(fd, (off_t)bytes) != 0) {
+            close(fd);
+            return -1;
+        }
+        return fd;
+    }
+    return open(cfg->device_path, O_RDWR | O_SYNC);
+}
 
 static fieldmesh_status_t memory_tun_read(void *user,
                                           void *packet,
@@ -75,7 +144,7 @@ static int bytes_equal(const uint8_t *a, const uint8_t *b, size_t len)
     return 1;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     static uint8_t heap_memory[4096];
     static const uint8_t udp_packet[32] = {
@@ -91,6 +160,7 @@ int main(void)
         0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20,
         0x50, 0x11, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00,
     };
+    probe_config_t cfg;
     fieldmesh_fw_ring_linear_layout_t layout;
     fieldmesh_fw_ring_view_t ring;
     fieldmesh_fw_packet_bridge_t bridge;
@@ -124,16 +194,41 @@ int main(void)
     int second_pick;
     int second_service;
     int drained;
+    int sync_ok = 1;
     int ok;
+    void *base = heap_memory;
+    int fd = -1;
+    int mapped = 0;
+    int sync_required = 0;
 
+    if (!parse_args(argc, argv, &cfg)) {
+        return usage(argv[0]);
+    }
     memset(&sink, 0, sizeof(sink));
     if (!fieldmesh_fw_ring_linear_layout_init(&layout, RING_SLOTS,
                                               PACKET_ARENA_BYTES,
                                               PACKET_STRIDE)) {
         return 1;
     }
-    bound = fieldmesh_fw_ring_bind_linear(&ring, heap_memory,
-                                          (uint32_t)sizeof(heap_memory),
+    if (cfg.device_path || cfg.image_path) {
+        fd = open_aperture(&cfg, layout.total_bytes);
+        if (fd < 0) {
+            fprintf(stderr, "open aperture failed: %s\n", strerror(errno));
+            return 1;
+        }
+        base = mmap(NULL, layout.total_bytes, PROT_READ | PROT_WRITE,
+                    MAP_SHARED, fd, 0);
+        if (base == MAP_FAILED) {
+            fprintf(stderr, "mmap aperture failed: %s\n", strerror(errno));
+            close(fd);
+            return 1;
+        }
+        mapped = 1;
+        sync_required = cfg.image_path ? 1 : 0;
+    }
+    bound = fieldmesh_fw_ring_bind_linear(&ring, base,
+                                          mapped ? layout.total_bytes :
+                                                   (uint32_t)sizeof(heap_memory),
                                           RING_SLOTS, PACKET_ARENA_BYTES,
                                           PACKET_STRIDE, NULL);
     initialized = bound &&
@@ -159,6 +254,9 @@ int main(void)
                   fieldmesh_fw_packet_bridge_drain_ready(
                       &bridge, fieldmesh_fw_tun_write_packet, &writer, 2u) :
                   -1;
+    if (sync_required && msync(base, layout.total_bytes, MS_SYNC) != 0) {
+        sync_ok = 0;
+    }
 
     ok = initialized && pumped == 2 && source.index == 2u &&
          first_pick == 1 && second_pick == 0 &&
@@ -173,10 +271,15 @@ int main(void)
          bridge.bytes_enqueued == sizeof(udp_packet) + sizeof(tcp_fin_packet) &&
          bridge.bytes_drained == bridge.bytes_enqueued &&
          bridge.classify_errors == 0u && bridge.read_errors == 0u &&
-         bridge.enqueue_drops == 0u && bridge.drain_errors == 0u;
+         bridge.enqueue_drops == 0u && bridge.drain_errors == 0u &&
+         sync_ok;
 
     printf("{\"event\":\"fieldmesh_firmware_tun_bridge_probe\","
            "\"ok\":%s,"
+           "\"backend\":\"%s\","
+           "\"mapped_memory\":%s,"
+           "\"linear_layout\":true,"
+           "\"image_bytes\":%u,"
            "\"hot_path_language\":\"c\","
            "\"uses_json_on_air\":false,"
            "\"vendor_runtime_dependency\":false,"
@@ -188,6 +291,9 @@ int main(void)
            "\"fd_owner\":\"daemon_or_kernel_adapter\","
            "\"firmware_owns_posix_fd\":false,"
            "\"swarm0_ready_boundary\":true,"
+           "\"writes_packet_memory\":%s,"
+           "\"sync_required\":%s,"
+           "\"sync_ok\":%s,"
            "\"pumped\":%d,"
            "\"drained\":%d,"
            "\"first_pick\":%d,"
@@ -201,6 +307,12 @@ int main(void)
            "\"enqueue_drops\":%u,"
            "\"drain_errors\":%u}\n",
            ok ? "true" : "false",
+           cfg.device_path ? "uio" : (cfg.image_path ? "file" : "heap"),
+           mapped ? "true" : "false",
+           layout.total_bytes,
+           cfg.allow_writes ? "true" : "false",
+           sync_required ? "true" : "false",
+           sync_ok ? "true" : "false",
            pumped,
            drained,
            first_pick,
@@ -213,5 +325,14 @@ int main(void)
            initialized ? bridge.read_errors : 0u,
            initialized ? bridge.enqueue_drops : 0u,
            initialized ? bridge.drain_errors : 0u);
-    return ok ? 0 : 1;
+    int rc = ok ? 0 : 1;
+    if (mapped && munmap(base, layout.total_bytes) != 0) {
+        fprintf(stderr, "munmap aperture failed: %s\n", strerror(errno));
+        rc = 1;
+    }
+    if (fd >= 0 && close(fd) != 0) {
+        fprintf(stderr, "close aperture failed: %s\n", strerror(errno));
+        rc = 1;
+    }
+    return rc;
 }

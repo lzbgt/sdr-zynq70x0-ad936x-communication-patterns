@@ -76,13 +76,17 @@ EOF_C
   >"$work_dir/packet-bridge-probe-image.json"
 "$work_dir/fieldmesh-firmware-tun-bridge-probe" \
   >"$work_dir/tun-bridge-probe.json"
+"$work_dir/fieldmesh-firmware-tun-bridge-probe" \
+  --image "$work_dir/vectors/tun-bridge-image.bin" --loopback --allow-writes \
+  >"$work_dir/tun-bridge-probe-image.json"
 
 python3 - "$work_dir/probe.json" "$work_dir/probe-vectors.json" \
   "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" \
   "$work_dir/mmap-ring-probe.json" "$work_dir/mmap-ring-probe-image.json" \
   "$work_dir/uio-ring-probe-loopback.json" "$work_dir/uio-ring-probe-inspect.json" \
   "$work_dir/packet-bridge-probe.json" "$work_dir/packet-bridge-probe-image.json" \
-  "$work_dir/tun-bridge-probe.json" "$work_dir/vectors" <<'PY'
+  "$work_dir/tun-bridge-probe.json" "$work_dir/tun-bridge-probe-image.json" \
+  "$work_dir/vectors" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -98,7 +102,8 @@ uio_ring_probe_inspect = json.loads(Path(sys.argv[8]).read_text(encoding="utf-8"
 packet_bridge_probe = json.loads(Path(sys.argv[9]).read_text(encoding="utf-8"))
 packet_bridge_probe_image = json.loads(Path(sys.argv[10]).read_text(encoding="utf-8"))
 tun_bridge_probe = json.loads(Path(sys.argv[11]).read_text(encoding="utf-8"))
-vector_dir = Path(sys.argv[12])
+tun_bridge_probe_image = json.loads(Path(sys.argv[12]).read_text(encoding="utf-8"))
+vector_dir = Path(sys.argv[13])
 
 for report in (probe, probe_vectors):
     if report.get("event") != "fieldmesh_firmware_abi_probe":
@@ -209,35 +214,42 @@ if packet_bridge_probe_image.get("backend") != "file" or packet_bridge_probe_ima
 if packet_bridge_probe_image.get("sync_required") is not True or packet_bridge_probe_image.get("sync_ok") is not True:
     raise SystemExit(f"packet bridge image probe did not sync mapped memory: {packet_bridge_probe_image!r}")
 
-if tun_bridge_probe.get("event") != "fieldmesh_firmware_tun_bridge_probe":
-    raise SystemExit(f"bad firmware TUN bridge event: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("ok") is not True:
-    raise SystemExit(f"firmware TUN bridge probe failed: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("hot_path_language") != "c":
-    raise SystemExit(f"firmware TUN bridge hot path must be C: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("uses_json_on_air") is not False:
-    raise SystemExit(f"firmware TUN bridge must not use JSON on air: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("binary_descriptors") is not True:
-    raise SystemExit(f"firmware TUN bridge must use binary descriptors: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("tun_ingress") != "fieldmesh_tun_read_callback_t":
-    raise SystemExit(f"firmware TUN bridge ingress callback changed: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("tun_egress") != "fieldmesh_tun_write_callback_t":
-    raise SystemExit(f"firmware TUN bridge egress callback changed: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("firmware_owns_posix_fd") is not False:
-    raise SystemExit(f"firmware TUN bridge must not own POSIX fd state: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("swarm0_ready_boundary") is not True:
-    raise SystemExit(f"firmware TUN bridge did not expose swarm0 boundary: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("first_pick") != 1 or tun_bridge_probe.get("second_pick") != 0:
-    raise SystemExit(f"firmware TUN bridge priority order changed: {tun_bridge_probe!r}")
-if tun_bridge_probe.get("pumped") != 2 or tun_bridge_probe.get("drained") != 2:
-    raise SystemExit(f"firmware TUN bridge pump/drain counts changed: {tun_bridge_probe!r}")
-if (
-    tun_bridge_probe.get("classify_errors") != 0
-    or tun_bridge_probe.get("read_errors") != 0
-    or tun_bridge_probe.get("enqueue_drops") != 0
-    or tun_bridge_probe.get("drain_errors") != 0
-):
-    raise SystemExit(f"firmware TUN bridge errors changed: {tun_bridge_probe!r}")
+for report in (tun_bridge_probe, tun_bridge_probe_image):
+    if report.get("event") != "fieldmesh_firmware_tun_bridge_probe":
+        raise SystemExit(f"bad firmware TUN bridge event: {report!r}")
+    if report.get("ok") is not True:
+        raise SystemExit(f"firmware TUN bridge probe failed: {report!r}")
+    if report.get("hot_path_language") != "c":
+        raise SystemExit(f"firmware TUN bridge hot path must be C: {report!r}")
+    if report.get("uses_json_on_air") is not False:
+        raise SystemExit(f"firmware TUN bridge must not use JSON on air: {report!r}")
+    if report.get("binary_descriptors") is not True:
+        raise SystemExit(f"firmware TUN bridge must use binary descriptors: {report!r}")
+    if report.get("tun_ingress") != "fieldmesh_tun_read_callback_t":
+        raise SystemExit(f"firmware TUN bridge ingress callback changed: {report!r}")
+    if report.get("tun_egress") != "fieldmesh_tun_write_callback_t":
+        raise SystemExit(f"firmware TUN bridge egress callback changed: {report!r}")
+    if report.get("firmware_owns_posix_fd") is not False:
+        raise SystemExit(f"firmware TUN bridge must not own POSIX fd state: {report!r}")
+    if report.get("swarm0_ready_boundary") is not True:
+        raise SystemExit(f"firmware TUN bridge did not expose swarm0 boundary: {report!r}")
+    if report.get("first_pick") != 1 or report.get("second_pick") != 0:
+        raise SystemExit(f"firmware TUN bridge priority order changed: {report!r}")
+    if report.get("pumped") != 2 or report.get("drained") != 2:
+        raise SystemExit(f"firmware TUN bridge pump/drain counts changed: {report!r}")
+    if (
+        report.get("classify_errors") != 0
+        or report.get("read_errors") != 0
+        or report.get("enqueue_drops") != 0
+        or report.get("drain_errors") != 0
+    ):
+        raise SystemExit(f"firmware TUN bridge errors changed: {report!r}")
+if tun_bridge_probe.get("backend") != "heap" or tun_bridge_probe.get("mapped_memory") is not False:
+    raise SystemExit(f"firmware TUN bridge default probe must stay heap-backed: {tun_bridge_probe!r}")
+if tun_bridge_probe_image.get("backend") != "file" or tun_bridge_probe_image.get("mapped_memory") is not True:
+    raise SystemExit(f"firmware TUN bridge image probe must use mapped memory: {tun_bridge_probe_image!r}")
+if tun_bridge_probe_image.get("sync_required") is not True or tun_bridge_probe_image.get("sync_ok") is not True:
+    raise SystemExit(f"firmware TUN bridge image probe did not sync mapped memory: {tun_bridge_probe_image!r}")
 
 expected = {
     "fieldmesh_fw_tx_desc_v1.bin": probe["tx_desc_bytes"],
@@ -250,6 +262,7 @@ expected = {
     "mmap-ring-image.bin": mmap_ring_probe_image["image_bytes"],
     "uio-ring-image.bin": uio_ring_probe_loopback["image_bytes"],
     "packet-bridge-image.bin": packet_bridge_probe_image["image_bytes"],
+    "tun-bridge-image.bin": tun_bridge_probe_image["image_bytes"],
 }
 for name, size in expected.items():
     path = vector_dir / name
@@ -376,6 +389,12 @@ required = [
     "fieldmesh_firmware_tun_bridge_probe",
     "memory_tun_read",
     "memory_tun_write",
+    "--device /dev/uioN",
+    "--image PATH",
+    "--loopback",
+    "--allow-writes",
+    "mmap(",
+    "msync(",
     "fieldmesh_fw_tun_read_packet",
     "fieldmesh_fw_tun_write_packet",
     "fieldmesh_fw_packet_bridge_pump_many",

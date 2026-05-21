@@ -293,6 +293,9 @@ userspace MAC service, or future kernel driver. The firmware side sees only a
 bounded packet buffer, binary descriptors, and packet bytes. The matching
 `fieldmesh_firmware_tun_bridge_probe` verifies this `swarm0`-ready callback
 path without IIO, JSON-on-air, inter-board IP routing, or vendor runtime code.
+The probe also supports file-backed `mmap` and guarded `/dev/uioN` modes, so
+the same TUN callback chain can be proven against mapped PL packet memory
+before the daemon owns a continuous live TUN service.
 
 ## MAC Design
 

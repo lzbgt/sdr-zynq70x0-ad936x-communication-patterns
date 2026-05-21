@@ -205,7 +205,7 @@ PY
             exit 1
         fi
     done
-    for token in fieldmesh_firmware_tun_bridge_probe fieldmesh_tun_read_callback_t fieldmesh_tun_write_callback_t read_callback_pump write_callback_drain firmware_owns_posix_fd swarm0_ready_boundary binary_descriptors uses_json_on_air hot_path_language read_errors; do
+    for token in fieldmesh_firmware_tun_bridge_probe fieldmesh_tun_read_callback_t fieldmesh_tun_write_callback_t read_callback_pump write_callback_drain firmware_owns_posix_fd swarm0_ready_boundary binary_descriptors uses_json_on_air hot_path_language read_errors "--device /dev/uioN" "--image PATH" mapped_memory sync_ok; do
         if ! grep -qF -- "$token" "$tun_bridge_strings_out"; then
             echo "Missing fieldmesh-firmware-tun-bridge-probe token in $name rootfs: $token" >&2
             exit 1
