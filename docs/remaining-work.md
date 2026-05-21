@@ -6,7 +6,15 @@ are kept briefly when they affect the remaining recovery decisions.
 
 ## Planned Production Refactor
 
-Status: documented only; implementation intentionally deferred.
+Status: active architecture pivot.
+
+The production firmware direction is now captured in
+`docs/fieldmesh-production-firmware-architecture.md`: the vendor source tree is
+reference material and bring-up infrastructure only. The production stack should
+be first-party C on ARM plus descriptor-driven FPGA packet/MAC/PHY blocks, with
+binary FieldMesh/BLR frames as the stable interface. The current IIO/Python HIL
+bridge remains useful for evidence and diagnostics, but it is not the target
+data plane.
 
 The next architecture cleanup is captured in
 `docs/fieldmesh-production-refactor-roadmap.md`. It records the planned split

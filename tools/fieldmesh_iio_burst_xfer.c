@@ -10,6 +10,7 @@
 
 #include <errno.h>
 #include <iio.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -22,6 +23,41 @@
 #include <unistd.h>
 
 #define MAX_CHANNELS 8
+#define IQ_AMPLITUDE 12000
+#define DEFAULT_SAMPLE_RATE_HZ 3072000U
+#define DEFAULT_BFSK_SPACE_HZ 50000.0
+#define DEFAULT_BFSK_MARK_HZ 150000.0
+#define DEFAULT_SAMPLES_PER_SYMBOL 64U
+#define DEFAULT_BIT_REPEAT 4U
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+static const unsigned char PREAMBLE[16] = {
+    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
+    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
+};
+static const unsigned char SYNC[] = {'F', 'M', '-', 'I', 'Q', '1'};
+
+struct blob {
+    unsigned char *data;
+    size_t len;
+};
+
+struct modem_options {
+    const char *frame_file;
+    const char *iq_file;
+    const char *decoded_file;
+    unsigned int sample_rate_hz;
+    double space_hz;
+    double mark_hz;
+    unsigned int samples_per_symbol;
+    unsigned int bit_repeat;
+    size_t expected_frame_len;
+    uint32_t expected_frame_crc;
+    bool have_expected_frame_len;
+    bool have_expected_frame_crc;
+};
 
 struct options {
     const char *tx_uri;
@@ -59,7 +95,15 @@ static void usage(FILE *stream)
             "--tx-samples N --rx-samples N [--buffer-size N] "
             "[--tx-duration-ms N] [--rx-timeout-ms N] "
             "[--rx-arm-delay-ms N] [--cyclic] "
-            "[--channel voltage0 --channel voltage1] [--server]\n");
+            "[--channel voltage0 --channel voltage1] [--server]\n"
+            "       fieldmesh_iio_burst_xfer --bfsk-self-test\n"
+            "       fieldmesh_iio_burst_xfer --bfsk-encode --frame-file PATH --iq-file PATH "
+            "[--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
+            "       fieldmesh_iio_burst_xfer --bfsk-decode --iq-file PATH --decoded-file PATH "
+            "[--expected-frame-len N] [--expected-frame-crc HEX] "
+            "[--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n");
 }
 
 static unsigned long long parse_ull(const char *text, const char *name)
@@ -82,6 +126,533 @@ static void nsleep_ms(unsigned int ms)
     while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {
         ;
     }
+}
+
+static void die_errno(const char *what, const char *path)
+{
+    fprintf(stderr, "%s %s failed: %s\n", what, path ? path : "", strerror(errno));
+    exit(1);
+}
+
+static struct blob read_file_all(const char *path)
+{
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        die_errno("open", path);
+    }
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        die_errno("seek", path);
+    }
+    long size = ftell(fp);
+    if (size < 0) {
+        die_errno("tell", path);
+    }
+    rewind(fp);
+    struct blob out = {
+        .data = calloc((size_t)size ? (size_t)size : 1u, 1u),
+        .len = (size_t)size,
+    };
+    if (!out.data) {
+        fprintf(stderr, "calloc(%zu) failed\n", out.len);
+        exit(1);
+    }
+    if (out.len && fread(out.data, 1, out.len, fp) != out.len) {
+        die_errno("read", path);
+    }
+    if (fclose(fp) != 0) {
+        die_errno("close", path);
+    }
+    return out;
+}
+
+static void write_file_all(const char *path, const unsigned char *data, size_t len)
+{
+    FILE *fp = fopen(path, "wb");
+    if (!fp) {
+        die_errno("open", path);
+    }
+    if (len && fwrite(data, 1, len, fp) != len) {
+        die_errno("write", path);
+    }
+    if (fclose(fp) != 0) {
+        die_errno("close", path);
+    }
+}
+
+static uint32_t crc32_update(uint32_t crc, const unsigned char *data, size_t len)
+{
+    crc = ~crc;
+    for (size_t i = 0; i < len; ++i) {
+        crc ^= data[i];
+        for (unsigned int bit = 0; bit < 8u; ++bit) {
+            uint32_t mask = 0u - (crc & 1u);
+            crc = (crc >> 1) ^ (0xEDB88320u & mask);
+        }
+    }
+    return ~crc;
+}
+
+static void put_be16(unsigned char *out, uint16_t value)
+{
+    out[0] = (unsigned char)(value >> 8);
+    out[1] = (unsigned char)value;
+}
+
+static void put_be32(unsigned char *out, uint32_t value)
+{
+    out[0] = (unsigned char)(value >> 24);
+    out[1] = (unsigned char)(value >> 16);
+    out[2] = (unsigned char)(value >> 8);
+    out[3] = (unsigned char)value;
+}
+
+static uint16_t get_be16(const unsigned char *in)
+{
+    return (uint16_t)(((uint16_t)in[0] << 8) | in[1]);
+}
+
+static uint32_t get_be32(const unsigned char *in)
+{
+    return ((uint32_t)in[0] << 24) | ((uint32_t)in[1] << 16) |
+           ((uint32_t)in[2] << 8) | (uint32_t)in[3];
+}
+
+static void put_i16le(unsigned char *out, int value)
+{
+    if (value > 32767) {
+        value = 32767;
+    } else if (value < -32768) {
+        value = -32768;
+    }
+    uint16_t packed = (uint16_t)(int16_t)value;
+    out[0] = (unsigned char)packed;
+    out[1] = (unsigned char)(packed >> 8);
+}
+
+static int16_t get_i16le(const unsigned char *in)
+{
+    return (int16_t)((uint16_t)in[0] | ((uint16_t)in[1] << 8));
+}
+
+static struct blob burst_payload_from_frame(const unsigned char *frame, size_t frame_len)
+{
+    if (frame_len == 0u || frame_len > 65535u) {
+        fprintf(stderr, "frame length must be 1..65535 bytes\n");
+        exit(2);
+    }
+    size_t payload_len = sizeof(PREAMBLE) + sizeof(SYNC) + 2u + frame_len + 4u;
+    struct blob payload = {
+        .data = calloc(payload_len, 1u),
+        .len = payload_len,
+    };
+    if (!payload.data) {
+        fprintf(stderr, "calloc(%zu) failed\n", payload_len);
+        exit(1);
+    }
+    size_t cursor = 0;
+    memcpy(payload.data + cursor, PREAMBLE, sizeof(PREAMBLE));
+    cursor += sizeof(PREAMBLE);
+    memcpy(payload.data + cursor, SYNC, sizeof(SYNC));
+    cursor += sizeof(SYNC);
+    put_be16(payload.data + cursor, (uint16_t)frame_len);
+    cursor += 2u;
+    memcpy(payload.data + cursor, frame, frame_len);
+    cursor += frame_len;
+    put_be32(payload.data + cursor, crc32_update(0u, frame, frame_len));
+    return payload;
+}
+
+static int bit_at(const unsigned char *data, size_t bit_index)
+{
+    return (data[bit_index / 8u] >> (7u - (bit_index % 8u))) & 1u;
+}
+
+static struct blob bfsk_encode_frame(
+    const unsigned char *frame,
+    size_t frame_len,
+    const struct modem_options *opt)
+{
+    struct blob payload = burst_payload_from_frame(frame, frame_len);
+    size_t source_bits = payload.len * 8u;
+    size_t total_symbols = source_bits * opt->bit_repeat;
+    size_t iq_len = total_symbols * opt->samples_per_symbol * 4u;
+    struct blob iq = {
+        .data = calloc(iq_len, 1u),
+        .len = iq_len,
+    };
+    if (!iq.data) {
+        fprintf(stderr, "calloc(%zu) failed\n", iq_len);
+        exit(1);
+    }
+
+    double phase = 0.0;
+    size_t out = 0;
+    for (size_t bit_index = 0; bit_index < source_bits; ++bit_index) {
+        int bit = bit_at(payload.data, bit_index);
+        double freq = bit ? opt->mark_hz : opt->space_hz;
+        double phase_step = 2.0 * M_PI * freq / (double)opt->sample_rate_hz;
+        for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
+            for (unsigned int sample = 0; sample < opt->samples_per_symbol; ++sample) {
+                int i_value = (int)lrint((double)IQ_AMPLITUDE * cos(phase));
+                int q_value = (int)lrint((double)IQ_AMPLITUDE * sin(phase));
+                put_i16le(iq.data + out, i_value);
+                put_i16le(iq.data + out + 2u, q_value);
+                out += 4u;
+                phase += phase_step;
+                if (phase >= 2.0 * M_PI) {
+                    phase = fmod(phase, 2.0 * M_PI);
+                }
+            }
+        }
+    }
+    free(payload.data);
+    return iq;
+}
+
+static double tone_energy(
+    const unsigned char *iq,
+    size_t sample_start,
+    unsigned int samples_per_symbol,
+    unsigned int sample_rate_hz,
+    double freq_hz)
+{
+    double acc_i = 0.0;
+    double acc_q = 0.0;
+    double phase_step = -2.0 * M_PI * freq_hz / (double)sample_rate_hz;
+    double phase = phase_step * (double)sample_start;
+    for (unsigned int i = 0; i < samples_per_symbol; ++i) {
+        int16_t iv = get_i16le(iq + (sample_start + i) * 4u);
+        int16_t qv = get_i16le(iq + (sample_start + i) * 4u + 2u);
+        double c = cos(phase);
+        double s = sin(phase);
+        acc_i += (double)iv * c - (double)qv * s;
+        acc_q += (double)iv * s + (double)qv * c;
+        phase += phase_step;
+    }
+    return acc_i * acc_i + acc_q * acc_q;
+}
+
+static unsigned char *decode_hard_bits(
+    const unsigned char *iq,
+    size_t iq_len,
+    const struct modem_options *opt,
+    unsigned int sample_offset,
+    unsigned int chip_phase,
+    size_t *out_bits)
+{
+    size_t total_samples = iq_len / 4u;
+    if (sample_offset >= opt->samples_per_symbol || total_samples <= sample_offset) {
+        return NULL;
+    }
+    size_t chips = (total_samples - sample_offset) / opt->samples_per_symbol;
+    if (chips <= chip_phase) {
+        return NULL;
+    }
+    size_t bits = (chips - chip_phase) / opt->bit_repeat;
+    unsigned char *hard = calloc(bits ? bits : 1u, 1u);
+    if (!hard) {
+        fprintf(stderr, "calloc(%zu) failed\n", bits);
+        exit(1);
+    }
+    for (size_t bit_index = 0; bit_index < bits; ++bit_index) {
+        unsigned int ones = 0;
+        for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
+            size_t chip = chip_phase + bit_index * opt->bit_repeat + repeat;
+            size_t sample_start = sample_offset + chip * opt->samples_per_symbol;
+            double space = tone_energy(iq, sample_start, opt->samples_per_symbol,
+                                       opt->sample_rate_hz, opt->space_hz);
+            double mark = tone_energy(iq, sample_start, opt->samples_per_symbol,
+                                      opt->sample_rate_hz, opt->mark_hz);
+            if (mark >= space) {
+                ones++;
+            }
+        }
+        hard[bit_index] = ones * 2u >= opt->bit_repeat ? 1u : 0u;
+    }
+    *out_bits = bits;
+    return hard;
+}
+
+static int hard_bits_match_bytes(const unsigned char *bits, size_t bit_start,
+                                 const unsigned char *bytes, size_t len)
+{
+    for (size_t i = 0; i < len * 8u; ++i) {
+        if (bits[bit_start + i] != bit_at(bytes, i)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static struct blob bytes_from_hard_bits(const unsigned char *bits, size_t bit_start, size_t len)
+{
+    struct blob out = {
+        .data = calloc(len ? len : 1u, 1u),
+        .len = len,
+    };
+    if (!out.data) {
+        fprintf(stderr, "calloc(%zu) failed\n", len);
+        exit(1);
+    }
+    for (size_t byte_index = 0; byte_index < len; ++byte_index) {
+        unsigned char value = 0;
+        for (unsigned int bit = 0; bit < 8u; ++bit) {
+            value = (unsigned char)((value << 1) |
+                                    (bits[bit_start + byte_index * 8u + bit] & 1u));
+        }
+        out.data[byte_index] = value;
+    }
+    return out;
+}
+
+static bool recover_frame_from_bits(
+    const unsigned char *bits,
+    size_t bits_len,
+    size_t bit_start,
+    const struct modem_options *opt,
+    struct blob *out)
+{
+    size_t cursor = bit_start + (sizeof(PREAMBLE) + sizeof(SYNC)) * 8u;
+    if (bits_len < cursor + 16u) {
+        return false;
+    }
+    struct blob len_bytes = bytes_from_hard_bits(bits, cursor, 2u);
+    uint16_t frame_len = get_be16(len_bytes.data);
+    free(len_bytes.data);
+    if (opt->have_expected_frame_len && frame_len != opt->expected_frame_len) {
+        return false;
+    }
+    if (frame_len == 0u) {
+        return false;
+    }
+    cursor += 16u;
+    size_t frame_bits = (size_t)frame_len * 8u;
+    if (bits_len < cursor + frame_bits + 32u) {
+        return false;
+    }
+    struct blob frame = bytes_from_hard_bits(bits, cursor, frame_len);
+    cursor += frame_bits;
+    struct blob crc_bytes = bytes_from_hard_bits(bits, cursor, 4u);
+    uint32_t recovered_crc = get_be32(crc_bytes.data);
+    free(crc_bytes.data);
+    uint32_t expected_crc = crc32_update(0u, frame.data, frame.len);
+    if (opt->have_expected_frame_crc && expected_crc != opt->expected_frame_crc) {
+        free(frame.data);
+        return false;
+    }
+    if (recovered_crc != expected_crc) {
+        free(frame.data);
+        return false;
+    }
+    *out = frame;
+    return true;
+}
+
+static bool bfsk_decode_frame(
+    const unsigned char *iq,
+    size_t iq_len,
+    const struct modem_options *opt,
+    struct blob *out,
+    unsigned int *out_sample_offset,
+    unsigned int *out_chip_phase,
+    size_t *out_bit_start)
+{
+    for (unsigned int sample_offset = 0; sample_offset < opt->samples_per_symbol; ++sample_offset) {
+        for (unsigned int chip_phase = 0; chip_phase < opt->bit_repeat; ++chip_phase) {
+            size_t bits_len = 0;
+            unsigned char *bits = decode_hard_bits(iq, iq_len, opt, sample_offset,
+                                                   chip_phase, &bits_len);
+            if (!bits) {
+                continue;
+            }
+            size_t sync_bits = (sizeof(PREAMBLE) + sizeof(SYNC)) * 8u;
+            if (bits_len >= sync_bits + 16u + 32u) {
+                for (size_t bit_start = 0; bit_start + sync_bits <= bits_len; ++bit_start) {
+                    if (!hard_bits_match_bytes(bits, bit_start, PREAMBLE, sizeof(PREAMBLE)) ||
+                        !hard_bits_match_bytes(bits, bit_start + sizeof(PREAMBLE) * 8u,
+                                               SYNC, sizeof(SYNC))) {
+                        continue;
+                    }
+                    if (recover_frame_from_bits(bits, bits_len, bit_start, opt, out)) {
+                        *out_sample_offset = sample_offset;
+                        *out_chip_phase = chip_phase;
+                        *out_bit_start = bit_start;
+                        free(bits);
+                        return true;
+                    }
+                }
+            }
+            free(bits);
+        }
+    }
+    return false;
+}
+
+static void modem_defaults(struct modem_options *opt)
+{
+    memset(opt, 0, sizeof(*opt));
+    opt->sample_rate_hz = DEFAULT_SAMPLE_RATE_HZ;
+    opt->space_hz = DEFAULT_BFSK_SPACE_HZ;
+    opt->mark_hz = DEFAULT_BFSK_MARK_HZ;
+    opt->samples_per_symbol = DEFAULT_SAMPLES_PER_SYMBOL;
+    opt->bit_repeat = DEFAULT_BIT_REPEAT;
+}
+
+static uint32_t parse_u32_arg(const char *text, const char *name)
+{
+    unsigned long long value = parse_ull(text, name);
+    if (value > 0xffffffffULL) {
+        fprintf(stderr, "%s is too large: %s\n", name, text);
+        exit(2);
+    }
+    return (uint32_t)value;
+}
+
+static uint32_t parse_crc_arg(const char *text)
+{
+    char *end = NULL;
+    errno = 0;
+    unsigned long value = strtoul(text, &end, 0);
+    if (errno || end == text || *end != '\0' || value > 0xffffffffUL) {
+        fprintf(stderr, "--expected-frame-crc must be a u32 integer: %s\n", text);
+        exit(2);
+    }
+    return (uint32_t)value;
+}
+
+static double parse_double_arg(const char *text, const char *name)
+{
+    char *end = NULL;
+    errno = 0;
+    double value = strtod(text, &end);
+    if (errno || end == text || *end != '\0') {
+        fprintf(stderr, "%s must be numeric: %s\n", name, text);
+        exit(2);
+    }
+    return value;
+}
+
+static void parse_modem_args(int argc, char **argv, struct modem_options *opt)
+{
+    modem_defaults(opt);
+    for (int i = 2; i < argc; i++) {
+        const char *arg = argv[i];
+        if (strcmp(arg, "--frame-file") == 0 && i + 1 < argc) {
+            opt->frame_file = argv[++i];
+        } else if (strcmp(arg, "--iq-file") == 0 && i + 1 < argc) {
+            opt->iq_file = argv[++i];
+        } else if (strcmp(arg, "--decoded-file") == 0 && i + 1 < argc) {
+            opt->decoded_file = argv[++i];
+        } else if (strcmp(arg, "--sample-rate-hz") == 0 && i + 1 < argc) {
+            opt->sample_rate_hz = parse_u32_arg(argv[++i], "--sample-rate-hz");
+        } else if (strcmp(arg, "--space-hz") == 0 && i + 1 < argc) {
+            opt->space_hz = parse_double_arg(argv[++i], "--space-hz");
+        } else if (strcmp(arg, "--mark-hz") == 0 && i + 1 < argc) {
+            opt->mark_hz = parse_double_arg(argv[++i], "--mark-hz");
+        } else if (strcmp(arg, "--samples-per-symbol") == 0 && i + 1 < argc) {
+            opt->samples_per_symbol = parse_u32_arg(argv[++i], "--samples-per-symbol");
+        } else if (strcmp(arg, "--bit-repeat") == 0 && i + 1 < argc) {
+            opt->bit_repeat = parse_u32_arg(argv[++i], "--bit-repeat");
+        } else if (strcmp(arg, "--expected-frame-len") == 0 && i + 1 < argc) {
+            opt->expected_frame_len = (size_t)parse_ull(argv[++i], "--expected-frame-len");
+            opt->have_expected_frame_len = true;
+        } else if (strcmp(arg, "--expected-frame-crc") == 0 && i + 1 < argc) {
+            opt->expected_frame_crc = parse_crc_arg(argv[++i]);
+            opt->have_expected_frame_crc = true;
+        } else {
+            fprintf(stderr, "unknown or incomplete modem argument: %s\n", arg);
+            usage(stderr);
+            exit(2);
+        }
+    }
+    if (opt->sample_rate_hz == 0 || opt->samples_per_symbol < 2 || opt->bit_repeat == 0 ||
+        opt->space_hz <= 0.0 || opt->mark_hz <= 0.0) {
+        fprintf(stderr, "invalid BFSK modem parameters\n");
+        exit(2);
+    }
+}
+
+static int run_bfsk_encode(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.frame_file || !opt.iq_file) {
+        usage(stderr);
+        return 2;
+    }
+    struct blob frame = read_file_all(opt.frame_file);
+    struct blob iq = bfsk_encode_frame(frame.data, frame.len, &opt);
+    write_file_all(opt.iq_file, iq.data, iq.len);
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_bfsk_modem_encode\",\"ok\":true,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"samples_per_symbol\":%u,"
+            "\"bit_repeat\":%u}\n",
+            frame.len, iq.len, opt.samples_per_symbol, opt.bit_repeat);
+    free(iq.data);
+    free(frame.data);
+    return 0;
+}
+
+static int run_bfsk_decode(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.iq_file || !opt.decoded_file) {
+        usage(stderr);
+        return 2;
+    }
+    struct blob iq = read_file_all(opt.iq_file);
+    struct blob decoded = {0};
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    bool ok = bfsk_decode_frame(iq.data, iq.len, &opt, &decoded,
+                                &sample_offset, &chip_phase, &bit_start);
+    if (ok) {
+        write_file_all(opt.decoded_file, decoded.data, decoded.len);
+    }
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_bfsk_modem_decode\",\"ok\":%s,"
+            "\"iq_bytes\":%zu,\"frame_bytes\":%zu,\"samples_per_symbol\":%u,"
+            "\"bit_repeat\":%u,\"sample_offset\":%u,\"chip_phase\":%u,"
+            "\"bit_start\":%zu}\n",
+            ok ? "true" : "false", iq.len, ok ? decoded.len : (size_t)0,
+            opt.samples_per_symbol, opt.bit_repeat, sample_offset,
+            chip_phase, bit_start);
+    free(decoded.data);
+    free(iq.data);
+    return ok ? 0 : 1;
+}
+
+static int run_bfsk_self_test(void)
+{
+    struct modem_options opt;
+    modem_defaults(&opt);
+    // FMBATCH1 matches the Python bridge raw binary batch magic used by HIL.
+    static const unsigned char frame[] = {
+        'F', 'M', 'B', 'A', 'T', 'C', 'H', '1',
+        0x00, 0x02,
+        0x00, 0x03, 0x01, 0x02, 0x03,
+        0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd,
+    };
+    struct blob iq = bfsk_encode_frame(frame, sizeof(frame), &opt);
+    struct blob decoded = {0};
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    bool ok = bfsk_decode_frame(iq.data, iq.len, &opt, &decoded,
+                                &sample_offset, &chip_phase, &bit_start);
+    ok = ok && decoded.len == sizeof(frame) &&
+         memcmp(decoded.data, frame, sizeof(frame)) == 0;
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_bfsk_modem_self_test\",\"ok\":%s,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"sample_offset\":%u,"
+            "\"chip_phase\":%u,\"bit_start\":%zu}\n",
+            ok ? "true" : "false", sizeof(frame), iq.len, sample_offset,
+            chip_phase, bit_start);
+    free(decoded.data);
+    free(iq.data);
+    return ok ? 0 : 1;
 }
 
 static void parse_args(int argc, char **argv, struct options *opt)
@@ -429,6 +1000,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
 
 int main(int argc, char **argv)
 {
+    if (argc >= 2 && strcmp(argv[1], "--bfsk-self-test") == 0) {
+        return run_bfsk_self_test();
+    }
+    if (argc >= 2 && strcmp(argv[1], "--bfsk-encode") == 0) {
+        return run_bfsk_encode(argc, argv);
+    }
+    if (argc >= 2 && strcmp(argv[1], "--bfsk-decode") == 0) {
+        return run_bfsk_decode(argc, argv);
+    }
+
     struct options opt;
     parse_args(argc, argv, &opt);
 

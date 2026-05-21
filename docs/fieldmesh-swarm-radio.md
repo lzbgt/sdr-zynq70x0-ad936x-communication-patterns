@@ -109,6 +109,12 @@ app/SDK packet -> daemon -> kernel/driver or UIO endpoint
   -> PL packet DMA/MAC/PHY timing blocks -> AD936x RF
 ```
 
+The detailed first-party production firmware redesign is tracked in
+`docs/fieldmesh-production-firmware-architecture.md`. That document treats the
+vendor source tree as a reference and bring-up harness, not the product source
+tree, and sets the baseline for moving toward a C ARM data plane plus FPGA
+packet/MAC/PHY blocks.
+
 IIO may remain in admin tools for tuning, calibration, diagnostics, and
 legacy lab-containment procedures, but customer payloads should not traverse
 IIO in the product loop.

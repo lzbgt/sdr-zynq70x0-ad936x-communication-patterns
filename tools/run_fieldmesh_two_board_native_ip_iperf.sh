@@ -115,7 +115,7 @@ build_default_iio_burst_helper() {
     mkdir -p "$(dirname "$default_iio_burst_helper")"
     "$cc" -std=c99 -Wall -Wextra -Werror \
         "$repo_root/tools/fieldmesh_iio_burst_xfer.c" \
-        -liio -lpthread \
+        -liio -lpthread -lm \
         -o "$default_iio_burst_helper" \
         >"$out_dir/fieldmesh_iio_burst_xfer_build.log" \
         2>"$out_dir/fieldmesh_iio_burst_xfer_build.err"

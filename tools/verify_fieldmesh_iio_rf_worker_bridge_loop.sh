@@ -330,7 +330,7 @@ required = [
     "board_tcp_direction_args=(-R)",
     "tcp_reverse = sys.argv[7] == \"1\"",
     '"$cc" -std=c99 -Wall -Wextra -Werror',
-    '-liio -lpthread',
+    '-liio -lpthread -lm',
     'fieldmesh_iio_burst_xfer_build.err',
     'FIELDMESH_IIO_BURST_HELPER must support --server',
     'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"',
