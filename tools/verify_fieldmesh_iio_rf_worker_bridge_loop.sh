@@ -66,6 +66,8 @@ if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
 if report.get("lease_priority") != "tcp-payload":
     raise SystemExit(f"unexpected lease priority default: {report.get('lease_priority')}")
+if report.get("adaptive_direction_scheduler") is not False:
+    raise SystemExit("bridge loop must default to fixed scheduling with empty-burst suppression")
 if report.get("cyclic_capture_periods") != 1:
     raise SystemExit(f"unexpected bridge capture periods: {report.get('cyclic_capture_periods')}")
 frame_report = Path(report["frames"][0]["report"])
@@ -119,6 +121,10 @@ if send or drop != [stale]:
 send, drop = loop.split_port_filter_prefix([wanted, stale], {55251})
 if send != [wanted] or drop:
     raise SystemExit("port filter must send only the wanted prefix before stale frames")
+if loop.queued_rf_work_score({"rf_tx_queue_depth": 3, "rf_tx_lease_queue_depth": 0}) != 3:
+    raise SystemExit("queued RF work score ignored pending TX queue depth")
+if loop.queued_rf_work_score({"rf_tx_queue_depth": 0, "rf_tx_lease_queue_depth": 1}) <= 3:
+    raise SystemExit("queued RF work score must prioritize replaying leased frames")
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -301,6 +307,21 @@ fi
 if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER=bad \
+   OUT_DIR="$work_dir/iperf-bad-adaptive-scheduler" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_adaptive_scheduler.out" \
+   2>"$work_dir/iperf_bad_adaptive_scheduler.err"; then
+  echo "native-IP iperf gate accepted invalid adaptive scheduler flag" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER must be 0 or 1' \
+     "$work_dir/iperf_bad_adaptive_scheduler.err"; then
+  echo "native-IP iperf invalid adaptive scheduler refusal changed" >&2
   exit 1
 fi
 

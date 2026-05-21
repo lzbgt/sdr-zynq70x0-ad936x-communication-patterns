@@ -124,7 +124,13 @@ result exchange does not include one interval object per second. Live HIL after
 that change moved up to 96 native-IP frames with zero bridge errors, and the
 Z103 `iperf3` server received the requested TCP test bytes. `iperf3` still does
 not exit cleanly because its final result/shutdown exchange is too slow for the
-current per-batch loop.
+current per-batch loop. Follow-up HIL exposed a software ordering bug in
+TCP-payload-priority leasing: TCP payload could overtake SYN/RST frames. That is
+now fixed and installed. The post-fix bridge again reaches the `iperf3` test
+phase and sends requested bytes over real RF, including a 256-byte smoke run,
+but the server remains established and the client times out waiting for the
+result/shutdown exchange. This keeps the blocker in the RF data-plane scheduler
+and streaming/MAC service layer.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

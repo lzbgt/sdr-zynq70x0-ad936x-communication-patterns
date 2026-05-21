@@ -1268,12 +1268,15 @@ user and vendor configuration.
   and SYN/FIN/RST frames can be moved ahead of payload-free ACKs, and the
   runner defaults `iperf3` to `-i 0` so interval JSON does not create tens of
   kilobytes of final control traffic on a very slow link. Live HIL with those
-  changes moved up to 96 native-IP frames with zero bridge errors. The TCP
-  server received all requested test bytes in compact-report runs, but the
-  `iperf3` processes still timed out during final result/shutdown exchange.
-  The next material work is a true streaming or pipelined RF loop with enough
-  reverse-path service to finish the `iperf3` control exchange, not another
-  physical RF installation check.
+  changes moved up to 96 native-IP frames with zero bridge errors. Follow-up
+  HIL found and fixed a TCP ordering bug in that priority mode: payload must
+  not overtake SYN/RST during connection setup. The installed boards now run
+  that fix. Post-fix live `iperf3` reaches the test phase consistently and
+  sends the requested TCP bytes over real RF, but the Z103 server remains
+  established and the client times out waiting for final result/shutdown
+  exchange. A 256-byte smoke size has the same failure signature, so the next
+  material work is a true streaming or pipelined RF loop/control exchange
+  service path, not another physical RF installation check.
   The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path

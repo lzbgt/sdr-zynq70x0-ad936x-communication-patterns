@@ -216,6 +216,27 @@ def request_daemon_with_retries(
     raise TimeoutError(str(last_error) if last_error else "daemon request timed out")
 
 
+def tun_service_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_TUN_SERVICE_STATUS v1",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_tun_service_status":
+        raise SystemExit(f"expected sdk_daemon_tun_service_status, got {report.get('event')!r}")
+    return report
+
+
+def queued_rf_work_score(status: dict[str, Any]) -> int:
+    try:
+        tx_depth = int(status.get("rf_tx_queue_depth") or 0)
+        lease_depth = int(status.get("rf_tx_lease_queue_depth") or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, tx_depth) + max(0, lease_depth) * 1000
+
+
 def ack_batch_to_daemon_reliable(
     host: str,
     port: int,
@@ -784,6 +805,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "z203_to_z103": 0,
         "z103_to_z203": 0,
         "empty_polls": 0,
+        "empty_burst_skips": 0,
+        "adaptive_status_polls": 0,
+        "adaptive_status_failures": 0,
         "bridge_errors": 0,
         "batches_moved": 0,
         "filtered_frames": 0,
@@ -812,6 +836,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "batch_size": args.batch_size,
             "batch_byte_limit": args.batch_byte_limit,
             "lease_priority": args.lease_priority,
+            "adaptive_direction_scheduler": bool(args.adaptive_direction_scheduler),
             "direction_burst_batches": {
                 "z203_to_z103": args.z203_to_z103_burst_batches,
                 "z103_to_z203": args.z103_to_z203_burst_batches,
@@ -857,11 +882,52 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     write_progress()
     preloaded_lease = load_json(args.leased_frame_report) if args.leased_frame_report else None
     configured_directions: set[str] = set()
+
+    def scheduled_directions() -> list[dict[str, Any]]:
+        if not args.adaptive_direction_scheduler or len(directions) < 2:
+            return schedule
+        scored: list[tuple[int, dict[str, Any]]] = []
+        status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
+        try:
+            for direction in directions:
+                status = tun_service_status(
+                    direction["source_host"],
+                    direction["source_port"],
+                    status_timeout_ms,
+                )
+                counts["adaptive_status_polls"] += 1
+                scored.append((queued_rf_work_score(status), direction))
+        except (TimeoutError, SystemExit):
+            counts["adaptive_status_failures"] += 1
+            return schedule
+        if not any(score > 0 for score, _ in scored):
+            return schedule
+        ordered: list[dict[str, Any]] = []
+        for score, direction in sorted(scored, key=lambda item: item[0], reverse=True):
+            if score <= 0:
+                continue
+            repeats = (
+                args.z203_to_z103_burst_batches
+                if direction["name"] == "z203-to-z103"
+                else args.z103_to_z203_burst_batches
+            )
+            queued_frames = max(1, score % 1000 if score >= 1000 else score)
+            bursts = max(1, min(repeats, (queued_frames + args.batch_size - 1) // args.batch_size))
+            ordered.extend([direction] * bursts)
+        for _, direction in scored:
+            if direction not in ordered:
+                ordered.append(direction)
+        return ordered
+
     while time.monotonic() < deadline and next_index < args.max_frames:
         moved = False
-        for direction in schedule:
+        empty_directions: set[str] = set()
+        for direction in scheduled_directions():
             if next_index >= args.max_frames:
                 break
+            if direction["name"] in empty_directions:
+                counts["empty_burst_skips"] += 1
+                continue
             try:
                 if preloaded_lease is not None:
                     lease = preloaded_lease
@@ -879,6 +945,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         batch_frames.append(polled_frame)
                     if not batch_frames:
                         counts["empty_polls"] += 1
+                        empty_directions.add(direction["name"])
                         continue
                     batch_frames, filtered_frames = split_port_filter_prefix(
                         batch_frames, args.ip_port_filter
@@ -900,6 +967,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         continue
                     if not batch_frames:
                         counts["empty_polls"] += 1
+                        empty_directions.add(direction["name"])
                         continue
                     report = run_batch(
                         args,
@@ -959,6 +1027,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     )
                     if not batch_frames:
                         counts["empty_polls"] += 1
+                        empty_directions.add(direction["name"])
                         continue
                     batch_frames, filtered_frames = split_port_filter_prefix(
                         batch_frames, args.ip_port_filter
@@ -1048,6 +1117,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     )
                     if lease is None:
                         counts["empty_polls"] += 1
+                        empty_directions.add(direction["name"])
                         continue
                     frame_hex = lease.get("frame0_hex")
                     if isinstance(frame_hex, str):
@@ -1143,6 +1213,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lease-priority", choices=("tcp-payload", "fifo"), default="tcp-payload")
     parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
     parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
+    parser.add_argument(
+        "--adaptive-direction-scheduler",
+        dest="adaptive_direction_scheduler",
+        action="store_true",
+        default=False,
+        help="Prefer directions whose source daemon currently has queued RF work.",
+    )
+    parser.add_argument(
+        "--no-adaptive-direction-scheduler",
+        dest="adaptive_direction_scheduler",
+        action="store_false",
+        help="Use the fixed direction schedule exactly as requested.",
+    )
     parser.add_argument("--destructive-poll-batch", action="store_true")
     parser.add_argument("--poll-interval-ms", type=int, default=10)
     parser.add_argument("--leased-frame-report", type=Path)

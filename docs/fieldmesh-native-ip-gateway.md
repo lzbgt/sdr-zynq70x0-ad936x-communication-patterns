@@ -244,8 +244,12 @@ Minimum production gates for native TCP/IP:
   interval JSON. Live HIL with those changes moved up to 96 native-IP frames
   with zero bridge errors and delivered the requested TCP test bytes to the
   Z103 `iperf3` server, but `iperf3` still times out during final
-  result/shutdown exchange. The remaining native-IP blocker is a true streaming
-  or pipelined RF data plane with enough reverse-path service,
+  result/shutdown exchange. Follow-up HIL fixed TCP-priority ordering so payload
+  cannot overtake SYN/RST frames; after reinstall, the bridge again reaches the
+  `iperf3` test phase and sends requested bytes over real RF, but even a
+  256-byte smoke run still leaves the server established and the client waiting
+  on result/shutdown exchange. The remaining native-IP blocker is a true
+  streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;
   the RF path evidence must be production/site evidence, not a verifier
   fixture. `PREFLIGHT_ONLY=1`

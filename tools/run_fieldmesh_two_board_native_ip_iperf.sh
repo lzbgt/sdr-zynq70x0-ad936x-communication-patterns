@@ -65,6 +65,7 @@ iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
 iio_bridge_lease_priority="${IIO_BRIDGE_LEASE_PRIORITY:-tcp-payload}"
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
+iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-0}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
 iio_bridge_lease_timeout_ms="${IIO_BRIDGE_LEASE_TIMEOUT_MS:-250}"
@@ -112,8 +113,8 @@ if ! [[ "$iperf_block_size" =~ ^[0-9]+$ ]] || [ "$iperf_block_size" -lt 16 ] || 
     echo "IPERF_BLOCK_SIZE must be an integer from 16 to 1400" >&2
     exit 1
 fi
-if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 1024 ]; then
-    echo "TCP_BYTES must be an integer >= 1024" >&2
+if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 128 ]; then
+    echo "TCP_BYTES must be an integer >= 128" >&2
     exit 1
 fi
 if ! [[ "$tcp_time_s" =~ ^[0-9]+$ ]]; then
@@ -130,6 +131,7 @@ case "$host_pc_case" in 0|1) ;; *) echo "HOST_PC_CASE must be 0 or 1" >&2; exit 
 case "$allow_host_pc_routed_gate" in 0|1) ;; *) echo "ALLOW_HOST_PC_ROUTED_GATE must be 0 or 1" >&2; exit 1 ;; esac
 case "$preflight_only" in 0|1) ;; *) echo "PREFLIGHT_ONLY must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_skip_rf_config_after_first" in 0|1) ;; *) echo "IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST must be 0 or 1" >&2; exit 1 ;; esac
+case "$iio_bridge_adaptive_direction_scheduler" in 0|1) ;; *) echo "IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER must be 0 or 1" >&2; exit 1 ;; esac
 for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
     case "$item" in 0|1) ;; *) echo "live RF flags must be 0 or 1" >&2; exit 1 ;; esac
 done
@@ -992,6 +994,11 @@ start_iio_rf_bridge_loop() {
     if [ "$iio_bridge_skip_rf_config_after_first" = "1" ]; then
         batch_args+=(--skip-rf-config-after-first)
     fi
+    if [ "$iio_bridge_adaptive_direction_scheduler" = "1" ]; then
+        batch_args+=(--adaptive-direction-scheduler)
+    else
+        batch_args+=(--no-adaptive-direction-scheduler)
+    fi
     if [ -n "$iio_bridge_ip_port_filter" ]; then
         port_filter_args=(--ip-port-filter "$iio_bridge_ip_port_filter")
     fi
@@ -1105,6 +1112,16 @@ def request(host: str, port: int, text: str) -> dict:
     finally:
         sock.close()
 
+def queue_depth(host: str, port: int) -> int:
+    try:
+        status = request(host, port, "FIELDMESH_TUN_SERVICE_STATUS v1")
+    except Exception:
+        return -1
+    try:
+        return int(status.get("rf_tx_queue_depth") or 0) + int(status.get("rf_tx_lease_queue_depth") or 0)
+    except (TypeError, ValueError):
+        return -1
+
 summary = {
     "event": "fieldmesh_native_ip_iperf_pretest_rf_tx_drain",
     "ok": True,
@@ -1115,9 +1132,13 @@ for label, host, port in endpoints:
     dropped = 0
     errors = []
     for _ in range(8):
+        if queue_depth(host, port) == 0:
+            break
         try:
             lease = request(host, port, "FIELDMESH_RF_TX_LEASE_BATCH v1 max=4")
         except Exception as exc:  # noqa: BLE001 - preserve drain diagnostics.
+            if queue_depth(host, port) == 0:
+                break
             errors.append(f"lease:{type(exc).__name__}:{exc}")
             break
         frames = lease.get("frames")

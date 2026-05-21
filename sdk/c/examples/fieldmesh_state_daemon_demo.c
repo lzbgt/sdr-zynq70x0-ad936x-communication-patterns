@@ -384,12 +384,15 @@ static unsigned ipv4_tcp_priority_score(const unsigned char *packet,
         return 1u;
     }
     tcp_payload_len = tcp_len - tcp_data_offset;
+    flags = tcp[13];
+    if ((flags & 0x06u) != 0u) {
+        return 5u;
+    }
     if (tcp_payload_len > 0u) {
         return 4u;
     }
-    flags = tcp[13];
-    if ((flags & 0x07u) != 0u) {
-        return 3u;
+    if ((flags & 0x01u) != 0u) {
+        return 2u;
     }
     return 0u;
 }
