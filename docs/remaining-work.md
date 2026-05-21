@@ -41,7 +41,12 @@ letting the firmware ABI own POSIX fd state. It now supports heap, file-backed
 Z203/Z103 runtimes now expose
 `fieldmesh-ring` as `/dev/uio0` at `0x43C30000/0x10000`, backed by a first-party
 PL AXI-lite RAM aperture; sysfs inspection, read-only `mmap`, and guarded
-write-loopback pass on both boards. The remaining app/GUI refactor
+write-loopback pass on both boards. The daemon now exposes a guarded
+`firmware_ring=1` TUN-service mode that maps `/dev/uio0` and runs the C TUN
+callback bridge from the daemon tick loop; this is the first daemon-owned
+replacement for the Python/IIO burst hot path, with RF timing still pending in
+PL MAC logic. The live daemon layout currently uses 16 packet slots and 50,712
+mapped bytes, keeping it inside the 64 KiB PL aperture. The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover
 devices and capabilities at runtime, with no hardcoded app EUI, board EUI,
@@ -830,9 +835,9 @@ Current concrete work:
   evidence. The remaining production work is exposing the actual board GNSS
   UART and wiring RF timestamp producers instead of a test harness.
 - Keep the `swarm0` product boundary on the Zynq board. The daemon owns the TUN
-  endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
-  host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board
-  IP routing.
+  endpoint, packetizer, firmware-ring mapping, sidecar DMA/RF handoff, and
+  backpressure. The host sees ordinary SDK/app operations, not raw IQ buffers
+  and not inter-board IP routing.
 - Current over-air HIL is a software service-rate problem, not an antenna
   installation problem. The daemon now keeps a 64-frame RF queue window and the
   native-IP runner defaults to compact queue-aware direction scheduling and

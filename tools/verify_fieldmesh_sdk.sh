@@ -829,6 +829,14 @@ if (tun_service_start_guard[0].get("rf_tx_poll_api") != 1 or
         tun_service_start_guard[0].get("rf_tx_lease_ack_api") != 1 or
         tun_service_start_guard[0].get("rf_rx_ingest_api") != 1):
     raise SystemExit("SDK daemon TUN service guard did not expose RF driver queue APIs")
+if tun_service_start_guard[0].get("firmware_ring_supported") != 1:
+    raise SystemExit("SDK daemon TUN service guard did not expose firmware ring support")
+if tun_service_start_guard[0].get("firmware_ring_enabled") != 0:
+    raise SystemExit("guarded default TUN service must not enable firmware ring")
+if tun_service_start_guard[0].get("hot_path_language") != "c":
+    raise SystemExit("SDK daemon TUN service guard must keep C hot path")
+if tun_service_start_guard[0].get("uses_json_on_air") != 0:
+    raise SystemExit("SDK daemon TUN service guard must not use JSON on air")
 if not tun_service_status or tun_service_status[0].get("event_loop_ready") != 1:
     raise SystemExit("SDK daemon TUN service status readiness missing")
 if tun_service_status[0].get("running") != 0:
@@ -847,6 +855,14 @@ if (tun_service_status[0].get("rf_tx_poll_api") != 1 or
         tun_service_status[0].get("rf_tx_lease_ack_api") != 1 or
         tun_service_status[0].get("rf_rx_ingest_api") != 1):
     raise SystemExit("SDK daemon TUN service status did not expose RF driver queue APIs")
+if tun_service_status[0].get("firmware_ring_supported") != 1:
+    raise SystemExit("SDK daemon TUN service status did not expose firmware ring support")
+if tun_service_status[0].get("firmware_ring_enabled") != 0:
+    raise SystemExit("guarded TUN service status must not enable firmware ring")
+if tun_service_status[0].get("hot_path_language") != "c":
+    raise SystemExit("SDK daemon TUN service status must keep C hot path")
+if tun_service_status[0].get("uses_json_on_air") != 0:
+    raise SystemExit("SDK daemon TUN service status must not use JSON on air")
 if not rf_worker_start or rf_worker_start[0].get("error") != "tun_service_not_running":
     raise SystemExit("SDK daemon RF worker start guard failed")
 if rf_worker_start[0].get("rf_phy_tx_rx") != 0:

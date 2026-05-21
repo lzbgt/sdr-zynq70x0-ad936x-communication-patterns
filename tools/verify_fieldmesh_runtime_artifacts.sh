@@ -339,6 +339,15 @@ PY
         rf_transport_mode \
         driver_queue \
         diagnostic_loopback \
+        firmware_ring_supported \
+        firmware_ring_enabled \
+        firmware_ring_mapped \
+        firmware_ring_pumped \
+        firmware_ring_served \
+        firmware_ring_drained \
+        ALLOW_FIRMWARE_RING_WRITES \
+        /dev/uio0 \
+        daemon_owned_firmware_ring \
         supports_rf_transport_driver_queue \
         supports_rf_worker \
         supports_rf_worker_phy_plan \

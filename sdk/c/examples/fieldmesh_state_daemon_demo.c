@@ -1,3 +1,4 @@
+#include "fieldmesh_firmware_tun_bridge.h"
 #include "fieldmesh_sdk.h"
 
 #include <stdio.h>
@@ -24,6 +25,7 @@ typedef int socklen_t;
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -113,6 +115,11 @@ struct tun_memory_read_context {
 #define TUN_SERVICE_RF_QUEUE_PRESSURE_DEPTH \
     (TUN_SERVICE_RF_QUEUE_DEPTH - TUN_SERVICE_RF_QUEUE_CONTROL_RESERVE)
 #define TUN_SERVICE_RF_BULK_PRIORITY_MAX 5u
+#define TUN_SERVICE_FW_RING_SLOTS 16u
+#define TUN_SERVICE_FW_RING_PACKET_STRIDE 1536u
+#define TUN_SERVICE_FW_RING_ARENA_BYTES \
+    (TUN_SERVICE_FW_RING_SLOTS * TUN_SERVICE_FW_RING_PACKET_STRIDE)
+#define TUN_SERVICE_FW_RING_APERTURE_BYTES 0x10000u
 
 struct tun_service_rf_queue {
     unsigned char frames[TUN_SERVICE_RF_QUEUE_DEPTH][TUN_SERVICE_RF_FRAME_MAX];
@@ -181,6 +188,22 @@ struct tun_service_state {
     uint32_t rf_tx_queue_priority_drops;
     uint32_t rf_tx_queue_pressure_drops;
     uint32_t rf_tx_tcp_duplicate_suppression;
+    uint32_t firmware_ring_enabled;
+    uint32_t firmware_ring_mapped;
+    uint32_t firmware_ring_loopback;
+    uint32_t firmware_ring_pumped;
+    uint32_t firmware_ring_served;
+    uint32_t firmware_ring_drained;
+    uint32_t firmware_ring_errors;
+    uint32_t firmware_ring_bytes_enqueued;
+    uint32_t firmware_ring_bytes_drained;
+    int firmware_ring_fd;
+    void *firmware_ring_base;
+    uint32_t firmware_ring_bytes;
+    char firmware_ring_device[64];
+    fieldmesh_fw_ring_linear_layout_t firmware_ring_layout;
+    fieldmesh_fw_ring_view_t firmware_ring;
+    fieldmesh_fw_packet_bridge_t firmware_bridge;
     struct tun_service_tcp_flow rf_tx_control_flow;
     uint32_t rf_tx_control_flow_learned;
     uint64_t recent_acked_tcp_signatures[TUN_SERVICE_RECENT_TCP_SIGNATURES];
@@ -1844,6 +1867,134 @@ static fieldmesh_status_t write_tun_fd_once(void *user,
 #endif
 }
 
+static void tun_service_close_firmware_ring(struct tun_service_state *service)
+{
+    if (!service) {
+        return;
+    }
+#if defined(__linux__)
+    if (service->firmware_ring_base && service->firmware_ring_bytes > 0u) {
+        (void)munmap(service->firmware_ring_base, service->firmware_ring_bytes);
+    }
+    if (service->firmware_ring_fd >= 0) {
+        close(service->firmware_ring_fd);
+    }
+#endif
+    service->firmware_ring_fd = -1;
+    service->firmware_ring_base = NULL;
+    service->firmware_ring_bytes = 0u;
+    service->firmware_ring_enabled = 0u;
+    service->firmware_ring_mapped = 0u;
+    service->firmware_ring_loopback = 0u;
+    service->firmware_ring_pumped = 0u;
+    service->firmware_ring_served = 0u;
+    service->firmware_ring_drained = 0u;
+    service->firmware_ring_errors = 0u;
+    service->firmware_ring_bytes_enqueued = 0u;
+    service->firmware_ring_bytes_drained = 0u;
+    service->firmware_ring_device[0] = '\0';
+    memset(&service->firmware_ring_layout, 0,
+           sizeof(service->firmware_ring_layout));
+    memset(&service->firmware_ring, 0, sizeof(service->firmware_ring));
+    memset(&service->firmware_bridge, 0, sizeof(service->firmware_bridge));
+}
+
+static int tun_service_open_firmware_ring(struct tun_service_state *service,
+                                          const char *device_path,
+                                          int *out_errno)
+{
+#if !defined(__linux__)
+    (void)service;
+    (void)device_path;
+    if (out_errno) {
+        *out_errno = ENOSYS;
+    }
+    return -1;
+#else
+    fieldmesh_fw_packet_bridge_config_t bridge_config;
+    int fd;
+    void *base;
+
+    if (!service || !device_path || device_path[0] == '\0') {
+        if (out_errno) {
+            *out_errno = EINVAL;
+        }
+        return -1;
+    }
+    if (!fieldmesh_fw_ring_linear_layout_init(&service->firmware_ring_layout,
+                                              TUN_SERVICE_FW_RING_SLOTS,
+                                              TUN_SERVICE_FW_RING_ARENA_BYTES,
+                                              TUN_SERVICE_FW_RING_PACKET_STRIDE)) {
+        if (out_errno) {
+            *out_errno = EINVAL;
+        }
+        return -1;
+    }
+    if (service->firmware_ring_layout.total_bytes >
+        TUN_SERVICE_FW_RING_APERTURE_BYTES) {
+        if (out_errno) {
+            *out_errno = EOVERFLOW;
+        }
+        return -1;
+    }
+    fd = open(device_path, O_RDWR | O_SYNC);
+    if (fd < 0) {
+        if (out_errno) {
+            *out_errno = errno;
+        }
+        return -1;
+    }
+    base = mmap(NULL, service->firmware_ring_layout.total_bytes,
+                PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (base == MAP_FAILED) {
+        if (out_errno) {
+            *out_errno = errno;
+        }
+        close(fd);
+        return -1;
+    }
+    service->firmware_ring_fd = fd;
+    service->firmware_ring_base = base;
+    service->firmware_ring_bytes = service->firmware_ring_layout.total_bytes;
+    if (!fieldmesh_fw_ring_bind_linear(&service->firmware_ring, base,
+                                       service->firmware_ring_bytes,
+                                       TUN_SERVICE_FW_RING_SLOTS,
+                                       TUN_SERVICE_FW_RING_ARENA_BYTES,
+                                       TUN_SERVICE_FW_RING_PACKET_STRIDE,
+                                       NULL)) {
+        if (out_errno) {
+            *out_errno = EINVAL;
+        }
+        tun_service_close_firmware_ring(service);
+        return -1;
+    }
+    fieldmesh_fw_ring_reset(&service->firmware_ring);
+    memset(&bridge_config, 0, sizeof(bridge_config));
+    bridge_config.peer_index = 1u;
+    bridge_config.default_mcs = 0u;
+    bridge_config.retry_budget = 3u;
+    bridge_config.deadline_ticks = 0u;
+    if (!fieldmesh_fw_packet_bridge_init(&service->firmware_bridge,
+                                         &service->firmware_ring,
+                                         &bridge_config)) {
+        if (out_errno) {
+            *out_errno = EINVAL;
+        }
+        tun_service_close_firmware_ring(service);
+        return -1;
+    }
+    service->firmware_ring_enabled = 1u;
+    service->firmware_ring_mapped = 1u;
+    service->firmware_ring_loopback = 1u;
+    snprintf(service->firmware_ring_device, sizeof(service->firmware_ring_device),
+             "%s", device_path);
+    if (out_errno) {
+        *out_errno = 0;
+    }
+    return 0;
+#endif
+}
+
 static int open_live_tun_read_fd(const char *ifname, int *out_fd, int *out_errno)
 {
 #if defined(_WIN32) || !defined(__linux__)
@@ -1927,6 +2078,7 @@ static void tun_service_close(struct tun_service_state *service)
     if (!service) {
         return;
     }
+    tun_service_close_firmware_ring(service);
     if (service->adapter) {
         (void)fieldmesh_close_adapter(service->adapter);
         service->adapter = NULL;
@@ -1956,6 +2108,8 @@ static int tun_service_open(fieldmesh_session_t *session,
                             enum tun_service_rf_transport_mode rf_transport_mode,
                             uint32_t max_packets_per_tick,
                             uint32_t tcp_duplicate_suppression,
+                            uint32_t firmware_ring_enabled,
+                            const char *firmware_ring_device,
                             int *out_errno)
 {
     fieldmesh_adapter_config_t adapter_config = {
@@ -2036,6 +2190,25 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->rf_tx_queue_pressure_drops = 0u;
     service->rf_tx_tcp_duplicate_suppression =
         tcp_duplicate_suppression != 0u ? 1u : 0u;
+    service->firmware_ring_fd = -1;
+    if (firmware_ring_enabled &&
+        tun_service_open_firmware_ring(service, firmware_ring_device,
+                                       &tun_errno) != 0) {
+#if !defined(_WIN32)
+        close(fd);
+#endif
+        service->fd = -1;
+        if (service->adapter) {
+            (void)fieldmesh_close_adapter(service->adapter);
+            service->adapter = NULL;
+        }
+        service->last_status = FIELDMESH_ERR_TRANSPORT;
+        service->last_errno = tun_errno;
+        if (out_errno) {
+            *out_errno = tun_errno;
+        }
+        return -1;
+    }
     memset(&service->rf_tx_control_flow, 0,
            sizeof(service->rf_tx_control_flow));
     service->rf_tx_control_flow_learned = 0u;
@@ -2213,6 +2386,81 @@ static fieldmesh_status_t tun_service_ingest_rf_rx_frames(
     return FIELDMESH_OK;
 }
 
+static fieldmesh_status_t tun_service_firmware_ring_tick(
+    struct tun_service_state *service)
+{
+    unsigned char packet_buffer[TUN_SERVICE_FW_RING_PACKET_STRIDE];
+    struct tun_fd_read_context read_ctx;
+    fieldmesh_fw_tun_reader_t reader;
+    fieldmesh_fw_tun_writer_t writer;
+    int pumped;
+    int served;
+    int drained;
+
+    if (!service || !service->running || service->fd < 0 ||
+        !service->firmware_ring_enabled ||
+        !fieldmesh_fw_ring_config_valid(&service->firmware_ring) ||
+        service->max_packets_per_tick == 0u) {
+        return FIELDMESH_ERR_INVALID_ARG;
+    }
+
+    memset(&read_ctx, 0, sizeof(read_ctx));
+    read_ctx.fd = service->fd;
+    read_ctx.wait_ms = 0u;
+    reader.read_packet = read_tun_fd_wait_once;
+    reader.user = &read_ctx;
+    writer.write_packet = write_tun_fd_once;
+    writer.user = &service->fd;
+
+    pumped = fieldmesh_fw_packet_bridge_pump_many(
+        &service->firmware_bridge, fieldmesh_fw_tun_read_packet, &reader,
+        packet_buffer, sizeof(packet_buffer), service->max_packets_per_tick);
+    if (pumped < 0) {
+        service->firmware_ring_errors++;
+        service->last_errno = read_ctx.last_errno;
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    service->firmware_ring_pumped += (uint32_t)pumped;
+    service->packets_pumped += (uint32_t)pumped;
+    service->packets_sent += (uint32_t)pumped;
+    service->bytes_read = service->firmware_bridge.bytes_enqueued;
+    service->bytes_sent = service->firmware_bridge.bytes_enqueued;
+
+    served = 0;
+    while ((uint32_t)served < service->max_packets_per_tick) {
+        int rc = fieldmesh_fw_ring_service_one(&service->firmware_ring,
+                                               -42 * 256, 24 * 256, 0,
+                                               service->ticks);
+        if (rc == 0) {
+            break;
+        }
+        if (rc < 0) {
+            service->firmware_ring_errors++;
+            return FIELDMESH_ERR_TRANSPORT;
+        }
+        served++;
+    }
+    service->firmware_ring_served += (uint32_t)served;
+
+    drained = fieldmesh_fw_packet_bridge_drain_ready(
+        &service->firmware_bridge, fieldmesh_fw_tun_write_packet, &writer,
+        service->max_packets_per_tick);
+    if (drained < 0) {
+        service->firmware_ring_errors++;
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+    service->firmware_ring_drained += (uint32_t)drained;
+    service->packets_received += (uint32_t)drained;
+    service->packets_written += (uint32_t)drained;
+    service->bytes_received = service->firmware_bridge.bytes_drained;
+    service->bytes_written = service->firmware_bridge.bytes_drained;
+    service->firmware_ring_bytes_enqueued =
+        service->firmware_bridge.bytes_enqueued;
+    service->firmware_ring_bytes_drained =
+        service->firmware_bridge.bytes_drained;
+    return FIELDMESH_OK;
+}
+
 static void tun_service_tick(struct tun_service_state *service)
 {
     unsigned char pump_buffer[1536];
@@ -2225,6 +2473,20 @@ static void tun_service_tick(struct tun_service_state *service)
 
     if (!service || !service->running || service->fd < 0 ||
         !service->adapter || service->max_packets_per_tick == 0u) {
+        return;
+    }
+    if (service->firmware_ring_enabled) {
+        pump_status = tun_service_firmware_ring_tick(service);
+        if (pump_status == FIELDMESH_OK) {
+            service->ticks++;
+            service->last_status = FIELDMESH_OK;
+        } else if (pump_status == FIELDMESH_ERR_TIMEOUT) {
+            service->recoverable_timeouts++;
+        } else {
+            service->errors++;
+            service->last_status = pump_status;
+            tun_service_close(service);
+        }
         return;
     }
     memset(&read_ctx, 0, sizeof(read_ctx));
@@ -4757,13 +5019,17 @@ static int build_response(fieldmesh_context_t *context,
         int allow_write = strstr(request, "ALLOW_LIVE_TUN_WRITE") != NULL;
         int allow_diagnostic_loopback =
             strstr(request, "ALLOW_DIAGNOSTIC_RF_LOOPBACK") != NULL;
+        int allow_firmware_ring_writes =
+            strstr(request, "ALLOW_FIRMWARE_RING_WRITES") != NULL;
         unsigned max_packets = 4u;
         unsigned tcp_duplicate_suppression = 1u;
+        unsigned firmware_ring = 0u;
         int tun_errno = 0;
         char hostname[FIELDMESH_NAME_TEXT_MAX];
         char local_device_eui[FIELDMESH_ID_TEXT_MAX];
         char dst_device_eui[FIELDMESH_ID_TEXT_MAX];
         char rf_transport[32];
+        char firmware_ring_device[64];
         enum tun_service_rf_transport_mode rf_transport_mode =
             TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE;
 
@@ -4775,8 +5041,13 @@ static int build_response(fieldmesh_context_t *context,
             !request_uint_or_default(request, "tcp_duplicate_suppression=",
                                      1u, 0u, 1u,
                                      &tcp_duplicate_suppression) ||
+            !request_uint_or_default(request, "firmware_ring=", 0u, 0u, 1u,
+                                     &firmware_ring) ||
             !request_text_or_default(request, "rf_transport=", "driver_queue",
                                      rf_transport, sizeof(rf_transport)) ||
+            !request_text_or_default(request, "ring_device=", "/dev/uio0",
+                                     firmware_ring_device,
+                                     sizeof(firmware_ring_device)) ||
             !text_in_set(rf_transport, "driver_queue", "diagnostic_loopback",
                          NULL, NULL)) {
             snprintf(response, response_len,
@@ -4799,6 +5070,22 @@ static int build_response(fieldmesh_context_t *context,
                 return 0;
             }
             rf_transport_mode = TUN_SERVICE_RF_TRANSPORT_DIAGNOSTIC_LOOPBACK;
+        }
+        if (firmware_ring && !allow_firmware_ring_writes) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_start_guard\","
+                     "\"ok\":false,"
+                     "\"error\":\"firmware_ring_requires_guard\","
+                     "\"requires_allow_firmware_ring_writes\":1,"
+                     "\"firmware_ring_supported\":1,"
+                     "\"firmware_ring_enabled\":0,"
+                     "\"firmware_ring_backend\":\"uio\","
+                     "\"firmware_ring_device\":\"%s\","
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\","
+                     "\"next_boundary\":\"daemon_owned_firmware_ring\"}\n",
+                     firmware_ring_device);
+            return 0;
         }
 
         if (!allow_read || !allow_write) {
@@ -4824,6 +5111,12 @@ static int build_response(fieldmesh_context_t *context,
                      "\"rf_tx_poll_api\":1,"
                      "\"rf_tx_lease_ack_api\":1,"
                      "\"rf_rx_ingest_api\":1,"
+                     "\"firmware_ring_supported\":1,"
+                     "\"firmware_ring_enabled\":%u,"
+                     "\"firmware_ring_backend\":\"%s\","
+                     "\"requires_allow_firmware_ring_writes\":%u,"
+                     "\"hot_path_language\":\"c\","
+                     "\"uses_json_on_air\":0,"
                      "\"rf_phy_tx_rx\":0,"
                      "\"rf_transport_mode\":\"%s\","
                      "\"rf_transport_queue_depth\":%u,"
@@ -4834,6 +5127,9 @@ static int build_response(fieldmesh_context_t *context,
                      "\"uses_inter_board_ip_routing\":0,"
                      "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
                      dst_device_eui, max_packets,
+                     firmware_ring,
+                     firmware_ring ? "uio" : "disabled",
+                     firmware_ring ? 1u : 0u,
                      tun_service_rf_transport_mode_name(rf_transport_mode),
                      (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH,
                      rf_transport_mode ==
@@ -4845,7 +5141,8 @@ static int build_response(fieldmesh_context_t *context,
         runtime_device_eui(hostname, local_device_eui, sizeof(local_device_eui));
         if (tun_service_open(session, tun_service, local_device_eui, dst_device_eui,
                              rf_transport_mode, max_packets,
-                             tcp_duplicate_suppression, &tun_errno) != 0) {
+                             tcp_duplicate_suppression, firmware_ring,
+                             firmware_ring_device, &tun_errno) != 0) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_tun_service_started\","
                      "\"ok\":0,"
@@ -4858,6 +5155,10 @@ static int build_response(fieldmesh_context_t *context,
                      "\"opens_dev_net_tun\":1,"
                      "\"attaches_tun_if\":0,"
                      "\"daemon_owned_state\":1,"
+                     "\"firmware_ring_supported\":1,"
+                     "\"firmware_ring_enabled\":%u,"
+                     "\"firmware_ring_backend\":\"%s\","
+                     "\"firmware_ring_device\":\"%s\","
                      "\"continuous_service\":0,"
                      "\"commands_executed\":0,"
                      "\"writes_network\":0,"
@@ -4866,7 +5167,10 @@ static int build_response(fieldmesh_context_t *context,
                      dst_device_eui, max_packets, tun_errno,
                      tun_service ?
                          fieldmesh_status_string(tun_service->last_status) :
-                         fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG));
+                         fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG),
+                     firmware_ring,
+                     firmware_ring ? "uio" : "disabled",
+                     firmware_ring ? firmware_ring_device : "");
             return 0;
         }
 
@@ -4885,6 +5189,16 @@ static int build_response(fieldmesh_context_t *context,
                  "\"reads_from_tun\":1,"
                  "\"writes_to_tun\":1,"
                  "\"daemon_owned_state\":1,"
+                 "\"firmware_ring_supported\":1,"
+                 "\"firmware_ring_enabled\":%u,"
+                 "\"firmware_ring_mapped\":%u,"
+                 "\"firmware_ring_backend\":\"%s\","
+                 "\"firmware_ring_device\":\"%s\","
+                 "\"firmware_ring_bytes\":%u,"
+                 "\"firmware_ring_slots\":%u,"
+                 "\"firmware_ring_packet_stride\":%u,"
+                 "\"hot_path_language\":\"c\","
+                 "\"uses_json_on_air\":0,"
                  "\"continuous_service\":1,"
                  "\"event_loop_ready\":1,"
                  "\"poll_loop_active\":1,"
@@ -4903,6 +5217,15 @@ static int build_response(fieldmesh_context_t *context,
                  "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
                  local_device_eui, dst_device_eui, max_packets,
                  tcp_duplicate_suppression,
+                 tun_service ? tun_service->firmware_ring_enabled : 0u,
+                 tun_service ? tun_service->firmware_ring_mapped : 0u,
+                 tun_service && tun_service->firmware_ring_enabled ?
+                     "uio" : "disabled",
+                 tun_service && tun_service->firmware_ring_enabled ?
+                     tun_service->firmware_ring_device : "",
+                 tun_service ? tun_service->firmware_ring_bytes : 0u,
+                 (unsigned)TUN_SERVICE_FW_RING_SLOTS,
+                 (unsigned)TUN_SERVICE_FW_RING_PACKET_STRIDE,
                  rf_transport_mode ==
                      TUN_SERVICE_RF_TRANSPORT_DIAGNOSTIC_LOOPBACK ? 1u : 0u,
                  tun_service_rf_transport_mode_name(rf_transport_mode),
@@ -4927,8 +5250,13 @@ static int build_response(fieldmesh_context_t *context,
                      "\"rf_tx_queue_pressure_drops\":%u,"
                      "\"rf_driver_frames_leased\":%u,"
                      "\"rf_driver_frames_acked\":%u,"
-                     "\"rf_driver_frames_ingested\":%u,"
-                     "\"rf_transport_mode\":\"%s\"}\n",
+	                     "\"rf_driver_frames_ingested\":%u,"
+	                     "\"firmware_ring_enabled\":%u,"
+	                     "\"firmware_ring_mapped\":%u,"
+	                     "\"firmware_ring_pumped\":%u,"
+	                     "\"firmware_ring_served\":%u,"
+	                     "\"firmware_ring_drained\":%u,"
+	                     "\"rf_transport_mode\":\"%s\"}\n",
                      tun_service && tun_service->running ? 1u : 0u,
                      tun_service ? tun_service->packets_written : 0u,
                      tun_service ? tun_service->packets_pumped : 0u,
@@ -4943,8 +5271,13 @@ static int build_response(fieldmesh_context_t *context,
                      tun_service ? tun_service->rf_tx_queue_priority_drops : 0u,
                      tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,
                      tun_service ? tun_service->rf_driver_frames_leased : 0u,
-                     tun_service ? tun_service->rf_driver_frames_acked : 0u,
-                     tun_service ? tun_service->rf_driver_frames_ingested : 0u,
+	                     tun_service ? tun_service->rf_driver_frames_acked : 0u,
+	                     tun_service ? tun_service->rf_driver_frames_ingested : 0u,
+	                     tun_service ? tun_service->firmware_ring_enabled : 0u,
+	                     tun_service ? tun_service->firmware_ring_mapped : 0u,
+	                     tun_service ? tun_service->firmware_ring_pumped : 0u,
+	                     tun_service ? tun_service->firmware_ring_served : 0u,
+	                     tun_service ? tun_service->firmware_ring_drained : 0u,
                      tun_service ?
                          tun_service_rf_transport_mode_name(
                              tun_service->rf_transport_mode) :
@@ -4992,6 +5325,22 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_tx_queue_pressure_drops\":%u,"
                  "\"rf_tx_tcp_duplicate_suppression\":%u,"
                  "\"rf_tx_control_flow_learned\":%u,"
+                 "\"firmware_ring_supported\":1,"
+                 "\"firmware_ring_enabled\":%u,"
+                 "\"firmware_ring_mapped\":%u,"
+                 "\"firmware_ring_loopback\":%u,"
+                 "\"firmware_ring_device\":\"%s\","
+                 "\"firmware_ring_bytes\":%u,"
+                 "\"firmware_ring_slots\":%u,"
+                 "\"firmware_ring_packet_stride\":%u,"
+                 "\"firmware_ring_pumped\":%u,"
+                 "\"firmware_ring_served\":%u,"
+                 "\"firmware_ring_drained\":%u,"
+                 "\"firmware_ring_errors\":%u,"
+                 "\"firmware_ring_bytes_enqueued\":%u,"
+                 "\"firmware_ring_bytes_drained\":%u,"
+                 "\"hot_path_language\":\"c\","
+                 "\"uses_json_on_air\":0,"
                  "\"poll_wakeups\":%u,"
                  "\"idle_ticks\":%u,"
                  "\"recoverable_timeouts\":%u,"
@@ -5052,6 +5401,20 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,
                  tun_service ? tun_service->rf_tx_tcp_duplicate_suppression : 1u,
                  tun_service ? tun_service->rf_tx_control_flow_learned : 0u,
+                 tun_service ? tun_service->firmware_ring_enabled : 0u,
+                 tun_service ? tun_service->firmware_ring_mapped : 0u,
+                 tun_service ? tun_service->firmware_ring_loopback : 0u,
+                 tun_service && tun_service->firmware_ring_device[0] != '\0' ?
+                     tun_service->firmware_ring_device : "",
+                 tun_service ? tun_service->firmware_ring_bytes : 0u,
+                 (unsigned)TUN_SERVICE_FW_RING_SLOTS,
+                 (unsigned)TUN_SERVICE_FW_RING_PACKET_STRIDE,
+                 tun_service ? tun_service->firmware_ring_pumped : 0u,
+                 tun_service ? tun_service->firmware_ring_served : 0u,
+                 tun_service ? tun_service->firmware_ring_drained : 0u,
+                 tun_service ? tun_service->firmware_ring_errors : 0u,
+                 tun_service ? tun_service->firmware_ring_bytes_enqueued : 0u,
+                 tun_service ? tun_service->firmware_ring_bytes_drained : 0u,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,
@@ -6137,6 +6500,16 @@ static int build_response(fieldmesh_context_t *context,
             tun_service ? tun_service->rf_tx_tcp_duplicate_suppression : 1u;
         uint32_t rf_tx_control_flow_learned =
             tun_service ? tun_service->rf_tx_control_flow_learned : 0u;
+        uint32_t firmware_ring_enabled =
+            tun_service ? tun_service->firmware_ring_enabled : 0u;
+        uint32_t firmware_ring_pumped =
+            tun_service ? tun_service->firmware_ring_pumped : 0u;
+        uint32_t firmware_ring_served =
+            tun_service ? tun_service->firmware_ring_served : 0u;
+        uint32_t firmware_ring_drained =
+            tun_service ? tun_service->firmware_ring_drained : 0u;
+        uint32_t firmware_ring_errors =
+            tun_service ? tun_service->firmware_ring_errors : 0u;
         uint32_t ticks = tun_service ? tun_service->ticks : 0u;
         uint32_t rf_worker_was_running =
             rf_worker && rf_worker->running ? 1u : 0u;
@@ -6164,6 +6537,13 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_tx_queue_pressure_drops\":%u,"
                  "\"rf_tx_tcp_duplicate_suppression\":%u,"
                  "\"rf_tx_control_flow_learned\":%u,"
+                 "\"firmware_ring_enabled\":%u,"
+                 "\"firmware_ring_pumped\":%u,"
+                 "\"firmware_ring_served\":%u,"
+                 "\"firmware_ring_drained\":%u,"
+                 "\"firmware_ring_errors\":%u,"
+                 "\"hot_path_language\":\"c\","
+                 "\"uses_json_on_air\":0,"
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"poll_loop_active\":0,"
@@ -6186,7 +6566,10 @@ static int build_response(fieldmesh_context_t *context,
                  rf_tx_queue_priority_drops,
                  rf_tx_queue_pressure_drops,
                  rf_tx_tcp_duplicate_suppression,
-                 rf_tx_control_flow_learned, rf_worker_was_running,
+                 rf_tx_control_flow_learned, firmware_ring_enabled,
+                 firmware_ring_pumped, firmware_ring_served,
+                 firmware_ring_drained, firmware_ring_errors,
+                 rf_worker_was_running,
                  tun_service ?
                      tun_service_rf_transport_mode_name(
                          tun_service->rf_transport_mode) :
@@ -7104,6 +7487,7 @@ static int serve_state(const char *bind_ip,
     memset(&tun_service, 0, sizeof(tun_service));
     memset(&rf_worker, 0, sizeof(rf_worker));
     tun_service.fd = -1;
+    tun_service.firmware_ring_fd = -1;
     tun_service.last_status = FIELDMESH_OK;
     rf_worker.last_status = FIELDMESH_OK;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);

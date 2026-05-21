@@ -295,7 +295,15 @@ bounded packet buffer, binary descriptors, and packet bytes. The matching
 path without IIO, JSON-on-air, inter-board IP routing, or vendor runtime code.
 The probe also supports file-backed `mmap` and guarded `/dev/uioN` modes, so
 the same TUN callback chain can be proven against mapped PL packet memory
-before the daemon owns a continuous live TUN service.
+before the daemon owns a continuous live TUN service. The state daemon now has
+an explicit guarded `firmware_ring=1` TUN-service mode that maps `/dev/uio0`,
+keeps `/dev/net/tun` fd ownership in daemon state, and executes the same
+`fieldmesh_tun_read_callback_t -> firmware packet bridge -> mapped firmware ring
+-> fieldmesh_tun_write_callback_t` path from the daemon tick loop. The default
+service still uses the existing RF driver queue until the PL MAC owns packet
+timing and RF TX/RX. The daemon ring layout is intentionally bounded to 16
+packet slots and 50,712 mapped bytes so it fits inside the current 64 KiB
+`fieldmesh-ring@43c30000` aperture.
 
 ## MAC Design
 

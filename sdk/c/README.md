@@ -76,7 +76,12 @@ in `src/fieldmesh_sdk.c`:
   control priority, and packet drain back to a TUN-style writer. Its
   `--image PATH --loopback --allow-writes` and `--device /dev/uioN --loopback
   --allow-writes` modes run the same callback path over mapped packet memory,
-  matching the live PL aperture contract.
+  matching the live PL aperture contract. `fieldmesh-state-daemon-demo` can now
+  start a guarded `FIELDMESH_TUN_SERVICE_START ... firmware_ring=1
+  ring_device=/dev/uio0` mode so the daemon owns the TUN fd and mapped firmware
+  ring while the firmware ABI still sees only callbacks, descriptors, and packet
+  bytes. The live daemon layout is 16 packet slots and 50,712 mapped bytes,
+  fitting the current 64 KiB PL aperture.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.
