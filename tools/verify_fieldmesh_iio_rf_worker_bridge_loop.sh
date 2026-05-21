@@ -204,6 +204,26 @@ finally:
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_async_ack_check", "ok": True}, sort_keys=True))
 PY
 
+python3 - "$repo_root/sdk/c/examples/fieldmesh_state_daemon_demo.c" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "rf_tx_queue_priority_drops",
+    "rf_tx_queue_pressure_drops",
+    "rf_tx_control_flow_learned",
+    "candidate_score > lowest_score",
+    "TUN_SERVICE_RF_QUEUE_PRESSURE_DEPTH",
+    "tun_service_rf_queue_drop_at(&service->rf_tx_queue",
+    "fieldmesh_tun_packetizer_pump_many(",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"daemon RF backlog priority admission tokens missing: {missing}")
+print('{"event":"fieldmesh_daemon_rf_backlog_priority_admission_check","ok":true}')
+PY
+
 "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
   --live-plan "$work_dir/dry-run-loop/frame-0000-z203-to-z103/iq-iio-live-plan.json" \
   --out-dir "$work_dir/dry-run-skip-rf-config" \

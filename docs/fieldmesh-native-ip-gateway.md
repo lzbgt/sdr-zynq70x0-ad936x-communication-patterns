@@ -87,6 +87,14 @@ to be Ethernet or Wi-Fi. The gateway is responsible for:
   smaller than the IP packet;
 - ACK and small-control-packet prioritization so TCP does not self-collapse
   under asymmetric load;
+- RF queue pressure must not stop the daemon from reading `swarm0`. When the
+  RF TX queue is full, the daemon keeps pumping bounded TUN packets and can
+  evict lower-priority queued data to admit higher-priority TCP
+  control/control-flow frames. These admissions are observable through
+  `rf_tx_queue_priority_drops` and `rf_tx_control_flow_learned`. Once a TCP
+  control flow is learned, the daemon also reserves RF queue headroom under
+  pressure by dropping bulk/test-data frames before they consume every slot;
+  this is reported as `rf_tx_queue_pressure_drops`;
 - duplicate and stale-fragment suppression;
 - route failover without silently reordering active flows beyond the configured
   window;

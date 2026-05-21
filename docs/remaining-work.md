@@ -176,7 +176,20 @@ The first live continuation run moved 95 real-RF frames and proved the UDP
 phase reaches the RF bridge, but UDP `iperf3` also failed because the low-rate
 burst bridge let UDP data backlog the Z203 RF TX queue while iperf's TCP
 control/result channel remained undrained.
-control exchanges on the current high-RTT burst bridge.
+The daemon now treats this as an admission-control problem instead of a fatal
+queue-full condition: it keeps reading `swarm0` under RF TX backlog and can
+drop lower-priority queued data to admit later TCP control/control-flow frames.
+It also reserves queue headroom for learned TCP control traffic by dropping
+bulk/test-data frames under RF queue pressure. `rf_tx_queue_priority_drops`,
+`rf_tx_queue_pressure_drops`, and `rf_tx_control_flow_learned` expose whether
+those paths were exercised during HIL. The next installed-board run should
+verify whether this drains the final iperf control exchange on the current
+high-RTT burst bridge, or whether the remaining fix must be a true streaming RF
+data plane. The first pressure-drop HIL run exercised that path on Z203
+(`rf_tx_queue_pressure_drops=20`) and capped the observed Z203 RF TX queue at
+12 instead of 16. It moved 93 real-RF frames and the UDP client completed, but
+the Z103 UDP server stayed alive on the test port; the next software target is
+the reverse/result drain and async-ACK failure path, not RF installation.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

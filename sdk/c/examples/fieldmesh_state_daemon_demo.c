@@ -108,6 +108,11 @@ struct tun_memory_read_context {
 #define TUN_SERVICE_RF_QUEUE_DEPTH 16u
 #define TUN_SERVICE_RF_FRAME_MAX 2048u
 #define TUN_SERVICE_RECENT_TCP_SIGNATURES 16u
+#define TUN_SERVICE_RF_QUEUE_CONTROL_RESERVE \
+    ((TUN_SERVICE_RF_QUEUE_DEPTH + 3u) / 4u)
+#define TUN_SERVICE_RF_QUEUE_PRESSURE_DEPTH \
+    (TUN_SERVICE_RF_QUEUE_DEPTH - TUN_SERVICE_RF_QUEUE_CONTROL_RESERVE)
+#define TUN_SERVICE_RF_BULK_PRIORITY_MAX 5u
 
 struct tun_service_rf_queue {
     unsigned char frames[TUN_SERVICE_RF_QUEUE_DEPTH][TUN_SERVICE_RF_FRAME_MAX];
@@ -171,6 +176,8 @@ struct tun_service_state {
     uint32_t rf_tx_queue_drops;
     uint32_t rf_rx_queue_drops;
     uint32_t rf_tx_queue_duplicate_drops;
+    uint32_t rf_tx_queue_priority_drops;
+    uint32_t rf_tx_queue_pressure_drops;
     uint32_t rf_tx_tcp_duplicate_suppression;
     struct tun_service_tcp_flow rf_tx_control_flow;
     uint32_t rf_tx_control_flow_learned;
@@ -195,6 +202,14 @@ struct rf_worker_state {
     uint32_t errors;
     fieldmesh_status_t last_status;
 };
+
+static int tun_service_rf_queue_peek_at(const struct tun_service_rf_queue *queue,
+                                        size_t offset,
+                                        unsigned char *frame,
+                                        size_t frame_capacity,
+                                        size_t *out_frame_len);
+static int tun_service_rf_queue_drop_at(struct tun_service_rf_queue *queue,
+                                        size_t offset);
 
 static void put_be16(unsigned char *dst, uint16_t value)
 {
@@ -699,6 +714,7 @@ static int tun_service_rf_tx_queue_push(struct tun_service_state *service,
     size_t tcp_payload_len = 0u;
     struct tun_service_tcp_flow tcp_flow = {0};
     unsigned char tcp_flags = 0u;
+    unsigned candidate_score = 1u;
 
     if (!service) {
         return 0;
@@ -724,7 +740,55 @@ static int tun_service_rf_tx_queue_push(struct tun_service_state *service,
         service->rf_tx_queue_duplicate_drops++;
         return 1;
     }
-    return tun_service_rf_queue_push(&service->rf_tx_queue, frame, frame_len);
+    candidate_score = blr_app_data_priority_score(
+        frame, frame_len, TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW,
+        &service->rf_tx_control_flow);
+    if (service->rf_tx_control_flow.valid &&
+        service->rf_tx_queue.count >= TUN_SERVICE_RF_QUEUE_PRESSURE_DEPTH &&
+        candidate_score <= TUN_SERVICE_RF_BULK_PRIORITY_MAX) {
+        service->rf_tx_queue_pressure_drops++;
+        return 0;
+    }
+    if (tun_service_rf_queue_push(&service->rf_tx_queue, frame, frame_len)) {
+        return 1;
+    }
+    if (tun_service_rf_queue_full(&service->rf_tx_queue)) {
+        unsigned lowest_score = candidate_score;
+        size_t lowest_offset = TUN_SERVICE_RF_QUEUE_DEPTH;
+        size_t i;
+
+        for (i = 0u; i < service->rf_tx_queue.count; ++i) {
+            unsigned char queued[TUN_SERVICE_RF_FRAME_MAX];
+            size_t queued_len = 0u;
+            unsigned score;
+
+            if (!tun_service_rf_queue_peek_at(&service->rf_tx_queue, i,
+                                               queued, sizeof(queued),
+                                               &queued_len)) {
+                continue;
+            }
+            score = blr_app_data_priority_score(
+                queued, queued_len,
+                TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW,
+                &service->rf_tx_control_flow);
+            if (lowest_offset == TUN_SERVICE_RF_QUEUE_DEPTH ||
+                score < lowest_score) {
+                lowest_score = score;
+                lowest_offset = i;
+            }
+        }
+        if (lowest_offset != TUN_SERVICE_RF_QUEUE_DEPTH &&
+            candidate_score > lowest_score &&
+            tun_service_rf_queue_drop_at(&service->rf_tx_queue,
+                                         lowest_offset) &&
+            tun_service_rf_queue_push(&service->rf_tx_queue, frame,
+                                      frame_len)) {
+            service->rf_tx_queue_drops++;
+            service->rf_tx_queue_priority_drops++;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static int tun_service_rf_queue_pop(struct tun_service_rf_queue *queue,
@@ -858,6 +922,19 @@ static int tun_service_rf_queue_drop_head(struct tun_service_rf_queue *queue)
     queue->head = (queue->head + 1u) % TUN_SERVICE_RF_QUEUE_DEPTH;
     queue->count--;
     return 1;
+}
+
+static int tun_service_rf_queue_drop_at(struct tun_service_rf_queue *queue,
+                                        size_t offset)
+{
+    unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
+    size_t frame_len = 0u;
+
+    if (!queue || offset >= queue->count) {
+        return 0;
+    }
+    return tun_service_rf_queue_pop_at(queue, offset, frame, sizeof(frame),
+                                       &frame_len);
 }
 
 static int tun_service_rf_queue_drop_prefix(struct tun_service_rf_queue *queue,
@@ -1870,8 +1947,13 @@ static int tun_service_open(fieldmesh_session_t *session,
     service->rf_tx_queue_drops = 0u;
     service->rf_rx_queue_drops = 0u;
     service->rf_tx_queue_duplicate_drops = 0u;
+    service->rf_tx_queue_priority_drops = 0u;
+    service->rf_tx_queue_pressure_drops = 0u;
     service->rf_tx_tcp_duplicate_suppression =
         tcp_duplicate_suppression != 0u ? 1u : 0u;
+    memset(&service->rf_tx_control_flow, 0,
+           sizeof(service->rf_tx_control_flow));
+    service->rf_tx_control_flow_learned = 0u;
     memset(service->recent_acked_tcp_signatures, 0,
            sizeof(service->recent_acked_tcp_signatures));
     service->recent_acked_tcp_signature_next = 0u;
@@ -1910,9 +1992,6 @@ static fieldmesh_status_t tun_service_queue_rf_egress_frames(
     for (i = 0u; i < max_packets; ++i) {
         fieldmesh_status_t status;
 
-        if (tun_service_rf_queue_full(&service->rf_tx_queue)) {
-            return FIELDMESH_OK;
-        }
         payload_len = 0u;
         status = fieldmesh_adapter_recv_packet(service->adapter, payload,
                                                sizeof(payload), &payload_len,
@@ -1933,7 +2012,7 @@ static fieldmesh_status_t tun_service_queue_rf_egress_frames(
         if (!tun_service_rf_tx_queue_push(service, egress_frame,
                                           egress_frame_len)) {
             service->rf_tx_queue_drops++;
-            return FIELDMESH_ERR_NO_MEMORY;
+            continue;
         }
         service->rf_frames_egressed++;
         service->rf_frame_bytes_egressed += (uint32_t)egress_frame_len;
@@ -2066,24 +2145,22 @@ static void tun_service_tick(struct tun_service_state *service)
     memset(&read_ctx, 0, sizeof(read_ctx));
     read_ctx.fd = service->fd;
     read_ctx.wait_ms = 0u;
-    if (!tun_service_rf_queue_full(&service->rf_tx_queue)) {
-        pump_status = fieldmesh_tun_packetizer_pump_many(
-            service->adapter, read_tun_fd_wait_once, &read_ctx, pump_buffer,
-            sizeof(pump_buffer), service->max_packets_per_tick, &pump_report);
-        if (pump_status == FIELDMESH_OK) {
-            service->packets_pumped += pump_report.packets_read;
-            service->packets_sent += pump_report.packets_sent;
-            service->bytes_read += pump_report.bytes_read;
-            service->bytes_sent += pump_report.bytes_sent;
-        } else if (pump_status == FIELDMESH_ERR_TIMEOUT) {
-            service->recoverable_timeouts++;
-        } else {
-            service->errors++;
-            service->last_status = pump_status;
-            service->last_errno = read_ctx.last_errno;
-            tun_service_close(service);
-            return;
-        }
+    pump_status = fieldmesh_tun_packetizer_pump_many(
+        service->adapter, read_tun_fd_wait_once, &read_ctx, pump_buffer,
+        sizeof(pump_buffer), service->max_packets_per_tick, &pump_report);
+    if (pump_status == FIELDMESH_OK) {
+        service->packets_pumped += pump_report.packets_read;
+        service->packets_sent += pump_report.packets_sent;
+        service->bytes_read += pump_report.bytes_read;
+        service->bytes_sent += pump_report.bytes_sent;
+    } else if (pump_status == FIELDMESH_ERR_TIMEOUT) {
+        service->recoverable_timeouts++;
+    } else {
+        service->errors++;
+        service->last_status = pump_status;
+        service->last_errno = read_ctx.last_errno;
+        tun_service_close(service);
+        return;
     }
 
     drain_status = tun_service_queue_rf_egress_frames(
@@ -4771,7 +4848,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_tx_queue_drops\":%u,"
                  "\"rf_rx_queue_drops\":%u,"
                  "\"rf_tx_queue_duplicate_drops\":%u,"
+                 "\"rf_tx_queue_priority_drops\":%u,"
+                 "\"rf_tx_queue_pressure_drops\":%u,"
                  "\"rf_tx_tcp_duplicate_suppression\":%u,"
+                 "\"rf_tx_control_flow_learned\":%u,"
                  "\"poll_wakeups\":%u,"
                  "\"idle_ticks\":%u,"
                  "\"recoverable_timeouts\":%u,"
@@ -4828,7 +4908,10 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_tx_queue_drops : 0u,
                  tun_service ? tun_service->rf_rx_queue_drops : 0u,
                  tun_service ? tun_service->rf_tx_queue_duplicate_drops : 0u,
+                 tun_service ? tun_service->rf_tx_queue_priority_drops : 0u,
+                 tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,
                  tun_service ? tun_service->rf_tx_tcp_duplicate_suppression : 1u,
+                 tun_service ? tun_service->rf_tx_control_flow_learned : 0u,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,
@@ -4930,7 +5013,12 @@ static int build_response(fieldmesh_context_t *context,
                  "\"last_status\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_rx_queue_depth\":%u,"
+                 "\"rf_tx_queue_drops\":%u,"
+                 "\"rf_tx_queue_priority_drops\":%u,"
+                 "\"rf_tx_queue_pressure_drops\":%u,"
+                 "\"rf_tx_control_flow_learned\":%u,"
                  "\"rf_tx_lease_ack_api\":1,"
                  "\"rf_rx_ingest_api\":1,"
                  "\"rf_phy_tx_rx\":0,"
@@ -4956,7 +5044,13 @@ static int build_response(fieldmesh_context_t *context,
                      tun_service_rf_transport_mode_name(
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE),
                  tun_service ? (unsigned)tun_service->rf_tx_queue.count : 0u,
-                 tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u);
+                 tun_service ?
+                     (unsigned)tun_service->rf_tx_lease_queue.count : 0u,
+                 tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u,
+                 tun_service ? tun_service->rf_tx_queue_drops : 0u,
+                 tun_service ? tun_service->rf_tx_queue_priority_drops : 0u,
+                 tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,
+                 tun_service ? tun_service->rf_tx_control_flow_learned : 0u);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_WORKER_PHY_PLAN")) {
@@ -5895,8 +5989,14 @@ static int build_response(fieldmesh_context_t *context,
             tun_service ? (uint32_t)tun_service->rf_tx_lease_queue.count : 0u;
         uint32_t rf_tx_queue_duplicate_drops =
             tun_service ? tun_service->rf_tx_queue_duplicate_drops : 0u;
+        uint32_t rf_tx_queue_priority_drops =
+            tun_service ? tun_service->rf_tx_queue_priority_drops : 0u;
+        uint32_t rf_tx_queue_pressure_drops =
+            tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u;
         uint32_t rf_tx_tcp_duplicate_suppression =
             tun_service ? tun_service->rf_tx_tcp_duplicate_suppression : 1u;
+        uint32_t rf_tx_control_flow_learned =
+            tun_service ? tun_service->rf_tx_control_flow_learned : 0u;
         uint32_t ticks = tun_service ? tun_service->ticks : 0u;
         uint32_t rf_worker_was_running =
             rf_worker && rf_worker->running ? 1u : 0u;
@@ -5920,7 +6020,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_tx_queue_drops\":%u,"
                  "\"rf_rx_queue_drops\":%u,"
                  "\"rf_tx_queue_duplicate_drops\":%u,"
+                 "\"rf_tx_queue_priority_drops\":%u,"
+                 "\"rf_tx_queue_pressure_drops\":%u,"
                  "\"rf_tx_tcp_duplicate_suppression\":%u,"
+                 "\"rf_tx_control_flow_learned\":%u,"
                  "\"daemon_owned_state\":1,"
                  "\"continuous_service\":1,"
                  "\"poll_loop_active\":0,"
@@ -5940,7 +6043,10 @@ static int build_response(fieldmesh_context_t *context,
                  rf_tx_queue_depth, rf_tx_lease_queue_depth,
                  rf_tx_queue_drops, rf_rx_queue_drops,
                  rf_tx_queue_duplicate_drops,
-                 rf_tx_tcp_duplicate_suppression, rf_worker_was_running,
+                 rf_tx_queue_priority_drops,
+                 rf_tx_queue_pressure_drops,
+                 rf_tx_tcp_duplicate_suppression,
+                 rf_tx_control_flow_learned, rf_worker_was_running,
                  tun_service ?
                      tun_service_rf_transport_mode_name(
                          tun_service->rf_transport_mode) :
