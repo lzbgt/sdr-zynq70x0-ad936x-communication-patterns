@@ -1292,13 +1292,27 @@ user and vendor configuration.
   the 256-byte test payload crossed RF and was ACKed, but `iperf3` still timed
   out with both sockets established before result/shutdown completed. A faster
   48-sample/repeat-3 BFSK run lowered batch latency but hit an intermittent
-  reverse-path CRC miss and still timed out. The bridge now defaults to batch
-  leasing and asynchronous source ACKs so ACK-after-ingest daemon control work
-  can overlap the next opposite-direction RF burst, with a fence before leasing
-  from the same source again. Live HIL with that path moved 54 frames with zero
-  bridge errors at 256 bytes, and a true 128-byte run using
+  reverse-path CRC miss and still timed out. The native-IP runner now auto-uses
+  or builds `.config/fieldmesh/bin/fieldmesh_iio_burst_xfer` for live IIO bridge
+  runs when no helper is supplied, preventing an accidental fallback to slower
+  process-per-burst IIO transfers. The bridge now defaults to batch leasing and
+  asynchronous source ACKs so ACK-after-ingest daemon control work can overlap
+  the next opposite-direction RF burst, with a fence before leasing from the
+  same source again. Live HIL with that path moved 54 frames with zero bridge
+  errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but
   `iperf3` still timed out in `FIN_WAIT1` with final TCP control bytes queued.
+  The native-IP runner now adds a bounded `IPERF_TCP_CONTROL_DRAIN_S` phase for
+  this exact HIL failure: when the client times out after sending TCP bytes, it
+  leaves the RF bridge running briefly, waits for the server process to exit,
+  captures the server JSON if available, and records whether the final control
+  path drained. Live HIL with the rebuilt persistent helper moved 55 real-RF
+  frames with zero bridge errors; the Z203 client had sent 128 bytes, and Z103
+  captured 128 received bytes plus server exit during the 30 s drain window.
+  Because the client was already interrupted by the wrapper timeout, this is
+  not production `iperf3` success yet; it shows the next software fix should
+  keep the client alive through the final result/control exchange or replace
+  the current high-RTT bridge with a continuous streaming data plane.
   The next material work remains a true streaming or pipelined RF loop/control
   exchange service path, not another physical RF installation check.
   The earlier BPSK mode is

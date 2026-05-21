@@ -252,10 +252,14 @@ Minimum production gates for native TCP/IP:
   compiled helper also has a persistent `--server` mode and the live runner can
   enable it with `IIO_BRIDGE_PERSISTENT_BURST_HELPER=1`; this keeps the two
   libiio RX/TX contexts open across batches instead of recreating them for each
-  burst. The daemon's TCP duplicate suppression is now explicitly configurable
-  through `tcp_duplicate_suppression=` on `FIELDMESH_TUN_SERVICE_START`; the
-  real-RF iperf runner defaults `TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION=0` so
-  Linux retransmissions are not silently discarded during low-rate RF tests.
+  burst. Live IIO bridge runs now auto-use or build
+  `.config/fieldmesh/bin/fieldmesh_iio_burst_xfer` when
+  `FIELDMESH_IIO_BURST_HELPER` is not supplied, avoiding accidental fallback to
+  the slower process-per-burst path. The daemon's TCP duplicate suppression is
+  now explicitly configurable through `tcp_duplicate_suppression=` on
+  `FIELDMESH_TUN_SERVICE_START`; the real-RF iperf runner defaults
+  `TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION=0` so Linux retransmissions are not
+  silently discarded during low-rate RF tests.
   The bridge now defaults to batch leasing and asynchronous source ACKs
   (`IIO_BRIDGE_ASYNC_SOURCE_ACK=1`): after a decoded burst is ingested by the
   peer daemon, the source ACK runs in parallel while the opposite RF direction
@@ -275,7 +279,17 @@ Minimum production gates for native TCP/IP:
   and completed all async ACKs, but still timed out with the client in
   `FIN_WAIT1` and one or two FIN/control bytes queued. That narrows the
   remaining issue away from daemon ACK latency and toward a real streaming MAC
-  service path with lower RTT and continuous reverse/control service.
+  service path with lower RTT and continuous reverse/control service. The
+  native-IP runner now keeps the RF bridge alive for a bounded
+  `IPERF_TCP_CONTROL_DRAIN_S` window after a TCP timeout if the client report
+  proves data bytes already crossed. This does not certify the run; it captures
+  whether final result/shutdown traffic drains when the bridge is not cut off
+  immediately. Live HIL with the rebuilt persistent helper moved 55 real-RF
+  frames with zero bridge errors; the Z203 client sent 128 TCP bytes, the Z103
+  server received 128 bytes and exited during the 30 s drain window. The client
+  was still already interrupted by the wrapper, so production `iperf3` evidence
+  remains incomplete, but the failure is now specifically the client-side
+  control/result timeout policy over this high-RTT RF bridge.
   The remaining native-IP blocker is a true
   streaming or pipelined RF data plane with enough reverse-path service,
   not RF installation;

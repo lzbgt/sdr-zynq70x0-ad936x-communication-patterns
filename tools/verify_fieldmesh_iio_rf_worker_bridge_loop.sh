@@ -233,6 +233,25 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+python3 - "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    'default_iio_burst_helper="$repo_root/.config/fieldmesh/bin/fieldmesh_iio_burst_xfer"',
+    "helper_supports_persistent_server()",
+    '"$cc" -std=c99 -Wall -Wextra -Werror',
+    '-liio -lpthread',
+    'fieldmesh_iio_burst_xfer_build.err',
+    'FIELDMESH_IIO_BURST_HELPER must support --server',
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"native-IP iperf runner no longer auto-builds the IIO burst helper: {missing}")
+print('{"event":"fieldmesh_native_ip_iperf_burst_helper_autobuild_check","ok":true}')
+PY
+
 if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --rf-binding-plan "$binding" \
   --leased-frame-report "$work_dir/lease.json" \
@@ -350,6 +369,21 @@ fi
 if ! grep -q 'IPERF_INTERVAL_S must be an integer >= 0' \
      "$work_dir/iperf_bad_interval.err"; then
   echo "native-IP iperf invalid IPERF_INTERVAL_S refusal changed" >&2
+  exit 1
+fi
+
+if IPERF_TCP_CONTROL_DRAIN_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-control-drain" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_control_drain.out" \
+   2>"$work_dir/iperf_bad_control_drain.err"; then
+  echo "native-IP iperf gate accepted invalid IPERF_TCP_CONTROL_DRAIN_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'IPERF_TCP_CONTROL_DRAIN_S must be an integer from 0 to 600' \
+     "$work_dir/iperf_bad_control_drain.err"; then
+  echo "native-IP iperf invalid TCP control drain refusal changed" >&2
   exit 1
 fi
 

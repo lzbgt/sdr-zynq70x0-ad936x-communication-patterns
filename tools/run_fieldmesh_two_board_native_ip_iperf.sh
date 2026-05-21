@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cc="${CC:-cc}"
 
 z203_ip="${Z203_IP:-192.168.1.10}"
 z103_ip="${Z103_IP:-192.168.3.1}"
@@ -19,6 +20,7 @@ udp_time_s="${UDP_TIME_S:-3}"
 iperf_interval_s="${IPERF_INTERVAL_S:-0}"
 bridge_duration_s="${BRIDGE_DURATION_S:-120}"
 iperf_timeout_s="${IPERF_TIMEOUT_S:-90}"
+iperf_tcp_control_drain_s="${IPERF_TCP_CONTROL_DRAIN_S:-45}"
 iperf_rcv_timeout_ms="${IPERF_RCV_TIMEOUT_MS:-600000}"
 iperf_snd_timeout_ms="${IPERF_SND_TIMEOUT_MS:-600000}"
 iperf_connect_timeout_ms="${IPERF_CONNECT_TIMEOUT_MS:-600000}"
@@ -34,6 +36,7 @@ preflight_only="${PREFLIGHT_ONLY:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/two-board-native-ip-iperf-$(date +%Y%m%d-%H%M%S)-$$}"
 swarm_mtu="${SWARM_MTU:-}"
 fieldmesh_iio_burst_helper="${FIELDMESH_IIO_BURST_HELPER:-}"
+default_iio_burst_helper="$repo_root/.config/fieldmesh/bin/fieldmesh_iio_burst_xfer"
 iio_bridge_persistent_burst_helper="${IIO_BRIDGE_PERSISTENT_BURST_HELPER:-1}"
 rf_binding_plan="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
@@ -92,6 +95,21 @@ tun_service_tcp_duplicate_suppression="${TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION:-
 
 mkdir -p "$out_dir"
 
+helper_supports_persistent_server() {
+    local helper="$1"
+    "$helper" --help 2>&1 | grep -q -- '--server'
+}
+
+build_default_iio_burst_helper() {
+    mkdir -p "$(dirname "$default_iio_burst_helper")"
+    "$cc" -std=c99 -Wall -Wextra -Werror \
+        "$repo_root/tools/fieldmesh_iio_burst_xfer.c" \
+        -liio -lpthread \
+        -o "$default_iio_burst_helper" \
+        >"$out_dir/fieldmesh_iio_burst_xfer_build.log" \
+        2>"$out_dir/fieldmesh_iio_burst_xfer_build.err"
+}
+
 if ! [[ "$iperf_port" =~ ^[0-9]+$ ]] || [ "$iperf_port" -lt 1 ] || [ "$iperf_port" -gt 65535 ]; then
     echo "IPERF_PORT must be 1..65535" >&2
     exit 1
@@ -128,6 +146,10 @@ if ! [[ "$tcp_time_s" =~ ^[0-9]+$ ]]; then
 fi
 if ! [[ "$iperf_interval_s" =~ ^[0-9]+$ ]]; then
     echo "IPERF_INTERVAL_S must be an integer >= 0" >&2
+    exit 1
+fi
+if ! [[ "$iperf_tcp_control_drain_s" =~ ^[0-9]+$ ]] || [ "$iperf_tcp_control_drain_s" -gt 600 ]; then
+    echo "IPERF_TCP_CONTROL_DRAIN_S must be an integer from 0 to 600" >&2
     exit 1
 fi
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
@@ -299,6 +321,25 @@ if [ -n "$rf_tx_hardwaregain_db" ] && ! [[ "$rf_tx_hardwaregain_db" =~ ^-?[0-9]+
 fi
 if [ -n "$fieldmesh_iio_burst_helper" ] && [ ! -x "$fieldmesh_iio_burst_helper" ]; then
     echo "FIELDMESH_IIO_BURST_HELPER must point to an executable helper" >&2
+    exit 1
+fi
+if [ "$allow_iio_rf_bridge" = "1" ] && [ -z "$fieldmesh_iio_burst_helper" ]; then
+    if [ ! -x "$default_iio_burst_helper" ] ||
+       { [ "$iio_bridge_persistent_burst_helper" = "1" ] &&
+         ! helper_supports_persistent_server "$default_iio_burst_helper"; }; then
+        build_default_iio_burst_helper || true
+    fi
+    if [ -x "$default_iio_burst_helper" ]; then
+        fieldmesh_iio_burst_helper="$default_iio_burst_helper"
+    else
+        echo "failed to build default FIELDMESH_IIO_BURST_HELPER; see $out_dir/fieldmesh_iio_burst_xfer_build.err" >&2
+        exit 1
+    fi
+fi
+if [ -n "$fieldmesh_iio_burst_helper" ] &&
+   [ "$iio_bridge_persistent_burst_helper" = "1" ] &&
+   ! helper_supports_persistent_server "$fieldmesh_iio_burst_helper"; then
+    echo "FIELDMESH_IIO_BURST_HELPER must support --server when IIO_BRIDGE_PERSISTENT_BURST_HELPER=1" >&2
     exit 1
 fi
 if [ "$iio_bridge_cyclic_tx" != "0" ] && [ "$iio_bridge_cyclic_tx" != "1" ]; then
@@ -1250,6 +1291,100 @@ if int(sent.get("bytes") or 0) <= 0:
 PY
 }
 
+iperf_report_sent_bytes() {
+    local report_path="$1"
+    python3 - "$report_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if not path.is_file():
+    print(0)
+    raise SystemExit(0)
+text = path.read_text(encoding="utf-8", errors="replace")
+start = text.find("{")
+if start < 0:
+    print(0)
+    raise SystemExit(0)
+try:
+    report = json.loads(text[start:])
+except json.JSONDecodeError:
+    print(0)
+    raise SystemExit(0)
+end = report.get("end") or {}
+sent = end.get("sum_sent") or end.get("sum") or {}
+bytes_sent = int(sent.get("bytes") or 0)
+if bytes_sent <= 0:
+    for interval in report.get("intervals") or []:
+        summary = interval.get("sum") or {}
+        bytes_sent += int(summary.get("bytes") or 0)
+print(max(bytes_sent, 0))
+PY
+}
+
+drain_tcp_control_after_timeout() {
+    local phase="$1"
+    local client_json="$2"
+    local server_remote="$3"
+    local server_pid_file="$4"
+    local remote_server_json="$5"
+    local local_server_json="$6"
+    local sent_bytes
+    local server_exited="false"
+    local drain_report="$out_dir/${phase}_tcp_control_drain.json"
+
+    if [ "$iperf_tcp_control_drain_s" -le 0 ] || [ -z "${bridge_pid:-}" ]; then
+        return 0
+    fi
+    sent_bytes="$(iperf_report_sent_bytes "$client_json")"
+    if ! [[ "$sent_bytes" =~ ^[0-9]+$ ]] || [ "$sent_bytes" -le 0 ]; then
+        return 0
+    fi
+
+    python3 - "$drain_report" "$phase" "$iperf_tcp_control_drain_s" "$sent_bytes" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+report = {
+    "event": "fieldmesh_native_ip_iperf_tcp_control_drain",
+    "ok": True,
+    "phase": sys.argv[2],
+    "started": True,
+    "duration_s": int(sys.argv[3]),
+    "client_sent_bytes_before_timeout": int(sys.argv[4]),
+    "keeps_rf_bridge_running": True,
+    "reason": "client_timed_out_after_sending_tcp_bytes",
+}
+Path(sys.argv[1]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+PY
+
+    if wait_remote_pid_exit "$server_remote" "$server_pid_file" "$iperf_tcp_control_drain_s"; then
+        server_exited="true"
+    fi
+    sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+        "$server_remote:$remote_server_json" "$local_server_json" >/dev/null 2>&1 || true
+    summarize_iio_bridge_progress
+
+    python3 - "$drain_report" "$server_exited" "$local_server_json" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+report = json.loads(path.read_text(encoding="utf-8"))
+report["server_exited_after_drain"] = sys.argv[2] == "true"
+report["server_json_after_drain_path"] = sys.argv[3]
+report["ok"] = report["server_exited_after_drain"]
+if not report["ok"]:
+    report["blocker"] = "tcp_final_control_did_not_drain"
+path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+PY
+}
+
 wait_remote_tcp_listen() {
     local remote="$1"
     local port="$2"
@@ -1402,8 +1537,15 @@ run_remote_iperf_json "$z203_remote" \
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
+    drain_tcp_control_after_timeout \
+        "board_to_board" \
+        "$out_dir/z203_iperf3_tcp_client.json" \
+        "$z103_remote" \
+        "$out_dir/z103_iperf3_tcp_server.pid" \
+        "/tmp/fieldmesh_iperf3_tcp_server.json" \
+        "$out_dir/z103_iperf3_tcp_server_after_control_drain.json"
     fail_bounded "board_to_board_tcp_iperf_incomplete" \
-        "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s; see z203_iperf3_tcp_client.json and .err."
+        "TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see board_to_board_tcp_control_drain.json, z203_iperf3_tcp_client.json, and .err."
 fi
 if ! parse_iperf_success "$out_dir/z203_iperf3_tcp_client.json"; then
     fail_bounded "board_to_board_tcp_iperf_failed" \

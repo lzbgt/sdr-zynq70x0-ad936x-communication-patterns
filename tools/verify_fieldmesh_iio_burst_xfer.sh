@@ -18,6 +18,10 @@ if ! grep -q -- "--tx-uri" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing CLI contract" >&2
   exit 1
 fi
+if ! grep -q -- "--server" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing persistent server contract" >&2
+  exit 1
+fi
 
 if "$work_dir/fieldmesh_iio_burst_xfer" \
   --tx-uri ip:127.0.0.1 \
@@ -47,6 +51,7 @@ required = [
     "iio_buffer_refill",
     "iio_buffer_push",
     "pthread_create",
+    "fieldmesh_iio_burst_xfer_server",
 ]
 missing = [token for token in required if token not in source]
 if missing:
