@@ -346,9 +346,19 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_TUN_SERVICE_STOP` now clears RF TX, lease, RX, duplicate, and
   learned-control-flow state so a failed HIL run cannot contaminate the next
   run with stale frames.
-  The first live continuation run moved 95 real-RF frames, then showed UDP
-  `iperf3` also incomplete: UDP data filled the low-rate Z203 transmit queue
-  while iperf's TCP control/result channel remained undrained.
+  The first clean UDP-only continuation run showed the old symmetric BFSK
+  profile was still too slow for throughput. Follow-up HIL found the useful
+  asymmetric software profile: Z203-to-Z103 uses `samples_per_symbol=32`,
+  `bit_repeat=2`, while the weaker Z103-to-Z203 reverse/control direction keeps
+  `samples_per_symbol=64`, `bit_repeat=4`. That profile moved 40 real-RF
+  native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
+  exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The
+  server still received only one 64-byte UDP datagram from that run, so this is
+  material progress in control/result completion but not an acceptable product
+  throughput result yet. The runner now defaults to that asymmetric profile for
+  live IIO iperf HIL, tolerates pretty-printed JSON rows in its own gate log
+  when building the final report, and reports UDP receiver delivery as the
+  primary UDP throughput while preserving sender bytes as diagnostics.
   Live HIL now shows the 128-byte board-to-board TCP payload reaches Z103 and
   the Z103 server exits over real RF; the remaining failure is the Z203
   client's `iperf3` final result/control completion on the burst bridge.

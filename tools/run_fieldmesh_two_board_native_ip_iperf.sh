@@ -54,12 +54,12 @@ rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
-rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-64}"
-rf_bit_repeat="${RF_BIT_REPEAT:-4}"
+rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"
+rf_bit_repeat="${RF_BIT_REPEAT:-2}"
 rf_z203_to_z103_samples_per_symbol="${RF_Z203_TO_Z103_SAMPLES_PER_SYMBOL:-}"
 rf_z203_to_z103_bit_repeat="${RF_Z203_TO_Z103_BIT_REPEAT:-}"
-rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-}"
-rf_z103_to_z203_bit_repeat="${RF_Z103_TO_Z203_BIT_REPEAT:-}"
+rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-64}"
+rf_z103_to_z203_bit_repeat="${RF_Z103_TO_Z203_BIT_REPEAT:-4}"
 rf_z203_to_z103_retry_samples_per_symbol="${RF_Z203_TO_Z103_RETRY_SAMPLES_PER_SYMBOL:-}"
 rf_z203_to_z103_retry_bit_repeat="${RF_Z203_TO_Z103_RETRY_BIT_REPEAT:-}"
 rf_z103_to_z203_retry_samples_per_symbol="${RF_Z103_TO_Z203_RETRY_SAMPLES_PER_SYMBOL:-}"
@@ -2174,11 +2174,27 @@ def load_json(path: str) -> dict:
 
 tcp = {} if udp_only else load_json("z203_iperf3_tcp_client.json")
 udp = load_json("z203_iperf3_udp_client.json")
-rows = []
-for line in (out_dir / "iperf_gate.ndjson").read_text(encoding="utf-8", errors="replace").splitlines():
-    line = line.strip()
-    if line.startswith("{"):
-        rows.append(json.loads(line))
+
+def load_gate_rows(path: Path) -> list[dict]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    decoder = json.JSONDecoder()
+    rows = []
+    offset = 0
+    while True:
+        start = text.find("{", offset)
+        if start < 0:
+            break
+        try:
+            row, end = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            offset = start + 1
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+        offset = start + max(end, 1)
+    return rows
+
+rows = load_gate_rows(out_dir / "iperf_gate.ndjson")
 preflight = [row for row in rows if row.get("event") == "fieldmesh_native_ip_iperf_rf_preflight"][-1]
 bridge = [
     row for row in rows
@@ -2199,24 +2215,22 @@ if not udp_only:
         else tcp_end.get("sum_sent", {}) or tcp_end.get("sum", {})
     )
 tcp_bits = tcp_summary.get("bits_per_second") or 0
-udp_bits = (
-    udp_end.get("sum", {}).get("bits_per_second") or
-    udp_end.get("sum_sent", {}).get("bits_per_second") or 0
-)
 tcp_bytes = tcp_summary.get("bytes", 0)
-udp_bytes = (
-    udp_end.get("sum", {}).get("bytes") or
-    udp_end.get("sum_sent", {}).get("bytes") or 0
-)
 tcp_duration_s = (
     tcp_summary.get("seconds") or 0
 )
-udp_summary = udp_end.get("sum", {}) or udp_end.get("sum_sent", {}) or {}
+udp_sender_summary = udp_end.get("sum_sent", {}) or udp_end.get("sum", {}) or {}
+udp_summary = udp_end.get("sum_received", {}) or udp_end.get("sum", {}) or udp_sender_summary
+udp_bits = udp_summary.get("bits_per_second") or 0
+udp_bytes = udp_summary.get("bytes") or 0
 udp_duration_s = udp_summary.get("seconds") or 0
 udp_jitter_ms = udp_summary.get("jitter_ms")
 udp_lost_packets = udp_summary.get("lost_packets")
 udp_packets = udp_summary.get("packets")
 udp_lost_percent = udp_summary.get("lost_percent")
+udp_sender_bits = udp_sender_summary.get("bits_per_second") or 0
+udp_sender_bytes = udp_sender_summary.get("bytes") or 0
+udp_sender_duration_s = udp_sender_summary.get("seconds") or 0
 if not udp_only and tcp.get("error"):
     raise SystemExit(f"TCP iperf failed: {tcp.get('error')}")
 if udp.get("error"):
@@ -2271,24 +2285,22 @@ if host_pc_case:
     host_tcp_bits = (
         host_tcp_summary.get("bits_per_second") or 0
     )
-    host_udp_bits = (
-        host_udp_end.get("sum", {}).get("bits_per_second") or
-        host_udp_end.get("sum_sent", {}).get("bits_per_second") or 0
-    )
     host_tcp_bytes = host_tcp_summary.get("bytes", 0)
-    host_udp_bytes = (
-        host_udp_end.get("sum", {}).get("bytes") or
-        host_udp_end.get("sum_sent", {}).get("bytes") or 0
-    )
     host_tcp_duration_s = (
         host_tcp_summary.get("seconds") or 0
     )
-    host_udp_summary = host_udp_end.get("sum", {}) or host_udp_end.get("sum_sent", {}) or {}
+    host_udp_sender_summary = host_udp_end.get("sum_sent", {}) or host_udp_end.get("sum", {}) or {}
+    host_udp_summary = host_udp_end.get("sum_received", {}) or host_udp_end.get("sum", {}) or host_udp_sender_summary
+    host_udp_bits = host_udp_summary.get("bits_per_second") or 0
+    host_udp_bytes = host_udp_summary.get("bytes") or 0
     host_udp_duration_s = host_udp_summary.get("seconds") or 0
     host_udp_jitter_ms = host_udp_summary.get("jitter_ms")
     host_udp_lost_packets = host_udp_summary.get("lost_packets")
     host_udp_packets = host_udp_summary.get("packets")
     host_udp_lost_percent = host_udp_summary.get("lost_percent")
+    host_udp_sender_bits = host_udp_sender_summary.get("bits_per_second") or 0
+    host_udp_sender_bytes = host_udp_sender_summary.get("bytes") or 0
+    host_udp_sender_duration_s = host_udp_sender_summary.get("seconds") or 0
     if host_tcp_bytes <= 0:
         raise SystemExit("host TCP iperf reported no transmitted bytes")
     if host_udp_bits <= 0:
@@ -2308,6 +2320,9 @@ else:
     host_udp_lost_packets = 0
     host_udp_packets = 0
     host_udp_lost_percent = 0
+    host_udp_sender_bits = 0
+    host_udp_sender_bytes = 0
+    host_udp_sender_duration_s = 0
 real_rf_ready = bool(preflight.get("real_rf_phy_ready")) or (
     bool(iio_bridge) and iio_bridge[-1].get("rf_phy_tx_rx_verified") is True
 )
@@ -2337,6 +2352,9 @@ report = {
     "udp_bits_per_second": udp_bits,
     "udp_bytes": udp_bytes,
     "udp_duration_s": udp_duration_s,
+    "udp_sender_bits_per_second": udp_sender_bits,
+    "udp_sender_bytes": udp_sender_bytes,
+    "udp_sender_duration_s": udp_sender_duration_s,
     "udp_jitter_ms": udp_jitter_ms,
     "udp_lost_packets": udp_lost_packets,
     "udp_packets": udp_packets,
@@ -2347,6 +2365,9 @@ report = {
     "host_udp_bits_per_second": host_udp_bits,
     "host_udp_bytes": host_udp_bytes,
     "host_udp_duration_s": host_udp_duration_s,
+    "host_udp_sender_bits_per_second": host_udp_sender_bits,
+    "host_udp_sender_bytes": host_udp_sender_bytes,
+    "host_udp_sender_duration_s": host_udp_sender_duration_s,
     "host_udp_jitter_ms": host_udp_jitter_ms,
     "host_udp_lost_packets": host_udp_lost_packets,
     "host_udp_packets": host_udp_packets,

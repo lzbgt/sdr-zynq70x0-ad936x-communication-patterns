@@ -301,6 +301,16 @@ required = [
     '-liio -lpthread',
     'fieldmesh_iio_burst_xfer_build.err',
     'FIELDMESH_IIO_BURST_HELPER must support --server',
+    'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"',
+    'rf_bit_repeat="${RF_BIT_REPEAT:-2}"',
+    'rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-64}"',
+    'rf_z103_to_z203_bit_repeat="${RF_Z103_TO_Z203_BIT_REPEAT:-4}"',
+    "def load_gate_rows(path: Path) -> list[dict]:",
+    "decoder.raw_decode(text[start:])",
+    'udp_end.get("sum_received", {})',
+    '"udp_sender_bytes": udp_sender_bytes',
+    'host_udp_end.get("sum_received", {})',
+    '"host_udp_sender_bytes": host_udp_sender_bytes',
 ]
 missing = [token for token in required if token not in source]
 if missing:
