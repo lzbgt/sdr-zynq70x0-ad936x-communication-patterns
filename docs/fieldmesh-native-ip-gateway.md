@@ -87,8 +87,15 @@ to be Ethernet or Wi-Fi. The gateway is responsible for:
   smaller than the IP packet;
 - ACK and small-control-packet prioritization so TCP does not self-collapse
   under asymmetric load;
-- RF queue pressure must not stop the daemon from reading `swarm0`. When the
-  RF TX queue is full, the daemon keeps pumping bounded TUN packets and can
+- UDP HIL can opt into the diagnostic `udp-payload` lease priority to test
+  whether queued UDP payload is sitting behind iperf's TCP result/control
+  payload. It is not the default because live HIL showed static UDP-first
+  priority can delay iperf control setup enough that the sender emits no UDP
+  packets. SYN/FIN/RST still remain protected for setup and teardown;
+- RF queue pressure must not stop the daemon from reading `swarm0`. The daemon
+  uses a 64-frame RF TX/lease/RX queue window so short TCP/UDP bursts are not
+  discarded before the current SDR HIL bridge can drain them. When the RF TX
+  queue is full, the daemon keeps pumping bounded TUN packets and can
   evict lower-priority queued data to admit higher-priority TCP
   control/control-flow frames. These admissions are observable through
   `rf_tx_queue_priority_drops` and `rf_tx_control_flow_learned`. Once a TCP

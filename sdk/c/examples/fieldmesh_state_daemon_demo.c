@@ -105,7 +105,7 @@ struct tun_memory_read_context {
     size_t next_packet;
 };
 
-#define TUN_SERVICE_RF_QUEUE_DEPTH 16u
+#define TUN_SERVICE_RF_QUEUE_DEPTH 64u
 #define TUN_SERVICE_RF_FRAME_MAX 2048u
 #define TUN_SERVICE_RECENT_TCP_SIGNATURES 16u
 #define TUN_SERVICE_RF_QUEUE_CONTROL_RESERVE \
@@ -131,6 +131,7 @@ enum tun_service_rf_lease_priority {
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_PAYLOAD = 1,
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL = 2,
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW = 3,
+    TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD = 4,
 };
 
 struct tun_service_tcp_flow {
@@ -512,6 +513,9 @@ static unsigned ipv4_udp_priority_score(
     }
     if (udp_len == 8u) {
         return 2u;
+    }
+    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD) {
+        return 8u;
     }
     if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL) {
         return 4u;
@@ -1107,6 +1111,9 @@ static enum tun_service_rf_lease_priority tun_service_rf_lease_priority_from_req
     if (request && strstr(request, "priority=tcp_payload")) {
         return TUN_SERVICE_RF_LEASE_PRIORITY_TCP_PAYLOAD;
     }
+    if (request && strstr(request, "priority=udp_payload")) {
+        return TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD;
+    }
     return TUN_SERVICE_RF_LEASE_PRIORITY_FIFO;
 }
 
@@ -1120,6 +1127,8 @@ static const char *tun_service_rf_lease_priority_name(
         return "tcp_control";
     case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW:
         return "tcp_control_flow";
+    case TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD:
+        return "udp_payload";
     case TUN_SERVICE_RF_LEASE_PRIORITY_FIFO:
     default:
         return "fifo";
@@ -4900,6 +4909,7 @@ static int build_response(fieldmesh_context_t *context,
                      "\"rf_tx_queue_depth\":%u,"
                      "\"rf_tx_lease_queue_depth\":%u,"
                      "\"rf_rx_queue_depth\":%u,"
+                     "\"rf_transport_queue_depth\":%u,"
                      "\"rf_tx_queue_drops\":%u,"
                      "\"rf_tx_queue_priority_drops\":%u,"
                      "\"rf_tx_queue_pressure_drops\":%u,"
@@ -4916,6 +4926,7 @@ static int build_response(fieldmesh_context_t *context,
                          (unsigned)tun_service->rf_tx_lease_queue.count : 0u,
                      tun_service ?
                          (unsigned)tun_service->rf_rx_queue.count : 0u,
+                     (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH,
                      tun_service ? tun_service->rf_tx_queue_drops : 0u,
                      tun_service ? tun_service->rf_tx_queue_priority_drops : 0u,
                      tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,

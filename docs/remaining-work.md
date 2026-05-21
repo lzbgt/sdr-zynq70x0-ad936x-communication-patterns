@@ -798,6 +798,12 @@ Current concrete work:
   endpoint, packetizer, adapter, sidecar DMA/RF handoff, and backpressure. The
   host sees ordinary SDK/app operations, not raw IQ buffers and not inter-board
   IP routing.
+- Current over-air HIL is a software service-rate problem, not an antenna
+  installation problem. The daemon now keeps a 64-frame RF queue window and the
+  native-IP runner defaults to compact queue-aware direction scheduling, so
+  short UDP/TCP bursts are retained while the SDR bridge drains. Remaining work
+  is to reduce RF batch/bridge latency and raise delivered `iperf3` throughput,
+  then return to full TCP+UDP production reports.
 - The next RF data-plane gate is authorized over-air only: use the RF
   packet-engine handoff, BPSK symbolizer, IQ TX guard, DAC clock bridge, and DAC
   source-select path to run a bounded TX/RX measurement with explicit legal

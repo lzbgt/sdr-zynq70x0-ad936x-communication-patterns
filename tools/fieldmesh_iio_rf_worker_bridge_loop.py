@@ -105,6 +105,8 @@ def lease_priority_request_suffix(priority: str) -> str:
         return " priority=tcp_control"
     if priority == "tcp-control-flow":
         return " priority=tcp_control_flow"
+    if priority == "udp-payload":
+        return " priority=udp_payload"
     if priority == "fifo":
         return ""
     raise SystemExit(f"unsupported lease priority: {priority!r}")
@@ -226,7 +228,7 @@ def tun_service_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     report = bridge.request_daemon(
         host,
         port,
-        "FIELDMESH_TUN_SERVICE_STATUS v1",
+        "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1",
         timeout_ms,
     )
     if report.get("event") != "sdk_daemon_tun_service_status":
@@ -1381,7 +1383,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--batch-byte-limit", type=int, default=0)
-    parser.add_argument("--lease-priority", choices=("tcp-payload", "tcp-control", "tcp-control-flow", "fifo"), default="tcp-payload")
+    parser.add_argument("--lease-priority", choices=("tcp-payload", "tcp-control", "tcp-control-flow", "udp-payload", "fifo"), default="tcp-payload")
     parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
     parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
     parser.add_argument(

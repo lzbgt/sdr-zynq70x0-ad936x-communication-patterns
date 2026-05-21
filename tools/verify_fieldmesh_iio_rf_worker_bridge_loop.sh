@@ -134,6 +134,28 @@ if loop.lease_priority_request_suffix("tcp-control") != " priority=tcp_control":
     raise SystemExit("tcp-control lease priority did not map to daemon request suffix")
 if loop.lease_priority_request_suffix("tcp-control-flow") != " priority=tcp_control_flow":
     raise SystemExit("tcp-control-flow lease priority did not map to daemon request suffix")
+if loop.lease_priority_request_suffix("udp-payload") != " priority=udp_payload":
+    raise SystemExit("udp-payload lease priority did not map to daemon request suffix")
+captured = {}
+def compact_status_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_tun_service_status",
+        "ok": 1,
+        "status_compact": 1,
+        "rf_tx_queue_depth": 2,
+        "rf_tx_lease_queue_depth": 1,
+    }
+original_request = bridge.request_daemon
+bridge.request_daemon = compact_status_request
+try:
+    status = loop.tun_service_status("127.0.0.1", 55441, 10)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1":
+    raise SystemExit(f"adaptive status must use compact daemon status: {captured}")
+if loop.queued_rf_work_score(status) <= 1000:
+    raise SystemExit("compact adaptive status did not preserve RF queue depth")
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -210,6 +232,7 @@ from pathlib import Path
 
 source = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
+    "#define TUN_SERVICE_RF_QUEUE_DEPTH 64u",
     "rf_tx_queue_priority_drops",
     "rf_tx_queue_pressure_drops",
     "rf_tx_control_flow_learned",
@@ -223,9 +246,13 @@ required = [
     "sendto(sockfd, response",
     "ipv4_udp_priority_score",
     "payload[9] == 17u",
+    "TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD",
+    "priority=udp_payload",
+    "return \"udp_payload\";",
     "return 6u;",
     "status_compact",
     "compact=1",
+    "rf_transport_queue_depth",
     "tun_service_rf_queue_reset(&service->rf_tx_lease_queue);",
     "if (!serve_forever)",
 ]
@@ -533,7 +560,7 @@ if IIO_BRIDGE_LEASE_PRIORITY=bad \
   exit 1
 fi
 
-if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, or fifo' \
+if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
   exit 1
