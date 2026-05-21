@@ -273,8 +273,11 @@ and drains READY RX descriptors through a caller-owned packet write callback.
 `sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c` proves the intended
 hot-path behavior with fixed memory: TCP FIN/control is serviced ahead of UDP
 payload, the RX side drains packet bytes, and the slot is reclaimed for reuse.
-This is the replacement direction for the Python lease/ACK bridge, before the
-same boundary is connected to live `swarm0` and then to PL-owned packet DMA.
+The probe also supports `--device /dev/uioN --loopback --allow-writes`, so the
+same bridge can run directly on the live PL packet-ring aperture after the
+operator has authorized mapped writes. This is the replacement direction for
+the Python lease/ACK bridge, before the same boundary is connected to live
+`swarm0` and then to PL-owned packet DMA.
 
 ## MAC Design
 

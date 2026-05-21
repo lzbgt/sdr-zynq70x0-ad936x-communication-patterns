@@ -66,12 +66,16 @@ EOF_C
   >"$work_dir/uio-ring-probe-inspect.json"
 "$work_dir/fieldmesh-firmware-packet-bridge-probe" \
   >"$work_dir/packet-bridge-probe.json"
+"$work_dir/fieldmesh-firmware-packet-bridge-probe" \
+  --image "$work_dir/vectors/packet-bridge-image.bin" --loopback --allow-writes \
+  >"$work_dir/packet-bridge-probe-image.json"
 
 python3 - "$work_dir/probe.json" "$work_dir/probe-vectors.json" \
   "$work_dir/ring-probe.json" "$work_dir/ring-probe-vectors.json" \
   "$work_dir/mmap-ring-probe.json" "$work_dir/mmap-ring-probe-image.json" \
   "$work_dir/uio-ring-probe-loopback.json" "$work_dir/uio-ring-probe-inspect.json" \
-  "$work_dir/packet-bridge-probe.json" "$work_dir/vectors" <<'PY'
+  "$work_dir/packet-bridge-probe.json" "$work_dir/packet-bridge-probe-image.json" \
+  "$work_dir/vectors" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -85,7 +89,8 @@ mmap_ring_probe_image = json.loads(Path(sys.argv[6]).read_text(encoding="utf-8")
 uio_ring_probe_loopback = json.loads(Path(sys.argv[7]).read_text(encoding="utf-8"))
 uio_ring_probe_inspect = json.loads(Path(sys.argv[8]).read_text(encoding="utf-8"))
 packet_bridge_probe = json.loads(Path(sys.argv[9]).read_text(encoding="utf-8"))
-vector_dir = Path(sys.argv[10])
+packet_bridge_probe_image = json.loads(Path(sys.argv[10]).read_text(encoding="utf-8"))
+vector_dir = Path(sys.argv[11])
 
 for report in (probe, probe_vectors):
     if report.get("event") != "fieldmesh_firmware_abi_probe":
@@ -157,28 +162,35 @@ if uio_ring_probe_loopback.get("served") != 2 or uio_ring_probe_loopback.get("ac
 if uio_ring_probe_inspect.get("writes_packet_memory") is not False:
     raise SystemExit(f"firmware UIO inspect mode must not write: {uio_ring_probe_inspect!r}")
 
-if packet_bridge_probe.get("event") != "fieldmesh_firmware_packet_bridge_probe":
-    raise SystemExit(f"bad packet bridge event: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("ok") is not True:
-    raise SystemExit(f"firmware packet bridge probe failed: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("hot_path_language") != "c":
-    raise SystemExit(f"firmware packet bridge hot path must be C: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("uses_json_on_air") is not False:
-    raise SystemExit(f"firmware packet bridge must not use JSON on air: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("vendor_runtime_dependency") is not False:
-    raise SystemExit(f"firmware packet bridge must be first-party: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("binary_descriptors") is not True:
-    raise SystemExit(f"firmware packet bridge must use binary descriptors: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("first_pick") != packet_bridge_probe.get("tcp_slot"):
-    raise SystemExit(f"TCP control frame was not serviced first: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("second_pick") != packet_bridge_probe.get("udp_slot"):
-    raise SystemExit(f"UDP payload frame was not serviced after control: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("tcp_traffic_class") != 0 or packet_bridge_probe.get("udp_traffic_class") != 2:
-    raise SystemExit(f"packet bridge traffic classes changed: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("enqueued_packets") != 2 or packet_bridge_probe.get("drained_packets") != 2:
-    raise SystemExit(f"packet bridge counters changed: {packet_bridge_probe!r}")
-if packet_bridge_probe.get("classify_errors") != 0 or packet_bridge_probe.get("enqueue_drops") != 0 or packet_bridge_probe.get("drain_errors") != 0:
-    raise SystemExit(f"packet bridge errors changed: {packet_bridge_probe!r}")
+for report in (packet_bridge_probe, packet_bridge_probe_image):
+    if report.get("event") != "fieldmesh_firmware_packet_bridge_probe":
+        raise SystemExit(f"bad packet bridge event: {report!r}")
+    if report.get("ok") is not True:
+        raise SystemExit(f"firmware packet bridge probe failed: {report!r}")
+    if report.get("hot_path_language") != "c":
+        raise SystemExit(f"firmware packet bridge hot path must be C: {report!r}")
+    if report.get("uses_json_on_air") is not False:
+        raise SystemExit(f"firmware packet bridge must not use JSON on air: {report!r}")
+    if report.get("vendor_runtime_dependency") is not False:
+        raise SystemExit(f"firmware packet bridge must be first-party: {report!r}")
+    if report.get("binary_descriptors") is not True:
+        raise SystemExit(f"firmware packet bridge must use binary descriptors: {report!r}")
+    if report.get("first_pick") != report.get("tcp_slot"):
+        raise SystemExit(f"TCP control frame was not serviced first: {report!r}")
+    if report.get("second_pick") != report.get("udp_slot"):
+        raise SystemExit(f"UDP payload frame was not serviced after control: {report!r}")
+    if report.get("tcp_traffic_class") != 0 or report.get("udp_traffic_class") != 2:
+        raise SystemExit(f"packet bridge traffic classes changed: {report!r}")
+    if report.get("enqueued_packets") != 2 or report.get("drained_packets") != 2:
+        raise SystemExit(f"packet bridge counters changed: {report!r}")
+    if report.get("classify_errors") != 0 or report.get("enqueue_drops") != 0 or report.get("drain_errors") != 0:
+        raise SystemExit(f"packet bridge errors changed: {report!r}")
+if packet_bridge_probe.get("backend") != "heap" or packet_bridge_probe.get("mapped_memory") is not False:
+    raise SystemExit(f"packet bridge default probe must stay heap-backed: {packet_bridge_probe!r}")
+if packet_bridge_probe_image.get("backend") != "file" or packet_bridge_probe_image.get("mapped_memory") is not True:
+    raise SystemExit(f"packet bridge image probe must use mapped memory: {packet_bridge_probe_image!r}")
+if packet_bridge_probe_image.get("sync_required") is not True or packet_bridge_probe_image.get("sync_ok") is not True:
+    raise SystemExit(f"packet bridge image probe did not sync mapped memory: {packet_bridge_probe_image!r}")
 
 expected = {
     "fieldmesh_fw_tx_desc_v1.bin": probe["tx_desc_bytes"],
@@ -190,6 +202,7 @@ expected = {
     "ring_rx_payload_slot0.bin": 32,
     "mmap-ring-image.bin": mmap_ring_probe_image["image_bytes"],
     "uio-ring-image.bin": uio_ring_probe_loopback["image_bytes"],
+    "packet-bridge-image.bin": packet_bridge_probe_image["image_bytes"],
 }
 for name, size in expected.items():
     path = vector_dir / name
@@ -292,6 +305,10 @@ from pathlib import Path
 source = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
     "fieldmesh_firmware_packet_bridge_probe",
+    "--device /dev/uioN",
+    "--image PATH",
+    "--loopback",
+    "--allow-writes",
     "fieldmesh_fw_packet_bridge_enqueue_ipv4",
     "fieldmesh_fw_packet_bridge_drain_ready",
     "tcp_fin_packet",

@@ -32,10 +32,11 @@ The RF data-plane refactor has started in the production firmware ABI path:
 C/binary descriptor-ring boundary. `fieldmesh_firmware_packet_bridge_probe`
 adds the next hot-path boundary: raw IPv4 packets are classified, enqueued into
 binary firmware descriptors, drained from READY RX descriptors, and reclaimed
-without Python or JSON on the packet path. The live Z203/Z103 runtimes now
-expose `fieldmesh-ring` as `/dev/uio0` at `0x43C30000/0x10000`, backed by a
-first-party PL AXI-lite RAM aperture; sysfs inspection, read-only `mmap`, and
-guarded write-loopback pass on both boards. The remaining app/GUI refactor
+without Python or JSON on the packet path. It now has a guarded UIO mode for
+the same packet bridge on `/dev/uioN`. The live Z203/Z103 runtimes now expose
+`fieldmesh-ring` as `/dev/uio0` at `0x43C30000/0x10000`, backed by a first-party
+PL AXI-lite RAM aperture; sysfs inspection, read-only `mmap`, and guarded
+write-loopback pass on both boards. The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover
 devices and capabilities at runtime, with no hardcoded app EUI, board EUI,

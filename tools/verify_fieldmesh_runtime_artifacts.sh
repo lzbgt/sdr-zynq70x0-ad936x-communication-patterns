@@ -197,8 +197,8 @@ PY
             exit 1
         fi
     done
-    for token in fieldmesh_firmware_packet_bridge_probe ipv4_to_firmware_ring binary_descriptors uses_json_on_air hot_path_language; do
-        if ! grep -qF "$token" "$packet_bridge_strings_out"; then
+    for token in fieldmesh_firmware_packet_bridge_probe ipv4_to_firmware_ring binary_descriptors uses_json_on_air hot_path_language "--device /dev/uioN" "--loopback" "--allow-writes"; do
+        if ! grep -qF -- "$token" "$packet_bridge_strings_out"; then
             echo "Missing fieldmesh-firmware-packet-bridge-probe token in $name rootfs: $token" >&2
             exit 1
         fi

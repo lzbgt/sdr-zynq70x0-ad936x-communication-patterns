@@ -60,7 +60,9 @@ in `src/fieldmesh_sdk.c`:
   traffic classes, enqueued as binary firmware descriptors, and drained from
   READY RX descriptors through a callback. `examples/fieldmesh_firmware_packet_bridge_probe.c`
   proves TCP control can be serviced ahead of UDP payload without Python, JSON
-  on the packet path, or vendor runtime code.
+  on the packet path, or vendor runtime code. Its default mode is heap-backed
+  for CI; `--device /dev/uioN --loopback --allow-writes` binds the same packet
+  bridge to the live PL packet-ring aperture.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.
