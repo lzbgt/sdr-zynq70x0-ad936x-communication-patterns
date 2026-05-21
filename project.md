@@ -1255,8 +1255,18 @@ user and vendor configuration.
   runner also exposes `IPERF_TCP_BITRATE` and per-direction modem retry knobs
   for HIL tuning. Subsequent helper runs still move real-RF TCP data and ACKs,
   but the batch loop remains too slow and leaves frames queued or server-side
-  metrics incomplete under `iperf3`; the next material work is a true streaming
-  or pipelined RF loop. The earlier BPSK mode is
+  metrics incomplete under `iperf3`. The daemon now separates leased RF frames
+  from the live TUN TX queue so the TUN reader can keep accepting TCP while RF
+  batches are in flight, and the live runner can bound batch bytes, tune route
+  TCP parameters, cap TUN pump rate, disable stale-port filtering explicitly,
+  and run timed TCP tests. Live HIL after those changes moved up to 73
+  native-IP frames over real RF with zero bridge errors; the best failure
+  signature is now the `iperf3` server holding result bytes queued back toward
+  Z203 after the client exits. Fast Z103-to-Z203 BFSK settings are not stable
+  under load, and high route RTO / low TUN pump rates regress the parameter
+  exchange. The next material work is a true streaming or pipelined RF loop
+  with enough reverse-path service to deliver the `iperf3` result exchange.
+  The earlier BPSK mode is
   retained for the RTL primitive,
   but the IIO RF-worker bridge defaults to BFSK until the hardware BPSK path
   has a stronger synchronizer/equalizer.

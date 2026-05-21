@@ -62,6 +62,8 @@ if report.get("daemon_request_attempts") != 2:
     raise SystemExit(f"unexpected daemon request retry default: {report.get('daemon_request_attempts')}")
 if report.get("lease_timeout_ms") != 250:
     raise SystemExit(f"unexpected lease timeout default: {report.get('lease_timeout_ms')}")
+if report.get("batch_byte_limit") != 0:
+    raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
 if report.get("cyclic_capture_periods") != 1:
     raise SystemExit(f"unexpected bridge capture periods: {report.get('cyclic_capture_periods')}")
 frame_report = Path(report["frames"][0]["report"])
@@ -90,9 +92,10 @@ import fieldmesh_iio_rf_worker_bridge_loop as loop
 import fieldmesh_iio_rf_worker_bridge as bridge
 
 
-def tcp_frame(src_port: int, dst_port: int) -> bytes:
+def tcp_frame(src_port: int, dst_port: int, tos: int = 0) -> bytes:
     ip = bytearray(40)
     ip[0] = 0x45
+    ip[1] = tos
     ip[2:4] = struct.pack(">H", len(ip))
     ip[9] = 6
     ip[20:24] = struct.pack(">HH", src_port, dst_port)
@@ -101,10 +104,13 @@ def tcp_frame(src_port: int, dst_port: int) -> bytes:
 
 stale = tcp_frame(1111, 2222)
 wanted = tcp_frame(3333, 55251)
+wanted_nonzero_tos = tcp_frame(3334, 55251, tos=0x10)
 if loop.frame_matches_ip_port_filter(stale, {55251}):
     raise SystemExit("stale TCP frame matched iperf port filter")
 if not loop.frame_matches_ip_port_filter(wanted, {55251}):
     raise SystemExit("wanted TCP frame did not match iperf port filter")
+if not loop.frame_matches_ip_port_filter(wanted_nonzero_tos, {55251}):
+    raise SystemExit("wanted TCP frame with nonzero IPv4 TOS did not match iperf port filter")
 send, drop = loop.split_port_filter_prefix([stale, wanted], {55251})
 if send or drop != [stale]:
     raise SystemExit("port filter must drop only the stale prefix before leasing again")
@@ -209,6 +215,60 @@ if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
   --batch-size 5 \
   >/dev/null 2>&1; then
   echo "bridge loop accepted batch-size > 4" >&2
+  exit 1
+fi
+
+if "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
+  --rf-binding-plan "$binding" \
+  --out-dir "$work_dir/bad-batch-byte-limit" \
+  --batch-byte-limit -1 \
+  >/dev/null 2>&1; then
+  echo "bridge loop accepted a negative batch byte limit" >&2
+  exit 1
+fi
+
+if SWARM_ROUTE_RTO_MIN_MS=bad \
+   OUT_DIR="$work_dir/iperf-bad-route-tuning" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_route_tuning.out" \
+   2>"$work_dir/iperf_bad_route_tuning.err"; then
+  echo "native-IP iperf gate accepted invalid route tuning" >&2
+  exit 1
+fi
+
+if ! grep -q 'SWARM_ROUTE_\* values must be integer >= 0' \
+     "$work_dir/iperf_bad_route_tuning.err"; then
+  echo "native-IP iperf invalid route tuning refusal changed" >&2
+  exit 1
+fi
+
+if TUN_SERVICE_MAX_PACKETS_PER_TICK=0 \
+   OUT_DIR="$work_dir/iperf-bad-tun-pump-bound" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_tun_pump_bound.out" \
+   2>"$work_dir/iperf_bad_tun_pump_bound.err"; then
+  echo "native-IP iperf gate accepted invalid TUN pump bound" >&2
+  exit 1
+fi
+
+if ! grep -q 'TUN_SERVICE_MAX_PACKETS_PER_TICK must be an integer from 1 to 16' \
+     "$work_dir/iperf_bad_tun_pump_bound.err"; then
+  echo "native-IP iperf invalid TUN pump bound refusal changed" >&2
+  exit 1
+fi
+
+if TCP_TIME_S=bad \
+   OUT_DIR="$work_dir/iperf-bad-tcp-time" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_tcp_time.out" \
+   2>"$work_dir/iperf_bad_tcp_time.err"; then
+  echo "native-IP iperf gate accepted invalid TCP_TIME_S" >&2
+  exit 1
+fi
+
+if ! grep -q 'TCP_TIME_S must be an integer >= 0' \
+     "$work_dir/iperf_bad_tcp_time.err"; then
+  echo "native-IP iperf invalid TCP_TIME_S refusal changed" >&2
   exit 1
 fi
 

@@ -231,8 +231,16 @@ Minimum production gates for native TCP/IP:
   the port before the TCP one-shot server released it. The runner also exposes
   `IPERF_TCP_BITRATE` and per-direction primary/retry modem settings for HIL
   tuning. Follow-up runs still move TCP data over real RF but do not complete
-  `iperf3` reliably; the remaining native-IP blocker is a true streaming or
-  pipelined RF data plane, not RF installation;
+  `iperf3` reliably. The daemon now has a separate in-flight RF lease queue so
+  leased-but-unacked frames do not block fresh TUN reads, and the HIL runner can
+  bound RF batch bytes, tune route TCP parameters, cap the TUN pump rate,
+  disable stale-port filtering explicitly, and run timed TCP tests. Live HIL
+  moved up to 73 native-IP frames over real RF with zero bridge errors, but the
+  best failure still leaves `iperf3` server-result bytes queued on Z103 after
+  the client exits. Fast Z103-to-Z203 BFSK settings, high route RTO, and low
+  TUN pump bounds regress the exchange. The remaining native-IP blocker is a
+  true streaming or pipelined RF data plane with enough reverse-path service,
+  not RF installation;
   the RF path evidence must be production/site evidence, not a verifier
   fixture. `PREFLIGHT_ONLY=1`
   checks the daemon RF fields, optional RF path evidence, and optional host

@@ -47,11 +47,19 @@ def error_text(exc: BaseException) -> str:
 
 
 def mac_payload(frame: bytes) -> bytes:
-    marker = b"\x45\x00"
-    offset = frame.find(marker)
-    if offset < 0:
-        return b""
-    return frame[offset:]
+    for offset in range(0, max(0, len(frame) - 19)):
+        version = frame[offset] >> 4
+        ihl = (frame[offset] & 0x0F) * 4
+        if version != 4 or ihl < 20 or len(frame) < offset + ihl + 4:
+            continue
+        total_len = struct.unpack(">H", frame[offset + 2 : offset + 4])[0]
+        if total_len < ihl + 4 or len(frame) < offset + total_len:
+            continue
+        proto = frame[offset + 9]
+        if proto not in (6, 17):
+            continue
+        return frame[offset : offset + total_len]
+    return b""
 
 
 def frame_matches_ip_port_filter(frame: bytes, ports: set[int]) -> bool:
@@ -124,9 +132,18 @@ def poll_from_daemon(host: str, port: int, timeout_ms: int) -> bytes | None:
         raise SystemExit("polled frame report contains invalid frame0_hex") from exc
 
 
-def lease_batch_from_daemon(host: str, port: int, timeout_ms: int, max_frames: int) -> list[bytes]:
+def lease_batch_from_daemon(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    max_frames: int,
+    max_bytes: int,
+) -> list[bytes]:
+    request = f"FIELDMESH_RF_TX_LEASE_BATCH v1 max={max_frames}"
+    if max_bytes > 0:
+        request += f" max_bytes={max_bytes}"
     try:
-        report = bridge.request_daemon(host, port, f"FIELDMESH_RF_TX_LEASE_BATCH v1 max={max_frames}", timeout_ms)
+        report = bridge.request_daemon(host, port, request, timeout_ms)
     except TimeoutError:
         return []
     if report.get("event") != "sdk_daemon_rf_tx_lease_batch":
@@ -197,6 +214,9 @@ def ack_batch_to_daemon_reliable(
         "rf_tx_queue_short",
         "rf_tx_ack_frame_mismatch",
         "rf_tx_queue_peek_failed",
+        "rf_tx_lease_queue_empty",
+        "rf_tx_lease_queue_short",
+        "rf_tx_lease_queue_peek_failed",
     }
     for attempt in range(1, max(1, attempts) + 1):
         try:
@@ -670,12 +690,20 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--batch-size must be >= 1")
     if args.batch_size > 4:
         raise SystemExit("--batch-size must be <= 4")
+    if args.batch_byte_limit < 0:
+        raise SystemExit("--batch-byte-limit must be >= 0")
     if args.destructive_poll_batch and args.batch_size < 2:
         raise SystemExit("--destructive-poll-batch requires --batch-size >= 2")
     if args.poll_interval_ms < 1:
         raise SystemExit("--poll-interval-ms must be >= 1")
     if args.daemon_request_attempts < 1:
         raise SystemExit("--daemon-request-attempts must be >= 1")
+    for label, value in (
+        ("--z203-to-z103-burst-batches", args.z203_to_z103_burst_batches),
+        ("--z103-to-z203-burst-batches", args.z103_to_z203_burst_batches),
+    ):
+        if value < 1 or value > 8:
+            raise SystemExit(f"{label} must be between 1 and 8")
     if args.lease_timeout_ms < 1:
         raise SystemExit("--lease-timeout-ms must be >= 1")
     for port in args.ip_port_filter:
@@ -723,6 +751,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     require_args(args)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     directions = selected_directions(args)
+    schedule: list[dict[str, Any]] = []
+    for direction in directions:
+        repeats = (
+            args.z203_to_z103_burst_batches
+            if direction["name"] == "z203-to-z103"
+            else args.z103_to_z203_burst_batches
+        )
+        schedule.extend([direction] * repeats)
     deadline = time.monotonic() + args.duration_s
     counts = {
         "z203_to_z103": 0,
@@ -754,6 +790,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "max_frames": args.max_frames,
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
+            "batch_byte_limit": args.batch_byte_limit,
+            "direction_burst_batches": {
+                "z203_to_z103": args.z203_to_z103_burst_batches,
+                "z103_to_z203": args.z103_to_z203_burst_batches,
+            },
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
@@ -797,7 +838,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     configured_directions: set[str] = set()
     while time.monotonic() < deadline and next_index < args.max_frames:
         moved = False
-        for direction in directions:
+        for direction in schedule:
             if next_index >= args.max_frames:
                 break
             try:
@@ -892,6 +933,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         direction["source_port"],
                         args.lease_timeout_ms,
                         args.batch_size,
+                        args.batch_byte_limit,
                     )
                     if not batch_frames:
                         counts["empty_polls"] += 1
@@ -1074,6 +1116,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--duration-s", type=float, default=30.0)
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--batch-byte-limit", type=int, default=0)
+    parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
+    parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
     parser.add_argument("--destructive-poll-batch", action="store_true")
     parser.add_argument("--poll-interval-ms", type=int, default=10)
     parser.add_argument("--leased-frame-report", type=Path)

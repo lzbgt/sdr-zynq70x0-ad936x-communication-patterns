@@ -106,10 +106,19 @@ released it, now fixed by waiting for remote server PIDs to exit. Follow-up
 runs preserve TCP payload retransmissions, expose `IPERF_TCP_BITRATE`, and add
 per-direction primary/retry modem settings for HIL tuning. They still move TCP
 data over real RF but do not complete `iperf3` reliably because the batch loop
-cannot drain the TCP queue fast enough. The remaining native-IP blocker is
-therefore not antenna installation, basic RF decode, daemon queueing, ordinary
-socket transport, or shell process startup alone; it is the need for a true
-streaming or pipelined RF loop.
+cannot drain the TCP queue fast enough. The daemon now keeps in-flight leased
+RF frames in a separate lease queue so the TUN reader can keep accepting TCP
+while ACK-after-peer-ingest is pending, and the HIL runner can bound RF batch
+bytes, tune route TCP parameters, cap TUN pump rate, disable stale-port
+filtering explicitly, and run timed TCP tests. Live HIL after this change moved
+up to 73 native-IP frames over real RF with zero bridge errors. The best
+remaining failure signature is an `iperf3` server with result bytes queued back
+toward Z203 after the client exits; faster Z103-to-Z203 BFSK settings, high
+route RTO, and low TUN pump bounds all regress earlier phases. The remaining
+native-IP blocker is therefore not antenna installation, basic RF decode,
+daemon queueing, ordinary socket transport, or shell process startup alone; it
+is the need for a true streaming or pipelined RF loop with enough reverse-path
+service for the result exchange.
 `FIELDMESH_RF_WORKER_PHY_PLAN` now exposes the explicit production
 gate before any live RF PHY binding: sidecar preflight, sidecar DMA, RF packet
 engine, TX guard, proven DAC source-select readback, authorized over-air RF path,

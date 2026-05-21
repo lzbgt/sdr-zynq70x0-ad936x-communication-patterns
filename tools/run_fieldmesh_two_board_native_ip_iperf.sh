@@ -13,6 +13,7 @@ timeout_ms="${TIMEOUT_MS:-10000}"
 bridge_request_timeout_ms="${BRIDGE_REQUEST_TIMEOUT_MS:-1000}"
 iperf_port="${IPERF_PORT:-5201}"
 tcp_bytes="${TCP_BYTES:-8192}"
+tcp_time_s="${TCP_TIME_S:-0}"
 udp_bitrate="${UDP_BITRATE:-64K}"
 udp_time_s="${UDP_TIME_S:-3}"
 bridge_duration_s="${BRIDGE_DURATION_S:-120}"
@@ -59,16 +60,27 @@ fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-1}"
+iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
+iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
+iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
 iio_bridge_lease_timeout_ms="${IIO_BRIDGE_LEASE_TIMEOUT_MS:-250}"
 iio_bridge_daemon_request_attempts="${IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS:-2}"
 iio_bridge_cyclic_capture_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_PERIODS:-1}"
 iio_bridge_cyclic_capture_retry_periods="${IIO_BRIDGE_CYCLIC_CAPTURE_RETRY_PERIODS:-2}"
-iio_bridge_ip_port_filter="${IIO_BRIDGE_IP_PORT_FILTER:-$iperf_port}"
+if [ "${IIO_BRIDGE_IP_PORT_FILTER+x}" = "x" ]; then
+    iio_bridge_ip_port_filter="$IIO_BRIDGE_IP_PORT_FILTER"
+else
+    iio_bridge_ip_port_filter="$iperf_port"
+fi
 iio_bridge_cyclic_tx="${IIO_BRIDGE_CYCLIC_TX:-1}"
 allow_destructive_rf_batch="${ALLOW_DESTRUCTIVE_RF_BATCH:-0}"
 min_board_tmp_free_kb="${MIN_BOARD_TMP_FREE_KB:-1024}"
+swarm_route_rto_min_ms="${SWARM_ROUTE_RTO_MIN_MS:-0}"
+swarm_route_initcwnd="${SWARM_ROUTE_INITCWND:-0}"
+swarm_route_initrwnd="${SWARM_ROUTE_INITRWND:-0}"
+tun_service_max_packets_per_tick="${TUN_SERVICE_MAX_PACKETS_PER_TICK:-8}"
 
 mkdir -p "$out_dir"
 
@@ -100,6 +112,10 @@ if ! [[ "$iperf_block_size" =~ ^[0-9]+$ ]] || [ "$iperf_block_size" -lt 16 ] || 
 fi
 if ! [[ "$tcp_bytes" =~ ^[0-9]+$ ]] || [ "$tcp_bytes" -lt 1024 ]; then
     echo "TCP_BYTES must be an integer >= 1024" >&2
+    exit 1
+fi
+if ! [[ "$tcp_time_s" =~ ^[0-9]+$ ]]; then
+    echo "TCP_TIME_S must be an integer >= 0" >&2
     exit 1
 fi
 case "$allow_daemon_rf_bridge" in 0|1) ;; *) echo "ALLOW_DAEMON_RF_BRIDGE must be 0 or 1" >&2; exit 1 ;; esac
@@ -140,6 +156,10 @@ if ! [[ "$iio_bridge_batch_size" =~ ^[0-9]+$ ]] || [ "$iio_bridge_batch_size" -l
     echo "IIO_BRIDGE_BATCH_SIZE must be a positive integer" >&2
     exit 1
 fi
+if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
+    echo "IIO_BRIDGE_BATCH_BYTE_LIMIT must be an integer >= 0" >&2
+    exit 1
+fi
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
     exit 1
@@ -151,6 +171,15 @@ fi
 if ! [[ "$iio_bridge_daemon_request_attempts" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_request_attempts" -lt 1 ]; then
     echo "IIO_BRIDGE_DAEMON_REQUEST_ATTEMPTS must be an integer >= 1" >&2
     exit 1
+fi
+for item in "$iio_bridge_z203_to_z103_burst_batches" "$iio_bridge_z103_to_z203_burst_batches"; do
+    if ! [[ "$item" =~ ^[0-9]+$ ]] || [ "$item" -lt 1 ] || [ "$item" -gt 8 ]; then
+        echo "IIO_BRIDGE_*_BURST_BATCHES values must be integers from 1 to 8" >&2
+        exit 1
+    fi
+done
+if [ "$iio_bridge_ip_port_filter" = "none" ]; then
+    iio_bridge_ip_port_filter=""
 fi
 if [ -n "$iio_bridge_ip_port_filter" ]; then
     if ! [[ "$iio_bridge_ip_port_filter" =~ ^[0-9]+$ ]] ||
@@ -182,6 +211,18 @@ if [ "$allow_destructive_rf_batch" = "1" ] && [ "$iio_bridge_batch_size" -lt 2 ]
 fi
 if ! [[ "$min_board_tmp_free_kb" =~ ^[0-9]+$ ]] || [ "$min_board_tmp_free_kb" -lt 64 ]; then
     echo "MIN_BOARD_TMP_FREE_KB must be an integer >= 64" >&2
+    exit 1
+fi
+for item in "$swarm_route_rto_min_ms" "$swarm_route_initcwnd" "$swarm_route_initrwnd"; do
+    if ! [[ "$item" =~ ^[0-9]+$ ]]; then
+        echo "SWARM_ROUTE_* values must be integer >= 0" >&2
+        exit 1
+    fi
+done
+if ! [[ "$tun_service_max_packets_per_tick" =~ ^[0-9]+$ ]] ||
+   [ "$tun_service_max_packets_per_tick" -lt 1 ] ||
+   [ "$tun_service_max_packets_per_tick" -gt 16 ]; then
+    echo "TUN_SERVICE_MAX_PACKETS_PER_TICK must be an integer from 1 to 16" >&2
     exit 1
 fi
 if ! [[ "$center_frequency_hz" =~ ^[0-9]+$ ]] || [ "$center_frequency_hz" -le 0 ]; then
@@ -242,6 +283,16 @@ if [ -z "$swarm_mtu" ]; then
     else
         swarm_mtu=1200
     fi
+fi
+swarm_route_args=""
+if [ "$swarm_route_rto_min_ms" -gt 0 ]; then
+    swarm_route_args="$swarm_route_args rto_min ${swarm_route_rto_min_ms}ms"
+fi
+if [ "$swarm_route_initcwnd" -gt 0 ]; then
+    swarm_route_args="$swarm_route_args initcwnd ${swarm_route_initcwnd}"
+fi
+if [ "$swarm_route_initrwnd" -gt 0 ]; then
+    swarm_route_args="$swarm_route_args initrwnd ${swarm_route_initrwnd}"
 fi
 if ! [[ "$swarm_mtu" =~ ^[0-9]+$ ]] || [ "$swarm_mtu" -lt 296 ] || [ "$swarm_mtu" -gt 1200 ]; then
     echo "SWARM_MTU must be an integer from 296 to 1200" >&2
@@ -791,7 +842,7 @@ setup_board() {
           ip tuntap add dev swarm0 mode tun; \
           ip addr add '$ip_addr'/16 dev swarm0; \
           ip link set dev swarm0 mtu '$swarm_mtu' up; \
-          ip route replace '$peer_subnet' dev swarm0; \
+          ip route replace '$peer_subnet' dev swarm0 $swarm_route_args; \
           ip -json addr show dev swarm0; \
           ip route show '$peer_subnet'; \
         }" >"$log_path" 2>&1
@@ -801,10 +852,10 @@ start_tun_services() {
     request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STOP v1 >>"$out_dir/iperf_gate.ndjson" || true
     request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STOP v1 >>"$out_dir/iperf_gate.ndjson" || true
     request_daemon_ok z203_tun_service_start "$z203_ip" "$z203_port" \
-        FIELDMESH_TUN_SERVICE_START v1 dst=020000000103 max=8 \
+        FIELDMESH_TUN_SERVICE_START v1 dst=020000000103 max="$tun_service_max_packets_per_tick" \
         rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE
     request_daemon_ok z103_tun_service_start "$z103_ip" "$z103_port" \
-        FIELDMESH_TUN_SERVICE_START v1 dst=020000000203 max=8 \
+        FIELDMESH_TUN_SERVICE_START v1 dst=020000000203 max="$tun_service_max_packets_per_tick" \
         rf_transport=driver_queue ALLOW_LIVE_TUN_READ ALLOW_LIVE_TUN_WRITE
     request_daemon_ok z203_rf_worker_start "$z203_ip" "$z203_port" FIELDMESH_RF_WORKER_START v1
     request_daemon_ok z103_rf_worker_start "$z103_ip" "$z103_port" FIELDMESH_RF_WORKER_START v1
@@ -980,6 +1031,9 @@ start_iio_rf_bridge_loop() {
         --duration-s "$bridge_duration_s" \
         --max-frames "$iio_bridge_max_frames" \
         --batch-size "$iio_bridge_batch_size" \
+        --batch-byte-limit "$iio_bridge_batch_byte_limit" \
+        --z203-to-z103-burst-batches "$iio_bridge_z203_to_z103_burst_batches" \
+        --z103-to-z203-burst-batches "$iio_bridge_z103_to_z203_burst_batches" \
         "${batch_args[@]}" \
         --z203-host "$z203_ip" \
         --z103-host "$z103_ip" \
@@ -1192,9 +1246,15 @@ run_remote_iperf_json() {
 
 board_tcp_bitrate_args=()
 host_tcp_bitrate_args=()
+board_tcp_length_args=(-n "'$tcp_bytes'")
+host_tcp_length_args=(-n "$tcp_bytes")
 if [ -n "$iperf_tcp_bitrate" ]; then
     board_tcp_bitrate_args=(-b "'$iperf_tcp_bitrate'")
     host_tcp_bitrate_args=(-b "$iperf_tcp_bitrate")
+fi
+if [ "$tcp_time_s" -gt 0 ]; then
+    board_tcp_length_args=(-t "'$tcp_time_s'")
+    host_tcp_length_args=(-t "$tcp_time_s")
 fi
 
 setup_board "$z203_remote" "10.77.1.1" "10.77.2.0/24" "$out_dir/z203_setup.log"
@@ -1278,7 +1338,7 @@ wait_remote_tcp_listen "$z103_remote" "$iperf_port"
 set +e
 run_remote_iperf_json "$z203_remote" \
     "$out_dir/z203_iperf3_tcp_client.json" "$out_dir/z203_iperf3_tcp_client.err" \
-    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" -n "'$tcp_bytes'" -l "'$iperf_block_size'" --json
+    iperf3 -c 10.77.2.20 -p "'$iperf_port'" --connect-timeout "'$iperf_connect_timeout_ms'" --snd-timeout "'$iperf_snd_timeout_ms'" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
 tcp_rc=$?
 set -e
 if [ "$tcp_rc" -ne 0 ]; then
@@ -1330,7 +1390,7 @@ if [ "$host_pc_case" = "1" ]; then
     set +e
     run_host_iperf_json \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
-        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_bitrate_args[@]}" -n "$tcp_bytes" -l "$iperf_block_size" --json
+        iperf3 -c 10.77.2.20 -p "$iperf_port" --connect-timeout "$iperf_connect_timeout_ms" --snd-timeout "$iperf_snd_timeout_ms" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_bitrate_args[@]}" "${host_tcp_length_args[@]}" -l "$iperf_block_size" --json
     host_tcp_rc=$?
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then
@@ -1381,7 +1441,7 @@ stop_bridge_loop
 request_daemon "$z203_ip" "$z203_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 request_daemon "$z103_ip" "$z103_port" FIELDMESH_TUN_SERVICE_STATUS v1 >>"$out_dir/iperf_gate.ndjson"
 
-python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" <<'PY'
+python3 - "$out_dir" "$allow_daemon_rf_bridge" "$allow_iio_rf_bridge" "$host_pc_case" "$swarm_mtu" "$tcp_time_s" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -1391,6 +1451,7 @@ allow_bridge = sys.argv[2] == "1"
 allow_iio = sys.argv[3] == "1"
 host_pc_case = sys.argv[4] == "1"
 swarm_mtu = int(sys.argv[5])
+tcp_time_s_requested = int(sys.argv[6])
 
 def load_json(path: str) -> dict:
     text = (out_dir / path).read_text(encoding="utf-8", errors="replace")
@@ -1549,6 +1610,7 @@ report = {
     "rf_phy_tx_rx_verified": real_rf_ready,
     "app_verified_real_rf": bool(real_rf_ready and not allow_bridge),
     "production_evidence": bool(real_rf_ready and not allow_bridge),
+    "tcp_time_s_requested": tcp_time_s_requested,
     "tcp_bits_per_second": tcp_bits,
     "tcp_bytes": tcp_bytes,
     "tcp_duration_s": tcp_duration_s,

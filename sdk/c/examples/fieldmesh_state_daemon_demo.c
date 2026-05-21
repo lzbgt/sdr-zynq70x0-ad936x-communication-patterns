@@ -105,7 +105,7 @@ struct tun_memory_read_context {
     size_t next_packet;
 };
 
-#define TUN_SERVICE_RF_QUEUE_DEPTH 8u
+#define TUN_SERVICE_RF_QUEUE_DEPTH 16u
 #define TUN_SERVICE_RF_FRAME_MAX 2048u
 #define TUN_SERVICE_RECENT_TCP_SIGNATURES 16u
 
@@ -126,6 +126,7 @@ struct tun_service_state {
     int fd;
     fieldmesh_adapter_t *adapter;
     struct tun_service_rf_queue rf_tx_queue;
+    struct tun_service_rf_queue rf_tx_lease_queue;
     struct tun_service_rf_queue rf_rx_queue;
     enum tun_service_rf_transport_mode rf_transport_mode;
     char local_device_eui[FIELDMESH_ID_TEXT_MAX];
@@ -597,6 +598,26 @@ static int tun_service_rf_queue_peek_at(const struct tun_service_rf_queue *queue
     return 1;
 }
 
+static int tun_service_rf_queue_peek_len(
+    const struct tun_service_rf_queue *queue,
+    size_t offset,
+    size_t *out_frame_len)
+{
+    size_t index;
+    size_t frame_len;
+
+    if (!queue || !out_frame_len || offset >= queue->count) {
+        return 0;
+    }
+    index = (queue->head + offset) % TUN_SERVICE_RF_QUEUE_DEPTH;
+    frame_len = queue->frame_lens[index];
+    if (frame_len == 0u) {
+        return 0;
+    }
+    *out_frame_len = frame_len;
+    return 1;
+}
+
 static int tun_service_rf_queue_drop_head(struct tun_service_rf_queue *queue)
 {
     if (!queue || queue->count == 0u) {
@@ -620,6 +641,49 @@ static int tun_service_rf_queue_drop_prefix(struct tun_service_rf_queue *queue,
         if (!tun_service_rf_queue_drop_head(queue)) {
             return 0;
         }
+    }
+    return 1;
+}
+
+static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
+                                          struct tun_service_rf_queue *dst,
+                                          size_t max_count,
+                                          size_t max_bytes,
+                                          size_t *out_moved,
+                                          uint32_t *out_bytes)
+{
+    size_t moved = 0u;
+    uint32_t bytes = 0u;
+
+    if (!src || !dst) {
+        return 0;
+    }
+    while (moved < max_count && src->count > 0u &&
+           dst->count < TUN_SERVICE_RF_QUEUE_DEPTH) {
+        unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
+        size_t frame_len = 0u;
+
+        if (!tun_service_rf_queue_peek_len(src, 0u, &frame_len)) {
+            return 0;
+        }
+        if (max_bytes > 0u && moved > 0u &&
+            (size_t)bytes + frame_len > max_bytes) {
+            break;
+        }
+        if (!tun_service_rf_queue_pop(src, frame, sizeof(frame), &frame_len)) {
+            return 0;
+        }
+        if (!tun_service_rf_queue_push(dst, frame, frame_len)) {
+            return 0;
+        }
+        moved++;
+        bytes += (uint32_t)frame_len;
+    }
+    if (out_moved) {
+        *out_moved = moved;
+    }
+    if (out_bytes) {
+        *out_bytes = bytes;
     }
     return 1;
 }
@@ -1515,6 +1579,7 @@ static int tun_service_open(fieldmesh_session_t *session,
            sizeof(service->recent_acked_tcp_signatures));
     service->recent_acked_tcp_signature_next = 0u;
     tun_service_rf_queue_reset(&service->rf_tx_queue);
+    tun_service_rf_queue_reset(&service->rf_tx_lease_queue);
     tun_service_rf_queue_reset(&service->rf_rx_queue);
     service->poll_wakeups = 0u;
     service->idle_ticks = 0u;
@@ -4397,6 +4462,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"rf_driver_frame_bytes_acked\":%u,"
                  "\"rf_driver_frame_bytes_ingested\":%u,"
                  "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_rx_queue_depth\":%u,"
                  "\"rf_tx_queue_drops\":%u,"
                  "\"rf_rx_queue_drops\":%u,"
@@ -4451,6 +4517,8 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_driver_frame_bytes_acked : 0u,
                  tun_service ? tun_service->rf_driver_frame_bytes_ingested : 0u,
                  tun_service ? (unsigned)tun_service->rf_tx_queue.count : 0u,
+                 tun_service ?
+                     (unsigned)tun_service->rf_tx_lease_queue.count : 0u,
                  tun_service ? (unsigned)tun_service->rf_rx_queue.count : 0u,
                  tun_service ? tun_service->rf_tx_queue_drops : 0u,
                  tun_service ? tun_service->rf_rx_queue_drops : 0u,
@@ -4855,6 +4923,9 @@ static int build_response(fieldmesh_context_t *context,
         unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
         char frame_hex[TUN_SERVICE_RF_FRAME_MAX * 2u + 1u];
         size_t frame_len = 0u;
+        size_t moved = 0u;
+        uint32_t moved_bytes = 0u;
+        uint32_t replayed_lease = 0u;
 
         if (!tun_service || !tun_service->running) {
             snprintf(response, response_len,
@@ -4868,7 +4939,18 @@ static int build_response(fieldmesh_context_t *context,
                      "\"writes_hardware\":0}\n");
             return 0;
         }
-        if (!tun_service_rf_queue_peek(&tun_service->rf_tx_queue, frame,
+        if (tun_service->rf_tx_lease_queue.count == 0u &&
+            !tun_service_rf_queue_move_head(&tun_service->rf_tx_queue,
+                                            &tun_service->rf_tx_lease_queue,
+                                            1u, 0u, &moved, &moved_bytes)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_lease\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_tx_lease_queue_move_failed\"}\n");
+            return 0;
+        }
+        replayed_lease = moved == 0u && tun_service->rf_tx_lease_queue.count > 0u;
+        if (!tun_service_rf_queue_peek(&tun_service->rf_tx_lease_queue, frame,
                                        sizeof(frame), &frame_len)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_lease\","
@@ -4878,17 +4960,19 @@ static int build_response(fieldmesh_context_t *context,
                      "\"requires_ack\":1,"
                      "\"rf_transport_mode\":\"%s\","
                      "\"rf_tx_queue_depth\":%u,"
+                     "\"rf_tx_lease_queue_depth\":%u,"
                      "\"uses_json_on_air\":0,"
                      "\"uses_inter_board_ip_routing\":0,"
                      "\"starts_rf_tx\":0,"
                      "\"writes_hardware\":0}\n",
                      tun_service_rf_transport_mode_name(
                          tun_service->rf_transport_mode),
-                     (unsigned)tun_service->rf_tx_queue.count);
+                     (unsigned)tun_service->rf_tx_queue.count,
+                     (unsigned)tun_service->rf_tx_lease_queue.count);
             return 0;
         }
-        tun_service->rf_driver_frames_leased++;
-        tun_service->rf_driver_frame_bytes_leased += (uint32_t)frame_len;
+        tun_service->rf_driver_frames_leased += (uint32_t)moved;
+        tun_service->rf_driver_frame_bytes_leased += moved_bytes;
         if (!write_hex_payload(frame_hex, sizeof(frame_hex), frame, frame_len)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_lease\","
@@ -4904,27 +4988,33 @@ static int build_response(fieldmesh_context_t *context,
                  "\"frame0_bytes\":%lu,"
                  "\"non_destructive\":1,"
                  "\"requires_ack\":1,"
+                 "\"replayed_lease\":%u,"
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_driver_frames_leased\":%u,"
                  "\"rf_driver_frame_bytes_leased\":%u,"
                  "\"uses_json_on_air\":0,"
                  "\"uses_inter_board_ip_routing\":0,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0}\n",
-                 frame_hex, (unsigned long)frame_len,
+                 frame_hex, (unsigned long)frame_len, replayed_lease,
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_tx_queue.count,
+                 (unsigned)tun_service->rf_tx_lease_queue.count,
                  tun_service->rf_driver_frames_leased,
                  tun_service->rf_driver_frame_bytes_leased);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_TX_LEASE_BATCH")) {
         unsigned max_frames = 4u;
+        unsigned max_bytes = 0u;
         unsigned emitted = 0u;
         unsigned i;
+        size_t moved = 0u;
         uint32_t bytes_leased = 0u;
+        uint32_t replayed_lease = 0u;
         char frames_json[6400];
         size_t used = 0u;
 
@@ -4948,14 +5038,40 @@ static int build_response(fieldmesh_context_t *context,
                      "\"error\":\"invalid_max\"}\n");
             return 0;
         }
+        if (!request_uint_or_default(request, "max_bytes=", 0u, 0u,
+                                     TUN_SERVICE_RF_FRAME_MAX * 4u,
+                                     &max_bytes)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_lease_batch\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_max_bytes\"}\n");
+            return 0;
+        }
+        if (tun_service->rf_tx_lease_queue.count == 0u &&
+            !tun_service_rf_queue_move_head(&tun_service->rf_tx_queue,
+                                            &tun_service->rf_tx_lease_queue,
+                                            max_frames, (size_t)max_bytes,
+                                            &moved,
+                                            &bytes_leased)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_tx_lease_batch\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_tx_lease_queue_move_failed\"}\n");
+            return 0;
+        }
+        replayed_lease =
+            moved == 0u && tun_service->rf_tx_lease_queue.count > 0u;
         frames_json[0] = '\0';
-        for (i = 0u; i < max_frames && i < tun_service->rf_tx_queue.count; ++i) {
+        for (i = 0u; i < max_frames &&
+                    i < tun_service->rf_tx_lease_queue.count;
+             ++i) {
             unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
             char frame_hex[TUN_SERVICE_RF_FRAME_MAX * 2u + 1u];
             size_t frame_len = 0u;
             int wrote;
 
-            if (!tun_service_rf_queue_peek_at(&tun_service->rf_tx_queue, i,
+            if (!tun_service_rf_queue_peek_at(&tun_service->rf_tx_lease_queue,
+                                              i,
                                               frame, sizeof(frame),
                                               &frame_len)) {
                 break;
@@ -4987,9 +5103,8 @@ static int build_response(fieldmesh_context_t *context,
             }
             used += (size_t)wrote;
             emitted++;
-            bytes_leased += (uint32_t)frame_len;
         }
-        tun_service->rf_driver_frames_leased += emitted;
+        tun_service->rf_driver_frames_leased += (uint32_t)moved;
         tun_service->rf_driver_frame_bytes_leased += bytes_leased;
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_tx_lease_batch\","
@@ -4998,8 +5113,11 @@ static int build_response(fieldmesh_context_t *context,
                  "%s"
                  "\"non_destructive\":1,"
                  "\"requires_ack\":1,"
+                 "\"replayed_lease\":%u,"
+                 "\"max_bytes\":%u,"
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_driver_frames_leased\":%u,"
                  "\"rf_driver_frame_bytes_leased\":%u,"
                  "\"uses_json_on_air\":0,"
@@ -5008,9 +5126,12 @@ static int build_response(fieldmesh_context_t *context,
                  "\"writes_hardware\":0}\n",
                  emitted,
                  frames_json,
+                 replayed_lease,
+                 max_bytes,
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_tx_queue.count,
+                 (unsigned)tun_service->rf_tx_lease_queue.count,
                  tun_service->rf_driver_frames_leased,
                  tun_service->rf_driver_frame_bytes_leased);
         return 0;
@@ -5051,13 +5172,16 @@ static int build_response(fieldmesh_context_t *context,
                      "\"error\":\"invalid_blr_frame_hex\"}\n");
             return 0;
         }
-        if (!tun_service_rf_queue_peek(&tun_service->rf_tx_queue, head_frame,
-                                       sizeof(head_frame), &head_frame_len)) {
+        if (!tun_service_rf_queue_peek(&tun_service->rf_tx_lease_queue,
+                                       head_frame, sizeof(head_frame),
+                                       &head_frame_len)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_ack\","
                      "\"ok\":false,"
-                     "\"error\":\"rf_tx_queue_empty\","
-                     "\"rf_tx_queue_depth\":0}\n");
+                     "\"error\":\"rf_tx_lease_queue_empty\","
+                     "\"rf_tx_queue_depth\":%u,"
+                     "\"rf_tx_lease_queue_depth\":0}\n",
+                     (unsigned)tun_service->rf_tx_queue.count);
             return 0;
         }
         if (ack_frame_len != head_frame_len ||
@@ -5074,11 +5198,12 @@ static int build_response(fieldmesh_context_t *context,
                      (unsigned)tun_service->rf_tx_queue.count);
             return 0;
         }
-        if (!tun_service_rf_queue_drop_head(&tun_service->rf_tx_queue)) {
+        if (!tun_service_rf_queue_drop_head(
+                &tun_service->rf_tx_lease_queue)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_ack\","
                      "\"ok\":false,"
-                     "\"error\":\"rf_tx_queue_drop_failed\"}\n");
+                     "\"error\":\"rf_tx_lease_queue_drop_failed\"}\n");
             return 0;
         }
         tun_service_record_recent_tcp_signature(tun_service, ack_frame,
@@ -5092,6 +5217,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"frame0_bytes\":%lu,"
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_driver_frames_acked\":%u,"
                  "\"rf_driver_frame_bytes_acked\":%u,"
                  "\"uses_json_on_air\":0,"
@@ -5102,6 +5228,7 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_tx_queue.count,
+                 (unsigned)tun_service->rf_tx_lease_queue.count,
                  tun_service->rf_driver_frames_acked,
                  tun_service->rf_driver_frame_bytes_acked);
         return 0;
@@ -5133,14 +5260,16 @@ static int build_response(fieldmesh_context_t *context,
                      "\"error\":\"invalid_frame_count\"}\n");
             return 0;
         }
-        if (ack_frames > tun_service->rf_tx_queue.count) {
+        if (ack_frames > tun_service->rf_tx_lease_queue.count) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_ack_batch\","
                      "\"ok\":false,"
-                     "\"error\":\"rf_tx_queue_short\","
+                     "\"error\":\"rf_tx_lease_queue_short\","
                      "\"ack_frames\":%u,"
-                     "\"rf_tx_queue_depth\":%u}\n",
-                     ack_frames, (unsigned)tun_service->rf_tx_queue.count);
+                     "\"rf_tx_queue_depth\":%u,"
+                     "\"rf_tx_lease_queue_depth\":%u}\n",
+                     ack_frames, (unsigned)tun_service->rf_tx_queue.count,
+                     (unsigned)tun_service->rf_tx_lease_queue.count);
             return 0;
         }
         for (i = 0u; i < ack_frames; ++i) {
@@ -5173,14 +5302,15 @@ static int build_response(fieldmesh_context_t *context,
                          i);
                 return 0;
             }
-            if (!tun_service_rf_queue_peek_at(&tun_service->rf_tx_queue, i,
+            if (!tun_service_rf_queue_peek_at(&tun_service->rf_tx_lease_queue,
+                                              i,
                                               queued_frame,
                                               sizeof(queued_frame),
                                               &queued_frame_len)) {
                 snprintf(response, response_len,
                          "{\"event\":\"sdk_daemon_rf_tx_ack_batch\","
                          "\"ok\":false,"
-                         "\"error\":\"rf_tx_queue_peek_failed\","
+                         "\"error\":\"rf_tx_lease_queue_peek_failed\","
                          "\"frame_index\":%u}\n",
                          i);
                 return 0;
@@ -5194,22 +5324,24 @@ static int build_response(fieldmesh_context_t *context,
                          "\"frame_index\":%u,"
                          "\"ack_frame_bytes\":%lu,"
                          "\"head_frame_bytes\":%lu,"
-                         "\"rf_tx_queue_depth\":%u}\n",
+                         "\"rf_tx_queue_depth\":%u,"
+                         "\"rf_tx_lease_queue_depth\":%u}\n",
                          i, (unsigned long)ack_frame_len,
                          (unsigned long)queued_frame_len,
-                         (unsigned)tun_service->rf_tx_queue.count);
+                         (unsigned)tun_service->rf_tx_queue.count,
+                         (unsigned)tun_service->rf_tx_lease_queue.count);
                 return 0;
             }
             ack_bytes += (uint32_t)ack_frame_len;
             memcpy(acked_frames[i], ack_frame, ack_frame_len);
             acked_frame_lens[i] = ack_frame_len;
         }
-        if (!tun_service_rf_queue_drop_prefix(&tun_service->rf_tx_queue,
+        if (!tun_service_rf_queue_drop_prefix(&tun_service->rf_tx_lease_queue,
                                               ack_frames)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_ack_batch\","
                      "\"ok\":false,"
-                     "\"error\":\"rf_tx_queue_drop_failed\"}\n");
+                     "\"error\":\"rf_tx_lease_queue_drop_failed\"}\n");
             return 0;
         }
         for (i = 0u; i < ack_frames; ++i) {
@@ -5226,6 +5358,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"frame_bytes\":%u,"
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_driver_frames_acked\":%u,"
                  "\"rf_driver_frame_bytes_acked\":%u,"
                  "\"uses_json_on_air\":0,"
@@ -5236,6 +5369,7 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),
                  (unsigned)tun_service->rf_tx_queue.count,
+                 (unsigned)tun_service->rf_tx_lease_queue.count,
                  tun_service->rf_driver_frames_acked,
                  tun_service->rf_driver_frame_bytes_acked);
         return 0;
@@ -5436,6 +5570,10 @@ static int build_response(fieldmesh_context_t *context,
         uint32_t rf_frames_ingressed = tun_service ? tun_service->rf_frames_ingressed : 0u;
         uint32_t rf_tx_queue_drops = tun_service ? tun_service->rf_tx_queue_drops : 0u;
         uint32_t rf_rx_queue_drops = tun_service ? tun_service->rf_rx_queue_drops : 0u;
+        uint32_t rf_tx_queue_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_queue.count : 0u;
+        uint32_t rf_tx_lease_queue_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_lease_queue.count : 0u;
         uint32_t rf_tx_queue_duplicate_drops =
             tun_service ? tun_service->rf_tx_queue_duplicate_drops : 0u;
         uint32_t ticks = tun_service ? tun_service->ticks : 0u;
@@ -5456,6 +5594,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"packets_written\":%u,"
                  "\"rf_frames_egressed\":%u,"
                  "\"rf_frames_ingressed\":%u,"
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
                  "\"rf_tx_queue_drops\":%u,"
                  "\"rf_rx_queue_drops\":%u,"
                  "\"rf_tx_queue_duplicate_drops\":%u,"
@@ -5475,6 +5615,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"uses_inter_board_ip_routing\":0}\n",
                  was_running, ticks, packets_pumped, packets_written,
                  rf_frames_egressed, rf_frames_ingressed,
+                 rf_tx_queue_depth, rf_tx_lease_queue_depth,
                  rf_tx_queue_drops, rf_rx_queue_drops,
                  rf_tx_queue_duplicate_drops, rf_worker_was_running,
                  tun_service ?
