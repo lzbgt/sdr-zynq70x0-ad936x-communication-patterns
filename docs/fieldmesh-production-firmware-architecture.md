@@ -239,6 +239,10 @@ The concrete C contract is `sdk/c/include/fieldmesh_firmware_abi.h`, with
 TX descriptor, RX descriptor, and ACK vectors. The Python vector tools can
 remain for host-side inspection, but C verification is authoritative for
 firmware interfaces.
+`sdk/c/examples/fieldmesh_firmware_ring_probe.c` is the first C packet-ring
+model over that ABI: it proves fixed TX/RX descriptor rings, packet memory
+copy, class priority, and ACK generation before the same contract is moved into
+UIO/kernel/FPGA code.
 
 ## MAC Design
 

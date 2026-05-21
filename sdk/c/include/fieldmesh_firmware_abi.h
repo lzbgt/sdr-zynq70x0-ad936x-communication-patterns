@@ -183,6 +183,44 @@ static inline int fieldmesh_fw_tx_desc_v1_valid(const fieldmesh_fw_tx_desc_v1_t 
            fieldmesh_fw_crc32c(desc->bytes, FIELDMESH_FW_TX_DESC_CRC_OFFSET);
 }
 
+static inline void fieldmesh_fw_tx_desc_v1_refresh_crc(fieldmesh_fw_tx_desc_v1_t *desc)
+{
+    fieldmesh_fw_put_le32(desc->bytes + FIELDMESH_FW_TX_DESC_CRC_OFFSET,
+                          fieldmesh_fw_crc32c(desc->bytes, FIELDMESH_FW_TX_DESC_CRC_OFFSET));
+}
+
+static inline void fieldmesh_fw_tx_desc_v1_set_state(fieldmesh_fw_tx_desc_v1_t *desc,
+                                                     uint8_t state)
+{
+    desc->bytes[0] = state;
+    fieldmesh_fw_tx_desc_v1_refresh_crc(desc);
+}
+
+static inline uint8_t fieldmesh_fw_tx_desc_v1_state(const fieldmesh_fw_tx_desc_v1_t *desc)
+{
+    return desc->bytes[0];
+}
+
+static inline uint8_t fieldmesh_fw_tx_desc_v1_traffic_class(const fieldmesh_fw_tx_desc_v1_t *desc)
+{
+    return desc->bytes[1];
+}
+
+static inline uint32_t fieldmesh_fw_tx_desc_v1_seq(const fieldmesh_fw_tx_desc_v1_t *desc)
+{
+    return fieldmesh_fw_get_le32(desc->bytes + 8u);
+}
+
+static inline uint32_t fieldmesh_fw_tx_desc_v1_payload_offset(const fieldmesh_fw_tx_desc_v1_t *desc)
+{
+    return fieldmesh_fw_get_le32(desc->bytes + 20u);
+}
+
+static inline uint16_t fieldmesh_fw_tx_desc_v1_payload_len(const fieldmesh_fw_tx_desc_v1_t *desc)
+{
+    return fieldmesh_fw_get_le16(desc->bytes + 24u);
+}
+
 static inline void fieldmesh_fw_rx_desc_v1_init(
     fieldmesh_fw_rx_desc_v1_t *desc,
     uint8_t state,
@@ -221,6 +259,26 @@ static inline int fieldmesh_fw_rx_desc_v1_valid(const fieldmesh_fw_rx_desc_v1_t 
     }
     return fieldmesh_fw_get_le32(desc->bytes + FIELDMESH_FW_RX_DESC_CRC_OFFSET) ==
            fieldmesh_fw_crc32c(desc->bytes, FIELDMESH_FW_RX_DESC_CRC_OFFSET);
+}
+
+static inline uint8_t fieldmesh_fw_rx_desc_v1_state(const fieldmesh_fw_rx_desc_v1_t *desc)
+{
+    return desc->bytes[0];
+}
+
+static inline uint16_t fieldmesh_fw_rx_desc_v1_payload_len(const fieldmesh_fw_rx_desc_v1_t *desc)
+{
+    return fieldmesh_fw_get_le16(desc->bytes + 24u);
+}
+
+static inline uint32_t fieldmesh_fw_rx_desc_v1_payload_offset(const fieldmesh_fw_rx_desc_v1_t *desc)
+{
+    return fieldmesh_fw_get_le32(desc->bytes + 20u);
+}
+
+static inline uint32_t fieldmesh_fw_rx_desc_v1_seq(const fieldmesh_fw_rx_desc_v1_t *desc)
+{
+    return fieldmesh_fw_get_le32(desc->bytes + 28u);
 }
 
 static inline void fieldmesh_fw_ack_v1_init(
