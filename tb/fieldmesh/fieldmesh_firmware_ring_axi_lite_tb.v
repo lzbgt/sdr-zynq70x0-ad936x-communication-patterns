@@ -203,7 +203,10 @@ initial begin
     wait_for_word(16'hc604, 32'h0000_0001, 2000); // stats.served
     expect_word(16'hc608, 32'h0000_0001);         // stats.acked
     expect_word(16'h0280, 32'hd600_0304);         // RX slot 0 READY, CRC/FEC OK
+    expect_word(16'h0288, 32'h0001_0000);         // RX slot 0 MCS byte at ABI offset 10
+    expect_word(16'h02a0, 32'h1095_d04f);         // RX slot 0 CRC32C
     expect_word(16'h04c0, 32'h0007_0511);         // ACK slot 0 header
+    expect_word(16'h04d0, 32'h4697_0100);         // ACK slot 0 CRC16 + queue/MCS
     expect_word(16'h6600, 32'h4c52_5443);         // RX packet arena slot 0
     expect_word(16'h0000, 32'h0011_0003);         // TX slot 0 marked DONE
 
@@ -214,7 +217,10 @@ initial begin
     wait_for_word(16'hc604, 32'h0000_0002, 2000); // stats.served
     expect_word(16'hc608, 32'h0000_0002);         // stats.acked
     expect_word(16'h02a4, 32'hd600_0304);         // RX slot 1 READY, CRC/FEC OK
+    expect_word(16'h02ac, 32'h0001_0000);         // RX slot 1 MCS byte at ABI offset 10
+    expect_word(16'h02c4, 32'he4a5_a068);         // RX slot 1 CRC32C
     expect_word(16'h04d4, 32'h0007_0511);         // ACK slot 1 header
+    expect_word(16'h04e4, 32'h3df6_0100);         // ACK slot 1 CRC16 + queue/MCS
     expect_word(16'h6c00, 32'h4b4c_5542);         // RX packet arena slot 1
     expect_word(16'h6c04, 32'h3231_3030);         // RX packet arena slot 1 continuation
     expect_word(16'h0028, 32'h0011_0303);         // TX slot 1 marked DONE

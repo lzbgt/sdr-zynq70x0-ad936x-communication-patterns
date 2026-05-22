@@ -259,6 +259,106 @@ task inc_stat;
     end
 endtask
 
+function [31:0] crc32c_byte;
+    input [31:0] crc_in;
+    input [7:0] data;
+    reg [31:0] crc;
+    integer bit_i;
+    begin
+        crc = crc_in ^ {24'd0, data};
+        for (bit_i = 0; bit_i < 8; bit_i = bit_i + 1) begin
+            if (crc[0]) begin
+                crc = (crc >> 1) ^ 32'h82f6_3b78;
+            end else begin
+                crc = crc >> 1;
+            end
+        end
+        crc32c_byte = crc;
+    end
+endfunction
+
+function [31:0] crc32c_word_le;
+    input [31:0] crc_in;
+    input [31:0] word;
+    reg [31:0] crc;
+    begin
+        crc = crc32c_byte(crc_in, word[7:0]);
+        crc = crc32c_byte(crc, word[15:8]);
+        crc = crc32c_byte(crc, word[23:16]);
+        crc32c_word_le = crc32c_byte(crc, word[31:24]);
+    end
+endfunction
+
+function [31:0] crc32c_desc8_le;
+    input [31:0] word0;
+    input [31:0] word1;
+    input [31:0] word2;
+    input [31:0] word3;
+    input [31:0] word4;
+    input [31:0] word5;
+    input [31:0] word6;
+    input [31:0] word7;
+    reg [31:0] crc;
+    begin
+        crc = crc32c_word_le(32'hffff_ffff, word0);
+        crc = crc32c_word_le(crc, word1);
+        crc = crc32c_word_le(crc, word2);
+        crc = crc32c_word_le(crc, word3);
+        crc = crc32c_word_le(crc, word4);
+        crc = crc32c_word_le(crc, word5);
+        crc = crc32c_word_le(crc, word6);
+        crc = crc32c_word_le(crc, word7);
+        crc32c_desc8_le = ~crc;
+    end
+endfunction
+
+function [15:0] crc16_byte;
+    input [15:0] crc_in;
+    input [7:0] data;
+    reg [15:0] crc;
+    integer bit_i;
+    begin
+        crc = crc_in ^ {data, 8'd0};
+        for (bit_i = 0; bit_i < 8; bit_i = bit_i + 1) begin
+            if (crc[15]) begin
+                crc = (crc << 1) ^ 16'h1021;
+            end else begin
+                crc = crc << 1;
+            end
+        end
+        crc16_byte = crc;
+    end
+endfunction
+
+function [15:0] crc16_word_le;
+    input [15:0] crc_in;
+    input [31:0] word;
+    reg [15:0] crc;
+    begin
+        crc = crc16_byte(crc_in, word[7:0]);
+        crc = crc16_byte(crc, word[15:8]);
+        crc = crc16_byte(crc, word[23:16]);
+        crc16_word_le = crc16_byte(crc, word[31:24]);
+    end
+endfunction
+
+function [15:0] crc16_ack_le;
+    input [31:0] word0;
+    input [31:0] word1;
+    input [31:0] word2;
+    input [31:0] word3;
+    input [15:0] word4_low;
+    reg [15:0] crc;
+    begin
+        crc = crc16_word_le(16'hffff, word0);
+        crc = crc16_word_le(crc, word1);
+        crc = crc16_word_le(crc, word2);
+        crc = crc16_word_le(crc, word3);
+        crc = crc16_byte(crc, word4_low[7:0]);
+        crc16_ack_le = crc16_byte(crc, word4_low[15:8]);
+    end
+endfunction
+
 task service_slot_immediate;
     input [15:0] slot;
     input [31:0] first_word;
@@ -274,6 +374,19 @@ task service_slot_immediate;
     reg [31:0] rx_desc_base;
     reg [31:0] ack_desc_base;
     reg [31:0] packet_base;
+    reg [31:0] rx0;
+    reg [31:0] rx1;
+    reg [31:0] rx2;
+    reg [31:0] rx3;
+    reg [31:0] rx4;
+    reg [31:0] rx5;
+    reg [31:0] rx6;
+    reg [31:0] rx7;
+    reg [31:0] ack0;
+    reg [31:0] ack1;
+    reg [31:0] ack2;
+    reg [31:0] ack3;
+    reg [15:0] ack4_low;
     integer word_i;
     begin
         payload_word_offset = 32'd0;
@@ -310,21 +423,36 @@ task service_slot_immediate;
                 end
             end
 
-            rx_desc[rx_desc_base + 0] <= {16'hd600, FW_RX_STATUS_CRC_OK | FW_RX_STATUS_FEC_OK, FW_STATE_READY};
-            rx_desc[rx_desc_base + 1] <= 32'h0000_1800;
-            rx_desc[rx_desc_base + 2] <= {16'd0, 8'd0, mcs};
-            rx_desc[rx_desc_base + 3] <= seq;
-            rx_desc[rx_desc_base + 4] <= 32'd0;
-            rx_desc[rx_desc_base + 5] <= rx_payload_offset;
-            rx_desc[rx_desc_base + 6] <= {peer_index, payload_len};
-            rx_desc[rx_desc_base + 7] <= seq;
-            rx_desc[rx_desc_base + 8] <= 32'd0;
+            rx0 = {16'hd600, FW_RX_STATUS_CRC_OK | FW_RX_STATUS_FEC_OK, FW_STATE_READY};
+            rx1 = 32'h0000_1800;
+            rx2 = {8'd0, mcs, 16'd0};
+            rx3 = seq;
+            rx4 = 32'd0;
+            rx5 = rx_payload_offset;
+            rx6 = {peer_index, payload_len};
+            rx7 = seq;
+            rx_desc[rx_desc_base + 0] <= rx0;
+            rx_desc[rx_desc_base + 1] <= rx1;
+            rx_desc[rx_desc_base + 2] <= rx2;
+            rx_desc[rx_desc_base + 3] <= rx3;
+            rx_desc[rx_desc_base + 4] <= rx4;
+            rx_desc[rx_desc_base + 5] <= rx5;
+            rx_desc[rx_desc_base + 6] <= rx6;
+            rx_desc[rx_desc_base + 7] <= rx7;
+            rx_desc[rx_desc_base + 8] <= crc32c_desc8_le(
+                rx0, rx1, rx2, rx3, rx4, rx5, rx6, rx7);
 
-            ack_desc[ack_desc_base + 0] <= {peer_index, FW_ACK_FLAGS, FW_ACK_HEADER};
-            ack_desc[ack_desc_base + 1] <= seq;
-            ack_desc[ack_desc_base + 2] <= 32'd1;
-            ack_desc[ack_desc_base + 3] <= 32'd0;
-            ack_desc[ack_desc_base + 4] <= {16'd0, mcs, 8'd0};
+            ack0 = {peer_index, FW_ACK_FLAGS, FW_ACK_HEADER};
+            ack1 = seq;
+            ack2 = 32'd1;
+            ack3 = 32'd0;
+            ack4_low = {mcs, 8'd0};
+            ack_desc[ack_desc_base + 0] <= ack0;
+            ack_desc[ack_desc_base + 1] <= ack1;
+            ack_desc[ack_desc_base + 2] <= ack2;
+            ack_desc[ack_desc_base + 3] <= ack3;
+            ack_desc[ack_desc_base + 4] <= {
+                crc16_ack_le(ack0, ack1, ack2, ack3, ack4_low), ack4_low};
             inc_stat(16'd1);
             inc_stat(16'd2);
         end

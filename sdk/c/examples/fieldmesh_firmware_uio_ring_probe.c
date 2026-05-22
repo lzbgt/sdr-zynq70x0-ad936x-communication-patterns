@@ -247,7 +247,8 @@ static int pl_service_payload_matches(const fieldmesh_fw_ring_view_t *view,
         return 0;
     }
     const fieldmesh_fw_rx_desc_v1_t *rx = &view->rx[slot];
-    if (fieldmesh_fw_rx_desc_v1_state(rx) != FIELDMESH_FW_STATE_READY ||
+    if (!fieldmesh_fw_rx_desc_v1_valid(rx) ||
+        fieldmesh_fw_rx_desc_v1_state(rx) != FIELDMESH_FW_STATE_READY ||
         fieldmesh_fw_rx_desc_v1_payload_len(rx) != payload_len) {
         return 0;
     }
@@ -262,6 +263,7 @@ static int pl_service_ack_matches(const fieldmesh_fw_ack_v1_t *ack,
                                   uint32_t seq)
 {
     return ack &&
+           fieldmesh_fw_ack_v1_valid(ack) &&
            ack->bytes[0] == (uint8_t)((FIELDMESH_FW_ABI_VERSION << 4) |
                                       FIELDMESH_FW_ACK_TYPE) &&
            ack->bytes[1] == (FIELDMESH_FW_ACK_FLAG_SELECTIVE |
