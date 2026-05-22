@@ -241,15 +241,15 @@ and packet-memory boundary before a wider AXI RAM or DMA wrapper is connected.
 block for that wrapper: byte-wide AXI-stream packets are packed into BRAM
 packet words, then an ABI-valid TX descriptor is published state-last. This is
 still a binary PL data path, not IIO control traffic or JSON diagnostics.
-`fieldmesh_firmware_axis_bram_mac_endpoint.v` composes that writer with the
-BRAM MAC endpoint so one wrapper now covers AXI-stream ingress, binary
-descriptor publication, MAC-budgeted service, RX/ACK metadata, and packet
-readback. The remaining DMA work is the matching egress side and board-level
-AXI RAM/DMA binding.
 `fieldmesh_firmware_axis_egress_reader.v` adds that reusable RX side: it reads
 ABI RX descriptors, validates READY state and descriptor CRC32C, reads packet
 BRAM words, and emits byte-wide AXI-stream packets with TLAST for the future RX
 DMA or MAC egress wrapper.
+`fieldmesh_firmware_axis_bram_mac_endpoint.v` now composes both sides with the
+BRAM MAC endpoint so one wrapper covers AXI-stream ingress, binary descriptor
+publication, MAC-budgeted service, RX/ACK metadata, packet readback, and
+descriptor-validated AXI-stream egress. The remaining DMA work is board-level
+AXI RAM/DMA binding.
 
 The first control-only block-design overlay is opt-in:
 

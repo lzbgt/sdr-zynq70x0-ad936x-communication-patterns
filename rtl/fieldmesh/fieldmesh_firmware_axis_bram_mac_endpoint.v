@@ -1,9 +1,9 @@
-// FieldMesh AXI-stream ingress BRAM MAC endpoint.
+// FieldMesh AXI-stream ingress/egress BRAM MAC endpoint.
 //
-// This wrapper is the first production-shaped PL packet ingress endpoint. It
-// accepts byte-wide AXI-stream packets, writes them into the firmware-ring BRAM
-// arena through the ingress writer, and lets the MAC scheduler drain queued
-// binary descriptors through the BRAM MAC endpoint.
+// This wrapper is the first production-shaped PL packet endpoint. It accepts
+// byte-wide AXI-stream packets, writes them into the firmware-ring BRAM arena,
+// lets the MAC scheduler drain queued binary descriptors, and emits READY RX
+// packets back out as byte-wide AXI-stream frames.
 
 `timescale 1ns/1ps
 
@@ -26,6 +26,19 @@ module fieldmesh_firmware_axis_bram_mac_endpoint #(
     input  wire [7:0]            s_axis_tuser_class,
     input  wire [7:0]            s_axis_tuser_mode,
     input  wire [15:0]           s_axis_tuser_stream_id,
+
+    input  wire                  egress_enable,
+    input  wire                  egress_start,
+    output wire                  egress_start_ready,
+    input  wire [15:0]           egress_start_slot,
+    output wire                  m_axis_tvalid,
+    input  wire                  m_axis_tready,
+    output wire [7:0]            m_axis_tdata,
+    output wire                  m_axis_tlast,
+    output wire [7:0]            m_axis_tuser_mcs,
+    output wire [15:0]           m_axis_tuser_peer,
+    output wire [15:0]           m_axis_tuser_slot,
+    output wire [31:0]           m_axis_tuser_seq,
 
     input  wire [15:0]           peer_index,
     input  wire [7:0]            mcs,
@@ -85,6 +98,15 @@ module fieldmesh_firmware_axis_bram_mac_endpoint #(
     output wire                  ingress_busy,
     output wire                  ingress_fault,
 
+    output wire [31:0]           egress_packet_count,
+    output wire [31:0]           egress_byte_count,
+    output wire [31:0]           egress_desc_read_count,
+    output wire [31:0]           egress_drop_count,
+    output wire [31:0]           egress_desc_error_count,
+    output wire [31:0]           egress_packet_error_count,
+    output wire                  egress_busy,
+    output wire                  egress_fault,
+
     output wire [31:0]           mac_tick_count,
     output wire [31:0]           mac_pump_start_count,
     output wire [31:0]           mac_pump_done_count,
@@ -125,6 +147,26 @@ wire [3:0] ingress_desc_wr_strb;
 wire endpoint_desc_wr_ready;
 wire endpoint_desc_wr_error;
 
+wire egress_desc_rd_valid;
+wire [1:0] egress_desc_rd_region;
+wire [15:0] egress_desc_rd_slot;
+wire [15:0] egress_desc_rd_word;
+wire egress_desc_rd_ready;
+wire egress_desc_rd_rvalid;
+wire [31:0] egress_desc_rd_rdata;
+wire egress_desc_rd_error;
+
+wire endpoint_desc_rd_valid;
+wire [1:0] endpoint_desc_rd_region;
+wire [15:0] endpoint_desc_rd_slot;
+wire [15:0] endpoint_desc_rd_word;
+wire endpoint_desc_rd_ready;
+wire endpoint_desc_rd_rvalid;
+wire [31:0] endpoint_desc_rd_rdata;
+wire endpoint_desc_rd_error;
+wire endpoint_desc_rd_egress_selected = egress_desc_rd_valid;
+reg endpoint_desc_rd_egress_response;
+
 wire ingress_packet_valid;
 wire ingress_packet_write;
 wire [ADDR_WIDTH-1:0] ingress_packet_addr;
@@ -135,20 +177,73 @@ wire endpoint_packet_rvalid;
 wire [31:0] endpoint_packet_rdata;
 wire endpoint_packet_error;
 
-wire packet_read_selected = packet_rd_valid && !ingress_packet_valid;
-wire endpoint_packet_valid = ingress_packet_valid || packet_read_selected;
+wire egress_packet_rd_valid;
+wire egress_packet_rd_write;
+wire [ADDR_WIDTH-1:0] egress_packet_rd_addr;
+wire egress_packet_rd_ready;
+wire egress_packet_rd_rvalid;
+wire [31:0] egress_packet_rd_rdata;
+wire egress_packet_rd_error;
+wire endpoint_packet_egress_selected =
+    egress_packet_rd_valid && !ingress_packet_valid;
+wire packet_read_selected =
+    packet_rd_valid && !ingress_packet_valid && !egress_packet_rd_valid;
+wire endpoint_packet_valid =
+    ingress_packet_valid || endpoint_packet_egress_selected || packet_read_selected;
 wire endpoint_packet_write = ingress_packet_valid ? ingress_packet_write : 1'b0;
 wire [ADDR_WIDTH-1:0] endpoint_packet_addr =
-    ingress_packet_valid ? ingress_packet_addr : packet_rd_addr;
+    ingress_packet_valid ? ingress_packet_addr :
+    endpoint_packet_egress_selected ? egress_packet_rd_addr : packet_rd_addr;
 wire [31:0] endpoint_packet_wdata =
     ingress_packet_valid ? ingress_packet_wdata : 32'd0;
 wire [3:0] endpoint_packet_wstrb =
     ingress_packet_valid ? ingress_packet_wstrb : 4'd0;
+reg endpoint_packet_egress_response;
 
-assign packet_rd_ready = endpoint_packet_ready && !ingress_packet_valid;
-assign packet_rd_rvalid = endpoint_packet_rvalid;
+assign endpoint_desc_rd_valid =
+    endpoint_desc_rd_egress_selected ? egress_desc_rd_valid : desc_rd_valid;
+assign endpoint_desc_rd_region =
+    endpoint_desc_rd_egress_selected ? egress_desc_rd_region : desc_rd_region;
+assign endpoint_desc_rd_slot =
+    endpoint_desc_rd_egress_selected ? egress_desc_rd_slot : desc_rd_slot;
+assign endpoint_desc_rd_word =
+    endpoint_desc_rd_egress_selected ? egress_desc_rd_word : desc_rd_word;
+
+assign egress_desc_rd_ready =
+    endpoint_desc_rd_ready && endpoint_desc_rd_egress_selected;
+assign egress_desc_rd_rvalid =
+    endpoint_desc_rd_rvalid && endpoint_desc_rd_egress_response;
+assign egress_desc_rd_rdata = endpoint_desc_rd_rdata;
+assign egress_desc_rd_error = endpoint_desc_rd_error;
+
+assign desc_rd_ready = endpoint_desc_rd_ready && !endpoint_desc_rd_egress_selected;
+assign desc_rd_rvalid = endpoint_desc_rd_rvalid && !endpoint_desc_rd_egress_response;
+assign desc_rd_rdata = endpoint_desc_rd_rdata;
+assign desc_rd_error = endpoint_desc_rd_error;
+
+assign packet_rd_ready = endpoint_packet_ready && packet_read_selected;
+assign packet_rd_rvalid = endpoint_packet_rvalid && !endpoint_packet_egress_response;
 assign packet_rd_rdata = endpoint_packet_rdata;
 assign packet_rd_error = endpoint_packet_error;
+assign egress_packet_rd_ready = endpoint_packet_ready && endpoint_packet_egress_selected;
+assign egress_packet_rd_rvalid =
+    endpoint_packet_rvalid && endpoint_packet_egress_response;
+assign egress_packet_rd_rdata = endpoint_packet_rdata;
+assign egress_packet_rd_error = endpoint_packet_error;
+
+always @(posedge clk) begin
+    if (rst || !enable) begin
+        endpoint_desc_rd_egress_response <= 1'b0;
+        endpoint_packet_egress_response <= 1'b0;
+    end else begin
+        if (endpoint_desc_rd_valid && endpoint_desc_rd_ready) begin
+            endpoint_desc_rd_egress_response <= endpoint_desc_rd_egress_selected;
+        end
+        if (endpoint_packet_valid && endpoint_packet_ready && !endpoint_packet_write) begin
+            endpoint_packet_egress_response <= endpoint_packet_egress_selected;
+        end
+    end
+end
 
 fieldmesh_firmware_axis_ingress_writer #(
     .RING_SLOTS(RING_SLOTS),
@@ -198,6 +293,50 @@ fieldmesh_firmware_axis_ingress_writer #(
     .fault(ingress_fault)
 );
 
+fieldmesh_firmware_axis_egress_reader #(
+    .PACKET_STRIDE(PACKET_STRIDE),
+    .ADDR_WIDTH(ADDR_WIDTH)
+) egress (
+    .clk(clk),
+    .rst(rst),
+    .enable(enable),
+    .egress_enable(egress_enable),
+    .start(egress_start),
+    .start_ready(egress_start_ready),
+    .start_slot(egress_start_slot),
+    .desc_rd_valid(egress_desc_rd_valid),
+    .desc_rd_region(egress_desc_rd_region),
+    .desc_rd_slot(egress_desc_rd_slot),
+    .desc_rd_word(egress_desc_rd_word),
+    .desc_rd_ready(egress_desc_rd_ready),
+    .desc_rd_rvalid(egress_desc_rd_rvalid),
+    .desc_rd_rdata(egress_desc_rd_rdata),
+    .desc_rd_error(egress_desc_rd_error),
+    .packet_rd_valid(egress_packet_rd_valid),
+    .packet_rd_write(egress_packet_rd_write),
+    .packet_rd_addr(egress_packet_rd_addr),
+    .packet_rd_ready(egress_packet_rd_ready),
+    .packet_rd_rvalid(egress_packet_rd_rvalid),
+    .packet_rd_rdata(egress_packet_rd_rdata),
+    .packet_rd_error(egress_packet_rd_error),
+    .m_axis_tvalid(m_axis_tvalid),
+    .m_axis_tready(m_axis_tready),
+    .m_axis_tdata(m_axis_tdata),
+    .m_axis_tlast(m_axis_tlast),
+    .m_axis_tuser_mcs(m_axis_tuser_mcs),
+    .m_axis_tuser_peer(m_axis_tuser_peer),
+    .m_axis_tuser_slot(m_axis_tuser_slot),
+    .m_axis_tuser_seq(m_axis_tuser_seq),
+    .packet_count(egress_packet_count),
+    .byte_count(egress_byte_count),
+    .desc_read_count(egress_desc_read_count),
+    .drop_count(egress_drop_count),
+    .desc_error_count(egress_desc_error_count),
+    .packet_error_count(egress_packet_error_count),
+    .busy(egress_busy),
+    .fault(egress_fault)
+);
+
 fieldmesh_firmware_packet_bram_mac_endpoint #(
     .RING_SLOTS(RING_SLOTS),
     .PACKET_STRIDE(PACKET_STRIDE),
@@ -216,14 +355,14 @@ fieldmesh_firmware_packet_bram_mac_endpoint #(
     .desc_wr_strb(ingress_desc_wr_strb),
     .desc_wr_ready(endpoint_desc_wr_ready),
     .desc_wr_error(endpoint_desc_wr_error),
-    .desc_rd_valid(desc_rd_valid),
-    .desc_rd_region(desc_rd_region),
-    .desc_rd_slot(desc_rd_slot),
-    .desc_rd_word(desc_rd_word),
-    .desc_rd_ready(desc_rd_ready),
-    .desc_rd_rvalid(desc_rd_rvalid),
-    .desc_rd_rdata(desc_rd_rdata),
-    .desc_rd_error(desc_rd_error),
+    .desc_rd_valid(endpoint_desc_rd_valid),
+    .desc_rd_region(endpoint_desc_rd_region),
+    .desc_rd_slot(endpoint_desc_rd_slot),
+    .desc_rd_word(endpoint_desc_rd_word),
+    .desc_rd_ready(endpoint_desc_rd_ready),
+    .desc_rd_rvalid(endpoint_desc_rd_rvalid),
+    .desc_rd_rdata(endpoint_desc_rd_rdata),
+    .desc_rd_error(endpoint_desc_rd_error),
     .packet_valid(endpoint_packet_valid),
     .packet_write(endpoint_packet_write),
     .packet_addr(endpoint_packet_addr),

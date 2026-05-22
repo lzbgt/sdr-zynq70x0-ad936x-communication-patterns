@@ -23,6 +23,18 @@ reg s_axis_tlast = 1'b0;
 reg [7:0] s_axis_tuser_class = 8'd0;
 reg [7:0] s_axis_tuser_mode = 8'd0;
 reg [15:0] s_axis_tuser_stream_id = 16'd0;
+reg egress_enable = 1'b1;
+reg egress_start = 1'b0;
+wire egress_start_ready;
+reg [15:0] egress_start_slot = 16'd0;
+wire m_axis_tvalid;
+reg m_axis_tready = 1'b1;
+wire [7:0] m_axis_tdata;
+wire m_axis_tlast;
+wire [7:0] m_axis_tuser_mcs;
+wire [15:0] m_axis_tuser_peer;
+wire [15:0] m_axis_tuser_slot;
+wire [31:0] m_axis_tuser_seq;
 reg [15:0] peer_index = 16'd7;
 reg [7:0] mcs = 8'd1;
 reg [7:0] retry_budget = 8'd3;
@@ -74,6 +86,14 @@ wire [31:0] ingress_packet_error_count;
 wire [31:0] ingress_desc_error_count;
 wire ingress_busy;
 wire ingress_fault;
+wire [31:0] egress_packet_count;
+wire [31:0] egress_byte_count;
+wire [31:0] egress_desc_read_count;
+wire [31:0] egress_drop_count;
+wire [31:0] egress_desc_error_count;
+wire [31:0] egress_packet_error_count;
+wire egress_busy;
+wire egress_fault;
 wire [31:0] mac_tick_count;
 wire [31:0] mac_pump_start_count;
 wire [31:0] mac_pump_done_count;
@@ -121,6 +141,18 @@ fieldmesh_firmware_axis_bram_mac_endpoint #(
     .s_axis_tuser_class(s_axis_tuser_class),
     .s_axis_tuser_mode(s_axis_tuser_mode),
     .s_axis_tuser_stream_id(s_axis_tuser_stream_id),
+    .egress_enable(egress_enable),
+    .egress_start(egress_start),
+    .egress_start_ready(egress_start_ready),
+    .egress_start_slot(egress_start_slot),
+    .m_axis_tvalid(m_axis_tvalid),
+    .m_axis_tready(m_axis_tready),
+    .m_axis_tdata(m_axis_tdata),
+    .m_axis_tlast(m_axis_tlast),
+    .m_axis_tuser_mcs(m_axis_tuser_mcs),
+    .m_axis_tuser_peer(m_axis_tuser_peer),
+    .m_axis_tuser_slot(m_axis_tuser_slot),
+    .m_axis_tuser_seq(m_axis_tuser_seq),
     .peer_index(peer_index),
     .mcs(mcs),
     .retry_budget(retry_budget),
@@ -172,6 +204,14 @@ fieldmesh_firmware_axis_bram_mac_endpoint #(
     .ingress_desc_error_count(ingress_desc_error_count),
     .ingress_busy(ingress_busy),
     .ingress_fault(ingress_fault),
+    .egress_packet_count(egress_packet_count),
+    .egress_byte_count(egress_byte_count),
+    .egress_desc_read_count(egress_desc_read_count),
+    .egress_drop_count(egress_drop_count),
+    .egress_desc_error_count(egress_desc_error_count),
+    .egress_packet_error_count(egress_packet_error_count),
+    .egress_busy(egress_busy),
+    .egress_fault(egress_fault),
     .mac_tick_count(mac_tick_count),
     .mac_pump_start_count(mac_pump_start_count),
     .mac_pump_done_count(mac_pump_done_count),
@@ -320,6 +360,49 @@ task packet_expect_word;
     end
 endtask
 
+task start_egress;
+    input [15:0] slot;
+    integer cycles;
+    begin
+        cycles = 0;
+        while (!egress_start_ready && cycles < 2000) begin
+            @(posedge clk);
+            cycles = cycles + 1;
+        end
+        if (!egress_start_ready) fail("egress start was not ready");
+        @(negedge clk);
+        egress_start_slot = slot;
+        egress_start = 1'b1;
+        @(negedge clk);
+        egress_start = 1'b0;
+    end
+endtask
+
+task expect_egress_byte;
+    input [7:0] expected;
+    input expected_last;
+    integer cycles;
+    begin
+        cycles = 0;
+        while (!m_axis_tvalid && cycles < 2000) begin
+            @(posedge clk);
+            cycles = cycles + 1;
+        end
+        if (!m_axis_tvalid) fail("egress AXIS byte timeout");
+        if (m_axis_tdata != expected || m_axis_tlast != expected_last) begin
+            $display("expected byte 0x%02x last=%0d got 0x%02x last=%0d",
+                     expected, expected_last, m_axis_tdata, m_axis_tlast);
+            fail("egress AXIS byte mismatch");
+        end
+        if (m_axis_tuser_mcs != 8'd1 || m_axis_tuser_peer != 16'd7 ||
+            m_axis_tuser_slot != 16'd0 ||
+            m_axis_tuser_seq != 32'h0000_0900) begin
+            fail("egress AXIS metadata mismatch");
+        end
+        @(posedge clk);
+    end
+endtask
+
 initial begin
     repeat (4) @(negedge clk);
     rst = 1'b0;
@@ -371,6 +454,20 @@ initial begin
     desc_expect_word(REGION_ACK, 16'd0, 16'd1, 32'h0000_0900);
     packet_expect_word(RX0_PACKET_ADDR, 32'h4433_2211);
     packet_expect_word(RX0_PACKET_ADDR4, 32'h0000_0055);
+
+    start_egress(16'd0);
+    expect_egress_byte(8'h11, 1'b0);
+    expect_egress_byte(8'h22, 1'b0);
+    expect_egress_byte(8'h33, 1'b0);
+    expect_egress_byte(8'h44, 1'b0);
+    expect_egress_byte(8'h55, 1'b1);
+    repeat (2) @(posedge clk);
+    if (egress_packet_count != 32'd1 || egress_byte_count != 32'd5 ||
+        egress_desc_read_count != 32'd9 || egress_drop_count != 32'd0 ||
+        egress_desc_error_count != 32'd0 || egress_packet_error_count != 32'd0 ||
+        egress_busy || egress_fault) begin
+        fail("AXIS egress counters mismatch");
+    end
 
     if (mac_tick_count != 32'd2 || mac_busy_tick_count != 32'd0 ||
         mac_error_seen_count != 32'd0 || mac_stop_count != 32'd0) begin
