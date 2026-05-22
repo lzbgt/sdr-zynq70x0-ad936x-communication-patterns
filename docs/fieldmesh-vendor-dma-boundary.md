@@ -221,6 +221,10 @@ can select one queued slot at a time without widening the AXI-lite diagnostic
 register array. `fieldmesh_firmware_ring_desc_store.v` separates TX/RX/ACK
 descriptor storage from AXI-lite register handling, keeping descriptor publish,
 clear, and TX-done behavior reusable by that endpoint.
+`fieldmesh_firmware_packet_bram_endpoint.v` now composes the descriptor store,
+full-MTU packet BRAM, and BRAM service bank behind narrow binary descriptor and
+packet ports. That keeps the production endpoint independent of the AXI-lite
+diagnostic shell while preserving the same descriptor/ACK contract.
 
 The first control-only block-design overlay is opt-in:
 

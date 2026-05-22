@@ -308,8 +308,12 @@ queued-slot picker, descriptor latch, and one-at-a-time BRAM service launch for
 the future production packet-memory endpoint. `fieldmesh_firmware_ring_desc_store`
 extracts TX/RX/ACK descriptor storage from the AXI-lite diagnostic shell: it
 exports the compact serviced TX window, publishes RX/ACK metadata after service,
-clears stale outputs on rejected service, and marks the TX slot done. The stats
-block now keeps the fixed counters plus
+clears stale outputs on rejected service, and marks the TX slot done.
+`fieldmesh_firmware_packet_bram_endpoint` composes that descriptor store with
+the full-MTU packet BRAM and BRAM service bank behind narrow binary descriptor
+and packet-memory ports; it is the next reusable endpoint before the wrapper is
+bound to AXI RAM, DMA, or a board-local MAC scheduler. The stats block now keeps
+the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
 words as `firmware_ring_pressure_queued` and
