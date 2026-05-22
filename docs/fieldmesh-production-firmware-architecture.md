@@ -316,7 +316,10 @@ bound to AXI RAM, DMA, or a board-local MAC scheduler.
 `fieldmesh_firmware_service_pump` adds the reusable bounded queue-drain
 controller for that endpoint: it emits one-cycle service requests while queued
 descriptors remain, then stops on empty queue, explicit stop, or service budget
-exhaustion. The stats block now keeps
+exhaustion. `fieldmesh_firmware_packet_bram_pumped_endpoint` composes the BRAM
+endpoint and service pump, giving the first-party PL path an autonomous
+full-MTU firmware-ring drain boundary before the AXI RAM/DMA or MAC scheduler
+wrapper is added. The stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those

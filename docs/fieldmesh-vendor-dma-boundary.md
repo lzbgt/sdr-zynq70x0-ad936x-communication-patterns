@@ -228,6 +228,10 @@ diagnostic shell while preserving the same descriptor/ACK contract.
 `fieldmesh_firmware_service_pump.v` is the bounded autonomous drain controller
 for that endpoint. It owns only service-start policy and counters; descriptor
 validation, packet movement, and RX/ACK publication remain in the endpoint.
+`fieldmesh_firmware_packet_bram_pumped_endpoint.v` composes the endpoint and
+pump into the first reusable autonomous BRAM-backed firmware-ring boundary:
+ARM still writes compact binary descriptors and packet words, while PL drains
+queued slots under a bounded service budget.
 
 The first control-only block-design overlay is opt-in:
 

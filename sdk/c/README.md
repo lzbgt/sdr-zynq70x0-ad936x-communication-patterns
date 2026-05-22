@@ -82,6 +82,9 @@ in `src/fieldmesh_sdk.c`:
   and packet-memory ports, ready for a wider AXI RAM/DMA wrapper.
   `fieldmesh_firmware_service_pump` adds bounded autonomous queue-drain control
   around one-shot service blocks without parsing descriptors or packet bytes.
+  `fieldmesh_firmware_packet_bram_pumped_endpoint` binds those two reusable
+  blocks so PL can drain queued binary descriptors through the full-MTU BRAM
+  endpoint for a bounded service budget.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and
