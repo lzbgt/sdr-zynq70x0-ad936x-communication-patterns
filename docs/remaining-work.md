@@ -1427,7 +1427,10 @@ below were later superseded by the current PHY-management two-board gates above:
   that page: read-only firmware-DMA status needs
   `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and arm/stop writes also need
   `FIELD_MESH_EXECUTE_LIVE_TX=1`, `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
-  `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The RF-engine overlay still keeps the
+  `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The board-side sidecar preflight now
+  captures this read-only firmware-DMA status and includes it in
+  `preflight_assert.json`, so live DMA smoke or firmware-DMA arm tests have a
+  non-mutating endpoint-status gate. The RF-engine overlay still keeps the
   older bridge-fed path until the RF scheduler is bound directly to the
   firmware endpoint.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
@@ -1499,7 +1502,8 @@ below were later superseded by the current PHY-management two-board gates above:
   `JTAG_PS_SOFT_RESET` / DSCR read with DAP sticky errors before loading the
   payload; use a real JTAG-mode power cycle before retrying. When runtime is
   reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures the
-  three preflights over SSH and writes `preflight_assert.json`.
+  three preflights plus read-only firmware-DMA endpoint status over SSH and
+  writes `preflight_assert.json`.
   `tools/run_fieldmesh_live_gate.sh` now wraps artifact verification, JTAG
   scan, non-flashing RAM boot, and read-only sidecar preflight into one
   timestamped capture directory for the next post-power-cycle attempt. The

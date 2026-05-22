@@ -2818,6 +2818,11 @@ The RF-tools verifier also covers the guarded userspace control contract for
 that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
 authorization, and `--fw-dma-arm`/`--fw-dma-stop` remain non-mutating unless
 the explicit live-write and firmware-DMA guards are present.
+The sidecar preflight verifier now covers the live wrapper contract too:
+`run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
+captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
+the assertion summary rejects captures where the firmware-DMA status read is
+missing, failed, or marked as a hardware write.
 
 Both corrected copied overlays rebuilt timing-clean:
 

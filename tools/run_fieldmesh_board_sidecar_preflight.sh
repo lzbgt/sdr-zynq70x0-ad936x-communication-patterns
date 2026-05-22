@@ -29,21 +29,27 @@ ssh_args=(
 remote_dt="/tmp/fieldmesh_dt_scan.ndjson"
 remote_ctrl="/tmp/fieldmesh_ctrl_scan.ndjson"
 remote_dma="/tmp/fieldmesh_dma_scan.ndjson"
+remote_fw_dma_status="/tmp/fieldmesh_fw_dma_status.json"
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "command -v fieldmesh-udp-probe >/dev/null"
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" "command -v fieldmesh-ctrl-write >/dev/null"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
     "fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree > '$remote_dt' 2>&1"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
     "fieldmesh-udp-probe ctrl-scan --ctrl-base '$ctrl_base' --ctrl-size '$ctrl_size' > '$remote_ctrl' 2>&1"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
     "fieldmesh-udp-probe dma-scan --tx-dma-base '$tx_dma_base' --rx-dma-base '$rx_dma_base' --dma-size '$dma_size' > '$remote_dma' 2>&1"
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+    "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_fw_dma_status' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dt" "$out_dir/dt_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_ctrl" "$out_dir/ctrl_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dma" "$out_dir/dma_scan.ndjson"
+sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_fw_dma_status" "$out_dir/fw_dma_status.json"
 "$repo_root/tools/fieldmesh_sidecar_preflight_assert.py" \
     "$out_dir/dt_scan.ndjson" \
     "$out_dir/ctrl_scan.ndjson" \
     "$out_dir/dma_scan.ndjson" \
+    --fw-dma-status "$out_dir/fw_dma_status.json" \
     | tee "$out_dir/preflight_assert.json"
 
 echo "Capture directory: $out_dir"

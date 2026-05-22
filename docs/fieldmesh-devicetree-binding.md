@@ -141,16 +141,19 @@ The SSH wrapper runs all sidecar preflights on a reachable board image:
 ./tools/run_fieldmesh_board_sidecar_preflight.sh 192.168.2.1
 ```
 
-It captures `dt_scan.ndjson`, `ctrl_scan.ndjson`, `dma_scan.ndjson`, and a
-derived `preflight_assert.json` from
+It captures `dt_scan.ndjson`, `ctrl_scan.ndjson`, `dma_scan.ndjson`,
+`fw_dma_status.json`, and a derived `preflight_assert.json` from
 `tools/fieldmesh_sidecar_preflight_assert.py`. `dma-scan` opens `/dev/mem`
 read-only, maps the target physical register pages with read-only `mmap()`, and
 samples the first few TX/RX sidecar DMA registers without writing registers or
-starting transfers. A packet-DMA smoke test should only run after the assertion
-summary confirms a matching FieldMesh DTB, a live control-window ID, and
-readable sidecar DMA windows. The production firmware UIO probe adds the next
-read-only check for the `fieldmesh-ring@43c30000` aperture once the matching PL
-packet-memory window is present.
+starting transfers. `fw_dma_status.json` is produced by
+`FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status`; it
+reads the firmware-DMA endpoint control/status/counter block without arming the
+endpoint. A packet-DMA smoke test should only run after the assertion summary
+confirms a matching FieldMesh DTB, a live control-window ID, readable sidecar
+DMA windows, and a non-mutating firmware-DMA status read. The production
+firmware UIO probe adds the next read-only check for
+`fieldmesh-ring@43c30000` once the matching PL packet-memory window is present.
 
 ## Matched Package
 

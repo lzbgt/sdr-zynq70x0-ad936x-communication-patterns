@@ -19,6 +19,20 @@ EXPECTED_DT_NODES = {
 }
 EXPECTED_CTRL_REGS = {"id", "control", "status", "irq_status", "irq_mask"}
 EXPECTED_DMA_REGS = {"reg_00", "reg_04", "reg_08", "reg_0c", "reg_10"}
+EXPECTED_FW_DMA_STATUS_KEYS = {
+    "control",
+    "status",
+    "service_budget",
+    "queued_count",
+    "selected_word",
+    "tx_parser_packets",
+    "tx_parser_drops",
+    "ingress_packets",
+    "ingress_drops",
+    "egress_packets",
+    "egress_drops",
+    "bram_errors",
+}
 
 
 def load_ndjson(path: Path) -> list[dict[str, Any]]:
@@ -133,13 +147,48 @@ def validate_dma(rows: list[dict[str, Any]], path: Path) -> int:
     return count
 
 
-def validate(dt_path: Path, ctrl_path: Path, dma_path: Path) -> dict[str, Any]:
+def validate_fw_dma_status(path: Path) -> dict[str, Any]:
+    rows = load_ndjson(path)
+    row = require_event(rows, "fieldmesh_fw_dma_status", path)
+    if row.get("ok") is not True:
+        raise SystemExit(f"{path}: firmware-DMA status failed: {row}")
+    if row.get("reads_hardware") is not True:
+        raise SystemExit(f"{path}: firmware-DMA status must be a hardware read: {row}")
+    require_false(row, "writes_hardware", path)
+    base = parse_u32(row.get("base"), path, "base", row)
+    if base != 0x43C00000:
+        raise SystemExit(f"{path}: firmware-DMA status base mismatch: 0x{base:08x}")
+    missing = EXPECTED_FW_DMA_STATUS_KEYS - set(row)
+    if missing:
+        raise SystemExit(f"{path}: firmware-DMA status missing keys: {sorted(missing)}")
+    for key in ("service_budget", "queued_count", "tx_parser_packets",
+                "tx_parser_drops", "ingress_packets", "ingress_drops",
+                "egress_packets", "egress_drops", "bram_errors"):
+        if not isinstance(row.get(key), int):
+            raise SystemExit(f"{path}: firmware-DMA {key} must be an integer: {row}")
+    parse_u32(row.get("control"), path, "control", row)
+    parse_u32(row.get("status"), path, "status", row)
+    parse_u32(row.get("selected_word"), path, "selected_word", row)
+    return {
+        "fw_dma_status": str(path),
+        "fw_dma_base": f"0x{base:08x}",
+        "fw_dma_reads_hardware": True,
+        "fw_dma_writes_hardware": False,
+    }
+
+
+def validate(
+    dt_path: Path,
+    ctrl_path: Path,
+    dma_path: Path,
+    fw_dma_status_path: Path | None = None,
+) -> dict[str, Any]:
     dt_rows = load_ndjson(dt_path)
     ctrl_rows = load_ndjson(ctrl_path)
     dma_rows = load_ndjson(dma_path)
 
     ctrl_count, ctrl_id = validate_ctrl(ctrl_rows, ctrl_path)
-    return {
+    result = {
         "event": "fieldmesh_sidecar_preflight_assert",
         "ok": True,
         "dt": str(dt_path),
@@ -151,6 +200,9 @@ def validate(dt_path: Path, ctrl_path: Path, dma_path: Path) -> dict[str, Any]:
         "dma_regs": validate_dma(dma_rows, dma_path),
         "dma_windows": ["tx", "rx"],
     }
+    if fw_dma_status_path is not None:
+        result.update(validate_fw_dma_status(fw_dma_status_path))
+    return result
 
 
 def parse_args() -> argparse.Namespace:
@@ -158,12 +210,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("dt", type=Path, help="dt-scan NDJSON capture")
     parser.add_argument("ctrl", type=Path, help="ctrl-scan NDJSON capture")
     parser.add_argument("dma", type=Path, help="dma-scan NDJSON capture")
+    parser.add_argument(
+        "--fw-dma-status",
+        type=Path,
+        help="optional fieldmesh-ctrl-write --fw-dma-status JSON capture",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    print(json.dumps(validate(args.dt, args.ctrl, args.dma), sort_keys=True))
+    print(json.dumps(validate(args.dt, args.ctrl, args.dma, args.fw_dma_status), sort_keys=True))
     return 0
 
 

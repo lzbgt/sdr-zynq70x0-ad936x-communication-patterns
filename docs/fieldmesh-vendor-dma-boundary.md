@@ -474,10 +474,13 @@ fieldmesh-udp-probe dma-scan \
 `dma-scan` opens `/dev/mem` read-only, maps the target physical register pages
 with read-only `mmap()`, reads a small register set from the TX and RX sidecar
 DMA windows, and never writes registers or starts transfers.
-Run the wrapper before any packet-DMA smoke test. The wrapper also runs
+Run the wrapper before any packet-DMA smoke test. The wrapper also captures
+`fw_dma_status.json` with `FIELD_MESH_ALLOW_HARDWARE_READS=1
+fieldmesh-ctrl-write --fw-dma-status 0x43c00000`, then runs
 `tools/fieldmesh_sidecar_preflight_assert.py` over the saved `dt_scan.ndjson`,
-`ctrl_scan.ndjson`, and `dma_scan.ndjson` files and writes a single
-`preflight_assert.json` pass/fail summary.
+`ctrl_scan.ndjson`, `dma_scan.ndjson`, and firmware-DMA status files. The
+resulting `preflight_assert.json` confirms the status read is non-mutating
+before any `--fw-dma-arm` or DMA smoke step is allowed.
 
 On 2026-05-13 the Z203 SD/QSPI FieldMesh runtime passed this wrapper with the
 matched FieldMesh bitstream and devicetree. The committed capture is under

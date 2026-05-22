@@ -102,6 +102,9 @@ A useful pass has:
 - sidecar preflight status `0`
 - `sidecar_preflight/preflight_assert.json` with
   `fieldmesh_sidecar_preflight_assert` and `"ok": true`
+- `sidecar_preflight/fw_dma_status.json` showing
+  `fieldmesh_fw_dma_status`, `"reads_hardware": true`, and
+  `"writes_hardware": false`
 
 Do not start packet-DMA transfer tests until the sidecar preflight passes.
 
@@ -118,6 +121,8 @@ directory and inspect the three raw captures:
 - `sidecar_preflight/dt_scan.ndjson`
 - `sidecar_preflight/ctrl_scan.ndjson`
 - `sidecar_preflight/dma_scan.ndjson`
+- `sidecar_preflight/fw_dma_status.json`
 
 Those files distinguish a DTB mismatch, missing control endpoint, bad control
-ID, and unreadable sidecar DMA window.
+ID, unreadable sidecar DMA window, and missing or unsafe firmware-DMA control
+status.
