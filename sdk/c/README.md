@@ -60,6 +60,8 @@ in `src/fieldmesh_sdk.c`:
   wrapper. This diagnostic PL service validates ARM-published TX descriptor
   CRC32C before service, rejects CRC-valid descriptors with nonzero reserved
   fields, unaligned packet offsets, or out-of-range traffic classes, and
+  clears the rejected slot's RX/ACK outputs so stale READY descriptors cannot
+  be consumed after a failed service attempt. It
   generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe validates
   PL-published descriptors through the production ABI helpers; the production
   MAC/DMA packet-memory engine must still add FEC integrity and full-MTU packet

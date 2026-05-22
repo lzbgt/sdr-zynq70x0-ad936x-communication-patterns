@@ -260,6 +260,28 @@ task inc_stat;
     end
 endtask
 
+task clear_slot_outputs;
+    input [15:0] slot;
+    reg [31:0] rx_desc_base;
+    reg [31:0] ack_desc_base;
+    reg [31:0] packet_base;
+    integer clear_i;
+    begin
+        rx_desc_base = slot * RX_DESC_WORDS;
+        ack_desc_base = slot * ACK_WORDS;
+        packet_base = slot * PL_PACKET_WORDS_PER_SLOT;
+        for (clear_i = 0; clear_i < RX_DESC_WORDS; clear_i = clear_i + 1) begin
+            rx_desc[rx_desc_base + clear_i] <= 32'd0;
+        end
+        for (clear_i = 0; clear_i < ACK_WORDS; clear_i = clear_i + 1) begin
+            ack_desc[ack_desc_base + clear_i] <= 32'd0;
+        end
+        for (clear_i = 0; clear_i < PL_PACKET_WORDS_PER_SLOT; clear_i = clear_i + 1) begin
+            rx_packet[packet_base + clear_i] <= 32'd0;
+        end
+    end
+endtask
+
 function [31:0] crc32c_byte;
     input [31:0] crc_in;
     input [7:0] data;
@@ -454,6 +476,7 @@ task service_slot_immediate;
             tx_desc[tx_desc_base + 6][31:16] == 16'd0;
 
         if (!tx_desc_crc_ok) begin
+            clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd4);
         end else if (!tx_desc_semantic_ok ||
@@ -462,6 +485,7 @@ task service_slot_immediate;
             payload_word_offset + payload_words > PACKET_ARENA_WORDS ||
             payload_words > PL_PACKET_WORDS_PER_SLOT ||
             payload_word_offset != expected_payload_word_offset) begin
+            clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd5);
         end else begin

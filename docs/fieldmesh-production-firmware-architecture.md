@@ -278,7 +278,9 @@ diagnostic service publishes RX/ACK state, payload offsets, sequence numbers,
 and counters. It validates ARM-published TX descriptor CRC32C before service,
 rejects CRC-valid descriptors with nonzero reserved fields, unaligned packet
 offsets, or out-of-range traffic classes, and generates RX descriptor CRC32C
-plus ACK CRC16 in PL. The C UIO probe validates PL-published descriptors
+plus ACK CRC16 in PL. Rejected service attempts clear the slot's RX descriptor,
+ACK descriptor, and compact RX packet window so stale READY state cannot be
+consumed after a failed TX. The C UIO probe validates PL-published descriptors
 through the production ABI helpers. The full production MAC/DMA engine must
 still add FEC integrity and full-MTU packet storage before the RF-facing path is
 production-ready.

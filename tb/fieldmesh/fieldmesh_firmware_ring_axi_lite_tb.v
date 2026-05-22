@@ -340,6 +340,9 @@ initial begin
     expect_word(16'hc604, 32'h0000_0002);         // invalid TX was not served
     expect_word(16'hc608, 32'h0000_0002);         // invalid TX was not ACKed
     expect_word(16'h0000, 32'h0011_0003);         // bad TX slot marked DONE
+    expect_word(16'h0280, 32'h0000_0000);         // stale RX descriptor cleared
+    expect_word(16'h04c0, 32'h0000_0000);         // stale ACK descriptor cleared
+    expect_word(16'h6600, 32'h0000_0000);         // stale RX packet bytes cleared
 
     axi_write(16'h0600, 32'h4646_4f32); // TX packet arena slot 0: "2OFF"
     write_tx_desc(16'h0000, 8'd1, 8'd0, 32'h0000_0103, 32'd2, 16'd4);
