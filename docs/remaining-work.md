@@ -52,10 +52,11 @@ does not turn the 64 KiB UIO aperture into an OOM-prone register fabric; the
 next PL step is a real BRAM/AXI RAM or DMA packet-memory block for full-MTU
 traffic and sequential descriptor CRC/FEC integrity. The AXI-lite
 diagnostic service now uses the reusable
-`fieldmesh_firmware_tx_desc_validator` RTL gate for TX descriptor CRC32C and
-descriptor-local semantic checks plus `fieldmesh_firmware_rx_ack_builder` for
-ABI-valid RX descriptor and ACK construction, and clears stale RX/ACK output
-state after rejected TX service attempts. This
+`fieldmesh_firmware_tx_service_gate` RTL gate for TX descriptor CRC32C,
+descriptor-local semantic checks, and packet-window admission plus
+`fieldmesh_firmware_rx_ack_builder` for ABI-valid RX descriptor and ACK
+construction, and clears stale RX/ACK output state after rejected TX service
+attempts. This
 diagnostic PL service remains enabled on Z203, but is synthesized out on
 Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared
 C firmware boundary without exceeding LUT/slice capacity. This

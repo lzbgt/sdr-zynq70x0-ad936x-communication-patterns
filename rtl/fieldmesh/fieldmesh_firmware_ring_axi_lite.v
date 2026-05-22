@@ -96,8 +96,10 @@ reg [31:0] tx_packet [0:PL_PACKET_WORDS - 1];
 reg [31:0] rx_packet [0:PL_PACKET_WORDS - 1];
 reg [31:0] stats [0:STATS_WORDS - 1];
 
-wire [PL_SERVICE_SLOTS-1:0] tx_desc_crc_ok;
-wire [PL_SERVICE_SLOTS-1:0] tx_desc_valid;
+wire [PL_SERVICE_SLOTS-1:0] service_accepted;
+wire [PL_SERVICE_SLOTS-1:0] service_crc_error;
+wire [PL_SERVICE_SLOTS-1:0] service_bounds_error;
+wire [15:0] service_payload_words [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] rx_build0 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] rx_build1 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] rx_build2 [0:PL_SERVICE_SLOTS - 1];
@@ -113,48 +115,60 @@ wire [31:0] ack_build2 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] ack_build3 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] ack_build4 [0:PL_SERVICE_SLOTS - 1];
 
-genvar tx_desc_validator_i;
+genvar service_i;
 generate
-    for (tx_desc_validator_i = 0;
-         tx_desc_validator_i < PL_SERVICE_SLOTS;
-         tx_desc_validator_i = tx_desc_validator_i + 1) begin : tx_desc_validators
-        localparam TX_DESC_VALIDATOR_BASE = tx_desc_validator_i * TX_DESC_WORDS;
-        localparam [31:0] RX_PAYLOAD_OFFSET = tx_desc_validator_i * PACKET_STRIDE;
-        fieldmesh_firmware_tx_desc_validator validator (
-            .word0(tx_desc[TX_DESC_VALIDATOR_BASE + 0]),
-            .word1(tx_desc[TX_DESC_VALIDATOR_BASE + 1]),
-            .word2(tx_desc[TX_DESC_VALIDATOR_BASE + 2]),
-            .word3(tx_desc[TX_DESC_VALIDATOR_BASE + 3]),
-            .word4(tx_desc[TX_DESC_VALIDATOR_BASE + 4]),
-            .word5(tx_desc[TX_DESC_VALIDATOR_BASE + 5]),
-            .word6(tx_desc[TX_DESC_VALIDATOR_BASE + 6]),
-            .word7(tx_desc[TX_DESC_VALIDATOR_BASE + 7]),
-            .word8(tx_desc[TX_DESC_VALIDATOR_BASE + 8]),
-            .word9(tx_desc[TX_DESC_VALIDATOR_BASE + 9]),
-            .crc_ok(tx_desc_crc_ok[tx_desc_validator_i]),
-            .semantic_ok(),
-            .valid(tx_desc_valid[tx_desc_validator_i])
+    for (service_i = 0;
+         service_i < PL_SERVICE_SLOTS;
+         service_i = service_i + 1) begin : service_slots
+        localparam TX_DESC_SERVICE_BASE = service_i * TX_DESC_WORDS;
+        localparam [15:0] SERVICE_SLOT = service_i;
+        localparam [31:0] RX_PAYLOAD_OFFSET = service_i * PACKET_STRIDE;
+        fieldmesh_firmware_tx_service_gate #(
+            .RING_SLOTS(RING_SLOTS),
+            .PACKET_STRIDE(PACKET_STRIDE),
+            .PL_PACKET_WORDS_PER_SLOT(PL_PACKET_WORDS_PER_SLOT)
+        ) service_gate (
+            .slot(SERVICE_SLOT),
+            .word0(tx_desc[TX_DESC_SERVICE_BASE + 0]),
+            .word1(tx_desc[TX_DESC_SERVICE_BASE + 1]),
+            .word2(tx_desc[TX_DESC_SERVICE_BASE + 2]),
+            .word3(tx_desc[TX_DESC_SERVICE_BASE + 3]),
+            .word4(tx_desc[TX_DESC_SERVICE_BASE + 4]),
+            .word5(tx_desc[TX_DESC_SERVICE_BASE + 5]),
+            .word6(tx_desc[TX_DESC_SERVICE_BASE + 6]),
+            .word7(tx_desc[TX_DESC_SERVICE_BASE + 7]),
+            .word8(tx_desc[TX_DESC_SERVICE_BASE + 8]),
+            .word9(tx_desc[TX_DESC_SERVICE_BASE + 9]),
+            .crc_ok(),
+            .desc_valid(),
+            .accepted(service_accepted[service_i]),
+            .crc_error(service_crc_error[service_i]),
+            .bounds_error(service_bounds_error[service_i]),
+            .payload_len(),
+            .payload_words(service_payload_words[service_i]),
+            .payload_word_offset(),
+            .expected_payload_word_offset()
         );
         fieldmesh_firmware_rx_ack_builder rx_ack_builder (
-            .seq(tx_desc[TX_DESC_VALIDATOR_BASE + 2]),
-            .peer_index(tx_desc[TX_DESC_VALIDATOR_BASE + 1][15:0]),
-            .mcs(tx_desc[TX_DESC_VALIDATOR_BASE + 1][23:16]),
-            .payload_len(tx_desc[TX_DESC_VALIDATOR_BASE + 6][15:0]),
+            .seq(tx_desc[TX_DESC_SERVICE_BASE + 2]),
+            .peer_index(tx_desc[TX_DESC_SERVICE_BASE + 1][15:0]),
+            .mcs(tx_desc[TX_DESC_SERVICE_BASE + 1][23:16]),
+            .payload_len(tx_desc[TX_DESC_SERVICE_BASE + 6][15:0]),
             .rx_payload_offset(RX_PAYLOAD_OFFSET),
-            .rx_word0(rx_build0[tx_desc_validator_i]),
-            .rx_word1(rx_build1[tx_desc_validator_i]),
-            .rx_word2(rx_build2[tx_desc_validator_i]),
-            .rx_word3(rx_build3[tx_desc_validator_i]),
-            .rx_word4(rx_build4[tx_desc_validator_i]),
-            .rx_word5(rx_build5[tx_desc_validator_i]),
-            .rx_word6(rx_build6[tx_desc_validator_i]),
-            .rx_word7(rx_build7[tx_desc_validator_i]),
-            .rx_word8(rx_build8[tx_desc_validator_i]),
-            .ack_word0(ack_build0[tx_desc_validator_i]),
-            .ack_word1(ack_build1[tx_desc_validator_i]),
-            .ack_word2(ack_build2[tx_desc_validator_i]),
-            .ack_word3(ack_build3[tx_desc_validator_i]),
-            .ack_word4(ack_build4[tx_desc_validator_i])
+            .rx_word0(rx_build0[service_i]),
+            .rx_word1(rx_build1[service_i]),
+            .rx_word2(rx_build2[service_i]),
+            .rx_word3(rx_build3[service_i]),
+            .rx_word4(rx_build4[service_i]),
+            .rx_word5(rx_build5[service_i]),
+            .rx_word6(rx_build6[service_i]),
+            .rx_word7(rx_build7[service_i]),
+            .rx_word8(rx_build8[service_i]),
+            .ack_word0(ack_build0[service_i]),
+            .ack_word1(ack_build1[service_i]),
+            .ack_word2(ack_build2[service_i]),
+            .ack_word3(ack_build3[service_i]),
+            .ack_word4(ack_build4[service_i])
         );
     end
 endgenerate
@@ -342,44 +356,28 @@ endtask
 task service_slot_immediate;
     input [15:0] slot;
     input [31:0] first_word;
-    reg [15:0] payload_words;
-    reg [31:0] payload_word_offset;
-    reg [15:0] payload_len;
-    reg [31:0] expected_payload_word_offset;
     reg [31:0] tx_desc_base;
     reg [31:0] rx_desc_base;
     reg [31:0] ack_desc_base;
     reg [31:0] packet_base;
     integer word_i;
     begin
-        payload_word_offset = 32'd0;
-        payload_len = 16'd0;
-        payload_words = 16'd0;
-        expected_payload_word_offset = slot * PACKET_WORDS_PER_SLOT;
         tx_desc_base = slot * TX_DESC_WORDS;
         rx_desc_base = slot * RX_DESC_WORDS;
         ack_desc_base = slot * ACK_WORDS;
         packet_base = slot * PL_PACKET_WORDS_PER_SLOT;
-        payload_word_offset = tx_desc[tx_desc_base + 5] >> 2;
-        payload_len = tx_desc[tx_desc_base + 6][15:0];
-        payload_words = (tx_desc[tx_desc_base + 6][15:0] + 16'd3) >> 2;
 
-        if (!tx_desc_crc_ok[slot]) begin
+        if (service_crc_error[slot]) begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd4);
-        end else if (!tx_desc_valid[slot] ||
-            payload_len == 16'd0 ||
-            payload_len > PACKET_STRIDE ||
-            payload_word_offset + payload_words > PACKET_ARENA_WORDS ||
-            payload_words > PL_PACKET_WORDS_PER_SLOT ||
-            payload_word_offset != expected_payload_word_offset) begin
+        end else if (service_bounds_error[slot]) begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd5);
-        end else begin
+        end else if (service_accepted[slot]) begin
             for (word_i = 0; word_i < PL_PACKET_WORDS_PER_SLOT; word_i = word_i + 1) begin
-                if (word_i < payload_words) begin
+                if (word_i < service_payload_words[slot]) begin
                     rx_packet[packet_base + word_i] <= tx_packet[packet_base + word_i];
                 end
             end
@@ -401,6 +399,10 @@ task service_slot_immediate;
             ack_desc[ack_desc_base + 4] <= ack_build4[slot];
             inc_stat(16'd1);
             inc_stat(16'd2);
+        end else begin
+            clear_slot_outputs(slot);
+            inc_stat(16'd3);
+            inc_stat(16'd5);
         end
         tx_desc[tx_desc_base] <= {first_word[31:8], FW_STATE_DONE};
     end

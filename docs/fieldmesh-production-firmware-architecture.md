@@ -278,14 +278,15 @@ diagnostic service publishes RX/ACK state, payload offsets, sequence numbers,
 and counters. It validates ARM-published TX descriptor CRC32C before service,
 rejects CRC-valid descriptors with nonzero reserved fields, unaligned packet
 offsets, or out-of-range traffic classes, and generates RX descriptor CRC32C
-plus ACK CRC16 in PL. `fieldmesh_firmware_tx_desc_validator` is the reusable
-descriptor gate for this policy, while `fieldmesh_firmware_rx_ack_builder`
-builds ABI-valid RX descriptors and ACK records from MAC service metadata. The
-later BRAM/DMA MAC path can share both blocks instead of reimplementing
-descriptor CRCs in the AXI-lite shell. Rejected service attempts clear the
-slot's RX descriptor, ACK descriptor, and compact RX packet window so stale
-READY state cannot be consumed after a failed TX. The C UIO probe validates
-PL-published descriptors through the production ABI helpers. The full
+plus ACK CRC16 in PL. `fieldmesh_firmware_tx_service_gate` is the reusable
+admission block for descriptor CRC, descriptor-local semantic checks, and
+packet-window bounds; `fieldmesh_firmware_rx_ack_builder` builds ABI-valid RX
+descriptors and ACK records from MAC service metadata. The later BRAM/DMA MAC
+path can share both blocks instead of reimplementing descriptor policy and CRCs
+in the AXI-lite shell. Rejected service attempts clear the slot's RX descriptor,
+ACK descriptor, and compact RX packet window so stale READY state cannot be
+consumed after a failed TX. The C UIO probe validates PL-published descriptors
+through the production ABI helpers. The full
 production MAC/DMA engine must still add FEC integrity and full-MTU packet
 storage before the RF-facing path is production-ready.
 On the smaller Z103/Zynq-7010 overlay, the `/dev/uio0` aperture stays present
