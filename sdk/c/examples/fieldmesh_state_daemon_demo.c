@@ -2457,6 +2457,8 @@ struct tun_service_firmware_ring_counts {
     uint32_t rx_ready;
     uint32_t rx_nonfree;
     uint32_t ack_valid;
+    uint32_t pressure_queued;
+    uint32_t pressure_selected;
 };
 
 static void tun_service_read_firmware_ring_counts(
@@ -2502,6 +2504,10 @@ static void tun_service_read_firmware_ring_counts(
         if (fieldmesh_fw_ack_v1_valid(&service->firmware_ring.ack[slot])) {
             counts->ack_valid++;
         }
+    }
+    if (service->firmware_ring.stats) {
+        counts->pressure_queued = service->firmware_ring.stats->queued;
+        counts->pressure_selected = service->firmware_ring.stats->selected;
     }
 }
 
@@ -5307,6 +5313,8 @@ static int build_response(fieldmesh_context_t *context,
                      "\"firmware_ring_tx_done\":%u,"
                      "\"firmware_ring_rx_ready\":%u,"
                      "\"firmware_ring_ack_valid\":%u,"
+                     "\"firmware_ring_pressure_queued\":%u,"
+                     "\"firmware_ring_pressure_selected\":%u,"
                      "\"rf_transport_mode\":\"%s\"}\n",
                      tun_service && tun_service->running ? 1u : 0u,
                      tun_service ? tun_service->packets_written : 0u,
@@ -5334,6 +5342,8 @@ static int build_response(fieldmesh_context_t *context,
                      fw_ring_counts.tx_done,
                      fw_ring_counts.rx_ready,
                      fw_ring_counts.ack_valid,
+                     fw_ring_counts.pressure_queued,
+                     fw_ring_counts.pressure_selected,
                      tun_service ?
                          tun_service_rf_transport_mode_name(
                              tun_service->rf_transport_mode) :
@@ -5403,6 +5413,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"firmware_ring_rx_ready\":%u,"
                  "\"firmware_ring_rx_nonfree\":%u,"
                  "\"firmware_ring_ack_valid\":%u,"
+                 "\"firmware_ring_pressure_queued\":%u,"
+                 "\"firmware_ring_pressure_selected\":%u,"
                  "\"hot_path_language\":\"c\","
                  "\"uses_json_on_air\":0,"
                  "\"poll_wakeups\":%u,"
@@ -5487,6 +5499,8 @@ static int build_response(fieldmesh_context_t *context,
                  fw_ring_counts.rx_ready,
                  fw_ring_counts.rx_nonfree,
                  fw_ring_counts.ack_valid,
+                 fw_ring_counts.pressure_queued,
+                 fw_ring_counts.pressure_selected,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,

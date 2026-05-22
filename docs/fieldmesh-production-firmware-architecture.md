@@ -292,8 +292,11 @@ slot cannot wedge the PL ring. The later BRAM/DMA MAC path can reuse the same
 descriptor policy, CRCs, slot selection, and packet movement without depending
 on AXI-lite storage. The stats block now keeps the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
-valid, invalid-class, traffic-class, and slot fields. Rejected service attempts
-clear the slot's RX descriptor, ACK
+valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
+words as `firmware_ring_pressure_queued` and
+`firmware_ring_pressure_selected` in TUN service status so live polling can
+separate ARM backlog from PL service latency without parsing logs. Rejected
+service attempts clear the slot's RX descriptor, ACK
 descriptor, and compact RX packet window so stale READY state cannot be consumed
 after a failed TX. The C UIO probe validates PL-published descriptors through
 the production ABI helpers. The full
@@ -357,9 +360,10 @@ layout is intentionally bounded to 16 packet slots and 50,712 mapped bytes so
 it fits inside the current 64 KiB `fieldmesh-ring@43c30000` aperture.
 Daemon status exposes descriptor-level ring pressure counters from the same C
 ABI accessors used by the packet path: TX queued, TX owned by PL, TX done, RX
-ready, RX non-free, and valid ACK slots. These counters are the first-line
-debug split between TUN ingress starvation, full ARM-to-PL queues, PL service
-latency, and RX drain lag.
+ready, RX non-free, valid ACK slots, and the fixed PL pressure words
+`queued`/`selected`. These counters are the first-line debug split between TUN
+ingress starvation, full ARM-to-PL queues, PL service latency, and RX drain
+lag.
 
 ## MAC Design
 
