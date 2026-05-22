@@ -126,6 +126,108 @@ task expect_word;
     end
 endtask
 
+function [31:0] crc32c_byte;
+    input [31:0] crc_in;
+    input [7:0] data;
+    reg [31:0] crc;
+    integer bit_i;
+    begin
+        crc = crc_in ^ {24'd0, data};
+        for (bit_i = 0; bit_i < 8; bit_i = bit_i + 1) begin
+            if (crc[0]) begin
+                crc = (crc >> 1) ^ 32'h82f6_3b78;
+            end else begin
+                crc = crc >> 1;
+            end
+        end
+        crc32c_byte = crc;
+    end
+endfunction
+
+function [31:0] crc32c_word_le;
+    input [31:0] crc_in;
+    input [31:0] word;
+    reg [31:0] crc;
+    begin
+        crc = crc32c_byte(crc_in, word[7:0]);
+        crc = crc32c_byte(crc, word[15:8]);
+        crc = crc32c_byte(crc, word[23:16]);
+        crc32c_word_le = crc32c_byte(crc, word[31:24]);
+    end
+endfunction
+
+function [31:0] tx_desc_crc;
+    input [31:0] word0;
+    input [31:0] word1;
+    input [31:0] word2;
+    input [31:0] word3;
+    input [31:0] word4;
+    input [31:0] word5;
+    input [31:0] word6;
+    input [31:0] word7;
+    input [31:0] word8;
+    reg [31:0] crc;
+    begin
+        crc = crc32c_word_le(32'hffff_ffff, word0);
+        crc = crc32c_word_le(crc, word1);
+        crc = crc32c_word_le(crc, word2);
+        crc = crc32c_word_le(crc, word3);
+        crc = crc32c_word_le(crc, word4);
+        crc = crc32c_word_le(crc, word5);
+        crc = crc32c_word_le(crc, word6);
+        crc = crc32c_word_le(crc, word7);
+        crc = crc32c_word_le(crc, word8);
+        tx_desc_crc = ~crc;
+    end
+endfunction
+
+task write_tx_desc_with_crc_xor;
+    input [15:0] base;
+    input [7:0] state;
+    input [7:0] traffic_class;
+    input [31:0] seq;
+    input [31:0] payload_offset;
+    input [15:0] payload_len;
+    input [31:0] crc_xor;
+    reg [31:0] word0_free;
+    reg [31:0] word0_queued;
+    reg [31:0] word1;
+    reg [31:0] word2;
+    reg [31:0] word3;
+    reg [31:0] word4;
+    reg [31:0] word5;
+    reg [31:0] word6;
+    reg [31:0] word7;
+    reg [31:0] word8;
+    reg [31:0] word9;
+    begin
+        word0_free = {16'h0011, traffic_class, 8'd0};
+        word0_queued = {16'h0011, traffic_class, state};
+        word1 = 32'h0301_0007;
+        word2 = seq;
+        word3 = 32'h0000_0000;
+        word4 = 32'h0000_0000;
+        word5 = payload_offset;
+        word6 = {16'd0, payload_len};
+        word7 = 32'h0000_0000;
+        word8 = 32'h0000_0000;
+        word9 = tx_desc_crc(
+            word0_queued, word1, word2, word3, word4, word5, word6, word7, word8) ^
+            crc_xor;
+        axi_write(base + 16'h00, word0_free);
+        axi_write(base + 16'h04, word1);
+        axi_write(base + 16'h08, word2);
+        axi_write(base + 16'h0c, word3);
+        axi_write(base + 16'h10, word4);
+        axi_write(base + 16'h14, word5);
+        axi_write(base + 16'h18, word6);
+        axi_write(base + 16'h1c, word7);
+        axi_write(base + 16'h20, word8);
+        axi_write(base + 16'h24, word9);
+        axi_write_strb(base + 16'h00, {24'd0, state}, 4'b0001);
+    end
+endtask
+
 task write_tx_desc;
     input [15:0] base;
     input [7:0] state;
@@ -134,17 +236,8 @@ task write_tx_desc;
     input [31:0] payload_offset;
     input [15:0] payload_len;
     begin
-        axi_write(base + 16'h00, {16'h0011, traffic_class, 8'd0});
-        axi_write(base + 16'h04, 32'h0301_0007);
-        axi_write(base + 16'h08, seq);
-        axi_write(base + 16'h0c, 32'h0000_0000);
-        axi_write(base + 16'h10, 32'h0000_0000);
-        axi_write(base + 16'h14, payload_offset);
-        axi_write(base + 16'h18, {16'd0, payload_len});
-        axi_write(base + 16'h1c, 32'h0000_0000);
-        axi_write(base + 16'h20, 32'h0000_0000);
-        axi_write(base + 16'h24, 32'h0000_0000);
-        axi_write_strb(base + 16'h00, {24'd0, state}, 4'b0001);
+        write_tx_desc_with_crc_xor(base, state, traffic_class, seq,
+                                   payload_offset, payload_len, 32'd0);
     end
 endtask
 
@@ -224,6 +317,15 @@ initial begin
     expect_word(16'h6c00, 32'h4b4c_5542);         // RX packet arena slot 1
     expect_word(16'h6c04, 32'h3231_3030);         // RX packet arena slot 1 continuation
     expect_word(16'h0028, 32'h0011_0303);         // TX slot 1 marked DONE
+
+    axi_write(16'h0600, 32'h4441_4243); // TX packet arena slot 0: "CBAD"
+    write_tx_desc_with_crc_xor(16'h0000, 8'd1, 8'd0, 32'h0000_0102,
+                               32'd0, 16'd4, 32'h0000_0001);
+    wait_for_word(16'hc60c, 32'h0000_0001, 2000); // stats.drops
+    expect_word(16'hc610, 32'h0000_0001);         // stats.crc_errors
+    expect_word(16'hc604, 32'h0000_0002);         // invalid TX was not served
+    expect_word(16'hc608, 32'h0000_0002);         // invalid TX was not ACKed
+    expect_word(16'h0000, 32'h0011_0003);         // bad TX slot marked DONE
 
     $display("PASS: fieldmesh_firmware_ring_axi_lite_tb");
     $finish;

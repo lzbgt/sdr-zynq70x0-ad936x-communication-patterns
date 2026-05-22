@@ -275,11 +275,11 @@ belongs in the next BRAM/AXI RAM or DMA-memory block, not in a widened AXI-lite
 register array. The
 AXI-lite
 diagnostic service publishes RX/ACK state, payload offsets, sequence numbers,
-and counters. It now generates RX descriptor CRC32C and ACK CRC16 in PL, so the
-C UIO probe validates PL-published descriptors through the production ABI
-helpers. The full production MAC/DMA engine must still add TX descriptor
-validation, FEC integrity, and packet-memory boundary protection before the
-RF-facing path is production-ready.
+and counters. It validates ARM-published TX descriptor CRC32C before service
+and generates RX descriptor CRC32C plus ACK CRC16 in PL, so the C UIO probe
+validates PL-published descriptors through the production ABI helpers. The full
+production MAC/DMA engine must still add FEC integrity and full packet-memory
+boundary protection before the RF-facing path is production-ready.
 On the smaller Z103/Zynq-7010 overlay, the `/dev/uio0` aperture stays present
 but this diagnostic PL service is disabled at synthesis time to keep the image
 placeable; active packet service on that target must come from the next

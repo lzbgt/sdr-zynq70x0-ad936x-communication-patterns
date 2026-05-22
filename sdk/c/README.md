@@ -57,11 +57,12 @@ in `src/fieldmesh_sdk.c`:
   The current PL service window is parameterized but product overlays keep the
   default one serviced slot and 16 packet bytes total; full MTU packet storage
   is planned for the BRAM/AXI RAM or DMA packet-memory block, not the AXI-lite
-  wrapper. This diagnostic PL service generates RX descriptor CRC32C and ACK
-  CRC16 so the C UIO probe validates PL-published descriptors through the
-  production ABI helpers; the production MAC/DMA packet-memory engine must
-  still add TX descriptor validation, FEC integrity, and packet-memory boundary
-  protection. Z103 builds keep the UIO aperture but synthesize this diagnostic
+  wrapper. This diagnostic PL service validates ARM-published TX descriptor
+  CRC32C before service, and generates RX descriptor CRC32C and ACK CRC16 so
+  the C UIO probe validates PL-published descriptors through the production ABI
+  helpers; the production MAC/DMA packet-memory engine must still add FEC
+  integrity and full packet-memory boundary protection. Z103 builds keep the
+  UIO aperture but synthesize this diagnostic
   service out to fit the Zynq-7010; Z203 keeps it enabled for live PL-service
   loopback.
   The shared ABI/ring helpers use explicit byte-wise descriptor and packet

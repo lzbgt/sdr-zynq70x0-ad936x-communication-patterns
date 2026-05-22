@@ -312,6 +312,31 @@ function [31:0] crc32c_desc8_le;
     end
 endfunction
 
+function [31:0] crc32c_desc9_le;
+    input [31:0] word0;
+    input [31:0] word1;
+    input [31:0] word2;
+    input [31:0] word3;
+    input [31:0] word4;
+    input [31:0] word5;
+    input [31:0] word6;
+    input [31:0] word7;
+    input [31:0] word8;
+    reg [31:0] crc;
+    begin
+        crc = crc32c_word_le(32'hffff_ffff, word0);
+        crc = crc32c_word_le(crc, word1);
+        crc = crc32c_word_le(crc, word2);
+        crc = crc32c_word_le(crc, word3);
+        crc = crc32c_word_le(crc, word4);
+        crc = crc32c_word_le(crc, word5);
+        crc = crc32c_word_le(crc, word6);
+        crc = crc32c_word_le(crc, word7);
+        crc = crc32c_word_le(crc, word8);
+        crc32c_desc9_le = ~crc;
+    end
+endfunction
+
 function [15:0] crc16_byte;
     input [15:0] crc_in;
     input [7:0] data;
@@ -387,6 +412,7 @@ task service_slot_immediate;
     reg [31:0] ack2;
     reg [31:0] ack3;
     reg [15:0] ack4_low;
+    reg tx_desc_crc_ok;
     integer word_i;
     begin
         payload_word_offset = 32'd0;
@@ -401,6 +427,16 @@ task service_slot_immediate;
         rx_desc_base = slot * RX_DESC_WORDS;
         ack_desc_base = slot * ACK_WORDS;
         packet_base = slot * PL_PACKET_WORDS_PER_SLOT;
+        tx_desc_crc_ok = tx_desc[tx_desc_base + 9] == crc32c_desc9_le(
+            first_word,
+            tx_desc[tx_desc_base + 1],
+            tx_desc[tx_desc_base + 2],
+            tx_desc[tx_desc_base + 3],
+            tx_desc[tx_desc_base + 4],
+            tx_desc[tx_desc_base + 5],
+            tx_desc[tx_desc_base + 6],
+            tx_desc[tx_desc_base + 7],
+            tx_desc[tx_desc_base + 8]);
         payload_word_offset = tx_desc[tx_desc_base + 5] >> 2;
         payload_len = tx_desc[tx_desc_base + 6][15:0];
         payload_words = (tx_desc[tx_desc_base + 6][15:0] + 16'd3) >> 2;
@@ -409,7 +445,10 @@ task service_slot_immediate;
         mcs = tx_desc[tx_desc_base + 1][23:16];
         rx_payload_offset = slot * PACKET_STRIDE;
 
-        if (payload_len == 16'd0 ||
+        if (!tx_desc_crc_ok) begin
+            inc_stat(16'd3);
+            inc_stat(16'd4);
+        end else if (payload_len == 16'd0 ||
             payload_len > PACKET_STRIDE ||
             payload_word_offset + payload_words > PACKET_ARENA_WORDS ||
             payload_words > PL_PACKET_WORDS_PER_SLOT ||
