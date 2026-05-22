@@ -312,7 +312,11 @@ clears stale outputs on rejected service, and marks the TX slot done.
 `fieldmesh_firmware_packet_bram_endpoint` composes that descriptor store with
 the full-MTU packet BRAM and BRAM service bank behind narrow binary descriptor
 and packet-memory ports; it is the next reusable endpoint before the wrapper is
-bound to AXI RAM, DMA, or a board-local MAC scheduler. The stats block now keeps
+bound to AXI RAM, DMA, or a board-local MAC scheduler.
+`fieldmesh_firmware_service_pump` adds the reusable bounded queue-drain
+controller for that endpoint: it emits one-cycle service requests while queued
+descriptors remain, then stops on empty queue, explicit stop, or service budget
+exhaustion. The stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those

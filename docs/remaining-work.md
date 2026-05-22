@@ -87,9 +87,11 @@ TX-done marking, so the next endpoint can compose descriptor storage with BRAM
 packet storage instead of depending on the AXI-lite diagnostic shell.
 `fieldmesh_firmware_packet_bram_endpoint` now performs that composition: narrow
 binary descriptor ports, full-MTU packet BRAM, and one bounded BRAM service
-step. The remaining PL integration work is binding this endpoint to a wider AXI
-RAM/DMA or MAC scheduler wrapper rather than growing the AXI-lite diagnostic
-shell. The stats
+step. `fieldmesh_firmware_service_pump` now provides the bounded autonomous
+queue-drain controller around one-shot service semantics, stopping on empty
+queue, explicit stop, or service budget exhaustion. The remaining PL integration
+work is binding the endpoint plus pump to a wider AXI RAM/DMA or MAC scheduler
+wrapper rather than growing the AXI-lite diagnostic shell. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the

@@ -80,6 +80,8 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_packet_bram_endpoint` composes that descriptor store with
   the full-MTU packet BRAM and BRAM service bank behind narrow binary descriptor
   and packet-memory ports, ready for a wider AXI RAM/DMA wrapper.
+  `fieldmesh_firmware_service_pump` adds bounded autonomous queue-drain control
+  around one-shot service blocks without parsing descriptors or packet bytes.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and

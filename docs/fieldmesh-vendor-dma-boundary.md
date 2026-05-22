@@ -225,6 +225,9 @@ clear, and TX-done behavior reusable by that endpoint.
 full-MTU packet BRAM, and BRAM service bank behind narrow binary descriptor and
 packet ports. That keeps the production endpoint independent of the AXI-lite
 diagnostic shell while preserving the same descriptor/ACK contract.
+`fieldmesh_firmware_service_pump.v` is the bounded autonomous drain controller
+for that endpoint. It owns only service-start policy and counters; descriptor
+validation, packet movement, and RX/ACK publication remain in the endpoint.
 
 The first control-only block-design overlay is opt-in:
 
