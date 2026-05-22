@@ -70,6 +70,9 @@ retired after valid traffic. The stats ABI now includes compact `queued` and
 `selected` words, and daemon TUN status now exposes them as
 `firmware_ring_pressure_queued` and `firmware_ring_pressure_selected` so ARM
 probes and live status polling can read PL queue pressure without log parsing.
+The same status path exposes packet-bridge classify/read/enqueue/drain counters
+so malformed input, TUN read faults, full ARM-to-PL queues, and RX drain faults
+are distinguishable during HIL without Python log parsing.
 The wrapper still owns storage, output clearing, and counters.
 This
 diagnostic PL service remains enabled on Z203, but is synthesized out on

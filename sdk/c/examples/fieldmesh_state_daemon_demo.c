@@ -5326,6 +5326,10 @@ static int build_response(fieldmesh_context_t *context,
                      "\"firmware_ring_ack_valid\":%u,"
                      "\"firmware_ring_pressure_queued\":%u,"
                      "\"firmware_ring_pressure_selected\":%u,"
+                     "\"firmware_ring_classify_errors\":%u,"
+                     "\"firmware_ring_read_errors\":%u,"
+                     "\"firmware_ring_enqueue_drops\":%u,"
+                     "\"firmware_ring_drain_errors\":%u,"
                      "\"rf_transport_mode\":\"%s\"}\n",
                      tun_service && tun_service->running ? 1u : 0u,
                      tun_service ? tun_service->packets_written : 0u,
@@ -5355,6 +5359,10 @@ static int build_response(fieldmesh_context_t *context,
                      fw_ring_counts.ack_valid,
                      fw_ring_counts.pressure_queued,
                      fw_ring_counts.pressure_selected,
+                     tun_service ? tun_service->firmware_bridge.classify_errors : 0u,
+                     tun_service ? tun_service->firmware_bridge.read_errors : 0u,
+                     tun_service ? tun_service->firmware_bridge.enqueue_drops : 0u,
+                     tun_service ? tun_service->firmware_bridge.drain_errors : 0u,
                      tun_service ?
                          tun_service_rf_transport_mode_name(
                              tun_service->rf_transport_mode) :
@@ -5426,6 +5434,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"firmware_ring_ack_valid\":%u,"
                  "\"firmware_ring_pressure_queued\":%u,"
                  "\"firmware_ring_pressure_selected\":%u,"
+                 "\"firmware_ring_classify_errors\":%u,"
+                 "\"firmware_ring_read_errors\":%u,"
+                 "\"firmware_ring_enqueue_drops\":%u,"
+                 "\"firmware_ring_drain_errors\":%u,"
                  "\"hot_path_language\":\"c\","
                  "\"uses_json_on_air\":0,"
                  "\"poll_wakeups\":%u,"
@@ -5512,6 +5524,10 @@ static int build_response(fieldmesh_context_t *context,
                  fw_ring_counts.ack_valid,
                  fw_ring_counts.pressure_queued,
                  fw_ring_counts.pressure_selected,
+                 tun_service ? tun_service->firmware_bridge.classify_errors : 0u,
+                 tun_service ? tun_service->firmware_bridge.read_errors : 0u,
+                 tun_service ? tun_service->firmware_bridge.enqueue_drops : 0u,
+                 tun_service ? tun_service->firmware_bridge.drain_errors : 0u,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,

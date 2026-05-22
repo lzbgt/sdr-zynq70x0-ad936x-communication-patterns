@@ -865,7 +865,9 @@ if tun_service_status[0].get("firmware_ring_enabled") != 0:
 for key in ("firmware_ring_tx_queued", "firmware_ring_tx_owned_by_pl",
             "firmware_ring_tx_done", "firmware_ring_rx_ready",
             "firmware_ring_ack_valid", "firmware_ring_pressure_queued",
-            "firmware_ring_pressure_selected"):
+            "firmware_ring_pressure_selected", "firmware_ring_classify_errors",
+            "firmware_ring_read_errors", "firmware_ring_enqueue_drops",
+            "firmware_ring_drain_errors"):
     if tun_service_status[0].get(key) != 0:
         raise SystemExit(f"guarded TUN service status {key} must be 0")
 if tun_service_status[0].get("hot_path_language") != "c":
