@@ -331,6 +331,11 @@ the existing RF driver queue until the PL MAC owns full-MTU packet storage,
 packet timing, descriptor CRC/FEC integrity, and RF TX/RX. The daemon ring
 layout is intentionally bounded to 16 packet slots and 50,712 mapped bytes so
 it fits inside the current 64 KiB `fieldmesh-ring@43c30000` aperture.
+Daemon status exposes descriptor-level ring pressure counters from the same C
+ABI accessors used by the packet path: TX queued, TX owned by PL, TX done, RX
+ready, RX non-free, and valid ACK slots. These counters are the first-line
+debug split between TUN ingress starvation, full ARM-to-PL queues, PL service
+latency, and RX drain lag.
 
 ## MAC Design
 

@@ -862,6 +862,11 @@ if tun_service_status[0].get("firmware_ring_supported") != 1:
     raise SystemExit("SDK daemon TUN service status did not expose firmware ring support")
 if tun_service_status[0].get("firmware_ring_enabled") != 0:
     raise SystemExit("guarded TUN service status must not enable firmware ring")
+for key in ("firmware_ring_tx_queued", "firmware_ring_tx_owned_by_pl",
+            "firmware_ring_tx_done", "firmware_ring_rx_ready",
+            "firmware_ring_ack_valid"):
+    if tun_service_status[0].get(key) != 0:
+        raise SystemExit(f"guarded TUN service status {key} must be 0")
 if tun_service_status[0].get("hot_path_language") != "c":
     raise SystemExit("SDK daemon TUN service status must keep C hot path")
 if tun_service_status[0].get("uses_json_on_air") != 0:

@@ -2448,6 +2448,63 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
     return FIELDMESH_OK;
 }
 
+struct tun_service_firmware_ring_counts {
+    uint32_t tx_free;
+    uint32_t tx_queued;
+    uint32_t tx_owned_by_pl;
+    uint32_t tx_done;
+    uint32_t tx_other;
+    uint32_t rx_ready;
+    uint32_t rx_nonfree;
+    uint32_t ack_valid;
+};
+
+static void tun_service_read_firmware_ring_counts(
+    const struct tun_service_state *service,
+    struct tun_service_firmware_ring_counts *counts)
+{
+    if (!counts) {
+        return;
+    }
+    memset(counts, 0, sizeof(*counts));
+    if (!service || !service->firmware_ring_enabled ||
+        !fieldmesh_fw_ring_config_valid(&service->firmware_ring)) {
+        return;
+    }
+
+    for (uint32_t slot = 0; slot < service->firmware_ring.slots; ++slot) {
+        uint8_t tx_state =
+            fieldmesh_fw_tx_desc_v1_state(&service->firmware_ring.tx[slot]);
+        uint8_t rx_state =
+            fieldmesh_fw_rx_desc_v1_state(&service->firmware_ring.rx[slot]);
+        switch (tx_state) {
+        case FIELDMESH_FW_STATE_FREE:
+            counts->tx_free++;
+            break;
+        case FIELDMESH_FW_STATE_QUEUED:
+            counts->tx_queued++;
+            break;
+        case FIELDMESH_FW_STATE_OWNED_BY_PL:
+            counts->tx_owned_by_pl++;
+            break;
+        case FIELDMESH_FW_STATE_DONE:
+            counts->tx_done++;
+            break;
+        default:
+            counts->tx_other++;
+            break;
+        }
+        if (rx_state == FIELDMESH_FW_STATE_READY) {
+            counts->rx_ready++;
+        } else if (rx_state != FIELDMESH_FW_STATE_FREE) {
+            counts->rx_nonfree++;
+        }
+        if (fieldmesh_fw_ack_v1_valid(&service->firmware_ring.ack[slot])) {
+            counts->ack_valid++;
+        }
+    }
+}
+
 static void tun_service_tick(struct tun_service_state *service)
 {
     unsigned char pump_buffer[1536];
@@ -5220,6 +5277,8 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STATUS")) {
+        struct tun_service_firmware_ring_counts fw_ring_counts;
+        tun_service_read_firmware_ring_counts(tun_service, &fw_ring_counts);
         if (strstr(request, "compact=1")) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_tun_service_status\","
@@ -5237,13 +5296,18 @@ static int build_response(fieldmesh_context_t *context,
                      "\"rf_tx_queue_pressure_drops\":%u,"
                      "\"rf_driver_frames_leased\":%u,"
                      "\"rf_driver_frames_acked\":%u,"
-	                     "\"rf_driver_frames_ingested\":%u,"
-	                     "\"firmware_ring_enabled\":%u,"
-	                     "\"firmware_ring_mapped\":%u,"
-	                     "\"firmware_ring_pumped\":%u,"
-	                     "\"firmware_ring_served\":%u,"
-	                     "\"firmware_ring_drained\":%u,"
-	                     "\"rf_transport_mode\":\"%s\"}\n",
+                     "\"rf_driver_frames_ingested\":%u,"
+                     "\"firmware_ring_enabled\":%u,"
+                     "\"firmware_ring_mapped\":%u,"
+                     "\"firmware_ring_pumped\":%u,"
+                     "\"firmware_ring_served\":%u,"
+                     "\"firmware_ring_drained\":%u,"
+                     "\"firmware_ring_tx_queued\":%u,"
+                     "\"firmware_ring_tx_owned_by_pl\":%u,"
+                     "\"firmware_ring_tx_done\":%u,"
+                     "\"firmware_ring_rx_ready\":%u,"
+                     "\"firmware_ring_ack_valid\":%u,"
+                     "\"rf_transport_mode\":\"%s\"}\n",
                      tun_service && tun_service->running ? 1u : 0u,
                      tun_service ? tun_service->packets_written : 0u,
                      tun_service ? tun_service->packets_pumped : 0u,
@@ -5258,13 +5322,18 @@ static int build_response(fieldmesh_context_t *context,
                      tun_service ? tun_service->rf_tx_queue_priority_drops : 0u,
                      tun_service ? tun_service->rf_tx_queue_pressure_drops : 0u,
                      tun_service ? tun_service->rf_driver_frames_leased : 0u,
-	                     tun_service ? tun_service->rf_driver_frames_acked : 0u,
-	                     tun_service ? tun_service->rf_driver_frames_ingested : 0u,
-	                     tun_service ? tun_service->firmware_ring_enabled : 0u,
-	                     tun_service ? tun_service->firmware_ring_mapped : 0u,
-	                     tun_service ? tun_service->firmware_ring_pumped : 0u,
-	                     tun_service ? tun_service->firmware_ring_served : 0u,
-	                     tun_service ? tun_service->firmware_ring_drained : 0u,
+                     tun_service ? tun_service->rf_driver_frames_acked : 0u,
+                     tun_service ? tun_service->rf_driver_frames_ingested : 0u,
+                     tun_service ? tun_service->firmware_ring_enabled : 0u,
+                     tun_service ? tun_service->firmware_ring_mapped : 0u,
+                     tun_service ? tun_service->firmware_ring_pumped : 0u,
+                     tun_service ? tun_service->firmware_ring_served : 0u,
+                     tun_service ? tun_service->firmware_ring_drained : 0u,
+                     fw_ring_counts.tx_queued,
+                     fw_ring_counts.tx_owned_by_pl,
+                     fw_ring_counts.tx_done,
+                     fw_ring_counts.rx_ready,
+                     fw_ring_counts.ack_valid,
                      tun_service ?
                          tun_service_rf_transport_mode_name(
                              tun_service->rf_transport_mode) :
@@ -5326,6 +5395,14 @@ static int build_response(fieldmesh_context_t *context,
                  "\"firmware_ring_errors\":%u,"
                  "\"firmware_ring_bytes_enqueued\":%u,"
                  "\"firmware_ring_bytes_drained\":%u,"
+                 "\"firmware_ring_tx_free\":%u,"
+                 "\"firmware_ring_tx_queued\":%u,"
+                 "\"firmware_ring_tx_owned_by_pl\":%u,"
+                 "\"firmware_ring_tx_done\":%u,"
+                 "\"firmware_ring_tx_other\":%u,"
+                 "\"firmware_ring_rx_ready\":%u,"
+                 "\"firmware_ring_rx_nonfree\":%u,"
+                 "\"firmware_ring_ack_valid\":%u,"
                  "\"hot_path_language\":\"c\","
                  "\"uses_json_on_air\":0,"
                  "\"poll_wakeups\":%u,"
@@ -5402,6 +5479,14 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->firmware_ring_errors : 0u,
                  tun_service ? tun_service->firmware_ring_bytes_enqueued : 0u,
                  tun_service ? tun_service->firmware_ring_bytes_drained : 0u,
+                 fw_ring_counts.tx_free,
+                 fw_ring_counts.tx_queued,
+                 fw_ring_counts.tx_owned_by_pl,
+                 fw_ring_counts.tx_done,
+                 fw_ring_counts.tx_other,
+                 fw_ring_counts.rx_ready,
+                 fw_ring_counts.rx_nonfree,
+                 fw_ring_counts.ack_valid,
                  tun_service ? tun_service->poll_wakeups : 0u,
                  tun_service ? tun_service->idle_ticks : 0u,
                  tun_service ? tun_service->recoverable_timeouts : 0u,
