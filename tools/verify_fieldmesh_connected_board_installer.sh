@@ -23,6 +23,22 @@ EOF_SUMMARY
 echo fieldmesh_fake_z203_qspi_integrity=fail
 EOF_FAKE_DIAG
 
+cat > "$work_dir/bin/fake_z203_qspi_integrity_pass.sh" <<'EOF_FAKE_DIAG'
+#!/usr/bin/env bash
+set -euo pipefail
+out_dir="${OUT_DIR:?OUT_DIR is required}"
+mkdir -p "$out_dir"
+cat > "$out_dir/summary.json" <<'EOF_SUMMARY'
+{
+  "event": "fieldmesh_z203_qspi_integrity_diag",
+  "qspi_integrity_pass": true,
+  "safe_z203_install_mode": "qspi",
+  "diagnosis": "synthetic passed integrity gate for target preflight verification"
+}
+EOF_SUMMARY
+echo fieldmesh_fake_z203_qspi_integrity=pass
+EOF_FAKE_DIAG
+
 cat > "$work_dir/bin/fake_pluto_frm_install.sh" <<'EOF_FAKE_INSTALL'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -30,7 +46,28 @@ echo "unexpected installer call: $*" >> "${FIELDMESH_FAKE_INSTALL_MARKER:?missin
 exit 77
 EOF_FAKE_INSTALL
 
-chmod +x "$work_dir/bin/fake_z203_qspi_integrity_fail.sh" "$work_dir/bin/fake_pluto_frm_install.sh"
+cat > "$work_dir/bin/fake_pluto_frm_preflight.sh" <<'EOF_FAKE_INSTALL'
+#!/usr/bin/env bash
+set -euo pipefail
+variant="${1:?variant required}"
+apply="${APPLY:-0}"
+echo "variant=$variant apply=$apply board_ip=${BOARD_IP:-}" >> "${FIELDMESH_FAKE_PREFLIGHT_MARKER:?missing preflight marker path}"
+if [ "$apply" = "0" ]; then
+  if [ "$variant" = "z103" ]; then
+    echo "synthetic Z103 preflight failure" >&2
+    exit 42
+  fi
+  exit 0
+fi
+echo "unexpected write install for $variant" >> "${FIELDMESH_FAKE_INSTALL_MARKER:?missing install marker path}"
+exit 77
+EOF_FAKE_INSTALL
+
+chmod +x \
+    "$work_dir/bin/fake_z203_qspi_integrity_fail.sh" \
+    "$work_dir/bin/fake_z203_qspi_integrity_pass.sh" \
+    "$work_dir/bin/fake_pluto_frm_install.sh" \
+    "$work_dir/bin/fake_pluto_frm_preflight.sh"
 
 set +e
 APPLY=1 \
@@ -82,3 +119,59 @@ PY
 grep -q "refusing normal QSPI install before starting any board update" "$work_dir/refusal.stderr"
 
 echo "fieldmesh_connected_board_installer_refusal_guard=pass"
+
+set +e
+APPLY=1 \
+ALLOW_FLASH_WRITES=1 \
+Z203_INSTALL_MODE=qspi \
+REBOOT_AFTER=0 \
+Z203_IP=192.0.2.203 \
+Z103_IP=192.0.2.103 \
+OUT_DIR="$work_dir/out/z103-preflight-refusal" \
+DIAGNOSE_Z203_QSPI_INTEGRITY_SH="$work_dir/bin/fake_z203_qspi_integrity_pass.sh" \
+INSTALL_FIELDMESH_PLUTO_FRM_SH="$work_dir/bin/fake_pluto_frm_preflight.sh" \
+FIELDMESH_FAKE_PREFLIGHT_MARKER="$work_dir/preflight-called.txt" \
+FIELDMESH_FAKE_INSTALL_MARKER="$work_dir/preflight-install-called.txt" \
+    "$repo_root/tools/install_fieldmesh_connected_boards.sh" \
+    > "$work_dir/preflight-refusal.stdout" 2> "$work_dir/preflight-refusal.stderr"
+rc=$?
+set -e
+
+if [ "$rc" -eq 0 ]; then
+    echo "installer unexpectedly passed forced Z103 target preflight failure" >&2
+    exit 1
+fi
+if [ -e "$work_dir/preflight-install-called.txt" ]; then
+    echo "installer started a write install after target preflight failure" >&2
+    cat "$work_dir/preflight-install-called.txt" >&2
+    exit 1
+fi
+if [ -e "$work_dir/out/z103-preflight-refusal/z203_install.log" ]; then
+    echo "installer created z203_install.log after Z103 preflight failure" >&2
+    exit 1
+fi
+if [ -e "$work_dir/out/z103-preflight-refusal/z103_install.log" ]; then
+    echo "installer created z103_install.log after Z103 preflight failure" >&2
+    exit 1
+fi
+grep -q "variant=z203 apply=0" "$work_dir/preflight-called.txt"
+grep -q "variant=z103 apply=0" "$work_dir/preflight-called.txt"
+grep -q "Z103 install preflight failed; refusing to start any board update" "$work_dir/preflight-refusal.stderr"
+python3 - "$work_dir/out/z103-preflight-refusal/plan.json" "$work_dir/out/z103-preflight-refusal/resolved_plan.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+plan = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+resolved = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+if plan.get("precheck_all_targets") != 1:
+    raise SystemExit("target precheck should be enabled by default")
+if resolved.get("z203_resolved_install_mode") != "qspi":
+    raise SystemExit("test did not reach qspi resolved plan")
+if resolved.get("precheck_all_targets") != 1:
+    raise SystemExit("resolved plan did not preserve target precheck state")
+if resolved.get("starts_parallel_installs_after_target_preflight") is not True:
+    raise SystemExit("resolved plan must only start parallel installs after target preflight")
+PY
+
+echo "fieldmesh_connected_board_installer_target_preflight_guard=pass"

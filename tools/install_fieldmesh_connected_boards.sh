@@ -9,6 +9,7 @@ apply="${APPLY:-0}"
 allow_flash="${ALLOW_FLASH_WRITES:-0}"
 reboot_after="${REBOOT_AFTER:-1}"
 z203_install_mode="${Z203_INSTALL_MODE:-auto}"
+precheck_all_targets="${PRECHECK_ALL_TARGETS:-1}"
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
 enable_gnss_pps_emio="${ENABLE_GNSS_PPS_EMIO:-0}"
 ssh_user="${SSH_USER:-root}"
@@ -28,6 +29,10 @@ esac
 case "$enable_gnss_pps_emio" in
     0|1) ;;
     *) echo "ENABLE_GNSS_PPS_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$precheck_all_targets" in
+    0|1) ;;
+    *) echo "PRECHECK_ALL_TARGETS must be 0 or 1" >&2; exit 2 ;;
 esac
 
 wait_for_ping() {
@@ -192,6 +197,54 @@ raise SystemExit(0 if summary.get("qspi_integrity_pass") is True else 1)
 PY
 }
 
+precheck_z203_sd_target() {
+    if [ "$precheck_all_targets" != "1" ]; then
+        return 0
+    fi
+    local log="$out_dir/z203_sd_target_preflight.log"
+    if ! z203_has_sd_partition >"$log" 2>&1; then
+        echo "Z203 SD install preflight failed; refusing to start any board update." >&2
+        echo "Expected ${z203_ip} to expose /dev/mmcblk0p1 over SSH before SD install." >&2
+        cat "$log" >&2 || true
+        return 1
+    fi
+    echo "z203_sd_target_preflight=pass host=$z203_ip" | tee -a "$log"
+}
+
+precheck_z203_qspi_target() {
+    if [ "$precheck_all_targets" != "1" ]; then
+        return 0
+    fi
+    APPLY=0 ALLOW_FLASH_WRITES=0 REBOOT_AFTER=0 \
+        OUT_DIR="$out_dir/z203_qspi_target_preflight" \
+        BOARD_IP="$z203_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+        "$install_fieldmesh_pluto_frm_sh" z203 "$z203_ip" \
+        >"$out_dir/z203_qspi_target_preflight.log" 2>&1 || {
+            echo "Z203 QSPI install preflight failed; refusing to start any board update." >&2
+            cat "$out_dir/z203_qspi_target_preflight.log" >&2
+            return 1
+        }
+    echo "z203_qspi_target_preflight=pass host=$z203_ip" \
+        | tee -a "$out_dir/z203_qspi_target_preflight.log"
+}
+
+precheck_z103_target() {
+    if [ "$precheck_all_targets" != "1" ]; then
+        return 0
+    fi
+    APPLY=0 ALLOW_FLASH_WRITES=0 REBOOT_AFTER=0 \
+        OUT_DIR="$out_dir/z103_target_preflight" \
+        BOARD_IP="$z103_ip" SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" \
+        "$install_fieldmesh_pluto_frm_sh" z103 "$z103_ip" \
+        >"$out_dir/z103_target_preflight.log" 2>&1 || {
+            echo "Z103 install preflight failed; refusing to start any board update." >&2
+            cat "$out_dir/z103_target_preflight.log" >&2
+            return 1
+        }
+    echo "z103_target_preflight=pass host=$z103_ip" \
+        | tee -a "$out_dir/z103_target_preflight.log"
+}
+
 install_z203_sd() {
     sd_stage="$out_dir/z203-sd-stage"
     OUT_DIR="$sd_stage" "$stage_fieldmesh_sd_boot_files_sh" z203 \
@@ -225,7 +278,7 @@ install_z203_qspi() {
 }
 
 cat > "$out_dir/plan.json" <<EOF_PLAN
-{"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode","enable_gnss_uart_emio":$enable_gnss_uart_emio,"enable_gnss_pps_emio":$enable_gnss_pps_emio,"z203_damaged_qspi_override_supported":false}
+{"event":"fieldmesh_connected_board_install_plan","z203_ip":"$z203_ip","z103_ip":"$z103_ip","port":$port,"apply":$apply,"allow_flash_writes":$allow_flash,"reboot_after":$reboot_after,"z203_install_mode":"$z203_install_mode","precheck_all_targets":$precheck_all_targets,"enable_gnss_uart_emio":$enable_gnss_uart_emio,"enable_gnss_pps_emio":$enable_gnss_pps_emio,"z203_damaged_qspi_override_supported":false}
 EOF_PLAN
 cat "$out_dir/plan.json"
 
@@ -274,9 +327,19 @@ case "$z203_install_mode" in
 esac
 
 cat > "$out_dir/resolved_plan.json" <<EOF_RESOLVED
-{"event":"fieldmesh_connected_board_install_resolved_plan","z203_requested_install_mode":"$z203_install_mode","z203_resolved_install_mode":"$z203_resolved_install_mode","z203_qspi_prechecked":$z203_qspi_prechecked,"enable_gnss_uart_emio":$enable_gnss_uart_emio,"enable_gnss_pps_emio":$enable_gnss_pps_emio,"starts_parallel_installs_after_resolution":true}
+{"event":"fieldmesh_connected_board_install_resolved_plan","z203_requested_install_mode":"$z203_install_mode","z203_resolved_install_mode":"$z203_resolved_install_mode","z203_qspi_prechecked":$z203_qspi_prechecked,"precheck_all_targets":$precheck_all_targets,"enable_gnss_uart_emio":$enable_gnss_uart_emio,"enable_gnss_pps_emio":$enable_gnss_pps_emio,"starts_parallel_installs_after_target_preflight":true}
 EOF_RESOLVED
 cat "$out_dir/resolved_plan.json"
+
+case "$z203_resolved_install_mode" in
+    sd)
+        precheck_z203_sd_target
+        ;;
+    qspi)
+        precheck_z203_qspi_target
+        ;;
+esac
+precheck_z103_target
 
 (
     case "$z203_resolved_install_mode" in

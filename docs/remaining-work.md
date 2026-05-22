@@ -588,12 +588,15 @@ Firmware state:
   `UPLOAD_IF_MISSING=0`. Z203 no longer needs `FORCE_UPLOAD=1` when it is
   booted through this SD path. Its installed init script also runs
   `/usr/bin/fieldmesh-state-daemon-demo serve 0.0.0.0 55441 0 5000`.
-- The connected-board installer resolves Z203 install mode before launching
-  parallel board updates. Auto mode uses QSPI only when
-  `tools/diagnose_z203_qspi_integrity.sh` passes; otherwise it uses the proven
-  SD/initramfs path when the SD partition is visible. Post-reboot checks require
-  current FieldMesh daemon capabilities and always-on process arguments instead
-  of accepting a generic HELLO.
+- The connected-board installer resolves Z203 install mode and preflights all
+  intended targets before launching parallel board updates. Auto mode uses QSPI
+  only when `tools/diagnose_z203_qspi_integrity.sh` passes; otherwise it uses
+  the proven SD/initramfs path when the SD partition is visible. Z103 `.frm`
+  updates must pass the same dry-run SSH/update identity path before any Z203
+  or Z103 write starts, so an offline or DAP-stuck Z103 cannot be paired with a
+  partial Z203 update. Post-reboot checks require current FieldMesh daemon
+  capabilities and always-on process arguments instead of accepting a generic
+  HELLO.
 - The 2026-05-18 installed runtime refresh rebuilt both product images,
   repackaged FieldMesh runtimes, refreshed JTAG RAM staging, installed Z203
   through the SD/initramfs path, installed Z103 through the Pluto-style `.frm`
