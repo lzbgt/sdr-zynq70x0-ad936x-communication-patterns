@@ -78,6 +78,19 @@ runner also selects the OpenOCD FTDI serial by variant before JTAG scan or DAP
 halt preflight, so Z203/Z103 adapter ordering in WSL cannot silently change the
 target board.
 
+For a bounded Z103-only recovery check without artifact prep or boot payload
+loading, use:
+
+```sh
+./tools/diagnose_z103_recovery_state.sh
+```
+
+It defaults to `192.168.3.1`, selects the Z103 FTDI adapter serial, records USB,
+JTAG scan, and DAP-halt evidence under `.config/fieldmesh/`, and writes
+`summary.json`. It does not write flash, does not write receiver or PL
+configuration, and does not start RF TX. A nonzero exit means the board is not
+safe for a heavy JTAG boot attempt yet.
+
 ## Pass Criteria
 
 A useful pass has:

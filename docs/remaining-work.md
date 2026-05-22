@@ -767,7 +767,11 @@ Open live gates:
   `timeout waiting for DSCR bit change`. The Z103-specific JTAG boot helpers
   now run `tools/probe_openocd_zynq_dap_halt.sh z103` first and stop on the
   classified `dap_dscr_halt_timeout` state, avoiding heavier OpenOCD payload
-  loading until a clean DAP halt is restored.
+  loading until a clean DAP halt is restored. Use
+  `tools/diagnose_z103_recovery_state.sh` for the lightweight recovery-state
+  check: it targets `192.168.3.1`, selects the Z103 FTDI serial, records USB,
+  JTAG, and DAP status, and refuses heavy JTAG boot attempts when the DAP is
+  still stuck.
 - Reconcile source-level mismatches before relying on generated artifacts for
   flash: schematic/user evidence says no SD-card wiring, while `system_bd.tcl`
   enables PS SD0; live board is 1R1T, while `system_bd.tcl` sets
