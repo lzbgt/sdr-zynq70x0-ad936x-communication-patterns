@@ -246,6 +246,10 @@ BRAM MAC endpoint so one wrapper now covers AXI-stream ingress, binary
 descriptor publication, MAC-budgeted service, RX/ACK metadata, and packet
 readback. The remaining DMA work is the matching egress side and board-level
 AXI RAM/DMA binding.
+`fieldmesh_firmware_axis_egress_reader.v` adds that reusable RX side: it reads
+ABI RX descriptors, validates READY state and descriptor CRC32C, reads packet
+BRAM words, and emits byte-wide AXI-stream packets with TLAST for the future RX
+DMA or MAC egress wrapper.
 
 The first control-only block-design overlay is opt-in:
 

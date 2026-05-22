@@ -330,8 +330,11 @@ accepting byte-wide AXI-stream packets, packing payload bytes into firmware-ring
 packet words, and publishing binary TX descriptors with the queued state word
 written last. `fieldmesh_firmware_axis_bram_mac_endpoint` composes that ingress
 with the scheduler-owned BRAM MAC endpoint, proving the first complete
-AXI-stream ingress to MAC-drained firmware-ring service path. The next PL step
-is adding the matching egress/DMA path. The stats block now keeps
+AXI-stream ingress to MAC-drained firmware-ring service path.
+`fieldmesh_firmware_axis_egress_reader` adds the matching descriptor-validated
+RX side by reading READY RX descriptors, pulling packet words from BRAM, and
+emitting byte-wide AXI-stream packets. The next PL step is composing that egress
+reader into the endpoint wrapper and binding board-level RX DMA. The stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those

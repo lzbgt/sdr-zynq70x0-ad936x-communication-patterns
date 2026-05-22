@@ -32,6 +32,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_packet_bram_mac_endpoint.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_axis_ingress_writer.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_axis_bram_mac_endpoint.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_firmware_axis_egress_reader.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_ring_axi_lite.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v" \
@@ -73,6 +74,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_packet_bram_mac_endpoint_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_axis_ingress_writer_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_axis_bram_mac_endpoint_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_firmware_axis_egress_reader_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_ring_axi_lite_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_mem_axi_lite_tb.v" \
@@ -125,6 +127,7 @@ run_tb fieldmesh_firmware_mac_scheduler_tb
 run_tb fieldmesh_firmware_packet_bram_mac_endpoint_tb
 run_tb fieldmesh_firmware_axis_ingress_writer_tb
 run_tb fieldmesh_firmware_axis_bram_mac_endpoint_tb
+run_tb fieldmesh_firmware_axis_egress_reader_tb
 run_tb fieldmesh_firmware_ring_axi_lite_tb
 run_tb fieldmesh_packet_mem_loopback_core_tb
 run_tb fieldmesh_packet_mem_axi_lite_tb

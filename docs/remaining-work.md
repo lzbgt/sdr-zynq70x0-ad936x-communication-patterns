@@ -99,9 +99,11 @@ descriptor validation, packet movement, and future storage transport. The
 `fieldmesh_firmware_axis_ingress_writer` now starts that wrapper by turning
 byte-wide AXI-stream ingress into packet-memory writes plus state-last binary TX
 descriptor publication. `fieldmesh_firmware_axis_bram_mac_endpoint` now
-composes that writer with the MAC endpoint, so the remaining PL integration
-work is adding egress/DMA service and board-level AXI RAM/DMA binding rather
-than growing the AXI-lite diagnostic shell. The stats
+composes that writer with the MAC endpoint. `fieldmesh_firmware_axis_egress_reader`
+now adds descriptor-validated RX descriptor to AXI-stream egress. The remaining
+PL integration work is composing that reader into the endpoint wrapper and
+adding board-level RX DMA binding rather than growing the AXI-lite diagnostic
+shell. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
