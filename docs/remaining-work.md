@@ -58,8 +58,12 @@ descriptor-local semantic checks, and packet-window admission plus
 construction. `fieldmesh_firmware_packet_service_core` now composes those
 blocks with bounded packet-word copy for one serviced slot, while the AXI-lite
 wrapper now feeds that core through `fieldmesh_firmware_packet_service_bank`,
-which selects RX/ACK/packet results across the serviced window. The wrapper
-still owns storage, service triggering, output clearing, and counters.
+which selects RX/ACK/packet results across the serviced window. The
+`fieldmesh_firmware_service_slot_picker` now gives the AXI-lite diagnostic
+service the same autonomous queued-slot selection expected by the later
+BRAM/DMA MAC path: lowest traffic class first, with malformed queued slots
+retired after valid traffic. The wrapper still owns storage, output clearing,
+and counters.
 This
 diagnostic PL service remains enabled on Z203, but is synthesized out on
 Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared

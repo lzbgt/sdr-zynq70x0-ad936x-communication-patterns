@@ -285,9 +285,12 @@ descriptors and ACK records from MAC service metadata; and
 `fieldmesh_firmware_packet_service_core` composes those blocks with bounded
 packet-word copy for one serviced slot. `fieldmesh_firmware_packet_service_bank`
 instantiates that core across the serviced window and returns the selected
-slot's RX/ACK/packet result, so the later BRAM/DMA MAC path can reuse the same
-descriptor policy, CRCs, and packet movement without depending on AXI-lite
-storage. Rejected service attempts clear the slot's RX descriptor, ACK
+slot's RX/ACK/packet result. `fieldmesh_firmware_service_slot_picker` scans the
+serviced TX descriptor window, picks the lowest-numbered queued traffic class,
+and still retires malformed queued descriptors after valid traffic so a bad
+slot cannot wedge the PL ring. The later BRAM/DMA MAC path can reuse the same
+descriptor policy, CRCs, slot selection, and packet movement without depending
+on AXI-lite storage. Rejected service attempts clear the slot's RX descriptor, ACK
 descriptor, and compact RX packet window so stale READY state cannot be consumed
 after a failed TX. The C UIO probe validates PL-published descriptors through
 the production ABI helpers. The full

@@ -85,9 +85,6 @@ reg [31:0]             wdata_hold;
 reg [3:0]              wstrb_hold;
 reg                    read_pending;
 reg [ADDR_WIDTH-1:0]   read_addr_hold;
-reg                    service_pending;
-reg [15:0]             service_slot;
-reg [31:0]             service_first_word;
 
 reg [31:0] tx_desc [0:PL_SERVICE_SLOTS * TX_DESC_WORDS - 1];
 reg [31:0] rx_desc [0:PL_SERVICE_SLOTS * RX_DESC_WORDS - 1];
@@ -102,7 +99,6 @@ wire [PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_rx_packet_words;
 wire        service_accepted;
 wire        service_crc_error;
 wire        service_bounds_error;
-wire [15:0] service_payload_words;
 wire [31:0] rx_build0;
 wire [31:0] rx_build1;
 wire [31:0] rx_build2;
@@ -117,6 +113,8 @@ wire [31:0] ack_build1;
 wire [31:0] ack_build2;
 wire [31:0] ack_build3;
 wire [31:0] ack_build4;
+wire        picker_valid;
+wire [15:0] picker_slot;
 
 genvar service_i;
 genvar service_word_i;
@@ -143,19 +141,30 @@ generate
     end
 endgenerate
 
+fieldmesh_firmware_service_slot_picker #(
+    .PL_SERVICE_SLOTS(PL_SERVICE_SLOTS)
+) service_picker (
+    .tx_desc_words(service_tx_desc_words),
+    .valid(picker_valid),
+    .slot(picker_slot),
+    .traffic_class(),
+    .invalid_class(),
+    .queued_count()
+);
+
 fieldmesh_firmware_packet_service_bank #(
     .RING_SLOTS(RING_SLOTS),
     .PACKET_STRIDE(PACKET_STRIDE),
     .PL_SERVICE_SLOTS(PL_SERVICE_SLOTS),
     .PL_PACKET_WORDS_PER_SLOT(PL_PACKET_WORDS_PER_SLOT)
 ) service_bank (
-    .service_slot(service_slot),
+    .service_slot(picker_slot),
     .tx_desc_words(service_tx_desc_words),
     .tx_packet_words(service_tx_packet_words),
     .accepted(service_accepted),
     .crc_error(service_crc_error),
     .bounds_error(service_bounds_error),
-    .payload_words(service_payload_words),
+    .payload_words(),
     .rx_packet_words(service_rx_packet_words),
     .rx_word0(rx_build0),
     .rx_word1(rx_build1),
@@ -231,19 +240,6 @@ function [15:0] desc_compact_index;
     end
 endfunction
 
-function [15:0] desc_slot_from_index;
-    input [31:0] desc_index;
-    input [15:0] words_per_slot;
-    reg [31:0] slot;
-    begin
-        desc_slot_from_index = 16'hffff;
-        slot = desc_index / words_per_slot;
-        if (slot < PL_SERVICE_SLOTS) begin
-            desc_slot_from_index = slot[15:0];
-        end
-    end
-endfunction
-
 function [31:0] apply_wstrb;
     input [31:0] current;
     input [31:0] data;
@@ -264,31 +260,17 @@ task map_write;
     reg [31:0] idx;
     reg [31:0] updated_word;
     reg [15:0] compact_idx;
-    reg [15:0] desc_slot;
-    reg [15:0] desc_word;
     reg [15:0] desc_idx;
     begin
         idx = word_addr;
         if (idx >= TX_DESC_WORD_OFFSET &&
             idx < TX_DESC_WORD_OFFSET + RING_SLOTS * TX_DESC_WORDS) begin
-            desc_slot = desc_slot_from_index(idx - TX_DESC_WORD_OFFSET,
-                                             TX_DESC_WORDS);
-            desc_word = (idx - TX_DESC_WORD_OFFSET) - desc_slot * TX_DESC_WORDS;
             desc_idx = desc_compact_index(idx - TX_DESC_WORD_OFFSET, TX_DESC_WORDS);
             if (desc_idx != 16'hffff) begin
                 updated_word = apply_wstrb(tx_desc[desc_idx], data, strb);
                 tx_desc[desc_idx] <= updated_word;
             end else begin
                 updated_word = apply_wstrb(32'd0, data, strb);
-            end
-            if (desc_slot != 16'hffff &&
-                ENABLE_PL_SERVICE != 0 &&
-                desc_slot < PL_SERVICE_SLOTS &&
-                desc_word == 16'd0 &&
-                updated_word[7:0] == FW_STATE_QUEUED) begin
-                service_slot <= desc_slot;
-                service_first_word <= updated_word;
-                service_pending <= 1'b1;
             end
         end else if (idx >= RX_DESC_WORD_OFFSET &&
                      idx < RX_DESC_WORD_OFFSET + RING_SLOTS * RX_DESC_WORDS) begin
@@ -355,7 +337,6 @@ endtask
 
 task service_slot_immediate;
     input [15:0] slot;
-    input [31:0] first_word;
     reg [31:0] tx_desc_base;
     reg [31:0] rx_desc_base;
     reg [31:0] ack_desc_base;
@@ -403,7 +384,7 @@ task service_slot_immediate;
             inc_stat(16'd3);
             inc_stat(16'd5);
         end
-        tx_desc[tx_desc_base] <= {first_word[31:8], FW_STATE_DONE};
+        tx_desc[tx_desc_base] <= {tx_desc[tx_desc_base][31:8], FW_STATE_DONE};
     end
 endtask
 
@@ -416,13 +397,9 @@ always @(posedge s_axi_aclk) begin
         wstrb_hold <= 4'd0;
         s_axi_bresp <= 2'b00;
         s_axi_bvalid <= 1'b0;
-        service_pending <= 1'b0;
-        service_slot <= 16'd0;
-        service_first_word <= 32'd0;
     end else begin
-        if (ENABLE_PL_SERVICE != 0 && service_pending) begin
-            service_slot_immediate(service_slot, service_first_word);
-            service_pending <= 1'b0;
+        if (ENABLE_PL_SERVICE != 0 && picker_valid) begin
+            service_slot_immediate(picker_slot);
         end
 
         if (s_axi_awvalid && s_axi_awready) begin

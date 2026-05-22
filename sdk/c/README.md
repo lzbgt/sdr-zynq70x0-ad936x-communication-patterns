@@ -70,8 +70,10 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_packet_service_core` composes those blocks with bounded
   packet-word copy for one serviced slot, and
   `fieldmesh_firmware_packet_service_bank` selects that service across a
-  multi-slot serviced window for AXI-lite, BRAM, or DMA-backed storage. The
-  service generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
+  multi-slot serviced window for AXI-lite, BRAM, or DMA-backed storage.
+  `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
+  class while still letting malformed queued descriptors be retired after valid
+  traffic. The service generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
   validates PL-published descriptors through the production ABI helpers; the
   production MAC/DMA packet-memory engine must still add FEC integrity and full-MTU
   packet storage. Z103 builds keep the UIO aperture but
