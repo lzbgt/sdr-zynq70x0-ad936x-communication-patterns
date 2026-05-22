@@ -74,6 +74,9 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_packet_bram_service_bank` performs the same selection
   and descriptor-latch policy for the full-MTU BRAM service path, then launches
   one bounded BRAM copy through the packet arena.
+  `fieldmesh_firmware_ring_desc_store` keeps TX/RX/ACK descriptor RAM separate
+  from AXI-lite register handling and gives the future endpoint reusable publish,
+  clear, and TX-done semantics.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and

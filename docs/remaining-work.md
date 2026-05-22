@@ -80,7 +80,11 @@ full-MTU serviced slot, so RX descriptors are not exposed before packet bytes
 land in RX storage. `fieldmesh_firmware_packet_bram_service_bank` now composes
 the queued-slot picker with that BRAM service and latches the selected TX
 descriptor before copy launch, making the full-MTU path reusable by the later
-BRAM/AXI RAM or DMA endpoint without coupling it to AXI-lite storage. The stats
+BRAM/AXI RAM or DMA endpoint without coupling it to AXI-lite storage.
+`fieldmesh_firmware_ring_desc_store` now owns reusable TX/RX/ACK descriptor
+storage, flat TX-window export, RX/ACK publish, rejected-slot cleanup, and
+TX-done marking, so the next endpoint can compose descriptor storage with BRAM
+packet storage instead of depending on the AXI-lite diagnostic shell. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the

@@ -305,8 +305,11 @@ descriptor, drives the BRAM copy engine from TX arena to RX arena, and exposes
 RX descriptor and ACK metadata only after packet bytes are present in RX
 storage. `fieldmesh_firmware_packet_bram_service_bank` adds the autonomous
 queued-slot picker, descriptor latch, and one-at-a-time BRAM service launch for
-the future production packet-memory endpoint. The stats block now keeps the
-fixed counters plus
+the future production packet-memory endpoint. `fieldmesh_firmware_ring_desc_store`
+extracts TX/RX/ACK descriptor storage from the AXI-lite diagnostic shell: it
+exports the compact serviced TX window, publishes RX/ACK metadata after service,
+clears stale outputs on rejected service, and marks the TX slot done. The stats
+block now keeps the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
 words as `firmware_ring_pressure_queued` and

@@ -218,7 +218,9 @@ BRAM copy engine, and RX/ACK builder for one full-MTU serviced slot.
 `fieldmesh_firmware_packet_bram_service_bank.v` adds the queued-slot picker and
 descriptor latch around that service so a later BRAM/AXI RAM or DMA endpoint
 can select one queued slot at a time without widening the AXI-lite diagnostic
-register array.
+register array. `fieldmesh_firmware_ring_desc_store.v` separates TX/RX/ACK
+descriptor storage from AXI-lite register handling, keeping descriptor publish,
+clear, and TX-done behavior reusable by that endpoint.
 
 The first control-only block-design overlay is opt-in:
 

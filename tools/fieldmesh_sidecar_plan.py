@@ -18,6 +18,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_firmware_tx_desc_validator.v",
     "rtl/fieldmesh/fieldmesh_firmware_tx_service_gate.v",
     "rtl/fieldmesh/fieldmesh_firmware_rx_ack_builder.v",
+    "rtl/fieldmesh/fieldmesh_firmware_ring_desc_store.v",
     "rtl/fieldmesh/fieldmesh_firmware_packet_service_core.v",
     "rtl/fieldmesh/fieldmesh_firmware_packet_service_bank.v",
     "rtl/fieldmesh/fieldmesh_firmware_service_slot_picker.v",
