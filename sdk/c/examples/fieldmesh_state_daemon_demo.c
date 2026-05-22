@@ -5471,6 +5471,79 @@ static int build_response(fieldmesh_context_t *context,
         }
         return 0;
     }
+    if (strstr(request, "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_WAIT")) {
+        unsigned bits = FIELDMESH_FW_RING_IRQ_ALL;
+        unsigned max_polls = 1u;
+        uint32_t pending = 0u;
+        uint32_t polls = 0u;
+        int asserted = 0;
+
+        if (!request_uint_or_default(request, "bits=",
+                                     FIELDMESH_FW_RING_IRQ_ALL, 0u,
+                                     FIELDMESH_FW_RING_IRQ_ALL, &bits) ||
+            !request_uint_or_default(request, "max_polls=", 1u, 1u,
+                                     1024u, &max_polls)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_firmware_irq_wait\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_request\","
+                     "\"max_bits\":%u,"
+                     "\"max_polls\":1024,"
+                     "\"writes_hardware\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\"}\n",
+                     (unsigned)FIELDMESH_FW_RING_IRQ_ALL);
+            return 0;
+        }
+        if (!tun_service || !tun_service->firmware_ring_mapped ||
+            !tun_service->firmware_ring.stats) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_firmware_irq_wait\","
+                     "\"ok\":false,"
+                     "\"error\":\"firmware_ring_not_mapped\","
+                     "\"requested_bits\":%u,"
+                     "\"requested_max_polls\":%u,"
+                     "\"firmware_ring_supported\":1,"
+                     "\"firmware_ring_enabled\":%u,"
+                     "\"firmware_ring_mapped\":%u,"
+                     "\"writes_hardware\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\"}\n",
+                     bits,
+                     max_polls,
+                     tun_service ? tun_service->firmware_ring_enabled : 0u,
+                     tun_service ? tun_service->firmware_ring_mapped : 0u);
+            return 0;
+        }
+        asserted = fieldmesh_fw_ring_irq_wait_poll(
+            tun_service->firmware_ring.stats, bits, max_polls,
+            &pending, &polls);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_tun_service_firmware_irq_wait\","
+                 "\"ok\":true,"
+                 "\"requested_bits\":%u,"
+                 "\"requested_max_polls\":%u,"
+                 "\"polls\":%u,"
+                 "\"irq_status\":%u,"
+                 "\"irq_mask\":%u,"
+                 "\"irq_pending\":%u,"
+                 "\"irq_asserted\":%u,"
+                 "\"read_hardware\":1,"
+                 "\"writes_hardware\":0,"
+                 "\"uses_iio\":0,"
+                 "\"uses_json_on_air\":0,"
+                 "\"hot_path_language\":\"c\"}\n",
+                 bits,
+                 max_polls,
+                 polls,
+                 tun_service->firmware_ring.stats->irq_status,
+                 tun_service->firmware_ring.stats->irq_mask,
+                 pending,
+                 asserted ? 1u : 0u);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_STATUS")) {
         struct tun_service_firmware_ring_counts fw_ring_counts;
         tun_service_read_firmware_ring_counts(tun_service, &fw_ring_counts);
@@ -7985,6 +8058,7 @@ static int query_state(const char *host,
     char tun_service_status_request[96];
     char tun_service_irq_mask_request[112];
     char tun_service_irq_ack_request[112];
+    char tun_service_irq_wait_request[128];
     char rf_worker_start_request[96];
     char rf_worker_status_request[96];
     char rf_worker_phy_plan_request[192];
@@ -8085,6 +8159,10 @@ static int query_state(const char *host,
     snprintf(tun_service_irq_ack_request,
              sizeof(tun_service_irq_ack_request),
              "%s", "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK v1 bits=15");
+    snprintf(tun_service_irq_wait_request,
+             sizeof(tun_service_irq_wait_request),
+             "%s",
+             "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_WAIT v1 bits=3 max_polls=2");
     snprintf(rf_worker_start_request, sizeof(rf_worker_start_request),
              "%s", "FIELDMESH_RF_WORKER_START v1");
     snprintf(rf_worker_status_request, sizeof(rf_worker_status_request),
@@ -8168,6 +8246,7 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, tun_service_status_request) == 0 &&
         query_once(sockfd, &dst, tun_service_irq_mask_request) == 0 &&
         query_once(sockfd, &dst, tun_service_irq_ack_request) == 0 &&
+        query_once(sockfd, &dst, tun_service_irq_wait_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_start_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_status_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_phy_plan_request) == 0 &&

@@ -80,8 +80,11 @@ in `src/fieldmesh_sdk.c`:
   `irq_status`/`irq_mask` bits for RX-ready, TX-done, drop, and error events
   plus `fieldmesh_fw_ring_irq_pending_bits()`, so future daemon/driver code can
   block on PL completions instead of polling the ring. Daemon status reports
-  both `firmware_ring_irq_pending` and `firmware_ring_irq_asserted`. Hardware
-  acknowledgement is explicitly write-one-to-clear through
+  both `firmware_ring_irq_pending` and `firmware_ring_irq_asserted`.
+  `fieldmesh_fw_ring_irq_wait_poll()` is the bounded userspace wait predicate
+  that the daemon exposes through read-only
+  `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_WAIT`. Hardware acknowledgement is
+  explicitly write-one-to-clear through
   `fieldmesh_fw_ring_irq_ack_w1c()`; RAM-backed probes use
   `fieldmesh_fw_ring_irq_clear_ram()` instead. IRQ mask writes are similarly
   split between `fieldmesh_fw_ring_irq_mask_ram()` and

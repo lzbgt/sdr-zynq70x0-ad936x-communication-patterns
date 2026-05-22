@@ -68,21 +68,31 @@ int main(void) {
         !fieldmesh_fw_ring_irq_asserted(&stats)) {
         return 6;
     }
+    {
+        uint32_t pending = 0u;
+        uint32_t polls = 0u;
+        if (!fieldmesh_fw_ring_irq_wait_poll(&stats,
+                                             FIELDMESH_FW_RING_IRQ_RX_READY,
+                                             3u, &pending, &polls) ||
+            pending != FIELDMESH_FW_RING_IRQ_RX_READY || polls != 1u) {
+            return 7;
+        }
+    }
     fieldmesh_fw_ring_irq_clear_ram(&stats, FIELDMESH_FW_RING_IRQ_RX_READY);
     if (stats.irq_status != FIELDMESH_FW_RING_IRQ_ERROR ||
         fieldmesh_fw_ring_irq_asserted(&stats)) {
-        return 7;
+        return 8;
     }
     fieldmesh_fw_ring_irq_mask_write((volatile fieldmesh_fw_ring_stats_t *)&stats,
                                      FIELDMESH_FW_RING_IRQ_ALL | 0xffff0000u);
     if (stats.irq_mask != FIELDMESH_FW_RING_IRQ_ALL ||
         !fieldmesh_fw_ring_irq_asserted(&stats)) {
-        return 8;
+        return 9;
     }
     fieldmesh_fw_ring_irq_ack_w1c((volatile fieldmesh_fw_ring_stats_t *)&stats,
                                   FIELDMESH_FW_RING_IRQ_ALL | 0xffff0000u);
     if (stats.irq_status != FIELDMESH_FW_RING_IRQ_ALL) {
-        return 9;
+        return 10;
     }
     return 0;
 }
@@ -393,6 +403,7 @@ required = [
     "FIELDMESH_FW_RING_IRQ_ALL",
     "fieldmesh_fw_ring_irq_asserted",
     "fieldmesh_fw_ring_irq_pending_bits",
+    "fieldmesh_fw_ring_irq_wait_poll",
     "fieldmesh_fw_ring_irq_mark",
     "fieldmesh_fw_ring_irq_clear_ram",
     "fieldmesh_fw_ring_irq_mask_ram",

@@ -70,12 +70,15 @@ retired after valid traffic. The stats ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
 masked pending bits and asserted predicate directly, so the future UIO/driver
-path does not need to duplicate register-level IRQ logic. The C helper API now
-separates RAM-model IRQ clearing from hardware write-one-to-clear
-acknowledgement, which keeps future UIO/driver code from using
-read-modify-write semantics on a PL register. IRQ mask writes are split the
-same way, with separate RAM-model and hardware register helpers. The daemon now
-has guarded
+path does not need to duplicate register-level IRQ logic. The C helper API also
+has a bounded `fieldmesh_fw_ring_irq_wait_poll()` predicate and the daemon has
+a read-only `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_WAIT` command, which forms the
+userspace wait boundary before replacing polling with UIO IRQ/eventfd waits.
+The C helper API now separates RAM-model IRQ clearing from hardware
+write-one-to-clear acknowledgement, which keeps future UIO/driver code from
+using read-modify-write semantics on a PL register. IRQ mask writes are split
+the same way, with separate RAM-model and hardware register helpers. The daemon
+now has guarded
 `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK` and
 `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` commands for arming and acknowledging
 those IRQ bits; without `ALLOW_FIRMWARE_RING_WRITES` they report the guard and

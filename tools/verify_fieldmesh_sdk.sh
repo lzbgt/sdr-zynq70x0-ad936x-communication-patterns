@@ -164,7 +164,7 @@ wait "$udp_pid"
 daemon_log="$out_dir/fieldmesh_state_daemon_serve.ndjson"
 daemon_query_log="$out_dir/fieldmesh_state_daemon_query.ndjson"
 daemon_demo="$out_dir/fieldmesh_state_daemon_demo"
-FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 49 3000 >"$daemon_log" &
+FIELDMESH_DEMO_SEED_PEERS=1 "$daemon_demo" serve 127.0.0.1 49124 50 3000 >"$daemon_log" &
 daemon_pid=$!
 sleep 0.2
 "$daemon_demo" query 127.0.0.1 49124 2000 \
@@ -379,6 +379,7 @@ tun_service_start_guard = [row for row in query if row.get("event") == "sdk_daem
 tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tun_service_status"]
 tun_service_irq_mask_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_firmware_irq_mask"]
 tun_service_irq_ack_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_firmware_irq_ack"]
+tun_service_irq_wait = [row for row in query if row.get("event") == "sdk_daemon_tun_service_firmware_irq_wait"]
 rf_worker_start = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_start"]
 rf_worker_status = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_status"]
 rf_worker_phy_plan = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_phy_plan"]
@@ -395,7 +396,7 @@ tun_plan = [row for row in query if row.get("event") == "sdk_daemon_tun_plan"]
 tun_apply = [row for row in query if row.get("event") == "sdk_daemon_tun_apply"]
 tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_rejected"]
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
-if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 49 for row in serve):
+if not any(row.get("event") == "sdk_daemon_end" and row.get("handled") == 50 for row in serve):
     raise SystemExit("SDK daemon did not handle all state requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("SDK daemon HELLO query failed")
@@ -908,6 +909,19 @@ for key in ("writes_hardware", "uses_iio", "uses_json_on_air"):
         raise SystemExit(f"firmware ring IRQ ACK guard key {key} must be 0")
 if tun_service_irq_ack_guard[0].get("hot_path_language") != "c":
     raise SystemExit("firmware ring IRQ ACK guard must keep C hot path")
+if not tun_service_irq_wait:
+    raise SystemExit("SDK daemon firmware ring IRQ wait query missing")
+if tun_service_irq_wait[0].get("ok") is not False:
+    raise SystemExit("firmware ring IRQ wait must not succeed without mapped ring")
+if tun_service_irq_wait[0].get("error") != "firmware_ring_not_mapped":
+    raise SystemExit("firmware ring IRQ wait error changed")
+if tun_service_irq_wait[0].get("requested_bits") != 3:
+    raise SystemExit("firmware ring IRQ wait requested bits changed")
+for key in ("writes_hardware", "uses_iio", "uses_json_on_air"):
+    if tun_service_irq_wait[0].get(key) != 0:
+        raise SystemExit(f"firmware ring IRQ wait key {key} must be 0")
+if tun_service_irq_wait[0].get("hot_path_language") != "c":
+    raise SystemExit("firmware ring IRQ wait must keep C hot path")
 if not rf_worker_start or rf_worker_start[0].get("error") != "tun_service_not_running":
     raise SystemExit("SDK daemon RF worker start guard failed")
 if rf_worker_start[0].get("rf_phy_tx_rx") != 0:

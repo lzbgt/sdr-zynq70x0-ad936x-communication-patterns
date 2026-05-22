@@ -56,6 +56,33 @@ static inline uint32_t fieldmesh_fw_ring_irq_pending_bits(
                     FIELDMESH_FW_RING_IRQ_ALL) : 0u;
 }
 
+static inline int fieldmesh_fw_ring_irq_wait_poll(
+    const volatile fieldmesh_fw_ring_stats_t *stats,
+    uint32_t bits,
+    uint32_t max_polls,
+    uint32_t *out_pending_bits,
+    uint32_t *out_polls)
+{
+    uint32_t wanted = bits & FIELDMESH_FW_RING_IRQ_ALL;
+    uint32_t pending = 0u;
+    uint32_t polls = 0u;
+    uint32_t limit = max_polls == 0u ? 1u : max_polls;
+
+    for (polls = 1u; polls <= limit; ++polls) {
+        pending = fieldmesh_fw_ring_irq_pending_bits(stats) & wanted;
+        if (pending != 0u) {
+            break;
+        }
+    }
+    if (out_pending_bits) {
+        *out_pending_bits = pending;
+    }
+    if (out_polls) {
+        *out_polls = polls > limit ? limit : polls;
+    }
+    return pending != 0u;
+}
+
 static inline void fieldmesh_fw_ring_irq_mark(fieldmesh_fw_ring_stats_t *stats,
                                               uint32_t bits)
 {
