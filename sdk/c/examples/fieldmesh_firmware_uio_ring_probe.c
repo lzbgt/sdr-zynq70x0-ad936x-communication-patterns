@@ -233,6 +233,9 @@ static int service_loopback(fieldmesh_fw_ring_view_t *view, uint32_t *first_seq,
            view->stats->enqueued == 2u && view->stats->served == 2u &&
            view->stats->acked == 2u && view->stats->drops == 0u &&
            view->stats->queued == 0u && view->stats->selected == 0u &&
+           view->stats->irq_status == (FIELDMESH_FW_RING_IRQ_RX_READY |
+                                       FIELDMESH_FW_RING_IRQ_TX_DONE) &&
+           fieldmesh_fw_ring_irq_asserted(view->stats) == 0 &&
            fieldmesh_fw_ring_payload_matches(view, (uint32_t)control_slot,
                                              control_payload, sizeof(control_payload)) &&
            fieldmesh_fw_ring_payload_matches(view, (uint32_t)bulk_slot,
@@ -307,6 +310,9 @@ static int pl_service_loopback(fieldmesh_fw_ring_view_t *view,
            *control_seq == 0x100u &&
            view->stats->enqueued == 1u && view->stats->served == 1u &&
            view->stats->acked == 1u && view->stats->drops == 0u &&
+           view->stats->irq_status == (FIELDMESH_FW_RING_IRQ_RX_READY |
+                                       FIELDMESH_FW_RING_IRQ_TX_DONE) &&
+           fieldmesh_fw_ring_irq_asserted(view->stats) == 0 &&
            pl_service_ack_matches(&view->ack[(uint32_t)control_slot], 0x100u) &&
            pl_service_payload_matches(view, (uint32_t)control_slot,
                                       control_payload, sizeof(control_payload));
@@ -386,6 +392,9 @@ int main(int argc, char **argv)
            "\"bounds_errors\":%u,"
            "\"queued\":%u,"
            "\"selected\":\"0x%08x\","
+           "\"irq_status\":\"0x%08x\","
+           "\"irq_mask\":\"0x%08x\","
+           "\"irq_asserted\":%s,"
            "\"first_served_seq\":\"0x%08x\","
            "\"second_served_seq\":\"0x%08x\","
            "\"uses_json_on_air\":false,"
@@ -411,6 +420,9 @@ int main(int argc, char **argv)
            bound ? view.stats->bounds_errors : 0u,
            bound ? view.stats->queued : 0u,
            bound ? view.stats->selected : 0u,
+           bound ? view.stats->irq_status : 0u,
+           bound ? view.stats->irq_mask : 0u,
+           fieldmesh_fw_ring_irq_asserted(bound ? view.stats : NULL) ? "true" : "false",
            first_seq,
            second_seq);
 

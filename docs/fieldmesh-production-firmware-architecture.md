@@ -361,15 +361,18 @@ read from `swarm0`. The firmware bridge accepts the diagnostic RX descriptors
 without requiring PL-generated descriptor CRCs. The default service still uses
 the existing RF driver queue until the PL MAC owns full-MTU packet storage,
 packet timing, descriptor CRC/FEC integrity, and RF TX/RX. The daemon ring
-layout is intentionally bounded to 16 packet slots and 50,712 mapped bytes so
+layout is intentionally bounded to 16 packet slots and 50,720 mapped bytes so
 it fits inside the current 64 KiB `fieldmesh-ring@43c30000` aperture.
 Daemon status exposes descriptor-level ring pressure counters from the same C
 ABI accessors used by the packet path: TX queued, TX owned by PL, TX done, RX
 ready, RX non-free, valid ACK slots, and the fixed PL pressure words
-`queued`/`selected`. It also exposes the packet-bridge counters for classify
-errors, TUN read errors, enqueue drops, and drain errors. These counters are the
-first-line debug split between malformed input, TUN ingress starvation, full
-ARM-to-PL queues, PL service latency, and RX drain lag.
+`queued`/`selected`. The stats block also has masked `irq_status`/`irq_mask`
+bits for RX-ready, TX-done, drop, and error events, so the future driver can
+block on PL completions instead of polling the ring. Daemon status also exposes
+the packet-bridge counters for classify errors, TUN read errors, enqueue drops,
+and drain errors. These counters are the first-line debug split between
+malformed input, TUN ingress starvation, full ARM-to-PL queues, PL service
+latency, and RX drain lag.
 
 ## MAC Design
 

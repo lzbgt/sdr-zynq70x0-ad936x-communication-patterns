@@ -18,10 +18,17 @@ typedef struct fieldmesh_fw_ring_stats {
     uint32_t bounds_errors;
     uint32_t queued;
     uint32_t selected;
+    uint32_t irq_status;
+    uint32_t irq_mask;
 } fieldmesh_fw_ring_stats_t;
 
 #define FIELDMESH_FW_RING_SELECTED_VALID 0x80000000u
 #define FIELDMESH_FW_RING_SELECTED_INVALID_CLASS 0x40000000u
+
+#define FIELDMESH_FW_RING_IRQ_RX_READY 0x00000001u
+#define FIELDMESH_FW_RING_IRQ_TX_DONE 0x00000002u
+#define FIELDMESH_FW_RING_IRQ_DROP 0x00000004u
+#define FIELDMESH_FW_RING_IRQ_ERROR 0x00000008u
 
 static inline uint32_t fieldmesh_fw_ring_selected_word(uint32_t slot,
                                                        uint8_t traffic_class,
@@ -31,6 +38,19 @@ static inline uint32_t fieldmesh_fw_ring_selected_word(uint32_t slot,
            (invalid_class ? FIELDMESH_FW_RING_SELECTED_INVALID_CLASS : 0u) |
            ((uint32_t)traffic_class << 16) |
            (slot & 0xffffu);
+}
+
+static inline int fieldmesh_fw_ring_irq_asserted(const fieldmesh_fw_ring_stats_t *stats)
+{
+    return stats && (stats->irq_status & stats->irq_mask) != 0u;
+}
+
+static inline void fieldmesh_fw_ring_irq_clear(fieldmesh_fw_ring_stats_t *stats,
+                                               uint32_t bits)
+{
+    if (stats) {
+        stats->irq_status &= ~bits;
+    }
 }
 
 typedef struct fieldmesh_fw_ring_view {
@@ -354,6 +374,9 @@ static inline int fieldmesh_fw_ring_service_one(
     if (!fieldmesh_fw_tx_desc_v1_valid(tx)) {
         ring->stats->crc_errors++;
         ring->stats->drops++;
+        ring->stats->irq_status |= FIELDMESH_FW_RING_IRQ_TX_DONE |
+                                   FIELDMESH_FW_RING_IRQ_DROP |
+                                   FIELDMESH_FW_RING_IRQ_ERROR;
         fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
         (void)fieldmesh_fw_ring_pick_next(ring);
         return -1;
@@ -367,6 +390,9 @@ static inline int fieldmesh_fw_ring_service_one(
         !fieldmesh_fw_ring_range_valid(ring->packet_arena_bytes, rx_offset, payload_len)) {
         ring->stats->bounds_errors++;
         ring->stats->drops++;
+        ring->stats->irq_status |= FIELDMESH_FW_RING_IRQ_TX_DONE |
+                                   FIELDMESH_FW_RING_IRQ_DROP |
+                                   FIELDMESH_FW_RING_IRQ_ERROR;
         fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
         (void)fieldmesh_fw_ring_pick_next(ring);
         return -1;
@@ -399,6 +425,8 @@ static inline int fieldmesh_fw_ring_service_one(
     fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
     ring->stats->served++;
     ring->stats->acked++;
+    ring->stats->irq_status |= FIELDMESH_FW_RING_IRQ_RX_READY |
+                               FIELDMESH_FW_RING_IRQ_TX_DONE;
     (void)fieldmesh_fw_ring_pick_next(ring);
     return 1;
 }

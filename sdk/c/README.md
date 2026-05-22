@@ -76,7 +76,10 @@ in `src/fieldmesh_sdk.c`:
   traffic. The binary stats view includes fixed counters plus `queued` and
   `selected` slot-status words for compact PL pressure polling; daemon TUN
   status surfaces those same words as `firmware_ring_pressure_queued` and
-  `firmware_ring_pressure_selected`. The service
+  `firmware_ring_pressure_selected`. The stats view also includes masked
+  `irq_status`/`irq_mask` bits for RX-ready, TX-done, drop, and error events
+  so future daemon/driver code can block on PL completions instead of polling
+  the ring. The service
   generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
   validates PL-published descriptors through the production ABI helpers; the
   production MAC/DMA packet-memory engine must still add FEC integrity and full-MTU
@@ -117,7 +120,7 @@ in `src/fieldmesh_sdk.c`:
   ring while the firmware ABI still sees only callbacks, descriptors, and packet
   bytes. In this mode PL services queued descriptors; the daemon does not call
   the C ring loopback helper. The live daemon layout is 16 packet slots and
-  50,712 mapped bytes, fitting the current 64 KiB PL aperture; the current PL
+  50,720 mapped bytes, fitting the current 64 KiB PL aperture; the current PL
   AXI-lite loopback only services the first diagnostic slot.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route

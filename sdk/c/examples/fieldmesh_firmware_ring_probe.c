@@ -149,7 +149,10 @@ int main(int argc, char **argv)
     ok = ok && first_service == 1 && second_service == 1;
     ok = ok && ring.stats.enqueued == 2u && ring.stats.served == 2u &&
          ring.stats.acked == 2u && ring.stats.drops == 0u &&
-         ring.stats.queued == 0u && ring.stats.selected == 0u;
+         ring.stats.queued == 0u && ring.stats.selected == 0u &&
+         ring.stats.irq_status == (FIELDMESH_FW_RING_IRQ_RX_READY |
+                                   FIELDMESH_FW_RING_IRQ_TX_DONE) &&
+         fieldmesh_fw_ring_irq_asserted(&ring.stats) == 0;
     ok = ok && ring.served_seq[0] == 0x100u;
     ok = ok && ring.served_seq[1] == 0x300u;
     ok = ok && fieldmesh_fw_ring_payload_matches(&view, (uint32_t)control_slot,
@@ -174,6 +177,9 @@ int main(int argc, char **argv)
            "\"drops\":%u,"
            "\"queued\":%u,"
            "\"selected\":\"0x%08x\","
+           "\"irq_status\":\"0x%08x\","
+           "\"irq_mask\":\"0x%08x\","
+           "\"irq_asserted\":%s,"
            "\"first_served_seq\":\"0x%08x\","
            "\"second_served_seq\":\"0x%08x\","
            "\"control_before_bulk\":%s,"
@@ -190,6 +196,9 @@ int main(int argc, char **argv)
            ring.stats.drops,
            ring.stats.queued,
            ring.stats.selected,
+           ring.stats.irq_status,
+           ring.stats.irq_mask,
+           fieldmesh_fw_ring_irq_asserted(&ring.stats) ? "true" : "false",
            ring.served_seq[0],
            ring.served_seq[1],
            ring.served_seq[0] == 0x100u ? "true" : "false");

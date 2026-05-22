@@ -130,6 +130,10 @@ for report in (ring_probe, ring_probe_vectors):
         raise SystemExit(f"firmware ring counters changed: {report!r}")
     if report.get("queued") != 0 or report.get("selected") != "0x00000000":
         raise SystemExit(f"firmware ring queue-pressure stats changed: {report!r}")
+    if report.get("irq_status") != "0x00000003" or report.get("irq_mask") != "0x00000000":
+        raise SystemExit(f"firmware ring IRQ stats changed: {report!r}")
+    if report.get("irq_asserted") is not False:
+        raise SystemExit(f"firmware ring IRQ must be masked by default: {report!r}")
     if report.get("uses_json_on_air") is not False:
         raise SystemExit(f"firmware ring probe must not use JSON on air: {report!r}")
     if report.get("hot_path_language") != "c":
@@ -150,6 +154,10 @@ for report in (mmap_ring_probe, mmap_ring_probe_image):
         raise SystemExit(f"firmware mmap ring counters changed: {report!r}")
     if report.get("queued") != 0 or report.get("selected") != "0x00000000":
         raise SystemExit(f"firmware mmap ring queue-pressure stats changed: {report!r}")
+    if report.get("irq_status") != "0x00000003" or report.get("irq_mask") != "0x00000000":
+        raise SystemExit(f"firmware mmap ring IRQ stats changed: {report!r}")
+    if report.get("irq_asserted") is not False:
+        raise SystemExit(f"firmware mmap ring IRQ must be masked by default: {report!r}")
     if report.get("uses_json_on_air") is not False:
         raise SystemExit(f"firmware mmap ring probe must not use JSON on air: {report!r}")
     if report.get("hot_path_language") != "c":
@@ -178,6 +186,10 @@ if uio_ring_probe_loopback.get("served") != 2 or uio_ring_probe_loopback.get("ac
     raise SystemExit(f"firmware UIO loopback counters changed: {uio_ring_probe_loopback!r}")
 if uio_ring_probe_loopback.get("queued") != 0 or uio_ring_probe_loopback.get("selected") != "0x00000000":
     raise SystemExit(f"firmware UIO loopback queue-pressure stats changed: {uio_ring_probe_loopback!r}")
+if uio_ring_probe_loopback.get("irq_status") != "0x00000003" or uio_ring_probe_loopback.get("irq_mask") != "0x00000000":
+    raise SystemExit(f"firmware UIO loopback IRQ stats changed: {uio_ring_probe_loopback!r}")
+if uio_ring_probe_loopback.get("irq_asserted") is not False:
+    raise SystemExit(f"firmware UIO loopback IRQ must be masked by default: {uio_ring_probe_loopback!r}")
 if uio_ring_probe_inspect.get("writes_packet_memory") is not False:
     raise SystemExit(f"firmware UIO inspect mode must not write: {uio_ring_probe_inspect!r}")
 

@@ -67,9 +67,11 @@ which selects RX/ACK/packet results across the serviced window. The
 service the same autonomous queued-slot selection expected by the later
 BRAM/DMA MAC path: lowest traffic class first, with malformed queued slots
 retired after valid traffic. The stats ABI now includes compact `queued` and
-`selected` words, and daemon TUN status now exposes them as
-`firmware_ring_pressure_queued` and `firmware_ring_pressure_selected` so ARM
-probes and live status polling can read PL queue pressure without log parsing.
+`selected` words plus masked `irq_status`/`irq_mask` completion bits for
+RX-ready, TX-done, drop, and error events. Daemon TUN status now exposes the
+pressure words as `firmware_ring_pressure_queued` and
+`firmware_ring_pressure_selected` so ARM probes and live status polling can
+read PL queue pressure without log parsing.
 The same status path exposes packet-bridge classify/read/enqueue/drain counters
 so malformed input, TUN read faults, full ARM-to-PL queues, and RX drain faults
 are distinguishable during HIL without Python log parsing.
@@ -80,7 +82,7 @@ Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared
 C firmware boundary without exceeding LUT/slice capacity. This
 is the first daemon-owned replacement for the Python/IIO burst hot path, with
 RF timing still pending in PL MAC logic. The live daemon layout currently uses
-16 packet slots and 50,712 mapped bytes, keeping it inside the 64 KiB PL
+16 packet slots and 50,720 mapped bytes, keeping it inside the 64 KiB PL
 aperture while only the first slot is actively serviced by the diagnostic
 AXI-lite shell. The 2026-05-22 capped rebuild/package/install pass kept WSL
 memory stable and installed Z203 through the safe SD path; Z203 came back and

@@ -56,7 +56,9 @@ localparam PACKET_WORDS_PER_SLOT = PACKET_STRIDE / 4;
 localparam PACKET_ARENA_WORDS = RING_SLOTS * PACKET_WORDS_PER_SLOT;
 localparam PL_PACKET_WORDS = PL_SERVICE_SLOTS * PL_PACKET_WORDS_PER_SLOT;
 localparam PACKET_ARENA_BYTES = RING_SLOTS * PACKET_STRIDE;
-localparam STATS_WORDS = 8;
+localparam STATS_WORDS = 10;
+localparam STATS_IRQ_STATUS = 16'd8;
+localparam STATS_IRQ_MASK = 16'd9;
 
 localparam TX_DESC_OFFSET = 0;
 localparam RX_DESC_OFFSET = TX_DESC_OFFSET + RING_SLOTS * TX_DESC_BYTES;
@@ -75,6 +77,10 @@ localparam STATS_WORD_OFFSET = STATS_OFFSET / 4;
 
 localparam FW_STATE_QUEUED = 8'd1;
 localparam FW_STATE_DONE = 8'd3;
+localparam IRQ_RX_READY = 32'h0000_0001;
+localparam IRQ_TX_DONE = 32'h0000_0002;
+localparam IRQ_DROP = 32'h0000_0004;
+localparam IRQ_ERROR = 32'h0000_0008;
 
 wire rst = !s_axi_aresetn;
 
@@ -208,7 +214,7 @@ end
 assign s_axi_awready = !aw_seen && !s_axi_bvalid;
 assign s_axi_wready = !w_seen && !s_axi_bvalid;
 assign s_axi_arready = !read_pending && !s_axi_rvalid;
-assign irq = 1'b0;
+assign irq = (stats[STATS_IRQ_STATUS] & stats[STATS_IRQ_MASK]) != 32'd0;
 
 wire [ADDR_WIDTH-3:0] write_word_addr = awaddr_hold[ADDR_WIDTH-1:2];
 wire [ADDR_WIDTH-3:0] read_word_addr = read_addr_hold[ADDR_WIDTH-1:2];
@@ -301,8 +307,13 @@ task map_write;
             end
         end else if (idx >= STATS_WORD_OFFSET &&
                      idx < STATS_WORD_OFFSET + STATS_WORDS) begin
-            stats[idx - STATS_WORD_OFFSET] <=
-                apply_wstrb(stats[idx - STATS_WORD_OFFSET], data, strb);
+            if (idx - STATS_WORD_OFFSET == STATS_IRQ_STATUS) begin
+                stats[STATS_IRQ_STATUS] <=
+                    stats[STATS_IRQ_STATUS] & ~apply_wstrb(32'd0, data, strb);
+            end else begin
+                stats[idx - STATS_WORD_OFFSET] <=
+                    apply_wstrb(stats[idx - STATS_WORD_OFFSET], data, strb);
+            end
         end
     end
 endtask
@@ -355,10 +366,14 @@ task service_slot_immediate;
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd4);
+            stats[STATS_IRQ_STATUS] <= stats[STATS_IRQ_STATUS] |
+                IRQ_TX_DONE | IRQ_DROP | IRQ_ERROR;
         end else if (service_bounds_error) begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd5);
+            stats[STATS_IRQ_STATUS] <= stats[STATS_IRQ_STATUS] |
+                IRQ_TX_DONE | IRQ_DROP | IRQ_ERROR;
         end else if (service_accepted) begin
             for (word_i = 0; word_i < PL_PACKET_WORDS_PER_SLOT; word_i = word_i + 1) begin
                 rx_packet[packet_base + word_i] <=
@@ -382,10 +397,14 @@ task service_slot_immediate;
             ack_desc[ack_desc_base + 4] <= ack_build4;
             inc_stat(16'd1);
             inc_stat(16'd2);
+            stats[STATS_IRQ_STATUS] <= stats[STATS_IRQ_STATUS] |
+                IRQ_RX_READY | IRQ_TX_DONE;
         end else begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd5);
+            stats[STATS_IRQ_STATUS] <= stats[STATS_IRQ_STATUS] |
+                IRQ_TX_DONE | IRQ_DROP | IRQ_ERROR;
         end
         tx_desc[tx_desc_base] <= {tx_desc[tx_desc_base][31:8], FW_STATE_DONE};
     end

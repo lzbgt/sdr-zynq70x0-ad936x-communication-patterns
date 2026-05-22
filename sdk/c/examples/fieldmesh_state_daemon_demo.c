@@ -2470,6 +2470,8 @@ struct tun_service_firmware_ring_counts {
     uint32_t ack_valid;
     uint32_t pressure_queued;
     uint32_t pressure_selected;
+    uint32_t irq_status;
+    uint32_t irq_mask;
 };
 
 static void tun_service_read_firmware_ring_counts(
@@ -2519,6 +2521,8 @@ static void tun_service_read_firmware_ring_counts(
     if (service->firmware_ring.stats) {
         counts->pressure_queued = service->firmware_ring.stats->queued;
         counts->pressure_selected = service->firmware_ring.stats->selected;
+        counts->irq_status = service->firmware_ring.stats->irq_status;
+        counts->irq_mask = service->firmware_ring.stats->irq_mask;
     }
 }
 
@@ -5326,6 +5330,8 @@ static int build_response(fieldmesh_context_t *context,
                      "\"firmware_ring_ack_valid\":%u,"
                      "\"firmware_ring_pressure_queued\":%u,"
                      "\"firmware_ring_pressure_selected\":%u,"
+                     "\"firmware_ring_irq_status\":%u,"
+                     "\"firmware_ring_irq_mask\":%u,"
                      "\"firmware_ring_classify_errors\":%u,"
                      "\"firmware_ring_read_errors\":%u,"
                      "\"firmware_ring_enqueue_drops\":%u,"
@@ -5359,6 +5365,8 @@ static int build_response(fieldmesh_context_t *context,
                      fw_ring_counts.ack_valid,
                      fw_ring_counts.pressure_queued,
                      fw_ring_counts.pressure_selected,
+                     fw_ring_counts.irq_status,
+                     fw_ring_counts.irq_mask,
                      tun_service ? tun_service->firmware_bridge.classify_errors : 0u,
                      tun_service ? tun_service->firmware_bridge.read_errors : 0u,
                      tun_service ? tun_service->firmware_bridge.enqueue_drops : 0u,
@@ -5434,6 +5442,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"firmware_ring_ack_valid\":%u,"
                  "\"firmware_ring_pressure_queued\":%u,"
                  "\"firmware_ring_pressure_selected\":%u,"
+                 "\"firmware_ring_irq_status\":%u,"
+                 "\"firmware_ring_irq_mask\":%u,"
                  "\"firmware_ring_classify_errors\":%u,"
                  "\"firmware_ring_read_errors\":%u,"
                  "\"firmware_ring_enqueue_drops\":%u,"
@@ -5524,6 +5534,8 @@ static int build_response(fieldmesh_context_t *context,
                  fw_ring_counts.ack_valid,
                  fw_ring_counts.pressure_queued,
                  fw_ring_counts.pressure_selected,
+                 fw_ring_counts.irq_status,
+                 fw_ring_counts.irq_mask,
                  tun_service ? tun_service->firmware_bridge.classify_errors : 0u,
                  tun_service ? tun_service->firmware_bridge.read_errors : 0u,
                  tun_service ? tun_service->firmware_bridge.enqueue_drops : 0u,

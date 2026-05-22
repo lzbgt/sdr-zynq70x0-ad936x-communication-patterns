@@ -299,11 +299,17 @@ initial begin
 
     axi_write(16'h0000, 32'h0000_0000);
 
-    // Live daemon layout: 16 slots, 1536-byte packet stride, 50712 bytes total.
+    // Live daemon layout: 16 slots, 1536-byte packet stride, 50720 bytes total.
     // The AXI-lite diagnostic PL service is parameterized and this test uses a
     // two-slot service window with eight packet words per serviced slot.
     // Payloads are written before descriptors so the PL service only sees
     // complete binary packets.
+    expect_word(16'hc620, 32'h0000_0000);         // irq_status
+    expect_word(16'hc624, 32'h0000_0000);         // irq_mask defaults masked
+    axi_write(16'hc624, 32'h0000_000f);           // enable completion/error IRQs
+    expect_word(16'hc624, 32'h0000_000f);
+    if (irq !== 1'b0) fail("firmware ring IRQ asserted without pending status");
+
     axi_write(16'h0600, 32'h4c52_5443); // TX packet arena slot 0: "CTRL"
     write_tx_desc(16'h0000, 8'd1, 8'd0, 32'h0000_0100, 32'd0, 16'd4);
 
@@ -318,6 +324,11 @@ initial begin
     expect_word(16'h04d0, 32'h4697_0100);         // ACK slot 0 CRC16 + queue/MCS
     expect_word(16'h6600, 32'h4c52_5443);         // RX packet arena slot 0
     expect_word(16'h0000, 32'h0011_0003);         // TX slot 0 marked DONE
+    expect_word(16'hc620, 32'h0000_0003);         // irq_status RX_READY|TX_DONE
+    if (irq !== 1'b1) fail("firmware ring IRQ did not assert on service");
+    axi_write(16'hc620, 32'h0000_0003);           // W1C irq_status
+    expect_word(16'hc620, 32'h0000_0000);
+    if (irq !== 1'b0) fail("firmware ring IRQ did not clear after W1C");
 
     axi_write(16'h0c00, 32'h4b4c_5542); // TX packet arena slot 1: "BULK"
     axi_write(16'h0c04, 32'h3231_3030); // continuation bytes
@@ -335,6 +346,9 @@ initial begin
     expect_word(16'h6c00, 32'h4b4c_5542);         // RX packet arena slot 1
     expect_word(16'h6c04, 32'h3231_3030);         // RX packet arena slot 1 continuation
     expect_word(16'h0028, 32'h0011_0303);         // TX slot 1 marked DONE
+    expect_word(16'hc620, 32'h0000_0003);         // irq_status RX_READY|TX_DONE
+    axi_write(16'hc620, 32'h0000_0003);
+    expect_word(16'hc620, 32'h0000_0000);
 
     axi_write(16'h0600, 32'h4441_4243); // TX packet arena slot 0: "CBAD"
     write_tx_desc_with_crc_xor(16'h0000, 8'd1, 8'd0, 32'h0000_0102,
@@ -349,6 +363,13 @@ initial begin
     expect_word(16'h0280, 32'h0000_0000);         // stale RX descriptor cleared
     expect_word(16'h04c0, 32'h0000_0000);         // stale ACK descriptor cleared
     expect_word(16'h6600, 32'h0000_0000);         // stale RX packet bytes cleared
+    expect_word(16'hc620, 32'h0000_000e);         // irq_status TX_DONE|DROP|ERROR
+    if (irq !== 1'b1) fail("firmware ring IRQ did not assert on bad descriptor");
+    axi_write_strb(16'hc620, 32'h0000_0004, 4'b0001);
+    expect_word(16'hc620, 32'h0000_000a);         // byte W1C leaves TX_DONE|ERROR
+    axi_write(16'hc620, 32'h0000_000a);
+    expect_word(16'hc620, 32'h0000_0000);
+    if (irq !== 1'b0) fail("firmware ring IRQ did not clear after error W1C");
 
     axi_write(16'h0600, 32'h4646_4f32); // TX packet arena slot 0: "2OFF"
     write_tx_desc(16'h0000, 8'd1, 8'd0, 32'h0000_0103, 32'd2, 16'd4);
@@ -356,6 +377,8 @@ initial begin
     expect_word(16'hc614, 32'h0000_0001);         // stats.bounds_errors
     expect_word(16'hc604, 32'h0000_0002);         // unaligned TX was not served
     expect_word(16'hc608, 32'h0000_0002);         // unaligned TX was not ACKed
+    expect_word(16'hc620, 32'h0000_000e);
+    axi_write(16'hc620, 32'h0000_000e);
 
     write_tx_desc(16'h0000, 8'd1, 8'd7, 32'h0000_0104, 32'd0, 16'd4);
     wait_for_word(16'hc60c, 32'h0000_0003, 2000); // stats.drops
@@ -363,6 +386,8 @@ initial begin
     expect_word(16'hc604, 32'h0000_0002);         // invalid class was not served
     expect_word(16'hc608, 32'h0000_0002);         // invalid class was not ACKed
     expect_word(16'h0000, 32'h0011_0703);         // invalid class marked DONE
+    expect_word(16'hc620, 32'h0000_000e);
+    axi_write(16'hc620, 32'h0000_000e);
 
     write_tx_desc_custom(16'h0000, 8'd1, 8'd0, 32'h0000_0105,
                          32'd0, 32'h0001_0004, 32'd0);
@@ -372,6 +397,7 @@ initial begin
     expect_word(16'hc608, 32'h0000_0002);         // reserved field was not ACKed
     expect_word(16'hc618, 32'h0000_0000);         // stats.queued
     expect_word(16'hc61c, 32'h0000_0000);         // stats.selected
+    expect_word(16'hc620, 32'h0000_000e);
 
     $display("PASS: fieldmesh_firmware_ring_axi_lite_tb");
     $finish;
