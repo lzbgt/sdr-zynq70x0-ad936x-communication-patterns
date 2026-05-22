@@ -283,12 +283,14 @@ admission block for descriptor CRC, descriptor-local semantic checks, and
 packet-window bounds; `fieldmesh_firmware_rx_ack_builder` builds ABI-valid RX
 descriptors and ACK records from MAC service metadata; and
 `fieldmesh_firmware_packet_service_core` composes those blocks with bounded
-packet-word copy for one serviced slot. The later BRAM/DMA MAC path can share
-that core instead of reimplementing descriptor policy, CRCs, or packet movement
-in the AXI-lite shell. Rejected service attempts clear the slot's RX descriptor,
-ACK descriptor, and compact RX packet window so stale READY state cannot be
-consumed after a failed TX. The C UIO probe validates PL-published descriptors
-through the production ABI helpers. The full
+packet-word copy for one serviced slot. `fieldmesh_firmware_packet_service_bank`
+instantiates that core across the serviced window and returns the selected
+slot's RX/ACK/packet result, so the later BRAM/DMA MAC path can reuse the same
+descriptor policy, CRCs, and packet movement without depending on AXI-lite
+storage. Rejected service attempts clear the slot's RX descriptor, ACK
+descriptor, and compact RX packet window so stale READY state cannot be consumed
+after a failed TX. The C UIO probe validates PL-published descriptors through
+the production ABI helpers. The full
 production MAC/DMA engine must still add FEC integrity and full-MTU packet
 storage before the RF-facing path is production-ready.
 On the smaller Z103/Zynq-7010 overlay, the `/dev/uio0` aperture stays present

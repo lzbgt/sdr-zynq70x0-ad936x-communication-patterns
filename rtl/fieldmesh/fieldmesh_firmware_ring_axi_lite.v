@@ -96,25 +96,27 @@ reg [31:0] tx_packet [0:PL_PACKET_WORDS - 1];
 reg [31:0] rx_packet [0:PL_PACKET_WORDS - 1];
 reg [31:0] stats [0:STATS_WORDS - 1];
 
-wire [PL_SERVICE_SLOTS-1:0] service_accepted;
-wire [PL_SERVICE_SLOTS-1:0] service_crc_error;
-wire [PL_SERVICE_SLOTS-1:0] service_bounds_error;
-wire [PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_tx_packet_words [0:PL_SERVICE_SLOTS - 1];
-wire [PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_rx_packet_words [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build0 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build1 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build2 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build3 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build4 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build5 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build6 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build7 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] rx_build8 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] ack_build0 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] ack_build1 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] ack_build2 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] ack_build3 [0:PL_SERVICE_SLOTS - 1];
-wire [31:0] ack_build4 [0:PL_SERVICE_SLOTS - 1];
+wire [PL_SERVICE_SLOTS * TX_DESC_WORDS * 32 - 1:0] service_tx_desc_words;
+wire [PL_SERVICE_SLOTS * PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_tx_packet_words;
+wire [PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_rx_packet_words;
+wire        service_accepted;
+wire        service_crc_error;
+wire        service_bounds_error;
+wire [15:0] service_payload_words;
+wire [31:0] rx_build0;
+wire [31:0] rx_build1;
+wire [31:0] rx_build2;
+wire [31:0] rx_build3;
+wire [31:0] rx_build4;
+wire [31:0] rx_build5;
+wire [31:0] rx_build6;
+wire [31:0] rx_build7;
+wire [31:0] rx_build8;
+wire [31:0] ack_build0;
+wire [31:0] ack_build1;
+wire [31:0] ack_build2;
+wire [31:0] ack_build3;
+wire [31:0] ack_build4;
 
 genvar service_i;
 genvar service_word_i;
@@ -124,52 +126,52 @@ generate
          service_i = service_i + 1) begin : service_slots
         localparam TX_DESC_SERVICE_BASE = service_i * TX_DESC_WORDS;
         localparam PACKET_SERVICE_BASE = service_i * PL_PACKET_WORDS_PER_SLOT;
-        localparam [15:0] SERVICE_SLOT = service_i;
+        for (service_word_i = 0;
+             service_word_i < TX_DESC_WORDS;
+             service_word_i = service_word_i + 1) begin : service_desc_words
+            assign service_tx_desc_words[
+                (service_i * TX_DESC_WORDS + service_word_i) * 32 +: 32] =
+                tx_desc[TX_DESC_SERVICE_BASE + service_word_i];
+        end
         for (service_word_i = 0;
              service_word_i < PL_PACKET_WORDS_PER_SLOT;
              service_word_i = service_word_i + 1) begin : service_packet_words
-            assign service_tx_packet_words[service_i][service_word_i * 32 +: 32] =
+            assign service_tx_packet_words[
+                (service_i * PL_PACKET_WORDS_PER_SLOT + service_word_i) * 32 +: 32] =
                 tx_packet[PACKET_SERVICE_BASE + service_word_i];
         end
-        fieldmesh_firmware_packet_service_core #(
-            .RING_SLOTS(RING_SLOTS),
-            .PACKET_STRIDE(PACKET_STRIDE),
-            .PL_PACKET_WORDS_PER_SLOT(PL_PACKET_WORDS_PER_SLOT)
-        ) service_core (
-            .slot(SERVICE_SLOT),
-            .tx_word0(tx_desc[TX_DESC_SERVICE_BASE + 0]),
-            .tx_word1(tx_desc[TX_DESC_SERVICE_BASE + 1]),
-            .tx_word2(tx_desc[TX_DESC_SERVICE_BASE + 2]),
-            .tx_word3(tx_desc[TX_DESC_SERVICE_BASE + 3]),
-            .tx_word4(tx_desc[TX_DESC_SERVICE_BASE + 4]),
-            .tx_word5(tx_desc[TX_DESC_SERVICE_BASE + 5]),
-            .tx_word6(tx_desc[TX_DESC_SERVICE_BASE + 6]),
-            .tx_word7(tx_desc[TX_DESC_SERVICE_BASE + 7]),
-            .tx_word8(tx_desc[TX_DESC_SERVICE_BASE + 8]),
-            .tx_word9(tx_desc[TX_DESC_SERVICE_BASE + 9]),
-            .tx_packet_words(service_tx_packet_words[service_i]),
-            .accepted(service_accepted[service_i]),
-            .crc_error(service_crc_error[service_i]),
-            .bounds_error(service_bounds_error[service_i]),
-            .payload_words(),
-            .rx_packet_words(service_rx_packet_words[service_i]),
-            .rx_word0(rx_build0[service_i]),
-            .rx_word1(rx_build1[service_i]),
-            .rx_word2(rx_build2[service_i]),
-            .rx_word3(rx_build3[service_i]),
-            .rx_word4(rx_build4[service_i]),
-            .rx_word5(rx_build5[service_i]),
-            .rx_word6(rx_build6[service_i]),
-            .rx_word7(rx_build7[service_i]),
-            .rx_word8(rx_build8[service_i]),
-            .ack_word0(ack_build0[service_i]),
-            .ack_word1(ack_build1[service_i]),
-            .ack_word2(ack_build2[service_i]),
-            .ack_word3(ack_build3[service_i]),
-            .ack_word4(ack_build4[service_i])
-        );
     end
 endgenerate
+
+fieldmesh_firmware_packet_service_bank #(
+    .RING_SLOTS(RING_SLOTS),
+    .PACKET_STRIDE(PACKET_STRIDE),
+    .PL_SERVICE_SLOTS(PL_SERVICE_SLOTS),
+    .PL_PACKET_WORDS_PER_SLOT(PL_PACKET_WORDS_PER_SLOT)
+) service_bank (
+    .service_slot(service_slot),
+    .tx_desc_words(service_tx_desc_words),
+    .tx_packet_words(service_tx_packet_words),
+    .accepted(service_accepted),
+    .crc_error(service_crc_error),
+    .bounds_error(service_bounds_error),
+    .payload_words(service_payload_words),
+    .rx_packet_words(service_rx_packet_words),
+    .rx_word0(rx_build0),
+    .rx_word1(rx_build1),
+    .rx_word2(rx_build2),
+    .rx_word3(rx_build3),
+    .rx_word4(rx_build4),
+    .rx_word5(rx_build5),
+    .rx_word6(rx_build6),
+    .rx_word7(rx_build7),
+    .rx_word8(rx_build8),
+    .ack_word0(ack_build0),
+    .ack_word1(ack_build1),
+    .ack_word2(ack_build2),
+    .ack_word3(ack_build3),
+    .ack_word4(ack_build4)
+);
 
 integer init_i;
 initial begin
@@ -365,35 +367,35 @@ task service_slot_immediate;
         ack_desc_base = slot * ACK_WORDS;
         packet_base = slot * PL_PACKET_WORDS_PER_SLOT;
 
-        if (service_crc_error[slot]) begin
+        if (service_crc_error) begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd4);
-        end else if (service_bounds_error[slot]) begin
+        end else if (service_bounds_error) begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd5);
-        end else if (service_accepted[slot]) begin
+        end else if (service_accepted) begin
             for (word_i = 0; word_i < PL_PACKET_WORDS_PER_SLOT; word_i = word_i + 1) begin
                 rx_packet[packet_base + word_i] <=
-                    service_rx_packet_words[slot][word_i * 32 +: 32];
+                    service_rx_packet_words[word_i * 32 +: 32];
             end
 
-            rx_desc[rx_desc_base + 0] <= rx_build0[slot];
-            rx_desc[rx_desc_base + 1] <= rx_build1[slot];
-            rx_desc[rx_desc_base + 2] <= rx_build2[slot];
-            rx_desc[rx_desc_base + 3] <= rx_build3[slot];
-            rx_desc[rx_desc_base + 4] <= rx_build4[slot];
-            rx_desc[rx_desc_base + 5] <= rx_build5[slot];
-            rx_desc[rx_desc_base + 6] <= rx_build6[slot];
-            rx_desc[rx_desc_base + 7] <= rx_build7[slot];
-            rx_desc[rx_desc_base + 8] <= rx_build8[slot];
+            rx_desc[rx_desc_base + 0] <= rx_build0;
+            rx_desc[rx_desc_base + 1] <= rx_build1;
+            rx_desc[rx_desc_base + 2] <= rx_build2;
+            rx_desc[rx_desc_base + 3] <= rx_build3;
+            rx_desc[rx_desc_base + 4] <= rx_build4;
+            rx_desc[rx_desc_base + 5] <= rx_build5;
+            rx_desc[rx_desc_base + 6] <= rx_build6;
+            rx_desc[rx_desc_base + 7] <= rx_build7;
+            rx_desc[rx_desc_base + 8] <= rx_build8;
 
-            ack_desc[ack_desc_base + 0] <= ack_build0[slot];
-            ack_desc[ack_desc_base + 1] <= ack_build1[slot];
-            ack_desc[ack_desc_base + 2] <= ack_build2[slot];
-            ack_desc[ack_desc_base + 3] <= ack_build3[slot];
-            ack_desc[ack_desc_base + 4] <= ack_build4[slot];
+            ack_desc[ack_desc_base + 0] <= ack_build0;
+            ack_desc[ack_desc_base + 1] <= ack_build1;
+            ack_desc[ack_desc_base + 2] <= ack_build2;
+            ack_desc[ack_desc_base + 3] <= ack_build3;
+            ack_desc[ack_desc_base + 4] <= ack_build4;
             inc_stat(16'd1);
             inc_stat(16'd2);
         end else begin

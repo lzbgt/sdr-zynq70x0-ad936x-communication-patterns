@@ -57,7 +57,9 @@ descriptor-local semantic checks, and packet-window admission plus
 `fieldmesh_firmware_rx_ack_builder` for ABI-valid RX descriptor and ACK
 construction. `fieldmesh_firmware_packet_service_core` now composes those
 blocks with bounded packet-word copy for one serviced slot, while the AXI-lite
-wrapper still owns storage, service triggering, output clearing, and counters.
+wrapper now feeds that core through `fieldmesh_firmware_packet_service_bank`,
+which selects RX/ACK/packet results across the serviced window. The wrapper
+still owns storage, service triggering, output clearing, and counters.
 This
 diagnostic PL service remains enabled on Z203, but is synthesized out on
 Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared

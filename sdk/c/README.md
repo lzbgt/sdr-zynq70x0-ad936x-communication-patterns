@@ -68,10 +68,12 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_rx_ack_builder` owns ABI-valid RX descriptor plus ACK
   construction from MAC service metadata.
   `fieldmesh_firmware_packet_service_core` composes those blocks with bounded
-  packet-word copy for one serviced slot. The service generates RX descriptor
-  CRC32C and ACK CRC16 so the C UIO probe validates PL-published descriptors
-  through the production ABI helpers; the production MAC/DMA packet-memory
-  engine must still add FEC integrity and full-MTU
+  packet-word copy for one serviced slot, and
+  `fieldmesh_firmware_packet_service_bank` selects that service across a
+  multi-slot serviced window for AXI-lite, BRAM, or DMA-backed storage. The
+  service generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
+  validates PL-published descriptors through the production ABI helpers; the
+  production MAC/DMA packet-memory engine must still add FEC integrity and full-MTU
   packet storage. Z103 builds keep the UIO aperture but
   synthesize this diagnostic
   service out to fit the Zynq-7010; Z203 keeps it enabled for live PL-service
