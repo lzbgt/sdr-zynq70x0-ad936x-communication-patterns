@@ -54,13 +54,14 @@ in `src/fieldmesh_sdk.c`:
   default, packet-memory C loopback requires `--loopback --allow-writes`, and
   live PL descriptor service requires the guarded
   `--device /dev/uioN --loopback --pl-service --allow-writes` mode.
-  The current PL service window is bounded to the first slot and 16 packet
-  bytes total; full MTU packet storage is planned for the BRAM/AXI RAM or
-  DMA packet-memory block, not the AXI-lite wrapper. This diagnostic PL service
-  does not compute descriptor CRCs; the production MAC/DMA packet-memory engine
-  must add the sequential descriptor CRC/FEC integrity block. Z103 builds keep
-  the UIO aperture but synthesize this diagnostic service out to fit the
-  Zynq-7010; Z203 keeps it enabled for live PL-service loopback.
+  The current PL service window is parameterized but product overlays keep the
+  default one serviced slot and 16 packet bytes total; full MTU packet storage
+  is planned for the BRAM/AXI RAM or DMA packet-memory block, not the AXI-lite
+  wrapper. This diagnostic PL service does not compute descriptor CRCs; the
+  production MAC/DMA packet-memory engine must add the sequential descriptor
+  CRC/FEC integrity block. Z103 builds keep the UIO aperture but synthesize this
+  diagnostic service out to fit the Zynq-7010; Z203 keeps it enabled for live
+  PL-service loopback.
   The shared ABI/ring helpers use explicit byte-wise descriptor and packet
   access so ARM Device/UIO mappings do not depend on libc bulk-memory behavior
   or unaligned word stores.

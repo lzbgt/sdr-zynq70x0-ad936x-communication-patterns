@@ -11,7 +11,9 @@ module fieldmesh_firmware_ring_axi_lite #(
     parameter ADDR_WIDTH = 16,
     parameter RING_SLOTS = 16,
     parameter PACKET_STRIDE = 1536,
-    parameter ENABLE_PL_SERVICE = 1
+    parameter ENABLE_PL_SERVICE = 1,
+    parameter PL_SERVICE_SLOTS = 1,
+    parameter PL_PACKET_WORDS_PER_SLOT = 4
 ) (
     input  wire                    s_axi_aclk,
     input  wire                    s_axi_aresetn,
@@ -52,8 +54,6 @@ localparam RX_DESC_WORDS = RX_DESC_BYTES / 4;
 localparam ACK_WORDS = ACK_BYTES / 4;
 localparam PACKET_WORDS_PER_SLOT = PACKET_STRIDE / 4;
 localparam PACKET_ARENA_WORDS = RING_SLOTS * PACKET_WORDS_PER_SLOT;
-localparam PL_SERVICE_SLOTS = 1;
-localparam PL_PACKET_WORDS_PER_SLOT = 4;
 localparam PL_PACKET_WORDS = PL_SERVICE_SLOTS * PL_PACKET_WORDS_PER_SLOT;
 localparam PACKET_ARENA_BYTES = RING_SLOTS * PACKET_STRIDE;
 localparam STATS_WORDS = 6;
@@ -91,6 +91,7 @@ reg [3:0]              wstrb_hold;
 reg                    read_pending;
 reg [ADDR_WIDTH-1:0]   read_addr_hold;
 reg                    service_pending;
+reg [15:0]             service_slot;
 reg [31:0]             service_first_word;
 
 reg [31:0] tx_desc [0:PL_SERVICE_SLOTS * TX_DESC_WORDS - 1];
@@ -130,10 +131,15 @@ wire [ADDR_WIDTH-3:0] read_word_addr = read_addr_hold[ADDR_WIDTH-1:2];
 
 function [15:0] packet_compact_index;
     input [31:0] arena_word;
+    reg [31:0] slot;
+    reg [31:0] word_in_slot;
     begin
         packet_compact_index = 16'hffff;
-        if (arena_word < PL_PACKET_WORDS_PER_SLOT) begin
-            packet_compact_index = arena_word[15:0];
+        slot = arena_word / PACKET_WORDS_PER_SLOT;
+        word_in_slot = arena_word - slot * PACKET_WORDS_PER_SLOT;
+        if (slot < PL_SERVICE_SLOTS &&
+            word_in_slot < PL_PACKET_WORDS_PER_SLOT) begin
+            packet_compact_index = slot * PL_PACKET_WORDS_PER_SLOT + word_in_slot;
         end
     end
 endfunction
@@ -141,20 +147,27 @@ endfunction
 function [15:0] desc_compact_index;
     input [31:0] desc_index;
     input [15:0] words_per_slot;
+    reg [31:0] slot;
+    reg [31:0] word_in_slot;
     begin
         desc_compact_index = 16'hffff;
-        if (desc_index < words_per_slot) begin
-            desc_compact_index = desc_index[15:0];
+        slot = desc_index / words_per_slot;
+        word_in_slot = desc_index - slot * words_per_slot;
+        if (slot < PL_SERVICE_SLOTS) begin
+            desc_compact_index = slot * words_per_slot + word_in_slot;
         end
     end
 endfunction
 
-function [15:0] tx_desc_slot_from_index;
+function [15:0] desc_slot_from_index;
     input [31:0] desc_index;
+    input [15:0] words_per_slot;
+    reg [31:0] slot;
     begin
-        tx_desc_slot_from_index = 16'hffff;
-        if (desc_index < TX_DESC_WORDS) begin
-            tx_desc_slot_from_index = 16'd0;
+        desc_slot_from_index = 16'hffff;
+        slot = desc_index / words_per_slot;
+        if (slot < PL_SERVICE_SLOTS) begin
+            desc_slot_from_index = slot[15:0];
         end
     end
 endfunction
@@ -186,7 +199,8 @@ task map_write;
         idx = word_addr;
         if (idx >= TX_DESC_WORD_OFFSET &&
             idx < TX_DESC_WORD_OFFSET + RING_SLOTS * TX_DESC_WORDS) begin
-            desc_slot = tx_desc_slot_from_index(idx - TX_DESC_WORD_OFFSET);
+            desc_slot = desc_slot_from_index(idx - TX_DESC_WORD_OFFSET,
+                                             TX_DESC_WORDS);
             desc_word = (idx - TX_DESC_WORD_OFFSET) - desc_slot * TX_DESC_WORDS;
             desc_idx = desc_compact_index(idx - TX_DESC_WORD_OFFSET, TX_DESC_WORDS);
             if (desc_idx != 16'hffff) begin
@@ -200,6 +214,7 @@ task map_write;
                 desc_slot < PL_SERVICE_SLOTS &&
                 desc_word == 16'd0 &&
                 updated_word[7:0] == FW_STATE_QUEUED) begin
+                service_slot <= desc_slot;
                 service_first_word <= updated_word;
                 service_pending <= 1'b1;
             end
@@ -245,6 +260,7 @@ task inc_stat;
 endtask
 
 task service_slot_immediate;
+    input [15:0] slot;
     input [31:0] first_word;
     reg [15:0] payload_words;
     reg [31:0] payload_word_offset;
@@ -254,6 +270,10 @@ task service_slot_immediate;
     reg [7:0] mcs;
     reg [31:0] rx_payload_offset;
     reg [31:0] expected_payload_word_offset;
+    reg [31:0] tx_desc_base;
+    reg [31:0] rx_desc_base;
+    reg [31:0] ack_desc_base;
+    reg [31:0] packet_base;
     integer word_i;
     begin
         payload_word_offset = 32'd0;
@@ -263,13 +283,18 @@ task service_slot_immediate;
         peer_index = 16'd0;
         mcs = 8'd0;
         rx_payload_offset = 32'd0;
-        expected_payload_word_offset = 32'd0;
-        payload_word_offset = tx_desc[5] >> 2;
-        payload_len = tx_desc[6][15:0];
-        payload_words = (tx_desc[6][15:0] + 16'd3) >> 2;
-        seq = tx_desc[2];
-        peer_index = tx_desc[1][15:0];
-        mcs = tx_desc[1][23:16];
+        expected_payload_word_offset = slot * PACKET_WORDS_PER_SLOT;
+        tx_desc_base = slot * TX_DESC_WORDS;
+        rx_desc_base = slot * RX_DESC_WORDS;
+        ack_desc_base = slot * ACK_WORDS;
+        packet_base = slot * PL_PACKET_WORDS_PER_SLOT;
+        payload_word_offset = tx_desc[tx_desc_base + 5] >> 2;
+        payload_len = tx_desc[tx_desc_base + 6][15:0];
+        payload_words = (tx_desc[tx_desc_base + 6][15:0] + 16'd3) >> 2;
+        seq = tx_desc[tx_desc_base + 2];
+        peer_index = tx_desc[tx_desc_base + 1][15:0];
+        mcs = tx_desc[tx_desc_base + 1][23:16];
+        rx_payload_offset = slot * PACKET_STRIDE;
 
         if (payload_len == 16'd0 ||
             payload_len > PACKET_STRIDE ||
@@ -281,29 +306,29 @@ task service_slot_immediate;
         end else begin
             for (word_i = 0; word_i < PL_PACKET_WORDS_PER_SLOT; word_i = word_i + 1) begin
                 if (word_i < payload_words) begin
-                    rx_packet[word_i] <= tx_packet[word_i];
+                    rx_packet[packet_base + word_i] <= tx_packet[packet_base + word_i];
                 end
             end
 
-            rx_desc[0] <= {16'hd600, FW_RX_STATUS_CRC_OK | FW_RX_STATUS_FEC_OK, FW_STATE_READY};
-            rx_desc[1] <= 32'h0000_1800;
-            rx_desc[2] <= {16'd0, 8'd0, mcs};
-            rx_desc[3] <= seq;
-            rx_desc[4] <= 32'd0;
-            rx_desc[5] <= rx_payload_offset;
-            rx_desc[6] <= {peer_index, payload_len};
-            rx_desc[7] <= seq;
-            rx_desc[8] <= 32'd0;
+            rx_desc[rx_desc_base + 0] <= {16'hd600, FW_RX_STATUS_CRC_OK | FW_RX_STATUS_FEC_OK, FW_STATE_READY};
+            rx_desc[rx_desc_base + 1] <= 32'h0000_1800;
+            rx_desc[rx_desc_base + 2] <= {16'd0, 8'd0, mcs};
+            rx_desc[rx_desc_base + 3] <= seq;
+            rx_desc[rx_desc_base + 4] <= 32'd0;
+            rx_desc[rx_desc_base + 5] <= rx_payload_offset;
+            rx_desc[rx_desc_base + 6] <= {peer_index, payload_len};
+            rx_desc[rx_desc_base + 7] <= seq;
+            rx_desc[rx_desc_base + 8] <= 32'd0;
 
-            ack_desc[0] <= {peer_index, FW_ACK_FLAGS, FW_ACK_HEADER};
-            ack_desc[1] <= seq;
-            ack_desc[2] <= 32'd1;
-            ack_desc[3] <= 32'd0;
-            ack_desc[4] <= {16'd0, mcs, 8'd0};
+            ack_desc[ack_desc_base + 0] <= {peer_index, FW_ACK_FLAGS, FW_ACK_HEADER};
+            ack_desc[ack_desc_base + 1] <= seq;
+            ack_desc[ack_desc_base + 2] <= 32'd1;
+            ack_desc[ack_desc_base + 3] <= 32'd0;
+            ack_desc[ack_desc_base + 4] <= {16'd0, mcs, 8'd0};
             inc_stat(16'd1);
             inc_stat(16'd2);
         end
-        tx_desc[0] <= {first_word[31:8], FW_STATE_DONE};
+        tx_desc[tx_desc_base] <= {first_word[31:8], FW_STATE_DONE};
     end
 endtask
 
@@ -317,10 +342,11 @@ always @(posedge s_axi_aclk) begin
         s_axi_bresp <= 2'b00;
         s_axi_bvalid <= 1'b0;
         service_pending <= 1'b0;
+        service_slot <= 16'd0;
         service_first_word <= 32'd0;
     end else begin
         if (ENABLE_PL_SERVICE != 0 && service_pending) begin
-            service_slot_immediate(service_first_word);
+            service_slot_immediate(service_slot, service_first_word);
             service_pending <= 1'b0;
         end
 

@@ -25,7 +25,10 @@ wire rvalid;
 reg rready = 1'b1;
 wire irq;
 
-fieldmesh_firmware_ring_axi_lite dut (
+fieldmesh_firmware_ring_axi_lite #(
+    .PL_SERVICE_SLOTS(2),
+    .PL_PACKET_WORDS_PER_SLOT(8)
+) dut (
     .s_axi_aclk(clk),
     .s_axi_aresetn(resetn),
     .s_axi_awaddr(awaddr),
@@ -190,7 +193,8 @@ initial begin
     axi_write(16'h0000, 32'h0000_0000);
 
     // Live daemon layout: 16 slots, 1536-byte packet stride, 50712 bytes total.
-    // The AXI-lite diagnostic PL service intentionally services only slot 0.
+    // The AXI-lite diagnostic PL service is parameterized and this test uses a
+    // two-slot service window with eight packet words per serviced slot.
     // Payloads are written before descriptors so the PL service only sees
     // complete binary packets.
     axi_write(16'h0600, 32'h4c52_5443); // TX packet arena slot 0: "CTRL"
@@ -202,6 +206,18 @@ initial begin
     expect_word(16'h04c0, 32'h0007_0511);         // ACK slot 0 header
     expect_word(16'h6600, 32'h4c52_5443);         // RX packet arena slot 0
     expect_word(16'h0000, 32'h0011_0003);         // TX slot 0 marked DONE
+
+    axi_write(16'h0c00, 32'h4b4c_5542); // TX packet arena slot 1: "BULK"
+    axi_write(16'h0c04, 32'h3231_3030); // continuation bytes
+    write_tx_desc(16'h0028, 8'd1, 8'd3, 32'h0000_0101, 32'd1536, 16'd8);
+
+    wait_for_word(16'hc604, 32'h0000_0002, 2000); // stats.served
+    expect_word(16'hc608, 32'h0000_0002);         // stats.acked
+    expect_word(16'h02a4, 32'hd600_0304);         // RX slot 1 READY, CRC/FEC OK
+    expect_word(16'h04d4, 32'h0007_0511);         // ACK slot 1 header
+    expect_word(16'h6c00, 32'h4b4c_5542);         // RX packet arena slot 1
+    expect_word(16'h6c04, 32'h3231_3030);         // RX packet arena slot 1 continuation
+    expect_word(16'h0028, 32'h0011_0303);         // TX slot 1 marked DONE
 
     $display("PASS: fieldmesh_firmware_ring_axi_lite_tb");
     $finish;

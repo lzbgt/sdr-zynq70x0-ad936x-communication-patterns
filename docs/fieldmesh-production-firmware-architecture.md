@@ -266,10 +266,13 @@ a bounded diagnostic loopback, copies packet bytes into the RX arena, emits
 RX/ACK descriptors with state/header published last, updates counters, and
 marks TX descriptors done. Traffic-class arbitration stays in the C bridge for
 this AXI-lite shell and moves into the later MAC/DMA engine for production RF.
-The current AXI-lite implementation intentionally keeps only a bounded
-one-slot, 16-byte packet service window in PL so it synthesizes and routes
-safely on the WSL/Vivado host; full-MTU packet storage belongs in the next
-BRAM/AXI RAM or DMA-memory block, not in a widened AXI-lite register array. The
+The current AXI-lite implementation intentionally keeps a bounded packet service
+window in PL so it synthesizes and routes safely on the WSL/Vivado host. The
+window is parameterized by serviced slot count and packet words per serviced
+slot; product overlays currently keep the default one-slot, 16-byte window, and
+the HDL testbench exercises a larger two-slot window. Full-MTU packet storage
+belongs in the next BRAM/AXI RAM or DMA-memory block, not in a widened AXI-lite
+register array. The
 AXI-lite
 diagnostic service publishes RX/ACK state, payload offsets, sequence numbers,
 and counters, but it deliberately does not compute descriptor CRCs in PL; the
