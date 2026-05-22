@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 ps7_init="${PS7_INIT_TCL:-$repo_root/.config/boot-artifacts/sdt/ps7_init.tcl}"
 pl_bitstream="${PL_BITSTREAM:-$repo_root/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
 adapter_speed="${ADAPTER_SPEED:-1000}"
@@ -9,6 +10,7 @@ probe_timeout_seconds="${PROBE_TIMEOUT_SECONDS:-120}"
 jtag_ps_reset="${JTAG_PS_RESET:-1}"
 load_pl_bitstream="${LOAD_PL_BITSTREAM:-1}"
 pl_load_after_ps7_init="${PL_LOAD_AFTER_PS7_INIT:-0}"
+ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -42,6 +44,7 @@ trap cleanup EXIT
 cat >"$tcl_file" <<TCL
 adapter driver ftdi
 ftdi vid_pid 0x0403 0x6010
+$ftdi_serial_tcl
 ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none

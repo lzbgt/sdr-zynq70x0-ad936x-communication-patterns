@@ -6,6 +6,7 @@ out_dir="$repo_root/.config/fieldmesh/sdk"
 mkdir -p "$out_dir"
 
 "$repo_root/tools/check_fieldmesh_no_hardcoded_moving_metrics.sh"
+"$repo_root/tools/verify_fieldmesh_jtag_adapter_selection.sh"
 "$repo_root/tools/verify_fieldmesh_imgui_app.sh"
 "$repo_root/tools/verify_fieldmesh_imgui_windows_build_contract.sh"
 "$repo_root/tools/verify_fieldmesh_app_build.sh"

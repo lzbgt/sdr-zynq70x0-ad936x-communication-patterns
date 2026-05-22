@@ -68,10 +68,13 @@ JTAG/RAM recovery path initially could not start in this WSL session because no
 FTDI UART/JTAG devices were attached to WSL. `usbipd` now exposes both FT2232H
 adapters to WSL, and the OpenOCD helpers select boards by FTDI serial
 (`AUQSDHWMXART` for Z203, `CKQCQFHQPUJB` for Z103) instead of relying on
-enumeration order. Z103 JTAG scan passes on the selected adapter, but JTAG RAM
-boot still fails at the DAP halt stage after the board-selective recovery
+enumeration order; this now covers scan, reset, bitstream load, PS7
+post-config, PL AXI, hello, FSBL, U-Boot, FIT, QSPI-Linux, and split RAM boot
+helpers. Z103 JTAG scan passes on the selected adapter, and the selected
+PS7-post-config preflight reproduces the halt failure before SLCR reads. JTAG
+RAM boot still fails at the DAP halt stage after the board-selective recovery
 attempt. The immediate live blocker is therefore Z103 boot recovery/visibility,
-not a missing WSL USB attachment.
+not a missing WSL USB attachment or FTDI adapter mix-up.
 The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover

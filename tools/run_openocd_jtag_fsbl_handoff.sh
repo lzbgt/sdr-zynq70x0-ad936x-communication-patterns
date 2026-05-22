@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 ps7_init="${PS7_INIT_TCL:-$repo_root/.config/boot-artifacts/sdt/ps7_init.tcl}"
 fsbl_elf="${FSBL_ELF:-$repo_root/.config/boot-artifacts/boot/fsbl.elf}"
 pl_bitstream="${PL_BITSTREAM:-$repo_root/.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
@@ -13,6 +14,7 @@ jtag_ps_reset="${JTAG_PS_RESET:-1}"
 load_pl_bitstream="${LOAD_PL_BITSTREAM:-1}"
 run_post_config_before_fsbl="${RUN_POST_CONFIG_BEFORE_FSBL:-0}"
 probe_pl_axi_after_fsbl="${PROBE_PL_AXI_AFTER_FSBL:-0}"
+ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 
 for path in "$ps7_init" "$fsbl_elf"; do
   if [[ ! -f "$path" ]]; then
@@ -74,6 +76,7 @@ tcl_file="$(mktemp)"
 cleanup() {
   rm -f "$tcl_file"
   if [[ -n "$serial_pid" ]]; then
+    pkill -TERM -P "$serial_pid" 2>/dev/null || true
     kill "$serial_pid" 2>/dev/null || true
     wait "$serial_pid" 2>/dev/null || true
   fi
@@ -83,6 +86,7 @@ trap cleanup EXIT
 cat >"$tcl_file" <<TCL
 adapter driver ftdi
 ftdi vid_pid 0x0403 0x6010
+$ftdi_serial_tcl
 ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none

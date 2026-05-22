@@ -2,12 +2,15 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 ps7_init="${PS7_INIT_TCL:-$repo_root/.config/boot-artifacts/sdt/ps7_init.tcl}"
 hello_elf="${HELLO_ELF:-$repo_root/.config/jtag-hello/jtag-hello.elf}"
 serial_dev="${SERIAL_DEV:-/dev/ttyUSB1}"
 capture="${CAPTURE:-}"
 run_seconds="${RUN_SECONDS:-8}"
 jtag_ps_reset="${JTAG_PS_RESET:-1}"
+adapter_speed="${ADAPTER_SPEED:-1000}"
+ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 
 if [[ ! -f "$hello_elf" ]]; then
   "$repo_root/tools/build_jtag_hello_elf.sh"
@@ -54,6 +57,8 @@ tcl_file="$(mktemp)"
 cleanup() {
   rm -f "$tcl_file"
   if [[ -n "$serial_pid" ]]; then
+    pkill -TERM -P "$serial_pid" 2>/dev/null || true
+    kill "$serial_pid" 2>/dev/null || true
     wait "$serial_pid" 2>/dev/null || true
   fi
 }
@@ -62,10 +67,11 @@ trap cleanup EXIT
 cat >"$tcl_file" <<TCL
 adapter driver ftdi
 ftdi vid_pid 0x0403 0x6010
+$ftdi_serial_tcl
 ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none
-adapter speed 1000
+adapter speed $adapter_speed
 transport select jtag
 source [find target/zynq_7000.cfg]
 init
