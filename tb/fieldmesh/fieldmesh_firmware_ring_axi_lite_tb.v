@@ -189,6 +189,20 @@ task write_tx_desc_with_crc_xor;
     input [31:0] payload_offset;
     input [15:0] payload_len;
     input [31:0] crc_xor;
+    begin
+        write_tx_desc_custom(base, state, traffic_class, seq, payload_offset,
+                             {16'd0, payload_len}, crc_xor);
+    end
+endtask
+
+task write_tx_desc_custom;
+    input [15:0] base;
+    input [7:0] state;
+    input [7:0] traffic_class;
+    input [31:0] seq;
+    input [31:0] payload_offset;
+    input [31:0] word6_override;
+    input [31:0] crc_xor;
     reg [31:0] word0_free;
     reg [31:0] word0_queued;
     reg [31:0] word1;
@@ -208,7 +222,7 @@ task write_tx_desc_with_crc_xor;
         word3 = 32'h0000_0000;
         word4 = 32'h0000_0000;
         word5 = payload_offset;
-        word6 = {16'd0, payload_len};
+        word6 = word6_override;
         word7 = 32'h0000_0000;
         word8 = 32'h0000_0000;
         word9 = tx_desc_crc(
@@ -326,6 +340,27 @@ initial begin
     expect_word(16'hc604, 32'h0000_0002);         // invalid TX was not served
     expect_word(16'hc608, 32'h0000_0002);         // invalid TX was not ACKed
     expect_word(16'h0000, 32'h0011_0003);         // bad TX slot marked DONE
+
+    axi_write(16'h0600, 32'h4646_4f32); // TX packet arena slot 0: "2OFF"
+    write_tx_desc(16'h0000, 8'd1, 8'd0, 32'h0000_0103, 32'd2, 16'd4);
+    wait_for_word(16'hc60c, 32'h0000_0002, 2000); // stats.drops
+    expect_word(16'hc614, 32'h0000_0001);         // stats.bounds_errors
+    expect_word(16'hc604, 32'h0000_0002);         // unaligned TX was not served
+    expect_word(16'hc608, 32'h0000_0002);         // unaligned TX was not ACKed
+
+    write_tx_desc(16'h0000, 8'd1, 8'd7, 32'h0000_0104, 32'd0, 16'd4);
+    wait_for_word(16'hc60c, 32'h0000_0003, 2000); // stats.drops
+    expect_word(16'hc614, 32'h0000_0002);         // stats.bounds_errors
+    expect_word(16'hc604, 32'h0000_0002);         // invalid class was not served
+    expect_word(16'hc608, 32'h0000_0002);         // invalid class was not ACKed
+    expect_word(16'h0000, 32'h0011_0703);         // invalid class marked DONE
+
+    write_tx_desc_custom(16'h0000, 8'd1, 8'd0, 32'h0000_0105,
+                         32'd0, 32'h0001_0004, 32'd0);
+    wait_for_word(16'hc60c, 32'h0000_0004, 2000); // stats.drops
+    expect_word(16'hc614, 32'h0000_0003);         // stats.bounds_errors
+    expect_word(16'hc604, 32'h0000_0002);         // reserved field was not served
+    expect_word(16'hc608, 32'h0000_0002);         // reserved field was not ACKed
 
     $display("PASS: fieldmesh_firmware_ring_axi_lite_tb");
     $finish;

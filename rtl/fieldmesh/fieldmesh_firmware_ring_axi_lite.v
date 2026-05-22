@@ -80,6 +80,7 @@ localparam FW_RX_STATUS_CRC_OK = 8'h01;
 localparam FW_RX_STATUS_FEC_OK = 8'h02;
 localparam FW_ACK_HEADER = 8'h11;
 localparam FW_ACK_FLAGS = 8'h05;
+localparam FW_TRAFFIC_CLASS_MAX = 8'd4;
 
 wire rst = !s_axi_aresetn;
 
@@ -413,6 +414,7 @@ task service_slot_immediate;
     reg [31:0] ack3;
     reg [15:0] ack4_low;
     reg tx_desc_crc_ok;
+    reg tx_desc_semantic_ok;
     integer word_i;
     begin
         payload_word_offset = 32'd0;
@@ -421,6 +423,8 @@ task service_slot_immediate;
         seq = 32'd0;
         peer_index = 16'd0;
         mcs = 8'd0;
+        tx_desc_crc_ok = 1'b0;
+        tx_desc_semantic_ok = 1'b0;
         rx_payload_offset = 32'd0;
         expected_payload_word_offset = slot * PACKET_WORDS_PER_SLOT;
         tx_desc_base = slot * TX_DESC_WORDS;
@@ -444,11 +448,16 @@ task service_slot_immediate;
         peer_index = tx_desc[tx_desc_base + 1][15:0];
         mcs = tx_desc[tx_desc_base + 1][23:16];
         rx_payload_offset = slot * PACKET_STRIDE;
+        tx_desc_semantic_ok =
+            first_word[15:8] <= FW_TRAFFIC_CLASS_MAX &&
+            tx_desc[tx_desc_base + 5][1:0] == 2'b00 &&
+            tx_desc[tx_desc_base + 6][31:16] == 16'd0;
 
         if (!tx_desc_crc_ok) begin
             inc_stat(16'd3);
             inc_stat(16'd4);
-        end else if (payload_len == 16'd0 ||
+        end else if (!tx_desc_semantic_ok ||
+            payload_len == 16'd0 ||
             payload_len > PACKET_STRIDE ||
             payload_word_offset + payload_words > PACKET_ARENA_WORDS ||
             payload_words > PL_PACKET_WORDS_PER_SLOT ||
