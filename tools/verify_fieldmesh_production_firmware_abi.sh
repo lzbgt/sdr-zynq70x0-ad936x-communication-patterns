@@ -58,19 +58,29 @@ int main(void) {
                              FIELDMESH_FW_RING_IRQ_ERROR)) {
         return 4;
     }
-    stats.irq_mask = FIELDMESH_FW_RING_IRQ_RX_READY;
-    if (!fieldmesh_fw_ring_irq_asserted(&stats)) {
+    fieldmesh_fw_ring_irq_mask_ram(&stats, FIELDMESH_FW_RING_IRQ_RX_READY |
+                                           0xffff0000u);
+    if (stats.irq_mask != FIELDMESH_FW_RING_IRQ_RX_READY) {
         return 5;
+    }
+    if (!fieldmesh_fw_ring_irq_asserted(&stats)) {
+        return 6;
     }
     fieldmesh_fw_ring_irq_clear_ram(&stats, FIELDMESH_FW_RING_IRQ_RX_READY);
     if (stats.irq_status != FIELDMESH_FW_RING_IRQ_ERROR ||
         fieldmesh_fw_ring_irq_asserted(&stats)) {
-        return 6;
+        return 7;
+    }
+    fieldmesh_fw_ring_irq_mask_write((volatile fieldmesh_fw_ring_stats_t *)&stats,
+                                     FIELDMESH_FW_RING_IRQ_ALL | 0xffff0000u);
+    if (stats.irq_mask != FIELDMESH_FW_RING_IRQ_ALL ||
+        !fieldmesh_fw_ring_irq_asserted(&stats)) {
+        return 8;
     }
     fieldmesh_fw_ring_irq_ack_w1c((volatile fieldmesh_fw_ring_stats_t *)&stats,
                                   FIELDMESH_FW_RING_IRQ_ALL | 0xffff0000u);
     if (stats.irq_status != FIELDMESH_FW_RING_IRQ_ALL) {
-        return 7;
+        return 9;
     }
     return 0;
 }
@@ -382,6 +392,8 @@ required = [
     "fieldmesh_fw_ring_irq_asserted",
     "fieldmesh_fw_ring_irq_mark",
     "fieldmesh_fw_ring_irq_clear_ram",
+    "fieldmesh_fw_ring_irq_mask_ram",
+    "fieldmesh_fw_ring_irq_mask_write",
     "fieldmesh_fw_ring_irq_ack_w1c",
     "fieldmesh_fw_ring_linear_layout_t",
     "fieldmesh_fw_ring_bind_linear",

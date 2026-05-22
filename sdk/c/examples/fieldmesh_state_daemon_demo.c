@@ -5297,6 +5297,89 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK")) {
+        unsigned mask = 0u;
+        const int allow_firmware_ring_writes =
+            strstr(request, "ALLOW_FIRMWARE_RING_WRITES") != NULL;
+
+        if (!request_uint_or_default(request, "mask=", 0u, 0u,
+                                     FIELDMESH_FW_RING_IRQ_ALL, &mask)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_firmware_irq_mask\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_request\","
+                     "\"max_mask\":%u,"
+                     "\"uses_iio\":0,"
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\"}\n",
+                     (unsigned)FIELDMESH_FW_RING_IRQ_ALL);
+            return 0;
+        }
+        if (!allow_firmware_ring_writes) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_firmware_irq_mask\","
+                     "\"ok\":false,"
+                     "\"error\":\"firmware_ring_irq_mask_requires_guard\","
+                     "\"requested_mask\":%u,"
+                     "\"requires_allow_firmware_ring_writes\":1,"
+                     "\"firmware_ring_supported\":1,"
+                     "\"writes_hardware\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\"}\n",
+                     mask);
+            return 0;
+        }
+        if (!tun_service || !tun_service->firmware_ring_mapped ||
+            !tun_service->firmware_ring.stats) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_firmware_irq_mask\","
+                     "\"ok\":false,"
+                     "\"error\":\"firmware_ring_not_mapped\","
+                     "\"requested_mask\":%u,"
+                     "\"firmware_ring_supported\":1,"
+                     "\"firmware_ring_enabled\":%u,"
+                     "\"firmware_ring_mapped\":%u,"
+                     "\"writes_hardware\":0,"
+                     "\"uses_iio\":0,"
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\"}\n",
+                     mask,
+                     tun_service ? tun_service->firmware_ring_enabled : 0u,
+                     tun_service ? tun_service->firmware_ring_mapped : 0u);
+            return 0;
+        }
+        {
+            const uint32_t irq_mask_before =
+                tun_service->firmware_ring.stats->irq_mask;
+            uint32_t irq_mask_after;
+            uint32_t irq_status;
+
+            fieldmesh_fw_ring_irq_mask_write(
+                tun_service->firmware_ring.stats, mask);
+            irq_mask_after = tun_service->firmware_ring.stats->irq_mask;
+            irq_status = tun_service->firmware_ring.stats->irq_status;
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_tun_service_firmware_irq_mask\","
+                     "\"ok\":true,"
+                     "\"requested_mask\":%u,"
+                     "\"irq_mask_before\":%u,"
+                     "\"irq_mask_after\":%u,"
+                     "\"irq_status\":%u,"
+                     "\"irq_asserted_after\":%u,"
+                     "\"register_write\":1,"
+                     "\"writes_hardware\":1,"
+                     "\"uses_iio\":0,"
+                     "\"uses_json_on_air\":0,"
+                     "\"hot_path_language\":\"c\"}\n",
+                     mask,
+                     irq_mask_before,
+                     irq_mask_after,
+                     irq_status,
+                     ((irq_status & irq_mask_after) != 0u) ? 1u : 0u);
+        }
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK")) {
         unsigned bits = FIELDMESH_FW_RING_IRQ_ALL;
         const int allow_firmware_ring_writes =
@@ -7885,6 +7968,7 @@ static int query_state(const char *host,
     char tun_event_loop_request[112];
     char tun_service_start_request[112];
     char tun_service_status_request[96];
+    char tun_service_irq_mask_request[112];
     char tun_service_irq_ack_request[112];
     char rf_worker_start_request[96];
     char rf_worker_status_request[96];
@@ -7980,6 +8064,9 @@ static int query_state(const char *host,
              "FIELDMESH_TUN_SERVICE_START v1 dst=%s", route_dst_eui);
     snprintf(tun_service_status_request, sizeof(tun_service_status_request),
              "%s", "FIELDMESH_TUN_SERVICE_STATUS v1");
+    snprintf(tun_service_irq_mask_request,
+             sizeof(tun_service_irq_mask_request),
+             "%s", "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK v1 mask=3");
     snprintf(tun_service_irq_ack_request,
              sizeof(tun_service_irq_ack_request),
              "%s", "FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK v1 bits=15");
@@ -8064,6 +8151,7 @@ static int query_state(const char *host,
         query_once(sockfd, &dst, tun_event_loop_request) == 0 &&
         query_once(sockfd, &dst, tun_service_start_request) == 0 &&
         query_once(sockfd, &dst, tun_service_status_request) == 0 &&
+        query_once(sockfd, &dst, tun_service_irq_mask_request) == 0 &&
         query_once(sockfd, &dst, tun_service_irq_ack_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_start_request) == 0 &&
         query_once(sockfd, &dst, rf_worker_status_request) == 0 &&

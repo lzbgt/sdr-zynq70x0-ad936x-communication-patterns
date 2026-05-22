@@ -65,6 +65,23 @@ static inline void fieldmesh_fw_ring_irq_clear_ram(fieldmesh_fw_ring_stats_t *st
     }
 }
 
+static inline void fieldmesh_fw_ring_irq_mask_ram(fieldmesh_fw_ring_stats_t *stats,
+                                                  uint32_t bits)
+{
+    if (stats) {
+        stats->irq_mask = bits & FIELDMESH_FW_RING_IRQ_ALL;
+    }
+}
+
+static inline void fieldmesh_fw_ring_irq_mask_write(
+    volatile fieldmesh_fw_ring_stats_t *stats,
+    uint32_t bits)
+{
+    if (stats) {
+        stats->irq_mask = bits & FIELDMESH_FW_RING_IRQ_ALL;
+    }
+}
+
 static inline void fieldmesh_fw_ring_irq_ack_w1c(
     volatile fieldmesh_fw_ring_stats_t *stats,
     uint32_t bits)

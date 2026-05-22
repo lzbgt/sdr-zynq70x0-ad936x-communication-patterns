@@ -370,13 +370,16 @@ ready, RX non-free, valid ACK slots, and the fixed PL pressure words
 bits for RX-ready, TX-done, drop, and error events, so the future driver can
 block on PL completions instead of polling the ring. The hardware aperture uses
 write-one-to-clear `irq_status`; RAM-backed probes use the separate RAM clear
-helper so the C API cannot hide the register side effect. The daemon exposes a
-guarded `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` control command that calls the
-hardware W1C helper only when `ALLOW_FIRMWARE_RING_WRITES` is present; the
-default query path is read-only. Daemon status also exposes the packet-bridge
-counters for classify errors, TUN read errors, enqueue drops, and drain errors.
-These counters are the first-line debug split between malformed input, TUN
-ingress starvation, full ARM-to-PL queues, PL service latency, and RX drain lag.
+helper so the C API cannot hide the register side effect. The IRQ mask write is
+also explicit: RAM-backed probes call `fieldmesh_fw_ring_irq_mask_ram()`, while
+UIO/PL code calls `fieldmesh_fw_ring_irq_mask_write()`. The daemon exposes
+guarded `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK` and
+`FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` control commands that touch hardware
+only when `ALLOW_FIRMWARE_RING_WRITES` is present; the default query path is
+read-only. Daemon status also exposes the packet-bridge counters for classify
+errors, TUN read errors, enqueue drops, and drain errors. These counters are
+the first-line debug split between malformed input, TUN ingress starvation,
+full ARM-to-PL queues, PL service latency, and RX drain lag.
 
 ## MAC Design
 

@@ -71,10 +71,12 @@ retired after valid traffic. The stats ABI now includes compact `queued` and
 RX-ready, TX-done, drop, and error events. The C helper API now separates
 RAM-model IRQ clearing from hardware write-one-to-clear acknowledgement, which
 keeps future UIO/driver code from using read-modify-write semantics on a PL
-register. The daemon now has a guarded
-`FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` command for that W1C acknowledgement;
-without `ALLOW_FIRMWARE_RING_WRITES` it reports the guard and performs no
-hardware write. Daemon TUN status now exposes the pressure words as
+register. IRQ mask writes are split the same way, with separate RAM-model and
+hardware register helpers. The daemon now has guarded
+`FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK` and
+`FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` commands for arming and acknowledging
+those IRQ bits; without `ALLOW_FIRMWARE_RING_WRITES` they report the guard and
+perform no hardware write. Daemon TUN status now exposes the pressure words as
 `firmware_ring_pressure_queued` and `firmware_ring_pressure_selected` so ARM
 probes and live status polling can read PL queue pressure without log parsing.
 The same status path exposes packet-bridge classify/read/enqueue/drain counters
