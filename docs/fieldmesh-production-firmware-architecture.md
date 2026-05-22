@@ -438,6 +438,16 @@ errors, TUN read errors, enqueue drops, and drain errors. These counters are
 the first-line debug split between malformed input, TUN ingress starvation,
 full ARM-to-PL queues, PL service latency, and RX drain lag.
 
+The board-level packet-DMA endpoint is also controlled from the lightweight
+sidecar window. `0x140..0x16c` contains fixed binary firmware-DMA control and
+status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
+enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
+parser counters, ingress/egress packet/drop counters, and aggregate BRAM
+errors. The normal copied-HDL DMA overlay wires these pins to
+`fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
+constants. Reset leaves the endpoint disabled; software must explicitly arm the
+packet path after probing the overlay.
+
 ## MAC Design
 
 The production MAC is not stop-and-wait. It uses pipelined windows:

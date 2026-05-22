@@ -437,6 +437,18 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x134` | `FM_RF_DAC_SAMPLE_COUNT` | DAC-domain FieldMesh samples accepted by the source driver |
 | `0x138` | `FM_RF_DAC_PACKET_COUNT` | DAC-domain FieldMesh packet ends accepted by the source driver |
 | `0x13c` | `FM_RF_DAC_UNDERFLOW_COUNT` | DAC source driver underflows while FieldMesh source is selected |
+| `0x140` | `FM_FW_DMA_CONTROL` | bit 0 endpoint enable, bit 1 ingress enable, bit 2 egress enable, bit 3 MAC scheduler enable, bit 4 MAC tick enable, bit 5 MAC stop |
+| `0x144` | `FM_FW_DMA_STATUS` | bit 0 endpoint enable, bit 1 scheduler active, bit 2 pump done, bit 3 drained empty, bit 4 budget exhausted, bit 5 service accepted |
+| `0x148` | `FM_FW_DMA_SERVICE_BUDGET` | MAC service budget in low 16 bits; zero is passed through to the endpoint as the default one-service budget |
+| `0x14c` | `FM_FW_DMA_QUEUED_COUNT` | queued firmware endpoint descriptors in low 16 bits |
+| `0x150` | `FM_FW_DMA_SELECTED_WORD` | compact selected-slot status word from the firmware endpoint |
+| `0x154` | `FM_FW_DMA_TX_PARSER_PACKETS` | TX DMA FieldMesh frames parsed from the byte-only stream |
+| `0x158` | `FM_FW_DMA_TX_PARSER_DROPS` | malformed or rejected TX DMA frames |
+| `0x15c` | `FM_FW_DMA_INGRESS_PACKETS` | payload packets written into firmware BRAM by the ingress writer |
+| `0x160` | `FM_FW_DMA_INGRESS_DROPS` | ingress writer drops |
+| `0x164` | `FM_FW_DMA_EGRESS_PACKETS` | descriptor-validated packets emitted to RX DMA |
+| `0x168` | `FM_FW_DMA_EGRESS_DROPS` | egress reader drops |
+| `0x16c` | `FM_FW_DMA_BRAM_ERRORS` | aggregate BRAM service errors observed by the firmware DMA endpoint |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

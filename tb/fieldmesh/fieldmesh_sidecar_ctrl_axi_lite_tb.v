@@ -56,6 +56,13 @@ wire [15:0] rf_current_slot;
 wire [31:0] rf_tx_epoch;
 wire [15:0] rf_tx_slot;
 wire rf_source_select;
+wire fw_dma_enable;
+wire fw_dma_ingress_enable;
+wire fw_dma_egress_enable;
+wire fw_dma_mac_scheduler_enable;
+wire fw_dma_mac_tick_enable;
+wire fw_dma_mac_stop;
+wire [15:0] fw_dma_mac_service_budget;
 
 fieldmesh_sidecar_ctrl_axi_lite #(
     .SYNTH_LIGHT(0)
@@ -99,6 +106,27 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .rf_dac_packet_count(32'd0),
     .rf_dac_underflow_count(32'd0),
     .rf_dac_active(1'b0),
+    .fw_dma_enable(fw_dma_enable),
+    .fw_dma_ingress_enable(fw_dma_ingress_enable),
+    .fw_dma_egress_enable(fw_dma_egress_enable),
+    .fw_dma_mac_scheduler_enable(fw_dma_mac_scheduler_enable),
+    .fw_dma_mac_tick_enable(fw_dma_mac_tick_enable),
+    .fw_dma_mac_stop(fw_dma_mac_stop),
+    .fw_dma_mac_service_budget(fw_dma_mac_service_budget),
+    .fw_dma_mac_scheduler_active(1'b0),
+    .fw_dma_pump_done(1'b0),
+    .fw_dma_pump_drained_empty(1'b0),
+    .fw_dma_pump_budget_exhausted(1'b0),
+    .fw_dma_service_accepted(1'b0),
+    .fw_dma_service_queued_count(16'd0),
+    .fw_dma_service_selected_word(32'd0),
+    .fw_dma_tx_parser_packet_count(32'd0),
+    .fw_dma_tx_parser_drop_count(32'd0),
+    .fw_dma_ingress_packet_count(32'd0),
+    .fw_dma_ingress_drop_count(32'd0),
+    .fw_dma_egress_packet_count(32'd0),
+    .fw_dma_egress_drop_count(32'd0),
+    .fw_dma_bram_error_count(32'd0),
     .irq(irq),
     .irq_status(irq_status)
 );
@@ -196,6 +224,11 @@ initial begin
     if (rf_source_select) fail("full sidecar wrapper selected RF DAC source");
     if (rf_current_epoch != 32'd0 || rf_current_slot != 16'd0) fail("full sidecar wrapper drove RF current schedule");
     if (rf_tx_epoch != 32'd0 || rf_tx_slot != 16'd0) fail("full sidecar wrapper drove RF target schedule");
+    if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
+        fw_dma_mac_scheduler_enable || fw_dma_mac_tick_enable ||
+        fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0) begin
+        fail("full sidecar wrapper drove firmware DMA control");
+    end
 
     axi_write(REG_CONTROL, 32'h0000_0003);
     mem_write(10'd40, 8'h46);

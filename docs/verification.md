@@ -2032,7 +2032,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
   --dma-overlay --apply >/tmp/fieldmesh_overlay_dma_patch.json
 python3 -m json.tool /tmp/fieldmesh_overlay_dma_patch.json >/dev/null
-rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|fieldmesh_fw_dma_endpoint|AUTO_EGRESS|0x43C10000|0x43C20000' \
+rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|fieldmesh_fw_dma_endpoint|AUTO_EGRESS|fw_dma_enable|0x43C10000|0x43C20000' \
   "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
 test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "38"
 ./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \

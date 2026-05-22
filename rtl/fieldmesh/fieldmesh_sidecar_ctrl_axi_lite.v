@@ -64,6 +64,29 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     (* X_INTERFACE_IGNORE = "TRUE" *)
     input  wire         rf_dac_active,
 
+    output wire         fw_dma_enable,
+    output wire         fw_dma_ingress_enable,
+    output wire         fw_dma_egress_enable,
+    output wire         fw_dma_mac_scheduler_enable,
+    output wire         fw_dma_mac_tick_enable,
+    output wire         fw_dma_mac_stop,
+    output wire [15:0]  fw_dma_mac_service_budget,
+
+    input  wire         fw_dma_mac_scheduler_active,
+    input  wire         fw_dma_pump_done,
+    input  wire         fw_dma_pump_drained_empty,
+    input  wire         fw_dma_pump_budget_exhausted,
+    input  wire         fw_dma_service_accepted,
+    input  wire [15:0]  fw_dma_service_queued_count,
+    input  wire [31:0]  fw_dma_service_selected_word,
+    input  wire [31:0]  fw_dma_tx_parser_packet_count,
+    input  wire [31:0]  fw_dma_tx_parser_drop_count,
+    input  wire [31:0]  fw_dma_ingress_packet_count,
+    input  wire [31:0]  fw_dma_ingress_drop_count,
+    input  wire [31:0]  fw_dma_egress_packet_count,
+    input  wire [31:0]  fw_dma_egress_drop_count,
+    input  wire [31:0]  fw_dma_bram_error_count,
+
     output wire         irq,
     output wire [2:0]   irq_status
 );
@@ -92,6 +115,18 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_RF_DAC_SAMPLE_COUNT        = 12'h134;
     localparam [11:0] REG_RF_DAC_PACKET_COUNT        = 12'h138;
     localparam [11:0] REG_RF_DAC_UNDERFLOW_COUNT     = 12'h13c;
+    localparam [11:0] REG_FW_DMA_CONTROL             = 12'h140;
+    localparam [11:0] REG_FW_DMA_STATUS              = 12'h144;
+    localparam [11:0] REG_FW_DMA_SERVICE_BUDGET      = 12'h148;
+    localparam [11:0] REG_FW_DMA_QUEUED_COUNT        = 12'h14c;
+    localparam [11:0] REG_FW_DMA_SELECTED_WORD       = 12'h150;
+    localparam [11:0] REG_FW_DMA_TX_PARSER_PACKETS   = 12'h154;
+    localparam [11:0] REG_FW_DMA_TX_PARSER_DROPS     = 12'h158;
+    localparam [11:0] REG_FW_DMA_INGRESS_PACKETS     = 12'h15c;
+    localparam [11:0] REG_FW_DMA_INGRESS_DROPS       = 12'h160;
+    localparam [11:0] REG_FW_DMA_EGRESS_PACKETS      = 12'h164;
+    localparam [11:0] REG_FW_DMA_EGRESS_DROPS        = 12'h168;
+    localparam [11:0] REG_FW_DMA_BRAM_ERRORS         = 12'h16c;
 
     wire rst = !s_axi_aresetn;
 
@@ -113,6 +148,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
     reg [31:0] rf_tx_epoch_r;
     reg [15:0] rf_tx_slot_r;
     reg        rf_source_select_r;
+    reg        fw_dma_enable_r;
+    reg        fw_dma_ingress_enable_r;
+    reg        fw_dma_egress_enable_r;
+    reg        fw_dma_mac_scheduler_enable_r;
+    reg        fw_dma_mac_tick_enable_r;
+    reg        fw_dma_mac_stop_r;
+    reg [15:0] fw_dma_mac_service_budget_r;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_packet_count_meta;
@@ -145,6 +187,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
     assign rf_tx_epoch = rf_tx_epoch_r;
     assign rf_tx_slot = rf_tx_slot_r;
     assign rf_source_select = rf_source_select_r;
+    assign fw_dma_enable = fw_dma_enable_r;
+    assign fw_dma_ingress_enable = fw_dma_ingress_enable_r;
+    assign fw_dma_egress_enable = fw_dma_egress_enable_r;
+    assign fw_dma_mac_scheduler_enable = fw_dma_mac_scheduler_enable_r;
+    assign fw_dma_mac_tick_enable = fw_dma_mac_tick_enable_r;
+    assign fw_dma_mac_stop = fw_dma_mac_stop_r;
+    assign fw_dma_mac_service_budget = fw_dma_mac_service_budget_r;
 
     always @(posedge s_axi_aclk) begin
         if (rst) begin
@@ -186,6 +235,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
             rf_tx_epoch_r <= 32'd0;
             rf_tx_slot_r <= 16'd0;
             rf_source_select_r <= 1'b0;
+            fw_dma_enable_r <= 1'b0;
+            fw_dma_ingress_enable_r <= 1'b0;
+            fw_dma_egress_enable_r <= 1'b0;
+            fw_dma_mac_scheduler_enable_r <= 1'b0;
+            fw_dma_mac_tick_enable_r <= 1'b0;
+            fw_dma_mac_stop_r <= 1'b0;
+            fw_dma_mac_service_budget_r <= 16'd0;
             bresp_r <= 2'b00;
             bvalid_r <= 1'b0;
         end else begin
@@ -223,6 +279,15 @@ generate if (SYNTH_LIGHT) begin : gen_light
                         REG_RF_TX_EPOCH: rf_tx_epoch_r <= wdata_hold;
                         REG_RF_TX_SLOT: rf_tx_slot_r <= wdata_hold[15:0];
                         REG_RF_DAC_SOURCE_CONTROL: rf_source_select_r <= wdata_hold[0];
+                        REG_FW_DMA_CONTROL: begin
+                            fw_dma_enable_r <= wdata_hold[0];
+                            fw_dma_ingress_enable_r <= wdata_hold[1];
+                            fw_dma_egress_enable_r <= wdata_hold[2];
+                            fw_dma_mac_scheduler_enable_r <= wdata_hold[3];
+                            fw_dma_mac_tick_enable_r <= wdata_hold[4];
+                            fw_dma_mac_stop_r <= wdata_hold[5];
+                        end
+                        REG_FW_DMA_SERVICE_BUDGET: fw_dma_mac_service_budget_r <= wdata_hold[15:0];
                     endcase
                 end
                 bresp_r <= 2'b00;
@@ -273,6 +338,18 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_RF_DAC_SAMPLE_COUNT: rdata_r <= rf_dac_sample_count_sync;
                     REG_RF_DAC_PACKET_COUNT: rdata_r <= rf_dac_packet_count_sync;
                     REG_RF_DAC_UNDERFLOW_COUNT: rdata_r <= rf_dac_underflow_count_sync;
+                    REG_FW_DMA_CONTROL: rdata_r <= {26'd0, fw_dma_mac_stop_r, fw_dma_mac_tick_enable_r, fw_dma_mac_scheduler_enable_r, fw_dma_egress_enable_r, fw_dma_ingress_enable_r, fw_dma_enable_r};
+                    REG_FW_DMA_STATUS: rdata_r <= {26'd0, fw_dma_service_accepted, fw_dma_pump_budget_exhausted, fw_dma_pump_drained_empty, fw_dma_pump_done, fw_dma_mac_scheduler_active, fw_dma_enable_r};
+                    REG_FW_DMA_SERVICE_BUDGET: rdata_r <= {16'd0, fw_dma_mac_service_budget_r};
+                    REG_FW_DMA_QUEUED_COUNT: rdata_r <= {16'd0, fw_dma_service_queued_count};
+                    REG_FW_DMA_SELECTED_WORD: rdata_r <= fw_dma_service_selected_word;
+                    REG_FW_DMA_TX_PARSER_PACKETS: rdata_r <= fw_dma_tx_parser_packet_count;
+                    REG_FW_DMA_TX_PARSER_DROPS: rdata_r <= fw_dma_tx_parser_drop_count;
+                    REG_FW_DMA_INGRESS_PACKETS: rdata_r <= fw_dma_ingress_packet_count;
+                    REG_FW_DMA_INGRESS_DROPS: rdata_r <= fw_dma_ingress_drop_count;
+                    REG_FW_DMA_EGRESS_PACKETS: rdata_r <= fw_dma_egress_packet_count;
+                    REG_FW_DMA_EGRESS_DROPS: rdata_r <= fw_dma_egress_drop_count;
+                    REG_FW_DMA_BRAM_ERRORS: rdata_r <= fw_dma_bram_error_count;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;
@@ -294,6 +371,13 @@ assign rf_current_slot = 16'd0;
 assign rf_tx_epoch = 32'd0;
 assign rf_tx_slot = 16'd0;
 assign rf_source_select = 1'b0;
+assign fw_dma_enable = 1'b0;
+assign fw_dma_ingress_enable = 1'b0;
+assign fw_dma_egress_enable = 1'b0;
+assign fw_dma_mac_scheduler_enable = 1'b0;
+assign fw_dma_mac_tick_enable = 1'b0;
+assign fw_dma_mac_stop = 1'b0;
+assign fw_dma_mac_service_budget = 16'd0;
 
 fieldmesh_packet_mem_axi_lite #(
     .MEM_BYTES(MEM_BYTES),

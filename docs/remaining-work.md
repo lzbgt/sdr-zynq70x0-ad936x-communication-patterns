@@ -1419,9 +1419,12 @@ below were later superseded by the current PHY-management two-board gates above:
   `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v` into
   `fieldmesh_firmware_axis_dma_endpoint` with `AUTO_EGRESS=1`, maps the DMA
   windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
-  RX/S2MM, and is Vivado BD-generation checked for copied Z203 and Z103 HDL
-  trees. The RF-engine overlay still keeps the older bridge-fed path until the
-  RF scheduler is bound directly to the firmware endpoint.
+  RX/S2MM, and wires the endpoint control/status pins through the existing
+  `fieldmesh_ctrl` register page at `0x140..0x16c`. The endpoint resets
+  disabled and must be armed explicitly by software. The copied overlay is
+  Vivado BD-generation checked for Z203 and Z103 HDL trees. The RF-engine
+  overlay still keeps the older bridge-fed path until the RF scheduler is bound
+  directly to the firmware endpoint.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor

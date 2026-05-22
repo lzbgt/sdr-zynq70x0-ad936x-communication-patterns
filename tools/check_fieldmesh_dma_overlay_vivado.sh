@@ -128,6 +128,27 @@ foreach pin {
   fieldmesh_fw_dma_endpoint/egress_enable
   fieldmesh_fw_dma_endpoint/mac_scheduler_enable
   fieldmesh_fw_dma_endpoint/mac_tick
+  fieldmesh_ctrl/fw_dma_enable
+  fieldmesh_ctrl/fw_dma_ingress_enable
+  fieldmesh_ctrl/fw_dma_egress_enable
+  fieldmesh_ctrl/fw_dma_mac_scheduler_enable
+  fieldmesh_ctrl/fw_dma_mac_tick_enable
+  fieldmesh_ctrl/fw_dma_mac_stop
+  fieldmesh_ctrl/fw_dma_mac_service_budget
+  fieldmesh_ctrl/fw_dma_mac_scheduler_active
+  fieldmesh_ctrl/fw_dma_pump_done
+  fieldmesh_ctrl/fw_dma_pump_drained_empty
+  fieldmesh_ctrl/fw_dma_pump_budget_exhausted
+  fieldmesh_ctrl/fw_dma_service_accepted
+  fieldmesh_ctrl/fw_dma_service_queued_count
+  fieldmesh_ctrl/fw_dma_service_selected_word
+  fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+  fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+  fieldmesh_ctrl/fw_dma_ingress_packet_count
+  fieldmesh_ctrl/fw_dma_ingress_drop_count
+  fieldmesh_ctrl/fw_dma_egress_packet_count
+  fieldmesh_ctrl/fw_dma_egress_drop_count
+  fieldmesh_ctrl/fw_dma_bram_error_count
   fieldmesh_tx_dma/m_src_axi_aclk
   fieldmesh_tx_dma/m_src_axi_aresetn
   fieldmesh_rx_dma/s_axis_aclk
@@ -150,6 +171,45 @@ if {\$hp0 != "1" || \$hp3 != "1"} {
 set auto_egress [get_property CONFIG.AUTO_EGRESS [get_bd_cells fieldmesh_fw_dma_endpoint]]
 if {\$auto_egress != "1"} {
   error "FieldMesh DMA endpoint AUTO_EGRESS is not enabled"
+}
+
+proc assert_same_net {a b} {
+  set pa [get_bd_pins -quiet \$a]
+  set pb [get_bd_pins -quiet \$b]
+  if {[llength \$pa] != 1 || [llength \$pb] != 1} {
+    error "missing pins for net assertion: \$a \$b"
+  }
+  set na [get_bd_nets -quiet -of_objects \$pa]
+  set nb [get_bd_nets -quiet -of_objects \$pb]
+  if {[llength \$na] != 1 || [llength \$nb] != 1 || [lindex \$na 0] ne [lindex \$nb 0]} {
+    error "pins are not on the same net: \$a \$b"
+  }
+}
+
+foreach pair {
+  {fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable}
+  {fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable}
+  {fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable}
+  {fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable}
+  {fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick}
+  {fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop}
+  {fieldmesh_ctrl/fw_dma_mac_service_budget fieldmesh_fw_dma_endpoint/mac_service_budget}
+  {fieldmesh_fw_dma_endpoint/mac_scheduler_active fieldmesh_ctrl/fw_dma_mac_scheduler_active}
+  {fieldmesh_fw_dma_endpoint/pump_done fieldmesh_ctrl/fw_dma_pump_done}
+  {fieldmesh_fw_dma_endpoint/pump_drained_empty fieldmesh_ctrl/fw_dma_pump_drained_empty}
+  {fieldmesh_fw_dma_endpoint/pump_budget_exhausted fieldmesh_ctrl/fw_dma_pump_budget_exhausted}
+  {fieldmesh_fw_dma_endpoint/service_accepted fieldmesh_ctrl/fw_dma_service_accepted}
+  {fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count}
+  {fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word}
+  {fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count}
+  {fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count}
+  {fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count}
+  {fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count}
+  {fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count}
+  {fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count}
+  {fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count}
+} {
+  assert_same_net [lindex \$pair 0] [lindex \$pair 1]
 }
 
 validate_bd_design

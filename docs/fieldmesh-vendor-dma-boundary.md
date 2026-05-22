@@ -254,8 +254,12 @@ AXI RAM/DMA binding.
 `fieldmesh_firmware_axis_dma_endpoint.v` is the first board-facing binding for
 that path: TX DMA is byte-only and reconstructed through the in-band header
 parser, while RX DMA receives byte-only packets from the descriptor-validated
-firmware egress reader. The wrapper still avoids the ADI sample-DMA register
-windows; it is the packet-DMA boundary for the first-party firmware path.
+firmware egress reader. The wrapper is controlled through the existing
+`fieldmesh_ctrl` AXI-lite window at `0x140..0x16c`, which gates endpoint
+enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop and reports the
+firmware endpoint counters. The wrapper still avoids the ADI sample-DMA
+register windows; it is the packet-DMA boundary for the first-party firmware
+path.
 
 The first control-only block-design overlay is opt-in:
 
@@ -337,10 +341,12 @@ enables PS HP0/HP3, instantiates `fieldmesh_tx_dma`, `fieldmesh_rx_dma`,
 control windows at `0x43C10000` and `0x43C20000`, wires packet TX over
 HP3/MM2S and packet RX over HP0/S2MM, and connects IRQs to `ps-9 mb-9` and
 `ps-10 mb-10`. The normal DMA overlay parks the older bridge and routes the
-16-bit adapter through the firmware endpoint with `AUTO_EGRESS=1`; the
-RF-engine overlay keeps the older bridge-fed path because the current
-non-transmitting symbolizer path still consumes `fieldmesh_axis_bridge`
-packet-sideband ports.
+16-bit adapter through the firmware endpoint with `AUTO_EGRESS=1`. Endpoint
+data movement is disabled after reset until software sets the firmware-DMA
+control bits in `fieldmesh_ctrl`, so the overlay can be inspected safely before
+packet DMA is armed. The RF-engine overlay keeps the older bridge-fed path
+because the current non-transmitting symbolizer path still consumes
+`fieldmesh_axis_bridge` packet-sideband ports.
 
 Validate the full control-plus-bridge-plus-DMA overlay through Vivado
 project/block-design generation without running synthesis:

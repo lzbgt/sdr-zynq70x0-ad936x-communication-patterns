@@ -107,6 +107,10 @@ in `src/fieldmesh_sdk.c`:
   into internal sidebands, and validated RX descriptors are emitted as byte-only
   RX DMA frames. The opt-in copied-HDL DMA overlay instantiates this endpoint
   with `AUTO_EGRESS=1` between the ADI packet-DMA pair and the 16-to-8 adapter.
+  Its enable, ingress, egress, MAC scheduler, MAC tick, MAC stop, service
+  budget, pressure, and packet/drop counters are surfaced through fixed binary
+  `fieldmesh_ctrl` registers at `0x140..0x16c`; reset leaves the endpoint
+  disabled until software arms those bits.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and

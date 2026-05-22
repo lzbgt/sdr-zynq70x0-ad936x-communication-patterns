@@ -23,6 +23,18 @@ localparam [15:0] REG_RF_DAC_SOURCE_STATUS      = 16'h0130;
 localparam [15:0] REG_RF_DAC_SAMPLE_COUNT       = 16'h0134;
 localparam [15:0] REG_RF_DAC_PACKET_COUNT       = 16'h0138;
 localparam [15:0] REG_RF_DAC_UNDERFLOW_COUNT    = 16'h013c;
+localparam [15:0] REG_FW_DMA_CONTROL            = 16'h0140;
+localparam [15:0] REG_FW_DMA_STATUS             = 16'h0144;
+localparam [15:0] REG_FW_DMA_SERVICE_BUDGET     = 16'h0148;
+localparam [15:0] REG_FW_DMA_QUEUED_COUNT       = 16'h014c;
+localparam [15:0] REG_FW_DMA_SELECTED_WORD      = 16'h0150;
+localparam [15:0] REG_FW_DMA_TX_PARSER_PACKETS  = 16'h0154;
+localparam [15:0] REG_FW_DMA_TX_PARSER_DROPS    = 16'h0158;
+localparam [15:0] REG_FW_DMA_INGRESS_PACKETS    = 16'h015c;
+localparam [15:0] REG_FW_DMA_INGRESS_DROPS      = 16'h0160;
+localparam [15:0] REG_FW_DMA_EGRESS_PACKETS     = 16'h0164;
+localparam [15:0] REG_FW_DMA_EGRESS_DROPS       = 16'h0168;
+localparam [15:0] REG_FW_DMA_BRAM_ERRORS        = 16'h016c;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -55,6 +67,13 @@ wire [15:0] rf_current_slot;
 wire [31:0] rf_tx_epoch;
 wire [15:0] rf_tx_slot;
 wire rf_source_select;
+wire fw_dma_enable;
+wire fw_dma_ingress_enable;
+wire fw_dma_egress_enable;
+wire fw_dma_mac_scheduler_enable;
+wire fw_dma_mac_tick_enable;
+wire fw_dma_mac_stop;
+wire [15:0] fw_dma_mac_service_budget;
 reg [31:0] rf_guard_pass_sample_count = 32'd0;
 reg [31:0] rf_guard_pass_packet_count = 32'd0;
 reg [31:0] rf_guard_blocked_cycle_count = 32'd0;
@@ -65,6 +84,20 @@ reg [31:0] rf_dac_sample_count = 32'd0;
 reg [31:0] rf_dac_packet_count = 32'd0;
 reg [31:0] rf_dac_underflow_count = 32'd0;
 reg rf_dac_active = 1'b0;
+reg fw_dma_mac_scheduler_active = 1'b0;
+reg fw_dma_pump_done = 1'b0;
+reg fw_dma_pump_drained_empty = 1'b0;
+reg fw_dma_pump_budget_exhausted = 1'b0;
+reg fw_dma_service_accepted = 1'b0;
+reg [15:0] fw_dma_service_queued_count = 16'd0;
+reg [31:0] fw_dma_service_selected_word = 32'd0;
+reg [31:0] fw_dma_tx_parser_packet_count = 32'd0;
+reg [31:0] fw_dma_tx_parser_drop_count = 32'd0;
+reg [31:0] fw_dma_ingress_packet_count = 32'd0;
+reg [31:0] fw_dma_ingress_drop_count = 32'd0;
+reg [31:0] fw_dma_egress_packet_count = 32'd0;
+reg [31:0] fw_dma_egress_drop_count = 32'd0;
+reg [31:0] fw_dma_bram_error_count = 32'd0;
 
 fieldmesh_sidecar_ctrl_axi_lite dut (
     .s_axi_aclk(clk),
@@ -106,6 +139,27 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .rf_dac_packet_count(rf_dac_packet_count),
     .rf_dac_underflow_count(rf_dac_underflow_count),
     .rf_dac_active(rf_dac_active),
+    .fw_dma_enable(fw_dma_enable),
+    .fw_dma_ingress_enable(fw_dma_ingress_enable),
+    .fw_dma_egress_enable(fw_dma_egress_enable),
+    .fw_dma_mac_scheduler_enable(fw_dma_mac_scheduler_enable),
+    .fw_dma_mac_tick_enable(fw_dma_mac_tick_enable),
+    .fw_dma_mac_stop(fw_dma_mac_stop),
+    .fw_dma_mac_service_budget(fw_dma_mac_service_budget),
+    .fw_dma_mac_scheduler_active(fw_dma_mac_scheduler_active),
+    .fw_dma_pump_done(fw_dma_pump_done),
+    .fw_dma_pump_drained_empty(fw_dma_pump_drained_empty),
+    .fw_dma_pump_budget_exhausted(fw_dma_pump_budget_exhausted),
+    .fw_dma_service_accepted(fw_dma_service_accepted),
+    .fw_dma_service_queued_count(fw_dma_service_queued_count),
+    .fw_dma_service_selected_word(fw_dma_service_selected_word),
+    .fw_dma_tx_parser_packet_count(fw_dma_tx_parser_packet_count),
+    .fw_dma_tx_parser_drop_count(fw_dma_tx_parser_drop_count),
+    .fw_dma_ingress_packet_count(fw_dma_ingress_packet_count),
+    .fw_dma_ingress_drop_count(fw_dma_ingress_drop_count),
+    .fw_dma_egress_packet_count(fw_dma_egress_packet_count),
+    .fw_dma_egress_drop_count(fw_dma_egress_drop_count),
+    .fw_dma_bram_error_count(fw_dma_bram_error_count),
     .irq(irq),
     .irq_status(irq_status)
 );
@@ -185,6 +239,13 @@ initial begin
     if (rf_source_select) fail("RF DAC source selected after reset");
     if (rf_current_epoch != 32'd0 || rf_current_slot != 16'd0) fail("RF current slot state was nonzero after reset");
     if (rf_tx_epoch != 32'd0 || rf_tx_slot != 16'd0) fail("RF TX slot state was nonzero after reset");
+    expect_axi(REG_FW_DMA_CONTROL, 32'h0000_0000);
+    expect_axi(REG_FW_DMA_STATUS, 32'h0000_0000);
+    if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
+        fw_dma_mac_scheduler_enable || fw_dma_mac_tick_enable ||
+        fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0) begin
+        fail("firmware DMA control was nonzero after reset");
+    end
 
     axi_write(REG_CONTROL, 32'h0000_0001);
     expect_axi(REG_STATUS, 32'h0000_0001);
@@ -247,6 +308,50 @@ initial begin
 
     axi_write(REG_RF_DAC_SOURCE_CONTROL, 32'h0000_0000);
     if (rf_source_select) fail("RF DAC source select output did not clear");
+
+    axi_write(REG_FW_DMA_SERVICE_BUDGET, 32'hffff_0020);
+    axi_write(REG_FW_DMA_CONTROL, 32'h0000_001f);
+    if (!fw_dma_enable || !fw_dma_ingress_enable || !fw_dma_egress_enable ||
+        !fw_dma_mac_scheduler_enable || !fw_dma_mac_tick_enable ||
+        fw_dma_mac_stop) begin
+        fail("firmware DMA control outputs did not assert");
+    end
+    if (fw_dma_mac_service_budget != 16'h0020) fail("firmware DMA service budget did not update");
+    expect_axi(REG_FW_DMA_CONTROL, 32'h0000_001f);
+    expect_axi(REG_FW_DMA_SERVICE_BUDGET, 32'h0000_0020);
+
+    fw_dma_mac_scheduler_active = 1'b1;
+    fw_dma_pump_done = 1'b1;
+    fw_dma_pump_drained_empty = 1'b1;
+    fw_dma_pump_budget_exhausted = 1'b1;
+    fw_dma_service_accepted = 1'b1;
+    fw_dma_service_queued_count = 16'd7;
+    fw_dma_service_selected_word = 32'h0003_0002;
+    fw_dma_tx_parser_packet_count = 32'd11;
+    fw_dma_tx_parser_drop_count = 32'd1;
+    fw_dma_ingress_packet_count = 32'd9;
+    fw_dma_ingress_drop_count = 32'd2;
+    fw_dma_egress_packet_count = 32'd8;
+    fw_dma_egress_drop_count = 32'd3;
+    fw_dma_bram_error_count = 32'd4;
+    repeat (2) @(negedge clk);
+    expect_axi(REG_FW_DMA_STATUS, 32'h0000_003f);
+    expect_axi(REG_FW_DMA_QUEUED_COUNT, 32'h0000_0007);
+    expect_axi(REG_FW_DMA_SELECTED_WORD, 32'h0003_0002);
+    expect_axi(REG_FW_DMA_TX_PARSER_PACKETS, 32'd11);
+    expect_axi(REG_FW_DMA_TX_PARSER_DROPS, 32'd1);
+    expect_axi(REG_FW_DMA_INGRESS_PACKETS, 32'd9);
+    expect_axi(REG_FW_DMA_INGRESS_DROPS, 32'd2);
+    expect_axi(REG_FW_DMA_EGRESS_PACKETS, 32'd8);
+    expect_axi(REG_FW_DMA_EGRESS_DROPS, 32'd3);
+    expect_axi(REG_FW_DMA_BRAM_ERRORS, 32'd4);
+
+    axi_write(REG_FW_DMA_CONTROL, 32'h0000_0020);
+    if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
+        fw_dma_mac_scheduler_enable || fw_dma_mac_tick_enable ||
+        !fw_dma_mac_stop) begin
+        fail("firmware DMA control outputs did not switch to stop-only");
+    end
 
     axi_write(REG_RF_TX_GUARD_CONTROL, 32'h0000_0000);
     if (rf_tx_enable || rf_tx_armed || rf_schedule_enable) fail("RF TX guard control outputs did not clear");

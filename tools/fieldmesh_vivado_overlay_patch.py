@@ -163,7 +163,7 @@ update_compile_order -fileset sources_1
 """
 
 
-def render_control_overlay(rf_guard_defaults: bool = True) -> str:
+def render_control_overlay(rf_guard_defaults: bool = True, fw_dma_defaults: bool = True) -> str:
     rf_guard_tieoffs = ""
     if rf_guard_defaults:
         rf_guard_tieoffs = """ad_connect GND fieldmesh_ctrl/rf_guard_pass_sample_count
@@ -177,12 +177,30 @@ ad_connect GND fieldmesh_ctrl/rf_dac_packet_count
 ad_connect GND fieldmesh_ctrl/rf_dac_underflow_count
 ad_connect GND fieldmesh_ctrl/rf_dac_active
 """
+    fw_dma_tieoffs = ""
+    if fw_dma_defaults:
+        fw_dma_tieoffs = """ad_connect GND fieldmesh_ctrl/fw_dma_mac_scheduler_active
+ad_connect GND fieldmesh_ctrl/fw_dma_pump_done
+ad_connect GND fieldmesh_ctrl/fw_dma_pump_drained_empty
+ad_connect GND fieldmesh_ctrl/fw_dma_pump_budget_exhausted
+ad_connect GND fieldmesh_ctrl/fw_dma_service_accepted
+ad_connect GND fieldmesh_ctrl/fw_dma_service_queued_count
+ad_connect GND fieldmesh_ctrl/fw_dma_service_selected_word
+ad_connect GND fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+ad_connect GND fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+ad_connect GND fieldmesh_ctrl/fw_dma_ingress_packet_count
+ad_connect GND fieldmesh_ctrl/fw_dma_ingress_drop_count
+ad_connect GND fieldmesh_ctrl/fw_dma_egress_packet_count
+ad_connect GND fieldmesh_ctrl/fw_dma_egress_drop_count
+ad_connect GND fieldmesh_ctrl/fw_dma_bram_error_count
+"""
     return f"""
 {BD_CTRL_BEGIN}
 create_bd_cell -type module -reference fieldmesh_sidecar_ctrl_axi_lite fieldmesh_ctrl
 ad_connect sys_cpu_clk fieldmesh_ctrl/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ctrl/s_axi_aresetn
 {rf_guard_tieoffs.rstrip()}
+{fw_dma_tieoffs.rstrip()}
 ad_cpu_interconnect 0x43C00000 fieldmesh_ctrl
 ad_cpu_interrupt ps-11 mb-11 fieldmesh_ctrl/irq
 {BD_CTRL_END}
@@ -262,9 +280,9 @@ create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fiel
 set_property -dict [list CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]
 ad_connect sys_cpu_clk fieldmesh_fw_dma_endpoint/clk
 ad_connect sys_cpu_reset fieldmesh_fw_dma_endpoint/rst
-ad_connect VCC fieldmesh_fw_dma_endpoint/enable
-ad_connect VCC fieldmesh_fw_dma_endpoint/ingress_enable
-ad_connect VCC fieldmesh_fw_dma_endpoint/egress_enable
+ad_connect fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
+ad_connect fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable
+ad_connect fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable
 ad_connect GND fieldmesh_fw_dma_endpoint/egress_start
 ad_connect GND fieldmesh_fw_dma_endpoint/egress_start_slot
 ad_connect GND fieldmesh_fw_dma_endpoint/peer_index
@@ -272,10 +290,24 @@ ad_connect GND fieldmesh_fw_dma_endpoint/mcs
 ad_connect GND fieldmesh_fw_dma_endpoint/retry_budget
 ad_connect GND fieldmesh_fw_dma_endpoint/descriptor_flags
 ad_connect GND fieldmesh_fw_dma_endpoint/seq_seed
-ad_connect VCC fieldmesh_fw_dma_endpoint/mac_scheduler_enable
-ad_connect VCC fieldmesh_fw_dma_endpoint/mac_tick
-ad_connect GND fieldmesh_fw_dma_endpoint/mac_stop
-ad_connect GND fieldmesh_fw_dma_endpoint/mac_service_budget
+ad_connect fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable
+ad_connect fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick
+ad_connect fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop
+ad_connect fieldmesh_ctrl/fw_dma_mac_service_budget fieldmesh_fw_dma_endpoint/mac_service_budget
+ad_connect fieldmesh_fw_dma_endpoint/mac_scheduler_active fieldmesh_ctrl/fw_dma_mac_scheduler_active
+ad_connect fieldmesh_fw_dma_endpoint/pump_done fieldmesh_ctrl/fw_dma_pump_done
+ad_connect fieldmesh_fw_dma_endpoint/pump_drained_empty fieldmesh_ctrl/fw_dma_pump_drained_empty
+ad_connect fieldmesh_fw_dma_endpoint/pump_budget_exhausted fieldmesh_ctrl/fw_dma_pump_budget_exhausted
+ad_connect fieldmesh_fw_dma_endpoint/service_accepted fieldmesh_ctrl/fw_dma_service_accepted
+ad_connect fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count
+ad_connect fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word
+ad_connect fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+ad_connect fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+ad_connect fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count
+ad_connect fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count
+ad_connect fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count
+ad_connect fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count
+ad_connect fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count
 
 ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
 ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma
@@ -527,7 +559,12 @@ def patch_system_bd(
             raise SystemExit("system_bd.tcl: expected ADI DMA interconnect anchor not found")
         if "ad_cpu_interrupt ps-12 mb-12 axi_ad9361_dac_dma/irq" not in text:
             raise SystemExit("system_bd.tcl: expected ADI DMA interrupt anchor not found")
-        blocks.append(render_control_overlay(rf_guard_defaults=not rf_engine_overlay))
+        blocks.append(
+            render_control_overlay(
+                rf_guard_defaults=not rf_engine_overlay,
+                fw_dma_defaults=not (dma_overlay and not rf_engine_overlay),
+            )
+        )
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
         blocks.append(
             render_bridge_overlay(
