@@ -2,6 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
+fieldmesh_set_jtag_defaults z103
 deploy_dir="${DEPLOY_DIR:-$repo_root/yocto/builds/sdr-z103-arm/tmp/deploy/images/sdr-z103-zynq7}"
 out_dir="${OUT_DIR:-$repo_root/.config/z103-yocto-ram-boot}"
 ps7_init="${PS7_INIT_TCL:-$repo_root/.config/z103-boot-artifacts/sdt/ps7_init.tcl}"

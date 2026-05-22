@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/tools/fieldmesh_image_paths.sh"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 variant="${1:-z203}"
 prepare_only="${PREPARE_ONLY:-0}"
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
@@ -18,6 +19,7 @@ esac
 
 case "$variant" in
   z203)
+    fieldmesh_set_jtag_defaults z203
     fieldmesh_resolve_image_paths z203 "$repo_root"
     deploy_dir="$FIELDMESH_DEPLOY_DIR"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux}"
@@ -30,6 +32,7 @@ case "$variant" in
     bootargs="${BOOTARGS:-console=ttyPS0,115200n8 rootfstype=ramfs root=/dev/ram0 rw earlyprintk clk_ignore_unused uboot=fieldmesh-z203-jtag-ram}"
     ;;
   z103)
+    fieldmesh_set_jtag_defaults z103
     fieldmesh_resolve_image_paths z103 "$repo_root"
     deploy_dir="$FIELDMESH_DEPLOY_DIR"
     linux_root="${LINUX_ROOT:-$repo_root/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux}"

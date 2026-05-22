@@ -2,12 +2,14 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 ps7_init="${PS7_INIT_TCL:-$repo_root/.config/boot-artifacts/sdt/ps7_init.tcl}"
 uboot_elf="${UBOOT_ELF:-$repo_root/.config/boot-artifacts/boot/u-boot.elf}"
 serial_dev="${SERIAL_DEV:-/dev/ttyUSB1}"
 capture="${CAPTURE:-}"
 run_seconds="${RUN_SECONDS:-25}"
 jtag_ps_reset="${JTAG_PS_RESET:-1}"
+ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -55,6 +57,7 @@ tcl_file="$(mktemp)"
 cleanup() {
   rm -f "$tcl_file"
   if [[ -n "$serial_pid" ]]; then
+    pkill -TERM -P "$serial_pid" 2>/dev/null || true
     wait "$serial_pid" 2>/dev/null || true
   fi
 }
@@ -63,6 +66,7 @@ trap cleanup EXIT
 cat >"$tcl_file" <<TCL
 adapter driver ftdi
 ftdi vid_pid 0x0403 0x6010
+$ftdi_serial_tcl
 ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none

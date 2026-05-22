@@ -10,6 +10,7 @@ z203_port="${Z203_PORT:-55441}"
 z103_port="${Z103_PORT:-55441}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
+ssh_connect_timeout_s="${SSH_CONNECT_TIMEOUT_S:-8}"
 timeout_ms="${TIMEOUT_MS:-10000}"
 bridge_request_timeout_ms="${BRIDGE_REQUEST_TIMEOUT_MS:-1000}"
 iperf_port="${IPERF_PORT:-5201}"
@@ -419,11 +420,23 @@ elif [ "$swarm_route_quickack" != "0" ]; then
     echo "SWARM_ROUTE_QUICKACK must be 0, 1, or auto" >&2
     exit 1
 fi
+if ! [[ "$ssh_connect_timeout_s" =~ ^[0-9]+$ ]] || [ "$ssh_connect_timeout_s" -lt 1 ] || [ "$ssh_connect_timeout_s" -gt 120 ]; then
+    echo "SSH_CONNECT_TIMEOUT_S must be an integer from 1 to 120" >&2
+    exit 1
+fi
 if ! [[ "$swarm_mtu" =~ ^[0-9]+$ ]] || [ "$swarm_mtu" -lt 296 ] || [ "$swarm_mtu" -gt 1200 ]; then
     echo "SWARM_MTU must be an integer from 296 to 1200" >&2
     exit 1
 fi
-ssh_args=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+ssh_args=(
+    -o StrictHostKeyChecking=no
+    -o UserKnownHostsFile=/dev/null
+    -o LogLevel=ERROR
+    -o ConnectTimeout="$ssh_connect_timeout_s"
+    -o ConnectionAttempts=1
+    -o ServerAliveInterval=2
+    -o ServerAliveCountMax=2
+)
 z203_remote="${ssh_user}@${z203_ip}"
 z103_remote="${ssh_user}@${z103_ip}"
 
@@ -765,6 +778,17 @@ query_hello() {
     request_daemon "$host" "$port" FIELDMESH_HELLO v1 src=host dst="$eui"
 }
 
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    "$repo_root/tools/fieldmesh_rf_fixture_evidence.py" \
+        --rf-path-evidence "$rf_path_evidence" \
+        --rf-path-id "$rf_path_id" \
+        --fixture-attenuation-db "$fixture_attenuation_db" \
+        --center-frequency-hz "$center_frequency_hz" \
+        --require-production-evidence \
+        --output "$out_dir/rf_path_evidence_check.json" \
+        >"$out_dir/rf_path_evidence_check_stdout.json"
+fi
+
 if ! {
     query_hello "$z203_ip" "$z203_port" 020000000203 >"$out_dir/z203_hello.json"
     query_hello "$z103_ip" "$z103_port" 020000000103 >"$out_dir/z103_hello.json"
@@ -804,17 +828,6 @@ PY
         | tee -a "$out_dir/iperf_gate.ndjson"
     echo "Capture directory: $out_dir"
     exit 1
-fi
-
-if [ "$allow_iio_rf_bridge" = "1" ]; then
-    "$repo_root/tools/fieldmesh_rf_fixture_evidence.py" \
-        --rf-path-evidence "$rf_path_evidence" \
-        --rf-path-id "$rf_path_id" \
-        --fixture-attenuation-db "$fixture_attenuation_db" \
-        --center-frequency-hz "$center_frequency_hz" \
-        --require-production-evidence \
-        --output "$out_dir/rf_path_evidence_check.json" \
-        >"$out_dir/rf_path_evidence_check_stdout.json"
 fi
 
 if [ "$host_pc_case" = "1" ] && [ "$allow_host_pc_routed_gate" != "1" ]; then

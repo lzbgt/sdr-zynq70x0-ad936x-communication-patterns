@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 bitstream="${1:-.config/vivado-hdl/hdl/projects/pluto/pluto.runs/impl_1/system_top.bit}"
+ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 
 if [[ ! -f "$bitstream" ]]; then
   echo "Bitstream not found: $bitstream" >&2
@@ -17,6 +20,7 @@ fi
 openocd -s /usr/share/openocd/scripts -c "
   adapter driver ftdi
   ftdi vid_pid 0x0403 0x6010
+  $ftdi_serial_tcl
   ftdi channel 0
   ftdi layout_init 0x0088 0x008b
   reset_config none

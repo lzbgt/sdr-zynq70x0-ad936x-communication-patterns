@@ -64,9 +64,14 @@ AXI-lite shell. The 2026-05-22 capped rebuild/package/install pass kept WSL
 memory stable and installed Z203 through the safe SD path; Z203 came back and
 passed daemon HELLO. Z103 accepted the refreshed `.frm` update, but did not
 return on the `192.168.3.1` USB/RNDIS management path afterward. The prepared
-JTAG/RAM recovery path could not start in this WSL session because
-`/dev/ttyUSB1` was not present, so the immediate live blocker is restoring Z103
-USB/JTAG attachment and boot visibility before further board-side verification.
+JTAG/RAM recovery path initially could not start in this WSL session because no
+FTDI UART/JTAG devices were attached to WSL. `usbipd` now exposes both FT2232H
+adapters to WSL, and the OpenOCD helpers select boards by FTDI serial
+(`AUQSDHWMXART` for Z203, `CKQCQFHQPUJB` for Z103) instead of relying on
+enumeration order. Z103 JTAG scan passes on the selected adapter, but JTAG RAM
+boot still fails at the DAP halt stage after the board-selective recovery
+attempt. The immediate live blocker is therefore Z103 boot recovery/visibility,
+not a missing WSL USB attachment.
 The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover

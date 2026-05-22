@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 boot_dir="${BOOT_DIR:-$repo_root/.config/sdcard-staging/yocto}"
 ps7_init="${PS7_INIT_TCL:-$repo_root/.config/boot-artifacts/sdt/ps7_init.tcl}"
 uboot_elf="${UBOOT_ELF:-$repo_root/.config/boot-artifacts/boot/u-boot.elf}"
@@ -28,6 +29,7 @@ uboot_command_delay_seconds="${UBOOT_COMMAND_DELAY_SECONDS:-3}"
 uboot_command_settle_seconds="${UBOOT_COMMAND_SETTLE_SECONDS:-1}"
 uboot_command_interval_seconds="${UBOOT_COMMAND_INTERVAL_SECONDS:-0.4}"
 bootargs="${BOOTARGS:-console=ttyPS0,115200n8 root=/dev/ram rw earlyprintk}"
+ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
 
 for path in "$ps7_init" "$uboot_elf" "$kernel_image" "$ramdisk_image" "$devicetree_image"; do
   if [[ ! -f "$path" ]]; then
@@ -129,6 +131,7 @@ cleanup() {
     wait "$interrupt_pid" 2>/dev/null || true
   fi
   if [[ -n "$serial_pid" ]]; then
+    pkill -TERM -P "$serial_pid" 2>/dev/null || true
     kill "$serial_pid" 2>/dev/null || true
     wait "$serial_pid" 2>/dev/null || true
   fi
@@ -138,6 +141,7 @@ trap cleanup EXIT
 cat >"$tcl_file" <<TCL
 adapter driver ftdi
 ftdi vid_pid 0x0403 0x6010
+$ftdi_serial_tcl
 ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none

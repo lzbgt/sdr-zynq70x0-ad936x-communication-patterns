@@ -313,6 +313,8 @@ required = [
     "IPERF_TCP_QUEUE_QUIET_GRACE_S",
     "IPERF_TCP_REVERSE",
     "IPERF_UDP_ONLY",
+    "SSH_CONNECT_TIMEOUT_S",
+    "ServerAliveCountMax=2",
     "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1",
     "fieldmesh_native_ip_iperf_udp_only_probe",
     "diagnostic_udp_only_probe",
@@ -658,6 +660,21 @@ fi
 if ! grep -q 'TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION must be 0 or 1' \
      "$work_dir/iperf_bad_tcp_dup_suppression.err"; then
   echo "native-IP iperf invalid TCP duplicate suppression refusal changed" >&2
+  exit 1
+fi
+
+if SSH_CONNECT_TIMEOUT_S=0 \
+   OUT_DIR="$work_dir/iperf-bad-ssh-connect-timeout" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_ssh_connect_timeout.out" \
+   2>"$work_dir/iperf_bad_ssh_connect_timeout.err"; then
+  echo "native-IP iperf gate accepted invalid SSH connect timeout" >&2
+  exit 1
+fi
+
+if ! grep -q 'SSH_CONNECT_TIMEOUT_S must be an integer from 1 to 120' \
+     "$work_dir/iperf_bad_ssh_connect_timeout.err"; then
+  echo "native-IP iperf invalid SSH connect timeout refusal changed" >&2
   exit 1
 fi
 
