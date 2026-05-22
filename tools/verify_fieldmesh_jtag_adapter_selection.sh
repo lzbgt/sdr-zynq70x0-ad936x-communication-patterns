@@ -11,6 +11,7 @@ repo = Path(sys.argv[1])
 
 openocd_scripts = [
     "tools/probe_openocd_jtag.sh",
+    "tools/probe_openocd_zynq_dap_halt.sh",
     "tools/reset_openocd_zynq_ps.sh",
     "tools/load_openocd_bitstream.sh",
     "tools/probe_openocd_ps7_post_config.sh",
@@ -35,6 +36,8 @@ for rel in openocd_scripts:
         missing.append(f"{rel}: does not emit board-selective adapter serial Tcl")
     if "adapter speed $adapter_speed" not in text:
         missing.append(f"{rel}: adapter speed is not environment-bound")
+    if "fieldmesh_openocd_no_gdb_tcl" not in text:
+        missing.append(f"{rel}: does not disable OpenOCD GDB port binding")
 
 for rel in [
     "tools/run_openocd_z103_jtag_uboot.sh",
@@ -46,11 +49,22 @@ for rel in [
     if "fieldmesh_set_jtag_defaults z103" not in text:
         missing.append(f"{rel}: missing Z103 FTDI/UART defaults")
 
+live_gate = (repo / "tools/run_fieldmesh_live_gate.sh").read_text(encoding="utf-8")
+for token in [
+    "RUN_DAP_HALT_PREFLIGHT",
+    "probe_openocd_zynq_dap_halt.sh",
+    "jtag_dap_halt_preflight",
+    "dap_halt_status",
+]:
+    if token not in live_gate:
+        missing.append(f"run_fieldmesh_live_gate.sh missing DAP preflight token: {token}")
+
 helper = (repo / "tools/fieldmesh_jtag_defaults.sh").read_text(encoding="utf-8")
 for token in [
     "z203) ftdi_serial=\"AUQSDHWMXART\"",
     "z103) ftdi_serial=\"CKQCQFHQPUJB\"",
     "adapter serial %s",
+    "gdb_port disabled",
     "/dev/serial/by-id",
 ]:
     if token not in helper:

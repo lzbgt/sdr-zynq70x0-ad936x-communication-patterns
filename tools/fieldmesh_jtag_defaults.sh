@@ -47,3 +47,7 @@ fieldmesh_openocd_ftdi_serial_tcl() {
   fi
   printf 'adapter serial %s\n' "$serial"
 }
+
+fieldmesh_openocd_no_gdb_tcl() {
+  printf 'gdb_port disabled\n'
+}

@@ -15,6 +15,7 @@ load_pl_bitstream="${LOAD_PL_BITSTREAM:-1}"
 run_post_config_before_fsbl="${RUN_POST_CONFIG_BEFORE_FSBL:-0}"
 probe_pl_axi_after_fsbl="${PROBE_PL_AXI_AFTER_FSBL:-0}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
+no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
 
 for path in "$ps7_init" "$fsbl_elf"; do
   if [[ ! -f "$path" ]]; then
@@ -91,6 +92,7 @@ ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none
 adapter speed $adapter_speed
+$no_gdb_tcl
 transport select jtag
 source [find target/zynq_7000.cfg]
 init

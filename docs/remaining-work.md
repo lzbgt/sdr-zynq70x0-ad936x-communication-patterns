@@ -71,7 +71,10 @@ adapters to WSL, and the OpenOCD helpers select boards by FTDI serial
 enumeration order; this now covers scan, reset, bitstream load, PS7
 post-config, PL AXI, hello, FSBL, U-Boot, FIT, QSPI-Linux, and split RAM boot
 helpers. Z103 JTAG scan passes on the selected adapter, and the selected
-PS7-post-config preflight reproduces the halt failure before SLCR reads. JTAG
+PS7-post-config preflight reproduces the halt failure before SLCR reads. The
+dedicated DAP-halt probe now classifies the live state as
+`dap_dscr_halt_timeout` with `requires_physical_power_cycle=true`, and the live
+gate records that result before skipping heavier RAM-boot payload loading. JTAG
 RAM boot still fails at the DAP halt stage after the board-selective recovery
 attempt. The immediate live blocker is therefore Z103 boot recovery/visibility,
 not a missing WSL USB attachment or FTDI adapter mix-up.

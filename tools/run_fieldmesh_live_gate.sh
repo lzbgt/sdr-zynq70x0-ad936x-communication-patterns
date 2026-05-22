@@ -8,6 +8,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 run_boot="${RUN_BOOT:-1}"
 run_preflight="${RUN_PREFLIGHT:-1}"
+run_dap_halt_preflight="${RUN_DAP_HALT_PREFLIGHT:-1}"
 wait_after_boot="${WAIT_AFTER_BOOT:-20}"
 timestamp="$(date +%Y%m%d-%H%M%S)"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/live-gate-$variant-$timestamp}"
@@ -62,8 +63,21 @@ run_step usb_reachability \
 
 run_step jtag_scan "$repo_root/tools/probe_openocd_jtag.sh" || overall=1
 
+dap_halt_status=0
+if [[ "$run_dap_halt_preflight" == "1" ]]; then
+  run_step jtag_dap_halt_preflight \
+    env OUT="$out_dir/jtag_dap_halt_preflight.json" \
+      "$repo_root/tools/probe_openocd_zynq_dap_halt.sh" "$variant"
+  dap_halt_status=$?
+  if [[ "$dap_halt_status" -ne 0 ]]; then
+    overall=1
+  fi
+else
+  record_skip jtag_dap_halt_preflight "RUN_DAP_HALT_PREFLIGHT=$run_dap_halt_preflight"
+fi
+
 boot_status=0
-if [[ "$run_boot" == "1" ]]; then
+if [[ "$run_boot" == "1" && "$dap_halt_status" -eq 0 ]]; then
   run_step fieldmesh_jtag_ram_boot \
     env OUT_DIR="$out_dir/jtag_ram_payload" \
       "$repo_root/tools/run_fieldmesh_jtag_yocto_ram.sh" "$variant"
@@ -72,7 +86,7 @@ if [[ "$run_boot" == "1" ]]; then
     overall=1
   fi
 else
-  record_skip fieldmesh_jtag_ram_boot "RUN_BOOT=$run_boot"
+  record_skip fieldmesh_jtag_ram_boot "RUN_BOOT=$run_boot dap_halt_status=$dap_halt_status"
   boot_status=1
 fi
 

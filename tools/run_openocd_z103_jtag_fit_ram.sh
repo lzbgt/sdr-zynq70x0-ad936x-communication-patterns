@@ -102,6 +102,7 @@ ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none
 adapter speed $adapter_speed
+$(fieldmesh_openocd_no_gdb_tcl)
 transport select jtag
 source [find target/zynq_7000.cfg]
 init

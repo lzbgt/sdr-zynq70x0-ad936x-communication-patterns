@@ -11,6 +11,7 @@ run_seconds="${RUN_SECONDS:-25}"
 jtag_ps_reset="${JTAG_PS_RESET:-1}"
 adapter_speed="${ADAPTER_SPEED:-1000}"
 ftdi_serial_tcl="$(fieldmesh_openocd_ftdi_serial_tcl)"
+no_gdb_tcl="$(fieldmesh_openocd_no_gdb_tcl)"
 
 if [[ ! -f "$ps7_init" ]]; then
   echo "PS7 init Tcl not found: $ps7_init" >&2
@@ -72,6 +73,7 @@ ftdi channel 0
 ftdi layout_init 0x0088 0x008b
 reset_config none
 adapter speed $adapter_speed
+$no_gdb_tcl
 transport select jtag
 source [find target/zynq_7000.cfg]
 init
