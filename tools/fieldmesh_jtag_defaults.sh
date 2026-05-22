@@ -51,3 +51,52 @@ fieldmesh_openocd_ftdi_serial_tcl() {
 fieldmesh_openocd_no_gdb_tcl() {
   printf 'gdb_port disabled\n'
 }
+
+fieldmesh_run_zynq_dap_halt_preflight() {
+  local repo_root="$1"
+  local variant="$2"
+  local capture="${3:-}"
+  local run_preflight="${RUN_DAP_HALT_PREFLIGHT:-1}"
+  local out_file="${DAP_HALT_PREFLIGHT_OUT:-}"
+  local rc=0
+
+  case "$run_preflight" in
+    0) return 0 ;;
+    1) ;;
+    *)
+      echo "RUN_DAP_HALT_PREFLIGHT must be 0 or 1" >&2
+      return 2
+      ;;
+  esac
+
+  if [[ ! -x "$repo_root/tools/probe_openocd_zynq_dap_halt.sh" ]]; then
+    echo "Missing DAP halt preflight helper: $repo_root/tools/probe_openocd_zynq_dap_halt.sh" >&2
+    return 1
+  fi
+
+  if [[ -n "$capture" ]]; then
+    mkdir -p "$(dirname "$capture")"
+    {
+      echo
+      echo "# Zynq DAP halt preflight"
+    } >>"$capture"
+  fi
+
+  set +e
+  if [[ -n "$capture" ]]; then
+    env OUT="$out_file" "$repo_root/tools/probe_openocd_zynq_dap_halt.sh" "$variant" 2>&1 | tee -a "$capture"
+    rc=${PIPESTATUS[0]}
+  elif [[ -n "$out_file" ]]; then
+    env OUT="$out_file" "$repo_root/tools/probe_openocd_zynq_dap_halt.sh" "$variant"
+    rc=$?
+  else
+    "$repo_root/tools/probe_openocd_zynq_dap_halt.sh" "$variant"
+    rc=$?
+  fi
+  set -e
+
+  if [[ "$rc" -ne 0 ]]; then
+    echo "Zynq DAP halt preflight failed for $variant; skip heavy JTAG boot until DAP state is recovered." >&2
+  fi
+  return "$rc"
+}

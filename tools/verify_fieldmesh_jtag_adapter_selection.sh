@@ -48,6 +48,16 @@ for rel in [
     text = (repo / rel).read_text(encoding="utf-8")
     if "fieldmesh_set_jtag_defaults z103" not in text:
         missing.append(f"{rel}: missing Z103 FTDI/UART defaults")
+    if "fieldmesh_run_zynq_dap_halt_preflight" not in text:
+        missing.append(f"{rel}: missing bounded Z103 DAP halt preflight")
+
+generic_ram = (repo / "tools/run_fieldmesh_jtag_yocto_ram.sh").read_text(encoding="utf-8")
+for token in [
+    'if [[ "$variant" == "z103" ]]',
+    "fieldmesh_run_zynq_dap_halt_preflight",
+]:
+    if token not in generic_ram:
+        missing.append(f"run_fieldmesh_jtag_yocto_ram.sh missing Z103 DAP preflight token: {token}")
 
 live_gate = (repo / "tools/run_fieldmesh_live_gate.sh").read_text(encoding="utf-8")
 for token in [
@@ -55,6 +65,7 @@ for token in [
     "probe_openocd_zynq_dap_halt.sh",
     "jtag_dap_halt_preflight",
     "dap_halt_status",
+    "RUN_DAP_HALT_PREFLIGHT=0",
 ]:
     if token not in live_gate:
         missing.append(f"run_fieldmesh_live_gate.sh missing DAP preflight token: {token}")
@@ -65,6 +76,8 @@ for token in [
     "z103) ftdi_serial=\"CKQCQFHQPUJB\"",
     "adapter serial %s",
     "gdb_port disabled",
+    "fieldmesh_run_zynq_dap_halt_preflight",
+    "RUN_DAP_HALT_PREFLIGHT must be 0 or 1",
     "/dev/serial/by-id",
 ]:
     if token not in helper:

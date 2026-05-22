@@ -58,6 +58,8 @@ if [[ "$prepare_only" = "1" ]]; then
   exit 0
 fi
 
+fieldmesh_run_zynq_dap_halt_preflight "$repo_root" z103 "${CAPTURE:-}"
+
 BOOT_DIR="$out_dir" \
 PS7_INIT_TCL="$ps7_init" \
 UBOOT_ELF="$uboot_elf" \

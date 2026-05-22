@@ -74,10 +74,13 @@ helpers. Z103 JTAG scan passes on the selected adapter, and the selected
 PS7-post-config preflight reproduces the halt failure before SLCR reads. The
 dedicated DAP-halt probe now classifies the live state as
 `dap_dscr_halt_timeout` with `requires_physical_power_cycle=true`, and the live
-gate records that result before skipping heavier RAM-boot payload loading. JTAG
-RAM boot still fails at the DAP halt stage after the board-selective recovery
-attempt. The immediate live blocker is therefore Z103 boot recovery/visibility,
-not a missing WSL USB attachment or FTDI adapter mix-up.
+gate records that result before skipping heavier RAM-boot payload loading.
+Direct Z103 JTAG boot helpers now run the same bounded preflight before
+U-Boot/FIT/QSPI/split-RAM payload loading, unless explicitly disabled with
+`RUN_DAP_HALT_PREFLIGHT=0`. JTAG RAM boot still fails at the DAP halt stage
+after the board-selective recovery attempt. The immediate live blocker is
+therefore Z103 boot recovery/visibility, not a missing WSL USB attachment or
+FTDI adapter mix-up.
 The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover
@@ -754,7 +757,10 @@ Open live gates:
   `rootfs.cpio.gz` as legacy U-Boot images and loads kernel/ramdisk/devicetree
   separately. Its first live run still failed before image loading at the PS
   debug reset/halt boundary: invalid DAP ACKs, `JTAG-DP STICKY ERROR`, and
-  `timeout waiting for DSCR bit change`.
+  `timeout waiting for DSCR bit change`. The Z103-specific JTAG boot helpers
+  now run `tools/probe_openocd_zynq_dap_halt.sh z103` first and stop on the
+  classified `dap_dscr_halt_timeout` state, avoiding heavier OpenOCD payload
+  loading until a clean DAP halt is restored.
 - Reconcile source-level mismatches before relying on generated artifacts for
   flash: schematic/user evidence says no SD-card wiring, while `system_bd.tcl`
   enables PS SD0; live board is 1R1T, while `system_bd.tcl` sets

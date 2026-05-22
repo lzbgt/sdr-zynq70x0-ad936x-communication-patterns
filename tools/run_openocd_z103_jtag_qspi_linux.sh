@@ -52,6 +52,8 @@ if [[ -n "$capture" ]]; then
   } >>"$capture"
 fi
 
+fieldmesh_run_zynq_dap_halt_preflight "$repo_root" z103 "$capture"
+
 if [[ "$jtag_ps_reset" != "0" ]]; then
   if [[ -n "$capture" ]]; then
     "$repo_root/tools/reset_openocd_zynq_ps.sh" 2>&1 | tee -a "$capture"

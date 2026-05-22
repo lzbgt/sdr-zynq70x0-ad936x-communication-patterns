@@ -131,6 +131,10 @@ if [[ "$prepare_only" = "1" ]]; then
   exit 0
 fi
 
+if [[ "$variant" == "z103" ]]; then
+  fieldmesh_run_zynq_dap_halt_preflight "$repo_root" "$variant" "${CAPTURE:-}"
+fi
+
 BOOT_DIR="$out_dir/boot" \
 PS7_INIT_TCL="$ps7_init" \
 UBOOT_ELF="$uboot_elf" \

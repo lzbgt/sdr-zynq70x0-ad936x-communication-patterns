@@ -16,7 +16,10 @@ The current offline boundary is complete enough for a live boot attempt:
 
 The remaining gate is physical: the current Z103 state has shown JTAG TAP
 visibility but PS-side DAP/DSCR errors. The next useful live attempt should
-start only after a real JTAG-mode power cycle.
+start only after a real JTAG-mode power cycle. Direct Z103 JTAG boot helpers
+now run the same bounded DAP-halt preflight before loading U-Boot, FIT, QSPI,
+or split-RAM payloads, so a sticky DAP state fails fast instead of spending
+minutes on payload setup that cannot succeed.
 
 ## Latest Z103 Capture
 
@@ -51,8 +54,9 @@ The runner writes a timestamped directory under `.config/fieldmesh/` and runs:
 2. `PREPARE_ONLY=1 run_fieldmesh_jtag_yocto_ram.sh <variant>`
 3. `diagnose_pluto_usb_reachability.sh`
 4. `probe_openocd_jtag.sh`
-5. `run_fieldmesh_jtag_yocto_ram.sh <variant>`
-6. `run_fieldmesh_board_sidecar_preflight.sh`, only if the RAM boot command
+5. `probe_openocd_zynq_dap_halt.sh <variant>`
+6. `run_fieldmesh_jtag_yocto_ram.sh <variant>`, only if DAP halt passes
+7. `run_fieldmesh_board_sidecar_preflight.sh`, only if the RAM boot command
    exits successfully
 
 It writes `status.tsv` with each step, exit status, and log path.
@@ -61,6 +65,7 @@ Useful controls:
 
 ```sh
 RUN_BOOT=0 ./tools/run_fieldmesh_live_gate.sh z103
+RUN_DAP_HALT_PREFLIGHT=0 ./tools/run_fieldmesh_live_gate.sh z103
 RUN_PREFLIGHT=0 ./tools/run_fieldmesh_live_gate.sh z103
 BOARD_IP=192.168.2.1 WAIT_AFTER_BOOT=30 ./tools/run_fieldmesh_live_gate.sh z103
 ```
@@ -71,6 +76,7 @@ A useful pass has:
 
 - runtime artifact verifier status `0`
 - JTAG scan status `0`
+- DAP halt preflight status `0`
 - FieldMesh JTAG RAM boot status `0`
 - sidecar preflight status `0`
 - `sidecar_preflight/preflight_assert.json` with

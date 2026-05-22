@@ -9,4 +9,6 @@ export PS7_INIT_TCL="${PS7_INIT_TCL:-$repo_root/.config/z103-boot-artifacts/sdt/
 export UBOOT_ELF="${UBOOT_ELF:-$repo_root/.config/z103-boot-artifacts/boot/u-boot.elf}"
 export RUN_SECONDS="${RUN_SECONDS:-25}"
 
+fieldmesh_run_zynq_dap_halt_preflight "$repo_root" z103 "${CAPTURE:-}"
+
 "$repo_root/tools/run_openocd_jtag_uboot.sh" "$@"

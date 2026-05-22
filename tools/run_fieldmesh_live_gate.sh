@@ -80,6 +80,7 @@ boot_status=0
 if [[ "$run_boot" == "1" && "$dap_halt_status" -eq 0 ]]; then
   run_step fieldmesh_jtag_ram_boot \
     env OUT_DIR="$out_dir/jtag_ram_payload" \
+      RUN_DAP_HALT_PREFLIGHT=0 \
       "$repo_root/tools/run_fieldmesh_jtag_yocto_ram.sh" "$variant"
   boot_status=$?
   if [[ "$boot_status" -ne 0 ]]; then
