@@ -68,11 +68,14 @@ service the same autonomous queued-slot selection expected by the later
 BRAM/DMA MAC path: lowest traffic class first, with malformed queued slots
 retired after valid traffic. The stats ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
-RX-ready, TX-done, drop, and error events. The C helper API now separates
-RAM-model IRQ clearing from hardware write-one-to-clear acknowledgement, which
-keeps future UIO/driver code from using read-modify-write semantics on a PL
-register. IRQ mask writes are split the same way, with separate RAM-model and
-hardware register helpers. The daemon now has guarded
+RX-ready, TX-done, drop, and error events. C and daemon status now expose the
+masked pending bits and asserted predicate directly, so the future UIO/driver
+path does not need to duplicate register-level IRQ logic. The C helper API now
+separates RAM-model IRQ clearing from hardware write-one-to-clear
+acknowledgement, which keeps future UIO/driver code from using
+read-modify-write semantics on a PL register. IRQ mask writes are split the
+same way, with separate RAM-model and hardware register helpers. The daemon now
+has guarded
 `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK` and
 `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` commands for arming and acknowledging
 those IRQ bits; without `ALLOW_FIRMWARE_RING_WRITES` they report the guard and

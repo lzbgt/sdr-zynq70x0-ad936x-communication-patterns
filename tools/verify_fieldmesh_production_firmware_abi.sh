@@ -63,7 +63,9 @@ int main(void) {
     if (stats.irq_mask != FIELDMESH_FW_RING_IRQ_RX_READY) {
         return 5;
     }
-    if (!fieldmesh_fw_ring_irq_asserted(&stats)) {
+    if (fieldmesh_fw_ring_irq_pending_bits(&stats) !=
+            FIELDMESH_FW_RING_IRQ_RX_READY ||
+        !fieldmesh_fw_ring_irq_asserted(&stats)) {
         return 6;
     }
     fieldmesh_fw_ring_irq_clear_ram(&stats, FIELDMESH_FW_RING_IRQ_RX_READY);
@@ -390,6 +392,7 @@ required = [
     "FIELDMESH_FW_RING_SELECTED_VALID",
     "FIELDMESH_FW_RING_IRQ_ALL",
     "fieldmesh_fw_ring_irq_asserted",
+    "fieldmesh_fw_ring_irq_pending_bits",
     "fieldmesh_fw_ring_irq_mark",
     "fieldmesh_fw_ring_irq_clear_ram",
     "fieldmesh_fw_ring_irq_mask_ram",

@@ -367,12 +367,15 @@ Daemon status exposes descriptor-level ring pressure counters from the same C
 ABI accessors used by the packet path: TX queued, TX owned by PL, TX done, RX
 ready, RX non-free, valid ACK slots, and the fixed PL pressure words
 `queued`/`selected`. The stats block also has masked `irq_status`/`irq_mask`
-bits for RX-ready, TX-done, drop, and error events, so the future driver can
-block on PL completions instead of polling the ring. The hardware aperture uses
-write-one-to-clear `irq_status`; RAM-backed probes use the separate RAM clear
-helper so the C API cannot hide the register side effect. The IRQ mask write is
-also explicit: RAM-backed probes call `fieldmesh_fw_ring_irq_mask_ram()`, while
-UIO/PL code calls `fieldmesh_fw_ring_irq_mask_write()`. The daemon exposes
+bits for RX-ready, TX-done, drop, and error events, plus a C helper
+`fieldmesh_fw_ring_irq_pending_bits()` and daemon status fields for the masked
+pending bits and asserted predicate. The future driver can use that predicate
+to block on PL completions instead of polling the ring. The hardware aperture
+uses write-one-to-clear `irq_status`; RAM-backed probes use the separate RAM
+clear helper so the C API cannot hide the register side effect. The IRQ mask
+write is also explicit: RAM-backed probes call
+`fieldmesh_fw_ring_irq_mask_ram()`, while UIO/PL code calls
+`fieldmesh_fw_ring_irq_mask_write()`. The daemon exposes
 guarded `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_MASK` and
 `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK` control commands that touch hardware
 only when `ALLOW_FIRMWARE_RING_WRITES` is present; the default query path is

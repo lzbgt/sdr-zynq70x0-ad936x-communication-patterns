@@ -588,10 +588,11 @@ requires both `ALLOW_LIVE_TUN_READ` and `ALLOW_LIVE_TUN_WRITE`, opens the
 existing board-local `swarm0`, owns the FieldMesh adapter until stop, and
 multiplexes the UDP control socket with the TUN fd using a bounded poll-style
 loop. Status exposes packet/byte counters, poll wakeups, idle ticks, RF-facing
-BLR `APP_DATA` frame counters, and firmware-ring IRQ words. Firmware IRQ mask
-and ACK writes are guarded by `ALLOW_FIRMWARE_RING_WRITES`; ACK uses the PL
-write-one-to-clear register contract. Native IP packets now cross a binary MAC
-frame encode/decode boundary before they are
+BLR `APP_DATA` frame counters, firmware-ring IRQ words, masked pending bits,
+and the asserted IRQ predicate. Firmware IRQ mask and ACK writes are guarded by
+`ALLOW_FIRMWARE_RING_WRITES`; ACK uses the PL write-one-to-clear register
+contract. Native IP packets now cross a binary MAC frame encode/decode boundary
+before they are
 drained back to `swarm0`; the service now uses explicit TX/RX RF transport
 queues. `driver_queue` is the default service transport and exposes
 `FIELDMESH_RF_TX_LEASE` / `FIELDMESH_RF_TX_ACK`,

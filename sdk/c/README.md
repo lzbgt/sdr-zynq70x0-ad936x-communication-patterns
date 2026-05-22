@@ -78,8 +78,10 @@ in `src/fieldmesh_sdk.c`:
   status surfaces those same words as `firmware_ring_pressure_queued` and
   `firmware_ring_pressure_selected`. The stats view also includes masked
   `irq_status`/`irq_mask` bits for RX-ready, TX-done, drop, and error events
-  so future daemon/driver code can block on PL completions instead of polling
-  the ring. Hardware acknowledgement is explicitly write-one-to-clear through
+  plus `fieldmesh_fw_ring_irq_pending_bits()`, so future daemon/driver code can
+  block on PL completions instead of polling the ring. Daemon status reports
+  both `firmware_ring_irq_pending` and `firmware_ring_irq_asserted`. Hardware
+  acknowledgement is explicitly write-one-to-clear through
   `fieldmesh_fw_ring_irq_ack_w1c()`; RAM-backed probes use
   `fieldmesh_fw_ring_irq_clear_ram()` instead. IRQ mask writes are similarly
   split between `fieldmesh_fw_ring_irq_mask_ram()` and

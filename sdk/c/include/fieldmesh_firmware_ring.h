@@ -49,6 +49,13 @@ static inline int fieldmesh_fw_ring_irq_asserted(
     return stats && (stats->irq_status & stats->irq_mask) != 0u;
 }
 
+static inline uint32_t fieldmesh_fw_ring_irq_pending_bits(
+    const volatile fieldmesh_fw_ring_stats_t *stats)
+{
+    return stats ? (stats->irq_status & stats->irq_mask &
+                    FIELDMESH_FW_RING_IRQ_ALL) : 0u;
+}
+
 static inline void fieldmesh_fw_ring_irq_mark(fieldmesh_fw_ring_stats_t *stats,
                                               uint32_t bits)
 {
