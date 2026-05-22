@@ -18,8 +18,10 @@ checks = {
         'BOARD_IP="${BOARD_IP:-192.168.3.1}"',
     ],
     "tools/run_fieldmesh_live_gate.sh": [
+        'fieldmesh_set_jtag_defaults z203',
         'z203)',
         'board_ip="${board_ip:-192.168.1.10}"',
+        'fieldmesh_set_jtag_defaults z103',
         'z103)',
         'board_ip="${board_ip:-192.168.3.1}"',
         'diagnose_pluto_usb_reachability.sh" "$board_ip"',

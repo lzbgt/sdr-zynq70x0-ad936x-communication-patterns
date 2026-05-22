@@ -61,7 +61,14 @@ for token in [
 
 live_gate = (repo / "tools/run_fieldmesh_live_gate.sh").read_text(encoding="utf-8")
 for token in [
+    "fieldmesh_jtag_defaults.sh",
+    'fieldmesh_set_jtag_defaults z203',
+    'fieldmesh_set_jtag_defaults z103',
+    "validate_bool RUN_BOOT",
+    "validate_bool RUN_PREFLIGHT",
     "RUN_DAP_HALT_PREFLIGHT",
+    "validate_bool RUN_DAP_HALT_PREFLIGHT",
+    "WAIT_AFTER_BOOT must be a non-negative integer",
     "probe_openocd_zynq_dap_halt.sh",
     "jtag_dap_halt_preflight",
     "dap_halt_status",

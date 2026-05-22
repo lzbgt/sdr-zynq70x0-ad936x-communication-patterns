@@ -82,7 +82,9 @@ after the board-selective recovery attempt. The immediate live blocker is
 therefore Z103 boot recovery/visibility, not a missing WSL USB attachment or
 FTDI adapter mix-up. Z103-specific recovery helpers now default to the current
 split-subnet management address `192.168.3.1`; the old `192.168.2.1` path is
-kept only as an explicit override for factory/default Pluto checks.
+kept only as an explicit override for factory/default Pluto checks. The live
+gate also applies board-selective FTDI serial defaults before JTAG scan, so
+adapter enumeration changes do not redirect recovery probes to the wrong board.
 The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover

@@ -73,7 +73,10 @@ BOARD_IP=192.168.3.1 WAIT_AFTER_BOOT=30 ./tools/run_fieldmesh_live_gate.sh z103
 `run_fieldmesh_live_gate.sh z103` now defaults to the current split-subnet Z103
 management address `192.168.3.1`; pass `BOARD_IP=...` only when intentionally
 checking an older factory/default Pluto subnet. The Z203 default is
-`192.168.1.10`, matching the current connected-board install profile.
+`192.168.1.10`, matching the current connected-board install profile. The
+runner also selects the OpenOCD FTDI serial by variant before JTAG scan or DAP
+halt preflight, so Z203/Z103 adapter ordering in WSL cannot silently change the
+target board.
 
 ## Pass Criteria
 

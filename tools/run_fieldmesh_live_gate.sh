@@ -2,6 +2,7 @@
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/tools/fieldmesh_jtag_defaults.sh"
 variant="${1:-z103}"
 board_ip="${BOARD_IP:-}"
 ssh_user="${SSH_USER:-root}"
@@ -14,11 +15,25 @@ timestamp="$(date +%Y%m%d-%H%M%S)"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/live-gate-$variant-$timestamp}"
 status_file="$out_dir/status.tsv"
 
+validate_bool() {
+  local name="$1"
+  local value="$2"
+  case "$value" in
+    0|1) ;;
+    *)
+      echo "$name must be 0 or 1" >&2
+      exit 2
+      ;;
+  esac
+}
+
 case "$variant" in
   z203)
+    fieldmesh_set_jtag_defaults z203
     board_ip="${board_ip:-192.168.1.10}"
     ;;
   z103)
+    fieldmesh_set_jtag_defaults z103
     board_ip="${board_ip:-192.168.3.1}"
     ;;
   *)
@@ -26,6 +41,14 @@ case "$variant" in
     exit 2
     ;;
 esac
+
+validate_bool RUN_BOOT "$run_boot"
+validate_bool RUN_PREFLIGHT "$run_preflight"
+validate_bool RUN_DAP_HALT_PREFLIGHT "$run_dap_halt_preflight"
+if ! [[ "$wait_after_boot" =~ ^[0-9]+$ ]]; then
+  echo "WAIT_AFTER_BOOT must be a non-negative integer" >&2
+  exit 2
+fi
 
 mkdir -p "$out_dir"
 printf 'step\tstatus\tlog\n' >"$status_file"
