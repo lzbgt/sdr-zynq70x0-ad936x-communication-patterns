@@ -77,7 +77,11 @@ copy, final-word byte strobes, explicit zero-length/alignment/bounds rejection,
 and copy/fault counters. `fieldmesh_firmware_packet_bram_service` composes
 descriptor validation, that BRAM mover, and RX/ACK metadata publication for one
 full-MTU serviced slot, so RX descriptors are not exposed before packet bytes
-land in RX storage. The stats ABI now includes compact `queued` and
+land in RX storage. `fieldmesh_firmware_packet_bram_service_bank` now composes
+the queued-slot picker with that BRAM service and latches the selected TX
+descriptor before copy launch, making the full-MTU path reusable by the later
+BRAM/AXI RAM or DMA endpoint without coupling it to AXI-lite storage. The stats
+ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
 masked pending bits and asserted predicate directly, so the future UIO/driver

@@ -215,6 +215,10 @@ adds the matching sequential packet mover over that arena, with explicit
 alignment, length, bounds, final-word strobe, and fault-counter behavior.
 `fieldmesh_firmware_packet_bram_service.v` composes the TX descriptor gate,
 BRAM copy engine, and RX/ACK builder for one full-MTU serviced slot.
+`fieldmesh_firmware_packet_bram_service_bank.v` adds the queued-slot picker and
+descriptor latch around that service so a later BRAM/AXI RAM or DMA endpoint
+can select one queued slot at a time without widening the AXI-lite diagnostic
+register array.
 
 The first control-only block-design overlay is opt-in:
 

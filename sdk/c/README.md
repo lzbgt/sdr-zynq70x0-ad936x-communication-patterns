@@ -71,6 +71,9 @@ in `src/fieldmesh_sdk.c`:
   packet-word copy for one serviced slot, and
   `fieldmesh_firmware_packet_service_bank` selects that service across a
   multi-slot serviced window for AXI-lite, BRAM, or DMA-backed storage.
+  `fieldmesh_firmware_packet_bram_service_bank` performs the same selection
+  and descriptor-latch policy for the full-MTU BRAM service path, then launches
+  one bounded BRAM copy through the packet arena.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and
