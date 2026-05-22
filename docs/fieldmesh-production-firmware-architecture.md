@@ -299,7 +299,11 @@ separate service blocks. `fieldmesh_firmware_packet_bram_copy` is the matching
 sequential full-MTU packet mover: it copies one aligned variable-length payload
 between BRAM offsets through the word-port contract, applies final-word byte
 strobes, rejects zero-length, unaligned, and out-of-arena requests, and reports
-copy, bounds, and BRAM fault counters. The stats block now keeps the fixed counters plus
+copy, bounds, and BRAM fault counters. `fieldmesh_firmware_packet_bram_service`
+is the first full-MTU service composition: it validates one queued TX
+descriptor, drives the BRAM copy engine from TX arena to RX arena, and exposes
+RX descriptor and ACK metadata only after packet bytes are present in RX
+storage. The stats block now keeps the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
 words as `firmware_ring_pressure_queued` and

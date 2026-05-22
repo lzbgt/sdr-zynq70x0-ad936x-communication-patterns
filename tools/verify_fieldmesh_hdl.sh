@@ -22,6 +22,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_service_slot_picker.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_packet_bram.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_packet_bram_copy.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_firmware_packet_bram_service.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_ring_axi_lite.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v" \
@@ -53,6 +54,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_service_slot_picker_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_packet_bram_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_packet_bram_copy_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_firmware_packet_bram_service_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_ring_axi_lite_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_mem_axi_lite_tb.v" \
@@ -95,6 +97,7 @@ run_tb fieldmesh_firmware_packet_service_bank_tb
 run_tb fieldmesh_firmware_service_slot_picker_tb
 run_tb fieldmesh_firmware_packet_bram_tb
 run_tb fieldmesh_firmware_packet_bram_copy_tb
+run_tb fieldmesh_firmware_packet_bram_service_tb
 run_tb fieldmesh_firmware_ring_axi_lite_tb
 run_tb fieldmesh_packet_mem_loopback_core_tb
 run_tb fieldmesh_packet_mem_axi_lite_tb

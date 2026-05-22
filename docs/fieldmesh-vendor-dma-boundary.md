@@ -213,6 +213,8 @@ and MAC scheduling so the later BRAM/DMA endpoint does not depend on the
 AXI-lite diagnostic register array. `fieldmesh_firmware_packet_bram_copy.v`
 adds the matching sequential packet mover over that arena, with explicit
 alignment, length, bounds, final-word strobe, and fault-counter behavior.
+`fieldmesh_firmware_packet_bram_service.v` composes the TX descriptor gate,
+BRAM copy engine, and RX/ACK builder for one full-MTU serviced slot.
 
 The first control-only block-design overlay is opt-in:
 
