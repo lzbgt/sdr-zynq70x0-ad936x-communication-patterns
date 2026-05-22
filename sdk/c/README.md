@@ -66,7 +66,9 @@ in `src/fieldmesh_sdk.c`:
   descriptor-local semantic checks, and packet-window admission for both this
   shell and the later BRAM/DMA MAC path, while
   `fieldmesh_firmware_rx_ack_builder` owns ABI-valid RX descriptor plus ACK
-  construction from MAC service metadata. The service generates RX descriptor
+  construction from MAC service metadata.
+  `fieldmesh_firmware_packet_service_core` composes those blocks with bounded
+  packet-word copy for one serviced slot. The service generates RX descriptor
   CRC32C and ACK CRC16 so the C UIO probe validates PL-published descriptors
   through the production ABI helpers; the production MAC/DMA packet-memory
   engine must still add FEC integrity and full-MTU

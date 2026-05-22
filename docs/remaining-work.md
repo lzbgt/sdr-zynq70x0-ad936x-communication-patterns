@@ -55,8 +55,10 @@ diagnostic service now uses the reusable
 `fieldmesh_firmware_tx_service_gate` RTL gate for TX descriptor CRC32C,
 descriptor-local semantic checks, and packet-window admission plus
 `fieldmesh_firmware_rx_ack_builder` for ABI-valid RX descriptor and ACK
-construction, and clears stale RX/ACK output state after rejected TX service
-attempts. This
+construction. `fieldmesh_firmware_packet_service_core` now composes those
+blocks with bounded packet-word copy for one serviced slot, while the AXI-lite
+wrapper still owns storage, service triggering, output clearing, and counters.
+This
 diagnostic PL service remains enabled on Z203, but is synthesized out on
 Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared
 C firmware boundary without exceeding LUT/slice capacity. This

@@ -99,7 +99,8 @@ reg [31:0] stats [0:STATS_WORDS - 1];
 wire [PL_SERVICE_SLOTS-1:0] service_accepted;
 wire [PL_SERVICE_SLOTS-1:0] service_crc_error;
 wire [PL_SERVICE_SLOTS-1:0] service_bounds_error;
-wire [15:0] service_payload_words [0:PL_SERVICE_SLOTS - 1];
+wire [PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_tx_packet_words [0:PL_SERVICE_SLOTS - 1];
+wire [PL_PACKET_WORDS_PER_SLOT * 32 - 1:0] service_rx_packet_words [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] rx_build0 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] rx_build1 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] rx_build2 [0:PL_SERVICE_SLOTS - 1];
@@ -116,45 +117,42 @@ wire [31:0] ack_build3 [0:PL_SERVICE_SLOTS - 1];
 wire [31:0] ack_build4 [0:PL_SERVICE_SLOTS - 1];
 
 genvar service_i;
+genvar service_word_i;
 generate
     for (service_i = 0;
          service_i < PL_SERVICE_SLOTS;
          service_i = service_i + 1) begin : service_slots
         localparam TX_DESC_SERVICE_BASE = service_i * TX_DESC_WORDS;
+        localparam PACKET_SERVICE_BASE = service_i * PL_PACKET_WORDS_PER_SLOT;
         localparam [15:0] SERVICE_SLOT = service_i;
-        localparam [31:0] RX_PAYLOAD_OFFSET = service_i * PACKET_STRIDE;
-        fieldmesh_firmware_tx_service_gate #(
+        for (service_word_i = 0;
+             service_word_i < PL_PACKET_WORDS_PER_SLOT;
+             service_word_i = service_word_i + 1) begin : service_packet_words
+            assign service_tx_packet_words[service_i][service_word_i * 32 +: 32] =
+                tx_packet[PACKET_SERVICE_BASE + service_word_i];
+        end
+        fieldmesh_firmware_packet_service_core #(
             .RING_SLOTS(RING_SLOTS),
             .PACKET_STRIDE(PACKET_STRIDE),
             .PL_PACKET_WORDS_PER_SLOT(PL_PACKET_WORDS_PER_SLOT)
-        ) service_gate (
+        ) service_core (
             .slot(SERVICE_SLOT),
-            .word0(tx_desc[TX_DESC_SERVICE_BASE + 0]),
-            .word1(tx_desc[TX_DESC_SERVICE_BASE + 1]),
-            .word2(tx_desc[TX_DESC_SERVICE_BASE + 2]),
-            .word3(tx_desc[TX_DESC_SERVICE_BASE + 3]),
-            .word4(tx_desc[TX_DESC_SERVICE_BASE + 4]),
-            .word5(tx_desc[TX_DESC_SERVICE_BASE + 5]),
-            .word6(tx_desc[TX_DESC_SERVICE_BASE + 6]),
-            .word7(tx_desc[TX_DESC_SERVICE_BASE + 7]),
-            .word8(tx_desc[TX_DESC_SERVICE_BASE + 8]),
-            .word9(tx_desc[TX_DESC_SERVICE_BASE + 9]),
-            .crc_ok(),
-            .desc_valid(),
+            .tx_word0(tx_desc[TX_DESC_SERVICE_BASE + 0]),
+            .tx_word1(tx_desc[TX_DESC_SERVICE_BASE + 1]),
+            .tx_word2(tx_desc[TX_DESC_SERVICE_BASE + 2]),
+            .tx_word3(tx_desc[TX_DESC_SERVICE_BASE + 3]),
+            .tx_word4(tx_desc[TX_DESC_SERVICE_BASE + 4]),
+            .tx_word5(tx_desc[TX_DESC_SERVICE_BASE + 5]),
+            .tx_word6(tx_desc[TX_DESC_SERVICE_BASE + 6]),
+            .tx_word7(tx_desc[TX_DESC_SERVICE_BASE + 7]),
+            .tx_word8(tx_desc[TX_DESC_SERVICE_BASE + 8]),
+            .tx_word9(tx_desc[TX_DESC_SERVICE_BASE + 9]),
+            .tx_packet_words(service_tx_packet_words[service_i]),
             .accepted(service_accepted[service_i]),
             .crc_error(service_crc_error[service_i]),
             .bounds_error(service_bounds_error[service_i]),
-            .payload_len(),
-            .payload_words(service_payload_words[service_i]),
-            .payload_word_offset(),
-            .expected_payload_word_offset()
-        );
-        fieldmesh_firmware_rx_ack_builder rx_ack_builder (
-            .seq(tx_desc[TX_DESC_SERVICE_BASE + 2]),
-            .peer_index(tx_desc[TX_DESC_SERVICE_BASE + 1][15:0]),
-            .mcs(tx_desc[TX_DESC_SERVICE_BASE + 1][23:16]),
-            .payload_len(tx_desc[TX_DESC_SERVICE_BASE + 6][15:0]),
-            .rx_payload_offset(RX_PAYLOAD_OFFSET),
+            .payload_words(),
+            .rx_packet_words(service_rx_packet_words[service_i]),
             .rx_word0(rx_build0[service_i]),
             .rx_word1(rx_build1[service_i]),
             .rx_word2(rx_build2[service_i]),
@@ -377,9 +375,8 @@ task service_slot_immediate;
             inc_stat(16'd5);
         end else if (service_accepted[slot]) begin
             for (word_i = 0; word_i < PL_PACKET_WORDS_PER_SLOT; word_i = word_i + 1) begin
-                if (word_i < service_payload_words[slot]) begin
-                    rx_packet[packet_base + word_i] <= tx_packet[packet_base + word_i];
-                end
+                rx_packet[packet_base + word_i] <=
+                    service_rx_packet_words[slot][word_i * 32 +: 32];
             end
 
             rx_desc[rx_desc_base + 0] <= rx_build0[slot];
