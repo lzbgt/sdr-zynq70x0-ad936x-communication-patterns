@@ -236,6 +236,22 @@ static inline void fieldmesh_fw_ring_reset(fieldmesh_fw_ring_view_t *ring)
     fieldmesh_fw_ring_zero_bytes(ring->stats, (uint32_t)sizeof(*ring->stats));
 }
 
+static inline uint32_t fieldmesh_fw_ring_tx_free_count(
+    const fieldmesh_fw_ring_view_t *ring)
+{
+    uint32_t free_count = 0u;
+    if (!fieldmesh_fw_ring_config_valid(ring)) {
+        return 0u;
+    }
+    for (uint32_t slot = 0; slot < ring->slots; ++slot) {
+        if (fieldmesh_fw_tx_desc_v1_state(&ring->tx[slot]) ==
+            FIELDMESH_FW_STATE_FREE) {
+            free_count++;
+        }
+    }
+    return free_count;
+}
+
 static inline int fieldmesh_fw_ring_enqueue(
     fieldmesh_fw_ring_view_t *ring,
     uint8_t traffic_class,

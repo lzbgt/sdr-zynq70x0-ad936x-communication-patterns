@@ -229,6 +229,71 @@ static int run_packet_bridge(fieldmesh_fw_ring_view_t *ring,
            *sync_ok;
 }
 
+static int run_lossy_pump(fieldmesh_fw_ring_view_t *ring,
+                          int sync_required,
+                          void *sync_base,
+                          uint32_t sync_bytes,
+                          int *sync_ok,
+                          int *lossy_pumped,
+                          int *lossy_drained,
+                          fieldmesh_fw_packet_bridge_t *bridge)
+{
+    static const uint8_t bad_packet[8] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    };
+    static const uint8_t udp_packet[32] = {
+        0x45, 0x00, 0x00, 0x20, 0x00, 0x03, 0x00, 0x00,
+        0x40, 0x11, 0x00, 0x00, 10,   77,   1,    1,
+        10,   77,   2,    1,    0x13, 0x88, 0x13, 0x89,
+        0x00, 0x0c, 0x00, 0x00, 'D',  'R',  'O',  'P',
+    };
+    fieldmesh_fw_packet_bridge_config_t config = {
+        .peer_index = 7u,
+        .default_mcs = 1u,
+        .retry_budget = 3u,
+        .deadline_ticks = 1000000ull,
+    };
+    packet_source_t source = {
+        .packets = {bad_packet, udp_packet},
+        .lens = {(uint16_t)sizeof(bad_packet), (uint16_t)sizeof(udp_packet)},
+        .count = 2u,
+        .index = 0u,
+    };
+    packet_sink_t sink = {0};
+    uint8_t packet_buffer[PACKET_STRIDE];
+
+    *sync_ok = 1;
+    *lossy_pumped = -1;
+    *lossy_drained = -1;
+    fieldmesh_fw_ring_reset(ring);
+    if (!fieldmesh_fw_packet_bridge_init(bridge, ring, &config)) {
+        return 0;
+    }
+
+    *lossy_pumped = fieldmesh_fw_packet_bridge_pump_many(
+        bridge, source_read, &source, packet_buffer,
+        (uint16_t)sizeof(packet_buffer), 2u);
+    int service = fieldmesh_fw_ring_service_one(ring, (int16_t)(-42 * 256),
+                                                (int16_t)(25 * 256), -70,
+                                                1000000ull);
+    *lossy_drained = fieldmesh_fw_packet_bridge_drain_ready(
+        bridge, sink_write, &sink, 1u);
+    if (sync_required && msync(sync_base, sync_bytes, MS_SYNC) != 0) {
+        *sync_ok = 0;
+    }
+
+    return *lossy_pumped == 1 && source.index == 2u &&
+           service == 1 && *lossy_drained == 1 &&
+           sink.count == 1u && sink.lens[0] == sizeof(udp_packet) &&
+           bytes_equal(sink.packets[0], udp_packet,
+                       (uint16_t)sizeof(udp_packet)) &&
+           bridge->enqueued_packets == 1u && bridge->drained_packets == 1u &&
+           bridge->classify_errors == 1u && bridge->read_errors == 0u &&
+           bridge->enqueue_drops == 0u && bridge->drain_errors == 0u &&
+           fieldmesh_fw_ring_tx_free_count(ring) == RING_SLOTS &&
+           *sync_ok;
+}
+
 int main(int argc, char **argv)
 {
     static uint8_t heap_memory[4096];
@@ -236,6 +301,7 @@ int main(int argc, char **argv)
     fieldmesh_fw_ring_linear_layout_t layout;
     fieldmesh_fw_ring_view_t ring;
     fieldmesh_fw_packet_bridge_t bridge;
+    fieldmesh_fw_packet_bridge_t lossy_bridge;
     fieldmesh_fw_packet_bridge_report_t tcp_report;
     fieldmesh_fw_packet_bridge_report_t udp_report;
     packet_sink_t sink = {0};
@@ -278,13 +344,20 @@ int main(int argc, char **argv)
     int first_pick = -1;
     int second_pick = -1;
     int drained = -1;
+    int lossy_pumped = -1;
+    int lossy_drained = -1;
     int sync_ok = 1;
+    int lossy_sync_ok = 1;
     int loopback_ok = bound && cfg.loopback &&
                       run_packet_bridge(&ring, sync_required, base, layout.total_bytes,
                                         &sync_ok, &tcp_report, &udp_report, &sink,
                                         &udp_slot, &tcp_slot, &first_pick, &second_pick,
                                         &drained, &bridge);
-    int ok = bound && loopback_ok;
+    int lossy_ok = bound && cfg.loopback &&
+                   run_lossy_pump(&ring, sync_required, base, layout.total_bytes,
+                                  &lossy_sync_ok, &lossy_pumped, &lossy_drained,
+                                  &lossy_bridge);
+    int ok = bound && loopback_ok && lossy_ok;
 
     printf("{\"event\":\"fieldmesh_firmware_packet_bridge_probe\","
            "\"ok\":%s,"
@@ -316,7 +389,14 @@ int main(int argc, char **argv)
            "\"classify_errors\":%u,"
            "\"read_errors\":%u,"
            "\"enqueue_drops\":%u,"
-           "\"drain_errors\":%u}\n",
+           "\"drain_errors\":%u,"
+           "\"lossy_pump_ok\":%s,"
+           "\"lossy_pumped\":%d,"
+           "\"lossy_drained\":%d,"
+           "\"lossy_classify_errors\":%u,"
+           "\"lossy_read_errors\":%u,"
+           "\"lossy_enqueue_drops\":%u,"
+           "\"lossy_drain_errors\":%u}\n",
            ok ? "true" : "false",
            cfg.device_path ? "uio" : (cfg.image_path ? "file" : "heap"),
            mapped ? "true" : "false",
@@ -338,7 +418,14 @@ int main(int argc, char **argv)
            bound ? bridge.classify_errors : 0u,
            bound ? bridge.read_errors : 0u,
            bound ? bridge.enqueue_drops : 0u,
-           bound ? bridge.drain_errors : 0u);
+           bound ? bridge.drain_errors : 0u,
+           lossy_ok ? "true" : "false",
+           lossy_pumped,
+           lossy_drained,
+           bound ? lossy_bridge.classify_errors : 0u,
+           bound ? lossy_bridge.read_errors : 0u,
+           bound ? lossy_bridge.enqueue_drops : 0u,
+           bound ? lossy_bridge.drain_errors : 0u);
 
     int rc = ok ? 0 : 1;
     if (mapped && munmap(base, layout.total_bytes) != 0) {

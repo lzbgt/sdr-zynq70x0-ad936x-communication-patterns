@@ -213,6 +213,16 @@ for report in (packet_bridge_probe, packet_bridge_probe_image):
         or report.get("drain_errors") != 0
     ):
         raise SystemExit(f"packet bridge errors changed: {report!r}")
+    if (
+        report.get("lossy_pump_ok") is not True
+        or report.get("lossy_pumped") != 1
+        or report.get("lossy_drained") != 1
+        or report.get("lossy_classify_errors") != 1
+        or report.get("lossy_read_errors") != 0
+        or report.get("lossy_enqueue_drops") != 0
+        or report.get("lossy_drain_errors") != 0
+    ):
+        raise SystemExit(f"packet bridge lossy pump behavior changed: {report!r}")
 if packet_bridge_probe.get("backend") != "heap" or packet_bridge_probe.get("mapped_memory") is not False:
     raise SystemExit(f"packet bridge default probe must stay heap-backed: {packet_bridge_probe!r}")
 if packet_bridge_probe_image.get("backend") != "file" or packet_bridge_probe_image.get("mapped_memory") is not True:
@@ -331,6 +341,7 @@ required = [
     "fieldmesh_fw_ring_pick_next",
     "fieldmesh_fw_ring_service_one",
     "fieldmesh_fw_ring_payload_matches",
+    "fieldmesh_fw_ring_tx_free_count",
     "fieldmesh_fw_ring_selected_word",
     "FIELDMESH_FW_RING_SELECTED_VALID",
     "fieldmesh_fw_ring_linear_layout_t",
@@ -435,6 +446,8 @@ required = [
     "fieldmesh_fw_packet_bridge_drain_ready",
     "tcp_fin_packet",
     "udp_packet",
+    "bad_packet",
+    "lossy_pump_ok",
     "binary_descriptors",
     "uses_json_on_air",
 ]

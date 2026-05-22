@@ -93,7 +93,10 @@ in `src/fieldmesh_sdk.c`:
   READY RX descriptors through callbacks. The packet intake side is
   `fieldmesh_fw_packet_bridge_pump_many()`, a caller-owned read callback plus a
   caller-owned packet buffer, so the next integration can attach `/dev/net/tun`
-  without putting POSIX fd ownership into the firmware-ring ABI.
+  without putting POSIX fd ownership into the firmware-ring ABI. The pump
+  checks TX descriptor space before reading and treats malformed IPv4 packets as
+  counted drops rather than fatal transport errors, preserving continuous
+  service under normal packet loss/backpressure.
   `examples/fieldmesh_firmware_packet_bridge_probe.c` proves TCP control can be
   serviced ahead of UDP payload without Python, JSON on the packet path, or
   vendor runtime code. Its default mode is heap-backed for CI; `--device

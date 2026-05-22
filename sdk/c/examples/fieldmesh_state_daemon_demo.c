@@ -2395,6 +2395,8 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
     fieldmesh_fw_tun_reader_t reader;
     fieldmesh_fw_tun_writer_t writer;
     int pumped;
+    int drained_before;
+    int drained_after;
     int drained;
 
     if (!service || !service->running || service->fd < 0 ||
@@ -2412,6 +2414,14 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
     writer.write_packet = write_tun_fd_once;
     writer.user = &service->fd;
 
+    drained_before = fieldmesh_fw_packet_bridge_drain_ready(
+        &service->firmware_bridge, fieldmesh_fw_tun_write_packet, &writer,
+        service->max_packets_per_tick);
+    if (drained_before < 0) {
+        service->firmware_ring_errors++;
+        return FIELDMESH_ERR_TRANSPORT;
+    }
+
     pumped = fieldmesh_fw_packet_bridge_pump_many(
         &service->firmware_bridge, fieldmesh_fw_tun_read_packet, &reader,
         packet_buffer, sizeof(packet_buffer), service->max_packets_per_tick);
@@ -2426,13 +2436,14 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
     service->bytes_read = service->firmware_bridge.bytes_enqueued;
     service->bytes_sent = service->firmware_bridge.bytes_enqueued;
 
-    drained = fieldmesh_fw_packet_bridge_drain_ready(
+    drained_after = fieldmesh_fw_packet_bridge_drain_ready(
         &service->firmware_bridge, fieldmesh_fw_tun_write_packet, &writer,
         service->max_packets_per_tick);
-    if (drained < 0) {
+    if (drained_after < 0) {
         service->firmware_ring_errors++;
         return FIELDMESH_ERR_TRANSPORT;
     }
+    drained = drained_before + drained_after;
     service->firmware_ring_drained += (uint32_t)drained;
     service->firmware_ring_served =
         service->firmware_ring.stats ? service->firmware_ring.stats->served :

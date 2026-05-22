@@ -212,9 +212,15 @@ static inline int fieldmesh_fw_packet_bridge_pump_many(
     }
 
     uint32_t pumped = 0u;
-    for (; pumped < max_packets; ++pumped) {
+    for (uint32_t attempts = 0u; attempts < max_packets; ++attempts) {
         uint16_t packet_len = 0u;
-        int read_rc = read_packet(read_user, packet_buffer, packet_capacity, &packet_len);
+        int read_rc;
+        uint32_t classify_errors_before;
+        uint32_t enqueue_drops_before;
+        if (fieldmesh_fw_ring_tx_free_count(bridge->ring) == 0u) {
+            break;
+        }
+        read_rc = read_packet(read_user, packet_buffer, packet_capacity, &packet_len);
         if (read_rc == 0) {
             break;
         }
@@ -222,10 +228,19 @@ static inline int fieldmesh_fw_packet_bridge_pump_many(
             bridge->read_errors++;
             return -1;
         }
+        classify_errors_before = bridge->classify_errors;
+        enqueue_drops_before = bridge->enqueue_drops;
         if (fieldmesh_fw_packet_bridge_enqueue_ipv4(bridge, packet_buffer, packet_len,
                                                     0u, NULL) < 0) {
+            if (bridge->classify_errors != classify_errors_before) {
+                continue;
+            }
+            if (bridge->enqueue_drops != enqueue_drops_before) {
+                break;
+            }
             return -1;
         }
+        pumped++;
     }
     return (int)pumped;
 }

@@ -32,8 +32,10 @@ The RF data-plane refactor has started in the production firmware ABI path:
 C/binary descriptor-ring boundary. `fieldmesh_firmware_packet_bridge_probe`
 adds the next hot-path boundary: raw IPv4 packets are classified, enqueued into
 binary firmware descriptors, drained from READY RX descriptors, and reclaimed
-without Python or JSON on the packet path. It now has a guarded UIO mode for
-the same packet bridge on `/dev/uioN`. `fieldmesh_firmware_tun_bridge_probe`
+without Python or JSON on the packet path. The pump now checks descriptor space
+before reading and treats malformed IPv4 packets as counted drops instead of
+fatal transport failures. It now has a guarded UIO mode for the same packet
+bridge on `/dev/uioN`. `fieldmesh_firmware_tun_bridge_probe`
 adds the next C-only boundary by adapting `fieldmesh_tun_read_callback_t` and
 `fieldmesh_tun_write_callback_t` into the firmware packet bridge without
 letting the firmware ABI own POSIX fd state. It now supports heap, file-backed
@@ -46,7 +48,9 @@ keeps the guarded PL-service loopback enabled; Z103 keeps the same UIO aperture
 but synthesizes that diagnostic service out to fit the Zynq-7010. The daemon
 now exposes a guarded `firmware_ring=1` TUN-service mode that maps `/dev/uio0`
 and runs the C TUN callback bridge from the daemon tick loop; descriptor service
-is owned by PL, not by the C loopback helper. The synthesizable AXI-lite service
+is owned by PL, not by the C loopback helper. The daemon tick drains READY RX
+descriptors before and after bounded TUN ingress so PL completions can release
+slots before more packets are read from `swarm0`. The synthesizable AXI-lite service
 currently implements a bounded one-slot, 16-byte packet service window so Vivado
 does not turn the 64 KiB UIO aperture into an OOM-prone register fabric; the
 next PL step is a real BRAM/AXI RAM or DMA packet-memory block for full-MTU

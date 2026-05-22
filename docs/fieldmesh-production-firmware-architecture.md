@@ -323,9 +323,12 @@ and drains READY RX descriptors through a caller-owned packet write callback.
 The intake boundary is also callback-based:
 `fieldmesh_fw_packet_bridge_pump_many()` reads bounded packets into a
 caller-owned buffer, classifies them, and emits descriptors without taking
-ownership of `/dev/net/tun`, sockets, or any Linux fd. That keeps the firmware
-packet contract C/binary and lets the daemon, a future userspace MAC service,
-or a kernel driver own the concrete ingress mechanism.
+ownership of `/dev/net/tun`, sockets, or any Linux fd. It checks descriptor
+space before reading and treats malformed IPv4 packets as counted drops instead
+of fatal pump failures, so ordinary bad input or PL backpressure does not tear
+down the daemon-owned data plane. That keeps the firmware packet contract
+C/binary and lets the daemon, a future userspace MAC service, or a kernel
+driver own the concrete ingress mechanism.
 `sdk/c/examples/fieldmesh_firmware_packet_bridge_probe.c` proves the intended
 hot-path behavior with fixed memory: TCP FIN/control is serviced ahead of UDP
 payload, the RX side drains packet bytes, and the slot is reclaimed for reuse.
@@ -352,7 +355,9 @@ keeps `/dev/net/tun` fd ownership in daemon state, and executes the same
 -> PL packet-ring service -> fieldmesh_tun_write_callback_t` path from the
 daemon tick loop. The daemon no longer calls the C ring loopback service in
 this mode; the PL aperture owns descriptor service for the bounded diagnostic
-service window, and the firmware bridge accepts the diagnostic RX descriptors
+service window. Each daemon tick drains READY RX descriptors, pumps bounded TUN
+ingress, then drains again so PL completions free slots before more packets are
+read from `swarm0`. The firmware bridge accepts the diagnostic RX descriptors
 without requiring PL-generated descriptor CRCs. The default service still uses
 the existing RF driver queue until the PL MAC owns full-MTU packet storage,
 packet timing, descriptor CRC/FEC integrity, and RF TX/RX. The daemon ring
