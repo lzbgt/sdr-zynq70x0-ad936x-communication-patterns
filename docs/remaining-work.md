@@ -98,9 +98,10 @@ ticks with bounded service budgets, so scheduling policy is separate from
 descriptor validation, packet movement, and future storage transport. The
 `fieldmesh_firmware_axis_ingress_writer` now starts that wrapper by turning
 byte-wide AXI-stream ingress into packet-memory writes plus state-last binary TX
-descriptor publication. The remaining PL integration work is composing that
-writer with the MAC endpoint, then adding egress/DMA service rather than
-growing the AXI-lite diagnostic shell. The stats
+descriptor publication. `fieldmesh_firmware_axis_bram_mac_endpoint` now
+composes that writer with the MAC endpoint, so the remaining PL integration
+work is adding egress/DMA service and board-level AXI RAM/DMA binding rather
+than growing the AXI-lite diagnostic shell. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the

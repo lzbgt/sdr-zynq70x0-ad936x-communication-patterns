@@ -95,6 +95,9 @@ in `src/fieldmesh_sdk.c`:
   into firmware-ring packet memory, and publishes the binary TX descriptor with
   the queued state word last. It does not use JSON or host-side parsing on the
   packet path.
+  `fieldmesh_firmware_axis_bram_mac_endpoint` composes that ingress writer with
+  the scheduler-owned BRAM MAC endpoint, proving the first end-to-end
+  AXI-stream ingress -> binary descriptor -> MAC-drained BRAM service path.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and
