@@ -368,11 +368,13 @@ ABI accessors used by the packet path: TX queued, TX owned by PL, TX done, RX
 ready, RX non-free, valid ACK slots, and the fixed PL pressure words
 `queued`/`selected`. The stats block also has masked `irq_status`/`irq_mask`
 bits for RX-ready, TX-done, drop, and error events, so the future driver can
-block on PL completions instead of polling the ring. Daemon status also exposes
-the packet-bridge counters for classify errors, TUN read errors, enqueue drops,
-and drain errors. These counters are the first-line debug split between
-malformed input, TUN ingress starvation, full ARM-to-PL queues, PL service
-latency, and RX drain lag.
+block on PL completions instead of polling the ring. The hardware aperture uses
+write-one-to-clear `irq_status`; RAM-backed probes use the separate RAM clear
+helper so the C API cannot hide the register side effect. Daemon status also
+exposes the packet-bridge counters for classify errors, TUN read errors,
+enqueue drops, and drain errors. These counters are the first-line debug split
+between malformed input, TUN ingress starvation, full ARM-to-PL queues, PL
+service latency, and RX drain lag.
 
 ## MAC Design
 

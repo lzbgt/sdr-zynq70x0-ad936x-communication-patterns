@@ -68,8 +68,11 @@ service the same autonomous queued-slot selection expected by the later
 BRAM/DMA MAC path: lowest traffic class first, with malformed queued slots
 retired after valid traffic. The stats ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
-RX-ready, TX-done, drop, and error events. Daemon TUN status now exposes the
-pressure words as `firmware_ring_pressure_queued` and
+RX-ready, TX-done, drop, and error events. The C helper API now separates
+RAM-model IRQ clearing from hardware write-one-to-clear acknowledgement, which
+keeps future UIO/driver code from using read-modify-write semantics on a PL
+register. Daemon TUN status now exposes the pressure words as
+`firmware_ring_pressure_queued` and
 `firmware_ring_pressure_selected` so ARM probes and live status polling can
 read PL queue pressure without log parsing.
 The same status path exposes packet-bridge classify/read/enqueue/drain counters

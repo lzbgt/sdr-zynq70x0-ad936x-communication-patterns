@@ -79,7 +79,9 @@ in `src/fieldmesh_sdk.c`:
   `firmware_ring_pressure_selected`. The stats view also includes masked
   `irq_status`/`irq_mask` bits for RX-ready, TX-done, drop, and error events
   so future daemon/driver code can block on PL completions instead of polling
-  the ring. The service
+  the ring. Hardware acknowledgement is explicitly write-one-to-clear through
+  `fieldmesh_fw_ring_irq_ack_w1c()`; RAM-backed probes use
+  `fieldmesh_fw_ring_irq_clear_ram()` instead. The service
   generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
   validates PL-published descriptors through the production ABI helpers; the
   production MAC/DMA packet-memory engine must still add FEC integrity and full-MTU

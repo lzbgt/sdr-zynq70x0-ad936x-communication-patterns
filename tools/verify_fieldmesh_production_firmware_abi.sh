@@ -41,6 +41,7 @@ mkdir -p "$work_dir/vectors"
 int main(void) {
     fieldmesh_fw_ring_view_t view = {0};
     fieldmesh_fw_ring_linear_layout_t layout = {0};
+    fieldmesh_fw_ring_stats_t stats = {0};
     if (fieldmesh_fw_ring_config_valid(&view)) {
         return 1;
     }
@@ -49,6 +50,27 @@ int main(void) {
     }
     if ((layout.rx_packet_offset & 3u) != 0u || (layout.stats_offset & 3u) != 0u) {
         return 3;
+    }
+    fieldmesh_fw_ring_irq_mark(&stats, FIELDMESH_FW_RING_IRQ_RX_READY |
+                                       FIELDMESH_FW_RING_IRQ_ERROR |
+                                       0xffff0000u);
+    if (stats.irq_status != (FIELDMESH_FW_RING_IRQ_RX_READY |
+                             FIELDMESH_FW_RING_IRQ_ERROR)) {
+        return 4;
+    }
+    stats.irq_mask = FIELDMESH_FW_RING_IRQ_RX_READY;
+    if (!fieldmesh_fw_ring_irq_asserted(&stats)) {
+        return 5;
+    }
+    fieldmesh_fw_ring_irq_clear_ram(&stats, FIELDMESH_FW_RING_IRQ_RX_READY);
+    if (stats.irq_status != FIELDMESH_FW_RING_IRQ_ERROR ||
+        fieldmesh_fw_ring_irq_asserted(&stats)) {
+        return 6;
+    }
+    fieldmesh_fw_ring_irq_ack_w1c((volatile fieldmesh_fw_ring_stats_t *)&stats,
+                                  FIELDMESH_FW_RING_IRQ_ALL | 0xffff0000u);
+    if (stats.irq_status != FIELDMESH_FW_RING_IRQ_ALL) {
+        return 7;
     }
     return 0;
 }
@@ -356,6 +378,11 @@ required = [
     "fieldmesh_fw_ring_tx_free_count",
     "fieldmesh_fw_ring_selected_word",
     "FIELDMESH_FW_RING_SELECTED_VALID",
+    "FIELDMESH_FW_RING_IRQ_ALL",
+    "fieldmesh_fw_ring_irq_asserted",
+    "fieldmesh_fw_ring_irq_mark",
+    "fieldmesh_fw_ring_irq_clear_ram",
+    "fieldmesh_fw_ring_irq_ack_w1c",
     "fieldmesh_fw_ring_linear_layout_t",
     "fieldmesh_fw_ring_bind_linear",
     "fieldmesh_fw_ring_u32_align4",

@@ -29,6 +29,9 @@ typedef struct fieldmesh_fw_ring_stats {
 #define FIELDMESH_FW_RING_IRQ_TX_DONE 0x00000002u
 #define FIELDMESH_FW_RING_IRQ_DROP 0x00000004u
 #define FIELDMESH_FW_RING_IRQ_ERROR 0x00000008u
+#define FIELDMESH_FW_RING_IRQ_ALL \
+    (FIELDMESH_FW_RING_IRQ_RX_READY | FIELDMESH_FW_RING_IRQ_TX_DONE | \
+     FIELDMESH_FW_RING_IRQ_DROP | FIELDMESH_FW_RING_IRQ_ERROR)
 
 static inline uint32_t fieldmesh_fw_ring_selected_word(uint32_t slot,
                                                        uint8_t traffic_class,
@@ -40,16 +43,34 @@ static inline uint32_t fieldmesh_fw_ring_selected_word(uint32_t slot,
            (slot & 0xffffu);
 }
 
-static inline int fieldmesh_fw_ring_irq_asserted(const fieldmesh_fw_ring_stats_t *stats)
+static inline int fieldmesh_fw_ring_irq_asserted(
+    const volatile fieldmesh_fw_ring_stats_t *stats)
 {
     return stats && (stats->irq_status & stats->irq_mask) != 0u;
 }
 
-static inline void fieldmesh_fw_ring_irq_clear(fieldmesh_fw_ring_stats_t *stats,
-                                               uint32_t bits)
+static inline void fieldmesh_fw_ring_irq_mark(fieldmesh_fw_ring_stats_t *stats,
+                                              uint32_t bits)
 {
     if (stats) {
-        stats->irq_status &= ~bits;
+        stats->irq_status |= bits & FIELDMESH_FW_RING_IRQ_ALL;
+    }
+}
+
+static inline void fieldmesh_fw_ring_irq_clear_ram(fieldmesh_fw_ring_stats_t *stats,
+                                                   uint32_t bits)
+{
+    if (stats) {
+        stats->irq_status &= ~(bits & FIELDMESH_FW_RING_IRQ_ALL);
+    }
+}
+
+static inline void fieldmesh_fw_ring_irq_ack_w1c(
+    volatile fieldmesh_fw_ring_stats_t *stats,
+    uint32_t bits)
+{
+    if (stats) {
+        stats->irq_status = bits & FIELDMESH_FW_RING_IRQ_ALL;
     }
 }
 
@@ -374,9 +395,10 @@ static inline int fieldmesh_fw_ring_service_one(
     if (!fieldmesh_fw_tx_desc_v1_valid(tx)) {
         ring->stats->crc_errors++;
         ring->stats->drops++;
-        ring->stats->irq_status |= FIELDMESH_FW_RING_IRQ_TX_DONE |
-                                   FIELDMESH_FW_RING_IRQ_DROP |
-                                   FIELDMESH_FW_RING_IRQ_ERROR;
+        fieldmesh_fw_ring_irq_mark(ring->stats,
+                                   FIELDMESH_FW_RING_IRQ_TX_DONE |
+                                       FIELDMESH_FW_RING_IRQ_DROP |
+                                       FIELDMESH_FW_RING_IRQ_ERROR);
         fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
         (void)fieldmesh_fw_ring_pick_next(ring);
         return -1;
@@ -390,9 +412,10 @@ static inline int fieldmesh_fw_ring_service_one(
         !fieldmesh_fw_ring_range_valid(ring->packet_arena_bytes, rx_offset, payload_len)) {
         ring->stats->bounds_errors++;
         ring->stats->drops++;
-        ring->stats->irq_status |= FIELDMESH_FW_RING_IRQ_TX_DONE |
-                                   FIELDMESH_FW_RING_IRQ_DROP |
-                                   FIELDMESH_FW_RING_IRQ_ERROR;
+        fieldmesh_fw_ring_irq_mark(ring->stats,
+                                   FIELDMESH_FW_RING_IRQ_TX_DONE |
+                                       FIELDMESH_FW_RING_IRQ_DROP |
+                                       FIELDMESH_FW_RING_IRQ_ERROR);
         fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
         (void)fieldmesh_fw_ring_pick_next(ring);
         return -1;
@@ -425,8 +448,9 @@ static inline int fieldmesh_fw_ring_service_one(
     fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
     ring->stats->served++;
     ring->stats->acked++;
-    ring->stats->irq_status |= FIELDMESH_FW_RING_IRQ_RX_READY |
-                               FIELDMESH_FW_RING_IRQ_TX_DONE;
+    fieldmesh_fw_ring_irq_mark(ring->stats,
+                               FIELDMESH_FW_RING_IRQ_RX_READY |
+                                   FIELDMESH_FW_RING_IRQ_TX_DONE);
     (void)fieldmesh_fw_ring_pick_next(ring);
     return 1;
 }
