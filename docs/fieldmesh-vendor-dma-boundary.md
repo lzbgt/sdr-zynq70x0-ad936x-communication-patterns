@@ -237,6 +237,10 @@ above that pump: MAC ticks start bounded drains only when queued descriptors are
 present and the pump is idle. `fieldmesh_firmware_packet_bram_mac_endpoint.v`
 binds the scheduler to the pumped endpoint, preserving the binary descriptor
 and packet-memory boundary before a wider AXI RAM or DMA wrapper is connected.
+`fieldmesh_firmware_axis_ingress_writer.v` is the first DMA-shaped ingress
+block for that wrapper: byte-wide AXI-stream packets are packed into BRAM
+packet words, then an ABI-valid TX descriptor is published state-last. This is
+still a binary PL data path, not IIO control traffic or JSON diagnostics.
 
 The first control-only block-design overlay is opt-in:
 

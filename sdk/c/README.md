@@ -90,6 +90,11 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_packet_bram_mac_endpoint` composes that scheduler with
   the pumped BRAM endpoint for the first scheduler-owned PL packet service
   boundary.
+  `fieldmesh_firmware_axis_ingress_writer` is the first DMA-shaped ingress
+  boundary: it accepts byte-wide AXI-stream packets, writes raw payload words
+  into firmware-ring packet memory, and publishes the binary TX descriptor with
+  the queued state word last. It does not use JSON or host-side parsing on the
+  packet path.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and

@@ -31,6 +31,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_firmware_packet_bram_pumped_endpoint.v",
     "rtl/fieldmesh/fieldmesh_firmware_mac_scheduler.v",
     "rtl/fieldmesh/fieldmesh_firmware_packet_bram_mac_endpoint.v",
+    "rtl/fieldmesh/fieldmesh_firmware_axis_ingress_writer.v",
     "rtl/fieldmesh/fieldmesh_firmware_ring_axi_lite.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v",

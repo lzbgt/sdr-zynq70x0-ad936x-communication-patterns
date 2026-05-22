@@ -324,7 +324,12 @@ boundary: it observes MAC ticks and queued-slot pressure, starts bounded pump
 drains only when the pump is idle, and keeps timing counters separate from
 descriptor validation and packet movement. `fieldmesh_firmware_packet_bram_mac_endpoint`
 binds the scheduler to the pumped BRAM endpoint while leaving the future AXI
-RAM/DMA wrapper as a storage/transport concern. The stats block now keeps
+RAM/DMA wrapper as a storage/transport concern.
+`fieldmesh_firmware_axis_ingress_writer` starts that wrapper boundary by
+accepting byte-wide AXI-stream packets, packing payload bytes into firmware-ring
+packet words, and publishing binary TX descriptors with the queued state word
+written last. The next PL step is composing that ingress with the MAC endpoint
+and adding the matching egress/DMA path. The stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
