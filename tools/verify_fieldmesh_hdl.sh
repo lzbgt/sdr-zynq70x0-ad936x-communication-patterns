@@ -14,6 +14,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_desc_loopback_core.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_desc_loopback_regs.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_desc_loopback_axi_lite.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_firmware_tx_desc_validator.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_firmware_ring_axi_lite.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v" \
@@ -37,6 +38,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_regs_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_desc_loopback_axi_lite_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_firmware_tx_desc_validator_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_firmware_ring_axi_lite_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_mem_loopback_core_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_packet_mem_axi_lite_tb.v" \
@@ -71,6 +73,7 @@ run_tb() {
 run_tb fieldmesh_desc_loopback_core_tb
 run_tb fieldmesh_desc_loopback_regs_tb
 run_tb fieldmesh_desc_loopback_axi_lite_tb
+run_tb fieldmesh_firmware_tx_desc_validator_tb
 run_tb fieldmesh_firmware_ring_axi_lite_tb
 run_tb fieldmesh_packet_mem_loopback_core_tb
 run_tb fieldmesh_packet_mem_axi_lite_tb

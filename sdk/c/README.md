@@ -61,11 +61,14 @@ in `src/fieldmesh_sdk.c`:
   CRC32C before service, rejects CRC-valid descriptors with nonzero reserved
   fields, unaligned packet offsets, or out-of-range traffic classes, and
   clears the rejected slot's RX/ACK outputs so stale READY descriptors cannot
-  be consumed after a failed service attempt. It
-  generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe validates
-  PL-published descriptors through the production ABI helpers; the production
-  MAC/DMA packet-memory engine must still add FEC integrity and full-MTU packet
-  storage. Z103 builds keep the UIO aperture but synthesize this diagnostic
+  be consumed after a failed service attempt. The reusable
+  `fieldmesh_firmware_tx_desc_validator` RTL module owns the descriptor CRC and
+  descriptor-local semantic checks for both this shell and the later BRAM/DMA
+  MAC path. The service generates RX descriptor CRC32C and ACK CRC16 so the C
+  UIO probe validates PL-published descriptors through the production ABI
+  helpers; the production MAC/DMA packet-memory engine must still add FEC
+  integrity and full-MTU packet storage. Z103 builds keep the UIO aperture but
+  synthesize this diagnostic
   service out to fit the Zynq-7010; Z203 keeps it enabled for live PL-service
   loopback.
   The shared ABI/ring helpers use explicit byte-wise descriptor and packet

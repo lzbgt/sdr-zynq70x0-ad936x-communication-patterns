@@ -51,8 +51,10 @@ currently implements a bounded one-slot, 16-byte packet service window so Vivado
 does not turn the 64 KiB UIO aperture into an OOM-prone register fabric; the
 next PL step is a real BRAM/AXI RAM or DMA packet-memory block for full-MTU
 traffic and sequential descriptor CRC/FEC integrity. The AXI-lite
-diagnostic service validates state, sequence, offsets, payload bytes, and
-counters rather than synthesizing CRC generation into the register shell. This
+diagnostic service now uses the reusable
+`fieldmesh_firmware_tx_desc_validator` RTL gate for TX descriptor CRC32C and
+descriptor-local semantic checks, generates RX descriptor CRC32C and ACK CRC16,
+and clears stale RX/ACK output state after rejected TX service attempts. This
 diagnostic PL service remains enabled on Z203, but is synthesized out on
 Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared
 C firmware boundary without exceeding LUT/slice capacity. This

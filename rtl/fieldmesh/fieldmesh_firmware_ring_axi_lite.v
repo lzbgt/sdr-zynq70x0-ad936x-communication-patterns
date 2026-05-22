@@ -80,7 +80,6 @@ localparam FW_RX_STATUS_CRC_OK = 8'h01;
 localparam FW_RX_STATUS_FEC_OK = 8'h02;
 localparam FW_ACK_HEADER = 8'h11;
 localparam FW_ACK_FLAGS = 8'h05;
-localparam FW_TRAFFIC_CLASS_MAX = 8'd4;
 
 wire rst = !s_axi_aresetn;
 
@@ -101,6 +100,33 @@ reg [31:0] ack_desc [0:PL_SERVICE_SLOTS * ACK_WORDS - 1];
 reg [31:0] tx_packet [0:PL_PACKET_WORDS - 1];
 reg [31:0] rx_packet [0:PL_PACKET_WORDS - 1];
 reg [31:0] stats [0:STATS_WORDS - 1];
+
+wire [PL_SERVICE_SLOTS-1:0] tx_desc_crc_ok;
+wire [PL_SERVICE_SLOTS-1:0] tx_desc_valid;
+
+genvar tx_desc_validator_i;
+generate
+    for (tx_desc_validator_i = 0;
+         tx_desc_validator_i < PL_SERVICE_SLOTS;
+         tx_desc_validator_i = tx_desc_validator_i + 1) begin : tx_desc_validators
+        localparam TX_DESC_VALIDATOR_BASE = tx_desc_validator_i * TX_DESC_WORDS;
+        fieldmesh_firmware_tx_desc_validator validator (
+            .word0(tx_desc[TX_DESC_VALIDATOR_BASE + 0]),
+            .word1(tx_desc[TX_DESC_VALIDATOR_BASE + 1]),
+            .word2(tx_desc[TX_DESC_VALIDATOR_BASE + 2]),
+            .word3(tx_desc[TX_DESC_VALIDATOR_BASE + 3]),
+            .word4(tx_desc[TX_DESC_VALIDATOR_BASE + 4]),
+            .word5(tx_desc[TX_DESC_VALIDATOR_BASE + 5]),
+            .word6(tx_desc[TX_DESC_VALIDATOR_BASE + 6]),
+            .word7(tx_desc[TX_DESC_VALIDATOR_BASE + 7]),
+            .word8(tx_desc[TX_DESC_VALIDATOR_BASE + 8]),
+            .word9(tx_desc[TX_DESC_VALIDATOR_BASE + 9]),
+            .crc_ok(tx_desc_crc_ok[tx_desc_validator_i]),
+            .semantic_ok(),
+            .valid(tx_desc_valid[tx_desc_validator_i])
+        );
+    end
+endgenerate
 
 integer init_i;
 initial begin
@@ -335,31 +361,6 @@ function [31:0] crc32c_desc8_le;
     end
 endfunction
 
-function [31:0] crc32c_desc9_le;
-    input [31:0] word0;
-    input [31:0] word1;
-    input [31:0] word2;
-    input [31:0] word3;
-    input [31:0] word4;
-    input [31:0] word5;
-    input [31:0] word6;
-    input [31:0] word7;
-    input [31:0] word8;
-    reg [31:0] crc;
-    begin
-        crc = crc32c_word_le(32'hffff_ffff, word0);
-        crc = crc32c_word_le(crc, word1);
-        crc = crc32c_word_le(crc, word2);
-        crc = crc32c_word_le(crc, word3);
-        crc = crc32c_word_le(crc, word4);
-        crc = crc32c_word_le(crc, word5);
-        crc = crc32c_word_le(crc, word6);
-        crc = crc32c_word_le(crc, word7);
-        crc = crc32c_word_le(crc, word8);
-        crc32c_desc9_le = ~crc;
-    end
-endfunction
-
 function [15:0] crc16_byte;
     input [15:0] crc_in;
     input [7:0] data;
@@ -435,8 +436,6 @@ task service_slot_immediate;
     reg [31:0] ack2;
     reg [31:0] ack3;
     reg [15:0] ack4_low;
-    reg tx_desc_crc_ok;
-    reg tx_desc_semantic_ok;
     integer word_i;
     begin
         payload_word_offset = 32'd0;
@@ -445,24 +444,12 @@ task service_slot_immediate;
         seq = 32'd0;
         peer_index = 16'd0;
         mcs = 8'd0;
-        tx_desc_crc_ok = 1'b0;
-        tx_desc_semantic_ok = 1'b0;
         rx_payload_offset = 32'd0;
         expected_payload_word_offset = slot * PACKET_WORDS_PER_SLOT;
         tx_desc_base = slot * TX_DESC_WORDS;
         rx_desc_base = slot * RX_DESC_WORDS;
         ack_desc_base = slot * ACK_WORDS;
         packet_base = slot * PL_PACKET_WORDS_PER_SLOT;
-        tx_desc_crc_ok = tx_desc[tx_desc_base + 9] == crc32c_desc9_le(
-            first_word,
-            tx_desc[tx_desc_base + 1],
-            tx_desc[tx_desc_base + 2],
-            tx_desc[tx_desc_base + 3],
-            tx_desc[tx_desc_base + 4],
-            tx_desc[tx_desc_base + 5],
-            tx_desc[tx_desc_base + 6],
-            tx_desc[tx_desc_base + 7],
-            tx_desc[tx_desc_base + 8]);
         payload_word_offset = tx_desc[tx_desc_base + 5] >> 2;
         payload_len = tx_desc[tx_desc_base + 6][15:0];
         payload_words = (tx_desc[tx_desc_base + 6][15:0] + 16'd3) >> 2;
@@ -470,16 +457,12 @@ task service_slot_immediate;
         peer_index = tx_desc[tx_desc_base + 1][15:0];
         mcs = tx_desc[tx_desc_base + 1][23:16];
         rx_payload_offset = slot * PACKET_STRIDE;
-        tx_desc_semantic_ok =
-            first_word[15:8] <= FW_TRAFFIC_CLASS_MAX &&
-            tx_desc[tx_desc_base + 5][1:0] == 2'b00 &&
-            tx_desc[tx_desc_base + 6][31:16] == 16'd0;
 
-        if (!tx_desc_crc_ok) begin
+        if (!tx_desc_crc_ok[slot]) begin
             clear_slot_outputs(slot);
             inc_stat(16'd3);
             inc_stat(16'd4);
-        end else if (!tx_desc_semantic_ok ||
+        end else if (!tx_desc_valid[slot] ||
             payload_len == 16'd0 ||
             payload_len > PACKET_STRIDE ||
             payload_word_offset + payload_words > PACKET_ARENA_WORDS ||

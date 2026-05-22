@@ -15,6 +15,7 @@ import fieldmesh_vendor_dma_inventory as inventory
 
 REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_class_descriptor_rings.v",
+    "rtl/fieldmesh/fieldmesh_firmware_tx_desc_validator.v",
     "rtl/fieldmesh/fieldmesh_firmware_ring_axi_lite.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v",
