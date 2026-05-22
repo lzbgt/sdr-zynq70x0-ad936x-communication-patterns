@@ -91,9 +91,13 @@ step. `fieldmesh_firmware_service_pump` now provides the bounded autonomous
 queue-drain controller around one-shot service semantics, stopping on empty
 queue, explicit stop, or service budget exhaustion.
 `fieldmesh_firmware_packet_bram_pumped_endpoint` now composes those blocks into
-the first autonomous full-MTU BRAM firmware-ring boundary. The remaining PL
-integration work is binding that pumped endpoint to a wider AXI RAM/DMA or MAC
-scheduler wrapper rather than growing the AXI-lite diagnostic shell. The stats
+the first autonomous full-MTU BRAM firmware-ring boundary.
+`fieldmesh_firmware_mac_scheduler` and
+`fieldmesh_firmware_packet_bram_mac_endpoint` now bind that boundary to MAC
+ticks with bounded service budgets, so scheduling policy is separate from
+descriptor validation, packet movement, and future storage transport. The
+remaining PL integration work is binding the MAC endpoint to a wider AXI RAM or
+DMA wrapper rather than growing the AXI-lite diagnostic shell. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the

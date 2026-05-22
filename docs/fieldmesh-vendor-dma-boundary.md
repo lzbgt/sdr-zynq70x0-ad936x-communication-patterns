@@ -232,6 +232,11 @@ validation, packet movement, and RX/ACK publication remain in the endpoint.
 pump into the first reusable autonomous BRAM-backed firmware-ring boundary:
 ARM still writes compact binary descriptors and packet words, while PL drains
 queued slots under a bounded service budget.
+`fieldmesh_firmware_mac_scheduler.v` adds the first reusable MAC timing policy
+above that pump: MAC ticks start bounded drains only when queued descriptors are
+present and the pump is idle. `fieldmesh_firmware_packet_bram_mac_endpoint.v`
+binds the scheduler to the pumped endpoint, preserving the binary descriptor
+and packet-memory boundary before a wider AXI RAM or DMA wrapper is connected.
 
 The first control-only block-design overlay is opt-in:
 

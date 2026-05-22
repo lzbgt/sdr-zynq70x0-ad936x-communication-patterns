@@ -85,6 +85,11 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_packet_bram_pumped_endpoint` binds those two reusable
   blocks so PL can drain queued binary descriptors through the full-MTU BRAM
   endpoint for a bounded service budget.
+  `fieldmesh_firmware_mac_scheduler` starts bounded pump drains from MAC ticks
+  while preserving descriptor and packet parsing boundaries, and
+  `fieldmesh_firmware_packet_bram_mac_endpoint` composes that scheduler with
+  the pumped BRAM endpoint for the first scheduler-owned PL packet service
+  boundary.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and

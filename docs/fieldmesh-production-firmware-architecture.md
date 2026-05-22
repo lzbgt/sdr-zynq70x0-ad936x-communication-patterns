@@ -319,7 +319,12 @@ descriptors remain, then stops on empty queue, explicit stop, or service budget
 exhaustion. `fieldmesh_firmware_packet_bram_pumped_endpoint` composes the BRAM
 endpoint and service pump, giving the first-party PL path an autonomous
 full-MTU firmware-ring drain boundary before the AXI RAM/DMA or MAC scheduler
-wrapper is added. The stats block now keeps
+wrapper is added. `fieldmesh_firmware_mac_scheduler` is that first scheduler
+boundary: it observes MAC ticks and queued-slot pressure, starts bounded pump
+drains only when the pump is idle, and keeps timing counters separate from
+descriptor validation and packet movement. `fieldmesh_firmware_packet_bram_mac_endpoint`
+binds the scheduler to the pumped BRAM endpoint while leaving the future AXI
+RAM/DMA wrapper as a storage/transport concern. The stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
