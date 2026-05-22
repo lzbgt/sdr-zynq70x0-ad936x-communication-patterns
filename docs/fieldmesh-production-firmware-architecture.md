@@ -447,6 +447,13 @@ errors. The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the
 packet path after probing the overlay.
+The ARM-side guard is `fieldmesh-ctrl-write`: `--fw-dma-status` is read-only
+and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while `--fw-dma-arm` and
+`--fw-dma-stop` require `FIELD_MESH_EXECUTE_LIVE_TX=1`,
+`FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
+`FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. This keeps default board inspection
+non-mutating and makes firmware-DMA activation an explicit production test
+step.
 
 ## MAC Design
 

@@ -2814,6 +2814,10 @@ DMA, 16-bit/8-bit adaptation, packet-header parsing, header guard, and RX DMA.
 The current normal DMA overlay has moved that path to
 `fieldmesh_firmware_axis_dma_endpoint`; the older bridge-fed path remains for
 the RF-engine overlay until the RF scheduler consumes the firmware endpoint.
+The RF-tools verifier also covers the guarded userspace control contract for
+that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
+authorization, and `--fw-dma-arm`/`--fw-dma-stop` remain non-mutating unless
+the explicit live-write and firmware-DMA guards are present.
 
 Both corrected copied overlays rebuilt timing-clean:
 

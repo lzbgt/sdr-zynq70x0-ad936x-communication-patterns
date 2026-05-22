@@ -261,6 +261,16 @@ firmware endpoint counters. The wrapper still avoids the ADI sample-DMA
 register windows; it is the packet-DMA boundary for the first-party firmware
 path.
 
+Userspace control is intentionally guarded. `fieldmesh-ctrl-write
+--fw-dma-status 0x43c00000` is a read-only status probe and requires
+`FIELD_MESH_ALLOW_HARDWARE_READS=1`. `fieldmesh-ctrl-write --fw-dma-arm
+0x43c00000 SERVICE_BUDGET` and `fieldmesh-ctrl-write --fw-dma-stop
+0x43c00000` write the firmware-DMA control word and require all three live
+write guards: `FIELD_MESH_EXECUTE_LIVE_TX=1`,
+`FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
+`FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The command response is JSON only so test
+logs are readable; no JSON is used on the DMA or RF packet path.
+
 The first control-only block-design overlay is opt-in:
 
 ```sh

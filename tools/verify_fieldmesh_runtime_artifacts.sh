@@ -537,6 +537,12 @@ PY
         fieldmesh_ctrl_write \
         FIELD_MESH_EXECUTE_LIVE_TX \
         FIELD_MESH_ALLOW_HARDWARE_WRITES \
+        FIELD_MESH_ALLOW_HARDWARE_READS \
+        FIELD_MESH_ALLOW_FIRMWARE_DMA \
+        fieldmesh_fw_dma_status \
+        --fw-dma-arm \
+        --fw-dma-stop \
+        fw_dma_arm_control \
         /dev/mem; do
         if ! grep -qF -- "$token" "$rf_ctrl_write_out"; then
             echo "Missing fieldmesh-ctrl-write token in $name rootfs: $token" >&2

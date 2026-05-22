@@ -15,6 +15,9 @@ sh -n "$src_dir/fieldmesh-radio-tx-disable"
 
 cc -std=c99 -Wall -Wextra "$src_dir/fieldmesh_ctrl_write.c" -o "$work_dir/fieldmesh-ctrl-write-host"
 "$work_dir/fieldmesh-ctrl-write-host" --self-test >"$work_dir/ctrl_write_self_test.json"
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 0x43c00000 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop 0x43c00000 >"$work_dir/fw_dma_stop_guard.json" 2>/dev/null || true
 
 if "$work_dir/fieldmesh-ctrl-write-host" 0x43c00000 0x100 0 >/dev/null 2>&1; then
   echo "fieldmesh-ctrl-write accepted missing live write authorization" >&2
@@ -86,6 +89,26 @@ work = Path(sys.argv[1])
 self_test = json.loads((work / "ctrl_write_self_test.json").read_text(encoding="utf-8"))
 if self_test.get("event") != "fieldmesh_ctrl_write_self_test" or self_test.get("ok") is not True:
     raise SystemExit("fieldmesh-ctrl-write self-test failed")
+if self_test.get("requires_firmware_dma_authorization") is not True:
+    raise SystemExit("fieldmesh-ctrl-write self-test missing firmware DMA authorization token")
+if self_test.get("fw_dma_control_offset") != "0x140" or self_test.get("fw_dma_arm_control") != "0x0000001f":
+    raise SystemExit(f"bad firmware DMA self-test offsets: {self_test!r}")
+
+fw_status = json.loads((work / "fw_dma_status_guard.json").read_text(encoding="utf-8"))
+if fw_status.get("event") != "fieldmesh_fw_dma_status" or fw_status.get("ok") is not False:
+    raise SystemExit(f"firmware DMA status guard failed: {fw_status!r}")
+if fw_status.get("writes_hardware") is not False:
+    raise SystemExit(f"firmware DMA guarded status must not write hardware: {fw_status!r}")
+
+for name, expected_value in (("fw_dma_arm_guard.json", "0x0000001f"),
+                             ("fw_dma_stop_guard.json", "0x00000020")):
+    row = json.loads((work / name).read_text(encoding="utf-8"))
+    if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
+        raise SystemExit(f"firmware DMA guarded command failed: {name}: {row!r}")
+    if row.get("offset") != "0x00000140" or row.get("value") != expected_value:
+        raise SystemExit(f"firmware DMA guarded command used wrong register: {name}: {row!r}")
+    if row.get("writes_hardware") is not False:
+        raise SystemExit(f"firmware DMA guarded command must not write hardware: {name}: {row!r}")
 
 safe = (work / "safe_tune.json").read_text(encoding="utf-8")
 for token in ("fieldmesh_radio_safe_tune_command", "fieldmesh_radio_safe_tune"):

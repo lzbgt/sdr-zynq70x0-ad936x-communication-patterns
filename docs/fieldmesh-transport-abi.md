@@ -452,6 +452,12 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
+The userspace control tool is `fieldmesh-ctrl-write`: `--fw-dma-status` reads
+this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while `--fw-dma-arm`
+and `--fw-dma-stop` require `FIELD_MESH_EXECUTE_LIVE_TX=1`,
+`FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
+`FIELD_MESH_ALLOW_FIRMWARE_DMA=1` before touching hardware. JSON appears only
+in the tool result stream for inspection; the transport ABI remains binary.
 
 ## Z103 And Z203 Capability Profiles
 

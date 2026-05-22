@@ -111,6 +111,12 @@ in `src/fieldmesh_sdk.c`:
   budget, pressure, and packet/drop counters are surfaced through fixed binary
   `fieldmesh_ctrl` registers at `0x140..0x16c`; reset leaves the endpoint
   disabled until software arms those bits.
+  `fieldmesh-ctrl-write` exposes the userspace guard for that register block:
+  `--fw-dma-status` is read-only and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`,
+  while `--fw-dma-arm` and `--fw-dma-stop` additionally require
+  `FIELD_MESH_EXECUTE_LIVE_TX=1`, `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
+  `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The command output is JSON for host
+  inspection only; the packet path remains binary descriptors and byte streams.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and
