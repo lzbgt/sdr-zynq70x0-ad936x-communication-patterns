@@ -210,7 +210,9 @@ non-scheduled traffic unblocked. `fieldmesh_firmware_packet_bram.v` is the
 first reusable full-MTU packet arena for the production firmware-ring path; it
 keeps packet storage separate from descriptor validation, RX/ACK construction,
 and MAC scheduling so the later BRAM/DMA endpoint does not depend on the
-AXI-lite diagnostic register array.
+AXI-lite diagnostic register array. `fieldmesh_firmware_packet_bram_copy.v`
+adds the matching sequential packet mover over that arena, with explicit
+alignment, length, bounds, final-word strobe, and fault-counter behavior.
 
 The first control-only block-design overlay is opt-in:
 

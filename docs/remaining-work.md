@@ -71,7 +71,10 @@ reusable full-MTU packet arena for that later BRAM/DMA path: dual 32-bit word
 ports, byte strobes, alignment and bounds checks, deterministic same-word
 write-collision rejection, and fixed counters. It does not own descriptor
 policy or MAC timing, which keeps packet storage separate from service and
-scheduler logic. The stats ABI now includes compact `queued` and
+scheduler logic. `fieldmesh_firmware_packet_bram_copy` adds the bounded
+sequential full-MTU mover over that arena: one aligned variable-length packet
+copy, final-word byte strobes, explicit zero-length/alignment/bounds rejection,
+and copy/fault counters. The stats ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
 masked pending bits and asserted predicate directly, so the future UIO/driver

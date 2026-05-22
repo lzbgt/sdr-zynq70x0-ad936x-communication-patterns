@@ -295,7 +295,11 @@ full-MTU packet-memory arena for that path: two 32-bit word ports, byte
 strobes, explicit alignment/bounds checks, deterministic same-word write
 collision rejection, and fixed fault counters. It is intentionally only packet
 storage; descriptor arbitration, RX/ACK metadata, and MAC timing stay in the
-separate service blocks. The stats block now keeps the fixed counters plus
+separate service blocks. `fieldmesh_firmware_packet_bram_copy` is the matching
+sequential full-MTU packet mover: it copies one aligned variable-length payload
+between BRAM offsets through the word-port contract, applies final-word byte
+strobes, rejects zero-length, unaligned, and out-of-arena requests, and reports
+copy, bounds, and BRAM fault counters. The stats block now keeps the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
 words as `firmware_ring_pressure_queued` and
