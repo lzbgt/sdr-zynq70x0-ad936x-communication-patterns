@@ -10,7 +10,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 port="${PORT:-55421}"
 timeout_ms="${TIMEOUT_MS:-3000}"
-requests="${REQUESTS:-45}"
+requests="${REQUESTS:-50}"
 case "$variant" in
     z103)
         default_local_ap_eui="020000000103"
@@ -184,6 +184,9 @@ tun_device_drain_guard = [row for row in query if row.get("event") == "sdk_daemo
 tun_event_loop_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_event_loop_step_guard"]
 tun_service_start_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_start_guard"]
 tun_service_status = [row for row in query if row.get("event") == "sdk_daemon_tun_service_status"]
+tun_service_irq_mask_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_firmware_irq_mask"]
+tun_service_irq_ack_guard = [row for row in query if row.get("event") == "sdk_daemon_tun_service_firmware_irq_ack"]
+tun_service_irq_wait = [row for row in query if row.get("event") == "sdk_daemon_tun_service_firmware_irq_wait"]
 rf_worker_start = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_start"]
 rf_worker_status = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_status"]
 rf_worker_phy_plan = [row for row in query if row.get("event") == "sdk_daemon_rf_worker_phy_plan"]
@@ -199,7 +202,7 @@ tun_reject = [row for row in query if row.get("event") == "sdk_daemon_tun_apply_
 done = [row for row in query if row.get("event") == "sdk_daemon_query_complete"]
 end = [row for row in serve if row.get("event") == "sdk_daemon_end"]
 
-if not end or end[-1].get("handled") != 45:
+if not end or end[-1].get("handled") != 50:
     raise SystemExit("board SDK daemon did not handle all requests")
 if not hello or hello[0].get("ok") is not True:
     raise SystemExit("board SDK daemon HELLO response failed")
@@ -558,6 +561,48 @@ if (tun_service_status[0].get("rf_tx_poll_api") != 1 or
         tun_service_status[0].get("rf_tx_lease_ack_api") != 1 or
         tun_service_status[0].get("rf_rx_ingest_api") != 1):
     raise SystemExit("board SDK daemon TUN service status did not expose RF driver queue APIs")
+for key in ("firmware_ring_tx_queued", "firmware_ring_tx_owned_by_pl",
+            "firmware_ring_tx_done", "firmware_ring_rx_ready",
+            "firmware_ring_ack_valid", "firmware_ring_pressure_queued",
+            "firmware_ring_pressure_selected", "firmware_ring_irq_status",
+            "firmware_ring_irq_mask", "firmware_ring_irq_pending",
+            "firmware_ring_irq_asserted", "firmware_ring_classify_errors",
+            "firmware_ring_read_errors", "firmware_ring_enqueue_drops",
+            "firmware_ring_drain_errors"):
+    if tun_service_status[0].get(key) != 0:
+        raise SystemExit(f"board SDK daemon guarded TUN service status {key} must be 0")
+if not tun_service_irq_mask_guard:
+    raise SystemExit("board SDK daemon firmware ring IRQ mask guard missing")
+if tun_service_irq_mask_guard[0].get("ok") is not False:
+    raise SystemExit("board SDK daemon firmware ring IRQ mask must be guarded")
+if tun_service_irq_mask_guard[0].get("error") != "firmware_ring_irq_mask_requires_guard":
+    raise SystemExit("board SDK daemon firmware ring IRQ mask guard changed")
+if tun_service_irq_mask_guard[0].get("requires_allow_firmware_ring_writes") != 1:
+    raise SystemExit("board SDK daemon firmware ring IRQ mask must require write opt-in")
+if not tun_service_irq_ack_guard:
+    raise SystemExit("board SDK daemon firmware ring IRQ ACK guard missing")
+if tun_service_irq_ack_guard[0].get("ok") is not False:
+    raise SystemExit("board SDK daemon firmware ring IRQ ACK must be guarded")
+if tun_service_irq_ack_guard[0].get("error") != "firmware_ring_irq_ack_requires_guard":
+    raise SystemExit("board SDK daemon firmware ring IRQ ACK guard changed")
+if tun_service_irq_ack_guard[0].get("requires_allow_firmware_ring_writes") != 1:
+    raise SystemExit("board SDK daemon firmware ring IRQ ACK must require write opt-in")
+if not tun_service_irq_wait:
+    raise SystemExit("board SDK daemon firmware ring IRQ wait response missing")
+if tun_service_irq_wait[0].get("ok") is not False:
+    raise SystemExit("board SDK daemon firmware ring IRQ wait must not pass without mapped ring")
+if tun_service_irq_wait[0].get("error") != "firmware_ring_not_mapped":
+    raise SystemExit("board SDK daemon firmware ring IRQ wait guard changed")
+if tun_service_irq_wait[0].get("requested_bits") != 3:
+    raise SystemExit("board SDK daemon firmware ring IRQ wait requested bits changed")
+for row_name, row in (("mask", tun_service_irq_mask_guard[0]),
+                      ("ack", tun_service_irq_ack_guard[0]),
+                      ("wait", tun_service_irq_wait[0])):
+    for key in ("writes_hardware", "uses_iio", "uses_json_on_air"):
+        if row.get(key) != 0:
+            raise SystemExit(f"board SDK daemon firmware IRQ {row_name} key {key} must be 0")
+    if row.get("hot_path_language") != "c":
+        raise SystemExit(f"board SDK daemon firmware IRQ {row_name} must keep C hot path")
 if not rf_tx_poll or rf_tx_poll[0].get("error") != "tun_service_not_running":
     raise SystemExit("board SDK daemon RF TX poll guard failed")
 if not rf_worker_start or rf_worker_start[0].get("error") != "tun_service_not_running":

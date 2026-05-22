@@ -625,9 +625,11 @@ Firmware state:
 - Z203 runs the current `fm-z203` SD/initramfs product runtime. The installed
   daemon reports host `fm-z203`, includes `FIELDMESH_MAC_INGEST`,
   `FIELDMESH_RF_TX_LEASE`, `FIELDMESH_RF_TX_ACK`, and the native-IP service
-  controls, and passes `tools/run_fieldmesh_board_sdk_daemon.sh` with
-  `UPLOAD_IF_MISSING=0`. Z203 no longer needs `FORCE_UPLOAD=1` when it is
-  booted through this SD path. Its installed init script also runs
+  controls, and passed `tools/run_fieldmesh_board_sdk_daemon.sh` with
+  `UPLOAD_IF_MISSING=0` before the new guarded firmware-ring IRQ mask/ACK/wait
+  controls were added to the source contract. Z203 no longer needs
+  `FORCE_UPLOAD=1` when it is booted through this SD path. Its installed init
+  script also runs
   `/usr/bin/fieldmesh-state-daemon-demo serve 0.0.0.0 55441 0 5000`.
 - The connected-board installer resolves Z203 install mode and preflights all
   intended targets before launching parallel board updates. Auto mode uses QSPI

@@ -542,8 +542,9 @@ Stage 2: Board-local service
   Ethernet.
 - Use `tools/run_fieldmesh_board_sdk_daemon.sh` as the live smoke: it validates
   AP browse/election/join plus peer/RTLS UDP state queries against an installed
-  board daemon, or against a transient `/tmp` daemon uploaded from the matching
-  rootfs before the SD/QSPI image is restaged.
+  board daemon, including the guarded firmware-ring IRQ mask/ACK/wait control
+  surface, or against a transient `/tmp` daemon uploaded from the matching rootfs
+  before the SD/QSPI image is restaged.
 - Use `tools/run_fieldmesh_two_board_camera_flow.sh` as the composed
   source/preview gate: logical Host A reaches Z203 over USB or physical
   Ethernet, logical Host B reaches Z103 over USB or physical Ethernet, both
