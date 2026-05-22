@@ -290,7 +290,12 @@ serviced TX descriptor window, picks the lowest-numbered queued traffic class,
 and still retires malformed queued descriptors after valid traffic so a bad
 slot cannot wedge the PL ring. The later BRAM/DMA MAC path can reuse the same
 descriptor policy, CRCs, slot selection, and packet movement without depending
-on AXI-lite storage. The stats block now keeps the fixed counters plus
+on AXI-lite storage. `fieldmesh_firmware_packet_bram` is now the reusable
+full-MTU packet-memory arena for that path: two 32-bit word ports, byte
+strobes, explicit alignment/bounds checks, deterministic same-word write
+collision rejection, and fixed fault counters. It is intentionally only packet
+storage; descriptor arbitration, RX/ACK metadata, and MAC timing stay in the
+separate service blocks. The stats block now keeps the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those
 words as `firmware_ring_pressure_queued` and

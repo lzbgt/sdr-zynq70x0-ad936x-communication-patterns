@@ -66,7 +66,12 @@ which selects RX/ACK/packet results across the serviced window. The
 `fieldmesh_firmware_service_slot_picker` now gives the AXI-lite diagnostic
 service the same autonomous queued-slot selection expected by the later
 BRAM/DMA MAC path: lowest traffic class first, with malformed queued slots
-retired after valid traffic. The stats ABI now includes compact `queued` and
+retired after valid traffic. `fieldmesh_firmware_packet_bram` adds the first
+reusable full-MTU packet arena for that later BRAM/DMA path: dual 32-bit word
+ports, byte strobes, alignment and bounds checks, deterministic same-word
+write-collision rejection, and fixed counters. It does not own descriptor
+policy or MAC timing, which keeps packet storage separate from service and
+scheduler logic. The stats ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
 masked pending bits and asserted predicate directly, so the future UIO/driver

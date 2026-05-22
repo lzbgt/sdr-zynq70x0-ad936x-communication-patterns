@@ -21,6 +21,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_firmware_packet_service_core.v",
     "rtl/fieldmesh/fieldmesh_firmware_packet_service_bank.v",
     "rtl/fieldmesh/fieldmesh_firmware_service_slot_picker.v",
+    "rtl/fieldmesh/fieldmesh_firmware_packet_bram.v",
     "rtl/fieldmesh/fieldmesh_firmware_ring_axi_lite.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_loopback_core.v",
     "rtl/fieldmesh/fieldmesh_packet_mem_axi_lite.v",

@@ -206,7 +206,11 @@ control window, but reset and the current guarded apply path leave it off.
 `fieldmesh_slot_admission_gate.v` is also part of the required RTL set, but
 remains parked until the packet path is ready for scheduled-mode admission: it
 holds future-slot descriptors, drops stale scheduled descriptors, and leaves
-non-scheduled traffic unblocked.
+non-scheduled traffic unblocked. `fieldmesh_firmware_packet_bram.v` is the
+first reusable full-MTU packet arena for the production firmware-ring path; it
+keeps packet storage separate from descriptor validation, RX/ACK construction,
+and MAC scheduling so the later BRAM/DMA endpoint does not depend on the
+AXI-lite diagnostic register array.
 
 The first control-only block-design overlay is opt-in:
 
