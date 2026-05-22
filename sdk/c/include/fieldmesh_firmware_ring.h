@@ -245,10 +245,11 @@ static inline int fieldmesh_fw_ring_enqueue(
         if (fieldmesh_fw_tx_desc_v1_state(&ring->tx[slot]) != FIELDMESH_FW_STATE_FREE) {
             continue;
         }
+        fieldmesh_fw_tx_desc_v1_t desc;
         uint32_t offset = slot * ring->packet_stride;
         fieldmesh_fw_ring_copy_bytes(ring->tx_packets + offset, payload, payload_len);
         fieldmesh_fw_tx_desc_v1_init(
-            &ring->tx[slot],
+            &desc,
             FIELDMESH_FW_STATE_QUEUED,
             traffic_class,
             flags,
@@ -260,6 +261,10 @@ static inline int fieldmesh_fw_ring_enqueue(
             offset,
             payload_len,
             deadline_ticks);
+        fieldmesh_fw_ring_zero_bytes(&ring->tx[slot], (uint32_t)sizeof(ring->tx[slot]));
+        fieldmesh_fw_ring_copy_bytes(&ring->tx[slot].bytes[1], &desc.bytes[1],
+                                     (uint32_t)sizeof(desc.bytes) - 1u);
+        ring->tx[slot].bytes[0] = desc.bytes[0];
         ring->stats->enqueued++;
         return (int)slot;
     }

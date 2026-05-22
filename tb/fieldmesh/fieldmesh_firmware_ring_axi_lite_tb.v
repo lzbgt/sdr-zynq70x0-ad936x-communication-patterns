@@ -123,6 +123,50 @@ task expect_word;
     end
 endtask
 
+task write_tx_desc;
+    input [15:0] base;
+    input [7:0] state;
+    input [7:0] traffic_class;
+    input [31:0] seq;
+    input [31:0] payload_offset;
+    input [15:0] payload_len;
+    begin
+        axi_write(base + 16'h00, {16'h0011, traffic_class, 8'd0});
+        axi_write(base + 16'h04, 32'h0301_0007);
+        axi_write(base + 16'h08, seq);
+        axi_write(base + 16'h0c, 32'h0000_0000);
+        axi_write(base + 16'h10, 32'h0000_0000);
+        axi_write(base + 16'h14, payload_offset);
+        axi_write(base + 16'h18, {16'd0, payload_len});
+        axi_write(base + 16'h1c, 32'h0000_0000);
+        axi_write(base + 16'h20, 32'h0000_0000);
+        axi_write(base + 16'h24, 32'h0000_0000);
+        axi_write_strb(base + 16'h00, {24'd0, state}, 4'b0001);
+    end
+endtask
+
+task wait_for_word;
+    input [15:0] addr;
+    input [31:0] expected;
+    input integer max_cycles;
+    reg [31:0] actual;
+    integer waited;
+    begin
+        waited = 0;
+        actual = 32'hffff_ffff;
+        while (waited < max_cycles && actual != expected) begin
+            axi_read(addr, actual);
+            waited = waited + 1;
+            repeat (4) @(posedge clk);
+        end
+        if (actual != expected) begin
+            $display("expected 0x%08x got 0x%08x at 0x%04x after %0d polls",
+                     expected, actual, addr, waited);
+            fail("firmware ring service timeout");
+        end
+    end
+endtask
+
 initial begin
     repeat (4) @(negedge clk);
     resetn = 1'b1;
@@ -137,11 +181,27 @@ initial begin
     axi_write_strb(16'h0000, 32'h00aa_00bb, 4'b0101);
     expect_word(16'h0000, 32'h44aa_22bb);
 
-    axi_write(16'h1000, 32'h464d_5549);
-    expect_word(16'h1000, 32'h464d_5549);
+    axi_write(16'h0600, 32'h464d_5549);
+    expect_word(16'h0600, 32'h464d_5549);
 
     axi_write(16'hfffc, 32'hcafe_babe);
-    expect_word(16'hfffc, 32'hcafe_babe);
+    expect_word(16'hfffc, 32'h0000_0000);
+
+    axi_write(16'h0000, 32'h0000_0000);
+
+    // Live daemon layout: 16 slots, 1536-byte packet stride, 50712 bytes total.
+    // The AXI-lite diagnostic PL service intentionally services only slot 0.
+    // Payloads are written before descriptors so the PL service only sees
+    // complete binary packets.
+    axi_write(16'h0600, 32'h4c52_5443); // TX packet arena slot 0: "CTRL"
+    write_tx_desc(16'h0000, 8'd1, 8'd0, 32'h0000_0100, 32'd0, 16'd4);
+
+    wait_for_word(16'hc604, 32'h0000_0001, 2000); // stats.served
+    expect_word(16'hc608, 32'h0000_0001);         // stats.acked
+    expect_word(16'h0280, 32'hd600_0304);         // RX slot 0 READY, CRC/FEC OK
+    expect_word(16'h04c0, 32'h0007_0511);         // ACK slot 0 header
+    expect_word(16'h6600, 32'h4c52_5443);         // RX packet arena slot 0
+    expect_word(16'h0000, 32'h0011_0003);         // TX slot 0 marked DONE
 
     $display("PASS: fieldmesh_firmware_ring_axi_lite_tb");
     $finish;

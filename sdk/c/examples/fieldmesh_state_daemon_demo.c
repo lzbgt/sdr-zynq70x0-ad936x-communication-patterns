@@ -1983,9 +1983,10 @@ static int tun_service_open_firmware_ring(struct tun_service_state *service,
         tun_service_close_firmware_ring(service);
         return -1;
     }
+    fieldmesh_fw_packet_bridge_set_rx_crc_required(&service->firmware_bridge, 0u);
     service->firmware_ring_enabled = 1u;
     service->firmware_ring_mapped = 1u;
-    service->firmware_ring_loopback = 1u;
+    service->firmware_ring_loopback = 0u;
     snprintf(service->firmware_ring_device, sizeof(service->firmware_ring_device),
              "%s", device_path);
     if (out_errno) {
@@ -2394,7 +2395,6 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
     fieldmesh_fw_tun_reader_t reader;
     fieldmesh_fw_tun_writer_t writer;
     int pumped;
-    int served;
     int drained;
 
     if (!service || !service->running || service->fd < 0 ||
@@ -2426,22 +2426,6 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
     service->bytes_read = service->firmware_bridge.bytes_enqueued;
     service->bytes_sent = service->firmware_bridge.bytes_enqueued;
 
-    served = 0;
-    while ((uint32_t)served < service->max_packets_per_tick) {
-        int rc = fieldmesh_fw_ring_service_one(&service->firmware_ring,
-                                               -42 * 256, 24 * 256, 0,
-                                               service->ticks);
-        if (rc == 0) {
-            break;
-        }
-        if (rc < 0) {
-            service->firmware_ring_errors++;
-            return FIELDMESH_ERR_TRANSPORT;
-        }
-        served++;
-    }
-    service->firmware_ring_served += (uint32_t)served;
-
     drained = fieldmesh_fw_packet_bridge_drain_ready(
         &service->firmware_bridge, fieldmesh_fw_tun_write_packet, &writer,
         service->max_packets_per_tick);
@@ -2450,6 +2434,9 @@ static fieldmesh_status_t tun_service_firmware_ring_tick(
         return FIELDMESH_ERR_TRANSPORT;
     }
     service->firmware_ring_drained += (uint32_t)drained;
+    service->firmware_ring_served =
+        service->firmware_ring.stats ? service->firmware_ring.stats->served :
+        service->firmware_ring_served;
     service->packets_received += (uint32_t)drained;
     service->packets_written += (uint32_t)drained;
     service->bytes_received = service->firmware_bridge.bytes_drained;

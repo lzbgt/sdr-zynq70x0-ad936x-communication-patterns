@@ -10,17 +10,19 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
-#define RING_SLOTS 8u
-#define PACKET_ARENA_BYTES 4096u
-#define PACKET_STRIDE 256u
+#define RING_SLOTS 16u
+#define PACKET_STRIDE 1536u
+#define PACKET_ARENA_BYTES (RING_SLOTS * PACKET_STRIDE)
 
 typedef struct probe_config {
     const char *device_path;
     const char *image_path;
     int mmap_read;
     int loopback;
+    int pl_service;
     int allow_writes;
     int unlink_image;
     char generated_image_path[128];
@@ -29,7 +31,9 @@ typedef struct probe_config {
 static int usage(const char *argv0)
 {
     fprintf(stderr,
-            "usage: %s (--device /dev/uioN [--mmap-read] | --image PATH) [--loopback --allow-writes]\n",
+            "usage: %s (--device /dev/uioN [--mmap-read] | --image PATH) "
+            "[--loopback [--pl-service] --allow-writes]\n"
+            "       write modes require: --loopback --allow-writes\n",
             argv0);
     return 2;
 }
@@ -63,6 +67,8 @@ static int parse_args(int argc, char **argv, probe_config_t *cfg)
             cfg->mmap_read = 1;
         } else if (strcmp(argv[i], "--loopback") == 0) {
             cfg->loopback = 1;
+        } else if (strcmp(argv[i], "--pl-service") == 0) {
+            cfg->pl_service = 1;
         } else if (strcmp(argv[i], "--allow-writes") == 0) {
             cfg->allow_writes = 1;
         } else {
@@ -79,6 +85,9 @@ static int parse_args(int argc, char **argv, probe_config_t *cfg)
         return 0;
     }
     if (cfg->loopback && !cfg->allow_writes) {
+        return 0;
+    }
+    if (cfg->pl_service && (!cfg->loopback || !cfg->device_path)) {
         return 0;
     }
     return 1;
@@ -229,6 +238,77 @@ static int service_loopback(fieldmesh_fw_ring_view_t *view, uint32_t *first_seq,
                                              bulk_payload, sizeof(bulk_payload));
 }
 
+static int pl_service_payload_matches(const fieldmesh_fw_ring_view_t *view,
+                                      uint32_t slot,
+                                      const uint8_t *payload,
+                                      uint16_t payload_len)
+{
+    if (!fieldmesh_fw_ring_config_valid(view) || slot >= view->slots || !payload) {
+        return 0;
+    }
+    const fieldmesh_fw_rx_desc_v1_t *rx = &view->rx[slot];
+    if (fieldmesh_fw_rx_desc_v1_state(rx) != FIELDMESH_FW_STATE_READY ||
+        fieldmesh_fw_rx_desc_v1_payload_len(rx) != payload_len) {
+        return 0;
+    }
+    uint32_t offset = fieldmesh_fw_rx_desc_v1_payload_offset(rx);
+    if (!fieldmesh_fw_ring_range_valid(view->packet_arena_bytes, offset, payload_len)) {
+        return 0;
+    }
+    return fieldmesh_fw_ring_bytes_equal(view->rx_packets + offset, payload, payload_len);
+}
+
+static int pl_service_ack_matches(const fieldmesh_fw_ack_v1_t *ack,
+                                  uint32_t seq)
+{
+    return ack &&
+           ack->bytes[0] == (uint8_t)((FIELDMESH_FW_ABI_VERSION << 4) |
+                                      FIELDMESH_FW_ACK_TYPE) &&
+           ack->bytes[1] == (FIELDMESH_FW_ACK_FLAG_SELECTIVE |
+                             FIELDMESH_FW_ACK_FLAG_LINK_METRIC) &&
+           fieldmesh_fw_get_le32(ack->bytes + 4u) == seq;
+}
+
+static int pl_service_loopback(fieldmesh_fw_ring_view_t *view,
+                               uint32_t *bulk_seq,
+                               uint32_t *control_seq,
+                               uint32_t *polls)
+{
+    static const uint8_t control_payload[12] = {
+        'F', 'M', 'P', 'C', 0x80, 0x81, 0x82, 0x83,
+        0x84, 0x85, 0x86, 0x87,
+    };
+
+    fieldmesh_fw_ring_reset(view);
+    int control_slot = fieldmesh_fw_ring_enqueue(
+        view, 0u, FIELDMESH_FW_DESC_FLAG_ACK_REQ | FIELDMESH_FW_DESC_FLAG_LAST,
+        7u, 1u, 3u, 0x100u, control_payload, sizeof(control_payload), 0u, 1000000ull);
+    if (control_slot < 0) {
+        return 0;
+    }
+
+    struct timespec delay = {.tv_sec = 0, .tv_nsec = 1000000L};
+    for (*polls = 0u; *polls < 2000u; ++(*polls)) {
+        if (view->stats->served >= 1u && view->stats->acked >= 1u) {
+            break;
+        }
+        nanosleep(&delay, NULL);
+    }
+    if (view->stats->served < 1u || view->stats->acked < 1u) {
+        return 0;
+    }
+
+    *bulk_seq = 0u;
+    *control_seq = fieldmesh_fw_rx_desc_v1_seq(&view->rx[(uint32_t)control_slot]);
+    return control_slot == 0 &&
+           *control_seq == 0x100u &&
+           view->stats->enqueued == 1u && view->stats->served == 1u &&
+           view->stats->acked == 1u && view->stats->drops == 0u &&
+           pl_service_ack_matches(&view->ack[(uint32_t)control_slot], 0x100u) &&
+           pl_service_payload_matches(view, (uint32_t)control_slot,
+                                      control_payload, sizeof(control_payload));
+}
+
 int main(int argc, char **argv)
 {
     probe_config_t cfg;
@@ -266,10 +346,16 @@ int main(int argc, char **argv)
                                              PACKET_ARENA_BYTES, PACKET_STRIDE, NULL);
     uint32_t first_seq = 0u;
     uint32_t second_seq = 0u;
+    uint32_t pl_polls = 0u;
     int loopback_ok = 0;
     int sync_ok = 1;
     if (bound && cfg.loopback) {
-        loopback_ok = service_loopback(&view, &first_seq, &second_seq);
+        if (cfg.pl_service) {
+            loopback_ok = pl_service_loopback(&view, &second_seq, &first_seq,
+                                              &pl_polls);
+        } else {
+            loopback_ok = service_loopback(&view, &first_seq, &second_seq);
+        }
         sync_ok = cfg.image_path ? (msync(map, layout.total_bytes, MS_SYNC) == 0) : 1;
     }
 
@@ -285,7 +371,9 @@ int main(int argc, char **argv)
            "\"packet_stride\":%u,"
            "\"writes_packet_memory\":%s,"
            "\"loopback\":%s,"
+           "\"pl_service\":%s,"
            "\"loopback_ok\":%s,"
+           "\"pl_service_polls\":%u,"
            "\"sync_required\":%s,"
            "\"sync_ok\":%s,"
            "\"enqueued\":%u,"
@@ -306,7 +394,9 @@ int main(int argc, char **argv)
            PACKET_STRIDE,
            cfg.allow_writes ? "true" : "false",
            cfg.loopback ? "true" : "false",
+           cfg.pl_service ? "true" : "false",
            loopback_ok ? "true" : "false",
+           pl_polls,
            (cfg.loopback && cfg.image_path) ? "true" : "false",
            sync_ok ? "true" : "false",
            bound ? view.stats->enqueued : 0u,

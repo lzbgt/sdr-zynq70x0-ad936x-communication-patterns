@@ -25,6 +25,8 @@ BD_DMA_BEGIN = "# FieldMesh sidecar DMA overlay: begin"
 BD_DMA_END = "# FieldMesh sidecar DMA overlay: end"
 BD_RF_ENGINE_BEGIN = "# FieldMesh RF packet engine overlay: begin"
 BD_RF_ENGINE_END = "# FieldMesh RF packet engine overlay: end"
+PROJECT_THREAD_CAP_BEGIN = "# FieldMesh Vivado thread cap: begin"
+PROJECT_THREAD_CAP_END = "# FieldMesh Vivado thread cap: end"
 BD_GNSS_UART_BEGIN = "# FieldMesh GNSS UART EMIO overlay: begin"
 BD_GNSS_UART_END = "# FieldMesh GNSS UART EMIO overlay: end"
 BD_GNSS_PPS_BEGIN = "# FieldMesh GNSS PPS EMIO overlay: begin"
@@ -80,10 +82,25 @@ def rel_rtl_name(rtl_path: str) -> str:
 
 
 def patch_system_project(text: str, rel_files: list[str], rel_xdc_files: list[str]) -> tuple[str, bool]:
+    changed = False
+    if PROJECT_THREAD_CAP_BEGIN not in text:
+        thread_cap = "\n".join(
+            [
+                PROJECT_THREAD_CAP_BEGIN,
+                "if {[info exists ::env(FIELDMESH_VIVADO_MAX_THREADS)]} {",
+                "  set_param general.maxThreads $::env(FIELDMESH_VIVADO_MAX_THREADS)",
+                "}",
+                PROJECT_THREAD_CAP_END,
+                "",
+            ]
+        )
+        text = thread_cap + text
+        changed = True
+
     all_project_files = rel_files + rel_xdc_files
     missing_project_files = [rel for rel in all_project_files if f'"{rel}"' not in text]
     if not missing_project_files:
-        return text, False
+        return text, changed
 
     lines = text.splitlines()
     marker = '  "$ad_hdl_dir/library/common/ad_iobuf.v"]'
@@ -219,10 +236,17 @@ ad_connect VCC fieldmesh_axis_bridge/enable
 """
 
 
-def render_ring_overlay() -> str:
+def render_ring_overlay(variant_name: str) -> str:
+    service_parameter = ""
+    if variant_name == "z103":
+        service_parameter = (
+            "set_property -dict [list CONFIG.ENABLE_PL_SERVICE {0}] "
+            "[get_bd_cells fieldmesh_ring]\n"
+        )
     return f"""
 {BD_RING_BEGIN}
 create_bd_cell -type module -reference fieldmesh_firmware_ring_axi_lite fieldmesh_ring
+{service_parameter.rstrip()}
 ad_connect sys_cpu_clk fieldmesh_ring/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ring/s_axi_aresetn
 ad_cpu_interconnect 0x43C30000 fieldmesh_ring
@@ -417,6 +441,7 @@ ad_ip_parameter sys_ps7 CONFIG.PCW_GPIO_EMIO_GPIO_IO 18
 
 def patch_system_bd(
     text: str,
+    variant_name: str,
     control_overlay: bool,
     bridge_overlay: bool,
     dma_overlay: bool,
@@ -473,7 +498,7 @@ def patch_system_bd(
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
         blocks.append(render_bridge_overlay(park_byte_ports=not dma_overlay, rf_engine_overlay=rf_engine_overlay))
     if ring_overlay and BD_RING_BEGIN not in text:
-        blocks.append(render_ring_overlay())
+        blocks.append(render_ring_overlay(variant_name))
     if dma_overlay and BD_DMA_BEGIN not in text:
         blocks.append(render_dma_overlay())
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
@@ -619,6 +644,7 @@ def apply_patch(
     system_bd_text = system_bd.read_text()
     patched_system_bd, system_bd_changed = patch_system_bd(
         system_bd_text,
+        variant_name,
         control_overlay,
         bridge_overlay,
         dma_overlay,

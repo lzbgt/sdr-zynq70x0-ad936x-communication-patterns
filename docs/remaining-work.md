@@ -40,13 +40,34 @@ letting the firmware ABI own POSIX fd state. It now supports heap, file-backed
 `mmap`, and guarded `/dev/uioN` backends for the same callback path. The live
 Z203/Z103 runtimes now expose
 `fieldmesh-ring` as `/dev/uio0` at `0x43C30000/0x10000`, backed by a first-party
-PL AXI-lite RAM aperture; sysfs inspection, read-only `mmap`, and guarded
-write-loopback pass on both boards. The daemon now exposes a guarded
-`firmware_ring=1` TUN-service mode that maps `/dev/uio0` and runs the C TUN
-callback bridge from the daemon tick loop; this is the first daemon-owned
-replacement for the Python/IIO burst hot path, with RF timing still pending in
-PL MAC logic. The live daemon layout currently uses 16 packet slots and 50,712
-mapped bytes, keeping it inside the 64 KiB PL aperture. The remaining app/GUI refactor
+PL AXI-lite packet-ring service; sysfs inspection, read-only `mmap`, guarded
+write-loopback, and the shared C/UIO ring path pass on both boards. Z203 also
+keeps the guarded PL-service loopback enabled; Z103 keeps the same UIO aperture
+but synthesizes that diagnostic service out to fit the Zynq-7010. The daemon
+now exposes a guarded `firmware_ring=1` TUN-service mode that maps `/dev/uio0`
+and runs the C TUN callback bridge from the daemon tick loop; descriptor service
+is owned by PL, not by the C loopback helper. The synthesizable AXI-lite service
+currently implements a bounded one-slot, 16-byte packet service window so Vivado
+does not turn the 64 KiB UIO aperture into an OOM-prone register fabric; the
+next PL step is a real BRAM/AXI RAM or DMA packet-memory block for full-MTU
+traffic and sequential descriptor CRC/FEC integrity. The AXI-lite
+diagnostic service validates state, sequence, offsets, payload bytes, and
+counters rather than synthesizing CRC generation into the register shell. This
+diagnostic PL service remains enabled on Z203, but is synthesized out on
+Z103/Zynq-7010 so the smaller device can still place the UIO aperture and shared
+C firmware boundary without exceeding LUT/slice capacity. This
+is the first daemon-owned replacement for the Python/IIO burst hot path, with
+RF timing still pending in PL MAC logic. The live daemon layout currently uses
+16 packet slots and 50,712 mapped bytes, keeping it inside the 64 KiB PL
+aperture while only the first slot is actively serviced by the diagnostic
+AXI-lite shell. The 2026-05-22 capped rebuild/package/install pass kept WSL
+memory stable and installed Z203 through the safe SD path; Z203 came back and
+passed daemon HELLO. Z103 accepted the refreshed `.frm` update, but did not
+return on the `192.168.3.1` USB/RNDIS management path afterward. The prepared
+JTAG/RAM recovery path could not start in this WSL session because
+`/dev/ttyUSB1` was not present, so the immediate live blocker is restoring Z103
+USB/JTAG attachment and boot visibility before further board-side verification.
+The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover
 devices and capabilities at runtime, with no hardcoded app EUI, board EUI,
@@ -1290,12 +1311,15 @@ below were later superseded by the current PHY-management two-board gates above:
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
-  sources. The Z203 and Z103 copied overlay builds are both timing-clean after
-  the slot-gated packet-memory refresh. `tools/build_fieldmesh_rf_engine_overlay_vivado.sh`
-  now provides the equivalent non-transmitting RF-engine overlay build gate;
-  both Z203 and Z103 produce timing-clean `system_top.bit`/XSA artifacts with
-  the BPSK symbolizer, TX guard, and AD9361-clock-domain async FIFO BD-visible
-  and disconnected from AD936x TX.
+  sources. `tools/build_fieldmesh_rf_engine_overlay_vivado.sh` is now
+  board-class aware: Z203 still defaults to the non-transmitting experimental
+  RF-engine overlay with the BPSK symbolizer, TX guard, AD9361-clock-domain
+  async FIFO, and reset-off DAC driver BD-visible, while Z103 defaults to the
+  smaller production control/ring aperture because the 7010 cannot reliably
+  pack the old RF-engine/DMA experiment alongside the vendor AD9363 fabric. Set
+  `ENABLE_RF_ENGINE_OVERLAY=1` only when intentionally probing that experimental
+  Z103 path; the first-party production path on Z103 is the C/PL packet ring
+  plus the next BRAM/AXI RAM/DMA MAC block.
 - `tools/package_fieldmesh_pluto_frm.sh` now integrates the FieldMesh sidecar
   devicetree only with a matching FieldMesh overlay bitstream and packages
   Z203/Z103 Pluto-style update payloads without mutating the default images.

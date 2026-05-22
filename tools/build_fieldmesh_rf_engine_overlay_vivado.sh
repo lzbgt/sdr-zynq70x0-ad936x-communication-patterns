@@ -22,6 +22,11 @@ esac
 shift || true
 enable_gnss_uart_emio="${ENABLE_GNSS_UART_EMIO:-0}"
 enable_gnss_pps_emio="${ENABLE_GNSS_PPS_EMIO:-0}"
+default_rf_engine_overlay=1
+if [[ "$variant" == "z103" ]]; then
+  default_rf_engine_overlay=0
+fi
+enable_rf_engine_overlay="${ENABLE_RF_ENGINE_OVERLAY:-$default_rf_engine_overlay}"
 case "$enable_gnss_uart_emio" in
   0|1) ;;
   *) echo "ENABLE_GNSS_UART_EMIO must be 0 or 1" >&2; exit 2 ;;
@@ -29,6 +34,10 @@ esac
 case "$enable_gnss_pps_emio" in
   0|1) ;;
   *) echo "ENABLE_GNSS_PPS_EMIO must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$enable_rf_engine_overlay" in
+  0|1) ;;
+  *) echo "ENABLE_RF_ENGINE_OVERLAY must be 0 or 1" >&2; exit 2 ;;
 esac
 
 src_hdl="$source_fw/hdl"
@@ -60,9 +69,13 @@ patch_args=(
   --repo-root "$repo_root" \
   --hdl-tree "$work_hdl" \
   --variant-name "$variant" \
-  --rf-engine-overlay \
   --apply
 )
+if [[ "$enable_rf_engine_overlay" == "1" ]]; then
+  patch_args+=(--rf-engine-overlay)
+else
+  patch_args+=(--control-overlay)
+fi
 if [[ "$enable_gnss_uart_emio" == "1" ]]; then
   patch_args+=(--gnss-uart-emio)
 fi
@@ -74,6 +87,7 @@ fi
 export XILINXD_LICENSE_FILE="$license_path"
 export ADI_IGNORE_VERSION_CHECK="${ADI_IGNORE_VERSION_CHECK:-1}"
 export ADI_MAX_OOC_JOBS="${ADI_MAX_OOC_JOBS:-2}"
+export FIELDMESH_VIVADO_MAX_THREADS="${FIELDMESH_VIVADO_MAX_THREADS:-1}"
 export GIT_CEILING_DIRECTORIES="${GIT_CEILING_DIRECTORIES:-$repo_root}"
 
 # shellcheck disable=SC1090
@@ -86,4 +100,5 @@ make "$@"
 HDL_PROJECT="$work_project" "$repo_root/tools/verify_pluto_hdl_build.sh"
 
 printf 'fieldmesh_rf_engine_overlay_build=%s\n' "$variant"
+printf 'fieldmesh_rf_engine_overlay_enabled=%s\n' "$enable_rf_engine_overlay"
 printf 'work_root=%s\n' "$work_root"

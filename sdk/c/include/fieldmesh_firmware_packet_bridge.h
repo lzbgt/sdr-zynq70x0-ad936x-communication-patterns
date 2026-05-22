@@ -27,6 +27,7 @@ typedef struct fieldmesh_fw_packet_bridge_config {
 typedef struct fieldmesh_fw_packet_bridge {
     fieldmesh_fw_ring_view_t *ring;
     fieldmesh_fw_packet_bridge_config_t config;
+    uint8_t require_rx_crc;
     uint32_t next_seq;
     uint32_t enqueued_packets;
     uint32_t drained_packets;
@@ -134,8 +135,18 @@ static inline int fieldmesh_fw_packet_bridge_init(
     fieldmesh_fw_zero((volatile uint8_t *)bridge, sizeof(*bridge));
     bridge->ring = ring;
     bridge->config = *config;
+    bridge->require_rx_crc = 1u;
     bridge->next_seq = 1u;
     return 1;
+}
+
+static inline void fieldmesh_fw_packet_bridge_set_rx_crc_required(
+    fieldmesh_fw_packet_bridge_t *bridge,
+    uint8_t required)
+{
+    if (bridge) {
+        bridge->require_rx_crc = required ? 1u : 0u;
+    }
 }
 
 static inline int fieldmesh_fw_packet_bridge_enqueue_ipv4(
@@ -235,7 +246,7 @@ static inline int fieldmesh_fw_packet_bridge_drain_ready(
         if (fieldmesh_fw_rx_desc_v1_state(rx) != FIELDMESH_FW_STATE_READY) {
             continue;
         }
-        if (!fieldmesh_fw_rx_desc_v1_valid(rx)) {
+        if (bridge->require_rx_crc && !fieldmesh_fw_rx_desc_v1_valid(rx)) {
             bridge->drain_errors++;
             continue;
         }

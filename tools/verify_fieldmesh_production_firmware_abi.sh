@@ -463,6 +463,9 @@ required = [
     "--device /dev/uioN",
     "--mmap-read",
     "--loopback --allow-writes",
+    "--pl-service",
+    "pl_service_loopback",
+    "\\\"pl_service\\\":%s",
     "/sys/class/uio/uio%d/name",
     "/sys/class/uio/uio%d/maps/map0/addr",
     "/sys/class/uio/uio%d/maps/map0/size",
@@ -473,6 +476,7 @@ required = [
     "mmap(",
     "msync(",
     "writes_packet_memory",
+    "pl_service_polls",
     "uses_json_on_air",
 ]
 missing = [token for token in required if token not in source]

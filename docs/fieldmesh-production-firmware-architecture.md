@@ -259,11 +259,34 @@ packet memory. The matching devicetree contract is
 aperture, not an AD936x sample-DMA or IIO data path.
 
 Live Z203/Z103 images now bind that node as `/dev/uio0`, and the FPGA includes
-the first-party `fieldmesh_firmware_ring_axi_lite` AXI-lite RAM aperture behind
-`0x43C30000/0x10000`. Safe sysfs inspection, read-only `mmap`, and guarded
-write-loopback all pass on both boards. The C ring helper uses explicit
-byte-wise MMIO access for descriptor and packet-memory bytes so ARM Device
-mappings do not fault on compiler-generated unaligned word stores.
+the first-party `fieldmesh_firmware_ring_axi_lite` AXI-lite service behind
+`0x43C30000/0x10000`. It is no longer only passive RAM: ARM publishes binary TX
+descriptors with the state byte last, PL services each published descriptor in
+a bounded diagnostic loopback, copies packet bytes into the RX arena, emits
+RX/ACK descriptors with state/header published last, updates counters, and
+marks TX descriptors done. Traffic-class arbitration stays in the C bridge for
+this AXI-lite shell and moves into the later MAC/DMA engine for production RF.
+The current AXI-lite implementation intentionally keeps only a bounded
+one-slot, 16-byte packet service window in PL so it synthesizes and routes
+safely on the WSL/Vivado host; full-MTU packet storage belongs in the next
+BRAM/AXI RAM or DMA-memory block, not in a widened AXI-lite register array. The
+AXI-lite
+diagnostic service publishes RX/ACK state, payload offsets, sequence numbers,
+and counters, but it deliberately does not compute descriptor CRCs in PL; the
+full production MAC/DMA engine must add a sequential CRC/FEC integrity block at
+the packet-memory boundary.
+On the smaller Z103/Zynq-7010 overlay, the `/dev/uio0` aperture stays present
+but this diagnostic PL service is disabled at synthesis time to keep the image
+placeable; active packet service on that target must come from the next
+BRAM/AXI RAM/DMA MAC block rather than spending LUTs on the AXI-lite diagnostic
+loopback. The old copied-HDL RF-engine/DMA experiment is also disabled by
+default for Z103 builds; the production target for that board is the compact
+C/PL firmware ring and a later purpose-built MAC/packet-memory block, not the
+vendor/IIO experiment fabric.
+Safe sysfs inspection, read-only `mmap`, guarded write-loopback, and guarded
+`--pl-service` UIO loopback are the live board checks. The C ring helper uses
+explicit byte-wise MMIO access for descriptor and packet-memory bytes so ARM
+Device mappings do not fault on compiler-generated unaligned word stores.
 
 `sdk/c/include/fieldmesh_firmware_packet_bridge.h` is the first C packet-service
 boundary above that ring. It accepts raw IPv4 packets from a TUN-style source,
@@ -299,11 +322,15 @@ before the daemon owns a continuous live TUN service. The state daemon now has
 an explicit guarded `firmware_ring=1` TUN-service mode that maps `/dev/uio0`,
 keeps `/dev/net/tun` fd ownership in daemon state, and executes the same
 `fieldmesh_tun_read_callback_t -> firmware packet bridge -> mapped firmware ring
--> fieldmesh_tun_write_callback_t` path from the daemon tick loop. The default
-service still uses the existing RF driver queue until the PL MAC owns packet
-timing and RF TX/RX. The daemon ring layout is intentionally bounded to 16
-packet slots and 50,712 mapped bytes so it fits inside the current 64 KiB
-`fieldmesh-ring@43c30000` aperture.
+-> PL packet-ring service -> fieldmesh_tun_write_callback_t` path from the
+daemon tick loop. The daemon no longer calls the C ring loopback service in
+this mode; the PL aperture owns descriptor service for the bounded diagnostic
+service window, and the firmware bridge accepts the diagnostic RX descriptors
+without requiring PL-generated descriptor CRCs. The default service still uses
+the existing RF driver queue until the PL MAC owns full-MTU packet storage,
+packet timing, descriptor CRC/FEC integrity, and RF TX/RX. The daemon ring
+layout is intentionally bounded to 16 packet slots and 50,712 mapped bytes so
+it fits inside the current 64 KiB `fieldmesh-ring@43c30000` aperture.
 
 ## MAC Design
 

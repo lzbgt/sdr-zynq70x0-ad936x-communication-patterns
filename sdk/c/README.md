@@ -51,7 +51,16 @@ in `src/fieldmesh_sdk.c`:
 - `examples/fieldmesh_firmware_uio_ring_probe.c` binds the same linear layout
   to an explicit aperture path. `--device /dev/uioN` is the production-facing
   probe path; `--image PATH` is the CI stand-in. Read-only inspect mode is the
-  default, and packet-memory loopback requires `--loopback --allow-writes`.
+  default, packet-memory C loopback requires `--loopback --allow-writes`, and
+  live PL descriptor service requires the guarded
+  `--device /dev/uioN --loopback --pl-service --allow-writes` mode.
+  The current PL service window is bounded to the first slot and 16 packet
+  bytes total; full MTU packet storage is planned for the BRAM/AXI RAM or
+  DMA packet-memory block, not the AXI-lite wrapper. This diagnostic PL service
+  does not compute descriptor CRCs; the production MAC/DMA packet-memory engine
+  must add the sequential descriptor CRC/FEC integrity block. Z103 builds keep
+  the UIO aperture but synthesize this diagnostic service out to fit the
+  Zynq-7010; Z203 keeps it enabled for live PL-service loopback.
   The shared ABI/ring helpers use explicit byte-wise descriptor and packet
   access so ARM Device/UIO mappings do not depend on libc bulk-memory behavior
   or unaligned word stores.
@@ -80,8 +89,10 @@ in `src/fieldmesh_sdk.c`:
   start a guarded `FIELDMESH_TUN_SERVICE_START ... firmware_ring=1
   ring_device=/dev/uio0` mode so the daemon owns the TUN fd and mapped firmware
   ring while the firmware ABI still sees only callbacks, descriptors, and packet
-  bytes. The live daemon layout is 16 packet slots and 50,712 mapped bytes,
-  fitting the current 64 KiB PL aperture.
+  bytes. In this mode PL services queued descriptors; the daemon does not call
+  the C ring loopback helper. The live daemon layout is 16 packet slots and
+  50,712 mapped bytes, fitting the current 64 KiB PL aperture; the current PL
+  AXI-lite loopback only services the first diagnostic slot.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.
