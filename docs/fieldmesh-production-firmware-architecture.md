@@ -334,7 +334,10 @@ RX side by reading READY RX descriptors, pulling packet words from BRAM, and
 emitting byte-wide AXI-stream packets. The AXI BRAM MAC endpoint now composes
 that egress reader with ingress and MAC service, proving the first complete
 AXI-stream ingress to MAC-drained firmware-ring service to AXI-stream egress
-path. The next PL step is board-level RX DMA binding. The stats block now keeps
+path. `fieldmesh_firmware_axis_dma_endpoint` binds that internal endpoint to
+byte-only board-level packet DMA by parsing TX headers into sidebands and
+streaming descriptor-validated RX packets back to RX DMA. The next PL step is
+connecting this wrapper into the opt-in DMA overlay Tcl. The stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those

@@ -250,6 +250,11 @@ BRAM MAC endpoint so one wrapper covers AXI-stream ingress, binary descriptor
 publication, MAC-budgeted service, RX/ACK metadata, packet readback, and
 descriptor-validated AXI-stream egress. The remaining DMA work is board-level
 AXI RAM/DMA binding.
+`fieldmesh_firmware_axis_dma_endpoint.v` is the first board-facing binding for
+that path: TX DMA is byte-only and reconstructed through the in-band header
+parser, while RX DMA receives byte-only packets from the descriptor-validated
+firmware egress reader. The wrapper still avoids the ADI sample-DMA register
+windows; it is the packet-DMA boundary for the first-party firmware path.
 
 The first control-only block-design overlay is opt-in:
 

@@ -1734,8 +1734,11 @@ descriptor metadata, and checks selected RX packet bytes. The sidecar axis
 bridge test validates the split packet-transport boundary: PS-to-PL byte-only
 packets are parsed into FieldMesh sidebands, PL-to-PS sidebanded packets are
 guarded before byte-only output, and bad header/sideband cases set fault
-counters. This does not instantiate ADI DMA, IIO, external descriptor memory,
-or RF logic yet.
+counters. The firmware AXIS DMA endpoint test sends one byte-only FieldMesh
+frame through the board-facing TX DMA parser, firmware BRAM MAC service, and
+descriptor-validated RX DMA egress, then checks the returned byte-only frame and
+service counters. This does not instantiate ADI DMA, IIO, external descriptor
+memory, or RF logic yet.
 
 After adding `pl-replay`, both packaged probe recipes rebuilt:
 
@@ -1910,7 +1913,7 @@ rm -f "$tmp_hp"
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
 python3 -m json.tool \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_sidecar_plan.json >/dev/null
-test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "37"
+test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "38"
 rg 'Do not modify axi_ad9361_adc_dma' \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_bd_overlay_stub.tcl
 tmp_overlay=$(mktemp -d)
@@ -1925,7 +1928,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
   >/tmp/fieldmesh_overlay_patch.json
 python3 -m json.tool /tmp/fieldmesh_overlay_patch.json >/dev/null
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "37"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "38"
 rg 'fieldmesh_packet_axis_byte_pipe_loopback.v' \
   "$tmp_overlay/hdl/projects/pluto/system_project.tcl" \
   "$tmp_overlay/hdl/projects/pluto/Makefile"
@@ -2023,7 +2026,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
 python3 -m json.tool /tmp/fieldmesh_overlay_dma_patch.json >/dev/null
 rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|0x43C10000|0x43C20000' \
   "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "37"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "38"
 ./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \
   --variant z203dma="$tmp_overlay/hdl/projects/pluto/system_bd.tcl" >/tmp/fieldmesh_dma_sidecar_plan.json
 ./tools/fieldmesh_vivado_overlay_patch.py \

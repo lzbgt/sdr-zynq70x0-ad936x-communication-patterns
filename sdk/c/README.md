@@ -102,6 +102,10 @@ in `src/fieldmesh_sdk.c`:
   and egress reader with the scheduler-owned BRAM MAC endpoint, proving the
   first bidirectional AXI-stream -> binary descriptor -> MAC-drained BRAM
   service -> AXI-stream path.
+  `fieldmesh_firmware_axis_dma_endpoint` binds that endpoint to the board-level
+  byte-only DMA convention: TX DMA frames are parsed from their in-band header
+  into internal sidebands, and validated RX descriptors are emitted as byte-only
+  RX DMA frames.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and
