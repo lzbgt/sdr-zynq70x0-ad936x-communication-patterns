@@ -81,7 +81,10 @@ in `src/fieldmesh_sdk.c`:
   so future daemon/driver code can block on PL completions instead of polling
   the ring. Hardware acknowledgement is explicitly write-one-to-clear through
   `fieldmesh_fw_ring_irq_ack_w1c()`; RAM-backed probes use
-  `fieldmesh_fw_ring_irq_clear_ram()` instead. The service
+  `fieldmesh_fw_ring_irq_clear_ram()` instead. The daemon exposes this hardware
+  acknowledgement through guarded
+  `FIELDMESH_TUN_SERVICE_FIRMWARE_IRQ_ACK`; the default guard path is read-only
+  and the write path requires `ALLOW_FIRMWARE_RING_WRITES`. The service
   generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
   validates PL-published descriptors through the production ABI helpers; the
   production MAC/DMA packet-memory engine must still add FEC integrity and full-MTU
