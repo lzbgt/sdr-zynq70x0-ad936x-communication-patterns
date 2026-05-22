@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-board_ip="${BOARD_IP:-${1:-192.168.2.1}}"
+board_ip="${BOARD_IP:-${1:-192.168.3.1}}"
 capture_dir="${CAPTURE_DIR:-$repo_root/resources/variants/sdr-z103-z7010-1r1t/live-captures}"
 timestamp="$(date +%Y%m%d-%H%M%S)"
 

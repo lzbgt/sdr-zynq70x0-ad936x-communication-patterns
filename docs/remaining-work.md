@@ -80,7 +80,9 @@ U-Boot/FIT/QSPI/split-RAM payload loading, unless explicitly disabled with
 `RUN_DAP_HALT_PREFLIGHT=0`. JTAG RAM boot still fails at the DAP halt stage
 after the board-selective recovery attempt. The immediate live blocker is
 therefore Z103 boot recovery/visibility, not a missing WSL USB attachment or
-FTDI adapter mix-up.
+FTDI adapter mix-up. Z103-specific recovery helpers now default to the current
+split-subnet management address `192.168.3.1`; the old `192.168.2.1` path is
+kept only as an explicit override for factory/default Pluto checks.
 The remaining app/GUI refactor
 should still wait until the RF firmware boundary is stable enough to protect behavior.
 Profiles remain test/provisioning fixtures only; normal apps must discover

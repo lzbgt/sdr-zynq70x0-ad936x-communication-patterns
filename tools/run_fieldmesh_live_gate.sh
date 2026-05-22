@@ -3,7 +3,7 @@ set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 variant="${1:-z103}"
-board_ip="${BOARD_IP:-192.168.2.1}"
+board_ip="${BOARD_IP:-}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 run_boot="${RUN_BOOT:-1}"
@@ -15,7 +15,12 @@ out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/live-gate-$variant-$timestamp}"
 status_file="$out_dir/status.tsv"
 
 case "$variant" in
-  z203|z103) ;;
+  z203)
+    board_ip="${board_ip:-192.168.1.10}"
+    ;;
+  z103)
+    board_ip="${board_ip:-192.168.3.1}"
+    ;;
   *)
     echo "usage: $0 [z203|z103]" >&2
     exit 2

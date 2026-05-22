@@ -67,8 +67,13 @@ Useful controls:
 RUN_BOOT=0 ./tools/run_fieldmesh_live_gate.sh z103
 RUN_DAP_HALT_PREFLIGHT=0 ./tools/run_fieldmesh_live_gate.sh z103
 RUN_PREFLIGHT=0 ./tools/run_fieldmesh_live_gate.sh z103
-BOARD_IP=192.168.2.1 WAIT_AFTER_BOOT=30 ./tools/run_fieldmesh_live_gate.sh z103
+BOARD_IP=192.168.3.1 WAIT_AFTER_BOOT=30 ./tools/run_fieldmesh_live_gate.sh z103
 ```
+
+`run_fieldmesh_live_gate.sh z103` now defaults to the current split-subnet Z103
+management address `192.168.3.1`; pass `BOARD_IP=...` only when intentionally
+checking an older factory/default Pluto subnet. The Z203 default is
+`192.168.1.10`, matching the current connected-board install profile.
 
 ## Pass Criteria
 
