@@ -336,8 +336,11 @@ that egress reader with ingress and MAC service, proving the first complete
 AXI-stream ingress to MAC-drained firmware-ring service to AXI-stream egress
 path. `fieldmesh_firmware_axis_dma_endpoint` binds that internal endpoint to
 byte-only board-level packet DMA by parsing TX headers into sidebands and
-streaming descriptor-validated RX packets back to RX DMA. The next PL step is
-connecting this wrapper into the opt-in DMA overlay Tcl. The stats block now keeps
+streaming descriptor-validated RX packets back to RX DMA. The opt-in DMA
+overlay now instantiates that wrapper with `AUTO_EGRESS=1` between the ADI
+packet DMA pair and the 16-to-8 adapter; the next PL step is tightening the
+runtime control/status boundary before replacing the RF-engine bridge path. The
+stats block now keeps
 the fixed counters plus
 `queued` and `selected` words; `selected` is a compact binary status word with
 valid, invalid-class, traffic-class, and slot fields. The daemon surfaces those

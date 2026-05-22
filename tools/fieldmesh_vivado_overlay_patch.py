@@ -255,7 +255,40 @@ ad_cpu_interrupt ps-8 mb-8 fieldmesh_ring/irq
 """
 
 
-def render_dma_overlay() -> str:
+def render_dma_overlay(use_firmware_endpoint: bool) -> str:
+    if use_firmware_endpoint:
+        packet_path = """
+create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint
+set_property -dict [list CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]
+ad_connect sys_cpu_clk fieldmesh_fw_dma_endpoint/clk
+ad_connect sys_cpu_reset fieldmesh_fw_dma_endpoint/rst
+ad_connect VCC fieldmesh_fw_dma_endpoint/enable
+ad_connect VCC fieldmesh_fw_dma_endpoint/ingress_enable
+ad_connect VCC fieldmesh_fw_dma_endpoint/egress_enable
+ad_connect GND fieldmesh_fw_dma_endpoint/egress_start
+ad_connect GND fieldmesh_fw_dma_endpoint/egress_start_slot
+ad_connect GND fieldmesh_fw_dma_endpoint/peer_index
+ad_connect GND fieldmesh_fw_dma_endpoint/mcs
+ad_connect GND fieldmesh_fw_dma_endpoint/retry_budget
+ad_connect GND fieldmesh_fw_dma_endpoint/descriptor_flags
+ad_connect GND fieldmesh_fw_dma_endpoint/seq_seed
+ad_connect VCC fieldmesh_fw_dma_endpoint/mac_scheduler_enable
+ad_connect VCC fieldmesh_fw_dma_endpoint/mac_tick
+ad_connect GND fieldmesh_fw_dma_endpoint/mac_stop
+ad_connect GND fieldmesh_fw_dma_endpoint/mac_service_budget
+
+ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
+ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma
+ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_axis16_adapter/s_axis8
+ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
+"""
+    else:
+        packet_path = """
+ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
+ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_axis_bridge/s_tx_axis
+ad_connect fieldmesh_axis_bridge/m_rx_axis fieldmesh_axis16_adapter/s_axis8
+ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
+"""
     return f"""
 {BD_DMA_BEGIN}
 ad_ip_parameter sys_ps7 CONFIG.PCW_USE_S_AXI_HP0 {{1}}
@@ -284,11 +317,7 @@ create_bd_cell -type module -reference fieldmesh_axis16_byte_adapter fieldmesh_a
 ad_connect sys_cpu_clk fieldmesh_axis16_adapter/clk
 ad_connect sys_cpu_reset fieldmesh_axis16_adapter/rst
 ad_connect VCC fieldmesh_axis16_adapter/enable
-
-ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
-ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_axis_bridge/s_tx_axis
-ad_connect fieldmesh_axis_bridge/m_rx_axis fieldmesh_axis16_adapter/s_axis8
-ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
+{packet_path.rstrip()}
 
 ad_cpu_interconnect 0x43C10000 fieldmesh_tx_dma
 ad_cpu_interconnect 0x43C20000 fieldmesh_rx_dma
@@ -478,7 +507,11 @@ def patch_system_bd(
     if "fieldmesh_ring" in text:
         if BD_RING_BEGIN not in text:
             raise SystemExit("system_bd.tcl: FieldMesh firmware ring overlay appears partially present")
-    if ("fieldmesh_tx_dma" in text or "fieldmesh_rx_dma" in text) and BD_DMA_BEGIN not in text:
+    if (
+        "fieldmesh_tx_dma" in text
+        or "fieldmesh_rx_dma" in text
+        or "fieldmesh_fw_dma_endpoint" in text
+    ) and BD_DMA_BEGIN not in text:
         raise SystemExit("system_bd.tcl: FieldMesh DMA overlay appears partially present")
     if (
         "fieldmesh_bpsk_symbolizer" in text
@@ -496,11 +529,16 @@ def patch_system_bd(
             raise SystemExit("system_bd.tcl: expected ADI DMA interrupt anchor not found")
         blocks.append(render_control_overlay(rf_guard_defaults=not rf_engine_overlay))
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
-        blocks.append(render_bridge_overlay(park_byte_ports=not dma_overlay, rf_engine_overlay=rf_engine_overlay))
+        blocks.append(
+            render_bridge_overlay(
+                park_byte_ports=(not dma_overlay or not rf_engine_overlay),
+                rf_engine_overlay=rf_engine_overlay,
+            )
+        )
     if ring_overlay and BD_RING_BEGIN not in text:
         blocks.append(render_ring_overlay(variant_name))
     if dma_overlay and BD_DMA_BEGIN not in text:
-        blocks.append(render_dma_overlay())
+        blocks.append(render_dma_overlay(use_firmware_endpoint=not rf_engine_overlay))
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
         blocks.append(render_rf_engine_overlay())
     if gnss_uart_emio and BD_GNSS_UART_BEGIN not in text:
@@ -711,7 +749,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dma-overlay",
         action="store_true",
-        help="also add provisional fieldmesh_tx_dma/fieldmesh_rx_dma axi_dmac cells and connect them to the bridge byte ports",
+        help="also add fieldmesh_tx_dma/fieldmesh_rx_dma axi_dmac cells and connect them to the firmware DMA endpoint",
     )
     parser.add_argument(
         "--rf-engine-overlay",

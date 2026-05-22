@@ -104,9 +104,12 @@ composes that writer with the MAC endpoint and
 firmware ring as byte-wide AXI-stream packets.
 `fieldmesh_firmware_axis_dma_endpoint` now wraps that path with the board-level
 byte-only DMA boundary: TX frames are parsed from their in-band FieldMesh
-header, and descriptor-validated RX frames are emitted to RX DMA. The remaining
-PL integration work is connecting this wrapper into the opt-in DMA overlay Tcl
-rather than growing the AXI-lite diagnostic shell. The stats
+header, and descriptor-validated RX frames are emitted to RX DMA. The opt-in
+DMA overlay now connects that wrapper between the ADI packet-DMA pair and the
+16-to-8 adapter with auto-egress enabled, instead of growing the AXI-lite
+diagnostic shell. The remaining PL integration work is exposing a production
+control/status boundary for this endpoint and then moving the RF-engine overlay
+off the older bridge-fed path. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
@@ -1413,9 +1416,12 @@ below were later superseded by the current PHY-management two-board gates above:
   and Z103 HDL trees can generate the BD with both the control and bridge cells
   present. The opt-in `--dma-overlay` mode now adds copied-tree sidecar
   `fieldmesh_tx_dma`/`fieldmesh_rx_dma` ADI `axi_dmac` instances through
-  `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v`, maps them at
-  `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for RX/S2MM, and is
-  Vivado BD-generation checked for copied Z203 and Z103 HDL trees.
+  `rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v` into
+  `fieldmesh_firmware_axis_dma_endpoint` with `AUTO_EGRESS=1`, maps the DMA
+  windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
+  RX/S2MM, and is Vivado BD-generation checked for copied Z203 and Z103 HDL
+  trees. The RF-engine overlay still keeps the older bridge-fed path until the
+  RF scheduler is bound directly to the firmware endpoint.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
@@ -1499,8 +1505,10 @@ below were later superseded by the current PHY-management two-board gates above:
   traces before attempting any open-air range test.
 - Move the simulated slot-admission behavior toward the live sidecar overlay
   after the sidecar preflight is reachable. The gate is now wired into the full
-  packet-memory simulation wrapper, but the copied DMA overlay still uses the
-  lightweight BD-facing control endpoint.
+  packet-memory simulation wrapper, and the normal copied DMA overlay now uses
+  the firmware AXIS DMA endpoint. The remaining live-overlay work is exposing
+  production control/status for that endpoint and migrating the RF-engine path
+  from the older bridge to the firmware scheduler.
 
 FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
 `docs/fieldmesh-protocol-spec.md`.

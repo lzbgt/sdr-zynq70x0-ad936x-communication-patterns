@@ -105,7 +105,8 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_firmware_axis_dma_endpoint` binds that endpoint to the board-level
   byte-only DMA convention: TX DMA frames are parsed from their in-band header
   into internal sidebands, and validated RX descriptors are emitted as byte-only
-  RX DMA frames.
+  RX DMA frames. The opt-in copied-HDL DMA overlay instantiates this endpoint
+  with `AUTO_EGRESS=1` between the ADI packet-DMA pair and the 16-to-8 adapter.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
   traffic. The binary stats view includes fixed counters plus `queued` and

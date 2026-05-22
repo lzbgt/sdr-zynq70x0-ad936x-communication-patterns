@@ -1924,6 +1924,8 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.
   "$tmp_overlay/hdl/projects/pluto/"
 cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
   "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
+  "$tmp_overlay/hdl/projects/pluto/"
 ./tools/fieldmesh_vivado_overlay_patch.py \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
   >/tmp/fieldmesh_overlay_patch.json
@@ -1949,6 +1951,8 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_bd.tcl \
 cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.tcl \
   "$tmp_overlay/hdl/projects/pluto/"
 cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
+  "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
   "$tmp_overlay/hdl/projects/pluto/"
 ./tools/fieldmesh_vivado_overlay_patch.py \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
@@ -1991,6 +1995,8 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.
   "$tmp_overlay/hdl/projects/pluto/"
 cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
   "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
+  "$tmp_overlay/hdl/projects/pluto/"
 ./tools/fieldmesh_vivado_overlay_patch.py \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
   --control-overlay --bridge-overlay --apply >/tmp/fieldmesh_overlay_bridge_patch.json
@@ -2020,11 +2026,13 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_project.
   "$tmp_overlay/hdl/projects/pluto/"
 cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/Makefile \
   "$tmp_overlay/hdl/projects/pluto/"
+cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
+  "$tmp_overlay/hdl/projects/pluto/"
 ./tools/fieldmesh_vivado_overlay_patch.py \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 \
   --dma-overlay --apply >/tmp/fieldmesh_overlay_dma_patch.json
 python3 -m json.tool /tmp/fieldmesh_overlay_dma_patch.json >/dev/null
-rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|0x43C10000|0x43C20000' \
+rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|fieldmesh_fw_dma_endpoint|AUTO_EGRESS|0x43C10000|0x43C20000' \
   "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
 test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "38"
 ./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \
@@ -2629,8 +2637,8 @@ class-ring dequeue and packet-memory loopback in
 non-scheduled bypass, future-slot backpressure, stale-slot drop/fault, optional
 C0 emergency bypass, and AXI-lite scheduler registers/counters at `0x78` through
 `0x88`. It is included in the required FieldMesh RTL set for scaffold/patcher
-checks, while the copied DMA overlay still uses the lightweight BD-facing
-control endpoint.
+checks, while the normal copied DMA overlay now uses the firmware AXIS DMA
+endpoint.
 
 `tools/verify_fieldmesh_hdl.sh` was also tightened so each XSim run must emit
 its matching `PASS:` line and must not emit `FAIL:` or `Fatal:`. This closes a
@@ -2798,11 +2806,14 @@ TX DMA path reached the bridge parser, but the parser output was still parked
 instead of being looped into the guarded RX byte path. That left RX DMA armed
 with no incoming stream, so `rx_done=false` while TX completed.
 
-The Vivado overlay patcher now wires `fieldmesh_axis_bridge/m_tx_packet_*` back
-to `fieldmesh_axis_bridge/s_rx_packet_*` when `--dma-overlay` is used. This
-keeps the first live test non-RF and verifies the sidecar packet-DMA path
-through TX DMA, 16-bit/8-bit adaptation, packet-header parsing, header guard,
-and RX DMA.
+At that stage, the Vivado overlay patcher wired
+`fieldmesh_axis_bridge/m_tx_packet_*` back to
+`fieldmesh_axis_bridge/s_rx_packet_*` when `--dma-overlay` was used. That kept
+the first live test non-RF and verified the sidecar packet-DMA path through TX
+DMA, 16-bit/8-bit adaptation, packet-header parsing, header guard, and RX DMA.
+The current normal DMA overlay has moved that path to
+`fieldmesh_firmware_axis_dma_endpoint`; the older bridge-fed path remains for
+the RF-engine overlay until the RF scheduler consumes the firmware endpoint.
 
 Both corrected copied overlays rebuilt timing-clean:
 

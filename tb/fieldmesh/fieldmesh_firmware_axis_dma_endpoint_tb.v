@@ -66,7 +66,8 @@ fieldmesh_firmware_axis_dma_endpoint #(
     .PL_SERVICE_SLOTS(RING_SLOTS),
     .ADDR_WIDTH(ADDR_WIDTH),
     .RX_PACKET_BASE(RX_PACKET_BASE),
-    .MAX_PACKET_BYTES(128)
+    .MAX_PACKET_BYTES(128),
+    .AUTO_EGRESS(1)
 ) dut (
     .clk(clk),
     .rst(rst),
@@ -226,23 +227,6 @@ task wait_pump_done;
     end
 endtask
 
-task start_egress;
-    integer cycles;
-    begin
-        cycles = 0;
-        while (!egress_start_ready && cycles < 4000) begin
-            @(posedge clk);
-            cycles = cycles + 1;
-        end
-        if (!egress_start_ready) fail("firmware DMA endpoint egress not ready");
-        @(negedge clk);
-        egress_start_slot = 16'd0;
-        egress_start = 1'b1;
-        @(negedge clk);
-        egress_start = 1'b0;
-    end
-endtask
-
 task expect_rx_dma_packet;
     integer i;
     integer cycles;
@@ -302,7 +286,6 @@ initial begin
         fail("firmware DMA endpoint MAC counters mismatch");
     end
 
-    start_egress();
     expect_rx_dma_packet();
     repeat (2) @(posedge clk);
 

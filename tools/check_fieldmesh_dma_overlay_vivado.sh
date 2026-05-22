@@ -79,6 +79,7 @@ foreach cell {
   fieldmesh_ring
   fieldmesh_axis_bridge
   fieldmesh_axis16_adapter
+  fieldmesh_fw_dma_endpoint
   fieldmesh_tx_dma
   fieldmesh_rx_dma
 } {
@@ -102,8 +103,8 @@ foreach intf {
   fieldmesh_tx_dma/m_axis
   fieldmesh_axis16_adapter/s_axis16
   fieldmesh_axis16_adapter/m_axis8
-  fieldmesh_axis_bridge/s_tx_axis
-  fieldmesh_axis_bridge/m_rx_axis
+  fieldmesh_fw_dma_endpoint/s_tx_dma
+  fieldmesh_fw_dma_endpoint/m_rx_dma
   fieldmesh_axis16_adapter/s_axis8
   fieldmesh_axis16_adapter/m_axis16
   fieldmesh_rx_dma/s_axis
@@ -120,6 +121,13 @@ foreach pin {
   fieldmesh_axis16_adapter/clk
   fieldmesh_axis16_adapter/rst
   fieldmesh_axis16_adapter/enable
+  fieldmesh_fw_dma_endpoint/clk
+  fieldmesh_fw_dma_endpoint/rst
+  fieldmesh_fw_dma_endpoint/enable
+  fieldmesh_fw_dma_endpoint/ingress_enable
+  fieldmesh_fw_dma_endpoint/egress_enable
+  fieldmesh_fw_dma_endpoint/mac_scheduler_enable
+  fieldmesh_fw_dma_endpoint/mac_tick
   fieldmesh_tx_dma/m_src_axi_aclk
   fieldmesh_tx_dma/m_src_axi_aresetn
   fieldmesh_rx_dma/s_axis_aclk
@@ -137,6 +145,11 @@ set hp0 [get_property CONFIG.PCW_USE_S_AXI_HP0 [get_bd_cells sys_ps7]]
 set hp3 [get_property CONFIG.PCW_USE_S_AXI_HP3 [get_bd_cells sys_ps7]]
 if {\$hp0 != "1" || \$hp3 != "1"} {
   error "FieldMesh DMA overlay did not enable HP0/HP3"
+}
+
+set auto_egress [get_property CONFIG.AUTO_EGRESS [get_bd_cells fieldmesh_fw_dma_endpoint]]
+if {\$auto_egress != "1"} {
+  error "FieldMesh DMA endpoint AUTO_EGRESS is not enabled"
 }
 
 validate_bd_design

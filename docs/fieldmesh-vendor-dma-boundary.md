@@ -112,12 +112,13 @@ accepts HP0/HP3 as free in imported vendor trees, or self-owned by
 Sidecar stream direction:
 
 - TX ingress: userspace buffer -> `fieldmesh_tx_dma` -> byte-only stream ->
-  `fieldmesh_axis_header_parser` -> packet sink/class rings.
-- RX egress: packet source -> `fieldmesh_axis_header_guard` -> byte-only stream
-  -> `fieldmesh_rx_dma` -> userspace buffer.
+  `fieldmesh_axis_header_parser` -> `fieldmesh_firmware_axis_dma_endpoint` ->
+  firmware BRAM/MAC service.
+- RX egress: firmware BRAM/MAC service -> `fieldmesh_firmware_axis_dma_endpoint`
+  -> byte-only stream -> `fieldmesh_rx_dma` -> userspace buffer.
 
 That ordering keeps in-band packet headers as the metadata source after a
-byte-only DMA boundary, while still checking outgoing PL sidebands before
+byte-only DMA boundary, while still validating outgoing RX descriptors before
 bytes leave the packet engine.
 
 ## Sidecar Plan Generator
@@ -331,11 +332,15 @@ The first sidecar packet-DMA overlay is also opt-in:
 ```
 
 With `--dma-overlay`, the patcher implies the control and bridge overlays,
-enables PS HP0/HP3, instantiates `fieldmesh_tx_dma`, `fieldmesh_rx_dma`, and
-`fieldmesh_axis16_adapter`, maps the packet DMA control windows at
-`0x43C10000` and `0x43C20000`, wires packet TX over HP3/MM2S and packet RX
-over HP0/S2MM, and connects IRQs to `ps-9 mb-9` and `ps-10 mb-10`. The bridge
-byte streams are connected through the 16-bit adapter instead of being parked.
+enables PS HP0/HP3, instantiates `fieldmesh_tx_dma`, `fieldmesh_rx_dma`,
+`fieldmesh_axis16_adapter`, and `fieldmesh_fw_dma_endpoint`, maps the packet DMA
+control windows at `0x43C10000` and `0x43C20000`, wires packet TX over
+HP3/MM2S and packet RX over HP0/S2MM, and connects IRQs to `ps-9 mb-9` and
+`ps-10 mb-10`. The normal DMA overlay parks the older bridge and routes the
+16-bit adapter through the firmware endpoint with `AUTO_EGRESS=1`; the
+RF-engine overlay keeps the older bridge-fed path because the current
+non-transmitting symbolizer path still consumes `fieldmesh_axis_bridge`
+packet-sideband ports.
 
 Validate the full control-plus-bridge-plus-DMA overlay through Vivado
 project/block-design generation without running synthesis:

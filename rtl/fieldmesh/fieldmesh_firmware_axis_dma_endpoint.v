@@ -13,7 +13,8 @@ module fieldmesh_firmware_axis_dma_endpoint #(
     parameter PL_SERVICE_SLOTS = 16,
     parameter ADDR_WIDTH = 16,
     parameter RX_PACKET_BASE = RING_SLOTS * PACKET_STRIDE,
-    parameter MAX_PACKET_BYTES = PACKET_STRIDE
+    parameter MAX_PACKET_BYTES = PACKET_STRIDE,
+    parameter AUTO_EGRESS = 0
 ) (
     input  wire        clk,
     input  wire        rst,
@@ -86,6 +87,35 @@ wire [7:0] tx_packet_tuser_class;
 wire [7:0] tx_packet_tuser_mode;
 wire [15:0] tx_packet_tuser_stream_id;
 wire [15:0] tx_packet_tuser_slot;
+wire endpoint_egress_start_ready;
+wire endpoint_egress_start;
+wire [15:0] endpoint_egress_start_slot;
+wire endpoint_service_done;
+wire [15:0] endpoint_service_selected_slot;
+reg auto_egress_pending;
+reg [15:0] auto_egress_slot;
+
+assign egress_start_ready = endpoint_egress_start_ready && (!AUTO_EGRESS || !auto_egress_pending);
+assign endpoint_egress_start = AUTO_EGRESS ? (auto_egress_pending && endpoint_egress_start_ready) : egress_start;
+assign endpoint_egress_start_slot = AUTO_EGRESS ? auto_egress_slot : egress_start_slot;
+
+always @(posedge clk) begin
+    if (rst || !enable || !egress_enable) begin
+        auto_egress_pending <= 1'b0;
+        auto_egress_slot <= 16'd0;
+    end else if (AUTO_EGRESS) begin
+        if (endpoint_egress_start && endpoint_egress_start_ready) begin
+            auto_egress_pending <= 1'b0;
+        end
+        if (endpoint_service_done && service_accepted && !auto_egress_pending) begin
+            auto_egress_pending <= 1'b1;
+            auto_egress_slot <= endpoint_service_selected_slot;
+        end
+    end else begin
+        auto_egress_pending <= 1'b0;
+        auto_egress_slot <= 16'd0;
+    end
+end
 
 fieldmesh_axis_header_parser #(
     .MAX_PACKET_BYTES(MAX_PACKET_BYTES),
@@ -131,9 +161,9 @@ fieldmesh_firmware_axis_bram_mac_endpoint #(
     .s_axis_tuser_mode(tx_packet_tuser_mode),
     .s_axis_tuser_stream_id(tx_packet_tuser_stream_id),
     .egress_enable(egress_enable),
-    .egress_start(egress_start),
-    .egress_start_ready(egress_start_ready),
-    .egress_start_slot(egress_start_slot),
+    .egress_start(endpoint_egress_start),
+    .egress_start_ready(endpoint_egress_start_ready),
+    .egress_start_slot(endpoint_egress_start_slot),
     .m_axis_tvalid(m_rx_dma_tvalid),
     .m_axis_tready(m_rx_dma_tready),
     .m_axis_tdata(m_rx_dma_tdata),
@@ -173,14 +203,14 @@ fieldmesh_firmware_axis_bram_mac_endpoint #(
     .pump_stopped(),
     .pump_error_seen(),
     .service_busy(),
-    .service_done(),
+    .service_done(endpoint_service_done),
     .service_empty(),
     .service_accepted(service_accepted),
     .service_crc_error(),
     .service_bounds_error(),
     .service_bram_error(),
     .service_copied_bytes(service_copied_bytes),
-    .service_selected_slot(),
+    .service_selected_slot(endpoint_service_selected_slot),
     .service_queued_count(service_queued_count),
     .service_selected_word(service_selected_word),
     .ingress_current_slot(),
