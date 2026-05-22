@@ -73,7 +73,9 @@ in `src/fieldmesh_sdk.c`:
   multi-slot serviced window for AXI-lite, BRAM, or DMA-backed storage.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid
-  traffic. The service generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
+  traffic. The binary stats view includes fixed counters plus `queued` and
+  `selected` slot-status words for compact PL pressure polling. The service
+  generates RX descriptor CRC32C and ACK CRC16 so the C UIO probe
   validates PL-published descriptors through the production ABI helpers; the
   production MAC/DMA packet-memory engine must still add FEC integrity and full-MTU
   packet storage. Z103 builds keep the UIO aperture but

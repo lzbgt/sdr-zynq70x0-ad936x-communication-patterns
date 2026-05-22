@@ -16,7 +16,22 @@ typedef struct fieldmesh_fw_ring_stats {
     uint32_t drops;
     uint32_t crc_errors;
     uint32_t bounds_errors;
+    uint32_t queued;
+    uint32_t selected;
 } fieldmesh_fw_ring_stats_t;
+
+#define FIELDMESH_FW_RING_SELECTED_VALID 0x80000000u
+#define FIELDMESH_FW_RING_SELECTED_INVALID_CLASS 0x40000000u
+
+static inline uint32_t fieldmesh_fw_ring_selected_word(uint32_t slot,
+                                                       uint8_t traffic_class,
+                                                       int invalid_class)
+{
+    return FIELDMESH_FW_RING_SELECTED_VALID |
+           (invalid_class ? FIELDMESH_FW_RING_SELECTED_INVALID_CLASS : 0u) |
+           ((uint32_t)traffic_class << 16) |
+           (slot & 0xffffu);
+}
 
 typedef struct fieldmesh_fw_ring_view {
     fieldmesh_fw_tx_desc_v1_t *tx;
@@ -279,21 +294,32 @@ static inline int fieldmesh_fw_ring_pick_next(const fieldmesh_fw_ring_view_t *ri
     }
     int best = -1;
     uint8_t best_class = 255u;
+    uint32_t queued = 0u;
+    int invalid_class = 0;
     for (uint32_t slot = 0; slot < ring->slots; ++slot) {
         const fieldmesh_fw_tx_desc_v1_t *desc = &ring->tx[slot];
         if (fieldmesh_fw_tx_desc_v1_state(desc) != FIELDMESH_FW_STATE_QUEUED) {
             continue;
         }
-        if (!fieldmesh_fw_tx_desc_v1_valid(desc)) {
-            ring->stats->crc_errors++;
-            continue;
-        }
-        uint8_t traffic_class = fieldmesh_fw_tx_desc_v1_traffic_class(desc);
-        if (best < 0 || traffic_class < best_class) {
+        queued++;
+        int desc_valid = fieldmesh_fw_tx_desc_v1_valid(desc);
+        uint8_t traffic_class = desc_valid ?
+            fieldmesh_fw_tx_desc_v1_traffic_class(desc) : 255u;
+        uint8_t class_rank = desc_valid && traffic_class <= 4u ? traffic_class : 255u;
+        if (best < 0 || class_rank < best_class) {
             best = (int)slot;
-            best_class = traffic_class;
+            best_class = class_rank;
+            invalid_class = desc_valid && traffic_class > 4u;
         }
     }
+    ring->stats->queued = queued;
+    ring->stats->selected =
+        best >= 0
+            ? fieldmesh_fw_ring_selected_word((uint32_t)best,
+                                              fieldmesh_fw_tx_desc_v1_traffic_class(
+                                                  &ring->tx[(uint32_t)best]),
+                                              invalid_class)
+            : 0u;
     return best;
 }
 
@@ -309,14 +335,24 @@ static inline int fieldmesh_fw_ring_service_one(
         return 0;
     }
     fieldmesh_fw_tx_desc_v1_t *tx = &ring->tx[(uint32_t)slot];
+    if (!fieldmesh_fw_tx_desc_v1_valid(tx)) {
+        ring->stats->crc_errors++;
+        ring->stats->drops++;
+        fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
+        (void)fieldmesh_fw_ring_pick_next(ring);
+        return -1;
+    }
     uint16_t payload_len = fieldmesh_fw_tx_desc_v1_payload_len(tx);
     uint32_t payload_offset = fieldmesh_fw_tx_desc_v1_payload_offset(tx);
     uint32_t seq = fieldmesh_fw_tx_desc_v1_seq(tx);
     uint32_t rx_offset = (uint32_t)slot * ring->packet_stride;
-    if (!fieldmesh_fw_ring_range_valid(ring->packet_arena_bytes, payload_offset, payload_len) ||
+    if (fieldmesh_fw_tx_desc_v1_traffic_class(tx) > 4u ||
+        !fieldmesh_fw_ring_range_valid(ring->packet_arena_bytes, payload_offset, payload_len) ||
         !fieldmesh_fw_ring_range_valid(ring->packet_arena_bytes, rx_offset, payload_len)) {
         ring->stats->bounds_errors++;
         ring->stats->drops++;
+        fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
+        (void)fieldmesh_fw_ring_pick_next(ring);
         return -1;
     }
 
@@ -347,6 +383,7 @@ static inline int fieldmesh_fw_ring_service_one(
     fieldmesh_fw_tx_desc_v1_set_state(tx, FIELDMESH_FW_STATE_DONE);
     ring->stats->served++;
     ring->stats->acked++;
+    (void)fieldmesh_fw_ring_pick_next(ring);
     return 1;
 }
 

@@ -232,6 +232,7 @@ static int service_loopback(fieldmesh_fw_ring_view_t *view, uint32_t *first_seq,
            *first_seq == 0x100u && *second_seq == 0x300u &&
            view->stats->enqueued == 2u && view->stats->served == 2u &&
            view->stats->acked == 2u && view->stats->drops == 0u &&
+           view->stats->queued == 0u && view->stats->selected == 0u &&
            fieldmesh_fw_ring_payload_matches(view, (uint32_t)control_slot,
                                              control_payload, sizeof(control_payload)) &&
            fieldmesh_fw_ring_payload_matches(view, (uint32_t)bulk_slot,
@@ -383,6 +384,8 @@ int main(int argc, char **argv)
            "\"acked\":%u,"
            "\"drops\":%u,"
            "\"bounds_errors\":%u,"
+           "\"queued\":%u,"
+           "\"selected\":\"0x%08x\","
            "\"first_served_seq\":\"0x%08x\","
            "\"second_served_seq\":\"0x%08x\","
            "\"uses_json_on_air\":false,"
@@ -406,6 +409,8 @@ int main(int argc, char **argv)
            bound ? view.stats->acked : 0u,
            bound ? view.stats->drops : 0u,
            bound ? view.stats->bounds_errors : 0u,
+           bound ? view.stats->queued : 0u,
+           bound ? view.stats->selected : 0u,
            first_seq,
            second_seq);
 

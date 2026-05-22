@@ -128,6 +128,8 @@ for report in (ring_probe, ring_probe_vectors):
         raise SystemExit(f"firmware ring did not prioritize C0 before bulk: {report!r}")
     if report.get("served") != 2 or report.get("acked") != 2 or report.get("drops") != 0:
         raise SystemExit(f"firmware ring counters changed: {report!r}")
+    if report.get("queued") != 0 or report.get("selected") != "0x00000000":
+        raise SystemExit(f"firmware ring queue-pressure stats changed: {report!r}")
     if report.get("uses_json_on_air") is not False:
         raise SystemExit(f"firmware ring probe must not use JSON on air: {report!r}")
     if report.get("hot_path_language") != "c":
@@ -146,6 +148,8 @@ for report in (mmap_ring_probe, mmap_ring_probe_image):
         raise SystemExit(f"firmware mmap ring did not prioritize C0 before bulk: {report!r}")
     if report.get("served") != 3 or report.get("acked") != 3 or report.get("drops") != 0:
         raise SystemExit(f"firmware mmap ring counters changed: {report!r}")
+    if report.get("queued") != 0 or report.get("selected") != "0x00000000":
+        raise SystemExit(f"firmware mmap ring queue-pressure stats changed: {report!r}")
     if report.get("uses_json_on_air") is not False:
         raise SystemExit(f"firmware mmap ring probe must not use JSON on air: {report!r}")
     if report.get("hot_path_language") != "c":
@@ -172,6 +176,8 @@ if uio_ring_probe_loopback.get("loopback_ok") is not True:
     raise SystemExit(f"firmware UIO loopback failed: {uio_ring_probe_loopback!r}")
 if uio_ring_probe_loopback.get("served") != 2 or uio_ring_probe_loopback.get("acked") != 2:
     raise SystemExit(f"firmware UIO loopback counters changed: {uio_ring_probe_loopback!r}")
+if uio_ring_probe_loopback.get("queued") != 0 or uio_ring_probe_loopback.get("selected") != "0x00000000":
+    raise SystemExit(f"firmware UIO loopback queue-pressure stats changed: {uio_ring_probe_loopback!r}")
 if uio_ring_probe_inspect.get("writes_packet_memory") is not False:
     raise SystemExit(f"firmware UIO inspect mode must not write: {uio_ring_probe_inspect!r}")
 
@@ -325,6 +331,8 @@ required = [
     "fieldmesh_fw_ring_pick_next",
     "fieldmesh_fw_ring_service_one",
     "fieldmesh_fw_ring_payload_matches",
+    "fieldmesh_fw_ring_selected_word",
+    "FIELDMESH_FW_RING_SELECTED_VALID",
     "fieldmesh_fw_ring_linear_layout_t",
     "fieldmesh_fw_ring_bind_linear",
     "fieldmesh_fw_ring_u32_align4",

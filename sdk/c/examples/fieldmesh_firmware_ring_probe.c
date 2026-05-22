@@ -148,7 +148,8 @@ int main(int argc, char **argv)
     ok = ok && control_slot == 1;
     ok = ok && first_service == 1 && second_service == 1;
     ok = ok && ring.stats.enqueued == 2u && ring.stats.served == 2u &&
-         ring.stats.acked == 2u && ring.stats.drops == 0u;
+         ring.stats.acked == 2u && ring.stats.drops == 0u &&
+         ring.stats.queued == 0u && ring.stats.selected == 0u;
     ok = ok && ring.served_seq[0] == 0x100u;
     ok = ok && ring.served_seq[1] == 0x300u;
     ok = ok && fieldmesh_fw_ring_payload_matches(&view, (uint32_t)control_slot,
@@ -171,6 +172,8 @@ int main(int argc, char **argv)
            "\"served\":%u,"
            "\"acked\":%u,"
            "\"drops\":%u,"
+           "\"queued\":%u,"
+           "\"selected\":\"0x%08x\","
            "\"first_served_seq\":\"0x%08x\","
            "\"second_served_seq\":\"0x%08x\","
            "\"control_before_bulk\":%s,"
@@ -185,6 +188,8 @@ int main(int argc, char **argv)
            ring.stats.served,
            ring.stats.acked,
            ring.stats.drops,
+           ring.stats.queued,
+           ring.stats.selected,
            ring.served_seq[0],
            ring.served_seq[1],
            ring.served_seq[0] == 0x100u ? "true" : "false");

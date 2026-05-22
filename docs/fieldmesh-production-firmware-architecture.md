@@ -290,7 +290,10 @@ serviced TX descriptor window, picks the lowest-numbered queued traffic class,
 and still retires malformed queued descriptors after valid traffic so a bad
 slot cannot wedge the PL ring. The later BRAM/DMA MAC path can reuse the same
 descriptor policy, CRCs, slot selection, and packet movement without depending
-on AXI-lite storage. Rejected service attempts clear the slot's RX descriptor, ACK
+on AXI-lite storage. The stats block now keeps the fixed counters plus
+`queued` and `selected` words; `selected` is a compact binary status word with
+valid, invalid-class, traffic-class, and slot fields. Rejected service attempts
+clear the slot's RX descriptor, ACK
 descriptor, and compact RX packet window so stale READY state cannot be consumed
 after a failed TX. The C UIO probe validates PL-published descriptors through
 the production ABI helpers. The full

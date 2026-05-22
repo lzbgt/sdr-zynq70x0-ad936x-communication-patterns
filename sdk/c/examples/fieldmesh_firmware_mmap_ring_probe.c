@@ -165,9 +165,11 @@ int main(int argc, char **argv)
          served_seq[2] == 0x300u;
     ok = ok && view.stats->enqueued == 3u && view.stats->served == 3u &&
          view.stats->acked == 3u && view.stats->drops == 0u &&
-         view.stats->bounds_errors == 0u;
+         view.stats->bounds_errors == 0u &&
+         view.stats->queued == 0u && view.stats->selected == 0u;
     ok = ok && stats_read == (ssize_t)sizeof(persisted_stats);
-    ok = ok && persisted_stats.served == 3u && persisted_stats.acked == 3u;
+    ok = ok && persisted_stats.served == 3u && persisted_stats.acked == 3u &&
+         persisted_stats.queued == 0u && persisted_stats.selected == 0u;
     ok = ok && fieldmesh_fw_ring_payload_matches(&view, (uint32_t)c0_slot, c0_payload,
                                                  sizeof(c0_payload));
     ok = ok && fieldmesh_fw_ring_payload_matches(&view, (uint32_t)c2_slot, c2_payload,
@@ -189,6 +191,8 @@ int main(int argc, char **argv)
            "\"acked\":%u,"
            "\"drops\":%u,"
            "\"bounds_errors\":%u,"
+           "\"queued\":%u,"
+           "\"selected\":\"0x%08x\","
            "\"first_served_seq\":\"0x%08x\","
            "\"second_served_seq\":\"0x%08x\","
            "\"third_served_seq\":\"0x%08x\","
@@ -206,6 +210,8 @@ int main(int argc, char **argv)
            view.stats->acked,
            view.stats->drops,
            view.stats->bounds_errors,
+           view.stats->queued,
+           view.stats->selected,
            served_seq[0],
            served_seq[1],
            served_seq[2],

@@ -309,6 +309,8 @@ initial begin
 
     wait_for_word(16'hc604, 32'h0000_0001, 2000); // stats.served
     expect_word(16'hc608, 32'h0000_0001);         // stats.acked
+    expect_word(16'hc618, 32'h0000_0000);         // stats.queued
+    expect_word(16'hc61c, 32'h0000_0000);         // stats.selected
     expect_word(16'h0280, 32'hd600_0304);         // RX slot 0 READY, CRC/FEC OK
     expect_word(16'h0288, 32'h0001_0000);         // RX slot 0 MCS byte at ABI offset 10
     expect_word(16'h02a0, 32'h1095_d04f);         // RX slot 0 CRC32C
@@ -323,6 +325,8 @@ initial begin
 
     wait_for_word(16'hc604, 32'h0000_0002, 2000); // stats.served
     expect_word(16'hc608, 32'h0000_0002);         // stats.acked
+    expect_word(16'hc618, 32'h0000_0000);         // stats.queued
+    expect_word(16'hc61c, 32'h0000_0000);         // stats.selected
     expect_word(16'h02a4, 32'hd600_0304);         // RX slot 1 READY, CRC/FEC OK
     expect_word(16'h02ac, 32'h0001_0000);         // RX slot 1 MCS byte at ABI offset 10
     expect_word(16'h02c4, 32'he4a5_a068);         // RX slot 1 CRC32C
@@ -339,6 +343,8 @@ initial begin
     expect_word(16'hc610, 32'h0000_0001);         // stats.crc_errors
     expect_word(16'hc604, 32'h0000_0002);         // invalid TX was not served
     expect_word(16'hc608, 32'h0000_0002);         // invalid TX was not ACKed
+    expect_word(16'hc618, 32'h0000_0000);         // stats.queued
+    expect_word(16'hc61c, 32'h0000_0000);         // stats.selected
     expect_word(16'h0000, 32'h0011_0003);         // bad TX slot marked DONE
     expect_word(16'h0280, 32'h0000_0000);         // stale RX descriptor cleared
     expect_word(16'h04c0, 32'h0000_0000);         // stale ACK descriptor cleared
@@ -364,6 +370,8 @@ initial begin
     expect_word(16'hc614, 32'h0000_0003);         // stats.bounds_errors
     expect_word(16'hc604, 32'h0000_0002);         // reserved field was not served
     expect_word(16'hc608, 32'h0000_0002);         // reserved field was not ACKed
+    expect_word(16'hc618, 32'h0000_0000);         // stats.queued
+    expect_word(16'hc61c, 32'h0000_0000);         // stats.selected
 
     $display("PASS: fieldmesh_firmware_ring_axi_lite_tb");
     $finish;

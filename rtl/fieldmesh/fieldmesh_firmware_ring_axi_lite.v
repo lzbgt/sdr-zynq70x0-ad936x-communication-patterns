@@ -56,7 +56,7 @@ localparam PACKET_WORDS_PER_SLOT = PACKET_STRIDE / 4;
 localparam PACKET_ARENA_WORDS = RING_SLOTS * PACKET_WORDS_PER_SLOT;
 localparam PL_PACKET_WORDS = PL_SERVICE_SLOTS * PL_PACKET_WORDS_PER_SLOT;
 localparam PACKET_ARENA_BYTES = RING_SLOTS * PACKET_STRIDE;
-localparam STATS_WORDS = 6;
+localparam STATS_WORDS = 8;
 
 localparam TX_DESC_OFFSET = 0;
 localparam RX_DESC_OFFSET = TX_DESC_OFFSET + RING_SLOTS * TX_DESC_BYTES;
@@ -115,6 +115,9 @@ wire [31:0] ack_build3;
 wire [31:0] ack_build4;
 wire        picker_valid;
 wire [15:0] picker_slot;
+wire [7:0]  picker_traffic_class;
+wire        picker_invalid_class;
+wire [15:0] picker_queued_count;
 
 genvar service_i;
 genvar service_word_i;
@@ -147,9 +150,9 @@ fieldmesh_firmware_service_slot_picker #(
     .tx_desc_words(service_tx_desc_words),
     .valid(picker_valid),
     .slot(picker_slot),
-    .traffic_class(),
-    .invalid_class(),
-    .queued_count()
+    .traffic_class(picker_traffic_class),
+    .invalid_class(picker_invalid_class),
+    .queued_count(picker_queued_count)
 );
 
 fieldmesh_firmware_packet_service_bank #(
@@ -398,6 +401,11 @@ always @(posedge s_axi_aclk) begin
         s_axi_bresp <= 2'b00;
         s_axi_bvalid <= 1'b0;
     end else begin
+        stats[6] <= {16'd0, picker_queued_count};
+        stats[7] <= picker_valid ?
+            {1'b1, picker_invalid_class, 6'd0, picker_traffic_class, picker_slot} :
+            32'd0;
+
         if (ENABLE_PL_SERVICE != 0 && picker_valid) begin
             service_slot_immediate(picker_slot);
         end
