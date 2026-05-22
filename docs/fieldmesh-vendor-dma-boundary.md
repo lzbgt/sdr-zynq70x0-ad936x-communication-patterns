@@ -481,6 +481,8 @@ fieldmesh-ctrl-write --fw-dma-status 0x43c00000`, then runs
 `ctrl_scan.ndjson`, `dma_scan.ndjson`, and firmware-DMA status files. The
 resulting `preflight_assert.json` confirms the status read is non-mutating
 before any `--fw-dma-arm` or DMA smoke step is allowed.
+`run_fieldmesh_board_dma_smoke.sh` enforces that summary before it invokes the
+transfer-starting `dma-smoke --allow-live-writes` command.
 
 On 2026-05-13 the Z203 SD/QSPI FieldMesh runtime passed this wrapper with the
 matched FieldMesh bitstream and devicetree. The committed capture is under

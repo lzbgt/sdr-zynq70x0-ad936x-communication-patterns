@@ -34,6 +34,10 @@ with open(sys.argv[1], encoding="utf-8") as f:
     data = json.load(f)
 if data.get("event") != "fieldmesh_sidecar_preflight_assert" or data.get("ok") is not True:
     raise SystemExit(f"sidecar preflight is not green: {data}")
+if data.get("fw_dma_base") != "0x43c00000":
+    raise SystemExit(f"sidecar preflight is missing firmware-DMA status: {data}")
+if data.get("fw_dma_reads_hardware") is not True or data.get("fw_dma_writes_hardware") is not False:
+    raise SystemExit(f"firmware-DMA status preflight is not read-only: {data}")
 PY
 
 ssh_args=(

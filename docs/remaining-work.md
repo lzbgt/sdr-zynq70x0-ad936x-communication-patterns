@@ -1503,7 +1503,10 @@ below were later superseded by the current PHY-management two-board gates above:
   payload; use a real JTAG-mode power cycle before retrying. When runtime is
   reachable, `tools/run_fieldmesh_board_sidecar_preflight.sh` captures the
   three preflights plus read-only firmware-DMA endpoint status over SSH and
-  writes `preflight_assert.json`.
+  writes `preflight_assert.json`. `tools/run_fieldmesh_board_dma_smoke.sh`
+  now refuses to reach its `--allow-live-writes` DMA transfer unless that
+  assertion includes the firmware-DMA status proof with
+  `fw_dma_reads_hardware=true` and `fw_dma_writes_hardware=false`.
   `tools/run_fieldmesh_live_gate.sh` now wraps artifact verification, JTAG
   scan, non-flashing RAM boot, and read-only sidecar preflight into one
   timestamped capture directory for the next post-power-cycle attempt. The

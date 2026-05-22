@@ -2853,6 +2853,13 @@ The capture reports:
 Committed capture:
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_fieldmesh_dma_smoke_20260513-215806/`
 
+Current `run_fieldmesh_board_dma_smoke.sh` runs the sidecar preflight first and
+now rejects stale preflight summaries that do not include the read-only
+firmware-DMA endpoint status proof. The live-write DMA transfer remains behind
+the existing `--allow-live-writes` probe guard plus
+`fw_dma_reads_hardware=true` and `fw_dma_writes_hardware=false` in
+`preflight_assert.json`.
+
 ## Z203 Passive Learner Control Smoke
 
 The Z203 board was also checked as a real board-side passive learner. The host
