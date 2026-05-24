@@ -2109,6 +2109,171 @@ run_host_iperf_json() {
     "$@" >"$stdout_path" 2>"$stderr_path"
 }
 
+host_iperf_rc() {
+    local rc_path="$1"
+    local rc
+    if [ ! -s "$rc_path" ]; then
+        printf '124\n'
+        return 0
+    fi
+    rc="$(tr -cd '0-9' <"$rc_path")"
+    if [ -z "$rc" ]; then
+        rc=124
+    fi
+    if [ "$rc" -gt 255 ]; then
+        rc=124
+    fi
+    printf '%s\n' "$rc"
+}
+
+append_host_iperf_stderr_once() {
+    local cmd_stderr="$1"
+    local stderr_path="$2"
+    local appended_marker="$3"
+    if [ -s "$cmd_stderr" ] && [ ! -e "$appended_marker" ]; then
+        cat "$cmd_stderr" >>"$stderr_path"
+        : >"$appended_marker"
+    fi
+}
+
+run_host_iperf_json_async() {
+    local stdout_path="$1"
+    local stderr_path="$2"
+    local final_exchange_grace_s="$3"
+    local queue_quiet_grace_s="$4"
+    local queue_snapshot_path="$5"
+    shift 5
+    local pid_path="${stdout_path}.pid"
+    local rc_path="${stdout_path}.rc"
+    local cmd_stderr="${stderr_path}.cmd"
+    local appended_marker="${stderr_path}.appended"
+    local pid
+    local rc
+    local primary_deadline
+    local final_deadline
+    local quiet_deadline
+    local quiet_consecutive=0
+    local max_quiet_consecutive=0
+    local snapshot
+
+    : >"$stdout_path"
+    : >"$stderr_path"
+    : >"$cmd_stderr"
+    rm -f "$pid_path" "$rc_path" "$appended_marker"
+    (
+        set +e
+        "$@" >"$stdout_path" 2>"$cmd_stderr"
+        rc=$?
+        printf '%s\n' "$rc" >"$rc_path"
+        exit "$rc"
+    ) &
+    pid="$!"
+    printf '%s\n' "$pid" >"$pid_path"
+
+    primary_deadline=$((SECONDS + iperf_timeout_s))
+    while [ "$SECONDS" -lt "$primary_deadline" ]; do
+        if [ -s "$rc_path" ]; then
+            wait "$pid" 2>/dev/null || true
+            append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+            rc="$(host_iperf_rc "$rc_path")"
+            return "$rc"
+        fi
+        sleep 1
+    done
+
+    if [ "$final_exchange_grace_s" -gt 0 ]; then
+        printf 'fieldmesh_iperf_final_exchange_grace_s=%s\n' "$final_exchange_grace_s" >>"$stderr_path"
+        final_deadline=$((SECONDS + final_exchange_grace_s))
+        while [ "$SECONDS" -lt "$final_deadline" ]; do
+            if [ -s "$rc_path" ]; then
+                wait "$pid" 2>/dev/null || true
+                append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+                rc="$(host_iperf_rc "$rc_path")"
+                return "$rc"
+            fi
+            sleep 1
+        done
+    fi
+
+    if [ "$queue_quiet_grace_s" -gt 0 ]; then
+        printf 'fieldmesh_iperf_queue_quiet_grace_s=%s\n' "$queue_quiet_grace_s" >>"$stderr_path"
+        quiet_deadline=$((SECONDS + queue_quiet_grace_s))
+        while [ "$SECONDS" -lt "$quiet_deadline" ]; do
+            if [ -s "$rc_path" ]; then
+                wait "$pid" 2>/dev/null || true
+                append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+                rc="$(host_iperf_rc "$rc_path")"
+                return "$rc"
+            fi
+            if snapshot="$(rf_queue_snapshot)"; then
+                snap_rc=0
+            else
+                snap_rc=$?
+            fi
+            printf '%s\n' "$snapshot" >"$queue_snapshot_path"
+            if [ "$snap_rc" -eq 0 ]; then
+                quiet_consecutive=$((quiet_consecutive + 1))
+            else
+                quiet_consecutive=0
+            fi
+            if [ "$quiet_consecutive" -gt "$max_quiet_consecutive" ]; then
+                max_quiet_consecutive="$quiet_consecutive"
+            fi
+            sleep 1
+        done
+        printf 'fieldmesh_iperf_queue_quiet_max_consecutive_s=%s\n' "$max_quiet_consecutive" >>"$stderr_path"
+    fi
+
+    if [ "$iperf_tcp_control_drain_s" -gt 0 ]; then
+        local sent_bytes
+        sent_bytes="$(iperf_report_sent_bytes "$stdout_path")"
+        if [[ "$sent_bytes" =~ ^[0-9]+$ ]] && [ "$sent_bytes" -gt 0 ]; then
+            printf 'fieldmesh_iperf_client_preserved_for_control_drain=1\n' >>"$stderr_path"
+            return 124
+        fi
+    fi
+
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+    return 124
+}
+
+finish_host_iperf_client_after_control_drain() {
+    local stdout_path="$1"
+    local stderr_path="$2"
+    local timeout_s="$3"
+    local pid_path="${stdout_path}.pid"
+    local rc_path="${stdout_path}.rc"
+    local cmd_stderr="${stderr_path}.cmd"
+    local appended_marker="${stderr_path}.appended"
+    local pid
+    local deadline
+    local rc
+
+    pid="$(tr -cd '0-9' <"$pid_path" 2>/dev/null || true)"
+    if [ -z "$pid" ]; then
+        append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+        rc="$(host_iperf_rc "$rc_path")"
+        return "$rc"
+    fi
+    deadline=$((SECONDS + timeout_s))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if [ -s "$rc_path" ]; then
+            wait "$pid" 2>/dev/null || true
+            append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+            rc="$(host_iperf_rc "$rc_path")"
+            return "$rc"
+        fi
+        sleep 1
+    done
+    printf 'fieldmesh_iperf_client_killed_after_control_drain=1\n' >>"$stderr_path"
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    append_host_iperf_stderr_once "$cmd_stderr" "$stderr_path" "$appended_marker"
+    return 124
+}
+
 setup_host_pc_route
 if ! start_tun_services >"$out_dir/start_tun_services.stdout" 2>"$out_dir/start_tun_services.stderr"; then
     fail_bounded "tun_or_rf_worker_start_failed" \
@@ -2268,14 +2433,40 @@ if [ "$host_pc_case" = "1" ]; then
         >"$out_dir/z103_iperf3_host_tcp_server.pid"
     wait_remote_tcp_listen "$z103_remote" "$iperf_port"
     set +e
-    run_host_iperf_json \
+    run_host_iperf_json_async \
         "$out_dir/host_iperf3_tcp_client.json" "$out_dir/host_iperf3_tcp_client.err" \
+        "$iperf_tcp_final_exchange_grace_s" "$iperf_tcp_queue_quiet_grace_s" \
+        "$out_dir/host_iperf_tcp_queue_quiet_snapshot.json" \
         iperf3 -c 10.77.2.20 -p "$iperf_port" -i "$iperf_interval_s" --connect-timeout "$iperf_connect_timeout_ms" "${host_tcp_client_timeout_args[@]}" -M "$iperf_tcp_mss" -w "$iperf_tcp_window" "${host_tcp_direction_args[@]}" "${host_tcp_bitrate_args[@]}" "${host_tcp_length_args[@]}" -l "$iperf_block_size" --json
     host_tcp_rc=$?
+    host_tcp_initial_rc="$host_tcp_rc"
     set -e
     if [ "$host_tcp_rc" -ne 0 ]; then
+        drain_tcp_control_after_timeout \
+            "host_pc" \
+            "$out_dir/host_iperf3_tcp_client.json" \
+            "$z103_remote" \
+            "$out_dir/z103_iperf3_host_tcp_server.pid" \
+            "/tmp/fieldmesh_iperf3_host_tcp_server.json" \
+            "$out_dir/z103_iperf3_host_tcp_server_after_control_drain.json"
+        if finish_host_iperf_client_after_control_drain \
+            "$out_dir/host_iperf3_tcp_client.json" \
+            "$out_dir/host_iperf3_tcp_client.err" \
+            "$iperf_tcp_control_drain_s"; then
+            host_tcp_rc=0
+        fi
+    fi
+    write_tcp_final_exchange_report \
+        "host_pc" \
+        "$host_tcp_initial_rc" \
+        "$host_tcp_rc" \
+        "$out_dir/host_iperf3_tcp_client.json" \
+        "$out_dir/host_iperf3_tcp_client.err" \
+        "$out_dir/host_pc_tcp_final_exchange.json" \
+        "$out_dir/host_iperf_tcp_queue_quiet_snapshot.json"
+    if [ "$host_tcp_rc" -ne 0 ]; then
         fail_bounded "host_pc_tcp_iperf_incomplete" \
-            "Host-originated TCP iperf did not complete; see host_iperf3_tcp_client.json and .err."
+            "Host-originated TCP iperf did not complete within IPERF_TIMEOUT_S=$iperf_timeout_s plus IPERF_TCP_FINAL_EXCHANGE_GRACE_S=$iperf_tcp_final_exchange_grace_s and IPERF_TCP_QUEUE_QUIET_GRACE_S=$iperf_tcp_queue_quiet_grace_s; when IPERF_TCP_CONTROL_DRAIN_S>0 and data bytes crossed, the runner keeps the RF bridge alive to observe final control drain; see host_pc_tcp_control_drain.json, host_iperf3_tcp_client.json, and .err."
     fi
     if ! parse_iperf_success "$out_dir/host_iperf3_tcp_client.json"; then
         fail_bounded "host_pc_tcp_iperf_failed" \
@@ -2283,7 +2474,7 @@ if [ "$host_pc_case" = "1" ]; then
     fi
     if ! wait_remote_pid_exit "$z103_remote" "$out_dir/z103_iperf3_host_tcp_server.pid" 30; then
         fail_bounded "host_pc_tcp_server_still_running" \
-            "Host-originated TCP iperf client completed, but the Z103 server process did not exit."
+            "Host-originated TCP iperf client completed, but the Z103 server process did not exit; see host_pc_tcp_control_drain.json when final-control drain was needed."
     fi
     sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
         "$z103_remote:/tmp/fieldmesh_iperf3_host_tcp_server.json" \

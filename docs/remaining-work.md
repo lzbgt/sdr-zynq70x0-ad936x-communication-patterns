@@ -522,9 +522,12 @@ evidence. If a saved IIO RF bridge report configured
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the bounded
 source-ACK pipeline was exercised with max in-flight ACK depth of at least two
 and completed source-ACK latency plus RF burst timing evidence. Production
-native-IP evidence must also carry the TCP final-exchange proof from the HIL
-runner: final client status, queue-quiet observation summary, and
-control-drain elapsed/ok evidence when the control-drain phase was needed.
+native-IP evidence must also carry TCP final-exchange proof from the HIL runner
+for both the board-to-board and host-PC-transparent reports: final client
+status, queue-quiet observation summary, and control-drain elapsed/ok evidence
+when the control-drain phase was needed. Host-originated transparent TCP
+evidence is phase-tagged as `host_pc`, so it cannot be satisfied by only
+replaying the board-to-board shutdown proof.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` now wraps the two
 layers as one production sequence: it consumes paired saved reports or runs both
 live layers, emits paired native-IP iperf evidence, and emits the normalized app

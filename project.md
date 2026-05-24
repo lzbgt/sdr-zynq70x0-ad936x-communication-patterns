@@ -868,8 +868,9 @@ user and vendor configuration.
   `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires
 	  high-water, ACK latency, and RF burst timing evidence proving that the bounded
 	  ACK pipeline was actually exercised. It also requires TCP final-exchange and
-	  queue/control-drain timing proof from the HIL runner, so archived production
-	  evidence cannot omit the shutdown/result-exchange diagnosis. The production
+	  queue/control-drain timing proof from both board-to-board and host-PC
+	  transparent HIL reports, so archived production evidence cannot omit the
+	  shutdown/result-exchange diagnosis or reuse board-only TCP proof. The production
 	  gate traces native-IP app evidence back to this paired iperf classifier.
 - `tools/fieldmesh_native_ip_feature_readiness.py` - feature-scoped native-IP
   readiness summary. It consumes the paired iperf production sequence and
@@ -1349,7 +1350,8 @@ user and vendor configuration.
   JSON if available, and records whether the final control path drained. The
   final native-IP HIL report now carries structured `tcp_final_exchange`,
   queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence
-  alongside ACK latency and RF burst timing, so review can separate TCP
+  alongside ACK latency and RF burst timing for the active client path, including
+  the host-originated transparent TCP case. Review can separate TCP
   final-exchange pressure from RF burst and daemon ACK service cost. Live HIL
   with the rebuilt persistent helper moved 55 real-RF frames with zero bridge
   errors; the Z203 client had sent 128 bytes, and Z103 captured 128 received

@@ -327,10 +327,12 @@ Minimum production gates for native TCP/IP:
   client report proves data bytes already crossed. This does not certify the
   run; it captures whether final result/shutdown traffic drains when the bridge
   is not cut off immediately. The final native-IP HIL report now includes the
-  structured TCP final-exchange row, queue-quiet max consecutive seconds, and
-  TCP control-drain elapsed/ok row beside ACK-pipeline latency and RF burst
-  timing, so remaining timeout analysis can distinguish TCP shutdown/result
-  exchange pressure from RF burst or daemon ACK latency. Live HIL with the
+  latest structured TCP final-exchange row, queue-quiet max consecutive seconds,
+  and TCP control-drain elapsed/ok row beside ACK-pipeline latency and RF burst
+  timing for both the SSH-launched board-to-board client and the host-originated
+  transparent client. Remaining timeout analysis can distinguish TCP
+  shutdown/result exchange pressure from RF burst or daemon ACK latency without
+  losing which client path produced the evidence. Live HIL with the
   rebuilt persistent helper moved 55 real-RF frames with zero bridge errors; the
   Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
@@ -426,7 +428,9 @@ Minimum production gates for native TCP/IP:
   layers. If an IIO RF bridge report was configured with
   `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the ACK pipeline
   was exercised with a max in-flight ACK depth of at least two and completed
-  source-ACK latency plus RF burst timing evidence. A daemon
+  source-ACK latency plus RF burst timing evidence. Both layers must carry TCP
+  final-exchange, queue-quiet, and control-drain timing proof; the host-originated
+  transparent layer is phase-tagged as `host_pc`. A daemon
   RF-worker bridge report is rejected even if TCP/UDP iperf
   completed, because that path proves the kernel/socket bridge but not over-air
   RF. The real-RF production gate and over-air sequence now require this paired

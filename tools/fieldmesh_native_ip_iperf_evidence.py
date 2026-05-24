@@ -146,11 +146,16 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
 
 def _validate_tcp_final_exchange(report: dict[str, Any], label: str) -> list[str]:
     errors: list[str] = []
+    expected_phase = "host_pc" if label == "host_pc_transparent" else "board_to_board"
     exchange = report.get("tcp_final_exchange")
     if not isinstance(exchange, dict) or not exchange:
         return [f"{label}: TCP final-exchange evidence is missing"]
     if exchange.get("event") != "fieldmesh_native_ip_iperf_tcp_final_exchange":
         errors.append(f"{label}: TCP final-exchange event is invalid")
+    if exchange.get("phase") != expected_phase:
+        errors.append(
+            f"{label}: TCP final-exchange phase must be {expected_phase}"
+        )
     if exchange.get("ok") is not True:
         errors.append(f"{label}: TCP final-exchange evidence must be ok")
     if not _positive_number(exchange, "client_sent_bytes"):
@@ -211,6 +216,10 @@ def _validate_tcp_final_exchange(report: dict[str, Any], label: str) -> list[str
         else:
             if drain.get("event") != "fieldmesh_native_ip_iperf_tcp_control_drain":
                 errors.append(f"{label}: TCP control-drain event is invalid")
+            if drain.get("phase") != expected_phase:
+                errors.append(
+                    f"{label}: TCP control-drain phase must be {expected_phase}"
+                )
             if drain.get("ok") is not True:
                 errors.append(f"{label}: TCP control-drain evidence must be ok")
             if not _positive_number(drain, "client_sent_bytes_before_timeout"):

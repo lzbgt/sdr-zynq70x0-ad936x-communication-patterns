@@ -79,11 +79,11 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_burst_live_run_max_elapsed_ms": 200,
   "iio_bridge_rf_burst_decode_max_elapsed_ms": 18,
   "iio_bridge_source_ack_pipeline_exercised": true,
-  "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "board_to_board", "initial_client_rc": 124, "final_client_rc": 0, "client_sent_bytes": 131072, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": true, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": true, "queue_quiet_max_consecutive_s": 8, "control_drain_s": 45, "client_preserved_for_control_drain": true, "client_killed_after_control_drain": false, "completed_after_primary_timeout": true, "completed_without_grace": false},
+  "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "host_pc", "initial_client_rc": 124, "final_client_rc": 0, "client_sent_bytes": 131072, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": true, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": true, "queue_quiet_max_consecutive_s": 8, "control_drain_s": 45, "client_preserved_for_control_drain": true, "client_killed_after_control_drain": false, "completed_after_primary_timeout": true, "completed_without_grace": false},
   "tcp_final_exchange_grace_started": true,
   "tcp_queue_quiet_grace_started": true,
   "tcp_queue_quiet_max_consecutive_s": 8,
-  "tcp_control_drain": {"event": "fieldmesh_native_ip_iperf_tcp_control_drain", "ok": true, "phase": "board_to_board", "started": true, "duration_s": 45, "client_sent_bytes_before_timeout": 131072, "keeps_rf_bridge_running": true, "reason": "client_timed_out_after_sending_tcp_bytes", "server_exited_after_drain": true, "server_json_after_drain_path": "z103_iperf3_tcp_server_after_control_drain.json", "elapsed_s": 30},
+  "tcp_control_drain": {"event": "fieldmesh_native_ip_iperf_tcp_control_drain", "ok": true, "phase": "host_pc", "started": true, "duration_s": 45, "client_sent_bytes_before_timeout": 131072, "keeps_rf_bridge_running": true, "reason": "client_timed_out_after_sending_tcp_bytes", "server_exited_after_drain": true, "server_json_after_drain_path": "z103_iperf3_host_tcp_server_after_control_drain.json", "elapsed_s": 30},
   "tcp_control_drain_started": true,
   "tcp_control_drain_elapsed_s": 30,
   "tcp_control_drain_ok": true,
@@ -297,6 +297,24 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --host-pc-report "$work_dir/host-bad-tcp-control-drain.json" \
   >"$work_dir/bad-tcp-control-drain-rejected.out" 2>"$work_dir/bad-tcp-control-drain-rejected.err"; then
   echo "iperf evidence classifier accepted failed TCP control-drain evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-board-tcp-phase.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["tcp_final_exchange"]["phase"] = "board_to_board"
+report["tcp_control_drain"]["phase"] = "board_to_board"
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-board-tcp-phase.json" \
+  >"$work_dir/host-board-tcp-phase-rejected.out" 2>"$work_dir/host-board-tcp-phase-rejected.err"; then
+  echo "iperf evidence classifier accepted host TCP evidence tagged as board_to_board" >&2
   exit 1
 fi
 

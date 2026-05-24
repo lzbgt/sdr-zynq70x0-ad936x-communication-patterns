@@ -5069,9 +5069,12 @@ layers. When either saved report was collected through the IIO RF bridge with
 ACK-pipeline high-water evidence showing max in-flight source ACKs reached at
 least two and stayed within the configured depth, plus completed source-ACK
 latency and RF burst timing evidence for the same IIO bridge capture. Production
-native-IP evidence also requires TCP final-exchange timing proof: final client
-status, queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok
-evidence when the run needed the control-drain phase. The verifier rejects daemon
+native-IP evidence also requires TCP final-exchange timing proof for the saved
+board-to-board report and the host-PC-transparent report: final client status,
+queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence
+when the run needed the control-drain phase. The host report must identify the
+phase as `host_pc`, preventing transparent-client archives from reusing only the
+board-to-board TCP shutdown evidence. The verifier rejects daemon
 RF-worker bridge metrics, byte-only iperf
 summaries, host-IP-routed results, and host-PC reports that are actually
 SSH-launched board clients.
