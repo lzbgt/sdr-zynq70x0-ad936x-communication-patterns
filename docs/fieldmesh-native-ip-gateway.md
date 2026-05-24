@@ -243,10 +243,12 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_IIO_BURST_HELPER` to a compiled
   `tools/fieldmesh_iio_burst_xfer.c` helper, which opens libiio RX/TX buffers
   in one process instead of shelling out to separate `iio_readdev` and
-  `iio_writedev` processes for every batch. Current HIL with this helper moved
-  more real-RF batches and completed one TCP `iperf3` client run at 1024 bytes,
-  then exposed and fixed an iperf runner bug where the UDP phase could reuse
-  the port before the TCP one-shot server released it. The runner also exposes
+  `iio_writedev` processes for every batch. The helper also owns the C-native
+  baseband BPSK and BFSK modem test primitives, so Python/shell remain
+  orchestration around compiled encode/decode paths. Current HIL with this
+  helper moved more real-RF batches and completed one TCP `iperf3` client run
+  at 1024 bytes, then exposed and fixed an iperf runner bug where the UDP phase
+  could reuse the port before the TCP one-shot server released it. The runner also exposes
   `IPERF_TCP_BITRATE` and per-direction primary/retry modem settings for HIL
   tuning; the default Z103-to-Z203 retry uses a stronger BFSK repeat because
   that reverse path is the weaker live decode direction. Follow-up runs still

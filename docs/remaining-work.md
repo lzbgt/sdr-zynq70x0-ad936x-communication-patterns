@@ -249,8 +249,9 @@ airtime. A destructive diagnostic run moved the actual 244-byte TCP data
 segments plus `iperf3` result JSON over RF, then failed on a reverse result
 batch decode. The bridge now has a compiled libiio burst helper, so one process
 arms RX and pushes TX instead of launching separate IIO tools for every RF
-batch. Its C BFSK modem decoder now uses prefix-accumulator tone detection, and
-the verifier proves recovery after a CRC-wrong sync candidate followed by a
+batch. Its C modem helpers now cover baseband BPSK and BFSK encode/decode;
+the BFSK decoder uses prefix-accumulator tone detection, and the verifier
+proves both C decoders recover after a CRC-wrong sync candidate followed by a
 good burst, so the failure mode is covered without Python in the modem
 primitive. That helper improved batch latency enough for
 one live run to complete TCP `iperf3` at 1024 bytes over real RF; the next

@@ -26,6 +26,24 @@ if ! grep -q -- "--bfsk-encode" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BFSK modem contract" >&2
   exit 1
 fi
+if ! grep -q -- "--bpsk-encode" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing C BPSK modem contract" >&2
+  exit 1
+fi
+
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-self-test \
+  >"$work_dir/bpsk_self_test.json"
+python3 - "$work_dir/bpsk_self_test.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("event") != "fieldmesh_bpsk_modem_self_test" or report.get("ok") is not True:
+    raise SystemExit(f"C BPSK self-test failed: {report}")
+if report.get("frame_bytes", 0) <= 0 or report.get("iq_bytes", 0) <= 0:
+    raise SystemExit(f"C BPSK self-test did not report useful byte counts: {report}")
+PY
 
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-self-test \
   >"$work_dir/bfsk_self_test.json"
@@ -42,6 +60,19 @@ if report.get("frame_bytes", 0) <= 0 or report.get("iq_bytes", 0) <= 0:
 PY
 
 cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
+  --frame-file "$work_dir/frame.bin" \
+  --iq-file "$work_dir/bpsk_frame.iq" \
+  --samples-per-symbol 16 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_encode.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
+  --iq-file "$work_dir/bpsk_frame.iq" \
+  --decoded-file "$work_dir/bpsk_decoded.bin" \
+  --samples-per-symbol 16 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_decode.json"
+cmp "$work_dir/frame.bin" "$work_dir/bpsk_decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/frame.iq" \
@@ -67,6 +98,33 @@ bad[-1] ^= 0x01
 Path(sys.argv[2]).write_bytes(bad)
 Path(sys.argv[3]).write_text(f"0x{zlib.crc32(frame) & 0xffffffff:08x}\n", encoding="ascii")
 PY
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
+  --frame-file "$work_dir/bad_frame.bin" \
+  --iq-file "$work_dir/bpsk_bad_frame.iq" \
+  --samples-per-symbol 8 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_bad_encode.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
+  --frame-file "$work_dir/frame.bin" \
+  --iq-file "$work_dir/bpsk_good_frame.iq" \
+  --samples-per-symbol 8 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_good_encode.json"
+python3 - "$work_dir/bpsk_bad_frame.iq" "$work_dir/bpsk_good_frame.iq" "$work_dir/bpsk_combined.iq" <<'PY'
+import sys
+from pathlib import Path
+
+Path(sys.argv[3]).write_bytes(Path(sys.argv[1]).read_bytes() + Path(sys.argv[2]).read_bytes())
+PY
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
+  --iq-file "$work_dir/bpsk_combined.iq" \
+  --decoded-file "$work_dir/bpsk_combined_decoded.bin" \
+  --expected-frame-len "$(wc -c <"$work_dir/frame.bin")" \
+  --expected-frame-crc "$(cat "$work_dir/frame_crc.txt")" \
+  --samples-per-symbol 8 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_decode_after_bad_crc.json"
+cmp "$work_dir/frame.bin" "$work_dir/bpsk_combined_decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-encode \
   --frame-file "$work_dir/bad_frame.bin" \
   --iq-file "$work_dir/bad_frame.iq" \
@@ -103,6 +161,32 @@ PY
   --bit-repeat 2 \
   >"$work_dir/bfsk_decode_after_bad_crc.json"
 cmp "$work_dir/frame.bin" "$work_dir/combined_decoded.bin"
+python3 - "$work_dir/bpsk_encode.json" "$work_dir/bpsk_decode.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+encode = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+decode = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+if encode.get("event") != "fieldmesh_bpsk_modem_encode" or encode.get("ok") is not True:
+    raise SystemExit(f"C BPSK encode failed: {encode}")
+if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is not True:
+    raise SystemExit(f"C BPSK decode failed: {decode}")
+if encode.get("frame_bytes") != decode.get("frame_bytes"):
+    raise SystemExit(f"C BPSK encode/decode byte counts differ: {encode} {decode}")
+PY
+
+python3 - "$work_dir/bpsk_decode_after_bad_crc.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+decode = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is not True:
+    raise SystemExit(f"C BPSK decoder did not recover after CRC-wrong candidate: {decode}")
+if decode.get("bit_start", 0) <= 0:
+    raise SystemExit(f"C BPSK decoder did not skip the leading bad candidate: {decode}")
+PY
 python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" <<'PY'
 import json
 import sys
@@ -159,6 +243,10 @@ required = [
     "iio_buffer_push",
     "pthread_create",
     "fieldmesh_iio_burst_xfer_server",
+    "fieldmesh_bpsk_modem_encode",
+    "fieldmesh_bpsk_modem_decode",
+    "fieldmesh_bpsk_modem_self_test",
+    "decode_bpsk_hard_bits",
     "fieldmesh_bfsk_modem_encode",
     "fieldmesh_bfsk_modem_decode",
     "fieldmesh_bfsk_modem_self_test",
