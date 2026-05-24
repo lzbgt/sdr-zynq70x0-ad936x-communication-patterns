@@ -901,7 +901,8 @@ user and vendor configuration.
   blockers into a priority-ordered production action queue. It keeps physical
   access, RF TX, and receiver-config-write requirements explicit so GNSS
   receiver-health work, sky-view/fix work, PPS activity proof, paired real-RF
-  iperf, and the real-RF production gate do not get mixed together.
+  iperf, and the over-air RF production sequence with TX-backend readback plus
+  manifest proof do not get mixed together.
 - `tools/verify_fieldmesh_system_production_readiness.sh` - verifies the
   summarizer rejects blocked GNSS/PPS/native-IP/RF evidence, accepts complete
   positive evidence, refuses a missing real-RF production sequence or missing

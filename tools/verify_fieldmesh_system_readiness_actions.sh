@@ -47,7 +47,7 @@ expected = {
     "obtain_live_gnss_fix",
     "prove_gnss_pps_activity",
     "collect_paired_real_rf_iperf",
-    "collect_real_rf_production_gate",
+    "collect_real_rf_production_sequence",
 }
 missing = expected - set(actions)
 if missing:
@@ -56,6 +56,13 @@ if actions["collect_paired_real_rf_iperf"].get("requires_rf_tx") is not True:
     raise SystemExit(f"iperf action should require RF TX: {actions['collect_paired_real_rf_iperf']!r}")
 if actions["prove_gnss_pps_activity"].get("requires_receiver_config_write") is not False:
     raise SystemExit(f"PPS action should not require config write by default: {actions['prove_gnss_pps_activity']!r}")
+rf_action = actions["collect_real_rf_production_sequence"]
+if rf_action.get("requires_rf_tx") is not True:
+    raise SystemExit(f"RF production action should require RF TX: {rf_action!r}")
+for token in ("sequence", "TX-backend", "manifest"):
+    text = f"{rf_action.get('summary', '')} {rf_action.get('verification', '')}"
+    if token not in text:
+        raise SystemExit(f"RF production action does not mention {token}: {rf_action!r}")
 priorities = [row["priority"] for row in report.get("actions", [])]
 if priorities != sorted(priorities):
     raise SystemExit(f"actions are not priority sorted: {priorities!r}")

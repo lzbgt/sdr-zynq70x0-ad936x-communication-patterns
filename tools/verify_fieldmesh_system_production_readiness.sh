@@ -567,7 +567,7 @@ for action_id in (
     "obtain_live_gnss_fix",
     "prove_gnss_pps_activity",
     "collect_paired_real_rf_iperf",
-    "collect_real_rf_production_gate",
+    "collect_real_rf_production_sequence",
 ):
     if action_id not in actions:
         raise SystemExit(f"wrapper action plan missing {action_id}: {report}")

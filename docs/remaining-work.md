@@ -634,7 +634,8 @@ GSV/GSA/RMC no-fix row, while still reporting the latest row for inspection.
 `tools/run_fieldmesh_system_production_readiness.sh` now also emits
 `system_readiness_actions.json`, which turns those blockers into the concrete
 production queue: fix receiver I/O health, obtain live GNSS fixes, prove PPS
-activity, collect paired real-RF iperf, and collect the real-RF production gate.
+activity, collect paired real-RF iperf, and collect the over-air RF production
+sequence with TX-backend readback plus hash-verified manifest proof.
 The reporter log is now rotated by the init service; continuous no-fix or
 receiver-warning output should no longer fill `/tmp` and mask later native-IP
 or iperf diagnostics.

@@ -105,14 +105,14 @@ ACTION_RULES: tuple[tuple[tuple[str, ...], dict[str, Any]], ...] = (
             "measured_rf_phy_tx_rx_not_verified",
         ),
         {
-            "action_id": "collect_real_rf_production_gate",
+            "action_id": "collect_real_rf_production_sequence",
             "domain": "rf_phy",
             "priority": 50,
             "requires_physical_access": True,
             "requires_rf_tx": True,
             "requires_receiver_config_write": False,
-            "summary": "Collect authorized over-air RF production evidence with exact frame recovery and correlated app evidence.",
-            "verification": "Run the over-air RF production sequence with production RF path evidence and confirm the real-RF gate is production_ready=true.",
+            "summary": "Collect authorized over-air RF production-sequence evidence with exact frame recovery, correlated app evidence, C TX-backend readback, and a hash-verified evidence manifest.",
+            "verification": "Run the over-air RF production sequence with production RF path evidence and confirm the sequence, TX backend readback evidence, and evidence manifest are production_ready=true.",
         },
     ),
 )

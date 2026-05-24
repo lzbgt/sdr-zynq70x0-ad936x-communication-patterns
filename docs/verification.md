@@ -3501,8 +3501,9 @@ Result: readiness blockers are converted into a priority-ordered action queue
 with explicit physical-access, RF-TX, and receiver-config-write flags. Current
 blocker classes produce separate actions for GNSS receiver I/O overvoltage,
 live GNSS fix acquisition, PPS activity proof, paired real-RF iperf, and the
-real-RF production gate. Unknown future blockers are preserved under an
-inspection action rather than being silently dropped.
+over-air RF production sequence with TX-backend readback and hash-verified
+manifest proof. Unknown future blockers are preserved under an inspection
+action rather than being silently dropped.
 
 The guarded TIMEPULSE apply path is checked with:
 
