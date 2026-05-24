@@ -268,6 +268,107 @@ def native_service_burst_from_daemon(
     return frames, report
 
 
+def native_service_loop_tick_from_daemon(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    max_frames_per_rf_burst: int,
+    peer_scheduler_score: int,
+    current_consecutive_direction_batches: int,
+) -> tuple[list[bytes], dict[str, Any]]:
+    try:
+        report = bridge.request_daemon(
+            host,
+            port,
+            "FIELDMESH_RF_SERVICE_LOOP_TICK v1 "
+            f"peer_scheduler_score={max(0, int(peer_scheduler_score))} "
+            "current_consecutive_direction_batches="
+            f"{max(0, int(current_consecutive_direction_batches))}",
+            timeout_ms,
+        )
+    except TimeoutError:
+        return [], {
+            "event": "sdk_daemon_rf_service_loop_tick",
+            "ok": False,
+            "error": "timeout",
+        }
+    if report.get("event") != "sdk_daemon_rf_service_loop_tick":
+        raise SystemExit(
+            f"expected sdk_daemon_rf_service_loop_tick, got {report.get('event')!r}"
+        )
+    if report.get("ok") is not True:
+        raise SystemExit(f"RF_SERVICE_LOOP_TICK failed: {report}")
+    required = {
+        "native_service_loop_tick": 1,
+        "native_bidirectional_direction_decision": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "scheduler_score_native_c": 1,
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "persistent_native_bidirectional_rf_service_loop",
+    }
+    errors = [
+        f"{key}={report.get(key)!r} expected {expected!r}"
+        for key, expected in required.items()
+        if report.get(key) != expected
+    ]
+    count = report.get("frames")
+    if count in (0, "0", None):
+        if report.get("service_skipped") != 1:
+            errors.append("empty loop tick must carry service_skipped=1")
+        if errors:
+            raise SystemExit("native RF service loop tick invalid: " + "; ".join(errors))
+        return [], report
+    burst_required = {
+        "non_destructive": 1,
+        "requires_ack": 1,
+        "service_skipped": 0,
+        "same_priority_batch": 1,
+    }
+    errors.extend(
+        f"{key}={report.get(key)!r} expected {expected!r}"
+        for key, expected in burst_required.items()
+        if report.get(key) != expected
+    )
+    if not isinstance(count, int) or count < 1 or count > max_frames_per_rf_burst:
+        errors.append(f"invalid loop-tick frame count {count!r}")
+    for key in (
+        "local_scheduler_score",
+        "peer_scheduler_score",
+        "service_local_first",
+        "yield_to_peer",
+        "current_consecutive_direction_batches",
+        "lease_batch_frames",
+        "max_frames_per_rf_burst",
+        "emitted_service_frames",
+        "deferred_lease_frames",
+    ):
+        if not isinstance(report.get(key), int):
+            errors.append(f"{key}={report.get(key)!r} expected integer")
+    if report.get("service_local_first") != 1 or report.get("yield_to_peer") != 0:
+        errors.append("nonempty loop tick must prove service_local_first=1 and yield_to_peer=0")
+    if errors:
+        raise SystemExit("native RF service loop tick invalid: " + "; ".join(errors))
+    frames: list[bytes] = []
+    for index in range(count):
+        frame_hex = report.get(f"frame{index}_hex")
+        if not isinstance(frame_hex, str) or not frame_hex:
+            raise SystemExit(f"loop tick missing frame{index}_hex: {report}")
+        try:
+            frames.append(bytes.fromhex(frame_hex))
+        except ValueError as exc:
+            raise SystemExit(f"loop tick frame{index}_hex is invalid") from exc
+    return frames, report
+
+
 def request_daemon_with_retries(
     host: str,
     port: int,
@@ -1399,6 +1500,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "same_priority_batch_leases": 0,
         "same_priority_batch_priority_drop_stops": 0,
         "native_service_burst_leases": 0,
+        "native_service_loop_ticks": 0,
+        "native_service_loop_tick_skips": 0,
+        "native_service_loop_tick_failures": 0,
         "rf_sub_burst_slices": 0,
         "rf_sub_burst_deferred_frames": 0,
         "rf_sub_burst_preemption_points": 0,
@@ -1420,6 +1524,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     native_worker_status_by_endpoint: dict[str, dict[str, Any]] = {}
     native_scheduler_status_by_direction: dict[str, dict[str, Any]] = {}
     native_direction_decision_by_direction: dict[str, dict[str, Any]] = {}
+    native_service_loop_tick_by_direction: dict[str, dict[str, Any]] = {}
     direction_by_name = {direction["name"]: direction for direction in directions}
     next_index = 0
     last_served_direction: str | None = None
@@ -1487,6 +1592,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "rf_lease_batch_size": args.batch_size,
             "native_service_burst_leases_enabled": bool(args.native_service_burst_leases),
+            "native_service_loop_tick_enabled": bool(
+                args.execute_live_rf
+                and args.native_service_burst_leases
+                and args.require_native_rf_service_worker
+            ),
+            "native_service_loop_tick_proven": bool(
+                native_service_loop_tick_by_direction
+                and all(
+                    status.get("native_service_loop_tick") == 1
+                    and status.get("native_bidirectional_direction_decision") == 1
+                    and status.get("native_service_burst") == 1
+                    and status.get("service_policy_bound") == 1
+                    and status.get("production_iio_policy") == 1
+                    for status in native_service_loop_tick_by_direction.values()
+                )
+            ),
+            "native_service_loop_tick_status": native_service_loop_tick_by_direction,
             "rf_lease_batch_high_water": batch_high_water_max(
                 rf_lease_batch_high_water_by_direction
             ),
@@ -1818,6 +1940,27 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         native_direction_decision_by_direction[current_direction_name] = decision
         return bool(decision.get("yield_to_peer") == 1)
 
+    def peer_scheduler_score_for(current_direction_name: str) -> int:
+        status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
+        peer_score = 0
+        for candidate in directions:
+            if candidate["name"] == current_direction_name:
+                continue
+            try:
+                status = rf_service_scheduler_status(
+                    candidate["source_host"],
+                    candidate["source_port"],
+                    status_timeout_ms,
+                )
+                validate_native_scheduler_status(status, candidate["name"], args)
+            except (TimeoutError, SystemExit):
+                counts["native_direction_scheduler_status_failures"] += 1
+                continue
+            counts["native_direction_scheduler_status_polls"] += 1
+            native_scheduler_status_by_direction[candidate["name"]] = status
+            peer_score = max(peer_score, queued_rf_work_score(status))
+        return peer_score
+
     def should_yield_for_direction_fairness(direction_name: str) -> bool:
         nonlocal fair_yield_pending_direction
         if (
@@ -1946,12 +2089,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         continue
                     elif args.batch_size > 1:
                         if args.native_service_burst_leases:
-                            batch_frames, batch_lease = native_service_burst_from_daemon(
-                                direction["source_host"],
-                                direction["source_port"],
-                                args.lease_timeout_ms,
-                                args.max_frames_per_rf_burst,
-                            )
+                            try:
+                                batch_frames, batch_lease = (
+                                    native_service_loop_tick_from_daemon(
+                                        direction["source_host"],
+                                        direction["source_port"],
+                                        args.lease_timeout_ms,
+                                        args.max_frames_per_rf_burst,
+                                        peer_scheduler_score_for(direction["name"]),
+                                        (
+                                            consecutive_direction_batches
+                                            if last_served_direction == direction["name"]
+                                            else 0
+                                        ),
+                                    )
+                                )
+                            except (TimeoutError, SystemExit):
+                                counts["native_service_loop_tick_failures"] += 1
+                                raise
+                            counts["native_service_loop_ticks"] += 1
+                            native_service_loop_tick_by_direction[direction["name"]] = batch_lease
+                            if batch_lease.get("service_skipped") == 1:
+                                counts["native_service_loop_tick_skips"] += 1
                         else:
                             batch_frames, batch_lease = lease_batch_from_daemon(
                                 direction["source_host"],

@@ -416,9 +416,12 @@ reverse-path service. The per-source score now comes from
 `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, and the local-vs-peer service/yield
 choice comes from `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1`, so native-IP
 evidence proves both the C-scored queue state and the C-owned bidirectional
-decision before Python consumes it. The next step is moving the outer
-cross-daemon loop itself into a persistent native worker/control-plane loop
-rather than having Python request each daemon-owned decision.
+decision before Python consumes it. Production service now also uses
+`FIELDMESH_RF_SERVICE_LOOP_TICK v1`, which combines that C-owned direction
+decision with C-owned service-burst emission in one daemon tick. The next step
+is moving the outer cross-daemon process itself into a persistent native
+worker/control-plane loop rather than having Python request each daemon-owned
+tick.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and

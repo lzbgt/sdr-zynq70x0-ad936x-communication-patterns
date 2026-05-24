@@ -400,6 +400,10 @@ PY
         sdk_daemon_rf_service_next_burst \
         native_service_burst \
         deferred_lease_frames \
+        FIELDMESH_RF_SERVICE_LOOP_TICK \
+        sdk_daemon_rf_service_loop_tick \
+        native_service_loop_tick \
+        service_skipped \
         FIELDMESH_RF_SERVICE_SCHEDULER_STATUS \
         sdk_daemon_rf_service_scheduler_status \
         native_direction_scheduler \

@@ -2930,6 +2930,21 @@ report = {
     "iio_bridge_native_service_burst_leases": int(
         last_iio_bridge.get("native_service_burst_leases") or 0
     ),
+    "iio_bridge_native_service_loop_tick_enabled": bool(
+        last_iio_bridge.get("native_service_loop_tick_enabled")
+    ),
+    "iio_bridge_native_service_loop_tick_proven": bool(
+        last_iio_bridge.get("native_service_loop_tick_proven")
+    ),
+    "iio_bridge_native_service_loop_ticks": int(
+        last_iio_bridge.get("native_service_loop_ticks") or 0
+    ),
+    "iio_bridge_native_service_loop_tick_skips": int(
+        last_iio_bridge.get("native_service_loop_tick_skips") or 0
+    ),
+    "iio_bridge_native_service_loop_tick_status": (
+        last_iio_bridge.get("native_service_loop_tick_status") or {}
+    ),
     "iio_bridge_native_direction_scheduler_enabled": bool(
         last_iio_bridge.get("native_direction_scheduler_enabled")
     ),

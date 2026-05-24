@@ -328,14 +328,16 @@ Minimum production gates for native TCP/IP:
   starts. The production IIO bridge now requests each burst through the daemon's
   `FIELDMESH_RF_SERVICE_NEXT_BURST v1` command, so native C owns the lease
   window, sub-burst cap, same-priority stop, and deferred-frame replay boundary.
-	  It also requests `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for per-direction
-	  queue-depth scores, so adaptive direction ordering and fair-service yield
-	  decisions consume C-scored scheduler evidence instead of Python recomputing
-	  the lease-queue priority formula. The bridge then asks
-	  `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the C-owned local-vs-peer
-	  service/yield decision; Python still runs the outer loop, but production
-	  evidence now proves the bidirectional choice came from the daemon policy
-	  boundary.
+  It also requests `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for per-direction
+  queue-depth scores, so adaptive direction ordering and fair-service yield
+  decisions consume C-scored scheduler evidence instead of Python recomputing
+  the lease-queue priority formula. The bridge then asks
+  `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the C-owned local-vs-peer
+  service/yield decision, and production service now uses
+  `FIELDMESH_RF_SERVICE_LOOP_TICK v1` so the daemon combines that decision with
+  service-burst emission in one native tick. Python still runs the outer process,
+  but production evidence now proves the bidirectional service tick came from the
+  daemon policy boundary.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

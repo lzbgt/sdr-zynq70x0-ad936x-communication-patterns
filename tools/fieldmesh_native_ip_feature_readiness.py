@@ -74,6 +74,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_native_rf_service_worker_proof_missing")
         if report.get("requires_iio_native_service_burst_leases") is not True:
             blockers.append("native_ip_native_service_burst_leases_missing")
+        if report.get("requires_iio_native_service_loop_tick") is not True:
+            blockers.append("native_ip_native_service_loop_tick_missing")
         if report.get("requires_iio_native_direction_scheduler") is not True:
             blockers.append("native_ip_native_direction_scheduler_missing")
         if report.get("requires_iio_native_bidirectional_direction_decision") is not True:
@@ -90,6 +92,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_native_service_burst_leases_missing")
         if report.get("host_iio_native_service_burst_leases_enabled") is not True:
             blockers.append("native_ip_host_native_service_burst_leases_missing")
+        if report.get("board_iio_native_service_loop_tick_proven") is not True:
+            blockers.append("native_ip_board_native_service_loop_tick_missing")
+        if report.get("host_iio_native_service_loop_tick_proven") is not True:
+            blockers.append("native_ip_host_native_service_loop_tick_missing")
         if report.get("board_iio_native_direction_scheduler_proven") is not True:
             blockers.append("native_ip_board_native_direction_scheduler_missing")
         if report.get("host_iio_native_direction_scheduler_proven") is not True:
@@ -193,6 +199,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_native_service_burst_leases": report.get(
             "requires_iio_native_service_burst_leases"
         ),
+        "requires_iio_native_service_loop_tick": report.get(
+            "requires_iio_native_service_loop_tick"
+        ),
         "requires_iio_native_direction_scheduler": report.get(
             "requires_iio_native_direction_scheduler"
         ),
@@ -237,6 +246,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_service_burst_leases": report.get(
             "host_iio_native_service_burst_leases"
+        ),
+        "board_iio_native_service_loop_tick_enabled": report.get(
+            "board_iio_native_service_loop_tick_enabled"
+        ),
+        "host_iio_native_service_loop_tick_enabled": report.get(
+            "host_iio_native_service_loop_tick_enabled"
+        ),
+        "board_iio_native_service_loop_tick_proven": report.get(
+            "board_iio_native_service_loop_tick_proven"
+        ),
+        "host_iio_native_service_loop_tick_proven": report.get(
+            "host_iio_native_service_loop_tick_proven"
+        ),
+        "board_iio_native_service_loop_ticks": report.get(
+            "board_iio_native_service_loop_ticks"
+        ),
+        "host_iio_native_service_loop_ticks": report.get(
+            "host_iio_native_service_loop_ticks"
         ),
         "board_iio_native_direction_scheduler_enabled": report.get(
             "board_iio_native_direction_scheduler_enabled"

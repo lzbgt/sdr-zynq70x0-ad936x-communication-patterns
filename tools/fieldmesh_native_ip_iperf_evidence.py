@@ -115,6 +115,28 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         report.get("iio_bridge_native_service_burst_leases") < 1
     ):
         errors.append(f"{label}: native RF service burst lease proof is missing")
+    if report.get("iio_bridge_native_service_loop_tick_enabled") is not True:
+        errors.append(f"{label}: native RF service loop tick must be enabled")
+    if report.get("iio_bridge_native_service_loop_tick_proven") is not True:
+        errors.append(f"{label}: native RF service loop tick proof is missing")
+    if not isinstance(report.get("iio_bridge_native_service_loop_ticks"), int) or (
+        report.get("iio_bridge_native_service_loop_ticks") < 1
+    ):
+        errors.append(f"{label}: native RF service loop tick was not exercised")
+    loop_tick_status = report.get("iio_bridge_native_service_loop_tick_status")
+    if not isinstance(loop_tick_status, dict) or not loop_tick_status:
+        errors.append(f"{label}: native RF service loop tick status is missing")
+    elif not all(
+        isinstance(status, dict)
+        and status.get("native_service_loop_tick") == 1
+        and status.get("native_bidirectional_direction_decision") == 1
+        and status.get("native_service_burst") == 1
+        and status.get("service_policy_bound") == 1
+        and status.get("production_iio_policy") == 1
+        and isinstance(status.get("frames"), int)
+        for status in loop_tick_status.values()
+    ):
+        errors.append(f"{label}: native RF service loop tick status is incomplete")
     if report.get("iio_bridge_native_direction_scheduler_enabled") is not True:
         errors.append(f"{label}: native RF direction scheduler must be enabled")
     if report.get("iio_bridge_native_direction_scheduler_proven") is not True:
@@ -597,6 +619,9 @@ def main() -> int:
         "requires_iio_native_service_burst_leases": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
+        "requires_iio_native_service_loop_tick": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_iio_native_direction_scheduler": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
@@ -682,6 +707,44 @@ def main() -> int:
         "host_iio_native_service_burst_leases": host.get(
             "iio_bridge_native_service_burst_leases"
         ),
+        "board_iio_native_service_loop_tick_enabled": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_service_loop_tick_enabled") is True
+        ),
+        "host_iio_native_service_loop_tick_enabled": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_service_loop_tick_enabled") is True
+        ),
+        "board_iio_native_service_loop_tick_proven": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_service_loop_tick_proven") is True
+        ),
+        "host_iio_native_service_loop_tick_proven": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_service_loop_tick_proven") is True
+        ),
+        "board_iio_native_service_loop_ticks": board.get(
+            "iio_bridge_native_service_loop_ticks"
+        ),
+        "host_iio_native_service_loop_ticks": host.get(
+            "iio_bridge_native_service_loop_ticks"
+        ),
+        "board_iio_native_service_loop_tick_skips": board.get(
+            "iio_bridge_native_service_loop_tick_skips"
+        ),
+        "host_iio_native_service_loop_tick_skips": host.get(
+            "iio_bridge_native_service_loop_tick_skips"
+        ),
+        "board_iio_native_service_loop_tick_status": board.get(
+            "iio_bridge_native_service_loop_tick_status"
+        ) or {},
+        "host_iio_native_service_loop_tick_status": host.get(
+            "iio_bridge_native_service_loop_tick_status"
+        ) or {},
         "board_iio_native_direction_scheduler_enabled": (
             True
             if not board_requires_c_policy

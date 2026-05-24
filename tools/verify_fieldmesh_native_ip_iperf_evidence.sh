@@ -45,6 +45,20 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
+  "iio_bridge_native_service_loop_tick_enabled": true,
+  "iio_bridge_native_service_loop_tick_proven": true,
+  "iio_bridge_native_service_loop_ticks": 3,
+  "iio_bridge_native_service_loop_tick_skips": 1,
+  "iio_bridge_native_service_loop_tick_status": {
+    "z203-to-z103": {
+      "native_service_loop_tick": 1,
+      "native_bidirectional_direction_decision": 1,
+      "native_service_burst": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "frames": 2
+    }
+  },
   "iio_bridge_native_direction_scheduler_enabled": true,
   "iio_bridge_native_direction_scheduler_proven": true,
   "iio_bridge_native_direction_scheduler_status_polls": 4,
@@ -192,6 +206,20 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
+  "iio_bridge_native_service_loop_tick_enabled": true,
+  "iio_bridge_native_service_loop_tick_proven": true,
+  "iio_bridge_native_service_loop_ticks": 3,
+  "iio_bridge_native_service_loop_tick_skips": 1,
+  "iio_bridge_native_service_loop_tick_status": {
+    "z103-to-z203": {
+      "native_service_loop_tick": 1,
+      "native_bidirectional_direction_decision": 1,
+      "native_service_burst": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "frames": 2
+    }
+  },
   "iio_bridge_native_direction_scheduler_enabled": true,
   "iio_bridge_native_direction_scheduler_proven": true,
   "iio_bridge_native_direction_scheduler_status_polls": 3,
@@ -352,6 +380,8 @@ if report.get("requires_iio_native_rf_service_worker_proof") is not True:
     raise SystemExit(f"classifier did not require native RF service worker proof: {report!r}")
 if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"classifier did not require native service burst leases: {report!r}")
+if report.get("requires_iio_native_service_loop_tick") is not True:
+    raise SystemExit(f"classifier did not require native service loop tick: {report!r}")
 if report.get("requires_iio_native_direction_scheduler") is not True:
     raise SystemExit(f"classifier did not require native direction scheduler proof: {report!r}")
 if report.get("requires_iio_native_bidirectional_direction_decision") is not True:
@@ -376,6 +406,12 @@ if report.get("board_iio_native_service_burst_leases_enabled") is not True:
     raise SystemExit(f"classifier lost board native service burst lease proof: {report!r}")
 if report.get("host_iio_native_service_burst_leases_enabled") is not True:
     raise SystemExit(f"classifier lost host native service burst lease proof: {report!r}")
+if report.get("board_iio_native_service_loop_tick_proven") is not True:
+    raise SystemExit(f"classifier lost board native service loop tick proof: {report!r}")
+if report.get("host_iio_native_service_loop_tick_proven") is not True:
+    raise SystemExit(f"classifier lost host native service loop tick proof: {report!r}")
+if report.get("host_iio_native_service_loop_ticks") != 3:
+    raise SystemExit(f"classifier lost host native service loop tick count: {report!r}")
 if report.get("board_iio_native_direction_scheduler_proven") is not True:
     raise SystemExit(f"classifier lost board native direction scheduler proof: {report!r}")
 if report.get("host_iio_native_direction_scheduler_proven") is not True:

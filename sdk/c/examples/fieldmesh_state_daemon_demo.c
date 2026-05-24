@@ -6199,6 +6199,278 @@ static int build_response(fieldmesh_context_t *context,
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_LOOP_TICK")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        enum tun_service_rf_lease_priority lease_priority =
+            (enum tun_service_rf_lease_priority)policy.lease_priority;
+        unsigned peer_score = 0u;
+        unsigned consecutive = 0u;
+        uint32_t tx_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_queue.count : 0u;
+        uint32_t lease_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_lease_queue.count : 0u;
+        uint32_t local_score =
+            fieldmesh_rf_service_scheduler_score(tx_depth, lease_depth);
+        int service_local_first;
+        int yield_to_peer;
+        unsigned max_frames = policy.max_frames_per_rf_burst;
+        unsigned emitted = 0u;
+        unsigned i;
+        size_t moved = 0u;
+        uint32_t bytes_leased = 0u;
+        uint32_t replayed_lease = 0u;
+        unsigned batch_first_priority_score = 0u;
+        unsigned batch_min_priority_score = 0u;
+        unsigned batch_priority_drop_stopped = 0u;
+        unsigned deferred_lease_frames = 0u;
+        char frames_json[6400];
+        size_t used = 0u;
+
+        (void)request_uint_or_default(request, "peer_scheduler_score=", 0u, 0u,
+                                      0xffffffffu, &peer_score);
+        (void)request_uint_or_default(
+            request, "current_consecutive_direction_batches=", 0u, 0u, 0xffu,
+            &consecutive);
+        service_local_first =
+            fieldmesh_rf_service_scheduler_service_local_first(local_score,
+                                                               peer_score);
+        yield_to_peer =
+            fieldmesh_rf_service_scheduler_yield_to_peer(&policy, peer_score,
+                                                         consecutive);
+
+        if (!tun_service || !tun_service->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                     "\"ok\":false,"
+                     "\"error\":\"tun_service_not_running\","
+                     "\"native_service_loop_tick\":1,"
+                     "\"native_bidirectional_direction_decision\":1,"
+                     "\"service_policy_bound\":1,"
+                     "\"rf_transport_mode\":\"driver_queue\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (yield_to_peer || !service_local_first) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                     "\"ok\":true,"
+                     "\"frames\":0,"
+                     "\"native_service_loop_tick\":1,"
+                     "\"native_bidirectional_direction_decision\":1,"
+                     "\"native_service_burst\":1,"
+                     "\"daemon_owned_worker\":1,"
+                     "\"driver_queue_worker\":1,"
+                     "\"native_rf_service_worker\":1,"
+                     "\"native_rf_service_control_plane\":1,"
+                     "\"service_policy_bound\":1,"
+                     "\"production_iio_policy\":%u,"
+                     "\"scheduler_score_native_c\":1,"
+                     "\"local_scheduler_score\":%u,"
+                     "\"peer_scheduler_score\":%u,"
+                     "\"peer_has_queued_work\":%u,"
+                     "\"service_local_first\":%u,"
+                     "\"yield_to_peer\":%u,"
+                     "\"service_skipped\":1,"
+                     "\"skip_reason\":\"%s\","
+                     "\"current_consecutive_direction_batches\":%u,"
+                     "\"max_consecutive_direction_batches\":%u,"
+                     "\"lease_batch_frames\":%u,"
+                     "\"max_frames_per_rf_burst\":%u,"
+                     "\"lease_priority\":\"%s\","
+                     "\"lease_priority_cli\":\"%s\","
+                     "\"rf_transport_mode\":\"%s\","
+                     "\"uses_json_on_air\":0,"
+                     "\"uses_inter_board_ip_routing\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0,"
+                     "\"commands_executed\":0,"
+                     "\"next_boundary\":\"persistent_native_bidirectional_rf_service_loop\"}\n",
+                     fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                         1u :
+                         0u,
+                     local_score,
+                     peer_score,
+                     fieldmesh_rf_service_scheduler_has_work(peer_score) ? 1u :
+                         0u,
+                     service_local_first ? 1u : 0u,
+                     yield_to_peer ? 1u : 0u,
+                     yield_to_peer ? "yield_to_peer" : "peer_preferred",
+                     consecutive,
+                     policy.max_consecutive_direction_batches,
+                     policy.lease_batch_frames,
+                     policy.max_frames_per_rf_burst,
+                     tun_service_rf_lease_priority_name(lease_priority),
+                     fieldmesh_rf_service_lease_priority_cli_name(
+                         policy.lease_priority),
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode));
+            return 0;
+        }
+        if (tun_service->rf_tx_lease_queue.count == 0u &&
+            !tun_service_rf_queue_move_head(&tun_service->rf_tx_queue,
+                                            &tun_service->rf_tx_lease_queue,
+                                            policy.lease_batch_frames, 0u,
+                                            lease_priority,
+                                            tun_service,
+                                            policy.same_priority_batch != 0u,
+                                            &moved,
+                                            &bytes_leased,
+                                            &batch_first_priority_score,
+                                            &batch_min_priority_score,
+                                            &batch_priority_drop_stopped)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_service_lease_queue_move_failed\","
+                     "\"native_service_loop_tick\":1,"
+                     "\"native_service_burst\":1,"
+                     "\"service_policy_bound\":1}\n");
+            return 0;
+        }
+        replayed_lease =
+            moved == 0u && tun_service->rf_tx_lease_queue.count > 0u;
+        frames_json[0] = '\0';
+        for (i = 0u; i < max_frames &&
+                    i < tun_service->rf_tx_lease_queue.count;
+             ++i) {
+            unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
+            char frame_hex[TUN_SERVICE_RF_FRAME_MAX * 2u + 1u];
+            size_t frame_len = 0u;
+            int wrote;
+
+            if (!tun_service_rf_queue_peek_at(&tun_service->rf_tx_lease_queue,
+                                              i,
+                                              frame, sizeof(frame),
+                                              &frame_len)) {
+                break;
+            }
+            if (!write_hex_payload(frame_hex, sizeof(frame_hex), frame,
+                                   frame_len)) {
+                snprintf(response, response_len,
+                         "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                         "\"ok\":false,"
+                         "\"error\":\"frame_hex_encode_failed\","
+                         "\"native_service_loop_tick\":1,"
+                         "\"native_service_burst\":1}\n");
+                return 0;
+            }
+            wrote = snprintf(&frames_json[used], sizeof(frames_json) - used,
+                             "\"frame%u_hex\":\"%s\","
+                             "\"frame%u_bytes\":%lu,",
+                             emitted, frame_hex,
+                             emitted, (unsigned long)frame_len);
+            if (wrote < 0 || (size_t)wrote >= sizeof(frames_json) - used) {
+                if (emitted == 0u) {
+                    snprintf(response, response_len,
+                             "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                             "\"ok\":false,"
+                             "\"error\":\"burst_response_too_large\","
+                             "\"native_service_loop_tick\":1,"
+                             "\"frame0_bytes\":%lu}\n",
+                             (unsigned long)frame_len);
+                    return 0;
+                }
+                break;
+            }
+            used += (size_t)wrote;
+            emitted++;
+        }
+        if (tun_service->rf_tx_lease_queue.count > emitted) {
+            deferred_lease_frames =
+                (unsigned)(tun_service->rf_tx_lease_queue.count - emitted);
+        }
+        tun_service->rf_driver_frames_leased += (uint32_t)moved;
+        tun_service->rf_driver_frame_bytes_leased += bytes_leased;
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                 "\"ok\":true,"
+                 "\"frames\":%u,"
+                 "%s"
+                 "\"native_service_loop_tick\":1,"
+                 "\"native_bidirectional_direction_decision\":1,"
+                 "\"native_service_burst\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"scheduler_score_native_c\":1,"
+                 "\"local_scheduler_score\":%u,"
+                 "\"peer_scheduler_score\":%u,"
+                 "\"peer_has_queued_work\":%u,"
+                 "\"service_local_first\":%u,"
+                 "\"yield_to_peer\":%u,"
+                 "\"service_skipped\":0,"
+                 "\"current_consecutive_direction_batches\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"non_destructive\":1,"
+                 "\"requires_ack\":1,"
+                 "\"replayed_lease\":%u,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"frames_leased\":%lu,"
+                 "\"lease_window_frames\":%lu,"
+                 "\"emitted_service_frames\":%u,"
+                 "\"deferred_lease_frames\":%u,"
+                 "\"sub_burst_preemption_point\":%u,"
+                 "\"same_priority_batch\":%u,"
+                 "\"batch_first_priority_score\":%u,"
+                 "\"batch_min_priority_score\":%u,"
+                 "\"batch_priority_drop_stopped\":%u,"
+                 "\"lease_priority\":\"%s\","
+                 "\"lease_priority_cli\":\"%s\","
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
+                 "\"rf_driver_frames_leased\":%u,"
+                 "\"rf_driver_frame_bytes_leased\":%u,"
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"persistent_native_bidirectional_rf_service_loop\"}\n",
+                 emitted,
+                 frames_json,
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 local_score,
+                 peer_score,
+                 fieldmesh_rf_service_scheduler_has_work(peer_score) ? 1u : 0u,
+                 service_local_first ? 1u : 0u,
+                 yield_to_peer ? 1u : 0u,
+                 consecutive,
+                 policy.max_consecutive_direction_batches,
+                 replayed_lease,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 (unsigned long)moved,
+                 (unsigned long)(moved ? moved :
+                     tun_service->rf_tx_lease_queue.count),
+                 emitted,
+                 deferred_lease_frames,
+                 deferred_lease_frames > 0u ? 1u : 0u,
+                 (unsigned)policy.same_priority_batch,
+                 batch_first_priority_score,
+                 batch_min_priority_score,
+                 batch_priority_drop_stopped,
+                 tun_service_rf_lease_priority_name(lease_priority),
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
+                 tun_service_rf_transport_mode_name(
+                     tun_service->rf_transport_mode),
+                 (unsigned)tun_service->rf_tx_queue.count,
+                 (unsigned)tun_service->rf_tx_lease_queue.count,
+                 tun_service->rf_driver_frames_leased,
+                 tun_service->rf_driver_frame_bytes_leased);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_WORKER_PHY_PLAN")) {
         unsigned sidecar_preflight = 0u;
         unsigned sidecar_dma = 0u;

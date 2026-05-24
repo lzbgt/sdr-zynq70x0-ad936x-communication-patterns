@@ -258,6 +258,72 @@ if native_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
     raise SystemExit(f"native service burst did not decode frames: {native_batch}")
 if native_report.get("deferred_lease_frames") != 2:
     raise SystemExit(f"native service burst lost deferred sub-burst proof: {native_report}")
+captured_native_tick = {}
+def native_service_tick_request(host, port, text, timeout_ms):
+    captured_native_tick["text"] = text
+    return {
+        "event": "sdk_daemon_rf_service_loop_tick",
+        "ok": True,
+        "frames": 2,
+        "frame0_hex": "aa",
+        "frame0_bytes": 1,
+        "frame1_hex": "bb",
+        "frame1_bytes": 1,
+        "native_service_loop_tick": 1,
+        "native_bidirectional_direction_decision": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "scheduler_score_native_c": 1,
+        "local_scheduler_score": 1002,
+        "peer_scheduler_score": 2,
+        "peer_has_queued_work": 1,
+        "service_local_first": 1,
+        "yield_to_peer": 0,
+        "service_skipped": 0,
+        "current_consecutive_direction_batches": 0,
+        "max_consecutive_direction_batches": 1,
+        "non_destructive": 1,
+        "requires_ack": 1,
+        "replayed_lease": 0,
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "frames_leased": 4,
+        "lease_window_frames": 4,
+        "emitted_service_frames": 2,
+        "deferred_lease_frames": 2,
+        "sub_burst_preemption_point": 1,
+        "same_priority_batch": 1,
+        "batch_first_priority_score": 42,
+        "batch_min_priority_score": 42,
+        "batch_priority_drop_stopped": 1,
+        "lease_priority_cli": "tcp-control-flow-udp-after-control",
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "persistent_native_bidirectional_rf_service_loop",
+    }
+bridge.request_daemon = native_service_tick_request
+try:
+    native_tick_batch, native_tick_report = loop.native_service_loop_tick_from_daemon(
+        "127.0.0.1", 55441, 10, 2, 2, 0
+    )
+finally:
+    bridge.request_daemon = original_request
+if captured_native_tick.get("text") != (
+    "FIELDMESH_RF_SERVICE_LOOP_TICK v1 "
+    "peer_scheduler_score=2 current_consecutive_direction_batches=0"
+):
+    raise SystemExit(f"native service loop tick must use daemon C loop command: {captured_native_tick}")
+if native_tick_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
+    raise SystemExit(f"native service loop tick did not decode frames: {native_tick_batch}")
+if native_tick_report.get("native_service_loop_tick") != 1:
+    raise SystemExit(f"native service loop tick lost C loop proof: {native_tick_report}")
 args = type("Args", (), {
     "batch_size": 4,
     "max_frames_per_rf_burst": 2,
@@ -609,6 +675,10 @@ required = [
     "sdk_daemon_rf_service_next_burst",
     "native_service_burst",
     "\\\"deferred_lease_frames\\\"",
+    "FIELDMESH_RF_SERVICE_LOOP_TICK",
+    "sdk_daemon_rf_service_loop_tick",
+    "native_service_loop_tick",
+    "\\\"service_skipped\\\"",
     "sdk_daemon_rf_service_policy_self_test",
     "FIELDMESH_RF_WORKER_STATUS",
     "native_rf_service_worker",
@@ -796,6 +866,10 @@ required = [
     "--native-service-burst-leases",
     '"iio_bridge_native_service_burst_leases_enabled"',
     '"iio_bridge_native_service_burst_leases"',
+    '"iio_bridge_native_service_loop_tick_enabled"',
+    '"iio_bridge_native_service_loop_tick_proven"',
+    '"iio_bridge_native_service_loop_ticks"',
+    '"iio_bridge_native_service_loop_tick_status"',
     '"iio_bridge_native_direction_scheduler_enabled"',
     '"iio_bridge_native_direction_scheduler_proven"',
     '"iio_bridge_native_direction_scheduler_status_polls"',
