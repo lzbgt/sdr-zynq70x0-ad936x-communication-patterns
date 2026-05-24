@@ -1065,6 +1065,33 @@ static int run_bpsk_decode(int argc, char **argv)
     return ok ? 0 : 1;
 }
 
+static struct blob rotate_iq_90deg(const struct blob *iq)
+{
+    struct blob rotated = {
+        .data = calloc(iq->len, 1u),
+        .len = iq->len,
+    };
+    if (!rotated.data) {
+        fprintf(stderr, "calloc(%zu) failed\n", iq->len);
+        exit(1);
+    }
+    for (size_t offset = 0; offset + 3u < iq->len; offset += 4u) {
+        int i_value = get_i16le(iq->data + offset);
+        int q_value = get_i16le(iq->data + offset + 2u);
+        put_i16le(rotated.data + offset, -q_value);
+        put_i16le(rotated.data + offset + 2u, i_value);
+    }
+    return rotated;
+}
+
+static bool decoded_frame_matches(const struct blob *decoded,
+                                  const unsigned char *frame,
+                                  size_t frame_len)
+{
+    return decoded->len == frame_len &&
+           memcmp(decoded->data, frame, frame_len) == 0;
+}
+
 static int run_bpsk_self_test(void)
 {
     struct modem_options opt;
@@ -1076,21 +1103,62 @@ static int run_bpsk_self_test(void)
         0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd,
     };
     struct blob iq = bpsk_encode_frame(frame, sizeof(frame), &opt);
-    struct blob decoded = {0};
+    struct blob decoded_base = {0};
     unsigned int sample_offset = 0;
     unsigned int chip_phase = 0;
     size_t bit_start = 0;
-    bool ok = bpsk_decode_frame(iq.data, iq.len, &opt, &decoded,
-                                &sample_offset, &chip_phase, &bit_start);
-    ok = ok && decoded.len == sizeof(frame) &&
-         memcmp(decoded.data, frame, sizeof(frame)) == 0;
+    bool base_ok = bpsk_decode_frame(iq.data, iq.len, &opt, &decoded_base,
+                                     &sample_offset, &chip_phase, &bit_start) &&
+                   decoded_frame_matches(&decoded_base, frame, sizeof(frame));
+
+    struct blob rotated_iq = rotate_iq_90deg(&iq);
+    struct blob decoded_rotated = {0};
+    unsigned int rotated_sample_offset = 0;
+    unsigned int rotated_chip_phase = 0;
+    size_t rotated_bit_start = 0;
+    bool phase_recovery_ok =
+        bpsk_decode_frame(rotated_iq.data, rotated_iq.len, &opt,
+                          &decoded_rotated, &rotated_sample_offset,
+                          &rotated_chip_phase, &rotated_bit_start) &&
+        decoded_frame_matches(&decoded_rotated, frame, sizeof(frame));
+
+    struct modem_options carrier_opt = opt;
+    carrier_opt.sample_rate_hz = 1000000U;
+    carrier_opt.baseband_carrier_hz = 125000.0;
+    carrier_opt.samples_per_symbol = 16U;
+    carrier_opt.bit_repeat = 2U;
+    struct blob carrier_iq = bpsk_encode_frame(frame, sizeof(frame), &carrier_opt);
+    struct blob decoded_carrier = {0};
+    unsigned int carrier_sample_offset = 0;
+    unsigned int carrier_chip_phase = 0;
+    size_t carrier_bit_start = 0;
+    bool carrier_ok =
+        bpsk_decode_frame(carrier_iq.data, carrier_iq.len, &carrier_opt,
+                          &decoded_carrier, &carrier_sample_offset,
+                          &carrier_chip_phase, &carrier_bit_start) &&
+        decoded_frame_matches(&decoded_carrier, frame, sizeof(frame));
+
+    bool ok = base_ok && phase_recovery_ok && carrier_ok;
     fprintf(stdout,
             "{\"event\":\"fieldmesh_bpsk_modem_self_test\",\"ok\":%s,"
+            "\"base_ok\":%s,\"phase_recovery_ok\":%s,\"carrier_ok\":%s,"
             "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"sample_offset\":%u,"
-            "\"chip_phase\":%u,\"bit_start\":%zu}\n",
-            ok ? "true" : "false", sizeof(frame), iq.len, sample_offset,
-            chip_phase, bit_start);
-    free(decoded.data);
+            "\"chip_phase\":%u,\"bit_start\":%zu,"
+            "\"carrier_sample_offset\":%u,\"carrier_chip_phase\":%u,"
+            "\"carrier_bit_start\":%zu,\"baseband_carrier_hz\":%.0f}\n",
+            ok ? "true" : "false",
+            base_ok ? "true" : "false",
+            phase_recovery_ok ? "true" : "false",
+            carrier_ok ? "true" : "false",
+            sizeof(frame), iq.len, sample_offset,
+            chip_phase, bit_start, carrier_sample_offset,
+            carrier_chip_phase, carrier_bit_start,
+            carrier_opt.baseband_carrier_hz);
+    free(decoded_carrier.data);
+    free(carrier_iq.data);
+    free(decoded_rotated.data);
+    free(rotated_iq.data);
+    free(decoded_base.data);
     free(iq.data);
     return ok ? 0 : 1;
 }

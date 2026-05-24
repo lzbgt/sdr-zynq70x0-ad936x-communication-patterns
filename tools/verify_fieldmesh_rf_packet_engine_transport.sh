@@ -93,6 +93,35 @@ if "$repo_root/tools/fieldmesh_rf_packet_engine_transport.py" \
   exit 1
 fi
 
+cat >"$out_dir/stale_bpsk_helper" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "--help" ]; then
+  echo "usage: stale-helper --bpsk-self-test --bpsk-encode --bpsk-decode"
+  exit 0
+fi
+if [ "${1:-}" = "--bpsk-self-test" ]; then
+  printf '%s\n' '{"event":"fieldmesh_bpsk_modem_self_test","ok":true,"phase_recovery_ok":false,"carrier_ok":false}'
+  exit 0
+fi
+exit 2
+SH
+chmod +x "$out_dir/stale_bpsk_helper"
+if "$repo_root/tools/fieldmesh_rf_packet_engine_transport.py" \
+  --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
+  --handoff-report "$handoff" \
+  --out-dir "$out_dir/stale-bpsk-helper" \
+  --center-frequency-hz 2400000000 \
+  --sample-rate-hz 1000000 \
+  --rf-bandwidth-hz 1000000 \
+  --fixture-attenuation-db 60 \
+  --samples-per-symbol 8 \
+  --burst-helper "$out_dir/stale_bpsk_helper" \
+  --conducted-or-shielded \
+  >/dev/null 2>&1; then
+  echo "RF packet-engine accepted a stale BPSK helper missing current C carrier/phase contract" >&2
+  exit 1
+fi
+
 if "$repo_root/tools/fieldmesh_rf_packet_engine_transport.py" \
   --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
   --handoff-report "$handoff" \

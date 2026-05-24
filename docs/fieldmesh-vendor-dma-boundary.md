@@ -786,7 +786,10 @@ frame, and emits `fieldmesh_iq_burst_smoke.json`. The compiled helper also
 supports known-carrier BPSK so offline smoke and live-run capture checks do not
 fall back to Python solely because a baseband carrier is configured, and its
 coherent BPSK decoder recovers rotated-IQ captures before Python fallback is
-needed. It still reports
+needed. Configured or cached helpers are accepted only after their compiled
+`--bpsk-self-test` reports carrier and phase-recovery coverage, so stale helper
+binaries cannot silently re-enable the older Python modem path. It still
+reports
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 This creates the sample-buffer contract for the later live AD936x conducted
 test without touching the board RF path yet.
@@ -802,8 +805,9 @@ It consumes the live `FIELDMESH_RF_PACKET_ENGINE` daemon capture, validates the
 sidecar-DMA/RF-engine queue flags, invokes the compiled
 `fieldmesh_iio_burst_xfer` BPSK helper to emit IQ samples for the committed
 FieldMesh frame, decodes them back to the same frame through that same C helper,
-and still reports no IIO buffer opens, no RF TX start, no inter-board IP
-routing, and no hardware writes.
+requires the helper's current carrier/phase self-test contract, and still
+reports no IIO buffer opens, no RF TX start, no inter-board IP routing, and no
+hardware writes.
 
 The binding evidence gate combines that transport report with the live
 sidecar-DMA smoke evidence:

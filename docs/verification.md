@@ -3747,7 +3747,9 @@ The generated `fieldmesh_iq_burst_smoke.json` reports
 `uses_python_modem=false` for the default path. The same verifier checks a
 90-degree rotated BPSK IQ decode through the compiled helper, checks a nonzero
 `--baseband-carrier-hz` BPSK smoke through the compiled helper, and checks that
-the tool refuses a burst plan when the authorized RF-path guard is missing.
+the tool rejects stale configured helpers whose compiled `--bpsk-self-test`
+lacks carrier/phase recovery evidence. It also refuses a burst plan when the
+authorized RF-path guard is missing.
 
 ## FieldMesh RF Packet Engine Transport
 
@@ -3775,6 +3777,11 @@ The generated `fieldmesh_rf_packet_engine_transport.json` reports
 `writes_hardware=false`, `uses_c_bpsk_helper=true`,
 `uses_python_modem=false`, and
 `recovered_frame_match=true`.
+
+The verifier also injects stale helper fixtures. One lacks the BPSK CLI
+contract, and one advertises BPSK but fails the compiled carrier/phase
+self-test contract. Both must be rejected before the transport model can use a
+helper for packet-engine IQ generation.
 
 ## FieldMesh RF Packet Engine Binding
 

@@ -1174,9 +1174,11 @@ below were later superseded by the current PHY-management two-board gates above:
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
   and defaults to a no-hardware dry-run. Its captured-IQ decode path now tries
   the compiled modem helper first using the IQ smoke report's helper evidence,
-  including known-carrier BPSK captures. Python decode is blocked by default
-  and retained only behind `--allow-python-modem-decode` for diagnostics on
-  impaired captures outside the C helper's current recovery model.
+  including known-carrier BPSK captures. Configured or cached helpers must pass
+  the compiled BPSK carrier/phase self-test before use. Python decode is
+  blocked by default and retained only behind `--allow-python-modem-decode` for
+  diagnostics on impaired captures outside the C helper's current recovery
+  model.
   The next live-safe step is running that runner on an authorized
   over-air RF path with
   `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, RF path identity,

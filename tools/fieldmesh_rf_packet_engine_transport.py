@@ -115,7 +115,33 @@ def helper_supports_c_bpsk(helper: Path) -> bool:
         )
     except (OSError, subprocess.CalledProcessError):
         return False
-    return "--bpsk-encode" in completed.stdout and "--bpsk-decode" in completed.stdout
+    required_help = (
+        "--bpsk-self-test",
+        "--bpsk-encode",
+        "--bpsk-decode",
+        "--baseband-carrier-hz",
+    )
+    if not all(token in completed.stdout for token in required_help):
+        return False
+    try:
+        self_test = subprocess.run(
+            [str(helper), "--bpsk-self-test"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    try:
+        report = json.loads(self_test.stdout.strip().splitlines()[-1])
+    except (IndexError, json.JSONDecodeError):
+        return False
+    return (
+        report.get("event") == "fieldmesh_bpsk_modem_self_test"
+        and report.get("ok") is True
+        and report.get("phase_recovery_ok") is True
+        and report.get("carrier_ok") is True
+    )
 
 
 def build_default_burst_helper(out_dir: Path) -> Path:

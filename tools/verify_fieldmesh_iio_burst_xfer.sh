@@ -45,6 +45,11 @@ from pathlib import Path
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if report.get("event") != "fieldmesh_bpsk_modem_self_test" or report.get("ok") is not True:
     raise SystemExit(f"C BPSK self-test failed: {report}")
+for key in ("base_ok", "phase_recovery_ok", "carrier_ok"):
+    if report.get(key) is not True:
+        raise SystemExit(f"C BPSK self-test did not prove {key}: {report}")
+if report.get("baseband_carrier_hz") != 125000:
+    raise SystemExit(f"C BPSK self-test did not report carrier coverage: {report}")
 if report.get("frame_bytes", 0) <= 0 or report.get("iq_bytes", 0) <= 0:
     raise SystemExit(f"C BPSK self-test did not report useful byte counts: {report}")
 PY
@@ -312,6 +317,8 @@ required = [
     "fieldmesh_bpsk_modem_encode",
     "fieldmesh_bpsk_modem_decode",
     "fieldmesh_bpsk_modem_self_test",
+    "phase_recovery_ok",
+    "carrier_ok",
     "--baseband-carrier-hz",
     "bpsk_decode_frame_coherent",
     "decode_bpsk_hard_bits",

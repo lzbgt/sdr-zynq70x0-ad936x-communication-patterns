@@ -154,6 +154,34 @@ if decoded.get("bit_start", 0) <= 0:
 print('{"event":"fieldmesh_bfsk_crc_candidate_check","ok":true}')
 PY
 
+cat >"$out_dir/stale_modem_helper" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "--help" ]; then
+  echo "usage: stale-helper --bpsk-self-test --bpsk-encode --bpsk-decode --bfsk-encode --bfsk-decode --baseband-carrier-hz"
+  exit 0
+fi
+if [ "${1:-}" = "--bpsk-self-test" ]; then
+  printf '%s\n' '{"event":"fieldmesh_bpsk_modem_self_test","ok":true,"base_ok":true,"phase_recovery_ok":false,"carrier_ok":false}'
+  exit 0
+fi
+exit 2
+SH
+chmod +x "$out_dir/stale_modem_helper"
+if "$repo_root/tools/fieldmesh_iq_burst_smoke.py" \
+  --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
+  --out-dir "$out_dir/stale-helper" \
+  --center-frequency-hz 2400000000 \
+  --sample-rate-hz 1000000 \
+  --rf-bandwidth-hz 1000000 \
+  --fixture-attenuation-db 60 \
+  --samples-per-symbol 8 \
+  --modem-helper "$out_dir/stale_modem_helper" \
+  --conducted-or-shielded \
+  >/dev/null 2>&1; then
+  echo "IQ burst smoke accepted stale C modem helper missing carrier/phase self-test coverage" >&2
+  exit 1
+fi
+
 if "$repo_root/tools/fieldmesh_iq_burst_smoke.py" \
   --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
   --out-dir "$out_dir/negative" \
