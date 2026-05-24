@@ -491,11 +491,14 @@ The unforced board wrapper calls the C checked commands
 and the actual register write is still caught in C before mutation.
 `tools/report_fieldmesh_runtime_source_freshness.sh` is the corresponding
 read-only package freshness check: it scans the packaged
-`fieldmesh-ctrl-write` binary strings and reports whether the current checked
-command/refusal-token contract is present in each rootfs. Runtime artifact
-verification now requires this contract by default; set
+`fieldmesh-ctrl-write` binary strings for the current checked firmware-DMA
+command/refusal-token contract and the packaged `fieldmesh-udp-probe` strings
+for the C-decoded RF guard scan contract. Runtime artifact verification now
+requires firmware-DMA freshness by default; set
+`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=1` after the next rootfs rebuild to
+make decoded RF guard scan freshness a hard gate too. Set
 `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` only for explicit advisory
-diagnostics when investigating stale local packages.
+diagnostics when investigating stale firmware-DMA packages.
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
 budget-exhausted, service-accepted state, fault-free state, drop-counter-clear

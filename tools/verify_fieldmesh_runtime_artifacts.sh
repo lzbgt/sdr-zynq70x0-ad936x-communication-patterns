@@ -5,12 +5,21 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-all}"
 require_current_fw_dma_runtime="${FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-1}"
+require_current_rf_guard_runtime="${FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-0}"
 
 case "$require_current_fw_dma_runtime" in
     0|1)
         ;;
     *)
         echo "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME must be 0 or 1" >&2
+        exit 2
+        ;;
+esac
+case "$require_current_rf_guard_runtime" in
+    0|1)
+        ;;
+    *)
+        echo "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME must be 0 or 1" >&2
         exit 2
         ;;
 esac
@@ -565,10 +574,12 @@ PY
     case "$name" in
         z203)
             freshness_env="FIELDMESH_RUNTIME_STRINGS_FILE_Z203=$rf_ctrl_write_out"
+            freshness_udp_env="FIELDMESH_RUNTIME_UDP_PROBE_STRINGS_FILE_Z203=$strings_out"
             freshness_artifact_env="FIELDMESH_RUNTIME_ARTIFACT_Z203=$rootfs_tar"
             ;;
         z103)
             freshness_env="FIELDMESH_RUNTIME_STRINGS_FILE_Z103=$rf_ctrl_write_out"
+            freshness_udp_env="FIELDMESH_RUNTIME_UDP_PROBE_STRINGS_FILE_Z103=$strings_out"
             freshness_artifact_env="FIELDMESH_RUNTIME_ARTIFACT_Z103=$rootfs_tar"
             ;;
         *)
@@ -577,10 +588,14 @@ PY
             ;;
     esac
     freshness_args=("$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" "$name")
-    if [[ "$require_current_fw_dma_runtime" == "1" ]]; then
+    if [[ "$require_current_fw_dma_runtime" == "1" && "$require_current_rf_guard_runtime" == "1" ]]; then
         freshness_args+=("--require-current")
+    elif [[ "$require_current_fw_dma_runtime" == "1" ]]; then
+        freshness_args+=("--require-current-fw-dma")
+    elif [[ "$require_current_rf_guard_runtime" == "1" ]]; then
+        freshness_args+=("--require-current-rf-guard")
     fi
-    env "$freshness_env" "$freshness_artifact_env" "${freshness_args[@]}"
+    env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" "${freshness_args[@]}"
 
     (cd "$jtag_dir" && sha256sum -c SHA256SUMS >/dev/null)
 
