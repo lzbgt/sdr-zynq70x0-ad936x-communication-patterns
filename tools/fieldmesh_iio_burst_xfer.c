@@ -71,6 +71,7 @@ struct tone_prefixes {
 struct bpsk_prefixes {
     size_t total_samples;
     double *symbol_i;
+    double *symbol_q;
 };
 
 struct options {
@@ -400,6 +401,7 @@ static void free_bpsk_prefixes(struct bpsk_prefixes *prefixes)
         return;
     }
     free(prefixes->symbol_i);
+    free(prefixes->symbol_q);
     memset(prefixes, 0, sizeof(*prefixes));
 }
 
@@ -480,7 +482,9 @@ static bool build_bpsk_prefixes(
     }
     size_t points = total_samples + 1u;
     prefixes->symbol_i = calloc(points, sizeof(*prefixes->symbol_i));
-    if (!prefixes->symbol_i) {
+    prefixes->symbol_q = calloc(points, sizeof(*prefixes->symbol_q));
+    if (!prefixes->symbol_i || !prefixes->symbol_q) {
+        free_bpsk_prefixes(prefixes);
         return false;
     }
 
@@ -495,16 +499,65 @@ static bool build_bpsk_prefixes(
         int16_t iv = get_i16le(iq + sample_index * 4u);
         int16_t qv = get_i16le(iq + sample_index * 4u + 2u);
         double mixed_i = (double)iv;
+        double mixed_q = (double)qv;
         if (opt->baseband_carrier_hz != 0.0) {
             mixed_i = (double)iv * cos(carrier_phase) -
                       (double)qv * sin(carrier_phase);
+            mixed_q = (double)iv * sin(carrier_phase) +
+                      (double)qv * cos(carrier_phase);
         }
         prefixes->symbol_i[sample_index + 1u] = prefixes->symbol_i[sample_index] + mixed_i;
+        prefixes->symbol_q[sample_index + 1u] = prefixes->symbol_q[sample_index] + mixed_q;
         carrier_phase += carrier_step;
         if (carrier_phase <= -2.0 * M_PI || carrier_phase >= 2.0 * M_PI) {
             carrier_phase = fmod(carrier_phase, 2.0 * M_PI);
         }
     }
+    return true;
+}
+
+static bool build_bpsk_bit_symbols(
+    const struct bpsk_prefixes *prefixes,
+    const struct modem_options *opt,
+    unsigned int sample_offset,
+    unsigned int chip_phase,
+    double **out_i,
+    double **out_q,
+    size_t *out_bits)
+{
+    size_t total_samples = prefixes ? prefixes->total_samples : 0u;
+    if (total_samples <= sample_offset || sample_offset >= opt->samples_per_symbol) {
+        return false;
+    }
+    size_t chips = (total_samples - sample_offset) / opt->samples_per_symbol;
+    if (chips <= chip_phase) {
+        return false;
+    }
+    size_t bits = (chips - chip_phase) / opt->bit_repeat;
+    double *bits_i = calloc(bits ? bits : 1u, sizeof(*bits_i));
+    double *bits_q = calloc(bits ? bits : 1u, sizeof(*bits_q));
+    if (!bits_i || !bits_q) {
+        free(bits_i);
+        free(bits_q);
+        fprintf(stderr, "calloc(%zu) failed\n", bits);
+        exit(1);
+    }
+    for (size_t bit_index = 0; bit_index < bits; ++bit_index) {
+        double acc_i = 0.0;
+        double acc_q = 0.0;
+        for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
+            size_t chip = chip_phase + bit_index * opt->bit_repeat + repeat;
+            size_t sample_start = sample_offset + chip * opt->samples_per_symbol;
+            size_t sample_end = sample_start + opt->samples_per_symbol;
+            acc_i += prefixes->symbol_i[sample_end] - prefixes->symbol_i[sample_start];
+            acc_q += prefixes->symbol_q[sample_end] - prefixes->symbol_q[sample_start];
+        }
+        bits_i[bit_index] = acc_i;
+        bits_q[bit_index] = acc_q;
+    }
+    *out_i = bits_i;
+    *out_q = bits_q;
+    *out_bits = bits;
     return true;
 }
 
@@ -593,6 +646,109 @@ static unsigned char *decode_bpsk_hard_bits(
     }
     *out_bits = bits;
     return hard;
+}
+
+static bool recover_frame_from_bits(
+    const unsigned char *bits,
+    size_t bits_len,
+    size_t bit_start,
+    const struct modem_options *opt,
+    struct blob *out);
+
+static unsigned char *project_bpsk_bits(
+    const double *bits_i,
+    const double *bits_q,
+    size_t bits_len,
+    double phase_i,
+    double phase_q)
+{
+    unsigned char *hard = calloc(bits_len ? bits_len : 1u, 1u);
+    if (!hard) {
+        fprintf(stderr, "calloc(%zu) failed\n", bits_len);
+        exit(1);
+    }
+    for (size_t bit_index = 0; bit_index < bits_len; ++bit_index) {
+        double projected = bits_i[bit_index] * phase_i + bits_q[bit_index] * phase_q;
+        hard[bit_index] = projected >= 0.0 ? 1u : 0u;
+    }
+    return hard;
+}
+
+static bool bpsk_decode_frame_coherent(
+    const struct bpsk_prefixes *prefixes,
+    const struct modem_options *opt,
+    struct blob *out,
+    unsigned int *out_sample_offset,
+    unsigned int *out_chip_phase,
+    size_t *out_bit_start)
+{
+    size_t sync_bits = (sizeof(PREAMBLE) + sizeof(SYNC)) * 8u;
+    size_t required_bits = sync_bits + 16u + 32u;
+    if (opt->have_expected_frame_len) {
+        required_bits += opt->expected_frame_len * 8u;
+    }
+    for (unsigned int sample_offset = 0; sample_offset < opt->samples_per_symbol; ++sample_offset) {
+        for (unsigned int chip_phase = 0; chip_phase < opt->bit_repeat; ++chip_phase) {
+            double *bits_i = NULL;
+            double *bits_q = NULL;
+            size_t bits_len = 0;
+            if (!build_bpsk_bit_symbols(prefixes, opt, sample_offset, chip_phase,
+                                        &bits_i, &bits_q, &bits_len)) {
+                continue;
+            }
+            if (bits_len >= required_bits) {
+                size_t latest_bit_start = bits_len - required_bits;
+                for (size_t bit_start = 0; bit_start <= latest_bit_start; ++bit_start) {
+                    double corr_i = 0.0;
+                    double corr_q = 0.0;
+                    for (size_t bit = 0; bit < sync_bits; ++bit) {
+                        int expected = bit < sizeof(PREAMBLE) * 8u
+                                           ? bit_at(PREAMBLE, bit)
+                                           : bit_at(SYNC, bit - sizeof(PREAMBLE) * 8u);
+                        double sign = expected ? 1.0 : -1.0;
+                        corr_i += bits_i[bit_start + bit] * sign;
+                        corr_q += bits_q[bit_start + bit] * sign;
+                    }
+                    double mag = hypot(corr_i, corr_q);
+                    if (mag <= 0.0) {
+                        continue;
+                    }
+                    double phase_i = corr_i / mag;
+                    double phase_q = corr_q / mag;
+                    unsigned int sync_errors = 0;
+                    for (size_t bit = 0; bit < sync_bits; ++bit) {
+                        int expected = bit < sizeof(PREAMBLE) * 8u
+                                           ? bit_at(PREAMBLE, bit)
+                                           : bit_at(SYNC, bit - sizeof(PREAMBLE) * 8u);
+                        double projected = bits_i[bit_start + bit] * phase_i +
+                                           bits_q[bit_start + bit] * phase_q;
+                        int hard = projected >= 0.0 ? 1 : 0;
+                        if (hard != expected) {
+                            sync_errors++;
+                        }
+                    }
+                    if (sync_errors != 0u) {
+                        continue;
+                    }
+                    unsigned char *bits = project_bpsk_bits(bits_i, bits_q, bits_len,
+                                                            phase_i, phase_q);
+                    bool recovered = recover_frame_from_bits(bits, bits_len, bit_start, opt, out);
+                    free(bits);
+                    if (recovered) {
+                        *out_sample_offset = sample_offset;
+                        *out_chip_phase = chip_phase;
+                        *out_bit_start = bit_start;
+                        free(bits_i);
+                        free(bits_q);
+                        return true;
+                    }
+                }
+            }
+            free(bits_i);
+            free(bits_q);
+        }
+    }
+    return false;
 }
 
 static int hard_bits_match_bytes(const unsigned char *bits, size_t bit_start,
@@ -730,6 +886,11 @@ static bool bpsk_decode_frame(
     if (!build_bpsk_prefixes(iq, iq_len, opt, &prefixes)) {
         fprintf(stderr, "failed to build BPSK symbol prefixes\n");
         return false;
+    }
+    if (bpsk_decode_frame_coherent(&prefixes, opt, out, out_sample_offset,
+                                   out_chip_phase, out_bit_start)) {
+        free_bpsk_prefixes(&prefixes);
+        return true;
     }
     for (unsigned int sample_offset = 0; sample_offset < opt->samples_per_symbol; ++sample_offset) {
         for (unsigned int chip_phase = 0; chip_phase < opt->bit_repeat; ++chip_phase) {

@@ -77,6 +77,25 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
   --bit-repeat 2 \
   >"$work_dir/bpsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_decoded.bin"
+python3 - "$work_dir/bpsk_frame.iq" "$work_dir/bpsk_rotated_frame.iq" <<'PY'
+import struct
+import sys
+from pathlib import Path
+
+iq = Path(sys.argv[1]).read_bytes()
+out = bytearray()
+for offset in range(0, len(iq), 4):
+    i, q = struct.unpack_from("<hh", iq, offset)
+    out.extend(struct.pack("<hh", -q, i))
+Path(sys.argv[2]).write_bytes(out)
+PY
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
+  --iq-file "$work_dir/bpsk_rotated_frame.iq" \
+  --decoded-file "$work_dir/bpsk_rotated_decoded.bin" \
+  --samples-per-symbol 16 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_rotated_decode.json"
+cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/bpsk_carrier_frame.iq" \
@@ -197,6 +216,17 @@ if encode.get("frame_bytes") != decode.get("frame_bytes"):
     raise SystemExit(f"C BPSK encode/decode byte counts differ: {encode} {decode}")
 PY
 
+python3 - "$work_dir/bpsk_rotated_decode.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+decode = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is not True:
+    raise SystemExit(f"C coherent BPSK decoder did not recover rotated IQ: {decode}")
+print('{"event":"fieldmesh_bpsk_coherent_phase_check","ok":true}')
+PY
+
 python3 - "$work_dir/bpsk_carrier_encode.json" "$work_dir/bpsk_carrier_decode.json" <<'PY'
 import json
 import sys
@@ -283,6 +313,7 @@ required = [
     "fieldmesh_bpsk_modem_decode",
     "fieldmesh_bpsk_modem_self_test",
     "--baseband-carrier-hz",
+    "bpsk_decode_frame_coherent",
     "decode_bpsk_hard_bits",
     "fieldmesh_bfsk_modem_encode",
     "fieldmesh_bfsk_modem_decode",

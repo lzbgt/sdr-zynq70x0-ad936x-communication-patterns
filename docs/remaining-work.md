@@ -232,7 +232,8 @@ bridge now have a non-destructive batch lease/ACK contract. Live installed-board
 runs moved native-IP frames over real RF with ACK-after-peer-ingest preserved.
 The RF bridge now configures each direction once, skips repeated AD936x
 attribute writes for later batches, uses a fast exact-sync BFSK decode path
-before falling back to fuzzy sync, separates IIO capture timeout from daemon
+before falling back to fuzzy sync, uses compiled coherent BPSK phase recovery
+for rotated-IQ captures, separates IIO capture timeout from daemon
 control timeout, and drains pre-test RF TX queues so old TCP teardown frames do
 not poison a fresh `iperf3` attempt. The BFSK decoder now continues past
 zero-sync-error candidates whose recovered frame CRC does not match the expected
@@ -249,11 +250,12 @@ airtime. A destructive diagnostic run moved the actual 244-byte TCP data
 segments plus `iperf3` result JSON over RF, then failed on a reverse result
 batch decode. The bridge now has a compiled libiio burst helper, so one process
 arms RX and pushes TX instead of launching separate IIO tools for every RF
-batch. Its C modem helpers now cover baseband BPSK/BFSK encode/decode and
-known-carrier BPSK encode/decode; the BFSK and carrier-BPSK decoders use
-prefix accumulators, and the verifier proves both C decoders recover after a
-CRC-wrong sync candidate followed by a good burst, so the failure mode is
-covered without Python in the modem primitive. That helper improved batch
+batch. Its C modem helpers now cover baseband BPSK/BFSK encode/decode,
+known-carrier BPSK encode/decode, and coherent BPSK phase recovery; the BFSK
+and BPSK decoders use prefix accumulators, and the verifier proves the C BPSK
+decoder recovers a 90-degree rotated IQ burst while both C decoders recover
+after a CRC-wrong sync candidate followed by a good burst, so those failure
+modes are covered without Python in the modem primitive. That helper improved batch
 latency enough for
 one live run to complete TCP `iperf3` at 1024 bytes over real RF; the next
 failure was a software runner

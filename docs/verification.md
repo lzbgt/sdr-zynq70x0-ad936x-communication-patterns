@@ -3736,6 +3736,7 @@ It runs `tools/fieldmesh_iq_burst_smoke.py` over
 Result:
 
 ```json
+{"event":"fieldmesh_bpsk_coherent_phase_check","ok":true}
 {"event": "fieldmesh_iq_burst_smoke_check", "fixture_attenuation_db": 60.0, "iq_samples": 6656, "ok": true}
 {"baseband_carrier_hz": 125000, "event": "fieldmesh_iq_burst_smoke_carrier_c_modem_check", "ok": true}
 ```
@@ -3744,9 +3745,9 @@ The generated `fieldmesh_iq_burst_smoke.json` reports
 `opens_iio_buffers=false`, `starts_rf_tx=false`, `writes_hardware=false`, and
 `recovered_frame_match=true`. It also reports `uses_c_modem_helper=true` and
 `uses_python_modem=false` for the default path. The same verifier checks a
-nonzero `--baseband-carrier-hz` BPSK smoke through the compiled helper and
-checks that the tool refuses a burst plan when the authorized RF-path guard is
-missing.
+90-degree rotated BPSK IQ decode through the compiled helper, checks a nonzero
+`--baseband-carrier-hz` BPSK smoke through the compiled helper, and checks that
+the tool refuses a burst plan when the authorized RF-path guard is missing.
 
 ## FieldMesh RF Packet Engine Transport
 
