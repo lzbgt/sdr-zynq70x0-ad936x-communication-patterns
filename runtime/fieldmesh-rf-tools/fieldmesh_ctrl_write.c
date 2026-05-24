@@ -36,6 +36,16 @@ enum fieldmesh_fw_dma_reg {
     FM_FW_DMA_PEER_MCS_RETRY = 0x170,
     FM_FW_DMA_DESCRIPTOR_FLAGS = 0x174,
     FM_FW_DMA_SEQ_SEED = 0x178,
+    FM_FW_DMA_TX_PARSER_BYTES = 0x17c,
+    FM_FW_DMA_INGRESS_BYTES = 0x180,
+    FM_FW_DMA_INGRESS_DESC_PUBLISH = 0x184,
+    FM_FW_DMA_EGRESS_BYTES = 0x188,
+    FM_FW_DMA_MAC_TICKS = 0x18c,
+    FM_FW_DMA_MAC_PUMP_STARTS = 0x190,
+    FM_FW_DMA_MAC_PUMP_DONES = 0x194,
+    FM_FW_DMA_BRAM_CRC_ERRORS = 0x198,
+    FM_FW_DMA_BRAM_BOUNDS_ERRORS = 0x19c,
+    FM_FW_DMA_FAULT_STATUS = 0x1a0,
 };
 
 enum fieldmesh_fw_dma_control {
@@ -155,12 +165,25 @@ static void print_fw_dma_status(uint32_t base, const uint32_t *regs) {
            "\"queued_count\":%" PRIu32 ","
            "\"selected_word\":\"0x%08" PRIx32 "\","
            "\"tx_parser_packets\":%" PRIu32 ","
+           "\"tx_parser_bytes\":%" PRIu32 ","
            "\"tx_parser_drops\":%" PRIu32 ","
            "\"ingress_packets\":%" PRIu32 ","
+           "\"ingress_bytes\":%" PRIu32 ","
+           "\"ingress_desc_publishes\":%" PRIu32 ","
            "\"ingress_drops\":%" PRIu32 ","
            "\"egress_packets\":%" PRIu32 ","
+           "\"egress_bytes\":%" PRIu32 ","
            "\"egress_drops\":%" PRIu32 ","
+           "\"mac_ticks\":%" PRIu32 ","
+           "\"mac_pump_starts\":%" PRIu32 ","
+           "\"mac_pump_dones\":%" PRIu32 ","
+           "\"bram_crc_errors\":%" PRIu32 ","
+           "\"bram_bounds_errors\":%" PRIu32 ","
            "\"bram_errors\":%" PRIu32 ","
+           "\"fault_status\":\"0x%08" PRIx32 "\","
+           "\"tx_parser_fault\":%s,"
+           "\"ingress_fault\":%s,"
+           "\"egress_fault\":%s,"
            "\"peer_index\":%" PRIu32 ","
            "\"mcs\":%" PRIu32 ","
            "\"retry_budget\":%" PRIu32 ","
@@ -174,12 +197,25 @@ static void print_fw_dma_status(uint32_t base, const uint32_t *regs) {
            regs[3] & 0xffffu,
            regs[4],
            regs[5],
+           regs[15],
            regs[6],
            regs[7],
+           regs[16],
+           regs[17],
            regs[8],
            regs[9],
+           regs[18],
            regs[10],
+           regs[19],
+           regs[20],
+           regs[21],
+           regs[22],
+           regs[23],
            regs[11],
+           regs[24],
+           (regs[24] & 0x1u) ? "true" : "false",
+           (regs[24] & 0x2u) ? "true" : "false",
+           (regs[24] & 0x4u) ? "true" : "false",
            regs[12] & 0xffffu,
            (regs[12] >> 16) & 0xffu,
            (regs[12] >> 24) & 0xffu,
@@ -227,6 +263,16 @@ int main(int argc, char **argv) {
             FM_FW_DMA_PEER_MCS_RETRY,
             FM_FW_DMA_DESCRIPTOR_FLAGS,
             FM_FW_DMA_SEQ_SEED,
+            FM_FW_DMA_TX_PARSER_BYTES,
+            FM_FW_DMA_INGRESS_BYTES,
+            FM_FW_DMA_INGRESS_DESC_PUBLISH,
+            FM_FW_DMA_EGRESS_BYTES,
+            FM_FW_DMA_MAC_TICKS,
+            FM_FW_DMA_MAC_PUMP_STARTS,
+            FM_FW_DMA_MAC_PUMP_DONES,
+            FM_FW_DMA_BRAM_CRC_ERRORS,
+            FM_FW_DMA_BRAM_BOUNDS_ERRORS,
+            FM_FW_DMA_FAULT_STATUS,
         };
         uint32_t regs[sizeof(offsets) / sizeof(offsets[0])];
         for (size_t i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {

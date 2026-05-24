@@ -85,11 +85,23 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [15:0]  fw_dma_service_queued_count,
     input  wire [31:0]  fw_dma_service_selected_word,
     input  wire [31:0]  fw_dma_tx_parser_packet_count,
+    input  wire [31:0]  fw_dma_tx_parser_byte_count,
     input  wire [31:0]  fw_dma_tx_parser_drop_count,
+    input  wire         fw_dma_tx_parser_fault,
     input  wire [31:0]  fw_dma_ingress_packet_count,
+    input  wire [31:0]  fw_dma_ingress_byte_count,
+    input  wire [31:0]  fw_dma_ingress_desc_publish_count,
     input  wire [31:0]  fw_dma_ingress_drop_count,
+    input  wire         fw_dma_ingress_fault,
     input  wire [31:0]  fw_dma_egress_packet_count,
+    input  wire [31:0]  fw_dma_egress_byte_count,
     input  wire [31:0]  fw_dma_egress_drop_count,
+    input  wire         fw_dma_egress_fault,
+    input  wire [31:0]  fw_dma_mac_tick_count,
+    input  wire [31:0]  fw_dma_mac_pump_start_count,
+    input  wire [31:0]  fw_dma_mac_pump_done_count,
+    input  wire [31:0]  fw_dma_bram_crc_error_count,
+    input  wire [31:0]  fw_dma_bram_bounds_error_count,
     input  wire [31:0]  fw_dma_bram_error_count,
 
     output wire         irq,
@@ -135,6 +147,16 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_FW_DMA_PEER_MCS_RETRY      = 12'h170;
     localparam [11:0] REG_FW_DMA_DESCRIPTOR_FLAGS    = 12'h174;
     localparam [11:0] REG_FW_DMA_SEQ_SEED            = 12'h178;
+    localparam [11:0] REG_FW_DMA_TX_PARSER_BYTES     = 12'h17c;
+    localparam [11:0] REG_FW_DMA_INGRESS_BYTES       = 12'h180;
+    localparam [11:0] REG_FW_DMA_INGRESS_DESC_PUB    = 12'h184;
+    localparam [11:0] REG_FW_DMA_EGRESS_BYTES        = 12'h188;
+    localparam [11:0] REG_FW_DMA_MAC_TICKS           = 12'h18c;
+    localparam [11:0] REG_FW_DMA_MAC_PUMP_STARTS     = 12'h190;
+    localparam [11:0] REG_FW_DMA_MAC_PUMP_DONES      = 12'h194;
+    localparam [11:0] REG_FW_DMA_BRAM_CRC_ERRORS     = 12'h198;
+    localparam [11:0] REG_FW_DMA_BRAM_BOUNDS_ERRORS  = 12'h19c;
+    localparam [11:0] REG_FW_DMA_FAULT_STATUS        = 12'h1a0;
 
     wire rst = !s_axi_aresetn;
 
@@ -383,6 +405,16 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_FW_DMA_PEER_MCS_RETRY: rdata_r <= {fw_dma_retry_budget_r, fw_dma_mcs_r, fw_dma_peer_index_r};
                     REG_FW_DMA_DESCRIPTOR_FLAGS: rdata_r <= {16'd0, fw_dma_descriptor_flags_r};
                     REG_FW_DMA_SEQ_SEED: rdata_r <= fw_dma_seq_seed_r;
+                    REG_FW_DMA_TX_PARSER_BYTES: rdata_r <= fw_dma_tx_parser_byte_count;
+                    REG_FW_DMA_INGRESS_BYTES: rdata_r <= fw_dma_ingress_byte_count;
+                    REG_FW_DMA_INGRESS_DESC_PUB: rdata_r <= fw_dma_ingress_desc_publish_count;
+                    REG_FW_DMA_EGRESS_BYTES: rdata_r <= fw_dma_egress_byte_count;
+                    REG_FW_DMA_MAC_TICKS: rdata_r <= fw_dma_mac_tick_count;
+                    REG_FW_DMA_MAC_PUMP_STARTS: rdata_r <= fw_dma_mac_pump_start_count;
+                    REG_FW_DMA_MAC_PUMP_DONES: rdata_r <= fw_dma_mac_pump_done_count;
+                    REG_FW_DMA_BRAM_CRC_ERRORS: rdata_r <= fw_dma_bram_crc_error_count;
+                    REG_FW_DMA_BRAM_BOUNDS_ERRORS: rdata_r <= fw_dma_bram_bounds_error_count;
+                    REG_FW_DMA_FAULT_STATUS: rdata_r <= {29'd0, fw_dma_egress_fault, fw_dma_ingress_fault, fw_dma_tx_parser_fault};
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;

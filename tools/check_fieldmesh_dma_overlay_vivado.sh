@@ -153,11 +153,23 @@ foreach pin {
   fieldmesh_ctrl/fw_dma_service_queued_count
   fieldmesh_ctrl/fw_dma_service_selected_word
   fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+  fieldmesh_ctrl/fw_dma_tx_parser_byte_count
   fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+  fieldmesh_ctrl/fw_dma_tx_parser_fault
   fieldmesh_ctrl/fw_dma_ingress_packet_count
+  fieldmesh_ctrl/fw_dma_ingress_byte_count
+  fieldmesh_ctrl/fw_dma_ingress_desc_publish_count
   fieldmesh_ctrl/fw_dma_ingress_drop_count
+  fieldmesh_ctrl/fw_dma_ingress_fault
   fieldmesh_ctrl/fw_dma_egress_packet_count
+  fieldmesh_ctrl/fw_dma_egress_byte_count
   fieldmesh_ctrl/fw_dma_egress_drop_count
+  fieldmesh_ctrl/fw_dma_egress_fault
+  fieldmesh_ctrl/fw_dma_mac_tick_count
+  fieldmesh_ctrl/fw_dma_mac_pump_start_count
+  fieldmesh_ctrl/fw_dma_mac_pump_done_count
+  fieldmesh_ctrl/fw_dma_bram_crc_error_count
+  fieldmesh_ctrl/fw_dma_bram_bounds_error_count
   fieldmesh_ctrl/fw_dma_bram_error_count
   fieldmesh_tx_dma/m_src_axi_aclk
   fieldmesh_tx_dma/m_src_axi_aresetn
@@ -217,11 +229,23 @@ foreach pair {
   {fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count}
   {fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word}
   {fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count}
+  {fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count}
   {fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count}
+  {fieldmesh_fw_dma_endpoint/tx_parser_fault fieldmesh_ctrl/fw_dma_tx_parser_fault}
   {fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count}
+  {fieldmesh_fw_dma_endpoint/ingress_byte_count fieldmesh_ctrl/fw_dma_ingress_byte_count}
+  {fieldmesh_fw_dma_endpoint/ingress_desc_publish_count fieldmesh_ctrl/fw_dma_ingress_desc_publish_count}
   {fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count}
+  {fieldmesh_fw_dma_endpoint/ingress_fault fieldmesh_ctrl/fw_dma_ingress_fault}
   {fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count}
+  {fieldmesh_fw_dma_endpoint/egress_byte_count fieldmesh_ctrl/fw_dma_egress_byte_count}
   {fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count}
+  {fieldmesh_fw_dma_endpoint/egress_fault fieldmesh_ctrl/fw_dma_egress_fault}
+  {fieldmesh_fw_dma_endpoint/mac_tick_count fieldmesh_ctrl/fw_dma_mac_tick_count}
+  {fieldmesh_fw_dma_endpoint/mac_pump_start_count fieldmesh_ctrl/fw_dma_mac_pump_start_count}
+  {fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count}
+  {fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count}
+  {fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count}
   {fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count}
 } {
   assert_same_net [lindex \$pair 0] [lindex \$pair 1]

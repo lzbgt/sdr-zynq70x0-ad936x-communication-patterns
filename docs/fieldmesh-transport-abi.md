@@ -452,6 +452,16 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x170` | `FM_FW_DMA_PEER_MCS_RETRY` | TX descriptor sideband defaults: bits 15:0 peer index, bits 23:16 MCS, bits 31:24 retry budget |
 | `0x174` | `FM_FW_DMA_DESCRIPTOR_FLAGS` | TX descriptor sideband flags in low 16 bits |
 | `0x178` | `FM_FW_DMA_SEQ_SEED` | TX descriptor sequence seed for FPGA-native ingress publication |
+| `0x17c` | `FM_FW_DMA_TX_PARSER_BYTES` | bytes accepted by the byte-only TX DMA header parser |
+| `0x180` | `FM_FW_DMA_INGRESS_BYTES` | bytes written into firmware packet BRAM by ingress |
+| `0x184` | `FM_FW_DMA_INGRESS_DESC_PUBLISH` | TX descriptors published by FPGA-native ingress |
+| `0x188` | `FM_FW_DMA_EGRESS_BYTES` | bytes emitted by descriptor-validated RX DMA egress |
+| `0x18c` | `FM_FW_DMA_MAC_TICKS` | MAC scheduler tick count observed by the firmware DMA endpoint |
+| `0x190` | `FM_FW_DMA_MAC_PUMP_STARTS` | bounded MAC pump starts |
+| `0x194` | `FM_FW_DMA_MAC_PUMP_DONES` | bounded MAC pump completions |
+| `0x198` | `FM_FW_DMA_BRAM_CRC_ERRORS` | descriptor/BRAM-service CRC failures |
+| `0x19c` | `FM_FW_DMA_BRAM_BOUNDS_ERRORS` | packet BRAM bounds failures |
+| `0x1a0` | `FM_FW_DMA_FAULT_STATUS` | bit 0 TX parser fault, bit 1 ingress fault, bit 2 egress fault |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

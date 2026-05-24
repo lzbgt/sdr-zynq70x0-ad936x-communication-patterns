@@ -38,6 +38,16 @@ localparam [15:0] REG_FW_DMA_BRAM_ERRORS        = 16'h016c;
 localparam [15:0] REG_FW_DMA_PEER_MCS_RETRY     = 16'h0170;
 localparam [15:0] REG_FW_DMA_DESCRIPTOR_FLAGS   = 16'h0174;
 localparam [15:0] REG_FW_DMA_SEQ_SEED           = 16'h0178;
+localparam [15:0] REG_FW_DMA_TX_PARSER_BYTES    = 16'h017c;
+localparam [15:0] REG_FW_DMA_INGRESS_BYTES      = 16'h0180;
+localparam [15:0] REG_FW_DMA_INGRESS_DESC_PUB   = 16'h0184;
+localparam [15:0] REG_FW_DMA_EGRESS_BYTES       = 16'h0188;
+localparam [15:0] REG_FW_DMA_MAC_TICKS          = 16'h018c;
+localparam [15:0] REG_FW_DMA_MAC_PUMP_STARTS    = 16'h0190;
+localparam [15:0] REG_FW_DMA_MAC_PUMP_DONES     = 16'h0194;
+localparam [15:0] REG_FW_DMA_BRAM_CRC_ERRORS    = 16'h0198;
+localparam [15:0] REG_FW_DMA_BRAM_BOUNDS_ERRORS = 16'h019c;
+localparam [15:0] REG_FW_DMA_FAULT_STATUS       = 16'h01a0;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -100,11 +110,23 @@ reg fw_dma_service_accepted = 1'b0;
 reg [15:0] fw_dma_service_queued_count = 16'd0;
 reg [31:0] fw_dma_service_selected_word = 32'd0;
 reg [31:0] fw_dma_tx_parser_packet_count = 32'd0;
+reg [31:0] fw_dma_tx_parser_byte_count = 32'd0;
 reg [31:0] fw_dma_tx_parser_drop_count = 32'd0;
+reg fw_dma_tx_parser_fault = 1'b0;
 reg [31:0] fw_dma_ingress_packet_count = 32'd0;
+reg [31:0] fw_dma_ingress_byte_count = 32'd0;
+reg [31:0] fw_dma_ingress_desc_publish_count = 32'd0;
 reg [31:0] fw_dma_ingress_drop_count = 32'd0;
+reg fw_dma_ingress_fault = 1'b0;
 reg [31:0] fw_dma_egress_packet_count = 32'd0;
+reg [31:0] fw_dma_egress_byte_count = 32'd0;
 reg [31:0] fw_dma_egress_drop_count = 32'd0;
+reg fw_dma_egress_fault = 1'b0;
+reg [31:0] fw_dma_mac_tick_count = 32'd0;
+reg [31:0] fw_dma_mac_pump_start_count = 32'd0;
+reg [31:0] fw_dma_mac_pump_done_count = 32'd0;
+reg [31:0] fw_dma_bram_crc_error_count = 32'd0;
+reg [31:0] fw_dma_bram_bounds_error_count = 32'd0;
 reg [31:0] fw_dma_bram_error_count = 32'd0;
 
 fieldmesh_sidecar_ctrl_axi_lite dut (
@@ -167,11 +189,23 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .fw_dma_service_queued_count(fw_dma_service_queued_count),
     .fw_dma_service_selected_word(fw_dma_service_selected_word),
     .fw_dma_tx_parser_packet_count(fw_dma_tx_parser_packet_count),
+    .fw_dma_tx_parser_byte_count(fw_dma_tx_parser_byte_count),
     .fw_dma_tx_parser_drop_count(fw_dma_tx_parser_drop_count),
+    .fw_dma_tx_parser_fault(fw_dma_tx_parser_fault),
     .fw_dma_ingress_packet_count(fw_dma_ingress_packet_count),
+    .fw_dma_ingress_byte_count(fw_dma_ingress_byte_count),
+    .fw_dma_ingress_desc_publish_count(fw_dma_ingress_desc_publish_count),
     .fw_dma_ingress_drop_count(fw_dma_ingress_drop_count),
+    .fw_dma_ingress_fault(fw_dma_ingress_fault),
     .fw_dma_egress_packet_count(fw_dma_egress_packet_count),
+    .fw_dma_egress_byte_count(fw_dma_egress_byte_count),
     .fw_dma_egress_drop_count(fw_dma_egress_drop_count),
+    .fw_dma_egress_fault(fw_dma_egress_fault),
+    .fw_dma_mac_tick_count(fw_dma_mac_tick_count),
+    .fw_dma_mac_pump_start_count(fw_dma_mac_pump_start_count),
+    .fw_dma_mac_pump_done_count(fw_dma_mac_pump_done_count),
+    .fw_dma_bram_crc_error_count(fw_dma_bram_crc_error_count),
+    .fw_dma_bram_bounds_error_count(fw_dma_bram_bounds_error_count),
     .fw_dma_bram_error_count(fw_dma_bram_error_count),
     .irq(irq),
     .irq_status(irq_status)
@@ -358,23 +392,45 @@ initial begin
     fw_dma_service_queued_count = 16'd7;
     fw_dma_service_selected_word = 32'h0003_0002;
     fw_dma_tx_parser_packet_count = 32'd11;
+    fw_dma_tx_parser_byte_count = 32'd4096;
     fw_dma_tx_parser_drop_count = 32'd1;
+    fw_dma_tx_parser_fault = 1'b1;
     fw_dma_ingress_packet_count = 32'd9;
+    fw_dma_ingress_byte_count = 32'd2048;
+    fw_dma_ingress_desc_publish_count = 32'd6;
     fw_dma_ingress_drop_count = 32'd2;
+    fw_dma_ingress_fault = 1'b1;
     fw_dma_egress_packet_count = 32'd8;
+    fw_dma_egress_byte_count = 32'd1024;
     fw_dma_egress_drop_count = 32'd3;
+    fw_dma_egress_fault = 1'b1;
+    fw_dma_mac_tick_count = 32'd55;
+    fw_dma_mac_pump_start_count = 32'd44;
+    fw_dma_mac_pump_done_count = 32'd43;
+    fw_dma_bram_crc_error_count = 32'd12;
+    fw_dma_bram_bounds_error_count = 32'd13;
     fw_dma_bram_error_count = 32'd4;
     repeat (2) @(negedge clk);
     expect_axi(REG_FW_DMA_STATUS, 32'h0000_003f);
     expect_axi(REG_FW_DMA_QUEUED_COUNT, 32'h0000_0007);
     expect_axi(REG_FW_DMA_SELECTED_WORD, 32'h0003_0002);
     expect_axi(REG_FW_DMA_TX_PARSER_PACKETS, 32'd11);
+    expect_axi(REG_FW_DMA_TX_PARSER_BYTES, 32'd4096);
     expect_axi(REG_FW_DMA_TX_PARSER_DROPS, 32'd1);
     expect_axi(REG_FW_DMA_INGRESS_PACKETS, 32'd9);
+    expect_axi(REG_FW_DMA_INGRESS_BYTES, 32'd2048);
+    expect_axi(REG_FW_DMA_INGRESS_DESC_PUB, 32'd6);
     expect_axi(REG_FW_DMA_INGRESS_DROPS, 32'd2);
     expect_axi(REG_FW_DMA_EGRESS_PACKETS, 32'd8);
+    expect_axi(REG_FW_DMA_EGRESS_BYTES, 32'd1024);
     expect_axi(REG_FW_DMA_EGRESS_DROPS, 32'd3);
+    expect_axi(REG_FW_DMA_MAC_TICKS, 32'd55);
+    expect_axi(REG_FW_DMA_MAC_PUMP_STARTS, 32'd44);
+    expect_axi(REG_FW_DMA_MAC_PUMP_DONES, 32'd43);
+    expect_axi(REG_FW_DMA_BRAM_CRC_ERRORS, 32'd12);
+    expect_axi(REG_FW_DMA_BRAM_BOUNDS_ERRORS, 32'd13);
     expect_axi(REG_FW_DMA_BRAM_ERRORS, 32'd4);
+    expect_axi(REG_FW_DMA_FAULT_STATUS, 32'h0000_0007);
 
     axi_write(REG_FW_DMA_CONTROL, 32'h0000_0020);
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||

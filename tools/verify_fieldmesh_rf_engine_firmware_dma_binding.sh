@@ -25,6 +25,11 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis",
     "ad_connect fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8",
     "ad_connect fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_bpsk_symbolizer/s_axis",
+    "ad_connect fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
+    "ad_connect fieldmesh_fw_dma_endpoint/ingress_desc_publish_count fieldmesh_ctrl/fw_dma_ingress_desc_publish_count",
+    "ad_connect fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
+    "ad_connect fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count",
+    "ad_connect fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "fw_dma_defaults=not dma_overlay",
     "render_dma_overlay(use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay)",
 ]
@@ -58,8 +63,14 @@ required_checker_tokens = [
     "fieldmesh_ctrl/fw_dma_peer_index",
     "fieldmesh_ctrl/fw_dma_seq_seed",
     "fieldmesh_ctrl/fw_dma_mac_service_budget",
+    "fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
+    "fieldmesh_ctrl/fw_dma_ingress_desc_publish_count",
+    "fieldmesh_ctrl/fw_dma_mac_pump_done_count",
+    "fieldmesh_ctrl/fw_dma_bram_crc_error_count",
+    "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
     "assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
+    "assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
 ]
 for token in required_checker_tokens:
     if token not in checker:

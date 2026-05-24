@@ -261,7 +261,8 @@ parser, while RX DMA receives byte-only packets from the descriptor-validated
 firmware egress reader. The wrapper is controlled through the existing
 `fieldmesh_ctrl` AXI-lite window at `0x140..0x178`, which gates endpoint
 enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop, reports the
-firmware endpoint counters, and supplies FPGA-native descriptor sidebands
+firmware endpoint byte/packet/drop/fault counters, MAC pump counters, split
+BRAM CRC/bounds counters, and supplies FPGA-native descriptor sidebands
 instead of tying peer/MCS/retry/flags/sequence constants in Tcl. The wrapper still avoids the ADI sample-DMA
 register windows; it is the packet-DMA boundary for the first-party firmware
 path.

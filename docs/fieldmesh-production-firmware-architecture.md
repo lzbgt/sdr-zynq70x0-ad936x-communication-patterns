@@ -445,9 +445,11 @@ The board-level packet-DMA endpoint is also controlled from the lightweight
 sidecar window. `0x140..0x178` contains fixed binary firmware-DMA control and
 status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
 enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
-parser counters, ingress/egress packet/drop counters, and aggregate BRAM
-errors plus FPGA-native TX sideband defaults for peer index, MCS, retry budget,
-descriptor flags, and sequence seed. The normal copied-HDL DMA overlay wires these pins to
+parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/fault
+counters, egress byte/packet/drop/fault counters, MAC tick/pump counters, split
+BRAM CRC/bounds counters, aggregate BRAM errors, and FPGA-native TX sideband
+defaults for peer index, MCS, retry budget, descriptor flags, and sequence seed.
+The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the
 packet path after probing the overlay.

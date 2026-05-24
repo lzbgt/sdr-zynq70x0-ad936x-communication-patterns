@@ -1421,7 +1421,10 @@ below were later superseded by the current PHY-management two-board gates above:
   windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
   RX/S2MM, and wires the endpoint control/status pins through the existing
   `fieldmesh_ctrl` register page at `0x140..0x178`. The endpoint resets
-  disabled and must be armed explicitly by software. The copied overlay is
+  disabled and must be armed explicitly by software. The register page now also
+  exposes parser/ingress/egress byte counts, MAC pump starts/completions, split
+  BRAM CRC/bounds errors, and parser/ingress/egress fault bits for live
+  service-rate triage without packet payload parsing. The copied overlay is
   Vivado BD-generation checked for Z203 and Z103 HDL trees.
   `fieldmesh-ctrl-write` now provides the guarded software control surface for
   that page: read-only firmware-DMA status needs

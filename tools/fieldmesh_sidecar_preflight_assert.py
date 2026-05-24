@@ -26,12 +26,25 @@ EXPECTED_FW_DMA_STATUS_KEYS = {
     "queued_count",
     "selected_word",
     "tx_parser_packets",
+    "tx_parser_bytes",
     "tx_parser_drops",
     "ingress_packets",
+    "ingress_bytes",
+    "ingress_desc_publishes",
     "ingress_drops",
     "egress_packets",
+    "egress_bytes",
     "egress_drops",
+    "mac_ticks",
+    "mac_pump_starts",
+    "mac_pump_dones",
+    "bram_crc_errors",
+    "bram_bounds_errors",
     "bram_errors",
+    "fault_status",
+    "tx_parser_fault",
+    "ingress_fault",
+    "egress_fault",
     "peer_index",
     "mcs",
     "retry_budget",
@@ -167,14 +180,21 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
     if missing:
         raise SystemExit(f"{path}: firmware-DMA status missing keys: {sorted(missing)}")
     for key in ("service_budget", "queued_count", "tx_parser_packets",
-                "tx_parser_drops", "ingress_packets", "ingress_drops",
-                "egress_packets", "egress_drops", "bram_errors",
+                "tx_parser_bytes", "tx_parser_drops", "ingress_packets",
+                "ingress_bytes", "ingress_desc_publishes", "ingress_drops",
+                "egress_packets", "egress_bytes", "egress_drops",
+                "mac_ticks", "mac_pump_starts", "mac_pump_dones",
+                "bram_crc_errors", "bram_bounds_errors", "bram_errors",
                 "peer_index", "mcs", "retry_budget"):
         if not isinstance(row.get(key), int):
             raise SystemExit(f"{path}: firmware-DMA {key} must be an integer: {row}")
+    for key in ("tx_parser_fault", "ingress_fault", "egress_fault"):
+        if not isinstance(row.get(key), bool):
+            raise SystemExit(f"{path}: firmware-DMA {key} must be a boolean: {row}")
     parse_u32(row.get("control"), path, "control", row)
     parse_u32(row.get("status"), path, "status", row)
     parse_u32(row.get("selected_word"), path, "selected_word", row)
+    parse_u32(row.get("fault_status"), path, "fault_status", row)
     parse_u32(row.get("descriptor_flags"), path, "descriptor_flags", row)
     parse_u32(row.get("seq_seed"), path, "seq_seed", row)
     return {
