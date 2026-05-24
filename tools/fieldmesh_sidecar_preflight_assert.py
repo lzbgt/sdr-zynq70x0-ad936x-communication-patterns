@@ -21,7 +21,19 @@ EXPECTED_CTRL_REGS = {"id", "control", "status", "irq_status", "irq_mask"}
 EXPECTED_DMA_REGS = {"reg_00", "reg_04", "reg_08", "reg_0c", "reg_10"}
 EXPECTED_FW_DMA_STATUS_KEYS = {
     "control",
+    "control_endpoint_enable",
+    "control_ingress_enable",
+    "control_egress_enable",
+    "control_mac_scheduler_enable",
+    "control_mac_tick_enable",
+    "control_mac_stop",
     "status",
+    "endpoint_enabled",
+    "mac_scheduler_active",
+    "pump_done",
+    "drained_empty",
+    "budget_exhausted",
+    "service_accepted",
     "service_budget",
     "queued_count",
     "selected_word",
@@ -188,7 +200,12 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
                 "peer_index", "mcs", "retry_budget"):
         if not isinstance(row.get(key), int):
             raise SystemExit(f"{path}: firmware-DMA {key} must be an integer: {row}")
-    for key in ("tx_parser_fault", "ingress_fault", "egress_fault"):
+    for key in ("control_endpoint_enable", "control_ingress_enable",
+                "control_egress_enable", "control_mac_scheduler_enable",
+                "control_mac_tick_enable", "control_mac_stop",
+                "endpoint_enabled", "mac_scheduler_active", "pump_done",
+                "drained_empty", "budget_exhausted", "service_accepted",
+                "tx_parser_fault", "ingress_fault", "egress_fault"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{path}: firmware-DMA {key} must be a boolean: {row}")
     parse_u32(row.get("control"), path, "control", row)

@@ -2835,14 +2835,16 @@ The sidecar preflight verifier now covers the live wrapper contract too:
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
 the assertion summary rejects captures where the firmware-DMA status read is
 missing, failed, marked as a hardware write, or missing endpoint byte counters,
-MAC pump counters, BRAM CRC/bounds counters, and parser/ingress/egress fault
-bits.
+MAC pump counters, BRAM CRC/bounds counters, C-decoded control/status
+booleans, and parser/ingress/egress fault bits.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
 for status/config/arm/stop: sidecar preflight must precede firmware-DMA writes,
 status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes are
 only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
-FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment.
+FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment. The wrapper also rejects
+before/after status captures that are missing the C-decoded control/status
+booleans.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full

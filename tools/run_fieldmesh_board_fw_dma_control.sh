@@ -193,6 +193,14 @@ for label, row in (("before", before), ("after", after)):
         raise SystemExit(f"{label} firmware-DMA status failed: {row}")
     if row.get("reads_hardware") is not True or row.get("writes_hardware") is not False:
         raise SystemExit(f"{label} firmware-DMA status was not read-only: {row}")
+    for key in ("control_endpoint_enable", "control_ingress_enable",
+                "control_egress_enable", "control_mac_scheduler_enable",
+                "control_mac_tick_enable", "control_mac_stop",
+                "endpoint_enabled", "mac_scheduler_active", "pump_done",
+                "drained_empty", "budget_exhausted", "service_accepted",
+                "tx_parser_fault", "ingress_fault", "egress_fault"):
+        if not isinstance(row.get(key), bool):
+            raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
 
 if applied:
     expected_event = {

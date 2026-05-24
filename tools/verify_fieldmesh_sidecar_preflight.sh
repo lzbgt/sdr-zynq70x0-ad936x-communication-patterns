@@ -39,7 +39,19 @@ fw_dma = {
     "ok": True,
     "base": "0x43c00000",
     "control": "0x00000000",
+    "control_endpoint_enable": False,
+    "control_ingress_enable": False,
+    "control_egress_enable": False,
+    "control_mac_scheduler_enable": False,
+    "control_mac_tick_enable": False,
+    "control_mac_stop": False,
     "status": "0x00000000",
+    "endpoint_enabled": False,
+    "mac_scheduler_active": False,
+    "pump_done": False,
+    "drained_empty": False,
+    "budget_exhausted": False,
+    "service_accepted": False,
     "service_budget": 0,
     "queued_count": 0,
     "selected_word": "0x00000000",
@@ -84,7 +96,7 @@ PY
   --fw-dma-status "$work_dir/fw_dma_status.json" \
   >"$work_dir/preflight_assert.json"
 
-python3 - "$work_dir/preflight_assert.json" "$repo_root/tools/run_fieldmesh_board_sidecar_preflight.sh" <<'PY'
+python3 - "$work_dir/preflight_assert.json" "$repo_root/tools/run_fieldmesh_board_sidecar_preflight.sh" "$repo_root/tools/fieldmesh_sidecar_preflight_assert.py" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -106,6 +118,19 @@ for token in (
 ):
     if token not in runner:
         raise SystemExit(f"sidecar preflight runner missing token: {token}")
+
+assert_source = Path(sys.argv[3])
+assert_text = assert_source.read_text(encoding="utf-8")
+for token in (
+    "control_endpoint_enable",
+    "control_mac_scheduler_enable",
+    "control_mac_stop",
+    "endpoint_enabled",
+    "budget_exhausted",
+    "service_accepted",
+):
+    if token not in assert_text:
+        raise SystemExit(f"sidecar preflight assertion missing firmware-DMA status token: {token}")
 PY
 
 printf 'fieldmesh_sidecar_preflight=pass\n'
