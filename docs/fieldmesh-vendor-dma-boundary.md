@@ -865,9 +865,9 @@ RX-first command script, and verifies that the default path remains a dry-run.
 The generated script configures RX PHY first, configures TX PHY second, starts
 `iio_readdev` for RX capture, then runs `iio_writedev` for the TX IQ burst.
 The captured-IQ decode routine now uses the compiled `fieldmesh_iio_burst_xfer`
-modem helper first, including known-carrier BPSK. Python modem decode is blocked
-by default and requires explicit `--allow-python-modem-decode` diagnostic opt-in
-when that helper is not applicable to the capture.
+modem helper, including known-carrier BPSK. Python modem decode is not part of
+the live-run data path; captures that the compiled helper cannot decode return
+a hard `fieldmesh_iio_burst_xfer_c_required` diagnostic.
 The default report keeps `executes_commands=false`,
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 A real authorized over-air RF path run requires

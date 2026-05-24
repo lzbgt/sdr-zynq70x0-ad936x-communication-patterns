@@ -1175,10 +1175,9 @@ below were later superseded by the current PHY-management two-board gates above:
   and defaults to a no-hardware dry-run. Its captured-IQ decode path now tries
   the compiled modem helper first using the IQ smoke report's helper evidence,
   including known-carrier BPSK captures. Configured or cached helpers must pass
-  the compiled BPSK carrier/phase self-test before use. Python decode is
-  blocked by default and retained only behind `--allow-python-modem-decode` for
-  diagnostics on impaired captures outside the C helper's current recovery
-  model.
+  the compiled BPSK carrier/phase self-test before use. Python modem decode is
+  no longer part of the live-run data path; helper-inapplicable captures fail
+  as `fieldmesh_iio_burst_xfer_c_required`.
   The next live-safe step is running that runner on an authorized
   over-air RF path with
   `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, RF path identity,

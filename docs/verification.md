@@ -3863,7 +3863,7 @@ Result:
 ```json
 {"commands": 8, "event": "fieldmesh_iq_iio_live_run_check", "mode": "dry-run", "ok": true, "rx_board": "z103", "tx_board": "z203"}
 {"decoder": "fieldmesh_iio_burst_xfer_c_bpsk", "event": "fieldmesh_iq_iio_live_run_c_decode_check", "ok": true, "recovered_frame_crc": 2646482743}
-{"blocked_decoder": "fieldmesh_iio_burst_xfer_c_required", "event": "fieldmesh_iq_iio_live_run_python_decode_guard_check", "fallback_decoder": "coherent_complex_bpsk_v1", "ok": true}
+{"blocked_decoder": "fieldmesh_iio_burst_xfer_c_required", "event": "fieldmesh_iq_iio_live_run_c_decode_required_check", "ok": true}
 ```
 
 The generated command script is RX-first: `iio_attr` RX PHY configuration,
@@ -3873,9 +3873,9 @@ bounded `iio_writedev` TX IQ burst loading. The default report keeps
 `writes_hardware=false`. The verifier also feeds the planned IQ burst back
 through the live-run captured-IQ decode routine and requires the compiled
 `fieldmesh_iio_burst_xfer` BPSK decoder to recover the committed FieldMesh
-frame. It also verifies that Python modem decode is blocked by default and only
-runs when `--allow-python-modem-decode` is explicitly selected for diagnostics.
-It also rejects missing legal-frequency
+frame. It also verifies that stale smoke reports without compiled-helper
+evidence fail as `fieldmesh_iio_burst_xfer_c_required` rather than falling back
+to Python modem primitives. It also rejects missing legal-frequency
 profile, insufficient fixture attenuation, excessive TX duration, and
 `--execute-live-rf` unless hardware writes, RF-TX authorization, exact operator
 confirmation, RF path identity, and RF path evidence are present. Live RF also

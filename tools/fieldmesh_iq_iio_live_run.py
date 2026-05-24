@@ -847,7 +847,6 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     samples_per_symbol = int(smoke_report["encoding"]["samples_per_symbol"])
     modulation = str(smoke_report["encoding"].get("modulation", "bpsk"))
     bit_repeat = int(smoke_report["encoding"].get("bit_repeat", 1))
-    baseband_carrier_hz = int(smoke_report["encoding"].get("baseband_carrier_hz", 0))
     c_decoded = decode_capture_with_c_helper(
         plan,
         args,
@@ -860,144 +859,13 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     if c_decoded and c_decoded.get("ok") is True:
         c_decoded["elapsed_ms"] = int((time.monotonic() - started) * 1000)
         return c_decoded
-    if not getattr(args, "allow_python_modem_decode", False):
-        return {
-            "attempted": True,
-            "ok": False,
-            "error": "C modem helper did not decode capture and Python modem decode is disabled",
-            "capture_bytes": len(iq),
-            "decoder": "fieldmesh_iio_burst_xfer_c_required",
-            "c_decoder": c_decoded,
-            "elapsed_ms": int((time.monotonic() - started) * 1000),
-        }
-    if modulation == "bfsk":
-        decoded = iq_smoke.decode_bfsk_iq(
-            iq,
-            samples_per_symbol,
-            sample_rate_hz=smoke_report["rf_fixture"]["sample_rate_hz"],
-            space_hz=int(smoke_report["encoding"].get("bfsk_space_hz", iq_smoke.DEFAULT_BFSK_SPACE_HZ)),
-            mark_hz=int(smoke_report["encoding"].get("bfsk_mark_hz", iq_smoke.DEFAULT_BFSK_MARK_HZ)),
-            expected_frame_len=int(smoke_report["frame"]["bytes"]),
-            expected_frame_crc=int(smoke_report["frame"]["frame_crc"]),
-            bit_repeat=bit_repeat,
-        )
-        if decoded.get("ok") is True:
-            recovered = decoded["recovered"]
-            crc = recovered_crc(recovered)
-            return {
-                "attempted": True,
-                "ok": crc == plan["iq_burst"]["frame_crc"],
-                "capture_bytes": len(iq),
-                "recovered_frame_hex": recovered.hex(),
-                "recovered_frame_bytes": len(recovered),
-                "recovered_frame_crc": crc,
-                "expected_frame_crc": plan["iq_burst"]["frame_crc"],
-                "sample_offset": decoded["sample_offset"],
-                "chip_phase": decoded["chip_phase"],
-                "bit_start": decoded["bit_start"],
-                "sync_errors": decoded["sync_errors"],
-                "wrapped": decoded.get("wrapped"),
-                "decoder": "noncoherent_complex_bfsk_v1",
-                "elapsed_ms": int((time.monotonic() - started) * 1000),
-            }
-        return {
-            "attempted": True,
-            "ok": False,
-            "error": decoded.get("error", "missing IQ burst preamble/sync"),
-            "capture_bytes": len(iq),
-            "sync_errors": decoded.get("sync_errors"),
-            "best_sample_offset": decoded.get("sample_offset"),
-            "best_chip_phase": decoded.get("chip_phase"),
-            "best_bit_start": decoded.get("bit_start"),
-            "best_wrapped": decoded.get("wrapped"),
-            "decoder": "noncoherent_complex_bfsk_v1",
-            "elapsed_ms": int((time.monotonic() - started) * 1000),
-        }
-
-    carrier_candidates = [baseband_carrier_hz]
-    if baseband_carrier_hz:
-        carrier_candidates += [
-            baseband_carrier_hz - 20000,
-            baseband_carrier_hz + 20000,
-            baseband_carrier_hz - 50000,
-            baseband_carrier_hz + 50000,
-        ]
-    coherent: dict[str, Any] = {"ok": False, "score": 0.0}
-    for carrier_hz in carrier_candidates:
-        candidate_iq = iq_smoke.mix_iq(iq, smoke_report["rf_fixture"]["sample_rate_hz"], carrier_hz) if carrier_hz else iq
-        candidate = iq_smoke.decode_bpsk_iq_coherent(
-            candidate_iq,
-            samples_per_symbol,
-            expected_frame_len=int(smoke_report["frame"]["bytes"]),
-            bit_repeat=bit_repeat,
-        )
-        candidate["baseband_carrier_hz"] = carrier_hz
-        if candidate.get("ok") is True:
-            coherent = candidate
-            break
-        if float(candidate.get("score", 0.0)) > float(coherent.get("score", 0.0)):
-            coherent = candidate
-    if coherent.get("ok") is True:
-        recovered = coherent["recovered"]
-        crc = recovered_crc(recovered)
-        return {
-            "attempted": True,
-            "ok": crc == plan["iq_burst"]["frame_crc"],
-            "capture_bytes": len(iq),
-            "recovered_frame_hex": recovered.hex(),
-            "recovered_frame_bytes": len(recovered),
-            "recovered_frame_crc": crc,
-            "expected_frame_crc": plan["iq_burst"]["frame_crc"],
-            "sample_offset": coherent["sample_offset"],
-            "symbol_start": coherent["symbol_start"],
-            "phase_i": coherent["phase_i"],
-            "phase_q": coherent["phase_q"],
-            "sync_score": coherent["score"],
-            "decoder": "coherent_complex_bpsk_v1",
-            "baseband_carrier_hz": coherent["baseband_carrier_hz"],
-            "elapsed_ms": int((time.monotonic() - started) * 1000),
-        }
-    last_error = "missing IQ burst preamble/sync"
-    for sample_offset in range(samples_per_symbol):
-        try:
-            bits = iq_smoke.decode_bpsk_iq_bits(iq, samples_per_symbol, sample_offset)
-        except Exception as exc:  # noqa: BLE001 - preserve decode diagnostic.
-            last_error = str(exc)
-            continue
-        for bit_shift in range(8):
-            shifted = bits[bit_shift:]
-            for inverted in (False, True):
-                candidate_bits = [1 - bit for bit in shifted] if inverted else shifted
-                try:
-                    recovered = iq_smoke.recover_frame(iq_smoke.bits_to_bytes(candidate_bits))
-                except Exception as exc:  # noqa: BLE001 - keep searching other alignments.
-                    last_error = str(exc)
-                    continue
-                crc = recovered_crc(recovered)
-                return {
-                    "attempted": True,
-                    "ok": crc == plan["iq_burst"]["frame_crc"],
-                    "capture_bytes": len(iq),
-                    "recovered_frame_hex": recovered.hex(),
-                    "recovered_frame_bytes": len(recovered),
-                    "recovered_frame_crc": crc,
-                    "expected_frame_crc": plan["iq_burst"]["frame_crc"],
-                    "sample_offset": sample_offset,
-                    "bit_shift": bit_shift,
-                    "inverted": inverted,
-                }
     return {
         "attempted": True,
         "ok": False,
-        "error": last_error,
+        "error": "C modem helper did not decode capture",
         "capture_bytes": len(iq),
-        "best_coherent_score": coherent.get("score"),
-        "best_coherent_sample_offset": coherent.get("sample_offset"),
-        "best_coherent_symbol_start": coherent.get("symbol_start"),
-        "best_coherent_phase_i": coherent.get("phase_i"),
-        "best_coherent_phase_q": coherent.get("phase_q"),
-        "best_coherent_carrier_hz": coherent.get("baseband_carrier_hz"),
-        "decoder": "coherent_complex_bpsk_v1",
+        "decoder": "fieldmesh_iio_burst_xfer_c_required",
+        "c_decoder": c_decoded,
         "elapsed_ms": int((time.monotonic() - started) * 1000),
     }
 
@@ -1045,7 +913,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "skip_rf_config": bool(args.skip_rf_config),
         "burst_helper": str(args.burst_helper) if args.burst_helper else None,
         "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
-        "allow_python_modem_decode": bool(getattr(args, "allow_python_modem_decode", False)),
+        "python_modem_decode_allowed": False,
+        "decode_policy": "compiled_c_modem_required",
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -1109,7 +978,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-rf-config", action="store_true")
     parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--persistent-burst-helper", action="store_true")
-    parser.add_argument("--allow-python-modem-decode", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

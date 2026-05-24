@@ -123,7 +123,7 @@ plan = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 smoke = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 out_dir = Path(sys.argv[3])
 out_dir.mkdir(parents=True, exist_ok=True)
-args = argparse.Namespace(out_dir=out_dir, burst_helper=None, allow_python_modem_decode=False)
+args = argparse.Namespace(out_dir=out_dir, burst_helper=None)
 capture = Path(smoke["encoding"]["iq_file"])
 decoded = live.decode_capture(plan, args, capture)
 if decoded.get("ok") is not True:
@@ -148,18 +148,23 @@ no_c_plan = json.loads(json.dumps(plan))
 no_c_plan["iq_burst"]["report"] = str(no_c_smoke_path)
 blocked = live.decode_capture(no_c_plan, args, capture)
 if blocked.get("ok") is not False or blocked.get("decoder") != "fieldmesh_iio_burst_xfer_c_required":
-    raise SystemExit(f"live-run decode did not require C helper by default: {blocked}")
-fallback_args = argparse.Namespace(out_dir=out_dir, burst_helper=None, allow_python_modem_decode=True)
-fallback = live.decode_capture(no_c_plan, fallback_args, capture)
-if fallback.get("ok") is not True:
-    raise SystemExit(f"explicit Python modem fallback failed: {fallback}")
-if fallback.get("decoder") == "fieldmesh_iio_burst_xfer_c_required":
-    raise SystemExit(f"explicit Python modem fallback stayed blocked: {fallback}")
+    raise SystemExit(f"live-run decode did not require C helper: {blocked}")
+source = Path("tools/fieldmesh_iq_iio_live_run.py").read_text(encoding="utf-8")
+for forbidden in (
+    "allow-python-modem-decode",
+    "allow_python_modem_decode",
+    "decode_bfsk_iq(",
+    "decode_bpsk_iq_coherent(",
+    "decode_bpsk_iq_bits(",
+    "coherent_complex_bpsk_v1",
+    "noncoherent_complex_bfsk_v1",
+):
+    if forbidden in source:
+        raise SystemExit(f"live-run retained Python modem decode token: {forbidden}")
 print(json.dumps({
-    "event": "fieldmesh_iq_iio_live_run_python_decode_guard_check",
+    "event": "fieldmesh_iq_iio_live_run_c_decode_required_check",
     "ok": True,
     "blocked_decoder": blocked["decoder"],
-    "fallback_decoder": fallback.get("decoder", "legacy_bpsk_bits"),
 }, sort_keys=True))
 PY
 

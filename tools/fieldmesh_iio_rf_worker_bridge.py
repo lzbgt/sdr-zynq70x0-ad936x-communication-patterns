@@ -154,7 +154,6 @@ def write_or_execute_live_run(args: argparse.Namespace, plan_path: Path) -> dict
         tx_hardwaregain_db=args.tx_hardwaregain_db,
         skip_rf_config=getattr(args, "skip_rf_config", False),
         burst_helper=getattr(args, "burst_helper", None),
-        allow_python_modem_decode=getattr(args, "allow_python_modem_decode", False),
         pretty=False,
     )
     return live_run.build_report(run_args)
@@ -254,7 +253,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "allow_hardware_writes": bool(args.allow_hardware_writes),
             "allow_rf_tx": bool(args.allow_rf_tx),
             "allow_daemon_queue_mutation": bool(args.allow_daemon_queue_mutation),
-            "allow_python_modem_decode": bool(getattr(args, "allow_python_modem_decode", False)),
+            "python_modem_decode_allowed": False,
+            "decode_policy": "compiled_c_modem_required",
             "starts_rf_tx": bool(args.execute_live_rf),
             "writes_hardware": bool(args.execute_live_rf),
         },
@@ -309,7 +309,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--skip-rf-config", action="store_true")
     parser.add_argument("--burst-helper", type=Path)
-    parser.add_argument("--allow-python-modem-decode", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 
