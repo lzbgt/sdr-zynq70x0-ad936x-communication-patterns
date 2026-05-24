@@ -23,6 +23,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_active": true,
   "iio_bridge_source_ack_pipeline_high_water": {"z203-to-z103": 2},
   "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_latency_ms": {"z203-to-z103": {"completed": 4, "total_elapsed_ms": 80, "max_elapsed_ms": 30, "last_elapsed_ms": 20, "avg_elapsed_ms": 20}},
+  "iio_bridge_source_ack_max_latency_ms": 30,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
@@ -59,6 +61,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_active": true,
   "iio_bridge_source_ack_pipeline_high_water": {"z103-to-z203": 2},
   "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_latency_ms": {"z103-to-z203": {"completed": 3, "total_elapsed_ms": 75, "max_elapsed_ms": 35, "last_elapsed_ms": 15, "avg_elapsed_ms": 25}},
+  "iio_bridge_source_ack_max_latency_ms": 35,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
@@ -119,6 +123,10 @@ if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"missing board ACK pipeline exercise proof: {report}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"missing host ACK pipeline exercise proof: {report}")
+if report.get("board_iio_bridge_source_ack_max_latency_ms") != 30:
+    raise SystemExit(f"missing board ACK latency proof: {report}")
+if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
+    raise SystemExit(f"missing host ACK latency proof: {report}")
 print(json.dumps({
     "event": "fieldmesh_native_ip_iperf_production_sequence_check",
     "ok": True,
@@ -141,6 +149,8 @@ if report.get("requires_gnss_fix") is not False or report.get("requires_gnss_pps
     raise SystemExit(f"native-IP feature readiness must not require GNSS/PPS: {report}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost ACK pipeline requirement: {report}")
+if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
+    raise SystemExit(f"native-IP readiness lost ACK latency proof: {report}")
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \

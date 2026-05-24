@@ -298,8 +298,9 @@ succeeds, the source ACK runs in parallel while the opposite RF direction can
 start. The loop now also supports a bounded same-source ACK pipeline for HIL,
 so a source can lease the next RF batch after peer ingest while earlier source
 ACK responses are still pending. Final bridge/native-IP reports carry
-per-direction ACK-pipeline high-water and max-pending counters so captures can
-prove whether the bounded pipeline was actually exercised. With the previous
+per-direction ACK-pipeline high-water, max-pending, and source-ACK latency
+counters so captures can prove whether the bounded pipeline was actually
+exercised and whether ACK latency is still the bottleneck. With the previous
 persistent-helper runtime installed, live HIL moved 55 native-IP
 frames with zero duplicate drops; the captured TCP sequence shows the
 256-byte data payload crossed RF and was ACKed,
@@ -518,7 +519,8 @@ layers: TCP/UDP bytes, bitrate, duration, UDP jitter, packet count, lost packet
 count, and loss percent. Byte-only reports cannot satisfy production native-IP
 evidence. If a saved IIO RF bridge report configured
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the bounded
-source-ACK pipeline was exercised with max in-flight ACK depth of at least two.
+source-ACK pipeline was exercised with max in-flight ACK depth of at least two
+and completed source-ACK latency evidence.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` now wraps the two
 layers as one production sequence: it consumes paired saved reports or runs both
 live layers, emits paired native-IP iperf evidence, and emits the normalized app

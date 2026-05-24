@@ -85,6 +85,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     if depth > 1:
         high_water = report.get("iio_bridge_source_ack_pipeline_high_water")
         max_pending = report.get("iio_bridge_source_ack_pipeline_max_pending")
+        latency = report.get("iio_bridge_source_ack_latency_ms")
+        max_latency = report.get("iio_bridge_source_ack_max_latency_ms")
         if report.get("iio_bridge_source_ack_pipeline_active") is not True:
             errors.append(f"{label}: IIO ACK pipeline must be active when depth > 1")
         if report.get("iio_bridge_source_ack_pipeline_exercised") is not True:
@@ -102,6 +104,19 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
             )
             if high_water_max < 2:
                 errors.append(f"{label}: IIO ACK pipeline high-water evidence never exceeded 1")
+        if not isinstance(latency, dict) or not latency:
+            errors.append(f"{label}: IIO ACK latency evidence is missing")
+        elif not any(
+            isinstance(item, dict)
+            and isinstance(item.get("completed"), int)
+            and item["completed"] > 0
+            and isinstance(item.get("max_elapsed_ms"), int)
+            and item["max_elapsed_ms"] >= 0
+            for item in latency.values()
+        ):
+            errors.append(f"{label}: IIO ACK latency evidence has no completed ACKs")
+        if not isinstance(max_latency, int) or max_latency < 0:
+            errors.append(f"{label}: IIO ACK max latency must be >= 0")
     return errors
 
 
@@ -243,6 +258,18 @@ def main() -> int:
         ),
         "host_iio_bridge_source_ack_pipeline_max_pending": host.get(
             "iio_bridge_source_ack_pipeline_max_pending"
+        ),
+        "board_iio_bridge_source_ack_latency_ms": board.get(
+            "iio_bridge_source_ack_latency_ms"
+        ),
+        "host_iio_bridge_source_ack_latency_ms": host.get(
+            "iio_bridge_source_ack_latency_ms"
+        ),
+        "board_iio_bridge_source_ack_max_latency_ms": board.get(
+            "iio_bridge_source_ack_max_latency_ms"
+        ),
+        "host_iio_bridge_source_ack_max_latency_ms": host.get(
+            "iio_bridge_source_ack_max_latency_ms"
         ),
         "board_to_board_report": str(board_path),
         "host_pc_report": str(host_path),

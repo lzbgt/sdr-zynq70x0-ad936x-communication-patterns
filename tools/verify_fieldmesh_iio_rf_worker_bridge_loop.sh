@@ -70,6 +70,8 @@ if report.get("source_ack_pipeline_depth") != 1 or report.get("source_ack_pipeli
     raise SystemExit(f"unexpected source ACK pipeline default: {report}")
 if report.get("source_ack_pipeline_high_water") != {} or report.get("source_ack_pipeline_max_pending") != 0:
     raise SystemExit(f"dry-run source ACK pipeline evidence must be empty: {report}")
+if report.get("source_ack_latency_ms") != {} or report.get("source_ack_max_latency_ms") != 0:
+    raise SystemExit(f"dry-run source ACK latency evidence must be empty: {report}")
 if report.get("source_ack_pipeline_exercised") is not False:
     raise SystemExit(f"dry-run source ACK pipeline must not be exercised: {report}")
 if report.get("batch_byte_limit") != 0:
@@ -275,6 +277,14 @@ try:
         raise SystemExit(f"source ACK pipeline did not complete both ACKs: {first}, {second}")
     if pipeline_acker.high_water_counts().get("z103-to-z203") != 2:
         raise SystemExit("source ACK pipeline high-water evidence was lost after wait")
+    latency = pipeline_acker.latency_summary().get("z103-to-z203")
+    if not latency or latency.get("completed") != 2:
+        raise SystemExit(f"source ACK pipeline latency summary is wrong: {latency}")
+    for key in ("total_elapsed_ms", "max_elapsed_ms", "last_elapsed_ms", "avg_elapsed_ms"):
+        if not isinstance(latency.get(key), int) or latency[key] < 0:
+            raise SystemExit(f"source ACK pipeline latency field {key} is wrong: {latency}")
+    if not isinstance(pipeline_acker.max_latency_ms(), int) or pipeline_acker.max_latency_ms() < 0:
+        raise SystemExit("source ACK pipeline max latency evidence is wrong")
     pipeline_acker.wait_all()
 finally:
     loop.ack_batch_to_daemon_reliable = original_ack
@@ -392,6 +402,8 @@ required = [
     "--source-ack-pipeline-depth",
     '"iio_bridge_source_ack_pipeline_high_water"',
     '"iio_bridge_source_ack_pipeline_max_pending"',
+    '"iio_bridge_source_ack_latency_ms"',
+    '"iio_bridge_source_ack_max_latency_ms"',
     '"iio_bridge_source_ack_pipeline_exercised"',
     'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"',
     'rf_bit_repeat="${RF_BIT_REPEAT:-2}"',

@@ -420,7 +420,8 @@ Minimum production gates for native TCP/IP:
   duration plus UDP jitter, packets, lost packets, and loss percent for both
   layers. If an IIO RF bridge report was configured with
   `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the ACK pipeline
-  was exercised with a max in-flight ACK depth of at least two. A daemon
+  was exercised with a max in-flight ACK depth of at least two and completed
+  source-ACK latency evidence. A daemon
   RF-worker bridge report is rejected even if TCP/UDP iperf
   completed, because that path proves the kernel/socket bridge but not over-air
   RF. The real-RF production gate and over-air sequence now require this paired

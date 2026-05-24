@@ -2380,6 +2380,12 @@ report = {
     "iio_bridge_source_ack_pipeline_max_pending": int(
         last_iio_bridge.get("source_ack_pipeline_max_pending") or 0
     ),
+    "iio_bridge_source_ack_latency_ms": (
+        last_iio_bridge.get("source_ack_latency_ms") or {}
+    ),
+    "iio_bridge_source_ack_max_latency_ms": int(
+        last_iio_bridge.get("source_ack_max_latency_ms") or 0
+    ),
     "iio_bridge_source_ack_pipeline_exercised": bool(
         last_iio_bridge.get("source_ack_pipeline_exercised")
     ),

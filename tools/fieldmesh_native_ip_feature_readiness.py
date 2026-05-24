@@ -94,6 +94,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_source_ack_pipeline_max_pending": report.get(
             "host_iio_bridge_source_ack_pipeline_max_pending"
         ),
+        "board_iio_bridge_source_ack_latency_ms": report.get(
+            "board_iio_bridge_source_ack_latency_ms"
+        ),
+        "host_iio_bridge_source_ack_latency_ms": report.get(
+            "host_iio_bridge_source_ack_latency_ms"
+        ),
+        "board_iio_bridge_source_ack_max_latency_ms": report.get(
+            "board_iio_bridge_source_ack_max_latency_ms"
+        ),
+        "host_iio_bridge_source_ack_max_latency_ms": report.get(
+            "host_iio_bridge_source_ack_max_latency_ms"
+        ),
         "transport": report.get("transport"),
         "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
         "board_to_board_real_rf_iperf": report.get("board_to_board_real_rf_iperf"),

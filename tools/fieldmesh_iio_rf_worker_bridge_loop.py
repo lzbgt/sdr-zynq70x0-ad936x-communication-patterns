@@ -313,6 +313,7 @@ class AsyncSourceAcker:
         )
         self.pending: dict[str, list[dict[str, Any]]] = {}
         self.high_water: dict[str, int] = {}
+        self.latency_ms: dict[str, dict[str, int]] = {}
 
     def submit(
         self,
@@ -350,6 +351,8 @@ class AsyncSourceAcker:
                 "future": future,
                 "frame_summary": frame_summary,
                 "report_path": report_path,
+                "direction_name": direction_name,
+                "started": started,
             }
         )
         pending_count = len(self.pending[direction_name])
@@ -367,6 +370,8 @@ class AsyncSourceAcker:
         future = item["future"]
         frame_summary = item["frame_summary"]
         report_path = item["report_path"]
+        direction_name = item["direction_name"]
+        started = item["started"]
         try:
             ack_report = future.result()
         except Exception as exc:  # noqa: BLE001 - preserve bridge diagnostics.
@@ -383,6 +388,22 @@ class AsyncSourceAcker:
             if ack_report.get("ok") is not True:
                 self.counts["async_source_ack_failures"] += 1
                 self.counts["bridge_errors"] += 1
+        if not isinstance(ack_report.get("elapsed_ms"), int):
+            ack_report["elapsed_ms"] = int((time.monotonic() - started) * 1000)
+        elapsed_ms = max(0, int(ack_report["elapsed_ms"]))
+        stats = self.latency_ms.setdefault(
+            direction_name,
+            {
+                "completed": 0,
+                "total_elapsed_ms": 0,
+                "max_elapsed_ms": 0,
+                "last_elapsed_ms": 0,
+            },
+        )
+        stats["completed"] += 1
+        stats["total_elapsed_ms"] += elapsed_ms
+        stats["max_elapsed_ms"] = max(stats["max_elapsed_ms"], elapsed_ms)
+        stats["last_elapsed_ms"] = elapsed_ms
 
         frame_summary["source_ack_ok"] = ack_report.get("ok")
         frame_summary["source_ack"] = ack_report
@@ -419,6 +440,23 @@ class AsyncSourceAcker:
 
     def max_pending_count(self) -> int:
         return max(self.high_water.values(), default=0)
+
+    def latency_summary(self) -> dict[str, dict[str, int]]:
+        summary: dict[str, dict[str, int]] = {}
+        for direction_name, stats in sorted(self.latency_ms.items()):
+            completed = stats.get("completed", 0)
+            total = stats.get("total_elapsed_ms", 0)
+            summary[direction_name] = {
+                **stats,
+                "avg_elapsed_ms": int(total / completed) if completed else 0,
+            }
+        return summary
+
+    def max_latency_ms(self) -> int:
+        return max(
+            (stats.get("max_elapsed_ms", 0) for stats in self.latency_ms.values()),
+            default=0,
+        )
 
     def wait_all(self) -> None:
         for direction_name in list(self.pending):
@@ -1046,6 +1084,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "source_ack_pipeline_pending": async_acker.pending_counts(),
             "source_ack_pipeline_high_water": async_acker.high_water_counts(),
             "source_ack_pipeline_max_pending": async_acker.max_pending_count(),
+            "source_ack_latency_ms": async_acker.latency_summary(),
+            "source_ack_max_latency_ms": async_acker.max_latency_ms(),
             "source_ack_pipeline_exercised": bool(
                 args.execute_live_rf
                 and args.async_source_ack

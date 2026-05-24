@@ -110,6 +110,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_source_ack_pipeline_depth",
         "board_iio_bridge_source_ack_pipeline_max_pending",
         "host_iio_bridge_source_ack_pipeline_max_pending",
+        "board_iio_bridge_source_ack_latency_ms",
+        "host_iio_bridge_source_ack_latency_ms",
+        "board_iio_bridge_source_ack_max_latency_ms",
+        "host_iio_bridge_source_ack_max_latency_ms",
     ):
         if key in source:
             details[key] = source[key]

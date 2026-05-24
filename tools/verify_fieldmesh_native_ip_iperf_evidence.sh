@@ -22,6 +22,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_active": true,
   "iio_bridge_source_ack_pipeline_high_water": {"z203-to-z103": 2},
   "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_latency_ms": {"z203-to-z103": {"completed": 4, "total_elapsed_ms": 80, "max_elapsed_ms": 30, "last_elapsed_ms": 20, "avg_elapsed_ms": 20}},
+  "iio_bridge_source_ack_max_latency_ms": 30,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
@@ -58,6 +60,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_active": true,
   "iio_bridge_source_ack_pipeline_high_water": {"z103-to-z203": 2},
   "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_latency_ms": {"z103-to-z203": {"completed": 3, "total_elapsed_ms": 75, "max_elapsed_ms": 35, "last_elapsed_ms": 15, "avg_elapsed_ms": 25}},
+  "iio_bridge_source_ack_max_latency_ms": 35,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
@@ -116,6 +120,10 @@ if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"classifier lost board ACK pipeline evidence: {report!r}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"classifier lost host ACK pipeline evidence: {report!r}")
+if report.get("board_iio_bridge_source_ack_max_latency_ms") != 30:
+    raise SystemExit(f"classifier lost board ACK latency evidence: {report!r}")
+if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
+    raise SystemExit(f"classifier lost host ACK latency evidence: {report!r}")
 PY
 
 "$repo_root/tools/fieldmesh_app_real_rf_report.py" \
@@ -139,6 +147,8 @@ if report.get("host_udp_lost_percent") != 1.03:
     raise SystemExit(f"normalized native-IP evidence lost host UDP loss metric: {report!r}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost ACK pipeline requirement: {report!r}")
+if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
+    raise SystemExit(f"normalized native-IP evidence lost ACK latency evidence: {report!r}")
 PY
 
 python3 - "$work_dir/board-real-rf.json" "$work_dir/board-unexercised-pipeline.json" <<'PY'
@@ -157,6 +167,24 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --host-pc-report "$work_dir/host-real-rf.json" \
   >"$work_dir/unexercised-pipeline-rejected.out" 2>"$work_dir/unexercised-pipeline-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised IIO ACK pipeline evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-missing-ack-latency.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report.pop("iio_bridge_source_ack_latency_ms", None)
+report.pop("iio_bridge_source_ack_max_latency_ms", None)
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-missing-ack-latency.json" \
+  >"$work_dir/missing-ack-latency-rejected.out" 2>"$work_dir/missing-ack-latency-rejected.err"; then
+  echo "iperf evidence classifier accepted missing IIO ACK latency evidence" >&2
   exit 1
 fi
 

@@ -4148,7 +4148,9 @@ ACKs are submitted only after peer ingest, but up to
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH` same-source ACK responses can remain in
 flight while the next RF batch starts. It also checks durable high-water evidence
 so final bridge/native-IP reports show the max in-flight ACK depth reached
-during the run. `run_fieldmesh_two_board_native_ip_iperf.sh`
+during the run, plus per-direction source-ACK latency totals/max/average so HIL
+captures can distinguish daemon ACK latency from RF burst time.
+`run_fieldmesh_two_board_native_ip_iperf.sh`
 selects this path with `ALLOW_IIO_RF_BRIDGE=1`; the older
 `ALLOW_DAEMON_RF_BRIDGE=1` path remains diagnostic-only.
 For operator readiness checks, `run_fieldmesh_two_board_native_ip_iperf.sh`
@@ -5060,7 +5062,8 @@ count, and loss percent for both the board-to-board and host-PC-transparent
 layers. When either saved report was collected through the IIO RF bridge with
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires durable
 ACK-pipeline high-water evidence showing max in-flight source ACKs reached at
-least two and stayed within the configured depth. The verifier rejects daemon
+least two and stayed within the configured depth, plus completed source-ACK
+latency evidence for the same IIO bridge capture. The verifier rejects daemon
 RF-worker bridge metrics, byte-only iperf
 summaries, host-IP-routed results, and host-PC reports that are actually
 SSH-launched board clients.
