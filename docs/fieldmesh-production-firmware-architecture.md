@@ -453,7 +453,10 @@ and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while `--fw-dma-arm` and
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. This keeps default board inspection
 non-mutating and makes firmware-DMA activation an explicit production test
-step.
+step. Board-side activation should go through
+`tools/run_fieldmesh_board_fw_dma_control.sh`, which requires the sidecar
+preflight firmware-DMA status proof and records before/after status around any
+guarded arm or stop command.
 
 ## MAC Design
 

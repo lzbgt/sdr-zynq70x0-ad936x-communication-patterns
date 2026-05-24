@@ -458,6 +458,10 @@ and `--fw-dma-stop` require `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1` before touching hardware. JSON appears only
 in the tool result stream for inspection; the transport ABI remains binary.
+The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
+action is status-only, and arm/stop actions are skipped unless the wrapper's
+local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a
+green sidecar preflight.
 
 ## Z103 And Z203 Capability Profiles
 

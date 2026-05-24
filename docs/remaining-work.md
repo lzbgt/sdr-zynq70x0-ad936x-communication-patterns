@@ -1430,9 +1430,12 @@ below were later superseded by the current PHY-management two-board gates above:
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The board-side sidecar preflight now
   captures this read-only firmware-DMA status and includes it in
   `preflight_assert.json`, so live DMA smoke or firmware-DMA arm tests have a
-  non-mutating endpoint-status gate. The RF-engine overlay still keeps the
-  older bridge-fed path until the RF scheduler is bound directly to the
-  firmware endpoint.
+  non-mutating endpoint-status gate. `tools/run_fieldmesh_board_fw_dma_control.sh`
+  is now the live board wrapper for status/arm/stop: it defaults to status-only
+  and requires both the sidecar preflight proof and
+  `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding arm/stop
+  hardware writes. The RF-engine overlay still keeps the older bridge-fed path
+  until the RF scheduler is bound directly to the firmware endpoint.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
