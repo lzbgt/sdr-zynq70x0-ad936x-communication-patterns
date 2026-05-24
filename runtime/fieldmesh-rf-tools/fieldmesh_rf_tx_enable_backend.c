@@ -7,9 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 static const char *EVENT = "fieldmesh_rf_tx_enable_backend";
+static const char *IIO_EVENT = "fieldmesh_rf_tx_enable_backend_iio_attr";
+static const char *SLEEP_EVENT = "fieldmesh_rf_tx_enable_backend_sleep";
+static const char *ROLLBACK_GAIN_DB = "-89.75";
 
 static void json_escape(FILE *out, const char *s) {
     for (; *s != '\0'; ++s) {
@@ -184,40 +188,90 @@ static bool env_double_matches(const char *name, double expected) {
     return errno == 0 && end != value && *end == '\0' && diff < 0.000001;
 }
 
-static int run_tx_enable(long max_duration_ms, double tx_attenuation_db) {
-    char duration[32];
-    char attenuation[32];
-    snprintf(duration, sizeof(duration), "%ld", max_duration_ms);
-    snprintf(attenuation, sizeof(attenuation), "%.6g", tx_attenuation_db);
+static bool dry_run_enabled(void) {
+    const char *value = getenv("FIELD_MESH_BACKEND_DRY_RUN");
+    return value != NULL && strcmp(value, "1") == 0;
+}
 
-    pid_t pid = fork();
-    if (pid < 0) {
-        return fail("fork failed");
-    }
-    if (pid == 0) {
-        char *const argv[] = {
-            "fieldmesh-radio-tx-enable",
-            "--max-duration-ms",
-            duration,
-            "--tx-attenuation-db",
-            attenuation,
-            "--conducted-or-shielded",
-            "--rx-first",
-            "--tx-enable-guard",
-            NULL,
-        };
-        execvp(argv[0], argv);
-        _exit(127);
-    }
-
+static int wait_child(pid_t pid, const char *argv0) {
     int status = 0;
     if (waitpid(pid, &status, 0) < 0) {
         return fail("waitpid failed");
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        fprintf(stderr, "{\"event\":\"%s\",\"ok\":false,\"error\":\"fieldmesh-radio-tx-enable failed\",\"child_status\":%d}\n",
-                EVENT, status);
+        fprintf(stderr, "{\"event\":\"%s\",\"ok\":false,\"error\":\"", EVENT);
+        json_escape(stderr, argv0);
+        fprintf(stderr, " failed\",\"child_status\":%d}\n", status);
         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    }
+    return 0;
+}
+
+static int run_argv(char *const argv[]) {
+    pid_t pid = fork();
+    if (pid < 0) {
+        return fail("fork failed");
+    }
+    if (pid == 0) {
+        execvp(argv[0], argv);
+        _exit(127);
+    }
+    return wait_child(pid, argv[0]);
+}
+
+static int set_tx_hardware_gain(const char *gain_db, const char *phase) {
+    char *const argv[] = {
+        "iio_attr",
+        "-c",
+        "ad9361-phy",
+        "voltage0",
+        "hardwaregain",
+        (char *)gain_db,
+        NULL,
+    };
+
+    if (dry_run_enabled()) {
+        printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":true,\"native_iio_attr_control\":true,\"phase\":\"", IIO_EVENT);
+        json_escape(stdout, phase);
+        printf("\",\"argv\":\"iio_attr -c ad9361-phy voltage0 hardwaregain ");
+        json_escape(stdout, gain_db);
+        printf("\"}\n");
+        return 0;
+    }
+    return run_argv(argv);
+}
+
+static int sleep_bounded_ms(long duration_ms) {
+    if (dry_run_enabled()) {
+        printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":true,\"duration_ms\":%ld}\n", SLEEP_EVENT, duration_ms);
+        return 0;
+    }
+
+    struct timespec req = {
+        .tv_sec = duration_ms / 1000,
+        .tv_nsec = (duration_ms % 1000) * 1000000L,
+    };
+    while (nanosleep(&req, &req) != 0) {
+        if (errno != EINTR) {
+            return fail("nanosleep failed");
+        }
+    }
+    return 0;
+}
+
+static int run_tx_enable(long max_duration_ms, double tx_attenuation_db) {
+    char tx_gain_db[32];
+    snprintf(tx_gain_db, sizeof(tx_gain_db), "-%.6g", tx_attenuation_db);
+
+    if (set_tx_hardware_gain(tx_gain_db, "enable") != 0) {
+        return 1;
+    }
+    if (sleep_bounded_ms(max_duration_ms) != 0) {
+        (void)set_tx_hardware_gain(ROLLBACK_GAIN_DB, "rollback_after_sleep_error");
+        return 1;
+    }
+    if (set_tx_hardware_gain(ROLLBACK_GAIN_DB, "rollback") != 0) {
+        return 1;
     }
     return 0;
 }
@@ -348,7 +402,7 @@ int main(int argc, char **argv) {
         json_escape(stdout, request_path);
         printf("\",\"fixture_id\":\"");
         json_escape(stdout, fixture_id);
-        printf("\",\"max_tx_duration_ms\":%ld,\"tx_attenuation_db\":%.6g,\"writes_hardware\":true,\"starts_rf_tx\":true,\"bounded\":true,\"delegated_to\":\"fieldmesh-radio-tx-enable\"}\n",
+        printf("\",\"max_tx_duration_ms\":%ld,\"tx_attenuation_db\":%.6g,\"rollback_tx_attenuation_db\":89.75,\"writes_hardware\":true,\"starts_rf_tx\":true,\"bounded\":true,\"native_iio_attr_control\":true,\"delegated_to\":\"iio_attr\"}\n",
                max_duration_ms, tx_attenuation_db);
     }
 

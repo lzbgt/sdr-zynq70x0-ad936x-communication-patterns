@@ -767,7 +767,10 @@ runner does not rebuild live-control policy from shell variables. The packaged
 backend is compiled C (`/usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend`):
 it parses the request, verifies the C RF guard action-policy proof and bounded
 TX parameters, checks the live RF/hardware authorization environment, and only
-then delegates to `fieldmesh-radio-tx-enable`.
+then performs the bounded IIO gain/sleep/rollback sequence natively in C. The
+legacy `fieldmesh-radio-tx-enable` shell helper remains packaged for review and
+diagnostic compatibility, but the live backend no longer delegates TX semantics
+to shell.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

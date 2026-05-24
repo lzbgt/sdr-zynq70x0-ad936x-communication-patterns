@@ -1592,8 +1592,9 @@ below were later superseded by the current PHY-management two-board gates above:
   carries the C RF guard policy proof, bounded duration, fixture parameters,
   and rollback commands so the backend does not infer live-control policy from
   shell/Python state. The packaged backend is compiled C and revalidates that
-  request plus live authorization before delegating to the bounded board
-  TX-enable primitive. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
+  request plus live authorization before performing native IIO gain control,
+  bounded sleep, and rollback; it no longer delegates live TX semantics to the
+  shell TX-enable primitive. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
   manifests for attenuation, isolation, legal profile, calibration, and
   frequency range before live RF. The next live work is implementing the actual
   board backend for a real

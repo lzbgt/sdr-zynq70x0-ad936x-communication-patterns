@@ -168,9 +168,17 @@ if safety.get("starts_rf_tx") is not True or safety.get("writes_hardware") is no
     raise SystemExit("mock live run did not mark the live TX boundary")
 execution = report.get("execution") or {}
 stdout = execution.get("stdout", "")
-for token in ("fieldmesh_rf_tx_enable_backend", "fieldmesh_radio_tx_enable_command", "fieldmesh_radio_tx_disable"):
+for token in (
+    "fieldmesh_rf_tx_enable_backend",
+    "fieldmesh_rf_tx_enable_backend_iio_attr",
+    "fieldmesh_rf_tx_enable_backend_sleep",
+    "native_iio_attr_control",
+    "\"delegated_to\":\"iio_attr\"",
+):
     if token not in stdout:
         raise SystemExit(f"C backend output missing {token}: {stdout!r}")
+if "fieldmesh-radio-tx-enable" in stdout:
+    raise SystemExit(f"C backend delegated to shell TX-enable primitive: {stdout!r}")
 request = json.loads(Path(report["backend_request"]).read_text(encoding="utf-8"))
 if request.get("mode") != "execute-live-tx":
     raise SystemExit("live backend request mode mismatch")

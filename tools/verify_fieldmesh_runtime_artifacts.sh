@@ -571,15 +571,22 @@ PY
         fieldmesh_rf_tx_enable_backend_request \
         --bounded-tx-enable \
         --request \
-        fieldmesh-radio-tx-enable \
+        native_iio_attr_control \
+        fieldmesh_rf_tx_enable_backend_iio_attr \
+        fieldmesh_rf_tx_enable_backend_sleep \
         requires_c_rf_guard_action_policy_self_test \
         starts_rf_tx_when_executed \
-        tx_attenuation_db; do
+        tx_attenuation_db \
+        rollback_tx_attenuation_db; do
         if ! grep -qF -- "$token" "$rf_tx_backend_out"; then
             echo "Missing fieldmesh-rf-tx-enable-backend token in $name rootfs: $token" >&2
             exit 1
         fi
     done
+    if grep -qF -- "fieldmesh-radio-tx-enable failed" "$rf_tx_backend_out"; then
+        echo "Packaged fieldmesh-rf-tx-enable-backend in $name still delegates to shell TX-enable" >&2
+        exit 1
+    fi
     for token in \
         fieldmesh_ctrl_write \
         FIELD_MESH_EXECUTE_LIVE_TX \

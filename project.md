@@ -578,11 +578,13 @@ user and vendor configuration.
   board-local source-select/guard/tune/rollback script plus a structured
   backend request, stays dry-run by default, and only invokes the compiled C TX
   backend when hardware-write, RF-TX, fixture, attenuation, RX-first, and
-  operator-confirmation gates are all present.
+  operator-confirmation gates are all present. The backend performs the bounded
+  IIO gain/sleep/rollback sequence in C and does not delegate live TX semantics
+  to shell.
 - `tools/verify_fieldmesh_rf_tx_enable_run.sh` - gate for the TX-enable
   executor boundary. It verifies dry-run safety, missing review permission,
-  missing backend rejection, and compiled-backend dry-run execution without
-  touching board RF hardware.
+  missing backend rejection, and compiled-backend native-IIO dry-run execution
+  without touching board RF hardware.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for authorized over-air RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,
