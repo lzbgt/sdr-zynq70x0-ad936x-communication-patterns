@@ -396,6 +396,24 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != 0
     ):
         errors.append(f"{label}: native IIO burst integrated RF service daemon reported failures")
+    if (
+        report.get("iio_bridge_native_iio_burst_state_daemon_transport_queue_proven")
+        is not True
+    ):
+        errors.append(f"{label}: native state-daemon transport queue proof is missing")
+    queue_invocations = report.get(
+        "iio_bridge_native_iio_burst_state_daemon_transport_queue_invocations"
+    )
+    if not isinstance(queue_invocations, int) or queue_invocations < 1:
+        errors.append(f"{label}: native state-daemon transport queue was not exercised")
+    if (
+        int(
+            report.get("iio_bridge_native_iio_burst_state_daemon_transport_queue_failures")
+            or 0
+        )
+        != 0
+    ):
+        errors.append(f"{label}: native state-daemon transport queue reported failures")
     if report.get("iio_bridge_state_daemon_iio_transport_required") is not True:
         errors.append(f"{label}: state-daemon IIO transport proof must be required")
     if report.get("iio_bridge_state_daemon_iio_transport_proven") is not True:
@@ -881,6 +899,9 @@ def main() -> int:
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_native_iio_burst_integrated_rf_service_daemon": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
+        "requires_iio_native_iio_burst_state_daemon_transport_queue": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_state_daemon_iio_transport": bool(
@@ -1370,6 +1391,18 @@ def main() -> int:
         ),
         "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations": host.get(
             "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations"
+        ),
+        "board_iio_native_iio_burst_state_daemon_transport_queue_proven": board.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_queue_proven"
+        ),
+        "host_iio_native_iio_burst_state_daemon_transport_queue_proven": host.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_queue_proven"
+        ),
+        "board_iio_native_iio_burst_state_daemon_transport_queue_invocations": board.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_queue_invocations"
+        ),
+        "host_iio_native_iio_burst_state_daemon_transport_queue_invocations": host.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_queue_invocations"
         ),
         "board_iio_state_daemon_iio_transport_proven": board.get(
             "iio_bridge_state_daemon_iio_transport_proven"

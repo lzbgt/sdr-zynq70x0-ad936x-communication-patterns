@@ -366,6 +366,48 @@ class BurstHelperServer:
             raise SystemExit(f"iio_burst_helper integrated RF service daemon enqueue failed: {report}")
         return report
 
+    def enqueue_transport_integrated_rf_service_daemon_fields(
+        self, fields: dict[str, str], timeout_s: float
+    ) -> dict[str, Any]:
+        if self.proc.stdin is None:
+            raise SystemExit("iio_burst_helper server stdin is unavailable")
+        if self.proc.poll() is not None:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server is not running: stderr={stderr}")
+        for key, value in fields.items():
+            if "\n" in key or "\n" in value or "=" in key or " " in key or " " in value:
+                raise SystemExit(f"invalid IIO transport daemon field: {key!r}")
+        line = (
+            "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE_FIELDS "
+            + " ".join(f"{key}={value}" for key, value in fields.items())
+            + "\n"
+        )
+        try:
+            self.proc.stdin.write(line)
+            self.proc.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
+        report = self._read_json_line(
+            timeout_s,
+            "transport_integrated_rf_service_daemon_enqueue_fields",
+        )
+        if (
+            report.get("event")
+            != "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue_fields"
+            or report.get("ok") is not True
+            or report.get("native_iio_burst_integrated_rf_service_daemon_proof")
+            != "FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1"
+            or report.get("native_iio_burst_state_daemon_transport_queue_proof")
+            != "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1"
+        ):
+            self.close(kill=True)
+            raise SystemExit(
+                "iio_burst_helper integrated RF service daemon field enqueue failed: "
+                f"{report}"
+            )
+        return report
+
     def status_transport_integrated_rf_service_daemon(self, timeout_s: float) -> dict[str, Any]:
         if self.proc.stdin is None:
             raise SystemExit("iio_burst_helper server stdin is unavailable")
@@ -1147,13 +1189,11 @@ def execute_live_with_helper(
             "rx_arm_delay_ms": str(args.rx_arm_delay_ms),
             "cyclic": "1" if args.cyclic_tx else "0",
         }
-        request_path = args.out_dir / "fieldmesh_iio_burst_transport_worker_request.kv"
-        write_worker_xfer_request(request_path, xfer_fields)
-        scheduler_queue_path = args.out_dir / "fieldmesh_iio_burst_transport_scheduler_queue.kv"
-        write_transport_scheduler_queue(scheduler_queue_path, request_path)
+        request_path: Path | None = None
+        scheduler_queue_path: Path | None = None
         helper_transport_integrated_rf_service_daemon_enqueue = dict(
-            server.enqueue_transport_integrated_rf_service_daemon(
-                scheduler_queue_path,
+            server.enqueue_transport_integrated_rf_service_daemon_fields(
+                xfer_fields,
                 max(args.timeout_ms / 1000.0, 1.0),
             )
         )
@@ -1381,6 +1421,24 @@ def execute_live_with_helper(
         "transport_integrated_rf_service_daemon_drained_count": helper_report.get(
             "transport_integrated_rf_service_daemon_drained_count"
         ),
+        "native_iio_burst_state_daemon_transport_queue": (
+            helper_report.get("native_iio_burst_state_daemon_transport_queue") is True
+        ),
+        "native_iio_burst_state_daemon_transport_queue_proof": helper_report.get(
+            "native_iio_burst_state_daemon_transport_queue_proof"
+        ),
+        "transport_state_daemon_queue_request": (
+            helper_report.get("transport_state_daemon_queue_request") is True
+        ),
+        "transport_state_daemon_queue_request_count": helper_report.get(
+            "transport_state_daemon_queue_request_count"
+        ),
+        "python_transport_request_file_submission": (
+            helper_report.get("python_transport_request_file_submission") is True
+        ),
+        "python_transport_scheduler_queue_file_submission": (
+            helper_report.get("python_transport_scheduler_queue_file_submission") is True
+        ),
         "transport_worker_request": helper_report.get("transport_worker_request") is True,
         "transport_worker_request_count": helper_report.get("transport_worker_request_count"),
         "python_xfer_field_orchestration": helper_report.get("python_xfer_field_orchestration") is True,
@@ -1396,9 +1454,9 @@ def execute_live_with_helper(
             helper_report.get("python_background_daemon_start_submission") is True
         ),
         "next_boundary": helper_report.get("next_boundary"),
-        "transport_worker_request_file": str(request_path) if getattr(args, "persistent_burst_helper", False) else None,
+        "transport_worker_request_file": str(request_path) if request_path else None,
         "transport_scheduler_queue_file": (
-            str(scheduler_queue_path) if getattr(args, "persistent_burst_helper", False) else None
+            str(scheduler_queue_path) if scheduler_queue_path else None
         ),
         "libiio_rx_tx_worker": helper_report.get("libiio_rx_tx_worker") is True,
         "python_iio_transport": helper_report.get("python_iio_transport") is True,
@@ -1534,6 +1592,24 @@ def execute_live_with_helper(
             ],
             "transport_integrated_rf_service_daemon_drained_count": helper_result[
                 "transport_integrated_rf_service_daemon_drained_count"
+            ],
+            "native_iio_burst_state_daemon_transport_queue": helper_result[
+                "native_iio_burst_state_daemon_transport_queue"
+            ],
+            "native_iio_burst_state_daemon_transport_queue_proof": helper_result[
+                "native_iio_burst_state_daemon_transport_queue_proof"
+            ],
+            "transport_state_daemon_queue_request": helper_result[
+                "transport_state_daemon_queue_request"
+            ],
+            "transport_state_daemon_queue_request_count": helper_result[
+                "transport_state_daemon_queue_request_count"
+            ],
+            "python_transport_request_file_submission": helper_result[
+                "python_transport_request_file_submission"
+            ],
+            "python_transport_scheduler_queue_file_submission": helper_result[
+                "python_transport_scheduler_queue_file_submission"
             ],
             "transport_worker_request": helper_result["transport_worker_request"],
             "transport_worker_request_count": helper_result["transport_worker_request_count"],
@@ -1962,6 +2038,27 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
     )
+    native_iio_burst_state_daemon_transport_queue_proven = bool(
+        not native_iio_burst_worker_required
+        or (
+            command_results
+            and any(
+                result.get("name") == "iio_burst_helper"
+                and result.get("returncode") == 0
+                and result.get("native_iio_burst_state_daemon_transport_queue") is True
+                and result.get("native_iio_burst_state_daemon_transport_queue_proof")
+                == "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1"
+                and result.get("transport_state_daemon_queue_request") is True
+                and isinstance(result.get("transport_state_daemon_queue_request_count"), int)
+                and result.get("transport_state_daemon_queue_request_count") >= 1
+                and result.get("python_transport_request_file_submission") is False
+                and result.get("python_transport_scheduler_queue_file_submission") is False
+                and result.get("transport_worker_request_file") is None
+                and result.get("transport_scheduler_queue_file") is None
+                for result in command_results
+            )
+        )
+    )
 
     safety = {
         "authorized_rf_path": True,
@@ -2027,6 +2124,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "native_iio_burst_integrated_rf_service_daemon_proven": (
             native_iio_burst_integrated_rf_service_daemon_proven
+        ),
+        "native_iio_burst_state_daemon_transport_queue_proven": (
+            native_iio_burst_state_daemon_transport_queue_proven
         ),
         "decode": decode,
         "elapsed_ms": int((time.monotonic() - started) * 1000),

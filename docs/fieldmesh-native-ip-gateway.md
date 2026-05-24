@@ -383,18 +383,19 @@ Minimum production gates for native TCP/IP:
   rebuilt persistent helper moved 55 real-RF frames with zero bridge errors; the
   current evidence gate now requires that helper to prove its native server
   lifecycle with `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1` and a positive
-  server-owned transfer counter. It now also requires the C helper to start a
+  server-owned transfer counter. It now also requires the C helper to start an
   integrated RF-service daemon through
-  `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_START` and enqueue the scheduler queue
-  through `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE`, with completion
+  `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_START` and enqueue native transfer
+  fields through `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE_FIELDS`, with completion
   observed through `TRANSPORT_BACKGROUND_DAEMON_STATUS`, and emit
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`, and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1` plus
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1`,
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`, and
-  `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1` with
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`,
+  `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1`, and
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1` with
   both endpoint state daemons also proving
   `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`,
   `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`, positive
@@ -405,10 +406,12 @@ Minimum production gates for native TCP/IP:
   `python_worker_xfer_submission=false` plus
   `python_scheduler_drain_submission=false` and
   `python_autonomous_loop_run_submission=false` and
-  `python_background_daemon_start_submission=false`, so archived captures cannot pass on
+  `python_background_daemon_start_submission=false`,
+  `python_transport_request_file_submission=false`, and
+  `python_transport_scheduler_queue_file_submission=false`, so archived captures cannot pass on
   one-shot helper invocation, Python-owned `XFER` field strings, or the older direct
   `WORKER_XFER`/`TRANSPORT_SERVICE_LOOP_RUN`/`TRANSPORT_SCHEDULER_DRAIN`/`TRANSPORT_AUTONOMOUS_LOOP_RUN`
-  submission paths alone. The
+  submission paths or Python-written transfer request files alone. The
   Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
   was still already interrupted by the wrapper in that run, so production
