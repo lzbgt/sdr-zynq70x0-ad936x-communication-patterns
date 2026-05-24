@@ -205,10 +205,12 @@ int main(int argc, char **argv) {
                "\"fw_dma_control_offset\":\"0x%03x\","
                "\"fw_dma_status_offset\":\"0x%03x\","
                "\"fw_dma_config_offset\":\"0x%03x\","
+               "\"fw_dma_descriptor_flags_allowed\":\"0x%04" PRIx32 "\","
                "\"fw_dma_arm_control\":\"0x%08" PRIx32 "\"}\n",
                FIELDMESH_FW_DMA_REG_CONTROL,
                FIELDMESH_FW_DMA_REG_STATUS,
                FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY,
+               FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED,
                FIELDMESH_FW_DMA_ARM_CONTROL);
         return 0;
     }
@@ -278,7 +280,8 @@ int main(int argc, char **argv) {
         uint32_t seq_seed = parse_u32(argv[7], "seq_seed");
         if (!fieldmesh_fw_dma_config_args_valid(peer_index, mcs, retry_budget,
                                                 descriptor_flags)) {
-            fprintf(stderr, "peer_index/flags must fit in 16 bits; mcs/retry_budget must fit in 8 bits\n");
+            fprintf(stderr, "peer_index must fit in 16 bits; mcs/retry_budget must fit in 8 bits; descriptor_flags must use mask 0x%04x\n",
+                    FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED);
             return 2;
         }
         fieldmesh_fw_dma_config_t config = {

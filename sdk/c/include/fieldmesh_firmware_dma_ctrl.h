@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "fieldmesh_firmware_abi.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -56,6 +58,14 @@ extern "C" {
     (FIELDMESH_FW_DMA_FAULT_TX_PARSER | \
      FIELDMESH_FW_DMA_FAULT_INGRESS | \
      FIELDMESH_FW_DMA_FAULT_EGRESS)
+
+#define FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED \
+    (FIELDMESH_FW_DESC_FLAG_ACK_REQ | \
+     FIELDMESH_FW_DESC_FLAG_ENCRYPTED | \
+     FIELDMESH_FW_DESC_FLAG_FEC | \
+     FIELDMESH_FW_DESC_FLAG_FRAGMENT | \
+     FIELDMESH_FW_DESC_FLAG_LAST | \
+     FIELDMESH_FW_DESC_FLAG_TIMESTAMP_VALID)
 
 typedef struct fieldmesh_fw_dma_config {
     uint16_t peer_index;
@@ -152,7 +162,7 @@ static inline int fieldmesh_fw_dma_config_args_valid(uint32_t peer_index,
     return peer_index <= 0xffffu &&
            mcs <= 0xffu &&
            retry_budget <= 0xffu &&
-           descriptor_flags <= 0xffffu;
+           (descriptor_flags & ~FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED) == 0u;
 }
 
 static inline int fieldmesh_fw_dma_status_from_regs(

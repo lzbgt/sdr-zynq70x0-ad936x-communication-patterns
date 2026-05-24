@@ -16,6 +16,8 @@ rf_binding = (repo / "tools/verify_fieldmesh_rf_engine_firmware_dma_binding.sh")
 board_control = (repo / "tools/run_fieldmesh_board_fw_dma_control.sh").read_text(encoding="utf-8")
 rf_tools = (repo / "tools/verify_fieldmesh_rf_tools.sh").read_text(encoding="utf-8")
 abi_verify = (repo / "tools/verify_fieldmesh_production_firmware_abi.sh").read_text(encoding="utf-8")
+rf_tools_z203_recipe = (repo / "meta-sdr-z203/recipes-core/fieldmesh-rf-tools/fieldmesh-rf-tools_0.1.bb").read_text(encoding="utf-8")
+rf_tools_z103_recipe = (repo / "meta-sdr-z103/recipes-core/fieldmesh-rf-tools/fieldmesh-rf-tools_0.1.bb").read_text(encoding="utf-8")
 
 required_header_tokens = [
     "FIELDMESH_FW_DMA_REG_CONTROL 0x140u",
@@ -27,6 +29,8 @@ required_header_tokens = [
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
     "FIELDMESH_FW_DMA_FAULT_ALL",
+    "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
+    "FIELDMESH_FW_DESC_FLAG_TIMESTAMP_VALID",
 ]
 for token in required_header_tokens:
     if token not in header:
@@ -46,6 +50,8 @@ required_tool_tokens = [
     "FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
+    "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
+    "descriptor_flags must use mask",
     "reads_hardware\\\":%s",
 ]
 for token in required_tool_tokens:
@@ -93,6 +99,7 @@ for token in (
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-config",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-arm",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop",
+    "DESCRIPTOR_FLAGS:$descriptor_flags:63",
 ):
     if token not in board_control:
         raise SystemExit(f"board firmware DMA control wrapper missing guarded command token: {token}")
@@ -103,6 +110,8 @@ for token in (
     "writes_hardware",
     "fault_status",
     "bram_bounds_errors",
+    "fw_dma_descriptor_flags_allowed",
+    "fw_dma_config_bad_flags.err",
 ):
     if token not in rf_tools:
         raise SystemExit(f"RF tools verifier missing firmware DMA status token: {token}")
@@ -110,10 +119,22 @@ for token in (
 for token in (
     "fieldmesh_fw_dma_status_offset(24u)",
     "FIELDMESH_FW_DMA_REG_FAULT_STATUS",
+    "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
     "fieldmesh_firmware_dma_ctrl.h",
 ):
     if token not in abi_verify:
         raise SystemExit(f"production firmware ABI verifier missing firmware DMA token: {token}")
+
+for path_name, source in (
+    ("meta-sdr-z203 fieldmesh-rf-tools recipe", rf_tools_z203_recipe),
+    ("meta-sdr-z103 fieldmesh-rf-tools recipe", rf_tools_z103_recipe),
+):
+    for token in (
+        "fieldmesh_firmware_abi.h",
+        "fieldmesh_firmware_dma_ctrl.h",
+    ):
+        if token not in source:
+            raise SystemExit(f"{path_name} missing firmware DMA include token: {token}")
 
 print("fieldmesh_fw_dma_control_contract=pass")
 PY

@@ -68,7 +68,7 @@ for pair in \
   "PEER_INDEX:$peer_index:65535" \
   "MCS:$mcs:255" \
   "RETRY_BUDGET:$retry_budget:255" \
-  "DESCRIPTOR_FLAGS:$descriptor_flags:65535" \
+  "DESCRIPTOR_FLAGS:$descriptor_flags:63" \
   "SEQ_SEED:$seq_seed:4294967295"; do
   IFS=: read -r name value max_value <<<"$pair"
   case "$value" in

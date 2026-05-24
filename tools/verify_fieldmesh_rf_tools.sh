@@ -20,6 +20,10 @@ cc -std=c99 -Wall -Wextra -Werror \
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
+if "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x40 0x1200 >"$work_dir/fw_dma_config_bad_flags.json" 2>"$work_dir/fw_dma_config_bad_flags.err"; then
+  echo "fieldmesh-ctrl-write accepted reserved firmware-DMA descriptor flags" >&2
+  exit 1
+fi
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 0x43c00000 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop 0x43c00000 >"$work_dir/fw_dma_stop_guard.json" 2>/dev/null || true
 
@@ -99,6 +103,10 @@ if self_test.get("fw_dma_control_offset") != "0x140" or self_test.get("fw_dma_ar
     raise SystemExit(f"bad firmware DMA self-test offsets: {self_test!r}")
 if self_test.get("fw_dma_config_offset") != "0x170":
     raise SystemExit(f"bad firmware DMA config offset: {self_test!r}")
+if self_test.get("fw_dma_descriptor_flags_allowed") != "0x003f":
+    raise SystemExit(f"bad firmware DMA descriptor flag mask: {self_test!r}")
+if "descriptor_flags must use mask 0x003f" not in (work / "fw_dma_config_bad_flags.err").read_text(encoding="utf-8"):
+    raise SystemExit("firmware DMA config did not reject reserved descriptor flags")
 
 fw_status_self_test = json.loads((work / "fw_dma_status_self_test.json").read_text(encoding="utf-8"))
 if fw_status_self_test.get("event") != "fieldmesh_fw_dma_status" or fw_status_self_test.get("ok") is not True:

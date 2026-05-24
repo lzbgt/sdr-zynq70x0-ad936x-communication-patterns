@@ -2824,6 +2824,8 @@ The RF-tools verifier also covers the guarded userspace control contract for
 that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
 authorization, and `--fw-dma-config`/`--fw-dma-arm`/`--fw-dma-stop` remain
 non-mutating unless the explicit live-write and firmware-DMA guards are present.
+It also rejects reserved firmware-DMA descriptor metadata flags before any
+hardware access; only the defined TX descriptor flag mask `0x003f` is accepted.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
@@ -2840,7 +2842,8 @@ FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full
-`0x140..0x1a0` firmware-DMA page, and stale `0x178` overlay guards are rejected.
+`0x140..0x1a0` firmware-DMA page, the shared descriptor flag mask, and the
+required Yocto recipe headers; stale `0x178` overlay guards are rejected.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

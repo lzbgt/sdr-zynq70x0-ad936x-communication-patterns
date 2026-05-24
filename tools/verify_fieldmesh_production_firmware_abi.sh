@@ -537,6 +537,8 @@ required = [
     "FIELDMESH_FW_DMA_FAULT_TX_PARSER",
     "FIELDMESH_FW_DMA_FAULT_INGRESS",
     "FIELDMESH_FW_DMA_FAULT_EGRESS",
+    "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
+    "FIELDMESH_FW_DESC_FLAG_TIMESTAMP_VALID",
     "fieldmesh_fw_dma_config_t",
     "fieldmesh_fw_dma_status_t",
     "fieldmesh_fw_dma_pack_peer_mcs_retry",

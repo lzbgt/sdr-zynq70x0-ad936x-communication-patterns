@@ -474,6 +474,8 @@ this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
 in the tool result stream for inspection; the transport ABI remains binary.
 The C SDK header `fieldmesh_firmware_dma_ctrl.h` is the host-side source of
 truth for these offsets, control bits, sideband packing, and status decoding.
+It also limits firmware-DMA descriptor metadata writes to the defined TX flag
+mask `0x003f`; reserved descriptor flags are rejected before hardware access.
 The tool's `--fw-dma-status-self-test` path feeds a fixed C register vector
 through that same decoder, so CI can verify successful status output without a
 `/dev/mem` mapping.
