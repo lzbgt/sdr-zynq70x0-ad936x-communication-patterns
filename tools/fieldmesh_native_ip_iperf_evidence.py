@@ -105,6 +105,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != "tcp-control-flow-udp-after-control"
     ):
         errors.append(f"{label}: IIO RF service policy must use hybrid lease priority")
+    if report.get("iio_bridge_rf_service_policy_in_burst_priority_preemption") is not True:
+        errors.append(f"{label}: IIO RF service policy must enable in-burst priority preemption")
     if report.get("iio_bridge_native_rf_service_worker_required") is not True:
         errors.append(f"{label}: native RF service worker proof must be required")
     if report.get("iio_bridge_native_rf_service_worker_proven") is not True:
@@ -135,9 +137,19 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         and status.get("production_iio_policy") == 1
         and isinstance(status.get("frames"), int)
         and isinstance(status.get("service_order_rank"), int)
+        and status.get("in_burst_priority_preemption") == 1
+        and isinstance(status.get("in_burst_priority_preempted"), int)
         for status in loop_tick_status.values()
     ):
         errors.append(f"{label}: native RF service loop tick status is incomplete")
+    if report.get("iio_bridge_in_burst_priority_preemption_enabled") is not True:
+        errors.append(f"{label}: IIO bridge in-burst priority preemption must be enabled")
+    if report.get("iio_bridge_in_burst_priority_preemption_exercised") is not True:
+        errors.append(f"{label}: IIO bridge in-burst priority preemption was not exercised")
+    if not isinstance(report.get("iio_bridge_in_burst_priority_preemptions"), int) or (
+        report.get("iio_bridge_in_burst_priority_preemptions") < 1
+    ):
+        errors.append(f"{label}: IIO bridge in-burst priority preemption count is missing")
     if report.get("iio_bridge_native_direction_scheduler_enabled") is not True:
         errors.append(f"{label}: native RF direction scheduler must be enabled")
     if report.get("iio_bridge_native_direction_scheduler_proven") is not True:
@@ -609,6 +621,9 @@ def main() -> int:
         "requires_iio_persistent_burst_helper": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_in_burst_priority_preemption": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_iio_rf_sub_burst_evidence": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
@@ -676,6 +691,12 @@ def main() -> int:
         ),
         "host_iio_rf_service_policy_lease_priority": host.get(
             "iio_bridge_rf_service_policy_lease_priority"
+        ),
+        "board_iio_rf_service_policy_in_burst_priority_preemption": board.get(
+            "iio_bridge_rf_service_policy_in_burst_priority_preemption"
+        ),
+        "host_iio_rf_service_policy_in_burst_priority_preemption": host.get(
+            "iio_bridge_rf_service_policy_in_burst_priority_preemption"
         ),
         "board_iio_native_rf_service_worker_proven": (
             True
@@ -902,6 +923,24 @@ def main() -> int:
         ),
         "host_iio_bridge_persistent_burst_helper": host.get(
             "iio_bridge_persistent_burst_helper"
+        ),
+        "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
+            "iio_bridge_in_burst_priority_preemption_enabled"
+        ),
+        "host_iio_bridge_in_burst_priority_preemption_enabled": host.get(
+            "iio_bridge_in_burst_priority_preemption_enabled"
+        ),
+        "board_iio_bridge_in_burst_priority_preemption_exercised": board.get(
+            "iio_bridge_in_burst_priority_preemption_exercised"
+        ),
+        "host_iio_bridge_in_burst_priority_preemption_exercised": host.get(
+            "iio_bridge_in_burst_priority_preemption_exercised"
+        ),
+        "board_iio_bridge_in_burst_priority_preemptions": board.get(
+            "iio_bridge_in_burst_priority_preemptions"
+        ),
+        "host_iio_bridge_in_burst_priority_preemptions": host.get(
+            "iio_bridge_in_burst_priority_preemptions"
         ),
         "board_iio_bridge_native_service_burst_leases": board.get(
             "iio_bridge_native_service_burst_leases"

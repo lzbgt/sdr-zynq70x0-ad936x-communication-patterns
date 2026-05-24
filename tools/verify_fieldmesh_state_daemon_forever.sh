@@ -121,6 +121,7 @@ expected = {
     "source_ack_pipeline_depth": 2,
     "adaptive_direction_scheduler": 1,
     "persistent_burst_helper": 1,
+    "in_burst_priority_preemption": 1,
     "lease_priority": "tcp_control_flow_udp_after_control",
     "lease_priority_cli": "tcp-control-flow-udp-after-control",
     "production_iio_policy": 1,

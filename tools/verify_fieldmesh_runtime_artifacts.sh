@@ -400,6 +400,10 @@ PY
         sdk_daemon_rf_service_next_burst \
         native_service_burst \
         deferred_lease_frames \
+        in_burst_priority_preemption \
+        in_burst_priority_preempted \
+        in_burst_preempted_score \
+        in_burst_deferred_head_score \
         FIELDMESH_RF_SERVICE_LOOP_TICK \
         sdk_daemon_rf_service_loop_tick \
         native_service_loop_tick \

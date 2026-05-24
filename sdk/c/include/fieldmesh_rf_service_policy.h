@@ -25,6 +25,7 @@ typedef enum fieldmesh_rf_service_lease_priority {
 #define FIELDMESH_RF_SERVICE_DEFAULT_SOURCE_ACK_PIPELINE_DEPTH 2u
 #define FIELDMESH_RF_SERVICE_DEFAULT_ADAPTIVE_DIRECTION_SCHEDULER 1u
 #define FIELDMESH_RF_SERVICE_DEFAULT_PERSISTENT_BURST_HELPER 1u
+#define FIELDMESH_RF_SERVICE_DEFAULT_IN_BURST_PRIORITY_PREEMPTION 1u
 #define FIELDMESH_RF_SERVICE_DEFAULT_LEASE_PRIORITY \
     FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL
 
@@ -37,6 +38,7 @@ typedef struct fieldmesh_rf_service_policy {
     uint8_t async_source_ack;
     uint8_t adaptive_direction_scheduler;
     uint8_t persistent_burst_helper;
+    uint8_t in_burst_priority_preemption;
     fieldmesh_rf_service_lease_priority_t lease_priority;
 } fieldmesh_rf_service_policy_t;
 
@@ -60,6 +62,8 @@ fieldmesh_rf_service_default_policy(void)
         (uint8_t)FIELDMESH_RF_SERVICE_DEFAULT_ADAPTIVE_DIRECTION_SCHEDULER;
     policy.persistent_burst_helper =
         (uint8_t)FIELDMESH_RF_SERVICE_DEFAULT_PERSISTENT_BURST_HELPER;
+    policy.in_burst_priority_preemption =
+        (uint8_t)FIELDMESH_RF_SERVICE_DEFAULT_IN_BURST_PRIORITY_PREEMPTION;
     policy.lease_priority = FIELDMESH_RF_SERVICE_DEFAULT_LEASE_PRIORITY;
     return policy;
 }
@@ -216,6 +220,7 @@ static inline int fieldmesh_rf_service_policy_accepts_production_iio(
            policy->same_priority_batch &&
            policy->adaptive_direction_scheduler &&
            policy->persistent_burst_helper &&
+           policy->in_burst_priority_preemption &&
            policy->lease_priority ==
                FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL &&
            fieldmesh_rf_service_policy_requires_reverse_service(policy);

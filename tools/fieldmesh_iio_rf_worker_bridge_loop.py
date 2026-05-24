@@ -239,6 +239,7 @@ def native_service_burst_from_daemon(
         "native_rf_service_control_plane": 1,
         "service_policy_bound": 1,
         "production_iio_policy": 1,
+        "in_burst_priority_preemption": 1,
         "non_destructive": 1,
         "requires_ack": 1,
         "rf_transport_mode": "driver_queue",
@@ -332,6 +333,7 @@ def native_service_loop_tick_from_daemon(
         "requires_ack": 1,
         "service_skipped": 0,
         "same_priority_batch": 1,
+        "in_burst_priority_preemption": 1,
     }
     errors.extend(
         f"{key}={report.get(key)!r} expected {expected!r}"
@@ -351,6 +353,9 @@ def native_service_loop_tick_from_daemon(
         "max_frames_per_rf_burst",
         "emitted_service_frames",
         "deferred_lease_frames",
+        "in_burst_priority_preempted",
+        "in_burst_preempted_score",
+        "in_burst_deferred_head_score",
     ):
         if not isinstance(report.get(key), int):
             errors.append(f"{key}={report.get(key)!r} expected integer")
@@ -488,6 +493,7 @@ def validate_native_worker_boundary(
         "source_ack_pipeline_depth": args.source_ack_pipeline_depth,
         "adaptive_direction_scheduler": 1 if args.adaptive_direction_scheduler else 0,
         "persistent_burst_helper": 1 if args.persistent_burst_helper else 0,
+        "in_burst_priority_preemption": 1,
         "requires_reverse_service": 1,
         "lease_priority_cli": args.lease_priority,
     }
@@ -1511,6 +1517,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_ticks": 0,
         "native_service_loop_tick_skips": 0,
         "native_service_loop_tick_failures": 0,
+        "in_burst_priority_preemptions": 0,
         "rf_sub_burst_slices": 0,
         "rf_sub_burst_deferred_frames": 0,
         "rf_sub_burst_preemption_points": 0,
@@ -1617,6 +1624,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
             ),
             "native_service_loop_tick_status": native_service_loop_tick_by_direction,
+            "in_burst_priority_preemption_enabled": bool(args.native_service_burst_leases),
+            "in_burst_priority_preemption_exercised": bool(
+                counts["in_burst_priority_preemptions"] > 0
+            ),
+            "in_burst_priority_preemptions": counts["in_burst_priority_preemptions"],
             "rf_lease_batch_high_water": batch_high_water_max(
                 rf_lease_batch_high_water_by_direction
             ),
@@ -2131,6 +2143,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             continue
                         if args.native_service_burst_leases:
                             counts["native_service_burst_leases"] += 1
+                            if batch_lease.get("in_burst_priority_preempted") == 1:
+                                counts["in_burst_priority_preemptions"] += 1
                         if args.native_service_burst_leases:
                             leased_frame_count = max(
                                 len(batch_frames),

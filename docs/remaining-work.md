@@ -404,14 +404,16 @@ Those scheduler assumptions now have a native C contract:
 `fieldmesh_rf_service_policy.h` defines the production IIO defaults and the
 daemon answers `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` with a read/write-free
 proof of the same lease batch, sub-burst, same-priority, hybrid-priority,
-ACK-pipeline, persistent-helper, and reverse-service policy. The current Python
-bridge still performs the host-side scheduling, but CI now verifies that its
-HIL defaults match the C policy and native-IP HIL evidence now carries the
-daemon C proof through preflight, production classification, app reports, and
-readiness. The live IIO bridge now also gates on both daemons reporting a
-running native RF worker/control-plane status bound to that policy, then uses
-`FIELDMESH_RF_SERVICE_NEXT_BURST v1` so native C fills the lease window, emits
-only the configured RF sub-burst, and preserves deferred lease frames for
+ACK-pipeline, persistent-helper, reverse-service, and in-burst priority
+preemption policy. The current Python bridge still performs the host-side
+scheduling, but CI now verifies that its HIL defaults match the C policy and
+native-IP HIL evidence now carries the daemon C proof through preflight,
+production classification, app reports, and readiness. The live IIO bridge now
+also gates on both daemons reporting a running native RF worker/control-plane
+status bound to that policy, then uses `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so
+native C fills the lease window, emits only the configured RF sub-burst,
+preempts deferred lower-priority lease heads with newly queued higher-priority
+control/result frames, and preserves remaining deferred lease frames for
 reverse-path service. The per-source score now comes from
 `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, and the local-vs-peer service/yield
 choice and service-order rank come from

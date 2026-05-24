@@ -1360,13 +1360,14 @@ user and vendor configuration.
   The same scheduler defaults now live in `fieldmesh_rf_service_policy.h`, and
   the daemon exposes `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` so CI can prove
   the four-frame lease, two-frame sub-burst, same-priority/hybrid-priority,
-  persistent-helper, ACK-pipeline, and reverse-service contract in C without
-  touching RF or hardware. Live IIO RF bridge runs now also require both
+  persistent-helper, ACK-pipeline, reverse-service, and in-burst priority
+  preemption contract in C without touching RF or hardware. Live IIO RF bridge runs now also require both
   daemons to report a running native RF worker/control-plane status bound to
   the same policy before scheduling starts, then request each RF service burst
   through `FIELDMESH_RF_SERVICE_NEXT_BURST v1`. That moves lease-window fill,
-  same-priority stop, sub-burst emission, and deferred-frame replay into the C
-  daemon. Python still drives the outer cross-daemon loop, but it now uses
+  same-priority stop, in-burst priority preemption, sub-burst emission, and
+  deferred-frame replay into the C daemon. Python still drives the outer
+  cross-daemon loop, but it now uses
   `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for the per-source queue score,
   `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the local-vs-peer
   service/yield choice plus service-order rank, and

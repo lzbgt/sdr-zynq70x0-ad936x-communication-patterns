@@ -66,6 +66,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_iio_hybrid_lease_priority_missing")
         if report.get("requires_iio_persistent_burst_helper") is not True:
             blockers.append("native_ip_iio_persistent_burst_helper_missing")
+        if report.get("requires_iio_in_burst_priority_preemption") is not True:
+            blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
         if report.get("requires_iio_rf_sub_burst_evidence") is not True:
             blockers.append("native_ip_iio_rf_sub_burst_evidence_missing")
         if report.get("requires_iio_rf_service_policy_proof") is not True:
@@ -112,6 +114,14 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_persistent_burst_helper_missing")
         if report.get("host_iio_bridge_persistent_burst_helper") is not True:
             blockers.append("native_ip_host_iio_persistent_burst_helper_missing")
+        if report.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
+            blockers.append("native_ip_board_iio_in_burst_priority_preemption_missing")
+        if report.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
+            blockers.append("native_ip_host_iio_in_burst_priority_preemption_missing")
+        if report.get("board_iio_bridge_in_burst_priority_preemption_exercised") is not True:
+            blockers.append("native_ip_board_iio_in_burst_priority_preemption_unexercised")
+        if report.get("host_iio_bridge_in_burst_priority_preemption_exercised") is not True:
+            blockers.append("native_ip_host_iio_in_burst_priority_preemption_unexercised")
         if report.get("board_iio_rf_sub_burst_exercised") is not True:
             blockers.append("native_ip_board_iio_rf_sub_burst_missing")
         if report.get("host_iio_rf_sub_burst_exercised") is not True:
@@ -192,6 +202,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_rf_service_policy_proof": report.get(
             "requires_iio_rf_service_policy_proof"
+        ),
+        "requires_iio_in_burst_priority_preemption": report.get(
+            "requires_iio_in_burst_priority_preemption"
         ),
         "requires_iio_native_rf_service_worker_proof": report.get(
             "requires_iio_native_rf_service_worker_proof"
@@ -334,6 +347,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_bridge_persistent_burst_helper": report.get(
             "host_iio_bridge_persistent_burst_helper"
+        ),
+        "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
+            "board_iio_bridge_in_burst_priority_preemption_enabled"
+        ),
+        "host_iio_bridge_in_burst_priority_preemption_enabled": report.get(
+            "host_iio_bridge_in_burst_priority_preemption_enabled"
+        ),
+        "board_iio_bridge_in_burst_priority_preemption_exercised": report.get(
+            "board_iio_bridge_in_burst_priority_preemption_exercised"
+        ),
+        "host_iio_bridge_in_burst_priority_preemption_exercised": report.get(
+            "host_iio_bridge_in_burst_priority_preemption_exercised"
+        ),
+        "board_iio_bridge_in_burst_priority_preemptions": report.get(
+            "board_iio_bridge_in_burst_priority_preemptions"
+        ),
+        "host_iio_bridge_in_burst_priority_preemptions": report.get(
+            "host_iio_bridge_in_burst_priority_preemptions"
         ),
         "board_iio_rf_sub_burst_exercised": report.get(
             "board_iio_rf_sub_burst_exercised"

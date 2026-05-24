@@ -5096,8 +5096,9 @@ daemon's read/write-free `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` path. That
 C proof must report the production IIO scheduler policy from
 `fieldmesh_rf_service_policy.h`: four-frame leases, two-frame sub-bursts,
 same-priority batches, hybrid `tcp-control-flow-udp-after-control` lease
-priority, persistent burst helper, ACK-pipeline depth two, and a
-reverse-service requirement. `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
+priority, persistent burst helper, ACK-pipeline depth two, reverse-service
+requirement, and in-burst priority preemption.
+`verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP
 preflight/final reports must also carry the daemon C policy proof, and the
@@ -5116,10 +5117,11 @@ service-burst emission in one native tick. The same worker/scheduler/decision/
 tick proof is preserved through native-IP evidence, app reports, and readiness.
 Production bridge runs also require native service-burst leases:
 `FIELDMESH_RF_SERVICE_NEXT_BURST v1` is the C-owned command that fills the
-four-frame lease window, emits the two-frame RF burst, and leaves deferred
+four-frame lease window, performs in-burst priority preemption against the
+deferred lease head, emits the two-frame RF burst, and leaves remaining deferred
 leased frames queued until successful peer ingest and ACK. The evidence
 classifiers reject IIO reports that do not prove this daemon-owned burst
-boundary.
+boundary and at least one exercised in-burst priority preemption.
 Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,

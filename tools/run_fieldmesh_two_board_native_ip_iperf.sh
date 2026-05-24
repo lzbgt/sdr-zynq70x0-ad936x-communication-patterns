@@ -554,6 +554,7 @@ expected = {
     "source_ack_pipeline_depth": 2,
     "adaptive_direction_scheduler": 1,
     "persistent_burst_helper": 1,
+    "in_burst_priority_preemption": 1,
     "lease_priority": "tcp_control_flow_udp_after_control",
     "lease_priority_cli": "tcp-control-flow-udp-after-control",
     "production_iio_policy": 1,
@@ -618,6 +619,7 @@ if summary["ok"]:
         "source_ack_pipeline_depth",
         "adaptive_direction_scheduler",
         "persistent_burst_helper",
+        "in_burst_priority_preemption",
         "lease_priority",
         "lease_priority_cli",
     ):
@@ -2912,8 +2914,20 @@ report = {
     "iio_bridge_rf_service_policy_lease_priority": str(
         last_rf_service_policy.get("lease_priority_cli") or ""
     ),
+    "iio_bridge_rf_service_policy_in_burst_priority_preemption": bool(
+        last_rf_service_policy.get("in_burst_priority_preemption")
+    ),
     "iio_bridge_persistent_burst_helper": bool(
         last_iio_bridge.get("persistent_burst_helper")
+    ),
+    "iio_bridge_in_burst_priority_preemption_enabled": bool(
+        last_iio_bridge.get("in_burst_priority_preemption_enabled")
+    ),
+    "iio_bridge_in_burst_priority_preemption_exercised": bool(
+        last_iio_bridge.get("in_burst_priority_preemption_exercised")
+    ),
+    "iio_bridge_in_burst_priority_preemptions": int(
+        last_iio_bridge.get("in_burst_priority_preemptions") or 0
     ),
     "iio_bridge_native_rf_service_worker_required": bool(
         last_iio_bridge.get("native_rf_service_worker_required")

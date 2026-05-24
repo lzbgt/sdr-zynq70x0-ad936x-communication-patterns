@@ -44,6 +44,10 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   },
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
+  "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
+  "iio_bridge_in_burst_priority_preemption_enabled": true,
+  "iio_bridge_in_burst_priority_preemption_exercised": true,
+  "iio_bridge_in_burst_priority_preemptions": 1,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
   "iio_bridge_native_service_loop_tick_enabled": true,
@@ -57,6 +61,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "native_service_burst": 1,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
+      "in_burst_priority_preemption": 1,
+      "in_burst_priority_preempted": 1,
       "service_order_rank": 1002,
       "frames": 2
     }
@@ -208,6 +214,10 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   },
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
+  "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
+  "iio_bridge_in_burst_priority_preemption_enabled": true,
+  "iio_bridge_in_burst_priority_preemption_exercised": true,
+  "iio_bridge_in_burst_priority_preemptions": 1,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
   "iio_bridge_native_service_loop_tick_enabled": true,
@@ -221,6 +231,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "native_service_burst": 1,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
+      "in_burst_priority_preemption": 1,
+      "in_burst_priority_preempted": 1,
       "service_order_rank": 1004,
       "frames": 2
     }
@@ -381,6 +393,8 @@ if report.get("requires_iio_hybrid_lease_priority") is not True:
     raise SystemExit(f"missing hybrid lease-priority requirement: {report}")
 if report.get("requires_iio_persistent_burst_helper") is not True:
     raise SystemExit(f"missing persistent helper requirement: {report}")
+if report.get("requires_iio_in_burst_priority_preemption") is not True:
+    raise SystemExit(f"missing in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"missing RF sub-burst requirement: {report}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:
@@ -499,6 +513,8 @@ if report.get("requires_iio_hybrid_lease_priority") is not True:
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority requirement: {report}")
 if report.get("requires_iio_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper requirement: {report}")
+if report.get("requires_iio_in_burst_priority_preemption") is not True:
+    raise SystemExit(f"native-IP readiness lost in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst requirement: {report}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:

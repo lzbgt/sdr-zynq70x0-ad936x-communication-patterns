@@ -385,6 +385,23 @@ static int tun_service_rf_queue_push(struct tun_service_rf_queue *queue,
     return 1;
 }
 
+static int tun_service_rf_queue_push_front(struct tun_service_rf_queue *queue,
+                                           const unsigned char *frame,
+                                           size_t frame_len)
+{
+    if (!queue || !frame || frame_len == 0u ||
+        frame_len > TUN_SERVICE_RF_FRAME_MAX ||
+        queue->count >= TUN_SERVICE_RF_QUEUE_DEPTH) {
+        return 0;
+    }
+    queue->head = (queue->head + TUN_SERVICE_RF_QUEUE_DEPTH - 1u) %
+                  TUN_SERVICE_RF_QUEUE_DEPTH;
+    memcpy(queue->frames[queue->head], frame, frame_len);
+    queue->frame_lens[queue->head] = frame_len;
+    queue->count++;
+    return 1;
+}
+
 static int ipv4_tcp_duplicate_signature_equal(const unsigned char *lhs,
                                               size_t lhs_len,
                                               const unsigned char *rhs,
@@ -1155,6 +1172,87 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
     }
     if (out_priority_drop_stopped) {
         *out_priority_drop_stopped = priority_drop_stopped;
+    }
+    return 1;
+}
+
+static int tun_service_rf_queue_preempt_head_from_source(
+    struct tun_service_rf_queue *src,
+    struct tun_service_rf_queue *dst,
+    enum tun_service_rf_lease_priority priority,
+    const struct tun_service_state *service,
+    unsigned *out_preempted,
+    unsigned *out_preempted_score,
+    unsigned *out_deferred_head_score)
+{
+    unsigned char deferred_head[TUN_SERVICE_RF_FRAME_MAX];
+    unsigned char selected[TUN_SERVICE_RF_FRAME_MAX];
+    size_t deferred_head_len = 0u;
+    size_t selected_len = 0u;
+    size_t selected_offset = 0u;
+    unsigned deferred_score;
+    unsigned best_score = 0u;
+    size_t i;
+
+    if (out_preempted) {
+        *out_preempted = 0u;
+    }
+    if (out_preempted_score) {
+        *out_preempted_score = 0u;
+    }
+    if (out_deferred_head_score) {
+        *out_deferred_head_score = 0u;
+    }
+    if (!src || !dst || src->count == 0u || dst->count == 0u ||
+        tun_service_rf_queue_full(dst) ||
+        priority == TUN_SERVICE_RF_LEASE_PRIORITY_FIFO) {
+        return 1;
+    }
+    if (!tun_service_rf_queue_peek(dst, deferred_head, sizeof(deferred_head),
+                                   &deferred_head_len)) {
+        return 0;
+    }
+    deferred_score = blr_app_data_priority_score(
+        deferred_head, deferred_head_len, priority,
+        service ? &service->rf_tx_control_flow : NULL);
+    for (i = 0u; i < src->count; ++i) {
+        unsigned char candidate[TUN_SERVICE_RF_FRAME_MAX];
+        size_t candidate_len = 0u;
+        unsigned score;
+
+        if (!tun_service_rf_queue_peek_at(src, i, candidate,
+                                          sizeof(candidate), &candidate_len)) {
+            continue;
+        }
+        score = blr_app_data_priority_score(
+            candidate, candidate_len, priority,
+            service ? &service->rf_tx_control_flow : NULL);
+        if (score > best_score) {
+            best_score = score;
+            selected_offset = i;
+            if (score >= 9u) {
+                break;
+            }
+        }
+    }
+    if (out_deferred_head_score) {
+        *out_deferred_head_score = deferred_score;
+    }
+    if (best_score <= deferred_score) {
+        return 1;
+    }
+    if (!tun_service_rf_queue_pop_at(src, selected_offset, selected,
+                                     sizeof(selected), &selected_len)) {
+        return 0;
+    }
+    if (!tun_service_rf_queue_push_front(dst, selected, selected_len)) {
+        return 0;
+    }
+    if (out_preempted) {
+        *out_preempted = 1u;
+    }
+    if (out_preempted_score) {
+        *out_preempted_score = best_score;
     }
     return 1;
 }
@@ -3117,6 +3215,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"source_ack_pipeline_depth\":%u,"
                  "\"adaptive_direction_scheduler\":%u,"
                  "\"persistent_burst_helper\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"production_iio_policy\":%u,"
@@ -3137,6 +3236,7 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)policy.source_ack_pipeline_depth,
                  (unsigned)policy.adaptive_direction_scheduler,
                  (unsigned)policy.persistent_burst_helper,
+                 (unsigned)policy.in_burst_priority_preemption,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
@@ -5982,6 +6082,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"source_ack_pipeline_depth\":%u,"
                  "\"adaptive_direction_scheduler\":%u,"
                  "\"persistent_burst_helper\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
                  "\"requires_reverse_service\":%u,"
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
@@ -6019,6 +6120,7 @@ static int build_response(fieldmesh_context_t *context,
                  policy.source_ack_pipeline_depth,
                  (unsigned)policy.adaptive_direction_scheduler,
                  (unsigned)policy.persistent_burst_helper,
+                 (unsigned)policy.in_burst_priority_preemption,
                  fieldmesh_rf_service_policy_requires_reverse_service(&policy) ?
                      1u :
                      0u,
@@ -6231,6 +6333,9 @@ static int build_response(fieldmesh_context_t *context,
         unsigned batch_min_priority_score = 0u;
         unsigned batch_priority_drop_stopped = 0u;
         unsigned deferred_lease_frames = 0u;
+        unsigned in_burst_priority_preempted = 0u;
+        unsigned in_burst_preempted_score = 0u;
+        unsigned in_burst_deferred_head_score = 0u;
         char frames_json[6400];
         size_t used = 0u;
 
@@ -6345,6 +6450,21 @@ static int build_response(fieldmesh_context_t *context,
         }
         replayed_lease =
             moved == 0u && tun_service->rf_tx_lease_queue.count > 0u;
+        if (policy.in_burst_priority_preemption &&
+            !tun_service_rf_queue_preempt_head_from_source(
+                &tun_service->rf_tx_queue, &tun_service->rf_tx_lease_queue,
+                lease_priority, tun_service, &in_burst_priority_preempted,
+                &in_burst_preempted_score,
+                &in_burst_deferred_head_score)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                     "\"ok\":false,"
+                     "\"error\":\"in_burst_priority_preemption_failed\","
+                     "\"native_service_loop_tick\":1,"
+                     "\"native_service_burst\":1,"
+                     "\"service_policy_bound\":1}\n");
+            return 0;
+        }
         frames_json[0] = '\0';
         for (i = 0u; i < max_frames &&
                     i < tun_service->rf_tx_lease_queue.count;
@@ -6435,6 +6555,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"batch_first_priority_score\":%u,"
                  "\"batch_min_priority_score\":%u,"
                  "\"batch_priority_drop_stopped\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
+                 "\"in_burst_priority_preempted\":%u,"
+                 "\"in_burst_preempted_score\":%u,"
+                 "\"in_burst_deferred_head_score\":%u,"
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
@@ -6474,6 +6598,10 @@ static int build_response(fieldmesh_context_t *context,
                  batch_first_priority_score,
                  batch_min_priority_score,
                  batch_priority_drop_stopped,
+                 (unsigned)policy.in_burst_priority_preemption,
+                 in_burst_priority_preempted,
+                 in_burst_preempted_score,
+                 in_burst_deferred_head_score,
                  tun_service_rf_lease_priority_name(lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
@@ -7016,6 +7144,9 @@ static int build_response(fieldmesh_context_t *context,
         unsigned batch_min_priority_score = 0u;
         unsigned batch_priority_drop_stopped = 0u;
         unsigned deferred_lease_frames = 0u;
+        unsigned in_burst_priority_preempted = 0u;
+        unsigned in_burst_preempted_score = 0u;
+        unsigned in_burst_deferred_head_score = 0u;
         char frames_json[6400];
         size_t used = 0u;
 
@@ -7055,6 +7186,20 @@ static int build_response(fieldmesh_context_t *context,
         }
         replayed_lease =
             moved == 0u && tun_service->rf_tx_lease_queue.count > 0u;
+        if (policy.in_burst_priority_preemption &&
+            !tun_service_rf_queue_preempt_head_from_source(
+                &tun_service->rf_tx_queue, &tun_service->rf_tx_lease_queue,
+                lease_priority, tun_service, &in_burst_priority_preempted,
+                &in_burst_preempted_score,
+                &in_burst_deferred_head_score)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_next_burst\","
+                     "\"ok\":false,"
+                     "\"error\":\"in_burst_priority_preemption_failed\","
+                     "\"native_service_burst\":1,"
+                     "\"service_policy_bound\":1}\n");
+            return 0;
+        }
         frames_json[0] = '\0';
         for (i = 0u; i < max_frames &&
                     i < tun_service->rf_tx_lease_queue.count;
@@ -7132,6 +7277,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"batch_first_priority_score\":%u,"
                  "\"batch_min_priority_score\":%u,"
                  "\"batch_priority_drop_stopped\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
+                 "\"in_burst_priority_preempted\":%u,"
+                 "\"in_burst_preempted_score\":%u,"
+                 "\"in_burst_deferred_head_score\":%u,"
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
@@ -7162,6 +7311,10 @@ static int build_response(fieldmesh_context_t *context,
                  batch_first_priority_score,
                  batch_min_priority_score,
                  batch_priority_drop_stopped,
+                 (unsigned)policy.in_burst_priority_preemption,
+                 in_burst_priority_preempted,
+                 in_burst_preempted_score,
+                 in_burst_deferred_head_score,
                  tun_service_rf_lease_priority_name(lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),

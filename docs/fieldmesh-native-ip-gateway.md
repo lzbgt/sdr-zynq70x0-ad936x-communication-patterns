@@ -316,12 +316,12 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` response proves the four-frame
   lease, two-frame sub-burst cap, same-priority batch policy, hybrid
   `tcp-control-flow-udp-after-control` priority, ACK-pipeline depth, persistent
-  helper requirement, and reverse-service requirement without reading hardware
-  or transmitting RF. The HIL runner defaults are checked against that C policy
-  and the native-IP HIL preflight/final reports must carry the daemon C proof
-  before production evidence is accepted, so the current Python bridge cannot
-  silently drift from the native service boundary it is preparing to hand off
-  to.
+  helper requirement, reverse-service requirement, and in-burst priority
+  preemption without reading hardware or transmitting RF. The HIL runner
+  defaults are checked against that C policy and the native-IP HIL
+  preflight/final reports must carry the daemon C proof before production
+  evidence is accepted, so the current Python bridge cannot silently drift from
+  the native service boundary it is preparing to hand off to.
   Live IIO RF bridge runs now also require `FIELDMESH_RF_WORKER_STATUS` from
   both daemons to prove a running C-owned RF worker/control-plane boundary with
   the same production service policy before any host-orchestrated RF scheduling
