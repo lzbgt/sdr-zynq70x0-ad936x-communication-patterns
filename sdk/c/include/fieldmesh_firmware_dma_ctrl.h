@@ -307,6 +307,43 @@ static inline int fieldmesh_fw_dma_status_egress_fault(
     return status && (status->fault_status & FIELDMESH_FW_DMA_FAULT_EGRESS) != 0u;
 }
 
+static inline int fieldmesh_fw_dma_status_fault_free(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && status->fault_status == 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_drop_counters_clear(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status &&
+           status->tx_parser_drops == 0u &&
+           status->ingress_drops == 0u &&
+           status->egress_drops == 0u &&
+           status->bram_crc_errors == 0u &&
+           status->bram_bounds_errors == 0u &&
+           status->bram_errors == 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_idle(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status &&
+           status->queued_count == 0u &&
+           (status->control & (FIELDMESH_FW_DMA_ARM_CONTROL |
+                               FIELDMESH_FW_DMA_CONTROL_MAC_STOP)) == 0u &&
+           !fieldmesh_fw_dma_status_endpoint_enabled(status) &&
+           !fieldmesh_fw_dma_status_mac_scheduler_active(status);
+}
+
+static inline int fieldmesh_fw_dma_status_ready_for_arm(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return fieldmesh_fw_dma_status_idle(status) &&
+           fieldmesh_fw_dma_status_fault_free(status) &&
+           fieldmesh_fw_dma_status_drop_counters_clear(status);
+}
+
 #ifdef __cplusplus
 }
 #endif

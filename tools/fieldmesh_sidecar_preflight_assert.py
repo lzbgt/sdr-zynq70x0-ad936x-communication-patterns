@@ -57,6 +57,10 @@ EXPECTED_FW_DMA_STATUS_KEYS = {
     "tx_parser_fault",
     "ingress_fault",
     "egress_fault",
+    "fault_free",
+    "drop_counters_clear",
+    "idle",
+    "ready_for_arm",
     "peer_index",
     "mcs",
     "retry_budget",
@@ -205,7 +209,9 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
                 "control_mac_tick_enable", "control_mac_stop",
                 "endpoint_enabled", "mac_scheduler_active", "pump_done",
                 "drained_empty", "budget_exhausted", "service_accepted",
-                "tx_parser_fault", "ingress_fault", "egress_fault"):
+                "tx_parser_fault", "ingress_fault", "egress_fault",
+                "fault_free", "drop_counters_clear", "idle",
+                "ready_for_arm"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{path}: firmware-DMA {key} must be a boolean: {row}")
     parse_u32(row.get("control"), path, "control", row)

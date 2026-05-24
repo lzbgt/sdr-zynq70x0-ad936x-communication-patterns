@@ -156,6 +156,10 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"tx_parser_fault\":%s,"
            "\"ingress_fault\":%s,"
            "\"egress_fault\":%s,"
+           "\"fault_free\":%s,"
+           "\"drop_counters_clear\":%s,"
+           "\"idle\":%s,"
+           "\"ready_for_arm\":%s,"
            "\"peer_index\":%" PRIu32 ","
            "\"mcs\":%" PRIu32 ","
            "\"retry_budget\":%" PRIu32 ","
@@ -200,6 +204,10 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            fieldmesh_fw_dma_status_tx_parser_fault(status) ? "true" : "false",
            fieldmesh_fw_dma_status_ingress_fault(status) ? "true" : "false",
            fieldmesh_fw_dma_status_egress_fault(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_fault_free(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_drop_counters_clear(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_idle(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_ready_for_arm(status) ? "true" : "false",
            (uint32_t)status->peer_index,
            (uint32_t)status->mcs,
            (uint32_t)status->retry_budget,

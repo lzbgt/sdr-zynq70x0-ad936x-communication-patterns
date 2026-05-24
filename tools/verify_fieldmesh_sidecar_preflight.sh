@@ -78,6 +78,10 @@ fw_dma = {
     "peer_index": 0,
     "mcs": 0,
     "retry_budget": 0,
+    "fault_free": True,
+    "drop_counters_clear": True,
+    "idle": True,
+    "ready_for_arm": True,
     "descriptor_flags": "0x0000",
     "seq_seed": "0x00000000",
     "reads_hardware": True,
@@ -128,6 +132,9 @@ for token in (
     "endpoint_enabled",
     "budget_exhausted",
     "service_accepted",
+    "fault_free",
+    "drop_counters_clear",
+    "ready_for_arm",
 ):
     if token not in assert_text:
         raise SystemExit(f"sidecar preflight assertion missing firmware-DMA status token: {token}")

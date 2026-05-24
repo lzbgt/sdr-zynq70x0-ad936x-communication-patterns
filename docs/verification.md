@@ -2829,14 +2829,16 @@ hardware access; only the defined TX descriptor flag mask `0x003f` is accepted.
 The same verifier checks that firmware-DMA control/status bits are decoded in C
 and reported as booleans for control enables, MAC stop, endpoint enable,
 scheduler activity, pump completion, drained-empty, budget-exhausted, and
-service-accepted state.
+service-accepted state. It also requires C-derived aggregate health booleans
+for fault-free, drop-counter-clear, idle, and ready-for-arm status so wrappers
+do not reconstruct readiness from raw counters.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
 the assertion summary rejects captures where the firmware-DMA status read is
 missing, failed, marked as a hardware write, or missing endpoint byte counters,
 MAC pump counters, BRAM CRC/bounds counters, C-decoded control/status
-booleans, and parser/ingress/egress fault bits.
+booleans, parser/ingress/egress fault bits, and aggregate health booleans.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
 for status/config/arm/stop: sidecar preflight must precede firmware-DMA writes,
 status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes are
@@ -2844,7 +2846,7 @@ only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment. The wrapper also rejects
 before/after status captures that are missing the C-decoded control/status
-booleans.
+booleans or aggregate health booleans.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full

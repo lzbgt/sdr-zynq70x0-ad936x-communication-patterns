@@ -210,6 +210,12 @@ int main(void) {
                                 FIELDMESH_FW_DMA_FAULT_EGRESS)) {
         return 9;
     }
+    if (fieldmesh_fw_dma_status_fault_free(&status) ||
+        fieldmesh_fw_dma_status_drop_counters_clear(&status) ||
+        fieldmesh_fw_dma_status_idle(&status) ||
+        fieldmesh_fw_dma_status_ready_for_arm(&status)) {
+        return 12;
+    }
     if (fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
         fieldmesh_fw_dma_status_offset(25u) != 0u) {
         return 10;
@@ -220,6 +226,14 @@ int main(void) {
         fieldmesh_fw_dma_status_endpoint_enabled(&status) ||
         fieldmesh_fw_dma_status_service_accepted(&status)) {
         return 11;
+    }
+    uint32_t reset_regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
+    if (!fieldmesh_fw_dma_status_from_regs(&status, reset_regs) ||
+        !fieldmesh_fw_dma_status_fault_free(&status) ||
+        !fieldmesh_fw_dma_status_drop_counters_clear(&status) ||
+        !fieldmesh_fw_dma_status_idle(&status) ||
+        !fieldmesh_fw_dma_status_ready_for_arm(&status)) {
+        return 13;
     }
     return 0;
 }
@@ -582,6 +596,10 @@ required = [
     "fieldmesh_fw_dma_status_tx_parser_fault",
     "fieldmesh_fw_dma_status_ingress_fault",
     "fieldmesh_fw_dma_status_egress_fault",
+    "fieldmesh_fw_dma_status_fault_free",
+    "fieldmesh_fw_dma_status_drop_counters_clear",
+    "fieldmesh_fw_dma_status_idle",
+    "fieldmesh_fw_dma_status_ready_for_arm",
 ]
 missing = [token for token in required if token not in source]
 if missing:

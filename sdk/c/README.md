@@ -114,8 +114,8 @@ in `src/fieldmesh_sdk.c`:
   disabled until software configures metadata and arms those bits.
   `include/fieldmesh_firmware_dma_ctrl.h` is the canonical C contract for
   that register block: offsets, control/status-bit predicates, metadata
-  packing, and status decoding stay in C SDK code instead of shell or Python
-  packet logic.
+  packing, status decoding, and aggregate health predicates stay in C SDK code
+  instead of shell or Python packet logic.
   `fieldmesh-ctrl-write` exposes the userspace guard for that register block:
   `--fw-dma-status` is read-only and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`,
   while `--fw-dma-config`, `--fw-dma-arm`, and `--fw-dma-stop` additionally require

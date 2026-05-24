@@ -478,6 +478,9 @@ It provides explicit predicates for `FM_FW_DMA_CONTROL` and the masked
 `FM_FW_DMA_STATUS` bits so runtime tools can report control enables, MAC stop,
 endpoint enable, scheduler-active, pump-done, drained-empty, budget-exhausted,
 and service-accepted state without duplicating register layout.
+The C projection also emits aggregate health booleans for fault-free,
+drop-counter-clear, idle, and ready-for-arm status; board wrappers should treat
+those as the readiness contract instead of re-parsing raw counters.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
 The tool's `--fw-dma-status-self-test` path feeds a fixed C register vector

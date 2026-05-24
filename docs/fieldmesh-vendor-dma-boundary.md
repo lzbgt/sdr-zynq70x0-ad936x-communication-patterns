@@ -286,7 +286,9 @@ The metadata config accepts only the defined firmware descriptor flag mask
 `0x003f`; reserved bits are rejected in C before the guarded hardware write.
 `fieldmesh-ctrl-write --fw-dma-status-self-test` decodes a fixed C register
 vector without `/dev/mem`, keeping the successful status projection under CI
-without requiring live hardware.
+without requiring live hardware. The status projection includes C-derived
+fault-free, drop-counter-clear, idle, and ready-for-arm booleans so shell/Python
+wrappers do not duplicate firmware-DMA health semantics.
 For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards
@@ -516,6 +518,7 @@ fieldmesh-ctrl-write --fw-dma-status 0x43c00000`, then runs
 `tools/fieldmesh_sidecar_preflight_assert.py` over the saved `dt_scan.ndjson`,
 `ctrl_scan.ndjson`, `dma_scan.ndjson`, and firmware-DMA status files. The
 resulting `preflight_assert.json` confirms the status read is non-mutating
+and contains the C-derived firmware-DMA health booleans
 before any `--fw-dma-arm` or DMA smoke step is allowed.
 `run_fieldmesh_board_dma_smoke.sh` enforces that summary before it invokes the
 transfer-starting `dma-smoke --allow-live-writes` command.

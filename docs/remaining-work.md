@@ -1438,7 +1438,10 @@ below were later superseded by the current PHY-management two-board gates above:
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The board-side sidecar preflight now
   captures this read-only firmware-DMA status and includes it in
   `preflight_assert.json`, so live DMA smoke or firmware-DMA arm tests have a
-  non-mutating endpoint-status gate. `tools/run_fieldmesh_board_fw_dma_control.sh`
+  non-mutating endpoint-status gate. The C decoder now also exports aggregate
+  `fault_free`, `drop_counters_clear`, `idle`, and `ready_for_arm` booleans, so
+  board wrappers do not reimplement readiness from raw FPGA counters.
+  `tools/run_fieldmesh_board_fw_dma_control.sh`
   is now the live board wrapper for status/config/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
   `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding config/arm/stop

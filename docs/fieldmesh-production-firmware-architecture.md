@@ -469,8 +469,9 @@ preflight firmware-DMA status proof and records before/after status around any
 guarded config, arm, or stop command.
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
-budget-exhausted, and service-accepted state so board wrappers do not duplicate
-FPGA bit decoding.
+budget-exhausted, service-accepted state, fault-free state, drop-counter-clear
+state, idle state, and ready-for-arm state so board wrappers do not duplicate
+FPGA bit or counter decoding.
 The guarded config path accepts only defined TX descriptor flags
 `ack_req|encrypted|fec|fragment|last|timestamp_valid` (`0x003f`); reserved bits
 are rejected in C before any register write.
