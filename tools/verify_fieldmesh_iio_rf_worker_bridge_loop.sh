@@ -210,6 +210,54 @@ if "same_priority=1 priority=tcp_control_flow" not in captured_batch.get("text",
     raise SystemExit(f"same-priority batch request missing daemon contract: {captured_batch}")
 if batch_report.get("batch_priority_drop_stopped") != 1:
     raise SystemExit(f"same-priority batch report lost priority-stop proof: {batch_report}")
+captured_native = {}
+def native_service_request(host, port, text, timeout_ms):
+    captured_native["text"] = text
+    return {
+        "event": "sdk_daemon_rf_service_next_burst",
+        "ok": True,
+        "frames": 2,
+        "frame0_hex": "aa",
+        "frame0_bytes": 1,
+        "frame1_hex": "bb",
+        "frame1_bytes": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "non_destructive": 1,
+        "requires_ack": 1,
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "frames_leased": 4,
+        "lease_window_frames": 4,
+        "emitted_service_frames": 2,
+        "deferred_lease_frames": 2,
+        "sub_burst_preemption_point": 1,
+        "same_priority_batch": 1,
+        "batch_priority_drop_stopped": 1,
+        "lease_priority_cli": "tcp-control-flow-udp-after-control",
+    }
+bridge.request_daemon = native_service_request
+try:
+    native_batch, native_report = loop.native_service_burst_from_daemon(
+        "127.0.0.1", 55441, 10, 2
+    )
+finally:
+    bridge.request_daemon = original_request
+if captured_native.get("text") != "FIELDMESH_RF_SERVICE_NEXT_BURST v1":
+    raise SystemExit(f"native service burst must use daemon C service command: {captured_native}")
+if native_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
+    raise SystemExit(f"native service burst did not decode frames: {native_batch}")
+if native_report.get("deferred_lease_frames") != 2:
+    raise SystemExit(f"native service burst lost deferred sub-burst proof: {native_report}")
 captured = {}
 def compact_status_request(host, port, text, timeout_ms):
     captured["text"] = text
@@ -485,6 +533,10 @@ required = [
     "batch_min_priority_score",
     "#include \"fieldmesh_rf_service_policy.h\"",
     "FIELDMESH_RF_SERVICE_POLICY_SELF_TEST",
+    "FIELDMESH_RF_SERVICE_NEXT_BURST",
+    "sdk_daemon_rf_service_next_burst",
+    "native_service_burst",
+    "\\\"deferred_lease_frames\\\"",
     "sdk_daemon_rf_service_policy_self_test",
     "FIELDMESH_RF_WORKER_STATUS",
     "native_rf_service_worker",
@@ -653,6 +705,10 @@ required = [
     '"iio_bridge_direction_fair_service_yields"',
     '"iio_bridge_lease_priority"',
     "FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1",
+    "IIO_BRIDGE_NATIVE_SERVICE_BURST_LEASES",
+    "--native-service-burst-leases",
+    '"iio_bridge_native_service_burst_leases_enabled"',
+    '"iio_bridge_native_service_burst_leases"',
     "fieldmesh_native_ip_iperf_rf_service_policy_self_test",
     '"iio_bridge_rf_service_policy_proven"',
     '"iio_bridge_rf_service_policy_native_c"',

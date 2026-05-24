@@ -109,6 +109,12 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: native RF service worker proof must be required")
     if report.get("iio_bridge_native_rf_service_worker_proven") is not True:
         errors.append(f"{label}: native RF service worker proof is missing")
+    if report.get("iio_bridge_native_service_burst_leases_enabled") is not True:
+        errors.append(f"{label}: native RF service burst leases must be enabled")
+    if not isinstance(report.get("iio_bridge_native_service_burst_leases"), int) or (
+        report.get("iio_bridge_native_service_burst_leases") < 1
+    ):
+        errors.append(f"{label}: native RF service burst lease proof is missing")
     worker_status = report.get("iio_bridge_native_rf_service_worker_status")
     if not isinstance(worker_status, dict) or sorted(worker_status) != ["z103", "z203"]:
         errors.append(f"{label}: native RF service worker status must include z203 and z103")
@@ -544,6 +550,9 @@ def main() -> int:
         "requires_iio_native_rf_service_worker_proof": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
+        "requires_iio_native_service_burst_leases": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_rf_service_policy_proven": (
             True
@@ -607,6 +616,22 @@ def main() -> int:
         "host_iio_native_rf_service_worker_status": host.get(
             "iio_bridge_native_rf_service_worker_status"
         ) or {},
+        "board_iio_native_service_burst_leases_enabled": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_service_burst_leases_enabled") is True
+        ),
+        "host_iio_native_service_burst_leases_enabled": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_service_burst_leases_enabled") is True
+        ),
+        "board_iio_native_service_burst_leases": board.get(
+            "iio_bridge_native_service_burst_leases"
+        ),
+        "host_iio_native_service_burst_leases": host.get(
+            "iio_bridge_native_service_burst_leases"
+        ),
         "board_iio_ack_pipeline_exercised": (
             True
             if not board_requires_ack_pipeline
@@ -686,6 +711,12 @@ def main() -> int:
         ),
         "host_iio_bridge_persistent_burst_helper": host.get(
             "iio_bridge_persistent_burst_helper"
+        ),
+        "board_iio_bridge_native_service_burst_leases": board.get(
+            "iio_bridge_native_service_burst_leases"
+        ),
+        "host_iio_bridge_native_service_burst_leases": host.get(
+            "iio_bridge_native_service_burst_leases"
         ),
         "board_iio_rf_sub_burst_exercised": board.get(
             "iio_bridge_rf_sub_burst_exercised"

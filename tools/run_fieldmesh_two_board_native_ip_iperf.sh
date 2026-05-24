@@ -74,6 +74,7 @@ iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-4}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
 iio_bridge_max_frames_per_rf_burst="${IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST:-2}"
+iio_bridge_native_service_burst_leases="${IIO_BRIDGE_NATIVE_SERVICE_BURST_LEASES:-1}"
 iio_bridge_same_priority_batch="${IIO_BRIDGE_SAME_PRIORITY_BATCH:-1}"
 if [ -n "${IIO_BRIDGE_LEASE_PRIORITY+x}" ]; then
     iio_bridge_lease_priority="$IIO_BRIDGE_LEASE_PRIORITY"
@@ -421,6 +422,11 @@ if [ "$iio_bridge_cyclic_tx" != "0" ] && [ "$iio_bridge_cyclic_tx" != "1" ]; the
 fi
 if [ "$iio_bridge_same_priority_batch" != "0" ] && [ "$iio_bridge_same_priority_batch" != "1" ]; then
     echo "IIO_BRIDGE_SAME_PRIORITY_BATCH must be 0 or 1" >&2
+    exit 1
+fi
+if [ "$iio_bridge_native_service_burst_leases" != "0" ] &&
+   [ "$iio_bridge_native_service_burst_leases" != "1" ]; then
+    echo "IIO_BRIDGE_NATIVE_SERVICE_BURST_LEASES must be 0 or 1" >&2
     exit 1
 fi
 if [ -z "$swarm_mtu" ]; then
@@ -1444,6 +1450,11 @@ start_iio_rf_bridge_loop() {
         batch_args+=(--same-priority-batch)
     else
         batch_args+=(--no-same-priority-batch)
+    fi
+    if [ "$iio_bridge_native_service_burst_leases" = "1" ]; then
+        batch_args+=(--native-service-burst-leases)
+    else
+        batch_args+=(--no-native-service-burst-leases)
     fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
@@ -2912,6 +2923,12 @@ report = {
     ),
     "iio_bridge_native_rf_service_worker_status": (
         last_iio_bridge.get("native_rf_service_worker_status") or {}
+    ),
+    "iio_bridge_native_service_burst_leases_enabled": bool(
+        last_iio_bridge.get("native_service_burst_leases_enabled")
+    ),
+    "iio_bridge_native_service_burst_leases": int(
+        last_iio_bridge.get("native_service_burst_leases") or 0
     ),
     "iio_bridge_source_ack_pipeline_depth": int(
         last_iio_bridge.get("source_ack_pipeline_depth") or 0

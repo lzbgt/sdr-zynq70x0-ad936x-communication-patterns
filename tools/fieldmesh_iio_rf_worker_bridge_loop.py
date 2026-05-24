@@ -206,6 +206,68 @@ def lease_batch_from_daemon(
     return frames, report
 
 
+def native_service_burst_from_daemon(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    max_frames_per_rf_burst: int,
+) -> tuple[list[bytes], dict[str, Any]]:
+    try:
+        report = bridge.request_daemon(
+            host,
+            port,
+            "FIELDMESH_RF_SERVICE_NEXT_BURST v1",
+            timeout_ms,
+        )
+    except TimeoutError:
+        return [], {
+            "event": "sdk_daemon_rf_service_next_burst",
+            "ok": False,
+            "error": "timeout",
+        }
+    if report.get("event") != "sdk_daemon_rf_service_next_burst":
+        raise SystemExit(
+            f"expected sdk_daemon_rf_service_next_burst, got {report.get('event')!r}"
+        )
+    if report.get("ok") is not True:
+        raise SystemExit(f"RF_SERVICE_NEXT_BURST failed: {report}")
+    required = {
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "non_destructive": 1,
+        "requires_ack": 1,
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+    }
+    for key, expected in required.items():
+        if report.get(key) != expected:
+            raise SystemExit(
+                f"RF_SERVICE_NEXT_BURST {key}={report.get(key)!r} expected {expected!r}: {report}"
+            )
+    count = report.get("frames")
+    if count in (0, "0", None):
+        return [], report
+    if not isinstance(count, int) or count < 1 or count > max_frames_per_rf_burst:
+        raise SystemExit(f"invalid native service burst frame count {count!r}: {report}")
+    frames: list[bytes] = []
+    for index in range(count):
+        frame_hex = report.get(f"frame{index}_hex")
+        if not isinstance(frame_hex, str) or not frame_hex:
+            raise SystemExit(f"native service burst missing frame{index}_hex: {report}")
+        try:
+            frames.append(bytes.fromhex(frame_hex))
+        except ValueError as exc:
+            raise SystemExit(f"native service burst frame{index}_hex is invalid") from exc
+    return frames, report
+
+
 def request_daemon_with_retries(
     host: str,
     port: int,
@@ -1067,6 +1129,14 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--max-frames-per-rf-burst must be 0 or >= 1")
     if args.max_frames_per_rf_burst > args.batch_size:
         raise SystemExit("--max-frames-per-rf-burst cannot exceed --batch-size")
+    if args.native_service_burst_leases and args.batch_size < 2:
+        raise SystemExit("--native-service-burst-leases requires --batch-size >= 2")
+    if args.native_service_burst_leases and args.max_frames_per_rf_burst >= args.batch_size:
+        raise SystemExit(
+            "--native-service-burst-leases requires --max-frames-per-rf-burst < --batch-size"
+        )
+    if args.native_service_burst_leases and args.destructive_poll_batch:
+        raise SystemExit("--native-service-burst-leases cannot be combined with --destructive-poll-batch")
     if args.destructive_poll_batch and args.batch_size < 2:
         raise SystemExit("--destructive-poll-batch requires --batch-size >= 2")
     if args.poll_interval_ms < 1:
@@ -1156,6 +1226,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "direction_fair_service_yields": 0,
         "same_priority_batch_leases": 0,
         "same_priority_batch_priority_drop_stops": 0,
+        "native_service_burst_leases": 0,
         "rf_sub_burst_slices": 0,
         "rf_sub_burst_deferred_frames": 0,
         "rf_sub_burst_preemption_points": 0,
@@ -1240,6 +1311,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 and batch_high_water_max(rf_burst_batch_high_water_by_direction) > 1
             ),
             "rf_lease_batch_size": args.batch_size,
+            "native_service_burst_leases_enabled": bool(args.native_service_burst_leases),
             "rf_lease_batch_high_water": batch_high_water_max(
                 rf_lease_batch_high_water_by_direction
             ),
@@ -1606,22 +1678,39 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         write_progress()
                         continue
                     elif args.batch_size > 1:
-                        batch_frames, batch_lease = lease_batch_from_daemon(
-                            direction["source_host"],
-                            direction["source_port"],
-                            args.lease_timeout_ms,
-                            args.batch_size,
-                            args.batch_byte_limit,
-                            args.lease_priority,
-                            args.same_priority_batch,
-                        )
+                        if args.native_service_burst_leases:
+                            batch_frames, batch_lease = native_service_burst_from_daemon(
+                                direction["source_host"],
+                                direction["source_port"],
+                                args.lease_timeout_ms,
+                                args.max_frames_per_rf_burst,
+                            )
+                        else:
+                            batch_frames, batch_lease = lease_batch_from_daemon(
+                                direction["source_host"],
+                                direction["source_port"],
+                                args.lease_timeout_ms,
+                                args.batch_size,
+                                args.batch_byte_limit,
+                                args.lease_priority,
+                                args.same_priority_batch,
+                            )
                         if not batch_frames:
                             counts["empty_polls"] += 1
                             empty_directions.add(direction["name"])
                             continue
-                        leased_frame_count = len(batch_frames)
+                        if args.native_service_burst_leases:
+                            counts["native_service_burst_leases"] += 1
+                        if args.native_service_burst_leases:
+                            leased_frame_count = max(
+                                len(batch_frames),
+                                int(batch_lease.get("lease_window_frames") or 0),
+                                int(batch_lease.get("frames_leased") or 0),
+                            )
+                        else:
+                            leased_frame_count = len(batch_frames)
                         record_lease_batch_high_water(direction["name"], leased_frame_count)
-                        if args.same_priority_batch:
+                        if args.same_priority_batch or args.native_service_burst_leases:
                             counts["same_priority_batch_leases"] += 1
                             if batch_lease.get("batch_priority_drop_stopped") == 1:
                                 counts["same_priority_batch_priority_drop_stops"] += 1
@@ -1657,10 +1746,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         if not batch_frames:
                             counts["empty_polls"] += 1
                             continue
-                        sub_burst_frames, deferred_frames = split_sub_burst(
-                            batch_frames,
-                            args.max_frames_per_rf_burst,
-                        )
+                        if args.native_service_burst_leases:
+                            sub_burst_frames = batch_frames
+                            deferred_count = max(
+                                0,
+                                int(batch_lease.get("deferred_lease_frames") or 0),
+                            )
+                            deferred_frames = [b""] * deferred_count
+                        else:
+                            sub_burst_frames, deferred_frames = split_sub_burst(
+                                batch_frames,
+                                args.max_frames_per_rf_burst,
+                            )
                         if deferred_frames:
                             counts["rf_sub_burst_deferred_frames"] += len(deferred_frames)
                             counts["rf_sub_burst_preemption_points"] += 1
@@ -1707,11 +1804,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "source_ack_ok": report.get("source_ack", {}).get("ok"),
                             "source_ack": report.get("source_ack"),
                             "batch_lease": {
+                                "native_service_burst": batch_lease.get("native_service_burst"),
+                                "service_policy_bound": batch_lease.get("service_policy_bound"),
                                 "same_priority_batch": batch_lease.get("same_priority_batch"),
+                                "lease_batch_frames": batch_lease.get("lease_batch_frames"),
+                                "max_frames_per_rf_burst": batch_lease.get("max_frames_per_rf_burst"),
+                                "frames_leased": batch_lease.get("frames_leased"),
+                                "lease_window_frames": batch_lease.get("lease_window_frames"),
+                                "emitted_service_frames": batch_lease.get("emitted_service_frames"),
+                                "deferred_lease_frames": batch_lease.get("deferred_lease_frames"),
+                                "sub_burst_preemption_point": batch_lease.get("sub_burst_preemption_point"),
                                 "batch_first_priority_score": batch_lease.get("batch_first_priority_score"),
                                 "batch_min_priority_score": batch_lease.get("batch_min_priority_score"),
                                 "batch_priority_drop_stopped": batch_lease.get("batch_priority_drop_stopped"),
                                 "lease_priority": batch_lease.get("lease_priority"),
+                                "lease_priority_cli": batch_lease.get("lease_priority_cli"),
                             },
                             "destructive_source_poll": False,
                             "skip_rf_config": report.get("skip_rf_config"),
@@ -1910,6 +2017,23 @@ def parse_args() -> argparse.Namespace:
         help="Use the fixed direction schedule exactly as requested.",
     )
     parser.add_argument("--destructive-poll-batch", action="store_true")
+    parser.add_argument(
+        "--native-service-burst-leases",
+        dest="native_service_burst_leases",
+        action="store_true",
+        default=False,
+        help=(
+            "Use the daemon's C-owned RF service policy to fill the lease "
+            "window and emit only the bounded RF sub-burst for each live IIO "
+            "service step."
+        ),
+    )
+    parser.add_argument(
+        "--no-native-service-burst-leases",
+        dest="native_service_burst_leases",
+        action="store_false",
+        help="Use the legacy host-specified RF_TX_LEASE_BATCH request.",
+    )
     parser.add_argument("--poll-interval-ms", type=int, default=10)
     parser.add_argument("--leased-frame-report", type=Path)
     parser.add_argument("--z203-host", default="192.168.1.10")

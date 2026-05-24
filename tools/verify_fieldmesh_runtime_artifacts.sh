@@ -396,6 +396,10 @@ PY
         supports_rf_phy_driver_bind \
         sdk_daemon_rf_worker_start \
         sdk_daemon_rf_worker_status \
+        FIELDMESH_RF_SERVICE_NEXT_BURST \
+        sdk_daemon_rf_service_next_burst \
+        native_service_burst \
+        deferred_lease_frames \
         native_rf_service_worker \
         native_rf_service_control_plane \
         service_policy_bound \

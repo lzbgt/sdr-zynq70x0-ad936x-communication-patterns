@@ -103,6 +103,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: IIO RF service policy proof is missing")
             if source.get("requires_iio_native_rf_service_worker_proof") is not True:
                 raise SystemExit("native_ip: native RF service worker proof is missing")
+            if source.get("requires_iio_native_service_burst_leases") is not True:
+                raise SystemExit("native_ip: native RF service burst lease proof is missing")
             if source.get("board_iio_rf_service_policy_proven") is not True:
                 raise SystemExit("native_ip: board IIO RF service policy proof is missing")
             if source.get("host_iio_rf_service_policy_proven") is not True:
@@ -111,6 +113,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board native RF service worker proof is missing")
             if source.get("host_iio_native_rf_service_worker_proven") is not True:
                 raise SystemExit("native_ip: host native RF service worker proof is missing")
+            if source.get("board_iio_native_service_burst_leases_enabled") is not True:
+                raise SystemExit("native_ip: board native RF service burst lease proof is missing")
+            if source.get("host_iio_native_service_burst_leases_enabled") is not True:
+                raise SystemExit("native_ip: host native RF service burst lease proof is missing")
             if (
                 source.get("board_iio_bridge_lease_priority")
                 != "tcp-control-flow-udp-after-control"
@@ -197,6 +203,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_rf_sub_burst_evidence",
         "requires_iio_rf_service_policy_proof",
         "requires_iio_native_rf_service_worker_proof",
+        "requires_iio_native_service_burst_leases",
         "requires_tcp_final_exchange_evidence",
         "board_iio_rf_service_policy_proven",
         "host_iio_rf_service_policy_proven",
@@ -216,6 +223,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_native_rf_service_worker_proven",
         "board_iio_native_rf_service_worker_status",
         "host_iio_native_rf_service_worker_status",
+        "board_iio_native_service_burst_leases_enabled",
+        "host_iio_native_service_burst_leases_enabled",
+        "board_iio_native_service_burst_leases",
+        "host_iio_native_service_burst_leases",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
         "board_iio_rf_burst_batch_exercised",
@@ -230,6 +241,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_lease_priority",
         "board_iio_bridge_persistent_burst_helper",
         "host_iio_bridge_persistent_burst_helper",
+        "board_iio_bridge_native_service_burst_leases",
+        "host_iio_bridge_native_service_burst_leases",
         "board_iio_rf_sub_burst_exercised",
         "host_iio_rf_sub_burst_exercised",
         "board_iio_rf_sub_burst_bidirectional_service_exercised",

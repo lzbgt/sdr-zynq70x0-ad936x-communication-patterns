@@ -228,7 +228,10 @@ in `src/fieldmesh_sdk.c`:
   bridge moves more scheduling work out of Python. `FIELDMESH_RF_WORKER_STATUS`
   now also reports the running C RF worker/control-plane boundary and the bound
   service policy, which live native-IP IIO RF runs require before host-side
-  scheduling starts.
+  scheduling starts. The live bridge's production path uses
+  `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so the daemon, not Python, fills the
+  four-frame lease window, emits the two-frame RF service burst, and preserves
+  deferred lease frames for reverse-path service before ACK.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

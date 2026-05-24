@@ -5106,7 +5106,12 @@ Live IIO RF bridge runs additionally require both daemons' `FIELDMESH_RF_WORKER_
 responses to prove a running native RF service worker/control-plane boundary
 bound to the production policy before host-side scheduling starts; the same
 worker proof is preserved through native-IP evidence, app reports, and
-readiness.
+readiness. Production bridge runs also require native service-burst leases:
+`FIELDMESH_RF_SERVICE_NEXT_BURST v1` is the C-owned command that fills the
+four-frame lease window, emits the two-frame RF burst, and leaves deferred
+leased frames queued until successful peer ingest and ACK. The evidence
+classifiers reject IIO reports that do not prove this daemon-owned burst
+boundary.
 Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
