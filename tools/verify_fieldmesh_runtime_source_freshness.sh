@@ -16,6 +16,7 @@ fieldmesh_ctrl_write
 --fw-dma-config-if-idle
 --fw-dma-arm-if-ready
 --fw-dma-stop-if-active
+default firmware-DMA BASE
 --fw-dma-status-idle-self-test
 --fw-dma-action-policy-self-test
 firmware_dma_not_idle

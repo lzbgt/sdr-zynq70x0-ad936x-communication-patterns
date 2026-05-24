@@ -82,6 +82,9 @@ required_tool_tokens = [
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
+    "default firmware-DMA BASE",
+    "--fw-dma-status [BASE]",
+    "FIELDMESH_SIDECAR_CTRL_BASE",
     "read_fw_dma_status",
     "firmware_dma_not_idle",
     "firmware_dma_not_ready_for_arm",
@@ -151,6 +154,8 @@ for token in (
 
 for token in (
     "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status",
+    "fw_dma_base_words",
+    "shell_words",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "config_command=\"--fw-dma-config\"",

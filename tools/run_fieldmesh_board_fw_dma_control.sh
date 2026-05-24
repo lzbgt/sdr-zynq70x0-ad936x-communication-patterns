@@ -21,7 +21,7 @@ board_ip="${BOARD_IP:-${1:-$default_ip}}"
 action="${ACTION:-${2:-status}}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
-ctrl_base="${CTRL_BASE:-0x43c00000}"
+ctrl_base="${CTRL_BASE:-}"
 service_budget="${SERVICE_BUDGET:-32}"
 peer_index="${PEER_INDEX:-0}"
 mcs="${MCS:-0}"
@@ -124,6 +124,19 @@ remote_status_before="/tmp/fieldmesh_fw_dma_status_before.json"
 remote_control="/tmp/fieldmesh_fw_dma_control.json"
 remote_status_after="/tmp/fieldmesh_fw_dma_status_after.json"
 
+shell_words() {
+  local arg quoted out=""
+  for arg in "$@"; do
+    printf -v quoted "%q" "$arg"
+    out+=" $quoted"
+  done
+  printf "%s" "$out"
+}
+
+fw_dma_base_args=()
+[[ -n "$ctrl_base" ]] && fw_dma_base_args+=("$ctrl_base")
+fw_dma_base_words="$(shell_words "${fw_dma_base_args[@]}")"
+
 preflight_dir="$out_dir/sidecar_preflight"
 SSH_USER="$ssh_user" SSH_PASS="$ssh_pass" OUT_DIR="$preflight_dir" \
   "$repo_root/tools/run_fieldmesh_board_sidecar_preflight.sh" "$board_ip"
@@ -136,14 +149,14 @@ with open(sys.argv[1], encoding="utf-8") as f:
     data = json.load(f)
 if data.get("event") != "fieldmesh_sidecar_preflight_assert" or data.get("ok") is not True:
     raise SystemExit(f"sidecar preflight is not green: {data}")
-if data.get("fw_dma_base") != "0x43c00000":
+if not data.get("fw_dma_base"):
     raise SystemExit(f"sidecar preflight is missing firmware-DMA status: {data}")
 if data.get("fw_dma_reads_hardware") is not True or data.get("fw_dma_writes_hardware") is not False:
     raise SystemExit(f"firmware-DMA status preflight is not read-only: {data}")
 PY
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_status_before' 2>&1"
+  "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status$fw_dma_base_words > '$remote_status_before' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_before" "$out_dir/fw_dma_status_before.json"
 
 config_guard_blocked=0
@@ -203,7 +216,7 @@ JSON
         config_command="--fw-dma-config"
       fi
       if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$config_command' '$ctrl_base' '$peer_index' '$mcs' '$retry_budget' '$descriptor_flags' '$seq_seed' > '$remote_control' 2>&1"; then
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$config_command'$fw_dma_base_words$(shell_words "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed") > '$remote_control' 2>&1"; then
         true
       fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
@@ -224,7 +237,7 @@ JSON
         arm_command="--fw-dma-arm"
       fi
       if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$arm_command' '$ctrl_base' '$service_budget' > '$remote_control' 2>&1"; then
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$arm_command'$fw_dma_base_words$(shell_words "$service_budget") > '$remote_control' 2>&1"; then
         true
       fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
@@ -241,7 +254,7 @@ JSON
         stop_command="--fw-dma-stop"
       fi
       if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$stop_command' '$ctrl_base' > '$remote_control' 2>&1"; then
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$stop_command'$fw_dma_base_words > '$remote_control' 2>&1"; then
         true
       fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
@@ -250,7 +263,7 @@ JSON
 esac
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_status_after' 2>&1"
+  "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status$fw_dma_base_words > '$remote_status_after' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_after" "$out_dir/fw_dma_status_after.json"
 
 python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$config_guard_blocked" "$arm_guard_blocked" "$force_fw_dma_config" "$force_fw_dma_arm" "$force_fw_dma_stop" <<'PY'

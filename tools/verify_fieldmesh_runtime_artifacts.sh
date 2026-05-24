@@ -573,6 +573,7 @@ PY
         fieldmesh_fw_dma_status \
         --fw-dma-arm \
         --fw-dma-stop \
+        "default firmware-DMA BASE" \
         fw_dma_arm_control \
         /dev/mem; do
         if ! grep -qF -- "$token" "$rf_ctrl_write_out"; then

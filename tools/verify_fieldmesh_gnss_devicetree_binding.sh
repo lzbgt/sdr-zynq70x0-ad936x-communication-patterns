@@ -201,7 +201,9 @@ for probe in (
 require_tokens(
     repo_root / "tools/fieldmesh_sidecar_preflight_assert.py",
     [
-        '"fieldmesh_ring": (0x43C30000, 0x00010000, True)',
+        "fieldmesh_sidecar_addr.h",
+        "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
+        "SIDECAR_FIRMWARE_RING_BASE",
     ],
 )
 

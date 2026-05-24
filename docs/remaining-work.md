@@ -1465,7 +1465,12 @@ below were later superseded by the current PHY-management two-board gates above:
   `fault_free`, `drop_counters_clear`, `idle`, and `ready_for_arm` booleans plus
   action policy booleans `config_allowed`, `arm_allowed`, and
   `stop_write_needed`, so board wrappers do not reimplement readiness from raw
-  FPGA counters.
+  FPGA counters. Firmware-DMA control commands now accept optional base
+  arguments, and the no-base path resolves in C to `FIELDMESH_SIDECAR_CTRL_BASE`;
+  the board wrappers only pass sidecar addresses when the matching environment
+  override is explicitly set. `fieldmesh_sidecar_preflight_assert.py` also reads
+  `fieldmesh_sidecar_addr.h`, so Python verifies the C-defined map instead of
+  owning a second address table.
   `tools/run_fieldmesh_board_fw_dma_control.sh`
   is now the live board wrapper for status/config/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and

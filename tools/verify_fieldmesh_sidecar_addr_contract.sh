@@ -62,6 +62,7 @@ devicetree_plan_path = repo / "tools/fieldmesh_devicetree_plan.py"
 devicetree_plan = devicetree_plan_path.read_text(encoding="utf-8")
 vendor_inventory_path = repo / "tools/fieldmesh_vendor_dma_inventory.py"
 vendor_inventory = vendor_inventory_path.read_text(encoding="utf-8")
+preflight_assert = (repo / "tools/fieldmesh_sidecar_preflight_assert.py").read_text(encoding="utf-8")
 vivado_patch_path = repo / "tools/fieldmesh_vivado_overlay_patch.py"
 vivado_patch = vivado_patch_path.read_text(encoding="utf-8")
 
@@ -131,6 +132,27 @@ for stale in (
 ):
     if stale in vendor_inventory:
         raise SystemExit(f"fieldmesh_vendor_dma_inventory.py still duplicates sidecar address contract: {stale}")
+
+if "fieldmesh_sidecar_addr.h" not in preflight_assert:
+    raise SystemExit("fieldmesh_sidecar_preflight_assert.py does not read the sidecar address C contract")
+for token in (
+    "SIDECAR_CTRL_BASE",
+    "SIDECAR_TX_DMA_BASE",
+    "SIDECAR_RX_DMA_BASE",
+    "SIDECAR_FIRMWARE_RING_BASE",
+    "SIDECAR_WINDOW_SIZE",
+):
+    if token not in preflight_assert:
+        raise SystemExit(f"fieldmesh_sidecar_preflight_assert.py missing C-derived token: {token}")
+for stale in (
+    '"fieldmesh_ctrl": (0x43C00000',
+    '"fieldmesh_tx_dma": (0x43C10000',
+    '"fieldmesh_rx_dma": (0x43C20000',
+    '"fieldmesh_ring": (0x43C30000',
+    "base != 0x43C00000",
+):
+    if stale in preflight_assert:
+        raise SystemExit(f"fieldmesh_sidecar_preflight_assert.py still duplicates sidecar address contract: {stale}")
 
 if "sidecar_block(plan" not in vivado_patch:
     raise SystemExit("fieldmesh_vivado_overlay_patch.py does not render addresses from the checked sidecar plan")

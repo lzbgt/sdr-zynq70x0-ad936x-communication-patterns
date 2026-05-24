@@ -283,16 +283,18 @@ from compiled C without reading or writing hardware; runtime freshness requires
 the packaged probe to contain this proof.
 
 Userspace control is intentionally guarded. `fieldmesh-ctrl-write
---fw-dma-status 0x43c00000` is a read-only status probe and requires
+--fw-dma-status [BASE]` is a read-only status probe and requires
 `FIELD_MESH_ALLOW_HARDWARE_READS=1`. `fieldmesh-ctrl-write --fw-dma-config
-0x43c00000 PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED`,
-`fieldmesh-ctrl-write --fw-dma-arm 0x43c00000 SERVICE_BUDGET`, and
-`fieldmesh-ctrl-write --fw-dma-stop
-0x43c00000` write the firmware-DMA control word and require all three live
-write guards: `FIELD_MESH_EXECUTE_LIVE_TX=1`,
+[BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED`,
+`fieldmesh-ctrl-write --fw-dma-arm [BASE] SERVICE_BUDGET`, and
+`fieldmesh-ctrl-write --fw-dma-stop [BASE]` write the firmware-DMA control word
+and require all three live write guards: `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
-`FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The command response is JSON only so test
-logs are readable; no JSON is used on the DMA or RF packet path.
+`FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. If `BASE` is omitted, the C tool uses
+`FIELDMESH_SIDECAR_CTRL_BASE` from `fieldmesh_sidecar_addr.h`; board wrappers
+only pass `BASE` for explicit `CTRL_BASE` overrides. The command response is
+JSON only so test logs are readable; no JSON is used on the DMA or RF packet
+path.
 The metadata config accepts only the defined firmware descriptor flag mask
 `0x003f`; reserved bits are rejected in C before the guarded hardware write.
 `fieldmesh-ctrl-write --fw-dma-status-self-test`,
@@ -539,7 +541,8 @@ with read-only `mmap()`, reads a small register set from the TX and RX sidecar
 DMA windows, and never writes registers or starts transfers.
 Run the wrapper before any packet-DMA smoke test. The wrapper also captures
 `fw_dma_status.json` with `FIELD_MESH_ALLOW_HARDWARE_READS=1
-fieldmesh-ctrl-write --fw-dma-status 0x43c00000`, then runs
+fieldmesh-ctrl-write --fw-dma-status`, using the C default sidecar control
+base unless `CTRL_BASE` is explicitly set, then runs
 `tools/fieldmesh_sidecar_preflight_assert.py` over the saved `dt_scan.ndjson`,
 `ctrl_scan.ndjson`, `dma_scan.ndjson`, and firmware-DMA status files. The
 resulting `preflight_assert.json` confirms the status read is non-mutating and

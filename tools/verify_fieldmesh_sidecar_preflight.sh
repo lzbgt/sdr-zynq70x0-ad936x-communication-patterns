@@ -120,7 +120,11 @@ if summary.get("fw_dma_reads_hardware") is not True or summary.get("fw_dma_write
     raise SystemExit(f"bad firmware-DMA read/write flags: {summary!r}")
 for token in (
     "command -v fieldmesh-ctrl-write",
-    "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status",
+    "FIELD_MESH_ALLOW_HARDWARE_READS=1 $fw_dma_status_cmd",
+    "ctrl_scan_cmd",
+    "dma_scan_cmd",
+    "fw_dma_status_cmd",
+    "shell_words",
     "fw_dma_status.json",
     "--fw-dma-status",
 ):

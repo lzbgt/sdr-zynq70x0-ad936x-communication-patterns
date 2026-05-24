@@ -2837,6 +2837,9 @@ The RF-tools verifier also covers the guarded userspace control contract for
 that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
 authorization, and `--fw-dma-config`/`--fw-dma-arm`/`--fw-dma-stop` remain
 non-mutating unless the explicit live-write and firmware-DMA guards are present.
+It now tests the no-base firmware-DMA forms too; omitted `BASE` resolves inside
+the C tool to `FIELDMESH_SIDECAR_CTRL_BASE`, while the explicit-base forms
+remain compatible for diagnostics.
 It also rejects reserved firmware-DMA descriptor metadata flags before any
 hardware access; only the defined TX descriptor flag mask `0x003f` is accepted.
 The same verifier checks that firmware-DMA control/status bits are decoded in C
@@ -2854,7 +2857,9 @@ missing, failed, marked as a hardware write, or missing endpoint byte counters,
 MAC pump counters, BRAM CRC/bounds counters, C-decoded control/status
 booleans, parser/ingress/egress fault bits, and aggregate health booleans.
 The same capture must include C-derived action booleans for config, arm, and
-stop decisions.
+stop decisions. The preflight assertion derives the expected sidecar windows
+from `fieldmesh_sidecar_addr.h`; wrapper scripts omit address arguments in the
+normal path and pass them only for explicit environment overrides.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
 for status/config/arm/stop: sidecar preflight must precede firmware-DMA writes,
 status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes are
@@ -2902,8 +2907,8 @@ packages were rebuilt. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0`,
 diagnostics when investigating stale local packages.
 After adding the sidecar address-map self-test, the Z203/Z103 rootfs images
 were rebuilt and runtime packages regenerated. The refreshed strict artifact
-check reported `runtime_rebuild_needed=false` for both variants with current
-sidecar-address contracts. Current hashes:
+check reported `runtime_rebuild_needed=false` for both variants with the
+sidecar-address contracts from that refresh. Hashes from that refresh:
 
 ```text
 Z203 rootfs.cpio.gz: 0696bd5ea19a7c268981a956fb5bcddcce8ba4960b7e45beee5a11786f37666b
@@ -4331,19 +4336,20 @@ Refreshed runtime artifact hashes after rebuilding the Z203/Z103 rootfs images
 with the current checked firmware-DMA C control contract. The current live
 two-board gate uses `FIELDMESH_MAC_INGEST` to feed compact presence/TDOA TLVs
 into the observed peer and RTLS registries before camera/control/data-plane
-validation:
+validation. The latest refresh also carries the C default-base firmware-DMA
+command forms and sidecar-address-backed preflight assertions:
 
 ```text
-Z203 rootfs.cpio.gz: c178ba528b72764b5a3fe2ce8ea8141c681ff840460d44577944fd807640fcab
-Z203 rootfs.tar.gz:  35940ee0e38cdbf2803b286fc16c300dec4b935e266bdfbb781625521fb052aa
-Z203 pluto.frm:      6f62d9b7b27499ec73f4c25bbd46c71c689278ff46433d70152b1460633d2bec
-Z203 pluto.itb:      cb8544d8012b51d18a0cfbe85a4fd684bc39ec60ad5866ced2a8a1eb4dd8a898
-Z203 jtag ramdisk:   7349b9059083fdec71fc53550f84b7b97d0a3b3e8b0e108274595d5f13c82700
-Z103 rootfs.cpio.gz: f698453e3650213a50c66402576489fde29045c648734abdbb2abb967132532b
-Z103 rootfs.tar.gz:  6cfe8cacc4f6f7479480c69b7db60f17bb4796d71f8bb6cb6a14147dff426281
-Z103 pluto.frm:      733872cca8dd3d510b939643dcdee9b7428cd2b5f6771dc2dbf5fac8313d95f9
-Z103 pluto.itb:      5314b2fb673e1449e4d9a594b1bb3aeec409e79869170a7f438c4535b74b6628
-Z103 jtag ramdisk:   2663e6726477ef5409970a96230a2365968be8f6d77087381815b3760e749994
+Z203 rootfs.cpio.gz: 4f51d0a3ca737815b82793affd1a2c84c6162bf1c47cc50972fb4a391d3a9bf6
+Z203 rootfs.tar.gz:  4a8773ca7335e9f3c36efc400084c1a98ba784f74ca71b95ba49e8dbbe0217e3
+Z203 pluto.frm:      ee9690c34b6acf1c2722dad1410669c0e54cac4b493a34b4b6d11162cbf0c8f2
+Z203 pluto.itb:      586a1902ff4318a306574dca16d4d718510deac605ffea466079ae4cbecf4127
+Z203 jtag ramdisk:   e2da688e029b31b5b016e2f64105210c702c438dce972c4f16d53e52aaae6861
+Z103 rootfs.cpio.gz: 8c43488de861a1edd5e96c914e0a1d3571e5a699c5aefb291a87fb94bd5006df
+Z103 rootfs.tar.gz:  36bcef91f71883f911c4910bbb042e1cb84209304e37d261422959043f8bd1b5
+Z103 pluto.frm:      c2f624c94c236e02eb9032f4ae86490b9064c9414ba0df490f5e79bf7b075368
+Z103 pluto.itb:      75295053c1a5ae17f5d264e41b6b1643ebde0cb7a4aa5af00ddeb1222b0a21c5
+Z103 jtag ramdisk:   8abadec8283ffd7156fbe5791f23070a850ed6d6378d9998c8aa420e03dab268
 ```
 
 ## Z203 SD Runtime Refresh From Product Deploy

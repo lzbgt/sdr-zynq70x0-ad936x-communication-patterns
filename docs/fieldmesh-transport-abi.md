@@ -472,6 +472,9 @@ this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1` before touching hardware. JSON appears only
 in the tool result stream for inspection; the transport ABI remains binary.
+Those firmware-DMA commands accept optional `BASE` arguments; omitted bases use
+`FIELDMESH_SIDECAR_CTRL_BASE` from the shared sidecar address C contract, so
+shell wrappers do not define the production control-page default.
 The C SDK header `fieldmesh_firmware_dma_ctrl.h` is the host-side source of
 truth for these offsets, control bits, sideband packing, and status decoding.
 It provides explicit predicates for `FM_FW_DMA_CONTROL` and the masked

@@ -131,6 +131,9 @@ in `src/fieldmesh_sdk.c`:
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. Descriptor flags accepted by
   `--fw-dma-config` are limited to the defined firmware ABI TX flag mask
   `0x003f`; reserved flag bits are rejected before any hardware write.
+  Firmware-DMA commands accept an optional `BASE`; when it is omitted the C
+  tool uses `FIELDMESH_SIDECAR_CTRL_BASE` from `fieldmesh_sidecar_addr.h`, so
+  normal board wrappers no longer carry the sidecar control-page literal.
   The board wrapper additionally consumes C-decoded `config_allowed=true` before
   forwarding `--fw-dma-config` and `arm_allowed=true` before forwarding
   `--fw-dma-arm`, unless the matching diagnostic override is set after reviewing

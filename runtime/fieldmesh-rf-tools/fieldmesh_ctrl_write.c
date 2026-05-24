@@ -42,13 +42,14 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write --fw-dma-status-idle-self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-action-policy-self-test\n"
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
-            "  fieldmesh-ctrl-write --fw-dma-status BASE\n"
-            "  fieldmesh-ctrl-write --fw-dma-config BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
-            "  fieldmesh-ctrl-write --fw-dma-config-if-idle BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
-            "  fieldmesh-ctrl-write --fw-dma-arm BASE SERVICE_BUDGET\n"
-            "  fieldmesh-ctrl-write --fw-dma-arm-if-ready BASE SERVICE_BUDGET\n"
-            "  fieldmesh-ctrl-write --fw-dma-stop BASE\n"
-            "  fieldmesh-ctrl-write --fw-dma-stop-if-active BASE\n");
+            "  fieldmesh-ctrl-write --fw-dma-status [BASE]\n"
+            "  fieldmesh-ctrl-write --fw-dma-config [BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
+            "  fieldmesh-ctrl-write --fw-dma-config-if-idle [BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
+            "  fieldmesh-ctrl-write --fw-dma-arm [BASE] SERVICE_BUDGET\n"
+            "  fieldmesh-ctrl-write --fw-dma-arm-if-ready [BASE] SERVICE_BUDGET\n"
+            "  fieldmesh-ctrl-write --fw-dma-stop [BASE]\n"
+            "  fieldmesh-ctrl-write --fw-dma-stop-if-active [BASE]\n"
+            "default firmware-DMA BASE: " FIELDMESH_SIDECAR_CTRL_BASE_TEXT "\n");
 }
 
 static void print_json(bool ok, const char *error, uint32_t base, uint32_t offset,
@@ -338,8 +339,9 @@ int main(int argc, char **argv) {
         return print_fw_dma_action_policy_self_test();
     }
 
-    if (argc == 3 && strcmp(argv[1], "--fw-dma-status") == 0) {
-        uint32_t base = parse_u32(argv[2], "base");
+    if ((argc == 2 || argc == 3) && strcmp(argv[1], "--fw-dma-status") == 0) {
+        uint32_t base = argc == 3 ? parse_u32(argv[2], "base") :
+            FIELDMESH_SIDECAR_CTRL_BASE;
         if (!live_read_allowed()) {
             printf("{\"event\":\"fieldmesh_fw_dma_status\",\"ok\":false,"
                    "\"base\":\"0x%08" PRIx32 "\","
@@ -356,15 +358,19 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    if (argc == 8 && (strcmp(argv[1], "--fw-dma-config") == 0 ||
-                      strcmp(argv[1], "--fw-dma-config-if-idle") == 0)) {
+    if ((argc == 7 || argc == 8) && (strcmp(argv[1], "--fw-dma-config") == 0 ||
+                                     strcmp(argv[1], "--fw-dma-config-if-idle") == 0)) {
         bool checked_config = strcmp(argv[1], "--fw-dma-config-if-idle") == 0;
-        uint32_t base = parse_u32(argv[2], "base");
-        uint32_t peer_index = parse_u32(argv[3], "peer_index");
-        uint32_t mcs = parse_u32(argv[4], "mcs");
-        uint32_t retry_budget = parse_u32(argv[5], "retry_budget");
-        uint32_t descriptor_flags = parse_u32(argv[6], "descriptor_flags");
-        uint32_t seq_seed = parse_u32(argv[7], "seq_seed");
+        int arg = 2;
+        uint32_t base = FIELDMESH_SIDECAR_CTRL_BASE;
+        if (argc == 8) {
+            base = parse_u32(argv[arg++], "base");
+        }
+        uint32_t peer_index = parse_u32(argv[arg++], "peer_index");
+        uint32_t mcs = parse_u32(argv[arg++], "mcs");
+        uint32_t retry_budget = parse_u32(argv[arg++], "retry_budget");
+        uint32_t descriptor_flags = parse_u32(argv[arg++], "descriptor_flags");
+        uint32_t seq_seed = parse_u32(argv[arg++], "seq_seed");
         if (!fieldmesh_fw_dma_config_args_valid(peer_index, mcs, retry_budget,
                                                 descriptor_flags)) {
             fprintf(stderr, "peer_index must fit in 16 bits; mcs/retry_budget must fit in 8 bits; descriptor_flags must use mask 0x%04x\n",
@@ -439,11 +445,15 @@ int main(int argc, char **argv) {
         return ok ? 0 : 1;
     }
 
-    if (argc == 4 && (strcmp(argv[1], "--fw-dma-arm") == 0 ||
-                      strcmp(argv[1], "--fw-dma-arm-if-ready") == 0)) {
+    if ((argc == 3 || argc == 4) && (strcmp(argv[1], "--fw-dma-arm") == 0 ||
+                                     strcmp(argv[1], "--fw-dma-arm-if-ready") == 0)) {
         bool checked_arm = strcmp(argv[1], "--fw-dma-arm-if-ready") == 0;
-        uint32_t base = parse_u32(argv[2], "base");
-        uint32_t budget = parse_u32(argv[3], "service_budget");
+        int arg = 2;
+        uint32_t base = FIELDMESH_SIDECAR_CTRL_BASE;
+        if (argc == 4) {
+            base = parse_u32(argv[arg++], "base");
+        }
+        uint32_t budget = parse_u32(argv[arg++], "service_budget");
         if (budget > 0xffffu) {
             fprintf(stderr, "service_budget must fit in 16 bits\n");
             return 2;
@@ -493,10 +503,11 @@ int main(int argc, char **argv) {
         return (ctrl_readback == FIELDMESH_FW_DMA_ARM_CONTROL && (budget_readback & 0xffffu) == budget) ? 0 : 1;
     }
 
-    if (argc == 3 && (strcmp(argv[1], "--fw-dma-stop") == 0 ||
-                      strcmp(argv[1], "--fw-dma-stop-if-active") == 0)) {
+    if ((argc == 2 || argc == 3) && (strcmp(argv[1], "--fw-dma-stop") == 0 ||
+                                     strcmp(argv[1], "--fw-dma-stop-if-active") == 0)) {
         bool checked_stop = strcmp(argv[1], "--fw-dma-stop-if-active") == 0;
-        uint32_t base = parse_u32(argv[2], "base");
+        uint32_t base = argc == 3 ? parse_u32(argv[2], "base") :
+            FIELDMESH_SIDECAR_CTRL_BASE;
         if (!fw_dma_write_allowed()) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
                        base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_CONTROL_MAC_STOP, 0, false);

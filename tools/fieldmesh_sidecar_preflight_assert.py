@@ -5,16 +5,34 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 
 CTRL_ID = 0x464D1001
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SIDECAR_ADDR_HEADER = REPO_ROOT / "sdk/c/include/fieldmesh_sidecar_addr.h"
+
+
+def c_u32_define(name: str) -> int:
+    header = SIDECAR_ADDR_HEADER.read_text(encoding="utf-8")
+    match = re.search(rf"^#define\s+{re.escape(name)}\s+(0x[0-9a-fA-F]+)u\b", header, re.MULTILINE)
+    if not match:
+        raise SystemExit(f"{SIDECAR_ADDR_HEADER}: missing C u32 define {name}")
+    return int(match.group(1), 16)
+
+
+SIDECAR_WINDOW_SIZE = c_u32_define("FIELDMESH_SIDECAR_WINDOW_SIZE")
+SIDECAR_CTRL_BASE = c_u32_define("FIELDMESH_SIDECAR_CTRL_BASE")
+SIDECAR_TX_DMA_BASE = c_u32_define("FIELDMESH_SIDECAR_TX_DMA_BASE")
+SIDECAR_RX_DMA_BASE = c_u32_define("FIELDMESH_SIDECAR_RX_DMA_BASE")
+SIDECAR_FIRMWARE_RING_BASE = c_u32_define("FIELDMESH_SIDECAR_FIRMWARE_RING_BASE")
 EXPECTED_DT_NODES = {
-    "fieldmesh_ctrl": (0x43C00000, 0x00010000, True),
-    "fieldmesh_tx_dma": (0x43C10000, 0x00010000, True),
-    "fieldmesh_rx_dma": (0x43C20000, 0x00010000, True),
-    "fieldmesh_ring": (0x43C30000, 0x00010000, True),
+    "fieldmesh_ctrl": (SIDECAR_CTRL_BASE, SIDECAR_WINDOW_SIZE, True),
+    "fieldmesh_tx_dma": (SIDECAR_TX_DMA_BASE, SIDECAR_WINDOW_SIZE, True),
+    "fieldmesh_rx_dma": (SIDECAR_RX_DMA_BASE, SIDECAR_WINDOW_SIZE, True),
+    "fieldmesh_ring": (SIDECAR_FIRMWARE_RING_BASE, SIDECAR_WINDOW_SIZE, True),
     "fieldmesh_packet": (0, 0, False),
 }
 EXPECTED_CTRL_REGS = {"id", "control", "status", "irq_status", "irq_mask"}
@@ -194,7 +212,7 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
         raise SystemExit(f"{path}: firmware-DMA status must be a hardware read: {row}")
     require_false(row, "writes_hardware", path)
     base = parse_u32(row.get("base"), path, "base", row)
-    if base != 0x43C00000:
+    if base != SIDECAR_CTRL_BASE:
         raise SystemExit(f"{path}: firmware-DMA status base mismatch: 0x{base:08x}")
     missing = EXPECTED_FW_DMA_STATUS_KEYS - set(row)
     if missing:

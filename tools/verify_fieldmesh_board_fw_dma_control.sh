@@ -30,6 +30,8 @@ required = [
     "DESCRIPTOR_FLAGS:$descriptor_flags:63",
     "SEQ_SEED",
     "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status",
+    "fw_dma_base_words",
+    "shell_words",
     "APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1",
     "FORCE_FIRMWARE_DMA_CONFIG",
     "FORCE_FIRMWARE_DMA_ARM",

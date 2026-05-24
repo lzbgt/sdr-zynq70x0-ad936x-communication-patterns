@@ -14,6 +14,8 @@ required = [
     'fw_dma_writes_hardware',
     'sidecar preflight is missing firmware-DMA status',
     'firmware-DMA status preflight is not read-only',
+    'dma_base_args',
+    'shell_words',
     '--allow-live-writes',
 ]
 for token in required:

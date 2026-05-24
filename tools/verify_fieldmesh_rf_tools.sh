@@ -20,17 +20,18 @@ cc -std=c99 -Wall -Wextra -Werror \
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-idle-self-test >"$work_dir/fw_dma_status_idle_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-action-policy-self-test >"$work_dir/fw_dma_action_policy_self_test.json"
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config-if-idle 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_checked_guard.json" 2>/dev/null || true
-if "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x40 0x1200 >"$work_dir/fw_dma_config_bad_flags.json" 2>"$work_dir/fw_dma_config_bad_flags.err"; then
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_explicit_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config-if-idle 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_checked_guard.json" 2>/dev/null || true
+if "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 7 1 3 0x40 0x1200 >"$work_dir/fw_dma_config_bad_flags.json" 2>"$work_dir/fw_dma_config_bad_flags.err"; then
   echo "fieldmesh-ctrl-write accepted reserved firmware-DMA descriptor flags" >&2
   exit 1
 fi
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 0x43c00000 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm-if-ready 0x43c00000 32 >"$work_dir/fw_dma_arm_checked_guard.json" 2>/dev/null || true
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop 0x43c00000 >"$work_dir/fw_dma_stop_guard.json" 2>/dev/null || true
-"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop-if-active 0x43c00000 >"$work_dir/fw_dma_stop_checked_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm-if-ready 32 >"$work_dir/fw_dma_arm_checked_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop >"$work_dir/fw_dma_stop_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop-if-active >"$work_dir/fw_dma_stop_checked_guard.json" 2>/dev/null || true
 
 if "$work_dir/fieldmesh-ctrl-write-host" 0x43c00000 0x100 0 >/dev/null 2>&1; then
   echo "fieldmesh-ctrl-write accepted missing live write authorization" >&2
@@ -230,12 +231,20 @@ for key, expected in expected_policy.items():
 fw_status = json.loads((work / "fw_dma_status_guard.json").read_text(encoding="utf-8"))
 if fw_status.get("event") != "fieldmesh_fw_dma_status" or fw_status.get("ok") is not False:
     raise SystemExit(f"firmware DMA status guard failed: {fw_status!r}")
+if fw_status.get("base") != "0x43c00000":
+    raise SystemExit(f"firmware DMA default status guard used wrong C default base: {fw_status!r}")
 if fw_status.get("writes_hardware") is not False:
     raise SystemExit(f"firmware DMA guarded status must not write hardware: {fw_status!r}")
+
+fw_status_explicit = json.loads((work / "fw_dma_status_explicit_guard.json").read_text(encoding="utf-8"))
+if fw_status_explicit.get("base") != fw_status.get("base"):
+    raise SystemExit(f"firmware DMA explicit/default status bases diverged: {fw_status_explicit!r} vs {fw_status!r}")
 
 row = json.loads((work / "fw_dma_config_guard.json").read_text(encoding="utf-8"))
 if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
     raise SystemExit(f"firmware DMA guarded config failed: {row!r}")
+if row.get("base") != "0x43c00000":
+    raise SystemExit(f"firmware DMA guarded config used wrong C default base: {row!r}")
 if row.get("offset") != "0x00000170" or row.get("value") != "0x03010007":
     raise SystemExit(f"firmware DMA guarded config used wrong register: {row!r}")
 if row.get("writes_hardware") is not False:
@@ -248,6 +257,8 @@ for name, expected_value in (("fw_dma_arm_guard.json", "0x0000001f"),
     row = json.loads((work / name).read_text(encoding="utf-8"))
     if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
         raise SystemExit(f"firmware DMA guarded command failed: {name}: {row!r}")
+    if row.get("base") != "0x43c00000":
+        raise SystemExit(f"firmware DMA guarded command used wrong C default base: {name}: {row!r}")
     if row.get("offset") != "0x00000140" or row.get("value") != expected_value:
         raise SystemExit(f"firmware DMA guarded command used wrong register: {name}: {row!r}")
     if row.get("writes_hardware") is not False:

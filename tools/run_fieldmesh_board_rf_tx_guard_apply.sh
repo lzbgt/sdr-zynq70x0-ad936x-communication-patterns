@@ -23,11 +23,11 @@ rootfs_tar="${ROOTFS_TAR:-$FIELDMESH_ROOTFS_TAR}"
 board_ip="${BOARD_IP:-${1:-$default_ip}}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
-ctrl_base="${CTRL_BASE:-0x43c00000}"
-ctrl_size="${CTRL_SIZE:-0x10000}"
-tx_dma_base="${TX_DMA_BASE:-0x43c10000}"
-rx_dma_base="${RX_DMA_BASE:-0x43c20000}"
-dma_size="${DMA_SIZE:-0x10000}"
+ctrl_base="${CTRL_BASE:-}"
+ctrl_size="${CTRL_SIZE:-}"
+tx_dma_base="${TX_DMA_BASE:-}"
+rx_dma_base="${RX_DMA_BASE:-}"
+dma_size="${DMA_SIZE:-}"
 slot_epoch="${SLOT_EPOCH:-12}"
 slot_index="${SLOT_INDEX:-3}"
 arm_window_us="${ARM_WINDOW_US:-5000}"
@@ -60,6 +60,23 @@ remote_scan_before="/tmp/fieldmesh_rf_guard_scan_before.ndjson"
 remote_apply="/tmp/fieldmesh_rf_guard_apply.ndjson"
 remote_scan_after="/tmp/fieldmesh_rf_guard_scan_after.ndjson"
 
+shell_words() {
+  local arg quoted out=""
+  for arg in "$@"; do
+    printf -v quoted "%q" "$arg"
+    out+=" $quoted"
+  done
+  printf "%s" "$out"
+}
+
+ctrl_scan_args=()
+[[ -n "$ctrl_base" ]] && ctrl_scan_args+=(--ctrl-base "$ctrl_base")
+[[ -n "$ctrl_size" ]] && ctrl_scan_args+=(--ctrl-size "$ctrl_size")
+dma_scan_args=()
+[[ -n "$tx_dma_base" ]] && dma_scan_args+=(--tx-dma-base "$tx_dma_base")
+[[ -n "$rx_dma_base" ]] && dma_scan_args+=(--rx-dma-base "$rx_dma_base")
+[[ -n "$dma_size" ]] && dma_scan_args+=(--dma-size "$dma_size")
+
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "uname -a; command -v fieldmesh-udp-probe || true; fieldmesh-udp-probe --help 2>&1 | grep -q rf-guard-apply && echo rf_guard_apply=present || echo rf_guard_apply=missing" \
   > "$out_dir/board_probe.txt"
@@ -84,9 +101,9 @@ fi
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "$remote_probe dt-scan --dt-root /proc/device-tree > '$remote_dt' 2>&1"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "$remote_probe ctrl-scan --ctrl-base '$ctrl_base' --ctrl-size '$ctrl_size' > '$remote_ctrl' 2>&1"
+  "$remote_probe ctrl-scan$(shell_words "${ctrl_scan_args[@]}") > '$remote_ctrl' 2>&1"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "$remote_probe dma-scan --tx-dma-base '$tx_dma_base' --rx-dma-base '$rx_dma_base' --dma-size '$dma_size' > '$remote_dma' 2>&1"
+  "$remote_probe dma-scan$(shell_words "${dma_scan_args[@]}") > '$remote_dma' 2>&1"
 
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dt" "$out_dir/dt_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_ctrl" "$out_dir/ctrl_scan.ndjson"
@@ -101,7 +118,7 @@ sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dma" "$out_dir/dma_
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" -O "$out_dir/preflight_assert.json" "$remote:$remote_preflight"
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "$remote_probe rf-guard-scan --ctrl-base '$ctrl_base' --ctrl-size '$ctrl_size' > '$remote_scan_before' 2>&1"
+  "$remote_probe rf-guard-scan$(shell_words "${ctrl_scan_args[@]}") > '$remote_scan_before' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_scan_before" "$out_dir/rf_guard_scan_before.ndjson"
 
 if [[ "$apply_guard" == "1" ]]; then
@@ -110,7 +127,7 @@ if [[ "$apply_guard" == "1" ]]; then
     exit 1
   fi
   sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-    "$remote_probe rf-guard-apply --ctrl-base '$ctrl_base' --ctrl-size '$ctrl_size' --preflight-assert '$remote_preflight' --allow-live-writes --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board --slot-epoch '$slot_epoch' --slot-index '$slot_index' --arm-window-us '$arm_window_us' > '$remote_apply' 2>&1"
+    "$remote_probe rf-guard-apply$(shell_words "${ctrl_scan_args[@]}") --preflight-assert '$remote_preflight' --allow-live-writes --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board --slot-epoch '$slot_epoch' --slot-index '$slot_index' --arm-window-us '$arm_window_us' > '$remote_apply' 2>&1"
   sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_apply" "$out_dir/rf_guard_apply.ndjson"
 else
   cat > "$out_dir/rf_guard_apply.ndjson" <<EOF_PLAN
@@ -119,7 +136,7 @@ EOF_PLAN
 fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "$remote_probe rf-guard-scan --ctrl-base '$ctrl_base' --ctrl-size '$ctrl_size' > '$remote_scan_after' 2>&1"
+  "$remote_probe rf-guard-scan$(shell_words "${ctrl_scan_args[@]}") > '$remote_scan_after' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_scan_after" "$out_dir/rf_guard_scan_after.ndjson"
 
 python3 - "$out_dir" "$board_ip" "$variant" "$apply_guard" <<'PY'

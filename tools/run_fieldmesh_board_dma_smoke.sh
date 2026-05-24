@@ -7,8 +7,8 @@ frame="${2:-$repo_root/resources/fieldmesh/vectors/frame_000.bin}"
 out_dir="${3:-$repo_root/.config/fieldmesh/board-dma-smoke-$(date +%Y%m%d-%H%M%S)}"
 ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
-tx_dma_base="${TX_DMA_BASE:-0x43c10000}"
-rx_dma_base="${RX_DMA_BASE:-0x43c20000}"
+tx_dma_base="${TX_DMA_BASE:-}"
+rx_dma_base="${RX_DMA_BASE:-}"
 tx_buffer="${TX_BUFFER:-0x1f000000}"
 rx_buffer="${RX_BUFFER:-0x1f100000}"
 timeout_ms="${TIMEOUT_MS:-5000}"
@@ -34,7 +34,7 @@ with open(sys.argv[1], encoding="utf-8") as f:
     data = json.load(f)
 if data.get("event") != "fieldmesh_sidecar_preflight_assert" or data.get("ok") is not True:
     raise SystemExit(f"sidecar preflight is not green: {data}")
-if data.get("fw_dma_base") != "0x43c00000":
+if not data.get("fw_dma_base"):
     raise SystemExit(f"sidecar preflight is missing firmware-DMA status: {data}")
 if data.get("fw_dma_reads_hardware") is not True or data.get("fw_dma_writes_hardware") is not False:
     raise SystemExit(f"firmware-DMA status preflight is not read-only: {data}")
@@ -49,11 +49,24 @@ remote="${ssh_user}@${host}"
 remote_frame="/tmp/fieldmesh_dma_smoke_frame.bin"
 remote_preflight="/tmp/fieldmesh_dma_smoke_preflight.json"
 
+shell_words() {
+  local arg quoted out=""
+  for arg in "$@"; do
+    printf -v quoted "%q" "$arg"
+    out+=" $quoted"
+  done
+  printf "%s" "$out"
+}
+
+dma_base_args=()
+[[ -n "$tx_dma_base" ]] && dma_base_args+=(--tx-dma-base "$tx_dma_base")
+[[ -n "$rx_dma_base" ]] && dma_base_args+=(--rx-dma-base "$rx_dma_base")
+
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$frame" "$remote:$remote_frame"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$preflight_dir/preflight_assert.json" "$remote:$remote_preflight"
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "fieldmesh-udp-probe dma-plan --file '$remote_frame' --tx-dma-base '$tx_dma_base' --rx-dma-base '$rx_dma_base'" \
+  "fieldmesh-udp-probe dma-plan --file '$remote_frame'$(shell_words "${dma_base_args[@]}")" \
   >"$out_dir/dma_plan.ndjson" 2>&1
 
 smoke_guard_args=""
@@ -63,7 +76,7 @@ fi
 
 set +e
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "fieldmesh-udp-probe dma-smoke --file '$remote_frame' --preflight-assert '$remote_preflight' --allow-live-writes --tx-dma-base '$tx_dma_base' --rx-dma-base '$rx_dma_base' --tx-buffer '$tx_buffer' --rx-buffer '$rx_buffer' --timeout-ms '$timeout_ms' $smoke_guard_args" \
+  "fieldmesh-udp-probe dma-smoke --file '$remote_frame' --preflight-assert '$remote_preflight' --allow-live-writes$(shell_words "${dma_base_args[@]}") --tx-buffer '$tx_buffer' --rx-buffer '$rx_buffer' --timeout-ms '$timeout_ms' $smoke_guard_args" \
   >"$out_dir/dma_smoke.ndjson" 2>&1
 dma_smoke_rc="$?"
 set -e
