@@ -42,11 +42,14 @@ for key in ("commands_executed", "writes_hardware", "starts_rf_tx", "opens_iio_b
 for key in ("requires_backend", "requires_bounded_tx_duration", "requires_rollback"):
     if safety.get(key) is not True:
         raise SystemExit(f"safety key {key} was not asserted")
+if safety.get("rf_guard_action_policy_self_test_proven") is not True:
+    raise SystemExit("TX-enable run did not carry RF guard action-policy proof")
 script = Path(report["generated_script"])
 text = script.read_text(encoding="utf-8")
 for token in (
     "trap rollback EXIT INT TERM",
     "FIELD_MESH_EXECUTE_LIVE_TX",
+    "fieldmesh-udp-probe rf-guard-action-policy-self-test",
     "fieldmesh-udp-probe rf-source-apply",
     "fieldmesh-udp-probe rf-guard-apply",
     "fieldmesh-radio-tx-enable",

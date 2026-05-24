@@ -711,6 +711,7 @@ The next TX-enable boundary is review-only:
 ./tools/fieldmesh_rf_tx_enable_plan.py \
   --rf-guard-apply rf_guard_apply.ndjson \
   --rf-source-apply rf_source_apply.ndjson \
+  --rf-guard-action-policy-self-test rf_guard_action_policy_self_test.ndjson \
   --preflight-assert preflight_assert.json \
   --out-dir .config/fieldmesh/rf-tx-enable-plan \
   --center-frequency-hz 915000000 \
@@ -727,10 +728,11 @@ The next TX-enable boundary is review-only:
 ```
 
 This tool validates that the guard writer and DAC source-select writer both
-work and roll back, then emits a future sequence:
-source select, guard arm, safe tuning, bounded TX-enable, TX disable, source
-rollback, and guard rollback. It still executes no commands, writes no
-hardware, opens no IIO buffers, and starts no RF TX.
+work and roll back, and that the packaged C RF guard action-policy self-test
+proves active/idle/faulted policy without hardware access. It then emits a
+future sequence: C policy proof, source select, guard arm, safe tuning, bounded
+TX-enable, TX disable, source rollback, and guard rollback. It still executes
+no commands, writes no hardware, opens no IIO buffers, and starts no RF TX.
 
 The next executor boundary turns that plan into a guarded board script and an
 explicit backend invocation contract:

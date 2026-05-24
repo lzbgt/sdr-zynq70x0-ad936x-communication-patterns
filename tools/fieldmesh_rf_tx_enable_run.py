@@ -55,6 +55,7 @@ def require_plan(plan: dict[str, Any]) -> None:
         raise SystemExit("plan is missing a sequence")
     names = {row.get("name") for row in sequence if isinstance(row, dict)}
     for required in (
+        "prove_rf_guard_action_policy",
         "select_fieldmesh_dac_source",
         "arm_fieldmesh_tx_guard",
         "configure_tx_frequency_profile",
@@ -65,6 +66,21 @@ def require_plan(plan: dict[str, Any]) -> None:
     ):
         if required not in names:
             raise SystemExit(f"plan is missing sequence step {required}")
+    proof = plan.get("rf_guard_action_policy_self_test")
+    if not isinstance(proof, dict):
+        raise SystemExit("plan is missing RF guard action-policy self-test proof")
+    for key, value in (
+        ("active_guard_apply_allowed", False),
+        ("active_source_select_allowed", True),
+        ("idle_guard_apply_allowed", True),
+        ("idle_source_select_allowed", True),
+        ("fault_guard_apply_allowed", False),
+        ("fault_source_select_allowed", False),
+        ("reads_hardware", False),
+        ("writes_hardware", False),
+    ):
+        if proof.get(key) is not value:
+            raise SystemExit(f"plan RF guard action-policy self-test key {key} mismatch")
 
 
 def require_args(args: argparse.Namespace, plan: dict[str, Any]) -> None:
@@ -122,6 +138,7 @@ def script_lines(plan: dict[str, Any], args: argparse.Namespace) -> list[str]:
     rollback_tx = rows["rollback_tx_enable"]
     rollback_source = rows["rollback_fieldmesh_dac_source"]
     rollback_guard = rows["rollback_fieldmesh_tx_guard"]
+    action_policy = rows["prove_rf_guard_action_policy"]
     source = rows["select_fieldmesh_dac_source"]
     guard = rows["arm_fieldmesh_tx_guard"]
     tune = rows["configure_tx_frequency_profile"]
@@ -151,6 +168,8 @@ def script_lines(plan: dict[str, Any], args: argparse.Namespace) -> list[str]:
         "test -c /dev/mem",
         "command -v fieldmesh-udp-probe >/dev/null 2>&1",
         "echo fieldmesh_rf_tx_enable_preflight=ok",
+        "",
+        f"{action_policy['shell']}",
         "",
         "if [ \"${FIELD_MESH_EXECUTE_LIVE_TX:-0}\" != \"1\" ]; then",
         "  echo fieldmesh_rf_tx_enable_live_tx=skipped",
@@ -272,6 +291,7 @@ def main() -> int:
             "requires_backend": True,
             "requires_bounded_tx_duration": True,
             "requires_rollback": True,
+            "rf_guard_action_policy_self_test_proven": True,
         },
         "plan": str(args.tx_enable_plan),
         "execution": execution,

@@ -90,6 +90,41 @@ def require_source_evidence(path: Path) -> dict[str, Any]:
     }
 
 
+def require_action_policy_self_test(path: Path) -> dict[str, Any]:
+    rows = load_ndjson(path)
+    proof = find_event(rows, "fieldmesh_rf_guard_action_policy_self_test")
+    expected = {
+        "ok": True,
+        "active_guard_apply_allowed": False,
+        "active_source_select_allowed": True,
+        "active_rollback_needed": True,
+        "idle_guard_apply_allowed": True,
+        "idle_source_select_allowed": True,
+        "idle_rollback_needed": False,
+        "fault_guard_apply_allowed": False,
+        "fault_source_select_allowed": False,
+        "fault_rollback_needed": False,
+        "reads_hardware": False,
+        "writes_hardware": False,
+    }
+    for key, value in expected.items():
+        if proof.get(key) is not value:
+            raise SystemExit(f"RF guard action-policy self-test {key} mismatch")
+    return {
+        "active_guard_apply_allowed": proof.get("active_guard_apply_allowed"),
+        "active_source_select_allowed": proof.get("active_source_select_allowed"),
+        "active_rollback_needed": proof.get("active_rollback_needed"),
+        "idle_guard_apply_allowed": proof.get("idle_guard_apply_allowed"),
+        "idle_source_select_allowed": proof.get("idle_source_select_allowed"),
+        "idle_rollback_needed": proof.get("idle_rollback_needed"),
+        "fault_guard_apply_allowed": proof.get("fault_guard_apply_allowed"),
+        "fault_source_select_allowed": proof.get("fault_source_select_allowed"),
+        "fault_rollback_needed": proof.get("fault_rollback_needed"),
+        "reads_hardware": proof.get("reads_hardware"),
+        "writes_hardware": proof.get("writes_hardware"),
+    }
+
+
 def require_preflight(path: Path) -> dict[str, Any]:
     preflight = load_json(path)
     if preflight.get("event") != "fieldmesh_sidecar_preflight_assert" or preflight.get("ok") is not True:
@@ -147,6 +182,13 @@ def build_sequence(args: argparse.Namespace, guard: dict[str, Any]) -> list[dict
     ctrl = args.ctrl_base
     return [
         row("preflight_dt_ctrl_dma", ["fieldmesh-preflight-already-proven"]),
+        row(
+            "prove_rf_guard_action_policy",
+            [
+                probe,
+                "rf-guard-action-policy-self-test",
+            ],
+        ),
         row("arm_rx_capture_path", ["fieldmesh-rx-first-already-required"]),
         row(
             "select_fieldmesh_dac_source",
@@ -255,6 +297,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rf-guard-apply", type=Path, required=True)
     parser.add_argument("--rf-source-apply", type=Path, required=True)
+    parser.add_argument("--rf-guard-action-policy-self-test", type=Path, required=True)
     parser.add_argument("--preflight-assert", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--probe-path", default="fieldmesh-udp-probe")
@@ -283,6 +326,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     require_safety(args)
+    action_policy = require_action_policy_self_test(args.rf_guard_action_policy_self_test)
     guard = require_guard_evidence(args.rf_guard_apply)
     source = require_source_evidence(args.rf_source_apply)
     preflight = require_preflight(args.preflight_assert)
@@ -310,6 +354,7 @@ def main() -> int:
             "ctrl_id": preflight.get("ctrl_id"),
             "dma_windows": preflight.get("dma_windows"),
         },
+        "rf_guard_action_policy_self_test": action_policy,
         "guard_evidence": guard,
         "source_evidence": source,
         "sequence": sequence,
@@ -321,6 +366,7 @@ def main() -> int:
             "opens_iio_buffers": False,
             "uses_inter_board_ip_routing": False,
             "live_tx_enable_authorized": False,
+            "rf_guard_action_policy_self_test_proven": True,
             "requires_manual_rf_path_review": True,
             "requires_manual_fixture_review": bool(args.conducted_or_shielded),
         },

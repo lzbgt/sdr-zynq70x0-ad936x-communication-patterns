@@ -2477,17 +2477,19 @@ driver binding must remain blocked at
 and
 `resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_rf_source_select_blocked_20260518-121711/`.
 `./tools/verify_fieldmesh_rf_tx_enable_plan.sh` then added the review-only
-TX-enable gate: it consumes live guard/source/preflight evidence, requires
-authorized over-air RF path, legal frequency profile, RX-first,
-TX-enable guard, sidecar preflight, RF-engine, and Zynq target declarations,
-and emits a future bounded TX-enable plus rollback sequence while still
-reporting `executes_commands=false`, `writes_hardware=false`, and
-`starts_rf_tx=false`.
+TX-enable gate: it consumes live guard/source/preflight evidence plus the
+read/write-free C RF guard action-policy self-test proof, requires authorized
+over-air RF path, legal frequency profile, RX-first, TX-enable guard, sidecar
+preflight, RF-engine, and Zynq target declarations, and emits a future bounded
+TX-enable plus rollback sequence while still reporting
+`executes_commands=false`, `writes_hardware=false`, and `starts_rf_tx=false`.
 `./tools/verify_fieldmesh_rf_tx_enable_run.sh` adds the next executor gate. It
-consumes that plan, generates a rollback-protected board script, verifies the
-default path remains dry-run, rejects missing review permission, rejects live
-execution without a backend, and proves a mock backend can be invoked only
-after the hardware-write, RF-TX, fixture, attenuation, RX-first, and operator
+consumes that plan, generates a rollback-protected board script that re-runs
+`fieldmesh-udp-probe rf-guard-action-policy-self-test` before live TX checks,
+verifies the default path remains dry-run, rejects missing review permission,
+rejects live execution without a backend, and proves a mock backend can be
+invoked only after the hardware-write, RF-TX, fixture, attenuation, RX-first,
+and operator
 confirmation gates are present. The verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed

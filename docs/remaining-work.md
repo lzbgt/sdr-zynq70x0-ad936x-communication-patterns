@@ -1580,13 +1580,14 @@ below were later superseded by the current PHY-management two-board gates above:
   apply path now rejects that case. After installing the refreshed RF-engine
   package, Z103 passed with source-select readback asserted and rolled back.
 - `tools/fieldmesh_rf_tx_enable_plan.py` now joins green sidecar preflight,
-  guard-write, and source-select evidence into a review-only authorized
-  over-air TX-enable sequence with bounded duration and rollback. It still executes no
-  commands and starts no RF TX. `tools/fieldmesh_rf_tx_enable_run.py` now
-  consumes that plan, generates a rollback-protected board script, and only
-  invokes an explicit TX backend after the hardware-write, RF-TX,
-  authorized RF-path, RX-first, operator-confirmation, and RF-path evidence gates are
-  present. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
+  guard-write, source-select, and C RF guard action-policy self-test evidence
+  into a review-only authorized over-air TX-enable sequence with bounded
+  duration and rollback. It still executes no commands and starts no RF TX.
+  `tools/fieldmesh_rf_tx_enable_run.py` now consumes that plan, generates a
+  rollback-protected board script that re-runs the C action-policy proof before
+  live TX checks, and only invokes an explicit TX backend after the
+  hardware-write, RF-TX, authorized RF-path, RX-first, operator-confirmation,
+  and RF-path evidence gates are present. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
   manifests for attenuation, isolation, legal profile, calibration, and
   frequency range before live RF. The next live work is implementing the actual
   board backend for a real
