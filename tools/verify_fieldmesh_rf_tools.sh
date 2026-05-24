@@ -24,6 +24,8 @@ cc -std=c99 -Wall -Wextra -Werror \
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_explicit_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config-if-idle 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_checked_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-latency-budget 1000 >"$work_dir/fw_dma_latency_budget_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-latency-budget-if-idle 1000 >"$work_dir/fw_dma_latency_budget_checked_guard.json" 2>/dev/null || true
 if "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 7 1 3 0x40 0x1200 >"$work_dir/fw_dma_config_bad_flags.json" 2>"$work_dir/fw_dma_config_bad_flags.err"; then
   echo "fieldmesh-ctrl-write accepted reserved firmware-DMA descriptor flags" >&2
   exit 1
@@ -125,13 +127,14 @@ expected_status = {
     "control_mac_scheduler_enable": True,
     "control_mac_tick_enable": True,
     "control_mac_stop": False,
-    "status": "0x0000002f",
+    "status": "0x0000006f",
     "endpoint_enabled": True,
     "mac_scheduler_active": True,
     "pump_done": True,
     "drained_empty": True,
     "budget_exhausted": False,
     "service_accepted": True,
+    "service_latency_over_budget": True,
     "service_budget": 32,
     "queued_count": 4,
     "selected_word": "0x80020003",
@@ -151,6 +154,9 @@ expected_status = {
     "service_latency_last_cycles": 25,
     "service_latency_max_cycles": 26,
     "service_latency_accum_cycles": 2700,
+    "service_latency_budget_cycles": 1000,
+    "service_latency_over_budget_count": 2,
+    "service_latency_budget_ok": False,
     "bram_crc_errors": 22,
     "bram_bounds_errors": 23,
     "bram_errors": 11,
@@ -192,8 +198,12 @@ expected_idle_status = {
     "control_mac_stop": False,
     "endpoint_enabled": False,
     "mac_scheduler_active": False,
+    "service_latency_over_budget": False,
     "service_budget": 0,
     "queued_count": 0,
+    "service_latency_budget_cycles": 0,
+    "service_latency_over_budget_count": 0,
+    "service_latency_budget_ok": True,
     "fault_status": "0x00000000",
     "fault_free": True,
     "drop_counters_clear": True,
@@ -252,6 +262,17 @@ if row.get("offset") != "0x00000170" or row.get("value") != "0x03010007":
     raise SystemExit(f"firmware DMA guarded config used wrong register: {row!r}")
 if row.get("writes_hardware") is not False:
     raise SystemExit(f"firmware DMA guarded config must not write hardware: {row!r}")
+
+for name in ("fw_dma_latency_budget_guard.json", "fw_dma_latency_budget_checked_guard.json"):
+    row = json.loads((work / name).read_text(encoding="utf-8"))
+    if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
+        raise SystemExit(f"firmware DMA guarded latency-budget failed: {row!r}")
+    if row.get("base") != "0x43c00000":
+        raise SystemExit(f"firmware DMA guarded latency-budget used wrong C default base: {row!r}")
+    if row.get("offset") != "0x000001b0" or row.get("value") != "0x000003e8":
+        raise SystemExit(f"firmware DMA guarded latency-budget used wrong register: {row!r}")
+    if row.get("writes_hardware") is not False:
+        raise SystemExit(f"firmware DMA guarded latency-budget must not write hardware: {row!r}")
 
 for name, expected_value in (("fw_dma_arm_guard.json", "0x0000001f"),
                              ("fw_dma_arm_checked_guard.json", "0x0000001f"),

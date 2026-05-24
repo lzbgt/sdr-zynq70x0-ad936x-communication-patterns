@@ -38,8 +38,10 @@ extern "C" {
 #define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES 0x1a4u
 #define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES 0x1a8u
 #define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES 0x1acu
+#define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES 0x1b0u
+#define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT 0x1b4u
 
-#define FIELDMESH_FW_DMA_STATUS_REG_COUNT 28u
+#define FIELDMESH_FW_DMA_STATUS_REG_COUNT 30u
 
 #define FIELDMESH_FW_DMA_CONTROL_ENABLE 0x00000001u
 #define FIELDMESH_FW_DMA_CONTROL_INGRESS_ENABLE 0x00000002u
@@ -60,13 +62,15 @@ extern "C" {
 #define FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY 0x00000008u
 #define FIELDMESH_FW_DMA_STATUS_BUDGET_EXHAUSTED 0x00000010u
 #define FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED 0x00000020u
+#define FIELDMESH_FW_DMA_STATUS_SERVICE_LATENCY_OVER_BUDGET 0x00000040u
 #define FIELDMESH_FW_DMA_STATUS_ALL \
     (FIELDMESH_FW_DMA_STATUS_ENDPOINT_ENABLED | \
      FIELDMESH_FW_DMA_STATUS_MAC_SCHEDULER_ACTIVE | \
      FIELDMESH_FW_DMA_STATUS_PUMP_DONE | \
      FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY | \
      FIELDMESH_FW_DMA_STATUS_BUDGET_EXHAUSTED | \
-     FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED)
+     FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED | \
+     FIELDMESH_FW_DMA_STATUS_SERVICE_LATENCY_OVER_BUDGET)
 
 #define FIELDMESH_FW_DMA_FAULT_TX_PARSER 0x00000001u
 #define FIELDMESH_FW_DMA_FAULT_INGRESS 0x00000002u
@@ -117,6 +121,8 @@ typedef struct fieldmesh_fw_dma_status {
     uint32_t service_latency_last_cycles;
     uint32_t service_latency_max_cycles;
     uint32_t service_latency_accum_cycles;
+    uint32_t service_latency_budget_cycles;
+    uint32_t service_latency_over_budget_count;
     uint32_t fault_status;
     uint16_t peer_index;
     uint8_t mcs;
@@ -162,6 +168,8 @@ static inline uint32_t fieldmesh_fw_dma_status_offset(size_t index)
     case 25u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES;
     case 26u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES;
     case 27u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES;
+    case 28u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES;
+    case 29u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT;
     default: return 0u;
     }
 }
@@ -219,6 +227,7 @@ static inline void fieldmesh_fw_dma_status_test_regs_active_faulted(
               FIELDMESH_FW_DMA_STATUS_PUMP_DONE |
               FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY |
               FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED |
+              FIELDMESH_FW_DMA_STATUS_SERVICE_LATENCY_OVER_BUDGET |
               0xffff0000u;
     regs[2] = 32u;
     regs[3] = 4u;
@@ -248,6 +257,8 @@ static inline void fieldmesh_fw_dma_status_test_regs_active_faulted(
     regs[25] = 25u;
     regs[26] = 26u;
     regs[27] = 2700u;
+    regs[28] = 1000u;
+    regs[29] = 2u;
 }
 
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
@@ -324,6 +335,8 @@ static inline int fieldmesh_fw_dma_status_from_regs(
     status->service_latency_last_cycles = regs[25];
     status->service_latency_max_cycles = regs[26];
     status->service_latency_accum_cycles = regs[27];
+    status->service_latency_budget_cycles = regs[28];
+    status->service_latency_over_budget_count = regs[29];
     return 1;
 }
 
@@ -367,6 +380,20 @@ static inline int fieldmesh_fw_dma_status_service_accepted(
     const fieldmesh_fw_dma_status_t *status)
 {
     return status && (status->status & FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_service_latency_over_budget(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_SERVICE_LATENCY_OVER_BUDGET) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_service_latency_budget_ok(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status &&
+           !fieldmesh_fw_dma_status_service_latency_over_budget(status) &&
+           status->service_latency_over_budget_count == 0u;
 }
 
 static inline int fieldmesh_fw_dma_status_ingress_fault(
@@ -425,7 +452,8 @@ static inline int fieldmesh_fw_dma_status_ready_for_arm(
 {
     return fieldmesh_fw_dma_status_idle(status) &&
            fieldmesh_fw_dma_status_fault_free(status) &&
-           fieldmesh_fw_dma_status_drop_counters_clear(status);
+           fieldmesh_fw_dma_status_drop_counters_clear(status) &&
+           fieldmesh_fw_dma_status_service_latency_budget_ok(status);
 }
 
 static inline int fieldmesh_fw_dma_status_config_allowed(

@@ -259,11 +259,13 @@ AXI RAM/DMA binding.
 that path: TX DMA is byte-only and reconstructed through the in-band header
 parser, while RX DMA receives byte-only packets from the descriptor-validated
 firmware egress reader. The wrapper is controlled through the existing
-`fieldmesh_ctrl` AXI-lite window at `0x140..0x1ac`, which gates endpoint
+`fieldmesh_ctrl` AXI-lite window at `0x140..0x1b4`, which gates endpoint
 enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop, reports the
 firmware endpoint byte/packet/drop/fault counters, MAC pump counters, split
-BRAM CRC/bounds counters, FPGA MAC-service latency counters, and supplies FPGA-native descriptor sidebands
-instead of tying peer/MCS/retry/flags/sequence constants in Tcl. The wrapper still avoids the ADI sample-DMA
+BRAM CRC/bounds counters, FPGA MAC-service latency counters, a writable
+hardware latency budget with an over-budget flag/counter, and supplies
+FPGA-native descriptor sidebands instead of tying peer/MCS/retry/flags/sequence
+constants in Tcl. The wrapper still avoids the ADI sample-DMA
 register windows; it is the packet-DMA boundary for the first-party firmware
 path.
 The ARM-side register contract lives in
@@ -585,8 +587,9 @@ hardware counter evidence for TX parser, ingress, egress, MAC pump, and BRAM
 error state before any authorized measured-RF step. The gate requires the TX
 parser, ingress, descriptor-publication, and MAC tick counters to advance across
 the smoke interval, requires all drop/error deltas to remain zero, records
-FPGA MAC-service latency cycles from the firmware-DMA endpoint, enforces the
-configured service-latency cycle budget, and records the DMA TX poll count as
+FPGA MAC-service latency cycles from the firmware-DMA endpoint, programs and
+enforces the hardware service-latency cycle budget, requires the FPGA
+over-budget flag/counter to stay clear, and records the DMA TX poll count as
 bounded submit-latency evidence. The probe clears the
 AXI-DMAC transfer-done bitmask before and after each smoke transaction so
 repeated runs do not inherit stale completion bits.
@@ -957,9 +960,9 @@ counter progression from the C/FPGA-native endpoint before measured-link
 evidence can be accepted. The production sequence also derives and bundles a
 `fieldmesh_rf_hardware_progression_evidence` report from that bind-gate proof,
 so the final evidence manifest contains the before/after firmware-DMA
-snapshots, required deltas, FPGA service-latency counters checked against
-`FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES` (default `1000000` cycles), DMA
-submit-poll latency evidence, and C modem service-rate proof directly.
+snapshots, required deltas, FPGA service-latency counters checked against the
+programmed hardware budget register, clear over-budget flag/counter evidence,
+DMA submit-poll latency evidence, and C modem service-rate proof directly.
 With a successful live bridge and named app/gate source reports or feature
 reports, it derives app evidence and calls the production gate; with dry-run or
 incomplete evidence it leaves `production_ready=false`.

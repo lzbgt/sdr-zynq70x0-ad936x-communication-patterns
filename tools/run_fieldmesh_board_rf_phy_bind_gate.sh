@@ -55,6 +55,7 @@ ssh_args=(
     -o LogLevel=ERROR
 )
 remote="${ssh_user}@${board_ip}"
+remote_fw_dma_latency_budget="/tmp/fieldmesh_rf_phy_fw_dma_latency_budget.json"
 remote_fw_dma_status_before="/tmp/fieldmesh_rf_phy_fw_dma_status_before.json"
 remote_fw_dma_status_after="/tmp/fieldmesh_rf_phy_fw_dma_status_after.json"
 
@@ -82,6 +83,17 @@ PY
         "ip link delete swarm0 2>/dev/null || true" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
+
+fw_dma_latency_budget_rc=0
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+    "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-latency-budget-if-idle '$fw_dma_service_latency_max_cycles' > '$remote_fw_dma_latency_budget' 2>&1" \
+    || fw_dma_latency_budget_rc=$?
+sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+    "$remote:$remote_fw_dma_latency_budget" "$out_dir/fw_dma_latency_budget.json"
+if [[ "$fw_dma_latency_budget_rc" -ne 0 ]]; then
+    echo "firmware-DMA latency budget write was rejected; see $out_dir/fw_dma_latency_budget.json" >&2
+    exit "$fw_dma_latency_budget_rc"
+fi
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
     "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status > '$remote_fw_dma_status_before' 2>&1"
@@ -227,7 +239,8 @@ def require_fw_dma_status(path: Path, label: str) -> dict:
         "ingress_drops", "egress_packets", "egress_bytes", "egress_drops",
         "mac_ticks", "mac_pump_starts", "mac_pump_dones",
         "service_latency_last_cycles", "service_latency_max_cycles",
-        "service_latency_accum_cycles",
+        "service_latency_accum_cycles", "service_latency_budget_cycles",
+        "service_latency_over_budget_count",
         "bram_crc_errors", "bram_bounds_errors", "bram_errors",
     ):
         if key not in row or not isinstance(row.get(key), int):
@@ -235,6 +248,7 @@ def require_fw_dma_status(path: Path, label: str) -> dict:
     for key in (
         "fault_free", "drop_counters_clear", "idle", "ready_for_arm",
         "config_allowed", "arm_allowed", "stop_write_needed",
+        "service_latency_over_budget", "service_latency_budget_ok",
     ):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
@@ -262,6 +276,22 @@ if binding.get("modem_benchmark_decode_frame_kbps", 0) < 100:
     raise SystemExit(f"RF packet-engine C modem decode service-rate evidence is too low: {binding}")
 fw_dma_before = require_fw_dma_status(out_dir / "fw_dma_status_before.json", "before")
 fw_dma_after = require_fw_dma_status(out_dir / "fw_dma_status_after.json", "after")
+latency_budget_row = json.loads((out_dir / "fw_dma_latency_budget.json").read_text(encoding="utf-8"))
+if latency_budget_row.get("event") != "fieldmesh_fw_dma_latency_budget" or latency_budget_row.get("ok") is not True:
+    raise SystemExit(f"firmware-DMA hardware latency budget write failed: {latency_budget_row}")
+if latency_budget_row.get("writes_hardware") is not True:
+    raise SystemExit(f"firmware-DMA latency budget evidence must be a hardware write: {latency_budget_row}")
+if latency_budget_row.get("base") != "0x43c00000":
+    raise SystemExit(f"firmware-DMA latency budget used unexpected control base: {latency_budget_row}")
+if latency_budget_row.get("service_latency_budget_cycles") != service_latency_budget_cycles:
+    raise SystemExit(f"firmware-DMA latency budget command used wrong budget: {latency_budget_row}")
+if latency_budget_row.get("service_latency_budget_readback") != service_latency_budget_cycles:
+    raise SystemExit(f"firmware-DMA latency budget readback mismatch: {latency_budget_row}")
+for label, row in (("before", fw_dma_before), ("after", fw_dma_after)):
+    if row.get("service_latency_budget_cycles") != service_latency_budget_cycles:
+        raise SystemExit(
+            f"{label} firmware-DMA status did not report the FPGA latency budget register: {row}"
+        )
 dma_smoke_rows = load(out_dir / "sidecar_dma_smoke" / "dma_smoke.ndjson")
 dma_smoke_poll = [row for row in dma_smoke_rows if row.get("event") == "dma_smoke_poll"]
 if len(dma_smoke_poll) != 1:
@@ -292,6 +322,7 @@ fw_dma_counter_deltas = {
         "mac_pump_starts",
         "mac_pump_dones",
         "service_latency_accum_cycles",
+        "service_latency_over_budget_count",
         "bram_crc_errors",
         "bram_bounds_errors",
         "bram_errors",
@@ -317,6 +348,7 @@ for key in (
     "bram_crc_errors",
     "bram_bounds_errors",
     "bram_errors",
+    "service_latency_over_budget_count",
 ):
     if fw_dma_counter_deltas[key] != 0:
         raise SystemExit(f"firmware-DMA error/drop counter {key} advanced: {fw_dma_counter_deltas[key]}")
@@ -346,6 +378,17 @@ if not isinstance(service_latency_accum_delta, int) or service_latency_accum_del
     raise SystemExit(
         "firmware-DMA service latency accumulated-cycle delta must cover the last service interval"
     )
+if fw_dma_before.get("service_latency_over_budget") is not False:
+    raise SystemExit(f"firmware-DMA over-budget flag was set before the bind interval: {fw_dma_before}")
+if fw_dma_after.get("service_latency_over_budget") is not False:
+    raise SystemExit(f"firmware-DMA over-budget flag was set after the bind interval: {fw_dma_after}")
+if fw_dma_counter_deltas.get("service_latency_over_budget_count") != 0:
+    raise SystemExit(
+        "firmware-DMA over-budget counter advanced during the bind interval: "
+        f"{fw_dma_counter_deltas.get('service_latency_over_budget_count')}"
+    )
+if fw_dma_after.get("service_latency_budget_ok") is not True:
+    raise SystemExit(f"firmware-DMA C status decoder rejected latency-budget health: {fw_dma_after}")
 
 guard = json.loads(
     (out_dir / "rf_tx_guard_plan" / "fieldmesh_rf_tx_guard_run.json").read_text(encoding="utf-8")
@@ -456,6 +499,13 @@ summary = {
     "fw_dma_service_latency_accum_cycles_delta": fw_dma_counter_deltas.get("service_latency_accum_cycles"),
     "fw_dma_service_latency_budget_cycles": service_latency_budget_cycles,
     "fw_dma_service_latency_within_budget": True,
+    "fw_dma_service_latency_hardware_budget_programmed": True,
+    "fw_dma_service_latency_budget_ok_after": fw_dma_after.get("service_latency_budget_ok"),
+    "fw_dma_service_latency_over_budget_before": fw_dma_before.get("service_latency_over_budget"),
+    "fw_dma_service_latency_over_budget_after": fw_dma_after.get("service_latency_over_budget"),
+    "fw_dma_service_latency_over_budget_count_before": fw_dma_before.get("service_latency_over_budget_count"),
+    "fw_dma_service_latency_over_budget_count_after": fw_dma_after.get("service_latency_over_budget_count"),
+    "fw_dma_service_latency_over_budget_count_delta": fw_dma_counter_deltas.get("service_latency_over_budget_count"),
     "fw_dma_ingress_packets_before": fw_dma_before.get("ingress_packets"),
     "fw_dma_ingress_packets_after": fw_dma_after.get("ingress_packets"),
     "fw_dma_ingress_packets_delta": fw_dma_counter_deltas.get("ingress_packets"),

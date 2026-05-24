@@ -32,6 +32,7 @@ reg mac_scheduler_enable = 1'b0;
 reg mac_tick = 1'b0;
 reg mac_stop = 1'b0;
 reg [15:0] mac_service_budget = 16'd0;
+reg [31:0] service_latency_budget_cycles = 32'd1;
 wire mac_scheduler_active;
 wire pump_done;
 wire pump_drained_empty;
@@ -59,6 +60,8 @@ wire [31:0] mac_pump_done_count;
 wire [31:0] service_latency_last_cycles;
 wire [31:0] service_latency_max_cycles;
 wire [31:0] service_latency_accum_cycles;
+wire service_latency_over_budget;
+wire [31:0] service_latency_over_budget_count;
 wire [31:0] bram_crc_error_count;
 wire [31:0] bram_bounds_error_count;
 wire [31:0] bram_error_count;
@@ -97,6 +100,7 @@ fieldmesh_firmware_axis_dma_endpoint #(
     .mac_tick(mac_tick),
     .mac_stop(mac_stop),
     .mac_service_budget(mac_service_budget),
+    .service_latency_budget_cycles(service_latency_budget_cycles),
     .mac_scheduler_active(mac_scheduler_active),
     .pump_done(pump_done),
     .pump_drained_empty(pump_drained_empty),
@@ -124,6 +128,8 @@ fieldmesh_firmware_axis_dma_endpoint #(
     .service_latency_last_cycles(service_latency_last_cycles),
     .service_latency_max_cycles(service_latency_max_cycles),
     .service_latency_accum_cycles(service_latency_accum_cycles),
+    .service_latency_over_budget(service_latency_over_budget),
+    .service_latency_over_budget_count(service_latency_over_budget_count),
     .bram_crc_error_count(bram_crc_error_count),
     .bram_bounds_error_count(bram_bounds_error_count),
     .bram_error_count(bram_error_count)
@@ -295,6 +301,10 @@ initial begin
         service_latency_max_cycles != service_latency_last_cycles ||
         service_latency_accum_cycles != service_latency_last_cycles) begin
         fail("firmware DMA endpoint service latency counters mismatch");
+    end
+    if (!service_latency_over_budget ||
+        service_latency_over_budget_count != 32'd1) begin
+        fail("firmware DMA endpoint service latency over-budget detector mismatch");
     end
 
     expect_rx_dma_packet();

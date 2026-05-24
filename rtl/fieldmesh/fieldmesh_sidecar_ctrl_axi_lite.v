@@ -76,6 +76,7 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     output wire [7:0]   fw_dma_retry_budget,
     output wire [15:0]  fw_dma_descriptor_flags,
     output wire [31:0]  fw_dma_seq_seed,
+    output wire [31:0]  fw_dma_service_latency_budget_cycles,
 
     input  wire         fw_dma_mac_scheduler_active,
     input  wire         fw_dma_pump_done,
@@ -103,6 +104,8 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  fw_dma_service_latency_last_cycles,
     input  wire [31:0]  fw_dma_service_latency_max_cycles,
     input  wire [31:0]  fw_dma_service_latency_accum_cycles,
+    input  wire         fw_dma_service_latency_over_budget,
+    input  wire [31:0]  fw_dma_service_latency_over_budget_count,
     input  wire [31:0]  fw_dma_bram_crc_error_count,
     input  wire [31:0]  fw_dma_bram_bounds_error_count,
     input  wire [31:0]  fw_dma_bram_error_count,
@@ -163,6 +166,8 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_LAST = 12'h1a4;
     localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_MAX  = 12'h1a8;
     localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_ACC  = 12'h1ac;
+    localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_BUDGET = 12'h1b0;
+    localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT = 12'h1b4;
 
     wire rst = !s_axi_aresetn;
 
@@ -196,6 +201,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
     reg [7:0]  fw_dma_retry_budget_r;
     reg [15:0] fw_dma_descriptor_flags_r;
     reg [31:0] fw_dma_seq_seed_r;
+    reg [31:0] fw_dma_service_latency_budget_cycles_r;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_packet_count_meta;
@@ -240,6 +246,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
     assign fw_dma_retry_budget = fw_dma_retry_budget_r;
     assign fw_dma_descriptor_flags = fw_dma_descriptor_flags_r;
     assign fw_dma_seq_seed = fw_dma_seq_seed_r;
+    assign fw_dma_service_latency_budget_cycles = fw_dma_service_latency_budget_cycles_r;
 
     always @(posedge s_axi_aclk) begin
         if (rst) begin
@@ -293,6 +300,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
             fw_dma_retry_budget_r <= 8'd0;
             fw_dma_descriptor_flags_r <= 16'd0;
             fw_dma_seq_seed_r <= 32'd0;
+            fw_dma_service_latency_budget_cycles_r <= 32'd0;
             bresp_r <= 2'b00;
             bvalid_r <= 1'b0;
         end else begin
@@ -346,6 +354,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
                         end
                         REG_FW_DMA_DESCRIPTOR_FLAGS: fw_dma_descriptor_flags_r <= wdata_hold[15:0];
                         REG_FW_DMA_SEQ_SEED: fw_dma_seq_seed_r <= wdata_hold;
+                        REG_FW_DMA_SERVICE_LATENCY_BUDGET: fw_dma_service_latency_budget_cycles_r <= wdata_hold;
                     endcase
                 end
                 bresp_r <= 2'b00;
@@ -397,7 +406,7 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_RF_DAC_PACKET_COUNT: rdata_r <= rf_dac_packet_count_sync;
                     REG_RF_DAC_UNDERFLOW_COUNT: rdata_r <= rf_dac_underflow_count_sync;
                     REG_FW_DMA_CONTROL: rdata_r <= {26'd0, fw_dma_mac_stop_r, fw_dma_mac_tick_enable_r, fw_dma_mac_scheduler_enable_r, fw_dma_egress_enable_r, fw_dma_ingress_enable_r, fw_dma_enable_r};
-                    REG_FW_DMA_STATUS: rdata_r <= {26'd0, fw_dma_service_accepted, fw_dma_pump_budget_exhausted, fw_dma_pump_drained_empty, fw_dma_pump_done, fw_dma_mac_scheduler_active, fw_dma_enable_r};
+                    REG_FW_DMA_STATUS: rdata_r <= {25'd0, fw_dma_service_latency_over_budget, fw_dma_service_accepted, fw_dma_pump_budget_exhausted, fw_dma_pump_drained_empty, fw_dma_pump_done, fw_dma_mac_scheduler_active, fw_dma_enable_r};
                     REG_FW_DMA_SERVICE_BUDGET: rdata_r <= {16'd0, fw_dma_mac_service_budget_r};
                     REG_FW_DMA_QUEUED_COUNT: rdata_r <= {16'd0, fw_dma_service_queued_count};
                     REG_FW_DMA_SELECTED_WORD: rdata_r <= fw_dma_service_selected_word;
@@ -424,6 +433,8 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_FW_DMA_SERVICE_LATENCY_LAST: rdata_r <= fw_dma_service_latency_last_cycles;
                     REG_FW_DMA_SERVICE_LATENCY_MAX: rdata_r <= fw_dma_service_latency_max_cycles;
                     REG_FW_DMA_SERVICE_LATENCY_ACC: rdata_r <= fw_dma_service_latency_accum_cycles;
+                    REG_FW_DMA_SERVICE_LATENCY_BUDGET: rdata_r <= fw_dma_service_latency_budget_cycles_r;
+                    REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT: rdata_r <= fw_dma_service_latency_over_budget_count;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;
@@ -457,6 +468,7 @@ assign fw_dma_mcs = 8'd0;
 assign fw_dma_retry_budget = 8'd0;
 assign fw_dma_descriptor_flags = 16'd0;
 assign fw_dma_seq_seed = 32'd0;
+assign fw_dma_service_latency_budget_cycles = 32'd0;
 
 fieldmesh_packet_mem_axi_lite #(
     .MEM_BYTES(MEM_BYTES),

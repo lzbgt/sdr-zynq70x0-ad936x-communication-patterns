@@ -111,9 +111,10 @@ in `src/fieldmesh_sdk.c`:
   RX DMA frames. The opt-in copied-HDL DMA overlay instantiates this endpoint
   with `AUTO_EGRESS=1` between the ADI packet-DMA pair and the 16-to-8 adapter.
   Its enable, ingress, egress, MAC scheduler, MAC tick, MAC stop, service
-  budget, pressure, byte/packet/drop/fault counters, MAC pump counters, and
-  BRAM CRC/bounds counters are surfaced through fixed binary
-  `fieldmesh_ctrl` registers at `0x140..0x1ac`; reset leaves the endpoint
+  budget, pressure, byte/packet/drop/fault counters, MAC pump counters,
+  BRAM CRC/bounds counters, and hardware service-latency budget/overrun state
+  are surfaced through fixed binary
+  `fieldmesh_ctrl` registers at `0x140..0x1b4`; reset leaves the endpoint
   disabled until software configures metadata and arms those bits.
   `include/fieldmesh_firmware_dma_ctrl.h` is the canonical C contract for
   that register block: offsets, control/status-bit predicates, metadata

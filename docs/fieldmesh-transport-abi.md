@@ -438,7 +438,7 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x138` | `FM_RF_DAC_PACKET_COUNT` | DAC-domain FieldMesh packet ends accepted by the source driver |
 | `0x13c` | `FM_RF_DAC_UNDERFLOW_COUNT` | DAC source driver underflows while FieldMesh source is selected |
 | `0x140` | `FM_FW_DMA_CONTROL` | bit 0 endpoint enable, bit 1 ingress enable, bit 2 egress enable, bit 3 MAC scheduler enable, bit 4 MAC tick enable, bit 5 MAC stop |
-| `0x144` | `FM_FW_DMA_STATUS` | bit 0 endpoint enable, bit 1 scheduler active, bit 2 pump done, bit 3 drained empty, bit 4 budget exhausted, bit 5 service accepted |
+| `0x144` | `FM_FW_DMA_STATUS` | bit 0 endpoint enable, bit 1 scheduler active, bit 2 pump done, bit 3 drained empty, bit 4 budget exhausted, bit 5 service accepted, bit 6 service latency over budget |
 | `0x148` | `FM_FW_DMA_SERVICE_BUDGET` | MAC service budget in low 16 bits; zero is passed through to the endpoint as the default one-service budget |
 | `0x14c` | `FM_FW_DMA_QUEUED_COUNT` | queued firmware endpoint descriptors in low 16 bits |
 | `0x150` | `FM_FW_DMA_SELECTED_WORD` | compact selected-slot status word from the firmware endpoint |
@@ -465,12 +465,15 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x1a4` | `FM_FW_DMA_SERVICE_LATENCY_LAST_CYCLES` | last FPGA MAC-service interval in PL clock cycles |
 | `0x1a8` | `FM_FW_DMA_SERVICE_LATENCY_MAX_CYCLES` | maximum observed FPGA MAC-service interval in PL clock cycles since endpoint enable |
 | `0x1ac` | `FM_FW_DMA_SERVICE_LATENCY_ACCUM_CYCLES` | accumulated FPGA MAC-service cycles for completed pump intervals |
+| `0x1b0` | `FM_FW_DMA_SERVICE_LATENCY_BUDGET_CYCLES` | writable FPGA MAC-service latency budget in PL clock cycles; zero disables hardware over-budget detection |
+| `0x1b4` | `FM_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT` | completed service intervals that exceeded the programmed FPGA latency budget since endpoint enable |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
 The userspace control tool is `fieldmesh-ctrl-write`: `--fw-dma-status` reads
 this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
-`--fw-dma-config`, `--fw-dma-arm`, and `--fw-dma-stop` require
+`--fw-dma-config`, `--fw-dma-arm`, `--fw-dma-stop`, and
+`--fw-dma-latency-budget-if-idle` require
 `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1` before touching hardware. JSON appears only

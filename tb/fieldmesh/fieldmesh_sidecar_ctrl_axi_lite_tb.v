@@ -68,6 +68,7 @@ wire [7:0] fw_dma_mcs;
 wire [7:0] fw_dma_retry_budget;
 wire [15:0] fw_dma_descriptor_flags;
 wire [31:0] fw_dma_seq_seed;
+wire [31:0] fw_dma_service_latency_budget_cycles;
 
 fieldmesh_sidecar_ctrl_axi_lite #(
     .SYNTH_LIGHT(0)
@@ -123,6 +124,7 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .fw_dma_retry_budget(fw_dma_retry_budget),
     .fw_dma_descriptor_flags(fw_dma_descriptor_flags),
     .fw_dma_seq_seed(fw_dma_seq_seed),
+    .fw_dma_service_latency_budget_cycles(fw_dma_service_latency_budget_cycles),
     .fw_dma_mac_scheduler_active(1'b0),
     .fw_dma_pump_done(1'b0),
     .fw_dma_pump_drained_empty(1'b0),
@@ -149,6 +151,8 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .fw_dma_service_latency_last_cycles(32'd0),
     .fw_dma_service_latency_max_cycles(32'd0),
     .fw_dma_service_latency_accum_cycles(32'd0),
+    .fw_dma_service_latency_over_budget(1'b0),
+    .fw_dma_service_latency_over_budget_count(32'd0),
     .fw_dma_bram_crc_error_count(32'd0),
     .fw_dma_bram_bounds_error_count(32'd0),
     .fw_dma_bram_error_count(32'd0),

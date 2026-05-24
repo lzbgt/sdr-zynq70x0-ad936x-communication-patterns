@@ -223,6 +223,16 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("rf_bind_gate: missing FPGA service-latency budget")
         if rf_bind_gate.get("fw_dma_service_latency_within_budget") is not True:
             raise SystemExit("rf_bind_gate: FPGA service latency must be within budget")
+        if rf_bind_gate.get("fw_dma_service_latency_hardware_budget_programmed") is not True:
+            raise SystemExit("rf_bind_gate: FPGA service-latency budget register must be programmed")
+        if rf_bind_gate.get("fw_dma_service_latency_budget_ok_after") is not True:
+            raise SystemExit("rf_bind_gate: FPGA service-latency budget health must be ok")
+        if rf_bind_gate.get("fw_dma_service_latency_over_budget_before") is not False:
+            raise SystemExit("rf_bind_gate: service-latency over-budget flag must be clear before bind")
+        if rf_bind_gate.get("fw_dma_service_latency_over_budget_after") is not False:
+            raise SystemExit("rf_bind_gate: service-latency over-budget flag must be clear after bind")
+        if rf_bind_gate.get("fw_dma_service_latency_over_budget_count_delta") != 0:
+            raise SystemExit("rf_bind_gate: service-latency over-budget counter must not advance")
         if service_latency_last > service_latency_budget or service_latency_max > service_latency_budget:
             raise SystemExit("rf_bind_gate: FPGA service latency exceeded budget")
         if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
@@ -310,6 +320,14 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("hardware_progression: missing service-latency budget")
         if service.get("within_budget") is not True:
             raise SystemExit("hardware_progression: service latency must be within budget")
+        if service.get("hardware_budget_programmed") is not True:
+            raise SystemExit("hardware_progression: hardware service-latency budget must be programmed")
+        if service.get("hardware_budget_ok") is not True:
+            raise SystemExit("hardware_progression: hardware service-latency budget health must be ok")
+        if service.get("over_budget_before") is not False or service.get("over_budget_after") is not False:
+            raise SystemExit("hardware_progression: service-latency over-budget flag must stay clear")
+        if service.get("over_budget_count_delta") != 0:
+            raise SystemExit("hardware_progression: service-latency over-budget counter must not advance")
         if service_last > service_budget or service_max > service_budget:
             raise SystemExit("hardware_progression: service latency exceeded budget")
         if not isinstance(service_accum, dict):

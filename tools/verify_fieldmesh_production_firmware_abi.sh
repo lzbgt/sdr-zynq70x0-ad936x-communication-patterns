@@ -201,7 +201,9 @@ int main(void) {
         FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES != 0x1a4u ||
         FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES != 0x1a8u ||
         FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES != 0x1acu ||
-        FIELDMESH_FW_DMA_STATUS_REG_COUNT != 28u) {
+        FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES != 0x1b0u ||
+        FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT != 0x1b4u ||
+        FIELDMESH_FW_DMA_STATUS_REG_COUNT != 30u) {
         return 1;
     }
     if (fieldmesh_fw_dma_status_offset(0u) != FIELDMESH_FW_DMA_REG_CONTROL ||
@@ -209,7 +211,9 @@ int main(void) {
         fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
         fieldmesh_fw_dma_status_offset(25u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES ||
         fieldmesh_fw_dma_status_offset(26u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES ||
-        fieldmesh_fw_dma_status_offset(27u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES) {
+        fieldmesh_fw_dma_status_offset(27u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES ||
+        fieldmesh_fw_dma_status_offset(28u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES ||
+        fieldmesh_fw_dma_status_offset(29u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT) {
         return 8;
     }
     if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
@@ -254,6 +258,8 @@ int main(void) {
         status.service_latency_last_cycles != 25u ||
         status.service_latency_max_cycles != 26u ||
         status.service_latency_accum_cycles != 2700u ||
+        status.service_latency_budget_cycles != 1000u ||
+        status.service_latency_over_budget_count != 2u ||
         status.peer_index != 7u ||
         status.mcs != 1u ||
         status.retry_budget != 3u ||
@@ -274,7 +280,9 @@ int main(void) {
         !fieldmesh_fw_dma_status_pump_done(&status) ||
         !fieldmesh_fw_dma_status_drained_empty(&status) ||
         fieldmesh_fw_dma_status_budget_exhausted(&status) ||
-        !fieldmesh_fw_dma_status_service_accepted(&status)) {
+        !fieldmesh_fw_dma_status_service_accepted(&status) ||
+        !fieldmesh_fw_dma_status_service_latency_over_budget(&status) ||
+        fieldmesh_fw_dma_status_service_latency_budget_ok(&status)) {
         return 8;
     }
     if (!fieldmesh_fw_dma_status_tx_parser_fault(&status) ||
@@ -304,7 +312,9 @@ int main(void) {
     if (fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
         fieldmesh_fw_dma_status_offset(25u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES ||
         fieldmesh_fw_dma_status_offset(26u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES ||
-        fieldmesh_fw_dma_status_offset(27u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES) {
+        fieldmesh_fw_dma_status_offset(27u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES ||
+        fieldmesh_fw_dma_status_offset(28u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES ||
+        fieldmesh_fw_dma_status_offset(29u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT) {
         return 10;
     }
     regs[1] = 0xffff0000u;
@@ -682,13 +692,16 @@ required = [
     "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES 0x1a4u",
     "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES 0x1a8u",
     "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES 0x1acu",
-    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 28u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES 0x1b0u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT 0x1b4u",
+    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 30u",
     "fieldmesh_fw_dma_status_offset",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
     "FIELDMESH_FW_DMA_STATUS_ALL",
     "FIELDMESH_FW_DMA_STATUS_ENDPOINT_ENABLED",
     "FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED",
+    "FIELDMESH_FW_DMA_STATUS_SERVICE_LATENCY_OVER_BUDGET",
     "FIELDMESH_FW_DMA_FAULT_TX_PARSER",
     "FIELDMESH_FW_DMA_FAULT_INGRESS",
     "FIELDMESH_FW_DMA_FAULT_EGRESS",
@@ -699,6 +712,8 @@ required = [
     "service_latency_last_cycles",
     "service_latency_max_cycles",
     "service_latency_accum_cycles",
+    "service_latency_budget_cycles",
+    "service_latency_over_budget_count",
     "fieldmesh_fw_dma_pack_peer_mcs_retry",
     "fieldmesh_fw_dma_config_peer_mcs_retry",
     "fieldmesh_fw_dma_config_args_valid",
@@ -707,6 +722,8 @@ required = [
     "fieldmesh_fw_dma_control_mac_stop",
     "fieldmesh_fw_dma_status_endpoint_enabled",
     "fieldmesh_fw_dma_status_service_accepted",
+    "fieldmesh_fw_dma_status_service_latency_over_budget",
+    "fieldmesh_fw_dma_status_service_latency_budget_ok",
     "fieldmesh_fw_dma_status_tx_parser_fault",
     "fieldmesh_fw_dma_status_ingress_fault",
     "fieldmesh_fw_dma_status_egress_fault",

@@ -45,6 +45,8 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write --fw-dma-status [BASE]\n"
             "  fieldmesh-ctrl-write --fw-dma-config [BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
             "  fieldmesh-ctrl-write --fw-dma-config-if-idle [BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
+            "  fieldmesh-ctrl-write --fw-dma-latency-budget [BASE] MAX_CYCLES\n"
+            "  fieldmesh-ctrl-write --fw-dma-latency-budget-if-idle [BASE] MAX_CYCLES\n"
             "  fieldmesh-ctrl-write --fw-dma-arm [BASE] SERVICE_BUDGET\n"
             "  fieldmesh-ctrl-write --fw-dma-arm-if-ready [BASE] SERVICE_BUDGET\n"
             "  fieldmesh-ctrl-write --fw-dma-stop [BASE]\n"
@@ -142,6 +144,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"drained_empty\":%s,"
            "\"budget_exhausted\":%s,"
            "\"service_accepted\":%s,"
+           "\"service_latency_over_budget\":%s,"
            "\"service_budget\":%" PRIu32 ","
            "\"queued_count\":%" PRIu32 ","
            "\"selected_word\":\"0x%08" PRIx32 "\","
@@ -161,6 +164,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"service_latency_last_cycles\":%" PRIu32 ","
            "\"service_latency_max_cycles\":%" PRIu32 ","
            "\"service_latency_accum_cycles\":%" PRIu32 ","
+           "\"service_latency_budget_cycles\":%" PRIu32 ","
+           "\"service_latency_over_budget_count\":%" PRIu32 ","
+           "\"service_latency_budget_ok\":%s,"
            "\"bram_crc_errors\":%" PRIu32 ","
            "\"bram_bounds_errors\":%" PRIu32 ","
            "\"bram_errors\":%" PRIu32 ","
@@ -197,6 +203,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            fieldmesh_fw_dma_status_drained_empty(status) ? "true" : "false",
            fieldmesh_fw_dma_status_budget_exhausted(status) ? "true" : "false",
            fieldmesh_fw_dma_status_service_accepted(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_service_latency_over_budget(status) ? "true" : "false",
            (uint32_t)status->service_budget,
            (uint32_t)status->queued_count,
            status->selected_word,
@@ -216,6 +223,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            status->service_latency_last_cycles,
            status->service_latency_max_cycles,
            status->service_latency_accum_cycles,
+           status->service_latency_budget_cycles,
+           status->service_latency_over_budget_count,
+           fieldmesh_fw_dma_status_service_latency_budget_ok(status) ? "true" : "false",
            status->bram_crc_errors,
            status->bram_bounds_errors,
            status->bram_errors,
@@ -317,11 +327,13 @@ int main(int argc, char **argv) {
                "\"fw_dma_control_offset\":\"0x%03x\","
                "\"fw_dma_status_offset\":\"0x%03x\","
                "\"fw_dma_config_offset\":\"0x%03x\","
+               "\"fw_dma_latency_budget_offset\":\"0x%03x\","
                "\"fw_dma_descriptor_flags_allowed\":\"0x%04" PRIx32 "\","
                "\"fw_dma_arm_control\":\"0x%08" PRIx32 "\"}\n",
                FIELDMESH_FW_DMA_REG_CONTROL,
                FIELDMESH_FW_DMA_REG_STATUS,
                FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY,
+               FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES,
                FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED,
                FIELDMESH_FW_DMA_ARM_CONTROL);
         return 0;
@@ -449,6 +461,55 @@ int main(int argc, char **argv) {
                config.seq_seed,
                seq_readback);
         return ok ? 0 : 1;
+    }
+
+    if ((argc == 3 || argc == 4) && (strcmp(argv[1], "--fw-dma-latency-budget") == 0 ||
+                                     strcmp(argv[1], "--fw-dma-latency-budget-if-idle") == 0)) {
+        bool checked_budget = strcmp(argv[1], "--fw-dma-latency-budget-if-idle") == 0;
+        int arg = 2;
+        uint32_t base = FIELDMESH_SIDECAR_CTRL_BASE;
+        if (argc == 4) {
+            base = parse_u32(argv[arg++], "base");
+        }
+        uint32_t latency_budget = parse_u32(argv[arg++], "latency_budget_cycles");
+        if (!fw_dma_write_allowed()) {
+            print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
+                       base, FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES,
+                       latency_budget, 0, false);
+            return 1;
+        }
+        if (checked_budget) {
+            fieldmesh_fw_dma_status_t status = {0};
+            if (!read_fw_dma_status(base, &status)) {
+                fprintf(stderr, "failed to decode firmware DMA status\n");
+                return 1;
+            }
+            if (!fieldmesh_fw_dma_status_config_allowed(&status)) {
+                printf("{\"event\":\"fieldmesh_fw_dma_latency_budget\",\"ok\":false,"
+                       "\"base\":\"0x%08" PRIx32 "\","
+                       "\"error\":\"firmware_dma_not_idle\","
+                       "\"idle\":%s,\"config_allowed\":false,"
+                       "\"ready_for_arm\":%s,\"arm_allowed\":%s,"
+                       "\"writes_hardware\":false}\n",
+                       base,
+                       fieldmesh_fw_dma_status_idle(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_arm_allowed(&status) ? "true" : "false");
+                return 1;
+            }
+        }
+        uint32_t readback = access_reg(base, FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES,
+                                       latency_budget, FIELDMESH_ACCESS_WRITE);
+        printf("{\"event\":\"fieldmesh_fw_dma_latency_budget\",\"ok\":%s,"
+               "\"base\":\"0x%08" PRIx32 "\","
+               "\"service_latency_budget_cycles\":%" PRIu32 ","
+               "\"service_latency_budget_readback\":%" PRIu32 ","
+               "\"writes_hardware\":true}\n",
+               readback == latency_budget ? "true" : "false",
+               base,
+               latency_budget,
+               readback);
+        return readback == latency_budget ? 0 : 1;
     }
 
     if ((argc == 3 || argc == 4) && (strcmp(argv[1], "--fw-dma-arm") == 0 ||

@@ -51,6 +51,8 @@ localparam [15:0] REG_FW_DMA_FAULT_STATUS       = 16'h01a0;
 localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_LAST = 16'h01a4;
 localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_MAX  = 16'h01a8;
 localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_ACC  = 16'h01ac;
+localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_BUDGET = 16'h01b0;
+localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT = 16'h01b4;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -95,6 +97,7 @@ wire [7:0] fw_dma_mcs;
 wire [7:0] fw_dma_retry_budget;
 wire [15:0] fw_dma_descriptor_flags;
 wire [31:0] fw_dma_seq_seed;
+wire [31:0] fw_dma_service_latency_budget_cycles;
 reg [31:0] rf_guard_pass_sample_count = 32'd0;
 reg [31:0] rf_guard_pass_packet_count = 32'd0;
 reg [31:0] rf_guard_blocked_cycle_count = 32'd0;
@@ -131,6 +134,8 @@ reg [31:0] fw_dma_mac_pump_done_count = 32'd0;
 reg [31:0] fw_dma_service_latency_last_cycles = 32'd0;
 reg [31:0] fw_dma_service_latency_max_cycles = 32'd0;
 reg [31:0] fw_dma_service_latency_accum_cycles = 32'd0;
+reg fw_dma_service_latency_over_budget = 1'b0;
+reg [31:0] fw_dma_service_latency_over_budget_count = 32'd0;
 reg [31:0] fw_dma_bram_crc_error_count = 32'd0;
 reg [31:0] fw_dma_bram_bounds_error_count = 32'd0;
 reg [31:0] fw_dma_bram_error_count = 32'd0;
@@ -187,6 +192,7 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .fw_dma_retry_budget(fw_dma_retry_budget),
     .fw_dma_descriptor_flags(fw_dma_descriptor_flags),
     .fw_dma_seq_seed(fw_dma_seq_seed),
+    .fw_dma_service_latency_budget_cycles(fw_dma_service_latency_budget_cycles),
     .fw_dma_mac_scheduler_active(fw_dma_mac_scheduler_active),
     .fw_dma_pump_done(fw_dma_pump_done),
     .fw_dma_pump_drained_empty(fw_dma_pump_drained_empty),
@@ -213,6 +219,8 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .fw_dma_service_latency_last_cycles(fw_dma_service_latency_last_cycles),
     .fw_dma_service_latency_max_cycles(fw_dma_service_latency_max_cycles),
     .fw_dma_service_latency_accum_cycles(fw_dma_service_latency_accum_cycles),
+    .fw_dma_service_latency_over_budget(fw_dma_service_latency_over_budget),
+    .fw_dma_service_latency_over_budget_count(fw_dma_service_latency_over_budget_count),
     .fw_dma_bram_crc_error_count(fw_dma_bram_crc_error_count),
     .fw_dma_bram_bounds_error_count(fw_dma_bram_bounds_error_count),
     .fw_dma_bram_error_count(fw_dma_bram_error_count),
@@ -300,12 +308,14 @@ initial begin
     expect_axi(REG_FW_DMA_PEER_MCS_RETRY, 32'h0000_0000);
     expect_axi(REG_FW_DMA_DESCRIPTOR_FLAGS, 32'h0000_0000);
     expect_axi(REG_FW_DMA_SEQ_SEED, 32'h0000_0000);
+    expect_axi(REG_FW_DMA_SERVICE_LATENCY_BUDGET, 32'h0000_0000);
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
         fw_dma_mac_scheduler_enable || fw_dma_mac_tick_enable ||
         fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0 ||
         fw_dma_peer_index != 16'd0 || fw_dma_mcs != 8'd0 ||
         fw_dma_retry_budget != 8'd0 || fw_dma_descriptor_flags != 16'd0 ||
-        fw_dma_seq_seed != 32'd0) begin
+        fw_dma_seq_seed != 32'd0 ||
+        fw_dma_service_latency_budget_cycles != 32'd0) begin
         fail("firmware DMA control was nonzero after reset");
     end
 
@@ -375,6 +385,7 @@ initial begin
     axi_write(REG_FW_DMA_PEER_MCS_RETRY, 32'h0301_0007);
     axi_write(REG_FW_DMA_DESCRIPTOR_FLAGS, 32'hffff_0011);
     axi_write(REG_FW_DMA_SEQ_SEED, 32'h0000_1200);
+    axi_write(REG_FW_DMA_SERVICE_LATENCY_BUDGET, 32'h0000_03e8);
     axi_write(REG_FW_DMA_CONTROL, 32'h0000_001f);
     if (!fw_dma_enable || !fw_dma_ingress_enable || !fw_dma_egress_enable ||
         !fw_dma_mac_scheduler_enable || !fw_dma_mac_tick_enable ||
@@ -387,11 +398,15 @@ initial begin
         fw_dma_seq_seed != 32'h0000_1200) begin
         fail("firmware DMA packet metadata outputs did not update");
     end
+    if (fw_dma_service_latency_budget_cycles != 32'd1000) begin
+        fail("firmware DMA service latency budget output did not update");
+    end
     expect_axi(REG_FW_DMA_CONTROL, 32'h0000_001f);
     expect_axi(REG_FW_DMA_SERVICE_BUDGET, 32'h0000_0020);
     expect_axi(REG_FW_DMA_PEER_MCS_RETRY, 32'h0301_0007);
     expect_axi(REG_FW_DMA_DESCRIPTOR_FLAGS, 32'h0000_0011);
     expect_axi(REG_FW_DMA_SEQ_SEED, 32'h0000_1200);
+    expect_axi(REG_FW_DMA_SERVICE_LATENCY_BUDGET, 32'd1000);
 
     fw_dma_mac_scheduler_active = 1'b1;
     fw_dma_pump_done = 1'b1;
@@ -419,11 +434,13 @@ initial begin
     fw_dma_service_latency_last_cycles = 32'd21;
     fw_dma_service_latency_max_cycles = 32'd34;
     fw_dma_service_latency_accum_cycles = 32'd377;
+    fw_dma_service_latency_over_budget = 1'b1;
+    fw_dma_service_latency_over_budget_count = 32'd2;
     fw_dma_bram_crc_error_count = 32'd12;
     fw_dma_bram_bounds_error_count = 32'd13;
     fw_dma_bram_error_count = 32'd4;
     repeat (2) @(negedge clk);
-    expect_axi(REG_FW_DMA_STATUS, 32'h0000_003f);
+    expect_axi(REG_FW_DMA_STATUS, 32'h0000_007f);
     expect_axi(REG_FW_DMA_QUEUED_COUNT, 32'h0000_0007);
     expect_axi(REG_FW_DMA_SELECTED_WORD, 32'h0003_0002);
     expect_axi(REG_FW_DMA_TX_PARSER_PACKETS, 32'd11);
@@ -442,6 +459,7 @@ initial begin
     expect_axi(REG_FW_DMA_SERVICE_LATENCY_LAST, 32'd21);
     expect_axi(REG_FW_DMA_SERVICE_LATENCY_MAX, 32'd34);
     expect_axi(REG_FW_DMA_SERVICE_LATENCY_ACC, 32'd377);
+    expect_axi(REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT, 32'd2);
     expect_axi(REG_FW_DMA_BRAM_CRC_ERRORS, 32'd12);
     expect_axi(REG_FW_DMA_BRAM_BOUNDS_ERRORS, 32'd13);
     expect_axi(REG_FW_DMA_BRAM_ERRORS, 32'd4);

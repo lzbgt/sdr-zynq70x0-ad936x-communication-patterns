@@ -101,6 +101,13 @@ def build(report_path: Path) -> dict[str, Any]:
     service_latency_max = require_int(report, "fw_dma_service_latency_max_cycles_after", service_latency_last)
     service_latency_budget = require_int(report, "fw_dma_service_latency_budget_cycles", 1)
     require_bool(report, "fw_dma_service_latency_within_budget", True)
+    require_bool(report, "fw_dma_service_latency_hardware_budget_programmed", True)
+    require_bool(report, "fw_dma_service_latency_budget_ok_after", True)
+    require_bool(report, "fw_dma_service_latency_over_budget_before", False)
+    require_bool(report, "fw_dma_service_latency_over_budget_after", False)
+    over_budget_delta = require_int(report, "fw_dma_service_latency_over_budget_count_delta", 0)
+    if over_budget_delta != 0:
+        raise SystemExit("RF hardware progression service-latency over-budget counter advanced")
     if service_latency_last > service_latency_budget:
         raise SystemExit("RF hardware progression service-latency last_cycles exceeded budget")
     if service_latency_max > service_latency_budget:
@@ -143,6 +150,11 @@ def build(report_path: Path) -> dict[str, Any]:
             "max_cycles": service_latency_max,
             "budget_cycles": service_latency_budget,
             "within_budget": True,
+            "hardware_budget_programmed": True,
+            "hardware_budget_ok": True,
+            "over_budget_before": False,
+            "over_budget_after": False,
+            "over_budget_count_delta": over_budget_delta,
             "accum_cycles": service_latency_accum,
         },
         "c_modem_service_rate": {

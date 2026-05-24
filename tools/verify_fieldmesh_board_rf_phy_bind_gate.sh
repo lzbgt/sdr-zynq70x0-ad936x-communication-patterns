@@ -13,6 +13,12 @@ script = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
     "remote_fw_dma_status_before",
     "remote_fw_dma_status_after",
+    "remote_fw_dma_latency_budget",
+    "--fw-dma-latency-budget-if-idle",
+    "fw_dma_latency_budget_rc",
+    "fw_dma_latency_budget.json",
+    "firmware-DMA latency budget write was rejected",
+    "FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
     "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status",
     "fw_dma_status_before.json",
     "fw_dma_status_after.json",
@@ -36,6 +42,10 @@ required = [
     "service_latency_last_cycles",
     "service_latency_max_cycles",
     "service_latency_accum_cycles",
+    "service_latency_budget_cycles",
+    "service_latency_over_budget",
+    "service_latency_over_budget_count",
+    "service_latency_budget_ok",
     "bram_crc_errors",
     "bram_bounds_errors",
     "bram_errors",
@@ -77,6 +87,9 @@ required = [
     "FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES",
     "fw_dma_service_latency_budget_cycles",
     "fw_dma_service_latency_within_budget",
+    "fw_dma_service_latency_hardware_budget_programmed",
+    "fw_dma_service_latency_budget_ok_after",
+    "fw_dma_service_latency_over_budget_count_delta",
     "fw_dma_ingress_packets_before",
     "fw_dma_ingress_packets_after",
     "fw_dma_egress_packets_before",
@@ -94,12 +107,15 @@ for token in required:
     if token not in script:
         raise SystemExit(f"RF PHY bind gate missing token: {token}")
 
-before_read = script.index("remote_fw_dma_status_before")
+before_read = script.index("fieldmesh-ctrl-write --fw-dma-status")
+budget_write = script.index("--fw-dma-latency-budget-if-idle")
 dma_smoke = script.index("run_fieldmesh_board_dma_smoke.sh")
 after_read = script.rindex("remote_fw_dma_status_after")
 bind_validate = script.index("FIELDMESH_RF_PHY_DRIVER_BIND_VALIDATE")
 summary = script.index('"event": "fieldmesh_board_rf_phy_bind_gate"')
 
+if budget_write > before_read:
+    raise SystemExit("firmware-DMA hardware latency budget must be programmed before the before snapshot")
 if before_read > dma_smoke:
     raise SystemExit("firmware-DMA before snapshot must precede sidecar DMA smoke")
 if after_read < bind_validate:
@@ -127,6 +143,7 @@ for token in (
     '"bram_crc_errors"',
     '"bram_bounds_errors"',
     '"bram_errors"',
+    '"service_latency_over_budget_count"',
 ):
     if token not in script:
         raise SystemExit(f"RF PHY bind gate missing firmware-DMA no-error delta check: {token}")

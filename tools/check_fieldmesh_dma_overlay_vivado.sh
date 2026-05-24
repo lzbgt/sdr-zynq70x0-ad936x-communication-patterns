@@ -105,7 +105,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x1ac"
+  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x1b4"
 }
 
 foreach intf {
@@ -180,6 +180,9 @@ foreach pin {
   fieldmesh_ctrl/fw_dma_service_latency_last_cycles
   fieldmesh_ctrl/fw_dma_service_latency_max_cycles
   fieldmesh_ctrl/fw_dma_service_latency_accum_cycles
+  fieldmesh_ctrl/fw_dma_service_latency_budget_cycles
+  fieldmesh_ctrl/fw_dma_service_latency_over_budget
+  fieldmesh_ctrl/fw_dma_service_latency_over_budget_count
   fieldmesh_ctrl/fw_dma_bram_crc_error_count
   fieldmesh_ctrl/fw_dma_bram_bounds_error_count
   fieldmesh_ctrl/fw_dma_bram_error_count
@@ -259,6 +262,9 @@ foreach pair {
   {fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles}
   {fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles}
   {fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles}
+  {fieldmesh_ctrl/fw_dma_service_latency_budget_cycles fieldmesh_fw_dma_endpoint/service_latency_budget_cycles}
+  {fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget}
+  {fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count}
   {fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count}
   {fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count}
   {fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count}

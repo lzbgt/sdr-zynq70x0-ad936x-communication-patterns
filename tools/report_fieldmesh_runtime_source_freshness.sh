@@ -84,6 +84,7 @@ fw_dma_source_tokens = (
     "--fw-dma-status-idle-self-test",
     "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
+    "--fw-dma-latency-budget-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
     "default firmware-DMA BASE",
@@ -98,11 +99,15 @@ fw_dma_source_tokens = (
     "service_latency_last_cycles",
     "service_latency_max_cycles",
     "service_latency_accum_cycles",
+    "service_latency_budget_cycles",
+    "service_latency_over_budget_count",
+    "service_latency_budget_ok",
 )
 fw_dma_artifact_tokens = (
     "--fw-dma-status-idle-self-test",
     "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
+    "--fw-dma-latency-budget-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
     "default firmware-DMA BASE",
@@ -119,6 +124,9 @@ fw_dma_artifact_tokens = (
     "service_latency_last_cycles",
     "service_latency_max_cycles",
     "service_latency_accum_cycles",
+    "service_latency_budget_cycles",
+    "service_latency_over_budget_count",
+    "service_latency_budget_ok",
 )
 rf_guard_source_tokens = (
     "fieldmesh_rf_guard_control_tx_enabled",
@@ -242,6 +250,7 @@ fw_dma_source_tokens = (
     "--fw-dma-status-idle-self-test",
     "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
+    "--fw-dma-latency-budget-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
     "firmware_dma_not_idle",
@@ -255,11 +264,15 @@ fw_dma_source_tokens = (
     "service_latency_last_cycles",
     "service_latency_max_cycles",
     "service_latency_accum_cycles",
+    "service_latency_budget_cycles",
+    "service_latency_over_budget_count",
+    "service_latency_budget_ok",
 )
 fw_dma_artifact_tokens = (
     "--fw-dma-status-idle-self-test",
     "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
+    "--fw-dma-latency-budget-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
     "firmware_dma_not_idle",
@@ -275,6 +288,9 @@ fw_dma_artifact_tokens = (
     "service_latency_last_cycles",
     "service_latency_max_cycles",
     "service_latency_accum_cycles",
+    "service_latency_budget_cycles",
+    "service_latency_over_budget_count",
+    "service_latency_budget_ok",
 )
 rf_guard_source_tokens = (
     "fieldmesh_rf_guard_control_tx_enabled",

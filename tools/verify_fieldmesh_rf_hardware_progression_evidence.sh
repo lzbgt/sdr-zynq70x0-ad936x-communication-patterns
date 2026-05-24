@@ -35,6 +35,13 @@ cat > "$work_dir/rf_bind_gate.json" <<'JSON'
   "fw_dma_service_latency_accum_cycles_delta": 21,
   "fw_dma_service_latency_budget_cycles": 1000,
   "fw_dma_service_latency_within_budget": true,
+  "fw_dma_service_latency_hardware_budget_programmed": true,
+  "fw_dma_service_latency_budget_ok_after": true,
+  "fw_dma_service_latency_over_budget_before": false,
+  "fw_dma_service_latency_over_budget_after": false,
+  "fw_dma_service_latency_over_budget_count_before": 0,
+  "fw_dma_service_latency_over_budget_count_after": 0,
+  "fw_dma_service_latency_over_budget_count_delta": 0,
   "fw_dma_ingress_packets_before": 4,
   "fw_dma_ingress_packets_after": 5,
   "fw_dma_egress_packets_before": 1,
@@ -89,6 +96,10 @@ if service_latency.get("last_cycles") != 21 or service_latency.get("max_cycles")
     raise SystemExit(f"FPGA service-latency last/max cycles were not preserved: {report}")
 if service_latency.get("budget_cycles") != 1000 or service_latency.get("within_budget") is not True:
     raise SystemExit(f"FPGA service-latency budget was not preserved: {report}")
+if service_latency.get("hardware_budget_programmed") is not True or service_latency.get("hardware_budget_ok") is not True:
+    raise SystemExit(f"FPGA hardware latency-budget evidence was not preserved: {report}")
+if service_latency.get("over_budget_count_delta") != 0:
+    raise SystemExit(f"FPGA over-budget counter delta was not preserved: {report}")
 if service_latency.get("accum_cycles", {}).get("delta") != 21:
     raise SystemExit(f"FPGA service-latency accumulator delta was not preserved: {report}")
 if report.get("c_modem_service_rate", {}).get("decode_frame_kbps", 0) < 100:

@@ -112,6 +112,16 @@ def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict
             raise ValueError("RF bind-gate report must include FPGA service-latency budget")
         if report.get("fw_dma_service_latency_within_budget") is not True:
             raise ValueError("RF bind-gate report must prove FPGA service latency is within budget")
+        if report.get("fw_dma_service_latency_hardware_budget_programmed") is not True:
+            raise ValueError("RF bind-gate report must program the FPGA service-latency budget register")
+        if report.get("fw_dma_service_latency_budget_ok_after") is not True:
+            raise ValueError("RF bind-gate C status must report service-latency budget health")
+        if report.get("fw_dma_service_latency_over_budget_before") is not False:
+            raise ValueError("RF bind-gate service-latency over-budget flag must be clear before bind")
+        if report.get("fw_dma_service_latency_over_budget_after") is not False:
+            raise ValueError("RF bind-gate service-latency over-budget flag must be clear after bind")
+        if report.get("fw_dma_service_latency_over_budget_count_delta") != 0:
+            raise ValueError("RF bind-gate service-latency over-budget counter must not advance")
         if service_latency_last > service_latency_budget or service_latency_max > service_latency_budget:
             raise ValueError("RF bind-gate FPGA service latency exceeded budget")
         if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:

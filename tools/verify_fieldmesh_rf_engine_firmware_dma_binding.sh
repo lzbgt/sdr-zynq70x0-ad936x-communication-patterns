@@ -53,7 +53,7 @@ for forbidden in (
 required_checker_tokens = [
     "fieldmesh_fw_dma_endpoint",
     "fieldmesh_fw_dma_rf_broadcast",
-    "register pages through 0x1ac",
+    "register pages through 0x1b4",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "fieldmesh_fw_dma_rf_broadcast/s_axis",
     "fieldmesh_fw_dma_rf_broadcast/m0_axis",
@@ -75,12 +75,18 @@ required_checker_tokens = [
     "fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
+    "fieldmesh_ctrl/fw_dma_service_latency_budget_cycles",
+    "fieldmesh_ctrl/fw_dma_service_latency_over_budget",
+    "fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
     "assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
     "assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
     "assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
+    "assert_same_net fieldmesh_ctrl/fw_dma_service_latency_budget_cycles fieldmesh_fw_dma_endpoint/service_latency_budget_cycles",
+    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget",
+    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
 ]
 for token in required_checker_tokens:
     if token not in checker:

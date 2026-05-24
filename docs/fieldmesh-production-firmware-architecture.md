@@ -445,14 +445,15 @@ the first-line debug split between malformed input, TUN ingress starvation,
 full ARM-to-PL queues, PL service latency, and RX drain lag.
 
 The board-level packet-DMA endpoint is also controlled from the lightweight
-sidecar window. `0x140..0x1ac` contains fixed binary firmware-DMA control and
+sidecar window. `0x140..0x1b4` contains fixed binary firmware-DMA control and
 status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
 enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
 parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/fault
 counters, egress byte/packet/drop/fault counters, MAC tick/pump counters, split
 BRAM CRC/bounds counters, aggregate BRAM errors, FPGA MAC-service latency
-counters used by live gates for bounded service-latency checks, and FPGA-native TX sideband
-defaults for peer index, MCS, retry budget, descriptor flags, and sequence seed.
+counters plus a hardware latency budget/over-budget counter used by live gates
+for bounded service-latency checks, and FPGA-native TX sideband defaults for
+peer index, MCS, retry budget, descriptor flags, and sequence seed.
 The fixed sidecar aperture map itself is owned by
 `sdk/c/include/fieldmesh_sidecar_addr.h`: control at `0x43C00000`, packet TX
 DMA at `0x43C10000`, packet RX DMA at `0x43C20000`, firmware ring at

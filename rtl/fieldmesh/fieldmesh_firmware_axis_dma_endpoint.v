@@ -45,6 +45,7 @@ module fieldmesh_firmware_axis_dma_endpoint #(
     input  wire        mac_tick,
     input  wire        mac_stop,
     input  wire [15:0] mac_service_budget,
+    input  wire [31:0] service_latency_budget_cycles,
     output wire        mac_scheduler_active,
 
     output wire        pump_done,
@@ -77,6 +78,8 @@ module fieldmesh_firmware_axis_dma_endpoint #(
     output wire [31:0] service_latency_last_cycles,
     output wire [31:0] service_latency_max_cycles,
     output wire [31:0] service_latency_accum_cycles,
+    output wire        service_latency_over_budget,
+    output wire [31:0] service_latency_over_budget_count,
     output wire [31:0] bram_crc_error_count,
     output wire [31:0] bram_bounds_error_count,
     output wire [31:0] bram_error_count
@@ -104,6 +107,8 @@ reg [31:0] latency_current_cycles;
 reg [31:0] latency_last_cycles_r;
 reg [31:0] latency_max_cycles_r;
 reg [31:0] latency_accum_cycles_r;
+reg latency_over_budget_r;
+reg [31:0] latency_over_budget_count_r;
 
 wire latency_start_event = (mac_pump_start_count != mac_pump_start_count_prev);
 wire latency_done_event = (mac_pump_done_count != mac_pump_done_count_prev);
@@ -116,6 +121,8 @@ assign endpoint_egress_start_slot = AUTO_EGRESS ? auto_egress_slot : egress_star
 assign service_latency_last_cycles = latency_last_cycles_r;
 assign service_latency_max_cycles = latency_max_cycles_r;
 assign service_latency_accum_cycles = latency_accum_cycles_r;
+assign service_latency_over_budget = latency_over_budget_r;
+assign service_latency_over_budget_count = latency_over_budget_count_r;
 
 always @(posedge clk) begin
     if (rst || !enable || !egress_enable) begin
@@ -144,6 +151,8 @@ always @(posedge clk) begin
         latency_last_cycles_r <= 32'd0;
         latency_max_cycles_r <= 32'd0;
         latency_accum_cycles_r <= 32'd0;
+        latency_over_budget_r <= 1'b0;
+        latency_over_budget_count_r <= 32'd0;
     end else begin
         mac_pump_start_count_prev <= mac_pump_start_count;
         mac_pump_done_count_prev <= mac_pump_done_count;
@@ -154,6 +163,11 @@ always @(posedge clk) begin
                 latency_max_cycles_r <= latency_done_cycles;
             end
             latency_accum_cycles_r <= latency_accum_cycles_r + latency_done_cycles;
+            if (service_latency_budget_cycles != 32'd0 &&
+                latency_done_cycles > service_latency_budget_cycles) begin
+                latency_over_budget_r <= 1'b1;
+                latency_over_budget_count_r <= latency_over_budget_count_r + 32'd1;
+            end
             latency_active <= latency_start_event;
             latency_current_cycles <= 32'd0;
         end else if (latency_start_event) begin
