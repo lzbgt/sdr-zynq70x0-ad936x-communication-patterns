@@ -66,6 +66,18 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_same_priority_batch_missing")
         if report.get("host_iio_same_priority_batch_enabled") is not True:
             blockers.append("native_ip_host_iio_same_priority_batch_missing")
+        if (
+            is_true(report.get("requires_iio_rf_burst_batch_evidence"))
+            and report.get("board_iio_same_priority_batch_preemption_exercised")
+            is not True
+        ):
+            blockers.append("native_ip_board_iio_same_priority_preemption_missing")
+        if (
+            is_true(report.get("requires_iio_rf_burst_batch_evidence"))
+            and report.get("host_iio_same_priority_batch_preemption_exercised")
+            is not True
+        ):
+            blockers.append("native_ip_host_iio_same_priority_preemption_missing")
     if report.get("requires_tcp_final_exchange_evidence") is not True:
         blockers.append("native_ip_tcp_final_exchange_evidence_not_required")
     else:
@@ -133,6 +145,12 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_same_priority_batch_enabled": report.get(
             "host_iio_same_priority_batch_enabled"
+        ),
+        "board_iio_same_priority_batch_preemption_exercised": report.get(
+            "board_iio_same_priority_batch_preemption_exercised"
+        ),
+        "host_iio_same_priority_batch_preemption_exercised": report.get(
+            "host_iio_same_priority_batch_preemption_exercised"
         ),
         "board_iio_bridge_same_priority_batch_leases": report.get(
             "board_iio_bridge_same_priority_batch_leases"

@@ -531,7 +531,9 @@ observed same-direction burst high-water stayed within that budget when the
 opposite daemon had queued RF work. `IIO_BRIDGE_SAME_PRIORITY_BATCH=1` is also
 the HIL default: daemon batch leases stop before lower-priority frames once the
 first leased frame's priority is established, giving TCP control-flow traffic a
-sub-batch preemption point. Production native-IP evidence must also carry TCP
+sub-batch preemption point. Batched production native-IP evidence must show the
+preemption boundary was actually exercised with nonzero priority-drop stop
+evidence, not just configured. Production native-IP evidence must also carry TCP
 final-exchange proof from the HIL runner
 for both the board-to-board and host-PC-transparent reports: final client
 status, queue-quiet observation summary, and control-drain elapsed/ok evidence

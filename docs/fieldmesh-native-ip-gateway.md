@@ -439,7 +439,8 @@ Minimum production gates for native TCP/IP:
   stop filling a leased RF batch once the next candidate would drop below the
   first leased frame's priority. This gives TCP control-flow frames a sub-batch
   preemption boundary instead of padding a control burst with lower-priority
-  payload.
+  payload. Production evidence for batched IIO RF captures must now prove that
+  boundary was exercised with a nonzero priority-drop stop count.
   Both layers must carry TCP final-exchange, queue-quiet, and control-drain
   timing proof; the host-originated transparent layer is phase-tagged as
   `host_pc`. A daemon

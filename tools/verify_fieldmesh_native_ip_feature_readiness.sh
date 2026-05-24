@@ -20,8 +20,13 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "board_to_board_real_rf_iperf": true,
   "host_pc_transparent_real_rf_iperf": true,
   "requires_iio_same_priority_batch_evidence": true,
+  "requires_iio_rf_burst_batch_evidence": true,
+  "board_iio_rf_burst_batch_exercised": true,
+  "host_iio_rf_burst_batch_exercised": true,
   "board_iio_same_priority_batch_enabled": true,
   "host_iio_same_priority_batch_enabled": true,
+  "board_iio_same_priority_batch_preemption_exercised": true,
+  "host_iio_same_priority_batch_preemption_exercised": true,
   "requires_tcp_final_exchange_evidence": true,
   "board_tcp_final_exchange_ok": true,
   "host_tcp_final_exchange_ok": true,
@@ -60,6 +65,8 @@ if report.get("requires_iio_same_priority_batch_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority batch requirement: {report!r}")
 if report.get("host_iio_same_priority_batch_enabled") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority batch proof: {report!r}")
+if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
+    raise SystemExit(f"native-IP readiness lost same-priority preemption proof: {report!r}")
 if report.get("host_tcp_control_drain_elapsed_s") != 30:
     raise SystemExit(f"native-IP readiness lost TCP control-drain proof: {report!r}")
 PY

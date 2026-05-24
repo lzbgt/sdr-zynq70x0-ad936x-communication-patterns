@@ -2791,6 +2791,9 @@ report = {
     "iio_bridge_same_priority_batch": bool(
         last_iio_bridge.get("same_priority_batch")
     ),
+    "iio_bridge_same_priority_batch_preemption_exercised": bool(
+        last_iio_bridge.get("same_priority_batch_preemption_exercised")
+    ),
     "iio_bridge_same_priority_batch_leases": int(
         last_iio_bridge.get("same_priority_batch_leases") or 0
     ),

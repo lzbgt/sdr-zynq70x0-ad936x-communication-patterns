@@ -252,6 +252,14 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_same_priority_batch_enabled"] = (
             native_ip.get("host_iio_same_priority_batch_enabled") is True
         )
+        detail["native_ip_board_iio_same_priority_batch_preemption_exercised"] = (
+            native_ip.get("board_iio_same_priority_batch_preemption_exercised")
+            is True
+        )
+        detail["native_ip_host_iio_same_priority_batch_preemption_exercised"] = (
+            native_ip.get("host_iio_same_priority_batch_preemption_exercised")
+            is True
+        )
         detail["native_ip_board_tcp_final_exchange_ok"] = (
             native_ip.get("board_tcp_final_exchange_ok") is True
         )
@@ -292,6 +300,22 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_iio_same_priority_batch_missing")
             if native_ip.get("host_iio_same_priority_batch_enabled") is not True:
                 blockers.append("native_ip_host_iio_same_priority_batch_missing")
+            if (
+                native_ip.get("requires_iio_rf_burst_batch_evidence") is True
+                and native_ip.get(
+                    "board_iio_same_priority_batch_preemption_exercised"
+                )
+                is not True
+            ):
+                blockers.append("native_ip_board_iio_same_priority_preemption_missing")
+            if (
+                native_ip.get("requires_iio_rf_burst_batch_evidence") is True
+                and native_ip.get(
+                    "host_iio_same_priority_batch_preemption_exercised"
+                )
+                is not True
+            ):
+                blockers.append("native_ip_host_iio_same_priority_preemption_missing")
             if native_ip.get("board_tcp_final_exchange_ok") is not True:
                 blockers.append("native_ip_board_tcp_final_exchange_missing")
             if native_ip.get("host_tcp_final_exchange_ok") is not True:

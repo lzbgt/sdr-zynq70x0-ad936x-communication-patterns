@@ -97,6 +97,22 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board IIO same-priority batch proof is missing")
             if source.get("host_iio_same_priority_batch_enabled") is not True:
                 raise SystemExit("native_ip: host IIO same-priority batch proof is missing")
+            if (
+                source.get("requires_iio_rf_burst_batch_evidence") is True
+                and source.get("board_iio_same_priority_batch_preemption_exercised")
+                is not True
+            ):
+                raise SystemExit(
+                    "native_ip: board IIO same-priority preemption proof is missing"
+                )
+            if (
+                source.get("requires_iio_rf_burst_batch_evidence") is True
+                and source.get("host_iio_same_priority_batch_preemption_exercised")
+                is not True
+            ):
+                raise SystemExit(
+                    "native_ip: host IIO same-priority preemption proof is missing"
+                )
         if source.get("requires_tcp_final_exchange_evidence") is not True:
             raise SystemExit(
                 "native_ip: paired iperf evidence must include TCP final-exchange proof"
@@ -145,6 +161,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_direction_fair_service_within_budget",
         "board_iio_same_priority_batch_enabled",
         "host_iio_same_priority_batch_enabled",
+        "board_iio_same_priority_batch_preemption_exercised",
+        "host_iio_same_priority_batch_preemption_exercised",
         "board_iio_bridge_same_priority_batch_leases",
         "host_iio_bridge_same_priority_batch_leases",
         "board_iio_bridge_same_priority_batch_priority_drop_stops",

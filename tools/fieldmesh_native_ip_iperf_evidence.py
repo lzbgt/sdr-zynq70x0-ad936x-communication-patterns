@@ -90,6 +90,18 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         return errors
     if report.get("iio_bridge_same_priority_batch") is not True:
         errors.append(f"{label}: IIO same-priority batch evidence must be enabled")
+    same_priority_leases = report.get("iio_bridge_same_priority_batch_leases")
+    same_priority_drop_stops = report.get(
+        "iio_bridge_same_priority_batch_priority_drop_stops"
+    )
+    if not isinstance(same_priority_leases, int) or same_priority_leases < 1:
+        errors.append(f"{label}: IIO same-priority batch lease evidence is missing")
+    if (
+        isinstance(same_priority_leases, int)
+        and isinstance(same_priority_drop_stops, int)
+        and same_priority_drop_stops > same_priority_leases
+    ):
+        errors.append(f"{label}: IIO same-priority priority-drop stops exceed leases")
     if not fair_enabled:
         errors.append(f"{label}: IIO direction fair-service evidence must be enabled")
     if depth < 1:
@@ -130,6 +142,14 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
             )
             if detail_high_water < 2:
                 errors.append(f"{label}: IIO RF burst batch high-water detail never exceeded 1")
+        if report.get("iio_bridge_same_priority_batch_preemption_exercised") is not True:
+            errors.append(
+                f"{label}: IIO same-priority batch preemption was not exercised"
+            )
+        if not isinstance(same_priority_drop_stops, int) or same_priority_drop_stops < 1:
+            errors.append(
+                f"{label}: IIO same-priority priority-drop stop evidence is missing"
+            )
     if depth > 1:
         high_water = report.get("iio_bridge_source_ack_pipeline_high_water")
         max_pending = report.get("iio_bridge_source_ack_pipeline_max_pending")
@@ -483,6 +503,16 @@ def main() -> int:
             True
             if not host_requires_same_priority_batch
             else host.get("iio_bridge_same_priority_batch") is True
+        ),
+        "board_iio_same_priority_batch_preemption_exercised": (
+            True
+            if not board_requires_burst_batch
+            else board.get("iio_bridge_same_priority_batch_preemption_exercised") is True
+        ),
+        "host_iio_same_priority_batch_preemption_exercised": (
+            True
+            if not host_requires_burst_batch
+            else host.get("iio_bridge_same_priority_batch_preemption_exercised") is True
         ),
         "board_iio_bridge_same_priority_batch_leases": board.get(
             "iio_bridge_same_priority_batch_leases"

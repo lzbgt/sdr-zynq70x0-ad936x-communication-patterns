@@ -86,6 +86,8 @@ if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
 if report.get("same_priority_batch") is not False:
     raise SystemExit(f"direct bridge-loop dry-run should not default to same-priority batching: {report}")
+if report.get("same_priority_batch_preemption_exercised") is not False:
+    raise SystemExit(f"direct bridge-loop dry-run should not claim same-priority preemption: {report}")
 if report.get("lease_priority") != "tcp-payload":
     raise SystemExit(f"unexpected lease priority default: {report.get('lease_priority')}")
 if report.get("adaptive_direction_scheduler") is not False:
@@ -487,6 +489,7 @@ required = [
     '"iio_bridge_max_consecutive_direction_batches_seen"',
     '"iio_bridge_direction_fair_service_yields"',
     '"iio_bridge_same_priority_batch"',
+    '"iio_bridge_same_priority_batch_preemption_exercised"',
     '"iio_bridge_same_priority_batch_leases"',
     '"iio_bridge_same_priority_batch_priority_drop_stops"',
     "primary_deadline=$((SECONDS + iperf_timeout_s))",

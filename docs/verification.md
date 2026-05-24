@@ -5078,7 +5078,9 @@ classifier rejects reports whose same-direction burst high-water exceeds the
 configured budget while reverse-path RF work is queued. The same IIO RF reports
 must prove `IIO_BRIDGE_SAME_PRIORITY_BATCH=1`, which keeps a leased RF batch
 from being padded with lower-priority frames after a higher-priority control
-candidate was selected. Production native-IP evidence also requires TCP
+candidate was selected. When the report configured batched IIO RF service, the
+classifier also requires the same-priority preemption proof to be exercised by
+at least one priority-drop stop. Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

@@ -61,6 +61,8 @@ cat > "$work_dir/native_ip_source.json" <<'JSON'
   "host_iio_rf_burst_batch_exercised": true,
   "board_iio_same_priority_batch_enabled": true,
   "host_iio_same_priority_batch_enabled": true,
+  "board_iio_same_priority_batch_preemption_exercised": true,
+  "host_iio_same_priority_batch_preemption_exercised": true,
   "board_iio_bridge_same_priority_batch_leases": 3,
   "host_iio_bridge_same_priority_batch_leases": 2,
   "board_iio_bridge_same_priority_batch_priority_drop_stops": 1,

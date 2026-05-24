@@ -1343,7 +1343,10 @@ user and vendor configuration.
   also supports the native-IP runner's default
   `IIO_BRIDGE_SAME_PRIORITY_BATCH=1`; when a high-priority control-flow frame
   wins the batch, the daemon stops before appending lower-priority frames, so
-  final TCP control traffic gets a sub-batch preemption boundary.
+  final TCP control traffic gets a sub-batch preemption boundary. Production
+  native-IP evidence now requires that same-priority preemption to be exercised
+  in batched IIO RF captures, so final readiness cannot pass on configuration
+  alone.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

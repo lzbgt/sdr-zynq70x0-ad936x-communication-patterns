@@ -231,6 +231,8 @@ report = {
     "host_iio_direction_fair_service_within_budget": evidence.get("host_iio_direction_fair_service_within_budget"),
     "board_iio_same_priority_batch_enabled": evidence.get("board_iio_same_priority_batch_enabled"),
     "host_iio_same_priority_batch_enabled": evidence.get("host_iio_same_priority_batch_enabled"),
+    "board_iio_same_priority_batch_preemption_exercised": evidence.get("board_iio_same_priority_batch_preemption_exercised"),
+    "host_iio_same_priority_batch_preemption_exercised": evidence.get("host_iio_same_priority_batch_preemption_exercised"),
     "board_iio_bridge_same_priority_batch_leases": evidence.get("board_iio_bridge_same_priority_batch_leases"),
     "host_iio_bridge_same_priority_batch_leases": evidence.get("host_iio_bridge_same_priority_batch_leases"),
     "board_iio_bridge_same_priority_batch_priority_drop_stops": evidence.get("board_iio_bridge_same_priority_batch_priority_drop_stops"),

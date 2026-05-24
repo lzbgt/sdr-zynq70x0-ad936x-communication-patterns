@@ -189,7 +189,7 @@ def lease_batch_from_daemon(
         raise SystemExit(f"RF_TX_LEASE_BATCH failed: {report}")
     count = report.get("frames")
     if count in (0, "0", None):
-        return []
+        return [], report
     if not isinstance(count, int) or count < 1 or count > max_frames:
         raise SystemExit(f"invalid batch frame count {count!r}: {report}")
     frames: list[bytes] = []
@@ -1135,6 +1135,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "batch_size": args.batch_size,
             "batch_byte_limit": args.batch_byte_limit,
             "same_priority_batch": bool(args.same_priority_batch),
+            "same_priority_batch_preemption_exercised": bool(
+                args.same_priority_batch
+                and counts["same_priority_batch_priority_drop_stops"] > 0
+            ),
             "rf_burst_batch_size": args.batch_size,
             "rf_burst_batch_high_water": batch_high_water_max(
                 rf_burst_batch_high_water_by_direction

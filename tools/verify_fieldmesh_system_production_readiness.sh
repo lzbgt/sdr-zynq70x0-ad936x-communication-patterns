@@ -155,6 +155,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_direction_fair_service_within_budget": true,
   "board_iio_same_priority_batch_enabled": true,
   "host_iio_same_priority_batch_enabled": true,
+  "board_iio_same_priority_batch_preemption_exercised": true,
+  "host_iio_same_priority_batch_preemption_exercised": true,
   "board_iio_bridge_max_consecutive_direction_batches_seen": 1,
   "host_iio_bridge_max_consecutive_direction_batches_seen": 1,
   "requires_tcp_final_exchange_evidence": true,
