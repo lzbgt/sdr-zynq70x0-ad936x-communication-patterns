@@ -9,9 +9,7 @@ sequence_report="$sequence_dir/fieldmesh_conducted_rf_production_sequence.json"
 rm -rf "$work_dir"
 mkdir -p "$work_dir"
 
-if [ ! -f "$sequence_report" ]; then
-  "$repo_root/tools/verify_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null
-fi
+"$repo_root/tools/verify_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null
 
 "$repo_root/tools/fieldmesh_conducted_rf_evidence_manifest.py" \
   --sequence-report "$sequence_report" \
@@ -38,6 +36,7 @@ required = {
     "topology_app_report",
     "native_ip_app_report",
     "rf_bind_gate",
+    "hardware_progression",
     "production_gate",
 }
 if not required.issubset(labels):

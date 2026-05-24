@@ -22,6 +22,7 @@ PRODUCTION_APP_LABELS = {
     "native_ip_app_report",
 }
 PRODUCTION_RF_LABELS = {
+    "hardware_progression",
     "rf_bind_gate",
 }
 SEQUENCE_EVENTS = {
@@ -189,6 +190,11 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
     iq_live_run = load_json(manifest_file_path(labels, "iq_live_run"))
     production_gate = load_json(manifest_file_path(labels, "production_gate"))
     rf_bind_gate = load_json(manifest_file_path(labels, "rf_bind_gate")) if "rf_bind_gate" in labels else None
+    hardware_progression = (
+        load_json(manifest_file_path(labels, "hardware_progression"))
+        if "hardware_progression" in labels
+        else None
+    )
 
     if preflight.get("event") not in PREFLIGHT_EVENTS:
         raise SystemExit(
@@ -220,6 +226,68 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             value = rf_bind_gate.get(key)
             if not isinstance(value, int) or value < 1:
                 raise SystemExit(f"rf_bind_gate: {key} must be >= 1")
+    if hardware_progression is not None:
+        require_event(
+            hardware_progression,
+            "hardware_progression",
+            "fieldmesh_rf_hardware_progression_evidence",
+        )
+        if hardware_progression.get("ok") is not True:
+            raise SystemExit("hardware_progression: evidence must be ok=true")
+        if hardware_progression.get("reads_hardware") is not True:
+            raise SystemExit("hardware_progression: must prove hardware reads")
+        if hardware_progression.get("writes_hardware") is not False:
+            raise SystemExit("hardware_progression: must prove no hardware writes")
+        if hardware_progression.get("c_fpga_native_counter_progression") is not True:
+            raise SystemExit("hardware_progression: must prove C/FPGA-native counter progression")
+        if hardware_progression.get("counter_progression_ok") is not True:
+            raise SystemExit("hardware_progression: counter progression is not ok")
+        if hardware_progression.get("drop_error_delta") != 0:
+            raise SystemExit("hardware_progression: drop/error delta must be zero")
+        if hardware_progression.get("no_rf_phy_tx_rx_claim") is not True:
+            raise SystemExit("hardware_progression: must not claim RF PHY TX/RX")
+        if hardware_progression.get("no_production_ready_claim") is not True:
+            raise SystemExit("hardware_progression: must not claim production readiness")
+        deltas = hardware_progression.get("required_counter_deltas")
+        if not isinstance(deltas, dict):
+            raise SystemExit("hardware_progression: missing required_counter_deltas")
+        for key in (
+            "fw_dma_tx_parser_packets_delta",
+            "fw_dma_tx_parser_bytes_delta",
+            "fw_dma_ingress_packets_delta",
+            "fw_dma_ingress_bytes_delta",
+            "fw_dma_ingress_desc_publishes_delta",
+            "fw_dma_mac_ticks_delta",
+        ):
+            value = deltas.get(key)
+            if not isinstance(value, int) or value < 1:
+                raise SystemExit(f"hardware_progression: {key} must be >= 1")
+        snapshots = hardware_progression.get("counter_snapshots")
+        if not isinstance(snapshots, dict):
+            raise SystemExit("hardware_progression: missing counter_snapshots")
+        for key in ("mac_ticks", "ingress_packets", "egress_packets", "bram_errors"):
+            row = snapshots.get(key)
+            if not isinstance(row, dict):
+                raise SystemExit(f"hardware_progression: missing {key} snapshot")
+            before = row.get("before")
+            after = row.get("after")
+            delta = row.get("delta")
+            if not all(isinstance(value, int) for value in (before, after, delta)):
+                raise SystemExit(f"hardware_progression: {key} snapshot values must be integers")
+            if after < before or delta != after - before:
+                raise SystemExit(f"hardware_progression: {key} snapshot delta mismatch")
+        submit = hardware_progression.get("submit_latency_evidence")
+        if not isinstance(submit, dict) or not isinstance(submit.get("dma_smoke_tx_polls"), int) or submit.get("dma_smoke_tx_polls") < 1:
+            raise SystemExit("hardware_progression: missing bounded DMA submit-latency evidence")
+        modem = hardware_progression.get("c_modem_service_rate")
+        if not isinstance(modem, dict) or modem.get("required") is not True:
+            raise SystemExit("hardware_progression: missing required C modem service-rate evidence")
+        rate = modem.get("decode_frame_kbps")
+        if not isinstance(rate, (int, float)) or rate < 100:
+            raise SystemExit("hardware_progression: C modem decode rate is below threshold")
+        source = hardware_progression.get("source_report")
+        if "rf_bind_gate" in labels and not same_or_source_path(source, labels, "rf_bind_gate"):
+            raise SystemExit("hardware_progression source_report does not match manifest rf_bind_gate")
 
     bridge_iq = bridge.get("iq_iio_live_run")
     if isinstance(bridge_iq, str):
@@ -234,6 +302,8 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("sequence production_gate does not match manifest production_gate")
         if "rf_bind_gate" in labels and not same_or_source_path(sequence.get("rf_bind_gate_report"), labels, "rf_bind_gate"):
             raise SystemExit("sequence rf_bind_gate_report does not match manifest rf_bind_gate")
+        if "hardware_progression" in labels and not same_or_source_path(sequence.get("hardware_progression_report"), labels, "hardware_progression"):
+            raise SystemExit("sequence hardware_progression_report does not match manifest hardware_progression")
 
     app_features: list[str] = []
     for label, feature in (
@@ -259,6 +329,7 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         "iq_live_run_event": True,
         "production_gate_event": True,
         "rf_bind_gate_event": rf_bind_gate is not None,
+        "hardware_progression_event": hardware_progression is not None,
         "app_features": sorted(app_features),
     }
 

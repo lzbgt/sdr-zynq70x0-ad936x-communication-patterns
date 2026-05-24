@@ -424,7 +424,16 @@ fi
 env "${gate_env[@]}" "$repo_root/tools/run_fieldmesh_real_rf_production_gate.sh" \
     > "$out_dir/real_rf_production_gate_stdout.txt"
 
-python3 - "$out_dir" "$bridge_report" "$iq_live_run" "$messaging_report" "$topology_report" "$native_ip_report" "$expect_ready" <<'PY'
+hardware_progression_report=""
+if [ -n "$rf_bind_gate_report" ]; then
+    hardware_progression_report="$out_dir/fieldmesh_rf_hardware_progression_evidence.json"
+    "$repo_root/tools/fieldmesh_rf_hardware_progression_evidence.py" \
+        --rf-bind-gate-report "$rf_bind_gate_report" \
+        --output "$hardware_progression_report" \
+        > "$out_dir/fieldmesh_rf_hardware_progression_evidence_stdout.json"
+fi
+
+python3 - "$out_dir" "$bridge_report" "$iq_live_run" "$messaging_report" "$topology_report" "$native_ip_report" "$expect_ready" "$hardware_progression_report" <<'PY'
 import hashlib
 import json
 import sys
@@ -439,6 +448,7 @@ reports = {
     "native_ip": sys.argv[6] or None,
 }
 expect_ready = sys.argv[7] == "1"
+hardware_progression_report = Path(sys.argv[8]) if sys.argv[8] else None
 gate_path = out_dir / "real-rf-production-gate" / "real_rf_production_gate.json"
 gate = json.loads(gate_path.read_text(encoding="utf-8"))
 preflight_path = out_dir / "fieldmesh_conducted_rf_preflight.json"
@@ -466,6 +476,7 @@ def file_entry(label, path):
 evidence_files = [
     file_entry("preflight", preflight_path),
     file_entry("rf_bind_gate", rf_bind_gate_report),
+    file_entry("hardware_progression", hardware_progression_report),
     file_entry("bridge", bridge_report),
     file_entry("iq_live_run", iq_live_run),
     file_entry("messaging_app_report", reports["messaging"]),
@@ -492,6 +503,7 @@ summary = {
     "expected_production_ready": expect_ready,
     "production_blocker": gate.get("production_blocker"),
     "rf_bind_gate_report": str(evidence_dir / f"rf_bind_gate{Path(rf_bind_gate_report).suffix or '.bin'}") if rf_bind_gate_report else None,
+    "hardware_progression_report": str(evidence_dir / f"hardware_progression{hardware_progression_report.suffix or '.bin'}") if hardware_progression_report else None,
     "bridge_report": str(evidence_dir / f"bridge{Path(bridge_report).suffix or '.bin'}"),
     "iq_live_run": str(evidence_dir / f"iq_live_run{Path(iq_live_run).suffix or '.bin'}"),
     "app_reports": {

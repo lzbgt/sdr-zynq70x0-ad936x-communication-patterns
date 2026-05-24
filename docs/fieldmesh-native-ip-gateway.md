@@ -198,6 +198,10 @@ Minimum production gates for native TCP/IP:
   readback has passed. It still requires
   `measured_link=0`, `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and
   refused `APPLY`, so this is not a fake over-air pass;
+- production archives include a normalized hardware-progression evidence file
+  derived from the bind-gate report, so native-IP measured-link claims carry
+  firmware-DMA snapshots and bounded submit-poll evidence into final review
+  rather than only referencing the preflight gate;
 - `driver_queue` is the default service transport, while
   `diagnostic_loopback` is an explicit test-only mode. RX ingest rejects
   malformed BLR frames, non-`APP_DATA` frames, and frames whose destination EUI

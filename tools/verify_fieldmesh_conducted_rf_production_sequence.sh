@@ -33,6 +33,15 @@ cat > "$work_dir/rf_bind_gate.json" <<'JSON'
   "fw_dma_ingress_bytes_delta": 64,
   "fw_dma_ingress_desc_publishes_delta": 1,
   "fw_dma_mac_ticks_delta": 1,
+  "fw_dma_mac_ticks_before": 8,
+  "fw_dma_mac_ticks_after": 9,
+  "fw_dma_ingress_packets_before": 3,
+  "fw_dma_ingress_packets_after": 4,
+  "fw_dma_egress_packets_before": 1,
+  "fw_dma_egress_packets_after": 1,
+  "fw_dma_egress_packets_delta": 0,
+  "fw_dma_bram_errors_before": 0,
+  "fw_dma_bram_errors_after": 0,
   "fw_dma_drop_error_delta": 0,
   "live_rf_prerequisites_ready": 0,
   "rf_phy_tx_rx": 0,
@@ -219,6 +228,8 @@ if report.get("production_blocker") is not None:
     raise SystemExit(f"complete sequence retained blocker: {report.get('production_blocker')}")
 if not report.get("rf_bind_gate_report") or not Path(report["rf_bind_gate_report"]).is_file():
     raise SystemExit(f"complete sequence did not bundle RF bind-gate proof: {report}")
+if not report.get("hardware_progression_report") or not Path(report["hardware_progression_report"]).is_file():
+    raise SystemExit(f"complete sequence did not bundle hardware progression proof: {report}")
 PY
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
@@ -279,6 +290,7 @@ print(json.dumps({
     "missing_rf_path_refused": True,
     "complete_evidence_passed": True,
     "evidence_manifest_hashed": True,
+    "hardware_progression_bundled": True,
 }, sort_keys=True))
 PY
 

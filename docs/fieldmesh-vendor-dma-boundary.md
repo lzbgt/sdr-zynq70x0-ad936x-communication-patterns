@@ -952,7 +952,11 @@ dry-run unless live RF, hardware writes, RF TX, daemon queue mutation, RF path
 evidence, RF path ID, the board RF PHY bind-gate report, and the exact operator
 confirmation are all provided. The bind-gate report must include firmware-DMA
 counter progression from the C/FPGA-native endpoint before measured-link
-evidence can be accepted.
+evidence can be accepted. The production sequence also derives and bundles a
+`fieldmesh_rf_hardware_progression_evidence` report from that bind-gate proof,
+so the final evidence manifest contains the before/after firmware-DMA
+snapshots, required deltas, DMA submit-poll latency evidence, and C modem
+service-rate proof directly.
 With a successful live bridge and named app/gate source reports or feature
 reports, it derives app evidence and calls the production gate; with dry-run or
 incomplete evidence it leaves `production_ready=false`.
