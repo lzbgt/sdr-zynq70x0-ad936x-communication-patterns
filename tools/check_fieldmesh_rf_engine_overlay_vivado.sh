@@ -79,6 +79,8 @@ foreach cell {
   fieldmesh_ring
   fieldmesh_axis_bridge
   fieldmesh_axis16_adapter
+  fieldmesh_fw_dma_endpoint
+  fieldmesh_fw_dma_rf_broadcast
   fieldmesh_tx_dma
   fieldmesh_rx_dma
   fieldmesh_bpsk_symbolizer
@@ -102,7 +104,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF register page through 0x13c"
+  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x16c"
 }
 
 foreach pin {
@@ -120,6 +122,39 @@ foreach pin {
   fieldmesh_bpsk_symbolizer/byte_count
   fieldmesh_bpsk_symbolizer/symbol_count
   fieldmesh_bpsk_symbolizer/packet_count
+  fieldmesh_fw_dma_endpoint/clk
+  fieldmesh_fw_dma_endpoint/rst
+  fieldmesh_fw_dma_endpoint/enable
+  fieldmesh_fw_dma_endpoint/ingress_enable
+  fieldmesh_fw_dma_endpoint/egress_enable
+  fieldmesh_fw_dma_endpoint/mac_scheduler_enable
+  fieldmesh_fw_dma_endpoint/mac_tick
+  fieldmesh_fw_dma_endpoint/mac_stop
+  fieldmesh_fw_dma_endpoint/mac_service_budget
+  fieldmesh_fw_dma_rf_broadcast/clk
+  fieldmesh_fw_dma_rf_broadcast/rst
+  fieldmesh_fw_dma_rf_broadcast/enable
+  fieldmesh_ctrl/fw_dma_enable
+  fieldmesh_ctrl/fw_dma_ingress_enable
+  fieldmesh_ctrl/fw_dma_egress_enable
+  fieldmesh_ctrl/fw_dma_mac_scheduler_enable
+  fieldmesh_ctrl/fw_dma_mac_tick_enable
+  fieldmesh_ctrl/fw_dma_mac_stop
+  fieldmesh_ctrl/fw_dma_mac_service_budget
+  fieldmesh_ctrl/fw_dma_mac_scheduler_active
+  fieldmesh_ctrl/fw_dma_pump_done
+  fieldmesh_ctrl/fw_dma_pump_drained_empty
+  fieldmesh_ctrl/fw_dma_pump_budget_exhausted
+  fieldmesh_ctrl/fw_dma_service_accepted
+  fieldmesh_ctrl/fw_dma_service_queued_count
+  fieldmesh_ctrl/fw_dma_service_selected_word
+  fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+  fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+  fieldmesh_ctrl/fw_dma_ingress_packet_count
+  fieldmesh_ctrl/fw_dma_ingress_drop_count
+  fieldmesh_ctrl/fw_dma_egress_packet_count
+  fieldmesh_ctrl/fw_dma_egress_drop_count
+  fieldmesh_ctrl/fw_dma_bram_error_count
   fieldmesh_ctrl/rf_tx_enable
   fieldmesh_ctrl/rf_tx_armed
   fieldmesh_ctrl/rf_schedule_enable
@@ -205,6 +240,25 @@ foreach pin {
   }
 }
 
+foreach intf {
+  fieldmesh_tx_dma/m_axis
+  fieldmesh_axis16_adapter/s_axis16
+  fieldmesh_axis16_adapter/m_axis8
+  fieldmesh_fw_dma_endpoint/s_tx_dma
+  fieldmesh_fw_dma_endpoint/m_rx_dma
+  fieldmesh_fw_dma_rf_broadcast/s_axis
+  fieldmesh_fw_dma_rf_broadcast/m0_axis
+  fieldmesh_fw_dma_rf_broadcast/m1_axis
+  fieldmesh_axis16_adapter/s_axis8
+  fieldmesh_axis16_adapter/m_axis16
+  fieldmesh_rx_dma/s_axis
+  fieldmesh_bpsk_symbolizer/s_axis
+} {
+  if {[llength [get_bd_intf_pins -quiet \$intf]] != 1} {
+    error "\$intf interface pin missing"
+  }
+}
+
 proc assert_same_net {left right} {
   set left_net [get_bd_nets -quiet -of_objects [get_bd_pins \$left]]
   set right_net [get_bd_nets -quiet -of_objects [get_bd_pins \$right]]
@@ -226,6 +280,27 @@ assert_same_net fieldmesh_ctrl/rf_guard_blocked_cycle_count fieldmesh_iq_tx_guar
 assert_same_net fieldmesh_ctrl/rf_guard_drop_late_sample_count fieldmesh_iq_tx_guard/drop_late_sample_count
 assert_same_net fieldmesh_ctrl/rf_guard_drop_late_packet_count fieldmesh_iq_tx_guard/drop_late_packet_count
 assert_same_net fieldmesh_ctrl/rf_guard_fault fieldmesh_iq_tx_guard/fault
+assert_same_net fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
+assert_same_net fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable
+assert_same_net fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable
+assert_same_net fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable
+assert_same_net fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick
+assert_same_net fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop
+assert_same_net fieldmesh_ctrl/fw_dma_mac_service_budget fieldmesh_fw_dma_endpoint/mac_service_budget
+assert_same_net fieldmesh_fw_dma_endpoint/mac_scheduler_active fieldmesh_ctrl/fw_dma_mac_scheduler_active
+assert_same_net fieldmesh_fw_dma_endpoint/pump_done fieldmesh_ctrl/fw_dma_pump_done
+assert_same_net fieldmesh_fw_dma_endpoint/pump_drained_empty fieldmesh_ctrl/fw_dma_pump_drained_empty
+assert_same_net fieldmesh_fw_dma_endpoint/pump_budget_exhausted fieldmesh_ctrl/fw_dma_pump_budget_exhausted
+assert_same_net fieldmesh_fw_dma_endpoint/service_accepted fieldmesh_ctrl/fw_dma_service_accepted
+assert_same_net fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count
+assert_same_net fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word
+assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+assert_same_net fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count
+assert_same_net fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count
+assert_same_net fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count
+assert_same_net fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count
+assert_same_net fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count
 
 foreach seg {
   SEG_data_fieldmesh_ctrl
@@ -238,19 +313,25 @@ foreach seg {
   }
 }
 
-set tx_ready_nets [get_bd_nets -quiet -of_objects [get_bd_pins fieldmesh_axis_bridge/m_tx_packet_tready]]
-if {[llength \$tx_ready_nets] != 1} {
-  error "fieldmesh_axis_bridge/m_tx_packet_tready is not connected to exactly one net"
-}
-
-foreach symbolizer_to_guard {
-  fieldmesh_bpsk_symbolizer/m_axis_tvalid
-  fieldmesh_bpsk_symbolizer/m_axis_tdata
-  fieldmesh_bpsk_symbolizer/m_axis_tlast
+foreach pair {
+  {fieldmesh_fw_dma_endpoint/m_rx_dma_tvalid fieldmesh_fw_dma_rf_broadcast/s_axis_tvalid}
+  {fieldmesh_fw_dma_endpoint/m_rx_dma_tready fieldmesh_fw_dma_rf_broadcast/s_axis_tready}
+  {fieldmesh_fw_dma_endpoint/m_rx_dma_tdata fieldmesh_fw_dma_rf_broadcast/s_axis_tdata}
+  {fieldmesh_fw_dma_endpoint/m_rx_dma_tlast fieldmesh_fw_dma_rf_broadcast/s_axis_tlast}
+  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tvalid fieldmesh_axis16_adapter/s_axis8_tvalid}
+  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tready fieldmesh_axis16_adapter/s_axis8_tready}
+  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tdata fieldmesh_axis16_adapter/s_axis8_tdata}
+  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tlast fieldmesh_axis16_adapter/s_axis8_tlast}
+  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid}
+  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tready fieldmesh_bpsk_symbolizer/s_axis_tready}
+  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tdata fieldmesh_bpsk_symbolizer/s_axis_tdata}
+  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tlast fieldmesh_bpsk_symbolizer/s_axis_tlast}
+  {fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
+  {fieldmesh_bpsk_symbolizer/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
+  {fieldmesh_bpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}
+  {fieldmesh_bpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
 } {
-  if {[llength [get_bd_nets -quiet -of_objects [get_bd_pins \$symbolizer_to_guard]]] != 1} {
-    error "\$symbolizer_to_guard must feed the IQ TX guard"
-  }
+  assert_same_net [lindex \$pair 0] [lindex \$pair 1]
 }
 
 assert_same_net fieldmesh_iq_tx_guard/m_axis_tvalid fieldmesh_iq_tx_cdc/s_axis_tvalid

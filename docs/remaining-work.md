@@ -107,9 +107,9 @@ byte-only DMA boundary: TX frames are parsed from their in-band FieldMesh
 header, and descriptor-validated RX frames are emitted to RX DMA. The opt-in
 DMA overlay now connects that wrapper between the ADI packet-DMA pair and the
 16-to-8 adapter with auto-egress enabled, instead of growing the AXI-lite
-diagnostic shell. The remaining PL integration work is exposing a production
-control/status boundary for this endpoint and then moving the RF-engine overlay
-off the older bridge-fed path. The stats
+diagnostic shell. The copied-HDL RF-engine overlay now consumes that same
+firmware endpoint by broadcasting descriptor-validated egress bytes to RX DMA
+and the BPSK symbolizer. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
@@ -1434,8 +1434,11 @@ below were later superseded by the current PHY-management two-board gates above:
   is now the live board wrapper for status/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
   `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding arm/stop
-  hardware writes. The RF-engine overlay still keeps the older bridge-fed path
-  until the RF scheduler is bound directly to the firmware endpoint.
+  hardware writes. The copied-HDL RF-engine patcher now performs the first RF
+  scheduler binding to the firmware endpoint: TX packet DMA
+  enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
+  broadcast to RX DMA and the BPSK symbolizer, and firmware-DMA controls reset
+  off until explicitly armed.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
@@ -1524,9 +1527,10 @@ below were later superseded by the current PHY-management two-board gates above:
 - Move the simulated slot-admission behavior toward the live sidecar overlay
   after the sidecar preflight is reachable. The gate is now wired into the full
   packet-memory simulation wrapper, and the normal copied DMA overlay now uses
-  the firmware AXIS DMA endpoint. The remaining live-overlay work is exposing
-  production control/status for that endpoint and migrating the RF-engine path
-  from the older bridge to the firmware scheduler.
+  the firmware AXIS DMA endpoint. The RF-engine copied overlay now also uses
+  that endpoint for packet-to-symbol ingress; the remaining live-overlay work
+  is rebuilding/proving that path on hardware before enabling any RF source
+  selection.
 
 FieldMesh details are in `docs/fieldmesh-swarm-radio.md` and
 `docs/fieldmesh-protocol-spec.md`.

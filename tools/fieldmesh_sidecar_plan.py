@@ -47,6 +47,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_packet_axis_byte_pipe_loopback.v",
     "rtl/fieldmesh/fieldmesh_sidecar_axis_bridge.v",
     "rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v",
+    "rtl/fieldmesh/fieldmesh_axis_byte_broadcast2.v",
     "rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v",
     "rtl/fieldmesh/fieldmesh_iq_tx_guard.v",
     "rtl/fieldmesh/fieldmesh_axis_async_fifo.v",

@@ -1491,10 +1491,10 @@ user and vendor configuration.
   `fieldmesh_ctrl` BD module/address/IRQ wiring to copied `system_bd.tcl`;
   `--bridge-overlay` also instantiates the parked `fieldmesh_axis_bridge`
   byte-pipe endpoint; `--dma-overlay` adds provisional sidecar ADI `axi_dmac`
-  TX/RX packet DMAs through the 16-bit-to-byte adapter and loops the bridge
-  parser output back into the guarded RX path for the first non-RF packet-DMA
-  transfer gate; `--rf-engine-overlay` instead feeds the bridge parser output
-  into `fieldmesh_bpsk_symbolizer`, routes generated IQ through
+  TX/RX packet DMAs through the 16-bit-to-byte adapter and the
+  `fieldmesh_firmware_axis_dma_endpoint`; `--rf-engine-overlay` feeds that
+  endpoint's descriptor-validated egress through a byte broadcast into RX DMA
+  and `fieldmesh_bpsk_symbolizer`, then routes generated IQ through
   `fieldmesh_iq_tx_guard`, crosses into the AD9361 DAC clock domain through
   `fieldmesh_axis_async_fifo`, and feeds a sidecar-controlled DAC-domain source
   driver that still resets to vendor `tx_upack` pass-through.
@@ -1887,9 +1887,10 @@ Expected result in the current Pluto-compatible firmware state:
    Z103 passed this read-only live preflight at `192.168.3.1`; evidence is
    archived under
    `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_fieldmesh_rf_tx_guard_preflight_20260514-062434/`.
-   The non-transmitting RF-engine copied overlay, now including the
-   sidecar-control-wired `fieldmesh_iq_tx_guard`, async FIFO into the AD9361
-   DAC `l_clk` domain, and reset-off sidecar-controlled DAC source driver,
+   The non-transmitting RF-engine copied overlay, now including the firmware-DMA
+   endpoint, egress broadcast, sidecar-control-wired `fieldmesh_iq_tx_guard`,
+   async FIFO into the AD9361 DAC `l_clk` domain, and reset-off
+   sidecar-controlled DAC source driver,
    builds timing-clean for both variants too: Z103
    `system_top.bit`/XSA hashes are
    `23ed999b1f42fdf4fd81a45cadb51626609655499fe9681625c0204cdc1ba122` and

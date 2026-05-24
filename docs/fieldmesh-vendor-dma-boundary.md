@@ -190,7 +190,11 @@ sidebands, and the PL-to-PS side validates sidebands against the packet header
 before emitting byte-only packets. `fieldmesh_axis16_byte_adapter.v` sits
 between that byte-pipe bridge and ADI `axi_dmac`, because the ADI DMA IP
 accepts 16-bit and wider AXI-stream ports while the FieldMesh packet ABI
-remains byte-oriented. `fieldmesh_bpsk_iq_symbolizer.v` is the first
+remains byte-oriented. `fieldmesh_axis_byte_broadcast2.v` is the byte-wide
+firmware-egress splitter used by the RF-engine overlay: one branch preserves RX
+DMA observability and the other feeds the RF symbolizer, with ordinary
+AXI-stream backpressure applied until both consumers accept each byte.
+`fieldmesh_bpsk_iq_symbolizer.v` is the first
 synthesizable RF packet-engine TX primitive: it converts packet bytes into
 MSB-first signed I/Q BPSK symbols, but still does not own RF tuning, TX enable,
 filtering, or scheduled transmission. `fieldmesh_iq_tx_guard.v` is the
@@ -358,9 +362,9 @@ HP3/MM2S and packet RX over HP0/S2MM, and connects IRQs to `ps-9 mb-9` and
 16-bit adapter through the firmware endpoint with `AUTO_EGRESS=1`. Endpoint
 data movement is disabled after reset until software sets the firmware-DMA
 control bits in `fieldmesh_ctrl`, so the overlay can be inspected safely before
-packet DMA is armed. The RF-engine overlay keeps the older bridge-fed path
-because the current non-transmitting symbolizer path still consumes
-`fieldmesh_axis_bridge` packet-sideband ports.
+packet DMA is armed. The RF-engine overlay now uses that same firmware-DMA
+endpoint and broadcasts descriptor-validated egress bytes to both RX DMA and the
+symbolizer path instead of consuming the older bridge packet-sideband ports.
 
 Validate the full control-plus-bridge-plus-DMA overlay through Vivado
 project/block-design generation without running synthesis:
@@ -383,15 +387,19 @@ The first non-transmitting RF packet-engine overlay is a separate opt-in mode:
 
 With `--rf-engine-overlay`, the patcher implies the control, bridge, and DMA
 overlays but replaces the packet loopback with a TX packet-engine sink:
-`fieldmesh_axis_bridge/m_tx_packet_*` feeds `fieldmesh_bpsk_symbolizer/s_axis_*`.
-The symbolizer's IQ output feeds `fieldmesh_iq_tx_guard`; its arming, schedule,
-and status pins are now wired to the existing `fieldmesh_ctrl` AXI-lite window
-at the RF TX guard register range. The guard still resets unarmed, then feeds
-`fieldmesh_axis_async_fifo` and `fieldmesh_iq_dac_driver` so the next boundary
-is already in the AD9361 DAC clock domain. The driver source selector is wired
-to the sidecar control window and resets to vendor pass-through in this overlay,
-so FieldMesh does not drive the DAC datapath, open IIO buffers, tune RF, or
-start hardware transmission.
+TX packet DMA feeds `fieldmesh_firmware_axis_dma_endpoint`, and its
+descriptor-validated egress stream feeds `fieldmesh_axis_byte_broadcast2`.
+Broadcast branch 0 remains connected to RX DMA for packet observability; branch
+1 feeds `fieldmesh_bpsk_symbolizer/s_axis_*`. The symbolizer's IQ output feeds
+`fieldmesh_iq_tx_guard`; its arming, schedule, and status pins are wired to the
+existing `fieldmesh_ctrl` AXI-lite window at the RF TX guard register range.
+The firmware-DMA controls are also wired to `fieldmesh_ctrl` and reset off, so
+software must explicitly arm the endpoint before packets can reach the RF
+symbolizer. The guard still resets unarmed, then feeds `fieldmesh_axis_async_fifo`
+and `fieldmesh_iq_dac_driver` so the next boundary is already in the AD9361 DAC
+clock domain. The driver source selector is wired to the sidecar control window
+and resets to vendor pass-through in this overlay, so FieldMesh does not drive
+the DAC datapath, open IIO buffers, tune RF, or start hardware transmission.
 
 Validate the RF packet-engine overlay through Vivado project/block-design
 generation without running synthesis or connecting AD936x TX:
@@ -426,9 +434,10 @@ under `.config/fieldmesh/rf-engine-overlay-build-z203/` or
 These are still copied-HDL integration gates. The DMA gate proves the namespace,
 HP-port split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream
 connections, and address segments are BD-visible on both variants. The RF-engine
-gate proves the first packet-to-symbol TX primitive is BD-visible behind the
-sidecar packet path while still disconnected from AD936x TX. The Z203 and Z103
-DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
+gate proves the firmware-DMA endpoint, egress broadcast, packet-to-symbol TX
+primitive, RF guard, CDC bridge, and DAC-domain source driver are BD-visible
+while still disconnected from AD936x TX by reset-off source selection. The Z203
+and Z103 DMA-overlay paths have both produced timing-clean `system_top.bit`/XSA
 artifacts. The RF-engine overlay paths have also produced timing-clean
 `system_top.bit`/XSA artifacts with the async FIFO CDC bridge and reset-off
 sidecar-controlled DAC source driver in place. The RF-engine overlay does not

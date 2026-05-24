@@ -273,8 +273,18 @@ ad_cpu_interrupt ps-8 mb-8 fieldmesh_ring/irq
 """
 
 
-def render_dma_overlay(use_firmware_endpoint: bool) -> str:
+def render_dma_overlay(use_firmware_endpoint: bool, rf_engine_endpoint: bool = False) -> str:
     if use_firmware_endpoint:
+        rf_broadcast = ""
+        if rf_engine_endpoint:
+            rf_broadcast = """
+create_bd_cell -type module -reference fieldmesh_axis_byte_broadcast2 fieldmesh_fw_dma_rf_broadcast
+ad_connect sys_cpu_clk fieldmesh_fw_dma_rf_broadcast/clk
+ad_connect sys_cpu_reset fieldmesh_fw_dma_rf_broadcast/rst
+ad_connect VCC fieldmesh_fw_dma_rf_broadcast/enable
+ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis
+ad_connect fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8
+"""
         packet_path = """
 create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint
 set_property -dict [list CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]
@@ -311,9 +321,17 @@ ad_connect fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram
 
 ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
 ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma
-ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_axis16_adapter/s_axis8
+__FIELDMESH_FW_DMA_RX_ROUTE__
 ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
 """
+        packet_path = packet_path.replace(
+            "__FIELDMESH_FW_DMA_RX_ROUTE__",
+            (
+                rf_broadcast.rstrip()
+                if rf_engine_endpoint
+                else "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_axis16_adapter/s_axis8"
+            ),
+        )
     else:
         packet_path = """
 ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
@@ -407,16 +425,14 @@ ad_connect fieldmesh_iq_tx_guard/drop_late_sample_count fieldmesh_ctrl/rf_guard_
 ad_connect fieldmesh_iq_tx_guard/drop_late_packet_count fieldmesh_ctrl/rf_guard_drop_late_packet_count
 ad_connect fieldmesh_iq_tx_guard/fault fieldmesh_ctrl/rf_guard_fault
 
-ad_connect fieldmesh_axis_bridge/m_tx_packet_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid
-ad_connect fieldmesh_bpsk_symbolizer/s_axis_tready fieldmesh_axis_bridge/m_tx_packet_tready
-ad_connect fieldmesh_axis_bridge/m_tx_packet_tdata fieldmesh_bpsk_symbolizer/s_axis_tdata
-ad_connect fieldmesh_axis_bridge/m_tx_packet_tlast fieldmesh_bpsk_symbolizer/s_axis_tlast
+ad_connect fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_bpsk_symbolizer/s_axis
 
 # The symbolizer and TX guard are BD-visible here, and the guard is controlled
-# by the existing sidecar AXI-lite control window. The guard still resets
-# unarmed, and its IQ output is parked behind the RF packet-engine boundary. No
-# AD936x TX path, IIO buffer, RF tuning, or TX-enable driver is connected by
-# this overlay.
+# by the existing sidecar AXI-lite control window. Packet bytes now come from
+# the descriptor-validated firmware-DMA endpoint egress stream instead of the
+# older sidecar bridge packet port. The guard still resets unarmed, and its IQ
+# output is parked behind the RF packet-engine boundary. No IIO buffer, RF
+# tuning, or TX-enable driver is connected by this overlay.
 ad_connect fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
 ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_bpsk_symbolizer/m_axis_tready
 ad_connect fieldmesh_bpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
@@ -562,20 +578,20 @@ def patch_system_bd(
         blocks.append(
             render_control_overlay(
                 rf_guard_defaults=not rf_engine_overlay,
-                fw_dma_defaults=not (dma_overlay and not rf_engine_overlay),
+                fw_dma_defaults=not dma_overlay,
             )
         )
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
         blocks.append(
             render_bridge_overlay(
-                park_byte_ports=(not dma_overlay or not rf_engine_overlay),
+                park_byte_ports=dma_overlay or not rf_engine_overlay,
                 rf_engine_overlay=rf_engine_overlay,
             )
         )
     if ring_overlay and BD_RING_BEGIN not in text:
         blocks.append(render_ring_overlay(variant_name))
     if dma_overlay and BD_DMA_BEGIN not in text:
-        blocks.append(render_dma_overlay(use_firmware_endpoint=not rf_engine_overlay))
+        blocks.append(render_dma_overlay(use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay))
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
         blocks.append(render_rf_engine_overlay())
     if gnss_uart_emio and BD_GNSS_UART_BEGIN not in text:

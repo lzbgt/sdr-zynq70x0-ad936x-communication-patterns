@@ -1913,7 +1913,7 @@ rm -f "$tmp_hp"
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/hdl/projects/pluto/system_bd.tcl
 python3 -m json.tool \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_sidecar_plan.json >/dev/null
-test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "38"
+test "$(wc -l < .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_required_rtl.f)" = "39"
 rg 'Do not modify axi_ad9361_adc_dma' \
   .config/fieldmesh/vivado-overlay-scaffold-test/fieldmesh_bd_overlay_stub.tcl
 tmp_overlay=$(mktemp -d)
@@ -1930,7 +1930,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
   --repo-root "$PWD" --hdl-tree "$tmp_overlay/hdl" --variant-name z203 --apply \
   >/tmp/fieldmesh_overlay_patch.json
 python3 -m json.tool /tmp/fieldmesh_overlay_patch.json >/dev/null
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "38"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "39"
 rg 'fieldmesh_packet_axis_byte_pipe_loopback.v' \
   "$tmp_overlay/hdl/projects/pluto/system_project.tcl" \
   "$tmp_overlay/hdl/projects/pluto/Makefile"
@@ -2034,7 +2034,7 @@ cp src/extracted/plutosdr-fw-2r2t/plutosdr-fw/hdl/projects/pluto/system_top.v \
 python3 -m json.tool /tmp/fieldmesh_overlay_dma_patch.json >/dev/null
 rg 'fieldmesh_tx_dma|fieldmesh_rx_dma|fieldmesh_axis16_adapter|fieldmesh_fw_dma_endpoint|AUTO_EGRESS|fw_dma_enable|0x43C10000|0x43C20000' \
   "$tmp_overlay/hdl/projects/pluto/system_bd.tcl"
-test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "38"
+test "$(find "$tmp_overlay/hdl/projects/pluto/fieldmesh" -type f -name '*.v' | wc -l)" = "39"
 ./tools/fieldmesh_sidecar_plan.py --check-sidecar --check-rtl --check-hp-policy \
   --variant z203dma="$tmp_overlay/hdl/projects/pluto/system_bd.tcl" >/tmp/fieldmesh_dma_sidecar_plan.json
 ./tools/fieldmesh_vivado_overlay_patch.py \
@@ -2672,21 +2672,27 @@ unpacker-read suppression while selected, TLAST packet counting, and underflow
 counting.
 
 The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
-implies the sidecar DMA overlay, removes the packet-loopback shortcut, feeds
-`fieldmesh_axis_bridge/m_tx_packet_*` into `fieldmesh_bpsk_symbolizer/s_axis_*`,
-feeds generated IQ into `fieldmesh_iq_tx_guard`, crosses guarded IQ through
+implies the sidecar DMA overlay, removes the packet-loopback shortcut, routes
+TX packet DMA through `fieldmesh_firmware_axis_dma_endpoint`, broadcasts the
+descriptor-validated egress stream through `fieldmesh_axis_byte_broadcast2`,
+feeds one branch to RX DMA and the other to
+`fieldmesh_bpsk_symbolizer/s_axis_*`, feeds generated IQ into
+`fieldmesh_iq_tx_guard`, crosses guarded IQ through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
-`fieldmesh_iq_dac_driver`. The guard arming, schedule, and counter/status pins
-are now connected to the mapped `fieldmesh_ctrl` lightweight register window at
-`0x100+`, while the DAC driver source select is sidecar-controlled but resets
-to vendor pass-through so FieldMesh IQ is not selected for AD936x TX.
+`fieldmesh_iq_dac_driver`. The firmware-DMA controls, guard arming, schedule,
+and counter/status pins are now connected to the mapped `fieldmesh_ctrl`
+lightweight register window at `0x100+`/`0x140+`, while the DAC driver source
+select is sidecar-controlled but resets to vendor pass-through so FieldMesh IQ
+is not selected for AD936x TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
+`fieldmesh_firmware_axis_dma_endpoint`, `fieldmesh_axis_byte_broadcast2`,
 `fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
-`fieldmesh_axis_async_fifo` present, address segments intact, the CDC sink and
-DAC driver clocked from `axi_ad9361/l_clk`, the driver inserted between
-`tx_upack` and `tx_fir_interpolator`, and the FieldMesh source selector wired
-to the sidecar control window while reset-off.
+`fieldmesh_axis_async_fifo` present, address segments intact, firmware-DMA
+status wired into `fieldmesh_ctrl`, the CDC sink and DAC driver clocked from
+`axi_ad9361/l_clk`, the driver inserted between `tx_upack` and
+`tx_fir_interpolator`, and the FieldMesh source selector wired to the sidecar
+control window while reset-off.
 
 The same non-transmitting RF-engine overlay was then built through the full ADI
 Pluto Vivado make flow:
@@ -2812,8 +2818,8 @@ At that stage, the Vivado overlay patcher wired
 the first live test non-RF and verified the sidecar packet-DMA path through TX
 DMA, 16-bit/8-bit adaptation, packet-header parsing, header guard, and RX DMA.
 The current normal DMA overlay has moved that path to
-`fieldmesh_firmware_axis_dma_endpoint`; the older bridge-fed path remains for
-the RF-engine overlay until the RF scheduler consumes the firmware endpoint.
+`fieldmesh_firmware_axis_dma_endpoint`; the RF-engine overlay now consumes that
+same endpoint through the byte-wide egress broadcast before the BPSK symbolizer.
 The RF-tools verifier also covers the guarded userspace control contract for
 that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
 authorization, and `--fw-dma-arm`/`--fw-dma-stop` remain non-mutating unless

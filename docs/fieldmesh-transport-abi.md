@@ -502,9 +502,9 @@ green sidecar preflight.
 14. Bind the byte-only transport to the first copied-HDL sidecar DMA overlay,
     using a 16-bit adapter where ADI `axi_dmac` is the transport. The normal
     packet-DMA overlay now routes that adapter through
-    `fieldmesh_firmware_axis_dma_endpoint`; the RF-engine overlay keeps the
-    older bridge-fed path until the RF scheduler consumes the firmware endpoint
-    directly.
+    `fieldmesh_firmware_axis_dma_endpoint`; the RF-engine overlay now consumes
+    the same firmware endpoint through a byte-wide egress broadcast feeding RX
+    DMA and the BPSK symbolizer.
 15. Generate and compile the matching sidecar devicetree fragment, and keep the
     userspace `dt-scan` preflight green before touching sidecar registers.
 16. Integrate the fragment only with a matching FieldMesh bitstream, then run
