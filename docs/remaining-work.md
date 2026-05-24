@@ -1151,9 +1151,10 @@ below were later superseded by the current PHY-management two-board gates above:
   The RF-engine TX-submit mode now arms a guarded late-drop drain before DMA
   submit, then rolls it back with the FieldMesh DAC source deselected; this
   makes the gate repeatable without starting AD936x TX.
-  The offline `tools/fieldmesh_iq_burst_smoke.py` gate now creates
-  and decodes a guarded FieldMesh IQ burst without opening IIO buffers or
-  starting RF TX. `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
+  The offline `tools/fieldmesh_iq_burst_smoke.py` gate now orchestrates the
+  compiled modem helper to create and decode a guarded FieldMesh IQ burst
+  without opening IIO buffers or starting RF TX.
+  `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
   the live SDK/daemon RF handoff evidence, validates the sidecar/RF queue
   contract, invokes the compiled BPSK helper for guarded IQ burst encode/decode,
   and verifies the recovered FieldMesh frame CRC.

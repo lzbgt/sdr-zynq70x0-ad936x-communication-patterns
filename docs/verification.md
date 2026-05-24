@@ -3741,8 +3741,9 @@ Result:
 
 The generated `fieldmesh_iq_burst_smoke.json` reports
 `opens_iio_buffers=false`, `starts_rf_tx=false`, `writes_hardware=false`, and
-`recovered_frame_match=true`. The same verifier also checks that the tool
-refuses a burst plan when the authorized RF-path guard is missing.
+`recovered_frame_match=true`. It also reports `uses_c_modem_helper=true` and
+`uses_python_modem=false` for the default path. The same verifier checks that
+the tool refuses a burst plan when the authorized RF-path guard is missing.
 
 ## FieldMesh RF Packet Engine Transport
 

@@ -779,9 +779,10 @@ The first IQ burst smoke is still offline and hardware-safe:
 
 It runs `tools/fieldmesh_iq_burst_smoke.py` with explicit center frequency,
 sample rate, RF bandwidth, fixture attenuation, and `--conducted-or-shielded`.
-The tool wraps a committed FieldMesh frame in a preamble/length/CRC burst,
-synthesizes interleaved int16 BPSK IQ samples, decodes the samples back to the
-original frame, and emits `fieldmesh_iq_burst_smoke.json`. It still reports
+The tool orchestrates a compiled `fieldmesh_iio_burst_xfer` modem helper, which
+wraps a committed FieldMesh frame in a preamble/length/CRC burst, synthesizes
+interleaved int16 BPSK IQ samples, decodes the samples back to the original
+frame, and emits `fieldmesh_iq_burst_smoke.json`. It still reports
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 This creates the sample-buffer contract for the later live AD936x conducted
 test without touching the board RF path yet.
