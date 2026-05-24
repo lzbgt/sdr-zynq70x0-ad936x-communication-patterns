@@ -93,6 +93,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_native_iio_burst_integrated_rf_service_daemon_missing")
+        if report.get("requires_iio_state_daemon_iio_transport") is not True:
+            blockers.append("native_ip_state_daemon_iio_transport_missing")
         if report.get("requires_iio_in_burst_priority_preemption") is not True:
             blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
         if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -207,6 +209,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_host_native_iio_burst_integrated_rf_service_daemon_missing")
+        if report.get("board_iio_state_daemon_iio_transport_proven") is not True:
+            blockers.append("native_ip_board_state_daemon_iio_transport_missing")
+        if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
+            blockers.append("native_ip_host_state_daemon_iio_transport_missing")
         if report.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
             blockers.append("native_ip_board_iio_in_burst_priority_preemption_missing")
         if report.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
@@ -320,6 +326,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_native_iio_burst_integrated_rf_service_daemon": report.get(
             "requires_iio_native_iio_burst_integrated_rf_service_daemon"
+        ),
+        "requires_iio_state_daemon_iio_transport": report.get(
+            "requires_iio_state_daemon_iio_transport"
         ),
         "requires_iio_rf_sub_burst_evidence": report.get(
             "requires_iio_rf_sub_burst_evidence"
@@ -573,6 +582,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations": report.get(
             "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations"
+        ),
+        "board_iio_state_daemon_iio_transport_proven": report.get(
+            "board_iio_state_daemon_iio_transport_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_proven": report.get(
+            "host_iio_state_daemon_iio_transport_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_status_polls": report.get(
+            "board_iio_state_daemon_iio_transport_status_polls"
+        ),
+        "host_iio_state_daemon_iio_transport_status_polls": report.get(
+            "host_iio_state_daemon_iio_transport_status_polls"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"

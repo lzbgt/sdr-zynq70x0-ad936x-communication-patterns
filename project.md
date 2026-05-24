@@ -1425,6 +1425,10 @@ user and vendor configuration.
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`, and
   `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1` with
+  both endpoint state daemons also proving
+  `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`,
+  `state_daemon_owned_iio_transport=1`, and
+  `helper_local_iio_daemon_only=0`, plus
   `python_xfer_field_orchestration=false` and
   `python_worker_xfer_submission=false` plus
   `python_scheduler_drain_submission=false`,

@@ -396,6 +396,48 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != 0
     ):
         errors.append(f"{label}: native IIO burst integrated RF service daemon reported failures")
+    if report.get("iio_bridge_state_daemon_iio_transport_required") is not True:
+        errors.append(f"{label}: state-daemon IIO transport proof must be required")
+    if report.get("iio_bridge_state_daemon_iio_transport_proven") is not True:
+        errors.append(f"{label}: state-daemon IIO transport proof is missing")
+    transport_status_polls = report.get("iio_bridge_state_daemon_iio_transport_status_polls")
+    if not isinstance(transport_status_polls, int) or transport_status_polls < 2:
+        errors.append(
+            f"{label}: state-daemon IIO transport status must be proven on both endpoints"
+        )
+    if int(report.get("iio_bridge_state_daemon_iio_transport_status_failures") or 0) != 0:
+        errors.append(f"{label}: state-daemon IIO transport status reported failures")
+    transport_status = report.get("iio_bridge_state_daemon_iio_transport_status")
+    if not isinstance(transport_status, dict) or sorted(transport_status) != ["z103", "z203"]:
+        errors.append(f"{label}: state-daemon IIO transport status must include z203 and z103")
+    else:
+        for endpoint, status in sorted(transport_status.items()):
+            if not isinstance(status, dict):
+                errors.append(f"{label}: {endpoint} state-daemon IIO transport status is not an object")
+                continue
+            for key in (
+                "native_iio_transport_daemon",
+                "state_daemon_owned_iio_transport",
+                "integrated_rf_service_daemon",
+                "continuous_queue_worker_lifecycle",
+                "service_policy_bound",
+                "production_iio_policy",
+            ):
+                if status.get(key) != 1:
+                    errors.append(
+                        f"{label}: {endpoint} state-daemon IIO transport {key} is not proven"
+                    )
+            if status.get("helper_local_iio_daemon_only") != 0:
+                errors.append(
+                    f"{label}: {endpoint} state-daemon IIO transport still reports helper-only ownership"
+                )
+            if (
+                status.get("iio_transport_daemon_status_proof")
+                != "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+            ):
+                errors.append(
+                    f"{label}: {endpoint} state-daemon IIO transport proof token is invalid"
+                )
     if report.get("iio_bridge_rf_sub_burst_enabled") is not True:
         errors.append(f"{label}: IIO RF sub-burst service must be enabled")
     if report.get("iio_bridge_rf_sub_burst_exercised") is not True:
@@ -825,6 +867,9 @@ def main() -> int:
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_native_iio_burst_integrated_rf_service_daemon": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
+        "requires_iio_state_daemon_iio_transport": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_in_burst_priority_preemption": bool(
@@ -1311,6 +1356,18 @@ def main() -> int:
         ),
         "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations": host.get(
             "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations"
+        ),
+        "board_iio_state_daemon_iio_transport_proven": board.get(
+            "iio_bridge_state_daemon_iio_transport_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_proven": host.get(
+            "iio_bridge_state_daemon_iio_transport_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_status_polls": board.get(
+            "iio_bridge_state_daemon_iio_transport_status_polls"
+        ),
+        "host_iio_state_daemon_iio_transport_status_polls": host.get(
+            "iio_bridge_state_daemon_iio_transport_status_polls"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

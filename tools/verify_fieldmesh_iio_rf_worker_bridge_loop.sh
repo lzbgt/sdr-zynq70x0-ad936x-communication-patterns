@@ -578,6 +578,57 @@ except SystemExit:
     pass
 else:
     raise SystemExit("native RF worker boundary validator accepted stale worker status")
+captured = {}
+def iio_transport_status_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_iio_transport_daemon_status",
+        "ok": True,
+        "native_iio_transport_daemon": 1,
+        "state_daemon_owned_iio_transport": 1,
+        "integrated_rf_service_daemon": 1,
+        "continuous_queue_worker_lifecycle": 1,
+        "helper_local_iio_daemon_only": 0,
+        "native_service_loop_worker": 1,
+        "persistent_native_bidirectional_rf_service_loop": 1,
+        "native_cross_daemon_transport_loop": 1,
+        "native_peer_scheduler_query": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "max_consecutive_direction_batches": 1,
+        "in_burst_priority_preemption": 1,
+        "lease_priority_cli": "tcp-control-flow-udp-after-control",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "state_daemon_owned_iio_transport_worker",
+    }
+bridge.request_daemon = iio_transport_status_request
+try:
+    iio_transport = loop.iio_transport_daemon_status("127.0.0.1", 55441, 10)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1":
+    raise SystemExit(
+        f"state-daemon IIO transport proof must use daemon status command: {captured}"
+    )
+loop.validate_iio_transport_daemon_boundary(iio_transport, "z203", args)
+bad_iio = dict(iio_transport)
+bad_iio["helper_local_iio_daemon_only"] = 1
+try:
+    loop.validate_iio_transport_daemon_boundary(bad_iio, "z203", args)
+except SystemExit:
+    pass
+else:
+    raise SystemExit("state-daemon IIO transport validator accepted helper-only status")
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -822,6 +873,12 @@ required = [
     "fieldmesh_rf_service_default_policy()",
     "fieldmesh_rf_service_policy_accepts_production_iio(&policy)",
     "in_burst_priority_preemption",
+    "FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF",
+    "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS",
+    "sdk_daemon_iio_transport_daemon_status",
+    "state_daemon_owned_iio_transport",
+    "helper_local_iio_daemon_only",
+    "\\\"next_boundary\\\":\\\"state_daemon_owned_iio_transport_worker\\\"",
     "in_burst_priority_multiplexing",
     "fieldmesh_rf_service_lease_priority_name(policy.lease_priority)",
     "fieldmesh_rf_service_lease_priority_cli_name(",
@@ -1055,6 +1112,11 @@ required = [
     '"iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven"',
     '"iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations"',
     '"iio_bridge_native_iio_burst_integrated_rf_service_daemon_failures"',
+    '"iio_bridge_state_daemon_iio_transport_required"',
+    '"iio_bridge_state_daemon_iio_transport_proven"',
+    '"iio_bridge_state_daemon_iio_transport_status_polls"',
+    '"iio_bridge_state_daemon_iio_transport_status_failures"',
+    '"iio_bridge_state_daemon_iio_transport_status"',
     '"iio_bridge_same_priority_batch"',
     '"iio_bridge_same_priority_batch_preemption_exercised"',
     '"iio_bridge_same_priority_batch_leases"',

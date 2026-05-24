@@ -72,6 +72,32 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven": true,
   "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations": 3,
   "iio_bridge_native_iio_burst_integrated_rf_service_daemon_failures": 0,
+  "iio_bridge_state_daemon_iio_transport_required": true,
+  "iio_bridge_state_daemon_iio_transport_proven": true,
+  "iio_bridge_state_daemon_iio_transport_status_polls": 2,
+  "iio_bridge_state_daemon_iio_transport_status_failures": 0,
+  "iio_bridge_state_daemon_iio_transport_status": {
+    "z103": {
+      "native_iio_transport_daemon": 1,
+      "state_daemon_owned_iio_transport": 1,
+      "integrated_rf_service_daemon": 1,
+      "continuous_queue_worker_lifecycle": 1,
+      "helper_local_iio_daemon_only": 0,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+    },
+    "z203": {
+      "native_iio_transport_daemon": 1,
+      "state_daemon_owned_iio_transport": 1,
+      "integrated_rf_service_daemon": 1,
+      "continuous_queue_worker_lifecycle": 1,
+      "helper_local_iio_daemon_only": 0,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+    }
+  },
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -314,6 +340,32 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven": true,
   "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations": 3,
   "iio_bridge_native_iio_burst_integrated_rf_service_daemon_failures": 0,
+  "iio_bridge_state_daemon_iio_transport_required": true,
+  "iio_bridge_state_daemon_iio_transport_proven": true,
+  "iio_bridge_state_daemon_iio_transport_status_polls": 2,
+  "iio_bridge_state_daemon_iio_transport_status_failures": 0,
+  "iio_bridge_state_daemon_iio_transport_status": {
+    "z103": {
+      "native_iio_transport_daemon": 1,
+      "state_daemon_owned_iio_transport": 1,
+      "integrated_rf_service_daemon": 1,
+      "continuous_queue_worker_lifecycle": 1,
+      "helper_local_iio_daemon_only": 0,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+    },
+    "z203": {
+      "native_iio_transport_daemon": 1,
+      "state_daemon_owned_iio_transport": 1,
+      "integrated_rf_service_daemon": 1,
+      "continuous_queue_worker_lifecycle": 1,
+      "helper_local_iio_daemon_only": 0,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+    }
+  },
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -555,6 +607,8 @@ if report.get("requires_iio_native_iio_burst_transport_background_daemon") is no
     raise SystemExit(f"missing native IIO burst background transport daemon requirement: {report}")
 if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is not True:
     raise SystemExit(f"missing native IIO burst integrated RF service daemon requirement: {report}")
+if report.get("requires_iio_state_daemon_iio_transport") is not True:
+    raise SystemExit(f"missing state-daemon IIO transport requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"missing in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -663,6 +717,10 @@ if report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_proven") i
     raise SystemExit(f"missing host native IIO burst integrated RF service daemon proof: {report}")
 if report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_invocations") != 3:
     raise SystemExit(f"missing host native IIO burst integrated RF service daemon invocation count: {report}")
+if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
+    raise SystemExit(f"missing host state-daemon IIO transport proof: {report}")
+if report.get("host_iio_state_daemon_iio_transport_status_polls") != 2:
+    raise SystemExit(f"missing host state-daemon IIO transport status polls: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"missing host in-burst priority multiplexing proof: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
@@ -745,6 +803,8 @@ if report.get("requires_iio_native_iio_burst_transport_background_daemon") is no
     raise SystemExit(f"native-IP readiness lost native IIO burst background transport daemon requirement: {report}")
 if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst integrated RF service daemon requirement: {report}")
+if report.get("requires_iio_state_daemon_iio_transport") is not True:
+    raise SystemExit(f"native-IP readiness lost state-daemon IIO transport requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:

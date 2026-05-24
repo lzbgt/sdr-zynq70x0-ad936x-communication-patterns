@@ -533,6 +533,21 @@ def rf_worker_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     return report
 
 
+def iio_transport_daemon_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_iio_transport_daemon_status":
+        raise SystemExit(
+            "expected sdk_daemon_iio_transport_daemon_status, "
+            f"got {report.get('event')!r}"
+        )
+    return report
+
+
 def rf_service_scheduler_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     report = bridge.request_daemon(
         host,
@@ -614,6 +629,51 @@ def validate_native_worker_boundary(
         errors.append(f"ticks={report.get('ticks')!r} expected positive integer")
     if errors:
         raise SystemExit(f"{label} RF worker native boundary invalid: " + "; ".join(errors))
+
+
+def validate_iio_transport_daemon_boundary(
+    report: dict[str, Any],
+    label: str,
+    args: argparse.Namespace,
+) -> None:
+    errors: list[str] = []
+    expected = {
+        "ok": True,
+        "native_iio_transport_daemon": 1,
+        "state_daemon_owned_iio_transport": 1,
+        "integrated_rf_service_daemon": 1,
+        "continuous_queue_worker_lifecycle": 1,
+        "helper_local_iio_daemon_only": 0,
+        "native_service_loop_worker": 1,
+        "persistent_native_bidirectional_rf_service_loop": 1,
+        "native_cross_daemon_transport_loop": 1,
+        "native_peer_scheduler_query": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "lease_batch_frames": args.batch_size,
+        "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+        "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
+        "in_burst_priority_preemption": 1,
+        "lease_priority_cli": args.lease_priority,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "state_daemon_owned_iio_transport_worker",
+    }
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            errors.append(f"{key}={report.get(key)!r} expected {expected_value!r}")
+    if errors:
+        raise SystemExit(
+            f"{label} state-daemon IIO transport boundary invalid: "
+            + "; ".join(errors)
+        )
 
 
 def validate_native_scheduler_status(
@@ -1670,6 +1730,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_worker_starts": 0,
         "native_service_loop_worker_status_polls": 0,
         "native_service_loop_worker_failures": 0,
+        "state_daemon_iio_transport_status_polls": 0,
+        "state_daemon_iio_transport_status_failures": 0,
         "in_burst_priority_preemptions": 0,
         "in_burst_priority_multiplexing_events": 0,
         "rf_sub_burst_slices": 0,
@@ -1691,6 +1753,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rf_burst_batch_high_water_by_direction: dict[str, int] = {}
     rf_lease_batch_high_water_by_direction: dict[str, int] = {}
     native_worker_status_by_endpoint: dict[str, dict[str, Any]] = {}
+    iio_transport_status_by_endpoint: dict[str, dict[str, Any]] = {}
     native_service_loop_start_by_endpoint: dict[str, dict[str, Any]] = {}
     native_service_loop_status_by_endpoint: dict[str, dict[str, Any]] = {}
     native_scheduler_status_by_direction: dict[str, dict[str, Any]] = {}
@@ -1835,6 +1898,33 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 native_service_loop_start_by_endpoint
             ),
             "native_service_loop_worker_status": native_service_loop_status_by_endpoint,
+            "state_daemon_iio_transport_required": bool(
+                args.execute_live_rf
+                and args.native_service_burst_leases
+                and args.require_native_rf_service_worker
+            ),
+            "state_daemon_iio_transport_proven": bool(
+                iio_transport_status_by_endpoint
+                and all(
+                    status.get("native_iio_transport_daemon") == 1
+                    and status.get("state_daemon_owned_iio_transport") == 1
+                    and status.get("integrated_rf_service_daemon") == 1
+                    and status.get("continuous_queue_worker_lifecycle") == 1
+                    and status.get("helper_local_iio_daemon_only") == 0
+                    and status.get("service_policy_bound") == 1
+                    and status.get("production_iio_policy") == 1
+                    and status.get("iio_transport_daemon_status_proof")
+                    == "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+                    for status in iio_transport_status_by_endpoint.values()
+                )
+            ),
+            "state_daemon_iio_transport_status_polls": counts[
+                "state_daemon_iio_transport_status_polls"
+            ],
+            "state_daemon_iio_transport_status_failures": counts[
+                "state_daemon_iio_transport_status_failures"
+            ],
+            "state_daemon_iio_transport_status": iio_transport_status_by_endpoint,
             "in_burst_priority_preemption_enabled": bool(args.native_service_burst_leases),
             "in_burst_priority_preemption_exercised": bool(
                 counts["in_burst_priority_preemptions"] > 0
@@ -2143,8 +2233,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 native_service_loop_start_by_endpoint[label] = loop_start
                 counts["native_service_loop_worker_starts"] += 1
+                iio_transport_status = iio_transport_daemon_status(
+                    host, port, status_timeout_ms
+                )
+                validate_iio_transport_daemon_boundary(
+                    iio_transport_status, label, args
+                )
+                iio_transport_status_by_endpoint[label] = iio_transport_status
+                counts["state_daemon_iio_transport_status_polls"] += 1
             except (TimeoutError, SystemExit):
                 counts["native_service_loop_worker_failures"] += 1
+                counts["state_daemon_iio_transport_status_failures"] += 1
                 raise
         write_progress()
 

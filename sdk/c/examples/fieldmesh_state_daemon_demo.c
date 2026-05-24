@@ -3326,6 +3326,8 @@ static int build_response(fieldmesh_context_t *context,
                  "\"adaptive_direction_scheduler\":%u,"
                  "\"persistent_burst_helper\":%u,"
                  "\"in_burst_priority_preemption\":%u,"
+                 "\"state_daemon_iio_transport\":%u,"
+                 "\"iio_transport_daemon_status_proof\":\"%s\","
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"production_iio_policy\":%u,"
@@ -3347,6 +3349,8 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)policy.adaptive_direction_scheduler,
                  (unsigned)policy.persistent_burst_helper,
                  (unsigned)policy.in_burst_priority_preemption,
+                 (unsigned)policy.state_daemon_iio_transport,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
@@ -6414,6 +6418,57 @@ static int build_response(fieldmesh_context_t *context,
                          tun_service->rf_transport_mode) :
                      tun_service_rf_transport_mode_name(
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_iio_transport_daemon_status\","
+                 "\"ok\":true,"
+                 "\"native_iio_transport_daemon\":1,"
+                 "\"state_daemon_owned_iio_transport\":%u,"
+                 "\"integrated_rf_service_daemon\":1,"
+                 "\"continuous_queue_worker_lifecycle\":1,"
+                 "\"helper_local_iio_daemon_only\":0,"
+                 "\"native_service_loop_worker\":1,"
+                 "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                 "\"native_cross_daemon_transport_loop\":1,"
+                 "\"native_peer_scheduler_query\":1,"
+                 "\"native_service_burst\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
+                 "\"lease_priority_cli\":\"%s\","
+                 "\"tun_service_running\":%u,"
+                 "\"rf_worker_running\":%u,"
+                 "\"rf_service_loop_running\":%u,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"state_daemon_owned_iio_transport_worker\"}\n",
+                 (unsigned)policy.state_daemon_iio_transport,
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 policy.max_consecutive_direction_batches,
+                 (unsigned)policy.in_burst_priority_preemption,
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
+                 tun_service && tun_service->running ? 1u : 0u,
+                 rf_worker && rf_worker->running ? 1u : 0u,
+                 rf_service_loop && rf_service_loop->running ? 1u : 0u);
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS")) {

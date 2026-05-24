@@ -116,6 +116,11 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_native_iio_burst_integrated_rf_service_daemon_proven": true,
   "board_iio_native_iio_burst_integrated_rf_service_daemon_invocations": 3,
   "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations": 3,
+  "requires_iio_state_daemon_iio_transport": true,
+  "board_iio_state_daemon_iio_transport_proven": true,
+  "host_iio_state_daemon_iio_transport_proven": true,
+  "board_iio_state_daemon_iio_transport_status_polls": 2,
+  "host_iio_state_daemon_iio_transport_status_polls": 2,
   "board_iio_bridge_in_burst_priority_preemption_enabled": true,
   "host_iio_bridge_in_burst_priority_preemption_enabled": true,
   "board_iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -200,6 +205,8 @@ if report.get("requires_iio_native_iio_burst_transport_background_daemon") is no
     raise SystemExit(f"native-IP readiness lost native IIO burst background transport daemon requirement: {report!r}")
 if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst integrated RF service daemon requirement: {report!r}")
+if report.get("requires_iio_state_daemon_iio_transport") is not True:
+    raise SystemExit(f"native-IP readiness lost state-daemon IIO transport requirement: {report!r}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst requirement: {report!r}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:
@@ -274,6 +281,10 @@ if report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_proven") i
     raise SystemExit(f"native-IP readiness lost native IIO burst integrated RF service daemon proof: {report!r}")
 if report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_invocations") != 3:
     raise SystemExit(f"native-IP readiness lost native IIO burst integrated RF service daemon invocation count: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport proof: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_status_polls") != 2:
+    raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport polls: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing proof: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:

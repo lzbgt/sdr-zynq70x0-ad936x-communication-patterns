@@ -5125,6 +5125,9 @@ daemon status path to return the completed transfer report; accepted reports mus
 `transport_integrated_rf_service_daemon_start_count > 0`,
 `transport_integrated_rf_service_daemon_enqueue_count > 0`,
 `transport_integrated_rf_service_daemon_drained_count > 0`,
+both endpoint state daemons' `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`
+proof with `state_daemon_owned_iio_transport=1` and
+`helper_local_iio_daemon_only=0`,
 `python_xfer_field_orchestration=false`, and
 `python_worker_xfer_submission=false`, and
 `python_direct_service_loop_run=false`, and

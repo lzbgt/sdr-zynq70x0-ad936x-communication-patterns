@@ -56,8 +56,21 @@ def query_policy_once():
         raise SystemExit("daemon did not answer RF service policy self-test")
     replies.append(json.loads(data.decode("utf-8")))
 
+def query_iio_transport_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(b"FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1", ("127.0.0.1", port))
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_iio_transport_daemon_status"' not in data:
+        raise SystemExit("daemon did not answer IIO transport daemon status")
+    replies.append(json.loads(data.decode("utf-8")))
+
 query_once()
 query_policy_once()
+query_iio_transport_once()
 time.sleep(0.6)
 query_once()
 with open(out_path, "w", encoding="utf-8") as handle:
@@ -107,6 +120,12 @@ if len(hello_replies) != 2:
     raise SystemExit("daemon did not answer repeated HELLO requests in forever mode")
 if len(policy_replies) != 1:
     raise SystemExit("daemon did not answer RF service policy self-test")
+iio_transport_replies = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_iio_transport_daemon_status"
+]
+if len(iio_transport_replies) != 1:
+    raise SystemExit("daemon did not answer IIO transport daemon status")
 policy = policy_replies[0]
 expected = {
     "ok": True,
@@ -122,6 +141,8 @@ expected = {
     "adaptive_direction_scheduler": 1,
     "persistent_burst_helper": 1,
     "in_burst_priority_preemption": 1,
+    "state_daemon_iio_transport": 1,
+    "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
     "lease_priority": "tcp_control_flow_udp_after_control",
     "lease_priority_cli": "tcp-control-flow-udp-after-control",
     "production_iio_policy": 1,
@@ -132,6 +153,39 @@ expected = {
 for key, value in expected.items():
     if policy.get(key) != value:
         raise SystemExit(f"RF service policy self-test {key} mismatch: {policy}")
+iio_transport = iio_transport_replies[0]
+expected_iio_transport = {
+    "ok": True,
+    "native_iio_transport_daemon": 1,
+    "state_daemon_owned_iio_transport": 1,
+    "integrated_rf_service_daemon": 1,
+    "continuous_queue_worker_lifecycle": 1,
+    "helper_local_iio_daemon_only": 0,
+    "native_service_loop_worker": 1,
+    "persistent_native_bidirectional_rf_service_loop": 1,
+    "native_cross_daemon_transport_loop": 1,
+    "native_peer_scheduler_query": 1,
+    "native_service_burst": 1,
+    "daemon_owned_worker": 1,
+    "driver_queue_worker": 1,
+    "native_rf_service_worker": 1,
+    "native_rf_service_control_plane": 1,
+    "service_policy_bound": 1,
+    "production_iio_policy": 1,
+    "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+    "lease_batch_frames": 4,
+    "max_frames_per_rf_burst": 2,
+    "max_consecutive_direction_batches": 1,
+    "in_burst_priority_preemption": 1,
+    "lease_priority_cli": "tcp-control-flow-udp-after-control",
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+    "commands_executed": 0,
+    "next_boundary": "state_daemon_owned_iio_transport_worker",
+}
+for key, value in expected_iio_transport.items():
+    if iio_transport.get(key) != value:
+        raise SystemExit(f"IIO transport daemon status {key} mismatch: {iio_transport}")
 PY
 
 echo "fieldmesh_state_daemon_forever_check=pass"
