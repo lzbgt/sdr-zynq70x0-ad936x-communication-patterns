@@ -119,7 +119,9 @@ in `src/fieldmesh_sdk.c`:
   `--fw-dma-status` is read-only and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`,
   while `--fw-dma-config`, `--fw-dma-arm`, and `--fw-dma-stop` additionally require
   `FIELD_MESH_EXECUTE_LIVE_TX=1`, `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
-  `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The command output is JSON for host
+  `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. `--fw-dma-status-self-test` decodes a
+  fixed C register vector without `/dev/mem`, so CI covers the successful
+  status projection without hardware reads. The command output is JSON for host
   inspection only; the packet path remains binary descriptors and byte streams.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic
   class while still letting malformed queued descriptors be retired after valid

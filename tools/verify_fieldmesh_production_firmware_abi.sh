@@ -109,6 +109,12 @@ int main(void) {
         FIELDMESH_FW_DMA_STATUS_REG_COUNT != 25u) {
         return 1;
     }
+    if (fieldmesh_fw_dma_status_offset(0u) != FIELDMESH_FW_DMA_REG_CONTROL ||
+        fieldmesh_fw_dma_status_offset(12u) != FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY ||
+        fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
+        fieldmesh_fw_dma_status_offset(25u) != 0u) {
+        return 8;
+    }
     if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
         FIELDMESH_FW_DMA_CONTROL_MAC_STOP != 0x00000020u) {
         return 2;
@@ -525,7 +531,7 @@ required = [
     "FIELDMESH_FW_DMA_REG_CONTROL 0x140u",
     "FIELDMESH_FW_DMA_REG_FAULT_STATUS 0x1a0u",
     "FIELDMESH_FW_DMA_STATUS_REG_COUNT 25u",
-    "FIELDMESH_FW_DMA_STATUS_OFFSETS",
+    "fieldmesh_fw_dma_status_offset",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
     "FIELDMESH_FW_DMA_FAULT_TX_PARSER",

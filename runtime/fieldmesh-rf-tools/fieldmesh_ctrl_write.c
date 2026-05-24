@@ -37,6 +37,7 @@ static void usage(FILE *stream) {
     fprintf(stream,
             "usage:\n"
             "  fieldmesh-ctrl-write --self-test\n"
+            "  fieldmesh-ctrl-write --fw-dma-status-self-test\n"
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
             "  fieldmesh-ctrl-write --fw-dma-status BASE\n"
             "  fieldmesh-ctrl-write --fw-dma-config BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
@@ -114,7 +115,8 @@ static uint32_t access_reg(uint32_t base, uint32_t offset, uint32_t value,
     return readback;
 }
 
-static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *status) {
+static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *status,
+                                bool reads_hardware) {
     printf("{\"event\":\"fieldmesh_fw_dma_status\",\"ok\":true,"
            "\"base\":\"0x%08" PRIx32 "\","
            "\"control\":\"0x%08" PRIx32 "\","
@@ -147,7 +149,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"retry_budget\":%" PRIu32 ","
            "\"descriptor_flags\":\"0x%04" PRIx32 "\","
            "\"seq_seed\":\"0x%08" PRIx32 "\","
-           "\"reads_hardware\":true,\"writes_hardware\":false}\n",
+           "\"reads_hardware\":%s,\"writes_hardware\":false}\n",
            base,
            status->control,
            status->status,
@@ -178,7 +180,20 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            (uint32_t)status->mcs,
            (uint32_t)status->retry_budget,
            (uint32_t)status->descriptor_flags,
-           status->seq_seed);
+           status->seq_seed,
+           reads_hardware ? "true" : "false");
+}
+
+static int print_fw_dma_status_from_regs(uint32_t base,
+                                         const uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT],
+                                         bool reads_hardware) {
+    fieldmesh_fw_dma_status_t status = {0};
+    if (!fieldmesh_fw_dma_status_from_regs(&status, regs)) {
+        fprintf(stderr, "failed to decode firmware DMA status\n");
+        return 1;
+    }
+    print_fw_dma_status(base, &status, reads_hardware);
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -198,6 +213,45 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    if (argc == 2 && strcmp(argv[1], "--fw-dma-status-self-test") == 0) {
+        fieldmesh_fw_dma_config_t config = {
+            .peer_index = 7u,
+            .mcs = 1u,
+            .retry_budget = 3u,
+            .descriptor_flags = 0x11u,
+            .seq_seed = 0x1200u,
+        };
+        uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
+        regs[0] = FIELDMESH_FW_DMA_ARM_CONTROL;
+        regs[1] = 0x2fu;
+        regs[2] = 32u;
+        regs[3] = 4u;
+        regs[4] = 0x80020003u;
+        regs[5] = 5u;
+        regs[6] = 6u;
+        regs[7] = 7u;
+        regs[8] = 8u;
+        regs[9] = 9u;
+        regs[10] = 10u;
+        regs[11] = 11u;
+        regs[12] = fieldmesh_fw_dma_config_peer_mcs_retry(&config);
+        regs[13] = config.descriptor_flags;
+        regs[14] = config.seq_seed;
+        regs[15] = 150u;
+        regs[16] = 160u;
+        regs[17] = 17u;
+        regs[18] = 180u;
+        regs[19] = 19u;
+        regs[20] = 20u;
+        regs[21] = 21u;
+        regs[22] = 22u;
+        regs[23] = 23u;
+        regs[24] = FIELDMESH_FW_DMA_FAULT_TX_PARSER |
+                   FIELDMESH_FW_DMA_FAULT_EGRESS |
+                   0xffff0000u;
+        return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
+    }
+
     if (argc == 3 && strcmp(argv[1], "--fw-dma-status") == 0) {
         uint32_t base = parse_u32(argv[2], "base");
         if (!live_read_allowed()) {
@@ -208,17 +262,11 @@ int main(int argc, char **argv) {
             return 1;
         }
         uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT];
-        fieldmesh_fw_dma_status_t status = {0};
         for (size_t i = 0; i < FIELDMESH_FW_DMA_STATUS_REG_COUNT; ++i) {
-            regs[i] = access_reg(base, FIELDMESH_FW_DMA_STATUS_OFFSETS[i],
+            regs[i] = access_reg(base, fieldmesh_fw_dma_status_offset(i),
                                  0, FIELDMESH_ACCESS_READ);
         }
-        if (!fieldmesh_fw_dma_status_from_regs(&status, regs)) {
-            fprintf(stderr, "failed to decode firmware DMA status\n");
-            return 1;
-        }
-        print_fw_dma_status(base, &status);
-        return 0;
+        return print_fw_dma_status_from_regs(base, regs, true);
     }
 
     if (argc == 8 && strcmp(argv[1], "--fw-dma-config") == 0) {

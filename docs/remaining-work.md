@@ -1426,7 +1426,10 @@ below were later superseded by the current PHY-management two-board gates above:
   BRAM CRC/bounds errors, and parser/ingress/egress fault bits for live
   service-rate triage without packet payload parsing. The C SDK header
   `fieldmesh_firmware_dma_ctrl.h` is the shared ARM-side register contract for
-  offsets, masks, metadata packing, and status decode. The copied overlay is
+  offsets, masks, metadata packing, and status decode. `fieldmesh-ctrl-write
+  --fw-dma-status-self-test` now exercises that C status decode/projection path
+  without `/dev/mem`, so CI covers successful status output without live
+  hardware reads. The copied overlay is
   Vivado BD-generation checked for Z203 and Z103 HDL trees.
   `fieldmesh-ctrl-write` now provides the guarded software control surface for
   that page: read-only firmware-DMA status needs

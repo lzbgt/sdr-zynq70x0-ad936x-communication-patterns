@@ -282,6 +282,9 @@ write guards: `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The command response is JSON only so test
 logs are readable; no JSON is used on the DMA or RF packet path.
+`fieldmesh-ctrl-write --fw-dma-status-self-test` decodes a fixed C register
+vector without `/dev/mem`, keeping the successful status projection under CI
+without requiring live hardware.
 For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards

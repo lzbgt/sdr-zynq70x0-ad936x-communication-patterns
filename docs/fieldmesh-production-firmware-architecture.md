@@ -467,6 +467,9 @@ step. Board-side activation should go through
 `tools/run_fieldmesh_board_fw_dma_control.sh`, which requires the sidecar
 preflight firmware-DMA status proof and records before/after status around any
 guarded config, arm, or stop command.
+`fieldmesh-ctrl-write --fw-dma-status-self-test` exercises the same C decode
+and JSON projection from a fixed register vector without `/dev/mem`; it is a
+test hook only, not a packet data path.
 
 ## MAC Design
 

@@ -17,6 +17,7 @@ cc -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
   "$src_dir/fieldmesh_ctrl_write.c" -o "$work_dir/fieldmesh-ctrl-write-host"
 "$work_dir/fieldmesh-ctrl-write-host" --self-test >"$work_dir/ctrl_write_self_test.json"
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 0x43c00000 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
@@ -98,6 +99,47 @@ if self_test.get("fw_dma_control_offset") != "0x140" or self_test.get("fw_dma_ar
     raise SystemExit(f"bad firmware DMA self-test offsets: {self_test!r}")
 if self_test.get("fw_dma_config_offset") != "0x170":
     raise SystemExit(f"bad firmware DMA config offset: {self_test!r}")
+
+fw_status_self_test = json.loads((work / "fw_dma_status_self_test.json").read_text(encoding="utf-8"))
+if fw_status_self_test.get("event") != "fieldmesh_fw_dma_status" or fw_status_self_test.get("ok") is not True:
+    raise SystemExit(f"firmware DMA status self-test failed: {fw_status_self_test!r}")
+expected_status = {
+    "control": "0x0000001f",
+    "status": "0x0000002f",
+    "service_budget": 32,
+    "queued_count": 4,
+    "selected_word": "0x80020003",
+    "tx_parser_packets": 5,
+    "tx_parser_bytes": 150,
+    "tx_parser_drops": 6,
+    "ingress_packets": 7,
+    "ingress_bytes": 160,
+    "ingress_desc_publishes": 17,
+    "ingress_drops": 8,
+    "egress_packets": 9,
+    "egress_bytes": 180,
+    "egress_drops": 10,
+    "mac_ticks": 19,
+    "mac_pump_starts": 20,
+    "mac_pump_dones": 21,
+    "bram_crc_errors": 22,
+    "bram_bounds_errors": 23,
+    "bram_errors": 11,
+    "fault_status": "0x00000005",
+    "tx_parser_fault": True,
+    "ingress_fault": False,
+    "egress_fault": True,
+    "peer_index": 7,
+    "mcs": 1,
+    "retry_budget": 3,
+    "descriptor_flags": "0x0011",
+    "seq_seed": "0x00001200",
+    "reads_hardware": False,
+    "writes_hardware": False,
+}
+for key, expected in expected_status.items():
+    if fw_status_self_test.get(key) != expected:
+        raise SystemExit(f"firmware DMA status self-test bad {key}: {fw_status_self_test!r}")
 
 fw_status = json.loads((work / "fw_dma_status_guard.json").read_text(encoding="utf-8"))
 if fw_status.get("event") != "fieldmesh_fw_dma_status" or fw_status.get("ok") is not False:
