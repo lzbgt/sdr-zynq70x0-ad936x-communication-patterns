@@ -237,6 +237,21 @@ struct rf_worker_state {
     fieldmesh_status_t last_status;
 };
 
+struct rf_service_loop_state {
+    int running;
+    uint32_t starts;
+    uint32_t ticks;
+    uint32_t bursts;
+    uint32_t skips;
+    uint32_t preemptions;
+    uint32_t multiplexing_events;
+    uint32_t last_local_score;
+    uint32_t last_peer_score;
+    uint32_t last_service_order_rank;
+    uint32_t last_frames;
+    fieldmesh_status_t last_status;
+};
+
 static int tun_service_tcp_flow_matches(const struct tun_service_tcp_flow *known,
                                         const struct tun_service_tcp_flow *flow)
 {
@@ -3190,6 +3205,7 @@ static int build_response(fieldmesh_context_t *context,
                           struct app_message_store *app_messages,
                           struct tun_service_state *tun_service,
                           struct rf_worker_state *rf_worker,
+                          struct rf_service_loop_state *rf_service_loop,
                           const char *request,
                           char *response,
                           size_t response_len)
@@ -6214,6 +6230,160 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_tx_control_flow_learned : 0u);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_LOOP_START")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        if (!tun_service || !tun_service->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"tun_service_not_running\","
+                     "\"native_service_loop_worker\":1,"
+                     "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                     "\"service_policy_bound\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (!rf_worker || !rf_worker->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"rf_worker_not_running\","
+                     "\"native_service_loop_worker\":1,"
+                     "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                     "\"service_policy_bound\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (!rf_service_loop) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"service_loop_state_unavailable\"}\n");
+            return 0;
+        }
+        rf_service_loop->running = 1;
+        rf_service_loop->starts++;
+        rf_service_loop->last_status = FIELDMESH_OK;
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_service_loop_start\","
+                 "\"ok\":true,"
+                 "\"running\":1,"
+                 "\"native_service_loop_worker\":1,"
+                 "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                 "\"native_service_loop_tick\":1,"
+                 "\"native_bidirectional_direction_decision\":1,"
+                 "\"native_service_burst\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
+                 "\"starts\":%u,"
+                 "\"ticks\":%u,"
+                 "\"bursts\":%u,"
+                 "\"skips\":%u,"
+                 "\"preemptions\":%u,"
+                 "\"multiplexing_events\":%u,"
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 policy.max_consecutive_direction_batches,
+                 (unsigned)policy.in_burst_priority_preemption,
+                 rf_service_loop->starts,
+                 rf_service_loop->ticks,
+                 rf_service_loop->bursts,
+                 rf_service_loop->skips,
+                 rf_service_loop->preemptions,
+                 rf_service_loop->multiplexing_events,
+                 tun_service_rf_transport_mode_name(
+                     tun_service->rf_transport_mode));
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_LOOP_STATUS")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_service_loop_status\","
+                 "\"ok\":true,"
+                 "\"running\":%u,"
+                 "\"tun_service_running\":%u,"
+                 "\"rf_worker_running\":%u,"
+                 "\"native_service_loop_worker\":1,"
+                 "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                 "\"native_service_loop_tick\":1,"
+                 "\"native_bidirectional_direction_decision\":1,"
+                 "\"native_service_burst\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
+                 "\"starts\":%u,"
+                 "\"ticks\":%u,"
+                 "\"bursts\":%u,"
+                 "\"skips\":%u,"
+                 "\"preemptions\":%u,"
+                 "\"multiplexing_events\":%u,"
+                 "\"last_local_scheduler_score\":%u,"
+                 "\"last_peer_scheduler_score\":%u,"
+                 "\"last_service_order_rank\":%u,"
+                 "\"last_frames\":%u,"
+                 "\"last_status\":\"%s\","
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
+                 rf_service_loop && rf_service_loop->running ? 1u : 0u,
+                 tun_service && tun_service->running ? 1u : 0u,
+                 rf_worker && rf_worker->running ? 1u : 0u,
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 policy.max_consecutive_direction_batches,
+                 (unsigned)policy.in_burst_priority_preemption,
+                 rf_service_loop ? rf_service_loop->starts : 0u,
+                 rf_service_loop ? rf_service_loop->ticks : 0u,
+                 rf_service_loop ? rf_service_loop->bursts : 0u,
+                 rf_service_loop ? rf_service_loop->skips : 0u,
+                 rf_service_loop ? rf_service_loop->preemptions : 0u,
+                 rf_service_loop ? rf_service_loop->multiplexing_events : 0u,
+                 rf_service_loop ? rf_service_loop->last_local_score : 0u,
+                 rf_service_loop ? rf_service_loop->last_peer_score : 0u,
+                 rf_service_loop ? rf_service_loop->last_service_order_rank : 0u,
+                 rf_service_loop ? rf_service_loop->last_frames : 0u,
+                 rf_service_loop ?
+                     fieldmesh_status_string(rf_service_loop->last_status) :
+                     fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG),
+                 tun_service ?
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode) :
+                     tun_service_rf_transport_mode_name(
+                         TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS")) {
         fieldmesh_rf_service_policy_t policy =
             fieldmesh_rf_service_default_policy();
@@ -6431,12 +6601,49 @@ static int build_response(fieldmesh_context_t *context,
                      "\"writes_hardware\":0}\n");
             return 0;
         }
+        if (!rf_service_loop || !rf_service_loop->running) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
+                     "\"ok\":false,"
+                     "\"error\":\"native_service_loop_not_running\","
+                     "\"native_service_loop_tick\":1,"
+                     "\"native_service_loop_worker\":1,"
+                     "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                     "\"native_bidirectional_direction_decision\":1,"
+                     "\"native_service_burst\":1,"
+                     "\"daemon_owned_worker\":1,"
+                     "\"driver_queue_worker\":1,"
+                     "\"native_rf_service_worker\":1,"
+                     "\"native_rf_service_control_plane\":1,"
+                     "\"service_policy_bound\":1,"
+                     "\"production_iio_policy\":%u,"
+                     "\"rf_transport_mode\":\"%s\","
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0,"
+                     "\"commands_executed\":0,"
+                     "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
+                     fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                         1u :
+                         0u,
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode));
+            return 0;
+        }
         if (yield_to_peer || !service_local_first) {
+            rf_service_loop->ticks++;
+            rf_service_loop->skips++;
+            rf_service_loop->last_local_score = local_score;
+            rf_service_loop->last_peer_score = peer_score;
+            rf_service_loop->last_service_order_rank = service_order_rank;
+            rf_service_loop->last_frames = 0u;
+            rf_service_loop->last_status = FIELDMESH_OK;
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
                      "\"ok\":true,"
                      "\"frames\":0,"
                      "\"native_service_loop_tick\":1,"
+                     "\"native_service_loop_worker\":1,"
+                     "\"persistent_native_bidirectional_rf_service_loop\":1,"
                      "\"native_bidirectional_direction_decision\":1,"
                      "\"native_service_burst\":1,"
                      "\"daemon_owned_worker\":1,"
@@ -6458,6 +6665,11 @@ static int build_response(fieldmesh_context_t *context,
                      "\"max_consecutive_direction_batches\":%u,"
                      "\"lease_batch_frames\":%u,"
                      "\"max_frames_per_rf_burst\":%u,"
+                     "\"service_loop_ticks\":%u,"
+                     "\"service_loop_bursts\":%u,"
+                     "\"service_loop_skips\":%u,"
+                     "\"service_loop_preemptions\":%u,"
+                     "\"service_loop_multiplexing_events\":%u,"
                      "\"lease_priority\":\"%s\","
                      "\"lease_priority_cli\":\"%s\","
                      "\"rf_transport_mode\":\"%s\","
@@ -6466,7 +6678,7 @@ static int build_response(fieldmesh_context_t *context,
                      "\"starts_rf_tx\":0,"
                      "\"writes_hardware\":0,"
                      "\"commands_executed\":0,"
-                     "\"next_boundary\":\"persistent_native_bidirectional_rf_service_loop\"}\n",
+                     "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
                      fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                          1u :
                          0u,
@@ -6482,6 +6694,11 @@ static int build_response(fieldmesh_context_t *context,
                      policy.max_consecutive_direction_batches,
                      policy.lease_batch_frames,
                      policy.max_frames_per_rf_burst,
+                     rf_service_loop->ticks,
+                     rf_service_loop->bursts,
+                     rf_service_loop->skips,
+                     rf_service_loop->preemptions,
+                     rf_service_loop->multiplexing_events,
                      tun_service_rf_lease_priority_name(lease_priority),
                      fieldmesh_rf_service_lease_priority_cli_name(
                          policy.lease_priority),
@@ -6580,12 +6797,25 @@ static int build_response(fieldmesh_context_t *context,
         }
         tun_service->rf_driver_frames_leased += (uint32_t)moved;
         tun_service->rf_driver_frame_bytes_leased += bytes_leased;
+        rf_service_loop->ticks++;
+        rf_service_loop->bursts++;
+        rf_service_loop->preemptions += in_burst_priority_preemption_count;
+        if (in_burst_priority_preemption_count > 1u) {
+            rf_service_loop->multiplexing_events++;
+        }
+        rf_service_loop->last_local_score = local_score;
+        rf_service_loop->last_peer_score = peer_score;
+        rf_service_loop->last_service_order_rank = service_order_rank;
+        rf_service_loop->last_frames = emitted;
+        rf_service_loop->last_status = FIELDMESH_OK;
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_service_loop_tick\","
                  "\"ok\":true,"
                  "\"frames\":%u,"
                  "%s"
                  "\"native_service_loop_tick\":1,"
+                 "\"native_service_loop_worker\":1,"
+                 "\"persistent_native_bidirectional_rf_service_loop\":1,"
                  "\"native_bidirectional_direction_decision\":1,"
                  "\"native_service_burst\":1,"
                  "\"daemon_owned_worker\":1,"
@@ -6624,6 +6854,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"in_burst_priority_multiplexing\":%u,"
                  "\"in_burst_preempted_score\":%u,"
                  "\"in_burst_deferred_head_score\":%u,"
+                 "\"service_loop_ticks\":%u,"
+                 "\"service_loop_bursts\":%u,"
+                 "\"service_loop_skips\":%u,"
+                 "\"service_loop_preemptions\":%u,"
+                 "\"service_loop_multiplexing_events\":%u,"
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
@@ -6636,7 +6871,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"persistent_native_bidirectional_rf_service_loop\"}\n",
+                 "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
                  emitted,
                  frames_json,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
@@ -6669,6 +6904,11 @@ static int build_response(fieldmesh_context_t *context,
                  in_burst_priority_preemption_count > 1u ? 1u : 0u,
                  in_burst_preempted_score,
                  in_burst_deferred_head_score,
+                 rf_service_loop->ticks,
+                 rf_service_loop->bursts,
+                 rf_service_loop->skips,
+                 rf_service_loop->preemptions,
+                 rf_service_loop->multiplexing_events,
                  tun_service_rf_lease_priority_name(lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
@@ -8822,6 +9062,7 @@ static int serve_state(const char *bind_ip,
     struct app_message_store app_messages;
     struct tun_service_state tun_service;
     struct rf_worker_state rf_worker;
+    struct rf_service_loop_state rf_service_loop;
     long handled = 0;
     int serve_forever = requests == 0;
     int rc = 1;
@@ -8832,10 +9073,12 @@ static int serve_state(const char *bind_ip,
     memset(&app_messages, 0, sizeof(app_messages));
     memset(&tun_service, 0, sizeof(tun_service));
     memset(&rf_worker, 0, sizeof(rf_worker));
+    memset(&rf_service_loop, 0, sizeof(rf_service_loop));
     tun_service.fd = -1;
     tun_service.firmware_ring_fd = -1;
     tun_service.last_status = FIELDMESH_OK;
     rf_worker.last_status = FIELDMESH_OK;
+    rf_service_loop.last_status = FIELDMESH_OK;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         goto out;
@@ -8929,7 +9172,7 @@ static int serve_state(const char *bind_ip,
         }
         request[received] = '\0';
         if (build_response(context, session, &app_messages, &tun_service,
-                           &rf_worker,
+                           &rf_worker, &rf_service_loop,
                            request, response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),
                      "{\"event\":\"sdk_daemon_error\","

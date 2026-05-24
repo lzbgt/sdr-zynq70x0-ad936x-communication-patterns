@@ -1375,9 +1375,13 @@ user and vendor configuration.
   `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the local-vs-peer
   service/yield choice plus service-order rank, and
   `FIELDMESH_RF_SERVICE_LOOP_TICK v1` for the decision-plus-burst service tick.
+  The bridge now also starts and reads back
+  `FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1`, so production evidence proves a
+  persistent native bidirectional service-loop worker session carried tick,
+  burst, skip, preemption, and multiplexing counters around those daemon ticks.
   Production evidence therefore proves the bidirectional service decision,
-  ordering rank, and emitted RF sub-burst came from the daemon policy boundary
-  rather than a Python formula.
+  ordering rank, emitted RF sub-burst, and loop-worker counters came from the
+  daemon policy boundary rather than a Python formula.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

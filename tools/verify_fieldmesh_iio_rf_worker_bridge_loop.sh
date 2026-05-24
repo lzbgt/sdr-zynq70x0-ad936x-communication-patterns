@@ -276,6 +276,8 @@ def native_service_tick_request(host, port, text, timeout_ms):
         "frame1_hex": "bb",
         "frame1_bytes": 1,
         "native_service_loop_tick": 1,
+        "native_service_loop_worker": 1,
+        "persistent_native_bidirectional_rf_service_loop": 1,
         "native_bidirectional_direction_decision": 1,
         "native_service_burst": 1,
         "daemon_owned_worker": 1,
@@ -314,12 +316,17 @@ def native_service_tick_request(host, port, text, timeout_ms):
         "in_burst_priority_multiplexing": 1,
         "in_burst_preempted_score": 9,
         "in_burst_deferred_head_score": 7,
+        "service_loop_ticks": 1,
+        "service_loop_bursts": 1,
+        "service_loop_skips": 0,
+        "service_loop_preemptions": 2,
+        "service_loop_multiplexing_events": 1,
         "lease_priority_cli": "tcp-control-flow-udp-after-control",
         "rf_transport_mode": "driver_queue",
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "persistent_native_bidirectional_rf_service_loop",
+        "next_boundary": "native_service_loop_worker_process",
     }
 bridge.request_daemon = native_service_tick_request
 try:
@@ -344,10 +351,84 @@ args = type("Args", (), {
     "max_consecutive_direction_batches": 1,
     "async_source_ack": True,
     "source_ack_pipeline_depth": 2,
-        "adaptive_direction_scheduler": True,
-        "persistent_burst_helper": True,
-        "lease_priority": "tcp-control-flow-udp-after-control",
+    "adaptive_direction_scheduler": True,
+    "persistent_burst_helper": True,
+    "lease_priority": "tcp-control-flow-udp-after-control",
 })()
+captured_loop_start = {}
+def loop_start_request(host, port, text, timeout_ms):
+    captured_loop_start["text"] = text
+    return {
+        "event": "sdk_daemon_rf_service_loop_start",
+        "ok": True,
+        "running": 1,
+        "native_service_loop_worker": 1,
+        "persistent_native_bidirectional_rf_service_loop": 1,
+        "native_service_loop_tick": 1,
+        "native_bidirectional_direction_decision": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "max_consecutive_direction_batches": 1,
+        "in_burst_priority_preemption": 1,
+        "starts": 1,
+        "ticks": 0,
+        "bursts": 0,
+        "skips": 0,
+        "preemptions": 0,
+        "multiplexing_events": 0,
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "native_service_loop_worker_process",
+    }
+bridge.request_daemon = loop_start_request
+try:
+    loop_start = loop.rf_service_loop_start("127.0.0.1", 55441, 10)
+    loop.validate_native_service_loop_worker(
+        loop_start, "z203", args, require_exercised=False
+    )
+finally:
+    bridge.request_daemon = original_request
+if captured_loop_start.get("text") != "FIELDMESH_RF_SERVICE_LOOP_START v1":
+    raise SystemExit(f"native service loop start must use daemon C loop worker command: {captured_loop_start}")
+captured_loop_status = {}
+def loop_status_request(host, port, text, timeout_ms):
+    captured_loop_status["text"] = text
+    report = dict(loop_start)
+    report.update({
+        "event": "sdk_daemon_rf_service_loop_status",
+        "tun_service_running": 1,
+        "rf_worker_running": 1,
+        "ticks": 3,
+        "bursts": 2,
+        "skips": 1,
+        "preemptions": 2,
+        "multiplexing_events": 1,
+        "last_local_scheduler_score": 1002,
+        "last_peer_scheduler_score": 2,
+        "last_service_order_rank": 1002,
+        "last_frames": 2,
+        "last_status": "ok",
+    })
+    return report
+bridge.request_daemon = loop_status_request
+try:
+    loop_status = loop.rf_service_loop_status("127.0.0.1", 55441, 10)
+    loop.validate_native_service_loop_worker(
+        loop_status, "z203", args, require_exercised=True
+    )
+finally:
+    bridge.request_daemon = original_request
+if captured_loop_status.get("text") != "FIELDMESH_RF_SERVICE_LOOP_STATUS v1":
+    raise SystemExit(f"native service loop status must use daemon C loop worker command: {captured_loop_status}")
 captured = {}
 def scheduler_status_request(host, port, text, timeout_ms):
     captured["text"] = text
@@ -700,6 +781,14 @@ required = [
     "FIELDMESH_RF_SERVICE_LOOP_TICK",
     "sdk_daemon_rf_service_loop_tick",
     "native_service_loop_tick",
+    "FIELDMESH_RF_SERVICE_LOOP_START",
+    "sdk_daemon_rf_service_loop_start",
+    "FIELDMESH_RF_SERVICE_LOOP_STATUS",
+    "sdk_daemon_rf_service_loop_status",
+    "struct rf_service_loop_state",
+    "native_service_loop_worker",
+    "persistent_native_bidirectional_rf_service_loop",
+    "\\\"next_boundary\\\":\\\"native_service_loop_worker_process\\\"",
     "\\\"service_skipped\\\"",
     "sdk_daemon_rf_service_policy_self_test",
     "FIELDMESH_RF_WORKER_STATUS",
@@ -720,7 +809,6 @@ required = [
     "\\\"native_direction_scheduler\\\":1",
     "\\\"scheduler_score_native_c\\\":1",
     "\\\"next_boundary\\\":\\\"native_bidirectional_rf_service_scheduler\\\"",
-    "\\\"next_boundary\\\":\\\"persistent_native_bidirectional_rf_service_loop\\\"",
     "fieldmesh_rf_service_default_policy()",
     "fieldmesh_rf_service_policy_accepts_production_iio(&policy)",
     "in_burst_priority_preemption",
@@ -897,6 +985,11 @@ required = [
     '"iio_bridge_native_service_loop_tick_proven"',
     '"iio_bridge_native_service_loop_ticks"',
     '"iio_bridge_native_service_loop_tick_status"',
+    '"iio_bridge_native_service_loop_worker_required"',
+    '"iio_bridge_native_service_loop_worker_proven"',
+    '"iio_bridge_native_service_loop_worker_starts"',
+    '"iio_bridge_native_service_loop_worker_status_polls"',
+    '"iio_bridge_native_service_loop_worker_status"',
     '"iio_bridge_native_direction_scheduler_enabled"',
     '"iio_bridge_native_direction_scheduler_proven"',
     '"iio_bridge_native_direction_scheduler_status_polls"',

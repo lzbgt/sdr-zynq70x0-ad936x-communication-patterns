@@ -59,6 +59,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_service_loop_tick_status": {
     "z203-to-z103": {
       "native_service_loop_tick": 1,
+      "native_service_loop_worker": 1,
+      "persistent_native_bidirectional_rf_service_loop": 1,
       "native_bidirectional_direction_decision": 1,
       "native_service_burst": 1,
       "service_policy_bound": 1,
@@ -69,6 +71,36 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1002,
       "frames": 2
+    }
+  },
+  "iio_bridge_native_service_loop_worker_required": true,
+  "iio_bridge_native_service_loop_worker_proven": true,
+  "iio_bridge_native_service_loop_worker_starts": 2,
+  "iio_bridge_native_service_loop_worker_status_polls": 2,
+  "iio_bridge_native_service_loop_worker_status": {
+    "z203": {
+      "native_service_loop_worker": 1,
+      "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_service_loop_tick": 1,
+      "native_bidirectional_direction_decision": 1,
+      "native_service_burst": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "running": 1,
+      "ticks": 3,
+      "bursts": 2
+    },
+    "z103": {
+      "native_service_loop_worker": 1,
+      "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_service_loop_tick": 1,
+      "native_bidirectional_direction_decision": 1,
+      "native_service_burst": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "running": 1,
+      "ticks": 3,
+      "bursts": 1
     }
   },
   "iio_bridge_native_direction_scheduler_enabled": true,
@@ -233,6 +265,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_service_loop_tick_status": {
     "z103-to-z203": {
       "native_service_loop_tick": 1,
+      "native_service_loop_worker": 1,
+      "persistent_native_bidirectional_rf_service_loop": 1,
       "native_bidirectional_direction_decision": 1,
       "native_service_burst": 1,
       "service_policy_bound": 1,
@@ -243,6 +277,36 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1004,
       "frames": 2
+    }
+  },
+  "iio_bridge_native_service_loop_worker_required": true,
+  "iio_bridge_native_service_loop_worker_proven": true,
+  "iio_bridge_native_service_loop_worker_starts": 2,
+  "iio_bridge_native_service_loop_worker_status_polls": 2,
+  "iio_bridge_native_service_loop_worker_status": {
+    "z203": {
+      "native_service_loop_worker": 1,
+      "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_service_loop_tick": 1,
+      "native_bidirectional_direction_decision": 1,
+      "native_service_burst": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "running": 1,
+      "ticks": 2,
+      "bursts": 1
+    },
+    "z103": {
+      "native_service_loop_worker": 1,
+      "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_service_loop_tick": 1,
+      "native_bidirectional_direction_decision": 1,
+      "native_service_burst": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1,
+      "running": 1,
+      "ticks": 3,
+      "bursts": 2
     }
   },
   "iio_bridge_native_direction_scheduler_enabled": true,
@@ -413,6 +477,8 @@ if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"missing native service burst lease requirement: {report}")
 if report.get("requires_iio_native_service_loop_tick") is not True:
     raise SystemExit(f"missing native service loop tick requirement: {report}")
+if report.get("requires_iio_native_service_loop_worker") is not True:
+    raise SystemExit(f"missing native service loop worker requirement: {report}")
 if report.get("requires_iio_native_direction_scheduler") is not True:
     raise SystemExit(f"missing native direction scheduler requirement: {report}")
 if report.get("requires_iio_native_bidirectional_direction_decision") is not True:
@@ -429,6 +495,10 @@ if report.get("host_iio_native_service_loop_tick_proven") is not True:
     raise SystemExit(f"missing host native service loop tick proof: {report}")
 if report.get("host_iio_native_service_loop_ticks") != 3:
     raise SystemExit(f"missing host native service loop tick count: {report}")
+if report.get("host_iio_native_service_loop_worker_proven") is not True:
+    raise SystemExit(f"missing host native service loop worker proof: {report}")
+if report.get("host_iio_native_service_loop_worker_status_polls") != 2:
+    raise SystemExit(f"missing host native service loop worker status proof: {report}")
 if report.get("host_iio_native_direction_scheduler_proven") is not True:
     raise SystemExit(f"missing host native direction scheduler proof: {report}")
 if report.get("host_iio_native_direction_scheduler_status_polls") != 3:

@@ -243,6 +243,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_native_service_loop_tick"] = (
             native_ip.get("requires_iio_native_service_loop_tick") is True
         )
+        detail["native_ip_requires_iio_native_service_loop_worker"] = (
+            native_ip.get("requires_iio_native_service_loop_worker") is True
+        )
         detail["native_ip_requires_iio_native_direction_scheduler"] = (
             native_ip.get("requires_iio_native_direction_scheduler") is True
         )
@@ -272,6 +275,12 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         )
         detail["native_ip_host_iio_native_service_loop_tick_proven"] = (
             native_ip.get("host_iio_native_service_loop_tick_proven") is True
+        )
+        detail["native_ip_board_iio_native_service_loop_worker_proven"] = (
+            native_ip.get("board_iio_native_service_loop_worker_proven") is True
+        )
+        detail["native_ip_host_iio_native_service_loop_worker_proven"] = (
+            native_ip.get("host_iio_native_service_loop_worker_proven") is True
         )
         detail["native_ip_board_iio_native_direction_scheduler_proven"] = (
             native_ip.get("board_iio_native_direction_scheduler_proven") is True
@@ -413,6 +422,8 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_native_service_burst_leases_missing")
             if native_ip.get("requires_iio_native_service_loop_tick") is not True:
                 blockers.append("native_ip_native_service_loop_tick_missing")
+            if native_ip.get("requires_iio_native_service_loop_worker") is not True:
+                blockers.append("native_ip_native_service_loop_worker_missing")
             if native_ip.get("requires_iio_native_direction_scheduler") is not True:
                 blockers.append("native_ip_native_direction_scheduler_missing")
             if (
@@ -436,6 +447,10 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_native_service_loop_tick_missing")
             if native_ip.get("host_iio_native_service_loop_tick_proven") is not True:
                 blockers.append("native_ip_host_native_service_loop_tick_missing")
+            if native_ip.get("board_iio_native_service_loop_worker_proven") is not True:
+                blockers.append("native_ip_board_native_service_loop_worker_missing")
+            if native_ip.get("host_iio_native_service_loop_worker_proven") is not True:
+                blockers.append("native_ip_host_native_service_loop_worker_missing")
             if native_ip.get("board_iio_native_direction_scheduler_proven") is not True:
                 blockers.append("native_ip_board_native_direction_scheduler_missing")
             if native_ip.get("host_iio_native_direction_scheduler_proven") is not True:

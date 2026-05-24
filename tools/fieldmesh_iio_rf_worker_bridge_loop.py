@@ -310,6 +310,8 @@ def native_service_loop_tick_from_daemon(
         raise SystemExit(f"RF_SERVICE_LOOP_TICK failed: {report}")
     required = {
         "native_service_loop_tick": 1,
+        "native_service_loop_worker": 1,
+        "persistent_native_bidirectional_rf_service_loop": 1,
         "native_bidirectional_direction_decision": 1,
         "native_service_burst": 1,
         "daemon_owned_worker": 1,
@@ -323,7 +325,7 @@ def native_service_loop_tick_from_daemon(
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "persistent_native_bidirectional_rf_service_loop",
+        "next_boundary": "native_service_loop_worker_process",
     }
     errors = [
         f"{key}={report.get(key)!r} expected {expected!r}"
@@ -358,6 +360,11 @@ def native_service_loop_tick_from_daemon(
         "yield_to_peer",
         "current_consecutive_direction_batches",
         "service_order_rank",
+        "service_loop_ticks",
+        "service_loop_bursts",
+        "service_loop_skips",
+        "service_loop_preemptions",
+        "service_loop_multiplexing_events",
         "lease_batch_frames",
         "max_frames_per_rf_burst",
         "emitted_service_frames",
@@ -384,6 +391,93 @@ def native_service_loop_tick_from_daemon(
         except ValueError as exc:
             raise SystemExit(f"loop tick frame{index}_hex is invalid") from exc
     return frames, report
+
+
+def rf_service_loop_start(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_RF_SERVICE_LOOP_START v1",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_rf_service_loop_start":
+        raise SystemExit(
+            f"expected sdk_daemon_rf_service_loop_start, got {report.get('event')!r}"
+        )
+    return report
+
+
+def rf_service_loop_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_RF_SERVICE_LOOP_STATUS v1",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_rf_service_loop_status":
+        raise SystemExit(
+            f"expected sdk_daemon_rf_service_loop_status, got {report.get('event')!r}"
+        )
+    return report
+
+
+def validate_native_service_loop_worker(
+    report: dict[str, Any],
+    label: str,
+    args: argparse.Namespace,
+    *,
+    require_exercised: bool,
+) -> None:
+    required = {
+        "native_service_loop_worker": 1,
+        "persistent_native_bidirectional_rf_service_loop": 1,
+        "native_service_loop_tick": 1,
+        "native_bidirectional_direction_decision": 1,
+        "native_service_burst": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "lease_batch_frames": args.batch_size,
+        "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+        "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
+        "in_burst_priority_preemption": 1,
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "native_service_loop_worker_process",
+    }
+    errors = [
+        f"{key}={report.get(key)!r} expected {expected!r}"
+        for key, expected in required.items()
+        if report.get(key) != expected
+    ]
+    if report.get("ok") is not True:
+        errors.append(f"ok={report.get('ok')!r} expected True")
+    if report.get("running") != 1:
+        errors.append(f"running={report.get('running')!r} expected 1")
+    for key in (
+        "starts",
+        "ticks",
+        "bursts",
+        "skips",
+        "preemptions",
+        "multiplexing_events",
+    ):
+        if not isinstance(report.get(key), int):
+            errors.append(f"{key}={report.get(key)!r} expected integer")
+    if require_exercised:
+        if int(report.get("ticks") or 0) < 1:
+            errors.append("persistent native service loop worker did not tick")
+        if int(report.get("bursts") or 0) < 1:
+            errors.append("persistent native service loop worker did not emit a burst")
+    if errors:
+        raise SystemExit(
+            f"{label} native RF service loop worker invalid: " + "; ".join(errors)
+        )
 
 
 def request_daemon_with_retries(
@@ -1528,6 +1622,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_ticks": 0,
         "native_service_loop_tick_skips": 0,
         "native_service_loop_tick_failures": 0,
+        "native_service_loop_worker_starts": 0,
+        "native_service_loop_worker_status_polls": 0,
+        "native_service_loop_worker_failures": 0,
         "in_burst_priority_preemptions": 0,
         "in_burst_priority_multiplexing_events": 0,
         "rf_sub_burst_slices": 0,
@@ -1549,6 +1646,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rf_burst_batch_high_water_by_direction: dict[str, int] = {}
     rf_lease_batch_high_water_by_direction: dict[str, int] = {}
     native_worker_status_by_endpoint: dict[str, dict[str, Any]] = {}
+    native_service_loop_start_by_endpoint: dict[str, dict[str, Any]] = {}
+    native_service_loop_status_by_endpoint: dict[str, dict[str, Any]] = {}
     native_scheduler_status_by_direction: dict[str, dict[str, Any]] = {}
     native_direction_decision_by_direction: dict[str, dict[str, Any]] = {}
     native_service_loop_tick_by_direction: dict[str, dict[str, Any]] = {}
@@ -1636,6 +1735,39 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
             ),
             "native_service_loop_tick_status": native_service_loop_tick_by_direction,
+            "native_service_loop_worker_required": bool(
+                args.execute_live_rf
+                and args.native_service_burst_leases
+                and args.require_native_rf_service_worker
+            ),
+            "native_service_loop_worker_proven": bool(
+                native_service_loop_start_by_endpoint
+                and native_service_loop_status_by_endpoint
+                and all(
+                    status.get("native_service_loop_worker") == 1
+                    and status.get("persistent_native_bidirectional_rf_service_loop") == 1
+                    and status.get("native_service_loop_tick") == 1
+                    and status.get("native_bidirectional_direction_decision") == 1
+                    and status.get("native_service_burst") == 1
+                    and status.get("service_policy_bound") == 1
+                    and status.get("production_iio_policy") == 1
+                    and status.get("running") == 1
+                    for status in native_service_loop_status_by_endpoint.values()
+                )
+            ),
+            "native_service_loop_worker_starts": counts[
+                "native_service_loop_worker_starts"
+            ],
+            "native_service_loop_worker_status_polls": counts[
+                "native_service_loop_worker_status_polls"
+            ],
+            "native_service_loop_worker_failures": counts[
+                "native_service_loop_worker_failures"
+            ],
+            "native_service_loop_worker_start_status": (
+                native_service_loop_start_by_endpoint
+            ),
+            "native_service_loop_worker_status": native_service_loop_status_by_endpoint,
             "in_burst_priority_preemption_enabled": bool(args.native_service_burst_leases),
             "in_burst_priority_preemption_exercised": bool(
                 counts["in_burst_priority_preemptions"] > 0
@@ -1815,6 +1947,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             status = rf_worker_status(host, port, status_timeout_ms)
             validate_native_worker_boundary(status, label, args)
             native_worker_status_by_endpoint[label] = status
+            try:
+                loop_start = rf_service_loop_start(host, port, status_timeout_ms)
+                validate_native_service_loop_worker(
+                    loop_start, label, args, require_exercised=False
+                )
+                native_service_loop_start_by_endpoint[label] = loop_start
+                counts["native_service_loop_worker_starts"] += 1
+            except (TimeoutError, SystemExit):
+                counts["native_service_loop_worker_failures"] += 1
+                raise
         write_progress()
 
     def scheduled_directions() -> list[dict[str, Any]]:
@@ -2409,6 +2551,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         async_acker.wait_all()
         signal.signal(signal.SIGTERM, previous_sigterm)
         signal.signal(signal.SIGINT, previous_sigint)
+    if args.execute_live_rf and args.require_native_rf_service_worker:
+        status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
+        endpoints = {
+            "z203": (args.z203_host, args.z203_port),
+            "z103": (args.z103_host, args.z103_port),
+        }
+        for label, (host, port) in endpoints.items():
+            try:
+                loop_status = rf_service_loop_status(host, port, status_timeout_ms)
+                validate_native_service_loop_worker(
+                    loop_status, label, args, require_exercised=True
+                )
+                native_service_loop_status_by_endpoint[label] = loop_status
+                counts["native_service_loop_worker_status_polls"] += 1
+            except (TimeoutError, SystemExit):
+                counts["native_service_loop_worker_failures"] += 1
+                if args.stop_on_error:
+                    raise
     report = current_report()
     write_json(args.out_dir / "fieldmesh_iio_rf_worker_bridge_loop.json", report)
     return report

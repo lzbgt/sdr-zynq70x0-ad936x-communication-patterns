@@ -131,6 +131,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     elif not all(
         isinstance(status, dict)
         and status.get("native_service_loop_tick") == 1
+        and status.get("native_service_loop_worker") == 1
+        and status.get("persistent_native_bidirectional_rf_service_loop") == 1
         and status.get("native_bidirectional_direction_decision") == 1
         and status.get("native_service_burst") == 1
         and status.get("service_policy_bound") == 1
@@ -144,6 +146,38 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         for status in loop_tick_status.values()
     ):
         errors.append(f"{label}: native RF service loop tick status is incomplete")
+    if report.get("iio_bridge_native_service_loop_worker_required") is not True:
+        errors.append(f"{label}: native RF service loop worker proof must be required")
+    if report.get("iio_bridge_native_service_loop_worker_proven") is not True:
+        errors.append(f"{label}: native RF service loop worker proof is missing")
+    if not isinstance(report.get("iio_bridge_native_service_loop_worker_starts"), int) or (
+        report.get("iio_bridge_native_service_loop_worker_starts") < 2
+    ):
+        errors.append(f"{label}: native RF service loop worker start proof is missing")
+    if not isinstance(
+        report.get("iio_bridge_native_service_loop_worker_status_polls"), int
+    ) or report.get("iio_bridge_native_service_loop_worker_status_polls") < 2:
+        errors.append(f"{label}: native RF service loop worker status proof is missing")
+    worker_status = report.get("iio_bridge_native_service_loop_worker_status")
+    if not isinstance(worker_status, dict) or sorted(worker_status) != ["z103", "z203"]:
+        errors.append(f"{label}: native RF service loop worker status must include z203 and z103")
+    elif not all(
+        isinstance(status, dict)
+        and status.get("native_service_loop_worker") == 1
+        and status.get("persistent_native_bidirectional_rf_service_loop") == 1
+        and status.get("native_service_loop_tick") == 1
+        and status.get("native_bidirectional_direction_decision") == 1
+        and status.get("native_service_burst") == 1
+        and status.get("service_policy_bound") == 1
+        and status.get("production_iio_policy") == 1
+        and status.get("running") == 1
+        and isinstance(status.get("ticks"), int)
+        and status.get("ticks") >= 1
+        and isinstance(status.get("bursts"), int)
+        and status.get("bursts") >= 1
+        for status in worker_status.values()
+    ):
+        errors.append(f"{label}: native RF service loop worker status is incomplete")
     if report.get("iio_bridge_in_burst_priority_preemption_enabled") is not True:
         errors.append(f"{label}: IIO bridge in-burst priority preemption must be enabled")
     if report.get("iio_bridge_in_burst_priority_preemption_exercised") is not True:
@@ -647,6 +681,9 @@ def main() -> int:
         "requires_iio_native_service_loop_tick": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
+        "requires_iio_native_service_loop_worker": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_iio_native_direction_scheduler": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
@@ -775,6 +812,44 @@ def main() -> int:
         ) or {},
         "host_iio_native_service_loop_tick_status": host.get(
             "iio_bridge_native_service_loop_tick_status"
+        ) or {},
+        "board_iio_native_service_loop_worker_required": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_service_loop_worker_required") is True
+        ),
+        "host_iio_native_service_loop_worker_required": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_service_loop_worker_required") is True
+        ),
+        "board_iio_native_service_loop_worker_proven": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_service_loop_worker_proven") is True
+        ),
+        "host_iio_native_service_loop_worker_proven": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_service_loop_worker_proven") is True
+        ),
+        "board_iio_native_service_loop_worker_starts": board.get(
+            "iio_bridge_native_service_loop_worker_starts"
+        ),
+        "host_iio_native_service_loop_worker_starts": host.get(
+            "iio_bridge_native_service_loop_worker_starts"
+        ),
+        "board_iio_native_service_loop_worker_status_polls": board.get(
+            "iio_bridge_native_service_loop_worker_status_polls"
+        ),
+        "host_iio_native_service_loop_worker_status_polls": host.get(
+            "iio_bridge_native_service_loop_worker_status_polls"
+        ),
+        "board_iio_native_service_loop_worker_status": board.get(
+            "iio_bridge_native_service_loop_worker_status"
+        ) or {},
+        "host_iio_native_service_loop_worker_status": host.get(
+            "iio_bridge_native_service_loop_worker_status"
         ) or {},
         "board_iio_native_direction_scheduler_enabled": (
             True

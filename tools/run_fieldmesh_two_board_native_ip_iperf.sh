@@ -2965,6 +2965,21 @@ report = {
     "iio_bridge_native_service_loop_tick_status": (
         last_iio_bridge.get("native_service_loop_tick_status") or {}
     ),
+    "iio_bridge_native_service_loop_worker_required": bool(
+        last_iio_bridge.get("native_service_loop_worker_required")
+    ),
+    "iio_bridge_native_service_loop_worker_proven": bool(
+        last_iio_bridge.get("native_service_loop_worker_proven")
+    ),
+    "iio_bridge_native_service_loop_worker_starts": int(
+        last_iio_bridge.get("native_service_loop_worker_starts") or 0
+    ),
+    "iio_bridge_native_service_loop_worker_status_polls": int(
+        last_iio_bridge.get("native_service_loop_worker_status_polls") or 0
+    ),
+    "iio_bridge_native_service_loop_worker_status": (
+        last_iio_bridge.get("native_service_loop_worker_status") or {}
+    ),
     "iio_bridge_native_direction_scheduler_enabled": bool(
         last_iio_bridge.get("native_direction_scheduler_enabled")
     ),

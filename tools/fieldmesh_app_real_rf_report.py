@@ -109,6 +109,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: native RF service burst lease proof is missing")
             if source.get("requires_iio_native_service_loop_tick") is not True:
                 raise SystemExit("native_ip: native RF service loop tick proof is missing")
+            if source.get("requires_iio_native_service_loop_worker") is not True:
+                raise SystemExit("native_ip: native RF service loop worker proof is missing")
             if source.get("requires_iio_native_direction_scheduler") is not True:
                 raise SystemExit("native_ip: native RF direction scheduler proof is missing")
             if source.get("requires_iio_native_bidirectional_direction_decision") is not True:
@@ -131,6 +133,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board native RF service loop tick proof is missing")
             if source.get("host_iio_native_service_loop_tick_proven") is not True:
                 raise SystemExit("native_ip: host native RF service loop tick proof is missing")
+            if source.get("board_iio_native_service_loop_worker_proven") is not True:
+                raise SystemExit("native_ip: board native RF service loop worker proof is missing")
+            if source.get("host_iio_native_service_loop_worker_proven") is not True:
+                raise SystemExit("native_ip: host native RF service loop worker proof is missing")
             if source.get("board_iio_native_direction_scheduler_proven") is not True:
                 raise SystemExit("native_ip: board native RF direction scheduler proof is missing")
             if source.get("host_iio_native_direction_scheduler_proven") is not True:
@@ -250,6 +256,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_native_rf_service_worker_proof",
         "requires_iio_native_service_burst_leases",
         "requires_iio_native_service_loop_tick",
+        "requires_iio_native_service_loop_worker",
         "requires_iio_native_direction_scheduler",
         "requires_iio_native_bidirectional_direction_decision",
         "requires_tcp_final_exchange_evidence",
@@ -281,6 +288,12 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_native_service_loop_tick_proven",
         "board_iio_native_service_loop_ticks",
         "host_iio_native_service_loop_ticks",
+        "board_iio_native_service_loop_worker_proven",
+        "host_iio_native_service_loop_worker_proven",
+        "board_iio_native_service_loop_worker_starts",
+        "host_iio_native_service_loop_worker_starts",
+        "board_iio_native_service_loop_worker_status_polls",
+        "host_iio_native_service_loop_worker_status_polls",
         "board_iio_native_direction_scheduler_enabled",
         "host_iio_native_direction_scheduler_enabled",
         "board_iio_native_direction_scheduler_proven",

@@ -423,11 +423,14 @@ choice and service-order rank come from
 the C-scored queue state and the C-owned bidirectional decision before Python
 consumes it. Production service now also uses
 `FIELDMESH_RF_SERVICE_LOOP_TICK v1`, which combines that C-owned direction
-decision with C-owned service-burst emission in one daemon tick. The Python
-outer loop still performs cross-daemon requests, but direction ordering is now
-ranked by the daemon's C policy. The next step is moving the outer cross-daemon
-process itself into a persistent native worker/control-plane loop rather than
-having Python request each daemon-owned tick.
+decision with C-owned service-burst emission in one daemon tick. The bridge now
+also starts and audits `FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1`, so native-IP
+evidence proves a persistent native bidirectional service-loop worker session
+owned the tick/burst/skip/preemption/multiplexing counters. The Python outer
+loop still performs cross-daemon requests, but direction ordering is now ranked
+by the daemon's C policy and the daemon carries persistent loop-worker state.
+The next step is moving the cross-daemon transport process itself into native
+code rather than having Python request each daemon-owned tick.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and

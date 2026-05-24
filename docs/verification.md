@@ -5113,8 +5113,12 @@ query `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` so production evidence proves
 the C daemon selected the local-vs-peer service/yield decision and service-order
 rank before Python consumes it. Production bridge runs additionally use
 `FIELDMESH_RF_SERVICE_LOOP_TICK v1`, which combines the C decision with C-owned
-service-burst emission in one native tick. The same worker/scheduler/decision/
-tick proof is preserved through native-IP evidence, app reports, and readiness.
+service-burst emission in one native tick. They now also require
+`FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1`, proving a persistent native
+service-loop worker session tracked tick, burst, skip, preemption, and
+multiplexing counters around those ticks. The same worker/scheduler/decision/
+tick/loop-worker proof is preserved through native-IP evidence, app reports,
+and readiness.
 Production bridge runs also require native service-burst leases:
 `FIELDMESH_RF_SERVICE_NEXT_BURST v1` is the C-owned command that fills the
 four-frame lease window, performs in-burst priority multiplexing by splicing

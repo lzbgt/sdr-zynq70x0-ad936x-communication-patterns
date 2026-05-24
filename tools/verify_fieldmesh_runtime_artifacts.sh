@@ -409,6 +409,11 @@ PY
         FIELDMESH_RF_SERVICE_LOOP_TICK \
         sdk_daemon_rf_service_loop_tick \
         native_service_loop_tick \
+        FIELDMESH_RF_SERVICE_LOOP_START \
+        sdk_daemon_rf_service_loop_start \
+        FIELDMESH_RF_SERVICE_LOOP_STATUS \
+        sdk_daemon_rf_service_loop_status \
+        native_service_loop_worker \
         service_skipped \
         FIELDMESH_RF_SERVICE_SCHEDULER_STATUS \
         sdk_daemon_rf_service_scheduler_status \
@@ -422,6 +427,7 @@ PY
         yield_to_peer \
         service_order_rank \
         persistent_native_bidirectional_rf_service_loop \
+        native_service_loop_worker_process \
         native_rf_service_worker \
         native_rf_service_control_plane \
         service_policy_bound \
