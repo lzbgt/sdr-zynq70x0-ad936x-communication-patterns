@@ -384,18 +384,22 @@ Minimum production gates for native TCP/IP:
   current evidence gate now requires that helper to prove its native server
   lifecycle with `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1` and a positive
   server-owned transfer counter. It now also requires the C helper to start a
-  background transport daemon from the scheduler queue through
-  `TRANSPORT_BACKGROUND_DAEMON_START`/`TRANSPORT_BACKGROUND_DAEMON_STATUS` and emit
+  integrated RF-service daemon through
+  `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_START` and enqueue the scheduler queue
+  through `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE`, with completion
+  observed through `TRANSPORT_BACKGROUND_DAEMON_STATUS`, and emit
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`, and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1` plus
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` and
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1` plus
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1` with
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1`,
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`, and
+  `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1` with
   `python_xfer_field_orchestration=false` and
   `python_worker_xfer_submission=false` plus
   `python_scheduler_drain_submission=false` and
-  `python_autonomous_loop_run_submission=false`, so archived captures cannot pass on
+  `python_autonomous_loop_run_submission=false` and
+  `python_background_daemon_start_submission=false`, so archived captures cannot pass on
   one-shot helper invocation, Python-owned `XFER` field strings, or the older direct
   `WORKER_XFER`/`TRANSPORT_SERVICE_LOOP_RUN`/`TRANSPORT_SCHEDULER_DRAIN`/`TRANSPORT_AUTONOMOUS_LOOP_RUN`
   submission paths alone. The

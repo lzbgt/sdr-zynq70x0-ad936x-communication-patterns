@@ -5102,15 +5102,16 @@ prove the persistent native worker lifecycle: server-ready output carries
 `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`, each server-owned transfer
 emits a monotonically positive `server_xfer_count`, and native-IP evidence
 rejects reports that only prove one-shot helper execution. The live runner now
-starts a C background transport daemon with
-`TRANSPORT_BACKGROUND_DAEMON_START queue_file=...` and waits for the daemon status
-path to return the completed transfer report; accepted reports must include
+starts a C integrated RF-service daemon, enqueues the scheduler queue with
+`TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE queue_file=...`, and waits for the
+daemon status path to return the completed transfer report; accepted reports must include
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`,
+`FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1`,
 `transport_session_start_count > 0`, `transport_worker_request_count > 0`,
 `transport_service_loop_start_count > 0`, `transport_service_loop_run_count > 0`,
 `transport_scheduler_start_count > 0`, `transport_scheduler_drain_count > 0`,
@@ -5121,11 +5122,15 @@ path to return the completed transfer report; accepted reports must include
 `transport_background_daemon_start_count > 0`,
 `transport_background_daemon_xfer_count > 0`,
 `transport_background_daemon_scheduled_request_count > 0`,
+`transport_integrated_rf_service_daemon_start_count > 0`,
+`transport_integrated_rf_service_daemon_enqueue_count > 0`,
+`transport_integrated_rf_service_daemon_drained_count > 0`,
 `python_xfer_field_orchestration=false`, and
 `python_worker_xfer_submission=false`, and
 `python_direct_service_loop_run=false`, and
 `python_scheduler_drain_submission=false`, and
-`python_autonomous_loop_run_submission=false`.
+`python_autonomous_loop_run_submission=false`, and
+`python_background_daemon_start_submission=false`.
 `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP

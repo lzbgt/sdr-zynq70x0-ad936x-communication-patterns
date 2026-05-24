@@ -378,6 +378,24 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != 0
     ):
         errors.append(f"{label}: native IIO burst background transport daemon reported failures")
+    if (
+        report.get("iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven")
+        is not True
+    ):
+        errors.append(f"{label}: native IIO burst integrated RF service daemon proof is missing")
+    integrated_invocations = report.get(
+        "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations"
+    )
+    if not isinstance(integrated_invocations, int) or integrated_invocations < 1:
+        errors.append(f"{label}: native IIO burst integrated RF service daemon was not exercised")
+    if (
+        int(
+            report.get("iio_bridge_native_iio_burst_integrated_rf_service_daemon_failures")
+            or 0
+        )
+        != 0
+    ):
+        errors.append(f"{label}: native IIO burst integrated RF service daemon reported failures")
     if report.get("iio_bridge_rf_sub_burst_enabled") is not True:
         errors.append(f"{label}: IIO RF sub-burst service must be enabled")
     if report.get("iio_bridge_rf_sub_burst_exercised") is not True:
@@ -804,6 +822,9 @@ def main() -> int:
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_native_iio_burst_transport_background_daemon": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
+        "requires_iio_native_iio_burst_integrated_rf_service_daemon": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_in_burst_priority_preemption": bool(
@@ -1278,6 +1299,18 @@ def main() -> int:
         ),
         "host_iio_native_iio_burst_transport_background_daemon_invocations": host.get(
             "iio_bridge_native_iio_burst_transport_background_daemon_invocations"
+        ),
+        "board_iio_native_iio_burst_integrated_rf_service_daemon_proven": board.get(
+            "iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven"
+        ),
+        "host_iio_native_iio_burst_integrated_rf_service_daemon_proven": host.get(
+            "iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven"
+        ),
+        "board_iio_native_iio_burst_integrated_rf_service_daemon_invocations": board.get(
+            "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations"
+        ),
+        "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations": host.get(
+            "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

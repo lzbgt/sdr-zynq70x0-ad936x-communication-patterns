@@ -69,6 +69,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_transport_background_daemon_proven": true,
   "iio_bridge_native_iio_burst_transport_background_daemon_invocations": 3,
   "iio_bridge_native_iio_burst_transport_background_daemon_failures": 0,
+  "iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven": true,
+  "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations": 3,
+  "iio_bridge_native_iio_burst_integrated_rf_service_daemon_failures": 0,
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -308,6 +311,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_transport_background_daemon_proven": true,
   "iio_bridge_native_iio_burst_transport_background_daemon_invocations": 3,
   "iio_bridge_native_iio_burst_transport_background_daemon_failures": 0,
+  "iio_bridge_native_iio_burst_integrated_rf_service_daemon_proven": true,
+  "iio_bridge_native_iio_burst_integrated_rf_service_daemon_invocations": 3,
+  "iio_bridge_native_iio_burst_integrated_rf_service_daemon_failures": 0,
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -547,6 +553,8 @@ if report.get("requires_iio_native_iio_burst_transport_autonomous_loop") is not 
     raise SystemExit(f"missing native IIO burst autonomous transport loop requirement: {report}")
 if report.get("requires_iio_native_iio_burst_transport_background_daemon") is not True:
     raise SystemExit(f"missing native IIO burst background transport daemon requirement: {report}")
+if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is not True:
+    raise SystemExit(f"missing native IIO burst integrated RF service daemon requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"missing in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -651,6 +659,10 @@ if report.get("host_iio_native_iio_burst_transport_background_daemon_proven") is
     raise SystemExit(f"missing host native IIO burst background transport daemon proof: {report}")
 if report.get("host_iio_native_iio_burst_transport_background_daemon_invocations") != 3:
     raise SystemExit(f"missing host native IIO burst background transport daemon invocation count: {report}")
+if report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_proven") is not True:
+    raise SystemExit(f"missing host native IIO burst integrated RF service daemon proof: {report}")
+if report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_invocations") != 3:
+    raise SystemExit(f"missing host native IIO burst integrated RF service daemon invocation count: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"missing host in-burst priority multiplexing proof: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
@@ -731,6 +743,8 @@ if report.get("requires_iio_native_iio_burst_transport_autonomous_loop") is not 
     raise SystemExit(f"native-IP readiness lost native IIO burst autonomous transport loop requirement: {report}")
 if report.get("requires_iio_native_iio_burst_transport_background_daemon") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst background transport daemon requirement: {report}")
+if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is not True:
+    raise SystemExit(f"native-IP readiness lost native IIO burst integrated RF service daemon requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:

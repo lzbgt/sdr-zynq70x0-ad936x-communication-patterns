@@ -1415,20 +1415,22 @@ user and vendor configuration.
   errors; production evidence now also requires the helper's native server
   lifecycle proof (`FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`) and positive
   server-owned transfer counters, not only one-shot helper-native proof. The
-  persistent helper now starts a background C transport daemon from a scheduler
-  queue through `TRANSPORT_BACKGROUND_DAEMON_START`/`TRANSPORT_BACKGROUND_DAEMON_STATUS`
-  and reports
+  persistent helper now starts a C integrated RF-service daemon, enqueues a
+  scheduler queue through `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE`, and
+  reports
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`, and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1` plus
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` and
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1` plus
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1` with
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1`,
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`, and
+  `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1` with
   `python_xfer_field_orchestration=false` and
   `python_worker_xfer_submission=false` plus
-  `python_scheduler_drain_submission=false` and
-  `python_autonomous_loop_run_submission=false`, so native-IP archives must prove the
-  transfer request crossed a started native background transport daemon boundary. The
+  `python_scheduler_drain_submission=false`,
+  `python_autonomous_loop_run_submission=false`, and
+  `python_background_daemon_start_submission=false`, so native-IP archives must prove the
+  transfer request crossed a started native integrated RF-service daemon boundary. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

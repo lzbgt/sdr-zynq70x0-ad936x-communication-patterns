@@ -88,6 +88,11 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_native_iio_burst_transport_background_daemon_missing")
+        if (
+            report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon")
+            is not True
+        ):
+            blockers.append("native_ip_native_iio_burst_integrated_rf_service_daemon_missing")
         if report.get("requires_iio_in_burst_priority_preemption") is not True:
             blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
         if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -192,6 +197,16 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_host_native_iio_burst_transport_background_daemon_missing")
+        if (
+            report.get("board_iio_native_iio_burst_integrated_rf_service_daemon_proven")
+            is not True
+        ):
+            blockers.append("native_ip_board_native_iio_burst_integrated_rf_service_daemon_missing")
+        if (
+            report.get("host_iio_native_iio_burst_integrated_rf_service_daemon_proven")
+            is not True
+        ):
+            blockers.append("native_ip_host_native_iio_burst_integrated_rf_service_daemon_missing")
         if report.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
             blockers.append("native_ip_board_iio_in_burst_priority_preemption_missing")
         if report.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
@@ -302,6 +317,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_native_iio_burst_transport_background_daemon": report.get(
             "requires_iio_native_iio_burst_transport_background_daemon"
+        ),
+        "requires_iio_native_iio_burst_integrated_rf_service_daemon": report.get(
+            "requires_iio_native_iio_burst_integrated_rf_service_daemon"
         ),
         "requires_iio_rf_sub_burst_evidence": report.get(
             "requires_iio_rf_sub_burst_evidence"
@@ -543,6 +561,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_iio_burst_transport_background_daemon_invocations": report.get(
             "host_iio_native_iio_burst_transport_background_daemon_invocations"
+        ),
+        "board_iio_native_iio_burst_integrated_rf_service_daemon_proven": report.get(
+            "board_iio_native_iio_burst_integrated_rf_service_daemon_proven"
+        ),
+        "host_iio_native_iio_burst_integrated_rf_service_daemon_proven": report.get(
+            "host_iio_native_iio_burst_integrated_rf_service_daemon_proven"
+        ),
+        "board_iio_native_iio_burst_integrated_rf_service_daemon_invocations": report.get(
+            "board_iio_native_iio_burst_integrated_rf_service_daemon_invocations"
+        ),
+        "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations": report.get(
+            "host_iio_native_iio_burst_integrated_rf_service_daemon_invocations"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"

@@ -252,6 +252,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_native_iio_burst_transport_background_daemon"] = (
             native_ip.get("requires_iio_native_iio_burst_transport_background_daemon") is True
         )
+        detail["native_ip_requires_iio_native_iio_burst_integrated_rf_service_daemon"] = (
+            native_ip.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is True
+        )
         detail["native_ip_requires_iio_rf_sub_burst_evidence"] = (
             native_ip.get("requires_iio_rf_sub_burst_evidence") is True
         )
@@ -431,6 +434,14 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             native_ip.get("host_iio_native_iio_burst_transport_background_daemon_proven")
             is True
         )
+        detail["native_ip_board_iio_native_iio_burst_integrated_rf_service_daemon_proven"] = (
+            native_ip.get("board_iio_native_iio_burst_integrated_rf_service_daemon_proven")
+            is True
+        )
+        detail["native_ip_host_iio_native_iio_burst_integrated_rf_service_daemon_proven"] = (
+            native_ip.get("host_iio_native_iio_burst_integrated_rf_service_daemon_proven")
+            is True
+        )
         detail["native_ip_board_iio_bridge_in_burst_priority_preemption_enabled"] = (
             native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled") is True
         )
@@ -517,6 +528,11 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 is not True
             ):
                 blockers.append("native_ip_native_iio_burst_transport_background_daemon_missing")
+            if (
+                native_ip.get("requires_iio_native_iio_burst_integrated_rf_service_daemon")
+                is not True
+            ):
+                blockers.append("native_ip_native_iio_burst_integrated_rf_service_daemon_missing")
             if native_ip.get("requires_iio_in_burst_priority_preemption") is not True:
                 blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
             if native_ip.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -665,6 +681,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 is not True
             ):
                 blockers.append("native_ip_host_native_iio_burst_transport_background_daemon_missing")
+            if (
+                native_ip.get("board_iio_native_iio_burst_integrated_rf_service_daemon_proven")
+                is not True
+            ):
+                blockers.append("native_ip_board_native_iio_burst_integrated_rf_service_daemon_missing")
+            if (
+                native_ip.get("host_iio_native_iio_burst_integrated_rf_service_daemon_proven")
+                is not True
+            ):
+                blockers.append("native_ip_host_native_iio_burst_integrated_rf_service_daemon_missing")
             if (
                 native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled")
                 is not True

@@ -101,6 +101,7 @@ struct options {
     bool native_transport_scheduler_mode;
     bool native_transport_autonomous_loop_mode;
     bool native_transport_background_daemon_mode;
+    bool native_transport_integrated_rf_service_daemon_mode;
     unsigned long long transport_session_start_count;
     unsigned long long transport_worker_request_count;
     unsigned long long transport_service_loop_start_count;
@@ -114,6 +115,9 @@ struct options {
     unsigned long long transport_background_daemon_start_count;
     unsigned long long transport_background_daemon_xfer_count;
     unsigned long long transport_background_daemon_scheduled_request_count;
+    unsigned long long transport_integrated_rf_service_daemon_start_count;
+    unsigned long long transport_integrated_rf_service_daemon_enqueue_count;
+    unsigned long long transport_integrated_rf_service_daemon_drained_count;
 };
 
 struct rx_job {
@@ -180,16 +184,20 @@ static int run_native_worker_self_test(void)
            "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
            "\"native_iio_burst_transport_background_daemon_supported\":true,"
            "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+           "\"native_iio_burst_integrated_rf_service_daemon_supported\":true,"
+           "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
            "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
            "\"native_iio_burst_transport_service_loop_event\":\"fieldmesh_iio_burst_transport_service_loop_run\","
            "\"native_iio_burst_transport_scheduler_event\":\"fieldmesh_iio_burst_transport_scheduler_drain\","
            "\"native_iio_burst_transport_autonomous_loop_event\":\"fieldmesh_iio_burst_transport_autonomous_loop_run\","
            "\"native_iio_burst_transport_background_daemon_event\":\"fieldmesh_iio_burst_transport_background_daemon_status\","
+           "\"native_iio_burst_integrated_rf_service_daemon_event\":\"fieldmesh_iio_burst_integrated_rf_service_daemon_status\","
            "\"python_xfer_field_orchestration\":false,"
            "\"python_worker_xfer_submission\":false,"
            "\"python_direct_service_loop_run\":false,"
            "\"python_scheduler_drain_submission\":false,"
            "\"python_autonomous_loop_run_submission\":false,"
+           "\"python_background_daemon_start_submission\":false,"
            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"libiio_rx_tx_worker\":true,"
            "\"same_process_rx_tx\":true,"
@@ -1782,11 +1790,17 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"transport_background_daemon_xfer\":%s,"
             "\"transport_background_daemon_xfer_count\":%llu,"
             "\"transport_background_daemon_scheduled_request_count\":%llu,"
+            "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+            "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"%s\","
+            "\"transport_integrated_rf_service_daemon_start_count\":%llu,"
+            "\"transport_integrated_rf_service_daemon_enqueue_count\":%llu,"
+            "\"transport_integrated_rf_service_daemon_drained_count\":%llu,"
             "\"python_xfer_field_orchestration\":%s,"
             "\"python_worker_xfer_submission\":%s,"
             "\"python_direct_service_loop_run\":%s,"
             "\"python_scheduler_drain_submission\":%s,"
             "\"python_autonomous_loop_run_submission\":%s,"
+            "\"python_background_daemon_start_submission\":%s,"
             "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
             "\"libiio_rx_tx_worker\":true,"
             "\"same_process_rx_tx\":true,"
@@ -1836,6 +1850,12 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             opt->native_transport_background_daemon_mode ? "true" : "false",
             opt->transport_background_daemon_xfer_count,
             opt->transport_background_daemon_scheduled_request_count,
+            opt->native_transport_integrated_rf_service_daemon_mode ? "true" : "false",
+            opt->native_transport_integrated_rf_service_daemon_mode ?
+                "FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1" : "",
+            opt->transport_integrated_rf_service_daemon_start_count,
+            opt->transport_integrated_rf_service_daemon_enqueue_count,
+            opt->transport_integrated_rf_service_daemon_drained_count,
             opt->native_transport_worker_mode ? "false" : "true",
             (opt->native_transport_service_loop_mode ||
              opt->native_transport_autonomous_loop_mode) ? "false" :
@@ -1847,6 +1867,8 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
              !opt->native_transport_autonomous_loop_mode) ? "true" : "false",
             (opt->native_transport_autonomous_loop_mode &&
              !opt->native_transport_background_daemon_mode) ? "true" : "false",
+            (opt->native_transport_background_daemon_mode &&
+             !opt->native_transport_integrated_rf_service_daemon_mode) ? "true" : "false",
             tx_bytes, job.bytes_written, rx_bytes, opt->cyclic ? "true" : "false",
             elapsed_ms);
     fflush(json_out);
@@ -2059,11 +2081,15 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
     unsigned long long transport_background_daemon_start_count = 0;
     unsigned long long transport_background_daemon_xfer_count = 0;
     unsigned long long transport_background_daemon_scheduled_request_count = 0;
+    unsigned long long transport_integrated_rf_service_daemon_start_count = 0;
+    unsigned long long transport_integrated_rf_service_daemon_enqueue_count = 0;
+    unsigned long long transport_integrated_rf_service_daemon_drained_count = 0;
     bool transport_session_started = false;
     bool transport_service_loop_started = false;
     bool transport_scheduler_started = false;
     bool transport_autonomous_loop_started = false;
     bool transport_background_daemon_started = false;
+    bool transport_integrated_rf_service_daemon_started = false;
     struct background_job background_job;
     background_job_init(&background_job);
 
@@ -2091,6 +2117,9 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"native_iio_burst_transport_background_daemon_supported\":true,"
            "\"native_iio_burst_transport_background_daemon\":false,"
            "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+           "\"native_iio_burst_integrated_rf_service_daemon_supported\":true,"
+           "\"native_iio_burst_integrated_rf_service_daemon\":false,"
+           "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
            "\"transport_worker_request_count\":0,"
            "\"transport_session_start_count\":0,"
            "\"transport_service_loop_start_count\":0,"
@@ -2104,11 +2133,15 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"transport_background_daemon_start_count\":0,"
            "\"transport_background_daemon_xfer_count\":0,"
            "\"transport_background_daemon_scheduled_request_count\":0,"
+           "\"transport_integrated_rf_service_daemon_start_count\":0,"
+           "\"transport_integrated_rf_service_daemon_enqueue_count\":0,"
+           "\"transport_integrated_rf_service_daemon_drained_count\":0,"
            "\"python_xfer_field_orchestration\":false,"
            "\"python_worker_xfer_submission\":false,"
            "\"python_direct_service_loop_run\":false,"
            "\"python_scheduler_drain_submission\":false,"
            "\"python_autonomous_loop_run_submission\":false,"
+           "\"python_background_daemon_start_submission\":false,"
            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"server_pid\":%ld,"
            "\"libiio_rx_tx_worker\":true,"
@@ -2367,14 +2400,78 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             fflush(stdout);
             continue;
         }
-        if (strncmp(line, "TRANSPORT_BACKGROUND_DAEMON_START ", 34) == 0) {
+        if (strcmp(line, "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_START") == 0) {
             if (!transport_autonomous_loop_started) {
-                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                printf("{\"event\":\"fieldmesh_iio_burst_integrated_rf_service_daemon_start\",\"ok\":false,"
+                       "\"native_iio_burst_transport_autonomous_loop\":false,"
+                       "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+                       "\"native_iio_burst_integrated_rf_service_daemon\":false,"
+                       "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                       "\"error\":\"transport_autonomous_loop_not_started\"}\n");
+                fflush(stdout);
+                continue;
+            }
+            transport_integrated_rf_service_daemon_started = true;
+            transport_integrated_rf_service_daemon_start_count++;
+            printf("{\"event\":\"fieldmesh_iio_burst_integrated_rf_service_daemon_start\",\"ok\":true,"
+                   "\"native_iio_burst_transport_autonomous_loop\":true,"
+                   "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+                   "\"native_iio_burst_integrated_rf_service_daemon\":true,"
+                   "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                   "\"transport_integrated_rf_service_daemon_start_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_enqueue_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_drained_count\":%llu,"
+                   "\"python_background_daemon_start_submission\":false,"
+                   "\"next_boundary\":\"native_iio_transport_integrated_rf_service_daemon\"}\n",
+                   transport_integrated_rf_service_daemon_start_count,
+                   transport_integrated_rf_service_daemon_enqueue_count,
+                   transport_integrated_rf_service_daemon_drained_count);
+            fflush(stdout);
+            continue;
+        }
+        if (strcmp(line, "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_STATUS") == 0) {
+            printf("{\"event\":\"fieldmesh_iio_burst_integrated_rf_service_daemon_status\",\"ok\":true,"
+                   "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                   "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                   "\"transport_integrated_rf_service_daemon_start_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_enqueue_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_drained_count\":%llu,"
+                   "\"python_background_daemon_start_submission\":false,"
+                   "\"next_boundary\":\"native_iio_transport_integrated_rf_service_daemon\"}\n",
+                   transport_integrated_rf_service_daemon_started ? "true" : "false",
+                   transport_integrated_rf_service_daemon_start_count,
+                   transport_integrated_rf_service_daemon_enqueue_count,
+                   transport_integrated_rf_service_daemon_drained_count);
+            fflush(stdout);
+            continue;
+        }
+        bool integrated_daemon_enqueue =
+            strncmp(line, "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE ", 47) == 0;
+        bool background_daemon_start =
+            strncmp(line, "TRANSPORT_BACKGROUND_DAEMON_START ", 34) == 0;
+        if (background_daemon_start || integrated_daemon_enqueue) {
+            if (!transport_autonomous_loop_started) {
+                printf("{\"event\":\"%s\",\"ok\":false,"
                        "\"native_iio_burst_transport_autonomous_loop\":false,"
                        "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
                        "\"native_iio_burst_transport_background_daemon\":false,"
                        "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
-                       "\"error\":\"transport_autonomous_loop_not_started\"}\n");
+                       "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                       "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                       "\"error\":\"transport_autonomous_loop_not_started\"}\n",
+                       integrated_daemon_enqueue ?
+                           "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue" :
+                           "fieldmesh_iio_burst_transport_background_daemon_start",
+                       transport_integrated_rf_service_daemon_started ? "true" : "false");
+                fflush(stdout);
+                continue;
+            }
+            if (integrated_daemon_enqueue &&
+                !transport_integrated_rf_service_daemon_started) {
+                printf("{\"event\":\"fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue\",\"ok\":false,"
+                       "\"native_iio_burst_integrated_rf_service_daemon\":false,"
+                       "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                       "\"error\":\"integrated_rf_service_daemon_not_started\"}\n");
                 fflush(stdout);
                 continue;
             }
@@ -2383,10 +2480,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             bool background_done = background_job.active && background_job.done;
             pthread_mutex_unlock(&background_job.lock);
             if (background_running) {
-                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                printf("{\"event\":\"%s\",\"ok\":false,"
                        "\"native_iio_burst_transport_background_daemon\":true,"
                        "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
-                       "\"error\":\"transport_background_daemon_busy\"}\n");
+                       "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                       "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                       "\"error\":\"transport_background_daemon_busy\"}\n",
+                       integrated_daemon_enqueue ?
+                           "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue" :
+                           "fieldmesh_iio_burst_transport_background_daemon_start",
+                       transport_integrated_rf_service_daemon_started ? "true" : "false");
                 fflush(stdout);
                 continue;
             }
@@ -2409,6 +2512,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             req.native_transport_scheduler_mode = true;
             req.native_transport_autonomous_loop_mode = true;
             req.native_transport_background_daemon_mode = true;
+            req.native_transport_integrated_rf_service_daemon_mode =
+                integrated_daemon_enqueue;
             req.transport_session_start_count = transport_session_start_count;
             req.transport_worker_request_count = worker_request_count + 1ULL;
             req.transport_service_loop_start_count = transport_service_loop_start_count;
@@ -2427,11 +2532,20 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 transport_background_daemon_xfer_count + 1ULL;
             req.transport_background_daemon_scheduled_request_count =
                 transport_background_daemon_scheduled_request_count + 1ULL;
+            req.transport_integrated_rf_service_daemon_start_count =
+                transport_integrated_rf_service_daemon_start_count;
+            req.transport_integrated_rf_service_daemon_enqueue_count =
+                transport_integrated_rf_service_daemon_enqueue_count +
+                (integrated_daemon_enqueue ? 1ULL : 0ULL);
+            req.transport_integrated_rf_service_daemon_drained_count =
+                transport_integrated_rf_service_daemon_drained_count +
+                (integrated_daemon_enqueue ? 1ULL : 0ULL);
 
             char *save = NULL;
             const char *queue_file = NULL;
             char *request_file = NULL;
-            for (char *token = strtok_r(line + 34, " ", &save);
+            char *args_start = integrated_daemon_enqueue ? line + 47 : line + 34;
+            for (char *token = strtok_r(args_start, " ", &save);
                  token;
                  token = strtok_r(NULL, " ", &save)) {
                 const char *value = value_after(token, "queue_file=");
@@ -2447,10 +2561,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 free((char *)req.tx_file);
                 free((char *)req.rx_file);
                 free(request_file);
-                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                printf("{\"event\":\"%s\",\"ok\":false,"
                        "\"native_iio_burst_transport_background_daemon\":false,"
                        "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
-                       "\"error\":\"invalid_transport_request\"}\n");
+                       "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                       "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                       "\"error\":\"invalid_transport_request\"}\n",
+                       integrated_daemon_enqueue ?
+                           "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue" :
+                           "fieldmesh_iio_burst_transport_background_daemon_start",
+                       transport_integrated_rf_service_daemon_started ? "true" : "false");
                 fflush(stdout);
                 continue;
             }
@@ -2470,10 +2590,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 background_job.active = false;
                 background_job.running = false;
                 background_job_release_owned(&background_job);
-                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                printf("{\"event\":\"%s\",\"ok\":false,"
                        "\"native_iio_burst_transport_background_daemon\":false,"
                        "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
-                       "\"error\":\"pthread_create_failed\"}\n");
+                       "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                       "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
+                       "\"error\":\"pthread_create_failed\"}\n",
+                       integrated_daemon_enqueue ?
+                           "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue" :
+                           "fieldmesh_iio_burst_transport_background_daemon_start",
+                       transport_integrated_rf_service_daemon_started ? "true" : "false");
                 fflush(stdout);
                 continue;
             }
@@ -2489,7 +2615,11 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             transport_background_daemon_start_count++;
             transport_background_daemon_xfer_count++;
             transport_background_daemon_scheduled_request_count++;
-            printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":true,"
+            if (integrated_daemon_enqueue) {
+                transport_integrated_rf_service_daemon_enqueue_count++;
+                transport_integrated_rf_service_daemon_drained_count++;
+            }
+            printf("{\"event\":\"%s\",\"ok\":true,"
                    "\"native_iio_burst_transport_worker\":true,"
                    "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
                    "\"native_iio_burst_transport_session\":true,"
@@ -2502,15 +2632,29 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
                    "\"native_iio_burst_transport_background_daemon\":true,"
                    "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                   "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                   "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
                    "\"transport_background_daemon_start_count\":%llu,"
                    "\"transport_background_daemon_xfer_count\":%llu,"
                    "\"transport_background_daemon_scheduled_request_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_start_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_enqueue_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_drained_count\":%llu,"
                    "\"transport_background_daemon_running\":true,"
                    "\"python_autonomous_loop_run_submission\":false,"
+                   "\"python_background_daemon_start_submission\":%s,"
                    "\"next_boundary\":\"native_iio_transport_integrated_rf_service_daemon\"}\n",
+                   integrated_daemon_enqueue ?
+                       "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue" :
+                       "fieldmesh_iio_burst_transport_background_daemon_start",
+                   transport_integrated_rf_service_daemon_started ? "true" : "false",
                    transport_background_daemon_start_count,
                    transport_background_daemon_xfer_count,
-                   transport_background_daemon_scheduled_request_count);
+                   transport_background_daemon_scheduled_request_count,
+                   transport_integrated_rf_service_daemon_start_count,
+                   transport_integrated_rf_service_daemon_enqueue_count,
+                   transport_integrated_rf_service_daemon_drained_count,
+                   integrated_daemon_enqueue ? "false" : "true");
             fflush(stdout);
             continue;
         }
@@ -2541,17 +2685,27 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_status\",\"ok\":true,"
                    "\"native_iio_burst_transport_background_daemon\":%s,"
                    "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                   "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                   "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
                    "\"transport_background_daemon_start_count\":%llu,"
                    "\"transport_background_daemon_xfer_count\":%llu,"
                    "\"transport_background_daemon_scheduled_request_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_start_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_enqueue_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_drained_count\":%llu,"
                    "\"transport_background_daemon_running\":%s,"
                    "\"transport_background_daemon_done\":false,"
                    "\"python_autonomous_loop_run_submission\":false,"
+                   "\"python_background_daemon_start_submission\":false,"
                    "\"next_boundary\":\"native_iio_transport_integrated_rf_service_daemon\"}\n",
                    transport_background_daemon_started ? "true" : "false",
+                   transport_integrated_rf_service_daemon_started ? "true" : "false",
                    transport_background_daemon_start_count,
                    transport_background_daemon_xfer_count,
                    transport_background_daemon_scheduled_request_count,
+                   transport_integrated_rf_service_daemon_start_count,
+                   transport_integrated_rf_service_daemon_enqueue_count,
+                   transport_integrated_rf_service_daemon_drained_count,
                    background_running ? "true" : "false");
             fflush(stdout);
             continue;
@@ -2572,6 +2726,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
                    "\"native_iio_burst_transport_background_daemon\":%s,"
                    "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                   "\"native_iio_burst_integrated_rf_service_daemon\":%s,"
+                   "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
                    "\"transport_session_start_count\":%llu,"
                    "\"transport_worker_request_count\":%llu,"
                    "\"transport_service_loop_start_count\":%llu,"
@@ -2585,6 +2741,9 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"transport_background_daemon_start_count\":%llu,"
                    "\"transport_background_daemon_xfer_count\":%llu,"
                    "\"transport_background_daemon_scheduled_request_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_start_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_enqueue_count\":%llu,"
+                   "\"transport_integrated_rf_service_daemon_drained_count\":%llu,"
                    "\"server_owned_xfer_loop\":true,"
                    "\"server_xfer_count\":%llu}\n",
                    transport_session_started ? "true" : "false",
@@ -2592,6 +2751,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    transport_scheduler_started ? "true" : "false",
                    transport_autonomous_loop_started ? "true" : "false",
                    transport_background_daemon_started ? "true" : "false",
+                   transport_integrated_rf_service_daemon_started ? "true" : "false",
                    transport_session_start_count,
                    worker_request_count,
                    transport_service_loop_start_count,
@@ -2605,6 +2765,9 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    transport_background_daemon_start_count,
                    transport_background_daemon_xfer_count,
                    transport_background_daemon_scheduled_request_count,
+                   transport_integrated_rf_service_daemon_start_count,
+                   transport_integrated_rf_service_daemon_enqueue_count,
+                   transport_integrated_rf_service_daemon_drained_count,
                    xfer_count);
             fflush(stdout);
             background_job_destroy(&background_job);
