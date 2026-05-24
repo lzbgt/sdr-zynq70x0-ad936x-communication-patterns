@@ -20,11 +20,13 @@ cc -std=c99 -Wall -Wextra -Werror \
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config-if-idle 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_checked_guard.json" 2>/dev/null || true
 if "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x40 0x1200 >"$work_dir/fw_dma_config_bad_flags.json" 2>"$work_dir/fw_dma_config_bad_flags.err"; then
   echo "fieldmesh-ctrl-write accepted reserved firmware-DMA descriptor flags" >&2
   exit 1
 fi
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 0x43c00000 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm-if-ready 0x43c00000 32 >"$work_dir/fw_dma_arm_checked_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop 0x43c00000 >"$work_dir/fw_dma_stop_guard.json" 2>/dev/null || true
 
 if "$work_dir/fieldmesh-ctrl-write-host" 0x43c00000 0x100 0 >/dev/null 2>&1; then
@@ -180,6 +182,7 @@ if row.get("writes_hardware") is not False:
     raise SystemExit(f"firmware DMA guarded config must not write hardware: {row!r}")
 
 for name, expected_value in (("fw_dma_arm_guard.json", "0x0000001f"),
+                             ("fw_dma_arm_checked_guard.json", "0x0000001f"),
                              ("fw_dma_stop_guard.json", "0x00000020")):
     row = json.loads((work / name).read_text(encoding="utf-8"))
     if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
@@ -188,6 +191,14 @@ for name, expected_value in (("fw_dma_arm_guard.json", "0x0000001f"),
         raise SystemExit(f"firmware DMA guarded command used wrong register: {name}: {row!r}")
     if row.get("writes_hardware") is not False:
         raise SystemExit(f"firmware DMA guarded command must not write hardware: {name}: {row!r}")
+
+row = json.loads((work / "fw_dma_config_checked_guard.json").read_text(encoding="utf-8"))
+if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
+    raise SystemExit(f"firmware DMA guarded checked config failed: {row!r}")
+if row.get("offset") != "0x00000170" or row.get("value") != "0x03010007":
+    raise SystemExit(f"firmware DMA guarded checked config used wrong register: {row!r}")
+if row.get("writes_hardware") is not False:
+    raise SystemExit(f"firmware DMA guarded checked config must not write hardware: {row!r}")
 
 safe = (work / "safe_tune.json").read_text(encoding="utf-8")
 for token in ("fieldmesh_radio_safe_tune_command", "fieldmesh_radio_safe_tune"):

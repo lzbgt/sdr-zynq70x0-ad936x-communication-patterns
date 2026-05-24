@@ -493,6 +493,8 @@ green sidecar preflight. Arm actions also require the pre-arm status
 `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
 diagnostic override. Config actions require pre-config `idle=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set after reviewing the captured status.
+The default config and arm paths use `--fw-dma-config-if-idle` and
+`--fw-dma-arm-if-ready`, which re-read status in C directly before mutation.
 
 ## Z103 And Z203 Capability Profiles
 

@@ -473,6 +473,10 @@ the pre-arm C-decoded `ready_for_arm=true` health predicate before it forwards
 the guarded hardware write. `FORCE_FIRMWARE_DMA_CONFIG=1` and
 `FORCE_FIRMWARE_DMA_ARM=1` are reserved for explicit diagnostic override after
 reviewing the captured status.
+The unforced board wrapper calls the C checked commands
+`--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so a status race between
+the wrapper's before-capture and the actual register write is still caught in C
+before mutation.
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
 budget-exhausted, service-accepted state, fault-free state, drop-counter-clear

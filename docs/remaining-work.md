@@ -1448,7 +1448,9 @@ below were later superseded by the current PHY-management two-board gates above:
   hardware writes. Config writes also require pre-config `idle=true` unless
   `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
   `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
-  diagnostic override. The copied-HDL RF-engine patcher now performs the first RF
+  diagnostic override. The unforced paths now call the C checked commands
+  `--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the last pre-write
+  health predicate is evaluated in C. The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
   broadcast to RX DMA and the BPSK symbolizer, and firmware-DMA controls reset

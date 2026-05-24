@@ -190,8 +190,14 @@ JSON
 {"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=config APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to configure firmware-DMA metadata","writes_hardware":false}
 JSON
     else
-      sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-config '$ctrl_base' '$peer_index' '$mcs' '$retry_budget' '$descriptor_flags' '$seq_seed' > '$remote_control' 2>&1"
+      config_command="--fw-dma-config-if-idle"
+      if [[ "$force_fw_dma_config" == "1" ]]; then
+        config_command="--fw-dma-config"
+      fi
+      if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$config_command' '$ctrl_base' '$peer_index' '$mcs' '$retry_budget' '$descriptor_flags' '$seq_seed' > '$remote_control' 2>&1"; then
+        true
+      fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
     fi
     ;;
@@ -205,8 +211,14 @@ JSON
 {"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=arm APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to arm the firmware-DMA endpoint","writes_hardware":false}
 JSON
     else
-      sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-arm '$ctrl_base' '$service_budget' > '$remote_control' 2>&1"
+      arm_command="--fw-dma-arm-if-ready"
+      if [[ "$force_fw_dma_arm" == "1" ]]; then
+        arm_command="--fw-dma-arm"
+      fi
+      if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$arm_command' '$ctrl_base' '$service_budget' > '$remote_control' 2>&1"; then
+        true
+      fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
     fi
     ;;
@@ -216,8 +228,10 @@ JSON
 {"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=stop APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to stop the firmware-DMA endpoint","writes_hardware":false}
 JSON
     else
-      sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop '$ctrl_base' > '$remote_control' 2>&1"
+      if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop '$ctrl_base' > '$remote_control' 2>&1"; then
+        true
+      fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
     fi
     ;;

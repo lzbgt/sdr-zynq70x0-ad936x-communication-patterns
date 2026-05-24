@@ -297,6 +297,9 @@ Config writes also require pre-config `idle=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
 `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate
 diagnostic override.
+Without those force overrides, the wrapper calls the C checked commands
+`--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the final readiness
+predicate is evaluated by the control binary immediately before register writes.
 
 The first control-only block-design overlay is opt-in:
 

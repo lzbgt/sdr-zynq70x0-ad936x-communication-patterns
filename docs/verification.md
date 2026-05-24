@@ -2851,7 +2851,9 @@ metadata unless the pre-config status reports `idle=true`, and `ACTION=arm`
 refuses to forward the guarded hardware write unless the pre-arm status reports
 `ready_for_arm=true`. `FORCE_FIRMWARE_DMA_CONFIG=1` and
 `FORCE_FIRMWARE_DMA_ARM=1` are explicit diagnostic overrides after reviewing
-`fw_dma_status_before.json`.
+`fw_dma_status_before.json`. The normal wrapper path uses the C tool's checked
+commands, `--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the final
+pre-write predicate is evaluated in C immediately before register writes.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full

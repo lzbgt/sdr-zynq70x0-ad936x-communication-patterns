@@ -41,7 +41,9 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
             "  fieldmesh-ctrl-write --fw-dma-status BASE\n"
             "  fieldmesh-ctrl-write --fw-dma-config BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
+            "  fieldmesh-ctrl-write --fw-dma-config-if-idle BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
             "  fieldmesh-ctrl-write --fw-dma-arm BASE SERVICE_BUDGET\n"
+            "  fieldmesh-ctrl-write --fw-dma-arm-if-ready BASE SERVICE_BUDGET\n"
             "  fieldmesh-ctrl-write --fw-dma-stop BASE\n");
 }
 
@@ -228,6 +230,15 @@ static int print_fw_dma_status_from_regs(uint32_t base,
     return 0;
 }
 
+static int read_fw_dma_status(uint32_t base, fieldmesh_fw_dma_status_t *status) {
+    uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT];
+    for (size_t i = 0; i < FIELDMESH_FW_DMA_STATUS_REG_COUNT; ++i) {
+        regs[i] = access_reg(base, fieldmesh_fw_dma_status_offset(i),
+                             0, FIELDMESH_ACCESS_READ);
+    }
+    return fieldmesh_fw_dma_status_from_regs(status, regs);
+}
+
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--self-test") == 0) {
         printf("{\"event\":\"fieldmesh_ctrl_write_self_test\",\"ok\":true,"
@@ -295,15 +306,18 @@ int main(int argc, char **argv) {
                    "\"reads_hardware\":false,\"writes_hardware\":false}\n", base);
             return 1;
         }
-        uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT];
-        for (size_t i = 0; i < FIELDMESH_FW_DMA_STATUS_REG_COUNT; ++i) {
-            regs[i] = access_reg(base, fieldmesh_fw_dma_status_offset(i),
-                                 0, FIELDMESH_ACCESS_READ);
+        fieldmesh_fw_dma_status_t status = {0};
+        if (!read_fw_dma_status(base, &status)) {
+            fprintf(stderr, "failed to decode firmware DMA status\n");
+            return 1;
         }
-        return print_fw_dma_status_from_regs(base, regs, true);
+        print_fw_dma_status(base, &status, true);
+        return 0;
     }
 
-    if (argc == 8 && strcmp(argv[1], "--fw-dma-config") == 0) {
+    if (argc == 8 && (strcmp(argv[1], "--fw-dma-config") == 0 ||
+                      strcmp(argv[1], "--fw-dma-config-if-idle") == 0)) {
+        bool checked_config = strcmp(argv[1], "--fw-dma-config-if-idle") == 0;
         uint32_t base = parse_u32(argv[2], "base");
         uint32_t peer_index = parse_u32(argv[3], "peer_index");
         uint32_t mcs = parse_u32(argv[4], "mcs");
@@ -328,6 +342,23 @@ int main(int argc, char **argv) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
                        base, FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY, packed_peer, 0, false);
             return 1;
+        }
+        if (checked_config) {
+            fieldmesh_fw_dma_status_t status = {0};
+            if (!read_fw_dma_status(base, &status)) {
+                fprintf(stderr, "failed to decode firmware DMA status\n");
+                return 1;
+            }
+            if (!fieldmesh_fw_dma_status_idle(&status)) {
+                printf("{\"event\":\"fieldmesh_fw_dma_config\",\"ok\":false,"
+                       "\"base\":\"0x%08" PRIx32 "\","
+                       "\"error\":\"firmware_dma_not_idle\","
+                       "\"idle\":false,\"ready_for_arm\":%s,"
+                       "\"writes_hardware\":false}\n",
+                       base,
+                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false");
+                return 1;
+            }
         }
         uint32_t packed_readback = access_reg(base, FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY, packed_peer,
                                               FIELDMESH_ACCESS_WRITE);
@@ -364,7 +395,9 @@ int main(int argc, char **argv) {
         return ok ? 0 : 1;
     }
 
-    if (argc == 4 && strcmp(argv[1], "--fw-dma-arm") == 0) {
+    if (argc == 4 && (strcmp(argv[1], "--fw-dma-arm") == 0 ||
+                      strcmp(argv[1], "--fw-dma-arm-if-ready") == 0)) {
+        bool checked_arm = strcmp(argv[1], "--fw-dma-arm-if-ready") == 0;
         uint32_t base = parse_u32(argv[2], "base");
         uint32_t budget = parse_u32(argv[3], "service_budget");
         if (budget > 0xffffu) {
@@ -375,6 +408,23 @@ int main(int argc, char **argv) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
                        base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_ARM_CONTROL, 0, false);
             return 1;
+        }
+        if (checked_arm) {
+            fieldmesh_fw_dma_status_t status = {0};
+            if (!read_fw_dma_status(base, &status)) {
+                fprintf(stderr, "failed to decode firmware DMA status\n");
+                return 1;
+            }
+            if (!fieldmesh_fw_dma_status_ready_for_arm(&status)) {
+                printf("{\"event\":\"fieldmesh_fw_dma_arm\",\"ok\":false,"
+                       "\"base\":\"0x%08" PRIx32 "\","
+                       "\"error\":\"firmware_dma_not_ready_for_arm\","
+                       "\"idle\":%s,\"ready_for_arm\":false,"
+                       "\"writes_hardware\":false}\n",
+                       base,
+                       fieldmesh_fw_dma_status_idle(&status) ? "true" : "false");
+                return 1;
+            }
         }
         uint32_t budget_readback = access_reg(base, FIELDMESH_FW_DMA_REG_SERVICE_BUDGET, budget,
                                               FIELDMESH_ACCESS_WRITE);

@@ -126,7 +126,9 @@ in `src/fieldmesh_sdk.c`:
   The board wrapper additionally requires C-decoded `idle=true` before
   forwarding `--fw-dma-config` and `ready_for_arm=true` before forwarding
   `--fw-dma-arm`, unless the matching diagnostic override is set after reviewing
-  the captured status.
+  the captured status. The unforced wrapper paths use the C checked commands
+  `--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, which re-read status
+  directly before register writes.
   `--fw-dma-status-self-test` decodes a fixed C register vector without
   `/dev/mem`, so CI covers the successful status projection without hardware
   reads. The command output is JSON for host inspection only; the packet path
