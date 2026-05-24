@@ -654,7 +654,9 @@ fieldmesh-udp-probe rf-source-apply \
 `0x100+` guard control/status/counter registers plus the DAC source-select and
 driver status registers at `0x12c` through `0x13c`. It also emits C-decoded
 action policy booleans for `guard_apply_allowed`, `source_select_allowed`, and
-`rollback_needed`. `rf-guard-apply` refuses to
+`rollback_needed`. `rf-guard-action-policy-self-test` proves the active, idle,
+and faulted policy projections from shared C fixture vectors without reading or
+writing hardware. `rf-guard-apply` refuses to
 run without the same sidecar preflight assertion and explicit RF safety
 declarations, then re-reads the guard/DAC status in C and requires
 `guard_apply_allowed=true` before it maps only the FieldMesh control window,

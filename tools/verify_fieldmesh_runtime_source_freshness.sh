@@ -50,6 +50,8 @@ EOF
 cat >"$fresh_udp_strings" <<'EOF'
 fieldmesh_udp_probe
 rf_guard_scan_start
+rf-guard-action-policy-self-test
+fieldmesh_rf_guard_action_policy_self_test
 control_tx_enabled
 control_tx_armed
 control_schedule_enabled
@@ -66,6 +68,9 @@ dac_active
 guard_apply_allowed
 source_select_allowed
 rollback_needed
+active_guard_apply_allowed
+idle_guard_apply_allowed
+fault_guard_apply_allowed
 sidecar-addr-self-test
 fieldmesh_sidecar_addr_self_test
 native_c_contract
@@ -138,7 +143,11 @@ for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
         raise SystemExit(f"z203 stale fixture missing expected missing token {token}: {stale!r}")
 for token in ("control_tx_enabled", "status_reserved", "drop_counters_clear",
               "dac_source_selected", "dac_active", "guard_apply_allowed",
-              "source_select_allowed", "rollback_needed"):
+              "source_select_allowed", "rollback_needed",
+              "rf-guard-action-policy-self-test",
+              "fieldmesh_rf_guard_action_policy_self_test",
+              "active_guard_apply_allowed", "idle_guard_apply_allowed",
+              "fault_guard_apply_allowed"):
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale RF guard fixture missing expected token {token}: {stale!r}")
 for token in ("sidecar-addr-self-test", "fieldmesh_sidecar_addr_self_test",

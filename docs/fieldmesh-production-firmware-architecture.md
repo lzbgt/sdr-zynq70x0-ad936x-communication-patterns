@@ -475,6 +475,10 @@ state next to raw register words, including `control_armed`, `status_fault`,
 `source_select_allowed`, and `rollback_needed`. `rf-guard-apply` and
 `rf-source-apply` re-read that status in C immediately before mutation and
 refuse the write when the matching C action policy is false.
+`rf-guard-action-policy-self-test` exercises the same C policy with shared
+active, idle, and faulted fixture vectors without opening `/dev/mem`; runtime
+freshness requires that command and its proof strings in packaged
+`fieldmesh-udp-probe`.
 The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the
@@ -515,9 +519,10 @@ read-only package freshness check: it scans the packaged
 `fieldmesh-ctrl-write` binary strings for the current checked firmware-DMA
 command/refusal-token contract and the packaged `fieldmesh-udp-probe` strings
 for the C-decoded RF guard scan contract and the compiled
-`sidecar-addr-self-test` address-map proof. Runtime artifact verification now
-requires firmware-DMA, decoded RF guard scan, and sidecar-address freshness by
-default after the Z203/Z103 rootfs rebuilds. Set
+`rf-guard-action-policy-self-test`/`sidecar-addr-self-test` proofs. Runtime
+artifact verification now requires firmware-DMA, decoded RF guard scan/action
+policy, and sidecar-address freshness by default after the Z203/Z103 rootfs
+rebuilds. Set
 `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0`,
 `FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0`, or
 `FIELDMESH_REQUIRE_CURRENT_SIDECAR_ADDR_RUNTIME=0` only for explicit advisory

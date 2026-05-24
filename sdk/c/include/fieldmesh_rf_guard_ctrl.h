@@ -219,6 +219,43 @@ static inline fieldmesh_rf_guard_action_policy_t fieldmesh_rf_guard_status_actio
     return policy;
 }
 
+static inline fieldmesh_rf_guard_status_t fieldmesh_rf_guard_status_test_active(void)
+{
+    fieldmesh_rf_guard_status_t status = {
+        .control = FIELDMESH_RF_GUARD_CONTROL_ARMED,
+        .current_epoch = 9u,
+        .current_slot = 3u,
+        .tx_epoch = 9u,
+        .tx_slot = 3u,
+        .status = FIELDMESH_RF_GUARD_STATUS_TX_ENABLE |
+                  FIELDMESH_RF_GUARD_STATUS_TX_ARMED |
+                  FIELDMESH_RF_GUARD_STATUS_SCHEDULE_ENABLE,
+        .pass_sample_count = 11u,
+        .pass_packet_count = 2u,
+        .dac_source_control = FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH,
+        .dac_source_status = FIELDMESH_RF_DAC_SOURCE_STATUS_FIELD_MESH,
+        .dac_sample_count = 11u,
+        .dac_packet_count = 2u,
+    };
+    return status;
+}
+
+static inline fieldmesh_rf_guard_status_t fieldmesh_rf_guard_status_test_idle(void)
+{
+    fieldmesh_rf_guard_status_t status = {0};
+    return status;
+}
+
+static inline fieldmesh_rf_guard_status_t fieldmesh_rf_guard_status_test_faulted(void)
+{
+    fieldmesh_rf_guard_status_t status = {
+        .status = FIELDMESH_RF_GUARD_STATUS_FAULT,
+        .drop_late_packet_count = 1u,
+        .dac_underflow_count = 1u,
+    };
+    return status;
+}
+
 static inline int fieldmesh_rf_guard_window_covers(uint32_t ctrl_size)
 {
     return ctrl_size > FIELDMESH_RF_GUARD_REG_LAST;

@@ -165,7 +165,7 @@ verify_variant() {
         exit 1
     fi
 
-    for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke rf-guard-scan rf-guard-apply rf-source-apply iio-scan iio-plan pl-replay; do
+    for token in adaptive-listen advertise ap-elect rtls-estimate dt-scan ctrl-scan dma-scan dma-plan dma-smoke rf-guard-scan rf-guard-apply rf-source-apply rf-guard-action-policy-self-test iio-scan iio-plan pl-replay; do
         if ! grep -qxF "$token" "$strings_out"; then
             echo "Missing fieldmesh-udp-probe role in $name rootfs: $token" >&2
             exit 1

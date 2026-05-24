@@ -2442,6 +2442,9 @@ require `rf-guard-scan` to emit the C-decoded booleans for guard control bits,
 guard status bits, reserved/fault state, drop-counter health, DAC source
 selection, DAC active state, and C action-policy decisions:
 `guard_apply_allowed`, `source_select_allowed`, and `rollback_needed`.
+The same compiled probe also exposes `rf-guard-action-policy-self-test`, which
+uses shared C active, idle, and faulted fixture vectors to prove the action
+policy without reading or writing hardware.
 `./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
 memory to verify the writer arms only the guard registers, reports
 `guard_apply_allowed=true`, `sets_ad936x_tx_enable=false`, and
@@ -2901,7 +2904,8 @@ guard scan contract and sidecar address-map self-test. It emits
 `--fw-dma-action-policy-self-test`, the matching C refusal/policy tokens, or
 the decoded RF guard scan fields such as `control_armed`, `status_reserved`,
 `drop_counters_clear`, `fault_free`, `dac_source_selected`, `dac_active`,
-`guard_apply_allowed`, `source_select_allowed`, and `rollback_needed`,
+`guard_apply_allowed`, `source_select_allowed`, and `rollback_needed`, the
+read/write-free `rf-guard-action-policy-self-test` proof fields,
 or sidecar address proof tokens such as `sidecar-addr-self-test`,
 `fieldmesh_sidecar_addr_self_test`, and `native_c_contract`.
 The standalone reporter is advisory unless called with `--require-current`,

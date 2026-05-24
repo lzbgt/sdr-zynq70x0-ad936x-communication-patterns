@@ -24,6 +24,8 @@ JSON
 
 "$probe_z203" rf-guard-scan --ctrl-mem-file "$mem_file" \
   >"$work_dir/rf_guard_scan_before.ndjson"
+"$probe_z203" rf-guard-action-policy-self-test \
+  >"$work_dir/rf_guard_action_policy_self_test.ndjson"
 
 if "$probe_z203" rf-source-apply \
   --ctrl-mem-file "$mem_file" \
@@ -108,6 +110,7 @@ def rows(name):
     ]
 
 before = rows("rf_guard_scan_before.ndjson")
+self_test = rows("rf_guard_action_policy_self_test.ndjson")
 apply = rows("rf_source_apply.ndjson")
 after = rows("rf_guard_scan_after.ndjson")
 z103 = rows("rf_guard_scan_z103.ndjson")
@@ -116,6 +119,26 @@ if (before[-1].get("event") != "rf_guard_scan_end" or
         before[-1].get("ok") is not True or
         before[-1].get("rf_page_addressable") is not True):
     raise SystemExit("initial RF guard scan failed")
+self_event = self_test[-1]
+if self_event.get("event") != "fieldmesh_rf_guard_action_policy_self_test":
+    raise SystemExit(f"missing RF guard action-policy self-test event: {self_event!r}")
+expected_self = {
+    "ok": True,
+    "active_guard_apply_allowed": False,
+    "active_source_select_allowed": True,
+    "active_rollback_needed": True,
+    "idle_guard_apply_allowed": True,
+    "idle_source_select_allowed": True,
+    "idle_rollback_needed": False,
+    "fault_guard_apply_allowed": False,
+    "fault_source_select_allowed": False,
+    "fault_rollback_needed": False,
+    "reads_hardware": False,
+    "writes_hardware": False,
+}
+for key, value in expected_self.items():
+    if self_event.get(key) is not value:
+        raise SystemExit(f"RF guard action-policy self-test {key} mismatch: {self_event!r}")
 for key in (
     "control_tx_enabled",
     "control_tx_armed",

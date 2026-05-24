@@ -145,8 +145,14 @@ rf_guard_source_tokens = (
     "fieldmesh_rf_guard_status_action_policy",
     "fieldmesh_rf_guard_status_guard_apply_allowed",
     "fieldmesh_rf_guard_status_source_select_allowed",
+    "fieldmesh_rf_guard_status_test_active",
+    "fieldmesh_rf_guard_status_test_idle",
+    "fieldmesh_rf_guard_status_test_faulted",
+    "rf-guard-action-policy-self-test",
 )
 rf_guard_artifact_tokens = (
+    "rf-guard-action-policy-self-test",
+    "fieldmesh_rf_guard_action_policy_self_test",
     "control_tx_enabled",
     "control_tx_armed",
     "control_schedule_enabled",
@@ -163,6 +169,9 @@ rf_guard_artifact_tokens = (
     "guard_apply_allowed",
     "source_select_allowed",
     "rollback_needed",
+    "active_guard_apply_allowed",
+    "idle_guard_apply_allowed",
+    "fault_guard_apply_allowed",
 )
 sidecar_addr_source_tokens = (
     "fieldmesh_sidecar_addr_self_test",
@@ -317,8 +326,14 @@ rf_guard_source_tokens = (
     "fieldmesh_rf_guard_status_action_policy",
     "fieldmesh_rf_guard_status_guard_apply_allowed",
     "fieldmesh_rf_guard_status_source_select_allowed",
+    "fieldmesh_rf_guard_status_test_active",
+    "fieldmesh_rf_guard_status_test_idle",
+    "fieldmesh_rf_guard_status_test_faulted",
+    "rf-guard-action-policy-self-test",
 )
 rf_guard_artifact_tokens = (
+    "rf-guard-action-policy-self-test",
+    "fieldmesh_rf_guard_action_policy_self_test",
     "control_tx_enabled",
     "control_tx_armed",
     "control_schedule_enabled",
@@ -335,6 +350,9 @@ rf_guard_artifact_tokens = (
     "guard_apply_allowed",
     "source_select_allowed",
     "rollback_needed",
+    "active_guard_apply_allowed",
+    "idle_guard_apply_allowed",
+    "fault_guard_apply_allowed",
 )
 sidecar_addr_source_tokens = (
     "fieldmesh_sidecar_addr_self_test",

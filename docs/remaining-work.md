@@ -1518,9 +1518,10 @@ below were later superseded by the current PHY-management two-board gates above:
   package freshness report for that contract by comparing packaged
   `fieldmesh-ctrl-write` strings against the current C source. It also compares
   packaged `fieldmesh-udp-probe` strings against the C-decoded RF guard scan
-  contract and the compiled `sidecar-addr-self-test` address-map proof. The
-  Z203/Z103 rootfs images and runtime packages were rebuilt for firmware-DMA,
-  decoded RF guard scan, and sidecar-address freshness, and
+  contract plus the compiled `rf-guard-action-policy-self-test` and
+  `sidecar-addr-self-test` proofs. The Z203/Z103 rootfs images and runtime
+  packages were rebuilt for firmware-DMA, decoded RF guard action policy, and
+  sidecar-address freshness, and
   `./tools/verify_fieldmesh_runtime_artifacts.sh all` enforces all three by
   default. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0`,
   `FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0`, or
@@ -1562,7 +1563,9 @@ below were later superseded by the current PHY-management two-board gates above:
   `source_select_allowed`, and `rollback_needed` without reconstructing raw
   register semantics in shell/Python. The guard and source writers now re-read
   that C status immediately before mutation and refuse writes when the matching
-  action policy is false.
+  action policy is false. The compiled `rf-guard-action-policy-self-test`
+  proves active, idle, and faulted C policy projections without touching
+  hardware.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard

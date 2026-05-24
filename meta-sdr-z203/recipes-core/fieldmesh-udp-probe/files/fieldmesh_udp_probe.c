@@ -155,6 +155,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe sidecar-addr-self-test\n"
+        "  fieldmesh-udp-probe rf-guard-action-policy-self-test\n"
         "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
         "  fieldmesh-udp-probe ctrl-scan [--ctrl-base " FIELDMESH_SIDECAR_CTRL_BASE_TEXT "] [--ctrl-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-scan [--tx-dma-base " FIELDMESH_SIDECAR_TX_DMA_BASE_TEXT "] [--rx-dma-base " FIELDMESH_SIDECAR_RX_DMA_BASE_TEXT "] [--dma-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--dma-mem-file FILE]\n"
@@ -350,6 +351,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "rtls-estimate") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "sidecar-addr-self-test") &&
+        strcmp(cfg->role, "rf-guard-action-policy-self-test") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
@@ -360,11 +362,12 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "rf-source-apply") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, sidecar-addr-self-test, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, rf-source-apply, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, sidecar-addr-self-test, rf-guard-action-policy-self-test, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, rf-source-apply, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
         strcmp(cfg->role, "sidecar-addr-self-test") &&
+        strcmp(cfg->role, "rf-guard-action-policy-self-test") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ap-elect") &&
         strcmp(cfg->role, "rtls-estimate") &&
@@ -3838,6 +3841,67 @@ static int run_sidecar_addr_self_test(void)
     return map_valid ? 0 : 1;
 }
 
+static int run_rf_guard_action_policy_self_test(void)
+{
+    fieldmesh_rf_guard_status_t active =
+        fieldmesh_rf_guard_status_test_active();
+    fieldmesh_rf_guard_status_t idle =
+        fieldmesh_rf_guard_status_test_idle();
+    fieldmesh_rf_guard_status_t faulted =
+        fieldmesh_rf_guard_status_test_faulted();
+    fieldmesh_rf_guard_action_policy_t active_policy =
+        fieldmesh_rf_guard_status_action_policy(&active);
+    fieldmesh_rf_guard_action_policy_t idle_policy =
+        fieldmesh_rf_guard_status_action_policy(&idle);
+    fieldmesh_rf_guard_action_policy_t fault_policy =
+        fieldmesh_rf_guard_status_action_policy(&faulted);
+    bool ok =
+        !active_policy.guard_apply_allowed &&
+        active_policy.source_select_allowed &&
+        active_policy.rollback_needed &&
+        !fieldmesh_rf_guard_idle(&active) &&
+        idle_policy.guard_apply_allowed &&
+        idle_policy.source_select_allowed &&
+        !idle_policy.rollback_needed &&
+        fieldmesh_rf_guard_idle(&idle) &&
+        !fault_policy.guard_apply_allowed &&
+        !fault_policy.source_select_allowed &&
+        !fault_policy.rollback_needed &&
+        !fieldmesh_rf_guard_status_fault_free(&faulted);
+
+    printf("{\"event\":\"fieldmesh_rf_guard_action_policy_self_test\","
+           "\"ok\":%s,"
+           "\"active_guard_apply_allowed\":%s,"
+           "\"active_source_select_allowed\":%s,"
+           "\"active_rollback_needed\":%s,"
+           "\"active_guard_idle\":%s,"
+           "\"idle_guard_apply_allowed\":%s,"
+           "\"idle_source_select_allowed\":%s,"
+           "\"idle_rollback_needed\":%s,"
+           "\"idle_guard_idle\":%s,"
+           "\"fault_guard_apply_allowed\":%s,"
+           "\"fault_source_select_allowed\":%s,"
+           "\"fault_rollback_needed\":%s,"
+           "\"fault_free\":%s,"
+           "\"native_c_contract\":true,"
+           "\"reads_hardware\":false,"
+           "\"writes_hardware\":false}\n",
+           ok ? "true" : "false",
+           active_policy.guard_apply_allowed ? "true" : "false",
+           active_policy.source_select_allowed ? "true" : "false",
+           active_policy.rollback_needed ? "true" : "false",
+           fieldmesh_rf_guard_idle(&active) ? "true" : "false",
+           idle_policy.guard_apply_allowed ? "true" : "false",
+           idle_policy.source_select_allowed ? "true" : "false",
+           idle_policy.rollback_needed ? "true" : "false",
+           fieldmesh_rf_guard_idle(&idle) ? "true" : "false",
+           fault_policy.guard_apply_allowed ? "true" : "false",
+           fault_policy.source_select_allowed ? "true" : "false",
+           fault_policy.rollback_needed ? "true" : "false",
+           fieldmesh_rf_guard_status_fault_free(&faulted) ? "true" : "false");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -3886,6 +3950,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "sidecar-addr-self-test")) {
         return run_sidecar_addr_self_test();
+    }
+    if (!strcmp(cfg.role, "rf-guard-action-policy-self-test")) {
+        return run_rf_guard_action_policy_self_test();
     }
     if (!strcmp(cfg.role, "dt-scan")) {
         return run_dt_scan(&cfg);

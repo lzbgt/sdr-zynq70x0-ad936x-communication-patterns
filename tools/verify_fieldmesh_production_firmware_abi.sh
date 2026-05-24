@@ -127,26 +127,8 @@ EOF_C
 #include "fieldmesh_rf_guard_ctrl.h"
 
 int main(void) {
-    fieldmesh_rf_guard_status_t status = {
-        .control = FIELDMESH_RF_GUARD_CONTROL_ARMED,
-        .current_epoch = 9u,
-        .current_slot = 3u,
-        .tx_epoch = 9u,
-        .tx_slot = 3u,
-        .status = FIELDMESH_RF_GUARD_STATUS_TX_ENABLE |
-                  FIELDMESH_RF_GUARD_STATUS_TX_ARMED |
-                  FIELDMESH_RF_GUARD_STATUS_SCHEDULE_ENABLE,
-        .pass_sample_count = 11u,
-        .pass_packet_count = 2u,
-        .blocked_cycle_count = 0u,
-        .drop_late_sample_count = 0u,
-        .drop_late_packet_count = 0u,
-        .dac_source_control = FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH,
-        .dac_source_status = FIELDMESH_RF_DAC_SOURCE_STATUS_FIELD_MESH,
-        .dac_sample_count = 11u,
-        .dac_packet_count = 2u,
-        .dac_underflow_count = 0u,
-    };
+    fieldmesh_rf_guard_status_t status =
+        fieldmesh_rf_guard_status_test_active();
     if (FIELDMESH_CTRL_ID_VALUE != 0x464d1001u ||
         FIELDMESH_RF_GUARD_REG_CONTROL != 0x100u ||
         FIELDMESH_RF_GUARD_REG_LAST != 0x13cu) {
@@ -184,7 +166,8 @@ int main(void) {
         !active_policy.rollback_needed) {
         return 7;
     }
-    fieldmesh_rf_guard_status_t idle_status = {0};
+    fieldmesh_rf_guard_status_t idle_status =
+        fieldmesh_rf_guard_status_test_idle();
     fieldmesh_rf_guard_action_policy_t idle_policy =
         fieldmesh_rf_guard_status_action_policy(&idle_status);
     if (!fieldmesh_rf_guard_idle(&idle_status) ||
@@ -193,9 +176,15 @@ int main(void) {
         idle_policy.rollback_needed) {
         return 8;
     }
-    status.status |= FIELDMESH_RF_GUARD_STATUS_FAULT;
-    if (!fieldmesh_rf_guard_status_fault(status.status) ||
-        fieldmesh_rf_guard_status_fault_free(&status)) {
+    fieldmesh_rf_guard_status_t faulted_status =
+        fieldmesh_rf_guard_status_test_faulted();
+    fieldmesh_rf_guard_action_policy_t fault_policy =
+        fieldmesh_rf_guard_status_action_policy(&faulted_status);
+    if (!fieldmesh_rf_guard_status_fault(faulted_status.status) ||
+        fieldmesh_rf_guard_status_fault_free(&faulted_status) ||
+        fault_policy.guard_apply_allowed ||
+        fault_policy.source_select_allowed ||
+        fault_policy.rollback_needed) {
         return 9;
     }
     status.status = 0xffff0000u;
@@ -825,6 +814,9 @@ required = [
     "fieldmesh_rf_guard_status_source_select_allowed",
     "fieldmesh_rf_guard_status_rollback_needed",
     "fieldmesh_rf_guard_status_action_policy",
+    "fieldmesh_rf_guard_status_test_active",
+    "fieldmesh_rf_guard_status_test_idle",
+    "fieldmesh_rf_guard_status_test_faulted",
     "fieldmesh_rf_guard_window_covers",
 ]
 missing = [token for token in required if token not in source]
