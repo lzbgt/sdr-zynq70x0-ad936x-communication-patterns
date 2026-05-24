@@ -10,6 +10,7 @@ SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_dma_ctrl.h \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_sidecar_addr.h \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c \
+    file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_rf_tx_enable_backend.c \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-common.sh \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-safe-tune \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-tx-enable \
@@ -25,12 +26,16 @@ do_compile() {
         -I${WORKDIR}${FIELDMESH_REPO_ROOT}/sdk/c/include \
         ${WORKDIR}${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c \
         -o fieldmesh-ctrl-write
+    ${CC} ${CFLAGS} -std=c99 -Wall -Wextra ${LDFLAGS} \
+        ${WORKDIR}${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_rf_tx_enable_backend.c \
+        -o fieldmesh-rf-tx-enable-backend
 }
 
 do_install() {
     install -d ${D}${bindir}
     install -d ${D}${libexecdir}/fieldmesh
     install -m 0755 ${B}/fieldmesh-ctrl-write ${D}${bindir}/fieldmesh-ctrl-write
+    install -m 0755 ${B}/fieldmesh-rf-tx-enable-backend ${D}${libexecdir}/fieldmesh/fieldmesh-rf-tx-enable-backend
     install -m 0755 ${WORKDIR}${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-safe-tune ${D}${bindir}/fieldmesh-radio-safe-tune
     install -m 0755 ${WORKDIR}${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-tx-enable ${D}${bindir}/fieldmesh-radio-tx-enable
     install -m 0755 ${WORKDIR}${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-tx-disable ${D}${bindir}/fieldmesh-radio-tx-disable

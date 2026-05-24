@@ -763,7 +763,11 @@ confirmation string, a RF path ID, and an executable TX backend. The wrapper
 validates the plan and safety declarations, then invokes only that explicit
 backend as `--bounded-tx-enable --request <json>`. The generated board script
 reuses the same request artifact, so the later authorized over-air RF path
-runner does not rebuild live-control policy from shell variables.
+runner does not rebuild live-control policy from shell variables. The packaged
+backend is compiled C (`/usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend`):
+it parses the request, verifies the C RF guard action-policy proof and bounded
+TX parameters, checks the live RF/hardware authorization environment, and only
+then delegates to `fieldmesh-radio-tx-enable`.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

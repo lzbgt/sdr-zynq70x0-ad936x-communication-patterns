@@ -65,10 +65,12 @@ if request.get("contract_version") != 1 or request.get("mode") != "dry-run":
     raise SystemExit("backend request contract/mode mismatch")
 if request.get("requires_c_rf_guard_action_policy_self_test") is not True:
     raise SystemExit("backend request did not require C RF guard policy proof")
-if request.get("starts_rf_tx_when_executed") is not False or request.get("writes_hardware_when_executed") is not False:
-    raise SystemExit("dry-run backend request crossed live boundary")
+if request.get("starts_rf_tx_when_executed") is not True or request.get("writes_hardware_when_executed") is not True:
+    raise SystemExit("backend request did not describe the bounded live boundary")
 if request.get("max_tx_duration_ms") != 100 or request.get("fixture_attenuation_db") != 60.0:
     raise SystemExit("backend request did not carry bounded fixture parameters")
+if request.get("tx_attenuation_db") != 89.75:
+    raise SystemExit("backend request did not carry bounded TX attenuation")
 sequence = request.get("sequence") or {}
 for name in ("prove_rf_guard_action_policy", "bounded_tx_enable_window", "rollback_tx_enable"):
     if name not in sequence:
@@ -122,47 +124,14 @@ if "$repo_root/tools/fieldmesh_rf_tx_enable_run.py" \
   exit 1
 fi
 
-backend="$work_dir/mock_tx_backend.sh"
-cat >"$backend" <<'SH'
-#!/bin/sh
-set -eu
-if [ "$#" -ne 3 ] || [ "$1" != "--bounded-tx-enable" ] || [ "$2" != "--request" ]; then
-  echo "unexpected backend argv: $*" >&2
-  exit 2
-fi
-python3 - "$3" <<'PY'
-import json
-import os
-import sys
-from pathlib import Path
+backend="$work_dir/fieldmesh-rf-tx-enable-backend"
+cc -std=c99 -Wall -Wextra -Werror \
+  "$repo_root/runtime/fieldmesh-rf-tools/fieldmesh_rf_tx_enable_backend.c" \
+  -o "$backend"
 
-request_path = Path(sys.argv[1])
-request = json.loads(request_path.read_text(encoding="utf-8"))
-if request.get("event") != "fieldmesh_rf_tx_enable_backend_request":
-    raise SystemExit("backend request event mismatch")
-if request.get("contract_version") != 1:
-    raise SystemExit("backend request contract mismatch")
-if request.get("mode") != "execute-live-tx":
-    raise SystemExit("backend request mode mismatch")
-if request.get("fixture_id") != "fixture-001":
-    raise SystemExit("backend request fixture mismatch")
-if request.get("max_tx_duration_ms") != 100:
-    raise SystemExit("backend request duration mismatch")
-if request.get("starts_rf_tx_when_executed") is not True or request.get("writes_hardware_when_executed") is not True:
-    raise SystemExit("backend request did not mark live boundary")
-proof = request.get("rf_guard_action_policy_self_test") or {}
-if proof.get("idle_guard_apply_allowed") is not True or proof.get("fault_guard_apply_allowed") is not False:
-    raise SystemExit("backend request did not carry C RF guard policy proof")
-if os.environ.get("FIELD_MESH_RF_TX_ENABLE_REQUEST") != str(request_path):
-    raise SystemExit("backend request env/path mismatch")
-print("mock_backend=--bounded-tx-enable")
-print(f"request={request_path}")
-print(f"fixture={os.environ['FIELD_MESH_FIXTURE_ID']}")
-print(f"duration={os.environ['FIELD_MESH_MAX_TX_DURATION_MS']}")
-PY
-SH
-chmod 0755 "$backend"
-
+PATH="$repo_root/runtime/fieldmesh-rf-tools:$PATH" \
+FIELD_MESH_RADIO_COMMON="$repo_root/runtime/fieldmesh-rf-tools/fieldmesh-radio-common.sh" \
+FIELD_MESH_BACKEND_DRY_RUN=1 \
 "$repo_root/tools/fieldmesh_rf_tx_enable_run.py" \
   --tx-enable-plan "$plan" \
   --out-dir "$work_dir/mock_live" \
@@ -198,18 +167,22 @@ if safety.get("commands_executed") is not True:
 if safety.get("starts_rf_tx") is not True or safety.get("writes_hardware") is not True:
     raise SystemExit("mock live run did not mark the live TX boundary")
 execution = report.get("execution") or {}
-if "mock_backend=--bounded-tx-enable" not in execution.get("stdout", ""):
-    raise SystemExit("mock backend did not run")
+stdout = execution.get("stdout", "")
+for token in ("fieldmesh_rf_tx_enable_backend", "fieldmesh_radio_tx_enable_command", "fieldmesh_radio_tx_disable"):
+    if token not in stdout:
+        raise SystemExit(f"C backend output missing {token}: {stdout!r}")
 request = json.loads(Path(report["backend_request"]).read_text(encoding="utf-8"))
 if request.get("mode") != "execute-live-tx":
     raise SystemExit("live backend request mode mismatch")
 if request.get("starts_rf_tx_when_executed") is not True or request.get("writes_hardware_when_executed") is not True:
     raise SystemExit("live backend request did not mark boundary")
+if request.get("tx_attenuation_db") != 89.75:
+    raise SystemExit("live backend request did not carry TX attenuation")
 print(json.dumps({
     "event": "fieldmesh_rf_tx_enable_run_mock_live_check",
     "ok": True,
     "commands_executed": True,
-    "mock_backend_only": True,
+    "compiled_backend_dry_run": True,
     "backend_request_contract": True,
 }, sort_keys=True))
 PY

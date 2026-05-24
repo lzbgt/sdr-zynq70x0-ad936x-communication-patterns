@@ -575,14 +575,14 @@ user and vendor configuration.
   missing legal-frequency declaration.
 - `tools/fieldmesh_rf_tx_enable_run.py` - guarded authorized over-air
   TX-enable executor boundary. It consumes the verified plan, generates a
-  board-local source-select/guard/tune/rollback script, stays dry-run by
-  default, and only invokes an explicit TX backend when hardware-write, RF-TX,
-  fixture, attenuation, RX-first, and operator-confirmation gates are all
-  present.
+  board-local source-select/guard/tune/rollback script plus a structured
+  backend request, stays dry-run by default, and only invokes the compiled C TX
+  backend when hardware-write, RF-TX, fixture, attenuation, RX-first, and
+  operator-confirmation gates are all present.
 - `tools/verify_fieldmesh_rf_tx_enable_run.sh` - gate for the TX-enable
   executor boundary. It verifies dry-run safety, missing review permission,
-  missing backend rejection, and mock-backend live execution without touching
-  board RF hardware.
+  missing backend rejection, and compiled-backend dry-run execution without
+  touching board RF hardware.
 - `tools/fieldmesh_iq_iio_live_plan.py` - guarded live AD936x IIO procedure
   planner for authorized over-air RF tests. It combines the two-board RF
   binding plan with the IQ burst smoke report, requires legal-frequency,

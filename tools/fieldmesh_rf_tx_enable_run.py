@@ -210,6 +210,7 @@ def build_backend_request(args: argparse.Namespace, plan: dict[str, Any], script
         "generated_script": str(script_path),
         "fixture_id": args.fixture_id,
         "fixture_attenuation_db": float(args.fixture_attenuation_db),
+        "tx_attenuation_db": float(plan["tx_attenuation_db"]),
         "max_tx_duration_ms": int(args.max_tx_duration_ms),
         "authorized_rf_path": bool(args.authorized_rf_path),
         "conducted_or_shielded": bool(args.conducted_or_shielded),
@@ -222,8 +223,8 @@ def build_backend_request(args: argparse.Namespace, plan: dict[str, Any], script
         "requires_bounded_tx_duration": True,
         "requires_rollback": True,
         "requires_c_rf_guard_action_policy_self_test": True,
-        "starts_rf_tx_when_executed": bool(args.execute_live_tx),
-        "writes_hardware_when_executed": bool(args.execute_live_tx),
+        "starts_rf_tx_when_executed": True,
+        "writes_hardware_when_executed": True,
         "opens_iio_buffers": False,
         "uses_inter_board_ip_routing": False,
         "rf_guard_action_policy_self_test": {

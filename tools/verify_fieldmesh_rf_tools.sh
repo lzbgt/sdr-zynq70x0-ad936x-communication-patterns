@@ -16,6 +16,8 @@ sh -n "$src_dir/fieldmesh-radio-tx-disable"
 cc -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
   "$src_dir/fieldmesh_ctrl_write.c" -o "$work_dir/fieldmesh-ctrl-write-host"
+cc -std=c99 -Wall -Wextra -Werror \
+  "$src_dir/fieldmesh_rf_tx_enable_backend.c" -o "$work_dir/fieldmesh-rf-tx-enable-backend-host"
 "$work_dir/fieldmesh-ctrl-write-host" --self-test >"$work_dir/ctrl_write_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-idle-self-test >"$work_dir/fw_dma_status_idle_self_test.json"

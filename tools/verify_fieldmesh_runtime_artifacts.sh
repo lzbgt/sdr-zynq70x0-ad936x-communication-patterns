@@ -138,8 +138,9 @@ verify_variant() {
     rf_tx_disable_out="$(mktemp)"
     rf_common_out="$(mktemp)"
     rf_ctrl_write_out="$(mktemp)"
+    rf_tx_backend_out="$(mktemp)"
     fit_info_out="$(mktemp)"
-    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$uio_ring_strings_out" "$packet_bridge_strings_out" "$tun_bridge_strings_out" "$mac_frame_strings_out" "$gnss_reporter_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$fit_info_out"' RETURN
+    trap 'rm -f "$strings_out" "$camera_stream_strings_out" "$device_iio_strings_out" "$ctl_strings_out" "$daemon_strings_out" "$daemon_init_out" "$swarm_adapter_strings_out" "$tun_gateway_strings_out" "$tun_packetizer_strings_out" "$two_pc_strings_out" "$uio_ring_strings_out" "$packet_bridge_strings_out" "$tun_bridge_strings_out" "$mac_frame_strings_out" "$gnss_reporter_strings_out" "$rf_safe_tune_out" "$rf_tx_enable_out" "$rf_tx_disable_out" "$rf_common_out" "$rf_ctrl_write_out" "$rf_tx_backend_out" "$fit_info_out"' RETURN
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-udp-probe | strings > "$strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-camera-stream-demo | strings > "$camera_stream_strings_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-device-iio-demo | strings > "$device_iio_strings_out"
@@ -160,6 +161,7 @@ verify_variant() {
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-radio-tx-disable | strings > "$rf_tx_disable_out"
     tar -xOf "$rootfs_tar" ./usr/libexec/fieldmesh/fieldmesh-radio-common.sh | strings > "$rf_common_out"
     tar -xOf "$rootfs_tar" ./usr/bin/fieldmesh-ctrl-write | strings > "$rf_ctrl_write_out"
+    tar -xOf "$rootfs_tar" ./usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend | strings > "$rf_tx_backend_out"
     if ! tar -tf "$rootfs_tar" | awk '$0 == "./usr/bin/iperf3" { found = 1 } END { exit found ? 0 : 1 }'; then
         echo "Missing iperf3 in $name rootfs" >&2
         exit 1
@@ -561,6 +563,20 @@ PY
         fieldmesh_radio_tx_disable; do
         if ! grep -qF -- "$token" "$rf_tx_disable_out"; then
             echo "Missing fieldmesh-radio-tx-disable token in $name rootfs: $token" >&2
+            exit 1
+        fi
+    done
+    for token in \
+        fieldmesh_rf_tx_enable_backend \
+        fieldmesh_rf_tx_enable_backend_request \
+        --bounded-tx-enable \
+        --request \
+        fieldmesh-radio-tx-enable \
+        requires_c_rf_guard_action_policy_self_test \
+        starts_rf_tx_when_executed \
+        tx_attenuation_db; do
+        if ! grep -qF -- "$token" "$rf_tx_backend_out"; then
+            echo "Missing fieldmesh-rf-tx-enable-backend token in $name rootfs: $token" >&2
             exit 1
         fi
     done

@@ -63,6 +63,7 @@ required_paths=(
     /usr/bin/fieldmesh-radio-tx-disable
     /usr/bin/fieldmesh-udp-probe
     /usr/libexec/fieldmesh/fieldmesh-radio-common.sh
+    /usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend
     /usr/bin/fw_printenv
     /usr/bin/fw_setenv
     /usr/sbin/flash_erase

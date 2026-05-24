@@ -2493,7 +2493,10 @@ can be invoked as `--bounded-tx-enable --request <json>` only after the
 hardware-write, RF-TX, fixture, attenuation, RX-first, and operator
 confirmation gates are present. The request carries the C RF guard
 action-policy proof, bounded duration, fixture parameters, and rollback command
-contract; the verifier does not touch board RF hardware.
+contract; the verifier builds the compiled C
+`fieldmesh-rf-tx-enable-backend`, runs it under `FIELD_MESH_BACKEND_DRY_RUN=1`,
+and proves it delegates only to the bounded `fieldmesh-radio-tx-enable` path.
+The verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying
