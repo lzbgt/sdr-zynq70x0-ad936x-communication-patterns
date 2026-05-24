@@ -242,6 +242,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_iio_burst_transport_service_loop_proven": (
             run_report.get("native_iio_burst_transport_service_loop_proven") is True
         ),
+        "native_iio_burst_transport_scheduler_proven": (
+            run_report.get("native_iio_burst_transport_scheduler_proven") is True
+        ),
         "iq_recovered_frame_match": recovered_frame_hex == lease["frame_hex"] if args.execute_live_rf else False,
         "sink_ingest": ingest,
         "source_ack": ack,

@@ -5102,15 +5102,19 @@ prove the persistent native worker lifecycle: server-ready output carries
 `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`, each server-owned transfer
 emits a monotonically positive `server_xfer_count`, and native-IP evidence
 rejects reports that only prove one-shot helper execution. The live runner now
-hands the helper a `TRANSPORT_SERVICE_LOOP_RUN request_file=...` request parsed
-by the C transport service-loop boundary; accepted reports must include
+hands the helper a `TRANSPORT_SCHEDULER_DRAIN queue_file=...` request parsed
+by the C transport scheduler boundary; accepted reports must include
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`,
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1`,
+`FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1`,
 `transport_session_start_count > 0`, `transport_worker_request_count > 0`,
 `transport_service_loop_start_count > 0`, `transport_service_loop_run_count > 0`,
+`transport_scheduler_start_count > 0`, `transport_scheduler_drain_count > 0`,
+`transport_scheduler_scheduled_request_count > 0`,
 `python_xfer_field_orchestration=false`, and
-`python_worker_xfer_submission=false`.
+`python_worker_xfer_submission=false`, and
+`python_direct_service_loop_run=false`.
 `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP

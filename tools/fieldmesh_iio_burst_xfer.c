@@ -97,10 +97,14 @@ struct options {
     bool native_transport_worker_mode;
     bool native_transport_session_mode;
     bool native_transport_service_loop_mode;
+    bool native_transport_scheduler_mode;
     unsigned long long transport_session_start_count;
     unsigned long long transport_worker_request_count;
     unsigned long long transport_service_loop_start_count;
     unsigned long long transport_service_loop_run_count;
+    unsigned long long transport_scheduler_start_count;
+    unsigned long long transport_scheduler_drain_count;
+    unsigned long long transport_scheduler_scheduled_request_count;
 };
 
 struct rx_job {
@@ -161,11 +165,15 @@ static int run_native_worker_self_test(void)
            "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
            "\"native_iio_burst_transport_service_loop_supported\":true,"
            "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+           "\"native_iio_burst_transport_scheduler_supported\":true,"
+           "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
            "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
            "\"native_iio_burst_transport_service_loop_event\":\"fieldmesh_iio_burst_transport_service_loop_run\","
+           "\"native_iio_burst_transport_scheduler_event\":\"fieldmesh_iio_burst_transport_scheduler_drain\","
            "\"python_xfer_field_orchestration\":false,"
            "\"python_worker_xfer_submission\":false,"
-           "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\","
+           "\"python_direct_service_loop_run\":false,"
+           "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"libiio_rx_tx_worker\":true,"
            "\"same_process_rx_tx\":true,"
            "\"python_iio_transport\":false,"
@@ -1739,9 +1747,16 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"transport_service_loop_start_count\":%llu,"
             "\"transport_service_loop_run\":%s,"
             "\"transport_service_loop_run_count\":%llu,"
+            "\"native_iio_burst_transport_scheduler\":%s,"
+            "\"native_iio_burst_transport_scheduler_proof\":\"%s\","
+            "\"transport_scheduler_start_count\":%llu,"
+            "\"transport_scheduler_drain\":%s,"
+            "\"transport_scheduler_drain_count\":%llu,"
+            "\"transport_scheduler_scheduled_request_count\":%llu,"
             "\"python_xfer_field_orchestration\":%s,"
             "\"python_worker_xfer_submission\":%s,"
-            "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\","
+            "\"python_direct_service_loop_run\":%s,"
+            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
             "\"libiio_rx_tx_worker\":true,"
             "\"same_process_rx_tx\":true,"
             "\"python_iio_transport\":false,"
@@ -1769,9 +1784,18 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             opt->transport_service_loop_start_count,
             opt->native_transport_service_loop_mode ? "true" : "false",
             opt->transport_service_loop_run_count,
+            opt->native_transport_scheduler_mode ? "true" : "false",
+            opt->native_transport_scheduler_mode ?
+                "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1" : "",
+            opt->transport_scheduler_start_count,
+            opt->native_transport_scheduler_mode ? "true" : "false",
+            opt->transport_scheduler_drain_count,
+            opt->transport_scheduler_scheduled_request_count,
             opt->native_transport_worker_mode ? "false" : "true",
             opt->native_transport_service_loop_mode ? "false" :
                 (opt->native_transport_worker_mode ? "true" : "false"),
+            (opt->native_transport_service_loop_mode &&
+             !opt->native_transport_scheduler_mode) ? "true" : "false",
             tx_bytes, job.bytes_written, rx_bytes, opt->cyclic ? "true" : "false",
             elapsed_ms);
     fflush(json_out);
@@ -1848,6 +1872,56 @@ static int load_worker_request_file(struct options *req, const char *path)
     return 0;
 }
 
+static int load_scheduler_queue_file(const char *path, char **request_file_out)
+{
+    *request_file_out = NULL;
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return -1;
+    }
+    char line[4096];
+    while (fgets(line, sizeof(line), fp)) {
+        line[strcspn(line, "\r\n")] = '\0';
+        if (line[0] == '\0' || line[0] == '#') {
+            continue;
+        }
+        char *eq = strchr(line, '=');
+        if (!eq) {
+            fclose(fp);
+            free(*request_file_out);
+            *request_file_out = NULL;
+            return -1;
+        }
+        *eq = '\0';
+        const char *value = eq + 1;
+        if (strcmp(line, "request_file") == 0) {
+            char *copy = strdup(value);
+            if (!copy) {
+                fclose(fp);
+                free(*request_file_out);
+                *request_file_out = NULL;
+                return -1;
+            }
+            free(*request_file_out);
+            *request_file_out = copy;
+        } else if (strcmp(line, "event") != 0 &&
+                   strcmp(line, "native_iio_burst_transport_scheduler_queue") != 0 &&
+                   strcmp(line, "priority") != 0 &&
+                   strcmp(line, "sequence") != 0) {
+            fclose(fp);
+            free(*request_file_out);
+            *request_file_out = NULL;
+            return -1;
+        }
+    }
+    if (fclose(fp) != 0 || !*request_file_out) {
+        free(*request_file_out);
+        *request_file_out = NULL;
+        return -1;
+    }
+    return 0;
+}
+
 static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                       const struct options *base)
 {
@@ -1857,8 +1931,12 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
     unsigned long long transport_session_start_count = 0;
     unsigned long long transport_service_loop_start_count = 0;
     unsigned long long transport_service_loop_run_count = 0;
+    unsigned long long transport_scheduler_start_count = 0;
+    unsigned long long transport_scheduler_drain_count = 0;
+    unsigned long long transport_scheduler_scheduled_request_count = 0;
     bool transport_session_started = false;
     bool transport_service_loop_started = false;
+    bool transport_scheduler_started = false;
 
     printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true,"
            "\"native_iio_burst_worker\":true,"
@@ -1875,13 +1953,20 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"native_iio_burst_transport_service_loop_supported\":true,"
            "\"native_iio_burst_transport_service_loop\":false,"
            "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+           "\"native_iio_burst_transport_scheduler_supported\":true,"
+           "\"native_iio_burst_transport_scheduler\":false,"
+           "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
            "\"transport_worker_request_count\":0,"
            "\"transport_session_start_count\":0,"
            "\"transport_service_loop_start_count\":0,"
            "\"transport_service_loop_run_count\":0,"
+           "\"transport_scheduler_start_count\":0,"
+           "\"transport_scheduler_drain_count\":0,"
+           "\"transport_scheduler_scheduled_request_count\":0,"
            "\"python_xfer_field_orchestration\":false,"
            "\"python_worker_xfer_submission\":false,"
-           "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\","
+           "\"python_direct_service_loop_run\":false,"
+           "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"server_pid\":%ld,"
            "\"libiio_rx_tx_worker\":true,"
            "\"python_iio_transport\":false}\n",
@@ -1907,7 +1992,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"server_xfer_count\":%llu,"
                    "\"python_xfer_field_orchestration\":false,"
                    "\"python_worker_xfer_submission\":false,"
-                   "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\"}\n",
+                   "\"python_direct_service_loop_run\":false,"
+                   "\"next_boundary\":\"native_transport_worker_autonomous_daemon\"}\n",
                    transport_session_start_count,
                    worker_request_count,
                    transport_service_loop_started ? "true" : "false",
@@ -1932,7 +2018,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"server_xfer_count\":%llu,"
                    "\"python_xfer_field_orchestration\":false,"
                    "\"python_worker_xfer_submission\":false,"
-                   "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\"}\n",
+                   "\"python_direct_service_loop_run\":false,"
+                   "\"next_boundary\":\"native_transport_worker_autonomous_daemon\"}\n",
                    transport_session_started ? "true" : "false",
                    transport_session_start_count,
                    worker_request_count,
@@ -1971,7 +2058,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"server_xfer_count\":%llu,"
                    "\"python_xfer_field_orchestration\":false,"
                    "\"python_worker_xfer_submission\":false,"
-                   "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\"}\n",
+                   "\"python_direct_service_loop_run\":false,"
+                   "\"next_boundary\":\"native_transport_worker_autonomous_daemon\"}\n",
                    transport_session_start_count,
                    worker_request_count,
                    transport_service_loop_start_count,
@@ -1995,13 +2083,75 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"server_xfer_count\":%llu,"
                    "\"python_xfer_field_orchestration\":false,"
                    "\"python_worker_xfer_submission\":false,"
-                   "\"next_boundary\":\"native_transport_worker_autonomous_scheduler\"}\n",
+                   "\"python_direct_service_loop_run\":false,"
+                   "\"next_boundary\":\"native_transport_worker_autonomous_daemon\"}\n",
                    transport_session_started ? "true" : "false",
                    transport_service_loop_started ? "true" : "false",
                    transport_session_start_count,
                    worker_request_count,
                    transport_service_loop_start_count,
                    transport_service_loop_run_count,
+                   xfer_count);
+            fflush(stdout);
+            continue;
+        }
+        if (strcmp(line, "TRANSPORT_SCHEDULER_START") == 0) {
+            if (!transport_service_loop_started) {
+                printf("{\"event\":\"fieldmesh_iio_burst_transport_scheduler_start\",\"ok\":false,"
+                       "\"native_iio_burst_transport_service_loop\":false,"
+                       "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+                       "\"native_iio_burst_transport_scheduler\":false,"
+                       "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
+                       "\"error\":\"transport_service_loop_not_started\"}\n");
+                fflush(stdout);
+                continue;
+            }
+            transport_scheduler_started = true;
+            transport_scheduler_start_count++;
+            printf("{\"event\":\"fieldmesh_iio_burst_transport_scheduler_start\",\"ok\":true,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":true,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"native_iio_burst_transport_service_loop\":true,"
+                   "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+                   "\"native_iio_burst_transport_scheduler\":true,"
+                   "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
+                   "\"transport_scheduler_start_count\":%llu,"
+                   "\"transport_scheduler_drain_count\":%llu,"
+                   "\"transport_scheduler_scheduled_request_count\":%llu,"
+                   "\"server_xfer_count\":%llu,"
+                   "\"python_direct_service_loop_run\":false,"
+                   "\"next_boundary\":\"native_transport_worker_autonomous_daemon\"}\n",
+                   transport_scheduler_start_count,
+                   transport_scheduler_drain_count,
+                   transport_scheduler_scheduled_request_count,
+                   xfer_count);
+            fflush(stdout);
+            continue;
+        }
+        if (strcmp(line, "TRANSPORT_SCHEDULER_STATUS") == 0) {
+            printf("{\"event\":\"fieldmesh_iio_burst_transport_scheduler_status\",\"ok\":true,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":%s,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"native_iio_burst_transport_service_loop\":%s,"
+                   "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+                   "\"native_iio_burst_transport_scheduler\":%s,"
+                   "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
+                   "\"transport_scheduler_start_count\":%llu,"
+                   "\"transport_scheduler_drain_count\":%llu,"
+                   "\"transport_scheduler_scheduled_request_count\":%llu,"
+                   "\"server_xfer_count\":%llu,"
+                   "\"python_direct_service_loop_run\":false,"
+                   "\"next_boundary\":\"native_transport_worker_autonomous_daemon\"}\n",
+                   transport_session_started ? "true" : "false",
+                   transport_service_loop_started ? "true" : "false",
+                   transport_scheduler_started ? "true" : "false",
+                   transport_scheduler_start_count,
+                   transport_scheduler_drain_count,
+                   transport_scheduler_scheduled_request_count,
                    xfer_count);
             fflush(stdout);
             continue;
@@ -2016,32 +2166,42 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
                    "\"native_iio_burst_transport_service_loop\":%s,"
                    "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+                   "\"native_iio_burst_transport_scheduler\":%s,"
+                   "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
                    "\"transport_session_start_count\":%llu,"
                    "\"transport_worker_request_count\":%llu,"
                    "\"transport_service_loop_start_count\":%llu,"
                    "\"transport_service_loop_run_count\":%llu,"
+                   "\"transport_scheduler_start_count\":%llu,"
+                   "\"transport_scheduler_drain_count\":%llu,"
+                   "\"transport_scheduler_scheduled_request_count\":%llu,"
                    "\"server_owned_xfer_loop\":true,"
                    "\"server_xfer_count\":%llu}\n",
                    transport_session_started ? "true" : "false",
                    transport_service_loop_started ? "true" : "false",
+                   transport_scheduler_started ? "true" : "false",
                    transport_session_start_count,
                    worker_request_count,
                    transport_service_loop_start_count,
                    transport_service_loop_run_count,
+                   transport_scheduler_start_count,
+                   transport_scheduler_drain_count,
+                   transport_scheduler_scheduled_request_count,
                    xfer_count);
             fflush(stdout);
             return 0;
         }
         bool worker_xfer = strncmp(line, "WORKER_XFER ", 12) == 0;
         bool service_loop_xfer = strncmp(line, "TRANSPORT_SERVICE_LOOP_RUN ", 27) == 0;
+        bool scheduler_drain = strncmp(line, "TRANSPORT_SCHEDULER_DRAIN ", 26) == 0;
         bool legacy_xfer = strncmp(line, "XFER ", 5) == 0;
-        if (!worker_xfer && !service_loop_xfer && !legacy_xfer) {
+        if (!worker_xfer && !service_loop_xfer && !scheduler_drain && !legacy_xfer) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
-                   "\"error\":\"expected_TRANSPORT_WORKER_or_SERVICE_LOOP_or_WORKER_XFER_or_XFER_or_QUIT\"}\n");
+                   "\"error\":\"expected_TRANSPORT_WORKER_or_SERVICE_LOOP_or_SCHEDULER_or_WORKER_XFER_or_XFER_or_QUIT\"}\n");
             fflush(stdout);
             continue;
         }
-        if ((worker_xfer || service_loop_xfer) && !transport_session_started) {
+        if ((worker_xfer || service_loop_xfer || scheduler_drain) && !transport_session_started) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
                    "\"native_iio_burst_transport_worker\":true,"
                    "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
@@ -2051,7 +2211,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             fflush(stdout);
             continue;
         }
-        if (service_loop_xfer && !transport_service_loop_started) {
+        if ((service_loop_xfer || scheduler_drain) && !transport_service_loop_started) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
                    "\"native_iio_burst_transport_worker\":true,"
                    "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
@@ -2063,6 +2223,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             fflush(stdout);
             continue;
         }
+        if (scheduler_drain && !transport_scheduler_started) {
+            printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_service_loop\":true,"
+                   "\"native_iio_burst_transport_scheduler\":false,"
+                   "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
+                   "\"error\":\"transport_scheduler_not_started\"}\n");
+            fflush(stdout);
+            continue;
+        }
 
         struct options req = *base;
         req.tx_file = NULL;
@@ -2071,38 +2241,55 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         req.rx_samples = 0;
         req.persistent_server_mode = true;
         req.server_xfer_count = xfer_count + 1ULL;
-        req.native_transport_worker_mode = worker_xfer || service_loop_xfer;
+        req.native_transport_worker_mode = worker_xfer || service_loop_xfer || scheduler_drain;
         req.native_transport_session_mode = transport_session_started;
-        req.native_transport_service_loop_mode = service_loop_xfer;
+        req.native_transport_service_loop_mode = service_loop_xfer || scheduler_drain;
+        req.native_transport_scheduler_mode = scheduler_drain;
         req.transport_session_start_count = transport_session_start_count;
-        req.transport_worker_request_count = (worker_xfer || service_loop_xfer) ?
+        req.transport_worker_request_count = (worker_xfer || service_loop_xfer || scheduler_drain) ?
             worker_request_count + 1ULL : 0ULL;
         req.transport_service_loop_start_count = transport_service_loop_start_count;
-        req.transport_service_loop_run_count = service_loop_xfer ?
+        req.transport_service_loop_run_count = (service_loop_xfer || scheduler_drain) ?
             transport_service_loop_run_count + 1ULL : 0ULL;
+        req.transport_scheduler_start_count = transport_scheduler_start_count;
+        req.transport_scheduler_drain_count = scheduler_drain ?
+            transport_scheduler_drain_count + 1ULL : 0ULL;
+        req.transport_scheduler_scheduled_request_count = scheduler_drain ?
+            transport_scheduler_scheduled_request_count + 1ULL : 0ULL;
 
         char *save = NULL;
-        if (worker_xfer || service_loop_xfer) {
+        char *scheduler_request_file = NULL;
+        if (worker_xfer || service_loop_xfer || scheduler_drain) {
             const char *request_file = NULL;
-            char *request_line = worker_xfer ? line + 12 : line + 27;
+            char *request_line = worker_xfer ? line + 12 :
+                (service_loop_xfer ? line + 27 : line + 26);
             for (char *token = strtok_r(request_line, " ", &save);
                  token;
                  token = strtok_r(NULL, " ", &save)) {
-                const char *value = value_after(token, "request_file=");
+                const char *value = value_after(token, scheduler_drain ?
+                                                "queue_file=" : "request_file=");
                 if (value) {
                     request_file = value;
                 }
             }
+            if (scheduler_drain && request_file &&
+                load_scheduler_queue_file(request_file, &scheduler_request_file) == 0) {
+                request_file = scheduler_request_file;
+            }
             if (!request_file || load_worker_request_file(&req, request_file) != 0) {
                 free((char *)req.tx_file);
                 free((char *)req.rx_file);
+                free(scheduler_request_file);
                 printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
                        "\"native_iio_burst_transport_worker\":true,"
                        "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
                        "\"native_iio_burst_transport_service_loop\":%s,"
                        "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+                       "\"native_iio_burst_transport_scheduler\":%s,"
+                       "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
                        "\"error\":\"invalid_transport_request\"}\n",
-                       service_loop_xfer ? "true" : "false");
+                       (service_loop_xfer || scheduler_drain) ? "true" : "false",
+                       scheduler_drain ? "true" : "false");
                 fflush(stdout);
                 continue;
             }
@@ -2132,9 +2319,10 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         }
 
         if (!req.tx_file || !req.rx_file || req.tx_samples == 0 || req.rx_samples == 0) {
-            if (worker_xfer) {
+            if (worker_xfer || service_loop_xfer || scheduler_drain) {
                 free((char *)req.tx_file);
                 free((char *)req.rx_file);
+                free(scheduler_request_file);
             }
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
                    "\"error\":\"missing_XFER_fields\"}\n");
@@ -2145,14 +2333,22 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         if (worker_xfer || service_loop_xfer) {
             worker_request_count++;
         }
-        if (service_loop_xfer) {
+        if (scheduler_drain) {
+            worker_request_count++;
+        }
+        if (service_loop_xfer || scheduler_drain) {
             transport_service_loop_run_count++;
         }
+        if (scheduler_drain) {
+            transport_scheduler_drain_count++;
+            transport_scheduler_scheduled_request_count++;
+        }
         (void)run_xfer(rx_dev, tx_dev, &req, stdout);
-        if (worker_xfer || service_loop_xfer) {
+        if (worker_xfer || service_loop_xfer || scheduler_drain) {
             free((char *)req.tx_file);
             free((char *)req.rx_file);
         }
+        free(scheduler_request_file);
     }
     return 0;
 }
