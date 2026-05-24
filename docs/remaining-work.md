@@ -249,11 +249,12 @@ airtime. A destructive diagnostic run moved the actual 244-byte TCP data
 segments plus `iperf3` result JSON over RF, then failed on a reverse result
 batch decode. The bridge now has a compiled libiio burst helper, so one process
 arms RX and pushes TX instead of launching separate IIO tools for every RF
-batch. Its C modem helpers now cover baseband BPSK and BFSK encode/decode;
-the BFSK decoder uses prefix-accumulator tone detection, and the verifier
-proves both C decoders recover after a CRC-wrong sync candidate followed by a
-good burst, so the failure mode is covered without Python in the modem
-primitive. That helper improved batch latency enough for
+batch. Its C modem helpers now cover baseband BPSK/BFSK encode/decode and
+known-carrier BPSK encode/decode; the BFSK and carrier-BPSK decoders use
+prefix accumulators, and the verifier proves both C decoders recover after a
+CRC-wrong sync candidate followed by a good burst, so the failure mode is
+covered without Python in the modem primitive. That helper improved batch
+latency enough for
 one live run to complete TCP `iperf3` at 1024 bytes over real RF; the next
 failure was a software runner
 bug where the UDP phase reused the same port before the TCP one-shot server
@@ -1171,8 +1172,9 @@ below were later superseded by the current PHY-management two-board gates above:
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
   and defaults to a no-hardware dry-run. Its captured-IQ decode path now tries
   the compiled modem helper first using the IQ smoke report's helper evidence,
-  with Python decode retained as a fallback for nonzero-carrier or impaired
-  captures. The next live-safe step is running that runner on an authorized
+  including known-carrier BPSK captures, with Python decode retained as a
+  fallback for impaired captures outside the C helper's current recovery model.
+  The next live-safe step is running that runner on an authorized
   over-air RF path with
   `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, RF path identity,
   exact operator confirmation, and bounded TX duration, then running AP

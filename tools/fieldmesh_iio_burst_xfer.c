@@ -51,6 +51,7 @@ struct modem_options {
     unsigned int sample_rate_hz;
     double space_hz;
     double mark_hz;
+    double baseband_carrier_hz;
     unsigned int samples_per_symbol;
     unsigned int bit_repeat;
     size_t expected_frame_len;
@@ -65,6 +66,11 @@ struct tone_prefixes {
     double *space_q;
     double *mark_i;
     double *mark_q;
+};
+
+struct bpsk_prefixes {
+    size_t total_samples;
+    double *symbol_i;
 };
 
 struct options {
@@ -106,10 +112,12 @@ static void usage(FILE *stream)
             "[--channel voltage0 --channel voltage1] [--server]\n"
             "       fieldmesh_iio_burst_xfer --bpsk-self-test\n"
             "       fieldmesh_iio_burst_xfer --bpsk-encode --frame-file PATH --iq-file PATH "
-            "[--sample-rate-hz N] [--samples-per-symbol N] [--bit-repeat N]\n"
+            "[--sample-rate-hz N] [--baseband-carrier-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
             "       fieldmesh_iio_burst_xfer --bpsk-decode --iq-file PATH --decoded-file PATH "
             "[--expected-frame-len N] [--expected-frame-crc HEX] "
-            "[--sample-rate-hz N] [--samples-per-symbol N] [--bit-repeat N]\n"
+            "[--sample-rate-hz N] [--baseband-carrier-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
             "       fieldmesh_iio_burst_xfer --bfsk-self-test\n"
             "       fieldmesh_iio_burst_xfer --bfsk-encode --frame-file PATH --iq-file PATH "
             "[--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
@@ -342,13 +350,31 @@ static struct blob bpsk_encode_frame(
     }
 
     size_t out = 0;
+    double carrier_phase = 0.0;
+    double carrier_step = 0.0;
+    if (opt->baseband_carrier_hz != 0.0) {
+        carrier_step = 2.0 * M_PI * opt->baseband_carrier_hz /
+                       (double)opt->sample_rate_hz;
+    }
     for (size_t bit_index = 0; bit_index < source_bits; ++bit_index) {
-        int i_value = bit_at(payload.data, bit_index) ? IQ_AMPLITUDE : -IQ_AMPLITUDE;
+        int symbol_value = bit_at(payload.data, bit_index) ? IQ_AMPLITUDE : -IQ_AMPLITUDE;
         for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
             for (unsigned int sample = 0; sample < opt->samples_per_symbol; ++sample) {
+                int i_value = symbol_value;
+                int q_value = 0;
+                if (opt->baseband_carrier_hz != 0.0) {
+                    q_value = (int)lrint((double)symbol_value * sin(carrier_phase));
+                    i_value = (int)lrint((double)symbol_value * cos(carrier_phase));
+                }
                 put_i16le(iq.data + out, i_value);
-                put_i16le(iq.data + out + 2u, 0);
+                put_i16le(iq.data + out + 2u, q_value);
                 out += 4u;
+                if (opt->baseband_carrier_hz != 0.0) {
+                    carrier_phase += carrier_step;
+                    if (carrier_phase <= -2.0 * M_PI || carrier_phase >= 2.0 * M_PI) {
+                        carrier_phase = fmod(carrier_phase, 2.0 * M_PI);
+                    }
+                }
             }
         }
     }
@@ -365,6 +391,15 @@ static void free_tone_prefixes(struct tone_prefixes *prefixes)
     free(prefixes->space_q);
     free(prefixes->mark_i);
     free(prefixes->mark_q);
+    memset(prefixes, 0, sizeof(*prefixes));
+}
+
+static void free_bpsk_prefixes(struct bpsk_prefixes *prefixes)
+{
+    if (!prefixes) {
+        return;
+    }
+    free(prefixes->symbol_i);
     memset(prefixes, 0, sizeof(*prefixes));
 }
 
@@ -429,6 +464,50 @@ static bool build_tone_prefixes(
     return true;
 }
 
+static bool build_bpsk_prefixes(
+    const unsigned char *iq,
+    size_t iq_len,
+    const struct modem_options *opt,
+    struct bpsk_prefixes *prefixes)
+{
+    if (!iq || !opt || !prefixes || iq_len % 4u != 0u) {
+        return false;
+    }
+    memset(prefixes, 0, sizeof(*prefixes));
+    size_t total_samples = iq_len / 4u;
+    if (total_samples == 0u || total_samples == SIZE_MAX) {
+        return false;
+    }
+    size_t points = total_samples + 1u;
+    prefixes->symbol_i = calloc(points, sizeof(*prefixes->symbol_i));
+    if (!prefixes->symbol_i) {
+        return false;
+    }
+
+    double carrier_step = 0.0;
+    double carrier_phase = 0.0;
+    if (opt->baseband_carrier_hz != 0.0) {
+        carrier_step = -2.0 * M_PI * opt->baseband_carrier_hz /
+                       (double)opt->sample_rate_hz;
+    }
+    prefixes->total_samples = total_samples;
+    for (size_t sample_index = 0; sample_index < total_samples; ++sample_index) {
+        int16_t iv = get_i16le(iq + sample_index * 4u);
+        int16_t qv = get_i16le(iq + sample_index * 4u + 2u);
+        double mixed_i = (double)iv;
+        if (opt->baseband_carrier_hz != 0.0) {
+            mixed_i = (double)iv * cos(carrier_phase) -
+                      (double)qv * sin(carrier_phase);
+        }
+        prefixes->symbol_i[sample_index + 1u] = prefixes->symbol_i[sample_index] + mixed_i;
+        carrier_phase += carrier_step;
+        if (carrier_phase <= -2.0 * M_PI || carrier_phase >= 2.0 * M_PI) {
+            carrier_phase = fmod(carrier_phase, 2.0 * M_PI);
+        }
+    }
+    return true;
+}
+
 static double prefix_tone_energy(const double *prefix_i, const double *prefix_q,
                                  size_t sample_start, unsigned int samples_per_symbol)
 {
@@ -479,17 +558,13 @@ static unsigned char *decode_hard_bits(
 }
 
 static unsigned char *decode_bpsk_hard_bits(
-    const unsigned char *iq,
-    size_t iq_len,
+    const struct bpsk_prefixes *prefixes,
     const struct modem_options *opt,
     unsigned int sample_offset,
     unsigned int chip_phase,
     size_t *out_bits)
 {
-    if (!iq || iq_len % 4u != 0u || sample_offset >= opt->samples_per_symbol) {
-        return NULL;
-    }
-    size_t total_samples = iq_len / 4u;
+    size_t total_samples = prefixes ? prefixes->total_samples : 0u;
     if (total_samples <= sample_offset) {
         return NULL;
     }
@@ -508,10 +583,8 @@ static unsigned char *decode_bpsk_hard_bits(
         for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
             size_t chip = chip_phase + bit_index * opt->bit_repeat + repeat;
             size_t sample_start = sample_offset + chip * opt->samples_per_symbol;
-            long long acc_i = 0;
-            for (unsigned int sample = 0; sample < opt->samples_per_symbol; ++sample) {
-                acc_i += get_i16le(iq + (sample_start + sample) * 4u);
-            }
+            double acc_i = prefixes->symbol_i[sample_start + opt->samples_per_symbol] -
+                           prefixes->symbol_i[sample_start];
             if (acc_i >= 0) {
                 ones++;
             }
@@ -653,10 +726,15 @@ static bool bpsk_decode_frame(
     unsigned int *out_chip_phase,
     size_t *out_bit_start)
 {
+    struct bpsk_prefixes prefixes;
+    if (!build_bpsk_prefixes(iq, iq_len, opt, &prefixes)) {
+        fprintf(stderr, "failed to build BPSK symbol prefixes\n");
+        return false;
+    }
     for (unsigned int sample_offset = 0; sample_offset < opt->samples_per_symbol; ++sample_offset) {
         for (unsigned int chip_phase = 0; chip_phase < opt->bit_repeat; ++chip_phase) {
             size_t bits_len = 0;
-            unsigned char *bits = decode_bpsk_hard_bits(iq, iq_len, opt, sample_offset,
+            unsigned char *bits = decode_bpsk_hard_bits(&prefixes, opt, sample_offset,
                                                         chip_phase, &bits_len);
             if (!bits) {
                 continue;
@@ -674,6 +752,7 @@ static bool bpsk_decode_frame(
                         *out_chip_phase = chip_phase;
                         *out_bit_start = bit_start;
                         free(bits);
+                        free_bpsk_prefixes(&prefixes);
                         return true;
                     }
                 }
@@ -681,6 +760,7 @@ static bool bpsk_decode_frame(
             free(bits);
         }
     }
+    free_bpsk_prefixes(&prefixes);
     return false;
 }
 
@@ -690,6 +770,7 @@ static void modem_defaults(struct modem_options *opt)
     opt->sample_rate_hz = DEFAULT_SAMPLE_RATE_HZ;
     opt->space_hz = DEFAULT_BFSK_SPACE_HZ;
     opt->mark_hz = DEFAULT_BFSK_MARK_HZ;
+    opt->baseband_carrier_hz = 0.0;
     opt->samples_per_symbol = DEFAULT_SAMPLES_PER_SYMBOL;
     opt->bit_repeat = DEFAULT_BIT_REPEAT;
 }
@@ -745,6 +826,8 @@ static void parse_modem_args(int argc, char **argv, struct modem_options *opt)
             opt->space_hz = parse_double_arg(argv[++i], "--space-hz");
         } else if (strcmp(arg, "--mark-hz") == 0 && i + 1 < argc) {
             opt->mark_hz = parse_double_arg(argv[++i], "--mark-hz");
+        } else if (strcmp(arg, "--baseband-carrier-hz") == 0 && i + 1 < argc) {
+            opt->baseband_carrier_hz = parse_double_arg(argv[++i], "--baseband-carrier-hz");
         } else if (strcmp(arg, "--samples-per-symbol") == 0 && i + 1 < argc) {
             opt->samples_per_symbol = parse_u32_arg(argv[++i], "--samples-per-symbol");
         } else if (strcmp(arg, "--bit-repeat") == 0 && i + 1 < argc) {
@@ -782,8 +865,9 @@ static int run_bpsk_encode(int argc, char **argv)
     fprintf(stdout,
             "{\"event\":\"fieldmesh_bpsk_modem_encode\",\"ok\":true,"
             "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"samples_per_symbol\":%u,"
-            "\"bit_repeat\":%u}\n",
-            frame.len, iq.len, opt.samples_per_symbol, opt.bit_repeat);
+            "\"bit_repeat\":%u,\"baseband_carrier_hz\":%.0f}\n",
+            frame.len, iq.len, opt.samples_per_symbol, opt.bit_repeat,
+            opt.baseband_carrier_hz);
     free(iq.data);
     free(frame.data);
     return 0;
@@ -811,10 +895,10 @@ static int run_bpsk_decode(int argc, char **argv)
             "{\"event\":\"fieldmesh_bpsk_modem_decode\",\"ok\":%s,"
             "\"iq_bytes\":%zu,\"frame_bytes\":%zu,\"samples_per_symbol\":%u,"
             "\"bit_repeat\":%u,\"sample_offset\":%u,\"chip_phase\":%u,"
-            "\"bit_start\":%zu}\n",
+            "\"bit_start\":%zu,\"baseband_carrier_hz\":%.0f}\n",
             ok ? "true" : "false", iq.len, ok ? decoded.len : (size_t)0,
             opt.samples_per_symbol, opt.bit_repeat, sample_offset,
-            chip_phase, bit_start);
+            chip_phase, bit_start, opt.baseband_carrier_hz);
     free(decoded.data);
     free(iq.data);
     return ok ? 0 : 1;

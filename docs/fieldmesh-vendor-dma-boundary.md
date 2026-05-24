@@ -782,7 +782,9 @@ sample rate, RF bandwidth, fixture attenuation, and `--conducted-or-shielded`.
 The tool orchestrates a compiled `fieldmesh_iio_burst_xfer` modem helper, which
 wraps a committed FieldMesh frame in a preamble/length/CRC burst, synthesizes
 interleaved int16 BPSK IQ samples, decodes the samples back to the original
-frame, and emits `fieldmesh_iq_burst_smoke.json`. It still reports
+frame, and emits `fieldmesh_iq_burst_smoke.json`. The compiled helper also
+supports known-carrier BPSK so offline smoke and live-run capture checks do not
+fall back to Python solely because a baseband carrier is configured. It still reports
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 This creates the sample-buffer contract for the later live AD936x conducted
 test without touching the board RF path yet.
@@ -857,8 +859,8 @@ RX-first command script, and verifies that the default path remains a dry-run.
 The generated script configures RX PHY first, configures TX PHY second, starts
 `iio_readdev` for RX capture, then runs `iio_writedev` for the TX IQ burst.
 The captured-IQ decode routine now uses the compiled `fieldmesh_iio_burst_xfer`
-modem helper first and falls back to Python only when that helper is not
-applicable to the capture.
+modem helper first, including known-carrier BPSK, and falls back to Python only
+when that helper is not applicable to the capture.
 The default report keeps `executes_commands=false`,
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 A real authorized over-air RF path run requires

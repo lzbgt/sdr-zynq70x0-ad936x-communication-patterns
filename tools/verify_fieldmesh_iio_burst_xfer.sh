@@ -30,6 +30,10 @@ if ! grep -q -- "--bpsk-encode" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BPSK modem contract" >&2
   exit 1
 fi
+if ! grep -q -- "--baseband-carrier-hz" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing C BPSK carrier contract" >&2
+  exit 1
+fi
 
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-self-test \
   >"$work_dir/bpsk_self_test.json"
@@ -73,6 +77,23 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
   --bit-repeat 2 \
   >"$work_dir/bpsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_decoded.bin"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
+  --frame-file "$work_dir/frame.bin" \
+  --iq-file "$work_dir/bpsk_carrier_frame.iq" \
+  --sample-rate-hz 1000000 \
+  --baseband-carrier-hz 125000 \
+  --samples-per-symbol 16 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_carrier_encode.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
+  --iq-file "$work_dir/bpsk_carrier_frame.iq" \
+  --decoded-file "$work_dir/bpsk_carrier_decoded.bin" \
+  --sample-rate-hz 1000000 \
+  --baseband-carrier-hz 125000 \
+  --samples-per-symbol 16 \
+  --bit-repeat 2 \
+  >"$work_dir/bpsk_carrier_decode.json"
+cmp "$work_dir/frame.bin" "$work_dir/bpsk_carrier_decoded.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/frame.iq" \
@@ -176,6 +197,21 @@ if encode.get("frame_bytes") != decode.get("frame_bytes"):
     raise SystemExit(f"C BPSK encode/decode byte counts differ: {encode} {decode}")
 PY
 
+python3 - "$work_dir/bpsk_carrier_encode.json" "$work_dir/bpsk_carrier_decode.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+encode = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+decode = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+if encode.get("event") != "fieldmesh_bpsk_modem_encode" or encode.get("ok") is not True:
+    raise SystemExit(f"C carrier BPSK encode failed: {encode}")
+if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is not True:
+    raise SystemExit(f"C carrier BPSK decode failed: {decode}")
+if encode.get("baseband_carrier_hz") != 125000 or decode.get("baseband_carrier_hz") != 125000:
+    raise SystemExit(f"C carrier BPSK did not report carrier: {encode} {decode}")
+PY
+
 python3 - "$work_dir/bpsk_decode_after_bad_crc.json" <<'PY'
 import json
 import sys
@@ -246,6 +282,7 @@ required = [
     "fieldmesh_bpsk_modem_encode",
     "fieldmesh_bpsk_modem_decode",
     "fieldmesh_bpsk_modem_self_test",
+    "--baseband-carrier-hz",
     "decode_bpsk_hard_bits",
     "fieldmesh_bfsk_modem_encode",
     "fieldmesh_bfsk_modem_decode",

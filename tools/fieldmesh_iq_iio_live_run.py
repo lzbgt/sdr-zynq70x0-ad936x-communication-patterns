@@ -769,8 +769,6 @@ def decode_capture_with_c_helper(
     encoding = smoke_report.get("encoding", {})
     if encoding.get("uses_c_modem_helper") is not True:
         return None
-    if modulation == "bpsk" and int(encoding.get("baseband_carrier_hz", 0)) != 0:
-        return None
     helper_text = encoding.get("modem_helper") or (str(args.burst_helper) if args.burst_helper else None)
     if not helper_text:
         return None
@@ -805,6 +803,8 @@ def decode_capture_with_c_helper(
                 str(int(encoding.get("bfsk_mark_hz", iq_smoke.DEFAULT_BFSK_MARK_HZ))),
             ]
         )
+    elif int(encoding.get("baseband_carrier_hz", 0)) != 0:
+        cmd.extend(["--baseband-carrier-hz", str(int(encoding.get("baseband_carrier_hz", 0)))])
     try:
         decoded = run_json(cmd)
     except SystemExit as exc:

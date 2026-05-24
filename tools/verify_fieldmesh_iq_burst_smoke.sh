@@ -57,6 +57,42 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+carrier_dir="$out_dir/carrier"
+mkdir -p "$carrier_dir"
+"$repo_root/tools/fieldmesh_iq_burst_smoke.py" \
+  --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
+  --out-dir "$carrier_dir" \
+  --center-frequency-hz 2400000000 \
+  --sample-rate-hz 1000000 \
+  --rf-bandwidth-hz 1000000 \
+  --fixture-attenuation-db 60 \
+  --samples-per-symbol 8 \
+  --baseband-carrier-hz 125000 \
+  --conducted-or-shielded \
+  > "$carrier_dir/stdout.json"
+python3 - "$carrier_dir/fieldmesh_iq_burst_smoke.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("ok") is not True:
+    raise SystemExit(f"bad carrier IQ burst report: {report}")
+if report["encoding"].get("uses_c_modem_helper") is not True:
+    raise SystemExit("carrier IQ burst smoke did not use the C modem helper")
+if report["encoding"].get("uses_python_modem") is not False:
+    raise SystemExit("carrier IQ burst smoke must not use Python modem primitives")
+if report["encoding"].get("baseband_carrier_hz") != 125000:
+    raise SystemExit(f"carrier IQ burst report lost carrier metadata: {report}")
+if report["decode"].get("recovered_frame_match") is not True:
+    raise SystemExit(f"carrier IQ burst decode did not recover frame: {report}")
+print(json.dumps({
+    "event": "fieldmesh_iq_burst_smoke_carrier_c_modem_check",
+    "ok": True,
+    "baseband_carrier_hz": report["encoding"]["baseband_carrier_hz"],
+}, sort_keys=True))
+PY
+
 modem_helper="$(cat "$out_dir/modem_helper.txt")"
 python3 - "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$out_dir/bad_frame.bin" "$out_dir/frame_crc.txt" <<'PY'
 import sys

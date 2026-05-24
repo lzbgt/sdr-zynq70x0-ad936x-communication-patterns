@@ -690,7 +690,13 @@ def helper_supports_c_modem(helper: Path) -> bool:
         )
     except (OSError, subprocess.CalledProcessError):
         return False
-    required = ("--bpsk-encode", "--bpsk-decode", "--bfsk-encode", "--bfsk-decode")
+    required = (
+        "--bpsk-encode",
+        "--bpsk-decode",
+        "--bfsk-encode",
+        "--bfsk-decode",
+        "--baseband-carrier-hz",
+    )
     return all(token in completed.stdout for token in required)
 
 
@@ -744,8 +750,6 @@ def resolve_modem_helper(args: argparse.Namespace) -> Path:
 
 
 def run_c_modem_roundtrip(args: argparse.Namespace, frame_crc: int) -> tuple[bytes, bytes, dict[str, Any], dict[str, Any], Path]:
-    if args.modulation == "bpsk" and args.baseband_carrier_hz != 0:
-        raise SystemExit("C BPSK modem helper currently supports baseband carrier 0 only")
     helper = resolve_modem_helper(args)
     iq_path = args.out_dir / "fieldmesh_bpsk_burst_i16le.iq"
     decoded_path = args.out_dir / "fieldmesh_iq_burst_decoded.bin"
@@ -790,6 +794,10 @@ def run_c_modem_roundtrip(args: argparse.Namespace, frame_crc: int) -> tuple[byt
         ]
         encode_cmd.extend(tone_args)
         decode_cmd.extend(tone_args)
+    elif args.baseband_carrier_hz:
+        carrier_args = ["--baseband-carrier-hz", str(args.baseband_carrier_hz)]
+        encode_cmd.extend(carrier_args)
+        decode_cmd.extend(carrier_args)
     encode = run_json(encode_cmd)
     decode = run_json(decode_cmd)
     expected_encode = f"fieldmesh_{args.modulation}_modem_encode"
