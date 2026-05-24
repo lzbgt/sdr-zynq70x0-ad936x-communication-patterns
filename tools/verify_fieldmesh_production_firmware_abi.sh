@@ -100,6 +100,29 @@ EOF_C
 "$cc" -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
   -xc - \
+  -o "$work_dir/fieldmesh-sidecar-addr-header-smoke" <<'EOF_C'
+#include "fieldmesh_sidecar_addr.h"
+
+int main(void) {
+    if (FIELDMESH_SIDECAR_CTRL_BASE != 0x43c00000u ||
+        FIELDMESH_SIDECAR_TX_DMA_BASE != 0x43c10000u ||
+        FIELDMESH_SIDECAR_RX_DMA_BASE != 0x43c20000u ||
+        FIELDMESH_SIDECAR_FIRMWARE_RING_BASE != 0x43c30000u ||
+        FIELDMESH_SIDECAR_WINDOW_SIZE != 0x00010000u) {
+        return 1;
+    }
+    if (!fieldmesh_sidecar_addr_default_map_valid() ||
+        !fieldmesh_sidecar_addr_default_windows_disjoint() ||
+        !fieldmesh_sidecar_addr_window_aligned(FIELDMESH_SIDECAR_CTRL_BASE) ||
+        fieldmesh_sidecar_addr_window_aligned(FIELDMESH_SIDECAR_CTRL_BASE + 4u)) {
+        return 2;
+    }
+    return 0;
+}
+EOF_C
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
+  -xc - \
   -o "$work_dir/fieldmesh-rf-guard-ctrl-header-smoke" <<'EOF_C'
 #include "fieldmesh_rf_guard_ctrl.h"
 
@@ -679,6 +702,29 @@ if missing:
     raise SystemExit(f"missing firmware DMA control header tokens: {missing}")
 PY
 
+python3 - "$repo_root/sdk/c/include/fieldmesh_sidecar_addr.h" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "FIELDMESH_SIDECAR_CTRL_BASE 0x43c00000u",
+    "FIELDMESH_SIDECAR_TX_DMA_BASE 0x43c10000u",
+    "FIELDMESH_SIDECAR_RX_DMA_BASE 0x43c20000u",
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE 0x43c30000u",
+    "FIELDMESH_SIDECAR_WINDOW_SIZE 0x00010000u",
+    "FIELDMESH_SIDECAR_CTRL_NODE",
+    "FIELDMESH_SIDECAR_DMA_COMPAT",
+    "FIELDMESH_SIDECAR_PACKET_COMPAT",
+    "fieldmesh_sidecar_addr_window_aligned",
+    "fieldmesh_sidecar_addr_default_windows_disjoint",
+    "fieldmesh_sidecar_addr_default_map_valid",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing sidecar address header tokens: {missing}")
+PY
+
 python3 - "$repo_root/sdk/c/include/fieldmesh_rf_guard_ctrl.h" <<'PY'
 import sys
 from pathlib import Path
@@ -877,6 +923,7 @@ required = [
     "fieldmesh_firmware_ring.h",
     "fieldmesh_firmware_dma_ctrl.h",
     "fieldmesh_firmware_packet_bridge.h",
+    "fieldmesh_sidecar_addr.h",
     "fieldmesh_firmware_tun_bridge.h",
     "fieldmesh_firmware_abi_probe.c",
     "fieldmesh_firmware_ring_probe.c",

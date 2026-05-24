@@ -22,6 +22,7 @@
 #endif
 
 #include "fieldmesh_rf_guard_ctrl.h"
+#include "fieldmesh_sidecar_addr.h"
 
 #define FIELD_MESH_MAGIC 0x464dU
 #define FIELD_MESH_VERSION 1U
@@ -154,11 +155,11 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
-        "  fieldmesh-udp-probe ctrl-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
-        "  fieldmesh-udp-probe dma-scan [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000] [--dma-size 0x10000] [--dma-mem-file FILE]\n"
-        "  fieldmesh-udp-probe dma-plan --file FRAME.bin [--tx-dma-base 0x43c10000] [--rx-dma-base 0x43c20000]\n"
+        "  fieldmesh-udp-probe ctrl-scan [--ctrl-base " FIELDMESH_SIDECAR_CTRL_BASE_TEXT "] [--ctrl-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--ctrl-mem-file FILE]\n"
+        "  fieldmesh-udp-probe dma-scan [--tx-dma-base " FIELDMESH_SIDECAR_TX_DMA_BASE_TEXT "] [--rx-dma-base " FIELDMESH_SIDECAR_RX_DMA_BASE_TEXT "] [--dma-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--dma-mem-file FILE]\n"
+        "  fieldmesh-udp-probe dma-plan --file FRAME.bin [--tx-dma-base " FIELDMESH_SIDECAR_TX_DMA_BASE_TEXT "] [--rx-dma-base " FIELDMESH_SIDECAR_RX_DMA_BASE_TEXT "]\n"
         "  fieldmesh-udp-probe dma-smoke --file FRAME.bin --preflight-assert FILE --allow-live-writes [--tx-buffer ADDR] [--rx-buffer ADDR] [--rf-guard-late-drop --guard-drain-ms N]\n"
-        "  fieldmesh-udp-probe rf-guard-scan [--ctrl-base 0x43c00000] [--ctrl-size 0x10000] [--ctrl-mem-file FILE]\n"
+        "  fieldmesh-udp-probe rf-guard-scan [--ctrl-base " FIELDMESH_SIDECAR_CTRL_BASE_TEXT "] [--ctrl-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe rf-guard-apply --preflight-assert FILE --allow-live-writes --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board [--slot-epoch N] [--slot-index N] [--arm-window-us N]\n"
         "  fieldmesh-udp-probe rf-source-apply --preflight-assert FILE --allow-live-writes --allow-rf-source-select --conducted-or-shielded --legal-frequency-profile --rx-first --tx-enable-guard --sidecar-preflight-passed --rf-engine-ready --target-is-zynq-board\n"
         "  fieldmesh-udp-probe verify-frame --file FRAME.bin\n");
@@ -202,13 +203,13 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         .file = NULL,
         .dt_root = "/proc/device-tree",
         .ctrl_mem_file = NULL,
-        .ctrl_base = 0x43c00000U,
-        .ctrl_size = 0x10000U,
+        .ctrl_base = FIELDMESH_SIDECAR_CTRL_BASE,
+        .ctrl_size = FIELDMESH_SIDECAR_WINDOW_SIZE,
         .dma_mem_file = NULL,
         .preflight_assert_file = NULL,
-        .tx_dma_base = 0x43c10000U,
-        .rx_dma_base = 0x43c20000U,
-        .dma_size = 0x10000U,
+        .tx_dma_base = FIELDMESH_SIDECAR_TX_DMA_BASE,
+        .rx_dma_base = FIELDMESH_SIDECAR_RX_DMA_BASE,
+        .dma_size = FIELDMESH_SIDECAR_WINDOW_SIZE,
         .tx_buffer = 0x1f000000U,
         .rx_buffer = 0x1f100000U,
         .rf_slot_epoch = 0U,
@@ -2559,11 +2560,21 @@ struct dt_expectation {
 static int run_dt_scan(const struct config *cfg)
 {
     static const struct dt_expectation expectations[] = {
-        {"fieldmesh_ctrl", "fieldmesh-ctrl@43c00000", "fieldmesh,sidecar-ctrl-1.0", 0x43c00000U, 0x10000U, true},
-        {"fieldmesh_tx_dma", "dma@43c10000", "adi,axi-dmac-1.00.a", 0x43c10000U, 0x10000U, true},
-        {"fieldmesh_rx_dma", "dma@43c20000", "adi,axi-dmac-1.00.a", 0x43c20000U, 0x10000U, true},
-        {"fieldmesh_ring", "fieldmesh-ring@43c30000", "fieldmesh,firmware-ring-1.0", 0x43c30000U, 0x10000U, true},
-        {"fieldmesh_packet", "fieldmesh-packet", "fieldmesh,packet-sidecar-1.0", 0U, 0U, false},
+        {"fieldmesh_ctrl", FIELDMESH_SIDECAR_CTRL_NODE,
+         FIELDMESH_SIDECAR_CTRL_COMPAT, FIELDMESH_SIDECAR_CTRL_BASE,
+         FIELDMESH_SIDECAR_WINDOW_SIZE, true},
+        {"fieldmesh_tx_dma", FIELDMESH_SIDECAR_TX_DMA_NODE,
+         FIELDMESH_SIDECAR_DMA_COMPAT, FIELDMESH_SIDECAR_TX_DMA_BASE,
+         FIELDMESH_SIDECAR_WINDOW_SIZE, true},
+        {"fieldmesh_rx_dma", FIELDMESH_SIDECAR_RX_DMA_NODE,
+         FIELDMESH_SIDECAR_DMA_COMPAT, FIELDMESH_SIDECAR_RX_DMA_BASE,
+         FIELDMESH_SIDECAR_WINDOW_SIZE, true},
+        {"fieldmesh_ring", FIELDMESH_SIDECAR_FIRMWARE_RING_NODE,
+         FIELDMESH_SIDECAR_FIRMWARE_RING_COMPAT,
+         FIELDMESH_SIDECAR_FIRMWARE_RING_BASE,
+         FIELDMESH_SIDECAR_WINDOW_SIZE, true},
+        {"fieldmesh_packet", FIELDMESH_SIDECAR_PACKET_NODE,
+         FIELDMESH_SIDECAR_PACKET_COMPAT, 0U, 0U, false},
     };
     bool ok = true;
     printf("{\"event\":\"dt_scan_start\",\"transport\":\"dt-scan\",\"dt_root\":\"%s\"}\n", cfg->dt_root);

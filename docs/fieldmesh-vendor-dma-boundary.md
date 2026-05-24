@@ -270,6 +270,12 @@ The ARM-side register contract lives in
 `sdk/c/include/fieldmesh_firmware_dma_ctrl.h`, so production C code and
 board-control tools share the same offsets, masks, metadata packing, and
 status decode helpers.
+The fixed sidecar address contract lives beside it in
+`sdk/c/include/fieldmesh_sidecar_addr.h`. `fieldmesh-udp-probe` and
+`fieldmesh-ctrl-write` consume that header for the `0x43C00000` control page,
+`0x43C10000` TX packet-DMA page, `0x43C20000` RX packet-DMA page, and
+`0x43C30000` firmware-ring page instead of duplicating those constants in
+board-native C.
 
 Userspace control is intentionally guarded. `fieldmesh-ctrl-write
 --fw-dma-status 0x43c00000` is a read-only status probe and requires

@@ -10,6 +10,7 @@ FIELDMESH_REPO_ROOT = "${@os.path.abspath(os.path.join(d.getVar('THISDIR'), '..'
 SRC_URI = " \
     file://fieldmesh_udp_probe.c \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_rf_guard_ctrl.h \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_sidecar_addr.h \
 "
 
 S = "${WORKDIR}"

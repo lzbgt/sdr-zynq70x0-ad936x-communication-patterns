@@ -12,6 +12,7 @@ SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_ring.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_dma_ctrl.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_rf_guard_ctrl.h;subdir=fieldmesh-sdk/include \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_sidecar_addr.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_packet_bridge.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_tun_bridge.h;subdir=fieldmesh-sdk/include \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/examples/fieldmesh_camera_stream_demo.c;subdir=fieldmesh-sdk/examples \

@@ -1405,7 +1405,10 @@ below were later superseded by the current PHY-management two-board gates above:
   sidecar DMA overlay toward devicetree/userspace/runtime validation, scaling
   descriptor storage, and then binding the path to IIO/PL. The provisional
   sidecar namespace is `0x43C00000` for FieldMesh control, `0x43C10000` for
-  packet TX DMA control, and `0x43C20000` for packet RX DMA control; the
+  packet TX DMA control, `0x43C20000` for packet RX DMA control, and
+  `0x43C30000` for the firmware ring. That map now lives in
+  `sdk/c/include/fieldmesh_sidecar_addr.h` so native C tools and Yocto recipes
+  share one compiled address contract; the
   inventory helper's `--check-sidecar` mode now fails if those windows collide
   with imported Vivado Tcl. `tools/fieldmesh_sidecar_plan.py` now emits the
   checked sidecar plan in JSON, Markdown, or Tcl constants form for the later

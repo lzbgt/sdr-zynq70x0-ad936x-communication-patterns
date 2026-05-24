@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "fieldmesh_firmware_dma_ctrl.h"
+#include "fieldmesh_sidecar_addr.h"
 
 static bool env_is_one(const char *name) {
     const char *value = getenv(name);
@@ -286,7 +287,7 @@ static int print_fw_dma_action_policy_self_test(void) {
            "\"idle_arm_allowed\":%s,"
            "\"idle_stop_write_needed\":%s,"
            "\"reads_hardware\":false,\"writes_hardware\":false}\n",
-           0x43c00000u,
+           FIELDMESH_SIDECAR_CTRL_BASE,
            fieldmesh_fw_dma_status_idle(&active) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(&active) ? "true" : "false",
            active_policy.config_allowed ? "true" : "false",
@@ -322,13 +323,15 @@ int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--fw-dma-status-self-test") == 0) {
         uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
         fieldmesh_fw_dma_status_test_regs_active_faulted(regs);
-        return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
+        return print_fw_dma_status_from_regs(FIELDMESH_SIDECAR_CTRL_BASE,
+                                             regs, false);
     }
 
     if (argc == 2 && strcmp(argv[1], "--fw-dma-status-idle-self-test") == 0) {
         uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
         fieldmesh_fw_dma_status_test_regs_idle(regs);
-        return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
+        return print_fw_dma_status_from_regs(FIELDMESH_SIDECAR_CTRL_BASE,
+                                             regs, false);
     }
 
     if (argc == 2 && strcmp(argv[1], "--fw-dma-action-policy-self-test") == 0) {

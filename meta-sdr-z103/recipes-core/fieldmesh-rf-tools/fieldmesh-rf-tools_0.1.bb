@@ -8,6 +8,7 @@ FIELDMESH_REPO_ROOT = "${@os.path.abspath(os.path.join(d.getVar('THISDIR'), '..'
 SRC_URI = " \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_abi.h \
     file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_dma_ctrl.h \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_sidecar_addr.h \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-common.sh \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-safe-tune \

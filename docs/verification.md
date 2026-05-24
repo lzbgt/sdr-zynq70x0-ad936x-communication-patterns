@@ -2142,6 +2142,7 @@ system_top.xsa  ef9916cab83528fc64de3a5b3f771105385260f86b988c916fdf079ede304e9b
 The FieldMesh sidecar devicetree contract was checked with:
 
 ```sh
+./tools/verify_fieldmesh_sidecar_addr_contract.sh
 ./tools/fieldmesh_devicetree_plan.py \
   --variant z203=src/extracted/plutosdr-fw-2r2t/plutosdr-fw/linux \
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux \
@@ -2159,8 +2160,9 @@ rm -rf "$tmp_dt"
 
 Result: generated Z203 and Z103 FieldMesh DTS files compiled to DTB, decompiled
 checks found the expected sidecar control, packet DMA, and packet client nodes,
-and host `fieldmesh-udp-probe dt-scan` validated a synthetic live devicetree
-layout.
+host `fieldmesh-udp-probe dt-scan` validated a synthetic live devicetree
+layout, and the native C userspace defaults were checked against
+`sdk/c/include/fieldmesh_sidecar_addr.h`.
 
 The GNSS devicetree exposure boundary is checked separately:
 

@@ -9,6 +9,7 @@ from pathlib import Path
 
 repo = Path(sys.argv[1])
 header = (repo / "sdk/c/include/fieldmesh_firmware_dma_ctrl.h").read_text(encoding="utf-8")
+sidecar_addr = (repo / "sdk/c/include/fieldmesh_sidecar_addr.h").read_text(encoding="utf-8")
 ctrl_tool = (repo / "runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c").read_text(encoding="utf-8")
 dma_check = (repo / "tools/check_fieldmesh_dma_overlay_vivado.sh").read_text(encoding="utf-8")
 rf_check = (repo / "tools/check_fieldmesh_rf_engine_overlay_vivado.sh").read_text(encoding="utf-8")
@@ -59,7 +60,16 @@ for forbidden in (
     if forbidden in header:
         raise SystemExit(f"firmware DMA C header must not expose static status data: {forbidden}")
 
+for token in (
+    "FIELDMESH_SIDECAR_CTRL_BASE 0x43c00000u",
+    "FIELDMESH_SIDECAR_WINDOW_SIZE 0x00010000u",
+    "fieldmesh_sidecar_addr_default_map_valid",
+):
+    if token not in sidecar_addr:
+        raise SystemExit(f"sidecar address C header missing contract token: {token}")
+
 required_tool_tokens = [
+    '#include "fieldmesh_sidecar_addr.h"',
     "--fw-dma-status-self-test",
     "--fw-dma-status-idle-self-test",
     "--fw-dma-action-policy-self-test",
@@ -95,6 +105,7 @@ required_tool_tokens = [
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
     "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
+    "FIELDMESH_SIDECAR_CTRL_BASE",
     "descriptor_flags must use mask",
     "reads_hardware\\\":%s",
 ]

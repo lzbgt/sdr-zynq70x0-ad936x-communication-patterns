@@ -177,11 +177,12 @@ for probe in (
     require_tokens(
         probe,
         [
+            '#include "fieldmesh_sidecar_addr.h"',
             '"fieldmesh_ring"',
-            '"fieldmesh-ring@43c30000"',
-            '"fieldmesh,firmware-ring-1.0"',
-            "0x43c30000U",
-            "0x10000U",
+            "FIELDMESH_SIDECAR_FIRMWARE_RING_NODE",
+            "FIELDMESH_SIDECAR_FIRMWARE_RING_COMPAT",
+            "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
+            "FIELDMESH_SIDECAR_WINDOW_SIZE",
         ],
     )
 

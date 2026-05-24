@@ -449,6 +449,11 @@ parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/faul
 counters, egress byte/packet/drop/fault counters, MAC tick/pump counters, split
 BRAM CRC/bounds counters, aggregate BRAM errors, and FPGA-native TX sideband
 defaults for peer index, MCS, retry budget, descriptor flags, and sequence seed.
+The fixed sidecar aperture map itself is owned by
+`sdk/c/include/fieldmesh_sidecar_addr.h`: control at `0x43C00000`, packet TX
+DMA at `0x43C10000`, packet RX DMA at `0x43C20000`, firmware ring at
+`0x43C30000`, each with a `0x10000` window. Native board tools consume that C
+header instead of carrying local register-window constants.
 The ARM-side C contract for this block is
 `sdk/c/include/fieldmesh_firmware_dma_ctrl.h`, which owns the register offsets,
 control/status-bit predicates, sideband packing, and status decode helpers used
