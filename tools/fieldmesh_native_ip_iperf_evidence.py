@@ -87,6 +87,10 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         max_pending = report.get("iio_bridge_source_ack_pipeline_max_pending")
         latency = report.get("iio_bridge_source_ack_latency_ms")
         max_latency = report.get("iio_bridge_source_ack_max_latency_ms")
+        burst_timing = report.get("iio_bridge_rf_burst_timing_ms")
+        burst_max = report.get("iio_bridge_rf_burst_max_elapsed_ms")
+        burst_live_max = report.get("iio_bridge_rf_burst_live_run_max_elapsed_ms")
+        burst_decode_max = report.get("iio_bridge_rf_burst_decode_max_elapsed_ms")
         if report.get("iio_bridge_source_ack_pipeline_active") is not True:
             errors.append(f"{label}: IIO ACK pipeline must be active when depth > 1")
         if report.get("iio_bridge_source_ack_pipeline_exercised") is not True:
@@ -117,6 +121,26 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
             errors.append(f"{label}: IIO ACK latency evidence has no completed ACKs")
         if not isinstance(max_latency, int) or max_latency < 0:
             errors.append(f"{label}: IIO ACK max latency must be >= 0")
+        if not isinstance(burst_timing, dict) or not burst_timing:
+            errors.append(f"{label}: IIO RF burst timing evidence is missing")
+        elif not any(
+            isinstance(item, dict)
+            and isinstance(item.get("batches"), int)
+            and item["batches"] > 0
+            and isinstance(item.get("frames"), int)
+            and item["frames"] > 0
+            and isinstance(item.get("max_elapsed_ms"), int)
+            and item["max_elapsed_ms"] >= 0
+            for item in burst_timing.values()
+        ):
+            errors.append(f"{label}: IIO RF burst timing evidence has no completed batches")
+        for key, value in (
+            ("IIO RF burst max elapsed", burst_max),
+            ("IIO RF burst live-run max elapsed", burst_live_max),
+            ("IIO RF burst decode max elapsed", burst_decode_max),
+        ):
+            if not isinstance(value, int) or value < 0:
+                errors.append(f"{label}: {key} must be >= 0")
     return errors
 
 
@@ -270,6 +294,26 @@ def main() -> int:
         ),
         "host_iio_bridge_source_ack_max_latency_ms": host.get(
             "iio_bridge_source_ack_max_latency_ms"
+        ),
+        "board_iio_bridge_rf_burst_timing_ms": board.get("iio_bridge_rf_burst_timing_ms"),
+        "host_iio_bridge_rf_burst_timing_ms": host.get("iio_bridge_rf_burst_timing_ms"),
+        "board_iio_bridge_rf_burst_max_elapsed_ms": board.get(
+            "iio_bridge_rf_burst_max_elapsed_ms"
+        ),
+        "host_iio_bridge_rf_burst_max_elapsed_ms": host.get(
+            "iio_bridge_rf_burst_max_elapsed_ms"
+        ),
+        "board_iio_bridge_rf_burst_live_run_max_elapsed_ms": board.get(
+            "iio_bridge_rf_burst_live_run_max_elapsed_ms"
+        ),
+        "host_iio_bridge_rf_burst_live_run_max_elapsed_ms": host.get(
+            "iio_bridge_rf_burst_live_run_max_elapsed_ms"
+        ),
+        "board_iio_bridge_rf_burst_decode_max_elapsed_ms": board.get(
+            "iio_bridge_rf_burst_decode_max_elapsed_ms"
+        ),
+        "host_iio_bridge_rf_burst_decode_max_elapsed_ms": host.get(
+            "iio_bridge_rf_burst_decode_max_elapsed_ms"
         ),
         "board_to_board_report": str(board_path),
         "host_pc_report": str(host_path),

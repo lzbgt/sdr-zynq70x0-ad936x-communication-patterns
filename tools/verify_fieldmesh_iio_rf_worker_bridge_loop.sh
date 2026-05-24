@@ -72,6 +72,10 @@ if report.get("source_ack_pipeline_high_water") != {} or report.get("source_ack_
     raise SystemExit(f"dry-run source ACK pipeline evidence must be empty: {report}")
 if report.get("source_ack_latency_ms") != {} or report.get("source_ack_max_latency_ms") != 0:
     raise SystemExit(f"dry-run source ACK latency evidence must be empty: {report}")
+if report.get("rf_burst_timing_ms") != {} or report.get("rf_burst_max_elapsed_ms") != 0:
+    raise SystemExit(f"dry-run RF burst timing evidence must be empty: {report}")
+if report.get("rf_burst_live_run_max_elapsed_ms") != 0 or report.get("rf_burst_decode_max_elapsed_ms") != 0:
+    raise SystemExit(f"dry-run RF burst live/decode timing evidence must be empty: {report}")
 if report.get("source_ack_pipeline_exercised") is not False:
     raise SystemExit(f"dry-run source ACK pipeline must not be exercised: {report}")
 if report.get("batch_byte_limit") != 0:
@@ -286,6 +290,35 @@ try:
     if not isinstance(pipeline_acker.max_latency_ms(), int) or pipeline_acker.max_latency_ms() < 0:
         raise SystemExit("source ACK pipeline max latency evidence is wrong")
     pipeline_acker.wait_all()
+
+    burst_timing = {}
+    loop.record_timing_stat(
+        burst_timing,
+        "z103-to-z203",
+        {
+            "frames": 2,
+            "elapsed_ms": 120,
+            "live_run_elapsed_ms": 90,
+            "decode_elapsed_ms": 12,
+        },
+    )
+    loop.record_timing_stat(
+        burst_timing,
+        "z103-to-z203",
+        {
+            "frames": 1,
+            "elapsed_ms": 60,
+            "live_run_elapsed_ms": 45,
+            "decode_elapsed_ms": 6,
+        },
+    )
+    burst_summary = loop.timing_summary(burst_timing).get("z103-to-z203")
+    if not burst_summary or burst_summary.get("batches") != 2 or burst_summary.get("frames") != 3:
+        raise SystemExit(f"RF burst timing summary is wrong: {burst_summary}")
+    if burst_summary.get("avg_elapsed_ms") != 90 or burst_summary.get("max_live_run_elapsed_ms") != 90:
+        raise SystemExit(f"RF burst timing aggregate is wrong: {burst_summary}")
+    if loop.timing_max(burst_timing, "max_elapsed_ms") != 120:
+        raise SystemExit(f"RF burst timing max is wrong: {burst_summary}")
 finally:
     loop.ack_batch_to_daemon_reliable = original_ack
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_async_ack_check", "ok": True}, sort_keys=True))
@@ -404,6 +437,10 @@ required = [
     '"iio_bridge_source_ack_pipeline_max_pending"',
     '"iio_bridge_source_ack_latency_ms"',
     '"iio_bridge_source_ack_max_latency_ms"',
+    '"iio_bridge_rf_burst_timing_ms"',
+    '"iio_bridge_rf_burst_max_elapsed_ms"',
+    '"iio_bridge_rf_burst_live_run_max_elapsed_ms"',
+    '"iio_bridge_rf_burst_decode_max_elapsed_ms"',
     '"iio_bridge_source_ack_pipeline_exercised"',
     'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"',
     'rf_bit_repeat="${RF_BIT_REPEAT:-2}"',

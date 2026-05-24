@@ -24,6 +24,10 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_max_pending": 2,
   "iio_bridge_source_ack_latency_ms": {"z203-to-z103": {"completed": 4, "total_elapsed_ms": 80, "max_elapsed_ms": 30, "last_elapsed_ms": 20, "avg_elapsed_ms": 20}},
   "iio_bridge_source_ack_max_latency_ms": 30,
+  "iio_bridge_rf_burst_timing_ms": {"z203-to-z103": {"batches": 3, "frames": 6, "total_elapsed_ms": 600, "max_elapsed_ms": 240, "last_elapsed_ms": 180, "avg_elapsed_ms": 200, "total_live_run_elapsed_ms": 450, "max_live_run_elapsed_ms": 180, "last_live_run_elapsed_ms": 120, "avg_live_run_elapsed_ms": 150, "total_decode_elapsed_ms": 36, "max_decode_elapsed_ms": 16, "last_decode_elapsed_ms": 8, "avg_decode_elapsed_ms": 12}},
+  "iio_bridge_rf_burst_max_elapsed_ms": 240,
+  "iio_bridge_rf_burst_live_run_max_elapsed_ms": 180,
+  "iio_bridge_rf_burst_decode_max_elapsed_ms": 16,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
@@ -62,6 +66,10 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_max_pending": 2,
   "iio_bridge_source_ack_latency_ms": {"z103-to-z203": {"completed": 3, "total_elapsed_ms": 75, "max_elapsed_ms": 35, "last_elapsed_ms": 15, "avg_elapsed_ms": 25}},
   "iio_bridge_source_ack_max_latency_ms": 35,
+  "iio_bridge_rf_burst_timing_ms": {"z103-to-z203": {"batches": 2, "frames": 4, "total_elapsed_ms": 500, "max_elapsed_ms": 280, "last_elapsed_ms": 220, "avg_elapsed_ms": 250, "total_live_run_elapsed_ms": 380, "max_live_run_elapsed_ms": 200, "last_live_run_elapsed_ms": 180, "avg_live_run_elapsed_ms": 190, "total_decode_elapsed_ms": 30, "max_decode_elapsed_ms": 18, "last_decode_elapsed_ms": 12, "avg_decode_elapsed_ms": 15}},
+  "iio_bridge_rf_burst_max_elapsed_ms": 280,
+  "iio_bridge_rf_burst_live_run_max_elapsed_ms": 200,
+  "iio_bridge_rf_burst_decode_max_elapsed_ms": 18,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
@@ -124,6 +132,10 @@ if report.get("board_iio_bridge_source_ack_max_latency_ms") != 30:
     raise SystemExit(f"classifier lost board ACK latency evidence: {report!r}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
     raise SystemExit(f"classifier lost host ACK latency evidence: {report!r}")
+if report.get("board_iio_bridge_rf_burst_max_elapsed_ms") != 240:
+    raise SystemExit(f"classifier lost board RF burst timing evidence: {report!r}")
+if report.get("host_iio_bridge_rf_burst_live_run_max_elapsed_ms") != 200:
+    raise SystemExit(f"classifier lost host RF burst live-run timing evidence: {report!r}")
 PY
 
 "$repo_root/tools/fieldmesh_app_real_rf_report.py" \
@@ -149,6 +161,8 @@ if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost ACK pipeline requirement: {report!r}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
     raise SystemExit(f"normalized native-IP evidence lost ACK latency evidence: {report!r}")
+if report.get("host_iio_bridge_rf_burst_max_elapsed_ms") != 280:
+    raise SystemExit(f"normalized native-IP evidence lost RF burst timing evidence: {report!r}")
 PY
 
 python3 - "$work_dir/board-real-rf.json" "$work_dir/board-unexercised-pipeline.json" <<'PY'
@@ -185,6 +199,29 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --host-pc-report "$work_dir/host-missing-ack-latency.json" \
   >"$work_dir/missing-ack-latency-rejected.out" 2>"$work_dir/missing-ack-latency-rejected.err"; then
   echo "iperf evidence classifier accepted missing IIO ACK latency evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-missing-rf-burst-timing.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for key in (
+    "iio_bridge_rf_burst_timing_ms",
+    "iio_bridge_rf_burst_max_elapsed_ms",
+    "iio_bridge_rf_burst_live_run_max_elapsed_ms",
+    "iio_bridge_rf_burst_decode_max_elapsed_ms",
+):
+    report.pop(key, None)
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-missing-rf-burst-timing.json" \
+  >"$work_dir/missing-rf-burst-timing-rejected.out" 2>"$work_dir/missing-rf-burst-timing-rejected.err"; then
+  echo "iperf evidence classifier accepted missing IIO RF burst timing evidence" >&2
   exit 1
 fi
 

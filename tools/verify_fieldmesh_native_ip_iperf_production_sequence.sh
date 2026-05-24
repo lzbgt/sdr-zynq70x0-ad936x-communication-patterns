@@ -25,6 +25,10 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_max_pending": 2,
   "iio_bridge_source_ack_latency_ms": {"z203-to-z103": {"completed": 4, "total_elapsed_ms": 80, "max_elapsed_ms": 30, "last_elapsed_ms": 20, "avg_elapsed_ms": 20}},
   "iio_bridge_source_ack_max_latency_ms": 30,
+  "iio_bridge_rf_burst_timing_ms": {"z203-to-z103": {"batches": 3, "frames": 6, "total_elapsed_ms": 600, "max_elapsed_ms": 240, "last_elapsed_ms": 180, "avg_elapsed_ms": 200, "total_live_run_elapsed_ms": 450, "max_live_run_elapsed_ms": 180, "last_live_run_elapsed_ms": 120, "avg_live_run_elapsed_ms": 150, "total_decode_elapsed_ms": 36, "max_decode_elapsed_ms": 16, "last_decode_elapsed_ms": 8, "avg_decode_elapsed_ms": 12}},
+  "iio_bridge_rf_burst_max_elapsed_ms": 240,
+  "iio_bridge_rf_burst_live_run_max_elapsed_ms": 180,
+  "iio_bridge_rf_burst_decode_max_elapsed_ms": 16,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
@@ -63,6 +67,10 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_source_ack_pipeline_max_pending": 2,
   "iio_bridge_source_ack_latency_ms": {"z103-to-z203": {"completed": 3, "total_elapsed_ms": 75, "max_elapsed_ms": 35, "last_elapsed_ms": 15, "avg_elapsed_ms": 25}},
   "iio_bridge_source_ack_max_latency_ms": 35,
+  "iio_bridge_rf_burst_timing_ms": {"z103-to-z203": {"batches": 2, "frames": 4, "total_elapsed_ms": 500, "max_elapsed_ms": 280, "last_elapsed_ms": 220, "avg_elapsed_ms": 250, "total_live_run_elapsed_ms": 380, "max_live_run_elapsed_ms": 200, "last_live_run_elapsed_ms": 180, "avg_live_run_elapsed_ms": 190, "total_decode_elapsed_ms": 30, "max_decode_elapsed_ms": 18, "last_decode_elapsed_ms": 12, "avg_decode_elapsed_ms": 15}},
+  "iio_bridge_rf_burst_max_elapsed_ms": 280,
+  "iio_bridge_rf_burst_live_run_max_elapsed_ms": 200,
+  "iio_bridge_rf_burst_decode_max_elapsed_ms": 18,
   "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
@@ -127,6 +135,10 @@ if report.get("board_iio_bridge_source_ack_max_latency_ms") != 30:
     raise SystemExit(f"missing board ACK latency proof: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
     raise SystemExit(f"missing host ACK latency proof: {report}")
+if report.get("board_iio_bridge_rf_burst_max_elapsed_ms") != 240:
+    raise SystemExit(f"missing board RF burst timing proof: {report}")
+if report.get("host_iio_bridge_rf_burst_live_run_max_elapsed_ms") != 200:
+    raise SystemExit(f"missing host RF burst live-run timing proof: {report}")
 print(json.dumps({
     "event": "fieldmesh_native_ip_iperf_production_sequence_check",
     "ok": True,
@@ -151,6 +163,8 @@ if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost ACK pipeline requirement: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
     raise SystemExit(f"native-IP readiness lost ACK latency proof: {report}")
+if report.get("host_iio_bridge_rf_burst_max_elapsed_ms") != 280:
+    raise SystemExit(f"native-IP readiness lost RF burst timing proof: {report}")
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \

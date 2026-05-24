@@ -481,6 +481,69 @@ def encode_batch(frames: list[bytes]) -> bytes:
     return bytes(out)
 
 
+def record_timing_stat(
+    stats_by_direction: dict[str, dict[str, int]],
+    direction_name: str,
+    report: dict[str, Any],
+) -> None:
+    stats = stats_by_direction.setdefault(
+        direction_name,
+        {
+            "batches": 0,
+            "frames": 0,
+            "total_elapsed_ms": 0,
+            "max_elapsed_ms": 0,
+            "last_elapsed_ms": 0,
+            "total_live_run_elapsed_ms": 0,
+            "max_live_run_elapsed_ms": 0,
+            "last_live_run_elapsed_ms": 0,
+            "total_decode_elapsed_ms": 0,
+            "max_decode_elapsed_ms": 0,
+            "last_decode_elapsed_ms": 0,
+        },
+    )
+    elapsed_ms = max(0, int(report.get("elapsed_ms") or 0))
+    live_run_elapsed_ms = max(0, int(report.get("live_run_elapsed_ms") or 0))
+    decode_elapsed_ms = max(0, int(report.get("decode_elapsed_ms") or 0))
+    frames = max(0, int(report.get("frames") or 0))
+    stats["batches"] += 1
+    stats["frames"] += frames
+    stats["total_elapsed_ms"] += elapsed_ms
+    stats["max_elapsed_ms"] = max(stats["max_elapsed_ms"], elapsed_ms)
+    stats["last_elapsed_ms"] = elapsed_ms
+    stats["total_live_run_elapsed_ms"] += live_run_elapsed_ms
+    stats["max_live_run_elapsed_ms"] = max(stats["max_live_run_elapsed_ms"], live_run_elapsed_ms)
+    stats["last_live_run_elapsed_ms"] = live_run_elapsed_ms
+    stats["total_decode_elapsed_ms"] += decode_elapsed_ms
+    stats["max_decode_elapsed_ms"] = max(stats["max_decode_elapsed_ms"], decode_elapsed_ms)
+    stats["last_decode_elapsed_ms"] = decode_elapsed_ms
+
+
+def timing_summary(stats_by_direction: dict[str, dict[str, int]]) -> dict[str, dict[str, int]]:
+    summary: dict[str, dict[str, int]] = {}
+    for direction_name, stats in sorted(stats_by_direction.items()):
+        batches = stats.get("batches", 0)
+        summary[direction_name] = {
+            **stats,
+            "avg_elapsed_ms": int(stats.get("total_elapsed_ms", 0) / batches) if batches else 0,
+            "avg_live_run_elapsed_ms": (
+                int(stats.get("total_live_run_elapsed_ms", 0) / batches)
+                if batches
+                else 0
+            ),
+            "avg_decode_elapsed_ms": (
+                int(stats.get("total_decode_elapsed_ms", 0) / batches)
+                if batches
+                else 0
+            ),
+        }
+    return summary
+
+
+def timing_max(stats_by_direction: dict[str, dict[str, int]], key: str) -> int:
+    return max((stats.get(key, 0) for stats in stats_by_direction.values()), default=0)
+
+
 def decode_batch(payload: bytes) -> list[bytes]:
     if not payload.startswith(BATCH_MAGIC):
         raise SystemExit("recovered batch is missing FMBATCH1 magic")
@@ -1021,6 +1084,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "stop_requests": 0,
     }
     frames: list[dict[str, Any]] = []
+    rf_burst_timing_ms: dict[str, dict[str, int]] = {}
     next_index = 0
     direction_capture_periods = {direction["name"]: args.cyclic_capture_periods for direction in directions}
     async_acker = AsyncSourceAcker(
@@ -1086,6 +1150,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "source_ack_pipeline_max_pending": async_acker.max_pending_count(),
             "source_ack_latency_ms": async_acker.latency_summary(),
             "source_ack_max_latency_ms": async_acker.max_latency_ms(),
+            "rf_burst_timing_ms": timing_summary(rf_burst_timing_ms),
+            "rf_burst_max_elapsed_ms": timing_max(rf_burst_timing_ms, "max_elapsed_ms"),
+            "rf_burst_live_run_max_elapsed_ms": timing_max(
+                rf_burst_timing_ms,
+                "max_live_run_elapsed_ms",
+            ),
+            "rf_burst_decode_max_elapsed_ms": timing_max(
+                rf_burst_timing_ms,
+                "max_decode_elapsed_ms",
+            ),
             "source_ack_pipeline_exercised": bool(
                 args.execute_live_rf
                 and args.async_source_ack
@@ -1242,6 +1316,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             cyclic_capture_periods=direction_capture_periods[direction["name"]],
                             defer_source_ack=False,
                         )
+                        record_timing_stat(rf_burst_timing_ms, direction["name"], report)
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
                             int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
@@ -1335,6 +1410,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             cyclic_capture_periods=direction_capture_periods[direction["name"]],
                             defer_source_ack=bool(args.async_source_ack and args.execute_live_rf),
                         )
+                        record_timing_stat(rf_burst_timing_ms, direction["name"], report)
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
                             int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),

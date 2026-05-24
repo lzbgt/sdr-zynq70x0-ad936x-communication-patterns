@@ -694,6 +694,53 @@ if loop_path.is_file():
 batches = []
 z203_to_z103 = 0
 z103_to_z203 = 0
+timing = {}
+
+def record_timing(direction, batch):
+    stats = timing.setdefault(direction, {
+        "batches": 0,
+        "frames": 0,
+        "total_elapsed_ms": 0,
+        "max_elapsed_ms": 0,
+        "last_elapsed_ms": 0,
+        "total_live_run_elapsed_ms": 0,
+        "max_live_run_elapsed_ms": 0,
+        "last_live_run_elapsed_ms": 0,
+        "total_decode_elapsed_ms": 0,
+        "max_decode_elapsed_ms": 0,
+        "last_decode_elapsed_ms": 0,
+    })
+    elapsed = max(0, int(batch.get("elapsed_ms") or 0))
+    live_run = max(0, int(batch.get("live_run_elapsed_ms") or 0))
+    decode = max(0, int(batch.get("decode_elapsed_ms") or 0))
+    frames = max(0, int(batch.get("frames") or 0))
+    stats["batches"] += 1
+    stats["frames"] += frames
+    stats["total_elapsed_ms"] += elapsed
+    stats["max_elapsed_ms"] = max(stats["max_elapsed_ms"], elapsed)
+    stats["last_elapsed_ms"] = elapsed
+    stats["total_live_run_elapsed_ms"] += live_run
+    stats["max_live_run_elapsed_ms"] = max(stats["max_live_run_elapsed_ms"], live_run)
+    stats["last_live_run_elapsed_ms"] = live_run
+    stats["total_decode_elapsed_ms"] += decode
+    stats["max_decode_elapsed_ms"] = max(stats["max_decode_elapsed_ms"], decode)
+    stats["last_decode_elapsed_ms"] = decode
+
+def timing_summary():
+    summary = {}
+    for direction, stats in sorted(timing.items()):
+        batches = stats.get("batches", 0)
+        summary[direction] = {
+            **stats,
+            "avg_elapsed_ms": int(stats.get("total_elapsed_ms", 0) / batches) if batches else 0,
+            "avg_live_run_elapsed_ms": int(stats.get("total_live_run_elapsed_ms", 0) / batches) if batches else 0,
+            "avg_decode_elapsed_ms": int(stats.get("total_decode_elapsed_ms", 0) / batches) if batches else 0,
+        }
+    return summary
+
+def timing_max(key):
+    return max((stats.get(key, 0) for stats in timing.values()), default=0)
+
 pattern = re.compile(r"batch-(\d+)-(z203-to-z103|z103-to-z203)$")
 for path in sorted(loop_dir.glob("batch-*/fieldmesh_iio_rf_worker_bridge_batch.json")):
     try:
@@ -719,6 +766,7 @@ for path in sorted(loop_dir.glob("batch-*/fieldmesh_iio_rf_worker_bridge_batch.j
         z103_to_z203 += frames
     else:
         continue
+    record_timing(direction, batch)
     batches.append({
         "direction": direction,
         "report": str(path),
@@ -744,6 +792,10 @@ if batch_moved > reported_moved:
     report["z103_to_z203"] = z103_to_z203
     report["batches_moved"] = len(batches)
     report["frames"] = batches
+    report["rf_burst_timing_ms"] = timing_summary()
+    report["rf_burst_max_elapsed_ms"] = timing_max("max_elapsed_ms")
+    report["rf_burst_live_run_max_elapsed_ms"] = timing_max("max_live_run_elapsed_ms")
+    report["rf_burst_decode_max_elapsed_ms"] = timing_max("max_decode_elapsed_ms")
     report["recovered_from_batch_reports"] = True
     report["rf_phy_tx_rx_verified"] = bool(z203_to_z103 > 0 and z103_to_z203 > 0)
     if report["rf_phy_tx_rx_verified"] and report.get("production_blocker") == "measured_rf_phy_tx_rx_not_verified":
@@ -2385,6 +2437,18 @@ report = {
     ),
     "iio_bridge_source_ack_max_latency_ms": int(
         last_iio_bridge.get("source_ack_max_latency_ms") or 0
+    ),
+    "iio_bridge_rf_burst_timing_ms": (
+        last_iio_bridge.get("rf_burst_timing_ms") or {}
+    ),
+    "iio_bridge_rf_burst_max_elapsed_ms": int(
+        last_iio_bridge.get("rf_burst_max_elapsed_ms") or 0
+    ),
+    "iio_bridge_rf_burst_live_run_max_elapsed_ms": int(
+        last_iio_bridge.get("rf_burst_live_run_max_elapsed_ms") or 0
+    ),
+    "iio_bridge_rf_burst_decode_max_elapsed_ms": int(
+        last_iio_bridge.get("rf_burst_decode_max_elapsed_ms") or 0
     ),
     "iio_bridge_source_ack_pipeline_exercised": bool(
         last_iio_bridge.get("source_ack_pipeline_exercised")

@@ -114,6 +114,14 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_source_ack_latency_ms",
         "board_iio_bridge_source_ack_max_latency_ms",
         "host_iio_bridge_source_ack_max_latency_ms",
+        "board_iio_bridge_rf_burst_timing_ms",
+        "host_iio_bridge_rf_burst_timing_ms",
+        "board_iio_bridge_rf_burst_max_elapsed_ms",
+        "host_iio_bridge_rf_burst_max_elapsed_ms",
+        "board_iio_bridge_rf_burst_live_run_max_elapsed_ms",
+        "host_iio_bridge_rf_burst_live_run_max_elapsed_ms",
+        "board_iio_bridge_rf_burst_decode_max_elapsed_ms",
+        "host_iio_bridge_rf_burst_decode_max_elapsed_ms",
     ):
         if key in source:
             details[key] = source[key]
