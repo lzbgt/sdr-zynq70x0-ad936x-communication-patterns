@@ -88,6 +88,7 @@ EXPECTED_FW_DMA_STATUS_KEYS = {
     "stop_needed",
     "ready_for_arm",
     "config_allowed",
+    "latency_budget_allowed",
     "arm_allowed",
     "stop_write_needed",
     "peer_index",
@@ -245,6 +246,7 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
                 "tx_parser_fault", "ingress_fault", "egress_fault",
                 "fault_free", "drop_counters_clear", "idle",
                 "stop_needed", "ready_for_arm", "config_allowed",
+                "latency_budget_allowed",
                 "arm_allowed", "stop_write_needed"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{path}: firmware-DMA {key} must be a boolean: {row}")

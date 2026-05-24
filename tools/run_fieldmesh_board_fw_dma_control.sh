@@ -206,8 +206,8 @@ with open(sys.argv[1], encoding="utf-8") as f:
     row = json.load(f)
 if row.get("event") != "fieldmesh_fw_dma_status" or row.get("ok") is not True:
     raise SystemExit(f"firmware-DMA pre-latency-budget status failed: {row}")
-if row.get("config_allowed") is not True:
-    raise SystemExit("firmware-DMA pre-latency-budget status is not config_allowed")
+if row.get("latency_budget_allowed") is not True:
+    raise SystemExit("firmware-DMA pre-latency-budget status is not latency_budget_allowed")
 PY
   then
     latency_budget_guard_blocked=1
@@ -262,7 +262,7 @@ JSON
   latency-budget)
     if [[ "$latency_budget_guard_blocked" == "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
-{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before latency-budget is not config_allowed; set FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1 only after reviewing status_before","writes_hardware":false}
+{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before latency-budget is not latency_budget_allowed; set FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1 only after reviewing status_before","writes_hardware":false}
 JSON
     elif [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
@@ -367,7 +367,7 @@ for label, row in (("before", before), ("after", after)):
                 "drained_empty", "budget_exhausted", "service_accepted",
                 "tx_parser_fault", "ingress_fault", "egress_fault",
                 "fault_free", "drop_counters_clear", "idle", "stop_needed",
-                "ready_for_arm", "config_allowed", "arm_allowed",
+                "ready_for_arm", "config_allowed", "latency_budget_allowed", "arm_allowed",
                 "stop_write_needed"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
@@ -442,7 +442,7 @@ print(json.dumps(summary, sort_keys=True))
 if config_guard_blocked:
     raise SystemExit("firmware-DMA config refused because status_before.config_allowed is false")
 if latency_budget_guard_blocked:
-    raise SystemExit("firmware-DMA latency-budget refused because status_before.config_allowed is false")
+    raise SystemExit("firmware-DMA latency-budget refused because status_before.latency_budget_allowed is false")
 if arm_guard_blocked:
     raise SystemExit("firmware-DMA arm refused because status_before.arm_allowed is false")
 PY

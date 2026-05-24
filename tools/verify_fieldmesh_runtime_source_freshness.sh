@@ -28,6 +28,7 @@ idle
 stop_needed
 ready_for_arm
 config_allowed
+latency_budget_allowed
 arm_allowed
 stop_write_needed
 service_latency_last_cycles
@@ -126,7 +127,7 @@ for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
               "--fw-dma-stop-if-active", "--fw-dma-status-idle-self-test",
               "--fw-dma-action-policy-self-test",
               "firmware_dma_not_ready_for_arm", "config_allowed",
-              "arm_allowed", "stop_write_needed",
+              "latency_budget_allowed", "arm_allowed", "stop_write_needed",
               "service_latency_last_cycles", "service_latency_max_cycles",
               "service_latency_accum_cycles", "service_latency_budget_cycles",
               "service_latency_over_budget_count", "service_latency_budget_ok"):

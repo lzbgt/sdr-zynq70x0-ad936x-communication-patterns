@@ -22,6 +22,7 @@ required = [
     "drop_counters_clear",
     "idle",
     "config_allowed",
+    "latency_budget_allowed",
     "arm_allowed",
     "stop_write_needed",
     "ready_for_arm",
@@ -44,8 +45,9 @@ required = [
     "arm_guard_blocked",
     "firmware-DMA status before config is not config_allowed",
     "status_before.config_allowed",
-    "firmware-DMA status before latency-budget is not config_allowed",
-    "firmware-DMA latency-budget refused because status_before.config_allowed is false",
+    "firmware-DMA status before latency-budget is not latency_budget_allowed",
+    "status_before.latency_budget_allowed",
+    "firmware-DMA latency-budget refused because status_before.latency_budget_allowed is false",
     "firmware-DMA status before arm is not arm_allowed",
     "status_before.arm_allowed",
     "--fw-dma-config-if-idle",
@@ -83,9 +85,10 @@ idle_check = script.index("config_allowed")
 config_guard = script.index("config_guard_blocked")
 if idle_check > config_write or config_guard > config_write:
     raise SystemExit("firmware-DMA config must be gated by config_allowed before the write command")
+latency_policy_check = script.index("latency_budget_allowed")
 latency_guard = script.index("latency_budget_guard_blocked")
-if idle_check > latency_budget_write or latency_guard > latency_budget_write:
-    raise SystemExit("firmware-DMA latency-budget must be gated by config_allowed before the write command")
+if latency_policy_check > latency_budget_write or latency_guard > latency_budget_write:
+    raise SystemExit("firmware-DMA latency-budget must be gated by latency_budget_allowed before the write command")
 PY
 
 printf 'fieldmesh_board_fw_dma_control=pass\n'

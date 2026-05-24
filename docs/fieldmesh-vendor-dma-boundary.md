@@ -312,8 +312,8 @@ captures status before and after, defaults to status-only, and only forwards
 config/latency-budget/arm/stop writes when
 `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
 Config writes also require pre-config `config_allowed=true` unless
-`FORCE_FIRMWARE_DMA_CONFIG=1` is set, latency-budget writes require the same
-C-decoded `config_allowed=true` policy unless
+`FORCE_FIRMWARE_DMA_CONFIG=1` is set, latency-budget writes require the
+C-decoded `latency_budget_allowed=true` policy unless
 `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1` is set, and arm writes require pre-arm
 `arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate
 diagnostic override. Stop uses `--fw-dma-stop-if-active` by default and skips
@@ -555,9 +555,10 @@ resulting `preflight_assert.json` confirms the status read is non-mutating and
 contains the C-derived firmware-DMA health and action-policy booleans before
 any `--fw-dma-arm` or DMA smoke step is allowed.
 The board firmware-DMA wrapper separately checks `fw_dma_status_before.json`
-and refuses `ACTION=config` while `config_allowed=false` or `ACTION=arm` while
-`arm_allowed=false`, preventing metadata races and accidental arming from a busy
-or faulted endpoint.
+and refuses `ACTION=config` while `config_allowed=false`,
+`ACTION=latency-budget` while `latency_budget_allowed=false`, or `ACTION=arm`
+while `arm_allowed=false`, preventing metadata races, budget races, and
+accidental arming from a busy or faulted endpoint.
 `run_fieldmesh_board_dma_smoke.sh` enforces that summary before it invokes the
 transfer-starting `dma-smoke --allow-live-writes` command.
 

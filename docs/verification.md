@@ -2847,7 +2847,7 @@ and reported as booleans for control enables, MAC stop, endpoint enable,
 scheduler activity, pump completion, drained-empty, budget-exhausted, and
 service-accepted state. It also requires C-derived aggregate health booleans
 for fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm status,
-plus action policy booleans for config, arm, and stop, so wrappers do not
+plus action policy booleans for config, latency-budget, arm, and stop, so wrappers do not
 reconstruct readiness from raw counters.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
@@ -2856,8 +2856,8 @@ the assertion summary rejects captures where the firmware-DMA status read is
 missing, failed, marked as a hardware write, or missing endpoint byte counters,
 MAC pump counters, BRAM CRC/bounds counters, C-decoded control/status
 booleans, parser/ingress/egress fault bits, and aggregate health booleans.
-The same capture must include C-derived action booleans for config, arm, and
-stop decisions. The preflight assertion derives the expected sidecar windows
+The same capture must include C-derived action booleans for config,
+latency-budget, arm, and stop decisions. The preflight assertion derives the expected sidecar windows
 from `fieldmesh_sidecar_addr.h`; wrapper scripts omit address arguments in the
 normal path and pass them only for explicit environment overrides.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
@@ -2871,7 +2871,7 @@ before/after status captures that are missing the C-decoded control/status
 booleans or aggregate health booleans. `ACTION=config` refuses to change
 metadata unless the pre-config status reports `config_allowed=true`, and
 `ACTION=latency-budget` refuses to write the FPGA service-latency budget unless
-that same C-decoded `config_allowed=true` predicate holds.
+the C-decoded `latency_budget_allowed=true` predicate holds.
 `ACTION=arm` refuses to forward the guarded hardware write unless the pre-arm
 status reports `arm_allowed=true`. `FORCE_FIRMWARE_DMA_CONFIG=1`,
 `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1`, and `FORCE_FIRMWARE_DMA_ARM=1` are

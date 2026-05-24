@@ -180,6 +180,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"stop_needed\":%s,"
            "\"ready_for_arm\":%s,"
            "\"config_allowed\":%s,"
+           "\"latency_budget_allowed\":%s,"
            "\"arm_allowed\":%s,"
            "\"stop_write_needed\":%s,"
            "\"peer_index\":%" PRIu32 ","
@@ -239,6 +240,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            fieldmesh_fw_dma_status_stop_needed(status) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(status) ? "true" : "false",
            policy.config_allowed ? "true" : "false",
+           policy.latency_budget_allowed ? "true" : "false",
            policy.arm_allowed ? "true" : "false",
            policy.stop_write_needed ? "true" : "false",
            (uint32_t)status->peer_index,
@@ -296,11 +298,13 @@ static int print_fw_dma_action_policy_self_test(void) {
            "\"active_idle\":%s,"
            "\"active_ready_for_arm\":%s,"
            "\"active_config_allowed\":%s,"
+           "\"active_latency_budget_allowed\":%s,"
            "\"active_arm_allowed\":%s,"
            "\"active_stop_write_needed\":%s,"
            "\"idle_idle\":%s,"
            "\"idle_ready_for_arm\":%s,"
            "\"idle_config_allowed\":%s,"
+           "\"idle_latency_budget_allowed\":%s,"
            "\"idle_arm_allowed\":%s,"
            "\"idle_stop_write_needed\":%s,"
            "\"reads_hardware\":false,\"writes_hardware\":false}\n",
@@ -308,11 +312,13 @@ static int print_fw_dma_action_policy_self_test(void) {
            fieldmesh_fw_dma_status_idle(&active) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(&active) ? "true" : "false",
            active_policy.config_allowed ? "true" : "false",
+           active_policy.latency_budget_allowed ? "true" : "false",
            active_policy.arm_allowed ? "true" : "false",
            active_policy.stop_write_needed ? "true" : "false",
            fieldmesh_fw_dma_status_idle(&idle) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(&idle) ? "true" : "false",
            idle_policy.config_allowed ? "true" : "false",
+           idle_policy.latency_budget_allowed ? "true" : "false",
            idle_policy.arm_allowed ? "true" : "false",
            idle_policy.stop_write_needed ? "true" : "false");
     return 0;
@@ -484,15 +490,16 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "failed to decode firmware DMA status\n");
                 return 1;
             }
-            if (!fieldmesh_fw_dma_status_config_allowed(&status)) {
+            if (!fieldmesh_fw_dma_status_latency_budget_allowed(&status)) {
                 printf("{\"event\":\"fieldmesh_fw_dma_latency_budget\",\"ok\":false,"
                        "\"base\":\"0x%08" PRIx32 "\","
                        "\"error\":\"firmware_dma_not_idle\","
-                       "\"idle\":%s,\"config_allowed\":false,"
+                       "\"idle\":%s,\"config_allowed\":%s,\"latency_budget_allowed\":false,"
                        "\"ready_for_arm\":%s,\"arm_allowed\":%s,"
                        "\"writes_hardware\":false}\n",
                        base,
                        fieldmesh_fw_dma_status_idle(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_config_allowed(&status) ? "true" : "false",
                        fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false",
                        fieldmesh_fw_dma_status_arm_allowed(&status) ? "true" : "false");
                 return 1;

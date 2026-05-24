@@ -1490,7 +1490,7 @@ below were later superseded by the current PHY-management two-board gates above:
   `preflight_assert.json`, so live DMA smoke or firmware-DMA arm tests have a
   non-mutating endpoint-status gate. The C decoder now also exports aggregate
   `fault_free`, `drop_counters_clear`, `idle`, and `ready_for_arm` booleans plus
-  action policy booleans `config_allowed`, `arm_allowed`, and
+  action policy booleans `config_allowed`, `latency_budget_allowed`, `arm_allowed`, and
   `stop_write_needed`, so board wrappers do not reimplement readiness from raw
   FPGA counters. Firmware-DMA control commands now accept optional base
   arguments, and the no-base path resolves in C to `FIELDMESH_SIDECAR_CTRL_BASE`;
@@ -1502,10 +1502,10 @@ below were later superseded by the current PHY-management two-board gates above:
   is now the live board wrapper for status/config/latency-budget/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
   `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding
-  config/latency-budget/arm/stop hardware writes. Config and latency-budget
-  writes also require pre-config `config_allowed=true` unless the matching
-  `FORCE_FIRMWARE_DMA_CONFIG=1` or `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1`
-  override is set, and arm writes require pre-arm `arm_allowed=true` unless
+  config/latency-budget/arm/stop hardware writes. Config writes also require
+  pre-config `config_allowed=true`, latency-budget writes require
+  `latency_budget_allowed=true`, unless the matching `FORCE_FIRMWARE_DMA_CONFIG=1`
+  or `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1` override is set, and arm writes require pre-arm `arm_allowed=true` unless
   `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit diagnostic override. Stop
   now defaults to the C checked
   `--fw-dma-stop-if-active` command and skips the register write when

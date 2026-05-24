@@ -133,6 +133,7 @@ typedef struct fieldmesh_fw_dma_status {
 
 typedef struct fieldmesh_fw_dma_action_policy {
     uint8_t config_allowed;
+    uint8_t latency_budget_allowed;
     uint8_t arm_allowed;
     uint8_t stop_write_needed;
 } fieldmesh_fw_dma_action_policy_t;
@@ -462,6 +463,12 @@ static inline int fieldmesh_fw_dma_status_config_allowed(
     return fieldmesh_fw_dma_status_idle(status);
 }
 
+static inline int fieldmesh_fw_dma_status_latency_budget_allowed(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return fieldmesh_fw_dma_status_config_allowed(status);
+}
+
 static inline int fieldmesh_fw_dma_status_arm_allowed(
     const fieldmesh_fw_dma_status_t *status)
 {
@@ -479,6 +486,7 @@ static inline fieldmesh_fw_dma_action_policy_t fieldmesh_fw_dma_status_action_po
 {
     fieldmesh_fw_dma_action_policy_t policy = {
         .config_allowed = (uint8_t)fieldmesh_fw_dma_status_config_allowed(status),
+        .latency_budget_allowed = (uint8_t)fieldmesh_fw_dma_status_latency_budget_allowed(status),
         .arm_allowed = (uint8_t)fieldmesh_fw_dma_status_arm_allowed(status),
         .stop_write_needed = (uint8_t)fieldmesh_fw_dma_status_stop_write_needed(status),
     };

@@ -491,7 +491,7 @@ The C projection also emits aggregate health booleans for fault-free,
 drop-counter-clear, idle, stop-needed, and ready-for-arm status; board wrappers
 should treat those as the readiness contract instead of re-parsing raw
 counters. It also emits action-specific C policy booleans: `config_allowed`,
-`arm_allowed`, and `stop_write_needed`.
+`latency_budget_allowed`, `arm_allowed`, and `stop_write_needed`.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
 The tool's `--fw-dma-status-self-test`,
@@ -508,7 +508,7 @@ green sidecar preflight. Arm actions also require the pre-arm status
 `arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
 diagnostic override. Config actions require pre-config `config_allowed=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set after reviewing the captured status.
-Latency-budget actions use that same `config_allowed=true` policy unless
+Latency-budget actions use `latency_budget_allowed=true` unless
 `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1` is set.
 The default config, latency-budget, and arm paths use
 `--fw-dma-config-if-idle`, `--fw-dma-latency-budget-if-idle`, and

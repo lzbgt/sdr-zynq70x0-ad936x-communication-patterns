@@ -490,9 +490,9 @@ preflight firmware-DMA status proof and records before/after status around any
 guarded config, latency-budget, arm, or stop command.
 For `ACTION=config`, that wrapper requires the pre-config C-decoded
 `config_allowed=true` policy predicate before it changes descriptor metadata.
-For `ACTION=latency-budget`, it requires the same C-decoded
-`config_allowed=true` policy before it writes the FPGA service-latency budget
-register.
+For `ACTION=latency-budget`, it requires the C-decoded
+`latency_budget_allowed=true` policy before it writes the FPGA service-latency
+budget register.
 For `ACTION=arm`, it requires the pre-arm C-decoded `arm_allowed=true` policy
 predicate before it forwards the guarded hardware write.
 `FORCE_FIRMWARE_DMA_CONFIG=1`, `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1`, and
