@@ -126,11 +126,21 @@ foreach pin {
   fieldmesh_fw_dma_endpoint/enable
   fieldmesh_fw_dma_endpoint/ingress_enable
   fieldmesh_fw_dma_endpoint/egress_enable
+  fieldmesh_fw_dma_endpoint/peer_index
+  fieldmesh_fw_dma_endpoint/mcs
+  fieldmesh_fw_dma_endpoint/retry_budget
+  fieldmesh_fw_dma_endpoint/descriptor_flags
+  fieldmesh_fw_dma_endpoint/seq_seed
   fieldmesh_fw_dma_endpoint/mac_scheduler_enable
   fieldmesh_fw_dma_endpoint/mac_tick
   fieldmesh_ctrl/fw_dma_enable
   fieldmesh_ctrl/fw_dma_ingress_enable
   fieldmesh_ctrl/fw_dma_egress_enable
+  fieldmesh_ctrl/fw_dma_peer_index
+  fieldmesh_ctrl/fw_dma_mcs
+  fieldmesh_ctrl/fw_dma_retry_budget
+  fieldmesh_ctrl/fw_dma_descriptor_flags
+  fieldmesh_ctrl/fw_dma_seq_seed
   fieldmesh_ctrl/fw_dma_mac_scheduler_enable
   fieldmesh_ctrl/fw_dma_mac_tick_enable
   fieldmesh_ctrl/fw_dma_mac_stop
@@ -190,6 +200,11 @@ foreach pair {
   {fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable}
   {fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable}
   {fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable}
+  {fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index}
+  {fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs}
+  {fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget}
+  {fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags}
+  {fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed}
   {fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable}
   {fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick}
   {fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop}

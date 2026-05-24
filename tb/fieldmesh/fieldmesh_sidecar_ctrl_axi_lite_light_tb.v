@@ -35,6 +35,9 @@ localparam [15:0] REG_FW_DMA_INGRESS_DROPS      = 16'h0160;
 localparam [15:0] REG_FW_DMA_EGRESS_PACKETS     = 16'h0164;
 localparam [15:0] REG_FW_DMA_EGRESS_DROPS       = 16'h0168;
 localparam [15:0] REG_FW_DMA_BRAM_ERRORS        = 16'h016c;
+localparam [15:0] REG_FW_DMA_PEER_MCS_RETRY     = 16'h0170;
+localparam [15:0] REG_FW_DMA_DESCRIPTOR_FLAGS   = 16'h0174;
+localparam [15:0] REG_FW_DMA_SEQ_SEED           = 16'h0178;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -74,6 +77,11 @@ wire fw_dma_mac_scheduler_enable;
 wire fw_dma_mac_tick_enable;
 wire fw_dma_mac_stop;
 wire [15:0] fw_dma_mac_service_budget;
+wire [15:0] fw_dma_peer_index;
+wire [7:0] fw_dma_mcs;
+wire [7:0] fw_dma_retry_budget;
+wire [15:0] fw_dma_descriptor_flags;
+wire [31:0] fw_dma_seq_seed;
 reg [31:0] rf_guard_pass_sample_count = 32'd0;
 reg [31:0] rf_guard_pass_packet_count = 32'd0;
 reg [31:0] rf_guard_blocked_cycle_count = 32'd0;
@@ -146,6 +154,11 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .fw_dma_mac_tick_enable(fw_dma_mac_tick_enable),
     .fw_dma_mac_stop(fw_dma_mac_stop),
     .fw_dma_mac_service_budget(fw_dma_mac_service_budget),
+    .fw_dma_peer_index(fw_dma_peer_index),
+    .fw_dma_mcs(fw_dma_mcs),
+    .fw_dma_retry_budget(fw_dma_retry_budget),
+    .fw_dma_descriptor_flags(fw_dma_descriptor_flags),
+    .fw_dma_seq_seed(fw_dma_seq_seed),
     .fw_dma_mac_scheduler_active(fw_dma_mac_scheduler_active),
     .fw_dma_pump_done(fw_dma_pump_done),
     .fw_dma_pump_drained_empty(fw_dma_pump_drained_empty),
@@ -241,9 +254,15 @@ initial begin
     if (rf_tx_epoch != 32'd0 || rf_tx_slot != 16'd0) fail("RF TX slot state was nonzero after reset");
     expect_axi(REG_FW_DMA_CONTROL, 32'h0000_0000);
     expect_axi(REG_FW_DMA_STATUS, 32'h0000_0000);
+    expect_axi(REG_FW_DMA_PEER_MCS_RETRY, 32'h0000_0000);
+    expect_axi(REG_FW_DMA_DESCRIPTOR_FLAGS, 32'h0000_0000);
+    expect_axi(REG_FW_DMA_SEQ_SEED, 32'h0000_0000);
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
         fw_dma_mac_scheduler_enable || fw_dma_mac_tick_enable ||
-        fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0) begin
+        fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0 ||
+        fw_dma_peer_index != 16'd0 || fw_dma_mcs != 8'd0 ||
+        fw_dma_retry_budget != 8'd0 || fw_dma_descriptor_flags != 16'd0 ||
+        fw_dma_seq_seed != 32'd0) begin
         fail("firmware DMA control was nonzero after reset");
     end
 
@@ -310,6 +329,9 @@ initial begin
     if (rf_source_select) fail("RF DAC source select output did not clear");
 
     axi_write(REG_FW_DMA_SERVICE_BUDGET, 32'hffff_0020);
+    axi_write(REG_FW_DMA_PEER_MCS_RETRY, 32'h0301_0007);
+    axi_write(REG_FW_DMA_DESCRIPTOR_FLAGS, 32'hffff_0011);
+    axi_write(REG_FW_DMA_SEQ_SEED, 32'h0000_1200);
     axi_write(REG_FW_DMA_CONTROL, 32'h0000_001f);
     if (!fw_dma_enable || !fw_dma_ingress_enable || !fw_dma_egress_enable ||
         !fw_dma_mac_scheduler_enable || !fw_dma_mac_tick_enable ||
@@ -317,8 +339,16 @@ initial begin
         fail("firmware DMA control outputs did not assert");
     end
     if (fw_dma_mac_service_budget != 16'h0020) fail("firmware DMA service budget did not update");
+    if (fw_dma_peer_index != 16'h0007 || fw_dma_mcs != 8'h01 ||
+        fw_dma_retry_budget != 8'h03 || fw_dma_descriptor_flags != 16'h0011 ||
+        fw_dma_seq_seed != 32'h0000_1200) begin
+        fail("firmware DMA packet metadata outputs did not update");
+    end
     expect_axi(REG_FW_DMA_CONTROL, 32'h0000_001f);
     expect_axi(REG_FW_DMA_SERVICE_BUDGET, 32'h0000_0020);
+    expect_axi(REG_FW_DMA_PEER_MCS_RETRY, 32'h0301_0007);
+    expect_axi(REG_FW_DMA_DESCRIPTOR_FLAGS, 32'h0000_0011);
+    expect_axi(REG_FW_DMA_SEQ_SEED, 32'h0000_1200);
 
     fw_dma_mac_scheduler_active = 1'b1;
     fw_dma_pump_done = 1'b1;

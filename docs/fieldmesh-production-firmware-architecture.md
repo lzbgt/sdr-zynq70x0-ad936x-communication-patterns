@@ -442,24 +442,25 @@ the first-line debug split between malformed input, TUN ingress starvation,
 full ARM-to-PL queues, PL service latency, and RX drain lag.
 
 The board-level packet-DMA endpoint is also controlled from the lightweight
-sidecar window. `0x140..0x16c` contains fixed binary firmware-DMA control and
+sidecar window. `0x140..0x178` contains fixed binary firmware-DMA control and
 status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
 enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
 parser counters, ingress/egress packet/drop counters, and aggregate BRAM
-errors. The normal copied-HDL DMA overlay wires these pins to
+errors plus FPGA-native TX sideband defaults for peer index, MCS, retry budget,
+descriptor flags, and sequence seed. The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the
 packet path after probing the overlay.
 The ARM-side guard is `fieldmesh-ctrl-write`: `--fw-dma-status` is read-only
-and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while `--fw-dma-arm` and
-`--fw-dma-stop` require `FIELD_MESH_EXECUTE_LIVE_TX=1`,
+and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while `--fw-dma-config`,
+`--fw-dma-arm`, and `--fw-dma-stop` require `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. This keeps default board inspection
 non-mutating and makes firmware-DMA activation an explicit production test
 step. Board-side activation should go through
 `tools/run_fieldmesh_board_fw_dma_control.sh`, which requires the sidecar
 preflight firmware-DMA status proof and records before/after status around any
-guarded arm or stop command.
+guarded config, arm, or stop command.
 
 ## MAC Design
 

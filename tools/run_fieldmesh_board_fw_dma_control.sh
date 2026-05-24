@@ -23,14 +23,19 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 ctrl_base="${CTRL_BASE:-0x43c00000}"
 service_budget="${SERVICE_BUDGET:-32}"
+peer_index="${PEER_INDEX:-0}"
+mcs="${MCS:-0}"
+retry_budget="${RETRY_BUDGET:-0}"
+descriptor_flags="${DESCRIPTOR_FLAGS:-0}"
+seq_seed="${SEQ_SEED:-0}"
 apply_fw_dma="${APPLY_FIRMWARE_DMA:-0}"
 allow_fw_dma="${ALLOW_FIRMWARE_DMA:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-fw-dma-control-$variant-$(date +%Y%m%d-%H%M%S)}"
 
 case "$action" in
-  status|arm|stop) ;;
+  status|config|arm|stop) ;;
   *)
-    echo "Invalid ACTION=$action; expected status, arm, or stop" >&2
+    echo "Invalid ACTION=$action; expected status, config, arm, or stop" >&2
     exit 2
     ;;
 esac
@@ -59,6 +64,24 @@ if (( service_budget < 0 || service_budget > 65535 )); then
   echo "SERVICE_BUDGET must fit in 16 bits" >&2
   exit 2
 fi
+for pair in \
+  "PEER_INDEX:$peer_index:65535" \
+  "MCS:$mcs:255" \
+  "RETRY_BUDGET:$retry_budget:255" \
+  "DESCRIPTOR_FLAGS:$descriptor_flags:65535" \
+  "SEQ_SEED:$seq_seed:4294967295"; do
+  IFS=: read -r name value max_value <<<"$pair"
+  case "$value" in
+    ''|*[!0-9]*)
+      echo "$name must be a decimal integer" >&2
+      exit 2
+      ;;
+  esac
+  if (( value < 0 || value > max_value )); then
+    echo "$name is out of range" >&2
+    exit 2
+  fi
+done
 
 mkdir -p "$out_dir"
 
@@ -105,6 +128,17 @@ case "$action" in
 {"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"status-only","writes_hardware":false}
 JSON
     ;;
+  config)
+    if [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
+      cat >"$out_dir/fw_dma_control.json" <<'JSON'
+{"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=config APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to configure firmware-DMA metadata","writes_hardware":false}
+JSON
+    else
+      sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-config '$ctrl_base' '$peer_index' '$mcs' '$retry_budget' '$descriptor_flags' '$seq_seed' > '$remote_control' 2>&1"
+      sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
+    fi
+    ;;
   arm)
     if [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
@@ -133,7 +167,7 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_status_after' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_after" "$out_dir/fw_dma_status_after.json"
 
-python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -142,8 +176,13 @@ out_dir = Path(sys.argv[1])
 board_ip = sys.argv[2]
 variant = sys.argv[3]
 action = sys.argv[4]
-applied = sys.argv[5] == "1" and sys.argv[6] == "1" and action in {"arm", "stop"}
 service_budget = int(sys.argv[7])
+peer_index = int(sys.argv[8])
+mcs = int(sys.argv[9])
+retry_budget = int(sys.argv[10])
+descriptor_flags = int(sys.argv[11])
+seq_seed = int(sys.argv[12])
+applied = sys.argv[5] == "1" and sys.argv[6] == "1" and action in {"config", "arm", "stop"}
 
 before = json.loads((out_dir / "fw_dma_status_before.json").read_text(encoding="utf-8"))
 control = json.loads((out_dir / "fw_dma_control.json").read_text(encoding="utf-8"))
@@ -156,13 +195,28 @@ for label, row in (("before", before), ("after", after)):
         raise SystemExit(f"{label} firmware-DMA status was not read-only: {row}")
 
 if applied:
-    expected_event = "fieldmesh_fw_dma_arm" if action == "arm" else "fieldmesh_fw_dma_stop"
+    expected_event = {
+        "config": "fieldmesh_fw_dma_config",
+        "arm": "fieldmesh_fw_dma_arm",
+        "stop": "fieldmesh_fw_dma_stop",
+    }[action]
     if control.get("event") != expected_event or control.get("ok") is not True:
         raise SystemExit(f"firmware-DMA {action} failed: {control}")
     if control.get("writes_hardware") is not True:
         raise SystemExit(f"firmware-DMA {action} did not report hardware write: {control}")
     if action == "arm" and control.get("service_budget") != service_budget:
         raise SystemExit(f"firmware-DMA arm service budget mismatch: {control}")
+    if action == "config":
+        expected = {
+            "peer_index": peer_index,
+            "mcs": mcs,
+            "retry_budget": retry_budget,
+            "descriptor_flags": f"0x{descriptor_flags:04x}",
+            "seq_seed": f"0x{seq_seed:08x}",
+        }
+        for key, value in expected.items():
+            if control.get(key) != value:
+                raise SystemExit(f"firmware-DMA config {key} mismatch: {control}")
 else:
     if control.get("event") != "fieldmesh_fw_dma_control_skipped" or control.get("ok") is not True:
         raise SystemExit(f"firmware-DMA dry-run did not skip cleanly: {control}")

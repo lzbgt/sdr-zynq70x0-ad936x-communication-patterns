@@ -32,6 +32,11 @@ EXPECTED_FW_DMA_STATUS_KEYS = {
     "egress_packets",
     "egress_drops",
     "bram_errors",
+    "peer_index",
+    "mcs",
+    "retry_budget",
+    "descriptor_flags",
+    "seq_seed",
 }
 
 
@@ -163,12 +168,15 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
         raise SystemExit(f"{path}: firmware-DMA status missing keys: {sorted(missing)}")
     for key in ("service_budget", "queued_count", "tx_parser_packets",
                 "tx_parser_drops", "ingress_packets", "ingress_drops",
-                "egress_packets", "egress_drops", "bram_errors"):
+                "egress_packets", "egress_drops", "bram_errors",
+                "peer_index", "mcs", "retry_budget"):
         if not isinstance(row.get(key), int):
             raise SystemExit(f"{path}: firmware-DMA {key} must be an integer: {row}")
     parse_u32(row.get("control"), path, "control", row)
     parse_u32(row.get("status"), path, "status", row)
     parse_u32(row.get("selected_word"), path, "selected_word", row)
+    parse_u32(row.get("descriptor_flags"), path, "descriptor_flags", row)
+    parse_u32(row.get("seq_seed"), path, "seq_seed", row)
     return {
         "fw_dma_status": str(path),
         "fw_dma_base": f"0x{base:08x}",

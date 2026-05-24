@@ -2822,16 +2822,16 @@ The current normal DMA overlay has moved that path to
 same endpoint through the byte-wide egress broadcast before the BPSK symbolizer.
 The RF-tools verifier also covers the guarded userspace control contract for
 that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
-authorization, and `--fw-dma-arm`/`--fw-dma-stop` remain non-mutating unless
-the explicit live-write and firmware-DMA guards are present.
+authorization, and `--fw-dma-config`/`--fw-dma-arm`/`--fw-dma-stop` remain
+non-mutating unless the explicit live-write and firmware-DMA guards are present.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
 the assertion summary rejects captures where the firmware-DMA status read is
 missing, failed, or marked as a hardware write.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
-for status/arm/stop: sidecar preflight must precede firmware-DMA writes,
-status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and arm/stop writes are
+for status/config/arm/stop: sidecar preflight must precede firmware-DMA writes,
+status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes are
 only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment.

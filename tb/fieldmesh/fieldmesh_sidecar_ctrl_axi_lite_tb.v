@@ -63,6 +63,11 @@ wire fw_dma_mac_scheduler_enable;
 wire fw_dma_mac_tick_enable;
 wire fw_dma_mac_stop;
 wire [15:0] fw_dma_mac_service_budget;
+wire [15:0] fw_dma_peer_index;
+wire [7:0] fw_dma_mcs;
+wire [7:0] fw_dma_retry_budget;
+wire [15:0] fw_dma_descriptor_flags;
+wire [31:0] fw_dma_seq_seed;
 
 fieldmesh_sidecar_ctrl_axi_lite #(
     .SYNTH_LIGHT(0)
@@ -113,6 +118,11 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .fw_dma_mac_tick_enable(fw_dma_mac_tick_enable),
     .fw_dma_mac_stop(fw_dma_mac_stop),
     .fw_dma_mac_service_budget(fw_dma_mac_service_budget),
+    .fw_dma_peer_index(fw_dma_peer_index),
+    .fw_dma_mcs(fw_dma_mcs),
+    .fw_dma_retry_budget(fw_dma_retry_budget),
+    .fw_dma_descriptor_flags(fw_dma_descriptor_flags),
+    .fw_dma_seq_seed(fw_dma_seq_seed),
     .fw_dma_mac_scheduler_active(1'b0),
     .fw_dma_pump_done(1'b0),
     .fw_dma_pump_drained_empty(1'b0),
@@ -226,7 +236,10 @@ initial begin
     if (rf_tx_epoch != 32'd0 || rf_tx_slot != 16'd0) fail("full sidecar wrapper drove RF target schedule");
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||
         fw_dma_mac_scheduler_enable || fw_dma_mac_tick_enable ||
-        fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0) begin
+        fw_dma_mac_stop || fw_dma_mac_service_budget != 16'd0 ||
+        fw_dma_peer_index != 16'd0 || fw_dma_mcs != 8'd0 ||
+        fw_dma_retry_budget != 8'd0 || fw_dma_descriptor_flags != 16'd0 ||
+        fw_dma_seq_seed != 32'd0) begin
         fail("full sidecar wrapper drove firmware DMA control");
     end
 

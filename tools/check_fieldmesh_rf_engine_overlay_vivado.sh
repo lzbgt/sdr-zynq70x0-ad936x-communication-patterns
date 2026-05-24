@@ -104,7 +104,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x16c"
+  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x178"
 }
 
 foreach pin {
@@ -127,6 +127,11 @@ foreach pin {
   fieldmesh_fw_dma_endpoint/enable
   fieldmesh_fw_dma_endpoint/ingress_enable
   fieldmesh_fw_dma_endpoint/egress_enable
+  fieldmesh_fw_dma_endpoint/peer_index
+  fieldmesh_fw_dma_endpoint/mcs
+  fieldmesh_fw_dma_endpoint/retry_budget
+  fieldmesh_fw_dma_endpoint/descriptor_flags
+  fieldmesh_fw_dma_endpoint/seq_seed
   fieldmesh_fw_dma_endpoint/mac_scheduler_enable
   fieldmesh_fw_dma_endpoint/mac_tick
   fieldmesh_fw_dma_endpoint/mac_stop
@@ -137,6 +142,11 @@ foreach pin {
   fieldmesh_ctrl/fw_dma_enable
   fieldmesh_ctrl/fw_dma_ingress_enable
   fieldmesh_ctrl/fw_dma_egress_enable
+  fieldmesh_ctrl/fw_dma_peer_index
+  fieldmesh_ctrl/fw_dma_mcs
+  fieldmesh_ctrl/fw_dma_retry_budget
+  fieldmesh_ctrl/fw_dma_descriptor_flags
+  fieldmesh_ctrl/fw_dma_seq_seed
   fieldmesh_ctrl/fw_dma_mac_scheduler_enable
   fieldmesh_ctrl/fw_dma_mac_tick_enable
   fieldmesh_ctrl/fw_dma_mac_stop
@@ -283,6 +293,11 @@ assert_same_net fieldmesh_ctrl/rf_guard_fault fieldmesh_iq_tx_guard/fault
 assert_same_net fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
 assert_same_net fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable
 assert_same_net fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable
+assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index
+assert_same_net fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs
+assert_same_net fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget
+assert_same_net fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags
+assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed
 assert_same_net fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable
 assert_same_net fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick
 assert_same_net fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop

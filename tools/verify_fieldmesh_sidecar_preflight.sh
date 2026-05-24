@@ -50,6 +50,11 @@ fw_dma = {
     "egress_packets": 0,
     "egress_drops": 0,
     "bram_errors": 0,
+    "peer_index": 0,
+    "mcs": 0,
+    "retry_budget": 0,
+    "descriptor_flags": "0x0000",
+    "seq_seed": "0x00000000",
     "reads_hardware": True,
     "writes_hardware": False,
 }

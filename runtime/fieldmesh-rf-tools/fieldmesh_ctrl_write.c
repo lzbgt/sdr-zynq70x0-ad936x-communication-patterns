@@ -33,6 +33,9 @@ enum fieldmesh_fw_dma_reg {
     FM_FW_DMA_EGRESS_PACKETS = 0x164,
     FM_FW_DMA_EGRESS_DROPS = 0x168,
     FM_FW_DMA_BRAM_ERRORS = 0x16c,
+    FM_FW_DMA_PEER_MCS_RETRY = 0x170,
+    FM_FW_DMA_DESCRIPTOR_FLAGS = 0x174,
+    FM_FW_DMA_SEQ_SEED = 0x178,
 };
 
 enum fieldmesh_fw_dma_control {
@@ -68,6 +71,7 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write --self-test\n"
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
             "  fieldmesh-ctrl-write --fw-dma-status BASE\n"
+            "  fieldmesh-ctrl-write --fw-dma-config BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
             "  fieldmesh-ctrl-write --fw-dma-arm BASE SERVICE_BUDGET\n"
             "  fieldmesh-ctrl-write --fw-dma-stop BASE\n");
 }
@@ -157,6 +161,11 @@ static void print_fw_dma_status(uint32_t base, const uint32_t *regs) {
            "\"egress_packets\":%" PRIu32 ","
            "\"egress_drops\":%" PRIu32 ","
            "\"bram_errors\":%" PRIu32 ","
+           "\"peer_index\":%" PRIu32 ","
+           "\"mcs\":%" PRIu32 ","
+           "\"retry_budget\":%" PRIu32 ","
+           "\"descriptor_flags\":\"0x%04" PRIx32 "\","
+           "\"seq_seed\":\"0x%08" PRIx32 "\","
            "\"reads_hardware\":true,\"writes_hardware\":false}\n",
            base,
            regs[0],
@@ -170,7 +179,12 @@ static void print_fw_dma_status(uint32_t base, const uint32_t *regs) {
            regs[8],
            regs[9],
            regs[10],
-           regs[11]);
+           regs[11],
+           regs[12] & 0xffffu,
+           (regs[12] >> 16) & 0xffu,
+           (regs[12] >> 24) & 0xffu,
+           regs[13] & 0xffffu,
+           regs[14]);
 }
 
 int main(int argc, char **argv) {
@@ -181,8 +195,10 @@ int main(int argc, char **argv) {
                "\"requires_firmware_dma_authorization\":true,"
                "\"fw_dma_control_offset\":\"0x%03x\","
                "\"fw_dma_status_offset\":\"0x%03x\","
+               "\"fw_dma_config_offset\":\"0x%03x\","
                "\"fw_dma_arm_control\":\"0x%08" PRIx32 "\"}\n",
-               FM_FW_DMA_CONTROL, FM_FW_DMA_STATUS, FM_FW_DMA_ARM_CONTROL);
+               FM_FW_DMA_CONTROL, FM_FW_DMA_STATUS, FM_FW_DMA_PEER_MCS_RETRY,
+               FM_FW_DMA_ARM_CONTROL);
         return 0;
     }
 
@@ -208,6 +224,9 @@ int main(int argc, char **argv) {
             FM_FW_DMA_EGRESS_PACKETS,
             FM_FW_DMA_EGRESS_DROPS,
             FM_FW_DMA_BRAM_ERRORS,
+            FM_FW_DMA_PEER_MCS_RETRY,
+            FM_FW_DMA_DESCRIPTOR_FLAGS,
+            FM_FW_DMA_SEQ_SEED,
         };
         uint32_t regs[sizeof(offsets) / sizeof(offsets[0])];
         for (size_t i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
@@ -215,6 +234,59 @@ int main(int argc, char **argv) {
         }
         print_fw_dma_status(base, regs);
         return 0;
+    }
+
+    if (argc == 8 && strcmp(argv[1], "--fw-dma-config") == 0) {
+        uint32_t base = parse_u32(argv[2], "base");
+        uint32_t peer_index = parse_u32(argv[3], "peer_index");
+        uint32_t mcs = parse_u32(argv[4], "mcs");
+        uint32_t retry_budget = parse_u32(argv[5], "retry_budget");
+        uint32_t descriptor_flags = parse_u32(argv[6], "descriptor_flags");
+        uint32_t seq_seed = parse_u32(argv[7], "seq_seed");
+        if (peer_index > 0xffffu || mcs > 0xffu || retry_budget > 0xffu ||
+            descriptor_flags > 0xffffu) {
+            fprintf(stderr, "peer_index/flags must fit in 16 bits; mcs/retry_budget must fit in 8 bits\n");
+            return 2;
+        }
+        uint32_t packed_peer = (retry_budget << 24) | (mcs << 16) | peer_index;
+        if (!fw_dma_write_allowed()) {
+            print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
+                       base, FM_FW_DMA_PEER_MCS_RETRY, packed_peer, 0, false);
+            return 1;
+        }
+        uint32_t packed_readback = access_reg(base, FM_FW_DMA_PEER_MCS_RETRY, packed_peer,
+                                              FIELDMESH_ACCESS_WRITE);
+        uint32_t flags_readback = access_reg(base, FM_FW_DMA_DESCRIPTOR_FLAGS, descriptor_flags,
+                                             FIELDMESH_ACCESS_WRITE);
+        uint32_t seq_readback = access_reg(base, FM_FW_DMA_SEQ_SEED, seq_seed,
+                                           FIELDMESH_ACCESS_WRITE);
+        bool ok = packed_readback == packed_peer &&
+                  (flags_readback & 0xffffu) == descriptor_flags &&
+                  seq_readback == seq_seed;
+        printf("{\"event\":\"fieldmesh_fw_dma_config\",\"ok\":%s,"
+               "\"base\":\"0x%08" PRIx32 "\","
+               "\"peer_mcs_retry\":\"0x%08" PRIx32 "\","
+               "\"peer_mcs_retry_readback\":\"0x%08" PRIx32 "\","
+               "\"peer_index\":%" PRIu32 ","
+               "\"mcs\":%" PRIu32 ","
+               "\"retry_budget\":%" PRIu32 ","
+               "\"descriptor_flags\":\"0x%04" PRIx32 "\","
+               "\"descriptor_flags_readback\":\"0x%04" PRIx32 "\","
+               "\"seq_seed\":\"0x%08" PRIx32 "\","
+               "\"seq_seed_readback\":\"0x%08" PRIx32 "\","
+               "\"writes_hardware\":true}\n",
+               ok ? "true" : "false",
+               base,
+               packed_peer,
+               packed_readback,
+               peer_index,
+               mcs,
+               retry_budget,
+               descriptor_flags,
+               flags_readback & 0xffffu,
+               seq_seed,
+               seq_readback);
+        return ok ? 0 : 1;
     }
 
     if (argc == 4 && strcmp(argv[1], "--fw-dma-arm") == 0) {

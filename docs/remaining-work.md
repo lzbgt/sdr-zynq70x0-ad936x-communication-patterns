@@ -1420,20 +1420,20 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh_firmware_axis_dma_endpoint` with `AUTO_EGRESS=1`, maps the DMA
   windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
   RX/S2MM, and wires the endpoint control/status pins through the existing
-  `fieldmesh_ctrl` register page at `0x140..0x16c`. The endpoint resets
+  `fieldmesh_ctrl` register page at `0x140..0x178`. The endpoint resets
   disabled and must be armed explicitly by software. The copied overlay is
   Vivado BD-generation checked for Z203 and Z103 HDL trees.
   `fieldmesh-ctrl-write` now provides the guarded software control surface for
   that page: read-only firmware-DMA status needs
-  `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and arm/stop writes also need
+  `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes also need
   `FIELD_MESH_EXECUTE_LIVE_TX=1`, `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The board-side sidecar preflight now
   captures this read-only firmware-DMA status and includes it in
   `preflight_assert.json`, so live DMA smoke or firmware-DMA arm tests have a
   non-mutating endpoint-status gate. `tools/run_fieldmesh_board_fw_dma_control.sh`
-  is now the live board wrapper for status/arm/stop: it defaults to status-only
+  is now the live board wrapper for status/config/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
-  `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding arm/stop
+  `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding config/arm/stop
   hardware writes. The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is

@@ -109,11 +109,11 @@ in `src/fieldmesh_sdk.c`:
   with `AUTO_EGRESS=1` between the ADI packet-DMA pair and the 16-to-8 adapter.
   Its enable, ingress, egress, MAC scheduler, MAC tick, MAC stop, service
   budget, pressure, and packet/drop counters are surfaced through fixed binary
-  `fieldmesh_ctrl` registers at `0x140..0x16c`; reset leaves the endpoint
-  disabled until software arms those bits.
+  `fieldmesh_ctrl` registers at `0x140..0x178`; reset leaves the endpoint
+  disabled until software configures metadata and arms those bits.
   `fieldmesh-ctrl-write` exposes the userspace guard for that register block:
   `--fw-dma-status` is read-only and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`,
-  while `--fw-dma-arm` and `--fw-dma-stop` additionally require
+  while `--fw-dma-config`, `--fw-dma-arm`, and `--fw-dma-stop` additionally require
   `FIELD_MESH_EXECUTE_LIVE_TX=1`, `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The command output is JSON for host
   inspection only; the packet path remains binary descriptors and byte streams.

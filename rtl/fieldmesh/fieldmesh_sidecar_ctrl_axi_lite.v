@@ -71,6 +71,11 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     output wire         fw_dma_mac_tick_enable,
     output wire         fw_dma_mac_stop,
     output wire [15:0]  fw_dma_mac_service_budget,
+    output wire [15:0]  fw_dma_peer_index,
+    output wire [7:0]   fw_dma_mcs,
+    output wire [7:0]   fw_dma_retry_budget,
+    output wire [15:0]  fw_dma_descriptor_flags,
+    output wire [31:0]  fw_dma_seq_seed,
 
     input  wire         fw_dma_mac_scheduler_active,
     input  wire         fw_dma_pump_done,
@@ -127,6 +132,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_FW_DMA_EGRESS_PACKETS      = 12'h164;
     localparam [11:0] REG_FW_DMA_EGRESS_DROPS        = 12'h168;
     localparam [11:0] REG_FW_DMA_BRAM_ERRORS         = 12'h16c;
+    localparam [11:0] REG_FW_DMA_PEER_MCS_RETRY      = 12'h170;
+    localparam [11:0] REG_FW_DMA_DESCRIPTOR_FLAGS    = 12'h174;
+    localparam [11:0] REG_FW_DMA_SEQ_SEED            = 12'h178;
 
     wire rst = !s_axi_aresetn;
 
@@ -155,6 +163,11 @@ generate if (SYNTH_LIGHT) begin : gen_light
     reg        fw_dma_mac_tick_enable_r;
     reg        fw_dma_mac_stop_r;
     reg [15:0] fw_dma_mac_service_budget_r;
+    reg [15:0] fw_dma_peer_index_r;
+    reg [7:0]  fw_dma_mcs_r;
+    reg [7:0]  fw_dma_retry_budget_r;
+    reg [15:0] fw_dma_descriptor_flags_r;
+    reg [31:0] fw_dma_seq_seed_r;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_sample_count_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_packet_count_meta;
@@ -194,6 +207,11 @@ generate if (SYNTH_LIGHT) begin : gen_light
     assign fw_dma_mac_tick_enable = fw_dma_mac_tick_enable_r;
     assign fw_dma_mac_stop = fw_dma_mac_stop_r;
     assign fw_dma_mac_service_budget = fw_dma_mac_service_budget_r;
+    assign fw_dma_peer_index = fw_dma_peer_index_r;
+    assign fw_dma_mcs = fw_dma_mcs_r;
+    assign fw_dma_retry_budget = fw_dma_retry_budget_r;
+    assign fw_dma_descriptor_flags = fw_dma_descriptor_flags_r;
+    assign fw_dma_seq_seed = fw_dma_seq_seed_r;
 
     always @(posedge s_axi_aclk) begin
         if (rst) begin
@@ -242,6 +260,11 @@ generate if (SYNTH_LIGHT) begin : gen_light
             fw_dma_mac_tick_enable_r <= 1'b0;
             fw_dma_mac_stop_r <= 1'b0;
             fw_dma_mac_service_budget_r <= 16'd0;
+            fw_dma_peer_index_r <= 16'd0;
+            fw_dma_mcs_r <= 8'd0;
+            fw_dma_retry_budget_r <= 8'd0;
+            fw_dma_descriptor_flags_r <= 16'd0;
+            fw_dma_seq_seed_r <= 32'd0;
             bresp_r <= 2'b00;
             bvalid_r <= 1'b0;
         end else begin
@@ -288,6 +311,13 @@ generate if (SYNTH_LIGHT) begin : gen_light
                             fw_dma_mac_stop_r <= wdata_hold[5];
                         end
                         REG_FW_DMA_SERVICE_BUDGET: fw_dma_mac_service_budget_r <= wdata_hold[15:0];
+                        REG_FW_DMA_PEER_MCS_RETRY: begin
+                            fw_dma_peer_index_r <= wdata_hold[15:0];
+                            fw_dma_mcs_r <= wdata_hold[23:16];
+                            fw_dma_retry_budget_r <= wdata_hold[31:24];
+                        end
+                        REG_FW_DMA_DESCRIPTOR_FLAGS: fw_dma_descriptor_flags_r <= wdata_hold[15:0];
+                        REG_FW_DMA_SEQ_SEED: fw_dma_seq_seed_r <= wdata_hold;
                     endcase
                 end
                 bresp_r <= 2'b00;
@@ -350,6 +380,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_FW_DMA_EGRESS_PACKETS: rdata_r <= fw_dma_egress_packet_count;
                     REG_FW_DMA_EGRESS_DROPS: rdata_r <= fw_dma_egress_drop_count;
                     REG_FW_DMA_BRAM_ERRORS: rdata_r <= fw_dma_bram_error_count;
+                    REG_FW_DMA_PEER_MCS_RETRY: rdata_r <= {fw_dma_retry_budget_r, fw_dma_mcs_r, fw_dma_peer_index_r};
+                    REG_FW_DMA_DESCRIPTOR_FLAGS: rdata_r <= {16'd0, fw_dma_descriptor_flags_r};
+                    REG_FW_DMA_SEQ_SEED: rdata_r <= fw_dma_seq_seed_r;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;
@@ -378,6 +411,11 @@ assign fw_dma_mac_scheduler_enable = 1'b0;
 assign fw_dma_mac_tick_enable = 1'b0;
 assign fw_dma_mac_stop = 1'b0;
 assign fw_dma_mac_service_budget = 16'd0;
+assign fw_dma_peer_index = 16'd0;
+assign fw_dma_mcs = 8'd0;
+assign fw_dma_retry_budget = 8'd0;
+assign fw_dma_descriptor_flags = 16'd0;
+assign fw_dma_seq_seed = 32'd0;
 
 fieldmesh_packet_mem_axi_lite #(
     .MEM_BYTES(MEM_BYTES),

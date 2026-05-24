@@ -259,16 +259,19 @@ AXI RAM/DMA binding.
 that path: TX DMA is byte-only and reconstructed through the in-band header
 parser, while RX DMA receives byte-only packets from the descriptor-validated
 firmware egress reader. The wrapper is controlled through the existing
-`fieldmesh_ctrl` AXI-lite window at `0x140..0x16c`, which gates endpoint
-enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop and reports the
-firmware endpoint counters. The wrapper still avoids the ADI sample-DMA
+`fieldmesh_ctrl` AXI-lite window at `0x140..0x178`, which gates endpoint
+enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop, reports the
+firmware endpoint counters, and supplies FPGA-native descriptor sidebands
+instead of tying peer/MCS/retry/flags/sequence constants in Tcl. The wrapper still avoids the ADI sample-DMA
 register windows; it is the packet-DMA boundary for the first-party firmware
 path.
 
 Userspace control is intentionally guarded. `fieldmesh-ctrl-write
 --fw-dma-status 0x43c00000` is a read-only status probe and requires
-`FIELD_MESH_ALLOW_HARDWARE_READS=1`. `fieldmesh-ctrl-write --fw-dma-arm
-0x43c00000 SERVICE_BUDGET` and `fieldmesh-ctrl-write --fw-dma-stop
+`FIELD_MESH_ALLOW_HARDWARE_READS=1`. `fieldmesh-ctrl-write --fw-dma-config
+0x43c00000 PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED`,
+`fieldmesh-ctrl-write --fw-dma-arm 0x43c00000 SERVICE_BUDGET`, and
+`fieldmesh-ctrl-write --fw-dma-stop
 0x43c00000` write the firmware-DMA control word and require all three live
 write guards: `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
@@ -277,7 +280,7 @@ logs are readable; no JSON is used on the DMA or RF packet path.
 For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards
-arm/stop writes when `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
+config/arm/stop writes when `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
 
 The first control-only block-design overlay is opt-in:
 

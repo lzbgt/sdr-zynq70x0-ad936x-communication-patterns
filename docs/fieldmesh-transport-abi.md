@@ -449,17 +449,21 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x164` | `FM_FW_DMA_EGRESS_PACKETS` | descriptor-validated packets emitted to RX DMA |
 | `0x168` | `FM_FW_DMA_EGRESS_DROPS` | egress reader drops |
 | `0x16c` | `FM_FW_DMA_BRAM_ERRORS` | aggregate BRAM service errors observed by the firmware DMA endpoint |
+| `0x170` | `FM_FW_DMA_PEER_MCS_RETRY` | TX descriptor sideband defaults: bits 15:0 peer index, bits 23:16 MCS, bits 31:24 retry budget |
+| `0x174` | `FM_FW_DMA_DESCRIPTOR_FLAGS` | TX descriptor sideband flags in low 16 bits |
+| `0x178` | `FM_FW_DMA_SEQ_SEED` | TX descriptor sequence seed for FPGA-native ingress publication |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
 The userspace control tool is `fieldmesh-ctrl-write`: `--fw-dma-status` reads
-this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while `--fw-dma-arm`
-and `--fw-dma-stop` require `FIELD_MESH_EXECUTE_LIVE_TX=1`,
+this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
+`--fw-dma-config`, `--fw-dma-arm`, and `--fw-dma-stop` require
+`FIELD_MESH_EXECUTE_LIVE_TX=1`,
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1` before touching hardware. JSON appears only
 in the tool result stream for inspection; the transport ABI remains binary.
 The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
-action is status-only, and arm/stop actions are skipped unless the wrapper's
+action is status-only, and config/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a
 green sidecar preflight.
 

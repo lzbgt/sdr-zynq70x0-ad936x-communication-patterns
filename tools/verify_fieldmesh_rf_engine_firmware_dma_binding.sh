@@ -17,6 +17,11 @@ required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
     "create_bd_cell -type module -reference fieldmesh_axis_byte_broadcast2 fieldmesh_fw_dma_rf_broadcast",
     "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma",
+    "ad_connect fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
+    "ad_connect fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs",
+    "ad_connect fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget",
+    "ad_connect fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags",
+    "ad_connect fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
     "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis",
     "ad_connect fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8",
     "ad_connect fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_bpsk_symbolizer/s_axis",
@@ -31,6 +36,11 @@ for forbidden in (
     "ad_connect fieldmesh_axis_bridge/m_tx_packet_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid",
     "ad_connect fieldmesh_axis_bridge/m_tx_packet_tdata fieldmesh_bpsk_symbolizer/s_axis_tdata",
     "ad_connect fieldmesh_axis_bridge/m_tx_packet_tlast fieldmesh_bpsk_symbolizer/s_axis_tlast",
+    "ad_connect GND fieldmesh_fw_dma_endpoint/peer_index",
+    "ad_connect GND fieldmesh_fw_dma_endpoint/mcs",
+    "ad_connect GND fieldmesh_fw_dma_endpoint/retry_budget",
+    "ad_connect GND fieldmesh_fw_dma_endpoint/descriptor_flags",
+    "ad_connect GND fieldmesh_fw_dma_endpoint/seq_seed",
 ):
     if forbidden in patcher:
         raise SystemExit(f"RF-engine overlay must not feed symbolizer from sidecar bridge: {forbidden}")
@@ -45,7 +55,11 @@ required_checker_tokens = [
     "{fieldmesh_fw_dma_rf_broadcast/m1_axis_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid}",
     "{fieldmesh_fw_dma_endpoint/m_rx_dma_tvalid fieldmesh_fw_dma_rf_broadcast/s_axis_tvalid}",
     "fieldmesh_ctrl/fw_dma_enable",
+    "fieldmesh_ctrl/fw_dma_peer_index",
+    "fieldmesh_ctrl/fw_dma_seq_seed",
     "fieldmesh_ctrl/fw_dma_mac_service_budget",
+    "assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
+    "assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
 ]
 for token in required_checker_tokens:
     if token not in checker:
