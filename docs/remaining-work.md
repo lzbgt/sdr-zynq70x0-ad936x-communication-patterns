@@ -430,8 +430,11 @@ status snapshots. Those snapshots must come from `fieldmesh-ctrl-write
 --fw-dma-status` with hardware reads enabled, hardware writes disabled, the
 default C sidecar control base, decoded C action-policy booleans, and numeric
 TX parser, ingress, egress, MAC pump, and BRAM error counters. The gate records
-the MAC tick plus ingress/egress packet counter values as hardware-side
-service/counter evidence, but it still keeps measured-link and live-RF
+the DMA TX-completion poll count as submit-latency evidence and now requires
+firmware-DMA progression across the smoke/bind interval: TX parser packet/byte,
+ingress packet/byte, descriptor-publication, and MAC tick counters must advance
+while parser/ingress/egress drop counters and BRAM error counters remain flat.
+It still keeps measured-link and live-RF
 prerequisites false until actual radio TX/RX is measured. The
 2026-05-18 installed-probe-first guard/source run tightened this:
 Z203 and Z103 exposed an installed product/runtime mismatch: the normal runtime

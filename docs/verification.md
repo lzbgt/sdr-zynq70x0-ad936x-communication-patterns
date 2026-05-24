@@ -2969,8 +2969,11 @@ hardware evidence from the C default sidecar control base, include decoded C
 health/action-policy booleans, and expose TX parser, ingress, egress, MAC pump,
 and BRAM error counters. The bind-gate summary carries those before/after MAC
 tick, ingress packet, egress packet, and BRAM error values as hardware-side
-counter evidence while still refusing to claim `rf_phy_tx_rx` until measured
-radio TX/RX is authorized and observed.
+counter evidence. It also requires positive TX parser packet/byte, ingress
+packet/byte, descriptor-publication, and MAC tick deltas, keeps parser/ingress/
+egress drop plus BRAM error deltas at zero, and records DMA TX poll count as
+submit-latency evidence while still refusing to claim `rf_phy_tx_rx` until
+measured radio TX/RX is authorized and observed.
 
 ## Z203 Passive Learner Control Smoke
 

@@ -45,6 +45,23 @@ required = [
     "stop_write_needed",
     "fw_dma_status_reads_hardware",
     "fw_dma_status_writes_hardware",
+    "counter_delta",
+    "fw_dma_counter_deltas",
+    "fw_dma_counter_progression_ok",
+    "fw_dma_required_counter_deltas",
+    "dma_smoke_tx_polls",
+    "dma_smoke_rx_polls",
+    "tx_done_any",
+    "sidecar DMA smoke must expose exactly one dma_smoke_poll event",
+    "firmware-DMA counter {key} did not advance",
+    "firmware-DMA error/drop counter",
+    "fw_dma_tx_parser_packets_delta",
+    "fw_dma_tx_parser_bytes_delta",
+    "fw_dma_ingress_desc_publishes_delta",
+    "fw_dma_ingress_packets_delta",
+    "fw_dma_ingress_bytes_delta",
+    "fw_dma_mac_ticks_delta",
+    "fw_dma_drop_error_delta",
     "fw_dma_mac_ticks_before",
     "fw_dma_mac_ticks_after",
     "fw_dma_ingress_packets_before",
@@ -76,6 +93,30 @@ if "writes_hardware\") is not False" not in script:
     raise SystemExit("firmware-DMA status validation must reject mutating reads")
 if "reads_hardware\") is not True" not in script:
     raise SystemExit("firmware-DMA status validation must require hardware reads")
+for token in (
+    '("tx_parser_packets", 1)',
+    '("tx_parser_bytes", 1)',
+    '("ingress_packets", 1)',
+    '("ingress_bytes", 1)',
+    '("ingress_desc_publishes", 1)',
+    '("mac_ticks", 1)',
+):
+    if token not in script:
+        raise SystemExit(f"RF PHY bind gate missing required firmware-DMA delta threshold: {token}")
+for token in (
+    '"tx_parser_drops"',
+    '"ingress_drops"',
+    '"egress_drops"',
+    '"bram_crc_errors"',
+    '"bram_bounds_errors"',
+    '"bram_errors"',
+):
+    if token not in script:
+        raise SystemExit(f"RF PHY bind gate missing firmware-DMA no-error delta check: {token}")
+if script.index("dma_smoke_poll") > script.index("fw_dma_counter_deltas"):
+    raise SystemExit("DMA smoke poll evidence must be validated before firmware-DMA deltas")
+if script.index("fw_dma_counter_deltas") > summary:
+    raise SystemExit("firmware-DMA counter progression must be validated before summary emission")
 
 print("fieldmesh_board_rf_phy_bind_gate=pass")
 PY

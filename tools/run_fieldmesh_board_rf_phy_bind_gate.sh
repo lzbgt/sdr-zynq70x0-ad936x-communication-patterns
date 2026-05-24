@@ -231,6 +231,17 @@ def require_fw_dma_status(path: Path, label: str) -> dict:
             raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
     return row
 
+def counter_delta(before: dict, after: dict, key: str) -> int:
+    before_value = before.get(key)
+    after_value = after.get(key)
+    if not isinstance(before_value, int) or not isinstance(after_value, int):
+        raise SystemExit(f"firmware-DMA counter {key} is not numeric")
+    if after_value < before_value:
+        raise SystemExit(
+            f"firmware-DMA counter {key} regressed: before={before_value} after={after_value}"
+        )
+    return after_value - before_value
+
 binding = json.loads(
     (out_dir / "fieldmesh_rf_packet_engine_binding_assert.json").read_text(encoding="utf-8")
 )
@@ -242,6 +253,63 @@ if binding.get("modem_benchmark_decode_frame_kbps", 0) < 100:
     raise SystemExit(f"RF packet-engine C modem decode service-rate evidence is too low: {binding}")
 fw_dma_before = require_fw_dma_status(out_dir / "fw_dma_status_before.json", "before")
 fw_dma_after = require_fw_dma_status(out_dir / "fw_dma_status_after.json", "after")
+dma_smoke_rows = load(out_dir / "sidecar_dma_smoke" / "dma_smoke.ndjson")
+dma_smoke_poll = [row for row in dma_smoke_rows if row.get("event") == "dma_smoke_poll"]
+if len(dma_smoke_poll) != 1:
+    raise SystemExit("sidecar DMA smoke must expose exactly one dma_smoke_poll event")
+dma_smoke_poll = dma_smoke_poll[0]
+if dma_smoke_poll.get("tx_done") is not True and dma_smoke_poll.get("tx_done_any") is not True:
+    raise SystemExit(f"sidecar DMA smoke did not prove TX-submit completion: {dma_smoke_poll}")
+for key in ("tx_polls", "rx_polls"):
+    if not isinstance(dma_smoke_poll.get(key), int) or dma_smoke_poll.get(key) < 0:
+        raise SystemExit(f"sidecar DMA smoke poll count {key} must be a non-negative integer")
+if dma_smoke_poll.get("tx_polls") < 1:
+    raise SystemExit(f"sidecar DMA smoke must poll at least once for TX completion: {dma_smoke_poll}")
+
+fw_dma_counter_deltas = {
+    key: counter_delta(fw_dma_before, fw_dma_after, key)
+    for key in (
+        "tx_parser_packets",
+        "tx_parser_bytes",
+        "tx_parser_drops",
+        "ingress_packets",
+        "ingress_bytes",
+        "ingress_desc_publishes",
+        "ingress_drops",
+        "egress_packets",
+        "egress_bytes",
+        "egress_drops",
+        "mac_ticks",
+        "mac_pump_starts",
+        "mac_pump_dones",
+        "bram_crc_errors",
+        "bram_bounds_errors",
+        "bram_errors",
+    )
+}
+for key, minimum in (
+    ("tx_parser_packets", 1),
+    ("tx_parser_bytes", 1),
+    ("ingress_packets", 1),
+    ("ingress_bytes", 1),
+    ("ingress_desc_publishes", 1),
+    ("mac_ticks", 1),
+):
+    if fw_dma_counter_deltas[key] < minimum:
+        raise SystemExit(
+            f"firmware-DMA counter {key} did not advance by at least {minimum}: "
+            f"delta={fw_dma_counter_deltas[key]}"
+        )
+for key in (
+    "tx_parser_drops",
+    "ingress_drops",
+    "egress_drops",
+    "bram_crc_errors",
+    "bram_bounds_errors",
+    "bram_errors",
+):
+    if fw_dma_counter_deltas[key] != 0:
+        raise SystemExit(f"firmware-DMA error/drop counter {key} advanced: {fw_dma_counter_deltas[key]}")
 
 guard = json.loads(
     (out_dir / "rf_tx_guard_plan" / "fieldmesh_rf_tx_guard_run.json").read_text(encoding="utf-8")
@@ -322,16 +390,43 @@ summary = {
     "binding_ready": validate.get("binding_ready"),
     "requires_c_modem_service_rate": binding.get("requires_c_modem_service_rate"),
     "modem_benchmark_decode_frame_kbps": binding.get("modem_benchmark_decode_frame_kbps"),
+    "dma_smoke_tx_polls": dma_smoke_poll.get("tx_polls"),
+    "dma_smoke_rx_polls": dma_smoke_poll.get("rx_polls"),
+    "fw_dma_counter_progression_ok": True,
+    "fw_dma_required_counter_deltas": {
+        "tx_parser_packets": 1,
+        "tx_parser_bytes": 1,
+        "ingress_packets": 1,
+        "ingress_bytes": 1,
+        "ingress_desc_publishes": 1,
+        "mac_ticks": 1,
+    },
     "fw_dma_status_reads_hardware": True,
     "fw_dma_status_writes_hardware": False,
     "fw_dma_fault_free_before": fw_dma_before.get("fault_free"),
     "fw_dma_fault_free_after": fw_dma_after.get("fault_free"),
+    "fw_dma_tx_parser_packets_delta": fw_dma_counter_deltas.get("tx_parser_packets"),
+    "fw_dma_tx_parser_bytes_delta": fw_dma_counter_deltas.get("tx_parser_bytes"),
+    "fw_dma_ingress_desc_publishes_delta": fw_dma_counter_deltas.get("ingress_desc_publishes"),
+    "fw_dma_mac_ticks_delta": fw_dma_counter_deltas.get("mac_ticks"),
     "fw_dma_mac_ticks_before": fw_dma_before.get("mac_ticks"),
     "fw_dma_mac_ticks_after": fw_dma_after.get("mac_ticks"),
     "fw_dma_ingress_packets_before": fw_dma_before.get("ingress_packets"),
     "fw_dma_ingress_packets_after": fw_dma_after.get("ingress_packets"),
+    "fw_dma_ingress_packets_delta": fw_dma_counter_deltas.get("ingress_packets"),
+    "fw_dma_ingress_bytes_delta": fw_dma_counter_deltas.get("ingress_bytes"),
     "fw_dma_egress_packets_before": fw_dma_before.get("egress_packets"),
     "fw_dma_egress_packets_after": fw_dma_after.get("egress_packets"),
+    "fw_dma_egress_packets_delta": fw_dma_counter_deltas.get("egress_packets"),
+    "fw_dma_egress_bytes_delta": fw_dma_counter_deltas.get("egress_bytes"),
+    "fw_dma_drop_error_delta": (
+        fw_dma_counter_deltas.get("tx_parser_drops", 0)
+        + fw_dma_counter_deltas.get("ingress_drops", 0)
+        + fw_dma_counter_deltas.get("egress_drops", 0)
+        + fw_dma_counter_deltas.get("bram_crc_errors", 0)
+        + fw_dma_counter_deltas.get("bram_bounds_errors", 0)
+        + fw_dma_counter_deltas.get("bram_errors", 0)
+    ),
     "fw_dma_bram_errors_before": fw_dma_before.get("bram_errors"),
     "fw_dma_bram_errors_after": fw_dma_after.get("bram_errors"),
     "live_rf_prerequisites_ready": validate.get("live_rf_prerequisites_ready"),

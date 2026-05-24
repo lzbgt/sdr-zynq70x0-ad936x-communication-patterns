@@ -582,7 +582,10 @@ completion and payload CRC match are reserved for the measured live RF TX/RX
 gate. The board bind gate now also captures read-only firmware-DMA endpoint
 status before and after daemon bind validation, so the RF path has C-decoded
 hardware counter evidence for TX parser, ingress, egress, MAC pump, and BRAM
-error state before any authorized measured-RF step. The probe clears the
+error state before any authorized measured-RF step. The gate requires the TX
+parser, ingress, descriptor-publication, and MAC tick counters to advance across
+the smoke interval, requires all drop/error deltas to remain zero, and records
+the DMA TX poll count as bounded submit-latency evidence. The probe clears the
 AXI-DMAC transfer-done bitmask before and after each smoke transaction so
 repeated runs do not inherit stale completion bits.
 
