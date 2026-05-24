@@ -66,6 +66,7 @@ for key in (
     "server_owned_xfer_loop_supported",
     "native_iio_burst_transport_worker_supported",
     "native_iio_burst_transport_session_supported",
+    "native_iio_burst_transport_service_loop_supported",
     "libiio_rx_tx_worker",
     "same_process_rx_tx",
 ):
@@ -77,8 +78,12 @@ if report.get("native_iio_burst_transport_worker_proof") != "FIELDMESH_IIO_BURST
     raise SystemExit(f"C native IIO burst transport worker proof token drifted: {report}")
 if report.get("native_iio_burst_transport_session_proof") != "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1":
     raise SystemExit(f"C native IIO burst transport session proof token drifted: {report}")
+if report.get("native_iio_burst_transport_service_loop_proof") != "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1":
+    raise SystemExit(f"C native IIO burst transport service loop proof token drifted: {report}")
 if report.get("python_xfer_field_orchestration") is not False:
     raise SystemExit(f"C native IIO transport worker must reject Python field orchestration: {report}")
+if report.get("python_worker_xfer_submission") is not False:
+    raise SystemExit(f"C native IIO service loop must reject Python WORKER_XFER submission: {report}")
 for key in ("python_iio_transport", "reads_hardware", "writes_hardware", "starts_rf_tx"):
     if report.get(key) is not False:
         raise SystemExit(f"C native IIO worker self-test must be read/write-free for {key}: {report}")
@@ -402,12 +407,19 @@ required = [
     "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1",
     "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1",
     "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1",
+    "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1",
     "TRANSPORT_WORKER_START",
     "TRANSPORT_WORKER_STATUS",
+    "TRANSPORT_SERVICE_LOOP_START",
+    "TRANSPORT_SERVICE_LOOP_STATUS",
+    "TRANSPORT_SERVICE_LOOP_RUN",
     "WORKER_XFER",
     "fieldmesh_iio_burst_transport_worker_start",
     "fieldmesh_iio_burst_transport_worker_status",
     "fieldmesh_iio_burst_transport_worker_request",
+    "fieldmesh_iio_burst_transport_service_loop_start",
+    "fieldmesh_iio_burst_transport_service_loop_status",
+    "fieldmesh_iio_burst_transport_service_loop_run",
     "native_iio_burst_worker",
     "persistent_native_iio_burst_worker",
     "native_iio_burst_worker_lifecycle",
@@ -415,9 +427,14 @@ required = [
     "server_xfer_count",
     "native_iio_burst_transport_worker",
     "native_iio_burst_transport_session",
+    "native_iio_burst_transport_service_loop",
     "transport_session_start_count",
     "transport_worker_request_count",
+    "transport_service_loop_start_count",
+    "transport_service_loop_run_count",
     "python_xfer_field_orchestration",
+    "python_worker_xfer_submission",
+    "native_transport_worker_autonomous_scheduler",
     "libiio_rx_tx_worker",
     "python_iio_transport",
     "fieldmesh_bpsk_modem_encode",

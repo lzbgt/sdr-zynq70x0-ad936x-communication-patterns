@@ -27,6 +27,7 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_native_iio_burst_worker_lifecycle": true,
   "requires_iio_native_iio_burst_transport_worker": true,
   "requires_iio_native_iio_burst_transport_session": true,
+  "requires_iio_native_iio_burst_transport_service_loop": true,
   "requires_iio_rf_sub_burst_evidence": true,
   "requires_iio_rf_service_policy_proof": true,
   "requires_iio_native_rf_service_worker_proof": true,
@@ -97,6 +98,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_native_iio_burst_transport_worker_proven": true,
   "board_iio_native_iio_burst_transport_session_proven": true,
   "host_iio_native_iio_burst_transport_session_proven": true,
+  "board_iio_native_iio_burst_transport_service_loop_proven": true,
+  "host_iio_native_iio_burst_transport_service_loop_proven": true,
   "board_iio_bridge_in_burst_priority_preemption_enabled": true,
   "host_iio_bridge_in_burst_priority_preemption_enabled": true,
   "board_iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -171,6 +174,8 @@ if report.get("requires_iio_native_iio_burst_transport_worker") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst transport worker requirement: {report!r}")
 if report.get("requires_iio_native_iio_burst_transport_session") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst transport session requirement: {report!r}")
+if report.get("requires_iio_native_iio_burst_transport_service_loop") is not True:
+    raise SystemExit(f"native-IP readiness lost native IIO burst transport service loop requirement: {report!r}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst requirement: {report!r}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:
@@ -231,6 +236,8 @@ if report.get("host_iio_native_iio_burst_transport_worker_proven") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst transport worker proof: {report!r}")
 if report.get("host_iio_native_iio_burst_transport_session_proven") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst transport session proof: {report!r}")
+if report.get("host_iio_native_iio_burst_transport_service_loop_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost native IIO burst transport service loop proof: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing proof: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
