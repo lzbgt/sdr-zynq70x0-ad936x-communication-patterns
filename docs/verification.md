@@ -2877,19 +2877,39 @@ shared C self-test fixture vectors; stale `0x178` overlay guards are rejected.
 freshness reporter. It compares the packaged `fieldmesh-ctrl-write` strings in
 the rootfs tarballs against the current checked firmware-DMA C command contract
 and the packaged `fieldmesh-udp-probe` strings against the current C-decoded RF
-guard scan contract. It emits `runtime_rebuild_needed=true` when a package lacks
+guard scan contract and sidecar address-map self-test. It emits
+`runtime_rebuild_needed=true` when a package lacks
 `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`,
 `--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`,
 `--fw-dma-action-policy-self-test`, the matching C refusal/policy tokens, or
 the decoded RF guard scan fields such as `control_armed`, `status_reserved`,
-`drop_counters_clear`, `fault_free`, `dac_source_selected`, and `dac_active`.
+`drop_counters_clear`, `fault_free`, `dac_source_selected`, and `dac_active`,
+or sidecar address proof tokens such as `sidecar-addr-self-test`,
+`fieldmesh_sidecar_addr_self_test`, and `native_c_contract`.
 The standalone reporter is advisory unless called with `--require-current`,
-`--require-current-fw-dma`, or `--require-current-rf-guard`. The normal
-`verify_fieldmesh_runtime_artifacts.sh` path now requires both firmware-DMA and
-decoded RF guard scan freshness by default after the Z203/Z103 packages were
-rebuilt. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` or
-`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0` only for explicit advisory
+`--require-current-fw-dma`, `--require-current-rf-guard`, or
+`--require-current-sidecar-addr`. The normal
+`verify_fieldmesh_runtime_artifacts.sh` path now requires firmware-DMA, decoded
+RF guard scan, and sidecar-address freshness by default after the Z203/Z103
+packages were rebuilt. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0`,
+`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0`, or
+`FIELDMESH_REQUIRE_CURRENT_SIDECAR_ADDR_RUNTIME=0` only for explicit advisory
 diagnostics when investigating stale local packages.
+After adding the sidecar address-map self-test, the Z203/Z103 rootfs images
+were rebuilt and runtime packages regenerated. The refreshed strict artifact
+check reported `runtime_rebuild_needed=false` for both variants with current
+sidecar-address contracts. Current hashes:
+
+```text
+Z203 rootfs.cpio.gz: 0696bd5ea19a7c268981a956fb5bcddcce8ba4960b7e45beee5a11786f37666b
+Z203 rootfs.tar.gz:  bca4777edd8fbb38125c99e2c8a1053c5483b35689e56f70725a86553a1ea780
+Z203 pluto.frm:      0dcca11ae62a83145287fa20eb4be8c2f28a216268c244a4a067660c4a2c1a10
+Z203 pluto.itb:      ed20be4a5465ae6b2061fc71cc0b139a5ab21841cae7ae10c47e4d73f9b7f0d7
+Z103 rootfs.cpio.gz: 77a6610df6fb6884d3775b707d762a62cd6a135bcaf396bef77a3f85dfea3487
+Z103 rootfs.tar.gz:  6679e6ec6b936db75683ee12bd5d360ef83ef8bad0e6cc487adcbde78ac7492d
+Z103 pluto.frm:      c96b5ba808bb570fc62798cd49ce5acd021c3f6833d3f679216ce964d516d9af
+Z103 pluto.itb:      d97162fe0a44dc5fb68bbe824f9b45e87e9aed53e90f7c230fdbd90bb4bf488a
+```
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

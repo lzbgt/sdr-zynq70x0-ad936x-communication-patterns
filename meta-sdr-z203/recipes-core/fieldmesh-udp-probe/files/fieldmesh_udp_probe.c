@@ -154,6 +154,7 @@ static void usage(FILE *out)
         "  fieldmesh-udp-probe pl-replay --file FRAME.bin\n"
         "  fieldmesh-udp-probe iio-scan [--iio-uri local:|ip:HOST|usb:]\n"
         "  fieldmesh-udp-probe iio-plan [--iio-uri local:|ip:HOST|usb:]\n"
+        "  fieldmesh-udp-probe sidecar-addr-self-test\n"
         "  fieldmesh-udp-probe dt-scan [--dt-root /proc/device-tree]\n"
         "  fieldmesh-udp-probe ctrl-scan [--ctrl-base " FIELDMESH_SIDECAR_CTRL_BASE_TEXT "] [--ctrl-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--ctrl-mem-file FILE]\n"
         "  fieldmesh-udp-probe dma-scan [--tx-dma-base " FIELDMESH_SIDECAR_TX_DMA_BASE_TEXT "] [--rx-dma-base " FIELDMESH_SIDECAR_RX_DMA_BASE_TEXT "] [--dma-size " FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "] [--dma-mem-file FILE]\n"
@@ -348,6 +349,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "ap-elect") &&
         strcmp(cfg->role, "rtls-estimate") &&
         strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
+        strcmp(cfg->role, "sidecar-addr-self-test") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ctrl-scan") &&
         strcmp(cfg->role, "dma-scan") &&
@@ -358,10 +360,11 @@ static int parse_args(int argc, char **argv, struct config *cfg)
         strcmp(cfg->role, "rf-source-apply") &&
         strcmp(cfg->role, "verify-frame") &&
         !is_local_loopback_role(cfg->role)) {
-        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, rf-source-apply, or verify-frame\n");
+        fprintf(stderr, "role must be send, receive, advertise, command, adaptive-listen, ap-elect, rtls-estimate, mem-loopback, mmap-loopback, mmap-replay, desc-replay, pl-replay, iio-scan, iio-plan, sidecar-addr-self-test, dt-scan, ctrl-scan, dma-scan, dma-plan, dma-smoke, rf-guard-scan, rf-guard-apply, rf-source-apply, or verify-frame\n");
         return 2;
     }
     if (strcmp(cfg->role, "iio-scan") && strcmp(cfg->role, "iio-plan") &&
+        strcmp(cfg->role, "sidecar-addr-self-test") &&
         strcmp(cfg->role, "dt-scan") &&
         strcmp(cfg->role, "ap-elect") &&
         strcmp(cfg->role, "rtls-estimate") &&
@@ -3702,6 +3705,36 @@ out:
     return ok ? 0 : 1;
 }
 
+static int run_sidecar_addr_self_test(void)
+{
+    bool map_valid = fieldmesh_sidecar_addr_default_map_valid();
+    printf("{\"event\":\"fieldmesh_sidecar_addr_self_test\","
+           "\"ok\":%s,"
+           "\"ctrl_base\":\"0x%08x\","
+           "\"tx_dma_base\":\"0x%08x\","
+           "\"rx_dma_base\":\"0x%08x\","
+           "\"firmware_ring_base\":\"0x%08x\","
+           "\"window_size\":\"0x%08x\","
+           "\"ctrl_node\":\"%s\","
+           "\"tx_dma_node\":\"%s\","
+           "\"rx_dma_node\":\"%s\","
+           "\"firmware_ring_node\":\"%s\","
+           "\"native_c_contract\":true,"
+           "\"reads_hardware\":false,"
+           "\"writes_hardware\":false}\n",
+           map_valid ? "true" : "false",
+           FIELDMESH_SIDECAR_CTRL_BASE,
+           FIELDMESH_SIDECAR_TX_DMA_BASE,
+           FIELDMESH_SIDECAR_RX_DMA_BASE,
+           FIELDMESH_SIDECAR_FIRMWARE_RING_BASE,
+           FIELDMESH_SIDECAR_WINDOW_SIZE,
+           FIELDMESH_SIDECAR_CTRL_NODE,
+           FIELDMESH_SIDECAR_TX_DMA_NODE,
+           FIELDMESH_SIDECAR_RX_DMA_NODE,
+           FIELDMESH_SIDECAR_FIRMWARE_RING_NODE);
+    return map_valid ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     struct config cfg;
@@ -3747,6 +3780,9 @@ int main(int argc, char **argv)
     }
     if (!strcmp(cfg.role, "iio-plan")) {
         return run_iio_plan(&cfg);
+    }
+    if (!strcmp(cfg.role, "sidecar-addr-self-test")) {
+        return run_sidecar_addr_self_test();
     }
     if (!strcmp(cfg.role, "dt-scan")) {
         return run_dt_scan(&cfg);

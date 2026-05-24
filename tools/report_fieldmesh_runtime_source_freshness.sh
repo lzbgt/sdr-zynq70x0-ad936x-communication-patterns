@@ -12,8 +12,10 @@ elif [[ "${2:-}" == "--require-current-fw-dma" ]]; then
     require_mode="fw_dma"
 elif [[ "${2:-}" == "--require-current-rf-guard" ]]; then
     require_mode="rf_guard"
+elif [[ "${2:-}" == "--require-current-sidecar-addr" ]]; then
+    require_mode="sidecar_addr"
 elif [[ $# -gt 1 ]]; then
-    echo "usage: $0 [all|z203|z103] [--require-current|--require-current-fw-dma|--require-current-rf-guard]" >&2
+    echo "usage: $0 [all|z203|z103] [--require-current|--require-current-fw-dma|--require-current-rf-guard|--require-current-sidecar-addr]" >&2
     exit 2
 fi
 
@@ -138,13 +140,31 @@ rf_guard_artifact_tokens = (
     "dac_source_selected",
     "dac_active",
 )
+sidecar_addr_source_tokens = (
+    "fieldmesh_sidecar_addr_self_test",
+    "sidecar-addr-self-test",
+    "FIELDMESH_SIDECAR_CTRL_BASE",
+    "FIELDMESH_SIDECAR_TX_DMA_BASE",
+    "FIELDMESH_SIDECAR_RX_DMA_BASE",
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
+    "fieldmesh_sidecar_addr_default_map_valid",
+)
+sidecar_addr_artifact_tokens = (
+    "sidecar-addr-self-test",
+    "fieldmesh_sidecar_addr_self_test",
+    "native_c_contract",
+    "firmware_ring_base",
+    "writes_hardware",
+)
 
 missing_fw_dma_source = [token for token in fw_dma_source_tokens if token not in ctrl_source]
 missing_fw_dma_artifact = [token for token in fw_dma_artifact_tokens if token not in ctrl_artifact]
 missing_rf_guard_source = [token for token in rf_guard_source_tokens if token not in rf_guard_source]
 missing_rf_guard_artifact = [token for token in rf_guard_artifact_tokens if token not in udp_artifact]
-missing_source = missing_fw_dma_source + missing_rf_guard_source
-missing_artifact = missing_fw_dma_artifact + missing_rf_guard_artifact
+missing_sidecar_addr_source = [token for token in sidecar_addr_source_tokens if token not in rf_guard_source]
+missing_sidecar_addr_artifact = [token for token in sidecar_addr_artifact_tokens if token not in udp_artifact]
+missing_source = missing_fw_dma_source + missing_rf_guard_source + missing_sidecar_addr_source
+missing_artifact = missing_fw_dma_artifact + missing_rf_guard_artifact + missing_sidecar_addr_artifact
 event = {
     "event": "fieldmesh_runtime_source_freshness",
     "variant": variant,
@@ -155,18 +175,22 @@ event = {
     "artifact_has_current_fw_dma_contract": not missing_fw_dma_artifact,
     "source_has_current_rf_guard_contract": not missing_rf_guard_source,
     "artifact_has_current_rf_guard_contract": not missing_rf_guard_artifact,
+    "source_has_current_sidecar_addr_contract": not missing_sidecar_addr_source,
+    "artifact_has_current_sidecar_addr_contract": not missing_sidecar_addr_artifact,
     "runtime_rebuild_needed": bool(missing_artifact),
     "missing_source_tokens": missing_source,
     "missing_artifact_tokens": missing_artifact,
-    "expected_artifact_token_count": len(fw_dma_artifact_tokens) + len(rf_guard_artifact_tokens),
+    "expected_artifact_token_count": len(fw_dma_artifact_tokens) + len(rf_guard_artifact_tokens) + len(sidecar_addr_artifact_tokens),
     "expected_fw_dma_artifact_token_count": len(fw_dma_artifact_tokens),
     "expected_rf_guard_artifact_token_count": len(rf_guard_artifact_tokens),
+    "expected_sidecar_addr_artifact_token_count": len(sidecar_addr_artifact_tokens),
 }
 print(json.dumps(event, sort_keys=True))
 if (
     (require_mode == "all" and (missing_source or missing_artifact)) or
     (require_mode == "fw_dma" and (missing_fw_dma_source or missing_fw_dma_artifact)) or
-    (require_mode == "rf_guard" and (missing_rf_guard_source or missing_rf_guard_artifact))
+    (require_mode == "rf_guard" and (missing_rf_guard_source or missing_rf_guard_artifact)) or
+    (require_mode == "sidecar_addr" and (missing_sidecar_addr_source or missing_sidecar_addr_artifact))
 ):
     raise SystemExit(1)
 PY
@@ -266,13 +290,31 @@ rf_guard_artifact_tokens = (
     "dac_source_selected",
     "dac_active",
 )
+sidecar_addr_source_tokens = (
+    "fieldmesh_sidecar_addr_self_test",
+    "sidecar-addr-self-test",
+    "FIELDMESH_SIDECAR_CTRL_BASE",
+    "FIELDMESH_SIDECAR_TX_DMA_BASE",
+    "FIELDMESH_SIDECAR_RX_DMA_BASE",
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
+    "fieldmesh_sidecar_addr_default_map_valid",
+)
+sidecar_addr_artifact_tokens = (
+    "sidecar-addr-self-test",
+    "fieldmesh_sidecar_addr_self_test",
+    "native_c_contract",
+    "firmware_ring_base",
+    "writes_hardware",
+)
 
 missing_fw_dma_source = [token for token in fw_dma_source_tokens if token not in ctrl_source]
 missing_fw_dma_artifact = [token for token in fw_dma_artifact_tokens if token not in ctrl_artifact]
 missing_rf_guard_source = [token for token in rf_guard_source_tokens if token not in rf_guard_source]
 missing_rf_guard_artifact = [token for token in rf_guard_artifact_tokens if token not in udp_artifact]
-missing_source = missing_fw_dma_source + missing_rf_guard_source
-missing_artifact = missing_fw_dma_artifact + missing_rf_guard_artifact
+missing_sidecar_addr_source = [token for token in sidecar_addr_source_tokens if token not in rf_guard_source]
+missing_sidecar_addr_artifact = [token for token in sidecar_addr_artifact_tokens if token not in udp_artifact]
+missing_source = missing_fw_dma_source + missing_rf_guard_source + missing_sidecar_addr_source
+missing_artifact = missing_fw_dma_artifact + missing_rf_guard_artifact + missing_sidecar_addr_artifact
 event = {
     "event": "fieldmesh_runtime_source_freshness",
     "variant": variant,
@@ -283,18 +325,22 @@ event = {
     "artifact_has_current_fw_dma_contract": not missing_fw_dma_artifact,
     "source_has_current_rf_guard_contract": not missing_rf_guard_source,
     "artifact_has_current_rf_guard_contract": not missing_rf_guard_artifact,
+    "source_has_current_sidecar_addr_contract": not missing_sidecar_addr_source,
+    "artifact_has_current_sidecar_addr_contract": not missing_sidecar_addr_artifact,
     "runtime_rebuild_needed": bool(missing_artifact),
     "missing_source_tokens": missing_source,
     "missing_artifact_tokens": missing_artifact,
-    "expected_artifact_token_count": len(fw_dma_artifact_tokens) + len(rf_guard_artifact_tokens),
+    "expected_artifact_token_count": len(fw_dma_artifact_tokens) + len(rf_guard_artifact_tokens) + len(sidecar_addr_artifact_tokens),
     "expected_fw_dma_artifact_token_count": len(fw_dma_artifact_tokens),
     "expected_rf_guard_artifact_token_count": len(rf_guard_artifact_tokens),
+    "expected_sidecar_addr_artifact_token_count": len(sidecar_addr_artifact_tokens),
 }
 print(json.dumps(event, sort_keys=True))
 if (
     (require_mode == "all" and (missing_source or missing_artifact)) or
     (require_mode == "fw_dma" and (missing_fw_dma_source or missing_fw_dma_artifact)) or
-    (require_mode == "rf_guard" and (missing_rf_guard_source or missing_rf_guard_artifact))
+    (require_mode == "rf_guard" and (missing_rf_guard_source or missing_rf_guard_artifact)) or
+    (require_mode == "sidecar_addr" and (missing_sidecar_addr_source or missing_sidecar_addr_artifact))
 ):
     raise SystemExit(1)
 PY

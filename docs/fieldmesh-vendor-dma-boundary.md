@@ -275,7 +275,9 @@ The fixed sidecar address contract lives beside it in
 `fieldmesh-ctrl-write` consume that header for the `0x43C00000` control page,
 `0x43C10000` TX packet-DMA page, `0x43C20000` RX packet-DMA page, and
 `0x43C30000` firmware-ring page instead of duplicating those constants in
-board-native C.
+board-native C. `fieldmesh-udp-probe sidecar-addr-self-test` emits that map
+from compiled C without reading or writing hardware; runtime freshness requires
+the packaged probe to contain this proof.
 
 Userspace control is intentionally guarded. `fieldmesh-ctrl-write
 --fw-dma-status 0x43c00000` is a read-only status probe and requires

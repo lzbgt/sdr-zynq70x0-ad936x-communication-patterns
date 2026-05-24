@@ -19,7 +19,9 @@ It appends nodes under `&fpga_axi`:
 
 The same address/window values are defined for native userspace in
 `sdk/c/include/fieldmesh_sidecar_addr.h`; board C tools use that header for
-their default scan and control addresses.
+their default scan and control addresses. `fieldmesh-udp-probe
+sidecar-addr-self-test` reports the compiled C view of this table without
+touching `/dev/mem`.
 
 | Node | Compatible | Address | IRQ |
 | --- | --- | --- | --- |

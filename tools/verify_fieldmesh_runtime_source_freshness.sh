@@ -54,6 +54,11 @@ drop_counters_clear
 fault_free
 dac_source_selected
 dac_active
+sidecar-addr-self-test
+fieldmesh_sidecar_addr_self_test
+native_c_contract
+firmware_ring_base
+writes_hardware
 EOF
 
 cat >"$stale_udp_strings" <<'EOF'
@@ -96,12 +101,16 @@ for variant in ("z203", "z103"):
         raise SystemExit(f"{variant}: source contract is stale: {row!r}")
     if row.get("source_has_current_rf_guard_contract") is not True:
         raise SystemExit(f"{variant}: RF guard source contract is stale: {row!r}")
+    if row.get("source_has_current_sidecar_addr_contract") is not True:
+        raise SystemExit(f"{variant}: sidecar address source contract is stale: {row!r}")
 
 stale = by_variant["z203"]
 if stale.get("artifact_has_current_fw_dma_contract") is not False:
     raise SystemExit(f"z203 stale fixture was not detected: {stale!r}")
 if stale.get("artifact_has_current_rf_guard_contract") is not False:
     raise SystemExit(f"z203 stale RF guard fixture was not detected: {stale!r}")
+if stale.get("artifact_has_current_sidecar_addr_contract") is not False:
+    raise SystemExit(f"z203 stale sidecar address fixture was not detected: {stale!r}")
 if stale.get("runtime_rebuild_needed") is not True:
     raise SystemExit(f"z203 stale fixture did not request rebuild: {stale!r}")
 for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
@@ -115,12 +124,18 @@ for token in ("control_tx_enabled", "status_reserved", "drop_counters_clear",
               "dac_source_selected", "dac_active"):
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale RF guard fixture missing expected token {token}: {stale!r}")
+for token in ("sidecar-addr-self-test", "fieldmesh_sidecar_addr_self_test",
+              "native_c_contract", "firmware_ring_base"):
+    if token not in stale.get("missing_artifact_tokens", []):
+        raise SystemExit(f"z203 stale sidecar address fixture missing expected token {token}: {stale!r}")
 
 fresh = by_variant["z103"]
 if fresh.get("artifact_has_current_fw_dma_contract") is not True:
     raise SystemExit(f"z103 fresh fixture was not accepted: {fresh!r}")
 if fresh.get("artifact_has_current_rf_guard_contract") is not True:
     raise SystemExit(f"z103 fresh RF guard fixture was not accepted: {fresh!r}")
+if fresh.get("artifact_has_current_sidecar_addr_contract") is not True:
+    raise SystemExit(f"z103 fresh sidecar address fixture was not accepted: {fresh!r}")
 if fresh.get("runtime_rebuild_needed") is not False:
     raise SystemExit(f"z103 fresh fixture incorrectly requested rebuild: {fresh!r}")
 if fresh.get("missing_artifact_tokens") != []:
@@ -148,6 +163,14 @@ FIELDMESH_RUNTIME_UDP_PROBE_STRINGS_FILE_Z203="$stale_udp_strings" \
         exit 1
     }
 
+FIELDMESH_RUNTIME_STRINGS_FILE_Z203="$fresh_strings" \
+FIELDMESH_RUNTIME_UDP_PROBE_STRINGS_FILE_Z203="$stale_udp_strings" \
+    "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" z203 --require-current-sidecar-addr \
+    >"$work_dir/require_current_sidecar_addr.json" 2>"$work_dir/require_current_sidecar_addr.err" && {
+        echo "freshness reporter --require-current-sidecar-addr accepted stale sidecar address runtime strings" >&2
+        exit 1
+    }
+
 python3 - "$repo_root/tools/verify_fieldmesh_runtime_artifacts.sh" <<'PY'
 import sys
 from pathlib import Path
@@ -163,12 +186,16 @@ required = [
     "FIELDMESH_RUNTIME_ARTIFACT_Z103",
     "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME",
     "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME",
+    "FIELDMESH_REQUIRE_CURRENT_SIDECAR_ADDR_RUNTIME",
     "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-1",
     "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-1",
+    "FIELDMESH_REQUIRE_CURRENT_SIDECAR_ADDR_RUNTIME:-1",
     "require_current_fw_dma_runtime",
     "require_current_rf_guard_runtime",
+    "require_current_sidecar_addr_runtime",
     "--require-current-fw-dma",
     "--require-current-rf-guard",
+    "--require-current-sidecar-addr",
     "freshness_args+=(\"--require-current\")",
     "env \"$freshness_env\"",
 ]

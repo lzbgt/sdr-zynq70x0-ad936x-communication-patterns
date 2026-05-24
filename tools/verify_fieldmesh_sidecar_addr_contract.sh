@@ -36,11 +36,23 @@ EOF_C
 
 "$work_dir/fieldmesh-sidecar-addr-smoke"
 
-python3 - "$repo_root" <<'PY'
+probe_z203_bin="$work_dir/fieldmesh-udp-probe-z203"
+probe_z103_bin="$work_dir/fieldmesh-udp-probe-z103"
+OUT="$probe_z203_bin" "$repo_root/tools/build_fieldmesh_udp_probe_host.sh" \
+    "$repo_root/meta-sdr-z203/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c" >/dev/null
+OUT="$probe_z103_bin" "$repo_root/tools/build_fieldmesh_udp_probe_host.sh" \
+    "$repo_root/meta-sdr-z103/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c" >/dev/null
+"$probe_z203_bin" sidecar-addr-self-test >"$work_dir/z203_sidecar_addr.json"
+"$probe_z103_bin" sidecar-addr-self-test >"$work_dir/z103_sidecar_addr.json"
+
+python3 - "$repo_root" "$work_dir/z203_sidecar_addr.json" "$work_dir/z103_sidecar_addr.json" <<'PY'
+import json
 import sys
 from pathlib import Path
 
 repo = Path(sys.argv[1])
+z203_report = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+z103_report = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
 header = (repo / "sdk/c/include/fieldmesh_sidecar_addr.h").read_text(encoding="utf-8")
 ctrl_tool = (repo / "runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c").read_text(encoding="utf-8")
 probe_z203 = (repo / "meta-sdr-z203/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c").read_text(encoding="utf-8")
@@ -73,9 +85,13 @@ for token in (
     "FIELDMESH_SIDECAR_CTRL_BASE",
     "FIELDMESH_SIDECAR_TX_DMA_BASE",
     "FIELDMESH_SIDECAR_RX_DMA_BASE",
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
     "FIELDMESH_SIDECAR_WINDOW_SIZE",
     "FIELDMESH_SIDECAR_CTRL_NODE",
     "FIELDMESH_SIDECAR_DMA_COMPAT",
+    "sidecar-addr-self-test",
+    "fieldmesh_sidecar_addr_self_test",
+    "native_c_contract",
 ):
     if token not in probe_z203 or token not in probe_z103:
         raise SystemExit(f"fieldmesh_udp_probe sources do not use {token}")
@@ -112,6 +128,23 @@ for path in recipe_paths:
 
 if probe_z203 != probe_z103:
     raise SystemExit("Z203 and Z103 fieldmesh_udp_probe.c sources diverged")
+
+for label, report in (("z203", z203_report), ("z103", z103_report)):
+    expected = {
+        "event": "fieldmesh_sidecar_addr_self_test",
+        "ok": True,
+        "ctrl_base": "0x43c00000",
+        "tx_dma_base": "0x43c10000",
+        "rx_dma_base": "0x43c20000",
+        "firmware_ring_base": "0x43c30000",
+        "window_size": "0x00010000",
+        "native_c_contract": True,
+        "reads_hardware": False,
+        "writes_hardware": False,
+    }
+    for key, value in expected.items():
+        if report.get(key) != value:
+            raise SystemExit(f"{label} sidecar address self-test mismatch for {key}: {report!r}")
 
 print('{"event":"fieldmesh_sidecar_addr_contract","ok":true,'
       '"ctrl_base":"0x43c00000","tx_dma_base":"0x43c10000",'

@@ -6,6 +6,7 @@ source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-all}"
 require_current_fw_dma_runtime="${FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-1}"
 require_current_rf_guard_runtime="${FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-1}"
+require_current_sidecar_addr_runtime="${FIELDMESH_REQUIRE_CURRENT_SIDECAR_ADDR_RUNTIME:-1}"
 
 case "$require_current_fw_dma_runtime" in
     0|1)
@@ -20,6 +21,14 @@ case "$require_current_rf_guard_runtime" in
         ;;
     *)
         echo "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME must be 0 or 1" >&2
+        exit 2
+        ;;
+esac
+case "$require_current_sidecar_addr_runtime" in
+    0|1)
+        ;;
+    *)
+        echo "FIELDMESH_REQUIRE_CURRENT_SIDECAR_ADDR_RUNTIME must be 0 or 1" >&2
         exit 2
         ;;
 esac
@@ -588,14 +597,29 @@ PY
             ;;
     esac
     freshness_args=("$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" "$name")
-    if [[ "$require_current_fw_dma_runtime" == "1" && "$require_current_rf_guard_runtime" == "1" ]]; then
+    if [[ "$require_current_fw_dma_runtime" == "1" &&
+          "$require_current_rf_guard_runtime" == "1" &&
+          "$require_current_sidecar_addr_runtime" == "1" ]]; then
         freshness_args+=("--require-current")
-    elif [[ "$require_current_fw_dma_runtime" == "1" ]]; then
-        freshness_args+=("--require-current-fw-dma")
-    elif [[ "$require_current_rf_guard_runtime" == "1" ]]; then
-        freshness_args+=("--require-current-rf-guard")
+        env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" "${freshness_args[@]}"
+    else
+        env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" "${freshness_args[@]}"
+        if [[ "$require_current_fw_dma_runtime" == "1" ]]; then
+            env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" \
+                "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" \
+                "$name" --require-current-fw-dma >/dev/null
+        fi
+        if [[ "$require_current_rf_guard_runtime" == "1" ]]; then
+            env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" \
+                "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" \
+                "$name" --require-current-rf-guard >/dev/null
+        fi
+        if [[ "$require_current_sidecar_addr_runtime" == "1" ]]; then
+            env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" \
+                "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" \
+                "$name" --require-current-sidecar-addr >/dev/null
+        fi
     fi
-    env "$freshness_env" "$freshness_udp_env" "$freshness_artifact_env" "${freshness_args[@]}"
 
     (cd "$jtag_dir" && sha256sum -c SHA256SUMS >/dev/null)
 
