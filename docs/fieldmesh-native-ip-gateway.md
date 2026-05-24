@@ -435,6 +435,11 @@ Minimum production gates for native TCP/IP:
   saved IIO RF evidence must show the direction fair-service budget was enabled
   and that same-direction burst high-water stayed within that budget, so queued
   reverse-path TCP control frames cannot be starved by repeated forward bursts.
+  It also defaults `IIO_BRIDGE_SAME_PRIORITY_BATCH=1`, which asks the daemon to
+  stop filling a leased RF batch once the next candidate would drop below the
+  first leased frame's priority. This gives TCP control-flow frames a sub-batch
+  preemption boundary instead of padding a control burst with lower-priority
+  payload.
   Both layers must carry TCP final-exchange, queue-quiet, and control-drain
   timing proof; the host-originated transparent layer is phase-tagged as
   `host_pc`. A daemon

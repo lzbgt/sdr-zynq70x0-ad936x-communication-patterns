@@ -73,6 +73,7 @@ max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
 iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-2}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
+iio_bridge_same_priority_batch="${IIO_BRIDGE_SAME_PRIORITY_BATCH:-1}"
 if [ -n "${IIO_BRIDGE_LEASE_PRIORITY+x}" ]; then
     iio_bridge_lease_priority="$IIO_BRIDGE_LEASE_PRIORITY"
 else
@@ -406,6 +407,10 @@ if [ -n "$fieldmesh_iio_burst_helper" ] &&
 fi
 if [ "$iio_bridge_cyclic_tx" != "0" ] && [ "$iio_bridge_cyclic_tx" != "1" ]; then
     echo "IIO_BRIDGE_CYCLIC_TX must be 0 or 1" >&2
+    exit 1
+fi
+if [ "$iio_bridge_same_priority_batch" != "0" ] && [ "$iio_bridge_same_priority_batch" != "1" ]; then
+    echo "IIO_BRIDGE_SAME_PRIORITY_BATCH must be 0 or 1" >&2
     exit 1
 fi
 if [ -z "$swarm_mtu" ]; then
@@ -1303,6 +1308,11 @@ start_iio_rf_bridge_loop() {
     fi
     if [ "$iio_bridge_cyclic_tx" = "0" ]; then
         cyclic_tx_args=(--no-cyclic-tx)
+    fi
+    if [ "$iio_bridge_same_priority_batch" = "1" ]; then
+        batch_args+=(--same-priority-batch)
+    else
+        batch_args+=(--no-same-priority-batch)
     fi
     "$repo_root/tools/fieldmesh_iio_rf_worker_bridge_loop.py" \
         --rf-binding-plan "$rf_binding_plan" \
@@ -2777,6 +2787,15 @@ report = {
     ),
     "iio_bridge_rf_burst_batch_exercised": bool(
         last_iio_bridge.get("rf_burst_batch_exercised")
+    ),
+    "iio_bridge_same_priority_batch": bool(
+        last_iio_bridge.get("same_priority_batch")
+    ),
+    "iio_bridge_same_priority_batch_leases": int(
+        last_iio_bridge.get("same_priority_batch_leases") or 0
+    ),
+    "iio_bridge_same_priority_batch_priority_drop_stops": int(
+        last_iio_bridge.get("same_priority_batch_priority_drop_stops") or 0
     ),
     "iio_bridge_direction_fair_service_enabled": bool(
         last_iio_bridge.get("direction_fair_service_enabled")

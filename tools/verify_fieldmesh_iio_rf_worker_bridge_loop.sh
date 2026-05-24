@@ -84,6 +84,8 @@ if report.get("source_ack_pipeline_exercised") is not False:
     raise SystemExit(f"dry-run source ACK pipeline must not be exercised: {report}")
 if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
+if report.get("same_priority_batch") is not False:
+    raise SystemExit(f"direct bridge-loop dry-run should not default to same-priority batching: {report}")
 if report.get("lease_priority") != "tcp-payload":
     raise SystemExit(f"unexpected lease priority default: {report.get('lease_priority')}")
 if report.get("adaptive_direction_scheduler") is not False:
@@ -162,6 +164,34 @@ if loop.lease_priority_request_suffix("udp-payload") != " priority=udp_payload":
     raise SystemExit("udp-payload lease priority did not map to daemon request suffix")
 if loop.lease_priority_request_suffix("udp-after-control") != " priority=udp_after_control":
     raise SystemExit("udp-after-control lease priority did not map to daemon request suffix")
+captured_batch = {}
+def batch_request(host, port, text, timeout_ms):
+    captured_batch["text"] = text
+    return {
+        "event": "sdk_daemon_rf_tx_lease_batch",
+        "ok": True,
+        "frames": 1,
+        "frame0_hex": "aa",
+        "same_priority_batch": 1,
+        "batch_first_priority_score": 9,
+        "batch_min_priority_score": 9,
+        "batch_priority_drop_stopped": 1,
+        "lease_priority": "tcp_control_flow",
+    }
+original_request = bridge.request_daemon
+bridge.request_daemon = batch_request
+try:
+    batch, batch_report = loop.lease_batch_from_daemon(
+        "127.0.0.1", 55441, 10, 4, 0, "tcp-control-flow", True
+    )
+finally:
+    bridge.request_daemon = original_request
+if batch != [bytes.fromhex("aa")]:
+    raise SystemExit(f"same-priority batch lease did not decode frame: {batch}")
+if "same_priority=1 priority=tcp_control_flow" not in captured_batch.get("text", ""):
+    raise SystemExit(f"same-priority batch request missing daemon contract: {captured_batch}")
+if batch_report.get("batch_priority_drop_stopped") != 1:
+    raise SystemExit(f"same-priority batch report lost priority-stop proof: {batch_report}")
 captured = {}
 def compact_status_request(host, port, text, timeout_ms):
     captured["text"] = text
@@ -367,6 +397,11 @@ required = [
     "compact=1",
     "rf_transport_queue_depth",
     "tun_service_rf_queue_reset(&service->rf_tx_lease_queue);",
+    "same_priority_batch",
+    "batch_priority_drop_stopped",
+    "selected_score < first_score",
+    "batch_first_priority_score",
+    "batch_min_priority_score",
     "if (!serve_forever)",
 ]
 missing = [token for token in required if token not in source]
@@ -451,6 +486,9 @@ required = [
     '"iio_bridge_max_consecutive_direction_batches"',
     '"iio_bridge_max_consecutive_direction_batches_seen"',
     '"iio_bridge_direction_fair_service_yields"',
+    '"iio_bridge_same_priority_batch"',
+    '"iio_bridge_same_priority_batch_leases"',
+    '"iio_bridge_same_priority_batch_priority_drop_stops"',
     "primary_deadline=$((SECONDS + iperf_timeout_s))",
     "quiet_deadline=$((SECONDS + queue_quiet_grace_s))",
     "host_pc_tcp_final_exchange.json",
@@ -709,6 +747,21 @@ fi
 if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_SAME_PRIORITY_BATCH=bad \
+   OUT_DIR="$work_dir/iperf-bad-same-priority-batch" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_same_priority_batch.out" \
+   2>"$work_dir/iperf_bad_same_priority_batch.err"; then
+  echo "native-IP iperf gate accepted invalid same-priority batch flag" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_SAME_PRIORITY_BATCH must be 0 or 1' \
+     "$work_dir/iperf_bad_same_priority_batch.err"; then
+  echo "native-IP iperf invalid same-priority batch refusal changed" >&2
   exit 1
 fi
 

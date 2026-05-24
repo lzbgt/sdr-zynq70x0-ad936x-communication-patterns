@@ -92,6 +92,11 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board IIO direction fair-service proof is missing")
             if source.get("host_iio_direction_fair_service_within_budget") is not True:
                 raise SystemExit("native_ip: host IIO direction fair-service proof is missing")
+        if source.get("requires_iio_same_priority_batch_evidence") is True:
+            if source.get("board_iio_same_priority_batch_enabled") is not True:
+                raise SystemExit("native_ip: board IIO same-priority batch proof is missing")
+            if source.get("host_iio_same_priority_batch_enabled") is not True:
+                raise SystemExit("native_ip: host IIO same-priority batch proof is missing")
         if source.get("requires_tcp_final_exchange_evidence") is not True:
             raise SystemExit(
                 "native_ip: paired iperf evidence must include TCP final-exchange proof"
@@ -130,6 +135,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_ack_pipeline_evidence",
         "requires_iio_rf_burst_batch_evidence",
         "requires_iio_direction_fair_service_evidence",
+        "requires_iio_same_priority_batch_evidence",
         "requires_tcp_final_exchange_evidence",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
@@ -137,6 +143,12 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_rf_burst_batch_exercised",
         "board_iio_direction_fair_service_within_budget",
         "host_iio_direction_fair_service_within_budget",
+        "board_iio_same_priority_batch_enabled",
+        "host_iio_same_priority_batch_enabled",
+        "board_iio_bridge_same_priority_batch_leases",
+        "host_iio_bridge_same_priority_batch_leases",
+        "board_iio_bridge_same_priority_batch_priority_drop_stops",
+        "host_iio_bridge_same_priority_batch_priority_drop_stops",
         "board_iio_bridge_max_consecutive_direction_batches",
         "host_iio_bridge_max_consecutive_direction_batches",
         "board_iio_bridge_max_consecutive_direction_batches_seen",

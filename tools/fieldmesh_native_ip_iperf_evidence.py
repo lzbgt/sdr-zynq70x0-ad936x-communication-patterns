@@ -88,6 +88,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     if not _is_true(report.get("iio_rf_bridge")):
         errors.append(f"{label}: IIO pipeline evidence requires iio_rf_bridge=true")
         return errors
+    if report.get("iio_bridge_same_priority_batch") is not True:
+        errors.append(f"{label}: IIO same-priority batch evidence must be enabled")
     if not fair_enabled:
         errors.append(f"{label}: IIO direction fair-service evidence must be enabled")
     if depth < 1:
@@ -404,6 +406,8 @@ def main() -> int:
         _is_true(host.get("iio_rf_bridge"))
         and host.get("iio_bridge_direction_fair_service_enabled") is True
     )
+    board_requires_same_priority_batch = _is_true(board.get("iio_rf_bridge"))
+    host_requires_same_priority_batch = _is_true(host.get("iio_rf_bridge"))
     report = {
         "event": "fieldmesh_native_ip_iperf_evidence",
         "ok": not errors,
@@ -425,6 +429,9 @@ def main() -> int:
         "requires_iio_direction_fair_service_evidence": bool(
             board_requires_direction_fair_service
             or host_requires_direction_fair_service
+        ),
+        "requires_iio_same_priority_batch_evidence": bool(
+            board_requires_same_priority_batch or host_requires_same_priority_batch
         ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
@@ -466,6 +473,28 @@ def main() -> int:
                 and host.get("iio_bridge_max_consecutive_direction_batches_seen")
                 <= host.get("iio_bridge_max_consecutive_direction_batches")
             )
+        ),
+        "board_iio_same_priority_batch_enabled": (
+            True
+            if not board_requires_same_priority_batch
+            else board.get("iio_bridge_same_priority_batch") is True
+        ),
+        "host_iio_same_priority_batch_enabled": (
+            True
+            if not host_requires_same_priority_batch
+            else host.get("iio_bridge_same_priority_batch") is True
+        ),
+        "board_iio_bridge_same_priority_batch_leases": board.get(
+            "iio_bridge_same_priority_batch_leases"
+        ),
+        "host_iio_bridge_same_priority_batch_leases": host.get(
+            "iio_bridge_same_priority_batch_leases"
+        ),
+        "board_iio_bridge_same_priority_batch_priority_drop_stops": board.get(
+            "iio_bridge_same_priority_batch_priority_drop_stops"
+        ),
+        "host_iio_bridge_same_priority_batch_priority_drop_stops": host.get(
+            "iio_bridge_same_priority_batch_priority_drop_stops"
         ),
         "board_iio_bridge_direction_fair_service_enabled": board.get(
             "iio_bridge_direction_fair_service_enabled"

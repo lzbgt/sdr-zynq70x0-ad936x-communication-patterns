@@ -1048,11 +1048,18 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                                           size_t max_bytes,
                                           enum tun_service_rf_lease_priority priority,
                                           const struct tun_service_state *service,
+                                          int stop_on_priority_drop,
                                           size_t *out_moved,
-                                          uint32_t *out_bytes)
+                                          uint32_t *out_bytes,
+                                          unsigned *out_first_score,
+                                          unsigned *out_min_score,
+                                          unsigned *out_priority_drop_stopped)
 {
     size_t moved = 0u;
     uint32_t bytes = 0u;
+    unsigned first_score = 0u;
+    unsigned min_score = 0u;
+    unsigned priority_drop_stopped = 0u;
 
     if (!src || !dst) {
         return 0;
@@ -1062,6 +1069,7 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
         unsigned char frame[TUN_SERVICE_RF_FRAME_MAX];
         size_t frame_len = 0u;
         size_t source_offset = 0u;
+        unsigned selected_score = 1u;
 
         if (priority != TUN_SERVICE_RF_LEASE_PRIORITY_FIFO) {
             unsigned best_score = 0u;
@@ -1090,6 +1098,12 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
                     }
                 }
             }
+            selected_score = best_score;
+        }
+        if (stop_on_priority_drop && moved > 0u &&
+            selected_score < first_score) {
+            priority_drop_stopped = 1u;
+            break;
         }
         if (!tun_service_rf_queue_peek_len(src, source_offset, &frame_len)) {
             return 0;
@@ -1105,6 +1119,12 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
         if (!tun_service_rf_queue_push(dst, frame, frame_len)) {
             return 0;
         }
+        if (moved == 0u) {
+            first_score = selected_score;
+            min_score = selected_score;
+        } else if (selected_score < min_score) {
+            min_score = selected_score;
+        }
         moved++;
         bytes += (uint32_t)frame_len;
     }
@@ -1113,6 +1133,15 @@ static int tun_service_rf_queue_move_head(struct tun_service_rf_queue *src,
     }
     if (out_bytes) {
         *out_bytes = bytes;
+    }
+    if (out_first_score) {
+        *out_first_score = first_score;
+    }
+    if (out_min_score) {
+        *out_min_score = min_score;
+    }
+    if (out_priority_drop_stopped) {
+        *out_priority_drop_stopped = priority_drop_stopped;
     }
     return 1;
 }
@@ -6230,7 +6259,9 @@ static int build_response(fieldmesh_context_t *context,
                                             1u, 0u,
                                             lease_priority,
                                             tun_service,
-                                            &moved, &moved_bytes)) {
+                                            0,
+                                            &moved, &moved_bytes,
+                                            NULL, NULL, NULL)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_lease\","
                      "\"ok\":false,"
@@ -6305,6 +6336,10 @@ static int build_response(fieldmesh_context_t *context,
         size_t moved = 0u;
         uint32_t bytes_leased = 0u;
         uint32_t replayed_lease = 0u;
+        unsigned same_priority_batch = 0u;
+        unsigned batch_first_priority_score = 0u;
+        unsigned batch_min_priority_score = 0u;
+        unsigned batch_priority_drop_stopped = 0u;
         enum tun_service_rf_lease_priority lease_priority =
             tun_service_rf_lease_priority_from_request(request);
         char frames_json[6400];
@@ -6337,16 +6372,22 @@ static int build_response(fieldmesh_context_t *context,
                      "{\"event\":\"sdk_daemon_rf_tx_lease_batch\","
                      "\"ok\":false,"
                      "\"error\":\"invalid_max_bytes\"}\n");
-            return 0;
+                return 0;
         }
+        same_priority_batch = request && strstr(request, "same_priority=1") ?
+            1u : 0u;
         if (tun_service->rf_tx_lease_queue.count == 0u &&
             !tun_service_rf_queue_move_head(&tun_service->rf_tx_queue,
                                             &tun_service->rf_tx_lease_queue,
                                             max_frames, (size_t)max_bytes,
                                             lease_priority,
                                             tun_service,
+                                            same_priority_batch != 0u,
                                             &moved,
-                                            &bytes_leased)) {
+                                            &bytes_leased,
+                                            &batch_first_priority_score,
+                                            &batch_min_priority_score,
+                                            &batch_priority_drop_stopped)) {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_tx_lease_batch\","
                      "\"ok\":false,"
@@ -6409,6 +6450,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"requires_ack\":1,"
                  "\"replayed_lease\":%u,"
                  "\"max_bytes\":%u,"
+                 "\"same_priority_batch\":%u,"
+                 "\"batch_first_priority_score\":%u,"
+                 "\"batch_min_priority_score\":%u,"
+                 "\"batch_priority_drop_stopped\":%u,"
                  "\"lease_priority\":\"%s\","
                  "\"rf_transport_mode\":\"%s\","
                  "\"rf_tx_queue_depth\":%u,"
@@ -6423,6 +6468,10 @@ static int build_response(fieldmesh_context_t *context,
                  frames_json,
                  replayed_lease,
                  max_bytes,
+                 same_priority_batch,
+                 batch_first_priority_score,
+                 batch_min_priority_score,
+                 batch_priority_drop_stopped,
                  tun_service_rf_lease_priority_name(lease_priority),
                  tun_service_rf_transport_mode_name(
                      tun_service->rf_transport_mode),

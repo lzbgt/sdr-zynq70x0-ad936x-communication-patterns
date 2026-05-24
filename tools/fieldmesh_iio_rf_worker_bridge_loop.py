@@ -167,15 +167,22 @@ def lease_batch_from_daemon(
     max_frames: int,
     max_bytes: int,
     priority: str,
-) -> list[bytes]:
+    same_priority_batch: bool,
+) -> tuple[list[bytes], dict[str, Any]]:
     request = f"FIELDMESH_RF_TX_LEASE_BATCH v1 max={max_frames}"
     if max_bytes > 0:
         request += f" max_bytes={max_bytes}"
+    if same_priority_batch:
+        request += " same_priority=1"
     request += lease_priority_request_suffix(priority)
     try:
         report = bridge.request_daemon(host, port, request, timeout_ms)
     except TimeoutError:
-        return []
+        return [], {
+            "event": "sdk_daemon_rf_tx_lease_batch",
+            "ok": False,
+            "error": "timeout",
+        }
     if report.get("event") != "sdk_daemon_rf_tx_lease_batch":
         raise SystemExit(f"expected sdk_daemon_rf_tx_lease_batch, got {report.get('event')!r}")
     if report.get("ok") is not True:
@@ -194,7 +201,7 @@ def lease_batch_from_daemon(
             frames.append(bytes.fromhex(frame_hex))
         except ValueError as exc:
             raise SystemExit(f"batch lease frame{index}_hex is invalid") from exc
-    return frames
+    return frames, report
 
 
 def request_daemon_with_retries(
@@ -1082,6 +1089,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "direction_fair_service_status_polls": 0,
         "direction_fair_service_status_failures": 0,
         "direction_fair_service_yields": 0,
+        "same_priority_batch_leases": 0,
+        "same_priority_batch_priority_drop_stops": 0,
         "bridge_errors": 0,
         "batches_moved": 0,
         "filtered_frames": 0,
@@ -1125,6 +1134,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
             "batch_byte_limit": args.batch_byte_limit,
+            "same_priority_batch": bool(args.same_priority_batch),
             "rf_burst_batch_size": args.batch_size,
             "rf_burst_batch_high_water": batch_high_water_max(
                 rf_burst_batch_high_water_by_direction
@@ -1454,18 +1464,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         write_progress()
                         continue
                     elif args.batch_size > 1:
-                        batch_frames = lease_batch_from_daemon(
+                        batch_frames, batch_lease = lease_batch_from_daemon(
                             direction["source_host"],
                             direction["source_port"],
                             args.lease_timeout_ms,
                             args.batch_size,
                             args.batch_byte_limit,
                             args.lease_priority,
+                            args.same_priority_batch,
                         )
                         if not batch_frames:
                             counts["empty_polls"] += 1
                             empty_directions.add(direction["name"])
                             continue
+                        if args.same_priority_batch:
+                            counts["same_priority_batch_leases"] += 1
+                            if batch_lease.get("batch_priority_drop_stopped") == 1:
+                                counts["same_priority_batch_priority_drop_stops"] += 1
                         batch_frames, filtered_frames = split_port_filter_prefix(
                             batch_frames, args.ip_port_filter
                         )
@@ -1535,6 +1550,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             ),
                             "source_ack_ok": report.get("source_ack", {}).get("ok"),
                             "source_ack": report.get("source_ack"),
+                            "batch_lease": {
+                                "same_priority_batch": batch_lease.get("same_priority_batch"),
+                                "batch_first_priority_score": batch_lease.get("batch_first_priority_score"),
+                                "batch_min_priority_score": batch_lease.get("batch_min_priority_score"),
+                                "batch_priority_drop_stopped": batch_lease.get("batch_priority_drop_stopped"),
+                                "lease_priority": batch_lease.get("lease_priority"),
+                            },
                             "destructive_source_poll": False,
                             "skip_rf_config": report.get("skip_rf_config"),
                             "cyclic_capture_periods": report.get("cyclic_capture_periods"),
@@ -1666,6 +1688,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--batch-byte-limit", type=int, default=0)
+    parser.add_argument(
+        "--same-priority-batch",
+        dest="same_priority_batch",
+        action="store_true",
+        default=False,
+        help=(
+            "Ask the daemon to stop a non-destructive batch when the next "
+            "candidate would drop below the first leased frame's priority."
+        ),
+    )
+    parser.add_argument(
+        "--no-same-priority-batch",
+        dest="same_priority_batch",
+        action="store_false",
+        help="Allow daemon batch leases to fill with lower-priority frames.",
+    )
     parser.add_argument(
         "--lease-priority",
         choices=(

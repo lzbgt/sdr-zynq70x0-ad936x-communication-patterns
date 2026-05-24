@@ -38,6 +38,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_max_consecutive_direction_batches": 1,
   "iio_bridge_max_consecutive_direction_batches_seen": 1,
   "iio_bridge_direction_fair_service_yields": 3,
+  "iio_bridge_same_priority_batch": true,
+  "iio_bridge_same_priority_batch_leases": 3,
+  "iio_bridge_same_priority_batch_priority_drop_stops": 1,
   "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "board_to_board", "initial_client_rc": 0, "final_client_rc": 0, "client_sent_bytes": 262144, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": false, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": false, "queue_quiet_max_consecutive_s": 0, "control_drain_s": 45, "client_preserved_for_control_drain": false, "client_killed_after_control_drain": false, "completed_after_primary_timeout": false, "completed_without_grace": true},
   "tcp_final_exchange_grace_started": false,
   "tcp_queue_quiet_grace_started": false,
@@ -96,6 +99,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_max_consecutive_direction_batches": 1,
   "iio_bridge_max_consecutive_direction_batches_seen": 1,
   "iio_bridge_direction_fair_service_yields": 2,
+  "iio_bridge_same_priority_batch": true,
+  "iio_bridge_same_priority_batch_leases": 2,
+  "iio_bridge_same_priority_batch_priority_drop_stops": 1,
   "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "host_pc", "initial_client_rc": 124, "final_client_rc": 0, "client_sent_bytes": 131072, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": true, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": true, "queue_quiet_max_consecutive_s": 8, "control_drain_s": 45, "client_preserved_for_control_drain": true, "client_killed_after_control_drain": false, "completed_after_primary_timeout": true, "completed_without_grace": false},
   "tcp_final_exchange_grace_started": true,
   "tcp_queue_quiet_grace_started": true,
@@ -163,6 +169,8 @@ if report.get("requires_iio_rf_burst_batch_evidence") is not True:
     raise SystemExit(f"missing RF burst batch evidence requirement: {report}")
 if report.get("requires_iio_direction_fair_service_evidence") is not True:
     raise SystemExit(f"missing direction fairness evidence requirement: {report}")
+if report.get("requires_iio_same_priority_batch_evidence") is not True:
+    raise SystemExit(f"missing same-priority batch evidence requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"missing TCP final-exchange evidence requirement: {report}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
@@ -179,6 +187,10 @@ if report.get("host_iio_direction_fair_service_within_budget") is not True:
     raise SystemExit(f"missing host direction fairness proof: {report}")
 if report.get("host_iio_bridge_direction_fair_service_yields") != 2:
     raise SystemExit(f"missing host direction fairness yield proof: {report}")
+if report.get("host_iio_same_priority_batch_enabled") is not True:
+    raise SystemExit(f"missing host same-priority batch proof: {report}")
+if report.get("host_iio_bridge_same_priority_batch_priority_drop_stops") != 1:
+    raise SystemExit(f"missing host same-priority priority-drop proof: {report}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
     raise SystemExit(f"missing host RF burst batch high-water proof: {report}")
 if report.get("board_iio_bridge_source_ack_max_latency_ms") != 30:
@@ -223,10 +235,14 @@ if report.get("requires_iio_rf_burst_batch_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost RF burst batch requirement: {report}")
 if report.get("requires_iio_direction_fair_service_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost direction fairness requirement: {report}")
+if report.get("requires_iio_same_priority_batch_evidence") is not True:
+    raise SystemExit(f"native-IP readiness lost same-priority batch requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost TCP final-exchange requirement: {report}")
 if report.get("host_iio_direction_fair_service_within_budget") is not True:
     raise SystemExit(f"native-IP readiness lost direction fairness proof: {report}")
+if report.get("host_iio_same_priority_batch_enabled") is not True:
+    raise SystemExit(f"native-IP readiness lost same-priority batch proof: {report}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
     raise SystemExit(f"native-IP readiness lost RF burst batch proof: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:

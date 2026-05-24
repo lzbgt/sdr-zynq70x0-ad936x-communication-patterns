@@ -528,8 +528,11 @@ single-frame stop-and-wait captures cannot satisfy the batched native-IP gate.
 IIO RF evidence must also preserve the direction fair-service budget
 (`IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES`, default `1`) and prove the
 observed same-direction burst high-water stayed within that budget when the
-opposite daemon had queued RF work. Production native-IP evidence must also
-carry TCP final-exchange proof from the HIL runner
+opposite daemon had queued RF work. `IIO_BRIDGE_SAME_PRIORITY_BATCH=1` is also
+the HIL default: daemon batch leases stop before lower-priority frames once the
+first leased frame's priority is established, giving TCP control-flow traffic a
+sub-batch preemption point. Production native-IP evidence must also carry TCP
+final-exchange proof from the HIL runner
 for both the board-to-board and host-PC-transparent reports: final client
 status, queue-quiet observation summary, and control-drain elapsed/ok evidence
 when the control-drain phase was needed. Host-originated transparent TCP

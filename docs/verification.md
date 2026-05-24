@@ -5075,8 +5075,11 @@ per-direction batch high-water, and a true batch-exercised flag. IIO RF
 captures must also carry direction fair-service evidence:
 `IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES` defaults to `1`, and the
 classifier rejects reports whose same-direction burst high-water exceeds the
-configured budget while reverse-path RF work is queued. Production
-native-IP evidence also requires TCP final-exchange timing proof for the saved
+configured budget while reverse-path RF work is queued. The same IIO RF reports
+must prove `IIO_BRIDGE_SAME_PRIORITY_BATCH=1`, which keeps a leased RF batch
+from being padded with lower-priority frames after a higher-priority control
+candidate was selected. Production native-IP evidence also requires TCP
+final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence
 when the run needed the control-drain phase. The host report must identify the

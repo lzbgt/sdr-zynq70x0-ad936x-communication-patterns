@@ -61,6 +61,11 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_direction_fair_service_over_budget")
         if report.get("host_iio_direction_fair_service_within_budget") is not True:
             blockers.append("native_ip_host_iio_direction_fair_service_over_budget")
+    if is_true(report.get("requires_iio_same_priority_batch_evidence")):
+        if report.get("board_iio_same_priority_batch_enabled") is not True:
+            blockers.append("native_ip_board_iio_same_priority_batch_missing")
+        if report.get("host_iio_same_priority_batch_enabled") is not True:
+            blockers.append("native_ip_host_iio_same_priority_batch_missing")
     if report.get("requires_tcp_final_exchange_evidence") is not True:
         blockers.append("native_ip_tcp_final_exchange_evidence_not_required")
     else:
@@ -103,6 +108,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_direction_fair_service_evidence": report.get(
             "requires_iio_direction_fair_service_evidence"
         ),
+        "requires_iio_same_priority_batch_evidence": report.get(
+            "requires_iio_same_priority_batch_evidence"
+        ),
         "requires_tcp_final_exchange_evidence": report.get(
             "requires_tcp_final_exchange_evidence"
         ),
@@ -119,6 +127,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_direction_fair_service_within_budget": report.get(
             "host_iio_direction_fair_service_within_budget"
+        ),
+        "board_iio_same_priority_batch_enabled": report.get(
+            "board_iio_same_priority_batch_enabled"
+        ),
+        "host_iio_same_priority_batch_enabled": report.get(
+            "host_iio_same_priority_batch_enabled"
+        ),
+        "board_iio_bridge_same_priority_batch_leases": report.get(
+            "board_iio_bridge_same_priority_batch_leases"
+        ),
+        "host_iio_bridge_same_priority_batch_leases": report.get(
+            "host_iio_bridge_same_priority_batch_leases"
+        ),
+        "board_iio_bridge_same_priority_batch_priority_drop_stops": report.get(
+            "board_iio_bridge_same_priority_batch_priority_drop_stops"
+        ),
+        "host_iio_bridge_same_priority_batch_priority_drop_stops": report.get(
+            "host_iio_bridge_same_priority_batch_priority_drop_stops"
         ),
         "board_iio_bridge_max_consecutive_direction_batches": report.get(
             "board_iio_bridge_max_consecutive_direction_batches"
