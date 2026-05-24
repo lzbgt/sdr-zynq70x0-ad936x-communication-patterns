@@ -754,13 +754,16 @@ explicit backend invocation contract:
 ```
 
 Default mode is dry-run: it writes `fieldmesh_rf_tx_enable_execute.sh` with a
-rollback trap but executes no commands, writes no hardware, starts no RF TX,
-and opens no IIO buffers. Live execution additionally requires
+rollback trap plus `fieldmesh_rf_tx_enable_backend_request.json` with the
+bounded-duration request, C RF guard action-policy proof, fixture parameters,
+and ordered rollback commands. It executes no commands, writes no hardware,
+starts no RF TX, and opens no IIO buffers. Live execution additionally requires
 `--execute-live-tx --allow-hardware-writes --allow-rf-tx`, the exact operator
 confirmation string, a RF path ID, and an executable TX backend. The wrapper
 validates the plan and safety declarations, then invokes only that explicit
-backend; the generated board script remains the review/deployment artifact for
-the later authorized over-air RF path runner.
+backend as `--bounded-tx-enable --request <json>`. The generated board script
+reuses the same request artifact, so the later authorized over-air RF path
+runner does not rebuild live-control policy from shell variables.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

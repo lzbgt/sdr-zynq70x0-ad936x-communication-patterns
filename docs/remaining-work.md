@@ -1585,9 +1585,13 @@ below were later superseded by the current PHY-management two-board gates above:
   duration and rollback. It still executes no commands and starts no RF TX.
   `tools/fieldmesh_rf_tx_enable_run.py` now consumes that plan, generates a
   rollback-protected board script that re-runs the C action-policy proof before
-  live TX checks, and only invokes an explicit TX backend after the
-  hardware-write, RF-TX, authorized RF-path, RX-first, operator-confirmation,
-  and RF-path evidence gates are present. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
+  live TX checks, writes `fieldmesh_rf_tx_enable_backend_request.json`, and
+  only invokes an explicit TX backend as `--bounded-tx-enable --request <json>`
+  after the hardware-write, RF-TX, authorized RF-path, RX-first,
+  operator-confirmation, and RF-path evidence gates are present. The request
+  carries the C RF guard policy proof, bounded duration, fixture parameters,
+  and rollback commands so the backend does not infer live-control policy from
+  shell/Python state. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
   manifests for attenuation, isolation, legal profile, calibration, and
   frequency range before live RF. The next live work is implementing the actual
   board backend for a real

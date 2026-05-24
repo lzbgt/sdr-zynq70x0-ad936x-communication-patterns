@@ -2486,11 +2486,14 @@ TX-enable plus rollback sequence while still reporting
 `./tools/verify_fieldmesh_rf_tx_enable_run.sh` adds the next executor gate. It
 consumes that plan, generates a rollback-protected board script that re-runs
 `fieldmesh-udp-probe rf-guard-action-policy-self-test` before live TX checks,
-verifies the default path remains dry-run, rejects missing review permission,
-rejects live execution without a backend, and proves a mock backend can be
-invoked only after the hardware-write, RF-TX, fixture, attenuation, RX-first,
-and operator
-confirmation gates are present. The verifier does not touch board RF hardware.
+verifies the default path remains dry-run, emits
+`fieldmesh_rf_tx_enable_backend_request.json`, rejects missing review
+permission, rejects live execution without a backend, and proves a mock backend
+can be invoked as `--bounded-tx-enable --request <json>` only after the
+hardware-write, RF-TX, fixture, attenuation, RX-first, and operator
+confirmation gates are present. The request carries the C RF guard
+action-policy proof, bounded duration, fixture parameters, and rollback command
+contract; the verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
 against Z103 by transiently uploading the refreshed daemon, querying
