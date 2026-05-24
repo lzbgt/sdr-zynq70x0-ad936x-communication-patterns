@@ -51,30 +51,26 @@ Pacman is run without proxy variables because this host uses the configured
 Tencent mirror for Arch packages. Git/curl fetches for Yocto layers may need the
 normal `https_proxy` environment.
 
-BitBake must not run as root. This WSL workspace currently uses a dedicated
-local build user. For a clean new setup, give the user its own primary group and
-grant it access to the workspace with normal ownership or ACLs. This current
-repo was first brought up under `/root`, so the working local setup uses group
-`root` for path traversal:
+BitBake must not run as root. This WSL workspace uses a dedicated local build
+user with its own primary group; do not make `root` the primary group, because
+that makes target `root:root` files look like host-owned package contents to
+Yocto QA. For a clean setup:
 
 ```sh
-useradd -m -g root -s /bin/bash yoctobuilder
-chown -R yoctobuilder:root /root/work/ZYNQ7020/yocto
-chown -R yoctobuilder:root /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
+groupadd -f yoctobuilder
+useradd -m -g yoctobuilder -s /bin/bash yoctobuilder
+usermod -a -G root yoctobuilder     # only needed while the workspace is under /root
+chown -R yoctobuilder:yoctobuilder /root/work/ZYNQ7020/yocto
+chown -R yoctobuilder:yoctobuilder /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
 chmod g+rx /root
 ```
-
-Because the current builder's primary group is `root`, BitBake may emit
-`host-user-contaminated` QA warnings for files installed as `root:root`. The
-build outputs are still usable, but a future cleanup should move the workspace
-out of `/root` or switch `yoctobuilder` to its own group.
 
 The extracted source tree must be writable by that user because the Yocto
 `externalsrc` class creates bookkeeping links such as `oe-workdir` in the Linux
 and U-Boot source trees:
 
 ```sh
-chown -R yoctobuilder:root /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
+chown -R yoctobuilder:yoctobuilder /root/work/ZYNQ7020/src/extracted/plutosdr-fw-2r2t
 ```
 
 ## Extract Vendor Source
@@ -111,9 +107,10 @@ local source tree before the first kernel/U-Boot build:
 ./tools/prepare_vendor_source_for_yocto.sh
 ```
 
-That script changes the extracted vendor source to `yoctobuilder:root`, runs
-`make ARCH=arm mrproper` in `linux`, runs `make ARCH=arm distclean` in
-`u-boot-xlnx`, and then reapplies the repaired symlinks.
+That script changes the extracted vendor source to
+`yoctobuilder:yoctobuilder`, runs `make ARCH=arm mrproper` in `linux`, runs
+`make ARCH=arm distclean` in `u-boot-xlnx`, and then reapplies the repaired
+symlinks.
 
 Key ARM-side files found in that source:
 
@@ -228,7 +225,7 @@ include/generated.
 Fix applied locally:
 
 ```sh
-chown -R yoctobuilder:root src/extracted/plutosdr-fw-2r2t yocto
+chown -R yoctobuilder:yoctobuilder src/extracted/plutosdr-fw-2r2t yocto
 ./tools/prepare_vendor_source_for_yocto.sh
 ```
 
@@ -261,9 +258,6 @@ Expected warnings:
 
 - Arch is not a validated Yocto host distribution.
 - WSL2 works, but Yocto warns to manage/optimize the VHDX storage.
-- The current `yoctobuilder` primary group is `root`, so package QA can warn
-  that installed `root:root` files have the same group as the user running
-  BitBake. This is a host setup warning, not an observed firmware build failure.
 
 Treat `bitbake -p` as the quick sanity check. A full `bitbake
 sdr-z203-arm-image` is a real build and may run for hours on a fresh cache.
@@ -278,8 +272,10 @@ environment loaded:
 
 The wrapper also repairs the common local ownership problem: if the ignored
 `src/extracted/plutosdr-fw-2r2t` or `yocto` trees are not writable by
-`yoctobuilder`, it changes them to `yoctobuilder:root` before loading the Yocto
-environment.
+`yoctobuilder`, it changes them to `yoctobuilder:yoctobuilder` before loading
+the Yocto environment. The wrapper refuses to run if `yoctobuilder` still has
+primary group `root`, because that setup reintroduces `host-user-contaminated`
+package QA warnings for normal target-owned files.
 
 ## Build ARM-Side Pieces
 

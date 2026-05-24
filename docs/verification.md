@@ -784,10 +784,6 @@ pluto.frm full-file md5: 7ec7ab4f5e62394e703c8138c85a446d
 Build warnings to preserve:
 
 - Yocto warns that Arch is not a validated host distribution.
-- Package QA can warn about `host-user-contaminated` because the current
-  `yoctobuilder` user has primary group `root` in this `/root` workspace setup.
-  This should be cleaned up for a product build, but it did not block local
-  ARM-side firmware rebuilds.
 - `mkimage` warns that the vendor `pluto.its` uses unit addresses without
   `reg`/`ranges`; this is inherited from the vendor FIT description and matters
   only for FIT signing. The current package is unsigned, matching the vendor
@@ -1609,9 +1605,10 @@ Packaged probe rebuild:
 ```
 
 Result: both Z203 and Z103 recipes rebuilt successfully after adding libiio
-linking for the board-only `iio-scan` role. The only warnings were the
-already-known Arch host validation warning and `host-user-contaminated` QA
-warnings for the locally built debug/source files.
+linking for the board-only `iio-scan` role. Earlier local builds also emitted
+`host-user-contaminated` QA warnings while `yoctobuilder` used primary group
+`root`; the builder now uses its own primary group so refreshed C package builds
+do not treat target `root:root` files as host-owned contents.
 
 Board IIO preflight helper:
 
@@ -1747,9 +1744,10 @@ After adding `pl-replay`, both packaged probe recipes rebuilt:
 ./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
 ```
 
-Result: both builds passed. The warnings were the already-known Arch host
-validation warning and `host-user-contaminated` QA warnings for the locally
-built probe files.
+Result: both builds passed. Earlier local builds also emitted
+`host-user-contaminated` QA warnings while `yoctobuilder` used primary group
+`root`; the builder now uses its own primary group so refreshed C probe package
+builds do not treat target `root:root` files as host-owned contents.
 
 IIO packet-pipe planning was added as the next read-only board preflight:
 
@@ -1848,9 +1846,7 @@ Result:
   blocked until a board running the rebuilt image is reachable over SSH.
 - `tools/run_fieldmesh_board_udp_probe.sh` syntax check passed; it is the next
   live helper once a board running the rebuilt image is reachable over SSH.
-- The WSL Arch Yocto build still emits the known host-distribution warning; the
-  Z103 build also emitted the previously seen root-capable WSL
-  `host-user-contaminated` QA warning for root-owned files.
+- The WSL Arch Yocto build still emits the known host-distribution warning.
 
 Current package hashes:
 
@@ -2333,8 +2329,11 @@ The updated probe was rebuilt for both Yocto variants:
 ./tools/yocto_z103_as_builder.sh bitbake fieldmesh-udp-probe
 ```
 
-Result: both recipe builds succeeded. BitBake emitted only the existing Arch
-host-distribution warning and root-run `host-user-contaminated` QA warnings.
+Result: both recipe builds succeeded. Earlier root-group builder runs emitted
+`host-user-contaminated` QA warnings; the refreshed builder setup uses a
+non-root primary group, and refreshed Z203/Z103 C package plus image rebuild
+logs were checked with no `host-user-contaminated` or `QA Issue` tokens apart
+from the existing Arch host-distribution warning.
 
 The full developer images were then rebuilt and audited so the runtime packages
 carry the current preflight roles:

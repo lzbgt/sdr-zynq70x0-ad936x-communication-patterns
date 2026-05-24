@@ -5,10 +5,20 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build_dir="${Z103_YOCTO_BUILD_DIR:-$repo_root/yocto/builds/sdr-z103-arm}"
 vendor_tree="${SDR_Z103_VENDOR_FW:-$repo_root/src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw}"
 builder_user="${YOCTO_BUILDER_USER:-yoctobuilder}"
+builder_group="${YOCTO_BUILDER_GROUP:-$builder_user}"
 
 if ! id "$builder_user" >/dev/null 2>&1; then
     echo "Missing build user: $builder_user" >&2
-    echo "Create it with: useradd -m -g root -s /bin/bash $builder_user" >&2
+    echo "Create it with: groupadd -f $builder_group && useradd -m -g $builder_group -s /bin/bash $builder_user" >&2
+    exit 1
+fi
+if ! getent group "$builder_group" >/dev/null 2>&1; then
+    echo "Missing build group: $builder_group" >&2
+    echo "Create it with: groupadd -f $builder_group" >&2
+    exit 1
+fi
+if [ "$(id -g "$builder_user")" = "0" ]; then
+    echo "$builder_user must not use root as its primary group; run: usermod -g $builder_group $builder_user" >&2
     exit 1
 fi
 
@@ -17,18 +27,18 @@ fi
 if [ -d "$vendor_tree" ]; then
     chmod -R u+rwX,go+rX "$(dirname "$vendor_tree")"
     if ! su -s /usr/bin/bash "$builder_user" -c "test -w '$vendor_tree/linux' && test -w '$vendor_tree/u-boot-xlnx'" >/dev/null 2>&1; then
-        chown -R "$builder_user:root" "$(dirname "$vendor_tree")"
+        chown -R "$builder_user:$builder_group" "$(dirname "$vendor_tree")"
     fi
 fi
 
 if [ -d "$repo_root/yocto" ]; then
     if ! su -s /usr/bin/bash "$builder_user" -c "test -w '$repo_root/yocto'" >/dev/null 2>&1; then
-        chown -R "$builder_user:root" "$repo_root/yocto"
+        chown -R "$builder_user:$builder_group" "$repo_root/yocto"
     fi
 fi
 
 if ! su -s /usr/bin/bash "$builder_user" -c "test -w '$build_dir'" >/dev/null 2>&1; then
-    chown -R "$builder_user:root" "$build_dir"
+    chown -R "$builder_user:$builder_group" "$build_dir"
 fi
 
 su -s /usr/bin/bash "$builder_user" -c \
