@@ -579,8 +579,12 @@ The RF-engine production overlay does not provide a local TX-to-RX DMA loopback
 before live PHY ingress. For the RF PHY binding gate, sidecar-DMA readiness is
 therefore the bounded TX-submit proof plus register/magic preflight; RX
 completion and payload CRC match are reserved for the measured live RF TX/RX
-gate. The probe clears the AXI-DMAC transfer-done bitmask before and after each
-smoke transaction so repeated runs do not inherit stale completion bits.
+gate. The board bind gate now also captures read-only firmware-DMA endpoint
+status before and after daemon bind validation, so the RF path has C-decoded
+hardware counter evidence for TX parser, ingress, egress, MAC pump, and BRAM
+error state before any authorized measured-RF step. The probe clears the
+AXI-DMAC transfer-done bitmask before and after each smoke transaction so
+repeated runs do not inherit stale completion bits.
 
 The transfer-starting smoke is deliberately guarded:
 

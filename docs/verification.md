@@ -2962,6 +2962,16 @@ the existing `--allow-live-writes` probe guard plus
 `fw_dma_reads_hardware=true` and `fw_dma_writes_hardware=false` in
 `preflight_assert.json`.
 
+`run_fieldmesh_board_rf_phy_bind_gate.sh` extends that proof before the live RF
+PHY boundary: it captures firmware-DMA status before sidecar DMA smoke and
+again after daemon RF PHY bind validation. Both snapshots must be read-only
+hardware evidence from the C default sidecar control base, include decoded C
+health/action-policy booleans, and expose TX parser, ingress, egress, MAC pump,
+and BRAM error counters. The bind-gate summary carries those before/after MAC
+tick, ingress packet, egress packet, and BRAM error values as hardware-side
+counter evidence while still refusing to claim `rf_phy_tx_rx` until measured
+radio TX/RX is authorized and observed.
+
 ## Z203 Passive Learner Control Smoke
 
 The Z203 board was also checked as a real board-side passive learner. The host

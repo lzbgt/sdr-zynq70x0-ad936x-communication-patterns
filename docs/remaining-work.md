@@ -424,8 +424,14 @@ hardware, running commands, using host IP as the data path, or putting JSON on
 air. `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` proves the binding
 contract on an installed board after real sidecar preflight, RF-engine sidecar
 DMA TX-submit proof, RF packet-engine transport recovery, RF TX guard planning,
-installed DAC source-select readback, and C modem service-rate evidence from
-the RF packet-engine transport, but it still keeps measured-link and live-RF
+installed DAC source-select readback, C modem service-rate evidence from the RF
+packet-engine transport, and read-only before/after firmware-DMA endpoint
+status snapshots. Those snapshots must come from `fieldmesh-ctrl-write
+--fw-dma-status` with hardware reads enabled, hardware writes disabled, the
+default C sidecar control base, decoded C action-policy booleans, and numeric
+TX parser, ingress, egress, MAC pump, and BRAM error counters. The gate records
+the MAC tick plus ingress/egress packet counter values as hardware-side
+service/counter evidence, but it still keeps measured-link and live-RF
 prerequisites false until actual radio TX/RX is measured. The
 2026-05-18 installed-probe-first guard/source run tightened this:
 Z203 and Z103 exposed an installed product/runtime mismatch: the normal runtime

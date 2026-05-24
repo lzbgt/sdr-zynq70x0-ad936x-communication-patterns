@@ -54,6 +54,8 @@ ssh_args=(
     -o LogLevel=ERROR
 )
 remote="${ssh_user}@${board_ip}"
+remote_fw_dma_status_before="/tmp/fieldmesh_rf_phy_fw_dma_status_before.json"
+remote_fw_dma_status_after="/tmp/fieldmesh_rf_phy_fw_dma_status_after.json"
 
 cleanup() {
     set +e
@@ -79,6 +81,11 @@ PY
         "ip link delete swarm0 2>/dev/null || true" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
+
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+    "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status > '$remote_fw_dma_status_before' 2>&1"
+sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+    "$remote:$remote_fw_dma_status_before" "$out_dir/fw_dma_status_before.json"
 
 REQUIRE_RX_LOOPBACK=0 \
     "$repo_root/tools/run_fieldmesh_board_dma_smoke.sh" "$board_ip" "$frame" \
@@ -177,6 +184,11 @@ for text in requests:
 sock.close()
 PY
 
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+    "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status > '$remote_fw_dma_status_after' 2>&1"
+sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
+    "$remote:$remote_fw_dma_status_after" "$out_dir/fw_dma_status_after.json"
+
 python3 - "$out_dir" "$board_ip" "$variant" <<'PY'
 import json
 import sys
@@ -194,6 +206,31 @@ def load(path: Path) -> list[dict]:
             rows.append(json.loads(line))
     return rows
 
+def require_fw_dma_status(path: Path, label: str) -> dict:
+    row = json.loads(path.read_text(encoding="utf-8"))
+    if row.get("event") != "fieldmesh_fw_dma_status" or row.get("ok") is not True:
+        raise SystemExit(f"{label} firmware-DMA status failed: {row}")
+    if row.get("reads_hardware") is not True or row.get("writes_hardware") is not False:
+        raise SystemExit(f"{label} firmware-DMA status must be read-only hardware evidence: {row}")
+    if row.get("base") != "0x43c00000":
+        raise SystemExit(f"{label} firmware-DMA status used unexpected control base: {row}")
+    for key in (
+        "tx_parser_packets", "tx_parser_bytes", "tx_parser_drops",
+        "ingress_packets", "ingress_bytes", "ingress_desc_publishes",
+        "ingress_drops", "egress_packets", "egress_bytes", "egress_drops",
+        "mac_ticks", "mac_pump_starts", "mac_pump_dones",
+        "bram_crc_errors", "bram_bounds_errors", "bram_errors",
+    ):
+        if key not in row or not isinstance(row.get(key), int):
+            raise SystemExit(f"{label} firmware-DMA status missing numeric counter {key}: {row}")
+    for key in (
+        "fault_free", "drop_counters_clear", "idle", "ready_for_arm",
+        "config_allowed", "arm_allowed", "stop_write_needed",
+    ):
+        if not isinstance(row.get(key), bool):
+            raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
+    return row
+
 binding = json.loads(
     (out_dir / "fieldmesh_rf_packet_engine_binding_assert.json").read_text(encoding="utf-8")
 )
@@ -203,6 +240,8 @@ if binding.get("requires_c_modem_service_rate") is not True:
     raise SystemExit(f"RF packet-engine binding is missing C modem service-rate evidence: {binding}")
 if binding.get("modem_benchmark_decode_frame_kbps", 0) < 100:
     raise SystemExit(f"RF packet-engine C modem decode service-rate evidence is too low: {binding}")
+fw_dma_before = require_fw_dma_status(out_dir / "fw_dma_status_before.json", "before")
+fw_dma_after = require_fw_dma_status(out_dir / "fw_dma_status_after.json", "after")
 
 guard = json.loads(
     (out_dir / "rf_tx_guard_plan" / "fieldmesh_rf_tx_guard_run.json").read_text(encoding="utf-8")
@@ -283,6 +322,18 @@ summary = {
     "binding_ready": validate.get("binding_ready"),
     "requires_c_modem_service_rate": binding.get("requires_c_modem_service_rate"),
     "modem_benchmark_decode_frame_kbps": binding.get("modem_benchmark_decode_frame_kbps"),
+    "fw_dma_status_reads_hardware": True,
+    "fw_dma_status_writes_hardware": False,
+    "fw_dma_fault_free_before": fw_dma_before.get("fault_free"),
+    "fw_dma_fault_free_after": fw_dma_after.get("fault_free"),
+    "fw_dma_mac_ticks_before": fw_dma_before.get("mac_ticks"),
+    "fw_dma_mac_ticks_after": fw_dma_after.get("mac_ticks"),
+    "fw_dma_ingress_packets_before": fw_dma_before.get("ingress_packets"),
+    "fw_dma_ingress_packets_after": fw_dma_after.get("ingress_packets"),
+    "fw_dma_egress_packets_before": fw_dma_before.get("egress_packets"),
+    "fw_dma_egress_packets_after": fw_dma_after.get("egress_packets"),
+    "fw_dma_bram_errors_before": fw_dma_before.get("bram_errors"),
+    "fw_dma_bram_errors_after": fw_dma_after.get("bram_errors"),
     "live_rf_prerequisites_ready": validate.get("live_rf_prerequisites_ready"),
     "rf_phy_tx_rx": validate.get("rf_phy_tx_rx"),
     "production_ready": validate.get("production_ready"),
