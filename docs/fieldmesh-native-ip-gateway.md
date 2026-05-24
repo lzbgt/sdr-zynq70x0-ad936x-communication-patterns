@@ -322,12 +322,17 @@ Minimum production gates for native TCP/IP:
   `IPERF_TCP_QUEUE_QUIET_GRACE_S` while the host watches both daemon RF TX/lease
   queues. Empty queue snapshots are diagnostic only; they do not terminate the
   grace early because Linux TCP may be waiting to generate the next
-  retransmit/control segment. If the client still times out, the runner keeps the RF bridge alive
-  for a bounded `IPERF_TCP_CONTROL_DRAIN_S` window when the client report proves
-  data bytes already crossed. This does not certify the run; it captures
-  whether final result/shutdown traffic drains when the bridge is not cut off
-  immediately. Live HIL with the rebuilt persistent helper moved 55 real-RF
-  frames with zero bridge errors; the Z203 client sent 128 TCP bytes, the Z103
+  retransmit/control segment. If the client still times out, the runner keeps
+  the RF bridge alive for a bounded `IPERF_TCP_CONTROL_DRAIN_S` window when the
+  client report proves data bytes already crossed. This does not certify the
+  run; it captures whether final result/shutdown traffic drains when the bridge
+  is not cut off immediately. The final native-IP HIL report now includes the
+  structured TCP final-exchange row, queue-quiet max consecutive seconds, and
+  TCP control-drain elapsed/ok row beside ACK-pipeline latency and RF burst
+  timing, so remaining timeout analysis can distinguish TCP shutdown/result
+  exchange pressure from RF burst or daemon ACK latency. Live HIL with the
+  rebuilt persistent helper moved 55 real-RF frames with zero bridge errors; the
+  Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
   was still already interrupted by the wrapper in that run, so production
   `iperf3` evidence remains incomplete, but the failure is now specifically the

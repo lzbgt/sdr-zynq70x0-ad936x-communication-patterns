@@ -1341,14 +1341,19 @@ user and vendor configuration.
   queues. Empty queue snapshots are now treated as diagnostics only, not an
   early-kill condition, because Linux TCP may be waiting to generate the next
   retransmit/control segment. If the client still times out after sending TCP
-  bytes, a bounded `IPERF_TCP_CONTROL_DRAIN_S` phase leaves the RF bridge running briefly, waits
-  for the server process to exit, captures the server JSON if available, and
-  records whether the final control path drained. Live HIL with the rebuilt
-  persistent helper moved 55 real-RF frames with zero bridge errors; the Z203
-  client had sent 128 bytes, and Z103 captured 128 received bytes plus server
-  exit during the 30 s drain window. Because the client was already interrupted
-  by the wrapper timeout, this is not production `iperf3` success yet; it shows
-  the next software fix should keep the client alive through the final
+  bytes, a bounded `IPERF_TCP_CONTROL_DRAIN_S` phase leaves the RF bridge
+  running briefly, waits for the server process to exit, captures the server
+  JSON if available, and records whether the final control path drained. The
+  final native-IP HIL report now carries structured `tcp_final_exchange`,
+  queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence
+  alongside ACK latency and RF burst timing, so review can separate TCP
+  final-exchange pressure from RF burst and daemon ACK service cost. Live HIL
+  with the rebuilt persistent helper moved 55 real-RF frames with zero bridge
+  errors; the Z203 client had sent 128 bytes, and Z103 captured 128 received
+  bytes plus server exit during the 30 s drain window. Because the client was
+  already interrupted by the wrapper timeout, this is not production `iperf3`
+  success yet; it shows the next software fix should keep the client alive
+  through the final
   result/control exchange or replace the current high-RTT bridge with a
   continuous streaming data plane.
   A follow-up host-supervised HIL run kept the client alive for the final

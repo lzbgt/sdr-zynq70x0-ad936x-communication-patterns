@@ -1525,6 +1525,8 @@ drain_tcp_control_after_timeout() {
     local sent_bytes
     local server_exited="false"
     local drain_report="$out_dir/${phase}_tcp_control_drain.json"
+    local drain_started_s
+    local drain_elapsed_s
 
     if [ "$iperf_tcp_control_drain_s" -le 0 ] || [ -z "${bridge_pid:-}" ]; then
         return 0
@@ -1553,14 +1555,16 @@ Path(sys.argv[1]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n"
 print(json.dumps(report, sort_keys=True))
 PY
 
+    drain_started_s="$SECONDS"
     if wait_remote_pid_exit "$server_remote" "$server_pid_file" "$iperf_tcp_control_drain_s"; then
         server_exited="true"
     fi
+    drain_elapsed_s=$((SECONDS - drain_started_s))
     sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
         "$server_remote:$remote_server_json" "$local_server_json" >/dev/null 2>&1 || true
     summarize_iio_bridge_progress
 
-    python3 - "$drain_report" "$server_exited" "$local_server_json" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+    python3 - "$drain_report" "$server_exited" "$local_server_json" "$drain_elapsed_s" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
 import json
 import sys
 from pathlib import Path
@@ -1569,10 +1573,97 @@ path = Path(sys.argv[1])
 report = json.loads(path.read_text(encoding="utf-8"))
 report["server_exited_after_drain"] = sys.argv[2] == "true"
 report["server_json_after_drain_path"] = sys.argv[3]
+report["elapsed_s"] = int(sys.argv[4])
 report["ok"] = report["server_exited_after_drain"]
 if not report["ok"]:
     report["blocker"] = "tcp_final_control_did_not_drain"
 path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+print(json.dumps(report, sort_keys=True))
+PY
+}
+
+write_tcp_final_exchange_report() {
+    local phase="$1"
+    local initial_rc="$2"
+    local final_rc="$3"
+    local client_json="$4"
+    local client_stderr="$5"
+    local report_path="$6"
+    local queue_snapshot_path="$7"
+    local sent_bytes
+
+    sent_bytes="$(iperf_report_sent_bytes "$client_json")"
+    if ! [[ "$sent_bytes" =~ ^[0-9]+$ ]]; then
+        sent_bytes=0
+    fi
+
+    python3 - "$report_path" "$phase" "$initial_rc" "$final_rc" \
+        "$iperf_timeout_s" "$iperf_tcp_final_exchange_grace_s" \
+        "$iperf_tcp_queue_quiet_grace_s" "$iperf_tcp_control_drain_s" \
+        "$sent_bytes" "$client_json" "$client_stderr" "$queue_snapshot_path" <<'PY' | tee -a "$out_dir/iperf_gate.ndjson"
+import json
+import re
+import sys
+from pathlib import Path
+
+report_path = Path(sys.argv[1])
+phase = sys.argv[2]
+initial_rc = int(sys.argv[3])
+final_rc = int(sys.argv[4])
+iperf_timeout_s = int(sys.argv[5])
+final_exchange_grace_s = int(sys.argv[6])
+queue_quiet_grace_s = int(sys.argv[7])
+control_drain_s = int(sys.argv[8])
+client_sent_bytes = int(sys.argv[9])
+client_json_path = Path(sys.argv[10])
+client_stderr_path = Path(sys.argv[11])
+queue_snapshot_path = Path(sys.argv[12])
+stderr = (
+    client_stderr_path.read_text(encoding="utf-8", errors="replace")
+    if client_stderr_path.is_file()
+    else ""
+)
+
+def marker_present(name: str) -> bool:
+    return re.search(rf"(^|\n){re.escape(name)}(?:=|$)", stderr) is not None
+
+def marker_int(name: str) -> int:
+    match = re.search(rf"(^|\n){re.escape(name)}=([0-9]+)", stderr)
+    return int(match.group(2)) if match else 0
+
+report = {
+    "event": "fieldmesh_native_ip_iperf_tcp_final_exchange",
+    "ok": final_rc == 0,
+    "phase": phase,
+    "initial_client_rc": initial_rc,
+    "final_client_rc": final_rc,
+    "client_report_path": str(client_json_path),
+    "client_stderr_path": str(client_stderr_path),
+    "client_sent_bytes": client_sent_bytes,
+    "iperf_timeout_s": iperf_timeout_s,
+    "final_exchange_grace_s": final_exchange_grace_s,
+    "final_exchange_grace_started": marker_present("fieldmesh_iperf_final_exchange_grace_s"),
+    "queue_quiet_grace_s": queue_quiet_grace_s,
+    "queue_quiet_grace_started": marker_present("fieldmesh_iperf_queue_quiet_grace_s"),
+    "queue_quiet_max_consecutive_s": marker_int(
+        "fieldmesh_iperf_queue_quiet_max_consecutive_s"
+    ),
+    "queue_quiet_snapshot_path": str(queue_snapshot_path) if queue_snapshot_path.is_file() else "",
+    "control_drain_s": control_drain_s,
+    "client_preserved_for_control_drain": marker_present(
+        "fieldmesh_iperf_client_preserved_for_control_drain"
+    ),
+    "client_killed_after_control_drain": marker_present(
+        "fieldmesh_iperf_client_killed_after_control_drain"
+    ),
+    "completed_after_primary_timeout": initial_rc != 0 and final_rc == 0,
+    "completed_without_grace": initial_rc == 0 and not marker_present(
+        "fieldmesh_iperf_final_exchange_grace_s"
+    ),
+}
+if final_rc != 0:
+    report["blocker"] = "tcp_final_exchange_incomplete"
+report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 print(json.dumps(report, sort_keys=True))
 PY
 }
@@ -2047,6 +2138,7 @@ if [ "$iperf_udp_only" != "1" ]; then
         "$iperf_tcp_final_exchange_grace_s" "$iperf_tcp_queue_quiet_grace_s" \
         iperf3 -c 10.77.2.20 -p "'$iperf_port'" -i "'$iperf_interval_s'" --connect-timeout "'$iperf_connect_timeout_ms'" "${board_tcp_client_timeout_args[@]}" -M "'$iperf_tcp_mss'" -w "'$iperf_tcp_window'" "${board_tcp_direction_args[@]}" "${board_tcp_bitrate_args[@]}" "${board_tcp_length_args[@]}" -l "'$iperf_block_size'" --json
     tcp_rc=$?
+    tcp_initial_rc="$tcp_rc"
     set -e
     if [ "$tcp_rc" -ne 0 ]; then
         drain_tcp_control_after_timeout \
@@ -2064,6 +2156,14 @@ if [ "$iperf_udp_only" != "1" ]; then
             tcp_rc=0
         fi
     fi
+    write_tcp_final_exchange_report \
+        "board_to_board" \
+        "$tcp_initial_rc" \
+        "$tcp_rc" \
+        "$out_dir/z203_iperf3_tcp_client.json" \
+        "$out_dir/z203_iperf3_tcp_client.err" \
+        "$out_dir/board_to_board_tcp_final_exchange.json" \
+        "$out_dir/iperf_tcp_queue_quiet_snapshot.json"
     if [ "$tcp_rc" -ne 0 ]; then
         if [ "$iperf_continue_after_tcp_failure" != "1" ]; then
             fail_bounded "board_to_board_tcp_iperf_incomplete" \
@@ -2286,6 +2386,16 @@ bridge = [
 ]
 iio_bridge = [row for row in rows if row.get("event") == "fieldmesh_iio_rf_worker_bridge_loop"]
 last_iio_bridge = iio_bridge[-1] if iio_bridge else {}
+tcp_final_exchange = [
+    row for row in rows
+    if row.get("event") == "fieldmesh_native_ip_iperf_tcp_final_exchange"
+]
+last_tcp_final_exchange = tcp_final_exchange[-1] if tcp_final_exchange else {}
+tcp_control_drain = [
+    row for row in rows
+    if row.get("event") == "fieldmesh_native_ip_iperf_tcp_control_drain"
+]
+last_tcp_control_drain = tcp_control_drain[-1] if tcp_control_drain else {}
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 tcp_end = tcp.get("end", {})
 udp_end = udp.get("end", {})
@@ -2325,6 +2435,8 @@ if udp_bytes <= 0:
     raise SystemExit("UDP iperf reported no transmitted bytes")
 if not udp_only and tcp_duration_s <= 0:
     raise SystemExit("TCP iperf reported no duration")
+if not udp_only and not tcp_final_exchange:
+    raise SystemExit("missing TCP final-exchange evidence")
 if udp_duration_s <= 0:
     raise SystemExit("UDP iperf reported no duration")
 if udp_jitter_ms is None or udp_lost_packets is None or udp_packets is None or udp_lost_percent is None:
@@ -2452,6 +2564,26 @@ report = {
     ),
     "iio_bridge_source_ack_pipeline_exercised": bool(
         last_iio_bridge.get("source_ack_pipeline_exercised")
+    ),
+    "tcp_final_exchange": last_tcp_final_exchange,
+    "tcp_final_exchange_grace_started": bool(
+        last_tcp_final_exchange.get("final_exchange_grace_started")
+    ),
+    "tcp_queue_quiet_grace_started": bool(
+        last_tcp_final_exchange.get("queue_quiet_grace_started")
+    ),
+    "tcp_queue_quiet_max_consecutive_s": int(
+        last_tcp_final_exchange.get("queue_quiet_max_consecutive_s") or 0
+    ),
+    "tcp_control_drain": last_tcp_control_drain,
+    "tcp_control_drain_started": bool(
+        last_tcp_control_drain.get("started")
+    ),
+    "tcp_control_drain_elapsed_s": int(
+        last_tcp_control_drain.get("elapsed_s") or 0
+    ),
+    "tcp_control_drain_ok": bool(
+        last_tcp_control_drain.get("ok")
     ),
     "uses_inter_board_ip_routing": False,
     "uses_ssh_launched_board_client": not host_pc_case,

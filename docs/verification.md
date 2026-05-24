@@ -4151,7 +4151,10 @@ so final bridge/native-IP reports show the max in-flight ACK depth reached
 during the run, plus per-direction source-ACK latency totals/max/average so HIL
 captures can distinguish daemon ACK latency from RF burst timing. The same
 report now aggregates per-direction RF burst total/live-run/decode elapsed
-timing for each completed batch.
+timing for each completed batch. The final native-IP HIL report also carries
+TCP final-exchange evidence, queue-quiet max consecutive seconds, and TCP
+control-drain elapsed/ok evidence so timeout review can separate TCP
+shutdown/result exchange pressure from RF burst timing and source-ACK latency.
 `run_fieldmesh_two_board_native_ip_iperf.sh`
 selects this path with `ALLOW_IIO_RF_BRIDGE=1`; the older
 `ALLOW_DAEMON_RF_BRIDGE=1` path remains diagnostic-only.
