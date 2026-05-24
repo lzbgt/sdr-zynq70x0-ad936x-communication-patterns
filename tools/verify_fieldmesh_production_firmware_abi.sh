@@ -173,18 +173,35 @@ int main(void) {
         !fieldmesh_rf_guard_status_schedule_enabled(status.status) ||
         !fieldmesh_rf_guard_dac_source_selected(&status) ||
         fieldmesh_rf_guard_dac_active(&status) ||
+        fieldmesh_rf_guard_idle(&status) ||
         fieldmesh_rf_guard_status_reserved(status.status)) {
         return 4;
+    }
+    fieldmesh_rf_guard_action_policy_t active_policy =
+        fieldmesh_rf_guard_status_action_policy(&status);
+    if (active_policy.guard_apply_allowed ||
+        !active_policy.source_select_allowed ||
+        !active_policy.rollback_needed) {
+        return 7;
+    }
+    fieldmesh_rf_guard_status_t idle_status = {0};
+    fieldmesh_rf_guard_action_policy_t idle_policy =
+        fieldmesh_rf_guard_status_action_policy(&idle_status);
+    if (!fieldmesh_rf_guard_idle(&idle_status) ||
+        !idle_policy.guard_apply_allowed ||
+        !idle_policy.source_select_allowed ||
+        idle_policy.rollback_needed) {
+        return 8;
     }
     status.status |= FIELDMESH_RF_GUARD_STATUS_FAULT;
     if (!fieldmesh_rf_guard_status_fault(status.status) ||
         fieldmesh_rf_guard_status_fault_free(&status)) {
-        return 5;
+        return 9;
     }
     status.status = 0xffff0000u;
     if (!fieldmesh_rf_guard_status_reserved(status.status) ||
         fieldmesh_rf_guard_status_fault_free(&status)) {
-        return 6;
+        return 10;
     }
     return 0;
 }
@@ -800,8 +817,14 @@ required = [
     "fieldmesh_rf_guard_status_tx_armed",
     "fieldmesh_rf_guard_status_schedule_enabled",
     "fieldmesh_rf_guard_drop_counters_clear",
+    "fieldmesh_rf_guard_idle",
     "fieldmesh_rf_guard_dac_source_selected",
     "fieldmesh_rf_guard_dac_active",
+    "fieldmesh_rf_guard_action_policy_t",
+    "fieldmesh_rf_guard_status_guard_apply_allowed",
+    "fieldmesh_rf_guard_status_source_select_allowed",
+    "fieldmesh_rf_guard_status_rollback_needed",
+    "fieldmesh_rf_guard_status_action_policy",
     "fieldmesh_rf_guard_window_covers",
 ]
 missing = [token for token in required if token not in source]

@@ -75,6 +75,12 @@ typedef struct fieldmesh_rf_guard_status {
     uint32_t dac_underflow_count;
 } fieldmesh_rf_guard_status_t;
 
+typedef struct fieldmesh_rf_guard_action_policy {
+    uint8_t guard_apply_allowed;
+    uint8_t source_select_allowed;
+    uint8_t rollback_needed;
+} fieldmesh_rf_guard_action_policy_t;
+
 static inline uint32_t fieldmesh_rf_guard_control_word(uint8_t tx_enable,
                                                        uint8_t tx_armed,
                                                        uint8_t schedule_enable)
@@ -150,6 +156,15 @@ static inline int fieldmesh_rf_guard_status_fault_free(const fieldmesh_rf_guard_
            fieldmesh_rf_guard_drop_counters_clear(status);
 }
 
+static inline int fieldmesh_rf_guard_idle(const fieldmesh_rf_guard_status_t *status)
+{
+    return status &&
+           !fieldmesh_rf_guard_control_armed(status->control) &&
+           !fieldmesh_rf_guard_status_tx_enabled(status->status) &&
+           !fieldmesh_rf_guard_status_tx_armed(status->status) &&
+           !fieldmesh_rf_guard_status_schedule_enabled(status->status);
+}
+
 static inline int fieldmesh_rf_guard_dac_source_selected(const fieldmesh_rf_guard_status_t *status)
 {
     return status &&
@@ -161,6 +176,47 @@ static inline int fieldmesh_rf_guard_dac_active(const fieldmesh_rf_guard_status_
 {
     return status &&
            (status->dac_source_status & FIELDMESH_RF_DAC_SOURCE_STATUS_ACTIVE) != 0u;
+}
+
+static inline int fieldmesh_rf_guard_status_guard_apply_allowed(
+    const fieldmesh_rf_guard_status_t *status)
+{
+    return fieldmesh_rf_guard_status_fault_free(status) &&
+           fieldmesh_rf_guard_idle(status) &&
+           !fieldmesh_rf_guard_dac_active(status);
+}
+
+static inline int fieldmesh_rf_guard_status_source_select_allowed(
+    const fieldmesh_rf_guard_status_t *status)
+{
+    return fieldmesh_rf_guard_status_fault_free(status) &&
+           !fieldmesh_rf_guard_dac_active(status);
+}
+
+static inline int fieldmesh_rf_guard_status_rollback_needed(
+    const fieldmesh_rf_guard_status_t *status)
+{
+    return status &&
+           (status->control != 0u ||
+            status->current_epoch != 0u ||
+            status->current_slot != 0u ||
+            status->tx_epoch != 0u ||
+            status->tx_slot != 0u ||
+            status->dac_source_control != 0u);
+}
+
+static inline fieldmesh_rf_guard_action_policy_t fieldmesh_rf_guard_status_action_policy(
+    const fieldmesh_rf_guard_status_t *status)
+{
+    fieldmesh_rf_guard_action_policy_t policy = {
+        .guard_apply_allowed =
+            (uint8_t)fieldmesh_rf_guard_status_guard_apply_allowed(status),
+        .source_select_allowed =
+            (uint8_t)fieldmesh_rf_guard_status_source_select_allowed(status),
+        .rollback_needed =
+            (uint8_t)fieldmesh_rf_guard_status_rollback_needed(status),
+    };
+    return policy;
 }
 
 static inline int fieldmesh_rf_guard_window_covers(uint32_t ctrl_size)

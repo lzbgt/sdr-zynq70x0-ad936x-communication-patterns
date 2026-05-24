@@ -652,16 +652,20 @@ fieldmesh-udp-probe rf-source-apply \
 
 `rf-guard-scan` opens the sidecar control window read-only and reports the
 `0x100+` guard control/status/counter registers plus the DAC source-select and
-driver status registers at `0x12c` through `0x13c`. `rf-guard-apply` refuses to
+driver status registers at `0x12c` through `0x13c`. It also emits C-decoded
+action policy booleans for `guard_apply_allowed`, `source_select_allowed`, and
+`rollback_needed`. `rf-guard-apply` refuses to
 run without the same sidecar preflight assertion and explicit RF safety
-declarations. When allowed, it maps only the FieldMesh control window, programs
-`fieldmesh_iq_tx_guard` epoch/slot/control registers, leaves DAC source
-selection off, reports that AD936x TX enable and RF TX start remain false, and
-rolls the guard registers back before exit.
+declarations, then re-reads the guard/DAC status in C and requires
+`guard_apply_allowed=true` before it maps only the FieldMesh control window,
+programs `fieldmesh_iq_tx_guard` epoch/slot/control registers, leaves DAC
+source selection off, reports that AD936x TX enable and RF TX start remain
+false, and rolls the guard registers back before exit.
 
 `rf-source-apply` is deliberately separate from `rf-guard-apply`. It requires
 the same safety declarations plus `--allow-rf-source-select`, writes only the
-FieldMesh DAC source-select register at `0x12c`, reads back source status, then
+FieldMesh DAC source-select register at `0x12c` after the C
+`source_select_allowed=true` policy passes, reads back source status, then
 rolls source select back to the vendor DAC path. It still does not enable
 AD936x TX, start RF TX, open IIO buffers, or write outside the FieldMesh control
 window.

@@ -142,6 +142,9 @@ rf_guard_source_tokens = (
     "fieldmesh_rf_guard_status_fault_free",
     "fieldmesh_rf_guard_dac_source_selected",
     "fieldmesh_rf_guard_dac_active",
+    "fieldmesh_rf_guard_status_action_policy",
+    "fieldmesh_rf_guard_status_guard_apply_allowed",
+    "fieldmesh_rf_guard_status_source_select_allowed",
 )
 rf_guard_artifact_tokens = (
     "control_tx_enabled",
@@ -157,6 +160,9 @@ rf_guard_artifact_tokens = (
     "fault_free",
     "dac_source_selected",
     "dac_active",
+    "guard_apply_allowed",
+    "source_select_allowed",
+    "rollback_needed",
 )
 sidecar_addr_source_tokens = (
     "fieldmesh_sidecar_addr_self_test",
@@ -308,6 +314,9 @@ rf_guard_source_tokens = (
     "fieldmesh_rf_guard_status_fault_free",
     "fieldmesh_rf_guard_dac_source_selected",
     "fieldmesh_rf_guard_dac_active",
+    "fieldmesh_rf_guard_status_action_policy",
+    "fieldmesh_rf_guard_status_guard_apply_allowed",
+    "fieldmesh_rf_guard_status_source_select_allowed",
 )
 rf_guard_artifact_tokens = (
     "control_tx_enabled",
@@ -323,6 +332,9 @@ rf_guard_artifact_tokens = (
     "fault_free",
     "dac_source_selected",
     "dac_active",
+    "guard_apply_allowed",
+    "source_select_allowed",
+    "rollback_needed",
 )
 sidecar_addr_source_tokens = (
     "fieldmesh_sidecar_addr_self_test",

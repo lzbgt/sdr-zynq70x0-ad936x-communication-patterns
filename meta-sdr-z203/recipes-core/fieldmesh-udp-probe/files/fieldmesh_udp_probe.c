@@ -2677,6 +2677,53 @@ static bool write_ctrl_reg(int fd, bool file_backed, uint32_t base, uint32_t off
     return wrote == (ssize_t)sizeof(buf);
 }
 
+static bool read_rf_guard_status_regs(int fd, bool file_backed, uint32_t base,
+                                      fieldmesh_rf_guard_status_t *status)
+{
+    uint32_t value = 0;
+
+    if (!status) {
+        return false;
+    }
+    memset(status, 0, sizeof(*status));
+
+    if (!read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_CONTROL, &status->control) ||
+        !read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH,
+                       &status->current_epoch) ||
+        !read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, &value)) {
+        return false;
+    }
+    status->current_slot = (uint16_t)value;
+    if (!read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_TX_EPOCH,
+                       &status->tx_epoch) ||
+        !read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_TX_SLOT, &value)) {
+        return false;
+    }
+    status->tx_slot = (uint16_t)value;
+
+    return read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_STATUS, &status->status) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_PASS_SAMPLE_COUNT,
+                         &status->pass_sample_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_PASS_PACKET_COUNT,
+                         &status->pass_packet_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_BLOCKED_CYCLE_COUNT,
+                         &status->blocked_cycle_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT,
+                         &status->drop_late_sample_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_GUARD_REG_DROP_LATE_PACKET_COUNT,
+                         &status->drop_late_packet_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
+                         &status->dac_source_control) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_DAC_REG_SOURCE_STATUS,
+                         &status->dac_source_status) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_DAC_REG_SAMPLE_COUNT,
+                         &status->dac_sample_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_DAC_REG_PACKET_COUNT,
+                         &status->dac_packet_count) &&
+           read_ctrl_reg(fd, file_backed, base, FIELDMESH_RF_DAC_REG_UNDERFLOW_COUNT,
+                         &status->dac_underflow_count);
+}
+
 static int run_ctrl_scan(const struct config *cfg)
 {
     static const struct ctrl_reg_expectation regs[] = {
@@ -2849,6 +2896,8 @@ static int run_rf_guard_scan(const struct config *cfg)
                regs[i].name, regs[i].offset, read_ok ? "true" : "false", value);
     }
 
+    fieldmesh_rf_guard_action_policy_t policy =
+        fieldmesh_rf_guard_status_action_policy(&status);
     close(fd);
     printf("{\"event\":\"rf_guard_scan_end\",\"transport\":\"rf-guard-scan\","
            "\"ok\":%s,\"id_ok\":%s,\"rf_page_addressable\":%s,\"id\":\"0x%08x\","
@@ -2857,7 +2906,10 @@ static int run_rf_guard_scan(const struct config *cfg)
            "\"status_tx_enabled\":%s,\"status_tx_armed\":%s,"
            "\"status_schedule_enabled\":%s,\"status_fault\":%s,"
            "\"status_reserved\":%s,\"drop_counters_clear\":%s,"
-           "\"fault_free\":%s,\"dac_source_selected\":%s,\"dac_active\":%s}\n",
+           "\"fault_free\":%s,\"guard_idle\":%s,"
+           "\"dac_source_selected\":%s,\"dac_active\":%s,"
+           "\"guard_apply_allowed\":%s,\"source_select_allowed\":%s,"
+           "\"rollback_needed\":%s}\n",
            ok ? "true" : "false", id_value == FIELDMESH_CTRL_ID_VALUE ? "true" : "false",
            rf_page_addressable ? "true" : "false", id_value,
            fieldmesh_rf_guard_control_tx_enabled(status.control) ? "true" : "false",
@@ -2871,8 +2923,12 @@ static int run_rf_guard_scan(const struct config *cfg)
            fieldmesh_rf_guard_status_reserved(status.status) ? "true" : "false",
            fieldmesh_rf_guard_drop_counters_clear(&status) ? "true" : "false",
            fieldmesh_rf_guard_status_fault_free(&status) ? "true" : "false",
+           fieldmesh_rf_guard_idle(&status) ? "true" : "false",
            fieldmesh_rf_guard_dac_source_selected(&status) ? "true" : "false",
-           fieldmesh_rf_guard_dac_active(&status) ? "true" : "false");
+           fieldmesh_rf_guard_dac_active(&status) ? "true" : "false",
+           policy.guard_apply_allowed ? "true" : "false",
+           policy.source_select_allowed ? "true" : "false",
+           policy.rollback_needed ? "true" : "false");
     return ok ? 0 : 1;
 }
 
@@ -2894,10 +2950,13 @@ static int run_rf_guard_apply(const struct config *cfg)
     uint32_t applied_tx_slot = 0;
     bool ok = false;
     bool wrote = false;
+    bool policy_ok = false;
     bool readback_ok = false;
     bool rolled_back = false;
     int fd = -1;
     char err[160] = {0};
+    fieldmesh_rf_guard_status_t pre_status = {0};
+    fieldmesh_rf_guard_action_policy_t policy = {0};
 
     printf("{\"event\":\"rf_guard_apply_start\",\"transport\":\"rf-guard-apply\","
            "\"path\":\"%s\",\"base\":\"0x%08x\",\"slot_epoch\":%u,"
@@ -2920,12 +2979,31 @@ static int run_rf_guard_apply(const struct config *cfg)
         snprintf(err, sizeof(err), "fieldmesh control ID mismatch");
         goto out;
     }
-    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, &old_control) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, &old_current_epoch) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, &old_current_slot) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, &old_tx_epoch) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, &old_tx_slot)) {
-        snprintf(err, sizeof(err), "read RF guard rollback state failed");
+    if (!read_rf_guard_status_regs(fd, file_backed, cfg->ctrl_base, &pre_status)) {
+        snprintf(err, sizeof(err), "read RF guard pre-write status failed");
+        goto out;
+    }
+    old_control = pre_status.control;
+    old_current_epoch = pre_status.current_epoch;
+    old_current_slot = pre_status.current_slot;
+    old_tx_epoch = pre_status.tx_epoch;
+    old_tx_slot = pre_status.tx_slot;
+    policy = fieldmesh_rf_guard_status_action_policy(&pre_status);
+    policy_ok = policy.guard_apply_allowed != 0U;
+    printf("{\"event\":\"rf_guard_apply_policy\",\"transport\":\"rf-guard-apply\","
+           "\"guard_apply_allowed\":%s,\"source_select_allowed\":%s,"
+           "\"rollback_needed\":%s,\"fault_free\":%s,"
+           "\"drop_counters_clear\":%s,\"guard_idle\":%s,"
+           "\"dac_active\":%s,\"writes_registers\":false}\n",
+           policy.guard_apply_allowed ? "true" : "false",
+           policy.source_select_allowed ? "true" : "false",
+           policy.rollback_needed ? "true" : "false",
+           fieldmesh_rf_guard_status_fault_free(&pre_status) ? "true" : "false",
+           fieldmesh_rf_guard_drop_counters_clear(&pre_status) ? "true" : "false",
+           fieldmesh_rf_guard_idle(&pre_status) ? "true" : "false",
+           fieldmesh_rf_guard_dac_active(&pre_status) ? "true" : "false");
+    if (!policy_ok) {
+        snprintf(err, sizeof(err), "RF guard C action policy rejected apply");
         goto out;
     }
 
@@ -3016,8 +3094,10 @@ out:
     ok = wrote && readback_ok && rolled_back;
     printf("{\"event\":\"rf_guard_apply_end\",\"transport\":\"rf-guard-apply\","
            "\"ok\":%s,\"id\":\"0x%08x\",\"wrote_registers\":%s,"
-           "\"readback_ok\":%s,\"rolled_back\":%s,\"starts_rf_tx\":false,\"error\":%s}\n",
+           "\"guard_apply_allowed\":%s,\"readback_ok\":%s,"
+           "\"rolled_back\":%s,\"starts_rf_tx\":false,\"error\":%s}\n",
            ok ? "true" : "false", id_value, wrote ? "true" : "false",
+           policy_ok ? "true" : "false",
            readback_ok ? "true" : "false", rolled_back ? "true" : "false",
            ok ? "null" : "\"rf guard apply failed\"");
     if (fd >= 0) {
@@ -3039,10 +3119,13 @@ static int run_rf_source_apply(const struct config *cfg)
     uint32_t source_status = 0;
     bool ok = false;
     bool wrote = false;
+    bool policy_ok = false;
     bool readback_ok = false;
     bool rolled_back = false;
     int fd = -1;
     char err[160] = {0};
+    fieldmesh_rf_guard_status_t pre_status = {0};
+    fieldmesh_rf_guard_action_policy_t policy = {0};
 
     printf("{\"event\":\"rf_source_apply_start\",\"transport\":\"rf-source-apply\","
            "\"path\":\"%s\",\"base\":\"0x%08x\",\"writes_registers\":true,"
@@ -3065,9 +3148,27 @@ static int run_rf_source_apply(const struct config *cfg)
         snprintf(err, sizeof(err), "fieldmesh control ID mismatch");
         goto out;
     }
-    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
-                       &old_source_control)) {
-        snprintf(err, sizeof(err), "read RF DAC source rollback state failed");
+    if (!read_rf_guard_status_regs(fd, file_backed, cfg->ctrl_base, &pre_status)) {
+        snprintf(err, sizeof(err), "read RF DAC source pre-write status failed");
+        goto out;
+    }
+    old_source_control = pre_status.dac_source_control;
+    policy = fieldmesh_rf_guard_status_action_policy(&pre_status);
+    policy_ok = policy.source_select_allowed != 0U;
+    printf("{\"event\":\"rf_source_apply_policy\",\"transport\":\"rf-source-apply\","
+           "\"source_select_allowed\":%s,\"guard_apply_allowed\":%s,"
+           "\"rollback_needed\":%s,\"fault_free\":%s,"
+           "\"drop_counters_clear\":%s,\"guard_idle\":%s,"
+           "\"dac_active\":%s,\"writes_registers\":false}\n",
+           policy.source_select_allowed ? "true" : "false",
+           policy.guard_apply_allowed ? "true" : "false",
+           policy.rollback_needed ? "true" : "false",
+           fieldmesh_rf_guard_status_fault_free(&pre_status) ? "true" : "false",
+           fieldmesh_rf_guard_drop_counters_clear(&pre_status) ? "true" : "false",
+           fieldmesh_rf_guard_idle(&pre_status) ? "true" : "false",
+           fieldmesh_rf_guard_dac_active(&pre_status) ? "true" : "false");
+    if (!policy_ok) {
+        snprintf(err, sizeof(err), "RF DAC source C action policy rejected source select");
         goto out;
     }
 
@@ -3108,9 +3209,11 @@ out:
     ok = wrote && readback_ok && rolled_back;
     printf("{\"event\":\"rf_source_apply_end\",\"transport\":\"rf-source-apply\","
            "\"ok\":%s,\"id\":\"0x%08x\",\"wrote_registers\":%s,"
-           "\"readback_ok\":%s,\"rolled_back\":%s,\"sets_ad936x_tx_enable\":false,"
+           "\"source_select_allowed\":%s,\"readback_ok\":%s,"
+           "\"rolled_back\":%s,\"sets_ad936x_tx_enable\":false,"
            "\"starts_rf_tx\":false,\"error\":%s}\n",
            ok ? "true" : "false", id_value, wrote ? "true" : "false",
+           policy_ok ? "true" : "false",
            readback_ok ? "true" : "false", rolled_back ? "true" : "false",
            ok ? "null" : "\"RF DAC source apply failed\"");
     if (fd >= 0) {

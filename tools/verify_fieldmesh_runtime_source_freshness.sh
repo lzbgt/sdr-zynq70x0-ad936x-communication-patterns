@@ -63,6 +63,9 @@ drop_counters_clear
 fault_free
 dac_source_selected
 dac_active
+guard_apply_allowed
+source_select_allowed
+rollback_needed
 sidecar-addr-self-test
 fieldmesh_sidecar_addr_self_test
 native_c_contract
@@ -134,7 +137,8 @@ for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale fixture missing expected missing token {token}: {stale!r}")
 for token in ("control_tx_enabled", "status_reserved", "drop_counters_clear",
-              "dac_source_selected", "dac_active"):
+              "dac_source_selected", "dac_active", "guard_apply_allowed",
+              "source_select_allowed", "rollback_needed"):
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale RF guard fixture missing expected token {token}: {stale!r}")
 for token in ("sidecar-addr-self-test", "fieldmesh_sidecar_addr_self_test",

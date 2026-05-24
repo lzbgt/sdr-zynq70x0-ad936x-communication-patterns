@@ -2440,17 +2440,19 @@ compiles a strict header smoke so `fieldmesh-udp-probe` and the SDK contract
 cannot drift into separate register maps. The host guard/source verifiers also
 require `rf-guard-scan` to emit the C-decoded booleans for guard control bits,
 guard status bits, reserved/fault state, drop-counter health, DAC source
-selection, and DAC active state.
+selection, DAC active state, and C action-policy decisions:
+`guard_apply_allowed`, `source_select_allowed`, and `rollback_needed`.
 `./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
 memory to verify the writer arms only the guard registers, reports
-`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, leaves DAC source
-selection off, and rolls the register window back.
+`guard_apply_allowed=true`, `sets_ad936x_tx_enable=false`, and
+`starts_rf_tx=false`, leaves DAC source selection off, and rolls the register
+window back.
 `./tools/verify_fieldmesh_rf_source_apply.sh` adds the next guard boundary for
 the DAC source selector: it proves `rf-source-apply` refuses missing
 `--allow-live-writes`, missing `--allow-rf-source-select`, and missing Zynq
 target confirmation, writes only `FM_RF_DAC_SOURCE_CONTROL`, reports
-`sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolls source select
-back to zero.
+`source_select_allowed=true`, `sets_ad936x_tx_enable=false`, and
+`starts_rf_tx=false`, and rolls source select back to zero.
 The first Z103 source-select run exposed a useful mismatch: the old installed
 RF-engine runtime did not read back `FM_RF_DAC_SOURCE_CONTROL[0]`. The apply
 path now fails unless source-select reads back asserted. After installing the
@@ -2898,7 +2900,8 @@ guard scan contract and sidecar address-map self-test. It emits
 `--fw-dma-arm-if-ready`, `--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`,
 `--fw-dma-action-policy-self-test`, the matching C refusal/policy tokens, or
 the decoded RF guard scan fields such as `control_armed`, `status_reserved`,
-`drop_counters_clear`, `fault_free`, `dac_source_selected`, and `dac_active`,
+`drop_counters_clear`, `fault_free`, `dac_source_selected`, `dac_active`,
+`guard_apply_allowed`, `source_select_allowed`, and `rollback_needed`,
 or sidecar address proof tokens such as `sidecar-addr-self-test`,
 `fieldmesh_sidecar_addr_self_test`, and `native_c_contract`.
 The standalone reporter is advisory unless called with `--require-current`,

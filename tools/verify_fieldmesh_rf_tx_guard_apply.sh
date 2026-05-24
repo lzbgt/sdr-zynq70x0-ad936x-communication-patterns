@@ -116,15 +116,22 @@ for key in (
     "status_reserved",
     "dac_source_selected",
     "dac_active",
+    "rollback_needed",
 ):
     if before[-1].get(key) is not False:
         raise SystemExit(f"initial RF guard scan did not decode {key}=false: {before[-1]}")
-for key in ("drop_counters_clear", "fault_free"):
+for key in ("drop_counters_clear", "fault_free", "guard_idle",
+            "guard_apply_allowed", "source_select_allowed"):
     if before[-1].get(key) is not True:
         raise SystemExit(f"initial RF guard scan did not decode {key}=true: {before[-1]}")
+policy = next((row for row in apply if row.get("event") == "rf_guard_apply_policy"), None)
 write = next((row for row in apply if row.get("event") == "rf_guard_apply_write"), None)
 rollback = next((row for row in apply if row.get("event") == "rf_guard_apply_rollback"), None)
 end = next((row for row in apply if row.get("event") == "rf_guard_apply_end"), None)
+if not policy or policy.get("guard_apply_allowed") is not True:
+    raise SystemExit(f"RF guard apply did not pass C action policy: {policy}")
+if policy.get("writes_registers") is not False:
+    raise SystemExit(f"RF guard action policy check must be read-only: {policy}")
 if not write or write.get("control") != "0x00000007":
     raise SystemExit("RF guard apply did not arm the guard control register")
 if write.get("readback_ok") is not True:
@@ -135,7 +142,7 @@ if write.get("sets_ad936x_tx_enable") is not False or write.get("starts_rf_tx") 
     raise SystemExit("RF guard apply crossed the AD936x TX safety boundary")
 if not rollback or rollback.get("ok") is not True:
     raise SystemExit("RF guard apply did not roll back")
-if not end or end.get("ok") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
+if not end or end.get("ok") is not True or end.get("guard_apply_allowed") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
     raise SystemExit("RF guard apply did not end cleanly")
 
 after_regs = {

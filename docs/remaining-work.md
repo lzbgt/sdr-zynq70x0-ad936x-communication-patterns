@@ -1556,17 +1556,22 @@ below were later superseded by the current PHY-management two-board gates above:
   from `sdk/c/include/fieldmesh_rf_guard_ctrl.h`; the next rootfs rebuild will
   carry the same runtime behavior through the shared C SDK contract rather than
   duplicated probe-local offsets. The source scan output also includes
-  C-decoded guard/DAC health booleans so future board gates can consume
-  `fault_free`, `drop_counters_clear`, `dac_source_selected`, and `dac_active`
-  without reconstructing raw register semantics in shell/Python.
+  C-decoded guard/DAC health and action-policy booleans so future board gates
+  can consume `fault_free`, `drop_counters_clear`, `guard_idle`,
+  `dac_source_selected`, `dac_active`, `guard_apply_allowed`,
+  `source_select_allowed`, and `rollback_needed` without reconstructing raw
+  register semantics in shell/Python. The guard and source writers now re-read
+  that C status immediately before mutation and refuse writes when the matching
+  action policy is false.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard
   write/rollback gate on the installed RF-engine runtime.
 - The DAC source-select writer is now a separate safety boundary:
   `fieldmesh-udp-probe rf-source-apply` requires all RF guard declarations plus
-  `--allow-rf-source-select`, writes only `0x12c`, reports AD936x TX/RF TX
-  remain disabled, and rolls source select back to the vendor path. The first
+  `--allow-rf-source-select`, writes only `0x12c` after
+  `source_select_allowed=true`, reports AD936x TX/RF TX remain disabled, and
+  rolls source select back to the vendor path. The first
   live run exposed stale RF-engine hardware because readback stayed zero; the
   apply path now rejects that case. After installing the refreshed RF-engine
   package, Z103 passed with source-select readback asserted and rolled back.

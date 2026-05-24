@@ -178,10 +178,15 @@ if after_regs.get("rf_dac_source_control") != "0x00000000":
     raise SystemExit("RF DAC source-select was not rolled back")
 
 apply_rows = load("rf_source_apply.ndjson")
+policy = next((row for row in apply_rows if row.get("event") == "rf_source_apply_policy"), None)
 write = next((row for row in apply_rows if row.get("event") == "rf_source_apply_write"), None)
 rollback = next((row for row in apply_rows if row.get("event") == "rf_source_apply_rollback"), None)
 end = next((row for row in apply_rows if row.get("event") == "rf_source_apply_end"), None)
 if applied:
+    if not policy or policy.get("source_select_allowed") is not True:
+        raise SystemExit(f"RF source apply did not pass C action policy: {policy}")
+    if policy.get("writes_registers") is not False:
+        raise SystemExit(f"RF source C action policy check must be read-only: {policy}")
     if not write or write.get("selects_fieldmesh_dac_source") is not True:
         raise SystemExit("RF source apply did not select FieldMesh DAC source")
     if write.get("source_control") != "0x00000001":
@@ -192,7 +197,7 @@ if applied:
         raise SystemExit("RF source apply crossed the AD936x/RF TX safety boundary")
     if not rollback or rollback.get("ok") is not True:
         raise SystemExit("RF source apply did not roll back")
-    if not end or end.get("ok") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
+    if not end or end.get("ok") is not True or end.get("source_select_allowed") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
         raise SystemExit("RF source apply did not end cleanly")
 else:
     skipped = next((row for row in apply_rows if row.get("event") == "rf_source_apply_skipped"), None)
@@ -210,6 +215,7 @@ summary = {
     "scan_after_ok": True,
     "rf_page_addressable": True,
     "readback_ok": bool(applied),
+    "source_select_allowed": bool(applied),
     "writes_source_register": bool(applied),
     "opens_iio_buffers": False,
     "sets_ad936x_tx_enable": False,

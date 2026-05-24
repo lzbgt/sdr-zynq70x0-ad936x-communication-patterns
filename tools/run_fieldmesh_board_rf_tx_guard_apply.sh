@@ -173,17 +173,22 @@ if (not after or after[-1].get("event") != "rf_guard_scan_end" or
     raise SystemExit("post RF guard scan failed")
 
 apply_rows = load("rf_guard_apply.ndjson")
+policy = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_policy"), None)
 write = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_write"), None)
 rollback = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_rollback"), None)
 end = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_end"), None)
 if applied:
+    if not policy or policy.get("guard_apply_allowed") is not True:
+        raise SystemExit(f"RF guard apply did not pass C action policy: {policy}")
+    if policy.get("writes_registers") is not False:
+        raise SystemExit(f"RF guard C action policy check must be read-only: {policy}")
     if not write or write.get("sets_ad936x_tx_enable") is not False or write.get("starts_rf_tx") is not False:
         raise SystemExit("RF guard apply crossed the AD936x/RF TX safety boundary")
     if write.get("readback_ok") is not True:
         raise SystemExit(f"RF guard apply did not verify applied register readback: {write}")
     if not rollback or rollback.get("ok") is not True:
         raise SystemExit("RF guard apply did not roll back")
-    if not end or end.get("ok") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
+    if not end or end.get("ok") is not True or end.get("guard_apply_allowed") is not True or end.get("readback_ok") is not True or end.get("rolled_back") is not True:
         raise SystemExit("RF guard apply did not end cleanly")
 else:
     skipped = next((row for row in apply_rows if row.get("event") == "rf_guard_apply_skipped"), None)
@@ -200,6 +205,7 @@ summary = {
     "scan_before_ok": True,
     "scan_after_ok": True,
     "writes_guard_registers": bool(applied),
+    "guard_apply_allowed": bool(applied),
     "sets_ad936x_tx_enable": False,
     "starts_rf_tx": False,
     "rolled_back": bool(applied),
