@@ -65,6 +65,7 @@ for key in (
     "persistent_worker_lifecycle_supported",
     "server_owned_xfer_loop_supported",
     "native_iio_burst_transport_worker_supported",
+    "native_iio_burst_transport_session_supported",
     "libiio_rx_tx_worker",
     "same_process_rx_tx",
 ):
@@ -74,6 +75,8 @@ if report.get("native_iio_burst_worker_lifecycle_proof") != "FIELDMESH_IIO_BURST
     raise SystemExit(f"C native IIO worker lifecycle proof token drifted: {report}")
 if report.get("native_iio_burst_transport_worker_proof") != "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1":
     raise SystemExit(f"C native IIO burst transport worker proof token drifted: {report}")
+if report.get("native_iio_burst_transport_session_proof") != "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1":
+    raise SystemExit(f"C native IIO burst transport session proof token drifted: {report}")
 if report.get("python_xfer_field_orchestration") is not False:
     raise SystemExit(f"C native IIO transport worker must reject Python field orchestration: {report}")
 for key in ("python_iio_transport", "reads_hardware", "writes_hardware", "starts_rf_tx"):
@@ -398,7 +401,12 @@ required = [
     "FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1",
     "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1",
     "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1",
+    "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1",
+    "TRANSPORT_WORKER_START",
+    "TRANSPORT_WORKER_STATUS",
     "WORKER_XFER",
+    "fieldmesh_iio_burst_transport_worker_start",
+    "fieldmesh_iio_burst_transport_worker_status",
     "fieldmesh_iio_burst_transport_worker_request",
     "native_iio_burst_worker",
     "persistent_native_iio_burst_worker",
@@ -406,6 +414,8 @@ required = [
     "server_owned_xfer_loop",
     "server_xfer_count",
     "native_iio_burst_transport_worker",
+    "native_iio_burst_transport_session",
+    "transport_session_start_count",
     "transport_worker_request_count",
     "python_xfer_field_orchestration",
     "libiio_rx_tx_worker",

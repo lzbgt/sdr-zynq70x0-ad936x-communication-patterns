@@ -5105,7 +5105,8 @@ rejects reports that only prove one-shot helper execution. The live runner now
 hands the helper a `WORKER_XFER request_file=...` request parsed by the C
 transport worker; accepted reports must include
 `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
-`transport_worker_request_count > 0`, and
+`FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`,
+`transport_session_start_count > 0`, `transport_worker_request_count > 0`, and
 `python_xfer_field_orchestration=false`.
 `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI

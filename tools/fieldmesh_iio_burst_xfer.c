@@ -95,6 +95,8 @@ struct options {
     bool persistent_server_mode;
     unsigned long long server_xfer_count;
     bool native_transport_worker_mode;
+    bool native_transport_session_mode;
+    unsigned long long transport_session_start_count;
     unsigned long long transport_worker_request_count;
 };
 
@@ -152,6 +154,8 @@ static int run_native_worker_self_test(void)
            "\"server_owned_xfer_loop_supported\":true,"
            "\"native_iio_burst_transport_worker_supported\":true,"
            "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+           "\"native_iio_burst_transport_session_supported\":true,"
+           "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
            "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
            "\"python_xfer_field_orchestration\":false,"
            "\"libiio_rx_tx_worker\":true,"
@@ -1717,6 +1721,9 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"server_xfer_count\":%llu,"
             "\"native_iio_burst_transport_worker\":%s,"
             "\"native_iio_burst_transport_worker_proof\":\"%s\","
+            "\"native_iio_burst_transport_session\":%s,"
+            "\"native_iio_burst_transport_session_proof\":\"%s\","
+            "\"transport_session_start_count\":%llu,"
             "\"transport_worker_request\":%s,"
             "\"transport_worker_request_count\":%llu,"
             "\"python_xfer_field_orchestration\":%s,"
@@ -1735,6 +1742,10 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             opt->native_transport_worker_mode ? "true" : "false",
             opt->native_transport_worker_mode ?
                 "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1" : "",
+            opt->native_transport_session_mode ? "true" : "false",
+            opt->native_transport_session_mode ?
+                "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1" : "",
+            opt->transport_session_start_count,
             opt->native_transport_worker_mode ? "true" : "false",
             opt->transport_worker_request_count,
             opt->native_transport_worker_mode ? "false" : "true",
@@ -1819,6 +1830,9 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
 {
     char line[4096];
     unsigned long long xfer_count = 0;
+    unsigned long long worker_request_count = 0;
+    unsigned long long transport_session_start_count = 0;
+    bool transport_session_started = false;
 
     printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true,"
            "\"native_iio_burst_worker\":true,"
@@ -1829,7 +1843,11 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"server_xfer_count\":0,"
            "\"native_iio_burst_transport_worker\":true,"
            "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+           "\"native_iio_burst_transport_session_supported\":true,"
+           "\"native_iio_burst_transport_session\":false,"
+           "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
            "\"transport_worker_request_count\":0,"
+           "\"transport_session_start_count\":0,"
            "\"python_xfer_field_orchestration\":false,"
            "\"server_pid\":%ld,"
            "\"libiio_rx_tx_worker\":true,"
@@ -1839,14 +1857,59 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
 
     while (fgets(line, sizeof(line), stdin)) {
         line[strcspn(line, "\r\n")] = '\0';
+        if (strcmp(line, "TRANSPORT_WORKER_START") == 0) {
+            transport_session_started = true;
+            transport_session_start_count++;
+            printf("{\"event\":\"fieldmesh_iio_burst_transport_worker_start\",\"ok\":true,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":true,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"transport_session_start_count\":%llu,"
+                   "\"transport_worker_request_count\":%llu,"
+                   "\"server_xfer_count\":%llu,"
+                   "\"python_xfer_field_orchestration\":false,"
+                   "\"next_boundary\":\"native_transport_worker_service_loop\"}\n",
+                   transport_session_start_count,
+                   worker_request_count,
+                   xfer_count);
+            fflush(stdout);
+            continue;
+        }
+        if (strcmp(line, "TRANSPORT_WORKER_STATUS") == 0) {
+            printf("{\"event\":\"fieldmesh_iio_burst_transport_worker_status\",\"ok\":true,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":%s,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"transport_session_start_count\":%llu,"
+                   "\"transport_worker_request_count\":%llu,"
+                   "\"server_xfer_count\":%llu,"
+                   "\"python_xfer_field_orchestration\":false,"
+                   "\"next_boundary\":\"native_transport_worker_service_loop\"}\n",
+                   transport_session_started ? "true" : "false",
+                   transport_session_start_count,
+                   worker_request_count,
+                   xfer_count);
+            fflush(stdout);
+            continue;
+        }
         if (strcmp(line, "QUIT") == 0) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer_server_quit\",\"ok\":true,"
                    "\"native_iio_burst_worker_lifecycle\":true,"
                    "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
                    "\"native_iio_burst_transport_worker\":true,"
                    "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":%s,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"transport_session_start_count\":%llu,"
+                   "\"transport_worker_request_count\":%llu,"
                    "\"server_owned_xfer_loop\":true,"
-                   "\"server_xfer_count\":%llu}\n", xfer_count);
+                   "\"server_xfer_count\":%llu}\n",
+                   transport_session_started ? "true" : "false",
+                   transport_session_start_count,
+                   worker_request_count,
+                   xfer_count);
             fflush(stdout);
             return 0;
         }
@@ -1854,7 +1917,17 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         bool legacy_xfer = strncmp(line, "XFER ", 5) == 0;
         if (!worker_xfer && !legacy_xfer) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
-                   "\"error\":\"expected_WORKER_XFER_or_XFER_or_QUIT\"}\n");
+                   "\"error\":\"expected_TRANSPORT_WORKER_START_or_STATUS_or_WORKER_XFER_or_XFER_or_QUIT\"}\n");
+            fflush(stdout);
+            continue;
+        }
+        if (worker_xfer && !transport_session_started) {
+            printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":false,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"error\":\"transport_session_not_started\"}\n");
             fflush(stdout);
             continue;
         }
@@ -1867,7 +1940,9 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         req.persistent_server_mode = true;
         req.server_xfer_count = xfer_count + 1ULL;
         req.native_transport_worker_mode = worker_xfer;
-        req.transport_worker_request_count = worker_xfer ? xfer_count + 1ULL : 0ULL;
+        req.native_transport_session_mode = transport_session_started;
+        req.transport_session_start_count = transport_session_start_count;
+        req.transport_worker_request_count = worker_xfer ? worker_request_count + 1ULL : 0ULL;
 
         char *save = NULL;
         if (worker_xfer) {
@@ -1916,12 +1991,19 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         }
 
         if (!req.tx_file || !req.rx_file || req.tx_samples == 0 || req.rx_samples == 0) {
+            if (worker_xfer) {
+                free((char *)req.tx_file);
+                free((char *)req.rx_file);
+            }
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
                    "\"error\":\"missing_XFER_fields\"}\n");
             fflush(stdout);
             continue;
         }
         xfer_count++;
+        if (worker_xfer) {
+            worker_request_count++;
+        }
         (void)run_xfer(rx_dev, tx_dev, &req, stdout);
         if (worker_xfer) {
             free((char *)req.tx_file);

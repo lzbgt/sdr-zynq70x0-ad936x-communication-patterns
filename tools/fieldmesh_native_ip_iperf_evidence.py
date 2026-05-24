@@ -306,6 +306,18 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != 0
     ):
         errors.append(f"{label}: native IIO burst transport worker reported failures")
+    if report.get("iio_bridge_native_iio_burst_transport_session_proven") is not True:
+        errors.append(f"{label}: native IIO burst transport session proof is missing")
+    session_invocations = report.get(
+        "iio_bridge_native_iio_burst_transport_session_invocations"
+    )
+    if not isinstance(session_invocations, int) or session_invocations < 1:
+        errors.append(f"{label}: native IIO burst transport session was not exercised")
+    if (
+        int(report.get("iio_bridge_native_iio_burst_transport_session_failures") or 0)
+        != 0
+    ):
+        errors.append(f"{label}: native IIO burst transport session reported failures")
     if report.get("iio_bridge_rf_sub_burst_enabled") is not True:
         errors.append(f"{label}: IIO RF sub-burst service must be enabled")
     if report.get("iio_bridge_rf_sub_burst_exercised") is not True:
@@ -717,6 +729,9 @@ def main() -> int:
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_native_iio_burst_transport_worker": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
+        "requires_iio_native_iio_burst_transport_session": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
         "requires_iio_in_burst_priority_preemption": bool(
@@ -1131,6 +1146,18 @@ def main() -> int:
         ),
         "host_iio_native_iio_burst_transport_worker_invocations": host.get(
             "iio_bridge_native_iio_burst_transport_worker_invocations"
+        ),
+        "board_iio_native_iio_burst_transport_session_proven": board.get(
+            "iio_bridge_native_iio_burst_transport_session_proven"
+        ),
+        "host_iio_native_iio_burst_transport_session_proven": host.get(
+            "iio_bridge_native_iio_burst_transport_session_proven"
+        ),
+        "board_iio_native_iio_burst_transport_session_invocations": board.get(
+            "iio_bridge_native_iio_burst_transport_session_invocations"
+        ),
+        "host_iio_native_iio_burst_transport_session_invocations": host.get(
+            "iio_bridge_native_iio_burst_transport_session_invocations"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"
