@@ -81,6 +81,13 @@ def rel_rtl_name(rtl_path: str) -> str:
     return f"fieldmesh/{Path(rtl_path).name}"
 
 
+def sidecar_block(plan: dict, name: str) -> dict:
+    try:
+        return next(block for block in plan["sidecar_blocks"] if block["name"] == name)
+    except StopIteration as exc:
+        raise SystemExit(f"sidecar plan missing {name}") from exc
+
+
 def patch_system_project(text: str, rel_files: list[str], rel_xdc_files: list[str]) -> tuple[str, bool]:
     changed = False
     if PROJECT_THREAD_CAP_BEGIN not in text:
@@ -163,7 +170,12 @@ update_compile_order -fileset sources_1
 """
 
 
-def render_control_overlay(rf_guard_defaults: bool = True, fw_dma_defaults: bool = True) -> str:
+def render_control_overlay(
+    plan: dict,
+    rf_guard_defaults: bool = True,
+    fw_dma_defaults: bool = True,
+) -> str:
+    ctrl = sidecar_block(plan, "fieldmesh_ctrl")
     rf_guard_tieoffs = ""
     if rf_guard_defaults:
         rf_guard_tieoffs = """ad_connect GND fieldmesh_ctrl/rf_guard_pass_sample_count
@@ -213,8 +225,8 @@ ad_connect sys_cpu_clk fieldmesh_ctrl/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ctrl/s_axi_aresetn
 {rf_guard_tieoffs.rstrip()}
 {fw_dma_tieoffs.rstrip()}
-ad_cpu_interconnect 0x43C00000 fieldmesh_ctrl
-ad_cpu_interrupt ps-11 mb-11 fieldmesh_ctrl/irq
+ad_cpu_interconnect {ctrl["address"]} fieldmesh_ctrl
+ad_cpu_interrupt {ctrl["irq"]} fieldmesh_ctrl/irq
 {BD_CTRL_END}
 """
 
@@ -266,7 +278,8 @@ ad_connect VCC fieldmesh_axis_bridge/enable
 """
 
 
-def render_ring_overlay(variant_name: str) -> str:
+def render_ring_overlay(plan: dict, variant_name: str) -> str:
+    ring = sidecar_block(plan, "fieldmesh_ring")
     service_parameter = ""
     if variant_name == "z103":
         service_parameter = (
@@ -279,13 +292,15 @@ create_bd_cell -type module -reference fieldmesh_firmware_ring_axi_lite fieldmes
 {service_parameter.rstrip()}
 ad_connect sys_cpu_clk fieldmesh_ring/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ring/s_axi_aresetn
-ad_cpu_interconnect 0x43C30000 fieldmesh_ring
-ad_cpu_interrupt ps-8 mb-8 fieldmesh_ring/irq
+ad_cpu_interconnect {ring["address"]} fieldmesh_ring
+ad_cpu_interrupt {ring["irq"]} fieldmesh_ring/irq
 {BD_RING_END}
 """
 
 
-def render_dma_overlay(use_firmware_endpoint: bool, rf_engine_endpoint: bool = False) -> str:
+def render_dma_overlay(plan: dict, use_firmware_endpoint: bool, rf_engine_endpoint: bool = False) -> str:
+    tx_dma = sidecar_block(plan, "fieldmesh_tx_dma")
+    rx_dma = sidecar_block(plan, "fieldmesh_rx_dma")
     if use_firmware_endpoint:
         rf_broadcast = ""
         if rf_engine_endpoint:
@@ -393,8 +408,8 @@ ad_connect sys_cpu_reset fieldmesh_axis16_adapter/rst
 ad_connect VCC fieldmesh_axis16_adapter/enable
 {packet_path.rstrip()}
 
-ad_cpu_interconnect 0x43C10000 fieldmesh_tx_dma
-ad_cpu_interconnect 0x43C20000 fieldmesh_rx_dma
+ad_cpu_interconnect {tx_dma["address"]} fieldmesh_tx_dma
+ad_cpu_interconnect {rx_dma["address"]} fieldmesh_rx_dma
 
 ad_connect sys_cpu_clk sys_ps7/S_AXI_HP0_ACLK
 ad_connect fieldmesh_rx_dma/m_dest_axi sys_ps7/S_AXI_HP0
@@ -417,8 +432,8 @@ ad_connect sys_cpu_clk fieldmesh_rx_dma/m_dest_axi_aclk
 ad_connect sys_cpu_clk fieldmesh_rx_dma/s_axis_aclk
 ad_connect sys_cpu_resetn fieldmesh_rx_dma/m_dest_axi_aresetn
 
-ad_cpu_interrupt ps-9 mb-9 fieldmesh_tx_dma/irq
-ad_cpu_interrupt ps-10 mb-10 fieldmesh_rx_dma/irq
+ad_cpu_interrupt {tx_dma["irq"]} fieldmesh_tx_dma/irq
+ad_cpu_interrupt {rx_dma["irq"]} fieldmesh_rx_dma/irq
 {BD_DMA_END}
 """
 
@@ -542,6 +557,7 @@ ad_ip_parameter sys_ps7 CONFIG.PCW_GPIO_EMIO_GPIO_IO 18
 
 def patch_system_bd(
     text: str,
+    plan: dict,
     variant_name: str,
     control_overlay: bool,
     bridge_overlay: bool,
@@ -568,7 +584,8 @@ def patch_system_bd(
     blocks = []
     if BD_FILES_BEGIN not in text:
         blocks.append(render_bd_files_overlay())
-    if "ad_cpu_interconnect 0x43C00000" in text or "fieldmesh_ctrl/irq" in text:
+    ctrl = sidecar_block(plan, "fieldmesh_ctrl")
+    if f'ad_cpu_interconnect {ctrl["address"]}' in text or "fieldmesh_ctrl/irq" in text:
         if BD_CTRL_BEGIN not in text:
             raise SystemExit("system_bd.tcl: FieldMesh control overlay appears partially present")
     if "fieldmesh_axis_bridge" in text:
@@ -601,6 +618,7 @@ def patch_system_bd(
             raise SystemExit("system_bd.tcl: expected ADI DMA interrupt anchor not found")
         blocks.append(
             render_control_overlay(
+                plan,
                 rf_guard_defaults=not rf_engine_overlay,
                 fw_dma_defaults=not dma_overlay,
             )
@@ -613,9 +631,9 @@ def patch_system_bd(
             )
         )
     if ring_overlay and BD_RING_BEGIN not in text:
-        blocks.append(render_ring_overlay(variant_name))
+        blocks.append(render_ring_overlay(plan, variant_name))
     if dma_overlay and BD_DMA_BEGIN not in text:
-        blocks.append(render_dma_overlay(use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay))
+        blocks.append(render_dma_overlay(plan, use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay))
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
         blocks.append(render_rf_engine_overlay())
     if gnss_uart_emio and BD_GNSS_UART_BEGIN not in text:
@@ -759,6 +777,7 @@ def apply_patch(
     system_bd_text = system_bd.read_text()
     patched_system_bd, system_bd_changed = patch_system_bd(
         system_bd_text,
+        plan,
         variant_name,
         control_overlay,
         bridge_overlay,

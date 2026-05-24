@@ -31,7 +31,7 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count",
     "ad_connect fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "fw_dma_defaults=not dma_overlay",
-    "render_dma_overlay(use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay)",
+    "render_dma_overlay(plan, use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay)",
 ]
 for token in required_patcher_tokens:
     if token not in patcher:

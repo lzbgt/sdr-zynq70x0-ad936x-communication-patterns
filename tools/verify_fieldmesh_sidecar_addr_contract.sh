@@ -62,6 +62,8 @@ devicetree_plan_path = repo / "tools/fieldmesh_devicetree_plan.py"
 devicetree_plan = devicetree_plan_path.read_text(encoding="utf-8")
 vendor_inventory_path = repo / "tools/fieldmesh_vendor_dma_inventory.py"
 vendor_inventory = vendor_inventory_path.read_text(encoding="utf-8")
+vivado_patch_path = repo / "tools/fieldmesh_vivado_overlay_patch.py"
+vivado_patch = vivado_patch_path.read_text(encoding="utf-8")
 
 required_header_tokens = [
     "FIELDMESH_SIDECAR_CTRL_BASE 0x43c00000u",
@@ -129,6 +131,21 @@ for stale in (
 ):
     if stale in vendor_inventory:
         raise SystemExit(f"fieldmesh_vendor_dma_inventory.py still duplicates sidecar address contract: {stale}")
+
+if "sidecar_block(plan" not in vivado_patch:
+    raise SystemExit("fieldmesh_vivado_overlay_patch.py does not render addresses from the checked sidecar plan")
+for stale in (
+    "ad_cpu_interconnect 0x43C00000",
+    "ad_cpu_interconnect 0x43C10000",
+    "ad_cpu_interconnect 0x43C20000",
+    "ad_cpu_interconnect 0x43C30000",
+    "ad_cpu_interrupt ps-11 mb-11",
+    "ad_cpu_interrupt ps-9 mb-9",
+    "ad_cpu_interrupt ps-10 mb-10",
+    "ad_cpu_interrupt ps-8 mb-8",
+):
+    if stale in vivado_patch:
+        raise SystemExit(f"fieldmesh_vivado_overlay_patch.py still duplicates sidecar Tcl contract: {stale}")
 
 if "fieldmesh_sidecar_addr.h" not in devicetree_plan:
     raise SystemExit("fieldmesh_devicetree_plan.py does not read the sidecar address C contract")

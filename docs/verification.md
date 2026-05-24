@@ -2065,7 +2065,9 @@ loading the FieldMesh sidecar windows from
 table.
 The synthetic collision check failed as expected when an imported address was
 temporarily moved onto `0x43C00000`. The sidecar plan helper emitted valid
-JSON, review Markdown, and Tcl constants from the same checked contract.
+JSON, review Markdown, and Tcl constants from the same checked contract; the
+Vivado overlay patcher now consumes that checked plan when rendering FieldMesh
+`ad_cpu_interconnect` and interrupt Tcl.
 `--check-rtl` passed against this repo and failed as expected against an empty
 temporary repo root.
 `--check-hp-policy` passed for both imported variants and failed as expected
