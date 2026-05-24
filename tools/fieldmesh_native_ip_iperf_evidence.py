@@ -88,6 +88,23 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     if not _is_true(report.get("iio_rf_bridge")):
         errors.append(f"{label}: IIO pipeline evidence requires iio_rf_bridge=true")
         return errors
+    if report.get("iio_bridge_rf_service_policy_proven") is not True:
+        errors.append(f"{label}: IIO RF service policy C proof is missing")
+    if report.get("iio_bridge_rf_service_policy_native_c") is not True:
+        errors.append(f"{label}: IIO RF service policy must be native C")
+    if report.get("iio_bridge_rf_service_policy_production_iio") is not True:
+        errors.append(f"{label}: IIO RF service policy must accept production IIO")
+    if report.get("iio_bridge_rf_service_policy_lease_batch_frames") != 4:
+        errors.append(f"{label}: IIO RF service policy lease batch must be 4")
+    if report.get("iio_bridge_rf_service_policy_max_frames_per_rf_burst") != 2:
+        errors.append(f"{label}: IIO RF service policy sub-burst cap must be 2")
+    if report.get("iio_bridge_rf_service_policy_requires_reverse_service") is not True:
+        errors.append(f"{label}: IIO RF service policy must require reverse service")
+    if (
+        report.get("iio_bridge_rf_service_policy_lease_priority")
+        != "tcp-control-flow-udp-after-control"
+    ):
+        errors.append(f"{label}: IIO RF service policy must use hybrid lease priority")
     if report.get("iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
         errors.append(
             f"{label}: IIO bridge lease priority must be tcp-control-flow-udp-after-control"
@@ -465,6 +482,8 @@ def main() -> int:
     )
     board_requires_same_priority_batch = _is_true(board.get("iio_rf_bridge"))
     host_requires_same_priority_batch = _is_true(host.get("iio_rf_bridge"))
+    board_requires_c_policy = _is_true(board.get("iio_rf_bridge"))
+    host_requires_c_policy = _is_true(host.get("iio_rf_bridge"))
     report = {
         "event": "fieldmesh_native_ip_iperf_evidence",
         "ok": not errors,
@@ -499,7 +518,56 @@ def main() -> int:
         "requires_iio_rf_sub_burst_evidence": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_rf_service_policy_proof": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_tcp_final_exchange_evidence": True,
+        "board_iio_rf_service_policy_proven": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_rf_service_policy_proven") is True
+        ),
+        "host_iio_rf_service_policy_proven": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_rf_service_policy_proven") is True
+        ),
+        "board_iio_rf_service_policy_native_c": board.get(
+            "iio_bridge_rf_service_policy_native_c"
+        ),
+        "host_iio_rf_service_policy_native_c": host.get(
+            "iio_bridge_rf_service_policy_native_c"
+        ),
+        "board_iio_rf_service_policy_production_iio": board.get(
+            "iio_bridge_rf_service_policy_production_iio"
+        ),
+        "host_iio_rf_service_policy_production_iio": host.get(
+            "iio_bridge_rf_service_policy_production_iio"
+        ),
+        "board_iio_rf_service_policy_lease_batch_frames": board.get(
+            "iio_bridge_rf_service_policy_lease_batch_frames"
+        ),
+        "host_iio_rf_service_policy_lease_batch_frames": host.get(
+            "iio_bridge_rf_service_policy_lease_batch_frames"
+        ),
+        "board_iio_rf_service_policy_max_frames_per_rf_burst": board.get(
+            "iio_bridge_rf_service_policy_max_frames_per_rf_burst"
+        ),
+        "host_iio_rf_service_policy_max_frames_per_rf_burst": host.get(
+            "iio_bridge_rf_service_policy_max_frames_per_rf_burst"
+        ),
+        "board_iio_rf_service_policy_requires_reverse_service": board.get(
+            "iio_bridge_rf_service_policy_requires_reverse_service"
+        ),
+        "host_iio_rf_service_policy_requires_reverse_service": host.get(
+            "iio_bridge_rf_service_policy_requires_reverse_service"
+        ),
+        "board_iio_rf_service_policy_lease_priority": board.get(
+            "iio_bridge_rf_service_policy_lease_priority"
+        ),
+        "host_iio_rf_service_policy_lease_priority": host.get(
+            "iio_bridge_rf_service_policy_lease_priority"
+        ),
         "board_iio_ack_pipeline_exercised": (
             True
             if not board_requires_ack_pipeline

@@ -5100,7 +5100,9 @@ priority, persistent burst helper, ACK-pipeline depth two, and a
 reverse-service requirement. `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP
-evidence also requires TCP
+preflight/final reports must also carry the daemon C policy proof, and the
+native-IP evidence/readiness classifiers reject IIO RF reports that omit it.
+Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

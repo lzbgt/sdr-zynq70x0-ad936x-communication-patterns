@@ -318,8 +318,10 @@ Minimum production gates for native TCP/IP:
   `tcp-control-flow-udp-after-control` priority, ACK-pipeline depth, persistent
   helper requirement, and reverse-service requirement without reading hardware
   or transmitting RF. The HIL runner defaults are checked against that C policy
-  so the current Python bridge cannot silently drift from the native service
-  boundary it is preparing to hand off to.
+  and the native-IP HIL preflight/final reports must carry the daemon C proof
+  before production evidence is accepted, so the current Python bridge cannot
+  silently drift from the native service boundary it is preparing to hand off
+  to.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

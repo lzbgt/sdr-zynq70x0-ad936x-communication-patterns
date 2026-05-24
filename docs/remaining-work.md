@@ -406,8 +406,10 @@ daemon answers `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` with a read/write-free
 proof of the same lease batch, sub-burst, same-priority, hybrid-priority,
 ACK-pipeline, persistent-helper, and reverse-service policy. The current Python
 bridge still performs the host-side scheduling, but CI now verifies that its
-HIL defaults match the C policy before the service loop is moved into a
-persistent native worker boundary.
+HIL defaults match the C policy and native-IP HIL evidence now carries the
+daemon C proof through preflight, production classification, app reports, and
+readiness before the service loop is moved into a persistent native worker
+boundary.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and

@@ -18,6 +18,13 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
+  "iio_bridge_rf_service_policy_proven": true,
+  "iio_bridge_rf_service_policy_native_c": true,
+  "iio_bridge_rf_service_policy_production_iio": true,
+  "iio_bridge_rf_service_policy_lease_batch_frames": 4,
+  "iio_bridge_rf_service_policy_max_frames_per_rf_burst": 2,
+  "iio_bridge_rf_service_policy_requires_reverse_service": true,
+  "iio_bridge_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_lease_batch_size": 4,
@@ -94,6 +101,13 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
+  "iio_bridge_rf_service_policy_proven": true,
+  "iio_bridge_rf_service_policy_native_c": true,
+  "iio_bridge_rf_service_policy_production_iio": true,
+  "iio_bridge_rf_service_policy_lease_batch_frames": 4,
+  "iio_bridge_rf_service_policy_max_frames_per_rf_burst": 2,
+  "iio_bridge_rf_service_policy_requires_reverse_service": true,
+  "iio_bridge_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_lease_batch_size": 4,
@@ -204,8 +218,18 @@ if report.get("requires_iio_persistent_burst_helper") is not True:
     raise SystemExit(f"classifier did not require IIO persistent helper: {report!r}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO RF sub-burst evidence: {report!r}")
+if report.get("requires_iio_rf_service_policy_proof") is not True:
+    raise SystemExit(f"classifier did not require IIO RF service policy proof: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"classifier did not require TCP final-exchange evidence: {report!r}")
+if report.get("board_iio_rf_service_policy_proven") is not True:
+    raise SystemExit(f"classifier lost board RF service policy proof: {report!r}")
+if report.get("host_iio_rf_service_policy_proven") is not True:
+    raise SystemExit(f"classifier lost host RF service policy proof: {report!r}")
+if report.get("board_iio_rf_service_policy_native_c") is not True:
+    raise SystemExit(f"classifier lost board native C service policy proof: {report!r}")
+if report.get("host_iio_rf_service_policy_lease_priority") != "tcp-control-flow-udp-after-control":
+    raise SystemExit(f"classifier lost host RF service policy priority: {report!r}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"classifier lost board ACK pipeline evidence: {report!r}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:
@@ -299,6 +323,10 @@ if report.get("requires_iio_rf_burst_batch_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost RF burst batch requirement: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost TCP final-exchange requirement: {report!r}")
+if report.get("requires_iio_rf_service_policy_proof") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost RF service policy requirement: {report!r}")
+if report.get("host_iio_rf_service_policy_proven") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost RF service policy proof: {report!r}")
 if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"normalized native-IP evidence lost hybrid lease priority: {report!r}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
@@ -330,6 +358,25 @@ report["iio_bridge_source_ack_pipeline_max_pending"] = 1
 report["iio_bridge_source_ack_pipeline_high_water"] = {"z203-to-z103": 1}
 Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
+python3 - "$work_dir/board-real-rf.json" "$work_dir/board-missing-rf-service-policy.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for key in list(report):
+    if key.startswith("iio_bridge_rf_service_policy_"):
+        report.pop(key)
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-missing-rf-service-policy.json" \
+  --host-pc-report "$work_dir/host-real-rf.json" \
+  >"$work_dir/missing-rf-service-policy-rejected.out" \
+  2>"$work_dir/missing-rf-service-policy-rejected.err"; then
+  echo "iperf evidence classifier accepted missing IIO RF service policy proof" >&2
+  exit 1
+fi
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-unexercised-pipeline.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \

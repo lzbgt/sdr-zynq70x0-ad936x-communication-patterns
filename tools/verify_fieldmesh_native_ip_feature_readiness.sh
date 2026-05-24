@@ -24,6 +24,13 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_hybrid_lease_priority": true,
   "requires_iio_persistent_burst_helper": true,
   "requires_iio_rf_sub_burst_evidence": true,
+  "requires_iio_rf_service_policy_proof": true,
+  "board_iio_rf_service_policy_proven": true,
+  "host_iio_rf_service_policy_proven": true,
+  "board_iio_rf_service_policy_native_c": true,
+  "host_iio_rf_service_policy_native_c": true,
+  "board_iio_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
+  "host_iio_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
   "board_iio_rf_burst_batch_exercised": true,
   "host_iio_rf_burst_batch_exercised": true,
   "board_iio_same_priority_batch_enabled": true,
@@ -92,6 +99,12 @@ if report.get("requires_iio_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper requirement: {report!r}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst requirement: {report!r}")
+if report.get("requires_iio_rf_service_policy_proof") is not True:
+    raise SystemExit(f"native-IP readiness lost RF service policy requirement: {report!r}")
+if report.get("host_iio_rf_service_policy_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost RF service policy proof: {report!r}")
+if report.get("host_iio_rf_service_policy_lease_priority") != "tcp-control-flow-udp-after-control":
+    raise SystemExit(f"native-IP readiness lost RF service policy priority: {report!r}")
 if report.get("host_iio_same_priority_batch_enabled") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority batch proof: {report!r}")
 if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":

@@ -523,6 +523,104 @@ if ok not in (True, 1):
 PY
 }
 
+rf_service_policy_self_test() {
+    python3 - "$timeout_ms" "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" <<'PY'
+import json
+import socket
+import sys
+
+timeout_ms = int(sys.argv[1])
+endpoints = (
+    ("z203", sys.argv[2], int(sys.argv[3])),
+    ("z103", sys.argv[4], int(sys.argv[5])),
+)
+expected = {
+    "event": "sdk_daemon_rf_service_policy_self_test",
+    "ok": True,
+    "native_c_rf_service_policy": 1,
+    "lease_batch_frames": 4,
+    "max_frames_per_rf_burst": 2,
+    "rf_sub_burst_enabled": 1,
+    "requires_reverse_service": 1,
+    "same_priority_batch": 1,
+    "max_consecutive_direction_batches": 1,
+    "async_source_ack": 1,
+    "source_ack_pipeline_depth": 2,
+    "adaptive_direction_scheduler": 1,
+    "persistent_burst_helper": 1,
+    "lease_priority": "tcp_control_flow_udp_after_control",
+    "lease_priority_cli": "tcp-control-flow-udp-after-control",
+    "production_iio_policy": 1,
+    "uses_json_on_air": 0,
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+}
+
+def request(host: str, port: int) -> dict:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout_ms / 1000.0)
+    try:
+        sock.sendto(b"FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1", (host, port))
+        payload, _ = sock.recvfrom(8192)
+    finally:
+        sock.close()
+    return json.loads(payload.decode("utf-8", errors="replace"))
+
+summary = {
+    "event": "fieldmesh_native_ip_iperf_rf_service_policy_self_test",
+    "ok": True,
+    "native_c_rf_service_policy": True,
+    "production_iio_policy": True,
+    "endpoints": {},
+    "starts_rf_tx": False,
+    "writes_hardware": False,
+}
+for label, host, port in endpoints:
+    try:
+        policy = request(host, port)
+    except Exception as exc:  # noqa: BLE001 - preserve endpoint diagnostics.
+        summary["ok"] = False
+        summary["native_c_rf_service_policy"] = False
+        summary["production_iio_policy"] = False
+        summary["endpoints"][label] = {
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        continue
+    summary["endpoints"][label] = policy
+    for key, value in expected.items():
+        if policy.get(key) != value:
+            summary["ok"] = False
+            summary["production_iio_policy"] = False
+            summary.setdefault("mismatches", []).append({
+                "endpoint": label,
+                "key": key,
+                "expected": value,
+                "actual": policy.get(key),
+            })
+
+if summary["ok"]:
+    first = next(iter(summary["endpoints"].values()))
+    for key in (
+        "lease_batch_frames",
+        "max_frames_per_rf_burst",
+        "rf_sub_burst_enabled",
+        "requires_reverse_service",
+        "same_priority_batch",
+        "max_consecutive_direction_batches",
+        "async_source_ack",
+        "source_ack_pipeline_depth",
+        "adaptive_direction_scheduler",
+        "persistent_burst_helper",
+        "lease_priority",
+        "lease_priority_cli",
+    ):
+        summary[key] = first.get(key)
+print(json.dumps(summary, sort_keys=True))
+raise SystemExit(0 if summary["ok"] else 1)
+PY
+}
+
 rf_queue_snapshot() {
     python3 - "$timeout_ms" "$z203_ip" "$z203_port" "$z103_ip" "$z103_port" <<'PY'
 import json
@@ -915,6 +1013,18 @@ PY
     exit 1
 fi
 
+if [ "$allow_iio_rf_bridge" = "1" ]; then
+    if ! rf_service_policy_self_test >"$out_dir/rf_service_policy_self_test.json"; then
+        cat "$out_dir/rf_service_policy_self_test.json" >>"$out_dir/iperf_gate.ndjson" || true
+        json_blocker "rf_service_policy_self_test_failed" \
+            "ALLOW_IIO_RF_BRIDGE=1 requires both board daemons to prove the native C RF service scheduler policy before bridge/app work starts." \
+            | tee -a "$out_dir/iperf_gate.ndjson"
+        echo "Capture directory: $out_dir"
+        exit 1
+    fi
+    cat "$out_dir/rf_service_policy_self_test.json" >>"$out_dir/iperf_gate.ndjson"
+fi
+
 if [ "$host_pc_case" = "1" ] && [ "$allow_host_pc_routed_gate" != "1" ]; then
     json_blocker "host_pc_transparent_route_not_configured" \
         "HOST_PC_CASE=1 requires a real host-to-board route or host-side virtual driver; SSH-launched board iperf is not host-PC transparent evidence." \
@@ -1004,11 +1114,20 @@ if (out_dir / "host_pc_route_preflight.json").is_file():
 rf_path = None
 if (out_dir / "rf_path_evidence_check.json").is_file():
     rf_path = json.loads((out_dir / "rf_path_evidence_check.json").read_text(encoding="utf-8"))
+rf_service_policy = None
+if (out_dir / "rf_service_policy_self_test.json").is_file():
+    rf_service_policy = json.loads((out_dir / "rf_service_policy_self_test.json").read_text(encoding="utf-8"))
 ok = rf_preflight.get("ok") is True
 if host_pc:
     ok = ok and route is not None and route.get("ok") is True
 if allow_iio:
-    ok = ok and rf_path is not None and rf_path.get("ok") is True
+    ok = (
+        ok
+        and rf_path is not None
+        and rf_path.get("ok") is True
+        and rf_service_policy is not None
+        and rf_service_policy.get("ok") is True
+    )
 report = {
     "event": "fieldmesh_two_board_native_ip_iperf_preflight",
     "ok": ok,
@@ -1019,6 +1138,8 @@ report = {
     "rf_preflight": str(out_dir / "rf_preflight.json"),
     "host_pc_route_preflight": str(out_dir / "host_pc_route_preflight.json") if route is not None else None,
     "rf_path_evidence_check": str(out_dir / "rf_path_evidence_check.json") if rf_path is not None else None,
+    "rf_service_policy_self_test": str(out_dir / "rf_service_policy_self_test.json") if rf_service_policy is not None else None,
+    "rf_service_policy_self_test_ok": bool(rf_service_policy and rf_service_policy.get("ok") is True),
     "starts_iperf": False,
     "starts_rf_tx": False,
     "opens_iio_buffers": False,
@@ -2606,6 +2727,11 @@ bridge = [
 ]
 iio_bridge = [row for row in rows if row.get("event") == "fieldmesh_iio_rf_worker_bridge_loop"]
 last_iio_bridge = iio_bridge[-1] if iio_bridge else {}
+rf_service_policy = [
+    row for row in rows
+    if row.get("event") == "fieldmesh_native_ip_iperf_rf_service_policy_self_test"
+]
+last_rf_service_policy = rf_service_policy[-1] if rf_service_policy else {}
 tcp_final_exchange = [
     row for row in rows
     if row.get("event") == "fieldmesh_native_ip_iperf_tcp_final_exchange"
@@ -2753,6 +2879,27 @@ report = {
     "diagnostic_bridge": bool(allow_bridge),
     "iio_rf_bridge": bool(allow_iio),
     "iio_bridge_lease_priority": str(last_iio_bridge.get("lease_priority") or ""),
+    "iio_bridge_rf_service_policy_proven": bool(
+        last_rf_service_policy.get("ok")
+    ),
+    "iio_bridge_rf_service_policy_native_c": bool(
+        last_rf_service_policy.get("native_c_rf_service_policy")
+    ),
+    "iio_bridge_rf_service_policy_production_iio": bool(
+        last_rf_service_policy.get("production_iio_policy")
+    ),
+    "iio_bridge_rf_service_policy_lease_batch_frames": int(
+        last_rf_service_policy.get("lease_batch_frames") or 0
+    ),
+    "iio_bridge_rf_service_policy_max_frames_per_rf_burst": int(
+        last_rf_service_policy.get("max_frames_per_rf_burst") or 0
+    ),
+    "iio_bridge_rf_service_policy_requires_reverse_service": bool(
+        last_rf_service_policy.get("requires_reverse_service")
+    ),
+    "iio_bridge_rf_service_policy_lease_priority": str(
+        last_rf_service_policy.get("lease_priority_cli") or ""
+    ),
     "iio_bridge_persistent_burst_helper": bool(
         last_iio_bridge.get("persistent_burst_helper")
     ),

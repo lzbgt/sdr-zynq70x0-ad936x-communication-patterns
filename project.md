@@ -1362,7 +1362,8 @@ user and vendor configuration.
   the four-frame lease, two-frame sub-burst, same-priority/hybrid-priority,
   persistent-helper, ACK-pipeline, and reverse-service contract in C without
   touching RF or hardware. The live bridge remains Python-orchestrated for now,
-  but its HIL defaults are checked against that native policy before the next
+  but its HIL defaults are checked against that native policy and production
+  reports/readiness now require the daemon C proof before the next
   worker-boundary move.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
