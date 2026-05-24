@@ -729,7 +729,111 @@ def execute_live_with_helper(
 
 
 def recovered_crc(frame: bytes) -> int:
+    return int(iq_smoke.frame_metadata(frame).get("frame_crc", iq_smoke.frame_crc32(frame)))
+
+
+def burst_crc(frame: bytes) -> int:
     return iq_smoke.frame_crc32(frame)
+
+
+def run_json(cmd: list[str]) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(cmd, check=True, text=True, capture_output=True)
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"{cmd[0]} failed with rc={exc.returncode}: {exc.stderr.strip() or exc.stdout.strip()}"
+        ) from exc
+    last_json: dict[str, Any] | None = None
+    for line in completed.stdout.splitlines():
+        line = line.strip()
+        if not line or not line.startswith("{"):
+            continue
+        try:
+            last_json = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"{cmd[0]} emitted invalid JSON: {line}") from exc
+    if last_json is None:
+        raise SystemExit(f"{cmd[0]} did not emit JSON")
+    return last_json
+
+
+def decode_capture_with_c_helper(
+    plan: dict[str, Any],
+    args: argparse.Namespace,
+    capture_path: Path,
+    smoke_report: dict[str, Any],
+    modulation: str,
+    samples_per_symbol: int,
+    bit_repeat: int,
+) -> dict[str, Any] | None:
+    encoding = smoke_report.get("encoding", {})
+    if encoding.get("uses_c_modem_helper") is not True:
+        return None
+    if modulation == "bpsk" and int(encoding.get("baseband_carrier_hz", 0)) != 0:
+        return None
+    helper_text = encoding.get("modem_helper") or (str(args.burst_helper) if args.burst_helper else None)
+    if not helper_text:
+        return None
+    helper = Path(helper_text)
+    if not helper.exists():
+        return None
+    decoded_path = args.out_dir / "rx_capture_decoded_frame.bin"
+    cmd = [
+        str(helper),
+        f"--{modulation}-decode",
+        "--iq-file",
+        str(capture_path),
+        "--decoded-file",
+        str(decoded_path),
+        "--expected-frame-len",
+        str(smoke_report["frame"]["bytes"]),
+        "--expected-frame-crc",
+        f"0x{burst_crc(Path(smoke_report['frame']['path']).read_bytes()):08x}",
+        "--sample-rate-hz",
+        str(smoke_report["rf_fixture"]["sample_rate_hz"]),
+        "--samples-per-symbol",
+        str(samples_per_symbol),
+        "--bit-repeat",
+        str(bit_repeat),
+    ]
+    if modulation == "bfsk":
+        cmd.extend(
+            [
+                "--space-hz",
+                str(int(encoding.get("bfsk_space_hz", iq_smoke.DEFAULT_BFSK_SPACE_HZ))),
+                "--mark-hz",
+                str(int(encoding.get("bfsk_mark_hz", iq_smoke.DEFAULT_BFSK_MARK_HZ))),
+            ]
+        )
+    try:
+        decoded = run_json(cmd)
+    except SystemExit as exc:
+        return {"attempted": True, "ok": False, "error": str(exc), "decoder": "fieldmesh_iio_burst_xfer_c"}
+    if decoded.get("ok") is not True or not decoded_path.exists():
+        return {
+            "attempted": True,
+            "ok": False,
+            "error": decoded.get("error", "C modem helper did not decode capture"),
+            "capture_bytes": capture_path.stat().st_size,
+            "decoder": "fieldmesh_iio_burst_xfer_c",
+            "modem_helper": str(helper),
+        }
+    recovered = decoded_path.read_bytes()
+    crc = recovered_crc(recovered)
+    return {
+        "attempted": True,
+        "ok": crc == plan["iq_burst"]["frame_crc"],
+        "capture_bytes": capture_path.stat().st_size,
+        "recovered_frame_hex": recovered.hex(),
+        "recovered_frame_bytes": len(recovered),
+        "recovered_frame_crc": crc,
+        "expected_frame_crc": plan["iq_burst"]["frame_crc"],
+        "sample_offset": decoded.get("sample_offset"),
+        "chip_phase": decoded.get("chip_phase"),
+        "bit_start": decoded.get("bit_start"),
+        "decoder": f"fieldmesh_iio_burst_xfer_c_{modulation}",
+        "modem_helper": str(helper),
+    }
 
 
 def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path: Path) -> dict[str, Any]:
@@ -744,6 +848,18 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     modulation = str(smoke_report["encoding"].get("modulation", "bpsk"))
     bit_repeat = int(smoke_report["encoding"].get("bit_repeat", 1))
     baseband_carrier_hz = int(smoke_report["encoding"].get("baseband_carrier_hz", 0))
+    c_decoded = decode_capture_with_c_helper(
+        plan,
+        args,
+        capture_path,
+        smoke_report,
+        modulation,
+        samples_per_symbol,
+        bit_repeat,
+    )
+    if c_decoded and c_decoded.get("ok") is True:
+        c_decoded["elapsed_ms"] = int((time.monotonic() - started) * 1000)
+        return c_decoded
     if modulation == "bfsk":
         decoded = iq_smoke.decode_bfsk_iq(
             iq,

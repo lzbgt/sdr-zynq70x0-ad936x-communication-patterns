@@ -108,6 +108,38 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+PYTHONPATH="$repo_root/tools${PYTHONPATH:+:$PYTHONPATH}" python3 - \
+  "$work_dir/iq_iio_live_plan.json" \
+  "$work_dir/iq/fieldmesh_iq_burst_smoke.json" \
+  "$work_dir/live-decode" <<'PY'
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import fieldmesh_iq_iio_live_run as live
+
+plan = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+smoke = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+out_dir = Path(sys.argv[3])
+out_dir.mkdir(parents=True, exist_ok=True)
+args = argparse.Namespace(out_dir=out_dir, burst_helper=None)
+capture = Path(smoke["encoding"]["iq_file"])
+decoded = live.decode_capture(plan, args, capture)
+if decoded.get("ok") is not True:
+    raise SystemExit(f"C live-run capture decode failed: {decoded}")
+if decoded.get("decoder") != "fieldmesh_iio_burst_xfer_c_bpsk":
+    raise SystemExit(f"live-run decode did not use C BPSK helper: {decoded}")
+if decoded.get("recovered_frame_crc") != plan["iq_burst"]["frame_crc"]:
+    raise SystemExit(f"live-run decode CRC mismatch: {decoded}")
+print(json.dumps({
+    "event": "fieldmesh_iq_iio_live_run_c_decode_check",
+    "ok": True,
+    "decoder": decoded["decoder"],
+    "recovered_frame_crc": decoded["recovered_frame_crc"],
+}, sort_keys=True))
+PY
+
 "$repo_root/tools/fieldmesh_iq_iio_live_plan.py" \
   --rf-binding-plan "$binding" \
   --iq-burst-report "$work_dir/iq/fieldmesh_iq_burst_smoke.json" \

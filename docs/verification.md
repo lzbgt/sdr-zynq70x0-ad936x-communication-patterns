@@ -3851,13 +3851,17 @@ Result:
 
 ```json
 {"commands": 8, "event": "fieldmesh_iq_iio_live_run_check", "mode": "dry-run", "ok": true, "rx_board": "z103", "tx_board": "z203"}
+{"decoder": "fieldmesh_iio_burst_xfer_c_bpsk", "event": "fieldmesh_iq_iio_live_run_c_decode_check", "ok": true, "recovered_frame_crc": 2646482743}
 ```
 
 The generated command script is RX-first: `iio_attr` RX PHY configuration,
 `iio_attr` TX PHY configuration, `iio_readdev` RX capture arming, then
 bounded `iio_writedev` TX IQ burst loading. The default report keeps
 `executes_commands=false`, `opens_iio_buffers=false`, `starts_rf_tx=false`, and
-`writes_hardware=false`. The verifier also rejects missing legal-frequency
+`writes_hardware=false`. The verifier also feeds the planned IQ burst back
+through the live-run captured-IQ decode routine and requires the compiled
+`fieldmesh_iio_burst_xfer` BPSK decoder to recover the committed FieldMesh
+frame before Python fallback is needed. It also rejects missing legal-frequency
 profile, insufficient fixture attenuation, excessive TX duration, and
 `--execute-live-rf` unless hardware writes, RF-TX authorization, exact operator
 confirmation, RF path identity, and RF path evidence are present. Live RF also

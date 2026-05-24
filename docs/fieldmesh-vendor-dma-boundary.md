@@ -856,6 +856,9 @@ It consumes the verified `fieldmesh_iq_iio_live_plan`, regenerates a reviewable
 RX-first command script, and verifies that the default path remains a dry-run.
 The generated script configures RX PHY first, configures TX PHY second, starts
 `iio_readdev` for RX capture, then runs `iio_writedev` for the TX IQ burst.
+The captured-IQ decode routine now uses the compiled `fieldmesh_iio_burst_xfer`
+modem helper first and falls back to Python only when that helper is not
+applicable to the capture.
 The default report keeps `executes_commands=false`,
 `opens_iio_buffers=false`, `starts_rf_tx=false`, and `writes_hardware=false`.
 A real authorized over-air RF path run requires

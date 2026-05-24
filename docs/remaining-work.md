@@ -1169,8 +1169,11 @@ below were later superseded by the current PHY-management two-board gates above:
   RX-first AD936x IIO procedure plan while still executing no commands.
   `tools/fieldmesh_iq_iio_live_run.py` turns the plan into a
   reviewable RX-first `iio_attr`/`iio_readdev`/`iio_writedev` command script
-  and defaults to a no-hardware dry-run. The next live-safe step is running
-  that runner on an authorized over-air RF path with
+  and defaults to a no-hardware dry-run. Its captured-IQ decode path now tries
+  the compiled modem helper first using the IQ smoke report's helper evidence,
+  with Python decode retained as a fallback for nonzero-carrier or impaired
+  captures. The next live-safe step is running that runner on an authorized
+  over-air RF path with
   `--execute-live-rf --allow-hardware-writes --allow-rf-tx`, RF path identity,
   exact operator confirmation, and bounded TX duration, then running AP
   browse/election/join as host commands whose peer payload traffic crosses RF.
