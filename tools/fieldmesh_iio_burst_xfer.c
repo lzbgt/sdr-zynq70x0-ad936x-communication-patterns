@@ -58,6 +58,7 @@ struct modem_options {
     uint32_t expected_frame_crc;
     bool have_expected_frame_len;
     bool have_expected_frame_crc;
+    unsigned int iterations;
 };
 
 struct tone_prefixes {
@@ -112,6 +113,9 @@ static void usage(FILE *stream)
             "[--rx-arm-delay-ms N] [--cyclic] "
             "[--channel voltage0 --channel voltage1] [--server]\n"
             "       fieldmesh_iio_burst_xfer --bpsk-self-test\n"
+            "       fieldmesh_iio_burst_xfer --bpsk-benchmark --frame-file PATH "
+            "[--iterations N] [--sample-rate-hz N] [--baseband-carrier-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
             "       fieldmesh_iio_burst_xfer --bpsk-encode --frame-file PATH --iq-file PATH "
             "[--sample-rate-hz N] [--baseband-carrier-hz N] "
             "[--samples-per-symbol N] [--bit-repeat N]\n"
@@ -120,6 +124,9 @@ static void usage(FILE *stream)
             "[--sample-rate-hz N] [--baseband-carrier-hz N] "
             "[--samples-per-symbol N] [--bit-repeat N]\n"
             "       fieldmesh_iio_burst_xfer --bfsk-self-test\n"
+            "       fieldmesh_iio_burst_xfer --bfsk-benchmark --frame-file PATH "
+            "[--iterations N] [--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
             "       fieldmesh_iio_burst_xfer --bfsk-encode --frame-file PATH --iq-file PATH "
             "[--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
             "[--samples-per-symbol N] [--bit-repeat N]\n"
@@ -934,6 +941,7 @@ static void modem_defaults(struct modem_options *opt)
     opt->baseband_carrier_hz = 0.0;
     opt->samples_per_symbol = DEFAULT_SAMPLES_PER_SYMBOL;
     opt->bit_repeat = DEFAULT_BIT_REPEAT;
+    opt->iterations = 200U;
 }
 
 static uint32_t parse_u32_arg(const char *text, const char *name)
@@ -999,6 +1007,8 @@ static void parse_modem_args(int argc, char **argv, struct modem_options *opt)
         } else if (strcmp(arg, "--expected-frame-crc") == 0 && i + 1 < argc) {
             opt->expected_frame_crc = parse_crc_arg(argv[++i]);
             opt->have_expected_frame_crc = true;
+        } else if (strcmp(arg, "--iterations") == 0 && i + 1 < argc) {
+            opt->iterations = parse_u32_arg(argv[++i], "--iterations");
         } else {
             fprintf(stderr, "unknown or incomplete modem argument: %s\n", arg);
             usage(stderr);
@@ -1006,10 +1016,29 @@ static void parse_modem_args(int argc, char **argv, struct modem_options *opt)
         }
     }
     if (opt->sample_rate_hz == 0 || opt->samples_per_symbol < 2 || opt->bit_repeat == 0 ||
-        opt->space_hz <= 0.0 || opt->mark_hz <= 0.0) {
+        opt->space_hz <= 0.0 || opt->mark_hz <= 0.0 || opt->iterations == 0) {
         fprintf(stderr, "invalid modem parameters\n");
         exit(2);
     }
+}
+
+static long long monotonic_us(void)
+{
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (long long)now.tv_sec * 1000000LL + now.tv_nsec / 1000LL;
+}
+
+static unsigned long long kbps_for_bytes(size_t bytes,
+                                         unsigned int iterations,
+                                         long long elapsed_us)
+{
+    if (elapsed_us <= 0) {
+        elapsed_us = 1;
+    }
+    unsigned long long bits = (unsigned long long)bytes * 8ULL *
+                              (unsigned long long)iterations;
+    return (bits * 1000ULL) / (unsigned long long)elapsed_us;
 }
 
 static int run_bpsk_encode(int argc, char **argv)
@@ -1163,6 +1192,77 @@ static int run_bpsk_self_test(void)
     return ok ? 0 : 1;
 }
 
+static int run_bpsk_benchmark(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.frame_file) {
+        usage(stderr);
+        return 2;
+    }
+
+    struct blob frame = read_file_all(opt.frame_file);
+    opt.expected_frame_len = frame.len;
+    opt.expected_frame_crc = crc32_update(0u, frame.data, frame.len);
+    opt.have_expected_frame_len = true;
+    opt.have_expected_frame_crc = true;
+
+    struct blob iq = {0};
+    long long encode_start = monotonic_us();
+    for (unsigned int i = 0; i < opt.iterations; ++i) {
+        struct blob next = bpsk_encode_frame(frame.data, frame.len, &opt);
+        if (i + 1u == opt.iterations) {
+            iq = next;
+        } else {
+            free(next.data);
+        }
+    }
+    long long encode_us = monotonic_us() - encode_start;
+    if (encode_us <= 0) {
+        encode_us = 1;
+    }
+
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    long long decode_start = monotonic_us();
+    for (unsigned int i = 0; i < opt.iterations; ++i) {
+        struct blob decoded = {0};
+        bool ok = bpsk_decode_frame(iq.data, iq.len, &opt, &decoded,
+                                    &sample_offset, &chip_phase, &bit_start) &&
+                  decoded_frame_matches(&decoded, frame.data, frame.len);
+        free(decoded.data);
+        if (!ok) {
+            fprintf(stderr, "BPSK benchmark decode failed at iteration %u\n", i);
+            free(iq.data);
+            free(frame.data);
+            return 1;
+        }
+    }
+    long long decode_us = monotonic_us() - decode_start;
+    if (decode_us <= 0) {
+        decode_us = 1;
+    }
+
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_bpsk_modem_benchmark\",\"ok\":true,"
+            "\"hot_path_language\":\"c\",\"uses_python_modem\":false,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"iterations\":%u,"
+            "\"samples_per_symbol\":%u,\"bit_repeat\":%u,"
+            "\"baseband_carrier_hz\":%.0f,"
+            "\"encode_elapsed_us\":%lld,\"decode_elapsed_us\":%lld,"
+            "\"encode_frame_kbps\":%llu,\"decode_frame_kbps\":%llu,"
+            "\"sample_offset\":%u,\"chip_phase\":%u,\"bit_start\":%zu}\n",
+            frame.len, iq.len, opt.iterations, opt.samples_per_symbol,
+            opt.bit_repeat, opt.baseband_carrier_hz, encode_us, decode_us,
+            kbps_for_bytes(frame.len, opt.iterations, encode_us),
+            kbps_for_bytes(frame.len, opt.iterations, decode_us),
+            sample_offset, chip_phase, bit_start);
+    free(iq.data);
+    free(frame.data);
+    return 0;
+}
+
 static int run_bfsk_encode(int argc, char **argv)
 {
     struct modem_options opt;
@@ -1244,6 +1344,77 @@ static int run_bfsk_self_test(void)
     free(decoded.data);
     free(iq.data);
     return ok ? 0 : 1;
+}
+
+static int run_bfsk_benchmark(int argc, char **argv)
+{
+    struct modem_options opt;
+    parse_modem_args(argc, argv, &opt);
+    if (!opt.frame_file) {
+        usage(stderr);
+        return 2;
+    }
+
+    struct blob frame = read_file_all(opt.frame_file);
+    opt.expected_frame_len = frame.len;
+    opt.expected_frame_crc = crc32_update(0u, frame.data, frame.len);
+    opt.have_expected_frame_len = true;
+    opt.have_expected_frame_crc = true;
+
+    struct blob iq = {0};
+    long long encode_start = monotonic_us();
+    for (unsigned int i = 0; i < opt.iterations; ++i) {
+        struct blob next = bfsk_encode_frame(frame.data, frame.len, &opt);
+        if (i + 1u == opt.iterations) {
+            iq = next;
+        } else {
+            free(next.data);
+        }
+    }
+    long long encode_us = monotonic_us() - encode_start;
+    if (encode_us <= 0) {
+        encode_us = 1;
+    }
+
+    unsigned int sample_offset = 0;
+    unsigned int chip_phase = 0;
+    size_t bit_start = 0;
+    long long decode_start = monotonic_us();
+    for (unsigned int i = 0; i < opt.iterations; ++i) {
+        struct blob decoded = {0};
+        bool ok = bfsk_decode_frame(iq.data, iq.len, &opt, &decoded,
+                                    &sample_offset, &chip_phase, &bit_start) &&
+                  decoded_frame_matches(&decoded, frame.data, frame.len);
+        free(decoded.data);
+        if (!ok) {
+            fprintf(stderr, "BFSK benchmark decode failed at iteration %u\n", i);
+            free(iq.data);
+            free(frame.data);
+            return 1;
+        }
+    }
+    long long decode_us = monotonic_us() - decode_start;
+    if (decode_us <= 0) {
+        decode_us = 1;
+    }
+
+    fprintf(stdout,
+            "{\"event\":\"fieldmesh_bfsk_modem_benchmark\",\"ok\":true,"
+            "\"hot_path_language\":\"c\",\"uses_python_modem\":false,"
+            "\"frame_bytes\":%zu,\"iq_bytes\":%zu,\"iterations\":%u,"
+            "\"samples_per_symbol\":%u,\"bit_repeat\":%u,"
+            "\"space_hz\":%.0f,\"mark_hz\":%.0f,"
+            "\"encode_elapsed_us\":%lld,\"decode_elapsed_us\":%lld,"
+            "\"encode_frame_kbps\":%llu,\"decode_frame_kbps\":%llu,"
+            "\"sample_offset\":%u,\"chip_phase\":%u,\"bit_start\":%zu}\n",
+            frame.len, iq.len, opt.iterations, opt.samples_per_symbol,
+            opt.bit_repeat, opt.space_hz, opt.mark_hz, encode_us, decode_us,
+            kbps_for_bytes(frame.len, opt.iterations, encode_us),
+            kbps_for_bytes(frame.len, opt.iterations, decode_us),
+            sample_offset, chip_phase, bit_start);
+    free(iq.data);
+    free(frame.data);
+    return 0;
 }
 
 static void parse_args(int argc, char **argv, struct options *opt)
@@ -1594,6 +1765,9 @@ int main(int argc, char **argv)
     if (argc >= 2 && strcmp(argv[1], "--bpsk-self-test") == 0) {
         return run_bpsk_self_test();
     }
+    if (argc >= 2 && strcmp(argv[1], "--bpsk-benchmark") == 0) {
+        return run_bpsk_benchmark(argc, argv);
+    }
     if (argc >= 2 && strcmp(argv[1], "--bpsk-encode") == 0) {
         return run_bpsk_encode(argc, argv);
     }
@@ -1602,6 +1776,9 @@ int main(int argc, char **argv)
     }
     if (argc >= 2 && strcmp(argv[1], "--bfsk-self-test") == 0) {
         return run_bfsk_self_test();
+    }
+    if (argc >= 2 && strcmp(argv[1], "--bfsk-benchmark") == 0) {
+        return run_bfsk_benchmark(argc, argv);
     }
     if (argc >= 2 && strcmp(argv[1], "--bfsk-encode") == 0) {
         return run_bfsk_encode(argc, argv);

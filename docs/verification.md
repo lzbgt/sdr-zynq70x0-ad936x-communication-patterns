@@ -3804,7 +3804,7 @@ as the handoff source and `resources/fieldmesh/vectors/frame_000.bin` as the
 packet-engine frame. Result:
 
 ```json
-{"event": "fieldmesh_rf_packet_engine_transport_check", "frame_crc": 2646482743, "iq_samples": 6656, "ok": true}
+{"benchmark_decode_frame_kbps": 13493, "event": "fieldmesh_rf_packet_engine_transport_check", "frame_crc": 2646482743, "iq_samples": 6656, "ok": true}
 ```
 
 The generated `fieldmesh_rf_packet_engine_transport.json` reports
@@ -3813,7 +3813,10 @@ The generated `fieldmesh_rf_packet_engine_transport.json` reports
 `uses_inter_board_ip_routing=false`, `starts_rf_tx=false`,
 `writes_hardware=false`, `uses_c_bpsk_helper=true`,
 `uses_python_modem=false`, and
-`recovered_frame_match=true`.
+`recovered_frame_match=true`. It also requires
+`modem_helper_event_benchmark=fieldmesh_bpsk_modem_benchmark` and records
+compiled-helper encode/decode frame-rate counters. These are host-side C modem
+service-rate measurements, not over-air throughput claims.
 
 The verifier also injects stale helper fixtures. One lacks the BPSK CLI
 contract, and one advertises BPSK but fails the compiled carrier/phase

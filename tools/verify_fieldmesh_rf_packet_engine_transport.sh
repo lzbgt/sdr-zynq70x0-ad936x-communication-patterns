@@ -46,8 +46,16 @@ if report["engine"].get("modem_helper_event_encode") != "fieldmesh_bpsk_modem_en
     raise SystemExit("RF packet-engine transport missing C BPSK encode evidence")
 if report["engine"].get("modem_helper_event_decode") != "fieldmesh_bpsk_modem_decode":
     raise SystemExit("RF packet-engine transport missing C BPSK decode evidence")
+if report["engine"].get("modem_helper_event_benchmark") != "fieldmesh_bpsk_modem_benchmark":
+    raise SystemExit("RF packet-engine transport missing C BPSK service-rate benchmark evidence")
 if report["engine"]["recovered_frame_match"] is not True:
     raise SystemExit("RF packet-engine did not recover the frame")
+if report["engine"].get("benchmark_iterations") != 50:
+    raise SystemExit("RF packet-engine benchmark iteration count drifted")
+if report["engine"].get("benchmark_encode_frame_kbps", 0) < 100:
+    raise SystemExit("RF packet-engine C encode benchmark under M1-scale floor")
+if report["engine"].get("benchmark_decode_frame_kbps", 0) < 100:
+    raise SystemExit("RF packet-engine C decode benchmark under M1-scale floor")
 iq_file = Path(report["engine"]["iq_file"])
 if not iq_file.exists() or iq_file.stat().st_size <= 0:
     raise SystemExit("RF packet-engine did not write IQ samples")
@@ -60,11 +68,14 @@ if report["safety"]["uses_sidecar_dma"] is not True or report["safety"]["uses_rf
 source = Path("tools/fieldmesh_rf_packet_engine_transport.py").read_text(encoding="utf-8")
 if "encode_bpsk_iq(" in source or "decode_bpsk_iq(" in source:
     raise SystemExit("RF packet-engine transport must not call Python BPSK primitives")
+if "--bpsk-benchmark" not in source:
+    raise SystemExit("RF packet-engine transport must collect C BPSK service-rate evidence")
 print(json.dumps({
     "event": "fieldmesh_rf_packet_engine_transport_check",
     "ok": True,
     "iq_samples": report["engine"]["iq_samples"],
     "frame_crc": report["frame"]["frame_crc"],
+    "benchmark_decode_frame_kbps": report["engine"]["benchmark_decode_frame_kbps"],
 }, sort_keys=True))
 PY
 

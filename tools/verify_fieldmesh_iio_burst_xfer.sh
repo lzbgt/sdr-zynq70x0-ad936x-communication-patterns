@@ -30,6 +30,14 @@ if ! grep -q -- "--bpsk-encode" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BPSK modem contract" >&2
   exit 1
 fi
+if ! grep -q -- "--bpsk-benchmark" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing C BPSK benchmark contract" >&2
+  exit 1
+fi
+if ! grep -q -- "--bfsk-benchmark" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing C BFSK benchmark contract" >&2
+  exit 1
+fi
 if ! grep -q -- "--baseband-carrier-hz" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BPSK carrier contract" >&2
   exit 1
@@ -69,6 +77,40 @@ if report.get("frame_bytes", 0) <= 0 or report.get("iq_bytes", 0) <= 0:
 PY
 
 cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-benchmark \
+  --frame-file "$work_dir/frame.bin" \
+  --samples-per-symbol 8 \
+  --bit-repeat 2 \
+  --iterations 50 \
+  >"$work_dir/bpsk_benchmark.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --bfsk-benchmark \
+  --frame-file "$work_dir/frame.bin" \
+  --sample-rate-hz 1000000 \
+  --space-hz 50000 \
+  --mark-hz 150000 \
+  --samples-per-symbol 8 \
+  --bit-repeat 2 \
+  --iterations 50 \
+  >"$work_dir/bfsk_benchmark.json"
+python3 - "$work_dir/bpsk_benchmark.json" "$work_dir/bfsk_benchmark.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+for path, event in (
+    (Path(sys.argv[1]), "fieldmesh_bpsk_modem_benchmark"),
+    (Path(sys.argv[2]), "fieldmesh_bfsk_modem_benchmark"),
+):
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if report.get("event") != event or report.get("ok") is not True:
+        raise SystemExit(f"C modem benchmark failed: {report}")
+    if report.get("hot_path_language") != "c" or report.get("uses_python_modem") is not False:
+        raise SystemExit(f"C modem benchmark left native path: {report}")
+    if report.get("iterations") != 50:
+        raise SystemExit(f"C modem benchmark iteration count drifted: {report}")
+    if report.get("encode_frame_kbps", 0) < 100 or report.get("decode_frame_kbps", 0) < 100:
+        raise SystemExit(f"C modem benchmark under M1-scale service-rate floor: {report}")
+PY
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/bpsk_frame.iq" \

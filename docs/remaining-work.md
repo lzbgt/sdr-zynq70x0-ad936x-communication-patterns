@@ -1160,7 +1160,9 @@ below were later superseded by the current PHY-management two-board gates above:
   `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
   the live SDK/daemon RF handoff evidence, validates the sidecar/RF queue
   contract, invokes the compiled BPSK helper for guarded IQ burst encode/decode,
-  and verifies the recovered FieldMesh frame CRC.
+  verifies the recovered FieldMesh frame CRC, and records the helper's C-only
+  encode/decode service-rate benchmark so modem CPU budget regressions are
+  caught before any RF TX is allowed.
   `tools/fieldmesh_rf_packet_engine_binding_assert.py` now
   combines that handoff and transport evidence with a live sidecar DMA smoke
   capture, proving one committed frame across daemon intent, sidecar DMA, and

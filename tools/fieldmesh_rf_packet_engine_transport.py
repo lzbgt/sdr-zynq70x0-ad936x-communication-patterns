@@ -117,6 +117,7 @@ def helper_supports_c_bpsk(helper: Path) -> bool:
         return False
     required_help = (
         "--bpsk-self-test",
+        "--bpsk-benchmark",
         "--bpsk-encode",
         "--bpsk-decode",
         "--baseband-carrier-hz",
@@ -192,7 +193,10 @@ def resolve_burst_helper(args: argparse.Namespace) -> Path:
     return build_default_burst_helper(args.out_dir)
 
 
-def run_c_bpsk_roundtrip(args: argparse.Namespace, frame_crc: int) -> tuple[bytes, bytes, dict[str, Any], dict[str, Any], Path]:
+def run_c_bpsk_roundtrip(
+    args: argparse.Namespace,
+    frame_crc: int,
+) -> tuple[bytes, bytes, dict[str, Any], dict[str, Any], dict[str, Any], Path]:
     helper = resolve_burst_helper(args)
     iq_path = args.out_dir / "fieldmesh_rf_packet_engine_i16le.iq"
     decoded_path = args.out_dir / "fieldmesh_rf_packet_engine_decoded.bin"
@@ -228,11 +232,29 @@ def run_c_bpsk_roundtrip(args: argparse.Namespace, frame_crc: int) -> tuple[byte
             str(args.bit_repeat),
         ]
     )
+    benchmark = run_json(
+        [
+            str(helper),
+            "--bpsk-benchmark",
+            "--frame-file",
+            str(args.frame),
+            "--iterations",
+            str(args.benchmark_iterations),
+            "--samples-per-symbol",
+            str(args.samples_per_symbol),
+            "--bit-repeat",
+            str(args.bit_repeat),
+        ]
+    )
     if encode.get("event") != "fieldmesh_bpsk_modem_encode" or encode.get("ok") is not True:
         raise SystemExit(f"C BPSK encode failed: {encode}")
     if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is not True:
         raise SystemExit(f"C BPSK decode failed: {decode}")
-    return iq_path.read_bytes(), decoded_path.read_bytes(), encode, decode, helper
+    if benchmark.get("event") != "fieldmesh_bpsk_modem_benchmark" or benchmark.get("ok") is not True:
+        raise SystemExit(f"C BPSK benchmark failed: {benchmark}")
+    if benchmark.get("hot_path_language") != "c" or benchmark.get("uses_python_modem") is not False:
+        raise SystemExit(f"C BPSK benchmark must stay native: {benchmark}")
+    return iq_path.read_bytes(), decoded_path.read_bytes(), encode, decode, benchmark, helper
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -244,7 +266,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     frame_crc = zlib.crc32(frame) & 0xFFFFFFFF
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    iq, recovered, c_encode, c_decode, burst_helper = run_c_bpsk_roundtrip(args, frame_crc)
+    iq, recovered, c_encode, c_decode, c_benchmark, burst_helper = run_c_bpsk_roundtrip(args, frame_crc)
     recovered_parsed = harness.unpack_memory_frame(recovered)
     recovered_ok = recovered == frame
     if not recovered_ok:
@@ -286,6 +308,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "modem_helper": str(burst_helper),
             "modem_helper_event_encode": c_encode.get("event"),
             "modem_helper_event_decode": c_decode.get("event"),
+            "modem_helper_event_benchmark": c_benchmark.get("event"),
             "uses_c_bpsk_helper": True,
             "uses_python_modem": False,
             "preamble_bytes": 16,
@@ -299,6 +322,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "iq_file": str(iq_path),
             "recovered_frame_match": recovered_ok,
             "recovered_frame_crc": recovered_parsed["frame_crc"],
+            "benchmark_iterations": c_benchmark.get("iterations"),
+            "benchmark_encode_frame_kbps": c_benchmark.get("encode_frame_kbps"),
+            "benchmark_decode_frame_kbps": c_benchmark.get("decode_frame_kbps"),
+            "benchmark_encode_elapsed_us": c_benchmark.get("encode_elapsed_us"),
+            "benchmark_decode_elapsed_us": c_benchmark.get("decode_elapsed_us"),
         },
         "rf_fixture": {
             "center_frequency_hz": args.center_frequency_hz,
@@ -335,6 +363,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fixture-attenuation-db", type=float, required=True)
     parser.add_argument("--samples-per-symbol", type=int, default=8)
     parser.add_argument("--bit-repeat", type=int, default=1)
+    parser.add_argument("--benchmark-iterations", type=int, default=50)
     parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--conducted-or-shielded", action="store_true")
     parser.add_argument("--pretty", action="store_true")
