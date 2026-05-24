@@ -80,6 +80,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_rf_sub_burst_missing")
         if report.get("host_iio_rf_sub_burst_exercised") is not True:
             blockers.append("native_ip_host_iio_rf_sub_burst_missing")
+        if report.get("board_iio_rf_sub_burst_bidirectional_service_exercised") is not True:
+            blockers.append("native_ip_board_iio_rf_sub_burst_reverse_service_missing")
+        if report.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is not True:
+            blockers.append("native_ip_host_iio_rf_sub_burst_reverse_service_missing")
         if report.get("board_iio_same_priority_batch_enabled") is not True:
             blockers.append("native_ip_board_iio_same_priority_batch_missing")
         if report.get("host_iio_same_priority_batch_enabled") is not True:
@@ -193,6 +197,12 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_rf_sub_burst_exercised": report.get(
             "host_iio_rf_sub_burst_exercised"
         ),
+        "board_iio_rf_sub_burst_bidirectional_service_exercised": report.get(
+            "board_iio_rf_sub_burst_bidirectional_service_exercised"
+        ),
+        "host_iio_rf_sub_burst_bidirectional_service_exercised": report.get(
+            "host_iio_rf_sub_burst_bidirectional_service_exercised"
+        ),
         "board_iio_bridge_rf_lease_batch_high_water": report.get(
             "board_iio_bridge_rf_lease_batch_high_water"
         ),
@@ -216,6 +226,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_bridge_rf_sub_burst_preemption_points": report.get(
             "host_iio_bridge_rf_sub_burst_preemption_points"
+        ),
+        "board_iio_bridge_rf_sub_burst_reverse_service_events": report.get(
+            "board_iio_bridge_rf_sub_burst_reverse_service_events"
+        ),
+        "host_iio_bridge_rf_sub_burst_reverse_service_events": report.get(
+            "host_iio_bridge_rf_sub_burst_reverse_service_events"
+        ),
+        "board_iio_bridge_rf_sub_burst_same_direction_replays": report.get(
+            "board_iio_bridge_rf_sub_burst_same_direction_replays"
+        ),
+        "host_iio_bridge_rf_sub_burst_same_direction_replays": report.get(
+            "host_iio_bridge_rf_sub_burst_same_direction_replays"
         ),
         "board_iio_bridge_same_priority_batch_leases": report.get(
             "board_iio_bridge_same_priority_batch_leases"

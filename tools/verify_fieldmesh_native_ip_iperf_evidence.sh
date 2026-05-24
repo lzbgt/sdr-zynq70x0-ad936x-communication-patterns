@@ -26,9 +26,12 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_max_frames_per_rf_burst": 2,
   "iio_bridge_rf_sub_burst_enabled": true,
   "iio_bridge_rf_sub_burst_exercised": true,
+  "iio_bridge_rf_sub_burst_bidirectional_service_exercised": true,
   "iio_bridge_rf_sub_burst_slices": 3,
   "iio_bridge_rf_sub_burst_deferred_frames": 2,
   "iio_bridge_rf_sub_burst_preemption_points": 1,
+  "iio_bridge_rf_sub_burst_reverse_service_events": 1,
+  "iio_bridge_rf_sub_burst_same_direction_replays": 0,
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z203-to-z103": 2},
@@ -99,9 +102,12 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_max_frames_per_rf_burst": 2,
   "iio_bridge_rf_sub_burst_enabled": true,
   "iio_bridge_rf_sub_burst_exercised": true,
+  "iio_bridge_rf_sub_burst_bidirectional_service_exercised": true,
   "iio_bridge_rf_sub_burst_slices": 2,
   "iio_bridge_rf_sub_burst_deferred_frames": 2,
   "iio_bridge_rf_sub_burst_preemption_points": 1,
+  "iio_bridge_rf_sub_burst_reverse_service_events": 1,
+  "iio_bridge_rf_sub_burst_same_direction_replays": 0,
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z103-to-z203": 2},
@@ -238,6 +244,10 @@ if report.get("board_iio_rf_sub_burst_exercised") is not True:
     raise SystemExit(f"classifier lost board RF sub-burst proof: {report!r}")
 if report.get("host_iio_rf_sub_burst_exercised") is not True:
     raise SystemExit(f"classifier lost host RF sub-burst proof: {report!r}")
+if report.get("board_iio_rf_sub_burst_bidirectional_service_exercised") is not True:
+    raise SystemExit(f"classifier lost board RF sub-burst reverse-service proof: {report!r}")
+if report.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is not True:
+    raise SystemExit(f"classifier lost host RF sub-burst reverse-service proof: {report!r}")
 if report.get("host_iio_bridge_rf_lease_batch_high_water") != 4:
     raise SystemExit(f"classifier lost host RF lease batch high-water: {report!r}")
 if report.get("host_iio_bridge_max_frames_per_rf_burst") != 2:
@@ -295,6 +305,8 @@ if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"normalized native-IP evidence lost persistent helper proof: {report!r}")
 if report.get("host_iio_rf_sub_burst_exercised") is not True:
     raise SystemExit(f"normalized native-IP evidence lost RF sub-burst proof: {report!r}")
+if report.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost RF sub-burst reverse-service proof: {report!r}")
 if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
     raise SystemExit(f"normalized native-IP evidence lost same-priority preemption evidence: {report!r}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -431,6 +443,25 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   >"$work_dir/nonpersistent-helper-rejected.out" \
   2>"$work_dir/nonpersistent-helper-rejected.err"; then
   echo "iperf evidence classifier accepted nonpersistent burst helper" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-no-sub-burst-reverse-service.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_rf_sub_burst_bidirectional_service_exercised"] = False
+report["iio_bridge_rf_sub_burst_reverse_service_events"] = 0
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-no-sub-burst-reverse-service.json" \
+  >"$work_dir/no-sub-burst-reverse-service-rejected.out" \
+  2>"$work_dir/no-sub-burst-reverse-service-rejected.err"; then
+  echo "iperf evidence classifier accepted sub-bursts without reverse-service proof" >&2
   exit 1
 fi
 

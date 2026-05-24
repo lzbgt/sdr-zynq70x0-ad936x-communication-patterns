@@ -104,6 +104,9 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     burst_high_water = report.get("iio_bridge_rf_burst_batch_high_water")
     sub_burst_deferred = report.get("iio_bridge_rf_sub_burst_deferred_frames")
     sub_burst_preemptions = report.get("iio_bridge_rf_sub_burst_preemption_points")
+    sub_burst_reverse_events = report.get(
+        "iio_bridge_rf_sub_burst_reverse_service_events"
+    )
     if not isinstance(sub_burst_size, int) or sub_burst_size < 1:
         errors.append(f"{label}: IIO RF sub-burst size is missing")
     if not isinstance(lease_batch_size, int) or lease_batch_size < 2:
@@ -118,6 +121,10 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: IIO RF sub-burst deferred-frame evidence is missing")
     if not isinstance(sub_burst_preemptions, int) or sub_burst_preemptions < 1:
         errors.append(f"{label}: IIO RF sub-burst preemption evidence is missing")
+    if report.get("iio_bridge_rf_sub_burst_bidirectional_service_exercised") is not True:
+        errors.append(f"{label}: IIO RF sub-burst bidirectional service was not exercised")
+    if not isinstance(sub_burst_reverse_events, int) or sub_burst_reverse_events < 1:
+        errors.append(f"{label}: IIO RF sub-burst reverse-service evidence is missing")
     if report.get("iio_bridge_same_priority_batch") is not True:
         errors.append(f"{label}: IIO same-priority batch evidence must be enabled")
     same_priority_leases = report.get("iio_bridge_same_priority_batch_leases")
@@ -579,6 +586,12 @@ def main() -> int:
         "host_iio_rf_sub_burst_exercised": host.get(
             "iio_bridge_rf_sub_burst_exercised"
         ),
+        "board_iio_rf_sub_burst_bidirectional_service_exercised": board.get(
+            "iio_bridge_rf_sub_burst_bidirectional_service_exercised"
+        ),
+        "host_iio_rf_sub_burst_bidirectional_service_exercised": host.get(
+            "iio_bridge_rf_sub_burst_bidirectional_service_exercised"
+        ),
         "board_iio_bridge_rf_lease_batch_high_water": board.get(
             "iio_bridge_rf_lease_batch_high_water"
         ),
@@ -602,6 +615,18 @@ def main() -> int:
         ),
         "host_iio_bridge_rf_sub_burst_preemption_points": host.get(
             "iio_bridge_rf_sub_burst_preemption_points"
+        ),
+        "board_iio_bridge_rf_sub_burst_reverse_service_events": board.get(
+            "iio_bridge_rf_sub_burst_reverse_service_events"
+        ),
+        "host_iio_bridge_rf_sub_burst_reverse_service_events": host.get(
+            "iio_bridge_rf_sub_burst_reverse_service_events"
+        ),
+        "board_iio_bridge_rf_sub_burst_same_direction_replays": board.get(
+            "iio_bridge_rf_sub_burst_same_direction_replays"
+        ),
+        "host_iio_bridge_rf_sub_burst_same_direction_replays": host.get(
+            "iio_bridge_rf_sub_burst_same_direction_replays"
         ),
         "board_iio_bridge_direction_fair_service_enabled": board.get(
             "iio_bridge_direction_fair_service_enabled"

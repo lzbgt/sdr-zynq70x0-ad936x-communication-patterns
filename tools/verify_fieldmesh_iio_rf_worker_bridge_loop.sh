@@ -88,6 +88,8 @@ if report.get("max_frames_per_rf_burst") != 1:
     raise SystemExit(f"unexpected RF sub-burst default: {report.get('max_frames_per_rf_burst')}")
 if report.get("rf_sub_burst_enabled") is not False or report.get("rf_sub_burst_exercised") is not False:
     raise SystemExit(f"dry-run RF sub-burst evidence must be disabled: {report}")
+if report.get("rf_sub_burst_bidirectional_service_exercised") is not False:
+    raise SystemExit(f"dry-run RF sub-burst reverse-service evidence must be disabled: {report}")
 if report.get("rf_lease_batch_high_water") != 0:
     raise SystemExit(f"dry-run RF lease batch high-water evidence must be empty: {report}")
 if report.get("same_priority_batch") is not False:
@@ -507,9 +509,12 @@ required = [
     '"iio_bridge_max_frames_per_rf_burst"',
     '"iio_bridge_rf_sub_burst_enabled"',
     '"iio_bridge_rf_sub_burst_exercised"',
+    '"iio_bridge_rf_sub_burst_bidirectional_service_exercised"',
     '"iio_bridge_rf_sub_burst_slices"',
     '"iio_bridge_rf_sub_burst_deferred_frames"',
     '"iio_bridge_rf_sub_burst_preemption_points"',
+    '"iio_bridge_rf_sub_burst_reverse_service_events"',
+    '"iio_bridge_rf_sub_burst_same_direction_replays"',
     '"iio_bridge_direction_fair_service_enabled"',
     '"iio_bridge_max_consecutive_direction_batches"',
     '"iio_bridge_max_consecutive_direction_batches_seen"',

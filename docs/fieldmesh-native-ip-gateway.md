@@ -307,8 +307,10 @@ Minimum production gates for native TCP/IP:
   remaining leased frames stay in the daemon lease queue for replay after the
   scheduler can check the reverse direction. Production evidence carries the
   lease-batch high-water, RF sub-burst size, deferred-frame count, and
-  sub-burst preemption count, so final review can prove the bridge yielded at a
-  sub-batch boundary rather than holding the RF path for a whole leased batch.
+  sub-burst preemption count. It must also prove at least one reverse-direction
+  RF service event happened while a same-source sub-burst had deferred lease
+  frames, so final review can distinguish true bidirectional sub-burst service
+  from simply replaying the same source in smaller chunks.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

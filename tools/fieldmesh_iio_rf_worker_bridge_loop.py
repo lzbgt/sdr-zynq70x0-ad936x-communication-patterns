@@ -1108,6 +1108,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "rf_sub_burst_slices": 0,
         "rf_sub_burst_deferred_frames": 0,
         "rf_sub_burst_preemption_points": 0,
+        "rf_sub_burst_reverse_service_events": 0,
+        "rf_sub_burst_same_direction_replays": 0,
         "bridge_errors": 0,
         "batches_moved": 0,
         "filtered_frames": 0,
@@ -1126,6 +1128,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     consecutive_direction_batches = 0
     max_consecutive_direction_batches_seen = 0
     fair_yield_pending_direction: str | None = None
+    pending_sub_burst_deferred_direction: str | None = None
     direction_capture_periods = {direction["name"]: args.cyclic_capture_periods for direction in directions}
     async_acker = AsyncSourceAcker(
         enabled=bool(args.async_source_ack and args.execute_live_rf),
@@ -1157,6 +1160,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "rf_sub_burst_exercised": bool(
                 args.max_frames_per_rf_burst < args.batch_size
                 and counts["rf_sub_burst_preemption_points"] > 0
+            ),
+            "rf_sub_burst_bidirectional_service_exercised": bool(
+                args.max_frames_per_rf_burst < args.batch_size
+                and counts["rf_sub_burst_reverse_service_events"] > 0
+            ),
+            "rf_sub_burst_pending_deferred_direction": (
+                pending_sub_burst_deferred_direction
             ),
             "same_priority_batch": bool(args.same_priority_batch),
             "same_priority_batch_preemption_exercised": bool(
@@ -1355,7 +1365,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         nonlocal consecutive_direction_batches
         nonlocal max_consecutive_direction_batches_seen
         nonlocal fair_yield_pending_direction
+        nonlocal pending_sub_burst_deferred_direction
         fair_yield_pending_direction = None
+        if pending_sub_burst_deferred_direction is not None:
+            if pending_sub_burst_deferred_direction == direction_name:
+                counts["rf_sub_burst_same_direction_replays"] += 1
+            else:
+                counts["rf_sub_burst_reverse_service_events"] += 1
+            pending_sub_burst_deferred_direction = None
         if last_served_direction == direction_name:
             consecutive_direction_batches += 1
         else:
@@ -1505,6 +1522,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         counts[direction["name"].replace("-", "_")] += len(batch_frames)
                         counts["batches_moved"] += 1
                         record_served_direction(direction["name"])
+                        if deferred_frames:
+                            pending_sub_burst_deferred_direction = direction["name"]
                         next_index += 1
                         moved = True
                         write_progress()

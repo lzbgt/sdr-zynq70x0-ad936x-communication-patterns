@@ -36,6 +36,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_bridge_persistent_burst_helper": true,
   "board_iio_rf_sub_burst_exercised": true,
   "host_iio_rf_sub_burst_exercised": true,
+  "board_iio_rf_sub_burst_bidirectional_service_exercised": true,
+  "host_iio_rf_sub_burst_bidirectional_service_exercised": true,
   "board_iio_bridge_rf_lease_batch_high_water": 4,
   "host_iio_bridge_rf_lease_batch_high_water": 4,
   "board_iio_bridge_max_frames_per_rf_burst": 2,
@@ -44,6 +46,10 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_bridge_rf_sub_burst_deferred_frames": 2,
   "board_iio_bridge_rf_sub_burst_preemption_points": 1,
   "host_iio_bridge_rf_sub_burst_preemption_points": 1,
+  "board_iio_bridge_rf_sub_burst_reverse_service_events": 1,
+  "host_iio_bridge_rf_sub_burst_reverse_service_events": 1,
+  "board_iio_bridge_rf_sub_burst_same_direction_replays": 0,
+  "host_iio_bridge_rf_sub_burst_same_direction_replays": 0,
   "requires_tcp_final_exchange_evidence": true,
   "board_tcp_final_exchange_ok": true,
   "host_tcp_final_exchange_ok": true,
@@ -94,6 +100,8 @@ if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper proof: {report!r}")
 if report.get("host_iio_rf_sub_burst_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst proof: {report!r}")
+if report.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is not True:
+    raise SystemExit(f"native-IP readiness lost RF sub-burst reverse-service proof: {report!r}")
 if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority preemption proof: {report!r}")
 if report.get("host_tcp_control_drain_elapsed_s") != 30:

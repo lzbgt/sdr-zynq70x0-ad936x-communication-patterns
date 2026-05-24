@@ -2823,6 +2823,9 @@ report = {
     "iio_bridge_rf_sub_burst_exercised": bool(
         last_iio_bridge.get("rf_sub_burst_exercised")
     ),
+    "iio_bridge_rf_sub_burst_bidirectional_service_exercised": bool(
+        last_iio_bridge.get("rf_sub_burst_bidirectional_service_exercised")
+    ),
     "iio_bridge_rf_sub_burst_slices": int(
         last_iio_bridge.get("rf_sub_burst_slices") or 0
     ),
@@ -2831,6 +2834,12 @@ report = {
     ),
     "iio_bridge_rf_sub_burst_preemption_points": int(
         last_iio_bridge.get("rf_sub_burst_preemption_points") or 0
+    ),
+    "iio_bridge_rf_sub_burst_reverse_service_events": int(
+        last_iio_bridge.get("rf_sub_burst_reverse_service_events") or 0
+    ),
+    "iio_bridge_rf_sub_burst_same_direction_replays": int(
+        last_iio_bridge.get("rf_sub_burst_same_direction_replays") or 0
     ),
     "iio_bridge_same_priority_batch": bool(
         last_iio_bridge.get("same_priority_batch")

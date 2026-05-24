@@ -287,6 +287,12 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_rf_sub_burst_exercised"] = (
             native_ip.get("host_iio_rf_sub_burst_exercised") is True
         )
+        detail["native_ip_board_iio_rf_sub_burst_bidirectional_service_exercised"] = (
+            native_ip.get("board_iio_rf_sub_burst_bidirectional_service_exercised") is True
+        )
+        detail["native_ip_host_iio_rf_sub_burst_bidirectional_service_exercised"] = (
+            native_ip.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is True
+        )
         detail["native_ip_board_tcp_final_exchange_ok"] = (
             native_ip.get("board_tcp_final_exchange_ok") is True
         )
@@ -351,6 +357,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_iio_rf_sub_burst_missing")
             if native_ip.get("host_iio_rf_sub_burst_exercised") is not True:
                 blockers.append("native_ip_host_iio_rf_sub_burst_missing")
+            if (
+                native_ip.get("board_iio_rf_sub_burst_bidirectional_service_exercised")
+                is not True
+            ):
+                blockers.append("native_ip_board_iio_rf_sub_burst_reverse_service_missing")
+            if (
+                native_ip.get("host_iio_rf_sub_burst_bidirectional_service_exercised")
+                is not True
+            ):
+                blockers.append("native_ip_host_iio_rf_sub_burst_reverse_service_missing")
             if (
                 native_ip.get("requires_iio_rf_burst_batch_evidence") is True
                 and native_ip.get(

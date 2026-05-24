@@ -166,6 +166,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_bridge_persistent_burst_helper": true,
   "board_iio_rf_sub_burst_exercised": true,
   "host_iio_rf_sub_burst_exercised": true,
+  "board_iio_rf_sub_burst_bidirectional_service_exercised": true,
+  "host_iio_rf_sub_burst_bidirectional_service_exercised": true,
   "board_iio_bridge_max_consecutive_direction_batches_seen": 1,
   "host_iio_bridge_max_consecutive_direction_batches_seen": 1,
   "requires_tcp_final_exchange_evidence": true,
