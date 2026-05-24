@@ -1483,7 +1483,7 @@ below were later superseded by the current PHY-management two-board gates above:
   Vivado BD-generation checked for Z203 and Z103 HDL trees.
   `fieldmesh-ctrl-write` now provides the guarded software control surface for
   that page: read-only firmware-DMA status needs
-  `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes also need
+  `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/latency-budget/arm/stop writes also need
   `FIELD_MESH_EXECUTE_LIVE_TX=1`, `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. The board-side sidecar preflight now
   captures this read-only firmware-DMA status and includes it in
@@ -1499,19 +1499,21 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh_sidecar_addr.h`, so Python verifies the C-defined map instead of
   owning a second address table.
   `tools/run_fieldmesh_board_fw_dma_control.sh`
-  is now the live board wrapper for status/config/arm/stop: it defaults to status-only
+  is now the live board wrapper for status/config/latency-budget/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
-  `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding config/arm/stop
-  hardware writes. Config writes also require pre-config `config_allowed=true`
-  unless `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
-  `arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
-  diagnostic override. Stop now defaults to the C checked
+  `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding
+  config/latency-budget/arm/stop hardware writes. Config and latency-budget
+  writes also require pre-config `config_allowed=true` unless the matching
+  `FORCE_FIRMWARE_DMA_CONFIG=1` or `FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1`
+  override is set, and arm writes require pre-arm `arm_allowed=true` unless
+  `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit diagnostic override. Stop
+  now defaults to the C checked
   `--fw-dma-stop-if-active` command and skips the register write when
   `stop_write_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop path
   for explicit diagnostics. The unforced paths now call the C checked commands
-  `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
-  `--fw-dma-stop-if-active`, so the last pre-write health predicate is
-  evaluated in C.
+  `--fw-dma-config-if-idle`, `--fw-dma-latency-budget-if-idle`,
+  `--fw-dma-arm-if-ready`, and `--fw-dma-stop-if-active`, so the last pre-write
+  health predicate is evaluated in C.
   `tools/report_fieldmesh_runtime_source_freshness.sh` now gives a read-only
   package freshness report for that contract by comparing packaged
   `fieldmesh-ctrl-write` strings against the current C source. It also compares

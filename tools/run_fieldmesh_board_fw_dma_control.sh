@@ -23,6 +23,7 @@ ssh_user="${SSH_USER:-root}"
 ssh_pass="${SSH_PASS:-analog}"
 ctrl_base="${CTRL_BASE:-}"
 service_budget="${SERVICE_BUDGET:-32}"
+service_latency_budget_cycles="${SERVICE_LATENCY_BUDGET_CYCLES:-${FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES:-1000000}}"
 peer_index="${PEER_INDEX:-0}"
 mcs="${MCS:-0}"
 retry_budget="${RETRY_BUDGET:-0}"
@@ -31,14 +32,15 @@ seq_seed="${SEQ_SEED:-0}"
 apply_fw_dma="${APPLY_FIRMWARE_DMA:-0}"
 allow_fw_dma="${ALLOW_FIRMWARE_DMA:-0}"
 force_fw_dma_config="${FORCE_FIRMWARE_DMA_CONFIG:-0}"
+force_fw_dma_latency_budget="${FORCE_FIRMWARE_DMA_LATENCY_BUDGET:-0}"
 force_fw_dma_arm="${FORCE_FIRMWARE_DMA_ARM:-0}"
 force_fw_dma_stop="${FORCE_FIRMWARE_DMA_STOP:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-fw-dma-control-$variant-$(date +%Y%m%d-%H%M%S)}"
 
 case "$action" in
-  status|config|arm|stop) ;;
+  status|config|latency-budget|arm|stop) ;;
   *)
-    echo "Invalid ACTION=$action; expected status, config, arm, or stop" >&2
+    echo "Invalid ACTION=$action; expected status, config, latency-budget, arm, or stop" >&2
     exit 2
     ;;
 esac
@@ -70,6 +72,13 @@ case "$force_fw_dma_config" in
     exit 2
     ;;
 esac
+case "$force_fw_dma_latency_budget" in
+  0|1) ;;
+  *)
+    echo "FORCE_FIRMWARE_DMA_LATENCY_BUDGET must be 0 or 1" >&2
+    exit 2
+    ;;
+esac
 case "$force_fw_dma_stop" in
   0|1) ;;
   *)
@@ -86,6 +95,16 @@ case "$service_budget" in
 esac
 if (( service_budget < 0 || service_budget > 65535 )); then
   echo "SERVICE_BUDGET must fit in 16 bits" >&2
+  exit 2
+fi
+case "$service_latency_budget_cycles" in
+  ''|*[!0-9]*)
+    echo "SERVICE_LATENCY_BUDGET_CYCLES must be a decimal integer" >&2
+    exit 2
+    ;;
+esac
+if (( service_latency_budget_cycles < 1 || service_latency_budget_cycles > 4294967295 )); then
+  echo "SERVICE_LATENCY_BUDGET_CYCLES must be in 1..4294967295" >&2
   exit 2
 fi
 for pair in \
@@ -177,6 +196,24 @@ PY
   fi
 fi
 
+latency_budget_guard_blocked=0
+if [[ "$action" == "latency-budget" && "$apply_fw_dma" == "1" && "$allow_fw_dma" == "1" && "$force_fw_dma_latency_budget" != "1" ]]; then
+  if ! python3 - "$out_dir/fw_dma_status_before.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    row = json.load(f)
+if row.get("event") != "fieldmesh_fw_dma_status" or row.get("ok") is not True:
+    raise SystemExit(f"firmware-DMA pre-latency-budget status failed: {row}")
+if row.get("config_allowed") is not True:
+    raise SystemExit("firmware-DMA pre-latency-budget status is not config_allowed")
+PY
+  then
+    latency_budget_guard_blocked=1
+  fi
+fi
+
 arm_guard_blocked=0
 if [[ "$action" == "arm" && "$apply_fw_dma" == "1" && "$allow_fw_dma" == "1" && "$force_fw_dma_arm" != "1" ]]; then
   if ! python3 - "$out_dir/fw_dma_status_before.json" <<'PY'
@@ -217,6 +254,27 @@ JSON
       fi
       if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
         "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$config_command'$fw_dma_base_words$(shell_words "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed") > '$remote_control' 2>&1"; then
+        true
+      fi
+      sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
+    fi
+    ;;
+  latency-budget)
+    if [[ "$latency_budget_guard_blocked" == "1" ]]; then
+      cat >"$out_dir/fw_dma_control.json" <<'JSON'
+{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before latency-budget is not config_allowed; set FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1 only after reviewing status_before","writes_hardware":false}
+JSON
+    elif [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
+      cat >"$out_dir/fw_dma_control.json" <<'JSON'
+{"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=latency-budget APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to configure firmware-DMA hardware latency budget","writes_hardware":false}
+JSON
+    else
+      latency_budget_command="--fw-dma-latency-budget-if-idle"
+      if [[ "$force_fw_dma_latency_budget" == "1" ]]; then
+        latency_budget_command="--fw-dma-latency-budget"
+      fi
+      if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$latency_budget_command'$fw_dma_base_words$(shell_words "$service_latency_budget_cycles") > '$remote_control' 2>&1"; then
         true
       fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
@@ -266,7 +324,7 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status$fw_dma_base_words > '$remote_status_after' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_after" "$out_dir/fw_dma_status_after.json"
 
-python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$config_guard_blocked" "$arm_guard_blocked" "$force_fw_dma_config" "$force_fw_dma_arm" "$force_fw_dma_stop" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$service_latency_budget_cycles" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$config_guard_blocked" "$latency_budget_guard_blocked" "$arm_guard_blocked" "$force_fw_dma_config" "$force_fw_dma_latency_budget" "$force_fw_dma_arm" "$force_fw_dma_stop" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -276,19 +334,22 @@ board_ip = sys.argv[2]
 variant = sys.argv[3]
 action = sys.argv[4]
 service_budget = int(sys.argv[7])
-peer_index = int(sys.argv[8])
-mcs = int(sys.argv[9])
-retry_budget = int(sys.argv[10])
-descriptor_flags = int(sys.argv[11])
-seq_seed = int(sys.argv[12])
-config_guard_blocked = sys.argv[13] == "1"
-arm_guard_blocked = sys.argv[14] == "1"
-force_fw_dma_config = sys.argv[15] == "1"
-force_fw_dma_arm = sys.argv[16] == "1"
-force_fw_dma_stop = sys.argv[17] == "1"
-guard_blocked = config_guard_blocked or arm_guard_blocked
+service_latency_budget_cycles = int(sys.argv[8])
+peer_index = int(sys.argv[9])
+mcs = int(sys.argv[10])
+retry_budget = int(sys.argv[11])
+descriptor_flags = int(sys.argv[12])
+seq_seed = int(sys.argv[13])
+config_guard_blocked = sys.argv[14] == "1"
+latency_budget_guard_blocked = sys.argv[15] == "1"
+arm_guard_blocked = sys.argv[16] == "1"
+force_fw_dma_config = sys.argv[17] == "1"
+force_fw_dma_latency_budget = sys.argv[18] == "1"
+force_fw_dma_arm = sys.argv[19] == "1"
+force_fw_dma_stop = sys.argv[20] == "1"
+guard_blocked = config_guard_blocked or latency_budget_guard_blocked or arm_guard_blocked
 applied = (sys.argv[5] == "1" and sys.argv[6] == "1" and
-           action in {"config", "arm", "stop"} and not guard_blocked)
+           action in {"config", "latency-budget", "arm", "stop"} and not guard_blocked)
 
 before = json.loads((out_dir / "fw_dma_status_before.json").read_text(encoding="utf-8"))
 control = json.loads((out_dir / "fw_dma_control.json").read_text(encoding="utf-8"))
@@ -314,6 +375,7 @@ for label, row in (("before", before), ("after", after)):
 if applied:
     expected_event = {
         "config": "fieldmesh_fw_dma_config",
+        "latency-budget": "fieldmesh_fw_dma_latency_budget",
         "arm": "fieldmesh_fw_dma_arm",
         "stop": "fieldmesh_fw_dma_stop",
     }[action]
@@ -326,6 +388,11 @@ if applied:
         raise SystemExit(f"firmware-DMA {action} did not report hardware write: {control}")
     if action == "arm" and control.get("service_budget") != service_budget:
         raise SystemExit(f"firmware-DMA arm service budget mismatch: {control}")
+    if action == "latency-budget":
+        if control.get("service_latency_budget_cycles") != service_latency_budget_cycles:
+            raise SystemExit(f"firmware-DMA latency budget mismatch: {control}")
+        if control.get("service_latency_budget_readback") != service_latency_budget_cycles:
+            raise SystemExit(f"firmware-DMA latency budget readback mismatch: {control}")
     if action == "config":
         expected = {
             "peer_index": peer_index,
@@ -355,10 +422,13 @@ summary = {
     "status_before_ok": True,
     "status_after_ok": True,
     "config_guard_blocked": config_guard_blocked,
+    "latency_budget_guard_blocked": latency_budget_guard_blocked,
     "arm_guard_blocked": arm_guard_blocked,
     "force_fw_dma_config": force_fw_dma_config,
+    "force_fw_dma_latency_budget": force_fw_dma_latency_budget,
     "force_fw_dma_arm": force_fw_dma_arm,
     "force_fw_dma_stop": force_fw_dma_stop,
+    "service_latency_budget_cycles": service_latency_budget_cycles,
     "writes_hardware": bool(control.get("writes_hardware")) if applied else False,
     "starts_rf_tx": False,
     "uses_iio": False,
@@ -371,6 +441,8 @@ print(json.dumps(summary, sort_keys=True))
 )
 if config_guard_blocked:
     raise SystemExit("firmware-DMA config refused because status_before.config_allowed is false")
+if latency_budget_guard_blocked:
+    raise SystemExit("firmware-DMA latency-budget refused because status_before.config_allowed is false")
 if arm_guard_blocked:
     raise SystemExit("firmware-DMA arm refused because status_before.arm_allowed is false")
 PY

@@ -309,18 +309,22 @@ shell/Python wrappers do not duplicate firmware-DMA health semantics.
 For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards
-config/arm/stop writes when `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
+config/latency-budget/arm/stop writes when
+`APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
 Config writes also require pre-config `config_allowed=true` unless
-`FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
+`FORCE_FIRMWARE_DMA_CONFIG=1` is set, latency-budget writes require the same
+C-decoded `config_allowed=true` policy unless
+`FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1` is set, and arm writes require pre-arm
 `arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate
 diagnostic override. Stop uses `--fw-dma-stop-if-active` by default and skips
 the hardware write when the C-decoded status reports `stop_write_needed=false`;
 `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop command available for explicit
 diagnostics.
 Without those force overrides, the wrapper calls the C checked commands
-`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
-`--fw-dma-stop-if-active`, so the final readiness predicate is evaluated by the
-control binary immediately before register writes.
+`--fw-dma-config-if-idle`, `--fw-dma-latency-budget-if-idle`,
+`--fw-dma-arm-if-ready`, and `--fw-dma-stop-if-active`, so the final readiness
+predicate is evaluated by the control binary immediately before register
+writes.
 
 The first control-only block-design overlay is opt-in:
 

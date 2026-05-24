@@ -2861,23 +2861,28 @@ stop decisions. The preflight assertion derives the expected sidecar windows
 from `fieldmesh_sidecar_addr.h`; wrapper scripts omit address arguments in the
 normal path and pass them only for explicit environment overrides.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
-for status/config/arm/stop: sidecar preflight must precede firmware-DMA writes,
-status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes are
+for status/config/latency-budget/arm/stop. Sidecar preflight must precede
+firmware-DMA writes, status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
+config/latency-budget/arm/stop writes are
 only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment. The wrapper also rejects
 before/after status captures that are missing the C-decoded control/status
 booleans or aggregate health booleans. `ACTION=config` refuses to change
 metadata unless the pre-config status reports `config_allowed=true`, and
+`ACTION=latency-budget` refuses to write the FPGA service-latency budget unless
+that same C-decoded `config_allowed=true` predicate holds.
 `ACTION=arm` refuses to forward the guarded hardware write unless the pre-arm
-status reports `arm_allowed=true`. `FORCE_FIRMWARE_DMA_CONFIG=1` and
-`FORCE_FIRMWARE_DMA_ARM=1` are explicit diagnostic overrides after reviewing
+status reports `arm_allowed=true`. `FORCE_FIRMWARE_DMA_CONFIG=1`,
+`FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1`, and `FORCE_FIRMWARE_DMA_ARM=1` are
+explicit diagnostic overrides after reviewing
 `fw_dma_status_before.json`. `ACTION=stop` uses `--fw-dma-stop-if-active` by
 default and skips the register write when C status says `stop_write_needed=false`;
 `FORCE_FIRMWARE_DMA_STOP=1` selects the raw stop command. The normal wrapper
 path uses the C tool's checked commands, `--fw-dma-config-if-idle`,
-`--fw-dma-arm-if-ready`, and `--fw-dma-stop-if-active`, so the final pre-write
-predicate is evaluated in C immediately before register writes.
+`--fw-dma-latency-budget-if-idle`, `--fw-dma-arm-if-ready`, and
+`--fw-dma-stop-if-active`, so the final pre-write predicate is evaluated in C
+immediately before register writes.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full
@@ -2889,8 +2894,8 @@ the rootfs tarballs against the current checked firmware-DMA C command contract
 and the packaged `fieldmesh-udp-probe` strings against the current C-decoded RF
 guard scan contract and sidecar address-map self-test. It emits
 `runtime_rebuild_needed=true` when a package lacks
-`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`,
-`--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`,
+`--fw-dma-config-if-idle`, `--fw-dma-latency-budget-if-idle`,
+`--fw-dma-arm-if-ready`, `--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`,
 `--fw-dma-action-policy-self-test`, the matching C refusal/policy tokens, or
 the decoded RF guard scan fields such as `control_armed`, `status_reserved`,
 `drop_counters_clear`, `fault_free`, `dac_source_selected`, and `dac_active`,

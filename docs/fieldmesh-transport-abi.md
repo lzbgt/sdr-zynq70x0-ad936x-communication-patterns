@@ -502,13 +502,16 @@ The tool's `--fw-dma-status-self-test`,
 policy helper, so CI can verify active/faulted and reset-idle status and write
 policy output without a `/dev/mem` mapping.
 The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
-action is status-only, and config/arm/stop actions are skipped unless the wrapper's
+action is status-only, and config/latency-budget/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a
 green sidecar preflight. Arm actions also require the pre-arm status
 `arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
 diagnostic override. Config actions require pre-config `config_allowed=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set after reviewing the captured status.
-The default config and arm paths use `--fw-dma-config-if-idle` and
+Latency-budget actions use that same `config_allowed=true` policy unless
+`FORCE_FIRMWARE_DMA_LATENCY_BUDGET=1` is set.
+The default config, latency-budget, and arm paths use
+`--fw-dma-config-if-idle`, `--fw-dma-latency-budget-if-idle`, and
 `--fw-dma-arm-if-ready`, which re-read status in C directly before mutation.
 The default stop path uses `--fw-dma-stop-if-active`; it writes the MAC-stop
 control bit only when the C-decoded status says `stop_write_needed=true`.
