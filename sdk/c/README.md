@@ -54,6 +54,9 @@ in `src/fieldmesh_sdk.c`:
   default, packet-memory C loopback requires `--loopback --allow-writes`, and
   live PL descriptor service requires the guarded
   `--device /dev/uioN --loopback --pl-service --allow-writes` mode.
+  The probe consumes `fieldmesh_sidecar_addr.h` for the expected UIO name,
+  firmware-ring base address, and sidecar window size, so packaged board tools,
+  devicetree, and overlay planners share the same C address contract.
   The current PL service window is parameterized but product overlays keep the
   default one serviced slot and 16 packet bytes total; full MTU packet storage
   is planned for the BRAM/AXI RAM or DMA packet-memory block, not the AXI-lite

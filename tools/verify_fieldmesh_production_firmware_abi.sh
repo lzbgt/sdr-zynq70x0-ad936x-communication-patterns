@@ -454,6 +454,14 @@ for report in (uio_ring_probe_loopback, uio_ring_probe_inspect):
         raise SystemExit(f"firmware UIO ring hot path must be C: {report!r}")
     if report.get("vendor_runtime_dependency") is not False:
         raise SystemExit(f"firmware UIO ring probe must be first-party: {report!r}")
+    if report.get("native_c_sidecar_addr_contract") is not True:
+        raise SystemExit(f"firmware UIO ring probe must consume the C sidecar address contract: {report!r}")
+    if report.get("expected_uio_name") != "fieldmesh-ring":
+        raise SystemExit(f"firmware UIO ring expected name drifted: {report!r}")
+    if report.get("expected_uio_addr") != "0x43c30000":
+        raise SystemExit(f"firmware UIO ring expected address drifted: {report!r}")
+    if report.get("expected_uio_size") != "0x10000":
+        raise SystemExit(f"firmware UIO ring expected size drifted: {report!r}")
 if uio_ring_probe_loopback.get("writes_packet_memory") is not True:
     raise SystemExit(f"firmware UIO loopback did not write packet memory: {uio_ring_probe_loopback!r}")
 if uio_ring_probe_loopback.get("loopback_ok") is not True:
@@ -899,7 +907,13 @@ required = [
     "/sys/class/uio/uio%d/maps/map0/size",
     "\\\"sysfs_only\\\":true",
     "\\\"mapped_memory\\\":false",
-    "fieldmesh-ring",
+    '#include "fieldmesh_sidecar_addr.h"',
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_NAME",
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
+    "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE_TEXT",
+    "FIELDMESH_SIDECAR_WINDOW_SIZE",
+    "FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT",
+    "\\\"native_c_sidecar_addr_contract\\\":true",
     "fieldmesh_fw_ring_bind_linear",
     "mmap(",
     "msync(",

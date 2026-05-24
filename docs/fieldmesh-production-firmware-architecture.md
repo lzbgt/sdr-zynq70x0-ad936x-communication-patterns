@@ -256,7 +256,10 @@ aperture. `--mmap-read` is the first PL-window access check, and the explicit
 packet memory. The matching devicetree contract is
 `fieldmesh-ring@43c30000`, compatible with `fieldmesh,firmware-ring-1.0` and
 `generic-uio`, at `0x43C30000`; it is the production firmware packet-memory
-aperture, not an AD936x sample-DMA or IIO data path.
+aperture, not an AD936x sample-DMA or IIO data path. The probe validates sysfs
+name/address/size against `fieldmesh_sidecar_addr.h`, keeping the board-facing
+C probe, devicetree renderer, Vivado inventory, and overlay patcher on the same
+sidecar address source.
 
 Live Z203/Z103 images now bind that node as `/dev/uio0`, and the FPGA includes
 the first-party `fieldmesh_firmware_ring_axi_lite` AXI-lite service behind

@@ -4337,18 +4337,19 @@ with the current checked firmware-DMA C control contract. The current live
 two-board gate uses `FIELDMESH_MAC_INGEST` to feed compact presence/TDOA TLVs
 into the observed peer and RTLS registries before camera/control/data-plane
 validation. The latest refresh also carries the C default-base firmware-DMA
-command forms and sidecar-address-backed preflight assertions:
+command forms, sidecar-address-backed preflight assertions, and the UIO
+firmware-ring probe's native C sidecar address contract:
 
 ```text
-Z203 rootfs.cpio.gz: 4f51d0a3ca737815b82793affd1a2c84c6162bf1c47cc50972fb4a391d3a9bf6
-Z203 rootfs.tar.gz:  4a8773ca7335e9f3c36efc400084c1a98ba784f74ca71b95ba49e8dbbe0217e3
-Z203 pluto.frm:      ee9690c34b6acf1c2722dad1410669c0e54cac4b493a34b4b6d11162cbf0c8f2
-Z203 pluto.itb:      586a1902ff4318a306574dca16d4d718510deac605ffea466079ae4cbecf4127
+Z203 rootfs.cpio.gz: 396e716413a590297719c199de951d3b64b86c7275b299eca97d6d3215a798b9
+Z203 rootfs.tar.gz:  b803508f9004790637637e2db24899e11f11b5d7e869f8c36bda253c049cb77d
+Z203 pluto.frm:      ab7d0d4b32bb27f997cf23c9ac83b3dec64bf6d3a3f87528016f87c7f2e02ede
+Z203 pluto.itb:      8401e9e40143cd7e16083f4182a7467eae85e51e393e6759ffe3db1d280b199c
 Z203 jtag ramdisk:   e2da688e029b31b5b016e2f64105210c702c438dce972c4f16d53e52aaae6861
-Z103 rootfs.cpio.gz: 8c43488de861a1edd5e96c914e0a1d3571e5a699c5aefb291a87fb94bd5006df
-Z103 rootfs.tar.gz:  36bcef91f71883f911c4910bbb042e1cb84209304e37d261422959043f8bd1b5
-Z103 pluto.frm:      c2f624c94c236e02eb9032f4ae86490b9064c9414ba0df490f5e79bf7b075368
-Z103 pluto.itb:      75295053c1a5ae17f5d264e41b6b1643ebde0cb7a4aa5af00ddeb1222b0a21c5
+Z103 rootfs.cpio.gz: 07a21309bc65fed77732e67292aa0707489d6f359bec9873be285c3e5443b7f8
+Z103 rootfs.tar.gz:  c8e9bcedc4b79d3dc18b1152245d18bfbd048eb16db6a3838a945d0e03339968
+Z103 pluto.frm:      6d0a391a8507df9e224b041b5750034d7fc2aaa0a0223cb3fe93b59b4f57b6c4
+Z103 pluto.itb:      23737d43dd9f462c1d3ca0ef8283a818a084ba6aa7da2872974c4c63052b07e1
 Z103 jtag ramdisk:   8abadec8283ffd7156fbe5791f23070a850ed6d6378d9998c8aa420e03dab268
 ```
 

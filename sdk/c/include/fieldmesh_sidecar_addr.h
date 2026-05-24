@@ -24,6 +24,7 @@ extern "C" {
 #define FIELDMESH_SIDECAR_RX_DMA_NODE "dma@43c20000"
 #define FIELDMESH_SIDECAR_FIRMWARE_RING_NODE "fieldmesh-ring@43c30000"
 #define FIELDMESH_SIDECAR_PACKET_NODE "fieldmesh-packet"
+#define FIELDMESH_SIDECAR_FIRMWARE_RING_NAME "fieldmesh-ring"
 
 #define FIELDMESH_SIDECAR_CTRL_COMPAT "fieldmesh,sidecar-ctrl-1.0"
 #define FIELDMESH_SIDECAR_DMA_COMPAT "adi,axi-dmac-1.00.a"

@@ -238,7 +238,7 @@ PY
             exit 1
         fi
     done
-    for token in fieldmesh_firmware_uio_ring_probe "--device /dev/uioN" "--pl-service" pl_service_polls writes_packet_memory; do
+    for token in fieldmesh_firmware_uio_ring_probe "--device /dev/uioN" "--pl-service" pl_service_polls writes_packet_memory native_c_sidecar_addr_contract; do
         if ! grep -qF -- "$token" "$uio_ring_strings_out"; then
             echo "Missing fieldmesh-firmware-uio-ring-probe token in $name rootfs: $token" >&2
             exit 1

@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE 700
 
 #include "fieldmesh_firmware_ring.h"
+#include "fieldmesh_sidecar_addr.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -131,6 +132,21 @@ static int read_trimmed_file(const char *path, char *buf, size_t bytes)
     return 1;
 }
 
+static int parse_u32_text(const char *text, uint32_t *out)
+{
+    if (!text || !out) {
+        return 0;
+    }
+    char *end = NULL;
+    errno = 0;
+    unsigned long value = strtoul(text, &end, 0);
+    if (errno || !end || *end != '\0' || value > UINT32_MAX) {
+        return 0;
+    }
+    *out = (uint32_t)value;
+    return 1;
+}
+
 static int inspect_uio_sysfs(const char *device_path)
 {
     int index = uio_index_from_device(device_path);
@@ -152,8 +168,14 @@ static int inspect_uio_sysfs(const char *device_path)
     int name_ok = read_trimmed_file(name_path, name, sizeof(name));
     int addr_ok = read_trimmed_file(addr_path, addr, sizeof(addr));
     int size_ok = read_trimmed_file(size_path, size, sizeof(size));
-    int ok = name_ok && addr_ok && size_ok && strcmp(name, "fieldmesh-ring") == 0 &&
-             strcmp(addr, "0x43c30000") == 0 && strcmp(size, "0x00010000") == 0;
+    uint32_t parsed_addr = 0u;
+    uint32_t parsed_size = 0u;
+    int addr_match = addr_ok && parse_u32_text(addr, &parsed_addr) &&
+                     parsed_addr == FIELDMESH_SIDECAR_FIRMWARE_RING_BASE;
+    int size_match = size_ok && parse_u32_text(size, &parsed_size) &&
+                     parsed_size == FIELDMESH_SIDECAR_WINDOW_SIZE;
+    int ok = name_ok && addr_match && size_match &&
+             strcmp(name, FIELDMESH_SIDECAR_FIRMWARE_RING_NAME) == 0;
 
     printf("{\"event\":\"fieldmesh_firmware_uio_ring_probe\","
            "\"ok\":%s,"
@@ -164,6 +186,10 @@ static int inspect_uio_sysfs(const char *device_path)
            "\"uio_name\":\"%s\","
            "\"uio_addr\":\"%s\","
            "\"uio_size\":\"%s\","
+           "\"expected_uio_name\":\"" FIELDMESH_SIDECAR_FIRMWARE_RING_NAME "\","
+           "\"expected_uio_addr\":\"" FIELDMESH_SIDECAR_FIRMWARE_RING_BASE_TEXT "\","
+           "\"expected_uio_size\":\"" FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "\","
+           "\"native_c_sidecar_addr_contract\":true,"
            "\"writes_packet_memory\":false,"
            "\"uses_json_on_air\":false,"
            "\"hot_path_language\":\"c\","
@@ -397,6 +423,10 @@ int main(int argc, char **argv)
            "\"irq_asserted\":%s,"
            "\"first_served_seq\":\"0x%08x\","
            "\"second_served_seq\":\"0x%08x\","
+           "\"expected_uio_name\":\"" FIELDMESH_SIDECAR_FIRMWARE_RING_NAME "\","
+           "\"expected_uio_addr\":\"" FIELDMESH_SIDECAR_FIRMWARE_RING_BASE_TEXT "\","
+           "\"expected_uio_size\":\"" FIELDMESH_SIDECAR_WINDOW_SIZE_TEXT "\","
+           "\"native_c_sidecar_addr_contract\":true,"
            "\"uses_json_on_air\":false,"
            "\"hot_path_language\":\"c\","
            "\"vendor_runtime_dependency\":false}\n",
