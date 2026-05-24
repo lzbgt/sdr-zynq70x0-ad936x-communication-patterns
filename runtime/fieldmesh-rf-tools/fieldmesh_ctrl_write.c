@@ -10,6 +10,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "fieldmesh_firmware_dma_ctrl.h"
+
 static bool env_is_one(const char *name) {
     const char *value = getenv(name);
     return value && strcmp(value, "1") == 0;
@@ -19,50 +21,6 @@ enum fieldmesh_access {
     FIELDMESH_ACCESS_READ,
     FIELDMESH_ACCESS_WRITE,
 };
-
-enum fieldmesh_fw_dma_reg {
-    FM_FW_DMA_CONTROL = 0x140,
-    FM_FW_DMA_STATUS = 0x144,
-    FM_FW_DMA_SERVICE_BUDGET = 0x148,
-    FM_FW_DMA_QUEUED_COUNT = 0x14c,
-    FM_FW_DMA_SELECTED_WORD = 0x150,
-    FM_FW_DMA_TX_PARSER_PACKETS = 0x154,
-    FM_FW_DMA_TX_PARSER_DROPS = 0x158,
-    FM_FW_DMA_INGRESS_PACKETS = 0x15c,
-    FM_FW_DMA_INGRESS_DROPS = 0x160,
-    FM_FW_DMA_EGRESS_PACKETS = 0x164,
-    FM_FW_DMA_EGRESS_DROPS = 0x168,
-    FM_FW_DMA_BRAM_ERRORS = 0x16c,
-    FM_FW_DMA_PEER_MCS_RETRY = 0x170,
-    FM_FW_DMA_DESCRIPTOR_FLAGS = 0x174,
-    FM_FW_DMA_SEQ_SEED = 0x178,
-    FM_FW_DMA_TX_PARSER_BYTES = 0x17c,
-    FM_FW_DMA_INGRESS_BYTES = 0x180,
-    FM_FW_DMA_INGRESS_DESC_PUBLISH = 0x184,
-    FM_FW_DMA_EGRESS_BYTES = 0x188,
-    FM_FW_DMA_MAC_TICKS = 0x18c,
-    FM_FW_DMA_MAC_PUMP_STARTS = 0x190,
-    FM_FW_DMA_MAC_PUMP_DONES = 0x194,
-    FM_FW_DMA_BRAM_CRC_ERRORS = 0x198,
-    FM_FW_DMA_BRAM_BOUNDS_ERRORS = 0x19c,
-    FM_FW_DMA_FAULT_STATUS = 0x1a0,
-};
-
-enum fieldmesh_fw_dma_control {
-    FM_FW_DMA_ENABLE = 1u << 0,
-    FM_FW_DMA_INGRESS_ENABLE = 1u << 1,
-    FM_FW_DMA_EGRESS_ENABLE = 1u << 2,
-    FM_FW_DMA_MAC_SCHEDULER_ENABLE = 1u << 3,
-    FM_FW_DMA_MAC_TICK_ENABLE = 1u << 4,
-    FM_FW_DMA_MAC_STOP = 1u << 5,
-};
-
-static const uint32_t FM_FW_DMA_ARM_CONTROL =
-    FM_FW_DMA_ENABLE |
-    FM_FW_DMA_INGRESS_ENABLE |
-    FM_FW_DMA_EGRESS_ENABLE |
-    FM_FW_DMA_MAC_SCHEDULER_ENABLE |
-    FM_FW_DMA_MAC_TICK_ENABLE;
 
 static uint32_t parse_u32(const char *text, const char *name) {
     char *end = NULL;
@@ -156,7 +114,7 @@ static uint32_t access_reg(uint32_t base, uint32_t offset, uint32_t value,
     return readback;
 }
 
-static void print_fw_dma_status(uint32_t base, const uint32_t *regs) {
+static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *status) {
     printf("{\"event\":\"fieldmesh_fw_dma_status\",\"ok\":true,"
            "\"base\":\"0x%08" PRIx32 "\","
            "\"control\":\"0x%08" PRIx32 "\","
@@ -191,36 +149,36 @@ static void print_fw_dma_status(uint32_t base, const uint32_t *regs) {
            "\"seq_seed\":\"0x%08" PRIx32 "\","
            "\"reads_hardware\":true,\"writes_hardware\":false}\n",
            base,
-           regs[0],
-           regs[1],
-           regs[2] & 0xffffu,
-           regs[3] & 0xffffu,
-           regs[4],
-           regs[5],
-           regs[15],
-           regs[6],
-           regs[7],
-           regs[16],
-           regs[17],
-           regs[8],
-           regs[9],
-           regs[18],
-           regs[10],
-           regs[19],
-           regs[20],
-           regs[21],
-           regs[22],
-           regs[23],
-           regs[11],
-           regs[24],
-           (regs[24] & 0x1u) ? "true" : "false",
-           (regs[24] & 0x2u) ? "true" : "false",
-           (regs[24] & 0x4u) ? "true" : "false",
-           regs[12] & 0xffffu,
-           (regs[12] >> 16) & 0xffu,
-           (regs[12] >> 24) & 0xffu,
-           regs[13] & 0xffffu,
-           regs[14]);
+           status->control,
+           status->status,
+           (uint32_t)status->service_budget,
+           (uint32_t)status->queued_count,
+           status->selected_word,
+           status->tx_parser_packets,
+           status->tx_parser_bytes,
+           status->tx_parser_drops,
+           status->ingress_packets,
+           status->ingress_bytes,
+           status->ingress_desc_publishes,
+           status->ingress_drops,
+           status->egress_packets,
+           status->egress_bytes,
+           status->egress_drops,
+           status->mac_ticks,
+           status->mac_pump_starts,
+           status->mac_pump_dones,
+           status->bram_crc_errors,
+           status->bram_bounds_errors,
+           status->bram_errors,
+           status->fault_status,
+           fieldmesh_fw_dma_status_tx_parser_fault(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_ingress_fault(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_egress_fault(status) ? "true" : "false",
+           (uint32_t)status->peer_index,
+           (uint32_t)status->mcs,
+           (uint32_t)status->retry_budget,
+           (uint32_t)status->descriptor_flags,
+           status->seq_seed);
 }
 
 int main(int argc, char **argv) {
@@ -233,8 +191,10 @@ int main(int argc, char **argv) {
                "\"fw_dma_status_offset\":\"0x%03x\","
                "\"fw_dma_config_offset\":\"0x%03x\","
                "\"fw_dma_arm_control\":\"0x%08" PRIx32 "\"}\n",
-               FM_FW_DMA_CONTROL, FM_FW_DMA_STATUS, FM_FW_DMA_PEER_MCS_RETRY,
-               FM_FW_DMA_ARM_CONTROL);
+               FIELDMESH_FW_DMA_REG_CONTROL,
+               FIELDMESH_FW_DMA_REG_STATUS,
+               FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY,
+               FIELDMESH_FW_DMA_ARM_CONTROL);
         return 0;
     }
 
@@ -247,38 +207,17 @@ int main(int argc, char **argv) {
                    "\"reads_hardware\":false,\"writes_hardware\":false}\n", base);
             return 1;
         }
-        const uint32_t offsets[] = {
-            FM_FW_DMA_CONTROL,
-            FM_FW_DMA_STATUS,
-            FM_FW_DMA_SERVICE_BUDGET,
-            FM_FW_DMA_QUEUED_COUNT,
-            FM_FW_DMA_SELECTED_WORD,
-            FM_FW_DMA_TX_PARSER_PACKETS,
-            FM_FW_DMA_TX_PARSER_DROPS,
-            FM_FW_DMA_INGRESS_PACKETS,
-            FM_FW_DMA_INGRESS_DROPS,
-            FM_FW_DMA_EGRESS_PACKETS,
-            FM_FW_DMA_EGRESS_DROPS,
-            FM_FW_DMA_BRAM_ERRORS,
-            FM_FW_DMA_PEER_MCS_RETRY,
-            FM_FW_DMA_DESCRIPTOR_FLAGS,
-            FM_FW_DMA_SEQ_SEED,
-            FM_FW_DMA_TX_PARSER_BYTES,
-            FM_FW_DMA_INGRESS_BYTES,
-            FM_FW_DMA_INGRESS_DESC_PUBLISH,
-            FM_FW_DMA_EGRESS_BYTES,
-            FM_FW_DMA_MAC_TICKS,
-            FM_FW_DMA_MAC_PUMP_STARTS,
-            FM_FW_DMA_MAC_PUMP_DONES,
-            FM_FW_DMA_BRAM_CRC_ERRORS,
-            FM_FW_DMA_BRAM_BOUNDS_ERRORS,
-            FM_FW_DMA_FAULT_STATUS,
-        };
-        uint32_t regs[sizeof(offsets) / sizeof(offsets[0])];
-        for (size_t i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
-            regs[i] = access_reg(base, offsets[i], 0, FIELDMESH_ACCESS_READ);
+        uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT];
+        fieldmesh_fw_dma_status_t status = {0};
+        for (size_t i = 0; i < FIELDMESH_FW_DMA_STATUS_REG_COUNT; ++i) {
+            regs[i] = access_reg(base, FIELDMESH_FW_DMA_STATUS_OFFSETS[i],
+                                 0, FIELDMESH_ACCESS_READ);
         }
-        print_fw_dma_status(base, regs);
+        if (!fieldmesh_fw_dma_status_from_regs(&status, regs)) {
+            fprintf(stderr, "failed to decode firmware DMA status\n");
+            return 1;
+        }
+        print_fw_dma_status(base, &status);
         return 0;
     }
 
@@ -289,26 +228,33 @@ int main(int argc, char **argv) {
         uint32_t retry_budget = parse_u32(argv[5], "retry_budget");
         uint32_t descriptor_flags = parse_u32(argv[6], "descriptor_flags");
         uint32_t seq_seed = parse_u32(argv[7], "seq_seed");
-        if (peer_index > 0xffffu || mcs > 0xffu || retry_budget > 0xffu ||
-            descriptor_flags > 0xffffu) {
+        if (!fieldmesh_fw_dma_config_args_valid(peer_index, mcs, retry_budget,
+                                                descriptor_flags)) {
             fprintf(stderr, "peer_index/flags must fit in 16 bits; mcs/retry_budget must fit in 8 bits\n");
             return 2;
         }
-        uint32_t packed_peer = (retry_budget << 24) | (mcs << 16) | peer_index;
+        fieldmesh_fw_dma_config_t config = {
+            .peer_index = (uint16_t)peer_index,
+            .mcs = (uint8_t)mcs,
+            .retry_budget = (uint8_t)retry_budget,
+            .descriptor_flags = (uint16_t)descriptor_flags,
+            .seq_seed = seq_seed,
+        };
+        uint32_t packed_peer = fieldmesh_fw_dma_config_peer_mcs_retry(&config);
         if (!fw_dma_write_allowed()) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
-                       base, FM_FW_DMA_PEER_MCS_RETRY, packed_peer, 0, false);
+                       base, FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY, packed_peer, 0, false);
             return 1;
         }
-        uint32_t packed_readback = access_reg(base, FM_FW_DMA_PEER_MCS_RETRY, packed_peer,
+        uint32_t packed_readback = access_reg(base, FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY, packed_peer,
                                               FIELDMESH_ACCESS_WRITE);
-        uint32_t flags_readback = access_reg(base, FM_FW_DMA_DESCRIPTOR_FLAGS, descriptor_flags,
+        uint32_t flags_readback = access_reg(base, FIELDMESH_FW_DMA_REG_DESCRIPTOR_FLAGS, config.descriptor_flags,
                                              FIELDMESH_ACCESS_WRITE);
-        uint32_t seq_readback = access_reg(base, FM_FW_DMA_SEQ_SEED, seq_seed,
+        uint32_t seq_readback = access_reg(base, FIELDMESH_FW_DMA_REG_SEQ_SEED, config.seq_seed,
                                            FIELDMESH_ACCESS_WRITE);
         bool ok = packed_readback == packed_peer &&
-                  (flags_readback & 0xffffu) == descriptor_flags &&
-                  seq_readback == seq_seed;
+                  (flags_readback & 0xffffu) == config.descriptor_flags &&
+                  seq_readback == config.seq_seed;
         printf("{\"event\":\"fieldmesh_fw_dma_config\",\"ok\":%s,"
                "\"base\":\"0x%08" PRIx32 "\","
                "\"peer_mcs_retry\":\"0x%08" PRIx32 "\","
@@ -325,12 +271,12 @@ int main(int argc, char **argv) {
                base,
                packed_peer,
                packed_readback,
-               peer_index,
-               mcs,
-               retry_budget,
-               descriptor_flags,
+               (uint32_t)config.peer_index,
+               (uint32_t)config.mcs,
+               (uint32_t)config.retry_budget,
+               (uint32_t)config.descriptor_flags,
                flags_readback & 0xffffu,
-               seq_seed,
+               config.seq_seed,
                seq_readback);
         return ok ? 0 : 1;
     }
@@ -344,12 +290,12 @@ int main(int argc, char **argv) {
         }
         if (!fw_dma_write_allowed()) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
-                       base, FM_FW_DMA_CONTROL, FM_FW_DMA_ARM_CONTROL, 0, false);
+                       base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_ARM_CONTROL, 0, false);
             return 1;
         }
-        uint32_t budget_readback = access_reg(base, FM_FW_DMA_SERVICE_BUDGET, budget,
+        uint32_t budget_readback = access_reg(base, FIELDMESH_FW_DMA_REG_SERVICE_BUDGET, budget,
                                               FIELDMESH_ACCESS_WRITE);
-        uint32_t ctrl_readback = access_reg(base, FM_FW_DMA_CONTROL, FM_FW_DMA_ARM_CONTROL,
+        uint32_t ctrl_readback = access_reg(base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_ARM_CONTROL,
                                             FIELDMESH_ACCESS_WRITE);
         printf("{\"event\":\"fieldmesh_fw_dma_arm\",\"ok\":%s,"
                "\"base\":\"0x%08" PRIx32 "\","
@@ -358,34 +304,34 @@ int main(int argc, char **argv) {
                "\"service_budget\":%" PRIu32 ","
                "\"service_budget_readback\":%" PRIu32 ","
                "\"writes_hardware\":true}\n",
-               (ctrl_readback == FM_FW_DMA_ARM_CONTROL && (budget_readback & 0xffffu) == budget) ? "true" : "false",
+               (ctrl_readback == FIELDMESH_FW_DMA_ARM_CONTROL && (budget_readback & 0xffffu) == budget) ? "true" : "false",
                base,
-               FM_FW_DMA_ARM_CONTROL,
+               FIELDMESH_FW_DMA_ARM_CONTROL,
                ctrl_readback,
                budget,
                budget_readback & 0xffffu);
-        return (ctrl_readback == FM_FW_DMA_ARM_CONTROL && (budget_readback & 0xffffu) == budget) ? 0 : 1;
+        return (ctrl_readback == FIELDMESH_FW_DMA_ARM_CONTROL && (budget_readback & 0xffffu) == budget) ? 0 : 1;
     }
 
     if (argc == 3 && strcmp(argv[1], "--fw-dma-stop") == 0) {
         uint32_t base = parse_u32(argv[2], "base");
         if (!fw_dma_write_allowed()) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
-                       base, FM_FW_DMA_CONTROL, FM_FW_DMA_MAC_STOP, 0, false);
+                       base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_CONTROL_MAC_STOP, 0, false);
             return 1;
         }
-        uint32_t readback = access_reg(base, FM_FW_DMA_CONTROL, FM_FW_DMA_MAC_STOP,
+        uint32_t readback = access_reg(base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_CONTROL_MAC_STOP,
                                        FIELDMESH_ACCESS_WRITE);
         printf("{\"event\":\"fieldmesh_fw_dma_stop\",\"ok\":%s,"
                "\"base\":\"0x%08" PRIx32 "\","
                "\"control\":\"0x%08" PRIx32 "\","
                "\"control_readback\":\"0x%08" PRIx32 "\","
                "\"writes_hardware\":true}\n",
-               readback == FM_FW_DMA_MAC_STOP ? "true" : "false",
+               readback == FIELDMESH_FW_DMA_CONTROL_MAC_STOP ? "true" : "false",
                base,
-               FM_FW_DMA_MAC_STOP,
+               FIELDMESH_FW_DMA_CONTROL_MAC_STOP,
                readback);
-        return readback == FM_FW_DMA_MAC_STOP ? 0 : 1;
+        return readback == FIELDMESH_FW_DMA_CONTROL_MAC_STOP ? 0 : 1;
     }
 
     if (argc != 4) {

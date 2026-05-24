@@ -472,6 +472,8 @@ this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
 `FIELD_MESH_ALLOW_HARDWARE_WRITES=1`, and
 `FIELD_MESH_ALLOW_FIRMWARE_DMA=1` before touching hardware. JSON appears only
 in the tool result stream for inspection; the transport ABI remains binary.
+The C SDK header `fieldmesh_firmware_dma_ctrl.h` is the host-side source of
+truth for these offsets, control bits, sideband packing, and status decoding.
 The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
 action is status-only, and config/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a

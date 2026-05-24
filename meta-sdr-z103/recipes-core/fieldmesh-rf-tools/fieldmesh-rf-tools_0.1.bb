@@ -6,6 +6,7 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 FIELDMESH_REPO_ROOT = "${@os.path.abspath(os.path.join(d.getVar('THISDIR'), '..', '..', '..'))}"
 
 SRC_URI = " \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_firmware_dma_ctrl.h \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-common.sh \
     file://${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh-radio-safe-tune \
@@ -19,6 +20,7 @@ RDEPENDS:${PN} += "libiio-tests"
 
 do_compile() {
     ${CC} ${CFLAGS} -std=c99 -Wall -Wextra ${LDFLAGS} \
+        -I${WORKDIR}${FIELDMESH_REPO_ROOT}/sdk/c/include \
         ${WORKDIR}${FIELDMESH_REPO_ROOT}/runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c \
         -o fieldmesh-ctrl-write
 }

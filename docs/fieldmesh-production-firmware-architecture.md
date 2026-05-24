@@ -442,13 +442,17 @@ the first-line debug split between malformed input, TUN ingress starvation,
 full ARM-to-PL queues, PL service latency, and RX drain lag.
 
 The board-level packet-DMA endpoint is also controlled from the lightweight
-sidecar window. `0x140..0x178` contains fixed binary firmware-DMA control and
+sidecar window. `0x140..0x1a0` contains fixed binary firmware-DMA control and
 status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
 enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
 parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/fault
 counters, egress byte/packet/drop/fault counters, MAC tick/pump counters, split
 BRAM CRC/bounds counters, aggregate BRAM errors, and FPGA-native TX sideband
 defaults for peer index, MCS, retry budget, descriptor flags, and sequence seed.
+The ARM-side C contract for this block is
+`sdk/c/include/fieldmesh_firmware_dma_ctrl.h`, which owns the register offsets,
+control masks, sideband packing, and status decode helpers used by
+`fieldmesh-ctrl-write`.
 The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the

@@ -97,7 +97,102 @@ int main(void) {
     return 0;
 }
 EOF_C
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
+  -xc - \
+  -o "$work_dir/fieldmesh-firmware-dma-ctrl-header-smoke" <<'EOF_C'
+#include "fieldmesh_firmware_dma_ctrl.h"
 
+int main(void) {
+    if (FIELDMESH_FW_DMA_REG_CONTROL != 0x140u ||
+        FIELDMESH_FW_DMA_REG_FAULT_STATUS != 0x1a0u ||
+        FIELDMESH_FW_DMA_STATUS_REG_COUNT != 25u) {
+        return 1;
+    }
+    if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
+        FIELDMESH_FW_DMA_CONTROL_MAC_STOP != 0x00000020u) {
+        return 2;
+    }
+    if (!fieldmesh_fw_dma_config_args_valid(7u, 1u, 3u, 0x11u) ||
+        fieldmesh_fw_dma_config_args_valid(0x10000u, 1u, 3u, 0x11u) ||
+        fieldmesh_fw_dma_config_args_valid(7u, 0x100u, 3u, 0x11u) ||
+        fieldmesh_fw_dma_config_args_valid(7u, 1u, 0x100u, 0x11u) ||
+        fieldmesh_fw_dma_config_args_valid(7u, 1u, 3u, 0x10000u)) {
+        return 3;
+    }
+
+    fieldmesh_fw_dma_config_t config = {
+        .peer_index = 7u,
+        .mcs = 1u,
+        .retry_budget = 3u,
+        .descriptor_flags = 0x11u,
+        .seq_seed = 0x1200u,
+    };
+    if (fieldmesh_fw_dma_config_peer_mcs_retry(&config) != 0x03010007u) {
+        return 4;
+    }
+
+    uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
+    regs[0] = FIELDMESH_FW_DMA_ARM_CONTROL;
+    regs[1] = 0x2fu;
+    regs[2] = 32u;
+    regs[3] = 4u;
+    regs[4] = 0x80020003u;
+    regs[5] = 5u;
+    regs[6] = 6u;
+    regs[7] = 7u;
+    regs[8] = 8u;
+    regs[9] = 9u;
+    regs[10] = 10u;
+    regs[11] = 11u;
+    regs[12] = fieldmesh_fw_dma_config_peer_mcs_retry(&config);
+    regs[13] = config.descriptor_flags;
+    regs[14] = config.seq_seed;
+    regs[15] = 150u;
+    regs[16] = 160u;
+    regs[17] = 17u;
+    regs[18] = 180u;
+    regs[19] = 19u;
+    regs[20] = 20u;
+    regs[21] = 21u;
+    regs[22] = 22u;
+    regs[23] = 23u;
+    regs[24] = FIELDMESH_FW_DMA_FAULT_TX_PARSER |
+               FIELDMESH_FW_DMA_FAULT_EGRESS |
+               0xffff0000u;
+
+    fieldmesh_fw_dma_status_t status = {0};
+    if (!fieldmesh_fw_dma_status_from_regs(&status, regs)) {
+        return 5;
+    }
+    if (status.control != FIELDMESH_FW_DMA_ARM_CONTROL ||
+        status.service_budget != 32u ||
+        status.queued_count != 4u ||
+        status.selected_word != 0x80020003u ||
+        status.tx_parser_bytes != 150u ||
+        status.ingress_desc_publishes != 17u ||
+        status.egress_bytes != 180u ||
+        status.bram_crc_errors != 22u ||
+        status.bram_bounds_errors != 23u ||
+        status.peer_index != 7u ||
+        status.mcs != 1u ||
+        status.retry_budget != 3u ||
+        status.descriptor_flags != 0x11u ||
+        status.seq_seed != 0x1200u) {
+        return 6;
+    }
+    if (!fieldmesh_fw_dma_status_tx_parser_fault(&status) ||
+        fieldmesh_fw_dma_status_ingress_fault(&status) ||
+        !fieldmesh_fw_dma_status_egress_fault(&status) ||
+        status.fault_status != (FIELDMESH_FW_DMA_FAULT_TX_PARSER |
+                                FIELDMESH_FW_DMA_FAULT_EGRESS)) {
+        return 7;
+    }
+    return 0;
+}
+EOF_C
+
+"$work_dir/fieldmesh-firmware-dma-ctrl-header-smoke"
 "$work_dir/fieldmesh-firmware-abi-probe" >"$work_dir/probe.json"
 "$work_dir/fieldmesh-firmware-abi-probe" --write-vectors "$work_dir/vectors" \
   >"$work_dir/probe-vectors.json"
@@ -421,6 +516,36 @@ if missing:
     raise SystemExit(f"missing firmware ring header tokens: {missing}")
 PY
 
+python3 - "$repo_root/sdk/c/include/fieldmesh_firmware_dma_ctrl.h" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "FIELDMESH_FW_DMA_REG_CONTROL 0x140u",
+    "FIELDMESH_FW_DMA_REG_FAULT_STATUS 0x1a0u",
+    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 25u",
+    "FIELDMESH_FW_DMA_STATUS_OFFSETS",
+    "FIELDMESH_FW_DMA_ARM_CONTROL",
+    "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
+    "FIELDMESH_FW_DMA_FAULT_TX_PARSER",
+    "FIELDMESH_FW_DMA_FAULT_INGRESS",
+    "FIELDMESH_FW_DMA_FAULT_EGRESS",
+    "fieldmesh_fw_dma_config_t",
+    "fieldmesh_fw_dma_status_t",
+    "fieldmesh_fw_dma_pack_peer_mcs_retry",
+    "fieldmesh_fw_dma_config_peer_mcs_retry",
+    "fieldmesh_fw_dma_config_args_valid",
+    "fieldmesh_fw_dma_status_from_regs",
+    "fieldmesh_fw_dma_status_tx_parser_fault",
+    "fieldmesh_fw_dma_status_ingress_fault",
+    "fieldmesh_fw_dma_status_egress_fault",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing firmware DMA control header tokens: {missing}")
+PY
+
 python3 - "$repo_root/sdk/c/include/fieldmesh_firmware_packet_bridge.h" <<'PY'
 import sys
 from pathlib import Path
@@ -579,6 +704,7 @@ from pathlib import Path
 required = [
     "fieldmesh_firmware_abi.h",
     "fieldmesh_firmware_ring.h",
+    "fieldmesh_firmware_dma_ctrl.h",
     "fieldmesh_firmware_packet_bridge.h",
     "fieldmesh_firmware_tun_bridge.h",
     "fieldmesh_firmware_abi_probe.c",

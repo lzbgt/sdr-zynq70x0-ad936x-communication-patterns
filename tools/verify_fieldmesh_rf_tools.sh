@@ -13,7 +13,9 @@ sh -n "$src_dir/fieldmesh-radio-safe-tune"
 sh -n "$src_dir/fieldmesh-radio-tx-enable"
 sh -n "$src_dir/fieldmesh-radio-tx-disable"
 
-cc -std=c99 -Wall -Wextra "$src_dir/fieldmesh_ctrl_write.c" -o "$work_dir/fieldmesh-ctrl-write-host"
+cc -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
+  "$src_dir/fieldmesh_ctrl_write.c" -o "$work_dir/fieldmesh-ctrl-write-host"
 "$work_dir/fieldmesh-ctrl-write-host" --self-test >"$work_dir/ctrl_write_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
