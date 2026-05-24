@@ -393,6 +393,12 @@ for IIO RF captures. That keeps the readiness contract aligned with the current
 continuous-service direction: the report must show the compiled helper server
 kept libiio contexts open across RF batches rather than falling back to
 process-per-burst helper startup.
+The bridge now takes a first step past whole-batch service as well: native-IP
+HIL defaults daemon RF leases to four frames while limiting each encoded RF
+burst to two frames (`IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST=2`). Deferred leased
+frames remain replayable in the daemon lease queue, letting the scheduler check
+reverse-path work between sub-bursts. Production evidence now requires that
+sub-burst preemption proof for IIO RF captures.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and

@@ -5085,7 +5085,11 @@ at least one priority-drop stop. It also requires the hybrid
 control/result traffic ahead of bulk data while allowing UDP payload to become
 first-class work after control setup. IIO RF production evidence must also
 prove the persistent compiled burst helper was used, preventing readiness from
-passing on reports collected through per-burst helper startup. Production native-IP evidence also requires TCP
+passing on reports collected through per-burst helper startup. It also requires
+RF sub-burst service proof: the saved reports must show a daemon lease
+high-water above the encoded RF burst high-water, a bounded
+`iio_bridge_max_frames_per_rf_burst`, deferred leased frames, and at least one
+sub-burst preemption point. Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

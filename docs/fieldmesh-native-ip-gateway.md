@@ -302,7 +302,13 @@ Minimum production gates for native TCP/IP:
   peer daemon, the source ACK runs in parallel while the opposite RF direction
   can start. The loop still waits for any pending ACK before leasing from that
   same source again, preserving ACK-after-ingest ordering without starving
-  reverse result/control traffic.
+  reverse result/control traffic. The HIL runner now leases up to four daemon
+  frames at a time but defaults `IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST=2`; any
+  remaining leased frames stay in the daemon lease queue for replay after the
+  scheduler can check the reverse direction. Production evidence carries the
+  lease-batch high-water, RF sub-burst size, deferred-frame count, and
+  sub-burst preemption count, so final review can prove the bridge yielded at a
+  sub-batch boundary rather than holding the RF path for a whole leased batch.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

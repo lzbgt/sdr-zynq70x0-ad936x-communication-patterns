@@ -1351,7 +1351,11 @@ user and vendor configuration.
   service while promoting nontrivial UDP payload after control setup. Native-IP
   production evidence now also requires the persistent compiled burst-helper
   proof for IIO RF captures, so readiness cannot regress to process-per-burst
-  helper startup while claiming the current batched service path.
+  helper startup while claiming the current batched service path. The runner now
+  defaults daemon RF lease batches to four frames but caps each encoded RF burst
+  at two frames, leaving deferred leased frames in the daemon lease queue so the
+  bridge can yield to reverse-path work between sub-bursts. Production evidence
+  requires that sub-burst preemption proof.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

@@ -21,6 +21,15 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_rf_bridge": true,
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
+  "iio_bridge_rf_lease_batch_size": 4,
+  "iio_bridge_rf_lease_batch_high_water": 4,
+  "iio_bridge_rf_lease_batch_high_water_by_direction": {"z203-to-z103": 4},
+  "iio_bridge_max_frames_per_rf_burst": 2,
+  "iio_bridge_rf_sub_burst_enabled": true,
+  "iio_bridge_rf_sub_burst_exercised": true,
+  "iio_bridge_rf_sub_burst_slices": 3,
+  "iio_bridge_rf_sub_burst_deferred_frames": 2,
+  "iio_bridge_rf_sub_burst_preemption_points": 1,
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z203-to-z103": 2},
@@ -85,6 +94,15 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_rf_bridge": true,
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
+  "iio_bridge_rf_lease_batch_size": 4,
+  "iio_bridge_rf_lease_batch_high_water": 4,
+  "iio_bridge_rf_lease_batch_high_water_by_direction": {"z103-to-z203": 4},
+  "iio_bridge_max_frames_per_rf_burst": 2,
+  "iio_bridge_rf_sub_burst_enabled": true,
+  "iio_bridge_rf_sub_burst_exercised": true,
+  "iio_bridge_rf_sub_burst_slices": 2,
+  "iio_bridge_rf_sub_burst_deferred_frames": 2,
+  "iio_bridge_rf_sub_burst_preemption_points": 1,
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z103-to-z203": 2},
@@ -181,6 +199,8 @@ if report.get("requires_iio_hybrid_lease_priority") is not True:
     raise SystemExit(f"missing hybrid lease-priority requirement: {report}")
 if report.get("requires_iio_persistent_burst_helper") is not True:
     raise SystemExit(f"missing persistent helper requirement: {report}")
+if report.get("requires_iio_rf_sub_burst_evidence") is not True:
+    raise SystemExit(f"missing RF sub-burst requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"missing TCP final-exchange evidence requirement: {report}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
@@ -205,6 +225,10 @@ if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-c
     raise SystemExit(f"missing host hybrid lease-priority proof: {report}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"missing host persistent helper proof: {report}")
+if report.get("host_iio_rf_sub_burst_exercised") is not True:
+    raise SystemExit(f"missing host RF sub-burst proof: {report}")
+if report.get("host_iio_bridge_rf_lease_batch_high_water") != 4:
+    raise SystemExit(f"missing host RF lease batch high-water proof: {report}")
 if report.get("host_iio_bridge_same_priority_batch_priority_drop_stops") != 1:
     raise SystemExit(f"missing host same-priority priority-drop proof: {report}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -257,6 +281,8 @@ if report.get("requires_iio_hybrid_lease_priority") is not True:
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority requirement: {report}")
 if report.get("requires_iio_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper requirement: {report}")
+if report.get("requires_iio_rf_sub_burst_evidence") is not True:
+    raise SystemExit(f"native-IP readiness lost RF sub-burst requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost TCP final-exchange requirement: {report}")
 if report.get("host_iio_direction_fair_service_within_budget") is not True:
@@ -269,6 +295,8 @@ if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-c
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority proof: {report}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper proof: {report}")
+if report.get("host_iio_rf_sub_burst_exercised") is not True:
+    raise SystemExit(f"native-IP readiness lost RF sub-burst proof: {report}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
     raise SystemExit(f"native-IP readiness lost RF burst batch proof: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:

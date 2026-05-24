@@ -94,6 +94,30 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         )
     if report.get("iio_bridge_persistent_burst_helper") is not True:
         errors.append(f"{label}: IIO bridge must use persistent burst helper")
+    if report.get("iio_bridge_rf_sub_burst_enabled") is not True:
+        errors.append(f"{label}: IIO RF sub-burst service must be enabled")
+    if report.get("iio_bridge_rf_sub_burst_exercised") is not True:
+        errors.append(f"{label}: IIO RF sub-burst service was not exercised")
+    sub_burst_size = report.get("iio_bridge_max_frames_per_rf_burst")
+    lease_batch_size = report.get("iio_bridge_rf_lease_batch_size")
+    lease_high_water = report.get("iio_bridge_rf_lease_batch_high_water")
+    burst_high_water = report.get("iio_bridge_rf_burst_batch_high_water")
+    sub_burst_deferred = report.get("iio_bridge_rf_sub_burst_deferred_frames")
+    sub_burst_preemptions = report.get("iio_bridge_rf_sub_burst_preemption_points")
+    if not isinstance(sub_burst_size, int) or sub_burst_size < 1:
+        errors.append(f"{label}: IIO RF sub-burst size is missing")
+    if not isinstance(lease_batch_size, int) or lease_batch_size < 2:
+        errors.append(f"{label}: IIO RF lease batch size must be >= 2")
+    elif isinstance(sub_burst_size, int) and sub_burst_size >= lease_batch_size:
+        errors.append(f"{label}: IIO RF sub-burst size must be lower than lease batch size")
+    if not isinstance(lease_high_water, int) or lease_high_water < 2:
+        errors.append(f"{label}: IIO RF lease batch high-water must be >= 2")
+    elif isinstance(burst_high_water, int) and lease_high_water <= burst_high_water:
+        errors.append(f"{label}: IIO RF lease high-water must exceed RF burst high-water")
+    if not isinstance(sub_burst_deferred, int) or sub_burst_deferred < 1:
+        errors.append(f"{label}: IIO RF sub-burst deferred-frame evidence is missing")
+    if not isinstance(sub_burst_preemptions, int) or sub_burst_preemptions < 1:
+        errors.append(f"{label}: IIO RF sub-burst preemption evidence is missing")
     if report.get("iio_bridge_same_priority_batch") is not True:
         errors.append(f"{label}: IIO same-priority batch evidence must be enabled")
     same_priority_leases = report.get("iio_bridge_same_priority_batch_leases")
@@ -465,6 +489,9 @@ def main() -> int:
         "requires_iio_persistent_burst_helper": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_rf_sub_burst_evidence": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
             True
@@ -545,6 +572,36 @@ def main() -> int:
         ),
         "host_iio_bridge_persistent_burst_helper": host.get(
             "iio_bridge_persistent_burst_helper"
+        ),
+        "board_iio_rf_sub_burst_exercised": board.get(
+            "iio_bridge_rf_sub_burst_exercised"
+        ),
+        "host_iio_rf_sub_burst_exercised": host.get(
+            "iio_bridge_rf_sub_burst_exercised"
+        ),
+        "board_iio_bridge_rf_lease_batch_high_water": board.get(
+            "iio_bridge_rf_lease_batch_high_water"
+        ),
+        "host_iio_bridge_rf_lease_batch_high_water": host.get(
+            "iio_bridge_rf_lease_batch_high_water"
+        ),
+        "board_iio_bridge_max_frames_per_rf_burst": board.get(
+            "iio_bridge_max_frames_per_rf_burst"
+        ),
+        "host_iio_bridge_max_frames_per_rf_burst": host.get(
+            "iio_bridge_max_frames_per_rf_burst"
+        ),
+        "board_iio_bridge_rf_sub_burst_deferred_frames": board.get(
+            "iio_bridge_rf_sub_burst_deferred_frames"
+        ),
+        "host_iio_bridge_rf_sub_burst_deferred_frames": host.get(
+            "iio_bridge_rf_sub_burst_deferred_frames"
+        ),
+        "board_iio_bridge_rf_sub_burst_preemption_points": board.get(
+            "iio_bridge_rf_sub_burst_preemption_points"
+        ),
+        "host_iio_bridge_rf_sub_burst_preemption_points": host.get(
+            "iio_bridge_rf_sub_burst_preemption_points"
         ),
         "board_iio_bridge_direction_fair_service_enabled": board.get(
             "iio_bridge_direction_fair_service_enabled"

@@ -97,6 +97,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: IIO hybrid lease priority proof is missing")
             if source.get("requires_iio_persistent_burst_helper") is not True:
                 raise SystemExit("native_ip: IIO persistent burst helper proof is missing")
+            if source.get("requires_iio_rf_sub_burst_evidence") is not True:
+                raise SystemExit("native_ip: IIO RF sub-burst proof is missing")
             if (
                 source.get("board_iio_bridge_lease_priority")
                 != "tcp-control-flow-udp-after-control"
@@ -111,6 +113,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board IIO persistent helper proof is missing")
             if source.get("host_iio_bridge_persistent_burst_helper") is not True:
                 raise SystemExit("native_ip: host IIO persistent helper proof is missing")
+            if source.get("board_iio_rf_sub_burst_exercised") is not True:
+                raise SystemExit("native_ip: board IIO RF sub-burst proof is missing")
+            if source.get("host_iio_rf_sub_burst_exercised") is not True:
+                raise SystemExit("native_ip: host IIO RF sub-burst proof is missing")
             if source.get("board_iio_same_priority_batch_enabled") is not True:
                 raise SystemExit("native_ip: board IIO same-priority batch proof is missing")
             if source.get("host_iio_same_priority_batch_enabled") is not True:
@@ -172,6 +178,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_same_priority_batch_evidence",
         "requires_iio_hybrid_lease_priority",
         "requires_iio_persistent_burst_helper",
+        "requires_iio_rf_sub_burst_evidence",
         "requires_tcp_final_exchange_evidence",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
@@ -187,6 +194,16 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_lease_priority",
         "board_iio_bridge_persistent_burst_helper",
         "host_iio_bridge_persistent_burst_helper",
+        "board_iio_rf_sub_burst_exercised",
+        "host_iio_rf_sub_burst_exercised",
+        "board_iio_bridge_rf_lease_batch_high_water",
+        "host_iio_bridge_rf_lease_batch_high_water",
+        "board_iio_bridge_max_frames_per_rf_burst",
+        "host_iio_bridge_max_frames_per_rf_burst",
+        "board_iio_bridge_rf_sub_burst_deferred_frames",
+        "host_iio_bridge_rf_sub_burst_deferred_frames",
+        "board_iio_bridge_rf_sub_burst_preemption_points",
+        "host_iio_bridge_rf_sub_burst_preemption_points",
         "board_iio_bridge_same_priority_batch_leases",
         "host_iio_bridge_same_priority_batch_leases",
         "board_iio_bridge_same_priority_batch_priority_drop_stops",

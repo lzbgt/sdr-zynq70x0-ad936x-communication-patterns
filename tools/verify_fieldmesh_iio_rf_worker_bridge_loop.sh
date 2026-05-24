@@ -84,6 +84,12 @@ if report.get("source_ack_pipeline_exercised") is not False:
     raise SystemExit(f"dry-run source ACK pipeline must not be exercised: {report}")
 if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
+if report.get("max_frames_per_rf_burst") != 1:
+    raise SystemExit(f"unexpected RF sub-burst default: {report.get('max_frames_per_rf_burst')}")
+if report.get("rf_sub_burst_enabled") is not False or report.get("rf_sub_burst_exercised") is not False:
+    raise SystemExit(f"dry-run RF sub-burst evidence must be disabled: {report}")
+if report.get("rf_lease_batch_high_water") != 0:
+    raise SystemExit(f"dry-run RF lease batch high-water evidence must be empty: {report}")
 if report.get("same_priority_batch") is not False:
     raise SystemExit(f"direct bridge-loop dry-run should not default to same-priority batching: {report}")
 if report.get("same_priority_batch_preemption_exercised") is not False:
@@ -158,6 +164,12 @@ if loop.queued_rf_work_score({"rf_tx_queue_depth": 3, "rf_tx_lease_queue_depth":
     raise SystemExit("queued RF work score ignored pending TX queue depth")
 if loop.queued_rf_work_score({"rf_tx_queue_depth": 0, "rf_tx_lease_queue_depth": 1}) <= 3:
     raise SystemExit("queued RF work score must prioritize replaying leased frames")
+sub_burst, deferred = loop.split_sub_burst([b"a", b"b", b"c"], 2)
+if sub_burst != [b"a", b"b"] or deferred != [b"c"]:
+    raise SystemExit("RF sub-burst split did not preserve prefix/deferred frames")
+sub_burst, deferred = loop.split_sub_burst([b"a", b"b"], 2)
+if sub_burst != [b"a", b"b"] or deferred:
+    raise SystemExit("RF sub-burst split must leave full-sized batches intact")
 if loop.lease_priority_request_suffix("tcp-control") != " priority=tcp_control":
     raise SystemExit("tcp-control lease priority did not map to daemon request suffix")
 if loop.lease_priority_request_suffix("tcp-control-flow") != " priority=tcp_control_flow":
@@ -489,6 +501,15 @@ required = [
     '"iio_bridge_rf_burst_batch_high_water"',
     '"iio_bridge_rf_burst_batch_high_water_by_direction"',
     '"iio_bridge_rf_burst_batch_exercised"',
+    '"iio_bridge_rf_lease_batch_size"',
+    '"iio_bridge_rf_lease_batch_high_water"',
+    '"iio_bridge_rf_lease_batch_high_water_by_direction"',
+    '"iio_bridge_max_frames_per_rf_burst"',
+    '"iio_bridge_rf_sub_burst_enabled"',
+    '"iio_bridge_rf_sub_burst_exercised"',
+    '"iio_bridge_rf_sub_burst_slices"',
+    '"iio_bridge_rf_sub_burst_deferred_frames"',
+    '"iio_bridge_rf_sub_burst_preemption_points"',
     '"iio_bridge_direction_fair_service_enabled"',
     '"iio_bridge_max_consecutive_direction_batches"',
     '"iio_bridge_max_consecutive_direction_batches_seen"',
@@ -512,6 +533,9 @@ required = [
     'fieldmesh_iio_burst_xfer_build.err',
     'FIELDMESH_IIO_BURST_HELPER must support --server',
     'iio_bridge_source_ack_pipeline_depth="${IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH:-2}"',
+    'iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-4}"',
+    'iio_bridge_max_frames_per_rf_burst="${IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST:-2}"',
+    "--max-frames-per-rf-burst",
     "--source-ack-pipeline-depth",
     '"iio_bridge_source_ack_pipeline_high_water"',
     '"iio_bridge_source_ack_pipeline_max_pending"',

@@ -71,8 +71,9 @@ rf_tx_hardwaregain_db="${RF_TX_HARDWAREGAIN_DB:-0.0}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60.0}"
 max_tx_duration_ms="${MAX_TX_DURATION_MS:-250}"
 iio_bridge_max_frames="${IIO_BRIDGE_MAX_FRAMES:-256}"
-iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-2}"
+iio_bridge_batch_size="${IIO_BRIDGE_BATCH_SIZE:-4}"
 iio_bridge_batch_byte_limit="${IIO_BRIDGE_BATCH_BYTE_LIMIT:-0}"
+iio_bridge_max_frames_per_rf_burst="${IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST:-2}"
 iio_bridge_same_priority_batch="${IIO_BRIDGE_SAME_PRIORITY_BATCH:-1}"
 if [ -n "${IIO_BRIDGE_LEASE_PRIORITY+x}" ]; then
     iio_bridge_lease_priority="$IIO_BRIDGE_LEASE_PRIORITY"
@@ -255,6 +256,11 @@ if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
     echo "IIO_BRIDGE_BATCH_BYTE_LIMIT must be an integer >= 0" >&2
     exit 1
 fi
+if ! [[ "$iio_bridge_max_frames_per_rf_burst" =~ ^[0-9]+$ ]] ||
+   [ "$iio_bridge_max_frames_per_rf_burst" -lt 1 ]; then
+    echo "IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST must be a positive integer" >&2
+    exit 1
+fi
 case "$iio_bridge_lease_priority" in
     tcp-payload|tcp-control|tcp-control-flow|udp-payload|udp-after-control|tcp-control-flow-udp-after-control|fifo) ;;
     *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, tcp-control-flow-udp-after-control, or fifo" >&2; exit 1 ;;
@@ -316,6 +322,10 @@ if ! [[ "$iio_bridge_cyclic_capture_retry_periods" =~ ^[0-9]+$ ]] ||
 fi
 if [ "$iio_bridge_batch_size" -gt 4 ]; then
     echo "IIO_BRIDGE_BATCH_SIZE must be <= 4" >&2
+    exit 1
+fi
+if [ "$iio_bridge_max_frames_per_rf_burst" -gt "$iio_bridge_batch_size" ]; then
+    echo "IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST must be <= IIO_BRIDGE_BATCH_SIZE" >&2
     exit 1
 fi
 if [ "$allow_destructive_rf_batch" = "1" ] && [ "$iio_bridge_batch_size" -lt 2 ]; then
@@ -1322,6 +1332,7 @@ start_iio_rf_bridge_loop() {
         --max-frames "$iio_bridge_max_frames" \
         --batch-size "$iio_bridge_batch_size" \
         --batch-byte-limit "$iio_bridge_batch_byte_limit" \
+        --max-frames-per-rf-burst "$iio_bridge_max_frames_per_rf_burst" \
         --lease-priority "$iio_bridge_lease_priority" \
         --z203-to-z103-burst-batches "$iio_bridge_z203_to_z103_burst_batches" \
         --z103-to-z203-burst-batches "$iio_bridge_z103_to_z203_burst_batches" \
@@ -2791,6 +2802,35 @@ report = {
     ),
     "iio_bridge_rf_burst_batch_exercised": bool(
         last_iio_bridge.get("rf_burst_batch_exercised")
+    ),
+    "iio_bridge_rf_lease_batch_size": int(
+        last_iio_bridge.get("rf_lease_batch_size")
+        or last_iio_bridge.get("batch_size")
+        or 0
+    ),
+    "iio_bridge_rf_lease_batch_high_water": int(
+        last_iio_bridge.get("rf_lease_batch_high_water") or 0
+    ),
+    "iio_bridge_rf_lease_batch_high_water_by_direction": (
+        last_iio_bridge.get("rf_lease_batch_high_water_by_direction") or {}
+    ),
+    "iio_bridge_max_frames_per_rf_burst": int(
+        last_iio_bridge.get("max_frames_per_rf_burst") or 0
+    ),
+    "iio_bridge_rf_sub_burst_enabled": bool(
+        last_iio_bridge.get("rf_sub_burst_enabled")
+    ),
+    "iio_bridge_rf_sub_burst_exercised": bool(
+        last_iio_bridge.get("rf_sub_burst_exercised")
+    ),
+    "iio_bridge_rf_sub_burst_slices": int(
+        last_iio_bridge.get("rf_sub_burst_slices") or 0
+    ),
+    "iio_bridge_rf_sub_burst_deferred_frames": int(
+        last_iio_bridge.get("rf_sub_burst_deferred_frames") or 0
+    ),
+    "iio_bridge_rf_sub_burst_preemption_points": int(
+        last_iio_bridge.get("rf_sub_burst_preemption_points") or 0
     ),
     "iio_bridge_same_priority_batch": bool(
         last_iio_bridge.get("same_priority_batch")

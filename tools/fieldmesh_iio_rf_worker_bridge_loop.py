@@ -557,6 +557,12 @@ def batch_high_water_max(high_water_by_direction: dict[str, int]) -> int:
     return max(high_water_by_direction.values(), default=0)
 
 
+def split_sub_burst(frames: list[bytes], max_frames_per_burst: int) -> tuple[list[bytes], list[bytes]]:
+    if max_frames_per_burst <= 0 or max_frames_per_burst >= len(frames):
+        return frames, []
+    return frames[:max_frames_per_burst], frames[max_frames_per_burst:]
+
+
 def decode_batch(payload: bytes) -> list[bytes]:
     if not payload.startswith(BATCH_MAGIC):
         raise SystemExit("recovered batch is missing FMBATCH1 magic")
@@ -1004,6 +1010,12 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--batch-size must be <= 4")
     if args.batch_byte_limit < 0:
         raise SystemExit("--batch-byte-limit must be >= 0")
+    if args.max_frames_per_rf_burst == 0:
+        args.max_frames_per_rf_burst = args.batch_size
+    if args.max_frames_per_rf_burst < 1:
+        raise SystemExit("--max-frames-per-rf-burst must be 0 or >= 1")
+    if args.max_frames_per_rf_burst > args.batch_size:
+        raise SystemExit("--max-frames-per-rf-burst cannot exceed --batch-size")
     if args.destructive_poll_batch and args.batch_size < 2:
         raise SystemExit("--destructive-poll-batch requires --batch-size >= 2")
     if args.poll_interval_ms < 1:
@@ -1093,6 +1105,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "direction_fair_service_yields": 0,
         "same_priority_batch_leases": 0,
         "same_priority_batch_priority_drop_stops": 0,
+        "rf_sub_burst_slices": 0,
+        "rf_sub_burst_deferred_frames": 0,
+        "rf_sub_burst_preemption_points": 0,
         "bridge_errors": 0,
         "batches_moved": 0,
         "filtered_frames": 0,
@@ -1105,6 +1120,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     frames: list[dict[str, Any]] = []
     rf_burst_timing_ms: dict[str, dict[str, int]] = {}
     rf_burst_batch_high_water_by_direction: dict[str, int] = {}
+    rf_lease_batch_high_water_by_direction: dict[str, int] = {}
     next_index = 0
     last_served_direction: str | None = None
     consecutive_direction_batches = 0
@@ -1136,12 +1152,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
             "batch_byte_limit": args.batch_byte_limit,
+            "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+            "rf_sub_burst_enabled": bool(args.max_frames_per_rf_burst < args.batch_size),
+            "rf_sub_burst_exercised": bool(
+                args.max_frames_per_rf_burst < args.batch_size
+                and counts["rf_sub_burst_preemption_points"] > 0
+            ),
             "same_priority_batch": bool(args.same_priority_batch),
             "same_priority_batch_preemption_exercised": bool(
                 args.same_priority_batch
                 and counts["same_priority_batch_priority_drop_stops"] > 0
             ),
-            "rf_burst_batch_size": args.batch_size,
+            "rf_burst_batch_size": args.max_frames_per_rf_burst,
             "rf_burst_batch_high_water": batch_high_water_max(
                 rf_burst_batch_high_water_by_direction
             ),
@@ -1155,6 +1177,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 args.batch_size > 1
                 and batch_high_water_max(rf_burst_batch_high_water_by_direction) > 1
             ),
+            "rf_lease_batch_size": args.batch_size,
+            "rf_lease_batch_high_water": batch_high_water_max(
+                rf_lease_batch_high_water_by_direction
+            ),
+            "rf_lease_batch_high_water_by_direction": {
+                direction_name: high_water
+                for direction_name, high_water
+                in sorted(rf_lease_batch_high_water_by_direction.items())
+                if high_water
+            },
             "lease_priority": args.lease_priority,
             "adaptive_direction_scheduler": bool(args.adaptive_direction_scheduler),
             "direction_burst_batches": {
@@ -1307,6 +1339,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             return
         rf_burst_batch_high_water_by_direction[direction_name] = max(
             rf_burst_batch_high_water_by_direction.get(direction_name, 0),
+            frames_in_batch,
+        )
+
+    def record_lease_batch_high_water(direction_name: str, frames_in_batch: int) -> None:
+        if frames_in_batch < 1:
+            return
+        rf_lease_batch_high_water_by_direction[direction_name] = max(
+            rf_lease_batch_high_water_by_direction.get(direction_name, 0),
             frames_in_batch,
         )
 
@@ -1483,6 +1523,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             counts["empty_polls"] += 1
                             empty_directions.add(direction["name"])
                             continue
+                        leased_frame_count = len(batch_frames)
+                        record_lease_batch_high_water(direction["name"], leased_frame_count)
                         if args.same_priority_batch:
                             counts["same_priority_batch_leases"] += 1
                             if batch_lease.get("batch_priority_drop_stopped") == 1:
@@ -1519,10 +1561,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         if not batch_frames:
                             counts["empty_polls"] += 1
                             continue
+                        sub_burst_frames, deferred_frames = split_sub_burst(
+                            batch_frames,
+                            args.max_frames_per_rf_burst,
+                        )
+                        if deferred_frames:
+                            counts["rf_sub_burst_deferred_frames"] += len(deferred_frames)
+                            counts["rf_sub_burst_preemption_points"] += 1
+                        counts["rf_sub_burst_slices"] += 1
                         report = run_batch(
                             args,
                             direction,
-                            batch_frames,
+                            sub_burst_frames,
                             next_index,
                             destructive_source_poll=False,
                             skip_rf_config=args.skip_rf_config_after_first
@@ -1531,7 +1581,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             defer_source_ack=bool(args.async_source_ack and args.execute_live_rf),
                         )
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
-                        record_batch_high_water(direction["name"], len(batch_frames))
+                        record_batch_high_water(direction["name"], len(sub_burst_frames))
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
                             int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
@@ -1546,7 +1596,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "index": next_index,
                             "direction": direction["name"],
                             "report": str(batch_report_path),
-                            "batch_frames": len(batch_frames),
+                            "batch_frames": len(sub_burst_frames),
+                            "sub_burst_frames": len(sub_burst_frames),
+                            "deferred_lease_frames": len(deferred_frames),
+                            "lease_batch_frames": leased_frame_count,
+                            "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
                             "samples_per_symbol": report.get("samples_per_symbol"),
                             "bit_repeat": report.get("bit_repeat"),
                             "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
@@ -1573,13 +1627,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         if args.async_source_ack and args.execute_live_rf:
                             frame_summary["source_ack"] = async_acker.submit(
                                 direction,
-                                list(batch_frames),
+                                list(sub_burst_frames),
                                 frame_summary,
                                 batch_report_path,
                             )
                             frame_summary["source_ack_ok"] = None
                         frames.append(frame_summary)
-                        counts[direction["name"].replace("-", "_")] += len(batch_frames)
+                        counts[direction["name"].replace("-", "_")] += len(sub_burst_frames)
                         counts["batches_moved"] += 1
                         record_served_direction(direction["name"])
                         next_index += 1
@@ -1694,6 +1748,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--batch-byte-limit", type=int, default=0)
+    parser.add_argument(
+        "--max-frames-per-rf-burst",
+        type=int,
+        default=0,
+        help=(
+            "Maximum frames to encode into one RF burst after a daemon batch "
+            "lease. Default 0 uses --batch-size. When this is lower than "
+            "--batch-size, remaining leased frames stay in the daemon lease "
+            "queue so the bridge scheduler can service reverse-path work before "
+            "replaying them."
+        ),
+    )
     parser.add_argument(
         "--same-priority-batch",
         dest="same_priority_batch",
