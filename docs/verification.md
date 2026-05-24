@@ -2830,8 +2830,9 @@ The same verifier checks that firmware-DMA control/status bits are decoded in C
 and reported as booleans for control enables, MAC stop, endpoint enable,
 scheduler activity, pump completion, drained-empty, budget-exhausted, and
 service-accepted state. It also requires C-derived aggregate health booleans
-for fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm status
-so wrappers do not reconstruct readiness from raw counters.
+for fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm status,
+plus action policy booleans for config, arm, and stop, so wrappers do not
+reconstruct readiness from raw counters.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
@@ -2839,6 +2840,8 @@ the assertion summary rejects captures where the firmware-DMA status read is
 missing, failed, marked as a hardware write, or missing endpoint byte counters,
 MAC pump counters, BRAM CRC/bounds counters, C-decoded control/status
 booleans, parser/ingress/egress fault bits, and aggregate health booleans.
+The same capture must include C-derived action booleans for config, arm, and
+stop decisions.
 `verify_fieldmesh_board_fw_dma_control.sh` statically checks the board wrapper
 for status/config/arm/stop: sidecar preflight must precede firmware-DMA writes,
 status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes are
@@ -2847,12 +2850,12 @@ only reachable through both local wrapper guards and the raw control tool's
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment. The wrapper also rejects
 before/after status captures that are missing the C-decoded control/status
 booleans or aggregate health booleans. `ACTION=config` refuses to change
-metadata unless the pre-config status reports `idle=true`, and `ACTION=arm`
-refuses to forward the guarded hardware write unless the pre-arm status reports
-`ready_for_arm=true`. `FORCE_FIRMWARE_DMA_CONFIG=1` and
+metadata unless the pre-config status reports `config_allowed=true`, and
+`ACTION=arm` refuses to forward the guarded hardware write unless the pre-arm
+status reports `arm_allowed=true`. `FORCE_FIRMWARE_DMA_CONFIG=1` and
 `FORCE_FIRMWARE_DMA_ARM=1` are explicit diagnostic overrides after reviewing
 `fw_dma_status_before.json`. `ACTION=stop` uses `--fw-dma-stop-if-active` by
-default and skips the register write when C status says `stop_needed=false`;
+default and skips the register write when C status says `stop_write_needed=false`;
 `FORCE_FIRMWARE_DMA_STOP=1` selects the raw stop command. The normal wrapper
 path uses the C tool's checked commands, `--fw-dma-config-if-idle`,
 `--fw-dma-arm-if-ready`, and `--fw-dma-stop-if-active`, so the final pre-write
@@ -2868,8 +2871,8 @@ the rootfs tarballs against the current checked firmware-DMA C command contract
 and emits `runtime_rebuild_needed=true` when a package lacks
 `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`,
 `--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`, or the matching C
-refusal tokens. The default report is advisory and non-failing so low-memory CI
-can keep
+refusal/policy tokens. The default report is advisory and non-failing so
+low-memory CI can keep
 source verification green until a Yocto rebuild is feasible; use
 `--require-current` after rebuilding packages to make stale runtime binaries a
 hard failure. The normal `verify_fieldmesh_runtime_artifacts.sh` path emits this

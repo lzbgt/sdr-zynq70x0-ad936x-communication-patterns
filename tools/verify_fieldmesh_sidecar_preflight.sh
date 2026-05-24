@@ -83,6 +83,9 @@ fw_dma = {
     "idle": True,
     "stop_needed": False,
     "ready_for_arm": True,
+    "config_allowed": True,
+    "arm_allowed": True,
+    "stop_write_needed": False,
     "descriptor_flags": "0x0000",
     "seq_seed": "0x00000000",
     "reads_hardware": True,
@@ -135,6 +138,9 @@ for token in (
     "service_accepted",
     "fault_free",
     "drop_counters_clear",
+    "config_allowed",
+    "arm_allowed",
+    "stop_write_needed",
     "ready_for_arm",
 ):
     if token not in assert_text:

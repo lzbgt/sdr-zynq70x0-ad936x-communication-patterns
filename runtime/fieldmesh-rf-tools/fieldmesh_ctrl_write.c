@@ -165,6 +165,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"idle\":%s,"
            "\"stop_needed\":%s,"
            "\"ready_for_arm\":%s,"
+           "\"config_allowed\":%s,"
+           "\"arm_allowed\":%s,"
+           "\"stop_write_needed\":%s,"
            "\"peer_index\":%" PRIu32 ","
            "\"mcs\":%" PRIu32 ","
            "\"retry_budget\":%" PRIu32 ","
@@ -214,6 +217,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            fieldmesh_fw_dma_status_idle(status) ? "true" : "false",
            fieldmesh_fw_dma_status_stop_needed(status) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_config_allowed(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_arm_allowed(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_stop_write_needed(status) ? "true" : "false",
            (uint32_t)status->peer_index,
            (uint32_t)status->mcs,
            (uint32_t)status->retry_budget,
@@ -326,14 +332,17 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "failed to decode firmware DMA status\n");
                 return 1;
             }
-            if (!fieldmesh_fw_dma_status_idle(&status)) {
+            if (!fieldmesh_fw_dma_status_config_allowed(&status)) {
                 printf("{\"event\":\"fieldmesh_fw_dma_config\",\"ok\":false,"
                        "\"base\":\"0x%08" PRIx32 "\","
                        "\"error\":\"firmware_dma_not_idle\","
-                       "\"idle\":false,\"ready_for_arm\":%s,"
+                       "\"idle\":%s,\"config_allowed\":false,"
+                       "\"ready_for_arm\":%s,\"arm_allowed\":%s,"
                        "\"writes_hardware\":false}\n",
                        base,
-                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false");
+                       fieldmesh_fw_dma_status_idle(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_arm_allowed(&status) ? "true" : "false");
                 return 1;
             }
         }
@@ -392,14 +401,17 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "failed to decode firmware DMA status\n");
                 return 1;
             }
-            if (!fieldmesh_fw_dma_status_ready_for_arm(&status)) {
+            if (!fieldmesh_fw_dma_status_arm_allowed(&status)) {
                 printf("{\"event\":\"fieldmesh_fw_dma_arm\",\"ok\":false,"
                        "\"base\":\"0x%08" PRIx32 "\","
                        "\"error\":\"firmware_dma_not_ready_for_arm\","
-                       "\"idle\":%s,\"ready_for_arm\":false,"
+                       "\"idle\":%s,\"config_allowed\":%s,"
+                       "\"ready_for_arm\":%s,\"arm_allowed\":false,"
                        "\"writes_hardware\":false}\n",
                        base,
-                       fieldmesh_fw_dma_status_idle(&status) ? "true" : "false");
+                       fieldmesh_fw_dma_status_idle(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_config_allowed(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false");
                 return 1;
             }
         }
@@ -438,15 +450,18 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "failed to decode firmware DMA status\n");
                 return 1;
             }
-            if (!fieldmesh_fw_dma_status_stop_needed(&status)) {
+            if (!fieldmesh_fw_dma_status_stop_write_needed(&status)) {
                 printf("{\"event\":\"fieldmesh_fw_dma_stop\",\"ok\":true,"
                        "\"base\":\"0x%08" PRIx32 "\","
-                       "\"stop_needed\":false,"
-                       "\"idle\":%s,\"ready_for_arm\":%s,"
+                       "\"stop_needed\":false,\"stop_write_needed\":false,"
+                       "\"idle\":%s,\"config_allowed\":%s,"
+                       "\"ready_for_arm\":%s,\"arm_allowed\":%s,"
                        "\"writes_hardware\":false}\n",
                        base,
                        fieldmesh_fw_dma_status_idle(&status) ? "true" : "false",
-                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false");
+                       fieldmesh_fw_dma_status_config_allowed(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_arm_allowed(&status) ? "true" : "false");
                 return 0;
             }
         }
@@ -456,7 +471,7 @@ int main(int argc, char **argv) {
                "\"base\":\"0x%08" PRIx32 "\","
                "\"control\":\"0x%08" PRIx32 "\","
                "\"control_readback\":\"0x%08" PRIx32 "\","
-               "\"stop_needed\":true,"
+               "\"stop_needed\":true,\"stop_write_needed\":true,"
                "\"writes_hardware\":true}\n",
                readback == FIELDMESH_FW_DMA_CONTROL_MAC_STOP ? "true" : "false",
                base,

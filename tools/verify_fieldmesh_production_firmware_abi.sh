@@ -188,6 +188,9 @@ int main(void) {
         fieldmesh_fw_dma_status_drop_counters_clear(&status) ||
         fieldmesh_fw_dma_status_idle(&status) ||
         !fieldmesh_fw_dma_status_stop_needed(&status) ||
+        fieldmesh_fw_dma_status_config_allowed(&status) ||
+        fieldmesh_fw_dma_status_arm_allowed(&status) ||
+        !fieldmesh_fw_dma_status_stop_write_needed(&status) ||
         fieldmesh_fw_dma_status_ready_for_arm(&status)) {
         return 12;
     }
@@ -209,6 +212,9 @@ int main(void) {
         !fieldmesh_fw_dma_status_drop_counters_clear(&status) ||
         !fieldmesh_fw_dma_status_idle(&status) ||
         fieldmesh_fw_dma_status_stop_needed(&status) ||
+        !fieldmesh_fw_dma_status_config_allowed(&status) ||
+        !fieldmesh_fw_dma_status_arm_allowed(&status) ||
+        fieldmesh_fw_dma_status_stop_write_needed(&status) ||
         !fieldmesh_fw_dma_status_ready_for_arm(&status)) {
         return 13;
     }
@@ -578,6 +584,9 @@ required = [
     "fieldmesh_fw_dma_status_idle",
     "fieldmesh_fw_dma_status_stop_needed",
     "fieldmesh_fw_dma_status_ready_for_arm",
+    "fieldmesh_fw_dma_status_config_allowed",
+    "fieldmesh_fw_dma_status_arm_allowed",
+    "fieldmesh_fw_dma_status_stop_write_needed",
 ]
 missing = [token for token in required if token not in source]
 if missing:

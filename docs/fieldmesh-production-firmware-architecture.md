@@ -467,15 +467,16 @@ step. Board-side activation should go through
 `tools/run_fieldmesh_board_fw_dma_control.sh`, which requires the sidecar
 preflight firmware-DMA status proof and records before/after status around any
 guarded config, arm, or stop command.
-For `ACTION=config`, that wrapper requires the pre-config C-decoded `idle=true`
-predicate before it changes descriptor metadata. For `ACTION=arm`, it requires
-the pre-arm C-decoded `ready_for_arm=true` health predicate before it forwards
-the guarded hardware write. `FORCE_FIRMWARE_DMA_CONFIG=1` and
+For `ACTION=config`, that wrapper requires the pre-config C-decoded
+`config_allowed=true` policy predicate before it changes descriptor metadata.
+For `ACTION=arm`, it requires the pre-arm C-decoded `arm_allowed=true` policy
+predicate before it forwards the guarded hardware write.
+`FORCE_FIRMWARE_DMA_CONFIG=1` and
 `FORCE_FIRMWARE_DMA_ARM=1` are reserved for explicit diagnostic override after
 reviewing the captured status. For `ACTION=stop`, the normal path uses
 `--fw-dma-stop-if-active` and skips the hardware write when the C-decoded
-`stop_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` is the raw diagnostic stop
-override.
+`stop_write_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` is the raw diagnostic
+stop override.
 The unforced board wrapper calls the C checked commands
 `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
 `--fw-dma-stop-if-active`, so a status race between the wrapper's before-capture

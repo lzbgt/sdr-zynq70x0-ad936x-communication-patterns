@@ -62,6 +62,9 @@ EXPECTED_FW_DMA_STATUS_KEYS = {
     "idle",
     "stop_needed",
     "ready_for_arm",
+    "config_allowed",
+    "arm_allowed",
+    "stop_write_needed",
     "peer_index",
     "mcs",
     "retry_budget",
@@ -212,7 +215,8 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
                 "drained_empty", "budget_exhausted", "service_accepted",
                 "tx_parser_fault", "ingress_fault", "egress_fault",
                 "fault_free", "drop_counters_clear", "idle",
-                "stop_needed", "ready_for_arm"):
+                "stop_needed", "ready_for_arm", "config_allowed",
+                "arm_allowed", "stop_write_needed"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{path}: firmware-DMA {key} must be a boolean: {row}")
     parse_u32(row.get("control"), path, "control", row)

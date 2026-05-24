@@ -123,15 +123,15 @@ in `src/fieldmesh_sdk.c`:
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. Descriptor flags accepted by
   `--fw-dma-config` are limited to the defined firmware ABI TX flag mask
   `0x003f`; reserved flag bits are rejected before any hardware write.
-  The board wrapper additionally requires C-decoded `idle=true` before
-  forwarding `--fw-dma-config` and `ready_for_arm=true` before forwarding
+  The board wrapper additionally consumes C-decoded `config_allowed=true` before
+  forwarding `--fw-dma-config` and `arm_allowed=true` before forwarding
   `--fw-dma-arm`, unless the matching diagnostic override is set after reviewing
   the captured status. The unforced wrapper paths use the C checked commands
   `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
   `--fw-dma-stop-if-active`, which re-read status directly before register
   writes. Checked stop skips the hardware write when the C decoder reports
-  `stop_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw diagnostic
-  stop path available.
+  `stop_write_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw
+  diagnostic stop path available.
   `--fw-dma-status-self-test` and `--fw-dma-status-idle-self-test` decode fixed
   C register vectors from `fieldmesh_fw_dma_status_test_regs_active_faulted()`
   and `fieldmesh_fw_dma_status_test_regs_idle()` without `/dev/mem`, so CI

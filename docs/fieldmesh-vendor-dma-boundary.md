@@ -294,11 +294,11 @@ For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards
 config/arm/stop writes when `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
-Config writes also require pre-config `idle=true` unless
+Config writes also require pre-config `config_allowed=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
-`ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate
+`arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate
 diagnostic override. Stop uses `--fw-dma-stop-if-active` by default and skips
-the hardware write when the C-decoded status reports `stop_needed=false`;
+the hardware write when the C-decoded status reports `stop_write_needed=false`;
 `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop command available for explicit
 diagnostics.
 Without those force overrides, the wrapper calls the C checked commands
@@ -529,13 +529,13 @@ Run the wrapper before any packet-DMA smoke test. The wrapper also captures
 fieldmesh-ctrl-write --fw-dma-status 0x43c00000`, then runs
 `tools/fieldmesh_sidecar_preflight_assert.py` over the saved `dt_scan.ndjson`,
 `ctrl_scan.ndjson`, `dma_scan.ndjson`, and firmware-DMA status files. The
-resulting `preflight_assert.json` confirms the status read is non-mutating
-and contains the C-derived firmware-DMA health booleans
-before any `--fw-dma-arm` or DMA smoke step is allowed.
+resulting `preflight_assert.json` confirms the status read is non-mutating and
+contains the C-derived firmware-DMA health and action-policy booleans before
+any `--fw-dma-arm` or DMA smoke step is allowed.
 The board firmware-DMA wrapper separately checks `fw_dma_status_before.json`
-and refuses `ACTION=config` while `idle=false` or `ACTION=arm` while
-`ready_for_arm=false`, preventing metadata races and accidental arming from a
-busy or faulted endpoint.
+and refuses `ACTION=config` while `config_allowed=false` or `ACTION=arm` while
+`arm_allowed=false`, preventing metadata races and accidental arming from a busy
+or faulted endpoint.
 `run_fieldmesh_board_dma_smoke.sh` enforces that summary before it invokes the
 transfer-starting `dma-smoke --allow-live-writes` command.
 

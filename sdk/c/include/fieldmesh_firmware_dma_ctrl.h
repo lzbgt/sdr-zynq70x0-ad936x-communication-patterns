@@ -407,6 +407,24 @@ static inline int fieldmesh_fw_dma_status_ready_for_arm(
            fieldmesh_fw_dma_status_drop_counters_clear(status);
 }
 
+static inline int fieldmesh_fw_dma_status_config_allowed(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return fieldmesh_fw_dma_status_idle(status);
+}
+
+static inline int fieldmesh_fw_dma_status_arm_allowed(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return fieldmesh_fw_dma_status_ready_for_arm(status);
+}
+
+static inline int fieldmesh_fw_dma_status_stop_write_needed(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return fieldmesh_fw_dma_status_stop_needed(status);
+}
+
 #ifdef __cplusplus
 }
 #endif

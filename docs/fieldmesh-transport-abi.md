@@ -481,7 +481,8 @@ and service-accepted state without duplicating register layout.
 The C projection also emits aggregate health booleans for fault-free,
 drop-counter-clear, idle, stop-needed, and ready-for-arm status; board wrappers
 should treat those as the readiness contract instead of re-parsing raw
-counters.
+counters. It also emits action-specific C policy booleans: `config_allowed`,
+`arm_allowed`, and `stop_write_needed`.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
 The tool's `--fw-dma-status-self-test` and
@@ -493,13 +494,13 @@ The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
 action is status-only, and config/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a
 green sidecar preflight. Arm actions also require the pre-arm status
-`ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
-diagnostic override. Config actions require pre-config `idle=true` unless
+`arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
+diagnostic override. Config actions require pre-config `config_allowed=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set after reviewing the captured status.
 The default config and arm paths use `--fw-dma-config-if-idle` and
 `--fw-dma-arm-if-ready`, which re-read status in C directly before mutation.
 The default stop path uses `--fw-dma-stop-if-active`; it writes the MAC-stop
-control bit only when the C-decoded status says stop is still needed.
+control bit only when the C-decoded status says `stop_write_needed=true`.
 
 ## Z103 And Z203 Capability Profiles
 

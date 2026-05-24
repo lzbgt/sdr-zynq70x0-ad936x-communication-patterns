@@ -22,6 +22,9 @@ drop_counters_clear
 idle
 stop_needed
 ready_for_arm
+config_allowed
+arm_allowed
+stop_write_needed
 EOF
 
 cat >"$stale_strings" <<'EOF'
@@ -70,7 +73,8 @@ if stale.get("runtime_rebuild_needed") is not True:
     raise SystemExit(f"z203 stale fixture did not request rebuild: {stale!r}")
 for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
               "--fw-dma-stop-if-active", "--fw-dma-status-idle-self-test",
-              "firmware_dma_not_ready_for_arm"):
+              "firmware_dma_not_ready_for_arm", "config_allowed",
+              "arm_allowed", "stop_write_needed"):
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale fixture missing expected missing token {token}: {stale!r}")
 

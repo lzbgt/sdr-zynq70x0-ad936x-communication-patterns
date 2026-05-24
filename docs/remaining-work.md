@@ -1440,19 +1440,21 @@ below were later superseded by the current PHY-management two-board gates above:
   captures this read-only firmware-DMA status and includes it in
   `preflight_assert.json`, so live DMA smoke or firmware-DMA arm tests have a
   non-mutating endpoint-status gate. The C decoder now also exports aggregate
-  `fault_free`, `drop_counters_clear`, `idle`, and `ready_for_arm` booleans, so
-  board wrappers do not reimplement readiness from raw FPGA counters.
+  `fault_free`, `drop_counters_clear`, `idle`, and `ready_for_arm` booleans plus
+  action policy booleans `config_allowed`, `arm_allowed`, and
+  `stop_write_needed`, so board wrappers do not reimplement readiness from raw
+  FPGA counters.
   `tools/run_fieldmesh_board_fw_dma_control.sh`
   is now the live board wrapper for status/config/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
   `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding config/arm/stop
-  hardware writes. Config writes also require pre-config `idle=true` unless
-  `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
-  `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
+  hardware writes. Config writes also require pre-config `config_allowed=true`
+  unless `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
+  `arm_allowed=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
   diagnostic override. Stop now defaults to the C checked
   `--fw-dma-stop-if-active` command and skips the register write when
-  `stop_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop path for
-  explicit diagnostics. The unforced paths now call the C checked commands
+  `stop_write_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop path
+  for explicit diagnostics. The unforced paths now call the C checked commands
   `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
   `--fw-dma-stop-if-active`, so the last pre-write health predicate is
   evaluated in C.

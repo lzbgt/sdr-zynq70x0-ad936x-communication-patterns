@@ -21,6 +21,9 @@ required = [
     "fault_free",
     "drop_counters_clear",
     "idle",
+    "config_allowed",
+    "arm_allowed",
+    "stop_write_needed",
     "ready_for_arm",
     "status|config|arm|stop",
     "PEER_INDEX",
@@ -33,10 +36,10 @@ required = [
     "FORCE_FIRMWARE_DMA_STOP",
     "config_guard_blocked",
     "arm_guard_blocked",
-    "firmware-DMA status before config is not idle",
-    "status_before.idle",
-    "firmware-DMA status before arm is not ready_for_arm",
-    "status_before.ready_for_arm",
+    "firmware-DMA status before config is not config_allowed",
+    "status_before.config_allowed",
+    "firmware-DMA status before arm is not arm_allowed",
+    "status_before.arm_allowed",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -60,14 +63,14 @@ if preflight_check > config_write or preflight_check > arm_write or preflight_ch
     raise SystemExit("firmware-DMA writes must be after sidecar preflight validation")
 if script.index("fieldmesh_fw_dma_control_skipped") > arm_write:
     raise SystemExit("dry-run skip path must be defined before write command")
-ready_check = script.index("ready_for_arm")
+ready_check = script.index("arm_allowed")
 arm_guard = script.index("arm_guard_blocked")
 if ready_check > arm_write or arm_guard > arm_write:
-    raise SystemExit("firmware-DMA arm must be gated by ready_for_arm before the write command")
-idle_check = script.index("idle")
+    raise SystemExit("firmware-DMA arm must be gated by arm_allowed before the write command")
+idle_check = script.index("config_allowed")
 config_guard = script.index("config_guard_blocked")
 if idle_check > config_write or config_guard > config_write:
-    raise SystemExit("firmware-DMA config must be gated by idle before the write command")
+    raise SystemExit("firmware-DMA config must be gated by config_allowed before the write command")
 PY
 
 printf 'fieldmesh_board_fw_dma_control=pass\n'

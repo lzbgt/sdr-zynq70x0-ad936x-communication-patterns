@@ -156,8 +156,8 @@ with open(sys.argv[1], encoding="utf-8") as f:
     row = json.load(f)
 if row.get("event") != "fieldmesh_fw_dma_status" or row.get("ok") is not True:
     raise SystemExit(f"firmware-DMA pre-config status failed: {row}")
-if row.get("idle") is not True:
-    raise SystemExit("firmware-DMA pre-config status is not idle")
+if row.get("config_allowed") is not True:
+    raise SystemExit("firmware-DMA pre-config status is not config_allowed")
 PY
   then
     config_guard_blocked=1
@@ -174,8 +174,8 @@ with open(sys.argv[1], encoding="utf-8") as f:
     row = json.load(f)
 if row.get("event") != "fieldmesh_fw_dma_status" or row.get("ok") is not True:
     raise SystemExit(f"firmware-DMA pre-arm status failed: {row}")
-if row.get("ready_for_arm") is not True:
-    raise SystemExit("firmware-DMA pre-arm status is not ready_for_arm")
+if row.get("arm_allowed") is not True:
+    raise SystemExit("firmware-DMA pre-arm status is not arm_allowed")
 PY
   then
     arm_guard_blocked=1
@@ -191,7 +191,7 @@ JSON
   config)
     if [[ "$config_guard_blocked" == "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
-{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before config is not idle; set FORCE_FIRMWARE_DMA_CONFIG=1 only after reviewing status_before","writes_hardware":false}
+{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before config is not config_allowed; set FORCE_FIRMWARE_DMA_CONFIG=1 only after reviewing status_before","writes_hardware":false}
 JSON
     elif [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
@@ -212,7 +212,7 @@ JSON
   arm)
     if [[ "$arm_guard_blocked" == "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
-{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before arm is not ready_for_arm; set FORCE_FIRMWARE_DMA_ARM=1 only after reviewing status_before","writes_hardware":false}
+{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before arm is not arm_allowed; set FORCE_FIRMWARE_DMA_ARM=1 only after reviewing status_before","writes_hardware":false}
 JSON
     elif [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
@@ -293,7 +293,8 @@ for label, row in (("before", before), ("after", after)):
                 "drained_empty", "budget_exhausted", "service_accepted",
                 "tx_parser_fault", "ingress_fault", "egress_fault",
                 "fault_free", "drop_counters_clear", "idle", "stop_needed",
-                "ready_for_arm"):
+                "ready_for_arm", "config_allowed", "arm_allowed",
+                "stop_write_needed"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
 
@@ -306,8 +307,8 @@ if applied:
     if control.get("event") != expected_event or control.get("ok") is not True:
         raise SystemExit(f"firmware-DMA {action} failed: {control}")
     if action == "stop" and control.get("writes_hardware") is False:
-        if control.get("stop_needed") is not False:
-            raise SystemExit(f"firmware-DMA checked stop skipped without stop_needed=false: {control}")
+        if control.get("stop_write_needed") is not False:
+            raise SystemExit(f"firmware-DMA checked stop skipped without stop_write_needed=false: {control}")
     elif control.get("writes_hardware") is not True:
         raise SystemExit(f"firmware-DMA {action} did not report hardware write: {control}")
     if action == "arm" and control.get("service_budget") != service_budget:
@@ -356,9 +357,9 @@ print(json.dumps(summary, sort_keys=True))
     encoding="utf-8",
 )
 if config_guard_blocked:
-    raise SystemExit("firmware-DMA config refused because status_before.idle is false")
+    raise SystemExit("firmware-DMA config refused because status_before.config_allowed is false")
 if arm_guard_blocked:
-    raise SystemExit("firmware-DMA arm refused because status_before.ready_for_arm is false")
+    raise SystemExit("firmware-DMA arm refused because status_before.arm_allowed is false")
 PY
 
 echo "Capture directory: $out_dir"

@@ -70,6 +70,9 @@ source_tokens = (
     "fieldmesh_fw_dma_status_idle",
     "fieldmesh_fw_dma_status_stop_needed",
     "fieldmesh_fw_dma_status_ready_for_arm",
+    "fieldmesh_fw_dma_status_config_allowed",
+    "fieldmesh_fw_dma_status_arm_allowed",
+    "fieldmesh_fw_dma_status_stop_write_needed",
 )
 artifact_tokens = (
     "--fw-dma-status-idle-self-test",
@@ -83,6 +86,9 @@ artifact_tokens = (
     "idle",
     "stop_needed",
     "ready_for_arm",
+    "config_allowed",
+    "arm_allowed",
+    "stop_write_needed",
 )
 
 missing_source = [token for token in source_tokens if token not in source]
@@ -142,6 +148,9 @@ source_tokens = (
     "fieldmesh_fw_dma_status_idle",
     "fieldmesh_fw_dma_status_stop_needed",
     "fieldmesh_fw_dma_status_ready_for_arm",
+    "fieldmesh_fw_dma_status_config_allowed",
+    "fieldmesh_fw_dma_status_arm_allowed",
+    "fieldmesh_fw_dma_status_stop_write_needed",
 )
 artifact_tokens = (
     "--fw-dma-status-idle-self-test",
@@ -155,6 +164,9 @@ artifact_tokens = (
     "idle",
     "stop_needed",
     "ready_for_arm",
+    "config_allowed",
+    "arm_allowed",
+    "stop_write_needed",
 )
 
 missing_source = [token for token in source_tokens if token not in source]
