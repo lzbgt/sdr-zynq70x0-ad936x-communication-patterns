@@ -5101,7 +5101,12 @@ requirement, and in-burst priority preemption. The IIO burst helper must also
 prove the persistent native worker lifecycle: server-ready output carries
 `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`, each server-owned transfer
 emits a monotonically positive `server_xfer_count`, and native-IP evidence
-rejects reports that only prove one-shot helper execution.
+rejects reports that only prove one-shot helper execution. The live runner now
+hands the helper a `WORKER_XFER request_file=...` request parsed by the C
+transport worker; accepted reports must include
+`FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
+`transport_worker_request_count > 0`, and
+`python_xfer_field_orchestration=false`.
 `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP

@@ -70,6 +70,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_native_iio_burst_worker_missing")
         if report.get("requires_iio_native_iio_burst_worker_lifecycle") is not True:
             blockers.append("native_ip_native_iio_burst_worker_lifecycle_missing")
+        if report.get("requires_iio_native_iio_burst_transport_worker") is not True:
+            blockers.append("native_ip_native_iio_burst_transport_worker_missing")
         if report.get("requires_iio_in_burst_priority_preemption") is not True:
             blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
         if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -138,6 +140,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_native_iio_burst_worker_lifecycle_missing")
         if report.get("host_iio_native_iio_burst_worker_lifecycle_proven") is not True:
             blockers.append("native_ip_host_native_iio_burst_worker_lifecycle_missing")
+        if report.get("board_iio_native_iio_burst_transport_worker_proven") is not True:
+            blockers.append("native_ip_board_native_iio_burst_transport_worker_missing")
+        if report.get("host_iio_native_iio_burst_transport_worker_proven") is not True:
+            blockers.append("native_ip_host_native_iio_burst_transport_worker_missing")
         if report.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
             blockers.append("native_ip_board_iio_in_burst_priority_preemption_missing")
         if report.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
@@ -230,6 +236,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_native_iio_burst_worker_lifecycle": report.get(
             "requires_iio_native_iio_burst_worker_lifecycle"
+        ),
+        "requires_iio_native_iio_burst_transport_worker": report.get(
+            "requires_iio_native_iio_burst_transport_worker"
         ),
         "requires_iio_rf_sub_burst_evidence": report.get(
             "requires_iio_rf_sub_burst_evidence"
@@ -429,6 +438,12 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_iio_burst_worker_lifecycle_proven": report.get(
             "host_iio_native_iio_burst_worker_lifecycle_proven"
+        ),
+        "board_iio_native_iio_burst_transport_worker_proven": report.get(
+            "board_iio_native_iio_burst_transport_worker_proven"
+        ),
+        "host_iio_native_iio_burst_transport_worker_proven": report.get(
+            "host_iio_native_iio_burst_transport_worker_proven"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"

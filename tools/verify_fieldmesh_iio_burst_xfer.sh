@@ -64,6 +64,7 @@ for key in (
     "persistent_server_supported",
     "persistent_worker_lifecycle_supported",
     "server_owned_xfer_loop_supported",
+    "native_iio_burst_transport_worker_supported",
     "libiio_rx_tx_worker",
     "same_process_rx_tx",
 ):
@@ -71,6 +72,10 @@ for key in (
         raise SystemExit(f"C native IIO worker did not prove {key}: {report}")
 if report.get("native_iio_burst_worker_lifecycle_proof") != "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1":
     raise SystemExit(f"C native IIO worker lifecycle proof token drifted: {report}")
+if report.get("native_iio_burst_transport_worker_proof") != "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1":
+    raise SystemExit(f"C native IIO burst transport worker proof token drifted: {report}")
+if report.get("python_xfer_field_orchestration") is not False:
+    raise SystemExit(f"C native IIO transport worker must reject Python field orchestration: {report}")
 for key in ("python_iio_transport", "reads_hardware", "writes_hardware", "starts_rf_tx"):
     if report.get(key) is not False:
         raise SystemExit(f"C native IIO worker self-test must be read/write-free for {key}: {report}")
@@ -392,11 +397,17 @@ required = [
     "fieldmesh_iio_burst_native_worker_self_test",
     "FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1",
     "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1",
+    "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1",
+    "WORKER_XFER",
+    "fieldmesh_iio_burst_transport_worker_request",
     "native_iio_burst_worker",
     "persistent_native_iio_burst_worker",
     "native_iio_burst_worker_lifecycle",
     "server_owned_xfer_loop",
     "server_xfer_count",
+    "native_iio_burst_transport_worker",
+    "transport_worker_request_count",
+    "python_xfer_field_orchestration",
     "libiio_rx_tx_worker",
     "python_iio_transport",
     "fieldmesh_bpsk_modem_encode",

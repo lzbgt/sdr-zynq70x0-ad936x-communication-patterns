@@ -383,8 +383,12 @@ Minimum production gates for native TCP/IP:
   rebuilt persistent helper moved 55 real-RF frames with zero bridge errors; the
   current evidence gate now requires that helper to prove its native server
   lifecycle with `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1` and a positive
-  server-owned transfer counter, so archived captures cannot pass on one-shot
-  helper invocation alone. The Z203 client sent 128 TCP bytes, the Z103
+  server-owned transfer counter. It now also requires the C helper to parse the
+  per-burst `WORKER_XFER` request file and emit
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1` with
+  `python_xfer_field_orchestration=false`, so archived captures cannot pass on
+  one-shot helper invocation or Python-owned `XFER` field strings alone. The
+  Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
   was still already interrupted by the wrapper in that run, so production
   `iperf3` evidence remains incomplete, but the failure is now specifically the

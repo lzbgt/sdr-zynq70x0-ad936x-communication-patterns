@@ -51,6 +51,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_worker_lifecycle_proven": true,
   "iio_bridge_native_iio_burst_worker_lifecycle_invocations": 3,
   "iio_bridge_native_iio_burst_worker_lifecycle_failures": 0,
+  "iio_bridge_native_iio_burst_transport_worker_proven": true,
+  "iio_bridge_native_iio_burst_transport_worker_invocations": 3,
+  "iio_bridge_native_iio_burst_transport_worker_failures": 0,
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -272,6 +275,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_worker_lifecycle_proven": true,
   "iio_bridge_native_iio_burst_worker_lifecycle_invocations": 3,
   "iio_bridge_native_iio_burst_worker_lifecycle_failures": 0,
+  "iio_bridge_native_iio_burst_transport_worker_proven": true,
+  "iio_bridge_native_iio_burst_transport_worker_invocations": 3,
+  "iio_bridge_native_iio_burst_transport_worker_failures": 0,
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -499,6 +505,8 @@ if report.get("requires_iio_native_iio_burst_worker") is not True:
     raise SystemExit(f"missing native IIO burst worker requirement: {report}")
 if report.get("requires_iio_native_iio_burst_worker_lifecycle") is not True:
     raise SystemExit(f"missing native IIO burst worker lifecycle requirement: {report}")
+if report.get("requires_iio_native_iio_burst_transport_worker") is not True:
+    raise SystemExit(f"missing native IIO burst transport worker requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"missing in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -579,6 +587,10 @@ if report.get("host_iio_native_iio_burst_worker_lifecycle_proven") is not True:
     raise SystemExit(f"missing host native IIO burst worker lifecycle proof: {report}")
 if report.get("host_iio_native_iio_burst_worker_lifecycle_invocations") != 3:
     raise SystemExit(f"missing host native IIO burst worker lifecycle invocation count: {report}")
+if report.get("host_iio_native_iio_burst_transport_worker_proven") is not True:
+    raise SystemExit(f"missing host native IIO burst transport worker proof: {report}")
+if report.get("host_iio_native_iio_burst_transport_worker_invocations") != 3:
+    raise SystemExit(f"missing host native IIO burst transport worker invocation count: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"missing host in-burst priority multiplexing proof: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
@@ -647,6 +659,8 @@ if report.get("requires_iio_native_iio_burst_worker") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst worker requirement: {report}")
 if report.get("requires_iio_native_iio_burst_worker_lifecycle") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst worker lifecycle requirement: {report}")
+if report.get("requires_iio_native_iio_burst_transport_worker") is not True:
+    raise SystemExit(f"native-IP readiness lost native IIO burst transport worker requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:

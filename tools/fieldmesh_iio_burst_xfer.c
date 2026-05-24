@@ -94,6 +94,8 @@ struct options {
     bool server;
     bool persistent_server_mode;
     unsigned long long server_xfer_count;
+    bool native_transport_worker_mode;
+    unsigned long long transport_worker_request_count;
 };
 
 struct rx_job {
@@ -148,6 +150,10 @@ static int run_native_worker_self_test(void)
            "\"persistent_worker_lifecycle_supported\":true,"
            "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
            "\"server_owned_xfer_loop_supported\":true,"
+           "\"native_iio_burst_transport_worker_supported\":true,"
+           "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+           "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
+           "\"python_xfer_field_orchestration\":false,"
            "\"libiio_rx_tx_worker\":true,"
            "\"same_process_rx_tx\":true,"
            "\"python_iio_transport\":false,"
@@ -1709,6 +1715,11 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"native_iio_burst_worker_lifecycle_proof\":\"%s\","
             "\"server_owned_xfer_loop\":%s,"
             "\"server_xfer_count\":%llu,"
+            "\"native_iio_burst_transport_worker\":%s,"
+            "\"native_iio_burst_transport_worker_proof\":\"%s\","
+            "\"transport_worker_request\":%s,"
+            "\"transport_worker_request_count\":%llu,"
+            "\"python_xfer_field_orchestration\":%s,"
             "\"libiio_rx_tx_worker\":true,"
             "\"same_process_rx_tx\":true,"
             "\"python_iio_transport\":false,"
@@ -1721,6 +1732,12 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1" : "",
             opt->persistent_server_mode ? "true" : "false",
             opt->server_xfer_count,
+            opt->native_transport_worker_mode ? "true" : "false",
+            opt->native_transport_worker_mode ?
+                "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1" : "",
+            opt->native_transport_worker_mode ? "true" : "false",
+            opt->transport_worker_request_count,
+            opt->native_transport_worker_mode ? "false" : "true",
             tx_bytes, job.bytes_written, rx_bytes, opt->cyclic ? "true" : "false",
             elapsed_ms);
     fflush(json_out);
@@ -1731,6 +1748,70 @@ static const char *value_after(char *token, const char *prefix)
 {
     size_t len = strlen(prefix);
     return strncmp(token, prefix, len) == 0 ? token + len : NULL;
+}
+
+static int apply_worker_request_field(struct options *req, char *key, char *value)
+{
+    if (strcmp(key, "tx_file") == 0) {
+        char *copy = strdup(value);
+        if (!copy) {
+            return -1;
+        }
+        free((char *)req->tx_file);
+        req->tx_file = copy;
+    } else if (strcmp(key, "rx_file") == 0) {
+        char *copy = strdup(value);
+        if (!copy) {
+            return -1;
+        }
+        free((char *)req->rx_file);
+        req->rx_file = copy;
+    } else if (strcmp(key, "tx_samples") == 0) {
+        req->tx_samples = (size_t)parse_ull(value, "tx_samples");
+    } else if (strcmp(key, "rx_samples") == 0) {
+        req->rx_samples = (size_t)parse_ull(value, "rx_samples");
+    } else if (strcmp(key, "buffer_size") == 0) {
+        req->buffer_size = (size_t)parse_ull(value, "buffer_size");
+    } else if (strcmp(key, "tx_duration_ms") == 0) {
+        req->tx_duration_ms = (unsigned int)parse_ull(value, "tx_duration_ms");
+    } else if (strcmp(key, "rx_arm_delay_ms") == 0) {
+        req->rx_arm_delay_ms = (unsigned int)parse_ull(value, "rx_arm_delay_ms");
+    } else if (strcmp(key, "cyclic") == 0) {
+        req->cyclic = strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
+    } else if (strcmp(key, "event") != 0 &&
+               strcmp(key, "native_iio_burst_transport_request") != 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static int load_worker_request_file(struct options *req, const char *path)
+{
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return -1;
+    }
+    char line[4096];
+    while (fgets(line, sizeof(line), fp)) {
+        line[strcspn(line, "\r\n")] = '\0';
+        if (line[0] == '\0' || line[0] == '#') {
+            continue;
+        }
+        char *eq = strchr(line, '=');
+        if (!eq) {
+            fclose(fp);
+            return -1;
+        }
+        *eq = '\0';
+        if (apply_worker_request_field(req, line, eq + 1) != 0) {
+            fclose(fp);
+            return -1;
+        }
+    }
+    if (fclose(fp) != 0) {
+        return -1;
+    }
+    return 0;
 }
 
 static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
@@ -1746,6 +1827,10 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
            "\"server_owned_xfer_loop\":true,"
            "\"server_xfer_count\":0,"
+           "\"native_iio_burst_transport_worker\":true,"
+           "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+           "\"transport_worker_request_count\":0,"
+           "\"python_xfer_field_orchestration\":false,"
            "\"server_pid\":%ld,"
            "\"libiio_rx_tx_worker\":true,"
            "\"python_iio_transport\":false}\n",
@@ -1758,14 +1843,18 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             printf("{\"event\":\"fieldmesh_iio_burst_xfer_server_quit\",\"ok\":true,"
                    "\"native_iio_burst_worker_lifecycle\":true,"
                    "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
                    "\"server_owned_xfer_loop\":true,"
                    "\"server_xfer_count\":%llu}\n", xfer_count);
             fflush(stdout);
             return 0;
         }
-        if (strncmp(line, "XFER ", 5) != 0) {
+        bool worker_xfer = strncmp(line, "WORKER_XFER ", 12) == 0;
+        bool legacy_xfer = strncmp(line, "XFER ", 5) == 0;
+        if (!worker_xfer && !legacy_xfer) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
-                   "\"error\":\"expected_XFER_or_QUIT\"}\n");
+                   "\"error\":\"expected_WORKER_XFER_or_XFER_or_QUIT\"}\n");
             fflush(stdout);
             continue;
         }
@@ -1777,28 +1866,52 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         req.rx_samples = 0;
         req.persistent_server_mode = true;
         req.server_xfer_count = xfer_count + 1ULL;
+        req.native_transport_worker_mode = worker_xfer;
+        req.transport_worker_request_count = worker_xfer ? xfer_count + 1ULL : 0ULL;
 
         char *save = NULL;
-        for (char *token = strtok_r(line + 5, " ", &save);
-             token;
-             token = strtok_r(NULL, " ", &save)) {
-            const char *value;
-            if ((value = value_after(token, "tx_file="))) {
-                req.tx_file = value;
-            } else if ((value = value_after(token, "rx_file="))) {
-                req.rx_file = value;
-            } else if ((value = value_after(token, "tx_samples="))) {
-                req.tx_samples = (size_t)parse_ull(value, "tx_samples");
-            } else if ((value = value_after(token, "rx_samples="))) {
-                req.rx_samples = (size_t)parse_ull(value, "rx_samples");
-            } else if ((value = value_after(token, "buffer_size="))) {
-                req.buffer_size = (size_t)parse_ull(value, "buffer_size");
-            } else if ((value = value_after(token, "tx_duration_ms="))) {
-                req.tx_duration_ms = (unsigned int)parse_ull(value, "tx_duration_ms");
-            } else if ((value = value_after(token, "rx_arm_delay_ms="))) {
-                req.rx_arm_delay_ms = (unsigned int)parse_ull(value, "rx_arm_delay_ms");
-            } else if ((value = value_after(token, "cyclic="))) {
-                req.cyclic = strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
+        if (worker_xfer) {
+            const char *request_file = NULL;
+            for (char *token = strtok_r(line + 12, " ", &save);
+                 token;
+                 token = strtok_r(NULL, " ", &save)) {
+                const char *value = value_after(token, "request_file=");
+                if (value) {
+                    request_file = value;
+                }
+            }
+            if (!request_file || load_worker_request_file(&req, request_file) != 0) {
+                free((char *)req.tx_file);
+                free((char *)req.rx_file);
+                printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
+                       "\"native_iio_burst_transport_worker\":true,"
+                       "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                       "\"error\":\"invalid_WORKER_XFER_request\"}\n");
+                fflush(stdout);
+                continue;
+            }
+        } else {
+            for (char *token = strtok_r(line + 5, " ", &save);
+                 token;
+                 token = strtok_r(NULL, " ", &save)) {
+                const char *value;
+                if ((value = value_after(token, "tx_file="))) {
+                    req.tx_file = value;
+                } else if ((value = value_after(token, "rx_file="))) {
+                    req.rx_file = value;
+                } else if ((value = value_after(token, "tx_samples="))) {
+                    req.tx_samples = (size_t)parse_ull(value, "tx_samples");
+                } else if ((value = value_after(token, "rx_samples="))) {
+                    req.rx_samples = (size_t)parse_ull(value, "rx_samples");
+                } else if ((value = value_after(token, "buffer_size="))) {
+                    req.buffer_size = (size_t)parse_ull(value, "buffer_size");
+                } else if ((value = value_after(token, "tx_duration_ms="))) {
+                    req.tx_duration_ms = (unsigned int)parse_ull(value, "tx_duration_ms");
+                } else if ((value = value_after(token, "rx_arm_delay_ms="))) {
+                    req.rx_arm_delay_ms = (unsigned int)parse_ull(value, "rx_arm_delay_ms");
+                } else if ((value = value_after(token, "cyclic="))) {
+                    req.cyclic = strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
+                }
             }
         }
 
@@ -1810,6 +1923,10 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         }
         xfer_count++;
         (void)run_xfer(rx_dev, tx_dev, &req, stdout);
+        if (worker_xfer) {
+            free((char *)req.tx_file);
+            free((char *)req.rx_file);
+        }
     }
     return 0;
 }
