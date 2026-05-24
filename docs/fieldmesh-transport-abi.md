@@ -462,6 +462,9 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x198` | `FM_FW_DMA_BRAM_CRC_ERRORS` | descriptor/BRAM-service CRC failures |
 | `0x19c` | `FM_FW_DMA_BRAM_BOUNDS_ERRORS` | packet BRAM bounds failures |
 | `0x1a0` | `FM_FW_DMA_FAULT_STATUS` | bit 0 TX parser fault, bit 1 ingress fault, bit 2 egress fault |
+| `0x1a4` | `FM_FW_DMA_SERVICE_LATENCY_LAST_CYCLES` | last FPGA MAC-service interval in PL clock cycles |
+| `0x1a8` | `FM_FW_DMA_SERVICE_LATENCY_MAX_CYCLES` | maximum observed FPGA MAC-service interval in PL clock cycles since endpoint enable |
+| `0x1ac` | `FM_FW_DMA_SERVICE_LATENCY_ACCUM_CYCLES` | accumulated FPGA MAC-service cycles for completed pump intervals |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

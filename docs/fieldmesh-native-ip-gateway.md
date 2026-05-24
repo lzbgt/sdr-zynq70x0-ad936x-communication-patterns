@@ -189,10 +189,11 @@ Minimum production gates for native TCP/IP:
   guard planning, and read-only firmware-DMA endpoint status snapshots before
   and after daemon bind validation. The snapshots must be C-decoded,
   non-mutating hardware reads at the default sidecar control base and include
-  TX parser, ingress, egress, MAC pump, and BRAM error counters. The script
-  treats the DMA TX poll count as submit-latency evidence and requires TX
-  parser, ingress, descriptor-publication, and MAC tick counters to advance
-  without any drop/error counter increase. It then starts the board daemon's
+  TX parser, ingress, egress, MAC pump, BRAM error, and FPGA service-latency
+  counters. The script treats FPGA service-latency cycles and the DMA TX poll
+  count as latency evidence and requires TX parser, ingress,
+  descriptor-publication, and MAC tick counters to advance without any
+  drop/error counter increase. It then starts the board daemon's
   native-IP service plus RF worker and requires the daemon to keep
   `driver_prerequisites_ready=0` and `binding_ready=0` unless DAC source-select
   readback has passed. It still requires

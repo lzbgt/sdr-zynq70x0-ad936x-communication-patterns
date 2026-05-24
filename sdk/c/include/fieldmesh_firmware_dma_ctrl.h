@@ -35,8 +35,11 @@ extern "C" {
 #define FIELDMESH_FW_DMA_REG_BRAM_CRC_ERRORS 0x198u
 #define FIELDMESH_FW_DMA_REG_BRAM_BOUNDS_ERRORS 0x19cu
 #define FIELDMESH_FW_DMA_REG_FAULT_STATUS 0x1a0u
+#define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES 0x1a4u
+#define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES 0x1a8u
+#define FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES 0x1acu
 
-#define FIELDMESH_FW_DMA_STATUS_REG_COUNT 25u
+#define FIELDMESH_FW_DMA_STATUS_REG_COUNT 28u
 
 #define FIELDMESH_FW_DMA_CONTROL_ENABLE 0x00000001u
 #define FIELDMESH_FW_DMA_CONTROL_INGRESS_ENABLE 0x00000002u
@@ -111,6 +114,9 @@ typedef struct fieldmesh_fw_dma_status {
     uint32_t bram_crc_errors;
     uint32_t bram_bounds_errors;
     uint32_t bram_errors;
+    uint32_t service_latency_last_cycles;
+    uint32_t service_latency_max_cycles;
+    uint32_t service_latency_accum_cycles;
     uint32_t fault_status;
     uint16_t peer_index;
     uint8_t mcs;
@@ -153,6 +159,9 @@ static inline uint32_t fieldmesh_fw_dma_status_offset(size_t index)
     case 22u: return FIELDMESH_FW_DMA_REG_BRAM_CRC_ERRORS;
     case 23u: return FIELDMESH_FW_DMA_REG_BRAM_BOUNDS_ERRORS;
     case 24u: return FIELDMESH_FW_DMA_REG_FAULT_STATUS;
+    case 25u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES;
+    case 26u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES;
+    case 27u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES;
     default: return 0u;
     }
 }
@@ -236,6 +245,9 @@ static inline void fieldmesh_fw_dma_status_test_regs_active_faulted(
     regs[24] = FIELDMESH_FW_DMA_FAULT_TX_PARSER |
                FIELDMESH_FW_DMA_FAULT_EGRESS |
                0xffff0000u;
+    regs[25] = 25u;
+    regs[26] = 26u;
+    regs[27] = 2700u;
 }
 
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
@@ -309,6 +321,9 @@ static inline int fieldmesh_fw_dma_status_from_regs(
     status->bram_crc_errors = regs[22];
     status->bram_bounds_errors = regs[23];
     status->fault_status = regs[24] & FIELDMESH_FW_DMA_FAULT_ALL;
+    status->service_latency_last_cycles = regs[25];
+    status->service_latency_max_cycles = regs[26];
+    status->service_latency_accum_cycles = regs[27];
     return 1;
 }
 

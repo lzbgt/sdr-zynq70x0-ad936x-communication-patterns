@@ -97,6 +97,18 @@ def build(report_path: Path) -> dict[str, Any]:
     if snapshots["ingress_packets"]["delta"] != deltas["fw_dma_ingress_packets_delta"]:
         raise SystemExit("RF hardware progression ingress snapshot does not match required delta")
 
+    service_latency_last = require_int(report, "fw_dma_service_latency_last_cycles_after", 1)
+    service_latency_max = require_int(report, "fw_dma_service_latency_max_cycles_after", service_latency_last)
+    service_latency_accum = snapshot(
+        report,
+        "service_latency_accum_cycles",
+        "fw_dma_service_latency_accum_cycles",
+    )
+    if service_latency_accum["delta"] < service_latency_last:
+        raise SystemExit(
+            "RF hardware progression service-latency accumulator did not cover the last service interval"
+        )
+
     tx_polls = require_int(report, "dma_smoke_tx_polls", 1)
     rx_polls = require_int(report, "dma_smoke_rx_polls", 0)
     modem_rate = report.get("modem_benchmark_decode_frame_kbps")
@@ -118,6 +130,12 @@ def build(report_path: Path) -> dict[str, Any]:
         "submit_latency_evidence": {
             "dma_smoke_tx_polls": tx_polls,
             "dma_smoke_rx_polls": rx_polls,
+        },
+        "service_latency_evidence": {
+            "source": "firmware_dma_endpoint",
+            "last_cycles": service_latency_last,
+            "max_cycles": service_latency_max,
+            "accum_cycles": service_latency_accum,
         },
         "c_modem_service_rate": {
             "required": True,

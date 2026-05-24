@@ -95,6 +95,9 @@ fw_dma_source_tokens = (
     "fieldmesh_fw_dma_status_config_allowed",
     "fieldmesh_fw_dma_status_arm_allowed",
     "fieldmesh_fw_dma_status_stop_write_needed",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
 )
 fw_dma_artifact_tokens = (
     "--fw-dma-status-idle-self-test",
@@ -113,6 +116,9 @@ fw_dma_artifact_tokens = (
     "config_allowed",
     "arm_allowed",
     "stop_write_needed",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
 )
 rf_guard_source_tokens = (
     "fieldmesh_rf_guard_control_tx_enabled",
@@ -246,6 +252,9 @@ fw_dma_source_tokens = (
     "fieldmesh_fw_dma_status_config_allowed",
     "fieldmesh_fw_dma_status_arm_allowed",
     "fieldmesh_fw_dma_status_stop_write_needed",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
 )
 fw_dma_artifact_tokens = (
     "--fw-dma-status-idle-self-test",
@@ -263,6 +272,9 @@ fw_dma_artifact_tokens = (
     "config_allowed",
     "arm_allowed",
     "stop_write_needed",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
 )
 rf_guard_source_tokens = (
     "fieldmesh_rf_guard_control_tx_enabled",

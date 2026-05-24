@@ -2881,7 +2881,7 @@ predicate is evaluated in C immediately before register writes.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full
-`0x140..0x1a0` firmware-DMA page, the shared descriptor flag mask, and the
+`0x140..0x1ac` firmware-DMA page, the shared descriptor flag mask, and the
 shared C self-test fixture vectors; stale `0x178` overlay guards are rejected.
 `report_fieldmesh_runtime_source_freshness.sh` is a read-only runtime package
 freshness reporter. It compares the packaged `fieldmesh-ctrl-write` strings in
@@ -2971,13 +2971,15 @@ and BRAM error counters. The bind-gate summary carries those before/after MAC
 tick, ingress packet, egress packet, and BRAM error values as hardware-side
 counter evidence. It also requires positive TX parser packet/byte, ingress
 packet/byte, descriptor-publication, and MAC tick deltas, keeps parser/ingress/
-egress drop plus BRAM error deltas at zero, and records DMA TX poll count as
-submit-latency evidence while still refusing to claim `rf_phy_tx_rx` until
+egress drop plus BRAM error deltas at zero, records FPGA MAC-service latency
+cycles, and records DMA TX poll count as submit-latency evidence while still
+refusing to claim `rf_phy_tx_rx` until
 measured radio TX/RX is authorized and observed.
 `tools/fieldmesh_rf_hardware_progression_evidence.py` normalizes that bind-gate
 summary into the production evidence artifact required by the real-RF manifest;
-the artifact preserves before/after snapshots, required deltas, DMA submit-poll
-latency evidence, and C modem service-rate evidence without adding a Python data
+the artifact preserves before/after snapshots, required deltas, FPGA
+service-latency evidence, DMA submit-poll latency evidence, and C modem
+service-rate evidence without adding a Python data
 path.
 
 ## Z203 Passive Learner Control Smoke

@@ -74,6 +74,9 @@ module fieldmesh_firmware_axis_dma_endpoint #(
     output wire [31:0] mac_tick_count,
     output wire [31:0] mac_pump_start_count,
     output wire [31:0] mac_pump_done_count,
+    output wire [31:0] service_latency_last_cycles,
+    output wire [31:0] service_latency_max_cycles,
+    output wire [31:0] service_latency_accum_cycles,
     output wire [31:0] bram_crc_error_count,
     output wire [31:0] bram_bounds_error_count,
     output wire [31:0] bram_error_count
@@ -94,10 +97,25 @@ wire endpoint_service_done;
 wire [15:0] endpoint_service_selected_slot;
 reg auto_egress_pending;
 reg [15:0] auto_egress_slot;
+reg [31:0] mac_pump_start_count_prev;
+reg [31:0] mac_pump_done_count_prev;
+reg latency_active;
+reg [31:0] latency_current_cycles;
+reg [31:0] latency_last_cycles_r;
+reg [31:0] latency_max_cycles_r;
+reg [31:0] latency_accum_cycles_r;
+
+wire latency_start_event = (mac_pump_start_count != mac_pump_start_count_prev);
+wire latency_done_event = (mac_pump_done_count != mac_pump_done_count_prev);
+wire [31:0] latency_done_cycles =
+    latency_active ? (latency_current_cycles + 32'd1) : 32'd1;
 
 assign egress_start_ready = endpoint_egress_start_ready && (!AUTO_EGRESS || !auto_egress_pending);
 assign endpoint_egress_start = AUTO_EGRESS ? (auto_egress_pending && endpoint_egress_start_ready) : egress_start;
 assign endpoint_egress_start_slot = AUTO_EGRESS ? auto_egress_slot : egress_start_slot;
+assign service_latency_last_cycles = latency_last_cycles_r;
+assign service_latency_max_cycles = latency_max_cycles_r;
+assign service_latency_accum_cycles = latency_accum_cycles_r;
 
 always @(posedge clk) begin
     if (rst || !enable || !egress_enable) begin
@@ -114,6 +132,36 @@ always @(posedge clk) begin
     end else begin
         auto_egress_pending <= 1'b0;
         auto_egress_slot <= 16'd0;
+    end
+end
+
+always @(posedge clk) begin
+    if (rst || !enable) begin
+        mac_pump_start_count_prev <= mac_pump_start_count;
+        mac_pump_done_count_prev <= mac_pump_done_count;
+        latency_active <= 1'b0;
+        latency_current_cycles <= 32'd0;
+        latency_last_cycles_r <= 32'd0;
+        latency_max_cycles_r <= 32'd0;
+        latency_accum_cycles_r <= 32'd0;
+    end else begin
+        mac_pump_start_count_prev <= mac_pump_start_count;
+        mac_pump_done_count_prev <= mac_pump_done_count;
+
+        if (latency_done_event) begin
+            latency_last_cycles_r <= latency_done_cycles;
+            if (latency_done_cycles > latency_max_cycles_r) begin
+                latency_max_cycles_r <= latency_done_cycles;
+            end
+            latency_accum_cycles_r <= latency_accum_cycles_r + latency_done_cycles;
+            latency_active <= latency_start_event;
+            latency_current_cycles <= 32'd0;
+        end else if (latency_start_event) begin
+            latency_active <= 1'b1;
+            latency_current_cycles <= 32'd0;
+        end else if (latency_active) begin
+            latency_current_cycles <= latency_current_cycles + 32'd1;
+        end
     end
 end
 

@@ -56,6 +56,9 @@ wire egress_fault;
 wire [31:0] mac_tick_count;
 wire [31:0] mac_pump_start_count;
 wire [31:0] mac_pump_done_count;
+wire [31:0] service_latency_last_cycles;
+wire [31:0] service_latency_max_cycles;
+wire [31:0] service_latency_accum_cycles;
 wire [31:0] bram_crc_error_count;
 wire [31:0] bram_bounds_error_count;
 wire [31:0] bram_error_count;
@@ -118,6 +121,9 @@ fieldmesh_firmware_axis_dma_endpoint #(
     .mac_tick_count(mac_tick_count),
     .mac_pump_start_count(mac_pump_start_count),
     .mac_pump_done_count(mac_pump_done_count),
+    .service_latency_last_cycles(service_latency_last_cycles),
+    .service_latency_max_cycles(service_latency_max_cycles),
+    .service_latency_accum_cycles(service_latency_accum_cycles),
     .bram_crc_error_count(bram_crc_error_count),
     .bram_bounds_error_count(bram_bounds_error_count),
     .bram_error_count(bram_error_count)
@@ -284,6 +290,11 @@ initial begin
         mac_pump_done_count != 32'd1 || bram_crc_error_count != 32'd0 ||
         bram_bounds_error_count != 32'd0 || bram_error_count != 32'd0) begin
         fail("firmware DMA endpoint MAC counters mismatch");
+    end
+    if (service_latency_last_cycles == 32'd0 ||
+        service_latency_max_cycles != service_latency_last_cycles ||
+        service_latency_accum_cycles != service_latency_last_cycles) begin
+        fail("firmware DMA endpoint service latency counters mismatch");
     end
 
     expect_rx_dma_packet();

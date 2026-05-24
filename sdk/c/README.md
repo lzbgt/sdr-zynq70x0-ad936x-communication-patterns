@@ -113,7 +113,7 @@ in `src/fieldmesh_sdk.c`:
   Its enable, ingress, egress, MAC scheduler, MAC tick, MAC stop, service
   budget, pressure, byte/packet/drop/fault counters, MAC pump counters, and
   BRAM CRC/bounds counters are surfaced through fixed binary
-  `fieldmesh_ctrl` registers at `0x140..0x1a0`; reset leaves the endpoint
+  `fieldmesh_ctrl` registers at `0x140..0x1ac`; reset leaves the endpoint
   disabled until software configures metadata and arms those bits.
   `include/fieldmesh_firmware_dma_ctrl.h` is the canonical C contract for
   that register block: offsets, control/status-bit predicates, metadata

@@ -23,7 +23,10 @@ rf_tools_z103_recipe = (repo / "meta-sdr-z103/recipes-core/fieldmesh-rf-tools/fi
 required_header_tokens = [
     "FIELDMESH_FW_DMA_REG_CONTROL 0x140u",
     "FIELDMESH_FW_DMA_REG_FAULT_STATUS 0x1a0u",
-    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 25u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES 0x1a4u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES 0x1a8u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES 0x1acu",
+    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 28u",
     "fieldmesh_fw_dma_status_offset",
     "fieldmesh_fw_dma_control_mac_scheduler_enable",
     "fieldmesh_fw_dma_control_mac_stop",
@@ -39,7 +42,13 @@ required_header_tokens = [
     "fieldmesh_fw_dma_status_action_policy",
     "fieldmesh_fw_dma_status_test_regs_idle",
     "fieldmesh_fw_dma_status_test_regs_active_faulted",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
     "case 24u: return FIELDMESH_FW_DMA_REG_FAULT_STATUS;",
+    "case 25u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES;",
+    "case 26u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES;",
+    "case 27u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES;",
     "default: return 0u;",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
@@ -118,10 +127,13 @@ for token in required_tool_tokens:
 
 required_overlay_tokens = [
     "CONFIG.ADDR_WIDTH",
-    "register pages through 0x1a0",
+    "register pages through 0x1ac",
     "fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
     "fieldmesh_ctrl/fw_dma_ingress_desc_publish_count",
     "fieldmesh_ctrl/fw_dma_mac_pump_done_count",
+    "fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
+    "fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
+    "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
     "fieldmesh_ctrl/fw_dma_bram_crc_error_count",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "fieldmesh_ctrl/fw_dma_bram_error_count",
@@ -137,8 +149,11 @@ for path_name, source in (
         raise SystemExit(f"{path_name} still accepts stale 0x178 firmware DMA boundary")
 
 for token in (
-    "register pages through 0x1a0",
+    "register pages through 0x1ac",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
+    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
+    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
+    "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
 ):
     if token not in rf_check:
@@ -147,7 +162,10 @@ for token in (
 for token in (
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "fieldmesh_ctrl/fw_dma_bram_error_count",
-    "register pages through 0x1a0",
+    "fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
+    "fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
+    "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
+    "register pages through 0x1ac",
 ):
     if token not in rf_binding:
         raise SystemExit(f"RF-engine binding verifier missing firmware DMA counter token: {token}")
@@ -190,6 +208,9 @@ for token in (
     "arm_allowed",
     "stop_write_needed",
     "bram_bounds_errors",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
     "fw_dma_descriptor_flags_allowed",
     "fw_dma_config_bad_flags.err",
 ):
@@ -198,6 +219,8 @@ for token in (
 
 for token in (
     "fieldmesh_fw_dma_status_offset(24u)",
+    "fieldmesh_fw_dma_status_offset(25u)",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES",
     "FIELDMESH_FW_DMA_REG_FAULT_STATUS",
     "FIELDMESH_FW_DMA_STATUS_ALL",
     "fieldmesh_fw_dma_control_mac_scheduler_enable",

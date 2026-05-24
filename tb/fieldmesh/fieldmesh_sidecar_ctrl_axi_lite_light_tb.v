@@ -48,6 +48,9 @@ localparam [15:0] REG_FW_DMA_MAC_PUMP_DONES     = 16'h0194;
 localparam [15:0] REG_FW_DMA_BRAM_CRC_ERRORS    = 16'h0198;
 localparam [15:0] REG_FW_DMA_BRAM_BOUNDS_ERRORS = 16'h019c;
 localparam [15:0] REG_FW_DMA_FAULT_STATUS       = 16'h01a0;
+localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_LAST = 16'h01a4;
+localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_MAX  = 16'h01a8;
+localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_ACC  = 16'h01ac;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -125,6 +128,9 @@ reg fw_dma_egress_fault = 1'b0;
 reg [31:0] fw_dma_mac_tick_count = 32'd0;
 reg [31:0] fw_dma_mac_pump_start_count = 32'd0;
 reg [31:0] fw_dma_mac_pump_done_count = 32'd0;
+reg [31:0] fw_dma_service_latency_last_cycles = 32'd0;
+reg [31:0] fw_dma_service_latency_max_cycles = 32'd0;
+reg [31:0] fw_dma_service_latency_accum_cycles = 32'd0;
 reg [31:0] fw_dma_bram_crc_error_count = 32'd0;
 reg [31:0] fw_dma_bram_bounds_error_count = 32'd0;
 reg [31:0] fw_dma_bram_error_count = 32'd0;
@@ -204,6 +210,9 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .fw_dma_mac_tick_count(fw_dma_mac_tick_count),
     .fw_dma_mac_pump_start_count(fw_dma_mac_pump_start_count),
     .fw_dma_mac_pump_done_count(fw_dma_mac_pump_done_count),
+    .fw_dma_service_latency_last_cycles(fw_dma_service_latency_last_cycles),
+    .fw_dma_service_latency_max_cycles(fw_dma_service_latency_max_cycles),
+    .fw_dma_service_latency_accum_cycles(fw_dma_service_latency_accum_cycles),
     .fw_dma_bram_crc_error_count(fw_dma_bram_crc_error_count),
     .fw_dma_bram_bounds_error_count(fw_dma_bram_bounds_error_count),
     .fw_dma_bram_error_count(fw_dma_bram_error_count),
@@ -407,6 +416,9 @@ initial begin
     fw_dma_mac_tick_count = 32'd55;
     fw_dma_mac_pump_start_count = 32'd44;
     fw_dma_mac_pump_done_count = 32'd43;
+    fw_dma_service_latency_last_cycles = 32'd21;
+    fw_dma_service_latency_max_cycles = 32'd34;
+    fw_dma_service_latency_accum_cycles = 32'd377;
     fw_dma_bram_crc_error_count = 32'd12;
     fw_dma_bram_bounds_error_count = 32'd13;
     fw_dma_bram_error_count = 32'd4;
@@ -427,6 +439,9 @@ initial begin
     expect_axi(REG_FW_DMA_MAC_TICKS, 32'd55);
     expect_axi(REG_FW_DMA_MAC_PUMP_STARTS, 32'd44);
     expect_axi(REG_FW_DMA_MAC_PUMP_DONES, 32'd43);
+    expect_axi(REG_FW_DMA_SERVICE_LATENCY_LAST, 32'd21);
+    expect_axi(REG_FW_DMA_SERVICE_LATENCY_MAX, 32'd34);
+    expect_axi(REG_FW_DMA_SERVICE_LATENCY_ACC, 32'd377);
     expect_axi(REG_FW_DMA_BRAM_CRC_ERRORS, 32'd12);
     expect_axi(REG_FW_DMA_BRAM_BOUNDS_ERRORS, 32'd13);
     expect_axi(REG_FW_DMA_BRAM_ERRORS, 32'd4);

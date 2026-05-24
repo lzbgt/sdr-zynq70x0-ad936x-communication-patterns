@@ -430,8 +430,9 @@ status snapshots. Those snapshots must come from `fieldmesh-ctrl-write
 --fw-dma-status` with hardware reads enabled, hardware writes disabled, the
 default C sidecar control base, decoded C action-policy booleans, and numeric
 TX parser, ingress, egress, MAC pump, and BRAM error counters. The gate records
-the DMA TX-completion poll count as submit-latency evidence and now requires
-firmware-DMA progression across the smoke/bind interval: TX parser packet/byte,
+FPGA MAC-service latency cycles plus the DMA TX-completion poll count as
+latency evidence and now requires firmware-DMA progression across the
+smoke/bind interval: TX parser packet/byte,
 ingress packet/byte, descriptor-publication, and MAC tick counters must advance
 while parser/ingress/egress drop counters and BRAM error counters remain flat.
 It still keeps measured-link and live-RF
@@ -659,8 +660,8 @@ Already-normalized app reports are traced back through their `source_report`
 and must still correlate to that same bridge evidence. The wrapper now emits a
 `fieldmesh_rf_hardware_progression_evidence.json` projection from the RF
 bind-gate report, so final production archives carry the firmware-DMA
-before/after snapshots, required counter deltas, DMA submit-poll latency
-evidence, and C modem service-rate proof directly. The wrapper emits a
+before/after snapshots, required counter deltas, FPGA service-latency evidence,
+DMA submit-poll latency evidence, and C modem service-rate proof directly. The wrapper emits a
 self-contained `evidence/` bundle plus manifest with byte counts and SHA-256
 hashes for the preflight, RF bind-gate, hardware progression, bridge, IQ
 live-run, app reports, and production gate; each manifest row preserves the
@@ -1465,10 +1466,11 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh_firmware_axis_dma_endpoint` with `AUTO_EGRESS=1`, maps the DMA
   windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
   RX/S2MM, and wires the endpoint control/status pins through the existing
-  `fieldmesh_ctrl` register page at `0x140..0x1a0`. The endpoint resets
+  `fieldmesh_ctrl` register page at `0x140..0x1ac`. The endpoint resets
   disabled and must be armed explicitly by software. The register page now also
   exposes parser/ingress/egress byte counts, MAC pump starts/completions, split
-  BRAM CRC/bounds errors, and parser/ingress/egress fault bits for live
+  BRAM CRC/bounds errors, FPGA MAC-service latency cycles, and
+  parser/ingress/egress fault bits for live
   service-rate triage without packet payload parsing. The C SDK header
   `fieldmesh_firmware_dma_ctrl.h` is the shared ARM-side register contract for
   offsets, masks, metadata packing, and status decode. `fieldmesh-ctrl-write

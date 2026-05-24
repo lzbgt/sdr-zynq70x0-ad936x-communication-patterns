@@ -198,13 +198,18 @@ EOF_C
 int main(void) {
     if (FIELDMESH_FW_DMA_REG_CONTROL != 0x140u ||
         FIELDMESH_FW_DMA_REG_FAULT_STATUS != 0x1a0u ||
-        FIELDMESH_FW_DMA_STATUS_REG_COUNT != 25u) {
+        FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES != 0x1a4u ||
+        FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES != 0x1a8u ||
+        FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES != 0x1acu ||
+        FIELDMESH_FW_DMA_STATUS_REG_COUNT != 28u) {
         return 1;
     }
     if (fieldmesh_fw_dma_status_offset(0u) != FIELDMESH_FW_DMA_REG_CONTROL ||
         fieldmesh_fw_dma_status_offset(12u) != FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY ||
         fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
-        fieldmesh_fw_dma_status_offset(25u) != 0u) {
+        fieldmesh_fw_dma_status_offset(25u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES ||
+        fieldmesh_fw_dma_status_offset(26u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES ||
+        fieldmesh_fw_dma_status_offset(27u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES) {
         return 8;
     }
     if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
@@ -246,6 +251,9 @@ int main(void) {
         status.egress_bytes != 180u ||
         status.bram_crc_errors != 22u ||
         status.bram_bounds_errors != 23u ||
+        status.service_latency_last_cycles != 25u ||
+        status.service_latency_max_cycles != 26u ||
+        status.service_latency_accum_cycles != 2700u ||
         status.peer_index != 7u ||
         status.mcs != 1u ||
         status.retry_budget != 3u ||
@@ -294,7 +302,9 @@ int main(void) {
         return 14;
     }
     if (fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
-        fieldmesh_fw_dma_status_offset(25u) != 0u) {
+        fieldmesh_fw_dma_status_offset(25u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES ||
+        fieldmesh_fw_dma_status_offset(26u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES ||
+        fieldmesh_fw_dma_status_offset(27u) != FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES) {
         return 10;
     }
     regs[1] = 0xffff0000u;
@@ -669,7 +679,10 @@ source = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
     "FIELDMESH_FW_DMA_REG_CONTROL 0x140u",
     "FIELDMESH_FW_DMA_REG_FAULT_STATUS 0x1a0u",
-    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 25u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_LAST_CYCLES 0x1a4u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_MAX_CYCLES 0x1a8u",
+    "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES 0x1acu",
+    "FIELDMESH_FW_DMA_STATUS_REG_COUNT 28u",
     "fieldmesh_fw_dma_status_offset",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
@@ -683,6 +696,9 @@ required = [
     "FIELDMESH_FW_DESC_FLAG_TIMESTAMP_VALID",
     "fieldmesh_fw_dma_config_t",
     "fieldmesh_fw_dma_status_t",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
     "fieldmesh_fw_dma_pack_peer_mcs_retry",
     "fieldmesh_fw_dma_config_peer_mcs_retry",
     "fieldmesh_fw_dma_config_args_valid",

@@ -100,6 +100,15 @@ def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict
             raise ValueError("RF bind-gate report must prove firmware-DMA counter progression")
         if report.get("fw_dma_drop_error_delta") != 0:
             raise ValueError("RF bind-gate report must keep firmware-DMA drop/error delta at zero")
+        service_latency_last = report.get("fw_dma_service_latency_last_cycles_after")
+        service_latency_max = report.get("fw_dma_service_latency_max_cycles_after")
+        service_latency_accum_delta = report.get("fw_dma_service_latency_accum_cycles_delta")
+        if not isinstance(service_latency_last, int) or service_latency_last < 1:
+            raise ValueError("RF bind-gate report must include FPGA service-latency last-cycle evidence")
+        if not isinstance(service_latency_max, int) or service_latency_max < service_latency_last:
+            raise ValueError("RF bind-gate FPGA service-latency max must be >= last-cycle evidence")
+        if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
+            raise ValueError("RF bind-gate FPGA service-latency accumulator delta must cover the last interval")
         dma_smoke_tx_polls = report.get("dma_smoke_tx_polls")
         if not isinstance(dma_smoke_tx_polls, int) or dma_smoke_tx_polls < 1:
             raise ValueError("RF bind-gate report must include bounded DMA TX poll evidence")
@@ -122,6 +131,9 @@ def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict
             "report": str(Path(args.rf_bind_gate_report).resolve(strict=False)),
             "fw_dma_counter_progression_ok": True,
             "fw_dma_drop_error_delta": report.get("fw_dma_drop_error_delta"),
+            "fw_dma_service_latency_last_cycles": service_latency_last,
+            "fw_dma_service_latency_max_cycles": service_latency_max,
+            "fw_dma_service_latency_accum_cycles_delta": service_latency_accum_delta,
             "dma_smoke_tx_polls": dma_smoke_tx_polls,
             "modem_benchmark_decode_frame_kbps": modem_decode_rate,
             "required_counter_deltas": {

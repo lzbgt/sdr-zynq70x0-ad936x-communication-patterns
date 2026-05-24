@@ -29,6 +29,9 @@ ready_for_arm
 config_allowed
 arm_allowed
 stop_write_needed
+service_latency_last_cycles
+service_latency_max_cycles
+service_latency_accum_cycles
 EOF
 
 cat >"$stale_strings" <<'EOF'
@@ -118,7 +121,9 @@ for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
               "--fw-dma-stop-if-active", "--fw-dma-status-idle-self-test",
               "--fw-dma-action-policy-self-test",
               "firmware_dma_not_ready_for_arm", "config_allowed",
-              "arm_allowed", "stop_write_needed"):
+              "arm_allowed", "stop_write_needed",
+              "service_latency_last_cycles", "service_latency_max_cycles",
+              "service_latency_accum_cycles"):
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale fixture missing expected missing token {token}: {stale!r}")
 for token in ("control_tx_enabled", "status_reserved", "drop_counters_clear",

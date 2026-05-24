@@ -211,6 +211,15 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("rf_bind_gate: firmware-DMA counter progression is not proven")
         if rf_bind_gate.get("fw_dma_drop_error_delta") != 0:
             raise SystemExit("rf_bind_gate: firmware-DMA drop/error delta must be zero")
+        service_latency_last = rf_bind_gate.get("fw_dma_service_latency_last_cycles_after")
+        service_latency_max = rf_bind_gate.get("fw_dma_service_latency_max_cycles_after")
+        service_latency_accum_delta = rf_bind_gate.get("fw_dma_service_latency_accum_cycles_delta")
+        if not isinstance(service_latency_last, int) or service_latency_last < 1:
+            raise SystemExit("rf_bind_gate: missing FPGA service-latency last-cycle evidence")
+        if not isinstance(service_latency_max, int) or service_latency_max < service_latency_last:
+            raise SystemExit("rf_bind_gate: FPGA service-latency max must be >= last-cycle evidence")
+        if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
+            raise SystemExit("rf_bind_gate: FPGA service-latency accumulator delta must cover the last interval")
         if rf_bind_gate.get("rf_phy_tx_rx") not in (0, False):
             raise SystemExit("rf_bind_gate: bind gate must not claim RF PHY TX/RX")
         if rf_bind_gate.get("production_ready") not in (0, False):
@@ -279,6 +288,21 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         submit = hardware_progression.get("submit_latency_evidence")
         if not isinstance(submit, dict) or not isinstance(submit.get("dma_smoke_tx_polls"), int) or submit.get("dma_smoke_tx_polls") < 1:
             raise SystemExit("hardware_progression: missing bounded DMA submit-latency evidence")
+        service = hardware_progression.get("service_latency_evidence")
+        if not isinstance(service, dict) or service.get("source") != "firmware_dma_endpoint":
+            raise SystemExit("hardware_progression: missing FPGA service-latency evidence")
+        service_last = service.get("last_cycles")
+        service_max = service.get("max_cycles")
+        service_accum = service.get("accum_cycles")
+        if not isinstance(service_last, int) or service_last < 1:
+            raise SystemExit("hardware_progression: service-latency last_cycles must be >= 1")
+        if not isinstance(service_max, int) or service_max < service_last:
+            raise SystemExit("hardware_progression: service-latency max_cycles must be >= last_cycles")
+        if not isinstance(service_accum, dict):
+            raise SystemExit("hardware_progression: missing service-latency accumulator snapshot")
+        accum_delta = service_accum.get("delta")
+        if not isinstance(accum_delta, int) or accum_delta < service_last:
+            raise SystemExit("hardware_progression: service-latency accumulator delta must cover last_cycles")
         modem = hardware_progression.get("c_modem_service_rate")
         if not isinstance(modem, dict) or modem.get("required") is not True:
             raise SystemExit("hardware_progression: missing required C modem service-rate evidence")

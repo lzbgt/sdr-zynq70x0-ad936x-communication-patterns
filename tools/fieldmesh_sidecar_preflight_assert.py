@@ -68,6 +68,9 @@ EXPECTED_FW_DMA_STATUS_KEYS = {
     "mac_ticks",
     "mac_pump_starts",
     "mac_pump_dones",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
     "bram_crc_errors",
     "bram_bounds_errors",
     "bram_errors",
@@ -222,6 +225,8 @@ def validate_fw_dma_status(path: Path) -> dict[str, Any]:
                 "ingress_bytes", "ingress_desc_publishes", "ingress_drops",
                 "egress_packets", "egress_bytes", "egress_drops",
                 "mac_ticks", "mac_pump_starts", "mac_pump_dones",
+                "service_latency_last_cycles", "service_latency_max_cycles",
+                "service_latency_accum_cycles",
                 "bram_crc_errors", "bram_bounds_errors", "bram_errors",
                 "peer_index", "mcs", "retry_budget"):
         if not isinstance(row.get(key), int):

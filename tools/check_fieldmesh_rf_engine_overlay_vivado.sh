@@ -104,7 +104,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x1a0"
+  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x1ac"
 }
 
 foreach pin {
@@ -174,6 +174,9 @@ foreach pin {
   fieldmesh_ctrl/fw_dma_mac_tick_count
   fieldmesh_ctrl/fw_dma_mac_pump_start_count
   fieldmesh_ctrl/fw_dma_mac_pump_done_count
+  fieldmesh_ctrl/fw_dma_service_latency_last_cycles
+  fieldmesh_ctrl/fw_dma_service_latency_max_cycles
+  fieldmesh_ctrl/fw_dma_service_latency_accum_cycles
   fieldmesh_ctrl/fw_dma_bram_crc_error_count
   fieldmesh_ctrl/fw_dma_bram_bounds_error_count
   fieldmesh_ctrl/fw_dma_bram_error_count
@@ -289,6 +292,14 @@ proc assert_same_net {left right} {
   }
 }
 
+proc assert_same_intf_net {left right} {
+  set left_net [get_bd_intf_nets -quiet -of_objects [get_bd_intf_pins \$left]]
+  set right_net [get_bd_intf_nets -quiet -of_objects [get_bd_intf_pins \$right]]
+  if {[llength \$left_net] != 1 || [llength \$right_net] != 1 || "\$left_net" ne "\$right_net"} {
+    error "\$left and \$right must share exactly one interface net"
+  }
+}
+
 assert_same_net fieldmesh_ctrl/rf_tx_enable fieldmesh_iq_tx_guard/tx_enable
 assert_same_net fieldmesh_ctrl/rf_tx_armed fieldmesh_iq_tx_guard/tx_armed
 assert_same_net fieldmesh_ctrl/rf_schedule_enable fieldmesh_iq_tx_guard/schedule_enable
@@ -337,6 +348,9 @@ assert_same_net fieldmesh_fw_dma_endpoint/egress_fault fieldmesh_ctrl/fw_dma_egr
 assert_same_net fieldmesh_fw_dma_endpoint/mac_tick_count fieldmesh_ctrl/fw_dma_mac_tick_count
 assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_start_count fieldmesh_ctrl/fw_dma_mac_pump_start_count
 assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count
+assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles
+assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles
+assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles
 assert_same_net fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count
 assert_same_net fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count
 assert_same_net fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count
@@ -353,18 +367,14 @@ foreach seg {
 }
 
 foreach pair {
-  {fieldmesh_fw_dma_endpoint/m_rx_dma_tvalid fieldmesh_fw_dma_rf_broadcast/s_axis_tvalid}
-  {fieldmesh_fw_dma_endpoint/m_rx_dma_tready fieldmesh_fw_dma_rf_broadcast/s_axis_tready}
-  {fieldmesh_fw_dma_endpoint/m_rx_dma_tdata fieldmesh_fw_dma_rf_broadcast/s_axis_tdata}
-  {fieldmesh_fw_dma_endpoint/m_rx_dma_tlast fieldmesh_fw_dma_rf_broadcast/s_axis_tlast}
-  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tvalid fieldmesh_axis16_adapter/s_axis8_tvalid}
-  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tready fieldmesh_axis16_adapter/s_axis8_tready}
-  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tdata fieldmesh_axis16_adapter/s_axis8_tdata}
-  {fieldmesh_fw_dma_rf_broadcast/m0_axis_tlast fieldmesh_axis16_adapter/s_axis8_tlast}
-  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tvalid fieldmesh_bpsk_symbolizer/s_axis_tvalid}
-  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tready fieldmesh_bpsk_symbolizer/s_axis_tready}
-  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tdata fieldmesh_bpsk_symbolizer/s_axis_tdata}
-  {fieldmesh_fw_dma_rf_broadcast/m1_axis_tlast fieldmesh_bpsk_symbolizer/s_axis_tlast}
+  {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis}
+  {fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8}
+  {fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_bpsk_symbolizer/s_axis}
+} {
+  assert_same_intf_net [lindex \$pair 0] [lindex \$pair 1]
+}
+
+foreach pair {
   {fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
   {fieldmesh_bpsk_symbolizer/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
   {fieldmesh_bpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}

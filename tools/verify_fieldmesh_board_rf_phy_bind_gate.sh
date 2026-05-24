@@ -33,6 +33,9 @@ required = [
     "mac_ticks",
     "mac_pump_starts",
     "mac_pump_dones",
+    "service_latency_last_cycles",
+    "service_latency_max_cycles",
+    "service_latency_accum_cycles",
     "bram_crc_errors",
     "bram_bounds_errors",
     "bram_errors",
@@ -64,6 +67,13 @@ required = [
     "fw_dma_drop_error_delta",
     "fw_dma_mac_ticks_before",
     "fw_dma_mac_ticks_after",
+    "fw_dma_service_latency_last_cycles_before",
+    "fw_dma_service_latency_last_cycles_after",
+    "fw_dma_service_latency_max_cycles_before",
+    "fw_dma_service_latency_max_cycles_after",
+    "fw_dma_service_latency_accum_cycles_before",
+    "fw_dma_service_latency_accum_cycles_after",
+    "fw_dma_service_latency_accum_cycles_delta",
     "fw_dma_ingress_packets_before",
     "fw_dma_ingress_packets_after",
     "fw_dma_egress_packets_before",
@@ -72,6 +82,9 @@ required = [
     "fw_dma_bram_errors_after",
     "requires_c_modem_service_rate",
     "modem_benchmark_decode_frame_kbps",
+    "firmware-DMA service latency last-cycle counter did not capture",
+    "firmware-DMA service latency max-cycle counter",
+    "firmware-DMA service latency accumulated-cycle delta",
 ]
 for token in required:
     if token not in script:

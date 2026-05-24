@@ -158,6 +158,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"mac_ticks\":%" PRIu32 ","
            "\"mac_pump_starts\":%" PRIu32 ","
            "\"mac_pump_dones\":%" PRIu32 ","
+           "\"service_latency_last_cycles\":%" PRIu32 ","
+           "\"service_latency_max_cycles\":%" PRIu32 ","
+           "\"service_latency_accum_cycles\":%" PRIu32 ","
            "\"bram_crc_errors\":%" PRIu32 ","
            "\"bram_bounds_errors\":%" PRIu32 ","
            "\"bram_errors\":%" PRIu32 ","
@@ -210,6 +213,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            status->mac_ticks,
            status->mac_pump_starts,
            status->mac_pump_dones,
+           status->service_latency_last_cycles,
+           status->service_latency_max_cycles,
+           status->service_latency_accum_cycles,
            status->bram_crc_errors,
            status->bram_bounds_errors,
            status->bram_errors,

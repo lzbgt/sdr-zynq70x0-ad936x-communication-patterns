@@ -219,6 +219,8 @@ def require_fw_dma_status(path: Path, label: str) -> dict:
         "ingress_packets", "ingress_bytes", "ingress_desc_publishes",
         "ingress_drops", "egress_packets", "egress_bytes", "egress_drops",
         "mac_ticks", "mac_pump_starts", "mac_pump_dones",
+        "service_latency_last_cycles", "service_latency_max_cycles",
+        "service_latency_accum_cycles",
         "bram_crc_errors", "bram_bounds_errors", "bram_errors",
     ):
         if key not in row or not isinstance(row.get(key), int):
@@ -282,6 +284,7 @@ fw_dma_counter_deltas = {
         "mac_ticks",
         "mac_pump_starts",
         "mac_pump_dones",
+        "service_latency_accum_cycles",
         "bram_crc_errors",
         "bram_bounds_errors",
         "bram_errors",
@@ -310,6 +313,22 @@ for key in (
 ):
     if fw_dma_counter_deltas[key] != 0:
         raise SystemExit(f"firmware-DMA error/drop counter {key} advanced: {fw_dma_counter_deltas[key]}")
+
+service_latency_last = fw_dma_after.get("service_latency_last_cycles")
+service_latency_max = fw_dma_after.get("service_latency_max_cycles")
+service_latency_accum_delta = fw_dma_counter_deltas.get("service_latency_accum_cycles")
+if not isinstance(service_latency_last, int) or service_latency_last < 1:
+    raise SystemExit(
+        "firmware-DMA service latency last-cycle counter did not capture a hardware service interval"
+    )
+if not isinstance(service_latency_max, int) or service_latency_max < service_latency_last:
+    raise SystemExit(
+        "firmware-DMA service latency max-cycle counter must be at least the last-cycle count"
+    )
+if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
+    raise SystemExit(
+        "firmware-DMA service latency accumulated-cycle delta must cover the last service interval"
+    )
 
 guard = json.loads(
     (out_dir / "rf_tx_guard_plan" / "fieldmesh_rf_tx_guard_run.json").read_text(encoding="utf-8")
@@ -411,6 +430,13 @@ summary = {
     "fw_dma_mac_ticks_delta": fw_dma_counter_deltas.get("mac_ticks"),
     "fw_dma_mac_ticks_before": fw_dma_before.get("mac_ticks"),
     "fw_dma_mac_ticks_after": fw_dma_after.get("mac_ticks"),
+    "fw_dma_service_latency_last_cycles_before": fw_dma_before.get("service_latency_last_cycles"),
+    "fw_dma_service_latency_last_cycles_after": fw_dma_after.get("service_latency_last_cycles"),
+    "fw_dma_service_latency_max_cycles_before": fw_dma_before.get("service_latency_max_cycles"),
+    "fw_dma_service_latency_max_cycles_after": fw_dma_after.get("service_latency_max_cycles"),
+    "fw_dma_service_latency_accum_cycles_before": fw_dma_before.get("service_latency_accum_cycles"),
+    "fw_dma_service_latency_accum_cycles_after": fw_dma_after.get("service_latency_accum_cycles"),
+    "fw_dma_service_latency_accum_cycles_delta": fw_dma_counter_deltas.get("service_latency_accum_cycles"),
     "fw_dma_ingress_packets_before": fw_dma_before.get("ingress_packets"),
     "fw_dma_ingress_packets_after": fw_dma_after.get("ingress_packets"),
     "fw_dma_ingress_packets_delta": fw_dma_counter_deltas.get("ingress_packets"),

@@ -100,6 +100,9 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  fw_dma_mac_tick_count,
     input  wire [31:0]  fw_dma_mac_pump_start_count,
     input  wire [31:0]  fw_dma_mac_pump_done_count,
+    input  wire [31:0]  fw_dma_service_latency_last_cycles,
+    input  wire [31:0]  fw_dma_service_latency_max_cycles,
+    input  wire [31:0]  fw_dma_service_latency_accum_cycles,
     input  wire [31:0]  fw_dma_bram_crc_error_count,
     input  wire [31:0]  fw_dma_bram_bounds_error_count,
     input  wire [31:0]  fw_dma_bram_error_count,
@@ -157,6 +160,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_FW_DMA_BRAM_CRC_ERRORS     = 12'h198;
     localparam [11:0] REG_FW_DMA_BRAM_BOUNDS_ERRORS  = 12'h19c;
     localparam [11:0] REG_FW_DMA_FAULT_STATUS        = 12'h1a0;
+    localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_LAST = 12'h1a4;
+    localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_MAX  = 12'h1a8;
+    localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_ACC  = 12'h1ac;
 
     wire rst = !s_axi_aresetn;
 
@@ -415,6 +421,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_FW_DMA_BRAM_CRC_ERRORS: rdata_r <= fw_dma_bram_crc_error_count;
                     REG_FW_DMA_BRAM_BOUNDS_ERRORS: rdata_r <= fw_dma_bram_bounds_error_count;
                     REG_FW_DMA_FAULT_STATUS: rdata_r <= {29'd0, fw_dma_egress_fault, fw_dma_ingress_fault, fw_dma_tx_parser_fault};
+                    REG_FW_DMA_SERVICE_LATENCY_LAST: rdata_r <= fw_dma_service_latency_last_cycles;
+                    REG_FW_DMA_SERVICE_LATENCY_MAX: rdata_r <= fw_dma_service_latency_max_cycles;
+                    REG_FW_DMA_SERVICE_LATENCY_ACC: rdata_r <= fw_dma_service_latency_accum_cycles;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;
