@@ -192,6 +192,23 @@ static inline int fieldmesh_rf_service_scheduler_yield_to_peer(
                policy->max_consecutive_direction_batches;
 }
 
+static inline uint32_t fieldmesh_rf_service_scheduler_service_order_rank(
+    const fieldmesh_rf_service_policy_t *policy,
+    uint32_t local_score,
+    uint32_t peer_score,
+    uint32_t current_consecutive_direction_batches)
+{
+    if (fieldmesh_rf_service_scheduler_yield_to_peer(
+            policy, peer_score, current_consecutive_direction_batches)) {
+        return 0u;
+    }
+    if (!fieldmesh_rf_service_scheduler_service_local_first(local_score,
+                                                            peer_score)) {
+        return 0u;
+    }
+    return local_score;
+}
+
 static inline int fieldmesh_rf_service_policy_accepts_production_iio(
     const fieldmesh_rf_service_policy_t *policy)
 {

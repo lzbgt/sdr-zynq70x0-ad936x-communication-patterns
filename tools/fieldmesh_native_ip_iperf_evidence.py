@@ -134,6 +134,7 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         and status.get("service_policy_bound") == 1
         and status.get("production_iio_policy") == 1
         and isinstance(status.get("frames"), int)
+        and isinstance(status.get("service_order_rank"), int)
         for status in loop_tick_status.values()
     ):
         errors.append(f"{label}: native RF service loop tick status is incomplete")
@@ -178,6 +179,7 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         and isinstance(status.get("peer_scheduler_score"), int)
         and isinstance(status.get("service_local_first"), int)
         and isinstance(status.get("yield_to_peer"), int)
+        and isinstance(status.get("service_order_rank"), int)
         for status in decision_status.values()
     ):
         errors.append(f"{label}: native RF bidirectional decision status is incomplete")

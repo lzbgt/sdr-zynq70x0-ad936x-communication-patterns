@@ -57,6 +57,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "native_service_burst": 1,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
+      "service_order_rank": 1002,
       "frames": 2
     }
   },
@@ -91,6 +92,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "peer_scheduler_score": 2,
       "service_local_first": 1,
       "yield_to_peer": 1,
+      "service_order_rank": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1
     },
@@ -102,6 +104,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "peer_scheduler_score": 1002,
       "service_local_first": 0,
       "yield_to_peer": 0,
+      "service_order_rank": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1
     }
@@ -218,6 +221,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "native_service_burst": 1,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
+      "service_order_rank": 1004,
       "frames": 2
     }
   },
@@ -252,6 +256,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "peer_scheduler_score": 1004,
       "service_local_first": 0,
       "yield_to_peer": 0,
+      "service_order_rank": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1
     },
@@ -263,6 +268,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "peer_scheduler_score": 1,
       "service_local_first": 1,
       "yield_to_peer": 1,
+      "service_order_rank": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1
     }

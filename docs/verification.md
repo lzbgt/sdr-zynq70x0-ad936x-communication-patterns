@@ -5109,8 +5109,8 @@ direction ordering and fair-service yields now query
 `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, and the native-IP evidence gates
 require that C-scored scheduler proof alongside the worker proof. They also
 query `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` so production evidence proves
-the C daemon selected the local-vs-peer service/yield decision before Python
-consumes it. Production bridge runs additionally use
+the C daemon selected the local-vs-peer service/yield decision and service-order
+rank before Python consumes it. Production bridge runs additionally use
 `FIELDMESH_RF_SERVICE_LOOP_TICK v1`, which combines the C decision with C-owned
 service-burst emission in one native tick. The same worker/scheduler/decision/
 tick proof is preserved through native-IP evidence, app reports, and readiness.

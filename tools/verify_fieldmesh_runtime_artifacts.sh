@@ -414,6 +414,7 @@ PY
         native_bidirectional_direction_decision \
         service_local_first \
         yield_to_peer \
+        service_order_rank \
         persistent_native_bidirectional_rf_service_loop \
         native_rf_service_worker \
         native_rf_service_control_plane \

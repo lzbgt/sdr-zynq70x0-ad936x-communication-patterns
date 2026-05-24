@@ -346,6 +346,7 @@ def native_service_loop_tick_from_daemon(
         "service_local_first",
         "yield_to_peer",
         "current_consecutive_direction_batches",
+        "service_order_rank",
         "lease_batch_frames",
         "max_frames_per_rf_burst",
         "emitted_service_frames",
@@ -595,6 +596,7 @@ def validate_native_direction_decision(
         service_local_first = int(report.get("service_local_first"))
         yield_to_peer = int(report.get("yield_to_peer"))
         peer_has_work = int(report.get("peer_has_queued_work"))
+        service_order_rank = int(report.get("service_order_rank"))
     except (TypeError, ValueError):
         errors.append("direction-decision score/consecutive fields must be integers")
     else:
@@ -606,6 +608,7 @@ def validate_native_direction_decision(
             and consecutive >= max(1, args.max_consecutive_direction_batches)
             else 0
         )
+        expected_order_rank = local_score if expected_local_first and not expected_yield else 0
         if service_local_first != expected_local_first:
             errors.append(
                 f"service_local_first={service_local_first!r} "
@@ -618,6 +621,11 @@ def validate_native_direction_decision(
             )
         if yield_to_peer != expected_yield:
             errors.append(f"yield_to_peer={yield_to_peer!r} expected {expected_yield!r}")
+        if service_order_rank != expected_order_rank:
+            errors.append(
+                f"service_order_rank={service_order_rank!r} "
+                f"expected {expected_order_rank!r}"
+            )
     if errors:
         raise SystemExit(
             f"{label} RF service direction decision invalid: " + "; ".join(errors)
@@ -1817,11 +1825,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 validate_native_direction_decision(decision, direction["name"], args)
                 counts["native_bidirectional_direction_decision_polls"] += 1
                 native_direction_decision_by_direction[direction["name"]] = decision
-                decisions.append((
-                    1 if decision.get("service_local_first") == 1 else 0,
-                    score,
-                    direction,
-                ))
+                decisions.append((int(decision.get("service_order_rank") or 0), score, direction))
         except (TimeoutError, SystemExit):
             counts["adaptive_status_failures"] += 1
             counts["native_direction_scheduler_status_failures"] += 1
@@ -1830,12 +1834,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if not any(score > 0 for score, _ in scored):
             return schedule
         ordered: list[dict[str, Any]] = []
-        for _, score, direction in sorted(
+        for rank, score, direction in sorted(
             decisions,
             key=lambda item: (item[0], item[1]),
             reverse=True,
         ):
-            if score <= 0:
+            if rank <= 0 or score <= 0:
                 continue
             repeats = (
                 args.z203_to_z103_burst_batches

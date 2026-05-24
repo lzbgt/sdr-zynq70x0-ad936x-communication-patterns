@@ -6127,6 +6127,7 @@ static int build_response(fieldmesh_context_t *context,
             fieldmesh_rf_service_scheduler_score(tx_depth, lease_depth);
         int service_local_first;
         int yield_to_peer;
+        uint32_t service_order_rank;
 
         (void)request_uint_or_default(request, "peer_scheduler_score=", 0u, 0u,
                                       0xffffffffu, &peer_score);
@@ -6139,6 +6140,9 @@ static int build_response(fieldmesh_context_t *context,
         yield_to_peer =
             fieldmesh_rf_service_scheduler_yield_to_peer(&policy, peer_score,
                                                          consecutive);
+        service_order_rank =
+            fieldmesh_rf_service_scheduler_service_order_rank(
+                &policy, local_score, peer_score, consecutive);
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_service_direction_decision\","
@@ -6159,6 +6163,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"peer_has_queued_work\":%u,"
                  "\"service_local_first\":%u,"
                  "\"yield_to_peer\":%u,"
+                 "\"service_order_rank\":%u,"
                  "\"current_consecutive_direction_batches\":%u,"
                  "\"max_consecutive_direction_batches\":%u,"
                  "\"lease_batch_frames\":%u,"
@@ -6185,6 +6190,7 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_service_scheduler_has_work(peer_score) ? 1u : 0u,
                  service_local_first ? 1u : 0u,
                  yield_to_peer ? 1u : 0u,
+                 service_order_rank,
                  consecutive,
                  policy.max_consecutive_direction_batches,
                  policy.lease_batch_frames,
@@ -6214,6 +6220,7 @@ static int build_response(fieldmesh_context_t *context,
             fieldmesh_rf_service_scheduler_score(tx_depth, lease_depth);
         int service_local_first;
         int yield_to_peer;
+        uint32_t service_order_rank;
         unsigned max_frames = policy.max_frames_per_rf_burst;
         unsigned emitted = 0u;
         unsigned i;
@@ -6238,6 +6245,9 @@ static int build_response(fieldmesh_context_t *context,
         yield_to_peer =
             fieldmesh_rf_service_scheduler_yield_to_peer(&policy, peer_score,
                                                          consecutive);
+        service_order_rank =
+            fieldmesh_rf_service_scheduler_service_order_rank(
+                &policy, local_score, peer_score, consecutive);
 
         if (!tun_service || !tun_service->running) {
             snprintf(response, response_len,
@@ -6274,6 +6284,7 @@ static int build_response(fieldmesh_context_t *context,
                      "\"peer_has_queued_work\":%u,"
                      "\"service_local_first\":%u,"
                      "\"yield_to_peer\":%u,"
+                     "\"service_order_rank\":%u,"
                      "\"service_skipped\":1,"
                      "\"skip_reason\":\"%s\","
                      "\"current_consecutive_direction_batches\":%u,"
@@ -6298,6 +6309,7 @@ static int build_response(fieldmesh_context_t *context,
                          0u,
                      service_local_first ? 1u : 0u,
                      yield_to_peer ? 1u : 0u,
+                     service_order_rank,
                      yield_to_peer ? "yield_to_peer" : "peer_preferred",
                      consecutive,
                      policy.max_consecutive_direction_batches,
@@ -6405,6 +6417,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"peer_has_queued_work\":%u,"
                  "\"service_local_first\":%u,"
                  "\"yield_to_peer\":%u,"
+                 "\"service_order_rank\":%u,"
                  "\"service_skipped\":0,"
                  "\"current_consecutive_direction_batches\":%u,"
                  "\"max_consecutive_direction_batches\":%u,"
@@ -6445,6 +6458,7 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_service_scheduler_has_work(peer_score) ? 1u : 0u,
                  service_local_first ? 1u : 0u,
                  yield_to_peer ? 1u : 0u,
+                 service_order_rank,
                  consecutive,
                  policy.max_consecutive_direction_batches,
                  replayed_lease,
