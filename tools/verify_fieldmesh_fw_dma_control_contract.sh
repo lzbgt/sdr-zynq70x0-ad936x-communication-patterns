@@ -54,6 +54,7 @@ for forbidden in (
 
 required_tool_tokens = [
     "--fw-dma-status-self-test",
+    "--fw-dma-status-idle-self-test",
     "fieldmesh_fw_dma_status_offset(i)",
     "fieldmesh_fw_dma_status_from_regs",
     "fieldmesh_fw_dma_control_mac_tick_enable",
@@ -143,6 +144,7 @@ for token in (
 
 for token in (
     "--fw-dma-status-self-test",
+    "--fw-dma-status-idle-self-test",
     "reads_hardware",
     "writes_hardware",
     "fault_status",

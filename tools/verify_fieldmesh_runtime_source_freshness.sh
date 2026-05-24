@@ -14,6 +14,7 @@ fieldmesh_ctrl_write
 --fw-dma-config-if-idle
 --fw-dma-arm-if-ready
 --fw-dma-stop-if-active
+--fw-dma-status-idle-self-test
 firmware_dma_not_idle
 firmware_dma_not_ready_for_arm
 fault_free
@@ -68,7 +69,8 @@ if stale.get("artifact_has_current_fw_dma_contract") is not False:
 if stale.get("runtime_rebuild_needed") is not True:
     raise SystemExit(f"z203 stale fixture did not request rebuild: {stale!r}")
 for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready",
-              "--fw-dma-stop-if-active", "firmware_dma_not_ready_for_arm"):
+              "--fw-dma-stop-if-active", "--fw-dma-status-idle-self-test",
+              "firmware_dma_not_ready_for_arm"):
     if token not in stale.get("missing_artifact_tokens", []):
         raise SystemExit(f"z203 stale fixture missing expected missing token {token}: {stale!r}")
 

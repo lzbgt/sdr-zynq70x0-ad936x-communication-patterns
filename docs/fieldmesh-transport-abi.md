@@ -484,9 +484,10 @@ should treat those as the readiness contract instead of re-parsing raw
 counters.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
-The tool's `--fw-dma-status-self-test` path feeds a fixed C register vector
-through that same decoder, so CI can verify successful status output without a
-`/dev/mem` mapping.
+The tool's `--fw-dma-status-self-test` and
+`--fw-dma-status-idle-self-test` paths feed fixed C register vectors through
+that same decoder, so CI can verify active/faulted and reset-idle status output
+without a `/dev/mem` mapping.
 The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
 action is status-only, and config/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a

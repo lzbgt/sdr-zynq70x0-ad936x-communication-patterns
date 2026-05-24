@@ -494,9 +494,10 @@ do not duplicate FPGA bit or counter decoding.
 The guarded config path accepts only defined TX descriptor flags
 `ack_req|encrypted|fec|fragment|last|timestamp_valid` (`0x003f`); reserved bits
 are rejected in C before any register write.
-`fieldmesh-ctrl-write --fw-dma-status-self-test` exercises the same C decode
-and JSON projection from a fixed register vector without `/dev/mem`; it is a
-test hook only, not a packet data path.
+`fieldmesh-ctrl-write --fw-dma-status-self-test` and
+`--fw-dma-status-idle-self-test` exercise the same C decode and JSON projection
+from fixed register vectors without `/dev/mem`; they are test hooks only, not a
+packet data path.
 
 ## MAC Design
 

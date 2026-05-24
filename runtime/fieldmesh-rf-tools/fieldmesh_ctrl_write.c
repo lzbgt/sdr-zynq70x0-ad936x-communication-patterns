@@ -38,6 +38,7 @@ static void usage(FILE *stream) {
             "usage:\n"
             "  fieldmesh-ctrl-write --self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-status-self-test\n"
+            "  fieldmesh-ctrl-write --fw-dma-status-idle-self-test\n"
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
             "  fieldmesh-ctrl-write --fw-dma-status BASE\n"
             "  fieldmesh-ctrl-write --fw-dma-config BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
@@ -297,6 +298,11 @@ int main(int argc, char **argv) {
         regs[24] = FIELDMESH_FW_DMA_FAULT_TX_PARSER |
                    FIELDMESH_FW_DMA_FAULT_EGRESS |
                    0xffff0000u;
+        return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
+    }
+
+    if (argc == 2 && strcmp(argv[1], "--fw-dma-status-idle-self-test") == 0) {
+        uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
         return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
     }
 

@@ -61,6 +61,7 @@ source = (repo / "runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c").read_text(
 artifact = strings_path.read_text(encoding="utf-8", errors="replace")
 
 source_tokens = (
+    "--fw-dma-status-idle-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -71,6 +72,7 @@ source_tokens = (
     "fieldmesh_fw_dma_status_ready_for_arm",
 )
 artifact_tokens = (
+    "--fw-dma-status-idle-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -131,6 +133,7 @@ source = (repo / "runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c").read_text(
 artifact_strings = strings_path.read_text(encoding="utf-8", errors="replace")
 
 source_tokens = (
+    "--fw-dma-status-idle-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -141,6 +144,7 @@ source_tokens = (
     "fieldmesh_fw_dma_status_ready_for_arm",
 )
 artifact_tokens = (
+    "--fw-dma-status-idle-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
