@@ -654,8 +654,9 @@ guarded handoff, not live transmission: it reports `uses_sidecar_dma=1` and
 `uses_inter_board_ip_routing=0`, `opens_iio_buffers=0`, `starts_rf_tx=0`, and
 `writes_hardware=0`. The first transport model,
 `tools/fieldmesh_rf_packet_engine_transport.py`, consumes this daemon handoff
-evidence and proves the packet-engine path through guarded BPSK IQ emission and
-decode before any live RF TX is allowed. The next binding assertion combines
+evidence and proves the packet-engine path through the compiled
+`fieldmesh_iio_burst_xfer` BPSK encode/decode helper before any live RF TX is
+allowed. The next binding assertion combines
 that transport report with live sidecar DMA smoke evidence so daemon intent,
 board packet DMA, and RF packet-engine sample recovery are checked together.
 The first PL TX primitive for that engine is `fieldmesh_bpsk_iq_symbolizer`;

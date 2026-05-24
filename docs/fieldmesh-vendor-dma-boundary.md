@@ -794,10 +794,11 @@ the SDK/daemon handoff evidence:
 ```
 
 It consumes the live `FIELDMESH_RF_PACKET_ENGINE` daemon capture, validates the
-sidecar-DMA/RF-engine queue flags, emits BPSK IQ samples for the committed
-FieldMesh frame, decodes them back to the same frame, and still reports no IIO
-buffer opens, no RF TX start, no inter-board IP routing, and no hardware
-writes.
+sidecar-DMA/RF-engine queue flags, invokes the compiled
+`fieldmesh_iio_burst_xfer` BPSK helper to emit IQ samples for the committed
+FieldMesh frame, decodes them back to the same frame through that same C helper,
+and still reports no IIO buffer opens, no RF TX start, no inter-board IP
+routing, and no hardware writes.
 
 The binding evidence gate combines that transport report with the live
 sidecar-DMA smoke evidence:

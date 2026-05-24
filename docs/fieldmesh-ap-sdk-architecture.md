@@ -571,8 +571,9 @@ Stage 2: Board-local service
   direct-or-relayed route metadata is preserved, and the checked handoff still
   starts no RF TX, opens no IIO buffers, writes no hardware, and uses no
   inter-board IP routing. `tools/fieldmesh_rf_packet_engine_transport.py` now
-  consumes that handoff evidence, emits the guarded IQ burst, decodes it, and
-  verifies recovered FieldMesh frame CRC before live RF execution is allowed.
+  consumes that handoff evidence, invokes the compiled BPSK helper for guarded
+  IQ burst encode/decode, and verifies recovered FieldMesh frame CRC before
+  live RF execution is allowed.
   `tools/fieldmesh_rf_packet_engine_binding_assert.py` then ties the daemon
   handoff and transport report to live sidecar DMA smoke evidence, so the same
   committed frame is checked across adapter intent, board packet DMA, and

@@ -38,6 +38,14 @@ if report["frame"]["traffic_class"] != "C0" or report["frame"]["mode"] != "sched
     raise SystemExit("unexpected FieldMesh frame metadata")
 if report["engine"]["name"] != "fieldmesh_rf_packet_engine":
     raise SystemExit("wrong RF packet-engine name")
+if report["engine"].get("uses_c_bpsk_helper") is not True:
+    raise SystemExit("RF packet-engine transport did not use the C BPSK helper")
+if report["engine"].get("uses_python_modem") is not False:
+    raise SystemExit("RF packet-engine transport must not use Python modem primitives")
+if report["engine"].get("modem_helper_event_encode") != "fieldmesh_bpsk_modem_encode":
+    raise SystemExit("RF packet-engine transport missing C BPSK encode evidence")
+if report["engine"].get("modem_helper_event_decode") != "fieldmesh_bpsk_modem_decode":
+    raise SystemExit("RF packet-engine transport missing C BPSK decode evidence")
 if report["engine"]["recovered_frame_match"] is not True:
     raise SystemExit("RF packet-engine did not recover the frame")
 iq_file = Path(report["engine"]["iq_file"])
@@ -49,6 +57,9 @@ for key in ("uses_iio", "uses_inter_board_ip_routing", "opens_iio_buffers",
         raise SystemExit(f"RF packet-engine safety key {key} must be false")
 if report["safety"]["uses_sidecar_dma"] is not True or report["safety"]["uses_rf_packet_engine"] is not True:
     raise SystemExit("RF packet-engine did not select sidecar/RF path")
+source = Path("tools/fieldmesh_rf_packet_engine_transport.py").read_text(encoding="utf-8")
+if "encode_bpsk_iq(" in source or "decode_bpsk_iq(" in source:
+    raise SystemExit("RF packet-engine transport must not call Python BPSK primitives")
 print(json.dumps({
     "event": "fieldmesh_rf_packet_engine_transport_check",
     "ok": True,
@@ -56,6 +67,31 @@ print(json.dumps({
     "frame_crc": report["frame"]["frame_crc"],
 }, sort_keys=True))
 PY
+
+cat >"$out_dir/stale_burst_helper" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "--help" ]; then
+  echo "usage: stale-helper --bfsk-encode"
+  exit 0
+fi
+exit 2
+SH
+chmod +x "$out_dir/stale_burst_helper"
+if "$repo_root/tools/fieldmesh_rf_packet_engine_transport.py" \
+  --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \
+  --handoff-report "$handoff" \
+  --out-dir "$out_dir/stale-helper" \
+  --center-frequency-hz 2400000000 \
+  --sample-rate-hz 1000000 \
+  --rf-bandwidth-hz 1000000 \
+  --fixture-attenuation-db 60 \
+  --samples-per-symbol 8 \
+  --burst-helper "$out_dir/stale_burst_helper" \
+  --conducted-or-shielded \
+  >/dev/null 2>&1; then
+  echo "RF packet-engine accepted a stale non-BPSK burst helper" >&2
+  exit 1
+fi
 
 if "$repo_root/tools/fieldmesh_rf_packet_engine_transport.py" \
   --frame "$repo_root/resources/fieldmesh/vectors/frame_000.bin" \

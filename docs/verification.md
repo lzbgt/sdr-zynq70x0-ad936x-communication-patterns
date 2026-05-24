@@ -3747,7 +3747,8 @@ refuses a burst plan when the authorized RF-path guard is missing.
 ## FieldMesh RF Packet Engine Transport
 
 The first RF packet-engine transport model consumes the SDK/daemon handoff
-capture and then runs the guarded IQ encode/decode path:
+capture and then runs the guarded IQ encode/decode path through the compiled
+`fieldmesh_iio_burst_xfer` BPSK helper:
 
 ```sh
 ./tools/verify_fieldmesh_rf_packet_engine_transport.sh
@@ -3766,7 +3767,9 @@ The generated `fieldmesh_rf_packet_engine_transport.json` reports
 `queued_to_sidecar=1`, `queued_to_rf_engine=1`, `uses_sidecar_dma=true`,
 `uses_rf_packet_engine=true`, `uses_iio=false`,
 `uses_inter_board_ip_routing=false`, `starts_rf_tx=false`,
-`writes_hardware=false`, and `recovered_frame_match=true`.
+`writes_hardware=false`, `uses_c_bpsk_helper=true`,
+`uses_python_modem=false`, and
+`recovered_frame_match=true`.
 
 ## FieldMesh RF Packet Engine Binding
 

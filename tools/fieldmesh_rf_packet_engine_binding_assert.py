@@ -101,6 +101,14 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
     frame = transport.get("frame", {})
     if engine.get("name") != "fieldmesh_rf_packet_engine":
         raise SystemExit("transport used wrong RF engine")
+    if engine.get("uses_c_bpsk_helper") is not True:
+        raise SystemExit("transport did not use the C BPSK helper")
+    if engine.get("uses_python_modem") is not False:
+        raise SystemExit("transport used Python modem primitives")
+    if engine.get("modem_helper_event_encode") != "fieldmesh_bpsk_modem_encode":
+        raise SystemExit("transport missing C BPSK encode evidence")
+    if engine.get("modem_helper_event_decode") != "fieldmesh_bpsk_modem_decode":
+        raise SystemExit("transport missing C BPSK decode evidence")
     if engine.get("recovered_frame_match") is not True:
         raise SystemExit("transport did not recover the original frame")
     require_ones(safety, ("uses_sidecar_dma", "uses_rf_packet_engine"), "transport safety")

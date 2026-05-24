@@ -1155,8 +1155,9 @@ below were later superseded by the current PHY-management two-board gates above:
   and decodes a guarded FieldMesh IQ burst without opening IIO buffers or
   starting RF TX. `tools/fieldmesh_rf_packet_engine_transport.py` now consumes
   the live SDK/daemon RF handoff evidence, validates the sidecar/RF queue
-  contract, emits the guarded IQ burst, decodes it, and verifies the recovered
-  FieldMesh frame CRC. `tools/fieldmesh_rf_packet_engine_binding_assert.py` now
+  contract, invokes the compiled BPSK helper for guarded IQ burst encode/decode,
+  and verifies the recovered FieldMesh frame CRC.
+  `tools/fieldmesh_rf_packet_engine_binding_assert.py` now
   combines that handoff and transport evidence with a live sidecar DMA smoke
   capture, proving one committed frame across daemon intent, sidecar DMA, and
   packet-engine IQ recovery before any RF TX is allowed.
