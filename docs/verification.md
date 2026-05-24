@@ -2846,10 +2846,12 @@ only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment. The wrapper also rejects
 before/after status captures that are missing the C-decoded control/status
-booleans or aggregate health booleans. `ACTION=arm` additionally refuses to
-forward the guarded hardware write unless the pre-arm status reports
-`ready_for_arm=true`; `FORCE_FIRMWARE_DMA_ARM=1` is the explicit diagnostic
-override after reviewing `fw_dma_status_before.json`.
+booleans or aggregate health booleans. `ACTION=config` refuses to change
+metadata unless the pre-config status reports `idle=true`, and `ACTION=arm`
+refuses to forward the guarded hardware write unless the pre-arm status reports
+`ready_for_arm=true`. `FORCE_FIRMWARE_DMA_CONFIG=1` and
+`FORCE_FIRMWARE_DMA_ARM=1` are explicit diagnostic overrides after reviewing
+`fw_dma_status_before.json`.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full

@@ -123,9 +123,10 @@ in `src/fieldmesh_sdk.c`:
   `FIELD_MESH_ALLOW_FIRMWARE_DMA=1`. Descriptor flags accepted by
   `--fw-dma-config` are limited to the defined firmware ABI TX flag mask
   `0x003f`; reserved flag bits are rejected before any hardware write.
-  The board wrapper additionally requires C-decoded `ready_for_arm=true` before
-  forwarding `--fw-dma-arm`, unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a
-  deliberate diagnostic override.
+  The board wrapper additionally requires C-decoded `idle=true` before
+  forwarding `--fw-dma-config` and `ready_for_arm=true` before forwarding
+  `--fw-dma-arm`, unless the matching diagnostic override is set after reviewing
+  the captured status.
   `--fw-dma-status-self-test` decodes a fixed C register vector without
   `/dev/mem`, so CI covers the successful status projection without hardware
   reads. The command output is JSON for host inspection only; the packet path

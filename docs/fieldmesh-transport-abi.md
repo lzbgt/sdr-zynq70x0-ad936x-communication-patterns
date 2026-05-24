@@ -491,7 +491,8 @@ action is status-only, and config/arm/stop actions are skipped unless the wrappe
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a
 green sidecar preflight. Arm actions also require the pre-arm status
 `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
-diagnostic override.
+diagnostic override. Config actions require pre-config `idle=true` unless
+`FORCE_FIRMWARE_DMA_CONFIG=1` is set after reviewing the captured status.
 
 ## Z103 And Z203 Capability Profiles
 

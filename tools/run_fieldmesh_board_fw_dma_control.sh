@@ -30,6 +30,7 @@ descriptor_flags="${DESCRIPTOR_FLAGS:-0}"
 seq_seed="${SEQ_SEED:-0}"
 apply_fw_dma="${APPLY_FIRMWARE_DMA:-0}"
 allow_fw_dma="${ALLOW_FIRMWARE_DMA:-0}"
+force_fw_dma_config="${FORCE_FIRMWARE_DMA_CONFIG:-0}"
 force_fw_dma_arm="${FORCE_FIRMWARE_DMA_ARM:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-fw-dma-control-$variant-$(date +%Y%m%d-%H%M%S)}"
 
@@ -58,6 +59,13 @@ case "$force_fw_dma_arm" in
   0|1) ;;
   *)
     echo "FORCE_FIRMWARE_DMA_ARM must be 0 or 1" >&2
+    exit 2
+    ;;
+esac
+case "$force_fw_dma_config" in
+  0|1) ;;
+  *)
+    echo "FORCE_FIRMWARE_DMA_CONFIG must be 0 or 1" >&2
     exit 2
     ;;
 esac
@@ -130,6 +138,24 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_status_before' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_before" "$out_dir/fw_dma_status_before.json"
 
+config_guard_blocked=0
+if [[ "$action" == "config" && "$apply_fw_dma" == "1" && "$allow_fw_dma" == "1" && "$force_fw_dma_config" != "1" ]]; then
+  if ! python3 - "$out_dir/fw_dma_status_before.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    row = json.load(f)
+if row.get("event") != "fieldmesh_fw_dma_status" or row.get("ok") is not True:
+    raise SystemExit(f"firmware-DMA pre-config status failed: {row}")
+if row.get("idle") is not True:
+    raise SystemExit("firmware-DMA pre-config status is not idle")
+PY
+  then
+    config_guard_blocked=1
+  fi
+fi
+
 arm_guard_blocked=0
 if [[ "$action" == "arm" && "$apply_fw_dma" == "1" && "$allow_fw_dma" == "1" && "$force_fw_dma_arm" != "1" ]]; then
   if ! python3 - "$out_dir/fw_dma_status_before.json" <<'PY'
@@ -155,7 +181,11 @@ case "$action" in
 JSON
     ;;
   config)
-    if [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
+    if [[ "$config_guard_blocked" == "1" ]]; then
+      cat >"$out_dir/fw_dma_control.json" <<'JSON'
+{"event":"fieldmesh_fw_dma_control_skipped","ok":false,"reason":"firmware-DMA status before config is not idle; set FORCE_FIRMWARE_DMA_CONFIG=1 only after reviewing status_before","writes_hardware":false}
+JSON
+    elif [[ "$apply_fw_dma" != "1" || "$allow_fw_dma" != "1" ]]; then
       cat >"$out_dir/fw_dma_control.json" <<'JSON'
 {"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=config APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to configure firmware-DMA metadata","writes_hardware":false}
 JSON
@@ -197,7 +227,7 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_status_after' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_after" "$out_dir/fw_dma_status_after.json"
 
-python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$arm_guard_blocked" "$force_fw_dma_arm" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$config_guard_blocked" "$arm_guard_blocked" "$force_fw_dma_config" "$force_fw_dma_arm" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -212,10 +242,13 @@ mcs = int(sys.argv[9])
 retry_budget = int(sys.argv[10])
 descriptor_flags = int(sys.argv[11])
 seq_seed = int(sys.argv[12])
-arm_guard_blocked = sys.argv[13] == "1"
-force_fw_dma_arm = sys.argv[14] == "1"
+config_guard_blocked = sys.argv[13] == "1"
+arm_guard_blocked = sys.argv[14] == "1"
+force_fw_dma_config = sys.argv[15] == "1"
+force_fw_dma_arm = sys.argv[16] == "1"
+guard_blocked = config_guard_blocked or arm_guard_blocked
 applied = (sys.argv[5] == "1" and sys.argv[6] == "1" and
-           action in {"config", "arm", "stop"} and not arm_guard_blocked)
+           action in {"config", "arm", "stop"} and not guard_blocked)
 
 before = json.loads((out_dir / "fw_dma_status_before.json").read_text(encoding="utf-8"))
 control = json.loads((out_dir / "fw_dma_control.json").read_text(encoding="utf-8"))
@@ -262,7 +295,7 @@ if applied:
                 raise SystemExit(f"firmware-DMA config {key} mismatch: {control}")
 else:
     if control.get("event") != "fieldmesh_fw_dma_control_skipped" or control.get("ok") is not True:
-        if not (arm_guard_blocked and control.get("ok") is False):
+        if not (guard_blocked and control.get("ok") is False):
             raise SystemExit(f"firmware-DMA dry-run did not skip cleanly: {control}")
     if control.get("writes_hardware") is not False:
         raise SystemExit(f"firmware-DMA dry-run must not write hardware: {control}")
@@ -277,7 +310,9 @@ summary = {
     "preflight_ok": True,
     "status_before_ok": True,
     "status_after_ok": True,
+    "config_guard_blocked": config_guard_blocked,
     "arm_guard_blocked": arm_guard_blocked,
+    "force_fw_dma_config": force_fw_dma_config,
     "force_fw_dma_arm": force_fw_dma_arm,
     "writes_hardware": applied,
     "starts_rf_tx": False,
@@ -289,6 +324,8 @@ print(json.dumps(summary, sort_keys=True))
     json.dumps(summary, indent=2, sort_keys=True) + "\n",
     encoding="utf-8",
 )
+if config_guard_blocked:
+    raise SystemExit("firmware-DMA config refused because status_before.idle is false")
 if arm_guard_blocked:
     raise SystemExit("firmware-DMA arm refused because status_before.ready_for_arm is false")
 PY

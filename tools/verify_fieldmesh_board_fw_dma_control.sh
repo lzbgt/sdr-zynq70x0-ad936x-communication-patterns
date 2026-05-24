@@ -28,8 +28,12 @@ required = [
     "SEQ_SEED",
     "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status",
     "APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1",
+    "FORCE_FIRMWARE_DMA_CONFIG",
     "FORCE_FIRMWARE_DMA_ARM",
+    "config_guard_blocked",
     "arm_guard_blocked",
+    "firmware-DMA status before config is not idle",
+    "status_before.idle",
     "firmware-DMA status before arm is not ready_for_arm",
     "status_before.ready_for_arm",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-config",
@@ -53,6 +57,10 @@ ready_check = script.index("ready_for_arm")
 arm_guard = script.index("arm_guard_blocked")
 if ready_check > arm_write or arm_guard > arm_write:
     raise SystemExit("firmware-DMA arm must be gated by ready_for_arm before the write command")
+idle_check = script.index("idle")
+config_guard = script.index("config_guard_blocked")
+if idle_check > config_write or config_guard > config_write:
+    raise SystemExit("firmware-DMA config must be gated by idle before the write command")
 PY
 
 printf 'fieldmesh_board_fw_dma_control=pass\n'
