@@ -1427,6 +1427,8 @@ user and vendor configuration.
   `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1` with
   both endpoint state daemons also proving
   `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`,
+  `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`, positive
+  `FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1` enqueue/drain counters,
   `state_daemon_owned_iio_transport=1`, and
   `helper_local_iio_daemon_only=0`, plus
   `python_xfer_field_orchestration=false` and

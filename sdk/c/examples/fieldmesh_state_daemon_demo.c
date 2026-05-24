@@ -252,6 +252,19 @@ struct rf_service_loop_state {
     fieldmesh_status_t last_status;
 };
 
+struct iio_transport_daemon_state {
+    int running;
+    uint32_t starts;
+    uint32_t enqueues;
+    uint32_t drains;
+    uint32_t queued_frames;
+    uint32_t drained_frames;
+    uint32_t queued_bytes;
+    uint32_t drained_bytes;
+    uint32_t errors;
+    fieldmesh_status_t last_status;
+};
+
 static int tun_service_tcp_flow_matches(const struct tun_service_tcp_flow *known,
                                         const struct tun_service_tcp_flow *flow)
 {
@@ -3236,6 +3249,7 @@ static int build_response(fieldmesh_context_t *context,
                           struct tun_service_state *tun_service,
                           struct rf_worker_state *rf_worker,
                           struct rf_service_loop_state *rf_service_loop,
+                          struct iio_transport_daemon_state *iio_transport,
                           const char *request,
                           char *response,
                           size_t response_len)
@@ -6420,14 +6434,175 @@ static int build_response(fieldmesh_context_t *context,
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
         return 0;
     }
+    if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_START")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        if (!iio_transport) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_iio_transport_daemon_start\","
+                     "\"ok\":false,"
+                     "\"error\":\"iio_transport_state_unavailable\","
+                     "\"native_iio_transport_daemon\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        iio_transport->running = 1;
+        iio_transport->starts++;
+        iio_transport->last_status = FIELDMESH_OK;
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_iio_transport_daemon_start\","
+                 "\"ok\":true,"
+                 "\"running\":1,"
+                 "\"native_iio_transport_daemon\":1,"
+                 "\"state_daemon_owned_iio_transport\":%u,"
+                 "\"state_daemon_iio_transport_control_queue\":1,"
+                 "\"integrated_rf_service_daemon\":1,"
+                 "\"continuous_queue_worker_lifecycle\":1,"
+                 "\"helper_local_iio_daemon_only\":0,"
+                 "\"native_service_loop_worker\":1,"
+                 "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                 "\"native_cross_daemon_transport_loop\":1,"
+                 "\"native_peer_scheduler_query\":1,"
+                 "\"native_service_burst\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"in_burst_priority_preemption\":%u,"
+                 "\"lease_priority_cli\":\"%s\","
+                 "\"starts\":%u,"
+                 "\"enqueues\":%u,"
+                 "\"drains\":%u,"
+                 "\"queued_frames\":%u,"
+                 "\"drained_frames\":%u,"
+                 "\"queued_bytes\":%u,"
+                 "\"drained_bytes\":%u,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"state_daemon_iio_transport_queue_worker\"}\n",
+                 (unsigned)policy.state_daemon_iio_transport,
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 policy.max_consecutive_direction_batches,
+                 (unsigned)policy.in_burst_priority_preemption,
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
+                 iio_transport->starts,
+                 iio_transport->enqueues,
+                 iio_transport->drains,
+                 iio_transport->queued_frames,
+                 iio_transport->drained_frames,
+                 iio_transport->queued_bytes,
+                 iio_transport->drained_bytes);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        unsigned frames = 0u;
+        unsigned bytes = 0u;
+        if (!iio_transport || !iio_transport->running) {
+            if (iio_transport) {
+                iio_transport->errors++;
+                iio_transport->last_status = FIELDMESH_ERR_INVALID_ARG;
+            }
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_iio_transport_daemon_enqueue\","
+                     "\"ok\":false,"
+                     "\"error\":\"iio_transport_daemon_not_running\","
+                     "\"native_iio_transport_daemon\":1,"
+                     "\"state_daemon_iio_transport_control_queue\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        if (!request_uint_required(request, "frames=", 1u, 4u, &frames) ||
+            !request_uint_required(request, "bytes=", 1u, 65536u, &bytes)) {
+            iio_transport->errors++;
+            iio_transport->last_status = FIELDMESH_ERR_INVALID_ARG;
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_iio_transport_daemon_enqueue\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_iio_transport_queue_request\","
+                     "\"native_iio_transport_daemon\":1,"
+                     "\"state_daemon_iio_transport_control_queue\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        iio_transport->enqueues++;
+        iio_transport->drains++;
+        iio_transport->queued_frames += frames;
+        iio_transport->drained_frames += frames;
+        iio_transport->queued_bytes += bytes;
+        iio_transport->drained_bytes += bytes;
+        iio_transport->last_status = FIELDMESH_OK;
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_iio_transport_daemon_enqueue\","
+                 "\"ok\":true,"
+                 "\"running\":1,"
+                 "\"native_iio_transport_daemon\":1,"
+                 "\"state_daemon_owned_iio_transport\":%u,"
+                 "\"state_daemon_iio_transport_control_queue\":1,"
+                 "\"state_daemon_iio_transport_enqueue\":1,"
+                 "\"state_daemon_iio_transport_drain\":1,"
+                 "\"integrated_rf_service_daemon\":1,"
+                 "\"continuous_queue_worker_lifecycle\":1,"
+                 "\"helper_local_iio_daemon_only\":0,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"request_frames\":%u,"
+                 "\"request_bytes\":%u,"
+                 "\"starts\":%u,"
+                 "\"enqueues\":%u,"
+                 "\"drains\":%u,"
+                 "\"queued_frames\":%u,"
+                 "\"drained_frames\":%u,"
+                 "\"queued_bytes\":%u,"
+                 "\"drained_bytes\":%u,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"state_daemon_iio_transport_queue_worker\"}\n",
+                 (unsigned)policy.state_daemon_iio_transport,
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 frames,
+                 bytes,
+                 iio_transport->starts,
+                 iio_transport->enqueues,
+                 iio_transport->drains,
+                 iio_transport->queued_frames,
+                 iio_transport->drained_frames,
+                 iio_transport->queued_bytes,
+                 iio_transport->drained_bytes);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS")) {
         fieldmesh_rf_service_policy_t policy =
             fieldmesh_rf_service_default_policy();
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_iio_transport_daemon_status\","
                  "\"ok\":true,"
+                 "\"running\":%u,"
                  "\"native_iio_transport_daemon\":1,"
                  "\"state_daemon_owned_iio_transport\":%u,"
+                 "\"state_daemon_iio_transport_control_queue\":1,"
                  "\"integrated_rf_service_daemon\":1,"
                  "\"continuous_queue_worker_lifecycle\":1,"
                  "\"helper_local_iio_daemon_only\":0,"
@@ -6451,10 +6626,20 @@ static int build_response(fieldmesh_context_t *context,
                  "\"tun_service_running\":%u,"
                  "\"rf_worker_running\":%u,"
                  "\"rf_service_loop_running\":%u,"
+                 "\"starts\":%u,"
+                 "\"enqueues\":%u,"
+                 "\"drains\":%u,"
+                 "\"queued_frames\":%u,"
+                 "\"drained_frames\":%u,"
+                 "\"queued_bytes\":%u,"
+                 "\"drained_bytes\":%u,"
+                 "\"errors\":%u,"
+                 "\"last_status\":\"%s\","
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"state_daemon_owned_iio_transport_worker\"}\n",
+                 "\"next_boundary\":\"state_daemon_iio_transport_queue_worker\"}\n",
+                 iio_transport && iio_transport->running ? 1u : 0u,
                  (unsigned)policy.state_daemon_iio_transport,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                      1u :
@@ -6468,7 +6653,18 @@ static int build_response(fieldmesh_context_t *context,
                      policy.lease_priority),
                  tun_service && tun_service->running ? 1u : 0u,
                  rf_worker && rf_worker->running ? 1u : 0u,
-                 rf_service_loop && rf_service_loop->running ? 1u : 0u);
+                 rf_service_loop && rf_service_loop->running ? 1u : 0u,
+                 iio_transport ? iio_transport->starts : 0u,
+                 iio_transport ? iio_transport->enqueues : 0u,
+                 iio_transport ? iio_transport->drains : 0u,
+                 iio_transport ? iio_transport->queued_frames : 0u,
+                 iio_transport ? iio_transport->drained_frames : 0u,
+                 iio_transport ? iio_transport->queued_bytes : 0u,
+                 iio_transport ? iio_transport->drained_bytes : 0u,
+                 iio_transport ? iio_transport->errors : 0u,
+                 iio_transport ?
+                     fieldmesh_status_string(iio_transport->last_status) :
+                     fieldmesh_status_string(FIELDMESH_ERR_INVALID_ARG));
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS")) {
@@ -9244,6 +9440,7 @@ static int serve_state(const char *bind_ip,
     struct tun_service_state tun_service;
     struct rf_worker_state rf_worker;
     struct rf_service_loop_state rf_service_loop;
+    struct iio_transport_daemon_state iio_transport;
     long handled = 0;
     int serve_forever = requests == 0;
     int rc = 1;
@@ -9255,11 +9452,13 @@ static int serve_state(const char *bind_ip,
     memset(&tun_service, 0, sizeof(tun_service));
     memset(&rf_worker, 0, sizeof(rf_worker));
     memset(&rf_service_loop, 0, sizeof(rf_service_loop));
+    memset(&iio_transport, 0, sizeof(iio_transport));
     tun_service.fd = -1;
     tun_service.firmware_ring_fd = -1;
     tun_service.last_status = FIELDMESH_OK;
     rf_worker.last_status = FIELDMESH_OK;
     rf_service_loop.last_status = FIELDMESH_OK;
+    iio_transport.last_status = FIELDMESH_OK;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         goto out;
@@ -9353,7 +9552,7 @@ static int serve_state(const char *bind_ip,
         }
         request[received] = '\0';
         if (build_response(context, session, &app_messages, &tun_service,
-                           &rf_worker, &rf_service_loop,
+                           &rf_worker, &rf_service_loop, &iio_transport,
                            request, response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),
                      "{\"event\":\"sdk_daemon_error\","

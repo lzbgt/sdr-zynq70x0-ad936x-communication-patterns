@@ -407,6 +407,19 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         )
     if int(report.get("iio_bridge_state_daemon_iio_transport_status_failures") or 0) != 0:
         errors.append(f"{label}: state-daemon IIO transport status reported failures")
+    if report.get("iio_bridge_state_daemon_iio_transport_enqueue_proven") is not True:
+        errors.append(f"{label}: state-daemon IIO transport enqueue/drain proof is missing")
+    state_starts = report.get("iio_bridge_state_daemon_iio_transport_starts")
+    if not isinstance(state_starts, int) or state_starts < 2:
+        errors.append(f"{label}: state-daemon IIO transport start proof must cover both endpoints")
+    state_enqueues = report.get("iio_bridge_state_daemon_iio_transport_enqueues")
+    state_drains = report.get("iio_bridge_state_daemon_iio_transport_drains")
+    if not isinstance(state_enqueues, int) or state_enqueues < 1:
+        errors.append(f"{label}: state-daemon IIO transport enqueue count is missing")
+    if not isinstance(state_drains, int) or state_drains < state_enqueues:
+        errors.append(f"{label}: state-daemon IIO transport drain count is below enqueue count")
+    if int(report.get("iio_bridge_state_daemon_iio_transport_enqueue_failures") or 0) != 0:
+        errors.append(f"{label}: state-daemon IIO transport enqueue reported failures")
     transport_status = report.get("iio_bridge_state_daemon_iio_transport_status")
     if not isinstance(transport_status, dict) or sorted(transport_status) != ["z103", "z203"]:
         errors.append(f"{label}: state-daemon IIO transport status must include z203 and z103")
@@ -420,6 +433,7 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
                 "state_daemon_owned_iio_transport",
                 "integrated_rf_service_daemon",
                 "continuous_queue_worker_lifecycle",
+                "state_daemon_iio_transport_control_queue",
                 "service_policy_bound",
                 "production_iio_policy",
             ):
@@ -1368,6 +1382,24 @@ def main() -> int:
         ),
         "host_iio_state_daemon_iio_transport_status_polls": host.get(
             "iio_bridge_state_daemon_iio_transport_status_polls"
+        ),
+        "board_iio_state_daemon_iio_transport_enqueue_proven": board.get(
+            "iio_bridge_state_daemon_iio_transport_enqueue_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_enqueue_proven": host.get(
+            "iio_bridge_state_daemon_iio_transport_enqueue_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_enqueues": board.get(
+            "iio_bridge_state_daemon_iio_transport_enqueues"
+        ),
+        "host_iio_state_daemon_iio_transport_enqueues": host.get(
+            "iio_bridge_state_daemon_iio_transport_enqueues"
+        ),
+        "board_iio_state_daemon_iio_transport_drains": board.get(
+            "iio_bridge_state_daemon_iio_transport_drains"
+        ),
+        "host_iio_state_daemon_iio_transport_drains": host.get(
+            "iio_bridge_state_daemon_iio_transport_drains"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

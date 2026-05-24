@@ -586,6 +586,7 @@ def iio_transport_status_request(host, port, text, timeout_ms):
         "ok": True,
         "native_iio_transport_daemon": 1,
         "state_daemon_owned_iio_transport": 1,
+        "state_daemon_iio_transport_control_queue": 1,
         "integrated_rf_service_daemon": 1,
         "continuous_queue_worker_lifecycle": 1,
         "helper_local_iio_daemon_only": 0,
@@ -609,7 +610,7 @@ def iio_transport_status_request(host, port, text, timeout_ms):
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "state_daemon_owned_iio_transport_worker",
+        "next_boundary": "state_daemon_iio_transport_queue_worker",
     }
 bridge.request_daemon = iio_transport_status_request
 try:
@@ -629,6 +630,74 @@ except SystemExit:
     pass
 else:
     raise SystemExit("state-daemon IIO transport validator accepted helper-only status")
+captured = {}
+def iio_transport_start_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    report = iio_transport_status_request(host, port, text, timeout_ms)
+    report["event"] = "sdk_daemon_iio_transport_daemon_start"
+    report["running"] = 1
+    report["starts"] = 1
+    report["enqueues"] = 0
+    report["drains"] = 0
+    report["queued_frames"] = 0
+    report["drained_frames"] = 0
+    report["queued_bytes"] = 0
+    report["drained_bytes"] = 0
+    return report
+bridge.request_daemon = iio_transport_start_request
+try:
+    iio_start = loop.iio_transport_daemon_start("127.0.0.1", 55441, 10)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != "FIELDMESH_IIO_TRANSPORT_DAEMON_START v1":
+    raise SystemExit(
+        f"state-daemon IIO transport start must use daemon start command: {captured}"
+    )
+loop.validate_iio_transport_daemon_boundary(iio_start, "z203", args)
+captured = {}
+def iio_transport_enqueue_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_iio_transport_daemon_enqueue",
+        "ok": True,
+        "running": 1,
+        "native_iio_transport_daemon": 1,
+        "state_daemon_owned_iio_transport": 1,
+        "state_daemon_iio_transport_control_queue": 1,
+        "state_daemon_iio_transport_enqueue": 1,
+        "state_daemon_iio_transport_drain": 1,
+        "integrated_rf_service_daemon": 1,
+        "continuous_queue_worker_lifecycle": 1,
+        "helper_local_iio_daemon_only": 0,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "request_frames": 2,
+        "request_bytes": 384,
+        "starts": 1,
+        "enqueues": 1,
+        "drains": 1,
+        "queued_frames": 2,
+        "drained_frames": 2,
+        "queued_bytes": 384,
+        "drained_bytes": 384,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "state_daemon_iio_transport_queue_worker",
+    }
+bridge.request_daemon = iio_transport_enqueue_request
+try:
+    iio_enqueue = loop.iio_transport_daemon_enqueue("127.0.0.1", 55441, 10, 2, 384)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != (
+    "FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1 frames=2 bytes=384"
+):
+    raise SystemExit(
+        f"state-daemon IIO transport enqueue must use daemon enqueue command: {captured}"
+    )
+loop.validate_iio_transport_daemon_enqueue(iio_enqueue, "z203-to-z103", 2, 384)
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -875,10 +944,17 @@ required = [
     "in_burst_priority_preemption",
     "FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF",
     "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS",
+    "FIELDMESH_IIO_TRANSPORT_DAEMON_START",
+    "FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE",
     "sdk_daemon_iio_transport_daemon_status",
+    "sdk_daemon_iio_transport_daemon_start",
+    "sdk_daemon_iio_transport_daemon_enqueue",
     "state_daemon_owned_iio_transport",
+    "state_daemon_iio_transport_control_queue",
+    "state_daemon_iio_transport_enqueue",
+    "state_daemon_iio_transport_drain",
     "helper_local_iio_daemon_only",
-    "\\\"next_boundary\\\":\\\"state_daemon_owned_iio_transport_worker\\\"",
+    "\\\"next_boundary\\\":\\\"state_daemon_iio_transport_queue_worker\\\"",
     "in_burst_priority_multiplexing",
     "fieldmesh_rf_service_lease_priority_name(policy.lease_priority)",
     "fieldmesh_rf_service_lease_priority_cli_name(",
@@ -1117,6 +1193,12 @@ required = [
     '"iio_bridge_state_daemon_iio_transport_status_polls"',
     '"iio_bridge_state_daemon_iio_transport_status_failures"',
     '"iio_bridge_state_daemon_iio_transport_status"',
+    '"iio_bridge_state_daemon_iio_transport_start_status"',
+    '"iio_bridge_state_daemon_iio_transport_starts"',
+    '"iio_bridge_state_daemon_iio_transport_enqueue_proven"',
+    '"iio_bridge_state_daemon_iio_transport_enqueues"',
+    '"iio_bridge_state_daemon_iio_transport_drains"',
+    '"iio_bridge_state_daemon_iio_transport_enqueue_failures"',
     '"iio_bridge_same_priority_batch"',
     '"iio_bridge_same_priority_batch_preemption_exercised"',
     '"iio_bridge_same_priority_batch_leases"',

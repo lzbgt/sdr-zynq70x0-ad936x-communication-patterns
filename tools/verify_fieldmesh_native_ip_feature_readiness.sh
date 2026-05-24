@@ -121,6 +121,12 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_state_daemon_iio_transport_proven": true,
   "board_iio_state_daemon_iio_transport_status_polls": 2,
   "host_iio_state_daemon_iio_transport_status_polls": 2,
+  "board_iio_state_daemon_iio_transport_enqueue_proven": true,
+  "host_iio_state_daemon_iio_transport_enqueue_proven": true,
+  "board_iio_state_daemon_iio_transport_enqueues": 3,
+  "host_iio_state_daemon_iio_transport_enqueues": 3,
+  "board_iio_state_daemon_iio_transport_drains": 3,
+  "host_iio_state_daemon_iio_transport_drains": 3,
   "board_iio_bridge_in_burst_priority_preemption_enabled": true,
   "host_iio_bridge_in_burst_priority_preemption_enabled": true,
   "board_iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -285,6 +291,12 @@ if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
     raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport proof: {report!r}")
 if report.get("host_iio_state_daemon_iio_transport_status_polls") != 2:
     raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport polls: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_enqueue_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport enqueue proof: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_enqueues") != 3:
+    raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport enqueue count: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_drains") != 3:
+    raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport drain count: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing proof: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:

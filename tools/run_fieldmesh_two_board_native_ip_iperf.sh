@@ -3043,6 +3043,24 @@ report = {
     "iio_bridge_state_daemon_iio_transport_status": (
         last_iio_bridge.get("state_daemon_iio_transport_status") or {}
     ),
+    "iio_bridge_state_daemon_iio_transport_start_status": (
+        last_iio_bridge.get("state_daemon_iio_transport_start_status") or {}
+    ),
+    "iio_bridge_state_daemon_iio_transport_starts": int(
+        last_iio_bridge.get("state_daemon_iio_transport_starts") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_enqueue_proven": bool(
+        last_iio_bridge.get("state_daemon_iio_transport_enqueue_proven")
+    ),
+    "iio_bridge_state_daemon_iio_transport_enqueues": int(
+        last_iio_bridge.get("state_daemon_iio_transport_enqueues") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_drains": int(
+        last_iio_bridge.get("state_daemon_iio_transport_drains") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_enqueue_failures": int(
+        last_iio_bridge.get("state_daemon_iio_transport_enqueue_failures") or 0
+    ),
     "iio_bridge_in_burst_priority_preemption_enabled": bool(
         last_iio_bridge.get("in_burst_priority_preemption_enabled")
     ),

@@ -76,10 +76,16 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_proven": true,
   "iio_bridge_state_daemon_iio_transport_status_polls": 2,
   "iio_bridge_state_daemon_iio_transport_status_failures": 0,
+  "iio_bridge_state_daemon_iio_transport_starts": 2,
+  "iio_bridge_state_daemon_iio_transport_enqueue_proven": true,
+  "iio_bridge_state_daemon_iio_transport_enqueues": 3,
+  "iio_bridge_state_daemon_iio_transport_drains": 3,
+  "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
+      "state_daemon_iio_transport_control_queue": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
       "helper_local_iio_daemon_only": 0,
@@ -90,6 +96,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
     "z203": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
+      "state_daemon_iio_transport_control_queue": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
       "helper_local_iio_daemon_only": 0,
@@ -344,10 +351,16 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_proven": true,
   "iio_bridge_state_daemon_iio_transport_status_polls": 2,
   "iio_bridge_state_daemon_iio_transport_status_failures": 0,
+  "iio_bridge_state_daemon_iio_transport_starts": 2,
+  "iio_bridge_state_daemon_iio_transport_enqueue_proven": true,
+  "iio_bridge_state_daemon_iio_transport_enqueues": 3,
+  "iio_bridge_state_daemon_iio_transport_drains": 3,
+  "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
+      "state_daemon_iio_transport_control_queue": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
       "helper_local_iio_daemon_only": 0,
@@ -358,6 +371,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
     "z203": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
+      "state_daemon_iio_transport_control_queue": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
       "helper_local_iio_daemon_only": 0,
@@ -721,6 +735,12 @@ if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
     raise SystemExit(f"missing host state-daemon IIO transport proof: {report}")
 if report.get("host_iio_state_daemon_iio_transport_status_polls") != 2:
     raise SystemExit(f"missing host state-daemon IIO transport status polls: {report}")
+if report.get("host_iio_state_daemon_iio_transport_enqueue_proven") is not True:
+    raise SystemExit(f"missing host state-daemon IIO transport enqueue proof: {report}")
+if report.get("host_iio_state_daemon_iio_transport_enqueues") != 3:
+    raise SystemExit(f"missing host state-daemon IIO transport enqueue count: {report}")
+if report.get("host_iio_state_daemon_iio_transport_drains") != 3:
+    raise SystemExit(f"missing host state-daemon IIO transport drain count: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"missing host in-burst priority multiplexing proof: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:

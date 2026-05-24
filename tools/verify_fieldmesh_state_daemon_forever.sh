@@ -68,8 +68,37 @@ def query_iio_transport_once():
         raise SystemExit("daemon did not answer IIO transport daemon status")
     replies.append(json.loads(data.decode("utf-8")))
 
+def query_iio_transport_start_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(b"FIELDMESH_IIO_TRANSPORT_DAEMON_START v1", ("127.0.0.1", port))
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_iio_transport_daemon_start"' not in data:
+        raise SystemExit("daemon did not answer IIO transport daemon start")
+    replies.append(json.loads(data.decode("utf-8")))
+
+def query_iio_transport_enqueue_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(
+            b"FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1 frames=2 bytes=128",
+            ("127.0.0.1", port),
+        )
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_iio_transport_daemon_enqueue"' not in data:
+        raise SystemExit("daemon did not answer IIO transport daemon enqueue")
+    replies.append(json.loads(data.decode("utf-8")))
+
 query_once()
 query_policy_once()
+query_iio_transport_start_once()
+query_iio_transport_enqueue_once()
 query_iio_transport_once()
 time.sleep(0.6)
 query_once()
@@ -126,6 +155,18 @@ iio_transport_replies = [
 ]
 if len(iio_transport_replies) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon status")
+iio_transport_starts = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_iio_transport_daemon_start"
+]
+iio_transport_enqueues = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_iio_transport_daemon_enqueue"
+]
+if len(iio_transport_starts) != 1:
+    raise SystemExit("daemon did not answer IIO transport daemon start")
+if len(iio_transport_enqueues) != 1:
+    raise SystemExit("daemon did not answer IIO transport daemon enqueue")
 policy = policy_replies[0]
 expected = {
     "ok": True,
@@ -158,6 +199,7 @@ expected_iio_transport = {
     "ok": True,
     "native_iio_transport_daemon": 1,
     "state_daemon_owned_iio_transport": 1,
+    "state_daemon_iio_transport_control_queue": 1,
     "integrated_rf_service_daemon": 1,
     "continuous_queue_worker_lifecycle": 1,
     "helper_local_iio_daemon_only": 0,
@@ -181,11 +223,50 @@ expected_iio_transport = {
     "starts_rf_tx": 0,
     "writes_hardware": 0,
     "commands_executed": 0,
-    "next_boundary": "state_daemon_owned_iio_transport_worker",
+    "next_boundary": "state_daemon_iio_transport_queue_worker",
 }
 for key, value in expected_iio_transport.items():
     if iio_transport.get(key) != value:
         raise SystemExit(f"IIO transport daemon status {key} mismatch: {iio_transport}")
+if iio_transport.get("running") != 1:
+    raise SystemExit(f"IIO transport daemon did not stay running: {iio_transport}")
+for key in ("starts", "enqueues", "drains"):
+    if iio_transport.get(key) != 1:
+        raise SystemExit(f"IIO transport daemon status {key} mismatch: {iio_transport}")
+if iio_transport.get("queued_frames") != 2 or iio_transport.get("drained_frames") != 2:
+    raise SystemExit(f"IIO transport daemon frame counters mismatch: {iio_transport}")
+if iio_transport.get("queued_bytes") != 128 or iio_transport.get("drained_bytes") != 128:
+    raise SystemExit(f"IIO transport daemon byte counters mismatch: {iio_transport}")
+start = iio_transport_starts[0]
+if start.get("ok") is not True or start.get("state_daemon_iio_transport_control_queue") != 1:
+    raise SystemExit(f"IIO transport daemon start proof mismatch: {start}")
+enqueue = iio_transport_enqueues[0]
+expected_enqueue = {
+    "ok": True,
+    "running": 1,
+    "native_iio_transport_daemon": 1,
+    "state_daemon_owned_iio_transport": 1,
+    "state_daemon_iio_transport_control_queue": 1,
+    "state_daemon_iio_transport_enqueue": 1,
+    "state_daemon_iio_transport_drain": 1,
+    "helper_local_iio_daemon_only": 0,
+    "request_frames": 2,
+    "request_bytes": 128,
+    "starts": 1,
+    "enqueues": 1,
+    "drains": 1,
+    "queued_frames": 2,
+    "drained_frames": 2,
+    "queued_bytes": 128,
+    "drained_bytes": 128,
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+    "commands_executed": 0,
+    "next_boundary": "state_daemon_iio_transport_queue_worker",
+}
+for key, value in expected_enqueue.items():
+    if enqueue.get(key) != value:
+        raise SystemExit(f"IIO transport daemon enqueue {key} mismatch: {enqueue}")
 PY
 
 echo "fieldmesh_state_daemon_forever_check=pass"

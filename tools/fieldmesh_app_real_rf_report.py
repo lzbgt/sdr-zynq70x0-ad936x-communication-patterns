@@ -268,6 +268,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board state-daemon IIO transport proof is missing")
             if source.get("host_iio_state_daemon_iio_transport_proven") is not True:
                 raise SystemExit("native_ip: host state-daemon IIO transport proof is missing")
+            if source.get("board_iio_state_daemon_iio_transport_enqueue_proven") is not True:
+                raise SystemExit("native_ip: board state-daemon IIO transport enqueue proof is missing")
+            if source.get("host_iio_state_daemon_iio_transport_enqueue_proven") is not True:
+                raise SystemExit("native_ip: host state-daemon IIO transport enqueue proof is missing")
             if source.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
                 raise SystemExit("native_ip: board IIO in-burst priority preemption proof is missing")
             if source.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
@@ -460,6 +464,12 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_state_daemon_iio_transport_proven",
         "board_iio_state_daemon_iio_transport_status_polls",
         "host_iio_state_daemon_iio_transport_status_polls",
+        "board_iio_state_daemon_iio_transport_enqueue_proven",
+        "host_iio_state_daemon_iio_transport_enqueue_proven",
+        "board_iio_state_daemon_iio_transport_enqueues",
+        "host_iio_state_daemon_iio_transport_enqueues",
+        "board_iio_state_daemon_iio_transport_drains",
+        "host_iio_state_daemon_iio_transport_drains",
         "board_iio_bridge_in_burst_priority_preemption_enabled",
         "host_iio_bridge_in_burst_priority_preemption_enabled",
         "board_iio_bridge_in_burst_priority_preemption_exercised",
