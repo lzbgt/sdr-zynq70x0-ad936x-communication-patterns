@@ -677,6 +677,28 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_state_daemon_iio_transport_drains": report.get(
             "host_iio_state_daemon_iio_transport_drains"
         ),
+        "board_iio_state_daemon_iio_transport_execution_worker_runs": report.get(
+            "board_iio_state_daemon_iio_transport_execution_worker_runs"
+        ),
+        "host_iio_state_daemon_iio_transport_execution_worker_runs": report.get(
+            "host_iio_state_daemon_iio_transport_execution_worker_runs"
+        ),
+        "board_iio_bridge_sample_rate_hz": report.get("board_iio_bridge_sample_rate_hz"),
+        "host_iio_bridge_sample_rate_hz": report.get("host_iio_bridge_sample_rate_hz"),
+        "board_iio_bridge_rf_bandwidth_hz": report.get("board_iio_bridge_rf_bandwidth_hz"),
+        "host_iio_bridge_rf_bandwidth_hz": report.get("host_iio_bridge_rf_bandwidth_hz"),
+        "board_iio_bridge_phy_raw_bitrate_bps": report.get(
+            "board_iio_bridge_phy_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_raw_bitrate_bps": report.get(
+            "host_iio_bridge_phy_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_min_raw_bitrate_bps": report.get(
+            "board_iio_bridge_phy_min_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_min_raw_bitrate_bps": report.get(
+            "host_iio_bridge_phy_min_raw_bitrate_bps"
+        ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"
         ),

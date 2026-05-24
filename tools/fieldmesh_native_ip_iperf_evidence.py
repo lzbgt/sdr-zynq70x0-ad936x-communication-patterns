@@ -452,12 +452,37 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: state-daemon IIO transport start proof must cover both endpoints")
     state_enqueues = report.get("iio_bridge_state_daemon_iio_transport_enqueues")
     state_drains = report.get("iio_bridge_state_daemon_iio_transport_drains")
+    state_exec_runs = report.get(
+        "iio_bridge_state_daemon_iio_transport_execution_worker_runs"
+    )
     if not isinstance(state_enqueues, int) or state_enqueues < 1:
         errors.append(f"{label}: state-daemon IIO transport enqueue count is missing")
     if not isinstance(state_drains, int) or state_drains < state_enqueues:
         errors.append(f"{label}: state-daemon IIO transport drain count is below enqueue count")
+    if not isinstance(state_exec_runs, int) or state_exec_runs < state_enqueues:
+        errors.append(
+            f"{label}: state-daemon IIO transport execution worker did not cover enqueues"
+        )
     if int(report.get("iio_bridge_state_daemon_iio_transport_enqueue_failures") or 0) != 0:
         errors.append(f"{label}: state-daemon IIO transport enqueue reported failures")
+    sample_rate_hz = report.get("iio_bridge_sample_rate_hz")
+    rf_bandwidth_hz = report.get("iio_bridge_rf_bandwidth_hz")
+    if not isinstance(sample_rate_hz, int) or sample_rate_hz <= 0:
+        errors.append(f"{label}: IIO bridge sample-rate evidence is missing")
+    if not isinstance(rf_bandwidth_hz, int) or rf_bandwidth_hz < 1_000_000:
+        errors.append(f"{label}: IIO bridge RF bandwidth must be at least 1 MHz")
+    phy_raw = report.get("iio_bridge_phy_raw_bitrate_bps")
+    if not isinstance(phy_raw, dict) or sorted(phy_raw) != ["z103_to_z203", "z203_to_z103"]:
+        errors.append(f"{label}: IIO bridge PHY raw bitrate evidence must include both directions")
+    else:
+        for direction, value in sorted(phy_raw.items()):
+            if not isinstance(value, (int, float)) or value <= 0:
+                errors.append(
+                    f"{label}: IIO bridge PHY raw bitrate for {direction} must be > 0"
+                )
+    min_phy_raw = report.get("iio_bridge_phy_min_raw_bitrate_bps")
+    if not isinstance(min_phy_raw, (int, float)) or min_phy_raw <= 0:
+        errors.append(f"{label}: IIO bridge minimum PHY raw bitrate evidence is missing")
     transport_status = report.get("iio_bridge_state_daemon_iio_transport_status")
     if not isinstance(transport_status, dict) or sorted(transport_status) != ["z103", "z203"]:
         errors.append(f"{label}: state-daemon IIO transport status must include z203 and z103")
@@ -472,6 +497,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
                 "integrated_rf_service_daemon",
                 "continuous_queue_worker_lifecycle",
                 "state_daemon_iio_transport_control_queue",
+                "state_daemon_iio_transport_execution_worker",
+                "state_daemon_libiio_execution_owner",
                 "service_policy_bound",
                 "production_iio_policy",
             ):
@@ -483,12 +510,23 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
                 errors.append(
                     f"{label}: {endpoint} state-daemon IIO transport still reports helper-only ownership"
                 )
+            if status.get("helper_local_libiio_execution_only") != 0:
+                errors.append(
+                    f"{label}: {endpoint} state-daemon IIO transport still reports helper-only libiio execution"
+                )
             if (
                 status.get("iio_transport_daemon_status_proof")
                 != "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
             ):
                 errors.append(
                     f"{label}: {endpoint} state-daemon IIO transport proof token is invalid"
+                )
+            if (
+                status.get("iio_transport_execution_worker_proof")
+                != "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1"
+            ):
+                errors.append(
+                    f"{label}: {endpoint} state-daemon IIO transport execution proof token is invalid"
                 )
     if report.get("iio_bridge_rf_sub_burst_enabled") is not True:
         errors.append(f"{label}: IIO RF sub-burst service must be enabled")
@@ -1468,6 +1506,24 @@ def main() -> int:
         ),
         "host_iio_state_daemon_iio_transport_drains": host.get(
             "iio_bridge_state_daemon_iio_transport_drains"
+        ),
+        "board_iio_state_daemon_iio_transport_execution_worker_runs": board.get(
+            "iio_bridge_state_daemon_iio_transport_execution_worker_runs"
+        ),
+        "host_iio_state_daemon_iio_transport_execution_worker_runs": host.get(
+            "iio_bridge_state_daemon_iio_transport_execution_worker_runs"
+        ),
+        "board_iio_bridge_sample_rate_hz": board.get("iio_bridge_sample_rate_hz"),
+        "host_iio_bridge_sample_rate_hz": host.get("iio_bridge_sample_rate_hz"),
+        "board_iio_bridge_rf_bandwidth_hz": board.get("iio_bridge_rf_bandwidth_hz"),
+        "host_iio_bridge_rf_bandwidth_hz": host.get("iio_bridge_rf_bandwidth_hz"),
+        "board_iio_bridge_phy_raw_bitrate_bps": board.get("iio_bridge_phy_raw_bitrate_bps"),
+        "host_iio_bridge_phy_raw_bitrate_bps": host.get("iio_bridge_phy_raw_bitrate_bps"),
+        "board_iio_bridge_phy_min_raw_bitrate_bps": board.get(
+            "iio_bridge_phy_min_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_min_raw_bitrate_bps": host.get(
+            "iio_bridge_phy_min_raw_bitrate_bps"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

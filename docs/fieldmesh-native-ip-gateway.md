@@ -401,6 +401,10 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`,
   `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`, positive
   `FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1` enqueue/drain counters,
+  `FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1`,
+  `state_daemon_iio_transport_execution_worker=1`,
+  `state_daemon_libiio_execution_owner=1`,
+  `helper_local_libiio_execution_only=0`, positive execution-worker counters,
   `state_daemon_owned_iio_transport=1`, and
   `helper_local_iio_daemon_only=0`, plus
   `python_xfer_field_orchestration=false` and
@@ -416,7 +420,11 @@ Minimum production gates for native TCP/IP:
   one-shot helper invocation, Python-owned `XFER` field strings, or the older direct
   `WORKER_XFER`/`TRANSPORT_SERVICE_LOOP_RUN`/`TRANSPORT_SCHEDULER_DRAIN`/`TRANSPORT_AUTONOMOUS_LOOP_RUN`
   submission paths, Python-written transfer request files, or Python helper
-  command/status pacing alone. The
+  command/status pacing alone. The native-IP IIO HIL default RF bandwidth is
+  now aligned with the other guarded RF production paths at `1 MHz`; reports
+  preserve `sample_rate_hz`, `rf_bandwidth_hz`, and per-direction modem raw
+  PHY bitrate so UDP/TCP goodput can be reviewed against the actual RF setting
+  instead of an implicit 300 kHz bridge default. The
   Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
   was still already interrupted by the wrapper in that run, so production

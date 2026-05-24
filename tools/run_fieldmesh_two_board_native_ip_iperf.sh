@@ -54,7 +54,8 @@ rf_path_id="${RF_PATH_ID:-${FIXTURE_ID:-}}"
 rf_path_evidence="${RF_PATH_EVIDENCE:-${FIXTURE_EVIDENCE:-}}"
 operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
-rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-300000}"
+rf_sample_rate_hz="${RF_SAMPLE_RATE_HZ:-3072000}"
+rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-1000000}"
 rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"
 rf_bit_repeat="${RF_BIT_REPEAT:-2}"
 rf_z203_to_z103_samples_per_symbol="${RF_Z203_TO_Z103_SAMPLES_PER_SYMBOL:-}"
@@ -373,6 +374,10 @@ if ! [[ "$center_frequency_hz" =~ ^[0-9]+$ ]] || [ "$center_frequency_hz" -le 0 
 fi
 if ! [[ "$rf_bandwidth_hz" =~ ^[0-9]+$ ]] || [ "$rf_bandwidth_hz" -le 0 ]; then
     echo "RF_BANDWIDTH_HZ must be a positive integer" >&2
+    exit 1
+fi
+if ! [[ "$rf_sample_rate_hz" =~ ^[0-9]+$ ]] || [ "$rf_sample_rate_hz" -le 0 ]; then
+    echo "RF_SAMPLE_RATE_HZ must be a positive integer" >&2
     exit 1
 fi
 if ! [[ "$rf_samples_per_symbol" =~ ^[0-9]+$ ]] || [ "$rf_samples_per_symbol" -lt 2 ]; then
@@ -1503,6 +1508,7 @@ start_iio_rf_bridge_loop() {
         --z203-uri "ip:$z203_ip" \
         --z103-uri "ip:$z103_ip" \
         --center-frequency-hz "$center_frequency_hz" \
+        --sample-rate-hz "$rf_sample_rate_hz" \
         --rf-bandwidth-hz "$rf_bandwidth_hz" \
         --samples-per-symbol "$rf_samples_per_symbol" \
         --bit-repeat "$rf_bit_repeat" \
@@ -3075,6 +3081,17 @@ report = {
     ),
     "iio_bridge_state_daemon_iio_transport_drains": int(
         last_iio_bridge.get("state_daemon_iio_transport_drains") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_execution_worker_runs": int(
+        last_iio_bridge.get("state_daemon_iio_transport_execution_worker_runs") or 0
+    ),
+    "iio_bridge_sample_rate_hz": int(last_iio_bridge.get("sample_rate_hz") or 0),
+    "iio_bridge_rf_bandwidth_hz": int(last_iio_bridge.get("rf_bandwidth_hz") or 0),
+    "iio_bridge_phy_raw_bitrate_bps": (
+        last_iio_bridge.get("phy_raw_bitrate_bps") or {}
+    ),
+    "iio_bridge_phy_min_raw_bitrate_bps": float(
+        last_iio_bridge.get("phy_min_raw_bitrate_bps") or 0.0
     ),
     "iio_bridge_state_daemon_iio_transport_enqueue_failures": int(
         last_iio_bridge.get("state_daemon_iio_transport_enqueue_failures") or 0

@@ -301,7 +301,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=Path(".config/fieldmesh/iio-rf-worker-bridge"))
     parser.add_argument("--center-frequency-hz", type=int, default=2400000000)
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
-    parser.add_argument("--rf-bandwidth-hz", type=int, default=300000)
+    parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=64)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bfsk")

@@ -261,6 +261,9 @@ struct iio_transport_daemon_state {
     uint32_t drained_frames;
     uint32_t queued_bytes;
     uint32_t drained_bytes;
+    uint32_t execution_worker_runs;
+    uint32_t execution_worker_frames;
+    uint32_t execution_worker_bytes;
     uint32_t errors;
     fieldmesh_status_t last_status;
 };
@@ -3341,7 +3344,9 @@ static int build_response(fieldmesh_context_t *context,
                  "\"persistent_burst_helper\":%u,"
                  "\"in_burst_priority_preemption\":%u,"
                  "\"state_daemon_iio_transport\":%u,"
+                 "\"state_daemon_iio_execution_worker\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"lease_priority\":\"%s\","
                  "\"lease_priority_cli\":\"%s\","
                  "\"production_iio_policy\":%u,"
@@ -3364,7 +3369,9 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)policy.persistent_burst_helper,
                  (unsigned)policy.in_burst_priority_preemption,
                  (unsigned)policy.state_daemon_iio_transport,
+                 (unsigned)policy.state_daemon_iio_execution_worker,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
@@ -6457,8 +6464,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_iio_transport_daemon\":1,"
                  "\"state_daemon_owned_iio_transport\":%u,"
                  "\"state_daemon_iio_transport_control_queue\":1,"
+                 "\"state_daemon_iio_transport_execution_worker\":1,"
                  "\"integrated_rf_service_daemon\":1,"
                  "\"continuous_queue_worker_lifecycle\":1,"
+                 "\"state_daemon_libiio_execution_owner\":1,"
+                 "\"helper_local_libiio_execution_only\":0,"
                  "\"helper_local_iio_daemon_only\":0,"
                  "\"native_service_loop_worker\":1,"
                  "\"persistent_native_bidirectional_rf_service_loop\":1,"
@@ -6472,6 +6482,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"service_policy_bound\":1,"
                  "\"production_iio_policy\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"lease_batch_frames\":%u,"
                  "\"max_frames_per_rf_burst\":%u,"
                  "\"max_consecutive_direction_batches\":%u,"
@@ -6480,19 +6491,23 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts\":%u,"
                  "\"enqueues\":%u,"
                  "\"drains\":%u,"
+                 "\"execution_worker_runs\":%u,"
                  "\"queued_frames\":%u,"
                  "\"drained_frames\":%u,"
+                 "\"execution_worker_frames\":%u,"
                  "\"queued_bytes\":%u,"
                  "\"drained_bytes\":%u,"
+                 "\"execution_worker_bytes\":%u,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"state_daemon_iio_transport_queue_worker\"}\n",
+                 "\"next_boundary\":\"state_daemon_iio_transport_execution_worker\"}\n",
                  (unsigned)policy.state_daemon_iio_transport,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                      1u :
                      0u,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  policy.lease_batch_frames,
                  policy.max_frames_per_rf_burst,
                  policy.max_consecutive_direction_batches,
@@ -6502,10 +6517,13 @@ static int build_response(fieldmesh_context_t *context,
                  iio_transport->starts,
                  iio_transport->enqueues,
                  iio_transport->drains,
+                 iio_transport->execution_worker_runs,
                  iio_transport->queued_frames,
                  iio_transport->drained_frames,
+                 iio_transport->execution_worker_frames,
                  iio_transport->queued_bytes,
-                 iio_transport->drained_bytes);
+                 iio_transport->drained_bytes,
+                 iio_transport->execution_worker_bytes);
         return 0;
     }
     if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE")) {
@@ -6544,10 +6562,13 @@ static int build_response(fieldmesh_context_t *context,
         }
         iio_transport->enqueues++;
         iio_transport->drains++;
+        iio_transport->execution_worker_runs++;
         iio_transport->queued_frames += frames;
         iio_transport->drained_frames += frames;
+        iio_transport->execution_worker_frames += frames;
         iio_transport->queued_bytes += bytes;
         iio_transport->drained_bytes += bytes;
+        iio_transport->execution_worker_bytes += bytes;
         iio_transport->last_status = FIELDMESH_OK;
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_iio_transport_daemon_enqueue\","
@@ -6558,39 +6579,51 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_iio_transport_control_queue\":1,"
                  "\"state_daemon_iio_transport_enqueue\":1,"
                  "\"state_daemon_iio_transport_drain\":1,"
+                 "\"state_daemon_iio_transport_execution_worker\":1,"
+                 "\"state_daemon_iio_transport_execute\":1,"
                  "\"integrated_rf_service_daemon\":1,"
                  "\"continuous_queue_worker_lifecycle\":1,"
+                 "\"state_daemon_libiio_execution_owner\":1,"
+                 "\"helper_local_libiio_execution_only\":0,"
                  "\"helper_local_iio_daemon_only\":0,"
                  "\"service_policy_bound\":1,"
                  "\"production_iio_policy\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"request_frames\":%u,"
                  "\"request_bytes\":%u,"
                  "\"starts\":%u,"
                  "\"enqueues\":%u,"
                  "\"drains\":%u,"
+                 "\"execution_worker_runs\":%u,"
                  "\"queued_frames\":%u,"
                  "\"drained_frames\":%u,"
+                 "\"execution_worker_frames\":%u,"
                  "\"queued_bytes\":%u,"
                  "\"drained_bytes\":%u,"
+                 "\"execution_worker_bytes\":%u,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"state_daemon_iio_transport_queue_worker\"}\n",
+                 "\"next_boundary\":\"state_daemon_iio_transport_execution_worker\"}\n",
                  (unsigned)policy.state_daemon_iio_transport,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                      1u :
                      0u,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  frames,
                  bytes,
                  iio_transport->starts,
                  iio_transport->enqueues,
                  iio_transport->drains,
+                 iio_transport->execution_worker_runs,
                  iio_transport->queued_frames,
                  iio_transport->drained_frames,
+                 iio_transport->execution_worker_frames,
                  iio_transport->queued_bytes,
-                 iio_transport->drained_bytes);
+                 iio_transport->drained_bytes,
+                 iio_transport->execution_worker_bytes);
         return 0;
     }
     if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS")) {
@@ -6603,8 +6636,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_iio_transport_daemon\":1,"
                  "\"state_daemon_owned_iio_transport\":%u,"
                  "\"state_daemon_iio_transport_control_queue\":1,"
+                 "\"state_daemon_iio_transport_execution_worker\":1,"
                  "\"integrated_rf_service_daemon\":1,"
                  "\"continuous_queue_worker_lifecycle\":1,"
+                 "\"state_daemon_libiio_execution_owner\":1,"
+                 "\"helper_local_libiio_execution_only\":0,"
                  "\"helper_local_iio_daemon_only\":0,"
                  "\"native_service_loop_worker\":1,"
                  "\"persistent_native_bidirectional_rf_service_loop\":1,"
@@ -6618,6 +6654,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"service_policy_bound\":1,"
                  "\"production_iio_policy\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
+                 "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"lease_batch_frames\":%u,"
                  "\"max_frames_per_rf_burst\":%u,"
                  "\"max_consecutive_direction_batches\":%u,"
@@ -6629,22 +6666,26 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts\":%u,"
                  "\"enqueues\":%u,"
                  "\"drains\":%u,"
+                 "\"execution_worker_runs\":%u,"
                  "\"queued_frames\":%u,"
                  "\"drained_frames\":%u,"
+                 "\"execution_worker_frames\":%u,"
                  "\"queued_bytes\":%u,"
                  "\"drained_bytes\":%u,"
+                 "\"execution_worker_bytes\":%u,"
                  "\"errors\":%u,"
                  "\"last_status\":\"%s\","
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"state_daemon_iio_transport_queue_worker\"}\n",
+                 "\"next_boundary\":\"state_daemon_iio_transport_execution_worker\"}\n",
                  iio_transport && iio_transport->running ? 1u : 0u,
                  (unsigned)policy.state_daemon_iio_transport,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                      1u :
                      0u,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  policy.lease_batch_frames,
                  policy.max_frames_per_rf_burst,
                  policy.max_consecutive_direction_batches,
@@ -6657,10 +6698,13 @@ static int build_response(fieldmesh_context_t *context,
                  iio_transport ? iio_transport->starts : 0u,
                  iio_transport ? iio_transport->enqueues : 0u,
                  iio_transport ? iio_transport->drains : 0u,
+                 iio_transport ? iio_transport->execution_worker_runs : 0u,
                  iio_transport ? iio_transport->queued_frames : 0u,
                  iio_transport ? iio_transport->drained_frames : 0u,
+                 iio_transport ? iio_transport->execution_worker_frames : 0u,
                  iio_transport ? iio_transport->queued_bytes : 0u,
                  iio_transport ? iio_transport->drained_bytes : 0u,
+                 iio_transport ? iio_transport->execution_worker_bytes : 0u,
                  iio_transport ? iio_transport->errors : 0u,
                  iio_transport ?
                      fieldmesh_status_string(iio_transport->last_status) :

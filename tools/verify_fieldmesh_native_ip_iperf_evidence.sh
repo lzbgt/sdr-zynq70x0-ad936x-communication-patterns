@@ -85,29 +85,42 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_enqueue_proven": true,
   "iio_bridge_state_daemon_iio_transport_enqueues": 3,
   "iio_bridge_state_daemon_iio_transport_drains": 3,
+  "iio_bridge_state_daemon_iio_transport_execution_worker_runs": 3,
+  "iio_bridge_sample_rate_hz": 3072000,
+  "iio_bridge_rf_bandwidth_hz": 1000000,
+  "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 12000.0},
+  "iio_bridge_phy_min_raw_bitrate_bps": 12000.0,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
       "state_daemon_iio_transport_control_queue": 1,
+      "state_daemon_iio_transport_execution_worker": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
+      "state_daemon_libiio_execution_owner": 1,
+      "helper_local_libiio_execution_only": 0,
       "helper_local_iio_daemon_only": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
-      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+      "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1"
     },
     "z203": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
       "state_daemon_iio_transport_control_queue": 1,
+      "state_daemon_iio_transport_execution_worker": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
+      "state_daemon_libiio_execution_owner": 1,
+      "helper_local_libiio_execution_only": 0,
       "helper_local_iio_daemon_only": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
-      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+      "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1"
     }
   },
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
@@ -366,29 +379,42 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_enqueue_proven": true,
   "iio_bridge_state_daemon_iio_transport_enqueues": 3,
   "iio_bridge_state_daemon_iio_transport_drains": 3,
+  "iio_bridge_state_daemon_iio_transport_execution_worker_runs": 3,
+  "iio_bridge_sample_rate_hz": 3072000,
+  "iio_bridge_rf_bandwidth_hz": 1000000,
+  "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 12000.0},
+  "iio_bridge_phy_min_raw_bitrate_bps": 12000.0,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
       "state_daemon_iio_transport_control_queue": 1,
+      "state_daemon_iio_transport_execution_worker": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
+      "state_daemon_libiio_execution_owner": 1,
+      "helper_local_libiio_execution_only": 0,
       "helper_local_iio_daemon_only": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
-      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+      "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1"
     },
     "z203": {
       "native_iio_transport_daemon": 1,
       "state_daemon_owned_iio_transport": 1,
       "state_daemon_iio_transport_control_queue": 1,
+      "state_daemon_iio_transport_execution_worker": 1,
       "integrated_rf_service_daemon": 1,
       "continuous_queue_worker_lifecycle": 1,
+      "state_daemon_libiio_execution_owner": 1,
+      "helper_local_libiio_execution_only": 0,
       "helper_local_iio_daemon_only": 0,
       "service_policy_bound": 1,
       "production_iio_policy": 1,
-      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+      "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+      "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1"
     }
   },
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
@@ -794,6 +820,8 @@ if report.get("host_iio_state_daemon_iio_transport_enqueues") != 3:
     raise SystemExit(f"classifier lost host state-daemon IIO transport enqueue count: {report!r}")
 if report.get("host_iio_state_daemon_iio_transport_drains") != 3:
     raise SystemExit(f"classifier lost host state-daemon IIO transport drain count: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_execution_worker_runs") != 3:
+    raise SystemExit(f"classifier lost host state-daemon IIO transport execution worker count: {report!r}")
 if report.get("host_iio_bridge_native_service_burst_leases") != 3:
     raise SystemExit(f"classifier lost host native service burst lease count: {report!r}")
 if report.get("board_iio_rf_sub_burst_exercised") is not True:

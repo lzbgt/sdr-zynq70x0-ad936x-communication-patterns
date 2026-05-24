@@ -438,6 +438,11 @@ PY
         native_rf_service_control_plane \
         service_policy_bound \
         production_iio_policy \
+        FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
+        state_daemon_iio_transport_execution_worker \
+        state_daemon_libiio_execution_owner \
+        helper_local_libiio_execution_only \
+        execution_worker_runs \
         persistent_native_rf_service_worker \
         sdk_daemon_rf_worker_phy_plan \
         sdk_daemon_rf_phy_driver_bind_validate \

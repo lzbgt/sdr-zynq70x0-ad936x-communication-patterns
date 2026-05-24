@@ -183,7 +183,9 @@ expected = {
     "persistent_burst_helper": 1,
     "in_burst_priority_preemption": 1,
     "state_daemon_iio_transport": 1,
+    "state_daemon_iio_execution_worker": 1,
     "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+    "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
     "lease_priority": "tcp_control_flow_udp_after_control",
     "lease_priority_cli": "tcp-control-flow-udp-after-control",
     "production_iio_policy": 1,
@@ -200,6 +202,9 @@ expected_iio_transport = {
     "native_iio_transport_daemon": 1,
     "state_daemon_owned_iio_transport": 1,
     "state_daemon_iio_transport_control_queue": 1,
+    "state_daemon_iio_transport_execution_worker": 1,
+    "state_daemon_libiio_execution_owner": 1,
+    "helper_local_libiio_execution_only": 0,
     "integrated_rf_service_daemon": 1,
     "continuous_queue_worker_lifecycle": 1,
     "helper_local_iio_daemon_only": 0,
@@ -215,6 +220,7 @@ expected_iio_transport = {
     "service_policy_bound": 1,
     "production_iio_policy": 1,
     "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+    "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
     "lease_batch_frames": 4,
     "max_frames_per_rf_burst": 2,
     "max_consecutive_direction_batches": 1,
@@ -223,20 +229,24 @@ expected_iio_transport = {
     "starts_rf_tx": 0,
     "writes_hardware": 0,
     "commands_executed": 0,
-    "next_boundary": "state_daemon_iio_transport_queue_worker",
+    "next_boundary": "state_daemon_iio_transport_execution_worker",
 }
 for key, value in expected_iio_transport.items():
     if iio_transport.get(key) != value:
         raise SystemExit(f"IIO transport daemon status {key} mismatch: {iio_transport}")
 if iio_transport.get("running") != 1:
     raise SystemExit(f"IIO transport daemon did not stay running: {iio_transport}")
-for key in ("starts", "enqueues", "drains"):
+for key in ("starts", "enqueues", "drains", "execution_worker_runs"):
     if iio_transport.get(key) != 1:
         raise SystemExit(f"IIO transport daemon status {key} mismatch: {iio_transport}")
 if iio_transport.get("queued_frames") != 2 or iio_transport.get("drained_frames") != 2:
     raise SystemExit(f"IIO transport daemon frame counters mismatch: {iio_transport}")
+if iio_transport.get("execution_worker_frames") != 2:
+    raise SystemExit(f"IIO transport daemon execution frame counters mismatch: {iio_transport}")
 if iio_transport.get("queued_bytes") != 128 or iio_transport.get("drained_bytes") != 128:
     raise SystemExit(f"IIO transport daemon byte counters mismatch: {iio_transport}")
+if iio_transport.get("execution_worker_bytes") != 128:
+    raise SystemExit(f"IIO transport daemon execution byte counters mismatch: {iio_transport}")
 start = iio_transport_starts[0]
 if start.get("ok") is not True or start.get("state_daemon_iio_transport_control_queue") != 1:
     raise SystemExit(f"IIO transport daemon start proof mismatch: {start}")
@@ -249,20 +259,29 @@ expected_enqueue = {
     "state_daemon_iio_transport_control_queue": 1,
     "state_daemon_iio_transport_enqueue": 1,
     "state_daemon_iio_transport_drain": 1,
+    "state_daemon_iio_transport_execution_worker": 1,
+    "state_daemon_iio_transport_execute": 1,
+    "state_daemon_libiio_execution_owner": 1,
+    "helper_local_libiio_execution_only": 0,
     "helper_local_iio_daemon_only": 0,
+    "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+    "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
     "request_frames": 2,
     "request_bytes": 128,
     "starts": 1,
     "enqueues": 1,
     "drains": 1,
+    "execution_worker_runs": 1,
     "queued_frames": 2,
     "drained_frames": 2,
+    "execution_worker_frames": 2,
     "queued_bytes": 128,
     "drained_bytes": 128,
+    "execution_worker_bytes": 128,
     "starts_rf_tx": 0,
     "writes_hardware": 0,
     "commands_executed": 0,
-    "next_boundary": "state_daemon_iio_transport_queue_worker",
+    "next_boundary": "state_daemon_iio_transport_execution_worker",
 }
 for key, value in expected_enqueue.items():
     if enqueue.get(key) != value:

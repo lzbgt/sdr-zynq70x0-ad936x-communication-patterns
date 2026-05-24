@@ -479,6 +479,30 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_state_daemon_iio_transport_enqueue_proven"] = (
             native_ip.get("host_iio_state_daemon_iio_transport_enqueue_proven") is True
         )
+        detail["native_ip_board_iio_state_daemon_iio_transport_execution_worker_runs"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_execution_worker_runs")
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_execution_worker_runs"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_execution_worker_runs")
+        )
+        detail["native_ip_board_iio_bridge_sample_rate_hz"] = native_ip.get(
+            "board_iio_bridge_sample_rate_hz"
+        )
+        detail["native_ip_host_iio_bridge_sample_rate_hz"] = native_ip.get(
+            "host_iio_bridge_sample_rate_hz"
+        )
+        detail["native_ip_board_iio_bridge_rf_bandwidth_hz"] = native_ip.get(
+            "board_iio_bridge_rf_bandwidth_hz"
+        )
+        detail["native_ip_host_iio_bridge_rf_bandwidth_hz"] = native_ip.get(
+            "host_iio_bridge_rf_bandwidth_hz"
+        )
+        detail["native_ip_board_iio_bridge_phy_min_raw_bitrate_bps"] = native_ip.get(
+            "board_iio_bridge_phy_min_raw_bitrate_bps"
+        )
+        detail["native_ip_host_iio_bridge_phy_min_raw_bitrate_bps"] = native_ip.get(
+            "host_iio_bridge_phy_min_raw_bitrate_bps"
+        )
         detail["native_ip_board_iio_bridge_in_burst_priority_preemption_enabled"] = (
             native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled") is True
         )

@@ -5132,6 +5132,11 @@ both endpoint state daemons' `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`,
 positive `FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1` enqueue/drain
 counters, and `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1` proof with
 `state_daemon_iio_transport_control_queue=1`,
+`FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1`,
+`state_daemon_iio_transport_execution_worker=1`,
+`state_daemon_libiio_execution_owner=1`,
+`helper_local_libiio_execution_only=0`,
+positive execution-worker counters,
 `state_daemon_owned_iio_transport=1`, and
 `helper_local_iio_daemon_only=0`,
 `python_xfer_field_orchestration=false`, and

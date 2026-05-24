@@ -679,8 +679,11 @@ def validate_iio_transport_daemon_boundary(
         "native_iio_transport_daemon": 1,
         "state_daemon_owned_iio_transport": 1,
         "state_daemon_iio_transport_control_queue": 1,
+        "state_daemon_iio_transport_execution_worker": 1,
         "integrated_rf_service_daemon": 1,
         "continuous_queue_worker_lifecycle": 1,
+        "state_daemon_libiio_execution_owner": 1,
+        "helper_local_libiio_execution_only": 0,
         "helper_local_iio_daemon_only": 0,
         "native_service_loop_worker": 1,
         "persistent_native_bidirectional_rf_service_loop": 1,
@@ -694,6 +697,7 @@ def validate_iio_transport_daemon_boundary(
         "service_policy_bound": 1,
         "production_iio_policy": 1,
         "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
         "lease_batch_frames": args.batch_size,
         "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
         "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
@@ -702,7 +706,7 @@ def validate_iio_transport_daemon_boundary(
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "state_daemon_iio_transport_queue_worker",
+        "next_boundary": "state_daemon_iio_transport_execution_worker",
     }
     for key, expected_value in expected.items():
         if report.get(key) != expected_value:
@@ -729,27 +733,40 @@ def validate_iio_transport_daemon_enqueue(
         "state_daemon_iio_transport_control_queue": 1,
         "state_daemon_iio_transport_enqueue": 1,
         "state_daemon_iio_transport_drain": 1,
+        "state_daemon_iio_transport_execution_worker": 1,
+        "state_daemon_iio_transport_execute": 1,
         "integrated_rf_service_daemon": 1,
         "continuous_queue_worker_lifecycle": 1,
+        "state_daemon_libiio_execution_owner": 1,
+        "helper_local_libiio_execution_only": 0,
         "helper_local_iio_daemon_only": 0,
         "service_policy_bound": 1,
         "production_iio_policy": 1,
         "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
+        "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
         "request_frames": frames,
         "request_bytes": bytes_,
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "state_daemon_iio_transport_queue_worker",
+        "next_boundary": "state_daemon_iio_transport_execution_worker",
     }
     for key, expected_value in expected.items():
         if report.get(key) != expected_value:
             errors.append(f"{key}={report.get(key)!r} expected {expected_value!r}")
-    for key in ("starts", "enqueues", "drains", "queued_frames", "drained_frames"):
+    for key in (
+        "starts",
+        "enqueues",
+        "drains",
+        "execution_worker_runs",
+        "queued_frames",
+        "drained_frames",
+        "execution_worker_frames",
+    ):
         value = report.get(key)
         if not isinstance(value, int) or value < 1:
             errors.append(f"{key}={value!r} expected positive integer")
-    for key in ("queued_bytes", "drained_bytes"):
+    for key in ("queued_bytes", "drained_bytes", "execution_worker_bytes"):
         value = report.get(key)
         if not isinstance(value, int) or value < bytes_:
             errors.append(f"{key}={value!r} expected at least {bytes_!r}")
@@ -1279,6 +1296,16 @@ def modem_retry_configured(args: argparse.Namespace, direction_name: str) -> boo
         or (retry_repeat or direction_bit_repeat(args, direction_name))
         != direction_bit_repeat(args, direction_name)
     )
+
+
+def direction_phy_raw_bitrate_bps(args: argparse.Namespace, direction_name: str) -> float:
+    modem_samples_per_bit = (
+        direction_samples_per_symbol(args, direction_name)
+        * direction_bit_repeat(args, direction_name)
+    )
+    if modem_samples_per_bit <= 0:
+        return 0.0
+    return float(args.sample_rate_hz) / float(modem_samples_per_bit)
 
 
 def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: dict[str, Any], index: int) -> dict[str, Any]:
@@ -1856,6 +1883,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "state_daemon_iio_transport_starts": 0,
         "state_daemon_iio_transport_enqueues": 0,
         "state_daemon_iio_transport_drains": 0,
+        "state_daemon_iio_transport_execution_worker_runs": 0,
         "state_daemon_iio_transport_enqueue_failures": 0,
         "in_burst_priority_preemptions": 0,
         "in_burst_priority_multiplexing_events": 0,
@@ -2035,6 +2063,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     status.get("native_iio_transport_daemon") == 1
                     and status.get("state_daemon_owned_iio_transport") == 1
                     and status.get("state_daemon_iio_transport_control_queue") == 1
+                    and status.get("state_daemon_iio_transport_execution_worker") == 1
+                    and status.get("state_daemon_libiio_execution_owner") == 1
+                    and status.get("helper_local_libiio_execution_only") == 0
                     and status.get("integrated_rf_service_daemon") == 1
                     and status.get("continuous_queue_worker_lifecycle") == 1
                     and status.get("helper_local_iio_daemon_only") == 0
@@ -2042,6 +2073,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     and status.get("production_iio_policy") == 1
                     and status.get("iio_transport_daemon_status_proof")
                     == "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1"
+                    and status.get("iio_transport_execution_worker_proof")
+                    == "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1"
                     for status in iio_transport_status_by_endpoint.values()
                 )
             ),
@@ -2066,6 +2099,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     counts["state_daemon_iio_transport_enqueues"] > 0
                     and counts["state_daemon_iio_transport_drains"]
                     >= counts["state_daemon_iio_transport_enqueues"]
+                    and counts["state_daemon_iio_transport_execution_worker_runs"]
+                    >= counts["state_daemon_iio_transport_enqueues"]
                     and counts["state_daemon_iio_transport_enqueue_failures"] == 0
                     and counts["state_daemon_iio_transport_enqueues"]
                     >= counts["batches_moved"]
@@ -2076,6 +2111,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "state_daemon_iio_transport_drains": counts[
                 "state_daemon_iio_transport_drains"
+            ],
+            "state_daemon_iio_transport_execution_worker_runs": counts[
+                "state_daemon_iio_transport_execution_worker_runs"
             ],
             "state_daemon_iio_transport_enqueue_failures": counts[
                 "state_daemon_iio_transport_enqueue_failures"
@@ -2151,6 +2189,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "max_consecutive_direction_batches_seen": max_consecutive_direction_batches_seen,
             "last_served_direction": last_served_direction,
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
+            "sample_rate_hz": args.sample_rate_hz,
+            "rf_bandwidth_hz": args.rf_bandwidth_hz,
+            "phy_raw_bitrate_bps": {
+                "z203_to_z103": direction_phy_raw_bitrate_bps(args, "z203-to-z103"),
+                "z103_to_z203": direction_phy_raw_bitrate_bps(args, "z103-to-z203"),
+            },
+            "phy_min_raw_bitrate_bps": min(
+                direction_phy_raw_bitrate_bps(args, "z203-to-z103"),
+                direction_phy_raw_bitrate_bps(args, "z103-to-z203"),
+            ),
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
             "modem": {
@@ -2609,10 +2657,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             isinstance(enqueue, dict)
             and enqueue.get("state_daemon_iio_transport_enqueue") == 1
             and enqueue.get("state_daemon_iio_transport_drain") == 1
+            and enqueue.get("state_daemon_iio_transport_execute") == 1
+            and enqueue.get("state_daemon_iio_transport_execution_worker") == 1
+            and enqueue.get("state_daemon_libiio_execution_owner") == 1
+            and enqueue.get("helper_local_libiio_execution_only") == 0
             and enqueue.get("helper_local_iio_daemon_only") == 0
         ):
             counts["state_daemon_iio_transport_enqueues"] += 1
             counts["state_daemon_iio_transport_drains"] += 1
+            counts["state_daemon_iio_transport_execution_worker_runs"] += 1
         else:
             counts["state_daemon_iio_transport_enqueue_failures"] += 1
 
@@ -3241,7 +3294,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--z103-uri", default="ip:192.168.3.1")
     parser.add_argument("--center-frequency-hz", type=int, default=2400000000)
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
-    parser.add_argument("--rf-bandwidth-hz", type=int, default=300000)
+    parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
     parser.add_argument("--samples-per-symbol", type=int, default=64)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bfsk")

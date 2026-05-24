@@ -1432,6 +1432,10 @@ user and vendor configuration.
   `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`,
   `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`, positive
   `FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1` enqueue/drain counters,
+  `FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1`,
+  `state_daemon_iio_transport_execution_worker=1`,
+  `state_daemon_libiio_execution_owner=1`,
+  `helper_local_libiio_execution_only=0`, positive execution-worker counters,
   `state_daemon_owned_iio_transport=1`, and
   `helper_local_iio_daemon_only=0`, plus
   `python_xfer_field_orchestration=false` and
@@ -1444,7 +1448,11 @@ user and vendor configuration.
   `python_transport_helper_command_status_pacing=false`,
   `python_integrated_daemon_enqueue_submission=false`, and
   `python_background_daemon_status_polling=false`, so native-IP archives must prove the
-  transfer request crossed a C-owned state-daemon transport lifecycle boundary. The
+  transfer request crossed a C-owned state-daemon transport lifecycle boundary.
+  Native-IP IIO HIL now defaults the radio bandwidth to `1 MHz`, matching the
+  guarded RF production paths instead of the older 300 kHz bridge default, and
+  reports the configured sample rate, RF bandwidth, and per-direction modem raw
+  PHY bitrate for UDP/TCP bandwidth-ratio review. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`
