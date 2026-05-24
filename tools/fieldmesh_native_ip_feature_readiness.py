@@ -62,6 +62,12 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
         if report.get("host_iio_direction_fair_service_within_budget") is not True:
             blockers.append("native_ip_host_iio_direction_fair_service_over_budget")
     if is_true(report.get("requires_iio_same_priority_batch_evidence")):
+        if report.get("requires_iio_hybrid_lease_priority") is not True:
+            blockers.append("native_ip_iio_hybrid_lease_priority_missing")
+        if report.get("board_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
+            blockers.append("native_ip_board_iio_hybrid_lease_priority_missing")
+        if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
+            blockers.append("native_ip_host_iio_hybrid_lease_priority_missing")
         if report.get("board_iio_same_priority_batch_enabled") is not True:
             blockers.append("native_ip_board_iio_same_priority_batch_missing")
         if report.get("host_iio_same_priority_batch_enabled") is not True:
@@ -123,6 +129,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_same_priority_batch_evidence": report.get(
             "requires_iio_same_priority_batch_evidence"
         ),
+        "requires_iio_hybrid_lease_priority": report.get(
+            "requires_iio_hybrid_lease_priority"
+        ),
         "requires_tcp_final_exchange_evidence": report.get(
             "requires_tcp_final_exchange_evidence"
         ),
@@ -152,6 +161,8 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_same_priority_batch_preemption_exercised": report.get(
             "host_iio_same_priority_batch_preemption_exercised"
         ),
+        "board_iio_bridge_lease_priority": report.get("board_iio_bridge_lease_priority"),
+        "host_iio_bridge_lease_priority": report.get("host_iio_bridge_lease_priority"),
         "board_iio_bridge_same_priority_batch_leases": report.get(
             "board_iio_bridge_same_priority_batch_leases"
         ),

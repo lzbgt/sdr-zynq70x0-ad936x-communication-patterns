@@ -140,6 +140,7 @@ enum tun_service_rf_lease_priority {
     TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW = 3,
     TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD = 4,
     TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL = 5,
+    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL = 6,
 };
 
 struct tun_service_tcp_flow {
@@ -475,7 +476,9 @@ static unsigned ipv4_tcp_priority_score(
     if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_FIFO) {
         return 1u;
     }
-    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW &&
+    if ((priority == TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW ||
+         priority ==
+             TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL) &&
         is_control_flow) {
         if ((flags & 0x04u) != 0u) {
             return 9u;
@@ -539,7 +542,9 @@ static unsigned ipv4_udp_priority_score(
     if (udp_len == 8u) {
         return 2u;
     }
-    if (priority == TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL &&
+    if ((priority == TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL ||
+         priority ==
+             TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL) &&
         control_flow && control_flow->valid && udp_len >= 24u) {
         return 8u;
     }
@@ -1162,6 +1167,10 @@ static enum tun_service_rf_lease_priority tun_service_rf_lease_priority_from_req
     const char *request)
 {
     if (request && strstr(request, "priority=tcp_control_flow")) {
+        if (strstr(request, "priority=tcp_control_flow_udp_after_control")) {
+            return
+                TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL;
+        }
         return TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW;
     }
     if (request && strstr(request, "priority=tcp_control")) {
@@ -1193,6 +1202,8 @@ static const char *tun_service_rf_lease_priority_name(
         return "udp_payload";
     case TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL:
         return "udp_after_control";
+    case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL:
+        return "tcp_control_flow_udp_after_control";
     case TUN_SERVICE_RF_LEASE_PRIORITY_FIFO:
     default:
         return "fifo";

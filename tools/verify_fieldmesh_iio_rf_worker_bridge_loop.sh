@@ -166,6 +166,8 @@ if loop.lease_priority_request_suffix("udp-payload") != " priority=udp_payload":
     raise SystemExit("udp-payload lease priority did not map to daemon request suffix")
 if loop.lease_priority_request_suffix("udp-after-control") != " priority=udp_after_control":
     raise SystemExit("udp-after-control lease priority did not map to daemon request suffix")
+if loop.lease_priority_request_suffix("tcp-control-flow-udp-after-control") != " priority=tcp_control_flow_udp_after_control":
+    raise SystemExit("hybrid TCP-control/UDP lease priority did not map to daemon request suffix")
 captured_batch = {}
 def batch_request(host, port, text, timeout_ms):
     captured_batch["text"] = text
@@ -390,10 +392,13 @@ required = [
     "payload[9] == 17u",
     "TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD",
     "TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL",
+    "TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL",
     "priority=udp_payload",
     "priority=udp_after_control",
+    "priority=tcp_control_flow_udp_after_control",
     "return \"udp_payload\";",
     "return \"udp_after_control\";",
+    "return \"tcp_control_flow_udp_after_control\";",
     "return 6u;",
     "status_compact",
     "compact=1",
@@ -488,6 +493,7 @@ required = [
     '"iio_bridge_max_consecutive_direction_batches"',
     '"iio_bridge_max_consecutive_direction_batches_seen"',
     '"iio_bridge_direction_fair_service_yields"',
+    '"iio_bridge_lease_priority"',
     '"iio_bridge_same_priority_batch"',
     '"iio_bridge_same_priority_batch_preemption_exercised"',
     '"iio_bridge_same_priority_batch_leases"',
@@ -747,7 +753,7 @@ if IIO_BRIDGE_LEASE_PRIORITY=bad \
   exit 1
 fi
 
-if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, or fifo' \
+if ! grep -q 'IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, tcp-control-flow-udp-after-control, or fifo' \
      "$work_dir/iperf_bad_lease_priority.err"; then
   echo "native-IP iperf invalid IIO bridge lease priority refusal changed" >&2
   exit 1

@@ -18,6 +18,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
+  "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z203-to-z103": 2},
@@ -80,6 +81,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
+  "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z103-to-z203": 2},
@@ -170,6 +172,8 @@ if report.get("requires_iio_direction_fair_service_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO direction fairness evidence: {report!r}")
 if report.get("requires_iio_same_priority_batch_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO same-priority batch evidence: {report!r}")
+if report.get("requires_iio_hybrid_lease_priority") is not True:
+    raise SystemExit(f"classifier did not require IIO hybrid lease priority: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"classifier did not require TCP final-exchange evidence: {report!r}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
@@ -198,6 +202,10 @@ if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
     raise SystemExit(f"classifier lost host same-priority preemption evidence: {report!r}")
 if report.get("host_iio_bridge_same_priority_batch_priority_drop_stops") != 1:
     raise SystemExit(f"classifier lost host same-priority priority-drop evidence: {report!r}")
+if report.get("board_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
+    raise SystemExit(f"classifier lost board hybrid lease priority: {report!r}")
+if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
+    raise SystemExit(f"classifier lost host hybrid lease priority: {report!r}")
 if report.get("board_iio_bridge_rf_burst_batch_high_water") != 2:
     raise SystemExit(f"classifier lost board RF burst batch high-water evidence: {report!r}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -245,6 +253,8 @@ if report.get("requires_iio_rf_burst_batch_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost RF burst batch requirement: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost TCP final-exchange requirement: {report!r}")
+if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
+    raise SystemExit(f"normalized native-IP evidence lost hybrid lease priority: {report!r}")
 if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
     raise SystemExit(f"normalized native-IP evidence lost same-priority preemption evidence: {report!r}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -345,6 +355,24 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   >"$work_dir/unexercised-same-priority-preemption-rejected.out" \
   2>"$work_dir/unexercised-same-priority-preemption-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised same-priority preemption evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-old-lease-priority.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_lease_priority"] = "tcp-control-flow"
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-old-lease-priority.json" \
+  >"$work_dir/old-lease-priority-rejected.out" \
+  2>"$work_dir/old-lease-priority-rejected.err"; then
+  echo "iperf evidence classifier accepted stale TCP-only lease priority" >&2
   exit 1
 fi
 

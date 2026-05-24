@@ -382,8 +382,11 @@ failed TCP phase into UDP on the same iperf port. Non-TCP IPv4 payload was
 scored as generic low-priority traffic, while stale TCP ACK-only control-flow
 frames could stay ahead of actual UDP payload. The daemon priority policy now
 scores UDP payload as real data-plane work and demotes ACK-only TCP below
-payload and SYN/FIN/RST control, so higher-rate UDP probes exercise the RF
-payload path instead of burning airtime on stale TCP drain.
+payload and SYN/FIN/RST control. The native-IP HIL default now uses the hybrid
+`tcp-control-flow-udp-after-control` lease priority, preserving learned TCP
+control-flow service while promoting nontrivial UDP datagrams after control
+setup, so higher-rate UDP probes exercise the RF payload path instead of
+burning airtime on stale TCP drain.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and
@@ -391,9 +394,10 @@ also failed before useful UDP data transfer on the current burst bridge. The
 diagnostic `udp-after-control` mode now promotes only nontrivial UDP payload
 datagrams after the TCP control flow is learned, but live HIL still failed
 before UDP data transfer because it exposed Z103-to-Z203 reverse-path CRC and
-control setup regressions. The runner keeps `tcp-control-flow` as the default
-and starts cyclic captures at two periods so fresh runs do not waste the first
-batch per direction on a one-period decode miss.
+control setup regressions. The runner now keeps the hybrid control-flow plus
+UDP-after-control priority as the default and starts cyclic captures at two
+periods so fresh runs do not waste the first batch per direction on a
+one-period decode miss.
 That same HIL run exposed a daemon liveness bug after the traffic finished:
 the long-running init daemon wrote one stdout JSON row for every control
 request. The RF bridge can issue thousands of UDP control requests during one
@@ -533,7 +537,9 @@ the HIL default: daemon batch leases stop before lower-priority frames once the
 first leased frame's priority is established, giving TCP control-flow traffic a
 sub-batch preemption point. Batched production native-IP evidence must show the
 preemption boundary was actually exercised with nonzero priority-drop stop
-evidence, not just configured. Production native-IP evidence must also carry TCP
+evidence, not just configured. It must also show the hybrid
+`tcp-control-flow-udp-after-control` lease priority is active for TCP+UDP HIL
+captures. Production native-IP evidence must also carry TCP
 final-exchange proof from the HIL runner
 for both the board-to-board and host-PC-transparent reports: final client
 status, queue-quiet observation summary, and control-drain elapsed/ok evidence

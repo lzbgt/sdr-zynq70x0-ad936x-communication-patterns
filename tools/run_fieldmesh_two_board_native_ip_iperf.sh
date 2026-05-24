@@ -77,7 +77,7 @@ iio_bridge_same_priority_batch="${IIO_BRIDGE_SAME_PRIORITY_BATCH:-1}"
 if [ -n "${IIO_BRIDGE_LEASE_PRIORITY+x}" ]; then
     iio_bridge_lease_priority="$IIO_BRIDGE_LEASE_PRIORITY"
 else
-    iio_bridge_lease_priority="tcp-control-flow"
+    iio_bridge_lease_priority="tcp-control-flow-udp-after-control"
 fi
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
@@ -256,8 +256,8 @@ if ! [[ "$iio_bridge_batch_byte_limit" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 case "$iio_bridge_lease_priority" in
-    tcp-payload|tcp-control|tcp-control-flow|udp-payload|udp-after-control|fifo) ;;
-    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, or fifo" >&2; exit 1 ;;
+    tcp-payload|tcp-control|tcp-control-flow|udp-payload|udp-after-control|tcp-control-flow-udp-after-control|fifo) ;;
+    *) echo "IIO_BRIDGE_LEASE_PRIORITY must be tcp-payload, tcp-control, tcp-control-flow, udp-payload, udp-after-control, tcp-control-flow-udp-after-control, or fifo" >&2; exit 1 ;;
 esac
 if ! [[ "$iio_bridge_daemon_timeout_ms" =~ ^[0-9]+$ ]] || [ "$iio_bridge_daemon_timeout_ms" -lt 1000 ]; then
     echo "IIO_BRIDGE_DAEMON_TIMEOUT_MS must be an integer >= 1000" >&2
@@ -2741,6 +2741,7 @@ report = {
     "transport": "real_rf_phy" if real_rf_ready else "daemon_rf_driver_queue_bridge",
     "diagnostic_bridge": bool(allow_bridge),
     "iio_rf_bridge": bool(allow_iio),
+    "iio_bridge_lease_priority": str(last_iio_bridge.get("lease_priority") or ""),
     "iio_bridge_source_ack_pipeline_depth": int(
         last_iio_bridge.get("source_ack_pipeline_depth") or 0
     ),

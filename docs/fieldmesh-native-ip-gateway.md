@@ -349,11 +349,11 @@ Minimum production gates for native TCP/IP:
   The same timeout supervision is wall-clock based, not iteration-count based,
   so SSH/daemon polling overhead cannot silently stretch the client lifetime
   past the RF bridge budget. The lease scheduler now also exposes
-  `IIO_BRIDGE_LEASE_PRIORITY=tcp-control-flow`, now the native-IP iperf
-  default. The daemon learns the first TCP flow after TUN service start as the
-  `iperf3` control channel and keeps that control-flow payload and ACK traffic
-  ahead of handshake retransmits and the separate test-data stream on the
-  low-rate RF bridge.
+  `IIO_BRIDGE_LEASE_PRIORITY`; the native-IP iperf default is now
+  `tcp-control-flow-udp-after-control`. The daemon learns the first TCP flow
+  after TUN service start as the `iperf3` control channel, keeps that
+  control-flow payload and ACK traffic ahead of handshake retransmits, and
+  promotes nontrivial UDP payload after control setup on the low-rate RF bridge.
   When the client has already sent TCP bytes, the runner now preserves the
   remote client through the control-drain window instead of killing it before
   the server's final result/shutdown traffic can return. The SSH-launched
@@ -441,6 +441,11 @@ Minimum production gates for native TCP/IP:
   preemption boundary instead of padding a control burst with lower-priority
   payload. Production evidence for batched IIO RF captures must now prove that
   boundary was exercised with a nonzero priority-drop stop count.
+  The HIL runner's default lease priority is
+  `tcp-control-flow-udp-after-control`: learned TCP control/result traffic keeps
+  control-flow priority, while nontrivial UDP payload is promoted after that
+  control flow is known. Production evidence must carry that hybrid priority so
+  TCP+UDP captures cannot regress to stale TCP-only scheduling.
   Both layers must carry TCP final-exchange, queue-quiet, and control-drain
   timing proof; the host-originated transparent layer is phase-tagged as
   `host_pc`. A daemon

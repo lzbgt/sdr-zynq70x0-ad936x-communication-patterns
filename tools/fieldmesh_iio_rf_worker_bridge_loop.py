@@ -109,6 +109,8 @@ def lease_priority_request_suffix(priority: str) -> str:
         return " priority=udp_payload"
     if priority == "udp-after-control":
         return " priority=udp_after_control"
+    if priority == "tcp-control-flow-udp-after-control":
+        return " priority=tcp_control_flow_udp_after_control"
     if priority == "fifo":
         return ""
     raise SystemExit(f"unsupported lease priority: {priority!r}")
@@ -1716,6 +1718,7 @@ def parse_args() -> argparse.Namespace:
             "tcp-control-flow",
             "udp-payload",
             "udp-after-control",
+            "tcp-control-flow-udp-after-control",
             "fifo",
         ),
         default="tcp-payload",

@@ -1346,7 +1346,9 @@ user and vendor configuration.
   final TCP control traffic gets a sub-batch preemption boundary. Production
   native-IP evidence now requires that same-priority preemption to be exercised
   in batched IIO RF captures, so final readiness cannot pass on configuration
-  alone.
+  alone. The HIL default lease priority is now
+  `tcp-control-flow-udp-after-control`, preserving learned TCP control-flow
+  service while promoting nontrivial UDP payload after control setup.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

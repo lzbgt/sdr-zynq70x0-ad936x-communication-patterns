@@ -222,6 +222,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_same_priority_batch_evidence"] = (
             native_ip.get("requires_iio_same_priority_batch_evidence") is True
         )
+        detail["native_ip_requires_iio_hybrid_lease_priority"] = (
+            native_ip.get("requires_iio_hybrid_lease_priority") is True
+        )
         detail["native_ip_board_iio_rf_burst_batch_exercised"] = (
             native_ip.get("board_iio_rf_burst_batch_exercised") is True
         )
@@ -260,6 +263,12 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             native_ip.get("host_iio_same_priority_batch_preemption_exercised")
             is True
         )
+        detail["native_ip_board_iio_bridge_lease_priority"] = native_ip.get(
+            "board_iio_bridge_lease_priority"
+        )
+        detail["native_ip_host_iio_bridge_lease_priority"] = native_ip.get(
+            "host_iio_bridge_lease_priority"
+        )
         detail["native_ip_board_tcp_final_exchange_ok"] = (
             native_ip.get("board_tcp_final_exchange_ok") is True
         )
@@ -288,6 +297,8 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_iio_direction_fair_service_evidence_missing")
             if native_ip.get("requires_iio_same_priority_batch_evidence") is not True:
                 blockers.append("native_ip_iio_same_priority_batch_evidence_missing")
+            if native_ip.get("requires_iio_hybrid_lease_priority") is not True:
+                blockers.append("native_ip_iio_hybrid_lease_priority_missing")
             if native_ip.get("board_iio_rf_burst_batch_exercised") is not True:
                 blockers.append("native_ip_board_iio_rf_burst_batch_missing")
             if native_ip.get("host_iio_rf_burst_batch_exercised") is not True:
@@ -300,6 +311,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_iio_same_priority_batch_missing")
             if native_ip.get("host_iio_same_priority_batch_enabled") is not True:
                 blockers.append("native_ip_host_iio_same_priority_batch_missing")
+            if (
+                native_ip.get("board_iio_bridge_lease_priority")
+                != "tcp-control-flow-udp-after-control"
+            ):
+                blockers.append("native_ip_board_iio_hybrid_lease_priority_missing")
+            if (
+                native_ip.get("host_iio_bridge_lease_priority")
+                != "tcp-control-flow-udp-after-control"
+            ):
+                blockers.append("native_ip_host_iio_hybrid_lease_priority_missing")
             if (
                 native_ip.get("requires_iio_rf_burst_batch_evidence") is True
                 and native_ip.get(

@@ -88,6 +88,10 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     if not _is_true(report.get("iio_rf_bridge")):
         errors.append(f"{label}: IIO pipeline evidence requires iio_rf_bridge=true")
         return errors
+    if report.get("iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
+        errors.append(
+            f"{label}: IIO bridge lease priority must be tcp-control-flow-udp-after-control"
+        )
     if report.get("iio_bridge_same_priority_batch") is not True:
         errors.append(f"{label}: IIO same-priority batch evidence must be enabled")
     same_priority_leases = report.get("iio_bridge_same_priority_batch_leases")
@@ -453,6 +457,9 @@ def main() -> int:
         "requires_iio_same_priority_batch_evidence": bool(
             board_requires_same_priority_batch or host_requires_same_priority_batch
         ),
+        "requires_iio_hybrid_lease_priority": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
             True
@@ -526,6 +533,8 @@ def main() -> int:
         "host_iio_bridge_same_priority_batch_priority_drop_stops": host.get(
             "iio_bridge_same_priority_batch_priority_drop_stops"
         ),
+        "board_iio_bridge_lease_priority": board.get("iio_bridge_lease_priority"),
+        "host_iio_bridge_lease_priority": host.get("iio_bridge_lease_priority"),
         "board_iio_bridge_direction_fair_service_enabled": board.get(
             "iio_bridge_direction_fair_service_enabled"
         ),
