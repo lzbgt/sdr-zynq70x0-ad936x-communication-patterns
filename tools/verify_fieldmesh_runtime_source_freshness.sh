@@ -108,6 +108,7 @@ required = [
     "FIELDMESH_RUNTIME_ARTIFACT_Z203",
     "FIELDMESH_RUNTIME_ARTIFACT_Z103",
     "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME",
+    "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-1",
     "require_current_fw_dma_runtime",
     "freshness_args+=(\"--require-current\")",
     "env \"$freshness_env\"",

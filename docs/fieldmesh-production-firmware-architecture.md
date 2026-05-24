@@ -484,9 +484,10 @@ and the actual register write is still caught in C before mutation.
 `tools/report_fieldmesh_runtime_source_freshness.sh` is the corresponding
 read-only package freshness check: it scans the packaged
 `fieldmesh-ctrl-write` binary strings and reports whether the current checked
-command/refusal-token contract is present in each rootfs. Its default mode is
-advisory so a source-only change can be merged under low-memory conditions; use
-`--require-current` after rebuilding runtime packages.
+command/refusal-token contract is present in each rootfs. Runtime artifact
+verification now requires this contract by default; set
+`FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` only for explicit advisory
+diagnostics when investigating stale local packages.
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
 budget-exhausted, service-accepted state, fault-free state, drop-counter-clear

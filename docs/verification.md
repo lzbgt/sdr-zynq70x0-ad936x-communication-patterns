@@ -2872,17 +2872,12 @@ and emits `runtime_rebuild_needed=true` when a package lacks
 `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`,
 `--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`,
 `--fw-dma-action-policy-self-test`, or the matching C refusal/policy tokens.
-The default report is advisory and non-failing so
-low-memory CI can keep
-source verification green until a Yocto rebuild is feasible; use
-`--require-current` after rebuilding packages to make stale runtime binaries a
-hard failure. The normal `verify_fieldmesh_runtime_artifacts.sh` path emits this
-same advisory row from the already-extracted packaged binary strings, so live
-gate logs show stale firmware-DMA package state even while the hard artifact
-contract remains compatible with the last built images. Set
-`FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=1` on
-`verify_fieldmesh_runtime_artifacts.sh` after rebuilding packages to promote
-that advisory row into a hard failure.
+The standalone reporter is advisory unless called with `--require-current`.
+The normal `verify_fieldmesh_runtime_artifacts.sh` path now passes
+`--require-current` by default after the Z203/Z103 packages were rebuilt, so
+stale runtime binaries fail artifact verification. Set
+`FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` only for explicit advisory
+diagnostics when investigating stale local packages.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

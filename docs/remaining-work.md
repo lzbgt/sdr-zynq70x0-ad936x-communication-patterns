@@ -1479,9 +1479,10 @@ below were later superseded by the current PHY-management two-board gates above:
   package freshness report for that contract by comparing packaged
   `fieldmesh-ctrl-write` strings against the current C source. The Z203/Z103
   rootfs images and runtime packages were rebuilt against that contract, and
-  `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=1
-  ./tools/verify_fieldmesh_runtime_artifacts.sh all` now passes with
-  `runtime_rebuild_needed=false` for both variants.
+  `./tools/verify_fieldmesh_runtime_artifacts.sh all` now enforces current
+  firmware-DMA runtime freshness by default with `runtime_rebuild_needed=false`
+  for both variants. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` only for
+  explicit advisory diagnostics against stale local packages.
   The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
