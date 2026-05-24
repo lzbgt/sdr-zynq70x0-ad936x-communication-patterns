@@ -284,11 +284,12 @@ write guards: `FIELD_MESH_EXECUTE_LIVE_TX=1`,
 logs are readable; no JSON is used on the DMA or RF packet path.
 The metadata config accepts only the defined firmware descriptor flag mask
 `0x003f`; reserved bits are rejected in C before the guarded hardware write.
-`fieldmesh-ctrl-write --fw-dma-status-self-test` and
-`--fw-dma-status-idle-self-test` decode shared C fixture vectors without
-`/dev/mem`, keeping active/faulted and reset-idle status projections under CI
-without requiring live hardware. The status projection includes C-derived
-fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm booleans so
+`fieldmesh-ctrl-write --fw-dma-status-self-test`,
+`--fw-dma-status-idle-self-test`, and `--fw-dma-action-policy-self-test` decode
+shared C fixture vectors without `/dev/mem`, keeping active/faulted,
+reset-idle, and action-policy projections under CI without requiring live
+hardware. The status projection includes C-derived fault-free,
+drop-counter-clear, idle, stop-needed, and ready-for-arm booleans so
 shell/Python wrappers do not duplicate firmware-DMA health semantics.
 For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,

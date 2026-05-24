@@ -62,6 +62,7 @@ artifact = strings_path.read_text(encoding="utf-8", errors="replace")
 
 source_tokens = (
     "--fw-dma-status-idle-self-test",
+    "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -76,6 +77,7 @@ source_tokens = (
 )
 artifact_tokens = (
     "--fw-dma-status-idle-self-test",
+    "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -140,6 +142,7 @@ artifact_strings = strings_path.read_text(encoding="utf-8", errors="replace")
 
 source_tokens = (
     "--fw-dma-status-idle-self-test",
+    "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",
@@ -154,6 +157,7 @@ source_tokens = (
 )
 artifact_tokens = (
     "--fw-dma-status-idle-self-test",
+    "--fw-dma-action-policy-self-test",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
     "--fw-dma-stop-if-active",

@@ -39,6 +39,7 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write --self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-status-self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-status-idle-self-test\n"
+            "  fieldmesh-ctrl-write --fw-dma-action-policy-self-test\n"
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
             "  fieldmesh-ctrl-write --fw-dma-status BASE\n"
             "  fieldmesh-ctrl-write --fw-dma-config BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
@@ -121,6 +122,8 @@ static uint32_t access_reg(uint32_t base, uint32_t offset, uint32_t value,
 
 static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *status,
                                 bool reads_hardware) {
+    fieldmesh_fw_dma_action_policy_t policy =
+        fieldmesh_fw_dma_status_action_policy(status);
     printf("{\"event\":\"fieldmesh_fw_dma_status\",\"ok\":true,"
            "\"base\":\"0x%08" PRIx32 "\","
            "\"control\":\"0x%08" PRIx32 "\","
@@ -217,9 +220,9 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            fieldmesh_fw_dma_status_idle(status) ? "true" : "false",
            fieldmesh_fw_dma_status_stop_needed(status) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(status) ? "true" : "false",
-           fieldmesh_fw_dma_status_config_allowed(status) ? "true" : "false",
-           fieldmesh_fw_dma_status_arm_allowed(status) ? "true" : "false",
-           fieldmesh_fw_dma_status_stop_write_needed(status) ? "true" : "false",
+           policy.config_allowed ? "true" : "false",
+           policy.arm_allowed ? "true" : "false",
+           policy.stop_write_needed ? "true" : "false",
            (uint32_t)status->peer_index,
            (uint32_t)status->mcs,
            (uint32_t)status->retry_budget,
@@ -247,6 +250,54 @@ static int read_fw_dma_status(uint32_t base, fieldmesh_fw_dma_status_t *status) 
                              0, FIELDMESH_ACCESS_READ);
     }
     return fieldmesh_fw_dma_status_from_regs(status, regs);
+}
+
+static int print_fw_dma_action_policy_self_test(void) {
+    uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
+    fieldmesh_fw_dma_status_t active = {0};
+    fieldmesh_fw_dma_status_t idle = {0};
+
+    fieldmesh_fw_dma_status_test_regs_active_faulted(regs);
+    if (!fieldmesh_fw_dma_status_from_regs(&active, regs)) {
+        fprintf(stderr, "failed to decode active firmware DMA status\n");
+        return 1;
+    }
+    fieldmesh_fw_dma_status_test_regs_idle(regs);
+    if (!fieldmesh_fw_dma_status_from_regs(&idle, regs)) {
+        fprintf(stderr, "failed to decode idle firmware DMA status\n");
+        return 1;
+    }
+
+    fieldmesh_fw_dma_action_policy_t active_policy =
+        fieldmesh_fw_dma_status_action_policy(&active);
+    fieldmesh_fw_dma_action_policy_t idle_policy =
+        fieldmesh_fw_dma_status_action_policy(&idle);
+    printf("{\"event\":\"fieldmesh_fw_dma_action_policy_self_test\","
+           "\"ok\":true,"
+           "\"base\":\"0x%08" PRIx32 "\","
+           "\"active_idle\":%s,"
+           "\"active_ready_for_arm\":%s,"
+           "\"active_config_allowed\":%s,"
+           "\"active_arm_allowed\":%s,"
+           "\"active_stop_write_needed\":%s,"
+           "\"idle_idle\":%s,"
+           "\"idle_ready_for_arm\":%s,"
+           "\"idle_config_allowed\":%s,"
+           "\"idle_arm_allowed\":%s,"
+           "\"idle_stop_write_needed\":%s,"
+           "\"reads_hardware\":false,\"writes_hardware\":false}\n",
+           0x43c00000u,
+           fieldmesh_fw_dma_status_idle(&active) ? "true" : "false",
+           fieldmesh_fw_dma_status_ready_for_arm(&active) ? "true" : "false",
+           active_policy.config_allowed ? "true" : "false",
+           active_policy.arm_allowed ? "true" : "false",
+           active_policy.stop_write_needed ? "true" : "false",
+           fieldmesh_fw_dma_status_idle(&idle) ? "true" : "false",
+           fieldmesh_fw_dma_status_ready_for_arm(&idle) ? "true" : "false",
+           idle_policy.config_allowed ? "true" : "false",
+           idle_policy.arm_allowed ? "true" : "false",
+           idle_policy.stop_write_needed ? "true" : "false");
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -278,6 +329,10 @@ int main(int argc, char **argv) {
         uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
         fieldmesh_fw_dma_status_test_regs_idle(regs);
         return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
+    }
+
+    if (argc == 2 && strcmp(argv[1], "--fw-dma-action-policy-self-test") == 0) {
+        return print_fw_dma_action_policy_self_test();
     }
 
     if (argc == 3 && strcmp(argv[1], "--fw-dma-status") == 0) {

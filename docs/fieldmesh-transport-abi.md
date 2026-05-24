@@ -485,11 +485,13 @@ counters. It also emits action-specific C policy booleans: `config_allowed`,
 `arm_allowed`, and `stop_write_needed`.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
-The tool's `--fw-dma-status-self-test` and
-`--fw-dma-status-idle-self-test` paths feed the shared C fixture vectors from
+The tool's `--fw-dma-status-self-test`,
+`--fw-dma-status-idle-self-test`, and
+`--fw-dma-action-policy-self-test` paths feed the shared C fixture vectors from
 `fieldmesh_fw_dma_status_test_regs_active_faulted()` and
-`fieldmesh_fw_dma_status_test_regs_idle()` through that same decoder, so CI can
-verify active/faulted and reset-idle status output without a `/dev/mem` mapping.
+`fieldmesh_fw_dma_status_test_regs_idle()` through that same decoder and action
+policy helper, so CI can verify active/faulted and reset-idle status and write
+policy output without a `/dev/mem` mapping.
 The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
 action is status-only, and config/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a

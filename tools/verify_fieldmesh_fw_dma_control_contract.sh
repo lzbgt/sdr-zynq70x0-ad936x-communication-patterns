@@ -34,6 +34,8 @@ required_header_tokens = [
     "fieldmesh_fw_dma_status_config_allowed",
     "fieldmesh_fw_dma_status_arm_allowed",
     "fieldmesh_fw_dma_status_stop_write_needed",
+    "fieldmesh_fw_dma_action_policy_t",
+    "fieldmesh_fw_dma_status_action_policy",
     "fieldmesh_fw_dma_status_test_regs_idle",
     "fieldmesh_fw_dma_status_test_regs_active_faulted",
     "case 24u: return FIELDMESH_FW_DMA_REG_FAULT_STATUS;",
@@ -60,6 +62,7 @@ for forbidden in (
 required_tool_tokens = [
     "--fw-dma-status-self-test",
     "--fw-dma-status-idle-self-test",
+    "--fw-dma-action-policy-self-test",
     "fieldmesh_fw_dma_status_test_regs_active_faulted",
     "fieldmesh_fw_dma_status_test_regs_idle",
     "fieldmesh_fw_dma_status_offset(i)",
@@ -87,6 +90,7 @@ required_tool_tokens = [
     "fieldmesh_fw_dma_status_config_allowed",
     "fieldmesh_fw_dma_status_arm_allowed",
     "fieldmesh_fw_dma_status_stop_write_needed",
+    "fieldmesh_fw_dma_status_action_policy",
     "FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
     "FIELDMESH_FW_DMA_CONTROL_MAC_STOP",
@@ -158,6 +162,7 @@ for token in (
 for token in (
     "--fw-dma-status-self-test",
     "--fw-dma-status-idle-self-test",
+    "--fw-dma-action-policy-self-test",
     "reads_hardware",
     "writes_hardware",
     "fault_status",

@@ -132,10 +132,11 @@ in `src/fieldmesh_sdk.c`:
   writes. Checked stop skips the hardware write when the C decoder reports
   `stop_write_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw
   diagnostic stop path available.
-  `--fw-dma-status-self-test` and `--fw-dma-status-idle-self-test` decode fixed
-  C register vectors from `fieldmesh_fw_dma_status_test_regs_active_faulted()`
-  and `fieldmesh_fw_dma_status_test_regs_idle()` without `/dev/mem`, so CI
-  covers active/faulted and reset-idle status projections without hardware
+  `--fw-dma-status-self-test`, `--fw-dma-status-idle-self-test`, and
+  `--fw-dma-action-policy-self-test` decode fixed C register vectors from
+  `fieldmesh_fw_dma_status_test_regs_active_faulted()` and
+  `fieldmesh_fw_dma_status_test_regs_idle()` without `/dev/mem`, so CI covers
+  active/faulted, reset-idle, and write-policy projections without hardware
   reads. The command output is JSON for host inspection only; the packet path
   remains binary descriptors and byte streams.
   `fieldmesh_firmware_service_slot_picker` selects queued slots by traffic

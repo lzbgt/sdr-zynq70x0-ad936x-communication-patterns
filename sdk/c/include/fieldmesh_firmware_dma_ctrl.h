@@ -119,6 +119,12 @@ typedef struct fieldmesh_fw_dma_status {
     uint32_t seq_seed;
 } fieldmesh_fw_dma_status_t;
 
+typedef struct fieldmesh_fw_dma_action_policy {
+    uint8_t config_allowed;
+    uint8_t arm_allowed;
+    uint8_t stop_write_needed;
+} fieldmesh_fw_dma_action_policy_t;
+
 static inline uint32_t fieldmesh_fw_dma_status_offset(size_t index)
 {
     switch (index) {
@@ -423,6 +429,17 @@ static inline int fieldmesh_fw_dma_status_stop_write_needed(
     const fieldmesh_fw_dma_status_t *status)
 {
     return fieldmesh_fw_dma_status_stop_needed(status);
+}
+
+static inline fieldmesh_fw_dma_action_policy_t fieldmesh_fw_dma_status_action_policy(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    fieldmesh_fw_dma_action_policy_t policy = {
+        .config_allowed = (uint8_t)fieldmesh_fw_dma_status_config_allowed(status),
+        .arm_allowed = (uint8_t)fieldmesh_fw_dma_status_arm_allowed(status),
+        .stop_write_needed = (uint8_t)fieldmesh_fw_dma_status_stop_write_needed(status),
+    };
+    return policy;
 }
 
 #ifdef __cplusplus

@@ -19,6 +19,7 @@ cc -std=c99 -Wall -Wextra -Werror \
 "$work_dir/fieldmesh-ctrl-write-host" --self-test >"$work_dir/ctrl_write_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-idle-self-test >"$work_dir/fw_dma_status_idle_self_test.json"
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-action-policy-self-test >"$work_dir/fw_dma_action_policy_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config-if-idle 0x43c00000 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_checked_guard.json" 2>/dev/null || true
@@ -204,6 +205,27 @@ expected_idle_status = {
 for key, expected in expected_idle_status.items():
     if fw_status_idle_self_test.get(key) != expected:
         raise SystemExit(f"firmware DMA idle status self-test bad {key}: {fw_status_idle_self_test!r}")
+
+policy = json.loads((work / "fw_dma_action_policy_self_test.json").read_text(encoding="utf-8"))
+if policy.get("event") != "fieldmesh_fw_dma_action_policy_self_test" or policy.get("ok") is not True:
+    raise SystemExit(f"firmware DMA action policy self-test failed: {policy!r}")
+expected_policy = {
+    "active_idle": False,
+    "active_ready_for_arm": False,
+    "active_config_allowed": False,
+    "active_arm_allowed": False,
+    "active_stop_write_needed": True,
+    "idle_idle": True,
+    "idle_ready_for_arm": True,
+    "idle_config_allowed": True,
+    "idle_arm_allowed": True,
+    "idle_stop_write_needed": False,
+    "reads_hardware": False,
+    "writes_hardware": False,
+}
+for key, expected in expected_policy.items():
+    if policy.get(key) != expected:
+        raise SystemExit(f"firmware DMA action policy self-test bad {key}: {policy!r}")
 
 fw_status = json.loads((work / "fw_dma_status_guard.json").read_text(encoding="utf-8"))
 if fw_status.get("event") != "fieldmesh_fw_dma_status" or fw_status.get("ok") is not False:

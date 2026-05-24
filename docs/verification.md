@@ -2870,8 +2870,9 @@ freshness reporter. It compares the packaged `fieldmesh-ctrl-write` strings in
 the rootfs tarballs against the current checked firmware-DMA C command contract
 and emits `runtime_rebuild_needed=true` when a package lacks
 `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`,
-`--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`, or the matching C
-refusal/policy tokens. The default report is advisory and non-failing so
+`--fw-dma-stop-if-active`, `--fw-dma-status-idle-self-test`,
+`--fw-dma-action-policy-self-test`, or the matching C refusal/policy tokens.
+The default report is advisory and non-failing so
 low-memory CI can keep
 source verification green until a Yocto rebuild is feasible; use
 `--require-current` after rebuilding packages to make stale runtime binaries a
