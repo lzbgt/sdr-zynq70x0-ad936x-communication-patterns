@@ -1509,7 +1509,10 @@ below were later superseded by the current PHY-management two-board gates above:
   `rf-guard-apply` for the RF TX guard control window, plus
   `/usr/bin/fieldmesh-camera-stream-demo` for the SDK-owned video-base stream
   contract. The scan also reports the reset-off DAC source-select and driver
-  status registers.
+  status registers. Source now builds those RF guard/DAC register constants
+  from `sdk/c/include/fieldmesh_rf_guard_ctrl.h`; the next rootfs rebuild will
+  carry the same runtime behavior through the shared C SDK contract rather than
+  duplicated probe-local offsets.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard

@@ -453,6 +453,11 @@ The ARM-side C contract for this block is
 `sdk/c/include/fieldmesh_firmware_dma_ctrl.h`, which owns the register offsets,
 control/status-bit predicates, sideband packing, and status decode helpers used
 by `fieldmesh-ctrl-write`.
+The RF guard and DAC source-select window has the same shared-C ownership:
+`sdk/c/include/fieldmesh_rf_guard_ctrl.h` defines the `0x100..0x13c` offsets,
+masks, status predicates, and window bounds consumed by `fieldmesh-udp-probe`.
+That keeps RF guard arming and DAC source selection on the C/FPGA register
+contract instead of local shell/Python or duplicated probe constants.
 The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the

@@ -2428,6 +2428,10 @@ DAC source-select/status registers through `0x13c`, and
 `--allow-live-writes`, a green sidecar preflight assertion, authorized
 RF-path and legal-frequency declarations, RX-first ordering, TX-enable-guard,
 RF-engine-ready, sidecar-preflight, and Zynq-target confirmations.
+Those RF guard/DAC offsets and masks now come from
+`sdk/c/include/fieldmesh_rf_guard_ctrl.h`; the production firmware ABI verifier
+compiles a strict header smoke so `fieldmesh-udp-probe` and the SDK contract
+cannot drift into separate register maps.
 `./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
 memory to verify the writer arms only the guard registers, reports
 `sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, leaves DAC source

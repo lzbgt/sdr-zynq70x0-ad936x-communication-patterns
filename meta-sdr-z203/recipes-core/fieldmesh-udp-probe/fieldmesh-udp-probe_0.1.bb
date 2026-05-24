@@ -5,12 +5,19 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 DEPENDS += "libiio"
 
-SRC_URI = "file://fieldmesh_udp_probe.c"
+FIELDMESH_REPO_ROOT = "${@os.path.abspath(os.path.join(d.getVar('THISDIR'), '..', '..', '..'))}"
+
+SRC_URI = " \
+    file://fieldmesh_udp_probe.c \
+    file://${FIELDMESH_REPO_ROOT}/sdk/c/include/fieldmesh_rf_guard_ctrl.h \
+"
 
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${CFLAGS} -DFIELD_MESH_WITH_IIO ${LDFLAGS} ${WORKDIR}/fieldmesh_udp_probe.c -liio -o fieldmesh-udp-probe
+    ${CC} ${CFLAGS} -DFIELD_MESH_WITH_IIO \
+        -I${WORKDIR}${FIELDMESH_REPO_ROOT}/sdk/c/include \
+        ${LDFLAGS} ${WORKDIR}/fieldmesh_udp_probe.c -liio -o fieldmesh-udp-probe
 }
 
 do_install() {

@@ -8,5 +8,7 @@ out="${OUT:-$repo_root/.config/fieldmesh/fieldmesh-udp-probe-host}"
 mkdir -p "$(dirname "$out")"
 cc="${CC:-gcc}"
 
-"$cc" -std=c11 -Wall -Wextra -Werror -O2 "$src" -o "$out"
+"$cc" -std=c11 -Wall -Wextra -Werror -O2 \
+    -I"$repo_root/sdk/c/include" \
+    "$src" -o "$out"
 echo "$out"

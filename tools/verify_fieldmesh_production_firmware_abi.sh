@@ -100,6 +100,68 @@ EOF_C
 "$cc" -std=c99 -Wall -Wextra -Werror \
   -I"$repo_root/sdk/c/include" \
   -xc - \
+  -o "$work_dir/fieldmesh-rf-guard-ctrl-header-smoke" <<'EOF_C'
+#include "fieldmesh_rf_guard_ctrl.h"
+
+int main(void) {
+    fieldmesh_rf_guard_status_t status = {
+        .control = FIELDMESH_RF_GUARD_CONTROL_ARMED,
+        .current_epoch = 9u,
+        .current_slot = 3u,
+        .tx_epoch = 9u,
+        .tx_slot = 3u,
+        .status = FIELDMESH_RF_GUARD_STATUS_TX_ENABLE |
+                  FIELDMESH_RF_GUARD_STATUS_TX_ARMED |
+                  FIELDMESH_RF_GUARD_STATUS_SCHEDULE_ENABLE,
+        .pass_sample_count = 11u,
+        .pass_packet_count = 2u,
+        .blocked_cycle_count = 0u,
+        .drop_late_sample_count = 0u,
+        .drop_late_packet_count = 0u,
+        .dac_source_control = FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH,
+        .dac_source_status = FIELDMESH_RF_DAC_SOURCE_STATUS_FIELD_MESH,
+        .dac_sample_count = 11u,
+        .dac_packet_count = 2u,
+        .dac_underflow_count = 0u,
+    };
+    if (FIELDMESH_CTRL_ID_VALUE != 0x464d1001u ||
+        FIELDMESH_RF_GUARD_REG_CONTROL != 0x100u ||
+        FIELDMESH_RF_GUARD_REG_LAST != 0x13cu) {
+        return 1;
+    }
+    if (!fieldmesh_rf_guard_window_covers(0x140u) ||
+        fieldmesh_rf_guard_window_covers(0x13cu)) {
+        return 2;
+    }
+    if (fieldmesh_rf_guard_control_word(1u, 1u, 1u) !=
+            FIELDMESH_RF_GUARD_CONTROL_ARMED ||
+        !fieldmesh_rf_guard_control_args_valid(FIELDMESH_RF_GUARD_CONTROL_ARMED) ||
+        fieldmesh_rf_guard_control_args_valid(0x8u) ||
+        !fieldmesh_rf_guard_control_armed(FIELDMESH_RF_GUARD_CONTROL_ARMED)) {
+        return 3;
+    }
+    if (!fieldmesh_rf_guard_status_fault_free(&status) ||
+        !fieldmesh_rf_guard_dac_source_selected(&status) ||
+        fieldmesh_rf_guard_dac_active(&status) ||
+        fieldmesh_rf_guard_status_reserved(status.status)) {
+        return 4;
+    }
+    status.status |= FIELDMESH_RF_GUARD_STATUS_FAULT;
+    if (!fieldmesh_rf_guard_status_fault(status.status) ||
+        fieldmesh_rf_guard_status_fault_free(&status)) {
+        return 5;
+    }
+    status.status = 0xffff0000u;
+    if (!fieldmesh_rf_guard_status_reserved(status.status) ||
+        fieldmesh_rf_guard_status_fault_free(&status)) {
+        return 6;
+    }
+    return 0;
+}
+EOF_C
+"$cc" -std=c99 -Wall -Wextra -Werror \
+  -I"$repo_root/sdk/c/include" \
+  -xc - \
   -o "$work_dir/fieldmesh-firmware-dma-ctrl-header-smoke" <<'EOF_C'
 #include "fieldmesh_firmware_dma_ctrl.h"
 
@@ -237,6 +299,7 @@ int main(void) {
 EOF_C
 
 "$work_dir/fieldmesh-firmware-dma-ctrl-header-smoke"
+"$work_dir/fieldmesh-rf-guard-ctrl-header-smoke"
 "$work_dir/fieldmesh-firmware-abi-probe" >"$work_dir/probe.json"
 "$work_dir/fieldmesh-firmware-abi-probe" --write-vectors "$work_dir/vectors" \
   >"$work_dir/probe-vectors.json"
@@ -607,6 +670,37 @@ required = [
 missing = [token for token in required if token not in source]
 if missing:
     raise SystemExit(f"missing firmware DMA control header tokens: {missing}")
+PY
+
+python3 - "$repo_root/sdk/c/include/fieldmesh_rf_guard_ctrl.h" <<'PY'
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "FIELDMESH_CTRL_ID_VALUE 0x464d1001u",
+    "FIELDMESH_RF_GUARD_REG_CONTROL 0x100u",
+    "FIELDMESH_RF_DAC_REG_UNDERFLOW_COUNT 0x13cu",
+    "FIELDMESH_RF_GUARD_REG_LAST",
+    "FIELDMESH_RF_GUARD_CONTROL_ARMED",
+    "FIELDMESH_RF_GUARD_CONTROL_ALL",
+    "FIELDMESH_RF_GUARD_STATUS_FAULT",
+    "FIELDMESH_RF_GUARD_STATUS_ALL",
+    "FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH",
+    "FIELDMESH_RF_DAC_SOURCE_STATUS_ACTIVE",
+    "fieldmesh_rf_guard_status_t",
+    "fieldmesh_rf_guard_control_word",
+    "fieldmesh_rf_guard_control_args_valid",
+    "fieldmesh_rf_guard_control_armed",
+    "fieldmesh_rf_guard_status_fault_free",
+    "fieldmesh_rf_guard_status_reserved",
+    "fieldmesh_rf_guard_dac_source_selected",
+    "fieldmesh_rf_guard_dac_active",
+    "fieldmesh_rf_guard_window_covers",
+]
+missing = [token for token in required if token not in source]
+if missing:
+    raise SystemExit(f"missing RF guard control header tokens: {missing}")
 PY
 
 python3 - "$repo_root/sdk/c/include/fieldmesh_firmware_packet_bridge.h" <<'PY'

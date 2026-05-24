@@ -116,6 +116,11 @@ in `src/fieldmesh_sdk.c`:
   that register block: offsets, control/status-bit predicates, metadata
   packing, status decoding, and aggregate health predicates stay in C SDK code
   instead of shell or Python packet logic.
+  `include/fieldmesh_rf_guard_ctrl.h` is the matching C contract for the RF
+  guard and DAC source-select control page at `0x100..0x13c`. It owns the
+  shared offsets, masks, status predicates, and control-window bounds consumed
+  by `fieldmesh-udp-probe`, so the RF guard writer no longer carries a private
+  duplicate register map.
   `fieldmesh-ctrl-write` exposes the userspace guard for that register block:
   `--fw-dma-status` is read-only and requires `FIELD_MESH_ALLOW_HARDWARE_READS=1`,
   while `--fw-dma-config`, `--fw-dma-arm`, and `--fw-dma-stop` additionally require

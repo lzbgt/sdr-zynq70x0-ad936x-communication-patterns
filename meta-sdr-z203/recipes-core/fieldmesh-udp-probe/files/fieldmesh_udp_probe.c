@@ -21,6 +21,8 @@
 #include <iio.h>
 #endif
 
+#include "fieldmesh_rf_guard_ctrl.h"
+
 #define FIELD_MESH_MAGIC 0x464dU
 #define FIELD_MESH_VERSION 1U
 #define FIELD_MESH_HEADER_LEN 32U
@@ -448,7 +450,7 @@ static int parse_args(int argc, char **argv, struct config *cfg)
     }
     if ((!strcmp(cfg->role, "rf-guard-scan") || !strcmp(cfg->role, "rf-guard-apply") ||
          !strcmp(cfg->role, "rf-source-apply")) &&
-        cfg->ctrl_size < 0x140U) {
+        !fieldmesh_rf_guard_window_covers(cfg->ctrl_size)) {
         fprintf(stderr, "--ctrl-size must cover the 0x100..0x13c RF guard/DAC registers\n");
         return 2;
     }
@@ -2714,45 +2716,26 @@ static int run_ctrl_scan(const struct config *cfg)
     return ok ? 0 : 1;
 }
 
-#define FIELDMESH_CTRL_ID_VALUE 0x464d1001U
-#define RF_GUARD_REG_CONTROL 0x100U
-#define RF_GUARD_REG_CURRENT_EPOCH 0x104U
-#define RF_GUARD_REG_CURRENT_SLOT 0x108U
-#define RF_GUARD_REG_TX_EPOCH 0x10cU
-#define RF_GUARD_REG_TX_SLOT 0x110U
-#define RF_GUARD_REG_STATUS 0x114U
-#define RF_GUARD_REG_PASS_SAMPLE_COUNT 0x118U
-#define RF_GUARD_REG_PASS_PACKET_COUNT 0x11cU
-#define RF_GUARD_REG_BLOCKED_CYCLE_COUNT 0x120U
-#define RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT 0x124U
-#define RF_GUARD_REG_DROP_LATE_PACKET_COUNT 0x128U
-#define RF_DAC_REG_SOURCE_CONTROL 0x12cU
-#define RF_DAC_REG_SOURCE_STATUS 0x130U
-#define RF_DAC_REG_SAMPLE_COUNT 0x134U
-#define RF_DAC_REG_PACKET_COUNT 0x138U
-#define RF_DAC_REG_UNDERFLOW_COUNT 0x13cU
-#define RF_GUARD_CONTROL_ARMED 0x7U
-
 static int run_rf_guard_scan(const struct config *cfg)
 {
     static const struct ctrl_reg_expectation regs[] = {
         {"id", 0x00U},
-        {"rf_guard_control", RF_GUARD_REG_CONTROL},
-        {"rf_current_epoch", RF_GUARD_REG_CURRENT_EPOCH},
-        {"rf_current_slot", RF_GUARD_REG_CURRENT_SLOT},
-        {"rf_tx_epoch", RF_GUARD_REG_TX_EPOCH},
-        {"rf_tx_slot", RF_GUARD_REG_TX_SLOT},
-        {"rf_guard_status", RF_GUARD_REG_STATUS},
-        {"rf_pass_sample_count", RF_GUARD_REG_PASS_SAMPLE_COUNT},
-        {"rf_pass_packet_count", RF_GUARD_REG_PASS_PACKET_COUNT},
-        {"rf_blocked_cycle_count", RF_GUARD_REG_BLOCKED_CYCLE_COUNT},
-        {"rf_drop_late_sample_count", RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT},
-        {"rf_drop_late_packet_count", RF_GUARD_REG_DROP_LATE_PACKET_COUNT},
-        {"rf_dac_source_control", RF_DAC_REG_SOURCE_CONTROL},
-        {"rf_dac_source_status", RF_DAC_REG_SOURCE_STATUS},
-        {"rf_dac_sample_count", RF_DAC_REG_SAMPLE_COUNT},
-        {"rf_dac_packet_count", RF_DAC_REG_PACKET_COUNT},
-        {"rf_dac_underflow_count", RF_DAC_REG_UNDERFLOW_COUNT},
+        {"rf_guard_control", FIELDMESH_RF_GUARD_REG_CONTROL},
+        {"rf_current_epoch", FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH},
+        {"rf_current_slot", FIELDMESH_RF_GUARD_REG_CURRENT_SLOT},
+        {"rf_tx_epoch", FIELDMESH_RF_GUARD_REG_TX_EPOCH},
+        {"rf_tx_slot", FIELDMESH_RF_GUARD_REG_TX_SLOT},
+        {"rf_guard_status", FIELDMESH_RF_GUARD_REG_STATUS},
+        {"rf_pass_sample_count", FIELDMESH_RF_GUARD_REG_PASS_SAMPLE_COUNT},
+        {"rf_pass_packet_count", FIELDMESH_RF_GUARD_REG_PASS_PACKET_COUNT},
+        {"rf_blocked_cycle_count", FIELDMESH_RF_GUARD_REG_BLOCKED_CYCLE_COUNT},
+        {"rf_drop_late_sample_count", FIELDMESH_RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT},
+        {"rf_drop_late_packet_count", FIELDMESH_RF_GUARD_REG_DROP_LATE_PACKET_COUNT},
+        {"rf_dac_source_control", FIELDMESH_RF_DAC_REG_SOURCE_CONTROL},
+        {"rf_dac_source_status", FIELDMESH_RF_DAC_REG_SOURCE_STATUS},
+        {"rf_dac_sample_count", FIELDMESH_RF_DAC_REG_SAMPLE_COUNT},
+        {"rf_dac_packet_count", FIELDMESH_RF_DAC_REG_PACKET_COUNT},
+        {"rf_dac_underflow_count", FIELDMESH_RF_DAC_REG_UNDERFLOW_COUNT},
     };
     const char *path = cfg->ctrl_mem_file ? cfg->ctrl_mem_file : "/dev/mem";
     bool file_backed = cfg->ctrl_mem_file != NULL;
@@ -2849,37 +2832,37 @@ static int run_rf_guard_apply(const struct config *cfg)
         snprintf(err, sizeof(err), "fieldmesh control ID mismatch");
         goto out;
     }
-    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, &old_control) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, &old_current_epoch) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, &old_current_slot) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH, &old_tx_epoch) ||
-        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT, &old_tx_slot)) {
+    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, &old_control) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, &old_current_epoch) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, &old_current_slot) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, &old_tx_epoch) ||
+        !read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, &old_tx_slot)) {
         snprintf(err, sizeof(err), "read RF guard rollback state failed");
         goto out;
     }
 
-    if (!write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, cfg->rf_slot_epoch) ||
-        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, cfg->rf_slot_index & 0xffffU) ||
-        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH, cfg->rf_slot_epoch) ||
-        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT, cfg->rf_slot_index & 0xffffU) ||
-        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, RF_GUARD_CONTROL_ARMED)) {
+    if (!write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, cfg->rf_slot_epoch) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, cfg->rf_slot_index & 0xffffU) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, cfg->rf_slot_epoch) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, cfg->rf_slot_index & 0xffffU) ||
+        !write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, FIELDMESH_RF_GUARD_CONTROL_ARMED)) {
         snprintf(err, sizeof(err), "write RF guard arm registers failed");
         goto out;
     }
     wrote = true;
 
     readback_ok =
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, &applied_control) &&
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH,
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, &applied_control) &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH,
                       &applied_current_epoch) &&
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT,
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT,
                       &applied_current_slot) &&
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH,
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH,
                       &applied_tx_epoch) &&
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT,
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT,
                       &applied_tx_slot) &&
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_STATUS, &status_value) &&
-        applied_control == RF_GUARD_CONTROL_ARMED &&
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_STATUS, &status_value) &&
+        fieldmesh_rf_guard_control_armed(applied_control) &&
         applied_current_epoch == cfg->rf_slot_epoch &&
         (applied_current_slot & 0xffffU) == (cfg->rf_slot_index & 0xffffU) &&
         applied_tx_epoch == cfg->rf_slot_epoch &&
@@ -2892,7 +2875,7 @@ static int run_rf_guard_apply(const struct config *cfg)
            "\"readback_control\":\"0x%08x\",\"readback_current_epoch\":%u,"
            "\"readback_current_slot\":%u,\"readback_tx_epoch\":%u,"
            "\"readback_tx_slot\":%u}\n",
-           RF_GUARD_CONTROL_ARMED, cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU,
+           FIELDMESH_RF_GUARD_CONTROL_ARMED, cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU,
            cfg->rf_slot_epoch, cfg->rf_slot_index & 0xffffU,
            readback_ok ? "true" : "false", applied_control, applied_current_epoch,
            applied_current_slot & 0xffffU, applied_tx_epoch, applied_tx_slot & 0xffffU);
@@ -2906,12 +2889,12 @@ static int run_rf_guard_apply(const struct config *cfg)
 out:
     if (fd >= 0 && wrote) {
         bool rb_ok =
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, 0U) &&
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT, old_tx_slot) &&
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH, old_tx_epoch) &&
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT, old_current_slot) &&
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH, old_current_epoch) &&
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL, old_control);
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, 0U) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, old_tx_slot) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, old_tx_epoch) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, old_current_slot) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, old_current_epoch) &&
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, old_control);
         if (rb_ok) {
             uint32_t rollback_control = 0;
             uint32_t rollback_current_epoch = 0;
@@ -2919,15 +2902,15 @@ out:
             uint32_t rollback_tx_epoch = 0;
             uint32_t rollback_tx_slot = 0;
             rb_ok =
-                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CONTROL,
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL,
                               &rollback_control) &&
-                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_EPOCH,
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH,
                               &rollback_current_epoch) &&
-                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_CURRENT_SLOT,
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT,
                               &rollback_current_slot) &&
-                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_EPOCH,
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH,
                               &rollback_tx_epoch) &&
-                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_GUARD_REG_TX_SLOT,
+                read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT,
                               &rollback_tx_slot) &&
                 rollback_control == old_control &&
                 rollback_current_epoch == old_current_epoch &&
@@ -2994,26 +2977,28 @@ static int run_rf_source_apply(const struct config *cfg)
         snprintf(err, sizeof(err), "fieldmesh control ID mismatch");
         goto out;
     }
-    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL,
+    if (!read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
                        &old_source_control)) {
         snprintf(err, sizeof(err), "read RF DAC source rollback state failed");
         goto out;
     }
 
-    if (!write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL, 1U)) {
+    if (!write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
+                        FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH)) {
         snprintf(err, sizeof(err), "write RF DAC source select failed");
         goto out;
     }
     wrote = true;
-    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL, &source_control);
-    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_STATUS, &source_status);
+    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL, &source_control);
+    read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_STATUS, &source_status);
     printf("{\"event\":\"rf_source_apply_write\",\"transport\":\"rf-source-apply\","
            "\"source_control\":\"0x%08x\",\"source_status\":\"0x%08x\","
            "\"selects_fieldmesh_dac_source\":true,"
            "\"sets_ad936x_tx_enable\":false,\"starts_rf_tx\":false,"
            "\"readback_ok\":%s}\n",
-           source_control, source_status, (source_control & 0x1U) ? "true" : "false");
-    readback_ok = (source_control & 0x1U) != 0U;
+           source_control, source_status,
+           (source_control & FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH) ? "true" : "false");
+    readback_ok = (source_control & FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH) != 0U;
     if (!readback_ok) {
         snprintf(err, sizeof(err), "RF DAC source select did not read back asserted");
         goto out;
@@ -3022,10 +3007,10 @@ static int run_rf_source_apply(const struct config *cfg)
 out:
     if (fd >= 0 && wrote) {
         bool rb_ok =
-            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL,
+            write_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
                            old_source_control);
         uint32_t rollback_source_control = 0;
-        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, RF_DAC_REG_SOURCE_CONTROL,
+        read_ctrl_reg(fd, file_backed, cfg->ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
                       &rollback_source_control);
         rolled_back = rb_ok && rollback_source_control == old_source_control;
         printf("{\"event\":\"rf_source_apply_rollback\",\"transport\":\"rf-source-apply\","
@@ -3386,19 +3371,19 @@ static bool arm_rf_guard_late_drop(const struct config *cfg,
         return false;
     }
 
-    state->old_control = dma_reg_read(ctrl_regs, RF_GUARD_REG_CONTROL);
-    state->old_current_epoch = dma_reg_read(ctrl_regs, RF_GUARD_REG_CURRENT_EPOCH);
-    state->old_current_slot = dma_reg_read(ctrl_regs, RF_GUARD_REG_CURRENT_SLOT);
-    state->old_tx_epoch = dma_reg_read(ctrl_regs, RF_GUARD_REG_TX_EPOCH);
-    state->old_tx_slot = dma_reg_read(ctrl_regs, RF_GUARD_REG_TX_SLOT);
-    state->old_source_control = dma_reg_read(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL);
+    state->old_control = dma_reg_read(ctrl_regs, FIELDMESH_RF_GUARD_REG_CONTROL);
+    state->old_current_epoch = dma_reg_read(ctrl_regs, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH);
+    state->old_current_slot = dma_reg_read(ctrl_regs, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT);
+    state->old_tx_epoch = dma_reg_read(ctrl_regs, FIELDMESH_RF_GUARD_REG_TX_EPOCH);
+    state->old_tx_slot = dma_reg_read(ctrl_regs, FIELDMESH_RF_GUARD_REG_TX_SLOT);
+    state->old_source_control = dma_reg_read(ctrl_regs, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL);
 
-    dma_reg_write(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL, 0U);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_EPOCH, 1U);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_SLOT, 1U);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_EPOCH, 0U);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_SLOT, 0U);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CONTROL, RF_GUARD_CONTROL_ARMED);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL, 0U);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, 1U);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, 1U);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_TX_EPOCH, 0U);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_TX_SLOT, 0U);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CONTROL, FIELDMESH_RF_GUARD_CONTROL_ARMED);
     state->armed = true;
 
     printf("{\"event\":\"dma_smoke_rf_guard_late_drop_arm\","
@@ -3422,16 +3407,16 @@ static void rollback_rf_guard_late_drop(const struct phys_mapping *ctrl_regs,
         return;
     }
 
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CONTROL, 0U);
-    dma_reg_write(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL, state->old_source_control);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_SLOT, state->old_tx_slot);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_TX_EPOCH, state->old_tx_epoch);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_SLOT, state->old_current_slot);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CURRENT_EPOCH, state->old_current_epoch);
-    dma_reg_write(ctrl_regs, RF_GUARD_REG_CONTROL, state->old_control);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CONTROL, 0U);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL, state->old_source_control);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_TX_SLOT, state->old_tx_slot);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_TX_EPOCH, state->old_tx_epoch);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, state->old_current_slot);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, state->old_current_epoch);
+    dma_reg_write(ctrl_regs, FIELDMESH_RF_GUARD_REG_CONTROL, state->old_control);
 
-    control = dma_reg_read(ctrl_regs, RF_GUARD_REG_CONTROL);
-    source_control = dma_reg_read(ctrl_regs, RF_DAC_REG_SOURCE_CONTROL);
+    control = dma_reg_read(ctrl_regs, FIELDMESH_RF_GUARD_REG_CONTROL);
+    source_control = dma_reg_read(ctrl_regs, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL);
     ok = control == state->old_control && source_control == state->old_source_control;
     printf("{\"event\":\"dma_smoke_rf_guard_late_drop_rollback\","
            "\"transport\":\"dma-smoke\",\"ok\":%s,"
