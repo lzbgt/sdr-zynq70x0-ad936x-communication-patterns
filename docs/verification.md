@@ -5091,7 +5091,16 @@ high-water above the encoded RF burst high-water, a bounded
 `iio_bridge_max_frames_per_rf_burst`, deferred leased frames, and at least one
 sub-burst preemption point. They must also show bidirectional sub-burst service:
 at least one reverse-direction RF service event before same-source deferred
-lease replay. Production native-IP evidence also requires TCP
+lease replay. `verify_fieldmesh_state_daemon_forever.sh` also exercises the
+daemon's read/write-free `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` path. That
+C proof must report the production IIO scheduler policy from
+`fieldmesh_rf_service_policy.h`: four-frame leases, two-frame sub-bursts,
+same-priority batches, hybrid `tcp-control-flow-udp-after-control` lease
+priority, persistent burst helper, ACK-pipeline depth two, and a
+reverse-service requirement. `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
+compares the native-IP HIL runner defaults against the same C header so CI
+catches policy drift before final evidence is collected. Production native-IP
+evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

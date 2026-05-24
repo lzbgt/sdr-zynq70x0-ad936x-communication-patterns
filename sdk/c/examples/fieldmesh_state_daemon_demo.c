@@ -1,4 +1,5 @@
 #include "fieldmesh_firmware_tun_bridge.h"
+#include "fieldmesh_rf_service_policy.h"
 #include "fieldmesh_sdk.h"
 
 #include <stdio.h>
@@ -134,13 +135,20 @@ enum tun_service_rf_transport_mode {
 };
 
 enum tun_service_rf_lease_priority {
-    TUN_SERVICE_RF_LEASE_PRIORITY_FIFO = 0,
-    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_PAYLOAD = 1,
-    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL = 2,
-    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW = 3,
-    TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD = 4,
-    TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL = 5,
-    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL = 6,
+    TUN_SERVICE_RF_LEASE_PRIORITY_FIFO =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_FIFO,
+    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_PAYLOAD =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_PAYLOAD,
+    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL,
+    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW,
+    TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_UDP_PAYLOAD,
+    TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_UDP_AFTER_CONTROL,
+    TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL =
+        FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL,
 };
 
 struct tun_service_tcp_flow {
@@ -1191,23 +1199,8 @@ static enum tun_service_rf_lease_priority tun_service_rf_lease_priority_from_req
 static const char *tun_service_rf_lease_priority_name(
     enum tun_service_rf_lease_priority priority)
 {
-    switch (priority) {
-    case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_PAYLOAD:
-        return "tcp_payload";
-    case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL:
-        return "tcp_control";
-    case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW:
-        return "tcp_control_flow";
-    case TUN_SERVICE_RF_LEASE_PRIORITY_UDP_PAYLOAD:
-        return "udp_payload";
-    case TUN_SERVICE_RF_LEASE_PRIORITY_UDP_AFTER_CONTROL:
-        return "udp_after_control";
-    case TUN_SERVICE_RF_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL:
-        return "tcp_control_flow_udp_after_control";
-    case TUN_SERVICE_RF_LEASE_PRIORITY_FIFO:
-    default:
-        return "fifo";
-    }
+    return fieldmesh_rf_service_lease_priority_name(
+        (fieldmesh_rf_service_lease_priority_t)priority);
 }
 
 static void fill_camera_demo_chunk(unsigned char *payload,
@@ -3101,6 +3094,53 @@ static int build_response(fieldmesh_context_t *context,
                  device_eui,
                  hostname,
                  device_type);
+        return 0;
+    }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_POLICY_SELF_TEST")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        int production_iio_policy =
+            fieldmesh_rf_service_policy_accepts_production_iio(&policy);
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_service_policy_self_test\","
+                 "\"ok\":%s,"
+                 "\"native_c_rf_service_policy\":1,"
+                 "\"policy_version\":1,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"rf_sub_burst_enabled\":%u,"
+                 "\"requires_reverse_service\":%u,"
+                 "\"same_priority_batch\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"async_source_ack\":%u,"
+                 "\"source_ack_pipeline_depth\":%u,"
+                 "\"adaptive_direction_scheduler\":%u,"
+                 "\"persistent_burst_helper\":%u,"
+                 "\"lease_priority\":\"%s\","
+                 "\"lease_priority_cli\":\"%s\","
+                 "\"production_iio_policy\":%u,"
+                 "\"uses_json_on_air\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"persistent_native_rf_service_worker\"}\n",
+                 production_iio_policy ? "true" : "false",
+                 (unsigned)policy.lease_batch_frames,
+                 (unsigned)policy.max_frames_per_rf_burst,
+                 fieldmesh_rf_service_policy_sub_burst_enabled(&policy) ? 1u : 0u,
+                 fieldmesh_rf_service_policy_requires_reverse_service(&policy) ?
+                     1u : 0u,
+                 (unsigned)policy.same_priority_batch,
+                 (unsigned)policy.max_consecutive_direction_batches,
+                 (unsigned)policy.async_source_ack,
+                 (unsigned)policy.source_ack_pipeline_depth,
+                 (unsigned)policy.adaptive_direction_scheduler,
+                 (unsigned)policy.persistent_burst_helper,
+                 fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
+                 production_iio_policy ? 1u : 0u);
         return 0;
     }
     if (strstr(request, "FIELDMESH_DEVICE_IDENTITY_SET")) {

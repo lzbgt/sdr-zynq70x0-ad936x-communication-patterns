@@ -311,6 +311,15 @@ Minimum production gates for native TCP/IP:
   RF service event happened while a same-source sub-burst had deferred lease
   frames, so final review can distinguish true bidirectional sub-burst service
   from simply replaying the same source in smaller chunks.
+  The corresponding scheduler defaults are now also a native C contract in
+  `fieldmesh_rf_service_policy.h`: the daemon's
+  `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` response proves the four-frame
+  lease, two-frame sub-burst cap, same-priority batch policy, hybrid
+  `tcp-control-flow-udp-after-control` priority, ACK-pipeline depth, persistent
+  helper requirement, and reverse-service requirement without reading hardware
+  or transmitting RF. The HIL runner defaults are checked against that C policy
+  so the current Python bridge cannot silently drift from the native service
+  boundary it is preparing to hand off to.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

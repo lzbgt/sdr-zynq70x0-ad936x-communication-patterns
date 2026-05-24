@@ -1357,6 +1357,13 @@ user and vendor configuration.
   bridge can yield to reverse-path work between sub-bursts. Production evidence
   requires that sub-burst preemption proof plus a reverse-service event before
   same-source deferred lease replay.
+  The same scheduler defaults now live in `fieldmesh_rf_service_policy.h`, and
+  the daemon exposes `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` so CI can prove
+  the four-frame lease, two-frame sub-burst, same-priority/hybrid-priority,
+  persistent-helper, ACK-pipeline, and reverse-service contract in C without
+  touching RF or hardware. The live bridge remains Python-orchestrated for now,
+  but its HIL defaults are checked against that native policy before the next
+  worker-boundary move.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

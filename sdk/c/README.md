@@ -218,6 +218,14 @@ in `src/fieldmesh_sdk.c`:
   the C ring loopback helper. The live daemon layout is 16 packet slots and
   50,720 mapped bytes, fitting the current 64 KiB PL aperture; the current PL
   AXI-lite loopback only services the first diagnostic slot.
+- `include/fieldmesh_rf_service_policy.h` is the C contract for the current
+  native-IP RF service scheduler defaults: four-frame daemon leases, two-frame
+  RF sub-bursts, same-priority batch leasing, hybrid
+  `tcp-control-flow-udp-after-control` priority, bounded source-ACK pipelining,
+  and one-batch direction fairness. `fieldmesh-state-daemon-demo` exposes a
+  read/write-free `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` request so CI can
+  prove those production IIO service assumptions in native C before the live RF
+  bridge moves more scheduling work out of Python.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

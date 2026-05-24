@@ -410,9 +410,7 @@ required = [
     "priority=udp_payload",
     "priority=udp_after_control",
     "priority=tcp_control_flow_udp_after_control",
-    "return \"udp_payload\";",
-    "return \"udp_after_control\";",
-    "return \"tcp_control_flow_udp_after_control\";",
+    "fieldmesh_rf_service_lease_priority_name(",
     "return 6u;",
     "status_compact",
     "compact=1",
@@ -423,12 +421,79 @@ required = [
     "selected_score < first_score",
     "batch_first_priority_score",
     "batch_min_priority_score",
+    "#include \"fieldmesh_rf_service_policy.h\"",
+    "FIELDMESH_RF_SERVICE_POLICY_SELF_TEST",
+    "sdk_daemon_rf_service_policy_self_test",
+    "fieldmesh_rf_service_default_policy()",
+    "fieldmesh_rf_service_policy_accepts_production_iio(&policy)",
+    "fieldmesh_rf_service_lease_priority_name(policy.lease_priority)",
+    "fieldmesh_rf_service_lease_priority_cli_name(",
     "if (!serve_forever)",
 ]
 missing = [token for token in required if token not in source]
 if missing:
     raise SystemExit(f"daemon RF backlog priority admission tokens missing: {missing}")
 print('{"event":"fieldmesh_daemon_rf_backlog_priority_admission_check","ok":true}')
+PY
+
+python3 - \
+  "$repo_root/sdk/c/include/fieldmesh_rf_service_policy.h" \
+  "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+header = Path(sys.argv[1]).read_text(encoding="utf-8")
+runner = Path(sys.argv[2]).read_text(encoding="utf-8")
+
+def macro_u32(name: str) -> int:
+    match = re.search(rf"#define\s+{re.escape(name)}\s+([0-9]+)u", header)
+    if not match:
+        raise SystemExit(f"missing RF service policy macro {name}")
+    return int(match.group(1))
+
+expected = {
+    "IIO_BRIDGE_BATCH_SIZE": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_LEASE_BATCH_FRAMES"
+    ),
+    "IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_MAX_FRAMES_PER_RF_BURST"
+    ),
+    "IIO_BRIDGE_SAME_PRIORITY_BATCH": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_SAME_PRIORITY_BATCH"
+    ),
+    "IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_MAX_CONSECUTIVE_DIRECTION_BATCHES"
+    ),
+    "IIO_BRIDGE_ASYNC_SOURCE_ACK": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_ASYNC_SOURCE_ACK"
+    ),
+    "IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_SOURCE_ACK_PIPELINE_DEPTH"
+    ),
+    "IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_ADAPTIVE_DIRECTION_SCHEDULER"
+    ),
+    "IIO_BRIDGE_PERSISTENT_BURST_HELPER": macro_u32(
+        "FIELDMESH_RF_SERVICE_DEFAULT_PERSISTENT_BURST_HELPER"
+    ),
+}
+for env_name, value in expected.items():
+    if f"${{{env_name}:-{value}}}" not in runner:
+        raise SystemExit(f"native-IP runner default for {env_name} no longer matches C RF service policy")
+required_header_tokens = [
+    "fieldmesh_rf_service_policy_sub_burst_enabled",
+    "fieldmesh_rf_service_policy_requires_reverse_service",
+    "fieldmesh_rf_service_policy_accepts_production_iio",
+    "FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL",
+    "tcp-control-flow-udp-after-control",
+]
+missing = [token for token in required_header_tokens if token not in header]
+if missing:
+    raise SystemExit(f"RF service policy C contract tokens missing: {missing}")
+if 'iio_bridge_lease_priority="tcp-control-flow-udp-after-control"' not in runner:
+    raise SystemExit("native-IP runner default lease priority no longer matches C RF service policy")
+print('{"event":"fieldmesh_rf_service_policy_contract_check","ok":true}')
 PY
 
 "$repo_root/tools/fieldmesh_iq_iio_live_run.py" \
