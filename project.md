@@ -581,7 +581,8 @@ user and vendor configuration.
   all present. The generated script only re-runs the C RF guard action-policy
   proof and calls the backend; source-select, guard-arm, tuning, bounded
   gain/sleep, and rollback are owned by the compiled C backend instead of
-  shell live-control primitives.
+  shell live-control primitives. The backend now performs pre-write RF policy
+  validation plus DAC-source and guard-arm readback before enabling TX gain.
 - `tools/verify_fieldmesh_rf_tx_enable_run.sh` - gate for the TX-enable
   executor boundary. It verifies dry-run safety, missing review permission,
   missing backend rejection, and compiled-backend native-IIO dry-run execution

@@ -276,6 +276,149 @@ static int write_ctrl_reg(uint32_t ctrl_base, uint32_t offset, uint32_t value, c
     return 0;
 }
 
+static int read_ctrl_reg(uint32_t ctrl_base, uint32_t offset, uint32_t *value) {
+    int fd = open("/dev/mem", O_RDONLY | O_SYNC);
+    if (fd < 0) {
+        return fail("open /dev/mem failed for RF control register read");
+    }
+    uint32_t raw = 0;
+    ssize_t n = pread(fd, &raw, sizeof(raw), (off_t)ctrl_base + (off_t)offset);
+    int saved_errno = errno;
+    close(fd);
+    if (n != (ssize_t)sizeof(raw)) {
+        errno = saved_errno;
+        return fail("RF control register read failed");
+    }
+    *value = raw;
+    return 0;
+}
+
+static int read_rf_guard_status(uint32_t ctrl_base, fieldmesh_rf_guard_status_t *status) {
+    uint32_t current_slot = 0;
+    uint32_t tx_slot = 0;
+    if (read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, &status->control) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, &status->current_epoch) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, &current_slot) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, &status->tx_epoch) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, &tx_slot) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_STATUS, &status->status) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT,
+                      &status->drop_late_sample_count) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_DROP_LATE_PACKET_COUNT,
+                      &status->drop_late_packet_count) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
+                      &status->dac_source_control) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_STATUS,
+                      &status->dac_source_status) != 0 ||
+        read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_UNDERFLOW_COUNT,
+                      &status->dac_underflow_count) != 0) {
+        return 1;
+    }
+    status->current_slot = (uint16_t)(current_slot & 0xffffU);
+    status->tx_slot = (uint16_t)(tx_slot & 0xffffU);
+    return 0;
+}
+
+static void print_rf_control_policy(const fieldmesh_rf_guard_status_t *status,
+                                    const fieldmesh_rf_guard_action_policy_t *policy) {
+    printf("{\"event\":\"%s\",\"ok\":true,\"native_rf_control\":true,"
+           "\"phase\":\"prewrite_policy\","
+           "\"guard_apply_allowed\":%s,\"source_select_allowed\":%s,"
+           "\"rollback_needed\":%s,\"fault_free\":%s,"
+           "\"drop_counters_clear\":%s,\"guard_idle\":%s,"
+           "\"dac_source_selected\":%s,\"dac_active\":%s}\n",
+           CTRL_EVENT,
+           policy->guard_apply_allowed ? "true" : "false",
+           policy->source_select_allowed ? "true" : "false",
+           policy->rollback_needed ? "true" : "false",
+           fieldmesh_rf_guard_status_fault_free(status) ? "true" : "false",
+           fieldmesh_rf_guard_drop_counters_clear(status) ? "true" : "false",
+           fieldmesh_rf_guard_idle(status) ? "true" : "false",
+           fieldmesh_rf_guard_dac_source_selected(status) ? "true" : "false",
+           fieldmesh_rf_guard_dac_active(status) ? "true" : "false");
+}
+
+static int verify_rf_control_policy(uint32_t ctrl_base) {
+    if (dry_run_enabled()) {
+        fieldmesh_rf_guard_status_t status = fieldmesh_rf_guard_status_test_idle();
+        fieldmesh_rf_guard_action_policy_t policy =
+            fieldmesh_rf_guard_status_action_policy(&status);
+        print_rf_control_policy(&status, &policy);
+        return 0;
+    }
+
+    fieldmesh_rf_guard_status_t status = {0};
+    if (read_rf_guard_status(ctrl_base, &status) != 0) {
+        return 1;
+    }
+    fieldmesh_rf_guard_action_policy_t policy =
+        fieldmesh_rf_guard_status_action_policy(&status);
+    print_rf_control_policy(&status, &policy);
+    if (!policy.source_select_allowed || !policy.guard_apply_allowed) {
+        return fail("RF guard C action policy rejected TX backend control");
+    }
+    return 0;
+}
+
+static int verify_source_select_readback(uint32_t ctrl_base) {
+    uint32_t source_control = FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH;
+    uint32_t source_status = FIELDMESH_RF_DAC_SOURCE_STATUS_FIELD_MESH;
+    if (!dry_run_enabled()) {
+        if (read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL, &source_control) != 0 ||
+            read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_STATUS, &source_status) != 0) {
+            return 1;
+        }
+    }
+    bool ok = (source_control & FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH) != 0U;
+    printf("{\"event\":\"%s\",\"ok\":%s,\"native_rf_control\":true,"
+           "\"phase\":\"source_select_readback\","
+           "\"source_control\":\"0x%08x\",\"source_status\":\"0x%08x\","
+           "\"source_control_asserted\":%s,\"source_status_fieldmesh\":%s}\n",
+           CTRL_EVENT, ok ? "true" : "false", source_control, source_status,
+           ok ? "true" : "false",
+           (source_status & FIELDMESH_RF_DAC_SOURCE_STATUS_FIELD_MESH) ? "true" : "false");
+    return ok ? 0 : fail("RF DAC source select readback failed");
+}
+
+static int verify_guard_arm_readback(uint32_t ctrl_base, uint32_t slot_epoch, uint32_t slot_index) {
+    uint32_t control = FIELDMESH_RF_GUARD_CONTROL_ARMED;
+    uint32_t current_epoch = slot_epoch;
+    uint32_t current_slot = slot_index & 0xffffU;
+    uint32_t tx_epoch = slot_epoch;
+    uint32_t tx_slot = slot_index & 0xffffU;
+    uint32_t status = FIELDMESH_RF_GUARD_STATUS_TX_ENABLE |
+                      FIELDMESH_RF_GUARD_STATUS_TX_ARMED |
+                      FIELDMESH_RF_GUARD_STATUS_SCHEDULE_ENABLE;
+    if (!dry_run_enabled()) {
+        if (read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, &control) != 0 ||
+            read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, &current_epoch) != 0 ||
+            read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, &current_slot) != 0 ||
+            read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, &tx_epoch) != 0 ||
+            read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, &tx_slot) != 0 ||
+            read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_STATUS, &status) != 0) {
+            return 1;
+        }
+    }
+    bool ok = fieldmesh_rf_guard_control_armed(control) &&
+              current_epoch == slot_epoch &&
+              (current_slot & 0xffffU) == (slot_index & 0xffffU) &&
+              tx_epoch == slot_epoch &&
+              (tx_slot & 0xffffU) == (slot_index & 0xffffU) &&
+              !fieldmesh_rf_guard_status_fault(status) &&
+              !fieldmesh_rf_guard_status_reserved(status);
+    printf("{\"event\":\"%s\",\"ok\":%s,\"native_rf_control\":true,"
+           "\"phase\":\"guard_arm_readback\","
+           "\"control\":\"0x%08x\",\"current_epoch\":%u,\"current_slot\":%u,"
+           "\"tx_epoch\":%u,\"tx_slot\":%u,\"status\":\"0x%08x\","
+           "\"guard_control_armed\":%s,\"guard_status_fault_free\":%s}\n",
+           CTRL_EVENT, ok ? "true" : "false", control, current_epoch,
+           current_slot & 0xffffU, tx_epoch, tx_slot & 0xffffU, status,
+           fieldmesh_rf_guard_control_armed(control) ? "true" : "false",
+           (!fieldmesh_rf_guard_status_fault(status) &&
+            !fieldmesh_rf_guard_status_reserved(status)) ? "true" : "false");
+    return ok ? 0 : fail("RF guard arm readback failed");
+}
+
 static int rollback_rf_control(uint32_t ctrl_base, const char *phase) {
     if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, 0U, phase) != 0) {
         return 1;
@@ -287,8 +430,15 @@ static int rollback_rf_control(uint32_t ctrl_base, const char *phase) {
 }
 
 static int arm_rf_control(uint32_t ctrl_base, uint32_t slot_epoch, uint32_t slot_index) {
+    if (verify_rf_control_policy(ctrl_base) != 0) {
+        return 1;
+    }
     if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
                        FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH, "select_fieldmesh_dac_source") != 0) {
+        return 1;
+    }
+    if (verify_source_select_readback(ctrl_base) != 0) {
+        (void)rollback_rf_control(ctrl_base, "rollback_after_source_select_readback_error");
         return 1;
     }
     if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, slot_epoch,
@@ -302,6 +452,10 @@ static int arm_rf_control(uint32_t ctrl_base, uint32_t slot_epoch, uint32_t slot
         write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, FIELDMESH_RF_GUARD_CONTROL_ARMED,
                        "arm_fieldmesh_tx_guard") != 0) {
         (void)rollback_rf_control(ctrl_base, "rollback_after_guard_arm_error");
+        return 1;
+    }
+    if (verify_guard_arm_readback(ctrl_base, slot_epoch, slot_index) != 0) {
+        (void)rollback_rf_control(ctrl_base, "rollback_after_guard_arm_readback_error");
         return 1;
     }
     return 0;

@@ -771,8 +771,11 @@ backend is compiled C (`/usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend`):
 it parses the request, verifies the C RF guard action-policy proof and bounded
 TX parameters, checks the live RF/hardware authorization environment, and only
 then performs DAC source-select, RF guard arm, frequency tuning, bounded IIO
-gain/sleep, and TX/DAC/guard rollback natively in C. The backend also exposes a
-`--rollback --request <json>` mode used by the generated trap. The legacy
+gain/sleep, and TX/DAC/guard rollback natively in C. Before the TX gain write,
+the backend also reads the RF guard/status page, enforces the shared C
+source-select and guard-apply policy, reads back the DAC source-select register,
+and reads back the RF guard control/slot/status registers. The backend also
+exposes a `--rollback --request <json>` mode used by the generated trap. The legacy
 `fieldmesh-radio-safe-tune`, `fieldmesh-radio-tx-enable`, and
 `fieldmesh-radio-tx-disable` shell helpers remain packaged for review and
 diagnostic compatibility, but the live backend no longer delegates live

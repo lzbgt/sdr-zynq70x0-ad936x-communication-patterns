@@ -2501,7 +2501,10 @@ parameters, and rollback contract; the verifier builds the compiled C
 `fieldmesh-rf-tx-enable-backend`, runs it under `FIELD_MESH_BACKEND_DRY_RUN=1`,
 and proves it performs native C DAC-source control, RF guard arm, `iio_attr`
 tuning/gain control, bounded sleep, and TX/DAC/guard rollback without
-delegating live source/guard/tune/TX/rollback semantics to shell helpers.
+delegating live source/guard/tune/TX/rollback semantics to shell helpers. It
+also requires backend dry-run evidence for the C pre-write RF policy check,
+DAC source-select readback, and RF guard-arm readback, which are the live
+checks that run before TX gain can be enabled.
 The verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed

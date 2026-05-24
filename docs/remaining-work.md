@@ -1598,7 +1598,10 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh-radio-*` or `fieldmesh-ctrl-write` live-control primitives. The
   packaged backend is compiled C and revalidates that request plus live
   authorization before performing native FieldMesh control writes, IIO tuning,
-  gain control, bounded sleep, and rollback. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
+  gain control, bounded sleep, and rollback. It also reads the RF guard/status
+  page before control writes, enforces the C source/guard policy, reads back
+  DAC source-select, and reads back guard control/slot/status before any TX
+  gain write. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
   manifests for attenuation, isolation, legal profile, calibration, and
   frequency range before live RF. The next live work is running the compiled
   backend on a real authorized RF path with bounded duration plus rollback

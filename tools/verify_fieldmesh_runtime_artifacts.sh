@@ -581,8 +581,13 @@ PY
         tune_center_frequency \
         tune_sample_rate \
         tune_rf_bandwidth \
+        prewrite_policy \
         select_fieldmesh_dac_source \
+        source_select_readback \
+        source_control_asserted \
         arm_fieldmesh_tx_guard \
+        guard_arm_readback \
+        guard_control_armed \
         requires_c_rf_guard_action_policy_self_test \
         requires_native_rf_control \
         starts_rf_tx_when_executed \
