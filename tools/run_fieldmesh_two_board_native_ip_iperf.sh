@@ -2942,6 +2942,18 @@ report = {
     "iio_bridge_native_direction_scheduler_status": (
         last_iio_bridge.get("native_direction_scheduler_status") or {}
     ),
+    "iio_bridge_native_bidirectional_direction_decision_enabled": bool(
+        last_iio_bridge.get("native_bidirectional_direction_decision_enabled")
+    ),
+    "iio_bridge_native_bidirectional_direction_decision_proven": bool(
+        last_iio_bridge.get("native_bidirectional_direction_decision_proven")
+    ),
+    "iio_bridge_native_bidirectional_direction_decision_polls": int(
+        last_iio_bridge.get("native_bidirectional_direction_decision_polls") or 0
+    ),
+    "iio_bridge_native_bidirectional_direction_decision_status": (
+        last_iio_bridge.get("native_bidirectional_direction_decision_status") or {}
+    ),
     "iio_bridge_source_ack_pipeline_depth": int(
         last_iio_bridge.get("source_ack_pipeline_depth") or 0
     ),

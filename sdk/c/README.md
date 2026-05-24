@@ -229,12 +229,14 @@ in `src/fieldmesh_sdk.c`:
   now also reports the running C RF worker/control-plane boundary and the bound
   service policy, which live native-IP IIO RF runs require before host-side
   scheduling starts. The live bridge's production path uses
-  `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so the daemon, not Python, fills the
-  four-frame lease window, emits the two-frame RF service burst, and preserves
-  deferred lease frames for reverse-path service before ACK. It also uses
-  `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for the adaptive direction score,
-  keeping the queue-depth/lease-replay priority calculation in the same C
-  service-policy boundary.
+	  `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so the daemon, not Python, fills the
+	  four-frame lease window, emits the two-frame RF service burst, and preserves
+	  deferred lease frames for reverse-path service before ACK. It also uses
+	  `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for the adaptive direction score,
+	  keeping the queue-depth/lease-replay priority calculation in the same C
+	  service-policy boundary, and `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1`
+	  for the C-owned local-vs-peer service and yield decisions that Python
+	  consumes while it still orchestrates the outer loop.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

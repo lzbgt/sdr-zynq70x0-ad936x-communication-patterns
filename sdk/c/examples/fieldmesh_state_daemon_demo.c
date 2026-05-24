@@ -6114,6 +6114,91 @@ static int build_response(fieldmesh_context_t *context,
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_DIRECTION_DECISION")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        unsigned peer_score = 0u;
+        unsigned consecutive = 0u;
+        uint32_t tx_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_queue.count : 0u;
+        uint32_t lease_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_lease_queue.count : 0u;
+        uint32_t local_score =
+            fieldmesh_rf_service_scheduler_score(tx_depth, lease_depth);
+        int service_local_first;
+        int yield_to_peer;
+
+        (void)request_uint_or_default(request, "peer_scheduler_score=", 0u, 0u,
+                                      0xffffffffu, &peer_score);
+        (void)request_uint_or_default(
+            request, "current_consecutive_direction_batches=", 0u, 0u, 0xffu,
+            &consecutive);
+        service_local_first =
+            fieldmesh_rf_service_scheduler_service_local_first(local_score,
+                                                               peer_score);
+        yield_to_peer =
+            fieldmesh_rf_service_scheduler_yield_to_peer(&policy, peer_score,
+                                                         consecutive);
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_service_direction_decision\","
+                 "\"ok\":true,"
+                 "\"native_bidirectional_direction_decision\":1,"
+                 "\"native_direction_scheduler\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"adaptive_direction_scheduler\":%u,"
+                 "\"requires_reverse_service\":%u,"
+                 "\"scheduler_score_native_c\":1,"
+                 "\"local_scheduler_score\":%u,"
+                 "\"peer_scheduler_score\":%u,"
+                 "\"peer_has_queued_work\":%u,"
+                 "\"service_local_first\":%u,"
+                 "\"yield_to_peer\":%u,"
+                 "\"current_consecutive_direction_batches\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"lease_priority\":\"%s\","
+                 "\"lease_priority_cli\":\"%s\","
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"rf_phy_tx_rx\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"persistent_native_bidirectional_rf_service_loop\"}\n",
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                     1u :
+                     0u,
+                 (unsigned)policy.adaptive_direction_scheduler,
+                 fieldmesh_rf_service_policy_requires_reverse_service(&policy) ?
+                     1u :
+                     0u,
+                 local_score,
+                 peer_score,
+                 fieldmesh_rf_service_scheduler_has_work(peer_score) ? 1u : 0u,
+                 service_local_first ? 1u : 0u,
+                 yield_to_peer ? 1u : 0u,
+                 consecutive,
+                 policy.max_consecutive_direction_batches,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
+                 tun_service ?
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode) :
+                     tun_service_rf_transport_mode_name(
+                         TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_WORKER_PHY_PLAN")) {
         unsigned sidecar_preflight = 0u;
         unsigned sidecar_dma = 0u;

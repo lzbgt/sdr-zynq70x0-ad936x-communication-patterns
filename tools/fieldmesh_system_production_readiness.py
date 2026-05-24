@@ -243,6 +243,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_native_direction_scheduler"] = (
             native_ip.get("requires_iio_native_direction_scheduler") is True
         )
+        detail["native_ip_requires_iio_native_bidirectional_direction_decision"] = (
+            native_ip.get("requires_iio_native_bidirectional_direction_decision") is True
+        )
         detail["native_ip_board_iio_rf_service_policy_proven"] = (
             native_ip.get("board_iio_rf_service_policy_proven") is True
         )
@@ -266,6 +269,14 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         )
         detail["native_ip_host_iio_native_direction_scheduler_proven"] = (
             native_ip.get("host_iio_native_direction_scheduler_proven") is True
+        )
+        detail["native_ip_board_iio_native_bidirectional_direction_decision_proven"] = (
+            native_ip.get("board_iio_native_bidirectional_direction_decision_proven")
+            is True
+        )
+        detail["native_ip_host_iio_native_bidirectional_direction_decision_proven"] = (
+            native_ip.get("host_iio_native_bidirectional_direction_decision_proven")
+            is True
         )
         detail["native_ip_board_iio_rf_burst_batch_exercised"] = (
             native_ip.get("board_iio_rf_burst_batch_exercised") is True
@@ -371,6 +382,11 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_native_service_burst_leases_missing")
             if native_ip.get("requires_iio_native_direction_scheduler") is not True:
                 blockers.append("native_ip_native_direction_scheduler_missing")
+            if (
+                native_ip.get("requires_iio_native_bidirectional_direction_decision")
+                is not True
+            ):
+                blockers.append("native_ip_native_bidirectional_direction_decision_missing")
             if native_ip.get("board_iio_rf_service_policy_proven") is not True:
                 blockers.append("native_ip_board_iio_rf_service_policy_missing")
             if native_ip.get("host_iio_rf_service_policy_proven") is not True:
@@ -387,6 +403,20 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_native_direction_scheduler_missing")
             if native_ip.get("host_iio_native_direction_scheduler_proven") is not True:
                 blockers.append("native_ip_host_native_direction_scheduler_missing")
+            if (
+                native_ip.get("board_iio_native_bidirectional_direction_decision_proven")
+                is not True
+            ):
+                blockers.append(
+                    "native_ip_board_native_bidirectional_direction_decision_missing"
+                )
+            if (
+                native_ip.get("host_iio_native_bidirectional_direction_decision_proven")
+                is not True
+            ):
+                blockers.append(
+                    "native_ip_host_native_bidirectional_direction_decision_missing"
+                )
             if native_ip.get("board_iio_rf_burst_batch_exercised") is not True:
                 blockers.append("native_ip_board_iio_rf_burst_batch_missing")
             if native_ip.get("host_iio_rf_burst_batch_exercised") is not True:

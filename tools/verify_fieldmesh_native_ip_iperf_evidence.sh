@@ -64,6 +64,33 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "production_iio_policy": 1
     }
   },
+  "iio_bridge_native_bidirectional_direction_decision_enabled": true,
+  "iio_bridge_native_bidirectional_direction_decision_proven": true,
+  "iio_bridge_native_bidirectional_direction_decision_polls": 3,
+  "iio_bridge_native_bidirectional_direction_decision_status": {
+    "z203-to-z103": {
+      "native_bidirectional_direction_decision": 1,
+      "native_direction_scheduler": 1,
+      "scheduler_score_native_c": 1,
+      "local_scheduler_score": 1002,
+      "peer_scheduler_score": 2,
+      "service_local_first": 1,
+      "yield_to_peer": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    },
+    "z103-to-z203": {
+      "native_bidirectional_direction_decision": 1,
+      "native_direction_scheduler": 1,
+      "scheduler_score_native_c": 1,
+      "local_scheduler_score": 2,
+      "peer_scheduler_score": 1002,
+      "service_local_first": 0,
+      "yield_to_peer": 0,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    }
+  },
   "iio_bridge_rf_lease_batch_size": 4,
   "iio_bridge_rf_lease_batch_high_water": 4,
   "iio_bridge_rf_lease_batch_high_water_by_direction": {"z203-to-z103": 4},
@@ -184,6 +211,33 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "production_iio_policy": 1
     }
   },
+  "iio_bridge_native_bidirectional_direction_decision_enabled": true,
+  "iio_bridge_native_bidirectional_direction_decision_proven": true,
+  "iio_bridge_native_bidirectional_direction_decision_polls": 3,
+  "iio_bridge_native_bidirectional_direction_decision_status": {
+    "z203-to-z103": {
+      "native_bidirectional_direction_decision": 1,
+      "native_direction_scheduler": 1,
+      "scheduler_score_native_c": 1,
+      "local_scheduler_score": 1,
+      "peer_scheduler_score": 1004,
+      "service_local_first": 0,
+      "yield_to_peer": 0,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    },
+    "z103-to-z203": {
+      "native_bidirectional_direction_decision": 1,
+      "native_direction_scheduler": 1,
+      "scheduler_score_native_c": 1,
+      "local_scheduler_score": 1004,
+      "peer_scheduler_score": 1,
+      "service_local_first": 1,
+      "yield_to_peer": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    }
+  },
   "iio_bridge_rf_lease_batch_size": 4,
   "iio_bridge_rf_lease_batch_high_water": 4,
   "iio_bridge_rf_lease_batch_high_water_by_direction": {"z103-to-z203": 4},
@@ -300,6 +354,8 @@ if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"classifier did not require native service burst leases: {report!r}")
 if report.get("requires_iio_native_direction_scheduler") is not True:
     raise SystemExit(f"classifier did not require native direction scheduler proof: {report!r}")
+if report.get("requires_iio_native_bidirectional_direction_decision") is not True:
+    raise SystemExit(f"classifier did not require native bidirectional decision proof: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"classifier did not require TCP final-exchange evidence: {report!r}")
 if report.get("board_iio_rf_service_policy_proven") is not True:
@@ -326,6 +382,12 @@ if report.get("host_iio_native_direction_scheduler_proven") is not True:
     raise SystemExit(f"classifier lost host native direction scheduler proof: {report!r}")
 if report.get("host_iio_native_direction_scheduler_status_polls") != 3:
     raise SystemExit(f"classifier lost host native direction scheduler poll evidence: {report!r}")
+if report.get("board_iio_native_bidirectional_direction_decision_proven") is not True:
+    raise SystemExit(f"classifier lost board native bidirectional decision proof: {report!r}")
+if report.get("host_iio_native_bidirectional_direction_decision_proven") is not True:
+    raise SystemExit(f"classifier lost host native bidirectional decision proof: {report!r}")
+if report.get("host_iio_native_bidirectional_direction_decision_polls") != 3:
+    raise SystemExit(f"classifier lost host native bidirectional decision polls: {report!r}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"classifier lost board ACK pipeline evidence: {report!r}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:

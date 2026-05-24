@@ -314,6 +314,54 @@ if loop.queued_rf_work_score(status) <= 1000:
     raise SystemExit("C adaptive scheduler status did not preserve RF queue score")
 loop.validate_native_scheduler_status(status, "z203-to-z103", args)
 captured = {}
+def direction_decision_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_rf_service_direction_decision",
+        "ok": True,
+        "native_bidirectional_direction_decision": 1,
+        "native_direction_scheduler": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "adaptive_direction_scheduler": 1,
+        "requires_reverse_service": 1,
+        "scheduler_score_native_c": 1,
+        "local_scheduler_score": 1002,
+        "peer_scheduler_score": 2,
+        "peer_has_queued_work": 1,
+        "service_local_first": 1,
+        "yield_to_peer": 1,
+        "current_consecutive_direction_batches": 1,
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "max_consecutive_direction_batches": 1,
+        "lease_priority_cli": "tcp-control-flow-udp-after-control",
+        "rf_transport_mode": "driver_queue",
+        "uses_json_on_air": 0,
+        "uses_inter_board_ip_routing": 0,
+        "rf_phy_tx_rx": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "persistent_native_bidirectional_rf_service_loop",
+    }
+original_request = bridge.request_daemon
+bridge.request_daemon = direction_decision_request
+try:
+    decision = loop.rf_service_direction_decision("127.0.0.1", 55441, 10, 2, 1)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != (
+    "FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1 "
+    "peer_scheduler_score=2 current_consecutive_direction_batches=1"
+):
+    raise SystemExit(f"direction decision must use daemon C decision command: {captured}")
+loop.validate_native_direction_decision(decision, "z203-to-z103", args)
+captured = {}
 def worker_status_request(host, port, text, timeout_ms):
     captured["text"] = text
     return {
@@ -570,9 +618,15 @@ required = [
     "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS",
     "sdk_daemon_rf_service_scheduler_status",
     "fieldmesh_rf_service_scheduler_score(",
+    "FIELDMESH_RF_SERVICE_DIRECTION_DECISION",
+    "sdk_daemon_rf_service_direction_decision",
+    "fieldmesh_rf_service_scheduler_service_local_first(",
+    "fieldmesh_rf_service_scheduler_yield_to_peer(",
+    "\\\"native_bidirectional_direction_decision\\\":1",
     "\\\"native_direction_scheduler\\\":1",
     "\\\"scheduler_score_native_c\\\":1",
     "\\\"next_boundary\\\":\\\"native_bidirectional_rf_service_scheduler\\\"",
+    "\\\"next_boundary\\\":\\\"persistent_native_bidirectional_rf_service_loop\\\"",
     "fieldmesh_rf_service_default_policy()",
     "fieldmesh_rf_service_policy_accepts_production_iio(&policy)",
     "fieldmesh_rf_service_lease_priority_name(policy.lease_priority)",
@@ -635,6 +689,8 @@ required_header_tokens = [
     "fieldmesh_rf_service_policy_requires_reverse_service",
     "fieldmesh_rf_service_policy_accepts_production_iio",
     "fieldmesh_rf_service_scheduler_score",
+    "fieldmesh_rf_service_scheduler_service_local_first",
+    "fieldmesh_rf_service_scheduler_yield_to_peer",
     "FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL",
     "tcp-control-flow-udp-after-control",
 ]
@@ -744,6 +800,10 @@ required = [
     '"iio_bridge_native_direction_scheduler_proven"',
     '"iio_bridge_native_direction_scheduler_status_polls"',
     '"iio_bridge_native_direction_scheduler_status"',
+    '"iio_bridge_native_bidirectional_direction_decision_enabled"',
+    '"iio_bridge_native_bidirectional_direction_decision_proven"',
+    '"iio_bridge_native_bidirectional_direction_decision_polls"',
+    '"iio_bridge_native_bidirectional_direction_decision_status"',
     "fieldmesh_native_ip_iperf_rf_service_policy_self_test",
     '"iio_bridge_rf_service_policy_proven"',
     '"iio_bridge_rf_service_policy_native_c"',

@@ -412,13 +412,13 @@ readiness. The live IIO bridge now also gates on both daemons reporting a
 running native RF worker/control-plane status bound to that policy, then uses
 `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so native C fills the lease window, emits
 only the configured RF sub-burst, and preserves deferred lease frames for
-reverse-path service. Python still picks the next direction, but the per-source
-score now comes from `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, which proves
-the native C scheduler score and policy binding before adaptive ordering or
-fair-service yielding uses it. The next step is moving the cross-daemon choice
-itself into a persistent native worker/control-plane loop rather than only
-consuming C-scored per-source status.
-service-burst boundary is now owned by the daemon.
+reverse-path service. The per-source score now comes from
+`FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, and the local-vs-peer service/yield
+choice comes from `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1`, so native-IP
+evidence proves both the C-scored queue state and the C-owned bidirectional
+decision before Python consumes it. The next step is moving the outer
+cross-daemon loop itself into a persistent native worker/control-plane loop
+rather than having Python request each daemon-owned decision.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and

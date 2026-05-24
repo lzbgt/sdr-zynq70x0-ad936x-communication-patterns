@@ -168,6 +168,30 @@ static inline uint32_t fieldmesh_rf_service_scheduler_score(
     return tx_queue_depth + tx_lease_queue_depth * 1000u;
 }
 
+static inline int fieldmesh_rf_service_scheduler_has_work(uint32_t score)
+{
+    return score > 0u;
+}
+
+static inline int fieldmesh_rf_service_scheduler_service_local_first(
+    uint32_t local_score,
+    uint32_t peer_score)
+{
+    return fieldmesh_rf_service_scheduler_has_work(local_score) &&
+           local_score >= peer_score;
+}
+
+static inline int fieldmesh_rf_service_scheduler_yield_to_peer(
+    const fieldmesh_rf_service_policy_t *policy,
+    uint32_t peer_score,
+    uint32_t current_consecutive_direction_batches)
+{
+    return fieldmesh_rf_service_policy_requires_reverse_service(policy) &&
+           fieldmesh_rf_service_scheduler_has_work(peer_score) &&
+           current_consecutive_direction_batches >=
+               policy->max_consecutive_direction_batches;
+}
+
 static inline int fieldmesh_rf_service_policy_accepts_production_iio(
     const fieldmesh_rf_service_policy_t *policy)
 {

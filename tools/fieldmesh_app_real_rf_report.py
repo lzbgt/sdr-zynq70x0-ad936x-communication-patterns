@@ -107,6 +107,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: native RF service burst lease proof is missing")
             if source.get("requires_iio_native_direction_scheduler") is not True:
                 raise SystemExit("native_ip: native RF direction scheduler proof is missing")
+            if source.get("requires_iio_native_bidirectional_direction_decision") is not True:
+                raise SystemExit(
+                    "native_ip: native RF bidirectional direction decision proof is missing"
+                )
             if source.get("board_iio_rf_service_policy_proven") is not True:
                 raise SystemExit("native_ip: board IIO RF service policy proof is missing")
             if source.get("host_iio_rf_service_policy_proven") is not True:
@@ -123,6 +127,20 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board native RF direction scheduler proof is missing")
             if source.get("host_iio_native_direction_scheduler_proven") is not True:
                 raise SystemExit("native_ip: host native RF direction scheduler proof is missing")
+            if (
+                source.get("board_iio_native_bidirectional_direction_decision_proven")
+                is not True
+            ):
+                raise SystemExit(
+                    "native_ip: board native RF bidirectional direction decision proof is missing"
+                )
+            if (
+                source.get("host_iio_native_bidirectional_direction_decision_proven")
+                is not True
+            ):
+                raise SystemExit(
+                    "native_ip: host native RF bidirectional direction decision proof is missing"
+                )
             if (
                 source.get("board_iio_bridge_lease_priority")
                 != "tcp-control-flow-udp-after-control"
@@ -211,6 +229,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_native_rf_service_worker_proof",
         "requires_iio_native_service_burst_leases",
         "requires_iio_native_direction_scheduler",
+        "requires_iio_native_bidirectional_direction_decision",
         "requires_tcp_final_exchange_evidence",
         "board_iio_rf_service_policy_proven",
         "host_iio_rf_service_policy_proven",
@@ -240,6 +259,12 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_native_direction_scheduler_proven",
         "board_iio_native_direction_scheduler_status_polls",
         "host_iio_native_direction_scheduler_status_polls",
+        "board_iio_native_bidirectional_direction_decision_enabled",
+        "host_iio_native_bidirectional_direction_decision_enabled",
+        "board_iio_native_bidirectional_direction_decision_proven",
+        "host_iio_native_bidirectional_direction_decision_proven",
+        "board_iio_native_bidirectional_direction_decision_polls",
+        "host_iio_native_bidirectional_direction_decision_polls",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
         "board_iio_rf_burst_batch_exercised",

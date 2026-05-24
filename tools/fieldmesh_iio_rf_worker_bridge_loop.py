@@ -330,6 +330,30 @@ def rf_service_scheduler_status(host: str, port: int, timeout_ms: int) -> dict[s
     return report
 
 
+def rf_service_direction_decision(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    peer_scheduler_score: int,
+    current_consecutive_direction_batches: int,
+) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1 "
+        f"peer_scheduler_score={max(0, int(peer_scheduler_score))} "
+        "current_consecutive_direction_batches="
+        f"{max(0, int(current_consecutive_direction_batches))}",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_rf_service_direction_decision":
+        raise SystemExit(
+            "expected sdk_daemon_rf_service_direction_decision, "
+            f"got {report.get('event')!r}"
+        )
+    return report
+
+
 def validate_native_worker_boundary(
     report: dict[str, Any],
     label: str,
@@ -422,6 +446,80 @@ def validate_native_scheduler_status(
     if errors:
         raise SystemExit(
             f"{label} RF service scheduler status invalid: " + "; ".join(errors)
+        )
+
+
+def validate_native_direction_decision(
+    report: dict[str, Any],
+    label: str,
+    args: argparse.Namespace,
+) -> None:
+    errors: list[str] = []
+    expected = {
+        "ok": True,
+        "native_bidirectional_direction_decision": 1,
+        "native_direction_scheduler": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "adaptive_direction_scheduler": 1 if args.adaptive_direction_scheduler else 0,
+        "requires_reverse_service": 1,
+        "scheduler_score_native_c": 1,
+        "lease_batch_frames": args.batch_size,
+        "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+        "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
+        "lease_priority_cli": args.lease_priority,
+        "rf_transport_mode": "driver_queue",
+        "uses_json_on_air": 0,
+        "uses_inter_board_ip_routing": 0,
+        "rf_phy_tx_rx": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "persistent_native_bidirectional_rf_service_loop",
+    }
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            errors.append(f"{key}={report.get(key)!r} expected {expected_value!r}")
+    try:
+        local_score = max(0, int(report.get("local_scheduler_score") or 0))
+        peer_score = max(0, int(report.get("peer_scheduler_score") or 0))
+        consecutive = max(
+            0,
+            int(report.get("current_consecutive_direction_batches") or 0),
+        )
+        service_local_first = int(report.get("service_local_first"))
+        yield_to_peer = int(report.get("yield_to_peer"))
+        peer_has_work = int(report.get("peer_has_queued_work"))
+    except (TypeError, ValueError):
+        errors.append("direction-decision score/consecutive fields must be integers")
+    else:
+        expected_local_first = 1 if local_score > 0 and local_score >= peer_score else 0
+        expected_peer_has_work = 1 if peer_score > 0 else 0
+        expected_yield = (
+            1
+            if peer_score > 0
+            and consecutive >= max(1, args.max_consecutive_direction_batches)
+            else 0
+        )
+        if service_local_first != expected_local_first:
+            errors.append(
+                f"service_local_first={service_local_first!r} "
+                f"expected {expected_local_first!r}"
+            )
+        if peer_has_work != expected_peer_has_work:
+            errors.append(
+                f"peer_has_queued_work={peer_has_work!r} "
+                f"expected {expected_peer_has_work!r}"
+            )
+        if yield_to_peer != expected_yield:
+            errors.append(f"yield_to_peer={yield_to_peer!r} expected {expected_yield!r}")
+    if errors:
+        raise SystemExit(
+            f"{label} RF service direction decision invalid: " + "; ".join(errors)
         )
 
 
@@ -1293,6 +1391,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "adaptive_status_failures": 0,
         "native_direction_scheduler_status_polls": 0,
         "native_direction_scheduler_status_failures": 0,
+        "native_bidirectional_direction_decision_polls": 0,
+        "native_bidirectional_direction_decision_failures": 0,
         "direction_fair_service_status_polls": 0,
         "direction_fair_service_status_failures": 0,
         "direction_fair_service_yields": 0,
@@ -1319,6 +1419,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rf_lease_batch_high_water_by_direction: dict[str, int] = {}
     native_worker_status_by_endpoint: dict[str, dict[str, Any]] = {}
     native_scheduler_status_by_direction: dict[str, dict[str, Any]] = {}
+    native_direction_decision_by_direction: dict[str, dict[str, Any]] = {}
+    direction_by_name = {direction["name"]: direction for direction in directions}
     next_index = 0
     last_served_direction: str | None = None
     consecutive_direction_batches = 0
@@ -1412,6 +1514,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
             ),
             "native_direction_scheduler_status": native_scheduler_status_by_direction,
+            "native_bidirectional_direction_decision_enabled": bool(
+                args.execute_live_rf
+                and args.adaptive_direction_scheduler
+                and args.require_native_rf_service_worker
+                and len(directions) > 1
+            ),
+            "native_bidirectional_direction_decision_proven": bool(
+                native_direction_decision_by_direction
+                and all(
+                    status.get("native_bidirectional_direction_decision") == 1
+                    and status.get("native_direction_scheduler") == 1
+                    and status.get("scheduler_score_native_c") == 1
+                    and status.get("service_policy_bound") == 1
+                    and status.get("production_iio_policy") == 1
+                    for status in native_direction_decision_by_direction.values()
+                )
+            ),
+            "native_bidirectional_direction_decision_status": (
+                native_direction_decision_by_direction
+            ),
             "direction_burst_batches": {
                 "z203_to_z103": args.z203_to_z103_burst_batches,
                 "z103_to_z203": args.z103_to_z203_burst_batches,
@@ -1552,14 +1674,45 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 counts["native_direction_scheduler_status_polls"] += 1
                 native_scheduler_status_by_direction[direction["name"]] = status
                 scored.append((queued_rf_work_score(status), direction))
+            decisions: list[tuple[int, int, dict[str, Any]]] = []
+            for score, direction in scored:
+                peer_score = max(
+                    (candidate_score for candidate_score, candidate in scored
+                     if candidate["name"] != direction["name"]),
+                    default=0,
+                )
+                decision = rf_service_direction_decision(
+                    direction["source_host"],
+                    direction["source_port"],
+                    status_timeout_ms,
+                    peer_score,
+                    (
+                        consecutive_direction_batches
+                        if last_served_direction == direction["name"]
+                        else 0
+                    ),
+                )
+                validate_native_direction_decision(decision, direction["name"], args)
+                counts["native_bidirectional_direction_decision_polls"] += 1
+                native_direction_decision_by_direction[direction["name"]] = decision
+                decisions.append((
+                    1 if decision.get("service_local_first") == 1 else 0,
+                    score,
+                    direction,
+                ))
         except (TimeoutError, SystemExit):
             counts["adaptive_status_failures"] += 1
             counts["native_direction_scheduler_status_failures"] += 1
+            counts["native_bidirectional_direction_decision_failures"] += 1
             return schedule
         if not any(score > 0 for score, _ in scored):
             return schedule
         ordered: list[dict[str, Any]] = []
-        for score, direction in sorted(scored, key=lambda item: item[0], reverse=True):
+        for _, score, direction in sorted(
+            decisions,
+            key=lambda item: (item[0], item[1]),
+            reverse=True,
+        ):
             if score <= 0:
                 continue
             repeats = (
@@ -1627,6 +1780,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     def other_direction_has_queued_work(current_direction_name: str) -> bool:
         status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
+        current_direction = direction_by_name.get(current_direction_name)
+        if current_direction is None:
+            return False
+        peer_score = 0
         for candidate in directions:
             if candidate["name"] == current_direction_name:
                 continue
@@ -1644,9 +1801,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             counts["direction_fair_service_status_polls"] += 1
             counts["native_direction_scheduler_status_polls"] += 1
             native_scheduler_status_by_direction[candidate["name"]] = status
-            if queued_rf_work_score(status) > 0:
-                return True
-        return False
+            peer_score = max(peer_score, queued_rf_work_score(status))
+        try:
+            decision = rf_service_direction_decision(
+                current_direction["source_host"],
+                current_direction["source_port"],
+                status_timeout_ms,
+                peer_score,
+                consecutive_direction_batches,
+            )
+            validate_native_direction_decision(decision, current_direction_name, args)
+        except (TimeoutError, SystemExit):
+            counts["native_bidirectional_direction_decision_failures"] += 1
+            return False
+        counts["native_bidirectional_direction_decision_polls"] += 1
+        native_direction_decision_by_direction[current_direction_name] = decision
+        return bool(decision.get("yield_to_peer") == 1)
 
     def should_yield_for_direction_fairness(direction_name: str) -> bool:
         nonlocal fair_yield_pending_direction

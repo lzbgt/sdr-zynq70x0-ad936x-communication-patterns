@@ -405,6 +405,12 @@ PY
         native_direction_scheduler \
         scheduler_score_native_c \
         native_bidirectional_rf_service_scheduler \
+        FIELDMESH_RF_SERVICE_DIRECTION_DECISION \
+        sdk_daemon_rf_service_direction_decision \
+        native_bidirectional_direction_decision \
+        service_local_first \
+        yield_to_peer \
+        persistent_native_bidirectional_rf_service_loop \
         native_rf_service_worker \
         native_rf_service_control_plane \
         service_policy_bound \

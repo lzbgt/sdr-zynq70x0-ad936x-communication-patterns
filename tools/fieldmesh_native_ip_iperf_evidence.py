@@ -135,6 +135,30 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         for status in scheduler_status.values()
     ):
         errors.append(f"{label}: native RF direction scheduler status is incomplete")
+    if report.get("iio_bridge_native_bidirectional_direction_decision_enabled") is not True:
+        errors.append(f"{label}: native RF bidirectional decision must be enabled")
+    if report.get("iio_bridge_native_bidirectional_direction_decision_proven") is not True:
+        errors.append(f"{label}: native RF bidirectional decision proof is missing")
+    if not isinstance(
+        report.get("iio_bridge_native_bidirectional_direction_decision_polls"), int
+    ) or report.get("iio_bridge_native_bidirectional_direction_decision_polls") < 1:
+        errors.append(f"{label}: native RF bidirectional decision was not exercised")
+    decision_status = report.get("iio_bridge_native_bidirectional_direction_decision_status")
+    if not isinstance(decision_status, dict) or not decision_status:
+        errors.append(f"{label}: native RF bidirectional decision status is missing")
+    elif not all(
+        isinstance(status, dict)
+        and status.get("native_bidirectional_direction_decision") == 1
+        and status.get("native_direction_scheduler") == 1
+        and status.get("scheduler_score_native_c") == 1
+        and status.get("service_policy_bound") == 1
+        and isinstance(status.get("local_scheduler_score"), int)
+        and isinstance(status.get("peer_scheduler_score"), int)
+        and isinstance(status.get("service_local_first"), int)
+        and isinstance(status.get("yield_to_peer"), int)
+        for status in decision_status.values()
+    ):
+        errors.append(f"{label}: native RF bidirectional decision status is incomplete")
     worker_status = report.get("iio_bridge_native_rf_service_worker_status")
     if not isinstance(worker_status, dict) or sorted(worker_status) != ["z103", "z203"]:
         errors.append(f"{label}: native RF service worker status must include z203 and z103")
@@ -576,6 +600,9 @@ def main() -> int:
         "requires_iio_native_direction_scheduler": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
+        "requires_iio_native_bidirectional_direction_decision": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_rf_service_policy_proven": (
             True
@@ -686,6 +713,50 @@ def main() -> int:
         ) or {},
         "host_iio_native_direction_scheduler_status": host.get(
             "iio_bridge_native_direction_scheduler_status"
+        ) or {},
+        "board_iio_native_bidirectional_direction_decision_enabled": (
+            True
+            if not board_requires_c_policy
+            else board.get(
+                "iio_bridge_native_bidirectional_direction_decision_enabled"
+            )
+            is True
+        ),
+        "host_iio_native_bidirectional_direction_decision_enabled": (
+            True
+            if not host_requires_c_policy
+            else host.get(
+                "iio_bridge_native_bidirectional_direction_decision_enabled"
+            )
+            is True
+        ),
+        "board_iio_native_bidirectional_direction_decision_proven": (
+            True
+            if not board_requires_c_policy
+            else board.get(
+                "iio_bridge_native_bidirectional_direction_decision_proven"
+            )
+            is True
+        ),
+        "host_iio_native_bidirectional_direction_decision_proven": (
+            True
+            if not host_requires_c_policy
+            else host.get(
+                "iio_bridge_native_bidirectional_direction_decision_proven"
+            )
+            is True
+        ),
+        "board_iio_native_bidirectional_direction_decision_polls": board.get(
+            "iio_bridge_native_bidirectional_direction_decision_polls"
+        ),
+        "host_iio_native_bidirectional_direction_decision_polls": host.get(
+            "iio_bridge_native_bidirectional_direction_decision_polls"
+        ),
+        "board_iio_native_bidirectional_direction_decision_status": board.get(
+            "iio_bridge_native_bidirectional_direction_decision_status"
+        ) or {},
+        "host_iio_native_bidirectional_direction_decision_status": host.get(
+            "iio_bridge_native_bidirectional_direction_decision_status"
         ) or {},
         "board_iio_ack_pipeline_exercised": (
             True
