@@ -5102,6 +5102,11 @@ compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP
 preflight/final reports must also carry the daemon C policy proof, and the
 native-IP evidence/readiness classifiers reject IIO RF reports that omit it.
+Live IIO RF bridge runs additionally require both daemons' `FIELDMESH_RF_WORKER_STATUS`
+responses to prove a running native RF service worker/control-plane boundary
+bound to the production policy before host-side scheduling starts; the same
+worker proof is preserved through native-IP evidence, app reports, and
+readiness.
 Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,

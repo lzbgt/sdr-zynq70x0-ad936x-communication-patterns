@@ -70,10 +70,16 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_iio_rf_sub_burst_evidence_missing")
         if report.get("requires_iio_rf_service_policy_proof") is not True:
             blockers.append("native_ip_iio_rf_service_policy_proof_missing")
+        if report.get("requires_iio_native_rf_service_worker_proof") is not True:
+            blockers.append("native_ip_native_rf_service_worker_proof_missing")
         if report.get("board_iio_rf_service_policy_proven") is not True:
             blockers.append("native_ip_board_iio_rf_service_policy_missing")
         if report.get("host_iio_rf_service_policy_proven") is not True:
             blockers.append("native_ip_host_iio_rf_service_policy_missing")
+        if report.get("board_iio_native_rf_service_worker_proven") is not True:
+            blockers.append("native_ip_board_native_rf_service_worker_missing")
+        if report.get("host_iio_native_rf_service_worker_proven") is not True:
+            blockers.append("native_ip_host_native_rf_service_worker_missing")
         if report.get("board_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
             blockers.append("native_ip_board_iio_hybrid_lease_priority_missing")
         if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
@@ -163,6 +169,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_rf_service_policy_proof": report.get(
             "requires_iio_rf_service_policy_proof"
         ),
+        "requires_iio_native_rf_service_worker_proof": report.get(
+            "requires_iio_native_rf_service_worker_proof"
+        ),
         "requires_tcp_final_exchange_evidence": report.get(
             "requires_tcp_final_exchange_evidence"
         ),
@@ -183,6 +192,12 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_rf_service_policy_lease_priority": report.get(
             "host_iio_rf_service_policy_lease_priority"
+        ),
+        "board_iio_native_rf_service_worker_proven": report.get(
+            "board_iio_native_rf_service_worker_proven"
+        ),
+        "host_iio_native_rf_service_worker_proven": report.get(
+            "host_iio_native_rf_service_worker_proven"
         ),
         "board_iio_ack_pipeline_exercised": report.get("board_iio_ack_pipeline_exercised"),
         "host_iio_ack_pipeline_exercised": report.get("host_iio_ack_pipeline_exercised"),

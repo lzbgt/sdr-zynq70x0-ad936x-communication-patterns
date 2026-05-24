@@ -26,6 +26,22 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_max_frames_per_rf_burst": 2,
   "iio_bridge_rf_service_policy_requires_reverse_service": true,
   "iio_bridge_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
+  "iio_bridge_native_rf_service_worker_required": true,
+  "iio_bridge_native_rf_service_worker_proven": true,
+  "iio_bridge_native_rf_service_worker_status": {
+    "z203": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    },
+    "z103": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    }
+  },
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_lease_batch_size": 4,
@@ -109,6 +125,22 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_max_frames_per_rf_burst": 2,
   "iio_bridge_rf_service_policy_requires_reverse_service": true,
   "iio_bridge_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
+  "iio_bridge_native_rf_service_worker_required": true,
+  "iio_bridge_native_rf_service_worker_proven": true,
+  "iio_bridge_native_rf_service_worker_status": {
+    "z203": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    },
+    "z103": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    }
+  },
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_lease_batch_size": 4,
@@ -223,10 +255,14 @@ if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"missing RF sub-burst requirement: {report}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:
     raise SystemExit(f"missing RF service policy requirement: {report}")
+if report.get("requires_iio_native_rf_service_worker_proof") is not True:
+    raise SystemExit(f"missing native RF service worker requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"missing TCP final-exchange evidence requirement: {report}")
 if report.get("host_iio_rf_service_policy_proven") is not True:
     raise SystemExit(f"missing host RF service policy proof: {report}")
+if report.get("host_iio_native_rf_service_worker_proven") is not True:
+    raise SystemExit(f"missing host native RF service worker proof: {report}")
 if report.get("host_iio_rf_service_policy_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"missing host RF service policy priority: {report}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
@@ -315,6 +351,10 @@ if report.get("requires_iio_rf_service_policy_proof") is not True:
     raise SystemExit(f"native-IP readiness lost RF service policy requirement: {report}")
 if report.get("host_iio_rf_service_policy_proven") is not True:
     raise SystemExit(f"native-IP readiness lost RF service policy proof: {report}")
+if report.get("requires_iio_native_rf_service_worker_proof") is not True:
+    raise SystemExit(f"native-IP readiness lost native RF worker requirement: {report}")
+if report.get("host_iio_native_rf_service_worker_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost native RF worker proof: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost TCP final-exchange requirement: {report}")
 if report.get("host_iio_direction_fair_service_within_budget") is not True:

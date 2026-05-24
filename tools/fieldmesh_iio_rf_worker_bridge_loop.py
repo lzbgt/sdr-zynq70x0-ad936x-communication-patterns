@@ -247,6 +247,57 @@ def tun_service_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     return report
 
 
+def rf_worker_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
+    report = bridge.request_daemon(host, port, "FIELDMESH_RF_WORKER_STATUS v1", timeout_ms)
+    if report.get("event") != "sdk_daemon_rf_worker_status":
+        raise SystemExit(f"expected sdk_daemon_rf_worker_status, got {report.get('event')!r}")
+    return report
+
+
+def validate_native_worker_boundary(
+    report: dict[str, Any],
+    label: str,
+    args: argparse.Namespace,
+) -> None:
+    errors: list[str] = []
+    expected = {
+        "ok": True,
+        "running": 1,
+        "tun_service_running": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "rf_tx_lease_ack_api": 1,
+        "rf_rx_ingest_api": 1,
+        "rf_phy_tx_rx": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "rf_transport_mode": "driver_queue",
+        "next_boundary": "persistent_native_rf_service_worker",
+        "lease_batch_frames": args.batch_size,
+        "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+        "same_priority_batch": 1 if args.same_priority_batch else 0,
+        "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
+        "async_source_ack": 1 if args.async_source_ack else 0,
+        "source_ack_pipeline_depth": args.source_ack_pipeline_depth,
+        "adaptive_direction_scheduler": 1 if args.adaptive_direction_scheduler else 0,
+        "persistent_burst_helper": 1 if args.persistent_burst_helper else 0,
+        "requires_reverse_service": 1,
+        "lease_priority_cli": args.lease_priority,
+    }
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            errors.append(f"{key}={report.get(key)!r} expected {expected_value!r}")
+    if not isinstance(report.get("ticks"), int) or report.get("ticks") < 1:
+        errors.append(f"ticks={report.get('ticks')!r} expected positive integer")
+    if errors:
+        raise SystemExit(f"{label} RF worker native boundary invalid: " + "; ".join(errors))
+
+
 def queued_rf_work_score(status: dict[str, Any]) -> int:
     try:
         tx_depth = int(status.get("rf_tx_queue_depth") or 0)
@@ -1123,6 +1174,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rf_burst_timing_ms: dict[str, dict[str, int]] = {}
     rf_burst_batch_high_water_by_direction: dict[str, int] = {}
     rf_lease_batch_high_water_by_direction: dict[str, int] = {}
+    native_worker_status_by_endpoint: dict[str, dict[str, Any]] = {}
     next_index = 0
     last_served_direction: str | None = None
     consecutive_direction_batches = 0
@@ -1262,6 +1314,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "burst_helper": str(args.burst_helper) if args.burst_helper else None,
             "persistent_burst_helper": bool(args.persistent_burst_helper),
+            "native_rf_service_worker_required": bool(
+                args.execute_live_rf and args.require_native_rf_service_worker
+            ),
+            "native_rf_service_worker_proven": bool(
+                native_worker_status_by_endpoint
+                and all(
+                    status.get("native_rf_service_worker") == 1
+                    and status.get("native_rf_service_control_plane") == 1
+                    and status.get("service_policy_bound") == 1
+                    for status in native_worker_status_by_endpoint.values()
+                )
+            ),
+            "native_rf_service_worker_status": native_worker_status_by_endpoint,
             "python_modem_decode_allowed": False,
             "decode_policy": "compiled_c_modem_required",
             "rf_phy_tx_rx_verified": verified,
@@ -1296,6 +1361,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
+
+    if args.execute_live_rf and args.require_native_rf_service_worker:
+        status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
+        endpoints = {
+            "z203": (args.z203_host, args.z203_port),
+            "z103": (args.z103_host, args.z103_port),
+        }
+        for label, (host, port) in endpoints.items():
+            status = rf_worker_status(host, port, status_timeout_ms)
+            validate_native_worker_boundary(status, label, args)
+            native_worker_status_by_endpoint[label] = status
+        write_progress()
 
     def scheduled_directions() -> list[dict[str, Any]]:
         if not args.adaptive_direction_scheduler or len(directions) < 2:
@@ -1886,6 +1963,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--persistent-burst-helper", action="store_true")
+    parser.add_argument(
+        "--require-native-rf-service-worker",
+        action="store_true",
+        help=(
+            "Before live IIO RF service, require both daemons to report the "
+            "C-owned RF worker/control-plane boundary and production service "
+            "policy through FIELDMESH_RF_WORKER_STATUS."
+        ),
+    )
     parser.add_argument(
         "--async-source-ack",
         dest="async_source_ack",

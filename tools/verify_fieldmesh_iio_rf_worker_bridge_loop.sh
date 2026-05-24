@@ -230,6 +230,68 @@ if captured.get("text") != "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1":
     raise SystemExit(f"adaptive status must use compact daemon status: {captured}")
 if loop.queued_rf_work_score(status) <= 1000:
     raise SystemExit("compact adaptive status did not preserve RF queue depth")
+captured = {}
+def worker_status_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_rf_worker_status",
+        "ok": True,
+        "running": 1,
+        "tun_service_running": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "rf_tx_lease_ack_api": 1,
+        "rf_rx_ingest_api": 1,
+        "rf_phy_tx_rx": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "rf_transport_mode": "driver_queue",
+        "next_boundary": "persistent_native_rf_service_worker",
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "same_priority_batch": 1,
+        "max_consecutive_direction_batches": 1,
+        "async_source_ack": 1,
+        "source_ack_pipeline_depth": 2,
+        "adaptive_direction_scheduler": 1,
+        "persistent_burst_helper": 1,
+        "requires_reverse_service": 1,
+        "lease_priority_cli": "tcp-control-flow-udp-after-control",
+        "ticks": 3,
+    }
+original_request = bridge.request_daemon
+bridge.request_daemon = worker_status_request
+try:
+    status = loop.rf_worker_status("127.0.0.1", 55441, 10)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != "FIELDMESH_RF_WORKER_STATUS v1":
+    raise SystemExit(f"native worker boundary must use RF_WORKER_STATUS: {captured}")
+args = type("Args", (), {
+    "batch_size": 4,
+    "max_frames_per_rf_burst": 2,
+    "same_priority_batch": True,
+    "max_consecutive_direction_batches": 1,
+    "async_source_ack": True,
+    "source_ack_pipeline_depth": 2,
+    "adaptive_direction_scheduler": True,
+    "persistent_burst_helper": True,
+    "lease_priority": "tcp-control-flow-udp-after-control",
+})()
+loop.validate_native_worker_boundary(status, "z203", args)
+bad = dict(status)
+bad["native_rf_service_worker"] = 0
+try:
+    loop.validate_native_worker_boundary(bad, "z203", args)
+except SystemExit:
+    pass
+else:
+    raise SystemExit("native RF worker boundary validator accepted stale worker status")
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -424,6 +486,11 @@ required = [
     "#include \"fieldmesh_rf_service_policy.h\"",
     "FIELDMESH_RF_SERVICE_POLICY_SELF_TEST",
     "sdk_daemon_rf_service_policy_self_test",
+    "FIELDMESH_RF_WORKER_STATUS",
+    "native_rf_service_worker",
+    "native_rf_service_control_plane",
+    "service_policy_bound",
+    "\\\"next_boundary\\\":\\\"persistent_native_rf_service_worker\\\"",
     "fieldmesh_rf_service_default_policy()",
     "fieldmesh_rf_service_policy_accepts_production_iio(&policy)",
     "fieldmesh_rf_service_lease_priority_name(policy.lease_priority)",
@@ -590,6 +657,9 @@ required = [
     '"iio_bridge_rf_service_policy_proven"',
     '"iio_bridge_rf_service_policy_native_c"',
     '"iio_bridge_rf_service_policy_production_iio"',
+    '"iio_bridge_native_rf_service_worker_required"',
+    '"iio_bridge_native_rf_service_worker_proven"',
+    '"iio_bridge_native_rf_service_worker_status"',
     '"iio_bridge_persistent_burst_helper"',
     '"iio_bridge_same_priority_batch"',
     '"iio_bridge_same_priority_batch_preemption_exercised"',
@@ -612,6 +682,7 @@ required = [
     'iio_bridge_max_frames_per_rf_burst="${IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST:-2}"',
     "--max-frames-per-rf-burst",
     "--source-ack-pipeline-depth",
+    "--require-native-rf-service-worker",
     '"iio_bridge_source_ack_pipeline_high_water"',
     '"iio_bridge_source_ack_pipeline_max_pending"',
     '"iio_bridge_source_ack_latency_ms"',

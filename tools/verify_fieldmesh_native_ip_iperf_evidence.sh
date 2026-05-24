@@ -25,6 +25,22 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_max_frames_per_rf_burst": 2,
   "iio_bridge_rf_service_policy_requires_reverse_service": true,
   "iio_bridge_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
+  "iio_bridge_native_rf_service_worker_required": true,
+  "iio_bridge_native_rf_service_worker_proven": true,
+  "iio_bridge_native_rf_service_worker_status": {
+    "z203": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    },
+    "z103": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    }
+  },
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_lease_batch_size": 4,
@@ -108,6 +124,22 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_max_frames_per_rf_burst": 2,
   "iio_bridge_rf_service_policy_requires_reverse_service": true,
   "iio_bridge_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
+  "iio_bridge_native_rf_service_worker_required": true,
+  "iio_bridge_native_rf_service_worker_proven": true,
+  "iio_bridge_native_rf_service_worker_status": {
+    "z203": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    },
+    "z103": {
+      "native_rf_service_worker": 1,
+      "native_rf_service_control_plane": 1,
+      "service_policy_bound": 1,
+      "production_iio_policy": 1
+    }
+  },
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_lease_batch_size": 4,
@@ -220,6 +252,8 @@ if report.get("requires_iio_rf_sub_burst_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO RF sub-burst evidence: {report!r}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:
     raise SystemExit(f"classifier did not require IIO RF service policy proof: {report!r}")
+if report.get("requires_iio_native_rf_service_worker_proof") is not True:
+    raise SystemExit(f"classifier did not require native RF service worker proof: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"classifier did not require TCP final-exchange evidence: {report!r}")
 if report.get("board_iio_rf_service_policy_proven") is not True:
@@ -230,6 +264,12 @@ if report.get("board_iio_rf_service_policy_native_c") is not True:
     raise SystemExit(f"classifier lost board native C service policy proof: {report!r}")
 if report.get("host_iio_rf_service_policy_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"classifier lost host RF service policy priority: {report!r}")
+if report.get("board_iio_native_rf_service_worker_proven") is not True:
+    raise SystemExit(f"classifier lost board native RF service worker proof: {report!r}")
+if report.get("host_iio_native_rf_service_worker_proven") is not True:
+    raise SystemExit(f"classifier lost host native RF service worker proof: {report!r}")
+if sorted(report.get("host_iio_native_rf_service_worker_status", {})) != ["z103", "z203"]:
+    raise SystemExit(f"classifier lost host native RF worker status: {report!r}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"classifier lost board ACK pipeline evidence: {report!r}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:
@@ -325,8 +365,12 @@ if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost TCP final-exchange requirement: {report!r}")
 if report.get("requires_iio_rf_service_policy_proof") is not True:
     raise SystemExit(f"normalized native-IP evidence lost RF service policy requirement: {report!r}")
+if report.get("requires_iio_native_rf_service_worker_proof") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost native RF worker requirement: {report!r}")
 if report.get("host_iio_rf_service_policy_proven") is not True:
     raise SystemExit(f"normalized native-IP evidence lost RF service policy proof: {report!r}")
+if report.get("host_iio_native_rf_service_worker_proven") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost native RF worker proof: {report!r}")
 if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"normalized native-IP evidence lost hybrid lease priority: {report!r}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
@@ -369,12 +413,31 @@ for key in list(report):
         report.pop(key)
 Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
+python3 - "$work_dir/board-real-rf.json" "$work_dir/board-missing-native-worker.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for key in list(report):
+    if key.startswith("iio_bridge_native_rf_service_worker_"):
+        report.pop(key)
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-missing-rf-service-policy.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
   >"$work_dir/missing-rf-service-policy-rejected.out" \
   2>"$work_dir/missing-rf-service-policy-rejected.err"; then
   echo "iperf evidence classifier accepted missing IIO RF service policy proof" >&2
+  exit 1
+fi
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-missing-native-worker.json" \
+  --host-pc-report "$work_dir/host-real-rf.json" \
+  >"$work_dir/missing-native-worker-rejected.out" \
+  2>"$work_dir/missing-native-worker-rejected.err"; then
+  echo "iperf evidence classifier accepted missing native RF service worker proof" >&2
   exit 1
 fi
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \

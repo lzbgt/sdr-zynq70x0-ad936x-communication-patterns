@@ -1485,6 +1485,7 @@ start_iio_rf_bridge_loop() {
         "${helper_args[@]}" \
         "${direction_modem_args[@]}" \
         --execute-live-rf \
+        --require-native-rf-service-worker \
         --allow-hardware-writes \
         --allow-rf-tx \
         --allow-daemon-queue-mutation \
@@ -2902,6 +2903,15 @@ report = {
     ),
     "iio_bridge_persistent_burst_helper": bool(
         last_iio_bridge.get("persistent_burst_helper")
+    ),
+    "iio_bridge_native_rf_service_worker_required": bool(
+        last_iio_bridge.get("native_rf_service_worker_required")
+    ),
+    "iio_bridge_native_rf_service_worker_proven": bool(
+        last_iio_bridge.get("native_rf_service_worker_proven")
+    ),
+    "iio_bridge_native_rf_service_worker_status": (
+        last_iio_bridge.get("native_rf_service_worker_status") or {}
     ),
     "iio_bridge_source_ack_pipeline_depth": int(
         last_iio_bridge.get("source_ack_pipeline_depth") or 0

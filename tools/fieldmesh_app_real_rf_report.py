@@ -101,10 +101,16 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: IIO RF sub-burst proof is missing")
             if source.get("requires_iio_rf_service_policy_proof") is not True:
                 raise SystemExit("native_ip: IIO RF service policy proof is missing")
+            if source.get("requires_iio_native_rf_service_worker_proof") is not True:
+                raise SystemExit("native_ip: native RF service worker proof is missing")
             if source.get("board_iio_rf_service_policy_proven") is not True:
                 raise SystemExit("native_ip: board IIO RF service policy proof is missing")
             if source.get("host_iio_rf_service_policy_proven") is not True:
                 raise SystemExit("native_ip: host IIO RF service policy proof is missing")
+            if source.get("board_iio_native_rf_service_worker_proven") is not True:
+                raise SystemExit("native_ip: board native RF service worker proof is missing")
+            if source.get("host_iio_native_rf_service_worker_proven") is not True:
+                raise SystemExit("native_ip: host native RF service worker proof is missing")
             if (
                 source.get("board_iio_bridge_lease_priority")
                 != "tcp-control-flow-udp-after-control"
@@ -190,6 +196,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_persistent_burst_helper",
         "requires_iio_rf_sub_burst_evidence",
         "requires_iio_rf_service_policy_proof",
+        "requires_iio_native_rf_service_worker_proof",
         "requires_tcp_final_exchange_evidence",
         "board_iio_rf_service_policy_proven",
         "host_iio_rf_service_policy_proven",
@@ -205,6 +212,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_rf_service_policy_requires_reverse_service",
         "board_iio_rf_service_policy_lease_priority",
         "host_iio_rf_service_policy_lease_priority",
+        "board_iio_native_rf_service_worker_proven",
+        "host_iio_native_rf_service_worker_proven",
+        "board_iio_native_rf_service_worker_status",
+        "host_iio_native_rf_service_worker_status",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
         "board_iio_rf_burst_batch_exercised",

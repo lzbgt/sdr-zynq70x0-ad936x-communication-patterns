@@ -396,6 +396,11 @@ PY
         supports_rf_phy_driver_bind \
         sdk_daemon_rf_worker_start \
         sdk_daemon_rf_worker_status \
+        native_rf_service_worker \
+        native_rf_service_control_plane \
+        service_policy_bound \
+        production_iio_policy \
+        persistent_native_rf_service_worker \
         sdk_daemon_rf_worker_phy_plan \
         sdk_daemon_rf_phy_driver_bind_validate \
         sdk_daemon_rf_phy_driver_bind_apply \

@@ -234,11 +234,20 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_rf_service_policy_proof"] = (
             native_ip.get("requires_iio_rf_service_policy_proof") is True
         )
+        detail["native_ip_requires_iio_native_rf_service_worker_proof"] = (
+            native_ip.get("requires_iio_native_rf_service_worker_proof") is True
+        )
         detail["native_ip_board_iio_rf_service_policy_proven"] = (
             native_ip.get("board_iio_rf_service_policy_proven") is True
         )
         detail["native_ip_host_iio_rf_service_policy_proven"] = (
             native_ip.get("host_iio_rf_service_policy_proven") is True
+        )
+        detail["native_ip_board_iio_native_rf_service_worker_proven"] = (
+            native_ip.get("board_iio_native_rf_service_worker_proven") is True
+        )
+        detail["native_ip_host_iio_native_rf_service_worker_proven"] = (
+            native_ip.get("host_iio_native_rf_service_worker_proven") is True
         )
         detail["native_ip_board_iio_rf_burst_batch_exercised"] = (
             native_ip.get("board_iio_rf_burst_batch_exercised") is True
@@ -338,10 +347,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_iio_rf_sub_burst_evidence_missing")
             if native_ip.get("requires_iio_rf_service_policy_proof") is not True:
                 blockers.append("native_ip_iio_rf_service_policy_proof_missing")
+            if native_ip.get("requires_iio_native_rf_service_worker_proof") is not True:
+                blockers.append("native_ip_native_rf_service_worker_proof_missing")
             if native_ip.get("board_iio_rf_service_policy_proven") is not True:
                 blockers.append("native_ip_board_iio_rf_service_policy_missing")
             if native_ip.get("host_iio_rf_service_policy_proven") is not True:
                 blockers.append("native_ip_host_iio_rf_service_policy_missing")
+            if native_ip.get("board_iio_native_rf_service_worker_proven") is not True:
+                blockers.append("native_ip_board_native_rf_service_worker_missing")
+            if native_ip.get("host_iio_native_rf_service_worker_proven") is not True:
+                blockers.append("native_ip_host_native_rf_service_worker_missing")
             if native_ip.get("board_iio_rf_burst_batch_exercised") is not True:
                 blockers.append("native_ip_board_iio_rf_burst_batch_missing")
             if native_ip.get("host_iio_rf_burst_batch_exercised") is not True:

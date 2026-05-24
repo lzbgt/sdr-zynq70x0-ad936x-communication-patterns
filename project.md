@@ -1364,7 +1364,9 @@ user and vendor configuration.
   touching RF or hardware. The live bridge remains Python-orchestrated for now,
   but its HIL defaults are checked against that native policy and production
   reports/readiness now require the daemon C proof before the next
-  worker-boundary move.
+  worker-boundary move. Live IIO RF bridge runs now also require both daemons
+  to report a running native RF worker/control-plane status bound to the same
+  policy before host-side scheduling starts.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

@@ -5959,6 +5959,10 @@ static int build_response(fieldmesh_context_t *context,
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_WORKER_STATUS")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        uint32_t production_iio =
+            fieldmesh_rf_service_policy_accepts_production_iio(&policy);
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_worker_status\","
                  "\"ok\":true,"
@@ -5966,6 +5970,21 @@ static int build_response(fieldmesh_context_t *context,
                  "\"tun_service_running\":%u,"
                  "\"daemon_owned_worker\":1,"
                  "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"same_priority_batch\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"async_source_ack\":%u,"
+                 "\"source_ack_pipeline_depth\":%u,"
+                 "\"adaptive_direction_scheduler\":%u,"
+                 "\"persistent_burst_helper\":%u,"
+                 "\"requires_reverse_service\":%u,"
+                 "\"lease_priority\":\"%s\","
+                 "\"lease_priority_cli\":\"%s\","
                  "\"ticks\":%u,"
                  "\"tx_queue_observations\":%u,"
                  "\"rx_queue_observations\":%u,"
@@ -5988,9 +6007,24 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"rf_phy_tx_rx\"}\n",
+                 "\"next_boundary\":\"persistent_native_rf_service_worker\"}\n",
                  rf_worker && rf_worker->running ? 1u : 0u,
                  tun_service && tun_service->running ? 1u : 0u,
+                 production_iio,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 (unsigned)policy.same_priority_batch,
+                 policy.max_consecutive_direction_batches,
+                 (unsigned)policy.async_source_ack,
+                 policy.source_ack_pipeline_depth,
+                 (unsigned)policy.adaptive_direction_scheduler,
+                 (unsigned)policy.persistent_burst_helper,
+                 fieldmesh_rf_service_policy_requires_reverse_service(&policy) ?
+                     1u :
+                     0u,
+                 fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
                  rf_worker ? rf_worker->ticks : 0u,
                  rf_worker ? rf_worker->tx_queue_observations : 0u,
                  rf_worker ? rf_worker->rx_queue_observations : 0u,

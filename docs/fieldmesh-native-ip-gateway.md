@@ -322,6 +322,10 @@ Minimum production gates for native TCP/IP:
   before production evidence is accepted, so the current Python bridge cannot
   silently drift from the native service boundary it is preparing to hand off
   to.
+  Live IIO RF bridge runs now also require `FIELDMESH_RF_WORKER_STATUS` from
+  both daemons to prove a running C-owned RF worker/control-plane boundary with
+  the same production service policy before any host-orchestrated RF scheduling
+  starts.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

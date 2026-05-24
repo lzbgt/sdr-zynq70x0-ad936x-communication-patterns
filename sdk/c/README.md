@@ -225,7 +225,10 @@ in `src/fieldmesh_sdk.c`:
   and one-batch direction fairness. `fieldmesh-state-daemon-demo` exposes a
   read/write-free `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` request so CI can
   prove those production IIO service assumptions in native C before the live RF
-  bridge moves more scheduling work out of Python.
+  bridge moves more scheduling work out of Python. `FIELDMESH_RF_WORKER_STATUS`
+  now also reports the running C RF worker/control-plane boundary and the bound
+  service policy, which live native-IP IIO RF runs require before host-side
+  scheduling starts.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

@@ -105,6 +105,26 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != "tcp-control-flow-udp-after-control"
     ):
         errors.append(f"{label}: IIO RF service policy must use hybrid lease priority")
+    if report.get("iio_bridge_native_rf_service_worker_required") is not True:
+        errors.append(f"{label}: native RF service worker proof must be required")
+    if report.get("iio_bridge_native_rf_service_worker_proven") is not True:
+        errors.append(f"{label}: native RF service worker proof is missing")
+    worker_status = report.get("iio_bridge_native_rf_service_worker_status")
+    if not isinstance(worker_status, dict) or sorted(worker_status) != ["z103", "z203"]:
+        errors.append(f"{label}: native RF service worker status must include z203 and z103")
+    else:
+        for endpoint, status in sorted(worker_status.items()):
+            if not isinstance(status, dict):
+                errors.append(f"{label}: {endpoint} native RF worker status is not an object")
+                continue
+            for key in (
+                "native_rf_service_worker",
+                "native_rf_service_control_plane",
+                "service_policy_bound",
+                "production_iio_policy",
+            ):
+                if status.get(key) != 1:
+                    errors.append(f"{label}: {endpoint} native RF worker {key} is not proven")
     if report.get("iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
         errors.append(
             f"{label}: IIO bridge lease priority must be tcp-control-flow-udp-after-control"
@@ -521,6 +541,9 @@ def main() -> int:
         "requires_iio_rf_service_policy_proof": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
+        "requires_iio_native_rf_service_worker_proof": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_rf_service_policy_proven": (
             True
@@ -568,6 +591,22 @@ def main() -> int:
         "host_iio_rf_service_policy_lease_priority": host.get(
             "iio_bridge_rf_service_policy_lease_priority"
         ),
+        "board_iio_native_rf_service_worker_proven": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_rf_service_worker_proven") is True
+        ),
+        "host_iio_native_rf_service_worker_proven": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_rf_service_worker_proven") is True
+        ),
+        "board_iio_native_rf_service_worker_status": board.get(
+            "iio_bridge_native_rf_service_worker_status"
+        ) or {},
+        "host_iio_native_rf_service_worker_status": host.get(
+            "iio_bridge_native_rf_service_worker_status"
+        ) or {},
         "board_iio_ack_pipeline_exercised": (
             True
             if not board_requires_ack_pipeline

@@ -409,7 +409,10 @@ bridge still performs the host-side scheduling, but CI now verifies that its
 HIL defaults match the C policy and native-IP HIL evidence now carries the
 daemon C proof through preflight, production classification, app reports, and
 readiness before the service loop is moved into a persistent native worker
-boundary.
+boundary. The live IIO bridge now also gates on both daemons reporting a
+running native RF worker/control-plane status bound to that policy, preventing
+production HIL from bypassing the C worker boundary while scheduling still runs
+in Python.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and
