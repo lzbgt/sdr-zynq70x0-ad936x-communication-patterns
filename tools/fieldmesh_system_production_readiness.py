@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import fieldmesh_conducted_rf_evidence_manifest
+
 
 REAL_RF_SEQUENCE_EVENTS = {
     "fieldmesh_conducted_rf_production_sequence",
@@ -74,6 +76,28 @@ def validate_tx_backend_readback(path_text: Any, base_dir: Path) -> dict[str, An
         "source_select_readback_ok": True,
         "guard_arm_readback_ok": True,
         "rollback_proven": True,
+    }
+
+
+def validate_real_rf_evidence_manifest(sequence_path: Path) -> dict[str, Any]:
+    args = argparse.Namespace(
+        sequence_report=sequence_path,
+        evidence_manifest=None,
+        require_production_ready=True,
+        output=None,
+        pretty=False,
+    )
+    try:
+        report = fieldmesh_conducted_rf_evidence_manifest.verify_manifest(args)
+    except SystemExit as exc:
+        message = str(exc) or "RF evidence manifest validation failed"
+        raise ValueError(message) from exc
+    return {
+        "manifest": report.get("manifest"),
+        "production_ready": report.get("production_ready") is True,
+        "verified_files": report.get("verified_files"),
+        "labels": report.get("labels"),
+        "semantic_checks": report.get("semantic_checks"),
     }
 
 
@@ -203,6 +227,7 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
 
     real_rf_sequence = None
     real_rf_tx_backend_readback = None
+    real_rf_evidence_manifest = None
     if args.real_rf_production_sequence:
         real_rf_sequence = load_json_one_of(
             args.real_rf_production_sequence,
@@ -221,6 +246,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         except ValueError as exc:
             detail["real_rf_tx_backend_readback_ok"] = False
             detail["real_rf_tx_backend_readback_error"] = str(exc)
+        if real_rf_sequence.get("production_ready") is True:
+            try:
+                real_rf_evidence_manifest = validate_real_rf_evidence_manifest(
+                    args.real_rf_production_sequence
+                )
+                detail["real_rf_evidence_manifest_ok"] = True
+                detail["real_rf_evidence_manifest"] = real_rf_evidence_manifest
+            except ValueError as exc:
+                detail["real_rf_evidence_manifest_ok"] = False
+                detail["real_rf_evidence_manifest_error"] = str(exc)
     if args.require_real_rf:
         if real_rf_sequence is None:
             blockers.append("real_rf_production_sequence_missing")
@@ -232,6 +267,10 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             blockers.append("real_rf_tx_backend_readback_not_proven")
             if detail.get("real_rf_tx_backend_readback_error"):
                 blockers.append(f"real_rf:{detail['real_rf_tx_backend_readback_error']}")
+        elif real_rf_evidence_manifest is None:
+            blockers.append("real_rf_evidence_manifest_not_verified")
+            if detail.get("real_rf_evidence_manifest_error"):
+                blockers.append(f"real_rf:{detail['real_rf_evidence_manifest_error']}")
 
     blockers = sorted(set(blockers))
     return {

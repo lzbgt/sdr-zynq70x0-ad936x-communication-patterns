@@ -894,7 +894,8 @@ user and vendor configuration.
   `production_ready` truth state with blockers. By default it requires live
   GNSS fix, PPS timing exposure, paired real-RF native-IP iperf, and real-RF
   app/PHY production evidence that includes the sequence's C TX-backend
-  readback proof, so missing reports or preflight-only reports cannot be
+  readback proof plus the sequence's hash-verified evidence manifest, so
+  missing reports, preflight-only reports, or unverified archives cannot be
   mistaken for a feature-complete system.
 - `tools/fieldmesh_system_readiness_actions.py` - converts the readiness
   blockers into a priority-ordered production action queue. It keeps physical
@@ -904,14 +905,16 @@ user and vendor configuration.
 - `tools/verify_fieldmesh_system_production_readiness.sh` - verifies the
   summarizer rejects blocked GNSS/PPS/native-IP/RF evidence, accepts complete
   positive evidence, refuses a missing real-RF production sequence or missing
-  TX-backend readback proof, and checks that the wrapper emits the matching
-  action queue.
+  TX-backend readback proof, refuses a sequence missing its hash-verified
+  evidence manifest, and checks that the wrapper emits the matching action
+  queue.
 - `tools/run_fieldmesh_system_production_readiness.sh` - operator wrapper for
   the same summary. By default it runs the live GNSS inspection and the
   non-transmitting native-IP paired iperf preflight, then emits
   `system_readiness.json` plus `system_readiness_actions.json`. It does not
   transmit RF; real-RF evidence must be supplied separately through
-  `REAL_RF_PRODUCTION_SEQUENCE_REPORT`, with
+  `REAL_RF_PRODUCTION_SEQUENCE_REPORT`. That sequence must carry a valid
+  `evidence_manifest` and `evidence_manifest_sha256`, with
   `REAL_RF_PRODUCTION_GATE_REPORT` retained as supporting detail.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the

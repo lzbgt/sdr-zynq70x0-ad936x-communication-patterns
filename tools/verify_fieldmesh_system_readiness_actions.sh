@@ -20,7 +20,8 @@ cat >"$work_dir/blocked-readiness.json" <<'JSON'
     "native_ip_iperf_not_production_ready",
     "native_ip:board_to_board_preflight_failed,host_pc_preflight_failed",
     "real_rf_production_sequence_missing",
-    "real_rf_tx_backend_readback_not_proven"
+    "real_rf_tx_backend_readback_not_proven",
+    "real_rf_evidence_manifest_not_verified"
   ]
 }
 JSON

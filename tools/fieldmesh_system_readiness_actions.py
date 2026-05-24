@@ -100,6 +100,7 @@ ACTION_RULES: tuple[tuple[tuple[str, ...], dict[str, Any]], ...] = (
             "real_rf_production_gate_missing",
             "real_rf_production_sequence_missing",
             "real_rf_tx_backend_readback_not_proven",
+            "real_rf_evidence_manifest_not_verified",
             "real_rf_not_production_ready",
             "measured_rf_phy_tx_rx_not_verified",
         ),

@@ -187,25 +187,207 @@ cat >"$work_dir/tx-backend-readback-ready.json" <<'JSON'
   "prewrite_policy_ok": true,
   "source_select_readback_ok": true,
   "guard_arm_readback_ok": true,
+  "source_control_asserted": true,
+  "source_status_fieldmesh": true,
+  "guard_control_armed": true,
+  "guard_status_fault_free": true,
   "bounded_sleep_proven": true,
   "rollback_proven": true,
+  "ctrl_phases": [
+    "prewrite_policy",
+    "source_select_readback",
+    "guard_arm_readback",
+    "rollback"
+  ],
+  "iio_phases": [
+    "tune_center_frequency",
+    "tune_sample_rate",
+    "tune_rf_bandwidth",
+    "enable",
+    "rollback"
+  ],
   "backend_request": "mock-request.json",
   "backend_event_count": 18
 }
 JSON
 
 python3 - "$work_dir" <<'PY'
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 work_dir = Path(sys.argv[1])
+evidence_dir = work_dir / "evidence"
+evidence_dir.mkdir(parents=True, exist_ok=True)
+
+
+def write_json(path: Path, data: dict) -> Path:
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def evidence_file(label: str, data: dict) -> dict:
+    path = write_json(evidence_dir / f"{label}.json", data)
+    raw = path.read_bytes()
+    return {
+        "label": label,
+        "path": str(path),
+        "source_path": str(path),
+        "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+preflight = {
+    "event": "fieldmesh_over_air_rf_preflight",
+    "ok": True,
+    "live_rf_allowed": True,
+}
+iq_live_run = {
+    "event": "fieldmesh_iq_iio_live_run",
+    "ok": True,
+}
+bridge = {
+    "event": "fieldmesh_iio_rf_worker_bridge",
+    "ok": True,
+    "iq_iio_live_run": str(evidence_dir / "iq_live_run.json"),
+}
+production_gate = {
+    "event": "fieldmesh_real_rf_production_gate",
+    "ok": True,
+    "production_ready": True,
+    "production_blocker": "",
+}
+rf_bind_gate = {
+    "event": "fieldmesh_board_rf_phy_bind_gate",
+    "ok": True,
+    "fw_dma_counter_progression_ok": True,
+    "fw_dma_drop_error_delta": 0,
+    "fw_dma_service_latency_last_cycles_after": 21,
+    "fw_dma_service_latency_max_cycles_after": 21,
+    "fw_dma_service_latency_accum_cycles_delta": 21,
+    "fw_dma_service_latency_budget_cycles": 1000,
+    "fw_dma_service_latency_within_budget": True,
+    "fw_dma_service_latency_hardware_budget_programmed": True,
+    "fw_dma_service_latency_budget_ok_after": True,
+    "fw_dma_service_latency_over_budget_before": False,
+    "fw_dma_service_latency_over_budget_after": False,
+    "fw_dma_service_latency_over_budget_count_delta": 0,
+    "rf_phy_tx_rx": 0,
+    "production_ready": 0,
+    "fw_dma_tx_parser_packets_delta": 1,
+    "fw_dma_tx_parser_bytes_delta": 64,
+    "fw_dma_ingress_packets_delta": 1,
+    "fw_dma_ingress_bytes_delta": 64,
+    "fw_dma_ingress_desc_publishes_delta": 1,
+    "fw_dma_mac_ticks_delta": 3,
+}
+hardware_progression = {
+    "event": "fieldmesh_rf_hardware_progression_evidence",
+    "ok": True,
+    "reads_hardware": True,
+    "writes_hardware": False,
+    "c_fpga_native_counter_progression": True,
+    "counter_progression_ok": True,
+    "drop_error_delta": 0,
+    "no_rf_phy_tx_rx_claim": True,
+    "no_production_ready_claim": True,
+    "required_counter_deltas": {
+        "fw_dma_tx_parser_packets_delta": 1,
+        "fw_dma_tx_parser_bytes_delta": 64,
+        "fw_dma_ingress_packets_delta": 1,
+        "fw_dma_ingress_bytes_delta": 64,
+        "fw_dma_ingress_desc_publishes_delta": 1,
+        "fw_dma_mac_ticks_delta": 3,
+    },
+    "counter_snapshots": {
+        "mac_ticks": {"before": 10, "after": 13, "delta": 3},
+        "ingress_packets": {"before": 4, "after": 5, "delta": 1},
+        "egress_packets": {"before": 1, "after": 1, "delta": 0},
+        "bram_errors": {"before": 0, "after": 0, "delta": 0},
+    },
+    "submit_latency_evidence": {
+        "dma_smoke_tx_polls": 2,
+        "dma_smoke_rx_polls": 0,
+    },
+    "service_latency_evidence": {
+        "source": "firmware_dma_endpoint",
+        "last_cycles": 21,
+        "max_cycles": 21,
+        "budget_cycles": 1000,
+        "within_budget": True,
+        "hardware_budget_programmed": True,
+        "hardware_budget_ok": True,
+        "over_budget_before": False,
+        "over_budget_after": False,
+        "over_budget_count_delta": 0,
+        "accum_cycles": {"before": 0, "after": 21, "delta": 21},
+    },
+    "c_modem_service_rate": {
+        "required": True,
+        "decode_frame_kbps": 14000,
+    },
+    "source_report": str(evidence_dir / "rf_bind_gate.json"),
+}
+tx_backend = json.loads((work_dir / "tx-backend-readback-ready.json").read_text(encoding="utf-8"))
+app_reports = {
+    "messaging_app_report": {
+        "event": "fieldmesh_app_real_rf_report",
+        "feature": "messaging",
+        "transport": "real_rf_phy",
+        "rf_phy_tx_rx_verified": True,
+        "app_verified_real_rf": True,
+    },
+    "topology_app_report": {
+        "event": "fieldmesh_app_real_rf_report",
+        "feature": "topology",
+        "transport": "real_rf_phy",
+        "rf_phy_tx_rx_verified": True,
+        "app_verified_real_rf": True,
+    },
+    "native_ip_app_report": {
+        "event": "fieldmesh_app_real_rf_report",
+        "feature": "native_ip",
+        "transport": "real_rf_phy",
+        "rf_phy_tx_rx_verified": True,
+        "app_verified_real_rf": True,
+    },
+}
+files = [
+    evidence_file("preflight", preflight),
+    evidence_file("rf_bind_gate", rf_bind_gate),
+    evidence_file("hardware_progression", hardware_progression),
+    evidence_file("tx_backend_readback", tx_backend),
+    evidence_file("bridge", bridge),
+    evidence_file("iq_live_run", iq_live_run),
+    evidence_file("messaging_app_report", app_reports["messaging_app_report"]),
+    evidence_file("topology_app_report", app_reports["topology_app_report"]),
+    evidence_file("native_ip_app_report", app_reports["native_ip_app_report"]),
+    evidence_file("production_gate", production_gate),
+]
+manifest = {
+    "event": "fieldmesh_over_air_rf_evidence_manifest",
+    "ok": True,
+    "production_ready": True,
+    "expected_production_ready": True,
+    "files": files,
+}
+manifest_path = write_json(work_dir / "fieldmesh_over_air_rf_evidence_manifest.json", manifest)
+manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 sequence = {
     "event": "fieldmesh_over_air_rf_production_sequence",
     "ok": True,
     "production_ready": True,
     "production_blocker": None,
-    "tx_backend_readback_report": "tx-backend-readback-ready.json",
+    "bridge_report": str(evidence_dir / "bridge.json"),
+    "iq_live_run": str(evidence_dir / "iq_live_run.json"),
+    "production_gate": str(evidence_dir / "production_gate.json"),
+    "rf_bind_gate_report": str(evidence_dir / "rf_bind_gate.json"),
+    "hardware_progression_report": str(evidence_dir / "hardware_progression.json"),
+    "tx_backend_readback_report": str(evidence_dir / "tx_backend_readback.json"),
+    "evidence_manifest": str(manifest_path),
+    "evidence_manifest_sha256": manifest_hash,
 }
 (work_dir / "rf-sequence-ready.json").write_text(
     json.dumps(sequence, indent=2, sort_keys=True) + "\n",
@@ -216,6 +398,14 @@ missing_readback = dict(sequence)
 missing_readback.pop("tx_backend_readback_report")
 (work_dir / "rf-sequence-missing-tx-readback.json").write_text(
     json.dumps(missing_readback, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+
+missing_manifest = dict(sequence)
+missing_manifest.pop("evidence_manifest")
+missing_manifest.pop("evidence_manifest_sha256")
+(work_dir / "rf-sequence-missing-manifest.json").write_text(
+    json.dumps(missing_manifest, indent=2, sort_keys=True) + "\n",
     encoding="utf-8",
 )
 PY
@@ -279,6 +469,29 @@ if "real_rf_tx_backend_readback_not_proven" not in report.get("blockers", []):
     raise SystemExit(f"missing TX backend readback blocker not propagated: {report}")
 if report.get("detail", {}).get("real_rf_tx_backend_readback_ok") is not False:
     raise SystemExit(f"missing TX backend readback detail not recorded: {report}")
+PY
+
+if "$repo_root/tools/fieldmesh_system_production_readiness.py" \
+  --gnss-preflight "$work_dir/gnss-ready.json" \
+  --gnss-timepulse-poll "$work_dir/timepulse-ready.json" \
+  --native-ip-iperf-sequence "$work_dir/native-ip-ready.json" \
+  --real-rf-production-sequence "$work_dir/rf-sequence-missing-manifest.json" \
+  --output "$work_dir/missing-manifest-summary.json" \
+  >"$work_dir/missing-manifest-summary.stdout"; then
+  echo "system readiness accepted real-RF sequence without hash-verified evidence manifest" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/missing-manifest-summary.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if "real_rf_evidence_manifest_not_verified" not in report.get("blockers", []):
+    raise SystemExit(f"missing RF evidence manifest blocker not propagated: {report}")
+if report.get("detail", {}).get("real_rf_evidence_manifest_ok") is not False:
+    raise SystemExit(f"missing RF evidence manifest detail not recorded: {report}")
 PY
 
 cat >"$work_dir/fake-gnss-runner.sh" <<'SH'
