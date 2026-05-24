@@ -671,7 +671,9 @@ hashes for the preflight, RF bind-gate, hardware progression, TX backend
 readback, bridge, IQ live-run, app reports, and production gate; each manifest
 row preserves the bundled path and original source path. The TX-enable run is
 also normalized into a `fieldmesh_rf_tx_backend_readback_evidence` artifact
-inside that archive. A
+inside that archive. The top-level system production-readiness summary now
+requires the conducted/over-air production sequence report and validates that
+same TX backend readback artifact before aggregate readiness can be true. A
 standalone archive checker verifies those hashes and can require
 `production_ready=true` without rerunning the RF sequence. It also validates
 the expected report event/feature semantics for each required evidence label,

@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Any
 
 
+REAL_RF_SEQUENCE_EVENTS = {
+    "fieldmesh_conducted_rf_production_sequence",
+    "fieldmesh_over_air_rf_production_sequence",
+}
+
+
 def load_json(path: Path, expected_event: str) -> dict[str, Any]:
     try:
         report = json.loads(path.read_text(encoding="utf-8"))
@@ -19,6 +25,56 @@ def load_json(path: Path, expected_event: str) -> dict[str, Any]:
     if report.get("event") != expected_event:
         raise SystemExit(f"{path}: expected event {expected_event!r}, got {report.get('event')!r}")
     return report
+
+
+def load_json_one_of(path: Path, expected_events: set[str]) -> dict[str, Any]:
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
+    if not isinstance(report, dict):
+        raise SystemExit(f"{path}: expected JSON object")
+    if report.get("event") not in expected_events:
+        raise SystemExit(
+            f"{path}: expected event in {sorted(expected_events)!r}, got {report.get('event')!r}"
+        )
+    return report
+
+
+def validate_tx_backend_readback(path_text: Any, base_dir: Path) -> dict[str, Any]:
+    if not isinstance(path_text, str) or not path_text:
+        raise ValueError("real-RF production sequence missing tx_backend_readback_report")
+    path = Path(path_text)
+    if not path.is_absolute():
+        path = base_dir / path
+    if not path.is_file():
+        raise ValueError(f"TX backend readback report not found: {path}")
+    report = load_json(path, "fieldmesh_rf_tx_backend_readback_evidence")
+    if report.get("ok") is not True:
+        raise ValueError("TX backend readback evidence is not ok=true")
+    for key in (
+        "native_rf_control",
+        "native_tune",
+        "native_iio_attr_control",
+        "starts_rf_tx_when_executed",
+        "writes_hardware_when_executed",
+        "prewrite_policy_ok",
+        "source_select_readback_ok",
+        "guard_arm_readback_ok",
+        "bounded_sleep_proven",
+        "rollback_proven",
+    ):
+        if report.get(key) is not True:
+            raise ValueError(f"TX backend readback evidence missing {key}=true")
+    return {
+        "report": str(path.resolve(strict=False)),
+        "backend_request": report.get("backend_request"),
+        "backend_event_count": report.get("backend_event_count"),
+        "prewrite_policy_ok": True,
+        "source_select_readback_ok": True,
+        "guard_arm_readback_ok": True,
+        "rollback_proven": True,
+    }
 
 
 def board_blockers(report: dict[str, Any]) -> list[str]:
@@ -144,13 +200,38 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["real_rf_production_gate"] = str(args.real_rf_production_gate)
         detail["real_rf_production_ready"] = real_rf.get("production_ready") is True
         detail["real_rf_production_blocker"] = real_rf.get("production_blocker")
+
+    real_rf_sequence = None
+    real_rf_tx_backend_readback = None
+    if args.real_rf_production_sequence:
+        real_rf_sequence = load_json_one_of(
+            args.real_rf_production_sequence,
+            REAL_RF_SEQUENCE_EVENTS,
+        )
+        detail["real_rf_production_sequence"] = str(args.real_rf_production_sequence)
+        detail["real_rf_sequence_production_ready"] = real_rf_sequence.get("production_ready") is True
+        detail["real_rf_sequence_production_blocker"] = real_rf_sequence.get("production_blocker")
+        try:
+            real_rf_tx_backend_readback = validate_tx_backend_readback(
+                real_rf_sequence.get("tx_backend_readback_report"),
+                args.real_rf_production_sequence.parent,
+            )
+            detail["real_rf_tx_backend_readback_ok"] = True
+            detail["real_rf_tx_backend_readback"] = real_rf_tx_backend_readback
+        except ValueError as exc:
+            detail["real_rf_tx_backend_readback_ok"] = False
+            detail["real_rf_tx_backend_readback_error"] = str(exc)
     if args.require_real_rf:
-        if real_rf is None:
-            blockers.append("real_rf_production_gate_missing")
-        elif real_rf.get("production_ready") is not True:
+        if real_rf_sequence is None:
+            blockers.append("real_rf_production_sequence_missing")
+        elif real_rf_sequence.get("production_ready") is not True:
             blockers.append("real_rf_not_production_ready")
-            if real_rf.get("production_blocker"):
-                blockers.append(f"real_rf:{real_rf['production_blocker']}")
+            if real_rf_sequence.get("production_blocker"):
+                blockers.append(f"real_rf:{real_rf_sequence['production_blocker']}")
+        elif real_rf_tx_backend_readback is None:
+            blockers.append("real_rf_tx_backend_readback_not_proven")
+            if detail.get("real_rf_tx_backend_readback_error"):
+                blockers.append(f"real_rf:{detail['real_rf_tx_backend_readback_error']}")
 
     blockers = sorted(set(blockers))
     return {
@@ -177,6 +258,7 @@ def main() -> int:
     parser.add_argument("--gnss-timepulse-poll", type=Path)
     parser.add_argument("--native-ip-iperf-sequence", type=Path)
     parser.add_argument("--real-rf-production-gate", type=Path)
+    parser.add_argument("--real-rf-production-sequence", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--require-gnss-fix", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--require-gnss-pps", action=argparse.BooleanOptionalAction, default=True)

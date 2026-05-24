@@ -8,6 +8,7 @@ gnss_report="${GNSS_PREFLIGHT_REPORT:-}"
 timepulse_report="${GNSS_TIMEPULSE_POLL_REPORT:-}"
 native_ip_report="${NATIVE_IP_IPERF_SEQUENCE_REPORT:-}"
 real_rf_report="${REAL_RF_PRODUCTION_GATE_REPORT:-}"
+real_rf_sequence="${REAL_RF_PRODUCTION_SEQUENCE_REPORT:-}"
 
 run_gnss_preflight="${RUN_GNSS_PREFLIGHT:-1}"
 run_gnss_timepulse_poll="${RUN_GNSS_TIMEPULSE_POLL:-1}"
@@ -99,6 +100,9 @@ if [ -n "$native_ip_report" ] && [ -f "$native_ip_report" ]; then
 fi
 if [ -n "$real_rf_report" ] && [ -f "$real_rf_report" ]; then
     args+=(--real-rf-production-gate "$real_rf_report")
+fi
+if [ -n "$real_rf_sequence" ] && [ -f "$real_rf_sequence" ]; then
+    args+=(--real-rf-production-sequence "$real_rf_sequence")
 fi
 
 if [ "$require_gnss_fix" = "0" ]; then

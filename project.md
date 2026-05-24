@@ -889,11 +889,13 @@ user and vendor configuration.
   report input and SSH-launched host-PC substitutes.
 - `tools/fieldmesh_system_production_readiness.py` - final production
   readiness summarizer. It consumes the live GNSS preflight, paired native-IP
-  iperf sequence, and real-RF production gate reports, then emits one
-  machine-readable `production_ready` truth state with blockers. By default it
-  requires live GNSS fix, PPS timing exposure, paired real-RF native-IP iperf,
-  and real-RF app/PHY production evidence, so missing reports or preflight-only
-  reports cannot be mistaken for a feature-complete system.
+  iperf sequence, the real-RF production gate, and the conducted/over-air RF
+  production sequence report, then emits one machine-readable
+  `production_ready` truth state with blockers. By default it requires live
+  GNSS fix, PPS timing exposure, paired real-RF native-IP iperf, and real-RF
+  app/PHY production evidence that includes the sequence's C TX-backend
+  readback proof, so missing reports or preflight-only reports cannot be
+  mistaken for a feature-complete system.
 - `tools/fieldmesh_system_readiness_actions.py` - converts the readiness
   blockers into a priority-ordered production action queue. It keeps physical
   access, RF TX, and receiver-config-write requirements explicit so GNSS
@@ -901,14 +903,16 @@ user and vendor configuration.
   iperf, and the real-RF production gate do not get mixed together.
 - `tools/verify_fieldmesh_system_production_readiness.sh` - verifies the
   summarizer rejects blocked GNSS/PPS/native-IP/RF evidence, accepts complete
-  positive evidence, refuses a missing real-RF production gate, and checks that
-  the wrapper emits the matching action queue.
+  positive evidence, refuses a missing real-RF production sequence or missing
+  TX-backend readback proof, and checks that the wrapper emits the matching
+  action queue.
 - `tools/run_fieldmesh_system_production_readiness.sh` - operator wrapper for
   the same summary. By default it runs the live GNSS inspection and the
   non-transmitting native-IP paired iperf preflight, then emits
   `system_readiness.json` plus `system_readiness_actions.json`. It does not
-  transmit RF; a real-RF production gate report must be supplied separately
-  through `REAL_RF_PRODUCTION_GATE_REPORT`.
+  transmit RF; real-RF evidence must be supplied separately through
+  `REAL_RF_PRODUCTION_SEQUENCE_REPORT`, with
+  `REAL_RF_PRODUCTION_GATE_REPORT` retained as supporting detail.
 - `tools/run_fieldmesh_board_tun_apply.sh` - SSH-driven `swarm0` lifecycle
   runner. It uses the installed `fieldmesh-tun-gateway-demo`, generates the
   guarded board-local TUN apply script, and only creates network state when

@@ -68,11 +68,21 @@ cat >"$work_dir/rf-blocked.json" <<'JSON'
 }
 JSON
 
+cat >"$work_dir/rf-sequence-blocked.json" <<'JSON'
+{
+  "event": "fieldmesh_over_air_rf_production_sequence",
+  "ok": true,
+  "production_ready": false,
+  "production_blocker": "measured_rf_phy_tx_rx_not_verified"
+}
+JSON
+
 if "$repo_root/tools/fieldmesh_system_production_readiness.py" \
   --gnss-preflight "$work_dir/gnss-blocked.json" \
   --gnss-timepulse-poll "$work_dir/timepulse-blocked.json" \
   --native-ip-iperf-sequence "$work_dir/native-ip-preflight.json" \
   --real-rf-production-gate "$work_dir/rf-blocked.json" \
+  --real-rf-production-sequence "$work_dir/rf-sequence-blocked.json" \
   --output "$work_dir/blocked-summary.json" \
   >"$work_dir/blocked-summary.stdout"; then
   echo "system readiness accepted blocked production evidence" >&2
@@ -165,11 +175,57 @@ cat >"$work_dir/rf-ready.json" <<'JSON'
 }
 JSON
 
+cat >"$work_dir/tx-backend-readback-ready.json" <<'JSON'
+{
+  "event": "fieldmesh_rf_tx_backend_readback_evidence",
+  "ok": true,
+  "native_rf_control": true,
+  "native_tune": true,
+  "native_iio_attr_control": true,
+  "starts_rf_tx_when_executed": true,
+  "writes_hardware_when_executed": true,
+  "prewrite_policy_ok": true,
+  "source_select_readback_ok": true,
+  "guard_arm_readback_ok": true,
+  "bounded_sleep_proven": true,
+  "rollback_proven": true,
+  "backend_request": "mock-request.json",
+  "backend_event_count": 18
+}
+JSON
+
+python3 - "$work_dir" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+work_dir = Path(sys.argv[1])
+sequence = {
+    "event": "fieldmesh_over_air_rf_production_sequence",
+    "ok": True,
+    "production_ready": True,
+    "production_blocker": None,
+    "tx_backend_readback_report": "tx-backend-readback-ready.json",
+}
+(work_dir / "rf-sequence-ready.json").write_text(
+    json.dumps(sequence, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+
+missing_readback = dict(sequence)
+missing_readback.pop("tx_backend_readback_report")
+(work_dir / "rf-sequence-missing-tx-readback.json").write_text(
+    json.dumps(missing_readback, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+
 "$repo_root/tools/fieldmesh_system_production_readiness.py" \
   --gnss-preflight "$work_dir/gnss-ready.json" \
   --gnss-timepulse-poll "$work_dir/timepulse-ready.json" \
   --native-ip-iperf-sequence "$work_dir/native-ip-ready.json" \
   --real-rf-production-gate "$work_dir/rf-ready.json" \
+  --real-rf-production-sequence "$work_dir/rf-sequence-ready.json" \
   --output "$work_dir/ready-summary.json" \
   >"$work_dir/ready-summary.stdout"
 
@@ -191,6 +247,39 @@ if "$repo_root/tools/fieldmesh_system_production_readiness.py" \
   echo "system readiness accepted missing real-RF gate" >&2
   exit 1
 fi
+
+python3 - "$work_dir/missing-rf-summary.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if "real_rf_production_sequence_missing" not in report.get("blockers", []):
+    raise SystemExit(f"missing real-RF sequence blocker not propagated: {report}")
+PY
+
+if "$repo_root/tools/fieldmesh_system_production_readiness.py" \
+  --gnss-preflight "$work_dir/gnss-ready.json" \
+  --gnss-timepulse-poll "$work_dir/timepulse-ready.json" \
+  --native-ip-iperf-sequence "$work_dir/native-ip-ready.json" \
+  --real-rf-production-sequence "$work_dir/rf-sequence-missing-tx-readback.json" \
+  --output "$work_dir/missing-tx-readback-summary.json" \
+  >"$work_dir/missing-tx-readback-summary.stdout"; then
+  echo "system readiness accepted real-RF sequence without TX backend readback" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/missing-tx-readback-summary.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if "real_rf_tx_backend_readback_not_proven" not in report.get("blockers", []):
+    raise SystemExit(f"missing TX backend readback blocker not propagated: {report}")
+if report.get("detail", {}).get("real_rf_tx_backend_readback_ok") is not False:
+    raise SystemExit(f"missing TX backend readback detail not recorded: {report}")
+PY
 
 cat >"$work_dir/fake-gnss-runner.sh" <<'SH'
 #!/usr/bin/env bash
@@ -244,7 +333,7 @@ from pathlib import Path
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if report.get("production_ready") is not False:
     raise SystemExit(f"wrapper report claimed production ready: {report}")
-for blocker in ("gnss_live_fix_not_ready", "gnss_receiver_health_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_gate_missing"):
+for blocker in ("gnss_live_fix_not_ready", "gnss_receiver_health_not_ready", "native_ip_iperf_not_production_ready", "real_rf_production_sequence_missing"):
     if blocker not in report.get("blockers", []):
         raise SystemExit(f"wrapper report missing blocker {blocker}: {report}")
 if "z103:gnss_timepulse_unlocked_pulse_length_zero" not in report.get("blockers", []):
@@ -293,6 +382,7 @@ GNSS_PREFLIGHT_REPORT="$work_dir/gnss-ready.json" \
 GNSS_TIMEPULSE_POLL_REPORT="$work_dir/timepulse-ready.json" \
 NATIVE_IP_IPERF_SEQUENCE_REPORT="$work_dir/native-ip-ready.json" \
 REAL_RF_PRODUCTION_GATE_REPORT="$work_dir/rf-ready.json" \
+REAL_RF_PRODUCTION_SEQUENCE_REPORT="$work_dir/rf-sequence-ready.json" \
 RUN_GNSS_PREFLIGHT=0 \
 RUN_GNSS_TIMEPULSE_POLL=0 \
 RUN_NATIVE_IP_PREFLIGHT=0 \

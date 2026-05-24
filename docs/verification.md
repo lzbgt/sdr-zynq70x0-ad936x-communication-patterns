@@ -5106,11 +5106,13 @@ The final system-level readiness summary is checked with:
 ./tools/verify_fieldmesh_system_production_readiness.sh
 ```
 
-It consumes the GNSS live preflight, paired native-IP iperf sequence, and
-real-RF production gate reports. By default it requires live GNSS fix, PPS
-timing exposure, paired native-IP real-RF iperf, and real-RF app/PHY production
-evidence. Missing reports, preflight-only reports, or blocked sub-gates keep
-`production_ready=false` and surface their blockers in one JSON object.
+It consumes the GNSS live preflight, paired native-IP iperf sequence, real-RF
+production gate, and conducted/over-air RF production sequence reports. By
+default it requires live GNSS fix, PPS timing exposure, paired native-IP
+real-RF iperf, real-RF app/PHY production evidence, and the sequence's bundled
+C TX-backend readback proof. Missing reports, preflight-only reports, blocked
+sub-gates, or stale TX-backend evidence keep `production_ready=false` and
+surface their blockers in one JSON object.
 The operator wrapper is:
 
 ```sh
@@ -5119,8 +5121,10 @@ The operator wrapper is:
 
 By default it runs the live GNSS inspection and non-transmitting native-IP
 paired iperf preflight before calling the summarizer. It does not transmit RF;
-pass `REAL_RF_PRODUCTION_GATE_REPORT=/path/to/real_rf_production_gate.json`
-after an authorized over-air run to include real-RF production evidence.
+pass `REAL_RF_PRODUCTION_SEQUENCE_REPORT=/path/to/fieldmesh_over_air_rf_production_sequence.json`
+after an authorized over-air run so aggregate readiness can validate the
+sequence and its `tx_backend_readback_report`. `REAL_RF_PRODUCTION_GATE_REPORT`
+can still be supplied as supporting gate detail.
 The installed two-board flow also passed with `tun_event_loop_ready=1` and
 `tun_drain_ready=1`.
 
