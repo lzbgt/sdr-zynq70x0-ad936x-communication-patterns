@@ -99,6 +99,12 @@ def build(report_path: Path) -> dict[str, Any]:
 
     service_latency_last = require_int(report, "fw_dma_service_latency_last_cycles_after", 1)
     service_latency_max = require_int(report, "fw_dma_service_latency_max_cycles_after", service_latency_last)
+    service_latency_budget = require_int(report, "fw_dma_service_latency_budget_cycles", 1)
+    require_bool(report, "fw_dma_service_latency_within_budget", True)
+    if service_latency_last > service_latency_budget:
+        raise SystemExit("RF hardware progression service-latency last_cycles exceeded budget")
+    if service_latency_max > service_latency_budget:
+        raise SystemExit("RF hardware progression service-latency max_cycles exceeded budget")
     service_latency_accum = snapshot(
         report,
         "service_latency_accum_cycles",
@@ -135,6 +141,8 @@ def build(report_path: Path) -> dict[str, Any]:
             "source": "firmware_dma_endpoint",
             "last_cycles": service_latency_last,
             "max_cycles": service_latency_max,
+            "budget_cycles": service_latency_budget,
+            "within_budget": True,
             "accum_cycles": service_latency_accum,
         },
         "c_modem_service_rate": {

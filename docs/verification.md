@@ -2972,13 +2972,14 @@ tick, ingress packet, egress packet, and BRAM error values as hardware-side
 counter evidence. It also requires positive TX parser packet/byte, ingress
 packet/byte, descriptor-publication, and MAC tick deltas, keeps parser/ingress/
 egress drop plus BRAM error deltas at zero, records FPGA MAC-service latency
-cycles, and records DMA TX poll count as submit-latency evidence while still
-refusing to claim `rf_phy_tx_rx` until
+cycles against `FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES` (default
+`1000000` cycles), and records DMA TX poll count as submit-latency evidence
+while still refusing to claim `rf_phy_tx_rx` until
 measured radio TX/RX is authorized and observed.
 `tools/fieldmesh_rf_hardware_progression_evidence.py` normalizes that bind-gate
 summary into the production evidence artifact required by the real-RF manifest;
 the artifact preserves before/after snapshots, required deltas, FPGA
-service-latency evidence, DMA submit-poll latency evidence, and C modem
+service-latency budget/pass evidence, DMA submit-poll latency evidence, and C modem
 service-rate evidence without adding a Python data
 path.
 

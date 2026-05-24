@@ -51,6 +51,8 @@ cat > "$work_dir/rf_bind_gate.json" <<'JSON'
   "fw_dma_service_latency_last_cycles_after": 21,
   "fw_dma_service_latency_max_cycles_after": 21,
   "fw_dma_service_latency_accum_cycles_delta": 21,
+  "fw_dma_service_latency_budget_cycles": 1000,
+  "fw_dma_service_latency_within_budget": true,
   "fw_dma_drop_error_delta": 0,
   "rf_phy_tx_rx": 0,
   "production_ready": 0,

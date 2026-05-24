@@ -33,6 +33,8 @@ cat > "$work_dir/rf_bind_gate.json" <<'JSON'
   "fw_dma_service_latency_accum_cycles_before": 0,
   "fw_dma_service_latency_accum_cycles_after": 21,
   "fw_dma_service_latency_accum_cycles_delta": 21,
+  "fw_dma_service_latency_budget_cycles": 1000,
+  "fw_dma_service_latency_within_budget": true,
   "fw_dma_ingress_packets_before": 4,
   "fw_dma_ingress_packets_after": 5,
   "fw_dma_egress_packets_before": 1,
@@ -85,6 +87,8 @@ if service_latency.get("source") != "firmware_dma_endpoint":
     raise SystemExit(f"FPGA service-latency evidence source was not preserved: {report}")
 if service_latency.get("last_cycles") != 21 or service_latency.get("max_cycles") != 21:
     raise SystemExit(f"FPGA service-latency last/max cycles were not preserved: {report}")
+if service_latency.get("budget_cycles") != 1000 or service_latency.get("within_budget") is not True:
+    raise SystemExit(f"FPGA service-latency budget was not preserved: {report}")
 if service_latency.get("accum_cycles", {}).get("delta") != 21:
     raise SystemExit(f"FPGA service-latency accumulator delta was not preserved: {report}")
 if report.get("c_modem_service_rate", {}).get("decode_frame_kbps", 0) < 100:
@@ -137,6 +141,22 @@ PY
 if "$repo_root/tools/fieldmesh_rf_hardware_progression_evidence.py" \
   --rf-bind-gate-report "$work_dir/bad_latency.json" >/dev/null 2>&1; then
   echo "hardware progression evidence accepted missing FPGA service-latency evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/rf_bind_gate.json" "$work_dir/bad_latency_budget.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["fw_dma_service_latency_budget_cycles"] = 20
+Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if "$repo_root/tools/fieldmesh_rf_hardware_progression_evidence.py" \
+  --rf-bind-gate-report "$work_dir/bad_latency_budget.json" >/dev/null 2>&1; then
+  echo "hardware progression evidence accepted FPGA service-latency budget violation" >&2
   exit 1
 fi
 

@@ -74,6 +74,9 @@ required = [
     "fw_dma_service_latency_accum_cycles_before",
     "fw_dma_service_latency_accum_cycles_after",
     "fw_dma_service_latency_accum_cycles_delta",
+    "FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES",
+    "fw_dma_service_latency_budget_cycles",
+    "fw_dma_service_latency_within_budget",
     "fw_dma_ingress_packets_before",
     "fw_dma_ingress_packets_after",
     "fw_dma_egress_packets_before",
@@ -84,6 +87,7 @@ required = [
     "modem_benchmark_decode_frame_kbps",
     "firmware-DMA service latency last-cycle counter did not capture",
     "firmware-DMA service latency max-cycle counter",
+    "firmware-DMA service latency max-cycle counter exceeded budget",
     "firmware-DMA service latency accumulated-cycle delta",
 ]
 for token in required:

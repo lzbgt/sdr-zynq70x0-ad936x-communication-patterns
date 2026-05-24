@@ -585,8 +585,9 @@ hardware counter evidence for TX parser, ingress, egress, MAC pump, and BRAM
 error state before any authorized measured-RF step. The gate requires the TX
 parser, ingress, descriptor-publication, and MAC tick counters to advance across
 the smoke interval, requires all drop/error deltas to remain zero, records
-FPGA MAC-service latency cycles from the firmware-DMA endpoint, and records the
-DMA TX poll count as bounded submit-latency evidence. The probe clears the
+FPGA MAC-service latency cycles from the firmware-DMA endpoint, enforces the
+configured service-latency cycle budget, and records the DMA TX poll count as
+bounded submit-latency evidence. The probe clears the
 AXI-DMAC transfer-done bitmask before and after each smoke transaction so
 repeated runs do not inherit stale completion bits.
 
@@ -956,8 +957,9 @@ counter progression from the C/FPGA-native endpoint before measured-link
 evidence can be accepted. The production sequence also derives and bundles a
 `fieldmesh_rf_hardware_progression_evidence` report from that bind-gate proof,
 so the final evidence manifest contains the before/after firmware-DMA
-snapshots, required deltas, FPGA service-latency counters, DMA submit-poll
-latency evidence, and C modem service-rate proof directly.
+snapshots, required deltas, FPGA service-latency counters checked against
+`FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES` (default `1000000` cycles), DMA
+submit-poll latency evidence, and C modem service-rate proof directly.
 With a successful live bridge and named app/gate source reports or feature
 reports, it derives app evidence and calls the production gate; with dry-run or
 incomplete evidence it leaves `production_ready=false`.

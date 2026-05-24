@@ -661,7 +661,8 @@ and must still correlate to that same bridge evidence. The wrapper now emits a
 `fieldmesh_rf_hardware_progression_evidence.json` projection from the RF
 bind-gate report, so final production archives carry the firmware-DMA
 before/after snapshots, required counter deltas, FPGA service-latency evidence,
-DMA submit-poll latency evidence, and C modem service-rate proof directly. The wrapper emits a
+the service-latency budget/pass result, DMA submit-poll latency evidence, and C
+modem service-rate proof directly. The wrapper emits a
 self-contained `evidence/` bundle plus manifest with byte counts and SHA-256
 hashes for the preflight, RF bind-gate, hardware progression, bridge, IQ
 live-run, app reports, and production gate; each manifest row preserves the

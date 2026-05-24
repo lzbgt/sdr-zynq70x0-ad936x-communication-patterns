@@ -214,10 +214,17 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         service_latency_last = rf_bind_gate.get("fw_dma_service_latency_last_cycles_after")
         service_latency_max = rf_bind_gate.get("fw_dma_service_latency_max_cycles_after")
         service_latency_accum_delta = rf_bind_gate.get("fw_dma_service_latency_accum_cycles_delta")
+        service_latency_budget = rf_bind_gate.get("fw_dma_service_latency_budget_cycles")
         if not isinstance(service_latency_last, int) or service_latency_last < 1:
             raise SystemExit("rf_bind_gate: missing FPGA service-latency last-cycle evidence")
         if not isinstance(service_latency_max, int) or service_latency_max < service_latency_last:
             raise SystemExit("rf_bind_gate: FPGA service-latency max must be >= last-cycle evidence")
+        if not isinstance(service_latency_budget, int) or service_latency_budget < 1:
+            raise SystemExit("rf_bind_gate: missing FPGA service-latency budget")
+        if rf_bind_gate.get("fw_dma_service_latency_within_budget") is not True:
+            raise SystemExit("rf_bind_gate: FPGA service latency must be within budget")
+        if service_latency_last > service_latency_budget or service_latency_max > service_latency_budget:
+            raise SystemExit("rf_bind_gate: FPGA service latency exceeded budget")
         if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
             raise SystemExit("rf_bind_gate: FPGA service-latency accumulator delta must cover the last interval")
         if rf_bind_gate.get("rf_phy_tx_rx") not in (0, False):
@@ -293,11 +300,18 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("hardware_progression: missing FPGA service-latency evidence")
         service_last = service.get("last_cycles")
         service_max = service.get("max_cycles")
+        service_budget = service.get("budget_cycles")
         service_accum = service.get("accum_cycles")
         if not isinstance(service_last, int) or service_last < 1:
             raise SystemExit("hardware_progression: service-latency last_cycles must be >= 1")
         if not isinstance(service_max, int) or service_max < service_last:
             raise SystemExit("hardware_progression: service-latency max_cycles must be >= last_cycles")
+        if not isinstance(service_budget, int) or service_budget < 1:
+            raise SystemExit("hardware_progression: missing service-latency budget")
+        if service.get("within_budget") is not True:
+            raise SystemExit("hardware_progression: service latency must be within budget")
+        if service_last > service_budget or service_max > service_budget:
+            raise SystemExit("hardware_progression: service latency exceeded budget")
         if not isinstance(service_accum, dict):
             raise SystemExit("hardware_progression: missing service-latency accumulator snapshot")
         accum_delta = service_accum.get("delta")

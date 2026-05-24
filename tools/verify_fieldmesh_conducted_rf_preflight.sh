@@ -97,6 +97,8 @@ cat > "$work_dir/rf_bind_gate.json" <<'JSON'
   "fw_dma_service_latency_last_cycles_after": 21,
   "fw_dma_service_latency_max_cycles_after": 21,
   "fw_dma_service_latency_accum_cycles_delta": 21,
+  "fw_dma_service_latency_budget_cycles": 1000,
+  "fw_dma_service_latency_within_budget": true,
   "fw_dma_drop_error_delta": 0,
   "live_rf_prerequisites_ready": 0,
   "rf_phy_tx_rx": 0,
@@ -127,6 +129,8 @@ cat > "$work_dir/rf_bind_gate_no_progress.json" <<'JSON'
   "fw_dma_service_latency_last_cycles_after": 21,
   "fw_dma_service_latency_max_cycles_after": 21,
   "fw_dma_service_latency_accum_cycles_delta": 21,
+  "fw_dma_service_latency_budget_cycles": 1000,
+  "fw_dma_service_latency_within_budget": true,
   "fw_dma_drop_error_delta": 0,
   "live_rf_prerequisites_ready": 0,
   "rf_phy_tx_rx": 0,
@@ -134,6 +138,17 @@ cat > "$work_dir/rf_bind_gate_no_progress.json" <<'JSON'
   "production_blocker": "real_rf_phy_tx_rx_not_verified"
 }
 JSON
+
+python3 - "$work_dir/rf_bind_gate.json" "$work_dir/rf_bind_gate_over_budget.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["fw_dma_service_latency_budget_cycles"] = 20
+data["fw_dma_service_latency_within_budget"] = False
+Path(sys.argv[2]).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
 
 cat > "$work_dir/messaging_runtime_source.json" <<'JSON'
 {"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","messaging_transport":"daemon_rf_packet_engine","messages_received":1,"last_received_text":"hello over rf","uses_inter_board_ip_routing":false,"starts_rf_tx":false,"writes_hardware":false}
@@ -260,6 +275,27 @@ if EXECUTE_LIVE_RF=1 \
   OUT_DIR="$work_dir/no-fw-dma-progression" \
   "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
   echo "over-air RF preflight accepted stale firmware-DMA bind-gate progression" >&2
+  exit 1
+fi
+
+if EXECUTE_LIVE_RF=1 \
+  ALLOW_HARDWARE_WRITES=1 \
+  ALLOW_RF_TX=1 \
+  ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate_over_budget.json" \
+  RF_PATH_ID=authorized-open-air-A \
+  RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_source.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/fw-dma-latency-over-budget" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF preflight accepted firmware-DMA service-latency budget violation" >&2
   exit 1
 fi
 

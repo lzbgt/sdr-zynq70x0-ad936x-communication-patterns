@@ -15,6 +15,7 @@ center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 sample_rate_hz="${SAMPLE_RATE_HZ:-1000000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-1000000}"
 fixture_attenuation_db="${FIXTURE_ATTENUATION_DB:-60}"
+fw_dma_service_latency_max_cycles="${FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES:-1000000}"
 
 case "$variant" in
     z203)
@@ -189,7 +190,7 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" \
     "$remote:$remote_fw_dma_status_after" "$out_dir/fw_dma_status_after.json"
 
-python3 - "$out_dir" "$board_ip" "$variant" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$fw_dma_service_latency_max_cycles" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -197,6 +198,12 @@ from pathlib import Path
 out_dir = Path(sys.argv[1])
 board_ip = sys.argv[2]
 variant = sys.argv[3]
+try:
+    service_latency_budget_cycles = int(sys.argv[4], 0)
+except ValueError as exc:
+    raise SystemExit("FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES must be an integer") from exc
+if service_latency_budget_cycles < 1:
+    raise SystemExit("FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES must be >= 1")
 
 def load(path: Path) -> list[dict]:
     rows = []
@@ -325,6 +332,16 @@ if not isinstance(service_latency_max, int) or service_latency_max < service_lat
     raise SystemExit(
         "firmware-DMA service latency max-cycle counter must be at least the last-cycle count"
     )
+if service_latency_last > service_latency_budget_cycles:
+    raise SystemExit(
+        "firmware-DMA service latency last-cycle counter exceeded budget: "
+        f"last={service_latency_last} budget={service_latency_budget_cycles}"
+    )
+if service_latency_max > service_latency_budget_cycles:
+    raise SystemExit(
+        "firmware-DMA service latency max-cycle counter exceeded budget: "
+        f"max={service_latency_max} budget={service_latency_budget_cycles}"
+    )
 if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
     raise SystemExit(
         "firmware-DMA service latency accumulated-cycle delta must cover the last service interval"
@@ -437,6 +454,8 @@ summary = {
     "fw_dma_service_latency_accum_cycles_before": fw_dma_before.get("service_latency_accum_cycles"),
     "fw_dma_service_latency_accum_cycles_after": fw_dma_after.get("service_latency_accum_cycles"),
     "fw_dma_service_latency_accum_cycles_delta": fw_dma_counter_deltas.get("service_latency_accum_cycles"),
+    "fw_dma_service_latency_budget_cycles": service_latency_budget_cycles,
+    "fw_dma_service_latency_within_budget": True,
     "fw_dma_ingress_packets_before": fw_dma_before.get("ingress_packets"),
     "fw_dma_ingress_packets_after": fw_dma_after.get("ingress_packets"),
     "fw_dma_ingress_packets_delta": fw_dma_counter_deltas.get("ingress_packets"),

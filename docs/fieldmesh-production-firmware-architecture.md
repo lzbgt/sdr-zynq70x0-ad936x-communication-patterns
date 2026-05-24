@@ -451,7 +451,7 @@ enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
 parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/fault
 counters, egress byte/packet/drop/fault counters, MAC tick/pump counters, split
 BRAM CRC/bounds counters, aggregate BRAM errors, FPGA MAC-service latency
-counters, and FPGA-native TX sideband
+counters used by live gates for bounded service-latency checks, and FPGA-native TX sideband
 defaults for peer index, MCS, retry budget, descriptor flags, and sequence seed.
 The fixed sidecar aperture map itself is owned by
 `sdk/c/include/fieldmesh_sidecar_addr.h`: control at `0x43C00000`, packet TX

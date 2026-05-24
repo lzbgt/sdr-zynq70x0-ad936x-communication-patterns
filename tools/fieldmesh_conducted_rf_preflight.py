@@ -103,10 +103,17 @@ def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict
         service_latency_last = report.get("fw_dma_service_latency_last_cycles_after")
         service_latency_max = report.get("fw_dma_service_latency_max_cycles_after")
         service_latency_accum_delta = report.get("fw_dma_service_latency_accum_cycles_delta")
+        service_latency_budget = report.get("fw_dma_service_latency_budget_cycles")
         if not isinstance(service_latency_last, int) or service_latency_last < 1:
             raise ValueError("RF bind-gate report must include FPGA service-latency last-cycle evidence")
         if not isinstance(service_latency_max, int) or service_latency_max < service_latency_last:
             raise ValueError("RF bind-gate FPGA service-latency max must be >= last-cycle evidence")
+        if not isinstance(service_latency_budget, int) or service_latency_budget < 1:
+            raise ValueError("RF bind-gate report must include FPGA service-latency budget")
+        if report.get("fw_dma_service_latency_within_budget") is not True:
+            raise ValueError("RF bind-gate report must prove FPGA service latency is within budget")
+        if service_latency_last > service_latency_budget or service_latency_max > service_latency_budget:
+            raise ValueError("RF bind-gate FPGA service latency exceeded budget")
         if not isinstance(service_latency_accum_delta, int) or service_latency_accum_delta < service_latency_last:
             raise ValueError("RF bind-gate FPGA service-latency accumulator delta must cover the last interval")
         dma_smoke_tx_polls = report.get("dma_smoke_tx_polls")
@@ -134,6 +141,8 @@ def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict
             "fw_dma_service_latency_last_cycles": service_latency_last,
             "fw_dma_service_latency_max_cycles": service_latency_max,
             "fw_dma_service_latency_accum_cycles_delta": service_latency_accum_delta,
+            "fw_dma_service_latency_budget_cycles": service_latency_budget,
+            "fw_dma_service_latency_within_budget": True,
             "dma_smoke_tx_polls": dma_smoke_tx_polls,
             "modem_benchmark_decode_frame_kbps": modem_decode_rate,
             "required_counter_deltas": {

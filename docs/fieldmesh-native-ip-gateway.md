@@ -190,8 +190,9 @@ Minimum production gates for native TCP/IP:
   and after daemon bind validation. The snapshots must be C-decoded,
   non-mutating hardware reads at the default sidecar control base and include
   TX parser, ingress, egress, MAC pump, BRAM error, and FPGA service-latency
-  counters. The script treats FPGA service-latency cycles and the DMA TX poll
-  count as latency evidence and requires TX parser, ingress,
+  counters. The script treats FPGA service-latency cycles bounded by
+  `FIELDMESH_FW_DMA_SERVICE_LATENCY_MAX_CYCLES` and the DMA TX poll count as
+  latency evidence and requires TX parser, ingress,
   descriptor-publication, and MAC tick counters to advance without any
   drop/error counter increase. It then starts the board daemon's
   native-IP service plus RF worker and requires the daemon to keep
@@ -201,8 +202,9 @@ Minimum production gates for native TCP/IP:
   refused `APPLY`, so this is not a fake over-air pass;
 - production archives include a normalized hardware-progression evidence file
   derived from the bind-gate report, so native-IP measured-link claims carry
-  firmware-DMA snapshots and bounded submit-poll evidence into final review
-  rather than only referencing the preflight gate;
+  firmware-DMA snapshots, bounded FPGA service-latency evidence, and bounded
+  submit-poll evidence into final review rather than only referencing the
+  preflight gate;
 - `driver_queue` is the default service transport, while
   `diagnostic_loopback` is an explicit test-only mode. RX ingest rejects
   malformed BLR frames, non-`APP_DATA` frames, and frames whose destination EUI
