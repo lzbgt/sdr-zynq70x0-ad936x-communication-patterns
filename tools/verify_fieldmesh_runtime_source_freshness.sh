@@ -30,7 +30,9 @@ fault_free
 EOF
 
 FIELDMESH_RUNTIME_STRINGS_FILE_Z203="$stale_strings" \
+FIELDMESH_RUNTIME_ARTIFACT_Z203="/tmp/z203.rootfs.tar.gz" \
 FIELDMESH_RUNTIME_STRINGS_FILE_Z103="$fresh_strings" \
+FIELDMESH_RUNTIME_ARTIFACT_Z103="/tmp/z103.rootfs.tar.gz" \
     "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" all >"$report"
 
 python3 - "$report" <<'PY'
@@ -53,6 +55,8 @@ for variant in ("z203", "z103"):
         raise SystemExit(f"{variant}: freshness report must be read-only: {row!r}")
     if row.get("artifact_source") != "strings_file":
         raise SystemExit(f"{variant}: fixture report did not use strings_file: {row!r}")
+    if row.get("artifact") != f"/tmp/{variant}.rootfs.tar.gz":
+        raise SystemExit(f"{variant}: fixture report did not preserve artifact label: {row!r}")
     if row.get("source_has_current_fw_dma_contract") is not True:
         raise SystemExit(f"{variant}: source contract is stale: {row!r}")
 
@@ -80,5 +84,25 @@ FIELDMESH_RUNTIME_STRINGS_FILE_Z203="$stale_strings" \
         echo "freshness reporter --require-current accepted stale runtime strings" >&2
         exit 1
     }
+
+python3 - "$repo_root/tools/verify_fieldmesh_runtime_artifacts.sh" <<'PY'
+import sys
+from pathlib import Path
+
+script = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "report_fieldmesh_runtime_source_freshness.sh",
+    "FIELDMESH_RUNTIME_STRINGS_FILE_Z203",
+    "FIELDMESH_RUNTIME_STRINGS_FILE_Z103",
+    "FIELDMESH_RUNTIME_ARTIFACT_Z203",
+    "FIELDMESH_RUNTIME_ARTIFACT_Z103",
+    "env \"$freshness_env\"",
+]
+for token in required:
+    if token not in script:
+        raise SystemExit(f"runtime artifact verifier missing freshness token: {token}")
+if script.index("tar -xOf \"$rootfs_tar\" ./usr/bin/fieldmesh-ctrl-write") > script.index("report_fieldmesh_runtime_source_freshness.sh"):
+    raise SystemExit("runtime artifact verifier must extract fieldmesh-ctrl-write strings before freshness report")
+PY
 
 printf 'fieldmesh_runtime_source_freshness=pass\n'

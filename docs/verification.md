@@ -2867,7 +2867,10 @@ and emits `runtime_rebuild_needed=true` when a package lacks
 tokens. The default report is advisory and non-failing so low-memory CI can keep
 source verification green until a Yocto rebuild is feasible; use
 `--require-current` after rebuilding packages to make stale runtime binaries a
-hard failure.
+hard failure. The normal `verify_fieldmesh_runtime_artifacts.sh` path emits this
+same advisory row from the already-extracted packaged binary strings, so live
+gate logs show stale firmware-DMA package state even while the hard artifact
+contract remains compatible with the last built images.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

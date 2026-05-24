@@ -42,6 +42,8 @@ verify_variant() {
     local rf_tx_disable_out
     local rf_common_out
     local rf_ctrl_write_out
+    local freshness_env
+    local freshness_artifact_env
     local fit_info_out
     local runtime_manifest
     local rootfs_md5
@@ -549,6 +551,22 @@ PY
             exit 1
         fi
     done
+    case "$name" in
+        z203)
+            freshness_env="FIELDMESH_RUNTIME_STRINGS_FILE_Z203=$rf_ctrl_write_out"
+            freshness_artifact_env="FIELDMESH_RUNTIME_ARTIFACT_Z203=$rootfs_tar"
+            ;;
+        z103)
+            freshness_env="FIELDMESH_RUNTIME_STRINGS_FILE_Z103=$rf_ctrl_write_out"
+            freshness_artifact_env="FIELDMESH_RUNTIME_ARTIFACT_Z103=$rootfs_tar"
+            ;;
+        *)
+            echo "unsupported runtime freshness variant: $name" >&2
+            exit 2
+            ;;
+    esac
+    env "$freshness_env" "$freshness_artifact_env" \
+        "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" "$name"
 
     (cd "$jtag_dir" && sha256sum -c SHA256SUMS >/dev/null)
 

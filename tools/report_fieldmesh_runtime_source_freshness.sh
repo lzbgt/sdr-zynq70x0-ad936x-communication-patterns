@@ -33,15 +33,19 @@ report_variant() {
     local upper
     local strings_override_var
     local strings_override
+    local artifact_override_var
+    local artifact_label
     local rootfs_tar
     local extracted_strings
 
     upper="$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')"
     strings_override_var="FIELDMESH_RUNTIME_STRINGS_FILE_${upper}"
     strings_override="${!strings_override_var:-}"
+    artifact_override_var="FIELDMESH_RUNTIME_ARTIFACT_${upper}"
+    artifact_label="${!artifact_override_var:-$strings_override}"
 
     if [[ -n "$strings_override" ]]; then
-        python3 - "$repo_root" "$name" "$strings_override" "strings_file" "$require_current" <<'PY'
+        python3 - "$repo_root" "$name" "$strings_override" "strings_file" "$require_current" "$artifact_label" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -51,6 +55,7 @@ variant = sys.argv[2]
 strings_path = Path(sys.argv[3])
 artifact_source = sys.argv[4]
 require_current = sys.argv[5] == "1"
+artifact_label = sys.argv[6]
 
 source = (repo / "runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c").read_text(encoding="utf-8")
 artifact = strings_path.read_text(encoding="utf-8", errors="replace")
@@ -79,7 +84,7 @@ missing_artifact = [token for token in artifact_tokens if token not in artifact]
 event = {
     "event": "fieldmesh_runtime_source_freshness",
     "variant": variant,
-    "artifact": str(strings_path),
+    "artifact": artifact_label,
     "artifact_source": artifact_source,
     "writes_hardware": False,
     "source_has_current_fw_dma_contract": not missing_source,
