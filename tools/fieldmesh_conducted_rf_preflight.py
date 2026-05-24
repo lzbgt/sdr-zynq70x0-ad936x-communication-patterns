@@ -13,6 +13,7 @@ import fieldmesh_app_feature_report_from_gate
 import fieldmesh_app_real_rf_report
 import fieldmesh_app_real_rf_source_from_bridge
 import fieldmesh_rf_fixture_evidence
+import fieldmesh_rf_tx_backend_readback_evidence
 
 
 FEATURES = ("messaging", "topology", "native_ip")
@@ -162,6 +163,31 @@ def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict
         }
     except (OSError, ValueError, SystemExit) as exc:
         blockers.append(f"rf_bind_gate_report_invalid:{exc}")
+        return None
+
+
+def validate_tx_backend_readback(args: argparse.Namespace, blockers: list[str]) -> dict[str, Any] | None:
+    if not args.tx_enable_run_report:
+        return None
+    try:
+        evidence = fieldmesh_rf_tx_backend_readback_evidence.build_evidence(
+            argparse.Namespace(tx_enable_run_report=Path(args.tx_enable_run_report))
+        )
+        return {
+            "report": str(Path(args.tx_enable_run_report).resolve(strict=False)),
+            "backend_request": evidence.get("backend_request"),
+            "native_rf_control": evidence.get("native_rf_control") is True,
+            "native_tune": evidence.get("native_tune") is True,
+            "native_iio_attr_control": evidence.get("native_iio_attr_control") is True,
+            "prewrite_policy_ok": evidence.get("prewrite_policy_ok") is True,
+            "source_select_readback_ok": evidence.get("source_select_readback_ok") is True,
+            "guard_arm_readback_ok": evidence.get("guard_arm_readback_ok") is True,
+            "bounded_sleep_proven": evidence.get("bounded_sleep_proven") is True,
+            "rollback_proven": evidence.get("rollback_proven") is True,
+            "backend_event_count": evidence.get("backend_event_count"),
+        }
+    except (OSError, ValueError, SystemExit) as exc:
+        blockers.append(f"tx_enable_run_report_invalid:{exc}")
         return None
 
 
@@ -371,6 +397,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if args.rf_bind_gate_report and not Path(args.rf_bind_gate_report).is_file():
         blockers.append("rf_bind_gate_report_not_found")
 
+    if args.tx_enable_run_report and not Path(args.tx_enable_run_report).is_file():
+        blockers.append("tx_enable_run_report_not_found")
+
     if args.max_tx_duration_ms < 1:
         blockers.append("max_tx_duration_ms_below_minimum")
     if args.max_tx_duration_ms > MAX_TX_DURATION_MS_LIMIT:
@@ -378,6 +407,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 
     fixture_summary = validate_fixture(args, blockers)
     rf_bind_gate_summary = validate_rf_bind_gate(args, blockers)
+    tx_backend_readback_summary = validate_tx_backend_readback(args, blockers)
     app_inputs = classify_app_inputs(args)
     app_evidence_validated = validate_present_app_evidence(args, app_inputs, blockers)
     complete_app_evidence = all(value != "missing" for value in app_inputs.values())
@@ -414,6 +444,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 
     if args.expect_production_ready:
         existing_file(args.rf_bind_gate_report, "rf_bind_gate_report", missing, blockers)
+        existing_file(args.tx_enable_run_report, "tx_enable_run_report", missing, blockers)
         if not args.execute_live_rf and not using_existing_bridge:
             blockers.append("production_requires_execute_live_rf_or_existing_bridge")
         if not complete_app_evidence:
@@ -434,6 +465,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         (live_rf_allowed or using_existing_bridge)
         and complete_app_evidence
         and rf_bind_gate_summary is not None
+        and tx_backend_readback_summary is not None
     )
 
     report = {
@@ -450,6 +482,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "rf_bind_gate_report": str(Path(args.rf_bind_gate_report).resolve(strict=False)) if args.rf_bind_gate_report else None,
         "rf_bind_gate_ok": rf_bind_gate_summary is not None,
         "rf_bind_gate_summary": rf_bind_gate_summary,
+        "tx_enable_run_report": str(Path(args.tx_enable_run_report).resolve(strict=False)) if args.tx_enable_run_report else None,
+        "tx_backend_readback_ok": tx_backend_readback_summary is not None,
+        "tx_backend_readback_summary": tx_backend_readback_summary,
         "bridge_report": str(Path(args.bridge_report).resolve(strict=False)) if args.bridge_report else None,
         "source_host": args.source_host or None,
         "sink_host": args.sink_host or None,
@@ -482,6 +517,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rf-binding-plan", required=True)
     parser.add_argument("--rf-bind-gate-report", default="")
+    parser.add_argument("--tx-enable-run-report", default="")
     parser.add_argument("--bridge-report", default="")
     parser.add_argument("--source-host", default="")
     parser.add_argument("--sink-host", default="")

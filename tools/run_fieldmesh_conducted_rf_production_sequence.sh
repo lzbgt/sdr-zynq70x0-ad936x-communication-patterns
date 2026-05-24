@@ -148,6 +148,9 @@ preflight_args=(
 if [ -n "$rf_bind_gate_report" ]; then
     preflight_args+=(--rf-bind-gate-report "$rf_bind_gate_report")
 fi
+if [ -n "$tx_enable_run_report" ]; then
+    preflight_args+=(--tx-enable-run-report "$tx_enable_run_report")
+fi
 if [ -n "$bridge_report" ]; then
     preflight_args+=(--bridge-report "$bridge_report")
 fi

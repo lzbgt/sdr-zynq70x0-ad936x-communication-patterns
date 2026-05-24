@@ -4192,7 +4192,7 @@ current report schema:
 Result:
 
 ```json
-{"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "rf_bind_gate_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
+{"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "rf_bind_gate_ok": true, "tx_backend_readback_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
 {"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "hardware_progression_bundled": true, "missing_rf_path_refused": true, "ok": true, "tx_backend_readback_bundled": true}
 {"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","hardware_progression","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","rf_bind_gate","topology_app_report","tx_backend_readback"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"hardware_progression_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true,"rf_bind_gate_event":true,"tx_backend_readback_event":true},"verified_files":10}
 {"event":"fieldmesh_over_air_rf_production_sequence_check","live_rf_allowed":true,"ok":true,"preflight_alias":true,"rf_bind_gate_ok":true}
@@ -4209,7 +4209,9 @@ whether live RF would be allowed. Live-RF and production-ready preflight now
 also require `RF_BIND_GATE_REPORT`, a board RF PHY bind-gate summary proving
 read-only firmware-DMA status, positive TX parser/ingress/descriptor/MAC tick
 deltas, zero drop/error deltas, and C modem service-rate evidence before any
-measured-link claim can proceed. `PREFLIGHT_ONLY=1` exits after that
+measured-link claim can proceed. Production-ready preflight also requires
+`TX_ENABLE_RUN_REPORT`; it normalizes that report into TX backend readback
+evidence before the wrapper starts bridge/app work. `PREFLIGHT_ONLY=1` exits after that
 non-transmitting checklist, so operators can validate over-air RF path and
 evidence readiness without leasing daemon frames, mutating queues, opening IIO
 buffers, or starting RF TX. When a live bridge report already exists, preflight now also
@@ -4223,9 +4225,7 @@ bridge, converts app/gate source outputs or raw feature reports into normalized
 messaging/topology/native-IP real-RF reports, and invokes the production gate.
 Dry-run is the default. Live RF still requires explicit hardware-write, RF-TX,
 daemon-queue mutation, RF path evidence, RF path ID, and operator-confirmation
-inputs. Production-ready evidence also requires `TX_ENABLE_RUN_REPORT`, which
-is normalized into the bundled TX backend readback artifact before the manifest
-is written. Production RF path evidence is authorized over-air evidence with
+inputs. Production RF path evidence is authorized over-air evidence with
 `production_evidence=true`; legacy lab-containment fixture evidence is an
 optional lab-containment path only, not the production model for boards that may
 be miles apart. Raw app feature evidence supplied to the wrapper must be correlated to

@@ -999,10 +999,10 @@ dry-run unless live RF, hardware writes, RF TX, daemon queue mutation, RF path
 evidence, RF path ID, the board RF PHY bind-gate report, and the exact operator
 confirmation are all provided. The bind-gate report must include firmware-DMA
 counter progression from the C/FPGA-native endpoint before measured-link
-evidence can be accepted. Production-ready evidence also requires
-`TX_ENABLE_RUN_REPORT` so the final archive carries the compiled TX backend's
-C RF-control readback proof instead of relying on transient console output. The
-production sequence also derives and bundles a
+evidence can be accepted. Production-ready preflight also requires
+`TX_ENABLE_RUN_REPORT`; the wrapper normalizes it before bridge/app work so
+missing or stale compiled TX backend C RF-control readback proof cannot advance
+to the measured-link sequence. The production sequence also derives and bundles a
 `fieldmesh_rf_hardware_progression_evidence` report from that bind-gate proof,
 so the final evidence manifest contains the before/after firmware-DMA
 snapshots, required deltas, FPGA service-latency counters checked against the

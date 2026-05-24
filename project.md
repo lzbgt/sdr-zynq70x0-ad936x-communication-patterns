@@ -718,20 +718,22 @@ user and vendor configuration.
   preflight also validates app source/feature evidence against that exact
   bridge and IQ live-run before the wrapper leases frames or mutates queues.
   Already-normalized app real-RF reports are traced back through their
-  `source_report` and must still correlate to the supplied bridge. The final
-  sequence output also includes a self-contained hashed evidence bundle under
-  the sequence output directory, covering preflight, TX backend readback, bridge,
-  IQ live-run, app reports, and production-gate evidence.
+  `source_report` and must still correlate to the supplied bridge. Production
+  readiness now also requires `TX_ENABLE_RUN_REPORT`, validated up front as C
+  TX-backend readback proof before the wrapper leases frames or mutates queues.
+  The final sequence output also includes a self-contained hashed evidence
+  bundle under the sequence output directory, covering preflight, TX backend
+  readback, bridge, IQ live-run, app reports, and production-gate evidence.
 - `tools/fieldmesh_over_air_rf_preflight.py` - preferred compatibility
   entrypoint for the same authorized over-air preflight contract. It preserves
   the current report schema while removing conducted/shielded wording from the
   operator-facing command name.
 - `tools/verify_fieldmesh_conducted_rf_preflight.sh` - verifier for the
   production preflight checklist. It proves missing approvals, invalid RF path
-  evidence, excessive TX duration, daemon-bridge native-IP app sources, and
-  uncorrelated raw or normalized feature reports block live RF while a complete
-  approved over-air RF-path configuration passes preflight without
-  transmitting.
+  evidence, missing TX backend readback proof, excessive TX duration,
+  daemon-bridge native-IP app sources, and uncorrelated raw or normalized
+  feature reports block live RF while a complete approved over-air RF-path
+  configuration passes preflight without transmitting.
 - `tools/verify_fieldmesh_over_air_rf_preflight.sh` - verifier for the
   preferred over-air preflight entrypoint and `RF_PATH_ID` /
   `RF_PATH_EVIDENCE` environment.

@@ -7,6 +7,9 @@ work_dir="$repo_root/.config/fieldmesh/conducted-rf-preflight-verify"
 rm -rf "$work_dir"
 mkdir -p "$work_dir"
 
+"$repo_root/tools/verify_fieldmesh_rf_tx_enable_run.sh" >/dev/null
+tx_enable_run="$repo_root/.config/fieldmesh/rf-tx-enable-run/mock_live/fieldmesh_rf_tx_enable_run.json"
+
 cat > "$work_dir/rf_binding_plan.json" <<'JSON'
 {
   "event": "fieldmesh_rf_binding_plan",
@@ -241,6 +244,7 @@ ALLOW_HARDWARE_WRITES=1 \
 ALLOW_RF_TX=1 \
 ALLOW_DAEMON_QUEUE_MUTATION=1 \
 RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+TX_ENABLE_RUN_REPORT="$tx_enable_run" \
 RF_PATH_ID=authorized-open-air-A \
 RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
 OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
@@ -267,9 +271,32 @@ if report.get("live_rf_allowed") is not True:
     raise SystemExit(f"live RF should be allowed after approvals: {report}")
 if report.get("rf_bind_gate_ok") is not True:
     raise SystemExit(f"firmware-DMA bind-gate proof should be required: {report}")
+if report.get("tx_backend_readback_ok") is not True:
+    raise SystemExit(f"TX backend readback proof should be required: {report}")
 if report.get("production_ready_possible_after_run") is not True:
     raise SystemExit(f"complete app evidence should make production possible after run: {report}")
 PY
+
+if EXECUTE_LIVE_RF=1 \
+  ALLOW_HARDWARE_WRITES=1 \
+  ALLOW_RF_TX=1 \
+  ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  RF_PATH_ID=authorized-open-air-A \
+  RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_source.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/missing-tx-backend-readback" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF preflight accepted production-ready evidence without TX backend readback proof" >&2
+  exit 1
+fi
 
 if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
@@ -334,6 +361,7 @@ if EXECUTE_LIVE_RF=1 \
 fi
 
 RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+TX_ENABLE_RUN_REPORT="$tx_enable_run" \
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_runtime_source.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
@@ -351,6 +379,7 @@ cat > "$work_dir/native_ip_driver_queue_source.json" <<'JSON'
 JSON
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_runtime_source.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_driver_queue_source.json" \
@@ -381,6 +410,7 @@ cat > "$work_dir/messaging_uncorrelated_feature.json" <<JSON
 JSON
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
@@ -396,6 +426,7 @@ fi
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+TX_ENABLE_RUN_REPORT="$tx_enable_run" \
 APP_MESSAGING_REPORT="$work_dir/app_messaging_normalized.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
 APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
@@ -440,6 +471,7 @@ cat > "$work_dir/app_messaging_uncorrelated_normalized.json" <<JSON
 JSON
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_REPORT="$work_dir/app_messaging_uncorrelated_normalized.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
@@ -518,6 +550,7 @@ print(json.dumps({
     "ok": True,
     "live_rf_allowed": report["live_rf_allowed"],
     "rf_bind_gate_ok": report["rf_bind_gate_ok"],
+    "tx_backend_readback_ok": report["tx_backend_readback_ok"],
     "rf_path_evidence_ok": report["rf_path_evidence_ok"],
     "production_ready_possible_after_run": report["production_ready_possible_after_run"],
 }, sort_keys=True))
