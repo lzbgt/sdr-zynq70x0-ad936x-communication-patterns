@@ -128,6 +128,7 @@ if not positive.get("checks", {}).get("pps_present"):
 PY
 
 python3 - "$repo_root" <<'PY'
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -141,9 +142,16 @@ def require_tokens(path: Path, tokens: list[str]) -> None:
         raise SystemExit(f"{path.relative_to(repo_root)} missing tokens: {missing}")
 
 
-require_tokens(
-    repo_root / "tools/fieldmesh_devicetree_plan.py",
-    [
+module_path = repo_root / "tools/fieldmesh_devicetree_plan.py"
+spec = importlib.util.spec_from_file_location("fieldmesh_devicetree_plan", module_path)
+if spec is None or spec.loader is None:
+    raise SystemExit("could not load fieldmesh_devicetree_plan.py")
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+fragment = mod.render_sidecar_dtsi(mod.load_sidecar_addr_contract())
+missing_fragment_tokens = [
+    token
+    for token in [
         "fieldmesh-ring@43c30000",
         'compatible = "fieldmesh,firmware-ring-1.0", "generic-uio";',
         "reg = <0x43c30000 0x10000>;",
@@ -153,8 +161,12 @@ require_tokens(
         "fieldmesh,packet-arena-bytes",
         "fieldmesh,packet-stride",
         "fieldmesh-ring = <&fieldmesh_ring>;",
-    ],
-)
+    ]
+    if token not in fragment
+]
+if missing_fragment_tokens:
+    raise SystemExit(f"rendered FieldMesh devicetree fragment missing tokens: {missing_fragment_tokens}")
+require_tokens(module_path, ["fieldmesh_sidecar_addr.h", "render_sidecar_dtsi"])
 
 for recipe in (
     repo_root / "meta-sdr-z203/recipes-kernel/linux/linux-sdr-z203_6.1.bb",

@@ -48,6 +48,7 @@ OUT="$probe_z103_bin" "$repo_root/tools/build_fieldmesh_udp_probe_host.sh" \
 python3 - "$repo_root" "$work_dir/z203_sidecar_addr.json" "$work_dir/z103_sidecar_addr.json" <<'PY'
 import json
 import sys
+import importlib.util
 from pathlib import Path
 
 repo = Path(sys.argv[1])
@@ -57,6 +58,8 @@ header = (repo / "sdk/c/include/fieldmesh_sidecar_addr.h").read_text(encoding="u
 ctrl_tool = (repo / "runtime/fieldmesh-rf-tools/fieldmesh_ctrl_write.c").read_text(encoding="utf-8")
 probe_z203 = (repo / "meta-sdr-z203/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c").read_text(encoding="utf-8")
 probe_z103 = (repo / "meta-sdr-z103/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c").read_text(encoding="utf-8")
+devicetree_plan_path = repo / "tools/fieldmesh_devicetree_plan.py"
+devicetree_plan = devicetree_plan_path.read_text(encoding="utf-8")
 
 required_header_tokens = [
     "FIELDMESH_SIDECAR_CTRL_BASE 0x43c00000u",
@@ -112,6 +115,65 @@ if "0x43c00000u" in ctrl_tool:
     raise SystemExit("fieldmesh-ctrl-write still hardcodes the firmware-DMA base")
 if "FIELDMESH_SIDECAR_CTRL_BASE" not in ctrl_tool:
     raise SystemExit("fieldmesh-ctrl-write does not use the shared sidecar control base")
+
+if "fieldmesh_sidecar_addr.h" not in devicetree_plan:
+    raise SystemExit("fieldmesh_devicetree_plan.py does not read the sidecar address C contract")
+if "SIDECAR_DTSI_TEMPLATE" not in devicetree_plan or "render_sidecar_dtsi" not in devicetree_plan:
+    raise SystemExit("fieldmesh_devicetree_plan.py no longer renders DTSI from a contract template")
+for stale in (
+    "fieldmesh-ctrl@43c00000",
+    "dma@43c10000",
+    "dma@43c20000",
+    "fieldmesh-ring@43c30000",
+    "reg = <0x43c00000 0x10000>",
+    "reg = <0x43c10000 0x10000>",
+    "reg = <0x43c20000 0x10000>",
+    "reg = <0x43c30000 0x10000>",
+):
+    if stale in devicetree_plan:
+        raise SystemExit(f"fieldmesh_devicetree_plan.py still duplicates sidecar address contract: {stale}")
+
+spec = importlib.util.spec_from_file_location("fieldmesh_devicetree_plan", devicetree_plan_path)
+if spec is None or spec.loader is None:
+    raise SystemExit("could not load fieldmesh_devicetree_plan.py")
+devicetree_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(devicetree_module)
+plan_contract = devicetree_module.load_sidecar_addr_contract()
+fragment = devicetree_module.render_sidecar_dtsi(plan_contract)
+expected_plan_contract = {
+    "source": "sdk/c/include/fieldmesh_sidecar_addr.h",
+    "ctrl_base": "0x43c00000",
+    "tx_dma_base": "0x43c10000",
+    "rx_dma_base": "0x43c20000",
+    "firmware_ring_base": "0x43c30000",
+    "window_size": "0x10000",
+    "ctrl_node": "fieldmesh-ctrl@43c00000",
+    "tx_dma_node": "dma@43c10000",
+    "rx_dma_node": "dma@43c20000",
+    "firmware_ring_node": "fieldmesh-ring@43c30000",
+    "packet_node": "fieldmesh-packet",
+    "ctrl_compat": "fieldmesh,sidecar-ctrl-1.0",
+    "dma_compat": "adi,axi-dmac-1.00.a",
+    "firmware_ring_compat": "fieldmesh,firmware-ring-1.0",
+    "packet_compat": "fieldmesh,packet-sidecar-1.0",
+}
+if plan_contract != expected_plan_contract:
+    raise SystemExit(f"fieldmesh_devicetree_plan.py C contract projection drifted: {plan_contract!r}")
+for token in (
+    "fieldmesh_ctrl: fieldmesh-ctrl@43c00000",
+    "reg = <0x43c00000 0x10000>",
+    "fieldmesh_tx_dma: dma@43c10000",
+    "reg = <0x43c10000 0x10000>",
+    "fieldmesh_rx_dma: dma@43c20000",
+    "reg = <0x43c20000 0x10000>",
+    "fieldmesh_ring: fieldmesh-ring@43c30000",
+    "reg = <0x43c30000 0x10000>",
+    'compatible = "fieldmesh,sidecar-ctrl-1.0"',
+    'compatible = "fieldmesh,firmware-ring-1.0", "generic-uio"',
+    'compatible = "fieldmesh,packet-sidecar-1.0"',
+):
+    if token not in fragment:
+        raise SystemExit(f"rendered FieldMesh devicetree fragment missing {token!r}")
 
 recipe_paths = [
     repo / "meta-sdr-z203/recipes-core/fieldmesh-udp-probe/fieldmesh-udp-probe_0.1.bb",

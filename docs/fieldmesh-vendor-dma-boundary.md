@@ -497,11 +497,12 @@ The matching devicetree contract is generated and checked separately:
   --variant z103=src/extracted/sdr-z103-plutosdr-fw/plutosdr-fw/linux
 ```
 
-That helper writes a `fieldmesh-sidecar.dtsi`, merges it with each variant's
-Pluto DTS in `.config/fieldmesh/devicetree-plan/`, compiles DTBs with `dtc`,
-and checks the expected control, TX DMA, RX DMA, and packet client nodes. On a
-future runtime image, `fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree`
-is the first userspace preflight before touching any sidecar DMA register.
+That helper renders `fieldmesh-sidecar.dtsi` from the shared C sidecar address
+contract, merges it with each variant's Pluto DTS in
+`.config/fieldmesh/devicetree-plan/`, compiles DTBs with `dtc`, and checks the
+expected control, TX DMA, RX DMA, and packet client nodes. On a future runtime
+image, `fieldmesh-udp-probe dt-scan --dt-root /proc/device-tree` is the first
+userspace preflight before touching any sidecar DMA register.
 
 The second userspace preflight is read-only control-window discovery:
 

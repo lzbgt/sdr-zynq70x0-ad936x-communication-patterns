@@ -9,30 +9,37 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from string import Template
 from typing import Any
 
 
-SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SIDECAR_ADDR_HEADER = REPO_ROOT / "sdk/c/include/fieldmesh_sidecar_addr.h"
+
+SIDECAR_DTSI_TEMPLATE = Template("""// SPDX-License-Identifier: GPL-2.0
 /*
  * FieldMesh sidecar packet-DMA devicetree fragment.
  *
  * Include this only with a bitstream that contains fieldmesh_ctrl,
  * fieldmesh_tx_dma, fieldmesh_rx_dma, the sidecar byte-pipe bridge, and the
  * first-party firmware ring aperture.
+ *
+ * Address constants are rendered from sdk/c/include/fieldmesh_sidecar_addr.h
+ * so devicetree planning and native C userspace share one sidecar map.
  */
 
 &fpga_axi {
-	fieldmesh_ctrl: fieldmesh-ctrl@43c00000 {
-		compatible = "fieldmesh,sidecar-ctrl-1.0";
-		reg = <0x43c00000 0x10000>;
+	fieldmesh_ctrl: $ctrl_node {
+		compatible = "$ctrl_compat";
+		reg = <$ctrl_base $window_size>;
 		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
 		status = "okay";
 	};
 
-	fieldmesh_tx_dma: dma@43c10000 {
-		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x43c10000 0x10000>;
+	fieldmesh_tx_dma: $tx_dma_node {
+		compatible = "$dma_compat";
+		reg = <$tx_dma_base $window_size>;
 		#dma-cells = <1>;
 		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
@@ -52,9 +59,9 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 		};
 	};
 
-	fieldmesh_rx_dma: dma@43c20000 {
-		compatible = "adi,axi-dmac-1.00.a";
-		reg = <0x43c20000 0x10000>;
+	fieldmesh_rx_dma: $rx_dma_node {
+		compatible = "$dma_compat";
+		reg = <$rx_dma_base $window_size>;
 		#dma-cells = <1>;
 		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
@@ -74,9 +81,9 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 		};
 	};
 
-	fieldmesh_ring: fieldmesh-ring@43c30000 {
-		compatible = "fieldmesh,firmware-ring-1.0", "generic-uio";
-		reg = <0x43c30000 0x10000>;
+	fieldmesh_ring: $firmware_ring_node {
+		compatible = "$firmware_ring_compat", "generic-uio";
+		reg = <$firmware_ring_base $window_size>;
 		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 16>;
 		linux,uio-name = "fieldmesh-ring";
@@ -87,8 +94,8 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 		status = "okay";
 	};
 
-	fieldmesh_packet: fieldmesh-packet {
-		compatible = "fieldmesh,packet-sidecar-1.0";
+	fieldmesh_packet: $packet_node {
+		compatible = "$packet_compat";
 		fieldmesh-ctrl = <&fieldmesh_ctrl>;
 		fieldmesh-ring = <&fieldmesh_ring>;
 		dmas = <&fieldmesh_tx_dma 0>, <&fieldmesh_rx_dma 0>;
@@ -96,7 +103,7 @@ SIDECAR_DTSI = """// SPDX-License-Identifier: GPL-2.0
 		status = "okay";
 	};
 };
-"""
+""")
 
 GNSS_UART_EMIO_DTSI = """// SPDX-License-Identifier: GPL-2.0
 /*
@@ -153,10 +160,63 @@ def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[
     return subprocess.run(cmd, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
+def _c_define(header: str, name: str) -> str:
+    match = re.search(rf"^#define\s+{re.escape(name)}\s+(.+?)\s*$", header, re.MULTILINE)
+    if not match:
+        raise SystemExit(f"{SIDECAR_ADDR_HEADER}: missing {name}")
+    return match.group(1).strip()
+
+
+def _c_string(header: str, name: str) -> str:
+    value = _c_define(header, name)
+    if not (value.startswith('"') and value.endswith('"')):
+        raise SystemExit(f"{SIDECAR_ADDR_HEADER}: {name} is not a C string literal")
+    return value[1:-1]
+
+
+def _c_u32(header: str, name: str) -> int:
+    value = _c_define(header, name).rstrip("uUlL")
+    return int(value, 0)
+
+
+def _hex32(value: int) -> str:
+    return f"0x{value:08x}"
+
+
+def _hex(value: int) -> str:
+    return f"0x{value:x}"
+
+
+def load_sidecar_addr_contract(header_path: Path = SIDECAR_ADDR_HEADER) -> dict[str, Any]:
+    header = header_path.read_text(encoding="utf-8")
+    return {
+        "source": str(header_path.relative_to(REPO_ROOT)),
+        "ctrl_base": _hex32(_c_u32(header, "FIELDMESH_SIDECAR_CTRL_BASE")),
+        "tx_dma_base": _hex32(_c_u32(header, "FIELDMESH_SIDECAR_TX_DMA_BASE")),
+        "rx_dma_base": _hex32(_c_u32(header, "FIELDMESH_SIDECAR_RX_DMA_BASE")),
+        "firmware_ring_base": _hex32(_c_u32(header, "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE")),
+        "window_size": _hex(_c_u32(header, "FIELDMESH_SIDECAR_WINDOW_SIZE")),
+        "ctrl_node": _c_string(header, "FIELDMESH_SIDECAR_CTRL_NODE"),
+        "tx_dma_node": _c_string(header, "FIELDMESH_SIDECAR_TX_DMA_NODE"),
+        "rx_dma_node": _c_string(header, "FIELDMESH_SIDECAR_RX_DMA_NODE"),
+        "firmware_ring_node": _c_string(header, "FIELDMESH_SIDECAR_FIRMWARE_RING_NODE"),
+        "packet_node": _c_string(header, "FIELDMESH_SIDECAR_PACKET_NODE"),
+        "ctrl_compat": _c_string(header, "FIELDMESH_SIDECAR_CTRL_COMPAT"),
+        "dma_compat": _c_string(header, "FIELDMESH_SIDECAR_DMA_COMPAT"),
+        "firmware_ring_compat": _c_string(header, "FIELDMESH_SIDECAR_FIRMWARE_RING_COMPAT"),
+        "packet_compat": _c_string(header, "FIELDMESH_SIDECAR_PACKET_COMPAT"),
+    }
+
+
+def render_sidecar_dtsi(contract: dict[str, Any]) -> str:
+    return SIDECAR_DTSI_TEMPLATE.substitute({key: str(value) for key, value in contract.items()})
+
+
 def write_merged_dts(
     linux_root: Path,
     out_dir: Path,
     variant: str,
+    sidecar_addr: dict[str, Any],
     enable_gnss_uart_emio: bool,
     enable_gnss_pps_emio: bool,
 ) -> tuple[Path, Path]:
@@ -169,7 +229,7 @@ def write_merged_dts(
     gnss_fragment = out_dir / "fieldmesh-gnss-uart-emio.dtsi"
     pps_fragment = out_dir / "fieldmesh-gnss-pps-emio.dtsi"
     merged = out_dir / f"{variant}-zynq-pluto-sdr-fieldmesh.dts"
-    fragment.write_text(SIDECAR_DTSI)
+    fragment.write_text(render_sidecar_dtsi(sidecar_addr))
     if enable_gnss_uart_emio:
         gnss_fragment.write_text(GNSS_UART_EMIO_DTSI)
     if enable_gnss_pps_emio:
@@ -221,19 +281,20 @@ def decompile_dtb(dtb: Path) -> str:
 
 
 def check_decompiled(text: str) -> dict[str, Any]:
+    sidecar_addr = load_sidecar_addr_contract()
     required = {
-        "fieldmesh_ctrl_node": "fieldmesh-ctrl@43c00000",
-        "fieldmesh_tx_dma_node": "dma@43c10000",
-        "fieldmesh_rx_dma_node": "dma@43c20000",
-        "fieldmesh_ring_node": "fieldmesh-ring@43c30000",
-        "fieldmesh_packet_node": "fieldmesh-packet",
-        "fieldmesh_ctrl_compatible": 'compatible = "fieldmesh,sidecar-ctrl-1.0"',
-        "fieldmesh_ring_compatible": 'compatible = "fieldmesh,firmware-ring-1.0", "generic-uio"',
-        "fieldmesh_packet_compatible": 'compatible = "fieldmesh,packet-sidecar-1.0"',
-        "axi_dmac_compatible": 'compatible = "adi,axi-dmac-1.00.a"',
-        "tx_dma_reg": "reg = <0x43c10000 0x10000>",
-        "rx_dma_reg": "reg = <0x43c20000 0x10000>",
-        "ring_reg": "reg = <0x43c30000 0x10000>",
+        "fieldmesh_ctrl_node": sidecar_addr["ctrl_node"],
+        "fieldmesh_tx_dma_node": sidecar_addr["tx_dma_node"],
+        "fieldmesh_rx_dma_node": sidecar_addr["rx_dma_node"],
+        "fieldmesh_ring_node": sidecar_addr["firmware_ring_node"],
+        "fieldmesh_packet_node": sidecar_addr["packet_node"],
+        "fieldmesh_ctrl_compatible": f'compatible = "{sidecar_addr["ctrl_compat"]}"',
+        "fieldmesh_ring_compatible": f'compatible = "{sidecar_addr["firmware_ring_compat"]}", "generic-uio"',
+        "fieldmesh_packet_compatible": f'compatible = "{sidecar_addr["packet_compat"]}"',
+        "axi_dmac_compatible": f'compatible = "{sidecar_addr["dma_compat"]}"',
+        "tx_dma_reg": f'reg = <{sidecar_addr["tx_dma_base"]} {sidecar_addr["window_size"]}>',
+        "rx_dma_reg": f'reg = <{sidecar_addr["rx_dma_base"]} {sidecar_addr["window_size"]}>',
+        "ring_reg": f'reg = <{sidecar_addr["firmware_ring_base"]} {sidecar_addr["window_size"]}>',
         "ctrl_irq": "interrupts = <0x00 0x37 0x04>",
         "tx_irq": "interrupts = <0x00 0x35 0x04>",
         "rx_irq": "interrupts = <0x00 0x36 0x04>",
@@ -337,6 +398,7 @@ def build_variant(
     name: str,
     linux_root: Path,
     out_root: Path,
+    sidecar_addr: dict[str, Any],
     compile_dt: bool,
     require_gnss_uart: bool,
     require_gnss_pps: bool,
@@ -349,6 +411,7 @@ def build_variant(
         linux_root,
         out_dir,
         name,
+        sidecar_addr,
         enable_gnss_uart_emio,
         enable_gnss_pps_emio,
     )
@@ -410,11 +473,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    sidecar_addr = load_sidecar_addr_contract()
     rows = [
         build_variant(
             name,
             path,
             args.out_dir,
+            sidecar_addr,
             not args.no_compile,
             args.require_gnss_uart,
             args.require_gnss_pps,
@@ -426,6 +491,7 @@ def main() -> int:
     result = {
         "event": "fieldmesh_devicetree_plan",
         "ok": all(row["check"]["ok"] and row["gnss_exposure"]["ok"] for row in rows),
+        "sidecar_addr_contract": sidecar_addr,
         "variants": rows,
     }
     print(json.dumps(result, indent=2, sort_keys=True))

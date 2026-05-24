@@ -2158,11 +2158,12 @@ tmp_dt=$(mktemp -d)
 rm -rf "$tmp_dt"
 ```
 
-Result: generated Z203 and Z103 FieldMesh DTS files compiled to DTB, decompiled
-checks found the expected sidecar control, packet DMA, and packet client nodes,
-host `fieldmesh-udp-probe dt-scan` validated a synthetic live devicetree
-layout, and the native C userspace defaults were checked against
-`sdk/c/include/fieldmesh_sidecar_addr.h`.
+Result: `fieldmesh_devicetree_plan.py` rendered its sidecar DTSI from
+`sdk/c/include/fieldmesh_sidecar_addr.h`; generated Z203 and Z103 FieldMesh DTS
+files compiled to DTB; decompiled checks found the expected sidecar control,
+packet DMA, and packet client nodes; host `fieldmesh-udp-probe dt-scan`
+validated a synthetic live devicetree layout; and the native C userspace
+defaults were checked against the same header.
 
 The GNSS devicetree exposure boundary is checked separately:
 
