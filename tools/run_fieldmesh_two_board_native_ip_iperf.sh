@@ -2742,6 +2742,9 @@ report = {
     "diagnostic_bridge": bool(allow_bridge),
     "iio_rf_bridge": bool(allow_iio),
     "iio_bridge_lease_priority": str(last_iio_bridge.get("lease_priority") or ""),
+    "iio_bridge_persistent_burst_helper": bool(
+        last_iio_bridge.get("persistent_burst_helper")
+    ),
     "iio_bridge_source_ack_pipeline_depth": int(
         last_iio_bridge.get("source_ack_pipeline_depth") or 0
     ),

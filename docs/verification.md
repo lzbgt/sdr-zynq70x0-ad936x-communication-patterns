@@ -5083,7 +5083,9 @@ classifier also requires the same-priority preemption proof to be exercised by
 at least one priority-drop stop. It also requires the hybrid
 `tcp-control-flow-udp-after-control` lease priority, which keeps learned TCP
 control/result traffic ahead of bulk data while allowing UDP payload to become
-first-class work after control setup. Production native-IP evidence also requires TCP
+first-class work after control setup. IIO RF production evidence must also
+prove the persistent compiled burst helper was used, preventing readiness from
+passing on reports collected through per-burst helper startup. Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

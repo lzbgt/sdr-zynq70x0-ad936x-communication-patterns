@@ -494,6 +494,7 @@ required = [
     '"iio_bridge_max_consecutive_direction_batches_seen"',
     '"iio_bridge_direction_fair_service_yields"',
     '"iio_bridge_lease_priority"',
+    '"iio_bridge_persistent_burst_helper"',
     '"iio_bridge_same_priority_batch"',
     '"iio_bridge_same_priority_batch_preemption_exercised"',
     '"iio_bridge_same_priority_batch_leases"',

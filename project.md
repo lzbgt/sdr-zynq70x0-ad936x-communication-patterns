@@ -1348,7 +1348,10 @@ user and vendor configuration.
   in batched IIO RF captures, so final readiness cannot pass on configuration
   alone. The HIL default lease priority is now
   `tcp-control-flow-udp-after-control`, preserving learned TCP control-flow
-  service while promoting nontrivial UDP payload after control setup.
+  service while promoting nontrivial UDP payload after control setup. Native-IP
+  production evidence now also requires the persistent compiled burst-helper
+  proof for IIO RF captures, so readiness cannot regress to process-per-burst
+  helper startup while claiming the current batched service path.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

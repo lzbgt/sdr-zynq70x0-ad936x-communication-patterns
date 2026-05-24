@@ -387,6 +387,12 @@ payload and SYN/FIN/RST control. The native-IP HIL default now uses the hybrid
 control-flow service while promoting nontrivial UDP datagrams after control
 setup, so higher-rate UDP probes exercise the RF payload path instead of
 burning airtime on stale TCP drain.
+Native-IP production evidence now also requires the live IIO bridge's
+persistent compiled burst helper proof (`IIO_BRIDGE_PERSISTENT_BURST_HELPER=1`)
+for IIO RF captures. That keeps the readiness contract aligned with the current
+continuous-service direction: the report must show the compiled helper server
+kept libiio contexts open across RF batches rather than falling back to
+process-per-burst helper startup.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
 the first learned-control variant promoted tiny UDP setup probes too early and

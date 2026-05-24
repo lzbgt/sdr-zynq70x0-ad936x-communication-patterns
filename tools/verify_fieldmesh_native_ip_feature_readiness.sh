@@ -22,6 +22,7 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_same_priority_batch_evidence": true,
   "requires_iio_rf_burst_batch_evidence": true,
   "requires_iio_hybrid_lease_priority": true,
+  "requires_iio_persistent_burst_helper": true,
   "board_iio_rf_burst_batch_exercised": true,
   "host_iio_rf_burst_batch_exercised": true,
   "board_iio_same_priority_batch_enabled": true,
@@ -30,6 +31,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_same_priority_batch_preemption_exercised": true,
   "board_iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
   "host_iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
+  "board_iio_bridge_persistent_burst_helper": true,
+  "host_iio_bridge_persistent_burst_helper": true,
   "requires_tcp_final_exchange_evidence": true,
   "board_tcp_final_exchange_ok": true,
   "host_tcp_final_exchange_ok": true,
@@ -68,10 +71,14 @@ if report.get("requires_iio_same_priority_batch_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority batch requirement: {report!r}")
 if report.get("requires_iio_hybrid_lease_priority") is not True:
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority requirement: {report!r}")
+if report.get("requires_iio_persistent_burst_helper") is not True:
+    raise SystemExit(f"native-IP readiness lost persistent helper requirement: {report!r}")
 if report.get("host_iio_same_priority_batch_enabled") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority batch proof: {report!r}")
 if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority proof: {report!r}")
+if report.get("host_iio_bridge_persistent_burst_helper") is not True:
+    raise SystemExit(f"native-IP readiness lost persistent helper proof: {report!r}")
 if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost same-priority preemption proof: {report!r}")
 if report.get("host_tcp_control_drain_elapsed_s") != 30:

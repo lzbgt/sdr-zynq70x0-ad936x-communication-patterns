@@ -19,6 +19,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
+  "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z203-to-z103": 2},
@@ -82,6 +83,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
   "iio_bridge_lease_priority": "tcp-control-flow-udp-after-control",
+  "iio_bridge_persistent_burst_helper": true,
   "iio_bridge_rf_burst_batch_size": 2,
   "iio_bridge_rf_burst_batch_high_water": 2,
   "iio_bridge_rf_burst_batch_high_water_by_direction": {"z103-to-z203": 2},
@@ -174,6 +176,8 @@ if report.get("requires_iio_same_priority_batch_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO same-priority batch evidence: {report!r}")
 if report.get("requires_iio_hybrid_lease_priority") is not True:
     raise SystemExit(f"classifier did not require IIO hybrid lease priority: {report!r}")
+if report.get("requires_iio_persistent_burst_helper") is not True:
+    raise SystemExit(f"classifier did not require IIO persistent helper: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"classifier did not require TCP final-exchange evidence: {report!r}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
@@ -206,6 +210,10 @@ if report.get("board_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-
     raise SystemExit(f"classifier lost board hybrid lease priority: {report!r}")
 if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"classifier lost host hybrid lease priority: {report!r}")
+if report.get("board_iio_bridge_persistent_burst_helper") is not True:
+    raise SystemExit(f"classifier lost board persistent helper proof: {report!r}")
+if report.get("host_iio_bridge_persistent_burst_helper") is not True:
+    raise SystemExit(f"classifier lost host persistent helper proof: {report!r}")
 if report.get("board_iio_bridge_rf_burst_batch_high_water") != 2:
     raise SystemExit(f"classifier lost board RF burst batch high-water evidence: {report!r}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -255,6 +263,8 @@ if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"normalized native-IP evidence lost TCP final-exchange requirement: {report!r}")
 if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"normalized native-IP evidence lost hybrid lease priority: {report!r}")
+if report.get("host_iio_bridge_persistent_burst_helper") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost persistent helper proof: {report!r}")
 if report.get("host_iio_same_priority_batch_preemption_exercised") is not True:
     raise SystemExit(f"normalized native-IP evidence lost same-priority preemption evidence: {report!r}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -373,6 +383,24 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   >"$work_dir/old-lease-priority-rejected.out" \
   2>"$work_dir/old-lease-priority-rejected.err"; then
   echo "iperf evidence classifier accepted stale TCP-only lease priority" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-nonpersistent-helper.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_persistent_burst_helper"] = False
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-nonpersistent-helper.json" \
+  >"$work_dir/nonpersistent-helper-rejected.out" \
+  2>"$work_dir/nonpersistent-helper-rejected.err"; then
+  echo "iperf evidence classifier accepted nonpersistent burst helper" >&2
   exit 1
 fi
 

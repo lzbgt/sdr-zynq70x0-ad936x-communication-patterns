@@ -289,7 +289,10 @@ Minimum production gates for native TCP/IP:
   burst. Live IIO bridge runs now auto-use or build
   `.config/fieldmesh/bin/fieldmesh_iio_burst_xfer` when
   `FIELDMESH_IIO_BURST_HELPER` is not supplied, avoiding accidental fallback to
-  the slower process-per-burst path. The daemon's TCP duplicate suppression is
+  the slower process-per-burst path. Production native-IP evidence now requires
+  that persistent helper proof for IIO RF captures, so final readiness cannot
+  regress to per-burst helper startup while still claiming the batched RF
+  service path. The daemon's TCP duplicate suppression is
   now explicitly configurable through `tcp_duplicate_suppression=` on
   `FIELDMESH_TUN_SERVICE_START`; the real-RF iperf runner defaults
   `TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION=0` so Linux retransmissions are not

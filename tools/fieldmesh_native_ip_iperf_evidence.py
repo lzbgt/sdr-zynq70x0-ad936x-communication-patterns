@@ -92,6 +92,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(
             f"{label}: IIO bridge lease priority must be tcp-control-flow-udp-after-control"
         )
+    if report.get("iio_bridge_persistent_burst_helper") is not True:
+        errors.append(f"{label}: IIO bridge must use persistent burst helper")
     if report.get("iio_bridge_same_priority_batch") is not True:
         errors.append(f"{label}: IIO same-priority batch evidence must be enabled")
     same_priority_leases = report.get("iio_bridge_same_priority_batch_leases")
@@ -460,6 +462,9 @@ def main() -> int:
         "requires_iio_hybrid_lease_priority": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_persistent_burst_helper": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
             True
@@ -535,6 +540,12 @@ def main() -> int:
         ),
         "board_iio_bridge_lease_priority": board.get("iio_bridge_lease_priority"),
         "host_iio_bridge_lease_priority": host.get("iio_bridge_lease_priority"),
+        "board_iio_bridge_persistent_burst_helper": board.get(
+            "iio_bridge_persistent_burst_helper"
+        ),
+        "host_iio_bridge_persistent_burst_helper": host.get(
+            "iio_bridge_persistent_burst_helper"
+        ),
         "board_iio_bridge_direction_fair_service_enabled": board.get(
             "iio_bridge_direction_fair_service_enabled"
         ),
