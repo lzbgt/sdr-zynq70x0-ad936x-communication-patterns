@@ -207,3 +207,40 @@ print(json.dumps({
     "rolled_back": True,
 }, sort_keys=True))
 PY
+
+python3 - "$repo_root/tools/run_fieldmesh_board_rf_tx_guard_apply.sh" <<'PY'
+import sys
+from pathlib import Path
+
+script = Path(sys.argv[1]).read_text(encoding="utf-8")
+required = [
+    "remote_action_policy_self_test",
+    "rf-guard-action-policy-self-test",
+    "rf_guard_action_policy_self_test=present",
+    "rf_guard_action_policy_self_test.ndjson",
+    "fieldmesh_rf_guard_action_policy_self_test",
+    "active_guard_apply_allowed",
+    "idle_guard_apply_allowed",
+    "fault_guard_apply_allowed",
+    "rf_guard_action_policy_self_test_ok",
+    "rf_guard_action_policy_self_test_reads_hardware",
+    "rf_guard_action_policy_self_test_writes_hardware",
+    "Board fieldmesh-udp-probe lacks current rf-guard apply/action-policy self-test contract",
+]
+for token in required:
+    if token not in script:
+        raise SystemExit(f"board RF guard wrapper missing self-test token: {token}")
+upload_check = script.index("rf_guard_action_policy_self_test=present")
+self_test_run = script.index("rf-guard-action-policy-self-test > '$remote_action_policy_self_test'")
+scan_before = script.index("rf-guard-scan$(shell_words")
+apply = script.index("rf-guard-apply$(shell_words")
+summary = script.index('"event": "fieldmesh_board_rf_tx_guard_apply_assert"')
+if upload_check > self_test_run:
+    raise SystemExit("board RF guard wrapper must check self-test freshness before running it")
+if self_test_run > scan_before:
+    raise SystemExit("board RF guard wrapper must run C self-test before RF guard scan evidence")
+if script.index("expected_self") > apply:
+    raise SystemExit("board RF guard wrapper must validate C self-test before guarded apply")
+if script.index("rf_guard_action_policy_self_test_ok") < summary:
+    raise SystemExit("board RF guard wrapper must summarize validated self-test proof")
+PY

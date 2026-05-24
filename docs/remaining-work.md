@@ -1565,7 +1565,8 @@ below were later superseded by the current PHY-management two-board gates above:
   that C status immediately before mutation and refuse writes when the matching
   action policy is false. The compiled `rf-guard-action-policy-self-test`
   proves active, idle, and faulted C policy projections without touching
-  hardware.
+  hardware, and the board guard/source wrappers now validate that packaged C
+  proof before they can enter guarded live write branches.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard

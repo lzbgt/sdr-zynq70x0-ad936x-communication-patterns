@@ -2449,13 +2449,16 @@ policy without reading or writing hardware.
 memory to verify the writer arms only the guard registers, reports
 `guard_apply_allowed=true`, `sets_ad936x_tx_enable=false`, and
 `starts_rf_tx=false`, leaves DAC source selection off, and rolls the register
-window back.
+window back. The board wrapper now also requires a packaged
+`rf-guard-action-policy-self-test` proof before the live write branch can run.
 `./tools/verify_fieldmesh_rf_source_apply.sh` adds the next guard boundary for
 the DAC source selector: it proves `rf-source-apply` refuses missing
 `--allow-live-writes`, missing `--allow-rf-source-select`, and missing Zynq
 target confirmation, writes only `FM_RF_DAC_SOURCE_CONTROL`, reports
 `source_select_allowed=true`, `sets_ad936x_tx_enable=false`, and
-`starts_rf_tx=false`, and rolls source select back to zero.
+`starts_rf_tx=false`, and rolls source select back to zero. Its board wrapper
+uses the same read/write-free C action-policy proof before source-select can
+be attempted.
 The first Z103 source-select run exposed a useful mismatch: the old installed
 RF-engine runtime did not read back `FM_RF_DAC_SOURCE_CONTROL[0]`. The apply
 path now fails unless source-select reads back asserted. After installing the
@@ -2515,7 +2518,9 @@ VARIANT=z103 APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1 FORCE_UPLOAD=0 \
 The run captured a green sidecar preflight, scanned the RF guard window, wrote
 only the guard control/slot registers, reported
 `sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, and rolled the guard
-window back. Evidence is archived under
+window back. Current board guard/source wrappers also capture and validate
+`rf_guard_action_policy_self_test.ndjson` before any guarded live write.
+Evidence is archived under
 `resources/variants/sdr-z103-z7010-1r1t/live-captures/z103_rf_tx_guard_apply_20260514-0713/`.
 The same daemon smoke now also queries guarded `FIELDMESH_TUN_DEV_PUMP` without
 the live allow token and verifies it reports `/dev/net/tun`, required

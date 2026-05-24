@@ -53,6 +53,7 @@ remote_dt="/tmp/fieldmesh_rf_source_dt_scan.ndjson"
 remote_ctrl="/tmp/fieldmesh_rf_source_ctrl_scan.ndjson"
 remote_dma="/tmp/fieldmesh_rf_source_dma_scan.ndjson"
 remote_preflight="/tmp/fieldmesh_rf_source_preflight_assert.json"
+remote_action_policy_self_test="/tmp/fieldmesh_rf_source_action_policy_self_test.ndjson"
 remote_scan_before="/tmp/fieldmesh_rf_source_scan_before.ndjson"
 remote_apply="/tmp/fieldmesh_rf_source_apply.ndjson"
 remote_scan_after="/tmp/fieldmesh_rf_source_scan_after.ndjson"
@@ -75,12 +76,16 @@ dma_scan_args=()
 [[ -n "$dma_size" ]] && dma_scan_args+=(--dma-size "$dma_size")
 
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-  "uname -a; command -v fieldmesh-udp-probe || true; fieldmesh-udp-probe --help 2>&1 | grep -q rf-source-apply && echo rf_source_apply=present || echo rf_source_apply=missing" \
+  "uname -a; command -v fieldmesh-udp-probe || true; \
+   fieldmesh-udp-probe --help 2>&1 | grep -q rf-source-apply && echo rf_source_apply=present || echo rf_source_apply=missing; \
+   fieldmesh-udp-probe --help 2>&1 | grep -q rf-guard-action-policy-self-test && echo rf_guard_action_policy_self_test=present || echo rf_guard_action_policy_self_test=missing" \
   > "$out_dir/board_probe.txt"
 
-if [[ "$force_upload" == "1" ]] || ! grep -q '^rf_source_apply=present$' "$out_dir/board_probe.txt"; then
+if [[ "$force_upload" == "1" ]] ||
+   ! grep -q '^rf_source_apply=present$' "$out_dir/board_probe.txt" ||
+   ! grep -q '^rf_guard_action_policy_self_test=present$' "$out_dir/board_probe.txt"; then
   if [[ "$upload_if_missing" != "1" ]]; then
-    echo "Board fieldmesh-udp-probe lacks rf-source-apply and UPLOAD_IF_MISSING=0" >&2
+    echo "Board fieldmesh-udp-probe lacks current rf-source apply/action-policy self-test contract and UPLOAD_IF_MISSING=0" >&2
     exit 1
   fi
   if [[ ! -f "$rootfs_tar" ]]; then
@@ -101,10 +106,45 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "$remote_probe ctrl-scan$(shell_words "${ctrl_scan_args[@]}") > '$remote_ctrl' 2>&1"
 sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "$remote_probe dma-scan$(shell_words "${dma_scan_args[@]}") > '$remote_dma' 2>&1"
+sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
+  "$remote_probe rf-guard-action-policy-self-test > '$remote_action_policy_self_test' 2>&1"
 
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dt" "$out_dir/dt_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_ctrl" "$out_dir/ctrl_scan.ndjson"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_dma" "$out_dir/dma_scan.ndjson"
+sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_action_policy_self_test" "$out_dir/rf_guard_action_policy_self_test.ndjson"
+
+python3 - "$out_dir/rf_guard_action_policy_self_test.ndjson" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+rows = [
+    json.loads(line)
+    for line in Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace").splitlines()
+    if line.strip().startswith("{")
+]
+self_event = rows[-1] if rows else {}
+if self_event.get("event") != "fieldmesh_rf_guard_action_policy_self_test":
+    raise SystemExit(f"missing RF guard action-policy self-test proof: {self_event!r}")
+expected_self = {
+    "ok": True,
+    "active_guard_apply_allowed": False,
+    "active_source_select_allowed": True,
+    "active_rollback_needed": True,
+    "idle_guard_apply_allowed": True,
+    "idle_source_select_allowed": True,
+    "idle_rollback_needed": False,
+    "fault_guard_apply_allowed": False,
+    "fault_source_select_allowed": False,
+    "fault_rollback_needed": False,
+    "reads_hardware": False,
+    "writes_hardware": False,
+}
+for key, value in expected_self.items():
+    if self_event.get(key) is not value:
+        raise SystemExit(f"RF guard action-policy self-test {key} mismatch: {self_event!r}")
+PY
 
 "$repo_root/tools/fieldmesh_sidecar_preflight_assert.py" \
   "$out_dir/dt_scan.ndjson" \
@@ -157,6 +197,28 @@ def load(name):
 preflight = json.loads((out_dir / "preflight_assert.json").read_text(encoding="utf-8"))
 if preflight.get("event") != "fieldmesh_sidecar_preflight_assert" or preflight.get("ok") is not True:
     raise SystemExit(f"sidecar preflight failed: {preflight}")
+
+self_test = load("rf_guard_action_policy_self_test.ndjson")
+self_event = self_test[-1] if self_test else {}
+if self_event.get("event") != "fieldmesh_rf_guard_action_policy_self_test":
+    raise SystemExit(f"missing RF guard action-policy self-test proof: {self_event!r}")
+expected_self = {
+    "ok": True,
+    "active_guard_apply_allowed": False,
+    "active_source_select_allowed": True,
+    "active_rollback_needed": True,
+    "idle_guard_apply_allowed": True,
+    "idle_source_select_allowed": True,
+    "idle_rollback_needed": False,
+    "fault_guard_apply_allowed": False,
+    "fault_source_select_allowed": False,
+    "fault_rollback_needed": False,
+    "reads_hardware": False,
+    "writes_hardware": False,
+}
+for key, value in expected_self.items():
+    if self_event.get(key) is not value:
+        raise SystemExit(f"RF guard action-policy self-test {key} mismatch: {self_event!r}")
 
 before = load("rf_guard_scan_before.ndjson")
 after = load("rf_guard_scan_after.ndjson")
@@ -211,6 +273,9 @@ summary = {
     "variant": variant,
     "applied": applied,
     "preflight_ok": True,
+    "rf_guard_action_policy_self_test_ok": True,
+    "rf_guard_action_policy_self_test_reads_hardware": False,
+    "rf_guard_action_policy_self_test_writes_hardware": False,
     "scan_before_ok": True,
     "scan_after_ok": True,
     "rf_page_addressable": True,

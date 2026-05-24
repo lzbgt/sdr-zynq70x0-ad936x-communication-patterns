@@ -478,7 +478,8 @@ refuse the write when the matching C action policy is false.
 `rf-guard-action-policy-self-test` exercises the same C policy with shared
 active, idle, and faulted fixture vectors without opening `/dev/mem`; runtime
 freshness requires that command and its proof strings in packaged
-`fieldmesh-udp-probe`.
+`fieldmesh-udp-probe`. Board RF guard/source wrappers validate that proof
+before any guarded live control write branch can execute.
 The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the

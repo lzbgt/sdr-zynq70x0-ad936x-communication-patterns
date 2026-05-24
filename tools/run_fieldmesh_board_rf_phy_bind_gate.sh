@@ -403,11 +403,13 @@ source = json.loads(
 )
 if source.get("event") != "fieldmesh_board_rf_source_apply_assert" or source.get("ok") is not True:
     raise SystemExit(f"RF DAC source-select evidence failed: {source}")
-for key in ("rf_page_addressable", "readback_ok", "rolled_back"):
+for key in ("rf_page_addressable", "readback_ok", "rolled_back",
+            "rf_guard_action_policy_self_test_ok"):
     if source.get(key) is not True:
         raise SystemExit(f"RF DAC source-select evidence key {key} must be true: {source}")
 for key in ("starts_rf_tx", "opens_iio_buffers", "uses_inter_board_ip_routing",
-            "commands_executed"):
+            "commands_executed", "rf_guard_action_policy_self_test_reads_hardware",
+            "rf_guard_action_policy_self_test_writes_hardware"):
     if source.get(key) not in (False, 0, None):
         raise SystemExit(f"RF DAC source-select evidence key {key} must be false: {source}")
 
@@ -466,6 +468,9 @@ summary = {
     "driver_queue_ready": validate.get("driver_queue_ready"),
     "driver_prerequisites_ready": validate.get("driver_prerequisites_ready"),
     "rf_dac_source_select_passed": validate.get("rf_dac_source_select_passed"),
+    "rf_guard_action_policy_self_test_ok": source.get("rf_guard_action_policy_self_test_ok"),
+    "rf_guard_action_policy_self_test_reads_hardware": source.get("rf_guard_action_policy_self_test_reads_hardware"),
+    "rf_guard_action_policy_self_test_writes_hardware": source.get("rf_guard_action_policy_self_test_writes_hardware"),
     "binding_ready": validate.get("binding_ready"),
     "requires_c_modem_service_rate": binding.get("requires_c_modem_service_rate"),
     "modem_benchmark_decode_frame_kbps": binding.get("modem_benchmark_decode_frame_kbps"),

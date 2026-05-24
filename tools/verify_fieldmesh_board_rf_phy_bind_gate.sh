@@ -98,6 +98,9 @@ required = [
     "fw_dma_bram_errors_after",
     "requires_c_modem_service_rate",
     "modem_benchmark_decode_frame_kbps",
+    "rf_guard_action_policy_self_test_ok",
+    "rf_guard_action_policy_self_test_reads_hardware",
+    "rf_guard_action_policy_self_test_writes_hardware",
     "firmware-DMA service latency last-cycle counter did not capture",
     "firmware-DMA service latency max-cycle counter",
     "firmware-DMA service latency max-cycle counter exceeded budget",
@@ -151,6 +154,8 @@ if script.index("dma_smoke_poll") > script.index("fw_dma_counter_deltas"):
     raise SystemExit("DMA smoke poll evidence must be validated before firmware-DMA deltas")
 if script.index("fw_dma_counter_deltas") > summary:
     raise SystemExit("firmware-DMA counter progression must be validated before summary emission")
+if script.index("rf_guard_action_policy_self_test_ok") > summary:
+    raise SystemExit("RF guard action-policy self-test proof must be validated before summary emission")
 
 print("fieldmesh_board_rf_phy_bind_gate=pass")
 PY

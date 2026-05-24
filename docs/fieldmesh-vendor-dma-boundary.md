@@ -656,7 +656,8 @@ driver status registers at `0x12c` through `0x13c`. It also emits C-decoded
 action policy booleans for `guard_apply_allowed`, `source_select_allowed`, and
 `rollback_needed`. `rf-guard-action-policy-self-test` proves the active, idle,
 and faulted policy projections from shared C fixture vectors without reading or
-writing hardware. `rf-guard-apply` refuses to
+writing hardware; the board guard/source wrappers require that proof before
+they can enter a live write branch. `rf-guard-apply` refuses to
 run without the same sidecar preflight assertion and explicit RF safety
 declarations, then re-reads the guard/DAC status in C and requires
 `guard_apply_allowed=true` before it maps only the FieldMesh control window,
@@ -688,8 +689,9 @@ VARIANT=z103 APPLY_GUARD=1 ALLOW_RF_GUARD_WRITES=1 \
 ```
 
 The live runner captures sidecar preflight, scans the RF guard registers,
-applies the guard window only under the explicit write flags, and rolls the
-window back. The matching DAC source-select runner is:
+captures the read/write-free RF guard action-policy self-test proof, applies
+the guard window only under the explicit write flags, and rolls the window
+back. The matching DAC source-select runner is:
 
 ```sh
 VARIANT=z103 APPLY_SOURCE=1 ALLOW_RF_SOURCE_SELECT=1 \
