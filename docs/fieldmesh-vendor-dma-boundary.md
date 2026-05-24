@@ -293,6 +293,8 @@ For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards
 config/arm/stop writes when `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are present.
+Arm writes also require pre-arm `ready_for_arm=true` unless
+`FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate diagnostic override.
 
 The first control-only block-design overlay is opt-in:
 
@@ -520,6 +522,9 @@ fieldmesh-ctrl-write --fw-dma-status 0x43c00000`, then runs
 resulting `preflight_assert.json` confirms the status read is non-mutating
 and contains the C-derived firmware-DMA health booleans
 before any `--fw-dma-arm` or DMA smoke step is allowed.
+The board firmware-DMA wrapper separately checks `fw_dma_status_before.json`
+and refuses `ACTION=arm` while `ready_for_arm=false`, preventing a busy or
+faulted endpoint from being armed by accident.
 `run_fieldmesh_board_dma_smoke.sh` enforces that summary before it invokes the
 transfer-starting `dma-smoke --allow-live-writes` command.
 

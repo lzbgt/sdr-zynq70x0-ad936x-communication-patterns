@@ -1445,7 +1445,9 @@ below were later superseded by the current PHY-management two-board gates above:
   is now the live board wrapper for status/config/arm/stop: it defaults to status-only
   and requires both the sidecar preflight proof and
   `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` before forwarding config/arm/stop
-  hardware writes. The copied-HDL RF-engine patcher now performs the first RF
+  hardware writes. Arm writes also require pre-arm `ready_for_arm=true` unless
+  `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit diagnostic override. The
+  copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
   broadcast to RX DMA and the BPSK symbolizer, and firmware-DMA controls reset

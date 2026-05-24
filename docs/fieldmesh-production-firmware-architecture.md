@@ -467,6 +467,10 @@ step. Board-side activation should go through
 `tools/run_fieldmesh_board_fw_dma_control.sh`, which requires the sidecar
 preflight firmware-DMA status proof and records before/after status around any
 guarded config, arm, or stop command.
+For `ACTION=arm`, that wrapper also requires the pre-arm C-decoded
+`ready_for_arm=true` health predicate before it forwards the guarded hardware
+write; `FORCE_FIRMWARE_DMA_ARM=1` is reserved for explicit diagnostic override
+after reviewing the captured status.
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
 budget-exhausted, service-accepted state, fault-free state, drop-counter-clear

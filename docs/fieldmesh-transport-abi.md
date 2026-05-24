@@ -489,7 +489,9 @@ through that same decoder, so CI can verify successful status output without a
 The board wrapper is `tools/run_fieldmesh_board_fw_dma_control.sh`; its default
 action is status-only, and config/arm/stop actions are skipped unless the wrapper's
 local `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` guard is also set after a
-green sidecar preflight.
+green sidecar preflight. Arm actions also require the pre-arm status
+`ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
+diagnostic override.
 
 ## Z103 And Z203 Capability Profiles
 

@@ -118,6 +118,9 @@ for token in (
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-arm",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop",
     "DESCRIPTOR_FLAGS:$descriptor_flags:63",
+    "FORCE_FIRMWARE_DMA_ARM",
+    "arm_guard_blocked",
+    "status_before.ready_for_arm",
 ):
     if token not in board_control:
         raise SystemExit(f"board firmware DMA control wrapper missing guarded command token: {token}")

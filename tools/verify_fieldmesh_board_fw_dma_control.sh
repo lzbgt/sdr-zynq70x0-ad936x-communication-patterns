@@ -28,6 +28,10 @@ required = [
     "SEQ_SEED",
     "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status",
     "APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1",
+    "FORCE_FIRMWARE_DMA_ARM",
+    "arm_guard_blocked",
+    "firmware-DMA status before arm is not ready_for_arm",
+    "status_before.ready_for_arm",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-config",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-arm",
     "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop",
@@ -45,6 +49,10 @@ if preflight_check > config_write or preflight_check > arm_write or preflight_ch
     raise SystemExit("firmware-DMA writes must be after sidecar preflight validation")
 if script.index("fieldmesh_fw_dma_control_skipped") > arm_write:
     raise SystemExit("dry-run skip path must be defined before write command")
+ready_check = script.index("ready_for_arm")
+arm_guard = script.index("arm_guard_blocked")
+if ready_check > arm_write or arm_guard > arm_write:
+    raise SystemExit("firmware-DMA arm must be gated by ready_for_arm before the write command")
 PY
 
 printf 'fieldmesh_board_fw_dma_control=pass\n'
