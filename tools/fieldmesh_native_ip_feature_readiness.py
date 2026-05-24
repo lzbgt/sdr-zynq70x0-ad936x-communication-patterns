@@ -46,6 +46,11 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
     ):
         if not is_true(report.get(key)):
             blockers.append(blocker)
+    if is_true(report.get("requires_iio_ack_pipeline_evidence")):
+        if report.get("board_iio_ack_pipeline_exercised") is not True:
+            blockers.append("native_ip_board_iio_ack_pipeline_not_exercised")
+        if report.get("host_iio_ack_pipeline_exercised") is not True:
+            blockers.append("native_ip_host_iio_ack_pipeline_not_exercised")
     production_blocker = report.get("production_blocker")
     if isinstance(production_blocker, str) and production_blocker:
         for item in production_blocker.split(","):
@@ -72,6 +77,23 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_host_pc_transparent_iperf": True,
         "requires_real_rf_phy": True,
         "requires_complete_iperf_metrics": True,
+        "requires_iio_ack_pipeline_evidence": report.get(
+            "requires_iio_ack_pipeline_evidence"
+        ),
+        "board_iio_ack_pipeline_exercised": report.get("board_iio_ack_pipeline_exercised"),
+        "host_iio_ack_pipeline_exercised": report.get("host_iio_ack_pipeline_exercised"),
+        "board_iio_bridge_source_ack_pipeline_depth": report.get(
+            "board_iio_bridge_source_ack_pipeline_depth"
+        ),
+        "host_iio_bridge_source_ack_pipeline_depth": report.get(
+            "host_iio_bridge_source_ack_pipeline_depth"
+        ),
+        "board_iio_bridge_source_ack_pipeline_max_pending": report.get(
+            "board_iio_bridge_source_ack_pipeline_max_pending"
+        ),
+        "host_iio_bridge_source_ack_pipeline_max_pending": report.get(
+            "host_iio_bridge_source_ack_pipeline_max_pending"
+        ),
         "transport": report.get("transport"),
         "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
         "board_to_board_real_rf_iperf": report.get("board_to_board_real_rf_iperf"),

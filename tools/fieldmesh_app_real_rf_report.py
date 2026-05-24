@@ -103,6 +103,13 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_udp_lost_packets",
         "host_udp_packets",
         "host_udp_lost_percent",
+        "requires_iio_ack_pipeline_evidence",
+        "board_iio_ack_pipeline_exercised",
+        "host_iio_ack_pipeline_exercised",
+        "board_iio_bridge_source_ack_pipeline_depth",
+        "host_iio_bridge_source_ack_pipeline_depth",
+        "board_iio_bridge_source_ack_pipeline_max_pending",
+        "host_iio_bridge_source_ack_pipeline_max_pending",
     ):
         if key in source:
             details[key] = source[key]

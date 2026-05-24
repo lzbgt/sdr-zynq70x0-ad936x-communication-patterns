@@ -17,6 +17,12 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "host_pc_iperf": false,
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
+  "iio_rf_bridge": true,
+  "iio_bridge_source_ack_pipeline_depth": 2,
+  "iio_bridge_source_ack_pipeline_active": true,
+  "iio_bridge_source_ack_pipeline_high_water": {"z203-to-z103": 2},
+  "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
   "host_originated_traffic": false,
@@ -47,6 +53,12 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "host_pc_iperf": true,
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
+  "iio_rf_bridge": true,
+  "iio_bridge_source_ack_pipeline_depth": 2,
+  "iio_bridge_source_ack_pipeline_active": true,
+  "iio_bridge_source_ack_pipeline_high_water": {"z103-to-z203": 2},
+  "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
   "host_originated_traffic": true,
@@ -98,6 +110,12 @@ if report.get("iperf_metric_quality_ready") is not True:
     raise SystemExit(f"classifier did not mark metric quality ready: {report!r}")
 if report.get("board_udp_lost_percent") != 0.0 or report.get("host_udp_lost_percent") != 1.03:
     raise SystemExit(f"classifier did not expose UDP loss metrics: {report!r}")
+if report.get("requires_iio_ack_pipeline_evidence") is not True:
+    raise SystemExit(f"classifier did not require IIO ACK pipeline evidence: {report!r}")
+if report.get("board_iio_ack_pipeline_exercised") is not True:
+    raise SystemExit(f"classifier lost board ACK pipeline evidence: {report!r}")
+if report.get("host_iio_ack_pipeline_exercised") is not True:
+    raise SystemExit(f"classifier lost host ACK pipeline evidence: {report!r}")
 PY
 
 "$repo_root/tools/fieldmesh_app_real_rf_report.py" \
@@ -119,7 +137,28 @@ if report.get("iperf_metric_quality_ready") is not True:
     raise SystemExit(f"normalized native-IP evidence lost metric quality flag: {report!r}")
 if report.get("host_udp_lost_percent") != 1.03:
     raise SystemExit(f"normalized native-IP evidence lost host UDP loss metric: {report!r}")
+if report.get("requires_iio_ack_pipeline_evidence") is not True:
+    raise SystemExit(f"normalized native-IP evidence lost ACK pipeline requirement: {report!r}")
 PY
+
+python3 - "$work_dir/board-real-rf.json" "$work_dir/board-unexercised-pipeline.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_source_ack_pipeline_exercised"] = False
+report["iio_bridge_source_ack_pipeline_max_pending"] = 1
+report["iio_bridge_source_ack_pipeline_high_water"] = {"z203-to-z103": 1}
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-unexercised-pipeline.json" \
+  --host-pc-report "$work_dir/host-real-rf.json" \
+  >"$work_dir/unexercised-pipeline-rejected.out" 2>"$work_dir/unexercised-pipeline-rejected.err"; then
+  echo "iperf evidence classifier accepted unexercised IIO ACK pipeline evidence" >&2
+  exit 1
+fi
 
 python3 - "$work_dir/board-real-rf.json" "$work_dir/board-bridge.json" <<'PY'
 import json

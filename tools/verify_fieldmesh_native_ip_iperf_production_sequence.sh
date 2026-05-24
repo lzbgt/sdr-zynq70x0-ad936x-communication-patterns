@@ -18,6 +18,12 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "host_pc_iperf": false,
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
+  "iio_rf_bridge": true,
+  "iio_bridge_source_ack_pipeline_depth": 2,
+  "iio_bridge_source_ack_pipeline_active": true,
+  "iio_bridge_source_ack_pipeline_high_water": {"z203-to-z103": 2},
+  "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
   "host_originated_traffic": false,
@@ -48,6 +54,12 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "host_pc_iperf": true,
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
+  "iio_rf_bridge": true,
+  "iio_bridge_source_ack_pipeline_depth": 2,
+  "iio_bridge_source_ack_pipeline_active": true,
+  "iio_bridge_source_ack_pipeline_high_water": {"z103-to-z203": 2},
+  "iio_bridge_source_ack_pipeline_max_pending": 2,
+  "iio_bridge_source_ack_pipeline_exercised": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
   "host_originated_traffic": true,
@@ -101,6 +113,12 @@ if report.get("host_pc_transparent_real_rf_iperf") is not True:
 for key in ("native_ip_iperf_evidence_sha256", "native_ip_app_real_rf_report_sha256"):
     if len(report.get(key, "")) != 64:
         raise SystemExit(f"missing hash {key}")
+if report.get("requires_iio_ack_pipeline_evidence") is not True:
+    raise SystemExit(f"missing ACK pipeline evidence requirement: {report}")
+if report.get("board_iio_ack_pipeline_exercised") is not True:
+    raise SystemExit(f"missing board ACK pipeline exercise proof: {report}")
+if report.get("host_iio_ack_pipeline_exercised") is not True:
+    raise SystemExit(f"missing host ACK pipeline exercise proof: {report}")
 print(json.dumps({
     "event": "fieldmesh_native_ip_iperf_production_sequence_check",
     "ok": True,
@@ -121,6 +139,8 @@ if report.get("feature_ready") is not True:
     raise SystemExit(f"paired real-RF iperf should make native-IP feature ready: {report}")
 if report.get("requires_gnss_fix") is not False or report.get("requires_gnss_pps") is not False:
     raise SystemExit(f"native-IP feature readiness must not require GNSS/PPS: {report}")
+if report.get("requires_iio_ack_pipeline_evidence") is not True:
+    raise SystemExit(f"native-IP readiness lost ACK pipeline requirement: {report}")
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
@@ -148,6 +168,27 @@ if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/ssh-host.stdout" 2>"$work_dir/ssh-host.stderr"; then
   echo "native-IP iperf production sequence accepted SSH-launched host-PC evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-unexercised-pipeline.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_source_ack_pipeline_exercised"] = False
+report["iio_bridge_source_ack_pipeline_max_pending"] = 1
+report["iio_bridge_source_ack_pipeline_high_water"] = {"z103-to-z203": 1}
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
+   HOST_PC_REPORT="$work_dir/host-unexercised-pipeline.json" \
+   OUT_DIR="$work_dir/unexercised-pipeline" \
+   "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
+   >"$work_dir/unexercised-pipeline.stdout" 2>"$work_dir/unexercised-pipeline.stderr"; then
+  echo "native-IP iperf production sequence accepted unexercised IIO ACK pipeline evidence" >&2
   exit 1
 fi
 

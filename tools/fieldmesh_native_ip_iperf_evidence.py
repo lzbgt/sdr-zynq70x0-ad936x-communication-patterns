@@ -69,6 +69,42 @@ def _require_iperf_quality(
     return errors
 
 
+def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
+    errors: list[str] = []
+    depth = report.get("iio_bridge_source_ack_pipeline_depth")
+    if not isinstance(depth, int):
+        depth = 0
+    if depth <= 1 and not _is_true(report.get("iio_rf_bridge")):
+        return errors
+    if not _is_true(report.get("iio_rf_bridge")):
+        errors.append(f"{label}: ACK pipeline depth evidence requires iio_rf_bridge=true")
+        return errors
+    if depth < 1:
+        errors.append(f"{label}: iio_bridge_source_ack_pipeline_depth must be present")
+        return errors
+    if depth > 1:
+        high_water = report.get("iio_bridge_source_ack_pipeline_high_water")
+        max_pending = report.get("iio_bridge_source_ack_pipeline_max_pending")
+        if report.get("iio_bridge_source_ack_pipeline_active") is not True:
+            errors.append(f"{label}: IIO ACK pipeline must be active when depth > 1")
+        if report.get("iio_bridge_source_ack_pipeline_exercised") is not True:
+            errors.append(f"{label}: IIO ACK pipeline depth > 1 was not exercised")
+        if not isinstance(max_pending, int) or max_pending < 2:
+            errors.append(f"{label}: IIO ACK pipeline max pending must be >= 2")
+        elif max_pending > depth:
+            errors.append(f"{label}: IIO ACK pipeline max pending exceeded configured depth")
+        if not isinstance(high_water, dict) or not high_water:
+            errors.append(f"{label}: IIO ACK pipeline high-water evidence is missing")
+        else:
+            high_water_max = max(
+                (int(value) for value in high_water.values() if isinstance(value, int)),
+                default=0,
+            )
+            if high_water_max < 2:
+                errors.append(f"{label}: IIO ACK pipeline high-water evidence never exceeded 1")
+    return errors
+
+
 def _reject_common(report: dict[str, Any], label: str) -> list[str]:
     errors: list[str] = []
     if report.get("event") != "fieldmesh_two_board_native_ip_iperf":
@@ -91,6 +127,7 @@ def _reject_common(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: production_evidence must be true")
     if not _is_true(report.get("app_verified_real_rf")):
         errors.append(f"{label}: app_verified_real_rf must be true")
+    errors.extend(_validate_iio_ack_pipeline(report, label))
     return errors
 
 
@@ -160,6 +197,16 @@ def main() -> int:
     host = _load_report(host_path)
 
     errors = _validate_board(board) + _validate_host(host)
+    board_requires_ack_pipeline = (
+        _is_true(board.get("iio_rf_bridge"))
+        and isinstance(board.get("iio_bridge_source_ack_pipeline_depth"), int)
+        and board.get("iio_bridge_source_ack_pipeline_depth") > 1
+    )
+    host_requires_ack_pipeline = (
+        _is_true(host.get("iio_rf_bridge"))
+        and isinstance(host.get("iio_bridge_source_ack_pipeline_depth"), int)
+        and host.get("iio_bridge_source_ack_pipeline_depth") > 1
+    )
     report = {
         "event": "fieldmesh_native_ip_iperf_evidence",
         "ok": not errors,
@@ -172,6 +219,31 @@ def main() -> int:
         "board_to_board_real_rf_iperf": not _validate_board(board),
         "host_pc_transparent_real_rf_iperf": not _validate_host(host),
         "requires_both_layers": True,
+        "requires_iio_ack_pipeline_evidence": bool(
+            board_requires_ack_pipeline or host_requires_ack_pipeline
+        ),
+        "board_iio_ack_pipeline_exercised": (
+            True
+            if not board_requires_ack_pipeline
+            else board.get("iio_bridge_source_ack_pipeline_exercised") is True
+        ),
+        "host_iio_ack_pipeline_exercised": (
+            True
+            if not host_requires_ack_pipeline
+            else host.get("iio_bridge_source_ack_pipeline_exercised") is True
+        ),
+        "board_iio_bridge_source_ack_pipeline_depth": board.get(
+            "iio_bridge_source_ack_pipeline_depth"
+        ),
+        "host_iio_bridge_source_ack_pipeline_depth": host.get(
+            "iio_bridge_source_ack_pipeline_depth"
+        ),
+        "board_iio_bridge_source_ack_pipeline_max_pending": board.get(
+            "iio_bridge_source_ack_pipeline_max_pending"
+        ),
+        "host_iio_bridge_source_ack_pipeline_max_pending": host.get(
+            "iio_bridge_source_ack_pipeline_max_pending"
+        ),
         "board_to_board_report": str(board_path),
         "host_pc_report": str(host_path),
         "board_tcp_bits_per_second": board.get("tcp_bits_per_second"),

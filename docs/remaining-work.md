@@ -516,7 +516,9 @@ without `transport=real_rf_phy` plus `rf_phy_tx_rx_verified=true` are rejected.
 The classifier also requires complete iperf metric quality fields for both
 layers: TCP/UDP bytes, bitrate, duration, UDP jitter, packet count, lost packet
 count, and loss percent. Byte-only reports cannot satisfy production native-IP
-evidence.
+evidence. If a saved IIO RF bridge report configured
+`IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the bounded
+source-ACK pipeline was exercised with max in-flight ACK depth of at least two.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` now wraps the two
 layers as one production sequence: it consumes paired saved reports or runs both
 live layers, emits paired native-IP iperf evidence, and emits the normalized app

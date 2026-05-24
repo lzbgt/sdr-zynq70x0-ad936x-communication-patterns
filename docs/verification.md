@@ -5057,7 +5057,11 @@ board-to-board iperf and host-PC-transparent iperf. Both must identify
 The verifier now also requires `iperf_metric_quality_ready=true`, backed by
 TCP/UDP bytes, bitrate, and duration plus UDP jitter, packet count, lost packet
 count, and loss percent for both the board-to-board and host-PC-transparent
-layers. The verifier rejects daemon RF-worker bridge metrics, byte-only iperf
+layers. When either saved report was collected through the IIO RF bridge with
+`IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires durable
+ACK-pipeline high-water evidence showing max in-flight source ACKs reached at
+least two and stayed within the configured depth. The verifier rejects daemon
+RF-worker bridge metrics, byte-only iperf
 summaries, host-IP-routed results, and host-PC reports that are actually
 SSH-launched board clients.
 `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` is the paired
