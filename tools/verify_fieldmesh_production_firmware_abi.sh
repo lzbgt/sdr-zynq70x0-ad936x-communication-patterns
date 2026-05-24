@@ -137,10 +137,17 @@ int main(void) {
             FIELDMESH_RF_GUARD_CONTROL_ARMED ||
         !fieldmesh_rf_guard_control_args_valid(FIELDMESH_RF_GUARD_CONTROL_ARMED) ||
         fieldmesh_rf_guard_control_args_valid(0x8u) ||
-        !fieldmesh_rf_guard_control_armed(FIELDMESH_RF_GUARD_CONTROL_ARMED)) {
+        !fieldmesh_rf_guard_control_armed(FIELDMESH_RF_GUARD_CONTROL_ARMED) ||
+        !fieldmesh_rf_guard_control_tx_enabled(FIELDMESH_RF_GUARD_CONTROL_ARMED) ||
+        !fieldmesh_rf_guard_control_tx_armed(FIELDMESH_RF_GUARD_CONTROL_ARMED) ||
+        !fieldmesh_rf_guard_control_schedule_enabled(FIELDMESH_RF_GUARD_CONTROL_ARMED)) {
         return 3;
     }
     if (!fieldmesh_rf_guard_status_fault_free(&status) ||
+        !fieldmesh_rf_guard_drop_counters_clear(&status) ||
+        !fieldmesh_rf_guard_status_tx_enabled(status.status) ||
+        !fieldmesh_rf_guard_status_tx_armed(status.status) ||
+        !fieldmesh_rf_guard_status_schedule_enabled(status.status) ||
         !fieldmesh_rf_guard_dac_source_selected(&status) ||
         fieldmesh_rf_guard_dac_active(&status) ||
         fieldmesh_rf_guard_status_reserved(status.status)) {
@@ -692,8 +699,15 @@ required = [
     "fieldmesh_rf_guard_control_word",
     "fieldmesh_rf_guard_control_args_valid",
     "fieldmesh_rf_guard_control_armed",
+    "fieldmesh_rf_guard_control_tx_enabled",
+    "fieldmesh_rf_guard_control_tx_armed",
+    "fieldmesh_rf_guard_control_schedule_enabled",
     "fieldmesh_rf_guard_status_fault_free",
     "fieldmesh_rf_guard_status_reserved",
+    "fieldmesh_rf_guard_status_tx_enabled",
+    "fieldmesh_rf_guard_status_tx_armed",
+    "fieldmesh_rf_guard_status_schedule_enabled",
+    "fieldmesh_rf_guard_drop_counters_clear",
     "fieldmesh_rf_guard_dac_source_selected",
     "fieldmesh_rf_guard_dac_active",
     "fieldmesh_rf_guard_window_covers",

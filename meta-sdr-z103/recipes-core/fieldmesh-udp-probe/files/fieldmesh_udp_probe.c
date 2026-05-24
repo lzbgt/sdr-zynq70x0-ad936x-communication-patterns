@@ -2742,6 +2742,7 @@ static int run_rf_guard_scan(const struct config *cfg)
     bool ok = true;
     bool rf_page_addressable = true;
     uint32_t id_value = 0;
+    fieldmesh_rf_guard_status_t status = {0};
     int fd;
 
     printf("{\"event\":\"rf_guard_scan_start\",\"transport\":\"rf-guard-scan\","
@@ -2774,6 +2775,60 @@ static int run_rf_guard_scan(const struct config *cfg)
             rf_page_addressable = false;
             ok = false;
         }
+        if (read_ok) {
+            switch (regs[i].offset) {
+            case FIELDMESH_RF_GUARD_REG_CONTROL:
+                status.control = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH:
+                status.current_epoch = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_CURRENT_SLOT:
+                status.current_slot = (uint16_t)value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_TX_EPOCH:
+                status.tx_epoch = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_TX_SLOT:
+                status.tx_slot = (uint16_t)value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_STATUS:
+                status.status = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_PASS_SAMPLE_COUNT:
+                status.pass_sample_count = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_PASS_PACKET_COUNT:
+                status.pass_packet_count = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_BLOCKED_CYCLE_COUNT:
+                status.blocked_cycle_count = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_DROP_LATE_SAMPLE_COUNT:
+                status.drop_late_sample_count = value;
+                break;
+            case FIELDMESH_RF_GUARD_REG_DROP_LATE_PACKET_COUNT:
+                status.drop_late_packet_count = value;
+                break;
+            case FIELDMESH_RF_DAC_REG_SOURCE_CONTROL:
+                status.dac_source_control = value;
+                break;
+            case FIELDMESH_RF_DAC_REG_SOURCE_STATUS:
+                status.dac_source_status = value;
+                break;
+            case FIELDMESH_RF_DAC_REG_SAMPLE_COUNT:
+                status.dac_sample_count = value;
+                break;
+            case FIELDMESH_RF_DAC_REG_PACKET_COUNT:
+                status.dac_packet_count = value;
+                break;
+            case FIELDMESH_RF_DAC_REG_UNDERFLOW_COUNT:
+                status.dac_underflow_count = value;
+                break;
+            default:
+                break;
+            }
+        }
         printf("{\"event\":\"rf_guard_reg\",\"transport\":\"rf-guard-scan\","
                "\"name\":\"%s\",\"offset\":\"0x%03x\",\"read_ok\":%s,"
                "\"value\":\"0x%08x\"}\n",
@@ -2782,9 +2837,28 @@ static int run_rf_guard_scan(const struct config *cfg)
 
     close(fd);
     printf("{\"event\":\"rf_guard_scan_end\",\"transport\":\"rf-guard-scan\","
-           "\"ok\":%s,\"id_ok\":%s,\"rf_page_addressable\":%s,\"id\":\"0x%08x\"}\n",
+           "\"ok\":%s,\"id_ok\":%s,\"rf_page_addressable\":%s,\"id\":\"0x%08x\","
+           "\"control_tx_enabled\":%s,\"control_tx_armed\":%s,"
+           "\"control_schedule_enabled\":%s,\"control_armed\":%s,"
+           "\"status_tx_enabled\":%s,\"status_tx_armed\":%s,"
+           "\"status_schedule_enabled\":%s,\"status_fault\":%s,"
+           "\"status_reserved\":%s,\"drop_counters_clear\":%s,"
+           "\"fault_free\":%s,\"dac_source_selected\":%s,\"dac_active\":%s}\n",
            ok ? "true" : "false", id_value == FIELDMESH_CTRL_ID_VALUE ? "true" : "false",
-           rf_page_addressable ? "true" : "false", id_value);
+           rf_page_addressable ? "true" : "false", id_value,
+           fieldmesh_rf_guard_control_tx_enabled(status.control) ? "true" : "false",
+           fieldmesh_rf_guard_control_tx_armed(status.control) ? "true" : "false",
+           fieldmesh_rf_guard_control_schedule_enabled(status.control) ? "true" : "false",
+           fieldmesh_rf_guard_control_armed(status.control) ? "true" : "false",
+           fieldmesh_rf_guard_status_tx_enabled(status.status) ? "true" : "false",
+           fieldmesh_rf_guard_status_tx_armed(status.status) ? "true" : "false",
+           fieldmesh_rf_guard_status_schedule_enabled(status.status) ? "true" : "false",
+           fieldmesh_rf_guard_status_fault(status.status) ? "true" : "false",
+           fieldmesh_rf_guard_status_reserved(status.status) ? "true" : "false",
+           fieldmesh_rf_guard_drop_counters_clear(&status) ? "true" : "false",
+           fieldmesh_rf_guard_status_fault_free(&status) ? "true" : "false",
+           fieldmesh_rf_guard_dac_source_selected(&status) ? "true" : "false",
+           fieldmesh_rf_guard_dac_active(&status) ? "true" : "false");
     return ok ? 0 : 1;
 }
 

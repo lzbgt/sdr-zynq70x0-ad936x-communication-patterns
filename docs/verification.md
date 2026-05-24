@@ -2431,7 +2431,10 @@ RF-engine-ready, sidecar-preflight, and Zynq-target confirmations.
 Those RF guard/DAC offsets and masks now come from
 `sdk/c/include/fieldmesh_rf_guard_ctrl.h`; the production firmware ABI verifier
 compiles a strict header smoke so `fieldmesh-udp-probe` and the SDK contract
-cannot drift into separate register maps.
+cannot drift into separate register maps. The host guard/source verifiers also
+require `rf-guard-scan` to emit the C-decoded booleans for guard control bits,
+guard status bits, reserved/fault state, drop-counter health, DAC source
+selection, and DAC active state.
 `./tools/verify_fieldmesh_rf_tx_guard_apply.sh` uses synthetic control-window
 memory to verify the writer arms only the guard registers, reports
 `sets_ad936x_tx_enable=false` and `starts_rf_tx=false`, leaves DAC source

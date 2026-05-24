@@ -104,6 +104,24 @@ if (before[-1].get("event") != "rf_guard_scan_end" or
         before[-1].get("ok") is not True or
         before[-1].get("rf_page_addressable") is not True):
     raise SystemExit("initial RF guard scan failed")
+for key in (
+    "control_tx_enabled",
+    "control_tx_armed",
+    "control_schedule_enabled",
+    "control_armed",
+    "status_tx_enabled",
+    "status_tx_armed",
+    "status_schedule_enabled",
+    "status_fault",
+    "status_reserved",
+    "dac_source_selected",
+    "dac_active",
+):
+    if before[-1].get(key) is not False:
+        raise SystemExit(f"initial RF guard scan did not decode {key}=false: {before[-1]}")
+for key in ("drop_counters_clear", "fault_free"):
+    if before[-1].get(key) is not True:
+        raise SystemExit(f"initial RF guard scan did not decode {key}=true: {before[-1]}")
 write = next((row for row in apply if row.get("event") == "rf_guard_apply_write"), None)
 rollback = next((row for row in apply if row.get("event") == "rf_guard_apply_rollback"), None)
 end = next((row for row in apply if row.get("event") == "rf_guard_apply_end"), None)
@@ -147,6 +165,8 @@ if (z103[-1].get("event") != "rf_guard_scan_end" or
         z103[-1].get("ok") is not True or
         z103[-1].get("rf_page_addressable") is not True):
     raise SystemExit("Z103 mirrored probe failed RF guard scan")
+if z103[-1].get("fault_free") is not True or z103[-1].get("control_armed") is not False:
+    raise SystemExit(f"Z103 mirrored probe did not expose decoded RF guard health: {z103[-1]}")
 
 print(json.dumps({
     "event": "fieldmesh_rf_tx_guard_apply_check",

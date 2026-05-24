@@ -95,6 +95,21 @@ static inline int fieldmesh_rf_guard_control_armed(uint32_t control)
            FIELDMESH_RF_GUARD_CONTROL_ARMED;
 }
 
+static inline int fieldmesh_rf_guard_control_tx_enabled(uint32_t control)
+{
+    return (control & FIELDMESH_RF_GUARD_CONTROL_TX_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_rf_guard_control_tx_armed(uint32_t control)
+{
+    return (control & FIELDMESH_RF_GUARD_CONTROL_TX_ARMED) != 0u;
+}
+
+static inline int fieldmesh_rf_guard_control_schedule_enabled(uint32_t control)
+{
+    return (control & FIELDMESH_RF_GUARD_CONTROL_SCHEDULE_ENABLE) != 0u;
+}
+
 static inline int fieldmesh_rf_guard_status_fault(uint32_t status)
 {
     return (status & FIELDMESH_RF_GUARD_STATUS_FAULT) != 0u;
@@ -105,13 +120,34 @@ static inline int fieldmesh_rf_guard_status_reserved(uint32_t status)
     return (status & ~FIELDMESH_RF_GUARD_STATUS_ALL) != 0u;
 }
 
+static inline int fieldmesh_rf_guard_status_tx_enabled(uint32_t status)
+{
+    return (status & FIELDMESH_RF_GUARD_STATUS_TX_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_rf_guard_status_tx_armed(uint32_t status)
+{
+    return (status & FIELDMESH_RF_GUARD_STATUS_TX_ARMED) != 0u;
+}
+
+static inline int fieldmesh_rf_guard_status_schedule_enabled(uint32_t status)
+{
+    return (status & FIELDMESH_RF_GUARD_STATUS_SCHEDULE_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_rf_guard_drop_counters_clear(const fieldmesh_rf_guard_status_t *status)
+{
+    return status &&
+           status->drop_late_sample_count == 0u &&
+           status->drop_late_packet_count == 0u &&
+           status->dac_underflow_count == 0u;
+}
+
 static inline int fieldmesh_rf_guard_status_fault_free(const fieldmesh_rf_guard_status_t *status)
 {
     return status && !fieldmesh_rf_guard_status_fault(status->status) &&
            !fieldmesh_rf_guard_status_reserved(status->status) &&
-           status->drop_late_sample_count == 0u &&
-           status->drop_late_packet_count == 0u &&
-           status->dac_underflow_count == 0u;
+           fieldmesh_rf_guard_drop_counters_clear(status);
 }
 
 static inline int fieldmesh_rf_guard_dac_source_selected(const fieldmesh_rf_guard_status_t *status)

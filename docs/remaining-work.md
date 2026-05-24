@@ -1512,7 +1512,10 @@ below were later superseded by the current PHY-management two-board gates above:
   status registers. Source now builds those RF guard/DAC register constants
   from `sdk/c/include/fieldmesh_rf_guard_ctrl.h`; the next rootfs rebuild will
   carry the same runtime behavior through the shared C SDK contract rather than
-  duplicated probe-local offsets.
+  duplicated probe-local offsets. The source scan output also includes
+  C-decoded guard/DAC health booleans so future board gates can consume
+  `fault_free`, `drop_counters_clear`, `dac_source_selected`, and `dac_active`
+  without reconstructing raw register semantics in shell/Python.
   `tools/package_fieldmesh_rf_engine_pluto_frm.sh` now keeps the
   non-transmitting RF-engine package separate from the default DMA package, and
   Z103 has passed the live `run_fieldmesh_board_rf_tx_guard_apply.sh` guard

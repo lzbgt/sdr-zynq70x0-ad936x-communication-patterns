@@ -458,6 +458,9 @@ The RF guard and DAC source-select window has the same shared-C ownership:
 masks, status predicates, and window bounds consumed by `fieldmesh-udp-probe`.
 That keeps RF guard arming and DAC source selection on the C/FPGA register
 contract instead of local shell/Python or duplicated probe constants.
+`rf-guard-scan` now emits the C-decoded guard/DAC health state next to raw
+register words, including `control_armed`, `status_fault`, `status_reserved`,
+`drop_counters_clear`, `fault_free`, `dac_source_selected`, and `dac_active`.
 The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the
