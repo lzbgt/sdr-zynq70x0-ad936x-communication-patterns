@@ -1480,12 +1480,11 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh-ctrl-write` strings against the current C source. It also compares
   packaged `fieldmesh-udp-probe` strings against the C-decoded RF guard scan
   contract. The Z203/Z103 rootfs images and runtime packages were rebuilt for
-  firmware-DMA, and `./tools/verify_fieldmesh_runtime_artifacts.sh all` enforces
-  current firmware-DMA runtime freshness by default. RF guard scan freshness now
-  reports `runtime_rebuild_needed=true` until the next rootfs rebuild carries
-  the decoded scan output; set `FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=1`
-  only after that rebuild. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` only
-  for explicit advisory diagnostics against stale local packages.
+  firmware-DMA and decoded RF guard scan freshness, and
+  `./tools/verify_fieldmesh_runtime_artifacts.sh all` enforces both by default.
+  Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` or
+  `FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0` only for explicit advisory
+  diagnostics against stale local packages.
   The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is

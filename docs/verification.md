@@ -2884,12 +2884,11 @@ the decoded RF guard scan fields such as `control_armed`, `status_reserved`,
 `drop_counters_clear`, `fault_free`, `dac_source_selected`, and `dac_active`.
 The standalone reporter is advisory unless called with `--require-current`,
 `--require-current-fw-dma`, or `--require-current-rf-guard`. The normal
-`verify_fieldmesh_runtime_artifacts.sh` path now requires firmware-DMA
-freshness by default after the Z203/Z103 packages were rebuilt. RF guard scan
-freshness is currently surfaced but advisory; set
-`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=1` after rootfs packages are rebuilt
-with the decoded scan output. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0`
-only for explicit advisory diagnostics when investigating stale local packages.
+`verify_fieldmesh_runtime_artifacts.sh` path now requires both firmware-DMA and
+decoded RF guard scan freshness by default after the Z203/Z103 packages were
+rebuilt. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` or
+`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0` only for explicit advisory
+diagnostics when investigating stale local packages.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

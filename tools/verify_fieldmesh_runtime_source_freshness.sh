@@ -164,7 +164,7 @@ required = [
     "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME",
     "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME",
     "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-1",
-    "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-0",
+    "FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-1",
     "require_current_fw_dma_runtime",
     "require_current_rf_guard_runtime",
     "--require-current-fw-dma",

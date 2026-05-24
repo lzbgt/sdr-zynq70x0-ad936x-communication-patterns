@@ -5,7 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-all}"
 require_current_fw_dma_runtime="${FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-1}"
-require_current_rf_guard_runtime="${FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-0}"
+require_current_rf_guard_runtime="${FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME:-1}"
 
 case "$require_current_fw_dma_runtime" in
     0|1)

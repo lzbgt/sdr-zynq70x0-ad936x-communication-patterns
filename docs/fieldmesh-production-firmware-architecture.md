@@ -494,11 +494,10 @@ read-only package freshness check: it scans the packaged
 `fieldmesh-ctrl-write` binary strings for the current checked firmware-DMA
 command/refusal-token contract and the packaged `fieldmesh-udp-probe` strings
 for the C-decoded RF guard scan contract. Runtime artifact verification now
-requires firmware-DMA freshness by default; set
-`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=1` after the next rootfs rebuild to
-make decoded RF guard scan freshness a hard gate too. Set
-`FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` only for explicit advisory
-diagnostics when investigating stale firmware-DMA packages.
+requires firmware-DMA and decoded RF guard scan freshness by default after the
+Z203/Z103 rootfs rebuilds. Set `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=0` or
+`FIELDMESH_REQUIRE_CURRENT_RF_GUARD_RUNTIME=0` only for explicit advisory
+diagnostics when investigating stale local packages.
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
 budget-exhausted, service-accepted state, fault-free state, drop-counter-clear
