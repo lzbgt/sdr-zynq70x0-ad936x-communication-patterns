@@ -60,6 +60,8 @@ probe_z203 = (repo / "meta-sdr-z203/recipes-core/fieldmesh-udp-probe/files/field
 probe_z103 = (repo / "meta-sdr-z103/recipes-core/fieldmesh-udp-probe/files/fieldmesh_udp_probe.c").read_text(encoding="utf-8")
 devicetree_plan_path = repo / "tools/fieldmesh_devicetree_plan.py"
 devicetree_plan = devicetree_plan_path.read_text(encoding="utf-8")
+vendor_inventory_path = repo / "tools/fieldmesh_vendor_dma_inventory.py"
+vendor_inventory = vendor_inventory_path.read_text(encoding="utf-8")
 
 required_header_tokens = [
     "FIELDMESH_SIDECAR_CTRL_BASE 0x43c00000u",
@@ -115,6 +117,18 @@ if "0x43c00000u" in ctrl_tool:
     raise SystemExit("fieldmesh-ctrl-write still hardcodes the firmware-DMA base")
 if "FIELDMESH_SIDECAR_CTRL_BASE" not in ctrl_tool:
     raise SystemExit("fieldmesh-ctrl-write does not use the shared sidecar control base")
+
+if "fieldmesh_sidecar_addr.h" not in vendor_inventory:
+    raise SystemExit("fieldmesh_vendor_dma_inventory.py does not read the sidecar address C contract")
+for stale in (
+    "DEFAULT_WINDOW_SIZE = 0x10000",
+    '("fieldmesh_ctrl", 0x43C00000',
+    '("fieldmesh_tx_dma", 0x43C10000',
+    '("fieldmesh_rx_dma", 0x43C20000',
+    '("fieldmesh_ring", 0x43C30000',
+):
+    if stale in vendor_inventory:
+        raise SystemExit(f"fieldmesh_vendor_dma_inventory.py still duplicates sidecar address contract: {stale}")
 
 if "fieldmesh_sidecar_addr.h" not in devicetree_plan:
     raise SystemExit("fieldmesh_devicetree_plan.py does not read the sidecar address C contract")
@@ -174,6 +188,32 @@ for token in (
 ):
     if token not in fragment:
         raise SystemExit(f"rendered FieldMesh devicetree fragment missing {token!r}")
+
+inventory_spec = importlib.util.spec_from_file_location("fieldmesh_vendor_dma_inventory", vendor_inventory_path)
+if inventory_spec is None or inventory_spec.loader is None:
+    raise SystemExit("could not load fieldmesh_vendor_dma_inventory.py")
+inventory_module = importlib.util.module_from_spec(inventory_spec)
+inventory_spec.loader.exec_module(inventory_module)
+if inventory_module.DEFAULT_WINDOW_SIZE != 0x10000:
+    raise SystemExit(f"vendor inventory window size drifted: {inventory_module.DEFAULT_WINDOW_SIZE!r}")
+expected_inventory_windows = (
+    ("fieldmesh_ctrl", 0x43C00000, 0x10000),
+    ("fieldmesh_tx_dma", 0x43C10000, 0x10000),
+    ("fieldmesh_rx_dma", 0x43C20000, 0x10000),
+    ("fieldmesh_ring", 0x43C30000, 0x10000),
+)
+if inventory_module.SIDECAR_WINDOWS != expected_inventory_windows:
+    raise SystemExit(f"vendor inventory sidecar windows drifted: {inventory_module.SIDECAR_WINDOWS!r}")
+inventory_check = inventory_module.sidecar_check({})
+if (
+    not inventory_check.get("ok") or
+    inventory_check.get("window_size") != 0x10000 or
+    inventory_check.get("source") != "sdk/c/include/fieldmesh_sidecar_addr.h"
+):
+    raise SystemExit(f"vendor inventory sidecar check failed: {inventory_check!r}")
+inventory_addresses = [row.get("address") for row in inventory_check.get("proposed_windows", [])]
+if inventory_addresses != ["0x43C00000", "0x43C10000", "0x43C20000", "0x43C30000"]:
+    raise SystemExit(f"vendor inventory sidecar addresses drifted: {inventory_addresses!r}")
 
 recipe_paths = [
     repo / "meta-sdr-z203/recipes-core/fieldmesh-udp-probe/fieldmesh-udp-probe_0.1.bb",

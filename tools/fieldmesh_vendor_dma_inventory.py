@@ -13,19 +13,40 @@ from typing import Any
 
 DMA_NAMES = ("axi_ad9361_adc_dma", "axi_ad9361_dac_dma")
 INTERESTING_NAMES = DMA_NAMES + ("axi_ad9361", "cpack", "tx_upack")
-DEFAULT_WINDOW_SIZE = 0x10000
-SIDECAR_WINDOWS = (
-    ("fieldmesh_ctrl", 0x43C00000, DEFAULT_WINDOW_SIZE),
-    ("fieldmesh_tx_dma", 0x43C10000, DEFAULT_WINDOW_SIZE),
-    ("fieldmesh_rx_dma", 0x43C20000, DEFAULT_WINDOW_SIZE),
-    ("fieldmesh_ring", 0x43C30000, DEFAULT_WINDOW_SIZE),
-)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SIDECAR_ADDR_HEADER = REPO_ROOT / "sdk/c/include/fieldmesh_sidecar_addr.h"
 SIDECAR_IRQS = {
     "fieldmesh_ctrl": "ps-11 mb-11",
     "fieldmesh_rx_dma": "ps-10 mb-10",
     "fieldmesh_tx_dma": "ps-9 mb-9",
     "fieldmesh_ring": "ps-8 mb-8",
 }
+
+
+def _c_define(header: str, name: str) -> str:
+    match = re.search(rf"^#define\s+{re.escape(name)}\s+(.+?)\s*$", header, re.MULTILINE)
+    if not match:
+        raise SystemExit(f"{SIDECAR_ADDR_HEADER}: missing {name}")
+    return match.group(1).strip()
+
+
+def _c_u32(header: str, name: str) -> int:
+    return int(_c_define(header, name).rstrip("uUlL"), 0)
+
+
+def load_sidecar_windows(header_path: Path = SIDECAR_ADDR_HEADER) -> tuple[int, tuple[tuple[str, int, int], ...]]:
+    header = header_path.read_text(encoding="utf-8")
+    window_size = _c_u32(header, "FIELDMESH_SIDECAR_WINDOW_SIZE")
+    windows = (
+        ("fieldmesh_ctrl", _c_u32(header, "FIELDMESH_SIDECAR_CTRL_BASE"), window_size),
+        ("fieldmesh_tx_dma", _c_u32(header, "FIELDMESH_SIDECAR_TX_DMA_BASE"), window_size),
+        ("fieldmesh_rx_dma", _c_u32(header, "FIELDMESH_SIDECAR_RX_DMA_BASE"), window_size),
+        ("fieldmesh_ring", _c_u32(header, "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE"), window_size),
+    )
+    return window_size, windows
+
+
+DEFAULT_WINDOW_SIZE, SIDECAR_WINDOWS = load_sidecar_windows()
 
 
 def clean_value(value: str) -> str:
@@ -96,6 +117,7 @@ def sidecar_check(addresses: dict[str, str]) -> dict[str, Any]:
         )
     return {
         "ok": ok,
+        "source": str(SIDECAR_ADDR_HEADER.relative_to(REPO_ROOT)),
         "window_size": DEFAULT_WINDOW_SIZE,
         "occupied": [
             {

@@ -2059,8 +2059,10 @@ Result: both variants report ADI RX sample DMA `axi_ad9361_adc_dma` at
 sample stream width, RX over PS `S_AXI_HP1`, TX over PS `S_AXI_HP2`, and the
 same ADI `cpack`/`tx_upack` stream boundary. This confirms the first FieldMesh
 hardware binding should use a sidecar packet transport and must not reuse the
-existing ADI sample-DMA register windows. `--check-sidecar` also passed for the
-provisional FieldMesh windows at `0x43C00000`, `0x43C10000`, and `0x43C20000`.
+existing ADI sample-DMA register windows. `--check-sidecar` also passed after
+loading the FieldMesh sidecar windows from
+`sdk/c/include/fieldmesh_sidecar_addr.h` instead of a separate Python address
+table.
 The synthetic collision check failed as expected when an imported address was
 temporarily moved onto `0x43C00000`. The sidecar plan helper emitted valid
 JSON, review Markdown, and Tcl constants from the same checked contract.

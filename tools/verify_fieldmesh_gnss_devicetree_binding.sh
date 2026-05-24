@@ -208,7 +208,9 @@ require_tokens(
 require_tokens(
     repo_root / "tools/fieldmesh_vendor_dma_inventory.py",
     [
-        '("fieldmesh_ring", 0x43C30000, DEFAULT_WINDOW_SIZE)',
+        "fieldmesh_sidecar_addr.h",
+        "FIELDMESH_SIDECAR_FIRMWARE_RING_BASE",
+        "load_sidecar_windows",
         '"fieldmesh_ring": "ps-8 mb-8"',
     ],
 )

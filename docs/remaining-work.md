@@ -1408,11 +1408,12 @@ below were later superseded by the current PHY-management two-board gates above:
   packet TX DMA control, `0x43C20000` for packet RX DMA control, and
   `0x43C30000` for the firmware ring. That map now lives in
   `sdk/c/include/fieldmesh_sidecar_addr.h` so native C tools, Yocto recipes,
-  and the devicetree planner share one address contract; the
-  inventory helper's `--check-sidecar` mode now fails if those windows collide
-  with imported Vivado Tcl. `tools/fieldmesh_sidecar_plan.py` now emits the
-  checked sidecar plan in JSON, Markdown, or Tcl constants form for the later
-  Vivado overlay step, and its `--check-rtl` mode verifies the required RTL
+  the devicetree planner, and the Vivado DMA inventory share one address
+  contract; the inventory helper's `--check-sidecar` mode now fails if those
+  windows collide with imported Vivado Tcl. `tools/fieldmesh_sidecar_plan.py`
+  now emits the checked sidecar plan in JSON, Markdown, or Tcl constants form
+  for the later Vivado overlay step, and its `--check-rtl` mode verifies the
+  required RTL
   files and module declarations before integration. Its `--check-hp-policy`
   mode verifies ADI RX/TX remain on HP1/HP2 and FieldMesh's preferred HP0/HP3
   packet-DMA ports remain free or self-owned by the FieldMesh overlay.
