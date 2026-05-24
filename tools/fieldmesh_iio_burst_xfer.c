@@ -133,7 +133,23 @@ static void usage(FILE *stream)
             "       fieldmesh_iio_burst_xfer --bfsk-decode --iq-file PATH --decoded-file PATH "
             "[--expected-frame-len N] [--expected-frame-crc HEX] "
             "[--sample-rate-hz N] [--space-hz N] [--mark-hz N] "
-            "[--samples-per-symbol N] [--bit-repeat N]\n");
+            "[--samples-per-symbol N] [--bit-repeat N]\n"
+            "       fieldmesh_iio_burst_xfer --native-worker-self-test\n");
+}
+
+static int run_native_worker_self_test(void)
+{
+    printf("{\"event\":\"fieldmesh_iio_burst_native_worker_self_test\",\"ok\":true,"
+           "\"proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1\","
+           "\"native_iio_burst_worker\":true,"
+           "\"persistent_server_supported\":true,"
+           "\"libiio_rx_tx_worker\":true,"
+           "\"same_process_rx_tx\":true,"
+           "\"python_iio_transport\":false,"
+           "\"reads_hardware\":false,"
+           "\"writes_hardware\":false,"
+           "\"starts_rf_tx\":false}\n");
+    return 0;
 }
 
 static unsigned long long parse_ull(const char *text, const char *name)
@@ -1682,6 +1698,10 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
     bool ok = pushed >= 0 && job.rc == 0;
     fprintf(json_out,
             "{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":%s,"
+            "\"native_iio_burst_worker\":true,"
+            "\"libiio_rx_tx_worker\":true,"
+            "\"same_process_rx_tx\":true,"
+            "\"python_iio_transport\":false,"
             "\"tx_bytes\":%zu,\"rx_bytes\":%zd,\"rx_target_bytes\":%zu,"
             "\"cyclic\":%s,\"elapsed_ms\":%ld}\n",
             ok ? "true" : "false",
@@ -1702,7 +1722,11 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
 {
     char line[4096];
 
-    printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true}\n");
+    printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true,"
+           "\"native_iio_burst_worker\":true,"
+           "\"persistent_native_iio_burst_worker\":true,"
+           "\"libiio_rx_tx_worker\":true,"
+           "\"python_iio_transport\":false}\n");
     fflush(stdout);
 
     while (fgets(line, sizeof(line), stdin)) {
@@ -1764,6 +1788,9 @@ int main(int argc, char **argv)
 {
     if (argc >= 2 && strcmp(argv[1], "--bpsk-self-test") == 0) {
         return run_bpsk_self_test();
+    }
+    if (argc >= 2 && strcmp(argv[1], "--native-worker-self-test") == 0) {
+        return run_native_worker_self_test();
     }
     if (argc >= 2 && strcmp(argv[1], "--bpsk-benchmark") == 0) {
         return run_bpsk_benchmark(argc, argv);

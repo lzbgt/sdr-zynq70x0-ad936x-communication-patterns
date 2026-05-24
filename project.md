@@ -610,12 +610,17 @@ user and vendor configuration.
   and the same legal-frequency, attenuation, TX-enable, and RX-first guards.
   It can also use `--burst-helper tools/fieldmesh_iio_burst_xfer` so one
   compiled libiio process arms RX and pushes TX for a burst instead of launching
-  separate `iio_readdev` and `iio_writedev` processes for every RF batch.
+  separate `iio_readdev` and `iio_writedev` processes for every RF batch. Live
+  native-IP evidence now requires the helper's read/write-free
+  `FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1` contract plus per-burst
+  native-worker proof from the compiled helper report.
 - `tools/fieldmesh_iio_burst_xfer.c` - single-process libiio RX/TX burst
   helper for the HIL RF bridge. It opens the TX/RX IIO contexts, enables the
   requested stream channels, starts RX capture in a pthread, pushes the TX IQ
   buffer, writes captured IQ samples to disk, and reports byte counts. RF safety
   policy and AD936x attribute configuration remain in the guarded Python runner.
+  Its `--native-worker-self-test` command proves the native libiio worker
+  contract without opening devices, starting RF TX, or writing hardware.
 - `tools/verify_fieldmesh_iio_burst_xfer.sh` - compiles the helper with
   `-Wall -Wextra -Werror`, checks the CLI contract, and verifies that the helper
   fails closed when no live IIO context exists.

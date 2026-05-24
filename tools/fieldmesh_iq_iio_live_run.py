@@ -703,6 +703,15 @@ def execute_live_with_helper(
         stdout = proc.stdout.decode("utf-8", errors="replace")
         stderr = proc.stderr.decode("utf-8", errors="replace")
         returncode = proc.returncode
+        helper_report = {}
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            with contextlib.suppress(json.JSONDecodeError):
+                decoded = json.loads(line)
+                if isinstance(decoded, dict):
+                    helper_report = decoded
     helper_result = {
         "name": "iio_burst_helper",
         "returncode": returncode,
@@ -711,6 +720,10 @@ def execute_live_with_helper(
         "elapsed_ms": int((time.monotonic() - helper_started) * 1000),
         "argv": helper_row["argv"],
         "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
+        "native_iio_burst_worker": helper_report.get("native_iio_burst_worker") is True,
+        "libiio_rx_tx_worker": helper_report.get("libiio_rx_tx_worker") is True,
+        "python_iio_transport": helper_report.get("python_iio_transport") is True,
+        "helper_event": helper_report.get("event"),
     }
     results.append(helper_result)
     if returncode != 0:
@@ -723,6 +736,9 @@ def execute_live_with_helper(
             "elapsed_ms": int((time.monotonic() - started) * 1000),
             "burst_helper": str(args.burst_helper),
             "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
+            "native_iio_burst_worker": helper_result["native_iio_burst_worker"],
+            "libiio_rx_tx_worker": helper_result["libiio_rx_tx_worker"],
+            "python_iio_transport": helper_result["python_iio_transport"],
         }
     )
     return results
@@ -891,6 +907,21 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             else execute_live(args, commands, capture_path)
         )
         decode = decode_capture(plan, args, capture_path)
+    native_iio_burst_worker_required = bool(
+        args.execute_live_rf and args.burst_helper and getattr(args, "persistent_burst_helper", False)
+    )
+    native_iio_burst_worker_proven = bool(
+        command_results
+        and any(
+            result.get("name") == "iio_burst_helper"
+            and result.get("returncode") == 0
+            and result.get("persistent_burst_helper") is True
+            and result.get("native_iio_burst_worker") is True
+            and result.get("libiio_rx_tx_worker") is True
+            and result.get("python_iio_transport") is False
+            for result in command_results
+        )
+    )
 
     safety = {
         "authorized_rf_path": True,
@@ -937,6 +968,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "capture_file": str(capture_path),
         "commands": commands,
         "command_results": command_results,
+        "native_iio_burst_worker_required": native_iio_burst_worker_required,
+        "native_iio_burst_worker_proven": native_iio_burst_worker_proven,
         "decode": decode,
         "elapsed_ms": int((time.monotonic() - started) * 1000),
     }

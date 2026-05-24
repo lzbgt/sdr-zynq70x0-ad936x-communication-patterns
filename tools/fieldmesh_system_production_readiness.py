@@ -228,6 +228,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_persistent_burst_helper"] = (
             native_ip.get("requires_iio_persistent_burst_helper") is True
         )
+        detail["native_ip_requires_iio_native_iio_burst_worker"] = (
+            native_ip.get("requires_iio_native_iio_burst_worker") is True
+        )
         detail["native_ip_requires_iio_rf_sub_burst_evidence"] = (
             native_ip.get("requires_iio_rf_sub_burst_evidence") is True
         )
@@ -355,6 +358,12 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_bridge_persistent_burst_helper"] = (
             native_ip.get("host_iio_bridge_persistent_burst_helper") is True
         )
+        detail["native_ip_board_iio_native_iio_burst_worker_proven"] = (
+            native_ip.get("board_iio_native_iio_burst_worker_proven") is True
+        )
+        detail["native_ip_host_iio_native_iio_burst_worker_proven"] = (
+            native_ip.get("host_iio_native_iio_burst_worker_proven") is True
+        )
         detail["native_ip_board_iio_bridge_in_burst_priority_preemption_enabled"] = (
             native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled") is True
         )
@@ -419,6 +428,8 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_iio_hybrid_lease_priority_missing")
             if native_ip.get("requires_iio_persistent_burst_helper") is not True:
                 blockers.append("native_ip_iio_persistent_burst_helper_missing")
+            if native_ip.get("requires_iio_native_iio_burst_worker") is not True:
+                blockers.append("native_ip_native_iio_burst_worker_missing")
             if native_ip.get("requires_iio_in_burst_priority_preemption") is not True:
                 blockers.append("native_ip_iio_in_burst_priority_preemption_missing")
             if native_ip.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -523,6 +534,10 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_iio_persistent_burst_helper_missing")
             if native_ip.get("host_iio_bridge_persistent_burst_helper") is not True:
                 blockers.append("native_ip_host_iio_persistent_burst_helper_missing")
+            if native_ip.get("board_iio_native_iio_burst_worker_proven") is not True:
+                blockers.append("native_ip_board_native_iio_burst_worker_missing")
+            if native_ip.get("host_iio_native_iio_burst_worker_proven") is not True:
+                blockers.append("native_ip_host_native_iio_burst_worker_missing")
             if (
                 native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled")
                 is not True

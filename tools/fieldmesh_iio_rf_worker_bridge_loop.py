@@ -1442,6 +1442,8 @@ def run_batch(
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
         "iq_iio_live_run": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
+        "native_iio_burst_worker_required": run_report.get("native_iio_burst_worker_required") is True,
+        "native_iio_burst_worker_proven": run_report.get("native_iio_burst_worker_proven") is True,
         "iq_iio_live_run_attempts": run_attempts,
         "iq_recovered_frame_match": recovered_frames == batch_frames if args.execute_live_rf else False,
         "sink_ingests": ingests,
@@ -1629,6 +1631,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_tick_failures": 0,
         "native_cross_daemon_transport_loop_ticks": 0,
         "native_cross_daemon_transport_loop_failures": 0,
+        "native_iio_burst_worker_invocations": 0,
+        "native_iio_burst_worker_failures": 0,
         "native_service_loop_worker_starts": 0,
         "native_service_loop_worker_status_polls": 0,
         "native_service_loop_worker_failures": 0,
@@ -1918,6 +1922,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "burst_helper": str(args.burst_helper) if args.burst_helper else None,
             "persistent_burst_helper": bool(args.persistent_burst_helper),
+            "native_iio_burst_worker_required": bool(
+                args.execute_live_rf
+                and args.persistent_burst_helper
+                and args.burst_helper is not None
+            ),
+            "native_iio_burst_worker_proven": bool(
+                not (
+                    args.execute_live_rf
+                    and args.persistent_burst_helper
+                    and args.burst_helper is not None
+                )
+                or (
+                    counts["native_iio_burst_worker_invocations"] > 0
+                    and counts["native_iio_burst_worker_failures"] == 0
+                    and counts["native_iio_burst_worker_invocations"]
+                    >= counts["batches_moved"]
+                )
+            ),
             "native_rf_service_worker_required": bool(
                 args.execute_live_rf and args.require_native_rf_service_worker
             ),
@@ -2082,6 +2104,21 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             frames_in_batch,
         )
 
+    def record_native_iio_burst_worker(report: dict[str, Any]) -> None:
+        if not (
+            args.execute_live_rf
+            and args.persistent_burst_helper
+            and args.burst_helper is not None
+        ):
+            return
+        if report.get("native_iio_burst_worker_required") is not True:
+            counts["native_iio_burst_worker_failures"] += 1
+            return
+        if report.get("native_iio_burst_worker_proven") is True:
+            counts["native_iio_burst_worker_invocations"] += 1
+        else:
+            counts["native_iio_burst_worker_failures"] += 1
+
     def record_served_direction(direction_name: str) -> None:
         nonlocal last_served_direction
         nonlocal consecutive_direction_batches
@@ -2230,6 +2267,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             defer_source_ack=False,
                         )
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
+                        record_native_iio_burst_worker(report)
                         record_batch_high_water(direction["name"], len(batch_frames))
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
@@ -2399,6 +2437,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             defer_source_ack=bool(args.async_source_ack and args.execute_live_rf),
                         )
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
+                        record_native_iio_burst_worker(report)
                         record_batch_high_water(direction["name"], len(sub_burst_frames))
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
@@ -2514,6 +2553,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 write_progress()
                                 continue
                     report = run_one(args, direction, lease, next_index)
+                    record_native_iio_burst_worker(report)
                     record_batch_high_water(direction["name"], 1)
                     frames.append(
                         {

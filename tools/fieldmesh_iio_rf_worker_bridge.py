@@ -234,6 +234,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
         "iq_iio_live_run": str(args.out_dir / "iq-iio-live-run" / "fieldmesh_iq_iio_live_run.json"),
+        "native_iio_burst_worker_required": run_report.get("native_iio_burst_worker_required") is True,
+        "native_iio_burst_worker_proven": run_report.get("native_iio_burst_worker_proven") is True,
         "iq_recovered_frame_match": recovered_frame_hex == lease["frame_hex"] if args.execute_live_rf else False,
         "sink_ingest": ingest,
         "source_ack": ack,

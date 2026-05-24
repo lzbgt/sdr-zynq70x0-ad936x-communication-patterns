@@ -22,6 +22,10 @@ if ! grep -q -- "--server" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing persistent server contract" >&2
   exit 1
 fi
+if ! grep -q -- "--native-worker-self-test" "$work_dir/help.txt"; then
+  echo "fieldmesh_iio_burst_xfer help output is missing native IIO worker contract" >&2
+  exit 1
+fi
 if ! grep -q -- "--bfsk-encode" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BFSK modem contract" >&2
   exit 1
@@ -42,6 +46,26 @@ if ! grep -q -- "--baseband-carrier-hz" "$work_dir/help.txt"; then
   echo "fieldmesh_iio_burst_xfer help output is missing C BPSK carrier contract" >&2
   exit 1
 fi
+
+"$work_dir/fieldmesh_iio_burst_xfer" --native-worker-self-test \
+  >"$work_dir/native_worker_self_test.json"
+python3 - "$work_dir/native_worker_self_test.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if report.get("event") != "fieldmesh_iio_burst_native_worker_self_test" or report.get("ok") is not True:
+    raise SystemExit(f"C native IIO worker self-test failed: {report}")
+if report.get("proof") != "FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1":
+    raise SystemExit(f"C native IIO worker proof token drifted: {report}")
+for key in ("native_iio_burst_worker", "persistent_server_supported", "libiio_rx_tx_worker", "same_process_rx_tx"):
+    if report.get(key) is not True:
+        raise SystemExit(f"C native IIO worker did not prove {key}: {report}")
+for key in ("python_iio_transport", "reads_hardware", "writes_hardware", "starts_rf_tx"):
+    if report.get(key) is not False:
+        raise SystemExit(f"C native IIO worker self-test must be read/write-free for {key}: {report}")
+PY
 
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-self-test \
   >"$work_dir/bpsk_self_test.json"
@@ -356,6 +380,11 @@ required = [
     "iio_buffer_push",
     "pthread_create",
     "fieldmesh_iio_burst_xfer_server",
+    "fieldmesh_iio_burst_native_worker_self_test",
+    "FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1",
+    "native_iio_burst_worker",
+    "libiio_rx_tx_worker",
+    "python_iio_transport",
     "fieldmesh_bpsk_modem_encode",
     "fieldmesh_bpsk_modem_decode",
     "fieldmesh_bpsk_modem_self_test",

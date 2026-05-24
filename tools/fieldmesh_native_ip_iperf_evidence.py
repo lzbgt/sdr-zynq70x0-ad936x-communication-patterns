@@ -273,6 +273,15 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         )
     if report.get("iio_bridge_persistent_burst_helper") is not True:
         errors.append(f"{label}: IIO bridge must use persistent burst helper")
+    if report.get("iio_bridge_native_iio_burst_worker_required") is not True:
+        errors.append(f"{label}: native IIO burst worker proof must be required")
+    if report.get("iio_bridge_native_iio_burst_worker_proven") is not True:
+        errors.append(f"{label}: native IIO burst worker proof is missing")
+    invocations = report.get("iio_bridge_native_iio_burst_worker_invocations")
+    if not isinstance(invocations, int) or invocations < 1:
+        errors.append(f"{label}: native IIO burst worker was not exercised")
+    if int(report.get("iio_bridge_native_iio_burst_worker_failures") or 0) != 0:
+        errors.append(f"{label}: native IIO burst worker reported failures")
     if report.get("iio_bridge_rf_sub_burst_enabled") is not True:
         errors.append(f"{label}: IIO RF sub-burst service must be enabled")
     if report.get("iio_bridge_rf_sub_burst_exercised") is not True:
@@ -677,6 +686,9 @@ def main() -> int:
         "requires_iio_persistent_burst_helper": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_native_iio_burst_worker": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_iio_in_burst_priority_preemption": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
@@ -1053,6 +1065,18 @@ def main() -> int:
         ),
         "host_iio_bridge_persistent_burst_helper": host.get(
             "iio_bridge_persistent_burst_helper"
+        ),
+        "board_iio_native_iio_burst_worker_proven": board.get(
+            "iio_bridge_native_iio_burst_worker_proven"
+        ),
+        "host_iio_native_iio_burst_worker_proven": host.get(
+            "iio_bridge_native_iio_burst_worker_proven"
+        ),
+        "board_iio_native_iio_burst_worker_invocations": board.get(
+            "iio_bridge_native_iio_burst_worker_invocations"
+        ),
+        "host_iio_native_iio_burst_worker_invocations": host.get(
+            "iio_bridge_native_iio_burst_worker_invocations"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

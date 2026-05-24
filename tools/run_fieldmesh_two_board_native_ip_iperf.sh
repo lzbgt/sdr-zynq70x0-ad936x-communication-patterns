@@ -117,6 +117,12 @@ helper_supports_persistent_server() {
     "$helper" --help 2>&1 | grep -q -- '--server'
 }
 
+helper_proves_native_iio_worker() {
+    local helper="$1"
+    "$helper" --native-worker-self-test 2>/dev/null |
+        grep -q 'FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1'
+}
+
 build_default_iio_burst_helper() {
     mkdir -p "$(dirname "$default_iio_burst_helper")"
     "$cc" -std=c99 -Wall -Wextra -Werror \
@@ -400,7 +406,8 @@ fi
 if [ "$allow_iio_rf_bridge" = "1" ] && [ -z "$fieldmesh_iio_burst_helper" ]; then
     if [ ! -x "$default_iio_burst_helper" ] ||
        { [ "$iio_bridge_persistent_burst_helper" = "1" ] &&
-         ! helper_supports_persistent_server "$default_iio_burst_helper"; }; then
+         ! helper_supports_persistent_server "$default_iio_burst_helper"; } ||
+       ! helper_proves_native_iio_worker "$default_iio_burst_helper"; then
         build_default_iio_burst_helper || true
     fi
     if [ -x "$default_iio_burst_helper" ]; then
@@ -414,6 +421,11 @@ if [ -n "$fieldmesh_iio_burst_helper" ] &&
    [ "$iio_bridge_persistent_burst_helper" = "1" ] &&
    ! helper_supports_persistent_server "$fieldmesh_iio_burst_helper"; then
     echo "FIELDMESH_IIO_BURST_HELPER must support --server when IIO_BRIDGE_PERSISTENT_BURST_HELPER=1" >&2
+    exit 1
+fi
+if [ -n "$fieldmesh_iio_burst_helper" ] &&
+   ! helper_proves_native_iio_worker "$fieldmesh_iio_burst_helper"; then
+    echo "FIELDMESH_IIO_BURST_HELPER must prove FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1" >&2
     exit 1
 fi
 if [ "$iio_bridge_cyclic_tx" != "0" ] && [ "$iio_bridge_cyclic_tx" != "1" ]; then
@@ -2919,6 +2931,18 @@ report = {
     ),
     "iio_bridge_persistent_burst_helper": bool(
         last_iio_bridge.get("persistent_burst_helper")
+    ),
+    "iio_bridge_native_iio_burst_worker_required": bool(
+        last_iio_bridge.get("native_iio_burst_worker_required")
+    ),
+    "iio_bridge_native_iio_burst_worker_proven": bool(
+        last_iio_bridge.get("native_iio_burst_worker_proven")
+    ),
+    "iio_bridge_native_iio_burst_worker_invocations": int(
+        last_iio_bridge.get("native_iio_burst_worker_invocations") or 0
+    ),
+    "iio_bridge_native_iio_burst_worker_failures": int(
+        last_iio_bridge.get("native_iio_burst_worker_failures") or 0
     ),
     "iio_bridge_in_burst_priority_preemption_enabled": bool(
         last_iio_bridge.get("in_burst_priority_preemption_enabled")
