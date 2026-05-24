@@ -4,6 +4,16 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$repo_root/tools/fieldmesh_image_paths.sh"
 variant="${1:-all}"
+require_current_fw_dma_runtime="${FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME:-0}"
+
+case "$require_current_fw_dma_runtime" in
+    0|1)
+        ;;
+    *)
+        echo "FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME must be 0 or 1" >&2
+        exit 2
+        ;;
+esac
 
 require_file() {
     if [[ ! -f "$1" ]]; then
@@ -44,6 +54,7 @@ verify_variant() {
     local rf_ctrl_write_out
     local freshness_env
     local freshness_artifact_env
+    local freshness_args
     local fit_info_out
     local runtime_manifest
     local rootfs_md5
@@ -565,8 +576,11 @@ PY
             exit 2
             ;;
     esac
-    env "$freshness_env" "$freshness_artifact_env" \
-        "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" "$name"
+    freshness_args=("$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" "$name")
+    if [[ "$require_current_fw_dma_runtime" == "1" ]]; then
+        freshness_args+=("--require-current")
+    fi
+    env "$freshness_env" "$freshness_artifact_env" "${freshness_args[@]}"
 
     (cd "$jtag_dir" && sha256sum -c SHA256SUMS >/dev/null)
 

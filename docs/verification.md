@@ -2870,7 +2870,10 @@ source verification green until a Yocto rebuild is feasible; use
 hard failure. The normal `verify_fieldmesh_runtime_artifacts.sh` path emits this
 same advisory row from the already-extracted packaged binary strings, so live
 gate logs show stale firmware-DMA package state even while the hard artifact
-contract remains compatible with the last built images.
+contract remains compatible with the last built images. Set
+`FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=1` on
+`verify_fieldmesh_runtime_artifacts.sh` after rebuilding packages to promote
+that advisory row into a hard failure.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

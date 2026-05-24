@@ -1458,7 +1458,8 @@ below were later superseded by the current PHY-management two-board gates above:
   low-memory-safe step can keep source checks green while still making stale
   rootfs packages visible. `tools/verify_fieldmesh_runtime_artifacts.sh` emits
   the same advisory row from the packaged binary strings. After the next Yocto
-  package rebuild, run it with `--require-current` and tighten the hard
+  package rebuild, run it with `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=1` or
+  the standalone reporter's `--require-current` and tighten the hard
   runtime-artifact gate.
   The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
