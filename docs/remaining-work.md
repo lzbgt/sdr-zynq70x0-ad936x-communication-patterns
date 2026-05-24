@@ -297,8 +297,10 @@ defaults to batch leasing and asynchronous source ACKs: after peer ingest
 succeeds, the source ACK runs in parallel while the opposite RF direction can
 start. The loop now also supports a bounded same-source ACK pipeline for HIL,
 so a source can lease the next RF batch after peer ingest while earlier source
-ACK responses are still pending. With the previous persistent-helper runtime
-installed, live HIL moved 55 native-IP
+ACK responses are still pending. Final bridge/native-IP reports carry
+per-direction ACK-pipeline high-water and max-pending counters so captures can
+prove whether the bounded pipeline was actually exercised. With the previous
+persistent-helper runtime installed, live HIL moved 55 native-IP
 frames with zero duplicate drops; the captured TCP sequence shows the
 256-byte data payload crossed RF and was ACKed,
 but `iperf3` still timed out with its data/control sockets established before

@@ -4146,7 +4146,9 @@ rejects live RF without explicit approvals, and rejects daemon queue mutation
 outside live mode. It also proves the bounded source-ACK pipeline used by HIL:
 ACKs are submitted only after peer ingest, but up to
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH` same-source ACK responses can remain in
-flight while the next RF batch starts. `run_fieldmesh_two_board_native_ip_iperf.sh`
+flight while the next RF batch starts. It also checks durable high-water evidence
+so final bridge/native-IP reports show the max in-flight ACK depth reached
+during the run. `run_fieldmesh_two_board_native_ip_iperf.sh`
 selects this path with `ALLOW_IIO_RF_BRIDGE=1`; the older
 `ALLOW_DAEMON_RF_BRIDGE=1` path remains diagnostic-only.
 For operator readiness checks, `run_fieldmesh_two_board_native_ip_iperf.sh`

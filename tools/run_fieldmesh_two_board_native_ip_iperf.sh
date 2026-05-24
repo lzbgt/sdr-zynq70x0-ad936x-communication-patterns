@@ -2233,6 +2233,7 @@ bridge = [
     )
 ]
 iio_bridge = [row for row in rows if row.get("event") == "fieldmesh_iio_rf_worker_bridge_loop"]
+last_iio_bridge = iio_bridge[-1] if iio_bridge else {}
 statuses = [row for row in rows if row.get("event") == "sdk_daemon_tun_service_status"]
 tcp_end = tcp.get("end", {})
 udp_end = udp.get("end", {})
@@ -2367,6 +2368,21 @@ report = {
     "transport": "real_rf_phy" if real_rf_ready else "daemon_rf_driver_queue_bridge",
     "diagnostic_bridge": bool(allow_bridge),
     "iio_rf_bridge": bool(allow_iio),
+    "iio_bridge_source_ack_pipeline_depth": int(
+        last_iio_bridge.get("source_ack_pipeline_depth") or 0
+    ),
+    "iio_bridge_source_ack_pipeline_active": bool(
+        last_iio_bridge.get("source_ack_pipeline_active")
+    ),
+    "iio_bridge_source_ack_pipeline_high_water": (
+        last_iio_bridge.get("source_ack_pipeline_high_water") or {}
+    ),
+    "iio_bridge_source_ack_pipeline_max_pending": int(
+        last_iio_bridge.get("source_ack_pipeline_max_pending") or 0
+    ),
+    "iio_bridge_source_ack_pipeline_exercised": bool(
+        last_iio_bridge.get("source_ack_pipeline_exercised")
+    ),
     "uses_inter_board_ip_routing": False,
     "uses_ssh_launched_board_client": not host_pc_case,
     "host_originated_traffic": bool(host_pc_case),

@@ -312,6 +312,7 @@ class AsyncSourceAcker:
             else None
         )
         self.pending: dict[str, list[dict[str, Any]]] = {}
+        self.high_water: dict[str, int] = {}
 
     def submit(
         self,
@@ -336,6 +337,7 @@ class AsyncSourceAcker:
             return report
 
         future = self.executor.submit(run_ack)
+        direction_name = direction["name"]
         pending_report = {
             "attempted": True,
             "api": "FIELDMESH_RF_TX_ACK_BATCH",
@@ -343,13 +345,21 @@ class AsyncSourceAcker:
             "pending": True,
             "frames": len(frames),
         }
-        self.pending.setdefault(direction["name"], []).append(
+        self.pending.setdefault(direction_name, []).append(
             {
                 "future": future,
                 "frame_summary": frame_summary,
                 "report_path": report_path,
             }
         )
+        pending_count = len(self.pending[direction_name])
+        self.high_water[direction_name] = max(
+            self.high_water.get(direction_name, 0),
+            pending_count,
+        )
+        pending_report["pipeline_pending_after_submit"] = pending_count
+        pending_report["pipeline_high_water"] = self.high_water[direction_name]
+        frame_summary["source_ack_pipeline_pending_after_submit"] = pending_count
         self.counts["async_source_acks_submitted"] += 1
         return pending_report
 
@@ -399,6 +409,16 @@ class AsyncSourceAcker:
             for direction_name, items in sorted(self.pending.items())
             if items
         }
+
+    def high_water_counts(self) -> dict[str, int]:
+        return {
+            direction_name: count
+            for direction_name, count in sorted(self.high_water.items())
+            if count
+        }
+
+    def max_pending_count(self) -> int:
+        return max(self.high_water.values(), default=0)
 
     def wait_all(self) -> None:
         for direction_name in list(self.pending):
@@ -1024,6 +1044,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 and args.source_ack_pipeline_depth > 1
             ),
             "source_ack_pipeline_pending": async_acker.pending_counts(),
+            "source_ack_pipeline_high_water": async_acker.high_water_counts(),
+            "source_ack_pipeline_max_pending": async_acker.max_pending_count(),
+            "source_ack_pipeline_exercised": bool(
+                args.execute_live_rf
+                and args.async_source_ack
+                and args.source_ack_pipeline_depth > 1
+                and async_acker.max_pending_count() > 1
+            ),
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "burst_helper": str(args.burst_helper) if args.burst_helper else None,
             "persistent_burst_helper": bool(args.persistent_burst_helper),

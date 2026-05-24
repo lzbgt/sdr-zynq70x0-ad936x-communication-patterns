@@ -68,6 +68,10 @@ if report.get("ack_timeout_ms") != 1000:
     raise SystemExit(f"unexpected ACK timeout default: {report.get('ack_timeout_ms')}")
 if report.get("source_ack_pipeline_depth") != 1 or report.get("source_ack_pipeline_active") is not False:
     raise SystemExit(f"unexpected source ACK pipeline default: {report}")
+if report.get("source_ack_pipeline_high_water") != {} or report.get("source_ack_pipeline_max_pending") != 0:
+    raise SystemExit(f"dry-run source ACK pipeline evidence must be empty: {report}")
+if report.get("source_ack_pipeline_exercised") is not False:
+    raise SystemExit(f"dry-run source ACK pipeline must not be exercised: {report}")
 if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
 if report.get("lease_priority") != "tcp-payload":
@@ -259,9 +263,18 @@ try:
     pending = pipeline_acker.pending_counts()
     if pending.get("z103-to-z203") != 2:
         raise SystemExit(f"source ACK pipeline pending summary is wrong: {pending}")
+    high_water = pipeline_acker.high_water_counts()
+    if high_water.get("z103-to-z203") != 2 or pipeline_acker.max_pending_count() != 2:
+        raise SystemExit(f"source ACK pipeline high-water summary is wrong: {high_water}")
+    if first.get("source_ack_pipeline_pending_after_submit") != 1:
+        raise SystemExit(f"first ACK did not record pending-after-submit evidence: {first}")
+    if second.get("source_ack_pipeline_pending_after_submit") != 2:
+        raise SystemExit(f"second ACK did not record pending-after-submit evidence: {second}")
     pipeline_acker.wait_direction("z103-to-z203")
     if first.get("source_ack_ok") is not True or second.get("source_ack_ok") is not True:
         raise SystemExit(f"source ACK pipeline did not complete both ACKs: {first}, {second}")
+    if pipeline_acker.high_water_counts().get("z103-to-z203") != 2:
+        raise SystemExit("source ACK pipeline high-water evidence was lost after wait")
     pipeline_acker.wait_all()
 finally:
     loop.ack_batch_to_daemon_reliable = original_ack
@@ -377,6 +390,9 @@ required = [
     'FIELDMESH_IIO_BURST_HELPER must support --server',
     'iio_bridge_source_ack_pipeline_depth="${IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH:-2}"',
     "--source-ack-pipeline-depth",
+    '"iio_bridge_source_ack_pipeline_high_water"',
+    '"iio_bridge_source_ack_pipeline_max_pending"',
+    '"iio_bridge_source_ack_pipeline_exercised"',
     'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"',
     'rf_bit_repeat="${RF_BIT_REPEAT:-2}"',
     'rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-64}"',

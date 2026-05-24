@@ -1319,8 +1319,10 @@ user and vendor configuration.
   the next opposite-direction RF burst. It now also exposes a bounded
   same-source ACK pipeline (`--source-ack-pipeline-depth`, defaulted to `2` by
   the native-IP HIL runner) so a source can start the next RF batch after peer
-  ingest while prior source ACK responses are still in flight. Live HIL with
-  the earlier async-ACK path moved 54 frames with zero bridge
+  ingest while prior source ACK responses are still in flight. The bridge and
+  native-IP reports now preserve per-direction ACK-pipeline high-water evidence,
+  so HIL artifacts show whether the configured pipeline was actually exercised.
+  Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but
   `iperf3` still timed out in `FIN_WAIT1` with final TCP control bytes queued.
