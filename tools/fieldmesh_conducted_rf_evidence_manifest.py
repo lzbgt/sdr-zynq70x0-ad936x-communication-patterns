@@ -21,6 +21,9 @@ PRODUCTION_APP_LABELS = {
     "topology_app_report",
     "native_ip_app_report",
 }
+PRODUCTION_RF_LABELS = {
+    "rf_bind_gate",
+}
 SEQUENCE_EVENTS = {
     "fieldmesh_conducted_rf_production_sequence",
     "fieldmesh_over_air_rf_production_sequence",
@@ -95,7 +98,7 @@ def verify_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
     required = set(REQUIRED_LABELS)
     if args.require_production_ready or manifest.get("production_ready") is True:
-        required |= PRODUCTION_APP_LABELS
+        required |= PRODUCTION_APP_LABELS | PRODUCTION_RF_LABELS
     missing = sorted(required - set(labels))
     if missing:
         raise SystemExit(f"evidence manifest missing labels: {missing}")
@@ -185,6 +188,7 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
     bridge = load_json(manifest_file_path(labels, "bridge"))
     iq_live_run = load_json(manifest_file_path(labels, "iq_live_run"))
     production_gate = load_json(manifest_file_path(labels, "production_gate"))
+    rf_bind_gate = load_json(manifest_file_path(labels, "rf_bind_gate")) if "rf_bind_gate" in labels else None
 
     if preflight.get("event") not in PREFLIGHT_EVENTS:
         raise SystemExit(
@@ -193,6 +197,29 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
     require_event(bridge, "bridge", "fieldmesh_iio_rf_worker_bridge")
     require_event(iq_live_run, "iq_live_run", "fieldmesh_iq_iio_live_run")
     require_event(production_gate, "production_gate", "fieldmesh_real_rf_production_gate")
+    if rf_bind_gate is not None:
+        require_event(rf_bind_gate, "rf_bind_gate", "fieldmesh_board_rf_phy_bind_gate")
+        if rf_bind_gate.get("ok") is not True:
+            raise SystemExit("rf_bind_gate: report must be ok=true")
+        if rf_bind_gate.get("fw_dma_counter_progression_ok") is not True:
+            raise SystemExit("rf_bind_gate: firmware-DMA counter progression is not proven")
+        if rf_bind_gate.get("fw_dma_drop_error_delta") != 0:
+            raise SystemExit("rf_bind_gate: firmware-DMA drop/error delta must be zero")
+        if rf_bind_gate.get("rf_phy_tx_rx") not in (0, False):
+            raise SystemExit("rf_bind_gate: bind gate must not claim RF PHY TX/RX")
+        if rf_bind_gate.get("production_ready") not in (0, False):
+            raise SystemExit("rf_bind_gate: bind gate must not claim production readiness")
+        for key in (
+            "fw_dma_tx_parser_packets_delta",
+            "fw_dma_tx_parser_bytes_delta",
+            "fw_dma_ingress_packets_delta",
+            "fw_dma_ingress_bytes_delta",
+            "fw_dma_ingress_desc_publishes_delta",
+            "fw_dma_mac_ticks_delta",
+        ):
+            value = rf_bind_gate.get(key)
+            if not isinstance(value, int) or value < 1:
+                raise SystemExit(f"rf_bind_gate: {key} must be >= 1")
 
     bridge_iq = bridge.get("iq_iio_live_run")
     if isinstance(bridge_iq, str):
@@ -205,6 +232,8 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("sequence iq_live_run does not match manifest iq_live_run")
         if not same_or_source_path(sequence.get("production_gate"), labels, "production_gate"):
             raise SystemExit("sequence production_gate does not match manifest production_gate")
+        if "rf_bind_gate" in labels and not same_or_source_path(sequence.get("rf_bind_gate_report"), labels, "rf_bind_gate"):
+            raise SystemExit("sequence rf_bind_gate_report does not match manifest rf_bind_gate")
 
     app_features: list[str] = []
     for label, feature in (
@@ -229,6 +258,7 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         "bridge_event": True,
         "iq_live_run_event": True,
         "production_gate_event": True,
+        "rf_bind_gate_event": rf_bind_gate is not None,
         "app_features": sorted(app_features),
     }
 

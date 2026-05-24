@@ -75,6 +75,60 @@ cat > "$work_dir/live_bridge.json" <<JSON
 }
 JSON
 
+cat > "$work_dir/rf_bind_gate.json" <<'JSON'
+{
+  "event": "fieldmesh_board_rf_phy_bind_gate",
+  "ok": true,
+  "binding_ready": 1,
+  "rf_dac_source_select_passed": 1,
+  "requires_c_modem_service_rate": true,
+  "modem_benchmark_decode_frame_kbps": 14000,
+  "dma_smoke_tx_polls": 1,
+  "dma_smoke_rx_polls": 0,
+  "fw_dma_status_reads_hardware": true,
+  "fw_dma_status_writes_hardware": false,
+  "fw_dma_counter_progression_ok": true,
+  "fw_dma_tx_parser_packets_delta": 1,
+  "fw_dma_tx_parser_bytes_delta": 64,
+  "fw_dma_ingress_packets_delta": 1,
+  "fw_dma_ingress_bytes_delta": 64,
+  "fw_dma_ingress_desc_publishes_delta": 1,
+  "fw_dma_mac_ticks_delta": 1,
+  "fw_dma_drop_error_delta": 0,
+  "live_rf_prerequisites_ready": 0,
+  "rf_phy_tx_rx": 0,
+  "production_ready": 0,
+  "production_blocker": "real_rf_phy_tx_rx_not_verified"
+}
+JSON
+
+cat > "$work_dir/rf_bind_gate_no_progress.json" <<'JSON'
+{
+  "event": "fieldmesh_board_rf_phy_bind_gate",
+  "ok": true,
+  "binding_ready": 1,
+  "rf_dac_source_select_passed": 1,
+  "requires_c_modem_service_rate": true,
+  "modem_benchmark_decode_frame_kbps": 14000,
+  "dma_smoke_tx_polls": 1,
+  "dma_smoke_rx_polls": 0,
+  "fw_dma_status_reads_hardware": true,
+  "fw_dma_status_writes_hardware": false,
+  "fw_dma_counter_progression_ok": true,
+  "fw_dma_tx_parser_packets_delta": 0,
+  "fw_dma_tx_parser_bytes_delta": 64,
+  "fw_dma_ingress_packets_delta": 1,
+  "fw_dma_ingress_bytes_delta": 64,
+  "fw_dma_ingress_desc_publishes_delta": 1,
+  "fw_dma_mac_ticks_delta": 1,
+  "fw_dma_drop_error_delta": 0,
+  "live_rf_prerequisites_ready": 0,
+  "rf_phy_tx_rx": 0,
+  "production_ready": 0,
+  "production_blocker": "real_rf_phy_tx_rx_not_verified"
+}
+JSON
+
 cat > "$work_dir/messaging_runtime_source.json" <<'JSON'
 {"event":"fieldmesh_imgui_control_snapshot","profile_source":"runtime_discovery","messaging_transport":"daemon_rf_packet_engine","messages_received":1,"last_received_text":"hello over rf","uses_inter_board_ip_routing":false,"starts_rf_tx":false,"writes_hardware":false}
 JSON
@@ -138,6 +192,7 @@ required = {
     "allow_hardware_writes",
     "allow_rf_tx",
     "allow_daemon_queue_mutation",
+    "rf_bind_gate_report",
     "rf_path_id",
     "rf_path_evidence",
     "operator_confirmation",
@@ -150,6 +205,7 @@ EXECUTE_LIVE_RF=1 \
 ALLOW_HARDWARE_WRITES=1 \
 ALLOW_RF_TX=1 \
 ALLOW_DAEMON_QUEUE_MUTATION=1 \
+RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
 RF_PATH_ID=authorized-open-air-A \
 RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
 OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
@@ -174,10 +230,54 @@ if report.get("ok") is not True:
     raise SystemExit(f"preflight should pass: {report}")
 if report.get("live_rf_allowed") is not True:
     raise SystemExit(f"live RF should be allowed after approvals: {report}")
+if report.get("rf_bind_gate_ok") is not True:
+    raise SystemExit(f"firmware-DMA bind-gate proof should be required: {report}")
 if report.get("production_ready_possible_after_run") is not True:
     raise SystemExit(f"complete app evidence should make production possible after run: {report}")
 PY
 
+if EXECUTE_LIVE_RF=1 \
+  ALLOW_HARDWARE_WRITES=1 \
+  ALLOW_RF_TX=1 \
+  ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate_no_progress.json" \
+  RF_PATH_ID=authorized-open-air-A \
+  RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_source.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/no-fw-dma-progression" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF preflight accepted stale firmware-DMA bind-gate progression" >&2
+  exit 1
+fi
+
+if EXECUTE_LIVE_RF=1 \
+  ALLOW_HARDWARE_WRITES=1 \
+  ALLOW_RF_TX=1 \
+  ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_PATH_ID=authorized-open-air-A \
+  RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
+  OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_source.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_source.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
+  PREFLIGHT_ONLY=1 \
+  EXPECT_PREFLIGHT_OK=1 \
+  EXPECT_PRODUCTION_READY=1 \
+  RF_BINDING_PLAN="$work_dir/rf_binding_plan.json" \
+  OUT_DIR="$work_dir/missing-fw-dma-progression" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF preflight accepted missing firmware-DMA bind-gate proof" >&2
+  exit 1
+fi
+
+RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_runtime_source.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
@@ -194,6 +294,7 @@ cat > "$work_dir/native_ip_driver_queue_source.json" <<'JSON'
 {"event":"fieldmesh_two_board_native_ip_socket_assert","ok":true,"transport":"daemon_rf_driver_queue_bridge","rf_phy_tx_rx":0,"next_boundary":"rf_phy_tx_rx","tcp_client_bytes":30,"udp_client_bytes":30,"uses_inter_board_ip_routing":false}
 JSON
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_runtime_source.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_driver_queue_source.json" \
@@ -223,6 +324,7 @@ cat > "$work_dir/messaging_uncorrelated_feature.json" <<JSON
 }
 JSON
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
@@ -237,6 +339,7 @@ if BRIDGE_REPORT="$work_dir/live_bridge.json" \
 fi
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
+RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
 APP_MESSAGING_REPORT="$work_dir/app_messaging_normalized.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
 APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
@@ -280,6 +383,7 @@ cat > "$work_dir/app_messaging_uncorrelated_normalized.json" <<JSON
 }
 JSON
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_REPORT="$work_dir/app_messaging_uncorrelated_normalized.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_runtime_source.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_runtime_source.json" \
@@ -297,6 +401,7 @@ if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
   ALLOW_RF_TX=1 \
   ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   RF_PATH_ID=authorized-open-air-A \
   RF_PATH_EVIDENCE="$work_dir/valid_over_air_path.json" \
   OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
@@ -333,6 +438,7 @@ if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
   ALLOW_RF_TX=1 \
   ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   RF_PATH_ID=authorized-open-air-A \
   RF_PATH_EVIDENCE="$work_dir/bad_rf_path.json" \
   OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
@@ -355,6 +461,7 @@ print(json.dumps({
     "event": "fieldmesh_conducted_rf_preflight_check",
     "ok": True,
     "live_rf_allowed": report["live_rf_allowed"],
+    "rf_bind_gate_ok": report["rf_bind_gate_ok"],
     "rf_path_evidence_ok": report["rf_path_evidence_ok"],
     "production_ready_possible_after_run": report["production_ready_possible_after_run"],
 }, sort_keys=True))

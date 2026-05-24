@@ -532,6 +532,12 @@ from that pair, refusing ambiguous `APP_NATIVE_IP_*` overrides.
 `run_fieldmesh_real_rf_production_gate.sh` also checks the normalized native-IP
 app report back to this paired iperf evidence, so callers cannot bypass the
 layered iperf requirement with a generic socket success report.
+The same over-air/conducted preflight now requires `RF_BIND_GATE_REPORT` for
+any live-RF or production-ready path. That report must be the board RF PHY bind
+gate summary with read-only firmware-DMA status, positive TX parser/ingress/
+descriptor/MAC tick deltas, zero drop/error deltas, and C modem service-rate
+proof, so measured-link claims cannot bypass the C/FPGA-native endpoint
+counter evidence.
 The installed-daemon GNSS topology app gate now proves the non-RF positioning
 path separately: when both installed daemons receive explicit GNSS/BDS RTLS
 reports for Z203 and Z103, the runtime-discovery ImGui app computes a real

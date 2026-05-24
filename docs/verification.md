@@ -4143,10 +4143,10 @@ current report schema:
 Result:
 
 ```json
-{"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
+{"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "rf_bind_gate_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
 {"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "missing_rf_path_refused": true, "ok": true}
-{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","topology_app_report"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true},"verified_files":7}
-{"event":"fieldmesh_over_air_rf_production_sequence_check","live_rf_allowed":true,"ok":true,"preflight_alias":true}
+{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","rf_bind_gate","topology_app_report"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true,"rf_bind_gate_event":true},"verified_files":8}
+{"event":"fieldmesh_over_air_rf_production_sequence_check","live_rf_allowed":true,"ok":true,"preflight_alias":true,"rf_bind_gate_ok":true}
 ```
 
 `tools/run_fieldmesh_over_air_rf_production_sequence.sh` is the preferred
@@ -4156,7 +4156,11 @@ compatibility implementation. Before any RF-capable step the wrapper now writes
 the preferred `fieldmesh_over_air_rf_preflight.json` plus the legacy
 `fieldmesh_conducted_rf_preflight.json`; both record missing live approvals,
 RF-path evidence status, bounded TX duration, available app evidence, and
-whether live RF would be allowed. `PREFLIGHT_ONLY=1` exits after that
+whether live RF would be allowed. Live-RF and production-ready preflight now
+also require `RF_BIND_GATE_REPORT`, a board RF PHY bind-gate summary proving
+read-only firmware-DMA status, positive TX parser/ingress/descriptor/MAC tick
+deltas, zero drop/error deltas, and C modem service-rate evidence before any
+measured-link claim can proceed. `PREFLIGHT_ONLY=1` exits after that
 non-transmitting checklist, so operators can validate over-air RF path and
 evidence readiness without leasing daemon frames, mutating queues, opening IIO
 buffers, or starting RF TX. When a live bridge report already exists, preflight now also
@@ -4179,7 +4183,7 @@ the same bridge and IQ live-run reports. The preferred wrapper also emits
 `fieldmesh_over_air_rf_evidence_manifest.json`, while preserving the legacy
 conducted-named files for compatibility. The evidence manifest records byte
 counts and SHA-256 hashes for the preflight report, bridge report, IQ live-run,
-app reports, and production gate. Each entry is copied into a local
+RF bind-gate report, app reports, and production gate. Each entry is copied into a local
 `evidence/` directory under the sequence output and records both bundled `path`
 and original `source_path`. The final sequence summary includes the manifest
 path and its SHA-256 so a production-readiness claim can be audited without

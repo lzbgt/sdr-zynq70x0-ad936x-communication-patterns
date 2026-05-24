@@ -32,8 +32,32 @@ cat > "$work_dir/rf_path.json" <<'JSON'
 }
 JSON
 
+cat > "$work_dir/rf_bind_gate.json" <<'JSON'
+{
+  "event": "fieldmesh_board_rf_phy_bind_gate",
+  "ok": true,
+  "requires_c_modem_service_rate": true,
+  "modem_benchmark_decode_frame_kbps": 14000,
+  "dma_smoke_tx_polls": 1,
+  "fw_dma_status_reads_hardware": true,
+  "fw_dma_status_writes_hardware": false,
+  "fw_dma_counter_progression_ok": true,
+  "fw_dma_tx_parser_packets_delta": 1,
+  "fw_dma_tx_parser_bytes_delta": 64,
+  "fw_dma_ingress_packets_delta": 1,
+  "fw_dma_ingress_bytes_delta": 64,
+  "fw_dma_ingress_desc_publishes_delta": 1,
+  "fw_dma_mac_ticks_delta": 1,
+  "fw_dma_drop_error_delta": 0,
+  "rf_phy_tx_rx": 0,
+  "production_ready": 0,
+  "production_blocker": "real_rf_phy_tx_rx_not_verified"
+}
+JSON
+
 "$repo_root/tools/fieldmesh_over_air_rf_preflight.py" \
   --rf-binding-plan "$work_dir/rf_binding_plan.json" \
+  --rf-bind-gate-report "$work_dir/rf_bind_gate.json" \
   --source-host 192.168.1.10 \
   --sink-host 192.168.3.1 \
   --tx-uri ip:192.168.1.10 \
@@ -64,10 +88,13 @@ if report.get("ok") is not True or report.get("live_rf_allowed") is not True:
     raise SystemExit(f"over-air preflight alias did not pass: {report}")
 if report.get("rf_path_evidence_ok") is not True:
     raise SystemExit(f"over-air RF path evidence was not validated: {report}")
+if report.get("rf_bind_gate_ok") is not True:
+    raise SystemExit(f"over-air RF bind-gate proof was not validated: {report}")
 print(json.dumps({
     "event": "fieldmesh_over_air_rf_preflight_check",
     "ok": True,
     "live_rf_allowed": report["live_rf_allowed"],
+    "rf_bind_gate_ok": report["rf_bind_gate_ok"],
     "rf_path_evidence_ok": report["rf_path_evidence_ok"],
 }, sort_keys=True))
 PY

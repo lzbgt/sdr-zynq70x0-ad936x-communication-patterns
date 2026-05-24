@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/conducted-rf-production-sequence-$(date +%Y%m%d-%H%M%S)}"
 binding="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
+rf_bind_gate_report="${RF_BIND_GATE_REPORT:-}"
 bridge_report="${BRIDGE_REPORT:-}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
 
@@ -53,6 +54,7 @@ To run live over-air RF, all of these are required:
   RX_URI=ip:<rx-board-ip>
 
 Evidence inputs:
+  RF_BIND_GATE_REPORT=/path/to/fieldmesh_board_rf_phy_bind_gate.json
   RF_BINDING_PLAN=/path/to/rf_binding_plan.json
   Either BRIDGE_REPORT=/path/to/fieldmesh_iio_rf_worker_bridge.json
   Or SOURCE_HOST=<tx-daemon-ip> [LEASED_FRAME_REPORT=/path/to/lease.json]
@@ -141,6 +143,9 @@ preflight_args=(
     --max-tx-duration-ms "$max_tx_duration_ms"
     --output "$out_dir/fieldmesh_conducted_rf_preflight.json"
 )
+if [ -n "$rf_bind_gate_report" ]; then
+    preflight_args+=(--rf-bind-gate-report "$rf_bind_gate_report")
+fi
 if [ -n "$bridge_report" ]; then
     preflight_args+=(--bridge-report "$bridge_report")
 fi
@@ -436,6 +441,9 @@ reports = {
 expect_ready = sys.argv[7] == "1"
 gate_path = out_dir / "real-rf-production-gate" / "real_rf_production_gate.json"
 gate = json.loads(gate_path.read_text(encoding="utf-8"))
+preflight_path = out_dir / "fieldmesh_conducted_rf_preflight.json"
+preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+rf_bind_gate_report = preflight.get("rf_bind_gate_report")
 evidence_dir = out_dir / "evidence"
 evidence_dir.mkdir(parents=True, exist_ok=True)
 
@@ -456,7 +464,8 @@ def file_entry(label, path):
     }
 
 evidence_files = [
-    file_entry("preflight", out_dir / "fieldmesh_conducted_rf_preflight.json"),
+    file_entry("preflight", preflight_path),
+    file_entry("rf_bind_gate", rf_bind_gate_report),
     file_entry("bridge", bridge_report),
     file_entry("iq_live_run", iq_live_run),
     file_entry("messaging_app_report", reports["messaging"]),
@@ -482,6 +491,7 @@ summary = {
     "production_ready": gate.get("production_ready") is True,
     "expected_production_ready": expect_ready,
     "production_blocker": gate.get("production_blocker"),
+    "rf_bind_gate_report": str(evidence_dir / f"rf_bind_gate{Path(rf_bind_gate_report).suffix or '.bin'}") if rf_bind_gate_report else None,
     "bridge_report": str(evidence_dir / f"bridge{Path(bridge_report).suffix or '.bin'}"),
     "iq_live_run": str(evidence_dir / f"iq_live_run{Path(iq_live_run).suffix or '.bin'}"),
     "app_reports": {

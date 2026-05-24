@@ -37,6 +37,7 @@ required = {
     "messaging_app_report",
     "topology_app_report",
     "native_ip_app_report",
+    "rf_bind_gate",
     "production_gate",
 }
 if not required.issubset(labels):

@@ -20,6 +20,14 @@ CONFIRMATION = "I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH"
 LEGACY_CONFIRMATION = "I_HAVE_CONDUCTED_OR_SHIELDED_FIXTURE"
 VALID_CONFIRMATIONS = {CONFIRMATION, LEGACY_CONFIRMATION}
 MAX_TX_DURATION_MS_LIMIT = 1000
+REQUIRED_BIND_COUNTER_DELTAS = {
+    "fw_dma_tx_parser_packets_delta": 1,
+    "fw_dma_tx_parser_bytes_delta": 1,
+    "fw_dma_ingress_packets_delta": 1,
+    "fw_dma_ingress_bytes_delta": 1,
+    "fw_dma_ingress_desc_publishes_delta": 1,
+    "fw_dma_mac_ticks_delta": 1,
+}
 
 
 def existing_file(value: str | None, label: str, missing: list[str], blockers: list[str]) -> bool:
@@ -74,6 +82,55 @@ def validate_fixture(args: argparse.Namespace, blockers: list[str]) -> dict[str,
         )
     except (OSError, ValueError, SystemExit) as exc:
         blockers.append(f"rf_path_evidence_invalid:{exc}")
+        return None
+
+
+def validate_rf_bind_gate(args: argparse.Namespace, blockers: list[str]) -> dict[str, Any] | None:
+    if not args.rf_bind_gate_report:
+        return None
+    try:
+        report = read_json(Path(args.rf_bind_gate_report))
+        if report.get("event") != "fieldmesh_board_rf_phy_bind_gate" or report.get("ok") is not True:
+            raise ValueError("RF bind-gate report must be a successful fieldmesh_board_rf_phy_bind_gate")
+        if report.get("fw_dma_status_reads_hardware") is not True:
+            raise ValueError("RF bind-gate report must prove read-only firmware-DMA hardware reads")
+        if report.get("fw_dma_status_writes_hardware") is not False:
+            raise ValueError("RF bind-gate report must prove firmware-DMA status did not write hardware")
+        if report.get("fw_dma_counter_progression_ok") is not True:
+            raise ValueError("RF bind-gate report must prove firmware-DMA counter progression")
+        if report.get("fw_dma_drop_error_delta") != 0:
+            raise ValueError("RF bind-gate report must keep firmware-DMA drop/error delta at zero")
+        dma_smoke_tx_polls = report.get("dma_smoke_tx_polls")
+        if not isinstance(dma_smoke_tx_polls, int) or dma_smoke_tx_polls < 1:
+            raise ValueError("RF bind-gate report must include bounded DMA TX poll evidence")
+        if report.get("requires_c_modem_service_rate") is not True:
+            raise ValueError("RF bind-gate report must require C modem service-rate evidence")
+        modem_decode_rate = report.get("modem_benchmark_decode_frame_kbps")
+        if not isinstance(modem_decode_rate, (int, float)) or modem_decode_rate < 100:
+            raise ValueError("RF bind-gate C modem decode service rate is below threshold")
+        for key, minimum in REQUIRED_BIND_COUNTER_DELTAS.items():
+            value = report.get(key)
+            if not isinstance(value, int) or value < minimum:
+                raise ValueError(f"RF bind-gate counter {key} must be >= {minimum}")
+        if report.get("rf_phy_tx_rx") not in (0, False):
+            raise ValueError("RF bind-gate report must not claim RF PHY TX/RX")
+        if report.get("production_ready") not in (0, False):
+            raise ValueError("RF bind-gate report must not claim production readiness")
+        if report.get("production_blocker") != "real_rf_phy_tx_rx_not_verified":
+            raise ValueError("RF bind-gate report must block on measured RF PHY TX/RX")
+        return {
+            "report": str(Path(args.rf_bind_gate_report).resolve(strict=False)),
+            "fw_dma_counter_progression_ok": True,
+            "fw_dma_drop_error_delta": report.get("fw_dma_drop_error_delta"),
+            "dma_smoke_tx_polls": dma_smoke_tx_polls,
+            "modem_benchmark_decode_frame_kbps": modem_decode_rate,
+            "required_counter_deltas": {
+                key: report.get(key)
+                for key in REQUIRED_BIND_COUNTER_DELTAS
+            },
+        }
+    except (OSError, ValueError, SystemExit) as exc:
+        blockers.append(f"rf_bind_gate_report_invalid:{exc}")
         return None
 
 
@@ -280,12 +337,16 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if args.bridge_report and not Path(args.bridge_report).is_file():
         blockers.append("bridge_report_not_found")
 
+    if args.rf_bind_gate_report and not Path(args.rf_bind_gate_report).is_file():
+        blockers.append("rf_bind_gate_report_not_found")
+
     if args.max_tx_duration_ms < 1:
         blockers.append("max_tx_duration_ms_below_minimum")
     if args.max_tx_duration_ms > MAX_TX_DURATION_MS_LIMIT:
         blockers.append("max_tx_duration_ms_above_guard_limit")
 
     fixture_summary = validate_fixture(args, blockers)
+    rf_bind_gate_summary = validate_rf_bind_gate(args, blockers)
     app_inputs = classify_app_inputs(args)
     app_evidence_validated = validate_present_app_evidence(args, app_inputs, blockers)
     complete_app_evidence = all(value != "missing" for value in app_inputs.values())
@@ -295,6 +356,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         missing.append("bridge_report_or_source_host")
 
     if args.execute_live_rf:
+        existing_file(args.rf_bind_gate_report, "rf_bind_gate_report", missing, blockers)
         if not args.allow_hardware_writes:
             missing.append("allow_hardware_writes")
         if not args.allow_rf_tx:
@@ -320,6 +382,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     using_existing_bridge = bool(args.bridge_report)
 
     if args.expect_production_ready:
+        existing_file(args.rf_bind_gate_report, "rf_bind_gate_report", missing, blockers)
         if not args.execute_live_rf and not using_existing_bridge:
             blockers.append("production_requires_execute_live_rf_or_existing_bridge")
         if not complete_app_evidence:
@@ -333,9 +396,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         and args.allow_rf_tx
         and args.allow_daemon_queue_mutation
         and fixture_summary is not None
+        and rf_bind_gate_summary is not None
         and args.operator_confirmation in VALID_CONFIRMATIONS
     )
-    production_possible = bool((live_rf_allowed or using_existing_bridge) and complete_app_evidence)
+    production_possible = bool(
+        (live_rf_allowed or using_existing_bridge)
+        and complete_app_evidence
+        and rf_bind_gate_summary is not None
+    )
 
     report = {
         "event": "fieldmesh_conducted_rf_preflight",
@@ -348,6 +416,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "blockers": sorted(set(blockers)),
         "warnings": warnings,
         "rf_binding_plan": str(Path(args.rf_binding_plan).resolve(strict=False)),
+        "rf_bind_gate_report": str(Path(args.rf_bind_gate_report).resolve(strict=False)) if args.rf_bind_gate_report else None,
+        "rf_bind_gate_ok": rf_bind_gate_summary is not None,
+        "rf_bind_gate_summary": rf_bind_gate_summary,
         "bridge_report": str(Path(args.bridge_report).resolve(strict=False)) if args.bridge_report else None,
         "source_host": args.source_host or None,
         "sink_host": args.sink_host or None,
@@ -379,6 +450,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rf-binding-plan", required=True)
+    parser.add_argument("--rf-bind-gate-report", default="")
     parser.add_argument("--bridge-report", default="")
     parser.add_argument("--source-host", default="")
     parser.add_argument("--sink-host", default="")

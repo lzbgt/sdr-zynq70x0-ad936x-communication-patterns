@@ -17,6 +17,7 @@ ALLOW_RF_TX=1 \
 ALLOW_DAEMON_QUEUE_MUTATION=1 \
 RF_PATH_ID=authorized-open-air-A \
 RF_PATH_EVIDENCE="$repo_root/.config/fieldmesh/over-air-rf-preflight-alias-verify/rf_path.json" \
+RF_BIND_GATE_REPORT="$repo_root/.config/fieldmesh/over-air-rf-preflight-alias-verify/rf_bind_gate.json" \
 OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
 RF_BINDING_PLAN="$repo_root/.config/fieldmesh/over-air-rf-preflight-alias-verify/rf_binding_plan.json" \
 OUT_DIR="$work_dir/preflight-only" \
@@ -33,10 +34,13 @@ if report.get("event") != "fieldmesh_over_air_rf_preflight":
     raise SystemExit(f"over-air preflight event not normalized: {report}")
 if report.get("ok") is not True or report.get("live_rf_allowed") is not True:
     raise SystemExit(f"over-air sequence alias preflight failed: {report}")
+if report.get("rf_bind_gate_ok") is not True:
+    raise SystemExit(f"over-air sequence alias did not validate RF bind-gate proof: {report}")
 print(json.dumps({
     "event": "fieldmesh_over_air_rf_production_sequence_check",
     "ok": True,
     "preflight_alias": True,
     "live_rf_allowed": report["live_rf_allowed"],
+    "rf_bind_gate_ok": report["rf_bind_gate_ok"],
 }, sort_keys=True))
 PY

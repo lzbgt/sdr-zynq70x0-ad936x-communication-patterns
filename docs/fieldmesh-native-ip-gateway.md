@@ -416,7 +416,9 @@ Minimum production gates for native TCP/IP:
   RF. The real-RF production gate and over-air sequence now require this paired
   iperf evidence for the native-IP app report; a tiny socket echo, byte-only
   iperf summary, or generic native-IP source report is not enough for
-  production readiness;
+  production readiness. The same production preflight requires the board RF PHY
+  bind-gate report with firmware-DMA counter progression proof, so native-IP
+  measured-link evidence cannot skip the C/FPGA-native endpoint counters;
 - daemon RF queue pressure is handled as backpressure. The native-IP service must
   not close on a full RF TX/RX queue during TCP or UDP bursts; the live socket
   gate covers this by driving both protocols through the installed board

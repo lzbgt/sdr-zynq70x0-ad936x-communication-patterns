@@ -14,6 +14,33 @@ mkdir -p "$work_dir"
 cp "$repo_root/.config/fieldmesh/iio-rf-worker-bridge-verify/dry-run/fieldmesh_iio_rf_worker_bridge.json" \
   "$work_dir/dry_bridge.json"
 
+cat > "$work_dir/rf_bind_gate.json" <<'JSON'
+{
+  "event": "fieldmesh_board_rf_phy_bind_gate",
+  "ok": true,
+  "binding_ready": 1,
+  "rf_dac_source_select_passed": 1,
+  "requires_c_modem_service_rate": true,
+  "modem_benchmark_decode_frame_kbps": 14000,
+  "dma_smoke_tx_polls": 1,
+  "dma_smoke_rx_polls": 0,
+  "fw_dma_status_reads_hardware": true,
+  "fw_dma_status_writes_hardware": false,
+  "fw_dma_counter_progression_ok": true,
+  "fw_dma_tx_parser_packets_delta": 1,
+  "fw_dma_tx_parser_bytes_delta": 64,
+  "fw_dma_ingress_packets_delta": 1,
+  "fw_dma_ingress_bytes_delta": 64,
+  "fw_dma_ingress_desc_publishes_delta": 1,
+  "fw_dma_mac_ticks_delta": 1,
+  "fw_dma_drop_error_delta": 0,
+  "live_rf_prerequisites_ready": 0,
+  "rf_phy_tx_rx": 0,
+  "production_ready": 0,
+  "production_blocker": "real_rf_phy_tx_rx_not_verified"
+}
+JSON
+
 LEASED_FRAME_REPORT="$repo_root/.config/fieldmesh/iio-rf-worker-bridge-verify/lease.json" \
 RF_BINDING_PLAN="$binding" \
 EXPECT_PRODUCTION_READY=0 \
@@ -39,6 +66,7 @@ if EXECUTE_LIVE_RF=1 \
   ALLOW_HARDWARE_WRITES=1 \
   ALLOW_RF_TX=1 \
   ALLOW_DAEMON_QUEUE_MUTATION=1 \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   RF_PATH_ID=authorized-open-air-A \
   OPERATOR_CONFIRMATION=I_HAVE_AUTHORIZED_OVER_AIR_RF_PATH \
   LEASED_FRAME_REPORT="$repo_root/.config/fieldmesh/iio-rf-worker-bridge-verify/lease.json" \
@@ -169,6 +197,7 @@ PY
   --output "$work_dir/native_ip_iperf_evidence.json" >/dev/null
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
+RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
 APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
@@ -188,9 +217,12 @@ if report.get("production_ready") is not True or report.get("ok") is not True:
     raise SystemExit(f"complete sequence did not pass: {report}")
 if report.get("production_blocker") is not None:
     raise SystemExit(f"complete sequence retained blocker: {report.get('production_blocker')}")
+if not report.get("rf_bind_gate_report") or not Path(report["rf_bind_gate_report"]).is_file():
+    raise SystemExit(f"complete sequence did not bundle RF bind-gate proof: {report}")
 PY
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
+RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
 NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT="$work_dir/native_ip_board_iperf.json" \
@@ -214,6 +246,7 @@ if not native_report or not Path(native_report).is_file():
 PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
   NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT="$work_dir/native_ip_board_iperf.json" \
@@ -260,6 +293,7 @@ Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="
 PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_feature.json" \
   APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
   APP_NATIVE_IP_FEATURE_REPORT="$work_dir/native_ip_bad_feature.json" \
@@ -275,6 +309,7 @@ cat > "$work_dir/native_ip_socket_feature_only.json" <<'JSON'
 JSON
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_socket_feature_only.json" \
@@ -296,6 +331,7 @@ Path(sys.argv[2]).write_text(json.dumps(data, sort_keys=True) + "\n", encoding="
 PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
   APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
