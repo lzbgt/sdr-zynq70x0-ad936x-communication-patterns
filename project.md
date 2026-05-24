@@ -1514,11 +1514,17 @@ user and vendor configuration.
 - `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` - copies a Z203 or Z103
   HDL tree, applies the FieldMesh sidecar DMA plus RF packet-engine overlay,
   and runs Vivado project/BD generation checks without synthesis to prove
+  `fieldmesh_firmware_axis_dma_endpoint`, `fieldmesh_axis_byte_broadcast2`,
   `fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`,
   `fieldmesh_axis_async_fifo`, and `fieldmesh_iq_dac_driver` are BD-visible,
+  the RF symbolizer consumes descriptor-validated firmware-DMA egress bytes,
   the guard is driven by the sidecar control window but resets unarmed, the FIFO
   sink and DAC driver are clocked from `axi_ad9361/l_clk`, and the FieldMesh
   source selector is sidecar-controlled but resets off.
+- `tools/verify_fieldmesh_rf_engine_firmware_dma_binding.sh` - low-memory
+  static guard for the same RF-engine binding. It fails if the overlay patcher
+  feeds the symbolizer from the older sidecar bridge instead of the
+  firmware-DMA endpoint and broadcast path.
 - `tools/build_fieldmesh_dma_overlay_vivado.sh` - copies a Z203 or Z103 HDL
   tree, applies the same FieldMesh sidecar DMA overlay, runs the normal ADI
   Pluto Vivado make flow, and verifies the resulting `system_top.bit`/XSA in

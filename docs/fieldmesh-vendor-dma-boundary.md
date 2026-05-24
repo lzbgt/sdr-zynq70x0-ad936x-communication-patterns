@@ -409,6 +409,16 @@ generation without running synthesis or connecting AD936x TX:
 ./tools/check_fieldmesh_rf_engine_overlay_vivado.sh z103
 ```
 
+For low-memory development sessions, the lightweight static guard is:
+
+```sh
+./tools/verify_fieldmesh_rf_engine_firmware_dma_binding.sh
+```
+
+It checks the patcher, required RTL inventory, and RF-engine overlay checker for
+the firmware-DMA endpoint plus egress-broadcast path, and rejects direct
+sidecar-bridge-to-symbolizer wiring.
+
 Build the same copied-HDL overlay into a bitstream/XSA with:
 
 ```sh

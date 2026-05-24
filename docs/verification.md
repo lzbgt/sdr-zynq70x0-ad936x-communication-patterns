@@ -2835,6 +2835,11 @@ status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and arm/stop writes are
 only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment.
+`verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
+for the current RF-engine overlay contract: the patcher must instantiate
+`fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,
+route descriptor-validated firmware-DMA egress to RX DMA and the BPSK
+symbolizer, and avoid the old direct sidecar-bridge-to-symbolizer connection.
 
 Both corrected copied overlays rebuilt timing-clean:
 
