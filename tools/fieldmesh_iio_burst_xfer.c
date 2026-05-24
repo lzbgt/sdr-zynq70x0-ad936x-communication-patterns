@@ -59,6 +59,14 @@ struct modem_options {
     bool have_expected_frame_crc;
 };
 
+struct tone_prefixes {
+    size_t total_samples;
+    double *space_i;
+    double *space_q;
+    double *mark_i;
+    double *mark_q;
+};
+
 struct options {
     const char *tx_uri;
     const char *rx_uri;
@@ -309,38 +317,96 @@ static struct blob bfsk_encode_frame(
     return iq;
 }
 
-static double tone_energy(
-    const unsigned char *iq,
-    size_t sample_start,
-    unsigned int samples_per_symbol,
-    unsigned int sample_rate_hz,
-    double freq_hz)
+static void free_tone_prefixes(struct tone_prefixes *prefixes)
 {
-    double acc_i = 0.0;
-    double acc_q = 0.0;
-    double phase_step = -2.0 * M_PI * freq_hz / (double)sample_rate_hz;
-    double phase = phase_step * (double)sample_start;
-    for (unsigned int i = 0; i < samples_per_symbol; ++i) {
-        int16_t iv = get_i16le(iq + (sample_start + i) * 4u);
-        int16_t qv = get_i16le(iq + (sample_start + i) * 4u + 2u);
-        double c = cos(phase);
-        double s = sin(phase);
-        acc_i += (double)iv * c - (double)qv * s;
-        acc_q += (double)iv * s + (double)qv * c;
-        phase += phase_step;
+    if (!prefixes) {
+        return;
     }
+    free(prefixes->space_i);
+    free(prefixes->space_q);
+    free(prefixes->mark_i);
+    free(prefixes->mark_q);
+    memset(prefixes, 0, sizeof(*prefixes));
+}
+
+static bool build_tone_prefixes(
+    const unsigned char *iq,
+    size_t iq_len,
+    const struct modem_options *opt,
+    struct tone_prefixes *prefixes)
+{
+    if (!iq || !opt || !prefixes || iq_len % 4u != 0u) {
+        return false;
+    }
+    memset(prefixes, 0, sizeof(*prefixes));
+    size_t total_samples = iq_len / 4u;
+    if (total_samples == 0u || total_samples == SIZE_MAX) {
+        return false;
+    }
+    size_t points = total_samples + 1u;
+    prefixes->space_i = calloc(points, sizeof(*prefixes->space_i));
+    prefixes->space_q = calloc(points, sizeof(*prefixes->space_q));
+    prefixes->mark_i = calloc(points, sizeof(*prefixes->mark_i));
+    prefixes->mark_q = calloc(points, sizeof(*prefixes->mark_q));
+    if (!prefixes->space_i || !prefixes->space_q ||
+        !prefixes->mark_i || !prefixes->mark_q) {
+        free_tone_prefixes(prefixes);
+        return false;
+    }
+
+    double space_step = -2.0 * M_PI * opt->space_hz / (double)opt->sample_rate_hz;
+    double mark_step = -2.0 * M_PI * opt->mark_hz / (double)opt->sample_rate_hz;
+    double space_phase = 0.0;
+    double mark_phase = 0.0;
+    prefixes->total_samples = total_samples;
+    for (size_t sample_index = 0; sample_index < total_samples; ++sample_index) {
+        int16_t iv = get_i16le(iq + sample_index * 4u);
+        int16_t qv = get_i16le(iq + sample_index * 4u + 2u);
+        double sample_i = (double)iv;
+        double sample_q = (double)qv;
+
+        double space_c = cos(space_phase);
+        double space_s = sin(space_phase);
+        double mark_c = cos(mark_phase);
+        double mark_s = sin(mark_phase);
+        prefixes->space_i[sample_index + 1u] =
+            prefixes->space_i[sample_index] + sample_i * space_c - sample_q * space_s;
+        prefixes->space_q[sample_index + 1u] =
+            prefixes->space_q[sample_index] + sample_i * space_s + sample_q * space_c;
+        prefixes->mark_i[sample_index + 1u] =
+            prefixes->mark_i[sample_index] + sample_i * mark_c - sample_q * mark_s;
+        prefixes->mark_q[sample_index + 1u] =
+            prefixes->mark_q[sample_index] + sample_i * mark_s + sample_q * mark_c;
+
+        space_phase += space_step;
+        mark_phase += mark_step;
+        if (space_phase <= -2.0 * M_PI || space_phase >= 2.0 * M_PI) {
+            space_phase = fmod(space_phase, 2.0 * M_PI);
+        }
+        if (mark_phase <= -2.0 * M_PI || mark_phase >= 2.0 * M_PI) {
+            mark_phase = fmod(mark_phase, 2.0 * M_PI);
+        }
+    }
+    return true;
+}
+
+static double prefix_tone_energy(const double *prefix_i, const double *prefix_q,
+                                 size_t sample_start, unsigned int samples_per_symbol)
+{
+    size_t sample_end = sample_start + samples_per_symbol;
+    double acc_i = prefix_i[sample_end] - prefix_i[sample_start];
+    double acc_q = prefix_q[sample_end] - prefix_q[sample_start];
     return acc_i * acc_i + acc_q * acc_q;
 }
 
 static unsigned char *decode_hard_bits(
-    const unsigned char *iq,
-    size_t iq_len,
+    const struct tone_prefixes *prefixes,
     const struct modem_options *opt,
     unsigned int sample_offset,
     unsigned int chip_phase,
     size_t *out_bits)
 {
-    size_t total_samples = iq_len / 4u;
+    size_t total_samples = prefixes ? prefixes->total_samples : 0u;
     if (sample_offset >= opt->samples_per_symbol || total_samples <= sample_offset) {
         return NULL;
     }
@@ -359,10 +425,10 @@ static unsigned char *decode_hard_bits(
         for (unsigned int repeat = 0; repeat < opt->bit_repeat; ++repeat) {
             size_t chip = chip_phase + bit_index * opt->bit_repeat + repeat;
             size_t sample_start = sample_offset + chip * opt->samples_per_symbol;
-            double space = tone_energy(iq, sample_start, opt->samples_per_symbol,
-                                       opt->sample_rate_hz, opt->space_hz);
-            double mark = tone_energy(iq, sample_start, opt->samples_per_symbol,
-                                      opt->sample_rate_hz, opt->mark_hz);
+            double space = prefix_tone_energy(prefixes->space_i, prefixes->space_q,
+                                              sample_start, opt->samples_per_symbol);
+            double mark = prefix_tone_energy(prefixes->mark_i, prefixes->mark_q,
+                                             sample_start, opt->samples_per_symbol);
             if (mark >= space) {
                 ones++;
             }
@@ -457,10 +523,15 @@ static bool bfsk_decode_frame(
     unsigned int *out_chip_phase,
     size_t *out_bit_start)
 {
+    struct tone_prefixes prefixes;
+    if (!build_tone_prefixes(iq, iq_len, opt, &prefixes)) {
+        fprintf(stderr, "failed to build BFSK tone prefixes\n");
+        return false;
+    }
     for (unsigned int sample_offset = 0; sample_offset < opt->samples_per_symbol; ++sample_offset) {
         for (unsigned int chip_phase = 0; chip_phase < opt->bit_repeat; ++chip_phase) {
             size_t bits_len = 0;
-            unsigned char *bits = decode_hard_bits(iq, iq_len, opt, sample_offset,
+            unsigned char *bits = decode_hard_bits(&prefixes, opt, sample_offset,
                                                    chip_phase, &bits_len);
             if (!bits) {
                 continue;
@@ -478,6 +549,7 @@ static bool bfsk_decode_frame(
                         *out_chip_phase = chip_phase;
                         *out_bit_start = bit_start;
                         free(bits);
+                        free_tone_prefixes(&prefixes);
                         return true;
                     }
                 }
@@ -485,6 +557,7 @@ static bool bfsk_decode_frame(
             free(bits);
         }
     }
+    free_tone_prefixes(&prefixes);
     return false;
 }
 

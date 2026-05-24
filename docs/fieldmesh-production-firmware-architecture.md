@@ -573,8 +573,8 @@ packet pipeline.
 
 1. Freeze the binary frame and descriptor ABI with C vector tests.
 2. Keep BFSK packet encode/decode primitives in compiled C helper code; the
-   current low-memory verifier checks C encode/decode and recovery after a
-   CRC-wrong sync candidate.
+   current low-memory verifier checks C encode/decode, prefix-accumulator tone
+   detection, and recovery after a CRC-wrong sync candidate.
 3. Define first-party probe binaries for descriptor rings, PL timing, and RF
    delivered-goodput checks.
 4. Replace Python per-frame bridge logic with a C userspace RF bridge using

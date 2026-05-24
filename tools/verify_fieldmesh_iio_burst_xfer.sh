@@ -163,6 +163,8 @@ required = [
     "fieldmesh_bfsk_modem_decode",
     "fieldmesh_bfsk_modem_self_test",
     "expected_frame_crc",
+    "build_tone_prefixes",
+    "prefix_tone_energy",
     "recover_frame_from_bits",
     "FMBATCH1",
 ]
