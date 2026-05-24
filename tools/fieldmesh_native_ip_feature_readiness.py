@@ -51,6 +51,13 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_ack_pipeline_not_exercised")
         if report.get("host_iio_ack_pipeline_exercised") is not True:
             blockers.append("native_ip_host_iio_ack_pipeline_not_exercised")
+    if report.get("requires_tcp_final_exchange_evidence") is not True:
+        blockers.append("native_ip_tcp_final_exchange_evidence_not_required")
+    else:
+        if report.get("board_tcp_final_exchange_ok") is not True:
+            blockers.append("native_ip_board_tcp_final_exchange_missing")
+        if report.get("host_tcp_final_exchange_ok") is not True:
+            blockers.append("native_ip_host_tcp_final_exchange_missing")
     production_blocker = report.get("production_blocker")
     if isinstance(production_blocker, str) and production_blocker:
         for item in production_blocker.split(","):
@@ -79,6 +86,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_complete_iperf_metrics": True,
         "requires_iio_ack_pipeline_evidence": report.get(
             "requires_iio_ack_pipeline_evidence"
+        ),
+        "requires_tcp_final_exchange_evidence": report.get(
+            "requires_tcp_final_exchange_evidence"
         ),
         "board_iio_ack_pipeline_exercised": report.get("board_iio_ack_pipeline_exercised"),
         "host_iio_ack_pipeline_exercised": report.get("host_iio_ack_pipeline_exercised"),
@@ -130,6 +140,40 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_rf_burst_decode_max_elapsed_ms": report.get(
             "host_iio_bridge_rf_burst_decode_max_elapsed_ms"
         ),
+        "board_tcp_final_exchange_ok": report.get("board_tcp_final_exchange_ok"),
+        "host_tcp_final_exchange_ok": report.get("host_tcp_final_exchange_ok"),
+        "board_tcp_final_exchange": report.get("board_tcp_final_exchange"),
+        "host_tcp_final_exchange": report.get("host_tcp_final_exchange"),
+        "board_tcp_final_exchange_grace_started": report.get(
+            "board_tcp_final_exchange_grace_started"
+        ),
+        "host_tcp_final_exchange_grace_started": report.get(
+            "host_tcp_final_exchange_grace_started"
+        ),
+        "board_tcp_queue_quiet_grace_started": report.get(
+            "board_tcp_queue_quiet_grace_started"
+        ),
+        "host_tcp_queue_quiet_grace_started": report.get(
+            "host_tcp_queue_quiet_grace_started"
+        ),
+        "board_tcp_queue_quiet_max_consecutive_s": report.get(
+            "board_tcp_queue_quiet_max_consecutive_s"
+        ),
+        "host_tcp_queue_quiet_max_consecutive_s": report.get(
+            "host_tcp_queue_quiet_max_consecutive_s"
+        ),
+        "board_tcp_control_drain": report.get("board_tcp_control_drain"),
+        "host_tcp_control_drain": report.get("host_tcp_control_drain"),
+        "board_tcp_control_drain_started": report.get("board_tcp_control_drain_started"),
+        "host_tcp_control_drain_started": report.get("host_tcp_control_drain_started"),
+        "board_tcp_control_drain_elapsed_s": report.get(
+            "board_tcp_control_drain_elapsed_s"
+        ),
+        "host_tcp_control_drain_elapsed_s": report.get(
+            "host_tcp_control_drain_elapsed_s"
+        ),
+        "board_tcp_control_drain_ok": report.get("board_tcp_control_drain_ok"),
+        "host_tcp_control_drain_ok": report.get("host_tcp_control_drain_ok"),
         "transport": report.get("transport"),
         "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
         "board_to_board_real_rf_iperf": report.get("board_to_board_real_rf_iperf"),

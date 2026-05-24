@@ -76,6 +76,15 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         raise SystemExit("native_ip: requires ICMP success or TCP+UDP byte evidence")
     if source.get("requires_both_layers") is True and source.get("iperf_metric_quality_ready") is not True:
         raise SystemExit("native_ip: paired iperf evidence must include metric quality fields")
+    if source.get("requires_both_layers") is True:
+        if source.get("requires_tcp_final_exchange_evidence") is not True:
+            raise SystemExit(
+                "native_ip: paired iperf evidence must include TCP final-exchange proof"
+            )
+        if source.get("board_tcp_final_exchange_ok") is not True:
+            raise SystemExit("native_ip: board TCP final-exchange proof is missing")
+        if source.get("host_tcp_final_exchange_ok") is not True:
+            raise SystemExit("native_ip: host TCP final-exchange proof is missing")
     details: dict[str, Any] = {
         "icmp_ping_ok": icmp_ok,
         "tcp_client_bytes": tcp_bytes if isinstance(tcp_bytes, int) else 0,
@@ -104,6 +113,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_udp_packets",
         "host_udp_lost_percent",
         "requires_iio_ack_pipeline_evidence",
+        "requires_tcp_final_exchange_evidence",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
         "board_iio_bridge_source_ack_pipeline_depth",
@@ -122,6 +132,24 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_rf_burst_live_run_max_elapsed_ms",
         "board_iio_bridge_rf_burst_decode_max_elapsed_ms",
         "host_iio_bridge_rf_burst_decode_max_elapsed_ms",
+        "board_tcp_final_exchange_ok",
+        "host_tcp_final_exchange_ok",
+        "board_tcp_final_exchange",
+        "host_tcp_final_exchange",
+        "board_tcp_final_exchange_grace_started",
+        "host_tcp_final_exchange_grace_started",
+        "board_tcp_queue_quiet_grace_started",
+        "host_tcp_queue_quiet_grace_started",
+        "board_tcp_queue_quiet_max_consecutive_s",
+        "host_tcp_queue_quiet_max_consecutive_s",
+        "board_tcp_control_drain",
+        "host_tcp_control_drain",
+        "board_tcp_control_drain_started",
+        "host_tcp_control_drain_started",
+        "board_tcp_control_drain_elapsed_s",
+        "host_tcp_control_drain_elapsed_s",
+        "board_tcp_control_drain_ok",
+        "host_tcp_control_drain_ok",
     ):
         if key in source:
             details[key] = source[key]

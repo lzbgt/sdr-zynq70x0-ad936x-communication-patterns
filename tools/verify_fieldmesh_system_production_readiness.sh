@@ -144,6 +144,11 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "ok": true,
   "preflight_only": false,
   "production_ready": true,
+  "requires_tcp_final_exchange_evidence": true,
+  "board_tcp_final_exchange_ok": true,
+  "host_tcp_final_exchange_ok": true,
+  "board_tcp_control_drain_elapsed_s": 0,
+  "host_tcp_control_drain_elapsed_s": 30,
   "production_blocker": ""
 }
 JSON
@@ -352,6 +357,9 @@ app_reports = {
         "transport": "real_rf_phy",
         "rf_phy_tx_rx_verified": True,
         "app_verified_real_rf": True,
+        "requires_tcp_final_exchange_evidence": True,
+        "board_tcp_final_exchange_ok": True,
+        "host_tcp_final_exchange_ok": True,
     },
 }
 files = [

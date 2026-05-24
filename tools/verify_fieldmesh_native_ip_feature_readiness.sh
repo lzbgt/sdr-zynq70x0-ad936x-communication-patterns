@@ -19,6 +19,13 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "app_verified_real_rf": true,
   "board_to_board_real_rf_iperf": true,
   "host_pc_transparent_real_rf_iperf": true,
+  "requires_tcp_final_exchange_evidence": true,
+  "board_tcp_final_exchange_ok": true,
+  "host_tcp_final_exchange_ok": true,
+  "board_tcp_queue_quiet_max_consecutive_s": 0,
+  "host_tcp_queue_quiet_max_consecutive_s": 8,
+  "board_tcp_control_drain_elapsed_s": 0,
+  "host_tcp_control_drain_elapsed_s": 30,
   "production_blocker": ""
 }
 JSON
@@ -44,6 +51,10 @@ for key in ("requires_gnss_fix", "requires_gnss_pps", "requires_gnss_receiver_he
 for key in ("requires_board_to_board_iperf", "requires_host_pc_transparent_iperf", "requires_real_rf_phy"):
     if report.get(key) is not True:
         raise SystemExit(f"{key} must be true for native-IP feature readiness: {report!r}")
+if report.get("requires_tcp_final_exchange_evidence") is not True:
+    raise SystemExit(f"native-IP readiness lost TCP final-exchange requirement: {report!r}")
+if report.get("host_tcp_control_drain_elapsed_s") != 30:
+    raise SystemExit(f"native-IP readiness lost TCP control-drain proof: {report!r}")
 PY
 
 cat >"$work_dir/native-ip-preflight.json" <<'JSON'

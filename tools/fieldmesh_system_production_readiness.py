@@ -210,6 +210,21 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_production_ready"] = native_ip.get("production_ready") is True
         detail["native_ip_preflight_only"] = native_ip.get("preflight_only") is True
         detail["native_ip_production_blocker"] = native_ip.get("production_blocker")
+        detail["native_ip_requires_tcp_final_exchange_evidence"] = (
+            native_ip.get("requires_tcp_final_exchange_evidence") is True
+        )
+        detail["native_ip_board_tcp_final_exchange_ok"] = (
+            native_ip.get("board_tcp_final_exchange_ok") is True
+        )
+        detail["native_ip_host_tcp_final_exchange_ok"] = (
+            native_ip.get("host_tcp_final_exchange_ok") is True
+        )
+        detail["native_ip_board_tcp_control_drain_elapsed_s"] = native_ip.get(
+            "board_tcp_control_drain_elapsed_s"
+        )
+        detail["native_ip_host_tcp_control_drain_elapsed_s"] = native_ip.get(
+            "host_tcp_control_drain_elapsed_s"
+        )
     if args.require_native_ip_iperf:
         if native_ip is None:
             blockers.append("native_ip_iperf_sequence_missing")
@@ -217,6 +232,13 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             blockers.append("native_ip_iperf_not_production_ready")
             if native_ip.get("production_blocker"):
                 blockers.append(f"native_ip:{native_ip['production_blocker']}")
+        else:
+            if native_ip.get("requires_tcp_final_exchange_evidence") is not True:
+                blockers.append("native_ip_tcp_final_exchange_evidence_missing")
+            if native_ip.get("board_tcp_final_exchange_ok") is not True:
+                blockers.append("native_ip_board_tcp_final_exchange_missing")
+            if native_ip.get("host_tcp_final_exchange_ok") is not True:
+                blockers.append("native_ip_host_tcp_final_exchange_missing")
 
     real_rf = None
     if args.real_rf_production_gate:

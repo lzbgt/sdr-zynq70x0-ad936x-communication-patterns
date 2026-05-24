@@ -144,6 +144,90 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     return errors
 
 
+def _validate_tcp_final_exchange(report: dict[str, Any], label: str) -> list[str]:
+    errors: list[str] = []
+    exchange = report.get("tcp_final_exchange")
+    if not isinstance(exchange, dict) or not exchange:
+        return [f"{label}: TCP final-exchange evidence is missing"]
+    if exchange.get("event") != "fieldmesh_native_ip_iperf_tcp_final_exchange":
+        errors.append(f"{label}: TCP final-exchange event is invalid")
+    if exchange.get("ok") is not True:
+        errors.append(f"{label}: TCP final-exchange evidence must be ok")
+    if not _positive_number(exchange, "client_sent_bytes"):
+        errors.append(f"{label}: TCP final-exchange client_sent_bytes must be > 0")
+    for key in (
+        "initial_client_rc",
+        "final_client_rc",
+        "iperf_timeout_s",
+        "final_exchange_grace_s",
+        "queue_quiet_grace_s",
+        "queue_quiet_max_consecutive_s",
+        "control_drain_s",
+    ):
+        if not _non_negative_number(exchange, key):
+            errors.append(f"{label}: TCP final-exchange {key} must be >= 0")
+    if exchange.get("final_client_rc") != 0:
+        errors.append(f"{label}: TCP final-exchange final_client_rc must be 0")
+    for key in (
+        "final_exchange_grace_started",
+        "queue_quiet_grace_started",
+        "client_preserved_for_control_drain",
+        "client_killed_after_control_drain",
+        "completed_after_primary_timeout",
+        "completed_without_grace",
+    ):
+        if not isinstance(exchange.get(key), bool):
+            errors.append(f"{label}: TCP final-exchange {key} must be boolean")
+    if not isinstance(report.get("tcp_final_exchange_grace_started"), bool):
+        errors.append(f"{label}: tcp_final_exchange_grace_started must be boolean")
+    if not isinstance(report.get("tcp_queue_quiet_grace_started"), bool):
+        errors.append(f"{label}: tcp_queue_quiet_grace_started must be boolean")
+    if not _non_negative_number(report, "tcp_queue_quiet_max_consecutive_s"):
+        errors.append(f"{label}: tcp_queue_quiet_max_consecutive_s must be >= 0")
+    if report.get("tcp_final_exchange_grace_started") != exchange.get(
+        "final_exchange_grace_started"
+    ):
+        errors.append(f"{label}: TCP final-exchange grace summary mismatches detail")
+    if report.get("tcp_queue_quiet_grace_started") != exchange.get(
+        "queue_quiet_grace_started"
+    ):
+        errors.append(f"{label}: TCP queue-quiet grace summary mismatches detail")
+    if report.get("tcp_queue_quiet_max_consecutive_s") != exchange.get(
+        "queue_quiet_max_consecutive_s"
+    ):
+        errors.append(f"{label}: TCP queue-quiet max summary mismatches detail")
+
+    drain = report.get("tcp_control_drain")
+    drain_started = report.get("tcp_control_drain_started")
+    if not isinstance(drain_started, bool):
+        errors.append(f"{label}: tcp_control_drain_started must be boolean")
+    if not _non_negative_number(report, "tcp_control_drain_elapsed_s"):
+        errors.append(f"{label}: tcp_control_drain_elapsed_s must be >= 0")
+    if not isinstance(report.get("tcp_control_drain_ok"), bool):
+        errors.append(f"{label}: tcp_control_drain_ok must be boolean")
+    if drain_started:
+        if not isinstance(drain, dict) or not drain:
+            errors.append(f"{label}: TCP control-drain detail is missing")
+        else:
+            if drain.get("event") != "fieldmesh_native_ip_iperf_tcp_control_drain":
+                errors.append(f"{label}: TCP control-drain event is invalid")
+            if drain.get("ok") is not True:
+                errors.append(f"{label}: TCP control-drain evidence must be ok")
+            if not _positive_number(drain, "client_sent_bytes_before_timeout"):
+                errors.append(
+                    f"{label}: TCP control-drain client_sent_bytes_before_timeout must be > 0"
+                )
+            if not _non_negative_number(drain, "elapsed_s"):
+                errors.append(f"{label}: TCP control-drain elapsed_s must be >= 0")
+            if report.get("tcp_control_drain_elapsed_s") != drain.get("elapsed_s"):
+                errors.append(f"{label}: TCP control-drain elapsed summary mismatches detail")
+            if report.get("tcp_control_drain_ok") != drain.get("ok"):
+                errors.append(f"{label}: TCP control-drain ok summary mismatches detail")
+    elif drain not in ({}, None):
+        errors.append(f"{label}: TCP control-drain detail exists but started=false")
+    return errors
+
+
 def _reject_common(report: dict[str, Any], label: str) -> list[str]:
     errors: list[str] = []
     if report.get("event") != "fieldmesh_two_board_native_ip_iperf":
@@ -167,6 +251,7 @@ def _reject_common(report: dict[str, Any], label: str) -> list[str]:
     if not _is_true(report.get("app_verified_real_rf")):
         errors.append(f"{label}: app_verified_real_rf must be true")
     errors.extend(_validate_iio_ack_pipeline(report, label))
+    errors.extend(_validate_tcp_final_exchange(report, label))
     return errors
 
 
@@ -261,6 +346,7 @@ def main() -> int:
         "requires_iio_ack_pipeline_evidence": bool(
             board_requires_ack_pipeline or host_requires_ack_pipeline
         ),
+        "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
             True
             if not board_requires_ack_pipeline
@@ -315,6 +401,40 @@ def main() -> int:
         "host_iio_bridge_rf_burst_decode_max_elapsed_ms": host.get(
             "iio_bridge_rf_burst_decode_max_elapsed_ms"
         ),
+        "board_tcp_final_exchange_ok": (
+            board.get("tcp_final_exchange", {}).get("ok") is True
+        ),
+        "host_tcp_final_exchange_ok": (
+            host.get("tcp_final_exchange", {}).get("ok") is True
+        ),
+        "board_tcp_final_exchange": board.get("tcp_final_exchange"),
+        "host_tcp_final_exchange": host.get("tcp_final_exchange"),
+        "board_tcp_final_exchange_grace_started": board.get(
+            "tcp_final_exchange_grace_started"
+        ),
+        "host_tcp_final_exchange_grace_started": host.get(
+            "tcp_final_exchange_grace_started"
+        ),
+        "board_tcp_queue_quiet_grace_started": board.get(
+            "tcp_queue_quiet_grace_started"
+        ),
+        "host_tcp_queue_quiet_grace_started": host.get(
+            "tcp_queue_quiet_grace_started"
+        ),
+        "board_tcp_queue_quiet_max_consecutive_s": board.get(
+            "tcp_queue_quiet_max_consecutive_s"
+        ),
+        "host_tcp_queue_quiet_max_consecutive_s": host.get(
+            "tcp_queue_quiet_max_consecutive_s"
+        ),
+        "board_tcp_control_drain": board.get("tcp_control_drain"),
+        "host_tcp_control_drain": host.get("tcp_control_drain"),
+        "board_tcp_control_drain_started": board.get("tcp_control_drain_started"),
+        "host_tcp_control_drain_started": host.get("tcp_control_drain_started"),
+        "board_tcp_control_drain_elapsed_s": board.get("tcp_control_drain_elapsed_s"),
+        "host_tcp_control_drain_elapsed_s": host.get("tcp_control_drain_elapsed_s"),
+        "board_tcp_control_drain_ok": board.get("tcp_control_drain_ok"),
+        "host_tcp_control_drain_ok": host.get("tcp_control_drain_ok"),
         "board_to_board_report": str(board_path),
         "host_pc_report": str(host_path),
         "board_tcp_bits_per_second": board.get("tcp_bits_per_second"),

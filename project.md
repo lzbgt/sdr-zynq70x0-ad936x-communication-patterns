@@ -866,16 +866,19 @@ user and vendor configuration.
   reports, host-IP-routed traffic, and SSH-launched host-PC substitutes are
   rejected. For IIO RF bridge captures configured with
   `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires
-  high-water, ACK latency, and RF burst timing evidence proving that the bounded
-  ACK pipeline was actually exercised. The production gate traces native-IP app
-  evidence back to this paired iperf classifier.
+	  high-water, ACK latency, and RF burst timing evidence proving that the bounded
+	  ACK pipeline was actually exercised. It also requires TCP final-exchange and
+	  queue/control-drain timing proof from the HIL runner, so archived production
+	  evidence cannot omit the shutdown/result-exchange diagnosis. The production
+	  gate traces native-IP app evidence back to this paired iperf classifier.
 - `tools/fieldmesh_native_ip_feature_readiness.py` - feature-scoped native-IP
   readiness summary. It consumes the paired iperf production sequence and
   reports whether the transparent TCP/IP MAC-link feature is ready without
   requiring GNSS fix, PPS activity, or GNSS receiver health. It still requires
-  both `iperf` layers, real RF PHY transport, RF TX/RX verification, and
-  complete metrics, plus exercised ACK-pipeline, ACK latency, and RF burst
-  timing evidence when the paired reports used a depth above one.
+	  both `iperf` layers, real RF PHY transport, RF TX/RX verification, and
+	  complete metrics, plus exercised ACK-pipeline, ACK latency, and RF burst
+	  timing evidence when the paired reports used a depth above one, plus TCP
+	  final-exchange/control-drain proof from the native-IP HIL report.
 - `tools/run_fieldmesh_native_ip_iperf_production_sequence.sh` - paired
   native-IP iperf production wrapper. It can classify already-collected
   board-to-board and host-PC-transparent reports, run non-transmitting

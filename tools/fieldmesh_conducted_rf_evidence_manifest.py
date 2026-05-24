@@ -426,6 +426,13 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit(f"{label}: transport must be real_rf_phy")
         if report.get("rf_phy_tx_rx_verified") is not True or report.get("app_verified_real_rf") is not True:
             raise SystemExit(f"{label}: report must prove RF PHY and app real-RF verification")
+        if feature == "native_ip":
+            if report.get("requires_tcp_final_exchange_evidence") is not True:
+                raise SystemExit(f"{label}: native-IP report must require TCP final-exchange evidence")
+            if report.get("board_tcp_final_exchange_ok") is not True:
+                raise SystemExit(f"{label}: board TCP final-exchange proof is missing")
+            if report.get("host_tcp_final_exchange_ok") is not True:
+                raise SystemExit(f"{label}: host TCP final-exchange proof is missing")
         app_features.append(feature)
 
     return {

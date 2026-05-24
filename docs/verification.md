@@ -5068,7 +5068,10 @@ layers. When either saved report was collected through the IIO RF bridge with
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires durable
 ACK-pipeline high-water evidence showing max in-flight source ACKs reached at
 least two and stayed within the configured depth, plus completed source-ACK
-latency and RF burst timing evidence for the same IIO bridge capture. The verifier rejects daemon
+latency and RF burst timing evidence for the same IIO bridge capture. Production
+native-IP evidence also requires TCP final-exchange timing proof: final client
+status, queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok
+evidence when the run needed the control-drain phase. The verifier rejects daemon
 RF-worker bridge metrics, byte-only iperf
 summaries, host-IP-routed results, and host-PC reports that are actually
 SSH-launched board clients.
@@ -5088,8 +5091,9 @@ both layers stop before `iperf3` when the installed daemons still report
 `real_rf_phy_tx_rx_not_verified`.
 `tools/fieldmesh_native_ip_feature_readiness.py` is intentionally scoped only to
 the transparent TCP/IP MAC-link feature: it requires both real-RF `iperf`
-layers and complete metrics, but it does not require GNSS fix, PPS activity, or
-GNSS receiver health. Those remain whole-system production-readiness items.
+layers, complete metrics, and TCP final-exchange/control-drain evidence, but it
+does not require GNSS fix, PPS activity, or GNSS receiver health. Those remain
+whole-system production-readiness items.
 
 Read-only SDR/IIO inspection on Z203 and Z103 confirms the board-local IIO
 contexts expose AD936x devices. That same scan found a planner bug: the old

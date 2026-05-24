@@ -30,6 +30,14 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_rf_burst_live_run_max_elapsed_ms": 180,
   "iio_bridge_rf_burst_decode_max_elapsed_ms": 16,
   "iio_bridge_source_ack_pipeline_exercised": true,
+  "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "board_to_board", "initial_client_rc": 0, "final_client_rc": 0, "client_sent_bytes": 262144, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": false, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": false, "queue_quiet_max_consecutive_s": 0, "control_drain_s": 45, "client_preserved_for_control_drain": false, "client_killed_after_control_drain": false, "completed_after_primary_timeout": false, "completed_without_grace": true},
+  "tcp_final_exchange_grace_started": false,
+  "tcp_queue_quiet_grace_started": false,
+  "tcp_queue_quiet_max_consecutive_s": 0,
+  "tcp_control_drain": {},
+  "tcp_control_drain_started": false,
+  "tcp_control_drain_elapsed_s": 0,
+  "tcp_control_drain_ok": false,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": true,
   "host_originated_traffic": false,
@@ -72,6 +80,14 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_burst_live_run_max_elapsed_ms": 200,
   "iio_bridge_rf_burst_decode_max_elapsed_ms": 18,
   "iio_bridge_source_ack_pipeline_exercised": true,
+  "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "board_to_board", "initial_client_rc": 124, "final_client_rc": 0, "client_sent_bytes": 131072, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": true, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": true, "queue_quiet_max_consecutive_s": 8, "control_drain_s": 45, "client_preserved_for_control_drain": true, "client_killed_after_control_drain": false, "completed_after_primary_timeout": true, "completed_without_grace": false},
+  "tcp_final_exchange_grace_started": true,
+  "tcp_queue_quiet_grace_started": true,
+  "tcp_queue_quiet_max_consecutive_s": 8,
+  "tcp_control_drain": {"event": "fieldmesh_native_ip_iperf_tcp_control_drain", "ok": true, "phase": "board_to_board", "started": true, "duration_s": 45, "client_sent_bytes_before_timeout": 131072, "keeps_rf_bridge_running": true, "reason": "client_timed_out_after_sending_tcp_bytes", "server_exited_after_drain": true, "server_json_after_drain_path": "z103_iperf3_tcp_server_after_control_drain.json", "elapsed_s": 30},
+  "tcp_control_drain_started": true,
+  "tcp_control_drain_elapsed_s": 30,
+  "tcp_control_drain_ok": true,
   "uses_inter_board_ip_routing": false,
   "uses_ssh_launched_board_client": false,
   "host_originated_traffic": true,
@@ -127,6 +143,8 @@ for key in ("native_ip_iperf_evidence_sha256", "native_ip_app_real_rf_report_sha
         raise SystemExit(f"missing hash {key}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"missing ACK pipeline evidence requirement: {report}")
+if report.get("requires_tcp_final_exchange_evidence") is not True:
+    raise SystemExit(f"missing TCP final-exchange evidence requirement: {report}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"missing board ACK pipeline exercise proof: {report}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:
@@ -139,6 +157,14 @@ if report.get("board_iio_bridge_rf_burst_max_elapsed_ms") != 240:
     raise SystemExit(f"missing board RF burst timing proof: {report}")
 if report.get("host_iio_bridge_rf_burst_live_run_max_elapsed_ms") != 200:
     raise SystemExit(f"missing host RF burst live-run timing proof: {report}")
+if report.get("board_tcp_final_exchange_ok") is not True:
+    raise SystemExit(f"missing board TCP final-exchange proof: {report}")
+if report.get("host_tcp_final_exchange_ok") is not True:
+    raise SystemExit(f"missing host TCP final-exchange proof: {report}")
+if report.get("host_tcp_queue_quiet_max_consecutive_s") != 8:
+    raise SystemExit(f"missing host TCP queue-quiet proof: {report}")
+if report.get("host_tcp_control_drain_elapsed_s") != 30:
+    raise SystemExit(f"missing host TCP control-drain elapsed proof: {report}")
 print(json.dumps({
     "event": "fieldmesh_native_ip_iperf_production_sequence_check",
     "ok": True,
@@ -161,10 +187,14 @@ if report.get("requires_gnss_fix") is not False or report.get("requires_gnss_pps
     raise SystemExit(f"native-IP feature readiness must not require GNSS/PPS: {report}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost ACK pipeline requirement: {report}")
+if report.get("requires_tcp_final_exchange_evidence") is not True:
+    raise SystemExit(f"native-IP readiness lost TCP final-exchange requirement: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
     raise SystemExit(f"native-IP readiness lost ACK latency proof: {report}")
 if report.get("host_iio_bridge_rf_burst_max_elapsed_ms") != 280:
     raise SystemExit(f"native-IP readiness lost RF burst timing proof: {report}")
+if report.get("host_tcp_control_drain_elapsed_s") != 30:
+    raise SystemExit(f"native-IP readiness lost TCP control-drain proof: {report}")
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
@@ -213,6 +243,35 @@ if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/unexercised-pipeline.stdout" 2>"$work_dir/unexercised-pipeline.stderr"; then
   echo "native-IP iperf production sequence accepted unexercised IIO ACK pipeline evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/board-real-rf.json" "$work_dir/board-missing-tcp-final-exchange.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for key in (
+    "tcp_final_exchange",
+    "tcp_final_exchange_grace_started",
+    "tcp_queue_quiet_grace_started",
+    "tcp_queue_quiet_max_consecutive_s",
+    "tcp_control_drain",
+    "tcp_control_drain_started",
+    "tcp_control_drain_elapsed_s",
+    "tcp_control_drain_ok",
+):
+    report.pop(key, None)
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if BOARD_TO_BOARD_REPORT="$work_dir/board-missing-tcp-final-exchange.json" \
+   HOST_PC_REPORT="$work_dir/host-real-rf.json" \
+   OUT_DIR="$work_dir/missing-tcp-final-exchange" \
+   "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
+   >"$work_dir/missing-tcp-final-exchange.stdout" 2>"$work_dir/missing-tcp-final-exchange.stderr"; then
+  echo "native-IP iperf production sequence accepted missing TCP final-exchange evidence" >&2
   exit 1
 fi
 
