@@ -860,6 +860,16 @@ def decode_capture(plan: dict[str, Any], args: argparse.Namespace, capture_path:
     if c_decoded and c_decoded.get("ok") is True:
         c_decoded["elapsed_ms"] = int((time.monotonic() - started) * 1000)
         return c_decoded
+    if not getattr(args, "allow_python_modem_decode", False):
+        return {
+            "attempted": True,
+            "ok": False,
+            "error": "C modem helper did not decode capture and Python modem decode is disabled",
+            "capture_bytes": len(iq),
+            "decoder": "fieldmesh_iio_burst_xfer_c_required",
+            "c_decoder": c_decoded,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
     if modulation == "bfsk":
         decoded = iq_smoke.decode_bfsk_iq(
             iq,
@@ -1035,6 +1045,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "skip_rf_config": bool(args.skip_rf_config),
         "burst_helper": str(args.burst_helper) if args.burst_helper else None,
         "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
+        "allow_python_modem_decode": bool(getattr(args, "allow_python_modem_decode", False)),
         "executes_commands": bool(args.execute_live_rf),
         "opens_iio_buffers": bool(args.execute_live_rf),
         "starts_rf_tx": bool(args.execute_live_rf),
@@ -1098,6 +1109,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-rf-config", action="store_true")
     parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--persistent-burst-helper", action="store_true")
+    parser.add_argument("--allow-python-modem-decode", action="store_true")
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()
 

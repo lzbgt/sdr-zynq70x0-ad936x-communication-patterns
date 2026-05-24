@@ -525,6 +525,7 @@ def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: d
         skip_rf_config=getattr(args, "skip_rf_config", False),
         burst_helper=args.burst_helper,
         persistent_burst_helper=args.persistent_burst_helper,
+        allow_python_modem_decode=getattr(args, "allow_python_modem_decode", False),
         pretty=False,
     )
     return bridge.run(bridge_args)
@@ -635,6 +636,7 @@ def run_batch(
             skip_rf_config=skip_rf_config,
             burst_helper=args.burst_helper,
             persistent_burst_helper=args.persistent_burst_helper,
+            allow_python_modem_decode=getattr(args, "allow_python_modem_decode", False),
             pretty=False,
             out_dir=frame_dir / f"iq-iio-live-run{suffix}",
             cyclic_capture_periods=capture_periods,
@@ -1006,6 +1008,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "burst_helper": str(args.burst_helper) if args.burst_helper else None,
             "persistent_burst_helper": bool(args.persistent_burst_helper),
+            "allow_python_modem_decode": bool(getattr(args, "allow_python_modem_decode", False)),
             "rf_phy_tx_rx_verified": verified,
             "app_verified_real_rf": False,
             "production_ready": False,
@@ -1466,6 +1469,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tx-hardwaregain-db", type=float, default=0.0)
     parser.add_argument("--burst-helper", type=Path)
     parser.add_argument("--persistent-burst-helper", action="store_true")
+    parser.add_argument("--allow-python-modem-decode", action="store_true")
     parser.add_argument(
         "--async-source-ack",
         dest="async_source_ack",

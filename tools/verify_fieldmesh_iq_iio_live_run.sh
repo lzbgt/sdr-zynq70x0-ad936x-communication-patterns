@@ -123,7 +123,7 @@ plan = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 smoke = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 out_dir = Path(sys.argv[3])
 out_dir.mkdir(parents=True, exist_ok=True)
-args = argparse.Namespace(out_dir=out_dir, burst_helper=None)
+args = argparse.Namespace(out_dir=out_dir, burst_helper=None, allow_python_modem_decode=False)
 capture = Path(smoke["encoding"]["iq_file"])
 decoded = live.decode_capture(plan, args, capture)
 if decoded.get("ok") is not True:
@@ -137,6 +137,29 @@ print(json.dumps({
     "ok": True,
     "decoder": decoded["decoder"],
     "recovered_frame_crc": decoded["recovered_frame_crc"],
+}, sort_keys=True))
+
+no_c_smoke = json.loads(json.dumps(smoke))
+no_c_smoke["encoding"]["uses_c_modem_helper"] = False
+no_c_smoke["encoding"].pop("modem_helper", None)
+no_c_smoke_path = out_dir / "fieldmesh_iq_burst_smoke_no_c_helper.json"
+no_c_smoke_path.write_text(json.dumps(no_c_smoke, sort_keys=True) + "\n", encoding="utf-8")
+no_c_plan = json.loads(json.dumps(plan))
+no_c_plan["iq_burst"]["report"] = str(no_c_smoke_path)
+blocked = live.decode_capture(no_c_plan, args, capture)
+if blocked.get("ok") is not False or blocked.get("decoder") != "fieldmesh_iio_burst_xfer_c_required":
+    raise SystemExit(f"live-run decode did not require C helper by default: {blocked}")
+fallback_args = argparse.Namespace(out_dir=out_dir, burst_helper=None, allow_python_modem_decode=True)
+fallback = live.decode_capture(no_c_plan, fallback_args, capture)
+if fallback.get("ok") is not True:
+    raise SystemExit(f"explicit Python modem fallback failed: {fallback}")
+if fallback.get("decoder") == "fieldmesh_iio_burst_xfer_c_required":
+    raise SystemExit(f"explicit Python modem fallback stayed blocked: {fallback}")
+print(json.dumps({
+    "event": "fieldmesh_iq_iio_live_run_python_decode_guard_check",
+    "ok": True,
+    "blocked_decoder": blocked["decoder"],
+    "fallback_decoder": fallback.get("decoder", "legacy_bpsk_bits"),
 }, sort_keys=True))
 PY
 
