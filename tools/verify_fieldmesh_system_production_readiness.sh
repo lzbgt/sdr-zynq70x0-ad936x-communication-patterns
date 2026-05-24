@@ -154,6 +154,7 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_native_rf_service_worker_proof": true,
   "requires_iio_native_service_burst_leases": true,
   "requires_iio_native_service_loop_tick": true,
+  "requires_iio_native_cross_daemon_transport_loop": true,
   "requires_iio_native_service_loop_worker": true,
   "requires_iio_native_direction_scheduler": true,
   "requires_iio_native_bidirectional_direction_decision": true,
@@ -172,6 +173,10 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_native_service_loop_tick_proven": true,
   "board_iio_native_service_loop_ticks": 4,
   "host_iio_native_service_loop_ticks": 3,
+  "board_iio_native_cross_daemon_transport_loop_proven": true,
+  "host_iio_native_cross_daemon_transport_loop_proven": true,
+  "board_iio_native_cross_daemon_transport_loop_ticks": 4,
+  "host_iio_native_cross_daemon_transport_loop_ticks": 3,
   "board_iio_native_service_loop_worker_proven": true,
   "host_iio_native_service_loop_worker_proven": true,
   "board_iio_native_service_loop_worker_starts": 2,
@@ -518,6 +523,12 @@ if detail.get("native_ip_host_iio_bridge_in_burst_priority_multiplexing_exercise
     raise SystemExit(f"ready report lost host in-burst priority multiplexing proof: {report}")
 if detail.get("native_ip_board_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"ready report lost board in-burst priority multiplexing proof: {report}")
+if detail.get("native_ip_requires_iio_native_cross_daemon_transport_loop") is not True:
+    raise SystemExit(f"ready report lost native cross-daemon transport-loop requirement: {report}")
+if detail.get("native_ip_host_iio_native_cross_daemon_transport_loop_proven") is not True:
+    raise SystemExit(f"ready report lost host native cross-daemon transport-loop proof: {report}")
+if detail.get("native_ip_board_iio_native_cross_daemon_transport_loop_proven") is not True:
+    raise SystemExit(f"ready report lost board native cross-daemon transport-loop proof: {report}")
 PY
 
 if "$repo_root/tools/fieldmesh_system_production_readiness.py" \

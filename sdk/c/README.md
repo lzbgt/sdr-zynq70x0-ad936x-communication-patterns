@@ -236,14 +236,16 @@ in `src/fieldmesh_sdk.c`:
   keeping the queue-depth/lease-replay priority calculation in the same C
   service-policy boundary, `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the
   C-owned local-vs-peer service/yield decision, and
-  `FIELDMESH_RF_SERVICE_LOOP_TICK v1` to combine that decision with C-owned
-  burst emission in one daemon tick. `FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1`
-  wrap those ticks in a persistent native service-loop worker session with
+  `FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1` to query peer scheduler status
+  from C before entering `FIELDMESH_RF_SERVICE_LOOP_TICK v1` for C-owned burst
+  emission. `FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1` wrap those ticks in a
+  persistent native service-loop worker session with
   daemon-owned tick, burst, skip, preemption, and multiplexing counters. The
   burst path also performs C-owned in-burst priority multiplexing, splicing
   newly queued control/result frames ahead of lower-priority deferred lease
-  slots before emitting the sub-burst, while Python still orchestrates the
-  cross-daemon transport process.
+  slots before emitting the sub-burst. Python still launches the RF/IIO burst
+  work, but per-tick cross-daemon peer-score collection now lives behind the C
+  transport-loop command.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

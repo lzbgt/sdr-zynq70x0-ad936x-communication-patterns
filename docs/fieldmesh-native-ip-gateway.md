@@ -335,15 +335,17 @@ Minimum production gates for native TCP/IP:
   decisions consume C-scored scheduler evidence instead of Python recomputing
   the lease-queue priority formula. The bridge then asks
   `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the C-owned local-vs-peer
-  service/yield decision and service-order rank, and production service now uses
-  `FIELDMESH_RF_SERVICE_LOOP_TICK v1` so the daemon combines that decision with
-  service-burst emission in one native tick. Live runs now explicitly start and
-  later read back `FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1`, so production
-  evidence proves a persistent native bidirectional service-loop worker session
-  owned those ticks, burst counts, skips, preemptions, and multiplexing events.
-  Python still runs the outer process, but it sorts live directions by the C
-  rank instead of its own local boolean formula, and production evidence proves
-  the bidirectional service tick came from the daemon policy boundary.
+  service/yield decision and service-order rank. Production service now calls
+  `FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1`, so the source daemon queries
+  its peer scheduler status in C and enters `FIELDMESH_RF_SERVICE_LOOP_TICK v1`
+  with the peer score already bound to the native transport-loop command. Live
+  runs explicitly start and later read back
+  `FIELDMESH_RF_SERVICE_LOOP_START/STATUS v1`, so production evidence proves a
+  persistent native bidirectional service-loop worker session owned those ticks,
+  burst counts, skips, preemptions, and multiplexing events. Python still runs
+  the outer process, but per-tick peer-score collection is now inside the daemon
+  transport boundary, and production evidence requires
+  `native_cross_daemon_transport_loop` proof.
   After reinstall, persistent-helper HIL moved real TCP control/data over RF
   with zero duplicate drops. The best 256-byte smoke delivered the TCP data
   payload and ACKs on the data connection, but still timed out because the

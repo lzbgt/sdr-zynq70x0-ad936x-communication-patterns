@@ -55,11 +55,18 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_service_loop_tick_proven": true,
   "iio_bridge_native_service_loop_ticks": 3,
   "iio_bridge_native_service_loop_tick_skips": 1,
+  "iio_bridge_native_cross_daemon_transport_loop_required": true,
+  "iio_bridge_native_cross_daemon_transport_loop_proven": true,
+  "iio_bridge_native_cross_daemon_transport_loop_ticks": 3,
+  "iio_bridge_native_cross_daemon_transport_loop_failures": 0,
   "iio_bridge_native_service_loop_tick_status": {
     "z203-to-z103": {
       "native_service_loop_tick": 1,
       "native_service_loop_worker": 1,
       "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_cross_daemon_transport_loop": 1,
+      "native_peer_scheduler_query": 1,
+      "persistent_native_transport_loop_process": 1,
       "native_bidirectional_direction_decision": 1,
       "native_service_burst": 1,
       "service_policy_bound": 1,
@@ -69,6 +76,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "in_burst_priority_preemption_count": 2,
       "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1002,
+      "next_boundary": "native_cross_daemon_transport_worker_process",
       "frames": 2
     }
   },
@@ -261,11 +269,18 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_service_loop_tick_proven": true,
   "iio_bridge_native_service_loop_ticks": 3,
   "iio_bridge_native_service_loop_tick_skips": 1,
+  "iio_bridge_native_cross_daemon_transport_loop_required": true,
+  "iio_bridge_native_cross_daemon_transport_loop_proven": true,
+  "iio_bridge_native_cross_daemon_transport_loop_ticks": 3,
+  "iio_bridge_native_cross_daemon_transport_loop_failures": 0,
   "iio_bridge_native_service_loop_tick_status": {
     "z103-to-z203": {
       "native_service_loop_tick": 1,
       "native_service_loop_worker": 1,
       "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_cross_daemon_transport_loop": 1,
+      "native_peer_scheduler_query": 1,
+      "persistent_native_transport_loop_process": 1,
       "native_bidirectional_direction_decision": 1,
       "native_service_burst": 1,
       "service_policy_bound": 1,
@@ -275,6 +290,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "in_burst_priority_preemption_count": 2,
       "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1004,
+      "next_boundary": "native_cross_daemon_transport_worker_process",
       "frames": 2
     }
   },
@@ -474,6 +490,8 @@ if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"classifier did not require native service burst leases: {report!r}")
 if report.get("requires_iio_native_service_loop_tick") is not True:
     raise SystemExit(f"classifier did not require native service loop tick: {report!r}")
+if report.get("requires_iio_native_cross_daemon_transport_loop") is not True:
+    raise SystemExit(f"classifier did not require native cross-daemon transport loop: {report!r}")
 if report.get("requires_iio_native_service_loop_worker") is not True:
     raise SystemExit(f"classifier did not require native service loop worker: {report!r}")
 if report.get("requires_iio_native_direction_scheduler") is not True:
@@ -506,6 +524,12 @@ if report.get("host_iio_native_service_loop_tick_proven") is not True:
     raise SystemExit(f"classifier lost host native service loop tick proof: {report!r}")
 if report.get("host_iio_native_service_loop_ticks") != 3:
     raise SystemExit(f"classifier lost host native service loop tick count: {report!r}")
+if report.get("board_iio_native_cross_daemon_transport_loop_proven") is not True:
+    raise SystemExit(f"classifier lost board native cross-daemon transport loop proof: {report!r}")
+if report.get("host_iio_native_cross_daemon_transport_loop_proven") is not True:
+    raise SystemExit(f"classifier lost host native cross-daemon transport loop proof: {report!r}")
+if report.get("host_iio_native_cross_daemon_transport_loop_ticks") != 3:
+    raise SystemExit(f"classifier lost host native cross-daemon transport loop ticks: {report!r}")
 if report.get("board_iio_native_service_loop_worker_proven") is not True:
     raise SystemExit(f"classifier lost board native service loop worker proof: {report!r}")
 if report.get("host_iio_native_service_loop_worker_proven") is not True:

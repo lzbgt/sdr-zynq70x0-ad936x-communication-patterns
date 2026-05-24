@@ -283,15 +283,17 @@ def native_service_loop_tick_from_daemon(
     port: int,
     timeout_ms: int,
     max_frames_per_rf_burst: int,
-    peer_scheduler_score: int,
+    peer_host: str,
+    peer_port: int,
     current_consecutive_direction_batches: int,
 ) -> tuple[list[bytes], dict[str, Any]]:
     try:
         report = bridge.request_daemon(
             host,
             port,
-            "FIELDMESH_RF_SERVICE_LOOP_TICK v1 "
-            f"peer_scheduler_score={max(0, int(peer_scheduler_score))} "
+            "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1 "
+            f"peer_host={peer_host} peer_port={max(1, int(peer_port))} "
+            f"peer_timeout_ms={max(1, int(timeout_ms))} "
             "current_consecutive_direction_batches="
             f"{max(0, int(current_consecutive_direction_batches))}",
             timeout_ms,
@@ -312,6 +314,9 @@ def native_service_loop_tick_from_daemon(
         "native_service_loop_tick": 1,
         "native_service_loop_worker": 1,
         "persistent_native_bidirectional_rf_service_loop": 1,
+        "native_cross_daemon_transport_loop": 1,
+        "native_peer_scheduler_query": 1,
+        "persistent_native_transport_loop_process": 1,
         "native_bidirectional_direction_decision": 1,
         "native_service_burst": 1,
         "daemon_owned_worker": 1,
@@ -325,7 +330,7 @@ def native_service_loop_tick_from_daemon(
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "native_service_loop_worker_process",
+        "next_boundary": "native_cross_daemon_transport_worker_process",
     }
     errors = [
         f"{key}={report.get(key)!r} expected {expected!r}"
@@ -1622,6 +1627,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_ticks": 0,
         "native_service_loop_tick_skips": 0,
         "native_service_loop_tick_failures": 0,
+        "native_cross_daemon_transport_loop_ticks": 0,
+        "native_cross_daemon_transport_loop_failures": 0,
         "native_service_loop_worker_starts": 0,
         "native_service_loop_worker_status_polls": 0,
         "native_service_loop_worker_failures": 0,
@@ -1735,6 +1742,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
             ),
             "native_service_loop_tick_status": native_service_loop_tick_by_direction,
+            "native_cross_daemon_transport_loop_required": bool(
+                args.execute_live_rf
+                and args.native_service_burst_leases
+                and args.require_native_rf_service_worker
+            ),
+            "native_cross_daemon_transport_loop_proven": bool(
+                native_service_loop_tick_by_direction
+                and all(
+                    status.get("native_cross_daemon_transport_loop") == 1
+                    and status.get("native_peer_scheduler_query") == 1
+                    and status.get("persistent_native_transport_loop_process") == 1
+                    and status.get("next_boundary")
+                    == "native_cross_daemon_transport_worker_process"
+                    for status in native_service_loop_tick_by_direction.values()
+                )
+            ),
+            "native_cross_daemon_transport_loop_ticks": counts[
+                "native_cross_daemon_transport_loop_ticks"
+            ],
+            "native_cross_daemon_transport_loop_failures": counts[
+                "native_cross_daemon_transport_loop_failures"
+            ],
             "native_service_loop_worker_required": bool(
                 args.execute_live_rf
                 and args.native_service_burst_leases
@@ -2116,27 +2145,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         native_direction_decision_by_direction[current_direction_name] = decision
         return bool(decision.get("yield_to_peer") == 1)
 
-    def peer_scheduler_score_for(current_direction_name: str) -> int:
-        status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
-        peer_score = 0
-        for candidate in directions:
-            if candidate["name"] == current_direction_name:
-                continue
-            try:
-                status = rf_service_scheduler_status(
-                    candidate["source_host"],
-                    candidate["source_port"],
-                    status_timeout_ms,
-                )
-                validate_native_scheduler_status(status, candidate["name"], args)
-            except (TimeoutError, SystemExit):
-                counts["native_direction_scheduler_status_failures"] += 1
-                continue
-            counts["native_direction_scheduler_status_polls"] += 1
-            native_scheduler_status_by_direction[candidate["name"]] = status
-            peer_score = max(peer_score, queued_rf_work_score(status))
-        return peer_score
-
     def should_yield_for_direction_fairness(direction_name: str) -> bool:
         nonlocal fair_yield_pending_direction
         if (
@@ -2272,7 +2280,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                         direction["source_port"],
                                         args.lease_timeout_ms,
                                         args.max_frames_per_rf_burst,
-                                        peer_scheduler_score_for(direction["name"]),
+                                        direction["sink_host"],
+                                        direction["sink_port"],
                                         (
                                             consecutive_direction_batches
                                             if last_served_direction == direction["name"]
@@ -2282,8 +2291,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 )
                             except (TimeoutError, SystemExit):
                                 counts["native_service_loop_tick_failures"] += 1
+                                counts["native_cross_daemon_transport_loop_failures"] += 1
                                 raise
                             counts["native_service_loop_ticks"] += 1
+                            counts["native_cross_daemon_transport_loop_ticks"] += 1
                             native_service_loop_tick_by_direction[direction["name"]] = batch_lease
                             if batch_lease.get("service_skipped") == 1:
                                 counts["native_service_loop_tick_skips"] += 1

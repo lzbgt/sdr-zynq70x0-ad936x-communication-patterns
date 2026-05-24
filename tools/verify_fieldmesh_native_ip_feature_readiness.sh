@@ -28,6 +28,7 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_native_rf_service_worker_proof": true,
   "requires_iio_native_service_burst_leases": true,
   "requires_iio_native_service_loop_tick": true,
+  "requires_iio_native_cross_daemon_transport_loop": true,
   "requires_iio_native_service_loop_worker": true,
   "requires_iio_native_direction_scheduler": true,
   "requires_iio_native_bidirectional_direction_decision": true,
@@ -46,6 +47,10 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_native_service_loop_tick_proven": true,
   "board_iio_native_service_loop_ticks": 4,
   "host_iio_native_service_loop_ticks": 3,
+  "board_iio_native_cross_daemon_transport_loop_proven": true,
+  "host_iio_native_cross_daemon_transport_loop_proven": true,
+  "board_iio_native_cross_daemon_transport_loop_ticks": 4,
+  "host_iio_native_cross_daemon_transport_loop_ticks": 3,
   "board_iio_native_service_loop_worker_proven": true,
   "host_iio_native_service_loop_worker_proven": true,
   "board_iio_native_service_loop_worker_starts": 2,
@@ -158,6 +163,8 @@ if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"native-IP readiness lost native service burst lease requirement: {report!r}")
 if report.get("requires_iio_native_service_loop_tick") is not True:
     raise SystemExit(f"native-IP readiness lost native service loop tick requirement: {report!r}")
+if report.get("requires_iio_native_cross_daemon_transport_loop") is not True:
+    raise SystemExit(f"native-IP readiness lost native cross-daemon transport loop requirement: {report!r}")
 if report.get("requires_iio_native_service_loop_worker") is not True:
     raise SystemExit(f"native-IP readiness lost native service loop worker requirement: {report!r}")
 if report.get("requires_iio_native_direction_scheduler") is not True:
@@ -172,6 +179,10 @@ if report.get("host_iio_native_service_loop_tick_proven") is not True:
     raise SystemExit(f"native-IP readiness lost native service loop tick proof: {report!r}")
 if report.get("host_iio_native_service_loop_ticks") != 3:
     raise SystemExit(f"native-IP readiness lost native service loop tick count: {report!r}")
+if report.get("host_iio_native_cross_daemon_transport_loop_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost native cross-daemon transport loop proof: {report!r}")
+if report.get("host_iio_native_cross_daemon_transport_loop_ticks") != 3:
+    raise SystemExit(f"native-IP readiness lost native cross-daemon transport loop count: {report!r}")
 if report.get("host_iio_native_service_loop_worker_proven") is not True:
     raise SystemExit(f"native-IP readiness lost native service loop worker proof: {report!r}")
 if report.get("host_iio_native_service_loop_worker_status_polls") != 2:

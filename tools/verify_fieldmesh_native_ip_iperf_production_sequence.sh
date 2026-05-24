@@ -56,11 +56,18 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_service_loop_tick_proven": true,
   "iio_bridge_native_service_loop_ticks": 3,
   "iio_bridge_native_service_loop_tick_skips": 1,
+  "iio_bridge_native_cross_daemon_transport_loop_required": true,
+  "iio_bridge_native_cross_daemon_transport_loop_proven": true,
+  "iio_bridge_native_cross_daemon_transport_loop_ticks": 3,
+  "iio_bridge_native_cross_daemon_transport_loop_failures": 0,
   "iio_bridge_native_service_loop_tick_status": {
     "z203-to-z103": {
       "native_service_loop_tick": 1,
       "native_service_loop_worker": 1,
       "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_cross_daemon_transport_loop": 1,
+      "native_peer_scheduler_query": 1,
+      "persistent_native_transport_loop_process": 1,
       "native_bidirectional_direction_decision": 1,
       "native_service_burst": 1,
       "service_policy_bound": 1,
@@ -70,6 +77,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "in_burst_priority_preemption_count": 2,
       "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1002,
+      "next_boundary": "native_cross_daemon_transport_worker_process",
       "frames": 2
     }
   },
@@ -262,11 +270,18 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_service_loop_tick_proven": true,
   "iio_bridge_native_service_loop_ticks": 3,
   "iio_bridge_native_service_loop_tick_skips": 1,
+  "iio_bridge_native_cross_daemon_transport_loop_required": true,
+  "iio_bridge_native_cross_daemon_transport_loop_proven": true,
+  "iio_bridge_native_cross_daemon_transport_loop_ticks": 3,
+  "iio_bridge_native_cross_daemon_transport_loop_failures": 0,
   "iio_bridge_native_service_loop_tick_status": {
     "z103-to-z203": {
       "native_service_loop_tick": 1,
       "native_service_loop_worker": 1,
       "persistent_native_bidirectional_rf_service_loop": 1,
+      "native_cross_daemon_transport_loop": 1,
+      "native_peer_scheduler_query": 1,
+      "persistent_native_transport_loop_process": 1,
       "native_bidirectional_direction_decision": 1,
       "native_service_burst": 1,
       "service_policy_bound": 1,
@@ -276,6 +291,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "in_burst_priority_preemption_count": 2,
       "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1004,
+      "next_boundary": "native_cross_daemon_transport_worker_process",
       "frames": 2
     }
   },
@@ -477,6 +493,8 @@ if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"missing native service burst lease requirement: {report}")
 if report.get("requires_iio_native_service_loop_tick") is not True:
     raise SystemExit(f"missing native service loop tick requirement: {report}")
+if report.get("requires_iio_native_cross_daemon_transport_loop") is not True:
+    raise SystemExit(f"missing native cross-daemon transport loop requirement: {report}")
 if report.get("requires_iio_native_service_loop_worker") is not True:
     raise SystemExit(f"missing native service loop worker requirement: {report}")
 if report.get("requires_iio_native_direction_scheduler") is not True:
@@ -495,6 +513,10 @@ if report.get("host_iio_native_service_loop_tick_proven") is not True:
     raise SystemExit(f"missing host native service loop tick proof: {report}")
 if report.get("host_iio_native_service_loop_ticks") != 3:
     raise SystemExit(f"missing host native service loop tick count: {report}")
+if report.get("host_iio_native_cross_daemon_transport_loop_proven") is not True:
+    raise SystemExit(f"missing host native cross-daemon transport loop proof: {report}")
+if report.get("host_iio_native_cross_daemon_transport_loop_ticks") != 3:
+    raise SystemExit(f"missing host native cross-daemon transport loop count: {report}")
 if report.get("host_iio_native_service_loop_worker_proven") is not True:
     raise SystemExit(f"missing host native service loop worker proof: {report}")
 if report.get("host_iio_native_service_loop_worker_status_polls") != 2:

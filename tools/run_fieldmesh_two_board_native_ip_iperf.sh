@@ -2965,6 +2965,18 @@ report = {
     "iio_bridge_native_service_loop_tick_status": (
         last_iio_bridge.get("native_service_loop_tick_status") or {}
     ),
+    "iio_bridge_native_cross_daemon_transport_loop_required": bool(
+        last_iio_bridge.get("native_cross_daemon_transport_loop_required")
+    ),
+    "iio_bridge_native_cross_daemon_transport_loop_proven": bool(
+        last_iio_bridge.get("native_cross_daemon_transport_loop_proven")
+    ),
+    "iio_bridge_native_cross_daemon_transport_loop_ticks": int(
+        last_iio_bridge.get("native_cross_daemon_transport_loop_ticks") or 0
+    ),
+    "iio_bridge_native_cross_daemon_transport_loop_failures": int(
+        last_iio_bridge.get("native_cross_daemon_transport_loop_failures") or 0
+    ),
     "iio_bridge_native_service_loop_worker_required": bool(
         last_iio_bridge.get("native_service_loop_worker_required")
     ),

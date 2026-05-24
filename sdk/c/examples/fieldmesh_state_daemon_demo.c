@@ -1748,6 +1748,36 @@ static int request_text_or_default(const char *request,
     return found >= 0;
 }
 
+static int json_uint_field(const char *json,
+                           const char *key,
+                           unsigned *out)
+{
+    char pattern[64];
+    const char *value;
+    char *end = NULL;
+    unsigned long parsed;
+
+    if (!json || !key || !out ||
+        snprintf(pattern, sizeof(pattern), "\"%s\":", key) >=
+            (int)sizeof(pattern)) {
+        return 0;
+    }
+    value = strstr(json, pattern);
+    if (!value) {
+        return 0;
+    }
+    value += strlen(pattern);
+    while (*value == ' ' || *value == '\t') {
+        value++;
+    }
+    parsed = strtoul(value, &end, 10);
+    if (end == value || parsed > 0xfffffffful) {
+        return 0;
+    }
+    *out = (unsigned)parsed;
+    return 1;
+}
+
 static int text_in_set(const char *value,
                        const char *a,
                        const char *b,
@@ -3210,6 +3240,8 @@ static int build_response(fieldmesh_context_t *context,
                           char *response,
                           size_t response_len)
 {
+    char native_transport_tick_request[256];
+
     if (strstr(request, "FIELDMESH_HELLO")) {
         char device_eui[FIELDMESH_ID_TEXT_MAX];
         char hostname[FIELDMESH_NAME_TEXT_MAX];
@@ -6539,6 +6571,71 @@ static int build_response(fieldmesh_context_t *context,
                          TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK")) {
+        fieldmesh_daemon_client_config_t peer_config;
+        char peer_host[FIELDMESH_ADDR_TEXT_MAX];
+        unsigned peer_port = 0u;
+        unsigned peer_timeout_ms = 250u;
+        unsigned consecutive = 0u;
+        char peer_response[1024];
+        size_t peer_response_len = 0u;
+        unsigned peer_score = 0u;
+        fieldmesh_status_t peer_status;
+
+        if (!request_text_or_default(request, "peer_host=", "",
+                                     peer_host, sizeof(peer_host)) ||
+            !request_uint_required(request, "peer_port=", 1u, 65535u,
+                                   &peer_port) ||
+            !request_uint_or_default(request, "peer_timeout_ms=", 250u, 1u,
+                                     10000u, &peer_timeout_ms) ||
+            !request_uint_or_default(
+                request, "current_consecutive_direction_batches=", 0u, 0u,
+                0xffu, &consecutive) ||
+            peer_host[0] == '\0') {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_transport_loop_tick\","
+                     "\"ok\":false,"
+                     "\"error\":\"invalid_peer_endpoint\","
+                     "\"native_cross_daemon_transport_loop\":1,"
+                     "\"native_peer_scheduler_query\":1,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0}\n");
+            return 0;
+        }
+        memset(&peer_config, 0, sizeof(peer_config));
+        snprintf(peer_config.host, sizeof(peer_config.host), "%s", peer_host);
+        peer_config.port = (uint16_t)peer_port;
+        peer_config.timeout_ms = peer_timeout_ms;
+        peer_status = fieldmesh_daemon_request(
+            &peer_config, "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1",
+            peer_response, sizeof(peer_response), &peer_response_len);
+        (void)peer_response_len;
+        if (peer_status != FIELDMESH_OK ||
+            !strstr(peer_response, "\"ok\":true") ||
+            !json_uint_field(peer_response, "scheduler_score", &peer_score)) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_rf_service_transport_loop_tick\","
+                     "\"ok\":false,"
+                     "\"error\":\"peer_scheduler_query_failed\","
+                     "\"native_cross_daemon_transport_loop\":1,"
+                     "\"native_peer_scheduler_query\":1,"
+                     "\"peer_status\":\"%s\","
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0,"
+                     "\"commands_executed\":0}\n",
+                     fieldmesh_status_string(peer_status));
+            return 0;
+        }
+        snprintf(native_transport_tick_request,
+                 sizeof(native_transport_tick_request),
+                 "FIELDMESH_RF_SERVICE_LOOP_TICK v1 "
+                 "peer_scheduler_score=%u "
+                 "current_consecutive_direction_batches=%u "
+                 "native_transport_loop=1 "
+                 "peer_scheduler_query_ok=1",
+                 peer_score, consecutive);
+        request = native_transport_tick_request;
+    }
     if (strstr(request, "FIELDMESH_RF_SERVICE_LOOP_TICK")) {
         fieldmesh_rf_service_policy_t policy =
             fieldmesh_rf_service_default_policy();
@@ -6570,6 +6667,8 @@ static int build_response(fieldmesh_context_t *context,
         unsigned in_burst_deferred_head_score = 0u;
         char frames_json[6400];
         size_t used = 0u;
+        unsigned native_transport_loop =
+            strstr(request, "native_transport_loop=1") ? 1u : 0u;
 
         (void)request_uint_or_default(request, "peer_scheduler_score=", 0u, 0u,
                                       0xffffffffu, &peer_score);
@@ -6609,6 +6708,9 @@ static int build_response(fieldmesh_context_t *context,
                      "\"native_service_loop_tick\":1,"
                      "\"native_service_loop_worker\":1,"
                      "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                     "\"native_cross_daemon_transport_loop\":%u,"
+                     "\"native_peer_scheduler_query\":%u,"
+                     "\"persistent_native_transport_loop_process\":%u,"
                      "\"native_bidirectional_direction_decision\":1,"
                      "\"native_service_burst\":1,"
                      "\"daemon_owned_worker\":1,"
@@ -6621,12 +6723,18 @@ static int build_response(fieldmesh_context_t *context,
                      "\"starts_rf_tx\":0,"
                      "\"writes_hardware\":0,"
                      "\"commands_executed\":0,"
-                     "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
+                     "\"next_boundary\":\"%s\"}\n",
+                     native_transport_loop,
+                     native_transport_loop,
+                     native_transport_loop,
                      fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                          1u :
                          0u,
                      tun_service_rf_transport_mode_name(
-                         tun_service->rf_transport_mode));
+                         tun_service->rf_transport_mode),
+                     native_transport_loop ?
+                         "native_cross_daemon_transport_worker_process" :
+                         "native_service_loop_worker_process");
             return 0;
         }
         if (yield_to_peer || !service_local_first) {
@@ -6644,6 +6752,9 @@ static int build_response(fieldmesh_context_t *context,
                      "\"native_service_loop_tick\":1,"
                      "\"native_service_loop_worker\":1,"
                      "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                     "\"native_cross_daemon_transport_loop\":%u,"
+                     "\"native_peer_scheduler_query\":%u,"
+                     "\"persistent_native_transport_loop_process\":%u,"
                      "\"native_bidirectional_direction_decision\":1,"
                      "\"native_service_burst\":1,"
                      "\"daemon_owned_worker\":1,"
@@ -6678,7 +6789,10 @@ static int build_response(fieldmesh_context_t *context,
                      "\"starts_rf_tx\":0,"
                      "\"writes_hardware\":0,"
                      "\"commands_executed\":0,"
-                     "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
+                     "\"next_boundary\":\"%s\"}\n",
+                     native_transport_loop,
+                     native_transport_loop,
+                     native_transport_loop,
                      fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                          1u :
                          0u,
@@ -6703,7 +6817,10 @@ static int build_response(fieldmesh_context_t *context,
                      fieldmesh_rf_service_lease_priority_cli_name(
                          policy.lease_priority),
                      tun_service_rf_transport_mode_name(
-                         tun_service->rf_transport_mode));
+                         tun_service->rf_transport_mode),
+                     native_transport_loop ?
+                         "native_cross_daemon_transport_worker_process" :
+                         "native_service_loop_worker_process");
             return 0;
         }
         if (tun_service->rf_tx_lease_queue.count == 0u &&
@@ -6816,6 +6933,9 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_service_loop_tick\":1,"
                  "\"native_service_loop_worker\":1,"
                  "\"persistent_native_bidirectional_rf_service_loop\":1,"
+                 "\"native_cross_daemon_transport_loop\":%u,"
+                 "\"native_peer_scheduler_query\":%u,"
+                 "\"persistent_native_transport_loop_process\":%u,"
                  "\"native_bidirectional_direction_decision\":1,"
                  "\"native_service_burst\":1,"
                  "\"daemon_owned_worker\":1,"
@@ -6871,9 +6991,12 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"native_service_loop_worker_process\"}\n",
+                 "\"next_boundary\":\"%s\"}\n",
                  emitted,
                  frames_json,
+                 native_transport_loop,
+                 native_transport_loop,
+                 native_transport_loop,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                      1u :
                      0u,
@@ -6917,7 +7040,10 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)tun_service->rf_tx_queue.count,
                  (unsigned)tun_service->rf_tx_lease_queue.count,
                  tun_service->rf_driver_frames_leased,
-                 tun_service->rf_driver_frame_bytes_leased);
+                 tun_service->rf_driver_frame_bytes_leased,
+                 native_transport_loop ?
+                     "native_cross_daemon_transport_worker_process" :
+                     "native_service_loop_worker_process");
         return 0;
     }
     if (strstr(request, "FIELDMESH_RF_WORKER_PHY_PLAN")) {

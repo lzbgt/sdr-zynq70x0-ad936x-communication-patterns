@@ -125,6 +125,16 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         report.get("iio_bridge_native_service_loop_ticks") < 1
     ):
         errors.append(f"{label}: native RF service loop tick was not exercised")
+    if report.get("iio_bridge_native_cross_daemon_transport_loop_required") is not True:
+        errors.append(f"{label}: native cross-daemon RF transport loop must be required")
+    if report.get("iio_bridge_native_cross_daemon_transport_loop_proven") is not True:
+        errors.append(f"{label}: native cross-daemon RF transport loop proof is missing")
+    if not isinstance(
+        report.get("iio_bridge_native_cross_daemon_transport_loop_ticks"), int
+    ) or report.get("iio_bridge_native_cross_daemon_transport_loop_ticks") < 1:
+        errors.append(f"{label}: native cross-daemon RF transport loop was not exercised")
+    if int(report.get("iio_bridge_native_cross_daemon_transport_loop_failures") or 0) != 0:
+        errors.append(f"{label}: native cross-daemon RF transport loop reported failures")
     loop_tick_status = report.get("iio_bridge_native_service_loop_tick_status")
     if not isinstance(loop_tick_status, dict) or not loop_tick_status:
         errors.append(f"{label}: native RF service loop tick status is missing")
@@ -133,10 +143,14 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         and status.get("native_service_loop_tick") == 1
         and status.get("native_service_loop_worker") == 1
         and status.get("persistent_native_bidirectional_rf_service_loop") == 1
+        and status.get("native_cross_daemon_transport_loop") == 1
+        and status.get("native_peer_scheduler_query") == 1
+        and status.get("persistent_native_transport_loop_process") == 1
         and status.get("native_bidirectional_direction_decision") == 1
         and status.get("native_service_burst") == 1
         and status.get("service_policy_bound") == 1
         and status.get("production_iio_policy") == 1
+        and status.get("next_boundary") == "native_cross_daemon_transport_worker_process"
         and isinstance(status.get("frames"), int)
         and isinstance(status.get("service_order_rank"), int)
         and status.get("in_burst_priority_preemption") == 1
@@ -681,6 +695,9 @@ def main() -> int:
         "requires_iio_native_service_loop_tick": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
+        "requires_iio_native_cross_daemon_transport_loop": bool(
+            board_requires_c_policy or host_requires_c_policy
+        ),
         "requires_iio_native_service_loop_worker": bool(
             board_requires_c_policy or host_requires_c_policy
         ),
@@ -813,6 +830,36 @@ def main() -> int:
         "host_iio_native_service_loop_tick_status": host.get(
             "iio_bridge_native_service_loop_tick_status"
         ) or {},
+        "board_iio_native_cross_daemon_transport_loop_required": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_cross_daemon_transport_loop_required")
+            is True
+        ),
+        "host_iio_native_cross_daemon_transport_loop_required": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_cross_daemon_transport_loop_required")
+            is True
+        ),
+        "board_iio_native_cross_daemon_transport_loop_proven": (
+            True
+            if not board_requires_c_policy
+            else board.get("iio_bridge_native_cross_daemon_transport_loop_proven")
+            is True
+        ),
+        "host_iio_native_cross_daemon_transport_loop_proven": (
+            True
+            if not host_requires_c_policy
+            else host.get("iio_bridge_native_cross_daemon_transport_loop_proven")
+            is True
+        ),
+        "board_iio_native_cross_daemon_transport_loop_ticks": board.get(
+            "iio_bridge_native_cross_daemon_transport_loop_ticks"
+        ),
+        "host_iio_native_cross_daemon_transport_loop_ticks": host.get(
+            "iio_bridge_native_cross_daemon_transport_loop_ticks"
+        ),
         "board_iio_native_service_loop_worker_required": (
             True
             if not board_requires_c_policy

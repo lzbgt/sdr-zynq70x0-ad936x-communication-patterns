@@ -407,8 +407,13 @@ PY
         in_burst_preempted_score \
         in_burst_deferred_head_score \
         FIELDMESH_RF_SERVICE_LOOP_TICK \
+        FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK \
         sdk_daemon_rf_service_loop_tick \
+        sdk_daemon_rf_service_transport_loop_tick \
         native_service_loop_tick \
+        native_cross_daemon_transport_loop \
+        native_peer_scheduler_query \
+        persistent_native_transport_loop_process \
         FIELDMESH_RF_SERVICE_LOOP_START \
         sdk_daemon_rf_service_loop_start \
         FIELDMESH_RF_SERVICE_LOOP_STATUS \
@@ -428,6 +433,7 @@ PY
         service_order_rank \
         persistent_native_bidirectional_rf_service_loop \
         native_service_loop_worker_process \
+        native_cross_daemon_transport_worker_process \
         native_rf_service_worker \
         native_rf_service_control_plane \
         service_policy_bound \

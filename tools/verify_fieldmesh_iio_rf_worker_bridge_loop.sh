@@ -278,6 +278,9 @@ def native_service_tick_request(host, port, text, timeout_ms):
         "native_service_loop_tick": 1,
         "native_service_loop_worker": 1,
         "persistent_native_bidirectional_rf_service_loop": 1,
+        "native_cross_daemon_transport_loop": 1,
+        "native_peer_scheduler_query": 1,
+        "persistent_native_transport_loop_process": 1,
         "native_bidirectional_direction_decision": 1,
         "native_service_burst": 1,
         "daemon_owned_worker": 1,
@@ -326,20 +329,21 @@ def native_service_tick_request(host, port, text, timeout_ms):
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "native_service_loop_worker_process",
+        "next_boundary": "native_cross_daemon_transport_worker_process",
     }
 bridge.request_daemon = native_service_tick_request
 try:
     native_tick_batch, native_tick_report = loop.native_service_loop_tick_from_daemon(
-        "127.0.0.1", 55441, 10, 2, 2, 0
+        "127.0.0.1", 55441, 10, 2, "127.0.0.2", 55442, 0
     )
 finally:
     bridge.request_daemon = original_request
 if captured_native_tick.get("text") != (
-    "FIELDMESH_RF_SERVICE_LOOP_TICK v1 "
-    "peer_scheduler_score=2 current_consecutive_direction_batches=0"
+    "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1 "
+    "peer_host=127.0.0.2 peer_port=55442 peer_timeout_ms=10 "
+    "current_consecutive_direction_batches=0"
 ):
-    raise SystemExit(f"native service loop tick must use daemon C loop command: {captured_native_tick}")
+    raise SystemExit(f"native service loop tick must use daemon C transport-loop command: {captured_native_tick}")
 if native_tick_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
     raise SystemExit(f"native service loop tick did not decode frames: {native_tick_batch}")
 if native_tick_report.get("native_service_loop_tick") != 1:
@@ -779,8 +783,14 @@ required = [
     "tun_service_rf_queue_push_front",
     "\\\"deferred_lease_frames\\\"",
     "FIELDMESH_RF_SERVICE_LOOP_TICK",
+    "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK",
     "sdk_daemon_rf_service_loop_tick",
+    "sdk_daemon_rf_service_transport_loop_tick",
     "native_service_loop_tick",
+    "native_cross_daemon_transport_loop",
+    "native_peer_scheduler_query",
+    "persistent_native_transport_loop_process",
+    "native_cross_daemon_transport_worker_process",
     "FIELDMESH_RF_SERVICE_LOOP_START",
     "sdk_daemon_rf_service_loop_start",
     "FIELDMESH_RF_SERVICE_LOOP_STATUS",
@@ -985,6 +995,9 @@ required = [
     '"iio_bridge_native_service_loop_tick_proven"',
     '"iio_bridge_native_service_loop_ticks"',
     '"iio_bridge_native_service_loop_tick_status"',
+    '"iio_bridge_native_cross_daemon_transport_loop_required"',
+    '"iio_bridge_native_cross_daemon_transport_loop_proven"',
+    '"iio_bridge_native_cross_daemon_transport_loop_ticks"',
     '"iio_bridge_native_service_loop_worker_required"',
     '"iio_bridge_native_service_loop_worker_proven"',
     '"iio_bridge_native_service_loop_worker_starts"',

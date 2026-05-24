@@ -78,6 +78,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_native_service_burst_leases_missing")
         if report.get("requires_iio_native_service_loop_tick") is not True:
             blockers.append("native_ip_native_service_loop_tick_missing")
+        if report.get("requires_iio_native_cross_daemon_transport_loop") is not True:
+            blockers.append("native_ip_native_cross_daemon_transport_loop_missing")
         if report.get("requires_iio_native_service_loop_worker") is not True:
             blockers.append("native_ip_native_service_loop_worker_missing")
         if report.get("requires_iio_native_direction_scheduler") is not True:
@@ -100,6 +102,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_native_service_loop_tick_missing")
         if report.get("host_iio_native_service_loop_tick_proven") is not True:
             blockers.append("native_ip_host_native_service_loop_tick_missing")
+        if report.get("board_iio_native_cross_daemon_transport_loop_proven") is not True:
+            blockers.append("native_ip_board_native_cross_daemon_transport_loop_missing")
+        if report.get("host_iio_native_cross_daemon_transport_loop_proven") is not True:
+            blockers.append("native_ip_host_native_cross_daemon_transport_loop_missing")
         if report.get("board_iio_native_service_loop_worker_proven") is not True:
             blockers.append("native_ip_board_native_service_loop_worker_missing")
         if report.get("host_iio_native_service_loop_worker_proven") is not True:
@@ -225,6 +231,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_native_service_loop_tick": report.get(
             "requires_iio_native_service_loop_tick"
         ),
+        "requires_iio_native_cross_daemon_transport_loop": report.get(
+            "requires_iio_native_cross_daemon_transport_loop"
+        ),
         "requires_iio_native_service_loop_worker": report.get(
             "requires_iio_native_service_loop_worker"
         ),
@@ -290,6 +299,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_service_loop_ticks": report.get(
             "host_iio_native_service_loop_ticks"
+        ),
+        "board_iio_native_cross_daemon_transport_loop_proven": report.get(
+            "board_iio_native_cross_daemon_transport_loop_proven"
+        ),
+        "host_iio_native_cross_daemon_transport_loop_proven": report.get(
+            "host_iio_native_cross_daemon_transport_loop_proven"
+        ),
+        "board_iio_native_cross_daemon_transport_loop_ticks": report.get(
+            "board_iio_native_cross_daemon_transport_loop_ticks"
+        ),
+        "host_iio_native_cross_daemon_transport_loop_ticks": report.get(
+            "host_iio_native_cross_daemon_transport_loop_ticks"
         ),
         "board_iio_native_service_loop_worker_proven": report.get(
             "board_iio_native_service_loop_worker_proven"
