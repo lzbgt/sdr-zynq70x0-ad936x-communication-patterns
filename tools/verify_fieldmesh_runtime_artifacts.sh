@@ -574,8 +574,15 @@ PY
         native_iio_attr_control \
         fieldmesh_rf_tx_enable_backend_iio_attr \
         fieldmesh_rf_tx_enable_backend_sleep \
+        native_tune \
+        tune_center_frequency \
+        tune_sample_rate \
+        tune_rf_bandwidth \
         requires_c_rf_guard_action_policy_self_test \
         starts_rf_tx_when_executed \
+        center_frequency_hz \
+        sample_rate_hz \
+        rf_bandwidth_hz \
         tx_attenuation_db \
         rollback_tx_attenuation_db; do
         if ! grep -qF -- "$token" "$rf_tx_backend_out"; then

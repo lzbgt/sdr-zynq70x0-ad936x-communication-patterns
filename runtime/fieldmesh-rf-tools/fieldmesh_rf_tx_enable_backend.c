@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -95,18 +96,27 @@ static bool json_bool(const char *json, const char *key, bool *out) {
     return false;
 }
 
-static bool json_int(const char *json, const char *key, long *out) {
+static bool json_i64(const char *json, const char *key, int64_t *out) {
     const char *p = json_value(json, key);
     if (p == NULL) {
         return false;
     }
     errno = 0;
     char *end = NULL;
-    long value = strtol(p, &end, 10);
+    long long value = strtoll(p, &end, 10);
     if (errno != 0 || end == p) {
         return false;
     }
-    *out = value;
+    *out = (int64_t)value;
+    return true;
+}
+
+static bool json_int(const char *json, const char *key, long *out) {
+    int64_t value = 0;
+    if (!json_i64(json, key, &value) || value < (-2147483647 - 1) || value > 2147483647) {
+        return false;
+    }
+    *out = (long)value;
     return true;
 }
 
@@ -219,26 +229,60 @@ static int run_argv(char *const argv[]) {
     return wait_child(pid, argv[0]);
 }
 
-static int set_tx_hardware_gain(const char *gain_db, const char *phase) {
+static int set_iio_attr(const char *channel, const char *attribute, const char *value, const char *phase) {
     char *const argv[] = {
         "iio_attr",
         "-c",
         "ad9361-phy",
-        "voltage0",
-        "hardwaregain",
-        (char *)gain_db,
+        (char *)channel,
+        (char *)attribute,
+        (char *)value,
         NULL,
     };
 
     if (dry_run_enabled()) {
         printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":true,\"native_iio_attr_control\":true,\"phase\":\"", IIO_EVENT);
         json_escape(stdout, phase);
-        printf("\",\"argv\":\"iio_attr -c ad9361-phy voltage0 hardwaregain ");
-        json_escape(stdout, gain_db);
+        printf("\",\"channel\":\"");
+        json_escape(stdout, channel);
+        printf("\",\"attribute\":\"");
+        json_escape(stdout, attribute);
+        printf("\",\"value\":\"");
+        json_escape(stdout, value);
+        printf("\",\"argv\":\"iio_attr -c ad9361-phy ");
+        json_escape(stdout, channel);
+        fputc(' ', stdout);
+        json_escape(stdout, attribute);
+        fputc(' ', stdout);
+        json_escape(stdout, value);
         printf("\"}\n");
         return 0;
     }
     return run_argv(argv);
+}
+
+static int set_tx_hardware_gain(const char *gain_db, const char *phase) {
+    return set_iio_attr("voltage0", "hardwaregain", gain_db, phase);
+}
+
+static int tune_rf_profile(int64_t center_frequency_hz, int64_t sample_rate_hz, int64_t rf_bandwidth_hz) {
+    char center[32];
+    char sample[32];
+    char bandwidth[32];
+    snprintf(center, sizeof(center), "%lld", (long long)center_frequency_hz);
+    snprintf(sample, sizeof(sample), "%lld", (long long)sample_rate_hz);
+    snprintf(bandwidth, sizeof(bandwidth), "%lld", (long long)rf_bandwidth_hz);
+
+    if (set_iio_attr("altvoltage1", "frequency", center, "tune_center_frequency") != 0) {
+        return 1;
+    }
+    if (set_iio_attr("voltage0", "sampling_frequency", sample, "tune_sample_rate") != 0) {
+        return 1;
+    }
+    if (set_iio_attr("voltage0", "rf_bandwidth", bandwidth, "tune_rf_bandwidth") != 0) {
+        return 1;
+    }
+    return 0;
 }
 
 static int sleep_bounded_ms(long duration_ms) {
@@ -259,10 +303,14 @@ static int sleep_bounded_ms(long duration_ms) {
     return 0;
 }
 
-static int run_tx_enable(long max_duration_ms, double tx_attenuation_db) {
+static int run_tx_enable(long max_duration_ms, double tx_attenuation_db,
+                         int64_t center_frequency_hz, int64_t sample_rate_hz, int64_t rf_bandwidth_hz) {
     char tx_gain_db[32];
     snprintf(tx_gain_db, sizeof(tx_gain_db), "-%.6g", tx_attenuation_db);
 
+    if (tune_rf_profile(center_frequency_hz, sample_rate_hz, rf_bandwidth_hz) != 0) {
+        return 1;
+    }
     if (set_tx_hardware_gain(tx_gain_db, "enable") != 0) {
         return 1;
     }
@@ -294,6 +342,9 @@ int main(int argc, char **argv) {
     char fixture_id[128];
     long contract_version = 0;
     long max_duration_ms = 0;
+    int64_t center_frequency_hz = 0;
+    int64_t sample_rate_hz = 0;
+    int64_t rf_bandwidth_hz = 0;
     double fixture_attenuation_db = 0.0;
     double tx_attenuation_db = 0.0;
 
@@ -330,6 +381,21 @@ int main(int argc, char **argv) {
         rc = fail("request tx_attenuation_db must be >= 0");
         goto out;
     }
+    if (!json_i64(json, "center_frequency_hz", &center_frequency_hz) ||
+        center_frequency_hz < 70000000LL || center_frequency_hz > 6000000000LL) {
+        rc = fail("request center_frequency_hz is outside AD936x range");
+        goto out;
+    }
+    if (!json_i64(json, "sample_rate_hz", &sample_rate_hz) ||
+        sample_rate_hz < 520000LL || sample_rate_hz > 61440000LL) {
+        rc = fail("request sample_rate_hz is outside AD936x practical range");
+        goto out;
+    }
+    if (!json_i64(json, "rf_bandwidth_hz", &rf_bandwidth_hz) ||
+        rf_bandwidth_hz < 200000LL || rf_bandwidth_hz > 56000000LL) {
+        rc = fail("request rf_bandwidth_hz is outside AD936x practical range");
+        goto out;
+    }
 
     const char *required_true[] = {
         "ok",
@@ -341,6 +407,7 @@ int main(int argc, char **argv) {
         "rf_engine_ready",
         "target_is_zynq_board",
         "requires_bounded_tx_duration",
+        "requires_native_tune",
         "requires_rollback",
         "requires_c_rf_guard_action_policy_self_test",
         "starts_rf_tx_when_executed",
@@ -396,14 +463,14 @@ int main(int argc, char **argv) {
         goto out;
     }
 
-    rc = run_tx_enable(max_duration_ms, tx_attenuation_db);
+    rc = run_tx_enable(max_duration_ms, tx_attenuation_db, center_frequency_hz, sample_rate_hz, rf_bandwidth_hz);
     if (rc == 0) {
         printf("{\"event\":\"%s\",\"ok\":true,\"request\":\"", EVENT);
         json_escape(stdout, request_path);
         printf("\",\"fixture_id\":\"");
         json_escape(stdout, fixture_id);
-        printf("\",\"max_tx_duration_ms\":%ld,\"tx_attenuation_db\":%.6g,\"rollback_tx_attenuation_db\":89.75,\"writes_hardware\":true,\"starts_rf_tx\":true,\"bounded\":true,\"native_iio_attr_control\":true,\"delegated_to\":\"iio_attr\"}\n",
-               max_duration_ms, tx_attenuation_db);
+        printf("\",\"center_frequency_hz\":%lld,\"sample_rate_hz\":%lld,\"rf_bandwidth_hz\":%lld,\"max_tx_duration_ms\":%ld,\"tx_attenuation_db\":%.6g,\"rollback_tx_attenuation_db\":89.75,\"writes_hardware\":true,\"starts_rf_tx\":true,\"bounded\":true,\"native_tune\":true,\"native_iio_attr_control\":true,\"delegated_to\":\"iio_attr\"}\n",
+               (long long)center_frequency_hz, (long long)sample_rate_hz, (long long)rf_bandwidth_hz, max_duration_ms, tx_attenuation_db);
     }
 
 out:

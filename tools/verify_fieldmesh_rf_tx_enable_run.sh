@@ -39,7 +39,7 @@ safety = report.get("safety", {})
 for key in ("commands_executed", "writes_hardware", "starts_rf_tx", "opens_iio_buffers", "uses_inter_board_ip_routing"):
     if safety.get(key) is not False:
         raise SystemExit(f"safety key {key} crossed boundary")
-for key in ("requires_backend", "requires_backend_request_contract", "requires_bounded_tx_duration", "requires_rollback"):
+for key in ("requires_backend", "requires_backend_request_contract", "requires_bounded_tx_duration", "requires_native_tune", "requires_rollback"):
     if safety.get(key) is not True:
         raise SystemExit(f"safety key {key} was not asserted")
 if safety.get("rf_guard_action_policy_self_test_proven") is not True:
@@ -71,6 +71,13 @@ if request.get("max_tx_duration_ms") != 100 or request.get("fixture_attenuation_
     raise SystemExit("backend request did not carry bounded fixture parameters")
 if request.get("tx_attenuation_db") != 89.75:
     raise SystemExit("backend request did not carry bounded TX attenuation")
+for key, expected in (
+    ("center_frequency_hz", 915000000),
+    ("sample_rate_hz", 1000000),
+    ("rf_bandwidth_hz", 1000000),
+):
+    if request.get(key) != expected:
+        raise SystemExit(f"backend request did not carry native tune field {key}")
 sequence = request.get("sequence") or {}
 for name in ("prove_rf_guard_action_policy", "bounded_tx_enable_window", "rollback_tx_enable"):
     if name not in sequence:
@@ -173,6 +180,10 @@ for token in (
     "fieldmesh_rf_tx_enable_backend_iio_attr",
     "fieldmesh_rf_tx_enable_backend_sleep",
     "native_iio_attr_control",
+    "native_tune",
+    "tune_center_frequency",
+    "tune_sample_rate",
+    "tune_rf_bandwidth",
     "\"delegated_to\":\"iio_attr\"",
 ):
     if token not in stdout:
