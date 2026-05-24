@@ -51,6 +51,20 @@ extern "C" {
      FIELDMESH_FW_DMA_CONTROL_MAC_SCHEDULER_ENABLE | \
      FIELDMESH_FW_DMA_CONTROL_MAC_TICK_ENABLE)
 
+#define FIELDMESH_FW_DMA_STATUS_ENDPOINT_ENABLED 0x00000001u
+#define FIELDMESH_FW_DMA_STATUS_MAC_SCHEDULER_ACTIVE 0x00000002u
+#define FIELDMESH_FW_DMA_STATUS_PUMP_DONE 0x00000004u
+#define FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY 0x00000008u
+#define FIELDMESH_FW_DMA_STATUS_BUDGET_EXHAUSTED 0x00000010u
+#define FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED 0x00000020u
+#define FIELDMESH_FW_DMA_STATUS_ALL \
+    (FIELDMESH_FW_DMA_STATUS_ENDPOINT_ENABLED | \
+     FIELDMESH_FW_DMA_STATUS_MAC_SCHEDULER_ACTIVE | \
+     FIELDMESH_FW_DMA_STATUS_PUMP_DONE | \
+     FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY | \
+     FIELDMESH_FW_DMA_STATUS_BUDGET_EXHAUSTED | \
+     FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED)
+
 #define FIELDMESH_FW_DMA_FAULT_TX_PARSER 0x00000001u
 #define FIELDMESH_FW_DMA_FAULT_INGRESS 0x00000002u
 #define FIELDMESH_FW_DMA_FAULT_EGRESS 0x00000004u
@@ -174,7 +188,7 @@ static inline int fieldmesh_fw_dma_status_from_regs(
     }
 
     status->control = regs[0];
-    status->status = regs[1];
+    status->status = regs[1] & FIELDMESH_FW_DMA_STATUS_ALL;
     status->service_budget = (uint16_t)(regs[2] & 0xffffu);
     status->queued_count = (uint16_t)(regs[3] & 0xffffu);
     status->selected_word = regs[4];
@@ -207,6 +221,42 @@ static inline int fieldmesh_fw_dma_status_tx_parser_fault(
     const fieldmesh_fw_dma_status_t *status)
 {
     return status && (status->fault_status & FIELDMESH_FW_DMA_FAULT_TX_PARSER) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_endpoint_enabled(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_ENDPOINT_ENABLED) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_mac_scheduler_active(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_MAC_SCHEDULER_ACTIVE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_pump_done(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_PUMP_DONE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_drained_empty(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_budget_exhausted(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_BUDGET_EXHAUSTED) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_status_service_accepted(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->status & FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED) != 0u;
 }
 
 static inline int fieldmesh_fw_dma_status_ingress_fault(

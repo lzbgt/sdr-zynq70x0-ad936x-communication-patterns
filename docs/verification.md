@@ -2826,6 +2826,9 @@ authorization, and `--fw-dma-config`/`--fw-dma-arm`/`--fw-dma-stop` remain
 non-mutating unless the explicit live-write and firmware-DMA guards are present.
 It also rejects reserved firmware-DMA descriptor metadata flags before any
 hardware access; only the defined TX descriptor flag mask `0x003f` is accepted.
+The same verifier checks that firmware-DMA status bits are decoded in C and
+reported as booleans for endpoint enable, scheduler activity, pump completion,
+drained-empty, budget-exhausted, and service-accepted state.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and

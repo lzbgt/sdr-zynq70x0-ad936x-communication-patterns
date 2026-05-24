@@ -121,6 +121,12 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"base\":\"0x%08" PRIx32 "\","
            "\"control\":\"0x%08" PRIx32 "\","
            "\"status\":\"0x%08" PRIx32 "\","
+           "\"endpoint_enabled\":%s,"
+           "\"mac_scheduler_active\":%s,"
+           "\"pump_done\":%s,"
+           "\"drained_empty\":%s,"
+           "\"budget_exhausted\":%s,"
+           "\"service_accepted\":%s,"
            "\"service_budget\":%" PRIu32 ","
            "\"queued_count\":%" PRIu32 ","
            "\"selected_word\":\"0x%08" PRIx32 "\","
@@ -153,6 +159,12 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            base,
            status->control,
            status->status,
+           fieldmesh_fw_dma_status_endpoint_enabled(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_mac_scheduler_active(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_pump_done(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_drained_empty(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_budget_exhausted(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_service_accepted(status) ? "true" : "false",
            (uint32_t)status->service_budget,
            (uint32_t)status->queued_count,
            status->selected_word,

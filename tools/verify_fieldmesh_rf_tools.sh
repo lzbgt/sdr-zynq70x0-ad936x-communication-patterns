@@ -114,6 +114,12 @@ if fw_status_self_test.get("event") != "fieldmesh_fw_dma_status" or fw_status_se
 expected_status = {
     "control": "0x0000001f",
     "status": "0x0000002f",
+    "endpoint_enabled": True,
+    "mac_scheduler_active": True,
+    "pump_done": True,
+    "drained_empty": True,
+    "budget_exhausted": False,
+    "service_accepted": True,
     "service_budget": 32,
     "queued_count": 4,
     "selected_word": "0x80020003",
