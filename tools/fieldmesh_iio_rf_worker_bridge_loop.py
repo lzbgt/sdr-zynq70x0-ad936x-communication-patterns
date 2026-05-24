@@ -1444,6 +1444,7 @@ def run_batch(
         "iq_iio_live_run": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
         "native_iio_burst_worker_required": run_report.get("native_iio_burst_worker_required") is True,
         "native_iio_burst_worker_proven": run_report.get("native_iio_burst_worker_proven") is True,
+        "native_iio_burst_worker_lifecycle_proven": run_report.get("native_iio_burst_worker_lifecycle_proven") is True,
         "iq_iio_live_run_attempts": run_attempts,
         "iq_recovered_frame_match": recovered_frames == batch_frames if args.execute_live_rf else False,
         "sink_ingests": ingests,
@@ -1633,6 +1634,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_cross_daemon_transport_loop_failures": 0,
         "native_iio_burst_worker_invocations": 0,
         "native_iio_burst_worker_failures": 0,
+        "native_iio_burst_worker_lifecycle_invocations": 0,
+        "native_iio_burst_worker_lifecycle_failures": 0,
         "native_service_loop_worker_starts": 0,
         "native_service_loop_worker_status_polls": 0,
         "native_service_loop_worker_failures": 0,
@@ -1940,6 +1943,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     >= counts["batches_moved"]
                 )
             ),
+            "native_iio_burst_worker_lifecycle_proven": bool(
+                not (
+                    args.execute_live_rf
+                    and args.persistent_burst_helper
+                    and args.burst_helper is not None
+                )
+                or (
+                    counts["native_iio_burst_worker_lifecycle_invocations"] > 0
+                    and counts["native_iio_burst_worker_lifecycle_failures"] == 0
+                    and counts["native_iio_burst_worker_lifecycle_invocations"]
+                    >= counts["batches_moved"]
+                )
+            ),
             "native_rf_service_worker_required": bool(
                 args.execute_live_rf and args.require_native_rf_service_worker
             ),
@@ -2118,6 +2134,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             counts["native_iio_burst_worker_invocations"] += 1
         else:
             counts["native_iio_burst_worker_failures"] += 1
+        if report.get("native_iio_burst_worker_lifecycle_proven") is True:
+            counts["native_iio_burst_worker_lifecycle_invocations"] += 1
+        else:
+            counts["native_iio_burst_worker_lifecycle_failures"] += 1
 
     def record_served_direction(direction_name: str) -> None:
         nonlocal last_served_direction

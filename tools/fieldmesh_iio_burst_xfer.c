@@ -92,6 +92,8 @@ struct options {
     unsigned int rx_arm_delay_ms;
     bool cyclic;
     bool server;
+    bool persistent_server_mode;
+    unsigned long long server_xfer_count;
 };
 
 struct rx_job {
@@ -143,6 +145,9 @@ static int run_native_worker_self_test(void)
            "\"proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_SELF_TEST v1\","
            "\"native_iio_burst_worker\":true,"
            "\"persistent_server_supported\":true,"
+           "\"persistent_worker_lifecycle_supported\":true,"
+           "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
+           "\"server_owned_xfer_loop_supported\":true,"
            "\"libiio_rx_tx_worker\":true,"
            "\"same_process_rx_tx\":true,"
            "\"python_iio_transport\":false,"
@@ -1699,12 +1704,23 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
     fprintf(json_out,
             "{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":%s,"
             "\"native_iio_burst_worker\":true,"
+            "\"persistent_native_iio_burst_worker\":%s,"
+            "\"native_iio_burst_worker_lifecycle\":%s,"
+            "\"native_iio_burst_worker_lifecycle_proof\":\"%s\","
+            "\"server_owned_xfer_loop\":%s,"
+            "\"server_xfer_count\":%llu,"
             "\"libiio_rx_tx_worker\":true,"
             "\"same_process_rx_tx\":true,"
             "\"python_iio_transport\":false,"
             "\"tx_bytes\":%zu,\"rx_bytes\":%zd,\"rx_target_bytes\":%zu,"
             "\"cyclic\":%s,\"elapsed_ms\":%ld}\n",
             ok ? "true" : "false",
+            opt->persistent_server_mode ? "true" : "false",
+            opt->persistent_server_mode ? "true" : "false",
+            opt->persistent_server_mode ?
+                "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1" : "",
+            opt->persistent_server_mode ? "true" : "false",
+            opt->server_xfer_count,
             tx_bytes, job.bytes_written, rx_bytes, opt->cyclic ? "true" : "false",
             elapsed_ms);
     fflush(json_out);
@@ -1721,18 +1737,29 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                       const struct options *base)
 {
     char line[4096];
+    unsigned long long xfer_count = 0;
 
     printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true,"
            "\"native_iio_burst_worker\":true,"
            "\"persistent_native_iio_burst_worker\":true,"
+           "\"native_iio_burst_worker_lifecycle\":true,"
+           "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
+           "\"server_owned_xfer_loop\":true,"
+           "\"server_xfer_count\":0,"
+           "\"server_pid\":%ld,"
            "\"libiio_rx_tx_worker\":true,"
-           "\"python_iio_transport\":false}\n");
+           "\"python_iio_transport\":false}\n",
+           (long)getpid());
     fflush(stdout);
 
     while (fgets(line, sizeof(line), stdin)) {
         line[strcspn(line, "\r\n")] = '\0';
         if (strcmp(line, "QUIT") == 0) {
-            printf("{\"event\":\"fieldmesh_iio_burst_xfer_server_quit\",\"ok\":true}\n");
+            printf("{\"event\":\"fieldmesh_iio_burst_xfer_server_quit\",\"ok\":true,"
+                   "\"native_iio_burst_worker_lifecycle\":true,"
+                   "\"native_iio_burst_worker_lifecycle_proof\":\"FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1\","
+                   "\"server_owned_xfer_loop\":true,"
+                   "\"server_xfer_count\":%llu}\n", xfer_count);
             fflush(stdout);
             return 0;
         }
@@ -1748,6 +1775,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         req.rx_file = NULL;
         req.tx_samples = 0;
         req.rx_samples = 0;
+        req.persistent_server_mode = true;
+        req.server_xfer_count = xfer_count + 1ULL;
 
         char *save = NULL;
         for (char *token = strtok_r(line + 5, " ", &save);
@@ -1779,6 +1808,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             fflush(stdout);
             continue;
         }
+        xfer_count++;
         (void)run_xfer(rx_dev, tx_dev, &req, stdout);
     }
     return 0;

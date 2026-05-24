@@ -99,6 +99,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: IIO persistent burst helper proof is missing")
             if source.get("requires_iio_native_iio_burst_worker") is not True:
                 raise SystemExit("native_ip: native IIO burst worker proof is missing")
+            if source.get("requires_iio_native_iio_burst_worker_lifecycle") is not True:
+                raise SystemExit("native_ip: native IIO burst worker lifecycle proof is missing")
             if source.get("requires_iio_in_burst_priority_preemption") is not True:
                 raise SystemExit("native_ip: IIO in-burst priority preemption proof is missing")
             if source.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -187,6 +189,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board native IIO burst worker proof is missing")
             if source.get("host_iio_native_iio_burst_worker_proven") is not True:
                 raise SystemExit("native_ip: host native IIO burst worker proof is missing")
+            if source.get("board_iio_native_iio_burst_worker_lifecycle_proven") is not True:
+                raise SystemExit("native_ip: board native IIO burst worker lifecycle proof is missing")
+            if source.get("host_iio_native_iio_burst_worker_lifecycle_proven") is not True:
+                raise SystemExit("native_ip: host native IIO burst worker lifecycle proof is missing")
             if source.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
                 raise SystemExit("native_ip: board IIO in-burst priority preemption proof is missing")
             if source.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
@@ -269,6 +275,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_hybrid_lease_priority",
         "requires_iio_persistent_burst_helper",
         "requires_iio_native_iio_burst_worker",
+        "requires_iio_native_iio_burst_worker_lifecycle",
         "requires_iio_in_burst_priority_preemption",
         "requires_iio_rf_sub_burst_evidence",
         "requires_iio_rf_service_policy_proof",
@@ -346,6 +353,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_persistent_burst_helper",
         "board_iio_native_iio_burst_worker_proven",
         "host_iio_native_iio_burst_worker_proven",
+        "board_iio_native_iio_burst_worker_lifecycle_proven",
+        "host_iio_native_iio_burst_worker_lifecycle_proven",
         "board_iio_bridge_in_burst_priority_preemption_enabled",
         "host_iio_bridge_in_burst_priority_preemption_enabled",
         "board_iio_bridge_in_burst_priority_preemption_exercised",

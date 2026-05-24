@@ -166,6 +166,7 @@ class BurstHelperServer:
         if ready.get("event") != "fieldmesh_iio_burst_xfer_server" or ready.get("ok") is not True:
             self.close(kill=True)
             raise SystemExit(f"iio_burst_helper server did not become ready: {ready}")
+        self.ready = ready
 
     def _stderr_after_exit(self) -> str:
         if self.proc.stderr is None:
@@ -682,8 +683,10 @@ def execute_live_with_helper(
 
     helper_row = command_row("iio_burst_helper", helper_argv)
     helper_started = time.monotonic()
+    helper_ready: dict[str, Any] = {}
     if getattr(args, "persistent_burst_helper", False):
         server = helper_server_for(args, helper_argv, channels)
+        helper_ready = dict(server.ready)
         xfer_fields = {
             "tx_file": str(tx_row["stdin_file"]),
             "rx_file": str(capture_path),
@@ -721,6 +724,16 @@ def execute_live_with_helper(
         "argv": helper_row["argv"],
         "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
         "native_iio_burst_worker": helper_report.get("native_iio_burst_worker") is True,
+        "persistent_native_iio_burst_worker": helper_report.get("persistent_native_iio_burst_worker") is True,
+        "native_iio_burst_worker_lifecycle": helper_report.get("native_iio_burst_worker_lifecycle") is True,
+        "native_iio_burst_worker_lifecycle_proof": helper_report.get("native_iio_burst_worker_lifecycle_proof"),
+        "server_owned_xfer_loop": helper_report.get("server_owned_xfer_loop") is True,
+        "server_xfer_count": helper_report.get("server_xfer_count"),
+        "server_ready_event": helper_ready.get("event"),
+        "server_ready_lifecycle": helper_ready.get("native_iio_burst_worker_lifecycle") is True,
+        "server_ready_lifecycle_proof": helper_ready.get("native_iio_burst_worker_lifecycle_proof"),
+        "server_ready_owned_xfer_loop": helper_ready.get("server_owned_xfer_loop") is True,
+        "server_pid": helper_ready.get("server_pid"),
         "libiio_rx_tx_worker": helper_report.get("libiio_rx_tx_worker") is True,
         "python_iio_transport": helper_report.get("python_iio_transport") is True,
         "helper_event": helper_report.get("event"),
@@ -737,6 +750,11 @@ def execute_live_with_helper(
             "burst_helper": str(args.burst_helper),
             "persistent_burst_helper": bool(getattr(args, "persistent_burst_helper", False)),
             "native_iio_burst_worker": helper_result["native_iio_burst_worker"],
+            "persistent_native_iio_burst_worker": helper_result["persistent_native_iio_burst_worker"],
+            "native_iio_burst_worker_lifecycle": helper_result["native_iio_burst_worker_lifecycle"],
+            "native_iio_burst_worker_lifecycle_proof": helper_result["native_iio_burst_worker_lifecycle_proof"],
+            "server_owned_xfer_loop": helper_result["server_owned_xfer_loop"],
+            "server_xfer_count": helper_result["server_xfer_count"],
             "libiio_rx_tx_worker": helper_result["libiio_rx_tx_worker"],
             "python_iio_transport": helper_result["python_iio_transport"],
         }
@@ -917,9 +935,33 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             and result.get("returncode") == 0
             and result.get("persistent_burst_helper") is True
             and result.get("native_iio_burst_worker") is True
+            and result.get("persistent_native_iio_burst_worker") is True
             and result.get("libiio_rx_tx_worker") is True
             and result.get("python_iio_transport") is False
             for result in command_results
+        )
+    )
+    native_iio_burst_worker_lifecycle_proven = bool(
+        not native_iio_burst_worker_required
+        or (
+            command_results
+            and any(
+                result.get("name") == "iio_burst_helper"
+                and result.get("returncode") == 0
+                and result.get("persistent_burst_helper") is True
+                and result.get("persistent_native_iio_burst_worker") is True
+                and result.get("native_iio_burst_worker_lifecycle") is True
+                and result.get("native_iio_burst_worker_lifecycle_proof")
+                == "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1"
+                and result.get("server_ready_lifecycle") is True
+                and result.get("server_ready_lifecycle_proof")
+                == "FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1"
+                and result.get("server_owned_xfer_loop") is True
+                and result.get("server_ready_owned_xfer_loop") is True
+                and isinstance(result.get("server_xfer_count"), int)
+                and result.get("server_xfer_count") >= 1
+                for result in command_results
+            )
         )
     )
 
@@ -970,6 +1012,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "command_results": command_results,
         "native_iio_burst_worker_required": native_iio_burst_worker_required,
         "native_iio_burst_worker_proven": native_iio_burst_worker_proven,
+        "native_iio_burst_worker_lifecycle_proven": native_iio_burst_worker_lifecycle_proven,
         "decode": decode,
         "elapsed_ms": int((time.monotonic() - started) * 1000),
     }

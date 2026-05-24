@@ -1412,7 +1412,10 @@ user and vendor configuration.
   the host-originated transparent TCP case. Review can separate TCP
   final-exchange pressure from RF burst and daemon ACK service cost. Live HIL
   with the rebuilt persistent helper moved 55 real-RF frames with zero bridge
-  errors; the Z203 client had sent 128 bytes, and Z103 captured 128 received
+  errors; production evidence now also requires the helper's native server
+  lifecycle proof (`FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`) and positive
+  server-owned transfer counters, not only one-shot helper-native proof. The
+  Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`
   success yet; it shows the next software fix should keep the client alive

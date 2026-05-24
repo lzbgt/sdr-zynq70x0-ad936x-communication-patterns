@@ -2944,6 +2944,15 @@ report = {
     "iio_bridge_native_iio_burst_worker_failures": int(
         last_iio_bridge.get("native_iio_burst_worker_failures") or 0
     ),
+    "iio_bridge_native_iio_burst_worker_lifecycle_proven": bool(
+        last_iio_bridge.get("native_iio_burst_worker_lifecycle_proven")
+    ),
+    "iio_bridge_native_iio_burst_worker_lifecycle_invocations": int(
+        last_iio_bridge.get("native_iio_burst_worker_lifecycle_invocations") or 0
+    ),
+    "iio_bridge_native_iio_burst_worker_lifecycle_failures": int(
+        last_iio_bridge.get("native_iio_burst_worker_lifecycle_failures") or 0
+    ),
     "iio_bridge_in_burst_priority_preemption_enabled": bool(
         last_iio_bridge.get("in_burst_priority_preemption_enabled")
     ),

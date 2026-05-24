@@ -5097,7 +5097,11 @@ C proof must report the production IIO scheduler policy from
 `fieldmesh_rf_service_policy.h`: four-frame leases, two-frame sub-bursts,
 same-priority batches, hybrid `tcp-control-flow-udp-after-control` lease
 priority, persistent burst helper, ACK-pipeline depth two, reverse-service
-requirement, and in-burst priority preemption.
+requirement, and in-burst priority preemption. The IIO burst helper must also
+prove the persistent native worker lifecycle: server-ready output carries
+`FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`, each server-owned transfer
+emits a monotonically positive `server_xfer_count`, and native-IP evidence
+rejects reports that only prove one-shot helper execution.
 `verify_fieldmesh_iio_rf_worker_bridge_loop.sh`
 compares the native-IP HIL runner defaults against the same C header so CI
 catches policy drift before final evidence is collected. Production native-IP

@@ -381,7 +381,10 @@ Minimum production gates for native TCP/IP:
   shutdown/result exchange pressure from RF burst or daemon ACK latency without
   losing which client path produced the evidence. Live HIL with the
   rebuilt persistent helper moved 55 real-RF frames with zero bridge errors; the
-  Z203 client sent 128 TCP bytes, the Z103
+  current evidence gate now requires that helper to prove its native server
+  lifecycle with `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1` and a positive
+  server-owned transfer counter, so archived captures cannot pass on one-shot
+  helper invocation alone. The Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
   was still already interrupted by the wrapper in that run, so production
   `iperf3` evidence remains incomplete, but the failure is now specifically the
