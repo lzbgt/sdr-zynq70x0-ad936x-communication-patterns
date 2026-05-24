@@ -1477,14 +1477,11 @@ below were later superseded by the current PHY-management two-board gates above:
   evaluated in C.
   `tools/report_fieldmesh_runtime_source_freshness.sh` now gives a read-only
   package freshness report for that contract by comparing packaged
-  `fieldmesh-ctrl-write` strings against the current C source. It reports
-  `runtime_rebuild_needed=true` without failing by default, so the next
-  low-memory-safe step can keep source checks green while still making stale
-  rootfs packages visible. `tools/verify_fieldmesh_runtime_artifacts.sh` emits
-  the same advisory row from the packaged binary strings. After the next Yocto
-  package rebuild, run it with `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=1` or
-  the standalone reporter's `--require-current` and tighten the hard
-  runtime-artifact gate.
+  `fieldmesh-ctrl-write` strings against the current C source. The Z203/Z103
+  rootfs images and runtime packages were rebuilt against that contract, and
+  `FIELDMESH_REQUIRE_CURRENT_FW_DMA_RUNTIME=1
+  ./tools/verify_fieldmesh_runtime_artifacts.sh all` now passes with
+  `runtime_rebuild_needed=false` for both variants.
   The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is

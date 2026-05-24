@@ -4295,21 +4295,22 @@ returns cursor-based app-event messages for the GUI event worker. The path keeps
 `uses_json_on_air=0`, `uses_inter_board_ip_routing=false`,
 `starts_rf_tx=false`, and `writes_hardware=false`.
 
-Refreshed runtime artifact hashes after adding app/daemon IM send+receive
-support. The current live two-board gate uses `FIELDMESH_MAC_INGEST` to feed
-compact presence/TDOA TLVs into the observed peer and RTLS registries before
-camera/control/data-plane validation:
+Refreshed runtime artifact hashes after rebuilding the Z203/Z103 rootfs images
+with the current checked firmware-DMA C control contract. The current live
+two-board gate uses `FIELDMESH_MAC_INGEST` to feed compact presence/TDOA TLVs
+into the observed peer and RTLS registries before camera/control/data-plane
+validation:
 
 ```text
-Z203 rootfs.cpio.gz: 3e78edf24ea817f9e120b4726d4473d8188372c316854f207c601f608fa7ff9f
-Z203 rootfs.tar.gz:  4541b2ce7d64c60fdae083ee54130ef8deb18f67650b61b205ba06dc30295bdd
-Z203 pluto.frm:      af17c99c7a231964b2f0c9040dfa42cc5af5ca4f77fb605fdfbce74af67dac6f
-Z203 pluto.itb:      fdc12aa97eb5d40d20450234e0d36feb126a6377dd385b5efa616d1e9275238a
+Z203 rootfs.cpio.gz: c178ba528b72764b5a3fe2ce8ea8141c681ff840460d44577944fd807640fcab
+Z203 rootfs.tar.gz:  35940ee0e38cdbf2803b286fc16c300dec4b935e266bdfbb781625521fb052aa
+Z203 pluto.frm:      6f62d9b7b27499ec73f4c25bbd46c71c689278ff46433d70152b1460633d2bec
+Z203 pluto.itb:      cb8544d8012b51d18a0cfbe85a4fd684bc39ec60ad5866ced2a8a1eb4dd8a898
 Z203 jtag ramdisk:   7349b9059083fdec71fc53550f84b7b97d0a3b3e8b0e108274595d5f13c82700
-Z103 rootfs.cpio.gz: f45cd6fdc081aa32874479d5ca674adb6c37d9b9d36cb87eab1ec0e20a531963
-Z103 rootfs.tar.gz:  cff9f4c73fb3adc57746d261c4e763997515b76a0a5d003948e094b5488c8444
-Z103 pluto.frm:      f3dfddd955ecc1c4ed852e6b5f239e86c8c12856dedd44b90fdf48c6c5828adb
-Z103 pluto.itb:      1f3928d17b9dd16aeaffd35b06b60b750dd9cf11fcce91c7386de18c9ea94ccf
+Z103 rootfs.cpio.gz: f698453e3650213a50c66402576489fde29045c648734abdbb2abb967132532b
+Z103 rootfs.tar.gz:  6cfe8cacc4f6f7479480c69b7db60f17bb4796d71f8bb6cb6a14147dff426281
+Z103 pluto.frm:      733872cca8dd3d510b939643dcdee9b7428cd2b5f6771dc2dbf5fac8313d95f9
+Z103 pluto.itb:      5314b2fb673e1449e4d9a594b1bb3aeec409e79869170a7f438c4535b74b6628
 Z103 jtag ramdisk:   2663e6726477ef5409970a96230a2365968be8f6d77087381815b3760e749994
 ```
 
