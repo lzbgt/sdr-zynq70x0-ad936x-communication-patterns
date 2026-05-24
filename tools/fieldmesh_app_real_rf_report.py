@@ -171,6 +171,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board IIO in-burst priority preemption was not exercised")
             if source.get("host_iio_bridge_in_burst_priority_preemption_exercised") is not True:
                 raise SystemExit("native_ip: host IIO in-burst priority preemption was not exercised")
+            if source.get("board_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+                raise SystemExit("native_ip: board IIO in-burst priority multiplexing was not exercised")
+            if source.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+                raise SystemExit("native_ip: host IIO in-burst priority multiplexing was not exercised")
             if source.get("board_iio_rf_sub_burst_exercised") is not True:
                 raise SystemExit("native_ip: board IIO RF sub-burst proof is missing")
             if source.get("host_iio_rf_sub_burst_exercised") is not True:
@@ -309,6 +313,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_in_burst_priority_preemption_exercised",
         "board_iio_bridge_in_burst_priority_preemptions",
         "host_iio_bridge_in_burst_priority_preemptions",
+        "board_iio_bridge_in_burst_priority_multiplexing_exercised",
+        "host_iio_bridge_in_burst_priority_multiplexing_exercised",
+        "board_iio_bridge_in_burst_priority_multiplexing_events",
+        "host_iio_bridge_in_burst_priority_multiplexing_events",
         "board_iio_bridge_native_service_burst_leases",
         "host_iio_bridge_native_service_burst_leases",
         "board_iio_rf_sub_burst_exercised",

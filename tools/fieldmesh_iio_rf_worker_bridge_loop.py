@@ -252,6 +252,15 @@ def native_service_burst_from_daemon(
             raise SystemExit(
                 f"RF_SERVICE_NEXT_BURST {key}={report.get(key)!r} expected {expected!r}: {report}"
             )
+    for key in (
+        "in_burst_priority_preempted",
+        "in_burst_priority_preemption_count",
+        "in_burst_priority_multiplexing",
+    ):
+        if not isinstance(report.get(key), int):
+            raise SystemExit(
+                f"RF_SERVICE_NEXT_BURST {key}={report.get(key)!r} expected integer: {report}"
+            )
     count = report.get("frames")
     if count in (0, "0", None):
         return [], report
@@ -354,6 +363,8 @@ def native_service_loop_tick_from_daemon(
         "emitted_service_frames",
         "deferred_lease_frames",
         "in_burst_priority_preempted",
+        "in_burst_priority_preemption_count",
+        "in_burst_priority_multiplexing",
         "in_burst_preempted_score",
         "in_burst_deferred_head_score",
     ):
@@ -1518,6 +1529,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_tick_skips": 0,
         "native_service_loop_tick_failures": 0,
         "in_burst_priority_preemptions": 0,
+        "in_burst_priority_multiplexing_events": 0,
         "rf_sub_burst_slices": 0,
         "rf_sub_burst_deferred_frames": 0,
         "rf_sub_burst_preemption_points": 0,
@@ -1629,6 +1641,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 counts["in_burst_priority_preemptions"] > 0
             ),
             "in_burst_priority_preemptions": counts["in_burst_priority_preemptions"],
+            "in_burst_priority_multiplexing_exercised": bool(
+                counts["in_burst_priority_multiplexing_events"] > 0
+            ),
+            "in_burst_priority_multiplexing_events": (
+                counts["in_burst_priority_multiplexing_events"]
+            ),
             "rf_lease_batch_high_water": batch_high_water_max(
                 rf_lease_batch_high_water_by_direction
             ),
@@ -2144,7 +2162,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         if args.native_service_burst_leases:
                             counts["native_service_burst_leases"] += 1
                             if batch_lease.get("in_burst_priority_preempted") == 1:
-                                counts["in_burst_priority_preemptions"] += 1
+                                counts["in_burst_priority_preemptions"] += max(
+                                    1,
+                                    int(
+                                        batch_lease.get(
+                                            "in_burst_priority_preemption_count"
+                                        )
+                                        or 0
+                                    ),
+                                )
+                            if batch_lease.get("in_burst_priority_multiplexing") == 1:
+                                counts["in_burst_priority_multiplexing_events"] += 1
                         if args.native_service_burst_leases:
                             leased_frame_count = max(
                                 len(batch_frames),

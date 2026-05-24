@@ -203,8 +203,12 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_bridge_in_burst_priority_preemption_enabled": true,
   "board_iio_bridge_in_burst_priority_preemption_exercised": true,
   "host_iio_bridge_in_burst_priority_preemption_exercised": true,
-  "board_iio_bridge_in_burst_priority_preemptions": 1,
-  "host_iio_bridge_in_burst_priority_preemptions": 1,
+  "board_iio_bridge_in_burst_priority_preemptions": 2,
+  "host_iio_bridge_in_burst_priority_preemptions": 2,
+  "board_iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "host_iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "board_iio_bridge_in_burst_priority_multiplexing_events": 1,
+  "host_iio_bridge_in_burst_priority_multiplexing_events": 1,
   "board_iio_rf_sub_burst_exercised": true,
   "host_iio_rf_sub_burst_exercised": true,
   "board_iio_rf_sub_burst_bidirectional_service_exercised": true,
@@ -502,6 +506,11 @@ from pathlib import Path
 report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if report.get("production_ready") is not True or report.get("blockers") != []:
     raise SystemExit(f"ready report did not pass: {report}")
+detail = report.get("detail", {})
+if detail.get("native_ip_host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+    raise SystemExit(f"ready report lost host in-burst priority multiplexing proof: {report}")
+if detail.get("native_ip_board_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+    raise SystemExit(f"ready report lost board in-burst priority multiplexing proof: {report}")
 PY
 
 if "$repo_root/tools/fieldmesh_system_production_readiness.py" \

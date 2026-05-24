@@ -77,8 +77,12 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_bridge_in_burst_priority_preemption_enabled": true,
   "board_iio_bridge_in_burst_priority_preemption_exercised": true,
   "host_iio_bridge_in_burst_priority_preemption_exercised": true,
-  "board_iio_bridge_in_burst_priority_preemptions": 1,
-  "host_iio_bridge_in_burst_priority_preemptions": 1,
+  "board_iio_bridge_in_burst_priority_preemptions": 2,
+  "host_iio_bridge_in_burst_priority_preemptions": 2,
+  "board_iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "host_iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "board_iio_bridge_in_burst_priority_multiplexing_events": 1,
+  "host_iio_bridge_in_burst_priority_multiplexing_events": 1,
   "board_iio_rf_sub_burst_exercised": true,
   "host_iio_rf_sub_burst_exercised": true,
   "board_iio_rf_sub_burst_bidirectional_service_exercised": true,
@@ -175,6 +179,10 @@ if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-c
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority proof: {report!r}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper proof: {report!r}")
+if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+    raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing proof: {report!r}")
+if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
+    raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing count: {report!r}")
 if report.get("host_iio_rf_sub_burst_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst proof: {report!r}")
 if report.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is not True:

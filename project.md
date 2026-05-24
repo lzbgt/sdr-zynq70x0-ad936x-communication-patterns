@@ -1365,8 +1365,11 @@ user and vendor configuration.
   daemons to report a running native RF worker/control-plane status bound to
   the same policy before scheduling starts, then request each RF service burst
   through `FIELDMESH_RF_SERVICE_NEXT_BURST v1`. That moves lease-window fill,
-  same-priority stop, in-burst priority preemption, sub-burst emission, and
-  deferred-frame replay into the C daemon. Python still drives the outer
+  same-priority stop, in-burst priority multiplexing, sub-burst emission, and
+  deferred-frame replay into the C daemon. The daemon can splice multiple
+  newly queued higher-priority control/result frames ahead of lower-priority
+  deferred lease slots before emitting the next sub-burst, and production
+  evidence now requires an exercised multiplexing event. Python still drives the outer
   cross-daemon loop, but it now uses
   `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for the per-source queue score,
   `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the local-vs-peer

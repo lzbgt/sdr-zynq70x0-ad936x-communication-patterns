@@ -306,11 +306,12 @@ Minimum production gates for native TCP/IP:
   frames at a time but defaults `IIO_BRIDGE_MAX_FRAMES_PER_RF_BURST=2`; any
   remaining leased frames stay in the daemon lease queue for replay after the
   scheduler can check the reverse direction. Production evidence carries the
-  lease-batch high-water, RF sub-burst size, deferred-frame count, and
-  sub-burst preemption count. It must also prove at least one reverse-direction
-  RF service event happened while a same-source sub-burst had deferred lease
-  frames, so final review can distinguish true bidirectional sub-burst service
-  from simply replaying the same source in smaller chunks.
+  lease-batch high-water, RF sub-burst size, deferred-frame count, sub-burst
+  preemption count, and in-burst priority multiplexing count. It must also
+  prove at least one reverse-direction RF service event happened while a
+  same-source sub-burst had deferred lease frames, so final review can
+  distinguish true bidirectional sub-burst service from simply replaying the
+  same source in smaller chunks.
   The corresponding scheduler defaults are now also a native C contract in
   `fieldmesh_rf_service_policy.h`: the daemon's
   `FIELDMESH_RF_SERVICE_POLICY_SELF_TEST v1` response proves the four-frame
@@ -327,7 +328,8 @@ Minimum production gates for native TCP/IP:
   the same production service policy before any host-orchestrated RF scheduling
   starts. The production IIO bridge now requests each burst through the daemon's
   `FIELDMESH_RF_SERVICE_NEXT_BURST v1` command, so native C owns the lease
-  window, sub-burst cap, same-priority stop, and deferred-frame replay boundary.
+  window, sub-burst cap, same-priority stop, in-burst priority multiplexing,
+  and deferred-frame replay boundary.
   It also requests `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for per-direction
   queue-depth scores, so adaptive direction ordering and fair-service yield
   decisions consume C-scored scheduler evidence instead of Python recomputing

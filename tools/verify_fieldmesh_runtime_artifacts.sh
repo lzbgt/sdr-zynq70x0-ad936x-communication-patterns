@@ -402,6 +402,8 @@ PY
         deferred_lease_frames \
         in_burst_priority_preemption \
         in_burst_priority_preempted \
+        in_burst_priority_preemption_count \
+        in_burst_priority_multiplexing \
         in_burst_preempted_score \
         in_burst_deferred_head_score \
         FIELDMESH_RF_SERVICE_LOOP_TICK \

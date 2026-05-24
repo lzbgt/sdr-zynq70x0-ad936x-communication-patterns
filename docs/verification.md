@@ -5117,11 +5117,13 @@ service-burst emission in one native tick. The same worker/scheduler/decision/
 tick proof is preserved through native-IP evidence, app reports, and readiness.
 Production bridge runs also require native service-burst leases:
 `FIELDMESH_RF_SERVICE_NEXT_BURST v1` is the C-owned command that fills the
-four-frame lease window, performs in-burst priority preemption against the
-deferred lease head, emits the two-frame RF burst, and leaves remaining deferred
-leased frames queued until successful peer ingest and ACK. The evidence
-classifiers reject IIO reports that do not prove this daemon-owned burst
-boundary and at least one exercised in-burst priority preemption.
+four-frame lease window, performs in-burst priority multiplexing by splicing
+newly queued higher-priority frames ahead of lower-priority deferred lease
+slots, emits the two-frame RF burst, and leaves remaining deferred leased frames
+queued until successful peer ingest and ACK. The evidence classifiers reject
+IIO reports that do not prove this daemon-owned burst boundary, at least one
+exercised in-burst priority preemption, and at least one multiplexing event with
+more than one priority frame inserted before a sub-burst.
 Production native-IP evidence also requires TCP
 final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,

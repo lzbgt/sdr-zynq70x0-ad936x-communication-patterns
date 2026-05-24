@@ -237,8 +237,10 @@ in `src/fieldmesh_sdk.c`:
   service-policy boundary, `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1` for the
   C-owned local-vs-peer service/yield decision, and
   `FIELDMESH_RF_SERVICE_LOOP_TICK v1` to combine that decision with C-owned
-  burst emission in one daemon tick while Python still orchestrates the outer
-  process.
+  burst emission in one daemon tick. The burst path also performs C-owned
+  in-burst priority multiplexing, splicing newly queued control/result frames
+  ahead of lower-priority deferred lease slots before emitting the sub-burst,
+  while Python still orchestrates the outer process.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

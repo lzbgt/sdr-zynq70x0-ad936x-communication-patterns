@@ -47,7 +47,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
-  "iio_bridge_in_burst_priority_preemptions": 1,
+  "iio_bridge_in_burst_priority_preemptions": 2,
+  "iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "iio_bridge_in_burst_priority_multiplexing_events": 1,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
   "iio_bridge_native_service_loop_tick_enabled": true,
@@ -63,6 +65,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "production_iio_policy": 1,
       "in_burst_priority_preemption": 1,
       "in_burst_priority_preempted": 1,
+      "in_burst_priority_preemption_count": 2,
+      "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1002,
       "frames": 2
     }
@@ -217,7 +221,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
-  "iio_bridge_in_burst_priority_preemptions": 1,
+  "iio_bridge_in_burst_priority_preemptions": 2,
+  "iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "iio_bridge_in_burst_priority_multiplexing_events": 1,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
   "iio_bridge_native_service_loop_tick_enabled": true,
@@ -233,6 +239,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "production_iio_policy": 1,
       "in_burst_priority_preemption": 1,
       "in_burst_priority_preempted": 1,
+      "in_burst_priority_preemption_count": 2,
+      "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1004,
       "frames": 2
     }
@@ -453,6 +461,10 @@ if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-c
     raise SystemExit(f"missing host hybrid lease-priority proof: {report}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"missing host persistent helper proof: {report}")
+if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+    raise SystemExit(f"missing host in-burst priority multiplexing proof: {report}")
+if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
+    raise SystemExit(f"missing host in-burst priority multiplexing count: {report}")
 if report.get("host_iio_bridge_native_service_burst_leases") != 3:
     raise SystemExit(f"missing host native service burst lease count: {report}")
 if report.get("host_iio_rf_sub_burst_exercised") is not True:
@@ -541,6 +553,8 @@ if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-c
     raise SystemExit(f"native-IP readiness lost hybrid lease-priority proof: {report}")
 if report.get("host_iio_bridge_persistent_burst_helper") is not True:
     raise SystemExit(f"native-IP readiness lost persistent helper proof: {report}")
+if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+    raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing proof: {report}")
 if report.get("host_iio_rf_sub_burst_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost RF sub-burst proof: {report}")
 if report.get("host_iio_rf_sub_burst_bidirectional_service_exercised") is not True:

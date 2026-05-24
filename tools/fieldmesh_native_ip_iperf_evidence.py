@@ -139,6 +139,8 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         and isinstance(status.get("service_order_rank"), int)
         and status.get("in_burst_priority_preemption") == 1
         and isinstance(status.get("in_burst_priority_preempted"), int)
+        and isinstance(status.get("in_burst_priority_preemption_count"), int)
+        and isinstance(status.get("in_burst_priority_multiplexing"), int)
         for status in loop_tick_status.values()
     ):
         errors.append(f"{label}: native RF service loop tick status is incomplete")
@@ -150,6 +152,12 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         report.get("iio_bridge_in_burst_priority_preemptions") < 1
     ):
         errors.append(f"{label}: IIO bridge in-burst priority preemption count is missing")
+    if report.get("iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+        errors.append(f"{label}: IIO bridge in-burst priority multiplexing was not exercised")
+    if not isinstance(
+        report.get("iio_bridge_in_burst_priority_multiplexing_events"), int
+    ) or report.get("iio_bridge_in_burst_priority_multiplexing_events") < 1:
+        errors.append(f"{label}: IIO bridge in-burst priority multiplexing count is missing")
     if report.get("iio_bridge_native_direction_scheduler_enabled") is not True:
         errors.append(f"{label}: native RF direction scheduler must be enabled")
     if report.get("iio_bridge_native_direction_scheduler_proven") is not True:
@@ -941,6 +949,18 @@ def main() -> int:
         ),
         "host_iio_bridge_in_burst_priority_preemptions": host.get(
             "iio_bridge_in_burst_priority_preemptions"
+        ),
+        "board_iio_bridge_in_burst_priority_multiplexing_exercised": board.get(
+            "iio_bridge_in_burst_priority_multiplexing_exercised"
+        ),
+        "host_iio_bridge_in_burst_priority_multiplexing_exercised": host.get(
+            "iio_bridge_in_burst_priority_multiplexing_exercised"
+        ),
+        "board_iio_bridge_in_burst_priority_multiplexing_events": board.get(
+            "iio_bridge_in_burst_priority_multiplexing_events"
+        ),
+        "host_iio_bridge_in_burst_priority_multiplexing_events": host.get(
+            "iio_bridge_in_burst_priority_multiplexing_events"
         ),
         "board_iio_bridge_native_service_burst_leases": board.get(
             "iio_bridge_native_service_burst_leases"

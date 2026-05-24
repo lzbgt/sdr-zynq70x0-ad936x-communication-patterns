@@ -411,10 +411,12 @@ native-IP HIL evidence now carries the daemon C proof through preflight,
 production classification, app reports, and readiness. The live IIO bridge now
 also gates on both daemons reporting a running native RF worker/control-plane
 status bound to that policy, then uses `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so
-native C fills the lease window, emits only the configured RF sub-burst,
-preempts deferred lower-priority lease heads with newly queued higher-priority
-control/result frames, and preserves remaining deferred lease frames for
-reverse-path service. The per-source score now comes from
+native C fills the lease window, emits only the configured RF sub-burst, splices
+newly queued higher-priority control/result frames ahead of lower-priority
+deferred lease slots up to the sub-burst width, and preserves remaining
+deferred lease frames for reverse-path service. Production evidence must prove
+both a nonzero preemption count and an exercised in-burst priority multiplexing
+event. The per-source score now comes from
 `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, and the local-vs-peer service/yield
 choice and service-order rank come from
 `FIELDMESH_RF_SERVICE_DIRECTION_DECISION v1`, so native-IP evidence proves both

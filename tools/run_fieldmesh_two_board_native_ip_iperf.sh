@@ -2929,6 +2929,12 @@ report = {
     "iio_bridge_in_burst_priority_preemptions": int(
         last_iio_bridge.get("in_burst_priority_preemptions") or 0
     ),
+    "iio_bridge_in_burst_priority_multiplexing_exercised": bool(
+        last_iio_bridge.get("in_burst_priority_multiplexing_exercised")
+    ),
+    "iio_bridge_in_burst_priority_multiplexing_events": int(
+        last_iio_bridge.get("in_burst_priority_multiplexing_events") or 0
+    ),
     "iio_bridge_native_rf_service_worker_required": bool(
         last_iio_bridge.get("native_rf_service_worker_required")
     ),

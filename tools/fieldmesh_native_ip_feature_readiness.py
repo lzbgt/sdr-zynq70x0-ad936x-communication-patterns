@@ -122,6 +122,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_in_burst_priority_preemption_unexercised")
         if report.get("host_iio_bridge_in_burst_priority_preemption_exercised") is not True:
             blockers.append("native_ip_host_iio_in_burst_priority_preemption_unexercised")
+        if report.get("board_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+            blockers.append("native_ip_board_iio_in_burst_priority_mux_unexercised")
+        if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
+            blockers.append("native_ip_host_iio_in_burst_priority_mux_unexercised")
         if report.get("board_iio_rf_sub_burst_exercised") is not True:
             blockers.append("native_ip_board_iio_rf_sub_burst_missing")
         if report.get("host_iio_rf_sub_burst_exercised") is not True:
@@ -365,6 +369,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_bridge_in_burst_priority_preemptions": report.get(
             "host_iio_bridge_in_burst_priority_preemptions"
+        ),
+        "board_iio_bridge_in_burst_priority_multiplexing_exercised": report.get(
+            "board_iio_bridge_in_burst_priority_multiplexing_exercised"
+        ),
+        "host_iio_bridge_in_burst_priority_multiplexing_exercised": report.get(
+            "host_iio_bridge_in_burst_priority_multiplexing_exercised"
+        ),
+        "board_iio_bridge_in_burst_priority_multiplexing_events": report.get(
+            "board_iio_bridge_in_burst_priority_multiplexing_events"
+        ),
+        "host_iio_bridge_in_burst_priority_multiplexing_events": report.get(
+            "host_iio_bridge_in_burst_priority_multiplexing_events"
         ),
         "board_iio_rf_sub_burst_exercised": report.get(
             "board_iio_rf_sub_burst_exercised"

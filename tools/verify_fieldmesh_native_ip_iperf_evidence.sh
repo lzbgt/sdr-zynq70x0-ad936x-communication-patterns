@@ -46,7 +46,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
-  "iio_bridge_in_burst_priority_preemptions": 1,
+  "iio_bridge_in_burst_priority_preemptions": 2,
+  "iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "iio_bridge_in_burst_priority_multiplexing_events": 1,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
   "iio_bridge_native_service_loop_tick_enabled": true,
@@ -62,6 +64,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
       "production_iio_policy": 1,
       "in_burst_priority_preemption": 1,
       "in_burst_priority_preempted": 1,
+      "in_burst_priority_preemption_count": 2,
+      "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1002,
       "frames": 2
     }
@@ -216,7 +220,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
-  "iio_bridge_in_burst_priority_preemptions": 1,
+  "iio_bridge_in_burst_priority_preemptions": 2,
+  "iio_bridge_in_burst_priority_multiplexing_exercised": true,
+  "iio_bridge_in_burst_priority_multiplexing_events": 1,
   "iio_bridge_native_service_burst_leases_enabled": true,
   "iio_bridge_native_service_burst_leases": 3,
   "iio_bridge_native_service_loop_tick_enabled": true,
@@ -232,6 +238,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
       "production_iio_policy": 1,
       "in_burst_priority_preemption": 1,
       "in_burst_priority_preempted": 1,
+      "in_burst_priority_preemption_count": 2,
+      "in_burst_priority_multiplexing": 1,
       "service_order_rank": 1004,
       "frames": 2
     }
@@ -703,6 +711,29 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   >"$work_dir/unexercised-same-priority-preemption-rejected.out" \
   2>"$work_dir/unexercised-same-priority-preemption-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised same-priority preemption evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-unexercised-in-burst-mux.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_in_burst_priority_multiplexing_exercised"] = False
+report["iio_bridge_in_burst_priority_multiplexing_events"] = 0
+for status in report.get("iio_bridge_native_service_loop_tick_status", {}).values():
+    if isinstance(status, dict):
+        status["in_burst_priority_preemption_count"] = 1
+        status["in_burst_priority_multiplexing"] = 0
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-unexercised-in-burst-mux.json" \
+  >"$work_dir/unexercised-in-burst-mux-rejected.out" \
+  2>"$work_dir/unexercised-in-burst-mux-rejected.err"; then
+  echo "iperf evidence classifier accepted unexercised in-burst priority multiplexing" >&2
   exit 1
 fi
 

@@ -349,6 +349,14 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_bridge_in_burst_priority_preemption_exercised"] = (
             native_ip.get("host_iio_bridge_in_burst_priority_preemption_exercised") is True
         )
+        detail["native_ip_board_iio_bridge_in_burst_priority_multiplexing_exercised"] = (
+            native_ip.get("board_iio_bridge_in_burst_priority_multiplexing_exercised")
+            is True
+        )
+        detail["native_ip_host_iio_bridge_in_burst_priority_multiplexing_exercised"] = (
+            native_ip.get("host_iio_bridge_in_burst_priority_multiplexing_exercised")
+            is True
+        )
         detail["native_ip_board_iio_rf_sub_burst_exercised"] = (
             native_ip.get("board_iio_rf_sub_burst_exercised") is True
         )
@@ -492,6 +500,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 is not True
             ):
                 blockers.append("native_ip_host_iio_in_burst_priority_preemption_unexercised")
+            if (
+                native_ip.get("board_iio_bridge_in_burst_priority_multiplexing_exercised")
+                is not True
+            ):
+                blockers.append("native_ip_board_iio_in_burst_priority_mux_unexercised")
+            if (
+                native_ip.get("host_iio_bridge_in_burst_priority_multiplexing_exercised")
+                is not True
+            ):
+                blockers.append("native_ip_host_iio_in_burst_priority_mux_unexercised")
             if native_ip.get("board_iio_rf_sub_burst_exercised") is not True:
                 blockers.append("native_ip_board_iio_rf_sub_burst_missing")
             if native_ip.get("host_iio_rf_sub_burst_exercised") is not True:
