@@ -126,7 +126,9 @@ helper_proves_native_iio_worker() {
     "$helper" --native-worker-self-test 2>/dev/null |
         grep -q 'FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1' &&
     "$helper" --native-worker-self-test 2>/dev/null |
-        grep -q 'FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1'
+        grep -q 'FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1' &&
+    "$helper" --native-worker-self-test 2>/dev/null |
+        grep -q 'FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1'
 }
 
 build_default_iio_burst_helper() {
@@ -2994,6 +2996,15 @@ report = {
     ),
     "iio_bridge_native_iio_burst_transport_scheduler_failures": int(
         last_iio_bridge.get("native_iio_burst_transport_scheduler_failures") or 0
+    ),
+    "iio_bridge_native_iio_burst_transport_autonomous_loop_proven": bool(
+        last_iio_bridge.get("native_iio_burst_transport_autonomous_loop_proven")
+    ),
+    "iio_bridge_native_iio_burst_transport_autonomous_loop_invocations": int(
+        last_iio_bridge.get("native_iio_burst_transport_autonomous_loop_invocations") or 0
+    ),
+    "iio_bridge_native_iio_burst_transport_autonomous_loop_failures": int(
+        last_iio_bridge.get("native_iio_burst_transport_autonomous_loop_failures") or 0
     ),
     "iio_bridge_in_burst_priority_preemption_enabled": bool(
         last_iio_bridge.get("in_burst_priority_preemption_enabled")

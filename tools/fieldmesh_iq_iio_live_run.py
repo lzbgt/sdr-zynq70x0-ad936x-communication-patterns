@@ -173,6 +173,8 @@ class BurstHelperServer:
         self.transport_service_loop_status: dict[str, Any] = {}
         self.transport_scheduler_start: dict[str, Any] = {}
         self.transport_scheduler_status: dict[str, Any] = {}
+        self.transport_autonomous_loop_start: dict[str, Any] = {}
+        self.transport_autonomous_loop_status: dict[str, Any] = {}
 
     def _stderr_after_exit(self) -> str:
         if self.proc.stderr is None:
@@ -269,6 +271,21 @@ class BurstHelperServer:
             raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
         return self._read_json_line(timeout_s, "transport_scheduler_drain")
 
+    def transport_autonomous_loop_run(self, queue_file: Path, timeout_s: float) -> dict[str, Any]:
+        if self.proc.stdin is None:
+            raise SystemExit("iio_burst_helper server stdin is unavailable")
+        if self.proc.poll() is not None:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server is not running: stderr={stderr}")
+        line = f"TRANSPORT_AUTONOMOUS_LOOP_RUN queue_file={queue_file}\n"
+        try:
+            self.proc.stdin.write(line)
+            self.proc.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
+        return self._read_json_line(timeout_s, "transport_autonomous_loop_run")
+
     def start_transport_session(self, timeout_s: float) -> dict[str, Any]:
         if self.proc.stdin is None:
             raise SystemExit("iio_burst_helper server stdin is unavailable")
@@ -347,6 +364,32 @@ class BurstHelperServer:
         self.transport_scheduler_start = report
         return report
 
+    def start_transport_autonomous_loop(self, timeout_s: float) -> dict[str, Any]:
+        if self.proc.stdin is None:
+            raise SystemExit("iio_burst_helper server stdin is unavailable")
+        if self.proc.poll() is not None:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server is not running: stderr={stderr}")
+        if self.transport_autonomous_loop_start:
+            return self.transport_autonomous_loop_start
+        try:
+            self.proc.stdin.write("TRANSPORT_AUTONOMOUS_LOOP_START\n")
+            self.proc.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
+        report = self._read_json_line(timeout_s, "transport_autonomous_loop_start")
+        if (
+            report.get("event") != "fieldmesh_iio_burst_transport_autonomous_loop_start"
+            or report.get("ok") is not True
+            or report.get("native_iio_burst_transport_autonomous_loop_proof")
+            != "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1"
+        ):
+            self.close(kill=True)
+            raise SystemExit(f"iio_burst_helper transport autonomous loop did not start: {report}")
+        self.transport_autonomous_loop_start = report
+        return report
+
     def status_transport_session(self, timeout_s: float) -> dict[str, Any]:
         if self.proc.stdin is None:
             raise SystemExit("iio_burst_helper server stdin is unavailable")
@@ -402,6 +445,25 @@ class BurstHelperServer:
             self.close(kill=True)
             raise SystemExit(f"iio_burst_helper transport scheduler status invalid: {report}")
         self.transport_scheduler_status = report
+        return report
+
+    def status_transport_autonomous_loop(self, timeout_s: float) -> dict[str, Any]:
+        if self.proc.stdin is None:
+            raise SystemExit("iio_burst_helper server stdin is unavailable")
+        if self.proc.poll() is not None:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server is not running: stderr={stderr}")
+        try:
+            self.proc.stdin.write("TRANSPORT_AUTONOMOUS_LOOP_STATUS\n")
+            self.proc.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
+        report = self._read_json_line(timeout_s, "transport_autonomous_loop_status")
+        if report.get("event") != "fieldmesh_iio_burst_transport_autonomous_loop_status":
+            self.close(kill=True)
+            raise SystemExit(f"iio_burst_helper transport autonomous loop status invalid: {report}")
+        self.transport_autonomous_loop_status = report
         return report
 
     def close(self, *, kill: bool = False) -> None:
@@ -901,6 +963,8 @@ def execute_live_with_helper(
     helper_transport_service_loop_status: dict[str, Any] = {}
     helper_transport_scheduler_start: dict[str, Any] = {}
     helper_transport_scheduler_status: dict[str, Any] = {}
+    helper_transport_autonomous_loop_start: dict[str, Any] = {}
+    helper_transport_autonomous_loop_status: dict[str, Any] = {}
     if getattr(args, "persistent_burst_helper", False):
         server = helper_server_for(args, helper_argv, channels)
         helper_ready = dict(server.ready)
@@ -912,6 +976,9 @@ def execute_live_with_helper(
         )
         helper_transport_scheduler_start = dict(
             server.start_transport_scheduler(max(args.timeout_ms / 1000.0, 1.0))
+        )
+        helper_transport_autonomous_loop_start = dict(
+            server.start_transport_autonomous_loop(max(args.timeout_ms / 1000.0, 1.0))
         )
         xfer_fields = {
             "tx_file": str(tx_row["stdin_file"]),
@@ -927,7 +994,7 @@ def execute_live_with_helper(
         write_worker_xfer_request(request_path, xfer_fields)
         scheduler_queue_path = args.out_dir / "fieldmesh_iio_burst_transport_scheduler_queue.kv"
         write_transport_scheduler_queue(scheduler_queue_path, request_path)
-        helper_report = server.transport_scheduler_drain(
+        helper_report = server.transport_autonomous_loop_run(
             scheduler_queue_path,
             max(args.timeout_ms / 1000.0 + 2.0, 3.0),
         )
@@ -939,6 +1006,9 @@ def execute_live_with_helper(
         )
         helper_transport_scheduler_status = dict(
             server.status_transport_scheduler(max(args.timeout_ms / 1000.0, 1.0))
+        )
+        helper_transport_autonomous_loop_status = dict(
+            server.status_transport_autonomous_loop(max(args.timeout_ms / 1000.0, 1.0))
         )
         stdout = json.dumps(helper_report, sort_keys=True) + "\n"
         returncode = 0 if helper_report.get("ok") is True else 1
@@ -1031,11 +1101,42 @@ def execute_live_with_helper(
         "transport_scheduler_scheduled_request_count": helper_report.get(
             "transport_scheduler_scheduled_request_count"
         ),
+        "native_iio_burst_transport_autonomous_loop": (
+            helper_report.get("native_iio_burst_transport_autonomous_loop") is True
+        ),
+        "native_iio_burst_transport_autonomous_loop_proof": helper_report.get(
+            "native_iio_burst_transport_autonomous_loop_proof"
+        ),
+        "transport_autonomous_loop_start_count": helper_report.get(
+            "transport_autonomous_loop_start_count"
+        ),
+        "transport_autonomous_loop_start_event": helper_transport_autonomous_loop_start.get("event"),
+        "transport_autonomous_loop_start_proof": helper_transport_autonomous_loop_start.get(
+            "native_iio_burst_transport_autonomous_loop_proof"
+        ),
+        "transport_autonomous_loop_status_event": helper_transport_autonomous_loop_status.get("event"),
+        "transport_autonomous_loop_status_proof": helper_transport_autonomous_loop_status.get(
+            "native_iio_burst_transport_autonomous_loop_proof"
+        ),
+        "transport_autonomous_loop_status_started": (
+            helper_transport_autonomous_loop_status.get(
+                "native_iio_burst_transport_autonomous_loop"
+            )
+            is True
+        ),
+        "transport_autonomous_loop_run": helper_report.get("transport_autonomous_loop_run") is True,
+        "transport_autonomous_loop_run_count": helper_report.get("transport_autonomous_loop_run_count"),
+        "transport_autonomous_loop_scheduled_request_count": helper_report.get(
+            "transport_autonomous_loop_scheduled_request_count"
+        ),
         "transport_worker_request": helper_report.get("transport_worker_request") is True,
         "transport_worker_request_count": helper_report.get("transport_worker_request_count"),
         "python_xfer_field_orchestration": helper_report.get("python_xfer_field_orchestration") is True,
         "python_worker_xfer_submission": helper_report.get("python_worker_xfer_submission") is True,
         "python_direct_service_loop_run": helper_report.get("python_direct_service_loop_run") is True,
+        "python_scheduler_drain_submission": (
+            helper_report.get("python_scheduler_drain_submission") is True
+        ),
         "next_boundary": helper_report.get("next_boundary"),
         "transport_worker_request_file": str(request_path) if getattr(args, "persistent_burst_helper", False) else None,
         "transport_scheduler_queue_file": (
@@ -1099,11 +1200,37 @@ def execute_live_with_helper(
             "transport_scheduler_scheduled_request_count": helper_result[
                 "transport_scheduler_scheduled_request_count"
             ],
+            "native_iio_burst_transport_autonomous_loop": helper_result[
+                "native_iio_burst_transport_autonomous_loop"
+            ],
+            "native_iio_burst_transport_autonomous_loop_proof": helper_result[
+                "native_iio_burst_transport_autonomous_loop_proof"
+            ],
+            "transport_autonomous_loop_start_count": helper_result[
+                "transport_autonomous_loop_start_count"
+            ],
+            "transport_autonomous_loop_start_proof": helper_result[
+                "transport_autonomous_loop_start_proof"
+            ],
+            "transport_autonomous_loop_status_proof": helper_result[
+                "transport_autonomous_loop_status_proof"
+            ],
+            "transport_autonomous_loop_status_started": helper_result[
+                "transport_autonomous_loop_status_started"
+            ],
+            "transport_autonomous_loop_run": helper_result["transport_autonomous_loop_run"],
+            "transport_autonomous_loop_run_count": helper_result[
+                "transport_autonomous_loop_run_count"
+            ],
+            "transport_autonomous_loop_scheduled_request_count": helper_result[
+                "transport_autonomous_loop_scheduled_request_count"
+            ],
             "transport_worker_request": helper_result["transport_worker_request"],
             "transport_worker_request_count": helper_result["transport_worker_request_count"],
             "python_xfer_field_orchestration": helper_result["python_xfer_field_orchestration"],
             "python_worker_xfer_submission": helper_result["python_worker_xfer_submission"],
             "python_direct_service_loop_run": helper_result["python_direct_service_loop_run"],
+            "python_scheduler_drain_submission": helper_result["python_scheduler_drain_submission"],
             "next_boundary": helper_result["next_boundary"],
             "transport_worker_request_file": helper_result["transport_worker_request_file"],
             "transport_scheduler_queue_file": helper_result["transport_scheduler_queue_file"],
@@ -1414,6 +1541,38 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 and isinstance(result.get("transport_scheduler_scheduled_request_count"), int)
                 and result.get("transport_scheduler_scheduled_request_count") >= 1
                 and result.get("python_direct_service_loop_run") is False
+                and result.get("python_scheduler_drain_submission") is False
+                and result.get("next_boundary") == "native_transport_worker_autonomous_daemon"
+                for result in command_results
+            )
+        )
+    )
+    native_iio_burst_transport_autonomous_loop_proven = bool(
+        not native_iio_burst_worker_required
+        or (
+            command_results
+            and any(
+                result.get("name") == "iio_burst_helper"
+                and result.get("returncode") == 0
+                and result.get("native_iio_burst_transport_autonomous_loop") is True
+                and result.get("native_iio_burst_transport_autonomous_loop_proof")
+                == "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1"
+                and result.get("transport_autonomous_loop_start_proof")
+                == "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1"
+                and result.get("transport_autonomous_loop_status_proof")
+                == "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1"
+                and result.get("transport_autonomous_loop_status_started") is True
+                and result.get("transport_autonomous_loop_run") is True
+                and isinstance(result.get("transport_autonomous_loop_start_count"), int)
+                and result.get("transport_autonomous_loop_start_count") >= 1
+                and isinstance(result.get("transport_autonomous_loop_run_count"), int)
+                and result.get("transport_autonomous_loop_run_count") >= 1
+                and isinstance(
+                    result.get("transport_autonomous_loop_scheduled_request_count"), int
+                )
+                and result.get("transport_autonomous_loop_scheduled_request_count") >= 1
+                and result.get("python_direct_service_loop_run") is False
+                and result.get("python_scheduler_drain_submission") is False
                 and result.get("next_boundary") == "native_transport_worker_autonomous_daemon"
                 for result in command_results
             )
@@ -1475,6 +1634,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "native_iio_burst_transport_scheduler_proven": (
             native_iio_burst_transport_scheduler_proven
+        ),
+        "native_iio_burst_transport_autonomous_loop_proven": (
+            native_iio_burst_transport_autonomous_loop_proven
         ),
         "decode": decode,
         "elapsed_ms": int((time.monotonic() - started) * 1000),

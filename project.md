@@ -1416,14 +1416,16 @@ user and vendor configuration.
   lifecycle proof (`FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`) and positive
   server-owned transfer counters, not only one-shot helper-native proof. The
   persistent helper now accepts a C-parsed scheduler queue through
-  `TRANSPORT_SCHEDULER_DRAIN` and reports
+  `TRANSPORT_AUTONOMOUS_LOOP_RUN` and reports
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`, and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1` plus
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` with
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` and
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1` with
   `python_xfer_field_orchestration=false` and
-  `python_worker_xfer_submission=false`, so native-IP archives must prove the
-  transfer request crossed a started native transport scheduler boundary. The
+  `python_worker_xfer_submission=false` plus
+  `python_scheduler_drain_submission=false`, so native-IP archives must prove the
+  transfer request crossed a started native transport autonomous-loop boundary. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

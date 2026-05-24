@@ -384,15 +384,18 @@ Minimum production gates for native TCP/IP:
   current evidence gate now requires that helper to prove its native server
   lifecycle with `FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1` and a positive
   server-owned transfer counter. It now also requires the C helper to parse the
-  per-burst scheduler queue through `TRANSPORT_SCHEDULER_DRAIN` and emit
+  per-burst scheduler queue through `TRANSPORT_AUTONOMOUS_LOOP_RUN` and emit
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`, and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1` plus
-  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` with
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` and
+  `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1` with
   `python_xfer_field_orchestration=false` and
-  `python_worker_xfer_submission=false`, so archived captures cannot pass on
+  `python_worker_xfer_submission=false` plus
+  `python_scheduler_drain_submission=false`, so archived captures cannot pass on
   one-shot helper invocation, Python-owned `XFER` field strings, or the older
-  direct `WORKER_XFER`/`TRANSPORT_SERVICE_LOOP_RUN` submission paths alone. The
+  direct `WORKER_XFER`/`TRANSPORT_SERVICE_LOOP_RUN`/`TRANSPORT_SCHEDULER_DRAIN`
+  submission paths alone. The
   Z203 client sent 128 TCP bytes, the Z103
   server received 128 bytes and exited during the 30 s drain window. The client
   was still already interrupted by the wrapper in that run, so production

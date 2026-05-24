@@ -63,6 +63,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_transport_scheduler_proven": true,
   "iio_bridge_native_iio_burst_transport_scheduler_invocations": 3,
   "iio_bridge_native_iio_burst_transport_scheduler_failures": 0,
+  "iio_bridge_native_iio_burst_transport_autonomous_loop_proven": true,
+  "iio_bridge_native_iio_burst_transport_autonomous_loop_invocations": 3,
+  "iio_bridge_native_iio_burst_transport_autonomous_loop_failures": 0,
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -296,6 +299,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_transport_scheduler_proven": true,
   "iio_bridge_native_iio_burst_transport_scheduler_invocations": 3,
   "iio_bridge_native_iio_burst_transport_scheduler_failures": 0,
+  "iio_bridge_native_iio_burst_transport_autonomous_loop_proven": true,
+  "iio_bridge_native_iio_burst_transport_autonomous_loop_invocations": 3,
+  "iio_bridge_native_iio_burst_transport_autonomous_loop_failures": 0,
   "iio_bridge_rf_service_policy_in_burst_priority_preemption": true,
   "iio_bridge_in_burst_priority_preemption_enabled": true,
   "iio_bridge_in_burst_priority_preemption_exercised": true,
@@ -531,6 +537,8 @@ if report.get("requires_iio_native_iio_burst_transport_service_loop") is not Tru
     raise SystemExit(f"missing native IIO burst transport service loop requirement: {report}")
 if report.get("requires_iio_native_iio_burst_transport_scheduler") is not True:
     raise SystemExit(f"missing native IIO burst transport scheduler requirement: {report}")
+if report.get("requires_iio_native_iio_burst_transport_autonomous_loop") is not True:
+    raise SystemExit(f"missing native IIO burst autonomous transport loop requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"missing in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -627,6 +635,10 @@ if report.get("host_iio_native_iio_burst_transport_scheduler_proven") is not Tru
     raise SystemExit(f"missing host native IIO burst transport scheduler proof: {report}")
 if report.get("host_iio_native_iio_burst_transport_scheduler_invocations") != 3:
     raise SystemExit(f"missing host native IIO burst transport scheduler invocation count: {report}")
+if report.get("host_iio_native_iio_burst_transport_autonomous_loop_proven") is not True:
+    raise SystemExit(f"missing host native IIO burst autonomous transport loop proof: {report}")
+if report.get("host_iio_native_iio_burst_transport_autonomous_loop_invocations") != 3:
+    raise SystemExit(f"missing host native IIO burst autonomous transport loop invocation count: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"missing host in-burst priority multiplexing proof: {report}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
@@ -703,6 +715,8 @@ if report.get("requires_iio_native_iio_burst_transport_service_loop") is not Tru
     raise SystemExit(f"native-IP readiness lost native IIO burst transport service loop requirement: {report}")
 if report.get("requires_iio_native_iio_burst_transport_scheduler") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst transport scheduler requirement: {report}")
+if report.get("requires_iio_native_iio_burst_transport_autonomous_loop") is not True:
+    raise SystemExit(f"native-IP readiness lost native IIO burst autonomous transport loop requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority preemption requirement: {report}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:
