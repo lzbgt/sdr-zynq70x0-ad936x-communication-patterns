@@ -19,6 +19,10 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
+  "iio_bridge_rf_burst_batch_size": 2,
+  "iio_bridge_rf_burst_batch_high_water": 2,
+  "iio_bridge_rf_burst_batch_high_water_by_direction": {"z203-to-z103": 2},
+  "iio_bridge_rf_burst_batch_exercised": true,
   "iio_bridge_source_ack_pipeline_depth": 2,
   "iio_bridge_source_ack_pipeline_active": true,
   "iio_bridge_source_ack_pipeline_high_water": {"z203-to-z103": 2},
@@ -69,6 +73,10 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "transport": "real_rf_phy",
   "diagnostic_bridge": false,
   "iio_rf_bridge": true,
+  "iio_bridge_rf_burst_batch_size": 2,
+  "iio_bridge_rf_burst_batch_high_water": 2,
+  "iio_bridge_rf_burst_batch_high_water_by_direction": {"z103-to-z203": 2},
+  "iio_bridge_rf_burst_batch_exercised": true,
   "iio_bridge_source_ack_pipeline_depth": 2,
   "iio_bridge_source_ack_pipeline_active": true,
   "iio_bridge_source_ack_pipeline_high_water": {"z103-to-z203": 2},
@@ -143,12 +151,20 @@ for key in ("native_ip_iperf_evidence_sha256", "native_ip_app_real_rf_report_sha
         raise SystemExit(f"missing hash {key}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"missing ACK pipeline evidence requirement: {report}")
+if report.get("requires_iio_rf_burst_batch_evidence") is not True:
+    raise SystemExit(f"missing RF burst batch evidence requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"missing TCP final-exchange evidence requirement: {report}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"missing board ACK pipeline exercise proof: {report}")
 if report.get("host_iio_ack_pipeline_exercised") is not True:
     raise SystemExit(f"missing host ACK pipeline exercise proof: {report}")
+if report.get("board_iio_rf_burst_batch_exercised") is not True:
+    raise SystemExit(f"missing board RF burst batch exercise proof: {report}")
+if report.get("host_iio_rf_burst_batch_exercised") is not True:
+    raise SystemExit(f"missing host RF burst batch exercise proof: {report}")
+if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
+    raise SystemExit(f"missing host RF burst batch high-water proof: {report}")
 if report.get("board_iio_bridge_source_ack_max_latency_ms") != 30:
     raise SystemExit(f"missing board ACK latency proof: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
@@ -187,8 +203,12 @@ if report.get("requires_gnss_fix") is not False or report.get("requires_gnss_pps
     raise SystemExit(f"native-IP feature readiness must not require GNSS/PPS: {report}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost ACK pipeline requirement: {report}")
+if report.get("requires_iio_rf_burst_batch_evidence") is not True:
+    raise SystemExit(f"native-IP readiness lost RF burst batch requirement: {report}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"native-IP readiness lost TCP final-exchange requirement: {report}")
+if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
+    raise SystemExit(f"native-IP readiness lost RF burst batch proof: {report}")
 if report.get("host_iio_bridge_source_ack_max_latency_ms") != 35:
     raise SystemExit(f"native-IP readiness lost ACK latency proof: {report}")
 if report.get("host_iio_bridge_rf_burst_max_elapsed_ms") != 280:
@@ -243,6 +263,27 @@ if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/unexercised-pipeline.stdout" 2>"$work_dir/unexercised-pipeline.stderr"; then
   echo "native-IP iperf production sequence accepted unexercised IIO ACK pipeline evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-unexercised-rf-batch.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_rf_burst_batch_exercised"] = False
+report["iio_bridge_rf_burst_batch_high_water"] = 1
+report["iio_bridge_rf_burst_batch_high_water_by_direction"] = {"z103-to-z203": 1}
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
+   HOST_PC_REPORT="$work_dir/host-unexercised-rf-batch.json" \
+   OUT_DIR="$work_dir/unexercised-rf-batch" \
+   "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
+   >"$work_dir/unexercised-rf-batch.stdout" 2>"$work_dir/unexercised-rf-batch.stderr"; then
+  echo "native-IP iperf production sequence accepted unexercised IIO RF burst batch evidence" >&2
   exit 1
 fi
 

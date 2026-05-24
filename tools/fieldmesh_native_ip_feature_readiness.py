@@ -51,6 +51,11 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_iio_ack_pipeline_not_exercised")
         if report.get("host_iio_ack_pipeline_exercised") is not True:
             blockers.append("native_ip_host_iio_ack_pipeline_not_exercised")
+    if is_true(report.get("requires_iio_rf_burst_batch_evidence")):
+        if report.get("board_iio_rf_burst_batch_exercised") is not True:
+            blockers.append("native_ip_board_iio_rf_burst_batch_not_exercised")
+        if report.get("host_iio_rf_burst_batch_exercised") is not True:
+            blockers.append("native_ip_host_iio_rf_burst_batch_not_exercised")
     if report.get("requires_tcp_final_exchange_evidence") is not True:
         blockers.append("native_ip_tcp_final_exchange_evidence_not_required")
     else:
@@ -87,11 +92,38 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_ack_pipeline_evidence": report.get(
             "requires_iio_ack_pipeline_evidence"
         ),
+        "requires_iio_rf_burst_batch_evidence": report.get(
+            "requires_iio_rf_burst_batch_evidence"
+        ),
         "requires_tcp_final_exchange_evidence": report.get(
             "requires_tcp_final_exchange_evidence"
         ),
         "board_iio_ack_pipeline_exercised": report.get("board_iio_ack_pipeline_exercised"),
         "host_iio_ack_pipeline_exercised": report.get("host_iio_ack_pipeline_exercised"),
+        "board_iio_rf_burst_batch_exercised": report.get(
+            "board_iio_rf_burst_batch_exercised"
+        ),
+        "host_iio_rf_burst_batch_exercised": report.get(
+            "host_iio_rf_burst_batch_exercised"
+        ),
+        "board_iio_bridge_rf_burst_batch_size": report.get(
+            "board_iio_bridge_rf_burst_batch_size"
+        ),
+        "host_iio_bridge_rf_burst_batch_size": report.get(
+            "host_iio_bridge_rf_burst_batch_size"
+        ),
+        "board_iio_bridge_rf_burst_batch_high_water": report.get(
+            "board_iio_bridge_rf_burst_batch_high_water"
+        ),
+        "host_iio_bridge_rf_burst_batch_high_water": report.get(
+            "host_iio_bridge_rf_burst_batch_high_water"
+        ),
+        "board_iio_bridge_rf_burst_batch_high_water_by_direction": report.get(
+            "board_iio_bridge_rf_burst_batch_high_water_by_direction"
+        ),
+        "host_iio_bridge_rf_burst_batch_high_water_by_direction": report.get(
+            "host_iio_bridge_rf_burst_batch_high_water_by_direction"
+        ),
         "board_iio_bridge_source_ack_pipeline_depth": report.get(
             "board_iio_bridge_source_ack_pipeline_depth"
         ),

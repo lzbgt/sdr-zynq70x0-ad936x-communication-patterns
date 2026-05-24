@@ -2756,6 +2756,20 @@ report = {
     "iio_bridge_source_ack_pipeline_exercised": bool(
         last_iio_bridge.get("source_ack_pipeline_exercised")
     ),
+    "iio_bridge_rf_burst_batch_size": int(
+        last_iio_bridge.get("rf_burst_batch_size")
+        or last_iio_bridge.get("batch_size")
+        or 0
+    ),
+    "iio_bridge_rf_burst_batch_high_water": int(
+        last_iio_bridge.get("rf_burst_batch_high_water") or 0
+    ),
+    "iio_bridge_rf_burst_batch_high_water_by_direction": (
+        last_iio_bridge.get("rf_burst_batch_high_water_by_direction") or {}
+    ),
+    "iio_bridge_rf_burst_batch_exercised": bool(
+        last_iio_bridge.get("rf_burst_batch_exercised")
+    ),
     "tcp_final_exchange": last_tcp_final_exchange,
     "tcp_final_exchange_grace_started": bool(
         last_tcp_final_exchange.get("final_exchange_grace_started")

@@ -5069,6 +5069,9 @@ layers. When either saved report was collected through the IIO RF bridge with
 ACK-pipeline high-water evidence showing max in-flight source ACKs reached at
 least two and stayed within the configured depth, plus completed source-ACK
 latency and RF burst timing evidence for the same IIO bridge capture. Production
+evidence collected with `IIO_BRIDGE_BATCH_SIZE>1` must also prove RF burst
+batching was exercised: the report carries the configured batch size,
+per-direction batch high-water, and a true batch-exercised flag. Production
 native-IP evidence also requires TCP final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

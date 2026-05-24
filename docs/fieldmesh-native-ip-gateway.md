@@ -428,9 +428,12 @@ Minimum production gates for native TCP/IP:
   layers. If an IIO RF bridge report was configured with
   `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the ACK pipeline
   was exercised with a max in-flight ACK depth of at least two and completed
-  source-ACK latency plus RF burst timing evidence. Both layers must carry TCP
-  final-exchange, queue-quiet, and control-drain timing proof; the host-originated
-  transparent layer is phase-tagged as `host_pc`. A daemon
+  source-ACK latency plus RF burst timing evidence. If
+  `IIO_BRIDGE_BATCH_SIZE>1`, the same archive must prove at least one RF burst
+  actually carried multiple frames via per-direction batch high-water evidence.
+  Both layers must carry TCP final-exchange, queue-quiet, and control-drain
+  timing proof; the host-originated transparent layer is phase-tagged as
+  `host_pc`. A daemon
   RF-worker bridge report is rejected even if TCP/UDP iperf
   completed, because that path proves the kernel/socket bridge but not over-air
   RF. The real-RF production gate and over-air sequence now require this paired

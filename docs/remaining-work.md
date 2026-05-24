@@ -521,7 +521,11 @@ count, and loss percent. Byte-only reports cannot satisfy production native-IP
 evidence. If a saved IIO RF bridge report configured
 `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, it must also prove the bounded
 source-ACK pipeline was exercised with max in-flight ACK depth of at least two
-and completed source-ACK latency plus RF burst timing evidence. Production
+and completed source-ACK latency plus RF burst timing evidence. If the saved
+report configured `IIO_BRIDGE_BATCH_SIZE>1`, it must also prove the RF burst
+batch path was exercised with a per-direction batch high-water of at least two;
+single-frame stop-and-wait captures cannot satisfy the batched native-IP gate.
+Production
 native-IP evidence must also carry TCP final-exchange proof from the HIL runner
 for both the board-to-board and host-PC-transparent reports: final client
 status, queue-quiet observation summary, and control-drain elapsed/ok evidence

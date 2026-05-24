@@ -544,6 +544,10 @@ def timing_max(stats_by_direction: dict[str, dict[str, int]], key: str) -> int:
     return max((stats.get(key, 0) for stats in stats_by_direction.values()), default=0)
 
 
+def batch_high_water_max(high_water_by_direction: dict[str, int]) -> int:
+    return max(high_water_by_direction.values(), default=0)
+
+
 def decode_batch(payload: bytes) -> list[bytes]:
     if not payload.startswith(BATCH_MAGIC):
         raise SystemExit("recovered batch is missing FMBATCH1 magic")
@@ -1085,6 +1089,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     }
     frames: list[dict[str, Any]] = []
     rf_burst_timing_ms: dict[str, dict[str, int]] = {}
+    rf_burst_batch_high_water_by_direction: dict[str, int] = {}
     next_index = 0
     direction_capture_periods = {direction["name"]: args.cyclic_capture_periods for direction in directions}
     async_acker = AsyncSourceAcker(
@@ -1112,6 +1117,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "frames_moved": moved_frames,
             "batch_size": args.batch_size,
             "batch_byte_limit": args.batch_byte_limit,
+            "rf_burst_batch_size": args.batch_size,
+            "rf_burst_batch_high_water": batch_high_water_max(
+                rf_burst_batch_high_water_by_direction
+            ),
+            "rf_burst_batch_high_water_by_direction": {
+                direction_name: high_water
+                for direction_name, high_water
+                in sorted(rf_burst_batch_high_water_by_direction.items())
+                if high_water
+            },
+            "rf_burst_batch_exercised": bool(
+                args.batch_size > 1
+                and batch_high_water_max(rf_burst_batch_high_water_by_direction) > 1
+            ),
             "lease_priority": args.lease_priority,
             "adaptive_direction_scheduler": bool(args.adaptive_direction_scheduler),
             "direction_burst_batches": {
@@ -1251,6 +1270,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             return
         async_acker.wait_direction(direction_name)
 
+    def record_batch_high_water(direction_name: str, frames_in_batch: int) -> None:
+        if frames_in_batch < 1:
+            return
+        rf_burst_batch_high_water_by_direction[direction_name] = max(
+            rf_burst_batch_high_water_by_direction.get(direction_name, 0),
+            frames_in_batch,
+        )
+
     try:
         while time.monotonic() < deadline and next_index < args.max_frames and not stop_requested:
             moved = False
@@ -1317,6 +1344,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             defer_source_ack=False,
                         )
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
+                        record_batch_high_water(direction["name"], len(batch_frames))
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
                             int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
@@ -1411,6 +1439,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             defer_source_ack=bool(args.async_source_ack and args.execute_live_rf),
                         )
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
+                        record_batch_high_water(direction["name"], len(batch_frames))
                         direction_capture_periods[direction["name"]] = max(
                             direction_capture_periods[direction["name"]],
                             int(report.get("effective_cyclic_capture_periods") or direction_capture_periods[direction["name"]]),
@@ -1503,6 +1532,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 write_progress()
                                 continue
                     report = run_one(args, direction, lease, next_index)
+                    record_batch_high_water(direction["name"], 1)
                     frames.append(
                         {
                             "index": next_index,

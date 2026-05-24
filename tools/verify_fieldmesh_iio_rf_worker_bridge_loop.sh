@@ -76,6 +76,10 @@ if report.get("rf_burst_timing_ms") != {} or report.get("rf_burst_max_elapsed_ms
     raise SystemExit(f"dry-run RF burst timing evidence must be empty: {report}")
 if report.get("rf_burst_live_run_max_elapsed_ms") != 0 or report.get("rf_burst_decode_max_elapsed_ms") != 0:
     raise SystemExit(f"dry-run RF burst live/decode timing evidence must be empty: {report}")
+if report.get("rf_burst_batch_size") != 1 or report.get("rf_burst_batch_high_water") != 1:
+    raise SystemExit(f"dry-run RF burst batch high-water evidence changed: {report}")
+if report.get("rf_burst_batch_exercised") is not False:
+    raise SystemExit(f"dry-run RF burst batch must not be exercised: {report}")
 if report.get("source_ack_pipeline_exercised") is not False:
     raise SystemExit(f"dry-run source ACK pipeline must not be exercised: {report}")
 if report.get("batch_byte_limit") != 0:
@@ -431,6 +435,10 @@ required = [
     "run_remote_iperf_json_async",
     "run_host_iperf_json_async",
     "finish_host_iperf_client_after_control_drain",
+    '"iio_bridge_rf_burst_batch_size"',
+    '"iio_bridge_rf_burst_batch_high_water"',
+    '"iio_bridge_rf_burst_batch_high_water_by_direction"',
+    '"iio_bridge_rf_burst_batch_exercised"',
     "primary_deadline=$((SECONDS + iperf_timeout_s))",
     "quiet_deadline=$((SECONDS + queue_quiet_grace_s))",
     "host_pc_tcp_final_exchange.json",

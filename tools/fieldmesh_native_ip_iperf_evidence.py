@@ -74,14 +74,43 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     depth = report.get("iio_bridge_source_ack_pipeline_depth")
     if not isinstance(depth, int):
         depth = 0
-    if depth <= 1 and not _is_true(report.get("iio_rf_bridge")):
+    batch_size = report.get("iio_bridge_rf_burst_batch_size")
+    if not isinstance(batch_size, int):
+        batch_size = 0
+    if depth <= 1 and batch_size <= 1 and not _is_true(report.get("iio_rf_bridge")):
         return errors
     if not _is_true(report.get("iio_rf_bridge")):
-        errors.append(f"{label}: ACK pipeline depth evidence requires iio_rf_bridge=true")
+        errors.append(f"{label}: IIO pipeline evidence requires iio_rf_bridge=true")
         return errors
     if depth < 1:
         errors.append(f"{label}: iio_bridge_source_ack_pipeline_depth must be present")
         return errors
+    if batch_size < 1:
+        errors.append(f"{label}: iio_bridge_rf_burst_batch_size must be present")
+    if batch_size > 1:
+        batch_high_water = report.get("iio_bridge_rf_burst_batch_high_water")
+        batch_high_water_by_direction = report.get(
+            "iio_bridge_rf_burst_batch_high_water_by_direction"
+        )
+        if report.get("iio_bridge_rf_burst_batch_exercised") is not True:
+            errors.append(f"{label}: IIO RF burst batch_size > 1 was not exercised")
+        if not isinstance(batch_high_water, int) or batch_high_water < 2:
+            errors.append(f"{label}: IIO RF burst batch high-water must be >= 2")
+        elif batch_high_water > batch_size:
+            errors.append(f"{label}: IIO RF burst batch high-water exceeded configured size")
+        if not isinstance(batch_high_water_by_direction, dict) or not batch_high_water_by_direction:
+            errors.append(f"{label}: IIO RF burst batch high-water detail is missing")
+        else:
+            detail_high_water = max(
+                (
+                    int(value)
+                    for value in batch_high_water_by_direction.values()
+                    if isinstance(value, int)
+                ),
+                default=0,
+            )
+            if detail_high_water < 2:
+                errors.append(f"{label}: IIO RF burst batch high-water detail never exceeded 1")
     if depth > 1:
         high_water = report.get("iio_bridge_source_ack_pipeline_high_water")
         max_pending = report.get("iio_bridge_source_ack_pipeline_max_pending")
@@ -340,6 +369,16 @@ def main() -> int:
         and isinstance(host.get("iio_bridge_source_ack_pipeline_depth"), int)
         and host.get("iio_bridge_source_ack_pipeline_depth") > 1
     )
+    board_requires_burst_batch = (
+        _is_true(board.get("iio_rf_bridge"))
+        and isinstance(board.get("iio_bridge_rf_burst_batch_size"), int)
+        and board.get("iio_bridge_rf_burst_batch_size") > 1
+    )
+    host_requires_burst_batch = (
+        _is_true(host.get("iio_rf_bridge"))
+        and isinstance(host.get("iio_bridge_rf_burst_batch_size"), int)
+        and host.get("iio_bridge_rf_burst_batch_size") > 1
+    )
     report = {
         "event": "fieldmesh_native_ip_iperf_evidence",
         "ok": not errors,
@@ -355,6 +394,9 @@ def main() -> int:
         "requires_iio_ack_pipeline_evidence": bool(
             board_requires_ack_pipeline or host_requires_ack_pipeline
         ),
+        "requires_iio_rf_burst_batch_evidence": bool(
+            board_requires_burst_batch or host_requires_burst_batch
+        ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
             True
@@ -365,6 +407,34 @@ def main() -> int:
             True
             if not host_requires_ack_pipeline
             else host.get("iio_bridge_source_ack_pipeline_exercised") is True
+        ),
+        "board_iio_rf_burst_batch_exercised": (
+            True
+            if not board_requires_burst_batch
+            else board.get("iio_bridge_rf_burst_batch_exercised") is True
+        ),
+        "host_iio_rf_burst_batch_exercised": (
+            True
+            if not host_requires_burst_batch
+            else host.get("iio_bridge_rf_burst_batch_exercised") is True
+        ),
+        "board_iio_bridge_rf_burst_batch_size": board.get(
+            "iio_bridge_rf_burst_batch_size"
+        ),
+        "host_iio_bridge_rf_burst_batch_size": host.get(
+            "iio_bridge_rf_burst_batch_size"
+        ),
+        "board_iio_bridge_rf_burst_batch_high_water": board.get(
+            "iio_bridge_rf_burst_batch_high_water"
+        ),
+        "host_iio_bridge_rf_burst_batch_high_water": host.get(
+            "iio_bridge_rf_burst_batch_high_water"
+        ),
+        "board_iio_bridge_rf_burst_batch_high_water_by_direction": board.get(
+            "iio_bridge_rf_burst_batch_high_water_by_direction"
+        ),
+        "host_iio_bridge_rf_burst_batch_high_water_by_direction": host.get(
+            "iio_bridge_rf_burst_batch_high_water_by_direction"
         ),
         "board_iio_bridge_source_ack_pipeline_depth": board.get(
             "iio_bridge_source_ack_pipeline_depth"

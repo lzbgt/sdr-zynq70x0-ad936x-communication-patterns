@@ -864,10 +864,13 @@ user and vendor configuration.
   metric quality: TCP/UDP bytes, bitrate, duration, UDP jitter, packet count,
   lost packets, and loss percent. Diagnostic daemon-bridge iperf, byte-only
   reports, host-IP-routed traffic, and SSH-launched host-PC substitutes are
-  rejected. For IIO RF bridge captures configured with
-  `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires
+	  rejected. For IIO RF bridge captures configured with
+	  `IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH>1`, the classifier also requires
 	  high-water, ACK latency, and RF burst timing evidence proving that the bounded
-	  ACK pipeline was actually exercised. It also requires TCP final-exchange and
+	  ACK pipeline was actually exercised. Captures configured with
+	  `IIO_BRIDGE_BATCH_SIZE>1` must also prove RF burst batch high-water reached
+	  at least two frames, so stop-and-wait single-frame runs cannot masquerade as
+	  the batched data-plane path. It also requires TCP final-exchange and
 	  queue/control-drain timing proof from both board-to-board and host-PC
 	  transparent HIL reports, so archived production evidence cannot omit the
 	  shutdown/result-exchange diagnosis or reuse board-only TCP proof. The production
