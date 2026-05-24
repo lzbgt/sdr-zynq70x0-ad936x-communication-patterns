@@ -572,14 +572,24 @@ PY
         --bounded-tx-enable \
         --request \
         native_iio_attr_control \
+        native_rf_control \
         fieldmesh_rf_tx_enable_backend_iio_attr \
+        fieldmesh_rf_tx_enable_backend_ctrl_reg \
         fieldmesh_rf_tx_enable_backend_sleep \
+        --rollback \
         native_tune \
         tune_center_frequency \
         tune_sample_rate \
         tune_rf_bandwidth \
+        select_fieldmesh_dac_source \
+        arm_fieldmesh_tx_guard \
         requires_c_rf_guard_action_policy_self_test \
+        requires_native_rf_control \
         starts_rf_tx_when_executed \
+        ctrl_base \
+        rf_slot_epoch \
+        rf_slot_index \
+        preflight_assert \
         center_frequency_hz \
         sample_rate_hz \
         rf_bandwidth_hz \
@@ -594,6 +604,16 @@ PY
         echo "Packaged fieldmesh-rf-tx-enable-backend in $name still delegates to shell TX-enable" >&2
         exit 1
     fi
+    for token in \
+        fieldmesh-radio-tx-enable \
+        fieldmesh-radio-safe-tune \
+        fieldmesh-radio-tx-disable \
+        fieldmesh-ctrl-write; do
+        if grep -qF -- "$token" "$rf_tx_backend_out"; then
+            echo "Packaged fieldmesh-rf-tx-enable-backend in $name still carries shell live-control token: $token" >&2
+            exit 1
+        fi
+    done
     for token in \
         fieldmesh_ctrl_write \
         FIELD_MESH_EXECUTE_LIVE_TX \

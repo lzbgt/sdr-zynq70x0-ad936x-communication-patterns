@@ -2491,13 +2491,17 @@ verifies the default path remains dry-run, emits
 permission, rejects live execution without a backend, and proves a mock backend
 can be invoked as `--bounded-tx-enable --request <json>` only after the
 hardware-write, RF-TX, fixture, attenuation, RX-first, and operator
-confirmation gates are present. The request carries the C RF guard
-action-policy proof, frequency profile, bounded duration, fixture parameters,
-and rollback command contract; the verifier builds the compiled C
+confirmation gates are present. The generated script re-runs only the C RF
+guard action-policy self-test plus the compiled backend; source-select,
+guard-arm, tune, TX-enable, TX-disable, and `fieldmesh-ctrl-write` live-control
+steps are carried in the request instead of executed by shell. The request
+carries the C RF guard action-policy proof, FieldMesh control base, preflight
+assertion, RF guard slot, frequency profile, bounded duration, fixture
+parameters, and rollback contract; the verifier builds the compiled C
 `fieldmesh-rf-tx-enable-backend`, runs it under `FIELD_MESH_BACKEND_DRY_RUN=1`,
-and proves it performs native C `iio_attr` tuning/gain control, bounded sleep,
-and rollback without delegating live tuning/TX semantics to
-`fieldmesh-radio-safe-tune` or `fieldmesh-radio-tx-enable`.
+and proves it performs native C DAC-source control, RF guard arm, `iio_attr`
+tuning/gain control, bounded sleep, and TX/DAC/guard rollback without
+delegating live source/guard/tune/TX/rollback semantics to shell helpers.
 The verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed

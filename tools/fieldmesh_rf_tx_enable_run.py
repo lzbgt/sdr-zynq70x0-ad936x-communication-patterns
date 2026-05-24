@@ -132,17 +132,25 @@ def sequence_by_name(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {str(row["name"]): row for row in plan["sequence"]}
 
 
+def argv_value(row: dict[str, Any], flag: str) -> str:
+    argv = row.get("argv")
+    if not isinstance(argv, list):
+        raise SystemExit(f"plan row {row.get('name')} is missing argv")
+    for index, value in enumerate(argv):
+        if value == flag and index + 1 < len(argv):
+            return str(argv[index + 1])
+    raise SystemExit(f"plan row {row.get('name')} is missing {flag}")
+
+
+def parse_int_arg(row: dict[str, Any], flag: str) -> int:
+    text = argv_value(row, flag)
+    return int(text, 0)
+
+
 def script_lines(plan: dict[str, Any], args: argparse.Namespace) -> list[str]:
     rows = sequence_by_name(plan)
     backend = args.tx_enable_backend or Path("/usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend")
-    bounded = rows["bounded_tx_enable_window"]
-    rollback_tx = rows["rollback_tx_enable"]
-    rollback_source = rows["rollback_fieldmesh_dac_source"]
-    rollback_guard = rows["rollback_fieldmesh_tx_guard"]
     action_policy = rows["prove_rf_guard_action_policy"]
-    source = rows["select_fieldmesh_dac_source"]
-    guard = rows["arm_fieldmesh_tx_guard"]
-    tune = rows["configure_tx_frequency_profile"]
 
     return [
         "#!/bin/sh",
@@ -161,9 +169,10 @@ def script_lines(plan: dict[str, Any], args: argparse.Namespace) -> list[str]:
         "export FIELD_MESH_RF_TX_ENABLE_REQUEST FIELD_MESH_ALLOW_HARDWARE_WRITES FIELD_MESH_ALLOW_RF_TX",
         "",
         "rollback() {",
-        f"  {rollback_tx['shell']} || true",
-        f"  {rollback_source['shell']} || true",
-        f"  {rollback_guard['shell']} || true",
+        "  if [ \"${FIELD_MESH_EXECUTE_LIVE_TX:-0}\" = \"1\" ] && [ \"${FIELD_MESH_ALLOW_HARDWARE_WRITES:-0}\" = \"1\" ] && [ \"${FIELD_MESH_ALLOW_RF_TX:-0}\" = \"1\" ]; then",
+        f"    {shlex.quote(str(backend))} --rollback --request \"$FIELD_MESH_RF_TX_ENABLE_REQUEST\" || true",
+        "  fi",
+        "  # TX gain, DAC-source, and guard rollback are owned by the C backend.",
         "}",
         "trap rollback EXIT INT TERM",
         "",
@@ -183,12 +192,8 @@ def script_lines(plan: dict[str, Any], args: argparse.Namespace) -> list[str]:
         "  exit 1",
         "fi",
         "",
-        f"{source['shell']}",
-        f"{guard['shell']}",
-        "",
-        f"# C backend performs planned tuning step: {tune['shell']}",
+        "# C backend performs planned source-select, guard-arm, tuning, bounded TX, and rollback steps.",
         f"{shlex.quote(str(backend))} --bounded-tx-enable --request \"$FIELD_MESH_RF_TX_ENABLE_REQUEST\"",
-        f"# planned bounded TX step: {bounded['shell']}",
         "echo fieldmesh_rf_tx_enable_live_tx=done",
     ]
 
@@ -201,6 +206,8 @@ def write_script(path: Path, plan: dict[str, Any], args: argparse.Namespace) -> 
 def build_backend_request(args: argparse.Namespace, plan: dict[str, Any], script_path: Path) -> dict[str, Any]:
     rows = sequence_by_name(plan)
     proof = plan["rf_guard_action_policy_self_test"]
+    source = rows["select_fieldmesh_dac_source"]
+    guard = rows["arm_fieldmesh_tx_guard"]
     return {
         "event": "fieldmesh_rf_tx_enable_backend_request",
         "ok": True,
@@ -213,6 +220,11 @@ def build_backend_request(args: argparse.Namespace, plan: dict[str, Any], script
         "center_frequency_hz": int(plan["center_frequency_hz"]),
         "sample_rate_hz": int(plan["sample_rate_hz"]),
         "rf_bandwidth_hz": int(plan["rf_bandwidth_hz"]),
+        "ctrl_base": parse_int_arg(source, "--ctrl-base"),
+        "preflight_assert": argv_value(source, "--preflight-assert"),
+        "rf_slot_epoch": parse_int_arg(guard, "--slot-epoch"),
+        "rf_slot_index": parse_int_arg(guard, "--slot-index"),
+        "rf_arm_window_us": parse_int_arg(guard, "--arm-window-us"),
         "tx_attenuation_db": float(plan["tx_attenuation_db"]),
         "max_tx_duration_ms": int(args.max_tx_duration_ms),
         "authorized_rf_path": bool(args.authorized_rf_path),
@@ -224,6 +236,7 @@ def build_backend_request(args: argparse.Namespace, plan: dict[str, Any], script
         "rf_engine_ready": True,
         "target_is_zynq_board": True,
         "requires_bounded_tx_duration": True,
+        "requires_native_rf_control": True,
         "requires_native_tune": True,
         "requires_rollback": True,
         "requires_c_rf_guard_action_policy_self_test": True,
@@ -365,6 +378,7 @@ def main() -> int:
             "requires_backend": True,
             "requires_backend_request_contract": True,
             "requires_bounded_tx_duration": True,
+            "requires_native_rf_control": True,
             "requires_native_tune": True,
             "requires_rollback": True,
             "rf_guard_action_policy_self_test_proven": True,

@@ -1,7 +1,9 @@
+#define _FILE_OFFSET_BITS 64
 #define _POSIX_C_SOURCE 200809L
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -11,8 +13,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "fieldmesh_rf_guard_ctrl.h"
+#include "fieldmesh_sidecar_addr.h"
+
 static const char *EVENT = "fieldmesh_rf_tx_enable_backend";
 static const char *IIO_EVENT = "fieldmesh_rf_tx_enable_backend_iio_attr";
+static const char *CTRL_EVENT = "fieldmesh_rf_tx_enable_backend_ctrl_reg";
 static const char *SLEEP_EVENT = "fieldmesh_rf_tx_enable_backend_sleep";
 static const char *ROLLBACK_GAIN_DB = "-89.75";
 
@@ -198,6 +204,21 @@ static bool env_double_matches(const char *name, double expected) {
     return errno == 0 && end != value && *end == '\0' && diff < 0.000001;
 }
 
+static bool preflight_assert_ok(const char *path) {
+    char *buf = read_file(path, 65536);
+    if (buf == NULL) {
+        return false;
+    }
+    bool ok = (strstr(buf, "\"event\":\"fieldmesh_sidecar_preflight_assert\"") != NULL ||
+               strstr(buf, "\"event\": \"fieldmesh_sidecar_preflight_assert\"") != NULL) &&
+              (strstr(buf, "\"ok\":true") != NULL ||
+               strstr(buf, "\"ok\": true") != NULL) &&
+              (strstr(buf, "\"ctrl_id\":\"0x464d1001\"") != NULL ||
+               strstr(buf, "\"ctrl_id\": \"0x464d1001\"") != NULL);
+    free(buf);
+    return ok;
+}
+
 static bool dry_run_enabled(void) {
     const char *value = getenv("FIELD_MESH_BACKEND_DRY_RUN");
     return value != NULL && strcmp(value, "1") == 0;
@@ -227,6 +248,63 @@ static int run_argv(char *const argv[]) {
         _exit(127);
     }
     return wait_child(pid, argv[0]);
+}
+
+static int write_ctrl_reg(uint32_t ctrl_base, uint32_t offset, uint32_t value, const char *phase) {
+    if (dry_run_enabled()) {
+        printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":true,\"native_rf_control\":true,"
+               "\"phase\":\"",
+               CTRL_EVENT);
+        json_escape(stdout, phase);
+        printf("\",\"base\":\"0x%08x\",\"offset\":\"0x%03x\",\"value\":\"0x%08x\"}\n",
+               ctrl_base, offset, value);
+        return 0;
+    }
+
+    int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    if (fd < 0) {
+        return fail("open /dev/mem failed for RF control register write");
+    }
+    uint32_t le_value = value;
+    ssize_t written = pwrite(fd, &le_value, sizeof(le_value), (off_t)ctrl_base + (off_t)offset);
+    int saved_errno = errno;
+    close(fd);
+    if (written != (ssize_t)sizeof(le_value)) {
+        errno = saved_errno;
+        return fail("RF control register write failed");
+    }
+    return 0;
+}
+
+static int rollback_rf_control(uint32_t ctrl_base, const char *phase) {
+    if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, 0U, phase) != 0) {
+        return 1;
+    }
+    if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL, 0U, phase) != 0) {
+        return 1;
+    }
+    return 0;
+}
+
+static int arm_rf_control(uint32_t ctrl_base, uint32_t slot_epoch, uint32_t slot_index) {
+    if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL,
+                       FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH, "select_fieldmesh_dac_source") != 0) {
+        return 1;
+    }
+    if (write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, slot_epoch,
+                       "arm_fieldmesh_tx_guard") != 0 ||
+        write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, slot_index & 0xffffU,
+                       "arm_fieldmesh_tx_guard") != 0 ||
+        write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_TX_EPOCH, slot_epoch,
+                       "arm_fieldmesh_tx_guard") != 0 ||
+        write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_TX_SLOT, slot_index & 0xffffU,
+                       "arm_fieldmesh_tx_guard") != 0 ||
+        write_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, FIELDMESH_RF_GUARD_CONTROL_ARMED,
+                       "arm_fieldmesh_tx_guard") != 0) {
+        (void)rollback_rf_control(ctrl_base, "rollback_after_guard_arm_error");
+        return 1;
+    }
+    return 0;
 }
 
 static int set_iio_attr(const char *channel, const char *attribute, const char *value, const char *phase) {
@@ -304,21 +382,32 @@ static int sleep_bounded_ms(long duration_ms) {
 }
 
 static int run_tx_enable(long max_duration_ms, double tx_attenuation_db,
-                         int64_t center_frequency_hz, int64_t sample_rate_hz, int64_t rf_bandwidth_hz) {
+                         int64_t center_frequency_hz, int64_t sample_rate_hz, int64_t rf_bandwidth_hz,
+                         uint32_t ctrl_base, uint32_t rf_slot_epoch, uint32_t rf_slot_index) {
     char tx_gain_db[32];
     snprintf(tx_gain_db, sizeof(tx_gain_db), "-%.6g", tx_attenuation_db);
 
+    if (arm_rf_control(ctrl_base, rf_slot_epoch, rf_slot_index) != 0) {
+        return 1;
+    }
     if (tune_rf_profile(center_frequency_hz, sample_rate_hz, rf_bandwidth_hz) != 0) {
+        (void)rollback_rf_control(ctrl_base, "rollback_after_tune_error");
         return 1;
     }
     if (set_tx_hardware_gain(tx_gain_db, "enable") != 0) {
+        (void)rollback_rf_control(ctrl_base, "rollback_after_gain_error");
         return 1;
     }
     if (sleep_bounded_ms(max_duration_ms) != 0) {
         (void)set_tx_hardware_gain(ROLLBACK_GAIN_DB, "rollback_after_sleep_error");
+        (void)rollback_rf_control(ctrl_base, "rollback_after_sleep_error");
         return 1;
     }
     if (set_tx_hardware_gain(ROLLBACK_GAIN_DB, "rollback") != 0) {
+        (void)rollback_rf_control(ctrl_base, "rollback_after_gain_rollback_error");
+        return 1;
+    }
+    if (rollback_rf_control(ctrl_base, "rollback") != 0) {
         return 1;
     }
     return 0;
@@ -326,9 +415,13 @@ static int run_tx_enable(long max_duration_ms, double tx_attenuation_db,
 
 int main(int argc, char **argv) {
     const char *request_path = NULL;
-    if (argc != 4 || strcmp(argv[1], "--bounded-tx-enable") != 0 || strcmp(argv[2], "--request") != 0) {
-        return fail("usage: fieldmesh-rf-tx-enable-backend --bounded-tx-enable --request PATH");
+    bool rollback_only = false;
+    if (argc != 4 ||
+        (strcmp(argv[1], "--bounded-tx-enable") != 0 && strcmp(argv[1], "--rollback") != 0) ||
+        strcmp(argv[2], "--request") != 0) {
+        return fail("usage: fieldmesh-rf-tx-enable-backend (--bounded-tx-enable|--rollback) --request PATH");
     }
+    rollback_only = strcmp(argv[1], "--rollback") == 0;
     request_path = argv[3];
 
     char *json = read_file(request_path, 65536);
@@ -340,11 +433,19 @@ int main(int argc, char **argv) {
     char event[128];
     char mode[64];
     char fixture_id[128];
+    char preflight_assert[512];
     long contract_version = 0;
     long max_duration_ms = 0;
+    long rf_arm_window_us = 0;
     int64_t center_frequency_hz = 0;
     int64_t sample_rate_hz = 0;
     int64_t rf_bandwidth_hz = 0;
+    int64_t ctrl_base_i64 = 0;
+    int64_t rf_slot_epoch_i64 = 0;
+    int64_t rf_slot_index_i64 = 0;
+    uint32_t ctrl_base = FIELDMESH_SIDECAR_CTRL_BASE;
+    uint32_t rf_slot_epoch = 0;
+    uint32_t rf_slot_index = 0;
     double fixture_attenuation_db = 0.0;
     double tx_attenuation_db = 0.0;
 
@@ -396,6 +497,38 @@ int main(int argc, char **argv) {
         rc = fail("request rf_bandwidth_hz is outside AD936x practical range");
         goto out;
     }
+    if (!json_i64(json, "ctrl_base", &ctrl_base_i64) ||
+        ctrl_base_i64 != (int64_t)FIELDMESH_SIDECAR_CTRL_BASE) {
+        rc = fail("request ctrl_base must match the shared FieldMesh sidecar control base");
+        goto out;
+    }
+    ctrl_base = (uint32_t)ctrl_base_i64;
+    if (!json_string(json, "preflight_assert", preflight_assert, sizeof(preflight_assert)) ||
+        preflight_assert[0] == '\0') {
+        rc = fail("request preflight_assert is required");
+        goto out;
+    }
+    if (!preflight_assert_ok(preflight_assert)) {
+        rc = fail("request preflight_assert did not prove the FieldMesh sidecar");
+        goto out;
+    }
+    if (!json_i64(json, "rf_slot_epoch", &rf_slot_epoch_i64) ||
+        rf_slot_epoch_i64 < 0 || rf_slot_epoch_i64 > 4294967295LL) {
+        rc = fail("request rf_slot_epoch is out of range");
+        goto out;
+    }
+    rf_slot_epoch = (uint32_t)rf_slot_epoch_i64;
+    if (!json_i64(json, "rf_slot_index", &rf_slot_index_i64) ||
+        rf_slot_index_i64 < 0 || rf_slot_index_i64 > 65535LL) {
+        rc = fail("request rf_slot_index is out of range");
+        goto out;
+    }
+    rf_slot_index = (uint32_t)rf_slot_index_i64;
+    if (!json_int(json, "rf_arm_window_us", &rf_arm_window_us) ||
+        rf_arm_window_us < 1 || rf_arm_window_us > 1000000L) {
+        rc = fail("request rf_arm_window_us is out of range");
+        goto out;
+    }
 
     const char *required_true[] = {
         "ok",
@@ -407,6 +540,7 @@ int main(int argc, char **argv) {
         "rf_engine_ready",
         "target_is_zynq_board",
         "requires_bounded_tx_duration",
+        "requires_native_rf_control",
         "requires_native_tune",
         "requires_rollback",
         "requires_c_rf_guard_action_policy_self_test",
@@ -463,14 +597,36 @@ int main(int argc, char **argv) {
         goto out;
     }
 
-    rc = run_tx_enable(max_duration_ms, tx_attenuation_db, center_frequency_hz, sample_rate_hz, rf_bandwidth_hz);
+    if (rollback_only) {
+        int gain_rc = set_tx_hardware_gain(ROLLBACK_GAIN_DB, "rollback");
+        int ctrl_rc = rollback_rf_control(ctrl_base, "rollback");
+        rc = (gain_rc == 0 && ctrl_rc == 0) ? 0 : 1;
+        if (rc == 0) {
+            printf("{\"event\":\"%s\",\"ok\":true,\"request\":\"", EVENT);
+            json_escape(stdout, request_path);
+            printf("\",\"rollback_only\":true,\"rollback_tx_attenuation_db\":89.75,"
+                   "\"native_rf_control\":true,\"native_iio_attr_control\":true,"
+                   "\"writes_hardware\":true,\"starts_rf_tx\":false,\"delegated_to\":\"iio_attr\"}\n");
+        }
+        goto out;
+    }
+
+    rc = run_tx_enable(max_duration_ms, tx_attenuation_db, center_frequency_hz, sample_rate_hz,
+                       rf_bandwidth_hz, ctrl_base, rf_slot_epoch, rf_slot_index);
     if (rc == 0) {
         printf("{\"event\":\"%s\",\"ok\":true,\"request\":\"", EVENT);
         json_escape(stdout, request_path);
         printf("\",\"fixture_id\":\"");
         json_escape(stdout, fixture_id);
-        printf("\",\"center_frequency_hz\":%lld,\"sample_rate_hz\":%lld,\"rf_bandwidth_hz\":%lld,\"max_tx_duration_ms\":%ld,\"tx_attenuation_db\":%.6g,\"rollback_tx_attenuation_db\":89.75,\"writes_hardware\":true,\"starts_rf_tx\":true,\"bounded\":true,\"native_tune\":true,\"native_iio_attr_control\":true,\"delegated_to\":\"iio_attr\"}\n",
-               (long long)center_frequency_hz, (long long)sample_rate_hz, (long long)rf_bandwidth_hz, max_duration_ms, tx_attenuation_db);
+        printf("\",\"ctrl_base\":\"0x%08x\",\"rf_slot_epoch\":%u,\"rf_slot_index\":%u,"
+               "\"center_frequency_hz\":%lld,\"sample_rate_hz\":%lld,\"rf_bandwidth_hz\":%lld,"
+               "\"max_tx_duration_ms\":%ld,\"tx_attenuation_db\":%.6g,"
+               "\"rollback_tx_attenuation_db\":89.75,\"writes_hardware\":true,"
+               "\"starts_rf_tx\":true,\"bounded\":true,\"native_rf_control\":true,"
+               "\"native_tune\":true,\"native_iio_attr_control\":true,\"delegated_to\":\"iio_attr\"}\n",
+               ctrl_base, rf_slot_epoch, rf_slot_index, (long long)center_frequency_hz,
+               (long long)sample_rate_hz, (long long)rf_bandwidth_hz,
+               max_duration_ms, tx_attenuation_db);
     }
 
 out:

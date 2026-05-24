@@ -575,12 +575,13 @@ user and vendor configuration.
   missing legal-frequency declaration.
 - `tools/fieldmesh_rf_tx_enable_run.py` - guarded authorized over-air
   TX-enable executor boundary. It consumes the verified plan, generates a
-  board-local source-select/guard/tune/rollback script plus a structured
-  backend request, stays dry-run by default, and only invokes the compiled C TX
-  backend when hardware-write, RF-TX, fixture, attenuation, RX-first, and
-  operator-confirmation gates are all present. The backend performs IIO tuning
-  plus the bounded gain/sleep/rollback sequence in C and does not delegate live
-  tune/TX semantics to shell.
+  board-local script plus a structured backend request, stays dry-run by
+  default, and only invokes the compiled C TX backend when hardware-write,
+  RF-TX, fixture, attenuation, RX-first, and operator-confirmation gates are
+  all present. The generated script only re-runs the C RF guard action-policy
+  proof and calls the backend; source-select, guard-arm, tuning, bounded
+  gain/sleep, and rollback are owned by the compiled C backend instead of
+  shell live-control primitives.
 - `tools/verify_fieldmesh_rf_tx_enable_run.sh` - gate for the TX-enable
   executor boundary. It verifies dry-run safety, missing review permission,
   missing backend rejection, and compiled-backend native-IIO dry-run execution

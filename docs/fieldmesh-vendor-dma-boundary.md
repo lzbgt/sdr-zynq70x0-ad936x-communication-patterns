@@ -754,24 +754,29 @@ explicit backend invocation contract:
 ```
 
 Default mode is dry-run: it writes `fieldmesh_rf_tx_enable_execute.sh` with a
-rollback trap plus `fieldmesh_rf_tx_enable_backend_request.json` with the
-frequency profile, bounded-duration request, C RF guard action-policy proof,
-fixture parameters, and ordered rollback commands. It executes no commands,
-writes no hardware, starts no RF TX, and opens no IIO buffers. Live execution additionally requires
+C-backend rollback trap plus `fieldmesh_rf_tx_enable_backend_request.json` with
+the FieldMesh control base, preflight assertion, RF guard slot, frequency
+profile, bounded-duration request, C RF guard action-policy proof, fixture
+parameters, and ordered review commands. It executes no commands, writes no
+hardware, starts no RF TX, and opens no IIO buffers. Live execution additionally requires
 `--execute-live-tx --allow-hardware-writes --allow-rf-tx`, the exact operator
 confirmation string, a RF path ID, and an executable TX backend. The wrapper
 validates the plan and safety declarations, then invokes only that explicit
 backend as `--bounded-tx-enable --request <json>`. The generated board script
-reuses the same request artifact, so the later authorized over-air RF path
-runner does not rebuild live-control policy from shell variables. The packaged
+reuses the same request artifact and does not execute source-select,
+guard-arm, safe-tune, TX-enable, TX-disable, or `fieldmesh-ctrl-write`
+primitives itself, so the later authorized over-air RF path runner does not
+rebuild live-control policy from shell variables. The packaged
 backend is compiled C (`/usr/libexec/fieldmesh/fieldmesh-rf-tx-enable-backend`):
 it parses the request, verifies the C RF guard action-policy proof and bounded
 TX parameters, checks the live RF/hardware authorization environment, and only
-then performs frequency tuning plus the bounded IIO gain/sleep/rollback
-sequence natively in C. The legacy `fieldmesh-radio-safe-tune` and
-`fieldmesh-radio-tx-enable` shell helpers remain packaged for review and
-diagnostic compatibility, but the live backend no longer delegates tuning or TX
-semantics to shell.
+then performs DAC source-select, RF guard arm, frequency tuning, bounded IIO
+gain/sleep, and TX/DAC/guard rollback natively in C. The backend also exposes a
+`--rollback --request <json>` mode used by the generated trap. The legacy
+`fieldmesh-radio-safe-tune`, `fieldmesh-radio-tx-enable`, and
+`fieldmesh-radio-tx-disable` shell helpers remain packaged for review and
+diagnostic compatibility, but the live backend no longer delegates live
+source/guard/tune/TX/rollback semantics to shell.
 
 To assemble matched FieldMesh runtime payloads without changing the default
 packages:

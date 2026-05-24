@@ -39,7 +39,7 @@ safety = report.get("safety", {})
 for key in ("commands_executed", "writes_hardware", "starts_rf_tx", "opens_iio_buffers", "uses_inter_board_ip_routing"):
     if safety.get(key) is not False:
         raise SystemExit(f"safety key {key} crossed boundary")
-for key in ("requires_backend", "requires_backend_request_contract", "requires_bounded_tx_duration", "requires_native_tune", "requires_rollback"):
+for key in ("requires_backend", "requires_backend_request_contract", "requires_bounded_tx_duration", "requires_native_rf_control", "requires_native_tune", "requires_rollback"):
     if safety.get(key) is not True:
         raise SystemExit(f"safety key {key} was not asserted")
 if safety.get("rf_guard_action_policy_self_test_proven") is not True:
@@ -51,13 +51,21 @@ for token in (
     "FIELD_MESH_EXECUTE_LIVE_TX",
     "FIELD_MESH_RF_TX_ENABLE_REQUEST",
     "fieldmesh-udp-probe rf-guard-action-policy-self-test",
-    "fieldmesh-udp-probe rf-source-apply",
-    "fieldmesh-udp-probe rf-guard-apply",
+    "--rollback --request",
     "--bounded-tx-enable --request",
-    "fieldmesh-radio-tx-enable",
 ):
     if token not in text:
         raise SystemExit(f"generated script missing token {token}")
+for token in (
+    "fieldmesh-udp-probe rf-source-apply",
+    "fieldmesh-udp-probe rf-guard-apply",
+    "fieldmesh-radio-safe-tune",
+    "fieldmesh-radio-tx-enable",
+    "fieldmesh-radio-tx-disable",
+    "fieldmesh-ctrl-write",
+):
+    if token in text:
+        raise SystemExit(f"generated script still delegates live control to {token}")
 request = json.loads(Path(report["backend_request"]).read_text(encoding="utf-8"))
 if request.get("event") != "fieldmesh_rf_tx_enable_backend_request":
     raise SystemExit("backend request event mismatch")
@@ -65,6 +73,8 @@ if request.get("contract_version") != 1 or request.get("mode") != "dry-run":
     raise SystemExit("backend request contract/mode mismatch")
 if request.get("requires_c_rf_guard_action_policy_self_test") is not True:
     raise SystemExit("backend request did not require C RF guard policy proof")
+if request.get("requires_native_rf_control") is not True or request.get("requires_native_tune") is not True:
+    raise SystemExit("backend request did not require native C RF control and tune")
 if request.get("starts_rf_tx_when_executed") is not True or request.get("writes_hardware_when_executed") is not True:
     raise SystemExit("backend request did not describe the bounded live boundary")
 if request.get("max_tx_duration_ms") != 100 or request.get("fixture_attenuation_db") != 60.0:
@@ -75,11 +85,17 @@ for key, expected in (
     ("center_frequency_hz", 915000000),
     ("sample_rate_hz", 1000000),
     ("rf_bandwidth_hz", 1000000),
+    ("ctrl_base", 0x43c00000),
+    ("rf_slot_epoch", 12),
+    ("rf_slot_index", 3),
+    ("rf_arm_window_us", 5000),
 ):
     if request.get(key) != expected:
-        raise SystemExit(f"backend request did not carry native tune field {key}")
+        raise SystemExit(f"backend request did not carry native control field {key}")
+if not str(request.get("preflight_assert", "")).endswith("preflight_assert.json"):
+    raise SystemExit("backend request did not carry preflight assertion path")
 sequence = request.get("sequence") or {}
-for name in ("prove_rf_guard_action_policy", "bounded_tx_enable_window", "rollback_tx_enable"):
+for name in ("prove_rf_guard_action_policy", "select_fieldmesh_dac_source", "arm_fieldmesh_tx_guard", "bounded_tx_enable_window", "rollback_tx_enable"):
     if name not in sequence:
         raise SystemExit(f"backend request missing sequence command {name}")
 print(json.dumps({
@@ -133,6 +149,7 @@ fi
 
 backend="$work_dir/fieldmesh-rf-tx-enable-backend"
 cc -std=c99 -Wall -Wextra -Werror \
+  -I "$repo_root/sdk/c/include" \
   "$repo_root/runtime/fieldmesh-rf-tools/fieldmesh_rf_tx_enable_backend.c" \
   -o "$backend"
 
@@ -178,9 +195,13 @@ stdout = execution.get("stdout", "")
 for token in (
     "fieldmesh_rf_tx_enable_backend",
     "fieldmesh_rf_tx_enable_backend_iio_attr",
+    "fieldmesh_rf_tx_enable_backend_ctrl_reg",
     "fieldmesh_rf_tx_enable_backend_sleep",
     "native_iio_attr_control",
+    "native_rf_control",
     "native_tune",
+    "select_fieldmesh_dac_source",
+    "arm_fieldmesh_tx_guard",
     "tune_center_frequency",
     "tune_sample_rate",
     "tune_rf_bandwidth",
@@ -190,6 +211,8 @@ for token in (
         raise SystemExit(f"C backend output missing {token}: {stdout!r}")
 if "fieldmesh-radio-tx-enable" in stdout:
     raise SystemExit(f"C backend delegated to shell TX-enable primitive: {stdout!r}")
+if "fieldmesh-radio-safe-tune" in stdout or "fieldmesh-radio-tx-disable" in stdout or "fieldmesh-ctrl-write" in stdout:
+    raise SystemExit(f"C backend delegated to shell tune/rollback primitive: {stdout!r}")
 request = json.loads(Path(report["backend_request"]).read_text(encoding="utf-8"))
 if request.get("mode") != "execute-live-tx":
     raise SystemExit("live backend request mode mismatch")
@@ -197,6 +220,8 @@ if request.get("starts_rf_tx_when_executed") is not True or request.get("writes_
     raise SystemExit("live backend request did not mark boundary")
 if request.get("tx_attenuation_db") != 89.75:
     raise SystemExit("live backend request did not carry TX attenuation")
+if request.get("requires_native_rf_control") is not True:
+    raise SystemExit("live backend request did not require native RF control")
 print(json.dumps({
     "event": "fieldmesh_rf_tx_enable_run_mock_live_check",
     "ok": True,
@@ -204,4 +229,33 @@ print(json.dumps({
     "compiled_backend_dry_run": True,
     "backend_request_contract": True,
 }, sort_keys=True))
+PY
+
+FIELD_MESH_EXECUTE_LIVE_TX=1 \
+FIELD_MESH_ALLOW_HARDWARE_WRITES=1 \
+FIELD_MESH_ALLOW_RF_TX=1 \
+FIELD_MESH_FIXTURE_ID=fixture-001 \
+FIELD_MESH_MAX_TX_DURATION_MS=100 \
+FIELD_MESH_FIXTURE_ATTENUATION_DB=60 \
+FIELD_MESH_BACKEND_DRY_RUN=1 \
+"$backend" --rollback --request "$work_dir/mock_live/fieldmesh_rf_tx_enable_backend_request.json" \
+  >"$work_dir/mock_backend_rollback.stdout.json"
+
+python3 - "$work_dir/mock_backend_rollback.stdout.json" <<'PY'
+import sys
+from pathlib import Path
+
+stdout = Path(sys.argv[1]).read_text(encoding="utf-8")
+for token in (
+    '"rollback_only":true',
+    "fieldmesh_rf_tx_enable_backend_iio_attr",
+    "fieldmesh_rf_tx_enable_backend_ctrl_reg",
+    "native_rf_control",
+    "native_iio_attr_control",
+):
+    if token not in stdout:
+        raise SystemExit(f"C backend rollback output missing {token}: {stdout!r}")
+for token in ("fieldmesh-radio-tx-disable", "fieldmesh-ctrl-write"):
+    if token in stdout:
+        raise SystemExit(f"C backend rollback delegated to shell primitive: {stdout!r}")
 PY
