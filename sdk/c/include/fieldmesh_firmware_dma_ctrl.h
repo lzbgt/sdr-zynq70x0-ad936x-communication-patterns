@@ -179,6 +179,59 @@ static inline int fieldmesh_fw_dma_config_args_valid(uint32_t peer_index,
            (descriptor_flags & ~FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED) == 0u;
 }
 
+static inline void fieldmesh_fw_dma_status_test_regs_idle(
+    uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT])
+{
+    if (!regs) {
+        return;
+    }
+    for (size_t i = 0u; i < FIELDMESH_FW_DMA_STATUS_REG_COUNT; ++i) {
+        regs[i] = 0u;
+    }
+}
+
+static inline void fieldmesh_fw_dma_status_test_regs_active_faulted(
+    uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT])
+{
+    if (!regs) {
+        return;
+    }
+
+    fieldmesh_fw_dma_status_test_regs_idle(regs);
+    regs[0] = FIELDMESH_FW_DMA_ARM_CONTROL;
+    regs[1] = FIELDMESH_FW_DMA_STATUS_ENDPOINT_ENABLED |
+              FIELDMESH_FW_DMA_STATUS_MAC_SCHEDULER_ACTIVE |
+              FIELDMESH_FW_DMA_STATUS_PUMP_DONE |
+              FIELDMESH_FW_DMA_STATUS_DRAINED_EMPTY |
+              FIELDMESH_FW_DMA_STATUS_SERVICE_ACCEPTED |
+              0xffff0000u;
+    regs[2] = 32u;
+    regs[3] = 4u;
+    regs[4] = 0x80020003u;
+    regs[5] = 5u;
+    regs[6] = 6u;
+    regs[7] = 7u;
+    regs[8] = 8u;
+    regs[9] = 9u;
+    regs[10] = 10u;
+    regs[11] = 11u;
+    regs[12] = fieldmesh_fw_dma_pack_peer_mcs_retry(7u, 1u, 3u);
+    regs[13] = 0x11u;
+    regs[14] = 0x1200u;
+    regs[15] = 150u;
+    regs[16] = 160u;
+    regs[17] = 17u;
+    regs[18] = 180u;
+    regs[19] = 19u;
+    regs[20] = 20u;
+    regs[21] = 21u;
+    regs[22] = 22u;
+    regs[23] = 23u;
+    regs[24] = FIELDMESH_FW_DMA_FAULT_TX_PARSER |
+               FIELDMESH_FW_DMA_FAULT_EGRESS |
+               0xffff0000u;
+}
+
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
     const fieldmesh_fw_dma_status_t *status)
 {

@@ -31,6 +31,8 @@ required_header_tokens = [
     "fieldmesh_fw_dma_status_idle",
     "fieldmesh_fw_dma_status_stop_needed",
     "fieldmesh_fw_dma_status_ready_for_arm",
+    "fieldmesh_fw_dma_status_test_regs_idle",
+    "fieldmesh_fw_dma_status_test_regs_active_faulted",
     "case 24u: return FIELDMESH_FW_DMA_REG_FAULT_STATUS;",
     "default: return 0u;",
     "FIELDMESH_FW_DMA_ARM_CONTROL",
@@ -55,6 +57,8 @@ for forbidden in (
 required_tool_tokens = [
     "--fw-dma-status-self-test",
     "--fw-dma-status-idle-self-test",
+    "fieldmesh_fw_dma_status_test_regs_active_faulted",
+    "fieldmesh_fw_dma_status_test_regs_idle",
     "fieldmesh_fw_dma_status_offset(i)",
     "fieldmesh_fw_dma_status_from_regs",
     "fieldmesh_fw_dma_control_mac_tick_enable",
@@ -166,6 +170,8 @@ for token in (
     "fieldmesh_fw_dma_control_mac_scheduler_enable",
     "fieldmesh_fw_dma_status_service_accepted",
     "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
+    "fieldmesh_fw_dma_status_test_regs_active_faulted",
+    "fieldmesh_fw_dma_status_test_regs_idle",
     "fieldmesh_firmware_dma_ctrl.h",
 ):
     if token not in abi_verify:

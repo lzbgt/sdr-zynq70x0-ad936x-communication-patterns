@@ -496,8 +496,8 @@ The guarded config path accepts only defined TX descriptor flags
 are rejected in C before any register write.
 `fieldmesh-ctrl-write --fw-dma-status-self-test` and
 `--fw-dma-status-idle-self-test` exercise the same C decode and JSON projection
-from fixed register vectors without `/dev/mem`; they are test hooks only, not a
-packet data path.
+from shared C fixture vectors without `/dev/mem`; they are test hooks only, not
+a packet data path.
 
 ## MAC Design
 

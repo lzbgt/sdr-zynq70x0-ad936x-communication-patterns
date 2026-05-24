@@ -285,7 +285,7 @@ logs are readable; no JSON is used on the DMA or RF packet path.
 The metadata config accepts only the defined firmware descriptor flag mask
 `0x003f`; reserved bits are rejected in C before the guarded hardware write.
 `fieldmesh-ctrl-write --fw-dma-status-self-test` and
-`--fw-dma-status-idle-self-test` decode fixed C register vectors without
+`--fw-dma-status-idle-self-test` decode shared C fixture vectors without
 `/dev/mem`, keeping active/faulted and reset-idle status projections under CI
 without requiring live hardware. The status projection includes C-derived
 fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm booleans so

@@ -263,46 +263,14 @@ int main(int argc, char **argv) {
     }
 
     if (argc == 2 && strcmp(argv[1], "--fw-dma-status-self-test") == 0) {
-        fieldmesh_fw_dma_config_t config = {
-            .peer_index = 7u,
-            .mcs = 1u,
-            .retry_budget = 3u,
-            .descriptor_flags = 0x11u,
-            .seq_seed = 0x1200u,
-        };
         uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
-        regs[0] = FIELDMESH_FW_DMA_ARM_CONTROL;
-        regs[1] = 0x2fu;
-        regs[2] = 32u;
-        regs[3] = 4u;
-        regs[4] = 0x80020003u;
-        regs[5] = 5u;
-        regs[6] = 6u;
-        regs[7] = 7u;
-        regs[8] = 8u;
-        regs[9] = 9u;
-        regs[10] = 10u;
-        regs[11] = 11u;
-        regs[12] = fieldmesh_fw_dma_config_peer_mcs_retry(&config);
-        regs[13] = config.descriptor_flags;
-        regs[14] = config.seq_seed;
-        regs[15] = 150u;
-        regs[16] = 160u;
-        regs[17] = 17u;
-        regs[18] = 180u;
-        regs[19] = 19u;
-        regs[20] = 20u;
-        regs[21] = 21u;
-        regs[22] = 22u;
-        regs[23] = 23u;
-        regs[24] = FIELDMESH_FW_DMA_FAULT_TX_PARSER |
-                   FIELDMESH_FW_DMA_FAULT_EGRESS |
-                   0xffff0000u;
+        fieldmesh_fw_dma_status_test_regs_active_faulted(regs);
         return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
     }
 
     if (argc == 2 && strcmp(argv[1], "--fw-dma-status-idle-self-test") == 0) {
         uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT] = {0};
+        fieldmesh_fw_dma_status_test_regs_idle(regs);
         return print_fw_dma_status_from_regs(0x43c00000u, regs, false);
     }
 
