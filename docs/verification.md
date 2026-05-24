@@ -2837,6 +2837,10 @@ status reads use `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and config/arm/stop writes
 only reachable through both local wrapper guards and the raw control tool's
 `FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1
 FIELD_MESH_ALLOW_FIRMWARE_DMA=1` environment.
+`verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
+that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
+checkers, and board-control wrapper must agree on the full
+`0x140..0x1a0` firmware-DMA page, and stale `0x178` overlay guards are rejected.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

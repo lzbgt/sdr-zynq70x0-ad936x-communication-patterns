@@ -53,6 +53,7 @@ for forbidden in (
 required_checker_tokens = [
     "fieldmesh_fw_dma_endpoint",
     "fieldmesh_fw_dma_rf_broadcast",
+    "register pages through 0x1a0",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "fieldmesh_fw_dma_rf_broadcast/s_axis",
     "fieldmesh_fw_dma_rf_broadcast/m0_axis",
@@ -68,6 +69,7 @@ required_checker_tokens = [
     "fieldmesh_ctrl/fw_dma_mac_pump_done_count",
     "fieldmesh_ctrl/fw_dma_bram_crc_error_count",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
+    "fieldmesh_ctrl/fw_dma_bram_error_count",
     "assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
     "assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
     "assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",

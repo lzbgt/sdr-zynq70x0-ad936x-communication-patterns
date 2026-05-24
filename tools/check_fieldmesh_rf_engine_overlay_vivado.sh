@@ -104,7 +104,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x178"
+  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x1a0"
 }
 
 foreach pin {
