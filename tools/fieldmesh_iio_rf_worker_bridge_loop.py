@@ -1012,6 +1012,7 @@ def require_args(args: argparse.Namespace) -> None:
     for label, value in (
         ("--z203-to-z103-burst-batches", args.z203_to_z103_burst_batches),
         ("--z103-to-z203-burst-batches", args.z103_to_z203_burst_batches),
+        ("--max-consecutive-direction-batches", args.max_consecutive_direction_batches),
     ):
         if value < 1 or value > 8:
             raise SystemExit(f"{label} must be between 1 and 8")
@@ -1078,6 +1079,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "empty_burst_skips": 0,
         "adaptive_status_polls": 0,
         "adaptive_status_failures": 0,
+        "direction_fair_service_status_polls": 0,
+        "direction_fair_service_status_failures": 0,
+        "direction_fair_service_yields": 0,
         "bridge_errors": 0,
         "batches_moved": 0,
         "filtered_frames": 0,
@@ -1091,6 +1095,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rf_burst_timing_ms: dict[str, dict[str, int]] = {}
     rf_burst_batch_high_water_by_direction: dict[str, int] = {}
     next_index = 0
+    last_served_direction: str | None = None
+    consecutive_direction_batches = 0
+    max_consecutive_direction_batches_seen = 0
+    fair_yield_pending_direction: str | None = None
     direction_capture_periods = {direction["name"]: args.cyclic_capture_periods for direction in directions}
     async_acker = AsyncSourceAcker(
         enabled=bool(args.async_source_ack and args.execute_live_rf),
@@ -1137,6 +1145,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "z203_to_z103": args.z203_to_z103_burst_batches,
                 "z103_to_z203": args.z103_to_z203_burst_batches,
             },
+            "direction_fair_service_enabled": bool(
+                args.execute_live_rf
+                and len(directions) > 1
+                and args.max_consecutive_direction_batches > 0
+            ),
+            "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
+            "max_consecutive_direction_batches_seen": max_consecutive_direction_batches_seen,
+            "last_served_direction": last_served_direction,
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
@@ -1278,6 +1294,58 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             frames_in_batch,
         )
 
+    def record_served_direction(direction_name: str) -> None:
+        nonlocal last_served_direction
+        nonlocal consecutive_direction_batches
+        nonlocal max_consecutive_direction_batches_seen
+        nonlocal fair_yield_pending_direction
+        fair_yield_pending_direction = None
+        if last_served_direction == direction_name:
+            consecutive_direction_batches += 1
+        else:
+            last_served_direction = direction_name
+            consecutive_direction_batches = 1
+        max_consecutive_direction_batches_seen = max(
+            max_consecutive_direction_batches_seen,
+            consecutive_direction_batches,
+        )
+
+    def other_direction_has_queued_work(current_direction_name: str) -> bool:
+        status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
+        for candidate in directions:
+            if candidate["name"] == current_direction_name:
+                continue
+            try:
+                status = tun_service_status(
+                    candidate["source_host"],
+                    candidate["source_port"],
+                    status_timeout_ms,
+                )
+            except (TimeoutError, SystemExit):
+                counts["direction_fair_service_status_failures"] += 1
+                continue
+            counts["direction_fair_service_status_polls"] += 1
+            if queued_rf_work_score(status) > 0:
+                return True
+        return False
+
+    def should_yield_for_direction_fairness(direction_name: str) -> bool:
+        nonlocal fair_yield_pending_direction
+        if (
+            not args.execute_live_rf
+            or len(directions) < 2
+            or args.max_consecutive_direction_batches < 1
+            or fair_yield_pending_direction == direction_name
+            or last_served_direction != direction_name
+            or consecutive_direction_batches < args.max_consecutive_direction_batches
+        ):
+            return False
+        if not other_direction_has_queued_work(direction_name):
+            return False
+        counts["direction_fair_service_yields"] += 1
+        fair_yield_pending_direction = direction_name
+        return True
+
     try:
         while time.monotonic() < deadline and next_index < args.max_frames and not stop_requested:
             moved = False
@@ -1291,6 +1359,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     counts["empty_burst_skips"] += 1
                     continue
                 try:
+                    if should_yield_for_direction_fairness(direction["name"]):
+                        continue
                     fence_source_ack_if_needed(direction["name"])
                     if preloaded_lease is not None:
                         lease = preloaded_lease
@@ -1378,6 +1448,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         )
                         counts[direction["name"].replace("-", "_")] += len(batch_frames)
                         counts["batches_moved"] += 1
+                        record_served_direction(direction["name"])
                         next_index += 1
                         moved = True
                         write_progress()
@@ -1482,6 +1553,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         frames.append(frame_summary)
                         counts[direction["name"].replace("-", "_")] += len(batch_frames)
                         counts["batches_moved"] += 1
+                        record_served_direction(direction["name"])
                         next_index += 1
                         moved = True
                         write_progress()
@@ -1545,6 +1617,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         }
                     )
                     counts[direction["name"].replace("-", "_")] += 1
+                    record_served_direction(direction["name"])
                     next_index += 1
                     moved = True
                     write_progress()
@@ -1607,6 +1680,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--z203-to-z103-burst-batches", type=int, default=1)
     parser.add_argument("--z103-to-z203-burst-batches", type=int, default=1)
+    parser.add_argument(
+        "--max-consecutive-direction-batches",
+        type=int,
+        default=1,
+        help=(
+            "Maximum same-direction RF burst batches to serve before yielding "
+            "when the opposite source daemon reports queued RF work."
+        ),
+    )
     parser.add_argument(
         "--adaptive-direction-scheduler",
         dest="adaptive_direction_scheduler",

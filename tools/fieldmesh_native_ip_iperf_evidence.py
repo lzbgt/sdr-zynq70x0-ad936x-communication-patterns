@@ -77,16 +77,33 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     batch_size = report.get("iio_bridge_rf_burst_batch_size")
     if not isinstance(batch_size, int):
         batch_size = 0
-    if depth <= 1 and batch_size <= 1 and not _is_true(report.get("iio_rf_bridge")):
+    fair_enabled = report.get("iio_bridge_direction_fair_service_enabled") is True
+    if (
+        depth <= 1
+        and batch_size <= 1
+        and not fair_enabled
+        and not _is_true(report.get("iio_rf_bridge"))
+    ):
         return errors
     if not _is_true(report.get("iio_rf_bridge")):
         errors.append(f"{label}: IIO pipeline evidence requires iio_rf_bridge=true")
         return errors
+    if not fair_enabled:
+        errors.append(f"{label}: IIO direction fair-service evidence must be enabled")
     if depth < 1:
         errors.append(f"{label}: iio_bridge_source_ack_pipeline_depth must be present")
         return errors
     if batch_size < 1:
         errors.append(f"{label}: iio_bridge_rf_burst_batch_size must be present")
+    if fair_enabled:
+        fair_budget = report.get("iio_bridge_max_consecutive_direction_batches")
+        fair_seen = report.get("iio_bridge_max_consecutive_direction_batches_seen")
+        if not isinstance(fair_budget, int) or fair_budget < 1:
+            errors.append(f"{label}: IIO direction fair-service budget is missing")
+        if not isinstance(fair_seen, int) or fair_seen < 1:
+            errors.append(f"{label}: IIO direction fair-service high-water is missing")
+        elif isinstance(fair_budget, int) and fair_seen > fair_budget:
+            errors.append(f"{label}: IIO direction fair-service high-water exceeded budget")
     if batch_size > 1:
         batch_high_water = report.get("iio_bridge_rf_burst_batch_high_water")
         batch_high_water_by_direction = report.get(
@@ -379,6 +396,14 @@ def main() -> int:
         and isinstance(host.get("iio_bridge_rf_burst_batch_size"), int)
         and host.get("iio_bridge_rf_burst_batch_size") > 1
     )
+    board_requires_direction_fair_service = (
+        _is_true(board.get("iio_rf_bridge"))
+        and board.get("iio_bridge_direction_fair_service_enabled") is True
+    )
+    host_requires_direction_fair_service = (
+        _is_true(host.get("iio_rf_bridge"))
+        and host.get("iio_bridge_direction_fair_service_enabled") is True
+    )
     report = {
         "event": "fieldmesh_native_ip_iperf_evidence",
         "ok": not errors,
@@ -396,6 +421,10 @@ def main() -> int:
         ),
         "requires_iio_rf_burst_batch_evidence": bool(
             board_requires_burst_batch or host_requires_burst_batch
+        ),
+        "requires_iio_direction_fair_service_evidence": bool(
+            board_requires_direction_fair_service
+            or host_requires_direction_fair_service
         ),
         "requires_tcp_final_exchange_evidence": True,
         "board_iio_ack_pipeline_exercised": (
@@ -417,6 +446,50 @@ def main() -> int:
             True
             if not host_requires_burst_batch
             else host.get("iio_bridge_rf_burst_batch_exercised") is True
+        ),
+        "board_iio_direction_fair_service_within_budget": (
+            True
+            if not board_requires_direction_fair_service
+            else (
+                isinstance(board.get("iio_bridge_max_consecutive_direction_batches"), int)
+                and isinstance(board.get("iio_bridge_max_consecutive_direction_batches_seen"), int)
+                and board.get("iio_bridge_max_consecutive_direction_batches_seen")
+                <= board.get("iio_bridge_max_consecutive_direction_batches")
+            )
+        ),
+        "host_iio_direction_fair_service_within_budget": (
+            True
+            if not host_requires_direction_fair_service
+            else (
+                isinstance(host.get("iio_bridge_max_consecutive_direction_batches"), int)
+                and isinstance(host.get("iio_bridge_max_consecutive_direction_batches_seen"), int)
+                and host.get("iio_bridge_max_consecutive_direction_batches_seen")
+                <= host.get("iio_bridge_max_consecutive_direction_batches")
+            )
+        ),
+        "board_iio_bridge_direction_fair_service_enabled": board.get(
+            "iio_bridge_direction_fair_service_enabled"
+        ),
+        "host_iio_bridge_direction_fair_service_enabled": host.get(
+            "iio_bridge_direction_fair_service_enabled"
+        ),
+        "board_iio_bridge_max_consecutive_direction_batches": board.get(
+            "iio_bridge_max_consecutive_direction_batches"
+        ),
+        "host_iio_bridge_max_consecutive_direction_batches": host.get(
+            "iio_bridge_max_consecutive_direction_batches"
+        ),
+        "board_iio_bridge_max_consecutive_direction_batches_seen": board.get(
+            "iio_bridge_max_consecutive_direction_batches_seen"
+        ),
+        "host_iio_bridge_max_consecutive_direction_batches_seen": host.get(
+            "iio_bridge_max_consecutive_direction_batches_seen"
+        ),
+        "board_iio_bridge_direction_fair_service_yields": board.get(
+            "iio_bridge_direction_fair_service_yields"
+        ),
+        "host_iio_bridge_direction_fair_service_yields": host.get(
+            "iio_bridge_direction_fair_service_yields"
         ),
         "board_iio_bridge_rf_burst_batch_size": board.get(
             "iio_bridge_rf_burst_batch_size"

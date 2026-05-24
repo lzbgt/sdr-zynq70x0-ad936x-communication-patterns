@@ -5071,7 +5071,11 @@ least two and stayed within the configured depth, plus completed source-ACK
 latency and RF burst timing evidence for the same IIO bridge capture. Production
 evidence collected with `IIO_BRIDGE_BATCH_SIZE>1` must also prove RF burst
 batching was exercised: the report carries the configured batch size,
-per-direction batch high-water, and a true batch-exercised flag. Production
+per-direction batch high-water, and a true batch-exercised flag. IIO RF
+captures must also carry direction fair-service evidence:
+`IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES` defaults to `1`, and the
+classifier rejects reports whose same-direction burst high-water exceeds the
+configured budget while reverse-path RF work is queued. Production
 native-IP evidence also requires TCP final-exchange timing proof for the saved
 board-to-board report and the host-PC-transparent report: final client status,
 queue-quiet max consecutive seconds, and TCP control-drain elapsed/ok evidence

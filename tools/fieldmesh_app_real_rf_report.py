@@ -87,6 +87,11 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 raise SystemExit("native_ip: board IIO RF burst batch proof is missing")
             if source.get("host_iio_rf_burst_batch_exercised") is not True:
                 raise SystemExit("native_ip: host IIO RF burst batch proof is missing")
+        if source.get("requires_iio_direction_fair_service_evidence") is True:
+            if source.get("board_iio_direction_fair_service_within_budget") is not True:
+                raise SystemExit("native_ip: board IIO direction fair-service proof is missing")
+            if source.get("host_iio_direction_fair_service_within_budget") is not True:
+                raise SystemExit("native_ip: host IIO direction fair-service proof is missing")
         if source.get("requires_tcp_final_exchange_evidence") is not True:
             raise SystemExit(
                 "native_ip: paired iperf evidence must include TCP final-exchange proof"
@@ -124,11 +129,20 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_udp_lost_percent",
         "requires_iio_ack_pipeline_evidence",
         "requires_iio_rf_burst_batch_evidence",
+        "requires_iio_direction_fair_service_evidence",
         "requires_tcp_final_exchange_evidence",
         "board_iio_ack_pipeline_exercised",
         "host_iio_ack_pipeline_exercised",
         "board_iio_rf_burst_batch_exercised",
         "host_iio_rf_burst_batch_exercised",
+        "board_iio_direction_fair_service_within_budget",
+        "host_iio_direction_fair_service_within_budget",
+        "board_iio_bridge_max_consecutive_direction_batches",
+        "host_iio_bridge_max_consecutive_direction_batches",
+        "board_iio_bridge_max_consecutive_direction_batches_seen",
+        "host_iio_bridge_max_consecutive_direction_batches_seen",
+        "board_iio_bridge_direction_fair_service_yields",
+        "host_iio_bridge_direction_fair_service_yields",
         "board_iio_bridge_rf_burst_batch_size",
         "host_iio_bridge_rf_burst_batch_size",
         "board_iio_bridge_rf_burst_batch_high_water",

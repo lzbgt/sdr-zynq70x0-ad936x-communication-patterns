@@ -525,8 +525,11 @@ and completed source-ACK latency plus RF burst timing evidence. If the saved
 report configured `IIO_BRIDGE_BATCH_SIZE>1`, it must also prove the RF burst
 batch path was exercised with a per-direction batch high-water of at least two;
 single-frame stop-and-wait captures cannot satisfy the batched native-IP gate.
-Production
-native-IP evidence must also carry TCP final-exchange proof from the HIL runner
+IIO RF evidence must also preserve the direction fair-service budget
+(`IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES`, default `1`) and prove the
+observed same-direction burst high-water stayed within that budget when the
+opposite daemon had queued RF work. Production native-IP evidence must also
+carry TCP final-exchange proof from the HIL runner
 for both the board-to-board and host-PC-transparent reports: final client
 status, queue-quiet observation summary, and control-drain elapsed/ok evidence
 when the control-drain phase was needed. Host-originated transparent TCP

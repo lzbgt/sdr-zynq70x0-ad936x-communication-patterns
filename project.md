@@ -1334,7 +1334,12 @@ user and vendor configuration.
   native-IP reports now preserve per-direction ACK-pipeline high-water and
   source-ACK latency evidence plus RF burst timing, so HIL artifacts show
   whether the configured pipeline was actually exercised and how much daemon ACK
-  latency remains relative to RF burst cost.
+  latency remains relative to RF burst cost. The live IIO bridge also now
+  bounds same-direction service with
+  `IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES=1` by default: after a served
+  burst, it polls the opposite daemon's compact RF status and yields when
+  reverse-path work is queued, while reports preserve the fairness budget,
+  high-water, and yield count for production review.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

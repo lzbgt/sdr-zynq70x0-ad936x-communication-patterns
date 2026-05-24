@@ -80,6 +80,7 @@ else
 fi
 iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-1}"
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
+iio_bridge_max_consecutive_direction_batches="${IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES:-1}"
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-1}"
 iio_bridge_async_source_ack="${IIO_BRIDGE_ASYNC_SOURCE_ACK:-1}"
 iio_bridge_source_ack_pipeline_depth="${IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH:-2}"
@@ -283,6 +284,12 @@ for item in "$iio_bridge_z203_to_z103_burst_batches" "$iio_bridge_z103_to_z203_b
         exit 1
     fi
 done
+if ! [[ "$iio_bridge_max_consecutive_direction_batches" =~ ^[0-9]+$ ]] ||
+   [ "$iio_bridge_max_consecutive_direction_batches" -lt 1 ] ||
+   [ "$iio_bridge_max_consecutive_direction_batches" -gt 8 ]; then
+    echo "IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES must be an integer from 1 to 8" >&2
+    exit 1
+fi
 if [ "$iio_bridge_ip_port_filter" = "none" ]; then
     iio_bridge_ip_port_filter=""
 fi
@@ -1308,6 +1315,7 @@ start_iio_rf_bridge_loop() {
         --lease-priority "$iio_bridge_lease_priority" \
         --z203-to-z103-burst-batches "$iio_bridge_z203_to_z103_burst_batches" \
         --z103-to-z203-burst-batches "$iio_bridge_z103_to_z203_burst_batches" \
+        --max-consecutive-direction-batches "$iio_bridge_max_consecutive_direction_batches" \
         "${batch_args[@]}" \
         --z203-host "$z203_ip" \
         --z103-host "$z103_ip" \
@@ -2769,6 +2777,18 @@ report = {
     ),
     "iio_bridge_rf_burst_batch_exercised": bool(
         last_iio_bridge.get("rf_burst_batch_exercised")
+    ),
+    "iio_bridge_direction_fair_service_enabled": bool(
+        last_iio_bridge.get("direction_fair_service_enabled")
+    ),
+    "iio_bridge_max_consecutive_direction_batches": int(
+        last_iio_bridge.get("max_consecutive_direction_batches") or 0
+    ),
+    "iio_bridge_max_consecutive_direction_batches_seen": int(
+        last_iio_bridge.get("max_consecutive_direction_batches_seen") or 0
+    ),
+    "iio_bridge_direction_fair_service_yields": int(
+        last_iio_bridge.get("direction_fair_service_yields") or 0
     ),
     "tcp_final_exchange": last_tcp_final_exchange,
     "tcp_final_exchange_grace_started": bool(

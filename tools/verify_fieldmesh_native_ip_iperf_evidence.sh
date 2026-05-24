@@ -33,6 +33,10 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_rf_burst_live_run_max_elapsed_ms": 180,
   "iio_bridge_rf_burst_decode_max_elapsed_ms": 16,
   "iio_bridge_source_ack_pipeline_exercised": true,
+  "iio_bridge_direction_fair_service_enabled": true,
+  "iio_bridge_max_consecutive_direction_batches": 1,
+  "iio_bridge_max_consecutive_direction_batches_seen": 1,
+  "iio_bridge_direction_fair_service_yields": 3,
   "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "board_to_board", "initial_client_rc": 0, "final_client_rc": 0, "client_sent_bytes": 262144, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": false, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": false, "queue_quiet_max_consecutive_s": 0, "control_drain_s": 45, "client_preserved_for_control_drain": false, "client_killed_after_control_drain": false, "completed_after_primary_timeout": false, "completed_without_grace": true},
   "tcp_final_exchange_grace_started": false,
   "tcp_queue_quiet_grace_started": false,
@@ -87,6 +91,10 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_rf_burst_live_run_max_elapsed_ms": 200,
   "iio_bridge_rf_burst_decode_max_elapsed_ms": 18,
   "iio_bridge_source_ack_pipeline_exercised": true,
+  "iio_bridge_direction_fair_service_enabled": true,
+  "iio_bridge_max_consecutive_direction_batches": 1,
+  "iio_bridge_max_consecutive_direction_batches_seen": 1,
+  "iio_bridge_direction_fair_service_yields": 2,
   "tcp_final_exchange": {"event": "fieldmesh_native_ip_iperf_tcp_final_exchange", "ok": true, "phase": "host_pc", "initial_client_rc": 124, "final_client_rc": 0, "client_sent_bytes": 131072, "iperf_timeout_s": 120, "final_exchange_grace_s": 60, "final_exchange_grace_started": true, "queue_quiet_grace_s": 120, "queue_quiet_grace_started": true, "queue_quiet_max_consecutive_s": 8, "control_drain_s": 45, "client_preserved_for_control_drain": true, "client_killed_after_control_drain": false, "completed_after_primary_timeout": true, "completed_without_grace": false},
   "tcp_final_exchange_grace_started": true,
   "tcp_queue_quiet_grace_started": true,
@@ -150,6 +158,8 @@ if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO ACK pipeline evidence: {report!r}")
 if report.get("requires_iio_rf_burst_batch_evidence") is not True:
     raise SystemExit(f"classifier did not require IIO RF burst batch evidence: {report!r}")
+if report.get("requires_iio_direction_fair_service_evidence") is not True:
+    raise SystemExit(f"classifier did not require IIO direction fairness evidence: {report!r}")
 if report.get("requires_tcp_final_exchange_evidence") is not True:
     raise SystemExit(f"classifier did not require TCP final-exchange evidence: {report!r}")
 if report.get("board_iio_ack_pipeline_exercised") is not True:
@@ -160,6 +170,14 @@ if report.get("board_iio_rf_burst_batch_exercised") is not True:
     raise SystemExit(f"classifier lost board RF burst batch evidence: {report!r}")
 if report.get("host_iio_rf_burst_batch_exercised") is not True:
     raise SystemExit(f"classifier lost host RF burst batch evidence: {report!r}")
+if report.get("board_iio_direction_fair_service_within_budget") is not True:
+    raise SystemExit(f"classifier lost board direction fairness evidence: {report!r}")
+if report.get("host_iio_direction_fair_service_within_budget") is not True:
+    raise SystemExit(f"classifier lost host direction fairness evidence: {report!r}")
+if report.get("board_iio_bridge_max_consecutive_direction_batches_seen") != 1:
+    raise SystemExit(f"classifier lost board direction fairness high-water: {report!r}")
+if report.get("host_iio_bridge_direction_fair_service_yields") != 2:
+    raise SystemExit(f"classifier lost host direction fairness yield evidence: {report!r}")
 if report.get("board_iio_bridge_rf_burst_batch_high_water") != 2:
     raise SystemExit(f"classifier lost board RF burst batch high-water evidence: {report!r}")
 if report.get("host_iio_bridge_rf_burst_batch_high_water") != 2:
@@ -252,6 +270,23 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --host-pc-report "$work_dir/host-unexercised-rf-batch.json" \
   >"$work_dir/unexercised-rf-batch-rejected.out" 2>"$work_dir/unexercised-rf-batch-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised IIO RF burst batch evidence" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/host-real-rf.json" "$work_dir/host-direction-fairness-over-budget.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_max_consecutive_direction_batches_seen"] = 2
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-direction-fairness-over-budget.json" \
+  >"$work_dir/direction-fairness-over-budget-rejected.out" 2>"$work_dir/direction-fairness-over-budget-rejected.err"; then
+  echo "iperf evidence classifier accepted over-budget direction fairness evidence" >&2
   exit 1
 fi
 

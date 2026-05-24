@@ -431,6 +431,10 @@ Minimum production gates for native TCP/IP:
   source-ACK latency plus RF burst timing evidence. If
   `IIO_BRIDGE_BATCH_SIZE>1`, the same archive must prove at least one RF burst
   actually carried multiple frames via per-direction batch high-water evidence.
+  The live runner also defaults `IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES=1`;
+  saved IIO RF evidence must show the direction fair-service budget was enabled
+  and that same-direction burst high-water stayed within that budget, so queued
+  reverse-path TCP control frames cannot be starved by repeated forward bursts.
   Both layers must carry TCP final-exchange, queue-quiet, and control-drain
   timing proof; the host-originated transparent layer is phase-tagged as
   `host_pc`. A daemon

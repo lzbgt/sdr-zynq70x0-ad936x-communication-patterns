@@ -88,6 +88,14 @@ if report.get("lease_priority") != "tcp-payload":
     raise SystemExit(f"unexpected lease priority default: {report.get('lease_priority')}")
 if report.get("adaptive_direction_scheduler") is not False:
     raise SystemExit("bridge loop must default to fixed scheduling with empty-burst suppression")
+if report.get("direction_fair_service_enabled") is not False:
+    raise SystemExit("dry-run bridge loop must not enable live direction fairness")
+if report.get("max_consecutive_direction_batches") != 1:
+    raise SystemExit(f"unexpected direction fairness default: {report.get('max_consecutive_direction_batches')}")
+if report.get("max_consecutive_direction_batches_seen") != 1:
+    raise SystemExit(f"dry-run direction fairness high-water changed: {report}")
+if report.get("direction_fair_service_yields") != 0:
+    raise SystemExit(f"dry-run direction fairness yielded without live RF: {report}")
 if report.get("cyclic_capture_periods") != 1:
     raise SystemExit(f"unexpected bridge capture periods: {report.get('cyclic_capture_periods')}")
 frame_report = Path(report["frames"][0]["report"])
@@ -439,6 +447,10 @@ required = [
     '"iio_bridge_rf_burst_batch_high_water"',
     '"iio_bridge_rf_burst_batch_high_water_by_direction"',
     '"iio_bridge_rf_burst_batch_exercised"',
+    '"iio_bridge_direction_fair_service_enabled"',
+    '"iio_bridge_max_consecutive_direction_batches"',
+    '"iio_bridge_max_consecutive_direction_batches_seen"',
+    '"iio_bridge_direction_fair_service_yields"',
     "primary_deadline=$((SECONDS + iperf_timeout_s))",
     "quiet_deadline=$((SECONDS + queue_quiet_grace_s))",
     "host_pc_tcp_final_exchange.json",
@@ -766,6 +778,21 @@ if IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH=0 \
    >"$work_dir/iperf_bad_source_ack_pipeline_depth.out" \
    2>"$work_dir/iperf_bad_source_ack_pipeline_depth.err"; then
   echo "native-IP iperf gate accepted invalid source ACK pipeline depth" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES=0 \
+   OUT_DIR="$work_dir/iperf-bad-direction-fairness-budget" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_direction_fairness_budget.out" \
+   2>"$work_dir/iperf_bad_direction_fairness_budget.err"; then
+  echo "native-IP iperf gate accepted invalid direction fairness budget" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_MAX_CONSECUTIVE_DIRECTION_BATCHES must be an integer from 1 to 8' \
+     "$work_dir/iperf_bad_direction_fairness_budget.err"; then
+  echo "native-IP iperf invalid direction fairness budget refusal changed" >&2
   exit 1
 fi
 
