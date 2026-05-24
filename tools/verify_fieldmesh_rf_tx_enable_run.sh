@@ -236,6 +236,24 @@ print(json.dumps({
 }, sort_keys=True))
 PY
 
+request="$work_dir/mock_live/fieldmesh_rf_tx_enable_backend_request.json"
+good_ctrl_mem="$work_dir/backend_ctrl_good.bin"
+fault_ctrl_mem="$work_dir/backend_ctrl_fault.bin"
+no_write_ctrl_mem="$work_dir/backend_ctrl_no_write.bin"
+python3 - "$good_ctrl_mem" "$fault_ctrl_mem" "$no_write_ctrl_mem" <<'PY'
+import struct
+import sys
+from pathlib import Path
+
+RF_GUARD_STATUS_FAULT = 0x00000100
+for path_text in sys.argv[1:]:
+    path = Path(path_text)
+    blob = bytearray(0x200)
+    if path.name.endswith("fault.bin"):
+        struct.pack_into("<I", blob, 0x114, RF_GUARD_STATUS_FAULT)
+    path.write_bytes(blob)
+PY
+
 FIELD_MESH_EXECUTE_LIVE_TX=1 \
 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 \
 FIELD_MESH_ALLOW_RF_TX=1 \
@@ -243,7 +261,108 @@ FIELD_MESH_FIXTURE_ID=fixture-001 \
 FIELD_MESH_MAX_TX_DURATION_MS=100 \
 FIELD_MESH_FIXTURE_ATTENUATION_DB=60 \
 FIELD_MESH_BACKEND_DRY_RUN=1 \
-"$backend" --rollback --request "$work_dir/mock_live/fieldmesh_rf_tx_enable_backend_request.json" \
+FIELD_MESH_BACKEND_CTRL_MEM_FILE="$good_ctrl_mem" \
+"$backend" --bounded-tx-enable --request "$request" \
+  >"$work_dir/mock_backend_file_ctrl.stdout.json"
+
+python3 - "$work_dir/mock_backend_file_ctrl.stdout.json" "$good_ctrl_mem" <<'PY'
+import struct
+import sys
+from pathlib import Path
+
+stdout = Path(sys.argv[1]).read_text(encoding="utf-8")
+blob = Path(sys.argv[2]).read_bytes()
+for token in (
+    '"file_backed":true',
+    "prewrite_policy",
+    "source_select_readback",
+    "guard_arm_readback",
+    "fieldmesh_rf_tx_enable_backend_iio_attr",
+    "fieldmesh_rf_tx_enable_backend_sleep",
+):
+    if token not in stdout:
+        raise SystemExit(f"file-backed backend success output missing {token}: {stdout!r}")
+expected = {
+    0x100: 0,
+    0x104: 12,
+    0x108: 3,
+    0x10c: 12,
+    0x110: 3,
+    0x12c: 0,
+}
+for offset, value in expected.items():
+    got = struct.unpack_from("<I", blob, offset)[0]
+    if got != value:
+        raise SystemExit(f"file-backed rollback/readback left offset 0x{offset:x}={got}, expected {value}")
+PY
+
+if FIELD_MESH_EXECUTE_LIVE_TX=1 \
+  FIELD_MESH_ALLOW_HARDWARE_WRITES=1 \
+  FIELD_MESH_ALLOW_RF_TX=1 \
+  FIELD_MESH_FIXTURE_ID=fixture-001 \
+  FIELD_MESH_MAX_TX_DURATION_MS=100 \
+  FIELD_MESH_FIXTURE_ATTENUATION_DB=60 \
+  FIELD_MESH_BACKEND_DRY_RUN=1 \
+  FIELD_MESH_BACKEND_CTRL_MEM_FILE="$fault_ctrl_mem" \
+  "$backend" --bounded-tx-enable --request "$request" \
+    >"$work_dir/mock_backend_policy_fail.stdout.json" \
+    2>"$work_dir/mock_backend_policy_fail.stderr.json"; then
+  echo "C backend accepted faulted file-backed RF guard policy" >&2
+  exit 1
+fi
+python3 - "$work_dir/mock_backend_policy_fail.stdout.json" "$work_dir/mock_backend_policy_fail.stderr.json" <<'PY'
+import sys
+from pathlib import Path
+
+stdout = Path(sys.argv[1]).read_text(encoding="utf-8")
+stderr = Path(sys.argv[2]).read_text(encoding="utf-8")
+if "prewrite_policy" not in stdout or '"fault_free":false' not in stdout:
+    raise SystemExit(f"policy failure did not report faulted C policy: {stdout!r}")
+if "RF guard C action policy rejected TX backend control" not in stderr:
+    raise SystemExit(f"policy failure did not reject before control writes: {stderr!r}")
+if "fieldmesh_rf_tx_enable_backend_iio_attr" in stdout:
+    raise SystemExit(f"policy failure reached IIO control: {stdout!r}")
+PY
+
+if FIELD_MESH_EXECUTE_LIVE_TX=1 \
+  FIELD_MESH_ALLOW_HARDWARE_WRITES=1 \
+  FIELD_MESH_ALLOW_RF_TX=1 \
+  FIELD_MESH_FIXTURE_ID=fixture-001 \
+  FIELD_MESH_MAX_TX_DURATION_MS=100 \
+  FIELD_MESH_FIXTURE_ATTENUATION_DB=60 \
+  FIELD_MESH_BACKEND_DRY_RUN=1 \
+  FIELD_MESH_BACKEND_CTRL_MEM_FILE="$no_write_ctrl_mem" \
+  FIELD_MESH_BACKEND_CTRL_MEM_NO_WRITE=1 \
+  "$backend" --bounded-tx-enable --request "$request" \
+    >"$work_dir/mock_backend_readback_fail.stdout.json" \
+    2>"$work_dir/mock_backend_readback_fail.stderr.json"; then
+  echo "C backend accepted suppressed file-backed RF control writes" >&2
+  exit 1
+fi
+python3 - "$work_dir/mock_backend_readback_fail.stdout.json" "$work_dir/mock_backend_readback_fail.stderr.json" <<'PY'
+import sys
+from pathlib import Path
+
+stdout = Path(sys.argv[1]).read_text(encoding="utf-8")
+stderr = Path(sys.argv[2]).read_text(encoding="utf-8")
+for token in ('"write_suppressed":true', "source_select_readback", '"source_control_asserted":false'):
+    if token not in stdout:
+        raise SystemExit(f"readback failure output missing {token}: {stdout!r}")
+if "RF DAC source select readback failed" not in stderr:
+    raise SystemExit(f"readback failure did not reject suppressed write: {stderr!r}")
+if "fieldmesh_rf_tx_enable_backend_iio_attr" in stdout:
+    raise SystemExit(f"readback failure reached IIO control: {stdout!r}")
+PY
+
+FIELD_MESH_EXECUTE_LIVE_TX=1 \
+FIELD_MESH_ALLOW_HARDWARE_WRITES=1 \
+FIELD_MESH_ALLOW_RF_TX=1 \
+FIELD_MESH_FIXTURE_ID=fixture-001 \
+FIELD_MESH_MAX_TX_DURATION_MS=100 \
+FIELD_MESH_FIXTURE_ATTENUATION_DB=60 \
+FIELD_MESH_BACKEND_DRY_RUN=1 \
+FIELD_MESH_BACKEND_CTRL_MEM_FILE="$good_ctrl_mem" \
+"$backend" --rollback --request "$request" \
   >"$work_dir/mock_backend_rollback.stdout.json"
 
 python3 - "$work_dir/mock_backend_rollback.stdout.json" <<'PY'
@@ -255,6 +374,7 @@ for token in (
     '"rollback_only":true',
     "fieldmesh_rf_tx_enable_backend_iio_attr",
     "fieldmesh_rf_tx_enable_backend_ctrl_reg",
+    '"file_backed":true',
     "native_rf_control",
     "native_iio_attr_control",
 ):

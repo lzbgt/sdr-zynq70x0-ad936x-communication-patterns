@@ -573,6 +573,8 @@ PY
         --request \
         native_iio_attr_control \
         native_rf_control \
+        FIELD_MESH_BACKEND_CTRL_MEM_FILE \
+        FIELD_MESH_BACKEND_CTRL_MEM_NO_WRITE \
         fieldmesh_rf_tx_enable_backend_iio_attr \
         fieldmesh_rf_tx_enable_backend_ctrl_reg \
         fieldmesh_rf_tx_enable_backend_sleep \
@@ -588,6 +590,7 @@ PY
         arm_fieldmesh_tx_guard \
         guard_arm_readback \
         guard_control_armed \
+        write_suppressed \
         requires_c_rf_guard_action_policy_self_test \
         requires_native_rf_control \
         starts_rf_tx_when_executed \

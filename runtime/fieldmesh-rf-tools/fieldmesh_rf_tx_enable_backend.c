@@ -224,6 +224,16 @@ static bool dry_run_enabled(void) {
     return value != NULL && strcmp(value, "1") == 0;
 }
 
+static const char *ctrl_mem_file(void) {
+    const char *path = getenv("FIELD_MESH_BACKEND_CTRL_MEM_FILE");
+    return (path != NULL && path[0] != '\0') ? path : NULL;
+}
+
+static bool ctrl_mem_no_write(void) {
+    const char *value = getenv("FIELD_MESH_BACKEND_CTRL_MEM_NO_WRITE");
+    return value != NULL && strcmp(value, "1") == 0;
+}
+
 static int wait_child(pid_t pid, const char *argv0) {
     int status = 0;
     if (waitpid(pid, &status, 0) < 0) {
@@ -251,9 +261,11 @@ static int run_argv(char *const argv[]) {
 }
 
 static int write_ctrl_reg(uint32_t ctrl_base, uint32_t offset, uint32_t value, const char *phase) {
-    if (dry_run_enabled()) {
+    const char *mem_file = ctrl_mem_file();
+    bool file_backed = mem_file != NULL;
+    if (dry_run_enabled() && !file_backed) {
         printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":true,\"native_rf_control\":true,"
-               "\"phase\":\"",
+               "\"file_backed\":false,\"phase\":\"",
                CTRL_EVENT);
         json_escape(stdout, phase);
         printf("\",\"base\":\"0x%08x\",\"offset\":\"0x%03x\",\"value\":\"0x%08x\"}\n",
@@ -261,28 +273,49 @@ static int write_ctrl_reg(uint32_t ctrl_base, uint32_t offset, uint32_t value, c
         return 0;
     }
 
-    int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    const char *path = file_backed ? mem_file : "/dev/mem";
+    if (file_backed && ctrl_mem_no_write()) {
+        printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":%s,\"native_rf_control\":true,"
+               "\"file_backed\":true,\"write_suppressed\":true,\"phase\":\"",
+               CTRL_EVENT, dry_run_enabled() ? "true" : "false");
+        json_escape(stdout, phase);
+        printf("\",\"base\":\"0x%08x\",\"offset\":\"0x%03x\",\"value\":\"0x%08x\"}\n",
+               ctrl_base, offset, value);
+        return 0;
+    }
+    int fd = open(path, O_RDWR | O_SYNC);
     if (fd < 0) {
-        return fail("open /dev/mem failed for RF control register write");
+        return fail("open RF control register target failed");
     }
     uint32_t le_value = value;
-    ssize_t written = pwrite(fd, &le_value, sizeof(le_value), (off_t)ctrl_base + (off_t)offset);
+    off_t reg_offset = file_backed ? (off_t)offset : (off_t)ctrl_base + (off_t)offset;
+    ssize_t written = pwrite(fd, &le_value, sizeof(le_value), reg_offset);
     int saved_errno = errno;
     close(fd);
     if (written != (ssize_t)sizeof(le_value)) {
         errno = saved_errno;
         return fail("RF control register write failed");
     }
+    printf("{\"event\":\"%s\",\"ok\":true,\"dry_run\":%s,\"native_rf_control\":true,"
+           "\"file_backed\":%s,\"phase\":\"",
+           CTRL_EVENT, dry_run_enabled() ? "true" : "false",
+           file_backed ? "true" : "false");
+    json_escape(stdout, phase);
+    printf("\",\"base\":\"0x%08x\",\"offset\":\"0x%03x\",\"value\":\"0x%08x\"}\n",
+           ctrl_base, offset, value);
     return 0;
 }
 
 static int read_ctrl_reg(uint32_t ctrl_base, uint32_t offset, uint32_t *value) {
-    int fd = open("/dev/mem", O_RDONLY | O_SYNC);
+    const char *mem_file = ctrl_mem_file();
+    bool file_backed = mem_file != NULL;
+    int fd = open(file_backed ? mem_file : "/dev/mem", O_RDONLY | O_SYNC);
     if (fd < 0) {
-        return fail("open /dev/mem failed for RF control register read");
+        return fail("open RF control register target failed for read");
     }
     uint32_t raw = 0;
-    ssize_t n = pread(fd, &raw, sizeof(raw), (off_t)ctrl_base + (off_t)offset);
+    off_t reg_offset = file_backed ? (off_t)offset : (off_t)ctrl_base + (off_t)offset;
+    ssize_t n = pread(fd, &raw, sizeof(raw), reg_offset);
     int saved_errno = errno;
     close(fd);
     if (n != (ssize_t)sizeof(raw)) {
@@ -339,7 +372,7 @@ static void print_rf_control_policy(const fieldmesh_rf_guard_status_t *status,
 }
 
 static int verify_rf_control_policy(uint32_t ctrl_base) {
-    if (dry_run_enabled()) {
+    if (dry_run_enabled() && ctrl_mem_file() == NULL) {
         fieldmesh_rf_guard_status_t status = fieldmesh_rf_guard_status_test_idle();
         fieldmesh_rf_guard_action_policy_t policy =
             fieldmesh_rf_guard_status_action_policy(&status);
@@ -363,7 +396,7 @@ static int verify_rf_control_policy(uint32_t ctrl_base) {
 static int verify_source_select_readback(uint32_t ctrl_base) {
     uint32_t source_control = FIELDMESH_RF_DAC_SOURCE_SELECT_FIELD_MESH;
     uint32_t source_status = FIELDMESH_RF_DAC_SOURCE_STATUS_FIELD_MESH;
-    if (!dry_run_enabled()) {
+    if (!dry_run_enabled() || ctrl_mem_file() != NULL) {
         if (read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_CONTROL, &source_control) != 0 ||
             read_ctrl_reg(ctrl_base, FIELDMESH_RF_DAC_REG_SOURCE_STATUS, &source_status) != 0) {
             return 1;
@@ -389,7 +422,7 @@ static int verify_guard_arm_readback(uint32_t ctrl_base, uint32_t slot_epoch, ui
     uint32_t status = FIELDMESH_RF_GUARD_STATUS_TX_ENABLE |
                       FIELDMESH_RF_GUARD_STATUS_TX_ARMED |
                       FIELDMESH_RF_GUARD_STATUS_SCHEDULE_ENABLE;
-    if (!dry_run_enabled()) {
+    if (!dry_run_enabled() || ctrl_mem_file() != NULL) {
         if (read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CONTROL, &control) != 0 ||
             read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_EPOCH, &current_epoch) != 0 ||
             read_ctrl_reg(ctrl_base, FIELDMESH_RF_GUARD_REG_CURRENT_SLOT, &current_slot) != 0 ||

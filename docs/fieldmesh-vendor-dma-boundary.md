@@ -775,7 +775,11 @@ gain/sleep, and TX/DAC/guard rollback natively in C. Before the TX gain write,
 the backend also reads the RF guard/status page, enforces the shared C
 source-select and guard-apply policy, reads back the DAC source-select register,
 and reads back the RF guard control/slot/status registers. The backend also
-exposes a `--rollback --request <json>` mode used by the generated trap. The legacy
+exposes a `--rollback --request <json>` mode used by the generated trap. For
+CI only, `FIELD_MESH_BACKEND_CTRL_MEM_FILE` points those RF-control reads and
+writes at a synthetic sidecar control-window image while IIO remains dry-run,
+and `FIELD_MESH_BACKEND_CTRL_MEM_NO_WRITE=1` proves stale readback is rejected.
+The legacy
 `fieldmesh-radio-safe-tune`, `fieldmesh-radio-tx-enable`, and
 `fieldmesh-radio-tx-disable` shell helpers remain packaged for review and
 diagnostic compatibility, but the live backend no longer delegates live

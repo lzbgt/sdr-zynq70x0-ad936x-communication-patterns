@@ -1601,7 +1601,9 @@ below were later superseded by the current PHY-management two-board gates above:
   gain control, bounded sleep, and rollback. It also reads the RF guard/status
   page before control writes, enforces the C source/guard policy, reads back
   DAC source-select, and reads back guard control/slot/status before any TX
-  gain write. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
+  gain write. The verifier now drives those paths against file-backed synthetic
+  control windows, including faulted-policy and stale-readback failures, without
+  `/dev/mem`. `tools/fieldmesh_rf_fixture_evidence.py` now validates fixture
   manifests for attenuation, isolation, legal profile, calibration, and
   frequency range before live RF. The next live work is running the compiled
   backend on a real authorized RF path with bounded duration plus rollback
