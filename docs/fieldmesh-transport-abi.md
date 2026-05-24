@@ -474,10 +474,10 @@ this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
 in the tool result stream for inspection; the transport ABI remains binary.
 The C SDK header `fieldmesh_firmware_dma_ctrl.h` is the host-side source of
 truth for these offsets, control bits, sideband packing, and status decoding.
-It provides explicit predicates for the masked `FM_FW_DMA_STATUS` bits so
-runtime tools can report endpoint enable, scheduler-active, pump-done,
-drained-empty, budget-exhausted, and service-accepted state without duplicating
-register layout.
+It provides explicit predicates for `FM_FW_DMA_CONTROL` and the masked
+`FM_FW_DMA_STATUS` bits so runtime tools can report control enables, MAC stop,
+endpoint enable, scheduler-active, pump-done, drained-empty, budget-exhausted,
+and service-accepted state without duplicating register layout.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
 The tool's `--fw-dma-status-self-test` path feeds a fixed C register vector

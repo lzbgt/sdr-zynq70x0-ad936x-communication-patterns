@@ -120,6 +120,12 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
     printf("{\"event\":\"fieldmesh_fw_dma_status\",\"ok\":true,"
            "\"base\":\"0x%08" PRIx32 "\","
            "\"control\":\"0x%08" PRIx32 "\","
+           "\"control_endpoint_enable\":%s,"
+           "\"control_ingress_enable\":%s,"
+           "\"control_egress_enable\":%s,"
+           "\"control_mac_scheduler_enable\":%s,"
+           "\"control_mac_tick_enable\":%s,"
+           "\"control_mac_stop\":%s,"
            "\"status\":\"0x%08" PRIx32 "\","
            "\"endpoint_enabled\":%s,"
            "\"mac_scheduler_active\":%s,"
@@ -158,6 +164,12 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"reads_hardware\":%s,\"writes_hardware\":false}\n",
            base,
            status->control,
+           fieldmesh_fw_dma_control_endpoint_enable(status) ? "true" : "false",
+           fieldmesh_fw_dma_control_ingress_enable(status) ? "true" : "false",
+           fieldmesh_fw_dma_control_egress_enable(status) ? "true" : "false",
+           fieldmesh_fw_dma_control_mac_scheduler_enable(status) ? "true" : "false",
+           fieldmesh_fw_dma_control_mac_tick_enable(status) ? "true" : "false",
+           fieldmesh_fw_dma_control_mac_stop(status) ? "true" : "false",
            status->status,
            fieldmesh_fw_dma_status_endpoint_enabled(status) ? "true" : "false",
            fieldmesh_fw_dma_status_mac_scheduler_active(status) ? "true" : "false",

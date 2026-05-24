@@ -113,7 +113,7 @@ in `src/fieldmesh_sdk.c`:
   `fieldmesh_ctrl` registers at `0x140..0x1a0`; reset leaves the endpoint
   disabled until software configures metadata and arms those bits.
   `include/fieldmesh_firmware_dma_ctrl.h` is the canonical C contract for
-  that register block: offsets, control masks, status-bit predicates, metadata
+  that register block: offsets, control/status-bit predicates, metadata
   packing, and status decoding stay in C SDK code instead of shell or Python
   packet logic.
   `fieldmesh-ctrl-write` exposes the userspace guard for that register block:

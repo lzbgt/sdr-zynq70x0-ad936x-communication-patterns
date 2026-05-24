@@ -451,8 +451,8 @@ BRAM CRC/bounds counters, aggregate BRAM errors, and FPGA-native TX sideband
 defaults for peer index, MCS, retry budget, descriptor flags, and sequence seed.
 The ARM-side C contract for this block is
 `sdk/c/include/fieldmesh_firmware_dma_ctrl.h`, which owns the register offsets,
-control masks, status-bit predicates, sideband packing, and status decode
-helpers used by `fieldmesh-ctrl-write`.
+control/status-bit predicates, sideband packing, and status decode helpers used
+by `fieldmesh-ctrl-write`.
 The normal copied-HDL DMA overlay wires these pins to
 `fieldmesh_firmware_axis_dma_endpoint` instead of tying the endpoint on with
 constants. Reset leaves the endpoint disabled; software must explicitly arm the
@@ -467,9 +467,10 @@ step. Board-side activation should go through
 `tools/run_fieldmesh_board_fw_dma_control.sh`, which requires the sidecar
 preflight firmware-DMA status proof and records before/after status around any
 guarded config, arm, or stop command.
-Status JSON includes C-decoded booleans for endpoint enable, MAC scheduler
-activity, pump done, drained-empty, budget-exhausted, and service-accepted
-state so board wrappers do not duplicate FPGA bit decoding.
+Status JSON includes C-decoded booleans for control enables, MAC stop,
+endpoint enable, MAC scheduler activity, pump done, drained-empty,
+budget-exhausted, and service-accepted state so board wrappers do not duplicate
+FPGA bit decoding.
 The guarded config path accepts only defined TX descriptor flags
 `ack_req|encrypted|fec|fragment|last|timestamp_valid` (`0x003f`); reserved bits
 are rejected in C before any register write.

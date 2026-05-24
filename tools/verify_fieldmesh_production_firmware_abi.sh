@@ -187,31 +187,39 @@ int main(void) {
         status.seq_seed != 0x1200u) {
         return 6;
     }
+    if (!fieldmesh_fw_dma_control_endpoint_enable(&status) ||
+        !fieldmesh_fw_dma_control_ingress_enable(&status) ||
+        !fieldmesh_fw_dma_control_egress_enable(&status) ||
+        !fieldmesh_fw_dma_control_mac_scheduler_enable(&status) ||
+        !fieldmesh_fw_dma_control_mac_tick_enable(&status) ||
+        fieldmesh_fw_dma_control_mac_stop(&status)) {
+        return 7;
+    }
     if (!fieldmesh_fw_dma_status_endpoint_enabled(&status) ||
         !fieldmesh_fw_dma_status_mac_scheduler_active(&status) ||
         !fieldmesh_fw_dma_status_pump_done(&status) ||
         !fieldmesh_fw_dma_status_drained_empty(&status) ||
         fieldmesh_fw_dma_status_budget_exhausted(&status) ||
         !fieldmesh_fw_dma_status_service_accepted(&status)) {
-        return 7;
+        return 8;
     }
     if (!fieldmesh_fw_dma_status_tx_parser_fault(&status) ||
         fieldmesh_fw_dma_status_ingress_fault(&status) ||
         !fieldmesh_fw_dma_status_egress_fault(&status) ||
         status.fault_status != (FIELDMESH_FW_DMA_FAULT_TX_PARSER |
                                 FIELDMESH_FW_DMA_FAULT_EGRESS)) {
-        return 8;
+        return 9;
     }
     if (fieldmesh_fw_dma_status_offset(24u) != FIELDMESH_FW_DMA_REG_FAULT_STATUS ||
         fieldmesh_fw_dma_status_offset(25u) != 0u) {
-        return 9;
+        return 10;
     }
     regs[1] = 0xffff0000u;
     if (!fieldmesh_fw_dma_status_from_regs(&status, regs) ||
         status.status != 0u ||
         fieldmesh_fw_dma_status_endpoint_enabled(&status) ||
         fieldmesh_fw_dma_status_service_accepted(&status)) {
-        return 10;
+        return 11;
     }
     return 0;
 }
@@ -567,6 +575,8 @@ required = [
     "fieldmesh_fw_dma_config_peer_mcs_retry",
     "fieldmesh_fw_dma_config_args_valid",
     "fieldmesh_fw_dma_status_from_regs",
+    "fieldmesh_fw_dma_control_endpoint_enable",
+    "fieldmesh_fw_dma_control_mac_stop",
     "fieldmesh_fw_dma_status_endpoint_enabled",
     "fieldmesh_fw_dma_status_service_accepted",
     "fieldmesh_fw_dma_status_tx_parser_fault",

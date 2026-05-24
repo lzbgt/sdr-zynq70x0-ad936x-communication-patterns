@@ -179,6 +179,42 @@ static inline int fieldmesh_fw_dma_config_args_valid(uint32_t peer_index,
            (descriptor_flags & ~FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED) == 0u;
 }
 
+static inline int fieldmesh_fw_dma_control_endpoint_enable(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->control & FIELDMESH_FW_DMA_CONTROL_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_control_ingress_enable(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->control & FIELDMESH_FW_DMA_CONTROL_INGRESS_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_control_egress_enable(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->control & FIELDMESH_FW_DMA_CONTROL_EGRESS_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_control_mac_scheduler_enable(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->control & FIELDMESH_FW_DMA_CONTROL_MAC_SCHEDULER_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_control_mac_tick_enable(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->control & FIELDMESH_FW_DMA_CONTROL_MAC_TICK_ENABLE) != 0u;
+}
+
+static inline int fieldmesh_fw_dma_control_mac_stop(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status && (status->control & FIELDMESH_FW_DMA_CONTROL_MAC_STOP) != 0u;
+}
+
 static inline int fieldmesh_fw_dma_status_from_regs(
     fieldmesh_fw_dma_status_t *status,
     const uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT])

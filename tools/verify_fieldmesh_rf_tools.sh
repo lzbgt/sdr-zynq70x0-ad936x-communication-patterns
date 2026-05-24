@@ -113,6 +113,12 @@ if fw_status_self_test.get("event") != "fieldmesh_fw_dma_status" or fw_status_se
     raise SystemExit(f"firmware DMA status self-test failed: {fw_status_self_test!r}")
 expected_status = {
     "control": "0x0000001f",
+    "control_endpoint_enable": True,
+    "control_ingress_enable": True,
+    "control_egress_enable": True,
+    "control_mac_scheduler_enable": True,
+    "control_mac_tick_enable": True,
+    "control_mac_stop": False,
     "status": "0x0000002f",
     "endpoint_enabled": True,
     "mac_scheduler_active": True,
