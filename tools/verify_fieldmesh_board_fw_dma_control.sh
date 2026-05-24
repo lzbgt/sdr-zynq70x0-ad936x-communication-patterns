@@ -30,6 +30,7 @@ required = [
     "APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1",
     "FORCE_FIRMWARE_DMA_CONFIG",
     "FORCE_FIRMWARE_DMA_ARM",
+    "FORCE_FIRMWARE_DMA_STOP",
     "config_guard_blocked",
     "arm_guard_blocked",
     "firmware-DMA status before config is not idle",
@@ -38,11 +39,13 @@ required = [
     "status_before.ready_for_arm",
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
+    "--fw-dma-stop-if-active",
     "config_command=\"--fw-dma-config\"",
     "arm_command=\"--fw-dma-arm\"",
+    "stop_command=\"--fw-dma-stop\"",
     "fieldmesh-ctrl-write '$config_command'",
     "fieldmesh-ctrl-write '$arm_command'",
-    "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop",
+    "fieldmesh-ctrl-write '$stop_command'",
     "fieldmesh_board_fw_dma_control_assert",
 ]
 for token in required:

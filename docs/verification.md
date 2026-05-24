@@ -2830,8 +2830,8 @@ The same verifier checks that firmware-DMA control/status bits are decoded in C
 and reported as booleans for control enables, MAC stop, endpoint enable,
 scheduler activity, pump completion, drained-empty, budget-exhausted, and
 service-accepted state. It also requires C-derived aggregate health booleans
-for fault-free, drop-counter-clear, idle, and ready-for-arm status so wrappers
-do not reconstruct readiness from raw counters.
+for fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm status
+so wrappers do not reconstruct readiness from raw counters.
 The sidecar preflight verifier now covers the live wrapper contract too:
 `run_fieldmesh_board_sidecar_preflight.sh` checks `fieldmesh-ctrl-write`,
 captures `fw_dma_status.json` through `FIELD_MESH_ALLOW_HARDWARE_READS=1`, and
@@ -2851,9 +2851,12 @@ metadata unless the pre-config status reports `idle=true`, and `ACTION=arm`
 refuses to forward the guarded hardware write unless the pre-arm status reports
 `ready_for_arm=true`. `FORCE_FIRMWARE_DMA_CONFIG=1` and
 `FORCE_FIRMWARE_DMA_ARM=1` are explicit diagnostic overrides after reviewing
-`fw_dma_status_before.json`. The normal wrapper path uses the C tool's checked
-commands, `--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the final
-pre-write predicate is evaluated in C immediately before register writes.
+`fw_dma_status_before.json`. `ACTION=stop` uses `--fw-dma-stop-if-active` by
+default and skips the register write when C status says `stop_needed=false`;
+`FORCE_FIRMWARE_DMA_STOP=1` selects the raw stop command. The normal wrapper
+path uses the C tool's checked commands, `--fw-dma-config-if-idle`,
+`--fw-dma-arm-if-ready`, and `--fw-dma-stop-if-active`, so the final pre-write
+predicate is evaluated in C immediately before register writes.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full
@@ -2863,8 +2866,9 @@ required Yocto recipe headers; stale `0x178` overlay guards are rejected.
 freshness reporter. It compares the packaged `fieldmesh-ctrl-write` strings in
 the rootfs tarballs against the current checked firmware-DMA C command contract
 and emits `runtime_rebuild_needed=true` when a package lacks
-`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, or the matching C refusal
-tokens. The default report is advisory and non-failing so low-memory CI can keep
+`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`,
+`--fw-dma-stop-if-active`, or the matching C refusal tokens. The default report
+is advisory and non-failing so low-memory CI can keep
 source verification green until a Yocto rebuild is feasible; use
 `--require-current` after rebuilding packages to make stale runtime binaries a
 hard failure. The normal `verify_fieldmesh_runtime_artifacts.sh` path emits this

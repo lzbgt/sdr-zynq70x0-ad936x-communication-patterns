@@ -336,6 +336,16 @@ static inline int fieldmesh_fw_dma_status_idle(
            !fieldmesh_fw_dma_status_mac_scheduler_active(status);
 }
 
+static inline int fieldmesh_fw_dma_status_stop_needed(
+    const fieldmesh_fw_dma_status_t *status)
+{
+    return status &&
+           (status->queued_count != 0u ||
+            (status->control & FIELDMESH_FW_DMA_ARM_CONTROL) != 0u ||
+            fieldmesh_fw_dma_status_endpoint_enabled(status) ||
+            fieldmesh_fw_dma_status_mac_scheduler_active(status));
+}
+
 static inline int fieldmesh_fw_dma_status_ready_for_arm(
     const fieldmesh_fw_dma_status_t *status)
 {

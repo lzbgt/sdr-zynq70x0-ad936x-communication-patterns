@@ -28,6 +28,7 @@ fi
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm 0x43c00000 32 >"$work_dir/fw_dma_arm_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-arm-if-ready 0x43c00000 32 >"$work_dir/fw_dma_arm_checked_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop 0x43c00000 >"$work_dir/fw_dma_stop_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --fw-dma-stop-if-active 0x43c00000 >"$work_dir/fw_dma_stop_checked_guard.json" 2>/dev/null || true
 
 if "$work_dir/fieldmesh-ctrl-write-host" 0x43c00000 0x100 0 >/dev/null 2>&1; then
   echo "fieldmesh-ctrl-write accepted missing live write authorization" >&2
@@ -154,6 +155,7 @@ expected_status = {
     "fault_free": False,
     "drop_counters_clear": False,
     "idle": False,
+    "stop_needed": True,
     "ready_for_arm": False,
     "peer_index": 7,
     "mcs": 1,
@@ -183,7 +185,8 @@ if row.get("writes_hardware") is not False:
 
 for name, expected_value in (("fw_dma_arm_guard.json", "0x0000001f"),
                              ("fw_dma_arm_checked_guard.json", "0x0000001f"),
-                             ("fw_dma_stop_guard.json", "0x00000020")):
+                             ("fw_dma_stop_guard.json", "0x00000020"),
+                             ("fw_dma_stop_checked_guard.json", "0x00000020")):
     row = json.loads((work / name).read_text(encoding="utf-8"))
     if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:
         raise SystemExit(f"firmware DMA guarded command failed: {name}: {row!r}")

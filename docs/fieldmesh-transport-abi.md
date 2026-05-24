@@ -479,8 +479,9 @@ It provides explicit predicates for `FM_FW_DMA_CONTROL` and the masked
 endpoint enable, scheduler-active, pump-done, drained-empty, budget-exhausted,
 and service-accepted state without duplicating register layout.
 The C projection also emits aggregate health booleans for fault-free,
-drop-counter-clear, idle, and ready-for-arm status; board wrappers should treat
-those as the readiness contract instead of re-parsing raw counters.
+drop-counter-clear, idle, stop-needed, and ready-for-arm status; board wrappers
+should treat those as the readiness contract instead of re-parsing raw
+counters.
 It also limits firmware-DMA descriptor metadata writes to the defined TX flag
 mask `0x003f`; reserved descriptor flags are rejected before hardware access.
 The tool's `--fw-dma-status-self-test` path feeds a fixed C register vector
@@ -495,6 +496,8 @@ diagnostic override. Config actions require pre-config `idle=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set after reviewing the captured status.
 The default config and arm paths use `--fw-dma-config-if-idle` and
 `--fw-dma-arm-if-ready`, which re-read status in C directly before mutation.
+The default stop path uses `--fw-dma-stop-if-active`; it writes the MAC-stop
+control bit only when the C-decoded status says stop is still needed.
 
 ## Z103 And Z203 Capability Profiles
 

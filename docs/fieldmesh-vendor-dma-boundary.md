@@ -287,8 +287,8 @@ The metadata config accepts only the defined firmware descriptor flag mask
 `fieldmesh-ctrl-write --fw-dma-status-self-test` decodes a fixed C register
 vector without `/dev/mem`, keeping the successful status projection under CI
 without requiring live hardware. The status projection includes C-derived
-fault-free, drop-counter-clear, idle, and ready-for-arm booleans so shell/Python
-wrappers do not duplicate firmware-DMA health semantics.
+fault-free, drop-counter-clear, idle, stop-needed, and ready-for-arm booleans
+so shell/Python wrappers do not duplicate firmware-DMA health semantics.
 For board runs, use `tools/run_fieldmesh_board_fw_dma_control.sh` instead of
 calling the raw control tool directly. The wrapper runs sidecar preflight,
 captures status before and after, defaults to status-only, and only forwards
@@ -296,10 +296,14 @@ config/arm/stop writes when `APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1` are pres
 Config writes also require pre-config `idle=true` unless
 `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
 `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for a deliberate
-diagnostic override.
+diagnostic override. Stop uses `--fw-dma-stop-if-active` by default and skips
+the hardware write when the C-decoded status reports `stop_needed=false`;
+`FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop command available for explicit
+diagnostics.
 Without those force overrides, the wrapper calls the C checked commands
-`--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the final readiness
-predicate is evaluated by the control binary immediately before register writes.
+`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
+`--fw-dma-stop-if-active`, so the final readiness predicate is evaluated by the
+control binary immediately before register writes.
 
 The first control-only block-design overlay is opt-in:
 

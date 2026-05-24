@@ -81,6 +81,7 @@ fw_dma = {
     "fault_free": True,
     "drop_counters_clear": True,
     "idle": True,
+    "stop_needed": False,
     "ready_for_arm": True,
     "descriptor_flags": "0x0000",
     "seq_seed": "0x00000000",

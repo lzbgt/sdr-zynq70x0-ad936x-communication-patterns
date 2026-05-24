@@ -63,19 +63,23 @@ artifact = strings_path.read_text(encoding="utf-8", errors="replace")
 source_tokens = (
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
+    "--fw-dma-stop-if-active",
     "firmware_dma_not_idle",
     "firmware_dma_not_ready_for_arm",
     "fieldmesh_fw_dma_status_idle",
+    "fieldmesh_fw_dma_status_stop_needed",
     "fieldmesh_fw_dma_status_ready_for_arm",
 )
 artifact_tokens = (
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
+    "--fw-dma-stop-if-active",
     "firmware_dma_not_idle",
     "firmware_dma_not_ready_for_arm",
     "fault_free",
     "drop_counters_clear",
     "idle",
+    "stop_needed",
     "ready_for_arm",
 )
 
@@ -129,19 +133,23 @@ artifact_strings = strings_path.read_text(encoding="utf-8", errors="replace")
 source_tokens = (
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
+    "--fw-dma-stop-if-active",
     "firmware_dma_not_idle",
     "firmware_dma_not_ready_for_arm",
     "fieldmesh_fw_dma_status_idle",
+    "fieldmesh_fw_dma_status_stop_needed",
     "fieldmesh_fw_dma_status_ready_for_arm",
 )
 artifact_tokens = (
     "--fw-dma-config-if-idle",
     "--fw-dma-arm-if-ready",
+    "--fw-dma-stop-if-active",
     "firmware_dma_not_idle",
     "firmware_dma_not_ready_for_arm",
     "fault_free",
     "drop_counters_clear",
     "idle",
+    "stop_needed",
     "ready_for_arm",
 )
 

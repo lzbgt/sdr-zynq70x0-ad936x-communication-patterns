@@ -44,7 +44,8 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write --fw-dma-config-if-idle BASE PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
             "  fieldmesh-ctrl-write --fw-dma-arm BASE SERVICE_BUDGET\n"
             "  fieldmesh-ctrl-write --fw-dma-arm-if-ready BASE SERVICE_BUDGET\n"
-            "  fieldmesh-ctrl-write --fw-dma-stop BASE\n");
+            "  fieldmesh-ctrl-write --fw-dma-stop BASE\n"
+            "  fieldmesh-ctrl-write --fw-dma-stop-if-active BASE\n");
 }
 
 static void print_json(bool ok, const char *error, uint32_t base, uint32_t offset,
@@ -161,6 +162,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            "\"fault_free\":%s,"
            "\"drop_counters_clear\":%s,"
            "\"idle\":%s,"
+           "\"stop_needed\":%s,"
            "\"ready_for_arm\":%s,"
            "\"peer_index\":%" PRIu32 ","
            "\"mcs\":%" PRIu32 ","
@@ -209,6 +211,7 @@ static void print_fw_dma_status(uint32_t base, const fieldmesh_fw_dma_status_t *
            fieldmesh_fw_dma_status_fault_free(status) ? "true" : "false",
            fieldmesh_fw_dma_status_drop_counters_clear(status) ? "true" : "false",
            fieldmesh_fw_dma_status_idle(status) ? "true" : "false",
+           fieldmesh_fw_dma_status_stop_needed(status) ? "true" : "false",
            fieldmesh_fw_dma_status_ready_for_arm(status) ? "true" : "false",
            (uint32_t)status->peer_index,
            (uint32_t)status->mcs,
@@ -446,12 +449,32 @@ int main(int argc, char **argv) {
         return (ctrl_readback == FIELDMESH_FW_DMA_ARM_CONTROL && (budget_readback & 0xffffu) == budget) ? 0 : 1;
     }
 
-    if (argc == 3 && strcmp(argv[1], "--fw-dma-stop") == 0) {
+    if (argc == 3 && (strcmp(argv[1], "--fw-dma-stop") == 0 ||
+                      strcmp(argv[1], "--fw-dma-stop-if-active") == 0)) {
+        bool checked_stop = strcmp(argv[1], "--fw-dma-stop-if-active") == 0;
         uint32_t base = parse_u32(argv[2], "base");
         if (!fw_dma_write_allowed()) {
             print_json(false, "missing FIELD_MESH_EXECUTE_LIVE_TX=1, FIELD_MESH_ALLOW_HARDWARE_WRITES=1, or FIELD_MESH_ALLOW_FIRMWARE_DMA=1",
                        base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_CONTROL_MAC_STOP, 0, false);
             return 1;
+        }
+        if (checked_stop) {
+            fieldmesh_fw_dma_status_t status = {0};
+            if (!read_fw_dma_status(base, &status)) {
+                fprintf(stderr, "failed to decode firmware DMA status\n");
+                return 1;
+            }
+            if (!fieldmesh_fw_dma_status_stop_needed(&status)) {
+                printf("{\"event\":\"fieldmesh_fw_dma_stop\",\"ok\":true,"
+                       "\"base\":\"0x%08" PRIx32 "\","
+                       "\"stop_needed\":false,"
+                       "\"idle\":%s,\"ready_for_arm\":%s,"
+                       "\"writes_hardware\":false}\n",
+                       base,
+                       fieldmesh_fw_dma_status_idle(&status) ? "true" : "false",
+                       fieldmesh_fw_dma_status_ready_for_arm(&status) ? "true" : "false");
+                return 0;
+            }
         }
         uint32_t readback = access_reg(base, FIELDMESH_FW_DMA_REG_CONTROL, FIELDMESH_FW_DMA_CONTROL_MAC_STOP,
                                        FIELDMESH_ACCESS_WRITE);
@@ -459,6 +482,7 @@ int main(int argc, char **argv) {
                "\"base\":\"0x%08" PRIx32 "\","
                "\"control\":\"0x%08" PRIx32 "\","
                "\"control_readback\":\"0x%08" PRIx32 "\","
+               "\"stop_needed\":true,"
                "\"writes_hardware\":true}\n",
                readback == FIELDMESH_FW_DMA_CONTROL_MAC_STOP ? "true" : "false",
                base,

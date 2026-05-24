@@ -472,11 +472,14 @@ predicate before it changes descriptor metadata. For `ACTION=arm`, it requires
 the pre-arm C-decoded `ready_for_arm=true` health predicate before it forwards
 the guarded hardware write. `FORCE_FIRMWARE_DMA_CONFIG=1` and
 `FORCE_FIRMWARE_DMA_ARM=1` are reserved for explicit diagnostic override after
-reviewing the captured status.
+reviewing the captured status. For `ACTION=stop`, the normal path uses
+`--fw-dma-stop-if-active` and skips the hardware write when the C-decoded
+`stop_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` is the raw diagnostic stop
+override.
 The unforced board wrapper calls the C checked commands
-`--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so a status race between
-the wrapper's before-capture and the actual register write is still caught in C
-before mutation.
+`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
+`--fw-dma-stop-if-active`, so a status race between the wrapper's before-capture
+and the actual register write is still caught in C before mutation.
 `tools/report_fieldmesh_runtime_source_freshness.sh` is the corresponding
 read-only package freshness check: it scans the packaged
 `fieldmesh-ctrl-write` binary strings and reports whether the current checked
@@ -486,8 +489,8 @@ advisory so a source-only change can be merged under low-memory conditions; use
 Status JSON includes C-decoded booleans for control enables, MAC stop,
 endpoint enable, MAC scheduler activity, pump done, drained-empty,
 budget-exhausted, service-accepted state, fault-free state, drop-counter-clear
-state, idle state, and ready-for-arm state so board wrappers do not duplicate
-FPGA bit or counter decoding.
+state, idle state, stop-needed state, and ready-for-arm state so board wrappers
+do not duplicate FPGA bit or counter decoding.
 The guarded config path accepts only defined TX descriptor flags
 `ack_req|encrypted|fec|fragment|last|timestamp_valid` (`0x003f`); reserved bits
 are rejected in C before any register write.

@@ -32,6 +32,7 @@ apply_fw_dma="${APPLY_FIRMWARE_DMA:-0}"
 allow_fw_dma="${ALLOW_FIRMWARE_DMA:-0}"
 force_fw_dma_config="${FORCE_FIRMWARE_DMA_CONFIG:-0}"
 force_fw_dma_arm="${FORCE_FIRMWARE_DMA_ARM:-0}"
+force_fw_dma_stop="${FORCE_FIRMWARE_DMA_STOP:-0}"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/board-fw-dma-control-$variant-$(date +%Y%m%d-%H%M%S)}"
 
 case "$action" in
@@ -66,6 +67,13 @@ case "$force_fw_dma_config" in
   0|1) ;;
   *)
     echo "FORCE_FIRMWARE_DMA_CONFIG must be 0 or 1" >&2
+    exit 2
+    ;;
+esac
+case "$force_fw_dma_stop" in
+  0|1) ;;
+  *)
+    echo "FORCE_FIRMWARE_DMA_STOP must be 0 or 1" >&2
     exit 2
     ;;
 esac
@@ -228,8 +236,12 @@ JSON
 {"event":"fieldmesh_fw_dma_control_skipped","ok":true,"reason":"set ACTION=stop APPLY_FIRMWARE_DMA=1 ALLOW_FIRMWARE_DMA=1 to stop the firmware-DMA endpoint","writes_hardware":false}
 JSON
     else
+      stop_command="--fw-dma-stop-if-active"
+      if [[ "$force_fw_dma_stop" == "1" ]]; then
+        stop_command="--fw-dma-stop"
+      fi
       if ! sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
-        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write --fw-dma-stop '$ctrl_base' > '$remote_control' 2>&1"; then
+        "FIELD_MESH_EXECUTE_LIVE_TX=1 FIELD_MESH_ALLOW_HARDWARE_WRITES=1 FIELD_MESH_ALLOW_FIRMWARE_DMA=1 fieldmesh-ctrl-write '$stop_command' '$ctrl_base' > '$remote_control' 2>&1"; then
         true
       fi
       sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_control" "$out_dir/fw_dma_control.json"
@@ -241,7 +253,7 @@ sshpass -p "$ssh_pass" ssh "${ssh_args[@]}" "$remote" \
   "FIELD_MESH_ALLOW_HARDWARE_READS=1 fieldmesh-ctrl-write --fw-dma-status '$ctrl_base' > '$remote_status_after' 2>&1"
 sshpass -p "$ssh_pass" scp "${ssh_args[@]}" "$remote:$remote_status_after" "$out_dir/fw_dma_status_after.json"
 
-python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$config_guard_blocked" "$arm_guard_blocked" "$force_fw_dma_config" "$force_fw_dma_arm" <<'PY'
+python3 - "$out_dir" "$board_ip" "$variant" "$action" "$apply_fw_dma" "$allow_fw_dma" "$service_budget" "$peer_index" "$mcs" "$retry_budget" "$descriptor_flags" "$seq_seed" "$config_guard_blocked" "$arm_guard_blocked" "$force_fw_dma_config" "$force_fw_dma_arm" "$force_fw_dma_stop" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -260,6 +272,7 @@ config_guard_blocked = sys.argv[13] == "1"
 arm_guard_blocked = sys.argv[14] == "1"
 force_fw_dma_config = sys.argv[15] == "1"
 force_fw_dma_arm = sys.argv[16] == "1"
+force_fw_dma_stop = sys.argv[17] == "1"
 guard_blocked = config_guard_blocked or arm_guard_blocked
 applied = (sys.argv[5] == "1" and sys.argv[6] == "1" and
            action in {"config", "arm", "stop"} and not guard_blocked)
@@ -279,7 +292,7 @@ for label, row in (("before", before), ("after", after)):
                 "endpoint_enabled", "mac_scheduler_active", "pump_done",
                 "drained_empty", "budget_exhausted", "service_accepted",
                 "tx_parser_fault", "ingress_fault", "egress_fault",
-                "fault_free", "drop_counters_clear", "idle",
+                "fault_free", "drop_counters_clear", "idle", "stop_needed",
                 "ready_for_arm"):
         if not isinstance(row.get(key), bool):
             raise SystemExit(f"{label} firmware-DMA status missing decoded boolean {key}: {row}")
@@ -292,7 +305,10 @@ if applied:
     }[action]
     if control.get("event") != expected_event or control.get("ok") is not True:
         raise SystemExit(f"firmware-DMA {action} failed: {control}")
-    if control.get("writes_hardware") is not True:
+    if action == "stop" and control.get("writes_hardware") is False:
+        if control.get("stop_needed") is not False:
+            raise SystemExit(f"firmware-DMA checked stop skipped without stop_needed=false: {control}")
+    elif control.get("writes_hardware") is not True:
         raise SystemExit(f"firmware-DMA {action} did not report hardware write: {control}")
     if action == "arm" and control.get("service_budget") != service_budget:
         raise SystemExit(f"firmware-DMA arm service budget mismatch: {control}")
@@ -316,7 +332,7 @@ else:
 
 summary = {
     "event": "fieldmesh_board_fw_dma_control_assert",
-    "ok": not arm_guard_blocked,
+    "ok": not guard_blocked,
     "board_ip": board_ip,
     "variant": variant,
     "action": action,
@@ -328,7 +344,8 @@ summary = {
     "arm_guard_blocked": arm_guard_blocked,
     "force_fw_dma_config": force_fw_dma_config,
     "force_fw_dma_arm": force_fw_dma_arm,
-    "writes_hardware": applied,
+    "force_fw_dma_stop": force_fw_dma_stop,
+    "writes_hardware": bool(control.get("writes_hardware")) if applied else False,
     "starts_rf_tx": False,
     "uses_iio": False,
     "uses_json_on_air": False,

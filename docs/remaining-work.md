@@ -1448,9 +1448,13 @@ below were later superseded by the current PHY-management two-board gates above:
   hardware writes. Config writes also require pre-config `idle=true` unless
   `FORCE_FIRMWARE_DMA_CONFIG=1` is set, and arm writes require pre-arm
   `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
-  diagnostic override. The unforced paths now call the C checked commands
-  `--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the last pre-write
-  health predicate is evaluated in C.
+  diagnostic override. Stop now defaults to the C checked
+  `--fw-dma-stop-if-active` command and skips the register write when
+  `stop_needed=false`; `FORCE_FIRMWARE_DMA_STOP=1` keeps the raw stop path for
+  explicit diagnostics. The unforced paths now call the C checked commands
+  `--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, and
+  `--fw-dma-stop-if-active`, so the last pre-write health predicate is
+  evaluated in C.
   `tools/report_fieldmesh_runtime_source_freshness.sh` now gives a read-only
   package freshness report for that contract by comparing packaged
   `fieldmesh-ctrl-write` strings against the current C source. It reports
