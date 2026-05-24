@@ -2859,6 +2859,15 @@ that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full
 `0x140..0x1a0` firmware-DMA page, the shared descriptor flag mask, and the
 required Yocto recipe headers; stale `0x178` overlay guards are rejected.
+`report_fieldmesh_runtime_source_freshness.sh` is a read-only runtime package
+freshness reporter. It compares the packaged `fieldmesh-ctrl-write` strings in
+the rootfs tarballs against the current checked firmware-DMA C command contract
+and emits `runtime_rebuild_needed=true` when a package lacks
+`--fw-dma-config-if-idle`, `--fw-dma-arm-if-ready`, or the matching C refusal
+tokens. The default report is advisory and non-failing so low-memory CI can keep
+source verification green until a Yocto rebuild is feasible; use
+`--require-current` after rebuilding packages to make stale runtime binaries a
+hard failure.
 `verify_fieldmesh_rf_engine_firmware_dma_binding.sh` is the low-memory guard
 for the current RF-engine overlay contract: the patcher must instantiate
 `fieldmesh_firmware_axis_dma_endpoint` and `fieldmesh_axis_byte_broadcast2`,

@@ -1450,7 +1450,15 @@ below were later superseded by the current PHY-management two-board gates above:
   `ready_for_arm=true` unless `FORCE_FIRMWARE_DMA_ARM=1` is set for an explicit
   diagnostic override. The unforced paths now call the C checked commands
   `--fw-dma-config-if-idle` and `--fw-dma-arm-if-ready`, so the last pre-write
-  health predicate is evaluated in C. The copied-HDL RF-engine patcher now performs the first RF
+  health predicate is evaluated in C.
+  `tools/report_fieldmesh_runtime_source_freshness.sh` now gives a read-only
+  package freshness report for that contract by comparing packaged
+  `fieldmesh-ctrl-write` strings against the current C source. It reports
+  `runtime_rebuild_needed=true` without failing by default, so the next
+  low-memory-safe step can keep source checks green while still making stale
+  rootfs packages visible; after the next Yocto package rebuild, run it with
+  `--require-current` and tighten the hard runtime-artifact gate.
+  The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
   broadcast to RX DMA and the BPSK symbolizer, and firmware-DMA controls reset

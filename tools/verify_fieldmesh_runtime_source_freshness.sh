@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+work_dir="$(mktemp -d)"
+trap 'rm -rf "$work_dir"' EXIT
+
+fresh_strings="$work_dir/fresh_strings.txt"
+stale_strings="$work_dir/stale_strings.txt"
+report="$work_dir/report.ndjson"
+
+cat >"$fresh_strings" <<'EOF'
+fieldmesh_ctrl_write
+--fw-dma-config-if-idle
+--fw-dma-arm-if-ready
+firmware_dma_not_idle
+firmware_dma_not_ready_for_arm
+fault_free
+drop_counters_clear
+idle
+ready_for_arm
+EOF
+
+cat >"$stale_strings" <<'EOF'
+fieldmesh_ctrl_write
+--fw-dma-config
+--fw-dma-arm
+--fw-dma-stop
+fault_free
+EOF
+
+FIELDMESH_RUNTIME_STRINGS_FILE_Z203="$stale_strings" \
+FIELDMESH_RUNTIME_STRINGS_FILE_Z103="$fresh_strings" \
+    "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" all >"$report"
+
+python3 - "$report" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+rows = [json.loads(line) for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines() if line]
+if len(rows) != 2:
+    raise SystemExit(f"expected two freshness rows, got {len(rows)}")
+
+by_variant = {row.get("variant"): row for row in rows}
+for variant in ("z203", "z103"):
+    if variant not in by_variant:
+        raise SystemExit(f"missing {variant} freshness row: {rows!r}")
+    row = by_variant[variant]
+    if row.get("event") != "fieldmesh_runtime_source_freshness":
+        raise SystemExit(f"{variant}: bad event: {row!r}")
+    if row.get("writes_hardware") is not False:
+        raise SystemExit(f"{variant}: freshness report must be read-only: {row!r}")
+    if row.get("artifact_source") != "strings_file":
+        raise SystemExit(f"{variant}: fixture report did not use strings_file: {row!r}")
+    if row.get("source_has_current_fw_dma_contract") is not True:
+        raise SystemExit(f"{variant}: source contract is stale: {row!r}")
+
+stale = by_variant["z203"]
+if stale.get("artifact_has_current_fw_dma_contract") is not False:
+    raise SystemExit(f"z203 stale fixture was not detected: {stale!r}")
+if stale.get("runtime_rebuild_needed") is not True:
+    raise SystemExit(f"z203 stale fixture did not request rebuild: {stale!r}")
+for token in ("--fw-dma-config-if-idle", "--fw-dma-arm-if-ready", "firmware_dma_not_ready_for_arm"):
+    if token not in stale.get("missing_artifact_tokens", []):
+        raise SystemExit(f"z203 stale fixture missing expected missing token {token}: {stale!r}")
+
+fresh = by_variant["z103"]
+if fresh.get("artifact_has_current_fw_dma_contract") is not True:
+    raise SystemExit(f"z103 fresh fixture was not accepted: {fresh!r}")
+if fresh.get("runtime_rebuild_needed") is not False:
+    raise SystemExit(f"z103 fresh fixture incorrectly requested rebuild: {fresh!r}")
+if fresh.get("missing_artifact_tokens") != []:
+    raise SystemExit(f"z103 fresh fixture reported missing tokens: {fresh!r}")
+PY
+
+FIELDMESH_RUNTIME_STRINGS_FILE_Z203="$stale_strings" \
+    "$repo_root/tools/report_fieldmesh_runtime_source_freshness.sh" z203 --require-current \
+    >"$work_dir/require_current.json" 2>"$work_dir/require_current.err" && {
+        echo "freshness reporter --require-current accepted stale runtime strings" >&2
+        exit 1
+    }
+
+printf 'fieldmesh_runtime_source_freshness=pass\n'
