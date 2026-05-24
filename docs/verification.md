@@ -3836,13 +3836,15 @@ packet-engine transport report:
 Result:
 
 ```json
-{"event": "fieldmesh_rf_packet_engine_binding_check", "frame_crc": 2646482743, "iq_samples": 6656, "ok": true}
+{"event": "fieldmesh_rf_packet_engine_binding_check", "frame_crc": 2646482743, "iq_samples": 6656, "modem_benchmark_decode_frame_kbps": 12682, "ok": true}
 ```
 
 The gate verifies the daemon queued the packet toward sidecar DMA and
 `fieldmesh_rf_packet_engine`, the board sidecar DMA path returned the same
 packet CRC, and the packet-engine transport model recovered the same frame from
-the emitted IQ burst. It also keeps `uses_iio=false`,
+the emitted IQ burst. It also requires the RF transport report's C BPSK
+service-rate benchmark, propagates the decode frame-rate counter into the
+binding summary, and keeps `uses_iio=false`,
 `uses_inter_board_ip_routing=false`, `starts_rf_tx=false`, and
 `writes_hardware=false`.
 

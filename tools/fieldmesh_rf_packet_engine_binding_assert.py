@@ -48,6 +48,16 @@ def require_ones(row: dict[str, Any], keys: tuple[str, ...], label: str) -> None
             raise SystemExit(f"{label}: {key} must be 1/true")
 
 
+def require_uint_at_least(row: dict[str, Any], key: str, minimum: int, label: str) -> int:
+    try:
+        value = int(row.get(key, -1))
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"{label}: {key} must be an integer") from exc
+    if value < minimum:
+        raise SystemExit(f"{label}: {key}={value} is below required floor {minimum}")
+    return value
+
+
 def validate(args: argparse.Namespace) -> dict[str, Any]:
     handoff = one_event(args.handoff, "sdk_daemon_rf_packet_engine")
     dma_poll = one_event(args.dma_smoke, "dma_smoke_poll")
@@ -109,6 +119,17 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         raise SystemExit("transport missing C BPSK encode evidence")
     if engine.get("modem_helper_event_decode") != "fieldmesh_bpsk_modem_decode":
         raise SystemExit("transport missing C BPSK decode evidence")
+    if engine.get("modem_helper_event_benchmark") != "fieldmesh_bpsk_modem_benchmark":
+        raise SystemExit("transport missing C BPSK service-rate benchmark evidence")
+    benchmark_iterations = require_uint_at_least(
+        engine, "benchmark_iterations", args.min_modem_benchmark_iterations, "transport"
+    )
+    benchmark_encode_frame_kbps = require_uint_at_least(
+        engine, "benchmark_encode_frame_kbps", args.min_modem_benchmark_kbps, "transport"
+    )
+    benchmark_decode_frame_kbps = require_uint_at_least(
+        engine, "benchmark_decode_frame_kbps", args.min_modem_benchmark_kbps, "transport"
+    )
     if engine.get("recovered_frame_match") is not True:
         raise SystemExit("transport did not recover the original frame")
     require_ones(safety, ("uses_sidecar_dma", "uses_rf_packet_engine"), "transport safety")
@@ -161,6 +182,11 @@ def validate(args: argparse.Namespace) -> dict[str, Any]:
         "frame_crc": frame_crc,
         "iq_samples": engine.get("iq_samples"),
         "recovered_frame_match": True,
+        "requires_c_modem_service_rate": True,
+        "modem_benchmark_iterations": benchmark_iterations,
+        "modem_benchmark_encode_frame_kbps": benchmark_encode_frame_kbps,
+        "modem_benchmark_decode_frame_kbps": benchmark_decode_frame_kbps,
+        "min_modem_benchmark_kbps": args.min_modem_benchmark_kbps,
     }
     args.out.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return summary
@@ -185,6 +211,18 @@ def parse_args() -> argparse.Namespace:
         "--allow-tx-only-dma",
         action="store_true",
         help="Accept TX DMA completion without local RX loopback; used by RF-engine product overlays before live RF RX is measured.",
+    )
+    parser.add_argument(
+        "--min-modem-benchmark-kbps",
+        type=int,
+        default=100,
+        help="Minimum C modem encode/decode frame throughput required before RF binding is accepted.",
+    )
+    parser.add_argument(
+        "--min-modem-benchmark-iterations",
+        type=int,
+        default=50,
+        help="Minimum iteration count required for the C modem service-rate benchmark.",
     )
     parser.add_argument("--pretty", action="store_true")
     return parser.parse_args()

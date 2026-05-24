@@ -185,10 +185,10 @@ Minimum production gates for native TCP/IP:
   `rf_phy_tx_rx=0` and `production_ready=0` until real radio TX/RX is measured;
 - `tools/run_fieldmesh_board_rf_phy_bind_gate.sh` proves that boundary on an
   installed board. It runs real sidecar preflight, sidecar DMA smoke,
-  RF packet-engine transport recovery, and RF TX guard planning, then starts
-  the board daemon's native-IP service plus RF worker and requires the daemon
-  to keep `driver_prerequisites_ready=0` and `binding_ready=0` unless DAC
-  source-select readback has passed. It still requires
+  RF packet-engine transport recovery, C modem service-rate evidence, and RF TX
+  guard planning, then starts the board daemon's native-IP service plus RF
+  worker and requires the daemon to keep `driver_prerequisites_ready=0` and
+  `binding_ready=0` unless DAC source-select readback has passed. It still requires
   `measured_link=0`, `live_rf_prerequisites_ready=0`, `rf_phy_tx_rx=0`, and
   refused `APPLY`, so this is not a fake over-air pass;
 - `driver_queue` is the default service transport, while

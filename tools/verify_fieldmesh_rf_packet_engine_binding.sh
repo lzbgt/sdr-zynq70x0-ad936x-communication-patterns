@@ -43,6 +43,14 @@ if report.get("frame_crc") != 2646482743:
 for key in ("queued_to_sidecar", "queued_to_rf_engine", "uses_sidecar_dma", "uses_rf_packet_engine", "recovered_frame_match"):
     if report.get(key) is not True:
         raise SystemExit(f"{key} must be true")
+if report.get("requires_c_modem_service_rate") is not True:
+    raise SystemExit("binding assertion must require C modem service-rate evidence")
+if report.get("modem_benchmark_iterations") != 50:
+    raise SystemExit("binding assertion benchmark iteration count drifted")
+if report.get("modem_benchmark_encode_frame_kbps", 0) < 100:
+    raise SystemExit("binding assertion C encode benchmark under floor")
+if report.get("modem_benchmark_decode_frame_kbps", 0) < 100:
+    raise SystemExit("binding assertion C decode benchmark under floor")
 for key in ("uses_iio", "uses_inter_board_ip_routing", "starts_rf_tx", "writes_hardware"):
     if report.get(key) is not False:
         raise SystemExit(f"{key} must be false")
@@ -51,6 +59,7 @@ print(json.dumps({
     "ok": True,
     "frame_crc": report["frame_crc"],
     "iq_samples": report["iq_samples"],
+    "modem_benchmark_decode_frame_kbps": report["modem_benchmark_decode_frame_kbps"],
 }, sort_keys=True))
 PY
 

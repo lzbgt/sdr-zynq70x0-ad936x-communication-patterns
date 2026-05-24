@@ -199,6 +199,10 @@ binding = json.loads(
 )
 if binding.get("event") != "fieldmesh_rf_packet_engine_binding_assert" or binding.get("ok") is not True:
     raise SystemExit(f"RF packet-engine binding evidence failed: {binding}")
+if binding.get("requires_c_modem_service_rate") is not True:
+    raise SystemExit(f"RF packet-engine binding is missing C modem service-rate evidence: {binding}")
+if binding.get("modem_benchmark_decode_frame_kbps", 0) < 100:
+    raise SystemExit(f"RF packet-engine C modem decode service-rate evidence is too low: {binding}")
 
 guard = json.loads(
     (out_dir / "rf_tx_guard_plan" / "fieldmesh_rf_tx_guard_run.json").read_text(encoding="utf-8")
@@ -277,6 +281,8 @@ summary = {
     "driver_prerequisites_ready": validate.get("driver_prerequisites_ready"),
     "rf_dac_source_select_passed": validate.get("rf_dac_source_select_passed"),
     "binding_ready": validate.get("binding_ready"),
+    "requires_c_modem_service_rate": binding.get("requires_c_modem_service_rate"),
+    "modem_benchmark_decode_frame_kbps": binding.get("modem_benchmark_decode_frame_kbps"),
     "live_rf_prerequisites_ready": validate.get("live_rf_prerequisites_ready"),
     "rf_phy_tx_rx": validate.get("rf_phy_tx_rx"),
     "production_ready": validate.get("production_ready"),
