@@ -66,6 +66,8 @@ if report.get("ingest_timeout_ms") != 1000:
     raise SystemExit(f"unexpected ingest timeout default: {report.get('ingest_timeout_ms')}")
 if report.get("ack_timeout_ms") != 1000:
     raise SystemExit(f"unexpected ACK timeout default: {report.get('ack_timeout_ms')}")
+if report.get("source_ack_pipeline_depth") != 1 or report.get("source_ack_pipeline_active") is not False:
+    raise SystemExit(f"unexpected source ACK pipeline default: {report}")
 if report.get("batch_byte_limit") != 0:
     raise SystemExit(f"unexpected batch byte limit default: {report.get('batch_byte_limit')}")
 if report.get("lease_priority") != "tcp-payload":
@@ -223,6 +225,44 @@ try:
         raise SystemExit(f"async ACK did not update frame summary: {summary}")
     if counts["async_source_acks_completed"] != 1 or counts["async_source_ack_failures"] != 0:
         raise SystemExit(f"async ACK counters wrong: {counts}")
+
+    pipeline_acker = loop.AsyncSourceAcker(
+        enabled=True,
+        ack_timeout_ms=123,
+        attempts=2,
+        counts=counts,
+    )
+    first = {"source_ack_ok": None}
+    second = {"source_ack_ok": None}
+    pipeline_acker.submit(
+        {
+            "name": "z103-to-z203",
+            "source_host": "192.0.2.2",
+            "source_port": 55441,
+        },
+        [b"first"],
+        first,
+        Path("/tmp/fieldmesh-nonexistent-async-ack-first.json"),
+    )
+    pipeline_acker.submit(
+        {
+            "name": "z103-to-z203",
+            "source_host": "192.0.2.2",
+            "source_port": 55441,
+        },
+        [b"second"],
+        second,
+        Path("/tmp/fieldmesh-nonexistent-async-ack-second.json"),
+    )
+    if pipeline_acker.pending_count("z103-to-z203") != 2:
+        raise SystemExit("source ACK pipeline did not retain two in-flight ACKs")
+    pending = pipeline_acker.pending_counts()
+    if pending.get("z103-to-z203") != 2:
+        raise SystemExit(f"source ACK pipeline pending summary is wrong: {pending}")
+    pipeline_acker.wait_direction("z103-to-z203")
+    if first.get("source_ack_ok") is not True or second.get("source_ack_ok") is not True:
+        raise SystemExit(f"source ACK pipeline did not complete both ACKs: {first}, {second}")
+    pipeline_acker.wait_all()
 finally:
     loop.ack_batch_to_daemon_reliable = original_ack
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_async_ack_check", "ok": True}, sort_keys=True))
@@ -335,6 +375,8 @@ required = [
     '-liio -lpthread -lm',
     'fieldmesh_iio_burst_xfer_build.err',
     'FIELDMESH_IIO_BURST_HELPER must support --server',
+    'iio_bridge_source_ack_pipeline_depth="${IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH:-2}"',
+    "--source-ack-pipeline-depth",
     'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"',
     'rf_bit_repeat="${RF_BIT_REPEAT:-2}"',
     'rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-64}"',
@@ -630,6 +672,37 @@ fi
 if ! grep -q 'IIO_BRIDGE_ASYNC_SOURCE_ACK must be 0 or 1' \
      "$work_dir/iperf_bad_async_source_ack.err"; then
   echo "native-IP iperf invalid async source ACK refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH=0 \
+   OUT_DIR="$work_dir/iperf-bad-source-ack-pipeline-depth" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_source_ack_pipeline_depth.out" \
+   2>"$work_dir/iperf_bad_source_ack_pipeline_depth.err"; then
+  echo "native-IP iperf gate accepted invalid source ACK pipeline depth" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH must be an integer from 1 to 4' \
+     "$work_dir/iperf_bad_source_ack_pipeline_depth.err"; then
+  echo "native-IP iperf invalid source ACK pipeline depth refusal changed" >&2
+  exit 1
+fi
+
+if IIO_BRIDGE_ASYNC_SOURCE_ACK=0 \
+   IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH=2 \
+   OUT_DIR="$work_dir/iperf-bad-source-ack-pipeline-without-async" \
+   "$repo_root/tools/run_fieldmesh_two_board_native_ip_iperf.sh" \
+   >"$work_dir/iperf_bad_source_ack_pipeline_without_async.out" \
+   2>"$work_dir/iperf_bad_source_ack_pipeline_without_async.err"; then
+  echo "native-IP iperf gate accepted pipelined source ACK without async ACK" >&2
+  exit 1
+fi
+
+if ! grep -q 'IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH > 1 requires IIO_BRIDGE_ASYNC_SOURCE_ACK=1' \
+     "$work_dir/iperf_bad_source_ack_pipeline_without_async.err"; then
+  echo "native-IP iperf source ACK pipeline async refusal changed" >&2
   exit 1
 fi
 

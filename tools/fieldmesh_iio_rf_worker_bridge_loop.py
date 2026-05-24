@@ -390,6 +390,16 @@ class AsyncSourceAcker:
         for item in items:
             self._record_result(item)
 
+    def pending_count(self, direction_name: str) -> int:
+        return len(self.pending.get(direction_name, []))
+
+    def pending_counts(self) -> dict[str, int]:
+        return {
+            direction_name: len(items)
+            for direction_name, items in sorted(self.pending.items())
+            if items
+        }
+
     def wait_all(self) -> None:
         for direction_name in list(self.pending):
             self.wait_direction(direction_name)
@@ -870,6 +880,10 @@ def require_args(args: argparse.Namespace) -> None:
         raise SystemExit("--ingest-timeout-ms must be >= 1")
     if args.ack_timeout_ms < 1:
         raise SystemExit("--ack-timeout-ms must be >= 1")
+    if args.source_ack_pipeline_depth < 1 or args.source_ack_pipeline_depth > 4:
+        raise SystemExit("--source-ack-pipeline-depth must be between 1 and 4")
+    if args.source_ack_pipeline_depth > 1 and not args.async_source_ack:
+        raise SystemExit("--source-ack-pipeline-depth > 1 requires --async-source-ack")
     for label, value in (
         ("--z203-to-z103-burst-batches", args.z203_to_z103_burst_batches),
         ("--z103-to-z203-burst-batches", args.z103_to_z203_burst_batches),
@@ -1003,6 +1017,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "ip_port_filter": sorted(args.ip_port_filter),
             "daemon_request_attempts": args.daemon_request_attempts,
             "async_source_ack": bool(args.async_source_ack and args.execute_live_rf),
+            "source_ack_pipeline_depth": args.source_ack_pipeline_depth,
+            "source_ack_pipeline_active": bool(
+                args.execute_live_rf
+                and args.async_source_ack
+                and args.source_ack_pipeline_depth > 1
+            ),
+            "source_ack_pipeline_pending": async_acker.pending_counts(),
             "destructive_poll_batch": bool(args.destructive_poll_batch),
             "burst_helper": str(args.burst_helper) if args.burst_helper else None,
             "persistent_burst_helper": bool(args.persistent_burst_helper),
@@ -1077,6 +1098,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 ordered.append(direction)
         return ordered
 
+    def fence_source_ack_if_needed(direction_name: str) -> None:
+        if (
+            args.execute_live_rf
+            and args.async_source_ack
+            and args.source_ack_pipeline_depth > 1
+        ):
+            if async_acker.pending_count(direction_name) >= args.source_ack_pipeline_depth:
+                async_acker.wait_direction(direction_name)
+            return
+        async_acker.wait_direction(direction_name)
+
     try:
         while time.monotonic() < deadline and next_index < args.max_frames and not stop_requested:
             moved = False
@@ -1090,7 +1122,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     counts["empty_burst_skips"] += 1
                     continue
                 try:
-                    async_acker.wait_direction(direction["name"])
+                    fence_source_ack_if_needed(direction["name"])
                     if preloaded_lease is not None:
                         lease = preloaded_lease
                         preloaded_lease = None
@@ -1480,6 +1512,16 @@ def parse_args() -> argparse.Namespace:
         dest="async_source_ack",
         action="store_false",
         help="Wait for source ACK before servicing the next RF burst.",
+    )
+    parser.add_argument(
+        "--source-ack-pipeline-depth",
+        type=int,
+        default=1,
+        help=(
+            "Maximum in-flight source ACKs per direction when async source ACK "
+            "is enabled. Values above 1 allow same-source RF bursts to pipeline "
+            "after peer ingest while preserving ACK-after-ingest ordering."
+        ),
     )
     parser.add_argument("--skip-rf-config-after-first", action="store_true")
     parser.add_argument("--stop-on-error", action="store_true")

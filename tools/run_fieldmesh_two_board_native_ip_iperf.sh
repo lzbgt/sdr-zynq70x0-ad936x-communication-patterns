@@ -82,6 +82,7 @@ iio_bridge_z203_to_z103_burst_batches="${IIO_BRIDGE_Z203_TO_Z103_BURST_BATCHES:-
 iio_bridge_z103_to_z203_burst_batches="${IIO_BRIDGE_Z103_TO_Z203_BURST_BATCHES:-1}"
 iio_bridge_adaptive_direction_scheduler="${IIO_BRIDGE_ADAPTIVE_DIRECTION_SCHEDULER:-1}"
 iio_bridge_async_source_ack="${IIO_BRIDGE_ASYNC_SOURCE_ACK:-1}"
+iio_bridge_source_ack_pipeline_depth="${IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH:-2}"
 iio_bridge_skip_rf_config_after_first="${IIO_BRIDGE_SKIP_RF_CONFIG_AFTER_FIRST:-1}"
 iio_bridge_daemon_timeout_ms="${IIO_BRIDGE_DAEMON_TIMEOUT_MS:-5000}"
 iio_bridge_ingest_timeout_ms="${IIO_BRIDGE_INGEST_TIMEOUT_MS:-1000}"
@@ -198,6 +199,16 @@ case "$iio_bridge_adaptive_direction_scheduler" in 0|1) ;; *) echo "IIO_BRIDGE_A
 case "$iio_bridge_async_source_ack" in 0|1) ;; *) echo "IIO_BRIDGE_ASYNC_SOURCE_ACK must be 0 or 1" >&2; exit 1 ;; esac
 case "$iio_bridge_persistent_burst_helper" in 0|1) ;; *) echo "IIO_BRIDGE_PERSISTENT_BURST_HELPER must be 0 or 1" >&2; exit 1 ;; esac
 case "$tun_service_tcp_duplicate_suppression" in 0|1) ;; *) echo "TUN_SERVICE_TCP_DUPLICATE_SUPPRESSION must be 0 or 1" >&2; exit 1 ;; esac
+if ! [[ "$iio_bridge_source_ack_pipeline_depth" =~ ^[0-9]+$ ]] ||
+   [ "$iio_bridge_source_ack_pipeline_depth" -lt 1 ] ||
+   [ "$iio_bridge_source_ack_pipeline_depth" -gt 4 ]; then
+    echo "IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH must be an integer from 1 to 4" >&2
+    exit 1
+fi
+if [ "$iio_bridge_source_ack_pipeline_depth" -gt 1 ] && [ "$iio_bridge_async_source_ack" != "1" ]; then
+    echo "IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH > 1 requires IIO_BRIDGE_ASYNC_SOURCE_ACK=1" >&2
+    exit 1
+fi
 for item in "$execute_live_rf" "$allow_hardware_writes" "$allow_rf_tx" "$allow_daemon_queue_mutation"; do
     case "$item" in 0|1) ;; *) echo "live RF flags must be 0 or 1" >&2; exit 1 ;; esac
 done
@@ -1263,6 +1274,7 @@ start_iio_rf_bridge_loop() {
         --ack-timeout-ms "$iio_bridge_ack_timeout_ms" \
         --lease-timeout-ms "$iio_bridge_lease_timeout_ms" \
         --daemon-request-attempts "$iio_bridge_daemon_request_attempts" \
+        --source-ack-pipeline-depth "$iio_bridge_source_ack_pipeline_depth" \
         "${port_filter_args[@]}" \
         "${cyclic_tx_args[@]}" \
         --cyclic-capture-periods "$iio_bridge_cyclic_capture_periods" \

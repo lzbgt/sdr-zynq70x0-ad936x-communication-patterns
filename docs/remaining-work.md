@@ -295,8 +295,10 @@ libiio helper server so RX/TX contexts stay open across batches, and the daemon
 can disable TCP duplicate suppression for real-RF iperf runs. The bridge now
 defaults to batch leasing and asynchronous source ACKs: after peer ingest
 succeeds, the source ACK runs in parallel while the opposite RF direction can
-start, and the loop fences before leasing from that same source again. With the
-previous persistent-helper runtime installed, live HIL moved 55 native-IP
+start. The loop now also supports a bounded same-source ACK pipeline for HIL,
+so a source can lease the next RF batch after peer ingest while earlier source
+ACK responses are still pending. With the previous persistent-helper runtime
+installed, live HIL moved 55 native-IP
 frames with zero duplicate drops; the captured TCP sequence shows the
 256-byte data payload crossed RF and was ACKed,
 but `iperf3` still timed out with its data/control sockets established before

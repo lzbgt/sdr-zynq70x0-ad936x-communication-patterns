@@ -4143,9 +4143,12 @@ The loop repeatedly leases daemon RF-worker frames, runs the guarded IIO
 over-air bridge for each frame, ingests into the peer daemon, and ACKs only
 after successful ingest. Its verifier proves the default path is dry-run,
 rejects live RF without explicit approvals, and rejects daemon queue mutation
-outside live mode. `run_fieldmesh_two_board_native_ip_iperf.sh` selects this
-path with `ALLOW_IIO_RF_BRIDGE=1`; the older `ALLOW_DAEMON_RF_BRIDGE=1` path
-remains diagnostic-only.
+outside live mode. It also proves the bounded source-ACK pipeline used by HIL:
+ACKs are submitted only after peer ingest, but up to
+`IIO_BRIDGE_SOURCE_ACK_PIPELINE_DEPTH` same-source ACK responses can remain in
+flight while the next RF batch starts. `run_fieldmesh_two_board_native_ip_iperf.sh`
+selects this path with `ALLOW_IIO_RF_BRIDGE=1`; the older
+`ALLOW_DAEMON_RF_BRIDGE=1` path remains diagnostic-only.
 For operator readiness checks, `run_fieldmesh_two_board_native_ip_iperf.sh`
 also supports `PREFLIGHT_ONLY=1`. That mode emits
 `fieldmesh_two_board_native_ip_iperf_preflight` after checking daemon RF
