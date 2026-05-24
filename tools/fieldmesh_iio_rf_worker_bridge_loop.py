@@ -316,6 +316,20 @@ def rf_worker_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     return report
 
 
+def rf_service_scheduler_status(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_rf_service_scheduler_status":
+        raise SystemExit(
+            f"expected sdk_daemon_rf_service_scheduler_status, got {report.get('event')!r}"
+        )
+    return report
+
+
 def validate_native_worker_boundary(
     report: dict[str, Any],
     label: str,
@@ -360,7 +374,63 @@ def validate_native_worker_boundary(
         raise SystemExit(f"{label} RF worker native boundary invalid: " + "; ".join(errors))
 
 
+def validate_native_scheduler_status(
+    report: dict[str, Any],
+    label: str,
+    args: argparse.Namespace,
+) -> None:
+    errors: list[str] = []
+    expected = {
+        "ok": True,
+        "native_direction_scheduler": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "adaptive_direction_scheduler": 1 if args.adaptive_direction_scheduler else 0,
+        "requires_reverse_service": 1,
+        "scheduler_score_native_c": 1,
+        "lease_batch_frames": args.batch_size,
+        "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+        "max_consecutive_direction_batches": args.max_consecutive_direction_batches,
+        "lease_priority_cli": args.lease_priority,
+        "rf_transport_mode": "driver_queue",
+        "uses_json_on_air": 0,
+        "uses_inter_board_ip_routing": 0,
+        "rf_phy_tx_rx": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "native_bidirectional_rf_service_scheduler",
+    }
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            errors.append(f"{key}={report.get(key)!r} expected {expected_value!r}")
+    try:
+        score = int(report.get("scheduler_score"))
+        tx_depth = int(report.get("rf_tx_queue_depth") or 0)
+        lease_depth = int(report.get("rf_tx_lease_queue_depth") or 0)
+    except (TypeError, ValueError):
+        errors.append("scheduler score/depth fields must be integers")
+    else:
+        if score != max(0, tx_depth) + max(0, lease_depth) * 1000:
+            errors.append(
+                f"scheduler_score={score!r} does not match C queue-depth contract"
+            )
+    if errors:
+        raise SystemExit(
+            f"{label} RF service scheduler status invalid: " + "; ".join(errors)
+        )
+
+
 def queued_rf_work_score(status: dict[str, Any]) -> int:
+    if status.get("scheduler_score_native_c") == 1:
+        try:
+            return max(0, int(status.get("scheduler_score") or 0))
+        except (TypeError, ValueError):
+            return 0
     try:
         tx_depth = int(status.get("rf_tx_queue_depth") or 0)
         lease_depth = int(status.get("rf_tx_lease_queue_depth") or 0)
@@ -1221,6 +1291,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "empty_burst_skips": 0,
         "adaptive_status_polls": 0,
         "adaptive_status_failures": 0,
+        "native_direction_scheduler_status_polls": 0,
+        "native_direction_scheduler_status_failures": 0,
         "direction_fair_service_status_polls": 0,
         "direction_fair_service_status_failures": 0,
         "direction_fair_service_yields": 0,
@@ -1246,6 +1318,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     rf_burst_batch_high_water_by_direction: dict[str, int] = {}
     rf_lease_batch_high_water_by_direction: dict[str, int] = {}
     native_worker_status_by_endpoint: dict[str, dict[str, Any]] = {}
+    native_scheduler_status_by_direction: dict[str, dict[str, Any]] = {}
     next_index = 0
     last_served_direction: str | None = None
     consecutive_direction_batches = 0
@@ -1323,6 +1396,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             },
             "lease_priority": args.lease_priority,
             "adaptive_direction_scheduler": bool(args.adaptive_direction_scheduler),
+            "native_direction_scheduler_enabled": bool(
+                args.execute_live_rf
+                and args.adaptive_direction_scheduler
+                and args.require_native_rf_service_worker
+            ),
+            "native_direction_scheduler_proven": bool(
+                native_scheduler_status_by_direction
+                and all(
+                    status.get("native_direction_scheduler") == 1
+                    and status.get("scheduler_score_native_c") == 1
+                    and status.get("service_policy_bound") == 1
+                    and status.get("production_iio_policy") == 1
+                    for status in native_scheduler_status_by_direction.values()
+                )
+            ),
+            "native_direction_scheduler_status": native_scheduler_status_by_direction,
             "direction_burst_batches": {
                 "z203_to_z103": args.z203_to_z103_burst_batches,
                 "z103_to_z203": args.z103_to_z203_burst_batches,
@@ -1453,15 +1542,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         status_timeout_ms = min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250))
         try:
             for direction in directions:
-                status = tun_service_status(
+                status = rf_service_scheduler_status(
                     direction["source_host"],
                     direction["source_port"],
                     status_timeout_ms,
                 )
+                validate_native_scheduler_status(status, direction["name"], args)
                 counts["adaptive_status_polls"] += 1
+                counts["native_direction_scheduler_status_polls"] += 1
+                native_scheduler_status_by_direction[direction["name"]] = status
                 scored.append((queued_rf_work_score(status), direction))
         except (TimeoutError, SystemExit):
             counts["adaptive_status_failures"] += 1
+            counts["native_direction_scheduler_status_failures"] += 1
             return schedule
         if not any(score > 0 for score, _ in scored):
             return schedule
@@ -1538,15 +1631,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             if candidate["name"] == current_direction_name:
                 continue
             try:
-                status = tun_service_status(
+                status = rf_service_scheduler_status(
                     candidate["source_host"],
                     candidate["source_port"],
                     status_timeout_ms,
                 )
+                validate_native_scheduler_status(status, candidate["name"], args)
             except (TimeoutError, SystemExit):
                 counts["direction_fair_service_status_failures"] += 1
+                counts["native_direction_scheduler_status_failures"] += 1
                 continue
             counts["direction_fair_service_status_polls"] += 1
+            counts["native_direction_scheduler_status_polls"] += 1
+            native_scheduler_status_by_direction[candidate["name"]] = status
             if queued_rf_work_score(status) > 0:
                 return True
         return False

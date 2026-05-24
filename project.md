@@ -1366,7 +1366,10 @@ user and vendor configuration.
   the same policy before scheduling starts, then request each RF service burst
   through `FIELDMESH_RF_SERVICE_NEXT_BURST v1`. That moves lease-window fill,
   same-priority stop, sub-burst emission, and deferred-frame replay into the C
-  daemon while Python still chooses the next direction.
+  daemon. Python still chooses the next cross-daemon direction, but it now uses
+  `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` so the per-source queue score and
+  lease-replay priority are C-scored production evidence rather than a Python
+  formula.
   Live HIL with the earlier async-ACK path moved 54 frames with zero bridge
   errors at 256 bytes, and a true 128-byte run using
   `IPERF_BLOCK_SIZE=64` moved 54 more frames and completed all async ACKs, but

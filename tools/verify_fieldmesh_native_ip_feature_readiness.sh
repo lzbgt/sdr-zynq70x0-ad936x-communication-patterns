@@ -27,6 +27,7 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_rf_service_policy_proof": true,
   "requires_iio_native_rf_service_worker_proof": true,
   "requires_iio_native_service_burst_leases": true,
+  "requires_iio_native_direction_scheduler": true,
   "board_iio_rf_service_policy_proven": true,
   "host_iio_rf_service_policy_proven": true,
   "board_iio_native_rf_service_worker_proven": true,
@@ -35,6 +36,12 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_native_service_burst_leases_enabled": true,
   "board_iio_native_service_burst_leases": 3,
   "host_iio_native_service_burst_leases": 3,
+  "board_iio_native_direction_scheduler_enabled": true,
+  "host_iio_native_direction_scheduler_enabled": true,
+  "board_iio_native_direction_scheduler_proven": true,
+  "host_iio_native_direction_scheduler_proven": true,
+  "board_iio_native_direction_scheduler_status_polls": 4,
+  "host_iio_native_direction_scheduler_status_polls": 3,
   "board_iio_rf_service_policy_native_c": true,
   "host_iio_rf_service_policy_native_c": true,
   "board_iio_rf_service_policy_lease_priority": "tcp-control-flow-udp-after-control",
@@ -115,10 +122,16 @@ if report.get("requires_iio_native_rf_service_worker_proof") is not True:
     raise SystemExit(f"native-IP readiness lost native RF worker requirement: {report!r}")
 if report.get("requires_iio_native_service_burst_leases") is not True:
     raise SystemExit(f"native-IP readiness lost native service burst lease requirement: {report!r}")
+if report.get("requires_iio_native_direction_scheduler") is not True:
+    raise SystemExit(f"native-IP readiness lost native direction scheduler requirement: {report!r}")
 if report.get("host_iio_native_rf_service_worker_proven") is not True:
     raise SystemExit(f"native-IP readiness lost native RF worker proof: {report!r}")
 if report.get("host_iio_native_service_burst_leases_enabled") is not True:
     raise SystemExit(f"native-IP readiness lost native service burst lease proof: {report!r}")
+if report.get("host_iio_native_direction_scheduler_proven") is not True:
+    raise SystemExit(f"native-IP readiness lost native direction scheduler proof: {report!r}")
+if report.get("host_iio_native_direction_scheduler_status_polls") != 3:
+    raise SystemExit(f"native-IP readiness lost native direction scheduler polls: {report!r}")
 if report.get("host_iio_rf_service_policy_lease_priority") != "tcp-control-flow-udp-after-control":
     raise SystemExit(f"native-IP readiness lost RF service policy priority: {report!r}")
 if report.get("host_iio_same_priority_batch_enabled") is not True:

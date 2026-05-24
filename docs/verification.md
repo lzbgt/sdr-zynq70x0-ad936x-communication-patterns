@@ -5104,8 +5104,11 @@ preflight/final reports must also carry the daemon C policy proof, and the
 native-IP evidence/readiness classifiers reject IIO RF reports that omit it.
 Live IIO RF bridge runs additionally require both daemons' `FIELDMESH_RF_WORKER_STATUS`
 responses to prove a running native RF service worker/control-plane boundary
-bound to the production policy before host-side scheduling starts; the same
-worker proof is preserved through native-IP evidence, app reports, and
+bound to the production policy before host-side scheduling starts. Adaptive
+direction ordering and fair-service yields now query
+`FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, and the native-IP evidence gates
+require that C-scored scheduler proof alongside the worker proof. The same
+worker/scheduler proof is preserved through native-IP evidence, app reports, and
 readiness. Production bridge runs also require native service-burst leases:
 `FIELDMESH_RF_SERVICE_NEXT_BURST v1` is the C-owned command that fills the
 four-frame lease window, emits the two-frame RF burst, and leaves deferred

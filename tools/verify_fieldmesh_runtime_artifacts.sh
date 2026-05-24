@@ -400,6 +400,11 @@ PY
         sdk_daemon_rf_service_next_burst \
         native_service_burst \
         deferred_lease_frames \
+        FIELDMESH_RF_SERVICE_SCHEDULER_STATUS \
+        sdk_daemon_rf_service_scheduler_status \
+        native_direction_scheduler \
+        scheduler_score_native_c \
+        native_bidirectional_rf_service_scheduler \
         native_rf_service_worker \
         native_rf_service_control_plane \
         service_policy_bound \

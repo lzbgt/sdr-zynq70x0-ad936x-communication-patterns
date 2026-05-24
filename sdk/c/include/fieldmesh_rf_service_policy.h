@@ -161,6 +161,13 @@ static inline int fieldmesh_rf_service_policy_requires_reverse_service(
            policy->max_consecutive_direction_batches == 1u;
 }
 
+static inline uint32_t fieldmesh_rf_service_scheduler_score(
+    uint32_t tx_queue_depth,
+    uint32_t tx_lease_queue_depth)
+{
+    return tx_queue_depth + tx_lease_queue_depth * 1000u;
+}
+
 static inline int fieldmesh_rf_service_policy_accepts_production_iio(
     const fieldmesh_rf_service_policy_t *policy)
 {

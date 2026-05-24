@@ -2930,6 +2930,18 @@ report = {
     "iio_bridge_native_service_burst_leases": int(
         last_iio_bridge.get("native_service_burst_leases") or 0
     ),
+    "iio_bridge_native_direction_scheduler_enabled": bool(
+        last_iio_bridge.get("native_direction_scheduler_enabled")
+    ),
+    "iio_bridge_native_direction_scheduler_proven": bool(
+        last_iio_bridge.get("native_direction_scheduler_proven")
+    ),
+    "iio_bridge_native_direction_scheduler_status_polls": int(
+        last_iio_bridge.get("native_direction_scheduler_status_polls") or 0
+    ),
+    "iio_bridge_native_direction_scheduler_status": (
+        last_iio_bridge.get("native_direction_scheduler_status") or {}
+    ),
     "iio_bridge_source_ack_pipeline_depth": int(
         last_iio_bridge.get("source_ack_pipeline_depth") or 0
     ),

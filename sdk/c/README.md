@@ -231,7 +231,10 @@ in `src/fieldmesh_sdk.c`:
   scheduling starts. The live bridge's production path uses
   `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so the daemon, not Python, fills the
   four-frame lease window, emits the two-frame RF service burst, and preserves
-  deferred lease frames for reverse-path service before ACK.
+  deferred lease frames for reverse-path service before ACK. It also uses
+  `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1` for the adaptive direction score,
+  keeping the queue-depth/lease-replay priority calculation in the same C
+  service-policy boundary.
 - `examples/fieldmesh_reference_demo.c` exercises AP browse, RSSI/SNR/geo/
   mobility/capability based AP election, audit join, peer discovery, route
   query, scheduled mode request, and stream send/receive.

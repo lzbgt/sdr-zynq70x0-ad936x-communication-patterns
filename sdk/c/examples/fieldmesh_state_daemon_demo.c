@@ -6050,6 +6050,70 @@ static int build_response(fieldmesh_context_t *context,
                  tun_service ? tun_service->rf_tx_control_flow_learned : 0u);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS")) {
+        fieldmesh_rf_service_policy_t policy =
+            fieldmesh_rf_service_default_policy();
+        uint32_t tx_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_queue.count : 0u;
+        uint32_t lease_depth =
+            tun_service ? (uint32_t)tun_service->rf_tx_lease_queue.count : 0u;
+        uint32_t score =
+            fieldmesh_rf_service_scheduler_score(tx_depth, lease_depth);
+
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_rf_service_scheduler_status\","
+                 "\"ok\":true,"
+                 "\"native_direction_scheduler\":1,"
+                 "\"daemon_owned_worker\":1,"
+                 "\"driver_queue_worker\":1,"
+                 "\"native_rf_service_worker\":1,"
+                 "\"native_rf_service_control_plane\":1,"
+                 "\"service_policy_bound\":1,"
+                 "\"production_iio_policy\":%u,"
+                 "\"adaptive_direction_scheduler\":%u,"
+                 "\"requires_reverse_service\":%u,"
+                 "\"scheduler_score_native_c\":1,"
+                 "\"scheduler_score\":%u,"
+                 "\"rf_tx_queue_depth\":%u,"
+                 "\"rf_tx_lease_queue_depth\":%u,"
+                 "\"rf_rx_queue_depth\":%u,"
+                 "\"lease_batch_frames\":%u,"
+                 "\"max_frames_per_rf_burst\":%u,"
+                 "\"max_consecutive_direction_batches\":%u,"
+                 "\"lease_priority\":\"%s\","
+                 "\"lease_priority_cli\":\"%s\","
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_inter_board_ip_routing\":0,"
+                 "\"rf_phy_tx_rx\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"native_bidirectional_rf_service_scheduler\"}\n",
+                 fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
+                    1u :
+                    0u,
+                 (unsigned)policy.adaptive_direction_scheduler,
+                 fieldmesh_rf_service_policy_requires_reverse_service(&policy) ?
+                    1u :
+                    0u,
+                 score,
+                 tx_depth,
+                 lease_depth,
+                 tun_service ? (uint32_t)tun_service->rf_rx_queue.count : 0u,
+                 policy.lease_batch_frames,
+                 policy.max_frames_per_rf_burst,
+                 policy.max_consecutive_direction_batches,
+                 fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
+                 fieldmesh_rf_service_lease_priority_cli_name(
+                     policy.lease_priority),
+                 tun_service ?
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode) :
+                     tun_service_rf_transport_mode_name(
+                         TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_WORKER_PHY_PLAN")) {
         unsigned sidecar_preflight = 0u;
         unsigned sidecar_dma = 0u;

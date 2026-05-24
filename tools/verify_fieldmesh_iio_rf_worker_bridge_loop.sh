@@ -258,26 +258,61 @@ if native_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
     raise SystemExit(f"native service burst did not decode frames: {native_batch}")
 if native_report.get("deferred_lease_frames") != 2:
     raise SystemExit(f"native service burst lost deferred sub-burst proof: {native_report}")
+args = type("Args", (), {
+    "batch_size": 4,
+    "max_frames_per_rf_burst": 2,
+    "same_priority_batch": True,
+    "max_consecutive_direction_batches": 1,
+    "async_source_ack": True,
+    "source_ack_pipeline_depth": 2,
+    "adaptive_direction_scheduler": True,
+    "persistent_burst_helper": True,
+    "lease_priority": "tcp-control-flow-udp-after-control",
+})()
 captured = {}
-def compact_status_request(host, port, text, timeout_ms):
+def scheduler_status_request(host, port, text, timeout_ms):
     captured["text"] = text
     return {
-        "event": "sdk_daemon_tun_service_status",
-        "ok": 1,
-        "status_compact": 1,
+        "event": "sdk_daemon_rf_service_scheduler_status",
+        "ok": True,
+        "native_direction_scheduler": 1,
+        "daemon_owned_worker": 1,
+        "driver_queue_worker": 1,
+        "native_rf_service_worker": 1,
+        "native_rf_service_control_plane": 1,
+        "service_policy_bound": 1,
+        "production_iio_policy": 1,
+        "adaptive_direction_scheduler": 1,
+        "requires_reverse_service": 1,
+        "scheduler_score_native_c": 1,
+        "scheduler_score": 1002,
         "rf_tx_queue_depth": 2,
         "rf_tx_lease_queue_depth": 1,
+        "rf_rx_queue_depth": 0,
+        "lease_batch_frames": 4,
+        "max_frames_per_rf_burst": 2,
+        "max_consecutive_direction_batches": 1,
+        "lease_priority_cli": "tcp-control-flow-udp-after-control",
+        "rf_transport_mode": "driver_queue",
+        "uses_json_on_air": 0,
+        "uses_inter_board_ip_routing": 0,
+        "rf_phy_tx_rx": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "native_bidirectional_rf_service_scheduler",
     }
 original_request = bridge.request_daemon
-bridge.request_daemon = compact_status_request
+bridge.request_daemon = scheduler_status_request
 try:
-    status = loop.tun_service_status("127.0.0.1", 55441, 10)
+    status = loop.rf_service_scheduler_status("127.0.0.1", 55441, 10)
 finally:
     bridge.request_daemon = original_request
-if captured.get("text") != "FIELDMESH_TUN_SERVICE_STATUS v1 compact=1":
-    raise SystemExit(f"adaptive status must use compact daemon status: {captured}")
+if captured.get("text") != "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1":
+    raise SystemExit(f"adaptive status must use C scheduler status: {captured}")
 if loop.queued_rf_work_score(status) <= 1000:
-    raise SystemExit("compact adaptive status did not preserve RF queue depth")
+    raise SystemExit("C adaptive scheduler status did not preserve RF queue score")
+loop.validate_native_scheduler_status(status, "z203-to-z103", args)
 captured = {}
 def worker_status_request(host, port, text, timeout_ms):
     captured["text"] = text
@@ -320,17 +355,6 @@ finally:
     bridge.request_daemon = original_request
 if captured.get("text") != "FIELDMESH_RF_WORKER_STATUS v1":
     raise SystemExit(f"native worker boundary must use RF_WORKER_STATUS: {captured}")
-args = type("Args", (), {
-    "batch_size": 4,
-    "max_frames_per_rf_burst": 2,
-    "same_priority_batch": True,
-    "max_consecutive_direction_batches": 1,
-    "async_source_ack": True,
-    "source_ack_pipeline_depth": 2,
-    "adaptive_direction_scheduler": True,
-    "persistent_burst_helper": True,
-    "lease_priority": "tcp-control-flow-udp-after-control",
-})()
 loop.validate_native_worker_boundary(status, "z203", args)
 bad = dict(status)
 bad["native_rf_service_worker"] = 0
@@ -543,6 +567,12 @@ required = [
     "native_rf_service_control_plane",
     "service_policy_bound",
     "\\\"next_boundary\\\":\\\"persistent_native_rf_service_worker\\\"",
+    "FIELDMESH_RF_SERVICE_SCHEDULER_STATUS",
+    "sdk_daemon_rf_service_scheduler_status",
+    "fieldmesh_rf_service_scheduler_score(",
+    "\\\"native_direction_scheduler\\\":1",
+    "\\\"scheduler_score_native_c\\\":1",
+    "\\\"next_boundary\\\":\\\"native_bidirectional_rf_service_scheduler\\\"",
     "fieldmesh_rf_service_default_policy()",
     "fieldmesh_rf_service_policy_accepts_production_iio(&policy)",
     "fieldmesh_rf_service_lease_priority_name(policy.lease_priority)",
@@ -604,6 +634,7 @@ required_header_tokens = [
     "fieldmesh_rf_service_policy_sub_burst_enabled",
     "fieldmesh_rf_service_policy_requires_reverse_service",
     "fieldmesh_rf_service_policy_accepts_production_iio",
+    "fieldmesh_rf_service_scheduler_score",
     "FIELDMESH_RF_SERVICE_LEASE_PRIORITY_TCP_CONTROL_FLOW_UDP_AFTER_CONTROL",
     "tcp-control-flow-udp-after-control",
 ]
@@ -709,6 +740,10 @@ required = [
     "--native-service-burst-leases",
     '"iio_bridge_native_service_burst_leases_enabled"',
     '"iio_bridge_native_service_burst_leases"',
+    '"iio_bridge_native_direction_scheduler_enabled"',
+    '"iio_bridge_native_direction_scheduler_proven"',
+    '"iio_bridge_native_direction_scheduler_status_polls"',
+    '"iio_bridge_native_direction_scheduler_status"',
     "fieldmesh_native_ip_iperf_rf_service_policy_self_test",
     '"iio_bridge_rf_service_policy_proven"',
     '"iio_bridge_rf_service_policy_native_c"',

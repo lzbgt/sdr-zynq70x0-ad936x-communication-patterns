@@ -74,6 +74,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_native_rf_service_worker_proof_missing")
         if report.get("requires_iio_native_service_burst_leases") is not True:
             blockers.append("native_ip_native_service_burst_leases_missing")
+        if report.get("requires_iio_native_direction_scheduler") is not True:
+            blockers.append("native_ip_native_direction_scheduler_missing")
         if report.get("board_iio_rf_service_policy_proven") is not True:
             blockers.append("native_ip_board_iio_rf_service_policy_missing")
         if report.get("host_iio_rf_service_policy_proven") is not True:
@@ -86,6 +88,10 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_board_native_service_burst_leases_missing")
         if report.get("host_iio_native_service_burst_leases_enabled") is not True:
             blockers.append("native_ip_host_native_service_burst_leases_missing")
+        if report.get("board_iio_native_direction_scheduler_proven") is not True:
+            blockers.append("native_ip_board_native_direction_scheduler_missing")
+        if report.get("host_iio_native_direction_scheduler_proven") is not True:
+            blockers.append("native_ip_host_native_direction_scheduler_missing")
         if report.get("board_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
             blockers.append("native_ip_board_iio_hybrid_lease_priority_missing")
         if report.get("host_iio_bridge_lease_priority") != "tcp-control-flow-udp-after-control":
@@ -181,6 +187,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_iio_native_service_burst_leases": report.get(
             "requires_iio_native_service_burst_leases"
         ),
+        "requires_iio_native_direction_scheduler": report.get(
+            "requires_iio_native_direction_scheduler"
+        ),
         "requires_tcp_final_exchange_evidence": report.get(
             "requires_tcp_final_exchange_evidence"
         ),
@@ -219,6 +228,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_service_burst_leases": report.get(
             "host_iio_native_service_burst_leases"
+        ),
+        "board_iio_native_direction_scheduler_enabled": report.get(
+            "board_iio_native_direction_scheduler_enabled"
+        ),
+        "host_iio_native_direction_scheduler_enabled": report.get(
+            "host_iio_native_direction_scheduler_enabled"
+        ),
+        "board_iio_native_direction_scheduler_proven": report.get(
+            "board_iio_native_direction_scheduler_proven"
+        ),
+        "host_iio_native_direction_scheduler_proven": report.get(
+            "host_iio_native_direction_scheduler_proven"
+        ),
+        "board_iio_native_direction_scheduler_status_polls": report.get(
+            "board_iio_native_direction_scheduler_status_polls"
+        ),
+        "host_iio_native_direction_scheduler_status_polls": report.get(
+            "host_iio_native_direction_scheduler_status_polls"
         ),
         "board_iio_ack_pipeline_exercised": report.get("board_iio_ack_pipeline_exercised"),
         "host_iio_ack_pipeline_exercised": report.get("host_iio_ack_pipeline_exercised"),

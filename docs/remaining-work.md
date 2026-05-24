@@ -413,6 +413,11 @@ running native RF worker/control-plane status bound to that policy, then uses
 `FIELDMESH_RF_SERVICE_NEXT_BURST v1` so native C fills the lease window, emits
 only the configured RF sub-burst, and preserves deferred lease frames for
 reverse-path service. Python still picks the next direction, but the per-source
+score now comes from `FIELDMESH_RF_SERVICE_SCHEDULER_STATUS v1`, which proves
+the native C scheduler score and policy binding before adaptive ordering or
+fair-service yielding uses it. The next step is moving the cross-daemon choice
+itself into a persistent native worker/control-plane loop rather than only
+consuming C-scored per-source status.
 service-burst boundary is now owned by the daemon.
 The follow-on UDP-only HIL runs narrowed this further: a static UDP-first lease
 priority delayed iperf control setup and produced zero UDP sender bytes, while
