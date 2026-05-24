@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
 // Single-process libiio RX/TX burst helper for FieldMesh HIL RF bridge tests.
@@ -99,6 +100,7 @@ struct options {
     bool native_transport_service_loop_mode;
     bool native_transport_scheduler_mode;
     bool native_transport_autonomous_loop_mode;
+    bool native_transport_background_daemon_mode;
     unsigned long long transport_session_start_count;
     unsigned long long transport_worker_request_count;
     unsigned long long transport_service_loop_start_count;
@@ -109,6 +111,9 @@ struct options {
     unsigned long long transport_autonomous_loop_start_count;
     unsigned long long transport_autonomous_loop_run_count;
     unsigned long long transport_autonomous_loop_scheduled_request_count;
+    unsigned long long transport_background_daemon_start_count;
+    unsigned long long transport_background_daemon_xfer_count;
+    unsigned long long transport_background_daemon_scheduled_request_count;
 };
 
 struct rx_job {
@@ -173,14 +178,18 @@ static int run_native_worker_self_test(void)
            "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
            "\"native_iio_burst_transport_autonomous_loop_supported\":true,"
            "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+           "\"native_iio_burst_transport_background_daemon_supported\":true,"
+           "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
            "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
            "\"native_iio_burst_transport_service_loop_event\":\"fieldmesh_iio_burst_transport_service_loop_run\","
            "\"native_iio_burst_transport_scheduler_event\":\"fieldmesh_iio_burst_transport_scheduler_drain\","
            "\"native_iio_burst_transport_autonomous_loop_event\":\"fieldmesh_iio_burst_transport_autonomous_loop_run\","
+           "\"native_iio_burst_transport_background_daemon_event\":\"fieldmesh_iio_burst_transport_background_daemon_status\","
            "\"python_xfer_field_orchestration\":false,"
            "\"python_worker_xfer_submission\":false,"
            "\"python_direct_service_loop_run\":false,"
            "\"python_scheduler_drain_submission\":false,"
+           "\"python_autonomous_loop_run_submission\":false,"
            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"libiio_rx_tx_worker\":true,"
            "\"same_process_rx_tx\":true,"
@@ -1767,10 +1776,17 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"transport_autonomous_loop_run\":%s,"
             "\"transport_autonomous_loop_run_count\":%llu,"
             "\"transport_autonomous_loop_scheduled_request_count\":%llu,"
+            "\"native_iio_burst_transport_background_daemon\":%s,"
+            "\"native_iio_burst_transport_background_daemon_proof\":\"%s\","
+            "\"transport_background_daemon_start_count\":%llu,"
+            "\"transport_background_daemon_xfer\":%s,"
+            "\"transport_background_daemon_xfer_count\":%llu,"
+            "\"transport_background_daemon_scheduled_request_count\":%llu,"
             "\"python_xfer_field_orchestration\":%s,"
             "\"python_worker_xfer_submission\":%s,"
             "\"python_direct_service_loop_run\":%s,"
             "\"python_scheduler_drain_submission\":%s,"
+            "\"python_autonomous_loop_run_submission\":%s,"
             "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
             "\"libiio_rx_tx_worker\":true,"
             "\"same_process_rx_tx\":true,"
@@ -1813,6 +1829,13 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             opt->native_transport_autonomous_loop_mode ? "true" : "false",
             opt->transport_autonomous_loop_run_count,
             opt->transport_autonomous_loop_scheduled_request_count,
+            opt->native_transport_background_daemon_mode ? "true" : "false",
+            opt->native_transport_background_daemon_mode ?
+                "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1" : "",
+            opt->transport_background_daemon_start_count,
+            opt->native_transport_background_daemon_mode ? "true" : "false",
+            opt->transport_background_daemon_xfer_count,
+            opt->transport_background_daemon_scheduled_request_count,
             opt->native_transport_worker_mode ? "false" : "true",
             (opt->native_transport_service_loop_mode ||
              opt->native_transport_autonomous_loop_mode) ? "false" :
@@ -1822,6 +1845,8 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
              !opt->native_transport_autonomous_loop_mode) ? "true" : "false",
             (opt->native_transport_scheduler_mode &&
              !opt->native_transport_autonomous_loop_mode) ? "true" : "false",
+            (opt->native_transport_autonomous_loop_mode &&
+             !opt->native_transport_background_daemon_mode) ? "true" : "false",
             tx_bytes, job.bytes_written, rx_bytes, opt->cyclic ? "true" : "false",
             elapsed_ms);
     fflush(json_out);
@@ -1948,6 +1973,74 @@ static int load_scheduler_queue_file(const char *path, char **request_file_out)
     return 0;
 }
 
+struct background_job {
+    pthread_t thread;
+    pthread_mutex_t lock;
+    bool active;
+    bool running;
+    bool done;
+    int rc;
+    struct iio_device *rx_dev;
+    struct iio_device *tx_dev;
+    struct options req;
+    char *tx_file_owned;
+    char *rx_file_owned;
+    char *json;
+    size_t json_len;
+};
+
+static void background_job_init(struct background_job *job)
+{
+    memset(job, 0, sizeof(*job));
+    pthread_mutex_init(&job->lock, NULL);
+}
+
+static void background_job_release_owned(struct background_job *job)
+{
+    free(job->tx_file_owned);
+    free(job->rx_file_owned);
+    free(job->json);
+    job->tx_file_owned = NULL;
+    job->rx_file_owned = NULL;
+    job->json = NULL;
+    job->json_len = 0;
+}
+
+static void background_job_destroy(struct background_job *job)
+{
+    if (job->active) {
+        pthread_join(job->thread, NULL);
+        job->active = false;
+    }
+    background_job_release_owned(job);
+    pthread_mutex_destroy(&job->lock);
+}
+
+static void *background_job_main(void *arg)
+{
+    struct background_job *job = arg;
+    char *json = NULL;
+    size_t json_len = 0;
+    FILE *out = open_memstream(&json, &json_len);
+    int rc = 1;
+
+    if (out) {
+        rc = run_xfer(job->rx_dev, job->tx_dev, &job->req, out);
+        if (fclose(out) != 0) {
+            rc = 1;
+        }
+    }
+
+    pthread_mutex_lock(&job->lock);
+    job->json = json;
+    job->json_len = json_len;
+    job->rc = rc;
+    job->running = false;
+    job->done = true;
+    pthread_mutex_unlock(&job->lock);
+    return NULL;
+}
+
 static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                       const struct options *base)
 {
@@ -1963,10 +2056,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
     unsigned long long transport_autonomous_loop_start_count = 0;
     unsigned long long transport_autonomous_loop_run_count = 0;
     unsigned long long transport_autonomous_loop_scheduled_request_count = 0;
+    unsigned long long transport_background_daemon_start_count = 0;
+    unsigned long long transport_background_daemon_xfer_count = 0;
+    unsigned long long transport_background_daemon_scheduled_request_count = 0;
     bool transport_session_started = false;
     bool transport_service_loop_started = false;
     bool transport_scheduler_started = false;
     bool transport_autonomous_loop_started = false;
+    bool transport_background_daemon_started = false;
+    struct background_job background_job;
+    background_job_init(&background_job);
 
     printf("{\"event\":\"fieldmesh_iio_burst_xfer_server\",\"ok\":true,"
            "\"native_iio_burst_worker\":true,"
@@ -1989,6 +2088,9 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"native_iio_burst_transport_autonomous_loop_supported\":true,"
            "\"native_iio_burst_transport_autonomous_loop\":false,"
            "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+           "\"native_iio_burst_transport_background_daemon_supported\":true,"
+           "\"native_iio_burst_transport_background_daemon\":false,"
+           "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
            "\"transport_worker_request_count\":0,"
            "\"transport_session_start_count\":0,"
            "\"transport_service_loop_start_count\":0,"
@@ -1999,10 +2101,14 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
            "\"transport_autonomous_loop_start_count\":0,"
            "\"transport_autonomous_loop_run_count\":0,"
            "\"transport_autonomous_loop_scheduled_request_count\":0,"
+           "\"transport_background_daemon_start_count\":0,"
+           "\"transport_background_daemon_xfer_count\":0,"
+           "\"transport_background_daemon_scheduled_request_count\":0,"
            "\"python_xfer_field_orchestration\":false,"
            "\"python_worker_xfer_submission\":false,"
            "\"python_direct_service_loop_run\":false,"
            "\"python_scheduler_drain_submission\":false,"
+           "\"python_autonomous_loop_run_submission\":false,"
            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"server_pid\":%ld,"
            "\"libiio_rx_tx_worker\":true,"
@@ -2261,6 +2367,195 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             fflush(stdout);
             continue;
         }
+        if (strncmp(line, "TRANSPORT_BACKGROUND_DAEMON_START ", 34) == 0) {
+            if (!transport_autonomous_loop_started) {
+                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                       "\"native_iio_burst_transport_autonomous_loop\":false,"
+                       "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+                       "\"native_iio_burst_transport_background_daemon\":false,"
+                       "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                       "\"error\":\"transport_autonomous_loop_not_started\"}\n");
+                fflush(stdout);
+                continue;
+            }
+            pthread_mutex_lock(&background_job.lock);
+            bool background_running = background_job.active && background_job.running;
+            bool background_done = background_job.active && background_job.done;
+            pthread_mutex_unlock(&background_job.lock);
+            if (background_running) {
+                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                       "\"native_iio_burst_transport_background_daemon\":true,"
+                       "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                       "\"error\":\"transport_background_daemon_busy\"}\n");
+                fflush(stdout);
+                continue;
+            }
+            if (background_done) {
+                pthread_join(background_job.thread, NULL);
+                background_job.active = false;
+                background_job_release_owned(&background_job);
+            }
+
+            struct options req = *base;
+            req.tx_file = NULL;
+            req.rx_file = NULL;
+            req.tx_samples = 0;
+            req.rx_samples = 0;
+            req.persistent_server_mode = true;
+            req.server_xfer_count = xfer_count + 1ULL;
+            req.native_transport_worker_mode = true;
+            req.native_transport_session_mode = transport_session_started;
+            req.native_transport_service_loop_mode = true;
+            req.native_transport_scheduler_mode = true;
+            req.native_transport_autonomous_loop_mode = true;
+            req.native_transport_background_daemon_mode = true;
+            req.transport_session_start_count = transport_session_start_count;
+            req.transport_worker_request_count = worker_request_count + 1ULL;
+            req.transport_service_loop_start_count = transport_service_loop_start_count;
+            req.transport_service_loop_run_count = transport_service_loop_run_count + 1ULL;
+            req.transport_scheduler_start_count = transport_scheduler_start_count;
+            req.transport_scheduler_drain_count = transport_scheduler_drain_count + 1ULL;
+            req.transport_scheduler_scheduled_request_count =
+                transport_scheduler_scheduled_request_count + 1ULL;
+            req.transport_autonomous_loop_start_count = transport_autonomous_loop_start_count;
+            req.transport_autonomous_loop_run_count = transport_autonomous_loop_run_count + 1ULL;
+            req.transport_autonomous_loop_scheduled_request_count =
+                transport_autonomous_loop_scheduled_request_count + 1ULL;
+            req.transport_background_daemon_start_count =
+                transport_background_daemon_start_count + 1ULL;
+            req.transport_background_daemon_xfer_count =
+                transport_background_daemon_xfer_count + 1ULL;
+            req.transport_background_daemon_scheduled_request_count =
+                transport_background_daemon_scheduled_request_count + 1ULL;
+
+            char *save = NULL;
+            const char *queue_file = NULL;
+            char *request_file = NULL;
+            for (char *token = strtok_r(line + 34, " ", &save);
+                 token;
+                 token = strtok_r(NULL, " ", &save)) {
+                const char *value = value_after(token, "queue_file=");
+                if (value) {
+                    queue_file = value;
+                }
+            }
+            if (!queue_file ||
+                load_scheduler_queue_file(queue_file, &request_file) != 0 ||
+                load_worker_request_file(&req, request_file) != 0 ||
+                !req.tx_file || !req.rx_file ||
+                req.tx_samples == 0 || req.rx_samples == 0) {
+                free((char *)req.tx_file);
+                free((char *)req.rx_file);
+                free(request_file);
+                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                       "\"native_iio_burst_transport_background_daemon\":false,"
+                       "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                       "\"error\":\"invalid_transport_request\"}\n");
+                fflush(stdout);
+                continue;
+            }
+            free(request_file);
+
+            background_job.req = req;
+            background_job.rx_dev = rx_dev;
+            background_job.tx_dev = tx_dev;
+            background_job.tx_file_owned = (char *)req.tx_file;
+            background_job.rx_file_owned = (char *)req.rx_file;
+            background_job.rc = 1;
+            background_job.running = true;
+            background_job.done = false;
+            background_job.active = true;
+            if (pthread_create(&background_job.thread, NULL,
+                               background_job_main, &background_job) != 0) {
+                background_job.active = false;
+                background_job.running = false;
+                background_job_release_owned(&background_job);
+                printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":false,"
+                       "\"native_iio_burst_transport_background_daemon\":false,"
+                       "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                       "\"error\":\"pthread_create_failed\"}\n");
+                fflush(stdout);
+                continue;
+            }
+
+            xfer_count++;
+            worker_request_count++;
+            transport_service_loop_run_count++;
+            transport_scheduler_drain_count++;
+            transport_scheduler_scheduled_request_count++;
+            transport_autonomous_loop_run_count++;
+            transport_autonomous_loop_scheduled_request_count++;
+            transport_background_daemon_started = true;
+            transport_background_daemon_start_count++;
+            transport_background_daemon_xfer_count++;
+            transport_background_daemon_scheduled_request_count++;
+            printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_start\",\"ok\":true,"
+                   "\"native_iio_burst_transport_worker\":true,"
+                   "\"native_iio_burst_transport_worker_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1\","
+                   "\"native_iio_burst_transport_session\":true,"
+                   "\"native_iio_burst_transport_session_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1\","
+                   "\"native_iio_burst_transport_service_loop\":true,"
+                   "\"native_iio_burst_transport_service_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SERVICE_LOOP v1\","
+                   "\"native_iio_burst_transport_scheduler\":true,"
+                   "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
+                   "\"native_iio_burst_transport_autonomous_loop\":true,"
+                   "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+                   "\"native_iio_burst_transport_background_daemon\":true,"
+                   "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                   "\"transport_background_daemon_start_count\":%llu,"
+                   "\"transport_background_daemon_xfer_count\":%llu,"
+                   "\"transport_background_daemon_scheduled_request_count\":%llu,"
+                   "\"transport_background_daemon_running\":true,"
+                   "\"python_autonomous_loop_run_submission\":false,"
+                   "\"next_boundary\":\"native_iio_transport_integrated_rf_service_daemon\"}\n",
+                   transport_background_daemon_start_count,
+                   transport_background_daemon_xfer_count,
+                   transport_background_daemon_scheduled_request_count);
+            fflush(stdout);
+            continue;
+        }
+        if (strcmp(line, "TRANSPORT_BACKGROUND_DAEMON_STATUS") == 0) {
+            pthread_mutex_lock(&background_job.lock);
+            bool background_done = background_job.active && background_job.done;
+            bool background_running = background_job.active && background_job.running;
+            pthread_mutex_unlock(&background_job.lock);
+            if (background_done) {
+                pthread_join(background_job.thread, NULL);
+                background_job.active = false;
+                if (background_job.json) {
+                    fputs(background_job.json, stdout);
+                    if (background_job.json_len == 0 ||
+                        background_job.json[background_job.json_len - 1] != '\n') {
+                        fputc('\n', stdout);
+                    }
+                } else {
+                    printf("{\"event\":\"fieldmesh_iio_burst_xfer\",\"ok\":false,"
+                           "\"native_iio_burst_transport_background_daemon\":true,"
+                           "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                           "\"error\":\"transport_background_daemon_missing_result\"}\n");
+                }
+                fflush(stdout);
+                background_job_release_owned(&background_job);
+                continue;
+            }
+            printf("{\"event\":\"fieldmesh_iio_burst_transport_background_daemon_status\",\"ok\":true,"
+                   "\"native_iio_burst_transport_background_daemon\":%s,"
+                   "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
+                   "\"transport_background_daemon_start_count\":%llu,"
+                   "\"transport_background_daemon_xfer_count\":%llu,"
+                   "\"transport_background_daemon_scheduled_request_count\":%llu,"
+                   "\"transport_background_daemon_running\":%s,"
+                   "\"transport_background_daemon_done\":false,"
+                   "\"python_autonomous_loop_run_submission\":false,"
+                   "\"next_boundary\":\"native_iio_transport_integrated_rf_service_daemon\"}\n",
+                   transport_background_daemon_started ? "true" : "false",
+                   transport_background_daemon_start_count,
+                   transport_background_daemon_xfer_count,
+                   transport_background_daemon_scheduled_request_count,
+                   background_running ? "true" : "false");
+            fflush(stdout);
+            continue;
+        }
         if (strcmp(line, "QUIT") == 0) {
             printf("{\"event\":\"fieldmesh_iio_burst_xfer_server_quit\",\"ok\":true,"
                    "\"native_iio_burst_worker_lifecycle\":true,"
@@ -2275,6 +2570,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"native_iio_burst_transport_scheduler_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1\","
                    "\"native_iio_burst_transport_autonomous_loop\":%s,"
                    "\"native_iio_burst_transport_autonomous_loop_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1\","
+                   "\"native_iio_burst_transport_background_daemon\":%s,"
+                   "\"native_iio_burst_transport_background_daemon_proof\":\"FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1\","
                    "\"transport_session_start_count\":%llu,"
                    "\"transport_worker_request_count\":%llu,"
                    "\"transport_service_loop_start_count\":%llu,"
@@ -2285,12 +2582,16 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    "\"transport_autonomous_loop_start_count\":%llu,"
                    "\"transport_autonomous_loop_run_count\":%llu,"
                    "\"transport_autonomous_loop_scheduled_request_count\":%llu,"
+                   "\"transport_background_daemon_start_count\":%llu,"
+                   "\"transport_background_daemon_xfer_count\":%llu,"
+                   "\"transport_background_daemon_scheduled_request_count\":%llu,"
                    "\"server_owned_xfer_loop\":true,"
                    "\"server_xfer_count\":%llu}\n",
                    transport_session_started ? "true" : "false",
                    transport_service_loop_started ? "true" : "false",
                    transport_scheduler_started ? "true" : "false",
                    transport_autonomous_loop_started ? "true" : "false",
+                   transport_background_daemon_started ? "true" : "false",
                    transport_session_start_count,
                    worker_request_count,
                    transport_service_loop_start_count,
@@ -2301,8 +2602,12 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    transport_autonomous_loop_start_count,
                    transport_autonomous_loop_run_count,
                    transport_autonomous_loop_scheduled_request_count,
+                   transport_background_daemon_start_count,
+                   transport_background_daemon_xfer_count,
+                   transport_background_daemon_scheduled_request_count,
                    xfer_count);
             fflush(stdout);
+            background_job_destroy(&background_job);
             return 0;
         }
         bool worker_xfer = strncmp(line, "WORKER_XFER ", 12) == 0;
@@ -2495,6 +2800,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
         }
         free(scheduler_request_file);
     }
+    background_job_destroy(&background_job);
     return 0;
 }
 

@@ -114,6 +114,11 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 is not True
             ):
                 raise SystemExit("native_ip: native IIO burst autonomous transport loop proof is missing")
+            if (
+                source.get("requires_iio_native_iio_burst_transport_background_daemon")
+                is not True
+            ):
+                raise SystemExit("native_ip: native IIO burst background transport daemon proof is missing")
             if source.get("requires_iio_in_burst_priority_preemption") is not True:
                 raise SystemExit("native_ip: IIO in-burst priority preemption proof is missing")
             if source.get("requires_iio_rf_sub_burst_evidence") is not True:
@@ -232,6 +237,16 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
                 is not True
             ):
                 raise SystemExit("native_ip: host native IIO burst autonomous transport loop proof is missing")
+            if (
+                source.get("board_iio_native_iio_burst_transport_background_daemon_proven")
+                is not True
+            ):
+                raise SystemExit("native_ip: board native IIO burst background transport daemon proof is missing")
+            if (
+                source.get("host_iio_native_iio_burst_transport_background_daemon_proven")
+                is not True
+            ):
+                raise SystemExit("native_ip: host native IIO burst background transport daemon proof is missing")
             if source.get("board_iio_bridge_in_burst_priority_preemption_enabled") is not True:
                 raise SystemExit("native_ip: board IIO in-burst priority preemption proof is missing")
             if source.get("host_iio_bridge_in_burst_priority_preemption_enabled") is not True:
@@ -320,6 +335,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_native_iio_burst_transport_service_loop",
         "requires_iio_native_iio_burst_transport_scheduler",
         "requires_iio_native_iio_burst_transport_autonomous_loop",
+        "requires_iio_native_iio_burst_transport_background_daemon",
         "requires_iio_in_burst_priority_preemption",
         "requires_iio_rf_sub_burst_evidence",
         "requires_iio_rf_service_policy_proof",
@@ -409,6 +425,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_native_iio_burst_transport_scheduler_proven",
         "board_iio_native_iio_burst_transport_autonomous_loop_proven",
         "host_iio_native_iio_burst_transport_autonomous_loop_proven",
+        "board_iio_native_iio_burst_transport_background_daemon_proven",
+        "host_iio_native_iio_burst_transport_background_daemon_proven",
+        "board_iio_native_iio_burst_transport_background_daemon_invocations",
+        "host_iio_native_iio_burst_transport_background_daemon_invocations",
         "board_iio_bridge_in_burst_priority_preemption_enabled",
         "host_iio_bridge_in_burst_priority_preemption_enabled",
         "board_iio_bridge_in_burst_priority_preemption_exercised",
