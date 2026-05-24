@@ -408,6 +408,43 @@ class BurstHelperServer:
             )
         return report
 
+    def run_state_daemon_transport_lifecycle_fields(
+        self, fields: dict[str, str], timeout_s: float
+    ) -> dict[str, Any]:
+        if self.proc.stdin is None:
+            raise SystemExit("iio_burst_helper server stdin is unavailable")
+        if self.proc.poll() is not None:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server is not running: stderr={stderr}")
+        for key, value in fields.items():
+            if "\n" in key or "\n" in value or "=" in key or " " in key or " " in value:
+                raise SystemExit(f"invalid IIO transport lifecycle field: {key!r}")
+        line = (
+            "TRANSPORT_STATE_DAEMON_LIFECYCLE_XFER_FIELDS "
+            + " ".join(f"{key}={value}" for key, value in fields.items())
+            + "\n"
+        )
+        try:
+            self.proc.stdin.write(line)
+            self.proc.stdin.flush()
+        except BrokenPipeError as exc:
+            stderr = self._stderr_after_exit().strip()
+            raise SystemExit(f"iio_burst_helper server pipe broke: stderr={stderr}") from exc
+        report = self._read_json_line(timeout_s, "state_daemon_transport_lifecycle_xfer")
+        if (
+            report.get("event") != "fieldmesh_iio_burst_xfer"
+            or report.get("ok") is not True
+            or report.get("native_iio_burst_state_daemon_transport_lifecycle_proof")
+            != "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1"
+            or report.get("python_transport_helper_command_status_pacing") is not False
+        ):
+            self.close(kill=True)
+            raise SystemExit(
+                "iio_burst_helper state-daemon transport lifecycle failed: "
+                f"{report}"
+            )
+        return report
+
     def status_transport_integrated_rf_service_daemon(self, timeout_s: float) -> dict[str, Any]:
         if self.proc.stdin is None:
             raise SystemExit("iio_burst_helper server stdin is unavailable")
@@ -1162,23 +1199,6 @@ def execute_live_with_helper(
     if getattr(args, "persistent_burst_helper", False):
         server = helper_server_for(args, helper_argv, channels)
         helper_ready = dict(server.ready)
-        helper_transport_start = dict(
-            server.start_transport_session(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_service_loop_start = dict(
-            server.start_transport_service_loop(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_scheduler_start = dict(
-            server.start_transport_scheduler(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_autonomous_loop_start = dict(
-            server.start_transport_autonomous_loop(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_integrated_rf_service_daemon_start = dict(
-            server.start_transport_integrated_rf_service_daemon(
-                max(args.timeout_ms / 1000.0, 1.0)
-            )
-        )
         xfer_fields = {
             "tx_file": str(tx_row["stdin_file"]),
             "rx_file": str(capture_path),
@@ -1191,41 +1211,25 @@ def execute_live_with_helper(
         }
         request_path: Path | None = None
         scheduler_queue_path: Path | None = None
-        helper_transport_integrated_rf_service_daemon_enqueue = dict(
-            server.enqueue_transport_integrated_rf_service_daemon_fields(
+        helper_report = dict(
+            server.run_state_daemon_transport_lifecycle_fields(
                 xfer_fields,
-                max(args.timeout_ms / 1000.0, 1.0),
+                max(args.timeout_ms / 1000.0 + 2.0, 3.0),
             )
         )
-        helper_transport_background_daemon_start = dict(
-            helper_transport_integrated_rf_service_daemon_enqueue
-        )
-        helper_report, helper_transport_background_daemon_status = (
-            server.wait_transport_background_daemon(
-                max(args.timeout_ms / 1000.0 + 2.0, 3.0)
-            )
-        )
-        if not helper_transport_background_daemon_status:
-            helper_transport_background_daemon_status = dict(
-                server.status_transport_background_daemon(max(args.timeout_ms / 1000.0, 1.0))
-            )
-        helper_transport_autonomous_loop_status = dict(
-            server.status_transport_autonomous_loop(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_integrated_rf_service_daemon_status = dict(
-            server.status_transport_integrated_rf_service_daemon(
-                max(args.timeout_ms / 1000.0, 1.0)
-            )
-        )
-        helper_transport_scheduler_status = dict(
-            server.status_transport_scheduler(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_status = dict(
-            server.status_transport_session(max(args.timeout_ms / 1000.0, 1.0))
-        )
-        helper_transport_service_loop_status = dict(
-            server.status_transport_service_loop(max(args.timeout_ms / 1000.0, 1.0))
-        )
+        helper_transport_start = dict(helper_report)
+        helper_transport_status = dict(helper_report)
+        helper_transport_service_loop_start = dict(helper_report)
+        helper_transport_service_loop_status = dict(helper_report)
+        helper_transport_scheduler_start = dict(helper_report)
+        helper_transport_scheduler_status = dict(helper_report)
+        helper_transport_autonomous_loop_start = dict(helper_report)
+        helper_transport_autonomous_loop_status = dict(helper_report)
+        helper_transport_background_daemon_start = dict(helper_report)
+        helper_transport_background_daemon_status = dict(helper_report)
+        helper_transport_integrated_rf_service_daemon_start = dict(helper_report)
+        helper_transport_integrated_rf_service_daemon_enqueue = dict(helper_report)
+        helper_transport_integrated_rf_service_daemon_status = dict(helper_report)
         stdout = json.dumps(helper_report, sort_keys=True) + "\n"
         returncode = 0 if helper_report.get("ok") is True else 1
         stderr = ""
@@ -1433,11 +1437,32 @@ def execute_live_with_helper(
         "transport_state_daemon_queue_request_count": helper_report.get(
             "transport_state_daemon_queue_request_count"
         ),
+        "native_iio_burst_state_daemon_transport_lifecycle": (
+            helper_report.get("native_iio_burst_state_daemon_transport_lifecycle") is True
+        ),
+        "native_iio_burst_state_daemon_transport_lifecycle_proof": helper_report.get(
+            "native_iio_burst_state_daemon_transport_lifecycle_proof"
+        ),
+        "transport_state_daemon_lifecycle_xfer": (
+            helper_report.get("transport_state_daemon_lifecycle_xfer") is True
+        ),
+        "transport_state_daemon_lifecycle_xfer_count": helper_report.get(
+            "transport_state_daemon_lifecycle_xfer_count"
+        ),
         "python_transport_request_file_submission": (
             helper_report.get("python_transport_request_file_submission") is True
         ),
         "python_transport_scheduler_queue_file_submission": (
             helper_report.get("python_transport_scheduler_queue_file_submission") is True
+        ),
+        "python_transport_helper_command_status_pacing": (
+            helper_report.get("python_transport_helper_command_status_pacing") is True
+        ),
+        "python_integrated_daemon_enqueue_submission": (
+            helper_report.get("python_integrated_daemon_enqueue_submission") is True
+        ),
+        "python_background_daemon_status_polling": (
+            helper_report.get("python_background_daemon_status_polling") is True
         ),
         "transport_worker_request": helper_report.get("transport_worker_request") is True,
         "transport_worker_request_count": helper_report.get("transport_worker_request_count"),
@@ -1605,11 +1630,32 @@ def execute_live_with_helper(
             "transport_state_daemon_queue_request_count": helper_result[
                 "transport_state_daemon_queue_request_count"
             ],
+            "native_iio_burst_state_daemon_transport_lifecycle": helper_result[
+                "native_iio_burst_state_daemon_transport_lifecycle"
+            ],
+            "native_iio_burst_state_daemon_transport_lifecycle_proof": helper_result[
+                "native_iio_burst_state_daemon_transport_lifecycle_proof"
+            ],
+            "transport_state_daemon_lifecycle_xfer": helper_result[
+                "transport_state_daemon_lifecycle_xfer"
+            ],
+            "transport_state_daemon_lifecycle_xfer_count": helper_result[
+                "transport_state_daemon_lifecycle_xfer_count"
+            ],
             "python_transport_request_file_submission": helper_result[
                 "python_transport_request_file_submission"
             ],
             "python_transport_scheduler_queue_file_submission": helper_result[
                 "python_transport_scheduler_queue_file_submission"
+            ],
+            "python_transport_helper_command_status_pacing": helper_result[
+                "python_transport_helper_command_status_pacing"
+            ],
+            "python_integrated_daemon_enqueue_submission": helper_result[
+                "python_integrated_daemon_enqueue_submission"
+            ],
+            "python_background_daemon_status_polling": helper_result[
+                "python_background_daemon_status_polling"
             ],
             "transport_worker_request": helper_result["transport_worker_request"],
             "transport_worker_request_count": helper_result["transport_worker_request_count"],
@@ -2059,6 +2105,26 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
     )
+    native_iio_burst_state_daemon_transport_lifecycle_proven = bool(
+        not native_iio_burst_worker_required
+        or (
+            command_results
+            and any(
+                result.get("name") == "iio_burst_helper"
+                and result.get("returncode") == 0
+                and result.get("native_iio_burst_state_daemon_transport_lifecycle") is True
+                and result.get("native_iio_burst_state_daemon_transport_lifecycle_proof")
+                == "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1"
+                and result.get("transport_state_daemon_lifecycle_xfer") is True
+                and isinstance(result.get("transport_state_daemon_lifecycle_xfer_count"), int)
+                and result.get("transport_state_daemon_lifecycle_xfer_count") >= 1
+                and result.get("python_transport_helper_command_status_pacing") is False
+                and result.get("python_integrated_daemon_enqueue_submission") is False
+                and result.get("python_background_daemon_status_polling") is False
+                for result in command_results
+            )
+        )
+    )
 
     safety = {
         "authorized_rf_path": True,
@@ -2127,6 +2193,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "native_iio_burst_state_daemon_transport_queue_proven": (
             native_iio_burst_state_daemon_transport_queue_proven
+        ),
+        "native_iio_burst_state_daemon_transport_lifecycle_proven": (
+            native_iio_burst_state_daemon_transport_lifecycle_proven
         ),
         "decode": decode,
         "elapsed_ms": int((time.monotonic() - started) * 1000),

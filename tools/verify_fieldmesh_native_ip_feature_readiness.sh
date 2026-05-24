@@ -33,6 +33,7 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "requires_iio_native_iio_burst_transport_background_daemon": true,
   "requires_iio_native_iio_burst_integrated_rf_service_daemon": true,
   "requires_iio_native_iio_burst_state_daemon_transport_queue": true,
+  "requires_iio_native_iio_burst_state_daemon_transport_lifecycle": true,
   "requires_iio_rf_sub_burst_evidence": true,
   "requires_iio_rf_service_policy_proof": true,
   "requires_iio_native_rf_service_worker_proof": true,
@@ -121,6 +122,10 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_native_iio_burst_state_daemon_transport_queue_proven": true,
   "board_iio_native_iio_burst_state_daemon_transport_queue_invocations": 3,
   "host_iio_native_iio_burst_state_daemon_transport_queue_invocations": 3,
+  "board_iio_native_iio_burst_state_daemon_transport_lifecycle_proven": true,
+  "host_iio_native_iio_burst_state_daemon_transport_lifecycle_proven": true,
+  "board_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations": 3,
+  "host_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations": 3,
   "requires_iio_state_daemon_iio_transport": true,
   "board_iio_state_daemon_iio_transport_proven": true,
   "host_iio_state_daemon_iio_transport_proven": true,
@@ -218,6 +223,8 @@ if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is n
     raise SystemExit(f"native-IP readiness lost native IIO burst integrated RF service daemon requirement: {report!r}")
 if report.get("requires_iio_native_iio_burst_state_daemon_transport_queue") is not True:
     raise SystemExit(f"native-IP readiness lost native IIO burst state-daemon transport queue requirement: {report!r}")
+if report.get("requires_iio_native_iio_burst_state_daemon_transport_lifecycle") is not True:
+    raise SystemExit(f"native-IP readiness lost native IIO burst state-daemon transport lifecycle requirement: {report!r}")
 if report.get("requires_iio_state_daemon_iio_transport") is not True:
     raise SystemExit(f"native-IP readiness lost state-daemon IIO transport requirement: {report!r}")
 if report.get("requires_iio_rf_sub_burst_evidence") is not True:

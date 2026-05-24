@@ -258,6 +258,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_iio_native_iio_burst_state_daemon_transport_queue"] = (
             native_ip.get("requires_iio_native_iio_burst_state_daemon_transport_queue") is True
         )
+        detail["native_ip_requires_iio_native_iio_burst_state_daemon_transport_lifecycle"] = (
+            native_ip.get("requires_iio_native_iio_burst_state_daemon_transport_lifecycle") is True
+        )
         detail["native_ip_requires_iio_state_daemon_iio_transport"] = (
             native_ip.get("requires_iio_state_daemon_iio_transport") is True
         )
@@ -456,6 +459,14 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             native_ip.get("host_iio_native_iio_burst_state_daemon_transport_queue_proven")
             is True
         )
+        detail["native_ip_board_iio_native_iio_burst_state_daemon_transport_lifecycle_proven"] = (
+            native_ip.get("board_iio_native_iio_burst_state_daemon_transport_lifecycle_proven")
+            is True
+        )
+        detail["native_ip_host_iio_native_iio_burst_state_daemon_transport_lifecycle_proven"] = (
+            native_ip.get("host_iio_native_iio_burst_state_daemon_transport_lifecycle_proven")
+            is True
+        )
         detail["native_ip_board_iio_state_daemon_iio_transport_proven"] = (
             native_ip.get("board_iio_state_daemon_iio_transport_proven") is True
         )
@@ -564,6 +575,11 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 is not True
             ):
                 blockers.append("native_ip_native_iio_burst_state_daemon_transport_queue_missing")
+            if (
+                native_ip.get("requires_iio_native_iio_burst_state_daemon_transport_lifecycle")
+                is not True
+            ):
+                blockers.append("native_ip_native_iio_burst_state_daemon_transport_lifecycle_missing")
             if native_ip.get("requires_iio_state_daemon_iio_transport") is not True:
                 blockers.append("native_ip_state_daemon_iio_transport_missing")
             if native_ip.get("requires_iio_in_burst_priority_preemption") is not True:
@@ -734,6 +750,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 is not True
             ):
                 blockers.append("native_ip_host_native_iio_burst_state_daemon_transport_queue_missing")
+            if (
+                native_ip.get("board_iio_native_iio_burst_state_daemon_transport_lifecycle_proven")
+                is not True
+            ):
+                blockers.append("native_ip_board_native_iio_burst_state_daemon_transport_lifecycle_missing")
+            if (
+                native_ip.get("host_iio_native_iio_burst_state_daemon_transport_lifecycle_proven")
+                is not True
+            ):
+                blockers.append("native_ip_host_native_iio_burst_state_daemon_transport_lifecycle_missing")
             if native_ip.get("board_iio_state_daemon_iio_transport_proven") is not True:
                 blockers.append("native_ip_board_state_daemon_iio_transport_missing")
             if native_ip.get("host_iio_state_daemon_iio_transport_proven") is not True:

@@ -72,6 +72,7 @@ for key in (
     "native_iio_burst_transport_background_daemon_supported",
     "native_iio_burst_integrated_rf_service_daemon_supported",
     "native_iio_burst_state_daemon_transport_queue_supported",
+    "native_iio_burst_state_daemon_transport_lifecycle_supported",
     "libiio_rx_tx_worker",
     "same_process_rx_tx",
 ):
@@ -95,6 +96,8 @@ if report.get("native_iio_burst_integrated_rf_service_daemon_proof") != "FIELDME
     raise SystemExit(f"C native IIO burst integrated RF service daemon proof token drifted: {report}")
 if report.get("native_iio_burst_state_daemon_transport_queue_proof") != "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1":
     raise SystemExit(f"C native IIO burst state-daemon transport queue proof token drifted: {report}")
+if report.get("native_iio_burst_state_daemon_transport_lifecycle_proof") != "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1":
+    raise SystemExit(f"C native IIO burst state-daemon transport lifecycle proof token drifted: {report}")
 if report.get("python_xfer_field_orchestration") is not False:
     raise SystemExit(f"C native IIO transport worker must reject Python field orchestration: {report}")
 if report.get("python_worker_xfer_submission") is not False:
@@ -111,6 +114,12 @@ if report.get("python_transport_request_file_submission") is not False:
     raise SystemExit(f"C native IIO state-daemon transport queue must reject Python request-file submission: {report}")
 if report.get("python_transport_scheduler_queue_file_submission") is not False:
     raise SystemExit(f"C native IIO state-daemon transport queue must reject Python scheduler-queue file submission: {report}")
+if report.get("python_transport_helper_command_status_pacing") is not False:
+    raise SystemExit(f"C native IIO state-daemon transport lifecycle must reject Python helper command/status pacing: {report}")
+if report.get("python_integrated_daemon_enqueue_submission") is not False:
+    raise SystemExit(f"C native IIO state-daemon transport lifecycle must reject Python integrated-daemon enqueue pacing: {report}")
+if report.get("python_background_daemon_status_polling") is not False:
+    raise SystemExit(f"C native IIO state-daemon transport lifecycle must reject Python background status polling: {report}")
 for key in ("python_iio_transport", "reads_hardware", "writes_hardware", "starts_rf_tx"):
     if report.get(key) is not False:
         raise SystemExit(f"C native IIO worker self-test must be read/write-free for {key}: {report}")
@@ -440,6 +449,7 @@ required = [
     "FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1",
     "FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1",
     "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1",
+    "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1",
     "TRANSPORT_WORKER_START",
     "TRANSPORT_WORKER_STATUS",
     "TRANSPORT_SERVICE_LOOP_START",
@@ -457,6 +467,7 @@ required = [
     "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_STATUS",
     "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE",
     "TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE_FIELDS",
+    "TRANSPORT_STATE_DAEMON_LIFECYCLE_XFER_FIELDS",
     "WORKER_XFER",
     "fieldmesh_iio_burst_transport_worker_start",
     "fieldmesh_iio_burst_transport_worker_status",
@@ -476,6 +487,7 @@ required = [
     "fieldmesh_iio_burst_integrated_rf_service_daemon_status",
     "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue",
     "fieldmesh_iio_burst_integrated_rf_service_daemon_enqueue_fields",
+    "fieldmesh_iio_burst_state_daemon_transport_lifecycle_xfer",
     "native_iio_burst_worker",
     "persistent_native_iio_burst_worker",
     "native_iio_burst_worker_lifecycle",
@@ -489,6 +501,7 @@ required = [
     "native_iio_burst_transport_background_daemon",
     "native_iio_burst_integrated_rf_service_daemon",
     "native_iio_burst_state_daemon_transport_queue",
+    "native_iio_burst_state_daemon_transport_lifecycle",
     "transport_session_start_count",
     "transport_worker_request_count",
     "transport_service_loop_start_count",
@@ -506,6 +519,7 @@ required = [
     "transport_integrated_rf_service_daemon_enqueue_count",
     "transport_integrated_rf_service_daemon_drained_count",
     "transport_state_daemon_queue_request_count",
+    "transport_state_daemon_lifecycle_xfer_count",
     "python_xfer_field_orchestration",
     "python_worker_xfer_submission",
     "python_direct_service_loop_run",
@@ -514,6 +528,9 @@ required = [
     "python_background_daemon_start_submission",
     "python_transport_request_file_submission",
     "python_transport_scheduler_queue_file_submission",
+    "python_transport_helper_command_status_pacing",
+    "python_integrated_daemon_enqueue_submission",
+    "python_background_daemon_status_polling",
     "native_transport_worker_autonomous_daemon",
     "libiio_rx_tx_worker",
     "python_iio_transport",

@@ -75,6 +75,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_state_daemon_transport_queue_proven": true,
   "iio_bridge_native_iio_burst_state_daemon_transport_queue_invocations": 3,
   "iio_bridge_native_iio_burst_state_daemon_transport_queue_failures": 0,
+  "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_proven": true,
+  "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_invocations": 3,
+  "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_failures": 0,
   "iio_bridge_state_daemon_iio_transport_required": true,
   "iio_bridge_state_daemon_iio_transport_proven": true,
   "iio_bridge_state_daemon_iio_transport_status_polls": 2,
@@ -353,6 +356,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_state_daemon_transport_queue_proven": true,
   "iio_bridge_native_iio_burst_state_daemon_transport_queue_invocations": 3,
   "iio_bridge_native_iio_burst_state_daemon_transport_queue_failures": 0,
+  "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_proven": true,
+  "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_invocations": 3,
+  "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_failures": 0,
   "iio_bridge_state_daemon_iio_transport_required": true,
   "iio_bridge_state_daemon_iio_transport_proven": true,
   "iio_bridge_state_daemon_iio_transport_status_polls": 2,
@@ -629,6 +635,8 @@ if report.get("requires_iio_native_iio_burst_integrated_rf_service_daemon") is n
     raise SystemExit(f"missing native IIO burst integrated RF service daemon requirement: {report}")
 if report.get("requires_iio_native_iio_burst_state_daemon_transport_queue") is not True:
     raise SystemExit(f"missing native IIO burst state-daemon transport queue requirement: {report}")
+if report.get("requires_iio_native_iio_burst_state_daemon_transport_lifecycle") is not True:
+    raise SystemExit(f"missing native IIO burst state-daemon transport lifecycle requirement: {report}")
 if report.get("requires_iio_state_daemon_iio_transport") is not True:
     raise SystemExit(f"missing state-daemon IIO transport requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:

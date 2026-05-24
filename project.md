@@ -1415,8 +1415,9 @@ user and vendor configuration.
   errors; production evidence now also requires the helper's native server
   lifecycle proof (`FIELDMESH_IIO_BURST_NATIVE_WORKER_LIFECYCLE v1`) and positive
   server-owned transfer counters, not only one-shot helper-native proof. The
-  persistent helper now starts a C integrated RF-service daemon, enqueues native
-  transfer fields through `TRANSPORT_INTEGRATED_RF_SERVICE_DAEMON_ENQUEUE_FIELDS`, and
+  persistent helper now runs one C-owned state-daemon transport lifecycle command
+  through `TRANSPORT_STATE_DAEMON_LIFECYCLE_XFER_FIELDS`, which starts the
+  native transport layers, queues transfer fields, waits for completion in C, and
   reports
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_WORKER v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SESSION v1`, and
@@ -1424,8 +1425,9 @@ user and vendor configuration.
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_SCHEDULER v1` and
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_AUTONOMOUS_LOOP v1`,
   `FIELDMESH_IIO_BURST_NATIVE_TRANSPORT_BACKGROUND_DAEMON v1`,
-  `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1`, and
-  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1` with
+  `FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1`,
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1`, and
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1` with
   both endpoint state daemons also proving
   `FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1`,
   `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`, positive
@@ -1438,8 +1440,11 @@ user and vendor configuration.
   `python_autonomous_loop_run_submission=false`, and
   `python_background_daemon_start_submission=false`,
   `python_transport_request_file_submission=false`, and
-  `python_transport_scheduler_queue_file_submission=false`, so native-IP archives must prove the
-  transfer request crossed a started native integrated RF-service daemon boundary. The
+  `python_transport_scheduler_queue_file_submission=false`,
+  `python_transport_helper_command_status_pacing=false`,
+  `python_integrated_daemon_enqueue_submission=false`, and
+  `python_background_daemon_status_polling=false`, so native-IP archives must prove the
+  transfer request crossed a C-owned state-daemon transport lifecycle boundary. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

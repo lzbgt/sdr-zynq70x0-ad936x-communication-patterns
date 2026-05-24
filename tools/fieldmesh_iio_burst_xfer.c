@@ -103,6 +103,7 @@ struct options {
     bool native_transport_background_daemon_mode;
     bool native_transport_integrated_rf_service_daemon_mode;
     bool native_transport_state_daemon_queue_mode;
+    bool native_transport_state_daemon_lifecycle_mode;
     unsigned long long transport_session_start_count;
     unsigned long long transport_worker_request_count;
     unsigned long long transport_service_loop_start_count;
@@ -120,6 +121,7 @@ struct options {
     unsigned long long transport_integrated_rf_service_daemon_enqueue_count;
     unsigned long long transport_integrated_rf_service_daemon_drained_count;
     unsigned long long transport_state_daemon_queue_request_count;
+    unsigned long long transport_state_daemon_lifecycle_xfer_count;
 };
 
 struct rx_job {
@@ -190,6 +192,8 @@ static int run_native_worker_self_test(void)
            "\"native_iio_burst_integrated_rf_service_daemon_proof\":\"FIELDMESH_IIO_BURST_INTEGRATED_RF_SERVICE_DAEMON v1\","
            "\"native_iio_burst_state_daemon_transport_queue_supported\":true,"
            "\"native_iio_burst_state_daemon_transport_queue_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1\","
+           "\"native_iio_burst_state_daemon_transport_lifecycle_supported\":true,"
+           "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1\","
            "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
            "\"native_iio_burst_transport_service_loop_event\":\"fieldmesh_iio_burst_transport_service_loop_run\","
            "\"native_iio_burst_transport_scheduler_event\":\"fieldmesh_iio_burst_transport_scheduler_drain\","
@@ -204,6 +208,9 @@ static int run_native_worker_self_test(void)
            "\"python_background_daemon_start_submission\":false,"
            "\"python_transport_request_file_submission\":false,"
            "\"python_transport_scheduler_queue_file_submission\":false,"
+           "\"python_transport_helper_command_status_pacing\":false,"
+           "\"python_integrated_daemon_enqueue_submission\":false,"
+           "\"python_background_daemon_status_polling\":false,"
            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
            "\"libiio_rx_tx_worker\":true,"
            "\"same_process_rx_tx\":true,"
@@ -1805,8 +1812,15 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"native_iio_burst_state_daemon_transport_queue_proof\":\"%s\","
             "\"transport_state_daemon_queue_request\":%s,"
             "\"transport_state_daemon_queue_request_count\":%llu,"
+            "\"native_iio_burst_state_daemon_transport_lifecycle\":%s,"
+            "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"%s\","
+            "\"transport_state_daemon_lifecycle_xfer\":%s,"
+            "\"transport_state_daemon_lifecycle_xfer_count\":%llu,"
             "\"python_transport_request_file_submission\":%s,"
             "\"python_transport_scheduler_queue_file_submission\":%s,"
+            "\"python_transport_helper_command_status_pacing\":%s,"
+            "\"python_integrated_daemon_enqueue_submission\":%s,"
+            "\"python_background_daemon_status_polling\":%s,"
             "\"python_xfer_field_orchestration\":%s,"
             "\"python_worker_xfer_submission\":%s,"
             "\"python_direct_service_loop_run\":%s,"
@@ -1873,8 +1887,16 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1" : "",
             opt->native_transport_state_daemon_queue_mode ? "true" : "false",
             opt->transport_state_daemon_queue_request_count,
+            opt->native_transport_state_daemon_lifecycle_mode ? "true" : "false",
+            opt->native_transport_state_daemon_lifecycle_mode ?
+                "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1" : "",
+            opt->native_transport_state_daemon_lifecycle_mode ? "true" : "false",
+            opt->transport_state_daemon_lifecycle_xfer_count,
             opt->native_transport_state_daemon_queue_mode ? "false" : "true",
             opt->native_transport_state_daemon_queue_mode ? "false" : "true",
+            opt->native_transport_state_daemon_lifecycle_mode ? "false" : "true",
+            opt->native_transport_state_daemon_lifecycle_mode ? "false" : "true",
+            opt->native_transport_state_daemon_lifecycle_mode ? "false" : "true",
             opt->native_transport_worker_mode ? "false" : "true",
             (opt->native_transport_service_loop_mode ||
              opt->native_transport_autonomous_loop_mode) ? "false" :
@@ -2124,6 +2146,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
     unsigned long long transport_integrated_rf_service_daemon_enqueue_count = 0;
     unsigned long long transport_integrated_rf_service_daemon_drained_count = 0;
     unsigned long long transport_state_daemon_queue_request_count = 0;
+    unsigned long long transport_state_daemon_lifecycle_xfer_count = 0;
     bool transport_session_started = false;
     bool transport_service_loop_started = false;
     bool transport_scheduler_started = false;
@@ -2483,6 +2506,133 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                    transport_integrated_rf_service_daemon_enqueue_count,
                    transport_integrated_rf_service_daemon_drained_count);
             fflush(stdout);
+            continue;
+        }
+        const char *state_lifecycle_xfer_prefix =
+            "TRANSPORT_STATE_DAEMON_LIFECYCLE_XFER_FIELDS ";
+        if (strncmp(line, state_lifecycle_xfer_prefix,
+                    strlen(state_lifecycle_xfer_prefix)) == 0) {
+            pthread_mutex_lock(&background_job.lock);
+            bool background_running = background_job.active && background_job.running;
+            bool background_done = background_job.active && background_job.done;
+            pthread_mutex_unlock(&background_job.lock);
+            if (background_running) {
+                printf("{\"event\":\"fieldmesh_iio_burst_state_daemon_transport_lifecycle_xfer\","
+                       "\"ok\":false,"
+                       "\"native_iio_burst_state_daemon_transport_lifecycle\":true,"
+                       "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1\","
+                       "\"error\":\"transport_background_daemon_busy\"}\n");
+                fflush(stdout);
+                continue;
+            }
+            if (background_done) {
+                pthread_join(background_job.thread, NULL);
+                background_job.active = false;
+                background_job_release_owned(&background_job);
+            }
+            if (!transport_session_started) {
+                transport_session_started = true;
+                transport_session_start_count++;
+            }
+            if (!transport_service_loop_started) {
+                transport_service_loop_started = true;
+                transport_service_loop_start_count++;
+            }
+            if (!transport_scheduler_started) {
+                transport_scheduler_started = true;
+                transport_scheduler_start_count++;
+            }
+            if (!transport_autonomous_loop_started) {
+                transport_autonomous_loop_started = true;
+                transport_autonomous_loop_start_count++;
+            }
+            if (!transport_integrated_rf_service_daemon_started) {
+                transport_integrated_rf_service_daemon_started = true;
+                transport_integrated_rf_service_daemon_start_count++;
+            }
+
+            struct options req = *base;
+            req.tx_file = NULL;
+            req.rx_file = NULL;
+            req.tx_samples = 0;
+            req.rx_samples = 0;
+            req.persistent_server_mode = true;
+            req.server_xfer_count = xfer_count + 1ULL;
+            req.native_transport_worker_mode = true;
+            req.native_transport_session_mode = true;
+            req.native_transport_service_loop_mode = true;
+            req.native_transport_scheduler_mode = true;
+            req.native_transport_autonomous_loop_mode = true;
+            req.native_transport_background_daemon_mode = true;
+            req.native_transport_integrated_rf_service_daemon_mode = true;
+            req.native_transport_state_daemon_queue_mode = true;
+            req.native_transport_state_daemon_lifecycle_mode = true;
+            req.transport_session_start_count = transport_session_start_count;
+            req.transport_worker_request_count = worker_request_count + 1ULL;
+            req.transport_service_loop_start_count = transport_service_loop_start_count;
+            req.transport_service_loop_run_count = transport_service_loop_run_count + 1ULL;
+            req.transport_scheduler_start_count = transport_scheduler_start_count;
+            req.transport_scheduler_drain_count = transport_scheduler_drain_count + 1ULL;
+            req.transport_scheduler_scheduled_request_count =
+                transport_scheduler_scheduled_request_count + 1ULL;
+            req.transport_autonomous_loop_start_count = transport_autonomous_loop_start_count;
+            req.transport_autonomous_loop_run_count = transport_autonomous_loop_run_count + 1ULL;
+            req.transport_autonomous_loop_scheduled_request_count =
+                transport_autonomous_loop_scheduled_request_count + 1ULL;
+            req.transport_background_daemon_start_count =
+                transport_background_daemon_start_count + 1ULL;
+            req.transport_background_daemon_xfer_count =
+                transport_background_daemon_xfer_count + 1ULL;
+            req.transport_background_daemon_scheduled_request_count =
+                transport_background_daemon_scheduled_request_count + 1ULL;
+            req.transport_integrated_rf_service_daemon_start_count =
+                transport_integrated_rf_service_daemon_start_count;
+            req.transport_integrated_rf_service_daemon_enqueue_count =
+                transport_integrated_rf_service_daemon_enqueue_count + 1ULL;
+            req.transport_integrated_rf_service_daemon_drained_count =
+                transport_integrated_rf_service_daemon_drained_count + 1ULL;
+            req.transport_state_daemon_queue_request_count =
+                transport_state_daemon_queue_request_count + 1ULL;
+            req.transport_state_daemon_lifecycle_xfer_count =
+                transport_state_daemon_lifecycle_xfer_count + 1ULL;
+
+            int request_ok = load_worker_request_fields(
+                &req,
+                line + strlen(state_lifecycle_xfer_prefix));
+            if (request_ok != 0 || !req.tx_file || !req.rx_file ||
+                req.tx_samples == 0 || req.rx_samples == 0) {
+                free((char *)req.tx_file);
+                free((char *)req.rx_file);
+                printf("{\"event\":\"fieldmesh_iio_burst_state_daemon_transport_lifecycle_xfer\","
+                       "\"ok\":false,"
+                       "\"native_iio_burst_state_daemon_transport_lifecycle\":true,"
+                       "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1\","
+                       "\"error\":\"invalid_transport_request\"}\n");
+                fflush(stdout);
+                continue;
+            }
+
+            int rc = run_xfer(rx_dev, tx_dev, &req, stdout);
+            xfer_count++;
+            worker_request_count++;
+            transport_service_loop_run_count++;
+            transport_scheduler_drain_count++;
+            transport_scheduler_scheduled_request_count++;
+            transport_autonomous_loop_run_count++;
+            transport_autonomous_loop_scheduled_request_count++;
+            transport_background_daemon_started = true;
+            transport_background_daemon_start_count++;
+            transport_background_daemon_xfer_count++;
+            transport_background_daemon_scheduled_request_count++;
+            transport_integrated_rf_service_daemon_enqueue_count++;
+            transport_integrated_rf_service_daemon_drained_count++;
+            transport_state_daemon_queue_request_count++;
+            transport_state_daemon_lifecycle_xfer_count++;
+            free((char *)req.tx_file);
+            free((char *)req.rx_file);
+            if (rc != 0) {
+                continue;
+            }
             continue;
         }
         const char *integrated_enqueue_prefix =
