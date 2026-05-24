@@ -779,6 +779,10 @@ exposes a `--rollback --request <json>` mode used by the generated trap. For
 CI only, `FIELD_MESH_BACKEND_CTRL_MEM_FILE` points those RF-control reads and
 writes at a synthetic sidecar control-window image while IIO remains dry-run,
 and `FIELD_MESH_BACKEND_CTRL_MEM_NO_WRITE=1` proves stale readback is rejected.
+`tools/fieldmesh_rf_tx_backend_readback_evidence.py` converts a successful
+`fieldmesh_rf_tx_enable_run.json` into a compact production evidence artifact
+that requires the backend's C pre-write policy, DAC source-select readback, RF
+guard-arm readback, native tune/gain phases, bounded sleep, and rollback proof.
 The legacy
 `fieldmesh-radio-safe-tune`, `fieldmesh-radio-tx-enable`, and
 `fieldmesh-radio-tx-disable` shell helpers remain packaged for review and
@@ -995,7 +999,10 @@ dry-run unless live RF, hardware writes, RF TX, daemon queue mutation, RF path
 evidence, RF path ID, the board RF PHY bind-gate report, and the exact operator
 confirmation are all provided. The bind-gate report must include firmware-DMA
 counter progression from the C/FPGA-native endpoint before measured-link
-evidence can be accepted. The production sequence also derives and bundles a
+evidence can be accepted. Production-ready evidence also requires
+`TX_ENABLE_RUN_REPORT` so the final archive carries the compiled TX backend's
+C RF-control readback proof instead of relying on transient console output. The
+production sequence also derives and bundles a
 `fieldmesh_rf_hardware_progression_evidence` report from that bind-gate proof,
 so the final evidence manifest contains the before/after firmware-DMA
 snapshots, required deltas, FPGA service-latency counters checked against the

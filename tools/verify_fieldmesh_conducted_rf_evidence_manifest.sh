@@ -37,6 +37,7 @@ required = {
     "native_ip_app_report",
     "rf_bind_gate",
     "hardware_progression",
+    "tx_backend_readback",
     "production_gate",
 }
 if not required.issubset(labels):

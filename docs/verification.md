@@ -2508,6 +2508,10 @@ checks that run before TX gain can be enabled. The same verifier also runs the
 backend against `FIELD_MESH_BACKEND_CTRL_MEM_FILE` synthetic control windows:
 one passing image, one faulted-policy image, and one suppressed-write image
 that must fail source-select readback before any IIO event.
+`tools/fieldmesh_rf_tx_backend_readback_evidence.py` is the archive-facing
+normalizer for the same backend stdout; it accepts only a successful
+execute-live TX-enable run with C RF policy/readback, native tune/gain,
+bounded sleep, and rollback phases.
 The verifier does not touch board RF hardware.
 `ALLOW_LIVE_PREFLIGHT=1 FORCE_UPLOAD=1 VARIANT=z103
 ./tools/run_fieldmesh_board_rf_tx_guard_preflight.sh 192.168.3.1` then passed
@@ -4189,8 +4193,8 @@ Result:
 
 ```json
 {"event": "fieldmesh_conducted_rf_preflight_check", "rf_path_evidence_ok": true, "rf_bind_gate_ok": true, "live_rf_allowed": true, "ok": true, "production_ready_possible_after_run": true}
-{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "hardware_progression_bundled": true, "missing_rf_path_refused": true, "ok": true}
-{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","hardware_progression","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","rf_bind_gate","topology_app_report"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"hardware_progression_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true,"rf_bind_gate_event":true},"verified_files":9}
+{"complete_evidence_passed": true, "dry_run_blocked": true, "event": "fieldmesh_conducted_rf_production_sequence_check", "evidence_manifest_hashed": true, "hardware_progression_bundled": true, "missing_rf_path_refused": true, "ok": true, "tx_backend_readback_bundled": true}
+{"event":"fieldmesh_conducted_rf_evidence_manifest_check","expected_production_ready":true,"labels":["bridge","hardware_progression","iq_live_run","messaging_app_report","native_ip_app_report","preflight","production_gate","rf_bind_gate","topology_app_report","tx_backend_readback"],"ok":true,"production_ready":true,"semantic_checks":{"app_features":["messaging","native_ip","topology"],"bridge_event":true,"hardware_progression_event":true,"iq_live_run_event":true,"preflight_event":true,"production_gate_event":true,"rf_bind_gate_event":true,"tx_backend_readback_event":true},"verified_files":10}
 {"event":"fieldmesh_over_air_rf_production_sequence_check","live_rf_allowed":true,"ok":true,"preflight_alias":true,"rf_bind_gate_ok":true}
 ```
 
@@ -4219,7 +4223,9 @@ bridge, converts app/gate source outputs or raw feature reports into normalized
 messaging/topology/native-IP real-RF reports, and invokes the production gate.
 Dry-run is the default. Live RF still requires explicit hardware-write, RF-TX,
 daemon-queue mutation, RF path evidence, RF path ID, and operator-confirmation
-inputs. Production RF path evidence is authorized over-air evidence with
+inputs. Production-ready evidence also requires `TX_ENABLE_RUN_REPORT`, which
+is normalized into the bundled TX backend readback artifact before the manifest
+is written. Production RF path evidence is authorized over-air evidence with
 `production_evidence=true`; legacy lab-containment fixture evidence is an
 optional lab-containment path only, not the production model for boards that may
 be miles apart. Raw app feature evidence supplied to the wrapper must be correlated to
@@ -4228,8 +4234,8 @@ the same bridge and IQ live-run reports. The preferred wrapper also emits
 `fieldmesh_over_air_rf_evidence_manifest.json`, while preserving the legacy
 conducted-named files for compatibility. The evidence manifest records byte
 counts and SHA-256 hashes for the preflight report, bridge report, IQ live-run,
-RF bind-gate report, hardware-progression report, app reports, and production
-gate. Each entry is copied into a local
+RF bind-gate report, hardware-progression report, TX backend readback report,
+app reports, and production gate. Each entry is copied into a local
 `evidence/` directory under the sequence output and records both bundled `path`
 and original `source_path`. The final sequence summary includes the manifest
 path and its SHA-256 so a production-readiness claim can be audited without
@@ -4237,9 +4243,10 @@ relying on mutable path names alone. The standalone archive checker accepts both
 preferred over-air and legacy conducted event names, verifies the summary hash
 and every file entry, validates each required label has the expected report
 event and feature semantics, checks that hardware progression source matches the
-RF bind-gate evidence, and can require `production_ready=true` without rerunning
-the RF sequence. The verifier rejects both byte/hash tampering and a valid file
-placed under the wrong evidence label.
+RF bind-gate evidence, checks that TX backend readback evidence proves C
+policy/readback/tune/rollback phases, and can require `production_ready=true`
+without rerunning the RF sequence. The verifier rejects both byte/hash
+tampering and a valid file placed under the wrong evidence label.
 
 The SDK daemon gate now also exercises camera session/data-plane ingress with
 `FIELDMESH_CAMERA_SESSION_PLAN`, `FIELDMESH_ROUTE_METRICS`,

@@ -10,9 +10,11 @@ mkdir -p "$work_dir"
 
 "$repo_root/tools/verify_fieldmesh_iio_rf_worker_bridge.sh" >/dev/null
 "$repo_root/tools/verify_fieldmesh_rf_phy_readiness_classifier.sh" >/dev/null
+"$repo_root/tools/verify_fieldmesh_rf_tx_enable_run.sh" >/dev/null
 
 cp "$repo_root/.config/fieldmesh/iio-rf-worker-bridge-verify/dry-run/fieldmesh_iio_rf_worker_bridge.json" \
   "$work_dir/dry_bridge.json"
+tx_enable_run="$repo_root/.config/fieldmesh/rf-tx-enable-run/mock_live/fieldmesh_rf_tx_enable_run.json"
 
 cat > "$work_dir/rf_bind_gate.json" <<'JSON'
 {
@@ -223,6 +225,7 @@ PY
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+TX_ENABLE_RUN_REPORT="$tx_enable_run" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
 APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
@@ -246,10 +249,13 @@ if not report.get("rf_bind_gate_report") or not Path(report["rf_bind_gate_report
     raise SystemExit(f"complete sequence did not bundle RF bind-gate proof: {report}")
 if not report.get("hardware_progression_report") or not Path(report["hardware_progression_report"]).is_file():
     raise SystemExit(f"complete sequence did not bundle hardware progression proof: {report}")
+if not report.get("tx_backend_readback_report") or not Path(report["tx_backend_readback_report"]).is_file():
+    raise SystemExit(f"complete sequence did not bundle TX backend readback proof: {report}")
 PY
 
 BRIDGE_REPORT="$work_dir/live_bridge.json" \
 RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+TX_ENABLE_RUN_REPORT="$tx_enable_run" \
 APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
 APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
 NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT="$work_dir/native_ip_board_iperf.json" \
@@ -274,6 +280,19 @@ PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
+  APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
+  APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \
+  EXPECT_PRODUCTION_READY=1 \
+  OUT_DIR="$work_dir/missing-tx-backend-readback-sequence" \
+  "$repo_root/tools/run_fieldmesh_conducted_rf_production_sequence.sh" >/dev/null 2>&1; then
+  echo "over-air RF production sequence accepted production-ready evidence without TX backend readback proof" >&2
+  exit 1
+fi
+
+if BRIDGE_REPORT="$work_dir/live_bridge.json" \
+  RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
   NATIVE_IP_BOARD_TO_BOARD_IPERF_REPORT="$work_dir/native_ip_board_iperf.json" \
@@ -307,6 +326,7 @@ print(json.dumps({
     "complete_evidence_passed": True,
     "evidence_manifest_hashed": True,
     "hardware_progression_bundled": True,
+    "tx_backend_readback_bundled": True,
 }, sort_keys=True))
 PY
 
@@ -322,6 +342,7 @@ PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_feature.json" \
   APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
   APP_NATIVE_IP_FEATURE_REPORT="$work_dir/native_ip_bad_feature.json" \
@@ -338,6 +359,7 @@ JSON
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_SOURCE_REPORT="$work_dir/messaging_feature.json" \
   APP_TOPOLOGY_SOURCE_REPORT="$work_dir/topology_feature.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_socket_feature_only.json" \
@@ -360,6 +382,7 @@ PY
 
 if BRIDGE_REPORT="$work_dir/live_bridge.json" \
   RF_BIND_GATE_REPORT="$work_dir/rf_bind_gate.json" \
+  TX_ENABLE_RUN_REPORT="$tx_enable_run" \
   APP_MESSAGING_FEATURE_REPORT="$work_dir/messaging_uncorrelated_feature.json" \
   APP_TOPOLOGY_FEATURE_REPORT="$work_dir/topology_feature.json" \
   APP_NATIVE_IP_SOURCE_REPORT="$work_dir/native_ip_iperf_evidence.json" \

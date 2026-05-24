@@ -6,6 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/conducted-rf-production-sequence-$(date +%Y%m%d-%H%M%S)}"
 binding="${RF_BINDING_PLAN:-$repo_root/resources/variants/sdr-z203-z7020-2r2t/live-captures/z203_z103_rf_binding_gate_20260518-133210/rf_binding_plan.json}"
 rf_bind_gate_report="${RF_BIND_GATE_REPORT:-}"
+tx_enable_run_report="${TX_ENABLE_RUN_REPORT:-}"
 bridge_report="${BRIDGE_REPORT:-}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
 
@@ -55,6 +56,7 @@ To run live over-air RF, all of these are required:
 
 Evidence inputs:
   RF_BIND_GATE_REPORT=/path/to/fieldmesh_board_rf_phy_bind_gate.json
+  TX_ENABLE_RUN_REPORT=/path/to/fieldmesh_rf_tx_enable_run.json
   RF_BINDING_PLAN=/path/to/rf_binding_plan.json
   Either BRIDGE_REPORT=/path/to/fieldmesh_iio_rf_worker_bridge.json
   Or SOURCE_HOST=<tx-daemon-ip> [LEASED_FRAME_REPORT=/path/to/lease.json]
@@ -433,7 +435,23 @@ if [ -n "$rf_bind_gate_report" ]; then
         > "$out_dir/fieldmesh_rf_hardware_progression_evidence_stdout.json"
 fi
 
-python3 - "$out_dir" "$bridge_report" "$iq_live_run" "$messaging_report" "$topology_report" "$native_ip_report" "$expect_ready" "$hardware_progression_report" <<'PY'
+tx_backend_readback_report=""
+if [ -n "$tx_enable_run_report" ]; then
+    if [ ! -f "$tx_enable_run_report" ]; then
+        echo "missing TX-enable run report: $tx_enable_run_report" >&2
+        exit 1
+    fi
+    tx_backend_readback_report="$out_dir/fieldmesh_rf_tx_backend_readback_evidence.json"
+    "$repo_root/tools/fieldmesh_rf_tx_backend_readback_evidence.py" \
+        --tx-enable-run-report "$tx_enable_run_report" \
+        --output "$tx_backend_readback_report" \
+        > "$out_dir/fieldmesh_rf_tx_backend_readback_evidence_stdout.json"
+elif [ "$expect_ready" = "1" ]; then
+    echo "production-ready FieldMesh RF evidence requires TX_ENABLE_RUN_REPORT" >&2
+    exit 1
+fi
+
+python3 - "$out_dir" "$bridge_report" "$iq_live_run" "$messaging_report" "$topology_report" "$native_ip_report" "$expect_ready" "$hardware_progression_report" "$tx_backend_readback_report" <<'PY'
 import hashlib
 import json
 import sys
@@ -449,6 +467,7 @@ reports = {
 }
 expect_ready = sys.argv[7] == "1"
 hardware_progression_report = Path(sys.argv[8]) if sys.argv[8] else None
+tx_backend_readback_report = Path(sys.argv[9]) if sys.argv[9] else None
 gate_path = out_dir / "real-rf-production-gate" / "real_rf_production_gate.json"
 gate = json.loads(gate_path.read_text(encoding="utf-8"))
 preflight_path = out_dir / "fieldmesh_conducted_rf_preflight.json"
@@ -477,6 +496,7 @@ evidence_files = [
     file_entry("preflight", preflight_path),
     file_entry("rf_bind_gate", rf_bind_gate_report),
     file_entry("hardware_progression", hardware_progression_report),
+    file_entry("tx_backend_readback", tx_backend_readback_report),
     file_entry("bridge", bridge_report),
     file_entry("iq_live_run", iq_live_run),
     file_entry("messaging_app_report", reports["messaging"]),
@@ -504,6 +524,7 @@ summary = {
     "production_blocker": gate.get("production_blocker"),
     "rf_bind_gate_report": str(evidence_dir / f"rf_bind_gate{Path(rf_bind_gate_report).suffix or '.bin'}") if rf_bind_gate_report else None,
     "hardware_progression_report": str(evidence_dir / f"hardware_progression{hardware_progression_report.suffix or '.bin'}") if hardware_progression_report else None,
+    "tx_backend_readback_report": str(evidence_dir / f"tx_backend_readback{tx_backend_readback_report.suffix or '.bin'}") if tx_backend_readback_report else None,
     "bridge_report": str(evidence_dir / f"bridge{Path(bridge_report).suffix or '.bin'}"),
     "iq_live_run": str(evidence_dir / f"iq_live_run{Path(iq_live_run).suffix or '.bin'}"),
     "app_reports": {

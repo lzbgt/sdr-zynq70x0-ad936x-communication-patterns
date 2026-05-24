@@ -24,6 +24,7 @@ PRODUCTION_APP_LABELS = {
 PRODUCTION_RF_LABELS = {
     "hardware_progression",
     "rf_bind_gate",
+    "tx_backend_readback",
 }
 SEQUENCE_EVENTS = {
     "fieldmesh_conducted_rf_production_sequence",
@@ -195,6 +196,11 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         if "hardware_progression" in labels
         else None
     )
+    tx_backend_readback = (
+        load_json(manifest_file_path(labels, "tx_backend_readback"))
+        if "tx_backend_readback" in labels
+        else None
+    )
 
     if preflight.get("event") not in PREFLIGHT_EVENTS:
         raise SystemExit(
@@ -345,6 +351,47 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         if "rf_bind_gate" in labels and not same_or_source_path(source, labels, "rf_bind_gate"):
             raise SystemExit("hardware_progression source_report does not match manifest rf_bind_gate")
 
+    if tx_backend_readback is not None:
+        require_event(
+            tx_backend_readback,
+            "tx_backend_readback",
+            "fieldmesh_rf_tx_backend_readback_evidence",
+        )
+        if tx_backend_readback.get("ok") is not True:
+            raise SystemExit("tx_backend_readback: evidence must be ok=true")
+        for key in (
+            "native_rf_control",
+            "native_tune",
+            "native_iio_attr_control",
+            "starts_rf_tx_when_executed",
+            "writes_hardware_when_executed",
+            "prewrite_policy_ok",
+            "source_select_readback_ok",
+            "guard_arm_readback_ok",
+            "source_control_asserted",
+            "source_status_fieldmesh",
+            "guard_control_armed",
+            "guard_status_fault_free",
+            "bounded_sleep_proven",
+            "rollback_proven",
+        ):
+            if tx_backend_readback.get(key) is not True:
+                raise SystemExit(f"tx_backend_readback: {key} must be true")
+        if not isinstance(tx_backend_readback.get("backend_event_count"), int) or tx_backend_readback.get("backend_event_count") < 1:
+            raise SystemExit("tx_backend_readback: missing backend event count")
+        ctrl_phases = tx_backend_readback.get("ctrl_phases")
+        if not isinstance(ctrl_phases, list):
+            raise SystemExit("tx_backend_readback: missing ctrl_phases")
+        for phase in ("prewrite_policy", "source_select_readback", "guard_arm_readback", "rollback"):
+            if phase not in ctrl_phases:
+                raise SystemExit(f"tx_backend_readback: missing RF-control phase {phase}")
+        iio_phases = tx_backend_readback.get("iio_phases")
+        if not isinstance(iio_phases, list):
+            raise SystemExit("tx_backend_readback: missing iio_phases")
+        for phase in ("tune_center_frequency", "tune_sample_rate", "tune_rf_bandwidth", "enable", "rollback"):
+            if phase not in iio_phases:
+                raise SystemExit(f"tx_backend_readback: missing IIO phase {phase}")
+
     bridge_iq = bridge.get("iq_iio_live_run")
     if isinstance(bridge_iq, str):
         if not same_or_source_path(bridge_iq, labels, "iq_live_run"):
@@ -360,6 +407,8 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
             raise SystemExit("sequence rf_bind_gate_report does not match manifest rf_bind_gate")
         if "hardware_progression" in labels and not same_or_source_path(sequence.get("hardware_progression_report"), labels, "hardware_progression"):
             raise SystemExit("sequence hardware_progression_report does not match manifest hardware_progression")
+        if "tx_backend_readback" in labels and not same_or_source_path(sequence.get("tx_backend_readback_report"), labels, "tx_backend_readback"):
+            raise SystemExit("sequence tx_backend_readback_report does not match manifest tx_backend_readback")
 
     app_features: list[str] = []
     for label, feature in (
@@ -386,6 +435,7 @@ def validate_semantics(labels: dict[str, dict[str, Any]], sequence: dict[str, An
         "production_gate_event": True,
         "rf_bind_gate_event": rf_bind_gate is not None,
         "hardware_progression_event": hardware_progression is not None,
+        "tx_backend_readback_event": tx_backend_readback is not None,
         "app_features": sorted(app_features),
     }
 

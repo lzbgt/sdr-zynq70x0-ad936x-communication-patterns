@@ -584,6 +584,10 @@ user and vendor configuration.
   shell live-control primitives. The backend now performs pre-write RF policy
   validation plus DAC-source and guard-arm readback before enabling TX gain,
   with file-backed synthetic control-window coverage for CI failure tests.
+- `tools/fieldmesh_rf_tx_backend_readback_evidence.py` - normalizes a live
+  TX-enable run report into production evidence for the compiled backend's C
+  pre-write RF policy check, DAC source-select readback, RF guard-arm readback,
+  native tune/gain phases, bounded sleep, and rollback proof.
 - `tools/verify_fieldmesh_rf_tx_enable_run.sh` - gate for the TX-enable
   executor boundary. It verifies dry-run safety, missing review permission,
   missing backend rejection, and compiled-backend native-IIO dry-run execution
@@ -716,8 +720,8 @@ user and vendor configuration.
   Already-normalized app real-RF reports are traced back through their
   `source_report` and must still correlate to the supplied bridge. The final
   sequence output also includes a self-contained hashed evidence bundle under
-  the sequence output directory, covering preflight, bridge, IQ live-run, app
-  reports, and production-gate evidence.
+  the sequence output directory, covering preflight, TX backend readback, bridge,
+  IQ live-run, app reports, and production-gate evidence.
 - `tools/fieldmesh_over_air_rf_preflight.py` - preferred compatibility
   entrypoint for the same authorized over-air preflight contract. It preserves
   the current report schema while removing conducted/shielded wording from the
@@ -736,7 +740,7 @@ user and vendor configuration.
   missing RF path evidence blocks live RF, complete bridge-derived app evidence
   passes the production gate, and host-IP-routed or uncorrelated feature
   evidence is rejected. It also verifies that the evidence manifest hashes
-  every required production input report.
+  every required production input report, including TX backend readback proof.
 - `tools/run_fieldmesh_over_air_rf_production_sequence.sh` - preferred
   operator-facing wrapper for the authorized over-air production sequence. It
   now emits over-air-named preflight, sequence, and evidence-manifest reports
