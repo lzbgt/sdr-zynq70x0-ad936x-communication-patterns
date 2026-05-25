@@ -693,11 +693,47 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_phy_raw_bitrate_bps": report.get(
             "host_iio_bridge_phy_raw_bitrate_bps"
         ),
+        "board_iio_bridge_phy_primary_raw_bitrate_bps": report.get(
+            "board_iio_bridge_phy_primary_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_primary_raw_bitrate_bps": report.get(
+            "host_iio_bridge_phy_primary_raw_bitrate_bps"
+        ),
         "board_iio_bridge_phy_min_raw_bitrate_bps": report.get(
             "board_iio_bridge_phy_min_raw_bitrate_bps"
         ),
         "host_iio_bridge_phy_min_raw_bitrate_bps": report.get(
             "host_iio_bridge_phy_min_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_min_primary_raw_bitrate_bps": report.get(
+            "board_iio_bridge_phy_min_primary_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_min_primary_raw_bitrate_bps": report.get(
+            "host_iio_bridge_phy_min_primary_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_effective_raw_bitrate_bps": report.get(
+            "board_iio_bridge_phy_effective_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_effective_raw_bitrate_bps": report.get(
+            "host_iio_bridge_phy_effective_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_min_effective_raw_bitrate_bps": report.get(
+            "board_iio_bridge_phy_min_effective_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_min_effective_raw_bitrate_bps": report.get(
+            "host_iio_bridge_phy_min_effective_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_fast_primary_decode_proven": report.get(
+            "board_iio_bridge_phy_fast_primary_decode_proven"
+        ),
+        "host_iio_bridge_phy_fast_primary_decode_proven": report.get(
+            "host_iio_bridge_phy_fast_primary_decode_proven"
+        ),
+        "board_iio_bridge_phy_modem_retry_used": report.get(
+            "board_iio_bridge_phy_modem_retry_used"
+        ),
+        "host_iio_bridge_phy_modem_retry_used": report.get(
+            "host_iio_bridge_phy_modem_retry_used"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"

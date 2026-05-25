@@ -1224,6 +1224,72 @@ def batch_high_water_max(high_water_by_direction: dict[str, int]) -> int:
     return max(high_water_by_direction.values(), default=0)
 
 
+def direction_key(direction_name: str) -> str:
+    return direction_name.replace("-", "_")
+
+
+def effective_phy_raw_bitrate_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> dict[str, float]:
+    raw_by_direction: dict[str, float] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        observed = [
+            float(frame["effective_raw_bitrate_bps"])
+            for frame in frames
+            if frame.get("direction") == name
+            and isinstance(frame.get("effective_raw_bitrate_bps"), (int, float))
+            and float(frame["effective_raw_bitrate_bps"]) > 0.0
+        ]
+        raw_by_direction[key] = (
+            min(observed) if observed else direction_phy_raw_bitrate_bps(args, name)
+        )
+    return raw_by_direction
+
+
+def fast_primary_decode_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> dict[str, bool]:
+    proven: dict[str, bool] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        direction_frames = [
+            frame
+            for frame in frames
+            if frame.get("direction") == name and not frame.get("filtered_frames")
+        ]
+        if not args.execute_live_rf:
+            proven[key] = False
+        elif not direction_frames:
+            proven[key] = False
+        else:
+            proven[key] = all(
+                frame.get("fast_primary_phy_decode_proven") is True
+                for frame in direction_frames
+            )
+    return proven
+
+
+def modem_retry_used_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, bool]:
+    return {
+        direction_key(direction["name"]): any(
+            frame.get("direction") == direction["name"]
+            and frame.get("modem_retry_used") is True
+            for frame in frames
+        )
+        for direction in directions
+    }
+
+
 def split_sub_burst(frames: list[bytes], max_frames_per_burst: int) -> tuple[list[bytes], list[bytes]]:
     if max_frames_per_burst <= 0 or max_frames_per_burst >= len(frames):
         return frames, []
@@ -1285,6 +1351,13 @@ def direction_retry_bit_repeat(args: argparse.Namespace, direction_name: str) ->
     return None
 
 
+def modem_raw_bitrate_bps(sample_rate_hz: int, samples_per_symbol: int, bit_repeat: int) -> float:
+    modem_samples_per_bit = samples_per_symbol * bit_repeat
+    if modem_samples_per_bit <= 0:
+        return 0.0
+    return float(sample_rate_hz) / float(modem_samples_per_bit)
+
+
 def modem_retry_configured(args: argparse.Namespace, direction_name: str) -> bool:
     retry_sps = direction_retry_samples_per_symbol(args, direction_name)
     retry_repeat = direction_retry_bit_repeat(args, direction_name)
@@ -1299,13 +1372,11 @@ def modem_retry_configured(args: argparse.Namespace, direction_name: str) -> boo
 
 
 def direction_phy_raw_bitrate_bps(args: argparse.Namespace, direction_name: str) -> float:
-    modem_samples_per_bit = (
-        direction_samples_per_symbol(args, direction_name)
-        * direction_bit_repeat(args, direction_name)
+    return modem_raw_bitrate_bps(
+        args.sample_rate_hz,
+        direction_samples_per_symbol(args, direction_name),
+        direction_bit_repeat(args, direction_name),
     )
-    if modem_samples_per_bit <= 0:
-        return 0.0
-    return float(args.sample_rate_hz) / float(modem_samples_per_bit)
 
 
 def run_one(args: argparse.Namespace, direction: dict[str, Any], lease_report: dict[str, Any], index: int) -> dict[str, Any]:
@@ -1495,8 +1566,15 @@ def run_batch(
             run_args,
         )
 
-    effective_samples_per_symbol = direction_samples_per_symbol(args, direction["name"])
-    effective_bit_repeat = direction_bit_repeat(args, direction["name"])
+    primary_samples_per_symbol = direction_samples_per_symbol(args, direction["name"])
+    primary_bit_repeat = direction_bit_repeat(args, direction["name"])
+    primary_raw_bitrate_bps = modem_raw_bitrate_bps(
+        args.sample_rate_hz,
+        primary_samples_per_symbol,
+        primary_bit_repeat,
+    )
+    effective_samples_per_symbol = primary_samples_per_symbol
+    effective_bit_repeat = primary_bit_repeat
     iq_report, iq_report_path, plan, plan_path, run_report, run_args = execute_iq_attempt(
         "primary",
         effective_samples_per_symbol,
@@ -1571,6 +1649,19 @@ def run_batch(
             }
         )
     live_run_elapsed_ms = int((time.monotonic() - live_run_started) * 1000)
+    selected_raw_bitrate_bps = modem_raw_bitrate_bps(
+        args.sample_rate_hz,
+        effective_samples_per_symbol,
+        effective_bit_repeat,
+    )
+    primary_modem_decode_ok = any(
+        attempt.get("label") == "primary" and attempt.get("ok") is True
+        for attempt in run_attempts
+    )
+    modem_retry_used = bool(
+        effective_samples_per_symbol != primary_samples_per_symbol
+        or effective_bit_repeat != primary_bit_repeat
+    )
     recovered_frames: list[bytes] = []
     ingests: list[dict[str, Any]] = []
     source_ack: dict[str, Any] = (
@@ -1627,8 +1718,18 @@ def run_batch(
         "rx_board": direction["rx_board"],
         "frames": len(batch_frames),
         "batch_bytes": len(batch_payload),
+        "primary_samples_per_symbol": primary_samples_per_symbol,
+        "primary_bit_repeat": primary_bit_repeat,
+        "primary_raw_bitrate_bps": primary_raw_bitrate_bps,
         "samples_per_symbol": effective_samples_per_symbol,
         "bit_repeat": effective_bit_repeat,
+        "selected_raw_bitrate_bps": selected_raw_bitrate_bps,
+        "effective_raw_bitrate_bps": selected_raw_bitrate_bps,
+        "modem_retry_used": modem_retry_used,
+        "primary_modem_decode_ok": primary_modem_decode_ok,
+        "fast_primary_phy_decode_proven": bool(
+            primary_modem_decode_ok and primary_raw_bitrate_bps >= 20_000.0
+        ),
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
         "iq_iio_live_run": str(run_args.out_dir / "fieldmesh_iq_iio_live_run.json"),
@@ -1935,6 +2036,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and counts["z203_to_z103"] > 0
             and counts["z103_to_z203"] > 0
         )
+        primary_phy_raw = {
+            "z203_to_z103": direction_phy_raw_bitrate_bps(args, "z203-to-z103"),
+            "z103_to_z203": direction_phy_raw_bitrate_bps(args, "z103-to-z203"),
+        }
+        effective_phy_raw = effective_phy_raw_bitrate_by_direction(
+            frames,
+            directions,
+            args,
+        )
+        fast_primary_decode = fast_primary_decode_by_direction(frames, directions, args)
+        retry_used = modem_retry_used_by_direction(frames, directions)
         return {
             "event": "fieldmesh_iio_rf_worker_bridge_loop",
             "ok": moved_frames > 0,
@@ -2191,14 +2303,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "skip_rf_config_after_first": bool(args.skip_rf_config_after_first),
             "sample_rate_hz": args.sample_rate_hz,
             "rf_bandwidth_hz": args.rf_bandwidth_hz,
-            "phy_raw_bitrate_bps": {
-                "z203_to_z103": direction_phy_raw_bitrate_bps(args, "z203-to-z103"),
-                "z103_to_z203": direction_phy_raw_bitrate_bps(args, "z103-to-z203"),
-            },
-            "phy_min_raw_bitrate_bps": min(
-                direction_phy_raw_bitrate_bps(args, "z203-to-z103"),
-                direction_phy_raw_bitrate_bps(args, "z103-to-z203"),
+            "phy_raw_bitrate_bps": primary_phy_raw,
+            "phy_primary_raw_bitrate_bps": primary_phy_raw,
+            "phy_min_raw_bitrate_bps": min(primary_phy_raw.values(), default=0.0),
+            "phy_min_primary_raw_bitrate_bps": min(primary_phy_raw.values(), default=0.0),
+            "phy_effective_raw_bitrate_bps": effective_phy_raw,
+            "phy_min_effective_raw_bitrate_bps": min(effective_phy_raw.values(), default=0.0),
+            "phy_fast_primary_decode_proven_by_direction": fast_primary_decode,
+            "phy_fast_primary_decode_proven": bool(
+                args.execute_live_rf
+                and fast_primary_decode
+                and all(fast_primary_decode.values())
             ),
+            "phy_modem_retry_used_by_direction": retry_used,
+            "phy_modem_retry_used": any(retry_used.values()),
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
             "modem": {
@@ -2834,8 +2952,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                     / "fieldmesh_iio_rf_worker_bridge_batch.json"
                                 ),
                                 "batch_frames": len(batch_frames),
+                                "primary_samples_per_symbol": report.get("primary_samples_per_symbol"),
+                                "primary_bit_repeat": report.get("primary_bit_repeat"),
+                                "primary_raw_bitrate_bps": report.get("primary_raw_bitrate_bps"),
                                 "samples_per_symbol": report.get("samples_per_symbol"),
                                 "bit_repeat": report.get("bit_repeat"),
+                                "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
+                                "modem_retry_used": report.get("modem_retry_used"),
+                                "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
+                                "fast_primary_phy_decode_proven": report.get("fast_primary_phy_decode_proven"),
                                 "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
                                 "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
                                 "sink_ingest_ok": all(
@@ -3008,8 +3133,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "deferred_lease_frames": len(deferred_frames),
                             "lease_batch_frames": leased_frame_count,
                             "max_frames_per_rf_burst": args.max_frames_per_rf_burst,
+                            "primary_samples_per_symbol": report.get("primary_samples_per_symbol"),
+                            "primary_bit_repeat": report.get("primary_bit_repeat"),
+                            "primary_raw_bitrate_bps": report.get("primary_raw_bitrate_bps"),
                             "samples_per_symbol": report.get("samples_per_symbol"),
                             "bit_repeat": report.get("bit_repeat"),
+                            "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
+                            "modem_retry_used": report.get("modem_retry_used"),
+                            "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
+                            "fast_primary_phy_decode_proven": report.get("fast_primary_phy_decode_proven"),
                             "rf_phy_tx_rx_verified": report.get("rf_phy_tx_rx_verified"),
                             "iq_recovered_frame_match": report.get("iq_recovered_frame_match"),
                             "sink_ingest_ok": all(

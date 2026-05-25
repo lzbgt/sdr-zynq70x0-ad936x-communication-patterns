@@ -487,6 +487,65 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(
             f"{label}: IIO bridge minimum PHY raw bitrate must be at least 20 kbps"
         )
+    primary_phy_raw = report.get("iio_bridge_phy_primary_raw_bitrate_bps")
+    if not isinstance(primary_phy_raw, dict) or sorted(primary_phy_raw) != [
+        "z103_to_z203",
+        "z203_to_z103",
+    ]:
+        errors.append(f"{label}: IIO bridge primary PHY raw bitrate evidence is missing")
+    else:
+        for direction, value in sorted(primary_phy_raw.items()):
+            if not isinstance(value, (int, float)) or value <= 0:
+                errors.append(
+                    f"{label}: IIO bridge primary PHY raw bitrate for {direction} must be > 0"
+                )
+    min_primary_phy_raw = report.get("iio_bridge_phy_min_primary_raw_bitrate_bps")
+    if not isinstance(min_primary_phy_raw, (int, float)) or min_primary_phy_raw <= 0:
+        errors.append(f"{label}: IIO bridge minimum primary PHY raw bitrate is missing")
+    elif float(min_primary_phy_raw) < 20_000.0:
+        errors.append(
+            f"{label}: IIO bridge minimum primary PHY raw bitrate must be at least 20 kbps"
+        )
+    effective_phy_raw = report.get("iio_bridge_phy_effective_raw_bitrate_bps")
+    if not isinstance(effective_phy_raw, dict) or sorted(effective_phy_raw) != [
+        "z103_to_z203",
+        "z203_to_z103",
+    ]:
+        errors.append(f"{label}: IIO bridge effective PHY raw bitrate evidence is missing")
+    else:
+        for direction, value in sorted(effective_phy_raw.items()):
+            if not isinstance(value, (int, float)) or value <= 0:
+                errors.append(
+                    f"{label}: IIO bridge effective PHY raw bitrate for {direction} must be > 0"
+                )
+    min_effective_phy_raw = report.get("iio_bridge_phy_min_effective_raw_bitrate_bps")
+    if not isinstance(min_effective_phy_raw, (int, float)) or min_effective_phy_raw <= 0:
+        errors.append(f"{label}: IIO bridge minimum effective PHY raw bitrate is missing")
+    elif float(min_effective_phy_raw) < 20_000.0:
+        errors.append(
+            f"{label}: IIO bridge minimum effective PHY raw bitrate must be at least 20 kbps"
+        )
+    fast_primary_by_direction = report.get(
+        "iio_bridge_phy_fast_primary_decode_proven_by_direction"
+    )
+    if not isinstance(fast_primary_by_direction, dict) or sorted(
+        fast_primary_by_direction
+    ) != ["z103_to_z203", "z203_to_z103"]:
+        errors.append(f"{label}: fast primary PHY decode proof by direction is missing")
+    elif not all(value is True for value in fast_primary_by_direction.values()):
+        errors.append(f"{label}: fast primary PHY decode must be proven in both directions")
+    if report.get("iio_bridge_phy_fast_primary_decode_proven") is not True:
+        errors.append(f"{label}: fast primary PHY decode proof is missing")
+    retry_used_by_direction = report.get("iio_bridge_phy_modem_retry_used_by_direction")
+    if not isinstance(retry_used_by_direction, dict) or sorted(retry_used_by_direction) != [
+        "z103_to_z203",
+        "z203_to_z103",
+    ]:
+        errors.append(f"{label}: modem retry-use evidence by direction is missing")
+    elif any(value is True for value in retry_used_by_direction.values()):
+        errors.append(f"{label}: high-rate PHY evidence must not rely on modem retry fallback")
+    if report.get("iio_bridge_phy_modem_retry_used") is True:
+        errors.append(f"{label}: high-rate PHY evidence used modem retry fallback")
     transport_status = report.get("iio_bridge_state_daemon_iio_transport_status")
     if not isinstance(transport_status, dict) or sorted(transport_status) != ["z103", "z203"]:
         errors.append(f"{label}: state-daemon IIO transport status must include z203 and z103")
@@ -1523,11 +1582,41 @@ def main() -> int:
         "host_iio_bridge_rf_bandwidth_hz": host.get("iio_bridge_rf_bandwidth_hz"),
         "board_iio_bridge_phy_raw_bitrate_bps": board.get("iio_bridge_phy_raw_bitrate_bps"),
         "host_iio_bridge_phy_raw_bitrate_bps": host.get("iio_bridge_phy_raw_bitrate_bps"),
+        "board_iio_bridge_phy_primary_raw_bitrate_bps": board.get(
+            "iio_bridge_phy_primary_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_primary_raw_bitrate_bps": host.get(
+            "iio_bridge_phy_primary_raw_bitrate_bps"
+        ),
         "board_iio_bridge_phy_min_raw_bitrate_bps": board.get(
             "iio_bridge_phy_min_raw_bitrate_bps"
         ),
         "host_iio_bridge_phy_min_raw_bitrate_bps": host.get(
             "iio_bridge_phy_min_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_effective_raw_bitrate_bps": board.get(
+            "iio_bridge_phy_effective_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_effective_raw_bitrate_bps": host.get(
+            "iio_bridge_phy_effective_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_min_effective_raw_bitrate_bps": board.get(
+            "iio_bridge_phy_min_effective_raw_bitrate_bps"
+        ),
+        "host_iio_bridge_phy_min_effective_raw_bitrate_bps": host.get(
+            "iio_bridge_phy_min_effective_raw_bitrate_bps"
+        ),
+        "board_iio_bridge_phy_fast_primary_decode_proven": board.get(
+            "iio_bridge_phy_fast_primary_decode_proven"
+        ),
+        "host_iio_bridge_phy_fast_primary_decode_proven": host.get(
+            "iio_bridge_phy_fast_primary_decode_proven"
+        ),
+        "board_iio_bridge_phy_modem_retry_used": board.get(
+            "iio_bridge_phy_modem_retry_used"
+        ),
+        "host_iio_bridge_phy_modem_retry_used": host.get(
+            "iio_bridge_phy_modem_retry_used"
         ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": board.get(
             "iio_bridge_in_burst_priority_preemption_enabled"

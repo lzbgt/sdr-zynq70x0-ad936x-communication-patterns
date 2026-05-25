@@ -310,8 +310,9 @@ the final result/shutdown exchange completed. A faster 48-sample/repeat-3 BFSK
 profile lowered many batch times to about 0.8-1.3 seconds but initially
 introduced an intermittent reverse-path CRC miss under load and still did not
 complete `iperf3`; it is now the primary reverse/control profile only behind a
-minimum raw PHY evidence gate, with a stronger retry profile retained for decode
-misses. Follow-up HIL with async source ACK and batch-size 2 moved real-RF
+minimum raw PHY evidence gate that requires fast-primary decode success and
+rejects archives that relied on the lower-rate retry modem profile. Follow-up
+HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35
 real-RF frames with zero bridge errors; Z103 received 128 bytes and exited, but

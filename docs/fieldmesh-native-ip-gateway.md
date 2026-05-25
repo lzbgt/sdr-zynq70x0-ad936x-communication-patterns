@@ -356,8 +356,10 @@ Minimum production gates for native TCP/IP:
   seconds but initially produced an intermittent reverse-path CRC miss under
   load and still did not complete `iperf3`. The bridge now uses that faster
   profile for the primary reverse/control path only when production evidence
-  proves at least 20 kbit/s minimum raw modem PHY rate, while retaining the
-  stronger retry profile for decode recovery. Follow-up HIL with batch-size 2
+  proves at least 20 kbit/s minimum raw modem PHY rate and fast-primary decode
+  success in both directions. If the modem retry fallback is selected, the
+  archive reports the lower effective PHY rate instead of claiming the primary
+  rate. Follow-up HIL with batch-size 2
   and async source ACKs moved 54 real-RF frames with zero bridge errors at 256 bytes; a
   true 128-byte test using `IPERF_BLOCK_SIZE=64` moved 54 more real-RF frames
   and completed all async ACKs, but still timed out with the client in

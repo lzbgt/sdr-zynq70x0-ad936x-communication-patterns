@@ -3090,8 +3090,32 @@ report = {
     "iio_bridge_phy_raw_bitrate_bps": (
         last_iio_bridge.get("phy_raw_bitrate_bps") or {}
     ),
+    "iio_bridge_phy_primary_raw_bitrate_bps": (
+        last_iio_bridge.get("phy_primary_raw_bitrate_bps") or {}
+    ),
     "iio_bridge_phy_min_raw_bitrate_bps": float(
         last_iio_bridge.get("phy_min_raw_bitrate_bps") or 0.0
+    ),
+    "iio_bridge_phy_min_primary_raw_bitrate_bps": float(
+        last_iio_bridge.get("phy_min_primary_raw_bitrate_bps") or 0.0
+    ),
+    "iio_bridge_phy_effective_raw_bitrate_bps": (
+        last_iio_bridge.get("phy_effective_raw_bitrate_bps") or {}
+    ),
+    "iio_bridge_phy_min_effective_raw_bitrate_bps": float(
+        last_iio_bridge.get("phy_min_effective_raw_bitrate_bps") or 0.0
+    ),
+    "iio_bridge_phy_fast_primary_decode_proven": bool(
+        last_iio_bridge.get("phy_fast_primary_decode_proven")
+    ),
+    "iio_bridge_phy_fast_primary_decode_proven_by_direction": (
+        last_iio_bridge.get("phy_fast_primary_decode_proven_by_direction") or {}
+    ),
+    "iio_bridge_phy_modem_retry_used": bool(
+        last_iio_bridge.get("phy_modem_retry_used")
+    ),
+    "iio_bridge_phy_modem_retry_used_by_direction": (
+        last_iio_bridge.get("phy_modem_retry_used_by_direction") or {}
     ),
     "iio_bridge_state_daemon_iio_transport_enqueue_failures": int(
         last_iio_bridge.get("state_daemon_iio_transport_enqueue_failures") or 0

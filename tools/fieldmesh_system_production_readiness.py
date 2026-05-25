@@ -503,6 +503,30 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_bridge_phy_min_raw_bitrate_bps"] = native_ip.get(
             "host_iio_bridge_phy_min_raw_bitrate_bps"
         )
+        detail["native_ip_board_iio_bridge_phy_min_primary_raw_bitrate_bps"] = (
+            native_ip.get("board_iio_bridge_phy_min_primary_raw_bitrate_bps")
+        )
+        detail["native_ip_host_iio_bridge_phy_min_primary_raw_bitrate_bps"] = (
+            native_ip.get("host_iio_bridge_phy_min_primary_raw_bitrate_bps")
+        )
+        detail["native_ip_board_iio_bridge_phy_min_effective_raw_bitrate_bps"] = (
+            native_ip.get("board_iio_bridge_phy_min_effective_raw_bitrate_bps")
+        )
+        detail["native_ip_host_iio_bridge_phy_min_effective_raw_bitrate_bps"] = (
+            native_ip.get("host_iio_bridge_phy_min_effective_raw_bitrate_bps")
+        )
+        detail["native_ip_board_iio_bridge_phy_fast_primary_decode_proven"] = (
+            native_ip.get("board_iio_bridge_phy_fast_primary_decode_proven") is True
+        )
+        detail["native_ip_host_iio_bridge_phy_fast_primary_decode_proven"] = (
+            native_ip.get("host_iio_bridge_phy_fast_primary_decode_proven") is True
+        )
+        detail["native_ip_board_iio_bridge_phy_modem_retry_used"] = (
+            native_ip.get("board_iio_bridge_phy_modem_retry_used") is True
+        )
+        detail["native_ip_host_iio_bridge_phy_modem_retry_used"] = (
+            native_ip.get("host_iio_bridge_phy_modem_retry_used") is True
+        )
         detail["native_ip_board_iio_bridge_in_burst_priority_preemption_enabled"] = (
             native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled") is True
         )

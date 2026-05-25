@@ -1455,7 +1455,9 @@ user and vendor configuration.
   PHY bitrate for UDP/TCP bandwidth-ratio review. The primary reverse/control
   BFSK profile is now tightened from 64 samples/repeat-4 to
   48 samples/repeat-3, raising the minimum raw modem PHY evidence floor above
-  20 kbit/s while keeping the stronger retry path available after decode misses. The
+  20 kbit/s only when the fast primary decode is proven in both directions;
+  archives that fall back to the stronger retry profile now report the lower
+  effective PHY rate and cannot satisfy the high-rate gate. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`
