@@ -56,7 +56,7 @@ operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 rf_sample_rate_hz="${RF_SAMPLE_RATE_HZ:-3072000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-1000000}"
-rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-2}"
+rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-1}"
 rf_bit_repeat="${RF_BIT_REPEAT:-1}"
 rf_z203_to_z103_samples_per_symbol="${RF_Z203_TO_Z103_SAMPLES_PER_SYMBOL:-}"
 rf_z203_to_z103_bit_repeat="${RF_Z203_TO_Z103_BIT_REPEAT:-}"
@@ -380,8 +380,8 @@ if ! [[ "$rf_sample_rate_hz" =~ ^[0-9]+$ ]] || [ "$rf_sample_rate_hz" -le 0 ]; t
     echo "RF_SAMPLE_RATE_HZ must be a positive integer" >&2
     exit 1
 fi
-if ! [[ "$rf_samples_per_symbol" =~ ^[0-9]+$ ]] || [ "$rf_samples_per_symbol" -lt 2 ]; then
-    echo "RF_SAMPLES_PER_SYMBOL must be an integer >= 2" >&2
+if ! [[ "$rf_samples_per_symbol" =~ ^[0-9]+$ ]] || [ "$rf_samples_per_symbol" -lt 1 ]; then
+    echo "RF_SAMPLES_PER_SYMBOL must be an integer >= 1" >&2
     exit 1
 fi
 if ! [[ "$rf_bit_repeat" =~ ^[0-9]+$ ]] || [ "$rf_bit_repeat" -lt 1 ]; then
@@ -589,7 +589,7 @@ expected = {
     "production_iio_policy": 1,
     "adaptive_modem_profile_policy": 1,
     "adaptive_modem_profile_policy_native_c": 1,
-    "fast_primary_min_raw_bitrate_bps": 1200000,
+    "fast_primary_min_raw_bitrate_bps": 2400000,
     "fast_primary_requires_primary_decode": 1,
     "fast_primary_rejects_modem_retry": 1,
     "fast_primary_decision": "fast_primary",

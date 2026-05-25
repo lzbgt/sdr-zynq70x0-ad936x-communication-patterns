@@ -74,8 +74,8 @@ def require_rf_guard(args: argparse.Namespace) -> None:
         raise SystemExit("--fixture-attenuation-db must be >= 30 dB")
     if args.center_frequency_hz <= 0 or args.sample_rate_hz <= 0 or args.rf_bandwidth_hz <= 0:
         raise SystemExit("frequency, sample rate, and RF bandwidth must be positive")
-    if args.samples_per_symbol < 2:
-        raise SystemExit("--samples-per-symbol must be >= 2")
+    if args.samples_per_symbol < 1:
+        raise SystemExit("--samples-per-symbol must be >= 1")
     if args.bit_repeat == 0:
         raise SystemExit("--bit-repeat must be >= 1")
 

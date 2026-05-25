@@ -649,8 +649,8 @@ def require_rf_guard(args: argparse.Namespace) -> None:
         raise SystemExit("--fixture-attenuation-db must be >= 30 dB for lab-contained smoke gates")
     if args.center_frequency_hz <= 0 or args.sample_rate_hz <= 0 or args.rf_bandwidth_hz <= 0:
         raise SystemExit("frequency, sample rate, and RF bandwidth must be positive")
-    if args.samples_per_symbol < 2:
-        raise SystemExit("--samples-per-symbol must be >= 2")
+    if args.samples_per_symbol < 1:
+        raise SystemExit("--samples-per-symbol must be >= 1")
     if args.bit_repeat < 1:
         raise SystemExit("--bit-repeat must be >= 1")
 
@@ -763,8 +763,13 @@ def resolve_modem_helper(args: argparse.Namespace) -> Path:
         if not helper_supports_c_modem(helper):
             raise SystemExit(f"FIELDMESH_IIO_BURST_HELPER lacks C modem CLI contract: {helper}")
         return helper
+    source = repo_root() / "tools" / "fieldmesh_iio_burst_xfer.c"
     cached = repo_root() / ".config" / "fieldmesh" / "bin" / "fieldmesh_iio_burst_xfer"
-    if cached.exists() and helper_supports_c_modem(cached):
+    if (
+        cached.exists()
+        and cached.stat().st_mtime >= source.stat().st_mtime
+        and helper_supports_c_modem(cached)
+    ):
         return cached
     return build_default_modem_helper(args.out_dir)
 

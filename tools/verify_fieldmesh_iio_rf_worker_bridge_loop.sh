@@ -363,7 +363,7 @@ try:
         "127.0.0.2",
         55442,
         0,
-        2,
+        1,
         1,
         32,
         2,
@@ -374,7 +374,7 @@ if captured_native_tick.get("text") != (
     "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1 "
     "peer_host=127.0.0.2 peer_port=55442 peer_timeout_ms=10 "
     "current_consecutive_direction_batches=0 "
-    "primary_samples_per_symbol=2 primary_bit_repeat=1 "
+    "primary_samples_per_symbol=1 primary_bit_repeat=1 "
     "retry_samples_per_symbol=32 retry_bit_repeat=2"
 ):
     raise SystemExit(f"native service loop tick must use daemon C transport-loop command: {captured_native_tick}")
@@ -836,7 +836,7 @@ def iio_transport_execute_request(host, port, text, timeout_ms):
         "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
         "request_frames": 2,
         "request_bytes": 384,
-        "samples_per_symbol": 2,
+        "samples_per_symbol": 1,
         "bit_repeat": 1,
         "state_daemon_libiio_execution_count": 1,
         "libiio_transfer_worker_runs": 1,
@@ -853,18 +853,18 @@ def iio_transport_execute_request(host, port, text, timeout_ms):
 bridge.request_daemon = iio_transport_execute_request
 try:
     iio_execute = loop.iio_transport_daemon_execute(
-        "127.0.0.1", 55441, 10, 2, 384, 2, 1
+        "127.0.0.1", 55441, 10, 2, 384, 1, 1
     )
 finally:
     bridge.request_daemon = original_request
 if captured.get("text") != (
     "FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE v1 "
-    "frames=2 bytes=384 samples_per_symbol=2 bit_repeat=1"
+    "frames=2 bytes=384 samples_per_symbol=1 bit_repeat=1"
 ):
     raise SystemExit(
         f"state-daemon IIO transport execute must use daemon execute command: {captured}"
     )
-loop.validate_iio_transport_daemon_execute(iio_execute, "z203-to-z103", 2, 384, 2, 1)
+loop.validate_iio_transport_daemon_execute(iio_execute, "z203-to-z103", 2, 384, 1, 1)
 print(json.dumps({"event": "fieldmesh_iio_rf_worker_bridge_port_filter_check", "ok": True}, sort_keys=True))
 
 
@@ -1479,7 +1479,7 @@ required = [
     '"iio_bridge_rf_burst_live_run_max_elapsed_ms"',
     '"iio_bridge_rf_burst_decode_max_elapsed_ms"',
     '"iio_bridge_source_ack_pipeline_exercised"',
-    'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-2}"',
+    'rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-1}"',
     'rf_bit_repeat="${RF_BIT_REPEAT:-1}"',
     'rf_z203_to_z103_retry_samples_per_symbol="${RF_Z203_TO_Z103_RETRY_SAMPLES_PER_SYMBOL:-32}"',
     'rf_z103_to_z203_retry_samples_per_symbol="${RF_Z103_TO_Z203_RETRY_SAMPLES_PER_SYMBOL:-32}"',

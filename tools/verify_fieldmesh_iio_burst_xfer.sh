@@ -271,7 +271,7 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
   --iq-file "$work_dir/fast_frame.iq" \
   --sample-rate-hz 3072000 \
   --baseband-carrier-hz 100000 \
-  --samples-per-symbol 2 \
+  --samples-per-symbol 1 \
   --bit-repeat 1 \
   >"$work_dir/bpsk_fast_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
@@ -279,7 +279,7 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
   --decoded-file "$work_dir/fast_decoded.bin" \
   --sample-rate-hz 3072000 \
   --baseband-carrier-hz 100000 \
-  --samples-per-symbol 2 \
+  --samples-per-symbol 1 \
   --bit-repeat 1 \
   >"$work_dir/bpsk_fast_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/fast_decoded.bin"
@@ -429,12 +429,12 @@ if fast_encode.get("event") != "fieldmesh_bpsk_modem_encode" or fast_encode.get(
     raise SystemExit(f"C fast BPSK encode failed: {fast_encode}")
 if fast_decode.get("event") != "fieldmesh_bpsk_modem_decode" or fast_decode.get("ok") is not True:
     raise SystemExit(f"C fast BPSK decode failed: {fast_decode}")
-if fast_encode.get("samples_per_symbol") != 2 or fast_encode.get("bit_repeat") != 1:
+if fast_encode.get("samples_per_symbol") != 1 or fast_encode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast BPSK profile drifted: {fast_encode}")
-if fast_decode.get("samples_per_symbol") != 2 or fast_decode.get("bit_repeat") != 1:
+if fast_decode.get("samples_per_symbol") != 1 or fast_decode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast BPSK decoder profile drifted: {fast_decode}")
 raw_bitrate_bps = 3_072_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
-if raw_bitrate_bps < 1_536_000:
+if raw_bitrate_bps < 3_072_000:
     raise SystemExit(f"C fast BPSK raw PHY target regressed: {raw_bitrate_bps}")
 PY
 

@@ -2540,7 +2540,7 @@ def run_batch(
             adaptive_mcs_decision_report.get("high_rate_proven") == 1
         ),
         "fast_primary_phy_decode_proven": bool(
-            primary_modem_decode_ok and primary_raw_bitrate_bps >= 1_200_000.0
+            primary_modem_decode_ok and primary_raw_bitrate_bps >= 2_400_000.0
         ),
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
@@ -2727,8 +2727,8 @@ def require_args(args: argparse.Namespace) -> None:
         ("--z203-to-z103-retry-samples-per-symbol", args.z203_to_z103_retry_samples_per_symbol or args.samples_per_symbol),
         ("--z103-to-z203-retry-samples-per-symbol", args.z103_to_z203_retry_samples_per_symbol or args.samples_per_symbol),
     ):
-        if value < 2:
-            raise SystemExit(f"{label} must be >= 2")
+        if value < 1:
+            raise SystemExit(f"{label} must be >= 1")
     for label, value in (
         ("--bit-repeat", args.bit_repeat),
         ("--z203-to-z103-bit-repeat", args.z203_to_z103_bit_repeat or args.bit_repeat),
@@ -4918,7 +4918,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
     parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
-    parser.add_argument("--samples-per-symbol", type=int, default=2)
+    parser.add_argument("--samples-per-symbol", type=int, default=1)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bpsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)

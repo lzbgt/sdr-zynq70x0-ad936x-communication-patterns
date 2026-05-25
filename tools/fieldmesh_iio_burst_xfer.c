@@ -28,7 +28,7 @@
 #define DEFAULT_SAMPLE_RATE_HZ 3072000U
 #define DEFAULT_BFSK_SPACE_HZ 50000.0
 #define DEFAULT_BFSK_MARK_HZ 150000.0
-#define DEFAULT_SAMPLES_PER_SYMBOL 2U
+#define DEFAULT_SAMPLES_PER_SYMBOL 1U
 #define DEFAULT_BIT_REPEAT 1U
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -1117,7 +1117,7 @@ static void parse_modem_args(int argc, char **argv, struct modem_options *opt)
             exit(2);
         }
     }
-    if (opt->sample_rate_hz == 0 || opt->samples_per_symbol < 2 || opt->bit_repeat == 0 ||
+    if (opt->sample_rate_hz == 0 || opt->samples_per_symbol < 1 || opt->bit_repeat == 0 ||
         opt->space_hz <= 0.0 || opt->mark_hz <= 0.0 || opt->iterations == 0) {
         fprintf(stderr, "invalid modem parameters\n");
         exit(2);
@@ -1421,6 +1421,7 @@ static int run_bfsk_self_test(void)
 {
     struct modem_options opt;
     modem_defaults(&opt);
+    opt.samples_per_symbol = 4U;
     // FMBATCH1 matches the Python bridge raw binary batch magic used by HIL.
     static const unsigned char frame[] = {
         'F', 'M', 'B', 'A', 'T', 'C', 'H', '1',
@@ -2698,7 +2699,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             if (request_ok != 0 || !req.tx_file || !req.rx_file ||
                 req.tx_samples == 0 || req.rx_samples == 0 ||
                 !req.native_state_daemon_transport_modem_profile_mode ||
-                req.selected_samples_per_symbol < 2u ||
+                req.selected_samples_per_symbol < 1u ||
                 req.selected_bit_repeat == 0u ||
                 req.python_iio_helper_modem_profile_mapping ||
                 req.python_selected_modem_profile_fields) {
@@ -2880,7 +2881,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             if (request_ok != 0 || !req.tx_file || !req.rx_file ||
                 req.tx_samples == 0 || req.rx_samples == 0 ||
                 (req.native_state_daemon_modem_profile_mode &&
-                 (req.selected_samples_per_symbol < 2u ||
+                 (req.selected_samples_per_symbol < 1u ||
                   req.selected_bit_repeat == 0u ||
                   req.python_iio_helper_modem_profile_mapping ||
                   req.python_selected_modem_profile_fields))) {

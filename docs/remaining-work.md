@@ -338,15 +338,15 @@ frames with zero duplicate drops; the captured TCP sequence shows the
 but `iperf3` still timed out with its data/control sockets established before
 the final result/shutdown exchange completed. A 48-sample/repeat-3 BFSK
 profile lowered many batch times to about 0.8-1.3 seconds but still left the
-raw PHY ceiling too low. The current fast profile is BPSK 2-sample/repeat-1 in
-both directions at 3.072 Msps, raising the raw modem PHY ceiling to 1.536 Mbit/s
+raw PHY ceiling too low. The current fast profile is BPSK 1-sample/repeat-1 in
+both directions at 3.072 Msps, raising the raw modem PHY ceiling to 3.072 Mbit/s
 while keeping 32-sample/repeat-2 as the stronger retry profile. The fast path
 is accepted only behind a minimum raw PHY evidence gate that requires
 fast-primary decode success and rejects archives that relied on the lower-rate
 retry modem profile. The state
 daemon now exposes the adaptive modem profile decision as native C policy:
 `fast_primary` requires primary decode, no retry, and effective raw PHY rate
-at or above 1.2 Mbit/s, while `retry_fallback` remains available for stronger
+at or above 2.4 Mbit/s, while `retry_fallback` remains available for stronger
 decode but cannot satisfy high-rate evidence. The same policy now consumes
 measured decode quality: at least four primary decode attempts, zero primary
 PER/CRC failures, and no retry attempts are required for fast-primary
