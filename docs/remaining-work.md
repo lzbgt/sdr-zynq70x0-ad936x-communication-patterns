@@ -331,7 +331,9 @@ application proof in both directions. The native IIO helper now consumes those
 selected values through the state-daemon IIO transport lifecycle boundary and
 proves `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`, so
 profile application evidence reaches the transfer worker without Python-selected
-profile fields.
+profile fields. The lifecycle transfer report also proves
+`FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1` with positive
+state-daemon libiio execution counts and no Python libiio execution call.
 Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload

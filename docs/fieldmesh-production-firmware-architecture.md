@@ -136,7 +136,10 @@ Responsibilities:
   selected values through the state-daemon IIO transport lifecycle boundary,
   using `state_daemon_transport_*` profile fields rather than Python-selected
   `selected_*` fields, and reports
-  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`.
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`. The same
+  lifecycle transfer report now carries
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, positive
+  state-daemon libiio execution counts, and `python_libiio_execution_call=0`.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

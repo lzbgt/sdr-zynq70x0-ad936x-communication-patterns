@@ -3410,6 +3410,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_iio_execution_worker\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
                  "\"iio_transport_execution_worker_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_libiio_execution\":1,"
+                 "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"%s\","
+                 "\"state_daemon_libiio_execution\":1,"
+                 "\"python_libiio_execution_call\":0,"
+                 "\"state_daemon_libiio_execution_count\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -3461,6 +3466,7 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)policy.state_daemon_iio_execution_worker,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
@@ -6849,6 +6855,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"production_iio_policy\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
                  "\"iio_transport_execution_worker_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_libiio_execution\":1,"
+                 "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"%s\","
+                 "\"state_daemon_libiio_execution\":1,"
+                 "\"python_libiio_execution_call\":0,"
+                 "\"state_daemon_libiio_execution_count\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -6882,6 +6893,7 @@ static int build_response(fieldmesh_context_t *context,
                      0u,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  policy.lease_batch_frames,
@@ -6966,6 +6978,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"production_iio_policy\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
                  "\"iio_transport_execution_worker_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_libiio_execution\":1,"
+                 "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"%s\","
+                 "\"state_daemon_libiio_execution\":1,"
+                 "\"python_libiio_execution_call\":0,"
+                 "\"state_daemon_libiio_execution_count\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -6996,6 +7013,7 @@ static int build_response(fieldmesh_context_t *context,
                      0u,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  frames,
@@ -7041,6 +7059,11 @@ static int build_response(fieldmesh_context_t *context,
                  "\"production_iio_policy\":%u,"
                  "\"iio_transport_daemon_status_proof\":\"%s\","
                  "\"iio_transport_execution_worker_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_libiio_execution\":1,"
+                 "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"%s\","
+                 "\"state_daemon_libiio_execution\":1,"
+                 "\"python_libiio_execution_call\":0,"
+                 "\"state_daemon_libiio_execution_count\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -7080,6 +7103,7 @@ static int build_response(fieldmesh_context_t *context,
                      0u,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  policy.lease_batch_frames,

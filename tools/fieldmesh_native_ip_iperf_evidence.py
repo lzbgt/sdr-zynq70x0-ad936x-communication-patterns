@@ -576,6 +576,26 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     ):
         errors.append(f"{label}: native state-daemon transport lifecycle reported failures")
     if (
+        report.get("iio_bridge_native_iio_burst_state_daemon_libiio_execution_proven")
+        is not True
+    ):
+        errors.append(f"{label}: native state-daemon libiio execution proof is missing")
+    libiio_execution_invocations = report.get(
+        "iio_bridge_native_iio_burst_state_daemon_libiio_execution_invocations"
+    )
+    if not isinstance(libiio_execution_invocations, int) or libiio_execution_invocations < 1:
+        errors.append(f"{label}: native state-daemon libiio execution was not exercised")
+    if (
+        int(
+            report.get(
+                "iio_bridge_native_iio_burst_state_daemon_libiio_execution_failures"
+            )
+            or 0
+        )
+        != 0
+    ):
+        errors.append(f"{label}: native state-daemon libiio execution reported failures")
+    if (
         report.get("iio_bridge_native_iio_burst_state_daemon_modem_profile_proven")
         is not True
     ):
@@ -1220,6 +1240,9 @@ def main() -> int:
         "requires_iio_native_iio_burst_state_daemon_transport_lifecycle": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_native_iio_burst_state_daemon_libiio_execution": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_iio_native_iio_burst_state_daemon_modem_profile": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
@@ -1737,6 +1760,18 @@ def main() -> int:
         ),
         "host_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations": host.get(
             "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_invocations"
+        ),
+        "board_iio_native_iio_burst_state_daemon_libiio_execution_proven": board.get(
+            "iio_bridge_native_iio_burst_state_daemon_libiio_execution_proven"
+        ),
+        "host_iio_native_iio_burst_state_daemon_libiio_execution_proven": host.get(
+            "iio_bridge_native_iio_burst_state_daemon_libiio_execution_proven"
+        ),
+        "board_iio_native_iio_burst_state_daemon_libiio_execution_invocations": board.get(
+            "iio_bridge_native_iio_burst_state_daemon_libiio_execution_invocations"
+        ),
+        "host_iio_native_iio_burst_state_daemon_libiio_execution_invocations": host.get(
+            "iio_bridge_native_iio_burst_state_daemon_libiio_execution_invocations"
         ),
         "board_iio_native_iio_burst_state_daemon_modem_profile_proven": board.get(
             "iio_bridge_native_iio_burst_state_daemon_modem_profile_proven"

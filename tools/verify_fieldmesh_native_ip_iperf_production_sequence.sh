@@ -78,6 +78,9 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_proven": true,
   "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_invocations": 3,
   "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_failures": 0,
+  "iio_bridge_native_iio_burst_state_daemon_libiio_execution_proven": true,
+  "iio_bridge_native_iio_burst_state_daemon_libiio_execution_invocations": 3,
+  "iio_bridge_native_iio_burst_state_daemon_libiio_execution_failures": 0,
   "iio_bridge_native_iio_burst_state_daemon_modem_profile_proven": true,
   "iio_bridge_native_iio_burst_state_daemon_modem_profile_invocations": 3,
   "iio_bridge_native_iio_burst_state_daemon_modem_profile_failures": 0,
@@ -428,6 +431,9 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_proven": true,
   "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_invocations": 3,
   "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_failures": 0,
+  "iio_bridge_native_iio_burst_state_daemon_libiio_execution_proven": true,
+  "iio_bridge_native_iio_burst_state_daemon_libiio_execution_invocations": 3,
+  "iio_bridge_native_iio_burst_state_daemon_libiio_execution_failures": 0,
   "iio_bridge_native_iio_burst_state_daemon_modem_profile_proven": true,
   "iio_bridge_native_iio_burst_state_daemon_modem_profile_invocations": 3,
   "iio_bridge_native_iio_burst_state_daemon_modem_profile_failures": 0,
@@ -775,6 +781,8 @@ if report.get("requires_iio_native_iio_burst_state_daemon_transport_queue") is n
     raise SystemExit(f"missing native IIO burst state-daemon transport queue requirement: {report}")
 if report.get("requires_iio_native_iio_burst_state_daemon_transport_lifecycle") is not True:
     raise SystemExit(f"missing native IIO burst state-daemon transport lifecycle requirement: {report}")
+if report.get("requires_iio_native_iio_burst_state_daemon_libiio_execution") is not True:
+    raise SystemExit(f"missing native IIO burst state-daemon libiio execution requirement: {report}")
 if report.get("requires_iio_state_daemon_iio_transport") is not True:
     raise SystemExit(f"missing state-daemon IIO transport requirement: {report}")
 if report.get("requires_iio_in_burst_priority_preemption") is not True:
@@ -889,6 +897,10 @@ if report.get("host_iio_native_iio_burst_state_daemon_transport_queue_proven") i
     raise SystemExit(f"missing host native IIO burst state-daemon transport queue proof: {report}")
 if report.get("host_iio_native_iio_burst_state_daemon_transport_queue_invocations") != 3:
     raise SystemExit(f"missing host native IIO burst state-daemon transport queue invocation count: {report}")
+if report.get("host_iio_native_iio_burst_state_daemon_libiio_execution_proven") is not True:
+    raise SystemExit(f"missing host native IIO burst state-daemon libiio execution proof: {report}")
+if report.get("host_iio_native_iio_burst_state_daemon_libiio_execution_invocations") != 3:
+    raise SystemExit(f"missing host native IIO burst state-daemon libiio execution invocation count: {report}")
 if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
     raise SystemExit(f"missing host state-daemon IIO transport proof: {report}")
 if report.get("host_iio_state_daemon_iio_transport_status_polls") != 2:

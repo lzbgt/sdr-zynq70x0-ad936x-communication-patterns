@@ -2267,6 +2267,10 @@ def run_batch(
             run_report.get("native_iio_burst_state_daemon_transport_lifecycle_proven")
             is True
         ),
+        "native_iio_burst_state_daemon_libiio_execution_proven": (
+            run_report.get("native_iio_burst_state_daemon_libiio_execution_proven")
+            is True
+        ),
         "native_iio_burst_state_daemon_modem_profile_proven": (
             run_report.get("native_iio_burst_state_daemon_modem_profile_proven")
             is True
@@ -2499,6 +2503,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_iio_burst_state_daemon_transport_queue_failures": 0,
         "native_iio_burst_state_daemon_transport_lifecycle_invocations": 0,
         "native_iio_burst_state_daemon_transport_lifecycle_failures": 0,
+        "native_iio_burst_state_daemon_libiio_execution_invocations": 0,
+        "native_iio_burst_state_daemon_libiio_execution_failures": 0,
         "native_iio_burst_state_daemon_modem_profile_invocations": 0,
         "native_iio_burst_state_daemon_modem_profile_failures": 0,
         "native_iio_burst_state_daemon_transport_modem_profile_invocations": 0,
@@ -3202,6 +3208,33 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "native_iio_burst_state_daemon_transport_lifecycle_failures": counts[
                 "native_iio_burst_state_daemon_transport_lifecycle_failures"
             ],
+            "native_iio_burst_state_daemon_libiio_execution_proven": bool(
+                not (
+                    args.execute_live_rf
+                    and args.persistent_burst_helper
+                    and args.burst_helper is not None
+                )
+                or (
+                    counts[
+                        "native_iio_burst_state_daemon_libiio_execution_invocations"
+                    ]
+                    > 0
+                    and counts[
+                        "native_iio_burst_state_daemon_libiio_execution_failures"
+                    ]
+                    == 0
+                    and counts[
+                        "native_iio_burst_state_daemon_libiio_execution_invocations"
+                    ]
+                    >= counts["batches_moved"]
+                )
+            ),
+            "native_iio_burst_state_daemon_libiio_execution_invocations": counts[
+                "native_iio_burst_state_daemon_libiio_execution_invocations"
+            ],
+            "native_iio_burst_state_daemon_libiio_execution_failures": counts[
+                "native_iio_burst_state_daemon_libiio_execution_failures"
+            ],
             "native_iio_burst_state_daemon_modem_profile_proven": bool(
                 not (
                     args.execute_live_rf
@@ -3553,6 +3586,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             counts["native_iio_burst_state_daemon_transport_lifecycle_invocations"] += 1
         else:
             counts["native_iio_burst_state_daemon_transport_lifecycle_failures"] += 1
+        if report.get("native_iio_burst_state_daemon_libiio_execution_proven") is True:
+            counts["native_iio_burst_state_daemon_libiio_execution_invocations"] += 1
+        else:
+            counts["native_iio_burst_state_daemon_libiio_execution_failures"] += 1
         if report.get("native_iio_burst_state_daemon_modem_profile_proven") is True:
             counts["native_iio_burst_state_daemon_modem_profile_invocations"] += 1
         else:

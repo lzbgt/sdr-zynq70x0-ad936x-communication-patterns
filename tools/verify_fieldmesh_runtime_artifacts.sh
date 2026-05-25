@@ -474,6 +474,11 @@ PY
         state_daemon_transport_selected_samples_per_symbol \
         state_daemon_transport_selected_bit_repeat \
         python_selected_modem_profile_fields \
+        FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION \
+        native_iio_burst_state_daemon_libiio_execution \
+        state_daemon_libiio_execution \
+        state_daemon_libiio_execution_count \
+        python_libiio_execution_call \
         iio_helper_consumes_selected_modem_profile \
         python_iio_helper_modem_profile_mapping \
         state_daemon_rf_service_loop_tick \

@@ -101,6 +101,8 @@ if report.get("native_iio_burst_state_daemon_transport_lifecycle_proof") != "FIE
     raise SystemExit(f"C native IIO burst state-daemon transport lifecycle proof token drifted: {report}")
 if report.get("native_iio_burst_state_daemon_transport_modem_profile_proof") != "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1":
     raise SystemExit(f"C native IIO burst state-daemon transport modem profile proof token drifted: {report}")
+if report.get("native_iio_burst_state_daemon_libiio_execution_proof") != "FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1":
+    raise SystemExit(f"C native IIO burst state-daemon libiio execution proof token drifted: {report}")
 if report.get("python_xfer_field_orchestration") is not False:
     raise SystemExit(f"C native IIO transport worker must reject Python field orchestration: {report}")
 if report.get("python_worker_xfer_submission") is not False:
@@ -119,6 +121,8 @@ if report.get("python_transport_scheduler_queue_file_submission") is not False:
     raise SystemExit(f"C native IIO state-daemon transport queue must reject Python scheduler-queue file submission: {report}")
 if report.get("python_transport_helper_command_status_pacing") is not False:
     raise SystemExit(f"C native IIO state-daemon transport lifecycle must reject Python helper command/status pacing: {report}")
+if report.get("python_libiio_execution_call") is not False:
+    raise SystemExit(f"C native IIO state-daemon transport lifecycle must reject Python libiio execution calls: {report}")
 if report.get("python_iio_helper_modem_profile_mapping") is not False:
     raise SystemExit(f"C native IIO state-daemon transport lifecycle must reject Python helper modem-profile mapping: {report}")
 if report.get("python_selected_modem_profile_fields") is not False:
@@ -537,6 +541,7 @@ required = [
     "python_transport_request_file_submission",
     "python_transport_scheduler_queue_file_submission",
     "python_transport_helper_command_status_pacing",
+    "python_libiio_execution_call",
     "python_integrated_daemon_enqueue_submission",
     "python_background_daemon_status_polling",
     "python_selected_modem_profile_fields",
@@ -544,7 +549,11 @@ required = [
     "state_daemon_transport_selected_bit_repeat",
     "state_daemon_transport_modem_profile_request",
     "state_daemon_transport_modem_profile",
+    "native_iio_burst_state_daemon_libiio_execution",
+    "state_daemon_libiio_execution",
+    "state_daemon_libiio_execution_count",
     "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1",
+    "FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1",
     "native_transport_worker_autonomous_daemon",
     "libiio_rx_tx_worker",
     "python_iio_transport",

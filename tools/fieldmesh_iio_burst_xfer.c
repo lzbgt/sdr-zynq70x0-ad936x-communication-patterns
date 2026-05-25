@@ -104,6 +104,7 @@ struct options {
     bool native_transport_integrated_rf_service_daemon_mode;
     bool native_transport_state_daemon_queue_mode;
     bool native_transport_state_daemon_lifecycle_mode;
+    bool native_state_daemon_libiio_execution_mode;
     bool native_state_daemon_modem_profile_mode;
     bool native_state_daemon_transport_modem_profile_mode;
     bool python_iio_helper_modem_profile_mapping;
@@ -128,6 +129,7 @@ struct options {
     unsigned long long transport_integrated_rf_service_daemon_drained_count;
     unsigned long long transport_state_daemon_queue_request_count;
     unsigned long long transport_state_daemon_lifecycle_xfer_count;
+    unsigned long long state_daemon_libiio_execution_count;
 };
 
 struct rx_job {
@@ -200,6 +202,8 @@ static int run_native_worker_self_test(void)
            "\"native_iio_burst_state_daemon_transport_queue_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_QUEUE v1\","
            "\"native_iio_burst_state_daemon_transport_lifecycle_supported\":true,"
            "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1\","
+           "\"native_iio_burst_state_daemon_libiio_execution_supported\":true,"
+           "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1\","
            "\"native_iio_burst_state_daemon_modem_profile_supported\":true,"
            "\"native_iio_burst_state_daemon_modem_profile_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1\","
            "\"native_iio_burst_state_daemon_transport_modem_profile_supported\":true,"
@@ -219,6 +223,7 @@ static int run_native_worker_self_test(void)
            "\"python_transport_request_file_submission\":false,"
            "\"python_transport_scheduler_queue_file_submission\":false,"
            "\"python_transport_helper_command_status_pacing\":false,"
+           "\"python_libiio_execution_call\":false,"
            "\"python_iio_helper_modem_profile_mapping\":false,"
            "\"python_selected_modem_profile_fields\":false,"
            "\"python_integrated_daemon_enqueue_submission\":false,"
@@ -1828,6 +1833,11 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"%s\","
             "\"transport_state_daemon_lifecycle_xfer\":%s,"
             "\"transport_state_daemon_lifecycle_xfer_count\":%llu,"
+            "\"native_iio_burst_state_daemon_libiio_execution\":%s,"
+            "\"native_iio_burst_state_daemon_libiio_execution_proof\":\"%s\","
+            "\"state_daemon_libiio_execution\":%s,"
+            "\"state_daemon_libiio_execution_count\":%llu,"
+            "\"python_libiio_execution_call\":%s,"
             "\"native_iio_burst_state_daemon_modem_profile\":%s,"
             "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
             "\"native_iio_burst_state_daemon_transport_modem_profile\":%s,"
@@ -1916,6 +1926,12 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1" : "",
             opt->native_transport_state_daemon_lifecycle_mode ? "true" : "false",
             opt->transport_state_daemon_lifecycle_xfer_count,
+            opt->native_state_daemon_libiio_execution_mode ? "true" : "false",
+            opt->native_state_daemon_libiio_execution_mode ?
+                "FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1" : "",
+            opt->native_state_daemon_libiio_execution_mode ? "true" : "false",
+            opt->state_daemon_libiio_execution_count,
+            opt->native_state_daemon_libiio_execution_mode ? "false" : "true",
             opt->native_state_daemon_modem_profile_mode ? "true" : "false",
             opt->native_state_daemon_modem_profile_mode ?
                 "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1" : "",
@@ -2644,6 +2660,7 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             req.native_transport_integrated_rf_service_daemon_mode = true;
             req.native_transport_state_daemon_queue_mode = true;
             req.native_transport_state_daemon_lifecycle_mode = true;
+            req.native_state_daemon_libiio_execution_mode = true;
             req.transport_session_start_count = transport_session_start_count;
             req.transport_worker_request_count = worker_request_count + 1ULL;
             req.transport_service_loop_start_count = transport_service_loop_start_count;
@@ -2671,6 +2688,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
             req.transport_state_daemon_queue_request_count =
                 transport_state_daemon_queue_request_count + 1ULL;
             req.transport_state_daemon_lifecycle_xfer_count =
+                transport_state_daemon_lifecycle_xfer_count + 1ULL;
+            req.state_daemon_libiio_execution_count =
                 transport_state_daemon_lifecycle_xfer_count + 1ULL;
 
             int request_ok = load_worker_request_fields(

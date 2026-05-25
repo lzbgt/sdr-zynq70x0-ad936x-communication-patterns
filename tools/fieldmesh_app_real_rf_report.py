@@ -135,6 +135,11 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
             ):
                 raise SystemExit("native_ip: native IIO burst state-daemon transport lifecycle proof is missing")
             if (
+                source.get("requires_iio_native_iio_burst_state_daemon_libiio_execution")
+                is not True
+            ):
+                raise SystemExit("native_ip: native IIO burst state-daemon libiio execution proof is missing")
+            if (
                 source.get("requires_iio_native_iio_burst_state_daemon_modem_profile")
                 is not True
             ):
@@ -309,6 +314,16 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
             ):
                 raise SystemExit("native_ip: host native IIO burst state-daemon transport lifecycle proof is missing")
             if (
+                source.get("board_iio_native_iio_burst_state_daemon_libiio_execution_proven")
+                is not True
+            ):
+                raise SystemExit("native_ip: board native IIO burst state-daemon libiio execution proof is missing")
+            if (
+                source.get("host_iio_native_iio_burst_state_daemon_libiio_execution_proven")
+                is not True
+            ):
+                raise SystemExit("native_ip: host native IIO burst state-daemon libiio execution proof is missing")
+            if (
                 source.get("board_iio_native_iio_burst_state_daemon_modem_profile_proven")
                 is not True
             ):
@@ -436,6 +451,7 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "requires_iio_native_iio_burst_integrated_rf_service_daemon",
         "requires_iio_native_iio_burst_state_daemon_transport_queue",
         "requires_iio_native_iio_burst_state_daemon_transport_lifecycle",
+        "requires_iio_native_iio_burst_state_daemon_libiio_execution",
         "requires_iio_native_iio_burst_state_daemon_modem_profile",
         "requires_iio_native_iio_burst_state_daemon_transport_modem_profile",
         "requires_iio_state_daemon_iio_transport",
@@ -544,6 +560,10 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_native_iio_burst_state_daemon_transport_lifecycle_proven",
         "board_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations",
         "host_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations",
+        "board_iio_native_iio_burst_state_daemon_libiio_execution_proven",
+        "host_iio_native_iio_burst_state_daemon_libiio_execution_proven",
+        "board_iio_native_iio_burst_state_daemon_libiio_execution_invocations",
+        "host_iio_native_iio_burst_state_daemon_libiio_execution_invocations",
         "board_iio_native_iio_burst_state_daemon_modem_profile_proven",
         "host_iio_native_iio_burst_state_daemon_modem_profile_proven",
         "board_iio_native_iio_burst_state_daemon_modem_profile_invocations",

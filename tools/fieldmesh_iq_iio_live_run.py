@@ -1457,6 +1457,21 @@ def execute_live_with_helper(
         "transport_state_daemon_lifecycle_xfer_count": helper_report.get(
             "transport_state_daemon_lifecycle_xfer_count"
         ),
+        "native_iio_burst_state_daemon_libiio_execution": (
+            helper_report.get("native_iio_burst_state_daemon_libiio_execution") is True
+        ),
+        "native_iio_burst_state_daemon_libiio_execution_proof": helper_report.get(
+            "native_iio_burst_state_daemon_libiio_execution_proof"
+        ),
+        "state_daemon_libiio_execution": (
+            helper_report.get("state_daemon_libiio_execution") is True
+        ),
+        "state_daemon_libiio_execution_count": helper_report.get(
+            "state_daemon_libiio_execution_count"
+        ),
+        "python_libiio_execution_call": (
+            helper_report.get("python_libiio_execution_call") is True
+        ),
         "native_iio_burst_state_daemon_modem_profile": (
             helper_report.get("native_iio_burst_state_daemon_modem_profile") is True
         ),
@@ -1684,6 +1699,21 @@ def execute_live_with_helper(
             ],
             "transport_state_daemon_lifecycle_xfer_count": helper_result[
                 "transport_state_daemon_lifecycle_xfer_count"
+            ],
+            "native_iio_burst_state_daemon_libiio_execution": helper_result[
+                "native_iio_burst_state_daemon_libiio_execution"
+            ],
+            "native_iio_burst_state_daemon_libiio_execution_proof": helper_result[
+                "native_iio_burst_state_daemon_libiio_execution_proof"
+            ],
+            "state_daemon_libiio_execution": helper_result[
+                "state_daemon_libiio_execution"
+            ],
+            "state_daemon_libiio_execution_count": helper_result[
+                "state_daemon_libiio_execution_count"
+            ],
+            "python_libiio_execution_call": helper_result[
+                "python_libiio_execution_call"
             ],
             "native_iio_burst_state_daemon_modem_profile": helper_result[
                 "native_iio_burst_state_daemon_modem_profile"
@@ -2200,6 +2230,24 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
     )
+    native_iio_burst_state_daemon_libiio_execution_proven = bool(
+        not native_iio_burst_worker_required
+        or (
+            command_results
+            and any(
+                result.get("name") == "iio_burst_helper"
+                and result.get("returncode") == 0
+                and result.get("native_iio_burst_state_daemon_libiio_execution") is True
+                and result.get("native_iio_burst_state_daemon_libiio_execution_proof")
+                == "FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1"
+                and result.get("state_daemon_libiio_execution") is True
+                and isinstance(result.get("state_daemon_libiio_execution_count"), int)
+                and result.get("state_daemon_libiio_execution_count") >= 1
+                and result.get("python_libiio_execution_call") is False
+                for result in command_results
+            )
+        )
+    )
     native_iio_burst_state_daemon_modem_profile_proven = bool(
         not native_iio_burst_worker_required
         or (
@@ -2299,6 +2347,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "native_iio_burst_state_daemon_transport_lifecycle_proven": (
             native_iio_burst_state_daemon_transport_lifecycle_proven
+        ),
+        "native_iio_burst_state_daemon_libiio_execution_proven": (
+            native_iio_burst_state_daemon_libiio_execution_proven
         ),
         "native_iio_burst_state_daemon_modem_profile_proven": (
             native_iio_burst_state_daemon_modem_profile_proven

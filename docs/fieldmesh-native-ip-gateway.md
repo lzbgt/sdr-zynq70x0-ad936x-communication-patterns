@@ -415,6 +415,7 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_IIO_TRANSPORT_DAEMON_START v1`, positive
   `FIELDMESH_IIO_TRANSPORT_DAEMON_ENQUEUE v1` enqueue/drain counters,
   `FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1`,
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`,
   `state_daemon_iio_transport_execution_worker=1`,
   `state_daemon_libiio_execution_owner=1`,
   `helper_local_libiio_execution_only=0`, positive execution-worker counters,
@@ -506,7 +507,10 @@ Minimum production gates for native TCP/IP:
   through the state-daemon IIO transport lifecycle boundary and reports
   `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`, so archived
   evidence proves the transfer worker saw a daemon transport-profile request
-  with `python_selected_modem_profile_fields=false`.
+  with `python_selected_modem_profile_fields=false`. The transfer report also
+  proves `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, so the same
+  archive rejects captures where libiio execution is still a Python-paced
+  helper call.
   That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
