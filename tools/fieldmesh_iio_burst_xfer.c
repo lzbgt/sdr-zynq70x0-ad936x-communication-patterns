@@ -105,7 +105,9 @@ struct options {
     bool native_transport_state_daemon_queue_mode;
     bool native_transport_state_daemon_lifecycle_mode;
     bool native_state_daemon_modem_profile_mode;
+    bool native_state_daemon_transport_modem_profile_mode;
     bool python_iio_helper_modem_profile_mapping;
+    bool python_selected_modem_profile_fields;
     unsigned int selected_samples_per_symbol;
     unsigned int selected_bit_repeat;
     unsigned long long transport_session_start_count;
@@ -200,6 +202,8 @@ static int run_native_worker_self_test(void)
            "\"native_iio_burst_state_daemon_transport_lifecycle_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_LIFECYCLE v1\","
            "\"native_iio_burst_state_daemon_modem_profile_supported\":true,"
            "\"native_iio_burst_state_daemon_modem_profile_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1\","
+           "\"native_iio_burst_state_daemon_transport_modem_profile_supported\":true,"
+           "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1\","
            "\"native_iio_burst_transport_request_event\":\"fieldmesh_iio_burst_transport_worker_request\","
            "\"native_iio_burst_transport_service_loop_event\":\"fieldmesh_iio_burst_transport_service_loop_run\","
            "\"native_iio_burst_transport_scheduler_event\":\"fieldmesh_iio_burst_transport_scheduler_drain\","
@@ -216,6 +220,7 @@ static int run_native_worker_self_test(void)
            "\"python_transport_scheduler_queue_file_submission\":false,"
            "\"python_transport_helper_command_status_pacing\":false,"
            "\"python_iio_helper_modem_profile_mapping\":false,"
+           "\"python_selected_modem_profile_fields\":false,"
            "\"python_integrated_daemon_enqueue_submission\":false,"
            "\"python_background_daemon_status_polling\":false,"
            "\"next_boundary\":\"native_transport_worker_autonomous_daemon\","
@@ -1825,13 +1830,19 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             "\"transport_state_daemon_lifecycle_xfer_count\":%llu,"
             "\"native_iio_burst_state_daemon_modem_profile\":%s,"
             "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
+            "\"native_iio_burst_state_daemon_transport_modem_profile\":%s,"
+            "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"%s\","
+            "\"state_daemon_transport_modem_profile_request\":%s,"
             "\"iio_helper_consumes_selected_modem_profile\":%s,"
             "\"selected_samples_per_symbol\":%u,"
             "\"selected_bit_repeat\":%u,"
+            "\"state_daemon_transport_selected_samples_per_symbol\":%u,"
+            "\"state_daemon_transport_selected_bit_repeat\":%u,"
             "\"python_transport_request_file_submission\":%s,"
             "\"python_transport_scheduler_queue_file_submission\":%s,"
             "\"python_transport_helper_command_status_pacing\":%s,"
             "\"python_iio_helper_modem_profile_mapping\":%s,"
+            "\"python_selected_modem_profile_fields\":%s,"
             "\"python_integrated_daemon_enqueue_submission\":%s,"
             "\"python_background_daemon_status_polling\":%s,"
             "\"python_xfer_field_orchestration\":%s,"
@@ -1908,13 +1919,20 @@ static int run_xfer(struct iio_device *rx_dev, struct iio_device *tx_dev,
             opt->native_state_daemon_modem_profile_mode ? "true" : "false",
             opt->native_state_daemon_modem_profile_mode ?
                 "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1" : "",
-            opt->native_state_daemon_modem_profile_mode ? "true" : "false",
+            opt->native_state_daemon_transport_modem_profile_mode ? "true" : "false",
+            opt->native_state_daemon_transport_modem_profile_mode ?
+                "FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1" : "",
+            opt->native_state_daemon_transport_modem_profile_mode ? "true" : "false",
+            opt->native_state_daemon_transport_modem_profile_mode ? "true" : "false",
+            opt->selected_samples_per_symbol,
+            opt->selected_bit_repeat,
             opt->selected_samples_per_symbol,
             opt->selected_bit_repeat,
             opt->native_transport_state_daemon_queue_mode ? "false" : "true",
             opt->native_transport_state_daemon_queue_mode ? "false" : "true",
             opt->native_transport_state_daemon_lifecycle_mode ? "false" : "true",
             opt->python_iio_helper_modem_profile_mapping ? "true" : "false",
+            opt->python_selected_modem_profile_fields ? "true" : "false",
             opt->native_transport_state_daemon_lifecycle_mode ? "false" : "true",
             opt->native_transport_state_daemon_lifecycle_mode ? "false" : "true",
             opt->native_transport_worker_mode ? "false" : "true",
@@ -1973,20 +1991,40 @@ static int apply_worker_request_field(struct options *req, char *key, char *valu
     } else if (strcmp(key, "native_modem_profile_application") == 0) {
         req->native_state_daemon_modem_profile_mode =
             strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
+    } else if (strcmp(key, "state_daemon_transport_modem_profile") == 0) {
+        req->native_state_daemon_transport_modem_profile_mode =
+            strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
+        req->native_state_daemon_modem_profile_mode =
+            req->native_state_daemon_transport_modem_profile_mode;
     } else if (strcmp(key, "selected_samples_per_symbol") == 0) {
         req->selected_samples_per_symbol =
             (unsigned int)parse_ull(value, "selected_samples_per_symbol");
         req->native_state_daemon_modem_profile_mode = true;
+        req->python_selected_modem_profile_fields = true;
     } else if (strcmp(key, "selected_bit_repeat") == 0) {
         req->selected_bit_repeat =
             (unsigned int)parse_ull(value, "selected_bit_repeat");
         req->native_state_daemon_modem_profile_mode = true;
+        req->python_selected_modem_profile_fields = true;
+    } else if (strcmp(key, "state_daemon_transport_selected_samples_per_symbol") == 0) {
+        req->selected_samples_per_symbol =
+            (unsigned int)parse_ull(
+                value, "state_daemon_transport_selected_samples_per_symbol");
+        req->native_state_daemon_modem_profile_mode = true;
+        req->native_state_daemon_transport_modem_profile_mode = true;
+    } else if (strcmp(key, "state_daemon_transport_selected_bit_repeat") == 0) {
+        req->selected_bit_repeat =
+            (unsigned int)parse_ull(
+                value, "state_daemon_transport_selected_bit_repeat");
+        req->native_state_daemon_modem_profile_mode = true;
+        req->native_state_daemon_transport_modem_profile_mode = true;
     } else if (strcmp(key, "python_modem_profile_mapping") == 0 ||
                strcmp(key, "python_iio_helper_modem_profile_mapping") == 0) {
         req->python_iio_helper_modem_profile_mapping =
             strcmp(value, "1") == 0 || strcmp(value, "true") == 0;
     } else if (strcmp(key, "adaptive_mcs_pre_burst_profile_application_source") == 0) {
-        if (strcmp(value, "state_daemon_rf_service_loop_tick") != 0) {
+        if (strcmp(value, "state_daemon_rf_service_loop_tick") != 0 &&
+            strcmp(value, "state_daemon_iio_transport_lifecycle") != 0) {
             return -1;
         }
     } else if (strcmp(key, "event") != 0 &&
@@ -2640,10 +2678,11 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 line + strlen(state_lifecycle_xfer_prefix));
             if (request_ok != 0 || !req.tx_file || !req.rx_file ||
                 req.tx_samples == 0 || req.rx_samples == 0 ||
-                (req.native_state_daemon_modem_profile_mode &&
-                 (req.selected_samples_per_symbol < 2u ||
-                  req.selected_bit_repeat == 0u ||
-                  req.python_iio_helper_modem_profile_mapping))) {
+                !req.native_state_daemon_transport_modem_profile_mode ||
+                req.selected_samples_per_symbol < 2u ||
+                req.selected_bit_repeat == 0u ||
+                req.python_iio_helper_modem_profile_mapping ||
+                req.python_selected_modem_profile_fields) {
                 free((char *)req.tx_file);
                 free((char *)req.rx_file);
                 printf("{\"event\":\"fieldmesh_iio_burst_state_daemon_transport_lifecycle_xfer\","
@@ -2824,7 +2863,8 @@ static int run_server(struct iio_device *rx_dev, struct iio_device *tx_dev,
                 (req.native_state_daemon_modem_profile_mode &&
                  (req.selected_samples_per_symbol < 2u ||
                   req.selected_bit_repeat == 0u ||
-                  req.python_iio_helper_modem_profile_mapping))) {
+                  req.python_iio_helper_modem_profile_mapping ||
+                  req.python_selected_modem_profile_fields))) {
                 free((char *)req.tx_file);
                 free((char *)req.rx_file);
                 free(request_file);

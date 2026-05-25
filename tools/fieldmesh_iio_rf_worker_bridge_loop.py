@@ -2271,6 +2271,12 @@ def run_batch(
             run_report.get("native_iio_burst_state_daemon_modem_profile_proven")
             is True
         ),
+        "native_iio_burst_state_daemon_transport_modem_profile_proven": (
+            run_report.get(
+                "native_iio_burst_state_daemon_transport_modem_profile_proven"
+            )
+            is True
+        ),
         "state_daemon_iio_transport_enqueue": state_daemon_iio_transport_enqueue,
         "state_daemon_iio_transport_enqueue_proven": bool(
             state_daemon_iio_transport_enqueue.get("state_daemon_iio_transport_enqueue")
@@ -2495,6 +2501,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_iio_burst_state_daemon_transport_lifecycle_failures": 0,
         "native_iio_burst_state_daemon_modem_profile_invocations": 0,
         "native_iio_burst_state_daemon_modem_profile_failures": 0,
+        "native_iio_burst_state_daemon_transport_modem_profile_invocations": 0,
+        "native_iio_burst_state_daemon_transport_modem_profile_failures": 0,
         "native_service_loop_worker_starts": 0,
         "native_service_loop_worker_status_polls": 0,
         "native_service_loop_worker_failures": 0,
@@ -3221,6 +3229,33 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "native_iio_burst_state_daemon_modem_profile_failures": counts[
                 "native_iio_burst_state_daemon_modem_profile_failures"
             ],
+            "native_iio_burst_state_daemon_transport_modem_profile_proven": bool(
+                not (
+                    args.execute_live_rf
+                    and args.persistent_burst_helper
+                    and args.burst_helper is not None
+                )
+                or (
+                    counts[
+                        "native_iio_burst_state_daemon_transport_modem_profile_invocations"
+                    ]
+                    > 0
+                    and counts[
+                        "native_iio_burst_state_daemon_transport_modem_profile_failures"
+                    ]
+                    == 0
+                    and counts[
+                        "native_iio_burst_state_daemon_transport_modem_profile_invocations"
+                    ]
+                    >= counts["batches_moved"]
+                )
+            ),
+            "native_iio_burst_state_daemon_transport_modem_profile_invocations": counts[
+                "native_iio_burst_state_daemon_transport_modem_profile_invocations"
+            ],
+            "native_iio_burst_state_daemon_transport_modem_profile_failures": counts[
+                "native_iio_burst_state_daemon_transport_modem_profile_failures"
+            ],
             "native_rf_service_worker_required": bool(
                 args.execute_live_rf and args.require_native_rf_service_worker
             ),
@@ -3522,6 +3557,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             counts["native_iio_burst_state_daemon_modem_profile_invocations"] += 1
         else:
             counts["native_iio_burst_state_daemon_modem_profile_failures"] += 1
+        if (
+            report.get("native_iio_burst_state_daemon_transport_modem_profile_proven")
+            is True
+        ):
+            counts[
+                "native_iio_burst_state_daemon_transport_modem_profile_invocations"
+            ] += 1
+        else:
+            counts[
+                "native_iio_burst_state_daemon_transport_modem_profile_failures"
+            ] += 1
         enqueue = report.get("state_daemon_iio_transport_enqueue")
         if (
             isinstance(enqueue, dict)

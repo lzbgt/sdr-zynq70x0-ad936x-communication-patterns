@@ -3412,6 +3412,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
+                 "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"%s\","
+                 "\"state_daemon_transport_modem_profile_request\":1,"
+                 "\"python_selected_modem_profile_fields\":0,"
                  "\"iio_helper_consumes_selected_modem_profile\":1,"
                  "\"python_iio_helper_modem_profile_mapping\":0,"
                  "\"lease_priority\":\"%s\","
@@ -3458,6 +3462,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
                  fieldmesh_rf_service_lease_priority_cli_name(
                      policy.lease_priority),
@@ -6846,6 +6851,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
+                 "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"%s\","
+                 "\"state_daemon_transport_modem_profile_request\":1,"
+                 "\"python_selected_modem_profile_fields\":0,"
                  "\"iio_helper_consumes_selected_modem_profile\":1,"
                  "\"python_iio_helper_modem_profile_mapping\":0,"
                  "\"lease_batch_frames\":%u,"
@@ -6874,6 +6883,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  policy.lease_batch_frames,
                  policy.max_frames_per_rf_burst,
                  policy.max_consecutive_direction_batches,
@@ -6958,6 +6968,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
+                 "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"%s\","
+                 "\"state_daemon_transport_modem_profile_request\":1,"
+                 "\"python_selected_modem_profile_fields\":0,"
                  "\"iio_helper_consumes_selected_modem_profile\":1,"
                  "\"python_iio_helper_modem_profile_mapping\":0,"
                  "\"request_frames\":%u,"
@@ -6983,6 +6997,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  frames,
                  bytes,
                  iio_transport->starts,
@@ -7028,6 +7043,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"iio_transport_execution_worker_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
+                 "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
+                 "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"%s\","
+                 "\"state_daemon_transport_modem_profile_request\":1,"
+                 "\"python_selected_modem_profile_fields\":0,"
                  "\"iio_helper_consumes_selected_modem_profile\":1,"
                  "\"python_iio_helper_modem_profile_mapping\":0,"
                  "\"lease_batch_frames\":%u,"
@@ -7062,6 +7081,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DAEMON_STATUS_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
+                 FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  policy.lease_batch_frames,
                  policy.max_frames_per_rf_burst,
                  policy.max_consecutive_direction_batches,
@@ -7714,6 +7734,12 @@ static int build_response(fieldmesh_context_t *context,
                  "\"retry_bit_repeat\":%u,"
                  "\"selected_samples_per_symbol\":%u,"
                  "\"selected_bit_repeat\":%u,"
+                 "\"state_daemon_transport_selected_samples_per_symbol\":%u,"
+                 "\"state_daemon_transport_selected_bit_repeat\":%u,"
+                 "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
+                 "\"native_iio_burst_state_daemon_transport_modem_profile_proof\":\"%s\","
+                 "\"state_daemon_transport_modem_profile_request\":1,"
+                 "\"python_selected_modem_profile_fields\":0,"
                  "\"mcs_quality_updates\":%u,"
                  "\"adaptive_mcs_pre_burst_decision_native_c\":1,"
                  "\"adaptive_mcs_pre_burst_live_quality_bound\":%u,"
@@ -7790,6 +7816,9 @@ static int build_response(fieldmesh_context_t *context,
                  retry_bit_repeat,
                  selected_samples_per_symbol,
                  selected_bit_repeat,
+                 selected_samples_per_symbol,
+                 selected_bit_repeat,
+                 FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  rf_service_loop ? rf_service_loop->mcs_quality_updates : 0u,
                  mcs_quality_ready,
                  mcs_high_rate_proven,

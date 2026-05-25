@@ -595,6 +595,37 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         != 0
     ):
         errors.append(f"{label}: native state-daemon modem profile helper reported failures")
+    if (
+        report.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_proven"
+        )
+        is not True
+    ):
+        errors.append(
+            f"{label}: native state-daemon transport modem profile proof is missing"
+        )
+    transport_modem_profile_invocations = report.get(
+        "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_invocations"
+    )
+    if (
+        not isinstance(transport_modem_profile_invocations, int)
+        or transport_modem_profile_invocations < 1
+    ):
+        errors.append(
+            f"{label}: native state-daemon transport modem profile was not exercised"
+        )
+    if (
+        int(
+            report.get(
+                "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_failures"
+            )
+            or 0
+        )
+        != 0
+    ):
+        errors.append(
+            f"{label}: native state-daemon transport modem profile reported failures"
+        )
     if report.get("iio_bridge_state_daemon_iio_transport_required") is not True:
         errors.append(f"{label}: state-daemon IIO transport proof must be required")
     if report.get("iio_bridge_state_daemon_iio_transport_proven") is not True:
@@ -1192,6 +1223,9 @@ def main() -> int:
         "requires_iio_native_iio_burst_state_daemon_modem_profile": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_native_iio_burst_state_daemon_transport_modem_profile": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_iio_state_daemon_iio_transport": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
@@ -1715,6 +1749,18 @@ def main() -> int:
         ),
         "host_iio_native_iio_burst_state_daemon_modem_profile_invocations": host.get(
             "iio_bridge_native_iio_burst_state_daemon_modem_profile_invocations"
+        ),
+        "board_iio_native_iio_burst_state_daemon_transport_modem_profile_proven": board.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_proven"
+        ),
+        "host_iio_native_iio_burst_state_daemon_transport_modem_profile_proven": host.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_proven"
+        ),
+        "board_iio_native_iio_burst_state_daemon_transport_modem_profile_invocations": board.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_invocations"
+        ),
+        "host_iio_native_iio_burst_state_daemon_transport_modem_profile_invocations": host.get(
+            "iio_bridge_native_iio_burst_state_daemon_transport_modem_profile_invocations"
         ),
         "board_iio_state_daemon_iio_transport_proven": board.get(
             "iio_bridge_state_daemon_iio_transport_proven"

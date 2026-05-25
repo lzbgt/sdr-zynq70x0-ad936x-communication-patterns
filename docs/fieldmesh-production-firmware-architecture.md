@@ -133,9 +133,10 @@ Responsibilities:
   selected `samples_per_symbol` / `bit_repeat` values, so adaptive MCS
   ownership is now inside the native service boundary rather than host-side
   bridge orchestration. The persistent native IIO helper now consumes those
-  selected values through the state-daemon transport lifecycle request and
-  reports `FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1`, closing the
-  remaining helper-side proof gap for modem profile application.
+  selected values through the state-daemon IIO transport lifecycle boundary,
+  using `state_daemon_transport_*` profile fields rather than Python-selected
+  `selected_*` fields, and reports
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.
