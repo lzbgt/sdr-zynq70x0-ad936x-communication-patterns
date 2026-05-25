@@ -209,9 +209,11 @@ matched in PL while preserving the RX stream as a continuous sample stream.
 `fieldmesh_qpsk_byte_sync.v` follows the demodulator and requires the full
 four-byte FieldMesh acquisition preamble followed by magic bytes across any
 two-bit QPSK symbol phase and any 90-degree QPSK quadrant ambiguity before
-bytes enter packet framing, so RF RX no longer depends on Python/test-glue,
-reset-time byte alignment, immediately clean magic bytes, or ideal constellation
-orientation.
+bytes enter packet framing. It also flushes the two aligned bytes still held in
+its phase history when the demodulated packet ends, so RF RX no longer depends
+on Python/test-glue, reset-time byte alignment, immediately clean magic bytes,
+ideal constellation orientation, or stray post-packet samples to recover the
+packet tail.
 `fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
 in-band header and payload length before RX DMA, using two packet banks so one
 packet can drain toward RX DMA while the next demodulated packet is captured.
@@ -477,7 +479,9 @@ clock domain. On RX, AD9361 decimator I/Q samples feed
 `fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, and `fieldmesh_rx_header_framer`; the restored byte
 packet stream crosses `fieldmesh_iq_rx_cdc` into the sidecar DMA clock domain
-and then into RX DMA.
+and then into RX DMA. The HDL regression suite includes an end-to-end PL-only
+QPSK packet-chain simulation across this TX FIR, RX FIR, timing recovery,
+demodulation, preamble/magic byte sync, and CRC/header framing path.
 The driver source selector is wired to the sidecar control window and resets to
 vendor pass-through in this overlay, so FieldMesh does not drive the DAC
 datapath, open IIO buffers, tune RF, or start hardware transmission.

@@ -110,6 +110,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_iq_demodulator_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_qpsk_phy_chain_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis_header_framer_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_iq_tx_guard_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis_async_fifo_tb.v" \
@@ -173,6 +174,7 @@ run_tb fieldmesh_iq_fir_filter_tb
 run_tb fieldmesh_qpsk_symbol_timing_recovery_tb
 run_tb fieldmesh_qpsk_iq_demodulator_tb
 run_tb fieldmesh_qpsk_byte_sync_tb
+run_tb fieldmesh_qpsk_phy_chain_tb
 run_tb fieldmesh_axis_header_framer_tb
 run_tb fieldmesh_iq_tx_guard_tb
 run_tb fieldmesh_axis_async_fifo_tb

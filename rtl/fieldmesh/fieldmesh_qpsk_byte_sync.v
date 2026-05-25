@@ -108,8 +108,14 @@ reg        raw_last1 = 1'b0;
 reg        out_valid = 1'b0;
 reg [7:0]  out_data = 8'd0;
 reg        out_last = 1'b0;
+reg [1:0]  flush_count = 2'd0;
+reg [7:0]  flush0_data = 8'd0;
+reg        flush0_last = 1'b0;
+reg [7:0]  flush1_data = 8'd0;
+reg        flush1_last = 1'b0;
 
 wire output_fire = out_valid && m_axis_tready;
+wire flush_fire = flush_count != 2'd0 && (!out_valid || output_fire);
 wire input_fire = s_axis_tvalid && s_axis_tready;
 wire preamble_phase0_rot0 =
     corrected_phase_byte(rawm4, rawm3, 2'd0, 2'd0) == PREAMBLE_0 &&
@@ -287,8 +293,10 @@ wire detected_last =
     detected_phase == 2'd0 ? raw_last0 : raw_last1;
 wire [7:0] aligned_byte = corrected_phase_byte(raw0, raw1, phase, rotation);
 wire aligned_last = phase == 2'd0 ? raw_last0 : raw_last1;
+wire [7:0] flush_next0_byte = corrected_phase_byte(raw1, s_axis_tdata, phase, rotation);
+wire [7:0] flush_next1_byte = corrected_phase_byte(s_axis_tdata, 8'd0, phase, rotation);
 
-assign s_axis_tready = enable && (!out_valid || m_axis_tready);
+assign s_axis_tready = enable && flush_count == 2'd0 && (!out_valid || m_axis_tready);
 assign m_axis_tvalid = enable && out_valid;
 assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;
@@ -317,6 +325,11 @@ always @(posedge clk) begin
         out_valid <= 1'b0;
         out_data <= 8'd0;
         out_last <= 1'b0;
+        flush_count <= 2'd0;
+        flush0_data <= 8'd0;
+        flush0_last <= 1'b0;
+        flush1_data <= 8'd0;
+        flush1_last <= 1'b0;
         input_byte_count <= 32'd0;
         output_byte_count <= 32'd0;
         sync_lock_count <= 32'd0;
@@ -328,6 +341,22 @@ always @(posedge clk) begin
             out_valid <= 1'b0;
         end
 
+        if (flush_fire) begin
+            out_valid <= 1'b1;
+            out_data <= flush0_data;
+            out_last <= flush0_last;
+            output_byte_count <= output_byte_count + 1'b1;
+            if (flush_count == 2'd2) begin
+                flush_count <= 2'd1;
+                flush0_data <= flush1_data;
+                flush0_last <= flush1_last;
+            end else begin
+                flush_count <= 2'd0;
+                flush0_data <= 8'd0;
+                flush0_last <= 1'b0;
+            end
+        end
+
         if (input_fire) begin
             input_byte_count <= input_byte_count + 1'b1;
 
@@ -336,6 +365,13 @@ always @(posedge clk) begin
                 out_data <= aligned_byte;
                 out_last <= aligned_last;
                 output_byte_count <= output_byte_count + 1'b1;
+                if (s_axis_tlast) begin
+                    flush_count <= 2'd2;
+                    flush0_data <= flush_next0_byte;
+                    flush0_last <= 1'b0;
+                    flush1_data <= flush_next1_byte;
+                    flush1_last <= 1'b1;
+                end
             end else if (detect_any) begin
                 locked <= 1'b1;
                 phase <= detected_phase;
