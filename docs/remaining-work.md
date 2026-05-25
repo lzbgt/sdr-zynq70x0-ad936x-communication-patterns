@@ -1487,8 +1487,10 @@ below were later superseded by the current PHY-management two-board gates above:
   The next step is replacing the modelled packet-engine IQ path with the first
   guarded live sidecar/RF data path. The first synthesizable TX primitive for
   that path is now `fieldmesh_qpsk_iq_symbolizer`: it maps packet bytes into
-  repeated signed BPSK I/Q symbols while keeping tuning, filtering, TX enable,
-  and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
+  repeated signed QPSK I/Q symbols while keeping tuning, filtering, TX enable,
+  and scheduled launch outside the primitive. `fieldmesh_qpsk_iq_demodulator`
+  is now the matching hard-decision RX primitive for packet-byte recovery from
+  repeated signed QPSK IQ samples. The `--rf-engine-overlay` Vivado
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
   bridge parser can feed the QPSK symbolizer and `fieldmesh_iq_tx_guard` while
   the guarded IQ stream crosses into the AD9361 DAC clock domain through

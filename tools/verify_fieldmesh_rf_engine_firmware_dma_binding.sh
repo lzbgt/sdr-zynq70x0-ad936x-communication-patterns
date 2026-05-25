@@ -96,6 +96,7 @@ for token in required_checker_tokens:
 for rtl in (
     '"rtl/fieldmesh/fieldmesh_axis_byte_broadcast2.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',
+    '"rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v"',
 ):
     if rtl not in plan:
         raise SystemExit(f"{rtl.strip(chr(34))} missing from required RTL inventory")

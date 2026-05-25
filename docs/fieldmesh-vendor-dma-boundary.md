@@ -197,7 +197,11 @@ AXI-stream backpressure applied until both consumers accept each byte.
 `fieldmesh_qpsk_iq_symbolizer.v` is the current fast
 synthesizable RF packet-engine TX primitive: it converts packet bytes into
 MSB-first signed QPSK I/Q symbols, but still does not own RF tuning, TX enable,
-filtering, or scheduled transmission. `fieldmesh_iq_tx_guard.v` is the
+filtering, or scheduled transmission. `fieldmesh_qpsk_iq_demodulator.v` is the
+matching RX primitive: it converts signed QPSK I/Q samples back into byte
+stream packets with the same MSB-first bit-pair order and exposes sample, byte,
+packet, and fault counters for the firmware boundary. `fieldmesh_iq_tx_guard.v`
+is the
 post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
 control and status pins to the sidecar AXI-lite window while resetting it

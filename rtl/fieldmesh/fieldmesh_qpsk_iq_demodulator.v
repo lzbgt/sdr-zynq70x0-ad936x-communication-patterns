@@ -1,0 +1,120 @@
+// FieldMesh QPSK IQ to byte-stream demodulator.
+//
+// This is the matching RX primitive for fieldmesh_qpsk_iq_symbolizer. It uses
+// hard-decision I/Q signs after a configurable repeat window and reconstructs
+// packet bytes in MSB-first bit-pair order. Carrier recovery, filtering, and
+// packet scheduling remain owned by surrounding RF/firmware blocks.
+
+`timescale 1ns/1ps
+
+module fieldmesh_qpsk_iq_demodulator #(
+    parameter integer SAMPLES_PER_SYMBOL = 1
+) (
+    input  wire        clk,
+    input  wire        rst,
+    input  wire        enable,
+
+    input  wire        s_axis_tvalid,
+    output wire        s_axis_tready,
+    input  wire [31:0] s_axis_tdata,
+    input  wire        s_axis_tlast,
+
+    output wire        m_axis_tvalid,
+    input  wire        m_axis_tready,
+    output wire [7:0]  m_axis_tdata,
+    output wire        m_axis_tlast,
+
+    output reg  [31:0] sample_count,
+    output reg  [31:0] byte_count,
+    output reg  [31:0] packet_count,
+    output reg  [31:0] fault_count
+);
+
+reg        out_valid = 1'b0;
+reg [7:0]  out_data = 8'd0;
+reg        out_last = 1'b0;
+reg [7:0]  byte_reg = 8'd0;
+reg [1:0]  pair_index = 2'd3;
+reg [7:0]  sample_index = 8'd0;
+reg signed [31:0] i_acc = 32'sd0;
+reg signed [31:0] q_acc = 32'sd0;
+
+wire signed [15:0] i_sample = s_axis_tdata[15:0];
+wire signed [15:0] q_sample = s_axis_tdata[31:16];
+wire signed [31:0] i_sum_next = i_acc + i_sample;
+wire signed [31:0] q_sum_next = q_acc + q_sample;
+wire i_bit = (i_sum_next >= 32'sd0);
+wire q_bit = (q_sum_next >= 32'sd0);
+wire [2:0] i_bit_index = {pair_index, 1'b1};
+wire [2:0] q_bit_index = {pair_index, 1'b0};
+wire [7:0] byte_with_i = i_bit ? (byte_reg | (8'h01 << i_bit_index)) : (byte_reg & ~(8'h01 << i_bit_index));
+wire [7:0] byte_with_iq = q_bit ? (byte_with_i | (8'h01 << q_bit_index)) : (byte_with_i & ~(8'h01 << q_bit_index));
+wire final_sample = (sample_index == (SAMPLES_PER_SYMBOL - 1));
+wire final_pair = (pair_index == 2'd0);
+wire malformed_tlast = s_axis_tlast && !(final_sample && final_pair);
+wire output_fire = out_valid && m_axis_tready;
+wire input_fire = s_axis_tvalid && s_axis_tready;
+
+assign s_axis_tready = enable && (!out_valid || m_axis_tready);
+assign m_axis_tvalid = enable && out_valid;
+assign m_axis_tdata = out_data;
+assign m_axis_tlast = out_last;
+
+always @(posedge clk) begin
+    if (rst || !enable) begin
+        out_valid <= 1'b0;
+        out_data <= 8'd0;
+        out_last <= 1'b0;
+        byte_reg <= 8'd0;
+        pair_index <= 2'd3;
+        sample_index <= 8'd0;
+        i_acc <= 32'sd0;
+        q_acc <= 32'sd0;
+        sample_count <= 32'd0;
+        byte_count <= 32'd0;
+        packet_count <= 32'd0;
+        fault_count <= 32'd0;
+    end else begin
+        if (output_fire) begin
+            out_valid <= 1'b0;
+        end
+
+        if (input_fire) begin
+            sample_count <= sample_count + 1'b1;
+
+            if (malformed_tlast) begin
+                fault_count <= fault_count + 1'b1;
+                byte_reg <= 8'd0;
+                pair_index <= 2'd3;
+                sample_index <= 8'd0;
+                i_acc <= 32'sd0;
+                q_acc <= 32'sd0;
+            end else if (final_sample) begin
+                i_acc <= 32'sd0;
+                q_acc <= 32'sd0;
+                sample_index <= 8'd0;
+
+                if (final_pair) begin
+                    out_valid <= 1'b1;
+                    out_data <= byte_with_iq;
+                    out_last <= s_axis_tlast;
+                    byte_count <= byte_count + 1'b1;
+                    if (s_axis_tlast) begin
+                        packet_count <= packet_count + 1'b1;
+                    end
+                    byte_reg <= 8'd0;
+                    pair_index <= 2'd3;
+                end else begin
+                    byte_reg <= byte_with_iq;
+                    pair_index <= pair_index - 1'b1;
+                end
+            end else begin
+                i_acc <= i_sum_next;
+                q_acc <= q_sum_next;
+                sample_index <= sample_index + 1'b1;
+            end
+        end
+    end
+end
+
+endmodule

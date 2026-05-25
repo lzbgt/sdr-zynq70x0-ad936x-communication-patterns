@@ -43,8 +43,11 @@ wire signed [15:0] i_sample = byte_reg[i_bit_index] ? ONE_AMPLITUDE : ZERO_AMPLI
 wire signed [15:0] q_sample = byte_reg[q_bit_index] ? ONE_AMPLITUDE : ZERO_AMPLITUDE;
 wire final_sample = (sample_index == (SAMPLES_PER_SYMBOL - 1));
 wire final_pair = (pair_index == 2'd0);
+wire output_fire = m_axis_tvalid && m_axis_tready;
+wire final_output_fire = output_fire && final_sample && final_pair;
+wire input_fire = s_axis_tvalid && s_axis_tready;
 
-assign s_axis_tready = enable && !active;
+assign s_axis_tready = enable && (!active || final_output_fire);
 assign m_axis_tvalid = enable && active;
 assign m_axis_tdata = {q_sample, i_sample};
 assign m_axis_tlast = byte_last && final_pair && final_sample;
@@ -60,7 +63,7 @@ always @(posedge clk) begin
         symbol_count <= 32'd0;
         packet_count <= 32'd0;
     end else begin
-        if (s_axis_tvalid && s_axis_tready) begin
+        if (input_fire) begin
             active <= 1'b1;
             byte_reg <= s_axis_tdata;
             byte_last <= s_axis_tlast;
@@ -69,12 +72,14 @@ always @(posedge clk) begin
             byte_count <= byte_count + 1'b1;
         end
 
-        if (m_axis_tvalid && m_axis_tready) begin
+        if (output_fire) begin
             symbol_count <= symbol_count + 1'b1;
             if (final_sample) begin
                 sample_index <= 8'd0;
                 if (final_pair) begin
-                    active <= 1'b0;
+                    if (!input_fire) begin
+                        active <= 1'b0;
+                    end
                     if (byte_last) begin
                         packet_count <= packet_count + 1'b1;
                     end

@@ -21,6 +21,7 @@ wire [31:0] symbol_count;
 wire [31:0] packet_count;
 
 integer symbol_index = 0;
+integer first_packet_symbols = 0;
 integer pair_index;
 integer repeat_index;
 reg signed [15:0] expected_i [0:3];
@@ -73,14 +74,17 @@ task send_byte;
     end
 endtask
 
-always @(posedge clk) begin
+always @(negedge clk) begin
     if (!rst && m_axis_tvalid && m_axis_tready) begin
         pair_index = symbol_index / 2;
         repeat_index = symbol_index % 2;
-        if (pair_index > 3) fail("too many QPSK IQ symbols");
-        if (m_axis_tdata[15:0] != expected_i[pair_index]) fail("QPSK I sample mismatch");
-        if (m_axis_tdata[31:16] != expected_q[pair_index]) fail("QPSK Q sample mismatch");
-        if (m_axis_tlast != (symbol_index == 7)) fail("QPSK TLAST mismatch");
+        if (pair_index < 4) begin
+            if (m_axis_tdata[15:0] != expected_i[pair_index]) fail("QPSK I sample mismatch");
+            if (m_axis_tdata[31:16] != expected_q[pair_index]) fail("QPSK Q sample mismatch");
+        end
+        if (m_axis_tlast && first_packet_symbols == 0) begin
+            first_packet_symbols = symbol_index + 1;
+        end
         symbol_index = symbol_index + 1;
     end
 end
@@ -112,10 +116,26 @@ initial begin
         end
     join
 
+    wait (symbol_count == 32'd8);
     @(posedge clk);
+    if (first_packet_symbols != 8) fail("QPSK first TLAST mismatch");
     if (byte_count != 1) fail("byte count mismatch");
     if (symbol_count != 8) fail("symbol count mismatch");
     if (packet_count != 1) fail("packet count mismatch");
+
+    fork
+        begin
+            send_byte(8'ha5, 1'b0);
+            send_byte(8'ha5, 1'b1);
+        end
+        begin
+            wait (symbol_count == 32'd24);
+        end
+    join
+    @(posedge clk);
+    if (byte_count != 3) fail("back-to-back byte count mismatch");
+    if (symbol_count != 24) fail("back-to-back symbol count mismatch");
+    if (packet_count != 2) fail("back-to-back packet count mismatch");
 
     $display("PASS: fieldmesh_qpsk_iq_symbolizer_tb");
     $finish;

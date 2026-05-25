@@ -2700,6 +2700,13 @@ test covers output backpressure, pair order, signed I/Q samples, TLAST on the
 final repeated symbol, and byte/symbol/packet counters. It is included in the
 required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
 TX boundary.
+The matching RX primitive is
+`rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v` with
+`tb/fieldmesh/fieldmesh_qpsk_iq_demodulator_tb.v`. It consumes signed I/Q
+samples, integrates the configured repeat window, makes hard QPSK I/Q sign
+decisions, and reconstructs byte-stream packets in the same MSB-first bit-pair
+order. The test covers output backpressure, TLAST propagation, byte/sample/
+packet counters, and malformed packet-boundary fault accounting.
 
 `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` with
 `tb/fieldmesh/fieldmesh_iq_tx_guard_tb.v` adds the first post-symbolizer RF TX
