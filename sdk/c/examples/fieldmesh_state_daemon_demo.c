@@ -280,6 +280,19 @@ struct iio_transport_daemon_state {
     fieldmesh_status_t last_status;
 };
 
+struct native_ip_fw_dma_descriptor_worker_state {
+    uint32_t execution_count;
+    uint32_t execution_ok_count;
+    uint32_t execution_failure_count;
+    uint32_t execution_packets_pumped;
+    uint32_t execution_packets_drained;
+    uint32_t execution_bytes_enqueued;
+    uint32_t execution_bytes_drained;
+    uint32_t execution_tcp_control_priority;
+    uint32_t execution_udp_interactive_priority;
+    fieldmesh_status_t last_status;
+};
+
 static uint32_t saturating_u32_add(uint32_t left, uint32_t right)
 {
     if (UINT32_MAX - left < right) {
@@ -2964,6 +2977,41 @@ static void native_ip_fw_dma_descriptor_worker_self_test(
                  bridge.enqueue_drops == 0u && bridge.drain_errors == 0u;
 }
 
+static void native_ip_fw_dma_descriptor_worker_execute(
+    struct native_ip_fw_dma_descriptor_worker_state *state,
+    struct native_ip_fw_dma_worker_self_test *report)
+{
+    if (!report) {
+        return;
+    }
+    native_ip_fw_dma_descriptor_worker_self_test(report);
+    if (!state) {
+        return;
+    }
+    state->execution_count++;
+    if (report->ok) {
+        state->execution_ok_count++;
+        state->last_status = FIELDMESH_OK;
+    } else {
+        state->execution_failure_count++;
+        state->last_status = FIELDMESH_ERR_TRANSPORT;
+    }
+    if (report->pumped > 0) {
+        state->execution_packets_pumped += (uint32_t)report->pumped;
+    }
+    if (report->drained > 0) {
+        state->execution_packets_drained += (uint32_t)report->drained;
+    }
+    state->execution_bytes_enqueued += report->bytes_enqueued;
+    state->execution_bytes_drained += report->bytes_drained;
+    if (report->tcp_control_priority) {
+        state->execution_tcp_control_priority = 1u;
+    }
+    if (report->udp_interactive_priority) {
+        state->execution_udp_interactive_priority = 1u;
+    }
+}
+
 static void tun_service_read_firmware_ring_counts(
     const struct tun_service_state *service,
     struct tun_service_firmware_ring_counts *counts)
@@ -3487,6 +3535,8 @@ static int build_response(fieldmesh_context_t *context,
                           struct rf_worker_state *rf_worker,
                           struct rf_service_loop_state *rf_service_loop,
                           struct iio_transport_daemon_state *iio_transport,
+                          struct native_ip_fw_dma_descriptor_worker_state
+                              *fw_dma_worker,
                           const char *request,
                           char *response,
                           size_t response_len)
@@ -6665,6 +6715,74 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE")) {
+        const int allow_execute =
+            strstr(request, "ALLOW_FIRMWARE_DMA_DESCRIPTOR_WORKER_EXECUTE") != NULL;
+        struct native_ip_fw_dma_worker_self_test worker_test;
+
+        if (!allow_execute) {
+            snprintf(response, response_len,
+                     "{\"event\":\"sdk_daemon_native_ip_fw_dma_descriptor_worker_execute\","
+                     "\"ok\":false,"
+                     "\"error\":\"firmware_dma_descriptor_worker_execute_requires_guard\","
+                     "\"requires_allow_firmware_dma_descriptor_worker_execute\":1,"
+                     "\"native_ip_fw_dma_descriptor_worker\":1,"
+                     "\"native_ip_fw_dma_descriptor_worker_proof\":\"%s\","
+                     "\"native_ip_fw_dma_descriptor_worker_execution\":0,"
+                     "\"native_ip_fw_dma_descriptor_worker_execution_proof\":\"%s\","
+                     "\"descriptor_worker_execution_owner\":\"state_daemon_firmware_dma\","
+                     "\"python_descriptor_worker_execution\":0,"
+                     "\"starts_rf_tx\":0,"
+                     "\"writes_hardware\":0,"
+                     "\"commands_executed\":0,"
+                     "\"next_boundary\":\"firmware_dma_descriptor_worker_execute\"}\n",
+                     FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_PROOF,
+                     FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE_PROOF);
+            return 0;
+        }
+
+        memset(&worker_test, 0, sizeof(worker_test));
+        native_ip_fw_dma_descriptor_worker_execute(fw_dma_worker, &worker_test);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_native_ip_fw_dma_descriptor_worker_execute\","
+                 "\"ok\":%s,"
+                 "\"native_ip_fw_dma_descriptor_worker\":1,"
+                 "\"native_ip_fw_dma_descriptor_worker_proof\":\"%s\","
+                 "\"native_ip_fw_dma_descriptor_worker_execution\":1,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_proof\":\"%s\","
+                 "\"native_ip_fw_dma_descriptor_worker_execution_count\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_ok_count\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_failure_count\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_packets_pumped\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_packets_drained\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_bytes_drained\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority\":%u,"
+                 "\"descriptor_worker_execution_owner\":\"state_daemon_firmware_dma\","
+                 "\"python_descriptor_worker_execution\":0,"
+                 "\"hot_path_language\":\"c\","
+                 "\"uses_json_on_air\":0,"
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"live_uio_firmware_dma_descriptor_worker\"}\n",
+                 worker_test.ok ? "true" : "false",
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_PROOF,
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE_PROOF,
+                 fw_dma_worker ? fw_dma_worker->execution_count : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_ok_count : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_failure_count : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_packets_pumped : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_packets_drained : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_bytes_enqueued : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_bytes_drained : 0u,
+                 fw_dma_worker ?
+                     fw_dma_worker->execution_tcp_control_priority : 0u,
+                 fw_dma_worker ?
+                     fw_dma_worker->execution_udp_interactive_priority : 0u);
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS")) {
         struct tun_service_firmware_ring_counts fw_ring_counts;
         struct native_ip_fw_dma_worker_self_test worker_test;
@@ -6684,6 +6802,19 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_ip_fw_dma_descriptor_worker_bytes_drained\":%u,"
                  "\"native_ip_fw_dma_descriptor_worker_tcp_control_priority\":%u,"
                  "\"native_ip_fw_dma_descriptor_worker_udp_interactive_priority\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution\":1,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_proof\":\"%s\","
+                 "\"native_ip_fw_dma_descriptor_worker_execution_count\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_ok_count\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_failure_count\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_packets_pumped\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_packets_drained\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_bytes_drained\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority\":%u,"
+                 "\"descriptor_worker_execution_owner\":\"state_daemon_firmware_dma\","
+                 "\"python_descriptor_worker_execution\":0,"
                  "\"native_ip_production_data_plane\":1,"
                  "\"production_data_plane_owner\":\"firmware_dma_c_fpga\","
                  "\"performance_critical_pipeline_owner\":\"c_firmware_fpga\","
@@ -6735,6 +6866,18 @@ static int build_response(fieldmesh_context_t *context,
                  worker_test.bytes_drained,
                  worker_test.tcp_control_priority ? 1u : 0u,
                  worker_test.udp_interactive_priority ? 1u : 0u,
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE_PROOF,
+                 fw_dma_worker ? fw_dma_worker->execution_count : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_ok_count : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_failure_count : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_packets_pumped : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_packets_drained : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_bytes_enqueued : 0u,
+                 fw_dma_worker ? fw_dma_worker->execution_bytes_drained : 0u,
+                 fw_dma_worker ?
+                     fw_dma_worker->execution_tcp_control_priority : 0u,
+                 fw_dma_worker ?
+                     fw_dma_worker->execution_udp_interactive_priority : 0u,
                  FIELDMESH_RF_SERVICE_NATIVE_IP_FW_TUN_BRIDGE_PROOF,
                  tun_service ? tun_service->firmware_ring_enabled : 0u,
                  tun_service ? tun_service->firmware_ring_mapped : 0u,
@@ -10471,6 +10614,7 @@ static int serve_state(const char *bind_ip,
     struct rf_worker_state rf_worker;
     struct rf_service_loop_state rf_service_loop;
     struct iio_transport_daemon_state iio_transport;
+    struct native_ip_fw_dma_descriptor_worker_state fw_dma_worker;
     long handled = 0;
     int serve_forever = requests == 0;
     int rc = 1;
@@ -10483,12 +10627,14 @@ static int serve_state(const char *bind_ip,
     memset(&rf_worker, 0, sizeof(rf_worker));
     memset(&rf_service_loop, 0, sizeof(rf_service_loop));
     memset(&iio_transport, 0, sizeof(iio_transport));
+    memset(&fw_dma_worker, 0, sizeof(fw_dma_worker));
     tun_service.fd = -1;
     tun_service.firmware_ring_fd = -1;
     tun_service.last_status = FIELDMESH_OK;
     rf_worker.last_status = FIELDMESH_OK;
     rf_service_loop.last_status = FIELDMESH_OK;
     iio_transport.last_status = FIELDMESH_OK;
+    fw_dma_worker.last_status = FIELDMESH_OK;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == INVALID_SOCKET) {
         goto out;
@@ -10583,6 +10729,7 @@ static int serve_state(const char *bind_ip,
         request[received] = '\0';
         if (build_response(context, session, &app_messages, &tun_service,
                            &rf_worker, &rf_service_loop, &iio_transport,
+                           &fw_dma_worker,
                            request, response, sizeof(response)) != 0) {
             snprintf(response, sizeof(response),
                      "{\"event\":\"sdk_daemon_error\","

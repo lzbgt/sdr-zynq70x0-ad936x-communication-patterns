@@ -139,9 +139,11 @@ Native-IP readiness now additionally requires
 `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1` daemon status proof, binding production
 data-plane ownership to the C firmware packet/TUN bridge instead of the Python
 or helper HIL path. That status now includes
-`FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1`, a positive C memory-ring
-self-test that pumps TCP/UDP packets through the firmware descriptor worker and
-drains them back without Python or JSON in the packet path.
+`FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1` and requires positive
+`FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1` counters from a
+guarded state-daemon descriptor-worker run that pumps TCP/UDP packets through
+the firmware descriptor worker and drains them back without Python or JSON in
+the packet path.
 The C helper API now separates RAM-model IRQ clearing from hardware
 write-one-to-clear acknowledgement, which keeps future UIO/driver code from
 using read-modify-write semantics on a PL register. IRQ mask writes are split

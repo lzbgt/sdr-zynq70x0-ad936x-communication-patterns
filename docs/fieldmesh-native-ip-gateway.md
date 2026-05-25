@@ -258,10 +258,11 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1`,
   `production_data_plane_owner=firmware_dma_c_fpga`, and
   `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1` proof from the C firmware packet/TUN
-  bridge boundary. The same status now runs the read/write-free
-  `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1` self-test, which pumps
-  IPv4 TCP/UDP packets through the descriptor-ring worker and proves C-side TCP
-  control priority before the HIL bridge records that proof. This mode requires `EXECUTE_LIVE_RF`,
+  bridge boundary. The HIL bridge now also triggers guarded
+  `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1` execution before it
+  accepts that status, so reports must show positive state-daemon descriptor
+  worker counters, TCP-control/UDP-interactive priority, and
+  `python_descriptor_worker_execution=0`. This mode requires `EXECUTE_LIVE_RF`,
   hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
   and the exact over-air operator confirmation. Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and

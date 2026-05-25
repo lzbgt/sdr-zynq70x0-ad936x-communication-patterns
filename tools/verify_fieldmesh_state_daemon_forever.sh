@@ -126,6 +126,22 @@ def query_native_ip_fw_dma_data_plane_once():
         raise SystemExit("daemon did not answer native-IP firmware-DMA data-plane status")
     replies.append(json.loads(data.decode("utf-8")))
 
+def query_native_ip_fw_dma_descriptor_worker_execute_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(
+            b"FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1 "
+            b"ALLOW_FIRMWARE_DMA_DESCRIPTOR_WORKER_EXECUTE",
+            ("127.0.0.1", port),
+        )
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_native_ip_fw_dma_descriptor_worker_execute"' not in data:
+        raise SystemExit("daemon did not answer native-IP firmware-DMA descriptor worker execute")
+    replies.append(json.loads(data.decode("utf-8")))
+
 def query_modem_profile_decision_once():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
@@ -151,6 +167,7 @@ query_modem_profile_decision_once()
 query_iio_transport_start_once()
 query_iio_transport_enqueue_once()
 query_iio_transport_execute_once()
+query_native_ip_fw_dma_descriptor_worker_execute_once()
 query_native_ip_fw_dma_data_plane_once()
 query_iio_transport_once()
 time.sleep(0.6)
@@ -230,6 +247,10 @@ native_ip_fw_dma_data_planes = [
     row for row in replies
     if row.get("event") == "sdk_daemon_native_ip_fw_dma_data_plane_status"
 ]
+native_ip_fw_dma_descriptor_worker_executes = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_native_ip_fw_dma_descriptor_worker_execute"
+]
 if len(iio_transport_starts) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon start")
 if len(iio_transport_enqueues) != 1:
@@ -238,6 +259,8 @@ if len(iio_transport_executes) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon execute")
 if len(native_ip_fw_dma_data_planes) != 1:
     raise SystemExit("daemon did not answer native-IP firmware-DMA data-plane status")
+if len(native_ip_fw_dma_descriptor_worker_executes) != 1:
+    raise SystemExit("daemon did not answer native-IP firmware-DMA descriptor worker execute")
 policy = policy_replies[0]
 expected = {
     "ok": True,
@@ -488,6 +511,34 @@ for key, value in expected_execute.items():
         raise SystemExit(f"IIO transport daemon execute {key} mismatch: {execute}")
 if execute.get("state_daemon_libiio_execution_count") != 1:
     raise SystemExit(f"IIO transport daemon execute count mismatch: {execute}")
+fw_dma_execute = native_ip_fw_dma_descriptor_worker_executes[0]
+expected_fw_dma_execute = {
+    "ok": True,
+    "native_ip_fw_dma_descriptor_worker": 1,
+    "native_ip_fw_dma_descriptor_worker_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1",
+    "native_ip_fw_dma_descriptor_worker_execution": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1",
+    "native_ip_fw_dma_descriptor_worker_execution_count": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_ok_count": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_failure_count": 0,
+    "native_ip_fw_dma_descriptor_worker_execution_packets_pumped": 2,
+    "native_ip_fw_dma_descriptor_worker_execution_packets_drained": 2,
+    "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued": 72,
+    "native_ip_fw_dma_descriptor_worker_execution_bytes_drained": 72,
+    "native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority": 1,
+    "descriptor_worker_execution_owner": "state_daemon_firmware_dma",
+    "python_descriptor_worker_execution": 0,
+    "hot_path_language": "c",
+    "uses_json_on_air": 0,
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+    "commands_executed": 0,
+    "next_boundary": "live_uio_firmware_dma_descriptor_worker",
+}
+for key, value in expected_fw_dma_execute.items():
+    if fw_dma_execute.get(key) != value:
+        raise SystemExit(f"native-IP firmware-DMA descriptor worker execute {key} mismatch: {fw_dma_execute}")
 fw_dma = native_ip_fw_dma_data_planes[0]
 expected_fw_dma = {
     "ok": True,
@@ -500,6 +551,17 @@ expected_fw_dma = {
     "native_ip_fw_dma_descriptor_worker_packets_drained": 2,
     "native_ip_fw_dma_descriptor_worker_tcp_control_priority": 1,
     "native_ip_fw_dma_descriptor_worker_udp_interactive_priority": 1,
+    "native_ip_fw_dma_descriptor_worker_execution": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1",
+    "native_ip_fw_dma_descriptor_worker_execution_count": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_ok_count": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_failure_count": 0,
+    "native_ip_fw_dma_descriptor_worker_execution_packets_pumped": 2,
+    "native_ip_fw_dma_descriptor_worker_execution_packets_drained": 2,
+    "native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority": 1,
+    "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority": 1,
+    "descriptor_worker_execution_owner": "state_daemon_firmware_dma",
+    "python_descriptor_worker_execution": 0,
     "native_ip_production_data_plane": 1,
     "production_data_plane_owner": "firmware_dma_c_fpga",
     "performance_critical_pipeline_owner": "c_firmware_fpga",
@@ -532,6 +594,8 @@ for key in (
     "firmware_bridge_bytes_drained",
     "native_ip_fw_dma_descriptor_worker_bytes_enqueued",
     "native_ip_fw_dma_descriptor_worker_bytes_drained",
+    "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued",
+    "native_ip_fw_dma_descriptor_worker_execution_bytes_drained",
     "firmware_ring_bytes_enqueued",
     "firmware_ring_bytes_drained",
 ):

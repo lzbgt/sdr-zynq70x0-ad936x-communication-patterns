@@ -609,6 +609,28 @@ def native_ip_fw_dma_data_plane_status(
     return report
 
 
+def native_ip_fw_dma_descriptor_worker_execute(
+    host: str,
+    port: int,
+    timeout_ms: int,
+) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        (
+            "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1 "
+            "ALLOW_FIRMWARE_DMA_DESCRIPTOR_WORKER_EXECUTE"
+        ),
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_native_ip_fw_dma_descriptor_worker_execute":
+        raise SystemExit(
+            "expected sdk_daemon_native_ip_fw_dma_descriptor_worker_execute, "
+            f"got {report.get('event')!r}"
+        )
+    return report
+
+
 def iio_transport_daemon_start(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     report = bridge.request_daemon(
         host,
@@ -829,6 +851,15 @@ def validate_native_ip_fw_dma_data_plane(
         "native_ip_fw_dma_descriptor_worker_packets_drained": 2,
         "native_ip_fw_dma_descriptor_worker_tcp_control_priority": 1,
         "native_ip_fw_dma_descriptor_worker_udp_interactive_priority": 1,
+        "native_ip_fw_dma_descriptor_worker_execution": 1,
+        "native_ip_fw_dma_descriptor_worker_execution_proof": (
+            "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1"
+        ),
+        "native_ip_fw_dma_descriptor_worker_execution_failure_count": 0,
+        "native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority": 1,
+        "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority": 1,
+        "descriptor_worker_execution_owner": "state_daemon_firmware_dma",
+        "python_descriptor_worker_execution": 0,
         "native_ip_production_data_plane": 1,
         "production_data_plane_owner": "firmware_dma_c_fpga",
         "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
@@ -867,9 +898,25 @@ def validate_native_ip_fw_dma_data_plane(
         "firmware_bridge_bytes_drained",
         "native_ip_fw_dma_descriptor_worker_bytes_enqueued",
         "native_ip_fw_dma_descriptor_worker_bytes_drained",
+        "native_ip_fw_dma_descriptor_worker_execution_count",
+        "native_ip_fw_dma_descriptor_worker_execution_ok_count",
+        "native_ip_fw_dma_descriptor_worker_execution_packets_pumped",
+        "native_ip_fw_dma_descriptor_worker_execution_packets_drained",
+        "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued",
+        "native_ip_fw_dma_descriptor_worker_execution_bytes_drained",
     ):
         if not isinstance(report.get(key), int):
             errors.append(f"{key}={report.get(key)!r} expected integer")
+    for key in (
+        "native_ip_fw_dma_descriptor_worker_execution_count",
+        "native_ip_fw_dma_descriptor_worker_execution_ok_count",
+        "native_ip_fw_dma_descriptor_worker_execution_packets_pumped",
+        "native_ip_fw_dma_descriptor_worker_execution_packets_drained",
+        "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued",
+        "native_ip_fw_dma_descriptor_worker_execution_bytes_drained",
+    ):
+        if int(report.get(key) or 0) <= 0:
+            errors.append(f"{key}={report.get(key)!r} expected positive")
     if report.get("rf_transport_mode") != "driver_queue":
         errors.append(
             f"rf_transport_mode={report.get('rf_transport_mode')!r} expected driver_queue"
@@ -3017,6 +3064,39 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         "native_ip_fw_dma_descriptor_worker_packets_drained"
                     )
                     == 2
+                    and status.get("native_ip_fw_dma_descriptor_worker_execution")
+                    == 1
+                    and status.get("native_ip_fw_dma_descriptor_worker_execution_proof")
+                    == "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1"
+                    and int(
+                        status.get(
+                            "native_ip_fw_dma_descriptor_worker_execution_count"
+                        )
+                        or 0
+                    )
+                    > 0
+                    and int(
+                        status.get(
+                            "native_ip_fw_dma_descriptor_worker_execution_ok_count"
+                        )
+                        or 0
+                    )
+                    > 0
+                    and status.get(
+                        "native_ip_fw_dma_descriptor_worker_execution_failure_count"
+                    )
+                    == 0
+                    and status.get(
+                        "native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority"
+                    )
+                    == 1
+                    and status.get(
+                        "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority"
+                    )
+                    == 1
+                    and status.get("descriptor_worker_execution_owner")
+                    == "state_daemon_firmware_dma"
+                    and status.get("python_descriptor_worker_execution") == 0
                     and status.get("native_ip_production_data_plane") == 1
                     and status.get("production_data_plane_owner")
                     == "firmware_dma_c_fpga"
@@ -3772,6 +3852,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             status = rf_worker_status(host, port, status_timeout_ms)
             validate_native_worker_boundary(status, label, args)
             native_worker_status_by_endpoint[label] = status
+            native_ip_fw_dma_descriptor_worker_execute(
+                host, port, status_timeout_ms
+            )
             fw_dma_status = native_ip_fw_dma_data_plane_status(
                 host, port, status_timeout_ms
             )
@@ -4627,6 +4710,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 native_service_loop_status_by_endpoint[label] = loop_status
                 counts["native_service_loop_worker_status_polls"] += 1
+                native_ip_fw_dma_descriptor_worker_execute(
+                    host, port, status_timeout_ms
+                )
                 fw_dma_status = native_ip_fw_dma_data_plane_status(
                     host, port, status_timeout_ms
                 )
