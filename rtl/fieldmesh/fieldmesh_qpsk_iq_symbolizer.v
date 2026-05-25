@@ -2,14 +2,17 @@
 //
 // This is the fast RF packet-engine TX primitive for the PL path. It keeps the
 // packet ABI byte-oriented and maps each payload bit pair, MSB first, into
-// repeated signed I/Q samples. It does not own RF tuning, TX enable, filtering,
-// or scheduling; those remain explicit outer guards.
+// signed I/Q samples. For the 2x fast profile it smooths symbol transitions in
+// PL by emitting a midpoint sample followed by the exact constellation point.
+// It does not own RF tuning, TX enable, filtering, or scheduling; those remain
+// explicit outer guards.
 
 `timescale 1ns/1ps
 
 module fieldmesh_qpsk_iq_symbolizer #(
     parameter integer SAMPLES_PER_SYMBOL = 1,
     parameter integer PREAMBLE_BYTES = 0,
+    parameter integer PULSE_SHAPING = 1,
     parameter [7:0] PREAMBLE_0 = 8'h55,
     parameter [7:0] PREAMBLE_1 = 8'haa,
     parameter signed [15:0] ONE_AMPLITUDE = 16'sd12000,
@@ -44,6 +47,9 @@ reg       preamble_active = 1'b0;
 reg [7:0] preamble_index = 8'd0;
 reg [1:0] pair_index = 2'd0;
 reg [7:0] sample_index = 8'd0;
+reg signed [15:0] prev_i_sample = 16'sd0;
+reg signed [15:0] prev_q_sample = 16'sd0;
+reg       prev_sample_valid = 1'b0;
 
 localparam integer PREAMBLE_LAST_INDEX = (PREAMBLE_BYTES > 0) ? (PREAMBLE_BYTES - 1) : 0;
 
@@ -58,6 +64,9 @@ wire [2:0] i_bit_index = {pair_index, 1'b1};
 wire [2:0] q_bit_index = {pair_index, 1'b0};
 wire signed [15:0] i_sample = byte_reg[i_bit_index] ? ONE_AMPLITUDE : ZERO_AMPLITUDE;
 wire signed [15:0] q_sample = byte_reg[q_bit_index] ? ONE_AMPLITUDE : ZERO_AMPLITUDE;
+wire pulse_shape_first_sample = PULSE_SHAPING && (SAMPLES_PER_SYMBOL > 1) && (sample_index == 8'd0) && prev_sample_valid;
+wire signed [15:0] shaped_i_sample = pulse_shape_first_sample ? avg2_sat16(prev_i_sample, i_sample) : i_sample;
+wire signed [15:0] shaped_q_sample = pulse_shape_first_sample ? avg2_sat16(prev_q_sample, q_sample) : q_sample;
 wire final_sample = (sample_index == (SAMPLES_PER_SYMBOL - 1));
 wire final_pair = (pair_index == 2'd0);
 wire output_fire = m_axis_tvalid && m_axis_tready;
@@ -71,8 +80,18 @@ assign s_axis_tready = enable && (
     (final_output_fire && !preamble_active && !(preamble_enabled && byte_last))
 );
 assign m_axis_tvalid = enable && active;
-assign m_axis_tdata = {q_sample, i_sample};
+assign m_axis_tdata = {shaped_q_sample, shaped_i_sample};
 assign m_axis_tlast = !preamble_active && byte_last && final_pair && final_sample;
+
+function signed [15:0] avg2_sat16;
+    input signed [15:0] a;
+    input signed [15:0] b;
+    reg signed [16:0] sum;
+    begin
+        sum = {a[15], a} + {b[15], b};
+        avg2_sat16 = sum[16:1];
+    end
+endfunction
 
 always @(posedge clk) begin
     if (rst || !enable) begin
@@ -86,6 +105,9 @@ always @(posedge clk) begin
         preamble_index <= 8'd0;
         pair_index <= 2'd0;
         sample_index <= 8'd0;
+        prev_i_sample <= 16'sd0;
+        prev_q_sample <= 16'sd0;
+        prev_sample_valid <= 1'b0;
         byte_count <= 32'd0;
         symbol_count <= 32'd0;
         packet_count <= 32'd0;
@@ -113,6 +135,9 @@ always @(posedge clk) begin
             symbol_count <= symbol_count + 1'b1;
             if (final_sample) begin
                 sample_index <= 8'd0;
+                prev_i_sample <= i_sample;
+                prev_q_sample <= q_sample;
+                prev_sample_valid <= 1'b1;
                 if (final_pair) begin
                     if (preamble_active) begin
                         if (preamble_last_byte) begin
@@ -133,6 +158,7 @@ always @(posedge clk) begin
                     end
                     if (!preamble_active && byte_last) begin
                         packet_count <= packet_count + 1'b1;
+                        prev_sample_valid <= 1'b0;
                     end
                 end else begin
                     pair_index <= pair_index - 1'b1;

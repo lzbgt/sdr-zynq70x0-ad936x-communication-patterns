@@ -2695,11 +2695,13 @@ script to continue.
 The first RF packet-engine TX primitive was added as
 `rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v` with
 `tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_tb.v`. It accepts byte-stream packet
-data and emits repeated signed QPSK I/Q symbols, MSB-first bit pair order. The
-test covers output backpressure, pair order, signed I/Q samples, TLAST on the
-final repeated symbol, and byte/symbol/packet counters. It is included in the
-required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
-TX boundary.
+data and emits signed QPSK I/Q symbols, MSB-first bit pair order. The fast 2x
+profile enables PL pulse shaping: the first sample after a symbol transition is
+the midpoint from the previous constellation point and the second sample is the
+exact point. The test covers output backpressure, pair order, shaped signed I/Q
+samples, packet-boundary shaper reset, TLAST on the final repeated symbol, and
+byte/symbol/packet counters. It is included in the required RTL set so later
+sidecar/RF overlay work cannot omit the packet-engine TX boundary.
 `tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_preamble_tb.v` covers the
 production RF-engine setting that prepends the four-byte PL acquisition
 preamble before packet bytes while keeping TLAST on the payload end.

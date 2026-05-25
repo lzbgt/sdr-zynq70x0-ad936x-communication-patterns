@@ -21,7 +21,7 @@ ctrl = (repo / "rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v").read_text(enco
 required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer",
-    "set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2}] [get_bd_cells fieldmesh_qpsk_symbolizer]",
+    "set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {1}] [get_bd_cells fieldmesh_qpsk_symbolizer]",
     "create_bd_cell -type module -reference fieldmesh_iq_adc_axis_source fieldmesh_iq_adc_source",
     "create_bd_cell -type module -reference fieldmesh_qpsk_symbol_timing_recovery fieldmesh_qpsk_timing_recovery",
     "set_property -dict [list CONFIG.OVERSAMPLE_FACTOR {2}] [get_bd_cells fieldmesh_qpsk_timing_recovery]",
@@ -92,6 +92,7 @@ required_checker_tokens = [
     "fieldmesh_iq_rx_cdc",
     "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
     "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL phase-weighted matched filtering",
+    "fieldmesh_qpsk_symbolizer must enable PL pulse shaping for the 2x QPSK fast profile",
     "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL",
     "register pages through 0x23c",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
@@ -236,7 +237,10 @@ for token in (
 for token in (
     "module fieldmesh_qpsk_iq_symbolizer",
     "parameter integer PREAMBLE_BYTES",
+    "parameter integer PULSE_SHAPING",
     "function [7:0] preamble_byte",
+    "function signed [15:0] avg2_sat16",
+    "pulse_shape_first_sample",
     "preamble_active",
     "pending_valid",
 ):

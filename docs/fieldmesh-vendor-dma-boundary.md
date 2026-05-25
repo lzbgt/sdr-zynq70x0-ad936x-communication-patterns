@@ -196,7 +196,8 @@ samples into the QPSK demodulator without creating packet boundaries.
 `fieldmesh_qpsk_iq_symbolizer.v` is the current fast
 synthesizable RF packet-engine TX primitive: it prepends the PL acquisition
 preamble, converts packet bytes into MSB-first signed QPSK I/Q symbols, and
-still does not own RF tuning, TX enable, filtering, or scheduled transmission.
+enables 2x midpoint pulse shaping in PL while still not owning RF tuning,
+TX enable, filtering, or scheduled transmission.
 `fieldmesh_qpsk_iq_demodulator.v` is the
 matching RX primitive: it converts signed QPSK I/Q samples back into byte
 stream data with the same MSB-first bit-pair order and exposes sample, byte,
@@ -458,7 +459,7 @@ overlays but replaces the packet loopback with a TX/RX packet-engine path:
 TX packet DMA feeds `fieldmesh_firmware_axis_dma_endpoint`, and its
 descriptor-validated egress stream feeds `fieldmesh_qpsk_symbolizer/s_axis_*`,
 and the symbolizer is configured for the four-byte `55 aa 55 aa` acquisition
-preamble before packet magic.
+preamble plus 2x PL midpoint pulse shaping before packet magic.
 The symbolizer's IQ output feeds
 `fieldmesh_iq_tx_guard`; its arming, schedule, and status pins are wired to the
 existing `fieldmesh_ctrl` AXI-lite window at the RF TX guard register range.

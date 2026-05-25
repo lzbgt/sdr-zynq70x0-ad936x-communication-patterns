@@ -579,8 +579,8 @@ Stage 2: Board-local service
   committed frame is checked across adapter intent, board packet DMA, and
   packet-engine IQ recovery. The first PL primitive behind that boundary is
   `fieldmesh_qpsk_iq_symbolizer`, which prepends the PL acquisition preamble
-  and maps packet bytes to repeated signed QPSK I/Q symbols without taking
-  ownership of RF tuning, filtering, TX enable, or scheduled launch.
+  and maps packet bytes to 2x pulse-shaped signed QPSK I/Q symbols without
+  taking ownership of RF tuning, filtering, TX enable, or scheduled launch.
   `fieldmesh_qpsk_iq_demodulator` is the matching RX
   primitive for hard-decision QPSK IQ-to-byte recovery, with
   `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_byte_sync`, and

@@ -24,8 +24,8 @@ integer symbol_index = 0;
 integer first_packet_symbols = 0;
 integer pair_index;
 integer repeat_index;
-reg signed [15:0] expected_i [0:3];
-reg signed [15:0] expected_q [0:3];
+reg signed [15:0] expected_i [0:7];
+reg signed [15:0] expected_q [0:7];
 
 fieldmesh_qpsk_iq_symbolizer #(
     .SAMPLES_PER_SYMBOL(2),
@@ -78,9 +78,28 @@ always @(negedge clk) begin
     if (!rst && m_axis_tvalid && m_axis_tready) begin
         pair_index = symbol_index / 2;
         repeat_index = symbol_index % 2;
-        if (pair_index < 4) begin
-            if (m_axis_tdata[15:0] != expected_i[pair_index]) fail("QPSK I sample mismatch");
-            if (m_axis_tdata[31:16] != expected_q[pair_index]) fail("QPSK Q sample mismatch");
+        if (symbol_index < 8) begin
+            if (m_axis_tdata[15:0] != expected_i[symbol_index]) begin
+                $display(
+                    "I mismatch idx=%0d got=%0d expected=%0d",
+                    symbol_index,
+                    $signed(m_axis_tdata[15:0]),
+                    expected_i[symbol_index]
+                );
+                fail("QPSK shaped I sample mismatch");
+            end
+            if (m_axis_tdata[31:16] != expected_q[symbol_index]) begin
+                $display(
+                    "Q mismatch idx=%0d got=%0d expected=%0d",
+                    symbol_index,
+                    $signed(m_axis_tdata[31:16]),
+                    expected_q[symbol_index]
+                );
+                fail("QPSK shaped Q sample mismatch");
+            end
+        end
+        if (symbol_index == 8 && m_axis_tdata != {(-16'sd1000), 16'sd1000}) begin
+            fail("QPSK pulse shaper did not reset at packet boundary");
         end
         if (m_axis_tlast && first_packet_symbols == 0) begin
             first_packet_symbols = symbol_index + 1;
@@ -94,10 +113,18 @@ initial begin
     expected_q[0] = -16'sd1000;
     expected_i[1] = 16'sd1000;
     expected_q[1] = -16'sd1000;
-    expected_i[2] = -16'sd1000;
-    expected_q[2] = 16'sd1000;
-    expected_i[3] = -16'sd1000;
-    expected_q[3] = 16'sd1000;
+    expected_i[2] = 16'sd1000;
+    expected_q[2] = -16'sd1000;
+    expected_i[3] = 16'sd1000;
+    expected_q[3] = -16'sd1000;
+    expected_i[4] = 16'sd0;
+    expected_q[4] = 16'sd0;
+    expected_i[5] = -16'sd1000;
+    expected_q[5] = 16'sd1000;
+    expected_i[6] = -16'sd1000;
+    expected_q[6] = 16'sd1000;
+    expected_i[7] = -16'sd1000;
+    expected_q[7] = 16'sd1000;
 
     repeat (4) @(posedge clk);
     rst = 1'b0;

@@ -479,7 +479,7 @@ def render_rf_engine_overlay() -> str:
     return f"""
 {BD_RF_ENGINE_BEGIN}
 create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer
-set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2}] [get_bd_cells fieldmesh_qpsk_symbolizer]
+set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {1}] [get_bd_cells fieldmesh_qpsk_symbolizer]
 ad_connect sys_cpu_clk fieldmesh_qpsk_symbolizer/clk
 ad_connect sys_cpu_reset fieldmesh_qpsk_symbolizer/rst
 ad_connect VCC fieldmesh_qpsk_symbolizer/enable
