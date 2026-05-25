@@ -1491,8 +1491,10 @@ user and vendor configuration.
   C IIO helper remain HIL/test glue only: archived evidence must prove
   `python_pipeline_role=test_glue`, `c_iio_helper_role=hil_transfer_glue`,
   `production_data_plane=0`, `c_iio_helper_production_data_plane=0`, and
-  `firmware_fpga_production_data_plane_required=1` before readiness accepts the
-  capture. The
+  `firmware_fpga_production_data_plane_required=1`, and it must include a
+  `fieldmesh_rf_hardware_progression_evidence` report proving C/FPGA-native
+  firmware-DMA counter progression and bounded FPGA service latency before
+  readiness accepts the capture. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

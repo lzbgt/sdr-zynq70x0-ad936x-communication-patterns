@@ -51,6 +51,13 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             blockers.append("native_ip_python_bridge_test_glue_guardrail_missing")
         if report.get("requires_iio_helper_hil_transfer_glue_only") is not True:
             blockers.append("native_ip_iio_helper_hil_guardrail_missing")
+        if (
+            report.get("requires_firmware_fpga_production_data_plane_evidence")
+            is not True
+        ):
+            blockers.append("native_ip_firmware_fpga_data_plane_evidence_not_required")
+        if report.get("firmware_fpga_production_data_plane_proven") is not True:
+            blockers.append("native_ip_firmware_fpga_data_plane_not_proven")
         for side in ("board", "host"):
             if report.get(f"{side}_iio_bridge_python_pipeline_role") != "test_glue":
                 blockers.append(f"native_ip_{side}_python_bridge_role_invalid")
@@ -442,6 +449,15 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_helper_hil_transfer_glue_only": report.get(
             "requires_iio_helper_hil_transfer_glue_only"
+        ),
+        "requires_firmware_fpga_production_data_plane_evidence": report.get(
+            "requires_firmware_fpga_production_data_plane_evidence"
+        ),
+        "firmware_fpga_production_data_plane_proven": report.get(
+            "firmware_fpga_production_data_plane_proven"
+        ),
+        "firmware_fpga_hardware_progression_report": report.get(
+            "firmware_fpga_hardware_progression_report"
         ),
         "requires_iio_rf_burst_batch_evidence": report.get(
             "requires_iio_rf_burst_batch_evidence"

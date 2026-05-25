@@ -6,6 +6,42 @@ work_dir="${TMPDIR:-/tmp}/fieldmesh-native-ip-iperf-evidence-$$"
 mkdir -p "$work_dir"
 trap 'rm -rf "$work_dir"' EXIT
 
+cat >"$work_dir/rf-hardware-progression.json" <<'JSON'
+{
+  "event": "fieldmesh_rf_hardware_progression_evidence",
+  "ok": true,
+  "reads_hardware": true,
+  "writes_hardware": false,
+  "c_fpga_native_counter_progression": true,
+  "counter_progression_ok": true,
+  "required_counter_deltas": {
+    "fw_dma_tx_parser_packets_delta": 1,
+    "fw_dma_tx_parser_bytes_delta": 64,
+    "fw_dma_ingress_packets_delta": 1,
+    "fw_dma_ingress_bytes_delta": 64,
+    "fw_dma_ingress_desc_publishes_delta": 1,
+    "fw_dma_mac_ticks_delta": 3
+  },
+  "service_latency_evidence": {
+    "source": "firmware_dma_endpoint",
+    "last_cycles": 21,
+    "max_cycles": 21,
+    "budget_cycles": 1000,
+    "within_budget": true,
+    "hardware_budget_programmed": true,
+    "hardware_budget_ok": true,
+    "over_budget_count_delta": 0
+  },
+  "c_modem_service_rate": {
+    "required": true,
+    "decode_frame_kbps": 14000
+  },
+  "no_rf_phy_tx_rx_claim": true,
+  "no_production_ready_claim": true,
+  "production_blocker": "real_rf_phy_tx_rx_not_verified"
+}
+JSON
+
 cat >"$work_dir/board-real-rf.json" <<'JSON'
 {
   "event": "fieldmesh_two_board_native_ip_iperf",
@@ -752,7 +788,17 @@ JSON
 "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   --output "$work_dir/evidence.json"
+
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-real-rf.json" \
+  --host-pc-report "$work_dir/host-real-rf.json" \
+  >"$work_dir/missing-hardware-progression-rejected.out" \
+  2>"$work_dir/missing-hardware-progression-rejected.err"; then
+  echo "iperf evidence classifier accepted IIO HIL evidence without firmware/FPGA hardware progression" >&2
+  exit 1
+fi
 
 python3 - "$work_dir/evidence.json" <<'PY'
 import json
@@ -766,6 +812,10 @@ if report.get("board_to_board_real_rf_iperf") is not True:
     raise SystemExit("board real-RF iperf was not accepted")
 if report.get("host_pc_transparent_real_rf_iperf") is not True:
     raise SystemExit("host-PC transparent real-RF iperf was not accepted")
+if report.get("requires_firmware_fpga_production_data_plane_evidence") is not True:
+    raise SystemExit("firmware/FPGA data-plane evidence was not required")
+if report.get("firmware_fpga_production_data_plane_proven") is not True:
+    raise SystemExit("firmware/FPGA data-plane evidence was not proven")
 if report.get("tcp_client_bytes") != 131072 or report.get("udp_client_bytes") != 98304:
     raise SystemExit(f"classifier did not expose native-IP byte evidence: {report!r}")
 if report.get("iperf_metric_quality_ready") is not True:
@@ -1109,6 +1159,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-missing-rf-service-policy.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-rf-service-policy-rejected.out" \
   2>"$work_dir/missing-rf-service-policy-rejected.err"; then
   echo "iperf evidence classifier accepted missing IIO RF service policy proof" >&2
@@ -1117,6 +1168,7 @@ fi
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-missing-native-worker.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-native-worker-rejected.out" \
   2>"$work_dir/missing-native-worker-rejected.err"; then
   echo "iperf evidence classifier accepted missing native RF service worker proof" >&2
@@ -1125,6 +1177,7 @@ fi
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-unexercised-pipeline.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/unexercised-pipeline-rejected.out" 2>"$work_dir/unexercised-pipeline-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised IIO ACK pipeline evidence" >&2
   exit 1
@@ -1144,6 +1197,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-unexercised-rf-batch.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/unexercised-rf-batch-rejected.out" 2>"$work_dir/unexercised-rf-batch-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised IIO RF burst batch evidence" >&2
   exit 1
@@ -1161,6 +1215,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-direction-fairness-over-budget.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/direction-fairness-over-budget-rejected.out" 2>"$work_dir/direction-fairness-over-budget-rejected.err"; then
   echo "iperf evidence classifier accepted over-budget direction fairness evidence" >&2
   exit 1
@@ -1178,6 +1233,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-missing-same-priority-batch.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-same-priority-batch-rejected.out" 2>"$work_dir/missing-same-priority-batch-rejected.err"; then
   echo "iperf evidence classifier accepted missing same-priority batch evidence" >&2
   exit 1
@@ -1196,6 +1252,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-unexercised-same-priority-preemption.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/unexercised-same-priority-preemption-rejected.out" \
   2>"$work_dir/unexercised-same-priority-preemption-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised same-priority preemption evidence" >&2
@@ -1219,6 +1276,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-unexercised-in-burst-mux.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/unexercised-in-burst-mux-rejected.out" \
   2>"$work_dir/unexercised-in-burst-mux-rejected.err"; then
   echo "iperf evidence classifier accepted unexercised in-burst priority multiplexing" >&2
@@ -1237,6 +1295,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-old-lease-priority.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/old-lease-priority-rejected.out" \
   2>"$work_dir/old-lease-priority-rejected.err"; then
   echo "iperf evidence classifier accepted stale TCP-only lease priority" >&2
@@ -1255,6 +1314,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-nonpersistent-helper.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/nonpersistent-helper-rejected.out" \
   2>"$work_dir/nonpersistent-helper-rejected.err"; then
   echo "iperf evidence classifier accepted nonpersistent burst helper" >&2
@@ -1274,6 +1334,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-no-sub-burst-reverse-service.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/no-sub-burst-reverse-service-rejected.out" \
   2>"$work_dir/no-sub-burst-reverse-service-rejected.err"; then
   echo "iperf evidence classifier accepted sub-bursts without reverse-service proof" >&2
@@ -1293,6 +1354,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-missing-ack-latency.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-ack-latency-rejected.out" 2>"$work_dir/missing-ack-latency-rejected.err"; then
   echo "iperf evidence classifier accepted missing IIO ACK latency evidence" >&2
   exit 1
@@ -1316,6 +1378,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-missing-rf-burst-timing.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-rf-burst-timing-rejected.out" 2>"$work_dir/missing-rf-burst-timing-rejected.err"; then
   echo "iperf evidence classifier accepted missing IIO RF burst timing evidence" >&2
   exit 1
@@ -1343,6 +1406,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-missing-tcp-final-exchange.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-tcp-final-exchange-rejected.out" 2>"$work_dir/missing-tcp-final-exchange-rejected.err"; then
   echo "iperf evidence classifier accepted missing TCP final-exchange evidence" >&2
   exit 1
@@ -1361,6 +1425,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-bad-tcp-control-drain.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/bad-tcp-control-drain-rejected.out" 2>"$work_dir/bad-tcp-control-drain-rejected.err"; then
   echo "iperf evidence classifier accepted failed TCP control-drain evidence" >&2
   exit 1
@@ -1379,6 +1444,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-board-tcp-phase.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/host-board-tcp-phase-rejected.out" 2>"$work_dir/host-board-tcp-phase-rejected.err"; then
   echo "iperf evidence classifier accepted host TCP evidence tagged as board_to_board" >&2
   exit 1
@@ -1400,6 +1466,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-bridge.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/bridge-rejected.out" 2>"$work_dir/bridge-rejected.err"; then
   echo "iperf evidence classifier accepted daemon bridge as production RF" >&2
   exit 1
@@ -1418,6 +1485,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-ssh.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/ssh-rejected.out" 2>"$work_dir/ssh-rejected.err"; then
   echo "iperf evidence classifier accepted SSH-launched host-PC evidence" >&2
   exit 1
@@ -1435,6 +1503,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-real-rf.json" \
   --host-pc-report "$work_dir/host-routed.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/routed-rejected.out" 2>"$work_dir/routed-rejected.err"; then
   echo "iperf evidence classifier accepted inter-board host-IP routing" >&2
   exit 1
@@ -1453,6 +1522,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-missing-metrics.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/missing-metrics-rejected.out" 2>"$work_dir/missing-metrics-rejected.err"; then
   echo "iperf evidence classifier accepted missing UDP quality metrics" >&2
   exit 1
@@ -1478,6 +1548,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-slow-phy.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/slow-phy-rejected.out" 2>"$work_dir/slow-phy-rejected.err"; then
   echo "iperf evidence classifier accepted slow reverse RF PHY evidence" >&2
   exit 1
@@ -1509,6 +1580,7 @@ PY
 if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$work_dir/board-retry-fallback-phy.json" \
   --host-pc-report "$work_dir/host-real-rf.json" \
+  --rf-hardware-progression-report "$work_dir/rf-hardware-progression.json" \
   >"$work_dir/retry-fallback-phy-rejected.out" 2>"$work_dir/retry-fallback-phy-rejected.err"; then
   echo "iperf evidence classifier accepted fallback modem as high-rate RF PHY evidence" >&2
   exit 1

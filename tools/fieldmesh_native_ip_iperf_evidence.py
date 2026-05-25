@@ -30,6 +30,70 @@ def _is_true(value: Any) -> bool:
     return value is True or value == 1 or value == "1" or value == "true"
 
 
+def _validate_hardware_progression(report: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    expected = {
+        "event": "fieldmesh_rf_hardware_progression_evidence",
+        "ok": True,
+        "reads_hardware": True,
+        "writes_hardware": False,
+        "c_fpga_native_counter_progression": True,
+        "counter_progression_ok": True,
+        "no_rf_phy_tx_rx_claim": True,
+        "no_production_ready_claim": True,
+        "production_blocker": "real_rf_phy_tx_rx_not_verified",
+    }
+    for key, expected_value in expected.items():
+        if report.get(key) != expected_value:
+            errors.append(
+                f"firmware/FPGA hardware progression {key}={report.get(key)!r} "
+                f"expected {expected_value!r}"
+            )
+    deltas = report.get("required_counter_deltas")
+    if not isinstance(deltas, dict):
+        errors.append("firmware/FPGA hardware progression missing required counter deltas")
+    else:
+        for key in (
+            "fw_dma_tx_parser_packets_delta",
+            "fw_dma_tx_parser_bytes_delta",
+            "fw_dma_ingress_packets_delta",
+            "fw_dma_ingress_bytes_delta",
+            "fw_dma_ingress_desc_publishes_delta",
+            "fw_dma_mac_ticks_delta",
+        ):
+            value = deltas.get(key)
+            if not isinstance(value, int) or value < 1:
+                errors.append(
+                    f"firmware/FPGA hardware progression {key} must be positive"
+                )
+    service_latency = report.get("service_latency_evidence")
+    if not isinstance(service_latency, dict):
+        errors.append("firmware/FPGA hardware progression missing service latency evidence")
+    else:
+        if service_latency.get("source") != "firmware_dma_endpoint":
+            errors.append("firmware/FPGA service latency source must be firmware_dma_endpoint")
+        for key in ("last_cycles", "max_cycles", "budget_cycles"):
+            value = service_latency.get(key)
+            if not isinstance(value, int) or value < 1:
+                errors.append(f"firmware/FPGA service latency {key} must be positive")
+        if service_latency.get("within_budget") is not True:
+            errors.append("firmware/FPGA service latency must be within budget")
+        if service_latency.get("hardware_budget_programmed") is not True:
+            errors.append("firmware/FPGA service latency budget must be programmed")
+        if service_latency.get("hardware_budget_ok") is not True:
+            errors.append("firmware/FPGA service latency hardware budget must be OK")
+        if service_latency.get("over_budget_count_delta") != 0:
+            errors.append("firmware/FPGA service latency over-budget counter advanced")
+    modem_rate = report.get("c_modem_service_rate")
+    if not isinstance(modem_rate, dict) or modem_rate.get("required") is not True:
+        errors.append("firmware/FPGA hardware progression missing C modem service-rate proof")
+    elif not isinstance(modem_rate.get("decode_frame_kbps"), (int, float)) or (
+        modem_rate.get("decode_frame_kbps") < 100
+    ):
+        errors.append("firmware/FPGA C modem decode service rate is below threshold")
+    return errors
+
+
 def _positive_number(report: dict[str, Any], key: str) -> bool:
     value = report.get(key)
     return isinstance(value, (int, float)) and value > 0
@@ -1182,6 +1246,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--board-to-board-report", required=True)
     parser.add_argument("--host-pc-report", required=True)
+    parser.add_argument("--rf-hardware-progression-report", default="")
     parser.add_argument("--output", default="")
     args = parser.parse_args()
 
@@ -1189,8 +1254,27 @@ def main() -> int:
     host_path = Path(args.host_pc_report)
     board = _load_report(board_path)
     host = _load_report(host_path)
+    hardware_progression: dict[str, Any] = {}
+    if args.rf_hardware_progression_report:
+        hardware_progression = _load_report(Path(args.rf_hardware_progression_report))
 
     errors = _validate_board(board) + _validate_host(host)
+    requires_firmware_fpga_data_plane = bool(
+        _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+    )
+    hardware_progression_errors: list[str] = []
+    if requires_firmware_fpga_data_plane:
+        if not args.rf_hardware_progression_report:
+            errors.append(
+                "native_ip: firmware/FPGA hardware progression evidence is required "
+                "when IIO HIL bridge evidence is present"
+            )
+            hardware_progression_errors.append("missing_hardware_progression_report")
+        else:
+            hardware_progression_errors = _validate_hardware_progression(
+                hardware_progression
+            )
+            errors.extend(hardware_progression_errors)
     board_requires_ack_pipeline = (
         _is_true(board.get("iio_rf_bridge"))
         and isinstance(board.get("iio_bridge_source_ack_pipeline_depth"), int)
@@ -1244,6 +1328,18 @@ def main() -> int:
         "requires_iio_helper_hil_transfer_glue_only": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_firmware_fpga_production_data_plane_evidence": bool(
+            requires_firmware_fpga_data_plane
+        ),
+        "firmware_fpga_production_data_plane_proven": bool(
+            requires_firmware_fpga_data_plane and not hardware_progression_errors
+        ),
+        "firmware_fpga_hardware_progression_report": (
+            str(Path(args.rf_hardware_progression_report).resolve(strict=False))
+            if args.rf_hardware_progression_report
+            else ""
+        ),
+        "firmware_fpga_hardware_progression": hardware_progression,
         "requires_iio_rf_burst_batch_evidence": bool(
             board_requires_burst_batch or host_requires_burst_batch
         ),

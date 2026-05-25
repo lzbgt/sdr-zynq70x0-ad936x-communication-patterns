@@ -150,8 +150,11 @@ Responsibilities:
   state-daemon-owned transfer-worker boundary explicit, while the C IIO helper
   remains marked as HIL transfer glue only. Native-IP readiness now requires
   `c_iio_helper_role=hil_transfer_glue`, `c_iio_helper_production_data_plane=0`,
-  and `firmware_fpga_production_data_plane_required=1` so helper-backed HIL
-  evidence cannot be promoted to production data-plane ownership.
+  and `firmware_fpga_production_data_plane_required=1`; it also requires a
+  `fieldmesh_rf_hardware_progression_evidence` report proving C/FPGA-native
+  firmware-DMA counter progression and bounded FPGA service latency. That keeps
+  helper-backed HIL evidence from being promoted to production data-plane
+  ownership.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

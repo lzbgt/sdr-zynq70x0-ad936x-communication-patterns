@@ -7,6 +7,42 @@ work_dir="$repo_root/.config/fieldmesh/native-ip-iperf-production-sequence-verif
 rm -rf "$work_dir"
 mkdir -p "$work_dir"
 
+cat >"$work_dir/rf-hardware-progression.json" <<'JSON'
+{
+  "event": "fieldmesh_rf_hardware_progression_evidence",
+  "ok": true,
+  "reads_hardware": true,
+  "writes_hardware": false,
+  "c_fpga_native_counter_progression": true,
+  "counter_progression_ok": true,
+  "required_counter_deltas": {
+    "fw_dma_tx_parser_packets_delta": 1,
+    "fw_dma_tx_parser_bytes_delta": 64,
+    "fw_dma_ingress_packets_delta": 1,
+    "fw_dma_ingress_bytes_delta": 64,
+    "fw_dma_ingress_desc_publishes_delta": 1,
+    "fw_dma_mac_ticks_delta": 3
+  },
+  "service_latency_evidence": {
+    "source": "firmware_dma_endpoint",
+    "last_cycles": 21,
+    "max_cycles": 21,
+    "budget_cycles": 1000,
+    "within_budget": true,
+    "hardware_budget_programmed": true,
+    "hardware_budget_ok": true,
+    "over_budget_count_delta": 0
+  },
+  "c_modem_service_rate": {
+    "required": true,
+    "decode_frame_kbps": 14000
+  },
+  "no_rf_phy_tx_rx_claim": true,
+  "no_production_ready_claim": true,
+  "production_blocker": "real_rf_phy_tx_rx_not_verified"
+}
+JSON
+
 cat >"$work_dir/board-real-rf.json" <<'JSON'
 {
   "event": "fieldmesh_two_board_native_ip_iperf",
@@ -753,6 +789,7 @@ JSON
 
 BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
 HOST_PC_REPORT="$work_dir/host-real-rf.json" \
+RF_HARDWARE_PROGRESSION_REPORT="$work_dir/rf-hardware-progression.json" \
 OUT_DIR="$work_dir/sequence" \
   "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
   >"$work_dir/sequence.stdout" \
@@ -777,6 +814,10 @@ for key in ("native_ip_iperf_evidence_sha256", "native_ip_app_real_rf_report_sha
         raise SystemExit(f"missing hash {key}")
 if report.get("requires_iio_ack_pipeline_evidence") is not True:
     raise SystemExit(f"missing ACK pipeline evidence requirement: {report}")
+if report.get("requires_firmware_fpga_production_data_plane_evidence") is not True:
+    raise SystemExit(f"missing firmware/FPGA data-plane evidence requirement: {report}")
+if report.get("firmware_fpga_production_data_plane_proven") is not True:
+    raise SystemExit(f"missing firmware/FPGA data-plane proof: {report}")
 if report.get("requires_iio_rf_burst_batch_evidence") is not True:
     raise SystemExit(f"missing RF burst batch evidence requirement: {report}")
 if report.get("requires_iio_direction_fair_service_evidence") is not True:
@@ -1074,6 +1115,7 @@ if report.get("host_tcp_control_drain_elapsed_s") != 30:
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
+RF_HARDWARE_PROGRESSION_REPORT="$work_dir/rf-hardware-progression.json" \
    OUT_DIR="$work_dir/missing-host" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/missing-host.stdout" 2>"$work_dir/missing-host.stderr"; then
@@ -1093,7 +1135,8 @@ Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n"
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
-   HOST_PC_REPORT="$work_dir/host-ssh.json" \
+HOST_PC_REPORT="$work_dir/host-ssh.json" \
+RF_HARDWARE_PROGRESSION_REPORT="$work_dir/rf-hardware-progression.json" \
    OUT_DIR="$work_dir/ssh-host" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/ssh-host.stdout" 2>"$work_dir/ssh-host.stderr"; then
@@ -1114,7 +1157,8 @@ Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n"
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
-   HOST_PC_REPORT="$work_dir/host-unexercised-pipeline.json" \
+HOST_PC_REPORT="$work_dir/host-unexercised-pipeline.json" \
+RF_HARDWARE_PROGRESSION_REPORT="$work_dir/rf-hardware-progression.json" \
    OUT_DIR="$work_dir/unexercised-pipeline" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/unexercised-pipeline.stdout" 2>"$work_dir/unexercised-pipeline.stderr"; then
@@ -1135,7 +1179,8 @@ Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n"
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-real-rf.json" \
-   HOST_PC_REPORT="$work_dir/host-unexercised-rf-batch.json" \
+HOST_PC_REPORT="$work_dir/host-unexercised-rf-batch.json" \
+RF_HARDWARE_PROGRESSION_REPORT="$work_dir/rf-hardware-progression.json" \
    OUT_DIR="$work_dir/unexercised-rf-batch" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/unexercised-rf-batch.stdout" 2>"$work_dir/unexercised-rf-batch.stderr"; then
@@ -1164,7 +1209,8 @@ Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n"
 PY
 
 if BOARD_TO_BOARD_REPORT="$work_dir/board-missing-tcp-final-exchange.json" \
-   HOST_PC_REPORT="$work_dir/host-real-rf.json" \
+HOST_PC_REPORT="$work_dir/host-real-rf.json" \
+RF_HARDWARE_PROGRESSION_REPORT="$work_dir/rf-hardware-progression.json" \
    OUT_DIR="$work_dir/missing-tcp-final-exchange" \
    "$repo_root/tools/run_fieldmesh_native_ip_iperf_production_sequence.sh" \
    >"$work_dir/missing-tcp-final-exchange.stdout" 2>"$work_dir/missing-tcp-final-exchange.stderr"; then

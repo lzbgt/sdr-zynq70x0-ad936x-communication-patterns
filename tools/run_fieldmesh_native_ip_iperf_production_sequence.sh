@@ -6,6 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out_dir="${OUT_DIR:-$repo_root/.config/fieldmesh/native-ip-iperf-production-sequence-$(date +%Y%m%d-%H%M%S)-$$}"
 board_report="${BOARD_TO_BOARD_REPORT:-}"
 host_report="${HOST_PC_REPORT:-}"
+rf_hardware_progression_report="${RF_HARDWARE_PROGRESSION_REPORT:-}"
 execute_live_rf="${EXECUTE_LIVE_RF:-0}"
 preflight_only="${PREFLIGHT_ONLY:-0}"
 allow_host_pc_routed_gate="${ALLOW_HOST_PC_ROUTED_GATE:-0}"
@@ -21,6 +22,7 @@ The native TCP/IP transparent MAC-link feature needs two real-RF iperf reports:
 
 Safe modes:
   BOARD_TO_BOARD_REPORT=/path/board.json HOST_PC_REPORT=/path/host.json
+  RF_HARDWARE_PROGRESSION_REPORT=/path/fieldmesh_rf_hardware_progression_evidence.json
       Classify existing reports and emit native-IP app real-RF evidence.
 
   PREFLIGHT_ONLY=1 EXECUTE_LIVE_RF=1 ALLOW_IIO_RF_BRIDGE=1 ...
@@ -57,6 +59,11 @@ for value in "$execute_live_rf" "$preflight_only" "$allow_host_pc_routed_gate"; 
 done
 
 mkdir -p "$out_dir"
+
+hardware_progression_args=()
+if [ -n "$rf_hardware_progression_report" ]; then
+    hardware_progression_args=(--rf-hardware-progression-report "$rf_hardware_progression_report")
+fi
 
 if [ ! -x "$iperf_runner" ]; then
     echo "FIELDMESH_IPERF_RUNNER is not executable: $iperf_runner" >&2
@@ -185,6 +192,7 @@ fi
 "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --board-to-board-report "$out_dir/board_to_board_iperf.json" \
   --host-pc-report "$out_dir/host_pc_transparent_iperf.json" \
+  "${hardware_progression_args[@]}" \
   --output "$out_dir/native_ip_iperf_evidence.json" \
   >"$out_dir/native_ip_iperf_evidence.stdout.json"
 
@@ -221,6 +229,9 @@ report = {
     "requires_iio_ack_pipeline_evidence": evidence.get("requires_iio_ack_pipeline_evidence"),
     "requires_python_bridge_test_glue_only": evidence.get("requires_python_bridge_test_glue_only"),
     "requires_iio_helper_hil_transfer_glue_only": evidence.get("requires_iio_helper_hil_transfer_glue_only"),
+    "requires_firmware_fpga_production_data_plane_evidence": evidence.get("requires_firmware_fpga_production_data_plane_evidence"),
+    "firmware_fpga_production_data_plane_proven": evidence.get("firmware_fpga_production_data_plane_proven"),
+    "firmware_fpga_hardware_progression_report": evidence.get("firmware_fpga_hardware_progression_report"),
     "requires_iio_rf_burst_batch_evidence": evidence.get("requires_iio_rf_burst_batch_evidence"),
     "requires_iio_direction_fair_service_evidence": evidence.get("requires_iio_direction_fair_service_evidence"),
     "requires_iio_same_priority_batch_evidence": evidence.get("requires_iio_same_priority_batch_evidence"),

@@ -248,7 +248,12 @@ Minimum production gates for native TCP/IP:
   evidence must report `c_iio_helper_role=hil_transfer_glue`,
   `c_iio_helper_production_data_plane=0`, and
   `firmware_fpga_production_data_plane_required=1`, so readiness cannot mistake
-  helper-backed HIL transfer evidence for the production data plane. This mode requires `EXECUTE_LIVE_RF`,
+  helper-backed HIL transfer evidence for the production data plane. The
+  native-IP evidence classifier must also consume
+  `RF_HARDWARE_PROGRESSION_REPORT`, a
+  `fieldmesh_rf_hardware_progression_evidence` report that proves
+  C/FPGA-native firmware-DMA counter progression, bounded FPGA service latency,
+  and C modem service-rate evidence without claiming RF TX/RX. This mode requires `EXECUTE_LIVE_RF`,
   hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
   and the exact over-air operator confirmation. Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and
