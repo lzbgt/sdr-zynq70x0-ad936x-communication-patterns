@@ -3202,6 +3202,9 @@ report = {
     "iio_bridge_state_daemon_iio_transport_execution_worker_runs": int(
         last_iio_bridge.get("state_daemon_iio_transport_execution_worker_runs") or 0
     ),
+    "iio_bridge_state_daemon_iio_transport_libiio_execution_count": int(
+        last_iio_bridge.get("state_daemon_iio_transport_libiio_execution_count") or 0
+    ),
     "iio_bridge_sample_rate_hz": int(last_iio_bridge.get("sample_rate_hz") or 0),
     "iio_bridge_rf_bandwidth_hz": int(last_iio_bridge.get("rf_bandwidth_hz") or 0),
     "iio_bridge_phy_raw_bitrate_bps": (

@@ -333,7 +333,9 @@ proves `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`, so
 profile application evidence reaches the transfer worker without Python-selected
 profile fields. The lifecycle transfer report also proves
 `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1` with positive
-state-daemon libiio execution counts and no Python libiio execution call.
+state-daemon libiio execution counts and no Python libiio execution call; the
+state-daemon transport enqueue evidence must now report a positive libiio
+execution count for the drained burst work too.
 Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload

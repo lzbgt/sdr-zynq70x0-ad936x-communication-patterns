@@ -510,7 +510,8 @@ Minimum production gates for native TCP/IP:
   with `python_selected_modem_profile_fields=false`. The transfer report also
   proves `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, so the same
   archive rejects captures where libiio execution is still a Python-paced
-  helper call.
+  helper call, and the state-daemon transport enqueue proof must now carry a
+  positive libiio execution count for the same burst work.
   That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client

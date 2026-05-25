@@ -268,6 +268,16 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_host_native_iio_burst_state_daemon_libiio_execution_missing")
+        board_libiio_exec_count = report.get(
+            "board_iio_state_daemon_iio_transport_libiio_execution_count"
+        )
+        host_libiio_exec_count = report.get(
+            "host_iio_state_daemon_iio_transport_libiio_execution_count"
+        )
+        if not isinstance(board_libiio_exec_count, int) or board_libiio_exec_count < 1:
+            blockers.append("native_ip_board_state_daemon_libiio_execution_count_missing")
+        if not isinstance(host_libiio_exec_count, int) or host_libiio_exec_count < 1:
+            blockers.append("native_ip_host_state_daemon_libiio_execution_count_missing")
         if (
             report.get("board_iio_native_iio_burst_state_daemon_modem_profile_proven")
             is not True
@@ -784,6 +794,12 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_state_daemon_iio_transport_execution_worker_runs": report.get(
             "host_iio_state_daemon_iio_transport_execution_worker_runs"
+        ),
+        "board_iio_state_daemon_iio_transport_libiio_execution_count": report.get(
+            "board_iio_state_daemon_iio_transport_libiio_execution_count"
+        ),
+        "host_iio_state_daemon_iio_transport_libiio_execution_count": report.get(
+            "host_iio_state_daemon_iio_transport_libiio_execution_count"
         ),
         "board_iio_bridge_sample_rate_hz": report.get("board_iio_bridge_sample_rate_hz"),
         "host_iio_bridge_sample_rate_hz": report.get("host_iio_bridge_sample_rate_hz"),

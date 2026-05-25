@@ -1482,7 +1482,9 @@ user and vendor configuration.
   production evidence rejects captures where the helper only received
   Python-selected modem profile fields. The lifecycle transfer report also
   proves `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1` with positive
-  state-daemon libiio execution counts and `python_libiio_execution_call=0`. The
+  state-daemon libiio execution counts and `python_libiio_execution_call=0`;
+  the native-IP archive also requires the state-daemon transport enqueue path
+  itself to report positive libiio execution counts. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

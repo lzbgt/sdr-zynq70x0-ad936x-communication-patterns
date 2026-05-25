@@ -164,6 +164,8 @@ cat > "$work_dir/native_ip_source.json" <<'JSON'
   "host_iio_state_daemon_iio_transport_drains": 3,
   "board_iio_state_daemon_iio_transport_execution_worker_runs": 3,
   "host_iio_state_daemon_iio_transport_execution_worker_runs": 3,
+  "board_iio_state_daemon_iio_transport_libiio_execution_count": 3,
+  "host_iio_state_daemon_iio_transport_libiio_execution_count": 3,
   "board_iio_bridge_sample_rate_hz": 3072000,
   "host_iio_bridge_sample_rate_hz": 3072000,
   "board_iio_bridge_rf_bandwidth_hz": 1000000,

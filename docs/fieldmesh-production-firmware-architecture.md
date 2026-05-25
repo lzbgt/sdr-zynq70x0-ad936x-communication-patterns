@@ -139,7 +139,9 @@ Responsibilities:
   `FIELDMESH_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE v1`. The same
   lifecycle transfer report now carries
   `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, positive
-  state-daemon libiio execution counts, and `python_libiio_execution_call=0`.
+  state-daemon libiio execution counts, and `python_libiio_execution_call=0`;
+  the state-daemon IIO transport enqueue/drain evidence must also show positive
+  libiio execution counts for archived native-IP production captures.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

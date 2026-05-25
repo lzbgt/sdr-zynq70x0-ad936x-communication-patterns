@@ -390,6 +390,8 @@ report = {
     "host_iio_state_daemon_iio_transport_drains": evidence.get("host_iio_state_daemon_iio_transport_drains"),
     "board_iio_state_daemon_iio_transport_execution_worker_runs": evidence.get("board_iio_state_daemon_iio_transport_execution_worker_runs"),
     "host_iio_state_daemon_iio_transport_execution_worker_runs": evidence.get("host_iio_state_daemon_iio_transport_execution_worker_runs"),
+    "board_iio_state_daemon_iio_transport_libiio_execution_count": evidence.get("board_iio_state_daemon_iio_transport_libiio_execution_count"),
+    "host_iio_state_daemon_iio_transport_libiio_execution_count": evidence.get("host_iio_state_daemon_iio_transport_libiio_execution_count"),
     "board_iio_bridge_sample_rate_hz": evidence.get("board_iio_bridge_sample_rate_hz"),
     "host_iio_bridge_sample_rate_hz": evidence.get("host_iio_bridge_sample_rate_hz"),
     "board_iio_bridge_rf_bandwidth_hz": evidence.get("board_iio_bridge_rf_bandwidth_hz"),

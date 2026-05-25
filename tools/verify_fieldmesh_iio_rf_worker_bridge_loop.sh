@@ -721,6 +721,7 @@ def iio_transport_enqueue_request(host, port, text, timeout_ms):
         "enqueues": 1,
         "drains": 1,
         "execution_worker_runs": 1,
+        "state_daemon_libiio_execution_count": 1,
         "queued_frames": 2,
         "drained_frames": 2,
         "execution_worker_frames": 2,

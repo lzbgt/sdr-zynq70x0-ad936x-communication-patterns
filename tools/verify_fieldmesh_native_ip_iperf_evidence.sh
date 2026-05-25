@@ -95,6 +95,7 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_enqueues": 3,
   "iio_bridge_state_daemon_iio_transport_drains": 3,
   "iio_bridge_state_daemon_iio_transport_execution_worker_runs": 3,
+  "iio_bridge_state_daemon_iio_transport_libiio_execution_count": 3,
   "iio_bridge_sample_rate_hz": 3072000,
   "iio_bridge_rf_bandwidth_hz": 1000000,
   "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 21333.333333333332},
@@ -448,6 +449,7 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_enqueues": 3,
   "iio_bridge_state_daemon_iio_transport_drains": 3,
   "iio_bridge_state_daemon_iio_transport_execution_worker_runs": 3,
+  "iio_bridge_state_daemon_iio_transport_libiio_execution_count": 3,
   "iio_bridge_sample_rate_hz": 3072000,
   "iio_bridge_rf_bandwidth_hz": 1000000,
   "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 21333.333333333332},
@@ -942,6 +944,8 @@ if report.get("host_iio_state_daemon_iio_transport_drains") != 3:
     raise SystemExit(f"classifier lost host state-daemon IIO transport drain count: {report!r}")
 if report.get("host_iio_state_daemon_iio_transport_execution_worker_runs") != 3:
     raise SystemExit(f"classifier lost host state-daemon IIO transport execution worker count: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_libiio_execution_count") != 3:
+    raise SystemExit(f"classifier lost host state-daemon libiio execution count: {report!r}")
 if report.get("host_iio_bridge_native_service_burst_leases") != 3:
     raise SystemExit(f"classifier lost host native service burst lease count: {report!r}")
 if report.get("board_iio_rf_sub_burst_exercised") is not True:

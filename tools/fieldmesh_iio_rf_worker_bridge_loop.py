@@ -798,6 +798,7 @@ def validate_iio_transport_daemon_enqueue(
         "enqueues",
         "drains",
         "execution_worker_runs",
+        "state_daemon_libiio_execution_count",
         "queued_frames",
         "drained_frames",
         "execution_worker_frames",
@@ -2518,6 +2519,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "state_daemon_iio_transport_enqueues": 0,
         "state_daemon_iio_transport_drains": 0,
         "state_daemon_iio_transport_execution_worker_runs": 0,
+        "state_daemon_iio_transport_libiio_execution_count": 0,
         "state_daemon_iio_transport_enqueue_failures": 0,
         "in_burst_priority_preemptions": 0,
         "in_burst_priority_multiplexing_events": 0,
@@ -2783,6 +2785,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     >= counts["state_daemon_iio_transport_enqueues"]
                     and counts["state_daemon_iio_transport_execution_worker_runs"]
                     >= counts["state_daemon_iio_transport_enqueues"]
+                    and counts["state_daemon_iio_transport_libiio_execution_count"]
+                    >= counts["state_daemon_iio_transport_enqueues"]
                     and counts["state_daemon_iio_transport_enqueue_failures"] == 0
                     and counts["state_daemon_iio_transport_enqueues"]
                     >= counts["batches_moved"]
@@ -2796,6 +2800,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "state_daemon_iio_transport_execution_worker_runs": counts[
                 "state_daemon_iio_transport_execution_worker_runs"
+            ],
+            "state_daemon_iio_transport_libiio_execution_count": counts[
+                "state_daemon_iio_transport_libiio_execution_count"
             ],
             "state_daemon_iio_transport_enqueue_failures": counts[
                 "state_daemon_iio_transport_enqueue_failures"
@@ -3613,12 +3620,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and enqueue.get("state_daemon_iio_transport_execute") == 1
             and enqueue.get("state_daemon_iio_transport_execution_worker") == 1
             and enqueue.get("state_daemon_libiio_execution_owner") == 1
+            and isinstance(enqueue.get("state_daemon_libiio_execution_count"), int)
+            and enqueue.get("state_daemon_libiio_execution_count") >= 1
             and enqueue.get("helper_local_libiio_execution_only") == 0
             and enqueue.get("helper_local_iio_daemon_only") == 0
         ):
             counts["state_daemon_iio_transport_enqueues"] += 1
             counts["state_daemon_iio_transport_drains"] += 1
             counts["state_daemon_iio_transport_execution_worker_runs"] += 1
+            counts["state_daemon_iio_transport_libiio_execution_count"] = max(
+                counts["state_daemon_iio_transport_libiio_execution_count"],
+                int(enqueue.get("state_daemon_libiio_execution_count")),
+            )
         else:
             counts["state_daemon_iio_transport_enqueue_failures"] += 1
 

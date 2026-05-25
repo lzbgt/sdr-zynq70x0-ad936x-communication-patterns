@@ -667,6 +667,9 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     state_exec_runs = report.get(
         "iio_bridge_state_daemon_iio_transport_execution_worker_runs"
     )
+    state_libiio_exec_count = report.get(
+        "iio_bridge_state_daemon_iio_transport_libiio_execution_count"
+    )
     if not isinstance(state_enqueues, int) or state_enqueues < 1:
         errors.append(f"{label}: state-daemon IIO transport enqueue count is missing")
     if not isinstance(state_drains, int) or state_drains < state_enqueues:
@@ -674,6 +677,13 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     if not isinstance(state_exec_runs, int) or state_exec_runs < state_enqueues:
         errors.append(
             f"{label}: state-daemon IIO transport execution worker did not cover enqueues"
+        )
+    if (
+        not isinstance(state_libiio_exec_count, int)
+        or state_libiio_exec_count < state_enqueues
+    ):
+        errors.append(
+            f"{label}: state-daemon libiio execution count did not cover enqueues"
         )
     if int(report.get("iio_bridge_state_daemon_iio_transport_enqueue_failures") or 0) != 0:
         errors.append(f"{label}: state-daemon IIO transport enqueue reported failures")
@@ -1832,6 +1842,12 @@ def main() -> int:
         ),
         "host_iio_state_daemon_iio_transport_execution_worker_runs": host.get(
             "iio_bridge_state_daemon_iio_transport_execution_worker_runs"
+        ),
+        "board_iio_state_daemon_iio_transport_libiio_execution_count": board.get(
+            "iio_bridge_state_daemon_iio_transport_libiio_execution_count"
+        ),
+        "host_iio_state_daemon_iio_transport_libiio_execution_count": host.get(
+            "iio_bridge_state_daemon_iio_transport_libiio_execution_count"
         ),
         "board_iio_bridge_sample_rate_hz": board.get("iio_bridge_sample_rate_hz"),
         "host_iio_bridge_sample_rate_hz": host.get("iio_bridge_sample_rate_hz"),

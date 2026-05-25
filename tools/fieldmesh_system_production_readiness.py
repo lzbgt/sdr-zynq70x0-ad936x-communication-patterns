@@ -525,6 +525,12 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_state_daemon_iio_transport_execution_worker_runs"] = (
             native_ip.get("host_iio_state_daemon_iio_transport_execution_worker_runs")
         )
+        detail["native_ip_board_iio_state_daemon_iio_transport_libiio_execution_count"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_libiio_execution_count")
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_libiio_execution_count"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_libiio_execution_count")
+        )
         detail["native_ip_board_iio_bridge_sample_rate_hz"] = native_ip.get(
             "board_iio_bridge_sample_rate_hz"
         )
@@ -1053,6 +1059,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_board_state_daemon_iio_transport_enqueue_missing")
             if native_ip.get("host_iio_state_daemon_iio_transport_enqueue_proven") is not True:
                 blockers.append("native_ip_host_state_daemon_iio_transport_enqueue_missing")
+            board_libiio_exec_count = native_ip.get(
+                "board_iio_state_daemon_iio_transport_libiio_execution_count"
+            )
+            host_libiio_exec_count = native_ip.get(
+                "host_iio_state_daemon_iio_transport_libiio_execution_count"
+            )
+            if not isinstance(board_libiio_exec_count, int) or board_libiio_exec_count < 1:
+                blockers.append("native_ip_board_state_daemon_libiio_execution_count_missing")
+            if not isinstance(host_libiio_exec_count, int) or host_libiio_exec_count < 1:
+                blockers.append("native_ip_host_state_daemon_libiio_execution_count_missing")
             if (
                 native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled")
                 is not True

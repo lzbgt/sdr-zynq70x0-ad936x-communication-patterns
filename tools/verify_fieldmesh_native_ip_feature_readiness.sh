@@ -154,6 +154,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_state_daemon_iio_transport_drains": 3,
   "board_iio_state_daemon_iio_transport_execution_worker_runs": 3,
   "host_iio_state_daemon_iio_transport_execution_worker_runs": 3,
+  "board_iio_state_daemon_iio_transport_libiio_execution_count": 3,
+  "host_iio_state_daemon_iio_transport_libiio_execution_count": 3,
   "board_iio_bridge_sample_rate_hz": 3072000,
   "host_iio_bridge_sample_rate_hz": 3072000,
   "board_iio_bridge_rf_bandwidth_hz": 1000000,
@@ -400,6 +402,8 @@ if report.get("host_iio_state_daemon_iio_transport_drains") != 3:
     raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport drain count: {report!r}")
 if report.get("host_iio_state_daemon_iio_transport_execution_worker_runs") != 3:
     raise SystemExit(f"native-IP readiness lost host state-daemon IIO transport execution worker count: {report!r}")
+if report.get("host_iio_state_daemon_iio_transport_libiio_execution_count") != 3:
+    raise SystemExit(f"native-IP readiness lost host state-daemon libiio execution count: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_exercised") is not True:
     raise SystemExit(f"native-IP readiness lost in-burst priority multiplexing proof: {report!r}")
 if report.get("host_iio_bridge_in_burst_priority_multiplexing_events") != 1:
