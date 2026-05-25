@@ -1498,8 +1498,9 @@ below were later superseded by the current PHY-management two-board gates above:
   QPSK byte phase and quadrant rotation from full four-byte preamble plus magic
   correlation with `fieldmesh_qpsk_byte_sync`, restores packet boundaries with a
   ping-pong-buffered `fieldmesh_axis_header_framer`, rejects bad header CRCs and
-  burst-truncated packets in PL before RX DMA, and crosses recovered packets
-  back to RX DMA. The
+  burst-truncated packets in PL before RX DMA, feeds packet complete/drop/resync
+  status back into byte-sync `clear_lock` for live continuous-RX reacquisition,
+  and crosses recovered packets back to RX DMA. The
   `--rf-engine-overlay` Vivado gate now proves the sidecar
   TX DMA path can feed the QPSK symbolizer and `fieldmesh_iq_tx_guard` while
   the guarded IQ stream crosses into the AD9361 DAC clock domain through

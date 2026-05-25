@@ -2766,7 +2766,11 @@ samples through `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
 `fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, `fieldmesh_axis_header_framer`, and
 `fieldmesh_axis_async_fifo` before RX DMA, so RX packet recovery is an FPGA path
-instead of a packet-observability loopback. The firmware-DMA controls, guard
+instead of a packet-observability loopback. The RX header framer also feeds
+valid completion, bad-header resync, CRC/drop, and truncation events back into
+byte-sync `clear_lock`, forcing continuous live ADC streams to reacquire the
+next RF burst from the acquisition preamble rather than relying on test-burst
+TLAST. The firmware-DMA controls, guard
 arming, schedule, and counter/status
 pins are now connected to the mapped `fieldmesh_ctrl` lightweight register
 window at `0x100+`/`0x140+`, while the DAC driver source select is

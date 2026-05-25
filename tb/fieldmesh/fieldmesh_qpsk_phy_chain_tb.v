@@ -97,9 +97,11 @@ wire [31:0] framer_byte_count;
 wire [31:0] framer_drop_count;
 wire [31:0] framer_crc_error_count;
 wire [31:0] framer_resync_count;
+wire        framer_sync_clear;
 wire        framer_fault;
 
 integer rx_count = 0;
+integer sync_clear_count = 0;
 reg [7:0] rx_seen [0:63];
 reg rx_last_seen [0:63];
 
@@ -229,6 +231,7 @@ fieldmesh_qpsk_byte_sync byte_sync (
     .clk(clk),
     .rst(rst),
     .enable(enable),
+    .clear_lock(framer_sync_clear),
     .s_axis_tvalid(demod_tvalid),
     .s_axis_tready(demod_tready),
     .s_axis_tdata(demod_tdata),
@@ -265,6 +268,7 @@ fieldmesh_axis_header_framer header_framer (
     .drop_count(framer_drop_count),
     .crc_error_count(framer_crc_error_count),
     .resync_count(framer_resync_count),
+    .sync_clear(framer_sync_clear),
     .fault(framer_fault)
 );
 
@@ -398,10 +402,16 @@ endtask
 always @(posedge clk) begin
     if (rst) begin
         rx_count <= 0;
+        sync_clear_count <= 0;
     end else if (m_axis_tvalid && m_axis_tready) begin
         rx_seen[rx_count] <= m_axis_tdata;
         rx_last_seen[rx_count] <= m_axis_tlast;
         rx_count <= rx_count + 1;
+        if (framer_sync_clear) begin
+            sync_clear_count <= sync_clear_count + 1;
+        end
+    end else if (framer_sync_clear) begin
+        sync_clear_count <= sync_clear_count + 1;
     end
 end
 
@@ -440,6 +450,7 @@ initial begin
     if (tx_fir_tail_count != 32'd8) fail("TX FIR did not flush the expected packet tail");
     if (rx_fir_tail_count != 32'd0) fail("RX FIR emitted tail samples on continuous RX stream");
     if (sync_locked) fail("QPSK byte sync stayed locked after packet tail flush");
+    if (sync_clear_count != 1) fail("QPSK framer did not request byte-sync reacquire");
     if (sync_lock_count != 32'd1) fail("QPSK byte sync lock count mismatch");
     if (sync_selected_phase != 2'd0) fail("unexpected QPSK byte phase");
     if (sync_selected_rotation != 2'd0) fail("unexpected QPSK rotation");

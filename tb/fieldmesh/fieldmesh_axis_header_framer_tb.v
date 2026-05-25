@@ -21,9 +21,11 @@ wire [31:0] byte_count;
 wire [31:0] drop_count;
 wire [31:0] crc_error_count;
 wire [31:0] resync_count;
+wire        sync_clear;
 wire        fault;
 
 integer rx_bytes = 0;
+integer sync_clear_count = 0;
 
 fieldmesh_axis_header_framer dut (
     .clk(clk),
@@ -42,10 +44,19 @@ fieldmesh_axis_header_framer dut (
     .drop_count(drop_count),
     .crc_error_count(crc_error_count),
     .resync_count(resync_count),
+    .sync_clear(sync_clear),
     .fault(fault)
 );
 
 always #5 clk = ~clk;
+
+always @(posedge clk) begin
+    if (rst) begin
+        sync_clear_count <= 0;
+    end else if (sync_clear) begin
+        sync_clear_count <= sync_clear_count + 1;
+    end
+end
 
 task fail;
     input [255:0] message;
@@ -225,6 +236,7 @@ initial begin
     if (packet_count != 32'd2) fail("packet counter mismatch");
     if (byte_count != 32'd72) fail("byte counter mismatch");
     if (rx_bytes != 72) fail("output byte count mismatch");
+    if (sync_clear_count != 2) fail("valid packet sync_clear count mismatch");
     if (drop_count != 32'd0) fail("unexpected drop after valid packet");
     if (crc_error_count != 32'd0) fail("unexpected CRC error after valid packet");
     if (fault) fail("unexpected fault after valid packet");
@@ -232,10 +244,12 @@ initial begin
     send_byte(8'h00, 1'b0);
     repeat (2) @(posedge clk);
     if (resync_count != 32'd1) fail("resync counter mismatch");
+    if (sync_clear_count != 3) fail("resync did not request byte-sync reacquire");
 
     send_packet(8'd1, 1'b0, 1'b1);
     repeat (4) @(posedge clk);
     if (m_axis_tvalid) fail("bad CRC packet emitted output");
+    if (sync_clear_count != 4) fail("bad CRC did not request byte-sync reacquire");
     if (drop_count != 32'd1) fail("bad CRC drop counter mismatch");
     if (crc_error_count != 32'd1) fail("CRC error counter mismatch");
     if (!fault) fail("bad CRC did not set fault");
@@ -243,6 +257,7 @@ initial begin
     send_packet(8'd1, 1'b1, 1'b0);
     repeat (4) @(posedge clk);
     if (m_axis_tvalid) fail("bad class packet emitted output");
+    if (sync_clear_count != 5) fail("bad class did not request byte-sync reacquire");
     if (drop_count != 32'd2) fail("bad class drop counter mismatch");
     if (crc_error_count != 32'd1) fail("bad class changed CRC error counter");
     if (!fault) fail("bad class did not set fault");
@@ -250,6 +265,7 @@ initial begin
     send_truncated_packet();
     repeat (4) @(posedge clk);
     if (m_axis_tvalid) fail("truncated packet emitted output");
+    if (sync_clear_count != 6) fail("truncated packet did not request byte-sync reacquire");
     if (drop_count != 32'd3) fail("truncated packet drop counter mismatch");
     if (crc_error_count != 32'd1) fail("truncated packet changed CRC error counter");
     if (!fault) fail("truncated packet did not set fault");
@@ -258,6 +274,7 @@ initial begin
     drain_packet(8'd4);
     repeat (2) @(posedge clk);
     if (packet_count != 32'd3) fail("valid packet after truncated burst was not recovered");
+    if (sync_clear_count != 7) fail("post-truncation recovery did not request byte-sync reacquire");
 
     $display("PASS: fieldmesh_axis_header_framer_tb");
     $finish;

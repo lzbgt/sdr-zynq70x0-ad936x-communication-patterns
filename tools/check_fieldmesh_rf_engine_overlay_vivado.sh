@@ -255,6 +255,7 @@ foreach pin {
   fieldmesh_qpsk_byte_sync/clk
   fieldmesh_qpsk_byte_sync/rst
   fieldmesh_qpsk_byte_sync/enable
+  fieldmesh_qpsk_byte_sync/clear_lock
   fieldmesh_qpsk_byte_sync/s_axis_tvalid
   fieldmesh_qpsk_byte_sync/s_axis_tready
   fieldmesh_qpsk_byte_sync/s_axis_tdata
@@ -277,6 +278,7 @@ foreach pin {
   fieldmesh_rx_header_framer/drop_count
   fieldmesh_rx_header_framer/crc_error_count
   fieldmesh_rx_header_framer/resync_count
+  fieldmesh_rx_header_framer/sync_clear
   fieldmesh_rx_header_framer/fault
   fieldmesh_rx_header_framer/clk
   fieldmesh_rx_header_framer/rst
@@ -644,6 +646,7 @@ assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_qpsk_byte_syn
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_qpsk_byte_sync/s_axis_tready
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tlast fieldmesh_qpsk_byte_sync/s_axis_tlast
+assert_same_net fieldmesh_rx_header_framer/sync_clear fieldmesh_qpsk_byte_sync/clear_lock
 assert_same_net fieldmesh_qpsk_byte_sync/sync_locked fieldmesh_ctrl/qpsk_sync_locked
 assert_same_net fieldmesh_qpsk_byte_sync/selected_phase fieldmesh_ctrl/qpsk_sync_selected_phase
 assert_same_net fieldmesh_qpsk_byte_sync/selected_rotation fieldmesh_ctrl/qpsk_sync_selected_rotation

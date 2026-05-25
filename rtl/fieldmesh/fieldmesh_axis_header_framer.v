@@ -6,7 +6,10 @@
 // Two packet banks let one packet drain to RX DMA while the next packet is
 // captured from the demodulator. Header bytes 30..31 carry a little-endian
 // CRC-16/CCITT-FALSE over header bytes 0..29 and all payload bytes; bad or
-// burst-truncated packets are rejected before RX DMA.
+// burst-truncated packets are rejected before RX DMA. Packet completion,
+// malformed headers, CRC failures, and truncated bursts raise sync_clear for
+// one clock so the upstream byte synchronizer can reacquire the next live RF
+// burst from preamble instead of staying locked across continuous ADC noise.
 
 `timescale 1ns/1ps
 
@@ -33,6 +36,7 @@ module fieldmesh_axis_header_framer #(
     output reg [31:0] drop_count,
     output reg [31:0] crc_error_count,
     output reg [31:0] resync_count,
+    output reg        sync_clear,
     output reg        fault
 );
 
@@ -148,8 +152,11 @@ always @(posedge clk) begin
         drop_count <= 32'd0;
         crc_error_count <= 32'd0;
         resync_count <= 32'd0;
+        sync_clear <= 1'b0;
         fault <= 1'b0;
     end else begin
+        sync_clear <= 1'b0;
+
         if (!emit_active && bank_ready != 2'b00) begin
             emit_bank <= pending_emit_bank;
             emit_len <= pending_emit_len;
@@ -161,6 +168,7 @@ always @(posedge clk) begin
         if (s_fire) begin
             if (rx_index == 16'd0 && s_axis_tdata != FM_MAGIC_0) begin
                 resync_count <= resync_count + 1'b1;
+                sync_clear <= 1'b1;
             end else begin
                 if (rx_index_in_range) begin
                     if (capture_bank) begin
@@ -192,11 +200,13 @@ always @(posedge clk) begin
                         if (other_capture_bank_free) begin
                             capture_bank <= other_capture_bank;
                         end
+                        sync_clear <= 1'b1;
                     end else begin
                         drop_count <= drop_count + 1'b1;
                         if (packet_crc_bad) begin
                             crc_error_count <= crc_error_count + 1'b1;
                         end
+                        sync_clear <= 1'b1;
                         fault <= 1'b1;
                     end
                     rx_index <= 16'd0;
@@ -207,6 +217,7 @@ always @(posedge clk) begin
                     packet_bad <= 1'b0;
                 end else if (current_header_bad || !rx_index_in_range || packet_truncated) begin
                     drop_count <= drop_count + 1'b1;
+                    sync_clear <= 1'b1;
                     fault <= 1'b1;
                     rx_index <= 16'd0;
                     payload_len <= 16'd0;

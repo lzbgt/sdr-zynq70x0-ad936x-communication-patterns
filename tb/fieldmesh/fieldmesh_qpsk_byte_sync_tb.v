@@ -5,6 +5,7 @@ module fieldmesh_qpsk_byte_sync_tb;
 reg clk = 1'b0;
 reg rst = 1'b1;
 reg enable = 1'b1;
+reg clear_lock = 1'b0;
 
 reg        s_axis_tvalid = 1'b0;
 wire       s_axis_tready;
@@ -33,6 +34,7 @@ fieldmesh_qpsk_byte_sync dut (
     .clk(clk),
     .rst(rst),
     .enable(enable),
+    .clear_lock(clear_lock),
     .s_axis_tvalid(s_axis_tvalid),
     .s_axis_tready(s_axis_tready),
     .s_axis_tdata(s_axis_tdata),
@@ -119,6 +121,7 @@ task apply_reset;
         s_axis_tvalid = 1'b0;
         s_axis_tdata = 8'd0;
         s_axis_tlast = 1'b0;
+        clear_lock = 1'b0;
         m_axis_tready = 1'b1;
         repeat (4) @(posedge clk);
         rst = 1'b0;
@@ -215,6 +218,29 @@ initial begin
     if (out_seen[0] != 8'h4d) fail("rotated magic byte 0 mismatch");
     if (out_seen[1] != 8'h46) fail("rotated magic byte 1 mismatch");
     if (out_seen[2] != 8'ha5) fail("rotated payload byte mismatch");
+
+    @(negedge clk);
+    clear_lock = 1'b1;
+    @(posedge clk);
+    @(negedge clk);
+    clear_lock = 1'b0;
+    repeat (2) @(posedge clk);
+    if (sync_locked) fail("byte synchronizer ignored downstream clear_lock");
+    if (selected_phase != 2'd0) fail("clear_lock did not reset byte phase");
+    if (selected_rotation != 2'd0) fail("clear_lock did not reset QPSK rotation");
+
+    send_raw_byte(8'h55);
+    send_raw_byte(8'haa);
+    send_raw_byte(8'h55);
+    send_raw_byte(8'haa);
+    send_raw_byte(8'h4d);
+    send_raw_byte(8'h46);
+    send_raw_byte(8'hc5);
+    send_raw_byte(8'h3a);
+    repeat (4) @(posedge clk);
+    if (!sync_locked) fail("byte synchronizer did not reacquire after clear_lock");
+    if (sync_lock_count != 32'd2) fail("clear_lock reacquire did not increment lock count");
+    if (sync_rotation_count != 32'd1) fail("clear_lock path kept stale rotation accounting");
 
     apply_reset();
 
