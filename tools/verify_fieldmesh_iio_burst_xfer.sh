@@ -207,13 +207,13 @@ PY
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/bpsk_frame.iq" \
-  --samples-per-symbol 16 \
+  --samples-per-symbol 8 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
   --iq-file "$work_dir/bpsk_frame.iq" \
   --decoded-file "$work_dir/bpsk_decoded.bin" \
-  --samples-per-symbol 16 \
+  --samples-per-symbol 8 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_decoded.bin"
@@ -232,7 +232,7 @@ PY
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
   --iq-file "$work_dir/bpsk_rotated_frame.iq" \
   --decoded-file "$work_dir/bpsk_rotated_decoded.bin" \
-  --samples-per-symbol 16 \
+  --samples-per-symbol 8 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_rotated_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
@@ -241,7 +241,7 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
   --iq-file "$work_dir/bpsk_carrier_frame.iq" \
   --sample-rate-hz 1000000 \
   --baseband-carrier-hz 125000 \
-  --samples-per-symbol 16 \
+  --samples-per-symbol 8 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_carrier_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
@@ -249,7 +249,7 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
   --decoded-file "$work_dir/bpsk_carrier_decoded.bin" \
   --sample-rate-hz 1000000 \
   --baseband-carrier-hz 125000 \
-  --samples-per-symbol 16 \
+  --samples-per-symbol 8 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_carrier_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_carrier_decoded.bin"
@@ -266,24 +266,22 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_carrier_decoded.bin"
   --bit-repeat 2 \
   >"$work_dir/bfsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
-"$work_dir/fieldmesh_iio_burst_xfer" --bfsk-encode \
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/fast_frame.iq" \
   --sample-rate-hz 3072000 \
-  --space-hz 50000 \
-  --mark-hz 150000 \
-  --samples-per-symbol 16 \
+  --baseband-carrier-hz 100000 \
+  --samples-per-symbol 8 \
   --bit-repeat 1 \
-  >"$work_dir/bfsk_fast_encode.json"
-"$work_dir/fieldmesh_iio_burst_xfer" --bfsk-decode \
+  >"$work_dir/bpsk_fast_encode.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
   --iq-file "$work_dir/fast_frame.iq" \
   --decoded-file "$work_dir/fast_decoded.bin" \
   --sample-rate-hz 3072000 \
-  --space-hz 50000 \
-  --mark-hz 150000 \
-  --samples-per-symbol 16 \
+  --baseband-carrier-hz 100000 \
+  --samples-per-symbol 8 \
   --bit-repeat 1 \
-  >"$work_dir/bfsk_fast_decode.json"
+  >"$work_dir/bpsk_fast_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/fast_decoded.bin"
 
 python3 - "$work_dir/frame.bin" "$work_dir/bad_frame.bin" "$work_dir/frame_crc.txt" <<'PY'
@@ -412,7 +410,7 @@ if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is n
 if decode.get("bit_start", 0) <= 0:
     raise SystemExit(f"C BPSK decoder did not skip the leading bad candidate: {decode}")
 PY
-python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" "$work_dir/bfsk_fast_encode.json" "$work_dir/bfsk_fast_decode.json" <<'PY'
+python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" "$work_dir/bpsk_fast_encode.json" "$work_dir/bpsk_fast_decode.json" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -427,17 +425,17 @@ if decode.get("event") != "fieldmesh_bfsk_modem_decode" or decode.get("ok") is n
     raise SystemExit(f"C BFSK decode failed: {decode}")
 if encode.get("frame_bytes") != decode.get("frame_bytes"):
     raise SystemExit(f"C BFSK encode/decode byte counts differ: {encode} {decode}")
-if fast_encode.get("event") != "fieldmesh_bfsk_modem_encode" or fast_encode.get("ok") is not True:
-    raise SystemExit(f"C fast BFSK encode failed: {fast_encode}")
-if fast_decode.get("event") != "fieldmesh_bfsk_modem_decode" or fast_decode.get("ok") is not True:
-    raise SystemExit(f"C fast BFSK decode failed: {fast_decode}")
-if fast_encode.get("samples_per_symbol") != 16 or fast_encode.get("bit_repeat") != 1:
-    raise SystemExit(f"C fast BFSK profile drifted: {fast_encode}")
-if fast_decode.get("samples_per_symbol") != 16 or fast_decode.get("bit_repeat") != 1:
-    raise SystemExit(f"C fast BFSK decoder profile drifted: {fast_decode}")
+if fast_encode.get("event") != "fieldmesh_bpsk_modem_encode" or fast_encode.get("ok") is not True:
+    raise SystemExit(f"C fast BPSK encode failed: {fast_encode}")
+if fast_decode.get("event") != "fieldmesh_bpsk_modem_decode" or fast_decode.get("ok") is not True:
+    raise SystemExit(f"C fast BPSK decode failed: {fast_decode}")
+if fast_encode.get("samples_per_symbol") != 8 or fast_encode.get("bit_repeat") != 1:
+    raise SystemExit(f"C fast BPSK profile drifted: {fast_encode}")
+if fast_decode.get("samples_per_symbol") != 8 or fast_decode.get("bit_repeat") != 1:
+    raise SystemExit(f"C fast BPSK decoder profile drifted: {fast_decode}")
 raw_bitrate_bps = 3_072_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
-if raw_bitrate_bps < 192_000:
-    raise SystemExit(f"C fast BFSK raw PHY target regressed: {raw_bitrate_bps}")
+if raw_bitrate_bps < 384_000:
+    raise SystemExit(f"C fast BPSK raw PHY target regressed: {raw_bitrate_bps}")
 PY
 
 python3 - "$work_dir/bfsk_decode_after_bad_crc.json" <<'PY'

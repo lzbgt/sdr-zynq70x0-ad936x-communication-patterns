@@ -101,7 +101,7 @@ def query_iio_transport_execute_once():
     try:
         sock.sendto(
             b"FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE v1 "
-            b"frames=2 bytes=128 samples_per_symbol=16 bit_repeat=1",
+            b"frames=2 bytes=128 samples_per_symbol=8 bit_repeat=1",
             ("127.0.0.1", port),
         )
         data, _ = sock.recvfrom(4096)
@@ -148,7 +148,7 @@ def query_modem_profile_decision_once():
     try:
         sock.sendto(
             b"FIELDMESH_RF_MODEM_PROFILE_DECISION v1 "
-            b"primary_raw_bitrate_bps=192000 effective_raw_bitrate_bps=192000 "
+            b"primary_raw_bitrate_bps=384000 effective_raw_bitrate_bps=384000 "
             b"primary_decode_attempts=4 primary_decode_successes=4 "
             b"primary_crc_failures=0 retry_decode_attempts=0 "
             b"retry_decode_successes=0 retry_crc_failures=0",
@@ -297,7 +297,7 @@ expected = {
     "production_iio_policy": 1,
     "adaptive_modem_profile_policy": 1,
     "adaptive_modem_profile_policy_native_c": 1,
-    "fast_primary_min_raw_bitrate_bps": 150000,
+    "fast_primary_min_raw_bitrate_bps": 300000,
     "fast_primary_requires_primary_decode": 1,
     "fast_primary_rejects_modem_retry": 1,
     "fast_primary_decision": "fast_primary",
@@ -493,7 +493,7 @@ expected_execute = {
     "python_libiio_execution_call": 0,
     "request_frames": 2,
     "request_bytes": 128,
-    "samples_per_symbol": 16,
+    "samples_per_symbol": 8,
     "bit_repeat": 1,
     "libiio_transfer_worker_runs": 1,
     "libiio_transfer_worker_frames": 2,
