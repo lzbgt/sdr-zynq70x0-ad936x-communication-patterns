@@ -492,9 +492,10 @@ Minimum production gates for native TCP/IP:
   must now carry the native adaptive modem profile policy proof so a retry
   decode cannot be counted as the fast PHY rate, plus the measured-quality
   decision proof that separates fast, retry, and hold cases. The live bridge
-  now sends cumulative measured decode quality to the daemon through
-  `FIELDMESH_RF_MODEM_PROFILE_DECISION v1`, and native-IP evidence requires
-  `fast_primary` plus `phy_adaptive_mcs_live_quality_bound` proof in each
+  now posts measured decode/PER deltas to the daemon through
+  `FIELDMESH_RF_MODEM_QUALITY_UPDATE v1`, and native-IP evidence requires
+  the daemon-owned `state_daemon_rf_modem_quality_accumulator` plus
+  `fast_primary` and `phy_adaptive_mcs_live_quality_bound` proof in each
   direction before the higher raw PHY rate can satisfy production readiness.
   The state-daemon RF service loop tick also consumes that decision before each
   burst, using prior quality counters to select the initial modem profile

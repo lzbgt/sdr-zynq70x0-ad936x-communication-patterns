@@ -457,6 +457,10 @@ PY
         FIELDMESH_RF_MODEM_PROFILE_DECISION \
         sdk_daemon_rf_modem_profile_decision \
         live_rf_worker_mcs_selection \
+        FIELDMESH_RF_MODEM_QUALITY_UPDATE \
+        sdk_daemon_rf_modem_quality_update \
+        state_daemon_rf_modem_quality_accumulator \
+        native_mcs_quality_accumulator \
         native_adaptive_mcs_selection \
         state_daemon_rf_service_loop_tick \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \

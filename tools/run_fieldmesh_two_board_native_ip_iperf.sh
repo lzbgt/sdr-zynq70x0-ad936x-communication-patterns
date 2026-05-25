@@ -3223,6 +3223,18 @@ report = {
     "iio_bridge_phy_adaptive_mcs_quality_by_direction": (
         last_iio_bridge.get("phy_adaptive_mcs_quality_by_direction") or {}
     ),
+    "iio_bridge_phy_adaptive_mcs_quality_source": str(
+        last_iio_bridge.get("phy_adaptive_mcs_quality_source") or ""
+    ),
+    "iio_bridge_phy_adaptive_mcs_quality_source_by_direction": (
+        last_iio_bridge.get("phy_adaptive_mcs_quality_source_by_direction") or {}
+    ),
+    "iio_bridge_phy_adaptive_mcs_quality_updates": int(
+        last_iio_bridge.get("phy_adaptive_mcs_quality_updates") or 0
+    ),
+    "iio_bridge_phy_adaptive_mcs_quality_update_failures": int(
+        last_iio_bridge.get("phy_adaptive_mcs_quality_update_failures") or 0
+    ),
     "iio_bridge_phy_adaptive_mcs_decision_polls": int(
         last_iio_bridge.get("phy_adaptive_mcs_decision_polls") or 0
     ),

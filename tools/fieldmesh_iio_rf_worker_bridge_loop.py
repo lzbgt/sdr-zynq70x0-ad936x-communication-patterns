@@ -286,11 +286,7 @@ def native_service_loop_tick_from_daemon(
     peer_host: str,
     peer_port: int,
     current_consecutive_direction_batches: int,
-    primary_raw_bitrate_bps: float = 0.0,
-    effective_raw_bitrate_bps: float = 0.0,
-    modem_quality: dict[str, int] | None = None,
 ) -> tuple[list[bytes], dict[str, Any]]:
-    quality = modem_quality or {}
     try:
         report = bridge.request_daemon(
             host,
@@ -299,15 +295,7 @@ def native_service_loop_tick_from_daemon(
             f"peer_host={peer_host} peer_port={max(1, int(peer_port))} "
             f"peer_timeout_ms={max(1, int(timeout_ms))} "
             "current_consecutive_direction_batches="
-            f"{max(0, int(current_consecutive_direction_batches))} "
-            f"primary_raw_bitrate_bps={max(0, int(primary_raw_bitrate_bps))} "
-            f"effective_raw_bitrate_bps={max(0, int(effective_raw_bitrate_bps))} "
-            f"primary_decode_attempts={max(0, int(quality.get('primary_decode_attempts') or 0))} "
-            f"primary_decode_successes={max(0, int(quality.get('primary_decode_successes') or 0))} "
-            f"primary_crc_failures={max(0, int(quality.get('primary_crc_failures') or 0))} "
-            f"retry_decode_attempts={max(0, int(quality.get('retry_decode_attempts') or 0))} "
-            f"retry_decode_successes={max(0, int(quality.get('retry_decode_successes') or 0))} "
-            f"retry_crc_failures={max(0, int(quality.get('retry_crc_failures') or 0))}",
+            f"{max(0, int(current_consecutive_direction_batches))}",
             timeout_ms,
         )
     except TimeoutError:
@@ -393,6 +381,9 @@ def native_service_loop_tick_from_daemon(
         "in_burst_priority_multiplexing",
         "in_burst_preempted_score",
         "in_burst_deferred_head_score",
+        "native_mcs_quality_accumulator",
+        "state_daemon_owned_mcs_quality",
+        "mcs_quality_updates",
     ):
         if not isinstance(report.get(key), int):
             errors.append(f"{key}={report.get(key)!r} expected integer")
@@ -405,6 +396,8 @@ def native_service_loop_tick_from_daemon(
         errors.append("loop tick did not return a valid pre-burst MCS selection")
     if report.get("adaptive_mcs_pre_burst_profile_source") != "state_daemon_rf_service_loop_tick":
         errors.append("loop tick MCS selection was not owned by the state daemon")
+    if report.get("adaptive_mcs_quality_source") != "state_daemon_rf_modem_quality_accumulator":
+        errors.append("loop tick MCS quality was not sourced from the state-daemon accumulator")
     if errors:
         raise SystemExit("native RF service loop tick invalid: " + "; ".join(errors))
     frames: list[bytes] = []
@@ -1414,6 +1407,25 @@ def adaptive_mcs_quality_bound_by_direction(
     return bound_by_direction
 
 
+def adaptive_mcs_quality_source_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, str]:
+    source_by_direction: dict[str, str] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        sources = [
+            str(frame.get("adaptive_mcs_quality_source") or "")
+            for frame in frames
+            if frame.get("direction") == name
+            and not frame.get("filtered_frames")
+            and frame.get("adaptive_mcs_quality_source")
+        ]
+        source_by_direction[key] = sources[-1] if sources else ""
+    return source_by_direction
+
+
 def modem_profile_quality_from_attempts(
     attempts: list[dict[str, Any]],
     primary_samples_per_symbol: int,
@@ -1522,6 +1534,54 @@ def rf_modem_profile_decision(
     ]
     if errors:
         raise SystemExit("RF_MODEM_PROFILE_DECISION invalid: " + "; ".join(errors))
+    return report
+
+
+def rf_modem_quality_update(
+    host: str,
+    port: int,
+    timeout_ms: int,
+    primary_raw_bitrate_bps: float,
+    effective_raw_bitrate_bps: float,
+    quality: dict[str, int],
+) -> dict[str, Any]:
+    request = (
+        "FIELDMESH_RF_MODEM_QUALITY_UPDATE v1 "
+        f"primary_raw_bitrate_bps={max(0, int(primary_raw_bitrate_bps))} "
+        f"effective_raw_bitrate_bps={max(0, int(effective_raw_bitrate_bps))} "
+        f"primary_decode_attempts={max(0, int(quality.get('primary_decode_attempts') or 0))} "
+        f"primary_decode_successes={max(0, int(quality.get('primary_decode_successes') or 0))} "
+        f"primary_crc_failures={max(0, int(quality.get('primary_crc_failures') or 0))} "
+        f"retry_decode_attempts={max(0, int(quality.get('retry_decode_attempts') or 0))} "
+        f"retry_decode_successes={max(0, int(quality.get('retry_decode_successes') or 0))} "
+        f"retry_crc_failures={max(0, int(quality.get('retry_crc_failures') or 0))}"
+    )
+    report = bridge.request_daemon(host, port, request, timeout_ms)
+    if report.get("event") != "sdk_daemon_rf_modem_quality_update":
+        raise SystemExit(
+            "expected sdk_daemon_rf_modem_quality_update, "
+            f"got {report.get('event')!r}"
+        )
+    if report.get("ok") is not True:
+        raise SystemExit(f"RF_MODEM_QUALITY_UPDATE failed: {report}")
+    required = {
+        "native_mcs_quality_accumulator": 1,
+        "state_daemon_owned_mcs_quality": 1,
+        "adaptive_mcs_quality_source": "state_daemon_rf_modem_quality_accumulator",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "state_daemon_rf_service_loop_tick_mcs_quality",
+    }
+    errors = [
+        f"{key}={report.get(key)!r} expected {expected!r}"
+        for key, expected in required.items()
+        if report.get(key) != expected
+    ]
+    if not isinstance(report.get("updates"), int) or report.get("updates") < 1:
+        errors.append("quality update did not advance the daemon accumulator")
+    if errors:
+        raise SystemExit("RF_MODEM_QUALITY_UPDATE invalid: " + "; ".join(errors))
     return report
 
 
@@ -1966,15 +2026,6 @@ def run_batch(
         primary_bit_repeat,
     )
     adaptive_mcs_decision_report: dict[str, Any] = {}
-    if args.execute_live_rf:
-        adaptive_mcs_decision_report = rf_modem_profile_decision(
-            direction["source_host"],
-            direction["source_port"],
-            min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250)),
-            primary_raw_bitrate_bps,
-            selected_raw_bitrate_bps,
-            modem_quality,
-        )
     recovered_frames: list[bytes] = []
     ingests: list[dict[str, Any]] = []
     source_ack: dict[str, Any] = (
@@ -2297,6 +2348,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "adaptive_status_failures": 0,
         "adaptive_mcs_decision_polls": 0,
         "adaptive_mcs_decision_failures": 0,
+        "adaptive_mcs_quality_updates": 0,
+        "adaptive_mcs_quality_update_failures": 0,
         "adaptive_mcs_pre_burst_selection_polls": 0,
         "adaptive_mcs_pre_burst_selection_failures": 0,
         "native_direction_scheduler_status_polls": 0,
@@ -2420,6 +2473,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             adaptive_mcs_pre_burst_quality_bound_by_direction(frames, directions)
         )
         adaptive_mcs_quality_bound = adaptive_mcs_quality_bound_by_direction(
+            frames,
+            directions,
+        )
+        adaptive_mcs_quality_sources = adaptive_mcs_quality_source_by_direction(
             frames,
             directions,
         )
@@ -2716,6 +2773,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 and all(adaptive_mcs_quality_bound.values())
             ),
             "phy_adaptive_mcs_quality_by_direction": adaptive_mcs_quality,
+            "phy_adaptive_mcs_quality_source_by_direction": adaptive_mcs_quality_sources,
+            "phy_adaptive_mcs_quality_source": (
+                "state_daemon_rf_modem_quality_accumulator"
+                if adaptive_mcs_quality_sources
+                and all(
+                    source == "state_daemon_rf_modem_quality_accumulator"
+                    for source in adaptive_mcs_quality_sources.values()
+                )
+                else "host_bridge_or_missing"
+            ),
+            "phy_adaptive_mcs_quality_updates": counts["adaptive_mcs_quality_updates"],
+            "phy_adaptive_mcs_quality_update_failures": counts[
+                "adaptive_mcs_quality_update_failures"
+            ],
             "phy_adaptive_mcs_decision_polls": counts["adaptive_mcs_decision_polls"],
             "phy_adaptive_mcs_decision_failures": counts[
                 "adaptive_mcs_decision_failures"
@@ -3020,24 +3091,45 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     ) -> None:
         if not args.execute_live_rf:
             return
-        cumulative_quality = aggregate_modem_quality(frames, direction["name"])
         frame_quality = frame_summary.get("adaptive_mcs_quality")
-        if isinstance(frame_quality, dict):
-            cumulative_quality = add_modem_quality(cumulative_quality, frame_quality)
+        if not isinstance(frame_quality, dict):
+            frame_quality = {
+                "primary_decode_attempts": 0,
+                "primary_decode_successes": 0,
+                "primary_crc_failures": 0,
+                "retry_decode_attempts": 0,
+                "retry_decode_successes": 0,
+                "retry_crc_failures": 0,
+            }
         try:
-            decision = rf_modem_profile_decision(
+            decision = rf_modem_quality_update(
                 direction["source_host"],
                 direction["source_port"],
                 min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250)),
                 float(frame_summary.get("primary_raw_bitrate_bps") or 0.0),
                 float(frame_summary.get("effective_raw_bitrate_bps") or 0.0),
-                cumulative_quality,
+                frame_quality,
             )
         except (TimeoutError, SystemExit):
+            counts["adaptive_mcs_quality_update_failures"] += 1
             counts["adaptive_mcs_decision_failures"] += 1
             raise
+        counts["adaptive_mcs_quality_updates"] += 1
         counts["adaptive_mcs_decision_polls"] += 1
-        frame_summary["adaptive_mcs_quality_cumulative"] = cumulative_quality
+        frame_summary["adaptive_mcs_quality_cumulative"] = {
+            "primary_decode_attempts": decision.get("primary_decode_attempts"),
+            "primary_decode_successes": decision.get("primary_decode_successes"),
+            "primary_crc_failures": decision.get("primary_crc_failures"),
+            "retry_decode_attempts": decision.get("retry_decode_attempts"),
+            "retry_decode_successes": decision.get("retry_decode_successes"),
+            "retry_crc_failures": decision.get("retry_crc_failures"),
+        }
+        frame_summary["adaptive_mcs_quality_source"] = decision.get(
+            "adaptive_mcs_quality_source"
+        )
+        frame_summary["state_daemon_owned_mcs_quality"] = bool(
+            decision.get("state_daemon_owned_mcs_quality") == 1
+        )
         frame_summary["adaptive_mcs_decision_report"] = decision
         frame_summary["adaptive_mcs_decision"] = str(decision.get("decision") or "")
         frame_summary["adaptive_mcs_decision_live_quality_bound"] = bool(
@@ -3045,6 +3137,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         frame_summary["adaptive_mcs_decision_native_c"] = bool(
             decision.get("adaptive_modem_profile_measured_quality_native_c") == 1
+            or decision.get("native_mcs_quality_accumulator") == 1
         )
         frame_summary["adaptive_mcs_high_rate_proven"] = bool(
             decision.get("high_rate_proven") == 1
@@ -3494,14 +3587,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         continue
                     elif args.batch_size > 1:
                         if args.native_service_burst_leases:
-                            prior_quality = aggregate_modem_quality(
-                                frames,
-                                direction["name"],
-                            )
-                            primary_raw_bitrate_bps = direction_phy_raw_bitrate_bps(
-                                args,
-                                direction["name"],
-                            )
                             try:
                                 batch_frames, batch_lease = (
                                     native_service_loop_tick_from_daemon(
@@ -3516,9 +3601,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                             if last_served_direction == direction["name"]
                                             else 0
                                         ),
-                                        primary_raw_bitrate_bps,
-                                        primary_raw_bitrate_bps,
-                                        prior_quality,
                                     )
                                 )
                             except (TimeoutError, SystemExit):

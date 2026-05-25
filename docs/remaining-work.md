@@ -319,13 +319,14 @@ decode but cannot satisfy high-rate evidence. The same policy now consumes
 measured decode quality: at least four primary decode attempts, zero primary
 PER/CRC failures, and no retry attempts are required for fast-primary
 selection; under-sampled evidence returns `hold`. The live RF worker bridge
-now binds that decision during the run by sending cumulative per-direction
-decode/PER counters into `FIELDMESH_RF_MODEM_PROFILE_DECISION v1`, and
-production native-IP evidence rejects captures that lack live quality-bound
-fast-primary MCS proof. The state-daemon RF service loop tick also uses that
-decision before each burst to choose the initial modem profile from prior
-counters, and the native-IP gate requires state-daemon-owned pre-burst
-fast-primary selection proof in both directions. Follow-up
+now binds that decision during the run by posting decode/PER deltas into
+`FIELDMESH_RF_MODEM_QUALITY_UPDATE v1`; the state daemon owns the accumulated
+quality counters used by later MCS decisions, and production native-IP evidence
+rejects captures that lack native-accumulator fast-primary MCS proof. The
+state-daemon RF service loop tick also uses that decision before each burst to
+choose the initial modem profile from prior counters, and the native-IP gate
+requires state-daemon-owned pre-burst fast-primary selection proof in both
+directions. Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35

@@ -158,6 +158,25 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: live adaptive MCS quality-bound direction proof is missing")
     elif any(value is not True for value in mcs_quality_bound.values()):
         errors.append(f"{label}: every live adaptive MCS direction must be quality-bound")
+    if (
+        report.get("iio_bridge_phy_adaptive_mcs_quality_source")
+        != "state_daemon_rf_modem_quality_accumulator"
+    ):
+        errors.append(f"{label}: live adaptive MCS quality must be accumulated in the state daemon")
+    mcs_quality_sources = report.get("iio_bridge_phy_adaptive_mcs_quality_source_by_direction")
+    if not isinstance(mcs_quality_sources, dict) or not mcs_quality_sources:
+        errors.append(f"{label}: live adaptive MCS quality source proof is missing")
+    elif any(
+        source != "state_daemon_rf_modem_quality_accumulator"
+        for source in mcs_quality_sources.values()
+    ):
+        errors.append(f"{label}: every live adaptive MCS direction must use the state-daemon quality accumulator")
+    if not isinstance(report.get("iio_bridge_phy_adaptive_mcs_quality_updates"), int) or (
+        report.get("iio_bridge_phy_adaptive_mcs_quality_updates") < 1
+    ):
+        errors.append(f"{label}: state-daemon adaptive MCS quality accumulator was not updated")
+    if report.get("iio_bridge_phy_adaptive_mcs_quality_update_failures") != 0:
+        errors.append(f"{label}: state-daemon adaptive MCS quality accumulator reported failures")
     if not isinstance(report.get("iio_bridge_phy_adaptive_mcs_decision_polls"), int) or (
         report.get("iio_bridge_phy_adaptive_mcs_decision_polls") < 1
     ):
@@ -1773,6 +1792,18 @@ def main() -> int:
         ),
         "host_iio_bridge_phy_adaptive_mcs_live_quality_bound": host.get(
             "iio_bridge_phy_adaptive_mcs_live_quality_bound"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_quality_source": board.get(
+            "iio_bridge_phy_adaptive_mcs_quality_source"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_quality_source": host.get(
+            "iio_bridge_phy_adaptive_mcs_quality_source"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_quality_updates": board.get(
+            "iio_bridge_phy_adaptive_mcs_quality_updates"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_quality_updates": host.get(
+            "iio_bridge_phy_adaptive_mcs_quality_updates"
         ),
         "board_iio_bridge_phy_adaptive_mcs_decision_polls": board.get(
             "iio_bridge_phy_adaptive_mcs_decision_polls"

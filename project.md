@@ -1465,11 +1465,11 @@ user and vendor configuration.
   decode quality counters: at least four primary decode attempts, zero primary
   PER/CRC failures, and no retry attempts are required before selecting the
   fast profile; insufficient samples hold the current profile instead of
-  guessing. The live RF worker bridge now feeds its cumulative per-direction
-  decode/PER counters back into the daemon's
-  `FIELDMESH_RF_MODEM_PROFILE_DECISION v1` command during the run, and
-  production evidence must prove the accepted fast-primary MCS decision was
-  bound to those live counters rather than inferred only from archived reports.
+  guessing. The live RF worker bridge now posts decode/PER deltas into the
+  state daemon through `FIELDMESH_RF_MODEM_QUALITY_UPDATE v1`; the daemon owns
+  the accumulated quality counters used by later MCS decisions, and production
+  evidence must prove the accepted fast-primary MCS decision was bound to that
+  native accumulator rather than inferred only from archived reports.
   That same decision now runs inside the state-daemon RF service loop tick
   before each burst: prior measured quality selects the fast-primary or
   retry-fallback modem profile before IQ generation and IIO transfer, and

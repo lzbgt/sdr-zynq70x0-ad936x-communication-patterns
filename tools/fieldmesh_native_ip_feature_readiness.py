@@ -795,6 +795,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_phy_adaptive_mcs_live_quality_bound": report.get(
             "host_iio_bridge_phy_adaptive_mcs_live_quality_bound"
         ),
+        "board_iio_bridge_phy_adaptive_mcs_quality_source": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_quality_source"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_quality_source": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_quality_source"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_quality_updates": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_quality_updates"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_quality_updates": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_quality_updates"
+        ),
         "board_iio_bridge_phy_adaptive_mcs_decision_polls": report.get(
             "board_iio_bridge_phy_adaptive_mcs_decision_polls"
         ),

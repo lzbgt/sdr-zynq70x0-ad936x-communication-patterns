@@ -125,12 +125,13 @@ Responsibilities:
   rate at or above 20 kbit/s, while retry fallback is classified separately.
   The native policy also accepts measured decode-quality counters and only
   selects fast primary after at least four zero-PER primary decode attempts.
-  The live RF worker bridge now queries that C decision path during a run, so
-  readiness evidence must show MCS selection was bound to live decode/PER
-  counters rather than only classified after log collection. The same decision
-  is also consumed by the state-daemon RF service loop tick before each burst to
-  choose the initial modem profile, so adaptive MCS ownership is now inside the
-  native service boundary rather than only host-side bridge orchestration.
+  The live RF worker bridge now posts decode/PER deltas into the state daemon,
+  so readiness evidence must show MCS selection was bound to the daemon's
+  native quality accumulator rather than only classified after log collection.
+  The same decision is consumed by the state-daemon RF service loop tick before
+  each burst to choose the initial modem profile, so adaptive MCS ownership is
+  now inside the native service boundary rather than host-side bridge
+  orchestration.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.
