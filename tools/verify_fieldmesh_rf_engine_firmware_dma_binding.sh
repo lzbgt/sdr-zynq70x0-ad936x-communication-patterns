@@ -11,21 +11,29 @@ repo = Path(sys.argv[1])
 patcher = (repo / "tools/fieldmesh_vivado_overlay_patch.py").read_text(encoding="utf-8")
 checker = (repo / "tools/check_fieldmesh_rf_engine_overlay_vivado.sh").read_text(encoding="utf-8")
 plan = (repo / "tools/fieldmesh_sidecar_plan.py").read_text(encoding="utf-8")
-hdl = (repo / "rtl/fieldmesh/fieldmesh_axis_byte_broadcast2.v").read_text(encoding="utf-8")
+adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(encoding="utf-8")
+header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
 
 required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
-    "create_bd_cell -type module -reference fieldmesh_axis_byte_broadcast2 fieldmesh_fw_dma_rf_broadcast",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer",
+    "create_bd_cell -type module -reference fieldmesh_iq_adc_axis_source fieldmesh_iq_adc_source",
+    "create_bd_cell -type module -reference fieldmesh_qpsk_iq_demodulator fieldmesh_qpsk_demodulator",
+    "create_bd_cell -type module -reference fieldmesh_axis_header_framer fieldmesh_rx_header_framer",
+    "create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_rx_cdc",
     "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma",
     "ad_connect fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
     "ad_connect fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs",
     "ad_connect fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget",
     "ad_connect fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags",
     "ad_connect fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
-    "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis",
-    "ad_connect fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8",
-    "ad_connect fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_qpsk_symbolizer/s_axis",
+    "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis",
+    "ad_connect rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
+    "ad_connect rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample",
+    "ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "ad_connect fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast",
+    "ad_connect fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8",
     "ad_connect fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
     "ad_connect fieldmesh_fw_dma_endpoint/ingress_desc_publish_count fieldmesh_ctrl/fw_dma_ingress_desc_publish_count",
     "ad_connect fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
@@ -47,22 +55,28 @@ for forbidden in (
     "ad_connect GND fieldmesh_fw_dma_endpoint/retry_budget",
     "ad_connect GND fieldmesh_fw_dma_endpoint/descriptor_flags",
     "ad_connect GND fieldmesh_fw_dma_endpoint/seq_seed",
+    "fieldmesh_fw_dma_rf_broadcast",
 ):
     if forbidden in patcher:
         raise SystemExit(f"RF-engine overlay must not feed symbolizer from sidecar bridge: {forbidden}")
 
 required_checker_tokens = [
     "fieldmesh_fw_dma_endpoint",
-    "fieldmesh_fw_dma_rf_broadcast",
+    "fieldmesh_iq_adc_source",
+    "fieldmesh_qpsk_demodulator",
+    "fieldmesh_rx_header_framer",
+    "fieldmesh_iq_rx_cdc",
     "register pages through 0x1b4",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
-    "fieldmesh_fw_dma_rf_broadcast/s_axis",
-    "fieldmesh_fw_dma_rf_broadcast/m0_axis",
-    "fieldmesh_fw_dma_rf_broadcast/m1_axis",
     "proc assert_same_intf_net",
-    "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis}",
-    "{fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8}",
-    "{fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_qpsk_symbolizer/s_axis}",
+    "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis}",
+    "{fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}",
+    "assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
+    "assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample",
+    "assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata",
+    "assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "assert_same_net fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast",
+    "assert_same_net fieldmesh_axis16_adapter/clk fieldmesh_iq_rx_cdc/m_clk",
     "fieldmesh_ctrl/fw_dma_enable",
     "fieldmesh_ctrl/fw_dma_peer_index",
     "fieldmesh_ctrl/fw_dma_seq_seed",
@@ -94,22 +108,33 @@ for token in required_checker_tokens:
         raise SystemExit(f"check_fieldmesh_rf_engine_overlay_vivado.sh missing binding token: {token}")
 
 for rtl in (
-    '"rtl/fieldmesh/fieldmesh_axis_byte_broadcast2.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v"',
+    '"rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v"',
+    '"rtl/fieldmesh/fieldmesh_axis_header_framer.v"',
 ):
     if rtl not in plan:
         raise SystemExit(f"{rtl.strip(chr(34))} missing from required RTL inventory")
 
 for token in (
-    "module fieldmesh_axis_byte_broadcast2",
-    "assign s_axis_tready = enable && !hold_valid",
-    "assign m0_axis_tvalid = enable && hold_valid && need_m0",
-    "assign m1_axis_tvalid = enable && hold_valid && need_m1",
-    "retire_fire = hold_valid && !next_need_m0 && !next_need_m1",
+    "module fieldmesh_iq_adc_axis_source",
+    "assign m_axis_tvalid = enable && (hold_valid || pair_valid)",
+    "assign m_axis_tdata = hold_valid ? hold_data : sample_word",
+    "wire [31:0] sample_word = {q_sample, i_sample}",
+    "assign m_axis_tlast = 1'b0",
 ):
-    if token not in hdl:
-        raise SystemExit(f"fieldmesh_axis_byte_broadcast2.v missing deterministic broadcast token: {token}")
+    if token not in adc_source:
+        raise SystemExit(f"fieldmesh_iq_adc_axis_source.v missing RX ADC source token: {token}")
+
+for token in (
+    "module fieldmesh_axis_header_framer",
+    "RF demodulation produces a continuous byte stream",
+    "assign s_axis_tready = enable && !emit_active",
+    "assign m_axis_tlast = emit_active && (emit_index == emit_len - 16'd1)",
+    "packet_total_len = 16'd32 + payload_len_next",
+):
+    if token not in header_framer:
+        raise SystemExit(f"fieldmesh_axis_header_framer.v missing RX header-framer token: {token}")
 
 print("fieldmesh_rf_engine_firmware_dma_binding=pass")
 PY

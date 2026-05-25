@@ -190,19 +190,19 @@ sidebands, and the PL-to-PS side validates sidebands against the packet header
 before emitting byte-only packets. `fieldmesh_axis16_byte_adapter.v` sits
 between that byte-pipe bridge and ADI `axi_dmac`, because the ADI DMA IP
 accepts 16-bit and wider AXI-stream ports while the FieldMesh packet ABI
-remains byte-oriented. `fieldmesh_axis_byte_broadcast2.v` is the byte-wide
-firmware-egress splitter used by the RF-engine overlay: one branch preserves RX
-DMA observability and the other feeds the RF symbolizer, with ordinary
-AXI-stream backpressure applied until both consumers accept each byte.
+remains byte-oriented. `fieldmesh_iq_adc_axis_source.v` is the AD9361
+RX-clock-domain I/Q packer for the RF-engine overlay. It feeds signed I/Q
+samples into the QPSK demodulator without creating packet boundaries.
 `fieldmesh_qpsk_iq_symbolizer.v` is the current fast
 synthesizable RF packet-engine TX primitive: it converts packet bytes into
 MSB-first signed QPSK I/Q symbols, but still does not own RF tuning, TX enable,
 filtering, or scheduled transmission. `fieldmesh_qpsk_iq_demodulator.v` is the
 matching RX primitive: it converts signed QPSK I/Q samples back into byte
-stream packets with the same MSB-first bit-pair order and exposes sample, byte,
-packet, and fault counters for the firmware boundary. `fieldmesh_iq_tx_guard.v`
-is the
-post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
+stream data with the same MSB-first bit-pair order and exposes sample, byte,
+packet, and fault counters for the firmware boundary.
+`fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
+in-band header and payload length before RX DMA. `fieldmesh_iq_tx_guard.v`
+is the post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
 control and status pins to the sidecar AXI-lite window while resetting it
 unarmed. `fieldmesh_axis_async_fifo.v` then moves guarded IQ samples into the
@@ -437,20 +437,23 @@ The first non-transmitting RF packet-engine overlay is a separate opt-in mode:
 ```
 
 With `--rf-engine-overlay`, the patcher implies the control, bridge, and DMA
-overlays but replaces the packet loopback with a TX packet-engine sink:
+overlays but replaces the packet loopback with a TX/RX packet-engine path:
 TX packet DMA feeds `fieldmesh_firmware_axis_dma_endpoint`, and its
-descriptor-validated egress stream feeds `fieldmesh_axis_byte_broadcast2`.
-Broadcast branch 0 remains connected to RX DMA for packet observability; branch
-1 feeds `fieldmesh_qpsk_symbolizer/s_axis_*`. The symbolizer's IQ output feeds
+descriptor-validated egress stream feeds `fieldmesh_qpsk_symbolizer/s_axis_*`.
+The symbolizer's IQ output feeds
 `fieldmesh_iq_tx_guard`; its arming, schedule, and status pins are wired to the
 existing `fieldmesh_ctrl` AXI-lite window at the RF TX guard register range.
 The firmware-DMA controls are also wired to `fieldmesh_ctrl` and reset off, so
 software must explicitly arm the endpoint before packets can reach the RF
 symbolizer. The guard still resets unarmed, then feeds `fieldmesh_axis_async_fifo`
 and `fieldmesh_iq_dac_driver` so the next boundary is already in the AD9361 DAC
-clock domain. The driver source selector is wired to the sidecar control window
-and resets to vendor pass-through in this overlay, so FieldMesh does not drive
-the DAC datapath, open IIO buffers, tune RF, or start hardware transmission.
+clock domain. On RX, AD9361 decimator I/Q samples feed
+`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_demodulator`, and
+`fieldmesh_rx_header_framer`; the restored byte packet stream crosses
+`fieldmesh_iq_rx_cdc` into the sidecar DMA clock domain and then into RX DMA.
+The driver source selector is wired to the sidecar control window and resets to
+vendor pass-through in this overlay, so FieldMesh does not drive the DAC
+datapath, open IIO buffers, tune RF, or start hardware transmission.
 
 Validate the RF packet-engine overlay through Vivado project/block-design
 generation without running synthesis or connecting AD936x TX:
@@ -467,8 +470,8 @@ For low-memory development sessions, the lightweight static guard is:
 ```
 
 It checks the patcher, required RTL inventory, and RF-engine overlay checker for
-the firmware-DMA endpoint plus egress-broadcast path, and rejects direct
-sidecar-bridge-to-symbolizer wiring.
+the firmware-DMA endpoint, QPSK TX path, and AD9361 RX demod/header-framing
+path, and rejects direct sidecar-bridge-to-symbolizer wiring.
 
 Build the same copied-HDL overlay into a bitstream/XSA with:
 

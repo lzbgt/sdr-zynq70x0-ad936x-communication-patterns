@@ -99,10 +99,10 @@ set FIELDMESH_REPO_ROOT {{{repo_root}}}
 # 6. Instantiate sidecar packet DMA controls at $FIELDMESH_TX_DMA_BASE and
 #    $FIELDMESH_RX_DMA_BASE, or keep the first overlay AXI-lite/FIFO-only.
 # 7. For the non-transmitting RF-engine overlay, feed packet DMA through
-#    fieldmesh_firmware_axis_dma_endpoint, then use
-#    fieldmesh_axis_byte_broadcast2 to send descriptor-validated egress bytes
-#    to RX DMA and fieldmesh_qpsk_iq_symbolizer. Keep the IQ guard unarmed and
-#    leave FieldMesh DAC source selection reset-off.
+#    fieldmesh_firmware_axis_dma_endpoint into fieldmesh_qpsk_iq_symbolizer, and
+#    route AD9361 RX samples through the FPGA QPSK demod/header-framer path into
+#    RX DMA. Keep the IQ guard unarmed and leave FieldMesh DAC source selection
+#    reset-off.
 # 8. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at
 #    0x7C420000 in the first FieldMesh overlay.
 """

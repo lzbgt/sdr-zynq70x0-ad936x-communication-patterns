@@ -307,16 +307,6 @@ def render_dma_overlay(plan: dict, use_firmware_endpoint: bool, rf_engine_endpoi
     tx_dma = sidecar_block(plan, "fieldmesh_tx_dma")
     rx_dma = sidecar_block(plan, "fieldmesh_rx_dma")
     if use_firmware_endpoint:
-        rf_broadcast = ""
-        if rf_engine_endpoint:
-            rf_broadcast = """
-create_bd_cell -type module -reference fieldmesh_axis_byte_broadcast2 fieldmesh_fw_dma_rf_broadcast
-ad_connect sys_cpu_clk fieldmesh_fw_dma_rf_broadcast/clk
-ad_connect sys_cpu_reset fieldmesh_fw_dma_rf_broadcast/rst
-ad_connect VCC fieldmesh_fw_dma_rf_broadcast/enable
-ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis
-ad_connect fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8
-"""
         packet_path = """
 create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint
 set_property -dict [list CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]
@@ -377,7 +367,7 @@ ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
         packet_path = packet_path.replace(
             "__FIELDMESH_FW_DMA_RX_ROUTE__",
             (
-                rf_broadcast.rstrip()
+                "# RF engine overlay routes RX DMA from AD9361 RX -> QPSK demod -> header framer."
                 if rf_engine_endpoint
                 else "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_axis16_adapter/s_axis8"
             ),
@@ -457,6 +447,8 @@ ad_connect sys_cpu_clk fieldmesh_qpsk_symbolizer/clk
 ad_connect sys_cpu_reset fieldmesh_qpsk_symbolizer/rst
 ad_connect VCC fieldmesh_qpsk_symbolizer/enable
 
+ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis
+
 create_bd_cell -type module -reference fieldmesh_iq_tx_guard fieldmesh_iq_tx_guard
 ad_connect sys_cpu_clk fieldmesh_iq_tx_guard/clk
 ad_connect sys_cpu_reset fieldmesh_iq_tx_guard/rst
@@ -475,14 +467,11 @@ ad_connect fieldmesh_iq_tx_guard/drop_late_sample_count fieldmesh_ctrl/rf_guard_
 ad_connect fieldmesh_iq_tx_guard/drop_late_packet_count fieldmesh_ctrl/rf_guard_drop_late_packet_count
 ad_connect fieldmesh_iq_tx_guard/fault fieldmesh_ctrl/rf_guard_fault
 
-ad_connect fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_qpsk_symbolizer/s_axis
-
-# The QPSK symbolizer and TX guard are BD-visible here, and the guard is controlled
-# by the existing sidecar AXI-lite control window. Packet bytes now come from
-# the descriptor-validated firmware-DMA endpoint egress stream instead of the
-# older sidecar bridge packet port. The guard still resets unarmed, and its IQ
-# output is parked behind the RF packet-engine boundary. No IIO buffer, RF
-# tuning, or TX-enable driver is connected by this overlay.
+# The QPSK TX/RX primitives are BD-visible here. TX packet bytes come from the
+# descriptor-validated firmware-DMA endpoint egress stream. RX packet bytes come
+# from the AD9361 RX sample path, QPSK demodulation, and FieldMesh header framing
+# before crossing into the RX DMA clock domain. No Python or helper process sits
+# in the performance-critical RF packet path.
 ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
 ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
 ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
@@ -538,6 +527,47 @@ ad_connect fieldmesh_iq_dac_driver/out_i_sample tx_fir_interpolator/data_in_0
 ad_connect fieldmesh_iq_dac_driver/out_q_sample tx_fir_interpolator/data_in_1
 ad_connect fieldmesh_iq_dac_driver/upack_enable_i tx_upack/enable_0
 ad_connect fieldmesh_iq_dac_driver/upack_enable_q tx_upack/enable_1
+
+create_bd_cell -type module -reference fieldmesh_iq_adc_axis_source fieldmesh_iq_adc_source
+ad_connect axi_ad9361/l_clk fieldmesh_iq_adc_source/clk
+ad_connect axi_ad9361/rst fieldmesh_iq_adc_source/rst
+ad_connect VCC fieldmesh_iq_adc_source/enable
+ad_connect rx_fir_decimator/valid_out_0 fieldmesh_iq_adc_source/i_valid
+ad_connect rx_fir_decimator/valid_out_0 fieldmesh_iq_adc_source/q_valid
+ad_connect rx_fir_decimator/enable_out_0 fieldmesh_iq_adc_source/i_enable
+ad_connect rx_fir_decimator/enable_out_1 fieldmesh_iq_adc_source/q_enable
+ad_connect rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample
+ad_connect rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample
+
+create_bd_cell -type module -reference fieldmesh_qpsk_iq_demodulator fieldmesh_qpsk_demodulator
+ad_connect axi_ad9361/l_clk fieldmesh_qpsk_demodulator/clk
+ad_connect axi_ad9361/rst fieldmesh_qpsk_demodulator/rst
+ad_connect VCC fieldmesh_qpsk_demodulator/enable
+ad_connect fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_demodulator/s_axis_tvalid
+ad_connect fieldmesh_qpsk_demodulator/s_axis_tready fieldmesh_iq_adc_source/m_axis_tready
+ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata
+ad_connect fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_demodulator/s_axis_tlast
+
+create_bd_cell -type module -reference fieldmesh_axis_header_framer fieldmesh_rx_header_framer
+ad_connect axi_ad9361/l_clk fieldmesh_rx_header_framer/clk
+ad_connect axi_ad9361/rst fieldmesh_rx_header_framer/rst
+ad_connect VCC fieldmesh_rx_header_framer/enable
+ad_connect fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
+ad_connect fieldmesh_rx_header_framer/s_axis_tready fieldmesh_qpsk_demodulator/m_axis_tready
+ad_connect fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
+
+create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_rx_cdc
+set_property -dict [list CONFIG.DATA_WIDTH {8}] [get_bd_cells fieldmesh_iq_rx_cdc]
+ad_connect axi_ad9361/l_clk fieldmesh_iq_rx_cdc/s_clk
+ad_connect axi_ad9361/rst fieldmesh_iq_rx_cdc/s_rst
+ad_connect sys_cpu_clk fieldmesh_iq_rx_cdc/m_clk
+ad_connect sys_cpu_reset fieldmesh_iq_rx_cdc/m_rst
+ad_connect VCC fieldmesh_iq_rx_cdc/enable
+ad_connect fieldmesh_rx_header_framer/m_axis_tvalid fieldmesh_iq_rx_cdc/s_axis_tvalid
+ad_connect fieldmesh_iq_rx_cdc/s_axis_tready fieldmesh_rx_header_framer/m_axis_tready
+ad_connect fieldmesh_rx_header_framer/m_axis_tdata fieldmesh_iq_rx_cdc/s_axis_tdata
+ad_connect fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast
+ad_connect fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8
 {BD_RF_ENGINE_END}
 """
 

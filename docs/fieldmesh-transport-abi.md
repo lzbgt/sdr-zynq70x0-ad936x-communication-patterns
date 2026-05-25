@@ -297,11 +297,14 @@ IRQ `ps-11 mb-11`. Its opt-in `--bridge-overlay` mode appends
 `fieldmesh_sidecar_axis_bridge` as `fieldmesh_axis_bridge`, clocks/resets it,
 and parks the byte-pipe pins until real packet DMA is added.
 Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
-the parsed TX packet stream into `fieldmesh_qpsk_symbolizer`, routes generated
-IQ through `fieldmesh_iq_tx_guard`, crosses it through
+the firmware-DMA egress stream into `fieldmesh_qpsk_symbolizer`, routes
+generated IQ through `fieldmesh_iq_tx_guard`, crosses it through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver` while its source selector resets to vendor
-pass-through through the sidecar control window.
+pass-through through the sidecar control window. The same overlay routes AD9361
+RX decimator samples through `fieldmesh_iq_adc_axis_source`,
+`fieldmesh_qpsk_demodulator`, `fieldmesh_axis_header_framer`, and
+`fieldmesh_iq_rx_cdc` before RX DMA.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,
 `tools/check_fieldmesh_dma_overlay_vivado.sh`, and

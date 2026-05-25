@@ -80,13 +80,16 @@ foreach cell {
   fieldmesh_axis_bridge
   fieldmesh_axis16_adapter
   fieldmesh_fw_dma_endpoint
-  fieldmesh_fw_dma_rf_broadcast
   fieldmesh_tx_dma
   fieldmesh_rx_dma
   fieldmesh_qpsk_symbolizer
   fieldmesh_iq_tx_guard
   fieldmesh_iq_tx_cdc
   fieldmesh_iq_dac_driver
+  fieldmesh_iq_adc_source
+  fieldmesh_qpsk_demodulator
+  fieldmesh_rx_header_framer
+  fieldmesh_iq_rx_cdc
 } {
   if {[llength [get_bd_cells -quiet \$cell]] != 1} {
     error "\$cell cell missing"
@@ -122,6 +125,43 @@ foreach pin {
   fieldmesh_qpsk_symbolizer/byte_count
   fieldmesh_qpsk_symbolizer/symbol_count
   fieldmesh_qpsk_symbolizer/packet_count
+  fieldmesh_iq_adc_source/clk
+  fieldmesh_iq_adc_source/rst
+  fieldmesh_iq_adc_source/enable
+  fieldmesh_iq_adc_source/i_valid
+  fieldmesh_iq_adc_source/q_valid
+  fieldmesh_iq_adc_source/i_enable
+  fieldmesh_iq_adc_source/q_enable
+  fieldmesh_iq_adc_source/i_sample
+  fieldmesh_iq_adc_source/q_sample
+  fieldmesh_iq_adc_source/m_axis_tvalid
+  fieldmesh_iq_adc_source/m_axis_tready
+  fieldmesh_iq_adc_source/m_axis_tdata
+  fieldmesh_iq_adc_source/m_axis_tlast
+  fieldmesh_iq_adc_source/sample_count
+  fieldmesh_iq_adc_source/stall_count
+  fieldmesh_iq_adc_source/invalid_pair_count
+  fieldmesh_qpsk_demodulator/clk
+  fieldmesh_qpsk_demodulator/rst
+  fieldmesh_qpsk_demodulator/enable
+  fieldmesh_qpsk_demodulator/s_axis_tvalid
+  fieldmesh_qpsk_demodulator/s_axis_tready
+  fieldmesh_qpsk_demodulator/s_axis_tdata
+  fieldmesh_qpsk_demodulator/s_axis_tlast
+  fieldmesh_qpsk_demodulator/m_axis_tvalid
+  fieldmesh_qpsk_demodulator/m_axis_tready
+  fieldmesh_qpsk_demodulator/m_axis_tdata
+  fieldmesh_qpsk_demodulator/m_axis_tlast
+  fieldmesh_rx_header_framer/clk
+  fieldmesh_rx_header_framer/rst
+  fieldmesh_rx_header_framer/enable
+  fieldmesh_rx_header_framer/s_axis_tvalid
+  fieldmesh_rx_header_framer/s_axis_tready
+  fieldmesh_rx_header_framer/s_axis_tdata
+  fieldmesh_rx_header_framer/m_axis_tvalid
+  fieldmesh_rx_header_framer/m_axis_tready
+  fieldmesh_rx_header_framer/m_axis_tdata
+  fieldmesh_rx_header_framer/m_axis_tlast
   fieldmesh_fw_dma_endpoint/clk
   fieldmesh_fw_dma_endpoint/rst
   fieldmesh_fw_dma_endpoint/enable
@@ -136,9 +176,6 @@ foreach pin {
   fieldmesh_fw_dma_endpoint/mac_tick
   fieldmesh_fw_dma_endpoint/mac_stop
   fieldmesh_fw_dma_endpoint/mac_service_budget
-  fieldmesh_fw_dma_rf_broadcast/clk
-  fieldmesh_fw_dma_rf_broadcast/rst
-  fieldmesh_fw_dma_rf_broadcast/enable
   fieldmesh_ctrl/fw_dma_enable
   fieldmesh_ctrl/fw_dma_ingress_enable
   fieldmesh_ctrl/fw_dma_egress_enable
@@ -240,6 +277,21 @@ foreach pin {
   fieldmesh_iq_tx_cdc/m_axis_tlast
   fieldmesh_iq_tx_cdc/full
   fieldmesh_iq_tx_cdc/empty
+  fieldmesh_iq_rx_cdc/s_clk
+  fieldmesh_iq_rx_cdc/s_rst
+  fieldmesh_iq_rx_cdc/m_clk
+  fieldmesh_iq_rx_cdc/m_rst
+  fieldmesh_iq_rx_cdc/enable
+  fieldmesh_iq_rx_cdc/s_axis_tvalid
+  fieldmesh_iq_rx_cdc/s_axis_tready
+  fieldmesh_iq_rx_cdc/s_axis_tdata
+  fieldmesh_iq_rx_cdc/s_axis_tlast
+  fieldmesh_iq_rx_cdc/m_axis_tvalid
+  fieldmesh_iq_rx_cdc/m_axis_tready
+  fieldmesh_iq_rx_cdc/m_axis_tdata
+  fieldmesh_iq_rx_cdc/m_axis_tlast
+  fieldmesh_iq_rx_cdc/full
+  fieldmesh_iq_rx_cdc/empty
   fieldmesh_iq_dac_driver/clk
   fieldmesh_iq_dac_driver/rst
   fieldmesh_iq_dac_driver/enable
@@ -274,13 +326,11 @@ foreach intf {
   fieldmesh_axis16_adapter/m_axis8
   fieldmesh_fw_dma_endpoint/s_tx_dma
   fieldmesh_fw_dma_endpoint/m_rx_dma
-  fieldmesh_fw_dma_rf_broadcast/s_axis
-  fieldmesh_fw_dma_rf_broadcast/m0_axis
-  fieldmesh_fw_dma_rf_broadcast/m1_axis
   fieldmesh_axis16_adapter/s_axis8
   fieldmesh_axis16_adapter/m_axis16
   fieldmesh_rx_dma/s_axis
   fieldmesh_qpsk_symbolizer/s_axis
+  fieldmesh_iq_rx_cdc/m_axis
 } {
   if {[llength [get_bd_intf_pins -quiet \$intf]] != 1} {
     error "\$intf interface pin missing"
@@ -373,9 +423,8 @@ foreach seg {
 }
 
 foreach pair {
-  {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis}
-  {fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8}
-  {fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_qpsk_symbolizer/s_axis}
+  {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis}
+  {fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}
 } {
   assert_same_intf_net [lindex \$pair 0] [lindex \$pair 1]
 }
@@ -417,6 +466,31 @@ assert_same_net fieldmesh_iq_dac_driver/sample_count fieldmesh_ctrl/rf_dac_sampl
 assert_same_net fieldmesh_iq_dac_driver/packet_count fieldmesh_ctrl/rf_dac_packet_count
 assert_same_net fieldmesh_iq_dac_driver/underflow_count fieldmesh_ctrl/rf_dac_underflow_count
 assert_same_net fieldmesh_iq_dac_driver/active fieldmesh_ctrl/rf_dac_active
+
+assert_same_net axi_ad9361/l_clk fieldmesh_iq_adc_source/clk
+assert_same_net axi_ad9361/rst fieldmesh_iq_adc_source/rst
+assert_same_net rx_fir_decimator/valid_out_0 fieldmesh_iq_adc_source/i_valid
+assert_same_net rx_fir_decimator/valid_out_0 fieldmesh_iq_adc_source/q_valid
+assert_same_net rx_fir_decimator/enable_out_0 fieldmesh_iq_adc_source/i_enable
+assert_same_net rx_fir_decimator/enable_out_1 fieldmesh_iq_adc_source/q_enable
+assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample
+assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample
+
+assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_demodulator/s_axis_tvalid
+assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
+assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata
+assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_demodulator/s_axis_tlast
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
+assert_same_net fieldmesh_rx_header_framer/m_axis_tvalid fieldmesh_iq_rx_cdc/s_axis_tvalid
+assert_same_net fieldmesh_rx_header_framer/m_axis_tready fieldmesh_iq_rx_cdc/s_axis_tready
+assert_same_net fieldmesh_rx_header_framer/m_axis_tdata fieldmesh_iq_rx_cdc/s_axis_tdata
+assert_same_net fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast
+assert_same_net axi_ad9361/l_clk fieldmesh_iq_rx_cdc/s_clk
+assert_same_net axi_ad9361/rst fieldmesh_iq_rx_cdc/s_rst
+assert_same_net fieldmesh_axis16_adapter/clk fieldmesh_iq_rx_cdc/m_clk
+assert_same_net fieldmesh_axis16_adapter/rst fieldmesh_iq_rx_cdc/m_rst
 
 foreach forbidden_cell {
   axi_ad9361_dac_dma
