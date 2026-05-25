@@ -49,6 +49,8 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
     if is_true(report.get("requires_iio_ack_pipeline_evidence")):
         if report.get("requires_python_bridge_test_glue_only") is not True:
             blockers.append("native_ip_python_bridge_test_glue_guardrail_missing")
+        if report.get("requires_iio_helper_hil_transfer_glue_only") is not True:
+            blockers.append("native_ip_iio_helper_hil_guardrail_missing")
         for side in ("board", "host"):
             if report.get(f"{side}_iio_bridge_python_pipeline_role") != "test_glue":
                 blockers.append(f"native_ip_{side}_python_bridge_role_invalid")
@@ -66,6 +68,20 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
                 blockers.append(f"native_ip_{side}_performance_owner_not_c_firmware_fpga")
             if report.get(f"{side}_iio_bridge_production_data_plane") is not False:
                 blockers.append(f"native_ip_{side}_python_bridge_claimed_production_data_plane")
+            if report.get(f"{side}_iio_bridge_c_iio_helper_role") != "hil_transfer_glue":
+                blockers.append(f"native_ip_{side}_iio_helper_role_invalid")
+            if report.get(f"{side}_iio_bridge_c_iio_helper_test_glue_only") is not True:
+                blockers.append(f"native_ip_{side}_iio_helper_not_hil_glue")
+            if (
+                report.get(f"{side}_iio_bridge_c_iio_helper_production_data_plane")
+                is not False
+            ):
+                blockers.append(f"native_ip_{side}_iio_helper_claimed_production_data_plane")
+            if (
+                report.get(f"{side}_iio_bridge_firmware_fpga_production_data_plane_required")
+                is not True
+            ):
+                blockers.append(f"native_ip_{side}_firmware_fpga_data_plane_guardrail_missing")
         if report.get("board_iio_ack_pipeline_exercised") is not True:
             blockers.append("native_ip_board_iio_ack_pipeline_not_exercised")
         if report.get("host_iio_ack_pipeline_exercised") is not True:
@@ -424,6 +440,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "requires_python_bridge_test_glue_only": report.get(
             "requires_python_bridge_test_glue_only"
         ),
+        "requires_iio_helper_hil_transfer_glue_only": report.get(
+            "requires_iio_helper_hil_transfer_glue_only"
+        ),
         "requires_iio_rf_burst_batch_evidence": report.get(
             "requires_iio_rf_burst_batch_evidence"
         ),
@@ -697,6 +716,30 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_bridge_production_data_plane": report.get(
             "host_iio_bridge_production_data_plane"
+        ),
+        "board_iio_bridge_c_iio_helper_role": report.get(
+            "board_iio_bridge_c_iio_helper_role"
+        ),
+        "host_iio_bridge_c_iio_helper_role": report.get(
+            "host_iio_bridge_c_iio_helper_role"
+        ),
+        "board_iio_bridge_c_iio_helper_test_glue_only": report.get(
+            "board_iio_bridge_c_iio_helper_test_glue_only"
+        ),
+        "host_iio_bridge_c_iio_helper_test_glue_only": report.get(
+            "host_iio_bridge_c_iio_helper_test_glue_only"
+        ),
+        "board_iio_bridge_c_iio_helper_production_data_plane": report.get(
+            "board_iio_bridge_c_iio_helper_production_data_plane"
+        ),
+        "host_iio_bridge_c_iio_helper_production_data_plane": report.get(
+            "host_iio_bridge_c_iio_helper_production_data_plane"
+        ),
+        "board_iio_bridge_firmware_fpga_production_data_plane_required": report.get(
+            "board_iio_bridge_firmware_fpga_production_data_plane_required"
+        ),
+        "host_iio_bridge_firmware_fpga_production_data_plane_required": report.get(
+            "host_iio_bridge_firmware_fpga_production_data_plane_required"
         ),
         "board_iio_bridge_persistent_burst_helper": report.get(
             "board_iio_bridge_persistent_burst_helper"

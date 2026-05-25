@@ -2969,6 +2969,16 @@ report = {
         last_iio_bridge.get("performance_critical_pipeline_owner") or ""
     ),
     "iio_bridge_production_data_plane": bool(last_iio_bridge.get("production_data_plane")),
+    "iio_bridge_c_iio_helper_role": last_iio_bridge.get("c_iio_helper_role") or "",
+    "iio_bridge_c_iio_helper_test_glue_only": bool(
+        last_iio_bridge.get("c_iio_helper_test_glue_only")
+    ),
+    "iio_bridge_c_iio_helper_production_data_plane": bool(
+        last_iio_bridge.get("c_iio_helper_production_data_plane")
+    ),
+    "iio_bridge_firmware_fpga_production_data_plane_required": bool(
+        last_iio_bridge.get("firmware_fpga_production_data_plane_required")
+    ),
     "iio_bridge_lease_priority": str(last_iio_bridge.get("lease_priority") or ""),
     "iio_bridge_rf_service_policy_proven": bool(
         last_rf_service_policy.get("ok")

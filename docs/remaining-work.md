@@ -122,6 +122,11 @@ The native-IP IIO bridge remains HIL/test glue only: production evidence must
 mark `fieldmesh_iio_rf_worker_bridge_loop.py` as `test_glue`, reject it as a
 performance-critical or production data plane, and prove the C/firmware/FPGA
 path owns performance-critical work.
+The C IIO helper used under that bridge is also explicitly HIL transfer glue:
+readiness requires `c_iio_helper_role=hil_transfer_glue`,
+`c_iio_helper_production_data_plane=0`, and
+`firmware_fpga_production_data_plane_required=1`, so helper-backed transfer
+evidence cannot be mistaken for the production RF/IP data plane.
 The C helper API now separates RAM-model IRQ clearing from hardware
 write-one-to-clear acknowledgement, which keeps future UIO/driver code from
 using read-modify-write semantics on a PL register. IRQ mask writes are split

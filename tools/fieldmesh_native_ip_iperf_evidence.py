@@ -98,6 +98,16 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: performance-critical owner must be C/firmware/FPGA")
     if report.get("iio_bridge_production_data_plane") is not False:
         errors.append(f"{label}: Python RF bridge must not claim production data plane")
+    if report.get("iio_bridge_c_iio_helper_role") != "hil_transfer_glue":
+        errors.append(f"{label}: C IIO helper must be marked as HIL transfer glue")
+    if report.get("iio_bridge_c_iio_helper_test_glue_only") is not True:
+        errors.append(f"{label}: C IIO helper HIL/test-glue guardrail is missing")
+    if report.get("iio_bridge_c_iio_helper_production_data_plane") is not False:
+        errors.append(f"{label}: C IIO helper must not claim production data plane")
+    if report.get("iio_bridge_firmware_fpga_production_data_plane_required") is not True:
+        errors.append(
+            f"{label}: firmware/FPGA production data-plane requirement is missing"
+        )
     if report.get("iio_bridge_rf_service_policy_proven") is not True:
         errors.append(f"{label}: IIO RF service policy C proof is missing")
     if report.get("iio_bridge_rf_service_policy_native_c") is not True:
@@ -1231,6 +1241,9 @@ def main() -> int:
         "requires_python_bridge_test_glue_only": bool(
             _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
         ),
+        "requires_iio_helper_hil_transfer_glue_only": bool(
+            _is_true(board.get("iio_rf_bridge")) or _is_true(host.get("iio_rf_bridge"))
+        ),
         "requires_iio_rf_burst_batch_evidence": bool(
             board_requires_burst_batch or host_requires_burst_batch
         ),
@@ -1695,6 +1708,30 @@ def main() -> int:
         ),
         "host_iio_bridge_production_data_plane": host.get(
             "iio_bridge_production_data_plane"
+        ),
+        "board_iio_bridge_c_iio_helper_role": board.get(
+            "iio_bridge_c_iio_helper_role"
+        ),
+        "host_iio_bridge_c_iio_helper_role": host.get(
+            "iio_bridge_c_iio_helper_role"
+        ),
+        "board_iio_bridge_c_iio_helper_test_glue_only": board.get(
+            "iio_bridge_c_iio_helper_test_glue_only"
+        ),
+        "host_iio_bridge_c_iio_helper_test_glue_only": host.get(
+            "iio_bridge_c_iio_helper_test_glue_only"
+        ),
+        "board_iio_bridge_c_iio_helper_production_data_plane": board.get(
+            "iio_bridge_c_iio_helper_production_data_plane"
+        ),
+        "host_iio_bridge_c_iio_helper_production_data_plane": host.get(
+            "iio_bridge_c_iio_helper_production_data_plane"
+        ),
+        "board_iio_bridge_firmware_fpga_production_data_plane_required": board.get(
+            "iio_bridge_firmware_fpga_production_data_plane_required"
+        ),
+        "host_iio_bridge_firmware_fpga_production_data_plane_required": host.get(
+            "iio_bridge_firmware_fpga_production_data_plane_required"
         ),
         "board_iio_bridge_persistent_burst_helper": board.get(
             "iio_bridge_persistent_burst_helper"

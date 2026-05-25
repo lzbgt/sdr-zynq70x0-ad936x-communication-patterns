@@ -244,7 +244,11 @@ Minimum production gates for native TCP/IP:
   `production_data_plane=0`, and
   `performance_critical_pipeline_owner=c_firmware_fpga`. The performance
   critical packet/RF workflow belongs in C firmware and FPGA logic, not in this
-  script. This mode requires `EXECUTE_LIVE_RF`,
+  script. The C IIO helper used by this bridge is also HIL transfer glue: its
+  evidence must report `c_iio_helper_role=hil_transfer_glue`,
+  `c_iio_helper_production_data_plane=0`, and
+  `firmware_fpga_production_data_plane_required=1`, so readiness cannot mistake
+  helper-backed HIL transfer evidence for the production data plane. This mode requires `EXECUTE_LIVE_RF`,
   hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
   and the exact over-air operator confirmation. Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and

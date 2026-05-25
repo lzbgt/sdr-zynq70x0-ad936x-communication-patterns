@@ -28,6 +28,7 @@ import fieldmesh_iio_rf_worker_bridge as bridge
 BATCH_MAGIC = b"FMBATCH1"
 PYTHON_PIPELINE_ROLE = "test_glue"
 PERFORMANCE_CRITICAL_PIPELINE_OWNER = "c_firmware_fpga"
+C_IIO_HELPER_ROLE = "hil_transfer_glue"
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
@@ -2289,6 +2290,10 @@ def run_batch(
         "python_performance_critical_pipeline": False,
         "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
         "production_data_plane": False,
+        "c_iio_helper_role": C_IIO_HELPER_ROLE,
+        "c_iio_helper_test_glue_only": True,
+        "c_iio_helper_production_data_plane": False,
+        "firmware_fpga_production_data_plane_required": True,
         "tx_board": direction["tx_board"],
         "rx_board": direction["rx_board"],
         "frames": len(batch_frames),
@@ -2755,6 +2760,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "python_performance_critical_pipeline": False,
             "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
             "production_data_plane": False,
+            "c_iio_helper_role": C_IIO_HELPER_ROLE,
+            "c_iio_helper_test_glue_only": True,
+            "c_iio_helper_production_data_plane": False,
+            "firmware_fpga_production_data_plane_required": True,
             "transport": "real_rf_phy" if args.execute_live_rf else "guarded_iio_rf_dry_run",
             "directions": args.directions,
             "duration_s": args.duration_s,

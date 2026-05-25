@@ -145,10 +145,13 @@ Responsibilities:
   `FIELDMESH_IIO_BURST_STATE_DAEMON_LIBIIO_EXECUTION v1`, positive
   state-daemon libiio execution counts, and `python_libiio_execution_call=0`;
   the state-daemon IIO transport enqueue/drain evidence must also show positive
-  libiio execution counts for archived native-IP production captures. The
-  follow-on `FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1` execute proof
-  makes the state-daemon-owned transfer-worker boundary explicit while the
-  remaining helper path is retired.
+  libiio execution counts for archived native-IP HIL captures. The follow-on
+  `FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1` execute proof makes the
+  state-daemon-owned transfer-worker boundary explicit, while the C IIO helper
+  remains marked as HIL transfer glue only. Native-IP readiness now requires
+  `c_iio_helper_role=hil_transfer_glue`, `c_iio_helper_production_data_plane=0`,
+  and `firmware_fpga_production_data_plane_required=1` so helper-backed HIL
+  evidence cannot be promoted to production data-plane ownership.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

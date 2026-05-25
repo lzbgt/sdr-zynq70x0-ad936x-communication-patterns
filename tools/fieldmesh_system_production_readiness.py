@@ -400,6 +400,9 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_requires_python_bridge_test_glue_only"] = (
             native_ip.get("requires_python_bridge_test_glue_only") is True
         )
+        detail["native_ip_requires_iio_helper_hil_transfer_glue_only"] = (
+            native_ip.get("requires_iio_helper_hil_transfer_glue_only") is True
+        )
         for side in ("board", "host"):
             detail[f"native_ip_{side}_iio_bridge_python_pipeline_role"] = native_ip.get(
                 f"{side}_iio_bridge_python_pipeline_role"
@@ -416,6 +419,25 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
             )
             detail[f"native_ip_{side}_iio_bridge_production_data_plane"] = (
                 native_ip.get(f"{side}_iio_bridge_production_data_plane") is True
+            )
+            detail[f"native_ip_{side}_iio_bridge_c_iio_helper_role"] = native_ip.get(
+                f"{side}_iio_bridge_c_iio_helper_role"
+            )
+            detail[f"native_ip_{side}_iio_bridge_c_iio_helper_test_glue_only"] = (
+                native_ip.get(f"{side}_iio_bridge_c_iio_helper_test_glue_only")
+                is True
+            )
+            detail[f"native_ip_{side}_iio_bridge_c_iio_helper_production_data_plane"] = (
+                native_ip.get(f"{side}_iio_bridge_c_iio_helper_production_data_plane")
+                is True
+            )
+            detail[
+                f"native_ip_{side}_iio_bridge_firmware_fpga_production_data_plane_required"
+            ] = (
+                native_ip.get(
+                    f"{side}_iio_bridge_firmware_fpga_production_data_plane_required"
+                )
+                is True
             )
         detail["native_ip_board_iio_bridge_persistent_burst_helper"] = (
             native_ip.get("board_iio_bridge_persistent_burst_helper") is True
@@ -969,6 +991,8 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 blockers.append("native_ip_host_iio_hybrid_lease_priority_missing")
             if native_ip.get("requires_python_bridge_test_glue_only") is not True:
                 blockers.append("native_ip_python_bridge_test_glue_guardrail_missing")
+            if native_ip.get("requires_iio_helper_hil_transfer_glue_only") is not True:
+                blockers.append("native_ip_iio_helper_hil_guardrail_missing")
             for side in ("board", "host"):
                 if native_ip.get(f"{side}_iio_bridge_python_pipeline_role") != "test_glue":
                     blockers.append(f"native_ip_{side}_python_bridge_role_invalid")
@@ -987,6 +1011,26 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 if native_ip.get(f"{side}_iio_bridge_production_data_plane") is not False:
                     blockers.append(
                         f"native_ip_{side}_python_bridge_claimed_production_data_plane"
+                    )
+                if native_ip.get(f"{side}_iio_bridge_c_iio_helper_role") != "hil_transfer_glue":
+                    blockers.append(f"native_ip_{side}_iio_helper_role_invalid")
+                if native_ip.get(f"{side}_iio_bridge_c_iio_helper_test_glue_only") is not True:
+                    blockers.append(f"native_ip_{side}_iio_helper_not_hil_glue")
+                if (
+                    native_ip.get(f"{side}_iio_bridge_c_iio_helper_production_data_plane")
+                    is not False
+                ):
+                    blockers.append(
+                        f"native_ip_{side}_iio_helper_claimed_production_data_plane"
+                    )
+                if (
+                    native_ip.get(
+                        f"{side}_iio_bridge_firmware_fpga_production_data_plane_required"
+                    )
+                    is not True
+                ):
+                    blockers.append(
+                        f"native_ip_{side}_firmware_fpga_data_plane_guardrail_missing"
                     )
             if native_ip.get("board_iio_bridge_persistent_burst_helper") is not True:
                 blockers.append("native_ip_board_iio_persistent_burst_helper_missing")
