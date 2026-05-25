@@ -481,8 +481,12 @@ PY
         python_libiio_execution_call \
         FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE \
         FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER \
+        FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER \
         state_daemon_iio_libiio_transfer_worker \
+        state_daemon_direct_libiio_transfer_worker \
+        helper_backed_libiio_transfer_executor \
         libiio_transfer_worker_runs \
+        direct_transfer_worker_runs \
         iio_helper_consumes_selected_modem_profile \
         python_iio_helper_modem_profile_mapping \
         state_daemon_rf_service_loop_tick \

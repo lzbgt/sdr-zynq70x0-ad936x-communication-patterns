@@ -752,6 +752,12 @@ def validate_iio_transport_daemon_boundary(
         "integrated_rf_service_daemon": 1,
         "continuous_queue_worker_lifecycle": 1,
         "state_daemon_libiio_execution_owner": 1,
+        "state_daemon_direct_libiio_transfer_worker": 1,
+        "state_daemon_direct_libiio_transfer_worker_proof": (
+            "FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1"
+        ),
+        "helper_backed_libiio_transfer_executor": 0,
+        "helper_libiio_transfer_executor": 0,
         "helper_local_libiio_execution_only": 0,
         "helper_local_iio_daemon_only": 0,
         "native_service_loop_worker": 1,
@@ -807,6 +813,12 @@ def validate_iio_transport_daemon_enqueue(
         "integrated_rf_service_daemon": 1,
         "continuous_queue_worker_lifecycle": 1,
         "state_daemon_libiio_execution_owner": 1,
+        "state_daemon_direct_libiio_transfer_worker": 1,
+        "state_daemon_direct_libiio_transfer_worker_proof": (
+            "FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1"
+        ),
+        "helper_backed_libiio_transfer_executor": 0,
+        "helper_libiio_transfer_executor": 0,
         "helper_local_libiio_execution_only": 0,
         "helper_local_iio_daemon_only": 0,
         "service_policy_bound": 1,
@@ -867,6 +879,12 @@ def validate_iio_transport_daemon_execute(
             "FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1"
         ),
         "state_daemon_libiio_execution_owner": 1,
+        "state_daemon_direct_libiio_transfer_worker": 1,
+        "state_daemon_direct_libiio_transfer_worker_proof": (
+            "FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1"
+        ),
+        "helper_backed_libiio_transfer_executor": 0,
+        "helper_libiio_transfer_executor": 0,
         "helper_local_libiio_execution_only": 0,
         "helper_local_iio_daemon_only": 0,
         "service_policy_bound": 1,
@@ -889,6 +907,8 @@ def validate_iio_transport_daemon_execute(
         "state_daemon_libiio_execution_count",
         "libiio_transfer_worker_runs",
         "libiio_transfer_worker_frames",
+        "direct_transfer_worker_runs",
+        "direct_transfer_worker_frames",
     ):
         value = report.get(key)
         if not isinstance(value, int) or value < 1:
@@ -897,6 +917,11 @@ def validate_iio_transport_daemon_execute(
     if not isinstance(value, int) or value < bytes_:
         errors.append(
             f"libiio_transfer_worker_bytes={value!r} expected at least {bytes_!r}"
+        )
+    value = report.get("direct_transfer_worker_bytes")
+    if not isinstance(value, int) or value < bytes_:
+        errors.append(
+            f"direct_transfer_worker_bytes={value!r} expected at least {bytes_!r}"
         )
     if errors:
         raise SystemExit(
@@ -2651,6 +2676,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "state_daemon_iio_transport_libiio_execution_count": 0,
         "state_daemon_iio_transport_executes": 0,
         "state_daemon_iio_transport_libiio_transfer_worker_runs": 0,
+        "state_daemon_iio_transport_direct_transfer_worker_runs": 0,
         "state_daemon_iio_transport_execute_failures": 0,
         "state_daemon_iio_transport_enqueue_failures": 0,
         "in_burst_priority_preemptions": 0,
@@ -2960,6 +2986,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         "state_daemon_iio_transport_libiio_transfer_worker_runs"
                     ]
                     >= counts["state_daemon_iio_transport_executes"]
+                    and counts[
+                        "state_daemon_iio_transport_direct_transfer_worker_runs"
+                    ]
+                    >= counts["state_daemon_iio_transport_executes"]
                     and counts["state_daemon_iio_transport_execute_failures"] == 0
                     and counts["state_daemon_iio_transport_executes"]
                     >= counts["batches_moved"]
@@ -2971,6 +3001,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "state_daemon_iio_transport_libiio_transfer_worker_runs": counts[
                 "state_daemon_iio_transport_libiio_transfer_worker_runs"
             ],
+            "state_daemon_iio_transport_direct_transfer_worker_proven": bool(
+                not (
+                    args.execute_live_rf
+                    and args.native_service_burst_leases
+                    and args.require_native_rf_service_worker
+                )
+                or (
+                    counts["state_daemon_iio_transport_direct_transfer_worker_runs"]
+                    >= counts["state_daemon_iio_transport_executes"]
+                    and counts["state_daemon_iio_transport_executes"]
+                    >= counts["batches_moved"]
+                    and counts["state_daemon_iio_transport_execute_failures"] == 0
+                )
+            ),
+            "state_daemon_iio_transport_direct_transfer_worker_runs": counts[
+                "state_daemon_iio_transport_direct_transfer_worker_runs"
+            ],
+            "state_daemon_iio_transport_helper_backed_executor": False,
             "state_daemon_iio_transport_execute_failures": counts[
                 "state_daemon_iio_transport_execute_failures"
             ],
@@ -3802,6 +3850,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and execute.get("state_daemon_iio_libiio_transfer_worker") == 1
             and execute.get("state_daemon_iio_libiio_transfer_worker_proof")
             == "FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1"
+            and execute.get("state_daemon_direct_libiio_transfer_worker") == 1
+            and execute.get("state_daemon_direct_libiio_transfer_worker_proof")
+            == "FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1"
+            and execute.get("helper_backed_libiio_transfer_executor") == 0
+            and execute.get("helper_libiio_transfer_executor") == 0
             and execute.get("state_daemon_libiio_execution_owner") == 1
             and execute.get("helper_local_libiio_execution_only") == 0
             and execute.get("helper_local_iio_daemon_only") == 0
@@ -3809,6 +3862,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             and execute.get("state_daemon_libiio_execution_count") >= 1
             and isinstance(execute.get("libiio_transfer_worker_runs"), int)
             and execute.get("libiio_transfer_worker_runs") >= 1
+            and isinstance(execute.get("direct_transfer_worker_runs"), int)
+            and execute.get("direct_transfer_worker_runs") >= 1
         ):
             counts["state_daemon_iio_transport_executes"] += 1
             counts["state_daemon_iio_transport_libiio_execution_count"] = max(
@@ -3818,6 +3873,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             counts["state_daemon_iio_transport_libiio_transfer_worker_runs"] = max(
                 counts["state_daemon_iio_transport_libiio_transfer_worker_runs"],
                 int(execute.get("libiio_transfer_worker_runs")),
+            )
+            counts["state_daemon_iio_transport_direct_transfer_worker_runs"] = max(
+                counts["state_daemon_iio_transport_direct_transfer_worker_runs"],
+                int(execute.get("direct_transfer_worker_runs")),
             )
         else:
             counts["state_daemon_iio_transport_execute_failures"] += 1

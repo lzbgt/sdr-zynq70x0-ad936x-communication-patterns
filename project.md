@@ -1494,7 +1494,11 @@ user and vendor configuration.
   `firmware_fpga_production_data_plane_required=1`, and it must include a
   `fieldmesh_rf_hardware_progression_evidence` report proving C/FPGA-native
   firmware-DMA counter progression and bounded FPGA service latency before
-  readiness accepts the capture. The
+  readiness accepts the capture. It must also prove
+  `FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1`, positive
+  state-daemon direct transfer-worker counters, and
+  `helper_backed_libiio_transfer_executor=0`, so HIL helper execution cannot be
+  promoted to production data-plane ownership. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

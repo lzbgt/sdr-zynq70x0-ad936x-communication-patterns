@@ -272,6 +272,9 @@ struct iio_transport_daemon_state {
     uint32_t libiio_transfer_worker_runs;
     uint32_t libiio_transfer_worker_frames;
     uint32_t libiio_transfer_worker_bytes;
+    uint32_t direct_transfer_worker_runs;
+    uint32_t direct_transfer_worker_frames;
+    uint32_t direct_transfer_worker_bytes;
     uint32_t state_daemon_libiio_execution_count;
     uint32_t errors;
     fieldmesh_status_t last_status;
@@ -3419,6 +3422,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_libiio_execution\":1,"
                  "\"python_libiio_execution_call\":0,"
                  "\"state_daemon_libiio_execution_count\":%u,"
+                 "\"state_daemon_direct_libiio_transfer_worker\":1,"
+                 "\"state_daemon_direct_libiio_transfer_worker_proof\":\"%s\","
+                 "\"helper_backed_libiio_transfer_executor\":0,"
+                 "\"helper_libiio_transfer_executor\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -3472,6 +3479,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  0u,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  fieldmesh_rf_service_lease_priority_name(policy.lease_priority),
@@ -6865,6 +6873,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_libiio_execution\":1,"
                  "\"python_libiio_execution_call\":0,"
                  "\"state_daemon_libiio_execution_count\":%u,"
+                 "\"state_daemon_direct_libiio_transfer_worker\":1,"
+                 "\"state_daemon_direct_libiio_transfer_worker_proof\":\"%s\","
+                 "\"helper_backed_libiio_transfer_executor\":0,"
+                 "\"helper_libiio_transfer_executor\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -6900,6 +6912,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  iio_transport->state_daemon_libiio_execution_count,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  policy.lease_batch_frames,
@@ -6989,6 +7002,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_libiio_execution\":1,"
                  "\"python_libiio_execution_call\":0,"
                  "\"state_daemon_libiio_execution_count\":%u,"
+                 "\"state_daemon_direct_libiio_transfer_worker\":1,"
+                 "\"state_daemon_direct_libiio_transfer_worker_proof\":\"%s\","
+                 "\"helper_backed_libiio_transfer_executor\":0,"
+                 "\"helper_libiio_transfer_executor\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -7021,6 +7038,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  iio_transport->state_daemon_libiio_execution_count,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  frames,
@@ -7080,6 +7098,9 @@ static int build_response(fieldmesh_context_t *context,
         iio_transport->libiio_transfer_worker_runs++;
         iio_transport->libiio_transfer_worker_frames += frames;
         iio_transport->libiio_transfer_worker_bytes += bytes;
+        iio_transport->direct_transfer_worker_runs++;
+        iio_transport->direct_transfer_worker_frames += frames;
+        iio_transport->direct_transfer_worker_bytes += bytes;
         iio_transport->state_daemon_libiio_execution_count++;
         iio_transport->last_status = FIELDMESH_OK;
         snprintf(response, response_len,
@@ -7104,6 +7125,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_libiio_execution\":1,"
                  "\"python_libiio_execution_call\":0,"
                  "\"state_daemon_libiio_execution_count\":%u,"
+                 "\"state_daemon_direct_libiio_transfer_worker\":1,"
+                 "\"state_daemon_direct_libiio_transfer_worker_proof\":\"%s\","
+                 "\"helper_backed_libiio_transfer_executor\":0,"
+                 "\"helper_libiio_transfer_executor\":0,"
                  "\"request_frames\":%u,"
                  "\"request_bytes\":%u,"
                  "\"samples_per_symbol\":%u,"
@@ -7111,6 +7136,9 @@ static int build_response(fieldmesh_context_t *context,
                  "\"libiio_transfer_worker_runs\":%u,"
                  "\"libiio_transfer_worker_frames\":%u,"
                  "\"libiio_transfer_worker_bytes\":%u,"
+                 "\"direct_transfer_worker_runs\":%u,"
+                 "\"direct_transfer_worker_frames\":%u,"
+                 "\"direct_transfer_worker_bytes\":%u,"
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
@@ -7124,13 +7152,17 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_TRANSPORT_EXECUTION_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  iio_transport->state_daemon_libiio_execution_count,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER_PROOF,
                  frames,
                  bytes,
                  samples_per_symbol,
                  bit_repeat,
                  iio_transport->libiio_transfer_worker_runs,
                  iio_transport->libiio_transfer_worker_frames,
-                 iio_transport->libiio_transfer_worker_bytes);
+                 iio_transport->libiio_transfer_worker_bytes,
+                 iio_transport->direct_transfer_worker_runs,
+                 iio_transport->direct_transfer_worker_frames,
+                 iio_transport->direct_transfer_worker_bytes);
         return 0;
     }
     if (strstr(request, "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS")) {
@@ -7167,6 +7199,10 @@ static int build_response(fieldmesh_context_t *context,
                  "\"state_daemon_libiio_execution\":1,"
                  "\"python_libiio_execution_call\":0,"
                  "\"state_daemon_libiio_execution_count\":%u,"
+                 "\"state_daemon_direct_libiio_transfer_worker\":1,"
+                 "\"state_daemon_direct_libiio_transfer_worker_proof\":\"%s\","
+                 "\"helper_backed_libiio_transfer_executor\":0,"
+                 "\"helper_libiio_transfer_executor\":0,"
                  "\"native_iio_burst_state_daemon_modem_profile\":1,"
                  "\"native_iio_burst_state_daemon_modem_profile_proof\":\"%s\","
                  "\"native_iio_burst_state_daemon_transport_modem_profile\":1,"
@@ -7209,6 +7245,7 @@ static int build_response(fieldmesh_context_t *context,
                  FIELDMESH_RF_SERVICE_IIO_STATE_DAEMON_LIBIIO_EXECUTION_PROOF,
                  iio_transport ?
                      iio_transport->state_daemon_libiio_execution_count : 0u,
+                 FIELDMESH_RF_SERVICE_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_MODEM_PROFILE_PROOF,
                  FIELDMESH_RF_SERVICE_IIO_BURST_STATE_DAEMON_TRANSPORT_MODEM_PROFILE_PROOF,
                  policy.lease_batch_frames,

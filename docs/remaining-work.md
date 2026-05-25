@@ -130,6 +130,10 @@ evidence cannot be mistaken for the production RF/IP data plane. The native-IP
 evidence path now also requires `fieldmesh_rf_hardware_progression_evidence`
 with C/FPGA-native firmware-DMA counter progression and bounded FPGA service
 latency before aggregate readiness can accept IIO HIL captures.
+It also requires `FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1`, positive
+state-daemon direct transfer-worker counters, and
+`helper_backed_libiio_transfer_executor=0` so the remaining HIL helper cannot
+claim transfer-executor ownership.
 The C helper API now separates RAM-model IRQ clearing from hardware
 write-one-to-clear acknowledgement, which keeps future UIO/driver code from
 using read-modify-write semantics on a PL register. IRQ mask writes are split

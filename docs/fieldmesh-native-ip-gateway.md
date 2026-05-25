@@ -528,7 +528,11 @@ Minimum production gates for native TCP/IP:
   helper call, and the state-daemon transport enqueue proof must now carry a
   positive libiio execution count for the same burst work. The follow-on
   `FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1` execute proof binds the
-  request to the daemon-owned libiio transfer-worker boundary.
+  request to the daemon-owned libiio transfer-worker boundary. Native-IP
+  evidence also requires `FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1`,
+  positive direct transfer-worker run counters, and
+  `helper_backed_libiio_transfer_executor=false`, so helper-backed HIL execution
+  cannot satisfy the production data-plane guardrail.
   That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client

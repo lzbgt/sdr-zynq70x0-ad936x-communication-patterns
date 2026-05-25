@@ -337,6 +337,30 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
         if not isinstance(host_transfer_worker_runs, int) or host_transfer_worker_runs < 1:
             blockers.append("native_ip_host_state_daemon_libiio_transfer_worker_missing")
         if (
+            report.get("board_iio_state_daemon_iio_transport_direct_transfer_worker_proven")
+            is not True
+        ):
+            blockers.append("native_ip_board_state_daemon_direct_transfer_worker_missing")
+        if (
+            report.get("host_iio_state_daemon_iio_transport_direct_transfer_worker_proven")
+            is not True
+        ):
+            blockers.append("native_ip_host_state_daemon_direct_transfer_worker_missing")
+        board_direct_transfer_runs = report.get(
+            "board_iio_state_daemon_iio_transport_direct_transfer_worker_runs"
+        )
+        host_direct_transfer_runs = report.get(
+            "host_iio_state_daemon_iio_transport_direct_transfer_worker_runs"
+        )
+        if not isinstance(board_direct_transfer_runs, int) or board_direct_transfer_runs < 1:
+            blockers.append("native_ip_board_state_daemon_direct_transfer_worker_runs_missing")
+        if not isinstance(host_direct_transfer_runs, int) or host_direct_transfer_runs < 1:
+            blockers.append("native_ip_host_state_daemon_direct_transfer_worker_runs_missing")
+        if report.get("board_iio_state_daemon_iio_transport_helper_backed_executor") is not False:
+            blockers.append("native_ip_board_helper_backed_iio_executor_not_disabled")
+        if report.get("host_iio_state_daemon_iio_transport_helper_backed_executor") is not False:
+            blockers.append("native_ip_host_helper_backed_iio_executor_not_disabled")
+        if (
             report.get("board_iio_native_iio_burst_state_daemon_modem_profile_proven")
             is not True
         ):
@@ -948,6 +972,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs": report.get(
             "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"
+        ),
+        "board_iio_state_daemon_iio_transport_direct_transfer_worker_proven": report.get(
+            "board_iio_state_daemon_iio_transport_direct_transfer_worker_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_direct_transfer_worker_proven": report.get(
+            "host_iio_state_daemon_iio_transport_direct_transfer_worker_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_direct_transfer_worker_runs": report.get(
+            "board_iio_state_daemon_iio_transport_direct_transfer_worker_runs"
+        ),
+        "host_iio_state_daemon_iio_transport_direct_transfer_worker_runs": report.get(
+            "host_iio_state_daemon_iio_transport_direct_transfer_worker_runs"
+        ),
+        "board_iio_state_daemon_iio_transport_helper_backed_executor": report.get(
+            "board_iio_state_daemon_iio_transport_helper_backed_executor"
+        ),
+        "host_iio_state_daemon_iio_transport_helper_backed_executor": report.get(
+            "host_iio_state_daemon_iio_transport_helper_backed_executor"
         ),
         "board_iio_bridge_sample_rate_hz": report.get("board_iio_bridge_sample_rate_hz"),
         "host_iio_bridge_sample_rate_hz": report.get("host_iio_bridge_sample_rate_hz"),

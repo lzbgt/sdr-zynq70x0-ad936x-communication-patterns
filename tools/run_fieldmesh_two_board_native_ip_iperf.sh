@@ -3235,6 +3235,15 @@ report = {
     "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs": int(
         last_iio_bridge.get("state_daemon_iio_transport_libiio_transfer_worker_runs") or 0
     ),
+    "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_proven": bool(
+        last_iio_bridge.get("state_daemon_iio_transport_direct_transfer_worker_proven")
+    ),
+    "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_runs": int(
+        last_iio_bridge.get("state_daemon_iio_transport_direct_transfer_worker_runs") or 0
+    ),
+    "iio_bridge_state_daemon_iio_transport_helper_backed_executor": bool(
+        last_iio_bridge.get("state_daemon_iio_transport_helper_backed_executor")
+    ),
     "iio_bridge_state_daemon_iio_transport_execute_failures": int(
         last_iio_bridge.get("state_daemon_iio_transport_execute_failures") or 0
     ),

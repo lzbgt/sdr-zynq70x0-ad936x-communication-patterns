@@ -147,8 +147,11 @@ Responsibilities:
   the state-daemon IIO transport enqueue/drain evidence must also show positive
   libiio execution counts for archived native-IP HIL captures. The follow-on
   `FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER v1` execute proof makes the
-  state-daemon-owned transfer-worker boundary explicit, while the C IIO helper
-  remains marked as HIL transfer glue only. Native-IP readiness now requires
+  state-daemon-owned transfer-worker boundary explicit, and the stricter
+  `FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1` proof now requires the
+  daemon-side direct transfer worker counters to cover every execute while
+  `helper_backed_libiio_transfer_executor=0`. The C IIO helper remains marked
+  as HIL transfer glue only. Native-IP readiness now requires
   `c_iio_helper_role=hil_transfer_glue`, `c_iio_helper_production_data_plane=0`,
   and `firmware_fpga_production_data_plane_required=1`; it also requires a
   `fieldmesh_rf_hardware_progression_evidence` report proving C/FPGA-native

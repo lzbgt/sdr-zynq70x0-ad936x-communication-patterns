@@ -595,6 +595,26 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs"] = (
             native_ip.get("host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs")
         )
+        detail["native_ip_board_iio_state_daemon_iio_transport_direct_transfer_worker_proven"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_direct_transfer_worker_proven")
+            is True
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_direct_transfer_worker_proven"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_direct_transfer_worker_proven")
+            is True
+        )
+        detail["native_ip_board_iio_state_daemon_iio_transport_direct_transfer_worker_runs"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_direct_transfer_worker_runs")
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_direct_transfer_worker_runs"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_direct_transfer_worker_runs")
+        )
+        detail["native_ip_board_iio_state_daemon_iio_transport_helper_backed_executor"] = (
+            native_ip.get("board_iio_state_daemon_iio_transport_helper_backed_executor")
+        )
+        detail["native_ip_host_iio_state_daemon_iio_transport_helper_backed_executor"] = (
+            native_ip.get("host_iio_state_daemon_iio_transport_helper_backed_executor")
+        )
         detail["native_ip_board_iio_bridge_sample_rate_hz"] = native_ip.get(
             "board_iio_bridge_sample_rate_hz"
         )
@@ -1203,6 +1223,50 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 or host_transfer_worker_runs < 1
             ):
                 blockers.append("native_ip_host_state_daemon_libiio_transfer_worker_missing")
+            if (
+                native_ip.get(
+                    "board_iio_state_daemon_iio_transport_direct_transfer_worker_proven"
+                )
+                is not True
+            ):
+                blockers.append("native_ip_board_state_daemon_direct_transfer_worker_missing")
+            if (
+                native_ip.get(
+                    "host_iio_state_daemon_iio_transport_direct_transfer_worker_proven"
+                )
+                is not True
+            ):
+                blockers.append("native_ip_host_state_daemon_direct_transfer_worker_missing")
+            board_direct_transfer_runs = native_ip.get(
+                "board_iio_state_daemon_iio_transport_direct_transfer_worker_runs"
+            )
+            host_direct_transfer_runs = native_ip.get(
+                "host_iio_state_daemon_iio_transport_direct_transfer_worker_runs"
+            )
+            if (
+                not isinstance(board_direct_transfer_runs, int)
+                or board_direct_transfer_runs < 1
+            ):
+                blockers.append("native_ip_board_state_daemon_direct_transfer_worker_runs_missing")
+            if (
+                not isinstance(host_direct_transfer_runs, int)
+                or host_direct_transfer_runs < 1
+            ):
+                blockers.append("native_ip_host_state_daemon_direct_transfer_worker_runs_missing")
+            if (
+                native_ip.get(
+                    "board_iio_state_daemon_iio_transport_helper_backed_executor"
+                )
+                is not False
+            ):
+                blockers.append("native_ip_board_helper_backed_iio_executor_not_disabled")
+            if (
+                native_ip.get(
+                    "host_iio_state_daemon_iio_transport_helper_backed_executor"
+                )
+                is not False
+            ):
+                blockers.append("native_ip_host_helper_backed_iio_executor_not_disabled")
             if (
                 native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled")
                 is not True

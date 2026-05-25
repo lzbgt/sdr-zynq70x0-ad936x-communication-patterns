@@ -777,6 +777,9 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     state_transfer_runs = report.get(
         "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs"
     )
+    state_direct_transfer_runs = report.get(
+        "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_runs"
+    )
     if not isinstance(state_executes, int) or state_executes < state_enqueues:
         errors.append(f"{label}: state-daemon IIO transport execute count is below enqueue count")
     if (
@@ -786,6 +789,22 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(
             f"{label}: state-daemon libiio transfer worker did not cover executes"
         )
+    if (
+        report.get("iio_bridge_state_daemon_iio_transport_direct_transfer_worker_proven")
+        is not True
+    ):
+        errors.append(
+            f"{label}: direct state-daemon transfer worker proof is missing"
+        )
+    if (
+        not isinstance(state_direct_transfer_runs, int)
+        or state_direct_transfer_runs < state_executes
+    ):
+        errors.append(
+            f"{label}: direct state-daemon transfer worker did not cover executes"
+        )
+    if report.get("iio_bridge_state_daemon_iio_transport_helper_backed_executor") is not False:
+        errors.append(f"{label}: helper-backed IIO transfer executor must be disabled")
     if int(report.get("iio_bridge_state_daemon_iio_transport_execute_failures") or 0) != 0:
         errors.append(f"{label}: state-daemon IIO transport execute reported failures")
     sample_rate_hz = report.get("iio_bridge_sample_rate_hz")
@@ -2062,6 +2081,24 @@ def main() -> int:
         ),
         "host_iio_state_daemon_iio_transport_libiio_transfer_worker_runs": host.get(
             "iio_bridge_state_daemon_iio_transport_libiio_transfer_worker_runs"
+        ),
+        "board_iio_state_daemon_iio_transport_direct_transfer_worker_proven": board.get(
+            "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_proven"
+        ),
+        "host_iio_state_daemon_iio_transport_direct_transfer_worker_proven": host.get(
+            "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_proven"
+        ),
+        "board_iio_state_daemon_iio_transport_direct_transfer_worker_runs": board.get(
+            "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_runs"
+        ),
+        "host_iio_state_daemon_iio_transport_direct_transfer_worker_runs": host.get(
+            "iio_bridge_state_daemon_iio_transport_direct_transfer_worker_runs"
+        ),
+        "board_iio_state_daemon_iio_transport_helper_backed_executor": board.get(
+            "iio_bridge_state_daemon_iio_transport_helper_backed_executor"
+        ),
+        "host_iio_state_daemon_iio_transport_helper_backed_executor": host.get(
+            "iio_bridge_state_daemon_iio_transport_helper_backed_executor"
         ),
         "board_iio_bridge_sample_rate_hz": board.get("iio_bridge_sample_rate_hz"),
         "host_iio_bridge_sample_rate_hz": host.get("iio_bridge_sample_rate_hz"),
