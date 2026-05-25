@@ -507,7 +507,7 @@ BRAM CRC/bounds counters, aggregate BRAM errors, FPGA MAC-service latency
 counters plus a hardware latency budget/over-budget counter used by live gates
 for bounded service-latency checks, and FPGA-native TX sideband defaults for
 peer index, MCS, retry budget, descriptor flags, and sequence seed. RF-engine
-builds extend the same sidecar aperture with QPSK RX demod quality, PL matched-filter symbol-timing recovery,
+builds extend the same sidecar aperture with QPSK RX demod quality, PL phase-weighted matched-filter symbol-timing recovery,
 DC-offset correction, acquisition/framing
 diagnostics: byte-sync lock, selected byte phase, selected QPSK quadrant
 rotation, sync input/output byte counters, timing phase/margin counters, lock/slip/rotation/search-drop

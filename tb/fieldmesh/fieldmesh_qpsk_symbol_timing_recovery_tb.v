@@ -100,11 +100,11 @@ initial begin
     send_sample(16'sd1200, -16'sd900, 1'b0);
     repeat (2) @(posedge clk);
     if (out_count != 1) fail("first centered symbol was not emitted");
-    if (out_seen[0] != {(-16'sd495), 16'sd660}) fail("did not emit matched-filtered phase-1 window");
+    if (out_seen[0] != {(-16'sd697), 16'sd930}) fail("did not emit phase-weighted matched-filtered phase-1 window");
     if (selected_phase != 32'd1) fail("selected phase did not track phase-1 sample");
     if (phase_change_count != 32'd1) fail("phase change counter did not increment");
-    if (timing_margin_accum != 32'd495) fail("matched-filter timing margin accumulator mismatch");
-    if (low_timing_margin_count != 32'd0) fail("strong matched-filtered sample counted low margin");
+    if (timing_margin_accum != 32'd697) fail("phase-weighted matched-filter timing margin accumulator mismatch");
+    if (low_timing_margin_count != 32'd0) fail("strong phase-weighted matched-filtered sample counted low margin");
 
     m_axis_tready = 1'b0;
     send_sample(-16'sd1100, 16'sd950, 1'b0);
@@ -116,7 +116,7 @@ initial begin
     m_axis_tready = 1'b1;
     repeat (2) @(posedge clk);
     if (out_count != 2) fail("second centered symbol was not emitted");
-    if (out_seen[1] != {16'sd510, (-16'sd590)}) fail("did not emit matched-filtered phase-0 window");
+    if (out_seen[1] != {16'sd730, (-16'sd845)}) fail("did not emit phase-weighted matched-filtered phase-0 window");
     if (!out_last_seen[1]) fail("selected TLAST was not preserved");
     if (selected_phase != 32'd0) fail("selected phase did not move to phase 0");
     if (phase_change_count != 32'd2) fail("second phase change was not counted");
@@ -130,7 +130,7 @@ initial begin
     repeat (2) @(posedge clk);
     if (out_count != 3) fail("weak timing symbol was not emitted");
     if (low_timing_margin_count != 32'd1) fail("weak timing margin was not counted");
-    if (timing_margin_accum != 32'd1041) fail("matched-filter timing margin total mismatch");
+    if (timing_margin_accum != 32'd1469) fail("phase-weighted matched-filter timing margin total mismatch");
 
     $display("PASS: fieldmesh_qpsk_symbol_timing_recovery_tb");
     $finish;

@@ -91,8 +91,8 @@ required_checker_tokens = [
     "fieldmesh_rx_header_framer",
     "fieldmesh_iq_rx_cdc",
     "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
-    "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL matched filtering",
-    "fieldmesh_qpsk_timing_recovery must matched-filter 2x oversampled QPSK symbols in PL",
+    "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL phase-weighted matched filtering",
+    "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL",
     "register pages through 0x23c",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "proc assert_same_intf_net",
@@ -162,8 +162,10 @@ for token in required_checker_tokens:
         raise SystemExit(f"check_fieldmesh_rf_engine_overlay_vivado.sh missing binding token: {token}")
 
 for token in (
-    "emits one matched-filtered",
+    "emits one phase-weighted",
     "integrates all samples",
+    "CENTER_PHASE_WEIGHT",
+    "weighted_i_sum",
     "filtered_data_next",
     "avg_sat16",
 ):

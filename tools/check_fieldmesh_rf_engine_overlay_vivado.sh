@@ -109,11 +109,11 @@ if {"\$qpsk_preamble_bytes" ne "4"} {
 }
 set qpsk_samples_per_symbol [get_property CONFIG.SAMPLES_PER_SYMBOL [get_bd_cells fieldmesh_qpsk_symbolizer]]
 if {"\$qpsk_samples_per_symbol" ne "2"} {
-  error "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL matched filtering"
+  error "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL phase-weighted matched filtering"
 }
 set qpsk_timing_oversample [get_property CONFIG.OVERSAMPLE_FACTOR [get_bd_cells fieldmesh_qpsk_timing_recovery]]
 if {"\$qpsk_timing_oversample" ne "2"} {
-  error "fieldmesh_qpsk_timing_recovery must matched-filter 2x oversampled QPSK symbols in PL"
+  error "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL"
 }
 
 set ctrl_addr_width ""

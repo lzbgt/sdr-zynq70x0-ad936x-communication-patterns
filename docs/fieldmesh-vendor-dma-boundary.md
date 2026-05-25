@@ -280,10 +280,10 @@ firmware endpoint byte/packet/drop/fault counters, MAC pump counters, split
 BRAM CRC/bounds counters, FPGA MAC-service latency counters, a writable
 hardware latency budget with an over-budget flag/counter, and supplies
 FPGA-native descriptor sidebands instead of tying peer/MCS/retry/flags/sequence
-constants in Tcl. The RF-engine build also maps QPSK RX acquisition, matched-filter symbol timing, and
+constants in Tcl. The RF-engine build also maps QPSK RX acquisition, phase-weighted matched-filter symbol timing, and
 framing diagnostics in that same C-owned aperture: byte-sync lock, selected
 byte phase, selected QPSK quadrant rotation, sync input/output byte counters,
-demodulated symbol quality/margin counters, timing matched-filter margin and
+demodulated symbol quality/margin counters, phase-weighted timing matched-filter margin and
 phase counters, demod stream backpressure counters, and PL DC-offset and carrier phase correction estimates,
 lock/slip/rotation/search-drop counters, packet/byte/drop counters, CRC
 rejects, resyncs, and RX framer fault status. The wrapper still avoids the ADI sample-DMA
