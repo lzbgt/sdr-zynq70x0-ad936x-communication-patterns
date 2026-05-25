@@ -103,6 +103,11 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_native_iio_burst_state_daemon_transport_lifecycle_missing")
+        if (
+            report.get("requires_iio_native_iio_burst_state_daemon_modem_profile")
+            is not True
+        ):
+            blockers.append("native_ip_native_iio_burst_state_daemon_modem_profile_missing")
         if report.get("requires_iio_state_daemon_iio_transport") is not True:
             blockers.append("native_ip_state_daemon_iio_transport_missing")
         if report.get("requires_iio_in_burst_priority_preemption") is not True:
@@ -239,6 +244,16 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
             is not True
         ):
             blockers.append("native_ip_host_native_iio_burst_state_daemon_transport_lifecycle_missing")
+        if (
+            report.get("board_iio_native_iio_burst_state_daemon_modem_profile_proven")
+            is not True
+        ):
+            blockers.append("native_ip_board_native_iio_burst_state_daemon_modem_profile_missing")
+        if (
+            report.get("host_iio_native_iio_burst_state_daemon_modem_profile_proven")
+            is not True
+        ):
+            blockers.append("native_ip_host_native_iio_burst_state_daemon_modem_profile_missing")
         if report.get("board_iio_state_daemon_iio_transport_proven") is not True:
             blockers.append("native_ip_board_state_daemon_iio_transport_missing")
         if report.get("host_iio_state_daemon_iio_transport_proven") is not True:
@@ -366,6 +381,9 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "requires_iio_native_iio_burst_state_daemon_transport_lifecycle": report.get(
             "requires_iio_native_iio_burst_state_daemon_transport_lifecycle"
+        ),
+        "requires_iio_native_iio_burst_state_daemon_modem_profile": report.get(
+            "requires_iio_native_iio_burst_state_daemon_modem_profile"
         ),
         "requires_iio_state_daemon_iio_transport": report.get(
             "requires_iio_state_daemon_iio_transport"
@@ -646,6 +664,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations": report.get(
             "host_iio_native_iio_burst_state_daemon_transport_lifecycle_invocations"
+        ),
+        "board_iio_native_iio_burst_state_daemon_modem_profile_proven": report.get(
+            "board_iio_native_iio_burst_state_daemon_modem_profile_proven"
+        ),
+        "host_iio_native_iio_burst_state_daemon_modem_profile_proven": report.get(
+            "host_iio_native_iio_burst_state_daemon_modem_profile_proven"
+        ),
+        "board_iio_native_iio_burst_state_daemon_modem_profile_invocations": report.get(
+            "board_iio_native_iio_burst_state_daemon_modem_profile_invocations"
+        ),
+        "host_iio_native_iio_burst_state_daemon_modem_profile_invocations": report.get(
+            "host_iio_native_iio_burst_state_daemon_modem_profile_invocations"
         ),
         "board_iio_state_daemon_iio_transport_proven": report.get(
             "board_iio_state_daemon_iio_transport_proven"

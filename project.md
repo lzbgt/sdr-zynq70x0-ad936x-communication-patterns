@@ -1476,7 +1476,11 @@ user and vendor configuration.
   tick returns the selected `samples_per_symbol` / `bit_repeat` values so the
   bridge no longer maps the profile in Python. Readiness requires
   state-daemon-owned pre-burst selection and profile-application proof in both
-  directions. The
+  directions. The persistent native IIO helper now consumes those selected
+  profile parameters through the state-daemon transport lifecycle boundary and
+  proves `FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1`, so production
+  evidence rejects captures where the helper did not receive the daemon-selected
+  modem profile. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

@@ -1208,6 +1208,11 @@ def execute_live_with_helper(
             "tx_duration_ms": str(args.max_tx_duration_ms),
             "rx_arm_delay_ms": str(args.rx_arm_delay_ms),
             "cyclic": "1" if args.cyclic_tx else "0",
+            "native_modem_profile_application": "1",
+            "adaptive_mcs_pre_burst_profile_application_source": "state_daemon_rf_service_loop_tick",
+            "selected_samples_per_symbol": str(plan["iq_burst"]["samples_per_symbol"]),
+            "selected_bit_repeat": str(plan["iq_burst"]["bit_repeat"]),
+            "python_modem_profile_mapping": "0",
         }
         request_path: Path | None = None
         scheduler_queue_path: Path | None = None
@@ -1449,6 +1454,20 @@ def execute_live_with_helper(
         "transport_state_daemon_lifecycle_xfer_count": helper_report.get(
             "transport_state_daemon_lifecycle_xfer_count"
         ),
+        "native_iio_burst_state_daemon_modem_profile": (
+            helper_report.get("native_iio_burst_state_daemon_modem_profile") is True
+        ),
+        "native_iio_burst_state_daemon_modem_profile_proof": helper_report.get(
+            "native_iio_burst_state_daemon_modem_profile_proof"
+        ),
+        "iio_helper_consumes_selected_modem_profile": (
+            helper_report.get("iio_helper_consumes_selected_modem_profile") is True
+        ),
+        "selected_samples_per_symbol": helper_report.get("selected_samples_per_symbol"),
+        "selected_bit_repeat": helper_report.get("selected_bit_repeat"),
+        "python_iio_helper_modem_profile_mapping": (
+            helper_report.get("python_iio_helper_modem_profile_mapping") is True
+        ),
         "python_transport_request_file_submission": (
             helper_report.get("python_transport_request_file_submission") is True
         ),
@@ -1641,6 +1660,20 @@ def execute_live_with_helper(
             ],
             "transport_state_daemon_lifecycle_xfer_count": helper_result[
                 "transport_state_daemon_lifecycle_xfer_count"
+            ],
+            "native_iio_burst_state_daemon_modem_profile": helper_result[
+                "native_iio_burst_state_daemon_modem_profile"
+            ],
+            "native_iio_burst_state_daemon_modem_profile_proof": helper_result[
+                "native_iio_burst_state_daemon_modem_profile_proof"
+            ],
+            "iio_helper_consumes_selected_modem_profile": helper_result[
+                "iio_helper_consumes_selected_modem_profile"
+            ],
+            "selected_samples_per_symbol": helper_result["selected_samples_per_symbol"],
+            "selected_bit_repeat": helper_result["selected_bit_repeat"],
+            "python_iio_helper_modem_profile_mapping": helper_result[
+                "python_iio_helper_modem_profile_mapping"
             ],
             "python_transport_request_file_submission": helper_result[
                 "python_transport_request_file_submission"
@@ -2125,6 +2158,25 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
     )
+    native_iio_burst_state_daemon_modem_profile_proven = bool(
+        not native_iio_burst_worker_required
+        or (
+            command_results
+            and any(
+                result.get("name") == "iio_burst_helper"
+                and result.get("returncode") == 0
+                and result.get("native_iio_burst_state_daemon_modem_profile") is True
+                and result.get("native_iio_burst_state_daemon_modem_profile_proof")
+                == "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1"
+                and result.get("iio_helper_consumes_selected_modem_profile") is True
+                and result.get("selected_samples_per_symbol")
+                == plan["iq_burst"]["samples_per_symbol"]
+                and result.get("selected_bit_repeat") == plan["iq_burst"]["bit_repeat"]
+                and result.get("python_iio_helper_modem_profile_mapping") is False
+                for result in command_results
+            )
+        )
+    )
 
     safety = {
         "authorized_rf_path": True,
@@ -2196,6 +2248,9 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "native_iio_burst_state_daemon_transport_lifecycle_proven": (
             native_iio_burst_state_daemon_transport_lifecycle_proven
+        ),
+        "native_iio_burst_state_daemon_modem_profile_proven": (
+            native_iio_burst_state_daemon_modem_profile_proven
         ),
         "decode": decode,
         "elapsed_ms": int((time.monotonic() - started) * 1000),

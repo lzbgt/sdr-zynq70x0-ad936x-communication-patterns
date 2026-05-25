@@ -502,6 +502,10 @@ Minimum production gates for native TCP/IP:
   profile instead of only classifying the result after decode; production
   evidence now requires pre-burst fast-primary selection and selected modem
   parameters to be state-daemon-owned and quality-bound in both directions.
+  The persistent native IIO helper also consumes those selected parameters
+  through the state-daemon transport lifecycle request and reports
+  `FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1`, so archived evidence
+  proves the transfer worker saw the daemon-selected profile.
   That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client

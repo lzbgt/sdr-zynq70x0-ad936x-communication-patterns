@@ -174,6 +174,8 @@ def build_plan(args: argparse.Namespace) -> dict[str, Any]:
             "iq_file": iq_report["encoding"]["iq_file"],
             "iq_samples": iq_report["encoding"]["iq_samples"],
             "encoding": iq_report["encoding"]["name"],
+            "samples_per_symbol": iq_report["encoding"]["samples_per_symbol"],
+            "bit_repeat": iq_report["encoding"]["bit_repeat"],
             "frame_crc": iq_report["frame"]["frame_crc"],
             "frame_format": iq_report["frame"].get("format"),
             "traffic_class": iq_report["frame"].get("traffic_class"),

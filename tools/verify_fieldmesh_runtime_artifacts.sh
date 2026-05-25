@@ -466,6 +466,10 @@ PY
         selected_samples_per_symbol \
         selected_bit_repeat \
         python_modem_profile_mapping \
+        FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE \
+        native_iio_burst_state_daemon_modem_profile \
+        iio_helper_consumes_selected_modem_profile \
+        python_iio_helper_modem_profile_mapping \
         state_daemon_rf_service_loop_tick \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
         state_daemon_iio_transport_execution_worker \

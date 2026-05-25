@@ -3142,6 +3142,15 @@ report = {
     "iio_bridge_native_iio_burst_state_daemon_transport_lifecycle_failures": int(
         last_iio_bridge.get("native_iio_burst_state_daemon_transport_lifecycle_failures") or 0
     ),
+    "iio_bridge_native_iio_burst_state_daemon_modem_profile_proven": bool(
+        last_iio_bridge.get("native_iio_burst_state_daemon_modem_profile_proven")
+    ),
+    "iio_bridge_native_iio_burst_state_daemon_modem_profile_invocations": int(
+        last_iio_bridge.get("native_iio_burst_state_daemon_modem_profile_invocations") or 0
+    ),
+    "iio_bridge_native_iio_burst_state_daemon_modem_profile_failures": int(
+        last_iio_bridge.get("native_iio_burst_state_daemon_modem_profile_failures") or 0
+    ),
     "iio_bridge_state_daemon_iio_transport_required": bool(
         last_iio_bridge.get("state_daemon_iio_transport_required")
     ),

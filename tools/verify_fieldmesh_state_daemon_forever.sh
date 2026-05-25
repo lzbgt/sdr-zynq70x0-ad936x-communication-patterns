@@ -212,6 +212,10 @@ expected = {
     "state_daemon_iio_execution_worker": 1,
     "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
     "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
+    "native_iio_burst_state_daemon_modem_profile": 1,
+    "native_iio_burst_state_daemon_modem_profile_proof": "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1",
+    "iio_helper_consumes_selected_modem_profile": 1,
+    "python_iio_helper_modem_profile_mapping": 0,
     "lease_priority": "tcp_control_flow_udp_after_control",
     "lease_priority_cli": "tcp-control-flow-udp-after-control",
     "production_iio_policy": 1,
@@ -287,6 +291,10 @@ expected_iio_transport = {
     "production_iio_policy": 1,
     "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
     "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
+    "native_iio_burst_state_daemon_modem_profile": 1,
+    "native_iio_burst_state_daemon_modem_profile_proof": "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1",
+    "iio_helper_consumes_selected_modem_profile": 1,
+    "python_iio_helper_modem_profile_mapping": 0,
     "lease_batch_frames": 4,
     "max_frames_per_rf_burst": 2,
     "max_consecutive_direction_batches": 1,
@@ -316,6 +324,14 @@ if iio_transport.get("execution_worker_bytes") != 128:
 start = iio_transport_starts[0]
 if start.get("ok") is not True or start.get("state_daemon_iio_transport_control_queue") != 1:
     raise SystemExit(f"IIO transport daemon start proof mismatch: {start}")
+for key, value in {
+    "native_iio_burst_state_daemon_modem_profile": 1,
+    "native_iio_burst_state_daemon_modem_profile_proof": "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1",
+    "iio_helper_consumes_selected_modem_profile": 1,
+    "python_iio_helper_modem_profile_mapping": 0,
+}.items():
+    if start.get(key) != value:
+        raise SystemExit(f"IIO transport daemon start {key} mismatch: {start}")
 enqueue = iio_transport_enqueues[0]
 expected_enqueue = {
     "ok": True,
@@ -332,6 +348,10 @@ expected_enqueue = {
     "helper_local_iio_daemon_only": 0,
     "iio_transport_daemon_status_proof": "FIELDMESH_IIO_TRANSPORT_DAEMON_STATUS v1",
     "iio_transport_execution_worker_proof": "FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER v1",
+    "native_iio_burst_state_daemon_modem_profile": 1,
+    "native_iio_burst_state_daemon_modem_profile_proof": "FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1",
+    "iio_helper_consumes_selected_modem_profile": 1,
+    "python_iio_helper_modem_profile_mapping": 0,
     "request_frames": 2,
     "request_bytes": 128,
     "starts": 1,

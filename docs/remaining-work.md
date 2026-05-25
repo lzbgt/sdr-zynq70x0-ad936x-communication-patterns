@@ -327,7 +327,11 @@ state-daemon RF service loop tick also uses that decision before each burst to
 choose and apply the initial modem profile from prior counters; it returns the
 selected `samples_per_symbol` / `bit_repeat` values, and the native-IP gate
 requires state-daemon-owned pre-burst fast-primary selection plus profile
-application proof in both directions. Follow-up
+application proof in both directions. The native IIO helper now consumes those
+selected values through the state-daemon transport lifecycle request and proves
+`FIELDMESH_IIO_BURST_STATE_DAEMON_MODEM_PROFILE v1`, so profile application
+evidence reaches the transfer worker instead of stopping at the bridge report.
+Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35
