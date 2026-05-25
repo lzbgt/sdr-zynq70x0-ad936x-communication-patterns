@@ -134,6 +134,11 @@ It also requires `FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER v1`, positive
 state-daemon direct transfer-worker counters, and
 `helper_backed_libiio_transfer_executor=0` so the remaining HIL helper cannot
 claim transfer-executor ownership.
+Native-IP readiness now additionally requires
+`FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1` and
+`FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1` daemon status proof, binding production
+data-plane ownership to the C firmware packet/TUN bridge instead of the Python
+or helper HIL path.
 The C helper API now separates RAM-model IRQ clearing from hardware
 write-one-to-clear acknowledgement, which keeps future UIO/driver code from
 using read-modify-write semantics on a PL register. IRQ mask writes are split

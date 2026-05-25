@@ -155,9 +155,12 @@ Responsibilities:
   `c_iio_helper_role=hil_transfer_glue`, `c_iio_helper_production_data_plane=0`,
   and `firmware_fpga_production_data_plane_required=1`; it also requires a
   `fieldmesh_rf_hardware_progression_evidence` report proving C/FPGA-native
-  firmware-DMA counter progression and bounded FPGA service latency. That keeps
-  helper-backed HIL evidence from being promoted to production data-plane
-  ownership.
+  firmware-DMA counter progression and bounded FPGA service latency. It also
+  requires daemon `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS v1` evidence
+  proving `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1` and
+  `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1` are the native-IP production data-plane
+  boundary. That keeps helper-backed HIL evidence from being promoted to
+  production data-plane ownership.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

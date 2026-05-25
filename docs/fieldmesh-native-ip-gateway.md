@@ -253,7 +253,12 @@ Minimum production gates for native TCP/IP:
   `RF_HARDWARE_PROGRESSION_REPORT`, a
   `fieldmesh_rf_hardware_progression_evidence` report that proves
   C/FPGA-native firmware-DMA counter progression, bounded FPGA service latency,
-  and C modem service-rate evidence without claiming RF TX/RX. This mode requires `EXECUTE_LIVE_RF`,
+  and C modem service-rate evidence without claiming RF TX/RX. The daemon must
+  also answer `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS v1` with
+  `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1`,
+  `production_data_plane_owner=firmware_dma_c_fpga`, and
+  `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1` proof from the C firmware packet/TUN
+  bridge boundary; the HIL bridge only records that proof. This mode requires `EXECUTE_LIVE_RF`,
   hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
   and the exact over-air operator confirmation. Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and

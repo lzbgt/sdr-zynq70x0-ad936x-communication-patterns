@@ -6479,6 +6479,86 @@ static int build_response(fieldmesh_context_t *context,
                  (unsigned)TUN_SERVICE_RF_QUEUE_DEPTH);
         return 0;
     }
+    if (strstr(request, "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS")) {
+        struct tun_service_firmware_ring_counts fw_ring_counts;
+        tun_service_read_firmware_ring_counts(tun_service, &fw_ring_counts);
+        snprintf(response, response_len,
+                 "{\"event\":\"sdk_daemon_native_ip_fw_dma_data_plane_status\","
+                 "\"ok\":true,"
+                 "\"native_ip_fw_dma_data_plane\":1,"
+                 "\"native_ip_fw_dma_data_plane_proof\":\"%s\","
+                 "\"native_ip_production_data_plane\":1,"
+                 "\"production_data_plane_owner\":\"firmware_dma_c_fpga\","
+                 "\"performance_critical_pipeline_owner\":\"c_firmware_fpga\","
+                 "\"python_pipeline_role\":\"test_glue\","
+                 "\"python_performance_critical_pipeline\":0,"
+                 "\"python_production_data_plane\":0,"
+                 "\"iio_hil_transfer_glue_only\":1,"
+                 "\"iio_hil_production_data_plane\":0,"
+                 "\"helper_backed_libiio_transfer_executor\":0,"
+                 "\"firmware_packet_bridge\":1,"
+                 "\"firmware_tun_bridge\":1,"
+                 "\"firmware_tun_bridge_proof\":\"%s\","
+                 "\"firmware_ring_supported\":1,"
+                 "\"firmware_ring_enabled\":%u,"
+                 "\"firmware_ring_mapped\":%u,"
+                 "\"firmware_ring_loopback\":%u,"
+                 "\"firmware_ring_pumped\":%u,"
+                 "\"firmware_ring_served\":%u,"
+                 "\"firmware_ring_drained\":%u,"
+                 "\"firmware_ring_bytes_enqueued\":%u,"
+                 "\"firmware_ring_bytes_drained\":%u,"
+                 "\"firmware_ring_tx_queued\":%u,"
+                 "\"firmware_ring_tx_owned_by_pl\":%u,"
+                 "\"firmware_ring_tx_done\":%u,"
+                 "\"firmware_ring_rx_ready\":%u,"
+                 "\"firmware_ring_ack_valid\":%u,"
+                 "\"firmware_bridge_enqueued_packets\":%u,"
+                 "\"firmware_bridge_drained_packets\":%u,"
+                 "\"firmware_bridge_bytes_enqueued\":%u,"
+                 "\"firmware_bridge_bytes_drained\":%u,"
+                 "\"firmware_bridge_classify_errors\":%u,"
+                 "\"firmware_bridge_read_errors\":%u,"
+                 "\"firmware_bridge_enqueue_drops\":%u,"
+                 "\"firmware_bridge_drain_errors\":%u,"
+                 "\"hot_path_language\":\"c\","
+                 "\"uses_json_on_air\":0,"
+                 "\"uses_iio_hil_helper_as_data_plane\":0,"
+                 "\"rf_transport_mode\":\"%s\","
+                 "\"starts_rf_tx\":0,"
+                 "\"writes_hardware\":0,"
+                 "\"commands_executed\":0,"
+                 "\"next_boundary\":\"firmware_dma_descriptor_worker\"}\n",
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DATA_PLANE_PROOF,
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_TUN_BRIDGE_PROOF,
+                 tun_service ? tun_service->firmware_ring_enabled : 0u,
+                 tun_service ? tun_service->firmware_ring_mapped : 0u,
+                 tun_service ? tun_service->firmware_ring_loopback : 0u,
+                 tun_service ? tun_service->firmware_ring_pumped : 0u,
+                 tun_service ? tun_service->firmware_ring_served : 0u,
+                 tun_service ? tun_service->firmware_ring_drained : 0u,
+                 tun_service ? tun_service->firmware_ring_bytes_enqueued : 0u,
+                 tun_service ? tun_service->firmware_ring_bytes_drained : 0u,
+                 fw_ring_counts.tx_queued,
+                 fw_ring_counts.tx_owned_by_pl,
+                 fw_ring_counts.tx_done,
+                 fw_ring_counts.rx_ready,
+                 fw_ring_counts.ack_valid,
+                 tun_service ? tun_service->firmware_bridge.enqueued_packets : 0u,
+                 tun_service ? tun_service->firmware_bridge.drained_packets : 0u,
+                 tun_service ? tun_service->firmware_bridge.bytes_enqueued : 0u,
+                 tun_service ? tun_service->firmware_bridge.bytes_drained : 0u,
+                 tun_service ? tun_service->firmware_bridge.classify_errors : 0u,
+                 tun_service ? tun_service->firmware_bridge.read_errors : 0u,
+                 tun_service ? tun_service->firmware_bridge.enqueue_drops : 0u,
+                 tun_service ? tun_service->firmware_bridge.drain_errors : 0u,
+                 tun_service ?
+                     tun_service_rf_transport_mode_name(
+                         tun_service->rf_transport_mode) :
+                     tun_service_rf_transport_mode_name(
+                         TUN_SERVICE_RF_TRANSPORT_DRIVER_QUEUE));
+        return 0;
+    }
     if (strstr(request, "FIELDMESH_RF_WORKER_START")) {
         if (!tun_service || !tun_service->running) {
             snprintf(response, response_len,

@@ -172,6 +172,53 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(
             f"{label}: firmware/FPGA production data-plane requirement is missing"
         )
+    if report.get("iio_bridge_native_ip_fw_dma_data_plane_required") is not True:
+        errors.append(f"{label}: native-IP firmware-DMA data-plane proof is not required")
+    if report.get("iio_bridge_native_ip_fw_dma_data_plane_proven") is not True:
+        errors.append(f"{label}: native-IP firmware-DMA data-plane proof is missing")
+    fw_dma_status = report.get("iio_bridge_native_ip_fw_dma_data_plane_status")
+    if not isinstance(fw_dma_status, dict) or not fw_dma_status:
+        errors.append(f"{label}: native-IP firmware-DMA data-plane status is missing")
+    else:
+        for endpoint, status in fw_dma_status.items():
+            if not isinstance(status, dict):
+                errors.append(f"{label}: firmware-DMA status for {endpoint} is not an object")
+                continue
+            expected = {
+                "native_ip_fw_dma_data_plane": 1,
+                "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1",
+                "native_ip_production_data_plane": 1,
+                "production_data_plane_owner": "firmware_dma_c_fpga",
+                "performance_critical_pipeline_owner": "c_firmware_fpga",
+                "python_performance_critical_pipeline": 0,
+                "python_production_data_plane": 0,
+                "iio_hil_transfer_glue_only": 1,
+                "iio_hil_production_data_plane": 0,
+                "helper_backed_libiio_transfer_executor": 0,
+                "firmware_packet_bridge": 1,
+                "firmware_tun_bridge": 1,
+                "firmware_tun_bridge_proof": "FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1",
+                "hot_path_language": "c",
+                "uses_json_on_air": 0,
+                "uses_iio_hil_helper_as_data_plane": 0,
+            }
+            for key, expected_value in expected.items():
+                if status.get(key) != expected_value:
+                    errors.append(
+                        f"{label}: firmware-DMA {endpoint} {key}="
+                        f"{status.get(key)!r} expected {expected_value!r}"
+                    )
+            if status.get("ok") is not True:
+                errors.append(f"{label}: firmware-DMA {endpoint} status is not ok")
+            if status.get("next_boundary") != "firmware_dma_descriptor_worker":
+                errors.append(
+                    f"{label}: firmware-DMA {endpoint} boundary is "
+                    f"{status.get('next_boundary')!r}"
+                )
+    if not _positive_number(report, "iio_bridge_native_ip_fw_dma_data_plane_status_polls"):
+        errors.append(f"{label}: firmware-DMA data-plane status was not polled")
+    if report.get("iio_bridge_native_ip_fw_dma_data_plane_failures") not in (0, 0.0):
+        errors.append(f"{label}: firmware-DMA data-plane status had failures")
     if report.get("iio_bridge_rf_service_policy_proven") is not True:
         errors.append(f"{label}: IIO RF service policy C proof is missing")
     if report.get("iio_bridge_rf_service_policy_native_c") is not True:
@@ -1847,6 +1894,36 @@ def main() -> int:
         ),
         "host_iio_bridge_firmware_fpga_production_data_plane_required": host.get(
             "iio_bridge_firmware_fpga_production_data_plane_required"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_required": board.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_required"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_required": host.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_required"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_proven": board.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_proven"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_proven": host.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_proven"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_status_polls": board.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_status_polls"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_status_polls": host.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_status_polls"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_failures": board.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_failures"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_failures": host.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_failures"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_status": board.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_status"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_status": host.get(
+            "iio_bridge_native_ip_fw_dma_data_plane_status"
         ),
         "board_iio_bridge_persistent_burst_helper": board.get(
             "iio_bridge_persistent_burst_helper"

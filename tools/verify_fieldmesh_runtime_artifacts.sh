@@ -482,6 +482,11 @@ PY
         FIELDMESH_IIO_TRANSPORT_DAEMON_EXECUTE \
         FIELDMESH_IIO_TRANSPORT_LIBIIO_TRANSFER_WORKER \
         FIELDMESH_IIO_TRANSPORT_DIRECT_TRANSFER_WORKER \
+        FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE \
+        FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE \
+        native_ip_fw_dma_data_plane \
+        firmware_dma_c_fpga \
+        uses_iio_hil_helper_as_data_plane \
         state_daemon_iio_libiio_transfer_worker \
         state_daemon_direct_libiio_transfer_worker \
         helper_backed_libiio_transfer_executor \

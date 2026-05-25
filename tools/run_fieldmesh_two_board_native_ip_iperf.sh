@@ -3441,6 +3441,21 @@ report = {
     "iio_bridge_native_service_loop_worker_status": (
         last_iio_bridge.get("native_service_loop_worker_status") or {}
     ),
+    "iio_bridge_native_ip_fw_dma_data_plane_required": bool(
+        last_iio_bridge.get("native_ip_fw_dma_data_plane_required")
+    ),
+    "iio_bridge_native_ip_fw_dma_data_plane_proven": bool(
+        last_iio_bridge.get("native_ip_fw_dma_data_plane_proven")
+    ),
+    "iio_bridge_native_ip_fw_dma_data_plane_status_polls": int(
+        last_iio_bridge.get("native_ip_fw_dma_data_plane_status_polls") or 0
+    ),
+    "iio_bridge_native_ip_fw_dma_data_plane_failures": int(
+        last_iio_bridge.get("native_ip_fw_dma_data_plane_failures") or 0
+    ),
+    "iio_bridge_native_ip_fw_dma_data_plane_status": (
+        last_iio_bridge.get("native_ip_fw_dma_data_plane_status") or {}
+    ),
     "iio_bridge_native_direction_scheduler_enabled": bool(
         last_iio_bridge.get("native_direction_scheduler_enabled")
     ),

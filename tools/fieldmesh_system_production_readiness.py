@@ -449,6 +449,10 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 is True
             )
+            detail[f"native_ip_{side}_iio_bridge_native_ip_fw_dma_data_plane_proven"] = (
+                native_ip.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_proven")
+                is True
+            )
         detail["native_ip_board_iio_bridge_persistent_burst_helper"] = (
             native_ip.get("board_iio_bridge_persistent_burst_helper") is True
         )
@@ -1069,6 +1073,21 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                     blockers.append(
                         f"native_ip_{side}_firmware_fpga_data_plane_guardrail_missing"
                     )
+                if (
+                    native_ip.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_required")
+                    is not True
+                ):
+                    blockers.append(f"native_ip_{side}_fw_dma_data_plane_not_required")
+                if (
+                    native_ip.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_proven")
+                    is not True
+                ):
+                    blockers.append(f"native_ip_{side}_fw_dma_data_plane_not_proven")
+                if (
+                    native_ip.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_failures")
+                    not in (0, 0.0)
+                ):
+                    blockers.append(f"native_ip_{side}_fw_dma_data_plane_status_failed")
             if native_ip.get("board_iio_bridge_persistent_burst_helper") is not True:
                 blockers.append("native_ip_board_iio_persistent_burst_helper_missing")
             if native_ip.get("host_iio_bridge_persistent_burst_helper") is not True:

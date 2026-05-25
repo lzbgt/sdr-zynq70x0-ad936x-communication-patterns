@@ -111,6 +111,21 @@ def query_iio_transport_execute_once():
         raise SystemExit("daemon did not answer IIO transport daemon execute")
     replies.append(json.loads(data.decode("utf-8")))
 
+def query_native_ip_fw_dma_data_plane_once():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    try:
+        sock.sendto(
+            b"FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS v1",
+            ("127.0.0.1", port),
+        )
+        data, _ = sock.recvfrom(4096)
+    finally:
+        sock.close()
+    if b'"event":"sdk_daemon_native_ip_fw_dma_data_plane_status"' not in data:
+        raise SystemExit("daemon did not answer native-IP firmware-DMA data-plane status")
+    replies.append(json.loads(data.decode("utf-8")))
+
 def query_modem_profile_decision_once():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
@@ -136,6 +151,7 @@ query_modem_profile_decision_once()
 query_iio_transport_start_once()
 query_iio_transport_enqueue_once()
 query_iio_transport_execute_once()
+query_native_ip_fw_dma_data_plane_once()
 query_iio_transport_once()
 time.sleep(0.6)
 query_once()
@@ -210,12 +226,18 @@ iio_transport_executes = [
     row for row in replies
     if row.get("event") == "sdk_daemon_iio_transport_daemon_execute"
 ]
+native_ip_fw_dma_data_planes = [
+    row for row in replies
+    if row.get("event") == "sdk_daemon_native_ip_fw_dma_data_plane_status"
+]
 if len(iio_transport_starts) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon start")
 if len(iio_transport_enqueues) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon enqueue")
 if len(iio_transport_executes) != 1:
     raise SystemExit("daemon did not answer IIO transport daemon execute")
+if len(native_ip_fw_dma_data_planes) != 1:
+    raise SystemExit("daemon did not answer native-IP firmware-DMA data-plane status")
 policy = policy_replies[0]
 expected = {
     "ok": True,
@@ -466,6 +488,46 @@ for key, value in expected_execute.items():
         raise SystemExit(f"IIO transport daemon execute {key} mismatch: {execute}")
 if execute.get("state_daemon_libiio_execution_count") != 1:
     raise SystemExit(f"IIO transport daemon execute count mismatch: {execute}")
+fw_dma = native_ip_fw_dma_data_planes[0]
+expected_fw_dma = {
+    "ok": True,
+    "native_ip_fw_dma_data_plane": 1,
+    "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1",
+    "native_ip_production_data_plane": 1,
+    "production_data_plane_owner": "firmware_dma_c_fpga",
+    "performance_critical_pipeline_owner": "c_firmware_fpga",
+    "python_pipeline_role": "test_glue",
+    "python_performance_critical_pipeline": 0,
+    "python_production_data_plane": 0,
+    "iio_hil_transfer_glue_only": 1,
+    "iio_hil_production_data_plane": 0,
+    "helper_backed_libiio_transfer_executor": 0,
+    "firmware_packet_bridge": 1,
+    "firmware_tun_bridge": 1,
+    "firmware_tun_bridge_proof": "FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1",
+    "firmware_ring_supported": 1,
+    "hot_path_language": "c",
+    "uses_json_on_air": 0,
+    "uses_iio_hil_helper_as_data_plane": 0,
+    "rf_transport_mode": "driver_queue",
+    "starts_rf_tx": 0,
+    "writes_hardware": 0,
+    "commands_executed": 0,
+    "next_boundary": "firmware_dma_descriptor_worker",
+}
+for key, value in expected_fw_dma.items():
+    if fw_dma.get(key) != value:
+        raise SystemExit(f"native-IP firmware-DMA data-plane {key} mismatch: {fw_dma}")
+for key in (
+    "firmware_bridge_enqueued_packets",
+    "firmware_bridge_drained_packets",
+    "firmware_bridge_bytes_enqueued",
+    "firmware_bridge_bytes_drained",
+    "firmware_ring_bytes_enqueued",
+    "firmware_ring_bytes_drained",
+):
+    if not isinstance(fw_dma.get(key), int):
+        raise SystemExit(f"native-IP firmware-DMA data-plane {key} missing: {fw_dma}")
 PY
 
 echo "fieldmesh_state_daemon_forever_check=pass"

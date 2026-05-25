@@ -673,6 +673,63 @@ except SystemExit:
 else:
     raise SystemExit("state-daemon IIO transport validator accepted helper-only status")
 captured = {}
+def fw_dma_status_request(host, port, text, timeout_ms):
+    captured["text"] = text
+    return {
+        "event": "sdk_daemon_native_ip_fw_dma_data_plane_status",
+        "ok": True,
+        "native_ip_fw_dma_data_plane": 1,
+        "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1",
+        "native_ip_production_data_plane": 1,
+        "production_data_plane_owner": "firmware_dma_c_fpga",
+        "performance_critical_pipeline_owner": "c_firmware_fpga",
+        "python_pipeline_role": "test_glue",
+        "python_performance_critical_pipeline": 0,
+        "python_production_data_plane": 0,
+        "iio_hil_transfer_glue_only": 1,
+        "iio_hil_production_data_plane": 0,
+        "helper_backed_libiio_transfer_executor": 0,
+        "firmware_packet_bridge": 1,
+        "firmware_tun_bridge": 1,
+        "firmware_tun_bridge_proof": "FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1",
+        "firmware_ring_supported": 1,
+        "firmware_ring_enabled": 1,
+        "firmware_ring_mapped": 1,
+        "firmware_ring_pumped": 1,
+        "firmware_ring_served": 1,
+        "firmware_ring_drained": 1,
+        "firmware_bridge_enqueued_packets": 1,
+        "firmware_bridge_drained_packets": 1,
+        "firmware_bridge_bytes_enqueued": 384,
+        "firmware_bridge_bytes_drained": 384,
+        "hot_path_language": "c",
+        "uses_json_on_air": 0,
+        "uses_iio_hil_helper_as_data_plane": 0,
+        "rf_transport_mode": "driver_queue",
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "firmware_dma_descriptor_worker",
+    }
+bridge.request_daemon = fw_dma_status_request
+try:
+    fw_dma_status = loop.native_ip_fw_dma_data_plane_status("127.0.0.1", 55441, 10)
+finally:
+    bridge.request_daemon = original_request
+if captured.get("text") != "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS v1":
+    raise SystemExit(
+        f"native-IP firmware-DMA data-plane proof must use daemon status command: {captured}"
+    )
+loop.validate_native_ip_fw_dma_data_plane(fw_dma_status, "z203")
+bad_fw_dma = dict(fw_dma_status)
+bad_fw_dma["python_performance_critical_pipeline"] = 1
+try:
+    loop.validate_native_ip_fw_dma_data_plane(bad_fw_dma, "z203")
+except SystemExit:
+    pass
+else:
+    raise SystemExit("native-IP firmware-DMA validator accepted Python data-plane ownership")
+captured = {}
 def iio_transport_start_request(host, port, text, timeout_ms):
     captured["text"] = text
     report = iio_transport_status_request(host, port, text, timeout_ms)

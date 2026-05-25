@@ -89,6 +89,26 @@ def blockers_from_sequence(report: dict[str, Any]) -> list[str]:
                 is not True
             ):
                 blockers.append(f"native_ip_{side}_firmware_fpga_data_plane_guardrail_missing")
+            if (
+                report.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_required")
+                is not True
+            ):
+                blockers.append(f"native_ip_{side}_fw_dma_data_plane_not_required")
+            if (
+                report.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_proven")
+                is not True
+            ):
+                blockers.append(f"native_ip_{side}_fw_dma_data_plane_not_proven")
+            if not isinstance(
+                report.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_status"),
+                dict,
+            ):
+                blockers.append(f"native_ip_{side}_fw_dma_data_plane_status_missing")
+            if (
+                report.get(f"{side}_iio_bridge_native_ip_fw_dma_data_plane_failures")
+                not in (0, 0.0)
+            ):
+                blockers.append(f"native_ip_{side}_fw_dma_data_plane_status_failed")
         if report.get("board_iio_ack_pipeline_exercised") is not True:
             blockers.append("native_ip_board_iio_ack_pipeline_not_exercised")
         if report.get("host_iio_ack_pipeline_exercised") is not True:
@@ -780,6 +800,18 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         ),
         "host_iio_bridge_firmware_fpga_production_data_plane_required": report.get(
             "host_iio_bridge_firmware_fpga_production_data_plane_required"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_required": report.get(
+            "board_iio_bridge_native_ip_fw_dma_data_plane_required"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_required": report.get(
+            "host_iio_bridge_native_ip_fw_dma_data_plane_required"
+        ),
+        "board_iio_bridge_native_ip_fw_dma_data_plane_proven": report.get(
+            "board_iio_bridge_native_ip_fw_dma_data_plane_proven"
+        ),
+        "host_iio_bridge_native_ip_fw_dma_data_plane_proven": report.get(
+            "host_iio_bridge_native_ip_fw_dma_data_plane_proven"
         ),
         "board_iio_bridge_persistent_burst_helper": report.get(
             "board_iio_bridge_persistent_burst_helper"

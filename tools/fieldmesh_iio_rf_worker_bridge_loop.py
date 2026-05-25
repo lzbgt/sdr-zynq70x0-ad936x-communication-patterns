@@ -590,6 +590,25 @@ def iio_transport_daemon_status(host: str, port: int, timeout_ms: int) -> dict[s
     return report
 
 
+def native_ip_fw_dma_data_plane_status(
+    host: str,
+    port: int,
+    timeout_ms: int,
+) -> dict[str, Any]:
+    report = bridge.request_daemon(
+        host,
+        port,
+        "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS v1",
+        timeout_ms,
+    )
+    if report.get("event") != "sdk_daemon_native_ip_fw_dma_data_plane_status":
+        raise SystemExit(
+            "expected sdk_daemon_native_ip_fw_dma_data_plane_status, "
+            f"got {report.get('event')!r}"
+        )
+    return report
+
+
 def iio_transport_daemon_start(host: str, port: int, timeout_ms: int) -> dict[str, Any]:
     report = bridge.request_daemon(
         host,
@@ -789,6 +808,64 @@ def validate_iio_transport_daemon_boundary(
     if errors:
         raise SystemExit(
             f"{label} state-daemon IIO transport boundary invalid: "
+            + "; ".join(errors)
+        )
+
+
+def validate_native_ip_fw_dma_data_plane(
+    report: dict[str, Any],
+    label: str,
+) -> None:
+    expected = {
+        "ok": True,
+        "native_ip_fw_dma_data_plane": 1,
+        "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1",
+        "native_ip_production_data_plane": 1,
+        "production_data_plane_owner": "firmware_dma_c_fpga",
+        "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
+        "python_pipeline_role": PYTHON_PIPELINE_ROLE,
+        "python_performance_critical_pipeline": 0,
+        "python_production_data_plane": 0,
+        "iio_hil_transfer_glue_only": 1,
+        "iio_hil_production_data_plane": 0,
+        "helper_backed_libiio_transfer_executor": 0,
+        "firmware_packet_bridge": 1,
+        "firmware_tun_bridge": 1,
+        "firmware_tun_bridge_proof": "FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1",
+        "firmware_ring_supported": 1,
+        "hot_path_language": "c",
+        "uses_json_on_air": 0,
+        "uses_iio_hil_helper_as_data_plane": 0,
+        "starts_rf_tx": 0,
+        "writes_hardware": 0,
+        "commands_executed": 0,
+        "next_boundary": "firmware_dma_descriptor_worker",
+    }
+    errors = [
+        f"{key}={report.get(key)!r} expected {expected_value!r}"
+        for key, expected_value in expected.items()
+        if report.get(key) != expected_value
+    ]
+    for key in (
+        "firmware_ring_enabled",
+        "firmware_ring_mapped",
+        "firmware_ring_pumped",
+        "firmware_ring_served",
+        "firmware_ring_drained",
+        "firmware_bridge_enqueued_packets",
+        "firmware_bridge_drained_packets",
+        "firmware_bridge_bytes_enqueued",
+        "firmware_bridge_bytes_drained",
+    ):
+        if not isinstance(report.get(key), int):
+            errors.append(f"{key}={report.get(key)!r} expected integer")
+    if report.get("rf_transport_mode") != "driver_queue":
+        errors.append(
+            f"rf_transport_mode={report.get('rf_transport_mode')!r} expected driver_queue"
+        )
+    if errors:
+        raise SystemExit(
+            f"{label} native-IP firmware-DMA data plane invalid: "
             + "; ".join(errors)
         )
 
@@ -2667,6 +2744,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "native_service_loop_worker_starts": 0,
         "native_service_loop_worker_status_polls": 0,
         "native_service_loop_worker_failures": 0,
+        "native_ip_fw_dma_data_plane_status_polls": 0,
+        "native_ip_fw_dma_data_plane_failures": 0,
         "state_daemon_iio_transport_status_polls": 0,
         "state_daemon_iio_transport_status_failures": 0,
         "state_daemon_iio_transport_starts": 0,
@@ -2704,6 +2783,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     iio_transport_start_by_endpoint: dict[str, dict[str, Any]] = {}
     native_service_loop_start_by_endpoint: dict[str, dict[str, Any]] = {}
     native_service_loop_status_by_endpoint: dict[str, dict[str, Any]] = {}
+    native_ip_fw_dma_data_plane_by_endpoint: dict[str, dict[str, Any]] = {}
     native_scheduler_status_by_direction: dict[str, dict[str, Any]] = {}
     native_direction_decision_by_direction: dict[str, dict[str, Any]] = {}
     native_service_loop_tick_by_direction: dict[str, dict[str, Any]] = {}
@@ -2903,6 +2983,44 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 native_service_loop_start_by_endpoint
             ),
             "native_service_loop_worker_status": native_service_loop_status_by_endpoint,
+            "native_ip_fw_dma_data_plane_required": bool(
+                args.execute_live_rf
+                and args.native_service_burst_leases
+                and args.require_native_rf_service_worker
+            ),
+            "native_ip_fw_dma_data_plane_proven": bool(
+                native_ip_fw_dma_data_plane_by_endpoint
+                and all(
+                    status.get("native_ip_fw_dma_data_plane") == 1
+                    and status.get("native_ip_fw_dma_data_plane_proof")
+                    == "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1"
+                    and status.get("native_ip_production_data_plane") == 1
+                    and status.get("production_data_plane_owner")
+                    == "firmware_dma_c_fpga"
+                    and status.get("performance_critical_pipeline_owner")
+                    == PERFORMANCE_CRITICAL_PIPELINE_OWNER
+                    and status.get("python_performance_critical_pipeline") == 0
+                    and status.get("python_production_data_plane") == 0
+                    and status.get("iio_hil_transfer_glue_only") == 1
+                    and status.get("iio_hil_production_data_plane") == 0
+                    and status.get("helper_backed_libiio_transfer_executor") == 0
+                    and status.get("firmware_packet_bridge") == 1
+                    and status.get("firmware_tun_bridge") == 1
+                    and status.get("firmware_tun_bridge_proof")
+                    == "FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1"
+                    and status.get("hot_path_language") == "c"
+                    and status.get("uses_json_on_air") == 0
+                    and status.get("uses_iio_hil_helper_as_data_plane") == 0
+                    for status in native_ip_fw_dma_data_plane_by_endpoint.values()
+                )
+            ),
+            "native_ip_fw_dma_data_plane_status_polls": counts[
+                "native_ip_fw_dma_data_plane_status_polls"
+            ],
+            "native_ip_fw_dma_data_plane_failures": counts[
+                "native_ip_fw_dma_data_plane_failures"
+            ],
+            "native_ip_fw_dma_data_plane_status": native_ip_fw_dma_data_plane_by_endpoint,
             "state_daemon_iio_transport_required": bool(
                 args.execute_live_rf
                 and args.native_service_burst_leases
@@ -3631,6 +3749,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             status = rf_worker_status(host, port, status_timeout_ms)
             validate_native_worker_boundary(status, label, args)
             native_worker_status_by_endpoint[label] = status
+            fw_dma_status = native_ip_fw_dma_data_plane_status(
+                host, port, status_timeout_ms
+            )
+            validate_native_ip_fw_dma_data_plane(fw_dma_status, label)
+            native_ip_fw_dma_data_plane_by_endpoint[label] = fw_dma_status
+            counts["native_ip_fw_dma_data_plane_status_polls"] += 1
             try:
                 loop_start = rf_service_loop_start(host, port, status_timeout_ms)
                 validate_native_service_loop_worker(
@@ -3656,6 +3780,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 counts["state_daemon_iio_transport_status_polls"] += 1
             except (TimeoutError, SystemExit):
                 counts["native_service_loop_worker_failures"] += 1
+                counts["native_ip_fw_dma_data_plane_failures"] += 1
                 counts["state_daemon_iio_transport_status_failures"] += 1
                 raise
         write_progress()
@@ -4479,6 +4604,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 native_service_loop_status_by_endpoint[label] = loop_status
                 counts["native_service_loop_worker_status_polls"] += 1
+                fw_dma_status = native_ip_fw_dma_data_plane_status(
+                    host, port, status_timeout_ms
+                )
+                validate_native_ip_fw_dma_data_plane(fw_dma_status, label)
+                native_ip_fw_dma_data_plane_by_endpoint[label] = fw_dma_status
+                counts["native_ip_fw_dma_data_plane_status_polls"] += 1
                 iio_transport_status = iio_transport_daemon_status(
                     host, port, status_timeout_ms
                 )
@@ -4497,6 +4628,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 counts["state_daemon_iio_transport_status_polls"] += 1
             except (TimeoutError, SystemExit):
                 counts["native_service_loop_worker_failures"] += 1
+                counts["native_ip_fw_dma_data_plane_failures"] += 1
                 counts["state_daemon_iio_transport_status_failures"] += 1
                 if args.stop_on_error:
                     raise
