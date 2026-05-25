@@ -3229,6 +3229,28 @@ report = {
     "iio_bridge_phy_adaptive_mcs_decision_failures": int(
         last_iio_bridge.get("phy_adaptive_mcs_decision_failures") or 0
     ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_selection": str(
+        last_iio_bridge.get("phy_adaptive_mcs_pre_burst_selection") or ""
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_selection_by_direction": (
+        last_iio_bridge.get("phy_adaptive_mcs_pre_burst_selection_by_direction")
+        or {}
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": bool(
+        last_iio_bridge.get("phy_adaptive_mcs_pre_burst_live_quality_bound")
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction": (
+        last_iio_bridge.get(
+            "phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction"
+        )
+        or {}
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls": int(
+        last_iio_bridge.get("phy_adaptive_mcs_pre_burst_selection_polls") or 0
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_selection_failures": int(
+        last_iio_bridge.get("phy_adaptive_mcs_pre_burst_selection_failures") or 0
+    ),
     "iio_bridge_state_daemon_iio_transport_enqueue_failures": int(
         last_iio_bridge.get("state_daemon_iio_transport_enqueue_failures") or 0
     ),

@@ -801,6 +801,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_phy_adaptive_mcs_decision_polls": report.get(
             "host_iio_bridge_phy_adaptive_mcs_decision_polls"
         ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"
+        ),
         "board_iio_bridge_in_burst_priority_preemption_enabled": report.get(
             "board_iio_bridge_in_burst_priority_preemption_enabled"
         ),

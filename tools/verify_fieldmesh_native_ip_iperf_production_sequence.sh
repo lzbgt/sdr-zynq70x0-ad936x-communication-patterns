@@ -124,6 +124,12 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_phy_adaptive_mcs_quality_by_direction": {"z203_to_z103": {"primary_decode_attempts": 4, "primary_decode_successes": 4, "primary_crc_failures": 0, "retry_decode_attempts": 0, "retry_decode_successes": 0, "retry_crc_failures": 0}, "z103_to_z203": {"primary_decode_attempts": 4, "primary_decode_successes": 4, "primary_crc_failures": 0, "retry_decode_attempts": 0, "retry_decode_successes": 0, "retry_crc_failures": 0}},
   "iio_bridge_phy_adaptive_mcs_decision_polls": 8,
   "iio_bridge_phy_adaptive_mcs_decision_failures": 0,
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection": "fast_primary",
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection_by_direction": {"z203_to_z103": "fast_primary", "z103_to_z203": "fast_primary"},
+  "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": true,
+  "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction": {"z203_to_z103": true, "z103_to_z203": true},
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls": 8,
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection_failures": 0,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
@@ -451,6 +457,12 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_phy_adaptive_mcs_quality_by_direction": {"z203_to_z103": {"primary_decode_attempts": 4, "primary_decode_successes": 4, "primary_crc_failures": 0, "retry_decode_attempts": 0, "retry_decode_successes": 0, "retry_crc_failures": 0}, "z103_to_z203": {"primary_decode_attempts": 4, "primary_decode_successes": 4, "primary_crc_failures": 0, "retry_decode_attempts": 0, "retry_decode_successes": 0, "retry_crc_failures": 0}},
   "iio_bridge_phy_adaptive_mcs_decision_polls": 8,
   "iio_bridge_phy_adaptive_mcs_decision_failures": 0,
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection": "fast_primary",
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection_by_direction": {"z203_to_z103": "fast_primary", "z103_to_z203": "fast_primary"},
+  "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": true,
+  "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction": {"z203_to_z103": true, "z103_to_z203": true},
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls": 8,
+  "iio_bridge_phy_adaptive_mcs_pre_burst_selection_failures": 0,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {

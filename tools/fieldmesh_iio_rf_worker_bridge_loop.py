@@ -1309,6 +1309,48 @@ def adaptive_mcs_decision_by_direction(
     return decision_by_direction
 
 
+def adaptive_mcs_pre_burst_selection_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, str]:
+    selection_by_direction: dict[str, str] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        selections = [
+            str(frame.get("adaptive_mcs_pre_burst_selection") or "")
+            for frame in frames
+            if frame.get("direction") == name
+            and not frame.get("filtered_frames")
+            and frame.get("adaptive_mcs_pre_burst_selection")
+        ]
+        selection_by_direction[key] = selections[-1] if selections else ""
+    return selection_by_direction
+
+
+def adaptive_mcs_pre_burst_quality_bound_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, bool]:
+    bound_by_direction: dict[str, bool] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        direction_frames = [
+            frame
+            for frame in frames
+            if frame.get("direction") == name and not frame.get("filtered_frames")
+        ]
+        bound_by_direction[key] = bool(
+            direction_frames
+            and any(
+                frame.get("adaptive_mcs_pre_burst_live_quality_bound") is True
+                for frame in direction_frames
+            )
+        )
+    return bound_by_direction
+
+
 def adaptive_mcs_quality_bound_by_direction(
     frames: list[dict[str, Any]],
     directions: list[dict[str, Any]],
@@ -1591,6 +1633,7 @@ def run_batch(
     skip_rf_config: bool,
     cyclic_capture_periods: int,
     defer_source_ack: bool,
+    prior_modem_quality: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     frame_dir = args.out_dir / f"batch-{index:04d}-{direction['name']}"
@@ -1726,17 +1769,60 @@ def run_batch(
         primary_samples_per_symbol,
         primary_bit_repeat,
     )
+    pre_burst_mcs_decision_report: dict[str, Any] = {}
+    pre_burst_mcs_decision = "hold"
+    pre_burst_mcs_selection = "fast_primary"
+    pre_burst_mcs_profile_source = "default_primary"
+    if args.execute_live_rf:
+        pre_burst_quality = prior_modem_quality or {
+            "primary_decode_attempts": 0,
+            "primary_decode_successes": 0,
+            "primary_crc_failures": 0,
+            "retry_decode_attempts": 0,
+            "retry_decode_successes": 0,
+            "retry_crc_failures": 0,
+        }
+        pre_burst_mcs_decision_report = rf_modem_profile_decision(
+            direction["source_host"],
+            direction["source_port"],
+            min(args.daemon_timeout_ms, max(args.lease_timeout_ms, 250)),
+            primary_raw_bitrate_bps,
+            primary_raw_bitrate_bps,
+            pre_burst_quality,
+        )
+        pre_burst_mcs_decision = str(
+            pre_burst_mcs_decision_report.get("decision") or "hold"
+        )
+        pre_burst_mcs_profile_source = "daemon_live_quality"
+        if (
+            pre_burst_mcs_decision == "retry_fallback"
+            and modem_retry_configured(args, direction["name"])
+        ):
+            pre_burst_mcs_selection = "retry_fallback"
+        else:
+            pre_burst_mcs_selection = "fast_primary"
     effective_samples_per_symbol = primary_samples_per_symbol
     effective_bit_repeat = primary_bit_repeat
+    first_attempt_label = "primary"
+    if pre_burst_mcs_selection == "retry_fallback":
+        effective_samples_per_symbol = (
+            direction_retry_samples_per_symbol(args, direction["name"])
+            or effective_samples_per_symbol
+        )
+        effective_bit_repeat = (
+            direction_retry_bit_repeat(args, direction["name"])
+            or effective_bit_repeat
+        )
+        first_attempt_label = "retry-modem-preselect"
     iq_report, iq_report_path, plan, plan_path, run_report, run_args = execute_iq_attempt(
-        "primary",
+        first_attempt_label,
         effective_samples_per_symbol,
         effective_bit_repeat,
         cyclic_capture_periods,
     )
     run_attempts = [
         {
-            "label": "primary",
+            "label": first_attempt_label,
             "samples_per_symbol": effective_samples_per_symbol,
             "bit_repeat": effective_bit_repeat,
             "cyclic_capture_periods": cyclic_capture_periods,
@@ -1895,6 +1981,22 @@ def run_batch(
         "effective_raw_bitrate_bps": selected_raw_bitrate_bps,
         "modem_retry_used": modem_retry_used,
         "primary_modem_decode_ok": primary_modem_decode_ok,
+        "adaptive_mcs_pre_burst_decision_report": pre_burst_mcs_decision_report,
+        "adaptive_mcs_pre_burst_decision": pre_burst_mcs_decision,
+        "adaptive_mcs_pre_burst_selection": pre_burst_mcs_selection,
+        "adaptive_mcs_pre_burst_profile_source": pre_burst_mcs_profile_source,
+        "adaptive_mcs_pre_burst_decision_native_c": bool(
+            pre_burst_mcs_decision_report.get(
+                "adaptive_modem_profile_measured_quality_native_c"
+            )
+        ),
+        "adaptive_mcs_pre_burst_live_quality_bound": bool(
+            pre_burst_mcs_decision_report.get("ok") is True
+            and pre_burst_mcs_decision_report.get("quality_ready") == 1
+        ),
+        "adaptive_mcs_pre_burst_profile_switched": bool(
+            pre_burst_mcs_selection == "retry_fallback"
+        ),
         "adaptive_mcs_quality": modem_quality,
         "adaptive_mcs_decision_report": adaptive_mcs_decision_report,
         "adaptive_mcs_decision": str(
@@ -2126,6 +2228,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "adaptive_status_failures": 0,
         "adaptive_mcs_decision_polls": 0,
         "adaptive_mcs_decision_failures": 0,
+        "adaptive_mcs_pre_burst_selection_polls": 0,
+        "adaptive_mcs_pre_burst_selection_failures": 0,
         "native_direction_scheduler_status_polls": 0,
         "native_direction_scheduler_status_failures": 0,
         "native_bidirectional_direction_decision_polls": 0,
@@ -2235,6 +2339,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         fast_primary_decode = fast_primary_decode_by_direction(frames, directions, args)
         retry_used = modem_retry_used_by_direction(frames, directions)
         adaptive_mcs_decisions = adaptive_mcs_decision_by_direction(frames, directions)
+        adaptive_mcs_pre_burst_selections = adaptive_mcs_pre_burst_selection_by_direction(
+            frames,
+            directions,
+        )
+        adaptive_mcs_pre_burst_quality_bound = (
+            adaptive_mcs_pre_burst_quality_bound_by_direction(frames, directions)
+        )
         adaptive_mcs_quality_bound = adaptive_mcs_quality_bound_by_direction(
             frames,
             directions,
@@ -2536,6 +2647,37 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "phy_adaptive_mcs_decision_failures": counts[
                 "adaptive_mcs_decision_failures"
             ],
+            "phy_adaptive_mcs_pre_burst_selection_by_direction": (
+                adaptive_mcs_pre_burst_selections
+            ),
+            "phy_adaptive_mcs_pre_burst_selection": (
+                "fast_primary"
+                if adaptive_mcs_pre_burst_selections
+                and all(
+                    selection == "fast_primary"
+                    for selection in adaptive_mcs_pre_burst_selections.values()
+                )
+                else "retry_fallback"
+                if any(
+                    selection == "retry_fallback"
+                    for selection in adaptive_mcs_pre_burst_selections.values()
+                )
+                else "hold"
+            ),
+            "phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction": (
+                adaptive_mcs_pre_burst_quality_bound
+            ),
+            "phy_adaptive_mcs_pre_burst_live_quality_bound": bool(
+                args.execute_live_rf
+                and adaptive_mcs_pre_burst_quality_bound
+                and all(adaptive_mcs_pre_burst_quality_bound.values())
+            ),
+            "phy_adaptive_mcs_pre_burst_selection_polls": counts[
+                "adaptive_mcs_pre_burst_selection_polls"
+            ],
+            "phy_adaptive_mcs_pre_burst_selection_failures": counts[
+                "adaptive_mcs_pre_burst_selection_failures"
+            ],
             "cyclic_capture_periods": args.cyclic_capture_periods,
             "cyclic_capture_retry_periods": args.cyclic_capture_retry_periods,
             "modem": {
@@ -2822,6 +2964,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         frame_summary["adaptive_mcs_high_rate_proven"] = bool(
             decision.get("high_rate_proven") == 1
         )
+
+    def record_pre_burst_mcs_selection(report: dict[str, Any]) -> None:
+        if report.get("adaptive_mcs_pre_burst_decision_native_c") is True:
+            counts["adaptive_mcs_pre_burst_selection_polls"] += 1
 
     write_progress()
     preloaded_lease = load_json(args.leased_frame_report) if args.leased_frame_report else None
@@ -3188,7 +3334,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             and direction["name"] in configured_directions,
                             cyclic_capture_periods=direction_capture_periods[direction["name"]],
                             defer_source_ack=False,
+                            prior_modem_quality=aggregate_modem_quality(
+                                frames,
+                                direction["name"],
+                            ),
                         )
+                        record_pre_burst_mcs_selection(report)
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
                         record_native_iio_burst_worker(report)
                         record_batch_high_water(direction["name"], len(batch_frames))
@@ -3214,6 +3365,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
                             "modem_retry_used": report.get("modem_retry_used"),
                             "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
+                            "adaptive_mcs_pre_burst_decision": report.get(
+                                "adaptive_mcs_pre_burst_decision"
+                            ),
+                            "adaptive_mcs_pre_burst_selection": report.get(
+                                "adaptive_mcs_pre_burst_selection"
+                            ),
+                            "adaptive_mcs_pre_burst_live_quality_bound": report.get(
+                                "adaptive_mcs_pre_burst_live_quality_bound"
+                            ),
                             "adaptive_mcs_quality": report.get("adaptive_mcs_quality"),
                             "adaptive_mcs_decision": report.get("adaptive_mcs_decision"),
                             "adaptive_mcs_decision_live_quality_bound": report.get(
@@ -3370,7 +3530,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             and direction["name"] in configured_directions,
                             cyclic_capture_periods=direction_capture_periods[direction["name"]],
                             defer_source_ack=bool(args.async_source_ack and args.execute_live_rf),
+                            prior_modem_quality=aggregate_modem_quality(
+                                frames,
+                                direction["name"],
+                            ),
                         )
+                        record_pre_burst_mcs_selection(report)
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
                         record_native_iio_burst_worker(report)
                         record_batch_high_water(direction["name"], len(sub_burst_frames))
@@ -3401,6 +3566,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "effective_raw_bitrate_bps": report.get("effective_raw_bitrate_bps"),
                             "modem_retry_used": report.get("modem_retry_used"),
                             "primary_modem_decode_ok": report.get("primary_modem_decode_ok"),
+                            "adaptive_mcs_pre_burst_decision": report.get(
+                                "adaptive_mcs_pre_burst_decision"
+                            ),
+                            "adaptive_mcs_pre_burst_selection": report.get(
+                                "adaptive_mcs_pre_burst_selection"
+                            ),
+                            "adaptive_mcs_pre_burst_live_quality_bound": report.get(
+                                "adaptive_mcs_pre_burst_live_quality_bound"
+                            ),
                             "adaptive_mcs_quality": report.get("adaptive_mcs_quality"),
                             "adaptive_mcs_decision": report.get("adaptive_mcs_decision"),
                             "adaptive_mcs_decision_live_quality_bound": report.get(

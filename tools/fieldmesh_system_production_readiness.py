@@ -597,6 +597,32 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_bridge_phy_adaptive_mcs_decision_polls"] = (
             native_ip.get("host_iio_bridge_phy_adaptive_mcs_decision_polls")
         )
+        detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_selection"] = (
+            native_ip.get("board_iio_bridge_phy_adaptive_mcs_pre_burst_selection")
+        )
+        detail["native_ip_host_iio_bridge_phy_adaptive_mcs_pre_burst_selection"] = (
+            native_ip.get("host_iio_bridge_phy_adaptive_mcs_pre_burst_selection")
+        )
+        detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"] = (
+            native_ip.get(
+                "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"
+            )
+        )
+        detail["native_ip_host_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"] = (
+            native_ip.get(
+                "host_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"
+            )
+        )
+        detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"] = (
+            native_ip.get(
+                "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"
+            )
+        )
+        detail["native_ip_host_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"] = (
+            native_ip.get(
+                "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"
+            )
+        )
         detail["native_ip_board_iio_bridge_in_burst_priority_preemption_enabled"] = (
             native_ip.get("board_iio_bridge_in_burst_priority_preemption_enabled") is True
         )
