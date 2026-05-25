@@ -306,7 +306,9 @@ RX decimator samples through `fieldmesh_iq_adc_axis_source`,
 `fieldmesh_qpsk_demodulator`, `fieldmesh_qpsk_byte_sync`,
 ping-pong-buffered `fieldmesh_axis_header_framer`, and
 `fieldmesh_iq_rx_cdc` before RX DMA. The header framer validates the in-band
-CRC-16 before a recovered QPSK packet can reach RX DMA.
+CRC-16 before a recovered QPSK packet can reach RX DMA. The byte synchronizer
+uses the packet magic to correct QPSK symbol-byte phase and 90-degree quadrant
+ambiguity in PL before the framer sees recovered bytes.
 `tools/check_fieldmesh_control_overlay_vivado.sh` and
 `tools/check_fieldmesh_bridge_overlay_vivado.sh`,
 `tools/check_fieldmesh_dma_overlay_vivado.sh`, and

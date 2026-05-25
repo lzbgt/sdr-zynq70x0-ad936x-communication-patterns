@@ -1492,9 +1492,10 @@ below were later superseded by the current PHY-management two-board gates above:
   is now the matching hard-decision RX primitive for packet-byte recovery from
   repeated signed QPSK IQ samples. The RF overlay now also packs AD9361 RX
   decimator samples with `fieldmesh_iq_adc_axis_source`, locks QPSK byte phase
-  with `fieldmesh_qpsk_byte_sync`, restores packet boundaries with a
-  ping-pong-buffered `fieldmesh_axis_header_framer`, rejects bad header CRCs in
-  PL before RX DMA, and crosses recovered packets back to RX DMA. The
+  and quadrant rotation with `fieldmesh_qpsk_byte_sync`, restores packet
+  boundaries with a ping-pong-buffered `fieldmesh_axis_header_framer`, rejects
+  bad header CRCs in PL before RX DMA, and crosses recovered packets back to
+  RX DMA. The
   `--rf-engine-overlay` Vivado gate now proves the sidecar
   TX DMA path can feed the QPSK symbolizer and `fieldmesh_iq_tx_guard` while
   the guarded IQ stream crosses into the AD9361 DAC clock domain through

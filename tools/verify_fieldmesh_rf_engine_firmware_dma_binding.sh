@@ -136,8 +136,11 @@ for token in (
     "module fieldmesh_qpsk_byte_sync",
     "FieldMesh magic bytes",
     "function [7:0] phase_byte",
-    "wire detect_phase1",
+    "function [7:0] rotate_byte",
+    "selected_rotation",
+    "detect_phase1_rot1",
     "sync_slip_count",
+    "sync_rotation_count",
 ):
     if token not in byte_sync:
         raise SystemExit(f"fieldmesh_qpsk_byte_sync.v missing QPSK byte-sync token: {token}")

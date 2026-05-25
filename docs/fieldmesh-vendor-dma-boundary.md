@@ -201,8 +201,10 @@ matching RX primitive: it converts signed QPSK I/Q samples back into byte
 stream data with the same MSB-first bit-pair order and exposes sample, byte,
 packet, and fault counters for the firmware boundary.
 `fieldmesh_qpsk_byte_sync.v` follows the demodulator and finds the FieldMesh
-magic bytes on any two-bit QPSK symbol phase before bytes enter packet framing,
-so RF RX no longer depends on Python/test-glue or reset-time byte alignment.
+magic bytes across any two-bit QPSK symbol phase and any 90-degree QPSK
+quadrant ambiguity before bytes enter packet framing, so RF RX no longer
+depends on Python/test-glue, reset-time byte alignment, or ideal constellation
+orientation.
 `fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
 in-band header and payload length before RX DMA, using two packet banks so one
 packet can drain toward RX DMA while the next demodulated packet is captured.

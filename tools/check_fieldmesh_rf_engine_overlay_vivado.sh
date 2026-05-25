@@ -166,6 +166,7 @@ foreach pin {
   fieldmesh_qpsk_byte_sync/m_axis_tlast
   fieldmesh_qpsk_byte_sync/sync_locked
   fieldmesh_qpsk_byte_sync/selected_phase
+  fieldmesh_qpsk_byte_sync/selected_rotation
   fieldmesh_rx_header_framer/clk
   fieldmesh_rx_header_framer/rst
   fieldmesh_rx_header_framer/enable
