@@ -2540,7 +2540,7 @@ def run_batch(
             adaptive_mcs_decision_report.get("high_rate_proven") == 1
         ),
         "fast_primary_phy_decode_proven": bool(
-            primary_modem_decode_ok and primary_raw_bitrate_bps >= 600_000.0
+            primary_modem_decode_ok and primary_raw_bitrate_bps >= 1_200_000.0
         ),
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
@@ -4918,7 +4918,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
     parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
-    parser.add_argument("--samples-per-symbol", type=int, default=4)
+    parser.add_argument("--samples-per-symbol", type=int, default=2)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bpsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)

@@ -3611,9 +3611,9 @@ static int build_response(fieldmesh_context_t *context,
         int production_iio_policy =
             fieldmesh_rf_service_policy_accepts_production_iio(&policy);
         fieldmesh_rf_modem_profile_decision_t fast_profile_decision =
-            fieldmesh_rf_modem_profile_decide(768000u, 768000u, 1u, 0u);
+            fieldmesh_rf_modem_profile_decide(1536000u, 1536000u, 1u, 0u);
         fieldmesh_rf_modem_profile_decision_t retry_profile_decision =
-            fieldmesh_rf_modem_profile_decide(768000u, 48000u, 0u, 1u);
+            fieldmesh_rf_modem_profile_decide(1536000u, 48000u, 0u, 1u);
         fieldmesh_rf_modem_profile_quality_t fast_quality = {
             4u, 4u, 0u, 0u, 0u, 0u
         };
@@ -3625,13 +3625,13 @@ static int build_response(fieldmesh_context_t *context,
         };
         fieldmesh_rf_modem_profile_decision_t fast_quality_decision =
             fieldmesh_rf_modem_profile_decide_from_quality(
-                768000u, 768000u, &fast_quality);
+                1536000u, 1536000u, &fast_quality);
         fieldmesh_rf_modem_profile_decision_t retry_quality_decision =
             fieldmesh_rf_modem_profile_decide_from_quality(
-                768000u, 48000u, &retry_quality);
+                1536000u, 48000u, &retry_quality);
         fieldmesh_rf_modem_profile_decision_t insufficient_quality_decision =
             fieldmesh_rf_modem_profile_decide_from_quality(
-                768000u, 768000u, &insufficient_quality);
+                1536000u, 1536000u, &insufficient_quality);
 
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_rf_service_policy_self_test\","
@@ -3728,9 +3728,9 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_modem_profile_decision_name(
                      retry_profile_decision),
                 fieldmesh_rf_modem_profile_high_rate_proven(
-                    768000u, 768000u, 1u, 0u) ? 1u : 0u,
+                    1536000u, 1536000u, 1u, 0u) ? 1u : 0u,
                 fieldmesh_rf_modem_profile_high_rate_proven(
-                    768000u, 48000u, 0u, 1u) ? 1u : 0u,
+                    1536000u, 48000u, 0u, 1u) ? 1u : 0u,
                  (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MIN_DECODE_ATTEMPTS,
                  (unsigned)FIELDMESH_RF_MODEM_PROFILE_FAST_MAX_PRIMARY_PER_MILLE,
                  (unsigned)fieldmesh_rf_modem_profile_per_mille(
