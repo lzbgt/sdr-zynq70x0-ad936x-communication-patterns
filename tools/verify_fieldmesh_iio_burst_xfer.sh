@@ -172,7 +172,7 @@ PY
 cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-benchmark \
   --frame-file "$work_dir/frame.bin" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   --iterations 50 \
   >"$work_dir/bpsk_benchmark.json"
@@ -181,7 +181,7 @@ cp "$repo_root/resources/fieldmesh/vectors/frame_000.bin" "$work_dir/frame.bin"
   --sample-rate-hz 1000000 \
   --space-hz 50000 \
   --mark-hz 150000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   --iterations 50 \
   >"$work_dir/bfsk_benchmark.json"
@@ -207,13 +207,13 @@ PY
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/bpsk_frame.iq" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
   --iq-file "$work_dir/bpsk_frame.iq" \
   --decoded-file "$work_dir/bpsk_decoded.bin" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_decoded.bin"
@@ -232,7 +232,7 @@ PY
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
   --iq-file "$work_dir/bpsk_rotated_frame.iq" \
   --decoded-file "$work_dir/bpsk_rotated_decoded.bin" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_rotated_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
@@ -241,7 +241,7 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
   --iq-file "$work_dir/bpsk_carrier_frame.iq" \
   --sample-rate-hz 1000000 \
   --baseband-carrier-hz 125000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_carrier_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
@@ -249,7 +249,7 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_rotated_decoded.bin"
   --decoded-file "$work_dir/bpsk_carrier_decoded.bin" \
   --sample-rate-hz 1000000 \
   --baseband-carrier-hz 125000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_carrier_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_carrier_decoded.bin"
@@ -271,7 +271,7 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
   --iq-file "$work_dir/fast_frame.iq" \
   --sample-rate-hz 3072000 \
   --baseband-carrier-hz 100000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 1 \
   >"$work_dir/bpsk_fast_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-decode \
@@ -279,7 +279,7 @@ cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
   --decoded-file "$work_dir/fast_decoded.bin" \
   --sample-rate-hz 3072000 \
   --baseband-carrier-hz 100000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 1 \
   >"$work_dir/bpsk_fast_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/fast_decoded.bin"
@@ -298,13 +298,13 @@ PY
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/bad_frame.bin" \
   --iq-file "$work_dir/bpsk_bad_frame.iq" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_bad_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bpsk-encode \
   --frame-file "$work_dir/frame.bin" \
   --iq-file "$work_dir/bpsk_good_frame.iq" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_good_encode.json"
 python3 - "$work_dir/bpsk_bad_frame.iq" "$work_dir/bpsk_good_frame.iq" "$work_dir/bpsk_combined.iq" <<'PY'
@@ -318,7 +318,7 @@ PY
   --decoded-file "$work_dir/bpsk_combined_decoded.bin" \
   --expected-frame-len "$(wc -c <"$work_dir/frame.bin")" \
   --expected-frame-crc "$(cat "$work_dir/frame_crc.txt")" \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bpsk_decode_after_bad_crc.json"
 cmp "$work_dir/frame.bin" "$work_dir/bpsk_combined_decoded.bin"
@@ -328,7 +328,7 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_combined_decoded.bin"
   --sample-rate-hz 1000000 \
   --space-hz 50000 \
   --mark-hz 150000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bfsk_bad_encode.json"
 "$work_dir/fieldmesh_iio_burst_xfer" --bfsk-encode \
@@ -337,7 +337,7 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_combined_decoded.bin"
   --sample-rate-hz 1000000 \
   --space-hz 50000 \
   --mark-hz 150000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bfsk_good_encode.json"
 python3 - "$work_dir/bad_frame.iq" "$work_dir/good_frame.iq" "$work_dir/combined.iq" <<'PY'
@@ -354,7 +354,7 @@ PY
   --sample-rate-hz 1000000 \
   --space-hz 50000 \
   --mark-hz 150000 \
-  --samples-per-symbol 8 \
+  --samples-per-symbol 4 \
   --bit-repeat 2 \
   >"$work_dir/bfsk_decode_after_bad_crc.json"
 cmp "$work_dir/frame.bin" "$work_dir/combined_decoded.bin"
@@ -429,12 +429,12 @@ if fast_encode.get("event") != "fieldmesh_bpsk_modem_encode" or fast_encode.get(
     raise SystemExit(f"C fast BPSK encode failed: {fast_encode}")
 if fast_decode.get("event") != "fieldmesh_bpsk_modem_decode" or fast_decode.get("ok") is not True:
     raise SystemExit(f"C fast BPSK decode failed: {fast_decode}")
-if fast_encode.get("samples_per_symbol") != 8 or fast_encode.get("bit_repeat") != 1:
+if fast_encode.get("samples_per_symbol") != 4 or fast_encode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast BPSK profile drifted: {fast_encode}")
-if fast_decode.get("samples_per_symbol") != 8 or fast_decode.get("bit_repeat") != 1:
+if fast_decode.get("samples_per_symbol") != 4 or fast_decode.get("bit_repeat") != 1:
     raise SystemExit(f"C fast BPSK decoder profile drifted: {fast_decode}")
 raw_bitrate_bps = 3_072_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
-if raw_bitrate_bps < 384_000:
+if raw_bitrate_bps < 768_000:
     raise SystemExit(f"C fast BPSK raw PHY target regressed: {raw_bitrate_bps}")
 PY
 
