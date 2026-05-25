@@ -2778,6 +2778,192 @@ struct tun_service_firmware_ring_counts {
     uint32_t irq_asserted;
 };
 
+struct native_ip_fw_dma_worker_source {
+    const uint8_t *packets[2];
+    uint16_t lens[2];
+    uint32_t count;
+    uint32_t index;
+};
+
+struct native_ip_fw_dma_worker_sink {
+    uint8_t packets[2][64];
+    uint16_t lens[2];
+    uint32_t count;
+};
+
+struct native_ip_fw_dma_worker_self_test {
+    int ok;
+    int bound;
+    int initialized;
+    int pumped;
+    int first_pick;
+    int second_pick;
+    int first_service;
+    int second_service;
+    int drained;
+    int tcp_control_priority;
+    int udp_interactive_priority;
+    uint32_t enqueued_packets;
+    uint32_t drained_packets;
+    uint32_t bytes_enqueued;
+    uint32_t bytes_drained;
+    uint32_t classify_errors;
+    uint32_t read_errors;
+    uint32_t enqueue_drops;
+    uint32_t drain_errors;
+};
+
+static int native_ip_fw_dma_worker_source_read(void *user,
+                                               uint8_t *packet,
+                                               uint16_t packet_capacity,
+                                               uint16_t *out_packet_len)
+{
+    struct native_ip_fw_dma_worker_source *source =
+        (struct native_ip_fw_dma_worker_source *)user;
+    uint16_t len;
+
+    if (!source || !packet || !out_packet_len) {
+        return -1;
+    }
+    if (source->index >= source->count) {
+        *out_packet_len = 0u;
+        return 0;
+    }
+    len = source->lens[source->index];
+    if (!source->packets[source->index] || len == 0u ||
+        len > packet_capacity) {
+        return -1;
+    }
+    fieldmesh_fw_ring_copy_bytes(packet, source->packets[source->index], len);
+    *out_packet_len = len;
+    source->index++;
+    return 1;
+}
+
+static int native_ip_fw_dma_worker_sink_write(void *user,
+                                              const uint8_t *packet,
+                                              uint16_t packet_len)
+{
+    struct native_ip_fw_dma_worker_sink *sink =
+        (struct native_ip_fw_dma_worker_sink *)user;
+
+    if (!sink || !packet || packet_len == 0u ||
+        packet_len > sizeof(sink->packets[0]) || sink->count >= 2u) {
+        return 0;
+    }
+    fieldmesh_fw_ring_copy_bytes(sink->packets[sink->count], packet,
+                                 packet_len);
+    sink->lens[sink->count] = packet_len;
+    sink->count++;
+    return 1;
+}
+
+static void native_ip_fw_dma_descriptor_worker_self_test(
+    struct native_ip_fw_dma_worker_self_test *report)
+{
+    static const uint8_t udp_packet[32] = {
+        0x45, 0x00, 0x00, 0x20, 0x00, 0x01, 0x00, 0x00,
+        0x40, 0x11, 0x00, 0x00, 10,   77,   1,    1,
+        10,   77,   2,    1,    0x13, 0x88, 0x13, 0x89,
+        0x00, 0x0c, 0x00, 0x00, 'D',  'A',  'T',  'A',
+    };
+    static const uint8_t tcp_fin_packet[40] = {
+        0x45, 0x00, 0x00, 0x28, 0x00, 0x02, 0x00, 0x00,
+        0x40, 0x06, 0x00, 0x00, 10,   77,   1,    1,
+        10,   77,   2,    1,    0x14, 0x50, 0x14, 0x51,
+        0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20,
+        0x50, 0x11, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    uint8_t ring_memory[4096];
+    uint8_t packet_buffer[256];
+    fieldmesh_fw_ring_view_t ring;
+    fieldmesh_fw_packet_bridge_t bridge;
+    fieldmesh_fw_packet_bridge_config_t config = {
+        .peer_index = 7u,
+        .default_mcs = 1u,
+        .retry_budget = 3u,
+        .deadline_ticks = 1000000ull,
+    };
+    fieldmesh_fw_packet_bridge_report_t tcp_report;
+    fieldmesh_fw_packet_bridge_report_t udp_report;
+    struct native_ip_fw_dma_worker_source source = {
+        .packets = {udp_packet, tcp_fin_packet},
+        .lens = {(uint16_t)sizeof(udp_packet),
+                 (uint16_t)sizeof(tcp_fin_packet)},
+        .count = 2u,
+        .index = 0u,
+    };
+    struct native_ip_fw_dma_worker_sink sink;
+
+    memset(report, 0, sizeof(*report));
+    memset(ring_memory, 0, sizeof(ring_memory));
+    memset(&ring, 0, sizeof(ring));
+    memset(&bridge, 0, sizeof(bridge));
+    memset(&tcp_report, 0, sizeof(tcp_report));
+    memset(&udp_report, 0, sizeof(udp_report));
+    memset(&sink, 0, sizeof(sink));
+
+    report->first_pick = -1;
+    report->second_pick = -1;
+    report->first_service = -1;
+    report->second_service = -1;
+    report->drained = -1;
+    report->bound = fieldmesh_fw_ring_bind_linear(
+        &ring, ring_memory, (uint32_t)sizeof(ring_memory), 4u, 1024u, 256u,
+        NULL);
+    if (!report->bound) {
+        return;
+    }
+    fieldmesh_fw_ring_reset(&ring);
+    report->initialized = fieldmesh_fw_packet_bridge_init(&bridge, &ring,
+                                                          &config);
+    if (!report->initialized) {
+        return;
+    }
+    report->pumped = fieldmesh_fw_packet_bridge_pump_many(
+        &bridge, native_ip_fw_dma_worker_source_read, &source, packet_buffer,
+        (uint16_t)sizeof(packet_buffer), 2u);
+    report->tcp_control_priority = fieldmesh_fw_packet_bridge_classify_ipv4(
+        tcp_fin_packet, (uint16_t)sizeof(tcp_fin_packet), &tcp_report);
+    report->udp_interactive_priority = fieldmesh_fw_packet_bridge_classify_ipv4(
+        udp_packet, (uint16_t)sizeof(udp_packet), &udp_report);
+    report->first_pick = fieldmesh_fw_ring_pick_next(&ring);
+    report->first_service = fieldmesh_fw_ring_service_one(
+        &ring, (int16_t)(-40 * 256), (int16_t)(27 * 256), -50, 1000000ull);
+    report->second_pick = fieldmesh_fw_ring_pick_next(&ring);
+    report->second_service = fieldmesh_fw_ring_service_one(
+        &ring, (int16_t)(-41 * 256), (int16_t)(26 * 256), -60, 1000000ull);
+    report->drained = fieldmesh_fw_packet_bridge_drain_ready(
+        &bridge, native_ip_fw_dma_worker_sink_write, &sink, 2u);
+    report->enqueued_packets = bridge.enqueued_packets;
+    report->drained_packets = bridge.drained_packets;
+    report->bytes_enqueued = bridge.bytes_enqueued;
+    report->bytes_drained = bridge.bytes_drained;
+    report->classify_errors = bridge.classify_errors;
+    report->read_errors = bridge.read_errors;
+    report->enqueue_drops = bridge.enqueue_drops;
+    report->drain_errors = bridge.drain_errors;
+    report->tcp_control_priority =
+        report->tcp_control_priority &&
+        tcp_report.traffic_class == FIELDMESH_FW_PACKET_TC_CONTROL;
+    report->udp_interactive_priority =
+        report->udp_interactive_priority &&
+        udp_report.traffic_class == FIELDMESH_FW_PACKET_TC_INTERACTIVE;
+    report->ok = report->pumped == 2 && source.index == 2u &&
+                 report->first_pick == 1 && report->second_pick == 0 &&
+                 report->first_service == 1 && report->second_service == 1 &&
+                 report->drained == 2 && sink.count == 2u &&
+                 report->tcp_control_priority &&
+                 report->udp_interactive_priority &&
+                 bridge.enqueued_packets == 2u &&
+                 bridge.drained_packets == 2u &&
+                 bridge.bytes_enqueued ==
+                     sizeof(tcp_fin_packet) + sizeof(udp_packet) &&
+                 bridge.bytes_drained == bridge.bytes_enqueued &&
+                 bridge.classify_errors == 0u && bridge.read_errors == 0u &&
+                 bridge.enqueue_drops == 0u && bridge.drain_errors == 0u;
+}
+
 static void tun_service_read_firmware_ring_counts(
     const struct tun_service_state *service,
     struct tun_service_firmware_ring_counts *counts)
@@ -6481,12 +6667,23 @@ static int build_response(fieldmesh_context_t *context,
     }
     if (strstr(request, "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS")) {
         struct tun_service_firmware_ring_counts fw_ring_counts;
+        struct native_ip_fw_dma_worker_self_test worker_test;
         tun_service_read_firmware_ring_counts(tun_service, &fw_ring_counts);
+        native_ip_fw_dma_descriptor_worker_self_test(&worker_test);
         snprintf(response, response_len,
                  "{\"event\":\"sdk_daemon_native_ip_fw_dma_data_plane_status\","
                  "\"ok\":true,"
                  "\"native_ip_fw_dma_data_plane\":1,"
                  "\"native_ip_fw_dma_data_plane_proof\":\"%s\","
+                 "\"native_ip_fw_dma_descriptor_worker\":1,"
+                 "\"native_ip_fw_dma_descriptor_worker_proof\":\"%s\","
+                 "\"native_ip_fw_dma_descriptor_worker_self_test\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_packets_pumped\":%d,"
+                 "\"native_ip_fw_dma_descriptor_worker_packets_drained\":%d,"
+                 "\"native_ip_fw_dma_descriptor_worker_bytes_enqueued\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_bytes_drained\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_tcp_control_priority\":%u,"
+                 "\"native_ip_fw_dma_descriptor_worker_udp_interactive_priority\":%u,"
                  "\"native_ip_production_data_plane\":1,"
                  "\"production_data_plane_owner\":\"firmware_dma_c_fpga\","
                  "\"performance_critical_pipeline_owner\":\"c_firmware_fpga\","
@@ -6530,6 +6727,14 @@ static int build_response(fieldmesh_context_t *context,
                  "\"commands_executed\":0,"
                  "\"next_boundary\":\"firmware_dma_descriptor_worker\"}\n",
                  FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DATA_PLANE_PROOF,
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_PROOF,
+                 worker_test.ok ? 1u : 0u,
+                 worker_test.pumped,
+                 worker_test.drained,
+                 worker_test.bytes_enqueued,
+                 worker_test.bytes_drained,
+                 worker_test.tcp_control_priority ? 1u : 0u,
+                 worker_test.udp_interactive_priority ? 1u : 0u,
                  FIELDMESH_RF_SERVICE_NATIVE_IP_FW_TUN_BRIDGE_PROOF,
                  tun_service ? tun_service->firmware_ring_enabled : 0u,
                  tun_service ? tun_service->firmware_ring_mapped : 0u,

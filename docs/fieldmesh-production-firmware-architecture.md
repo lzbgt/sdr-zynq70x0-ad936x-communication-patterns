@@ -159,7 +159,10 @@ Responsibilities:
   requires daemon `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS v1` evidence
   proving `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1` and
   `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1` are the native-IP production data-plane
-  boundary. That keeps helper-backed HIL evidence from being promoted to
+  boundary. That status also exercises `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1`
+  in a read/write-free memory-ring self-test, so the proof covers the C
+  packet-to-descriptor worker mechanism rather than a label alone. That keeps
+  helper-backed HIL evidence from being promoted to
   production data-plane ownership.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.

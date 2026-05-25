@@ -820,6 +820,15 @@ def validate_native_ip_fw_dma_data_plane(
         "ok": True,
         "native_ip_fw_dma_data_plane": 1,
         "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1",
+        "native_ip_fw_dma_descriptor_worker": 1,
+        "native_ip_fw_dma_descriptor_worker_proof": (
+            "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1"
+        ),
+        "native_ip_fw_dma_descriptor_worker_self_test": 1,
+        "native_ip_fw_dma_descriptor_worker_packets_pumped": 2,
+        "native_ip_fw_dma_descriptor_worker_packets_drained": 2,
+        "native_ip_fw_dma_descriptor_worker_tcp_control_priority": 1,
+        "native_ip_fw_dma_descriptor_worker_udp_interactive_priority": 1,
         "native_ip_production_data_plane": 1,
         "production_data_plane_owner": "firmware_dma_c_fpga",
         "performance_critical_pipeline_owner": PERFORMANCE_CRITICAL_PIPELINE_OWNER,
@@ -856,6 +865,8 @@ def validate_native_ip_fw_dma_data_plane(
         "firmware_bridge_drained_packets",
         "firmware_bridge_bytes_enqueued",
         "firmware_bridge_bytes_drained",
+        "native_ip_fw_dma_descriptor_worker_bytes_enqueued",
+        "native_ip_fw_dma_descriptor_worker_bytes_drained",
     ):
         if not isinstance(report.get(key), int):
             errors.append(f"{key}={report.get(key)!r} expected integer")
@@ -2994,6 +3005,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     status.get("native_ip_fw_dma_data_plane") == 1
                     and status.get("native_ip_fw_dma_data_plane_proof")
                     == "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1"
+                    and status.get("native_ip_fw_dma_descriptor_worker") == 1
+                    and status.get("native_ip_fw_dma_descriptor_worker_proof")
+                    == "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1"
+                    and status.get("native_ip_fw_dma_descriptor_worker_self_test") == 1
+                    and status.get(
+                        "native_ip_fw_dma_descriptor_worker_packets_pumped"
+                    )
+                    == 2
+                    and status.get(
+                        "native_ip_fw_dma_descriptor_worker_packets_drained"
+                    )
+                    == 2
                     and status.get("native_ip_production_data_plane") == 1
                     and status.get("production_data_plane_owner")
                     == "firmware_dma_c_fpga"

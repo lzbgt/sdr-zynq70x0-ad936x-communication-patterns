@@ -210,8 +210,10 @@ in `src/fieldmesh_sdk.c`:
   control priority, and packet drain back to a TUN-style writer. Its
   production-readiness proof is surfaced by the state daemon as
   `FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1` plus
-  `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1`; Python bridge scripts may only record
-  that status as HIL glue.
+  `FIELDMESH_NATIVE_IP_FW_TUN_BRIDGE v1`. The status path also runs
+  `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1`, a memory-ring worker
+  self-test that pumps and drains TCP/UDP packets through the C descriptor
+  service path; Python bridge scripts may only record that status as HIL glue.
   `--image PATH --loopback --allow-writes` and `--device /dev/uioN --loopback
   --allow-writes` modes run the same callback path over mapped packet memory,
   matching the live PL aperture contract. `fieldmesh-state-daemon-demo` can now
