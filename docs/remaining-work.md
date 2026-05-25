@@ -1487,9 +1487,10 @@ below were later superseded by the current PHY-management two-board gates above:
   The next step is replacing the modelled packet-engine IQ path with the first
   guarded live sidecar/RF data path. The first synthesizable TX primitive for
   that path is now `fieldmesh_qpsk_iq_symbolizer`: it prepends the PL
-  acquisition preamble and maps packet bytes into 2x pulse-shaped signed QPSK
-  I/Q symbols while keeping tuning, filtering, TX enable, and scheduled launch
-  outside the primitive. `fieldmesh_qpsk_iq_demodulator`
+  acquisition preamble and maps packet bytes into 2x signed QPSK I/Q symbols;
+  `fieldmesh_iq_fir_filter` then applies 9-tap PL pulse shaping while keeping
+  tuning, filtering, TX enable, and scheduled launch outside the primitive.
+  `fieldmesh_qpsk_iq_demodulator`
   is now the matching hard-decision RX primitive for packet-byte recovery from
   pulse-shaped signed QPSK IQ samples. The RF overlay now also packs AD9361 RX
   decimator samples with `fieldmesh_iq_adc_axis_source`, locks QPSK byte phase
@@ -1690,7 +1691,7 @@ below were later superseded by the current PHY-management two-board gates above:
   The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
-  broadcast to RX DMA and the pulse-shaped QPSK symbolizer, and firmware-DMA
+  broadcast to RX DMA and the QPSK symbolizer plus PL TX FIR, and firmware-DMA
   controls reset off until explicitly armed.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make

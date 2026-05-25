@@ -297,14 +297,15 @@ IRQ `ps-11 mb-11`. Its opt-in `--bridge-overlay` mode appends
 `fieldmesh_sidecar_axis_bridge` as `fieldmesh_axis_bridge`, clocks/resets it,
 and parks the byte-pipe pins until real packet DMA is added.
 Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
-the firmware-DMA egress stream into the pulse-shaped `fieldmesh_qpsk_symbolizer`, routes
-generated IQ through `fieldmesh_iq_tx_guard`, crosses it through
+the firmware-DMA egress stream into `fieldmesh_qpsk_symbolizer`, pulse-shapes
+generated IQ through the PL `fieldmesh_qpsk_tx_fir`, then gates it through
+`fieldmesh_iq_tx_guard`, crosses it through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver` while its source selector resets to vendor
 pass-through through the sidecar control window. The QPSK symbolizer prepends
-the four-byte `55 aa 55 aa` acquisition preamble and enables PL midpoint pulse
-shaping before packet magic in the
-RF-engine overlay. The same overlay routes AD9361
+the four-byte `55 aa 55 aa` acquisition preamble before packet magic and leaves
+midpoint shaping disabled because the dedicated PL FIR owns TX pulse shaping in
+the RF-engine overlay. The same overlay routes AD9361
 RX decimator samples through `fieldmesh_iq_adc_axis_source`,
 `fieldmesh_qpsk_demodulator`, `fieldmesh_qpsk_byte_sync`,
 ping-pong-buffered `fieldmesh_axis_header_framer`, and

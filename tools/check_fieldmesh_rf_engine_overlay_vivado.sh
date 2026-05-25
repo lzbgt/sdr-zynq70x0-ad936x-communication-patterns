@@ -83,6 +83,7 @@ foreach cell {
   fieldmesh_tx_dma
   fieldmesh_rx_dma
   fieldmesh_qpsk_symbolizer
+  fieldmesh_qpsk_tx_fir
   fieldmesh_iq_tx_guard
   fieldmesh_iq_tx_cdc
   fieldmesh_iq_dac_driver
@@ -112,8 +113,8 @@ if {"\$qpsk_samples_per_symbol" ne "2"} {
   error "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL phase-weighted matched filtering"
 }
 set qpsk_pulse_shaping [get_property CONFIG.PULSE_SHAPING [get_bd_cells fieldmesh_qpsk_symbolizer]]
-if {"\$qpsk_pulse_shaping" ne "1"} {
-  error "fieldmesh_qpsk_symbolizer must enable PL pulse shaping for the 2x QPSK fast profile"
+if {"\$qpsk_pulse_shaping" ne "0"} {
+  error "fieldmesh_qpsk_symbolizer must keep midpoint shaping disabled because PL FIR owns TX pulse shaping"
 }
 set qpsk_timing_oversample [get_property CONFIG.OVERSAMPLE_FACTOR [get_bd_cells fieldmesh_qpsk_timing_recovery]]
 if {"\$qpsk_timing_oversample" ne "2"} {
@@ -144,6 +145,17 @@ foreach pin {
   fieldmesh_qpsk_symbolizer/byte_count
   fieldmesh_qpsk_symbolizer/symbol_count
   fieldmesh_qpsk_symbolizer/packet_count
+  fieldmesh_qpsk_tx_fir/clk
+  fieldmesh_qpsk_tx_fir/rst
+  fieldmesh_qpsk_tx_fir/enable
+  fieldmesh_qpsk_tx_fir/s_axis_tvalid
+  fieldmesh_qpsk_tx_fir/s_axis_tready
+  fieldmesh_qpsk_tx_fir/s_axis_tdata
+  fieldmesh_qpsk_tx_fir/s_axis_tlast
+  fieldmesh_qpsk_tx_fir/m_axis_tvalid
+  fieldmesh_qpsk_tx_fir/m_axis_tready
+  fieldmesh_qpsk_tx_fir/m_axis_tdata
+  fieldmesh_qpsk_tx_fir/m_axis_tlast
   fieldmesh_iq_adc_source/clk
   fieldmesh_iq_adc_source/rst
   fieldmesh_iq_adc_source/enable
@@ -528,10 +540,14 @@ foreach pair {
 }
 
 foreach pair {
-  {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
-  {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
-  {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}
-  {fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
+  {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid}
+  {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_qpsk_tx_fir/s_axis_tready}
+  {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata}
+  {fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_qpsk_tx_fir/s_axis_tlast}
+  {fieldmesh_qpsk_tx_fir/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
+  {fieldmesh_qpsk_tx_fir/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
+  {fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}
+  {fieldmesh_qpsk_tx_fir/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
 } {
   assert_same_net [lindex \$pair 0] [lindex \$pair 1]
 }

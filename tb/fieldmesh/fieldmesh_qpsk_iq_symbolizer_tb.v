@@ -29,6 +29,7 @@ reg signed [15:0] expected_q [0:7];
 
 fieldmesh_qpsk_iq_symbolizer #(
     .SAMPLES_PER_SYMBOL(2),
+    .PULSE_SHAPING(1),
     .ONE_AMPLITUDE(16'sd1000),
     .ZERO_AMPLITUDE(-16'sd1000)
 ) dut (

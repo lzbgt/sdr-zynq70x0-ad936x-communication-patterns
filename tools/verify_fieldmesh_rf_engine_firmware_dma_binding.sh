@@ -13,6 +13,7 @@ checker = (repo / "tools/check_fieldmesh_rf_engine_overlay_vivado.sh").read_text
 plan = (repo / "tools/fieldmesh_sidecar_plan.py").read_text(encoding="utf-8")
 adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(encoding="utf-8")
 qpsk_symbolizer = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v").read_text(encoding="utf-8")
+iq_fir = (repo / "rtl/fieldmesh/fieldmesh_iq_fir_filter.v").read_text(encoding="utf-8")
 qpsk_timing = (repo / "rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v").read_text(encoding="utf-8")
 byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
@@ -21,7 +22,8 @@ ctrl = (repo / "rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v").read_text(enco
 required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer",
-    "set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {1}] [get_bd_cells fieldmesh_qpsk_symbolizer]",
+    "set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {0}] [get_bd_cells fieldmesh_qpsk_symbolizer]",
+    "create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_tx_fir",
     "create_bd_cell -type module -reference fieldmesh_iq_adc_axis_source fieldmesh_iq_adc_source",
     "create_bd_cell -type module -reference fieldmesh_qpsk_symbol_timing_recovery fieldmesh_qpsk_timing_recovery",
     "set_property -dict [list CONFIG.OVERSAMPLE_FACTOR {2}] [get_bd_cells fieldmesh_qpsk_timing_recovery]",
@@ -36,6 +38,8 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags",
     "ad_connect fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
     "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis",
+    "ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata",
     "ad_connect rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
     "ad_connect rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample",
     "ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata",
@@ -85,6 +89,7 @@ for forbidden in (
 required_checker_tokens = [
     "fieldmesh_fw_dma_endpoint",
     "fieldmesh_iq_adc_source",
+    "fieldmesh_qpsk_tx_fir",
     "fieldmesh_qpsk_timing_recovery",
     "fieldmesh_qpsk_demodulator",
     "fieldmesh_qpsk_byte_sync",
@@ -92,12 +97,14 @@ required_checker_tokens = [
     "fieldmesh_iq_rx_cdc",
     "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
     "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL phase-weighted matched filtering",
-    "fieldmesh_qpsk_symbolizer must enable PL pulse shaping for the 2x QPSK fast profile",
+    "fieldmesh_qpsk_symbolizer must keep midpoint shaping disabled because PL FIR owns TX pulse shaping",
     "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL",
     "register pages through 0x23c",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "proc assert_same_intf_net",
     "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis}",
+    "{fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata}",
+    "{fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}",
     "{fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}",
     "assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
     "assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample",
@@ -175,6 +182,7 @@ for token in (
 
 for rtl in (
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',
+    '"rtl/fieldmesh/fieldmesh_iq_fir_filter.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v"',
@@ -246,6 +254,18 @@ for token in (
 ):
     if token not in qpsk_symbolizer:
         raise SystemExit(f"fieldmesh_qpsk_iq_symbolizer.v missing QPSK preamble token: {token}")
+
+for token in (
+    "module fieldmesh_iq_fir_filter",
+    "COEFF_0 = 16'sd427",
+    "COEFF_4 = 16'sd8192",
+    "TAIL_SAMPLES = 8",
+    "function signed [15:0] fir_sat16",
+    "tail_sample_count",
+    "input_backpressure_cycle_count",
+):
+    if token not in iq_fir:
+        raise SystemExit(f"fieldmesh_iq_fir_filter.v missing TX FIR token: {token}")
 
 for token in (
     "module fieldmesh_qpsk_byte_sync",

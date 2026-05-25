@@ -479,12 +479,21 @@ def render_rf_engine_overlay() -> str:
     return f"""
 {BD_RF_ENGINE_BEGIN}
 create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer
-set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {1}] [get_bd_cells fieldmesh_qpsk_symbolizer]
+set_property -dict [list CONFIG.PREAMBLE_BYTES {4} CONFIG.SAMPLES_PER_SYMBOL {2} CONFIG.PULSE_SHAPING {0}] [get_bd_cells fieldmesh_qpsk_symbolizer]
 ad_connect sys_cpu_clk fieldmesh_qpsk_symbolizer/clk
 ad_connect sys_cpu_reset fieldmesh_qpsk_symbolizer/rst
 ad_connect VCC fieldmesh_qpsk_symbolizer/enable
 
 ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis
+
+create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_tx_fir
+ad_connect sys_cpu_clk fieldmesh_qpsk_tx_fir/clk
+ad_connect sys_cpu_reset fieldmesh_qpsk_tx_fir/rst
+ad_connect VCC fieldmesh_qpsk_tx_fir/enable
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid
+ad_connect fieldmesh_qpsk_tx_fir/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_qpsk_tx_fir/s_axis_tlast
 
 create_bd_cell -type module -reference fieldmesh_iq_tx_guard fieldmesh_iq_tx_guard
 ad_connect sys_cpu_clk fieldmesh_iq_tx_guard/clk
@@ -509,10 +518,10 @@ ad_connect fieldmesh_iq_tx_guard/fault fieldmesh_ctrl/rf_guard_fault
 # from the AD9361 RX sample path, QPSK demodulation, and FieldMesh header framing
 # before crossing into the RX DMA clock domain. No Python or helper process sits
 # in the performance-critical RF packet path.
-ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
-ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
-ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
-ad_connect fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast
+ad_connect fieldmesh_qpsk_tx_fir/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
+ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_tx_fir/m_axis_tready
+ad_connect fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
+ad_connect fieldmesh_qpsk_tx_fir/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast
 
 create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_tx_cdc
 ad_connect sys_cpu_clk fieldmesh_iq_tx_cdc/s_clk

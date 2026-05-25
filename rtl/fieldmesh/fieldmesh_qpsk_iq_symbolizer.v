@@ -2,17 +2,17 @@
 //
 // This is the fast RF packet-engine TX primitive for the PL path. It keeps the
 // packet ABI byte-oriented and maps each payload bit pair, MSB first, into
-// signed I/Q samples. For the 2x fast profile it smooths symbol transitions in
-// PL by emitting a midpoint sample followed by the exact constellation point.
-// It does not own RF tuning, TX enable, filtering, or scheduling; those remain
-// explicit outer guards.
+// signed I/Q samples. The production RF-engine overlay leaves its legacy
+// midpoint smoother disabled and feeds the samples into fieldmesh_iq_fir_filter
+// for real PL pulse shaping. It does not own RF tuning, TX enable, filtering,
+// or scheduling; those remain explicit outer guards.
 
 `timescale 1ns/1ps
 
 module fieldmesh_qpsk_iq_symbolizer #(
     parameter integer SAMPLES_PER_SYMBOL = 1,
     parameter integer PREAMBLE_BYTES = 0,
-    parameter integer PULSE_SHAPING = 1,
+    parameter integer PULSE_SHAPING = 0,
     parameter [7:0] PREAMBLE_0 = 8'h55,
     parameter [7:0] PREAMBLE_1 = 8'haa,
     parameter signed [15:0] ONE_AMPLITUDE = 16'sd12000,

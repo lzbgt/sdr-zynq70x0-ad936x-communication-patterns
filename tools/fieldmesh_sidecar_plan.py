@@ -51,6 +51,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v",
     "rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v",
     "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v",
+    "rtl/fieldmesh/fieldmesh_iq_fir_filter.v",
     "rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v",
     "rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v",
     "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v",
