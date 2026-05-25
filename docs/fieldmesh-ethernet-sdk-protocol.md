@@ -659,7 +659,7 @@ evidence and proves the packet-engine path through the compiled
 allowed. The next binding assertion combines
 that transport report with live sidecar DMA smoke evidence so daemon intent,
 board packet DMA, and RF packet-engine sample recovery are checked together.
-The first PL TX primitive for that engine is `fieldmesh_bpsk_iq_symbolizer`;
+The first PL TX primitive for that engine is `fieldmesh_qpsk_iq_symbolizer`;
 it is deliberately a byte-to-symbol block, not a complete modem or RF-control
 abstraction. The copied-HDL `--rf-engine-overlay` mode makes that primitive
 BD-visible behind the sidecar DMA/bridge TX path and immediately feeds

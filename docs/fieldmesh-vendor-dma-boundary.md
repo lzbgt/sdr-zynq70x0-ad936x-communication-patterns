@@ -194,9 +194,9 @@ remains byte-oriented. `fieldmesh_axis_byte_broadcast2.v` is the byte-wide
 firmware-egress splitter used by the RF-engine overlay: one branch preserves RX
 DMA observability and the other feeds the RF symbolizer, with ordinary
 AXI-stream backpressure applied until both consumers accept each byte.
-`fieldmesh_bpsk_iq_symbolizer.v` is the first
+`fieldmesh_qpsk_iq_symbolizer.v` is the current fast
 synthesizable RF packet-engine TX primitive: it converts packet bytes into
-MSB-first signed I/Q BPSK symbols, but still does not own RF tuning, TX enable,
+MSB-first signed QPSK I/Q symbols, but still does not own RF tuning, TX enable,
 filtering, or scheduled transmission. `fieldmesh_iq_tx_guard.v` is the
 post-symbolizer guard: it only admits IQ samples when TX is enabled, armed, and
 in the allowed schedule slot, and the copied RF-engine overlay wires its
@@ -437,7 +437,7 @@ overlays but replaces the packet loopback with a TX packet-engine sink:
 TX packet DMA feeds `fieldmesh_firmware_axis_dma_endpoint`, and its
 descriptor-validated egress stream feeds `fieldmesh_axis_byte_broadcast2`.
 Broadcast branch 0 remains connected to RX DMA for packet observability; branch
-1 feeds `fieldmesh_bpsk_symbolizer/s_axis_*`. The symbolizer's IQ output feeds
+1 feeds `fieldmesh_qpsk_symbolizer/s_axis_*`. The symbolizer's IQ output feeds
 `fieldmesh_iq_tx_guard`; its arming, schedule, and status pins are wired to the
 existing `fieldmesh_ctrl` AXI-lite window at the RF TX guard register range.
 The firmware-DMA controls are also wired to `fieldmesh_ctrl` and reset off, so

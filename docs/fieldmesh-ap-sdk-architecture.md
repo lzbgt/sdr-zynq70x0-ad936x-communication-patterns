@@ -578,7 +578,7 @@ Stage 2: Board-local service
   handoff and transport report to live sidecar DMA smoke evidence, so the same
   committed frame is checked across adapter intent, board packet DMA, and
   packet-engine IQ recovery. The first PL primitive behind that boundary is
-  `fieldmesh_bpsk_iq_symbolizer`, which maps packet bytes to repeated signed
+  `fieldmesh_qpsk_iq_symbolizer`, which maps packet bytes to repeated signed
   BPSK I/Q symbols without taking ownership of RF tuning, filtering, TX enable,
   or scheduled launch. `fieldmesh_iq_tx_guard` is the next boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The

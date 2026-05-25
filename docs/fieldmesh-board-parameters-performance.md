@@ -75,7 +75,7 @@ text should be reserved for expert/debug modes.
 | Channel | Logical channel inside a profile | App can show names such as `Lab 2.4 GHz Ch1` instead of raw strings |
 | RF bandwidth | Occupied/analog bandwidth intent | Wider bandwidth raises throughput and timing resolution but reduces link budget |
 | Sample rate | Packet engine/DAC/RX sample-rate intent | Must match FPGA/driver capability and AD936x constraints |
-| Modulation | BPSK, QPSK, OFDM, or future MCS family | Current verified RF-engine primitive is guarded BPSK symbolization |
+| Modulation | BPSK, QPSK, OFDM, or future MCS family | Current verified RF-engine primitive is guarded QPSK symbolization |
 | FEC | None, convolutional, LDPC, Polar, or future option | Stronger FEC improves robustness at the cost of throughput and latency |
 | Adaptive MCS | Enable/disable route-aware MCS changes | Driven by SNR, EVM, PER, ACK latency, jitter, and queue pressure |
 | Direct P2P | Prefer direct peer link when healthy | Should be first choice when radio conditions are good |
@@ -85,7 +85,7 @@ Current UI preset examples:
 
 | Preset | Frequency | Bandwidth | Sample rate | Modulation/FEC | Use |
 | --- | --- | --- | --- | --- | --- |
-| Balanced mesh video | 2.4 GHz lab profile | 5 MHz | 7.68 MSPS | BPSK/LDPC | Default control plus video-base testing |
+| Balanced mesh video | 2.4 GHz lab profile | 5 MHz | 7.68 MSPS | QPSK/LDPC | Default control plus video-base testing |
 | Long range robust | sub-GHz legal profile | 1 MHz | 1.92 MSPS | BPSK/convolutional | Lower-rate relay/control and degraded links |
 | High throughput short range | 2.4/5 GHz legal profile | 10 MHz | 15.36 MSPS | OFDM/LDPC | Future high-rate video/enhancement testing |
 
@@ -264,7 +264,7 @@ Verified so far:
   host-facing management links in the lab.
 - The app can run two symmetric IM-like instances, choose peers, send messages,
   publish/preview camera chunks, and show topology/status snapshots.
-- The RF packet-engine handoff, sidecar DMA, guarded BPSK symbolizer, TX guard,
+- The RF packet-engine handoff, sidecar DMA, guarded QPSK symbolizer, TX guard,
   DAC clock bridge, and DAC source-select controls are built and tested without
   starting RF TX.
 - Authorized over-air RF TX/RX is still guarded and not yet a production

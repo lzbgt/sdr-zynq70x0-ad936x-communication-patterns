@@ -297,7 +297,7 @@ IRQ `ps-11 mb-11`. Its opt-in `--bridge-overlay` mode appends
 `fieldmesh_sidecar_axis_bridge` as `fieldmesh_axis_bridge`, clocks/resets it,
 and parks the byte-pipe pins until real packet DMA is added.
 Its opt-in `--rf-engine-overlay` mode implies the sidecar DMA overlay, routes
-the parsed TX packet stream into `fieldmesh_bpsk_symbolizer`, routes generated
+the parsed TX packet stream into `fieldmesh_qpsk_symbolizer`, routes generated
 IQ through `fieldmesh_iq_tx_guard`, crosses it through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver` while its source selector resets to vendor
@@ -557,7 +557,7 @@ control bit only when the C-decoded status says `stop_write_needed=true`.
     packet-DMA overlay now routes that adapter through
     `fieldmesh_firmware_axis_dma_endpoint`; the RF-engine overlay now consumes
     the same firmware endpoint through a byte-wide egress broadcast feeding RX
-    DMA and the BPSK symbolizer.
+    DMA and the QPSK symbolizer.
 15. Generate and compile the matching sidecar devicetree fragment, and keep the
     userspace `dt-scan` preflight green before touching sidecar registers.
 16. Integrate the fragment only with a matching FieldMesh bitstream, then run

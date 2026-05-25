@@ -49,6 +49,7 @@ REQUIRED_RTL = [
     "rtl/fieldmesh/fieldmesh_axis16_byte_adapter.v",
     "rtl/fieldmesh/fieldmesh_axis_byte_broadcast2.v",
     "rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v",
+    "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v",
     "rtl/fieldmesh/fieldmesh_iq_tx_guard.v",
     "rtl/fieldmesh/fieldmesh_axis_async_fifo.v",
     "rtl/fieldmesh/fieldmesh_iq_dac_driver.v",

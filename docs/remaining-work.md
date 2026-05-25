@@ -109,7 +109,7 @@ DMA overlay now connects that wrapper between the ADI packet-DMA pair and the
 16-to-8 adapter with auto-egress enabled, instead of growing the AXI-lite
 diagnostic shell. The copied-HDL RF-engine overlay now consumes that same
 firmware endpoint by broadcasting descriptor-validated egress bytes to RX DMA
-and the BPSK symbolizer. The stats
+and the QPSK symbolizer. The stats
 ABI now includes compact `queued` and
 `selected` words plus masked `irq_status`/`irq_mask` completion bits for
 RX-ready, TX-done, drop, and error events. C and daemon status now expose the
@@ -1156,7 +1156,7 @@ Current concrete work:
   batch/bridge latency and raise delivered `iperf3` throughput, then return to
   full TCP+UDP production reports.
 - The next RF data-plane gate is authorized over-air only: use the RF
-  packet-engine handoff, BPSK symbolizer, IQ TX guard, DAC clock bridge, and DAC
+  packet-engine handoff, QPSK symbolizer, IQ TX guard, DAC clock bridge, and DAC
   source-select path to run a bounded TX/RX measurement with explicit legal
   frequency, RF path authorization, RX-first capture, TX enable, rollback, and evidence.
   Until that passes, all board/app capacity tables remain planning envelopes,
@@ -1486,11 +1486,11 @@ below were later superseded by the current PHY-management two-board gates above:
   assertion now ties that transport report to live sidecar DMA smoke evidence.
   The next step is replacing the modelled packet-engine IQ path with the first
   guarded live sidecar/RF data path. The first synthesizable TX primitive for
-  that path is now `fieldmesh_bpsk_iq_symbolizer`: it maps packet bytes into
+  that path is now `fieldmesh_qpsk_iq_symbolizer`: it maps packet bytes into
   repeated signed BPSK I/Q symbols while keeping tuning, filtering, TX enable,
   and scheduled launch outside the primitive. The `--rf-engine-overlay` Vivado
   gate now proves the sidecar TX DMA path can feed the bridge parser and the
-  bridge parser can feed the BPSK symbolizer and `fieldmesh_iq_tx_guard` while
+  bridge parser can feed the QPSK symbolizer and `fieldmesh_iq_tx_guard` while
   the guarded IQ stream crosses into the AD9361 DAC clock domain through
   `fieldmesh_axis_async_fifo` and reaches a reset-off sidecar-controlled
   `fieldmesh_iq_dac_driver` inserted between `tx_upack` and
@@ -1677,14 +1677,14 @@ below were later superseded by the current PHY-management two-board gates above:
   The copied-HDL RF-engine patcher now performs the first RF
   scheduler binding to the firmware endpoint: TX packet DMA
   enters `fieldmesh_firmware_axis_dma_endpoint`, descriptor-validated egress is
-  broadcast to RX DMA and the BPSK symbolizer, and firmware-DMA controls reset
+  broadcast to RX DMA and the QPSK symbolizer, and firmware-DMA controls reset
   off until explicitly armed.
   `tools/build_fieldmesh_dma_overlay_vivado.sh` now provides the copied-HDL
   build gate: apply that same overlay, run the normal ADI Pluto Vivado make
   flow, and verify the resulting `system_top.bit`/XSA without mutating vendor
   sources. `tools/build_fieldmesh_rf_engine_overlay_vivado.sh` is now
   board-class aware: Z203 still defaults to the non-transmitting experimental
-  RF-engine overlay with the BPSK symbolizer, TX guard, AD9361-clock-domain
+  RF-engine overlay with the QPSK symbolizer, TX guard, AD9361-clock-domain
   async FIFO, and reset-off DAC driver BD-visible, while Z103 defaults to the
   smaller production control/ring aperture because the 7010 cannot reliably
   pack the old RF-engine/DMA experiment alongside the vendor AD9363 fabric. Set

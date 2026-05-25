@@ -101,7 +101,7 @@ set FIELDMESH_REPO_ROOT {{{repo_root}}}
 # 7. For the non-transmitting RF-engine overlay, feed packet DMA through
 #    fieldmesh_firmware_axis_dma_endpoint, then use
 #    fieldmesh_axis_byte_broadcast2 to send descriptor-validated egress bytes
-#    to RX DMA and fieldmesh_bpsk_iq_symbolizer. Keep the IQ guard unarmed and
+#    to RX DMA and fieldmesh_qpsk_iq_symbolizer. Keep the IQ guard unarmed and
 #    leave FieldMesh DAC source selection reset-off.
 # 8. Do not modify axi_ad9361_adc_dma at 0x7C400000 or axi_ad9361_dac_dma at
 #    0x7C420000 in the first FieldMesh overlay.

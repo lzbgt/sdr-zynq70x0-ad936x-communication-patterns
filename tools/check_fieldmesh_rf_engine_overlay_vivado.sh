@@ -83,7 +83,7 @@ foreach cell {
   fieldmesh_fw_dma_rf_broadcast
   fieldmesh_tx_dma
   fieldmesh_rx_dma
-  fieldmesh_bpsk_symbolizer
+  fieldmesh_qpsk_symbolizer
   fieldmesh_iq_tx_guard
   fieldmesh_iq_tx_cdc
   fieldmesh_iq_dac_driver
@@ -108,20 +108,20 @@ if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
 }
 
 foreach pin {
-  fieldmesh_bpsk_symbolizer/clk
-  fieldmesh_bpsk_symbolizer/rst
-  fieldmesh_bpsk_symbolizer/enable
-  fieldmesh_bpsk_symbolizer/s_axis_tvalid
-  fieldmesh_bpsk_symbolizer/s_axis_tready
-  fieldmesh_bpsk_symbolizer/s_axis_tdata
-  fieldmesh_bpsk_symbolizer/s_axis_tlast
-  fieldmesh_bpsk_symbolizer/m_axis_tvalid
-  fieldmesh_bpsk_symbolizer/m_axis_tready
-  fieldmesh_bpsk_symbolizer/m_axis_tdata
-  fieldmesh_bpsk_symbolizer/m_axis_tlast
-  fieldmesh_bpsk_symbolizer/byte_count
-  fieldmesh_bpsk_symbolizer/symbol_count
-  fieldmesh_bpsk_symbolizer/packet_count
+  fieldmesh_qpsk_symbolizer/clk
+  fieldmesh_qpsk_symbolizer/rst
+  fieldmesh_qpsk_symbolizer/enable
+  fieldmesh_qpsk_symbolizer/s_axis_tvalid
+  fieldmesh_qpsk_symbolizer/s_axis_tready
+  fieldmesh_qpsk_symbolizer/s_axis_tdata
+  fieldmesh_qpsk_symbolizer/s_axis_tlast
+  fieldmesh_qpsk_symbolizer/m_axis_tvalid
+  fieldmesh_qpsk_symbolizer/m_axis_tready
+  fieldmesh_qpsk_symbolizer/m_axis_tdata
+  fieldmesh_qpsk_symbolizer/m_axis_tlast
+  fieldmesh_qpsk_symbolizer/byte_count
+  fieldmesh_qpsk_symbolizer/symbol_count
+  fieldmesh_qpsk_symbolizer/packet_count
   fieldmesh_fw_dma_endpoint/clk
   fieldmesh_fw_dma_endpoint/rst
   fieldmesh_fw_dma_endpoint/enable
@@ -280,7 +280,7 @@ foreach intf {
   fieldmesh_axis16_adapter/s_axis8
   fieldmesh_axis16_adapter/m_axis16
   fieldmesh_rx_dma/s_axis
-  fieldmesh_bpsk_symbolizer/s_axis
+  fieldmesh_qpsk_symbolizer/s_axis
 } {
   if {[llength [get_bd_intf_pins -quiet \$intf]] != 1} {
     error "\$intf interface pin missing"
@@ -375,16 +375,16 @@ foreach seg {
 foreach pair {
   {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_fw_dma_rf_broadcast/s_axis}
   {fieldmesh_fw_dma_rf_broadcast/m0_axis fieldmesh_axis16_adapter/s_axis8}
-  {fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_bpsk_symbolizer/s_axis}
+  {fieldmesh_fw_dma_rf_broadcast/m1_axis fieldmesh_qpsk_symbolizer/s_axis}
 } {
   assert_same_intf_net [lindex \$pair 0] [lindex \$pair 1]
 }
 
 foreach pair {
-  {fieldmesh_bpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
-  {fieldmesh_bpsk_symbolizer/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
-  {fieldmesh_bpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}
-  {fieldmesh_bpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
+  {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
+  {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
+  {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}
+  {fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
 } {
   assert_same_net [lindex \$pair 0] [lindex \$pair 1]
 }

@@ -2693,10 +2693,10 @@ Vivado simulator behavior where a `$fatal` line could still allow the shell
 script to continue.
 
 The first RF packet-engine TX primitive was added as
-`rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v` with
-`tb/fieldmesh/fieldmesh_bpsk_iq_symbolizer_tb.v`. It accepts byte-stream packet
-data and emits repeated signed I/Q BPSK symbols, MSB first. The test covers
-output backpressure, bit order, signed I samples, zero Q samples, TLAST on the
+`rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v` with
+`tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_tb.v`. It accepts byte-stream packet
+data and emits repeated signed QPSK I/Q symbols, MSB-first bit pair order. The
+test covers output backpressure, pair order, signed I/Q samples, TLAST on the
 final repeated symbol, and byte/symbol/packet counters. It is included in the
 required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
 TX boundary.
@@ -2723,7 +2723,7 @@ implies the sidecar DMA overlay, removes the packet-loopback shortcut, routes
 TX packet DMA through `fieldmesh_firmware_axis_dma_endpoint`, broadcasts the
 descriptor-validated egress stream through `fieldmesh_axis_byte_broadcast2`,
 feeds one branch to RX DMA and the other to
-`fieldmesh_bpsk_symbolizer/s_axis_*`, feeds generated IQ into
+`fieldmesh_qpsk_symbolizer/s_axis_*`, feeds generated IQ into
 `fieldmesh_iq_tx_guard`, crosses guarded IQ through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver`. The firmware-DMA controls, guard arming, schedule,
@@ -2734,7 +2734,7 @@ is not selected for AD936x TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_firmware_axis_dma_endpoint`, `fieldmesh_axis_byte_broadcast2`,
-`fieldmesh_bpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
+`fieldmesh_qpsk_symbolizer`, `fieldmesh_iq_tx_guard`, and
 `fieldmesh_axis_async_fifo` present, address segments intact, firmware-DMA
 status wired into `fieldmesh_ctrl`, the CDC sink and DAC driver clocked from
 `axi_ad9361/l_clk`, the driver inserted between `tx_upack` and
@@ -2866,7 +2866,7 @@ the first live test non-RF and verified the sidecar packet-DMA path through TX
 DMA, 16-bit/8-bit adaptation, packet-header parsing, header guard, and RX DMA.
 The current normal DMA overlay has moved that path to
 `fieldmesh_firmware_axis_dma_endpoint`; the RF-engine overlay now consumes that
-same endpoint through the byte-wide egress broadcast before the BPSK symbolizer.
+same endpoint through the byte-wide egress broadcast before the QPSK symbolizer.
 The RF-tools verifier also covers the guarded userspace control contract for
 that endpoint: `fieldmesh-ctrl-write --fw-dma-status` is read-only without
 authorization, and `--fw-dma-config`/`--fw-dma-arm`/`--fw-dma-stop` remain
