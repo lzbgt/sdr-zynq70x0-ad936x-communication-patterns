@@ -6786,6 +6786,30 @@ static int build_response(fieldmesh_context_t *context,
     if (strstr(request, "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE_STATUS")) {
         struct tun_service_firmware_ring_counts fw_ring_counts;
         struct native_ip_fw_dma_worker_self_test worker_test;
+        uint32_t firmware_ring_enabled =
+            tun_service ? tun_service->firmware_ring_enabled : 0u;
+        uint32_t firmware_ring_mapped =
+            tun_service ? tun_service->firmware_ring_mapped : 0u;
+        uint32_t firmware_ring_pumped =
+            tun_service ? tun_service->firmware_ring_pumped : 0u;
+        uint32_t firmware_ring_drained =
+            tun_service ? tun_service->firmware_ring_drained : 0u;
+        uint32_t firmware_ring_bytes_enqueued =
+            tun_service ? tun_service->firmware_ring_bytes_enqueued : 0u;
+        uint32_t firmware_ring_bytes_drained =
+            tun_service ? tun_service->firmware_ring_bytes_drained : 0u;
+        uint32_t firmware_ring_errors =
+            tun_service ? tun_service->firmware_ring_errors : 0u;
+        uint32_t live_uio_mapped =
+            firmware_ring_enabled && firmware_ring_mapped ? 1u : 0u;
+        uint32_t live_uio_exercised =
+            live_uio_mapped && firmware_ring_pumped > 0u &&
+                    firmware_ring_drained > 0u &&
+                    firmware_ring_bytes_enqueued > 0u &&
+                    firmware_ring_bytes_drained > 0u &&
+                    firmware_ring_errors == 0u ?
+                1u :
+                0u;
         tun_service_read_firmware_ring_counts(tun_service, &fw_ring_counts);
         native_ip_fw_dma_descriptor_worker_self_test(&worker_test);
         snprintf(response, response_len,
@@ -6815,7 +6839,19 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority\":%u,"
                  "\"descriptor_worker_execution_owner\":\"state_daemon_firmware_dma\","
                  "\"python_descriptor_worker_execution\":0,"
-                 "\"native_ip_production_data_plane\":1,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker\":1,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_proof\":\"%s\","
+                 "\"native_ip_fw_dma_uio_descriptor_worker_required\":1,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_mapped\":%u,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_exercised\":%u,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_packets_pumped\":%u,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_packets_drained\":%u,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_bytes_enqueued\":%u,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_bytes_drained\":%u,"
+                 "\"native_ip_fw_dma_uio_descriptor_worker_errors\":%u,"
+                 "\"uio_descriptor_worker_owner\":\"state_daemon_firmware_dma\","
+                 "\"python_uio_descriptor_worker_execution\":0,"
+                 "\"native_ip_production_data_plane\":%u,"
                  "\"production_data_plane_owner\":\"firmware_dma_c_fpga\","
                  "\"performance_critical_pipeline_owner\":\"c_firmware_fpga\","
                  "\"python_pipeline_role\":\"test_glue\","
@@ -6834,6 +6870,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"firmware_ring_pumped\":%u,"
                  "\"firmware_ring_served\":%u,"
                  "\"firmware_ring_drained\":%u,"
+                 "\"firmware_ring_errors\":%u,"
                  "\"firmware_ring_bytes_enqueued\":%u,"
                  "\"firmware_ring_bytes_drained\":%u,"
                  "\"firmware_ring_tx_queued\":%u,"
@@ -6856,7 +6893,7 @@ static int build_response(fieldmesh_context_t *context,
                  "\"starts_rf_tx\":0,"
                  "\"writes_hardware\":0,"
                  "\"commands_executed\":0,"
-                 "\"next_boundary\":\"firmware_dma_descriptor_worker\"}\n",
+                 "\"next_boundary\":\"live_uio_firmware_dma_descriptor_worker\"}\n",
                  FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DATA_PLANE_PROOF,
                  FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_PROOF,
                  worker_test.ok ? 1u : 0u,
@@ -6878,15 +6915,25 @@ static int build_response(fieldmesh_context_t *context,
                      fw_dma_worker->execution_tcp_control_priority : 0u,
                  fw_dma_worker ?
                      fw_dma_worker->execution_udp_interactive_priority : 0u,
+                 FIELDMESH_RF_SERVICE_NATIVE_IP_FW_DMA_UIO_DESCRIPTOR_WORKER_PROOF,
+                 live_uio_mapped,
+                 live_uio_exercised,
+                 firmware_ring_pumped,
+                 firmware_ring_drained,
+                 firmware_ring_bytes_enqueued,
+                 firmware_ring_bytes_drained,
+                 firmware_ring_errors,
+                 live_uio_exercised,
                  FIELDMESH_RF_SERVICE_NATIVE_IP_FW_TUN_BRIDGE_PROOF,
-                 tun_service ? tun_service->firmware_ring_enabled : 0u,
-                 tun_service ? tun_service->firmware_ring_mapped : 0u,
+                 firmware_ring_enabled,
+                 firmware_ring_mapped,
                  tun_service ? tun_service->firmware_ring_loopback : 0u,
-                 tun_service ? tun_service->firmware_ring_pumped : 0u,
+                 firmware_ring_pumped,
                  tun_service ? tun_service->firmware_ring_served : 0u,
-                 tun_service ? tun_service->firmware_ring_drained : 0u,
-                 tun_service ? tun_service->firmware_ring_bytes_enqueued : 0u,
-                 tun_service ? tun_service->firmware_ring_bytes_drained : 0u,
+                 firmware_ring_drained,
+                 firmware_ring_errors,
+                 firmware_ring_bytes_enqueued,
+                 firmware_ring_bytes_drained,
                  fw_ring_counts.tx_queued,
                  fw_ring_counts.tx_owned_by_pl,
                  fw_ring_counts.tx_done,

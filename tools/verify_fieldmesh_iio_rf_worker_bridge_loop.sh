@@ -679,7 +679,7 @@ def fw_dma_status_request(host, port, text, timeout_ms):
         "event": "sdk_daemon_native_ip_fw_dma_data_plane_status",
         "ok": True,
         "native_ip_fw_dma_data_plane": 1,
-        "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1", "native_ip_fw_dma_descriptor_worker": 1, "native_ip_fw_dma_descriptor_worker_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1", "native_ip_fw_dma_descriptor_worker_self_test": 1, "native_ip_fw_dma_descriptor_worker_packets_pumped": 2, "native_ip_fw_dma_descriptor_worker_packets_drained": 2, "native_ip_fw_dma_descriptor_worker_bytes_enqueued": 72, "native_ip_fw_dma_descriptor_worker_bytes_drained": 72, "native_ip_fw_dma_descriptor_worker_tcp_control_priority": 1, "native_ip_fw_dma_descriptor_worker_udp_interactive_priority": 1, "native_ip_fw_dma_descriptor_worker_execution": 1, "native_ip_fw_dma_descriptor_worker_execution_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1", "native_ip_fw_dma_descriptor_worker_execution_count": 1, "native_ip_fw_dma_descriptor_worker_execution_ok_count": 1, "native_ip_fw_dma_descriptor_worker_execution_failure_count": 0, "native_ip_fw_dma_descriptor_worker_execution_packets_pumped": 2, "native_ip_fw_dma_descriptor_worker_execution_packets_drained": 2, "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued": 72, "native_ip_fw_dma_descriptor_worker_execution_bytes_drained": 72, "native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority": 1, "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority": 1, "descriptor_worker_execution_owner": "state_daemon_firmware_dma", "python_descriptor_worker_execution": 0,
+        "native_ip_fw_dma_data_plane_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DATA_PLANE v1", "native_ip_fw_dma_descriptor_worker": 1, "native_ip_fw_dma_descriptor_worker_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1", "native_ip_fw_dma_descriptor_worker_self_test": 1, "native_ip_fw_dma_descriptor_worker_packets_pumped": 2, "native_ip_fw_dma_descriptor_worker_packets_drained": 2, "native_ip_fw_dma_descriptor_worker_bytes_enqueued": 72, "native_ip_fw_dma_descriptor_worker_bytes_drained": 72, "native_ip_fw_dma_descriptor_worker_tcp_control_priority": 1, "native_ip_fw_dma_descriptor_worker_udp_interactive_priority": 1, "native_ip_fw_dma_descriptor_worker_execution": 1, "native_ip_fw_dma_descriptor_worker_execution_proof": "FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1", "native_ip_fw_dma_descriptor_worker_execution_count": 1, "native_ip_fw_dma_descriptor_worker_execution_ok_count": 1, "native_ip_fw_dma_descriptor_worker_execution_failure_count": 0, "native_ip_fw_dma_descriptor_worker_execution_packets_pumped": 2, "native_ip_fw_dma_descriptor_worker_execution_packets_drained": 2, "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued": 72, "native_ip_fw_dma_descriptor_worker_execution_bytes_drained": 72, "native_ip_fw_dma_descriptor_worker_execution_tcp_control_priority": 1, "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority": 1, "descriptor_worker_execution_owner": "state_daemon_firmware_dma", "python_descriptor_worker_execution": 0, "native_ip_fw_dma_uio_descriptor_worker": 1, "native_ip_fw_dma_uio_descriptor_worker_proof": "FIELDMESH_NATIVE_IP_FW_DMA_UIO_DESCRIPTOR_WORKER v1", "native_ip_fw_dma_uio_descriptor_worker_required": 1, "native_ip_fw_dma_uio_descriptor_worker_mapped": 1, "native_ip_fw_dma_uio_descriptor_worker_exercised": 1, "native_ip_fw_dma_uio_descriptor_worker_packets_pumped": 1, "native_ip_fw_dma_uio_descriptor_worker_packets_drained": 1, "native_ip_fw_dma_uio_descriptor_worker_bytes_enqueued": 384, "native_ip_fw_dma_uio_descriptor_worker_bytes_drained": 384, "native_ip_fw_dma_uio_descriptor_worker_errors": 0, "uio_descriptor_worker_owner": "state_daemon_firmware_dma", "python_uio_descriptor_worker_execution": 0,
         "native_ip_production_data_plane": 1,
         "production_data_plane_owner": "firmware_dma_c_fpga",
         "performance_critical_pipeline_owner": "c_firmware_fpga",
@@ -697,7 +697,7 @@ def fw_dma_status_request(host, port, text, timeout_ms):
         "firmware_ring_mapped": 1,
         "firmware_ring_pumped": 1,
         "firmware_ring_served": 1,
-        "firmware_ring_drained": 1,
+        "firmware_ring_drained": 1, "firmware_ring_errors": 0,
         "firmware_bridge_enqueued_packets": 1,
         "firmware_bridge_drained_packets": 1,
         "firmware_bridge_bytes_enqueued": 384,
@@ -709,7 +709,7 @@ def fw_dma_status_request(host, port, text, timeout_ms):
         "starts_rf_tx": 0,
         "writes_hardware": 0,
         "commands_executed": 0,
-        "next_boundary": "firmware_dma_descriptor_worker",
+        "next_boundary": "live_uio_firmware_dma_descriptor_worker",
     }
 bridge.request_daemon = fw_dma_status_request
 try:

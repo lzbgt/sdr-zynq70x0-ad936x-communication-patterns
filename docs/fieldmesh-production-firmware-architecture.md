@@ -162,9 +162,14 @@ Responsibilities:
   boundary. That status also requires a positive
   `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1` counter from the
   state-daemon-owned descriptor worker, after the guarded worker command pumps
-  and drains TCP/UDP packets through the C memory-ring descriptor path. The
-  older `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1` self-test remains as
-  a read/write-free mechanism check, but readiness now depends on execution
+  and drains TCP/UDP packets through the C memory-ring descriptor path.
+  Production evidence also requires
+  `FIELDMESH_NATIVE_IP_FW_DMA_UIO_DESCRIPTOR_WORKER v1` with live firmware-ring
+  mapping, positive pump/drain byte counters, zero ring errors, and
+  `python_uio_descriptor_worker_execution=0`; the memory-ring execution proof
+  no longer satisfies the live UIO data-plane requirement by itself. The older
+  `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER v1` self-test remains as a
+  read/write-free mechanism check, but readiness now depends on execution
   evidence, not a label alone. That keeps
   helper-backed HIL evidence from being promoted to
   production data-plane ownership.

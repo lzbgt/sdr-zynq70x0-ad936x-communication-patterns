@@ -215,7 +215,10 @@ in `src/fieldmesh_sdk.c`:
   `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1` counters from a
   guarded state-daemon descriptor-worker execution. The execution path pumps
   and drains TCP/UDP packets through the C descriptor service path and reports
-  `python_descriptor_worker_execution=0`; Python bridge scripts may only
+  `python_descriptor_worker_execution=0`. Production native-IP evidence must
+  additionally show `FIELDMESH_NATIVE_IP_FW_DMA_UIO_DESCRIPTOR_WORKER v1`,
+  live firmware-ring mapping/exercise counters, and
+  `python_uio_descriptor_worker_execution=0`; Python bridge scripts may only
   trigger and record that proof as HIL glue.
   `--image PATH --loopback --allow-writes` and `--device /dev/uioN --loopback
   --allow-writes` modes run the same callback path over mapped packet memory,

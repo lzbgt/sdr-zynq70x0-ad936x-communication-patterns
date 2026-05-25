@@ -262,9 +262,14 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_NATIVE_IP_FW_DMA_DESCRIPTOR_WORKER_EXECUTE v1` execution before it
   accepts that status, so reports must show positive state-daemon descriptor
   worker counters, TCP-control/UDP-interactive priority, and
-  `python_descriptor_worker_execution=0`. This mode requires `EXECUTE_LIVE_RF`,
-  hardware-write/RF-TX/daemon-mutation approvals, production RF path evidence,
-  and the exact over-air operator confirmation. Batch mode uses
+  `python_descriptor_worker_execution=0`. Native-IP production evidence must
+  also carry `FIELDMESH_NATIVE_IP_FW_DMA_UIO_DESCRIPTOR_WORKER v1` with live
+  firmware-ring mapping/exercise counters and
+  `python_uio_descriptor_worker_execution=0`; guarded memory-ring execution is
+  only a mechanism check, not sufficient production data-plane proof. This mode
+  requires `EXECUTE_LIVE_RF`, hardware-write/RF-TX/daemon-mutation approvals,
+  production RF path evidence, and the exact over-air operator confirmation.
+  Batch mode uses
   `FIELDMESH_RF_TX_LEASE_BATCH` and
   `FIELDMESH_RF_TX_ACK_BATCH`; the daemon suppresses duplicate payload-free TCP
   control frames but preserves TCP payload retransmissions, because the live

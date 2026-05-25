@@ -205,6 +205,16 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
                 "native_ip_fw_dma_descriptor_worker_execution_udp_interactive_priority": 1,
                 "descriptor_worker_execution_owner": "state_daemon_firmware_dma",
                 "python_descriptor_worker_execution": 0,
+                "native_ip_fw_dma_uio_descriptor_worker": 1,
+                "native_ip_fw_dma_uio_descriptor_worker_proof": (
+                    "FIELDMESH_NATIVE_IP_FW_DMA_UIO_DESCRIPTOR_WORKER v1"
+                ),
+                "native_ip_fw_dma_uio_descriptor_worker_required": 1,
+                "native_ip_fw_dma_uio_descriptor_worker_mapped": 1,
+                "native_ip_fw_dma_uio_descriptor_worker_exercised": 1,
+                "native_ip_fw_dma_uio_descriptor_worker_errors": 0,
+                "uio_descriptor_worker_owner": "state_daemon_firmware_dma",
+                "python_uio_descriptor_worker_execution": 0,
                 "native_ip_production_data_plane": 1,
                 "production_data_plane_owner": "firmware_dma_c_fpga",
                 "performance_critical_pipeline_owner": "c_firmware_fpga",
@@ -235,13 +245,17 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
                 "native_ip_fw_dma_descriptor_worker_execution_packets_drained",
                 "native_ip_fw_dma_descriptor_worker_execution_bytes_enqueued",
                 "native_ip_fw_dma_descriptor_worker_execution_bytes_drained",
+                "native_ip_fw_dma_uio_descriptor_worker_packets_pumped",
+                "native_ip_fw_dma_uio_descriptor_worker_packets_drained",
+                "native_ip_fw_dma_uio_descriptor_worker_bytes_enqueued",
+                "native_ip_fw_dma_uio_descriptor_worker_bytes_drained",
             ):
                 if not _positive_number(status, key):
                     errors.append(
                         f"{label}: firmware-DMA {endpoint} descriptor worker "
                         f"execution missing positive {key}"
                     )
-            if status.get("next_boundary") != "firmware_dma_descriptor_worker":
+            if status.get("next_boundary") != "live_uio_firmware_dma_descriptor_worker":
                 errors.append(
                     f"{label}: firmware-DMA {endpoint} boundary is "
                     f"{status.get('next_boundary')!r}"
