@@ -516,7 +516,9 @@ rotation, sync input/output byte counters, timing phase/margin counters, lock/sl
 counters, packet/byte/drop counters, CRC rejects, truncated-burst drops,
 resyncs, RX framer fault status, and PL feedback from accepted/rejected packet
 framing back to byte-sync `clear_lock` so continuous ADC streams reacquire the
-next RF burst from preamble without Python or packetized-test TLAST.
+next RF burst from preamble without Python or packetized-test TLAST. The
+clear/reacquire cycle backpressures the demodulator byte stream for that clock
+instead of consuming and discarding a candidate preamble byte.
 The fixed sidecar aperture map itself is owned by
 `sdk/c/include/fieldmesh_sidecar_addr.h`: control at `0x43C00000`, packet TX
 DMA at `0x43C10000`, packet RX DMA at `0x43C20000`, firmware ring at

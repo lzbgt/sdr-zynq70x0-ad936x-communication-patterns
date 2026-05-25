@@ -8,7 +8,8 @@
 // byte-aligned data for the header framer. Packet TLAST drops the lock after
 // the final phase-history bytes flush in packetized tests; the downstream
 // header framer can also clear the lock after packet completion/drop so
-// continuous live ADC streams reacquire each RF burst in PL.
+// continuous live ADC streams reacquire each RF burst in PL. While clear_lock
+// is asserted, input is backpressured instead of accepted-and-discarded.
 
 `timescale 1ns/1ps
 
@@ -300,7 +301,7 @@ wire aligned_last = phase == 2'd0 ? raw_last0 : raw_last1;
 wire [7:0] flush_next0_byte = corrected_phase_byte(raw1, s_axis_tdata, phase, rotation);
 wire [7:0] flush_next1_byte = corrected_phase_byte(s_axis_tdata, 8'd0, phase, rotation);
 
-assign s_axis_tready = enable && flush_count == 2'd0 && (!out_valid || m_axis_tready);
+assign s_axis_tready = enable && !clear_lock && flush_count == 2'd0 && (!out_valid || m_axis_tready);
 assign m_axis_tvalid = enable && out_valid;
 assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;

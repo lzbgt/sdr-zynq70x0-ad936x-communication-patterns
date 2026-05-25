@@ -28,6 +28,7 @@ wire [31:0] sync_rotation_count;
 wire [31:0] search_drop_count;
 
 integer out_count = 0;
+reg [31:0] input_before_clear = 32'd0;
 reg [7:0] out_seen [0:31];
 
 fieldmesh_qpsk_byte_sync dut (
@@ -221,10 +222,17 @@ initial begin
 
     @(negedge clk);
     clear_lock = 1'b1;
+    s_axis_tdata = 8'h55;
+    s_axis_tvalid = 1'b1;
+    input_before_clear = input_byte_count;
+    #1;
+    if (s_axis_tready) fail("clear_lock did not backpressure input");
     @(posedge clk);
     @(negedge clk);
     clear_lock = 1'b0;
+    s_axis_tvalid = 1'b0;
     repeat (2) @(posedge clk);
+    if (input_byte_count != input_before_clear) fail("clear_lock accepted and discarded input");
     if (sync_locked) fail("byte synchronizer ignored downstream clear_lock");
     if (selected_phase != 2'd0) fail("clear_lock did not reset byte phase");
     if (selected_rotation != 2'd0) fail("clear_lock did not reset QPSK rotation");

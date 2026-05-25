@@ -215,7 +215,9 @@ RF burst must reacquire its own byte phase and constellation quadrant. In the
 continuous live-ADC path, `fieldmesh_rx_header_framer` drives the byte-sync
 `clear_lock` input after valid packet completion, malformed headers, CRC
 rejects, resync events, or truncated bursts; reacquisition is therefore owned
-inside PL even when upstream sample streams do not carry packet TLAST. RF RX no
+inside PL even when upstream sample streams do not carry packet TLAST. The
+clear cycle backpressures the demodulator byte stream instead of accepting and
+discarding one byte from a possible immediately-following preamble. RF RX no
 longer depends on Python/test-glue, reset-time byte alignment, immediately
 clean magic bytes, ideal constellation orientation, stale lock state, or stray
 post-packet samples to recover the packet tail.

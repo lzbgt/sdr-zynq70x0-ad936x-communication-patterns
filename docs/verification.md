@@ -2770,7 +2770,8 @@ instead of a packet-observability loopback. The RX header framer also feeds
 valid completion, bad-header resync, CRC/drop, and truncation events back into
 byte-sync `clear_lock`, forcing continuous live ADC streams to reacquire the
 next RF burst from the acquisition preamble rather than relying on test-burst
-TLAST. The firmware-DMA controls, guard
+TLAST; byte-sync backpressures input during that clear cycle so the next
+preamble byte is not accepted and discarded. The firmware-DMA controls, guard
 arming, schedule, and counter/status
 pins are now connected to the mapped `fieldmesh_ctrl` lightweight register
 window at `0x100+`/`0x140+`, while the DAC driver source select is
