@@ -13,6 +13,7 @@ checker = (repo / "tools/check_fieldmesh_rf_engine_overlay_vivado.sh").read_text
 plan = (repo / "tools/fieldmesh_sidecar_plan.py").read_text(encoding="utf-8")
 adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(encoding="utf-8")
 qpsk_symbolizer = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v").read_text(encoding="utf-8")
+qpsk_timing = (repo / "rtl/fieldmesh/fieldmesh_qpsk_symbol_timing_recovery.v").read_text(encoding="utf-8")
 byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
 ctrl = (repo / "rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v").read_text(encoding="utf-8")
@@ -90,8 +91,8 @@ required_checker_tokens = [
     "fieldmesh_rx_header_framer",
     "fieldmesh_iq_rx_cdc",
     "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
-    "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL timing recovery",
-    "fieldmesh_qpsk_timing_recovery must select centered samples from a 2x oversampled QPSK stream",
+    "fieldmesh_qpsk_symbolizer must emit 2x oversampled QPSK symbols for PL matched filtering",
+    "fieldmesh_qpsk_timing_recovery must matched-filter 2x oversampled QPSK symbols in PL",
     "register pages through 0x23c",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "proc assert_same_intf_net",
@@ -159,6 +160,15 @@ required_checker_tokens = [
 for token in required_checker_tokens:
     if token not in checker:
         raise SystemExit(f"check_fieldmesh_rf_engine_overlay_vivado.sh missing binding token: {token}")
+
+for token in (
+    "emits one matched-filtered",
+    "integrates all samples",
+    "filtered_data_next",
+    "avg_sat16",
+):
+    if token not in qpsk_timing:
+        raise SystemExit(f"fieldmesh_qpsk_symbol_timing_recovery.v missing matched-filter token: {token}")
 
 for rtl in (
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',

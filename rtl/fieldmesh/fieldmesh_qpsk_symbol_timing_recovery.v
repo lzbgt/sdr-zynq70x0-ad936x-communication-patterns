@@ -1,10 +1,11 @@
 // FieldMesh QPSK oversampled symbol timing recovery.
 //
-// This stage consumes an oversampled IQ stream and emits one IQ sample per
-// symbol.  For each oversample window it selects the sample with the strongest
-// hard-decision margin, which is the correct side of a transition for the
-// rectangular FieldMesh QPSK symbolizer and gives the downstream demodulator a
-// centered symbol sample without involving software in the data path.
+// This stage consumes an oversampled IQ stream and emits one matched-filtered
+// IQ sample per symbol.  For each oversample window it integrates all samples
+// and emits the average, while still reporting the strongest hard-decision
+// phase as a timing diagnostic.  That keeps symbol-energy recovery in PL and
+// gives the downstream demodulator a stable symbol sample without involving
+// software in the data path.
 
 `timescale 1ns/1ps
 
@@ -41,20 +42,30 @@ reg [31:0] out_data = 32'd0;
 reg        out_last = 1'b0;
 reg [7:0]  phase_index = 8'd0;
 reg [7:0]  best_phase = 8'd0;
-reg [31:0] best_data = 32'd0;
 reg [31:0] best_margin = 32'd0;
 reg        window_last = 1'b0;
+reg signed [31:0] sum_i = 32'sd0;
+reg signed [31:0] sum_q = 32'sd0;
 
 localparam [31:0] QUALITY_MARGIN_THRESHOLD_U32 = QUALITY_MARGIN_THRESHOLD;
 
 wire signed [15:0] i_sample = s_axis_tdata[15:0];
 wire signed [15:0] q_sample = s_axis_tdata[31:16];
+wire signed [31:0] i_sample_32 = {{16{i_sample[15]}}, i_sample};
+wire signed [31:0] q_sample_32 = {{16{q_sample[15]}}, q_sample};
+wire signed [31:0] sum_i_next = sum_i + i_sample_32;
+wire signed [31:0] sum_q_next = sum_q + q_sample_32;
+wire signed [15:0] filtered_i_sample = avg_sat16(sum_i_next);
+wire signed [15:0] filtered_q_sample = avg_sat16(sum_q_next);
+wire [31:0] filtered_data_next = {filtered_q_sample, filtered_i_sample};
 wire [31:0] i_margin = abs16(i_sample);
 wire [31:0] q_margin = abs16(q_sample);
 wire [31:0] sample_margin = i_margin < q_margin ? i_margin : q_margin;
+wire [31:0] filtered_i_margin = abs16(filtered_i_sample);
+wire [31:0] filtered_q_margin = abs16(filtered_q_sample);
+wire [31:0] filtered_margin = filtered_i_margin < filtered_q_margin ? filtered_i_margin : filtered_q_margin;
 wire sample_is_better = (phase_index == 8'd0) || (sample_margin > best_margin);
 wire [7:0] best_phase_next = sample_is_better ? phase_index : best_phase;
-wire [31:0] best_data_next = sample_is_better ? s_axis_tdata : best_data;
 wire [31:0] best_margin_next = sample_is_better ? sample_margin : best_margin;
 wire window_last_next = window_last || s_axis_tlast;
 wire final_phase = (phase_index == (OVERSAMPLE_FACTOR - 1));
@@ -75,6 +86,21 @@ function [31:0] abs16;
     end
 endfunction
 
+function signed [15:0] avg_sat16;
+    input signed [31:0] value;
+    reg signed [31:0] avg;
+    begin
+        avg = value / OVERSAMPLE_FACTOR;
+        if (avg > 32'sd32767) begin
+            avg_sat16 = 16'sh7fff;
+        end else if (avg < -32'sd32768) begin
+            avg_sat16 = -16'sd32768;
+        end else begin
+            avg_sat16 = avg[15:0];
+        end
+    end
+endfunction
+
 always @(posedge clk) begin
     if (rst || !enable) begin
         out_valid <= 1'b0;
@@ -82,9 +108,10 @@ always @(posedge clk) begin
         out_last <= 1'b0;
         phase_index <= 8'd0;
         best_phase <= 8'd0;
-        best_data <= 32'd0;
         best_margin <= 32'd0;
         window_last <= 1'b0;
+        sum_i <= 32'sd0;
+        sum_q <= 32'sd0;
         input_sample_count <= 32'd0;
         output_symbol_count <= 32'd0;
         selected_phase <= 32'd0;
@@ -110,11 +137,11 @@ always @(posedge clk) begin
 
             if (final_phase) begin
                 out_valid <= 1'b1;
-                out_data <= best_data_next;
+                out_data <= filtered_data_next;
                 out_last <= window_last_next;
                 output_symbol_count <= output_symbol_count + 1'b1;
-                timing_margin_accum <= timing_margin_accum + best_margin_next;
-                if (best_margin_next <= QUALITY_MARGIN_THRESHOLD_U32) begin
+                timing_margin_accum <= timing_margin_accum + filtered_margin;
+                if (filtered_margin <= QUALITY_MARGIN_THRESHOLD_U32) begin
                     low_timing_margin_count <= low_timing_margin_count + 1'b1;
                 end
                 if (selected_phase[7:0] != best_phase_next) begin
@@ -123,15 +150,17 @@ always @(posedge clk) begin
                 selected_phase <= {24'd0, best_phase_next};
                 phase_index <= 8'd0;
                 best_phase <= 8'd0;
-                best_data <= 32'd0;
                 best_margin <= 32'd0;
                 window_last <= 1'b0;
+                sum_i <= 32'sd0;
+                sum_q <= 32'sd0;
             end else begin
                 phase_index <= phase_index + 1'b1;
                 best_phase <= best_phase_next;
-                best_data <= best_data_next;
                 best_margin <= best_margin_next;
                 window_last <= window_last_next;
+                sum_i <= sum_i_next;
+                sum_q <= sum_q_next;
             end
         end
     end

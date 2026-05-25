@@ -384,7 +384,7 @@ Minimum production gates for native TCP/IP:
   48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
   seconds but initially produced an intermittent reverse-path CRC miss under
   load and still did not complete `iperf3`. The current fast profile is
-  QPSK 2x-oversampled symbol-timing-recovered repeat-1 in both directions at 15.36 Msps with a 10 MHz RF
+  QPSK 2x-oversampled matched-filter symbol-timing repeat-1 in both directions at 15.36 Msps with a 10 MHz RF
   bandwidth default, raising the raw modem PHY ceiling to 15.36 Mbit/s while
   keeping 32-sample/repeat-2 as the stronger retry profile. Production evidence
   requires at least 12 Mbit/s minimum raw modem PHY rate and fast-primary decode
