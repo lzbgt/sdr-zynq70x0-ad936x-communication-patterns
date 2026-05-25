@@ -1470,10 +1470,11 @@ user and vendor configuration.
   `FIELDMESH_RF_MODEM_PROFILE_DECISION v1` command during the run, and
   production evidence must prove the accepted fast-primary MCS decision was
   bound to those live counters rather than inferred only from archived reports.
-  That same daemon decision now also runs before each burst: prior measured
-  quality selects the fast-primary or retry-fallback modem profile before IQ
-  generation and IIO transfer, and readiness requires pre-burst selection proof
-  in both directions. The
+  That same decision now runs inside the state-daemon RF service loop tick
+  before each burst: prior measured quality selects the fast-primary or
+  retry-fallback modem profile before IQ generation and IIO transfer, and
+  readiness requires state-daemon-owned pre-burst selection proof in both
+  directions. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`

@@ -289,6 +289,15 @@ def native_service_tick_request(host, port, text, timeout_ms):
         "native_rf_service_control_plane": 1,
         "service_policy_bound": 1,
         "production_iio_policy": 1,
+        "native_adaptive_mcs_selection": 1,
+        "adaptive_mcs_pre_burst_decision": "fast_primary",
+        "adaptive_mcs_pre_burst_selection": "fast_primary",
+        "adaptive_mcs_pre_burst_profile_source": "state_daemon_rf_service_loop_tick",
+        "adaptive_mcs_pre_burst_decision_native_c": 1,
+        "adaptive_mcs_pre_burst_live_quality_bound": 1,
+        "adaptive_mcs_pre_burst_high_rate_proven": 1,
+        "adaptive_mcs_pre_burst_quality_ready": 1,
+        "adaptive_mcs_pre_burst_fast_primary_quality_ok": 1,
         "scheduler_score_native_c": 1,
         "local_scheduler_score": 1002,
         "peer_scheduler_score": 2,
@@ -334,14 +343,34 @@ def native_service_tick_request(host, port, text, timeout_ms):
 bridge.request_daemon = native_service_tick_request
 try:
     native_tick_batch, native_tick_report = loop.native_service_loop_tick_from_daemon(
-        "127.0.0.1", 55441, 10, 2, "127.0.0.2", 55442, 0
+        "127.0.0.1",
+        55441,
+        10,
+        2,
+        "127.0.0.2",
+        55442,
+        0,
+        48000,
+        48000,
+        {
+            "primary_decode_attempts": 4,
+            "primary_decode_successes": 4,
+            "primary_crc_failures": 0,
+            "retry_decode_attempts": 0,
+            "retry_decode_successes": 0,
+            "retry_crc_failures": 0,
+        },
     )
 finally:
     bridge.request_daemon = original_request
 if captured_native_tick.get("text") != (
     "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1 "
     "peer_host=127.0.0.2 peer_port=55442 peer_timeout_ms=10 "
-    "current_consecutive_direction_batches=0"
+    "current_consecutive_direction_batches=0 "
+    "primary_raw_bitrate_bps=48000 effective_raw_bitrate_bps=48000 "
+    "primary_decode_attempts=4 primary_decode_successes=4 "
+    "primary_crc_failures=0 retry_decode_attempts=0 "
+    "retry_decode_successes=0 retry_crc_failures=0"
 ):
     raise SystemExit(f"native service loop tick must use daemon C transport-loop command: {captured_native_tick}")
 if native_tick_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
@@ -958,6 +987,8 @@ required = [
     "fieldmesh_rf_modem_profile_decide_from_quality(",
     "FIELDMESH_RF_MODEM_PROFILE_DECISION",
     "sdk_daemon_rf_modem_profile_decision",
+    "native_adaptive_mcs_selection",
+    "state_daemon_rf_service_loop_tick",
     "fast_primary_min_raw_bitrate_bps",
     "fast_primary_quality_decision",
     "retry_fallback_decision",
@@ -1248,6 +1279,8 @@ required = [
     '"iio_bridge_phy_adaptive_mcs_decision_failures"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_selection"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_selection_by_direction"',
+    '"iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"',
+    '"iio_bridge_phy_adaptive_mcs_pre_burst_profile_source_by_direction"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"',

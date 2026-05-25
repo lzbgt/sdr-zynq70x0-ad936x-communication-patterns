@@ -173,6 +173,21 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         errors.append(f"{label}: pre-burst adaptive MCS direction selections are missing")
     elif any(selection != "fast_primary" for selection in pre_burst_selections.values()):
         errors.append(f"{label}: pre-burst adaptive MCS direction selections must be fast_primary")
+    if (
+        report.get("iio_bridge_phy_adaptive_mcs_pre_burst_profile_source")
+        != "state_daemon_rf_service_loop_tick"
+    ):
+        errors.append(f"{label}: pre-burst adaptive MCS selection must be state-daemon owned")
+    pre_burst_sources = report.get(
+        "iio_bridge_phy_adaptive_mcs_pre_burst_profile_source_by_direction"
+    )
+    if not isinstance(pre_burst_sources, dict) or not pre_burst_sources:
+        errors.append(f"{label}: pre-burst adaptive MCS source proof is missing")
+    elif any(
+        source != "state_daemon_rf_service_loop_tick"
+        for source in pre_burst_sources.values()
+    ):
+        errors.append(f"{label}: every pre-burst adaptive MCS direction must be state-daemon owned")
     if report.get("iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound") is not True:
         errors.append(f"{label}: pre-burst adaptive MCS selection is not bound to measured quality")
     pre_burst_quality_bound = report.get(
@@ -1770,6 +1785,12 @@ def main() -> int:
         ),
         "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection": host.get(
             "iio_bridge_phy_adaptive_mcs_pre_burst_selection"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": board.get(
+            "iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": host.get(
+            "iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
         ),
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": board.get(
             "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"

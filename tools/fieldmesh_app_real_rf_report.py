@@ -556,6 +556,8 @@ def require_native_ip(source: dict[str, Any]) -> dict[str, Any]:
         "host_iio_bridge_phy_adaptive_mcs_decision_polls",
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection",
         "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection",
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source",
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source",
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound",
         "host_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound",
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls",

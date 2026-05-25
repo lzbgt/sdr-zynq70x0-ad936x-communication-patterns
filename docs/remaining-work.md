@@ -322,10 +322,10 @@ selection; under-sampled evidence returns `hold`. The live RF worker bridge
 now binds that decision during the run by sending cumulative per-direction
 decode/PER counters into `FIELDMESH_RF_MODEM_PROFILE_DECISION v1`, and
 production native-IP evidence rejects captures that lack live quality-bound
-fast-primary MCS proof. The bridge also uses the same daemon decision before
-each burst to choose the initial modem profile from prior counters, and the
-native-IP gate requires pre-burst fast-primary selection proof in both
-directions. Follow-up
+fast-primary MCS proof. The state-daemon RF service loop tick also uses that
+decision before each burst to choose the initial modem profile from prior
+counters, and the native-IP gate requires state-daemon-owned pre-burst
+fast-primary selection proof in both directions. Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35

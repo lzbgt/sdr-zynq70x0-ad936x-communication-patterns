@@ -309,6 +309,8 @@ cat >"$work_dir/native-ip-ready.json" <<'JSON'
   "host_iio_bridge_phy_adaptive_mcs_decision_polls": 8,
   "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection": "fast_primary",
   "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection": "fast_primary",
+  "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": "state_daemon_rf_service_loop_tick",
+  "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": "state_daemon_rf_service_loop_tick",
   "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": true,
   "host_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": true,
   "board_iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls": 8,

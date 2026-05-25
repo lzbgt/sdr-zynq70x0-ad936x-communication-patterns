@@ -128,8 +128,9 @@ Responsibilities:
   The live RF worker bridge now queries that C decision path during a run, so
   readiness evidence must show MCS selection was bound to live decode/PER
   counters rather than only classified after log collection. The same decision
-  is also consumed before each burst to choose the initial modem profile, which
-  is the current host-side bridge step toward daemon-owned adaptive MCS control.
+  is also consumed by the state-daemon RF service loop tick before each burst to
+  choose the initial modem profile, so adaptive MCS ownership is now inside the
+  native service boundary rather than only host-side bridge orchestration.
 - Program scheduled TX/RX descriptors into the driver ring.
 - Read RX completion rings and deliver frames to `swarm0` or stream sockets.
 - Keep deterministic counters in fixed-size structs.

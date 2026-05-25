@@ -496,10 +496,11 @@ Minimum production gates for native TCP/IP:
   `FIELDMESH_RF_MODEM_PROFILE_DECISION v1`, and native-IP evidence requires
   `fast_primary` plus `phy_adaptive_mcs_live_quality_bound` proof in each
   direction before the higher raw PHY rate can satisfy production readiness.
-  The bridge also queries the same native decision before each burst, using
-  prior quality counters to select the initial modem profile instead of only
-  classifying the result after decode; production evidence now requires
-  pre-burst fast-primary selection to be quality-bound in both directions. That profile moved
+  The state-daemon RF service loop tick also consumes that decision before each
+  burst, using prior quality counters to select the initial modem profile
+  instead of only classifying the result after decode; production evidence now
+  requires pre-burst fast-primary selection to be state-daemon-owned and
+  quality-bound in both directions. That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
   exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The

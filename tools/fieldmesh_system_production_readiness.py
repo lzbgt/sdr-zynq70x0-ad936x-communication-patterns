@@ -603,6 +603,16 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
         detail["native_ip_host_iio_bridge_phy_adaptive_mcs_pre_burst_selection"] = (
             native_ip.get("host_iio_bridge_phy_adaptive_mcs_pre_burst_selection")
         )
+        detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"] = (
+            native_ip.get(
+                "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
+            )
+        )
+        detail["native_ip_host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"] = (
+            native_ip.get(
+                "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
+            )
+        )
         detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"] = (
             native_ip.get(
                 "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"

@@ -3257,7 +3257,7 @@ static int build_response(fieldmesh_context_t *context,
                           char *response,
                           size_t response_len)
 {
-    char native_transport_tick_request[256];
+    char native_transport_tick_request[512];
 
     if (strstr(request, "FIELDMESH_HELLO")) {
         char device_eui[FIELDMESH_ID_TEXT_MAX];
@@ -7034,6 +7034,14 @@ static int build_response(fieldmesh_context_t *context,
         unsigned peer_port = 0u;
         unsigned peer_timeout_ms = 250u;
         unsigned consecutive = 0u;
+        unsigned primary_raw_bitrate_bps = 0u;
+        unsigned effective_raw_bitrate_bps = 0u;
+        unsigned primary_decode_attempts = 0u;
+        unsigned primary_decode_successes = 0u;
+        unsigned primary_crc_failures = 0u;
+        unsigned retry_decode_attempts = 0u;
+        unsigned retry_decode_successes = 0u;
+        unsigned retry_crc_failures = 0u;
         char peer_response[1024];
         size_t peer_response_len = 0u;
         unsigned peer_score = 0u;
@@ -7048,6 +7056,31 @@ static int build_response(fieldmesh_context_t *context,
             !request_uint_or_default(
                 request, "current_consecutive_direction_batches=", 0u, 0u,
                 0xffu, &consecutive) ||
+            !request_uint_or_default(request, "primary_raw_bitrate_bps=", 0u,
+                                     0u, 100000000u,
+                                     &primary_raw_bitrate_bps) ||
+            !request_uint_or_default(request, "effective_raw_bitrate_bps=", 0u,
+                                     0u, 100000000u,
+                                     &effective_raw_bitrate_bps) ||
+            !request_uint_or_default(request, "primary_decode_attempts=", 0u,
+                                     0u, 1000000u,
+                                     &primary_decode_attempts) ||
+            !request_uint_or_default(request, "primary_decode_successes=", 0u,
+                                     0u, 1000000u,
+                                     &primary_decode_successes) ||
+            !request_uint_or_default(request, "primary_crc_failures=", 0u,
+                                     0u, 1000000u,
+                                     &primary_crc_failures) ||
+            !request_uint_or_default(request, "retry_decode_attempts=", 0u,
+                                     0u, 1000000u,
+                                     &retry_decode_attempts) ||
+            !request_uint_or_default(request, "retry_decode_successes=", 0u,
+                                     0u, 1000000u,
+                                     &retry_decode_successes) ||
+            !request_uint_or_default(request, "retry_crc_failures=", 0u, 0u,
+                                     1000000u, &retry_crc_failures) ||
+            primary_decode_successes > primary_decode_attempts ||
+            retry_decode_successes > retry_decode_attempts ||
             peer_host[0] == '\0') {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_service_transport_loop_tick\","
@@ -7089,17 +7122,44 @@ static int build_response(fieldmesh_context_t *context,
                  "peer_scheduler_score=%u "
                  "current_consecutive_direction_batches=%u "
                  "native_transport_loop=1 "
-                 "peer_scheduler_query_ok=1",
-                 peer_score, consecutive);
+                 "peer_scheduler_query_ok=1 "
+                 "primary_raw_bitrate_bps=%u "
+                 "effective_raw_bitrate_bps=%u "
+                 "primary_decode_attempts=%u "
+                 "primary_decode_successes=%u "
+                 "primary_crc_failures=%u "
+                 "retry_decode_attempts=%u "
+                 "retry_decode_successes=%u "
+                 "retry_crc_failures=%u",
+                 peer_score, consecutive, primary_raw_bitrate_bps,
+                 effective_raw_bitrate_bps, primary_decode_attempts,
+                 primary_decode_successes, primary_crc_failures,
+                 retry_decode_attempts, retry_decode_successes,
+                 retry_crc_failures);
         request = native_transport_tick_request;
     }
     if (strstr(request, "FIELDMESH_RF_SERVICE_LOOP_TICK")) {
         fieldmesh_rf_service_policy_t policy =
             fieldmesh_rf_service_default_policy();
+        fieldmesh_rf_modem_profile_quality_t mcs_quality;
+        fieldmesh_rf_modem_profile_decision_t mcs_decision;
         enum tun_service_rf_lease_priority lease_priority =
             (enum tun_service_rf_lease_priority)policy.lease_priority;
         unsigned peer_score = 0u;
         unsigned consecutive = 0u;
+        unsigned primary_raw_bitrate_bps = 0u;
+        unsigned effective_raw_bitrate_bps = 0u;
+        unsigned primary_decode_attempts = 0u;
+        unsigned primary_decode_successes = 0u;
+        unsigned primary_crc_failures = 0u;
+        unsigned retry_decode_attempts = 0u;
+        unsigned retry_decode_successes = 0u;
+        unsigned retry_crc_failures = 0u;
+        unsigned mcs_quality_ready;
+        unsigned mcs_fast_primary_ok;
+        unsigned mcs_high_rate_proven;
+        const char *mcs_decision_name;
+        const char *mcs_selection;
         uint32_t tx_depth =
             tun_service ? (uint32_t)tun_service->rf_tx_queue.count : 0u;
         uint32_t lease_depth =
@@ -7132,6 +7192,59 @@ static int build_response(fieldmesh_context_t *context,
         (void)request_uint_or_default(
             request, "current_consecutive_direction_batches=", 0u, 0u, 0xffu,
             &consecutive);
+        (void)request_uint_or_default(request, "primary_raw_bitrate_bps=", 0u,
+                                      0u, 100000000u,
+                                      &primary_raw_bitrate_bps);
+        (void)request_uint_or_default(request, "effective_raw_bitrate_bps=", 0u,
+                                      0u, 100000000u,
+                                      &effective_raw_bitrate_bps);
+        (void)request_uint_or_default(request, "primary_decode_attempts=", 0u,
+                                      0u, 1000000u,
+                                      &primary_decode_attempts);
+        (void)request_uint_or_default(request, "primary_decode_successes=", 0u,
+                                      0u, 1000000u,
+                                      &primary_decode_successes);
+        (void)request_uint_or_default(request, "primary_crc_failures=", 0u,
+                                      0u, 1000000u,
+                                      &primary_crc_failures);
+        (void)request_uint_or_default(request, "retry_decode_attempts=", 0u,
+                                      0u, 1000000u,
+                                      &retry_decode_attempts);
+        (void)request_uint_or_default(request, "retry_decode_successes=", 0u,
+                                      0u, 1000000u,
+                                      &retry_decode_successes);
+        (void)request_uint_or_default(request, "retry_crc_failures=", 0u, 0u,
+                                      1000000u, &retry_crc_failures);
+        if (primary_decode_successes > primary_decode_attempts) {
+            primary_decode_successes = primary_decode_attempts;
+        }
+        if (retry_decode_successes > retry_decode_attempts) {
+            retry_decode_successes = retry_decode_attempts;
+        }
+        mcs_quality.primary_decode_attempts = primary_decode_attempts;
+        mcs_quality.primary_decode_successes = primary_decode_successes;
+        mcs_quality.primary_crc_failures = primary_crc_failures;
+        mcs_quality.retry_decode_attempts = retry_decode_attempts;
+        mcs_quality.retry_decode_successes = retry_decode_successes;
+        mcs_quality.retry_crc_failures = retry_crc_failures;
+        mcs_decision = fieldmesh_rf_modem_profile_decide_from_quality(
+            primary_raw_bitrate_bps, effective_raw_bitrate_bps, &mcs_quality);
+        mcs_quality_ready =
+            fieldmesh_rf_modem_profile_quality_ready(&mcs_quality) ? 1u : 0u;
+        mcs_fast_primary_ok =
+            fieldmesh_rf_modem_profile_quality_fast_primary_ok(&mcs_quality) ?
+                1u :
+                0u;
+        mcs_high_rate_proven =
+            mcs_decision == FIELDMESH_RF_MODEM_PROFILE_DECISION_FAST_PRIMARY ?
+                1u :
+                0u;
+        mcs_decision_name =
+            fieldmesh_rf_modem_profile_decision_name(mcs_decision);
+        mcs_selection =
+            mcs_decision == FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK ?
+                "retry_fallback" :
+                "fast_primary";
         service_local_first =
             fieldmesh_rf_service_scheduler_service_local_first(local_score,
                                                                peer_score);
@@ -7401,6 +7514,21 @@ static int build_response(fieldmesh_context_t *context,
                  "\"native_rf_service_control_plane\":1,"
                  "\"service_policy_bound\":1,"
                  "\"production_iio_policy\":%u,"
+                 "\"native_adaptive_mcs_selection\":1,"
+                 "\"adaptive_mcs_pre_burst_decision\":\"%s\","
+                 "\"adaptive_mcs_pre_burst_selection\":\"%s\","
+                 "\"adaptive_mcs_pre_burst_profile_source\":\"state_daemon_rf_service_loop_tick\","
+                 "\"adaptive_mcs_pre_burst_decision_native_c\":1,"
+                 "\"adaptive_mcs_pre_burst_live_quality_bound\":%u,"
+                 "\"adaptive_mcs_pre_burst_high_rate_proven\":%u,"
+                 "\"adaptive_mcs_pre_burst_quality_ready\":%u,"
+                 "\"adaptive_mcs_pre_burst_fast_primary_quality_ok\":%u,"
+                 "\"adaptive_mcs_pre_burst_primary_decode_attempts\":%u,"
+                 "\"adaptive_mcs_pre_burst_primary_decode_successes\":%u,"
+                 "\"adaptive_mcs_pre_burst_primary_crc_failures\":%u,"
+                 "\"adaptive_mcs_pre_burst_retry_decode_attempts\":%u,"
+                 "\"adaptive_mcs_pre_burst_retry_decode_successes\":%u,"
+                 "\"adaptive_mcs_pre_burst_retry_crc_failures\":%u,"
                  "\"scheduler_score_native_c\":1,"
                  "\"local_scheduler_score\":%u,"
                  "\"peer_scheduler_score\":%u,"
@@ -7457,6 +7585,18 @@ static int build_response(fieldmesh_context_t *context,
                  fieldmesh_rf_service_policy_accepts_production_iio(&policy) ?
                      1u :
                      0u,
+                 mcs_decision_name,
+                 mcs_selection,
+                 mcs_quality_ready,
+                 mcs_high_rate_proven,
+                 mcs_quality_ready,
+                 mcs_fast_primary_ok,
+                 primary_decode_attempts,
+                 primary_decode_successes,
+                 primary_crc_failures,
+                 retry_decode_attempts,
+                 retry_decode_successes,
+                 retry_crc_failures,
                  local_score,
                  peer_score,
                  fieldmesh_rf_service_scheduler_has_work(peer_score) ? 1u : 0u,

@@ -807,6 +807,12 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection": report.get(
             "host_iio_bridge_phy_adaptive_mcs_pre_burst_selection"
         ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
+        ),
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": report.get(
             "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"
         ),

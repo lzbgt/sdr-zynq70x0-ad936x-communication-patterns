@@ -3236,6 +3236,15 @@ report = {
         last_iio_bridge.get("phy_adaptive_mcs_pre_burst_selection_by_direction")
         or {}
     ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": str(
+        last_iio_bridge.get("phy_adaptive_mcs_pre_burst_profile_source") or ""
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_profile_source_by_direction": (
+        last_iio_bridge.get(
+            "phy_adaptive_mcs_pre_burst_profile_source_by_direction"
+        )
+        or {}
+    ),
     "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": bool(
         last_iio_bridge.get("phy_adaptive_mcs_pre_burst_live_quality_bound")
     ),

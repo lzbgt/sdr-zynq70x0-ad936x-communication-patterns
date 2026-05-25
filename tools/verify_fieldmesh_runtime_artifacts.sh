@@ -457,6 +457,8 @@ PY
         FIELDMESH_RF_MODEM_PROFILE_DECISION \
         sdk_daemon_rf_modem_profile_decision \
         live_rf_worker_mcs_selection \
+        native_adaptive_mcs_selection \
+        state_daemon_rf_service_loop_tick \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
         state_daemon_iio_transport_execution_worker \
         state_daemon_libiio_execution_owner \

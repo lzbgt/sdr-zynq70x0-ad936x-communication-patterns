@@ -286,7 +286,11 @@ def native_service_loop_tick_from_daemon(
     peer_host: str,
     peer_port: int,
     current_consecutive_direction_batches: int,
+    primary_raw_bitrate_bps: float = 0.0,
+    effective_raw_bitrate_bps: float = 0.0,
+    modem_quality: dict[str, int] | None = None,
 ) -> tuple[list[bytes], dict[str, Any]]:
+    quality = modem_quality or {}
     try:
         report = bridge.request_daemon(
             host,
@@ -295,7 +299,15 @@ def native_service_loop_tick_from_daemon(
             f"peer_host={peer_host} peer_port={max(1, int(peer_port))} "
             f"peer_timeout_ms={max(1, int(timeout_ms))} "
             "current_consecutive_direction_batches="
-            f"{max(0, int(current_consecutive_direction_batches))}",
+            f"{max(0, int(current_consecutive_direction_batches))} "
+            f"primary_raw_bitrate_bps={max(0, int(primary_raw_bitrate_bps))} "
+            f"effective_raw_bitrate_bps={max(0, int(effective_raw_bitrate_bps))} "
+            f"primary_decode_attempts={max(0, int(quality.get('primary_decode_attempts') or 0))} "
+            f"primary_decode_successes={max(0, int(quality.get('primary_decode_successes') or 0))} "
+            f"primary_crc_failures={max(0, int(quality.get('primary_crc_failures') or 0))} "
+            f"retry_decode_attempts={max(0, int(quality.get('retry_decode_attempts') or 0))} "
+            f"retry_decode_successes={max(0, int(quality.get('retry_decode_successes') or 0))} "
+            f"retry_crc_failures={max(0, int(quality.get('retry_crc_failures') or 0))}",
             timeout_ms,
         )
     except TimeoutError:
@@ -350,6 +362,8 @@ def native_service_loop_tick_from_daemon(
         "service_skipped": 0,
         "same_priority_batch": 1,
         "in_burst_priority_preemption": 1,
+        "native_adaptive_mcs_selection": 1,
+        "adaptive_mcs_pre_burst_decision_native_c": 1,
     }
     errors.extend(
         f"{key}={report.get(key)!r} expected {expected!r}"
@@ -384,6 +398,13 @@ def native_service_loop_tick_from_daemon(
             errors.append(f"{key}={report.get(key)!r} expected integer")
     if report.get("service_local_first") != 1 or report.get("yield_to_peer") != 0:
         errors.append("nonempty loop tick must prove service_local_first=1 and yield_to_peer=0")
+    if report.get("adaptive_mcs_pre_burst_selection") not in (
+        "fast_primary",
+        "retry_fallback",
+    ):
+        errors.append("loop tick did not return a valid pre-burst MCS selection")
+    if report.get("adaptive_mcs_pre_burst_profile_source") != "state_daemon_rf_service_loop_tick":
+        errors.append("loop tick MCS selection was not owned by the state daemon")
     if errors:
         raise SystemExit("native RF service loop tick invalid: " + "; ".join(errors))
     frames: list[bytes] = []
@@ -1328,6 +1349,25 @@ def adaptive_mcs_pre_burst_selection_by_direction(
     return selection_by_direction
 
 
+def adaptive_mcs_pre_burst_source_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, str]:
+    source_by_direction: dict[str, str] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        sources = [
+            str(frame.get("adaptive_mcs_pre_burst_profile_source") or "")
+            for frame in frames
+            if frame.get("direction") == name
+            and not frame.get("filtered_frames")
+            and frame.get("adaptive_mcs_pre_burst_profile_source")
+        ]
+        source_by_direction[key] = sources[-1] if sources else ""
+    return source_by_direction
+
+
 def adaptive_mcs_pre_burst_quality_bound_by_direction(
     frames: list[dict[str, Any]],
     directions: list[dict[str, Any]],
@@ -1634,6 +1674,7 @@ def run_batch(
     cyclic_capture_periods: int,
     defer_source_ack: bool,
     prior_modem_quality: dict[str, int] | None = None,
+    native_mcs_selection_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     frame_dir = args.out_dir / f"batch-{index:04d}-{direction['name']}"
@@ -1773,7 +1814,25 @@ def run_batch(
     pre_burst_mcs_decision = "hold"
     pre_burst_mcs_selection = "fast_primary"
     pre_burst_mcs_profile_source = "default_primary"
-    if args.execute_live_rf:
+    if (
+        args.execute_live_rf
+        and native_mcs_selection_report
+        and native_mcs_selection_report.get("native_adaptive_mcs_selection") == 1
+    ):
+        pre_burst_mcs_decision_report = dict(native_mcs_selection_report)
+        pre_burst_mcs_decision = str(
+            pre_burst_mcs_decision_report.get("adaptive_mcs_pre_burst_decision")
+            or "hold"
+        )
+        pre_burst_mcs_selection = str(
+            pre_burst_mcs_decision_report.get("adaptive_mcs_pre_burst_selection")
+            or "fast_primary"
+        )
+        pre_burst_mcs_profile_source = str(
+            pre_burst_mcs_decision_report.get("adaptive_mcs_pre_burst_profile_source")
+            or "state_daemon_rf_service_loop_tick"
+        )
+    elif args.execute_live_rf:
         pre_burst_quality = prior_modem_quality or {
             "primary_decode_attempts": 0,
             "primary_decode_successes": 0,
@@ -1986,13 +2045,23 @@ def run_batch(
         "adaptive_mcs_pre_burst_selection": pre_burst_mcs_selection,
         "adaptive_mcs_pre_burst_profile_source": pre_burst_mcs_profile_source,
         "adaptive_mcs_pre_burst_decision_native_c": bool(
-            pre_burst_mcs_decision_report.get(
+            pre_burst_mcs_decision_report.get("native_adaptive_mcs_selection") == 1
+            or pre_burst_mcs_decision_report.get(
                 "adaptive_modem_profile_measured_quality_native_c"
             )
         ),
         "adaptive_mcs_pre_burst_live_quality_bound": bool(
-            pre_burst_mcs_decision_report.get("ok") is True
-            and pre_burst_mcs_decision_report.get("quality_ready") == 1
+            (
+                pre_burst_mcs_decision_report.get("native_adaptive_mcs_selection") == 1
+                and pre_burst_mcs_decision_report.get(
+                    "adaptive_mcs_pre_burst_live_quality_bound"
+                )
+                == 1
+            )
+            or (
+                pre_burst_mcs_decision_report.get("ok") is True
+                and pre_burst_mcs_decision_report.get("quality_ready") == 1
+            )
         ),
         "adaptive_mcs_pre_burst_profile_switched": bool(
             pre_burst_mcs_selection == "retry_fallback"
@@ -2343,6 +2412,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             frames,
             directions,
         )
+        adaptive_mcs_pre_burst_sources = adaptive_mcs_pre_burst_source_by_direction(
+            frames,
+            directions,
+        )
         adaptive_mcs_pre_burst_quality_bound = (
             adaptive_mcs_pre_burst_quality_bound_by_direction(frames, directions)
         )
@@ -2649,6 +2722,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "phy_adaptive_mcs_pre_burst_selection_by_direction": (
                 adaptive_mcs_pre_burst_selections
+            ),
+            "phy_adaptive_mcs_pre_burst_profile_source_by_direction": (
+                adaptive_mcs_pre_burst_sources
+            ),
+            "phy_adaptive_mcs_pre_burst_profile_source": (
+                "state_daemon_rf_service_loop_tick"
+                if adaptive_mcs_pre_burst_sources
+                and all(
+                    source == "state_daemon_rf_service_loop_tick"
+                    for source in adaptive_mcs_pre_burst_sources.values()
+                )
+                else "host_bridge_or_missing"
             ),
             "phy_adaptive_mcs_pre_burst_selection": (
                 "fast_primary"
@@ -3371,6 +3456,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "adaptive_mcs_pre_burst_selection": report.get(
                                 "adaptive_mcs_pre_burst_selection"
                             ),
+                            "adaptive_mcs_pre_burst_profile_source": report.get(
+                                "adaptive_mcs_pre_burst_profile_source"
+                            ),
                             "adaptive_mcs_pre_burst_live_quality_bound": report.get(
                                 "adaptive_mcs_pre_burst_live_quality_bound"
                             ),
@@ -3406,6 +3494,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                         continue
                     elif args.batch_size > 1:
                         if args.native_service_burst_leases:
+                            prior_quality = aggregate_modem_quality(
+                                frames,
+                                direction["name"],
+                            )
+                            primary_raw_bitrate_bps = direction_phy_raw_bitrate_bps(
+                                args,
+                                direction["name"],
+                            )
                             try:
                                 batch_frames, batch_lease = (
                                     native_service_loop_tick_from_daemon(
@@ -3420,6 +3516,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                             if last_served_direction == direction["name"]
                                             else 0
                                         ),
+                                        primary_raw_bitrate_bps,
+                                        primary_raw_bitrate_bps,
+                                        prior_quality,
                                     )
                                 )
                             except (TimeoutError, SystemExit):
@@ -3534,6 +3633,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                 frames,
                                 direction["name"],
                             ),
+                            native_mcs_selection_report=(
+                                batch_lease if args.native_service_burst_leases else None
+                            ),
                         )
                         record_pre_burst_mcs_selection(report)
                         record_timing_stat(rf_burst_timing_ms, direction["name"], report)
@@ -3571,6 +3673,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             ),
                             "adaptive_mcs_pre_burst_selection": report.get(
                                 "adaptive_mcs_pre_burst_selection"
+                            ),
+                            "adaptive_mcs_pre_burst_profile_source": report.get(
+                                "adaptive_mcs_pre_burst_profile_source"
                             ),
                             "adaptive_mcs_pre_burst_live_quality_bound": report.get(
                                 "adaptive_mcs_pre_burst_live_quality_bound"
