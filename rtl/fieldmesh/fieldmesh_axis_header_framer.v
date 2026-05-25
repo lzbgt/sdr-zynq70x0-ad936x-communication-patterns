@@ -63,11 +63,17 @@ function [15:0] crc16_ccitt_byte;
     end
 endfunction
 
-reg [7:0] packet_mem0 [0:MAX_PACKET_BYTES-1];
-reg [7:0] packet_mem1 [0:MAX_PACKET_BYTES-1];
+localparam [1:0] EMIT_READ_IDLE = 2'd0;
+localparam [1:0] EMIT_READ_WAIT1 = 2'd1;
+localparam [1:0] EMIT_READ_WAIT2 = 2'd2;
+
+(* ram_style = "block" *) reg [7:0] packet_mem [0:(1 << (ADDR_WIDTH + 1))-1];
 reg [15:0] rx_index;
 reg [15:0] emit_index;
 reg [15:0] emit_len;
+reg [7:0] emit_data;
+reg [7:0] mem_rd_data;
+reg [ADDR_WIDTH:0] mem_rd_addr;
 reg [15:0] bank_len0;
 reg [15:0] bank_len1;
 reg [15:0] payload_len;
@@ -76,6 +82,7 @@ reg [15:0] expected_crc16;
 reg [7:0] traffic_class;
 reg packet_bad;
 reg emit_active;
+reg [1:0] emit_read_state;
 reg emit_bank;
 reg capture_bank;
 reg [1:0] bank_ready;
@@ -123,27 +130,40 @@ wire packet_shape_valid = !packet_bad && !current_header_bad &&
 wire packet_valid = packet_shape_valid && crc16_ok;
 wire packet_crc_bad = packet_complete && packet_shape_valid && !crc16_ok;
 wire packet_truncated = s_axis_tlast && !packet_complete;
+wire packet_start_bad_magic = rx_index == 16'd0 && s_axis_tdata != FM_MAGIC_0;
+wire [ADDR_WIDTH:0] capture_mem_addr = {capture_bank, rx_index[ADDR_WIDTH-1:0]};
 
 assign s_axis_tready = enable && !capture_bank_busy;
 assign m_axis_tvalid = enable && emit_active;
-assign m_axis_tdata =
-    emit_bank ? packet_mem1[emit_index[ADDR_WIDTH-1:0]] :
-    packet_mem0[emit_index[ADDR_WIDTH-1:0]];
+assign m_axis_tdata = emit_data;
 assign m_axis_tlast = emit_active && (emit_index == emit_len - 16'd1);
+
+wire [15:0] emit_next_index = emit_index + 16'd1;
+wire [ADDR_WIDTH:0] emit_next_mem_addr = {emit_bank, emit_next_index[ADDR_WIDTH-1:0]};
+
+always @(posedge clk) begin
+    if (s_fire && !packet_start_bad_magic && rx_index_in_range) begin
+        packet_mem[capture_mem_addr] <= s_axis_tdata;
+    end
+    mem_rd_data <= packet_mem[mem_rd_addr];
+end
 
 always @(posedge clk) begin
     if (rst || !enable) begin
         rx_index <= 16'd0;
         emit_index <= 16'd0;
         emit_len <= 16'd0;
+        emit_data <= 8'd0;
         bank_len0 <= 16'd0;
         bank_len1 <= 16'd0;
         payload_len <= 16'd0;
         crc16_state <= 16'hffff;
         expected_crc16 <= 16'd0;
+        mem_rd_addr <= {(ADDR_WIDTH + 1){1'b0}};
         traffic_class <= 8'd0;
         packet_bad <= 1'b0;
         emit_active <= 1'b0;
+        emit_read_state <= EMIT_READ_IDLE;
         emit_bank <= 1'b0;
         capture_bank <= 1'b0;
         bank_ready <= 2'b00;
@@ -157,12 +177,19 @@ always @(posedge clk) begin
     end else begin
         sync_clear <= 1'b0;
 
-        if (!emit_active && bank_ready != 2'b00) begin
+        if (!emit_active && emit_read_state == EMIT_READ_IDLE && bank_ready != 2'b00) begin
             emit_bank <= pending_emit_bank;
             emit_len <= pending_emit_len;
             emit_index <= 16'd0;
-            emit_active <= 1'b1;
+            mem_rd_addr <= {pending_emit_bank, {ADDR_WIDTH{1'b0}}};
+            emit_read_state <= EMIT_READ_WAIT1;
             bank_ready[pending_emit_bank] <= 1'b0;
+        end else if (emit_read_state == EMIT_READ_WAIT1) begin
+            emit_read_state <= EMIT_READ_WAIT2;
+        end else if (emit_read_state == EMIT_READ_WAIT2) begin
+            emit_data <= mem_rd_data;
+            emit_active <= 1'b1;
+            emit_read_state <= EMIT_READ_IDLE;
         end
 
         if (s_fire) begin
@@ -170,14 +197,6 @@ always @(posedge clk) begin
                 resync_count <= resync_count + 1'b1;
                 sync_clear <= 1'b1;
             end else begin
-                if (rx_index_in_range) begin
-                    if (capture_bank) begin
-                        packet_mem1[rx_index[ADDR_WIDTH-1:0]] <= s_axis_tdata;
-                    end else begin
-                        packet_mem0[rx_index[ADDR_WIDTH-1:0]] <= s_axis_tdata;
-                    end
-                end
-
                 case (rx_index)
                     16'd14: traffic_class <= s_axis_tdata;
                     16'd28: payload_len[7:0] <= s_axis_tdata;
@@ -239,12 +258,16 @@ always @(posedge clk) begin
             if (m_axis_tlast) begin
                 emit_active <= 1'b0;
                 emit_index <= 16'd0;
+                emit_data <= 8'd0;
                 packet_count <= packet_count + 1'b1;
                 if (capture_bank == emit_bank && !bank_ready[emit_bank]) begin
                     capture_bank <= emit_bank;
                 end
             end else begin
-                emit_index <= emit_index + 1'b1;
+                emit_active <= 1'b0;
+                emit_index <= emit_next_index;
+                mem_rd_addr <= emit_next_mem_addr;
+                emit_read_state <= EMIT_READ_WAIT1;
             end
         end
     end

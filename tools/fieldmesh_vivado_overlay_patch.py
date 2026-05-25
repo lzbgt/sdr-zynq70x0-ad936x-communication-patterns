@@ -174,8 +174,13 @@ def render_control_overlay(
     plan: dict,
     rf_guard_defaults: bool = True,
     fw_dma_defaults: bool = True,
+    variant_name: str = "",
+    rf_engine_overlay: bool = False,
 ) -> str:
     ctrl = sidecar_block(plan, "fieldmesh_ctrl")
+    ctrl_parameters = ""
+    if variant_name == "z103" and rf_engine_overlay:
+        ctrl_parameters = "set_property -dict [list CONFIG.SYNTH_LIGHT {2}] [get_bd_cells fieldmesh_ctrl]\n"
     rf_guard_tieoffs = ""
     if rf_guard_defaults:
         rf_guard_tieoffs = """ad_connect GND fieldmesh_ctrl/rf_guard_pass_sample_count
@@ -222,7 +227,10 @@ ad_connect GND fieldmesh_ctrl/fw_dma_service_latency_over_budget_count
 ad_connect GND fieldmesh_ctrl/fw_dma_bram_crc_error_count
 ad_connect GND fieldmesh_ctrl/fw_dma_bram_bounds_error_count
 ad_connect GND fieldmesh_ctrl/fw_dma_bram_error_count
-ad_connect GND fieldmesh_ctrl/qpsk_sync_locked
+"""
+    qpsk_diag_tieoffs = ""
+    if not rf_engine_overlay:
+        qpsk_diag_tieoffs = """ad_connect GND fieldmesh_ctrl/qpsk_sync_locked
 ad_connect GND fieldmesh_ctrl/qpsk_sync_selected_phase
 ad_connect GND fieldmesh_ctrl/qpsk_sync_selected_rotation
 ad_connect GND fieldmesh_ctrl/qpsk_sync_input_byte_count
@@ -262,10 +270,12 @@ ad_connect GND fieldmesh_ctrl/qpsk_timing_input_backpressure_cycle_count
     return f"""
 {BD_CTRL_BEGIN}
 create_bd_cell -type module -reference fieldmesh_sidecar_ctrl_axi_lite fieldmesh_ctrl
+{ctrl_parameters.rstrip()}
 ad_connect sys_cpu_clk fieldmesh_ctrl/s_axi_aclk
 ad_connect sys_cpu_resetn fieldmesh_ctrl/s_axi_aresetn
 {rf_guard_tieoffs.rstrip()}
 {fw_dma_tieoffs.rstrip()}
+{qpsk_diag_tieoffs.rstrip()}
 ad_cpu_interconnect {ctrl["address"]} fieldmesh_ctrl
 ad_cpu_interrupt {ctrl["irq"]} fieldmesh_ctrl/irq
 {BD_CTRL_END}
@@ -324,7 +334,7 @@ def render_ring_overlay(plan: dict, variant_name: str) -> str:
     service_parameter = ""
     if variant_name == "z103":
         service_parameter = (
-            "set_property -dict [list CONFIG.ENABLE_PL_SERVICE {0}] "
+            "set_property -dict [list CONFIG.RING_SLOTS {4} CONFIG.PL_SERVICE_SLOTS {1} CONFIG.ENABLE_PL_SERVICE {0}] "
             "[get_bd_cells fieldmesh_ring]\n"
         )
     return f"""
@@ -339,13 +349,24 @@ ad_cpu_interrupt {ring["irq"]} fieldmesh_ring/irq
 """
 
 
-def render_dma_overlay(plan: dict, use_firmware_endpoint: bool, rf_engine_endpoint: bool = False) -> str:
+def render_dma_overlay(
+    plan: dict,
+    use_firmware_endpoint: bool,
+    rf_engine_endpoint: bool = False,
+    variant_name: str = "",
+) -> str:
     tx_dma = sidecar_block(plan, "fieldmesh_tx_dma")
     rx_dma = sidecar_block(plan, "fieldmesh_rx_dma")
     if use_firmware_endpoint:
+        endpoint_parameters = "set_property -dict [list CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]"
+        if variant_name == "z103":
+            endpoint_parameters = (
+                "set_property -dict [list CONFIG.RING_SLOTS {2} CONFIG.PL_SERVICE_SLOTS {1} "
+                "CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]"
+            )
         packet_path = """
 create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint
-set_property -dict [list CONFIG.AUTO_EGRESS {1}] [get_bd_cells fieldmesh_fw_dma_endpoint]
+__FIELDMESH_FW_DMA_ENDPOINT_PARAMETERS__
 ad_connect sys_cpu_clk fieldmesh_fw_dma_endpoint/clk
 ad_connect sys_cpu_reset fieldmesh_fw_dma_endpoint/rst
 ad_connect fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
@@ -400,6 +421,7 @@ ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma
 __FIELDMESH_FW_DMA_RX_ROUTE__
 ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
 """
+        packet_path = packet_path.replace("__FIELDMESH_FW_DMA_ENDPOINT_PARAMETERS__", endpoint_parameters)
         packet_path = packet_path.replace(
             "__FIELDMESH_FW_DMA_RX_ROUTE__",
             (
@@ -408,6 +430,13 @@ ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
                 else "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_axis16_adapter/s_axis8"
             ),
         )
+    elif rf_engine_endpoint:
+        packet_path = """
+ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
+# Z103 RF-engine profile feeds packet bytes directly into the PL QPSK path.
+# RX DMA is fed by AD9361 RX -> QPSK demod -> header framer -> RX CDC.
+ad_connect fieldmesh_axis16_adapter/m_axis16 fieldmesh_rx_dma/s_axis
+"""
     else:
         packet_path = """
 ad_connect fieldmesh_tx_dma/m_axis fieldmesh_axis16_adapter/s_axis16
@@ -475,7 +504,64 @@ ad_cpu_interrupt {rx_dma["irq"]} fieldmesh_rx_dma/irq
 """
 
 
-def render_rf_engine_overlay() -> str:
+def render_rf_engine_overlay(variant_name: str) -> str:
+    z103_lean = variant_name == "z103"
+    tx_packet_input = (
+        "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis"
+        if z103_lean
+        else "ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis"
+    )
+    tx_fir_block = ""
+    tx_guard_input = """ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
+ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast"""
+    rx_fir_block = ""
+    rx_timing_input = """ad_connect fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+ad_connect fieldmesh_qpsk_timing_recovery/s_axis_tready fieldmesh_iq_adc_source/m_axis_tready
+ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
+ad_connect fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast"""
+    demod_parameters = ""
+    if not z103_lean:
+        tx_fir_block = """create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_tx_fir
+ad_connect sys_cpu_clk fieldmesh_qpsk_tx_fir/clk
+ad_connect sys_cpu_reset fieldmesh_qpsk_tx_fir/rst
+ad_connect VCC fieldmesh_qpsk_tx_fir/enable
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid
+ad_connect fieldmesh_qpsk_tx_fir/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata
+ad_connect fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_qpsk_tx_fir/s_axis_tlast"""
+        tx_guard_input = """ad_connect fieldmesh_qpsk_tx_fir/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
+ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_tx_fir/m_axis_tready
+ad_connect fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
+ad_connect fieldmesh_qpsk_tx_fir/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast"""
+        rx_fir_block = """create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_rx_fir
+set_property -dict [list CONFIG.TAIL_SAMPLES {0}] [get_bd_cells fieldmesh_qpsk_rx_fir]
+ad_connect axi_ad9361/l_clk fieldmesh_qpsk_rx_fir/clk
+ad_connect axi_ad9361/rst fieldmesh_qpsk_rx_fir/rst
+ad_connect VCC fieldmesh_qpsk_rx_fir/enable
+ad_connect fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_rx_fir/s_axis_tvalid
+ad_connect fieldmesh_qpsk_rx_fir/s_axis_tready fieldmesh_iq_adc_source/m_axis_tready
+ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_rx_fir/s_axis_tdata
+ad_connect fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_rx_fir/s_axis_tlast"""
+        rx_timing_input = """ad_connect fieldmesh_qpsk_rx_fir/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+ad_connect fieldmesh_qpsk_timing_recovery/s_axis_tready fieldmesh_qpsk_rx_fir/m_axis_tready
+ad_connect fieldmesh_qpsk_rx_fir/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
+ad_connect fieldmesh_qpsk_rx_fir/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast"""
+    else:
+        demod_parameters = (
+            "set_property -dict [list CONFIG.DC_OFFSET_TRACK_ENABLE {0} "
+            "CONFIG.PHASE_TRACK_ENABLE {0}] [get_bd_cells fieldmesh_qpsk_demodulator]"
+        )
+    timing_parameters = (
+        "set_property -dict [list CONFIG.OVERSAMPLE_FACTOR {2} "
+        "CONFIG.CENTER_PHASE_WEIGHT {1} CONFIG.ENABLE_DIAGNOSTICS {0}] "
+        "[get_bd_cells fieldmesh_qpsk_timing_recovery]"
+        if z103_lean
+        else "set_property -dict [list CONFIG.OVERSAMPLE_FACTOR {2} "
+        "CONFIG.CENTER_PHASE_WEIGHT {3} CONFIG.ENABLE_DIAGNOSTICS {1}] "
+        "[get_bd_cells fieldmesh_qpsk_timing_recovery]"
+    )
     return f"""
 {BD_RF_ENGINE_BEGIN}
 create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer
@@ -490,20 +576,13 @@ ad_connect sys_cpu_clk fieldmesh_qpsk_tx_whitener/clk
 ad_connect sys_cpu_reset fieldmesh_qpsk_tx_whitener/rst
 ad_connect VCC fieldmesh_qpsk_tx_whitener/enable
 
-ad_connect fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis
+{tx_packet_input}
 ad_connect fieldmesh_qpsk_tx_whitener/m_axis_tvalid fieldmesh_qpsk_symbolizer/s_axis_tvalid
 ad_connect fieldmesh_qpsk_symbolizer/s_axis_tready fieldmesh_qpsk_tx_whitener/m_axis_tready
 ad_connect fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata
 ad_connect fieldmesh_qpsk_tx_whitener/m_axis_tlast fieldmesh_qpsk_symbolizer/s_axis_tlast
 
-create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_tx_fir
-ad_connect sys_cpu_clk fieldmesh_qpsk_tx_fir/clk
-ad_connect sys_cpu_reset fieldmesh_qpsk_tx_fir/rst
-ad_connect VCC fieldmesh_qpsk_tx_fir/enable
-ad_connect fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid
-ad_connect fieldmesh_qpsk_tx_fir/s_axis_tready fieldmesh_qpsk_symbolizer/m_axis_tready
-ad_connect fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata
-ad_connect fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_qpsk_tx_fir/s_axis_tlast
+{tx_fir_block}
 
 create_bd_cell -type module -reference fieldmesh_iq_tx_guard fieldmesh_iq_tx_guard
 ad_connect sys_cpu_clk fieldmesh_iq_tx_guard/clk
@@ -524,14 +603,12 @@ ad_connect fieldmesh_iq_tx_guard/drop_late_packet_count fieldmesh_ctrl/rf_guard_
 ad_connect fieldmesh_iq_tx_guard/fault fieldmesh_ctrl/rf_guard_fault
 
 # The QPSK TX/RX primitives are BD-visible here. TX packet bytes come from the
-# descriptor-validated firmware-DMA endpoint egress stream. RX packet bytes come
-# from the AD9361 RX sample path, QPSK demodulation, and FieldMesh header framing
-# before crossing into the RX DMA clock domain. No Python or helper process sits
-# in the performance-critical RF packet path.
-ad_connect fieldmesh_qpsk_tx_fir/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid
-ad_connect fieldmesh_iq_tx_guard/s_axis_tready fieldmesh_qpsk_tx_fir/m_axis_tready
-ad_connect fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata
-ad_connect fieldmesh_qpsk_tx_fir/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast
+# C/FPGA-owned DMA byte stream; Z203 routes through the descriptor-validated
+# firmware endpoint, while Z103 uses a resource-fit direct DMA stream. RX packet
+# bytes come from the AD9361 RX sample path, QPSK demodulation, and FieldMesh
+# header framing before crossing into the RX DMA clock domain. No Python or
+# helper process sits in the performance-critical RF packet path.
+{tx_guard_input}
 
 create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_tx_cdc
 ad_connect sys_cpu_clk fieldmesh_iq_tx_cdc/s_clk
@@ -595,25 +672,14 @@ ad_connect rx_fir_decimator/enable_out_1 fieldmesh_iq_adc_source/q_enable
 ad_connect rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample
 ad_connect rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample
 
-create_bd_cell -type module -reference fieldmesh_iq_fir_filter fieldmesh_qpsk_rx_fir
-set_property -dict [list CONFIG.TAIL_SAMPLES {0}] [get_bd_cells fieldmesh_qpsk_rx_fir]
-ad_connect axi_ad9361/l_clk fieldmesh_qpsk_rx_fir/clk
-ad_connect axi_ad9361/rst fieldmesh_qpsk_rx_fir/rst
-ad_connect VCC fieldmesh_qpsk_rx_fir/enable
-ad_connect fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_rx_fir/s_axis_tvalid
-ad_connect fieldmesh_qpsk_rx_fir/s_axis_tready fieldmesh_iq_adc_source/m_axis_tready
-ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_rx_fir/s_axis_tdata
-ad_connect fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_rx_fir/s_axis_tlast
+{rx_fir_block}
 
 create_bd_cell -type module -reference fieldmesh_qpsk_symbol_timing_recovery fieldmesh_qpsk_timing_recovery
-set_property -dict [list CONFIG.OVERSAMPLE_FACTOR {2}] [get_bd_cells fieldmesh_qpsk_timing_recovery]
+{timing_parameters}
 ad_connect axi_ad9361/l_clk fieldmesh_qpsk_timing_recovery/clk
 ad_connect axi_ad9361/rst fieldmesh_qpsk_timing_recovery/rst
 ad_connect VCC fieldmesh_qpsk_timing_recovery/enable
-ad_connect fieldmesh_qpsk_rx_fir/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
-ad_connect fieldmesh_qpsk_timing_recovery/s_axis_tready fieldmesh_qpsk_rx_fir/m_axis_tready
-ad_connect fieldmesh_qpsk_rx_fir/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
-ad_connect fieldmesh_qpsk_rx_fir/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
+{rx_timing_input}
 ad_connect fieldmesh_qpsk_timing_recovery/input_sample_count fieldmesh_ctrl/qpsk_timing_input_sample_count
 ad_connect fieldmesh_qpsk_timing_recovery/output_symbol_count fieldmesh_ctrl/qpsk_timing_output_symbol_count
 ad_connect fieldmesh_qpsk_timing_recovery/selected_phase fieldmesh_ctrl/qpsk_timing_selected_phase
@@ -624,6 +690,7 @@ ad_connect fieldmesh_qpsk_timing_recovery/output_stall_cycle_count fieldmesh_ctr
 ad_connect fieldmesh_qpsk_timing_recovery/input_backpressure_cycle_count fieldmesh_ctrl/qpsk_timing_input_backpressure_cycle_count
 
 create_bd_cell -type module -reference fieldmesh_qpsk_iq_demodulator fieldmesh_qpsk_demodulator
+{demod_parameters}
 ad_connect axi_ad9361/l_clk fieldmesh_qpsk_demodulator/clk
 ad_connect axi_ad9361/rst fieldmesh_qpsk_demodulator/rst
 ad_connect VCC fieldmesh_qpsk_demodulator/enable
@@ -753,8 +820,54 @@ def patch_system_bd(
         dma_overlay = True
     if dma_overlay:
         control_overlay = True
-        bridge_overlay = True
-    ring_overlay = control_overlay
+        bridge_overlay = not (variant_name == "z103" and rf_engine_overlay)
+    changed = False
+    if variant_name == "z103" and rf_engine_overlay:
+        fclk0_100 = "ad_ip_parameter sys_ps7 CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ 100.0"
+        fclk0_80 = "ad_ip_parameter sys_ps7 CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ 80.0"
+        if fclk0_80 not in text:
+            if fclk0_100 not in text:
+                raise SystemExit("system_bd.tcl: expected PS FCLK0 frequency anchor not found")
+            text = text.replace(fclk0_100, fclk0_80, 1)
+            changed = True
+        z103_ad9361_profile = [
+            (
+                "ad_ip_parameter axi_ad9361 CONFIG.MODE_1R1T 0",
+                "ad_ip_parameter axi_ad9361 CONFIG.MODE_1R1T 1",
+            ),
+            (
+                "ad_ip_parameter axi_ad9361 CONFIG.ADC_DCFILTER_DISABLE 1",
+                "ad_ip_parameter axi_ad9361 CONFIG.ADC_DCFILTER_DISABLE 1",
+            ),
+            (
+                "ad_ip_parameter axi_ad9361 CONFIG.ADC_IQCORRECTION_DISABLE 1",
+                "ad_ip_parameter axi_ad9361 CONFIG.ADC_IQCORRECTION_DISABLE 1",
+            ),
+            (
+                "ad_ip_parameter axi_ad9361 CONFIG.DAC_DDS_DISABLE 1",
+                "ad_ip_parameter axi_ad9361 CONFIG.DAC_DDS_DISABLE 1",
+            ),
+            (
+                "ad_ip_parameter axi_ad9361 CONFIG.DAC_IQCORRECTION_DISABLE 1",
+                "ad_ip_parameter axi_ad9361 CONFIG.DAC_IQCORRECTION_DISABLE 1",
+            ),
+        ]
+        mode_anchor = "ad_ip_parameter axi_ad9361 CONFIG.MODE_1R1T 1"
+        for old, new in z103_ad9361_profile:
+            if new in text:
+                continue
+            if old in text and old != new:
+                text = text.replace(old, new, 1)
+                changed = True
+                continue
+            if old == new:
+                if mode_anchor not in text:
+                    raise SystemExit("system_bd.tcl: expected axi_ad9361 MODE_1R1T anchor not found")
+                text = text.replace(mode_anchor, f"{mode_anchor}\n{new}", 1)
+                changed = True
+                continue
+            raise SystemExit(f"system_bd.tcl: expected Z103 axi_ad9361 profile anchor not found: {old}")
+    ring_overlay = control_overlay and not (variant_name == "z103" and rf_engine_overlay)
     blocks = []
     if BD_FILES_BEGIN not in text:
         blocks.append(render_bd_files_overlay())
@@ -795,7 +908,9 @@ def patch_system_bd(
             render_control_overlay(
                 plan,
                 rf_guard_defaults=not rf_engine_overlay,
-                fw_dma_defaults=not dma_overlay,
+                fw_dma_defaults=not dma_overlay or (variant_name == "z103" and rf_engine_overlay),
+                variant_name=variant_name,
+                rf_engine_overlay=rf_engine_overlay,
             )
         )
     if bridge_overlay and BD_BRIDGE_BEGIN not in text:
@@ -808,16 +923,46 @@ def patch_system_bd(
     if ring_overlay and BD_RING_BEGIN not in text:
         blocks.append(render_ring_overlay(plan, variant_name))
     if dma_overlay and BD_DMA_BEGIN not in text:
-        blocks.append(render_dma_overlay(plan, use_firmware_endpoint=True, rf_engine_endpoint=rf_engine_overlay))
+        blocks.append(
+            render_dma_overlay(
+                plan,
+                use_firmware_endpoint=not (variant_name == "z103" and rf_engine_overlay),
+                rf_engine_endpoint=rf_engine_overlay,
+                variant_name=variant_name,
+            )
+        )
     if rf_engine_overlay and BD_RF_ENGINE_BEGIN not in text:
-        blocks.append(render_rf_engine_overlay())
+        blocks.append(render_rf_engine_overlay(variant_name))
     if gnss_uart_emio and BD_GNSS_UART_BEGIN not in text:
         blocks.append(render_gnss_uart_overlay())
     if gnss_pps_emio and BD_GNSS_PPS_BEGIN not in text:
         blocks.append(render_gnss_pps_overlay())
     if not blocks:
-        return text, False
+        return text, changed
     return text.rstrip() + "".join(blocks) + "\n", True
+
+
+def patch_system_constr(text: str, variant_name: str, rf_engine_overlay: bool) -> tuple[str, bool]:
+    if not (variant_name == "z103" and rf_engine_overlay):
+        return text, False
+    changed = False
+    fclk_pin = '[get_pins "i_system_wrapper/system_i/sys_ps7/inst/PS7_i/FCLKCLK[0]"]'
+    old = f"create_clock -name clk_fpga_0 -period 10 {fclk_pin}"
+    new = f"create_clock -name clk_fpga_0 -period 12.5 {fclk_pin}"
+    if new not in text:
+        if old not in text:
+            raise SystemExit("system_constr.xdc: expected clk_fpga_0 100 MHz clock anchor not found")
+        text = text.replace(old, new, 1)
+        changed = True
+    async_clock_group = """# FieldMesh Z103 RF engine: AD9361 sample clock and PS FCLK0 are independent.
+# All crossings between these domains are explicit async FIFOs or diagnostic
+# synchronizers, so they must not be timed as single-cycle synchronous paths.
+set_clock_groups -asynchronous -group [get_clocks rx_clk] -group [get_clocks clk_fpga_0]
+"""
+    if "set_clock_groups -asynchronous -group [get_clocks rx_clk] -group [get_clocks clk_fpga_0]" not in text:
+        text = text.rstrip() + "\n\n" + async_clock_group
+        changed = True
+    return text, changed
 
 
 def patch_system_top(text: str, gnss_uart_emio: bool, gnss_pps_emio: bool) -> tuple[str, bool]:
@@ -894,15 +1039,16 @@ def apply_patch(
         dma_overlay = True
     if dma_overlay:
         control_overlay = True
-        bridge_overlay = True
+        bridge_overlay = not (variant_name == "z103" and rf_engine_overlay)
 
     project_dir = hdl_tree / "projects" / "pluto"
     system_bd = project_dir / "system_bd.tcl"
     system_project = project_dir / "system_project.tcl"
+    system_constr = project_dir / "system_constr.xdc"
     system_top = project_dir / "system_top.v"
     makefile = project_dir / "Makefile"
 
-    for required in (system_bd, system_project, system_top, makefile):
+    for required in (system_bd, system_project, system_constr, system_top, makefile):
         if not required.is_file():
             raise SystemExit(f"{required}: not found")
 
@@ -947,6 +1093,12 @@ def apply_patch(
     patched_project, project_changed = patch_system_project(project_text, rel_files, rel_xdc_files)
     make_text = makefile.read_text()
     patched_make, make_changed = patch_makefile(make_text, rel_files)
+    system_constr_text = system_constr.read_text()
+    patched_system_constr, system_constr_changed = patch_system_constr(
+        system_constr_text,
+        variant_name,
+        rf_engine_overlay,
+    )
     system_top_text = system_top.read_text()
     patched_system_top, system_top_changed = patch_system_top(system_top_text, gnss_uart_emio, gnss_pps_emio)
     system_bd_text = system_bd.read_text()
@@ -967,6 +1119,8 @@ def apply_patch(
             system_project.write_text(patched_project)
         if make_changed:
             makefile.write_text(patched_make)
+        if system_constr_changed:
+            system_constr.write_text(patched_system_constr)
         if system_top_changed:
             system_top.write_text(patched_system_top)
         if system_bd_changed:
@@ -991,9 +1145,11 @@ def apply_patch(
         "hdl_tree": str(hdl_tree),
         "system_bd": str(system_bd),
         "system_bd_changed": system_bd_changed,
+        "system_constr_changed": system_constr_changed,
         "system_project_changed": project_changed,
         "system_top_changed": system_top_changed,
         "makefile_changed": make_changed,
+        "z103_rf_engine_fclk0_mhz": 80.0 if variant_name == "z103" and rf_engine_overlay else None,
         "copied_rtl_files": copied_files,
         "copied_xdc_files": copied_xdc_files,
         "sidecar_ok": plan["ok"],

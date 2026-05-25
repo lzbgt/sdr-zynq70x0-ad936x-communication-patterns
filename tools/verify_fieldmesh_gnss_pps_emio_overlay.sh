@@ -32,7 +32,7 @@ verify_variant() {
   local work_project="$work_hdl/projects/pluto"
   mkdir -p "$work_project"
 
-  for file in system_bd.tcl system_project.tcl system_top.v Makefile; do
+  for file in system_bd.tcl system_project.tcl system_constr.xdc system_top.v Makefile; do
     cp "$src_project/$file" "$work_project/$file"
   done
 

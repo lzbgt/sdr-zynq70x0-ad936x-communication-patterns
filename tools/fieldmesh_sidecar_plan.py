@@ -77,7 +77,9 @@ def scan_required_rtl(repo_root: Path) -> dict[str, Any]:
         exists = path.is_file()
         module_found = False
         if exists:
-            module_pattern = re.compile(rf"^\s*module\s+{re.escape(expected)}(\s|#|\()")
+            module_pattern = re.compile(
+                rf"^\s*(?:\(\*.*\*\)\s*)?module\s+{re.escape(expected)}(\s|#|\()"
+            )
             module_found = any(module_pattern.search(line) for line in path.read_text().splitlines())
         if not exists or not module_found:
             ok = False

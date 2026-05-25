@@ -60,6 +60,23 @@ fi
   --rf-engine-overlay \
   --apply >"$work_root/fieldmesh_rf_engine_overlay_patch.json"
 
+if [[ "$variant" == "z103" ]]; then
+  if ! grep -Fq 'create_clock -name clk_fpga_0 -period 12.5 [get_pins "i_system_wrapper/system_i/sys_ps7/inst/PS7_i/FCLKCLK[0]"]' "$work_project/system_constr.xdc"; then
+    echo "Z103 RF engine must use a 12.5 ns clk_fpga_0 constraint for the 80 MHz lean fabric clock" >&2
+    exit 1
+  fi
+  if grep -Fq 'if {[llength $fieldmesh_z103_rx_clk]' "$work_project/system_constr.xdc" ||
+     ! grep -Fq 'set_clock_groups -asynchronous -group [get_clocks rx_clk] -group [get_clocks clk_fpga_0]' "$work_project/system_constr.xdc"; then
+    echo "Z103 RF engine must constrain AD9361 rx_clk and PS FCLK0 as explicit async CDC domains" >&2
+    exit 1
+  fi
+else
+  if ! grep -Fq 'create_clock -name clk_fpga_0 -period 10 [get_pins "i_system_wrapper/system_i/sys_ps7/inst/PS7_i/FCLKCLK[0]"]' "$work_project/system_constr.xdc"; then
+    echo "$variant RF engine must retain the 10 ns clk_fpga_0 constraint" >&2
+    exit 1
+  fi
+fi
+
 cat >"$work_project/fieldmesh_rf_engine_overlay_check.tcl" <<TCL
 source ../../scripts/adi_env.tcl
 source \$ad_hdl_dir/projects/scripts/adi_project_xilinx.tcl
@@ -74,37 +91,43 @@ adi_project_files pluto [list \\
 set_property is_enabled false [get_files *system_sys_ps7_0.xdc]
 open_bd_design [get_files pluto.srcs/sources_1/bd/system/system.bd]
 
-foreach cell {
+set fpga0_freq [get_property CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ [get_bd_cells sys_ps7]]
+set expected_fpga0_freq [expr {"$variant" eq "z103" ? "80.0" : "100.0"}]
+if {"\$fpga0_freq" ne "\$expected_fpga0_freq"} {
+  error "Z103 RF engine must lower FPGA0 fabric clock to 80 MHz while larger variants retain 100 MHz"
+}
+
+set required_cells {
   fieldmesh_ctrl
-  fieldmesh_ring
-  fieldmesh_axis_bridge
   fieldmesh_axis16_adapter
-  fieldmesh_fw_dma_endpoint
   fieldmesh_tx_dma
   fieldmesh_rx_dma
   fieldmesh_qpsk_tx_whitener
   fieldmesh_qpsk_symbolizer
-  fieldmesh_qpsk_tx_fir
   fieldmesh_iq_tx_guard
   fieldmesh_iq_tx_cdc
   fieldmesh_iq_dac_driver
   fieldmesh_iq_adc_source
-  fieldmesh_qpsk_rx_fir
   fieldmesh_qpsk_timing_recovery
   fieldmesh_qpsk_demodulator
   fieldmesh_qpsk_byte_sync
   fieldmesh_qpsk_rx_dewhitener
   fieldmesh_rx_header_framer
   fieldmesh_iq_rx_cdc
-} {
+}
+if {"$variant" ne "z103"} {
+  lappend required_cells fieldmesh_axis_bridge fieldmesh_ring fieldmesh_fw_dma_endpoint fieldmesh_qpsk_tx_fir fieldmesh_qpsk_rx_fir
+}
+foreach cell \$required_cells {
   if {[llength [get_bd_cells -quiet \$cell]] != 1} {
     error "\$cell cell missing"
   }
 }
 
 set ctrl_synth_light [get_property CONFIG.SYNTH_LIGHT [get_bd_cells fieldmesh_ctrl]]
-if {"\$ctrl_synth_light" ne "1"} {
-  error "fieldmesh_ctrl must instantiate SYNTH_LIGHT=1 for RF guard/DAC registers"
+set expected_ctrl_synth_light [expr {"$variant" eq "z103" ? "2" : "1"}]
+if {"\$ctrl_synth_light" ne "\$expected_ctrl_synth_light"} {
+  error "fieldmesh_ctrl must instantiate the target-specific SYNTH_LIGHT profile for RF guard/DAC registers"
 }
 
 set qpsk_preamble_bytes [get_property CONFIG.PREAMBLE_BYTES [get_bd_cells fieldmesh_qpsk_symbolizer]]
@@ -129,13 +152,64 @@ foreach whitener_cell {fieldmesh_qpsk_tx_whitener fieldmesh_qpsk_rx_dewhitener} 
     error "\$whitener_cell must leave FieldMesh magic bytes unwhitened"
   }
 }
-set qpsk_rx_fir_tail_samples [get_property CONFIG.TAIL_SAMPLES [get_bd_cells fieldmesh_qpsk_rx_fir]]
-if {"\$qpsk_rx_fir_tail_samples" ne "0"} {
-  error "fieldmesh_qpsk_rx_fir must not emit packet-tail flush samples on the continuous RX stream"
+if {"$variant" ne "z103"} {
+  set qpsk_rx_fir_tail_samples [get_property CONFIG.TAIL_SAMPLES [get_bd_cells fieldmesh_qpsk_rx_fir]]
+  if {"\$qpsk_rx_fir_tail_samples" ne "0"} {
+    error "fieldmesh_qpsk_rx_fir must not emit packet-tail flush samples on the continuous RX stream"
+  }
 }
 set qpsk_timing_oversample [get_property CONFIG.OVERSAMPLE_FACTOR [get_bd_cells fieldmesh_qpsk_timing_recovery]]
 if {"\$qpsk_timing_oversample" ne "2"} {
   error "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter 2x oversampled QPSK symbols in PL"
+}
+set qpsk_timing_center_weight [get_property CONFIG.CENTER_PHASE_WEIGHT [get_bd_cells fieldmesh_qpsk_timing_recovery]]
+set qpsk_timing_diagnostics [get_property CONFIG.ENABLE_DIAGNOSTICS [get_bd_cells fieldmesh_qpsk_timing_recovery]]
+if {"$variant" eq "z103"} {
+  if {"\$qpsk_timing_center_weight" ne "1"} {
+    error "Z103 RF engine must use lean unweighted 2x QPSK timing recovery to fit xc7z010"
+  }
+  if {"\$qpsk_timing_diagnostics" ne "0"} {
+    error "Z103 RF engine must disable QPSK timing diagnostics in the xc7z010 RF data path"
+  }
+} else {
+  if {"\$qpsk_timing_center_weight" ne "3"} {
+    error "fieldmesh_qpsk_timing_recovery must phase-weight matched-filter QPSK symbols in PL"
+  }
+  if {"\$qpsk_timing_diagnostics" ne "1"} {
+    error "fieldmesh_qpsk_timing_recovery diagnostics must stay enabled outside the Z103 lean profile"
+  }
+}
+if {"$variant" eq "z103"} {
+  foreach {param expected} {
+    MODE_1R1T 1
+    ADC_DCFILTER_DISABLE 1
+    ADC_IQCORRECTION_DISABLE 1
+    DAC_DDS_DISABLE 1
+    DAC_IQCORRECTION_DISABLE 1
+  } {
+    set actual [get_property CONFIG.\$param [get_bd_cells axi_ad9361]]
+    if {"\$actual" ne "\$expected"} {
+      error "Z103 RF engine must use the lean 1R1T/no-DDS/no-IQ-correction AD9361 profile"
+    }
+  }
+  if {[llength [get_bd_cells -quiet fieldmesh_fw_dma_endpoint]] != 0} {
+    error "Z103 RF engine must omit the firmware DMA endpoint and use direct PL QPSK DMA to fit xc7z010"
+  }
+  if {[llength [get_bd_cells -quiet fieldmesh_ring]] != 0} {
+    error "Z103 RF engine must omit the standalone sidecar ring to fit xc7z010"
+  }
+  if {[llength [get_bd_cells -quiet fieldmesh_axis_bridge]] != 0} {
+    error "Z103 RF engine must omit the parked sidecar bridge to fit xc7z010"
+  }
+  if {[llength [get_bd_cells -quiet fieldmesh_qpsk_tx_fir]] != 0 ||
+      [llength [get_bd_cells -quiet fieldmesh_qpsk_rx_fir]] != 0} {
+    error "Z103 RF engine must omit QPSK FIR blocks to fit xc7z010"
+  }
+  set demod_dc [get_property CONFIG.DC_OFFSET_TRACK_ENABLE [get_bd_cells fieldmesh_qpsk_demodulator]]
+  set demod_phase [get_property CONFIG.PHASE_TRACK_ENABLE [get_bd_cells fieldmesh_qpsk_demodulator]]
+  if {"\$demod_dc" ne "0" || "\$demod_phase" ne "0"} {
+    error "Z103 RF engine demodulator must use the lean no-multiplier tracking profile"
+  }
 }
 
 set ctrl_addr_width ""
@@ -303,20 +377,6 @@ foreach pin {
   fieldmesh_rx_header_framer/m_axis_tready
   fieldmesh_rx_header_framer/m_axis_tdata
   fieldmesh_rx_header_framer/m_axis_tlast
-  fieldmesh_fw_dma_endpoint/clk
-  fieldmesh_fw_dma_endpoint/rst
-  fieldmesh_fw_dma_endpoint/enable
-  fieldmesh_fw_dma_endpoint/ingress_enable
-  fieldmesh_fw_dma_endpoint/egress_enable
-  fieldmesh_fw_dma_endpoint/peer_index
-  fieldmesh_fw_dma_endpoint/mcs
-  fieldmesh_fw_dma_endpoint/retry_budget
-  fieldmesh_fw_dma_endpoint/descriptor_flags
-  fieldmesh_fw_dma_endpoint/seq_seed
-  fieldmesh_fw_dma_endpoint/mac_scheduler_enable
-  fieldmesh_fw_dma_endpoint/mac_tick
-  fieldmesh_fw_dma_endpoint/mac_stop
-  fieldmesh_fw_dma_endpoint/mac_service_budget
   fieldmesh_ctrl/fw_dma_enable
   fieldmesh_ctrl/fw_dma_ingress_enable
   fieldmesh_ctrl/fw_dma_egress_enable
@@ -456,6 +516,12 @@ foreach pin {
   fieldmesh_iq_dac_driver/underflow_count
   fieldmesh_iq_dac_driver/active
 } {
+  if {"$variant" eq "z103" && [regexp {^fieldmesh_qpsk_(tx|rx)_fir/} \$pin]} {
+    continue
+  }
+  if {"$variant" eq "z103" && [regexp {^fieldmesh_fw_dma_endpoint/} \$pin]} {
+    continue
+  }
   if {[llength [get_bd_pins -quiet \$pin]] != 1} {
     error "\$pin pin missing"
   }
@@ -465,14 +531,15 @@ foreach intf {
   fieldmesh_tx_dma/m_axis
   fieldmesh_axis16_adapter/s_axis16
   fieldmesh_axis16_adapter/m_axis8
-  fieldmesh_fw_dma_endpoint/s_tx_dma
-  fieldmesh_fw_dma_endpoint/m_rx_dma
   fieldmesh_qpsk_tx_whitener/s_axis
   fieldmesh_axis16_adapter/s_axis8
   fieldmesh_axis16_adapter/m_axis16
   fieldmesh_rx_dma/s_axis
   fieldmesh_iq_rx_cdc/m_axis
 } {
+  if {"$variant" eq "z103" && [regexp {^fieldmesh_fw_dma_endpoint/} \$intf]} {
+    continue
+  }
   if {[llength [get_bd_intf_pins -quiet \$intf]] != 1} {
     error "\$intf interface pin missing"
   }
@@ -507,83 +574,103 @@ assert_same_net fieldmesh_ctrl/rf_guard_blocked_cycle_count fieldmesh_iq_tx_guar
 assert_same_net fieldmesh_ctrl/rf_guard_drop_late_sample_count fieldmesh_iq_tx_guard/drop_late_sample_count
 assert_same_net fieldmesh_ctrl/rf_guard_drop_late_packet_count fieldmesh_iq_tx_guard/drop_late_packet_count
 assert_same_net fieldmesh_ctrl/rf_guard_fault fieldmesh_iq_tx_guard/fault
-assert_same_net fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
-assert_same_net fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable
-assert_same_net fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable
-assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index
-assert_same_net fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs
-assert_same_net fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget
-assert_same_net fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags
-assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed
-assert_same_net fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable
-assert_same_net fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick
-assert_same_net fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop
-assert_same_net fieldmesh_ctrl/fw_dma_mac_service_budget fieldmesh_fw_dma_endpoint/mac_service_budget
-assert_same_net fieldmesh_fw_dma_endpoint/mac_scheduler_active fieldmesh_ctrl/fw_dma_mac_scheduler_active
-assert_same_net fieldmesh_fw_dma_endpoint/pump_done fieldmesh_ctrl/fw_dma_pump_done
-assert_same_net fieldmesh_fw_dma_endpoint/pump_drained_empty fieldmesh_ctrl/fw_dma_pump_drained_empty
-assert_same_net fieldmesh_fw_dma_endpoint/pump_budget_exhausted fieldmesh_ctrl/fw_dma_pump_budget_exhausted
-assert_same_net fieldmesh_fw_dma_endpoint/service_accepted fieldmesh_ctrl/fw_dma_service_accepted
-assert_same_net fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count
-assert_same_net fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word
-assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count
-assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count
-assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count
-assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_fault fieldmesh_ctrl/fw_dma_tx_parser_fault
-assert_same_net fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count
-assert_same_net fieldmesh_fw_dma_endpoint/ingress_byte_count fieldmesh_ctrl/fw_dma_ingress_byte_count
-assert_same_net fieldmesh_fw_dma_endpoint/ingress_desc_publish_count fieldmesh_ctrl/fw_dma_ingress_desc_publish_count
-assert_same_net fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count
-assert_same_net fieldmesh_fw_dma_endpoint/ingress_fault fieldmesh_ctrl/fw_dma_ingress_fault
-assert_same_net fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count
-assert_same_net fieldmesh_fw_dma_endpoint/egress_byte_count fieldmesh_ctrl/fw_dma_egress_byte_count
-assert_same_net fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count
-assert_same_net fieldmesh_fw_dma_endpoint/egress_fault fieldmesh_ctrl/fw_dma_egress_fault
-assert_same_net fieldmesh_fw_dma_endpoint/mac_tick_count fieldmesh_ctrl/fw_dma_mac_tick_count
-assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_start_count fieldmesh_ctrl/fw_dma_mac_pump_start_count
-assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count
-assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles
-assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles
-assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles
-assert_same_net fieldmesh_ctrl/fw_dma_service_latency_budget_cycles fieldmesh_fw_dma_endpoint/service_latency_budget_cycles
-assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget
-assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count
-assert_same_net fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count
-assert_same_net fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count
-assert_same_net fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count
+if {"$variant" ne "z103"} {
+  assert_same_net fieldmesh_ctrl/fw_dma_enable fieldmesh_fw_dma_endpoint/enable
+  assert_same_net fieldmesh_ctrl/fw_dma_ingress_enable fieldmesh_fw_dma_endpoint/ingress_enable
+  assert_same_net fieldmesh_ctrl/fw_dma_egress_enable fieldmesh_fw_dma_endpoint/egress_enable
+  assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index
+  assert_same_net fieldmesh_ctrl/fw_dma_mcs fieldmesh_fw_dma_endpoint/mcs
+  assert_same_net fieldmesh_ctrl/fw_dma_retry_budget fieldmesh_fw_dma_endpoint/retry_budget
+  assert_same_net fieldmesh_ctrl/fw_dma_descriptor_flags fieldmesh_fw_dma_endpoint/descriptor_flags
+  assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed
+  assert_same_net fieldmesh_ctrl/fw_dma_mac_scheduler_enable fieldmesh_fw_dma_endpoint/mac_scheduler_enable
+  assert_same_net fieldmesh_ctrl/fw_dma_mac_tick_enable fieldmesh_fw_dma_endpoint/mac_tick
+  assert_same_net fieldmesh_ctrl/fw_dma_mac_stop fieldmesh_fw_dma_endpoint/mac_stop
+  assert_same_net fieldmesh_ctrl/fw_dma_mac_service_budget fieldmesh_fw_dma_endpoint/mac_service_budget
+  assert_same_net fieldmesh_fw_dma_endpoint/mac_scheduler_active fieldmesh_ctrl/fw_dma_mac_scheduler_active
+  assert_same_net fieldmesh_fw_dma_endpoint/pump_done fieldmesh_ctrl/fw_dma_pump_done
+  assert_same_net fieldmesh_fw_dma_endpoint/pump_drained_empty fieldmesh_ctrl/fw_dma_pump_drained_empty
+  assert_same_net fieldmesh_fw_dma_endpoint/pump_budget_exhausted fieldmesh_ctrl/fw_dma_pump_budget_exhausted
+  assert_same_net fieldmesh_fw_dma_endpoint/service_accepted fieldmesh_ctrl/fw_dma_service_accepted
+  assert_same_net fieldmesh_fw_dma_endpoint/service_queued_count fieldmesh_ctrl/fw_dma_service_queued_count
+  assert_same_net fieldmesh_fw_dma_endpoint/service_selected_word fieldmesh_ctrl/fw_dma_service_selected_word
+  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_packet_count fieldmesh_ctrl/fw_dma_tx_parser_packet_count
+  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count
+  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_drop_count fieldmesh_ctrl/fw_dma_tx_parser_drop_count
+  assert_same_net fieldmesh_fw_dma_endpoint/tx_parser_fault fieldmesh_ctrl/fw_dma_tx_parser_fault
+  assert_same_net fieldmesh_fw_dma_endpoint/ingress_packet_count fieldmesh_ctrl/fw_dma_ingress_packet_count
+  assert_same_net fieldmesh_fw_dma_endpoint/ingress_byte_count fieldmesh_ctrl/fw_dma_ingress_byte_count
+  assert_same_net fieldmesh_fw_dma_endpoint/ingress_desc_publish_count fieldmesh_ctrl/fw_dma_ingress_desc_publish_count
+  assert_same_net fieldmesh_fw_dma_endpoint/ingress_drop_count fieldmesh_ctrl/fw_dma_ingress_drop_count
+  assert_same_net fieldmesh_fw_dma_endpoint/ingress_fault fieldmesh_ctrl/fw_dma_ingress_fault
+  assert_same_net fieldmesh_fw_dma_endpoint/egress_packet_count fieldmesh_ctrl/fw_dma_egress_packet_count
+  assert_same_net fieldmesh_fw_dma_endpoint/egress_byte_count fieldmesh_ctrl/fw_dma_egress_byte_count
+  assert_same_net fieldmesh_fw_dma_endpoint/egress_drop_count fieldmesh_ctrl/fw_dma_egress_drop_count
+  assert_same_net fieldmesh_fw_dma_endpoint/egress_fault fieldmesh_ctrl/fw_dma_egress_fault
+  assert_same_net fieldmesh_fw_dma_endpoint/mac_tick_count fieldmesh_ctrl/fw_dma_mac_tick_count
+  assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_start_count fieldmesh_ctrl/fw_dma_mac_pump_start_count
+  assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count
+  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles
+  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles
+  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_accum_cycles fieldmesh_ctrl/fw_dma_service_latency_accum_cycles
+  assert_same_net fieldmesh_ctrl/fw_dma_service_latency_budget_cycles fieldmesh_fw_dma_endpoint/service_latency_budget_cycles
+  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget
+  assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count
+  assert_same_net fieldmesh_fw_dma_endpoint/bram_crc_error_count fieldmesh_ctrl/fw_dma_bram_crc_error_count
+  assert_same_net fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count
+  assert_same_net fieldmesh_fw_dma_endpoint/bram_error_count fieldmesh_ctrl/fw_dma_bram_error_count
+}
 
-foreach seg {
+set required_addr_segs {
   SEG_data_fieldmesh_ctrl
-  SEG_data_fieldmesh_ring
   SEG_data_fieldmesh_tx_dma
   SEG_data_fieldmesh_rx_dma
-} {
+}
+if {"$variant" ne "z103"} {
+  lappend required_addr_segs SEG_data_fieldmesh_ring
+}
+foreach seg \$required_addr_segs {
   if {[llength [get_bd_addr_segs -quiet sys_ps7/Data/\$seg]] != 1} {
     error "\$seg address segment missing"
   }
 }
 
-foreach pair {
-  {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis}
+set tx_path_pairs {
   {fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8}
-} {
+}
+if {"$variant" eq "z103"} {
+  lappend tx_path_pairs {fieldmesh_axis16_adapter/m_axis8 fieldmesh_qpsk_tx_whitener/s_axis}
+} else {
+  lappend tx_path_pairs {fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_tx_whitener/s_axis}
+}
+foreach pair \$tx_path_pairs {
   assert_same_intf_net [lindex \$pair 0] [lindex \$pair 1]
 }
 
-foreach pair {
+set qpsk_tx_pairs {
   {fieldmesh_qpsk_tx_whitener/m_axis_tvalid fieldmesh_qpsk_symbolizer/s_axis_tvalid}
   {fieldmesh_qpsk_tx_whitener/m_axis_tready fieldmesh_qpsk_symbolizer/s_axis_tready}
   {fieldmesh_qpsk_tx_whitener/m_axis_tdata fieldmesh_qpsk_symbolizer/s_axis_tdata}
   {fieldmesh_qpsk_tx_whitener/m_axis_tlast fieldmesh_qpsk_symbolizer/s_axis_tlast}
-  {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid}
-  {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_qpsk_tx_fir/s_axis_tready}
-  {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata}
-  {fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_qpsk_tx_fir/s_axis_tlast}
-  {fieldmesh_qpsk_tx_fir/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid}
-  {fieldmesh_qpsk_tx_fir/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready}
-  {fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata}
-  {fieldmesh_qpsk_tx_fir/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
-} {
+}
+if {"$variant" eq "z103"} {
+  lappend qpsk_tx_pairs \
+    {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid} \
+    {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready} \
+    {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata} \
+    {fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
+} else {
+  lappend qpsk_tx_pairs \
+    {fieldmesh_qpsk_symbolizer/m_axis_tvalid fieldmesh_qpsk_tx_fir/s_axis_tvalid} \
+    {fieldmesh_qpsk_symbolizer/m_axis_tready fieldmesh_qpsk_tx_fir/s_axis_tready} \
+    {fieldmesh_qpsk_symbolizer/m_axis_tdata fieldmesh_qpsk_tx_fir/s_axis_tdata} \
+    {fieldmesh_qpsk_symbolizer/m_axis_tlast fieldmesh_qpsk_tx_fir/s_axis_tlast} \
+    {fieldmesh_qpsk_tx_fir/m_axis_tvalid fieldmesh_iq_tx_guard/s_axis_tvalid} \
+    {fieldmesh_qpsk_tx_fir/m_axis_tready fieldmesh_iq_tx_guard/s_axis_tready} \
+    {fieldmesh_qpsk_tx_fir/m_axis_tdata fieldmesh_iq_tx_guard/s_axis_tdata} \
+    {fieldmesh_qpsk_tx_fir/m_axis_tlast fieldmesh_iq_tx_guard/s_axis_tlast}
+}
+foreach pair \$qpsk_tx_pairs {
   assert_same_net [lindex \$pair 0] [lindex \$pair 1]
 }
 
@@ -625,14 +712,21 @@ assert_same_net rx_fir_decimator/enable_out_1 fieldmesh_iq_adc_source/q_enable
 assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample
 assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample
 
-assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_rx_fir/s_axis_tvalid
-assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_rx_fir/s_axis_tready
-assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_rx_fir/s_axis_tdata
-assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_rx_fir/s_axis_tlast
-assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
-assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tready fieldmesh_qpsk_timing_recovery/s_axis_tready
-assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
-assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
+if {"$variant" eq "z103"} {
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_timing_recovery/s_axis_tready
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
+} else {
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_rx_fir/s_axis_tvalid
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_rx_fir/s_axis_tready
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_rx_fir/s_axis_tdata
+  assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_rx_fir/s_axis_tlast
+  assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+  assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tready fieldmesh_qpsk_timing_recovery/s_axis_tready
+  assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
+  assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
+}
 assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tvalid fieldmesh_qpsk_demodulator/s_axis_tvalid
 assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
 assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata

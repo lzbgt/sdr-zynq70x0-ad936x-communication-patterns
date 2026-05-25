@@ -415,14 +415,16 @@ after a failed TX. The C UIO probe validates PL-published descriptors through
 the production ABI helpers. The full
 production MAC/DMA engine must still add FEC integrity and full-MTU packet
 storage before the RF-facing path is production-ready.
-On the smaller Z103/Zynq-7010 overlay, the `/dev/uio0` aperture stays present
-but this diagnostic PL service is disabled at synthesis time to keep the image
-placeable; active packet service on that target must come from the next
-BRAM/AXI RAM/DMA MAC block rather than spending LUTs on the AXI-lite diagnostic
-loopback. The old copied-HDL RF-engine/DMA experiment is also disabled by
-default for Z103 builds; the production target for that board is the compact
-C/PL firmware ring and a later purpose-built MAC/packet-memory block, not the
-vendor/IIO experiment fabric.
+On the smaller Z103/Zynq-7010 RF-engine overlay, the `/dev/uio0` aperture stays
+present but the profile is synthesis-lean: packet DMA feeds the PL QPSK path
+directly, standalone firmware-DMA/ring/FIR diagnostic fabric is omitted, AD9361
+is built as 1R1T with unused DDS/DC-filter/IQ-correction blocks disabled, and
+the PS `clk_fpga_0` fabric clock is constrained at 80 MHz. This keeps the active
+RF datapath in C/PL while fitting the small device; a later purpose-built
+MAC/packet-memory block should replace any remaining diagnostic fabric used only
+for bring-up. The Z103 RF-engine timing contract also marks AD9361 `rx_clk` and
+PS `clk_fpga_0` as asynchronous CDC domains because the only crossings are
+AXI-stream async FIFOs or diagnostic synchronizers.
 Safe sysfs inspection, read-only `mmap`, guarded write-loopback, and guarded
 `--pl-service` UIO loopback are the live board checks. The C ring helper uses
 explicit byte-wise MMIO access for descriptor and packet-memory bytes so ARM

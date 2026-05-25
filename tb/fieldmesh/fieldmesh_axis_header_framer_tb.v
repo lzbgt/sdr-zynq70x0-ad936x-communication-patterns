@@ -198,6 +198,19 @@ task send_truncated_packet;
     end
 endtask
 
+task wait_output_valid;
+    integer timeout;
+    begin
+        timeout = 0;
+        @(posedge clk);
+        while (!m_axis_tvalid && timeout < 32) begin
+            timeout = timeout + 1;
+            @(posedge clk);
+        end
+        if (!m_axis_tvalid) fail("packet not ready for output");
+    end
+endtask
+
 task drain_packet;
     input [7:0] traffic_class;
     integer i;
@@ -224,8 +237,7 @@ initial begin
 
     send_packet(8'd2, 1'b0, 1'b0);
     if (packet_count != 32'd0) fail("packet counted before output drained");
-    repeat (2) @(posedge clk);
-    if (!m_axis_tvalid) fail("first packet not ready for output");
+    wait_output_valid();
     if (!s_axis_tready) fail("ping-pong framer did not accept input while first packet emitted");
     send_packet(8'd3, 1'b0, 1'b0);
     repeat (2) @(posedge clk);

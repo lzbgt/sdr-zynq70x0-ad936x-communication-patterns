@@ -85,8 +85,19 @@ reg [31:0] frame_seq;
 reg final_packet_word;
 reg [3:0] desc_step;
 
-wire [31:0] slot_base_32 = {16'd0, current_slot} * PACKET_STRIDE;
-wire [31:0] frame_base_32 = {16'd0, frame_slot} * PACKET_STRIDE;
+function [31:0] packet_slot_offset;
+    input [15:0] slot;
+    begin
+        if (PACKET_STRIDE == 1536) begin
+            packet_slot_offset = {6'd0, slot, 10'd0} + {7'd0, slot, 9'd0};
+        end else begin
+            packet_slot_offset = {16'd0, slot} * PACKET_STRIDE;
+        end
+    end
+endfunction
+
+wire [31:0] slot_base_32 = packet_slot_offset(current_slot);
+wire [31:0] frame_base_32 = packet_slot_offset(frame_slot);
 wire [31:0] write_base_32 = state == ST_IDLE ? slot_base_32 : frame_base_32;
 wire [15:0] active_word_offset = state == ST_IDLE ? 16'd0 : word_offset;
 wire [15:0] active_frame_len = state == ST_IDLE ? 16'd0 : frame_len;

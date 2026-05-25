@@ -49,6 +49,17 @@ module fieldmesh_firmware_packet_service_core #(
 
 wire [15:0] payload_len;
 
+function [31:0] packet_slot_offset;
+    input [15:0] slot_index;
+    begin
+        if (PACKET_STRIDE == 1536) begin
+            packet_slot_offset = {6'd0, slot_index, 10'd0} + {7'd0, slot_index, 9'd0};
+        end else begin
+            packet_slot_offset = {16'd0, slot_index} * PACKET_STRIDE;
+        end
+    end
+endfunction
+
 fieldmesh_firmware_tx_service_gate #(
     .RING_SLOTS(RING_SLOTS),
     .PACKET_STRIDE(PACKET_STRIDE),
@@ -81,7 +92,7 @@ fieldmesh_firmware_rx_ack_builder rx_ack_builder (
     .peer_index(tx_word1[15:0]),
     .mcs(tx_word1[23:16]),
     .payload_len(payload_len),
-    .rx_payload_offset(slot * PACKET_STRIDE),
+    .rx_payload_offset(packet_slot_offset(slot)),
     .rx_word0(rx_word0),
     .rx_word1(rx_word1),
     .rx_word2(rx_word2),

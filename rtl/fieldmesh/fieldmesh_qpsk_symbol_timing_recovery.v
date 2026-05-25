@@ -12,6 +12,7 @@
 module fieldmesh_qpsk_symbol_timing_recovery #(
     parameter integer OVERSAMPLE_FACTOR = 2,
     parameter integer CENTER_PHASE_WEIGHT = 3,
+    parameter integer ENABLE_DIAGNOSTICS = 1,
     parameter integer QUALITY_MARGIN_THRESHOLD = 512
 ) (
     input  wire        clk,
@@ -134,11 +135,13 @@ always @(posedge clk) begin
         output_stall_cycle_count <= 32'd0;
         input_backpressure_cycle_count <= 32'd0;
     end else begin
-        if (output_stalled) begin
-            output_stall_cycle_count <= output_stall_cycle_count + 1'b1;
-        end
-        if (input_backpressured) begin
-            input_backpressure_cycle_count <= input_backpressure_cycle_count + 1'b1;
+        if (ENABLE_DIAGNOSTICS) begin
+            if (output_stalled) begin
+                output_stall_cycle_count <= output_stall_cycle_count + 1'b1;
+            end
+            if (input_backpressured) begin
+                input_backpressure_cycle_count <= input_backpressure_cycle_count + 1'b1;
+            end
         end
 
         if (output_fire) begin
@@ -146,38 +149,44 @@ always @(posedge clk) begin
         end
 
         if (input_fire) begin
-            input_sample_count <= input_sample_count + 1'b1;
+                if (ENABLE_DIAGNOSTICS) begin
+                    input_sample_count <= input_sample_count + 1'b1;
+                end
 
-            if (final_phase) begin
-                out_valid <= 1'b1;
-                out_data <= filtered_data_next;
-                out_last <= window_last_next;
-                output_symbol_count <= output_symbol_count + 1'b1;
-                timing_margin_accum <= timing_margin_accum + filtered_margin;
-                if (filtered_margin <= QUALITY_MARGIN_THRESHOLD_U32) begin
-                    low_timing_margin_count <= low_timing_margin_count + 1'b1;
-                end
-                if (selected_phase[7:0] != best_phase_next) begin
-                    phase_change_count <= phase_change_count + 1'b1;
-                end
-                selected_phase <= {24'd0, best_phase_next};
-                phase_index <= 8'd0;
-                best_phase <= 8'd0;
-                best_i_sample <= 16'sd0;
+                if (final_phase) begin
+                    out_valid <= 1'b1;
+                    out_data <= filtered_data_next;
+                    out_last <= window_last_next;
+                    if (ENABLE_DIAGNOSTICS) begin
+                        output_symbol_count <= output_symbol_count + 1'b1;
+                        timing_margin_accum <= timing_margin_accum + filtered_margin;
+                        if (filtered_margin <= QUALITY_MARGIN_THRESHOLD_U32) begin
+                            low_timing_margin_count <= low_timing_margin_count + 1'b1;
+                        end
+                        if (selected_phase[7:0] != best_phase_next) begin
+                            phase_change_count <= phase_change_count + 1'b1;
+                        end
+                        selected_phase <= {24'd0, best_phase_next};
+                    end
+                    phase_index <= 8'd0;
+                    best_phase <= 8'd0;
+                    best_i_sample <= 16'sd0;
                 best_q_sample <= 16'sd0;
                 best_margin <= 32'd0;
                 window_last <= 1'b0;
                 sum_i <= 32'sd0;
                 sum_q <= 32'sd0;
-            end else begin
-                phase_index <= phase_index + 1'b1;
-                best_phase <= best_phase_next;
-                best_i_sample <= best_i_sample_next;
-                best_q_sample <= best_q_sample_next;
-                best_margin <= best_margin_next;
-                window_last <= window_last_next;
-                sum_i <= sum_i_next;
-                sum_q <= sum_q_next;
+                end else begin
+                    phase_index <= phase_index + 1'b1;
+                    if (CENTER_EXTRA_WEIGHT != 0 || ENABLE_DIAGNOSTICS) begin
+                        best_phase <= best_phase_next;
+                        best_i_sample <= best_i_sample_next;
+                        best_q_sample <= best_q_sample_next;
+                        best_margin <= best_margin_next;
+                    end
+                    window_last <= window_last_next;
+                    sum_i <= sum_i_next;
+                    sum_q <= sum_q_next;
             end
         end
     end

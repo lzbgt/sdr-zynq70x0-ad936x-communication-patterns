@@ -90,8 +90,18 @@ wire copy_busy;
 wire copy_done;
 wire copy_error;
 wire [15:0] copy_copied_bytes;
-wire [31:0] rx_payload_offset =
-    RX_PACKET_BASE + {{16{1'b0}}, slot} * PACKET_STRIDE;
+function [31:0] packet_slot_offset;
+    input [15:0] slot_index;
+    begin
+        if (PACKET_STRIDE == 1536) begin
+            packet_slot_offset = {6'd0, slot_index, 10'd0} + {7'd0, slot_index, 9'd0};
+        end else begin
+            packet_slot_offset = {16'd0, slot_index} * PACKET_STRIDE;
+        end
+    end
+endfunction
+
+wire [31:0] rx_payload_offset = RX_PACKET_BASE + packet_slot_offset(slot);
 
 reg [2:0] state;
 reg copy_start;

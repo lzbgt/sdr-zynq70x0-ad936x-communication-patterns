@@ -520,7 +520,16 @@ For low-memory development sessions, the lightweight static guard is:
 
 It checks the patcher, required RTL inventory, and RF-engine overlay checker for
 the firmware-DMA endpoint, QPSK TX path, and AD9361 RX demod/header-framing
-path, and rejects direct sidecar-bridge-to-symbolizer wiring.
+path, and rejects direct sidecar-bridge-to-symbolizer wiring. On Z103, the
+copied RF-engine profile is intentionally lean: packet DMA feeds the PL QPSK
+path directly, the standalone firmware-DMA/ring/FIR diagnostic fabric is
+omitted, AD9361 is synthesized as 1R1T with unused DDS/DC-filter/IQ-correction
+fabric disabled, and `clk_fpga_0` is reduced to 80 MHz with a matching 12.5 ns
+constraint so the small Z7010 can place the RF engine without changing the
+AD9361 sample clock or the 15.36 Mbps raw QPSK PHY profile. The Z103 RF-engine
+constraint file also declares the AD9361 `rx_clk` and PS `clk_fpga_0` domains
+as asynchronous; their crossings are explicit AXI-stream async FIFOs or
+diagnostic synchronizers, not single-cycle timing paths.
 
 Build the same copied-HDL overlay into a bitstream/XSA with:
 
