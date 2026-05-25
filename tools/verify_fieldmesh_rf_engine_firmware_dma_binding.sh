@@ -15,6 +15,7 @@ adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(e
 qpsk_symbolizer = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v").read_text(encoding="utf-8")
 byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
+ctrl = (repo / "rtl/fieldmesh/fieldmesh_sidecar_ctrl_axi_lite.v").read_text(encoding="utf-8")
 
 required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
@@ -37,6 +38,9 @@ required_patcher_tokens = [
     "ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata",
     "ad_connect fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata",
     "ad_connect fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_sync_lock_count",
+    "ad_connect fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count",
+    "ad_connect fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count",
     "ad_connect fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast",
     "ad_connect fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8",
     "ad_connect fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
@@ -73,7 +77,7 @@ required_checker_tokens = [
     "fieldmesh_rx_header_framer",
     "fieldmesh_iq_rx_cdc",
     "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
-    "register pages through 0x1b4",
+    "register pages through 0x1e8",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "proc assert_same_intf_net",
     "{fieldmesh_fw_dma_endpoint/m_rx_dma fieldmesh_qpsk_symbolizer/s_axis}",
@@ -83,6 +87,9 @@ required_checker_tokens = [
     "assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata",
     "assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata",
     "assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "assert_same_net fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_sync_lock_count",
+    "assert_same_net fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count",
+    "assert_same_net fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count",
     "assert_same_net fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast",
     "assert_same_net fieldmesh_axis16_adapter/clk fieldmesh_iq_rx_cdc/m_clk",
     "fieldmesh_ctrl/fw_dma_enable",
@@ -101,6 +108,10 @@ required_checker_tokens = [
     "fieldmesh_ctrl/fw_dma_service_latency_budget_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_over_budget",
     "fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
+    "fieldmesh_ctrl/qpsk_sync_locked",
+    "fieldmesh_ctrl/qpsk_sync_search_drop_count",
+    "fieldmesh_ctrl/qpsk_rx_crc_error_count",
+    "fieldmesh_ctrl/qpsk_rx_fault",
     "assert_same_net fieldmesh_ctrl/fw_dma_peer_index fieldmesh_fw_dma_endpoint/peer_index",
     "assert_same_net fieldmesh_ctrl/fw_dma_seq_seed fieldmesh_fw_dma_endpoint/seq_seed",
     "assert_same_net fieldmesh_fw_dma_endpoint/mac_pump_done_count fieldmesh_ctrl/fw_dma_mac_pump_done_count",
@@ -124,6 +135,19 @@ for rtl in (
 ):
     if rtl not in plan:
         raise SystemExit(f"{rtl.strip(chr(34))} missing from required RTL inventory")
+
+for token in (
+    "input  wire         qpsk_sync_locked",
+    "input  wire [31:0]  qpsk_sync_search_drop_count",
+    "input  wire [31:0]  qpsk_rx_crc_error_count",
+    "REG_QPSK_SYNC_STATUS",
+    "REG_QPSK_SYNC_SEARCH_DROPS",
+    "REG_QPSK_RX_CRC_ERRORS",
+    "qpsk_sync_search_drop_count_sync",
+    "qpsk_rx_crc_error_count_sync",
+):
+    if token not in ctrl:
+        raise SystemExit(f"fieldmesh_sidecar_ctrl_axi_lite.v missing QPSK RX diagnostic token: {token}")
 
 for token in (
     "module fieldmesh_iq_adc_axis_source",

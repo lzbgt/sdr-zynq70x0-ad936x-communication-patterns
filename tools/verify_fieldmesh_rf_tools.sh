@@ -22,9 +22,11 @@ cc -std=c99 -Wall -Wextra -Werror \
 "$work_dir/fieldmesh-ctrl-write-host" --self-test >"$work_dir/ctrl_write_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-self-test >"$work_dir/fw_dma_status_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status-idle-self-test >"$work_dir/fw_dma_status_idle_self_test.json"
+"$work_dir/fieldmesh-ctrl-write-host" --qpsk-rx-diag-self-test >"$work_dir/qpsk_rx_diag_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-action-policy-self-test >"$work_dir/fw_dma_action_policy_self_test.json"
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status >"$work_dir/fw_dma_status_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-status 0x43c00000 >"$work_dir/fw_dma_status_explicit_guard.json" 2>/dev/null || true
+"$work_dir/fieldmesh-ctrl-write-host" --qpsk-rx-diag >"$work_dir/qpsk_rx_diag_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-config-if-idle 7 1 3 0x11 0x1200 >"$work_dir/fw_dma_config_checked_guard.json" 2>/dev/null || true
 "$work_dir/fieldmesh-ctrl-write-host" --fw-dma-latency-budget 1000 >"$work_dir/fw_dma_latency_budget_guard.json" 2>/dev/null || true
@@ -114,6 +116,8 @@ if self_test.get("fw_dma_control_offset") != "0x140" or self_test.get("fw_dma_ar
     raise SystemExit(f"bad firmware DMA self-test offsets: {self_test!r}")
 if self_test.get("fw_dma_config_offset") != "0x170":
     raise SystemExit(f"bad firmware DMA config offset: {self_test!r}")
+if self_test.get("qpsk_rx_diag_offset") != "0x1b8":
+    raise SystemExit(f"bad QPSK RX diagnostic offset: {self_test!r}")
 if self_test.get("fw_dma_descriptor_flags_allowed") != "0x003f":
     raise SystemExit(f"bad firmware DMA descriptor flag mask: {self_test!r}")
 if "descriptor_flags must use mask 0x003f" not in (work / "fw_dma_config_bad_flags.err").read_text(encoding="utf-8"):
@@ -225,6 +229,37 @@ for key, expected in expected_idle_status.items():
     if fw_status_idle_self_test.get(key) != expected:
         raise SystemExit(f"firmware DMA idle status self-test bad {key}: {fw_status_idle_self_test!r}")
 
+qpsk_diag_self_test = json.loads((work / "qpsk_rx_diag_self_test.json").read_text(encoding="utf-8"))
+if qpsk_diag_self_test.get("event") != "fieldmesh_qpsk_rx_diag" or qpsk_diag_self_test.get("ok") is not True:
+    raise SystemExit(f"QPSK RX diagnostic self-test failed: {qpsk_diag_self_test!r}")
+expected_qpsk_diag = {
+    "base": "0x43c00000",
+    "sync_status": "0x00000016",
+    "sync_locked": True,
+    "selected_phase": 2,
+    "selected_rotation": 1,
+    "sync_input_bytes": 900,
+    "sync_output_bytes": 640,
+    "sync_locks": 3,
+    "sync_slips": 2,
+    "sync_rotations": 1,
+    "sync_search_drops": 17,
+    "rx_packets": 29,
+    "rx_bytes": 8192,
+    "rx_drops": 0,
+    "rx_crc_errors": 0,
+    "rx_resyncs": 0,
+    "fault_status": "0x00000000",
+    "rx_fault": False,
+    "fault_free": True,
+    "drop_counters_clear": False,
+    "reads_hardware": False,
+    "writes_hardware": False,
+}
+for key, expected in expected_qpsk_diag.items():
+    if qpsk_diag_self_test.get(key) != expected:
+        raise SystemExit(f"QPSK RX diagnostic self-test bad {key}: {qpsk_diag_self_test!r}")
+
 policy = json.loads((work / "fw_dma_action_policy_self_test.json").read_text(encoding="utf-8"))
 if policy.get("event") != "fieldmesh_fw_dma_action_policy_self_test" or policy.get("ok") is not True:
     raise SystemExit(f"firmware DMA action policy self-test failed: {policy!r}")
@@ -259,6 +294,14 @@ if fw_status.get("writes_hardware") is not False:
 fw_status_explicit = json.loads((work / "fw_dma_status_explicit_guard.json").read_text(encoding="utf-8"))
 if fw_status_explicit.get("base") != fw_status.get("base"):
     raise SystemExit(f"firmware DMA explicit/default status bases diverged: {fw_status_explicit!r} vs {fw_status!r}")
+
+qpsk_diag_guard = json.loads((work / "qpsk_rx_diag_guard.json").read_text(encoding="utf-8"))
+if qpsk_diag_guard.get("event") != "fieldmesh_qpsk_rx_diag" or qpsk_diag_guard.get("ok") is not False:
+    raise SystemExit(f"QPSK RX diagnostic guard failed: {qpsk_diag_guard!r}")
+if qpsk_diag_guard.get("base") != "0x43c00000":
+    raise SystemExit(f"QPSK RX diagnostic guard used wrong C default base: {qpsk_diag_guard!r}")
+if qpsk_diag_guard.get("writes_hardware") is not False:
+    raise SystemExit(f"QPSK RX diagnostic guard must not write hardware: {qpsk_diag_guard!r}")
 
 row = json.loads((work / "fw_dma_config_guard.json").read_text(encoding="utf-8"))
 if row.get("event") != "fieldmesh_ctrl_write" or row.get("ok") is not False:

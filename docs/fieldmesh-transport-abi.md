@@ -477,11 +477,25 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x1ac` | `FM_FW_DMA_SERVICE_LATENCY_ACCUM_CYCLES` | accumulated FPGA MAC-service cycles for completed pump intervals |
 | `0x1b0` | `FM_FW_DMA_SERVICE_LATENCY_BUDGET_CYCLES` | writable FPGA MAC-service latency budget in PL clock cycles; zero disables hardware over-budget detection |
 | `0x1b4` | `FM_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT` | completed service intervals that exceeded the programmed FPGA latency budget since endpoint enable |
+| `0x1b8` | `FM_QPSK_RX_SYNC_STATUS` | RF-engine QPSK RX status: bits 1:0 selected byte phase, bits 3:2 selected QPSK quadrant rotation, bit 4 byte-sync locked, bit 5 RX framer fault |
+| `0x1bc` | `FM_QPSK_RX_SYNC_INPUT_BYTES` | bytes observed by the PL QPSK byte-sync/acquisition block |
+| `0x1c0` | `FM_QPSK_RX_SYNC_OUTPUT_BYTES` | byte-aligned payload bytes emitted by PL QPSK acquisition |
+| `0x1c4` | `FM_QPSK_RX_SYNC_LOCKS` | QPSK acquisition locks from full preamble-plus-magic correlation |
+| `0x1c8` | `FM_QPSK_RX_SYNC_SLIPS` | byte-phase slips selected by the PL acquisition block |
+| `0x1cc` | `FM_QPSK_RX_SYNC_ROTATIONS` | QPSK quadrant rotations selected by the PL acquisition block |
+| `0x1d0` | `FM_QPSK_RX_SYNC_SEARCH_DROPS` | bytes dropped while searching for a valid QPSK acquisition preamble |
+| `0x1d4` | `FM_QPSK_RX_PACKETS` | packets accepted by the PL RX header/CRC framer |
+| `0x1d8` | `FM_QPSK_RX_BYTES` | bytes emitted by the PL RX header/CRC framer toward RX DMA |
+| `0x1dc` | `FM_QPSK_RX_DROPS` | packets dropped by the PL RX header/CRC framer |
+| `0x1e0` | `FM_QPSK_RX_CRC_ERRORS` | recovered packets rejected by PL CRC-16 validation |
+| `0x1e4` | `FM_QPSK_RX_RESYNCS` | RX header/framer resynchronization events |
+| `0x1e8` | `FM_QPSK_RX_FAULT_STATUS` | bit 0 PL RX framer fault |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.
 The userspace control tool is `fieldmesh-ctrl-write`: `--fw-dma-status` reads
-this block only when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
+the firmware-DMA block and `--qpsk-rx-diag` reads the QPSK RX diagnostics only
+when `FIELD_MESH_ALLOW_HARDWARE_READS=1`, while
 `--fw-dma-config`, `--fw-dma-arm`, `--fw-dma-stop`, and
 `--fw-dma-latency-budget-if-idle` require
 `FIELD_MESH_EXECUTE_LIVE_TX=1`,

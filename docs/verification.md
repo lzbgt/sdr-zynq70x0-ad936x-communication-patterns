@@ -2952,9 +2952,11 @@ path uses the C tool's checked commands, `--fw-dma-config-if-idle`,
 immediately before register writes.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
-checkers, and board-control wrapper must agree on the full
-`0x140..0x1b4` firmware-DMA page, the shared descriptor flag mask, and the
-shared C self-test fixture vectors; stale `0x178` overlay guards are rejected.
+checkers, and board-control wrapper must agree on the full firmware-DMA page
+and, for the RF-engine overlay, the extended `0x140..0x1e8` sidecar range that
+also carries QPSK RX acquisition/framing diagnostics. The shared descriptor
+flag mask, QPSK diagnostic offsets, and C self-test fixture vectors are kept in
+the SDK contract; stale `0x178` overlay guards are rejected.
 `report_fieldmesh_runtime_source_freshness.sh` is a read-only runtime package
 freshness reporter. It compares the packaged `fieldmesh-ctrl-write` strings in
 the rootfs tarballs against the current checked firmware-DMA C command contract

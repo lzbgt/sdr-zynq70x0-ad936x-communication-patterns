@@ -114,12 +114,16 @@ in `src/fieldmesh_sdk.c`:
   budget, pressure, byte/packet/drop/fault counters, MAC pump counters,
   BRAM CRC/bounds counters, and hardware service-latency budget/overrun state
   are surfaced through fixed binary
-  `fieldmesh_ctrl` registers at `0x140..0x1b4`; reset leaves the endpoint
-  disabled until software configures metadata and arms those bits.
+  `fieldmesh_ctrl` registers at `0x140..0x1e8`; reset leaves the endpoint
+  disabled until software configures metadata and arms those bits. The
+  RF-engine sidecar range also exposes QPSK RX acquisition/framing diagnostics:
+  byte-sync lock, selected byte phase, selected QPSK quadrant rotation,
+  sync input/output bytes, lock/slip/rotation/search-drop counts, RX
+  packet/byte/drop counts, CRC rejects, resyncs, and framer fault status.
   `include/fieldmesh_firmware_dma_ctrl.h` is the canonical C contract for
-  that register block: offsets, control/status-bit predicates, metadata
-  packing, status decoding, and aggregate health predicates stay in C SDK code
-  instead of shell or Python packet logic.
+  that register block: offsets, control/status-bit predicates, QPSK RX
+  diagnostic decode, metadata packing, status decoding, and aggregate health
+  predicates stay in C SDK code instead of shell or Python packet logic.
   `include/fieldmesh_rf_guard_ctrl.h` is the matching C contract for the RF
   guard and DAC source-select control page at `0x100..0x13c`. It owns the
   shared offsets, masks, status predicates, and control-window bounds consumed

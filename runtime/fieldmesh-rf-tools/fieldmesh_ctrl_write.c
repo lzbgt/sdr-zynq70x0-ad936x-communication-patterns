@@ -40,9 +40,11 @@ static void usage(FILE *stream) {
             "  fieldmesh-ctrl-write --self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-status-self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-status-idle-self-test\n"
+            "  fieldmesh-ctrl-write --qpsk-rx-diag-self-test\n"
             "  fieldmesh-ctrl-write --fw-dma-action-policy-self-test\n"
             "  fieldmesh-ctrl-write BASE OFFSET VALUE\n"
             "  fieldmesh-ctrl-write --fw-dma-status [BASE]\n"
+            "  fieldmesh-ctrl-write --qpsk-rx-diag [BASE]\n"
             "  fieldmesh-ctrl-write --fw-dma-config [BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
             "  fieldmesh-ctrl-write --fw-dma-config-if-idle [BASE] PEER_INDEX MCS RETRY_BUDGET FLAGS SEQ_SEED\n"
             "  fieldmesh-ctrl-write --fw-dma-latency-budget [BASE] MAX_CYCLES\n"
@@ -263,6 +265,65 @@ static int print_fw_dma_status_from_regs(uint32_t base,
     return 0;
 }
 
+static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *diag,
+                               bool reads_hardware) {
+    printf("{\"event\":\"fieldmesh_qpsk_rx_diag\",\"ok\":true,"
+           "\"base\":\"0x%08" PRIx32 "\","
+           "\"sync_status\":\"0x%08" PRIx32 "\","
+           "\"sync_locked\":%s,"
+           "\"selected_phase\":%" PRIu32 ","
+           "\"selected_rotation\":%" PRIu32 ","
+           "\"sync_input_bytes\":%" PRIu32 ","
+           "\"sync_output_bytes\":%" PRIu32 ","
+           "\"sync_locks\":%" PRIu32 ","
+           "\"sync_slips\":%" PRIu32 ","
+           "\"sync_rotations\":%" PRIu32 ","
+           "\"sync_search_drops\":%" PRIu32 ","
+           "\"rx_packets\":%" PRIu32 ","
+           "\"rx_bytes\":%" PRIu32 ","
+           "\"rx_drops\":%" PRIu32 ","
+           "\"rx_crc_errors\":%" PRIu32 ","
+           "\"rx_resyncs\":%" PRIu32 ","
+           "\"fault_status\":\"0x%08" PRIx32 "\","
+           "\"rx_fault\":%s,"
+           "\"fault_free\":%s,"
+           "\"drop_counters_clear\":%s,"
+           "\"reads_hardware\":%s,\"writes_hardware\":false}\n",
+           base,
+           diag->sync_status,
+           fieldmesh_qpsk_rx_diag_locked(diag) ? "true" : "false",
+           (uint32_t)diag->selected_phase,
+           (uint32_t)diag->selected_rotation,
+           diag->sync_input_bytes,
+           diag->sync_output_bytes,
+           diag->sync_locks,
+           diag->sync_slips,
+           diag->sync_rotations,
+           diag->sync_search_drops,
+           diag->rx_packets,
+           diag->rx_bytes,
+           diag->rx_drops,
+           diag->rx_crc_errors,
+           diag->rx_resyncs,
+           diag->fault_status,
+           diag->rx_fault ? "true" : "false",
+           fieldmesh_qpsk_rx_diag_fault_free(diag) ? "true" : "false",
+           fieldmesh_qpsk_rx_diag_drop_counters_clear(diag) ? "true" : "false",
+           reads_hardware ? "true" : "false");
+}
+
+static int print_qpsk_rx_diag_from_regs(uint32_t base,
+                                        const uint32_t regs[FIELDMESH_QPSK_RX_DIAG_REG_COUNT],
+                                        bool reads_hardware) {
+    fieldmesh_qpsk_rx_diag_t diag = {0};
+    if (!fieldmesh_qpsk_rx_diag_from_regs(&diag, regs)) {
+        fprintf(stderr, "failed to decode QPSK RX diagnostics\n");
+        return 1;
+    }
+    print_qpsk_rx_diag(base, &diag, reads_hardware);
+    return 0;
+}
+
 static int read_fw_dma_status(uint32_t base, fieldmesh_fw_dma_status_t *status) {
     uint32_t regs[FIELDMESH_FW_DMA_STATUS_REG_COUNT];
     for (size_t i = 0; i < FIELDMESH_FW_DMA_STATUS_REG_COUNT; ++i) {
@@ -270,6 +331,15 @@ static int read_fw_dma_status(uint32_t base, fieldmesh_fw_dma_status_t *status) 
                              0, FIELDMESH_ACCESS_READ);
     }
     return fieldmesh_fw_dma_status_from_regs(status, regs);
+}
+
+static int read_qpsk_rx_diag(uint32_t base, fieldmesh_qpsk_rx_diag_t *diag) {
+    uint32_t regs[FIELDMESH_QPSK_RX_DIAG_REG_COUNT];
+    for (size_t i = 0; i < FIELDMESH_QPSK_RX_DIAG_REG_COUNT; ++i) {
+        regs[i] = access_reg(base, fieldmesh_qpsk_rx_diag_offset(i),
+                             0, FIELDMESH_ACCESS_READ);
+    }
+    return fieldmesh_qpsk_rx_diag_from_regs(diag, regs);
 }
 
 static int print_fw_dma_action_policy_self_test(void) {
@@ -334,12 +404,14 @@ int main(int argc, char **argv) {
                "\"fw_dma_status_offset\":\"0x%03x\","
                "\"fw_dma_config_offset\":\"0x%03x\","
                "\"fw_dma_latency_budget_offset\":\"0x%03x\","
+               "\"qpsk_rx_diag_offset\":\"0x%03x\","
                "\"fw_dma_descriptor_flags_allowed\":\"0x%04" PRIx32 "\","
                "\"fw_dma_arm_control\":\"0x%08" PRIx32 "\"}\n",
                FIELDMESH_FW_DMA_REG_CONTROL,
                FIELDMESH_FW_DMA_REG_STATUS,
                FIELDMESH_FW_DMA_REG_PEER_MCS_RETRY,
                FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES,
+               FIELDMESH_QPSK_RX_REG_SYNC_STATUS,
                FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED,
                FIELDMESH_FW_DMA_ARM_CONTROL);
         return 0;
@@ -357,6 +429,13 @@ int main(int argc, char **argv) {
         fieldmesh_fw_dma_status_test_regs_idle(regs);
         return print_fw_dma_status_from_regs(FIELDMESH_SIDECAR_CTRL_BASE,
                                              regs, false);
+    }
+
+    if (argc == 2 && strcmp(argv[1], "--qpsk-rx-diag-self-test") == 0) {
+        uint32_t regs[FIELDMESH_QPSK_RX_DIAG_REG_COUNT] = {0};
+        fieldmesh_qpsk_rx_diag_test_regs_locked(regs);
+        return print_qpsk_rx_diag_from_regs(FIELDMESH_SIDECAR_CTRL_BASE,
+                                            regs, false);
     }
 
     if (argc == 2 && strcmp(argv[1], "--fw-dma-action-policy-self-test") == 0) {
@@ -379,6 +458,25 @@ int main(int argc, char **argv) {
             return 1;
         }
         print_fw_dma_status(base, &status, true);
+        return 0;
+    }
+
+    if ((argc == 2 || argc == 3) && strcmp(argv[1], "--qpsk-rx-diag") == 0) {
+        uint32_t base = argc == 3 ? parse_u32(argv[2], "base") :
+            FIELDMESH_SIDECAR_CTRL_BASE;
+        if (!live_read_allowed()) {
+            printf("{\"event\":\"fieldmesh_qpsk_rx_diag\",\"ok\":false,"
+                   "\"base\":\"0x%08" PRIx32 "\","
+                   "\"error\":\"missing FIELD_MESH_ALLOW_HARDWARE_READS=1\","
+                   "\"reads_hardware\":false,\"writes_hardware\":false}\n", base);
+            return 1;
+        }
+        fieldmesh_qpsk_rx_diag_t diag = {0};
+        if (!read_qpsk_rx_diag(base, &diag)) {
+            fprintf(stderr, "failed to decode QPSK RX diagnostics\n");
+            return 1;
+        }
+        print_qpsk_rx_diag(base, &diag, true);
         return 0;
     }
 

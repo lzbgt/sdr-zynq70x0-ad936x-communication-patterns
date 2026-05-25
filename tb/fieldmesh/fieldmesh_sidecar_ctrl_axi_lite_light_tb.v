@@ -53,6 +53,19 @@ localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_MAX  = 16'h01a8;
 localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_ACC  = 16'h01ac;
 localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_BUDGET = 16'h01b0;
 localparam [15:0] REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT = 16'h01b4;
+localparam [15:0] REG_QPSK_SYNC_STATUS             = 16'h01b8;
+localparam [15:0] REG_QPSK_SYNC_INPUT_BYTES        = 16'h01bc;
+localparam [15:0] REG_QPSK_SYNC_OUTPUT_BYTES       = 16'h01c0;
+localparam [15:0] REG_QPSK_SYNC_LOCKS              = 16'h01c4;
+localparam [15:0] REG_QPSK_SYNC_SLIPS              = 16'h01c8;
+localparam [15:0] REG_QPSK_SYNC_ROTATIONS          = 16'h01cc;
+localparam [15:0] REG_QPSK_SYNC_SEARCH_DROPS       = 16'h01d0;
+localparam [15:0] REG_QPSK_RX_PACKETS              = 16'h01d4;
+localparam [15:0] REG_QPSK_RX_BYTES                = 16'h01d8;
+localparam [15:0] REG_QPSK_RX_DROPS                = 16'h01dc;
+localparam [15:0] REG_QPSK_RX_CRC_ERRORS           = 16'h01e0;
+localparam [15:0] REG_QPSK_RX_RESYNCS              = 16'h01e4;
+localparam [15:0] REG_QPSK_RX_FAULT_STATUS         = 16'h01e8;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -139,6 +152,21 @@ reg [31:0] fw_dma_service_latency_over_budget_count = 32'd0;
 reg [31:0] fw_dma_bram_crc_error_count = 32'd0;
 reg [31:0] fw_dma_bram_bounds_error_count = 32'd0;
 reg [31:0] fw_dma_bram_error_count = 32'd0;
+reg qpsk_sync_locked = 1'b0;
+reg [1:0] qpsk_sync_selected_phase = 2'd0;
+reg [1:0] qpsk_sync_selected_rotation = 2'd0;
+reg [31:0] qpsk_sync_input_byte_count = 32'd0;
+reg [31:0] qpsk_sync_output_byte_count = 32'd0;
+reg [31:0] qpsk_sync_lock_count = 32'd0;
+reg [31:0] qpsk_sync_slip_count = 32'd0;
+reg [31:0] qpsk_sync_rotation_count = 32'd0;
+reg [31:0] qpsk_sync_search_drop_count = 32'd0;
+reg [31:0] qpsk_rx_packet_count = 32'd0;
+reg [31:0] qpsk_rx_byte_count = 32'd0;
+reg [31:0] qpsk_rx_drop_count = 32'd0;
+reg [31:0] qpsk_rx_crc_error_count = 32'd0;
+reg [31:0] qpsk_rx_resync_count = 32'd0;
+reg qpsk_rx_fault = 1'b0;
 
 fieldmesh_sidecar_ctrl_axi_lite dut (
     .s_axi_aclk(clk),
@@ -224,6 +252,21 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .fw_dma_bram_crc_error_count(fw_dma_bram_crc_error_count),
     .fw_dma_bram_bounds_error_count(fw_dma_bram_bounds_error_count),
     .fw_dma_bram_error_count(fw_dma_bram_error_count),
+    .qpsk_sync_locked(qpsk_sync_locked),
+    .qpsk_sync_selected_phase(qpsk_sync_selected_phase),
+    .qpsk_sync_selected_rotation(qpsk_sync_selected_rotation),
+    .qpsk_sync_input_byte_count(qpsk_sync_input_byte_count),
+    .qpsk_sync_output_byte_count(qpsk_sync_output_byte_count),
+    .qpsk_sync_lock_count(qpsk_sync_lock_count),
+    .qpsk_sync_slip_count(qpsk_sync_slip_count),
+    .qpsk_sync_rotation_count(qpsk_sync_rotation_count),
+    .qpsk_sync_search_drop_count(qpsk_sync_search_drop_count),
+    .qpsk_rx_packet_count(qpsk_rx_packet_count),
+    .qpsk_rx_byte_count(qpsk_rx_byte_count),
+    .qpsk_rx_drop_count(qpsk_rx_drop_count),
+    .qpsk_rx_crc_error_count(qpsk_rx_crc_error_count),
+    .qpsk_rx_resync_count(qpsk_rx_resync_count),
+    .qpsk_rx_fault(qpsk_rx_fault),
     .irq(irq),
     .irq_status(irq_status)
 );
@@ -464,6 +507,36 @@ initial begin
     expect_axi(REG_FW_DMA_BRAM_BOUNDS_ERRORS, 32'd13);
     expect_axi(REG_FW_DMA_BRAM_ERRORS, 32'd4);
     expect_axi(REG_FW_DMA_FAULT_STATUS, 32'h0000_0007);
+
+    qpsk_sync_locked = 1'b1;
+    qpsk_sync_selected_phase = 2'd2;
+    qpsk_sync_selected_rotation = 2'd1;
+    qpsk_sync_input_byte_count = 32'd900;
+    qpsk_sync_output_byte_count = 32'd640;
+    qpsk_sync_lock_count = 32'd3;
+    qpsk_sync_slip_count = 32'd2;
+    qpsk_sync_rotation_count = 32'd1;
+    qpsk_sync_search_drop_count = 32'd17;
+    qpsk_rx_packet_count = 32'd29;
+    qpsk_rx_byte_count = 32'd8192;
+    qpsk_rx_drop_count = 32'd4;
+    qpsk_rx_crc_error_count = 32'd5;
+    qpsk_rx_resync_count = 32'd6;
+    qpsk_rx_fault = 1'b1;
+    repeat (2) @(negedge clk);
+    expect_axi(REG_QPSK_SYNC_STATUS, 32'h0000_0036);
+    expect_axi(REG_QPSK_SYNC_INPUT_BYTES, 32'd900);
+    expect_axi(REG_QPSK_SYNC_OUTPUT_BYTES, 32'd640);
+    expect_axi(REG_QPSK_SYNC_LOCKS, 32'd3);
+    expect_axi(REG_QPSK_SYNC_SLIPS, 32'd2);
+    expect_axi(REG_QPSK_SYNC_ROTATIONS, 32'd1);
+    expect_axi(REG_QPSK_SYNC_SEARCH_DROPS, 32'd17);
+    expect_axi(REG_QPSK_RX_PACKETS, 32'd29);
+    expect_axi(REG_QPSK_RX_BYTES, 32'd8192);
+    expect_axi(REG_QPSK_RX_DROPS, 32'd4);
+    expect_axi(REG_QPSK_RX_CRC_ERRORS, 32'd5);
+    expect_axi(REG_QPSK_RX_RESYNCS, 32'd6);
+    expect_axi(REG_QPSK_RX_FAULT_STATUS, 32'h0000_0001);
 
     axi_write(REG_FW_DMA_CONTROL, 32'h0000_0020);
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||

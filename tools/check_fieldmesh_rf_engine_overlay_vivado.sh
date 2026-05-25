@@ -113,7 +113,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF and firmware-DMA register pages through 0x1b4"
+  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x1e8"
 }
 
 foreach pin {
@@ -172,6 +172,18 @@ foreach pin {
   fieldmesh_qpsk_byte_sync/sync_locked
   fieldmesh_qpsk_byte_sync/selected_phase
   fieldmesh_qpsk_byte_sync/selected_rotation
+  fieldmesh_qpsk_byte_sync/input_byte_count
+  fieldmesh_qpsk_byte_sync/output_byte_count
+  fieldmesh_qpsk_byte_sync/sync_lock_count
+  fieldmesh_qpsk_byte_sync/sync_slip_count
+  fieldmesh_qpsk_byte_sync/sync_rotation_count
+  fieldmesh_qpsk_byte_sync/search_drop_count
+  fieldmesh_rx_header_framer/packet_count
+  fieldmesh_rx_header_framer/byte_count
+  fieldmesh_rx_header_framer/drop_count
+  fieldmesh_rx_header_framer/crc_error_count
+  fieldmesh_rx_header_framer/resync_count
+  fieldmesh_rx_header_framer/fault
   fieldmesh_rx_header_framer/clk
   fieldmesh_rx_header_framer/rst
   fieldmesh_rx_header_framer/enable
@@ -504,9 +516,24 @@ assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_qpsk_byte_syn
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_qpsk_byte_sync/s_axis_tready
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tlast fieldmesh_qpsk_byte_sync/s_axis_tlast
+assert_same_net fieldmesh_qpsk_byte_sync/sync_locked fieldmesh_ctrl/qpsk_sync_locked
+assert_same_net fieldmesh_qpsk_byte_sync/selected_phase fieldmesh_ctrl/qpsk_sync_selected_phase
+assert_same_net fieldmesh_qpsk_byte_sync/selected_rotation fieldmesh_ctrl/qpsk_sync_selected_rotation
+assert_same_net fieldmesh_qpsk_byte_sync/input_byte_count fieldmesh_ctrl/qpsk_sync_input_byte_count
+assert_same_net fieldmesh_qpsk_byte_sync/output_byte_count fieldmesh_ctrl/qpsk_sync_output_byte_count
+assert_same_net fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_sync_lock_count
+assert_same_net fieldmesh_qpsk_byte_sync/sync_slip_count fieldmesh_ctrl/qpsk_sync_slip_count
+assert_same_net fieldmesh_qpsk_byte_sync/sync_rotation_count fieldmesh_ctrl/qpsk_sync_rotation_count
+assert_same_net fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count
 assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
 assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
 assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
+assert_same_net fieldmesh_rx_header_framer/packet_count fieldmesh_ctrl/qpsk_rx_packet_count
+assert_same_net fieldmesh_rx_header_framer/byte_count fieldmesh_ctrl/qpsk_rx_byte_count
+assert_same_net fieldmesh_rx_header_framer/drop_count fieldmesh_ctrl/qpsk_rx_drop_count
+assert_same_net fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count
+assert_same_net fieldmesh_rx_header_framer/resync_count fieldmesh_ctrl/qpsk_rx_resync_count
+assert_same_net fieldmesh_rx_header_framer/fault fieldmesh_ctrl/qpsk_rx_fault
 assert_same_net fieldmesh_rx_header_framer/m_axis_tvalid fieldmesh_iq_rx_cdc/s_axis_tvalid
 assert_same_net fieldmesh_rx_header_framer/m_axis_tready fieldmesh_iq_rx_cdc/s_axis_tready
 assert_same_net fieldmesh_rx_header_framer/m_axis_tdata fieldmesh_iq_rx_cdc/s_axis_tdata

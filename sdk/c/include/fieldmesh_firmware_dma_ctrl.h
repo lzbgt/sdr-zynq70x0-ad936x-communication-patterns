@@ -43,6 +43,29 @@ extern "C" {
 
 #define FIELDMESH_FW_DMA_STATUS_REG_COUNT 30u
 
+#define FIELDMESH_QPSK_RX_REG_SYNC_STATUS 0x1b8u
+#define FIELDMESH_QPSK_RX_REG_SYNC_INPUT_BYTES 0x1bcu
+#define FIELDMESH_QPSK_RX_REG_SYNC_OUTPUT_BYTES 0x1c0u
+#define FIELDMESH_QPSK_RX_REG_SYNC_LOCKS 0x1c4u
+#define FIELDMESH_QPSK_RX_REG_SYNC_SLIPS 0x1c8u
+#define FIELDMESH_QPSK_RX_REG_SYNC_ROTATIONS 0x1ccu
+#define FIELDMESH_QPSK_RX_REG_SYNC_SEARCH_DROPS 0x1d0u
+#define FIELDMESH_QPSK_RX_REG_PACKETS 0x1d4u
+#define FIELDMESH_QPSK_RX_REG_BYTES 0x1d8u
+#define FIELDMESH_QPSK_RX_REG_DROPS 0x1dcu
+#define FIELDMESH_QPSK_RX_REG_CRC_ERRORS 0x1e0u
+#define FIELDMESH_QPSK_RX_REG_RESYNCS 0x1e4u
+#define FIELDMESH_QPSK_RX_REG_FAULT_STATUS 0x1e8u
+
+#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 13u
+
+#define FIELDMESH_QPSK_RX_SYNC_STATUS_PHASE_MASK 0x00000003u
+#define FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_MASK 0x0000000cu
+#define FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_SHIFT 2u
+#define FIELDMESH_QPSK_RX_SYNC_STATUS_LOCKED 0x00000010u
+#define FIELDMESH_QPSK_RX_SYNC_STATUS_FAULT 0x00000020u
+#define FIELDMESH_QPSK_RX_FAULT_STATUS_FAULT 0x00000001u
+
 #define FIELDMESH_FW_DMA_CONTROL_ENABLE 0x00000001u
 #define FIELDMESH_FW_DMA_CONTROL_INGRESS_ENABLE 0x00000002u
 #define FIELDMESH_FW_DMA_CONTROL_EGRESS_ENABLE 0x00000004u
@@ -131,6 +154,26 @@ typedef struct fieldmesh_fw_dma_status {
     uint32_t seq_seed;
 } fieldmesh_fw_dma_status_t;
 
+typedef struct fieldmesh_qpsk_rx_diag {
+    uint32_t sync_status;
+    uint8_t sync_locked;
+    uint8_t selected_phase;
+    uint8_t selected_rotation;
+    uint8_t rx_fault;
+    uint32_t sync_input_bytes;
+    uint32_t sync_output_bytes;
+    uint32_t sync_locks;
+    uint32_t sync_slips;
+    uint32_t sync_rotations;
+    uint32_t sync_search_drops;
+    uint32_t rx_packets;
+    uint32_t rx_bytes;
+    uint32_t rx_drops;
+    uint32_t rx_crc_errors;
+    uint32_t rx_resyncs;
+    uint32_t fault_status;
+} fieldmesh_qpsk_rx_diag_t;
+
 typedef struct fieldmesh_fw_dma_action_policy {
     uint8_t config_allowed;
     uint8_t latency_budget_allowed;
@@ -171,6 +214,26 @@ static inline uint32_t fieldmesh_fw_dma_status_offset(size_t index)
     case 27u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_ACCUM_CYCLES;
     case 28u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES;
     case 29u: return FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT;
+    default: return 0u;
+    }
+}
+
+static inline uint32_t fieldmesh_qpsk_rx_diag_offset(size_t index)
+{
+    switch (index) {
+    case 0u: return FIELDMESH_QPSK_RX_REG_SYNC_STATUS;
+    case 1u: return FIELDMESH_QPSK_RX_REG_SYNC_INPUT_BYTES;
+    case 2u: return FIELDMESH_QPSK_RX_REG_SYNC_OUTPUT_BYTES;
+    case 3u: return FIELDMESH_QPSK_RX_REG_SYNC_LOCKS;
+    case 4u: return FIELDMESH_QPSK_RX_REG_SYNC_SLIPS;
+    case 5u: return FIELDMESH_QPSK_RX_REG_SYNC_ROTATIONS;
+    case 6u: return FIELDMESH_QPSK_RX_REG_SYNC_SEARCH_DROPS;
+    case 7u: return FIELDMESH_QPSK_RX_REG_PACKETS;
+    case 8u: return FIELDMESH_QPSK_RX_REG_BYTES;
+    case 9u: return FIELDMESH_QPSK_RX_REG_DROPS;
+    case 10u: return FIELDMESH_QPSK_RX_REG_CRC_ERRORS;
+    case 11u: return FIELDMESH_QPSK_RX_REG_RESYNCS;
+    case 12u: return FIELDMESH_QPSK_RX_REG_FAULT_STATUS;
     default: return 0u;
     }
 }
@@ -262,6 +325,29 @@ static inline void fieldmesh_fw_dma_status_test_regs_active_faulted(
     regs[29] = 2u;
 }
 
+static inline void fieldmesh_qpsk_rx_diag_test_regs_locked(
+    uint32_t regs[FIELDMESH_QPSK_RX_DIAG_REG_COUNT])
+{
+    if (!regs) {
+        return;
+    }
+    regs[0] = FIELDMESH_QPSK_RX_SYNC_STATUS_LOCKED |
+              (1u << FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_SHIFT) |
+              2u;
+    regs[1] = 900u;
+    regs[2] = 640u;
+    regs[3] = 3u;
+    regs[4] = 2u;
+    regs[5] = 1u;
+    regs[6] = 17u;
+    regs[7] = 29u;
+    regs[8] = 8192u;
+    regs[9] = 0u;
+    regs[10] = 0u;
+    regs[11] = 0u;
+    regs[12] = 0u;
+}
+
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
     const fieldmesh_fw_dma_status_t *status)
 {
@@ -339,6 +425,57 @@ static inline int fieldmesh_fw_dma_status_from_regs(
     status->service_latency_budget_cycles = regs[28];
     status->service_latency_over_budget_count = regs[29];
     return 1;
+}
+
+static inline int fieldmesh_qpsk_rx_diag_from_regs(
+    fieldmesh_qpsk_rx_diag_t *diag,
+    const uint32_t regs[FIELDMESH_QPSK_RX_DIAG_REG_COUNT])
+{
+    if (!diag || !regs) {
+        return 0;
+    }
+
+    diag->sync_status = regs[0];
+    diag->sync_locked = (uint8_t)((regs[0] & FIELDMESH_QPSK_RX_SYNC_STATUS_LOCKED) != 0u);
+    diag->selected_phase = (uint8_t)(regs[0] & FIELDMESH_QPSK_RX_SYNC_STATUS_PHASE_MASK);
+    diag->selected_rotation = (uint8_t)((regs[0] & FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_MASK) >>
+                                        FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_SHIFT);
+    diag->rx_fault = (uint8_t)(((regs[0] & FIELDMESH_QPSK_RX_SYNC_STATUS_FAULT) != 0u) ||
+                               ((regs[12] & FIELDMESH_QPSK_RX_FAULT_STATUS_FAULT) != 0u));
+    diag->sync_input_bytes = regs[1];
+    diag->sync_output_bytes = regs[2];
+    diag->sync_locks = regs[3];
+    diag->sync_slips = regs[4];
+    diag->sync_rotations = regs[5];
+    diag->sync_search_drops = regs[6];
+    diag->rx_packets = regs[7];
+    diag->rx_bytes = regs[8];
+    diag->rx_drops = regs[9];
+    diag->rx_crc_errors = regs[10];
+    diag->rx_resyncs = regs[11];
+    diag->fault_status = regs[12] & FIELDMESH_QPSK_RX_FAULT_STATUS_FAULT;
+    return 1;
+}
+
+static inline int fieldmesh_qpsk_rx_diag_locked(
+    const fieldmesh_qpsk_rx_diag_t *diag)
+{
+    return diag && diag->sync_locked != 0u;
+}
+
+static inline int fieldmesh_qpsk_rx_diag_fault_free(
+    const fieldmesh_qpsk_rx_diag_t *diag)
+{
+    return diag && diag->rx_fault == 0u && diag->fault_status == 0u;
+}
+
+static inline int fieldmesh_qpsk_rx_diag_drop_counters_clear(
+    const fieldmesh_qpsk_rx_diag_t *diag)
+{
+    return diag &&
+           diag->sync_search_drops == 0u &&
+           diag->rx_drops == 0u &&
+           diag->rx_crc_errors == 0u;
 }
 
 static inline int fieldmesh_fw_dma_status_tx_parser_fault(

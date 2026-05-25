@@ -110,6 +110,22 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  fw_dma_bram_bounds_error_count,
     input  wire [31:0]  fw_dma_bram_error_count,
 
+    input  wire         qpsk_sync_locked,
+    input  wire [1:0]   qpsk_sync_selected_phase,
+    input  wire [1:0]   qpsk_sync_selected_rotation,
+    input  wire [31:0]  qpsk_sync_input_byte_count,
+    input  wire [31:0]  qpsk_sync_output_byte_count,
+    input  wire [31:0]  qpsk_sync_lock_count,
+    input  wire [31:0]  qpsk_sync_slip_count,
+    input  wire [31:0]  qpsk_sync_rotation_count,
+    input  wire [31:0]  qpsk_sync_search_drop_count,
+    input  wire [31:0]  qpsk_rx_packet_count,
+    input  wire [31:0]  qpsk_rx_byte_count,
+    input  wire [31:0]  qpsk_rx_drop_count,
+    input  wire [31:0]  qpsk_rx_crc_error_count,
+    input  wire [31:0]  qpsk_rx_resync_count,
+    input  wire         qpsk_rx_fault,
+
     output wire         irq,
     output wire [2:0]   irq_status
 );
@@ -168,6 +184,19 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_ACC  = 12'h1ac;
     localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_BUDGET = 12'h1b0;
     localparam [11:0] REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT = 12'h1b4;
+    localparam [11:0] REG_QPSK_SYNC_STATUS             = 12'h1b8;
+    localparam [11:0] REG_QPSK_SYNC_INPUT_BYTES        = 12'h1bc;
+    localparam [11:0] REG_QPSK_SYNC_OUTPUT_BYTES       = 12'h1c0;
+    localparam [11:0] REG_QPSK_SYNC_LOCKS              = 12'h1c4;
+    localparam [11:0] REG_QPSK_SYNC_SLIPS              = 12'h1c8;
+    localparam [11:0] REG_QPSK_SYNC_ROTATIONS          = 12'h1cc;
+    localparam [11:0] REG_QPSK_SYNC_SEARCH_DROPS       = 12'h1d0;
+    localparam [11:0] REG_QPSK_RX_PACKETS              = 12'h1d4;
+    localparam [11:0] REG_QPSK_RX_BYTES                = 12'h1d8;
+    localparam [11:0] REG_QPSK_RX_DROPS                = 12'h1dc;
+    localparam [11:0] REG_QPSK_RX_CRC_ERRORS           = 12'h1e0;
+    localparam [11:0] REG_QPSK_RX_RESYNCS              = 12'h1e4;
+    localparam [11:0] REG_QPSK_RX_FAULT_STATUS         = 12'h1e8;
 
     wire rst = !s_axi_aresetn;
 
@@ -210,6 +239,36 @@ generate if (SYNTH_LIGHT) begin : gen_light
     (* ASYNC_REG = "TRUE" *) reg [31:0] rf_dac_underflow_count_sync;
     (* ASYNC_REG = "TRUE" *) reg        rf_dac_active_meta;
     (* ASYNC_REG = "TRUE" *) reg        rf_dac_active_sync;
+    (* ASYNC_REG = "TRUE" *) reg        qpsk_sync_locked_meta;
+    (* ASYNC_REG = "TRUE" *) reg        qpsk_sync_locked_sync;
+    (* ASYNC_REG = "TRUE" *) reg [1:0]  qpsk_sync_selected_phase_meta;
+    (* ASYNC_REG = "TRUE" *) reg [1:0]  qpsk_sync_selected_phase_sync;
+    (* ASYNC_REG = "TRUE" *) reg [1:0]  qpsk_sync_selected_rotation_meta;
+    (* ASYNC_REG = "TRUE" *) reg [1:0]  qpsk_sync_selected_rotation_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_input_byte_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_input_byte_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_output_byte_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_output_byte_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_lock_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_lock_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_slip_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_slip_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_rotation_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_rotation_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_search_drop_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_sync_search_drop_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_packet_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_packet_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_byte_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_byte_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_drop_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_drop_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_crc_error_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_crc_error_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_resync_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_rx_resync_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg        qpsk_rx_fault_meta;
+    (* ASYNC_REG = "TRUE" *) reg        qpsk_rx_fault_sync;
     reg [1:0]  bresp_r;
     reg        bvalid_r;
     reg [31:0] rdata_r;
@@ -258,6 +317,36 @@ generate if (SYNTH_LIGHT) begin : gen_light
             rf_dac_underflow_count_sync <= 32'd0;
             rf_dac_active_meta <= 1'b0;
             rf_dac_active_sync <= 1'b0;
+            qpsk_sync_locked_meta <= 1'b0;
+            qpsk_sync_locked_sync <= 1'b0;
+            qpsk_sync_selected_phase_meta <= 2'd0;
+            qpsk_sync_selected_phase_sync <= 2'd0;
+            qpsk_sync_selected_rotation_meta <= 2'd0;
+            qpsk_sync_selected_rotation_sync <= 2'd0;
+            qpsk_sync_input_byte_count_meta <= 32'd0;
+            qpsk_sync_input_byte_count_sync <= 32'd0;
+            qpsk_sync_output_byte_count_meta <= 32'd0;
+            qpsk_sync_output_byte_count_sync <= 32'd0;
+            qpsk_sync_lock_count_meta <= 32'd0;
+            qpsk_sync_lock_count_sync <= 32'd0;
+            qpsk_sync_slip_count_meta <= 32'd0;
+            qpsk_sync_slip_count_sync <= 32'd0;
+            qpsk_sync_rotation_count_meta <= 32'd0;
+            qpsk_sync_rotation_count_sync <= 32'd0;
+            qpsk_sync_search_drop_count_meta <= 32'd0;
+            qpsk_sync_search_drop_count_sync <= 32'd0;
+            qpsk_rx_packet_count_meta <= 32'd0;
+            qpsk_rx_packet_count_sync <= 32'd0;
+            qpsk_rx_byte_count_meta <= 32'd0;
+            qpsk_rx_byte_count_sync <= 32'd0;
+            qpsk_rx_drop_count_meta <= 32'd0;
+            qpsk_rx_drop_count_sync <= 32'd0;
+            qpsk_rx_crc_error_count_meta <= 32'd0;
+            qpsk_rx_crc_error_count_sync <= 32'd0;
+            qpsk_rx_resync_count_meta <= 32'd0;
+            qpsk_rx_resync_count_sync <= 32'd0;
+            qpsk_rx_fault_meta <= 1'b0;
+            qpsk_rx_fault_sync <= 1'b0;
         end else begin
             rf_dac_sample_count_meta <= rf_dac_sample_count;
             rf_dac_sample_count_sync <= rf_dac_sample_count_meta;
@@ -267,6 +356,36 @@ generate if (SYNTH_LIGHT) begin : gen_light
             rf_dac_underflow_count_sync <= rf_dac_underflow_count_meta;
             rf_dac_active_meta <= rf_dac_active;
             rf_dac_active_sync <= rf_dac_active_meta;
+            qpsk_sync_locked_meta <= qpsk_sync_locked;
+            qpsk_sync_locked_sync <= qpsk_sync_locked_meta;
+            qpsk_sync_selected_phase_meta <= qpsk_sync_selected_phase;
+            qpsk_sync_selected_phase_sync <= qpsk_sync_selected_phase_meta;
+            qpsk_sync_selected_rotation_meta <= qpsk_sync_selected_rotation;
+            qpsk_sync_selected_rotation_sync <= qpsk_sync_selected_rotation_meta;
+            qpsk_sync_input_byte_count_meta <= qpsk_sync_input_byte_count;
+            qpsk_sync_input_byte_count_sync <= qpsk_sync_input_byte_count_meta;
+            qpsk_sync_output_byte_count_meta <= qpsk_sync_output_byte_count;
+            qpsk_sync_output_byte_count_sync <= qpsk_sync_output_byte_count_meta;
+            qpsk_sync_lock_count_meta <= qpsk_sync_lock_count;
+            qpsk_sync_lock_count_sync <= qpsk_sync_lock_count_meta;
+            qpsk_sync_slip_count_meta <= qpsk_sync_slip_count;
+            qpsk_sync_slip_count_sync <= qpsk_sync_slip_count_meta;
+            qpsk_sync_rotation_count_meta <= qpsk_sync_rotation_count;
+            qpsk_sync_rotation_count_sync <= qpsk_sync_rotation_count_meta;
+            qpsk_sync_search_drop_count_meta <= qpsk_sync_search_drop_count;
+            qpsk_sync_search_drop_count_sync <= qpsk_sync_search_drop_count_meta;
+            qpsk_rx_packet_count_meta <= qpsk_rx_packet_count;
+            qpsk_rx_packet_count_sync <= qpsk_rx_packet_count_meta;
+            qpsk_rx_byte_count_meta <= qpsk_rx_byte_count;
+            qpsk_rx_byte_count_sync <= qpsk_rx_byte_count_meta;
+            qpsk_rx_drop_count_meta <= qpsk_rx_drop_count;
+            qpsk_rx_drop_count_sync <= qpsk_rx_drop_count_meta;
+            qpsk_rx_crc_error_count_meta <= qpsk_rx_crc_error_count;
+            qpsk_rx_crc_error_count_sync <= qpsk_rx_crc_error_count_meta;
+            qpsk_rx_resync_count_meta <= qpsk_rx_resync_count;
+            qpsk_rx_resync_count_sync <= qpsk_rx_resync_count_meta;
+            qpsk_rx_fault_meta <= qpsk_rx_fault;
+            qpsk_rx_fault_sync <= qpsk_rx_fault_meta;
         end
     end
 
@@ -435,6 +554,19 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_FW_DMA_SERVICE_LATENCY_ACC: rdata_r <= fw_dma_service_latency_accum_cycles;
                     REG_FW_DMA_SERVICE_LATENCY_BUDGET: rdata_r <= fw_dma_service_latency_budget_cycles_r;
                     REG_FW_DMA_SERVICE_LATENCY_OVER_BUDGET_COUNT: rdata_r <= fw_dma_service_latency_over_budget_count;
+                    REG_QPSK_SYNC_STATUS: rdata_r <= {26'd0, qpsk_rx_fault_sync, qpsk_sync_locked_sync, qpsk_sync_selected_rotation_sync, qpsk_sync_selected_phase_sync};
+                    REG_QPSK_SYNC_INPUT_BYTES: rdata_r <= qpsk_sync_input_byte_count_sync;
+                    REG_QPSK_SYNC_OUTPUT_BYTES: rdata_r <= qpsk_sync_output_byte_count_sync;
+                    REG_QPSK_SYNC_LOCKS: rdata_r <= qpsk_sync_lock_count_sync;
+                    REG_QPSK_SYNC_SLIPS: rdata_r <= qpsk_sync_slip_count_sync;
+                    REG_QPSK_SYNC_ROTATIONS: rdata_r <= qpsk_sync_rotation_count_sync;
+                    REG_QPSK_SYNC_SEARCH_DROPS: rdata_r <= qpsk_sync_search_drop_count_sync;
+                    REG_QPSK_RX_PACKETS: rdata_r <= qpsk_rx_packet_count_sync;
+                    REG_QPSK_RX_BYTES: rdata_r <= qpsk_rx_byte_count_sync;
+                    REG_QPSK_RX_DROPS: rdata_r <= qpsk_rx_drop_count_sync;
+                    REG_QPSK_RX_CRC_ERRORS: rdata_r <= qpsk_rx_crc_error_count_sync;
+                    REG_QPSK_RX_RESYNCS: rdata_r <= qpsk_rx_resync_count_sync;
+                    REG_QPSK_RX_FAULT_STATUS: rdata_r <= {31'd0, qpsk_rx_fault_sync};
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;

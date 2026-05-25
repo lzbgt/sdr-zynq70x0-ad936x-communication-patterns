@@ -29,6 +29,16 @@ required_header_tokens = [
     "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_BUDGET_CYCLES 0x1b0u",
     "FIELDMESH_FW_DMA_REG_SERVICE_LATENCY_OVER_BUDGET_COUNT 0x1b4u",
     "FIELDMESH_FW_DMA_STATUS_REG_COUNT 30u",
+    "FIELDMESH_QPSK_RX_REG_SYNC_STATUS 0x1b8u",
+    "FIELDMESH_QPSK_RX_REG_CRC_ERRORS 0x1e0u",
+    "FIELDMESH_QPSK_RX_REG_FAULT_STATUS 0x1e8u",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 13u",
+    "fieldmesh_qpsk_rx_diag_offset",
+    "fieldmesh_qpsk_rx_diag_from_regs",
+    "fieldmesh_qpsk_rx_diag_test_regs_locked",
+    "fieldmesh_qpsk_rx_diag_locked",
+    "fieldmesh_qpsk_rx_diag_fault_free",
+    "fieldmesh_qpsk_rx_diag_drop_counters_clear",
     "fieldmesh_fw_dma_status_offset",
     "fieldmesh_fw_dma_control_mac_scheduler_enable",
     "fieldmesh_fw_dma_control_mac_stop",
@@ -90,6 +100,7 @@ required_tool_tokens = [
     '#include "fieldmesh_sidecar_addr.h"',
     "--fw-dma-status-self-test",
     "--fw-dma-status-idle-self-test",
+    "--qpsk-rx-diag-self-test",
     "--fw-dma-action-policy-self-test",
     "fieldmesh_fw_dma_status_test_regs_active_faulted",
     "fieldmesh_fw_dma_status_test_regs_idle",
@@ -106,8 +117,13 @@ required_tool_tokens = [
     "--fw-dma-stop-if-active",
     "default firmware-DMA BASE",
     "--fw-dma-status [BASE]",
+    "--qpsk-rx-diag [BASE]",
     "FIELDMESH_SIDECAR_CTRL_BASE",
     "read_fw_dma_status",
+    "read_qpsk_rx_diag",
+    "fieldmesh_qpsk_rx_diag_offset(i)",
+    "fieldmesh_qpsk_rx_diag_from_regs",
+    "FIELDMESH_QPSK_RX_REG_SYNC_STATUS",
     "firmware_dma_not_idle",
     "firmware_dma_not_ready_for_arm",
     "control_mac_scheduler_enable",
@@ -145,7 +161,6 @@ for token in required_tool_tokens:
 
 required_overlay_tokens = [
     "CONFIG.ADDR_WIDTH",
-    "register pages through 0x1b4",
     "fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
     "fieldmesh_ctrl/fw_dma_ingress_desc_publish_count",
     "fieldmesh_ctrl/fw_dma_mac_pump_done_count",
@@ -168,9 +183,13 @@ for path_name, source in (
             raise SystemExit(f"{path_name} missing firmware DMA overlay contract token: {token}")
     if "register pages through 0x178" in source:
         raise SystemExit(f"{path_name} still accepts stale 0x178 firmware DMA boundary")
+if "register pages through 0x1b4" not in dma_check:
+    raise SystemExit("DMA overlay check missing firmware DMA 0x1b4 boundary")
+if "register pages through 0x1e8" not in rf_check:
+    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x1e8 boundary")
 
 for token in (
-    "register pages through 0x1b4",
+    "register pages through 0x1e8",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
@@ -179,6 +198,9 @@ for token in (
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget fieldmesh_ctrl/fw_dma_service_latency_over_budget",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_over_budget_count fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
     "assert_same_net fieldmesh_fw_dma_endpoint/bram_bounds_error_count fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
+    "assert_same_net fieldmesh_qpsk_byte_sync/sync_lock_count fieldmesh_ctrl/qpsk_sync_lock_count",
+    "assert_same_net fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_sync_search_drop_count",
+    "assert_same_net fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count",
 ):
     if token not in rf_check:
         raise SystemExit(f"RF-engine overlay check missing firmware DMA full-page token: {token}")
@@ -191,7 +213,9 @@ for token in (
     "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_budget_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
-    "register pages through 0x1b4",
+    "register pages through 0x1e8",
+    "fieldmesh_ctrl/qpsk_sync_search_drop_count",
+    "fieldmesh_ctrl/qpsk_rx_crc_error_count",
 ):
     if token not in rf_binding:
         raise SystemExit(f"RF-engine binding verifier missing firmware DMA counter token: {token}")
@@ -231,6 +255,7 @@ for token in (
 for token in (
     "--fw-dma-status-self-test",
     "--fw-dma-status-idle-self-test",
+    "--qpsk-rx-diag-self-test",
     "--fw-dma-action-policy-self-test",
     "reads_hardware",
     "writes_hardware",
@@ -251,6 +276,10 @@ for token in (
     "service_latency_over_budget_count",
     "service_latency_budget_ok",
     "fw_dma_descriptor_flags_allowed",
+    "qpsk_rx_diag_offset",
+    "fieldmesh_qpsk_rx_diag",
+    "sync_search_drops",
+    "rx_crc_errors",
     "fw_dma_config_bad_flags.err",
 ):
     if token not in rf_tools:
@@ -267,6 +296,10 @@ for token in (
     "FIELDMESH_FW_DMA_DESCRIPTOR_FLAGS_ALLOWED",
     "fieldmesh_fw_dma_status_test_regs_active_faulted",
     "fieldmesh_fw_dma_status_test_regs_idle",
+    "fieldmesh_qpsk_rx_diag_offset(12u)",
+    "FIELDMESH_QPSK_RX_REG_FAULT_STATUS",
+    "fieldmesh_qpsk_rx_diag_from_regs",
+    "fieldmesh_qpsk_rx_diag_test_regs_locked",
     "fieldmesh_fw_dma_status_config_allowed",
     "fieldmesh_fw_dma_status_latency_budget_allowed",
     "fieldmesh_fw_dma_status_arm_allowed",
