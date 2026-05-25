@@ -266,6 +266,25 @@ cmp "$work_dir/frame.bin" "$work_dir/bpsk_carrier_decoded.bin"
   --bit-repeat 2 \
   >"$work_dir/bfsk_decode.json"
 cmp "$work_dir/frame.bin" "$work_dir/decoded.bin"
+"$work_dir/fieldmesh_iio_burst_xfer" --bfsk-encode \
+  --frame-file "$work_dir/frame.bin" \
+  --iq-file "$work_dir/fast_frame.iq" \
+  --sample-rate-hz 3072000 \
+  --space-hz 50000 \
+  --mark-hz 150000 \
+  --samples-per-symbol 16 \
+  --bit-repeat 1 \
+  >"$work_dir/bfsk_fast_encode.json"
+"$work_dir/fieldmesh_iio_burst_xfer" --bfsk-decode \
+  --iq-file "$work_dir/fast_frame.iq" \
+  --decoded-file "$work_dir/fast_decoded.bin" \
+  --sample-rate-hz 3072000 \
+  --space-hz 50000 \
+  --mark-hz 150000 \
+  --samples-per-symbol 16 \
+  --bit-repeat 1 \
+  >"$work_dir/bfsk_fast_decode.json"
+cmp "$work_dir/frame.bin" "$work_dir/fast_decoded.bin"
 
 python3 - "$work_dir/frame.bin" "$work_dir/bad_frame.bin" "$work_dir/frame_crc.txt" <<'PY'
 import sys
@@ -393,19 +412,32 @@ if decode.get("event") != "fieldmesh_bpsk_modem_decode" or decode.get("ok") is n
 if decode.get("bit_start", 0) <= 0:
     raise SystemExit(f"C BPSK decoder did not skip the leading bad candidate: {decode}")
 PY
-python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" <<'PY'
+python3 - "$work_dir/bfsk_encode.json" "$work_dir/bfsk_decode.json" "$work_dir/bfsk_fast_encode.json" "$work_dir/bfsk_fast_decode.json" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 encode = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 decode = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+fast_encode = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+fast_decode = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
 if encode.get("event") != "fieldmesh_bfsk_modem_encode" or encode.get("ok") is not True:
     raise SystemExit(f"C BFSK encode failed: {encode}")
 if decode.get("event") != "fieldmesh_bfsk_modem_decode" or decode.get("ok") is not True:
     raise SystemExit(f"C BFSK decode failed: {decode}")
 if encode.get("frame_bytes") != decode.get("frame_bytes"):
     raise SystemExit(f"C BFSK encode/decode byte counts differ: {encode} {decode}")
+if fast_encode.get("event") != "fieldmesh_bfsk_modem_encode" or fast_encode.get("ok") is not True:
+    raise SystemExit(f"C fast BFSK encode failed: {fast_encode}")
+if fast_decode.get("event") != "fieldmesh_bfsk_modem_decode" or fast_decode.get("ok") is not True:
+    raise SystemExit(f"C fast BFSK decode failed: {fast_decode}")
+if fast_encode.get("samples_per_symbol") != 16 or fast_encode.get("bit_repeat") != 1:
+    raise SystemExit(f"C fast BFSK profile drifted: {fast_encode}")
+if fast_decode.get("samples_per_symbol") != 16 or fast_decode.get("bit_repeat") != 1:
+    raise SystemExit(f"C fast BFSK decoder profile drifted: {fast_decode}")
+raw_bitrate_bps = 3_072_000 / (fast_encode["samples_per_symbol"] * fast_encode["bit_repeat"])
+if raw_bitrate_bps < 192_000:
+    raise SystemExit(f"C fast BFSK raw PHY target regressed: {raw_bitrate_bps}")
 PY
 
 python3 - "$work_dir/bfsk_decode_after_bad_crc.json" <<'PY'

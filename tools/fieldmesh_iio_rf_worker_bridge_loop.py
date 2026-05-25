@@ -2540,7 +2540,7 @@ def run_batch(
             adaptive_mcs_decision_report.get("high_rate_proven") == 1
         ),
         "fast_primary_phy_decode_proven": bool(
-            primary_modem_decode_ok and primary_raw_bitrate_bps >= 20_000.0
+            primary_modem_decode_ok and primary_raw_bitrate_bps >= 150_000.0
         ),
         "iq_burst_report": str(iq_report_path),
         "iq_iio_live_plan": str(plan_path),
@@ -4918,12 +4918,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-rate-hz", type=int, default=3072000)
     parser.add_argument("--rf-bandwidth-hz", type=int, default=1000000)
     parser.add_argument("--fixture-attenuation-db", type=float, default=60.0)
-    parser.add_argument("--samples-per-symbol", type=int, default=64)
+    parser.add_argument("--samples-per-symbol", type=int, default=16)
     parser.add_argument("--modulation", choices=["bpsk", "bfsk"], default="bfsk")
     parser.add_argument("--baseband-carrier-hz", type=int, default=100000)
     parser.add_argument("--bfsk-space-hz", type=int, default=50000)
     parser.add_argument("--bfsk-mark-hz", type=int, default=150000)
-    parser.add_argument("--bit-repeat", type=int, default=4)
+    parser.add_argument("--bit-repeat", type=int, default=1)
     parser.add_argument("--z203-to-z103-samples-per-symbol", type=int)
     parser.add_argument("--z203-to-z103-bit-repeat", type=int)
     parser.add_argument("--z103-to-z203-samples-per-symbol", type=int)

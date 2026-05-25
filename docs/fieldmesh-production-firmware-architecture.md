@@ -126,7 +126,7 @@ Responsibilities:
 - Select MCS/FEC/retry policy from link metrics. The current native RF service
   policy already proves the first adaptive modem decision boundary: fast-primary
   PHY evidence requires primary decode success, no retry use, and effective raw
-  rate at or above 20 kbit/s, while retry fallback is classified separately.
+  rate at or above 150 kbit/s, while retry fallback is classified separately.
   The native policy also accepts measured decode-quality counters and only
   selects fast primary after at least four zero-PER primary decode attempts.
   The live RF worker bridge now posts decode/PER deltas into the state daemon,

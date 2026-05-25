@@ -56,16 +56,16 @@ operator_confirmation="${OPERATOR_CONFIRMATION:-}"
 center_frequency_hz="${CENTER_FREQUENCY_HZ:-2400000000}"
 rf_sample_rate_hz="${RF_SAMPLE_RATE_HZ:-3072000}"
 rf_bandwidth_hz="${RF_BANDWIDTH_HZ:-1000000}"
-rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-32}"
-rf_bit_repeat="${RF_BIT_REPEAT:-2}"
+rf_samples_per_symbol="${RF_SAMPLES_PER_SYMBOL:-16}"
+rf_bit_repeat="${RF_BIT_REPEAT:-1}"
 rf_z203_to_z103_samples_per_symbol="${RF_Z203_TO_Z103_SAMPLES_PER_SYMBOL:-}"
 rf_z203_to_z103_bit_repeat="${RF_Z203_TO_Z103_BIT_REPEAT:-}"
-rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-48}"
-rf_z103_to_z203_bit_repeat="${RF_Z103_TO_Z203_BIT_REPEAT:-3}"
-rf_z203_to_z103_retry_samples_per_symbol="${RF_Z203_TO_Z103_RETRY_SAMPLES_PER_SYMBOL:-}"
-rf_z203_to_z103_retry_bit_repeat="${RF_Z203_TO_Z103_RETRY_BIT_REPEAT:-}"
-rf_z103_to_z203_retry_samples_per_symbol="${RF_Z103_TO_Z203_RETRY_SAMPLES_PER_SYMBOL:-}"
-rf_z103_to_z203_retry_bit_repeat="${RF_Z103_TO_Z203_RETRY_BIT_REPEAT:-6}"
+rf_z103_to_z203_samples_per_symbol="${RF_Z103_TO_Z203_SAMPLES_PER_SYMBOL:-}"
+rf_z103_to_z203_bit_repeat="${RF_Z103_TO_Z203_BIT_REPEAT:-}"
+rf_z203_to_z103_retry_samples_per_symbol="${RF_Z203_TO_Z103_RETRY_SAMPLES_PER_SYMBOL:-32}"
+rf_z203_to_z103_retry_bit_repeat="${RF_Z203_TO_Z103_RETRY_BIT_REPEAT:-2}"
+rf_z103_to_z203_retry_samples_per_symbol="${RF_Z103_TO_Z203_RETRY_SAMPLES_PER_SYMBOL:-32}"
+rf_z103_to_z203_retry_bit_repeat="${RF_Z103_TO_Z203_RETRY_BIT_REPEAT:-2}"
 rf_rx_gain_control_mode="${RF_RX_GAIN_CONTROL_MODE:-slow_attack}"
 rf_rx_hardwaregain_db="${RF_RX_HARDWAREGAIN_DB:-}"
 rf_tx_hardwaregain_db="${RF_TX_HARDWAREGAIN_DB:-0.0}"
@@ -589,7 +589,7 @@ expected = {
     "production_iio_policy": 1,
     "adaptive_modem_profile_policy": 1,
     "adaptive_modem_profile_policy_native_c": 1,
-    "fast_primary_min_raw_bitrate_bps": 20000,
+    "fast_primary_min_raw_bitrate_bps": 150000,
     "fast_primary_requires_primary_decode": 1,
     "fast_primary_rejects_modem_retry": 1,
     "fast_primary_decision": "fast_primary",

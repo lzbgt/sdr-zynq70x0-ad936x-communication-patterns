@@ -336,15 +336,17 @@ persistent-helper runtime installed, live HIL moved 55 native-IP
 frames with zero duplicate drops; the captured TCP sequence shows the
 256-byte data payload crossed RF and was ACKed,
 but `iperf3` still timed out with its data/control sockets established before
-the final result/shutdown exchange completed. A faster 48-sample/repeat-3 BFSK
-profile lowered many batch times to about 0.8-1.3 seconds but initially
-introduced an intermittent reverse-path CRC miss under load and still did not
-complete `iperf3`; it is now the primary reverse/control profile only behind a
-minimum raw PHY evidence gate that requires fast-primary decode success and
-rejects archives that relied on the lower-rate retry modem profile. The state
+the final result/shutdown exchange completed. A 48-sample/repeat-3 BFSK
+profile lowered many batch times to about 0.8-1.3 seconds but still left the
+raw PHY ceiling too low. The current fast profile is 16-sample/repeat-1 in
+both directions at 3.072 Msps, raising the raw modem PHY ceiling to 192 kbit/s
+while keeping 32-sample/repeat-2 as the stronger retry profile. The fast path
+is accepted only behind a minimum raw PHY evidence gate that requires
+fast-primary decode success and rejects archives that relied on the lower-rate
+retry modem profile. The state
 daemon now exposes the adaptive modem profile decision as native C policy:
 `fast_primary` requires primary decode, no retry, and effective raw PHY rate
-at or above 20 kbit/s, while `retry_fallback` remains available for stronger
+at or above 150 kbit/s, while `retry_fallback` remains available for stronger
 decode but cannot satisfy high-rate evidence. The same policy now consumes
 measured decode quality: at least four primary decode attempts, zero primary
 PER/CRC failures, and no retry attempts are required for fast-primary

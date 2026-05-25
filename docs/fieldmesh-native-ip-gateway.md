@@ -383,14 +383,16 @@ Minimum production gates for native TCP/IP:
   result/shutdown exchange did not complete before timeout. A faster
   48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
   seconds but initially produced an intermittent reverse-path CRC miss under
-  load and still did not complete `iperf3`. The bridge now uses that faster
-  profile for the primary reverse/control path only when production evidence
-  proves at least 20 kbit/s minimum raw modem PHY rate and fast-primary decode
-  success in both directions. If the modem retry fallback is selected, the
-  archive reports the lower effective PHY rate instead of claiming the primary
-  rate. The state daemon now proves that decision through the shared C RF
+  load and still did not complete `iperf3`. The current fast profile is
+  16-sample/repeat-1 in both directions at 3.072 Msps, raising the raw modem
+  PHY ceiling to 192 kbit/s while keeping 32-sample/repeat-2 as the stronger
+  retry profile. Production evidence requires at least 150 kbit/s minimum raw
+  modem PHY rate and fast-primary decode success in both directions. If the
+  modem retry fallback is selected, the archive reports the lower effective PHY
+  rate instead of claiming the primary rate. The state daemon now proves that
+  decision through the shared C RF
   service policy: `fast_primary` is accepted only with primary decode success,
-  no retry use, and effective raw rate at or above 20 kbit/s; `retry_fallback`
+  no retry use, and effective raw rate at or above 150 kbit/s; `retry_fallback`
   is preserved as a stronger decode option but rejected as high-rate PHY proof.
   The policy also has a measured-quality gate: at least four primary decode
   attempts with zero primary PER/CRC failures and no retry attempts are required
@@ -515,10 +517,11 @@ Minimum production gates for native TCP/IP:
   run with stale frames.
   The first clean UDP-only continuation run showed the old symmetric BFSK
   profile was still too slow for throughput. Follow-up HIL found the useful
-  asymmetric software profile: Z203-to-Z103 uses `samples_per_symbol=32`,
-  `bit_repeat=2`, while the weaker Z103-to-Z203 reverse/control direction uses
-  a faster primary `samples_per_symbol=48`, `bit_repeat=3` profile with the
-  stronger retry path still available after a decode miss. Production reports
+  symmetric fast software profile: both directions use
+  `samples_per_symbol=16`, `bit_repeat=1` at the 3.072 Msps native-IP IIO
+  sample rate, lifting the raw modem PHY ceiling to 192 kbit/s before MAC/IP
+  overhead. A stronger `samples_per_symbol=32`, `bit_repeat=2` retry profile
+  remains available after a decode miss. Production reports
   must now carry the native adaptive modem profile policy proof so a retry
   decode cannot be counted as the fast PHY rate, plus the measured-quality
   decision proof that separates fast, retry, and hold cases. The live bridge
