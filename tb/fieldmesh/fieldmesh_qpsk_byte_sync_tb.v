@@ -123,9 +123,12 @@ end
 initial begin
     apply_reset();
 
-    // A one-QPSK-symbol slip turns aligned bytes 4d 46 a5 5a into these raw
-    // bytes, with two leading garbage bits and one trailing pad pair.
-    send_raw_byte(8'h13);
+    // A one-QPSK-symbol slip turns aligned bytes 55 aa 4d 46 a5 5a into these
+    // raw bytes, with two leading garbage bits and one trailing pad pair. The
+    // synchronizer must correlate on the preamble before admitting magic bytes.
+    send_raw_byte(8'h15);
+    send_raw_byte(8'h6a);
+    send_raw_byte(8'h93);
     send_raw_byte(8'h51);
     send_raw_byte(8'ha9);
     send_raw_byte(8'h56);
@@ -158,6 +161,8 @@ initial begin
     // A fixed 90-degree QPSK quadrant ambiguity rotates each recovered symbol
     // pair. The synchronizer should find the magic with rotation correction and
     // emit the original bytes before the packet framer validates CRC.
+    send_raw_byte(rotate_byte(8'h55, 2'd3));
+    send_raw_byte(rotate_byte(8'haa, 2'd3));
     send_raw_byte(rotate_byte(8'h4d, 2'd3));
     send_raw_byte(rotate_byte(8'h46, 2'd3));
     send_raw_byte(rotate_byte(8'ha5, 2'd3));

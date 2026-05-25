@@ -194,17 +194,18 @@ remains byte-oriented. `fieldmesh_iq_adc_axis_source.v` is the AD9361
 RX-clock-domain I/Q packer for the RF-engine overlay. It feeds signed I/Q
 samples into the QPSK demodulator without creating packet boundaries.
 `fieldmesh_qpsk_iq_symbolizer.v` is the current fast
-synthesizable RF packet-engine TX primitive: it converts packet bytes into
-MSB-first signed QPSK I/Q symbols, but still does not own RF tuning, TX enable,
-filtering, or scheduled transmission. `fieldmesh_qpsk_iq_demodulator.v` is the
+synthesizable RF packet-engine TX primitive: it prepends the PL acquisition
+preamble, converts packet bytes into MSB-first signed QPSK I/Q symbols, and
+still does not own RF tuning, TX enable, filtering, or scheduled transmission.
+`fieldmesh_qpsk_iq_demodulator.v` is the
 matching RX primitive: it converts signed QPSK I/Q samples back into byte
 stream data with the same MSB-first bit-pair order and exposes sample, byte,
 packet, and fault counters for the firmware boundary.
 `fieldmesh_qpsk_byte_sync.v` follows the demodulator and finds the FieldMesh
-magic bytes across any two-bit QPSK symbol phase and any 90-degree QPSK
-quadrant ambiguity before bytes enter packet framing, so RF RX no longer
-depends on Python/test-glue, reset-time byte alignment, or ideal constellation
-orientation.
+acquisition preamble followed by magic bytes across any two-bit QPSK symbol
+phase and any 90-degree QPSK quadrant ambiguity before bytes enter packet
+framing, so RF RX no longer depends on Python/test-glue, reset-time byte
+alignment, immediately clean magic bytes, or ideal constellation orientation.
 `fieldmesh_axis_header_framer.v` restores RX packet TLAST from the FieldMesh
 in-band header and payload length before RX DMA, using two packet banks so one
 packet can drain toward RX DMA while the next demodulated packet is captured.
@@ -448,7 +449,9 @@ The first non-transmitting RF packet-engine overlay is a separate opt-in mode:
 With `--rf-engine-overlay`, the patcher implies the control, bridge, and DMA
 overlays but replaces the packet loopback with a TX/RX packet-engine path:
 TX packet DMA feeds `fieldmesh_firmware_axis_dma_endpoint`, and its
-descriptor-validated egress stream feeds `fieldmesh_qpsk_symbolizer/s_axis_*`.
+descriptor-validated egress stream feeds `fieldmesh_qpsk_symbolizer/s_axis_*`,
+and the symbolizer is configured for the four-byte `55 aa 55 aa` acquisition
+preamble before packet magic.
 The symbolizer's IQ output feeds
 `fieldmesh_iq_tx_guard`; its arming, schedule, and status pins are wired to the
 existing `fieldmesh_ctrl` AXI-lite window at the RF TX guard register range.

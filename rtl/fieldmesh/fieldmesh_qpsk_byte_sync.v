@@ -9,6 +9,8 @@
 `timescale 1ns/1ps
 
 module fieldmesh_qpsk_byte_sync #(
+    parameter [7:0] PREAMBLE_0 = 8'h55,
+    parameter [7:0] PREAMBLE_1 = 8'haa,
     parameter [7:0] MAGIC_0 = 8'h4d,
     parameter [7:0] MAGIC_1 = 8'h46
 ) (
@@ -89,9 +91,13 @@ endfunction
 reg        locked = 1'b0;
 reg [1:0]  phase = 2'd0;
 reg [1:0]  rotation = 2'd0;
-reg [1:0]  raw_count = 2'd0;
+reg [2:0]  raw_count = 3'd0;
+reg [7:0]  rawm2 = 8'd0;
+reg [7:0]  rawm1 = 8'd0;
 reg [7:0]  raw0 = 8'd0;
 reg [7:0]  raw1 = 8'd0;
+reg        raw_lastm2 = 1'b0;
+reg        raw_lastm1 = 1'b0;
 reg        raw_last0 = 1'b0;
 reg        raw_last1 = 1'b0;
 reg        out_valid = 1'b0;
@@ -100,6 +106,54 @@ reg        out_last = 1'b0;
 
 wire output_fire = out_valid && m_axis_tready;
 wire input_fire = s_axis_tvalid && s_axis_tready;
+wire preamble_phase0_rot0 =
+    corrected_phase_byte(rawm2, rawm1, 2'd0, 2'd0) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd0, 2'd0) == PREAMBLE_1;
+wire preamble_phase0_rot1 =
+    corrected_phase_byte(rawm2, rawm1, 2'd0, 2'd1) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd0, 2'd1) == PREAMBLE_1;
+wire preamble_phase0_rot2 =
+    corrected_phase_byte(rawm2, rawm1, 2'd0, 2'd2) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd0, 2'd2) == PREAMBLE_1;
+wire preamble_phase0_rot3 =
+    corrected_phase_byte(rawm2, rawm1, 2'd0, 2'd3) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd0, 2'd3) == PREAMBLE_1;
+wire preamble_phase1_rot0 =
+    corrected_phase_byte(rawm2, rawm1, 2'd1, 2'd0) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd1, 2'd0) == PREAMBLE_1;
+wire preamble_phase1_rot1 =
+    corrected_phase_byte(rawm2, rawm1, 2'd1, 2'd1) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd1, 2'd1) == PREAMBLE_1;
+wire preamble_phase1_rot2 =
+    corrected_phase_byte(rawm2, rawm1, 2'd1, 2'd2) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd1, 2'd2) == PREAMBLE_1;
+wire preamble_phase1_rot3 =
+    corrected_phase_byte(rawm2, rawm1, 2'd1, 2'd3) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd1, 2'd3) == PREAMBLE_1;
+wire preamble_phase2_rot0 =
+    corrected_phase_byte(rawm2, rawm1, 2'd2, 2'd0) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd2, 2'd0) == PREAMBLE_1;
+wire preamble_phase2_rot1 =
+    corrected_phase_byte(rawm2, rawm1, 2'd2, 2'd1) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd2, 2'd1) == PREAMBLE_1;
+wire preamble_phase2_rot2 =
+    corrected_phase_byte(rawm2, rawm1, 2'd2, 2'd2) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd2, 2'd2) == PREAMBLE_1;
+wire preamble_phase2_rot3 =
+    corrected_phase_byte(rawm2, rawm1, 2'd2, 2'd3) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd2, 2'd3) == PREAMBLE_1;
+wire preamble_phase3_rot0 =
+    corrected_phase_byte(rawm2, rawm1, 2'd3, 2'd0) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd3, 2'd0) == PREAMBLE_1;
+wire preamble_phase3_rot1 =
+    corrected_phase_byte(rawm2, rawm1, 2'd3, 2'd1) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd3, 2'd1) == PREAMBLE_1;
+wire preamble_phase3_rot2 =
+    corrected_phase_byte(rawm2, rawm1, 2'd3, 2'd2) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd3, 2'd2) == PREAMBLE_1;
+wire preamble_phase3_rot3 =
+    corrected_phase_byte(rawm2, rawm1, 2'd3, 2'd3) == PREAMBLE_0 &&
+    corrected_phase_byte(rawm1, raw0, 2'd3, 2'd3) == PREAMBLE_1;
 wire [7:0] phase0_rot0_byte0 = corrected_phase_byte(raw0, raw1, 2'd0, 2'd0);
 wire [7:0] phase0_rot0_byte1 = corrected_phase_byte(raw1, s_axis_tdata, 2'd0, 2'd0);
 wire [7:0] phase0_rot1_byte0 = corrected_phase_byte(raw0, raw1, 2'd0, 2'd1);
@@ -132,22 +186,22 @@ wire [7:0] phase3_rot2_byte0 = corrected_phase_byte(raw0, raw1, 2'd3, 2'd2);
 wire [7:0] phase3_rot2_byte1 = corrected_phase_byte(raw1, s_axis_tdata, 2'd3, 2'd2);
 wire [7:0] phase3_rot3_byte0 = corrected_phase_byte(raw0, raw1, 2'd3, 2'd3);
 wire [7:0] phase3_rot3_byte1 = corrected_phase_byte(raw1, s_axis_tdata, 2'd3, 2'd3);
-wire detect_phase0_rot0 = raw_count >= 2'd2 && phase0_rot0_byte0 == MAGIC_0 && phase0_rot0_byte1 == MAGIC_1;
-wire detect_phase0_rot1 = raw_count >= 2'd2 && phase0_rot1_byte0 == MAGIC_0 && phase0_rot1_byte1 == MAGIC_1;
-wire detect_phase0_rot2 = raw_count >= 2'd2 && phase0_rot2_byte0 == MAGIC_0 && phase0_rot2_byte1 == MAGIC_1;
-wire detect_phase0_rot3 = raw_count >= 2'd2 && phase0_rot3_byte0 == MAGIC_0 && phase0_rot3_byte1 == MAGIC_1;
-wire detect_phase1_rot0 = raw_count >= 2'd2 && phase1_rot0_byte0 == MAGIC_0 && phase1_rot0_byte1 == MAGIC_1;
-wire detect_phase1_rot1 = raw_count >= 2'd2 && phase1_rot1_byte0 == MAGIC_0 && phase1_rot1_byte1 == MAGIC_1;
-wire detect_phase1_rot2 = raw_count >= 2'd2 && phase1_rot2_byte0 == MAGIC_0 && phase1_rot2_byte1 == MAGIC_1;
-wire detect_phase1_rot3 = raw_count >= 2'd2 && phase1_rot3_byte0 == MAGIC_0 && phase1_rot3_byte1 == MAGIC_1;
-wire detect_phase2_rot0 = raw_count >= 2'd2 && phase2_rot0_byte0 == MAGIC_0 && phase2_rot0_byte1 == MAGIC_1;
-wire detect_phase2_rot1 = raw_count >= 2'd2 && phase2_rot1_byte0 == MAGIC_0 && phase2_rot1_byte1 == MAGIC_1;
-wire detect_phase2_rot2 = raw_count >= 2'd2 && phase2_rot2_byte0 == MAGIC_0 && phase2_rot2_byte1 == MAGIC_1;
-wire detect_phase2_rot3 = raw_count >= 2'd2 && phase2_rot3_byte0 == MAGIC_0 && phase2_rot3_byte1 == MAGIC_1;
-wire detect_phase3_rot0 = raw_count >= 2'd2 && phase3_rot0_byte0 == MAGIC_0 && phase3_rot0_byte1 == MAGIC_1;
-wire detect_phase3_rot1 = raw_count >= 2'd2 && phase3_rot1_byte0 == MAGIC_0 && phase3_rot1_byte1 == MAGIC_1;
-wire detect_phase3_rot2 = raw_count >= 2'd2 && phase3_rot2_byte0 == MAGIC_0 && phase3_rot2_byte1 == MAGIC_1;
-wire detect_phase3_rot3 = raw_count >= 2'd2 && phase3_rot3_byte0 == MAGIC_0 && phase3_rot3_byte1 == MAGIC_1;
+wire detect_phase0_rot0 = raw_count >= 3'd4 && preamble_phase0_rot0 && phase0_rot0_byte0 == MAGIC_0 && phase0_rot0_byte1 == MAGIC_1;
+wire detect_phase0_rot1 = raw_count >= 3'd4 && preamble_phase0_rot1 && phase0_rot1_byte0 == MAGIC_0 && phase0_rot1_byte1 == MAGIC_1;
+wire detect_phase0_rot2 = raw_count >= 3'd4 && preamble_phase0_rot2 && phase0_rot2_byte0 == MAGIC_0 && phase0_rot2_byte1 == MAGIC_1;
+wire detect_phase0_rot3 = raw_count >= 3'd4 && preamble_phase0_rot3 && phase0_rot3_byte0 == MAGIC_0 && phase0_rot3_byte1 == MAGIC_1;
+wire detect_phase1_rot0 = raw_count >= 3'd4 && preamble_phase1_rot0 && phase1_rot0_byte0 == MAGIC_0 && phase1_rot0_byte1 == MAGIC_1;
+wire detect_phase1_rot1 = raw_count >= 3'd4 && preamble_phase1_rot1 && phase1_rot1_byte0 == MAGIC_0 && phase1_rot1_byte1 == MAGIC_1;
+wire detect_phase1_rot2 = raw_count >= 3'd4 && preamble_phase1_rot2 && phase1_rot2_byte0 == MAGIC_0 && phase1_rot2_byte1 == MAGIC_1;
+wire detect_phase1_rot3 = raw_count >= 3'd4 && preamble_phase1_rot3 && phase1_rot3_byte0 == MAGIC_0 && phase1_rot3_byte1 == MAGIC_1;
+wire detect_phase2_rot0 = raw_count >= 3'd4 && preamble_phase2_rot0 && phase2_rot0_byte0 == MAGIC_0 && phase2_rot0_byte1 == MAGIC_1;
+wire detect_phase2_rot1 = raw_count >= 3'd4 && preamble_phase2_rot1 && phase2_rot1_byte0 == MAGIC_0 && phase2_rot1_byte1 == MAGIC_1;
+wire detect_phase2_rot2 = raw_count >= 3'd4 && preamble_phase2_rot2 && phase2_rot2_byte0 == MAGIC_0 && phase2_rot2_byte1 == MAGIC_1;
+wire detect_phase2_rot3 = raw_count >= 3'd4 && preamble_phase2_rot3 && phase2_rot3_byte0 == MAGIC_0 && phase2_rot3_byte1 == MAGIC_1;
+wire detect_phase3_rot0 = raw_count >= 3'd4 && preamble_phase3_rot0 && phase3_rot0_byte0 == MAGIC_0 && phase3_rot0_byte1 == MAGIC_1;
+wire detect_phase3_rot1 = raw_count >= 3'd4 && preamble_phase3_rot1 && phase3_rot1_byte0 == MAGIC_0 && phase3_rot1_byte1 == MAGIC_1;
+wire detect_phase3_rot2 = raw_count >= 3'd4 && preamble_phase3_rot2 && phase3_rot2_byte0 == MAGIC_0 && phase3_rot2_byte1 == MAGIC_1;
+wire detect_phase3_rot3 = raw_count >= 3'd4 && preamble_phase3_rot3 && phase3_rot3_byte0 == MAGIC_0 && phase3_rot3_byte1 == MAGIC_1;
 wire detect_any =
     detect_phase0_rot0 || detect_phase0_rot1 || detect_phase0_rot2 || detect_phase0_rot3 ||
     detect_phase1_rot0 || detect_phase1_rot1 || detect_phase1_rot2 || detect_phase1_rot3 ||
@@ -210,9 +264,13 @@ always @(posedge clk) begin
         locked <= 1'b0;
         phase <= 2'd0;
         rotation <= 2'd0;
-        raw_count <= 2'd0;
+        raw_count <= 3'd0;
+        rawm2 <= 8'd0;
+        rawm1 <= 8'd0;
         raw0 <= 8'd0;
         raw1 <= 8'd0;
+        raw_lastm2 <= 1'b0;
+        raw_lastm1 <= 1'b0;
         raw_last0 <= 1'b0;
         raw_last1 <= 1'b0;
         out_valid <= 1'b0;
@@ -252,15 +310,19 @@ always @(posedge clk) begin
                 if (detected_rotation != 2'd0) begin
                     sync_rotation_count <= sync_rotation_count + 1'b1;
                 end
-            end else if (raw_count >= 2'd2) begin
+            end else if (raw_count >= 3'd4) begin
                 search_drop_count <= search_drop_count + 1'b1;
             end
 
+            rawm2 <= rawm1;
+            rawm1 <= raw0;
             raw0 <= raw1;
             raw1 <= s_axis_tdata;
+            raw_lastm2 <= raw_lastm1;
+            raw_lastm1 <= raw_last0;
             raw_last0 <= raw_last1;
             raw_last1 <= s_axis_tlast;
-            if (raw_count < 2'd2) begin
+            if (raw_count < 3'd4) begin
                 raw_count <= raw_count + 1'b1;
             end
         end

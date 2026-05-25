@@ -103,6 +103,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_iq_adc_axis_source_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_bpsk_iq_symbolizer_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_preamble_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_iq_demodulator_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis_header_framer_tb.v" \
@@ -163,6 +164,7 @@ run_tb fieldmesh_axis_byte_broadcast2_tb
 run_tb fieldmesh_iq_adc_axis_source_tb
 run_tb fieldmesh_bpsk_iq_symbolizer_tb
 run_tb fieldmesh_qpsk_iq_symbolizer_tb
+run_tb fieldmesh_qpsk_iq_symbolizer_preamble_tb
 run_tb fieldmesh_qpsk_iq_demodulator_tb
 run_tb fieldmesh_qpsk_byte_sync_tb
 run_tb fieldmesh_axis_header_framer_tb

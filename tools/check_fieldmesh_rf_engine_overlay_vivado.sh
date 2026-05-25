@@ -102,6 +102,11 @@ if {"\$ctrl_synth_light" ne "1"} {
   error "fieldmesh_ctrl must instantiate SYNTH_LIGHT=1 for RF guard/DAC registers"
 }
 
+set qpsk_preamble_bytes [get_property CONFIG.PREAMBLE_BYTES [get_bd_cells fieldmesh_qpsk_symbolizer]]
+if {"\$qpsk_preamble_bytes" ne "4"} {
+  error "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble"
+}
+
 set ctrl_addr_width ""
 set ctrl_s_axi [get_bd_intf_pins fieldmesh_ctrl/s_axi]
 if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {

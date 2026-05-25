@@ -12,12 +12,14 @@ patcher = (repo / "tools/fieldmesh_vivado_overlay_patch.py").read_text(encoding=
 checker = (repo / "tools/check_fieldmesh_rf_engine_overlay_vivado.sh").read_text(encoding="utf-8")
 plan = (repo / "tools/fieldmesh_sidecar_plan.py").read_text(encoding="utf-8")
 adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(encoding="utf-8")
+qpsk_symbolizer = (repo / "rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v").read_text(encoding="utf-8")
 byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
 
 required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_firmware_axis_dma_endpoint fieldmesh_fw_dma_endpoint",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer",
+    "set_property -dict [list CONFIG.PREAMBLE_BYTES {4}] [get_bd_cells fieldmesh_qpsk_symbolizer]",
     "create_bd_cell -type module -reference fieldmesh_iq_adc_axis_source fieldmesh_iq_adc_source",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_demodulator fieldmesh_qpsk_demodulator",
     "create_bd_cell -type module -reference fieldmesh_qpsk_byte_sync fieldmesh_qpsk_byte_sync",
@@ -70,6 +72,7 @@ required_checker_tokens = [
     "fieldmesh_qpsk_byte_sync",
     "fieldmesh_rx_header_framer",
     "fieldmesh_iq_rx_cdc",
+    "fieldmesh_qpsk_symbolizer must prepend the four-byte PL acquisition preamble",
     "register pages through 0x1b4",
     "fieldmesh_fw_dma_endpoint/m_rx_dma",
     "proc assert_same_intf_net",
@@ -133,10 +136,23 @@ for token in (
         raise SystemExit(f"fieldmesh_iq_adc_axis_source.v missing RX ADC source token: {token}")
 
 for token in (
+    "module fieldmesh_qpsk_iq_symbolizer",
+    "parameter integer PREAMBLE_BYTES",
+    "function [7:0] preamble_byte",
+    "preamble_active",
+    "pending_valid",
+):
+    if token not in qpsk_symbolizer:
+        raise SystemExit(f"fieldmesh_qpsk_iq_symbolizer.v missing QPSK preamble token: {token}")
+
+for token in (
     "module fieldmesh_qpsk_byte_sync",
+    "PREAMBLE_0",
+    "PREAMBLE_1",
     "FieldMesh magic bytes",
     "function [7:0] phase_byte",
     "function [7:0] rotate_byte",
+    "preamble_phase1_rot1",
     "selected_rotation",
     "detect_phase1_rot1",
     "sync_slip_count",

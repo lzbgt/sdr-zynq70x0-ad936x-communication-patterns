@@ -9,6 +9,9 @@
 
 module fieldmesh_qpsk_iq_symbolizer #(
     parameter integer SAMPLES_PER_SYMBOL = 1,
+    parameter integer PREAMBLE_BYTES = 0,
+    parameter [7:0] PREAMBLE_0 = 8'h55,
+    parameter [7:0] PREAMBLE_1 = 8'haa,
     parameter signed [15:0] ONE_AMPLITUDE = 16'sd12000,
     parameter signed [15:0] ZERO_AMPLITUDE = -16'sd12000
 ) (
@@ -34,8 +37,22 @@ module fieldmesh_qpsk_iq_symbolizer #(
 reg       active = 1'b0;
 reg [7:0] byte_reg = 8'd0;
 reg       byte_last = 1'b0;
+reg [7:0] pending_byte = 8'd0;
+reg       pending_last = 1'b0;
+reg       pending_valid = 1'b0;
+reg       preamble_active = 1'b0;
+reg [7:0] preamble_index = 8'd0;
 reg [1:0] pair_index = 2'd0;
 reg [7:0] sample_index = 8'd0;
+
+localparam integer PREAMBLE_LAST_INDEX = (PREAMBLE_BYTES > 0) ? (PREAMBLE_BYTES - 1) : 0;
+
+function [7:0] preamble_byte;
+    input [7:0] index;
+    begin
+        preamble_byte = index[0] ? PREAMBLE_1 : PREAMBLE_0;
+    end
+endfunction
 
 wire [2:0] i_bit_index = {pair_index, 1'b1};
 wire [2:0] q_bit_index = {pair_index, 1'b0};
@@ -46,17 +63,27 @@ wire final_pair = (pair_index == 2'd0);
 wire output_fire = m_axis_tvalid && m_axis_tready;
 wire final_output_fire = output_fire && final_sample && final_pair;
 wire input_fire = s_axis_tvalid && s_axis_tready;
+wire preamble_enabled = PREAMBLE_BYTES > 0;
+wire preamble_last_byte = preamble_index == PREAMBLE_LAST_INDEX[7:0];
 
-assign s_axis_tready = enable && (!active || final_output_fire);
+assign s_axis_tready = enable && (
+    (!active && !pending_valid) ||
+    (final_output_fire && !preamble_active && !(preamble_enabled && byte_last))
+);
 assign m_axis_tvalid = enable && active;
 assign m_axis_tdata = {q_sample, i_sample};
-assign m_axis_tlast = byte_last && final_pair && final_sample;
+assign m_axis_tlast = !preamble_active && byte_last && final_pair && final_sample;
 
 always @(posedge clk) begin
     if (rst || !enable) begin
         active <= 1'b0;
         byte_reg <= 8'd0;
         byte_last <= 1'b0;
+        pending_byte <= 8'd0;
+        pending_last <= 1'b0;
+        pending_valid <= 1'b0;
+        preamble_active <= 1'b0;
+        preamble_index <= 8'd0;
         pair_index <= 2'd0;
         sample_index <= 8'd0;
         byte_count <= 32'd0;
@@ -65,8 +92,18 @@ always @(posedge clk) begin
     end else begin
         if (input_fire) begin
             active <= 1'b1;
-            byte_reg <= s_axis_tdata;
-            byte_last <= s_axis_tlast;
+            if (preamble_enabled && !active) begin
+                byte_reg <= preamble_byte(8'd0);
+                byte_last <= 1'b0;
+                pending_byte <= s_axis_tdata;
+                pending_last <= s_axis_tlast;
+                pending_valid <= 1'b1;
+                preamble_active <= 1'b1;
+                preamble_index <= 8'd0;
+            end else begin
+                byte_reg <= s_axis_tdata;
+                byte_last <= s_axis_tlast;
+            end
             pair_index <= 2'd3;
             sample_index <= 8'd0;
             byte_count <= byte_count + 1'b1;
@@ -77,10 +114,24 @@ always @(posedge clk) begin
             if (final_sample) begin
                 sample_index <= 8'd0;
                 if (final_pair) begin
-                    if (!input_fire) begin
+                    if (preamble_active) begin
+                        if (preamble_last_byte) begin
+                            byte_reg <= pending_byte;
+                            byte_last <= pending_last;
+                            pending_valid <= 1'b0;
+                            preamble_active <= 1'b0;
+                            preamble_index <= 8'd0;
+                            pair_index <= 2'd3;
+                        end else begin
+                            preamble_index <= preamble_index + 1'b1;
+                            byte_reg <= preamble_byte(preamble_index + 1'b1);
+                            byte_last <= 1'b0;
+                            pair_index <= 2'd3;
+                        end
+                    end else if (!input_fire) begin
                         active <= 1'b0;
                     end
-                    if (byte_last) begin
+                    if (!preamble_active && byte_last) begin
                         packet_count <= packet_count + 1'b1;
                     end
                 end else begin

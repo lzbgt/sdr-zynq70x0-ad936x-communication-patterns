@@ -578,15 +578,16 @@ Stage 2: Board-local service
   handoff and transport report to live sidecar DMA smoke evidence, so the same
   committed frame is checked across adapter intent, board packet DMA, and
   packet-engine IQ recovery. The first PL primitive behind that boundary is
-  `fieldmesh_qpsk_iq_symbolizer`, which maps packet bytes to repeated signed
-  QPSK I/Q symbols without taking ownership of RF tuning, filtering, TX enable,
-  or scheduled launch. `fieldmesh_qpsk_iq_demodulator` is the matching RX
+  `fieldmesh_qpsk_iq_symbolizer`, which prepends the PL acquisition preamble
+  and maps packet bytes to repeated signed QPSK I/Q symbols without taking
+  ownership of RF tuning, filtering, TX enable, or scheduled launch.
+  `fieldmesh_qpsk_iq_demodulator` is the matching RX
   primitive for hard-decision QPSK IQ-to-byte recovery, with
   `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_byte_sync`, and
   ping-pong-buffered `fieldmesh_axis_header_framer` now wiring AD9361 RX samples
   back into packet DMA through FPGA logic while correcting byte phase and QPSK
-  quadrant ambiguity from packet magic and rejecting bad in-band header CRCs
-  before RX DMA.
+  quadrant ambiguity from preamble-plus-magic correlation and rejecting bad
+  in-band header CRCs before RX DMA.
   `fieldmesh_iq_tx_guard`
   is the next TX boundary; it only
   admits symbolized IQ when TX is explicitly enabled, armed, and in-slot. The

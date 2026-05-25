@@ -2700,6 +2700,9 @@ test covers output backpressure, pair order, signed I/Q samples, TLAST on the
 final repeated symbol, and byte/symbol/packet counters. It is included in the
 required RTL set so later sidecar/RF overlay work cannot omit the packet-engine
 TX boundary.
+`tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_preamble_tb.v` covers the
+production RF-engine setting that prepends the four-byte PL acquisition
+preamble before packet bytes while keeping TLAST on the payload end.
 The matching RX primitive is
 `rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v` with
 `tb/fieldmesh/fieldmesh_qpsk_iq_demodulator_tb.v`. It consumes signed I/Q
@@ -2714,8 +2717,9 @@ fabricated TLAST, backpressure stalls, and partial I/Q-pair accounting.
 `rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v` with
 `tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v` adds PL byte-phase synchronization
 after QPSK demodulation. The test covers one-symbol-slip recovery from the
-FieldMesh magic bytes, 90-degree QPSK quadrant-ambiguity correction,
-lock/slip/rotation counters, aligned output, and output backpressure.
+FieldMesh acquisition preamble plus magic bytes, 90-degree QPSK
+quadrant-ambiguity correction, lock/slip/rotation counters, aligned output, and
+output backpressure.
 `rtl/fieldmesh/fieldmesh_axis_header_framer.v` with
 `tb/fieldmesh/fieldmesh_axis_header_framer_tb.v` restores packet TLAST from the
 FieldMesh in-band header/payload length after QPSK demodulation. The test covers
@@ -2744,7 +2748,8 @@ The Vivado overlay patcher now has an opt-in `--rf-engine-overlay` mode. It
 implies the sidecar DMA overlay, removes the packet-loopback shortcut, routes
 TX packet DMA through `fieldmesh_firmware_axis_dma_endpoint`, feeds the
 descriptor-validated egress stream into `fieldmesh_qpsk_symbolizer/s_axis_*`,
-feeds generated IQ into
+configures that symbolizer to prepend the four-byte acquisition preamble, feeds
+generated IQ into
 `fieldmesh_iq_tx_guard`, crosses guarded IQ through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver`. The same overlay now routes AD9361 RX decimator
