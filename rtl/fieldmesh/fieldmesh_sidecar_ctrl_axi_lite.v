@@ -132,6 +132,9 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  qpsk_demod_margin_accum,
     input  wire [31:0]  qpsk_demod_output_stall_cycle_count,
     input  wire [31:0]  qpsk_demod_input_backpressure_cycle_count,
+    input  wire [31:0]  qpsk_demod_i_dc_estimate,
+    input  wire [31:0]  qpsk_demod_q_dc_estimate,
+    input  wire [31:0]  qpsk_demod_dc_update_count,
 
     output wire         irq,
     output wire [2:0]   irq_status
@@ -211,6 +214,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_QPSK_DEMOD_MARGIN_ACCUM      = 12'h1fc;
     localparam [11:0] REG_QPSK_DEMOD_OUTPUT_STALL_CYCLES = 12'h200;
     localparam [11:0] REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES = 12'h204;
+    localparam [11:0] REG_QPSK_DEMOD_I_DC_ESTIMATE     = 12'h208;
+    localparam [11:0] REG_QPSK_DEMOD_Q_DC_ESTIMATE     = 12'h20c;
+    localparam [11:0] REG_QPSK_DEMOD_DC_UPDATES        = 12'h210;
 
     wire rst = !s_axi_aresetn;
 
@@ -297,6 +303,12 @@ generate if (SYNTH_LIGHT) begin : gen_light
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_output_stall_cycle_count_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_input_backpressure_cycle_count_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_input_backpressure_cycle_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_i_dc_estimate_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_i_dc_estimate_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_q_dc_estimate_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_q_dc_estimate_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_dc_update_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_dc_update_count_sync;
     reg [1:0]  bresp_r;
     reg        bvalid_r;
     reg [31:0] rdata_r;
@@ -389,6 +401,12 @@ generate if (SYNTH_LIGHT) begin : gen_light
             qpsk_demod_output_stall_cycle_count_sync <= 32'd0;
             qpsk_demod_input_backpressure_cycle_count_meta <= 32'd0;
             qpsk_demod_input_backpressure_cycle_count_sync <= 32'd0;
+            qpsk_demod_i_dc_estimate_meta <= 32'd0;
+            qpsk_demod_i_dc_estimate_sync <= 32'd0;
+            qpsk_demod_q_dc_estimate_meta <= 32'd0;
+            qpsk_demod_q_dc_estimate_sync <= 32'd0;
+            qpsk_demod_dc_update_count_meta <= 32'd0;
+            qpsk_demod_dc_update_count_sync <= 32'd0;
         end else begin
             rf_dac_sample_count_meta <= rf_dac_sample_count;
             rf_dac_sample_count_sync <= rf_dac_sample_count_meta;
@@ -442,6 +460,12 @@ generate if (SYNTH_LIGHT) begin : gen_light
             qpsk_demod_output_stall_cycle_count_sync <= qpsk_demod_output_stall_cycle_count_meta;
             qpsk_demod_input_backpressure_cycle_count_meta <= qpsk_demod_input_backpressure_cycle_count;
             qpsk_demod_input_backpressure_cycle_count_sync <= qpsk_demod_input_backpressure_cycle_count_meta;
+            qpsk_demod_i_dc_estimate_meta <= qpsk_demod_i_dc_estimate;
+            qpsk_demod_i_dc_estimate_sync <= qpsk_demod_i_dc_estimate_meta;
+            qpsk_demod_q_dc_estimate_meta <= qpsk_demod_q_dc_estimate;
+            qpsk_demod_q_dc_estimate_sync <= qpsk_demod_q_dc_estimate_meta;
+            qpsk_demod_dc_update_count_meta <= qpsk_demod_dc_update_count;
+            qpsk_demod_dc_update_count_sync <= qpsk_demod_dc_update_count_meta;
         end
     end
 
@@ -630,6 +654,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_QPSK_DEMOD_MARGIN_ACCUM: rdata_r <= qpsk_demod_margin_accum_sync;
                     REG_QPSK_DEMOD_OUTPUT_STALL_CYCLES: rdata_r <= qpsk_demod_output_stall_cycle_count_sync;
                     REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES: rdata_r <= qpsk_demod_input_backpressure_cycle_count_sync;
+                    REG_QPSK_DEMOD_I_DC_ESTIMATE: rdata_r <= qpsk_demod_i_dc_estimate_sync;
+                    REG_QPSK_DEMOD_Q_DC_ESTIMATE: rdata_r <= qpsk_demod_q_dc_estimate_sync;
+                    REG_QPSK_DEMOD_DC_UPDATES: rdata_r <= qpsk_demod_dc_update_count_sync;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;

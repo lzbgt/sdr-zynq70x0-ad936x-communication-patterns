@@ -63,8 +63,11 @@ extern "C" {
 #define FIELDMESH_QPSK_RX_REG_DEMOD_MARGIN_ACCUM 0x1fcu
 #define FIELDMESH_QPSK_RX_REG_DEMOD_OUTPUT_STALL_CYCLES 0x200u
 #define FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES 0x204u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE 0x208u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE 0x20cu
+#define FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES 0x210u
 
-#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 20u
+#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 23u
 
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_PHASE_MASK 0x00000003u
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_MASK 0x0000000cu
@@ -186,6 +189,9 @@ typedef struct fieldmesh_qpsk_rx_diag {
     uint32_t demod_margin_accum;
     uint32_t demod_output_stall_cycles;
     uint32_t demod_input_backpressure_cycles;
+    int32_t demod_i_dc_estimate;
+    int32_t demod_q_dc_estimate;
+    uint32_t demod_dc_updates;
 } fieldmesh_qpsk_rx_diag_t;
 
 typedef struct fieldmesh_fw_dma_action_policy {
@@ -255,6 +261,9 @@ static inline uint32_t fieldmesh_qpsk_rx_diag_offset(size_t index)
     case 17u: return FIELDMESH_QPSK_RX_REG_DEMOD_MARGIN_ACCUM;
     case 18u: return FIELDMESH_QPSK_RX_REG_DEMOD_OUTPUT_STALL_CYCLES;
     case 19u: return FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES;
+    case 20u: return FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE;
+    case 21u: return FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE;
+    case 22u: return FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES;
     default: return 0u;
     }
 }
@@ -374,6 +383,9 @@ static inline void fieldmesh_qpsk_rx_diag_test_regs_locked(
     regs[17] = 180000u;
     regs[18] = 11u;
     regs[19] = 13u;
+    regs[20] = 17u;
+    regs[21] = 0xfffffff2u;
+    regs[22] = 900u;
 }
 
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
@@ -489,6 +501,9 @@ static inline int fieldmesh_qpsk_rx_diag_from_regs(
     diag->demod_margin_accum = regs[17];
     diag->demod_output_stall_cycles = regs[18];
     diag->demod_input_backpressure_cycles = regs[19];
+    diag->demod_i_dc_estimate = (int32_t)regs[20];
+    diag->demod_q_dc_estimate = (int32_t)regs[21];
+    diag->demod_dc_updates = regs[22];
     return 1;
 }
 

@@ -113,7 +113,7 @@ if {[lsearch -exact [list_property \$ctrl_s_axi] CONFIG.ADDR_WIDTH] >= 0} {
   set ctrl_addr_width [get_property CONFIG.ADDR_WIDTH \$ctrl_s_axi]
 }
 if {"\$ctrl_addr_width" ne "" && \$ctrl_addr_width < 12} {
-  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x204"
+  error "fieldmesh_ctrl/s_axi address width must cover RF, firmware-DMA, and QPSK RX diagnostic register pages through 0x210"
 }
 
 foreach pin {
@@ -165,6 +165,9 @@ foreach pin {
   fieldmesh_qpsk_demodulator/margin_accum
   fieldmesh_qpsk_demodulator/output_stall_cycle_count
   fieldmesh_qpsk_demodulator/input_backpressure_cycle_count
+  fieldmesh_qpsk_demodulator/i_dc_estimate
+  fieldmesh_qpsk_demodulator/q_dc_estimate
+  fieldmesh_qpsk_demodulator/dc_update_count
   fieldmesh_ctrl/qpsk_demod_symbol_count
   fieldmesh_ctrl/qpsk_demod_low_margin_symbol_count
   fieldmesh_ctrl/qpsk_demod_tie_symbol_count
@@ -172,6 +175,9 @@ foreach pin {
   fieldmesh_ctrl/qpsk_demod_margin_accum
   fieldmesh_ctrl/qpsk_demod_output_stall_cycle_count
   fieldmesh_ctrl/qpsk_demod_input_backpressure_cycle_count
+  fieldmesh_ctrl/qpsk_demod_i_dc_estimate
+  fieldmesh_ctrl/qpsk_demod_q_dc_estimate
+  fieldmesh_ctrl/qpsk_demod_dc_update_count
   fieldmesh_qpsk_byte_sync/clk
   fieldmesh_qpsk_byte_sync/rst
   fieldmesh_qpsk_byte_sync/enable
@@ -533,6 +539,9 @@ assert_same_net fieldmesh_qpsk_demodulator/min_symbol_margin fieldmesh_ctrl/qpsk
 assert_same_net fieldmesh_qpsk_demodulator/margin_accum fieldmesh_ctrl/qpsk_demod_margin_accum
 assert_same_net fieldmesh_qpsk_demodulator/output_stall_cycle_count fieldmesh_ctrl/qpsk_demod_output_stall_cycle_count
 assert_same_net fieldmesh_qpsk_demodulator/input_backpressure_cycle_count fieldmesh_ctrl/qpsk_demod_input_backpressure_cycle_count
+assert_same_net fieldmesh_qpsk_demodulator/i_dc_estimate fieldmesh_ctrl/qpsk_demod_i_dc_estimate
+assert_same_net fieldmesh_qpsk_demodulator/q_dc_estimate fieldmesh_ctrl/qpsk_demod_q_dc_estimate
+assert_same_net fieldmesh_qpsk_demodulator/dc_update_count fieldmesh_ctrl/qpsk_demod_dc_update_count
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_qpsk_byte_sync/s_axis_tvalid
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_qpsk_byte_sync/s_axis_tready
 assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata

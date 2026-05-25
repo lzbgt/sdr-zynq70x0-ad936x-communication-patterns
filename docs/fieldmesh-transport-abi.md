@@ -497,6 +497,9 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x1fc` | `FM_QPSK_DEMOD_MARGIN_ACCUM` | accumulated hard-decision margins for average-quality estimation |
 | `0x200` | `FM_QPSK_DEMOD_OUTPUT_STALL_CYCLES` | PL demodulator output-valid cycles stalled by downstream backpressure |
 | `0x204` | `FM_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES` | upstream-valid cycles stalled by the PL demodulator input-ready path |
+| `0x208` | `FM_QPSK_DEMOD_I_DC_ESTIMATE` | signed PL-estimated I-channel DC offset subtracted before QPSK slicing |
+| `0x20c` | `FM_QPSK_DEMOD_Q_DC_ESTIMATE` | signed PL-estimated Q-channel DC offset subtracted before QPSK slicing |
+| `0x210` | `FM_QPSK_DEMOD_DC_UPDATES` | samples used by the PL DC-offset tracker |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

@@ -9,7 +9,9 @@
 
 module fieldmesh_qpsk_iq_demodulator #(
     parameter integer SAMPLES_PER_SYMBOL = 1,
-    parameter integer QUALITY_MARGIN_THRESHOLD = 512
+    parameter integer QUALITY_MARGIN_THRESHOLD = 512,
+    parameter integer DC_OFFSET_TRACK_ENABLE = 1,
+    parameter integer DC_OFFSET_TRACK_SHIFT = 8
 ) (
     input  wire        clk,
     input  wire        rst,
@@ -35,7 +37,10 @@ module fieldmesh_qpsk_iq_demodulator #(
     output reg  [31:0] min_symbol_margin,
     output reg  [31:0] margin_accum,
     output reg  [31:0] output_stall_cycle_count,
-    output reg  [31:0] input_backpressure_cycle_count
+    output reg  [31:0] input_backpressure_cycle_count,
+    output wire [31:0] i_dc_estimate,
+    output wire [31:0] q_dc_estimate,
+    output reg  [31:0] dc_update_count
 );
 
 reg        out_valid = 1'b0;
@@ -46,13 +51,23 @@ reg [1:0]  pair_index = 2'd3;
 reg [7:0]  sample_index = 8'd0;
 reg signed [31:0] i_acc = 32'sd0;
 reg signed [31:0] q_acc = 32'sd0;
+reg signed [31:0] i_dc_acc = 32'sd0;
+reg signed [31:0] q_dc_acc = 32'sd0;
 
 localparam [31:0] QUALITY_MARGIN_THRESHOLD_U32 = QUALITY_MARGIN_THRESHOLD;
 
 wire signed [15:0] i_sample = s_axis_tdata[15:0];
 wire signed [15:0] q_sample = s_axis_tdata[31:16];
-wire signed [31:0] i_sum_next = i_acc + i_sample;
-wire signed [31:0] q_sum_next = q_acc + q_sample;
+wire signed [31:0] i_sample_ext = {{16{i_sample[15]}}, i_sample};
+wire signed [31:0] q_sample_ext = {{16{q_sample[15]}}, q_sample};
+wire signed [31:0] i_dc_est = i_dc_acc >>> DC_OFFSET_TRACK_SHIFT;
+wire signed [31:0] q_dc_est = q_dc_acc >>> DC_OFFSET_TRACK_SHIFT;
+wire signed [31:0] i_corrected = i_sample_ext - (DC_OFFSET_TRACK_ENABLE != 0 ? i_dc_est : 32'sd0);
+wire signed [31:0] q_corrected = q_sample_ext - (DC_OFFSET_TRACK_ENABLE != 0 ? q_dc_est : 32'sd0);
+wire signed [31:0] i_dc_acc_next = i_dc_acc + (i_sample_ext - i_dc_est);
+wire signed [31:0] q_dc_acc_next = q_dc_acc + (q_sample_ext - q_dc_est);
+wire signed [31:0] i_sum_next = i_acc + i_corrected;
+wire signed [31:0] q_sum_next = q_acc + q_corrected;
 wire i_bit = (i_sum_next >= 32'sd0);
 wire q_bit = (q_sum_next >= 32'sd0);
 wire [2:0] i_bit_index = {pair_index, 1'b1};
@@ -76,6 +91,8 @@ assign s_axis_tready = enable && (!out_valid || m_axis_tready);
 assign m_axis_tvalid = enable && out_valid;
 assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;
+assign i_dc_estimate = i_dc_est[31:0];
+assign q_dc_estimate = q_dc_est[31:0];
 
 function [31:0] abs32;
     input signed [31:0] value;
@@ -94,6 +111,8 @@ always @(posedge clk) begin
         sample_index <= 8'd0;
         i_acc <= 32'sd0;
         q_acc <= 32'sd0;
+        i_dc_acc <= 32'sd0;
+        q_dc_acc <= 32'sd0;
         sample_count <= 32'd0;
         symbol_count <= 32'd0;
         byte_count <= 32'd0;
@@ -105,6 +124,7 @@ always @(posedge clk) begin
         margin_accum <= 32'd0;
         output_stall_cycle_count <= 32'd0;
         input_backpressure_cycle_count <= 32'd0;
+        dc_update_count <= 32'd0;
     end else begin
         if (output_stalled) begin
             output_stall_cycle_count <= output_stall_cycle_count + 1'b1;
@@ -119,6 +139,11 @@ always @(posedge clk) begin
 
         if (input_fire) begin
             sample_count <= sample_count + 1'b1;
+            if (DC_OFFSET_TRACK_ENABLE != 0) begin
+                i_dc_acc <= i_dc_acc_next;
+                q_dc_acc <= q_dc_acc_next;
+                dc_update_count <= dc_update_count + 1'b1;
+            end
 
             if (malformed_tlast) begin
                 fault_count <= fault_count + 1'b1;

@@ -274,7 +274,7 @@ AXI RAM/DMA binding.
 that path: TX DMA is byte-only and reconstructed through the in-band header
 parser, while RX DMA receives byte-only packets from the descriptor-validated
 firmware egress reader. The wrapper is controlled through the existing
-`fieldmesh_ctrl` AXI-lite window at `0x140..0x204`, which gates endpoint
+`fieldmesh_ctrl` AXI-lite window at `0x140..0x210`, which gates endpoint
 enable, ingress, egress, MAC scheduler, MAC tick, and MAC stop, reports the
 firmware endpoint byte/packet/drop/fault counters, MAC pump counters, split
 BRAM CRC/bounds counters, FPGA MAC-service latency counters, a writable
@@ -283,8 +283,8 @@ FPGA-native descriptor sidebands instead of tying peer/MCS/retry/flags/sequence
 constants in Tcl. The RF-engine build also maps QPSK RX acquisition and
 framing diagnostics in that same C-owned aperture: byte-sync lock, selected
 byte phase, selected QPSK quadrant rotation, sync input/output byte counters,
-demodulated symbol quality/margin counters, and demod stream backpressure
-counters,
+demodulated symbol quality/margin counters, demod stream backpressure counters,
+and PL DC-offset correction estimates,
 lock/slip/rotation/search-drop counters, packet/byte/drop counters, CRC
 rejects, resyncs, and RX framer fault status. The wrapper still avoids the ADI sample-DMA
 register windows; it is the packet-DMA boundary for the first-party firmware

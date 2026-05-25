@@ -27,6 +27,31 @@ wire [31:0] min_symbol_margin;
 wire [31:0] margin_accum;
 wire [31:0] output_stall_cycle_count;
 wire [31:0] input_backpressure_cycle_count;
+wire [31:0] i_dc_estimate;
+wire [31:0] q_dc_estimate;
+wire [31:0] dc_update_count;
+
+reg         dc_s_axis_tvalid = 1'b0;
+wire        dc_s_axis_tready;
+reg [31:0]  dc_s_axis_tdata = 32'd0;
+reg         dc_s_axis_tlast = 1'b0;
+wire        dc_m_axis_tvalid;
+wire [7:0]  dc_m_axis_tdata;
+wire        dc_m_axis_tlast;
+wire [31:0] dc_sample_count;
+wire [31:0] dc_symbol_count;
+wire [31:0] dc_byte_count;
+wire [31:0] dc_packet_count;
+wire [31:0] dc_fault_count;
+wire [31:0] dc_low_margin_symbol_count;
+wire [31:0] dc_tie_symbol_count;
+wire [31:0] dc_min_symbol_margin;
+wire [31:0] dc_margin_accum;
+wire [31:0] dc_output_stall_cycle_count;
+wire [31:0] dc_input_backpressure_cycle_count;
+wire [31:0] dc_i_dc_estimate;
+wire [31:0] dc_q_dc_estimate;
+wire [31:0] dc_dc_update_count;
 
 integer out_count = 0;
 reg [7:0] out_seen [0:3];
@@ -34,7 +59,8 @@ reg out_last_seen [0:3];
 
 fieldmesh_qpsk_iq_demodulator #(
     .SAMPLES_PER_SYMBOL(2),
-    .QUALITY_MARGIN_THRESHOLD(512)
+    .QUALITY_MARGIN_THRESHOLD(512),
+    .DC_OFFSET_TRACK_ENABLE(0)
 ) dut (
     .clk(clk),
     .rst(rst),
@@ -57,7 +83,43 @@ fieldmesh_qpsk_iq_demodulator #(
     .min_symbol_margin(min_symbol_margin),
     .margin_accum(margin_accum),
     .output_stall_cycle_count(output_stall_cycle_count),
-    .input_backpressure_cycle_count(input_backpressure_cycle_count)
+    .input_backpressure_cycle_count(input_backpressure_cycle_count),
+    .i_dc_estimate(i_dc_estimate),
+    .q_dc_estimate(q_dc_estimate),
+    .dc_update_count(dc_update_count)
+);
+
+fieldmesh_qpsk_iq_demodulator #(
+    .SAMPLES_PER_SYMBOL(1),
+    .QUALITY_MARGIN_THRESHOLD(512),
+    .DC_OFFSET_TRACK_ENABLE(1),
+    .DC_OFFSET_TRACK_SHIFT(4)
+) dc_dut (
+    .clk(clk),
+    .rst(rst),
+    .enable(enable),
+    .s_axis_tvalid(dc_s_axis_tvalid),
+    .s_axis_tready(dc_s_axis_tready),
+    .s_axis_tdata(dc_s_axis_tdata),
+    .s_axis_tlast(dc_s_axis_tlast),
+    .m_axis_tvalid(dc_m_axis_tvalid),
+    .m_axis_tready(1'b1),
+    .m_axis_tdata(dc_m_axis_tdata),
+    .m_axis_tlast(dc_m_axis_tlast),
+    .sample_count(dc_sample_count),
+    .symbol_count(dc_symbol_count),
+    .byte_count(dc_byte_count),
+    .packet_count(dc_packet_count),
+    .fault_count(dc_fault_count),
+    .low_margin_symbol_count(dc_low_margin_symbol_count),
+    .tie_symbol_count(dc_tie_symbol_count),
+    .min_symbol_margin(dc_min_symbol_margin),
+    .margin_accum(dc_margin_accum),
+    .output_stall_cycle_count(dc_output_stall_cycle_count),
+    .input_backpressure_cycle_count(dc_input_backpressure_cycle_count),
+    .i_dc_estimate(dc_i_dc_estimate),
+    .q_dc_estimate(dc_q_dc_estimate),
+    .dc_update_count(dc_dc_update_count)
 );
 
 always #5 clk = ~clk;
@@ -117,6 +179,21 @@ task send_qpsk_byte_weak_tie;
     end
 endtask
 
+task send_dc_sample;
+    input signed [15:0] i_value;
+    input signed [15:0] q_value;
+    begin
+        @(negedge clk);
+        dc_s_axis_tdata = {q_value, i_value};
+        dc_s_axis_tlast = 1'b0;
+        dc_s_axis_tvalid = 1'b1;
+        @(posedge clk);
+        while (!dc_s_axis_tready) @(posedge clk);
+        @(negedge clk);
+        dc_s_axis_tvalid = 1'b0;
+    end
+endtask
+
 always @(posedge clk) begin
     if (rst) begin
         out_count <= 0;
@@ -155,6 +232,7 @@ initial begin
     if (margin_accum != 32'd8000) fail("margin accumulator mismatch");
     if (output_stall_cycle_count == 32'd0) fail("output stall counter did not increment");
     if (input_backpressure_cycle_count != 32'd0) fail("unexpected input backpressure count");
+    if (dc_update_count != 32'd0) fail("disabled DC tracker updated");
 
     send_sample(16'sd1000, 16'sd1000, 1'b1);
     repeat (2) @(posedge clk);
@@ -191,6 +269,16 @@ initial begin
     if (tie_symbol_count != 32'd4) fail("tie symbols not counted");
     if (min_symbol_margin != 32'd0) fail("minimum low margin not retained");
     if (margin_accum != 32'd24000) fail("low-margin accumulator mismatch");
+
+    repeat (32) begin
+        send_dc_sample(16'sd1024, -16'sd512);
+    end
+    repeat (4) @(posedge clk);
+    if (dc_sample_count != 32'd32) fail("DC tracker sample counter mismatch");
+    if (dc_dc_update_count != 32'd32) fail("DC tracker update counter mismatch");
+    if ($signed(dc_i_dc_estimate) <= 0) fail("DC tracker did not learn positive I offset");
+    if ($signed(dc_q_dc_estimate) >= 0) fail("DC tracker did not learn negative Q offset");
+    if (dc_fault_count != 32'd0) fail("DC tracker path faulted");
 
     $display("PASS: fieldmesh_qpsk_iq_demodulator_tb");
     $finish;
