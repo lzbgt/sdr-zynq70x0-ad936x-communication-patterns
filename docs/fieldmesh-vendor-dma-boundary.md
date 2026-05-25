@@ -553,6 +553,17 @@ workspace. DMA-overlay outputs live under
 under `.config/fieldmesh/rf-engine-overlay-build-z203/` or
 `.config/fieldmesh/rf-engine-overlay-build-z103/`.
 
+The current timing-clean lean Z103 RF-engine build artifacts are:
+
+```text
+system_top.bit  adb9f423067eaf8f93ad601eecd80c55ca45a01c59718a16956d4d0c27897008
+system_top.xsa  9365346a47e705aac16779e8542aa5aaea56e4b38ac39f3d0b166453f67602fd
+```
+
+The matching canonical Z103 runtime package is
+`.config/fieldmesh/runtime-package-z103/fit-work/build/pluto.frm` with SHA-256
+`7f0fd29573d2c74ff1ea4115f421357dbd88c1701f8de56470f4fb92fe60359a`.
+
 These are still copied-HDL integration gates. The DMA gate proves the namespace,
 HP-port split, ADI `axi_dmac` instances, 16-bit-to-byte adapter, stream
 connections, and address segments are BD-visible on both variants. The RF-engine
