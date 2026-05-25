@@ -76,6 +76,9 @@ localparam [15:0] REG_QPSK_DEMOD_INPUT_BACKPRESSURE_CYCLES = 16'h0204;
 localparam [15:0] REG_QPSK_DEMOD_I_DC_ESTIMATE     = 16'h0208;
 localparam [15:0] REG_QPSK_DEMOD_Q_DC_ESTIMATE     = 16'h020c;
 localparam [15:0] REG_QPSK_DEMOD_DC_UPDATES        = 16'h0210;
+localparam [15:0] REG_QPSK_DEMOD_PHASE_CORRECTION  = 16'h0214;
+localparam [15:0] REG_QPSK_DEMOD_PHASE_ERROR_ACCUM = 16'h0218;
+localparam [15:0] REG_QPSK_DEMOD_PHASE_UPDATES     = 16'h021c;
 
 reg clk = 1'b0;
 reg resetn = 1'b0;
@@ -187,6 +190,9 @@ reg [31:0] qpsk_demod_input_backpressure_cycle_count = 32'd0;
 reg [31:0] qpsk_demod_i_dc_estimate = 32'd0;
 reg [31:0] qpsk_demod_q_dc_estimate = 32'd0;
 reg [31:0] qpsk_demod_dc_update_count = 32'd0;
+reg [31:0] qpsk_demod_phase_correction = 32'd0;
+reg [31:0] qpsk_demod_phase_error_accum = 32'd0;
+reg [31:0] qpsk_demod_phase_update_count = 32'd0;
 
 fieldmesh_sidecar_ctrl_axi_lite dut (
     .s_axi_aclk(clk),
@@ -297,6 +303,9 @@ fieldmesh_sidecar_ctrl_axi_lite dut (
     .qpsk_demod_i_dc_estimate(qpsk_demod_i_dc_estimate),
     .qpsk_demod_q_dc_estimate(qpsk_demod_q_dc_estimate),
     .qpsk_demod_dc_update_count(qpsk_demod_dc_update_count),
+    .qpsk_demod_phase_correction(qpsk_demod_phase_correction),
+    .qpsk_demod_phase_error_accum(qpsk_demod_phase_error_accum),
+    .qpsk_demod_phase_update_count(qpsk_demod_phase_update_count),
     .irq(irq),
     .irq_status(irq_status)
 );
@@ -563,6 +572,9 @@ initial begin
     qpsk_demod_i_dc_estimate = 32'd17;
     qpsk_demod_q_dc_estimate = 32'hfffffff2;
     qpsk_demod_dc_update_count = 32'd900;
+    qpsk_demod_phase_correction = 32'd31;
+    qpsk_demod_phase_error_accum = 32'h0000_4000;
+    qpsk_demod_phase_update_count = 32'd512;
     repeat (2) @(negedge clk);
     expect_axi(REG_QPSK_SYNC_STATUS, 32'h0000_0036);
     expect_axi(REG_QPSK_SYNC_INPUT_BYTES, 32'd900);
@@ -587,6 +599,9 @@ initial begin
     expect_axi(REG_QPSK_DEMOD_I_DC_ESTIMATE, 32'd17);
     expect_axi(REG_QPSK_DEMOD_Q_DC_ESTIMATE, 32'hfffffff2);
     expect_axi(REG_QPSK_DEMOD_DC_UPDATES, 32'd900);
+    expect_axi(REG_QPSK_DEMOD_PHASE_CORRECTION, 32'd31);
+    expect_axi(REG_QPSK_DEMOD_PHASE_ERROR_ACCUM, 32'h0000_4000);
+    expect_axi(REG_QPSK_DEMOD_PHASE_UPDATES, 32'd512);
 
     axi_write(REG_FW_DMA_CONTROL, 32'h0000_0020);
     if (fw_dma_enable || fw_dma_ingress_enable || fw_dma_egress_enable ||

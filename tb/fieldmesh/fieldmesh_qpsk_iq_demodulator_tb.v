@@ -30,6 +30,9 @@ wire [31:0] input_backpressure_cycle_count;
 wire [31:0] i_dc_estimate;
 wire [31:0] q_dc_estimate;
 wire [31:0] dc_update_count;
+wire [31:0] phase_correction;
+wire [31:0] phase_error_accum;
+wire [31:0] phase_update_count;
 
 reg         dc_s_axis_tvalid = 1'b0;
 wire        dc_s_axis_tready;
@@ -52,6 +55,34 @@ wire [31:0] dc_input_backpressure_cycle_count;
 wire [31:0] dc_i_dc_estimate;
 wire [31:0] dc_q_dc_estimate;
 wire [31:0] dc_dc_update_count;
+wire [31:0] dc_phase_correction;
+wire [31:0] dc_phase_error_accum;
+wire [31:0] dc_phase_update_count;
+
+reg         phase_s_axis_tvalid = 1'b0;
+wire        phase_s_axis_tready;
+reg [31:0]  phase_s_axis_tdata = 32'd0;
+reg         phase_s_axis_tlast = 1'b0;
+wire        phase_m_axis_tvalid;
+wire [7:0]  phase_m_axis_tdata;
+wire        phase_m_axis_tlast;
+wire [31:0] phase_sample_count;
+wire [31:0] phase_symbol_count;
+wire [31:0] phase_byte_count;
+wire [31:0] phase_packet_count;
+wire [31:0] phase_fault_count;
+wire [31:0] phase_low_margin_symbol_count;
+wire [31:0] phase_tie_symbol_count;
+wire [31:0] phase_min_symbol_margin;
+wire [31:0] phase_margin_accum;
+wire [31:0] phase_output_stall_cycle_count;
+wire [31:0] phase_input_backpressure_cycle_count;
+wire [31:0] phase_i_dc_estimate;
+wire [31:0] phase_q_dc_estimate;
+wire [31:0] phase_dc_update_count;
+wire [31:0] phase_phase_correction;
+wire [31:0] phase_phase_error_accum;
+wire [31:0] phase_phase_update_count;
 
 integer out_count = 0;
 reg [7:0] out_seen [0:3];
@@ -60,7 +91,8 @@ reg out_last_seen [0:3];
 fieldmesh_qpsk_iq_demodulator #(
     .SAMPLES_PER_SYMBOL(2),
     .QUALITY_MARGIN_THRESHOLD(512),
-    .DC_OFFSET_TRACK_ENABLE(0)
+    .DC_OFFSET_TRACK_ENABLE(0),
+    .PHASE_TRACK_ENABLE(0)
 ) dut (
     .clk(clk),
     .rst(rst),
@@ -86,14 +118,18 @@ fieldmesh_qpsk_iq_demodulator #(
     .input_backpressure_cycle_count(input_backpressure_cycle_count),
     .i_dc_estimate(i_dc_estimate),
     .q_dc_estimate(q_dc_estimate),
-    .dc_update_count(dc_update_count)
+    .dc_update_count(dc_update_count),
+    .phase_correction(phase_correction),
+    .phase_error_accum(phase_error_accum),
+    .phase_update_count(phase_update_count)
 );
 
 fieldmesh_qpsk_iq_demodulator #(
     .SAMPLES_PER_SYMBOL(1),
     .QUALITY_MARGIN_THRESHOLD(512),
     .DC_OFFSET_TRACK_ENABLE(1),
-    .DC_OFFSET_TRACK_SHIFT(4)
+    .DC_OFFSET_TRACK_SHIFT(4),
+    .PHASE_TRACK_ENABLE(0)
 ) dc_dut (
     .clk(clk),
     .rst(rst),
@@ -119,7 +155,49 @@ fieldmesh_qpsk_iq_demodulator #(
     .input_backpressure_cycle_count(dc_input_backpressure_cycle_count),
     .i_dc_estimate(dc_i_dc_estimate),
     .q_dc_estimate(dc_q_dc_estimate),
-    .dc_update_count(dc_dc_update_count)
+    .dc_update_count(dc_dc_update_count),
+    .phase_correction(dc_phase_correction),
+    .phase_error_accum(dc_phase_error_accum),
+    .phase_update_count(dc_phase_update_count)
+);
+
+fieldmesh_qpsk_iq_demodulator #(
+    .SAMPLES_PER_SYMBOL(1),
+    .QUALITY_MARGIN_THRESHOLD(512),
+    .DC_OFFSET_TRACK_ENABLE(0),
+    .PHASE_TRACK_ENABLE(1),
+    .PHASE_TRACK_SHIFT(4),
+    .PHASE_APPLY_SHIFT(8),
+    .PHASE_TRACK_LIMIT(512)
+) phase_dut (
+    .clk(clk),
+    .rst(rst),
+    .enable(enable),
+    .s_axis_tvalid(phase_s_axis_tvalid),
+    .s_axis_tready(phase_s_axis_tready),
+    .s_axis_tdata(phase_s_axis_tdata),
+    .s_axis_tlast(phase_s_axis_tlast),
+    .m_axis_tvalid(phase_m_axis_tvalid),
+    .m_axis_tready(1'b1),
+    .m_axis_tdata(phase_m_axis_tdata),
+    .m_axis_tlast(phase_m_axis_tlast),
+    .sample_count(phase_sample_count),
+    .symbol_count(phase_symbol_count),
+    .byte_count(phase_byte_count),
+    .packet_count(phase_packet_count),
+    .fault_count(phase_fault_count),
+    .low_margin_symbol_count(phase_low_margin_symbol_count),
+    .tie_symbol_count(phase_tie_symbol_count),
+    .min_symbol_margin(phase_min_symbol_margin),
+    .margin_accum(phase_margin_accum),
+    .output_stall_cycle_count(phase_output_stall_cycle_count),
+    .input_backpressure_cycle_count(phase_input_backpressure_cycle_count),
+    .i_dc_estimate(phase_i_dc_estimate),
+    .q_dc_estimate(phase_q_dc_estimate),
+    .dc_update_count(phase_dc_update_count),
+    .phase_correction(phase_phase_correction),
+    .phase_error_accum(phase_phase_error_accum),
+    .phase_update_count(phase_phase_update_count)
 );
 
 always #5 clk = ~clk;
@@ -194,6 +272,21 @@ task send_dc_sample;
     end
 endtask
 
+task send_phase_sample;
+    input signed [15:0] i_value;
+    input signed [15:0] q_value;
+    begin
+        @(negedge clk);
+        phase_s_axis_tdata = {q_value, i_value};
+        phase_s_axis_tlast = 1'b0;
+        phase_s_axis_tvalid = 1'b1;
+        @(posedge clk);
+        while (!phase_s_axis_tready) @(posedge clk);
+        @(negedge clk);
+        phase_s_axis_tvalid = 1'b0;
+    end
+endtask
+
 always @(posedge clk) begin
     if (rst) begin
         out_count <= 0;
@@ -233,6 +326,7 @@ initial begin
     if (output_stall_cycle_count == 32'd0) fail("output stall counter did not increment");
     if (input_backpressure_cycle_count != 32'd0) fail("unexpected input backpressure count");
     if (dc_update_count != 32'd0) fail("disabled DC tracker updated");
+    if (phase_update_count != 32'd0) fail("disabled phase tracker updated");
 
     send_sample(16'sd1000, 16'sd1000, 1'b1);
     repeat (2) @(posedge clk);
@@ -279,6 +373,17 @@ initial begin
     if ($signed(dc_i_dc_estimate) <= 0) fail("DC tracker did not learn positive I offset");
     if ($signed(dc_q_dc_estimate) >= 0) fail("DC tracker did not learn negative Q offset");
     if (dc_fault_count != 32'd0) fail("DC tracker path faulted");
+    if (dc_phase_update_count != 32'd0) fail("DC-only path updated phase tracker");
+
+    repeat (64) begin
+        send_phase_sample(16'sd750, 16'sd1250);
+    end
+    repeat (4) @(posedge clk);
+    if (phase_sample_count != 32'd64) fail("phase tracker sample counter mismatch");
+    if (phase_phase_update_count != 32'd64) fail("phase tracker update counter mismatch");
+    if ($signed(phase_phase_correction) <= 0) fail("phase tracker did not learn positive carrier rotation");
+    if ($signed(phase_phase_error_accum) <= 0) fail("phase tracker did not accumulate positive phase error");
+    if (phase_fault_count != 32'd0) fail("phase tracker path faulted");
 
     $display("PASS: fieldmesh_qpsk_iq_demodulator_tb");
     $finish;

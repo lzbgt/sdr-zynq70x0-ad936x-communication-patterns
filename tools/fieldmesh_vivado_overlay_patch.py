@@ -247,6 +247,9 @@ ad_connect GND fieldmesh_ctrl/qpsk_demod_input_backpressure_cycle_count
 ad_connect GND fieldmesh_ctrl/qpsk_demod_i_dc_estimate
 ad_connect GND fieldmesh_ctrl/qpsk_demod_q_dc_estimate
 ad_connect GND fieldmesh_ctrl/qpsk_demod_dc_update_count
+ad_connect GND fieldmesh_ctrl/qpsk_demod_phase_correction
+ad_connect GND fieldmesh_ctrl/qpsk_demod_phase_error_accum
+ad_connect GND fieldmesh_ctrl/qpsk_demod_phase_update_count
 """
     return f"""
 {BD_CTRL_BEGIN}
@@ -583,6 +586,9 @@ ad_connect fieldmesh_qpsk_demodulator/input_backpressure_cycle_count fieldmesh_c
 ad_connect fieldmesh_qpsk_demodulator/i_dc_estimate fieldmesh_ctrl/qpsk_demod_i_dc_estimate
 ad_connect fieldmesh_qpsk_demodulator/q_dc_estimate fieldmesh_ctrl/qpsk_demod_q_dc_estimate
 ad_connect fieldmesh_qpsk_demodulator/dc_update_count fieldmesh_ctrl/qpsk_demod_dc_update_count
+ad_connect fieldmesh_qpsk_demodulator/phase_correction fieldmesh_ctrl/qpsk_demod_phase_correction
+ad_connect fieldmesh_qpsk_demodulator/phase_error_accum fieldmesh_ctrl/qpsk_demod_phase_error_accum
+ad_connect fieldmesh_qpsk_demodulator/phase_update_count fieldmesh_ctrl/qpsk_demod_phase_update_count
 
 create_bd_cell -type module -reference fieldmesh_qpsk_byte_sync fieldmesh_qpsk_byte_sync
 ad_connect axi_ad9361/l_clk fieldmesh_qpsk_byte_sync/clk

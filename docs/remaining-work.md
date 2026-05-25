@@ -1622,7 +1622,7 @@ below were later superseded by the current PHY-management two-board gates above:
   `fieldmesh_firmware_axis_dma_endpoint` with `AUTO_EGRESS=1`, maps the DMA
   windows at `0x43C10000`/`0x43C20000`, uses HP3 for TX/MM2S and HP0 for
   RX/S2MM, and wires the endpoint control/status pins through the existing
-  `fieldmesh_ctrl` register page at `0x140..0x210`. The endpoint resets
+  `fieldmesh_ctrl` register page at `0x140..0x21c`. The endpoint resets
   disabled and must be armed explicitly by software. The register page now also
   exposes parser/ingress/egress byte counts, MAC pump starts/completions, split
   BRAM CRC/bounds errors, FPGA MAC-service latency cycles, a hardware

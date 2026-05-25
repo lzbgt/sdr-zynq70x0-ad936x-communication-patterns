@@ -500,6 +500,9 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x208` | `FM_QPSK_DEMOD_I_DC_ESTIMATE` | signed PL-estimated I-channel DC offset subtracted before QPSK slicing |
 | `0x20c` | `FM_QPSK_DEMOD_Q_DC_ESTIMATE` | signed PL-estimated Q-channel DC offset subtracted before QPSK slicing |
 | `0x210` | `FM_QPSK_DEMOD_DC_UPDATES` | samples used by the PL DC-offset tracker |
+| `0x214` | `FM_QPSK_DEMOD_PHASE_CORRECTION` | signed PL decision-directed carrier phase correction coefficient |
+| `0x218` | `FM_QPSK_DEMOD_PHASE_ERROR_ACCUM` | accumulated signed QPSK carrier phase error before loop filtering |
+| `0x21c` | `FM_QPSK_DEMOD_PHASE_UPDATES` | samples used by the PL carrier phase tracker |
 
 Do not map this over the existing ADI AXI-DMAC window. Give FieldMesh its own
 small address window so faults can be isolated during JTAG/OpenOCD probing.

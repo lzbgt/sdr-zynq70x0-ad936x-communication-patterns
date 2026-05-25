@@ -218,7 +218,10 @@ int main(void) {
         FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE != 0x208u ||
         FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE != 0x20cu ||
         FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES != 0x210u ||
-        FIELDMESH_QPSK_RX_DIAG_REG_COUNT != 23u) {
+        FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION != 0x214u ||
+        FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM != 0x218u ||
+        FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES != 0x21cu ||
+        FIELDMESH_QPSK_RX_DIAG_REG_COUNT != 26u) {
         return 1;
     }
     if (fieldmesh_fw_dma_status_offset(0u) != FIELDMESH_FW_DMA_REG_CONTROL ||
@@ -238,7 +241,9 @@ int main(void) {
         fieldmesh_qpsk_rx_diag_offset(19u) != FIELDMESH_QPSK_RX_REG_DEMOD_INPUT_BACKPRESSURE_CYCLES ||
         fieldmesh_qpsk_rx_diag_offset(20u) != FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE ||
         fieldmesh_qpsk_rx_diag_offset(22u) != FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES ||
-        fieldmesh_qpsk_rx_diag_offset(23u) != 0u) {
+        fieldmesh_qpsk_rx_diag_offset(23u) != FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION ||
+        fieldmesh_qpsk_rx_diag_offset(25u) != FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES ||
+        fieldmesh_qpsk_rx_diag_offset(26u) != 0u) {
         return 16;
     }
     if (FIELDMESH_FW_DMA_ARM_CONTROL != 0x0000001fu ||
@@ -362,7 +367,10 @@ int main(void) {
         qpsk_diag.demod_input_backpressure_cycles != 13u ||
         qpsk_diag.demod_i_dc_estimate != 17 ||
         qpsk_diag.demod_q_dc_estimate != -14 ||
-        qpsk_diag.demod_dc_updates != 900u) {
+        qpsk_diag.demod_dc_updates != 900u ||
+        qpsk_diag.demod_phase_correction != 31 ||
+        qpsk_diag.demod_phase_error_accum != 16384 ||
+        qpsk_diag.demod_phase_updates != 512u) {
         return 17;
     }
     regs[1] = 0xffff0000u;
@@ -753,7 +761,10 @@ required = [
     "FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE 0x208u",
     "FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE 0x20cu",
     "FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES 0x210u",
-    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 23u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION 0x214u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM 0x218u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES 0x21cu",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 26u",
     "fieldmesh_qpsk_rx_diag_t",
     "fieldmesh_qpsk_rx_diag_offset",
     "fieldmesh_qpsk_rx_diag_from_regs",

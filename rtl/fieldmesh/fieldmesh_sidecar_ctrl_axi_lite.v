@@ -135,6 +135,9 @@ module fieldmesh_sidecar_ctrl_axi_lite #(
     input  wire [31:0]  qpsk_demod_i_dc_estimate,
     input  wire [31:0]  qpsk_demod_q_dc_estimate,
     input  wire [31:0]  qpsk_demod_dc_update_count,
+    input  wire [31:0]  qpsk_demod_phase_correction,
+    input  wire [31:0]  qpsk_demod_phase_error_accum,
+    input  wire [31:0]  qpsk_demod_phase_update_count,
 
     output wire         irq,
     output wire [2:0]   irq_status
@@ -217,6 +220,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
     localparam [11:0] REG_QPSK_DEMOD_I_DC_ESTIMATE     = 12'h208;
     localparam [11:0] REG_QPSK_DEMOD_Q_DC_ESTIMATE     = 12'h20c;
     localparam [11:0] REG_QPSK_DEMOD_DC_UPDATES        = 12'h210;
+    localparam [11:0] REG_QPSK_DEMOD_PHASE_CORRECTION  = 12'h214;
+    localparam [11:0] REG_QPSK_DEMOD_PHASE_ERROR_ACCUM = 12'h218;
+    localparam [11:0] REG_QPSK_DEMOD_PHASE_UPDATES     = 12'h21c;
 
     wire rst = !s_axi_aresetn;
 
@@ -309,6 +315,12 @@ generate if (SYNTH_LIGHT) begin : gen_light
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_q_dc_estimate_sync;
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_dc_update_count_meta;
     (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_dc_update_count_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_phase_correction_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_phase_correction_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_phase_error_accum_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_phase_error_accum_sync;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_phase_update_count_meta;
+    (* ASYNC_REG = "TRUE" *) reg [31:0] qpsk_demod_phase_update_count_sync;
     reg [1:0]  bresp_r;
     reg        bvalid_r;
     reg [31:0] rdata_r;
@@ -407,6 +419,12 @@ generate if (SYNTH_LIGHT) begin : gen_light
             qpsk_demod_q_dc_estimate_sync <= 32'd0;
             qpsk_demod_dc_update_count_meta <= 32'd0;
             qpsk_demod_dc_update_count_sync <= 32'd0;
+            qpsk_demod_phase_correction_meta <= 32'd0;
+            qpsk_demod_phase_correction_sync <= 32'd0;
+            qpsk_demod_phase_error_accum_meta <= 32'd0;
+            qpsk_demod_phase_error_accum_sync <= 32'd0;
+            qpsk_demod_phase_update_count_meta <= 32'd0;
+            qpsk_demod_phase_update_count_sync <= 32'd0;
         end else begin
             rf_dac_sample_count_meta <= rf_dac_sample_count;
             rf_dac_sample_count_sync <= rf_dac_sample_count_meta;
@@ -466,6 +484,12 @@ generate if (SYNTH_LIGHT) begin : gen_light
             qpsk_demod_q_dc_estimate_sync <= qpsk_demod_q_dc_estimate_meta;
             qpsk_demod_dc_update_count_meta <= qpsk_demod_dc_update_count;
             qpsk_demod_dc_update_count_sync <= qpsk_demod_dc_update_count_meta;
+            qpsk_demod_phase_correction_meta <= qpsk_demod_phase_correction;
+            qpsk_demod_phase_correction_sync <= qpsk_demod_phase_correction_meta;
+            qpsk_demod_phase_error_accum_meta <= qpsk_demod_phase_error_accum;
+            qpsk_demod_phase_error_accum_sync <= qpsk_demod_phase_error_accum_meta;
+            qpsk_demod_phase_update_count_meta <= qpsk_demod_phase_update_count;
+            qpsk_demod_phase_update_count_sync <= qpsk_demod_phase_update_count_meta;
         end
     end
 
@@ -657,6 +681,9 @@ generate if (SYNTH_LIGHT) begin : gen_light
                     REG_QPSK_DEMOD_I_DC_ESTIMATE: rdata_r <= qpsk_demod_i_dc_estimate_sync;
                     REG_QPSK_DEMOD_Q_DC_ESTIMATE: rdata_r <= qpsk_demod_q_dc_estimate_sync;
                     REG_QPSK_DEMOD_DC_UPDATES: rdata_r <= qpsk_demod_dc_update_count_sync;
+                    REG_QPSK_DEMOD_PHASE_CORRECTION: rdata_r <= qpsk_demod_phase_correction_sync;
+                    REG_QPSK_DEMOD_PHASE_ERROR_ACCUM: rdata_r <= qpsk_demod_phase_error_accum_sync;
+                    REG_QPSK_DEMOD_PHASE_UPDATES: rdata_r <= qpsk_demod_phase_update_count_sync;
                     default: rdata_r <= 32'd0;
                 endcase
                 rresp_r <= 2'b00;

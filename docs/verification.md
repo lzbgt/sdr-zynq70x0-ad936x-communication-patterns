@@ -2953,8 +2953,8 @@ immediately before register writes.
 `verify_fieldmesh_fw_dma_control_contract.sh` is the low-memory cross-check for
 that C/FPGA contract: the SDK C header, `fieldmesh-ctrl-write`, DMA/RF overlay
 checkers, and board-control wrapper must agree on the full firmware-DMA page
-and, for the RF-engine overlay, the extended `0x140..0x210` sidecar range that
-also carries QPSK RX demod quality, PL DC-offset correction, and
+and, for the RF-engine overlay, the extended `0x140..0x21c` sidecar range that
+also carries QPSK RX demod quality, PL DC-offset and carrier phase correction, and
 acquisition/framing diagnostics. The shared descriptor
 flag mask, QPSK diagnostic offsets, and C self-test fixture vectors are kept in
 the SDK contract; stale `0x178` overlay guards are rejected.

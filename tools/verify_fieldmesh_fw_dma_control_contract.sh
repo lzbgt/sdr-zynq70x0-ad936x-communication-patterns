@@ -37,7 +37,10 @@ required_header_tokens = [
     "FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE 0x208u",
     "FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE 0x20cu",
     "FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES 0x210u",
-    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 23u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION 0x214u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM 0x218u",
+    "FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES 0x21cu",
+    "FIELDMESH_QPSK_RX_DIAG_REG_COUNT 26u",
     "fieldmesh_qpsk_rx_diag_offset",
     "fieldmesh_qpsk_rx_diag_from_regs",
     "fieldmesh_qpsk_rx_diag_test_regs_locked",
@@ -190,11 +193,11 @@ for path_name, source in (
         raise SystemExit(f"{path_name} still accepts stale 0x178 firmware DMA boundary")
 if "register pages through 0x1b4" not in dma_check:
     raise SystemExit("DMA overlay check missing firmware DMA 0x1b4 boundary")
-if "register pages through 0x210" not in rf_check:
-    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x210 boundary")
+if "register pages through 0x21c" not in rf_check:
+    raise SystemExit("RF-engine overlay check missing QPSK diagnostics 0x21c boundary")
 
 for token in (
-    "register pages through 0x210",
+    "register pages through 0x21c",
     "fieldmesh_ctrl/fw_dma_bram_bounds_error_count",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_last_cycles fieldmesh_ctrl/fw_dma_service_latency_last_cycles",
     "assert_same_net fieldmesh_fw_dma_endpoint/service_latency_max_cycles fieldmesh_ctrl/fw_dma_service_latency_max_cycles",
@@ -208,6 +211,8 @@ for token in (
     "assert_same_net fieldmesh_rx_header_framer/crc_error_count fieldmesh_ctrl/qpsk_rx_crc_error_count",
     "assert_same_net fieldmesh_qpsk_demodulator/dc_update_count fieldmesh_ctrl/qpsk_demod_dc_update_count",
     "assert_same_net fieldmesh_qpsk_demodulator/q_dc_estimate fieldmesh_ctrl/qpsk_demod_q_dc_estimate",
+    "assert_same_net fieldmesh_qpsk_demodulator/phase_correction fieldmesh_ctrl/qpsk_demod_phase_correction",
+    "assert_same_net fieldmesh_qpsk_demodulator/phase_update_count fieldmesh_ctrl/qpsk_demod_phase_update_count",
 ):
     if token not in rf_check:
         raise SystemExit(f"RF-engine overlay check missing firmware DMA full-page token: {token}")
@@ -220,11 +225,13 @@ for token in (
     "fieldmesh_ctrl/fw_dma_service_latency_accum_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_budget_cycles",
     "fieldmesh_ctrl/fw_dma_service_latency_over_budget_count",
-    "register pages through 0x210",
+    "register pages through 0x21c",
     "fieldmesh_ctrl/qpsk_sync_search_drop_count",
     "fieldmesh_ctrl/qpsk_rx_crc_error_count",
     "fieldmesh_ctrl/qpsk_demod_dc_update_count",
     "fieldmesh_ctrl/qpsk_demod_q_dc_estimate",
+    "fieldmesh_ctrl/qpsk_demod_phase_correction",
+    "fieldmesh_ctrl/qpsk_demod_phase_update_count",
 ):
     if token not in rf_binding:
         raise SystemExit(f"RF-engine binding verifier missing firmware DMA counter token: {token}")

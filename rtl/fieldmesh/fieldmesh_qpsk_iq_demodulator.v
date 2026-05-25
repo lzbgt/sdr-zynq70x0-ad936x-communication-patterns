@@ -2,8 +2,10 @@
 //
 // This is the matching RX primitive for fieldmesh_qpsk_iq_symbolizer. It uses
 // hard-decision I/Q signs after a configurable repeat window and reconstructs
-// packet bytes in MSB-first bit-pair order. Carrier recovery, filtering, and
-// packet scheduling remain owned by surrounding RF/firmware blocks.
+// packet bytes in MSB-first bit-pair order. A lightweight decision-directed
+// phase tracker corrects residual QPSK carrier rotation before byte sync.
+// Filtering and packet scheduling remain owned by surrounding RF/firmware
+// blocks.
 
 `timescale 1ns/1ps
 
@@ -11,7 +13,11 @@ module fieldmesh_qpsk_iq_demodulator #(
     parameter integer SAMPLES_PER_SYMBOL = 1,
     parameter integer QUALITY_MARGIN_THRESHOLD = 512,
     parameter integer DC_OFFSET_TRACK_ENABLE = 1,
-    parameter integer DC_OFFSET_TRACK_SHIFT = 8
+    parameter integer DC_OFFSET_TRACK_SHIFT = 8,
+    parameter integer PHASE_TRACK_ENABLE = 1,
+    parameter integer PHASE_TRACK_SHIFT = 8,
+    parameter integer PHASE_APPLY_SHIFT = 12,
+    parameter integer PHASE_TRACK_LIMIT = 2048
 ) (
     input  wire        clk,
     input  wire        rst,
@@ -40,7 +46,10 @@ module fieldmesh_qpsk_iq_demodulator #(
     output reg  [31:0] input_backpressure_cycle_count,
     output wire [31:0] i_dc_estimate,
     output wire [31:0] q_dc_estimate,
-    output reg  [31:0] dc_update_count
+    output reg  [31:0] dc_update_count,
+    output wire [31:0] phase_correction,
+    output reg  [31:0] phase_error_accum,
+    output reg  [31:0] phase_update_count
 );
 
 reg        out_valid = 1'b0;
@@ -53,8 +62,11 @@ reg signed [31:0] i_acc = 32'sd0;
 reg signed [31:0] q_acc = 32'sd0;
 reg signed [31:0] i_dc_acc = 32'sd0;
 reg signed [31:0] q_dc_acc = 32'sd0;
+reg signed [31:0] phase_acc = 32'sd0;
 
 localparam [31:0] QUALITY_MARGIN_THRESHOLD_U32 = QUALITY_MARGIN_THRESHOLD;
+localparam signed [31:0] PHASE_TRACK_LIMIT_S32 = PHASE_TRACK_LIMIT;
+localparam signed [31:0] PHASE_TRACK_LIMIT_NEG_S32 = -PHASE_TRACK_LIMIT;
 
 wire signed [15:0] i_sample = s_axis_tdata[15:0];
 wire signed [15:0] q_sample = s_axis_tdata[31:16];
@@ -66,8 +78,27 @@ wire signed [31:0] i_corrected = i_sample_ext - (DC_OFFSET_TRACK_ENABLE != 0 ? i
 wire signed [31:0] q_corrected = q_sample_ext - (DC_OFFSET_TRACK_ENABLE != 0 ? q_dc_est : 32'sd0);
 wire signed [31:0] i_dc_acc_next = i_dc_acc + (i_sample_ext - i_dc_est);
 wire signed [31:0] q_dc_acc_next = q_dc_acc + (q_sample_ext - q_dc_est);
-wire signed [31:0] i_sum_next = i_acc + i_corrected;
-wire signed [31:0] q_sum_next = q_acc + q_corrected;
+wire signed [63:0] i_phase_mix = $signed(phase_acc) * $signed(q_corrected);
+wire signed [63:0] q_phase_mix = $signed(phase_acc) * $signed(i_corrected);
+wire signed [31:0] i_phase_term = i_phase_mix >>> PHASE_APPLY_SHIFT;
+wire signed [31:0] q_phase_term = q_phase_mix >>> PHASE_APPLY_SHIFT;
+wire signed [31:0] i_symbol_sample =
+    i_corrected + (PHASE_TRACK_ENABLE != 0 ? i_phase_term : 32'sd0);
+wire signed [31:0] q_symbol_sample =
+    q_corrected - (PHASE_TRACK_ENABLE != 0 ? q_phase_term : 32'sd0);
+wire signed [31:0] i_sum_next = i_acc + i_symbol_sample;
+wire signed [31:0] q_sum_next = q_acc + q_symbol_sample;
+wire i_sample_bit = (i_symbol_sample >= 32'sd0);
+wire q_sample_bit = (q_symbol_sample >= 32'sd0);
+wire signed [31:0] phase_error =
+    (i_sample_bit ? q_symbol_sample : -q_symbol_sample) -
+    (q_sample_bit ? i_symbol_sample : -i_symbol_sample);
+wire signed [31:0] phase_delta = phase_error >>> PHASE_TRACK_SHIFT;
+wire signed [31:0] phase_acc_candidate = phase_acc + phase_delta;
+wire signed [31:0] phase_acc_limited =
+    (phase_acc_candidate > PHASE_TRACK_LIMIT_S32) ? PHASE_TRACK_LIMIT_S32 :
+    (phase_acc_candidate < PHASE_TRACK_LIMIT_NEG_S32) ? PHASE_TRACK_LIMIT_NEG_S32 :
+    phase_acc_candidate;
 wire i_bit = (i_sum_next >= 32'sd0);
 wire q_bit = (q_sum_next >= 32'sd0);
 wire [2:0] i_bit_index = {pair_index, 1'b1};
@@ -93,6 +124,7 @@ assign m_axis_tdata = out_data;
 assign m_axis_tlast = out_last;
 assign i_dc_estimate = i_dc_est[31:0];
 assign q_dc_estimate = q_dc_est[31:0];
+assign phase_correction = phase_acc[31:0];
 
 function [31:0] abs32;
     input signed [31:0] value;
@@ -113,6 +145,7 @@ always @(posedge clk) begin
         q_acc <= 32'sd0;
         i_dc_acc <= 32'sd0;
         q_dc_acc <= 32'sd0;
+        phase_acc <= 32'sd0;
         sample_count <= 32'd0;
         symbol_count <= 32'd0;
         byte_count <= 32'd0;
@@ -125,6 +158,8 @@ always @(posedge clk) begin
         output_stall_cycle_count <= 32'd0;
         input_backpressure_cycle_count <= 32'd0;
         dc_update_count <= 32'd0;
+        phase_error_accum <= 32'd0;
+        phase_update_count <= 32'd0;
     end else begin
         if (output_stalled) begin
             output_stall_cycle_count <= output_stall_cycle_count + 1'b1;
@@ -143,6 +178,11 @@ always @(posedge clk) begin
                 i_dc_acc <= i_dc_acc_next;
                 q_dc_acc <= q_dc_acc_next;
                 dc_update_count <= dc_update_count + 1'b1;
+            end
+            if (PHASE_TRACK_ENABLE != 0) begin
+                phase_acc <= phase_acc_limited;
+                phase_error_accum <= phase_error_accum + phase_error[31:0];
+                phase_update_count <= phase_update_count + 1'b1;
             end
 
             if (malformed_tlast) begin

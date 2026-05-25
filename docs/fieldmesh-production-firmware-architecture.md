@@ -498,7 +498,7 @@ the first-line debug split between malformed input, TUN ingress starvation,
 full ARM-to-PL queues, PL service latency, and RX drain lag.
 
 The board-level packet-DMA endpoint is also controlled from the lightweight
-sidecar window. `0x140..0x210` contains fixed binary firmware-DMA control and
+sidecar window. `0x140..0x21c` contains fixed binary firmware-DMA control and
 status registers: endpoint enable, ingress enable, egress enable, MAC scheduler
 enable, MAC tick enable, MAC stop, service budget, queued/selected status, TX
 parser byte/packet/drop/fault counters, ingress byte/packet/descriptor/drop/fault

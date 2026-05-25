@@ -295,6 +295,9 @@ static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *di
            "\"demod_i_dc_estimate\":%" PRId32 ","
            "\"demod_q_dc_estimate\":%" PRId32 ","
            "\"demod_dc_updates\":%" PRIu32 ","
+           "\"demod_phase_correction\":%" PRId32 ","
+           "\"demod_phase_error_accum\":%" PRId32 ","
+           "\"demod_phase_updates\":%" PRIu32 ","
            "\"rx_fault\":%s,"
            "\"fault_free\":%s,"
            "\"drop_counters_clear\":%s,"
@@ -326,6 +329,9 @@ static void print_qpsk_rx_diag(uint32_t base, const fieldmesh_qpsk_rx_diag_t *di
            diag->demod_i_dc_estimate,
            diag->demod_q_dc_estimate,
            diag->demod_dc_updates,
+           diag->demod_phase_correction,
+           diag->demod_phase_error_accum,
+           diag->demod_phase_updates,
            diag->rx_fault ? "true" : "false",
            fieldmesh_qpsk_rx_diag_fault_free(diag) ? "true" : "false",
            fieldmesh_qpsk_rx_diag_drop_counters_clear(diag) ? "true" : "false",

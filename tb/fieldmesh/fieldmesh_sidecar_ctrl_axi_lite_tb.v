@@ -181,6 +181,9 @@ fieldmesh_sidecar_ctrl_axi_lite #(
     .qpsk_demod_i_dc_estimate(32'd0),
     .qpsk_demod_q_dc_estimate(32'd0),
     .qpsk_demod_dc_update_count(32'd0),
+    .qpsk_demod_phase_correction(32'd0),
+    .qpsk_demod_phase_error_accum(32'd0),
+    .qpsk_demod_phase_update_count(32'd0),
     .irq(irq),
     .irq_status(irq_status)
 );

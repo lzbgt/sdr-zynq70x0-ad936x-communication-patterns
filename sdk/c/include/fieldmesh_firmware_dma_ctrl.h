@@ -66,8 +66,11 @@ extern "C" {
 #define FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE 0x208u
 #define FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE 0x20cu
 #define FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES 0x210u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION 0x214u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM 0x218u
+#define FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES 0x21cu
 
-#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 23u
+#define FIELDMESH_QPSK_RX_DIAG_REG_COUNT 26u
 
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_PHASE_MASK 0x00000003u
 #define FIELDMESH_QPSK_RX_SYNC_STATUS_ROTATION_MASK 0x0000000cu
@@ -192,6 +195,9 @@ typedef struct fieldmesh_qpsk_rx_diag {
     int32_t demod_i_dc_estimate;
     int32_t demod_q_dc_estimate;
     uint32_t demod_dc_updates;
+    int32_t demod_phase_correction;
+    int32_t demod_phase_error_accum;
+    uint32_t demod_phase_updates;
 } fieldmesh_qpsk_rx_diag_t;
 
 typedef struct fieldmesh_fw_dma_action_policy {
@@ -264,6 +270,9 @@ static inline uint32_t fieldmesh_qpsk_rx_diag_offset(size_t index)
     case 20u: return FIELDMESH_QPSK_RX_REG_DEMOD_I_DC_ESTIMATE;
     case 21u: return FIELDMESH_QPSK_RX_REG_DEMOD_Q_DC_ESTIMATE;
     case 22u: return FIELDMESH_QPSK_RX_REG_DEMOD_DC_UPDATES;
+    case 23u: return FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_CORRECTION;
+    case 24u: return FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_ERROR_ACCUM;
+    case 25u: return FIELDMESH_QPSK_RX_REG_DEMOD_PHASE_UPDATES;
     default: return 0u;
     }
 }
@@ -386,6 +395,9 @@ static inline void fieldmesh_qpsk_rx_diag_test_regs_locked(
     regs[20] = 17u;
     regs[21] = 0xfffffff2u;
     regs[22] = 900u;
+    regs[23] = 31u;
+    regs[24] = 0x00004000u;
+    regs[25] = 512u;
 }
 
 static inline int fieldmesh_fw_dma_control_endpoint_enable(
@@ -504,6 +516,9 @@ static inline int fieldmesh_qpsk_rx_diag_from_regs(
     diag->demod_i_dc_estimate = (int32_t)regs[20];
     diag->demod_q_dc_estimate = (int32_t)regs[21];
     diag->demod_dc_updates = regs[22];
+    diag->demod_phase_correction = (int32_t)regs[23];
+    diag->demod_phase_error_accum = (int32_t)regs[24];
+    diag->demod_phase_updates = regs[25];
     return 1;
 }
 
