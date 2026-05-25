@@ -353,9 +353,12 @@ Minimum production gates for native TCP/IP:
   `iperf3` data/control sockets stayed established and the final
   result/shutdown exchange did not complete before timeout. A faster
   48-sample/repeat-3 modem profile reduced many batch times to roughly 0.8-1.3
-  seconds but produced an intermittent reverse-path CRC miss under load and
-  still did not complete `iperf3`. Follow-up HIL with batch-size 2 and async
-  source ACKs moved 54 real-RF frames with zero bridge errors at 256 bytes; a
+  seconds but initially produced an intermittent reverse-path CRC miss under
+  load and still did not complete `iperf3`. The bridge now uses that faster
+  profile for the primary reverse/control path only when production evidence
+  proves at least 20 kbit/s minimum raw modem PHY rate, while retaining the
+  stronger retry profile for decode recovery. Follow-up HIL with batch-size 2
+  and async source ACKs moved 54 real-RF frames with zero bridge errors at 256 bytes; a
   true 128-byte test using `IPERF_BLOCK_SIZE=64` moved 54 more real-RF frames
   and completed all async ACKs, but still timed out with the client in
   `FIN_WAIT1` and one or two FIN/control bytes queued. That narrows the
@@ -473,8 +476,9 @@ Minimum production gates for native TCP/IP:
   The first clean UDP-only continuation run showed the old symmetric BFSK
   profile was still too slow for throughput. Follow-up HIL found the useful
   asymmetric software profile: Z203-to-Z103 uses `samples_per_symbol=32`,
-  `bit_repeat=2`, while the weaker Z103-to-Z203 reverse/control direction keeps
-  `samples_per_symbol=64`, `bit_repeat=4`. That profile moved 40 real-RF
+  `bit_repeat=2`, while the weaker Z103-to-Z203 reverse/control direction uses
+  a faster primary `samples_per_symbol=48`, `bit_repeat=3` profile with the
+  stronger retry path still available after a decode miss. That profile moved 40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
   exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The
   server still received only one 64-byte UDP datagram from that run, so this is

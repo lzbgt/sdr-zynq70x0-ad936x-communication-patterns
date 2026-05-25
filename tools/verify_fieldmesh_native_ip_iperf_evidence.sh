@@ -88,8 +88,8 @@ cat >"$work_dir/board-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_execution_worker_runs": 3,
   "iio_bridge_sample_rate_hz": 3072000,
   "iio_bridge_rf_bandwidth_hz": 1000000,
-  "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 12000.0},
-  "iio_bridge_phy_min_raw_bitrate_bps": 12000.0,
+  "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 21333.333333333332},
+  "iio_bridge_phy_min_raw_bitrate_bps": 21333.333333333332,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
@@ -382,8 +382,8 @@ cat >"$work_dir/host-real-rf.json" <<'JSON'
   "iio_bridge_state_daemon_iio_transport_execution_worker_runs": 3,
   "iio_bridge_sample_rate_hz": 3072000,
   "iio_bridge_rf_bandwidth_hz": 1000000,
-  "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 12000.0},
-  "iio_bridge_phy_min_raw_bitrate_bps": 12000.0,
+  "iio_bridge_phy_raw_bitrate_bps": {"z203_to_z103": 48000.0, "z103_to_z203": 21333.333333333332},
+  "iio_bridge_phy_min_raw_bitrate_bps": 21333.333333333332,
   "iio_bridge_state_daemon_iio_transport_enqueue_failures": 0,
   "iio_bridge_state_daemon_iio_transport_status": {
     "z103": {
@@ -1305,6 +1305,27 @@ if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
   --host-pc-report "$work_dir/host-real-rf.json" \
   >"$work_dir/missing-metrics-rejected.out" 2>"$work_dir/missing-metrics-rejected.err"; then
   echo "iperf evidence classifier accepted missing UDP quality metrics" >&2
+  exit 1
+fi
+
+python3 - "$work_dir/board-real-rf.json" "$work_dir/board-slow-phy.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+report["iio_bridge_phy_raw_bitrate_bps"] = {
+    "z203_to_z103": 48000.0,
+    "z103_to_z203": 12000.0,
+}
+report["iio_bridge_phy_min_raw_bitrate_bps"] = 12000.0
+Path(sys.argv[2]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if "$repo_root/tools/fieldmesh_native_ip_iperf_evidence.py" \
+  --board-to-board-report "$work_dir/board-slow-phy.json" \
+  --host-pc-report "$work_dir/host-real-rf.json" \
+  >"$work_dir/slow-phy-rejected.out" 2>"$work_dir/slow-phy-rejected.err"; then
+  echo "iperf evidence classifier accepted slow reverse RF PHY evidence" >&2
   exit 1
 fi
 

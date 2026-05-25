@@ -483,6 +483,10 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
     min_phy_raw = report.get("iio_bridge_phy_min_raw_bitrate_bps")
     if not isinstance(min_phy_raw, (int, float)) or min_phy_raw <= 0:
         errors.append(f"{label}: IIO bridge minimum PHY raw bitrate evidence is missing")
+    elif float(min_phy_raw) < 20_000.0:
+        errors.append(
+            f"{label}: IIO bridge minimum PHY raw bitrate must be at least 20 kbps"
+        )
     transport_status = report.get("iio_bridge_state_daemon_iio_transport_status")
     if not isinstance(transport_status, dict) or sorted(transport_status) != ["z103", "z203"]:
         errors.append(f"{label}: state-daemon IIO transport status must include z203 and z103")

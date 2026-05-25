@@ -307,9 +307,11 @@ frames with zero duplicate drops; the captured TCP sequence shows the
 256-byte data payload crossed RF and was ACKed,
 but `iperf3` still timed out with its data/control sockets established before
 the final result/shutdown exchange completed. A faster 48-sample/repeat-3 BFSK
-profile lowered many batch times to about 0.8-1.3 seconds but introduced an
-intermittent reverse-path CRC miss under load and still did not complete
-`iperf3`. Follow-up HIL with async source ACK and batch-size 2 moved real-RF
+profile lowered many batch times to about 0.8-1.3 seconds but initially
+introduced an intermittent reverse-path CRC miss under load and still did not
+complete `iperf3`; it is now the primary reverse/control profile only behind a
+minimum raw PHY evidence gate, with a stronger retry profile retained for decode
+misses. Follow-up HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35
 real-RF frames with zero bridge errors; Z103 received 128 bytes and exited, but

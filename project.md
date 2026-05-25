@@ -1452,7 +1452,10 @@ user and vendor configuration.
   Native-IP IIO HIL now defaults the radio bandwidth to `1 MHz`, matching the
   guarded RF production paths instead of the older 300 kHz bridge default, and
   reports the configured sample rate, RF bandwidth, and per-direction modem raw
-  PHY bitrate for UDP/TCP bandwidth-ratio review. The
+  PHY bitrate for UDP/TCP bandwidth-ratio review. The primary reverse/control
+  BFSK profile is now tightened from 64 samples/repeat-4 to
+  48 samples/repeat-3, raising the minimum raw modem PHY evidence floor above
+  20 kbit/s while keeping the stronger retry path available after decode misses. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
   already interrupted by the wrapper timeout, this is not production `iperf3`
