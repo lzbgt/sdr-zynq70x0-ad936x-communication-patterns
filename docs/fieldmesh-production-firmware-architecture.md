@@ -513,8 +513,8 @@ builds extend the same sidecar aperture with QPSK RX demod quality, PL RX FIR
 matched filtering, phase-weighted symbol-timing recovery, DC-offset correction, per-burst acquisition/framing
 diagnostics: byte-sync lock, selected byte phase, selected QPSK quadrant
 rotation, sync input/output byte counters, timing phase/margin counters, lock/slip/rotation/search-drop
-counters, packet/byte/drop counters, CRC rejects, resyncs, and RX framer fault
-status.
+counters, packet/byte/drop counters, CRC rejects, truncated-burst drops,
+resyncs, and RX framer fault status.
 The fixed sidecar aperture map itself is owned by
 `sdk/c/include/fieldmesh_sidecar_addr.h`: control at `0x43C00000`, packet TX
 DMA at `0x43C10000`, packet RX DMA at `0x43C20000`, firmware ring at

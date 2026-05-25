@@ -9,6 +9,7 @@ reg enable = 1'b1;
 reg        s_axis_tvalid = 1'b0;
 wire       s_axis_tready;
 reg [7:0]  s_axis_tdata = 8'd0;
+reg        s_axis_tlast = 1'b0;
 
 wire       m_axis_tvalid;
 reg        m_axis_tready = 1'b0;
@@ -31,6 +32,7 @@ fieldmesh_axis_header_framer dut (
     .s_axis_tvalid(s_axis_tvalid),
     .s_axis_tready(s_axis_tready),
     .s_axis_tdata(s_axis_tdata),
+    .s_axis_tlast(s_axis_tlast),
     .m_axis_tvalid(m_axis_tvalid),
     .m_axis_tready(m_axis_tready),
     .m_axis_tdata(m_axis_tdata),
@@ -150,14 +152,17 @@ endfunction
 
 task send_byte;
     input [7:0] value;
+    input last;
     begin
         @(negedge clk);
         s_axis_tdata = value;
+        s_axis_tlast = last;
         s_axis_tvalid = 1'b1;
         @(posedge clk);
         while (!s_axis_tready) @(posedge clk);
         @(negedge clk);
         s_axis_tvalid = 1'b0;
+        s_axis_tlast = 1'b0;
     end
 endtask
 
@@ -168,7 +173,16 @@ task send_packet;
     integer i;
     begin
         for (i = 0; i < 36; i = i + 1) begin
-            send_byte(packet_byte(i, traffic_class, bad_class, bad_crc));
+            send_byte(packet_byte(i, traffic_class, bad_class, bad_crc), i == 35);
+        end
+    end
+endtask
+
+task send_truncated_packet;
+    integer i;
+    begin
+        for (i = 0; i < 20; i = i + 1) begin
+            send_byte(packet_byte(i, 8'd1, 1'b0, 1'b0), i == 19);
         end
     end
 endtask
@@ -215,7 +229,7 @@ initial begin
     if (crc_error_count != 32'd0) fail("unexpected CRC error after valid packet");
     if (fault) fail("unexpected fault after valid packet");
 
-    send_byte(8'h00);
+    send_byte(8'h00, 1'b0);
     repeat (2) @(posedge clk);
     if (resync_count != 32'd1) fail("resync counter mismatch");
 
@@ -232,6 +246,18 @@ initial begin
     if (drop_count != 32'd2) fail("bad class drop counter mismatch");
     if (crc_error_count != 32'd1) fail("bad class changed CRC error counter");
     if (!fault) fail("bad class did not set fault");
+
+    send_truncated_packet();
+    repeat (4) @(posedge clk);
+    if (m_axis_tvalid) fail("truncated packet emitted output");
+    if (drop_count != 32'd3) fail("truncated packet drop counter mismatch");
+    if (crc_error_count != 32'd1) fail("truncated packet changed CRC error counter");
+    if (!fault) fail("truncated packet did not set fault");
+
+    send_packet(8'd4, 1'b0, 1'b0);
+    drain_packet(8'd4);
+    repeat (2) @(posedge clk);
+    if (packet_count != 32'd3) fail("valid packet after truncated burst was not recovered");
 
     $display("PASS: fieldmesh_axis_header_framer_tb");
     $finish;

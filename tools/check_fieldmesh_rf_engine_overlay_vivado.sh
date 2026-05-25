@@ -284,6 +284,7 @@ foreach pin {
   fieldmesh_rx_header_framer/s_axis_tvalid
   fieldmesh_rx_header_framer/s_axis_tready
   fieldmesh_rx_header_framer/s_axis_tdata
+  fieldmesh_rx_header_framer/s_axis_tlast
   fieldmesh_rx_header_framer/m_axis_tvalid
   fieldmesh_rx_header_framer/m_axis_tready
   fieldmesh_rx_header_framer/m_axis_tdata
@@ -655,6 +656,7 @@ assert_same_net fieldmesh_qpsk_byte_sync/search_drop_count fieldmesh_ctrl/qpsk_s
 assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
 assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
 assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tlast fieldmesh_rx_header_framer/s_axis_tlast
 assert_same_net fieldmesh_rx_header_framer/packet_count fieldmesh_ctrl/qpsk_rx_packet_count
 assert_same_net fieldmesh_rx_header_framer/byte_count fieldmesh_ctrl/qpsk_rx_byte_count
 assert_same_net fieldmesh_rx_header_framer/drop_count fieldmesh_ctrl/qpsk_rx_drop_count

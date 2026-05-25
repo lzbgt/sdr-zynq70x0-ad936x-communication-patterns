@@ -2733,8 +2733,8 @@ lock/slip/rotation counters, aligned output, and output backpressure.
 `tb/fieldmesh/fieldmesh_axis_header_framer_tb.v` restores packet TLAST from the
 FieldMesh in-band header/payload length after QPSK demodulation. The test covers
 ping-pong capture while a prior packet is output-backpressured, valid packet
-emission, header CRC-16 rejection, resync, bad-class drops, and fault
-accounting.
+emission, header CRC-16 rejection, truncated-burst drops, recovery on the next
+valid burst, resync, bad-class drops, and fault accounting.
 
 `rtl/fieldmesh/fieldmesh_iq_tx_guard.v` with
 `tb/fieldmesh/fieldmesh_iq_tx_guard_tb.v` adds the first post-symbolizer RF TX

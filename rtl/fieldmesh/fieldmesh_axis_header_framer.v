@@ -1,12 +1,12 @@
 // FieldMesh byte-stream header framer.
 //
-// RF demodulation produces a continuous byte stream; AXI TLAST is not preserved
-// over the air. This primitive rebuilds packet boundaries from the fixed
-// FieldMesh in-band header and payload length, then emits a byte AXI-stream with
-// TLAST restored for the RX DMA path. Two packet banks let one packet drain to
-// RX DMA while the next packet is captured from the demodulator. Header bytes
-// 30..31 carry a little-endian CRC-16/CCITT-FALSE over header bytes 0..29 and
-// all payload bytes; bad packets are rejected before RX DMA.
+// RF demodulation produces a byte stream after QPSK acquisition. This primitive
+// rebuilds packet boundaries from the fixed FieldMesh in-band header and payload
+// length, then emits a byte AXI-stream with TLAST restored for the RX DMA path.
+// Two packet banks let one packet drain to RX DMA while the next packet is
+// captured from the demodulator. Header bytes 30..31 carry a little-endian
+// CRC-16/CCITT-FALSE over header bytes 0..29 and all payload bytes; bad or
+// burst-truncated packets are rejected before RX DMA.
 
 `timescale 1ns/1ps
 
@@ -21,6 +21,7 @@ module fieldmesh_axis_header_framer #(
     input  wire       s_axis_tvalid,
     output wire       s_axis_tready,
     input  wire [7:0] s_axis_tdata,
+    input  wire       s_axis_tlast,
 
     output wire       m_axis_tvalid,
     input  wire       m_axis_tready,
@@ -117,6 +118,7 @@ wire packet_shape_valid = !packet_bad && !current_header_bad &&
     header_class_valid && total_len_valid;
 wire packet_valid = packet_shape_valid && crc16_ok;
 wire packet_crc_bad = packet_complete && packet_shape_valid && !crc16_ok;
+wire packet_truncated = s_axis_tlast && !packet_complete;
 
 assign s_axis_tready = enable && !capture_bank_busy;
 assign m_axis_tvalid = enable && emit_active;
@@ -203,7 +205,7 @@ always @(posedge clk) begin
                     expected_crc16 <= 16'd0;
                     traffic_class <= 8'd0;
                     packet_bad <= 1'b0;
-                end else if (current_header_bad || !rx_index_in_range) begin
+                end else if (current_header_bad || !rx_index_in_range || packet_truncated) begin
                     drop_count <= drop_count + 1'b1;
                     fault <= 1'b1;
                     rx_index <= 16'd0;

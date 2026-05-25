@@ -255,6 +255,7 @@ fieldmesh_axis_header_framer header_framer (
     .s_axis_tvalid(sync_tvalid),
     .s_axis_tready(sync_tready),
     .s_axis_tdata(sync_tdata),
+    .s_axis_tlast(sync_tlast),
     .m_axis_tvalid(m_axis_tvalid),
     .m_axis_tready(m_axis_tready),
     .m_axis_tdata(m_axis_tdata),
