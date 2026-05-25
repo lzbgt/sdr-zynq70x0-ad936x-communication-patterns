@@ -296,6 +296,15 @@ def native_service_tick_request(host, port, text, timeout_ms):
         "adaptive_mcs_quality_source": "state_daemon_rf_modem_quality_accumulator",
         "native_mcs_quality_accumulator": 1,
         "state_daemon_owned_mcs_quality": 1,
+        "native_modem_profile_application": 1,
+        "adaptive_mcs_pre_burst_profile_application_source": "state_daemon_rf_service_loop_tick",
+        "python_modem_profile_mapping": 0,
+        "primary_samples_per_symbol": 32,
+        "primary_bit_repeat": 2,
+        "retry_samples_per_symbol": 64,
+        "retry_bit_repeat": 4,
+        "selected_samples_per_symbol": 32,
+        "selected_bit_repeat": 2,
         "mcs_quality_updates": 4,
         "adaptive_mcs_pre_burst_decision_native_c": 1,
         "adaptive_mcs_pre_burst_live_quality_bound": 1,
@@ -354,13 +363,19 @@ try:
         "127.0.0.2",
         55442,
         0,
+        32,
+        2,
+        64,
+        4,
     )
 finally:
     bridge.request_daemon = original_request
 if captured_native_tick.get("text") != (
     "FIELDMESH_RF_SERVICE_TRANSPORT_LOOP_TICK v1 "
     "peer_host=127.0.0.2 peer_port=55442 peer_timeout_ms=10 "
-    "current_consecutive_direction_batches=0"
+    "current_consecutive_direction_batches=0 "
+    "primary_samples_per_symbol=32 primary_bit_repeat=2 "
+    "retry_samples_per_symbol=64 retry_bit_repeat=4"
 ):
     raise SystemExit(f"native service loop tick must use daemon C transport-loop command: {captured_native_tick}")
 if native_tick_batch != [bytes.fromhex("aa"), bytes.fromhex("bb")]:
@@ -982,6 +997,10 @@ required = [
     "state_daemon_rf_modem_quality_accumulator",
     "native_mcs_quality_accumulator",
     "native_adaptive_mcs_selection",
+    "native_modem_profile_application",
+    "selected_samples_per_symbol",
+    "selected_bit_repeat",
+    "python_modem_profile_mapping",
     "state_daemon_rf_service_loop_tick",
     "fast_primary_min_raw_bitrate_bps",
     "fast_primary_quality_decision",
@@ -1279,6 +1298,11 @@ required = [
     '"iio_bridge_phy_adaptive_mcs_pre_burst_selection_by_direction"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_profile_source_by_direction"',
+    '"iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"',
+    '"iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source_by_direction"',
+    '"iio_bridge_phy_native_modem_profile_application"',
+    '"iio_bridge_phy_native_modem_profile_application_by_direction"',
+    '"iio_bridge_phy_python_modem_profile_mapping"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound_by_direction"',
     '"iio_bridge_phy_adaptive_mcs_pre_burst_selection_polls"',

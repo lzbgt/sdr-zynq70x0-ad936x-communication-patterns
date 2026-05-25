@@ -625,6 +625,28 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
                 "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
             )
         )
+        detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"] = (
+            native_ip.get(
+                "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"
+            )
+        )
+        detail["native_ip_host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"] = (
+            native_ip.get(
+                "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"
+            )
+        )
+        detail["native_ip_board_iio_bridge_phy_native_modem_profile_application"] = (
+            native_ip.get("board_iio_bridge_phy_native_modem_profile_application")
+        )
+        detail["native_ip_host_iio_bridge_phy_native_modem_profile_application"] = (
+            native_ip.get("host_iio_bridge_phy_native_modem_profile_application")
+        )
+        detail["native_ip_board_iio_bridge_phy_python_modem_profile_mapping"] = (
+            native_ip.get("board_iio_bridge_phy_python_modem_profile_mapping")
+        )
+        detail["native_ip_host_iio_bridge_phy_python_modem_profile_mapping"] = (
+            native_ip.get("host_iio_bridge_phy_python_modem_profile_mapping")
+        )
         detail["native_ip_board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"] = (
             native_ip.get(
                 "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"

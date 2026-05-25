@@ -3257,6 +3257,28 @@ report = {
         )
         or {}
     ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source": str(
+        last_iio_bridge.get(
+            "phy_adaptive_mcs_pre_burst_profile_application_source"
+        )
+        or ""
+    ),
+    "iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source_by_direction": (
+        last_iio_bridge.get(
+            "phy_adaptive_mcs_pre_burst_profile_application_source_by_direction"
+        )
+        or {}
+    ),
+    "iio_bridge_phy_native_modem_profile_application": bool(
+        last_iio_bridge.get("phy_native_modem_profile_application")
+    ),
+    "iio_bridge_phy_native_modem_profile_application_by_direction": (
+        last_iio_bridge.get("phy_native_modem_profile_application_by_direction")
+        or {}
+    ),
+    "iio_bridge_phy_python_modem_profile_mapping": bool(
+        last_iio_bridge.get("phy_python_modem_profile_mapping")
+    ),
     "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": bool(
         last_iio_bridge.get("phy_adaptive_mcs_pre_burst_live_quality_bound")
     ),

@@ -462,6 +462,10 @@ PY
         state_daemon_rf_modem_quality_accumulator \
         native_mcs_quality_accumulator \
         native_adaptive_mcs_selection \
+        native_modem_profile_application \
+        selected_samples_per_symbol \
+        selected_bit_repeat \
+        python_modem_profile_mapping \
         state_daemon_rf_service_loop_tick \
         FIELDMESH_IIO_TRANSPORT_EXECUTION_WORKER \
         state_daemon_iio_transport_execution_worker \

@@ -825,6 +825,24 @@ def summarize(report: dict[str, Any], source: Path) -> dict[str, Any]:
         "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": report.get(
             "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
         ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source": report.get(
+            "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source": report.get(
+            "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"
+        ),
+        "board_iio_bridge_phy_native_modem_profile_application": report.get(
+            "board_iio_bridge_phy_native_modem_profile_application"
+        ),
+        "host_iio_bridge_phy_native_modem_profile_application": report.get(
+            "host_iio_bridge_phy_native_modem_profile_application"
+        ),
+        "board_iio_bridge_phy_python_modem_profile_mapping": report.get(
+            "board_iio_bridge_phy_python_modem_profile_mapping"
+        ),
+        "host_iio_bridge_phy_python_modem_profile_mapping": report.get(
+            "host_iio_bridge_phy_python_modem_profile_mapping"
+        ),
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": report.get(
             "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"
         ),

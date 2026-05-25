@@ -324,9 +324,10 @@ now binds that decision during the run by posting decode/PER deltas into
 quality counters used by later MCS decisions, and production native-IP evidence
 rejects captures that lack native-accumulator fast-primary MCS proof. The
 state-daemon RF service loop tick also uses that decision before each burst to
-choose the initial modem profile from prior counters, and the native-IP gate
-requires state-daemon-owned pre-burst fast-primary selection proof in both
-directions. Follow-up
+choose and apply the initial modem profile from prior counters; it returns the
+selected `samples_per_symbol` / `bit_repeat` values, and the native-IP gate
+requires state-daemon-owned pre-burst fast-primary selection plus profile
+application proof in both directions. Follow-up
 HIL with async source ACK and batch-size 2 moved real-RF
 frames with zero bridge errors and delivered the requested 128-byte TCP payload
 to Z103. The latest duplicate-suppressed `tcp-control-flow` run moved 35

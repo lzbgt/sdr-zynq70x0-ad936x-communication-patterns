@@ -207,6 +207,32 @@ def _validate_iio_ack_pipeline(report: dict[str, Any], label: str) -> list[str]:
         for source in pre_burst_sources.values()
     ):
         errors.append(f"{label}: every pre-burst adaptive MCS direction must be state-daemon owned")
+    if (
+        report.get("iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source")
+        != "state_daemon_rf_service_loop_tick"
+    ):
+        errors.append(f"{label}: pre-burst modem profile application must be state-daemon owned")
+    application_sources = report.get(
+        "iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source_by_direction"
+    )
+    if not isinstance(application_sources, dict) or not application_sources:
+        errors.append(f"{label}: pre-burst modem profile application source proof is missing")
+    elif any(
+        source != "state_daemon_rf_service_loop_tick"
+        for source in application_sources.values()
+    ):
+        errors.append(f"{label}: every modem profile application must be state-daemon owned")
+    if report.get("iio_bridge_phy_native_modem_profile_application") is not True:
+        errors.append(f"{label}: native modem profile application was not proven")
+    native_profile_by_direction = report.get(
+        "iio_bridge_phy_native_modem_profile_application_by_direction"
+    )
+    if not isinstance(native_profile_by_direction, dict) or not native_profile_by_direction:
+        errors.append(f"{label}: native modem profile application direction proof is missing")
+    elif any(value is not True for value in native_profile_by_direction.values()):
+        errors.append(f"{label}: every direction must prove native modem profile application")
+    if report.get("iio_bridge_phy_python_modem_profile_mapping") is not False:
+        errors.append(f"{label}: Python modem profile mapping must be disabled")
     if report.get("iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound") is not True:
         errors.append(f"{label}: pre-burst adaptive MCS selection is not bound to measured quality")
     pre_burst_quality_bound = report.get(
@@ -1822,6 +1848,24 @@ def main() -> int:
         ),
         "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_source": host.get(
             "iio_bridge_phy_adaptive_mcs_pre_burst_profile_source"
+        ),
+        "board_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source": board.get(
+            "iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"
+        ),
+        "host_iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source": host.get(
+            "iio_bridge_phy_adaptive_mcs_pre_burst_profile_application_source"
+        ),
+        "board_iio_bridge_phy_native_modem_profile_application": board.get(
+            "iio_bridge_phy_native_modem_profile_application"
+        ),
+        "host_iio_bridge_phy_native_modem_profile_application": host.get(
+            "iio_bridge_phy_native_modem_profile_application"
+        ),
+        "board_iio_bridge_phy_python_modem_profile_mapping": board.get(
+            "iio_bridge_phy_python_modem_profile_mapping"
+        ),
+        "host_iio_bridge_phy_python_modem_profile_mapping": host.get(
+            "iio_bridge_phy_python_modem_profile_mapping"
         ),
         "board_iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound": board.get(
             "iio_bridge_phy_adaptive_mcs_pre_burst_live_quality_bound"

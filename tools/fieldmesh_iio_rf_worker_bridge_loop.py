@@ -286,6 +286,10 @@ def native_service_loop_tick_from_daemon(
     peer_host: str,
     peer_port: int,
     current_consecutive_direction_batches: int,
+    primary_samples_per_symbol: int = 0,
+    primary_bit_repeat: int = 0,
+    retry_samples_per_symbol: int = 0,
+    retry_bit_repeat: int = 0,
 ) -> tuple[list[bytes], dict[str, Any]]:
     try:
         report = bridge.request_daemon(
@@ -295,7 +299,11 @@ def native_service_loop_tick_from_daemon(
             f"peer_host={peer_host} peer_port={max(1, int(peer_port))} "
             f"peer_timeout_ms={max(1, int(timeout_ms))} "
             "current_consecutive_direction_batches="
-            f"{max(0, int(current_consecutive_direction_batches))}",
+            f"{max(0, int(current_consecutive_direction_batches))} "
+            f"primary_samples_per_symbol={max(0, int(primary_samples_per_symbol))} "
+            f"primary_bit_repeat={max(0, int(primary_bit_repeat))} "
+            f"retry_samples_per_symbol={max(0, int(retry_samples_per_symbol))} "
+            f"retry_bit_repeat={max(0, int(retry_bit_repeat))}",
             timeout_ms,
         )
     except TimeoutError:
@@ -383,6 +391,14 @@ def native_service_loop_tick_from_daemon(
         "in_burst_deferred_head_score",
         "native_mcs_quality_accumulator",
         "state_daemon_owned_mcs_quality",
+        "native_modem_profile_application",
+        "python_modem_profile_mapping",
+        "primary_samples_per_symbol",
+        "primary_bit_repeat",
+        "retry_samples_per_symbol",
+        "retry_bit_repeat",
+        "selected_samples_per_symbol",
+        "selected_bit_repeat",
         "mcs_quality_updates",
     ):
         if not isinstance(report.get(key), int):
@@ -398,6 +414,15 @@ def native_service_loop_tick_from_daemon(
         errors.append("loop tick MCS selection was not owned by the state daemon")
     if report.get("adaptive_mcs_quality_source") != "state_daemon_rf_modem_quality_accumulator":
         errors.append("loop tick MCS quality was not sourced from the state-daemon accumulator")
+    if (
+        report.get("adaptive_mcs_pre_burst_profile_application_source")
+        != "state_daemon_rf_service_loop_tick"
+    ):
+        errors.append("loop tick did not apply modem profile in the state daemon")
+    if report.get("python_modem_profile_mapping") != 0:
+        errors.append("loop tick still reports Python modem-profile mapping")
+    if report.get("selected_samples_per_symbol") <= 0 or report.get("selected_bit_repeat") <= 0:
+        errors.append("loop tick did not return selected modem parameters")
     if errors:
         raise SystemExit("native RF service loop tick invalid: " + "; ".join(errors))
     frames: list[bytes] = []
@@ -1361,6 +1386,49 @@ def adaptive_mcs_pre_burst_source_by_direction(
     return source_by_direction
 
 
+def adaptive_mcs_pre_burst_profile_application_source_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, str]:
+    source_by_direction: dict[str, str] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        sources = [
+            str(frame.get("adaptive_mcs_pre_burst_profile_application_source") or "")
+            for frame in frames
+            if frame.get("direction") == name
+            and not frame.get("filtered_frames")
+            and frame.get("adaptive_mcs_pre_burst_profile_application_source")
+        ]
+        source_by_direction[key] = sources[-1] if sources else ""
+    return source_by_direction
+
+
+def native_modem_profile_application_by_direction(
+    frames: list[dict[str, Any]],
+    directions: list[dict[str, Any]],
+) -> dict[str, bool]:
+    native_by_direction: dict[str, bool] = {}
+    for direction in directions:
+        name = direction["name"]
+        key = direction_key(name)
+        direction_frames = [
+            frame
+            for frame in frames
+            if frame.get("direction") == name and not frame.get("filtered_frames")
+        ]
+        native_by_direction[key] = bool(
+            direction_frames
+            and any(
+                frame.get("native_modem_profile_application") is True
+                and frame.get("python_modem_profile_mapping") is False
+                for frame in direction_frames
+            )
+        )
+    return native_by_direction
+
+
 def adaptive_mcs_pre_burst_quality_bound_by_direction(
     frames: list[dict[str, Any]],
     directions: list[dict[str, Any]],
@@ -1923,7 +1991,34 @@ def run_batch(
     effective_samples_per_symbol = primary_samples_per_symbol
     effective_bit_repeat = primary_bit_repeat
     first_attempt_label = "primary"
-    if pre_burst_mcs_selection == "retry_fallback":
+    native_profile_application = bool(
+        pre_burst_mcs_decision_report.get("native_modem_profile_application") == 1
+    )
+    pre_burst_profile_application_source = str(
+        pre_burst_mcs_decision_report.get(
+            "adaptive_mcs_pre_burst_profile_application_source"
+        )
+        or (
+            "state_daemon_rf_service_loop_tick"
+            if native_profile_application
+            else "host_bridge_python_mapping"
+        )
+    )
+    if native_profile_application:
+        effective_samples_per_symbol = int(
+            pre_burst_mcs_decision_report.get("selected_samples_per_symbol")
+            or effective_samples_per_symbol
+        )
+        effective_bit_repeat = int(
+            pre_burst_mcs_decision_report.get("selected_bit_repeat")
+            or effective_bit_repeat
+        )
+        first_attempt_label = (
+            "retry-modem-preselect"
+            if pre_burst_mcs_selection == "retry_fallback"
+            else "primary"
+        )
+    elif pre_burst_mcs_selection == "retry_fallback":
         effective_samples_per_symbol = (
             direction_retry_samples_per_symbol(args, direction["name"])
             or effective_samples_per_symbol
@@ -2095,6 +2190,11 @@ def run_batch(
         "adaptive_mcs_pre_burst_decision": pre_burst_mcs_decision,
         "adaptive_mcs_pre_burst_selection": pre_burst_mcs_selection,
         "adaptive_mcs_pre_burst_profile_source": pre_burst_mcs_profile_source,
+        "adaptive_mcs_pre_burst_profile_application_source": (
+            pre_burst_profile_application_source
+        ),
+        "native_modem_profile_application": native_profile_application,
+        "python_modem_profile_mapping": not native_profile_application,
         "adaptive_mcs_pre_burst_decision_native_c": bool(
             pre_burst_mcs_decision_report.get("native_adaptive_mcs_selection") == 1
             or pre_burst_mcs_decision_report.get(
@@ -2469,6 +2569,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             frames,
             directions,
         )
+        adaptive_mcs_pre_burst_profile_application_sources = (
+            adaptive_mcs_pre_burst_profile_application_source_by_direction(
+                frames,
+                directions,
+            )
+        )
+        native_modem_profile_application = native_modem_profile_application_by_direction(
+            frames,
+            directions,
+        )
         adaptive_mcs_pre_burst_quality_bound = (
             adaptive_mcs_pre_burst_quality_bound_by_direction(frames, directions)
         )
@@ -2796,6 +2906,32 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "phy_adaptive_mcs_pre_burst_profile_source_by_direction": (
                 adaptive_mcs_pre_burst_sources
+            ),
+            "phy_adaptive_mcs_pre_burst_profile_application_source_by_direction": (
+                adaptive_mcs_pre_burst_profile_application_sources
+            ),
+            "phy_adaptive_mcs_pre_burst_profile_application_source": (
+                "state_daemon_rf_service_loop_tick"
+                if adaptive_mcs_pre_burst_profile_application_sources
+                and all(
+                    source == "state_daemon_rf_service_loop_tick"
+                    for source in adaptive_mcs_pre_burst_profile_application_sources.values()
+                )
+                else "host_bridge_or_missing"
+            ),
+            "phy_native_modem_profile_application_by_direction": (
+                native_modem_profile_application
+            ),
+            "phy_native_modem_profile_application": bool(
+                args.execute_live_rf
+                and native_modem_profile_application
+                and all(native_modem_profile_application.values())
+            ),
+            "phy_python_modem_profile_mapping": bool(
+                not (
+                    native_modem_profile_application
+                    and all(native_modem_profile_application.values())
+                )
             ),
             "phy_adaptive_mcs_pre_burst_profile_source": (
                 "state_daemon_rf_service_loop_tick"
@@ -3552,6 +3688,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             "adaptive_mcs_pre_burst_profile_source": report.get(
                                 "adaptive_mcs_pre_burst_profile_source"
                             ),
+                            "adaptive_mcs_pre_burst_profile_application_source": report.get(
+                                "adaptive_mcs_pre_burst_profile_application_source"
+                            ),
+                            "native_modem_profile_application": report.get(
+                                "native_modem_profile_application"
+                            ),
+                            "python_modem_profile_mapping": report.get(
+                                "python_modem_profile_mapping"
+                            ),
                             "adaptive_mcs_pre_burst_live_quality_bound": report.get(
                                 "adaptive_mcs_pre_burst_live_quality_bound"
                             ),
@@ -3600,6 +3745,27 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                             consecutive_direction_batches
                                             if last_served_direction == direction["name"]
                                             else 0
+                                        ),
+                                        direction_samples_per_symbol(
+                                            args,
+                                            direction["name"],
+                                        ),
+                                        direction_bit_repeat(args, direction["name"]),
+                                        direction_retry_samples_per_symbol(
+                                            args,
+                                            direction["name"],
+                                        )
+                                        or direction_samples_per_symbol(
+                                            args,
+                                            direction["name"],
+                                        ),
+                                        direction_retry_bit_repeat(
+                                            args,
+                                            direction["name"],
+                                        )
+                                        or direction_bit_repeat(
+                                            args,
+                                            direction["name"],
                                         ),
                                     )
                                 )
@@ -3758,6 +3924,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             ),
                             "adaptive_mcs_pre_burst_profile_source": report.get(
                                 "adaptive_mcs_pre_burst_profile_source"
+                            ),
+                            "adaptive_mcs_pre_burst_profile_application_source": report.get(
+                                "adaptive_mcs_pre_burst_profile_application_source"
+                            ),
+                            "native_modem_profile_application": report.get(
+                                "native_modem_profile_application"
+                            ),
+                            "python_modem_profile_mapping": report.get(
+                                "python_modem_profile_mapping"
                             ),
                             "adaptive_mcs_pre_burst_live_quality_bound": report.get(
                                 "adaptive_mcs_pre_burst_live_quality_bound"

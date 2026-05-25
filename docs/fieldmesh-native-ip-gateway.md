@@ -498,10 +498,11 @@ Minimum production gates for native TCP/IP:
   `fast_primary` and `phy_adaptive_mcs_live_quality_bound` proof in each
   direction before the higher raw PHY rate can satisfy production readiness.
   The state-daemon RF service loop tick also consumes that decision before each
-  burst, using prior quality counters to select the initial modem profile
-  instead of only classifying the result after decode; production evidence now
-  requires pre-burst fast-primary selection to be state-daemon-owned and
-  quality-bound in both directions. That profile moved
+  burst, using prior quality counters to select and apply the initial modem
+  profile instead of only classifying the result after decode; production
+  evidence now requires pre-burst fast-primary selection and selected modem
+  parameters to be state-daemon-owned and quality-bound in both directions.
+  That profile moved
   40 real-RF
   native-IP frames with zero bridge errors and completed a 4 Kbit/s UDP client
   exchange over real RF, with the Z103 one-shot UDP server exiting cleanly. The

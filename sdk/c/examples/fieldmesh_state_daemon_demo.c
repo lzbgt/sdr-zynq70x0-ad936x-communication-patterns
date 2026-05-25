@@ -7228,6 +7228,10 @@ static int build_response(fieldmesh_context_t *context,
         unsigned peer_port = 0u;
         unsigned peer_timeout_ms = 250u;
         unsigned consecutive = 0u;
+        unsigned primary_samples_per_symbol = 0u;
+        unsigned primary_bit_repeat = 0u;
+        unsigned retry_samples_per_symbol = 0u;
+        unsigned retry_bit_repeat = 0u;
         char peer_response[1024];
         size_t peer_response_len = 0u;
         unsigned peer_score = 0u;
@@ -7242,6 +7246,16 @@ static int build_response(fieldmesh_context_t *context,
             !request_uint_or_default(
                 request, "current_consecutive_direction_batches=", 0u, 0u,
                 0xffu, &consecutive) ||
+            !request_uint_or_default(request, "primary_samples_per_symbol=", 0u,
+                                     0u, 1000000u,
+                                     &primary_samples_per_symbol) ||
+            !request_uint_or_default(request, "primary_bit_repeat=", 0u,
+                                     0u, 1000000u, &primary_bit_repeat) ||
+            !request_uint_or_default(request, "retry_samples_per_symbol=", 0u,
+                                     0u, 1000000u,
+                                     &retry_samples_per_symbol) ||
+            !request_uint_or_default(request, "retry_bit_repeat=", 0u,
+                                     0u, 1000000u, &retry_bit_repeat) ||
             peer_host[0] == '\0') {
             snprintf(response, response_len,
                      "{\"event\":\"sdk_daemon_rf_service_transport_loop_tick\","
@@ -7283,8 +7297,14 @@ static int build_response(fieldmesh_context_t *context,
                  "peer_scheduler_score=%u "
                  "current_consecutive_direction_batches=%u "
                  "native_transport_loop=1 "
-                 "peer_scheduler_query_ok=1",
-                 peer_score, consecutive);
+                 "peer_scheduler_query_ok=1 "
+                 "primary_samples_per_symbol=%u "
+                 "primary_bit_repeat=%u "
+                 "retry_samples_per_symbol=%u "
+                 "retry_bit_repeat=%u",
+                 peer_score, consecutive, primary_samples_per_symbol,
+                 primary_bit_repeat, retry_samples_per_symbol,
+                 retry_bit_repeat);
         request = native_transport_tick_request;
     }
     if (strstr(request, "FIELDMESH_RF_SERVICE_LOOP_TICK")) {
@@ -7298,6 +7318,12 @@ static int build_response(fieldmesh_context_t *context,
         unsigned consecutive = 0u;
         unsigned primary_raw_bitrate_bps = 0u;
         unsigned effective_raw_bitrate_bps = 0u;
+        unsigned primary_samples_per_symbol = 0u;
+        unsigned primary_bit_repeat = 0u;
+        unsigned retry_samples_per_symbol = 0u;
+        unsigned retry_bit_repeat = 0u;
+        unsigned selected_samples_per_symbol = 0u;
+        unsigned selected_bit_repeat = 0u;
         unsigned mcs_quality_ready;
         unsigned mcs_fast_primary_ok;
         unsigned mcs_high_rate_proven;
@@ -7335,6 +7361,16 @@ static int build_response(fieldmesh_context_t *context,
         (void)request_uint_or_default(
             request, "current_consecutive_direction_batches=", 0u, 0u, 0xffu,
             &consecutive);
+        (void)request_uint_or_default(request, "primary_samples_per_symbol=", 0u,
+                                      0u, 1000000u,
+                                      &primary_samples_per_symbol);
+        (void)request_uint_or_default(request, "primary_bit_repeat=", 0u, 0u,
+                                      1000000u, &primary_bit_repeat);
+        (void)request_uint_or_default(request, "retry_samples_per_symbol=", 0u,
+                                      0u, 1000000u,
+                                      &retry_samples_per_symbol);
+        (void)request_uint_or_default(request, "retry_bit_repeat=", 0u, 0u,
+                                      1000000u, &retry_bit_repeat);
         if (rf_service_loop) {
             primary_raw_bitrate_bps = rf_service_loop->primary_raw_bitrate_bps;
             effective_raw_bitrate_bps = rf_service_loop->effective_raw_bitrate_bps;
@@ -7360,6 +7396,19 @@ static int build_response(fieldmesh_context_t *context,
             mcs_decision == FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK ?
                 "retry_fallback" :
                 "fast_primary";
+        if (retry_samples_per_symbol == 0u) {
+            retry_samples_per_symbol = primary_samples_per_symbol;
+        }
+        if (retry_bit_repeat == 0u) {
+            retry_bit_repeat = primary_bit_repeat;
+        }
+        selected_samples_per_symbol = primary_samples_per_symbol;
+        selected_bit_repeat = primary_bit_repeat;
+        if (mcs_decision == FIELDMESH_RF_MODEM_PROFILE_DECISION_RETRY_FALLBACK &&
+            retry_samples_per_symbol > 0u && retry_bit_repeat > 0u) {
+            selected_samples_per_symbol = retry_samples_per_symbol;
+            selected_bit_repeat = retry_bit_repeat;
+        }
         service_local_first =
             fieldmesh_rf_service_scheduler_service_local_first(local_score,
                                                                peer_score);
@@ -7636,6 +7685,15 @@ static int build_response(fieldmesh_context_t *context,
                  "\"adaptive_mcs_quality_source\":\"state_daemon_rf_modem_quality_accumulator\","
                  "\"native_mcs_quality_accumulator\":1,"
                  "\"state_daemon_owned_mcs_quality\":1,"
+                 "\"native_modem_profile_application\":1,"
+                 "\"adaptive_mcs_pre_burst_profile_application_source\":\"state_daemon_rf_service_loop_tick\","
+                 "\"python_modem_profile_mapping\":0,"
+                 "\"primary_samples_per_symbol\":%u,"
+                 "\"primary_bit_repeat\":%u,"
+                 "\"retry_samples_per_symbol\":%u,"
+                 "\"retry_bit_repeat\":%u,"
+                 "\"selected_samples_per_symbol\":%u,"
+                 "\"selected_bit_repeat\":%u,"
                  "\"mcs_quality_updates\":%u,"
                  "\"adaptive_mcs_pre_burst_decision_native_c\":1,"
                  "\"adaptive_mcs_pre_burst_live_quality_bound\":%u,"
@@ -7706,6 +7764,12 @@ static int build_response(fieldmesh_context_t *context,
                      0u,
                  mcs_decision_name,
                  mcs_selection,
+                 primary_samples_per_symbol,
+                 primary_bit_repeat,
+                 retry_samples_per_symbol,
+                 retry_bit_repeat,
+                 selected_samples_per_symbol,
+                 selected_bit_repeat,
                  rf_service_loop ? rf_service_loop->mcs_quality_updates : 0u,
                  mcs_quality_ready,
                  mcs_high_rate_proven,

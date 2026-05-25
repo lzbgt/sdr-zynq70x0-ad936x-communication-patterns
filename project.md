@@ -1472,8 +1472,10 @@ user and vendor configuration.
   native accumulator rather than inferred only from archived reports.
   That same decision now runs inside the state-daemon RF service loop tick
   before each burst: prior measured quality selects the fast-primary or
-  retry-fallback modem profile before IQ generation and IIO transfer, and
-  readiness requires state-daemon-owned pre-burst selection proof in both
+  retry-fallback modem profile before IQ generation and IIO transfer, and the
+  tick returns the selected `samples_per_symbol` / `bit_repeat` values so the
+  bridge no longer maps the profile in Python. Readiness requires
+  state-daemon-owned pre-burst selection and profile-application proof in both
   directions. The
   Z203 client had sent 128 bytes, and Z103 captured 128 received
   bytes plus server exit during the 30 s drain window. Because the client was
