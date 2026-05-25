@@ -88,6 +88,7 @@ foreach cell {
   fieldmesh_iq_dac_driver
   fieldmesh_iq_adc_source
   fieldmesh_qpsk_demodulator
+  fieldmesh_qpsk_byte_sync
   fieldmesh_rx_header_framer
   fieldmesh_iq_rx_cdc
 } {
@@ -152,6 +153,19 @@ foreach pin {
   fieldmesh_qpsk_demodulator/m_axis_tready
   fieldmesh_qpsk_demodulator/m_axis_tdata
   fieldmesh_qpsk_demodulator/m_axis_tlast
+  fieldmesh_qpsk_byte_sync/clk
+  fieldmesh_qpsk_byte_sync/rst
+  fieldmesh_qpsk_byte_sync/enable
+  fieldmesh_qpsk_byte_sync/s_axis_tvalid
+  fieldmesh_qpsk_byte_sync/s_axis_tready
+  fieldmesh_qpsk_byte_sync/s_axis_tdata
+  fieldmesh_qpsk_byte_sync/s_axis_tlast
+  fieldmesh_qpsk_byte_sync/m_axis_tvalid
+  fieldmesh_qpsk_byte_sync/m_axis_tready
+  fieldmesh_qpsk_byte_sync/m_axis_tdata
+  fieldmesh_qpsk_byte_sync/m_axis_tlast
+  fieldmesh_qpsk_byte_sync/sync_locked
+  fieldmesh_qpsk_byte_sync/selected_phase
   fieldmesh_rx_header_framer/clk
   fieldmesh_rx_header_framer/rst
   fieldmesh_rx_header_framer/enable
@@ -480,9 +494,13 @@ assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_demodulator
 assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
 assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata
 assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_demodulator/s_axis_tlast
-assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
-assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
-assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tvalid fieldmesh_qpsk_byte_sync/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tready fieldmesh_qpsk_byte_sync/s_axis_tready
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata
+assert_same_net fieldmesh_qpsk_demodulator/m_axis_tlast fieldmesh_qpsk_byte_sync/s_axis_tlast
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tvalid fieldmesh_rx_header_framer/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tready fieldmesh_rx_header_framer/s_axis_tready
+assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata
 assert_same_net fieldmesh_rx_header_framer/m_axis_tvalid fieldmesh_iq_rx_cdc/s_axis_tvalid
 assert_same_net fieldmesh_rx_header_framer/m_axis_tready fieldmesh_iq_rx_cdc/s_axis_tready
 assert_same_net fieldmesh_rx_header_framer/m_axis_tdata fieldmesh_iq_rx_cdc/s_axis_tdata

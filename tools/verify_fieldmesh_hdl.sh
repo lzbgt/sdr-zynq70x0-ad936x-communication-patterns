@@ -54,6 +54,7 @@ xvlog \
   "$repo_root/rtl/fieldmesh/fieldmesh_bpsk_iq_symbolizer.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v" \
+  "$repo_root/rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_axis_header_framer.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_iq_tx_guard.v" \
   "$repo_root/rtl/fieldmesh/fieldmesh_axis_async_fifo.v" \
@@ -103,6 +104,7 @@ xvlog \
   "$repo_root/tb/fieldmesh/fieldmesh_bpsk_iq_symbolizer_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_iq_symbolizer_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_qpsk_iq_demodulator_tb.v" \
+  "$repo_root/tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis_header_framer_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_iq_tx_guard_tb.v" \
   "$repo_root/tb/fieldmesh/fieldmesh_axis_async_fifo_tb.v" \
@@ -162,6 +164,7 @@ run_tb fieldmesh_iq_adc_axis_source_tb
 run_tb fieldmesh_bpsk_iq_symbolizer_tb
 run_tb fieldmesh_qpsk_iq_symbolizer_tb
 run_tb fieldmesh_qpsk_iq_demodulator_tb
+run_tb fieldmesh_qpsk_byte_sync_tb
 run_tb fieldmesh_axis_header_framer_tb
 run_tb fieldmesh_iq_tx_guard_tb
 run_tb fieldmesh_axis_async_fifo_tb

@@ -12,6 +12,7 @@ patcher = (repo / "tools/fieldmesh_vivado_overlay_patch.py").read_text(encoding=
 checker = (repo / "tools/check_fieldmesh_rf_engine_overlay_vivado.sh").read_text(encoding="utf-8")
 plan = (repo / "tools/fieldmesh_sidecar_plan.py").read_text(encoding="utf-8")
 adc_source = (repo / "rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v").read_text(encoding="utf-8")
+byte_sync = (repo / "rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v").read_text(encoding="utf-8")
 header_framer = (repo / "rtl/fieldmesh/fieldmesh_axis_header_framer.v").read_text(encoding="utf-8")
 
 required_patcher_tokens = [
@@ -19,6 +20,7 @@ required_patcher_tokens = [
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_symbolizer fieldmesh_qpsk_symbolizer",
     "create_bd_cell -type module -reference fieldmesh_iq_adc_axis_source fieldmesh_iq_adc_source",
     "create_bd_cell -type module -reference fieldmesh_qpsk_iq_demodulator fieldmesh_qpsk_demodulator",
+    "create_bd_cell -type module -reference fieldmesh_qpsk_byte_sync fieldmesh_qpsk_byte_sync",
     "create_bd_cell -type module -reference fieldmesh_axis_header_framer fieldmesh_rx_header_framer",
     "create_bd_cell -type module -reference fieldmesh_axis_async_fifo fieldmesh_iq_rx_cdc",
     "ad_connect fieldmesh_axis16_adapter/m_axis8 fieldmesh_fw_dma_endpoint/s_tx_dma",
@@ -31,7 +33,8 @@ required_patcher_tokens = [
     "ad_connect rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
     "ad_connect rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample",
     "ad_connect fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata",
-    "ad_connect fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata",
+    "ad_connect fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
     "ad_connect fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast",
     "ad_connect fieldmesh_iq_rx_cdc/m_axis fieldmesh_axis16_adapter/s_axis8",
     "ad_connect fieldmesh_fw_dma_endpoint/tx_parser_byte_count fieldmesh_ctrl/fw_dma_tx_parser_byte_count",
@@ -64,6 +67,7 @@ required_checker_tokens = [
     "fieldmesh_fw_dma_endpoint",
     "fieldmesh_iq_adc_source",
     "fieldmesh_qpsk_demodulator",
+    "fieldmesh_qpsk_byte_sync",
     "fieldmesh_rx_header_framer",
     "fieldmesh_iq_rx_cdc",
     "register pages through 0x1b4",
@@ -74,7 +78,8 @@ required_checker_tokens = [
     "assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample",
     "assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample",
     "assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata",
-    "assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
+    "assert_same_net fieldmesh_qpsk_demodulator/m_axis_tdata fieldmesh_qpsk_byte_sync/s_axis_tdata",
+    "assert_same_net fieldmesh_qpsk_byte_sync/m_axis_tdata fieldmesh_rx_header_framer/s_axis_tdata",
     "assert_same_net fieldmesh_rx_header_framer/m_axis_tlast fieldmesh_iq_rx_cdc/s_axis_tlast",
     "assert_same_net fieldmesh_axis16_adapter/clk fieldmesh_iq_rx_cdc/m_clk",
     "fieldmesh_ctrl/fw_dma_enable",
@@ -110,6 +115,7 @@ for token in required_checker_tokens:
 for rtl in (
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_symbolizer.v"',
     '"rtl/fieldmesh/fieldmesh_qpsk_iq_demodulator.v"',
+    '"rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v"',
     '"rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v"',
     '"rtl/fieldmesh/fieldmesh_axis_header_framer.v"',
 ):
@@ -125,6 +131,16 @@ for token in (
 ):
     if token not in adc_source:
         raise SystemExit(f"fieldmesh_iq_adc_axis_source.v missing RX ADC source token: {token}")
+
+for token in (
+    "module fieldmesh_qpsk_byte_sync",
+    "FieldMesh magic bytes",
+    "function [7:0] phase_byte",
+    "wire detect_phase1",
+    "sync_slip_count",
+):
+    if token not in byte_sync:
+        raise SystemExit(f"fieldmesh_qpsk_byte_sync.v missing QPSK byte-sync token: {token}")
 
 for token in (
     "module fieldmesh_axis_header_framer",
