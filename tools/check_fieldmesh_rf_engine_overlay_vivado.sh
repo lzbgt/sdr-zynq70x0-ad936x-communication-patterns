@@ -88,6 +88,7 @@ foreach cell {
   fieldmesh_iq_tx_cdc
   fieldmesh_iq_dac_driver
   fieldmesh_iq_adc_source
+  fieldmesh_qpsk_rx_fir
   fieldmesh_qpsk_timing_recovery
   fieldmesh_qpsk_demodulator
   fieldmesh_qpsk_byte_sync
@@ -115,6 +116,10 @@ if {"\$qpsk_samples_per_symbol" ne "2"} {
 set qpsk_pulse_shaping [get_property CONFIG.PULSE_SHAPING [get_bd_cells fieldmesh_qpsk_symbolizer]]
 if {"\$qpsk_pulse_shaping" ne "0"} {
   error "fieldmesh_qpsk_symbolizer must keep midpoint shaping disabled because PL FIR owns TX pulse shaping"
+}
+set qpsk_rx_fir_tail_samples [get_property CONFIG.TAIL_SAMPLES [get_bd_cells fieldmesh_qpsk_rx_fir]]
+if {"\$qpsk_rx_fir_tail_samples" ne "0"} {
+  error "fieldmesh_qpsk_rx_fir must not emit packet-tail flush samples on the continuous RX stream"
 }
 set qpsk_timing_oversample [get_property CONFIG.OVERSAMPLE_FACTOR [get_bd_cells fieldmesh_qpsk_timing_recovery]]
 if {"\$qpsk_timing_oversample" ne "2"} {
@@ -172,6 +177,17 @@ foreach pin {
   fieldmesh_iq_adc_source/sample_count
   fieldmesh_iq_adc_source/stall_count
   fieldmesh_iq_adc_source/invalid_pair_count
+  fieldmesh_qpsk_rx_fir/clk
+  fieldmesh_qpsk_rx_fir/rst
+  fieldmesh_qpsk_rx_fir/enable
+  fieldmesh_qpsk_rx_fir/s_axis_tvalid
+  fieldmesh_qpsk_rx_fir/s_axis_tready
+  fieldmesh_qpsk_rx_fir/s_axis_tdata
+  fieldmesh_qpsk_rx_fir/s_axis_tlast
+  fieldmesh_qpsk_rx_fir/m_axis_tvalid
+  fieldmesh_qpsk_rx_fir/m_axis_tready
+  fieldmesh_qpsk_rx_fir/m_axis_tdata
+  fieldmesh_qpsk_rx_fir/m_axis_tlast
   fieldmesh_qpsk_timing_recovery/clk
   fieldmesh_qpsk_timing_recovery/rst
   fieldmesh_qpsk_timing_recovery/enable
@@ -590,10 +606,14 @@ assert_same_net rx_fir_decimator/enable_out_1 fieldmesh_iq_adc_source/q_enable
 assert_same_net rx_fir_decimator/data_out_0 fieldmesh_iq_adc_source/i_sample
 assert_same_net rx_fir_decimator/data_out_1 fieldmesh_iq_adc_source/q_sample
 
-assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
-assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_timing_recovery/s_axis_tready
-assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
-assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
+assert_same_net fieldmesh_iq_adc_source/m_axis_tvalid fieldmesh_qpsk_rx_fir/s_axis_tvalid
+assert_same_net fieldmesh_iq_adc_source/m_axis_tready fieldmesh_qpsk_rx_fir/s_axis_tready
+assert_same_net fieldmesh_iq_adc_source/m_axis_tdata fieldmesh_qpsk_rx_fir/s_axis_tdata
+assert_same_net fieldmesh_iq_adc_source/m_axis_tlast fieldmesh_qpsk_rx_fir/s_axis_tlast
+assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tvalid fieldmesh_qpsk_timing_recovery/s_axis_tvalid
+assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tready fieldmesh_qpsk_timing_recovery/s_axis_tready
+assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tdata fieldmesh_qpsk_timing_recovery/s_axis_tdata
+assert_same_net fieldmesh_qpsk_rx_fir/m_axis_tlast fieldmesh_qpsk_timing_recovery/s_axis_tlast
 assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tvalid fieldmesh_qpsk_demodulator/s_axis_tvalid
 assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tready fieldmesh_qpsk_demodulator/s_axis_tready
 assert_same_net fieldmesh_qpsk_timing_recovery/m_axis_tdata fieldmesh_qpsk_demodulator/s_axis_tdata

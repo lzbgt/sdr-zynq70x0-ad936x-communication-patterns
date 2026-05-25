@@ -202,6 +202,10 @@ owning RF tuning, TX enable, filtering, or scheduled transmission.
 matching RX primitive: it converts signed QPSK I/Q samples back into byte
 stream data with the same MSB-first bit-pair order and exposes sample, byte,
 packet, and fault counters for the firmware boundary.
+The overlay also instantiates `fieldmesh_qpsk_rx_fir`, another
+`fieldmesh_iq_fir_filter.v` instance with RX tail flushing disabled, between
+the AD9361 I/Q packer and QPSK timing recovery. That keeps TX/RX pulse shaping
+matched in PL while preserving the RX stream as a continuous sample stream.
 `fieldmesh_qpsk_byte_sync.v` follows the demodulator and requires the full
 four-byte FieldMesh acquisition preamble followed by magic bytes across any
 two-bit QPSK symbol phase and any 90-degree QPSK quadrant ambiguity before
@@ -469,7 +473,8 @@ software must explicitly arm the endpoint before packets can reach the RF
 symbolizer. The guard still resets unarmed, then feeds `fieldmesh_axis_async_fifo`
 and `fieldmesh_iq_dac_driver` so the next boundary is already in the AD9361 DAC
 clock domain. On RX, AD9361 decimator I/Q samples feed
-`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
+`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
+`fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, and `fieldmesh_rx_header_framer`; the restored byte
 packet stream crosses `fieldmesh_iq_rx_cdc` into the sidecar DMA clock domain
 and then into RX DMA.

@@ -2718,7 +2718,11 @@ packet counters, and malformed packet-boundary fault accounting.
 `rtl/fieldmesh/fieldmesh_iq_adc_axis_source.v` with
 `tb/fieldmesh/fieldmesh_iq_adc_axis_source_tb.v` adds the AD9361 RX-clock-domain
 I/Q sample packer for the FPGA RF path. The test covers `{Q,I}` packing, no
-fabricated TLAST, backpressure stalls, and partial I/Q-pair accounting.
+fabricated TLAST, backpressure stalls, and partial I/Q-pair accounting. The
+RF-engine overlay now routes those continuous RX samples through another
+`fieldmesh_iq_fir_filter` instance before timing recovery, with tail flushing
+disabled, so TX pulse shaping has a matching PL RX FIR/matched-filter stage
+without introducing packet-tail artifacts into the continuous ADC stream.
 `rtl/fieldmesh/fieldmesh_qpsk_byte_sync.v` with
 `tb/fieldmesh/fieldmesh_qpsk_byte_sync_tb.v` adds PL byte-phase synchronization
 after QPSK demodulation. The test covers one-symbol-slip recovery from the
@@ -2758,7 +2762,8 @@ generated IQ into
 `fieldmesh_iq_tx_guard`, crosses guarded IQ through
 `fieldmesh_axis_async_fifo` into the AD9361 DAC clock domain, and feeds
 `fieldmesh_iq_dac_driver`. The same overlay now routes AD9361 RX decimator
-samples through `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_demodulator`,
+samples through `fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
+`fieldmesh_qpsk_symbol_timing_recovery`, `fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, `fieldmesh_axis_header_framer`, and
 `fieldmesh_axis_async_fifo` before RX DMA, so RX packet recovery is an FPGA path
 instead of a packet-observability loopback. The firmware-DMA controls, guard
@@ -2770,7 +2775,8 @@ selected for AD936x TX.
 `tools/check_fieldmesh_rf_engine_overlay_vivado.sh` validated that
 copied Z203 and Z103 HDL trees generate block designs with
 `fieldmesh_firmware_axis_dma_endpoint`, `fieldmesh_qpsk_symbolizer`,
-`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_demodulator`,
+`fieldmesh_iq_adc_axis_source`, `fieldmesh_qpsk_rx_fir`,
+`fieldmesh_qpsk_demodulator`,
 `fieldmesh_qpsk_byte_sync`, `fieldmesh_axis_header_framer`,
 `fieldmesh_iq_tx_guard`, and `fieldmesh_axis_async_fifo` present, address
 segments intact, firmware-DMA

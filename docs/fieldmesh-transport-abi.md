@@ -505,7 +505,7 @@ adds these RF TX guard registers above the packet-memory scheduler range:
 | `0x214` | `FM_QPSK_DEMOD_PHASE_CORRECTION` | signed PL decision-directed carrier phase correction coefficient |
 | `0x218` | `FM_QPSK_DEMOD_PHASE_ERROR_ACCUM` | accumulated signed QPSK carrier phase error before loop filtering |
 | `0x21c` | `FM_QPSK_DEMOD_PHASE_UPDATES` | samples used by the PL carrier phase tracker |
-| `0x220` | `FM_QPSK_TIMING_INPUT_SAMPLES` | oversampled QPSK IQ samples entering PL timing recovery / phase-weighted matched filter |
+| `0x220` | `FM_QPSK_TIMING_INPUT_SAMPLES` | oversampled QPSK IQ samples entering PL timing recovery after the no-tail RX FIR matched filter |
 | `0x224` | `FM_QPSK_TIMING_OUTPUT_SYMBOLS` | phase-weighted matched-filtered QPSK symbol samples emitted to the demodulator |
 | `0x228` | `FM_QPSK_TIMING_SELECTED_PHASE` | strongest oversample phase observed in the last phase-weighted matched-filter window |
 | `0x22c` | `FM_QPSK_TIMING_PHASE_CHANGES` | strongest-phase changes across timing windows |
